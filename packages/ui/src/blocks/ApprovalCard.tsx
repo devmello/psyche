@@ -26,6 +26,7 @@ import { formatCountdown, formatRelative } from "../lib/format.ts";
 import { keysLabel } from "../lib/keys.ts";
 import { pathBasename } from "../lib/paths.ts";
 import { isMac } from "../lib/platform.ts";
+import { parseSendGrantKey, splitRecipients } from "../lib/send-grant.ts";
 import { useNow } from "../lib/use-now.ts";
 import { cn } from "../lib/utils.ts";
 import { easeLinear, fade, motionSpring, spring } from "../motion/index.ts";
@@ -632,20 +633,22 @@ export function ApprovalCard({
   // An email send that offers Always keeps it for this recipient (the grant is keyed by the
   // recipient list). Show it as a visible choice, not only as a menu entry. It sets the same
   // `choice` as the menu, so the floor confirm and the answer are unchanged.
-  // The grant covers to, cc and bcc together, so name one address only when that is all of them.
-  const listOf = (v: unknown) =>
-    Array.isArray(v) ? v.filter((x): x is string => typeof x === "string") : [];
-  const sendTo = [
-    ...new Set(
-      [
-        ...listOf(approval.details.to),
-        ...listOf(approval.details.cc),
-        ...listOf(approval.details.bcc),
-      ].map((a) => a.trim().toLowerCase()),
-    ),
-  ];
+  // The grant covers the whole recipient set (to, cc and bcc together). Name that set from the
+  // request's own target, the canonical list the grant is keyed by, so a bcc is never hidden.
+  const sendRecipients =
+    approval.kind === "send_email" && approval.target?.kind === "recipient"
+      ? splitRecipients(approval.target.value)
+      : [];
+  const sendAccount = parseSendGrantKey(approval.grantKey)?.account ?? null;
+  // Unticking falls back to the narrowest other offered scope; without one, there is no choice.
+  const narrowerScope = (["once", "task", "site", "session"] as const).find((s) =>
+    offered.includes(s),
+  );
   const alwaysForRecipient =
-    approval.kind === "send_email" && offered.includes("always") && !unsandboxed;
+    sendRecipients.length > 0 &&
+    offered.includes("always") &&
+    narrowerScope !== undefined &&
+    !unsandboxed;
   const allowReady =
     offeredScopes.length > 0 &&
     (!isFolder || folder !== "") &&
@@ -1106,12 +1109,15 @@ export function ApprovalCard({
             type="checkbox"
             checked={choice === "always"}
             disabled={busy}
-            onChange={(e) => setChoice(e.target.checked ? "always" : "once")}
+            onChange={(e) => setChoice(e.target.checked ? "always" : (narrowerScope ?? "once"))}
             data-testid="always-recipient"
           />
-          {sendTo.length === 1
-            ? t("blocks.approval.alwaysRecipient", { recipient: sendTo[0] ?? "" })
-            : t("blocks.approval.alwaysRecipientAny")}
+          {sendAccount !== null
+            ? t("blocks.approval.alwaysRecipientFrom", {
+                recipients: sendRecipients.join(", "),
+                account: sendAccount,
+              })
+            : t("blocks.approval.alwaysRecipient", { recipients: sendRecipients.join(", ") })}
         </label>
       ) : null}
 

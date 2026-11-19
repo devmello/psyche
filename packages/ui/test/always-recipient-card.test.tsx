@@ -6,19 +6,35 @@ import { ApprovalCard } from "../src/blocks/ApprovalCard.tsx";
 import { createFixtureWorld, FIXTURE_NOW } from "../src/fixtures/index.ts";
 import { UiSlotsProvider } from "../src/slots.tsx";
 
-/** An email send that offers Always keeps it for this recipient, as a visible choice on the card. */
+/**
+ * An email send that offers Always keeps it for the whole recipient set. The card names that set
+ * from the request's own target, in the shape the Gateway sends (`details` = {tool, params, target}).
+ */
 
 const NOW = Date.parse(FIXTURE_NOW);
+const ACCOUNT = "me@example.com";
 
-function approval(over: Partial<ApprovalRequest>): ApprovalRequest {
+/** The broker's canonical target for a send to `recipients` (sorted, deduped, to + cc + bcc). */
+function sendApproval(
+  recipients: string[],
+  params: { to: string[]; cc?: string[]; bcc?: string[] },
+  over: Partial<ApprovalRequest> = {},
+): ApprovalRequest {
   const base = createFixtureWorld().approvals.find((a) => a.status === "pending");
   if (!base) throw new Error("no pending approval fixture");
+  const value = [...new Set(recipients)].sort().join(",");
   return {
     ...base,
     kind: "send_email",
     sideEffect: "write",
-    summary: "Send an email to Jane",
-    details: { to: ["jane@example.com"], subject: "Lunch", account: "me@example.com" },
+    summary: "Send an email",
+    details: {
+      tool: "gmail_send",
+      params: { subject: "Lunch", body: "Noon?", cc: [], bcc: [], ...params },
+      target: { kind: "recipient", value, display: value.split(",").join(", ") },
+    },
+    target: { kind: "recipient", value, display: value.split(",").join(", ") },
+    grantKey: `send_email:${ACCOUNT}:${value}`,
     deviceOnly: false,
     taint: false,
     scopesOffered: ["once", "always"],
@@ -44,23 +60,50 @@ function show(a: ApprovalRequest) {
 }
 
 const recipientChoice = () => screen.queryByRole("checkbox", { name: /Always allow sending to/ });
+const scopeSelect = () => screen.getByRole("combobox", { name: "Allow for" }) as HTMLSelectElement;
 const allow = () => screen.getByRole("button", { name: "Allow with scope" });
 
 describe("Always allow for this recipient on an email send card", () => {
-  it("shows the named choice when Always is offered", () => {
-    show(approval({}));
+  it("names the one recipient and the account, unticked by default", () => {
+    show(sendApproval(["jane@example.com"], { to: ["jane@example.com"] }));
     const box = screen.getByRole("checkbox", {
-      name: "Always allow sending to jane@example.com",
+      name: `Always allow sending to jane@example.com from ${ACCOUNT}`,
     });
     expect((box as HTMLInputElement).checked).toBe(false);
   });
 
-  it("ticking it selects Always, which still confirms before the answer", async () => {
-    const onAnswer = show(approval({}));
-    await userEvent.click(screen.getByRole("checkbox", { name: /Always allow sending to/ }));
-    expect((screen.getByRole("combobox", { name: "Allow for" }) as HTMLSelectElement).value).toBe(
-      "always",
+  it("names a bcc recipient too: to jane plus bcc evil lists both", () => {
+    show(
+      sendApproval(["jane@example.com", "evil@example.net"], {
+        to: ["jane@example.com"],
+        bcc: ["evil@example.net"],
+      }),
     );
+    expect(
+      screen.getByRole("checkbox", {
+        name: `Always allow sending to evil@example.net, jane@example.com from ${ACCOUNT}`,
+      }),
+    ).toBeTruthy();
+  });
+
+  it("lists every address when there are several", () => {
+    show(
+      sendApproval(["a@example.com", "b@example.com", "c@example.com"], {
+        to: ["a@example.com", "b@example.com"],
+        cc: ["c@example.com"],
+      }),
+    );
+    expect(
+      screen.getByRole("checkbox", {
+        name: `Always allow sending to a@example.com, b@example.com, c@example.com from ${ACCOUNT}`,
+      }),
+    ).toBeTruthy();
+  });
+
+  it("ticking selects Always, and the floor confirm still comes before the answer", async () => {
+    const onAnswer = show(sendApproval(["jane@example.com"], { to: ["jane@example.com"] }));
+    await userEvent.click(recipientChoice() as HTMLElement);
+    expect(scopeSelect().value).toBe("always");
     await userEvent.click(allow());
     const dialog = await screen.findByRole("alertdialog");
     expect(onAnswer).not.toHaveBeenCalled();
@@ -68,31 +111,35 @@ describe("Always allow for this recipient on an email send card", () => {
     expect(onAnswer).not.toHaveBeenCalled();
   });
 
+  it("unticking returns to the narrowest other offered scope", async () => {
+    show(
+      sendApproval(
+        ["jane@example.com"],
+        { to: ["jane@example.com"] },
+        { scopesOffered: ["task", "always"] },
+      ),
+    );
+    await userEvent.click(recipientChoice() as HTMLElement);
+    expect(scopeSelect().value).toBe("always");
+    await userEvent.click(recipientChoice() as HTMLElement);
+    expect(scopeSelect().value).toBe("task");
+  });
+
   it("does not show the choice when Always is not offered", () => {
-    show(approval({ scopesOffered: ["once"] }));
+    show(
+      sendApproval(["jane@example.com"], { to: ["jane@example.com"] }, { scopesOffered: ["once"] }),
+    );
     expect(recipientChoice()).toBeNull();
   });
 
   it("does not show the choice on a tainted send, which offers Allow once only", () => {
-    show(approval({ taint: true }));
+    show(sendApproval(["jane@example.com"], { to: ["jane@example.com"] }, { taint: true }));
     expect(recipientChoice()).toBeNull();
     expect(screen.queryByRole("option", { name: "Always allow" })).toBeNull();
   });
 
-  it("uses the generic wording when there is no single recipient", () => {
-    show(approval({ details: { to: ["a@example.com", "b@example.com"] } }));
-    expect(screen.getByRole("checkbox", { name: "Always allow for this recipient" })).toBeTruthy();
+  it("does not show the choice when the card names no recipient set", () => {
+    show(sendApproval(["jane@example.com"], { to: ["jane@example.com"] }, { target: undefined }));
     expect(recipientChoice()).toBeNull();
-  });
-
-  it("never names only the To address when cc or bcc add others (the grant covers all of them)", () => {
-    show(approval({ details: { to: ["jane@example.com"], bcc: ["other@example.net"] } }));
-    expect(screen.getByRole("checkbox", { name: "Always allow for this recipient" })).toBeTruthy();
-    expect(recipientChoice()).toBeNull();
-  });
-
-  it("still names the one address when cc repeats it", () => {
-    show(approval({ details: { to: ["Jane@example.com"], cc: ["jane@example.com"] } }));
-    expect(recipientChoice()).not.toBeNull();
   });
 });

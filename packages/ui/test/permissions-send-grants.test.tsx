@@ -4,15 +4,24 @@ import { userEvent } from "@testing-library/user-event";
 import { describe, expect, it, vi } from "vitest";
 import { PermissionsPanel } from "../src/screens/settings/PermissionsSection.tsx";
 
-/** Settings → Permissions lists the recipients an email send is always allowed to, with Remove. */
+/** Settings → Permissions lists the recipient sets an email send is always allowed to, with Revoke. */
 
-function grant(over: Partial<Grant>): Grant {
+const ACCOUNT = "me@example.com";
+
+/** A send grant in the broker's shape: subject = {grantKey, ...grantFields, target, sideEffect}. */
+function sendGrant(recipient: string, over: Partial<Grant> = {}): Grant {
+  const grantKey = `send_email:${ACCOUNT}:${recipient}`;
   return {
-    id: "grant-send-jane",
+    id: `grant-${recipient}`,
     kind: "send_email",
     scope: "always",
-    grantKey: "send_email:me@example.com:jane@example.com",
-    subject: { recipient: "jane@example.com", account: "me@example.com" },
+    grantKey,
+    subject: {
+      grantKey,
+      account: ACCOUNT,
+      target: { kind: "recipient", value: recipient, display: recipient },
+      sideEffect: "write",
+    },
     binding: null,
     expiresAt: null,
     useCount: 3,
@@ -38,28 +47,42 @@ function panel(grants: Grant[], onRevoke = vi.fn()) {
   return onRevoke;
 }
 
+const region = () => screen.getByRole("region", { name: "Recipients you always allow" });
+
 describe("Settings: recipients an email send is always allowed to", () => {
-  it("lists the grant by recipient and Remove calls the revoke for that grant", async () => {
-    const g = grant({});
+  it("names the recipient and account, and Remove calls the revoke for that grant", async () => {
+    const g = sendGrant("jane@example.com");
     const onRevoke = panel([g]);
-    const group = screen.getByRole("region", { name: "Recipients you always allow" });
-    expect(within(group).getByText("to jane@example.com")).toBeTruthy();
+    expect(within(region()).getByText(`to jane@example.com from ${ACCOUNT}`)).toBeTruthy();
     await userEvent.click(
-      within(group).getByRole("button", { name: "Revoke to jane@example.com" }),
+      within(region()).getByRole("button", {
+        name: `Revoke to jane@example.com from ${ACCOUNT}`,
+      }),
     );
     expect(onRevoke).toHaveBeenCalledWith(g);
   });
 
+  it("never reads as any recipient, and two grants render as two distinct rows", async () => {
+    const jane = sendGrant("jane@example.com");
+    const bob = sendGrant("bob@example.com");
+    const onRevoke = panel([jane, bob]);
+    expect(screen.queryByText(/any recipient/)).toBeNull();
+    expect(within(region()).getByText(`to jane@example.com from ${ACCOUNT}`)).toBeTruthy();
+    expect(within(region()).getByText(`to bob@example.com from ${ACCOUNT}`)).toBeTruthy();
+    await userEvent.click(
+      within(region()).getByRole("button", { name: `Revoke to bob@example.com from ${ACCOUNT}` }),
+    );
+    expect(onRevoke).toHaveBeenCalledWith(bob);
+  });
+
   it("shows the empty line when no recipient is always allowed", () => {
-    panel([grant({ kind: "new_origin", subject: { origin: "https://a.example" } })]);
-    const group = screen.getByRole("region", { name: "Recipients you always allow" });
-    expect(within(group).getByText("No recipient is set to always allow.")).toBeTruthy();
+    panel([sendGrant("jane@example.com", { kind: "new_origin" })]);
+    expect(within(region()).getByText("No recipient is set to always allow.")).toBeTruthy();
   });
 
   it("leaves out a revoked send grant", () => {
-    panel([grant({ revokedAt: "2026-11-11T09:00:00.000Z" })]);
-    const group = screen.getByRole("region", { name: "Recipients you always allow" });
-    expect(within(group).queryByRole("button")).toBeNull();
-    expect(within(group).getByText("No recipient is set to always allow.")).toBeTruthy();
+    panel([sendGrant("jane@example.com", { revokedAt: "2026-11-11T09:00:00.000Z" })]);
+    expect(within(region()).queryByRole("button")).toBeNull();
+    expect(within(region()).getByText("No recipient is set to always allow.")).toBeTruthy();
   });
 });

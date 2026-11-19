@@ -13,6 +13,7 @@ import {
 import { useCall, useGatewayQuery } from "../../data/hooks.ts";
 import { activeI18n, t } from "../../i18n/core.ts";
 import { formatDate, formatRelative } from "../../lib/format.ts";
+import { parseSendGrantKey, splitRecipients } from "../../lib/send-grant.ts";
 import { useNow } from "../../lib/use-now.ts";
 import { useSlots } from "../../slots.tsx";
 import { ActionMatrix, type ActionRule, withMatrixOverrides } from "./ActionMatrix.tsx";
@@ -110,10 +111,20 @@ export function grantSubject(g: Grant): string {
     return cwd ? t("settings.permissions.subject.execIn", { argv, cwd }) : argv;
   }
   if (g.kind === "send_email") {
-    const recipient = text("recipient");
-    return recipient
-      ? t("settings.permissions.subject.emailTo", { recipient })
-      : t("settings.permissions.subject.emailAny");
+    // The broker stores `target` (the recipient set) and the account in the grant key; a send
+    // grant never reads as "any recipient".
+    const target = s.target as { kind?: unknown; value?: unknown } | undefined;
+    const key = parseSendGrantKey(g.grantKey);
+    const recipients =
+      target?.kind === "recipient" && typeof target.value === "string"
+        ? splitRecipients(target.value)
+        : (key?.recipients ?? []);
+    if (recipients.length === 0) return g.grantKey;
+    const list = recipients.join(", ");
+    const account = text("account") ?? key?.account ?? null;
+    return account
+      ? t("settings.permissions.subject.emailFrom", { recipients: list, account })
+      : t("settings.permissions.subject.emailTo", { recipient: list });
   }
   if (g.kind === "calendar_write") {
     const id = text("calendarId")?.trim();

@@ -1801,6 +1801,7 @@ export const settings = {
   "settings.permissions.subject.execIn": "{argv} in {cwd}",
   "settings.permissions.subject.emailTo": "to {recipient}",
   "settings.permissions.subject.emailAny": "to any recipient",
+  "settings.permissions.subject.emailFrom": "to {recipients} from {account}",
   "settings.permissions.subject.calendarNamed": "calendar {id}",
   "settings.permissions.subject.calendar": "calendar",
   "settings.permissions.subject.prepNotes": 'Notes titled "Prep:" (meeting prep)',
