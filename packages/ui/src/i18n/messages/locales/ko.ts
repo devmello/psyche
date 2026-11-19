@@ -2742,8 +2742,10 @@ export const ko: Partial<Catalogue> = {
   "screens.feed.sourcesEditor.arxiv": "arXiv",
   "screens.feed.sourcesEditor.arxivHint": "arXiv의 새 논문",
   "screens.feed.sourcesEditor.feeds": "RSS 및 Atom 피드",
-  "screens.feed.sourcesEditor.feedsHint": "각 피드는 https:// 또는 http://로 시작하는 웹 주소입니다.",
-  "screens.feed.sourcesEditor.fetchNote": "피드는 아직 각 피드를 마지막으로 읽은 시각이나 실패 여부를 보여 주지 않습니다.",
+  "screens.feed.sourcesEditor.feedsHint":
+    "각 피드는 https:// 또는 http://로 시작하는 웹 주소입니다.",
+  "screens.feed.sourcesEditor.fetchNote":
+    "피드는 아직 각 피드를 마지막으로 읽은 시각이나 실패 여부를 보여 주지 않습니다.",
   "screens.feed.sourcesEditor.empty": "추가한 피드가 없습니다.",
   "screens.feed.sourcesEditor.notRead": "읽지 않음",
   "screens.feed.sourcesEditor.kind": "RSS 또는 Atom",
@@ -2754,7 +2756,8 @@ export const ko: Partial<Catalogue> = {
   "screens.feed.sourcesEditor.editLabel": "{host} 편집",
   "screens.feed.sourcesEditor.removeLabel": "{host} 제거",
   "screens.feed.sourcesEditor.removeTitle": "피드에서 {host}을(를) 제거할까요?",
-  "screens.feed.sourcesEditor.removeBody": "피드가 이 주소를 더 이상 읽지 않습니다. 이미 작성된 게시물은 그대로 남습니다. 나중에 주소를 다시 추가할 수 있습니다.",
+  "screens.feed.sourcesEditor.removeBody":
+    "피드가 이 주소를 더 이상 읽지 않습니다. 이미 작성된 게시물은 그대로 남습니다. 나중에 주소를 다시 추가할 수 있습니다.",
   "screens.feed.sourcesEditor.confirmRemove": "피드 제거",
   "screens.feed.sourcesEditor.openLabel": "브라우저에서 {host} 열기",
   "screens.feed.sourcesEditor.openFailed": "{host}을(를) 열 수 없습니다: {reason}",

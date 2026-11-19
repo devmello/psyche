@@ -2814,8 +2814,10 @@ export const es: Partial<Catalogue> = {
   "screens.feed.sourcesEditor.arxiv": "arXiv",
   "screens.feed.sourcesEditor.arxivHint": "Artículos nuevos de arXiv",
   "screens.feed.sourcesEditor.feeds": "Feeds RSS y Atom",
-  "screens.feed.sourcesEditor.feedsHint": "Cada feed es una dirección web que empieza por https:// o http://.",
-  "screens.feed.sourcesEditor.fetchNote": "El Feed todavía no muestra cuándo se leyó por última vez un feed ni si falló.",
+  "screens.feed.sourcesEditor.feedsHint":
+    "Cada feed es una dirección web que empieza por https:// o http://.",
+  "screens.feed.sourcesEditor.fetchNote":
+    "El Feed todavía no muestra cuándo se leyó por última vez un feed ni si falló.",
   "screens.feed.sourcesEditor.empty": "Todavía no hay feeds.",
   "screens.feed.sourcesEditor.notRead": "no se lee",
   "screens.feed.sourcesEditor.kind": "RSS o Atom",
@@ -2826,13 +2828,15 @@ export const es: Partial<Catalogue> = {
   "screens.feed.sourcesEditor.editLabel": "Editar {host}",
   "screens.feed.sourcesEditor.removeLabel": "Quitar {host}",
   "screens.feed.sourcesEditor.removeTitle": "¿Quitar {host} del Feed?",
-  "screens.feed.sourcesEditor.removeBody": "El Feed deja de leer esta dirección. Las publicaciones ya escritas se quedan. Puedes volver a añadir la dirección más adelante.",
+  "screens.feed.sourcesEditor.removeBody":
+    "El Feed deja de leer esta dirección. Las publicaciones ya escritas se quedan. Puedes volver a añadir la dirección más adelante.",
   "screens.feed.sourcesEditor.confirmRemove": "Quitar feed",
   "screens.feed.sourcesEditor.openLabel": "Abrir {host} en el navegador",
   "screens.feed.sourcesEditor.openFailed": "No se pudo abrir {host}: {reason}",
   "screens.feed.sourcesEditor.errEmpty": "Escribe la dirección web del feed.",
   "screens.feed.sourcesEditor.errInvalid": "Eso no es una dirección web. Empieza por https://.",
-  "screens.feed.sourcesEditor.errScheme": "Solo las direcciones http:// y https:// pueden ser feeds.",
+  "screens.feed.sourcesEditor.errScheme":
+    "Solo las direcciones http:// y https:// pueden ser feeds.",
   "screens.feed.sourcesEditor.errDuplicate": "Este feed ya está en la lista.",
   "screens.feed.sourcesEditor.saved": "Fuentes del Feed guardadas",
   "screens.feed.sourcesEditor.added": "Feed añadido",

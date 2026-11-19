@@ -2719,7 +2719,8 @@ export const zh: Partial<Catalogue> = {
   "screens.feed.sourcesEditor.arxivHint": "arXiv 的新论文",
   "screens.feed.sourcesEditor.feeds": "RSS 和 Atom 订阅源",
   "screens.feed.sourcesEditor.feedsHint": "每个订阅源都是以 https:// 或 http:// 开头的网址。",
-  "screens.feed.sourcesEditor.fetchNote": "Feed 目前还不显示每个订阅源的最后读取时间，也不显示是否失败。",
+  "screens.feed.sourcesEditor.fetchNote":
+    "Feed 目前还不显示每个订阅源的最后读取时间，也不显示是否失败。",
   "screens.feed.sourcesEditor.empty": "还没有添加订阅源。",
   "screens.feed.sourcesEditor.notRead": "不会读取",
   "screens.feed.sourcesEditor.kind": "RSS 或 Atom",
@@ -2730,7 +2731,8 @@ export const zh: Partial<Catalogue> = {
   "screens.feed.sourcesEditor.editLabel": "编辑 {host}",
   "screens.feed.sourcesEditor.removeLabel": "移除 {host}",
   "screens.feed.sourcesEditor.removeTitle": "从 Feed 中移除 {host}？",
-  "screens.feed.sourcesEditor.removeBody": "Feed 将不再读取此地址。已经写好的内容会保留。你之后可以再次添加该地址。",
+  "screens.feed.sourcesEditor.removeBody":
+    "Feed 将不再读取此地址。已经写好的内容会保留。你之后可以再次添加该地址。",
   "screens.feed.sourcesEditor.confirmRemove": "移除订阅源",
   "screens.feed.sourcesEditor.openLabel": "在浏览器中打开 {host}",
   "screens.feed.sourcesEditor.openFailed": "无法打开 {host}：{reason}",

@@ -2736,8 +2736,10 @@ export const pt: Partial<Catalogue> = {
   "screens.feed.sourcesEditor.arxiv": "arXiv",
   "screens.feed.sourcesEditor.arxivHint": "Artigos novos do arXiv",
   "screens.feed.sourcesEditor.feeds": "Feeds RSS e Atom",
-  "screens.feed.sourcesEditor.feedsHint": "Cada feed é um endereço da web que começa com https:// ou http://.",
-  "screens.feed.sourcesEditor.fetchNote": "O Feed ainda não mostra quando um feed foi lido pela última vez nem se ele falhou.",
+  "screens.feed.sourcesEditor.feedsHint":
+    "Cada feed é um endereço da web que começa com https:// ou http://.",
+  "screens.feed.sourcesEditor.fetchNote":
+    "O Feed ainda não mostra quando um feed foi lido pela última vez nem se ele falhou.",
   "screens.feed.sourcesEditor.empty": "Nenhum feed adicionado ainda.",
   "screens.feed.sourcesEditor.notRead": "não lido",
   "screens.feed.sourcesEditor.kind": "RSS ou Atom",
@@ -2748,7 +2750,8 @@ export const pt: Partial<Catalogue> = {
   "screens.feed.sourcesEditor.editLabel": "Editar {host}",
   "screens.feed.sourcesEditor.removeLabel": "Remover {host}",
   "screens.feed.sourcesEditor.removeTitle": "Remover {host} do Feed?",
-  "screens.feed.sourcesEditor.removeBody": "O Feed deixa de ler este endereço. As publicações já escritas continuam. Você pode adicionar o endereço de novo depois.",
+  "screens.feed.sourcesEditor.removeBody":
+    "O Feed deixa de ler este endereço. As publicações já escritas continuam. Você pode adicionar o endereço de novo depois.",
   "screens.feed.sourcesEditor.confirmRemove": "Remover feed",
   "screens.feed.sourcesEditor.openLabel": "Abrir {host} no navegador",
   "screens.feed.sourcesEditor.openFailed": "Não foi possível abrir {host}: {reason}",

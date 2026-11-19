@@ -2755,7 +2755,8 @@ export const hi: Partial<Catalogue> = {
   "screens.feed.sourcesEditor.arxivHint": "arXiv के नए शोधपत्र",
   "screens.feed.sourcesEditor.feeds": "RSS और Atom फ़ीड",
   "screens.feed.sourcesEditor.feedsHint": "हर फ़ीड https:// या http:// से शुरू होने वाला वेब पता है।",
-  "screens.feed.sourcesEditor.fetchNote": "Feed अभी यह नहीं दिखाता कि कोई फ़ीड आखिरी बार कब पढ़ी गई या वह विफल हुई या नहीं।",
+  "screens.feed.sourcesEditor.fetchNote":
+    "Feed अभी यह नहीं दिखाता कि कोई फ़ीड आखिरी बार कब पढ़ी गई या वह विफल हुई या नहीं।",
   "screens.feed.sourcesEditor.empty": "अभी कोई फ़ीड नहीं जोड़ी गई।",
   "screens.feed.sourcesEditor.notRead": "नहीं पढ़ा गया",
   "screens.feed.sourcesEditor.kind": "RSS या Atom",
@@ -2766,7 +2767,8 @@ export const hi: Partial<Catalogue> = {
   "screens.feed.sourcesEditor.editLabel": "{host} संपादित करें",
   "screens.feed.sourcesEditor.removeLabel": "{host} हटाएँ",
   "screens.feed.sourcesEditor.removeTitle": "Feed से {host} हटाएँ?",
-  "screens.feed.sourcesEditor.removeBody": "Feed इस पते को पढ़ना बंद कर देगा। जो पोस्ट पहले लिखी जा चुकी हैं, वे रहेंगी। आप बाद में यह पता फिर से जोड़ सकते हैं।",
+  "screens.feed.sourcesEditor.removeBody":
+    "Feed इस पते को पढ़ना बंद कर देगा। जो पोस्ट पहले लिखी जा चुकी हैं, वे रहेंगी। आप बाद में यह पता फिर से जोड़ सकते हैं।",
   "screens.feed.sourcesEditor.confirmRemove": "फ़ीड हटाएँ",
   "screens.feed.sourcesEditor.openLabel": "ब्राउज़र में {host} खोलें",
   "screens.feed.sourcesEditor.openFailed": "{host} नहीं खुल सका: {reason}",
