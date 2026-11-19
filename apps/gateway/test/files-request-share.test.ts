@@ -239,6 +239,52 @@ describe("files.requestShare", () => {
     expect(await broker.list({ status: "pending" })).toHaveLength(2);
   });
 
+  it("never reuses the agent's read & write card, nor an untainted card once the thread is tainted", async () => {
+    // The agent asked for read & write: the read-only button raises its own read-only card.
+    const rwFolder = join(home, "Projects", "rw");
+    mkdirSync(rwFolder, { recursive: true });
+    const tool = requestFolderAccessTool(share());
+    const ctx: ToolRunContext = {
+      callId: "call_rw",
+      threadId,
+      runId: "run_rw",
+      taint: false,
+      permissionMode: "balanced",
+      mode: "attended",
+      signal: new AbortController().signal,
+      onUpdate: () => undefined,
+    };
+    void tool.run?.({ path: rwFolder, reason: "r", access: "read_write" }, ctx);
+    let rwCard: { id: string } | undefined;
+    for (let i = 0; i < 50 && rwCard === undefined; i++) {
+      rwCard = (await broker.list({ status: "pending" })).find(
+        (a) => a.details.resolvedPath === rwFolder,
+      );
+      await new Promise((res) => setTimeout(res, 5));
+    }
+    expect(rwCard).toBeDefined();
+    const viaButton = await requestShare(ADMIN, { threadId, path: rwFolder, access: "read" });
+    expect(viaButton.approvalId).not.toBe(rwCard?.id);
+    const mine = (await broker.list({ status: "pending" })).find(
+      (a) => a.id === viaButton.approvalId,
+    );
+    expect(mine?.details.access).toBe("ro");
+
+    // An untainted read-only card offered Always; once the thread is tainted it is not reused.
+    const before = await requestShare();
+    const untainted = (await broker.list({ status: "pending" })).find(
+      (a) => a.id === before.approvalId,
+    );
+    expect(untainted?.scopesOffered).toContain("always");
+    putAgentThreadState(db, threadId, { taint: { sources: [{ sourceKind: "web" }] } });
+    const after = await requestShare();
+    expect(after.approvalId).not.toBe(before.approvalId);
+    const tainted = (await broker.list({ status: "pending" })).find(
+      (a) => a.id === after.approvalId,
+    );
+    expect(tainted?.scopesOffered).toEqual(["once"]);
+  });
+
   it("offers what the tool offers per thread kind, and refuses channel and subagent threads", async () => {
     const mk = (kind: "automation" | "incognito" | "channel" | "subagent") =>
       createThread(db, { kind, sessionKey: `k:${kind}` }).id;

@@ -229,11 +229,15 @@ async function shareOnce(
   );
   if (covered !== undefined && requested.status !== "blocked") return { status: "already" };
   // A card already waiting on this thread for this folder (one the agent raised, or an earlier
-  // click) is the answer: never a second one.
+  // click) is the answer: never a second one. Only a read-only card is reused (this button
+  // never hands the owner a read & write card), and an untainted one only while the thread is
+  // still untainted (its scopes were offered for that state).
   const waiting = (await deps.broker.list({ status: "pending" })).find(
     (a) =>
       a.kind === "folder_access" &&
       a.requestedBy.threadId === p.threadId &&
+      a.details.access === "ro" &&
+      (a.taint || !p.taint) &&
       (requested.status === "missing"
         ? a.details.folderStatus === "missing" && a.details.requestedPath === p.path
         : a.details.resolvedPath === requested.path),
