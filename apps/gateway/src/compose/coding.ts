@@ -53,7 +53,15 @@ export function hostGit(binary = "git"): GitRunner {
         // Discovery never climbs above the workspace into a repository around it.
         GIT_CEILING_DIRECTORIES: dirname(cwd),
       };
-      for (const k of ["GIT_DIR", "GIT_WORK_TREE", "GIT_INDEX_FILE", "GIT_EXTERNAL_DIFF"]) {
+      for (const k of [
+        "GIT_DIR",
+        "GIT_WORK_TREE",
+        "GIT_INDEX_FILE",
+        "GIT_EXTERNAL_DIFF",
+        // Programs git would run for a password: prompts are off, nothing may ask.
+        "GIT_ASKPASS",
+        "SSH_ASKPASS",
+      ]) {
         delete env[k];
       }
       return new Promise((resolve) => {

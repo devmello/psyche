@@ -245,8 +245,9 @@ export function codingTools(deps: CodingToolsDeps): AgentToolRegistration[] {
       let status: unknown = null;
       if (deps.git !== undefined && (await lstat(`${root}/.git`).catch(() => undefined))) {
         const runner = deps.git;
-        // A `.git` link or `gitdir:` file would show another repository's status.
-        status = await assertOwnRepository(root)
+        // A `.git` link or `gitdir:` file would show another repository's status, and a
+        // config with a program in it would run that program.
+        status = await assertOwnRepository(runner, root, ctx.signal)
           .then(() => gitStatus(runner, root, ctx.signal))
           .catch((e: Error) => ({ error: e.message }));
       }
@@ -816,7 +817,7 @@ function gitTool(
       const writes = p.op === "commit" || p.op === "branch" || p.op === "push";
       const ws = workspace(ctx, p.root, writes ? "write" : "read");
       const root = ws.root;
-      await assertOwnRepository(root);
+      await assertOwnRepository(runner, root, ctx.signal);
       const sig = ctx.signal;
       const ok = (output: Record<string, unknown>, receiptId?: string): ToolResult => ({
         output,

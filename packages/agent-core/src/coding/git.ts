@@ -107,10 +107,16 @@ export function capOutput(text: string): { text: string; truncated: boolean } {
  * Git otherwise finds its repository by itself, and a planted `.git` link or file (an archive, a
  * `code.run` in a folder without git) or a workspace inside a bigger repository would point it at
  * history, an index and files outside the workspace. A subfolder of a repository gets no
- * `code.git`: opening the repository root itself does.
+ * `code.git`: opening the repository root itself does. The repository's own config must not set
+ * a key that runs a program or redirects git (`riskyLocalGitKey`).
  */
-export async function assertOwnRepository(root: string): Promise<void> {
-  const st = await lstat(join(root, ".git")).catch(() => undefined);
+export async function assertOwnRepository(
+  runner: GitRunner,
+  root: string,
+  signal?: AbortSignal,
+): Promise<void> {
+  const gitDir = join(root, ".git");
+  const st = await lstat(gitDir).catch(() => undefined);
   if (st?.isDirectory() !== true) {
     throw new PsycheError(
       "forbidden",
@@ -118,6 +124,170 @@ export async function assertOwnRepository(root: string): Promise<void> {
       { details: { reason: "not_own_repository" } },
     );
   }
+  // A `commondir` file makes git read the config, refs and objects of another `.git`.
+  if (await lstat(join(gitDir, "commondir")).catch(() => undefined)) {
+    throw new PsycheError(
+      "forbidden",
+      `${gitDir} points at another repository (commondir); code.git works only in a repository's own .git`,
+      { details: { reason: "not_own_repository" } },
+    );
+  }
+  await assertSafeLocalConfig(runner, root, signal);
+}
+
+/**
+ * Keys of a repository's own `.git/config` that run a program on the host, pull in other config,
+ * or send git somewhere else. A `.git` written by a tainted turn (a `code.run` in a folder that
+ * had none, an unpacked archive) is otherwise a way to run code as the owner: `core.sshCommand`
+ * on a push, `credential.helper`, `alias.*`, a filter. `name` is as git prints it: section and
+ * key lowercased, the subsection as written.
+ */
+export function riskyLocalGitKey(name: string): boolean {
+  const n = name.toLowerCase();
+  const first = n.indexOf(".");
+  const last = n.lastIndexOf(".");
+  if (first <= 0 || last === n.length - 1) return true; // not a key git would print: fail closed
+  const section = n.slice(0, first);
+  const key = n.slice(last + 1);
+  const sub = first !== last;
+  if (RISKY_SECTIONS.has(section)) return true;
+  switch (section) {
+    case "core":
+      return RISKY_CORE_KEYS.has(key);
+    case "diff":
+      return sub ? key === "textconv" || key === "command" : key === "external";
+    case "merge":
+      return sub && key === "driver";
+    case "gpg":
+      return key === "program" || key === "defaultkeycommand";
+    case "sequence":
+      return key === "editor";
+    case "http":
+      return key.includes("proxy");
+    case "url":
+      return key === "insteadof" || key === "pushinsteadof";
+    case "remote":
+      return sub && REMOTE_PROGRAM_KEYS.has(key);
+    case "protocol":
+      return key === "allow";
+    case "extensions":
+      // Makes git read `.git/config.worktree` as well, which this check does not.
+      return key === "worktreeconfig";
+    case "trailer":
+      return key === "command" || key === "cmd";
+    default:
+      return false;
+  }
+}
+
+/** Every key in these sections names a program, a credential source or more config. */
+const RISKY_SECTIONS = new Set([
+  "include",
+  "includeif",
+  "credential",
+  "filter",
+  "alias",
+  "uploadpack",
+  "pager",
+  "difftool",
+  "mergetool",
+]);
+/**
+ * `core.hooksPath`, `core.fsmonitor` and `core.pager` are not here: `GIT_HARDENING` forces them on
+ * every call with `-c`, which beats the repository's config, so they cannot run anything; and
+ * `husky install` writes `core.hooksPath=.husky` into most JavaScript repositories.
+ */
+const RISKY_CORE_KEYS = new Set([
+  "sshcommand",
+  "askpass",
+  "editor",
+  "gitproxy",
+  "worktree",
+  "alternaterefscommand",
+]);
+const REMOTE_PROGRAM_KEYS = new Set(["uploadpack", "receivepack", "proxy", "vcs"]);
+
+/**
+ * Refuses a repository whose own config sets a `riskyLocalGitKey`. The file is listed by name
+ * only and without following includes (an `include.path` is itself refused); a config that
+ * cannot be listed is refused too.
+ */
+async function assertSafeLocalConfig(
+  runner: GitRunner,
+  root: string,
+  signal?: AbortSignal,
+): Promise<void> {
+  const file = join(root, ".git", "config");
+  const st = await lstat(file).catch(() => undefined);
+  if (st === undefined) return;
+  const refuse = (why: string, keys?: string[]) =>
+    new PsycheError("forbidden", why, {
+      details: { reason: "unsafe_repository_config", ...(keys === undefined ? {} : { keys }) },
+    });
+  if (!st.isFile()) throw refuse(`${file} is not a regular file; code.git does not run there`);
+  const r = await runner.run(
+    root,
+    [
+      ...GIT_HARDENING,
+      ...gitDirArgs(root),
+      "config",
+      "--file",
+      file,
+      "--null",
+      "--name-only",
+      "--list",
+    ],
+    signal === undefined ? {} : { signal },
+  );
+  if (r.exitCode !== 0) throw refuse(`${file} could not be read; code.git does not run there`);
+  const risky = [...new Set(r.stdout.split("\0").filter((k) => k !== "" && riskyLocalGitKey(k)))];
+  if (risky.length > 0) {
+    throw refuse(
+      `this repository's own .git/config sets ${risky.slice(0, 5).join(", ")}${risky.length > 5 ? ` and ${risky.length - 5} more` : ""}: a program git would run, more config or a redirect. code.git does not run there; the owner can remove it with \`git config --unset\``,
+      risky,
+    );
+  }
+}
+
+/** The keys a repository could use to run a program, pinned to the owner's own values. */
+const PINNED_QUERY = [
+  "config",
+  "--show-scope",
+  "-z",
+  "--get-regexp",
+  "^(credential\\.helper|core\\.sshcommand|core\\.askpass)$",
+] as const;
+const REPO_SCOPES = new Set(["local", "worktree", "command"]);
+
+/**
+ * `-c` pairs that pin `credential.helper`, `core.sshCommand` and `core.askPass` to the values
+ * the owner's own config gives them (system, global, the git binary's own): a repository's
+ * config written after `assertOwnRepository` looked still cannot add a program. An empty
+ * `credential.helper` resets the list, then the owner's helpers (the keychain) come back.
+ */
+export function ownerPins(listed: string): string[] {
+  const values = new Map<string, string[]>();
+  const parts = listed.split("\0");
+  for (let i = 0; i + 1 < parts.length; i += 2) {
+    const scope = parts[i] ?? "";
+    const entry = parts[i + 1] ?? "";
+    if (REPO_SCOPES.has(scope)) continue;
+    const nl = entry.indexOf("\n");
+    const key = (nl < 0 ? entry : entry.slice(0, nl)).toLowerCase();
+    const value = nl < 0 ? "" : entry.slice(nl + 1);
+    values.set(key, [...(values.get(key) ?? []), value]);
+  }
+  const helpers = values.get("credential.helper") ?? [];
+  const last = (k: string) => values.get(k)?.at(-1);
+  return [
+    "-c",
+    "credential.helper=",
+    ...helpers.filter((h) => h !== "").flatMap((h) => ["-c", `credential.helper=${h}`]),
+    "-c",
+    `core.sshCommand=${last("core.sshcommand") || "ssh"}`,
+    "-c",
+    `core.askPass=${last("core.askpass") ?? ""}`,
+  ];
 }
 
 /**
@@ -139,7 +309,13 @@ export async function git(
   const pin = gitDirArgs(cwd);
   const drivers = await runner.run(cwd, [...GIT_HARDENING, ...pin, ...GIT_DRIVER_QUERY], opts);
   const off = drivers.exitCode === 0 ? gitDriverOverrides(drivers.stdout) : [];
-  return runner.run(cwd, [...GIT_HARDENING, ...pin, ...off, ...args], opts);
+  // Exit 1: none of the keys is set anywhere.
+  const owner = await runner.run(cwd, [...GIT_HARDENING, ...pin, ...PINNED_QUERY], opts);
+  if (owner.exitCode !== 0 && owner.exitCode !== 1) {
+    throw new PsycheError("conflict", "git config could not be read; the command was not run");
+  }
+  const pins = ownerPins(owner.exitCode === 0 ? owner.stdout : "");
+  return runner.run(cwd, [...GIT_HARDENING, ...pin, ...pins, ...off, ...args], opts);
 }
 
 /** Runs and throws on a non-zero exit, with git's own message. */
