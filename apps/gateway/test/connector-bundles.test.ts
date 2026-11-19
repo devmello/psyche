@@ -28,7 +28,7 @@ import { type ComposedMcp, composeMcp } from "../src/compose/mcp.ts";
 import { serverConfig } from "../src/compose/mcp-add.ts";
 import type { ComposeServices } from "../src/compose/services.ts";
 import type { Call } from "../src/context.ts";
-import { adminClient, desktopClient, ik, type TestClient } from "./helpers.ts";
+import { adminClient, desktopClient, ik, seedMcpServers, type TestClient } from "./helpers.ts";
 
 /**
  * Shared connectors (docs/design/shared-bundles-2026.md section 8): export through the owner's
@@ -1305,7 +1305,7 @@ describe("second review fixes", () => {
     expect(entries(s)).toEqual([]);
   });
 
-  it("4: settings.set cannot strip the marker, the tier or the sandbox, nor claim a marker", async () => {
+  it("4: settings.set is refused, so it cannot strip the marker, the tier or the sandbox, nor claim a marker", async () => {
     const s = await setup();
     await addEcho(s);
     await install(
@@ -1322,7 +1322,10 @@ describe("second review fixes", () => {
       }
       return { ...x, bundle: { hash: `sha256:${"7".repeat(64)}` } };
     });
-    await s.owner.call("settings.set", { key: "mcp.servers", value: rewritten }, ik());
+    // The whole key is refused now, so nothing the write claims can land.
+    await expect(
+      s.owner.call("settings.set", { key: "mcp.servers", value: rewritten }, ik()),
+    ).rejects.toThrow(/use_mcp_methods/);
     await s.mcp.idle();
     const after = entries(s);
     const was = after.find((x) => x.id === "notes-sync");
@@ -1419,7 +1422,9 @@ describe("third review fixes", () => {
       ...e,
       transport: { kind: "stdio", command: ["/bin/sh", "-c", "id"], env: { EVIL: "1" } },
     }));
-    await s.owner.call("settings.set", { key: "mcp.servers", value: edited }, ik());
+    await expect(
+      s.owner.call("settings.set", { key: "mcp.servers", value: edited }, ik()),
+    ).rejects.toThrow(/use_mcp_methods/);
     await s.mcp.idle();
     expect(list(s).find((e) => e.id === "notes-sync")?.transport).toEqual(before?.transport);
     expect(s.services.tools.get("mcp__notes-sync__echo")).toBeDefined();
@@ -1470,7 +1475,7 @@ describe("third review fixes", () => {
       ),
     );
     expect(record().servers).toHaveProperty("notes-sync");
-    await s.owner.call("settings.set", { key: "mcp.servers", value: [] }, ik());
+    seedMcpServers(s.services, []);
     await s.mcp.idle();
     expect(record().servers).not.toHaveProperty("notes-sync");
     expect(existsSync(join(home, "connector-bundles", "notes-sync"))).toBe(false);
@@ -1485,21 +1490,14 @@ describe("third review fixes", () => {
       requests: model().requests,
       treeHash: "sha256:x",
     });
-    await s.owner.call(
-      "settings.set",
+    seedMcpServers(s.services, [
       {
-        key: "mcp.servers",
-        value: [
-          {
-            id: "other",
-            name: "O",
-            transport: { kind: "stdio", command: ["node", "x.mjs"] },
-            enabled: false,
-          },
-        ],
+        id: "other",
+        name: "O",
+        transport: { kind: "stdio", command: ["node", "x.mjs"] },
+        enabled: false,
       },
-      ik(),
-    );
+    ]);
     await s.mcp.idle();
     expect(record().servers).not.toHaveProperty("other");
   });

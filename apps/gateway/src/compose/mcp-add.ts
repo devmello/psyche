@@ -4,6 +4,7 @@ import {
   createMcpHost,
   diagnoseLaunch,
   type McpHostOptions,
+  mcpCredentialTarget,
   type PsycheMcpServerConfig,
   type StdioLauncher,
   type ToolWarning,
@@ -17,6 +18,7 @@ import {
   type McpServerStatus,
   mcpTrustFor,
   PsycheError,
+  type Target,
 } from "@psyche/protocol";
 import type { HandlerDef } from "../context.ts";
 import { TURN_ON_SANDBOX_PC } from "./guest-sandbox.ts";
@@ -240,12 +242,43 @@ export function mcpAdder(deps: McpAddDeps): McpAdder {
     }
     // Same launcher and secrets as the real host; nothing is registered, no events reach it.
     const { onEvent: _ignored, ...hostOptions } = deps.hostOptions ?? {};
+    const probeId = `${config.id}-probe-${randomUUID().slice(0, 8)}`;
+    // The probe host names the server `<id>-probe-xxxx`, but the owner's vault items are bound to
+    // `mcp:<id>`. The probe asks for, and resolves, exactly the server's own binding: the same
+    // items the real server may read, no others.
+    const own = mcpCredentialTarget(config.id);
+    const asProbe = mcpCredentialTarget(probeId).value;
+    const rebind = (t: Target): Target => (t.value === asProbe ? own : t);
+    const inj = deps.secrets;
+    const secrets: McpHostOptions["secrets"] =
+      inj === undefined
+        ? undefined
+        : {
+            // Only `resolve` is re-aimed; everything else (redaction included) is the shared
+            // broker's own.
+            credentials: new Proxy(inj.credentials, {
+              get(base, prop) {
+                if (prop === "resolve") {
+                  return (
+                    placeholder: string,
+                    target: Target,
+                    approvalId: string,
+                    options?: Parameters<typeof base.resolve>[3],
+                  ) => base.resolve(placeholder, rebind(target), approvalId, options);
+                }
+                const v = Reflect.get(base, prop, base) as unknown;
+                return typeof v === "function" ? v.bind(base) : v;
+              },
+            }),
+            approve: (input) =>
+              // The card names the check (the probe id); the vault target stays the server's own.
+              inj.approve({ ...input, target: rebind(input.target) }),
+          };
     const host = createMcpHost({
-      ...(deps.secrets === undefined ? {} : { secrets: deps.secrets }),
+      ...(secrets === undefined ? {} : { secrets }),
       ...hostOptions,
       ...(launcher === undefined ? {} : { launcher }),
     });
-    const probeId = `${config.id}-probe-${randomUUID().slice(0, 8)}`;
     try {
       const info = await host.addServer({ ...runAs, id: probeId });
       const d = host.describe(probeId);
@@ -541,6 +574,28 @@ export function mcpAdder(deps: McpAddDeps): McpAdder {
     await deps.apply(next);
     // An agent-made server's code goes with it.
     await deps.removed?.(entry);
+    await releaseSecrets(serverId);
+  };
+
+  /**
+   * The vault items bound to `mcp:<id>` are unbound when the server goes, never deleted: they
+   * stay in the vault for the owner to reuse or delete. A later Add under the same id then can't
+   * be handed a secret the owner gave the old server. A locked vault leaves them bound.
+   */
+  const releaseSecrets = async (serverId: string) => {
+    const target = `mcp:${serverId}`;
+    try {
+      for (const item of await services.vault.list()) {
+        const ours = item.bindings.filter((b) => "connector" in b && b.connector === target);
+        if (ours.length === 0) continue;
+        // Unbind only: the owner may add the server again or use the key elsewhere, and can
+        // delete the item in the vault. An item left with no bindings stays.
+        const rest = item.bindings.filter((b) => !ours.includes(b));
+        await services.vault.update(item.id, { bindings: rest });
+      }
+    } catch {
+      // locked or unavailable: nothing was released
+    }
   };
 
   const handlers: Record<string, HandlerDef> = {

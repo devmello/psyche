@@ -334,13 +334,21 @@ export function composeMcp(services: ComposeServices, setup: McpSetup = {}): Com
     credentials: services.vault,
     // Each secret gets its own device-only card, answered with presence (security §4.6).
     async approve({ serverId, placeholder: ph, target }) {
+      const check = /^(.+)-probe-[0-9a-f]{8}$/.exec(serverId);
       const slug = placeholder.exec(ph)?.[1];
       if (slug === undefined) throw new PsycheError("invalid_params", "not a placeholder");
       const issued = await services.vault.requestFill({
         slug,
         target: target.value,
         executor: "connector",
-        requestedBy: { runId: null, taskId: null, threadId: null, agent: `mcp:${serverId}` },
+        // A check of a server being added or edited asks as "mcp:<id> check", not as the
+        // approved server: the owner can tell the two cards apart.
+        requestedBy: {
+          runId: null,
+          taskId: null,
+          threadId: null,
+          agent: check === null ? `mcp:${serverId}` : `mcp:${check[1]} check`,
+        },
         taint: false,
       });
       const done = await services.broker.awaitDecision(issued.approval.id);
@@ -644,8 +652,11 @@ export function composeMcp(services: ComposeServices, setup: McpSetup = {}): Com
           return;
         }
         if (f.event !== "settings.changed") return;
+        // The event carries a redacted copy: reconcile from the stored setting.
         for (const entry of f.payload?.entries ?? []) {
-          if (entry.key === MCP_SERVERS_SETTING) void enqueue(entry.value);
+          if (entry.key === MCP_SERVERS_SETTING) {
+            void enqueue(getSetting(services.db, MCP_SERVERS_SETTING)?.value);
+          }
         }
       });
     },
