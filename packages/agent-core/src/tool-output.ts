@@ -106,12 +106,20 @@ class ImageBudget {
     } catch {
       return note("image omitted: it could not be read as an image");
     }
-    // A shaper that hands back its input did not re-encode it.
-    if (shaped === bytes) return note("image omitted: it could not be read as an image");
+    // What a re-encode must produce: other bytes than the input (a shaper that hands back or
+    // copies its input decoded nothing), with a readable header of a sendable format, no larger
+    // than the input claimed and within the caps.
+    const unreadable = note("image omitted: it could not be read as an image");
+    if (shaped === bytes || shaped.equals(bytes)) return unreadable;
     const outMime = sniffImageMime(shaped);
     const outSize = imageSize(shaped);
-    if (outMime === undefined || outSize === undefined)
-      return note("image omitted: it could not be read as an image");
+    if (outMime === undefined || outSize === undefined) return unreadable;
+    if (
+      outSize.width > size.width ||
+      outSize.height > size.height ||
+      outSize.width * outSize.height > MAX_IMAGE_PIXELS
+    )
+      return unreadable;
     const out = shaped.toString("base64");
     if (out.length > MAX_IMAGE_BASE64_CHARS)
       return note("image omitted: larger than the 5 MB limit");
@@ -296,6 +304,25 @@ export function outputAsText(output: unknown): string {
   } catch {
     return String(output);
   }
+}
+
+/**
+ * Providers' own wording for a request refused over an image's bytes:
+ * - Anthropic: "Could not process image", "image exceeds 5 MB maximum", "image dimensions exceed
+ *   max allowed size", "Image does not match the provided media type", "…appears to be a
+ *   image/jpeg image", a `messages.N.content.M.image.source…` path;
+ * - OpenAI: "Invalid image", "You uploaded an unsupported image", "does not represent a valid
+ *   image", `invalid_image` / `invalid_image_format` / `image_parse_error` codes;
+ * - Google: "Unable to process input image", "Provided image is not valid".
+ * Not a mention of the word: a tool named `image_search`, a model id `gpt-image-1` or "this
+ * model does not support image input" do not count.
+ */
+const IMAGE_REJECTION =
+  /could not process (?:the )?image|unable to process (?:the )?(?:input )?image|\binvalid[ _]image(?:_format)?\b|unsupported image\b|\bimage exceeds\b|image dimensions exceed|image does not match the provided media type|appears to be an? image\/|provided image is not valid|does not represent a valid image|\bimage_parse_error\b|\.image\.source\b/i;
+
+/** True for a model call's error that is a provider's 400 refusing an image (`bad_request: …`). */
+export function isImageRejection(error: string): boolean {
+  return error.startsWith("bad_request:") && IMAGE_REJECTION.test(error);
 }
 
 /** Every tool-result image replaced by `text` as a note; `messages` itself when there is none. */

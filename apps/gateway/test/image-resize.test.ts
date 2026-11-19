@@ -1,5 +1,5 @@
 import { deflateSync } from "node:zlib";
-import { imageSize } from "@psyche/agent-core";
+import { imageSize, normalizeToolOutput } from "@psyche/agent-core";
 import { describe, expect, it } from "vitest";
 import {
   downscaleImage,
@@ -50,6 +50,83 @@ function corruptPng(width: number, height: number): Buffer {
   for (let i = 33; i < out.length; i++) out[i] = (i * 31) & 0xff;
   return out;
 }
+
+/** Only a PNG signature and IHDR claiming the size (a 2 KB file can claim 60000x60000). */
+function pngHeader(width: number, height: number): Buffer {
+  const b = Buffer.alloc(2_000);
+  Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]).copy(b, 0);
+  b.writeUInt32BE(13, 8);
+  b.write("IHDR", 12, "ascii");
+  b.writeUInt32BE(width, 16);
+  b.writeUInt32BE(height, 20);
+  return b;
+}
+
+/** Whether `@napi-rs/canvas` loads on this runner (the Linux path needs it). */
+const canvas = await import("@napi-rs/canvas").catch(() => undefined);
+
+/**
+ * PR #1397 review round 3: a real JPEG behind `FFD8 FF00 0100` and a COM segment hiding a fake
+ * 100x100 SOF where a lenient header walk lands; the decoder reads the real SOF.
+ */
+function hiddenSof(real: Buffer): Buffer {
+  const com = Buffer.alloc(2 + 512, 0x20);
+  com[0] = 0xff;
+  com[1] = 0xfe;
+  com.writeUInt16BE(512, 2);
+  const b = Buffer.concat([
+    Buffer.from([0xff, 0xd8, 0xff, 0x00, 0x01, 0x00]),
+    com,
+    real.subarray(2),
+  ]);
+  Buffer.from([0xff, 0xc0, 0x00, 0x11, 0x08, 0x00, 0x64, 0x00, 0x64, 0x03]).copy(b, 260);
+  return b;
+}
+
+describe("reencodeToolImage: decompression bombs", () => {
+  it("refuses a header over the caps before any decoder runs, on every platform", async () => {
+    for (const platform of ["linux", "darwin", "win32"] as const) {
+      await expect(
+        reencodeToolImage(pngHeader(60_000, 60_000), "image/png", 1568, platform),
+      ).rejects.toThrow("too large");
+      await expect(
+        reencodeToolImage(pngHeader(7_000, 7_000), "image/png", 1568, platform),
+      ).rejects.toThrow("too large");
+    }
+  });
+
+  it.runIf(canvas !== undefined)(
+    "the hidden-SOF JPEG never reaches the canvas decoder as an image",
+    async () => {
+      const real = (canvas as typeof import("@napi-rs/canvas"))
+        .createCanvas(300, 200)
+        .encodeSync("jpeg", 80);
+      const crafted = hiddenSof(real);
+      expect(imageSize(crafted)).toBeUndefined();
+      await expect(reencodeToolImage(crafted, "image/jpeg", 1568, "linux")).rejects.toThrow();
+      const seen: string[] = [];
+      const out = await normalizeToolOutput(
+        { blocks: [{ type: "image", data: crafted.toString("base64"), mimeType: "image/jpeg" }] },
+        {
+          shaper: (b, m) => {
+            seen.push(m);
+            return reencodeToolImage(b, m, 1568, "linux");
+          },
+        },
+      );
+      expect(out).toEqual([
+        { type: "text", text: "[image omitted: not a PNG, JPEG, GIF or WebP image]" },
+      ]);
+      expect(seen).toEqual([]);
+      // The same frame without the trick goes through the canvas path as an image.
+      const ok = await normalizeToolOutput(
+        { blocks: [{ type: "image", data: real.toString("base64"), mimeType: "image/jpeg" }] },
+        { shaper: (b, m) => reencodeToolImage(b, m, 1568, "linux") },
+      );
+      expect(ok).toEqual([expect.objectContaining({ type: "image", mime: "image/jpeg" })]);
+    },
+  );
+});
 
 describe("reencodeToolImage", () => {
   it("throws on a corrupt body under a valid header (Linux: canvas)", async () => {

@@ -9,6 +9,7 @@ import {
   IMAGE_FALLBACK_TOKENS,
   imageSize,
   imageTokensForSize,
+  normalizeToolOutput,
 } from "../src/index.ts";
 import { endOf, harness, say } from "./harness.ts";
 
@@ -119,5 +120,114 @@ describe("images in a turn", () => {
     expect(parts.some((p) => p.type === "image")).toBe(false);
     expect(JSON.stringify(parts)).toContain("cannot read images");
     expect(JSON.stringify(parts)).not.toContain(data.slice(0, 40));
+  });
+});
+
+/** PR #1397 review round 3: a lenient JPEG walk could be steered onto a fake SOF. */
+describe("strict JPEG size", () => {
+  const sof = (w: number, h: number) =>
+    Buffer.from([
+      0xff,
+      0xc0,
+      0x00,
+      0x11,
+      0x08,
+      h >> 8,
+      h & 255,
+      w >> 8,
+      w & 255,
+      3,
+      1,
+      0x22,
+      0,
+      2,
+      0x11,
+      1,
+      3,
+      0x11,
+      1,
+    ]);
+  const seg = (marker: number, payload: Buffer) => {
+    const len = Buffer.alloc(2);
+    len.writeUInt16BE(payload.length + 2);
+    return Buffer.concat([Buffer.from([0xff, marker]), len, payload]);
+  };
+  const soi = Buffer.from([0xff, 0xd8]);
+  /** The reviewer's layout: SOI, a length-less marker read as `0100`, a COM hiding a fake SOF. */
+  const crafted = (marker: number) => {
+    const com = Buffer.alloc(2 + 512, 0x20);
+    com[0] = 0xff;
+    com[1] = 0xfe;
+    com.writeUInt16BE(512, 2);
+    const b = Buffer.concat([
+      Buffer.from([0xff, 0xd8, 0xff, marker, 0x01, 0x00]),
+      com,
+      sof(9000, 9000),
+    ]);
+    // The fake 100x100 SOF sits where a lenient walk lands (offset 260, inside the COM).
+    Buffer.from([0xff, 0xc0, 0x00, 0x11, 0x08, 0x00, 0x64, 0x00, 0x64, 0x03]).copy(b, 260);
+    return b;
+  };
+
+  it.each([
+    ["a plain SOF", Buffer.concat([soi, sof(800, 600)]), { width: 800, height: 600 }],
+    [
+      "APP0, DQT and fill bytes before the SOF",
+      Buffer.concat([
+        soi,
+        seg(0xe0, Buffer.alloc(14)),
+        Buffer.from([0xff, 0xff]),
+        seg(0xdb, Buffer.alloc(65)),
+        sof(1200, 900),
+      ]),
+      { width: 1200, height: 900 },
+    ],
+    [
+      "progressive SOF2",
+      Buffer.concat([soi, Buffer.from([0xff, 0xc2]), sof(640, 480).subarray(2)]),
+      { width: 640, height: 480 },
+    ],
+  ])("reads %s", (_name, bytes, size) => {
+    expect(imageSize(bytes)).toEqual(size);
+  });
+
+  it.each([
+    ["FF00 (the reviewer's layout)", crafted(0x00)],
+    ["TEM FF01", crafted(0x01)],
+    ["RST0 FFD0", crafted(0xd0)],
+    ["RST7 FFD7", crafted(0xd7)],
+    ["a second SOI FFD8", crafted(0xd8)],
+    ["EOI FFD9", crafted(0xd9)],
+    ["SOS before any SOF", Buffer.concat([soi, seg(0xda, Buffer.alloc(10)), sof(100, 100)])],
+    [
+      "junk where a marker belongs",
+      Buffer.concat([soi, seg(0xe0, Buffer.alloc(14)), Buffer.from([0x00]), sof(100, 100)]),
+    ],
+    [
+      "a segment length under 2",
+      Buffer.concat([soi, Buffer.from([0xff, 0xe0, 0x00, 0x01]), sof(100, 100)]),
+    ],
+    ["a truncated SOF", Buffer.concat([soi, sof(100, 100).subarray(0, 7)])],
+  ])("refuses %s", (_name, bytes) => {
+    expect(imageSize(bytes)).toBeUndefined();
+  });
+
+  it("the reviewer's layout is refused before any shaper sees it", async () => {
+    const seen: number[] = [];
+    const out = await normalizeToolOutput(
+      {
+        blocks: [{ type: "image", data: crafted(0x00).toString("base64"), mimeType: "image/jpeg" }],
+      },
+      {
+        shaper: async (b) => {
+          seen.push(b.length);
+          return Buffer.concat([b, Buffer.from([0])]);
+        },
+      },
+    );
+    expect(out).toEqual([
+      { type: "text", text: "[image omitted: not a PNG, JPEG, GIF or WebP image]" },
+    ]);
+    expect(seen).toEqual([]);
   });
 });

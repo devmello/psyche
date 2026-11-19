@@ -35,31 +35,34 @@ export function imageSize(bytes: Uint8Array): ImageSize | undefined {
       };
     else if (ascii(12, "VP8 ")) size = { width: u16le(26) & 0x3fff, height: u16le(28) & 0x3fff };
   } else if (b.length > 4 && b[0] === 0xff && b[1] === 0xd8) {
-    let o = 2;
-    while (o + 9 < b.length) {
-      if (b[o] !== 0xff) {
-        o++;
-        continue;
-      }
-      const marker = b[o + 1] ?? 0;
-      if (marker === 0xff) {
-        o++;
-        continue;
-      }
-      if (
-        marker >= 0xc0 &&
-        marker <= 0xcf &&
-        marker !== 0xc4 &&
-        marker !== 0xc8 &&
-        marker !== 0xcc
-      ) {
-        size = { height: u16be(o + 5), width: u16be(o + 7) };
-        break;
-      }
-      o += 2 + u16be(o + 2);
-    }
+    size = jpegSize(b, u16be);
   }
   return size !== undefined && size.width > 0 && size.height > 0 ? size : undefined;
+}
+
+/**
+ * A JPEG's size from its first SOF, read strictly: after SOI every byte where a marker belongs
+ * must be `FF` (fill `FF`s allowed), and a marker without a length (`FF00`, TEM `FF01`, RSTn,
+ * SOI, EOI) or SOS before the SOF makes it unreadable. A lenient walk can be steered past the
+ * real SOF onto a fake one (a COM segment hiding `FFC0` 100x100 while the decoder reads
+ * 9000x9000), which would let a decompression bomb past the pixel cap.
+ */
+function jpegSize(b: Uint8Array, u16be: (o: number) => number): ImageSize | undefined {
+  let o = 2;
+  for (;;) {
+    if (b[o] !== 0xff) return undefined;
+    while (b[o + 1] === 0xff) o++;
+    if (o + 4 > b.length) return undefined;
+    const marker = b[o + 1] ?? 0;
+    if (marker === 0x00 || marker === 0x01 || (marker >= 0xd0 && marker <= 0xda)) return undefined;
+    const len = u16be(o + 2);
+    if (len < 2) return undefined;
+    if (marker >= 0xc0 && marker <= 0xcf && marker !== 0xc4 && marker !== 0xc8 && marker !== 0xcc) {
+      if (len < 8 || o + 9 > b.length) return undefined;
+      return { height: u16be(o + 5), width: u16be(o + 7) };
+    }
+    o += 2 + len;
+  }
 }
 
 /** Tokens one image costs: about width x height / 750 after the long edge is cut to 1568 px. */

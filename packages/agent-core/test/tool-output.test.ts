@@ -6,6 +6,7 @@ import {
   capToolOutput,
   estimateMessagesTokens,
   type ImageShaper,
+  isImageRejection,
   keepRecentToolImages,
   normalizeToolOutput,
   withoutToolImages,
@@ -13,8 +14,8 @@ import {
 import { estimateTokens } from "../src/util.ts";
 import { calls, harness, resultsIn, runTurn, say, spec } from "./harness.ts";
 
-/** Stands in for the Gateway's re-encoder: new bytes, same picture (the fakes are not real PNGs). */
-const copy: ImageShaper = async (b) => Buffer.from(b);
+/** Stands in for the Gateway's re-encoder: other bytes, same header (the fakes are not real PNGs). */
+const copy: ImageShaper = async (b) => Buffer.concat([b, Buffer.from([0])]);
 const shaped = { shaper: copy };
 
 /** A PNG header for the given size, padded to `bytes` (a recorded-fixture stand-in for a screenshot). */
@@ -351,6 +352,14 @@ describe("review round 2 probes", () => {
     ]);
     // A shaper that hands back its input did not re-encode: a note, not the original.
     expect(kinds(await normalizeToolOutput(block, { shaper: async (b) => b }))).toEqual(["text"]);
+    // Nor did one that copies it (round 3, P1b), or one that hands back a bigger picture.
+    expect(
+      kinds(await normalizeToolOutput(block, { shaper: async (b) => Buffer.from(b) })),
+    ).toEqual(["text"]);
+    const bigger = Buffer.from(fakePng(1600, 600, 900), "base64");
+    expect(kinds(await normalizeToolOutput(block, { shaper: async () => bigger }))).toEqual([
+      "text",
+    ]);
     // No shaper (an embedder without one): a note.
     expect(kinds(await normalizeToolOutput(block))).toEqual(["text"]);
     // What goes out is the shaper's output, base64-encoded afresh.
@@ -367,7 +376,7 @@ describe("review round 2 probes", () => {
     const seen: number[] = [];
     const shaper: ImageShaper = async (b) => {
       seen.push(b.length);
-      return Buffer.from(b);
+      return copy(b, "image/png");
     };
     const variants = [
       `${good.slice(0, 40)}-_${good.slice(42)}`,
@@ -393,7 +402,7 @@ describe("review round 2 probes", () => {
     const seen: string[] = [];
     const shaper: ImageShaper = async (b, m) => {
       seen.push(`${m}:${b.length}`);
-      return Buffer.from(b);
+      return copy(b, "image/png");
     };
     for (const [w, h] of [
       [60_000, 60_000],
@@ -639,5 +648,68 @@ describe("compaction transcript", () => {
     expect(text).not.toContain(PNG.slice(0, 50));
     expect(text).toContain("[image]");
     expect(text).toContain("Checkout");
+  });
+});
+
+/** Round 3, finding 3: only a provider's own wording for a refused image triggers the retry. */
+describe("image rejection errors", () => {
+  it.each([
+    "bad_request: messages.2.content.0.image.source: Could not process image",
+    "bad_request: messages.4.content.1.image.source.base64: image exceeds 5 MB maximum: 6291456 bytes > 5242880 bytes",
+    "bad_request: messages.3.content.0.image.source.base64.data: The image data is not valid base64",
+    "bad_request: image dimensions exceed max allowed size for many-image requests: 2000 pixels",
+    "bad_request: Image does not match the provided media type image/png",
+    "bad_request: The image was specified using the image/png media type, but the image appears to be a image/jpeg image",
+    "bad_request: invalid_request_error: Invalid image.",
+    "bad_request: You uploaded an unsupported image. Please make sure your image is below 20 MB in size and is of one the following formats: ['png', 'jpeg', 'gif', 'webp'].",
+    "bad_request: The image data you provided does not represent a valid image.",
+    "bad_request: invalid_image_format",
+    "bad_request: image_parse_error",
+    "bad_request: Unable to process input image. Please retry or report in https://developers.generativeai.google/guide/troubleshooting",
+    "bad_request: Provided image is not valid.",
+    // The owner's own attachment refused in the provider's words still counts (their image
+    // stays; only tool images are stripped, so the retry fails the same way and stops).
+    "bad_request: messages.0.content.1.image.source.base64: image exceeds 5 MB maximum",
+  ])("matches %s", (error) => {
+    expect(isImageRejection(error)).toBe(true);
+  });
+
+  it.each([
+    "bad_request: tools.3.name: image_search is not a valid tool name",
+    "bad_request: The model `gpt-image-1` does not support tools",
+    "bad_request: this model does not support image input",
+    "bad_request: image inputs are not supported by this model",
+    "bad_request: prompt mentions an image of a cat but the max_tokens value is invalid",
+    "bad_request: messages: roles must alternate",
+    "server_error: Could not process image",
+    "overloaded: Invalid image",
+    "context_overflow: prompt is too long (image tokens included)",
+  ])("does not match %s", (error) => {
+    expect(isImageRejection(error)).toBe(false);
+  });
+
+  it("the retry is what the context meter records", async () => {
+    const usages: { promptTokens: number; estimated: boolean }[] = [];
+    const h = harness({
+      script: [
+        calls({ id: "c1", name: "shot", input: {} }),
+        [{ type: "finish", reason: "error", error: "bad_request: Could not process image" }],
+        say("ok", { input: 777, output: 3 }),
+      ],
+      vision: true,
+      loop: {
+        toolImageShaper: copy,
+        onContextUsage: (u) => {
+          usages.push({ promptTokens: u.promptTokens, estimated: u.estimated });
+        },
+      },
+    });
+    h.loop.registry.register({
+      spec: spec("shot", "none"),
+      execute: async () => ({ output: SHAPES["browser.screenshot"], provenance: "untrusted" }),
+    });
+    await runTurn(h, "look");
+    expect(h.provider.requests).toHaveLength(3);
+    expect(usages.at(-1)).toEqual({ promptTokens: 777, estimated: false });
   });
 });

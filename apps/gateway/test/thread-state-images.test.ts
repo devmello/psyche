@@ -117,4 +117,50 @@ describe("saving a thread with screenshots", () => {
     const raw = JSON.stringify(getAgentThreadState(db, "t-fake"));
     expect(raw).not.toContain(secret);
   });
+
+  /**
+   * Round 3, finding 2: a PNG header followed by `Authorization: Bearer <secret>` sniffs as a PNG,
+   * so a skip decided by shape alone wrote the secret to disk. The skip is by position now.
+   */
+  it("masks an image-shaped object outside a loop-run tool result's part list", async () => {
+    const secret = "sk-live-SuperSecretValue-0123456789";
+    const head = Buffer.alloc(64);
+    Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a, 0, 0, 0, 13]).copy(head, 0);
+    head.write("IHDR", 12, "ascii");
+    head.writeUInt32BE(10, 16);
+    head.writeUInt32BE(10, 20);
+    let body = Buffer.concat([head, Buffer.from(`Authorization: Bearer ${secret}\n`)]);
+    while (body.length % 3 !== 0) body = Buffer.concat([body, Buffer.from(" ")]);
+    const data = body.toString("base64");
+    const redactor = new SecretRedactor();
+    redactor.add(secret);
+    // Control: the redactor does catch the secret inside this base64 when it is asked to.
+    expect(redactor.redact(`x ${data} y`)).not.toContain(data);
+    const store = new SqliteThreadStateStore(db, redactor, null);
+    const shaped = { type: "image", mime: "image/png", data };
+    await store.save("t-shape", {
+      messages: [
+        // A record a tool returned (normalizeToolOutput leaves records of this form alone).
+        {
+          role: "tool",
+          parts: [
+            { type: "tool_result", callId: "c1", name: "http.get", output: shaped },
+            // Nested deeper inside a record.
+            { type: "tool_result", callId: "c2", name: "http.get", output: { items: [shaped] } },
+          ],
+        },
+        // A provider-run tool's result sits in the assistant message.
+        {
+          role: "assistant",
+          parts: [{ type: "tool_result", callId: "c3", output: [shaped] }],
+        },
+      ],
+      checklist: [],
+      summary: JSON.stringify(shaped),
+    } as never);
+    const saved = JSON.stringify(getAgentThreadState(db, "t-shape"));
+    expect(saved).not.toContain(data);
+    for (const m of saved.matchAll(/"data":"([^"]+)"/g))
+      expect(Buffer.from(m[1] as string, "base64").toString("latin1")).not.toContain(secret);
+  });
 });

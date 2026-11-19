@@ -1,5 +1,6 @@
 import {
   isCheckedImagePart,
+  isPartList,
   keepRecentToolImages,
   type ThreadState,
   type ThreadStateStore,
@@ -22,18 +23,55 @@ export interface StringMasker {
 function maskDeep(value: unknown, masker: StringMasker): unknown {
   if (typeof value === "string") return masker.redact(value);
   if (Array.isArray(value)) return value.map((v) => maskDeep(v, masker));
-  // Image bytes are not text: masking megabytes of base64 blocks the event loop, and a mask
-  // written into it would corrupt the image. Only data that checks out as an image is skipped.
-  if (isCheckedImagePart(value)) {
-    const { data, ...rest } = value as Record<string, unknown>;
-    return { ...(maskDeep(rest, masker) as Record<string, unknown>), data };
-  }
   if (value !== null && typeof value === "object") {
     return Object.fromEntries(
       Object.entries(value as Record<string, unknown>).map(([k, v]) => [k, maskDeep(v, masker)]),
     );
   }
   return value;
+}
+
+const isRecord = (v: unknown): v is Record<string, unknown> =>
+  typeof v === "object" && v !== null && !Array.isArray(v);
+
+/** An image part with its `data` left as it is and every other field masked. */
+function keepImageData(part: Record<string, unknown>, masker: StringMasker): unknown {
+  const { data, ...rest } = part;
+  return { ...(maskDeep(rest, masker) as Record<string, unknown>), data };
+}
+
+/**
+ * `maskDeep` over a thread state, except image bytes in two places, and only there: images in a
+ * part-list output of a loop-run tool result (a `tool` message; every one came through the
+ * loop's image check and was re-encoded, so its bytes are a decoder's output, not tool text),
+ * and image parts of the owner's own messages. Masking megabytes of base64 blocks the event
+ * loop, and a mask written into it corrupts the image. An image-shaped object anywhere else
+ * (a record a tool returned, a provider-run tool's result in an assistant message) is masked
+ * like any other value.
+ */
+function maskState(state: ThreadState, masker: StringMasker): ThreadState {
+  const { messages, ...rest } = state;
+  const masked = (messages as unknown[]).map((m) => {
+    if (!isRecord(m) || !Array.isArray(m.parts)) return maskDeep(m, masker);
+    const { parts, ...fields } = m;
+    return {
+      ...(maskDeep(fields, masker) as Record<string, unknown>),
+      parts: parts.map((p: unknown) => {
+        if (m.role === "user" && isCheckedImagePart(p)) return keepImageData(p, masker);
+        if (m.role === "tool" && isRecord(p) && p.type === "tool_result" && isPartList(p.output)) {
+          const { output, ...head } = p;
+          return {
+            ...(maskDeep(head, masker) as Record<string, unknown>),
+            output: (output as unknown[]).map((x) =>
+              isCheckedImagePart(x) ? keepImageData(x, masker) : maskDeep(x, masker),
+            ),
+          };
+        }
+        return maskDeep(p, masker);
+      }),
+    };
+  });
+  return { ...(maskDeep(rest, masker) as object), messages: masked } as ThreadState;
 }
 
 /**
@@ -128,7 +166,7 @@ export class SqliteThreadStateStore implements ThreadStateStore {
     // Older tool images are saved as their note: the stored thread holds at most a dozen.
     const messages = keepRecentToolImages(state.messages);
     const trimmed = messages === state.messages ? state : { ...state, messages };
-    const safe = this.#masker === null ? trimmed : (maskDeep(trimmed, this.#masker) as ThreadState);
+    const safe = this.#masker === null ? trimmed : maskState(trimmed, this.#masker);
     putAgentThreadState(this.#db, threadId, safe as unknown as Record<string, unknown>);
   }
 }

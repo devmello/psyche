@@ -168,6 +168,7 @@ import {
 import {
   capToolOutput,
   type ImageShaper,
+  isImageRejection,
   isPartList,
   keepRecentToolImages,
   normalizeToolOutput,
@@ -529,8 +530,6 @@ const INTERACTIVE = new Set(["ask_user", "exit_plan_mode"]);
  */
 const WAITS_FOR_OWNER = new Set(["request_permission", "request_folder_access"]);
 const NO_REPLY = "NO_REPLY";
-/** A provider's 400 about an image ("Could not process image", "Invalid image"…). */
-const IMAGE_REJECTED = /^bad_request:.*\bimage/i;
 
 interface ModelStep {
   parts: ModelPart[];
@@ -1986,15 +1985,20 @@ export class PsycheAgentLoop implements AgentLoop {
     tools: ToolSpec[],
     cache: Partial<PromptCache> = {},
   ): Promise<ModelStep> {
+    const pending = run.pendingBreakdown;
+    const metered = run.contextCalls.length;
     const step = await this.#callModelOnce(run, system, tools, cache);
     if (step.finish !== "error" || step.parts.length > 0) return step;
-    if (!IMAGE_REJECTED.test(step.error ?? "")) return step;
+    if (!isImageRejection(step.error ?? "")) return step;
     const stripped = withoutToolImages(
       run.thread.messages,
       "image removed: the model provider could not read it",
     );
     if (stripped === run.thread.messages) return step;
     run.thread.messages = stripped;
+    // The refused call read nothing: the context meter records the retry in its place.
+    run.contextCalls.length = metered;
+    run.pendingBreakdown = pending;
     return this.#callModelOnce(run, system, tools, cache);
   }
 

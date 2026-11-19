@@ -3,7 +3,7 @@ import { mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { promisify } from "node:util";
-import { IMAGE_MAX_EDGE, imageSize } from "@psyche/agent-core";
+import { IMAGE_MAX_EDGE, imageSize, MAX_IMAGE_PIXELS, MAX_IMAGE_SIDE_PX } from "@psyche/agent-core";
 
 const run = promisify(execFile);
 
@@ -50,8 +50,8 @@ export async function downscaleImage(
  * again, its long edge cut to `maxEdge`: JPEG stays JPEG, everything else becomes PNG. Unlike
  * `downscaleImage` it never hands back the input. It throws when the image cannot be decoded or
  * no encoder is available (a Linux Gateway without `@napi-rs/canvas`), and the caller then sends
- * a note instead. The caller has already refused oversized dimensions from the header, so the
- * decoder never sees a decompression bomb.
+ * a note instead. A header over 8000 px or 40 MP is refused before any decoder runs, and the
+ * header is parsed strictly (`imageSize`), so the decoder never sees a decompression bomb.
  */
 export async function reencodeToolImage(
   bytes: Buffer,
@@ -61,6 +61,8 @@ export async function reencodeToolImage(
 ): Promise<Buffer> {
   const size = imageSize(bytes);
   if (size === undefined) throw new Error("unreadable image header");
+  // The caller checks too; a decoder never runs on an oversized header whoever calls this.
+  if (overCaps(size)) throw new Error("image too large to decode");
   const format = mime === "image/jpeg" ? "jpeg" : "png";
   const edge = Math.min(maxEdge, Math.max(size.width, size.height));
   if (platform === "win32") return wicReencode(bytes, edge, format);
@@ -86,6 +88,11 @@ export async function reencodeToolImage(
   }
 }
 
+const overCaps = (s: { width: number; height: number }) =>
+  s.width > MAX_IMAGE_SIDE_PX ||
+  s.height > MAX_IMAGE_SIDE_PX ||
+  s.width * s.height > MAX_IMAGE_PIXELS;
+
 async function canvasReencode(
   bytes: Buffer,
   edge: number,
@@ -93,7 +100,11 @@ async function canvasReencode(
   size: { width: number; height: number },
 ): Promise<Buffer> {
   const { createCanvas, loadImage } = await import("@napi-rs/canvas");
+  // Skia decodes the whole bitmap when the image loads (no header-only read), so the strict
+  // header parse above is the gate; a decoded size that differs from it is refused all the same.
   const image = await loadImage(bytes);
+  if (image.width !== size.width || image.height !== size.height || overCaps(image))
+    throw new Error("decoded size differs from the header");
   const scale = edge / Math.max(size.width, size.height);
   const width = Math.max(1, Math.round(size.width * scale));
   const height = Math.max(1, Math.round(size.height * scale));
