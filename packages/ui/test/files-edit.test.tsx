@@ -1,7 +1,7 @@
-import { fireEvent, render, screen, waitFor, within } from "@testing-library/react";
+import { cleanup, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import { userEvent } from "@testing-library/user-event";
-import { useState } from "react";
-import { describe, expect, it } from "vitest";
+import { useEffect, useState } from "react";
+import { beforeEach, describe, expect, it, vi } from "vitest";
 import type { MockGateway } from "../src/data/mock-gateway.ts";
 import { FILE_ROOTS, FIXTURE_NOW, fileRootGrants } from "../src/fixtures/index.ts";
 import {
@@ -9,6 +9,10 @@ import {
   type FileEditSession,
   FilesPane,
   fileEditKind,
+  hasLiveDirty,
+  markLiveDirty,
+  mayCloseFilesPane,
+  resetFileDrafts,
 } from "../src/screens/files/index.ts";
 import { StoryWorld } from "../src/stories/harness.tsx";
 
@@ -18,8 +22,13 @@ const LISBON = `${FILE_ROOTS.documents}/Trips/lisbon.md`;
 
 /** A bare editor: one textarea and a Save button, on the pane's session. */
 function TestEditor({ session }: { session: FileEditSession }) {
-  const [draft, setDraft] = useState(session.text);
+  const [draft, setDraft] = useState(session.draft ?? session.text);
   const [base, setBase] = useState(session.text);
+  const { setDirty, reportDraft } = session;
+  useEffect(() => {
+    setDirty(draft !== base);
+    reportDraft(draft !== base ? draft : null);
+  }, [draft, base, setDirty, reportDraft]);
   return (
     <div>
       <textarea
@@ -27,18 +36,12 @@ function TestEditor({ session }: { session: FileEditSession }) {
         value={draft}
         readOnly={session.readOnly}
         data-raw={JSON.stringify(session.text)}
-        onChange={(e) => {
-          setDraft(e.target.value);
-          session.setDirty(e.target.value !== base);
-        }}
+        onChange={(e) => setDraft(e.target.value)}
       />
       <button
         type="button"
         onClick={async () => {
-          if (await session.save(draft)) {
-            setBase(draft);
-            session.setDirty(false);
-          }
+          if (await session.save(draft)) setBase(draft);
         }}
       >
         Save now
@@ -52,7 +55,7 @@ function TestEditor({ session }: { session: FileEditSession }) {
 
 function setup(target: string, files: Record<string, string> = {}) {
   let gw: MockGateway | null = null;
-  const tree = (to: string) => (
+  const tree = (to: string | null) => (
     <StoryWorld
       edit={(w) => {
         w.settings["permissions.policy"] = { folders: fileRootGrants() };
@@ -62,12 +65,17 @@ function setup(target: string, files: Record<string, string> = {}) {
       }}
       onGateway={(g) => (gw = g)}
     >
-      <FilesPane
-        now={NOW}
-        target={to}
-        renderViewer={(f) => <p>viewer for {f.name}</p>}
-        renderEditor={(s) => <TestEditor session={s} />}
-      />
+      {/* null: the shell swapped this tab out for another, and the pane unmounted. */}
+      {to === null ? (
+        <p>another tab</p>
+      ) : (
+        <FilesPane
+          now={NOW}
+          target={to}
+          renderViewer={(f) => <p>viewer for {f.name}</p>}
+          renderEditor={(s) => <TestEditor session={s} />}
+        />
+      )}
     </StoryWorld>
   );
   const view = render(tree(target));
@@ -75,7 +83,10 @@ function setup(target: string, files: Record<string, string> = {}) {
     if (gw === null) throw new Error("gateway not ready");
     return gw as MockGateway;
   };
-  return Object.assign(get, { retarget: (to: string) => view.rerender(tree(to)) });
+  return Object.assign(get, {
+    retarget: (to: string) => view.rerender(tree(to)),
+    swapOut: () => view.rerender(tree(null)),
+  });
 }
 
 const edit = async () => userEvent.click(await screen.findByRole("button", { name: "Edit" }));
@@ -84,6 +95,8 @@ const type = async (text: string) => {
   await userEvent.clear(box);
   await userEvent.type(box, text);
 };
+
+beforeEach(resetFileDrafts);
 
 describe("which files can be edited", () => {
   const grants = [
@@ -424,5 +437,190 @@ describe("size limits", () => {
     setup(path, { [path]: "a".repeat(512 * 1024 + 1) });
     await edit();
     expect((await screen.findByRole("alert")).textContent).toContain("over 512 KB");
+  });
+});
+
+describe("edits survive the pane being swapped out", () => {
+  it("restores the draft when the tab comes back (another tab was active)", async () => {
+    const view = setup(README);
+    await edit();
+    await type("my draft");
+    view.swapOut();
+    expect(screen.queryByRole("textbox", { name: "Body" })).toBeNull();
+    view.retarget(README);
+    const box = (await screen.findByRole("textbox", { name: "Body" })) as HTMLTextAreaElement;
+    expect(box.value).toBe("my draft");
+    expect(await screen.findByText("Unsaved changes restored")).toBeTruthy();
+    // It is still unsaved: Done asks.
+    await userEvent.click(screen.getByRole("button", { name: "Done" }));
+    expect(await screen.findByRole("alertdialog")).toBeTruthy();
+  });
+
+  it("restores the draft after another file was open in a second tab", async () => {
+    const other = `${FILE_ROOTS.project}/other.md`;
+    const view = setup(README, { [other]: "# other\n" });
+    await edit();
+    await type("my draft");
+    view.swapOut();
+    view.retarget(other);
+    expect(await screen.findByRole("region", { name: "Preview of other.md" })).toBeTruthy();
+    expect(screen.queryByRole("textbox", { name: "Body" })).toBeNull();
+    view.swapOut();
+    view.retarget(README);
+    expect(
+      ((await screen.findByRole("textbox", { name: "Body" })) as HTMLTextAreaElement).value,
+    ).toBe("my draft");
+  });
+
+  it("saves a restored draft with the etag it started from, then forgets it", async () => {
+    const view = setup(README);
+    await edit();
+    await type("kept");
+    view.swapOut();
+    view.retarget(README);
+    await screen.findByText("Unsaved changes restored");
+    await userEvent.click(screen.getByRole("button", { name: "Save now" }));
+    await waitFor(() => expect(view().fileWrites).toHaveLength(1));
+    expect(view().fileWrites[0]?.content).toBe("kept");
+    expect(screen.queryByText("Unsaved changes restored")).toBeNull();
+    view.swapOut();
+    view.retarget(README);
+    // Saved: nothing to restore, so the pane opens on the viewer.
+    expect(await screen.findByText("viewer for README.md")).toBeTruthy();
+  });
+
+  it("goes straight to the conflict flow when the file changed while the tab was away", async () => {
+    const view = setup(README);
+    await edit();
+    await type("kept");
+    view.swapOut();
+    view().world.files[README] = {
+      kind: "file",
+      text: "# changed meanwhile, and longer\n",
+      modifiedAt: "2026-11-19T10:00:00Z",
+    };
+    view.retarget(README);
+    const alert = await screen.findByRole("alert");
+    expect(alert.textContent).toContain("changed on disk");
+    const box = screen.getByRole("textbox", { name: "Body" }) as HTMLTextAreaElement;
+    expect(box.value).toBe("kept");
+    expect(box.readOnly).toBe(true);
+    expect(view().fileWrites).toHaveLength(0);
+    await userEvent.click(within(alert).getByRole("button", { name: "Overwrite…" }));
+    await userEvent.click(await screen.findByRole("button", { name: "Overwrite" }));
+    await waitFor(() => expect(view().fileWrites).toHaveLength(1));
+    expect(view().fileWrites[0]?.content).toBe("kept");
+  });
+
+  it("Reload on a restored conflict drops the draft for good", async () => {
+    const view = setup(README);
+    await edit();
+    await type("kept");
+    view.swapOut();
+    view().world.files[README] = {
+      kind: "file",
+      text: "# changed meanwhile, and longer\n",
+      modifiedAt: "2026-11-19T10:00:00Z",
+    };
+    view.retarget(README);
+    await userEvent.click(await screen.findByRole("button", { name: "Reload" }));
+    await waitFor(() =>
+      expect((screen.getByRole("textbox", { name: "Body" }) as HTMLTextAreaElement).value).toBe(
+        "# changed meanwhile, and longer\n",
+      ),
+    );
+    view.swapOut();
+    view.retarget(README);
+    expect(await screen.findByText("viewer for README.md")).toBeTruthy();
+  });
+
+  it("Discard forgets the draft", async () => {
+    const view = setup(README);
+    await edit();
+    await type("kept");
+    await userEvent.click(screen.getByRole("button", { name: "Done" }));
+    await userEvent.click(
+      within(await screen.findByRole("alertdialog")).getByRole("button", { name: "Discard" }),
+    );
+    view.swapOut();
+    view.retarget(README);
+    expect(await screen.findByText("viewer for README.md")).toBeTruthy();
+  });
+
+  it("asks before the shell closes a pane with unsaved edits, and drops them on yes", async () => {
+    const view = setup(README);
+    await edit();
+    await type("kept");
+    const no = vi.fn(() => false);
+    expect(mayCloseFilesPane(no)).toBe(false);
+    expect(no).toHaveBeenCalledWith("Discard unsaved changes?");
+    // Declined: the edits are still there, also after the tab is swapped out and back.
+    view.swapOut();
+    view.retarget(README);
+    expect(
+      ((await screen.findByRole("textbox", { name: "Body" })) as HTMLTextAreaElement).value,
+    ).toBe("kept");
+    await waitFor(() => expect(hasLiveDirty()).toBe(true));
+    expect(mayCloseFilesPane(() => true)).toBe(true);
+    view.swapOut();
+    view.retarget(README);
+    expect(await screen.findByText("viewer for README.md")).toBeTruthy();
+  });
+
+  it("does not ask to close a pane with nothing unsaved", () => {
+    const ask = vi.fn(() => false);
+    expect(mayCloseFilesPane(ask)).toBe(true);
+    markLiveDirty("/x.md", true);
+    expect(mayCloseFilesPane(() => false)).toBe(false);
+    markLiveDirty("/x.md", false);
+    expect(mayCloseFilesPane(ask)).toBe(true);
+    expect(ask).not.toHaveBeenCalled();
+  });
+});
+
+describe("a save in flight and a held-back target", () => {
+  it("takes no edits while a save is under way", async () => {
+    setup(README);
+    await edit();
+    await type("mine");
+    fireEvent.click(screen.getByRole("button", { name: "Save now" }));
+    expect(document.querySelector("[inert]")).not.toBeNull();
+    expect((screen.getByRole("textbox", { name: "Body" }) as HTMLTextAreaElement).readOnly).toBe(
+      true,
+    );
+    await waitFor(() => expect(document.querySelector("[inert]")).toBeNull());
+  });
+
+  it("refuses a file with a lone carriage return, as the third line-ending style", async () => {
+    const path = `${FILE_ROOTS.project}/mac.txt`;
+    setup(path, { [path]: "one\rtwo\r" });
+    await edit();
+    expect((await screen.findByRole("alert")).textContent).toContain("mixes line-ending styles");
+    const stray = `${FILE_ROOTS.project}/stray.txt`;
+    cleanup();
+    resetFileDrafts();
+    setup(stray, { [stray]: "a\r\nb\rc\r\n" });
+    await edit();
+    expect((await screen.findByRole("alert")).textContent).toContain("mixes line-ending styles");
+  });
+
+  it("keeps the file on screen after Keep editing, and a later target does not unseat it", async () => {
+    const other = `${FILE_ROOTS.project}/other.md`;
+    const third = `${FILE_ROOTS.project}/third.md`;
+    const view = setup(README, { [other]: "# other\n", [third]: "# third\n" });
+    await edit();
+    await type("changed");
+    view.retarget(other);
+    await userEvent.click(
+      within(await screen.findByRole("alertdialog")).getByRole("button", { name: "Keep editing" }),
+    );
+    expect(screen.getByRole("region", { name: "Preview of README.md" })).toBeTruthy();
+    // The held-back target is settled, not pending: the edit goes on and nothing asks again.
+    view.retarget(third);
+    expect(screen.queryByRole("alertdialog")).toBeNull();
+    expect(screen.getByRole("region", { name: "Preview of README.md" })).toBeTruthy();
+    expect((screen.getByRole("textbox", { name: "Body" }) as HTMLTextAreaElement).value).toBe(
+      "changed",
+    );
   });
 });

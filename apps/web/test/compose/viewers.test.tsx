@@ -1,5 +1,5 @@
 // @vitest-environment happy-dom
-import { type GatewayCall, GatewayProvider, toBase64 } from "@psyche/ui";
+import { type GatewayCall, GatewayProvider, resetFileDrafts, toBase64 } from "@psyche/ui";
 import { MockGateway } from "@psyche/ui/testing";
 import type { SheetEditorProps } from "@psyche/viewers";
 import { act, cleanup, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
@@ -19,7 +19,10 @@ vi.mock("@psyche/viewers", async (orig) => ({
   ),
 }));
 
-afterEach(cleanup);
+afterEach(() => {
+  cleanup();
+  resetFileDrafts();
+});
 
 const gatewayError = (code: string, details?: unknown) =>
   Object.assign(new Error(`${code} from the Gateway`), { code, details });
@@ -237,6 +240,84 @@ describe("editing in the composed Files pane", () => {
     fireEvent.click(await screen.findByRole("button", { name: "Save" }));
     await waitFor(() => expect(gw.fileWrites).toHaveLength(1));
     expect(gw.fileWrites[0]?.content).toBe("\uFEFFname,qty\r\napple,5\r\n");
+  });
+
+  it("keeps an unsaved CSV edit when the pane is swapped out, and restores it", async () => {
+    const gw = world();
+    type Runtime = Awaited<ReturnType<NonNullable<SheetEditorProps["sheetEditor"]>>>;
+    const fake = () => {
+      const state: { data?: unknown; emit?: () => void } = {};
+      const runtime = {
+        mount(_el: HTMLElement, data: unknown) {
+          state.data = structuredClone(data);
+          const listeners = new Set<() => void>();
+          state.emit = () => {
+            for (const l of listeners) l();
+          };
+          return {
+            snapshot: () => structuredClone(state.data),
+            onChange(l: () => void) {
+              listeners.add(l);
+              return () => listeners.delete(l);
+            },
+            dispose() {},
+          };
+        },
+      } as unknown as Runtime;
+      return { state, runtime };
+    };
+    const cells = (data: unknown) =>
+      (data as { sheets: Record<string, { cellData: Record<number, Record<number, unknown>> }> })
+        .sheets["sheet-1"]?.cellData as Record<number, Record<number, unknown>>;
+    const pane = (runtime: Runtime) => (
+      <GatewayProvider client={gw}>
+        <ComposedFilesPane
+          target={`${NOTES}/fruit.csv`}
+          navigate={() => undefined}
+          sheetEditor={async () => runtime}
+        />
+      </GatewayProvider>
+    );
+    const first = fake();
+    const view = render(pane(first.runtime));
+    fireEvent.click(await screen.findByRole("button", { name: "Edit" }));
+    await waitFor(() => expect(first.state.emit).toBeDefined());
+    (cells(first.state.data)[1] as Record<number, unknown>)[1] = { v: 7, t: 2 };
+    act(() => first.state.emit?.());
+    await screen.findByText("Unsaved changes");
+    // Another tab takes over: the pane unmounts with the edit unsaved.
+    view.unmount();
+    const second = fake();
+    render(pane(second.runtime));
+    await screen.findByText("Unsaved changes restored");
+    await waitFor(() => expect(second.state.data).toBeDefined());
+    expect(cells(second.state.data)[1]?.[1]).toMatchObject({ v: 7 });
+    expect((screen.getByRole("button", { name: "Save" }) as HTMLButtonElement).disabled).toBe(
+      false,
+    );
+    fireEvent.click(screen.getByRole("button", { name: "Save" }));
+    await waitFor(() => expect(gw.fileWrites).toHaveLength(1));
+    expect(gw.fileWrites[0]?.content).toBe("name,qty\napple,7\n");
+  });
+
+  it("keeps an unsaved Markdown edit across a swap-out", async () => {
+    const gw = world();
+    const pane = (
+      <GatewayProvider client={gw}>
+        <ComposedFilesPane target={`${NOTES}/todo.md`} navigate={() => undefined} />
+      </GatewayProvider>
+    );
+    const view = render(pane);
+    fireEvent.click(await screen.findByRole("button", { name: "Edit" }));
+    fireEvent.change(await screen.findByRole("textbox", { name: "Markdown" }), {
+      target: { value: "buy milk\nand bread" },
+    });
+    view.unmount();
+    render(pane);
+    expect(
+      ((await screen.findByRole("textbox", { name: "Markdown" })) as HTMLTextAreaElement).value,
+    ).toBe("buy milk\nand bread");
+    await screen.findByText("Unsaved changes restored");
   });
 
   it("offers no editor in a read-only folder", async () => {

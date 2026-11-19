@@ -33,6 +33,7 @@ import {
   type FileEditSession,
   fileEditKind,
 } from "./FileEditFrame.tsx";
+import { clearDraft, hasDraft, markLiveDirty } from "./file-drafts.ts";
 
 /**
  * Files pane (UI design §3.7, feature P4): the folders the owner granted (ro / rw) and the
@@ -372,12 +373,17 @@ export function FilesPaneView({
   const [shownTarget, setShownTarget] = useState(target);
   const selected = picked ?? fileRefForTarget(shownTarget, lib.items);
   const selectedKey = selected?.path ?? selected?.libraryPath;
-  // biome-ignore lint/correctness/useExhaustiveDependencies: another file ends the edit
   useEffect(() => {
-    setEditing(false);
+    // Back on a file whose edits were kept (the pane was swapped out): reopen its editor.
+    setEditing(typeof selectedKey === "string" && hasDraft(selectedKey));
     setDirty(false);
     setLeave(null);
   }, [selectedKey]);
+  useEffect(() => {
+    if (!editing || !dirty || selectedKey === undefined) return;
+    markLiveDirty(selectedKey, true);
+    return () => markLiveDirty(selectedKey, false);
+  }, [editing, dirty, selectedKey]);
   useEffect(() => {
     if (!editing || !dirty) return;
     const warn = (e: BeforeUnloadEvent) => e.preventDefault();
@@ -387,7 +393,10 @@ export function FilesPaneView({
   const guard = (action: () => void) => (editing && dirty ? setLeave(() => action) : action());
   // biome-ignore lint/correctness/useExhaustiveDependencies: runs when the target prop changes
   useEffect(() => {
-    if (target !== shownTarget) guard(() => setShownTarget(target));
+    if (target === shownTarget) return;
+    // A picked file wins over the target, so only a target that would change the view asks.
+    if (picked === null) guard(() => setShownTarget(target));
+    else setShownTarget(target);
   }, [target]);
   const setSelected = (file: FileRef) =>
     guard(() => {
@@ -513,12 +522,25 @@ export function FilesPaneView({
                     onClick={() => {
                       const go = leave;
                       setLeave(null);
+                      clearDraft(selected.path);
                       go();
                     }}
                   >
                     {t("screens.files.discard")}
                   </Button>
-                  <Button type="button" size="xs" autoFocus onClick={() => setLeave(null)}>
+                  <Button
+                    type="button"
+                    size="xs"
+                    autoFocus
+                    onClick={() => {
+                      setLeave(null);
+                      // The target that was held back is not shown later: keep this file.
+                      if (target !== shownTarget) {
+                        setPicked(selected);
+                        setShownTarget(target);
+                      }
+                    }}
+                  >
                     {t("screens.files.keepEditing")}
                   </Button>
                 </div>

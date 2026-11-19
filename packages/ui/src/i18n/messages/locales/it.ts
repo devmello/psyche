@@ -2906,6 +2906,7 @@ export const it: Partial<Catalogue> = {
     "Questa modifica è troppo grande per essere salvata da qui. Accorcia il testo e riprova.",
   "screens.files.editMixedEol":
     "{name} mescola stili di fine riga diversi, quindi non si può modificare qui.",
+  "screens.files.draftRestored": "Modifiche non salvate ripristinate",
   "screens.library.section.documents": "Documenti",
   "screens.library.empty.documents":
     "Ancora nessun documento. I file che l’agente crea o riceve finiscono qui.",

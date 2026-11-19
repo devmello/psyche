@@ -14,6 +14,7 @@ import {
   type GrantedFolder,
   isUnder,
 } from "@psyche/files";
+import { sameHostPath } from "@psyche/hostfs";
 import { assertFolderGrantable, folderCovers } from "@psyche/permissions";
 import {
   FILE_CHUNK_BYTES,
@@ -295,40 +296,44 @@ async function saveFile(
   }
 
   const tmp = join(dir, `.psyche-${randomBytes(6).toString("hex")}.tmp`);
+  const moved = () => new PsycheError("forbidden", `${dir} changed while it was being saved`);
+  const fh = await open(
+    tmp,
+    constants.O_WRONLY | constants.O_CREAT | constants.O_EXCL | constants.O_NOFOLLOW,
+    mode,
+  );
   try {
-    const fh = await open(
-      tmp,
-      constants.O_WRONLY | constants.O_CREAT | constants.O_EXCL | constants.O_NOFOLLOW,
-      mode,
-    );
-    let written: { dev: bigint; ino: bigint };
-    try {
-      await fh.writeFile(bytes);
-      await fh.chmod(mode);
-      await fh.sync();
-      const info = await fh.stat({ bigint: true });
-      written = { dev: info.dev, ino: info.ino };
-    } finally {
-      await fh.close();
-    }
+    await fh.writeFile(bytes);
+    await fh.chmod(mode);
+    await fh.sync();
+    const written = await fh.stat({ bigint: true });
     // The last look before the swap. Every step above went through the folder's path, so a
     // folder swapped for a link meanwhile must not take the rename outside the grant.
-    if ((await realpath(dir)) !== dir) {
-      throw new PsycheError("forbidden", `${dir} changed while it was being saved`);
-    }
+    if (!sameHostPath(await realpath(dir), dir)) throw moved();
     const placed = await lstat(tmp, { bigint: true });
     if (!placed.isFile() || placed.dev !== written.dev || placed.ino !== written.ino) {
-      throw new PsycheError("forbidden", `${dir} changed while it was being saved`);
+      throw moved();
     }
     checkGrant(join(dir, basename(target)));
     const now = await lstat(target, { bigint: true }).catch(() => undefined);
     if (now === undefined || !now.isFile() || fileEtag(now) !== params.ifMatch) {
       throw new PsycheError("conflict", `${target} changed since you opened it`);
     }
-    await (setup.rename ?? rename)(tmp, target);
+    try {
+      await (setup.rename ?? rename)(tmp, target);
+    } catch (err) {
+      // The folder was swapped between the checks and the rename: the temp name is gone from it.
+      if ((err as NodeJS.ErrnoException).code === "ENOENT") throw moved();
+      throw err;
+    }
   } catch (err) {
+    // Empty the file through its own descriptor, which a swapped path cannot redirect, so a
+    // temp file stranded in a moved folder holds none of the owner's text; then remove it.
+    await fh.truncate(0).catch(() => undefined);
     await unlink(tmp).catch(() => undefined);
     throw err;
+  } finally {
+    await fh.close().catch(() => undefined);
   }
   const info = await lstat(target, { bigint: true });
   // The path and the size only: never what was written.

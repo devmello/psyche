@@ -2968,6 +2968,7 @@ export const de: Partial<Catalogue> = {
     "Diese Änderung ist zu groß, um sie von hier zu sichern. Kürze den Text und versuche es erneut.",
   "screens.files.editMixedEol":
     "{name} mischt verschiedene Zeilenenden und lässt sich hier nicht bearbeiten.",
+  "screens.files.draftRestored": "Nicht gesicherte Änderungen wiederhergestellt",
   "screens.library.section.documents": "Dokumente",
   "screens.library.empty.documents":
     "Noch keine Dokumente. Dateien, die der Agent erstellt oder erhält, landen hier.",

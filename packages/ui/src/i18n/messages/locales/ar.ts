@@ -2912,6 +2912,7 @@ export const ar: Partial<Catalogue> = {
   "screens.files.editTooLarge": "للعرض فقط: لا يمكن تعديل الملفات التي تزيد على 512 كيلوبايت هنا.",
   "screens.files.saveTooLarge": "هذا التغيير أكبر من أن يُحفظ من هنا. اختصر النص وحاول مرة أخرى.",
   "screens.files.editMixedEol": "يخلط {name} بين أنماط نهاية السطر، لذا لا يمكن تعديله هنا.",
+  "screens.files.draftRestored": "تمت استعادة التغييرات غير المحفوظة",
   "screens.library.section.documents": "المستندات",
   "screens.library.empty.documents":
     "لا مستندات بعد. الملفات التي ينشئها الوكيل أو يستلمها تظهر هنا.",

@@ -10,6 +10,7 @@ import { useCall } from "../../data/hooks.ts";
 import { t } from "../../i18n/core.ts";
 import type { FolderGrant } from "../settings/types.ts";
 import type { FileRef } from "./FilesPane.tsx";
+import { clearDraft, getDraft, putDraft } from "./file-drafts.ts";
 
 /**
  * Editing a text file in the Files pane (`files.write`). The frame loads the file and its etag,
@@ -56,6 +57,16 @@ export interface FileEditSession {
    */
   text: string;
   /**
+   * Unsaved edits kept from an earlier visit to this file (the pane was swapped out and came
+   * back): the editor starts from these, with `text` as its saved baseline.
+   */
+  draft?: string;
+  /**
+   * The editor reports what it holds whenever it has unsaved changes, and `null` once it has
+   * none. The frame keeps it outside the component, so it survives the pane being swapped out.
+   */
+  reportDraft: (content: string | Promise<string> | null) => void;
+  /**
    * True while a save is under way or a conflict waits for an answer: the editor must not take
    * edits then, because Overwrite saves what the editor holds.
    */
@@ -71,7 +82,7 @@ export interface FileEditSession {
 type Loaded =
   | { status: "loading" }
   | { status: "error"; message: string }
-  | { status: "ready"; text: string };
+  | { status: "ready"; text: string; draft?: string };
 
 /** How the file on disk was written, so a save writes the same. */
 interface Shape {
@@ -106,6 +117,10 @@ export function FileEditFrame({
   const etag = useRef("");
   const shape = useRef<Shape>({ bom: false, eol: "\n" });
   const pending = useRef("");
+  // The etag a draft started from; it survives a restore, so a changed file is noticed again.
+  const draftBase = useRef<string | null>(null);
+  const [restored, setRestored] = useState(false);
+  const [isDirty, setIsDirty] = useState(false);
   // biome-ignore lint/correctness/useExhaustiveDependencies: fetchRev is the reload trigger
   useEffect(() => {
     const ac = new AbortController();
@@ -127,17 +142,42 @@ export function FileEditFrame({
         return fail(t("screens.files.editNotText", { name: file.name }));
       }
       etag.current = r.etag;
+      // Unsaved edits from an earlier visit come back; if the file changed meanwhile the
+      // conflict flow starts at once, with the draft held read-only until the owner decides.
+      const finish = async (text: string) => {
+        const kept = getDraft(path);
+        if (kept === undefined) return setLoaded({ status: "ready", text });
+        let draft: string;
+        try {
+          draft = await kept.content;
+        } catch {
+          clearDraft(path);
+          return setLoaded({ status: "ready", text });
+        }
+        if (ac.signal.aborted) return;
+        draftBase.current = kept.etag;
+        if (kept.etag === r.etag) setRestored(true);
+        else {
+          pending.current = draft;
+          setConflict("asked");
+        }
+        setLoaded({ status: "ready", text, draft });
+      };
       if (csv) {
         shape.current = { bom: false, eol: "\n" };
-        return setLoaded({ status: "ready", text: raw });
+        return finish(raw);
       }
       const bom = raw.startsWith("﻿");
       const body = bom ? raw.slice(1) : raw;
       const crlf = (body.match(/\r\n/g) ?? []).length;
       const lf = (body.match(/\n/g) ?? []).length - crlf;
-      if (crlf > 0 && lf > 0) return fail(t("screens.files.editMixedEol", { name: file.name }));
+      // A bare CR (an old Mac file, or a stray one) counts as a third style.
+      const loneCr = body.replace(/\r\n/g, "").includes("\r");
+      if ((crlf > 0 && lf > 0) || loneCr) {
+        return fail(t("screens.files.editMixedEol", { name: file.name }));
+      }
       shape.current = { bom, eol: crlf > 0 ? "\r\n" : "\n" };
-      setLoaded({ status: "ready", text: crlf > 0 ? body.replace(/\r\n/g, "\n") : body });
+      await finish(crlf > 0 ? body.replace(/\r\n/g, "\n") : body);
     })().catch((err: unknown) => {
       if (ac.signal.aborted) return;
       fail(t("screens.files.editFailed", { name: file.name, reason: errorText(err) }));
@@ -164,6 +204,8 @@ export function FileEditFrame({
       try {
         const r = await call("files.write", params);
         etag.current = r.etag;
+        draftBase.current = null;
+        setRestored(false);
         setConflict(null);
         return true;
       } catch (err) {
@@ -181,10 +223,36 @@ export function FileEditFrame({
     [call, path, file.name],
   );
 
+  const reportDraft = useCallback(
+    (content: string | Promise<string> | null) => {
+      if (content === null) {
+        draftBase.current = null;
+        clearDraft(path);
+        return;
+      }
+      draftBase.current ??= etag.current;
+      putDraft(path, { content, etag: draftBase.current });
+    },
+    [path],
+  );
+
+  const setDirty = useCallback(
+    (dirty: boolean) => {
+      setIsDirty(dirty);
+      onDirtyChange(dirty);
+    },
+    [onDirtyChange],
+  );
+
   const reload = () => {
+    draftBase.current = null;
+    clearDraft(path);
+    setRestored(false);
     setConflict(null);
     setProblem(null);
     onDirtyChange(false);
+    // Back to loading at once: the editor must not remount on the old draft meanwhile.
+    setLoaded({ status: "loading" });
     setFetchRev((n) => n + 1);
     setEpoch((n) => n + 1);
   };
@@ -204,6 +272,7 @@ export function FileEditFrame({
   const overwrite = async () => {
     const content = pending.current;
     if (await save(content)) {
+      clearDraft(path);
       setLoaded({ status: "ready", text: content });
       setEpoch((n) => n + 1);
       onDirtyChange(false);
@@ -266,6 +335,14 @@ export function FileEditFrame({
           )}
         </div>
       ) : null}
+      {restored && isDirty && conflict === null ? (
+        <p
+          role="status"
+          className="border-b border-separator px-3 py-1.5 text-callout text-label-secondary"
+        >
+          {t("screens.files.draftRestored")}
+        </p>
+      ) : null}
       {problem !== null ? (
         <p
           role="alert"
@@ -274,14 +351,16 @@ export function FileEditFrame({
           {problem}
         </p>
       ) : null}
-      {/* inert: an editor that cannot be set read-only (the sheet) takes no focus or edits. */}
-      <div className="min-h-0 flex-1 overflow-auto" key={epoch} inert={conflict !== null}>
+      {/* inert: an editor builds its read-only state once (CodeMirror) or has none (the sheet), so while a save runs or a conflict waits it takes no focus or edits. */}
+      <div className="min-h-0 flex-1 overflow-auto" key={epoch} inert={readOnly}>
         {renderEditor({
           file,
           text: loaded.text,
+          ...(loaded.draft === undefined ? {} : { draft: loaded.draft }),
+          reportDraft,
           readOnly,
           save,
-          setDirty: onDirtyChange,
+          setDirty,
           close: onClose,
         })}
       </div>

@@ -2930,6 +2930,7 @@ export const es: Partial<Catalogue> = {
     "Este cambio es demasiado grande para guardarlo desde aquí. Acorta el texto e inténtalo de nuevo.",
   "screens.files.editMixedEol":
     "{name} mezcla estilos de fin de línea, así que no se puede editar aquí.",
+  "screens.files.draftRestored": "Cambios sin guardar restaurados",
   "screens.library.section.documents": "Documentos",
   "screens.library.empty.documents":
     "Aún no hay documentos. Los archivos que el agente crea o recibe aparecen aquí.",

@@ -15,3 +15,9 @@ export {
   fileRefForTarget,
   libraryTarget,
 } from "./FilesPane.tsx";
+export {
+  hasLiveDirty,
+  markLiveDirty,
+  mayCloseFilesPane,
+  resetFileDrafts,
+} from "./file-drafts.ts";

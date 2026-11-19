@@ -173,12 +173,14 @@ export function ComposedFilesPane({
  */
 export function MarkdownFileEditor({ session }: { session: FileEditSession }): ReactElement {
   const [base, setBase] = useState(session.text);
-  const [draft, setDraft] = useState(session.text);
+  const [draft, setDraft] = useState(session.draft ?? session.text);
   const [saving, setSaving] = useState(false);
   const [saved, setSaved] = useState(false);
   const dirty = draft !== base;
-  const { setDirty } = session;
+  const { setDirty, reportDraft } = session;
   useEffect(() => setDirty(dirty), [dirty, setDirty]);
+  // The frame keeps the draft outside this component, for when the pane is swapped out.
+  useEffect(() => reportDraft(dirty ? draft : null), [dirty, draft, reportDraft]);
   const save = async () => {
     setSaving(true);
     const content = draft;
@@ -231,7 +233,9 @@ export function CsvFileEditor({
 }): ReactElement {
   const { file, text } = session;
   const item = useMemo(() => viewerItemOf(file), [file]);
-  const load = useCallback(async () => new TextEncoder().encode(text), [text]);
+  // A kept draft is the sheet as the owner left it; `text` stays the saved baseline.
+  const start = session.draft ?? text;
+  const load = useCallback(async () => new TextEncoder().encode(start), [start]);
   return (
     <SheetEditor
       item={item}
@@ -241,9 +245,16 @@ export function CsvFileEditor({
         if (!(await session.save(new TextDecoder("utf-8", { ignoreBOM: true }).decode(bytes)))) {
           throw new Error(t("screens.files.notSaved"));
         }
+        session.reportDraft(null);
       }}
       onClose={session.close}
       onDirtyChange={session.setDirty}
+      initialDirty={session.draft !== undefined}
+      onUnsaved={(bytes) =>
+        session.reportDraft(
+          bytes.then((b) => new TextDecoder("utf-8", { ignoreBOM: true }).decode(b)),
+        )
+      }
     />
   );
 }

@@ -2863,6 +2863,7 @@ export const hi: Partial<Catalogue> = {
   "screens.files.saveTooLarge": "यह बदलाव यहाँ से सहेजने के लिए बहुत बड़ा है। टेक्स्ट छोटा करके फिर कोशिश करें।",
   "screens.files.editMixedEol":
     "{name} में पंक्ति-समाप्ति की अलग-अलग शैलियाँ मिली हैं, इसलिए इसे यहाँ संपादित नहीं किया जा सकता।",
+  "screens.files.draftRestored": "बिना सहेले बदलाव वापस लाए गए",
   "screens.library.section.documents": "दस्तावेज़",
   "screens.library.empty.documents":
     "अभी कोई दस्तावेज़ नहीं। एजेंट द्वारा बनाई या प्राप्त की गई फ़ाइलें यहाँ आती हैं।",

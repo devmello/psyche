@@ -2855,6 +2855,7 @@ export const ko: Partial<Catalogue> = {
   "screens.files.saveTooLarge":
     "이 변경은 너무 커서 여기서 저장할 수 없습니다. 텍스트를 줄인 뒤 다시 시도하세요.",
   "screens.files.editMixedEol": "{name}은(는) 줄 바꿈 형식이 섞여 있어 여기서 편집할 수 없습니다.",
+  "screens.files.draftRestored": "저장하지 않은 변경 사항을 복원했습니다",
   "screens.library.section.documents": "문서",
   "screens.library.empty.documents":
     "아직 문서가 없습니다. 에이전트가 만들거나 받은 파일이 여기에 표시됩니다.",

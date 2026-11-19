@@ -2873,6 +2873,7 @@ export const ja: Partial<Catalogue> = {
   "screens.files.saveTooLarge":
     "この変更は大きすぎて、ここからは保存できません。テキストを短くして、もう一度お試しください。",
   "screens.files.editMixedEol": "{name} は改行の形式が混在しているため、ここでは編集できません。",
+  "screens.files.draftRestored": "未保存の変更を復元しました",
   "screens.library.section.documents": "書類",
   "screens.library.empty.documents":
     "書類はまだありません。エージェントが作成または受け取ったファイルがここに入ります。",

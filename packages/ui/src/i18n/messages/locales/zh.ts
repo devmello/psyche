@@ -2827,6 +2827,7 @@ export const zh: Partial<Catalogue> = {
   "screens.files.editTooLarge": "仅供查看:超过 512 KB 的文件无法在此编辑。",
   "screens.files.saveTooLarge": "此更改太大,无法从这里保存。请缩短文本后重试。",
   "screens.files.editMixedEol": "{name} 混用了多种换行符,无法在此编辑。",
+  "screens.files.draftRestored": "已恢复未保存的更改",
   "screens.library.section.documents": "文稿",
   "screens.library.empty.documents": "还没有文稿。代理制作或收到的文件会出现在这里。",
   "screens.library.section.images": "图片",

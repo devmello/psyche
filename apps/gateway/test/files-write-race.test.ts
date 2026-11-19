@@ -16,15 +16,23 @@ import { PsycheError } from "@psyche/protocol";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 /** Runs once, right after the temp file is opened: a process racing the save. */
-const hook: { afterOpen?: (path: string) => Promise<void> } = {};
+const hook: {
+  beforeOpen?: (path: string) => Promise<void>;
+  afterOpen?: (path: string) => Promise<void>;
+} = {};
 
 vi.mock("node:fs/promises", async (orig) => {
   const actual = await orig<typeof import("node:fs/promises")>();
   return {
     ...actual,
     open: async (...args: Parameters<typeof actual.open>) => {
-      const fh = await actual.open(...args);
       const path = String(args[0]);
+      if (path.endsWith(".tmp") && hook.beforeOpen) {
+        const run = hook.beforeOpen;
+        hook.beforeOpen = undefined;
+        await run(path);
+      }
+      const fh = await actual.open(...args);
       if (path.endsWith(".tmp") && hook.afterOpen) {
         const run = hook.afterOpen;
         hook.afterOpen = undefined;
@@ -54,14 +62,16 @@ beforeEach(async () => {
 
 afterEach(async () => {
   hook.afterOpen = undefined;
+  hook.beforeOpen = undefined;
   await rm(base, { recursive: true, force: true });
 });
 
-const handlers = () =>
+const handlers = (rename?: (a: string, b: string) => Promise<void>) =>
   filesHandlers({
     folders: () => [{ path: rw, mode: "rw" }],
     home,
     audit: new HashChainAuditLog(),
+    ...(rename ? { rename } : {}),
   });
 const call = { identity: { deviceId: "dev_1", scopes: ["operator.admin"] } } as never;
 
@@ -104,5 +114,49 @@ describe("files.write against a folder swapped for a link mid-save", () => {
     expect((err as PsycheError).code).toBe("forbidden");
     expect(await readFile(path, "utf8")).toBe("# one\n");
     expect(await readdir(join(rw, "sub"))).toEqual(["a.md"]);
+  });
+
+  const swapSub = async () => {
+    await rename(join(rw, "sub"), join(rw, "sub-moved"));
+    await symlink(outside, join(rw, "sub"));
+  };
+  const etagOf = async (h: ReturnType<typeof handlers>, path: string) => {
+    const read = h["files.read"];
+    if (read === undefined) throw new Error("no files.read");
+    return ((await read.run(call, { path, length: 1 } as never)) as { etag: string }).etag;
+  };
+
+  it("refuses when the folder is swapped before the temp file is opened, leaving nothing outside", async () => {
+    const path = join(rw, "sub", "a.md");
+    const h = handlers();
+    const etag = await etagOf(h, path);
+    hook.beforeOpen = swapSub;
+    const err = await Promise.resolve(
+      h["files.write"]?.run(call, { path, content: "OWNER", ifMatch: etag } as never),
+    ).catch((e: unknown) => e);
+    expect((err as PsycheError).code).toBe("forbidden");
+    expect(await readFile(join(outside, "a.md"), "utf8")).toBe("# out\n");
+    expect(await readdir(outside)).toEqual(["a.md"]);
+  });
+
+  it("refuses when the folder is swapped just before the rename, and strands no text", async () => {
+    const path = join(rw, "sub", "a.md");
+    const h = handlers(async (from, to) => {
+      await swapSub();
+      await rename(from, to);
+    });
+    const etag = await etagOf(h, path);
+    const err = await Promise.resolve(
+      h["files.write"]?.run(call, { path, content: "OWNER TEXT", ifMatch: etag } as never),
+    ).catch((e: unknown) => e);
+    expect(err).toBeInstanceOf(PsycheError);
+    expect((err as PsycheError).code).toBe("forbidden");
+    expect(await readFile(join(outside, "a.md"), "utf8")).toBe("# out\n");
+    expect(await readdir(outside)).toEqual(["a.md"]);
+    // A temp file left in the moved folder was emptied through its descriptor.
+    for (const name of await readdir(join(rw, "sub-moved"))) {
+      if (name !== "a.md") expect(await readFile(join(rw, "sub-moved", name), "utf8")).toBe("");
+    }
+    expect(await readFile(join(rw, "sub-moved", "a.md"), "utf8")).toBe("# one\n");
   });
 });

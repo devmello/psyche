@@ -2905,6 +2905,7 @@ export const fr: Partial<Catalogue> = {
     "Cette modification est trop volumineuse pour être enregistrée d’ici. Raccourcissez le texte et réessayez.",
   "screens.files.editMixedEol":
     "{name} mélange plusieurs styles de fin de ligne ; il ne peut pas être modifié ici.",
+  "screens.files.draftRestored": "Modifications non enregistrées restaurées",
   "screens.library.section.documents": "Documents",
   "screens.library.empty.documents":
     "Aucun document pour l’instant. Les fichiers que l’agent crée ou reçoit arrivent ici.",
