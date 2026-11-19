@@ -1225,6 +1225,42 @@ export const de: Partial<Catalogue> = {
   "settings.credentials.vault.setup.failed": "Der Tresor wurde nicht angelegt: {reason}",
   "settings.credentials.vault.setup.noSlot":
     "Dieses Gateway bietet keinen Schlüsselplatz für den Tresor.",
+  "settings.credentials.onePassword.title": "1Password",
+  "settings.credentials.onePassword.intro":
+    "Psyche kann Einträge lesen, die du aus 1Password verknüpfst. Psyche speichert kein 1Password-Passwort und keinen Token; 1Password fragt selbst nach, wenn es entsperrt werden muss.",
+  "settings.credentials.onePassword.check": "Erneut prüfen",
+  "settings.credentials.onePassword.guide": "Anleitung öffnen",
+  "settings.credentials.onePassword.notInstalled.body":
+    "Psyche findet das 1Password-Befehlszeilenwerkzeug (op) auf diesem Computer nicht. Installiere es und prüfe dann erneut.",
+  "settings.credentials.onePassword.notIntegrated.body":
+    "Öffne in der 1Password-App die Einstellungen, wähle Entwickler und aktiviere „Mit 1Password-CLI integrieren“. Prüfe dann erneut.",
+  "settings.credentials.onePassword.locked.body":
+    "Entsperre die 1Password-App und bestätige die Anfrage, falls sie danach fragt. Prüfe dann erneut.",
+  "settings.credentials.onePassword.error.body":
+    "Das 1Password-Befehlszeilenwerkzeug hat nicht wie erwartet geantwortet. Prüfe erneut; falls es weiter fehlschlägt, installiere op neu.",
+  "settings.credentials.onePassword.signedIn.body": "Bei 1Password angemeldet als {email} ({url}).",
+  "settings.credentials.onePassword.signedIn.connect": "1Password in Psyche verwenden",
+  "settings.credentials.onePassword.connected.body":
+    "Psyche liest die verknüpften 1Password-Einträge über die 1Password-App. Sie werden nur gelesen; nichts wird in 1Password geschrieben.",
+  "settings.credentials.onePassword.test": "Verbindung testen",
+  "settings.credentials.onePassword.test.ok":
+    "Verbunden. {count, plural, one {# Tresor} other {# Tresore}} gefunden.",
+  "settings.credentials.onePassword.test.failed": "Der Test hat nicht funktioniert: {reason}",
+  "settings.credentials.onePassword.disconnect": "Trennen",
+  "settings.credentials.onePassword.config":
+    "1Password ist in der config.json des Gateways eingerichtet. Ändere es dort.",
+  "settings.credentials.onePassword.failed": "Das hat nicht funktioniert: {reason}",
+  "settings.credentials.onePassword.found.body":
+    "Psyche hat das 1Password-Befehlszeilenwerkzeug gefunden. Wähle „Prüfen“, um zu sehen, wie weit die Einrichtung ist.",
+  "settings.credentials.onePassword.checkNow": "Prüfen",
+  "settings.credentials.onePassword.changed.body":
+    "Das 1Password-Befehlszeilenwerkzeug hat sich seit dem Verbinden geändert. Prüfe erneut.",
+  "settings.credentials.onePassword.unsigned.body":
+    "Die gefundene op-Datei ist nicht von 1Password signiert, daher führt Psyche sie nicht aus. Installiere op von 1Password und prüfe dann erneut.",
+  "settings.credentials.onePassword.unsafeFolder.body":
+    "Psyche hat op gefunden, aber ein Ordner darüber gehört dir nicht oder kann von anderen geändert werden, daher führt Psyche es nicht aus. Mach diese Ordner zu deinen und nicht für Gruppe oder andere beschreibbar, dann prüfe erneut.",
+  "settings.credentials.onePassword.repinned.notice":
+    "1Password-CLI aktualisiert und {when} neu geprüft",
   "settings.credentials.vault.confirm.title": "Bestätige deinen Wiederherstellungsschlüssel",
   "settings.credentials.vault.confirm.body":
     "Gib die letzte Gruppe deines Wiederherstellungsschlüssels ein, also den Teil nach dem letzten Bindestrich, um zu zeigen, dass du ihn gesichert hast.",

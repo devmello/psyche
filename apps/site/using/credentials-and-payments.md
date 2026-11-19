@@ -58,7 +58,14 @@ Even so, the first choice for a login is to type it yourself: click **Take contr
 
 ### 1Password
 
-Settings → Credentials has "Connect 1Password" under "More ways to add". Linked 1Password items are read only in Psyche. Setting up the link needs a `credentials.onePassword` entry in the Gateway's `config.json` and a 1Password token stored in the vault; there is no guided setup yet. Alternatively, use real Chrome mode with the 1Password extension, so 1Password fills logins itself (see [Browser](/using/browser)).
+Settings → Credentials has a **1Password** panel that walks you through it, from an administrator device. Psyche reads the items you link through the 1Password command-line tool (`op`), signed in by the 1Password app. It stores no 1Password password or token, and 1Password shows its own unlock prompt when it needs one. Linked items are read only.
+
+1. **Install `op`.** The panel shows `brew install --cask 1password-cli` and a link to 1Password's guide. Choose **Check again** afterwards. Psyche runs `op` only if it is a real file owned by you or root that other users can't write, in folders other users can't write, outside Psyche's own data folder, and (on a Mac) signed by 1Password. Opening the panel runs nothing: choose **Check** to ask 1Password where things stand. Once you connect, Psyche pins that exact file and refuses a different one ("the 1Password CLI changed") until you check again.
+2. **Turn on the app integration.** In the 1Password app, open Settings, choose Developer, and turn on **Integrate with 1Password CLI**.
+3. **Unlock 1Password.** If the panel says it is locked, unlock the app and approve the request if it asks.
+4. **Use 1Password in Psyche.** Once the panel shows your account, choose **Use 1Password in Psyche**. It takes effect at once. **Test connection** lists your vaults and shows only how many there are; it never reads an item. **Disconnect** stops Psyche reading 1Password; items you already linked stay, and answer "unavailable" until you connect again.
+
+If the Gateway's `config.json` has a `credentials.onePassword` entry (a service-account token in the vault, or a Connect server), that wins and the panel says so. Alternatively, use real Chrome mode with the 1Password extension, so 1Password fills logins itself (see [Browser](/using/browser)).
 
 ### Stripe Link payments
 

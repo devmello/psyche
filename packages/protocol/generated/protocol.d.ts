@@ -4026,7 +4026,7 @@ export interface CredentialMeta {
     id:                string;
     kind:              CredentialKind;
     lastUsedAt?:       null | string;
-    managedBy?:        ManagedBy;
+    managedBy?:        ManagedByClass;
     name:              string;
     ownerConnectorId?: null | string;
     slug:              string;
@@ -4044,7 +4044,7 @@ export interface CredentialBinding {
 
 export type CredentialKind = "login" | "api_key" | "oauth_token" | "ssh_key" | "note" | "payment_link" | "signing_key";
 
-export interface ManagedBy {
+export interface ManagedByClass {
     kind:      ManagedByKind;
     removable: boolean;
     setting:   Setting;
@@ -8777,6 +8777,39 @@ export interface OnePasswordRef {
     vault: string;
 }
 
+export interface OnePasswordTestResult {
+    status:     OnePasswordSetupStatus;
+    vaultCount: number;
+}
+
+export interface OnePasswordSetupStatus {
+    account?:    Account;
+    connected:   boolean;
+    managedBy?:  ManagedByEnum;
+    op?:         OpClass;
+    os:          OS;
+    problem?:    ProblemEnum;
+    repinnedAt?: number;
+    state:       OnePasswordSetupState;
+}
+
+export interface Account {
+    email: string;
+    url:   string;
+}
+
+export type ManagedByEnum = "config";
+
+export interface OpClass {
+    path: string;
+}
+
+export type OS = "macos" | "other";
+
+export type ProblemEnum = "op_changed" | "op_unsigned" | "op_unsafe_folder";
+
+export type OnePasswordSetupState = "not_installed" | "found" | "not_integrated" | "locked" | "signed_in" | "error";
+
 export type OSPermission = "a11yBus" | "screenCastPortal" | "remoteDesktopPortal" | "x11";
 
 export interface PairingRequestedPayload {
@@ -8838,7 +8871,7 @@ export interface PaymentsLinkChangedPayload {
 export interface LinkSetupStatus {
     candidates: LinkSetupStatusCandidate[];
     cli?:       CLI;
-    problem?:   Problem;
+    problem?:   ProblemClass;
     signIn?:    SignInClass;
     state:      LinkSetupState;
 }
@@ -8854,7 +8887,7 @@ export interface CLI {
 
 export type CLISource = "saved" | "env";
 
-export interface Problem {
+export interface ProblemClass {
     path:   string;
     reason: LinkSetupReason;
 }
@@ -12703,6 +12736,10 @@ export interface VaultLockedPayload {
 }
 
 export type VaultLockedPayloadReason = "manual" | "idle" | "sleep" | "screen_lock" | "shutdown";
+
+export interface VaultOnePasswordStatusParams {
+    probe?: boolean;
+}
 
 export interface VaultPaymentUpdatedPayload {
     payment: VaultPayment;

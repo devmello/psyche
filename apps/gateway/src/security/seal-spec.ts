@@ -52,6 +52,7 @@ const INTERNAL_SEALED = new Set([
   // Decides which OAuth app receives the owner's Google consent.
   "_connectors.googleClient",
   "_payments.linkAbandonedBefore",
+  "_credentials.onePasswordApp",
 ]);
 
 /** `mcp.servers` carries each server's trust tier, sandbox and launch command. */

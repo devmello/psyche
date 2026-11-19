@@ -1198,6 +1198,43 @@ export const es: Partial<Catalogue> = {
   "settings.credentials.vault.setup.failed": "No se creó la bóveda: {reason}",
   "settings.credentials.vault.setup.noSlot":
     "Este Gateway no ofrece ranura de clave para la bóveda.",
+  "settings.credentials.onePassword.title": "1Password",
+  "settings.credentials.onePassword.intro":
+    "Deja que Psyche lea los elementos que vincules desde 1Password. Psyche no guarda ninguna contraseña ni token de 1Password, y es 1Password quien te pide desbloquear cuando hace falta.",
+  "settings.credentials.onePassword.check": "Comprobar de nuevo",
+  "settings.credentials.onePassword.guide": "Abrir la guía",
+  "settings.credentials.onePassword.notInstalled.body":
+    "Psyche no encuentra la herramienta de línea de comandos de 1Password (op) en este equipo. Instálala y vuelve a comprobar.",
+  "settings.credentials.onePassword.notIntegrated.body":
+    "En la app de 1Password, abre Ajustes, elige Desarrollador y activa Integrar con la CLI de 1Password. Después vuelve a comprobar.",
+  "settings.credentials.onePassword.locked.body":
+    "Desbloquea la app de 1Password y aprueba la solicitud si la pide. Después vuelve a comprobar.",
+  "settings.credentials.onePassword.error.body":
+    "La herramienta de línea de comandos de 1Password no respondió como se esperaba. Vuelve a comprobar; si sigue fallando, reinstala op.",
+  "settings.credentials.onePassword.signedIn.body":
+    "Sesión iniciada en 1Password como {email} ({url}).",
+  "settings.credentials.onePassword.signedIn.connect": "Usar 1Password en Psyche",
+  "settings.credentials.onePassword.connected.body":
+    "Psyche lee los elementos de 1Password que vinculas a través de la app de 1Password. Son de solo lectura; no se escribe nada en 1Password.",
+  "settings.credentials.onePassword.test": "Probar conexión",
+  "settings.credentials.onePassword.test.ok":
+    "Conectado. Se {count, plural, one {encontró # caja fuerte} other {encontraron # cajas fuertes}}.",
+  "settings.credentials.onePassword.test.failed": "La prueba no funcionó: {reason}",
+  "settings.credentials.onePassword.disconnect": "Desconectar",
+  "settings.credentials.onePassword.config":
+    "1Password está configurado en el config.json del Gateway. Cámbialo allí.",
+  "settings.credentials.onePassword.failed": "No funcionó: {reason}",
+  "settings.credentials.onePassword.found.body":
+    "Psyche encontró la herramienta de línea de comandos de 1Password. Elige Comprobar para ver cómo va la configuración.",
+  "settings.credentials.onePassword.checkNow": "Comprobar",
+  "settings.credentials.onePassword.changed.body":
+    "La herramienta de línea de comandos de 1Password cambió desde que te conectaste. Vuelve a comprobar.",
+  "settings.credentials.onePassword.unsigned.body":
+    "El archivo op que encontró Psyche no está firmado por 1Password, así que no lo ejecutará. Instala op desde 1Password y vuelve a comprobar.",
+  "settings.credentials.onePassword.unsafeFolder.body":
+    "Psyche encontró op, pero una carpeta que lo contiene no es tuya o puede ser modificada por otros usuarios, así que no lo ejecutará. Haz que esas carpetas sean tuyas y no se puedan escribir por grupo u otros, y vuelve a comprobar.",
+  "settings.credentials.onePassword.repinned.notice":
+    "CLI de 1Password actualizada y comprobada de nuevo {when}",
   "settings.credentials.vault.confirm.title": "Confirma tu clave de recuperación",
   "settings.credentials.vault.confirm.body":
     "Escribe el último grupo de tu clave de recuperación, la parte tras el último guion, para demostrar que la guardaste.",

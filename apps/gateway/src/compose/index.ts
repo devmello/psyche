@@ -194,6 +194,7 @@ import {
   settingsKeyValue,
 } from "./model-settings.ts";
 import { composeNudges } from "./nudges.ts";
+import { composeOnePasswordSetup, type OnePasswordSetupOptions } from "./onepassword-setup.ts";
 import { createOtherChats, type OtherChats } from "./other-chats.ts";
 import { PageReadHub } from "./page-reads.ts";
 import { composePasskeys } from "./passkeys.ts";
@@ -342,6 +343,8 @@ export interface ComposeOptions
    * is always mounted and its `vault.payments.*` handlers would collide.
    */
   payments?: PaymentsSetup & { link?: LinkSetupOptions };
+  /** Tunes the guided 1Password setup (tests inject a fake `op` runner). */
+  onePasswordSetup?: OnePasswordSetupOptions;
   /**
    * Speech (S17: dictation, voice memos, read-aloud, voices) is always mounted; this sets its
    * process runner prefix (default: `speechSetupFromEnv`).
@@ -1288,6 +1291,12 @@ export async function composeGateway(options: ComposeOptions): Promise<ComposedG
     composeArtifacts,
     // Generative-UI widgets (generative-ui-2026): snapshots by id; tools arrive in P3.
     composeWidgets,
+    // Guided 1Password setup (Settings → Credentials): the CLI integration of the 1Password app.
+    composeOnePasswordSetup({
+      ...gwOptions.onePasswordSetup,
+      externalConfigured:
+        (vaultSetup?.onePassword ?? config.onePassword ?? undefined) !== undefined,
+    }),
     composeGuidedPayments(
       gwOptions.payments ?? paymentsSetupFromEnv(gwOptions.env ?? process.env),
       gwOptions.payments?.link,

@@ -1188,6 +1188,43 @@ export const ja: Partial<Catalogue> = {
   "settings.credentials.vault.setup.failed": "保管庫を作成できませんでした：{reason}",
   "settings.credentials.vault.setup.noSlot":
     "この Gateway には保管庫用のキースロットがありません。",
+  "settings.credentials.onePassword.title": "1Password",
+  "settings.credentials.onePassword.intro":
+    "1Password からリンクした項目を Psyche が読み取れるようにします。Psyche は 1Password のパスワードやトークンを保存せず、ロック解除が必要なときは 1Password 自身が確認します。",
+  "settings.credentials.onePassword.check": "再確認",
+  "settings.credentials.onePassword.guide": "ガイドを開く",
+  "settings.credentials.onePassword.notInstalled.body":
+    "このコンピュータで 1Password のコマンドラインツール（op）が見つかりません。インストールしてから再確認してください。",
+  "settings.credentials.onePassword.notIntegrated.body":
+    "1Password アプリで「設定」を開き、「デベロッパー」を選んで「1Password CLI と連携」をオンにします。その後、再確認してください。",
+  "settings.credentials.onePassword.locked.body":
+    "1Password アプリのロックを解除し、確認が出たら承認してください。その後、再確認してください。",
+  "settings.credentials.onePassword.error.body":
+    "1Password のコマンドラインツールが想定どおりに応答しませんでした。再確認してください。失敗が続く場合は op を再インストールしてください。",
+  "settings.credentials.onePassword.signedIn.body":
+    "{email}（{url}）として 1Password にサインイン済みです。",
+  "settings.credentials.onePassword.signedIn.connect": "Psyche で 1Password を使う",
+  "settings.credentials.onePassword.connected.body":
+    "Psyche は、リンクした 1Password の項目を 1Password アプリ経由で読み取ります。読み取り専用で、1Password には何も書き込みません。",
+  "settings.credentials.onePassword.test": "接続をテスト",
+  "settings.credentials.onePassword.test.ok":
+    "接続しました。{count, plural, other {保管庫が # 件見つかりました}}。",
+  "settings.credentials.onePassword.test.failed": "テストに失敗しました：{reason}",
+  "settings.credentials.onePassword.disconnect": "接続を解除",
+  "settings.credentials.onePassword.config":
+    "1Password は Gateway の config.json で設定されています。変更はそちらで行ってください。",
+  "settings.credentials.onePassword.failed": "うまくいきませんでした：{reason}",
+  "settings.credentials.onePassword.found.body":
+    "Psyche は 1Password のコマンドラインツールを見つけました。「確認」を選ぶと、設定の進み具合がわかります。",
+  "settings.credentials.onePassword.checkNow": "確認",
+  "settings.credentials.onePassword.changed.body":
+    "接続後に 1Password のコマンドラインツールが変更されました。再確認してください。",
+  "settings.credentials.onePassword.unsigned.body":
+    "Psyche が見つけた op ファイルは 1Password の署名がないため、実行しません。1Password から op をインストールして、再確認してください。",
+  "settings.credentials.onePassword.unsafeFolder.body":
+    "Psyche は op を見つけましたが、それを含むフォルダがあなたのものではないか、他のユーザーが変更できるため、実行しません。それらのフォルダを自分のものにし、グループやその他のユーザーが書き込めないようにしてから、再確認してください。",
+  "settings.credentials.onePassword.repinned.notice":
+    "1Password CLI が更新され、{when} に再確認されました",
   "settings.credentials.vault.confirm.title": "復旧キーを確認",
   "settings.credentials.vault.confirm.body":
     "保存したことを確認するため、復旧キーの最後のグループ（最後のハイフンより後ろ）を入力してください。",
