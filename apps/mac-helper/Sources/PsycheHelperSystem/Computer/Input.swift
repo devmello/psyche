@@ -90,7 +90,11 @@ enum Input {
         }
     }
 
-    static func drag(from a: CGPoint, to b: CGPoint, stop: StopSignal) throws {
+    /// `pid` is the app the drag is in; `frontmostPid` says which app is frontmost now (tests replace it).
+    static func drag(
+        from a: CGPoint, to b: CGPoint, pid: pid_t, stop: StopSignal,
+        frontmostPid: () -> pid_t? = { NSWorkspace.shared.frontmostApplication?.processIdentifier }
+    ) throws {
         let src = source
         try stop.check()
         try move(to: a)
@@ -100,15 +104,25 @@ enum Input {
         // The button is down from here. If the drag does not finish (a stop included) it is CANCELLED,
         // never dropped: the pointer may be over another app that no tier check covered. A marked Esc
         // (it passes the Esc tap) cancels the system drag, then the pointer goes back to the start and
-        // releases there, where a drop is a no-op.
+        // releases there, where a drop is a no-op. The Esc goes only if the drag's app is still frontmost:
+        // otherwise it would land in another app. Cancel events carry no modifiers, so a key the owner
+        // holds cannot turn the Esc into Force Quit (Option-Command-Esc) or the release into a copy drag.
         var completed = false
         defer {
             if !completed {
-                for down in [true, false] {
-                    try? post(CGEvent(keyboardEventSource: src, virtualKey: 53, keyDown: down))
+                if frontmostPid() == pid {
+                    for down in [true, false] {
+                        let esc = CGEvent(keyboardEventSource: src, virtualKey: 53, keyDown: down)
+                        esc?.flags = []
+                        try? post(esc)
+                    }
                 }
-                try? post(CGEvent(mouseEventSource: src, mouseType: .leftMouseDragged, mouseCursorPosition: a, mouseButton: .left))
-                try? post(CGEvent(mouseEventSource: src, mouseType: .leftMouseUp, mouseCursorPosition: a, mouseButton: .left))
+                let back = CGEvent(mouseEventSource: src, mouseType: .leftMouseDragged, mouseCursorPosition: a, mouseButton: .left)
+                back?.flags = []
+                try? post(back)
+                let up = CGEvent(mouseEventSource: src, mouseType: .leftMouseUp, mouseCursorPosition: a, mouseButton: .left)
+                up?.flags = []
+                try? post(up)
             }
         }
         let steps = 12

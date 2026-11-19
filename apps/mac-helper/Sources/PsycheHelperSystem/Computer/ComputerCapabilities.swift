@@ -882,7 +882,7 @@ public enum ComputerCapabilities {
             }
             try activate(appA, stop: cu.stop)
             try checkHit(a, app: appA, element: nil, approvalId: ctx.approvalId)
-            try Input.drag(from: a, to: b, stop: cu.stop)
+            try Input.drag(from: a, to: b, pid: appA.pid, stop: cu.stop)
             return ActionOutcome(status: "ok", method: "cgevent", app: appA).output("drag")
         }
     }
