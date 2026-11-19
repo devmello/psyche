@@ -113,7 +113,58 @@ const COLLECTORS = [
   "ngrok-free.dev",
   "pastebin.com",
   "ipfs.io",
+  "interact.sh",
+  "oast.pro",
+  "oast.live",
+  "oast.site",
+  "oast.online",
+  "oast.fun",
+  "oast.me",
+  "burpcollaborator.net",
+  "canarytokens.com",
+  "requestcatcher.com",
+  "beeceptor.com",
+  "requestrepo.com",
+  "postb.in",
+  "transfer.sh",
+  "paste.ee",
+  "hastebin.com",
 ];
+
+/**
+ * Multi-tenant apexes the Public Suffix List misses: the exact origin may be trusted, but never
+ * "and its subdomains", because every subdomain is a different party's site.
+ */
+const NO_SUBDOMAIN_APEXES = new Set([
+  "wordpress.com",
+  "tumblr.com",
+  "substack.com",
+  "medium.com",
+  "sharepoint.com",
+  "zendesk.com",
+  "atlassian.net",
+  "itch.io",
+  "blogger.com",
+  "notion.site",
+  "webflow.io",
+  "wixsite.com",
+  "squarespace.com",
+  "myshopify.com",
+  "glitch.me",
+  "replit.app",
+  "repl.co",
+]);
+
+/** A host no quiet read may cover, however the entry was made (checked on every match). */
+function hostRefused(host: string): boolean {
+  return (
+    isPublicSuffixLike(host) ||
+    isSharedTenantHost(host) ||
+    isCollectorHost(host) ||
+    isUnknownSuffix(host) ||
+    venueOfHost(host) !== undefined
+  );
+}
 
 export function isCollectorHost(host: string): boolean {
   return COLLECTORS.some((b) => underOrEqual(host, b));
@@ -160,6 +211,9 @@ export function normalizeTrustedSite(input: string, subdomains = false): Trusted
   if (isUnknownSuffix(u.host)) {
     throw new TrustedSiteError("public_suffix", "this name is not on the public internet");
   }
+  if (subdomains && NO_SUBDOMAIN_APEXES.has(u.host)) {
+    throw new TrustedSiteError("public_suffix", "every subdomain here belongs to someone else");
+  }
   if (isCollectorHost(u.host) || isSharedTenantHost(u.host) || venueOfHost(u.host) !== undefined) {
     throw new TrustedSiteError("public_suffix", "this host serves many parties' content");
   }
@@ -184,19 +238,16 @@ export function trustedSiteCovers(site: TrustedSite, origin: string): boolean {
     return false;
   }
   if (isIpLiteral(o.host) || isLoopbackName(o.host)) return false;
+  // Entries made before a list update stop working: the same refusals apply to an exact match.
+  if (hostRefused(o.host)) return false;
   if (o.origin === t.origin) return true;
-  if (!site.subdomains) return false;
+  if (!site.subdomains || NO_SUBDOMAIN_APEXES.has(t.host)) return false;
   if (o.scheme !== t.scheme || o.port !== t.port || !o.host.endsWith(`.${t.host}`)) return false;
   // The host being read is checked too, not only the trusted one: a subdomain that is a different
   // party's (a private suffix such as `s3.amazonaws.com`), a shared-tenant or collector host or a
   // venue is never covered by a parent's subdomain trust.
   return (
     getPublicSuffix(o.host, { allowPrivateDomains: true }) ===
-      getPublicSuffix(t.host, { allowPrivateDomains: true }) &&
-    !isPublicSuffixLike(o.host) &&
-    !isSharedTenantHost(o.host) &&
-    !isCollectorHost(o.host) &&
-    !isUnknownSuffix(o.host) &&
-    venueOfHost(o.host) === undefined
+      getPublicSuffix(t.host, { allowPrivateDomains: true }) && !hostRefused(o.host)
   );
 }
