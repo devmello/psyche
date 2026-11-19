@@ -82,7 +82,9 @@ function secretsOf(raw: string): string[] {
   }
   const found = new Set<string>();
   const add = (v: string) => {
-    if (v.length < 4) return;
+    // A short value (`true`, `json`) would blank ordinary words; it is still hidden inside any
+    // address by the pass below.
+    if (v.length < 8) return;
     found.add(v);
     found.add(encodeURIComponent(v));
     try {
@@ -145,6 +147,57 @@ export function scrubError(err: unknown, known: readonly string[] = []): PsycheE
   });
 }
 
+const SECRET_FLAG =
+  /^--?[A-Za-z0-9_-]*(?:key|token|secret|passw(?:or)?d|auth|credential|cookie|session)[A-Za-z0-9_-]*$/i;
+const TOKEN_PREFIX = /^(?:sk|ak)-|^ghp_|^gho_|^ghs_|^github_pat_|^xox[abprs]-/i;
+
+/** A long run of mixed letters and digits, or a well-known token prefix. */
+function tokenLikeArg(arg: string): boolean {
+  if (TOKEN_PREFIX.test(arg)) return true;
+  return (
+    arg.length >= 20 && /^[A-Za-z0-9_\-.~%]+$/.test(arg) && /[A-Za-z]/.test(arg) && /\d/.test(arg)
+  );
+}
+
+/**
+ * A command line as a client may read it: the value of a flag that names a secret
+ * (`--api-key=…`, `--token …`), a token-looking argument, and the secrets of an address argument
+ * are hidden. The program and ordinary arguments stay.
+ */
+export function redactArgv(argv: readonly unknown[]): unknown[] {
+  const out: unknown[] = [];
+  let hideNext = false;
+  for (const arg of argv) {
+    if (typeof arg !== "string") {
+      out.push(arg);
+      continue;
+    }
+    if (hideNext) {
+      out.push(REDACTED);
+      hideNext = false;
+      continue;
+    }
+    if (arg.startsWith("-")) {
+      const eq = arg.indexOf("=");
+      if (eq > 0 && SECRET_FLAG.test(arg.slice(0, eq))) {
+        out.push(`${arg.slice(0, eq + 1)}${REDACTED}`);
+        continue;
+      }
+      if (eq < 0 && SECRET_FLAG.test(arg)) {
+        out.push(arg);
+        hideNext = true;
+        continue;
+      }
+    }
+    if (/^(?:https?|wss?):\/\//i.test(arg)) {
+      out.push(redactUrl(arg) || REDACTED);
+      continue;
+    }
+    out.push(tokenLikeArg(arg) ? REDACTED : arg);
+  }
+  return out;
+}
+
 const isObj = (v: unknown): v is Record<string, unknown> =>
   typeof v === "object" && v !== null && !Array.isArray(v);
 
@@ -162,8 +215,9 @@ export function redactMcpServers(value: unknown): unknown {
     const out: Record<string, unknown> = { ...rest };
     if (isObj(auth)) out.auth = { kind: typeof auth.kind === "string" ? auth.kind : "none" };
     if (isObj(transport)) {
-      const { env, url, headers: _h, ...t } = transport;
+      const { env, url, headers: _h, command, ...t } = transport;
       const next: Record<string, unknown> = { ...t };
+      if (Array.isArray(command)) next.command = redactArgv(command);
       if (typeof url === "string") next.url = redactUrl(url);
       if (isObj(env)) {
         next.env = Object.fromEntries(

@@ -131,9 +131,18 @@ export const settingsHandlers: Record<string, HandlerDef> = {
     // Not transactional: a security key first awaits the broker. The write itself is one row.
     async run(call: Call, params: { key: string; value: unknown; approvalId?: string }) {
       const { key } = params;
+      // Tool servers change only through the `mcp.*` methods. A whole-list write can't carry
+      // the secrets a read hides, and it would skip the trust card.
+      if (key === "mcp.servers") {
+        throw new PsycheError(
+          "invalid_params",
+          "Tool servers can't be written with settings.set. Use mcp.probe and mcp.add to add one, mcp.update to edit, mcp.setEnabled to pause or resume, and mcp.remove to remove.",
+          { details: { reason: "use_mcp_methods" } },
+        );
+      }
       // `gateway.lan` is stored in its normalized form, and a malformed or wildcard value is
       // refused before anything (including the presence card) is created for it.
-      let value = key === LAN_SETTING ? parseLanSettings(params.value) : params.value;
+      const value = key === LAN_SETTING ? parseLanSettings(params.value) : params.value;
       if (key.startsWith(INTERNAL_SETTING_PREFIX)) {
         throw new PsycheError(
           "invalid_params",
@@ -144,10 +153,6 @@ export const settingsHandlers: Record<string, HandlerDef> = {
         throw new PsycheError("forbidden", `Changing ${key} requires operator.admin`);
       }
       if (key === "permissions.policy") await checkNewFolders(call, value);
-      // A tool server that came from a shared file keeps its marker, tier and sandbox however the
-      // list is written: those only change by importing or removing it.
-      if (key === "mcp.servers")
-        value = keepBundleProtections(getSetting(call.ctx.db, key)?.value, value);
       // Fresh presence once a verifier was enrolled (helper Touch ID, passkeys); admin only before.
       if (needsPresence(key)) {
         await requireFreshPresence(

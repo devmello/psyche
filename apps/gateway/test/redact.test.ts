@@ -2,6 +2,7 @@ import { PsycheError } from "@psyche/protocol";
 import { describe, expect, it } from "vitest";
 import { describeChange } from "../src/compose/mcp-edit.ts";
 import {
+  redactArgv,
   redactMcpServers,
   redactText,
   redactUrl,
@@ -92,15 +93,26 @@ describe("redactText", () => {
   });
 
   it("hides the stored address's own secrets wherever they appear", () => {
-    const stored = withUser("u", "pw1234", "h.example.com/mcp?token=ABCD1234&mode=fast");
+    const stored = withUser("u", "pw1234-long", "h.example.com/mcp?token=ABCD1234&mode=fast");
     const out = redactText(
-      "auth failed: user u word pw1234, token=ABCD1234 (encoded: ABCD1234), mode fast",
+      "auth failed: user u word pw1234-long, token=ABCD1234 (encoded: ABCD1234), mode fast",
       [stored],
     );
-    expect(out).not.toContain("pw1234");
+    expect(out).not.toContain("pw1234-long");
     expect(out).not.toContain("ABCD1234");
     // Positive control: the rest of the sentence is intact.
     expect(out).toContain("auth failed");
+  });
+
+  it("a stored ?debug=true does not blank every 'true' in an error", () => {
+    const out = redactText("expected true but got true", [
+      "https://h.example.com/mcp?debug=true&fmt=json",
+    ]);
+    expect(out).toBe("expected true but got true");
+    // Positive control: a long stored value is still hidden.
+    expect(
+      redactText("bad token ABCD1234EFGH here", ["https://h.example.com/mcp?token=ABCD1234EFGH"]),
+    ).toBe("bad token *** here");
   });
 
   it("does not mangle text with a short stored value", () => {
@@ -184,5 +196,57 @@ describe("redactMcpServers", () => {
     expect(redactMcpServers(undefined)).toBeUndefined();
     expect(redactMcpServers("raw-secret-string")).toEqual([]);
     expect(redactMcpServers([null, "x", { id: "k" }])).toEqual([{ id: "k" }]);
+  });
+});
+
+describe("redactArgv", () => {
+  it.each([
+    [
+      ["npx", "-y", "server", "--api-key=sk-live-abc"],
+      ["npx", "-y", "server", "--api-key=***"],
+    ],
+    [
+      ["node", "x.js", "--token", "abc"],
+      ["node", "x.js", "--token", "***"],
+    ],
+    [
+      ["node", "x.js", "--password=hunter2"],
+      ["node", "x.js", "--password=***"],
+    ],
+    [
+      ["node", "sk-abc", "ghp_abc", "xoxb-1-2"],
+      ["node", "***", "***", "***"],
+    ],
+    [
+      ["node", "AbCdEfGhIj1234567890"],
+      ["node", "***"],
+    ],
+    [
+      ["node", "https://h.example.com/m?token=S"],
+      ["node", "https://h.example.com/m?token=***"],
+    ],
+  ])("%j", (argv, shown) => {
+    expect(redactArgv(argv)).toEqual(shown);
+  });
+
+  it.each([
+    [["npx", "-y", "@modelcontextprotocol/server-filesystem", "/Users/me/Projects"]],
+    [["node", "dist/server.js", "--port=8080", "--verbose"]],
+    [["uvx", "mcp-server-git", "--repository", "/Users/me/repo"]],
+  ])("leaves ordinary arguments alone: %j", (argv) => {
+    expect(redactArgv(argv)).toEqual(argv);
+  });
+
+  it("is applied to the settings view", () => {
+    const out = JSON.stringify(
+      redactMcpServers([
+        {
+          id: "a",
+          transport: { kind: "stdio", command: ["node", "x.js", "--token=live-value-1"] },
+        },
+      ]),
+    );
+    expect(out).not.toContain("live-value-1");
+    expect(out).toContain("x.js");
   });
 });

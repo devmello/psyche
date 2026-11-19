@@ -271,7 +271,8 @@ export function mcpAdder(deps: McpAddDeps): McpAdder {
               },
             }),
             approve: (input) =>
-              inj.approve({ ...input, serverId: config.id, target: rebind(input.target) }),
+              // The card names the check (the probe id); the vault target stays the server's own.
+              inj.approve({ ...input, target: rebind(input.target) }),
           };
     const host = createMcpHost({
       ...(secrets === undefined ? {} : { secrets }),
@@ -573,6 +574,30 @@ export function mcpAdder(deps: McpAddDeps): McpAdder {
     await deps.apply(next);
     // An agent-made server's code goes with it.
     await deps.removed?.(entry);
+    await releaseSecrets(serverId);
+  };
+
+  /**
+   * The vault items bound to `mcp:<id>` end with the server: an item made for it alone is
+   * deleted, one shared with something else only loses this binding. A later Add under the same
+   * id then can't be handed a secret the owner gave the old server. A locked vault leaves them.
+   */
+  const releaseSecrets = async (serverId: string) => {
+    const target = `mcp:${serverId}`;
+    try {
+      for (const item of await services.vault.list()) {
+        const ours = item.bindings.filter((b) => "connector" in b && b.connector === target);
+        if (ours.length === 0) continue;
+        const rest = item.bindings.filter((b) => !ours.includes(b));
+        if (rest.length === 0 && item.ownerConnectorId === null) {
+          await services.vault.delete(item.id);
+        } else {
+          await services.vault.update(item.id, { bindings: rest });
+        }
+      }
+    } catch {
+      // locked or unavailable: nothing was released
+    }
   };
 
   const handlers: Record<string, HandlerDef> = {

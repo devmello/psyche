@@ -8,7 +8,7 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 import { type ComposedGateway, composeGateway } from "../src/compose/index.ts";
 import { composeMcp, MCP_SERVERS_SETTING } from "../src/compose/mcp.ts";
 import type { ComposeServices } from "../src/compose/services.ts";
-import { adminClient, desktopClient, ik, type TestClient } from "./helpers.ts";
+import { adminClient, desktopClient, ik, seedMcpServers, type TestClient } from "./helpers.ts";
 
 /**
  * N5: `settings.get` is `operator.read`, so any paired device could read a tool server's env
@@ -120,17 +120,10 @@ describe("settings never carry a tool server's secrets", () => {
     );
   });
 
-  it("settings.set and the settings.changed event carry none, and the Gateway still starts the server from the real config", async () => {
+  it("the settings.changed event carries none, and the Gateway still starts the server from the real config", async () => {
     const { owner, reader, launched, services, mcp } = await setup();
-    const result = JSON.stringify(
-      await owner.call(
-        "settings.set",
-        { key: MCP_SERVERS_SETTING, value: entries({ PLAIN: "plain-env-secret" }) },
-        ik(),
-      ),
-    );
+    seedMcpServers(services, entries({ PLAIN: "plain-env-secret" }));
     await mcp.idle();
-    for (const s of SECRETS) expect(result).not.toContain(s);
     const frames = JSON.stringify([...owner.events, ...reader.events]);
     for (const s of SECRETS) expect(frames).not.toContain(s);
     // Positive control: the event did arrive, and names the setting.
@@ -139,5 +132,36 @@ describe("settings never carry a tool server's secrets", () => {
     // The Gateway itself started the server with the real value.
     expect(launched.at(-1)?.PLAIN).toBe("plain-env-secret");
     expect(services.tools.get("mcp__echo__echo")).toBeDefined();
+  });
+
+  it("settings.set refuses mcp.servers for an admin and a non-admin, and the stored value stays", async () => {
+    const { owner, reader, services } = await setup();
+    seedMcpServers(services, entries({ PLAIN: "plain-env-secret" }));
+    const before = JSON.stringify(getSetting(services.db, MCP_SERVERS_SETTING)?.value);
+    for (const who of [owner, reader]) {
+      const res = await who.request("settings.set", { key: MCP_SERVERS_SETTING, value: [] }, ik());
+      expect(res).toMatchObject({ ok: false });
+      expect(JSON.stringify(res)).toMatch(/use_mcp_methods|forbidden/);
+    }
+    expect(JSON.stringify(getSetting(services.db, MCP_SERVERS_SETTING)?.value)).toBe(before);
+    // Positive control: an ordinary setting is still writable by the admin.
+    expect(
+      await owner.request("settings.set", { key: "ui.test", value: "dark" }, ik()),
+    ).toMatchObject({
+      ok: true,
+    });
+  });
+
+  it("a read followed by an mcp.* change keeps every secret", async () => {
+    const { owner, services, mcp } = await setup();
+    seedMcpServers(services, entries({ PLAIN: "plain-env-secret" }));
+    await mcp.idle();
+    await owner.call("settings.get", { keys: [MCP_SERVERS_SETTING] });
+    await owner.call("mcp.setEnabled", { serverId: "echo", enabled: false }, ik());
+    await mcp.idle();
+    await owner.call("mcp.setEnabled", { serverId: "echo", enabled: true }, ik());
+    await mcp.idle();
+    const stored = JSON.stringify(getSetting(services.db, MCP_SERVERS_SETTING)?.value);
+    for (const s of SECRETS.slice(0, 3)) expect(stored).toContain(s);
   });
 });
