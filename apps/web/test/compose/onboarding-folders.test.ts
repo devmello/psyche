@@ -5,7 +5,7 @@ const DOCS = { id: "documents", path: "/Users/ada/Documents" };
 const DESK = { id: "desktop", path: "/Users/ada/Desktop" };
 
 function stub(stored: unknown = undefined) {
-  return vi.fn(async (method: string) =>
+  return vi.fn(async (method: string, _params?: unknown, _opts?: unknown) =>
     method === "settings.get" ? { settings: { "permissions.policy": stored } } : {},
   );
 }
@@ -56,7 +56,7 @@ describe("shareStarterFolders", () => {
       code: "approval_required",
       details: { approvalId: "ap1" },
     });
-    const call = vi.fn(async (m: string) => {
+    const call = vi.fn(async (m: string, _params?: unknown, _opts?: unknown) => {
       if (m === "settings.set") throw needs;
       return { settings: {} };
     });
