@@ -139,8 +139,8 @@ describe("HelperAvailability ambiguity", () => {
       onChange: (s) => seen.push(s.ambiguous.map((h) => h.deviceId)),
     });
     const two = [
-      { deviceId: "a", name: "A" },
-      { deviceId: "b", name: "B" },
+      { deviceId: "a", name: "A", pairedAt: null },
+      { deviceId: "b", name: "B", pairedAt: null },
     ];
     a.setAmbiguous(two);
     a.setAmbiguous(two);
