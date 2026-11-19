@@ -1,7 +1,7 @@
 import { constants } from "node:fs";
 import { type FileHandle, lstat, open, readdir, realpath } from "node:fs/promises";
 import { homedir } from "node:os";
-import { basename, join, resolve } from "node:path";
+import { basename, join, resolve, sep } from "node:path";
 import {
   assertGranted,
   assertNoSymlinks,
@@ -194,6 +194,29 @@ const STARTER_FOLDERS = [
   ["downloads", "Downloads"],
 ] as const;
 
+/** Case-insensitive volumes (macOS, Windows) treat `documents` and `Documents` as one folder. */
+const FOLDS_CASE = process.platform === "darwin" || process.platform === "win32";
+
+const realOr = async (p: string): Promise<string> => realpath(p).catch(() => p);
+
+/**
+ * A granted folder already covers `path`: compared on real paths (realpath fixes the case of
+ * what exists) and, on a case-insensitive volume, without case for what does not.
+ */
+async function alreadyShared(grants: readonly GrantedFolder[], path: string): Promise<boolean> {
+  const real = await realOr(path);
+  const realGrants = await Promise.all(
+    grants.map(async (g) => ({ ...g, path: await realOr(g.path) })),
+  );
+  if (folderCovers(realGrants, real, "ro") !== undefined) return true;
+  if (!FOLDS_CASE) return false;
+  const c = real.toLowerCase();
+  return realGrants.some((g) => {
+    const a = g.path.toLowerCase().replace(/[\\/]+$/, "");
+    return c === a || c.startsWith(a + sep);
+  });
+}
+
 /**
  * Documents, Desktop and Downloads for the onboarding step: only an existing folder that
  * `assertFolderGrantable` accepts and no granted folder covers yet. Nothing is granted here.
@@ -209,7 +232,7 @@ async function starterFolders(setup: FilesSetup): Promise<MethodResult<"files.st
     } catch {
       continue;
     }
-    if (folderCovers(setup.folders(), path, "ro") !== undefined) continue;
+    if (await alreadyShared(setup.folders(), path)) continue;
     folders.push({ id, path });
   }
   return { folders };

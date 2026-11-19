@@ -46,6 +46,16 @@ describe("files.starterFolders", () => {
     expect(await offered([], join(userHome, "Downloads"))).toEqual(["documents", "desktop"]);
   });
 
+  it.runIf(process.platform === "darwin" || process.platform === "win32")(
+    "a stored folder that differs only in case counts as shared",
+    async () => {
+      expect(await offered([{ path: join(userHome, "documents"), mode: "ro" }])).toEqual([
+        "desktop",
+        "downloads",
+      ]);
+    },
+  );
+
   it("leaves out what a granted folder already covers", async () => {
     expect(await offered([{ path: userHome, mode: "ro" }])).toEqual([]);
     expect(await offered([{ path: join(userHome, "Documents"), mode: "rw" }])).toEqual([
@@ -58,7 +68,7 @@ describe("files.starterFolders", () => {
 describe("policy folders with ~", () => {
   const out = (path: string) =>
     (
-      expandPolicyFolders({ folders: [{ path, mode: "ro" }] }, "/Users/ada") as {
+      expandPolicyFolders({ folders: [{ path, mode: "ro" }] }, undefined, "/Users/ada") as {
         folders: { path: string }[];
       }
     ).folders[0]?.path;
@@ -79,11 +89,29 @@ describe("policy folders with ~", () => {
 
   it("leaves a plain absolute path and other keys untouched", () => {
     expect(out("/abs/dir")).toBe("/abs/dir");
-    expect(expandPolicyFolders({ mode: "x" }, "/Users/ada")).toEqual({ mode: "x" });
+    expect(expandPolicyFolders({ mode: "x" }, undefined, "/Users/ada")).toEqual({ mode: "x" });
   });
 
   it("an escape lands on a path assertFolderGrantable refuses", async () => {
     const { assertFolderGrantable } = await import("@psyche/permissions");
     await expect(assertFolderGrantable(out("~/../..") ?? "")).rejects.toThrow();
+  });
+
+  it("expands only NEW entries: a stored ~/x stays literal, a new ~/y expands", () => {
+    const stored = { folders: [{ path: "~/x", mode: "rw" }] };
+    const value = {
+      note: "unrelated change",
+      folders: [
+        { path: "~/x", mode: "rw" },
+        { path: "~/y", mode: "ro" },
+      ],
+    };
+    expect(expandPolicyFolders(value, stored, "/Users/ada")).toEqual({
+      note: "unrelated change",
+      folders: [
+        { path: "~/x", mode: "rw" },
+        { path: "/Users/ada/y", mode: "ro" },
+      ],
+    });
   });
 });

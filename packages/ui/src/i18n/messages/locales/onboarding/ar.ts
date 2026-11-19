@@ -61,7 +61,9 @@ export const onboarding: Partial<Catalogue> = {
   "onboarding.folders.desktop": "سطح المكتب",
   "onboarding.folders.downloads": "التنزيلات",
   "onboarding.folders.hint": "يمكنك تغيير ذلك في أي وقت من الإعدادات، ضمن الوصول إلى الملفات.",
-  "onboarding.folders.needsApproval": "وافق على البطاقة لمشاركة هذه المجلدات، ثم حاول مرة أخرى.",
+  "onboarding.folders.shareLater":
+    "يمكنك مشاركة هذه المجلدات لاحقًا من الإعدادات ← الوصول إلى الملفات.",
+  "onboarding.folders.openFileAccess": "فتح الوصول إلى الملفات",
   "onboarding.folders.retry": "حاول مرة أخرى",
   "onboarding.folders.continueWithout": "المتابعة دون مشاركة",
   "onboarding.folders.failed": "تعذّرت مشاركة هذه المجلدات: {reason}",

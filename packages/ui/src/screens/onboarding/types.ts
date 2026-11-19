@@ -182,6 +182,8 @@ export interface OnboardingResult {
    * Absent or empty: nothing is written. The host adds them read only, never read-write.
    */
   sharedFolders?: { id: StarterFolderId; path: string }[];
+  /** Open Settings → File access once onboarding ends (the folders needed a card to be shared). */
+  openFileAccess?: boolean;
   /** The helper's Touch ID key was registered during setup (informational). */
   touchIdRegistered?: boolean;
 }

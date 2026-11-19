@@ -83,7 +83,7 @@ describe("onboarding folders step", () => {
     expect(screen.queryByTestId("onboarding-folders")).toBeNull();
   });
 
-  it("a card that needs approval is shown with a retry, then retried with its id", async () => {
+  it("a card that needs approval points to Settings, with no retry", async () => {
     const user = userEvent.setup();
     const needs = Object.assign(new Error("approval required"), {
       code: "approval_required",
@@ -91,19 +91,21 @@ describe("onboarding folders step", () => {
     });
     const share = vi
       .fn<NonNullable<OnboardingFlowProps["onShareFolders"]>>()
-      .mockRejectedValueOnce(needs)
-      .mockResolvedValueOnce(undefined);
+      .mockRejectedValue(needs);
     const onComplete = run(OFFERED, share);
     await user.click(await screen.findByRole("checkbox", { name: /documents/i }));
     await toTheEnd(user, /^next/i);
-    expect((await screen.findByRole("alert")).textContent).toMatch(/approve the card/i);
-    expect(onComplete).not.toHaveBeenCalled();
-    await user.click(screen.getByRole("button", { name: /try again/i }));
-    await waitFor(() => expect(onComplete).toHaveBeenCalled());
-    expect(share).toHaveBeenLastCalledWith(
-      [{ id: "documents", path: "/Users/ada/Documents" }],
-      "ap1",
+    expect((await screen.findByRole("alert")).textContent).toMatch(
+      /later in Settings → File access/i,
     );
+    expect(onComplete).not.toHaveBeenCalled();
+    // The card cannot be answered here: no retry is offered.
+    expect(screen.queryByRole("button", { name: /try again/i })).toBeNull();
+    await user.click(screen.getByRole("button", { name: /open file access/i }));
+    expect(share).toHaveBeenCalledTimes(1);
+    const result = onComplete.mock.calls[0]?.[0];
+    expect(result?.openFileAccess).toBe(true);
+    expect(result?.sharedFolders).toBeUndefined();
   });
 
   it("Continue without sharing finishes with nothing shared", async () => {

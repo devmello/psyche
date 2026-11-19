@@ -65,8 +65,9 @@ export const onboardingRest: Partial<Catalogue> = {
   "onboarding.folders.downloads": "Téléchargements",
   "onboarding.folders.hint":
     "Tu peux le changer à tout moment dans Réglages, sous Accès aux fichiers.",
-  "onboarding.folders.needsApproval":
-    "Approuve la carte pour partager ces dossiers, puis réessaie.",
+  "onboarding.folders.shareLater":
+    "Tu pourras partager ces dossiers plus tard dans Réglages → Accès aux fichiers.",
+  "onboarding.folders.openFileAccess": "Ouvrir Accès aux fichiers",
   "onboarding.folders.retry": "Réessayer",
   "onboarding.folders.continueWithout": "Continuer sans partager",
   "onboarding.folders.failed": "Impossible de partager ces dossiers : {reason}",
