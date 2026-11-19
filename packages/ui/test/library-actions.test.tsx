@@ -149,8 +149,23 @@ describe("which actions an item is offered", () => {
     ).not.toContain("delete-download");
   });
 
+  it("offers Trust only for a quarantined file from outside, never a meeting recording", () => {
+    const rec = { ...base, kind: "recording" as const, quarantined: true };
+    for (const origin of ["upload", "agent"] as const) {
+      expect(ids({ ...rec, origin }, { ...all, onTrust: () => {} })).not.toContain("trust");
+    }
+    for (const origin of ["download", "channel", "connector"] as const) {
+      expect(ids({ ...rec, origin }, { ...all, onTrust: () => {} })).toContain("trust");
+    }
+  });
+
   it("offers Trust only for a quarantined file, and only when the app passes onTrust", () => {
-    const quarantined = { ...base, kind: "download", quarantined: true } as LibraryItem;
+    const quarantined = {
+      ...base,
+      kind: "download",
+      origin: "download",
+      quarantined: true,
+    } as LibraryItem;
     expect(ids(quarantined)).not.toContain("trust");
     expect(ids(quarantined, { ...all, onTrust: () => {} })).toContain("trust");
     expect(ids({ ...base, kind: "document" }, { ...all, onTrust: () => {} })).not.toContain(
