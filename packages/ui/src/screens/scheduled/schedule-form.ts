@@ -1,4 +1,4 @@
-import type { Automation, AutomationKind, Delivery } from "@psyche/protocol";
+import type { Automation, AutomationKind } from "@psyche/protocol";
 import type { useCall } from "../../data/hooks.ts";
 
 /**
@@ -8,6 +8,9 @@ import type { useCall } from "../../data/hooks.ts";
  * (`minute hour day month weekday`) in the automation's time zone, an ISO-8601 duration
  * (`PT6H`, interval) or an ISO-8601 instant with an offset (`reminder`, one-shot).
  */
+
+/** The Gateway's delivery target (a schema value, so its type is read off the automation). */
+type Delivery = Automation["delivery"];
 
 export type Weekday = 0 | 1 | 2 | 3 | 4 | 5 | 6;
 

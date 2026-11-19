@@ -7,8 +7,9 @@ import { Label } from "../../components/ui/label.tsx";
 import { NativeSelect } from "../../components/ui/native-select.tsx";
 import { Switch } from "../../components/ui/switch.tsx";
 import { Textarea } from "../../components/ui/textarea.tsx";
-import { activeI18n, type MessageId, t } from "../../i18n/core.ts";
+import { activeI18n, t } from "../../i18n/core.ts";
 import { describeError } from "../../i18n/errors.ts";
+import type { MessageId } from "../../i18n/messages/index.ts";
 import { ScreenColumn, ScreenToolbar } from "../feed/ScreenToolbar.tsx";
 import { absoluteWhen } from "./format.ts";
 import {
