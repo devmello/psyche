@@ -2286,8 +2286,8 @@ export class PsychePermissionBroker implements PermissionBroker {
   }
 
   /**
-   * The files the owner attached to this conversation whose 24 hours are not over, whether or not
-   * a folder grant covers them. A record says "this file was picked here", never "may be read".
+   * The files the owner attached to this conversation whose 24 hours are not over and that some
+   * live grant still reads (a covering folder or the file's own entry). A record says "this file was picked here", never "may be read".
    */
   attachedFiles(threadId: string): readonly { path: string }[] {
     const now = this.clock.now();
@@ -2297,7 +2297,10 @@ export class PsychePermissionBroker implements PermissionBroker {
       if (until <= now) this.#attachRecords.delete(key);
       else out.push({ path: key.slice(threadId.length + 1) });
     }
-    return out;
+    // Only files something still lets the agent read (a folder that covers them, or the file's
+    // own entry): a revoked folder must not leave a message promising a file the agent cannot read.
+    const live = [...(this.policy.folders ?? []), ...this.sessionFolders(threadId)];
+    return out.filter((f) => folderCovers(live, f.path, "ro") !== undefined);
   }
 
   /** Drops this conversation's attached-file grants whose 24 hours are over. */
@@ -2348,10 +2351,8 @@ export class PsychePermissionBroker implements PermissionBroker {
           "ro",
         );
         const recordKey = `${threadId}\0${file.path}`;
-        const recorded = this.#attachRecords.get(recordKey);
-        if (recorded === undefined || recorded <= this.clock.now()) {
-          this.#attachRecords.set(recordKey, this.clock.now() + ATTACH_GRANT_MS);
-        }
+        // A re-attach refreshes the record and the file grant together, so they stay equal.
+        this.#attachRecords.set(recordKey, this.clock.now() + ATTACH_GRANT_MS);
         if (covered === undefined) {
           const roots = this.#sessionFolders.get(threadId) ?? [];
           this.#sessionFolders.set(threadId, [
