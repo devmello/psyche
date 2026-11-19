@@ -1,7 +1,7 @@
 import { mkdtempSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { getSetting, setSetting, updateDevice } from "@psyche/db";
+import { getSetting, openDb, setSetting, updateDevice } from "@psyche/db";
 import type { PresenceVerifier } from "@psyche/permissions";
 import type { DeviceScope } from "@psyche/protocol";
 import { FakeModelProvider } from "@psyche/testing";
@@ -197,5 +197,26 @@ describe("narrowing security settings skip the card", () => {
     expect(row).toMatchObject({ note: "narrowing: true" });
     // The refused widening wrote no row.
     expect(changes.some((c) => c.target.object === "permissions.connectors.gmail")).toBe(false);
+  });
+
+  it("while the security records are untrusted even a narrowing change is blocked", async () => {
+    const { admin, seed, stored } = await boot();
+    seed("computerUse.enabled", true);
+    const state = composed?.gateway.context.securityState;
+    const other = openDb(join(home, "psyche.db"), { migrate: false });
+    other.sqlite.prepare("UPDATE security_seal SET agg = ?").run("00".repeat(32));
+    other.close();
+    state?.ensure();
+    expect(state?.status().status).toBe("untrusted");
+    expect(await set(admin, "computerUse.enabled", false)).toMatchObject({
+      ok: false,
+      error: { code: "presence_required" },
+    });
+    expect(stored("computerUse.enabled")).toBe(true);
+  });
+
+  it("a policy with no stored baseline raises the card", async () => {
+    const { admin } = await boot();
+    carded(await set(admin, "permissions.policy", { allow: [] }));
   });
 });

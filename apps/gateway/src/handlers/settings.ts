@@ -150,6 +150,8 @@ export const settingsHandlers: Record<string, HandlerDef> = {
       const narrowing =
         needsPresence(key) &&
         call.identity.scopes.includes("operator.admin") &&
+        // Stored values are only a baseline while the security records are trusted.
+        call.ctx.securityState?.untrusted() === null &&
         isNarrowing(key, getSetting(call.ctx.db, key)?.value, value);
       if (needsPresence(key) && !narrowing) {
         await requireFreshPresence(

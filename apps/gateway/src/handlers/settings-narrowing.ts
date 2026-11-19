@@ -215,7 +215,8 @@ export function isNarrowing(key: string, stored: unknown, next: unknown): boolea
     // Writing the same value again narrows nothing: it keeps its card, as before (and an
     // approved card stays single-use).
     if (same(stored, next)) return false;
-    if (key === "permissions.policy") return policyNarrower(stored, next);
+    // The stored policy must exist: without it the baseline may be the config file's.
+    if (key === "permissions.policy") return stored !== undefined && policyNarrower(stored, next);
     if (key === "computerUse.enabled") {
       // Off unless exactly `true`.
       return next === false && (stored === undefined || typeof stored === "boolean");
