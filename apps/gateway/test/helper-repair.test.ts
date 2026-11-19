@@ -278,13 +278,8 @@ describe("liveness and the pin as a tie-breaker", () => {
 });
 
 describe("a Gateway restart", () => {
-  it("does not keep telling the app that two helpers are connected", async () => {
-    const { g } = await setup();
-    await helper(g, "a", "helper-a");
-    await helper(g, "b", "helper-b");
-    expect(availability(g).ambiguous).toHaveLength(2);
-    for (const n of nodes.splice(0)) await n.close().catch(() => undefined);
-    await composed?.stop("test");
+  /** Composes the Gateway again on the same home, with no helper connected. */
+  async function recompose(): Promise<Gateway> {
     composed = await composeGateway({
       env: {},
       logger: silentLogger,
@@ -293,10 +288,39 @@ describe("a Gateway restart", () => {
       config: { home, port: 0, dbPath: join(home, "psyche.db"), webRoot: null },
       model: { provider: new FakeModelProvider(), model: "fake/model" },
     });
-    const g2 = composed.gateway;
+    return composed.gateway;
+  }
+
+  function expectNoStaleHelpers(g2: Gateway) {
     expect(g2.context.nodes.hostHelpers()).toEqual([]);
     expect(availability(g2)).toMatchObject({ connected: false, ambiguous: [] });
     expect(status(g2)).toMatchObject({ ambiguous: false, helpers: 0 });
+  }
+
+  it("stopped with both helpers still connected: nothing stale after the next start", async () => {
+    const { g } = await setup();
+    await helper(g, "a", "helper-a");
+    await helper(g, "b", "helper-b");
+    expect(availability(g).ambiguous).toHaveLength(2);
+    expect(status(g)).toMatchObject({ ambiguous: true, helpers: 2 });
+    // The helpers are not closed first: the change listener is unsubscribed before the Gateway
+    // stops, so nothing cleans the persisted state on the way down.
+    await composed?.stop("restart");
+    composed = null;
+    nodes.splice(0);
+    expectNoStaleHelpers(await recompose());
+  });
+
+  it("a crash with no detach at all: nothing stale after the next start", async () => {
+    const { g } = await setup();
+    await helper(g, "a", "helper-a");
+    await helper(g, "b", "helper-b");
+    expect(availability(g).ambiguous).toHaveLength(2);
+    (g.context.nodes as unknown as { detach: () => void }).detach = () => undefined;
+    await composed?.stop("crash");
+    composed = null;
+    nodes.splice(0);
+    expectNoStaleHelpers(await recompose());
   });
 });
 
