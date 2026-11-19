@@ -22,6 +22,7 @@ import { memoryReviewRest } from "./memoryReview-rest/de.ts";
 import { memorySurfacesRest } from "./memorySurfaces-rest/de.ts";
 import { memoryWorkRest } from "./memoryWork-rest/de.ts";
 import { miscRest } from "./misc-rest/de.ts";
+import { notices } from "./notices/de.ts";
 import { nudgesRest } from "./nudges-rest/de.ts";
 import { onboardingRest } from "./onboarding-rest/de.ts";
 import { overview } from "./overview/de.ts";
@@ -1656,6 +1657,16 @@ export const de: Partial<Catalogue> = {
   "settings.mcp.command": "Befehl",
   "settings.mcp.domains": "Websites, die er erreichen darf",
   "settings.mcp.domainsHint": "Hostnamen, durch Kommas getrennt. Leer lassen für kein Netzwerk.",
+  "settings.mcp.env.title": "Umgebungsvariablen",
+  "settings.mcp.env.hint":
+    "Werte, die der Server beim Start braucht. Namen, die nach Geheimnis klingen (Token, Schlüssel, Passwort), werden in deinem Tresor gespeichert.",
+  "settings.mcp.env.name": "Variablenname",
+  "settings.mcp.env.value": "Wert",
+  "settings.mcp.env.namePlaceholder": "API_BASE_URL",
+  "settings.mcp.env.saved": "Gespeichert",
+  "settings.mcp.env.add": "Variable hinzufügen",
+  "settings.mcp.env.badName":
+    "Namen verwenden Großbuchstaben, Ziffern und Unterstriche und beginnen mit einem Buchstaben oder Unterstrich.",
   "settings.mcp.url": "Server-URL",
   "settings.mcp.placeholder.command": "npx -y @modelcontextprotocol/server-everything",
   "settings.mcp.placeholder.domains": "api.example.com",
@@ -3512,6 +3523,8 @@ export const de: Partial<Catalogue> = {
   ...helperOffline,
   // the security-records banner (docs/design/security-state-integrity-2026.md §7.3)
   ...securityState,
+  // Gateway-authored notices (inbox notifications, security alerts)
+  ...notices,
   // Settings > Computer use > Separate desktop (Linux)
   ...separateDesktop,
 };

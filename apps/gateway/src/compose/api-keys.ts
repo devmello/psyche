@@ -263,14 +263,23 @@ export function apiKeyHandlers(deps: ApiKeyHandlerDeps): Record<string, HandlerD
 export function describeKeyActor(
   device: { name: string; platform: string; pairedAt?: string | null | undefined } | undefined,
 ): string {
-  if (device === undefined) return "a device";
+  const parts = keyActorParts(device);
+  if (parts === undefined) return "a device";
+  return `"${parts.device}" (${parts.platform}${parts.paired === "none" ? "" : `, paired ${parts.paired}`})`;
+}
+
+/** The same facts as separate, cleaned values (the `notice.apiKey.changed` message's params). */
+export function keyActorParts(
+  device: { name: string; platform: string; pairedAt?: string | null | undefined } | undefined,
+): { device: string; platform: string; paired: string } | undefined {
+  if (device === undefined) return undefined;
   const name = device.name
     .replace(/[\p{Cc}\p{Cf}\u202a-\u202e\u2066-\u2069]/gu, " ")
     .replace(/\s+/g, " ")
     .trim();
   const clamped = [...name].length > 40 ? `${[...name].slice(0, 39).join("")}…` : name;
   const paired = /^\d{4}-\d{2}-\d{2}/.test(device.pairedAt ?? "")
-    ? `, paired ${(device.pairedAt ?? "").slice(0, 10)}`
-    : "";
-  return `"${clamped}" (${device.platform}${paired})`;
+    ? (device.pairedAt ?? "").slice(0, 10)
+    : "none";
+  return { device: clamped, platform: device.platform, paired };
 }

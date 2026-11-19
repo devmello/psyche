@@ -32391,6 +32391,39 @@
       ],
       "type": "object"
     },
+    "NoticeMessage": {
+      "properties": {
+        "titleKey": {
+          "description": "Message id of the title, e.g. notice.browser.chrome.title",
+          "type": "string"
+        },
+        "bodyKey": {
+          "description": "Message id of the body",
+          "type": "string"
+        },
+        "params": {
+          "description": "Values for the placeholders. The Gateway has stripped control, format and bidirectional characters from the strings; show them as plain text, never as markup.",
+          "patternProperties": {
+            "^(.*)$": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "number"
+                }
+              ]
+            }
+          },
+          "type": "object"
+        }
+      },
+      "required": [
+        "titleKey",
+        "bodyKey"
+      ],
+      "type": "object"
+    },
     "Notification": {
       "properties": {
         "id": {
@@ -32407,6 +32440,9 @@
         },
         "body": {
           "type": "string"
+        },
+        "message": {
+          "$ref": "#/$defs/NoticeMessage"
         },
         "taskId": {
           "anyOf": [
@@ -32583,6 +32619,9 @@
         },
         "body": {
           "type": "string"
+        },
+        "message": {
+          "$ref": "#/$defs/NoticeMessage"
         },
         "route": {
           "anyOf": [

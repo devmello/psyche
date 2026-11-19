@@ -1,0 +1,48 @@
+import type { Catalogue } from "../../index.ts";
+
+/** Notices the Gateway authors (it); merged into `../it.ts`. */
+export const notices: Partial<Catalogue> = {
+  "notice.security.changed.title":
+    "Psyche ha annullato una modifica di sicurezza fatta fuori dall’app",
+  "notice.security.changed.body":
+    "Un programma su questo Mac ha modificato {count, plural, =1 {# registro di sicurezza} other {# registri di sicurezza}} (dispositivi, chiavi, permessi o impostazioni) senza passare da Psyche{times, plural, =0 {} =1 {} other {, finora # volte}}. Psyche li ha ripristinati. Se non sei stato tu, controlla che il Mac non abbia software indesiderato.",
+  "notice.security.untrusted.title": "Psyche non può fidarsi dei suoi registri di sicurezza",
+  "notice.security.untrusted.body":
+    "Il controllo dei registri di sicurezza di Psyche non è riuscito, quindi le modifiche di sicurezza, i nuovi dispositivi e le approvazioni con Touch ID sono bloccati. Controlla i tuoi dispositivi, poi esegui `psyched security reseal` sul Mac (vale dopo 24 ore).",
+  "notice.security.firstSeal.title": "Psyche ora controlla i suoi registri di sicurezza",
+  "notice.security.firstSeal.body":
+    "Psyche ha sigillato {devices, plural, =1 {# dispositivo associato} other {# dispositivi associati}} e le sue impostazioni di sicurezza. D’ora in poi una modifica fatta fuori da Psyche viene annullata e mostrata qui. Controlla i tuoi dispositivi una volta.",
+  "notice.security.resealed.title":
+    "{restored, select, yes {Registri di sicurezza sigillati dopo un ripristino} other {Registri di sicurezza sigillati di nuovo}}",
+  "notice.security.resealed.body":
+    "{restored, select, yes {Psyche è partito da un backup ripristinato e ha sigillato i suoi registri di sicurezza così come sono. Se non hai ripristinato un backup, controlla i tuoi dispositivi.} other {Psyche ha sigillato di nuovo i suoi registri di sicurezza dopo il periodo di attesa.}}",
+  "notice.security.firstAdmin.title":
+    "Un comando su questo Mac ha creato il primo dispositivo amministratore",
+  "notice.security.firstAdmin.body":
+    "{device}{key, select, none {} other { (chiave {key})}} è diventato il primo dispositivo amministratore {via, select, desktop {dall’app Psyche} other {tramite `psyched`}} su questo Mac. Se non sei stato tu, revocalo in Impostazioni → Dispositivi.",
+  "notice.security.recovery.title":
+    "{state, select, requested {Un comando su questo Mac ha chiesto una modifica di sicurezza} applied {Una modifica di sicurezza da questo Mac è stata applicata} cancelled {Una modifica di sicurezza da questo Mac è stata annullata} other {Una modifica di sicurezza da questo Mac non è stata applicata}}",
+  "notice.security.recovery.body":
+    "{op, select, approve {Approvare il dispositivo {device}{key, select, none {} other { (chiave {key})}} con {scopes}.} grant {Dare a {device}{key, select, none {} other { (chiave {key})}} {scopes}.} presence {Disattivare l’obbligo di Touch ID e passkey per le modifiche di sicurezza finché non viene registrata una nuova chiave.} seal {Accettare i registri di sicurezza attuali così come sono.} other {Una modifica di sicurezza.}}{state, select, requested { Viene applicata {when, select, none {tra 24 ore} other {il {when}}} se non la annulli in Psyche.} failed {{reason, select, none {} other { {reason}}}} other {}}",
+  "notice.browser.chrome.title": "Psyche sta usando il tuo Chrome",
+  "notice.browser.chrome.body":
+    "Un’attività usa il profilo Chrome di Psyche, dove hai effettuato l’accesso. Il titolo della finestra dice “Psyche is driving this window”. Si chiude al termine dell’attività; puoi anche chiudere Chrome.",
+  "notice.browser.takeover.title": "Psyche ha bisogno di te nel browser",
+  "notice.browser.takeover.body":
+    "Su {host}, l’agente chiede: {reason}. Prendi il controllo nel pannello del browser, poi restituiscilo.",
+  "notice.connector.consent.title": "Completa il collegamento a Google",
+  "notice.connector.consent.body":
+    "Apri questo link sul computer su cui è in esecuzione Psyche per concedere l’accesso: {url}",
+  "notice.connector.changed.title": "Una connessione è cambiata",
+  "notice.connector.changed.body":
+    "{reason, select, account_changed {Un connettore ora accede a un altro account. Il lavoro legato al vecchio account è stato fermato.} disconnected {Un connettore è stato disconnesso. Il lavoro che ne aveva bisogno è stato fermato.} scope_changed {Un connettore ora è di sola lettura. Le azioni in sospeso tramite esso sono state fermate.} other {L’accesso di un connettore è stato revocato. Accedi di nuovo per continuare a usarlo.}}",
+  "notice.connector.reconnect.title": "Serve riconnettersi",
+  "notice.connector.reconnect.body": "Un connettore ha perso l’accesso e devi accedere di nuovo.",
+  "notice.attention.paused.title": "Un’attività ti aspetta",
+  "notice.attention.paused.body":
+    "In pausa prima di {tool} su un’app o un sito sensibile, finché non torni in Psyche.",
+  "notice.apiKey.changed.title":
+    "{kind, select, brave {La chiave {provider} è stata {action, select, changed {modificata} other {rimossa}}} other {La chiave API di {provider} è stata {action, select, changed {modificata} other {rimossa}}}}",
+  "notice.apiKey.changed.body":
+    '{action, select, changed {Modificata} other {Rimossa}} da {device, select, none {un dispositivo} other {"{device}" ({platform}{paired, select, none {} other {, associato il {paired}}})}}. Se non sei stato tu, revoca il dispositivo in Impostazioni → Dispositivi.',
+};

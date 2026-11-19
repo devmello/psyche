@@ -21,6 +21,10 @@ Every user-visible string ships in all 10 languages in the same PR. `pnpm i18n:c
 - Strings live in `apps/ios/**/Localizable.xcstrings`, and `CFBundleLocalizations` lists the languages. Add every new key with all 10 translations.
 - Use `String(localized:)` and `Text("key")`, as the existing code does.
 
+## Notices the Gateway authors
+
+A notification the Gateway writes (`notifier.notify`, security alerts) keeps its English `title` and `body` as the fallback and adds `message: { titleKey, bodyKey, params }`. Add the two ids and their ICU text to `packages/ui/src/i18n/messages/notices.ts` (ids `notice.<area>.<name>.title|body`) and to all 10 `locales/notices/<lang>.ts` files. Pass only strings and numbers as `params`; use `select` params with fixed words (`"yes"`, `"none"`, an enum) for variants and never concatenate. The notifier strips control, format and bidirectional characters from every value, so a device name is safe to pass, but clamp it yourself if it must be short. Desktop and web render it through `noticeText()` (inbox); old clients and unknown ids show the English text. OS and channel text is still the English fallback, and iOS does not read `message` yet.
+
 ## Learnings
 
 - 2026-11-18: Gateway-sent text counts too: notifications, notices and channel messages. #1327 and #1333 shipped English-only notices. Find how neighbouring notices are localised and do the same in all 10 languages.

@@ -27,6 +27,7 @@ import { meetingRecord } from "./meeting-record.ts";
 import { memoryPage } from "./memory-page.ts";
 import { memoryReview } from "./memory-review.ts";
 import { memorySettings } from "./memory-settings.ts";
+import { notices } from "./notices.ts";
 import { nudges } from "./nudges.ts";
 import { onboarding } from "./onboarding.ts";
 import { overview } from "./overview.ts";
@@ -123,6 +124,7 @@ export const en = {
   ...helperCheck,
   ...helperOffline,
   ...securityState,
+  ...notices,
   ...separateDesktop,
 } as const;
 

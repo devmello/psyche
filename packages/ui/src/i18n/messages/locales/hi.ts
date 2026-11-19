@@ -29,6 +29,7 @@ import { memoryRest } from "./memory-rest/hi.ts";
 import { memoryReviewRest } from "./memory-review-rest/hi.ts";
 import { memorySurfacesRest } from "./memory-surfaces-rest/hi.ts";
 import { memoryWorkRest } from "./memory-work-rest/hi.ts";
+import { notices } from "./notices/hi.ts";
 import { nudgesRest } from "./nudges-rest/hi.ts";
 import { onboardingRest } from "./onboarding-rest/hi.ts";
 import { overview } from "./overview/hi.ts";
@@ -1625,6 +1626,15 @@ export const hi: Partial<Catalogue> = {
   "settings.mcp.command": "कमांड",
   "settings.mcp.domains": "वेबसाइटें जिन तक यह पहुँच सकता है",
   "settings.mcp.domainsHint": "अल्पविराम से अलग किए गए होस्ट नाम। नेटवर्क न देने के लिए खाली छोड़ें।",
+  "settings.mcp.env.title": "पर्यावरण चर",
+  "settings.mcp.env.hint":
+    "वे मान जिनकी सर्वर को शुरू होते समय ज़रूरत है। जो नाम गुप्त जैसे लगते हैं (टोकन, कुंजी, पासवर्ड), उनके मान आपके वॉल्ट में सहेजे जाते हैं।",
+  "settings.mcp.env.name": "चर का नाम",
+  "settings.mcp.env.value": "मान",
+  "settings.mcp.env.namePlaceholder": "API_BASE_URL",
+  "settings.mcp.env.saved": "सहेजा गया",
+  "settings.mcp.env.add": "चर जोड़ें",
+  "settings.mcp.env.badName": "नामों में बड़े अक्षर, अंक और अंडरस्कोर हों, और वे अक्षर या अंडरस्कोर से शुरू हों।",
   "settings.mcp.url": "सर्वर URL",
   "settings.mcp.placeholder.command": "npx -y @modelcontextprotocol/server-everything",
   "settings.mcp.placeholder.domains": "api.example.com",
@@ -3399,6 +3409,8 @@ export const hi: Partial<Catalogue> = {
   ...helperOffline,
   // the security-records banner (docs/design/security-state-integrity-2026.md §7.3)
   ...securityState,
+  // Gateway-authored notices (inbox notifications, security alerts)
+  ...notices,
   // Settings > Computer use > Separate desktop (Linux)
   ...separateDesktop,
 };

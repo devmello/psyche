@@ -14,6 +14,7 @@ import { links } from "./links/pt.ts";
 import { mailMeetings } from "./mail-meetings/pt.ts";
 import { memoryA } from "./memory-a/pt.ts";
 import { memoryB } from "./memory-b/pt.ts";
+import { notices } from "./notices/pt.ts";
 import { overview } from "./overview/pt.ts";
 import { overviewGrowth } from "./overview-growth/pt.ts";
 import { overviewShared } from "./overview-shared/pt.ts";
@@ -1577,6 +1578,16 @@ export const pt: Partial<Catalogue> = {
   "settings.mcp.domains": "Sites que ele pode acessar",
   "settings.mcp.domainsHint":
     "Nomes de host separados por vírgula. Deixe vazio para nenhum acesso à rede.",
+  "settings.mcp.env.title": "Variáveis de ambiente",
+  "settings.mcp.env.hint":
+    "Valores de que o servidor precisa ao iniciar. Nomes que parecem segredos (token, chave, senha) são guardados no seu cofre.",
+  "settings.mcp.env.name": "Nome da variável",
+  "settings.mcp.env.value": "Valor",
+  "settings.mcp.env.namePlaceholder": "API_BASE_URL",
+  "settings.mcp.env.saved": "Guardado",
+  "settings.mcp.env.add": "Adicionar variável",
+  "settings.mcp.env.badName":
+    "Os nomes usam letras maiúsculas, dígitos e sublinhados, e começam com uma letra ou sublinhado.",
   "settings.mcp.url": "URL do servidor",
   "settings.mcp.placeholder.command": "npx -y @modelcontextprotocol/server-everything",
   "settings.mcp.placeholder.domains": "api.exemplo.com",
@@ -3377,6 +3388,8 @@ export const pt: Partial<Catalogue> = {
   ...helperOffline,
   // the security-records banner (docs/design/security-state-integrity-2026.md §7.3)
   ...securityState,
+  // Gateway-authored notices (inbox notifications, security alerts)
+  ...notices,
   // Settings > Computer use > Separate desktop (Linux)
   ...separateDesktop,
 };

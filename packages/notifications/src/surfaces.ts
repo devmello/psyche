@@ -132,6 +132,8 @@ export interface DeviceToast {
   kind: Notification["kind"];
   title: string;
   body: string;
+  /** The notice as message ids and values, when the Gateway authored it that way. */
+  message?: Notification["message"];
   route: string | null;
   interruption: InterruptionLevel;
   createdAt: string;
@@ -143,6 +145,7 @@ export function toDeviceToast(n: Notification, interruption: InterruptionLevel):
     kind: n.kind,
     title: n.title,
     body: n.body,
+    ...(n.message === undefined ? {} : { message: n.message }),
     route: n.route ?? null,
     interruption,
     createdAt: n.createdAt,

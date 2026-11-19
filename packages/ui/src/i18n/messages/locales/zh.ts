@@ -25,6 +25,7 @@ import { meetingRecord } from "./meeting-record/zh.ts";
 import { memoryPage } from "./memory-page/zh.ts";
 import { memoryReview } from "./memory-review/zh.ts";
 import { memorySettings } from "./memory-settings/zh.ts";
+import { notices } from "./notices/zh.ts";
 import { nudges } from "./nudges/zh.ts";
 import { onboarding } from "./onboarding/zh.ts";
 import { overview } from "./overview/zh.ts";
@@ -1622,6 +1623,15 @@ export const zh: Partial<Catalogue> = {
   "settings.mcp.command": "命令",
   "settings.mcp.domains": "可访问的网站",
   "settings.mcp.domainsHint": "以逗号分隔的主机名。留空表示不联网。",
+  "settings.mcp.env.title": "环境变量",
+  "settings.mcp.env.hint":
+    "服务器启动时需要的值。看起来像机密的名称（令牌、密钥、密码）会保存到你的保险库。",
+  "settings.mcp.env.name": "变量名",
+  "settings.mcp.env.value": "值",
+  "settings.mcp.env.namePlaceholder": "API_BASE_URL",
+  "settings.mcp.env.saved": "已保存",
+  "settings.mcp.env.add": "添加变量",
+  "settings.mcp.env.badName": "名称只能使用大写字母、数字和下划线，并以字母或下划线开头。",
   "settings.mcp.url": "服务器 URL",
   "settings.mcp.placeholder.command": "npx -y @modelcontextprotocol/server-everything",
   "settings.mcp.placeholder.domains": "api.example.com",
@@ -3349,6 +3359,8 @@ export const zh: Partial<Catalogue> = {
   ...helperOffline,
   // the security-records banner (docs/design/security-state-integrity-2026.md §7.3)
   ...securityState,
+  // Gateway-authored notices (inbox notifications, security alerts)
+  ...notices,
   // Settings > Computer use > Separate desktop (Linux)
   ...separateDesktop,
 };
