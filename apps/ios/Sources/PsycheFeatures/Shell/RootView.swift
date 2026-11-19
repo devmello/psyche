@@ -17,14 +17,15 @@ public struct RootView: View {
     }
 
     public var body: some View {
-        Group {
+        // Pairing → the tabs is a crossfade (spec §4.5: a route change never slides).
+        ZStack {
             switch session.state {
             case .unpaired, .pending, .revoked:
-                PairingFlow()
+                PairingFlow().transition(.opacity)
             case .refused:
-                RefusedView()
+                RefusedView().transition(.opacity)
             case .connecting, .live, .unreachable:
-                MainTabs(store: store)
+                MainTabs(store: store).transition(.opacity)
             }
         }
         .environment(router)
@@ -53,7 +54,7 @@ public struct RootView: View {
             guard url.scheme == "psyche", let host = url.host else { return }
             router.open(appPath: "/" + host + url.path)
         }
-        .animation(.default, value: session.state.needsPairing)
+        .psycheFade(PsycheMotion.Duration.medium, value: session.state.needsPairing)
     }
 }
 
@@ -61,6 +62,9 @@ struct MainTabs: View {
     let store: any PsycheBackend
     @Environment(Router.self) private var router
     @Environment(\.alerts) private var alerts
+    private let motion = MotionContext()
+    /// Owned here so a list in one tab and the page or sheet it opens can share a zoom transition.
+    @Namespace private var zoom
 
     /// Outline symbols on inactive tabs and a filled one on the selected tab. The system would otherwise fill them all,
     /// so the symbol variant is pinned and the filled name is chosen here.
@@ -109,6 +113,7 @@ struct MainTabs: View {
             }
         }
         .tabViewStyle(.sidebarAdaptable)
+        .environment(\.psycheZoomNamespace, zoom)
         // The outline variant holds from the first frame: pinned on the TabView itself, so the tab bar never
         // gets a first render in the system's automatic filled variant (seen right after pairing).
         .environment(\.symbolVariants, .none)
@@ -131,6 +136,7 @@ struct MainTabs: View {
             Task { await open(request) }
         }
         .overlay(alignment: .bottom) { watchOffer }
+        .psycheAnimation(.smooth, value: alerts?.offer?.id)
         #if DEBUG
         .task { await router.openForScreenshot(store: store) }
         #endif
@@ -145,7 +151,9 @@ struct MainTabs: View {
                     QuestionSheet(item: item, detail: detail)
                 }
             case .agent:
+                // The sheet grows out of the avatar that opened it (a zoom from the toolbar button).
                 AgentSheet(store: store)
+                    .psycheZoomDestination(id: AgentButton.zoomID, in: zoom)
             case .settings:
                 SettingsSheet(store: store)
             }
@@ -198,7 +206,7 @@ extension MainTabs {
             .overlay(RoundedRectangle(cornerRadius: PsycheMetrics.cardRadius).strokeBorder(PsycheColor.hairline))
             .padding(.horizontal, PsycheMetrics.pagePadding)
             .padding(.bottom, 64)
-            .transition(.move(edge: .bottom).combined(with: .opacity))
+            .transition(motion.transition(.toast))
         }
     }
 }
