@@ -736,6 +736,24 @@ describe.skipIf(!posixHost)(
       expect(started).toEqual([]);
     });
 
+    it("a granted root swapped for a link into Psyche's own data covers nothing either", async () => {
+      on();
+      const swapped = join(home, "Projects", "swapped-own");
+      mkdirSync(swapped, { recursive: true });
+      setPolicy({ ...policy, folders: [...(policy.folders ?? []), { path: swapped, mode: "rw" }] });
+      // A link to $PSYCHE_HOME: not a system folder, but a grant on it would be refused.
+      spawnSync("/bin/rmdir", [swapped]);
+      symlinkSync(psycheHome, swapped);
+      expect(broker.grantedFolders().map((f) => f.path)).toContain(swapped);
+      const t = await quietHost();
+      const params = { argv: ["date"], cwd: swapped };
+      const d = await decide(t, params);
+      await expect(
+        run(t, params, ctx({ authority: { rule: d.rule, bindingHash: d.bindingHash as string } })),
+      ).rejects.toMatchObject({ code: "forbidden" });
+      expect(started).toEqual([]);
+    });
+
     it("env, allowedDomains or an absolute argv[0] keep the old card", async () => {
       on();
       const t = await quietHost();

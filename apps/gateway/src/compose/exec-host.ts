@@ -23,12 +23,14 @@ import {
 import { createScratchDir, defaultDenyRead, scratchReadRules } from "@psyche/mcp-host";
 import {
   classifyHostCommand,
+  type FolderAccessEnv,
   type FolderGrantEntry,
   hostProgramCoverage,
   inSystemRoot,
   operandsInside,
   programName,
   READ_ONLY_RULE,
+  refuseFolder,
   SYSTEM_BIN_DIRS,
 } from "@psyche/permissions";
 import {
@@ -42,6 +44,7 @@ import {
 import { hostWords } from "@psyche/protocol/host-words";
 import { type CliDriver, type CliResult, nodeCliDriver } from "@psyche/sandbox";
 import { Type } from "@sinclair/typebox";
+import { folderAccessEnv } from "./protected-paths.ts";
 import type { SrtResolver } from "./srt.ts";
 
 /**
@@ -638,6 +641,7 @@ async function grantedFolder(
   cwd: string,
   folders: readonly FolderGrantEntry[],
   platform: NodeJS.Platform = process.platform,
+  env: FolderAccessEnv = {},
 ): Promise<{ real: string; folder: FolderGrantEntry }> {
   let real: string;
   try {
@@ -645,13 +649,23 @@ async function grantedFolder(
   } catch {
     throw new PsycheError("not_found", `${cwd} does not exist`);
   }
-  // A granted root that became a link into a system folder since the policy was set (the
-  // broker's answer for it is memoised) is judged by where it leads now, and covers nothing.
+  // A granted root that became a link since the policy was set (the broker's answer for it is
+  // memoised) is judged by where it leads now: into a system folder, or anywhere a grant would be
+  // refused (home itself, ~/Library, ~/.ssh, Psyche's own data), it covers nothing. A root that
+  // is still where it was keeps its meaning, so an old home-root grant still works.
   const resolvedFolders = (
     await Promise.all(
-      folders.map(async (f) => ({ ...f, path: await realpath(f.path).catch(() => f.path) })),
+      folders.map(async (f) => {
+        const real = await realpath(f.path).catch(() => f.path);
+        return { entry: { ...f, path: real }, moved: real !== f.path };
+      }),
     )
-  ).filter((f) => !inSystemRoot(f.path));
+  )
+    .filter(
+      ({ entry, moved }) =>
+        !inSystemRoot(entry.path) && !(moved && refuseFolder(entry.path, env) !== undefined),
+    )
+    .map(({ entry }) => entry);
   const folder = folderOf(real, resolvedFolders, platform);
   if (folder === undefined) {
     throw new PsycheError("forbidden", `${real} is outside every granted folder`, {
@@ -1033,7 +1047,12 @@ export function execHostTool(deps: ExecHostDeps): AgentToolRegistration {
     const quiet = quietRun;
     // A program-grant run has the quiet class's limits: audited first, 15 s, two at a time.
     const limited = quietRun || program !== undefined;
-    const { real, folder } = await grantedFolder(p.cwd, deps.folders(ctx.threadId), platform);
+    const { real, folder } = await grantedFolder(
+      p.cwd,
+      deps.folders(ctx.threadId),
+      platform,
+      folderAccessEnv(deps.home),
+    );
     // Hashed again right before it runs: a binary swapped after approval does not run.
     const described = describe(p, platform);
     const { resolved, domains } = described;

@@ -876,7 +876,9 @@ export class PsychePermissionBroker implements PermissionBroker {
         const real = realpathSync.native(path);
         refused = real !== path && inSystemRoot(real, env);
       } catch (err) {
-        refused = (err as NodeJS.ErrnoException).code !== "ENOENT";
+        // Refused for now, but not remembered: a mount that timed out at start (SMB, NFS) is
+        // judged again on the next look instead of staying refused until the policy changes.
+        if ((err as NodeJS.ErrnoException).code !== "ENOENT") return true;
       }
     }
     this.#refusedMemo.set(path, refused);
