@@ -4,10 +4,10 @@ import { join } from "node:path";
 import { FakeModelProvider } from "@psyche/testing";
 import { afterEach, describe, expect, it } from "vitest";
 import { type ComposedGateway, composeGateway } from "../src/compose/index.ts";
-import { type ComposedMcp, composeMcp, MCP_SERVERS_SETTING } from "../src/compose/mcp.ts";
+import { type ComposedMcp, composeMcp } from "../src/compose/mcp.ts";
 import { serverConfig } from "../src/compose/mcp-add.ts";
 import type { ComposeServices } from "../src/compose/services.ts";
-import { adminClient, ik, seedMcpServers, type TestClient } from "./helpers.ts";
+import { adminClient, seedMcpServers, type TestClient } from "./helpers.ts";
 
 /**
  * Verified trust: an owner-added server earns `verified` only from an exact official package or

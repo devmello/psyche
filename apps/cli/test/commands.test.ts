@@ -384,9 +384,7 @@ describe("commands against a paired MockGateway", () => {
       expect(err(deps)).toContain("Settings → Connectors");
       // Positive control: an ordinary setting is still sent.
       const ok = makeDeps();
-      expect(await run(["config", "set", "appearance.theme", "light", ...urlArgs(ok)], ok)).toBe(
-        0,
-      );
+      expect(await run(["config", "set", "appearance.theme", "light", ...urlArgs(ok)], ok)).toBe(0);
     });
 
     it("an invalid gateway.port value is a usage error", async () => {
