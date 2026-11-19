@@ -50,4 +50,8 @@ export const notices: Partial<Catalogue> = {
   "notice.mcp.changed.title": "MCP सर्वर {server} ने अपने टूल बदले",
   "notice.mcp.suspicious.title": "MCP सर्वर {server} में संदिग्ध टूल विवरण हैं",
   "notice.mcp.review.body": "इस सर्वर का उपयोग करने से पहले देखें: {details}",
+  "notice.security.tightened.title":
+    "{device, select, none {किसी डिवाइस} other {{device}}} से सुरक्षा सेटिंग्स सख़्त की गईं",
+  "notice.security.tightened.body":
+    "इससे Psyche को मिली अनुमतियाँ केवल घटीं, इसलिए किसी मंज़ूरी की ज़रूरत नहीं पड़ी। अगर यह आपने नहीं किया, तो सेटिंग्स → डिवाइस में उस डिवाइस को हटा दें।",
 };

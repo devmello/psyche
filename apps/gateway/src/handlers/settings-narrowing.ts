@@ -1,4 +1,4 @@
-import { parsePolicy } from "@psyche/permissions";
+import { canonicalPath, compilePolicy, isUnder } from "@psyche/permissions";
 
 /**
  * Which security-setting changes may skip the approval card: only those that PROVABLY narrow what
@@ -44,49 +44,90 @@ const TIER_RANK: Record<string, number> = { off: 0, read: 1, click: 2, interact:
 /** The same tiers, highest = strictest (for `recordStricter`). */
 const TIER_STRICTNESS: Record<string, number> = { interact: 0, click: 1, read: 2, off: 3 };
 const FOLDER_RANK: Record<string, number> = { ro: 0, rw: 1 };
-const DM_STRICTNESS: Record<string, number> = { open: 0, pairing: 1, allowlist: 2, disabled: 3 };
 
 /**
  * A record of `name -> level` where a higher rank is stricter. Every stored name must stay, at
  * the same or a stricter level (dropping one falls back to a default we do not know here). A new
- * name is accepted only at the strictest level.
+ * name is accepted only at the strictest level. Some readers use the FIRST matching entry
+ * (`sites`, `apps`), so with `ordered` the stored names must keep their relative order, and with
+ * `foldCase` two names that differ only in case (one matches the other) are refused.
  */
 function recordStricter(
   stored: Json,
   next: Json,
   rank: Record<string, number>,
   strictest: string,
+  opts: { ordered?: boolean; foldCase?: boolean } = {},
 ): boolean {
   const s = stored === undefined ? {} : stored;
   if (!isObj(s) || !isObj(next)) return false;
   for (const [k, v] of Object.entries(s)) {
     const was = typeof v === "string" ? rank[v] : undefined;
-    const now = typeof next[k] === "string" ? rank[next[k] as string] : undefined;
+    const kept = Object.hasOwn(next, k) ? next[k] : undefined;
+    const now = typeof kept === "string" ? rank[kept] : undefined;
     if (was === undefined || now === undefined || now < was) return false;
   }
   for (const [k, v] of Object.entries(next)) {
-    if (k in s) continue;
+    if (Object.hasOwn(s, k)) continue;
     if (v !== strictest) return false;
+  }
+  if (opts.foldCase) {
+    for (const o of [s, next]) {
+      const keys = Object.keys(o).map((k) => k.toLowerCase());
+      if (new Set(keys).size !== keys.length) return false;
+    }
+  }
+  if (opts.ordered) {
+    const kept = Object.keys(next).filter((k) => Object.hasOwn(s, k));
+    if (canon(kept) !== canon(Object.keys(s))) return false;
   }
   return true;
 }
 
-/** A listed folder may stay or lose access; one not listed before is a widening. */
+/**
+ * Folders. The engine resolves a path by the LONGEST root, in canonical form, and a stable sort
+ * lets the first entry win a tie. So compare canonical paths (a duplicate is refused), keep the
+ * stored order, never raise a mode, and when a read-only entry is removed no remaining ancestor
+ * may be read-write (the subtree would open up).
+ */
 function foldersNarrower(stored: Json, next: Json): boolean {
   const s = stored === undefined ? [] : stored;
   if (!Array.isArray(s) || !Array.isArray(next)) return false;
-  const lowest = new Map<string, number>();
-  for (const f of s) {
-    if (!isObj(f) || typeof f.path !== "string" || typeof f.mode !== "string") return false;
-    const r = FOLDER_RANK[f.mode];
-    if (r === undefined) return false;
-    lowest.set(f.path, Math.min(lowest.get(f.path) ?? r, r));
+  const read = (rows: Json[]): { path: string; mode: number }[] | null => {
+    const out: { path: string; mode: number }[] = [];
+    const seen = new Set<string>();
+    for (const f of rows) {
+      if (!isObj(f) || typeof f.path !== "string" || typeof f.mode !== "string") return null;
+      const mode = FOLDER_RANK[f.mode];
+      const path = canonicalPath(f.path);
+      if (mode === undefined || seen.has(path)) return null;
+      seen.add(path);
+      out.push({ path, mode });
+    }
+    return out;
+  };
+  const was = read(s);
+  const now = read(next);
+  if (was === null || now === null) return false;
+  const index = new Map(was.map((f, i) => [f.path, i]));
+  let last = -1;
+  for (const f of now) {
+    const i = index.get(f.path);
+    if (i === undefined || i < last) return false;
+    last = i;
+    const before = was[i];
+    if (before === undefined || f.mode > before.mode) return false;
   }
-  for (const f of next) {
-    if (!isObj(f) || typeof f.path !== "string" || typeof f.mode !== "string") return false;
-    const r = FOLDER_RANK[f.mode];
-    const was = lowest.get(f.path);
-    if (r === undefined || was === undefined || r > was) return false;
+  const remaining = new Set(now.map((f) => f.path));
+  for (const r of was) {
+    if (remaining.has(r.path) || r.mode === FOLDER_RANK.rw) continue;
+    // A removed read-only entry: the nearest remaining ancestor now decides its subtree.
+    let nearest: { path: string; mode: number } | undefined;
+    for (const a of now) {
+      if (isUnder(r.path, a.path) && (nearest === undefined || a.path.length > nearest.path.length))
+        nearest = a;
+    }
+    if (nearest !== undefined && nearest.mode > r.mode) return false;
   }
   return true;
 }
@@ -113,57 +154,19 @@ function execNarrower(stored: Json, next: Json): boolean {
   return true;
 }
 
-/** `sensitiveCategories`: a category is on unless `false`; turning one off widens. */
-function categoriesNarrower(stored: Json, next: Json): boolean {
-  const s = stored === undefined ? {} : stored;
-  const n = next === undefined ? {} : next;
-  if (!isObj(s) || !isObj(n)) return false;
-  for (const k of new Set([...Object.keys(s), ...Object.keys(n)])) {
-    if (k !== "government" && k !== "icloud") return false;
-    if (s[k] !== undefined && typeof s[k] !== "boolean") return false;
-    if (n[k] !== undefined && typeof n[k] !== "boolean") return false;
-    if (n[k] === false && s[k] !== false) return false;
-  }
-  return true;
-}
-
-/** `connectors` (per connector, per action): every cell moves toward deny. */
-function connectorsStricter(stored: Json, next: Json): boolean {
-  const s = stored === undefined ? {} : stored;
-  if (!isObj(s) || !isObj(next)) return false;
-  for (const [id, m] of Object.entries(s)) {
-    if (!recordStricter(m, next[id], RULE_RANK, "deny")) return false;
-  }
-  for (const [id, m] of Object.entries(next)) {
-    if (id in s) continue;
-    if (!recordStricter({}, m, RULE_RANK, "deny")) return false;
-  }
-  return true;
-}
-
-/** `liftedFloors`: fewer lifted actions per connector. */
-function liftedNarrower(stored: Json, next: Json): boolean {
-  const s = stored === undefined ? {} : stored;
-  if (!isObj(s) || !isObj(next)) return false;
-  for (const [id, actions] of Object.entries(next)) {
-    if (!noneAdded(s[id] ?? [], actions)) return false;
-  }
-  return Object.values(s).every(isStrArray);
-}
-
+// Only fields that take effect as written. `connectors` (a rule equal to the catalogue default is
+// dropped, exposing the layer under it), `liftedFloors` and `sensitiveCategories` (`hostPolicy`
+// replaces them with their own settings), `ask`, `designated` and the rest card unless unchanged.
 const POLICY_FIELDS: Record<string, (stored: Json, next: Json) => boolean> = {
-  // Fewer allow rules, more deny rules. (`ask` and `designated` only when unchanged.)
+  // Fewer allow rules, more deny rules.
   allow: (s, n) => noneAdded(s ?? [], n ?? []),
   deny: (s, n) => noneDropped(s ?? [], n),
-  connectors: connectorsStricter,
-  liftedFloors: liftedNarrower,
-  apps: (s, n) => recordStricter(s, n, TIER_STRICTNESS, "off"),
-  sites: (s, n) => recordStricter(s, n, RULE_RANK, "deny"),
+  apps: (s, n) => recordStricter(s, n, TIER_STRICTNESS, "off", { ordered: true, foldCase: true }),
+  sites: (s, n) => recordStricter(s, n, RULE_RANK, "deny", { ordered: true }),
   folders: foldersNarrower,
   workspaceRoots: (s, n) => noneAdded(s ?? [], n ?? []),
   // More sensitive origins; the list replaces a bundled default, so it must exist already.
   sensitiveOrigins: (s, n) => s !== undefined && noneDropped(s, n),
-  sensitiveCategories: categoriesNarrower,
   exec: execNarrower,
 };
 
@@ -171,8 +174,9 @@ function policyNarrower(stored: Json, next: Json): boolean {
   const s = stored === undefined ? {} : stored;
   if (!isObj(s) || !isObj(next)) return false;
   try {
-    parsePolicy(s);
-    parsePolicy(next);
+    // What the live broker validates with: an invalid stored policy falls back to the default.
+    compilePolicy(s as never);
+    compilePolicy(next as never);
   } catch {
     return false;
   }
@@ -184,29 +188,47 @@ function policyNarrower(stored: Json, next: Json): boolean {
   return true;
 }
 
-/** `computerUse.apps`: `[{id, name, tier}]`; tiers only go down, no row is dropped or added above off. */
+/**
+ * `computerUse.apps`: `[{id, name, tier}]`. Tiers only go down (`ask` rows are what `noteApp`
+ * writes; the reader drops them, so they are inert: an `ask` row may stay or go, and nothing
+ * moves to or from `ask` except to `off`). Ids are unique ignoring case, kept rows keep their
+ * order, a new row is accepted only at `off`.
+ */
 function computerAppsNarrower(stored: Json, next: Json): boolean {
   const s = stored === undefined ? [] : stored;
   if (!Array.isArray(s) || !Array.isArray(next)) return false;
-  const read = (rows: Json[]): Map<string, number> | null => {
-    const out = new Map<string, number>();
+  type Row = { id: string; tier: string };
+  const read = (rows: Json[]): Row[] | null => {
+    const out: Row[] = [];
+    const seen = new Set<string>();
     for (const r of rows) {
       if (!isObj(r) || typeof r.id !== "string" || typeof r.tier !== "string") return null;
-      const tier = TIER_RANK[r.tier];
-      if (tier === undefined || out.has(r.id)) return null;
-      out.set(r.id, tier);
+      if (r.tier !== "ask" && TIER_RANK[r.tier] === undefined) return null;
+      const lower = r.id.toLowerCase();
+      if (seen.has(lower)) return null;
+      seen.add(lower);
+      out.push({ id: r.id, tier: r.tier });
     }
     return out;
   };
   const was = read(s);
   const now = read(next);
   if (was === null || now === null) return false;
-  for (const [id, tier] of was) {
-    const n = now.get(id);
-    if (n === undefined || n > tier) return false;
+  const before = new Map(was.map((r) => [r.id, r.tier]));
+  const after = new Map(now.map((r) => [r.id, r.tier]));
+  for (const [id, tier] of before) {
+    const n = after.get(id);
+    if (n === undefined) {
+      if (tier === "ask") continue;
+      return false;
+    }
+    if (n === tier || n === "off") continue;
+    if (tier === "ask" || n === "ask") return false;
+    if ((TIER_RANK[n] ?? 99) > (TIER_RANK[tier] ?? -1)) return false;
   }
-  for (const [id, tier] of now) if (!was.has(id) && tier !== 0) return false;
-  return true;
+  for (const [id, tier] of after) if (!before.has(id) && tier !== "off") return false;
+  const kept = now.filter((r) => before.has(r.id)).map((r) => r.id);
+  return canon(kept) === canon(was.filter((r) => after.has(r.id)).map((r) => r.id));
 }
 
 /** True only when the change from `stored` to `next` provably narrows. Unknown means false. */
@@ -222,32 +244,12 @@ export function isNarrowing(key: string, stored: unknown, next: unknown): boolea
       return next === false && (stored === undefined || typeof stored === "boolean");
     }
     if (key === "computerUse.apps") return computerAppsNarrower(stored, next);
-    if (/^permissions\.connectors\.[^.]+$/.test(key)) {
-      return recordStricter(stored, next, RULE_RANK, "deny");
-    }
     if (/^permissions\.liftedFloors\.[^.]+$/.test(key)) {
       return noneAdded(stored ?? [], next);
     }
-    if (/^channels\.[^.]+\.allowFrom$/.test(key)) {
-      // The stored list must exist: the channel row may hold something else.
-      return stored !== undefined && noneAdded(stored, next);
-    }
-    if (/^channels\.[^.]+\.groupAllowFrom$/.test(key)) {
-      // An empty group list falls back to `allowFrom`, which may be wider: it must stay filled.
-      return (
-        isStrArray(stored) &&
-        stored.length > 0 &&
-        isStrArray(next) &&
-        next.length > 0 &&
-        noneAdded(stored, next)
-      );
-    }
-    if (/^channels\.[^.]+\.dmPolicy$/.test(key)) {
-      const was = typeof stored === "string" ? DM_STRICTNESS[stored] : undefined;
-      const now = typeof next === "string" ? DM_STRICTNESS[next] : undefined;
-      return was !== undefined && now !== undefined && now >= was;
-    }
-    // devices, vault, gateway, identityLinks, exec.* keys (a binary path), anything unknown.
+    // Connector matrices (a rule equal to its catalogue default is dropped, which exposes the layer
+    // under it), channel keys (nothing reads them), devices, vault, gateway, identityLinks,
+    // exec.* keys (a binary path) and anything unknown.
     return false;
   } catch {
     return false;

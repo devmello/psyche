@@ -50,4 +50,8 @@ export const notices: Partial<Catalogue> = {
   "notice.mcp.changed.title": "MCP 서버 {server}의 도구가 바뀌었습니다",
   "notice.mcp.suspicious.title": "MCP 서버 {server}의 도구 설명이 의심스럽습니다",
   "notice.mcp.review.body": "이 서버를 쓰기 전에 확인하세요: {details}",
+  "notice.security.tightened.title":
+    "{device, select, none {어떤 기기} other {{device}}}에서 보안 설정이 강화되었습니다",
+  "notice.security.tightened.body":
+    "Psyche가 할 수 있는 일을 줄이기만 했으므로 승인이 필요하지 않았습니다. 본인이 아니라면 설정 → 기기에서 해당 기기를 해제하세요.",
 };

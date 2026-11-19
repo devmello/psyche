@@ -118,26 +118,47 @@ describe("narrowing security settings skip the card", () => {
     expect(stored("computerUse.enabled")).toBe(false);
   });
 
-  it("connector matrix toward deny applies at once; toward allow needs the card", async () => {
+  it("connector matrices and channel keys keep the card (defaults and readers are unknown here)", async () => {
     const { admin, seed, stored } = await boot();
     seed("permissions.connectors.gmail", { send: "ask", read: "allow" });
-    expect(
-      await set(admin, "permissions.connectors.gmail", { send: "deny", read: "ask" }),
-    ).toMatchObject({ ok: true });
-    carded(await set(admin, "permissions.connectors.gmail", { send: "ask", read: "ask" }));
-    expect(stored("permissions.connectors.gmail")).toEqual({ send: "deny", read: "ask" });
-  });
-
-  it("channel allowFrom removal and a stricter dmPolicy apply at once; the reverse needs the card", async () => {
-    const { admin, seed } = await boot();
     seed("channels.telegram.allowFrom", ["1", "2"]);
     seed("channels.telegram.dmPolicy", "pairing");
-    expect(await set(admin, "channels.telegram.allowFrom", ["2"])).toMatchObject({ ok: true });
-    expect(await set(admin, "channels.telegram.dmPolicy", "allowlist")).toMatchObject({
-      ok: true,
-    });
-    carded(await set(admin, "channels.telegram.allowFrom", ["2", "3"]));
-    carded(await set(admin, "channels.telegram.dmPolicy", "open"));
+    carded(await set(admin, "permissions.connectors.gmail", { send: "deny", read: "ask" }));
+    carded(await set(admin, "channels.telegram.allowFrom", ["2"]));
+    carded(await set(admin, "channels.telegram.dmPolicy", "allowlist"));
+    expect(stored("permissions.connectors.gmail")).toEqual({ send: "ask", read: "allow" });
+  });
+
+  it("sites toward deny applies at once; a reorder that flips the first match needs the card", async () => {
+    const { admin, seed, stored } = await boot();
+    const before = { sites: { "evil.example.com": "deny", "*.example.com": "allow" } };
+    seed("permissions.policy", before);
+    carded(
+      await set(admin, "permissions.policy", {
+        sites: { "*.example.com": "allow", "evil.example.com": "deny", zzz: "deny" },
+      }),
+    );
+    expect(stored("permissions.policy")).toEqual(before);
+    const tighter = { sites: { "evil.example.com": "deny", "*.example.com": "ask" } };
+    expect(await set(admin, "permissions.policy", tighter)).toMatchObject({ ok: true });
+    expect(stored("permissions.policy")).toEqual(tighter);
+  });
+
+  it("removing a read-only folder under a read-write parent needs the card", async () => {
+    const { admin, seed, stored } = await boot();
+    const before = {
+      folders: [
+        { path: "/Users/test/proj", mode: "rw" },
+        { path: "/Users/test/proj/secret", mode: "ro" },
+      ],
+    };
+    seed("permissions.policy", before);
+    carded(
+      await set(admin, "permissions.policy", {
+        folders: [{ path: "/Users/test/proj", mode: "rw" }],
+      }),
+    );
+    expect(stored("permissions.policy")).toEqual(before);
   });
 
   it("devices, vault, gateway and identity links always raise the card", async () => {
@@ -218,5 +239,32 @@ describe("narrowing security settings skip the card", () => {
   it("a policy with no stored baseline raises the card", async () => {
     const { admin } = await boot();
     carded(await set(admin, "permissions.policy", { allow: [] }));
+  });
+
+  it("a narrowing change leaves one notice per device and hour; a card path leaves none", async () => {
+    const { admin, seed } = await boot();
+    seed("computerUse.enabled", true);
+    seed("permissions.policy", { allow: ["a", "b", "c"] });
+    const tightened = async () => {
+      const { notifications } = await admin.call<{
+        notifications: { message?: { titleKey: string; params?: Record<string, unknown> } }[];
+      }>("notifications.list", {}, ik());
+      return notifications.filter((n) => n.message?.titleKey === "notice.security.tightened.title");
+    };
+    carded(await set(admin, "permissions.policy", { allow: ["a", "b", "c", "d"] }));
+    await new Promise((r) => setTimeout(r, 100));
+    expect(await tightened()).toHaveLength(0);
+
+    expect(await set(admin, "computerUse.enabled", false)).toMatchObject({ ok: true });
+    expect(await set(admin, "permissions.policy", { allow: ["a", "b"] })).toMatchObject({
+      ok: true,
+    });
+    let found = await tightened();
+    for (let i = 0; i < 50 && found.length === 0; i++) {
+      await new Promise((r) => setTimeout(r, 20));
+      found = await tightened();
+    }
+    expect(found).toHaveLength(1);
+    expect(found[0]?.message?.params).toMatchObject({ device: expect.any(String) });
   });
 });

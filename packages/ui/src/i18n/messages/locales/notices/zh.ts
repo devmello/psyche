@@ -48,4 +48,8 @@ export const notices: Partial<Catalogue> = {
   "notice.mcp.changed.title": "MCP 服务器 {server} 的工具已变更",
   "notice.mcp.suspicious.title": "MCP 服务器 {server} 的工具描述可疑",
   "notice.mcp.review.body": "使用此服务器前请先检查：{details}",
+  "notice.security.tightened.title":
+    "安全设置已从{device, select, none {某台设备} other {{device}}}收紧",
+  "notice.security.tightened.body":
+    "这只减少了 Psyche 可以做的事，因此无需批准。如果不是你本人操作，请在“设置 → 设备”中撤销该设备。",
 };

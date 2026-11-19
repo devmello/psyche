@@ -53,4 +53,8 @@ export const notices: Partial<Catalogue> = {
   "notice.mcp.changed.title": "Le serveur MCP {server} a changé ses outils",
   "notice.mcp.suspicious.title": "Le serveur MCP {server} a des descriptions d'outils suspectes",
   "notice.mcp.review.body": "Vérifie avant d'utiliser ce serveur : {details}",
+  "notice.security.tightened.title":
+    "Les réglages de sécurité ont été renforcés depuis {device, select, none {un appareil} other {{device}}}",
+  "notice.security.tightened.body":
+    "Cela a seulement réduit ce que Psyche peut faire, aucune approbation n'était donc nécessaire. Si ce n'était pas vous, révoquez l'appareil dans Réglages → Appareils.",
 };

@@ -51,4 +51,8 @@ export const notices: Partial<Catalogue> = {
   "notice.mcp.changed.title": "MCP サーバー {server} のツールが変わりました",
   "notice.mcp.suspicious.title": "MCP サーバー {server} のツールの説明が不審です",
   "notice.mcp.review.body": "このサーバーを使う前に確認してください: {details}",
+  "notice.security.tightened.title":
+    "{device, select, none {あるデバイス} other {{device}}}からセキュリティ設定が厳しくなりました",
+  "notice.security.tightened.body":
+    "Psycheができることを減らしただけなので、承認は不要でした。心当たりがない場合は、設定 → デバイスでそのデバイスを取り消してください。",
 };

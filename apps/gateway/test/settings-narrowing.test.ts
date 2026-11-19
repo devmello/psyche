@@ -39,6 +39,29 @@ const NARROWING: Row[] = [
   ],
   ["site toward deny", P, { sites: { "a.com": "allow" } }, { sites: { "a.com": "deny" } }],
   ["more sensitive origins", P, { sensitiveOrigins: ["a"] }, { sensitiveOrigins: ["a", "b"] }],
+  ["fewer lifted floors", "permissions.liftedFloors.gmail", ["send", "delete"], ["send"]],
+  ["no lifted floors", "permissions.liftedFloors.gmail", ["send"], []],
+  // Computer use
+  ["computer use off", "computerUse.enabled", true, false],
+  ["computer use already off", "computerUse.enabled", undefined, false],
+  [
+    "lower an app tier",
+    "computerUse.apps",
+    [{ id: "com.apple.Notes", name: "Notes", tier: "interact" }],
+    [{ id: "com.apple.Notes", name: "Notes", tier: "click" }],
+  ],
+  [
+    "app to off",
+    "computerUse.apps",
+    [{ id: "com.apple.Notes", name: "Notes", tier: "read" }],
+    [{ id: "com.apple.Notes", name: "Notes", tier: "off" }],
+  ],
+  ["a new app at off", "computerUse.apps", [], [{ id: "com.a.b", name: "B", tier: "off" }]],
+  // Channels
+];
+
+// These used to narrow; they no longer skip the card (connector defaults, inert keys, stripped fields).
+const NO_LONGER: Row[] = [
   [
     "sensitive category on",
     P,
@@ -64,25 +87,6 @@ const NARROWING: Row[] = [
     { send: "ask" },
     { send: "ask", delete: "deny" },
   ],
-  ["fewer lifted floors", "permissions.liftedFloors.gmail", ["send", "delete"], ["send"]],
-  ["no lifted floors", "permissions.liftedFloors.gmail", ["send"], []],
-  // Computer use
-  ["computer use off", "computerUse.enabled", true, false],
-  ["computer use already off", "computerUse.enabled", undefined, false],
-  [
-    "lower an app tier",
-    "computerUse.apps",
-    [{ id: "com.apple.Notes", name: "Notes", tier: "interact" }],
-    [{ id: "com.apple.Notes", name: "Notes", tier: "click" }],
-  ],
-  [
-    "app to off",
-    "computerUse.apps",
-    [{ id: "com.apple.Notes", name: "Notes", tier: "read" }],
-    [{ id: "com.apple.Notes", name: "Notes", tier: "off" }],
-  ],
-  ["a new app at off", "computerUse.apps", [], [{ id: "com.a.b", name: "B", tier: "off" }]],
-  // Channels
   ["remove an allowFrom entry", "channels.telegram.allowFrom", ["1", "2"], ["2"]],
   ["empty allowFrom", "channels.telegram.allowFrom", ["1"], []],
   ["group list loses one entry", "channels.telegram.groupAllowFrom", ["g1", "g2"], ["g1"]],
@@ -278,9 +282,185 @@ const MALFORMED: Row[] = [
   ["undefined next", "computerUse.enabled", true, undefined],
 ];
 
+const A = "/Users/test/proj";
+const REVIEW: Row[] = [
+  // B1: a read-only child under a read-write parent decides its subtree.
+  [
+    "B1 remove ro child under rw parent",
+    P,
+    { folders: [rw(A), ro(`${A}/secret`)] },
+    { folders: [rw(A)] },
+  ],
+  // B1b: raw strings vs canonical paths; a reorder flips the winner.
+  [
+    "B1b reorder equal canonical paths",
+    P,
+    { folders: [ro(`${A}/`), rw(A)] },
+    { folders: [rw(A), ro(`${A}/`)] },
+  ],
+  ["folders reordered", P, { folders: [ro("/a"), ro("/b")] }, { folders: [ro("/b"), ro("/a")] }],
+  [
+    "dot segments change nothing but order",
+    P,
+    { folders: [rw("/a/b"), ro("/a")] },
+    { folders: [ro("/a"), rw("/a/../a/b")] },
+  ],
+  // B2: first match wins, so order matters.
+  [
+    "B2 sites reordered plus a junk deny",
+    P,
+    { sites: { "evil.example.com": "deny", "*.example.com": "allow" } },
+    { sites: { "*.example.com": "allow", "evil.example.com": "deny", zzz: "deny" } },
+  ],
+  [
+    "B2 apps case variants reordered",
+    P,
+    { apps: { "com.a.B": "read", "com.a.b": "interact" } },
+    { apps: { "com.a.b": "interact", "com.a.B": "read" } },
+  ],
+  [
+    "B2 policy apps case-variant duplicate added",
+    P,
+    { apps: { "com.a.b": "read" } },
+    { apps: { "com.a.b": "read", "com.A.B": "off" } },
+  ],
+  [
+    "B2 computerUse.apps case variants reordered",
+    "computerUse.apps",
+    [
+      { id: "com.a.B", name: "x", tier: "read" },
+      { id: "com.a.b", name: "x", tier: "interact" },
+    ],
+    [
+      { id: "com.a.b", name: "x", tier: "interact" },
+      { id: "com.a.B", name: "x", tier: "read" },
+    ],
+  ],
+  [
+    "computerUse.apps case-variant duplicate",
+    "computerUse.apps",
+    [{ id: "com.a.b", name: "x", tier: "read" }],
+    [
+      { id: "com.a.b", name: "x", tier: "read" },
+      { id: "com.A.B", name: "x", tier: "off" },
+    ],
+  ],
+  // N1: inherited names are not "already there".
+  [
+    "N1 sites constructor allow",
+    P,
+    { sites: { "a.com": "deny" } },
+    { sites: { "a.com": "deny", constructor: "allow" } },
+  ],
+  [
+    "N1 sites toString allow",
+    P,
+    { sites: {}, deny: [] },
+    { sites: { toString: "allow" }, deny: [] },
+  ],
+  // N2: the broker validates with compilePolicy.
+  [
+    "N2 stored policy fails compilePolicy",
+    P,
+    { folders: [{ path: "relative/path", mode: "ro" }, ro("/a")] },
+    { folders: [ro("/a")] },
+  ],
+  ["N2 bad rule in stored policy", P, { deny: ["("], allow: ["a"] }, { deny: ["("], allow: [] }],
+  // N4: stripped fields.
+  ["N4 policy liftedFloors", P, { liftedFloors: { g: ["send"] } }, { liftedFloors: {} }],
+  [
+    "N4 policy sensitiveCategories",
+    P,
+    { sensitiveCategories: { icloud: false } },
+    { sensitiveCategories: { icloud: true } },
+  ],
+  [
+    "N3 policy connectors toward deny",
+    P,
+    { connectors: { g: { send: "ask" } } },
+    { connectors: { g: { send: "deny" } } },
+  ],
+];
+
+const REVIEW_SKIP: Row[] = [
+  [
+    "remove ro child with no ancestor entry",
+    P,
+    { folders: [ro(`${A}/secret`), rw("/other")] },
+    { folders: [rw("/other")] },
+  ],
+  ["remove rw entry under rw parent", P, { folders: [rw(A), rw(`${A}/x`)] }, { folders: [rw(A)] }],
+  ["remove ro child under ro parent", P, { folders: [ro(A), ro(`${A}/x`)] }, { folders: [ro(A)] }],
+  [
+    "rw to ro in order, canonical path spelled differently",
+    P,
+    { folders: [rw(`${A}/`)] },
+    { folders: [ro(A)] },
+  ],
+  [
+    "sites cell allow to deny, order kept",
+    P,
+    { sites: { "a.com": "allow", "b.com": "ask" } },
+    { sites: { "a.com": "deny", "b.com": "ask" } },
+  ],
+  [
+    "sites new key deny appended",
+    P,
+    { sites: { "a.com": "ask" } },
+    { sites: { "a.com": "ask", "z.com": "deny" } },
+  ],
+  [
+    "N5 lower a tier with an ask row present",
+    "computerUse.apps",
+    [
+      { id: "com.a.b", name: "A", tier: "interact" },
+      { id: "com.c.d", name: "C", tier: "ask" },
+    ],
+    [
+      { id: "com.a.b", name: "A", tier: "click" },
+      { id: "com.c.d", name: "C", tier: "ask" },
+    ],
+  ],
+  [
+    "N5 ask row to off",
+    "computerUse.apps",
+    [{ id: "com.c.d", name: "C", tier: "ask" }],
+    [{ id: "com.c.d", name: "C", tier: "off" }],
+  ],
+  [
+    "N5 inert ask row removed",
+    "computerUse.apps",
+    [
+      { id: "com.a.b", name: "A", tier: "read" },
+      { id: "com.c.d", name: "C", tier: "ask" },
+    ],
+    [{ id: "com.a.b", name: "A", tier: "off" }],
+  ],
+];
+
+const REVIEW_CARD_ASK: Row[] = [
+  [
+    "N5 read to ask",
+    "computerUse.apps",
+    [{ id: "com.a.b", name: "A", tier: "read" }],
+    [{ id: "com.a.b", name: "A", tier: "ask" }],
+  ],
+  [
+    "N5 ask to read",
+    "computerUse.apps",
+    [{ id: "com.a.b", name: "A", tier: "ask" }],
+    [{ id: "com.a.b", name: "A", tier: "read" }],
+  ],
+  ["N5 new ask row", "computerUse.apps", [], [{ id: "com.a.b", name: "A", tier: "ask" }]],
+];
+
 describe("isNarrowing", () => {
   it.each(NARROWING)("narrows: %s", (_n, key, stored, next) => {
     expect(isNarrowing(key, stored, next)).toBe(true);
+  });
+
+  it.each(NO_LONGER)("keeps the card: %s", (_n, key, stored, next) => {
+    expect(isNarrowing(key, stored, next)).toBe(false);
   });
 
   it.each(WIDENING)("needs a card: %s", (_n, key, stored, next) => {
@@ -293,6 +473,18 @@ describe("isNarrowing", () => {
 
   it.each(MALFORMED)("a malformed value needs a card: %s", (_n, key, stored, next) => {
     expect(isNarrowing(key, stored, next)).toBe(false);
+  });
+
+  it.each(REVIEW)("review probe needs a card: %s", (_n, key, stored, next) => {
+    expect(isNarrowing(key, stored, next)).toBe(false);
+  });
+
+  it.each(REVIEW_CARD_ASK)("ask tier needs a card: %s", (_n, key, stored, next) => {
+    expect(isNarrowing(key, stored, next)).toBe(false);
+  });
+
+  it.each(REVIEW_SKIP)("review: still skips: %s", (_n, key, stored, next) => {
+    expect(isNarrowing(key, stored, next)).toBe(true);
   });
 
   it("an unknown key never narrows", () => {
