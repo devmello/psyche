@@ -70,7 +70,7 @@ export async function reencodeToolImage(
     const input = join(dir, "in");
     const output = join(dir, `out.${format === "jpeg" ? "jpg" : "png"}`);
     await writeFile(input, bytes);
-    // sips exits 0 without writing anything for some unreadable inputs: the read below decides.
+    // sips exits 0 and writes nothing for an input it skips ("not a valid file"): the read decides.
     await run(
       "/usr/bin/sips",
       ["-s", "format", format, "-Z", String(edge), input, "--out", output],
