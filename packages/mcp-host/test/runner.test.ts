@@ -170,6 +170,70 @@ describe("reResolvesOnLaunch", () => {
     expect(reResolvesOnLaunch(command)).toBe(expected);
   });
 
+  // The #1421 review's probe rows beyond the ones above, each with its required answer.
+  it.each<[string, string[], boolean]>([
+    ["perl -e obfuscated", ["perl", "-e", "system(qq{n}.qq{px -y pkg})"], true],
+    ["perl -ne", ["perl", "-ne", "print"], true],
+    ["ruby -e", ["ruby", "-e", "exec(%w[np x].join + ' -y pkg')"], true],
+    ["osascript -e", ["osascript", "-e", 'do shell script "n" & "px -y pkg"'], true],
+    ["php -r", ["php8.3", "-r", "passthru('x');"], true],
+    ["lua -e", ["lua5.4", "-e", "os.execute('x')"], true],
+    ["perl script file", ["perl", "server.pl"], false],
+    ["sh script file", ["sh", "./run.sh"], false],
+    ["bash -l script", ["bash", "-l", "./run.sh"], false],
+    ["env -S escaped space", ["env", "-S", "\\ -y pkg"], false],
+    ["npx pinned + unknown flag eq", ["npx", "--foo=bar", "pkg@1.2.3"], false],
+    ["npx pinned", ["npx", "-y", "pkg@1.2.3"], false],
+    ["uvx pinned", ["uvx", "pkg==1.2.3"], false],
+    ["uv run pinned --with", ["uv", "run", "--with", "mcp==1.2.0", "mcp", "run", "s.py"], false],
+    ["uv run --with mcp[cli]", ["uv", "run", "--with", "mcp[cli]", "mcp", "run", "s.py"], true],
+    // Inline (PEP 723) dependencies live in the file: not visible here (documented).
+    ["uv run plain script", ["uv", "run", "server.py"], false],
+    ["uv run --script", ["uv", "run", "--script", "server.py"], false],
+    ["deno run local", ["deno", "run", "-A", "server.ts"], false],
+    ["deno run jsr pinned", ["deno", "run", "-A", "jsr:@x/y@1.2.3"], false],
+    ["deno run https", ["deno", "run", "-A", "https://x/y.ts"], true],
+    ["deno -A npm (no run)", ["deno", "-A", "npm:evil"], true],
+    ["deno https (no run)", ["deno", "https://x/y.ts"], true],
+    ["deno -A npm pinned (no run)", ["deno", "-A", "npm:pkg@1.2.3"], false],
+    ["deno serve npm", ["deno", "serve", "npm:evil"], true],
+    ["deno serve local", ["deno", "serve", "--port=8000", "server.ts"], false],
+    ["deno local (no run)", ["deno", "-A", "server.ts"], false],
+    ["deno --config value then npm", ["deno", "--config", "deno.json", "npm:evil"], true],
+    ["bun run pkg", ["bun", "run", "evil"], false],
+    ["bun evil (auto-install)", ["bun", "evil@latest"], false],
+    ["npm exec pinned", ["npm", "exec", "--yes", "--package=pkg@1.2.3", "--", "bin"], false],
+    ["npm --prefix /x exec", ["npm", "--prefix", "/x", "exec", "evil"], true],
+    ["pnpm -C dir dlx", ["pnpm", "-C", "dir", "dlx", "evil"], true],
+    ["yarn create", ["yarn", "create", "evil"], true],
+    ["npm i -g then (shell-less)", ["npm", "install", "-g", "evil"], false],
+    ["python -m pipx run", ["python3", "-m", "pipx", "run", "evil"], true],
+    ["python -Ic", ["python3", "-Ic", "import os"], true],
+    ["python -I -c", ["python3", "-I", "-c", "x"], true],
+    ["node --input-type -e", ["node", "--input-type=module", "-e", "x"], true],
+    ["node script", ["node", "server.js"], false],
+    ["node22 -e", ["node22", "-e", "x"], true],
+    ["nodejs22 -e", ["nodejs22", "-e", "x"], true],
+    ["node22 script", ["/opt/node22", "server.js"], false],
+    ["python3.12 -c", ["python3.12", "-c", "x"], true],
+    ["pwsh -c", ["pwsh", "-c", "npx evil"], true],
+    ["cmd /C upper", ["cmd.exe", "/C", "evil"], true],
+    ["busybox sh -c", ["busybox", "sh", "-c", "x"], true],
+    ["/usr/bin/env bash -c", ["/usr/bin/env", "bash", "-c", "x"], true],
+    ["sh -ec", ["sh", "-ec", "x"], true],
+    ["sh --login -c", ["bash", "--login", "-c", "x"], true],
+    ["sh -o pipefail -c", ["bash", "-o", "pipefail", "-c", "x"], true],
+    ["bash -O extglob -c", ["bash", "-O", "extglob", "-c", "x"], true],
+    ["bash +O extglob -c", ["bash", "+O", "extglob", "-c", "x"], true],
+    ["bash -o pipefail script", ["bash", "-o", "pipefail", "./run.sh"], false],
+    ["xargs npx", ["xargs", "npx"], true],
+    ["npx NBSP in one arg", ["npx -y evil"], true],
+    // Not npx to the operating system either: it looks for a file with that exact name.
+    ["npx zero-width", ["n​px", "-y", "evil"], false],
+  ])("%s", (_name, command, expected) => {
+    expect(reResolvesOnLaunch(command)).toBe(expected);
+  });
+
   // Must not match: no runner, or every package pinned to one exact release.
   it.each([
     "node server.js",

@@ -206,7 +206,12 @@ const SHELLS = set(
   "powershell",
   "pwsh",
 );
-const JS_RUNTIMES = set("node", "nodejs", "bun", "deno");
+/** `node`, `nodejs`, versioned `node22`, `bun`, `deno`. */
+const JS_RUNTIME = /^(?:node(?:js)?\d*|bun|deno)$/;
+/** Interpreters that run a one-line program given with `-e` (or `php -r`). */
+const SCRIPT_RUNTIME = /^(?:perl|ruby|php|lua|luajit|osascript)[\d.]*$/;
+/** Shell options whose value is the next word (`bash -o pipefail`, `shopt` names via `-O`/`+O`). */
+const SHELL_VALUE_OPTIONS = set("-o", "+o", "-O", "+O");
 const NODE_VALUE_OPTIONS = set(
   "-r",
   "--require",
@@ -248,10 +253,25 @@ function subcommandAfter(
 /** A shell given a string to run: `sh -c`, `bash -lc`, `cmd /c`, `pwsh -Command`. */
 function shellRunsString(tokens: string[], i: number): boolean {
   for (let j = i + 1; j < tokens.length; j += 1) {
-    const t = (tokens[j] as string).toLowerCase();
+    const raw = tokens[j] as string;
+    if (SHELL_VALUE_OPTIONS.has(raw)) {
+      j += 1;
+      continue;
+    }
+    const t = raw.toLowerCase();
     if (t === "/c" || t === "/k" || t === "-command" || t === "-encodedcommand") return true;
     if (/^-[a-z]*c[a-z]*$/.test(t) && !t.startsWith("--")) return true;
-    if (!(t.startsWith("-") || /^\/[a-z]$/.test(t))) return false;
+    if (!(t.startsWith("-") || t.startsWith("+") || /^\/[a-z]$/.test(t))) return false;
+  }
+  return false;
+}
+
+/** `perl -e`, `perl -ne`, `ruby -e`, `php -r`, `lua -e`, `osascript -e`. */
+function scriptEvaluates(tokens: string[], i: number): boolean {
+  for (let j = i + 1; j < tokens.length; j += 1) {
+    const t = tokens[j] as string;
+    if (!t.startsWith("-") || t.startsWith("--")) return false;
+    if (/^-[a-zA-Z]*[eEr][a-zA-Z]*$/.test(t)) return true;
   }
   return false;
 }
@@ -309,9 +329,26 @@ function runnerAt(tokens: string[], i: number): { kind: Kind; rest: string[] } |
     }
     return undefined;
   }
-  if (name === "deno") {
-    const sub = subcommandAfter(tokens, i, set("run"));
-    if (sub?.word === "run") return { kind: DENO, rest: tokens.slice(sub.at + 1) };
+  if (name === "deno") return denoAt(tokens, i);
+  return undefined;
+}
+
+/**
+ * `deno run <spec>`, `deno serve <spec>`, or a spec given straight to `deno` (`deno -A npm:x`, an
+ * implicit run). Deno's options take their value with `=` except the few in `DENO.values`.
+ */
+function denoAt(tokens: string[], i: number): { kind: Kind; rest: string[] } | undefined {
+  for (let j = i + 1; j < tokens.length; j += 1) {
+    const t = tokens[j] as string;
+    if (t.startsWith("-")) {
+      if (DENO.values.has(t)) j += 1;
+      continue;
+    }
+    const word = t.toLowerCase();
+    if (word === "run" || word === "serve") return { kind: DENO, rest: tokens.slice(j + 1) };
+    // A spec Deno fetches; a local file or another subcommand is not a runner.
+    if (/^(?:npm|jsr|https?):/.test(word)) return { kind: DENO, rest: tokens.slice(j) };
+    return undefined;
   }
   return undefined;
 }
@@ -378,7 +415,8 @@ export function reResolvesOnLaunch(command: readonly string[]): boolean {
     // npm's and pnpm's own entry points run as `node …/npx-cli.js`.
     if (/-cli\.[cm]?js$/.test(name) || /^(?:pnpm|yarn)\.[cm]?js$/.test(name)) return true;
     if (SHELLS.has(name) && shellRunsString(tokens, i)) return true;
-    if (JS_RUNTIMES.has(name) && jsEvaluates(tokens, i)) return true;
+    if (JS_RUNTIME.test(name) && jsEvaluates(tokens, i)) return true;
+    if (SCRIPT_RUNTIME.test(name) && scriptEvaluates(tokens, i)) return true;
     if (/^python(?:\d+(?:\.\d+)*)?$|^py$/.test(name) && pythonEvaluates(tokens, i)) return true;
     const runner = runnerAt(tokens, i);
     if (runner !== undefined && !pinned(runner.kind, runner.rest)) return true;
