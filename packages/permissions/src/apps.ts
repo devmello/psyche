@@ -272,6 +272,39 @@ export const LOCKED_OFF_APPS = [
 ];
 
 /**
+ * Linux program launchers (desktop-file ids): opening a document with one of them runs it as a
+ * program, whatever its extension (`wine invoice.pdf.exe`, `java -jar`, a Python script). Off,
+ * so `apps.open` and computer use never drive them.
+ */
+export const LAUNCHER_APPS = [
+  "wine",
+  "wine64",
+  "wine-*",
+  "org.winehq.*",
+  "winetricks",
+  "wine-desktop",
+  "com.usebottles.bottles",
+  "bottles",
+  "net.lutris.lutris",
+  "lutris",
+  "playonlinux",
+  "q4wine",
+  "crossover",
+  "java",
+  "java-*",
+  "javaws",
+  "openjdk-*",
+  "icedtea-*",
+  "mono",
+  "mono-*",
+  "python",
+  "python2*",
+  "python3*",
+  "idle",
+  "idle3*",
+];
+
+/**
  * Bundle ids compare without case: LaunchServices treats them case-insensitively (review #13).
  * A pattern ending in "*" matches every id that starts with what comes before it
  * ("com.chase.*", "jetbrains-*", "coinbase*").
@@ -291,6 +324,9 @@ export function appCap(bundleId: string): { cap: AppTier; reason: string } {
       reason:
         "password managers, banking, trading, system settings, notifications and security prompts are off",
     };
+  }
+  if (matchesAny(bundleId, LAUNCHER_APPS)) {
+    return { cap: "off", reason: "apps that run programs (Wine, Java, Mono, Python) are off" };
   }
   if (matchesAny(bundleId, BROWSER_APPS) && !isBrowserWebApp(bundleId)) {
     return { cap: "read", reason: "browsers are read-only; the agent browser acts on the web" };

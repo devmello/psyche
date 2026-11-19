@@ -122,7 +122,10 @@ describe("Linux fixed caps", () => {
 
   it("keeps the dotted prefix patterns working as before", () => {
     expect(appCap("com.chase.mobile").cap).toBe("off");
-    expect(appCap("com.chase").cap).toBe("interact");
+    // Main's financial hard block (`FINANCIAL_APP_PREFIXES`) also caps the bare bank id; a longer
+    // id that only starts with the same letters is not the bank's.
+    expect(appCap("com.chase").cap).toBe("off");
+    expect(appCap("com.chasex").cap).toBe("interact");
     expect(appCap("com.jetbrains.intellij").cap).toBe("click");
     expect(appCap("com.jetbrainsx.thing").cap).toBe("interact");
   });
@@ -131,5 +134,48 @@ describe("Linux fixed caps", () => {
     for (const id of ["org.gnome.TextEditor", "libreoffice-writer", "gedit", "thunderbird"]) {
       expect(appCap(id).cap).toBe("interact");
     }
+  });
+});
+
+/** Review of #1294, finding 10: apps that run what they open are off. */
+describe("Linux program launchers", () => {
+  it.each([
+    "wine",
+    "wine64",
+    "wine-stable",
+    "org.winehq.Wine",
+    "winetricks",
+    "com.usebottles.bottles",
+    "net.lutris.Lutris",
+    "lutris",
+    "playonlinux",
+    "java",
+    "java-17-openjdk",
+    "javaws",
+    "openjdk-17-java",
+    "icedtea-netx-javaws",
+    "mono",
+    "mono-runtime",
+    "python",
+    "python3",
+    "python3.12",
+    "idle3",
+  ])("%s is off", (id) => {
+    expect(appCap(id).cap).toBe("off");
+    expect(effectiveTier(id, "interact")).toMatchObject({ tier: "off", capped: true });
+  });
+
+  it.each([
+    "winecellar",
+    "org.gnome.Wine-tasting",
+    "javascript-editor",
+    "javafx-scenebuilder",
+    "monodevelop",
+    "monospace-font-viewer",
+    "pythonista",
+    "org.gnome.TextEditor",
+    "libreoffice-writer",
+  ])("near miss %s keeps its tier", (id) => {
+    expect(appCap(id).cap).not.toBe("off");
   });
 });

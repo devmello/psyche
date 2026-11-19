@@ -1188,6 +1188,28 @@ describe("computer-use agent tools (J1–J5)", () => {
       expect(money(helper.calls)).toHaveLength(1);
     });
 
+    // Review of #1294, finding 2: the Linux helper answers the check, so one that cannot is
+    // refused like an old Mac helper (a point click, and Return on whatever has focus).
+    it("a Linux Host helper without the check is refused, by point and by key", async () => {
+      helperKind = "host-helper";
+      await call("computer.snapshot", { app: notes });
+      helper.noResolve = true;
+      expect(
+        await call("computer.act", { app: notes, action: "click", x: 40, y: 50 }),
+      ).toMatchObject({
+        isError: true,
+        output: { error: { code: "policy_denied", details: { reason: "point_unchecked" } } },
+      });
+      expect(
+        await call("computer.act", { app: notes, action: "key", keys: "return" }),
+      ).toMatchObject({
+        isError: true,
+        output: { error: { code: "policy_denied", details: { reason: "focus_unchecked" } } },
+      });
+      expect(money(helper.calls)).toHaveLength(0);
+      expect(helper.calls.map((c) => c.capability)).not.toContain("computer.key");
+    });
+
     it("a click already classed financial does not ask twice", async () => {
       await call("computer.snapshot", { app: notes });
       helper.calls.length = 0;

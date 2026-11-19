@@ -5,6 +5,7 @@ import {
   type AppTier,
   BROWSER_APPS,
   effectiveTier,
+  LAUNCHER_APPS,
   LOCKED_OFF_APPS,
   type PolicyConfig,
   TERMINAL_IDE_APPS,
@@ -64,6 +65,7 @@ export function fixedCaps(): Record<string, AppTier> {
   for (const id of TERMINAL_IDE_APPS) caps[id] = "click";
   for (const id of BROWSER_APPS) caps[id] = "read";
   for (const id of LOCKED_OFF_APPS) caps[id] = "off";
+  for (const id of LAUNCHER_APPS) caps[id] = "off";
   return caps;
 }
 

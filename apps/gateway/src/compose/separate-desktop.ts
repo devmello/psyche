@@ -303,6 +303,11 @@ export class SeparateDesktop {
     return client;
   }
 
+  /** The Task the desktop is serving now (`use` until `release`), if any. */
+  owner(): string | undefined {
+    return this.#task?.id;
+  }
+
   /** Whether the helper inside is paired and connected. */
   get ready(): boolean {
     return this.#deps.guests.clientFor(SEPARATE_DESKTOP_ID) !== undefined;

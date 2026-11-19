@@ -145,6 +145,28 @@ const EXECUTABLE_EXTENSIONS = new Set([
   "py",
   "rb",
   "pl",
+  // Linux (and what Wine runs there): launchers, self-running images, installers and packages.
+  "desktop",
+  "appimage",
+  "run",
+  "bin",
+  "deb",
+  "rpm",
+  "snap",
+  "flatpak",
+  "flatpakref",
+  "flatpakrepo",
+  "exe",
+  "msi",
+  "com",
+  "bat",
+  "cmd",
+  "ps1",
+  "vbs",
+  "lnk",
+  "csh",
+  "ksh",
+  "fish",
 ]);
 
 function deny(reason: string, message: string, details: Record<string, string> = {}): never {

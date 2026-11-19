@@ -18,6 +18,9 @@ CI fails when the generated files are stale (`pnpm protocol:check`).
 
 ## Log
 
+### v1 additive — 2026-11-19 (whose call a description is for)
+
+- `ToolRegistration.describeCall` takes an optional second argument `call?: ToolCallScope` (`{runId, taskId?}`, new type). The agent loop's approval gate passes the run and Task making the call. A description that depends on it (the separate desktop's file-local words, which relax only for the Task that owns the desktop) must be at least as strict without it. Existing implementations ignore it.
 ### v1 additive — 2026-11-18 (share the folder a file tool could not reach)
 
 - New method `files.requestShare {threadId, path, access: "read"}` → `{status: pending|already, approvalId?}` (`operator.admin`, side-effecting). It raises the same `folder_access` approval card as `request_folder_access` (same binding, native picker, Allow once / Always; a tainted thread is offered Allow once only), outside an agent run, for the chat's "Share this folder (read only)" button. `path` only pre-fills the card; the pick is what is granted. `access` is `read` only; nothing is granted without the card.

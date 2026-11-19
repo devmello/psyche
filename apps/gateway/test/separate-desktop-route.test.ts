@@ -7,9 +7,15 @@ import type {
   NodeInvokeResult,
   ToolRegistration,
 } from "@psyche/protocol";
+import { PsycheError } from "@psyche/protocol";
 import { FakePermissionBroker } from "@psyche/testing";
 import { beforeEach, describe, expect, it } from "vitest";
-import { createComputerUse } from "../src/compose/computer.ts";
+import {
+  type ComputerUse,
+  createComputerUse,
+  type SurfaceCall,
+  surfaceNodeId,
+} from "../src/compose/computer.ts";
 import { asksInSeparateDesktop } from "../src/compose/separate-desktop.ts";
 import { type DesktopLike, separateDesktopRouter } from "../src/compose/separate-desktop-route.ts";
 
@@ -19,6 +25,12 @@ class RecordingNode implements NodeClient {
     [];
   /** Labels the helper asks about (`approval_required/risky_label`) until it gets an approval. */
   risky = new Set<string>();
+  /** The guest honours `fileLocalLabel` for that exact label (the Host helper never does). */
+  honoursFileLocal = false;
+  /** What `computer.resolve_target` answers; undefined: the method is unknown (an old helper). */
+  resolve: Record<string, unknown> | undefined;
+  /** The next mutating call answers as if the owner pressed Stop. */
+  stopNext = false;
   readonly nodeId: string;
   readonly name: string;
   constructor(name: string) {
@@ -52,8 +64,27 @@ class RecordingNode implements NodeClient {
         },
       };
     }
+    if (capability === "computer.resolve_target") {
+      if (this.resolve === undefined) {
+        return { ok: false, error: { code: "unknown_method", message: "no such capability" } };
+      }
+      return { ok: true, result: { app: p.app, provenance: "untrusted", ...this.resolve } };
+    }
+    if (this.stopNext && capability !== "computer.end_session") {
+      this.stopNext = false;
+      return {
+        ok: false,
+        error: { code: "cancelled", message: "stopped", details: { reason: "user_stopped" } },
+      };
+    }
     const label = (p.expect as { label?: string } | undefined)?.label;
-    if (label !== undefined && this.risky.has(label) && options.approvalId === undefined) {
+    const fileLocal = this.honoursFileLocal && label !== undefined && p.fileLocalLabel === label;
+    if (
+      label !== undefined &&
+      this.risky.has(label) &&
+      options.approvalId === undefined &&
+      !fileLocal
+    ) {
       return {
         ok: false,
         error: {
@@ -67,26 +98,48 @@ class RecordingNode implements NodeClient {
   }
 }
 
-/** The separate desktop, as the route sees it: one task at a time, risky words per its rules. */
+/**
+ * The separate desktop, as the route sees it, with the rules of `SeparateDesktop`: one task at a
+ * time (`use` refuses another), a release leaves the container up while a watch view is open, and
+ * a Task whose grants differ from the last one's gets a reset workspace.
+ */
 class FakeDesktop implements DesktopLike {
   ready = false;
+  task: string | undefined;
   used: string[] = [];
   released: string[] = [];
+  resets: string[] = [];
+  /** Grants per task (shares and internet), as `grantsKey` would say. */
+  grants = new Map<string, string>();
+  #lastGrants: string | undefined;
   readonly guest: RecordingNode;
   constructor(guest: RecordingNode) {
     this.guest = guest;
+  }
+  owner(): string | undefined {
+    return this.task;
   }
   clientFor(): NodeClient {
     return this.guest;
   }
   async use(taskId: string): Promise<void> {
+    if (this.task !== undefined && this.task !== taskId) {
+      throw new PsycheError("conflict", "busy", { details: { reason: "separate_desktop_busy" } });
+    }
     this.used.push(taskId);
+    const grants = this.grants.get(taskId) ?? "";
+    if (this.#lastGrants !== grants) this.resets.push(taskId);
+    this.#lastGrants = grants;
+    this.task = taskId;
     this.ready = true;
   }
   async release(taskId: string): Promise<void> {
     this.released.push(taskId);
+    // The container stays up (a watch view is open): `ready` does not change.
+    if (this.task === taskId) this.task = undefined;
   }
-  asks(_taskId: string, text: string | undefined, target: { app?: string }): boolean {
+  asks(taskId: string, text: string | undefined, target: { app?: string }): boolean {
+    if (taskId !== this.task) return asksInSeparateDesktop(text);
     return asksInSeparateDesktop(text, {
       internetUsed: false,
       credentialFilled: false,
@@ -101,14 +154,18 @@ let host: RecordingNode;
 let guest: RecordingNode;
 let desktop: FakeDesktop;
 let tools: Map<string, ToolRegistration>;
+let cu: ComputerUse;
+let clock = 1_000_000;
 const contexts = new Map<string, CallContext>();
 
 beforeEach(() => {
   host = new RecordingNode("host");
   guest = new RecordingNode("guest");
+  guest.honoursFileLocal = true;
   desktop = new FakeDesktop(guest);
   contexts.clear();
-  const cu = createComputerUse({
+  clock = 1_000_000;
+  cu = createComputerUse({
     broker: new FakePermissionBroker({ armDelayMs: 0 }),
     helper: () => ({ nodeId: "node-host", client: host, kind: "host-helper" }),
     context: (id) => {
@@ -118,6 +175,7 @@ beforeEach(() => {
     },
     cancelRun: () => undefined,
     surfaces: { separate_desktop: separateDesktopRouter(desktop) },
+    now: () => clock,
   });
   tools = new Map(cu.registrations().map((r) => [r.spec.name, r]));
 });
@@ -138,6 +196,30 @@ async function call(tool: string, params: unknown, taskId = "task_1") {
   const reg = tools.get(tool);
   if (reg === undefined) throw new Error(`no tool ${tool}`);
   return reg.execute(callId, params, new AbortController().signal, () => undefined);
+}
+
+const errorOf = (r: { output: unknown }) =>
+  (r.output as { error?: { code: string; details?: Record<string, unknown> } }).error;
+
+/** A router call as `computer.ts` makes it, for the router's own checks. */
+function routerCall(taskId: string, extra: Partial<SurfaceCall> = {}): SurfaceCall {
+  return {
+    surface: "separate_desktop",
+    tool: "computer.snapshot",
+    capability: "computer.ax_tree",
+    params: { app: editor },
+    timeoutMs: 1000,
+    signal: new AbortController().signal,
+    context: {
+      toolCallId: "c",
+      threadId: "t",
+      runId: "r",
+      taskId,
+      permissionMode: "balanced",
+      taint: false,
+    },
+    ...extra,
+  };
 }
 
 const click = (label: string, surface: string) => ({
@@ -203,28 +285,26 @@ describe("the separate desktop route", () => {
     host.risky.add("Delete");
     await call("computer.snapshot", { app: editor, surface: "separate_desktop" });
     await call("computer.snapshot", { app: editor });
-    // Separate desktop: a file-local word passes the Gateway; the guest's own ask is answered once.
+    // Separate desktop: a file-local word passes the Gateway; the guest's own ask is repeated once
+    // naming that label, with no approval id and no approval scope.
     const sd = await call("computer.act", click("Delete", "separate_desktop"));
     expect(sd.isError).toBeUndefined();
-    expect(
-      guest.calls
-        .filter((c) => c.capability === "computer.click")
-        .map((c) => c.approvalId ?? "none"),
-    ).toEqual(["none", "separate-desktop:task_1"]);
-    expect(guest.calls.at(-1)?.params.approval).toEqual({ app: editor, tier: "interact" });
+    const clicks = guest.calls.filter((c) => c.capability === "computer.click");
+    expect(clicks.map((c) => c.approvalId ?? "none")).toEqual(["none", "none"]);
+    expect(clicks.map((c) => c.params.fileLocalLabel ?? "none")).toEqual(["none", "Delete"]);
+    expect(clicks.at(-1)?.params).not.toHaveProperty("approval");
     // The Host's desktop keeps asking: the helper's ask reaches the owner as a card, never auto-approved.
+    const owner = { runId: "run_1", taskId: "task_1" };
     const description = tools
       .get("computer.act")
-      ?.describeCall?.({ ...click("Delete", "separate_desktop") });
-    const direct = tools.get("computer.act")?.describeCall?.({ ...click("Delete", "direct") });
+      ?.describeCall?.({ ...click("Delete", "separate_desktop") }, owner);
+    const direct = tools
+      .get("computer.act")
+      ?.describeCall?.({ ...click("Delete", "direct") }, owner);
     expect(description?.sideEffect).not.toBe("destructive");
     expect(direct?.sideEffect).toBe("destructive");
     await call("computer.act", { ...click("Delete", "direct"), surface: undefined });
-    expect(
-      host.calls.every(
-        (c) => c.approvalId === undefined || !c.approvalId.startsWith("separate-desktop"),
-      ),
-    ).toBe(true);
+    expect(host.calls.every((c) => c.params.fileLocalLabel === undefined)).toBe(true);
   });
 
   it("still asks for words that reach the outside world, and for a browser", async () => {
@@ -232,17 +312,18 @@ describe("the separate desktop route", () => {
     await call("computer.snapshot", { app: editor, surface: "separate_desktop" });
     const send = await call("computer.act", click("Send", "separate_desktop"));
     // The guest's ask is not answered by the route: it becomes the owner's card (unattended: queued).
-    expect(guest.calls.every((c) => !(c.approvalId ?? "").startsWith("separate-desktop"))).toBe(
-      true,
-    );
+    expect(guest.calls.every((c) => c.params.fileLocalLabel === undefined)).toBe(true);
     expect(send.isError).toBe(true);
-    const d = tools.get("computer.act")?.describeCall?.({
-      app: "firefox",
-      action: "click",
-      ref: "e1",
-      expect: { role: "button", label: "Delete" },
-      surface: "separate_desktop",
-    });
+    const d = tools.get("computer.act")?.describeCall?.(
+      {
+        app: "firefox",
+        action: "click",
+        ref: "e1",
+        expect: { role: "button", label: "Delete" },
+        surface: "separate_desktop",
+      },
+      { runId: "run_1", taskId: "task_1" },
+    );
     expect(d?.sideEffect).toBe("destructive");
   });
 
@@ -273,5 +354,240 @@ describe("the separate desktop route", () => {
     expect(desktop.released).toEqual(["task_9"]);
     expect(guest.calls.filter((c) => c.capability === "computer.end_session")).toHaveLength(2);
     expect(host.calls).toEqual([]);
+  });
+});
+
+/** Review of #1294, finding 1: the desktop's owner Task is checked on every call. */
+describe("one Task owns the separate desktop, on every call", () => {
+  const openInShare = {
+    app: "org.gnome.Nautilus",
+    url: "file:///workspace/share-of-task_1/notes.txt",
+    surface: "separate_desktop",
+  };
+
+  it("(a) refuses another Task's session-less apps.* calls while a Task is working", async () => {
+    await call("computer.snapshot", { app: editor, surface: "separate_desktop" });
+    expect(desktop.owner()).toBe("task_1");
+    const before = guest.calls.length;
+    for (const [tool, params] of [
+      ["apps.open", openInShare],
+      ["apps.focus", { app: editor, surface: "separate_desktop" }],
+      ["apps.list", { surface: "separate_desktop" }],
+    ] as const) {
+      const r = await call(tool, params, "task_2");
+      expect(r.isError, tool).toBe(true);
+      expect(errorOf(r)?.code, tool).toBe("conflict");
+    }
+    expect(guest.calls.length).toBe(before);
+    expect(desktop.used).toEqual(["task_1"]);
+  });
+
+  it("(a) the router itself refuses another Task while the desktop is up and owned", async () => {
+    const router = separateDesktopRouter(desktop);
+    await router.invoke(routerCall("task_1", { session: "task_1:r@separate_desktop" }));
+    const before = guest.calls.length;
+    // No session (as an `apps.open` would come from an older caller), desktop ready: still refused.
+    await expect(
+      router.invoke(
+        routerCall("task_2", {
+          tool: "apps.open",
+          capability: "apps.open",
+          params: { app: "org.gnome.Nautilus", url: openInShare.url },
+        }),
+      ),
+    ).rejects.toMatchObject({
+      code: "conflict",
+      details: { reason: "separate_desktop_busy" },
+    });
+    expect(guest.calls.length).toBe(before);
+    expect(desktop.used).toEqual(["task_1"]);
+  });
+
+  it("(b) a stale session yields through the router: the old Task's desktop is released first", async () => {
+    desktop.grants.set("task_1", "share:/home/owner/Taxes:rw|internet");
+    await call("computer.snapshot", { app: editor, surface: "separate_desktop" });
+    // While task_1 is fresh, task_2 is refused.
+    const busy = await call(
+      "computer.snapshot",
+      { app: editor, surface: "separate_desktop" },
+      "task_2",
+    );
+    expect(errorOf(busy)?.details).toMatchObject({ reason: "computer_busy" });
+    // task_1 waits on a parked card for longer than the idle limit.
+    clock += 3 * 60_000;
+    const r = await call(
+      "computer.snapshot",
+      { app: editor, surface: "separate_desktop" },
+      "task_2",
+    );
+    expect(r.isError).toBeUndefined();
+    // task_1's session ended on the guest and its desktop (shares, tunnel) was released before
+    // task_2 claimed it, and task_2's different grants reset the workspace.
+    expect(desktop.released).toEqual(["task_1"]);
+    expect(desktop.used).toEqual(["task_1", "task_2"]);
+    expect(desktop.resets).toContain("task_2");
+    expect(
+      guest.calls.some(
+        (c) =>
+          c.capability === "computer.end_session" &&
+          c.params.session === "task_1:run_1@separate_desktop",
+      ),
+    ).toBe(true);
+    expect(cu.sessions().map((s) => s.id)).toEqual(["task_2:run_1@separate_desktop"]);
+  });
+
+  it("(c) a desktop kept up by the watch view is claimed (and reset) by the next Task, not reused", async () => {
+    desktop.grants.set("task_1", "share:/home/owner/Taxes:rw");
+    await call("computer.snapshot", { app: editor, surface: "separate_desktop" });
+    await cu.taskEnded("task_1");
+    expect(desktop.released).toEqual(["task_1"]);
+    // The watch view keeps the container up with task_1's mounts.
+    expect(desktop.ready).toBe(true);
+    expect(desktop.owner()).toBeUndefined();
+    const r = await call("apps.open", openInShare, "task_2");
+    expect(r.isError).toBeUndefined();
+    expect(desktop.used).toEqual(["task_1", "task_2"]);
+    expect(desktop.resets).toEqual(["task_1", "task_2"]);
+  });
+
+  it("releases the desktop when the owner presses Stop (user_stopped)", async () => {
+    await call("computer.snapshot", { app: editor, surface: "separate_desktop" });
+    guest.stopNext = true;
+    const r = await call("computer.act", click("Save", "separate_desktop"));
+    expect(errorOf(r)?.details).toMatchObject({ reason: "user_stopped" });
+    expect(desktop.released).toEqual(["task_1"]);
+    expect(cu.sessions()).toEqual([]);
+    const next = await call(
+      "computer.snapshot",
+      { app: editor, surface: "separate_desktop" },
+      "task_2",
+    );
+    expect(next.isError).toBeUndefined();
+  });
+
+  it("releases the desktop when its guest helper goes away", async () => {
+    await call("computer.snapshot", { app: editor, surface: "separate_desktop" });
+    cu.nodeGone(surfaceNodeId("separate_desktop"));
+    await new Promise((r) => setTimeout(r, 0));
+    expect(desktop.released).toEqual(["task_1"]);
+    expect(cu.sessions()).toEqual([]);
+  });
+
+  it("releases a desktop claimed only by apps.* calls when the Task ends", async () => {
+    const r = await call("apps.open", { app: editor, surface: "separate_desktop" });
+    expect(r.isError).toBeUndefined();
+    expect(desktop.owner()).toBe("task_1");
+    await cu.taskEnded("task_1");
+    expect(desktop.released).toEqual(["task_1"]);
+    expect(desktop.owner()).toBeUndefined();
+  });
+});
+
+/** Review of #1294, finding 9: the relaxation is judged for the calling Task. */
+describe("file-local words relax only for the Task that owns the desktop", () => {
+  it("judges a description with the caller's Task, and asks without one", async () => {
+    await call("computer.snapshot", { app: editor, surface: "separate_desktop" });
+    const act = tools.get("computer.act");
+    const del = click("Delete", "separate_desktop");
+    expect(act?.describeCall?.(del, { runId: "run_1", taskId: "task_1" })?.sideEffect).not.toBe(
+      "destructive",
+    );
+    expect(act?.describeCall?.(del, { runId: "run_2", taskId: "task_2" })?.sideEffect).toBe(
+      "destructive",
+    );
+    expect(act?.describeCall?.(del)?.sideEffect).toBe("destructive");
+  });
+});
+
+/** Review of #1294, finding 7: the retry names the label; it is never an approval. */
+describe("the file-local retry", () => {
+  it("drops a fileLocalLabel the call brought and sends none for words that ask", async () => {
+    const router = separateDesktopRouter(desktop);
+    guest.risky.add("Send");
+    const res = await router.invoke(
+      routerCall("task_1", {
+        tool: "computer.act",
+        capability: "computer.click",
+        params: {
+          app: editor,
+          ref: "e2",
+          expect: { role: "button", label: "Send" },
+          fileLocalLabel: "Send",
+        },
+      }),
+    );
+    expect(res.ok).toBe(false);
+    const clicks = guest.calls.filter((c) => c.capability === "computer.click");
+    expect(clicks).toHaveLength(1);
+    expect(clicks[0]?.params).not.toHaveProperty("fileLocalLabel");
+    expect(clicks[0]?.approvalId).toBeUndefined();
+  });
+});
+
+/** Review of #1294, findings 2 and 14: money checks reach the guest and fail closed. */
+describe("money checks on the separate desktop", () => {
+  it("asks the guest, never the Host helper, what a point click lands on", async () => {
+    guest.resolve = { role: "button", labels: ["Pay $49.00"], window: "Checkout" };
+    await call("computer.snapshot", { app: editor, surface: "separate_desktop" });
+    const r = await call("computer.act", {
+      app: editor,
+      action: "click",
+      x: 10,
+      y: 20,
+      surface: "separate_desktop",
+    });
+    // A payment: the financial card is asked (unattended, so it is queued and the call stops).
+    expect(r.isError).toBe(true);
+    expect(errorOf(r)?.code).toBe("approval_required");
+    expect(guest.calls.some((c) => c.capability === "computer.resolve_target")).toBe(true);
+    expect(guest.calls.some((c) => c.capability === "computer.click")).toBe(false);
+    expect(host.calls).toEqual([]);
+  });
+
+  it("refuses a point click and Return when the guest cannot say what they land on", async () => {
+    await call("computer.snapshot", { app: editor, surface: "separate_desktop" });
+    const point = await call("computer.act", {
+      app: editor,
+      action: "click",
+      x: 10,
+      y: 20,
+      surface: "separate_desktop",
+    });
+    expect(errorOf(point)).toMatchObject({
+      code: "policy_denied",
+      details: { reason: "point_unchecked" },
+    });
+    const key = await call("computer.act", {
+      app: editor,
+      action: "key",
+      keys: "Return",
+      surface: "separate_desktop",
+    });
+    expect(errorOf(key)).toMatchObject({
+      code: "policy_denied",
+      details: { reason: "focus_unchecked" },
+    });
+    expect(guest.calls.some((c) => ["computer.click", "computer.key"].includes(c.capability))).toBe(
+      false,
+    );
+  });
+
+  it("keeps money seen on one surface apart from the same app id on another", async () => {
+    // A payment page in the guest's app...
+    guest.resolve = { role: "button", labels: ["Confirm"], window: "Checkout - Pay now" };
+    await call("computer.snapshot", { app: editor, surface: "separate_desktop" });
+    await call("computer.act", {
+      app: editor,
+      action: "click",
+      x: 1,
+      y: 1,
+      surface: "separate_desktop",
+    });
+    // ...does not make a bare "Confirm" on the Host's app of the same id a payment.
+    host.resolve = { role: "button", labels: ["Confirm"], window: "Untitled document" };
+    await call("computer.snapshot", { app: editor });
+    const r = await call("computer.act", { app: editor, action: "click", x: 1, y: 1 });
+    expect(r.isError).toBeUndefined();
+    expect(host.calls.some((c) => c.capability === "computer.click")).toBe(true);
   });
 });

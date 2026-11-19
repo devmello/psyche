@@ -310,14 +310,22 @@ describe("surfaces", () => {
   it.each(["virtual_screen", "separate_desktop"] as const)(
     "answers unavailable (surface_unavailable) for %s with no router",
     async (surface) => {
-      const r = await call("computer.snapshot", { app: editor, surface });
-      expect(r.isError).toBe(true);
-      const err = (r.output as { error: { code: string; message: string; details: unknown } })
-        .error;
-      expect(err.code).toBe("unavailable");
-      expect(err.details).toMatchObject({ reason: "surface_unavailable" });
-      expect(err.message).not.toMatch(/Mac/);
-      expect(helper.calls).toHaveLength(0);
+      // The words follow the Host's platform: this is a Linux Host, whatever runs the test.
+      const real = Object.getOwnPropertyDescriptor(process, "platform");
+      Object.defineProperty(process, "platform", { value: "linux", configurable: true });
+      try {
+        const r = await call("computer.snapshot", { app: editor, surface });
+        expect(r.isError).toBe(true);
+        const err = (r.output as { error: { code: string; message: string; details: unknown } })
+          .error;
+        expect(err.code).toBe("unavailable");
+        expect(err.details).toMatchObject({ reason: "surface_unavailable" });
+        expect(err.message).not.toMatch(/Mac/);
+        expect(err.message).toMatch(/this computer/i);
+        expect(helper.calls).toHaveLength(0);
+      } finally {
+        if (real !== undefined) Object.defineProperty(process, "platform", real);
+      }
     },
   );
 
