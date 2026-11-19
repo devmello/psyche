@@ -1999,6 +1999,11 @@ describe("isNoCheckoutVenue: where the Link purchase tool never pays", () => {
     "https://www.paypal.com/#/send-money",
     "https://www.paypal.com/#/sendmoney/john",
     "https://www.paypal.com/checkoutnow?token=EC-1#/send-money",
+    // #1345 follow-up: a decoded `#` or `?` ends a segment, as `;` does.
+    "https://www.paypal.com/#/send-money%23/x",
+    "https://www.paypal.com/%70aypalme%23/john",
+    "https://www.paypal.com/#/paypalme?x=1",
+    "https://www.paypal.com/#/paypalme%3F/john",
   ])("%s has no checkout", (url) => {
     expect(isNoCheckoutVenue(url)).toBe(true);
   });
@@ -2032,6 +2037,11 @@ describe("isNoCheckoutVenue: where the Link purchase tool never pays", () => {
     "https://www.paypal.com/myaccount/summary#/transfer/send",
     "https://www.paypal.com/myaccount#/summary",
     "https://www.paypal.com/myaccount#/pay",
+    // #1345 follow-up: hash query values are not routes.
+    "https://www.paypal.com/checkoutnow?token=EC-1#/checkout/review?returnUrl=%2Fmyaccount%2Fmoney",
+    "https://www.paypal.com/checkoutnow?token=EC-1#/checkout/review?ref=/donate",
+    "https://www.paypal.com/checkoutnow?token=EC-1#?next=/paypalme/john",
+    "https://www.paypal.com/webapps/hermes#/checkout/login?cancel=https://shop.example/pool",
     "https://www.amazon.com/gp/buy",
     "https://ultimaterewardspoints.chase.com/travel",
     undefined,
