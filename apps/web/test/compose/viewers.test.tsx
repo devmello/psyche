@@ -193,6 +193,52 @@ describe("editing in the composed Files pane", () => {
     );
   });
 
+  it("keeps a CSV's byte-order mark and CRLF line endings through a save", async () => {
+    const raw = "\uFEFFname,qty\r\napple,3\r\n";
+    const gw = world();
+    gw.world.files[`${NOTES}/win.csv`] = { kind: "file", text: raw, modifiedAt: stamp };
+    type Runtime = Awaited<ReturnType<NonNullable<SheetEditorProps["sheetEditor"]>>>;
+    const state: { data?: unknown; emit?: () => void } = {};
+    const runtime = {
+      mount(_el: HTMLElement, data: unknown) {
+        state.data = structuredClone(data);
+        const listeners = new Set<() => void>();
+        state.emit = () => {
+          for (const l of listeners) l();
+        };
+        return {
+          snapshot: () => structuredClone(state.data),
+          onChange(l: () => void) {
+            listeners.add(l);
+            return () => listeners.delete(l);
+          },
+          dispose() {},
+        };
+      },
+    } as unknown as Runtime;
+    render(
+      <GatewayProvider client={gw}>
+        <ComposedFilesPane
+          target={`${NOTES}/win.csv`}
+          navigate={() => undefined}
+          sheetEditor={async () => runtime}
+        />
+      </GatewayProvider>,
+    );
+    fireEvent.click(await screen.findByRole("button", { name: "Edit" }));
+    await waitFor(() => expect(state.emit).toBeDefined());
+    const sheets = (
+      state.data as {
+        sheets: Record<string, { cellData: Record<number, Record<number, unknown>> }>;
+      }
+    ).sheets;
+    (sheets["sheet-1"]?.cellData[1] as Record<number, unknown>)[1] = { v: 5, t: 2 };
+    act(() => state.emit?.());
+    fireEvent.click(await screen.findByRole("button", { name: "Save" }));
+    await waitFor(() => expect(gw.fileWrites).toHaveLength(1));
+    expect(gw.fileWrites[0]?.content).toBe("\uFEFFname,qty\r\napple,5\r\n");
+  });
+
   it("offers no editor in a read-only folder", async () => {
     const gw = world();
     gw.world.settings["permissions.policy"] = { folders: [{ path: NOTES, mode: "ro" }] };

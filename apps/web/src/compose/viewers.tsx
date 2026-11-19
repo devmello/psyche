@@ -195,10 +195,14 @@ export function MarkdownFileEditor({ session }: { session: FileEditSession }): R
         <span className="min-w-0 flex-1 text-label-secondary" role="status">
           {dirty ? t("screens.files.unsaved") : saved ? t("screens.files.saved") : ""}
         </span>
-        <button type="button" disabled={!dirty || saving} onClick={() => setDraft(base)}>
+        <button
+          type="button"
+          disabled={!dirty || saving || session.readOnly}
+          onClick={() => setDraft(base)}
+        >
           {t("screens.files.discard")}
         </button>
-        <button type="button" disabled={!dirty || saving} onClick={save}>
+        <button type="button" disabled={!dirty || saving || session.readOnly} onClick={save}>
           {saving ? t("screens.files.saving") : t("common.save")}
         </button>
       </div>
@@ -206,6 +210,7 @@ export function MarkdownFileEditor({ session }: { session: FileEditSession }): R
         {renderMarkdownEditor({
           path: session.file.path ?? session.file.name,
           value: draft,
+          readOnly: session.readOnly,
           onChange: (value) => {
             setSaved(false);
             setDraft(value);
@@ -233,7 +238,7 @@ export function CsvFileEditor({
       load={load}
       {...(sheetEditor ? { sheetEditor } : {})}
       onSave={async ({ bytes }) => {
-        if (!(await session.save(new TextDecoder().decode(bytes)))) {
+        if (!(await session.save(new TextDecoder("utf-8", { ignoreBOM: true }).decode(bytes)))) {
           throw new Error(t("screens.files.notSaved"));
         }
       }}

@@ -2846,6 +2846,12 @@ export const pt: Partial<Catalogue> = {
   "screens.files.saveFailed": "O Psyche não conseguiu salvar {name} ({reason}).",
   "screens.files.notSaved": "Não salvo.",
   "screens.files.editing": "Editando {name}",
+  "screens.files.editTooLarge":
+    "Somente visualização: arquivos acima de 512 KB não podem ser editados aqui.",
+  "screens.files.saveTooLarge":
+    "Esta alteração é grande demais para ser salva daqui. Encurte o texto e tente de novo.",
+  "screens.files.editMixedEol":
+    "{name} mistura estilos de fim de linha, então não pode ser editado aqui.",
   "screens.library.section.documents": "Documentos",
   "screens.library.empty.documents":
     "Nenhum documento ainda. Os arquivos que o agente cria ou recebe aparecem aqui.",

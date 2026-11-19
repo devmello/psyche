@@ -2869,6 +2869,10 @@ export const ja: Partial<Catalogue> = {
   "screens.files.saveFailed": "Psyche は {name} を保存できませんでした ({reason})。",
   "screens.files.notSaved": "保存されていません。",
   "screens.files.editing": "{name} を編集中",
+  "screens.files.editTooLarge": "表示のみ: 512 KB を超えるファイルはここでは編集できません。",
+  "screens.files.saveTooLarge":
+    "この変更は大きすぎて、ここからは保存できません。テキストを短くして、もう一度お試しください。",
+  "screens.files.editMixedEol": "{name} は改行の形式が混在しているため、ここでは編集できません。",
   "screens.library.section.documents": "書類",
   "screens.library.empty.documents":
     "書類はまだありません。エージェントが作成または受け取ったファイルがここに入ります。",

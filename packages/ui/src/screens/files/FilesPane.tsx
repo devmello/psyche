@@ -28,6 +28,7 @@ import { folderGrants } from "../settings/FileAccessSection.tsx";
 import type { FolderGrant } from "../settings/types.ts";
 import {
   canEditPath,
+  EDIT_MAX_BYTES,
   FileEditFrame,
   type FileEditSession,
   fileEditKind,
@@ -366,7 +367,10 @@ export function FilesPaneView({
   const [leave, setLeave] = useState<(() => void) | null>(null);
   // The target until the owner picks something else; a Library target takes the item's
   // metadata from the store, so a quarantined download keeps its gate (§3.12).
-  const selected = picked ?? fileRefForTarget(target, lib.items);
+  // A new target while edits are unsaved waits for the owner's answer: `shownTarget` is the one
+  // on screen.
+  const [shownTarget, setShownTarget] = useState(target);
+  const selected = picked ?? fileRefForTarget(shownTarget, lib.items);
   const selectedKey = selected?.path ?? selected?.libraryPath;
   // biome-ignore lint/correctness/useExhaustiveDependencies: another file ends the edit
   useEffect(() => {
@@ -381,6 +385,10 @@ export function FilesPaneView({
     return () => window.removeEventListener("beforeunload", warn);
   }, [editing, dirty]);
   const guard = (action: () => void) => (editing && dirty ? setLeave(() => action) : action());
+  // biome-ignore lint/correctness/useExhaustiveDependencies: runs when the target prop changes
+  useEffect(() => {
+    if (target !== shownTarget) guard(() => setShownTarget(target));
+  }, [target]);
   const setSelected = (file: FileRef) =>
     guard(() => {
       setEditing(false);
@@ -394,12 +402,19 @@ export function FilesPaneView({
     });
   const editable =
     renderEditor !== undefined && selected !== null && canEditPath(selected.path, grants);
-  const readOnlyText =
+  const tooLarge = selected?.size != null && selected.size > EDIT_MAX_BYTES;
+  const canEdit = editable && !tooLarge;
+  // A text file that cannot be edited here says so, instead of leaving the owner to wonder.
+  const readOnlyNote =
     renderEditor !== undefined &&
     selected !== null &&
     selected.path !== undefined &&
     fileEditKind(selected.name) !== null &&
-    !editable;
+    !canEdit
+      ? editable
+        ? t("screens.files.editTooLarge")
+        : t("screens.files.editReadOnly")
+      : null;
   return (
     <div className="@container flex h-full min-h-0 flex-col bg-background" data-testid="files-pane">
       <div className="grid min-h-0 flex-1 grid-rows-[minmax(0,12rem)_minmax(0,1fr)] @lg:grid-cols-[minmax(11rem,15rem)_minmax(0,1fr)] @lg:grid-rows-1">
@@ -473,7 +488,7 @@ export function FilesPaneView({
                     .filter(Boolean)
                     .join(" · ")}
                 </span>
-                {editable ? (
+                {canEdit ? (
                   <Button
                     type="button"
                     size="xs"
@@ -508,9 +523,9 @@ export function FilesPaneView({
                   </Button>
                 </div>
               ) : null}
-              {readOnlyText && !editing ? (
+              {readOnlyNote !== null && !editing ? (
                 <p className="border-b border-separator px-3 py-1.5 text-callout text-label-secondary">
-                  {t("screens.files.editReadOnly")}
+                  {readOnlyNote}
                 </p>
               ) : null}
               <div className="min-h-0 flex-1 overflow-auto" data-testid="files-preview">

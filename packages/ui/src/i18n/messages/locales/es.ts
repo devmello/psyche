@@ -2924,6 +2924,12 @@ export const es: Partial<Catalogue> = {
   "screens.files.saveFailed": "Psyche no pudo guardar {name} ({reason}).",
   "screens.files.notSaved": "No guardado.",
   "screens.files.editing": "Editando {name}",
+  "screens.files.editTooLarge":
+    "Solo vista: los archivos de más de 512 KB no se pueden editar aquí.",
+  "screens.files.saveTooLarge":
+    "Este cambio es demasiado grande para guardarlo desde aquí. Acorta el texto e inténtalo de nuevo.",
+  "screens.files.editMixedEol":
+    "{name} mezcla estilos de fin de línea, así que no se puede editar aquí.",
   "screens.library.section.documents": "Documentos",
   "screens.library.empty.documents":
     "Aún no hay documentos. Los archivos que el agente crea o recibe aparecen aquí.",

@@ -2899,6 +2899,12 @@ export const fr: Partial<Catalogue> = {
   "screens.files.saveFailed": "Psyche n’a pas pu enregistrer {name} ({reason}).",
   "screens.files.notSaved": "Non enregistré.",
   "screens.files.editing": "Modification de {name}",
+  "screens.files.editTooLarge":
+    "Affichage seul : les fichiers de plus de 512 Ko ne peuvent pas être modifiés ici.",
+  "screens.files.saveTooLarge":
+    "Cette modification est trop volumineuse pour être enregistrée d’ici. Raccourcissez le texte et réessayez.",
+  "screens.files.editMixedEol":
+    "{name} mélange plusieurs styles de fin de ligne ; il ne peut pas être modifié ici.",
   "screens.library.section.documents": "Documents",
   "screens.library.empty.documents":
     "Aucun document pour l’instant. Les fichiers que l’agent crée ou reçoit arrivent ici.",

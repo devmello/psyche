@@ -15825,23 +15825,19 @@ public enum StarterFolderID: String, Codable, Sendable {
 public struct FilesWriteParams: Codable, Sendable {
     /// UTF-8 text
     public let content: String
-    /// make a new file: it must not exist, and ifMatch is absent
-    public let create: Bool?
     /// the etag `files.read` returned; the file must still match
-    public let ifMatch: String?
+    public let ifMatch: String
     /// an absolute path in a granted folder
     public let path: String
 
     public enum CodingKeys: String, CodingKey {
         case content = "content"
-        case create = "create"
         case ifMatch = "ifMatch"
         case path = "path"
     }
 
-    public init(content: String, create: Bool? = nil, ifMatch: String? = nil, path: String) {
+    public init(content: String, ifMatch: String, path: String) {
         self.content = content
-        self.create = create
         self.ifMatch = ifMatch
         self.path = path
     }

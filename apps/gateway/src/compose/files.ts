@@ -1,16 +1,6 @@
 import { randomBytes } from "node:crypto";
-import { constants } from "node:fs";
-import {
-  type FileHandle,
-  link,
-  lstat,
-  open,
-  readdir,
-  realpath,
-  rename,
-  stat,
-  unlink,
-} from "node:fs/promises";
+import { type BigIntStats, constants } from "node:fs";
+import { type FileHandle, lstat, open, readdir, realpath, rename, unlink } from "node:fs/promises";
 import { homedir } from "node:os";
 import { basename, dirname, extname, join, resolve, sep } from "node:path";
 import type { HashChainAuditLog } from "@psyche/audit";
@@ -148,6 +138,14 @@ export async function readChunk(
 export const etagOf = (info: { size: number; mtimeMs: number }): string =>
   `${info.size.toString(36)}-${Math.trunc(info.mtimeMs).toString(36)}`;
 
+/**
+ * What `files.read` returns as the etag and `files.write` matches: size, mtime and ctime in
+ * nanoseconds, and the inode. ctime cannot be set from userland, so a same-size edit that put
+ * the old mtime back (`utimes`, `cp -p`, `rsync -t`) still changes it.
+ */
+export const fileEtag = (info: BigIntStats): string =>
+  [info.size, info.mtimeNs, info.ino, info.ctimeNs].map((n) => n.toString(36)).join("-");
+
 async function listFolder(
   params: MethodParams<"files.list">,
   setup: FilesSetup,
@@ -197,13 +195,13 @@ async function readFile(
   const source = await resolveFileSource(params, setup);
   const fh = await openRegularFile(source.path);
   try {
-    const info = await fh.stat();
-    const chunk = await readChunk(fh, info.size, params.offset, params.length);
+    const info = await fh.stat({ bigint: true });
+    const chunk = await readChunk(fh, Number(info.size), params.offset, params.length);
     return {
       name: source.name,
       mime: mimeFromName(source.name) ?? "application/octet-stream",
       modifiedAt: info.mtime.toISOString(),
-      etag: etagOf(info),
+      etag: fileEtag(info),
       ...chunk,
     };
   } finally {
@@ -215,8 +213,9 @@ async function readFile(
  * `files.write`: the owner's own edit of a text file from the Files pane (admin devices only, no
  * approval card). The same gates as the agent's write, minus the card: a folder shared `rw`
  * (policy folders only: a single attached file or a read-only folder never qualifies), no symlink,
- * outside Psyche's home and the credential stores, an allowlisted extension, a size cap. The save
- * needs the etag the reader holds (or `create`), and goes through a temp file and a rename.
+ * outside Psyche's home and the credential stores, an allowlisted extension, a size cap that keeps
+ * the request under the frame limit. The save replaces a file that exists and needs the etag the
+ * reader holds; it goes through a temp file and a rename, after a last look at the folder.
  */
 async function writeFile(
   call: Call,
@@ -228,6 +227,21 @@ async function writeFile(
   }
   if (setup.audit === undefined) throw new PsycheError("unavailable", "saving is not set up");
   const target = canonicalTarget(params.path);
+  try {
+    return await saveFile(call, params, setup, target, setup.audit);
+  } catch (err) {
+    // ENAMETOOLONG and the like become errors the owner can read.
+    throw fsError(err, target);
+  }
+}
+
+async function saveFile(
+  call: Call,
+  params: MethodParams<"files.write">,
+  setup: FilesSetup,
+  target: string,
+  audit: NonNullable<FilesSetup["audit"]>,
+): Promise<MethodResult<"files.write">> {
   const ext = extname(target).toLowerCase();
   if (!(FILE_WRITE_EXTENSIONS as readonly string[]).includes(ext)) {
     throw new PsycheError(
@@ -246,86 +260,84 @@ async function writeFile(
       `the file is larger than ${FILE_WRITE_MAX_BYTES} bytes`,
     );
   }
-  const create = params.create === true;
-  if (create === (params.ifMatch !== undefined)) {
-    throw new PsycheError("invalid_params", "pass exactly one of ifMatch and create");
-  }
-  assertNotProtected(target, protectedRoots(setup.home));
-  assertGranted(
-    target,
-    setup.folders().filter((f) => f.file !== true),
-    "write",
-  );
+  const roots = protectedRoots(setup.home);
+  // Policy folders only; the longest root decides. Run again right before the swap.
+  const checkGrant = (path: string) => {
+    assertNotProtected(path, roots);
+    assertGranted(
+      path,
+      setup.folders().filter((f) => f.file !== true),
+      "write",
+    );
+  };
+  checkGrant(target);
   await assertNoSymlinks(target);
 
-  const current = await lstat(target).catch((err: NodeJS.ErrnoException) => {
+  const dir = dirname(target);
+  const current = await lstat(target, { bigint: true }).catch((err: NodeJS.ErrnoException) => {
     if (err.code === "ENOENT") return undefined;
     throw fsError(err, target);
   });
-  let mode = 0o644;
-  if (current !== undefined) {
-    if (!current.isFile()) throw new PsycheError("invalid_params", `${target} is not a file`);
-    if (current.nlink !== 1) {
-      throw new PsycheError("forbidden", `${target} has another name; it can't be saved here`);
-    }
-    if (create) throw new PsycheError("conflict", `${target} already exists`);
-    if (params.ifMatch !== etagOf(current)) {
-      throw new PsycheError("conflict", `${target} changed since you opened it`);
-    }
-    mode = current.mode & 0o7777;
-  } else {
-    if (!create) throw new PsycheError("not_found", `${target} does not exist`);
-    const dir = await stat(dirname(target)).catch((err) => {
-      throw fsError(err, dirname(target));
-    });
-    if (!dir.isDirectory()) throw new PsycheError("invalid_params", "the folder is missing");
+  if (current === undefined) throw new PsycheError("not_found", `${target} does not exist`);
+  if (!current.isFile()) throw new PsycheError("invalid_params", `${target} is not a file`);
+  if (current.nlink !== 1n) {
+    throw new PsycheError("forbidden", `${target} has another name; it can't be saved here`);
+  }
+  const mode = Number(current.mode & 0o777n);
+  if ((mode & 0o200) === 0) {
+    throw new PsycheError(
+      "forbidden",
+      `${basename(target)} is read only on disk; change its permissions first`,
+    );
+  }
+  if (params.ifMatch !== fileEtag(current)) {
+    throw new PsycheError("conflict", `${target} changed since you opened it`);
   }
 
-  const tmp = join(dirname(target), `.${basename(target)}.${randomBytes(6).toString("hex")}.tmp`);
+  const tmp = join(dir, `.psyche-${randomBytes(6).toString("hex")}.tmp`);
   try {
     const fh = await open(
       tmp,
       constants.O_WRONLY | constants.O_CREAT | constants.O_EXCL | constants.O_NOFOLLOW,
       mode,
     );
+    let written: { dev: bigint; ino: bigint };
     try {
       await fh.writeFile(bytes);
       await fh.chmod(mode);
       await fh.sync();
+      const info = await fh.stat({ bigint: true });
+      written = { dev: info.dev, ino: info.ino };
     } finally {
       await fh.close();
     }
-    if (current === undefined) {
-      // A new name never replaces a file that appeared meanwhile: link fails with EEXIST.
-      try {
-        await link(tmp, target);
-      } catch (err) {
-        if ((err as NodeJS.ErrnoException).code === "EEXIST") {
-          throw new PsycheError("conflict", `${target} already exists`);
-        }
-        throw err;
-      }
-      await unlink(tmp);
-    } else {
-      // The last look before the swap: the file must still be the one the etag names.
-      const now = await lstat(target).catch(() => undefined);
-      if (now === undefined || !now.isFile() || etagOf(now) !== params.ifMatch) {
-        throw new PsycheError("conflict", `${target} changed since you opened it`);
-      }
-      await (setup.rename ?? rename)(tmp, target);
+    // The last look before the swap. Every step above went through the folder's path, so a
+    // folder swapped for a link meanwhile must not take the rename outside the grant.
+    if ((await realpath(dir)) !== dir) {
+      throw new PsycheError("forbidden", `${dir} changed while it was being saved`);
     }
+    const placed = await lstat(tmp, { bigint: true });
+    if (!placed.isFile() || placed.dev !== written.dev || placed.ino !== written.ino) {
+      throw new PsycheError("forbidden", `${dir} changed while it was being saved`);
+    }
+    checkGrant(join(dir, basename(target)));
+    const now = await lstat(target, { bigint: true }).catch(() => undefined);
+    if (now === undefined || !now.isFile() || fileEtag(now) !== params.ifMatch) {
+      throw new PsycheError("conflict", `${target} changed since you opened it`);
+    }
+    await (setup.rename ?? rename)(tmp, target);
   } catch (err) {
     await unlink(tmp).catch(() => undefined);
     throw err;
   }
-  const info = await lstat(target);
+  const info = await lstat(target, { bigint: true });
   // The path and the size only: never what was written.
-  await setup.audit.append({
+  await audit.append({
     kind: "files.write",
     actor: { type: "device", deviceId: call.identity.deviceId },
-    data: { path: target, bytes: bytes.length, created: create },
+    data: { path: target, bytes: bytes.length },
   });
-  return { etag: etagOf(info), modifiedAt: info.mtime.toISOString(), size: info.size };
+  return { etag: fileEtag(info), modifiedAt: info.mtime.toISOString(), size: Number(info.size) };
 }
 
 const STARTER_FOLDERS = [

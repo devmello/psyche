@@ -5208,13 +5208,9 @@ export interface FilesWriteParams {
      */
     content: string;
     /**
-     * make a new file: it must not exist, and ifMatch is absent
-     */
-    create?: boolean;
-    /**
      * the etag `files.read` returned; the file must still match
      */
-    ifMatch?: string;
+    ifMatch: string;
     /**
      * an absolute path in a granted folder
      */

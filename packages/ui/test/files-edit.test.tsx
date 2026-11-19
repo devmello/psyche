@@ -1,4 +1,4 @@
-import { render, screen, waitFor, within } from "@testing-library/react";
+import { fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import { userEvent } from "@testing-library/user-event";
 import { useState } from "react";
 import { describe, expect, it } from "vitest";
@@ -25,6 +25,8 @@ function TestEditor({ session }: { session: FileEditSession }) {
       <textarea
         aria-label="Body"
         value={draft}
+        readOnly={session.readOnly}
+        data-raw={JSON.stringify(session.text)}
         onChange={(e) => {
           setDraft(e.target.value);
           session.setDirty(e.target.value !== base);
@@ -41,31 +43,39 @@ function TestEditor({ session }: { session: FileEditSession }) {
       >
         Save now
       </button>
+      <button type="button" onClick={() => session.save(session.text)}>
+        Save unchanged
+      </button>
     </div>
   );
 }
 
-function setup(target: string) {
+function setup(target: string, files: Record<string, string> = {}) {
   let gw: MockGateway | null = null;
-  render(
+  const tree = (to: string) => (
     <StoryWorld
       edit={(w) => {
         w.settings["permissions.policy"] = { folders: fileRootGrants() };
+        for (const [path, text] of Object.entries(files)) {
+          w.files[path] = { kind: "file", text, modifiedAt: "2026-11-19T08:00:00Z" };
+        }
       }}
       onGateway={(g) => (gw = g)}
     >
       <FilesPane
         now={NOW}
-        target={target}
+        target={to}
         renderViewer={(f) => <p>viewer for {f.name}</p>}
         renderEditor={(s) => <TestEditor session={s} />}
       />
-    </StoryWorld>,
+    </StoryWorld>
   );
-  return () => {
+  const view = render(tree(target));
+  const get = () => {
     if (gw === null) throw new Error("gateway not ready");
     return gw as MockGateway;
   };
+  return Object.assign(get, { retarget: (to: string) => view.rerender(tree(to)) });
 }
 
 const edit = async () => userEvent.click(await screen.findByRole("button", { name: "Edit" }));
@@ -136,7 +146,6 @@ describe("the Files pane editor", () => {
     await waitFor(() => expect(gw().fileWrites).toHaveLength(1));
     expect(gw().fileWrites[0]).toMatchObject({ path: README, content: "# one" });
     expect(gw().fileWrites[0]?.ifMatch).toMatch(/^\d+-/);
-    expect(gw().fileWrites[0]?.create).toBeUndefined();
     await type("# two");
     await userEvent.click(screen.getByRole("button", { name: "Save now" }));
     await waitFor(() => expect(gw().fileWrites).toHaveLength(2));
@@ -259,5 +268,161 @@ describe("the Files pane editor", () => {
     gw().admin = false;
     await userEvent.click(screen.getByRole("button", { name: "Save now" }));
     expect((await screen.findByRole("alert")).textContent).toContain("couldn't save README.md");
+  });
+});
+
+describe("edits that must not be lost or changed", () => {
+  it("blocks typing while the conflict banner shows, and Overwrite saves exactly what is shown", async () => {
+    const gw = setup(README);
+    await edit();
+    await type("mine");
+    gw().world.files[README] = {
+      kind: "file",
+      text: "# changed elsewhere, and longer\n",
+      modifiedAt: "2026-11-19T10:00:00Z",
+    };
+    await userEvent.click(screen.getByRole("button", { name: "Save now" }));
+    const alert = await screen.findByRole("alert");
+    const box = screen.getByRole("textbox", { name: "Body" }) as HTMLTextAreaElement;
+    expect(box.readOnly).toBe(true);
+    await userEvent.type(box, " plus more");
+    expect(box.value).toBe("mine");
+    await userEvent.click(within(alert).getByRole("button", { name: "Overwrite…" }));
+    await userEvent.click(await screen.findByRole("button", { name: "Overwrite" }));
+    await waitFor(() => expect(gw().fileWrites).toHaveLength(1));
+    expect(gw().fileWrites[0]?.content).toBe("mine");
+    await waitFor(() =>
+      expect((screen.getByRole("textbox", { name: "Body" }) as HTMLTextAreaElement).value).toBe(
+        "mine",
+      ),
+    );
+    expect((screen.getByRole("textbox", { name: "Body" }) as HTMLTextAreaElement).readOnly).toBe(
+      false,
+    );
+  });
+
+  it("asks before a new target replaces unsaved edits, and keeps them on Keep editing", async () => {
+    const other = `${FILE_ROOTS.project}/other.md`;
+    const view = setup(README, { [other]: "# other\n" });
+    await edit();
+    await type("changed");
+    view.retarget(other);
+    const ask = await screen.findByRole("alertdialog", { name: "Discard unsaved changes?" });
+    await userEvent.click(within(ask).getByRole("button", { name: "Keep editing" }));
+    expect((screen.getByRole("textbox", { name: "Body" }) as HTMLTextAreaElement).value).toBe(
+      "changed",
+    );
+    expect(screen.getByRole("region", { name: "Preview of README.md" })).toBeTruthy();
+  });
+
+  it("shows the new target once the owner discards the edits", async () => {
+    const other = `${FILE_ROOTS.project}/other.md`;
+    const view = setup(README, { [other]: "# other\n" });
+    await edit();
+    await type("changed");
+    view.retarget(other);
+    await userEvent.click(
+      within(await screen.findByRole("alertdialog")).getByRole("button", { name: "Discard" }),
+    );
+    expect(await screen.findByRole("region", { name: "Preview of other.md" })).toBeTruthy();
+    expect(screen.queryByRole("textbox", { name: "Body" })).toBeNull();
+  });
+
+  it("switches targets at once when nothing is unsaved", async () => {
+    const other = `${FILE_ROOTS.project}/other.md`;
+    const view = setup(README, { [other]: "# other\n" });
+    await edit();
+    await screen.findByRole("textbox", { name: "Body" });
+    view.retarget(other);
+    expect(await screen.findByRole("region", { name: "Preview of other.md" })).toBeTruthy();
+    expect(screen.queryByRole("alertdialog")).toBeNull();
+  });
+
+  it("restores the byte-order mark and CRLF line endings the file had", async () => {
+    const path = `${FILE_ROOTS.project}/crlf.txt`;
+    const gw = setup(path, { [path]: "\uFEFFone\r\ntwo\r\n" });
+    await edit();
+    const box = (await screen.findByRole("textbox", { name: "Body" })) as HTMLTextAreaElement;
+    expect(box.value).toBe("one\ntwo\n");
+    fireEvent.change(box, { target: { value: "one\ntwo\nthree\n" } });
+    await userEvent.click(screen.getByRole("button", { name: "Save now" }));
+    await waitFor(() => expect(gw().fileWrites).toHaveLength(1));
+    expect(gw().fileWrites[0]?.content).toBe("\uFEFFone\r\ntwo\r\nthree\r\n");
+  });
+
+  it("writes LF files back as LF and does not invent a mark", async () => {
+    const path = `${FILE_ROOTS.project}/lf.md`;
+    const gw = setup(path, { [path]: "a\nb\n" });
+    await edit();
+    await type("a\nb\nc");
+    await userEvent.click(screen.getByRole("button", { name: "Save now" }));
+    await waitFor(() => expect(gw().fileWrites).toHaveLength(1));
+    expect(gw().fileWrites[0]?.content).toBe("a\nb\nc");
+  });
+
+  it("refuses to edit a file that mixes line endings", async () => {
+    const path = `${FILE_ROOTS.project}/mixed.txt`;
+    setup(path, { [path]: "a\r\nb\nc\r\n" });
+    await edit();
+    expect((await screen.findByRole("alert")).textContent).toContain("mixes line-ending styles");
+    expect(screen.queryByRole("textbox", { name: "Body" })).toBeNull();
+  });
+
+  it("hands a CSV to its editor untouched, mark and line endings included", async () => {
+    const path = `${FILE_ROOTS.project}/data.csv`;
+    const raw = "\uFEFFa,b\r\n1,2\r\n";
+    const gw = setup(path, { [path]: raw });
+    await edit();
+    const box = await screen.findByRole("textbox", { name: "Body" });
+    expect(box.getAttribute("data-raw")).toBe(JSON.stringify(raw));
+    await userEvent.click(screen.getByRole("button", { name: "Save unchanged" }));
+    await waitFor(() => expect(gw().fileWrites).toHaveLength(1));
+    expect(gw().fileWrites[0]?.content).toBe(raw);
+  });
+});
+
+describe("size limits", () => {
+  it("refuses a save whose JSON request would not fit one frame, without sending it", async () => {
+    const gw = setup(README);
+    await edit();
+    const box = await screen.findByRole("textbox", { name: "Body" });
+    // 160k control characters are 160 KB of text but 960 KB once JSON-escaped.
+    fireEvent.change(box, { target: { value: "\u0001".repeat(160_000) } });
+    await userEvent.click(screen.getByRole("button", { name: "Save now" }));
+    expect((await screen.findByRole("alert")).textContent).toContain("too large to save");
+    expect(gw().fileWrites).toHaveLength(0);
+    // The editor is still editable and nothing was lost.
+    expect(
+      (screen.getByRole("textbox", { name: "Body" }) as HTMLTextAreaElement).value,
+    ).toHaveLength(160_000);
+  });
+
+  it("refuses text over 512 KiB locally", async () => {
+    const gw = setup(README);
+    await edit();
+    fireEvent.change(await screen.findByRole("textbox", { name: "Body" }), {
+      target: { value: "a".repeat(512 * 1024 + 1) },
+    });
+    await userEvent.click(screen.getByRole("button", { name: "Save now" }));
+    expect((await screen.findByRole("alert")).textContent).toContain("too large to save");
+    expect(gw().fileWrites).toHaveLength(0);
+  });
+
+  it("opens a file over 512 KiB as view only, with a note, when its size is known", async () => {
+    const path = `${FILE_ROOTS.project}/big.md`;
+    setup(README, { [path]: "a".repeat(512 * 1024 + 1) });
+    const tree = screen.getByRole("navigation", { name: "Shared folders" });
+    await userEvent.click(await within(tree).findByRole("button", { name: /~\/Projects\/psyche/ }));
+    await userEvent.click(await within(tree).findByRole("button", { name: "big.md" }));
+    expect(await screen.findByText("viewer for big.md")).toBeTruthy();
+    expect(screen.queryByRole("button", { name: "Edit" })).toBeNull();
+    expect(screen.getByText(/over 512 KB/)).toBeTruthy();
+  });
+
+  it("says so when a big file is opened by path and Edit is pressed", async () => {
+    const path = `${FILE_ROOTS.project}/big2.md`;
+    setup(path, { [path]: "a".repeat(512 * 1024 + 1) });
+    await edit();
+    expect((await screen.findByRole("alert")).textContent).toContain("over 512 KB");
   });
 });

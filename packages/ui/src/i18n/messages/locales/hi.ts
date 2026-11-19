@@ -2859,6 +2859,10 @@ export const hi: Partial<Catalogue> = {
   "screens.files.saveFailed": "Psyche {name} को नहीं सहेज सका ({reason})।",
   "screens.files.notSaved": "सहेजा नहीं गया।",
   "screens.files.editing": "{name} का संपादन",
+  "screens.files.editTooLarge": "केवल देखने के लिए: 512 KB से बड़ी फ़ाइलें यहाँ संपादित नहीं की जा सकतीं।",
+  "screens.files.saveTooLarge": "यह बदलाव यहाँ से सहेजने के लिए बहुत बड़ा है। टेक्स्ट छोटा करके फिर कोशिश करें।",
+  "screens.files.editMixedEol":
+    "{name} में पंक्ति-समाप्ति की अलग-अलग शैलियाँ मिली हैं, इसलिए इसे यहाँ संपादित नहीं किया जा सकता।",
   "screens.library.section.documents": "दस्तावेज़",
   "screens.library.empty.documents":
     "अभी कोई दस्तावेज़ नहीं। एजेंट द्वारा बनाई या प्राप्त की गई फ़ाइलें यहाँ आती हैं।",

@@ -367,6 +367,10 @@ export const screens = {
   "screens.files.saveFailed": "Psyche couldn't save {name} ({reason}).",
   "screens.files.notSaved": "Not saved.",
   "screens.files.editing": "Editing {name}",
+  "screens.files.editTooLarge": "View only: files over 512 KB can't be edited here.",
+  "screens.files.saveTooLarge":
+    "This change is too large to save from here. Shorten the text and try again.",
+  "screens.files.editMixedEol": "{name} mixes line-ending styles, so it can't be edited here.",
   "screens.library.section.documents": "Documents",
   "screens.library.empty.documents":
     "No documents yet. Files the agent makes or receives land here.",

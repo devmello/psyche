@@ -2962,6 +2962,12 @@ export const de: Partial<Catalogue> = {
   "screens.files.saveFailed": "Psyche konnte {name} nicht sichern ({reason}).",
   "screens.files.notSaved": "Nicht gesichert.",
   "screens.files.editing": "{name} bearbeiten",
+  "screens.files.editTooLarge":
+    "Nur Ansicht: Dateien über 512 KB lassen sich hier nicht bearbeiten.",
+  "screens.files.saveTooLarge":
+    "Diese Änderung ist zu groß, um sie von hier zu sichern. Kürze den Text und versuche es erneut.",
+  "screens.files.editMixedEol":
+    "{name} mischt verschiedene Zeilenenden und lässt sich hier nicht bearbeiten.",
   "screens.library.section.documents": "Dokumente",
   "screens.library.empty.documents":
     "Noch keine Dokumente. Dateien, die der Agent erstellt oder erhält, landen hier.",

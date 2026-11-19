@@ -2900,6 +2900,12 @@ export const it: Partial<Catalogue> = {
   "screens.files.saveFailed": "Psyche non è riuscito a salvare {name} ({reason}).",
   "screens.files.notSaved": "Non salvato.",
   "screens.files.editing": "Modifica di {name}",
+  "screens.files.editTooLarge":
+    "Solo visualizzazione: i file oltre 512 KB non si possono modificare qui.",
+  "screens.files.saveTooLarge":
+    "Questa modifica è troppo grande per essere salvata da qui. Accorcia il testo e riprova.",
+  "screens.files.editMixedEol":
+    "{name} mescola stili di fine riga diversi, quindi non si può modificare qui.",
   "screens.library.section.documents": "Documenti",
   "screens.library.empty.documents":
     "Ancora nessun documento. I file che l’agente crea o riceve finiscono qui.",
