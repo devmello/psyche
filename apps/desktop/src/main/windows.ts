@@ -13,6 +13,7 @@ import { hostPlatform, traitsFor } from "../platform/index.ts";
 import type { DockPolicy } from "./dock-policy.ts";
 import { hideMenuBar } from "./menu.ts";
 import { createPopOutRegistry } from "./pop-outs.ts";
+import { askBeforeUnload, loadUnloadStrings } from "./unsaved-unload.ts";
 import {
   chromeViewBackground,
   mainWindowOptions,
@@ -26,7 +27,6 @@ import {
   type WindowMaterial,
   windowMaterial,
 } from "./window-options.ts";
-import { askBeforeUnload, loadUnloadStrings } from "./unsaved-unload.ts";
 import { quickEntryBounds, type Rect, settingsWindowBounds } from "./window-placement.ts";
 
 /**
