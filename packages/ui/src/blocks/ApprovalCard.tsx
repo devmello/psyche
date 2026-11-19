@@ -69,7 +69,7 @@ export type ApprovalChoice = "deny" | "once" | "task" | "site" | "always" | "ses
  * `trust` / `trustSubdomains` are "Always for this site" (and its subdomains): sent as `once` plus
  * `trustSite`, only on a first-read card that offers it (`details.trustSite`).
  */
-type AllowScope = Exclude<ApprovalChoice, "deny"> | "trust" | "trustSubdomains";
+type AllowScope = Exclude<ApprovalChoice, "deny"> | "trust" | "trustSubdomains" | "program";
 
 /** The origin a first-read card offers to trust, as the Gateway computed it. */
 function trustSiteOffer(
@@ -80,6 +80,22 @@ function trustSiteOffer(
   const { origin, subdomains } = o as { origin?: unknown; subdomains?: unknown };
   if (typeof origin !== "string" || !approval.scopesOffered.includes("once")) return null;
   return { origin, display: origin.replace(/^https:\/\//, ""), subdomains: subdomains === true };
+}
+
+/**
+ * "Always allow <program> in <folder>" on a host-command card, as the Gateway computed it
+ * (`details.hostProgram`): sent as `once` plus `hostProgram`. `exact` when it covers only the
+ * argv shown (a program that can run other code), else any arguments of a read-only tool.
+ */
+function hostProgramOffer(
+  approval: ApprovalRequest,
+): { program: string; folder: string; exact: boolean } | null {
+  const o = (approval.details as Record<string, unknown>).hostProgram;
+  if (typeof o !== "object" || o === null) return null;
+  const { program, folder, argv } = o as { program?: unknown; folder?: unknown; argv?: unknown };
+  if (typeof program !== "string" || typeof folder !== "string") return null;
+  if (!approval.scopesOffered.includes("once")) return null;
+  return { program, folder, exact: Array.isArray(argv) };
 }
 
 export interface ApprovalCardProps {
@@ -110,6 +126,8 @@ export interface ApprovalCardProps {
       recipientChoice?: string;
       /** "Always for this site" on a first-read card (sent with scope `once`). */
       trustSite?: "origin" | "subdomains";
+      /** "Always allow <program> in <folder>" on a host-command card (sent with scope `once`). */
+      hostProgram?: true;
     },
   ) => unknown;
   /** Fixed clock (stories, tests). */
@@ -497,6 +515,7 @@ export function ApprovalCard({
   }, [interactive, armDelayMs]);
   const site = originOf(approval);
   const trustOffer = approval.status === "pending" ? trustSiteOffer(approval) : null;
+  const programOffer = approval.status === "pending" ? hostProgramOffer(approval) : null;
   // A send / destructive / financial card (§3.12): Always allow lifts its floor for this call
   // class, so it confirms first, and a tainted one never offers it (§3.6).
   const floor = floorClassOf(approval.kind, approval.sideEffect);
@@ -524,8 +543,13 @@ export function ApprovalCard({
         : decision === "approve" && choice === "trustSubdomains"
           ? ("subdomains" as const)
           : undefined;
+    const hostProgram = decision === "approve" && choice === "program";
     const scope: GrantScope | undefined =
-      decision === "deny" ? undefined : trustSite !== undefined ? "once" : (choice as GrantScope);
+      decision === "deny"
+        ? undefined
+        : trustSite !== undefined || hostProgram
+          ? "once"
+          : (choice as GrantScope);
     inFlight.current = true;
     setBusy(true);
     setError(null);
@@ -554,7 +578,9 @@ export function ApprovalCard({
               ? { unsandboxed: "UNSANDBOXED" }
               : trustSite !== undefined
                 ? { trustSite }
-                : undefined,
+                : hostProgram
+                  ? { hostProgram: true as const }
+                  : undefined,
       );
       if (decision === "approve" && onceOnlyHere && scope !== undefined && scope !== "once") {
         setForcedOnce(true);
@@ -656,6 +682,19 @@ export function ApprovalCard({
                 },
               ]
             : []),
+        ]
+      : []),
+    ...(programOffer !== null && !unsandboxed
+      ? [
+          {
+            value: "program" as const,
+            label: t(
+              programOffer.exact
+                ? "blocks.approval.scope.hostProgramExact"
+                : "blocks.approval.scope.hostProgram",
+              { program: programOffer.program, folder: programOffer.folder },
+            ),
+          },
         ]
       : []),
     // Typing UNSANDBOXED allows this run only, so no lasting scope is offered then.
@@ -989,7 +1028,8 @@ export function ApprovalCard({
               onChange={(e) => {
                 const v = e.target.value.trim();
                 setTyped(v);
-                if (v === unsandboxedWord && choice === "always") setChoice("once");
+                if (v === unsandboxedWord && (choice === "always" || choice === "program"))
+                  setChoice("once");
               }}
               aria-label={t("blocks.execHost.typeLabel", { word: unsandboxedWord })}
               placeholder={unsandboxedWord}

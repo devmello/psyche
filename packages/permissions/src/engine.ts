@@ -120,6 +120,8 @@ export interface EngineDeps {
   useGrant(rec: StoredGrant, bindingHash: string, ctx?: PolicyContext): StoredGrant;
   /** Whether a live trusted-site entry (the owner's "Always for this site") covers this origin. */
   trustedSite?(origin: string): boolean;
+  /** A live "always allow this program in this folder" grant that covers this host command. */
+  hostProgramGrant?(call: PolicyCall, ctx: PolicyContext): StoredGrant | undefined;
   hooks: readonly PolicyHook[];
   classifier: ActionClassifier;
   localProject: LocalProjectVerifier;
@@ -832,8 +834,18 @@ export class PolicyEngine {
     if (consult) {
       // Financial calls match only an `always` grant the owner confirmed (`allowedScopes`).
       const g = d.matchGrant(binding.grantKey, kind, se, ctx, origin);
+      // An exec_host call no exact grant covers may still sit under a program grant (§5.4). It
+      // needs no escalation of its own: a tainted turn asks below (`escalation`), env, network
+      // and cwd-config programs never match.
+      const hp =
+        g === undefined && kind === "exec_host" && !noAlways && !unbound
+          ? d.hostProgramGrant?.(call, ctx)
+          : undefined;
       if (g !== undefined && !unbound) allowed = { rule: `grant:${g.grant.id}`, grant: g };
-      else if (SEVERITY[se] <= SEVERITY.write) allowed = allowances[0];
+      else if (hp !== undefined) {
+        trace.push("host_program_grant");
+        allowed = { rule: `grant:${hp.grant.id}`, grant: hp };
+      } else if (SEVERITY[se] <= SEVERITY.write) allowed = allowances[0];
       else allowed = allowances.find((a) => a.lifted === true);
     }
     if (allowed !== undefined) {

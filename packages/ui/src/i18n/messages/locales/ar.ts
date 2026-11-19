@@ -442,6 +442,9 @@ export const ar: Partial<Catalogue> = {
   "blocks.approval.scope.task": "السماح لهذه المهمة",
   "blocks.approval.scope.trustSite": "دائمًا لهذا الموقع ({site})",
   "blocks.approval.scope.trustSiteSubdomains": "دائمًا لهذا الموقع ونطاقاته الفرعية ({site})",
+  "blocks.approval.scope.hostProgram": "السماح دائمًا بـ {program} في {folder}",
+  "blocks.approval.scope.hostProgramExact":
+    "السماح دائمًا بـ {program} بهذه الوسائط بالضبط في {folder}",
   "blocks.approval.scope.site": "السماح لهذا الموقع",
   "blocks.approval.scope.session": "السماح لهذه الجلسة",
   "blocks.approval.scope.always": "السماح دائمًا",
@@ -2139,6 +2142,8 @@ export const ar: Partial<Catalogue> = {
   "settings.permissions.trusted.remove": "إزالة",
   "settings.permissions.trusted.removeNamed": "إزالة {name} من المواقع الموثوقة",
   "settings.permissions.subject.trustedSiteSubdomains": "{origin} ونطاقاته الفرعية",
+  "settings.permissions.subject.hostProgram": "{program} في {folder}، بأي وسائط",
+  "settings.permissions.subject.hostProgramExact": "{program} في {folder}، بهذه الوسائط بالضبط",
   "settings.permissions.sensitive.title": "المواقع الحساسة",
   "settings.permissions.sensitive.description":
     "تسأل البنوك والصحة والبريد الإلكتروني ومديرو كلمات المرور دائمًا قبل القراءة. وكذلك المواقع الحكومية ومواقع iCloud؛ أوقف فئة هنا لقراءتها دون سؤال.",

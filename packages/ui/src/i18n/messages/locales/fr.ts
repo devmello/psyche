@@ -383,6 +383,9 @@ export const fr: Partial<Catalogue> = {
   "blocks.approval.scope.trustSite": "Toujours pour ce site ({site})",
   "blocks.approval.scope.trustSiteSubdomains":
     "Toujours pour ce site et ses sous-domaines ({site})",
+  "blocks.approval.scope.hostProgram": "Toujours autoriser {program} dans {folder}",
+  "blocks.approval.scope.hostProgramExact":
+    "Toujours autoriser {program} avec exactement ces arguments dans {folder}",
   "blocks.approval.scope.site": "Autoriser pour ce site",
   "blocks.approval.scope.session": "Autoriser pour cette session",
   "blocks.approval.scope.always": "Toujours autoriser",
@@ -2101,6 +2104,9 @@ export const fr: Partial<Catalogue> = {
   "settings.permissions.trusted.remove": "Retirer",
   "settings.permissions.trusted.removeNamed": "Retirer {name} des sites de confiance",
   "settings.permissions.subject.trustedSiteSubdomains": "{origin} et ses sous-domaines",
+  "settings.permissions.subject.hostProgram": "{program} dans {folder}, tous arguments",
+  "settings.permissions.subject.hostProgramExact":
+    "{program} dans {folder}, exactement ces arguments",
   "settings.permissions.sensitive.title": "Sites sensibles",
   "settings.permissions.sensitive.description":
     "Les banques, la santé, la messagerie et les gestionnaires de mots de passe demandent toujours avant une lecture. Les sites gouvernementaux et iCloud aussi ; désactivez une catégorie ici pour la lire sans demander.",

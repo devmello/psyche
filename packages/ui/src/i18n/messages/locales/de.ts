@@ -400,6 +400,9 @@ export const de: Partial<Catalogue> = {
   "blocks.approval.scope.trustSite": "Immer für diese Website ({site})",
   "blocks.approval.scope.trustSiteSubdomains":
     "Immer für diese Website und ihre Subdomains ({site})",
+  "blocks.approval.scope.hostProgram": "{program} in {folder} immer erlauben",
+  "blocks.approval.scope.hostProgramExact":
+    "{program} mit genau diesen Argumenten in {folder} immer erlauben",
   "blocks.approval.scope.site": "Für diese Website erlauben",
   "blocks.approval.scope.session": "Für diese Sitzung erlauben",
   "blocks.approval.scope.always": "Immer erlauben",
@@ -2154,6 +2157,8 @@ export const de: Partial<Catalogue> = {
   "settings.permissions.trusted.removeNamed":
     "{name} aus den vertrauenswürdigen Websites entfernen",
   "settings.permissions.subject.trustedSiteSubdomains": "{origin} und ihre Subdomains",
+  "settings.permissions.subject.hostProgram": "{program} in {folder}, beliebige Argumente",
+  "settings.permissions.subject.hostProgramExact": "{program} in {folder}, genau diese Argumente",
   "settings.permissions.sensitive.title": "Sensible Websites",
   "settings.permissions.sensitive.description":
     "Banken, Gesundheit, E-Mail und Passwortmanager fragen vor dem Lesen immer. Auch Behörden- und iCloud-Websites fragen; schalte eine Kategorie hier aus, um sie ohne Nachfrage zu lesen.",

@@ -1892,6 +1892,8 @@ export const settings = {
   "settings.permissions.trusted.remove": "Remove",
   "settings.permissions.trusted.removeNamed": "Remove {name} from trusted sites",
   "settings.permissions.subject.trustedSiteSubdomains": "{origin} and its subdomains",
+  "settings.permissions.subject.hostProgram": "{program} in {folder}, any arguments",
+  "settings.permissions.subject.hostProgramExact": "{program} in {folder}, exactly these arguments",
   "settings.permissions.sensitive.title": "Sensitive sites",
   "settings.permissions.sensitive.description":
     "Banks, health, email and password managers always ask before a read. Government and iCloud sites ask too; turn one off here to read it without asking.",

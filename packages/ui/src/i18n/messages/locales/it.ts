@@ -397,6 +397,9 @@ export const it: Partial<Catalogue> = {
   "blocks.approval.scope.trustSite": "Sempre per questo sito ({site})",
   "blocks.approval.scope.trustSiteSubdomains":
     "Sempre per questo sito e i suoi sottodomini ({site})",
+  "blocks.approval.scope.hostProgram": "Consenti sempre {program} in {folder}",
+  "blocks.approval.scope.hostProgramExact":
+    "Consenti sempre {program} con questi argomenti esatti in {folder}",
   "blocks.approval.scope.site": "Consenti per questo sito",
   "blocks.approval.scope.session": "Consenti per questa sessione",
   "blocks.approval.scope.always": "Consenti sempre",
@@ -2103,6 +2106,8 @@ export const it: Partial<Catalogue> = {
   "settings.permissions.trusted.remove": "Rimuovi",
   "settings.permissions.trusted.removeNamed": "Rimuovi {name} dai siti attendibili",
   "settings.permissions.subject.trustedSiteSubdomains": "{origin} e i suoi sottodomini",
+  "settings.permissions.subject.hostProgram": "{program} in {folder}, qualsiasi argomento",
+  "settings.permissions.subject.hostProgramExact": "{program} in {folder}, solo questi argomenti",
   "settings.permissions.sensitive.title": "Siti sensibili",
   "settings.permissions.sensitive.description":
     "Banche, salute, e-mail e gestori di password chiedono sempre prima di una lettura. Chiedono anche i siti governativi e iCloud; disattiva una categoria qui per leggerla senza chiedere.",

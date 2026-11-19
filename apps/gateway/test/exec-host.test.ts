@@ -33,7 +33,9 @@ import {
 import type { CliDriver, CliOptions, CliResult } from "@psyche/sandbox";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import {
+  execHostSrtSettings,
   execHostTool,
+  isGit,
   READ_ONLY_TIMEOUT_MS,
   type SrtStatus,
   UNSANDBOXED_WORD,
@@ -678,7 +680,10 @@ describe.skipIf(!posixHost)(
       srt = { missing: true, reason: "srt is not installed" };
       const t = await quietHost();
       const desc = t.describeCall?.({ argv: ["date"], cwd: project }) as ToolCallDescription;
-      expect(desc.meta).toEqual({ hostCommand: "read_only", hostSandbox: "missing" });
+      expect(desc.meta).toMatchObject({
+        hostCommand: "read_only",
+        hostSandbox: "missing",
+      });
       expect(desc.details).toMatchObject({ sandbox: "missing", unsandboxedWord: UNSANDBOXED_WORD });
       expect(await decide(t, { argv: ["date"], cwd: project })).toMatchObject({
         decision: "ask",
@@ -719,7 +724,7 @@ describe.skipIf(!posixHost)(
         { argv: ["ls"], cwd: project, allowedDomains: ["example.com"] },
         { argv: ["/bin/ls"], cwd: project },
       ]) {
-        expect(described(t, params).meta).toBeUndefined();
+        expect(described(t, params).meta?.hostCommand).toBeUndefined();
         expect((await decide(t, params)).sideEffect).toBe("destructive");
       }
     });
@@ -1078,7 +1083,7 @@ describe.skipIf(!posixHost)(
       const t = await readyReal();
       for (const cwd of [emb, join(dir, ".git"), join(dir, ".git", "refs")]) {
         const params = { argv: ["git", "status"], cwd };
-        expect(described(t, params).meta, cwd).toBeUndefined();
+        expect(described(t, params).meta?.hostCommand, cwd).toBeUndefined();
         expect((await decide(t, params)).decision, cwd).toBe("ask");
       }
       // Even if the description were fooled, the run asks git what it opens and refuses.
@@ -1214,7 +1219,7 @@ describe.skipIf(!posixHost)(
       // Env or network take it out of the class too.
       for (const extra of [{ env: { COLUMNS: "80" } }, { allowedDomains: ["example.com"] }]) {
         const params = { argv: ["git", "status"], cwd: dir, ...extra };
-        expect(described(t, params).meta).toBeUndefined();
+        expect(described(t, params).meta?.hostCommand).toBeUndefined();
         expect((await decide(t, params)).decision).toBe("ask");
       }
       // In a folder the owner has not shared: refused outright, never a quiet run.
@@ -1240,7 +1245,7 @@ describe.skipIf(!posixHost)(
       const config = readFileSync(join(dir, ".git", "config"), "utf8");
       for (const extra of ["[core]\n\tworktree = /\n", "[include]\n\tpath = /tmp/evil\n"]) {
         writeFileSync(join(dir, ".git", "config"), config + extra);
-        expect(described(t, params).meta, extra).toBeUndefined();
+        expect(described(t, params).meta?.hostCommand, extra).toBeUndefined();
         expect((await decide(t, params)).decision).toBe("ask");
       }
       writeFileSync(join(dir, ".git", "config"), config);
@@ -1250,12 +1255,14 @@ describe.skipIf(!posixHost)(
       mkdirSync(linked, { recursive: true });
       writeFileSync(join(linked, ".git"), `gitdir: ${join(dir, ".git")}\n`);
       setPolicy({ folders: [{ path: linked, mode: "rw" }], exec: { execHostEnabled: true } });
-      expect(described(t, { argv: ["git", "status"], cwd: linked }).meta).toBeUndefined();
+      expect(
+        described(t, { argv: ["git", "status"], cwd: linked }).meta?.hostCommand,
+      ).toBeUndefined();
       // No repository at all.
       const bare = join(home, "Projects", "gitro-none");
       mkdirSync(bare, { recursive: true });
       setPolicy({ folders: [{ path: bare, mode: "rw" }], exec: { execHostEnabled: true } });
-      expect(described(t, { argv: ["git", "log"], cwd: bare }).meta).toBeUndefined();
+      expect(described(t, { argv: ["git", "log"], cwd: bare }).meta?.hostCommand).toBeUndefined();
     });
 
     it("a folder shared inside a bigger repository does not read the history above it", async () => {
@@ -1320,7 +1327,7 @@ describe.skipIf(!posixHost)(
         ["ls", ":/"],
         ["wc", "-l", ":(top)a.txt"],
       ]) {
-        expect(described(t, { argv, cwd: repo }).meta, argv.join(" ")).toBeUndefined();
+        expect(described(t, { argv, cwd: repo }).meta?.hostCommand, argv.join(" ")).toBeUndefined();
         expect((await decide(t, { argv, cwd: repo })).decision).toBe("ask");
       }
     });
@@ -1333,13 +1340,13 @@ describe.skipIf(!posixHost)(
       if (!existsSync(join(dir, "out"))) symlinkSync(join(outside, "secret-dir"), join(dir, "out"));
       setPolicy({ folders: [{ path: dir, mode: "ro" }], exec: { execHostEnabled: true } });
       const t = await ready();
-      expect(described(t, { argv: ["ls", "-RL"], cwd: dir }).meta).toBeUndefined();
+      expect(described(t, { argv: ["ls", "-RL"], cwd: dir }).meta?.hostCommand).toBeUndefined();
       expect((await decide(t, { argv: ["ls", "-RL"], cwd: dir })).decision).toBe("ask");
       // The quiet ls -R, really run: it lists the link, never what is behind it.
       const r = spawnSync("/bin/ls", ["-R"], { cwd: dir, env });
       expect(String(r.stdout)).toContain("out");
       expect(String(r.stdout)).not.toContain("MARKER-outside");
-      expect(described(t, { argv: ["ls", "-R"], cwd: dir }).meta).toEqual({
+      expect(described(t, { argv: ["ls", "-R"], cwd: dir }).meta).toMatchObject({
         hostCommand: "read_only",
       });
     });
@@ -1351,7 +1358,7 @@ describe.skipIf(!posixHost)(
         ["file", "-z", "a.gz"],
         ["file", "-Z", "a.gz"],
       ]) {
-        expect(described(t, { argv, cwd: repo }).meta).toBeUndefined();
+        expect(described(t, { argv, cwd: repo }).meta?.hostCommand).toBeUndefined();
       }
     });
 
@@ -1362,7 +1369,10 @@ describe.skipIf(!posixHost)(
       const t = await ready();
       setPolicy({ folders: [{ path: dir, mode: "ro" }], exec: { execHostEnabled: true } });
       for (const prog of ["cat", "head", "tail", "wc", "file", "ls", "stat"]) {
-        expect(described(t, { argv: [prog, "pipe"], cwd: dir }).meta, prog).toBeUndefined();
+        expect(
+          described(t, { argv: [prog, "pipe"], cwd: dir }).meta?.hostCommand,
+          prog,
+        ).toBeUndefined();
       }
       writeFileSync(join(dir, "late"), "x");
       const params = { argv: ["cat", "late"], cwd: dir };
@@ -1488,8 +1498,10 @@ describe.skipIf(!posixHost)(
       writeFileSync(join(dir, "plain.txt"), "x");
       setPolicy({ folders: [{ path: dir, mode: "ro" }], exec: { execHostEnabled: true } });
       const t = await ready();
-      expect(described(t, { argv: ["cat", "copy.txt"], cwd: dir }).meta).toBeUndefined();
-      expect(described(t, { argv: ["cat", "plain.txt"], cwd: dir }).meta).toEqual({
+      expect(
+        described(t, { argv: ["cat", "copy.txt"], cwd: dir }).meta?.hostCommand,
+      ).toBeUndefined();
+      expect(described(t, { argv: ["cat", "plain.txt"], cwd: dir }).meta).toMatchObject({
         hostCommand: "read_only",
       });
     });
@@ -1583,7 +1595,7 @@ describe.skipIf(process.platform !== "win32")("exec_host on Windows", () => {
     const t = winHost(true);
     const d = await decide(t, { argv: ["whoami"], cwd: project });
     expect(d.decision).toBe("ask");
-    expect(described(t, { argv: ["whoami"], cwd: project }).meta).toBeUndefined();
+    expect(described(t, { argv: ["whoami"], cwd: project }).meta?.hostCommand).toBeUndefined();
     const a = await card(t, { argv: ["whoami"], cwd: project });
     expect(a.details).toMatchObject({
       sandbox: "missing",
@@ -1683,5 +1695,37 @@ describe.skipIf(process.platform !== "win32")("exec_host on Windows", () => {
       expect(s?.args, v).toContain(v);
     }
     expect(s?.args.slice(-1)).toEqual(["status"]);
+  });
+});
+
+describe("program-grant runs: folder-confined reads, folded git names", () => {
+  const base = {
+    psycheHome: "/Users/me/.psyche",
+    userHome: "/Users/me",
+    scratch: "/Users/me/.psyche/exec-host/s1",
+    writable: [],
+    allowedDomains: [],
+  };
+  it("denies the home and /Volumes and re-allows only the grant folder", () => {
+    const fs = (
+      execHostSrtSettings({ ...base, confineRead: "/Users/me/project" }) as {
+        filesystem: { denyRead: string[]; allowRead: string[] };
+      }
+    ).filesystem;
+    expect(fs.denyRead).toEqual(expect.arrayContaining(["/Users/me", "/Volumes"]));
+    expect(fs.allowRead).toContain("/Users/me/project");
+  });
+  it("leaves an ordinary run's profile alone (control)", () => {
+    const fs = (
+      execHostSrtSettings(base) as { filesystem: { denyRead: string[]; allowRead: string[] } }
+    ).filesystem;
+    expect(fs.denyRead).not.toContain("/Users/me");
+    expect(fs.denyRead).not.toContain("/Volumes");
+  });
+  it("GIT and a long-s spelling get git's hardening on darwin", () => {
+    expect(isGit("/usr/bin/GIT", undefined, "darwin")).toBe(true);
+    expect(isGit("/usr/bin/x", "Git", "darwin")).toBe(true);
+    expect(isGit("/usr/bin/git", undefined, "darwin")).toBe(true);
+    expect(isGit("/usr/bin/gitk", undefined, "darwin")).toBe(false);
   });
 });

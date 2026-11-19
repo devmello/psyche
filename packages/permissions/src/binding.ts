@@ -348,7 +348,8 @@ export const CWD_CONFIG_EXECUTABLES = new Set([
 ]);
 
 export function readsCwdConfig(executable: string): boolean {
-  const name = basename(executable);
+  // NFKC and lower case: `GIT` and `ſh` name the same program on APFS.
+  const name = basename(executable).normalize("NFKC").toLowerCase();
   return (
     CWD_CONFIG_EXECUTABLES.has(name) || CWD_CONFIG_EXECUTABLES.has(name.replace(/[\d.]+$/, ""))
   );

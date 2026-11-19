@@ -402,6 +402,9 @@ export const hi: Partial<Catalogue> = {
   "blocks.approval.scope.task": "इस टास्क के लिए अनुमति दें",
   "blocks.approval.scope.trustSite": "इस साइट के लिए हमेशा ({site})",
   "blocks.approval.scope.trustSiteSubdomains": "इस साइट और इसके सबडोमेन के लिए हमेशा ({site})",
+  "blocks.approval.scope.hostProgram": "{folder} में {program} हमेशा अनुमति दें",
+  "blocks.approval.scope.hostProgramExact":
+    "{folder} में {program} को ठीक इन्हीं आर्गुमेंट के साथ हमेशा अनुमति दें",
   "blocks.approval.scope.site": "इस साइट के लिए अनुमति दें",
   "blocks.approval.scope.session": "इस सत्र के लिए अनुमति दें",
   "blocks.approval.scope.always": "हमेशा अनुमति दें",
@@ -2090,6 +2093,8 @@ export const hi: Partial<Catalogue> = {
   "settings.permissions.trusted.remove": "हटाएँ",
   "settings.permissions.trusted.removeNamed": "{name} को भरोसेमंद साइटों से हटाएँ",
   "settings.permissions.subject.trustedSiteSubdomains": "{origin} और इसके सबडोमेन",
+  "settings.permissions.subject.hostProgram": "{program}, {folder} में, कोई भी आर्गुमेंट",
+  "settings.permissions.subject.hostProgramExact": "{program}, {folder} में, ठीक यही आर्गुमेंट",
   "settings.permissions.sensitive.title": "संवेदनशील साइटें",
   "settings.permissions.sensitive.description":
     "बैंक, स्वास्थ्य, ईमेल और पासवर्ड मैनेजर पढ़ने से पहले हमेशा पूछते हैं। सरकारी और iCloud साइटें भी पूछती हैं; बिना पूछे पढ़ने के लिए यहाँ वह श्रेणी बंद करें।",

@@ -7174,6 +7174,10 @@
           ],
           "type": "string"
         },
+        "hostProgram": {
+          "const": true,
+          "type": "boolean"
+        },
         "folderPath": {
           "maxLength": 4096,
           "minLength": 1,
