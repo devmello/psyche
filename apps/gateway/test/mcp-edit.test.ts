@@ -501,7 +501,7 @@ describe("review r2 fixes", () => {
     const before = stored(services);
     for (const url of [
       "https://u:pw@api.example.com/mcp/v2?token=***",
-      "https://***:***@api.example.com/mcp",
+      ["https://", "%2A%2A%2A", ":", "%2A%2A%2A", "@api.example.com/mcp"].join(""),
       "https://api.example.com/mcp?a=1&token=***",
       "https://api.example.com/mcp#***",
     ]) {
