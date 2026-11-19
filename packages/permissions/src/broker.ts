@@ -35,7 +35,7 @@ import {
 import { venueOfHost } from "@psyche/protocol/financial-block";
 import { monotonicFactory } from "ulid";
 import { type Binding, bindingFor, bindingHash, grantKeyHash, readsCwdConfig } from "./binding.ts";
-import { cardHeader, sanitizeDetails, sanitizeDisplay } from "./cards.ts";
+import { cardHeader, cardTaintSources, sanitizeDetails, sanitizeDisplay } from "./cards.ts";
 import {
   CHANNEL_PAIRING_WINDOW_MS,
   CHANNEL_REPLIES_PER_MINUTE,
@@ -94,6 +94,7 @@ import {
   type PolicyConfig,
 } from "./policy.ts";
 import { DENY_ALL_LOOPBACK, type LocalProjectVerifier } from "./prohibitions.ts";
+import { receiptGrantBinding, receiptGrantId } from "./receipt-grant.ts";
 import { requesterKey, requesterSurfaces } from "./requester.ts";
 import type { RevocationLedger } from "./revocations.ts";
 import { riskClassFor } from "./risk.ts";
@@ -121,7 +122,6 @@ import type {
   PolicyContext,
   PolicyDecision,
   PresenceAssertion,
-  TaintSource,
 } from "./types.ts";
 
 const HOUR = 3_600_000;
@@ -147,7 +147,19 @@ export type BrokerEvent =
       type: "approval.decided" | "approval.expired" | "approval.invalidated";
       approval: ApprovalRequest;
     }
-  | { type: "grant.created" | "grant.used" | "grant.revoked"; grant: Grant }
+  | { type: "grant.created" | "grant.revoked"; grant: Grant }
+  /**
+   * `taskId`: the task whose call went through the grant (none for a batch's own use);
+   * `bindingHash`: that call's binding (a grant covers a key, not one exact call);
+   * `fromSetAside`: the grant was made by approving a set-aside card (a resume may wait on it).
+   */
+  | {
+      type: "grant.used";
+      grant: Grant;
+      taskId?: string;
+      bindingHash: string;
+      fromSetAside?: true;
+    }
   | { type: "receipt.created"; receipt: Receipt }
   | { type: "task.paused" | "task.downgraded"; taskId: string; reason: string };
 
@@ -189,7 +201,16 @@ export interface PermissionBrokerOptions {
    * A restart revoked an approved set-aside card before any run used it (`reissue`): the resume
    * it promised will not happen, so the Gateway tells the owner instead of staying silent.
    */
-  onSetAsideRevoked?: (approval: ApprovalRequest, how: { failed: boolean }) => void;
+  onSetAsideRevoked?: (
+    approval: ApprovalRequest,
+    how: { failed: boolean; unknown: boolean },
+  ) => void;
+  /**
+   * Whether `taskId` is a run of the automation that set this card aside (the scheduler's
+   * `runForTask`). Only those runs' grant receipts can say the card's action was done at boot;
+   * without it none can (fail closed: the owner is told).
+   */
+  sameAutomation?: (approval: ApprovalRequest, taskId: string) => boolean;
   onEvent?: (event: BrokerEvent) => void;
   newId?: (prefix: string) => string;
   /** Records grant revocations outside the backup scope (design-26). */
@@ -311,6 +332,7 @@ export class PsychePermissionBroker implements PermissionBroker {
   readonly #deferredApproval: PermissionBrokerOptions["deferredApproval"];
   readonly #canResume: PermissionBrokerOptions["canResume"];
   readonly #onSetAsideRevoked: PermissionBrokerOptions["onSetAsideRevoked"];
+  readonly #sameAutomation: PermissionBrokerOptions["sameAutomation"];
   readonly #onEvent: ((e: BrokerEvent) => void) | undefined;
   readonly #newId: (prefix: string) => string;
   readonly #revocations: RevocationLedger | undefined;
@@ -356,6 +378,7 @@ export class PsychePermissionBroker implements PermissionBroker {
     this.#deferredApproval = options.deferredApproval;
     this.#canResume = options.canResume;
     this.#onSetAsideRevoked = options.onSetAsideRevoked;
+    this.#sameAutomation = options.sameAutomation;
     this.#onEvent = options.onEvent;
     this.#revocations = options.revocations;
     this.#channelConversations = options.channelConversations;
@@ -376,7 +399,7 @@ export class PsychePermissionBroker implements PermissionBroker {
       peekTask: (ctx) => this.#tasks.get(taskKey(ctx)),
       sessionFolders: (threadId) => this.#sessionFolders.get(threadId) ?? [],
       matchGrant: (key, kind, se, ctx, origin) => this.#matchGrant(key, kind, se, ctx, origin),
-      useGrant: (rec, hash) => this.#useGrant(rec, hash),
+      useGrant: (rec, hash, ctx) => this.#useGrant(rec, hash, ctx?.taskId),
       trustedSite: (origin) => this.#trustedSite(origin),
       hostProgramGrant: (call, ctx) => this.#hostProgramGrant(call, ctx),
       hooks: options.hooks ?? [],
@@ -918,7 +941,7 @@ export class PsychePermissionBroker implements PermissionBroker {
     };
   }
 
-  #useGrant(rec: StoredGrant, bindingHash: string): StoredGrant {
+  #useGrant(rec: StoredGrant, bindingHash: string, taskId?: string | null): StoredGrant {
     const now = this.clock.now();
     const next = structuredClone(rec);
     next.grant.useCount += 1;
@@ -931,7 +954,15 @@ export class PsychePermissionBroker implements PermissionBroker {
       next.grant.expiresAt = new Date(Math.min(now + ttl.sessionIdle, cap)).toISOString();
     }
     this.#store.updateGrant(next);
-    this.#emit({ type: "grant.used", grant: next.grant });
+    const from = next.grant.createdFromApprovalId;
+    const fromSetAside = from != null && this.#store.getApproval(from)?.approval.setAside === true;
+    this.#emit({
+      type: "grant.used",
+      grant: next.grant,
+      bindingHash,
+      ...(taskId == null ? {} : { taskId }),
+      ...(fromSetAside ? { fromSetAside: true as const } : {}),
+    });
     void this.#log(
       "grant.used",
       { type: "system" },
@@ -1262,6 +1293,12 @@ export class PsychePermissionBroker implements PermissionBroker {
     }
     // Only the Gateway's own decision may offer it: a caller-supplied `details.trustSite` is dropped.
     delete details.trustSite;
+    // Only the owner's answer sets these (`answer`): UNSANDBOXED typed on the card, the folder
+    // the picker picked, the compose card's final message. A caller's own are dropped, so a
+    // card nobody answered that way never runs unsandboxed or grants a folder.
+    delete details.unsandboxed;
+    delete details.granted;
+    delete details.final;
     const trustOffer = this.#trustSiteOffer(recent, input, se);
     if (trustOffer !== undefined) details.trustSite = { ...trustOffer };
     delete details.hostProgram;
@@ -1336,13 +1373,7 @@ export class PsychePermissionBroker implements PermissionBroker {
       approval.setAside = true;
     }
     if (approval.taint && sources !== undefined && sources.length > 0) {
-      approval.taintSources = sources.map((s) => {
-        const out: TaintSource = { sourceKind: sanitizeDisplay(s.sourceKind) };
-        if (s.origin !== undefined) out.origin = sanitizeDisplay(s.origin);
-        if (s.sender !== undefined) out.sender = sanitizeDisplay(s.sender);
-        if (s.toolCallId !== undefined) out.toolCallId = s.toolCallId;
-        return out;
-      });
+      approval.taintSources = cardTaintSources(sources);
     }
     // Kept with the stored input, so a SQLite store (no column for them) gives them back.
     const card = input as PolicyApprovalInput & StoredCardFields;
@@ -2094,6 +2125,20 @@ export class PsychePermissionBroker implements PermissionBroker {
     this.#timers.get(id)?.();
     this.#timers.delete(id);
     const fa = decided.approval;
+    const { call, context } = decided.input;
+    if (fa.status === "approved" && call !== undefined && context !== undefined) {
+      const tk = targetKey(call);
+      if (tk !== undefined) {
+        const st = this.#task(context);
+        st.approvedTargets.add(tk);
+        st.touched.add(tk);
+      }
+    }
+    // Announced as soon as the answer is stored, before any await: a grant it made is usable
+    // from the commit on, so no use of it can come before its card's decision. No subscriber
+    // reads the audit rows written below; waiters (`awaitDecision`) and the notice resolve at
+    // the end, once the folder pick is applied.
+    this.#emit({ type: "approval.decided", approval: fa });
     if (fa.status === "approved" && folderPick !== undefined && fa.kind === "folder_access") {
       await this.#applyFolder(fa, folderPick, scope, by);
     }
@@ -2112,15 +2157,6 @@ export class PsychePermissionBroker implements PermissionBroker {
         },
         { path: folderPick.path, mode: folderPick.mode, taint: fa.taint },
       );
-    }
-    const { call, context } = decided.input;
-    if (fa.status === "approved" && call !== undefined && context !== undefined) {
-      const tk = targetKey(call);
-      if (tk !== undefined) {
-        const st = this.#task(context);
-        st.approvedTargets.add(tk);
-        st.touched.add(tk);
-      }
     }
     await this.#log(
       "approval.decided",
@@ -2157,7 +2193,7 @@ export class PsychePermissionBroker implements PermissionBroker {
         },
       );
     }
-    this.#settled(fa, "approval.decided");
+    this.#settled(fa, "approval.decided", { emitted: true });
     return structuredClone(fa);
   }
 
@@ -2333,8 +2369,9 @@ export class PsychePermissionBroker implements PermissionBroker {
   #settled(
     a: ApprovalRequest,
     type: "approval.decided" | "approval.expired" | "approval.invalidated",
+    opts: { emitted?: boolean } = {},
   ): void {
-    this.#emit({ type, approval: a });
+    if (opts.emitted !== true) this.#emit({ type, approval: a });
     const nid = this.#notifications.get(a.id);
     if (nid !== undefined) {
       this.#notifications.delete(a.id);
@@ -2387,14 +2424,53 @@ export class PsychePermissionBroker implements PermissionBroker {
    * Nothing has done this approval's action: no `ok` receipt names it (a failed one is not done)
    * and its grant (if any) has no use.
    */
-  async #unused(a: ApprovalRequest): Promise<boolean> {
+  async #unused(a: ApprovalRequest, pool: readonly Receipt[]): Promise<boolean> {
     const receipts = await this.receipts.list({ approvalId: a.id });
     if (receipts.some((r) => r.outcome === "ok")) return false;
-    if (a.grantId != null) {
-      const g = this.#store.getGrant(a.grantId);
-      if (g !== undefined && g.grant.useCount > 0) return false;
+    // A use of its grant is done only when that very call succeeded too.
+    return !this.#grantReceipts(a, pool).some((r) => r.outcome === "ok");
+  }
+
+  /**
+   * Receipts that may say what the set-aside cards' grants did: one query per boot, from the
+   * earliest of their grants on (a card's grant is made by its own approval, so nothing older).
+   */
+  async #grantReceiptPool(recs: readonly StoredApproval[]): Promise<Receipt[]> {
+    let since: string | undefined;
+    for (const rec of recs) {
+      const a = rec.approval;
+      if (rec.revoked || a.setAside !== true || a.grantId == null) continue;
+      const created = this.#store.getGrant(a.grantId)?.grant.createdAt;
+      if (created !== undefined && (since === undefined || created < since)) since = created;
     }
-    return true;
+    return since === undefined ? [] : await this.receipts.list({ since });
+  }
+
+  /**
+   * The receipts of calls that went through the standing grant this approval made AND were
+   * this card's action: the grant's id and the card's binding on the receipt (a grant covers a
+   * key, not one call), from a run of the card's own automation (an attended chat through the
+   * same grant is another action). Never matched by kind alone.
+   */
+  #grantReceipts(a: ApprovalRequest, pool: readonly Receipt[]): Receipt[] {
+    if (a.grantId == null) return [];
+    const g = this.#store.getGrant(a.grantId);
+    if (g === undefined) return [];
+    const same = this.#sameAutomation;
+    return pool.filter(
+      (r) =>
+        receiptGrantId(r) === a.grantId &&
+        receiptGrantBinding(r) === a.bindingHash &&
+        r.createdAt >= g.grant.createdAt &&
+        r.taskId != null &&
+        same?.(a, r.taskId) === true,
+    );
+  }
+
+  /** Its grant let this card's own call through (its last use bound to the card's binding). */
+  #grantUsed(a: ApprovalRequest): boolean {
+    const g = a.grantId == null ? undefined : this.#store.getGrant(a.grantId);
+    return g !== undefined && g.grant.useCount > 0 && g.meta.lastUsedBindingHash === a.bindingHash;
   }
 
   async verifyBinding(approvalId: string, bindingHash: string): Promise<BindingVerification> {
@@ -2479,15 +2555,25 @@ export class PsychePermissionBroker implements PermissionBroker {
     for (const rec of pending) await this.#invalidate(rec, "gateway_restart");
     // An approved `once` that was never dispatched belonged to a call parked in the previous
     // process; that call is gone, so the approval ends too (S23 design-09). Found by fuzzing.
-    for (const rec of this.#store.listApprovals({ status: "approved" })) {
+    const approved = this.#store.listApprovals({ status: "approved" });
+    const pool = await this.#grantReceiptPool(approved);
+    for (const rec of approved) {
       if (rec.revoked) continue;
       const unconsumedOnce = rec.approval.scopeGranted === "once" && rec.consumedAt === null;
       // A set-aside card whose resume was not over lost it with the old process, whatever its
       // scope: nothing did its action yet (no `ok` receipt, no use of its grant). That includes
       // an action that ran and failed, and one whose receipt the old process never wrote. The
       // owner is told once; the card's own authority ends (its standing grant, if any, stays).
-      const lostResume = rec.approval.setAside === true && (await this.#unused(rec.approval));
-      if (!unconsumedOnce && !lostResume) continue;
+      const lostResume = rec.approval.setAside === true && (await this.#unused(rec.approval, pool));
+      if (!unconsumedOnce && !lostResume) {
+        // A set-aside card whose action is done (an `ok` receipt): its resume is over. Settled,
+        // so it is not a candidate again and the next boot's receipt query starts later.
+        if (rec.approval.setAside === true) {
+          rec.revoked = true;
+          this.#store.updateApproval(rec);
+        }
+        continue;
+      }
       rec.revoked = true;
       this.#store.updateApproval(rec);
       await this.#log(
@@ -2497,9 +2583,18 @@ export class PsychePermissionBroker implements PermissionBroker {
         { reason: unconsumedOnce ? "gateway_restart_unconsumed" : "gateway_restart_set_aside" },
       );
       if (lostResume) {
-        const failed = (await this.receipts.list({ approvalId: rec.approval.id })).length > 0;
+        // It ran and did not succeed. Failed: a receipt (its own, or its grant's) says so.
+        // Unknown: the provider did not confirm, or its grant was used and no receipt carries
+        // the grant's id (the old process died first, or the recorder cannot say).
+        const ran = [
+          ...(await this.receipts.list({ approvalId: rec.approval.id })),
+          ...this.#grantReceipts(rec.approval, pool),
+        ];
+        const failed = ran.some((r) => r.outcome === "failed");
+        const unknown =
+          !failed && (ran.some((r) => r.outcome === "uncertain") || this.#grantUsed(rec.approval));
         try {
-          this.#onSetAsideRevoked?.(structuredClone(rec.approval), { failed });
+          this.#onSetAsideRevoked?.(structuredClone(rec.approval), { failed, unknown });
         } catch {
           // A failed notice never stops the restart.
         }

@@ -365,6 +365,10 @@ export const zh: Partial<Catalogue> = {
   "blocks.card.unknown": "Psyche 暂时无法显示此类项目（{type}）。",
   "specialists.block.label": "{role}的结果：{title}",
   "blocks.toolView.show": "显示结果",
+  "blocks.toolRun.shareFolder": "共享此文件夹（只读）",
+  "blocks.toolRun.shareWaiting": "正在等待你在卡片上的回答",
+  "blocks.toolRun.shared": "已共享。请再次提问以继续",
+  "blocks.toolRun.shareFailed": "无法请求共享此文件夹。请重试。",
   "blocks.toolView.loading": "正在加载结果…",
   "blocks.toolView.none": "此操作的结果未保留。",
   "blocks.toolView.more": "还有 {count} 项",
@@ -1209,6 +1213,22 @@ export const zh: Partial<Catalogue> = {
   "settings.credentials.slot.keyFile": "这台 Mac 上的密钥文件",
   "settings.credentials.slot.recovery": "仅其恢复密钥",
   "settings.credentials.protectedBy": "保险库保护方式：",
+  "settings.credentials.vault.adminOnly": "只有管理员设备才能执行此操作。",
+  "settings.credentials.vault.unlockReason": "确认恢复密钥",
+  "settings.credentials.vault.setup.title": "设置保险库",
+  "settings.credentials.vault.setup.body":
+    "保险库会把你的密码、银行卡和 API 密钥加密保存在这台电脑上。Psyche 创建它时会生成一个恢复密钥，你只需保存一次。",
+  "settings.credentials.vault.setup.button": "设置保险库",
+  "settings.credentials.vault.setup.failed": "未能创建保险库：{reason}",
+  "settings.credentials.vault.setup.noSlot": "此 Gateway 没有可用于保险库的密钥槽。",
+  "settings.credentials.vault.confirm.title": "确认你的恢复密钥",
+  "settings.credentials.vault.confirm.body":
+    "输入恢复密钥的最后一组（最后一个短横线之后的部分），以证明你已保存。",
+  "settings.credentials.vault.confirm.label": "最后一组",
+  "settings.credentials.vault.confirm.button": "确认",
+  "settings.credentials.vault.confirm.wrong":
+    "这不是恢复密钥的最后一组。请检查你保存它的位置后重试。",
+  "settings.credentials.vault.confirm.failed": "未能确认恢复密钥：{reason}",
   "settings.credentials.moveToKeychain": "移至钥匙串",
   "settings.credentials.moveToKeychainNeeds":
     "需要使用 Developer ID 签名并带有描述文件的 Psyche 助手",

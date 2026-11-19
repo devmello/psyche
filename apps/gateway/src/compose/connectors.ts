@@ -334,6 +334,7 @@ export function composeConnectors(
     broker: services.broker,
     approvalFor: (callId) => services.calls.approvalFor(callId),
     authorityFor: (callId) => services.calls.authorityFor(callId),
+    taskFor: (callId) => services.calls.get(callId)?.taskId,
     // The owner's confirmed opt-ins, as the broker holds them (security §3.12).
     floorLifted: (id, action) => floorLifted(services.rawBroker.policy.liftedFloors?.[id], action),
     onEvent: (event) => {

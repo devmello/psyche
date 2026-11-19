@@ -372,6 +372,10 @@ export const ar: Partial<Catalogue> = {
   "blocks.card.unknown": "لا يستطيع Psyche عرض هذا النوع من العناصر بعد ({type}).",
   "specialists.block.label": "نتيجة {role}: {title}",
   "blocks.toolView.show": "عرض النتيجة",
+  "blocks.toolRun.shareFolder": "مشاركة هذا المجلد (للقراءة فقط)",
+  "blocks.toolRun.shareWaiting": "في انتظار ردّك على البطاقة",
+  "blocks.toolRun.shared": "تمت المشاركة. اطلب مرة أخرى للمتابعة",
+  "blocks.toolRun.shareFailed": "تعذّر طلب مشاركة هذا المجلد. حاول مرة أخرى.",
   "blocks.toolView.loading": "جارٍ تحميل النتيجة…",
   "blocks.toolView.none": "لا يُحتفظ بنتيجة هذا الإجراء.",
   "blocks.toolView.more":
@@ -1233,6 +1237,22 @@ export const ar: Partial<Catalogue> = {
   "settings.credentials.slot.keyFile": "ملف مفتاح على هذا الـ Mac",
   "settings.credentials.slot.recovery": "مفتاح الاستعادة الخاص بها فقط",
   "settings.credentials.protectedBy": "الخزنة محمية بواسطة:",
+  "settings.credentials.vault.adminOnly": "يمكن لجهاز مشرف فقط تنفيذ ذلك.",
+  "settings.credentials.vault.unlockReason": "تأكيد مفتاح الاسترداد",
+  "settings.credentials.vault.setup.title": "إعداد الخزنة",
+  "settings.credentials.vault.setup.body":
+    "تحفظ الخزنة كلمات المرور والبطاقات ومفاتيح API مشفّرة على هذا الكمبيوتر. ينشئها Psyche مع مفتاح استرداد تحفظه مرة واحدة.",
+  "settings.credentials.vault.setup.button": "إعداد الخزنة",
+  "settings.credentials.vault.setup.failed": "لم يتم إنشاء الخزنة: {reason}",
+  "settings.credentials.vault.setup.noSlot": "لا يوفّر هذا الـ Gateway خانة مفتاح للخزنة.",
+  "settings.credentials.vault.confirm.title": "أكّد مفتاح الاسترداد",
+  "settings.credentials.vault.confirm.body":
+    "اكتب المجموعة الأخيرة من مفتاح الاسترداد، أي الجزء بعد الشرطة الأخيرة، لتُثبت أنك حفظته.",
+  "settings.credentials.vault.confirm.label": "المجموعة الأخيرة",
+  "settings.credentials.vault.confirm.button": "تأكيد",
+  "settings.credentials.vault.confirm.wrong":
+    "هذه ليست المجموعة الأخيرة من مفتاح الاسترداد. تحقّق من مكان حفظه وحاول مرة أخرى.",
+  "settings.credentials.vault.confirm.failed": "لم يتم تأكيد مفتاح الاسترداد: {reason}",
   "settings.credentials.moveToKeychain": "النقل إلى سلسلة المفاتيح",
   "settings.credentials.moveToKeychainNeeds":
     "يحتاج إلى مساعد Psyche موقَّع بمعرّف مطوّر وملف تعريف توفير",

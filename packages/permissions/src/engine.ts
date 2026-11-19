@@ -116,7 +116,8 @@ export interface EngineDeps {
     ctx: PolicyContext,
     origin: string | undefined,
   ): StoredGrant | undefined;
-  useGrant(rec: StoredGrant, bindingHash: string): StoredGrant;
+  /** Counts one use; `ctx` is the call's (its task, for the `grant.used` event). */
+  useGrant(rec: StoredGrant, bindingHash: string, ctx?: PolicyContext): StoredGrant;
   /** Whether a live trusted-site entry (the owner's "Always for this site") covers this origin. */
   trustedSite?(origin: string): boolean;
   /** A live "always allow this program in this folder" grant that covers this host command. */
@@ -878,7 +879,7 @@ export class PolicyEngine {
         // A dry run names the grant it would use without counting a use of it.
         const grantId =
           dry === undefined
-            ? d.useGrant(allowed.grant, binding.bindingHash).grant.id
+            ? d.useGrant(allowed.grant, binding.bindingHash, ctx).grant.id
             : allowed.grant.grant.id;
         return done("allow", allowed.rule, undefined, {
           binding,

@@ -18,6 +18,9 @@ CI fails when the generated files are stale (`pnpm protocol:check`).
 
 ## Log
 
+### v1 additive — 2026-11-18 (share the folder a file tool could not reach)
+
+- New method `files.requestShare {threadId, path, access: "read"}` → `{status: pending|already, approvalId?}` (`operator.admin`, side-effecting). It raises the same `folder_access` approval card as `request_folder_access` (same binding, native picker, Allow once / Always; a tainted thread is offered Allow once only), outside an agent run, for the chat's "Share this folder (read only)" button. `path` only pre-fills the card; the pick is what is granted. `access` is `read` only; nothing is granted without the card.
 ### v1 additive — 2026-11-18 (opt-in onboarding folders)
 
 - New method `files.starterFolders {}` → `{folders: {id: documents|desktop|downloads, path}[]}` (`operator.read`): the folders onboarding may offer to share read only, i.e. those that exist, pass `assertFolderGrantable` and are not already covered by a granted folder. It grants nothing. New type `StarterFolderId`. `settings.set` of `permissions.policy` now expands a leading `~/` in a folder path to the owner's home before the sensitive-root check and storing.

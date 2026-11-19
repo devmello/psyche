@@ -304,6 +304,10 @@ export const es: Partial<Catalogue> = {
   "blocks.card.unknown": "Psyche aún no puede mostrar este tipo de elemento ({type}).",
   "specialists.block.label": "Resultado de {role}: {title}",
   "blocks.toolView.show": "Ver resultado",
+  "blocks.toolRun.shareFolder": "Compartir esta carpeta (solo lectura)",
+  "blocks.toolRun.shareWaiting": "Esperando tu respuesta en la tarjeta",
+  "blocks.toolRun.shared": "Compartida. Vuelve a pedirlo para continuar",
+  "blocks.toolRun.shareFailed": "No se pudo pedir compartir esta carpeta. Inténtalo de nuevo.",
   "blocks.toolView.loading": "Cargando el resultado…",
   "blocks.toolView.none": "El resultado de esta acción no se conserva.",
   "blocks.toolView.more": "{count, plural, one {# más} other {# más}}",
@@ -1182,6 +1186,23 @@ export const es: Partial<Catalogue> = {
   "settings.credentials.slot.keyFile": "un archivo de clave en este Mac",
   "settings.credentials.slot.recovery": "solo su clave de recuperación",
   "settings.credentials.protectedBy": "Bóveda protegida por:",
+  "settings.credentials.vault.adminOnly": "Solo un dispositivo administrador puede hacerlo.",
+  "settings.credentials.vault.unlockReason": "Confirmar la clave de recuperación",
+  "settings.credentials.vault.setup.title": "Configurar la bóveda",
+  "settings.credentials.vault.setup.body":
+    "La bóveda guarda tus contraseñas, tarjetas y claves de API cifradas en este ordenador. Psyche la crea con una clave de recuperación que guardas una sola vez.",
+  "settings.credentials.vault.setup.button": "Configurar la bóveda",
+  "settings.credentials.vault.setup.failed": "No se creó la bóveda: {reason}",
+  "settings.credentials.vault.setup.noSlot":
+    "Este Gateway no ofrece ranura de clave para la bóveda.",
+  "settings.credentials.vault.confirm.title": "Confirma tu clave de recuperación",
+  "settings.credentials.vault.confirm.body":
+    "Escribe el último grupo de tu clave de recuperación, la parte tras el último guion, para demostrar que la guardaste.",
+  "settings.credentials.vault.confirm.label": "Último grupo",
+  "settings.credentials.vault.confirm.button": "Confirmar",
+  "settings.credentials.vault.confirm.wrong":
+    "Ese no es el último grupo de la clave de recuperación. Revisa dónde la guardaste e inténtalo de nuevo.",
+  "settings.credentials.vault.confirm.failed": "No se confirmó la clave de recuperación: {reason}",
   "settings.credentials.moveToKeychain": "Mover al llavero",
   "settings.credentials.moveToKeychainNeeds":
     "Necesita un Psyche Helper firmado con un Developer ID y un perfil de aprovisionamiento",

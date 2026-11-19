@@ -777,6 +777,7 @@ export async function composeGateway(options: ComposeOptions): Promise<ComposedG
     canResume: async (a) => (await deferredResumeRef?.canResume(a)) === true,
     // A restart revoked an approved set-aside card: say the resume will not happen.
     onSetAsideRevoked: (a, how) => deferredResumeRef?.revokedAtRestart(a, how),
+    sameAutomation: (a, taskId) => deferredResumeRef?.sameAutomation(a, taskId) === true,
     psycheHome: config.home,
     presence: {
       // Presence fails closed while the security records are untrusted; the registered keys
@@ -2200,7 +2201,19 @@ export async function composeGateway(options: ComposeOptions): Promise<ComposedG
       ...(gwOptions.logger === undefined ? {} : { log: gwOptions.logger }),
     }),
     ...changeHandlers({ audit }),
-    ...filesHandlers({ folders: () => rawBroker.policy.folders ?? [], home: config.home }),
+    ...filesHandlers({
+      folders: () => rawBroker.policy.folders ?? [],
+      home: config.home,
+      share: {
+        broker: executorBroker,
+        surfaces: ["desktop", "web"],
+        folderEnv: () => folderAccessEnv(config.home),
+        grantedFolders: (threadId) => [
+          ...(rawBroker.policy.folders ?? []),
+          ...rawBroker.sessionFolders(threadId),
+        ],
+      },
+    }),
     ...attentionHandlers(attention),
     ...libraryHandlers({ db, home: config.home }),
     ...modelSettingsHandlers(modelSettings),

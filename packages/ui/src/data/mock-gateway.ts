@@ -82,6 +82,7 @@ import {
   type ToolCall,
   traceMarkdown,
   type VaultPayment,
+  type VaultStatus,
   validateEventPayload,
   validateParams,
   validateResult,
@@ -152,6 +153,11 @@ export interface MockWorld {
   nodes: NodeInfo[];
   credentials: CredentialMeta[];
   credentialUses: CredentialUse[];
+  /**
+   * The vault (`vault.status|setup|confirmRecovery|unlock`); absent → the mock does not implement
+   * them. Mirrors the Gateway: one setup (then `conflict`), a wrong last group is `invalid_params`.
+   */
+  vault?: { status: VaultStatus; recoveryKey?: string };
   /** Stripe Link (`vault.payments.*`); absent → Link is not set up (`payments_not_configured`). */
   linkMethods?: LinkPaymentMethod[];
   /** The guided Link setup (`payments.link.*`); absent → derived from `linkMethods`. */
@@ -997,6 +1003,11 @@ export class MockGateway implements GatewayClient {
     return validateResult(method, result) as MethodResult<M>;
   }
 
+  private vaultOf(): NonNullable<MockWorld["vault"]> {
+    const vault = this.world.vault;
+    return vault === undefined ? fail("not_implemented", "MockGateway has no vault") : vault;
+  }
+
   /** Where the guided Link setup stands: set by the calls below, else read off the fixtures. */
   private linkStatus(): LinkSetupStatus {
     if (this.world.linkSetup !== undefined) return structuredClone(this.world.linkSetup);
@@ -1196,6 +1207,12 @@ export class MockGateway implements GatewayClient {
 
   /** What `files.starterFolders` offers; empty unless a test or story sets it. */
   starterFolders: { id: "documents" | "desktop" | "downloads"; path: string }[] = [];
+
+  /** Every `files.requestShare` the mock saw; `shareAnswer` is what it replies (default: a card). */
+  shareRequests: { threadId: string; path: string; access: "read" }[] = [];
+  shareAnswer: "pending" | "already" = "pending";
+  /** False: this device lacks operator.admin (`devices.list` and the like are refused). */
+  admin = true;
 
   private keyStatuses() {
     return ["anthropic", "openai", "google", "openrouter", "brave"].map((id) => ({
@@ -2051,6 +2068,12 @@ export class MockGateway implements GatewayClient {
       });
     },
     "files.starterFolders": () => ({ folders: this.starterFolders }),
+    "files.requestShare": (p) => {
+      this.shareRequests.push({ threadId: p.threadId, path: p.path, access: p.access });
+      return this.shareAnswer === "already"
+        ? { status: "already" as const }
+        : { status: "pending" as const, approvalId: "apr_share_1" };
+    },
     "files.list": (p) => {
       this.assertGranted(p.path);
       const node = this.world.files[p.path];
@@ -2967,7 +2990,10 @@ export class MockGateway implements GatewayClient {
       return { ok: c.status === "connected", status: c.status, checkedAt: Date.parse(this.now()) };
     },
     "channels.list": () => ({ channels: this.world.channels }),
-    "devices.list": () => ({ devices: this.world.devices }),
+    "devices.list": () => {
+      if (!this.admin) fail("forbidden", "devices.list requires operator.admin");
+      return { devices: this.world.devices };
+    },
     "browser.botAuth.status": () => ({ status: structuredClone(this.world.botAuth) }),
     "browser.botAuth.rotate": () => {
       // A fresh fake thumbprint each time, as a real rotation gives.
@@ -3594,6 +3620,34 @@ export class MockGateway implements GatewayClient {
         ok: true,
         result: { shortcuts: this.world.shortcuts ?? appleShortcuts() },
       };
+    },
+    "vault.status": () => ({ status: this.vaultOf().status }),
+    "vault.setup": () => {
+      const vault = this.vaultOf();
+      if (vault.status.state !== "uninitialized") fail("conflict", "a vault already exists here");
+      vault.recoveryKey = "MOCK-ABCD-EFGH-WXYZ";
+      vault.status = {
+        ...vault.status,
+        state: "unlocked",
+        slots: ["key_file", "recovery"],
+        recoveryConfirmed: false,
+      };
+      return { status: vault.status, recoveryKey: vault.recoveryKey };
+    },
+    "vault.confirmRecovery": (p) => {
+      const vault = this.vaultOf();
+      if (vault.status.state === "uninitialized") fail("not_found", "no vault");
+      if (vault.status.state === "locked") fail("unauthorized", "the vault is locked");
+      const expected = vault.recoveryKey?.split("-").at(-1) ?? "";
+      if (expected === "" || p.lastGroup.trim().toUpperCase() !== expected)
+        fail("invalid_params", "that is not the last group of the recovery key");
+      vault.status = { ...vault.status, recoveryConfirmed: true };
+      return { status: vault.status };
+    },
+    "vault.unlock": () => {
+      const vault = this.vaultOf();
+      vault.status = { ...vault.status, state: "unlocked" };
+      return { status: vault.status };
     },
     "vault.list": () => ({ credentials: this.world.credentials }),
     "vault.add": (p) => {

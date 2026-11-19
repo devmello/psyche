@@ -315,6 +315,10 @@ export const fr: Partial<Catalogue> = {
   "blocks.card.unknown": "Psyche ne peut pas encore afficher ce type d’élément ({type}).",
   "specialists.block.label": "Résultat de {role} : {title}",
   "blocks.toolView.show": "Afficher le résultat",
+  "blocks.toolRun.shareFolder": "Partager ce dossier (lecture seule)",
+  "blocks.toolRun.shareWaiting": "En attente de ta réponse sur la carte",
+  "blocks.toolRun.shared": "Partagé. Redemande pour continuer",
+  "blocks.toolRun.shareFailed": "Impossible de demander le partage de ce dossier. Réessaie.",
   "blocks.toolView.loading": "Chargement du résultat…",
   "blocks.toolView.none": "Le résultat de cette action n’est pas conservé.",
   "blocks.toolView.more": "{count, plural, one {# de plus} other {# de plus}}",
@@ -1168,6 +1172,24 @@ export const fr: Partial<Catalogue> = {
   "settings.credentials.slot.keyFile": "un fichier de clé sur ce Mac",
   "settings.credentials.slot.recovery": "sa clé de récupération uniquement",
   "settings.credentials.protectedBy": "Coffre protégé par :",
+  "settings.credentials.vault.adminOnly": "Seul un appareil administrateur peut le faire.",
+  "settings.credentials.vault.unlockReason": "Confirmer la clé de récupération",
+  "settings.credentials.vault.setup.title": "Configurer le coffre",
+  "settings.credentials.vault.setup.body":
+    "Le coffre conserve vos mots de passe, cartes et clés d’API chiffrés sur cet ordinateur. Psyche le crée avec une clé de récupération que vous conservez une seule fois.",
+  "settings.credentials.vault.setup.button": "Configurer le coffre",
+  "settings.credentials.vault.setup.failed": "Le coffre n’a pas été créé : {reason}",
+  "settings.credentials.vault.setup.noSlot":
+    "Ce Gateway ne propose aucun emplacement de clé pour le coffre.",
+  "settings.credentials.vault.confirm.title": "Confirmez votre clé de récupération",
+  "settings.credentials.vault.confirm.body":
+    "Saisissez le dernier groupe de votre clé de récupération, la partie après le dernier tiret, pour montrer que vous l’avez conservée.",
+  "settings.credentials.vault.confirm.label": "Dernier groupe",
+  "settings.credentials.vault.confirm.button": "Confirmer",
+  "settings.credentials.vault.confirm.wrong":
+    "Ce n’est pas le dernier groupe de la clé de récupération. Vérifiez où vous l’avez conservée et réessayez.",
+  "settings.credentials.vault.confirm.failed":
+    "La clé de récupération n’a pas été confirmée : {reason}",
   "settings.credentials.moveToKeychain": "Déplacer vers le trousseau",
   "settings.credentials.moveToKeychainNeeds":
     "Nécessite un Psyche Helper signé avec un Developer ID et un profil d’approvisionnement",

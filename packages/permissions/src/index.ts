@@ -29,6 +29,7 @@ export * from "./outbound.ts";
 export * from "./outbound-text.ts";
 export * from "./policy.ts";
 export * from "./prohibitions.ts";
+export * from "./receipt-grant.ts";
 export * from "./requester.ts";
 export * from "./revocations.ts";
 export * from "./store.ts";

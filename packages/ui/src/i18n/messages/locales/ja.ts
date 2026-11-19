@@ -331,6 +331,11 @@ export const ja: Partial<Catalogue> = {
   "blocks.card.unknown": "Psyche はこの種類の項目をまだ表示できません（{type}）。",
   "specialists.block.label": "{role}の結果: {title}",
   "blocks.toolView.show": "結果を表示",
+  "blocks.toolRun.shareFolder": "このフォルダを共有（読み取り専用）",
+  "blocks.toolRun.shareWaiting": "カードでの回答を待っています",
+  "blocks.toolRun.shared": "共有しました。続けるにはもう一度依頼してください",
+  "blocks.toolRun.shareFailed":
+    "このフォルダの共有を依頼できませんでした。もう一度お試しください。",
   "blocks.toolView.loading": "結果を読み込み中…",
   "blocks.toolView.none": "この操作の結果は保存されていません。",
   "blocks.toolView.more": "ほか {count} 件",
@@ -1170,6 +1175,23 @@ export const ja: Partial<Catalogue> = {
   "settings.credentials.slot.keyFile": "このMac上のキーファイル",
   "settings.credentials.slot.recovery": "復旧キーのみ",
   "settings.credentials.protectedBy": "保管庫の保護方法：",
+  "settings.credentials.vault.adminOnly": "管理者のデバイスだけが実行できます。",
+  "settings.credentials.vault.unlockReason": "復旧キーを確認",
+  "settings.credentials.vault.setup.title": "保管庫を設定",
+  "settings.credentials.vault.setup.body":
+    "保管庫は、パスワード、カード、API キーを暗号化してこのコンピュータに保管します。Psyche は、一度だけ保存する復旧キーとともに保管庫を作成します。",
+  "settings.credentials.vault.setup.button": "保管庫を設定",
+  "settings.credentials.vault.setup.failed": "保管庫を作成できませんでした：{reason}",
+  "settings.credentials.vault.setup.noSlot":
+    "この Gateway には保管庫用のキースロットがありません。",
+  "settings.credentials.vault.confirm.title": "復旧キーを確認",
+  "settings.credentials.vault.confirm.body":
+    "保存したことを確認するため、復旧キーの最後のグループ（最後のハイフンより後ろ）を入力してください。",
+  "settings.credentials.vault.confirm.label": "最後のグループ",
+  "settings.credentials.vault.confirm.button": "確認",
+  "settings.credentials.vault.confirm.wrong":
+    "復旧キーの最後のグループと一致しません。保存した場所を確認して、もう一度お試しください。",
+  "settings.credentials.vault.confirm.failed": "復旧キーを確認できませんでした：{reason}",
   "settings.credentials.moveToKeychain": "キーチェーンに移動",
   "settings.credentials.moveToKeychainNeeds":
     "Developer IDで署名され、プロビジョニングプロファイルを持つPsyche Helperが必要です",
