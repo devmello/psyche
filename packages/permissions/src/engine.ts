@@ -237,7 +237,7 @@ export class PolicyEngine {
       if (isUnder(path, root)) return { path: root, mode: "rw", workspace: true };
     }
     // The longest root decides, whether Settings or this conversation granted it.
-    const roots = [
+    const roots: { path: string; mode: "ro" | "rw"; file?: true }[] = [
       ...p.folders,
       ...(threadId === undefined ? [] : (this.#d.sessionFolders?.(threadId) ?? [])),
     ].sort((a, b) => b.path.length - a.path.length);

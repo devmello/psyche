@@ -16,7 +16,7 @@ export interface GrantedFolder {
   path: string;
   mode: "ro" | "rw";
   /** One attached file: it matches that exact path, and only while it is still a regular file. */
-  file?: boolean;
+  file?: true;
 }
 
 /**
