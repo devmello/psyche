@@ -70,7 +70,7 @@ struct InputStopTests {
             if e.type == .leftMouseDragged, posts.count(.leftMouseDragged) == 3 { stop.trip() }  // Esc, mid-drag
         }) {
             do {
-                try await stop.run { try Input.drag(from: start, to: end, stop: stop) }
+                try await stop.run { try Input.drag(from: start, to: end, pid: 100, stop: stop, frontmostPid: { 100 }) }
                 Issue.record("expected the stop to end the drag")
             } catch let e as CapabilityError {
                 #expect(e.reason == "user_stopped")
@@ -91,11 +91,55 @@ struct InputStopTests {
         #expect(events[..<firstEsc].allSatisfy { $0.type != .leftMouseUp })
     }
 
+    /// Runs a drag that is stopped mid-way with a modifier held; returns the posted events.
+    private func stoppedDrag(frontmost: pid_t?) async -> [(type: CGEventType, at: CGPoint, key: Int64, marked: Bool, flags: CGEventFlags)] {
+        final class Log: @unchecked Sendable {
+            let lock = NSLock()
+            var items: [(type: CGEventType, at: CGPoint, key: Int64, marked: Bool, flags: CGEventFlags)] = []
+            var dragged = 0
+        }
+        let log = Log()
+        let stop = StopSignal()
+        await Input.$postHook.withValue({ e in
+            log.lock.withLock {
+                log.items.append((e.type, e.location, e.getIntegerValueField(.keyboardEventKeycode), e.getIntegerValueField(.eventSourceUserData) == Input.marker, e.flags))
+                if e.type == .leftMouseDragged { log.dragged += 1; if log.dragged == 3 { stop.trip() } }
+            }
+        }) {
+            _ = try? await stop.run { try Input.drag(from: start, to: end, pid: 100, stop: stop, frontmostPid: { frontmost }) }
+        }
+        return log.items
+    }
+
+    @Test func theCancelEscGoesOnlyWhileTheDragsAppIsFrontmost() async {
+        let same = await stoppedDrag(frontmost: 100)
+        #expect(same.filter { $0.key == 53 && $0.type == .keyDown }.count == 1)
+        let other = await stoppedDrag(frontmost: 200)  // another app came to the front mid-drag
+        #expect(other.filter { $0.key == 53 && ($0.type == .keyDown || $0.type == .keyUp) }.isEmpty)
+        // Still cancelled: back to the start and released there.
+        #expect(other.last?.type == .leftMouseUp)
+        #expect(other.last?.at == start)
+        let none = await stoppedDrag(frontmost: nil)
+        #expect(none.filter { $0.key == 53 && $0.type == .keyDown }.isEmpty)
+    }
+
+    @Test func theCancelEventsCarryNoModifiers() async {
+        // The drag's own events may carry flags; the cancel sequence must not, whatever the owner holds.
+        let events = await stoppedDrag(frontmost: 100)
+        let firstEsc = events.firstIndex { $0.key == 53 && $0.type == .keyDown }
+        let cancel = events[(firstEsc ?? events.count)...]
+        #expect(cancel.count == 4)  // Esc down, Esc up, drag back, release
+        #expect(cancel.allSatisfy { $0.flags.intersection([.maskCommand, .maskAlternate, .maskControl, .maskShift]).isEmpty })
+        let noEsc = await stoppedDrag(frontmost: 200)
+        let tail = noEsc.suffix(2)  // drag back, release
+        #expect(tail.allSatisfy { $0.flags.intersection([.maskCommand, .maskAlternate, .maskControl, .maskShift]).isEmpty })
+    }
+
     @Test func aCompletedDragReleasesAtTheEnd() async throws {
         let posts = Posts()
         let stop = StopSignal()
         try await Input.$postHook.withValue({ posts.add($0) }) {
-            try await stop.run { try Input.drag(from: start, to: end, stop: stop) }
+            try await stop.run { try Input.drag(from: start, to: end, pid: 100, stop: stop, frontmostPid: { 100 }) }
         }
         let events = posts.all
         #expect(events.last?.type == .leftMouseUp)
