@@ -1583,6 +1583,41 @@ export const hi: Partial<Catalogue> = {
   "settings.channels.loadLabel": "चैनल",
   "settings.channels.empty":
     "अभी कोई चैनल नहीं। इस Mac से दूर रहते हुए {persona} तक पहुँचने के लिए Telegram, iMessage या Slack कनेक्ट करें।",
+  "settings.channels.add.button": "चैनल जोड़ें",
+  "settings.channels.add.title": "चैनल जोड़ें",
+  "settings.channels.add.description":
+    "चुनें कि {persona} से कहाँ संपर्क किया जा सकता है। टोकन सीधे वॉल्ट में जाते हैं और दोबारा नहीं दिखाए जाते।",
+  "settings.channels.add.type": "चैनल",
+  "settings.channels.add.account.slack": "वर्कस्पेस का नाम",
+  "settings.channels.add.account.discord": "एप्लिकेशन आईडी",
+  "settings.channels.add.secret.bot_token": "बॉट टोकन",
+  "settings.channels.add.secret.app_token": "ऐप टोकन",
+  "settings.channels.add.secret.auth_token": "ऑथ टोकन",
+  "settings.channels.add.secret.access_token": "एक्सेस टोकन",
+  "settings.channels.add.secret.app_secret": "ऐप सीक्रेट",
+  "settings.channels.add.secret.verify_token": "वेरिफ़ाई टोकन",
+  "settings.channels.add.submit": "कनेक्ट करें",
+  "settings.channels.add.connecting": "कनेक्ट हो रहा है",
+  "settings.channels.add.missing": "कनेक्ट करने के लिए सभी फ़ील्ड भरें।",
+  "settings.channels.add.failed": "Psyche चैनल जोड़ नहीं सका ({reason})। यह चालू नहीं है।",
+  "settings.channels.add.account.sms": "भेजने वाला नंबर (+15551234567)",
+  "settings.channels.add.account.whatsapp": "WhatsApp नंबर (+15551234567)",
+  "settings.channels.add.badNumber": "नंबर अंतरराष्ट्रीय प्रारूप में लिखें, जैसे +15551234567।",
+  "settings.channels.add.exists": "{account} के लिए {type} चैनल पहले से मौजूद है, इसलिए कुछ नहीं बदला गया।",
+  "settings.channels.add.approvalLabel": "चैनल जोड़ना",
+  "settings.channels.add.envNote":
+    "Gateway को इस खाते पर सेट {env} के साथ भी शुरू करना होगा। Telegram, iMessage, Signal और ईमेल वहीं सेट होते हैं जहाँ Gateway चलता है; चैनल दस्तावेज़ देखें।",
+  "settings.channels.add.addedInactive":
+    "चैनल जुड़ गया, लेकिन अभी चल नहीं रहा। जहाँ Gateway चलता है वहाँ {env} को इस खाते पर सेट करें, फिर उसे रीस्टार्ट करें।",
+  "settings.channels.add.added":
+    "चैनल जुड़ गया। यह तब शुरू होगा जब Gateway में {env} इस खाते पर सेट होगा। फिर पेयरिंग कोड पाने के लिए इससे {persona} को संदेश भेजें और यहाँ मंज़ूर करें।",
+  "settings.channels.add.storedNote":
+    "इस खाते के लिए पहले से सहेजा गया: {names}। जब तक आप उन्हें बदलते नहीं, वे जैसे हैं वैसे ही इस्तेमाल होंगे।",
+  "settings.channels.add.replace": "सहेजे गए टोकन बदलें",
+  "settings.channels.add.statusFailed":
+    "Psyche यह जाँच नहीं सका कि कौन से टोकन पहले से सहेजे हैं ({reason})। कुछ नहीं बदला गया।",
+  "settings.channels.add.storedTyped":
+    'इस खाते के लिए टोकन पहले से सहेजे हैं। आपके लिखे टोकन इस्तेमाल करने के लिए "सहेजे गए टोकन बदलें" चुनें, या वे फ़ील्ड खाली करें। कुछ नहीं बदला गया।',
   "settings.channels.identities": "पहचान लिंक",
   "settings.channels.identitiesDescription":
     "चैनलों के पार एक ही व्यक्ति। लिंक केवल पेयर किए गए डिवाइस से बदलते हैं।",
@@ -2982,6 +3017,8 @@ export const hi: Partial<Catalogue> = {
   "screens.library.openLabel": "{name}{editor, select, true { एडिटर में} other {}} खोलें",
   "screens.library.openInEditor": "एडिटर में खोलें",
   "screens.library.open": "खोलें",
+  "screens.library.deleteDownload": "यह डाउनलोड हटाएँ",
+  "screens.library.deleteFailed": "Psyche {name} को हटा नहीं सका ({reason})। यह क्वारंटीन में ही रहेगा।",
   "screens.library.recording.description":
     "ब्राउज़र में एजेंट ने जो किया उसका रीप्ले। रिकॉर्डिंग के समय पेज की सामग्री छिपा दी गई थी।",
   "screens.library.recording.play": "चलाएँ",

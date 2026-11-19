@@ -326,6 +326,20 @@ public struct DictationKeySet: Sendable {
     }
 }
 
+/// How long ago a modifier event happened, from its own timestamp (`CGEvent.timestamp`, mach ticks).
+/// The result is clamped to `maxAge`: a timestamp that is missing, in the future or absurdly old (a
+/// remapper's virtual key) must not push the hold's start far into the past, where any keyDown would
+/// turn a real hold into a chord and dictation would never start.
+public enum DictationEventAge {
+    public static let maxAge: TimeInterval = 0.25
+
+    public static func seconds(eventTicks: UInt64, nowTicks: UInt64, numer: UInt32, denom: UInt32) -> TimeInterval {
+        guard eventTicks > 0, nowTicks > eventTicks, denom > 0 else { return 0 }
+        let nanos = Double(nowTicks - eventTicks) * Double(numer) / Double(denom)
+        return min(max(nanos / 1e9, 0), maxAge)
+    }
+}
+
 /// Switches the keystroke listener that detects chords. It stays off while no watched modifier is
 /// held, so ordinary typing does not wake the helper.
 public protocol KeyDownGate: AnyObject, Sendable {
@@ -361,12 +375,14 @@ public final class DictationKeyEngine: @unchecked Sendable {
         self.now = now
     }
 
-    public func flagsChanged(keyCode: Int64, flags: UInt64) -> [DictationKeyChange] {
+    /// `eventAge` is how long ago the modifier event happened (the callback can run late); the hold is
+    /// anchored at the event's own time, so a keyDown struck before the callback ran still counts.
+    public func flagsChanged(keyCode: Int64, flags: UInt64, eventAge: TimeInterval = 0) -> [DictationKeyChange] {
         lock.withLock {
             // A chord whose keyDown the tap missed is a chord before this modifier event is judged.
             var out = recheckChordLocked()
             out += set.flagsChanged(keyCode: keyCode, flags: flags)
-            sync()
+            sync(anchorAge: max(0, eventAge))
             return out
         }
     }
@@ -394,11 +410,11 @@ public final class DictationKeyEngine: @unchecked Sendable {
         return set.keyDown()
     }
 
-    private func sync() {
+    private func sync(anchorAge: TimeInterval = 0) {
         let want = set.trackers.contains { $0.isDown }
         guard want != gateOn else { return }
         gateOn = want
-        heldSince = want ? now() : nil
+        heldSince = want ? now().addingTimeInterval(-anchorAge) : nil
         gate?.setEnabled(want)
     }
 }

@@ -20,6 +20,7 @@ import {
   Sheet,
   ShieldAlert,
   ShieldCheck,
+  Trash2,
   X,
 } from "lucide-react";
 import {
@@ -51,6 +52,7 @@ import { Skeleton } from "../../components/ui/skeleton.tsx";
 import { Tabs, TabsList, TabsTrigger } from "../../components/ui/tabs.tsx";
 import { ToggleGroup, ToggleGroupItem } from "../../components/ui/toggle-group.tsx";
 import { useCall, useLibrary, useTasks } from "../../data/hooks.ts";
+import { useStore } from "../../data/provider.tsx";
 import { t } from "../../i18n/core.ts";
 import { describeError } from "../../i18n/errors.ts";
 import { formatDate } from "../../lib/format.ts";
@@ -82,6 +84,8 @@ export interface LibraryItemActions {
   onQuickLook?: (item: LibraryItem) => void;
   onSendToChat?: (item: LibraryItem) => void;
   onTrust?: (item: LibraryItem) => void;
+  /** Deletes a quarantined download (and its file) without ever opening it. */
+  onDeleteDownload?: (item: LibraryItem) => void;
   onOpenTask?: (taskId: string) => void;
   /** An artifact: its chat, scrolled to the message that made it, with the artifact open. */
   onOpenInChat?: (item: LibraryItem) => void;
@@ -125,9 +129,14 @@ function ItemIcon({ item, className }: { item: LibraryItem; className?: string }
 
 /**
  * The actions one item offers, shared by its ⋯ menu and its context menu (§5.7). Trust is offered
- * only when the app passes `onTrust`: the Gateway has no method that clears quarantine yet, so
- * the connected Library passes none and the action stays hidden (no permission default changes).
+ * only when the app passes `onTrust`; the connected Library does (`library.quarantine.decide`, a
+ * plain tap from an admin device, never a presence step). Delete is offered next to it.
  */
+/** Files from outside, the only ones the Gateway lets the owner release from quarantine. */
+export const canTrust = (item: LibraryItem): boolean =>
+  item.quarantined === true &&
+  (item.origin === "download" || item.origin === "channel" || item.origin === "connector");
+
 export function itemActions(item: LibraryItem, a: LibraryItemActions, taskTitle?: string | null) {
   const system = item.kind === "system";
   const list: { id: string; label: string; icon: ReactElement; run: () => void }[] = [];
@@ -192,13 +201,22 @@ export function itemActions(item: LibraryItem, a: LibraryItemActions, taskTitle?
       run: () => openTask(taskId),
     });
   }
-  if (item.quarantined === true && a.onTrust) {
+  if (canTrust(item) && a.onTrust) {
     const trust = a.onTrust;
     list.push({
       id: "trust",
       label: t("screens.library.trust"),
       icon: <ShieldCheck aria-hidden="true" />,
       run: () => trust(item),
+    });
+  }
+  if (item.quarantined === true && a.onDeleteDownload) {
+    const del = a.onDeleteDownload;
+    list.push({
+      id: "delete-download",
+      label: t("screens.library.deleteDownload"),
+      icon: <Trash2 aria-hidden="true" />,
+      run: () => del(item),
     });
   }
   return list;
@@ -372,7 +390,7 @@ export function LibraryItemView({
     </>
   );
   const trust =
-    quarantined && onTrust ? (
+    canTrust(item) && onTrust ? (
       <Button type="button" size="xs" variant="plain" onClick={() => onTrust(item)}>
         <ShieldCheck aria-hidden="true" />
         {t("screens.library.trust")}
@@ -907,7 +925,7 @@ export interface LibraryScreenProps {
   /** Quick Look (mac helper). */
   onQuickLook?: (item: LibraryItem) => void;
   onSendToChat?: (item: LibraryItem) => void;
-  /** Clears the quarantine badge; the protocol has no method for it yet. */
+  /** Overrides `library.quarantine.decide {trust}`, which clears the quarantine badge. */
   onTrust?: (item: LibraryItem) => Promise<unknown> | undefined;
   /** Fixed clock (stories, tests) for the date filter. */
   now?: number;
@@ -952,6 +970,22 @@ export function LibraryScreen({
   );
 
   const call = useCall();
+  const store = useStore();
+  // Trust and Delete this download need `operator.admin`. `devices.list` is admin-only, so a
+  // `forbidden` answer means this device cannot decide quarantine and the actions stay hidden.
+  const [canDecide, setCanDecide] = useState(true);
+  useEffect(() => {
+    let live = true;
+    call("devices.list", {}).then(
+      () => undefined,
+      (err: unknown) => {
+        if (live && (err as { code?: unknown } | null)?.code === "forbidden") setCanDecide(false);
+      },
+    );
+    return () => {
+      live = false;
+    };
+  }, [call]);
   const openStandalone = (item: LibraryItem) => openLibraryItem?.(item);
   // Quick Look is the file viewer beside the view. "Reveal" is the desktop's Finder, offered only
   // where the app has one (the slot is absent on the web and for a remote Gateway).
@@ -1024,8 +1058,15 @@ export function LibraryScreen({
 
   const trust = (item: LibraryItem) => {
     setTrusted((s) => new Set(s).add(item.id));
-    Promise.resolve(onTrust?.(item)).then(
-      () => toast(t("screens.library.trusted", { name: item.name })),
+    Promise.resolve(
+      onTrust
+        ? onTrust(item)
+        : call("library.quarantine.decide", { itemId: item.id, decision: "trust" }),
+    ).then(
+      () => {
+        toast(t("screens.library.trusted", { name: item.name }));
+        library.reload();
+      },
       (err: unknown) => {
         setTrusted((s) => {
           const next = new Set(s);
@@ -1036,6 +1077,20 @@ export function LibraryScreen({
           t("screens.library.trustFailed", { name: item.name, reason: describeError(err) }),
         );
       },
+    );
+  };
+
+  const deleteDownload = (item: LibraryItem) => {
+    call("library.quarantine.decide", { itemId: item.id, decision: "delete" }).then(
+      () =>
+        store.update((st) => {
+          const { [item.id]: _gone, ...rest } = st.library;
+          return { ...st, library: rest };
+        }),
+      (err: unknown) =>
+        toast.error(
+          t("screens.library.deleteFailed", { name: item.name, reason: describeError(err) }),
+        ),
     );
   };
 
@@ -1066,7 +1121,7 @@ export function LibraryScreen({
         onOpenViewer={openStandalone}
         onOpenTask={(id) => navigate?.(`/agent/activity/${id}`)}
         {...(renderThumbnail ? { renderThumbnail } : {})}
-        {...(onTrust ? { onTrust: trust } : {})}
+        {...(canDecide ? { onTrust: trust, onDeleteDownload: deleteDownload } : {})}
         {...(reveal ? { onReveal: reveal } : {})}
         {...(quickLook ? { onQuickLook: quickLook } : {})}
         {...(send ? { onSendToChat: send } : {})}

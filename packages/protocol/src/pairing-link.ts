@@ -37,14 +37,14 @@ export const SETUP_TOKEN_PATTERN = /^pst_[A-Za-z0-9_-]{43}$/;
 /** `sha256:<hex>` of the Gateway's raw identity public key, as the Host shows it. */
 export const GATEWAY_FINGERPRINT_PATTERN = /^sha256:[0-9a-f]{64}$/;
 
-const MAX_LINK_LENGTH = 2048;
-const MAX_URL_LENGTH = 300;
-const MAX_NAME_LENGTH = 64;
+export const MAX_LINK_LENGTH = 2048;
+export const MAX_URL_LENGTH = 300;
+export const MAX_NAME_LENGTH = 64;
 // Invisible and format characters (zero-width, bidi, tag characters, the Hangul fillers that
 // render as blanks) that a name must not carry into a dialog.
-const INVISIBLE = /[\p{Cf}\p{Default_Ignorable_Code_Point}\u3164\u115f\u1160]/gu;
+export const INVISIBLE = /[\p{Cf}\p{Default_Ignorable_Code_Point}\u3164\u115f\u1160]/gu;
 // biome-ignore lint/suspicious/noControlCharactersInRegex: rejecting them is the point
-const UNSAFE_TEXT = /[\u0000-\u001f\u007f-\u009f\u200b-\u200f\u2028-\u202e\u2066-\u2069]/;
+export const UNSAFE_TEXT = /[\u0000-\u001f\u007f-\u009f\u200b-\u200f\u2028-\u202e\u2066-\u2069]/;
 
 export interface PairingLinkPayload {
   /** The Gateway's origin, as the Host reaches it (`gateway.publicOrigin`). */
@@ -78,14 +78,14 @@ export class PairingLinkError extends Error {
 const FIELDS = ["gatewayUrl", "gatewayFingerprint", "setupToken", "hostName"] as const;
 const FIELDS_V2 = ["gatewayUrl", "gatewayKey", "certPin", "setupToken", "hostName"] as const;
 
-function toBase64Url(text: string): string {
+export function toBase64Url(text: string): string {
   const bytes = new TextEncoder().encode(text);
   let binary = "";
   for (const b of bytes) binary += String.fromCharCode(b);
   return btoa(binary).replace(/\+/g, "-").replace(/\//g, "_").replace(/=+$/, "");
 }
 
-function fromBase64Url(text: string): string | null {
+export function fromBase64Url(text: string): string | null {
   if (!/^[A-Za-z0-9_-]+$/.test(text) || text.length % 4 === 1) return null;
   try {
     const binary = atob(text.replace(/-/g, "+").replace(/_/g, "/"));
@@ -103,7 +103,7 @@ const LOOPBACK_HOSTS = new Set(["localhost", "127.0.0.1", "::1"]);
  * fragment, and never a loopback address (that is this computer, or an SSH tunnel, not a Host
  * someone else made a link for).
  */
-function isLinkOrigin(text: string): boolean {
+export function isLinkOrigin(text: string): boolean {
   if (text.includes("?") || text.includes("#")) return false;
   try {
     const url = new URL(text);
@@ -262,7 +262,7 @@ export function isBase64Url32Bytes(text: string): boolean {
 }
 
 /** A LAN origin written exactly as `URL.origin` writes it (an optional final `/` is allowed). */
-function isLanLinkOrigin(text: string): boolean {
+export function isLanLinkOrigin(text: string): boolean {
   if (text.includes("?") || text.includes("#") || text.includes("%")) return false;
   try {
     const url = new URL(text);

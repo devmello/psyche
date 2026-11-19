@@ -360,6 +360,9 @@ export function composeMcp(services: ComposeServices, setup: McpSetup = {}): Com
   const host = createMcpHost({
     ...(launcher === undefined ? {} : { launcher }),
     secrets,
+    // A server `add` checks before starting (agent-made code, a shared file's record, also one
+    // left under an unmarked entry's id) is never restarted by the host behind that check.
+    neverAutoStart: (c) => c.madeBy !== undefined || bundles.checkedAtStart(c),
     ...setup.hostOptions,
     onEvent: (event) => {
       grants.onEvent(event);
@@ -460,6 +463,8 @@ export function composeMcp(services: ComposeServices, setup: McpSetup = {}): Com
   };
   let seeded = false;
   const reconcile = async (value: unknown) => {
+    // The host's restart check reads the bundle ledger from a snapshot: take a fresh one.
+    bundles.resetStartChecks();
     const wanted = readServers(value, (msg) => warn(msg));
     const next = new Map(wanted.map((c) => [c.id, c]));
     // Servers that left the list, or joined it unmarked, by any route (`settings.set` included):

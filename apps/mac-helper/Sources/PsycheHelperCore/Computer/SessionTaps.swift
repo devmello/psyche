@@ -17,13 +17,16 @@ public protocol SessionTapHandle: AnyObject, Sendable {
 /// Installs a tap of one kind; nil when the system refuses (no Accessibility).
 public protocol SessionTapInstaller: Sendable {
     func install(_ kind: SessionTapKind) -> (any SessionTapHandle)?
-    /// Why the last `install` returned nil. Accessibility trusted yet no tap means the install timed out.
+    /// Why the last `install` returned nil, as the installer itself saw it.
     func failureAfterInstall(_ kind: SessionTapKind) -> SessionTapFailure
 }
 
 public enum SessionTapFailure: Sendable, Equatable {
     case permission
+    /// The tap was requested but did not become ready in time; worth retrying.
     case timeout
+    /// Accessibility is granted yet the system would not create the tap; retrying will not help.
+    case createFailed
 }
 
 extension SessionTapInstaller {
@@ -66,6 +69,12 @@ public final class SessionTaps: @unchecked Sendable {
     private var esc: (any SessionTapHandle)?
     private var attention: (any SessionTapHandle)?
     private var cancelIdle: (@Sendable () -> Void)?
+    /// Called with the session id when its action outlived `maxInFlight` and the session was released.
+    /// Runs with the session lock held, before the session is released: trip the stop signal and
+    /// nothing else. It must never re-enter `ComputerSessionLock`.
+    public var onOverlong: (@Sendable (String) -> Void)?
+    /// Runs after the session lock is released (log, notify).
+    public var afterOverlong: (@Sendable (String) -> Void)?
     /// Runs the deferred reconcile of `stopActiveFromTap`; tests replace it to run inline or capture.
     public var dispatchReconcile: @Sendable (@escaping @Sendable () -> Void) -> Void = { work in
         DispatchQueue.global(qos: .userInitiated).async(execute: work)
@@ -81,24 +90,33 @@ public final class SessionTaps: @unchecked Sendable {
         lock.withLock { esc != nil }
     }
 
-    /// Esc tap first, then the session lock, so no action can run without the Esc stop.
-    public func beginSession(_ id: String) throws {
+    /// Esc tap first, then the session lock, so no action can run without the Esc stop. With
+    /// `invocation`, the action is also marked in flight atomically with taking the session; end it
+    /// with `endInvocation`.
+    @discardableResult
+    public func beginSession(_ id: String, invocation: Bool = false) throws -> Int? {
         try lock.withLock {
             if esc == nil {
                 guard let tap = installer.install(.escStop) else {
-                    if installer.failureAfterInstall(.escStop) == .timeout {
+                    switch installer.failureAfterInstall(.escStop) {
+                    case .timeout:
                         throw CapabilityError.unavailable("esc_tap_timeout", "Computer use could not start its Esc stop in time. Try again.", retryable: true)
+                    case .createFailed:
+                        throw CapabilityError.unavailable("esc_tap_failed", "The system refused to create the Esc stop for computer use.")
+                    case .permission:
+                        throw CapabilityError.permissionMissing(.accessibility)
                     }
-                    throw CapabilityError.permissionMissing(.accessibility)
                 }
                 esc = tap
             }
             if attention == nil { attention = installer.install(.attention) }  // best effort: no record fails closed
-            do { try sessions.acquire(id) } catch {
+            let token: Int?
+            do { token = try sessions.acquire(id, markInFlight: invocation) } catch {
                 removeIfIdleLocked()
                 throw error
             }
             armIdleLocked()
+            return token
         }
     }
 
@@ -107,8 +125,8 @@ public final class SessionTaps: @unchecked Sendable {
     public func beginInvocation(_ id: String) { sessions.beginInvocation(id) }
 
     /// The action ended: completes a deferred `end_session`, then removes the taps if idle.
-    public func endInvocation(_ id: String) {
-        sessions.endInvocation(id)
+    public func endInvocation(_ id: String, token: Int? = nil) {
+        sessions.endInvocation(id, token: token)
         reconcile()
     }
 
@@ -138,6 +156,9 @@ public final class SessionTaps: @unchecked Sendable {
 
     /// Removes the taps when no session is active (an idle session expires without a release).
     public func reconcile() {
+        // An action that has run past the hard cap loses the session; trip the stop signal so it ends.
+        // The stop is tripped before the session is released, so nothing sees it inactive while it runs.
+        if let id = sessions.reapOverlong(trip: { id in onOverlong?(id) }) { afterOverlong?(id) }
         lock.withLock {
             if sessions.activeSession == nil { removeIfIdleLocked() } else { armIdleLocked() }
         }
@@ -155,6 +176,9 @@ public final class SessionTaps: @unchecked Sendable {
 
     private func armIdleLocked() {
         cancelIdle?()
-        cancelIdle = schedule(sessions.idleTimeout + 1) { [weak self] in self?.reconcile() }
+        // Wake for the idle timeout, or sooner for the hard cap on a running action.
+        var delay = sessions.idleTimeout + 1
+        if let untilCap = sessions.timeUntilCap() { delay = min(delay, max(0.05, untilCap)) }
+        cancelIdle = schedule(delay) { [weak self] in self?.reconcile() }
     }
 }
