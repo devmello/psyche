@@ -1598,6 +1598,13 @@ export const fr: Partial<Catalogue> = {
     "Canal ajouté, mais il ne tourne pas encore. Définissez {env} sur ce compte là où tourne la Gateway, puis relancez-la.",
   "settings.channels.add.added":
     "Canal ajouté. Il démarre dès que la Gateway a {env} défini sur ce compte. Écrivez ensuite à {persona} depuis ce canal pour obtenir un code d'appairage, puis approuvez-le ici.",
+  "settings.channels.add.storedNote":
+    "Déjà enregistré pour ce compte : {names}. Ils sont utilisés tels quels, sauf si vous les remplacez.",
+  "settings.channels.add.replace": "Remplacer les jetons enregistrés",
+  "settings.channels.add.statusFailed":
+    "Psyche n'a pas pu vérifier quels jetons sont déjà enregistrés ({reason}). Rien n'a été modifié.",
+  "settings.channels.add.storedTyped":
+    "Des jetons sont déjà enregistrés pour ce compte. Cochez « Remplacer les jetons enregistrés » pour utiliser ceux saisis, ou videz ces champs. Rien n'a été modifié.",
   "settings.channels.identities": "Liens d’identité",
   "settings.channels.identitiesDescription":
     "Une même personne sur plusieurs canaux. Les liens ne changent que depuis un appareil jumelé.",

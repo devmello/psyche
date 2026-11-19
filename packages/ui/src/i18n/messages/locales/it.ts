@@ -1604,6 +1604,13 @@ export const it: Partial<Catalogue> = {
     "Canale aggiunto, ma non è ancora attivo. Imposta {env} su questo account dove gira il Gateway e riavvialo.",
   "settings.channels.add.added":
     "Canale aggiunto. Parte quando il Gateway ha {env} impostato su questo account. Poi scrivi a {persona} da lì per ottenere un codice di abbinamento e approvalo qui.",
+  "settings.channels.add.storedNote":
+    "Già memorizzati per questo account: {names}. Vengono usati così come sono, a meno che tu non li sostituisca.",
+  "settings.channels.add.replace": "Sostituisci i token memorizzati",
+  "settings.channels.add.statusFailed":
+    "Psyche non è riuscito a controllare quali token sono già memorizzati ({reason}). Non è cambiato nulla.",
+  "settings.channels.add.storedTyped":
+    "Per questo account ci sono già token memorizzati. Seleziona «Sostituisci i token memorizzati» per usare quelli digitati, oppure svuota quei campi. Non è cambiato nulla.",
   "settings.channels.identities": "Collegamenti di identità",
   "settings.channels.identitiesDescription":
     "Una sola persona attraverso i canali. I collegamenti si modificano solo da un dispositivo abbinato.",

@@ -70,6 +70,7 @@ export interface PermissionHandlers {
   ): Promise<{ approval: ApprovalRequest; grant: Grant | null }>;
   "access.list"(p: unknown, c: Caller): Promise<{ entries: AccessEntry[] }>;
   "access.revoke"(p: unknown, c: Caller): Promise<{ revoked: boolean }>;
+  "access.confirmFolder"(p: unknown, c: Caller): Promise<{ confirmed: boolean }>;
   "grants.list"(p: unknown, c: Caller): Promise<{ grants: Grant[] }>;
   "grants.revoke"(p: unknown, c: Caller): Promise<{ grant: Grant }>;
   "audit.list"(p: unknown, c: Caller): Promise<{ entries: AuditEntry[] }>;
@@ -156,6 +157,17 @@ export function createPermissionHandlers(
       const { entryId } = check(Methods["access.revoke"].params, p);
       return { revoked: await revokeAccess(broker, entryId) };
     },
+    async "access.confirmFolder"(p, c) {
+      requireScope(c, Methods["access.confirmFolder"].scope);
+      const { entryId, movedTo } = check(Methods["access.confirmFolder"].params, p);
+      if (!entryId.startsWith(FOLDER_ALWAYS)) return { confirmed: false };
+      const confirmed = await broker.confirmMovedFolder(
+        entryId.slice(FOLDER_ALWAYS.length),
+        movedTo,
+        { deviceId: c.deviceId, surface: c.surface },
+      );
+      return { confirmed };
+    },
     async "grants.list"(p, c) {
       requireScope(c, Methods["grants.list"].scope);
       const params = check(Methods["grants.list"].params, p);
@@ -226,6 +238,11 @@ function grantLabel(g: Grant): string {
  * this conversation's) and live standing grants. Folders come first, longest-lived first.
  */
 export async function accessEntries(broker: PsychePermissionBroker): Promise<AccessEntry[]> {
+  // Each folder's "refused" mark comes from the broker's last look at the disk: start a fresh
+  // look where one is due and give it a moment (never long: a hung mount must not hold Settings).
+  for (const f of broker.policy.folders ?? []) broker.folderRefused(f.path);
+  for (const { entry } of broker.allSessionFolders()) broker.folderRefused(entry.path);
+  await broker.foldersSettled(250);
   const out: AccessEntry[] = [];
   for (const f of broker.policy.folders ?? []) {
     out.push({
@@ -236,6 +253,7 @@ export async function accessEntries(broker: PsychePermissionBroker): Promise<Acc
       path: f.path,
       mode: f.mode,
       ...(broker.folderRefused(f.path) ? { refused: true } : {}),
+      ...movedFields(broker, f.path),
     });
   }
   for (const { threadId, entry } of broker.allSessionFolders()) {
@@ -264,6 +282,15 @@ export async function accessEntries(broker: PsychePermissionBroker): Promise<Acc
     });
   }
   return out;
+}
+
+/** An older Settings folder that now leads elsewhere: Settings offers to confirm it again. */
+function movedFields(
+  broker: PsychePermissionBroker,
+  path: string,
+): { moved?: true; movedTo?: string } {
+  const to = broker.folderMovedTo(path);
+  return to === undefined ? {} : { moved: true, movedTo: to };
 }
 
 /** Revokes one `accessEntries` row; false when it was already gone. */

@@ -313,7 +313,7 @@ describe("chat.send with attachments", () => {
     );
     await ctx.sessions.idle();
     const turn = agent.turns[0];
-    expect(turn?.input?.attachmentText).toContain("[untrusted:library download]");
+    expect(turn?.input?.attachmentText).toMatch(/\[untrusted:library download #[0-9a-f]{12}\]/);
     expect(turn?.taintSources).toEqual([
       { sourceKind: "library_file", origin: `download:${dl.id}` },
     ]);

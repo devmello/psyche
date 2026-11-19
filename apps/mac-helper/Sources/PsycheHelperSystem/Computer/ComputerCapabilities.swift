@@ -40,6 +40,7 @@ public final class ComputerUse: @unchecked Sendable {
         self.policy = TierPolicy(settings: TierSettings.load(path: settingsPath), ownerInput: { [attention] in attention.lastOwnerInput })
         self.sessions = ComputerSessionLock()
         self.log = log
+        if Input.underTestRunner { log.info("computer use: real input is disabled (test runner detected)") }
         self.taps = SessionTaps(installer: liveInstaller(), sessions: sessions)
         wireOverlong()
     }
@@ -69,10 +70,8 @@ public final class ComputerUse: @unchecked Sendable {
 
     /// An action past the hard cap is stopped like an Esc press.
     private func wireOverlong() {
-        taps.onOverlong = { [stop, log] id in
-            stop.trip()
-            log.info("computer use action ran past the time limit; stopped session \(id)")
-        }
+        taps.onOverlong = { [stop] _ in stop.trip(reason: .timeLimit) }  // under the session lock: trip only
+        taps.afterOverlong = { [log] id in log.info("computer use action ran past the time limit; stopped session \(id)") }
     }
 
     func reloadSettings() { policy.update(TierSettings.load(path: settingsPath)) }
@@ -883,7 +882,7 @@ public enum ComputerCapabilities {
             }
             try activate(appA, stop: cu.stop)
             try checkHit(a, app: appA, element: nil, approvalId: ctx.approvalId)
-            try Input.drag(from: a, to: b, stop: cu.stop)
+            try Input.drag(from: a, to: b, pid: appA.pid, stop: cu.stop)
             return ActionOutcome(status: "ok", method: "cgevent", app: appA).output("drag")
         }
     }

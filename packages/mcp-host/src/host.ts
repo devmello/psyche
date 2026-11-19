@@ -206,11 +206,38 @@ interface ServerState {
   deaths: number;
   nextRestartAt: number;
   connectedAt: number;
+  /** Aborted by `close()` and `removeServer`: a start in flight gives up instead of being waited for. */
+  stop: AbortController;
+  /** Launcher steps (`prepare`, `open`) still running, each with the cleanup of a late result. */
+  launching: Set<Promise<void>>;
 }
 
 const DEFAULT_TIMEOUT_MS = 60_000;
 const MAX_INPUT_ROUNDS = 4;
 const DEFAULT_MAX_RESULT_BYTES = 256 * 1024;
+/** What an image block counts against the result cap (the model reads it as an image part). */
+const IMAGE_BLOCK_BYTES = 4 * 1024;
+/** Images one result may carry, and their base64 characters in all. */
+const MAX_IMAGE_BLOCKS = 4;
+const MAX_IMAGE_BLOCK_CHARS = 8_000_000;
+
+/**
+ * True when the text blocks are only the JSON of `structuredContent` (the MCP spec has servers
+ * send both): the model then gets the structured form once.
+ */
+export function repeatsStructured(content: unknown, structured: unknown): boolean {
+  if (!Array.isArray(content)) return false;
+  const texts = content.filter((b) => (b as { type?: unknown } | null)?.type === "text");
+  if (texts.length === 0) return false;
+  const want = JSON.stringify(structured);
+  return texts.every((b) => {
+    try {
+      return JSON.stringify(JSON.parse(String((b as { text?: unknown }).text))) === want;
+    } catch {
+      return false;
+    }
+  });
+}
 const STDERR_TAIL = 8 * 1024;
 const DEFAULT_IDLE_STOP_MS = 10 * 60_000;
 const DEFAULT_RESTART_BASE_MS = 1_000;
@@ -295,6 +322,8 @@ export class PsycheMcpHost implements McpHost {
       inFlight: 0,
       restartable: false,
       restartFailures: 0,
+      stop: new AbortController(),
+      launching: new Set(),
       deaths: 0,
       nextRestartAt: 0,
       connectedAt: 0,
@@ -313,8 +342,11 @@ export class PsycheMcpHost implements McpHost {
     return this.#connect(s, signal);
   }
 
-  async #connect(s: ServerState, signal?: AbortSignal): Promise<McpServerInfo> {
+  async #connect(s: ServerState, callerSignal?: AbortSignal): Promise<McpServerInfo> {
     const serverId = s.config.id;
+    // The caller's cancel, or the host's own when the server is removed or the host closes.
+    const signal =
+      callerSignal === undefined ? s.stop.signal : AbortSignal.any([callerSignal, s.stop.signal]);
     this.#clearIdle(s);
     s.restartable = false;
     s.generation += 1;
@@ -380,10 +412,13 @@ export class PsycheMcpHost implements McpHost {
     s.restartable = false;
     s.generation += 1;
     this.#clearIdle(s);
-    // A wake still starting must finish (and be cleaned up as superseded) before `forget`, or it
-    // could recreate the egress allowlist / volume that `forget` drops (TM-18).
+    // A start still running gives up (its connect is aborted) and is cleaned up as superseded.
+    s.stop.abort();
     await s.waking?.catch(() => undefined);
     await this.#disconnect(s);
+    // `forget` comes after the launcher's own steps have settled, or a late one could recreate
+    // the egress allowlist / volume that `forget` drops (TM-18).
+    await Promise.all([...s.launching]);
     if (s.config.transport.kind === "http") {
       await this.#options.oauth?.tokenStore.clear(tokenKey(s.config.id, s.config.transport.url));
     } else {
@@ -445,7 +480,8 @@ export class PsycheMcpHost implements McpHost {
           redactDeep(
             {
               blocks: Array.isArray(result.content) ? result.content : [],
-              ...(result.structuredContent === undefined
+              ...(result.structuredContent === undefined ||
+              repeatsStructured(result.content, result.structuredContent)
                 ? {}
                 : { structured: result.structuredContent }),
             },
@@ -553,6 +589,9 @@ export class PsycheMcpHost implements McpHost {
       s.generation += 1;
       s.restartable = false;
       this.#clearIdle(s);
+      // A start in flight gives up now rather than holding the Gateway's shutdown; a launcher
+      // step that cannot be aborted is cleaned up when it settles (`#launchStep`).
+      s.stop.abort();
     }
     await Promise.all(
       all.map(async (s) => {
@@ -682,7 +721,10 @@ export class PsycheMcpHost implements McpHost {
     };
     if (launcher.open !== undefined) {
       // The launcher starts the process itself (sandbox container) and hands over its pipes.
-      const opened = await launcher.open(spec, signal);
+      const opened = await this.#launchStep(s, launcher.open(spec, signal), signal, async (o) => {
+        await o.transport.close().catch(() => undefined);
+        await o.cleanup?.();
+      });
       const launch: { cleanup?: () => Promise<void> } =
         opened.cleanup === undefined ? {} : { cleanup: opened.cleanup };
       s.launch = launch;
@@ -694,7 +736,9 @@ export class PsycheMcpHost implements McpHost {
     if (launcher.prepare === undefined) {
       throw new PsycheError("internal", "launcher has neither prepare nor open");
     }
-    const launch = await launcher.prepare(spec);
+    const launch = await this.#launchStep(s, launcher.prepare(spec), signal, async (l) => {
+      await l.cleanup?.();
+    });
     s.launch = launch;
     return this.#startClient(
       s,
@@ -714,6 +758,42 @@ export class PsycheMcpHost implements McpHost {
       },
       signal,
     );
+  }
+
+  /**
+   * A launcher step (`prepare`, `open`), which launchers may not abort themselves. On an abort the
+   * start gives up at once; the step's late result is then cleaned up when it arrives. Each step
+   * stays in `s.launching` until it has settled and been cleaned up, so `removeServer` can wait
+   * for it before `forget`.
+   */
+  #launchStep<T>(
+    s: ServerState,
+    step: Promise<T>,
+    signal: AbortSignal | undefined,
+    cleanup: (late: T) => Promise<void>,
+  ): Promise<T> {
+    return new Promise<T>((resolve, reject) => {
+      let abandoned = false;
+      const onAbort = () => {
+        abandoned = true;
+        reject(new PsycheError("cancelled", "launch aborted"));
+      };
+      const settled = step.then(
+        async (value) => {
+          signal?.removeEventListener("abort", onAbort);
+          if (abandoned) await cleanup(value).catch(() => undefined);
+          else resolve(value);
+        },
+        (err: unknown) => {
+          signal?.removeEventListener("abort", onAbort);
+          reject(err);
+        },
+      );
+      s.launching.add(settled);
+      void settled.then(() => s.launching.delete(settled));
+      if (signal?.aborted === true) onAbort();
+      else signal?.addEventListener("abort", onAbort, { once: true });
+    });
   }
 
   /**
@@ -898,13 +978,49 @@ export class PsycheMcpHost implements McpHost {
     return t !== undefined && requiresUserInteraction(t);
   }
 
-  #cap(content: McpCallContent): McpCallContent {
+  #cap(input: McpCallContent): McpCallContent {
+    let content = input;
     const max = this.#options.maxResultBytes ?? DEFAULT_MAX_RESULT_BYTES;
-    if (Buffer.byteLength(JSON.stringify(content)) <= max) return content;
+    // A picture is sent as an image part, not as text: it costs the model a few thousand tokens,
+    // whatever its bytes, so it counts a flat amount here.
+    const sizeOf = (b: unknown): number => {
+      const isImage = (b as { type?: unknown } | null)?.type === "image";
+      return isImage ? IMAGE_BLOCK_BYTES : Buffer.byteLength(JSON.stringify(b));
+    };
+    // Images get their own budget: a count and a total of base64 characters (the loop re-checks).
+    let images = 0;
+    let imageChars = 0;
+    let droppedImages = 0;
+    const kept = content.blocks.filter((b) => {
+      if ((b as { type?: unknown } | null)?.type !== "image") return true;
+      const len = String((b as { data?: unknown }).data ?? "").length;
+      if (images >= MAX_IMAGE_BLOCKS || imageChars + len > MAX_IMAGE_BLOCK_CHARS) {
+        droppedImages++;
+        return false;
+      }
+      images++;
+      imageChars += len;
+      return true;
+    });
+    if (droppedImages > 0) {
+      content = {
+        ...content,
+        blocks: [
+          ...kept,
+          {
+            type: "text",
+            text: `[${droppedImages} image(s) omitted: over the per-result image limit]`,
+          },
+        ],
+      };
+    }
+    const rest = Buffer.byteLength(JSON.stringify({ ...content, blocks: [] }));
+    if (content.blocks.reduce((n: number, b: unknown) => n + sizeOf(b), rest) <= max)
+      return content;
     const out: McpCallContent = { blocks: [], truncated: true };
     let used = 0;
     for (const b of content.blocks) {
-      const size = Buffer.byteLength(JSON.stringify(b));
+      const size = sizeOf(b);
       if (used + size > max) break;
       out.blocks.push(b);
       used += size;
@@ -1041,6 +1157,15 @@ export class PsycheMcpHost implements McpHost {
   async #wake(s: ServerState, signal?: AbortSignal): Promise<void> {
     if (s.waking !== undefined) return s.waking;
     this.#assertLive(s);
+    // The Gateway's view can change while the server is stopped (a bundle record appears under
+    // its id): a server it must check before every start is not started here. `restartable` stays
+    // as it is, so a check that fails only for a moment (an unreadable ledger) strands nothing.
+    if (this.#neverAutoStart(s.config)) {
+      throw new PsycheError(
+        "unavailable",
+        `server ${s.config.id} is stopped and starts again only through Psyche's checks; edit or re-add it`,
+      );
+    }
     if (Date.now() < s.nextRestartAt) {
       throw new PsycheError(
         "unavailable",

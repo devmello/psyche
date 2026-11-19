@@ -85,6 +85,36 @@ const removeTreeLater = (dir: string) =>
 const RESERVED_IDS = new Set<string>(["filesystem", ...MCP_PRESETS.map((x) => x.id)]);
 const SHELLS = new Set(["sh", "bash", "zsh", "dash", "ksh", "fish", "csh", "tcsh"]);
 
+/** The ledger, telling a reader's cache when it writes (even a write that then throws). */
+class WatchedLedger extends ConnectorLedger {
+  readonly #changed: () => void;
+  constructor(home: string, now: () => number, changed: () => void) {
+    super(home, now);
+    this.#changed = changed;
+  }
+  override put(rec: Parameters<ConnectorLedger["put"]>[0]): ConnectorLedgerRecord {
+    try {
+      return super.put(rec);
+    } finally {
+      this.#changed();
+    }
+  }
+  override remove(serverId: string): void {
+    try {
+      super.remove(serverId);
+    } finally {
+      this.#changed();
+    }
+  }
+  override reset(keep?: ReadonlySet<string>): { restored: boolean; dropped: number } {
+    try {
+      return super.reset(keep);
+    } finally {
+      this.#changed();
+    }
+  }
+}
+
 export interface ConnectorBundlesDeps {
   services: ComposeServices;
   settingKey: string;
@@ -107,6 +137,8 @@ export interface ConnectorBundles {
    * id, or a record that cannot be read): the MCP host must not restart it without that check.
    */
   checkedAtStart(entry: PsycheMcpServerConfig): boolean;
+  /** Reads the ledger again at the next `checkedAtStart` (each reconcile calls it). */
+  resetStartChecks(): void;
   /** A server was added by hand or by Psyche: forget any record left under its id. */
   added(entry: PsycheMcpServerConfig): Promise<void>;
   /** A server was removed: forget its bundle record and its files. */
@@ -141,7 +173,16 @@ export function connectorBundles(deps: ConnectorBundlesDeps): ConnectorBundles {
   const now = () => new Date(services.clock.now());
   const ring = new AuthorRing(join(home, "skills"), () => services.clock.now());
   const keys = new AuthorKeyStore(home);
-  const ledger = new ConnectorLedger(home, () => services.clock.now());
+  // `checkedAtStart` runs at every MCP call: it reads ids from a snapshot taken at most once per
+  // reconcile (`resetStartChecks`) and again after any write to the ledger here.
+  let recorded: Set<string> | undefined;
+  const ledger = new WatchedLedger(
+    home,
+    () => services.clock.now(),
+    () => {
+      recorded = undefined;
+    },
+  );
   const limits = deps.limits ?? DEFAULT_LIMITS;
   const root = join(home, CONNECTOR_BUNDLES_DIR);
 
@@ -919,12 +960,16 @@ export function connectorBundles(deps: ConnectorBundlesDeps): ConnectorBundles {
   const checkedAtStart = (entry: PsycheMcpServerConfig): boolean => {
     if (entry.trust === "bundled" && entry.bundle === undefined) return false;
     if (entry.bundle !== undefined) return true;
-    try {
-      return ledger.get(entry.id) !== undefined;
-    } catch {
-      // `stale` lets an unmarked server run then; a restart still waits for the next start.
-      return true;
+    if (recorded === undefined) {
+      try {
+        recorded = new Set(ledger.list().map((r) => r.serverId));
+      } catch {
+        // Unreadable: `stale` lets an unmarked server run then; a restart waits for the check.
+        // Not kept, so the next call reads again once the file is fixed.
+        return true;
+      }
     }
+    return recorded.has(entry.id);
   };
 
   /** A server added by hand (or by Psyche) never inherits a record an earlier shared one left. */
@@ -988,6 +1033,9 @@ export function connectorBundles(deps: ConnectorBundlesDeps): ConnectorBundles {
     },
     stale,
     checkedAtStart,
+    resetStartChecks: () => {
+      recorded = undefined;
+    },
     added,
     removed,
     exportConnector,

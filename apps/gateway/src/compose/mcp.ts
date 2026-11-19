@@ -463,6 +463,8 @@ export function composeMcp(services: ComposeServices, setup: McpSetup = {}): Com
   };
   let seeded = false;
   const reconcile = async (value: unknown) => {
+    // The host's restart check reads the bundle ledger from a snapshot: take a fresh one.
+    bundles.resetStartChecks();
     const wanted = readServers(value, (msg) => warn(msg));
     const next = new Map(wanted.map((c) => [c.id, c]));
     // Servers that left the list, or joined it unmarked, by any route (`settings.set` included):

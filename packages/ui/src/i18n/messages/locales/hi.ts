@@ -1612,6 +1612,13 @@ export const hi: Partial<Catalogue> = {
     "चैनल जुड़ गया, लेकिन अभी चल नहीं रहा। जहाँ Gateway चलता है वहाँ {env} को इस खाते पर सेट करें, फिर उसे रीस्टार्ट करें।",
   "settings.channels.add.added":
     "चैनल जुड़ गया। यह तब शुरू होगा जब Gateway में {env} इस खाते पर सेट होगा। फिर पेयरिंग कोड पाने के लिए इससे {persona} को संदेश भेजें और यहाँ मंज़ूर करें।",
+  "settings.channels.add.storedNote":
+    "इस खाते के लिए पहले से सहेजा गया: {names}। जब तक आप उन्हें बदलते नहीं, वे जैसे हैं वैसे ही इस्तेमाल होंगे।",
+  "settings.channels.add.replace": "सहेजे गए टोकन बदलें",
+  "settings.channels.add.statusFailed":
+    "Psyche यह जाँच नहीं सका कि कौन से टोकन पहले से सहेजे हैं ({reason})। कुछ नहीं बदला गया।",
+  "settings.channels.add.storedTyped":
+    'इस खाते के लिए टोकन पहले से सहेजे हैं। आपके लिखे टोकन इस्तेमाल करने के लिए "सहेजे गए टोकन बदलें" चुनें, या वे फ़ील्ड खाली करें। कुछ नहीं बदला गया।',
   "settings.channels.identities": "पहचान लिंक",
   "settings.channels.identitiesDescription":
     "चैनलों के पार एक ही व्यक्ति। लिंक केवल पेयर किए गए डिवाइस से बदलते हैं।",

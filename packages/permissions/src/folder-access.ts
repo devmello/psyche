@@ -1,7 +1,7 @@
 import { realpathSync } from "node:fs";
-import { realpath, stat } from "node:fs/promises";
+import { lstat, realpath, stat } from "node:fs/promises";
 import { homedir, tmpdir } from "node:os";
-import { dirname, resolve } from "node:path";
+import { dirname, posix, resolve, win32 } from "node:path";
 import {
   canonicalHostPath,
   isAbsoluteHostPath,
@@ -29,6 +29,12 @@ export interface FolderGrantEntry {
    * a file replaced by a folder opens nothing inside it. Always `ro`.
    */
   file?: true;
+  /**
+   * The folder's real path when it was granted (a pick is already real; Settings records it for a
+   * typed path; an older grant gets the first one seen). A root whose real path is somewhere else
+   * now covers nothing (`grantedRootRefused`).
+   */
+  real?: string;
 }
 
 /** Whether `entry` names `target` (a file entry: that exact path; a folder: it and what is inside). */
@@ -243,6 +249,139 @@ export function inSystemRoot(given: string, env: FolderAccessEnv = {}): boolean 
     const root = fold(joinHostPath(resolve(env.home ?? homedir()), segments.join("/")));
     return under(folded, root) || (under(root, folded) && !under(home, folded));
   });
+}
+
+/** A path in one spelling for comparing places: canonical, firmlinks and `/private` aliases removed. */
+function placeSpelling(p: string): string {
+  let c = p;
+  try {
+    c = canonicalHostPath(p, isWin32HostPath(p) ? "win32" : undefined);
+  } catch {
+    /* keep as given */
+  }
+  if (isWin32HostPath(c)) return c;
+  c = c.replace(/^\/System\/Volumes\/Data(?=\/|$)/, "") || "/";
+  return c.replace(/^\/(tmp|var|etc)(?=\/|$)/, "/private/$1");
+}
+
+/**
+ * Whether two paths name the same place up to spelling: `/tmp` `/var` `/etc` resolving under
+ * `/private`, the firmlinked `/System/Volumes/Data/...` form, and case where the disk ignores it
+ * (always on Windows, on macOS by default).
+ */
+export function sameRootSpelling(a: string, b: string, env: FolderAccessEnv = {}): boolean {
+  const x = placeSpelling(a);
+  const y = placeSpelling(b);
+  if (isWin32HostPath(x) || isWin32HostPath(y)) return sameHostPath(x, y);
+  const ci = env.caseInsensitive ?? process.platform === "darwin";
+  return ci ? x.toLowerCase() === y.toLowerCase() : x === y;
+}
+
+/** The same place without folding case on POSIX (a link to a sibling that differs only in case). */
+function samePlaceExact(a: string, b: string): boolean {
+  const x = placeSpelling(a);
+  const y = placeSpelling(b);
+  return isWin32HostPath(x) || isWin32HostPath(y) ? sameHostPath(x, y) : x === y;
+}
+
+function hostBasename(p: string): string {
+  return isWin32HostPath(p) ? win32.basename(p) : posix.basename(p);
+}
+
+/**
+ * Whether a granted root now leads somewhere else than its (real) parent folder plus its own
+ * name: a root swapped for a link. Only spelling moves are benign (`sameRootSpelling`). It cannot
+ * see a swapped parent (the parent is resolved now too); `grantedRootRefused` compares with the
+ * real path recorded at grant time for that.
+ */
+export function rootMoved(
+  stored: string,
+  real: string,
+  realParent: string,
+  env: FolderAccessEnv = {},
+): boolean {
+  return !sameRootSpelling(real, joinHostPath(realParent, hostBasename(stored)), env);
+}
+
+/** What a granted root is on disk now. */
+export interface RootFacts {
+  /** Its real path; undefined when it does not exist (ENOENT). */
+  real?: string;
+  /** The stored path itself is a symlink (`lstat`), whatever it points at. */
+  link: boolean;
+}
+
+/**
+ * Looks a granted root up without blocking the event loop (`fs.promises`, the native realpath, on
+ * the libuv pool). A missing path gives no `real`; any other failure throws, and the caller
+ * treats the root as refused for now (a hung or broken mount leaves its real place unknown).
+ */
+export async function lookupRootFacts(stored: string): Promise<RootFacts> {
+  const missing = (err: unknown): boolean => (err as NodeJS.ErrnoException).code === "ENOENT";
+  let real: string | undefined;
+  try {
+    real = await realpath(stored);
+  } catch (err) {
+    if (!missing(err)) throw err;
+  }
+  let link = false;
+  try {
+    link = (await lstat(stored)).isSymbolicLink();
+  } catch (err) {
+    if (!missing(err)) throw err;
+  }
+  return { ...(real === undefined ? {} : { real }), link };
+}
+
+/**
+ * Whether a granted root (Settings or one conversation's) covers nothing now. Owner decision
+ * 2026-11-19: a root that leads to any other folder than where it was granted stops counting,
+ * even a shareable one. In order:
+ * - inside a system root (`inSystemRoot`), as stored or by its real path;
+ * - a dangling link;
+ * - its real path is not just another spelling of the stored one and a grant there would be
+ *   refused (`refuseFolder`: home, `~/Library`, `~/.ssh`, Psyche's data), whatever else says;
+ * - the stored path itself is a link that leads anywhere but its own place (case counts here, so
+ *   a link to a sibling on a case-sensitive volume is caught);
+ * - the real path differs from the one `recorded` when it was granted (up to spelling), which
+ *   also catches a parent swapped for a link;
+ * - an old grant with nothing recorded whose real path is not the stored one (up to spelling):
+ *   nothing says where it was granted, so it waits for the owner to confirm it again
+ *   (`grantedRootMoved`).
+ * A root that does not exist is not refused, and an unmoved old home-root grant keeps working.
+ */
+export function grantedRootRefused(
+  stored: string,
+  facts: RootFacts,
+  recorded: string | undefined,
+  env: FolderAccessEnv = {},
+): boolean {
+  if (inSystemRoot(stored, env)) return true;
+  const real = facts.real;
+  if (real === undefined) return facts.link;
+  if (inSystemRoot(real, env)) return true;
+  if (!sameRootSpelling(real, stored, env) && refuseFolder(real, env) !== undefined) return true;
+  if (facts.link && !samePlaceExact(stored, real)) return true;
+  return !sameRootSpelling(real, recorded ?? stored, env);
+}
+
+/**
+ * The place an older grant (nothing `recorded`) now leads to, when that is the only reason it
+ * does not count and the owner may confirm it again there: a plain folder (not itself a link)
+ * whose real path differs from the stored one, outside every system root and every place a grant
+ * would be refused. Undefined otherwise.
+ */
+export function grantedRootMoved(
+  stored: string,
+  facts: RootFacts,
+  recorded: string | undefined,
+  env: FolderAccessEnv = {},
+): string | undefined {
+  const real = facts.real;
+  if (recorded !== undefined || real === undefined || facts.link) return undefined;
+  if (sameRootSpelling(real, stored, env) || inSystemRoot(stored, env)) return undefined;
+  if (inSystemRoot(real, env) || refuseFolder(real, env) !== undefined) return undefined;
+  return real;
 }
 
 export type FolderRefusal = "sensitive_root" | "contains_sensitive_root" | "not_absolute";
@@ -518,19 +657,22 @@ export function folderScopesOffered(taint: boolean): ("once" | "always")[] {
 /**
  * Settings path: throws `forbidden` when a folder the owner types or picks into
  * `permissions.policy.folders` is a sensitive root. A folder that does not exist yet is judged
- * by its normalised path.
+ * by its normalised path. Returns the real path it judged, or undefined when the folder does not
+ * exist yet: Settings records that one as where the folder was granted, so it is looked up once.
  */
 export async function assertFolderGrantable(
   given: string,
   env: FolderAccessEnv = {},
-): Promise<void> {
+): Promise<string | undefined> {
   const raw = expandHome(given, env);
   if (raw.includes("\0") || !isAbsoluteHostPath(raw)) {
     throw new PsycheError("invalid_params", "folder grants are absolute paths");
   }
   let real = resolve(raw);
+  let exists = false;
   try {
     real = await realpath(real);
+    exists = true;
   } catch (err) {
     // Not there (yet): the normalised path is judged. Any other failure (`/.vol/..` gives ENOENT
     // but opens; a loop; no permission) leaves the real path unknown, so nothing is granted.
@@ -557,4 +699,5 @@ export async function assertFolderGrantable(
       details: { reason: refusal, path: real },
     });
   }
+  return exists ? real : undefined;
 }

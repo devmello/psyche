@@ -1645,6 +1645,13 @@ export const de: Partial<Catalogue> = {
     "Kanal hinzugefügt, läuft aber noch nicht. Setze {env} dort, wo das Gateway läuft, auf dieses Konto und starte es neu.",
   "settings.channels.add.added":
     "Kanal hinzugefügt. Er startet, sobald das Gateway {env} auf dieses Konto gesetzt hat. Schreibe dann {persona} darüber an, um einen Kopplungscode zu erhalten, und bestätige ihn hier.",
+  "settings.channels.add.storedNote":
+    "Für dieses Konto bereits gespeichert: {names}. Sie werden unverändert verwendet, sofern du sie nicht ersetzt.",
+  "settings.channels.add.replace": "Gespeicherte Tokens ersetzen",
+  "settings.channels.add.statusFailed":
+    "Psyche konnte nicht prüfen, welche Tokens schon gespeichert sind ({reason}). Es wurde nichts geändert.",
+  "settings.channels.add.storedTyped":
+    "Für dieses Konto sind bereits Tokens gespeichert. Hake „Gespeicherte Tokens ersetzen“ an, um die eingegebenen zu verwenden, oder leere die Felder. Es wurde nichts geändert.",
   "settings.channels.identities": "Identitätsverknüpfungen",
   "settings.channels.identitiesDescription":
     "Eine Person über Kanäle hinweg. Verknüpfungen ändern sich nur von einem gekoppelten Gerät aus.",

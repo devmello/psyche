@@ -1,4 +1,5 @@
 import { execFile } from "node:child_process";
+import { dirname } from "node:path";
 import {
   type AgentToolRegistration,
   type CodingToolsDeps,
@@ -45,8 +46,22 @@ const GIT_TIMEOUT_MS = 120_000;
 export function hostGit(binary = "git"): GitRunner {
   return {
     run(cwd, args, options = {}) {
-      const env: NodeJS.ProcessEnv = { ...process.env, GIT_TERMINAL_PROMPT: "0", LC_ALL: "C" };
-      for (const k of ["GIT_DIR", "GIT_WORK_TREE", "GIT_INDEX_FILE", "GIT_EXTERNAL_DIFF"]) {
+      const env: NodeJS.ProcessEnv = {
+        ...process.env,
+        GIT_TERMINAL_PROMPT: "0",
+        LC_ALL: "C",
+        // Discovery never climbs above the workspace into a repository around it.
+        GIT_CEILING_DIRECTORIES: dirname(cwd),
+      };
+      for (const k of [
+        "GIT_DIR",
+        "GIT_WORK_TREE",
+        "GIT_INDEX_FILE",
+        "GIT_EXTERNAL_DIFF",
+        // Programs git would run for a password: prompts are off, nothing may ask.
+        "GIT_ASKPASS",
+        "SSH_ASKPASS",
+      ]) {
         delete env[k];
       }
       return new Promise((resolve) => {
@@ -84,7 +99,8 @@ export function composeCoding(services: ComposeServices, setup: CodingSetup = {}
   const git = setup.git === undefined ? hostGit() : setup.git;
   const tools = codingTools({
     files: { read, write },
-    folders: () => services.rawBroker.grantedFolders(),
+    // The coding tools follow the root themselves (search, git): a look within the fresh window.
+    folders: () => services.rawBroker.freshGrantedFolders(),
     protectedRoots: () => protectedRoots(services.home),
     broker: services.broker,
     ...(setup.runner === undefined ? {} : { runner: setup.runner }),

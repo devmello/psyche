@@ -1565,6 +1565,13 @@ export const pt: Partial<Catalogue> = {
     "Canal adicionado, mas ainda não está em execução. Defina {env} para esta conta onde o Gateway roda e reinicie-o.",
   "settings.channels.add.added":
     "Canal adicionado. Ele começa quando o Gateway tiver {env} definido para esta conta. Depois envie uma mensagem a {persona} por ele para receber um código de pareamento e aprove-o aqui.",
+  "settings.channels.add.storedNote":
+    "Já armazenados para esta conta: {names}. Eles são usados como estão, a menos que você os substitua.",
+  "settings.channels.add.replace": "Substituir os tokens armazenados",
+  "settings.channels.add.statusFailed":
+    "O Psyche não conseguiu verificar quais tokens já estão armazenados ({reason}). Nada foi alterado.",
+  "settings.channels.add.storedTyped":
+    'Já há tokens armazenados para esta conta. Marque "Substituir os tokens armazenados" para usar os que você digitou, ou limpe esses campos. Nada foi alterado.',
   "settings.channels.identities": "Vínculos de identidade",
   "settings.channels.identitiesDescription":
     "Uma pessoa em vários canais. Os vínculos só mudam a partir de um dispositivo pareado.",

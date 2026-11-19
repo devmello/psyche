@@ -31,7 +31,11 @@ function services(withFiles = true) {
     tools: registry,
     // Psyche's home sits beside the repo, as on a real Mac; it is protected, the repo is not.
     home: join(dir, ".psyche"),
-    rawBroker: { policy: { folders }, grantedFolders: () => folders },
+    rawBroker: {
+      policy: { folders },
+      grantedFolders: () => folders,
+      freshGrantedFolders: async () => folders,
+    },
     broker: {
       recordReceipt: async (r: unknown) => {
         receipts.push(r);
@@ -52,6 +56,18 @@ const ctx: ToolRunContext = {
   signal: new AbortController().signal,
   onUpdate: () => undefined,
 };
+
+describe("hostGit", () => {
+  it("never discovers a repository above the folder it runs in (review of #1425 r1)", async () => {
+    const sub = join(repo, "sub");
+    mkdirSync(sub);
+    const git = hostGit();
+    expect((await git.run(repo, ["rev-parse", "--show-toplevel"])).exitCode).toBe(0);
+    const inSub = await git.run(sub, ["rev-parse", "--show-toplevel"]);
+    expect(inSub.exitCode).not.toBe(0);
+    expect(inSub.stdout).not.toContain(repo);
+  });
+});
 
 describe("composeCoding", () => {
   it("registers code.* over the composed file tools; code.run only with a sandbox runner", async () => {

@@ -1,5 +1,13 @@
 import { generateKeyPairSync, sign } from "node:crypto";
-import { existsSync, mkdtempSync, readdirSync, readFileSync, rmSync, writeFileSync } from "node:fs";
+import {
+  existsSync,
+  mkdirSync,
+  mkdtempSync,
+  readdirSync,
+  readFileSync,
+  rmSync,
+  writeFileSync,
+} from "node:fs";
 import { homedir, tmpdir } from "node:os";
 import { join } from "node:path";
 import { fileURLToPath } from "node:url";
@@ -1608,6 +1616,14 @@ describe("idle stops and restarts (PR #1401)", () => {
       transport: { kind: "stdio", command: [process.execPath, SERVER] },
     });
     const stops: string[] = [];
+    // The restart check runs at every touch and idle stop: it must not read the ledger file each
+    // time (round-3 review item 5), only once per reconcile.
+    const reads = [
+      vi.spyOn(ConnectorLedger.prototype, "get"),
+      vi.spyOn(ConnectorLedger.prototype, "list"),
+    ];
+    const readCount = () => reads.reduce((n, r) => n + r.mock.calls.length, 0);
+    let mcp: ComposedMcp | undefined;
     composed = await composeGateway({
       retentionIntervalMs: 0,
       background: false,
@@ -1618,26 +1634,96 @@ describe("idle stops and restarts (PR #1401)", () => {
         (s) => {
           // Already in the setting at startup: the first reconcile keeps the leftover record.
           setSetting(s.db, "mcp.servers", [server("orphan"), server("plain")]);
-          return composeMcp(s, {
+          mcp = composeMcp(s, {
             hostOptions: {
               launcher: fakeSrt,
-              idleStopMs: 300,
+              idleStopMs: 1000,
               onEvent: (e) => {
                 if (e.type === "status" && e.status === "disconnected") stops.push(e.serverId);
               },
             },
           });
+          return mcp;
         },
       ],
     });
-    await vi.waitFor(
-      () =>
-        expect(launches.map((l) => l.server)).toEqual(expect.arrayContaining(["orphan", "plain"])),
-      { timeout: 10_000 },
-    );
-    // The control is stopped for being idle; the one with a record keeps running.
+    try {
+      await vi.waitFor(
+        () =>
+          expect(launches.map((l) => l.server)).toEqual(
+            expect.arrayContaining(["orphan", "plain"]),
+          ),
+        { timeout: 10_000 },
+      );
+      await (mcp as ComposedMcp).idle();
+      expect(stops).not.toContain("plain");
+      const afterReconcile = readCount();
+      // The control is stopped for being idle; the one with a record keeps running.
+      await vi.waitFor(() => expect(stops).toContain("plain"), { timeout: 5_000 });
+      await new Promise((r) => setTimeout(r, 600));
+      expect(stops).not.toContain("orphan");
+      // The idle stop asked the check again, from the snapshot.
+      expect(readCount()).toBe(afterReconcile);
+    } finally {
+      for (const r of reads) r.mockRestore();
+    }
+  });
+
+  it("an unreadable ledger is not remembered: once fixed, the next call lets the server idle-stop", async () => {
+    home = mkdtempSync(join(tmpdir(), "psyche-conn-bundles-"));
+    const keyFile = join(home, "vault.key");
+    writeFileSync(keyFile, Buffer.alloc(32, 7), { mode: 0o600 });
+    const ledgerFile = join(home, "connectors", "bundles.json");
+    mkdirSync(join(home, "connectors"), { recursive: true });
+    writeFileSync(ledgerFile, "{broken");
+    const stops: string[] = [];
+    let mcp: ComposedMcp | undefined;
+    composed = await composeGateway({
+      retentionIntervalMs: 0,
+      background: false,
+      config: { home, port: 0, dbPath: join(home, "psyche.db"), webRoot: null },
+      model: { provider: new FakeModelProvider(), model: "fake/model" },
+      vault: { keyFile, argon2: { memory: 64, passes: 1, parallelism: 1 } },
+      parts: [
+        (s) => {
+          setSetting(s.db, "mcp.servers", [
+            {
+              id: "plain",
+              name: "plain",
+              trust: "unknown",
+              transport: { kind: "stdio", command: [process.execPath, SERVER] },
+            },
+          ]);
+          mcp = composeMcp(s, {
+            hostOptions: {
+              launcher: fakeSrt,
+              idleStopMs: 500,
+              onEvent: (e) => {
+                if (e.type === "status" && e.status === "disconnected") stops.push(e.serverId);
+              },
+            },
+          });
+          return mcp;
+        },
+      ],
+    });
+    const test = () => {
+      const handler = (mcp as ComposedMcp).handlers?.["mcp.test"] as unknown as
+        | { run: (call: Call, p: unknown) => Promise<{ ok: boolean }> }
+        | undefined;
+      if (handler === undefined) throw new Error("no mcp.test handler");
+      return handler.run({} as Call, { id: "plain" });
+    };
+    await vi.waitFor(() => expect(launches.map((l) => l.server)).toContain("plain"), {
+      timeout: 10_000,
+    });
+    await (mcp as ComposedMcp).idle();
+    // Unreadable: an unmarked server runs, but is never stopped behind a check it cannot pass.
+    await new Promise((r) => setTimeout(r, 900));
+    expect(stops).not.toContain("plain");
+    // The file is fixed (no reconcile, no write through the Gateway): the next call reads again.
+    rmSync(ledgerFile);
+    expect((await test()).ok).toBe(true);
     await vi.waitFor(() => expect(stops).toContain("plain"), { timeout: 5_000 });
-    await new Promise((r) => setTimeout(r, 600));
-    expect(stops).not.toContain("orphan");
   });
 });

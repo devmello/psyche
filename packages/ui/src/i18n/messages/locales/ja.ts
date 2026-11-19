@@ -1593,6 +1593,13 @@ export const ja: Partial<Catalogue> = {
     "チャンネルを追加しましたが、まだ動作していません。Gateway が動作する場所で {env} をこのアカウントに設定し、再起動してください。",
   "settings.channels.add.added":
     "チャンネルを追加しました。Gateway で {env} がこのアカウントに設定されると開始します。その後、そこから {persona} にメッセージを送ってペアリングコードを受け取り、ここで承認してください。",
+  "settings.channels.add.storedNote":
+    "このアカウントには保存済み: {names}。置き換えない限り、そのまま使われます。",
+  "settings.channels.add.replace": "保存済みのトークンを置き換える",
+  "settings.channels.add.statusFailed":
+    "Psyche は保存済みのトークンを確認できませんでした（{reason}）。何も変更していません。",
+  "settings.channels.add.storedTyped":
+    "このアカウントには保存済みのトークンがあります。入力したトークンを使うには「保存済みのトークンを置き換える」にチェックを入れるか、その欄を空にしてください。何も変更していません。",
   "settings.channels.identities": "IDの関連付け",
   "settings.channels.identitiesDescription":
     "複数のチャンネルにまたがる同一人物。関連付けはペアリングされたデバイスからのみ変更できます。",

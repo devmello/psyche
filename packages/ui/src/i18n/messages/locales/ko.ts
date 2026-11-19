@@ -1595,6 +1595,13 @@ export const ko: Partial<Catalogue> = {
     "채널을 추가했지만 아직 실행되지 않습니다. Gateway가 실행되는 곳에서 {env}를 이 계정으로 설정한 뒤 다시 시작하세요.",
   "settings.channels.add.added":
     "채널을 추가했습니다. Gateway에서 {env}가 이 계정으로 설정되면 시작됩니다. 그런 다음 해당 채널에서 {persona}에게 메시지를 보내 페어링 코드를 받고 여기서 승인하세요.",
+  "settings.channels.add.storedNote":
+    "이 계정에 이미 저장됨: {names}. 교체하지 않으면 그대로 사용됩니다.",
+  "settings.channels.add.replace": "저장된 토큰 교체",
+  "settings.channels.add.statusFailed":
+    "Psyche가 이미 저장된 토큰을 확인하지 못했습니다({reason}). 아무것도 바꾸지 않았습니다.",
+  "settings.channels.add.storedTyped":
+    "이 계정에는 이미 저장된 토큰이 있습니다. 입력한 토큰을 쓰려면 '저장된 토큰 교체'를 선택하거나 해당 칸을 비우세요. 아무것도 바꾸지 않았습니다.",
   "settings.channels.identities": "신원 연결",
   "settings.channels.identitiesDescription":
     "여러 채널에 걸친 한 사람입니다. 연결은 페어링된 기기에서만 변경됩니다.",

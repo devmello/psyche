@@ -466,6 +466,10 @@ public final class ComputerSessionLock: @unchecked Sendable {
     /// The holder has one action that has run for `maxInFlight`: `trip` runs FIRST (inside the lock, so
     /// no new action can slip in untripped and nobody sees the session inactive before the stop), then
     /// the session ends for good with `action_time_limit`. Returns its id, or nil if none is overlong.
+    ///
+    /// `trip` runs with the session lock held. It must be quick, must never call back into this lock
+    /// (`NSLock` is not recursive, so that deadlocks, and the Esc tap's `activeSession` waits on it),
+    /// and must not log or do I/O: the caller does that after this returns.
     @discardableResult
     public func reapOverlong(trip: (String) -> Void) -> String? {
         lock.lock()
@@ -516,6 +520,8 @@ public final class StopSignal: @unchecked Sendable {
     private let lock = NSLock()
     private var issued = 0
     private var stoppedThrough = 0
+    /// Invocations up to this one were stopped by the time limit rather than by Esc.
+    private var timeLimitThrough = 0
 
     @TaskLocal static var token: Int?
 
@@ -534,11 +540,23 @@ public final class StopSignal: @unchecked Sendable {
         }
     }
 
+    public enum Reason: Sendable { case user, timeLimit }
+
     /// Stops every invocation issued so far.
-    public func trip() {
+    public func trip(reason: Reason = .user) {
         lock.lock()
         stoppedThrough = issued
+        if reason == .timeLimit { timeLimitThrough = issued }
         lock.unlock()
+    }
+
+    /// Why the current invocation was stopped: the time limit if it was among those a time-limit trip
+    /// stopped, else Esc.
+    var stopError: CapabilityError {
+        lock.lock()
+        defer { lock.unlock() }
+        if let t = Self.token, t <= timeLimitThrough { return .actionTimeLimit }
+        return .stopped
     }
 
     /// Whether the current invocation (or, outside one, any invocation so far) was stopped.
@@ -551,7 +569,7 @@ public final class StopSignal: @unchecked Sendable {
 
     /// Throws `cancelled/user_stopped` once the user pressed Esc during this invocation.
     public func check() throws {
-        if isTripped { throw CapabilityError.stopped }
+        if isTripped { throw stopError }
         if _Concurrency.Task.isCancelled { throw CapabilityError.cancelled }
     }
 }

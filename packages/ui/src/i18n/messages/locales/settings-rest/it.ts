@@ -687,6 +687,9 @@ export const settingsRest: Partial<Catalogue> = {
   "settings.access.loadFailed":
     "Psyche non è riuscito a caricare ciò che può raggiungere ({reason}).",
   "settings.access.unchanged": "L’accesso è invariato.",
+  "settings.access.moved": "Ora punta a {path}: conferma solo se l’hai spostata tu",
+  "settings.access.confirm": "Conferma",
+  "settings.access.confirmNamed": "Conferma di nuovo {name} in {path}",
   "settings.model.advancedHint": "Limiti di contesto, modelli locali",
   "settings.permissions.subject.prepNotes": "Note intitolate “Prep:” (preparazione riunioni)",
   "settings.permissions.specificConnectors":

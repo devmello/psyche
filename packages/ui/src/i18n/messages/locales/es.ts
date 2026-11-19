@@ -1617,6 +1617,13 @@ export const es: Partial<Catalogue> = {
     "Canal añadido, pero aún no está en marcha. Configura {env} con esta cuenta donde se ejecuta el Gateway y reinícialo.",
   "settings.channels.add.added":
     "Canal añadido. Se inicia cuando el Gateway tenga {env} configurado con esta cuenta. Entonces escribe a {persona} desde él para recibir un código de vinculación y apruébalo aquí.",
+  "settings.channels.add.storedNote":
+    "Ya guardado para esta cuenta: {names}. Se usan tal cual, salvo que los reemplaces.",
+  "settings.channels.add.replace": "Reemplazar los tokens guardados",
+  "settings.channels.add.statusFailed":
+    "Psyche no pudo comprobar qué tokens ya están guardados ({reason}). No se cambió nada.",
+  "settings.channels.add.storedTyped":
+    "Ya hay tokens guardados para esta cuenta. Marca «Reemplazar los tokens guardados» para usar los que escribiste, o vacía esos campos. No se cambió nada.",
   "settings.channels.identities": "Enlaces de identidad",
   "settings.channels.identitiesDescription":
     "Una misma persona en varios canales. Los enlaces solo se cambian desde un dispositivo enlazado.",

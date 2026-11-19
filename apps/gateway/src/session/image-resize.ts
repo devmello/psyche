@@ -3,7 +3,14 @@ import { mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { promisify } from "node:util";
-import { IMAGE_MAX_EDGE, imageSize } from "@psyche/agent-core";
+import { inflateSync } from "node:zlib";
+import {
+  IMAGE_MAX_EDGE,
+  ImageShaperBusy,
+  imageSize,
+  MAX_IMAGE_PIXELS,
+  MAX_IMAGE_SIDE_PX,
+} from "@psyche/agent-core";
 
 const run = promisify(execFile);
 
@@ -40,6 +47,336 @@ export async function downscaleImage(
     return out.length > 0 && out.length < bytes.length * 4 ? out : bytes;
   } catch {
     return bytes;
+  } finally {
+    await rm(dir, { recursive: true, force: true }).catch(() => undefined);
+  }
+}
+
+/** Tool images decoded at once in this process, whatever the number of parallel tool calls. */
+export const TOOL_IMAGE_DECODES = 2;
+/** Tool images that may wait for a decoder; one more is refused at once as busy. */
+export const TOOL_IMAGE_QUEUE = 8;
+/**
+ * Pixels the in-process (canvas) decoder takes: it decodes inside psyched, so it is held below
+ * the 40 MP that sips and WIC (separate processes) take. Screenshots are about 5 MP.
+ */
+export const CANVAS_MAX_PIXELS = 16_000_000;
+
+export interface LimitOptions<A extends unknown[]> {
+  /** Calls that may wait; past it a call throws `busy()` at once instead of queueing. */
+  maxWaiting?: number;
+  busy?: () => Error;
+  /** The call's abort signal: a waiting call whose signal aborts leaves the queue and rejects. */
+  signalOf?: (args: A) => AbortSignal | undefined;
+}
+
+/**
+ * `fn` with at most `limit` calls running at once; the rest wait in order, up to `maxWaiting`.
+ * A call that throws frees its slot like one that returns.
+ */
+export function limitConcurrency<A extends unknown[], R>(
+  fn: (...args: A) => Promise<R>,
+  limit: number,
+  opts: LimitOptions<A> = {},
+): Limited<A, R> {
+  let running = 0;
+  const waiting: (() => void)[] = [];
+  const aborted = (signal: AbortSignal) =>
+    signal.reason instanceof Error ? signal.reason : new DOMException("aborted", "AbortError");
+  const limited = async (...args: A) => {
+    const signal = opts.signalOf?.(args);
+    if (signal?.aborted === true) throw aborted(signal);
+    // A freed slot passes straight to the next waiter, so `running` never overshoots.
+    if (running >= limit) {
+      if (opts.maxWaiting !== undefined && waiting.length >= opts.maxWaiting)
+        throw opts.busy?.() ?? new Error("busy");
+      await new Promise<void>((resolve, reject) => {
+        const go = () => {
+          signal?.removeEventListener("abort", onAbort);
+          resolve();
+        };
+        const onAbort = () => {
+          const i = waiting.indexOf(go);
+          if (i >= 0) waiting.splice(i, 1);
+          reject(aborted(signal as AbortSignal));
+        };
+        signal?.addEventListener("abort", onAbort, { once: true });
+        waiting.push(go);
+      });
+    } else running++;
+    try {
+      return await fn(...args);
+    } finally {
+      const next = waiting.shift();
+      if (next === undefined) running--;
+      else next();
+    }
+  };
+  return Object.assign(limited, { load: () => ({ running, waiting: waiting.length }) });
+}
+
+/** A concurrency-limited function; `load()` says how many calls run and wait right now. */
+export type Limited<A extends unknown[], R> = ((...args: A) => Promise<R>) & {
+  load(): { running: number; waiting: number };
+};
+
+/**
+ * A tool's image (a screenshot, an MCP server's picture: untrusted bytes) decoded and written
+ * again, its long edge cut to `maxEdge`: JPEG stays JPEG, everything else becomes PNG. Unlike
+ * `downscaleImage` it never hands back the input. It throws when the image cannot be decoded or
+ * no encoder is available (a Linux Gateway without `@napi-rs/canvas`), and the caller then sends
+ * a note instead. A header over 8000 px or 40 MP (16 MP for the in-process decoder) is refused
+ * before any decoder runs, and the header is parsed strictly (`imageSize`), so the decoder never
+ * sees a decompression bomb. At most `TOOL_IMAGE_DECODES` run at once in the process, however
+ * many tool calls run in parallel, and at most `TOOL_IMAGE_QUEUE` wait: past that it throws
+ * `ImageShaperBusy` at once, and a waiting call whose run aborts (`signal`) is dropped. A JPEG's
+ * EXIF orientation is applied (Skia does it itself; on the Mac, sips steps), then all metadata
+ * but a small colour profile is removed.
+ */
+export const reencodeToolImage: Limited<
+  [bytes: Buffer, mime: string, maxEdge?: number, platform?: NodeJS.Platform, signal?: AbortSignal],
+  Buffer
+> = limitConcurrency(reencodeNow, TOOL_IMAGE_DECODES, {
+  maxWaiting: TOOL_IMAGE_QUEUE,
+  busy: () => new ImageShaperBusy(),
+  signalOf: (args) => args[4],
+});
+
+async function reencodeNow(
+  bytes: Buffer,
+  mime: string,
+  maxEdge: number = IMAGE_MAX_EDGE,
+  platform: NodeJS.Platform = process.platform,
+  // Read by the limiter only: once a decode runs it finishes.
+  _signal?: AbortSignal,
+): Promise<Buffer> {
+  const size = imageSize(bytes);
+  if (size === undefined) throw new Error("unreadable image header");
+  // The caller checks too; a decoder never runs on an oversized header whoever calls this.
+  if (overCaps(size)) throw new Error("image too large to decode");
+  const format = mime === "image/jpeg" ? "jpeg" : "png";
+  const edge = Math.min(maxEdge, Math.max(size.width, size.height));
+  let out: Buffer;
+  if (platform === "win32") out = await wicReencode(bytes, edge, format);
+  else if (platform !== "darwin") {
+    // Skia decodes in this process and sizes a GIF by its frames, which cannot be bounded
+    // beforehand with certainty: a Linux Gateway sends no GIFs.
+    if (bytes.subarray(0, 4).toString("latin1") === "GIF8")
+      throw new Error("GIF is not decoded on this platform");
+    if (size.width * size.height > CANVAS_MAX_PIXELS)
+      throw new Error("image too large to decode in process");
+    out = await canvasReencode(bytes, edge, format, size);
+  } else out = await sipsReencode(bytes, edge, format, jpegOrientation(bytes));
+  if (out.length === 0) throw new Error("empty image");
+  // Text, EXIF, XMP and comments in the source never ride along (sips copies PNG text chunks).
+  return stripImageMetadata(out);
+}
+
+/**
+ * sips steps that turn EXIF orientation 2-8 upright, one sips call each: given `-r` and `-f`
+ * together, sips picks its own order. `-r` turns clockwise.
+ */
+const UPRIGHT: Record<number, string[][]> = {
+  2: [["-f", "horizontal"]],
+  3: [["-r", "180"]],
+  4: [["-f", "vertical"]],
+  5: [
+    ["-r", "90"],
+    ["-f", "horizontal"],
+  ],
+  6: [["-r", "90"]],
+  7: [
+    ["-r", "90"],
+    ["-f", "vertical"],
+  ],
+  8: [["-r", "270"]],
+};
+
+async function sipsReencode(
+  bytes: Buffer,
+  edge: number,
+  format: "png" | "jpeg",
+  orientation: number,
+): Promise<Buffer> {
+  const dir = await mkdtemp(join(tmpdir(), "psyche-img-"));
+  try {
+    const input = join(dir, "in");
+    const output = join(dir, `out.${format === "jpeg" ? "jpg" : "png"}`);
+    await writeFile(input, bytes);
+    const [first = [], ...rest] = UPRIGHT[orientation] ?? [];
+    // sips exits 0 and writes nothing for an input it skips ("not a valid file"): the read decides.
+    await run(
+      "/usr/bin/sips",
+      ["-s", "format", format, "-Z", String(edge), ...first, input, "--out", output],
+      { timeout: 15_000 },
+    );
+    for (const step of rest)
+      await run("/usr/bin/sips", [...step, output, "--out", output], { timeout: 15_000 });
+    return await readFile(output);
+  } finally {
+    await rm(dir, { recursive: true, force: true }).catch(() => undefined);
+  }
+}
+
+/**
+ * A JPEG's EXIF orientation (1-8): the Orientation tag of IFD0 in its first `Exif` APP1 before
+ * SOS; 1 when there is none or it does not parse.
+ */
+export function jpegOrientation(b: Buffer): number {
+  if (b[0] !== 0xff || b[1] !== 0xd8) return 1;
+  let o = 2;
+  while (o + 4 <= b.length && b[o] === 0xff) {
+    const marker = b[o + 1] ?? 0;
+    if (marker === 0xda || marker === 0xd9) return 1;
+    const len = b.readUInt16BE(o + 2);
+    const body = o + 4;
+    if (marker === 0xe1 && b.subarray(body, body + 6).toString("latin1") === "Exif\u0000\u0000") {
+      const t = body + 6;
+      const end = Math.min(b.length, o + 2 + len);
+      const order = b.subarray(t, t + 2).toString("latin1");
+      if ((order !== "II" && order !== "MM") || t + 8 > end) return 1;
+      const u16 = (at: number) => (order === "II" ? b.readUInt16LE(at) : b.readUInt16BE(at));
+      const u32 = (at: number) => (order === "II" ? b.readUInt32LE(at) : b.readUInt32BE(at));
+      const ifd = t + u32(t + 4);
+      if (ifd + 2 > end) return 1;
+      const count = u16(ifd);
+      for (let i = 0; i < count; i++) {
+        const e = ifd + 2 + i * 12;
+        if (e + 12 > end) return 1;
+        if (u16(e) === 0x0112) {
+          const v = u16(e + 8);
+          return v >= 1 && v <= 8 ? v : 1;
+        }
+      }
+      return 1;
+    }
+    o += 2 + len;
+  }
+  return 1;
+}
+
+const overCaps = (s: { width: number; height: number }) =>
+  s.width > MAX_IMAGE_SIDE_PX ||
+  s.height > MAX_IMAGE_SIDE_PX ||
+  s.width * s.height > MAX_IMAGE_PIXELS;
+
+async function canvasReencode(
+  bytes: Buffer,
+  edge: number,
+  format: "png" | "jpeg",
+  size: { width: number; height: number },
+): Promise<Buffer> {
+  const { createCanvas, loadImage } = await import("@napi-rs/canvas");
+  // Skia decodes the whole bitmap when the image loads (no header-only read), so the strict
+  // header parse above is the gate; a decoded size that differs from it is refused all the same.
+  // EXIF orientation 5-8 decodes with width and height swapped, which is the same picture.
+  const image = await loadImage(bytes);
+  const same = image.width === size.width && image.height === size.height;
+  const rotated = image.width === size.height && image.height === size.width;
+  if (!(same || rotated) || overCaps(image) || image.width * image.height > CANVAS_MAX_PIXELS)
+    throw new Error("decoded size differs from the header");
+  const scale = edge / Math.max(image.width, image.height);
+  const width = Math.max(1, Math.round(image.width * scale));
+  const height = Math.max(1, Math.round(image.height * scale));
+  const canvas = createCanvas(width, height);
+  canvas.getContext("2d").drawImage(image, 0, 0, width, height);
+  return format === "png" ? await canvas.encode("png") : await canvas.encode("jpeg", 85);
+}
+
+/**
+ * PNG chunks an encoder's output keeps: the picture, its palette, its transparency and its
+ * colour space (sRGB, an ICC profile or cICP code points: a Display P3 screenshot keeps its
+ * colours).
+ */
+const PNG_KEEP = new Set(["IHDR", "PLTE", "tRNS", "sRGB", "iCCP", "cICP", "IDAT", "IEND"]);
+
+/** Largest colour profile kept: system profiles are a few hundred bytes (Display P3: 536). */
+export const ICC_MAX_BYTES = 8 * 1024;
+
+const isIccSegment = (b: Buffer, o: number) =>
+  b[o + 1] === 0xe2 && b.subarray(o + 4, o + 16).toString("latin1") === "ICC_PROFILE\u0000";
+
+/** Byte lengths of a JPEG's ICC_PROFILE APP2 segments before SOS (whole segments). */
+function jpegIccSegments(b: Buffer): number[] {
+  const out: number[] = [];
+  let o = 2;
+  while (o + 4 <= b.length && b[o] === 0xff && b[o + 1] !== 0xda) {
+    const len = b.readUInt16BE(o + 2);
+    if (isIccSegment(b, o)) out.push(2 + len);
+    o += 2 + len;
+  }
+  return out;
+}
+
+/**
+ * Whether a PNG iCCP chunk's data (name, NUL, method 0, zlib stream) is a profile small enough
+ * to keep: it must inflate to at most `ICC_MAX_BYTES`. Inflating stops at that size.
+ */
+function smallIccp(data: Buffer): boolean {
+  const nul = data.indexOf(0);
+  if (nul < 1 || nul > 79 || data[nul + 1] !== 0) return false;
+  try {
+    return inflateSync(data.subarray(nul + 2), { maxOutputLength: ICC_MAX_BYTES }).length > 0;
+  } catch {
+    return false;
+  }
+}
+
+/**
+ * An encoder's output with its metadata removed. PNG keeps IHDR, PLTE, tRNS, sRGB, cICP, IDAT
+ * and IEND, and iCCP when it inflates to at most 8 KB (text, EXIF and time chunks go). JPEG
+ * drops COM and APP1-APP13 and APP15 (EXIF, XMP, IPTC), except an ICC profile APP2 that is the
+ * only one and at most 8 KB, and keeps APP0 (JFIF), APP14 (Adobe colour transform) and
+ * everything the decoder needs; past SOS the data is copied as is. A profile that does not
+ * qualify is dropped, and the colours fall back to sRGB. Throws on output that does not parse.
+ */
+export function stripImageMetadata(b: Buffer): Buffer {
+  if (b[0] === 0x89 && b.subarray(1, 4).toString("latin1") === "PNG") {
+    const kept: Buffer[] = [b.subarray(0, 8)];
+    let o = 8;
+    while (o + 12 <= b.length) {
+      const len = b.readUInt32BE(o);
+      const end = o + 12 + len;
+      if (end > b.length) throw new Error("truncated PNG chunk");
+      const type = b.subarray(o + 4, o + 8).toString("latin1");
+      const keep = type === "iCCP" ? smallIccp(b.subarray(o + 8, end - 4)) : PNG_KEEP.has(type);
+      if (keep) kept.push(b.subarray(o, end));
+      o = end;
+      if (type === "IEND") return Buffer.concat(kept);
+    }
+    throw new Error("PNG without IEND");
+  }
+  if (b[0] === 0xff && b[1] === 0xd8) {
+    const kept: Buffer[] = [b.subarray(0, 2)];
+    // A profile is kept only whole in one small segment: sips copies a source's profile verbatim,
+    // so a multi-segment one could carry megabytes of arbitrary bytes past the strip.
+    const iccSegments = jpegIccSegments(b);
+    const keepIcc = iccSegments.length === 1 && (iccSegments[0] ?? 0) <= ICC_MAX_BYTES;
+    let o = 2;
+    while (o + 4 <= b.length) {
+      if (b[o] !== 0xff) throw new Error("bad JPEG marker");
+      const marker = b[o + 1] ?? 0;
+      if (marker === 0xda) return Buffer.concat([...kept, b.subarray(o)]);
+      const end = o + 2 + b.readUInt16BE(o + 2);
+      if (end > b.length) throw new Error("truncated JPEG segment");
+      const icc = isIccSegment(b, o);
+      const metadata =
+        marker === 0xfe ||
+        (marker >= 0xe1 && marker <= 0xef && marker !== 0xee && !(icc && keepIcc));
+      if (!metadata) kept.push(b.subarray(o, end));
+      o = end;
+    }
+    throw new Error("JPEG without SOS");
+  }
+  throw new Error("not a PNG or JPEG");
+}
+
+async function wicReencode(bytes: Buffer, edge: number, format: "png" | "jpeg"): Promise<Buffer> {
+  const dir = await mkdtemp(join(tmpdir(), "psyche-img-"));
+  try {
+    const out = await runWic(dir, bytes, edge, format);
+    if (out.length === 0) throw new Error("empty image");
+    return out;
   } finally {
     await rm(dir, { recursive: true, force: true }).catch(() => undefined);
   }
@@ -120,33 +457,43 @@ async function downscaleWithWic(bytes: Buffer, mime: string, maxEdge: number): P
   if (kind === undefined) return bytes;
   const dir = await mkdtemp(join(tmpdir(), "psyche-img-"));
   try {
-    const input = join(dir, "in");
-    const output = join(dir, "out");
-    const script = join(dir, "resize.ps1");
-    await writeFile(input, bytes);
-    await writeFile(script, WIC_SCRIPT, "utf8");
-    await run(
-      windowsPowerShell(),
-      [
-        "-NoLogo",
-        "-NoProfile",
-        "-NonInteractive",
-        "-ExecutionPolicy",
-        "Bypass",
-        "-File",
-        script,
-        input,
-        output,
-        String(maxEdge),
-        kind,
-      ],
-      { timeout: 20_000, windowsHide: true },
-    );
-    const out = await readFile(output);
+    const out = await runWic(dir, bytes, maxEdge, kind);
     return out.length > 0 && out.length < bytes.length * 4 ? out : bytes;
   } catch {
     return bytes;
   } finally {
     await rm(dir, { recursive: true, force: true }).catch(() => undefined);
   }
+}
+
+/** Runs the WIC script in `dir` (a fresh private temp folder); the output file's bytes. */
+async function runWic(
+  dir: string,
+  bytes: Buffer,
+  maxEdge: number,
+  kind: "png" | "jpeg",
+): Promise<Buffer> {
+  const input = join(dir, "in");
+  const output = join(dir, "out");
+  const script = join(dir, "resize.ps1");
+  await writeFile(input, bytes);
+  await writeFile(script, WIC_SCRIPT, "utf8");
+  await run(
+    windowsPowerShell(),
+    [
+      "-NoLogo",
+      "-NoProfile",
+      "-NonInteractive",
+      "-ExecutionPolicy",
+      "Bypass",
+      "-File",
+      script,
+      input,
+      output,
+      String(maxEdge),
+      kind,
+    ],
+    { timeout: 20_000, windowsHide: true },
+  );
+  return readFile(output);
 }

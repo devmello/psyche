@@ -513,6 +513,14 @@
     "maxFrameBytes": 1048576,
     "methods": [
       {
+        "description": "Confirms again a folder row of `access.list` marked `moved`: the folder is looked up now and shared where it leads, only if that is still `movedTo` (the place the owner saw) and a grant there would not be refused. A plain tap from an admin device, recorded and reported as that device's security setting change. False when there is nothing to confirm or the folder leads somewhere else now (read the list again).",
+        "name": "access.confirmFolder",
+        "params": "#/$defs/AccessConfirmFolderParams",
+        "result": "#/$defs/AccessConfirmFolderResult",
+        "scope": "operator.admin",
+        "sideEffecting": false
+      },
+      {
         "description": "Lists what the owner has given the agent access to: shared folders (always or for one chat) and standing grants, in one list for Settings.",
         "name": "access.list",
         "params": "#/$defs/AccessListParams",
@@ -4060,6 +4068,36 @@
     "protocolVersion": 1
   },
   "$defs": {
+    "AccessConfirmFolderParams": {
+      "properties": {
+        "entryId": {
+          "maxLength": 4200,
+          "minLength": 1,
+          "type": "string"
+        },
+        "movedTo": {
+          "maxLength": 4096,
+          "minLength": 1,
+          "type": "string"
+        }
+      },
+      "required": [
+        "entryId",
+        "movedTo"
+      ],
+      "type": "object"
+    },
+    "AccessConfirmFolderResult": {
+      "properties": {
+        "confirmed": {
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "confirmed"
+      ],
+      "type": "object"
+    },
     "AccessEntry": {
       "properties": {
         "id": {
@@ -4102,6 +4140,13 @@
         },
         "refused": {
           "type": "boolean"
+        },
+        "moved": {
+          "type": "boolean"
+        },
+        "movedTo": {
+          "maxLength": 4096,
+          "type": "string"
         },
         "threadId": {
           "description": "ULID in production",

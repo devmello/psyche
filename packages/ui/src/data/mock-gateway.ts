@@ -1912,6 +1912,8 @@ export class MockGateway implements GatewayClient {
       this.world.settings["permissions.policy"] = { ...policy, folders: kept };
       return { revoked: true };
     },
+    // The mock never marks a folder moved, so there is nothing to confirm.
+    "access.confirmFolder": () => ({ confirmed: false }),
     "grants.list": (p) => ({
       grants: this.world.grants.filter((g) => p.includeRevoked === true || g.revokedAt == null),
     }),

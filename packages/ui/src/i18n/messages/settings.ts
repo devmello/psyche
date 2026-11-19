@@ -915,6 +915,13 @@ export const settings = {
     "Channel added, but it is not running yet. Set {env} to this account where the Gateway runs, then restart it.",
   "settings.channels.add.added":
     "Channel added. It starts once the Gateway has {env} set to this account. Then message {persona} from it to get a pairing code, and approve it here.",
+  "settings.channels.add.storedNote":
+    "Already stored for this account: {names}. They are used as they are unless you replace them.",
+  "settings.channels.add.replace": "Replace stored tokens",
+  "settings.channels.add.statusFailed":
+    "Psyche couldn't check which tokens are already stored ({reason}). Nothing was changed.",
+  "settings.channels.add.storedTyped":
+    "Tokens are already stored for this account. Tick Replace stored tokens to use the ones you typed, or clear those fields. Nothing was changed.",
   "settings.channels.identities": "Identity links",
   "settings.channels.identitiesDescription":
     "One person across channels. Links change only from a paired device.",
@@ -1775,6 +1782,9 @@ export const settings = {
   "settings.access.loadLabel": "what Psyche can reach",
   "settings.access.loadFailed": "Psyche couldn't load what it can reach ({reason}).",
   "settings.access.unchanged": "Access is unchanged.",
+  "settings.access.moved": "Now points to {path} — confirm only if you moved it yourself",
+  "settings.access.confirm": "Confirm",
+  "settings.access.confirmNamed": "Confirm {name} again at {path}",
   "settings.files.sharedFolders": "Shared folders",
   "settings.files.noFolders": "No folders shared. {persona} works only in its own workspace.",
   "settings.files.shareFolder": "Share a folder",

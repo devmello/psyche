@@ -252,6 +252,71 @@ describe("close during a restart (finding 2)", () => {
       code: "unavailable",
     });
   });
+
+  it("close() returns while a launcher step is still held, and the late launch is cleaned up (round 3)", async () => {
+    const g = gatedLauncher();
+    const { host, toolsListHash } = await setup({ launcher: g.launcher });
+    await stopped(host);
+    const release = g.hold();
+    const a = host.callTool("mut", "ping", {}, { toolsListHash }).catch((e) => e);
+    await vi.waitFor(() => expect(g.log.at(-1)).toMatch(/^prepare#/));
+    const base = startCount();
+    // The prepare stays held: close() must not wait for it.
+    const closed = await Promise.race([
+      host.close().then(() => "closed"),
+      sleep(2000).then(() => "still waiting"),
+    ]);
+    expect(closed).toBe("closed");
+    expect(code(await a)).toBe("unavailable");
+    expect(await status(host)).not.toBe("connected");
+    release();
+    await vi.waitFor(() => expect(g.leaked()).toEqual([]));
+    // The late launch was never started.
+    await sleep(200);
+    expect(startCount()).toBe(base);
+  });
+
+  it("removeServer aborts a start's connect but still runs forget after the launcher step settles", async () => {
+    const g = gatedLauncher();
+    const { host, toolsListHash } = await setup({ launcher: g.launcher });
+    await stopped(host);
+    const release = g.hold();
+    const a = host.callTool("mut", "ping", {}, { toolsListHash }).catch((e) => e);
+    await vi.waitFor(() => expect(g.log.at(-1)).toMatch(/^prepare#/));
+    const removed = host.removeServer("mut");
+    await sleep(100);
+    // Not forgotten while the prepare could still recreate state (TM-18).
+    expect(g.log).not.toContain("forget:mut");
+    expect(code(await a)).toBe("not_found");
+    release();
+    await removed;
+    const forgot = g.log.indexOf("forget:mut");
+    expect(forgot).toBe(g.log.length - 1);
+    expect(g.leaked()).toEqual([]);
+  });
+});
+
+describe("the Gateway's checks while a server is stopped (round 3)", () => {
+  it("a server that became neverAutoStart while stopped is not woken by a call", async () => {
+    let checked = false;
+    const { host, toolsListHash } = await setup({ neverAutoStart: () => checked });
+    await stopped(host);
+    checked = true;
+    const base = startCount();
+    await expect(host.callTool("mut", "ping", {}, { toolsListHash })).rejects.toMatchObject({
+      code: "unavailable",
+      message: expect.stringMatching(/starts again only through Psyche's checks/),
+    });
+    expect(startCount()).toBe(base);
+    // Refused while the check says so; the approved listing stays pinned meanwhile.
+    expect(host.pinnedTools("mut").toolsListHash).toBe(toolsListHash);
+    // A check that failed only for a moment (an unreadable ledger, #1421 review) strands nothing:
+    // once it passes, the next call starts the server.
+    checked = false;
+    const r = await host.callTool("mut", "ping", {}, { toolsListHash });
+    expect(r.isError).toBe(false);
+    expect(startCount()).toBeGreaterThan(base);
+  });
 });
 
 describe("a slow stop and a new start (finding 3)", () => {
@@ -367,9 +432,33 @@ describe("a failed start that was superseded (finding 6)", () => {
       transport: { kind: "stdio", command: [process.execPath, SERVER, desc, starts, poison] },
     } as Parameters<PsycheMcpHost["addServer"]>[0]);
     await vi.waitFor(() => expect(g.log).toContain("prepare#1"));
-    await host.removeServer("mut");
+    // removeServer now waits for the held prepare before `forget` (round 3): release it first.
+    const removing = host.removeServer("mut");
+    release();
+    await removing;
+    await adding.catch(() => undefined);
+    await vi.waitFor(() => expect(g.leaked()).toEqual([]));
+  });
+
+  it("cleans up its own launch when a newer connect superseded it without an abort", async () => {
+    const g = gatedLauncher();
+    const host = new PsycheMcpHost({ bundledServerIds: ["mut"], launcher: g.launcher });
+    hosts.push(host);
+    writeFileSync(poison, "x");
+    const release = g.hold();
+    const adding = host.addServer({
+      id: "mut",
+      name: "Mutable",
+      trust: "bundled",
+      transport: { kind: "stdio", command: [process.execPath, SERVER, desc, starts, poison] },
+    } as Parameters<PsycheMcpHost["addServer"]>[0]);
+    await vi.waitFor(() => expect(g.log).toContain("prepare#1"));
+    // Both starts hold in prepare; the first one's launch is then overwritten by the second's.
+    const again = host.connect("mut");
+    await vi.waitFor(() => expect(g.log).toContain("prepare#2"));
     release();
     await adding.catch(() => undefined);
+    await again.catch(() => undefined);
     await vi.waitFor(() => expect(g.leaked()).toEqual([]));
   });
 });
