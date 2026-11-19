@@ -26,6 +26,7 @@ import {
   type WindowMaterial,
   windowMaterial,
 } from "./window-options.ts";
+import { askBeforeUnload, loadUnloadStrings } from "./unsaved-unload.ts";
 import { quickEntryBounds, type Rect, settingsWindowBounds } from "./window-placement.ts";
 
 /**
@@ -276,6 +277,8 @@ export function createAppWindows(opts: WindowOptions): AppWindows {
       },
     });
     win.contentView.addChildView(view, 0); // index 0: agent tab views stay above the app view
+    loadUnloadStrings(() => app.getSystemLocale());
+    askBeforeUnload(view.webContents, win);
     // Windows: the app menu's accelerators work in every window; its bar is never drawn.
     if (hostPlatform() === "win32") hideMenuBar(win);
     const layout = () => {

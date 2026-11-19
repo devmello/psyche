@@ -84,4 +84,8 @@ if (typeof window !== "undefined" && typeof window.addEventListener === "functio
   window.addEventListener("beforeunload", (e) => {
     if (drafts.size > 0 || live.size > 0) e.preventDefault();
   });
+  // The desktop app asks this before it frees a hidden renderer (apps/desktop/src/main/release.ts):
+  // a draft kept for a tab that isn't showing has no text field on the page to find.
+  (window as { psycheUnsavedFiles?: () => boolean }).psycheUnsavedFiles = () =>
+    drafts.size > 0 || live.size > 0;
 }
