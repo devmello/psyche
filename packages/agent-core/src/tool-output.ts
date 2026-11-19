@@ -54,7 +54,10 @@ const note = (text: string): TextPart => ({ type: "text", text: `[${text}]` });
 class ImageBudget {
   count = 0;
   chars = 0;
-  constructor(readonly o: NormalizeOptions) {}
+  readonly o: NormalizeOptions;
+  constructor(o: NormalizeOptions) {
+    this.o = o;
+  }
 
   async take(data: string): Promise<ImagePart | TextPart> {
     if (this.o.failed === true) return note("image omitted from an error result");
