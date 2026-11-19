@@ -2963,6 +2963,12 @@ export class PsycheAgentLoop implements AgentLoop {
         taskId: run.taskId ?? null,
         toolCallId: call.id,
         approvalId: g.approvalId ?? null,
+        // The standing grant that let it through, so a resume can tell this call succeeded.
+        ...(g.authority?.grantId === undefined
+          ? {}
+          : {
+              payload: { grantId: g.authority.grantId, bindingHash: g.authority.bindingHash },
+            }),
       });
       result = { ...result, receiptId: receipt.id };
     }
@@ -3572,6 +3578,12 @@ export class PsycheAgentLoop implements AgentLoop {
         taskId: run.taskId ?? null,
         toolCallId: actionId,
         approvalId: g.approvalId ?? null,
+        // The standing grant that let it through, so a resume can tell this call succeeded.
+        ...(g.authority?.grantId === undefined
+          ? {}
+          : {
+              payload: { grantId: g.authority.grantId, bindingHash: g.authority.bindingHash },
+            }),
       });
       receiptId = receipt.id;
       this.#block(run, { type: "receipt", receiptId });

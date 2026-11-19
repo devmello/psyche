@@ -56,8 +56,9 @@ Out of scope: <neighbouring areas other sessions own>
 4. **Send findings back.** Use `SendMessage` to the builder session, with numbered findings, file:line, and what "fixed" means. It fixes, verifies and reports. Then go back to step 2.
    - **Classifier-like work:** have the reviewer write its probes as two lists, "must match" and "must not". Send them as rows for the builder's table test. In #1301 the two-way probe lists caught what three rounds of one-way fixes missed.
    - **Owner decisions:** when you relay one that flips behaviour, tell the builder to grep the tests for the old expectation and run `verify.sh` before reporting. #1300 left `model-settings.test.ts` stale.
-   - **Re-reviews** read the whole diff since the last reviewed head, not only the listed findings. In #1299 R2 and #1301 R2–R4, a fix opened the next hole.
-5. **Escalate.** Escalate after 2 failed rounds on the same finding, after 2 rounds of blocking findings in one area even if each finding differs (#1301 was switched to Opus after R2), or when a builder is stuck or confused. Switch it up a tier (`set_session_model`) or start a fresh tier-X session with everything learned. Note the failure for `reflect`.
+   - **Narrowing or classifier checks:** ask the reviewer to probe through the real engine (`decide()`), not only the pure function (#1354 r1 to r3).
+   - **Re-reviews after a main merge** diff the PR's own first-parent commits, so the merge doesn't bury the fix (#1354 r2). They read the whole diff since the last reviewed head, not only the listed findings. In #1299 R2 and #1301 R2–R4, a fix opened the next hole.
+5. **Escalate.** Escalate after 2 failed rounds on the same finding, after 2 rounds of blocking findings in one area even if each finding differs (#1301 was switched to Opus after R2), or when a builder is stuck or confused. Switch it up a tier (`set_session_model`) or start a fresh tier-X session with everything learned. For a small, contained area, fix it yourself after the second blocking round: #1354 r2 did, and r3 came back clean. Note the failure for `reflect`.
 
 ## 4. Merge
 
@@ -65,7 +66,7 @@ Out of scope: <neighbouring areas other sessions own>
 - **New action path:** for a PR that adds a tool or route that acts, put "check against every existing prohibition" into the review brief (#1315 skipped #1321's block).
 - **Briefs:** for a decoder or redaction change, ask for the three-way fuzz (before, main, head) with counts (#1342, #1345). For a bulk-approval set, say "allowlist". For a UI test of approvals or grants, say "real Gateway shapes" (#1346). For anything that persists, say "test the real store" (#1333).
 - **Message files:** a PR that adds English strings naming Mac or Touch ID is not "i18n only": the platform variants and `platform-linux/windows` tests must pass (#1338 broke main).
-- **Reviewers and verifiers:** tell them to run verify in the foreground, report once, and not to wait with `pgrep -f` (load 26 from duplicate verifies; repeated reports).
+- **Reviewers, verifiers and builders:** run verify in the foreground, report once, and don't wait with `pgrep -f` (load 26 from duplicate verifies; repeated reports). Say that `tsc` runs only via verify or alone (load 22 with overlapping full runs and loose `tsc`). Stagger dispatches so full verifies don't queue 45+ minutes. For a PR that adds a field to approvals or answers, say "real SQLite round trip" (#1355). For a getter that redacts, say "the raw setter must refuse or merge-preserve" (#1351).
 
 - Merge only after step 2 passes, plus step 3 for security PRs. Standing owner authorization (2026-11-05) covers this while Actions is locked: `gh pr merge <n> --merge --admin --match-head-commit <reviewed sha>`.
 - After a merge wave, check that main still builds for touched packages, and tell the owner in plain words what changed and what they must check by hand.
