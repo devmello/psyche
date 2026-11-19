@@ -51,6 +51,9 @@ pub struct State {
     pub keyboard_grabbed_after_chunks: Option<usize>,
     /// After this many key presses, another client grabs the keyboard (Alt+P opening dmenu).
     pub keyboard_grabbed_after_keys: Option<usize>,
+    /// Desktop ids whose winning entry is one the agent could have written
+    /// (`~/.local/share/applications`): `check_launch` and `launch` refuse them.
+    pub untrusted_entries: Vec<String>,
 }
 
 pub struct Fake {
@@ -280,6 +283,25 @@ impl Fake {
     fn push(&self, line: String) {
         self.s.lock().unwrap().log.push(line);
     }
+
+    fn trusted_entry(&self, id: &str) -> CapResult<()> {
+        if self
+            .s
+            .lock()
+            .unwrap()
+            .untrusted_entries
+            .iter()
+            .any(|u| u.eq_ignore_ascii_case(id))
+        {
+            let file = format!("/home/me/.local/share/applications/{id}.desktop");
+            return Err(crate::trust::untrusted_entry(
+                id,
+                std::path::Path::new(&file),
+                &crate::trust::Untrusted::OwnedByHelper("/home/me".into()),
+            ));
+        }
+        Ok(())
+    }
 }
 
 impl Default for Fake {
@@ -351,8 +373,16 @@ impl Backend for Fake {
         s.focus_pid = Some(app.pid);
         Ok(true)
     }
-    fn launch(&self, id: &str, _url: Option<&str>) -> CapResult<Value> {
-        self.push(format!("launch {id}"));
+    fn check_launch(&self, id: &str) -> CapResult<()> {
+        self.push(format!("check_launch {id}"));
+        self.trusted_entry(id)
+    }
+    fn launch(&self, id: &str, url: Option<&str>) -> CapResult<Value> {
+        self.trusted_entry(id)?;
+        match url {
+            Some(u) => self.push(format!("launch {id} {u}")),
+            None => self.push(format!("launch {id}")),
+        }
         Ok(json!({"bundleId": id}))
     }
     fn begin_walk(&self, _budget: Duration) {}

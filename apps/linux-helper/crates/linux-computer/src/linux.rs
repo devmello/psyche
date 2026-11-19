@@ -133,6 +133,38 @@ impl LinuxBackend {
             .clone()
     }
 
+    /// The desktop entry `apps.open` may launch for `id` and the file to hand to `gio launch`:
+    /// the entry must be indexed (else `not_found/app_not_installed`), and the file XDG lookup
+    /// picks for it must be trusted (`policy_denied/untrusted_desktop_entry`, see
+    /// [`crate::trust`]). Notes `Terminal=true` from that very file, so the cap applies even when
+    /// the index parsed another one.
+    fn trusted_desktop_file(
+        &self,
+        id: &str,
+    ) -> CapResult<(app_id::DesktopEntry, std::path::PathBuf)> {
+        let index = self.desktop_index();
+        let entry = index.get(id).cloned().ok_or_else(|| {
+            CapError::new(
+                code::NOT_FOUND,
+                "app_not_installed",
+                format!(
+                    "{id} is not an installed app. Use apps.list or the app's desktop file id."
+                ),
+            )
+        })?;
+        let dirs = DesktopIndex::default_dirs(&|k| (self.env)(k));
+        // SAFETY: geteuid has no preconditions and cannot fail.
+        let own_uid = unsafe { libc::geteuid() };
+        let fs = crate::trust::RealFs;
+        let file = crate::trust::launchable_desktop_file(&fs, &dirs, &entry.id, own_uid)?;
+        if let Some(bytes) = crate::trust::FsView::read(&fs, &file) {
+            if app_id::desktop_entry_runs_in_terminal(&String::from_utf8_lossy(&bytes)) {
+                app_id::note_runs_in_terminal(&entry.id);
+            }
+        }
+        Ok((entry, file))
+    }
+
     /// For Settings (`portal.status`'s `killSwitch`): X11, the last Escape grab worked (or none
     /// was tried yet); a portal session, its `Closed` is watched while it is open.
     pub fn kill_switch_status(&self) -> bool {
@@ -305,46 +337,32 @@ impl Backend for LinuxBackend {
         }
     }
 
+    fn check_launch(&self, id: &str) -> CapResult<()> {
+        self.trusted_desktop_file(id).map(|_| ())
+    }
+
     fn launch(&self, id: &str, url: Option<&str>) -> CapResult<Value> {
-        let index = self.desktop_index();
-        let entry = index.get(id).ok_or_else(|| {
-            CapError::new(
-                code::NOT_FOUND,
-                "app_not_installed",
-                format!(
-                    "{id} is not an installed app. Use apps.list or the app's desktop file id."
-                ),
-            )
-        })?;
+        // Checked again here: the agent may have written a shadowing entry while a card waited.
+        let (entry, file) = self.trusted_desktop_file(id)?;
         // Launch through GLib, which implements the Desktop Entry rules (field codes, DBus
         // activation, Terminal=true) and puts the app in its own scope. The accessibility
-        // switches make Qt, GTK and Firefox export their trees (design §6.1).
-        let file = DesktopIndex::default_dirs(&|k| (self.env)(k))
-            .into_iter()
-            .map(|d| d.join("applications").join(format!("{}.desktop", id)))
-            .chain(
-                DesktopIndex::default_dirs(&|k| (self.env)(k))
-                    .into_iter()
-                    .filter_map(|d| std::fs::read_dir(d.join("applications")).ok())
-                    .flatten()
-                    .flatten()
-                    .map(|e| e.path()),
+        // switches make Qt, GTK and Firefox export their trees (design §6.1). `file` is the
+        // trusted entry XDG lookup picks; nothing on its path is writable by this account, so it
+        // is what gio reads.
+        // gio from the system dirs, and the system dirs as PATH: GLib resolves a bare `Exec=`
+        // command (and the terminal) through PATH, which usually starts with ~/.local/bin.
+        // SAFETY: geteuid has no preconditions and cannot fail.
+        let own_uid = unsafe { libc::geteuid() };
+        let fs = crate::trust::RealFs;
+        let gio = crate::trust::trusted_program(&fs, "gio", own_uid).ok_or_else(|| {
+            CapError::unavailable(
+                "launch_failed",
+                "gio (GLib) is not installed system-wide, so Psyche cannot open apps",
             )
-            .find(|p| {
-                p.file_name().and_then(|f| f.to_str()).is_some_and(|f| {
-                    f.strip_suffix(".desktop").map(app_id::normalize).as_deref()
-                        == Some(entry.id.as_str())
-                })
-            })
-            .ok_or_else(|| {
-                CapError::new(
-                    code::NOT_FOUND,
-                    "app_not_installed",
-                    format!("{id} has no desktop file"),
-                )
-            })?;
-        let mut cmd = std::process::Command::new("gio");
+        })?;
+        let mut cmd = std::process::Command::new(gio);
         cmd.arg("launch").arg(&file);
+        cmd.env("PATH", crate::trust::trusted_search_path(&fs, own_uid));
         if let Some(u) = url {
             cmd.arg(u);
         }

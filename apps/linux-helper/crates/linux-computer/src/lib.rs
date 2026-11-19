@@ -10,7 +10,8 @@
 //! - **Platform-neutral** (builds and unit-tests anywhere): [`snapshot`] (refs, budgets,
 //!   pruning, rendering), [`roles`] (AT-SPI roles to the Mac role vocabulary), [`tiers`] (tiers,
 //!   fixed caps, approvals, session lock, stop signal), [`keychord`], [`hygiene`] (redaction
-//!   geometry), [`target_check`], [`app_id`] (desktop-file ids), [`spec`] (capability specs) and
+//!   geometry), [`target_check`], [`app_id`] (desktop-file ids), [`trust`] (files the agent
+//!   cannot have written), [`spec`] (capability specs) and
 //!   [`engine`] (the dispatcher, generic over the [`backend`] traits).
 //! - **Linux backends** behind `cfg(target_os = "linux")`: `a11y` (AT-SPI over zbus), `x11`
 //!   (XTest, XShm, the Escape grab), `portal` (RemoteDesktop + ScreenCast with restore tokens,
@@ -40,6 +41,7 @@ pub mod snapshot;
 pub mod spec;
 pub mod target_check;
 pub mod tiers;
+pub mod trust;
 #[cfg(target_os = "linux")]
 pub mod x11;
 

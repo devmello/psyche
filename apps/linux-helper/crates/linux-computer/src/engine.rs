@@ -18,9 +18,10 @@ use crate::snapshot::{
     SnapshotBuilder, SnapshotNode, SnapshotOptions,
 };
 use crate::tiers::{
-    fixed_caps, risk_labels, ApprovalBinding, Intent, SessionLock, StopSignal, TierPolicy,
-    TierSettings,
+    cap_for, fixed_caps, risk_labels, ApprovalBinding, Intent, SessionLock, StopSignal, Tier,
+    TierPolicy,
 };
+use crate::trust::SettingsSource;
 use serde::de::DeserializeOwned;
 use serde::Deserialize;
 use serde_json::{json, Map, Value};
@@ -155,18 +156,34 @@ fn focus_moved(app: &AppInfo) -> CapError {
     .retryable()
 }
 
-/// `conflict/keyboard_grabbed`: another program (a launcher such as dmenu or rofi) holds the
-/// keyboard, so keys would reach it instead of the app the focus check names.
+/// `conflict/keyboard_grabbed`: a client holds the keyboard, so keys would reach it instead of
+/// the app the focus check names. That is either the app's own open menu or popup (GTK and Qt
+/// menus and combobox lists grab the keyboard), or another program (a launcher such as dmenu or
+/// rofi).
 fn keyboard_grabbed(app: &AppInfo) -> CapError {
     CapError::new(
         code::CONFLICT,
         "keyboard_grabbed",
         format!(
-            "Another program holds the keyboard (a launcher like dmenu or rofi, or a menu), so input to {} was not sent. Close it and retry.",
-            app.name
+            "The keyboard is held, so input to {app} was not sent. If {app}'s own menu or popup is open, use computer.menu, or take a new snapshot and act on the menu item by its ref instead of sending keys. Otherwise another program (a launcher like dmenu or rofi) holds the keyboard: ask the owner to close it, then retry.",
+            app = app.name
         ),
     )
     .detail("app", app.id.as_str())
+}
+
+/// `policy_denied/open_url_capped`: `apps.open` with a URL for an app capped at click or lower.
+fn open_url_capped(id: &str, cap: Tier) -> CapError {
+    CapError::new(
+        code::POLICY_DENIED,
+        "open_url_capped",
+        format!(
+            "{id} is capped at {}; Psyche does not open files or links with it. Open the app without a URL.",
+            cap.as_str()
+        ),
+    )
+    .detail("app", id)
+    .detail("cap", cap.as_str())
 }
 
 /// `conflict/focus_unknown`: nothing says which app has keyboard focus (an app that reports no
@@ -313,7 +330,7 @@ pub struct Engine<B: Backend> {
     refs: Mutex<RefTable<B::Element>>,
     last: Mutex<(Vec<SnapshotNode>, SnapshotOptions)>,
     primed: Mutex<HashSet<u32>>,
-    settings_path: PathBuf,
+    settings: SettingsSource,
     on_user_stop: Mutex<Option<UserStopFn>>,
     own_pid: u32,
     /// This helper is the separate desktop's guest (see [`Engine::set_guest`]).
@@ -323,8 +340,15 @@ pub struct Engine<B: Backend> {
 const SNAPSHOT_BUDGET: Duration = Duration::from_secs(12);
 
 impl<B: Backend> Engine<B> {
+    /// An engine reading Settings → Computer use from `settings_path` (the Host's file).
     pub fn new(backend: Arc<B>, settings_path: PathBuf) -> Arc<Engine<B>> {
-        let policy = TierPolicy::new(TierSettings::load(&settings_path), None, None);
+        Engine::with_settings(backend, SettingsSource::File(settings_path))
+    }
+
+    /// An engine reading its settings from `settings` on every load (see
+    /// [`SettingsSource::choose`]: the separate desktop's guest uses a trusted file or defaults).
+    pub fn with_settings(backend: Arc<B>, settings: SettingsSource) -> Arc<Engine<B>> {
+        let policy = TierPolicy::new(settings.load(), None, None);
         let b2 = backend.clone();
         let engine = Arc::new(Engine {
             backend,
@@ -334,7 +358,7 @@ impl<B: Backend> Engine<B> {
             refs: Mutex::new(RefTable::default()),
             last: Mutex::new((Vec::new(), SnapshotOptions::default())),
             primed: Mutex::new(HashSet::new()),
-            settings_path,
+            settings,
             on_user_stop: Mutex::new(None),
             own_pid: std::process::id(),
             guest: AtomicBool::new(false),
@@ -404,7 +428,55 @@ impl<B: Backend> Engine<B> {
     }
 
     pub fn reload_settings(&self) {
-        self.policy.update(TierSettings::load(&self.settings_path));
+        self.policy.update(self.settings.load());
+    }
+
+    /// `apps.open`: launch (or bring forward) an installed app by desktop id, optionally with a
+    /// `file:` document or a `mailto:` draft. In order:
+    /// 1. the id and the URL scheme (web pages go through the agent browser);
+    /// 2. the backend's launch check ([`Backend::check_launch`]): the desktop entry XDG would
+    ///    launch must be one the agent cannot have written, and the desktop index is loaded so
+    ///    `Terminal=true` entries are capped before the tier check;
+    /// 3. a URL only for apps whose cap is above click (mirrors the Gateway's
+    ///    `assertOpenAllowed`): terminals, IDEs, `Terminal=true` entries and browsers do not get
+    ///    files or links;
+    /// 4. the tier (click), which may ask the owner;
+    /// 5. the launch, which checks the entry again (it may have changed while a card waited).
+    pub fn open_app(&self, params: &Value, approval: Option<&ApprovalBinding>) -> CapResult<Value> {
+        let get = |k: &str| params.get(k).and_then(Value::as_str).map(str::to_string);
+        let id = get("bundleId")
+            .or_else(|| get("app"))
+            .ok_or_else(|| CapError::invalid_params("bundleId is required", Some("bundleId")))?;
+        if !crate::app_id::is_app_id(&id) {
+            return Err(CapError::invalid_params(
+                "bundleId is not an app id",
+                Some("bundleId"),
+            ));
+        }
+        let id = crate::app_id::normalize(&id);
+        let url = get("url");
+        if let Some(u) = &url {
+            let l = u.to_ascii_lowercase();
+            if !(l.starts_with("file:") || l.starts_with("mailto:"))
+                || u.chars().any(char::is_control)
+            {
+                return Err(CapError::new(
+                    code::POLICY_DENIED,
+                    "url_scheme",
+                    "apps.open opens file: and mailto: URLs only",
+                ));
+            }
+        }
+        self.backend.check_launch(&id)?;
+        if url.is_some() {
+            let cap = cap_for(Some(&id), &self.policy.settings());
+            if cap <= Tier::Click {
+                return Err(open_url_capped(&id, cap));
+            }
+        }
+        self.policy
+            .authorize(Intent::Click, Some(&id), &id, approval)?;
+        self.backend.launch(&id, url.as_deref())
     }
 
     /// Session lock for one mutating call. The Gateway must name the session (the run id).

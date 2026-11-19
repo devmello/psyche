@@ -182,7 +182,13 @@ pub trait Backend: TreeSource<Element: Send + 'static> + Send + Sync + 'static {
     /// Brings the app (or one of its windows) forward. `Ok(true)` when focus moved, `Ok(false)`
     /// when it was only requested (GNOME on Wayland), an error for `focus_denied`.
     fn activate(&self, app: &AppInfo, window: Option<usize>, stop: &StopSignal) -> CapResult<bool>;
-    /// Launches an app by desktop id, with an optional `file:` or `mailto:` URL.
+    /// Whether `id` may be launched, before any approval card: the desktop entry XDG lookup
+    /// would pick must be trusted ([`crate::trust::launchable_desktop_file`]; refused with
+    /// `policy_denied/untrusted_desktop_entry`), and the desktop index is loaded so a
+    /// `Terminal=true` entry is capped at click by the tier check that follows.
+    fn check_launch(&self, id: &str) -> CapResult<()>;
+    /// Launches an app by desktop id, with an optional `file:` or `mailto:` URL. Repeats the
+    /// trust check of [`Backend::check_launch`] right before launching.
     fn launch(&self, id: &str, url: Option<&str>) -> CapResult<Value>;
 
     // --- the tree -----------------------------------------------------------------------------

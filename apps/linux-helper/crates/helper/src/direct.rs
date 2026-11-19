@@ -24,12 +24,13 @@ mod linux {
     use psyche_linux_computer::backend::Backend;
     use psyche_linux_computer::backend::Frame;
     use psyche_linux_computer::engine::{Engine, Invocation};
-    use psyche_linux_computer::error::{code, CapError};
+    use psyche_linux_computer::error::CapError;
     use psyche_linux_computer::linux::{LinuxBackend, Path, SessionKind};
     use psyche_linux_computer::portal::{Portal, PortalPath};
     use psyche_linux_computer::snapshot::Rect;
     use psyche_linux_computer::spec::{specs, CapSpecLite};
     use psyche_linux_computer::tiers::{ApprovalBinding, Intent, TierSettings};
+    use psyche_linux_computer::trust::SettingsSource;
     use psyche_linux_computer::x11::X11;
     use psyche_protocol::{ErrorCode, SideEffect, TargetKind};
     use serde_json::{json, Map, Value};
@@ -119,9 +120,16 @@ mod linux {
             };
             let a11y = Arc::new(A11y::connect().map_err(|e| cap_error(&e))?);
             let backend = Arc::new(LinuxBackend::new(a11y, path));
-            let home = psyche_home();
-            let engine = Engine::new(backend, home.join("config").join("computer-use.json"));
-            engine.set_guest(is_separate_desktop_guest(&env_get));
+            let guest = is_separate_desktop_guest(&env_get);
+            // The Host: $PSYCHE_HOME/config/computer-use.json. The guest: only the image's
+            // root-owned file named by PSYCHE_COMPUTER_USE_SETTINGS, while it stays trusted
+            // (apps in the guest run as this account and can write $PSYCHE_HOME), else the
+            // built-in defaults. Every reload goes through the same source.
+            // SAFETY: geteuid has no preconditions and cannot fail.
+            let own_uid = unsafe { libc::geteuid() };
+            let settings = SettingsSource::choose(guest, &env_get, &psyche_home(), own_uid);
+            let engine = Engine::with_settings(backend, settings);
+            engine.set_guest(guest);
             *guard = Some(engine.clone());
             Ok(engine)
         }
@@ -212,7 +220,7 @@ mod linux {
                 },
                 AppsOp::Open => CapabilitySpec {
                     name: "apps.open",
-                    description: "Open (launch or bring forward) an installed app by desktop file id, optionally with a file: document or a mailto: URL. Apps opened this way expose their accessibility tree.",
+                    description: "Open (launch or bring forward) an app installed system-wide (or through system Flatpak or snap) by desktop file id, optionally with a file: document or a mailto: URL. Apps capped at click or lower (terminals, IDEs, browsers) open without a URL. Apps opened this way expose their accessibility tree.",
                     side_effect: SideEffect::Write,
                     target_kind: Some(TargetKind::App),
                     streaming: false,
@@ -324,43 +332,11 @@ mod linux {
                         .collect();
                     Ok(json!({ "apps": apps }))
                 }
-                AppsOp::Open => {
-                    let id = get("bundleId").or_else(|| get("app")).ok_or_else(|| {
-                        cap_error(&CapError::invalid_params(
-                            "bundleId is required",
-                            Some("bundleId"),
-                        ))
-                    })?;
-                    if !psyche_linux_computer::app_id::is_app_id(&id) {
-                        return Err(cap_error(&CapError::invalid_params(
-                            "bundleId is not an app id",
-                            Some("bundleId"),
-                        )));
-                    }
-                    let id = psyche_linux_computer::app_id::normalize(&id);
-                    let url = get("url");
-                    if let Some(u) = &url {
-                        // Documents and mail drafts only: web pages go through the agent browser.
-                        let l = u.to_ascii_lowercase();
-                        if !(l.starts_with("file:") || l.starts_with("mailto:"))
-                            || u.chars().any(char::is_control)
-                        {
-                            return Err(cap_error(&CapError::new(
-                                code::POLICY_DENIED,
-                                "url_scheme",
-                                "apps.open opens file: and mailto: URLs only",
-                            )));
-                        }
-                    }
-                    engine
-                        .policy
-                        .authorize(Intent::Click, Some(&id), &id, binding.as_ref())
-                        .map_err(|e| cap_error(&e))?;
-                    engine
-                        .backend
-                        .launch(&id, url.as_deref())
-                        .map_err(|e| cap_error(&e))
-                }
+                // The id and URL checks, the trusted-entry check, the URL cap and the tier all
+                // live in the engine (`Engine::open_app`), where they are unit-tested.
+                AppsOp::Open => engine
+                    .open_app(&ctx.params, binding.as_ref())
+                    .map_err(|e| cap_error(&e)),
                 AppsOp::Focus => {
                     let id = get("app").ok_or_else(|| {
                         cap_error(&CapError::invalid_params("app is required", Some("app")))
@@ -669,6 +645,7 @@ mod linux {
     mod tests {
         use super::*;
         use crate::buildinfo::BuildInfo;
+        use psyche_linux_computer::error::code;
 
         fn registry() -> Registry {
             let mut r = Registry::standard(BuildInfo::current());

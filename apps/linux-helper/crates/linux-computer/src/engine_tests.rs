@@ -1593,3 +1593,206 @@ fn a_keyboard_grab_between_repeats_stops_the_key() {
         .count();
     assert_eq!(keys, 2);
 }
+
+#[test]
+fn a_grabbed_keyboard_points_the_agent_at_menus_and_refs() {
+    let r = rig(all_interact());
+    editor(&r);
+    r.fake.s.lock().unwrap().keyboard_grabbed = true;
+    let e = r
+        .engine
+        .invoke(
+            "computer.key",
+            &json!({"keys": "down", "app": "org.gnome.TextEditor", "session": "s1"}),
+            &inv(),
+        )
+        .err()
+        .unwrap();
+    assert_eq!(e.reason, "keyboard_grabbed");
+    for want in [
+        "computer.menu",
+        "new snapshot",
+        "ref",
+        "dmenu or rofi",
+        "owner",
+    ] {
+        assert!(e.message.contains(want), "{want}: {}", e.message);
+    }
+}
+
+// --- apps.open (round 3, findings 1 and 4) -------------------------------------------------------
+
+fn open(r: &Rig, params: Value) -> Result<Value, (String, String)> {
+    let binding = crate::tiers::ApprovalBinding::from(Some("ap1"), &params);
+    r.engine
+        .open_app(&params, binding.as_ref())
+        .map_err(|e| (e.code.to_string(), e.reason))
+}
+
+#[test]
+fn apps_open_refuses_an_entry_the_agent_could_have_written_before_any_card() {
+    // Default ask: a trusted entry would need a card, an untrusted one is refused first.
+    let r = rig(json!({"version": 1, "default": "ask"}));
+    r.fake
+        .s
+        .lock()
+        .unwrap()
+        .untrusted_entries
+        .push("org.gnome.Notes2".into());
+    let err = open(&r, json!({"bundleId": "org.gnome.Notes2"})).unwrap_err();
+    assert_eq!(
+        (err.0.as_str(), err.1.as_str()),
+        ("policy_denied", "untrusted_desktop_entry")
+    );
+    // Even with an approval for that app.
+    let err = open(
+        &r,
+        json!({"bundleId": "org.gnome.Notes2", "approval": {"app": "org.gnome.notes2", "tier": "interact"}}),
+    )
+    .unwrap_err();
+    assert_eq!(err.1, "untrusted_desktop_entry");
+    assert!(r.fake.log().iter().all(|l| !l.starts_with("launch ")));
+    // A trusted entry asks, then launches once approved.
+    let err = open(&r, json!({"bundleId": "org.gnome.TextEditor"})).unwrap_err();
+    assert_eq!(err.0, "approval_required");
+    open(
+        &r,
+        json!({"bundleId": "org.gnome.TextEditor", "approval": {"app": "org.gnome.texteditor", "tier": "click"}}),
+    )
+    .unwrap();
+    assert!(r
+        .fake
+        .log()
+        .contains(&"launch org.gnome.texteditor".to_string()));
+}
+
+#[test]
+fn apps_open_refuses_a_url_for_apps_capped_at_click_or_lower() {
+    let r =
+        rig(json!({"version": 1, "default": "interact", "caps": {"org.example.capped": "click"}}));
+    for id in ["org.gnome.Terminal", "code", "org.example.capped"] {
+        let e = r
+            .engine
+            .open_app(
+                &json!({"bundleId": id, "url": "file:///home/me/notes.txt"}),
+                None,
+            )
+            .unwrap_err();
+        assert_eq!(
+            (e.code, e.reason.as_str()),
+            ("policy_denied", "open_url_capped"),
+            "{id}"
+        );
+        assert!(
+            e.message
+                .contains("is capped at click; Psyche does not open files or links with it"),
+            "{}",
+            e.message
+        );
+        let e = r
+            .engine
+            .open_app(
+                &json!({"bundleId": id, "url": "mailto:a@example.com"}),
+                None,
+            )
+            .unwrap_err();
+        assert_eq!(e.reason, "open_url_capped", "{id}");
+        // Without a URL the app opens as before.
+        r.engine.open_app(&json!({"bundleId": id}), None).unwrap();
+    }
+    // A read-capped browser gets no URL either.
+    let e = r
+        .engine
+        .open_app(
+            &json!({"bundleId": "firefox", "url": "file:///tmp/x.html"}),
+            None,
+        )
+        .unwrap_err();
+    assert_eq!(e.reason, "open_url_capped");
+    assert!(e.message.contains("capped at read"), "{}", e.message);
+    // An ordinary app still opens a document.
+    r.engine
+        .open_app(
+            &json!({"bundleId": "org.gnome.TextEditor", "url": "file:///home/me/notes.txt"}),
+            None,
+        )
+        .unwrap();
+    let with_url: Vec<String> = r
+        .fake
+        .log()
+        .into_iter()
+        .filter(|l| l.starts_with("launch ") && l.contains(':'))
+        .collect();
+    assert_eq!(
+        with_url,
+        vec!["launch org.gnome.texteditor file:///home/me/notes.txt".to_string()]
+    );
+    // The scheme rule still comes first.
+    let e = r
+        .engine
+        .open_app(
+            &json!({"bundleId": "org.gnome.TextEditor", "url": "https://x.example"}),
+            None,
+        )
+        .unwrap_err();
+    assert_eq!(e.reason, "url_scheme");
+}
+
+#[test]
+fn apps_open_refuses_a_url_for_a_terminal_entry_once_indexed() {
+    let dir = tempfile::tempdir().unwrap();
+    let apps = dir.path().join("applications");
+    std::fs::create_dir_all(&apps).unwrap();
+    // An id no other test uses: the registry is process-wide.
+    std::fs::write(
+        apps.join("org.example.OpenTermTool.desktop"),
+        "[Desktop Entry]\nType=Application\nExec=opentermtool %F\nTerminal=true\n",
+    )
+    .unwrap();
+    let r = rig(all_interact());
+    let params = json!({"bundleId": "org.example.OpenTermTool", "url": "file:///home/me/x.py"});
+    // Before the index loads the entry is not known to run in a terminal (the Linux backend's
+    // check_launch loads it before this check).
+    r.engine.open_app(&params, None).unwrap();
+    crate::app_id::DesktopIndex::load(&[dir.path().to_path_buf()]);
+    let e = r.engine.open_app(&params, None).unwrap_err();
+    assert_eq!(
+        (e.code, e.reason.as_str()),
+        ("policy_denied", "open_url_capped")
+    );
+    assert!(e.message.contains("capped at click"), "{}", e.message);
+    r.engine
+        .open_app(&json!({"bundleId": "org.example.OpenTermTool"}), None)
+        .unwrap();
+}
+
+#[test]
+fn the_guest_ignores_a_settings_file_its_own_account_can_write() {
+    use crate::trust::SettingsSource;
+    use std::os::unix::fs::MetadataExt;
+    let dir = tempfile::tempdir().unwrap();
+    let path = dir.path().join("computer-use.json");
+    std::fs::write(&path, br#"{"version":1,"default":"interact"}"#).unwrap();
+    let me = std::fs::metadata(&path).unwrap().uid();
+    let fake = Arc::new(Fake::new());
+    let engine = Engine::with_settings(
+        fake.clone(),
+        SettingsSource::Trusted {
+            path: path.clone(),
+            own_uid: me,
+        },
+    );
+    engine.reload_settings();
+    assert_eq!(
+        engine.policy.settings(),
+        crate::tiers::TierSettings::default()
+    );
+    let e = engine
+        .open_app(&json!({"bundleId": "org.gnome.TextEditor"}), None)
+        .unwrap_err();
+    assert_eq!(e.reason, "tier_ask");
+    // The Host's file at the same place is read.
+    let host = Engine::new(fake, path);
+    host.open_app(&json!({"bundleId": "org.gnome.TextEditor"}), None)
+        .unwrap();
+}
