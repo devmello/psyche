@@ -1,15 +1,10 @@
 // @vitest-environment happy-dom
-import { type GatewayCall, GatewayProvider, resetFileDrafts, toBase64 } from "@psyche/ui";
+import { GatewayProvider, resetFileDrafts } from "@psyche/ui";
 import { MockGateway } from "@psyche/ui/testing";
 import type { SheetEditorProps } from "@psyche/viewers";
-import { act, cleanup, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
+import { act, cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
-import {
-  ComposedFilesPane,
-  conversionUnavailableMessage,
-  gatewayConversion,
-  viewerItemOf,
-} from "../../src/compose/viewers.tsx";
+import { ComposedFilesPane } from "../../src/compose/viewers.tsx";
 
 // CodeMirror needs a real layout engine: stand a textarea in for the Markdown editor.
 vi.mock("@psyche/viewers", async (orig) => ({
@@ -24,9 +19,8 @@ afterEach(() => {
   resetFileDrafts();
 });
 
-const gatewayError = (code: string, details?: unknown) =>
+const _gatewayError = (code: string, details?: unknown) =>
   Object.assign(new Error(`${code} from the Gateway`), { code, details });
-
 
 const NOTES = "/Users/you/Notes";
 const stamp = "2026-11-19T08:00:00Z";
@@ -35,7 +29,10 @@ function setupCsv() {
   resetFileDrafts();
   const gw = new MockGateway({
     settings: { "permissions.policy": { folders: [{ path: NOTES, mode: "rw" }] } },
-    files: { [NOTES]: { kind: "folder" }, [CSV]: { kind: "file", text: "name,qty\napple,3\n", modifiedAt: stamp } },
+    files: {
+      [NOTES]: { kind: "folder" },
+      [CSV]: { kind: "file", text: "name,qty\napple,3\n", modifiedAt: stamp },
+    },
   });
   type Runtime = Awaited<ReturnType<NonNullable<SheetEditorProps["sheetEditor"]>>>;
   const state: { data?: unknown; emit?: () => void } = {};
@@ -43,14 +40,35 @@ function setupCsv() {
     mount(_el: HTMLElement, data: unknown) {
       state.data = structuredClone(data);
       const listeners = new Set<() => void>();
-      state.emit = () => { for (const l of listeners) l(); };
-      return { snapshot: () => structuredClone(state.data), onChange(l: () => void) { listeners.add(l); return () => listeners.delete(l); }, dispose() {} };
+      state.emit = () => {
+        for (const l of listeners) l();
+      };
+      return {
+        snapshot: () => structuredClone(state.data),
+        onChange(l: () => void) {
+          listeners.add(l);
+          return () => listeners.delete(l);
+        },
+        dispose() {},
+      };
     },
   } as unknown as Runtime;
-  render(<GatewayProvider client={gw}><ComposedFilesPane target={CSV} navigate={() => undefined} sheetEditor={async () => runtime} /></GatewayProvider>);
+  render(
+    <GatewayProvider client={gw}>
+      <ComposedFilesPane
+        target={CSV}
+        navigate={() => undefined}
+        sheetEditor={async () => runtime}
+      />
+    </GatewayProvider>,
+  );
   const editCell = async () => {
     await waitFor(() => expect(state.emit).toBeDefined());
-    const sheets = (state.data as { sheets: Record<string, { cellData: Record<number, Record<number, unknown>> }> }).sheets;
+    const sheets = (
+      state.data as {
+        sheets: Record<string, { cellData: Record<number, Record<number, unknown>> }>;
+      }
+    ).sheets;
     (sheets["sheet-1"]?.cellData[1] as Record<number, unknown>)[1] = { v: 9, t: 2 };
     act(() => state.emit?.());
   };
@@ -76,9 +94,15 @@ describe("a dropped spreadsheet draft stays dropped", () => {
     const { gw, editCell, state } = setupCsv();
     fireEvent.click(await screen.findByRole("button", { name: "Edit" }));
     await editCell();
-    gw.world.files[CSV] = { kind: "file", text: "name,qty\npear,1\n", modifiedAt: "2026-11-19T09:00:00Z" };
+    gw.world.files[CSV] = {
+      kind: "file",
+      text: "name,qty\npear,1\n",
+      modifiedAt: "2026-11-19T09:00:00Z",
+    };
     fireEvent.click(await screen.findByRole("button", { name: "Save" }));
-    await waitFor(() => expect(screen.queryAllByRole("button", { name: "Reload" }).length).toBeGreaterThan(0));
+    await waitFor(() =>
+      expect(screen.queryAllByRole("button", { name: "Reload" }).length).toBeGreaterThan(0),
+    );
     const reloadBtn = screen.getAllByRole("button", { name: "Reload" })[0] as HTMLElement;
     state.emit = undefined;
     fireEvent.click(reloadBtn);
