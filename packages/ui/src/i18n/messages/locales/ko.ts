@@ -1177,6 +1177,22 @@ export const ko: Partial<Catalogue> = {
   "settings.credentials.slot.keyFile": "이 Mac의 키 파일",
   "settings.credentials.slot.recovery": "복구 키만",
   "settings.credentials.protectedBy": "금고 보호 수단:",
+  "settings.credentials.vault.adminOnly": "관리자 기기에서만 할 수 있습니다.",
+  "settings.credentials.vault.unlockReason": "복구 키 확인",
+  "settings.credentials.vault.setup.title": "금고 설정",
+  "settings.credentials.vault.setup.body":
+    "금고는 비밀번호, 카드, API 키를 이 컴퓨터에 암호화해 보관합니다. Psyche는 한 번만 저장하는 복구 키와 함께 금고를 만듭니다.",
+  "settings.credentials.vault.setup.button": "금고 설정",
+  "settings.credentials.vault.setup.failed": "금고를 만들지 못했습니다: {reason}",
+  "settings.credentials.vault.setup.noSlot": "이 Gateway에는 금고용 키 슬롯이 없습니다.",
+  "settings.credentials.vault.confirm.title": "복구 키를 확인하세요",
+  "settings.credentials.vault.confirm.body":
+    "저장했는지 확인하기 위해 복구 키의 마지막 그룹, 즉 마지막 하이픈 뒤의 부분을 입력하세요.",
+  "settings.credentials.vault.confirm.label": "마지막 그룹",
+  "settings.credentials.vault.confirm.button": "확인",
+  "settings.credentials.vault.confirm.wrong":
+    "복구 키의 마지막 그룹이 아닙니다. 저장한 위치를 확인하고 다시 시도하세요.",
+  "settings.credentials.vault.confirm.failed": "복구 키를 확인하지 못했습니다: {reason}",
   "settings.credentials.moveToKeychain": "키체인으로 이동",
   "settings.credentials.moveToKeychainNeeds":
     "Developer ID와 프로비저닝 프로파일로 서명된 Psyche Helper가 필요합니다",

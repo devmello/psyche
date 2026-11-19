@@ -1177,6 +1177,24 @@ export const it: Partial<Catalogue> = {
   "settings.credentials.slot.keyFile": "un file chiave su questo Mac",
   "settings.credentials.slot.recovery": "solo la sua chiave di recupero",
   "settings.credentials.protectedBy": "Cassaforte protetta da:",
+  "settings.credentials.vault.adminOnly": "Solo un dispositivo amministratore può farlo.",
+  "settings.credentials.vault.unlockReason": "Conferma la chiave di recupero",
+  "settings.credentials.vault.setup.title": "Configura la cassaforte",
+  "settings.credentials.vault.setup.body":
+    "La cassaforte conserva password, carte e chiavi API cifrate su questo computer. Psyche la crea con una chiave di recupero che salvi una sola volta.",
+  "settings.credentials.vault.setup.button": "Configura la cassaforte",
+  "settings.credentials.vault.setup.failed": "La cassaforte non è stata creata: {reason}",
+  "settings.credentials.vault.setup.noSlot":
+    "Questo Gateway non offre uno slot per la chiave della cassaforte.",
+  "settings.credentials.vault.confirm.title": "Conferma la tua chiave di recupero",
+  "settings.credentials.vault.confirm.body":
+    "Digita l’ultimo gruppo della chiave di recupero, la parte dopo l’ultimo trattino, per mostrare che l’hai salvata.",
+  "settings.credentials.vault.confirm.label": "Ultimo gruppo",
+  "settings.credentials.vault.confirm.button": "Conferma",
+  "settings.credentials.vault.confirm.wrong":
+    "Non è l’ultimo gruppo della chiave di recupero. Controlla dove l’hai salvata e riprova.",
+  "settings.credentials.vault.confirm.failed":
+    "La chiave di recupero non è stata confermata: {reason}",
   "settings.credentials.moveToKeychain": "Sposta nel Portachiavi",
   "settings.credentials.moveToKeychainNeeds":
     "Richiede un Psyche Helper firmato con un Developer ID e un profilo di provisioning",

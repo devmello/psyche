@@ -60,6 +60,7 @@ import {
   type SettingsFormProps,
   useSettingsForm,
 } from "./shared.tsx";
+import { VaultSetupPanel } from "./VaultSetup.tsx";
 
 /** Credentials (UI design §3.18; architecture §4.7). Values never reach this screen. */
 
@@ -938,8 +939,15 @@ export function VaultProtectionPanel({ slots }: { slots: readonly string[] }): R
 function VaultProtection(): ReactElement | null {
   const q = useGatewayQuery("vault.status", {});
   const status = q.data?.status;
-  if (!status || status.state === "uninitialized") return null;
-  return <VaultProtectionPanel slots={status.slots} />;
+  if (!status) return null;
+  // One position for the setup panel in both states, so it keeps the recovery key it holds when
+  // the status refreshes from "uninitialized" to "unlocked".
+  return (
+    <>
+      {status.state === "uninitialized" ? null : <VaultProtectionPanel slots={status.slots} />}
+      <VaultSetupPanel status={status} onChanged={q.reload} />
+    </>
+  );
 }
 
 export function CredentialsSection({

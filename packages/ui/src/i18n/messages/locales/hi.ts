@@ -1192,6 +1192,22 @@ export const hi: Partial<Catalogue> = {
   "settings.credentials.slot.keyFile": "इस Mac पर एक कुंजी फ़ाइल",
   "settings.credentials.slot.recovery": "केवल इसकी रिकवरी कुंजी",
   "settings.credentials.protectedBy": "वॉल्ट इससे सुरक्षित है:",
+  "settings.credentials.vault.adminOnly": "यह केवल एडमिन डिवाइस ही कर सकता है।",
+  "settings.credentials.vault.unlockReason": "रिकवरी की की पुष्टि",
+  "settings.credentials.vault.setup.title": "वॉल्ट सेट अप करें",
+  "settings.credentials.vault.setup.body":
+    "वॉल्ट आपके पासवर्ड, कार्ड और API कुंजियाँ इस कंप्यूटर पर एन्क्रिप्टेड रखता है। Psyche इसे एक रिकवरी की के साथ बनाता है, जिसे आप एक बार सेव करते हैं।",
+  "settings.credentials.vault.setup.button": "वॉल्ट सेट अप करें",
+  "settings.credentials.vault.setup.failed": "वॉल्ट नहीं बना: {reason}",
+  "settings.credentials.vault.setup.noSlot": "इस Gateway में वॉल्ट के लिए कोई की स्लॉट नहीं है।",
+  "settings.credentials.vault.confirm.title": "अपनी रिकवरी की की पुष्टि करें",
+  "settings.credentials.vault.confirm.body":
+    "यह दिखाने के लिए कि आपने इसे सेव किया है, अपनी रिकवरी की का आखिरी समूह लिखें, यानी आखिरी डैश के बाद का हिस्सा।",
+  "settings.credentials.vault.confirm.label": "आखिरी समूह",
+  "settings.credentials.vault.confirm.button": "पुष्टि करें",
+  "settings.credentials.vault.confirm.wrong":
+    "यह रिकवरी की का आखिरी समूह नहीं है। देखें कि आपने इसे कहाँ सेव किया था और फिर कोशिश करें।",
+  "settings.credentials.vault.confirm.failed": "रिकवरी की की पुष्टि नहीं हुई: {reason}",
   "settings.credentials.moveToKeychain": "कीचेन में ले जाएँ",
   "settings.credentials.moveToKeychainNeeds":
     "Developer ID और प्रोविज़निंग प्रोफ़ाइल से साइन किया गया Psyche हेल्पर चाहिए",
