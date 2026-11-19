@@ -94,3 +94,29 @@ describe("provider tool names", () => {
     expect(events[0]).toMatchObject({ type: "tool_call", id: "toolu_1", name: "gmail.search" });
   });
 });
+
+describe("image tool results", () => {
+  it("an image part keyed mimeType goes out as a file part, not text", () => {
+    const request = {
+      model: "claude-haiku-5-5",
+      system: "s",
+      messages: [
+        {
+          role: "tool",
+          parts: [
+            {
+              type: "tool_result",
+              callId: "c1",
+              name: "shot",
+              output: [{ type: "image", mimeType: "image/png", data: "AAAA" }],
+            },
+          ],
+        },
+      ],
+      tools: [],
+    } as unknown as ModelRequest;
+    const out = JSON.stringify(convertRequest(request, ctx).prompt);
+    expect(out).toContain('"type":"file"');
+    expect(out).toContain('"mediaType":"image/png"');
+  });
+});
