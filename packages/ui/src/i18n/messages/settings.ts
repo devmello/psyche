@@ -412,7 +412,7 @@ export const settings = {
   "settings.credentials.onePassword.check": "Check again",
   "settings.credentials.onePassword.guide": "Open the guide",
   "settings.credentials.onePassword.notInstalled.body":
-    "Psyche cannot find the 1Password command-line tool (op) on this Mac. Install it, then check again.",
+    "Psyche cannot find the 1Password command-line tool (op) on this computer. Install it, then check again.",
   "settings.credentials.onePassword.notIntegrated.body":
     "In the 1Password app, open Settings, choose Developer, and turn on Integrate with 1Password CLI. Then check again.",
   "settings.credentials.onePassword.locked.body":

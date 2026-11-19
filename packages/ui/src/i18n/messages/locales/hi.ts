@@ -1217,8 +1217,7 @@ export const hi: Partial<Catalogue> = {
     "1Password ऐप अनलॉक करें और अनुरोध आए तो उसे मंज़ूर करें। फिर दोबारा जाँचें।",
   "settings.credentials.onePassword.error.body":
     "1Password के कमांड-लाइन टूल ने अपेक्षा के अनुसार जवाब नहीं दिया। दोबारा जाँचें; यदि फिर भी विफल हो, तो op को दोबारा इंस्टॉल करें।",
-  "settings.credentials.onePassword.signedIn.body":
-    "{email} ({url}) के रूप में 1Password में साइन इन है।",
+  "settings.credentials.onePassword.signedIn.body": "{email} ({url}) के रूप में 1Password में साइन इन है।",
   "settings.credentials.onePassword.signedIn.connect": "Psyche में 1Password इस्तेमाल करें",
   "settings.credentials.onePassword.connected.body":
     "Psyche आपके लिंक किए 1Password आइटम 1Password ऐप के ज़रिए पढ़ता है। वे केवल पढ़े जाते हैं; 1Password में कुछ नहीं लिखा जाता।",

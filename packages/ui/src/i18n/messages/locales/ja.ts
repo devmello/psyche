@@ -1198,12 +1198,14 @@ export const ja: Partial<Catalogue> = {
     "1Password アプリのロックを解除し、確認が出たら承認してください。その後、再確認してください。",
   "settings.credentials.onePassword.error.body":
     "1Password のコマンドラインツールが想定どおりに応答しませんでした。再確認してください。失敗が続く場合は op を再インストールしてください。",
-  "settings.credentials.onePassword.signedIn.body": "{email}（{url}）として 1Password にサインイン済みです。",
+  "settings.credentials.onePassword.signedIn.body":
+    "{email}（{url}）として 1Password にサインイン済みです。",
   "settings.credentials.onePassword.signedIn.connect": "Psyche で 1Password を使う",
   "settings.credentials.onePassword.connected.body":
     "Psyche は、リンクした 1Password の項目を 1Password アプリ経由で読み取ります。読み取り専用で、1Password には何も書き込みません。",
   "settings.credentials.onePassword.test": "接続をテスト",
-  "settings.credentials.onePassword.test.ok": "接続しました。{count, plural, other {保管庫が # 件見つかりました}}。",
+  "settings.credentials.onePassword.test.ok":
+    "接続しました。{count, plural, other {保管庫が # 件見つかりました}}。",
   "settings.credentials.onePassword.test.failed": "テストに失敗しました：{reason}",
   "settings.credentials.onePassword.disconnect": "接続を解除",
   "settings.credentials.onePassword.config":

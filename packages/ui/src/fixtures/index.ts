@@ -27,6 +27,7 @@ import type {
   Milestone,
   NodeInfo,
   Notification,
+  OnePasswordSetupStatus,
   PairingRequest,
   Receipt,
   Run,
@@ -153,6 +154,8 @@ export interface FixtureWorld {
   vault?: { status: VaultStatus; recoveryKey?: string };
   /** The guided Link setup (`payments.link.*`); absent → derived from `linkMethods`. */
   linkSetup?: LinkSetupStatus;
+  /** The guided 1Password setup (`vault.onePassword.*`); absent → `op` is not installed. */
+  onePassword?: { status: OnePasswordSetupStatus; vaultCount?: number };
   payments?: VaultPayment[];
   settings: Record<string, unknown>;
   /** Workspace file contents by workspace-relative path. */

@@ -98,6 +98,12 @@ function findOp(o: OnePasswordSetupOptions): string | undefined {
 
 // --- Reading op's answers -------------------------------------------------------------------
 
+/** `OpCliSource` wants the output text only. */
+const wrapRun =
+  (run: RunOp) =>
+  async (file: string, args: string[], env: Record<string, string>): Promise<string> =>
+    (await run(file, args, env)).stdout;
+
 const defaultRun: RunOp = (file, args, env) => execCli(file, args, env, OP_TIMEOUT_MS);
 
 /** What 1Password says when it is locked, signed out, or waiting for the owner. */
@@ -122,11 +128,12 @@ interface Detected {
 }
 
 class OpFailure extends Error {
-  constructor(
-    readonly stderr: string,
-    readonly timedOut: boolean,
-  ) {
+  readonly stderr: string;
+  readonly timedOut: boolean;
+  constructor(stderr: string, timedOut: boolean) {
     super("op failed");
+    this.stderr = stderr;
+    this.timedOut = timedOut;
   }
 }
 
@@ -174,16 +181,19 @@ async function detect(o: OnePasswordSetupOptions): Promise<Detected> {
  */
 class AppIntegrationSource implements OnePasswordSource {
   readonly kind = "cli" as const;
-  constructor(private readonly o: OnePasswordSetupOptions) {}
+  readonly #o: OnePasswordSetupOptions;
+  constructor(o: OnePasswordSetupOptions) {
+    this.#o = o;
+  }
 
   #source(): OpCliSource | undefined {
-    const op = findOp(this.o);
+    const op = findOp(this.#o);
     return op === undefined
       ? undefined
       : new OpCliSource({
           op,
           timeoutMs: OP_TIMEOUT_MS,
-          ...(this.o.run === undefined ? {} : { run: this.o.run }),
+          ...(this.#o.run === undefined ? {} : { run: wrapRun(this.#o.run) }),
         });
   }
 

@@ -150,7 +150,7 @@ describe("vault.onePassword.status: one answer per state", () => {
   });
 
   it("not_integrated: op finds no account (stderr says so, or an empty list)", async () => {
-    for (const accounts of ["none", []] as const) {
+    for (const accounts of ["none", []] as Script["accounts"][]) {
       const { admin } = await boot({ script: { accounts } });
       const s = await status(admin);
       expect(s.state).toBe("not_integrated");

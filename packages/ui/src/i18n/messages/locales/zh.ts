@@ -1231,8 +1231,10 @@ export const zh: Partial<Catalogue> = {
     "Psyche 在这台 Mac 上找不到 1Password 命令行工具（op）。请先安装，然后重新检查。",
   "settings.credentials.onePassword.notIntegrated.body":
     "在 1Password 应用中打开“设置”，选择“开发者”，并打开“与 1Password CLI 集成”。然后重新检查。",
-  "settings.credentials.onePassword.locked.body": "解锁 1Password 应用，如果它请求授权就批准。然后重新检查。",
-  "settings.credentials.onePassword.error.body": "1Password 命令行工具没有按预期响应。请重新检查；如果仍然失败，请重新安装 op。",
+  "settings.credentials.onePassword.locked.body":
+    "解锁 1Password 应用，如果它请求授权就批准。然后重新检查。",
+  "settings.credentials.onePassword.error.body":
+    "1Password 命令行工具没有按预期响应。请重新检查；如果仍然失败，请重新安装 op。",
   "settings.credentials.onePassword.signedIn.body": "已以 {email}（{url}）登录 1Password。",
   "settings.credentials.onePassword.signedIn.connect": "在 Psyche 中使用 1Password",
   "settings.credentials.onePassword.connected.body":
@@ -1241,7 +1243,8 @@ export const zh: Partial<Catalogue> = {
   "settings.credentials.onePassword.test.ok": "已连接。找到 {count, plural, other {# 个保险库}}。",
   "settings.credentials.onePassword.test.failed": "测试没有成功：{reason}",
   "settings.credentials.onePassword.disconnect": "断开连接",
-  "settings.credentials.onePassword.config": "1Password 已在 Gateway 的 config.json 中设置。请在那里修改。",
+  "settings.credentials.onePassword.config":
+    "1Password 已在 Gateway 的 config.json 中设置。请在那里修改。",
   "settings.credentials.onePassword.failed": "操作没有成功：{reason}",
   "settings.credentials.vault.confirm.title": "确认你的恢复密钥",
   "settings.credentials.vault.confirm.body":

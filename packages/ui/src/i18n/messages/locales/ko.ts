@@ -1201,12 +1201,14 @@ export const ko: Partial<Catalogue> = {
     "1Password 앱의 잠금을 해제하고, 요청이 나타나면 승인하세요. 그런 다음 다시 확인하세요.",
   "settings.credentials.onePassword.error.body":
     "1Password 명령줄 도구가 예상대로 응답하지 않았습니다. 다시 확인하고, 계속 실패하면 op를 다시 설치하세요.",
-  "settings.credentials.onePassword.signedIn.body": "{email}({url}) 계정으로 1Password에 로그인되어 있습니다.",
+  "settings.credentials.onePassword.signedIn.body":
+    "{email}({url}) 계정으로 1Password에 로그인되어 있습니다.",
   "settings.credentials.onePassword.signedIn.connect": "Psyche에서 1Password 사용",
   "settings.credentials.onePassword.connected.body":
     "Psyche는 연결한 1Password 항목을 1Password 앱을 통해 읽습니다. 읽기 전용이며 1Password에는 아무것도 쓰지 않습니다.",
   "settings.credentials.onePassword.test": "연결 테스트",
-  "settings.credentials.onePassword.test.ok": "연결되었습니다. 보관함 {count, plural, other {#개}}를 찾았습니다.",
+  "settings.credentials.onePassword.test.ok":
+    "연결되었습니다. 보관함 {count, plural, other {#개}}를 찾았습니다.",
   "settings.credentials.onePassword.test.failed": "테스트가 실패했습니다: {reason}",
   "settings.credentials.onePassword.disconnect": "연결 해제",
   "settings.credentials.onePassword.config":

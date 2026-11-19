@@ -1236,8 +1236,7 @@ export const de: Partial<Catalogue> = {
     "Entsperre die 1Password-App und bestätige die Anfrage, falls sie danach fragt. Prüfe dann erneut.",
   "settings.credentials.onePassword.error.body":
     "Das 1Password-Befehlszeilenwerkzeug hat nicht wie erwartet geantwortet. Prüfe erneut; falls es weiter fehlschlägt, installiere op neu.",
-  "settings.credentials.onePassword.signedIn.body":
-    "Bei 1Password angemeldet als {email} ({url}).",
+  "settings.credentials.onePassword.signedIn.body": "Bei 1Password angemeldet als {email} ({url}).",
   "settings.credentials.onePassword.signedIn.connect": "1Password in Psyche verwenden",
   "settings.credentials.onePassword.connected.body":
     "Psyche liest die verknüpften 1Password-Einträge über die 1Password-App. Sie werden nur gelesen; nichts wird in 1Password geschrieben.",

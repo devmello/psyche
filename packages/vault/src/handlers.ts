@@ -8,7 +8,11 @@ export interface VaultHandlerOptions {
   payments?: PaymentBroker;
 }
 
-export type VaultMethodName = Extract<MethodName, `vault.${string}`>;
+/** `vault.onePassword.*` is the Gateway's guided setup (compose/onepassword-setup.ts), not the vault's. */
+export type VaultMethodName = Exclude<
+  Extract<MethodName, `vault.${string}`>,
+  `vault.onePassword.${string}`
+>;
 
 export type VaultHandlers = {
   [M in VaultMethodName]: (params: MethodParams<M>) => Promise<MethodResult<M>>;
