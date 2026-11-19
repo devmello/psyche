@@ -856,7 +856,9 @@ export class PsychePermissionBroker implements PermissionBroker {
     // A program that reads config from the working directory (git, make, npm…) never gets a
     // folder-wide grant: the config can change under it, and a grant cannot bind its hashes.
     if (readsCwdConfig(f.executable) || readsCwdConfig(f.argv[0] as string)) return undefined;
-    const any = hostProgramCoverage(f.argv, f.executable) === "any";
+    // Only the read tools that cannot run code: every other program keeps its exact grant.
+    if (hostProgramCoverage(f.argv, f.executable) !== "any") return undefined;
+    const any = true;
     return {
       program: basename(f.executable),
       executable: f.executable,
@@ -893,8 +895,8 @@ export class PsychePermissionBroker implements PermissionBroker {
           sideEffect: "destructive",
         },
         binding: null,
-        // 90 days like a trusted site, not the 30 of an exact command.
-        expiresAt: new Date(now + this.#ttl().always).toISOString(),
+        // 30 days, like every other host-command grant.
+        expiresAt: new Date(now + this.#ttl().execHostAlways).toISOString(),
         useCount: 0,
         lastUsedAt: null,
         createdFromApprovalId: a.id,

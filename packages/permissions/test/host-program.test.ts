@@ -1,5 +1,12 @@
 import { createHash } from "node:crypto";
-import { mkdirSync, mkdtempSync, realpathSync, symlinkSync, writeFileSync } from "node:fs";
+import {
+  linkSync,
+  mkdirSync,
+  mkdtempSync,
+  realpathSync,
+  symlinkSync,
+  writeFileSync,
+} from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { FakeClock } from "@psyche/testing";
@@ -9,8 +16,11 @@ import {
   HOST_PROGRAM_ANY_ARGV,
   hostProgramCoverage,
   isNeverProgram,
+  operandsInside,
   type PolicyCall,
   type PolicyContext,
+  programName,
+  readsCwdConfig,
   sedScriptSafe,
 } from "../src/index.ts";
 import { CTX, call, DEVICE, type Harness, makeBroker, memoryDb, sqliteBroker } from "./helpers.ts";
@@ -43,6 +53,8 @@ const ARGS_OK: [string, string[]][] = [
   ["sed", ["-E", "-n", "/x/p", "f"]],
   ["sed", ["-e", "s/a/b/", "-e", "2d", "f"]],
   ["sed", ["-ne", "$p", "f"]],
+  ["sed", ["p", "--", "-f"]],
+  ["ls", ["--", "-weird"]],
   ["tree", ["-L", "2"]],
   ["du", ["-sh", "."]],
   ["stat", ["f"]],
@@ -83,6 +95,17 @@ const ARGS_DANGEROUS: [string, string[]][] = [
   ["rg", ["-z", "foo"]],
   ["rg", ["-uz", "foo"]],
   ["rg", ["--search-zip", "foo"]],
+  ["tree", ["-R", "-L", "1"]],
+  ["tree", ["-H", "."]],
+  // GNU getopt reads options after operands.
+  ["sed", ["p", "f", "-e", "1e id"]],
+  ["sed", ["p", "f", "-i"]],
+  ["sed", ["p", "f", "--in-place"]],
+  ["sed", ["-n", "p", "f", "-f", "s.sed"]],
+  ["ls", ["sub", "-R"]],
+  ["grep", ["foo", ".", "-r"]],
+  ["rg", ["foo", "-z"]],
+  ["head", ["f", "-n", "3"]],
   ["tree", ["-o", "out"]],
   ["tree", ["-Ho", "out"]],
   ["tree", ["--output=out"]],
@@ -143,6 +166,10 @@ describe("the never list and the any-argv list", () => {
     "cargo",
     "go",
     "BASH",
+    "ſh",
+    "baſh",
+    "oſascript",
+    "Sh",
   ];
   const OK = ["ls", "git", "rg", "jq", "pythonista", "gofmt", "cat", "/opt/homebrew/bin/rg"];
   it.each(NEVER)("%s is never offered", (name) => {
@@ -150,6 +177,17 @@ describe("the never list and the any-argv list", () => {
   });
   it.each(OK)("%s is not on the never list", (name) => {
     expect(isNeverProgram(name)).toBe(false);
+  });
+  it("folds case and long s before comparing names", () => {
+    expect(programName("/bin/ſh")).toBe("sh");
+    expect(programName("/usr/bin/GIT")).toBe("git");
+    for (const n of ["GIT", "ſh", "baſh", "oſascript", "ſqlite3"]) {
+      expect(hostProgramCoverage([n, "x"], `/usr/bin/${n}`), n).toBe("exact");
+    }
+    expect(readsCwdConfig("/usr/bin/GIT")).toBe(true);
+    expect(readsCwdConfig("/usr/bin/git")).toBe(true);
+    expect(readsCwdConfig("/usr/bin/Make")).toBe(true);
+    expect(readsCwdConfig("/usr/bin/ls")).toBe(false);
   });
   it("lists the any-argv programs", () => {
     expect([...HOST_PROGRAM_ANY_ARGV].sort()).toEqual(
@@ -204,6 +242,10 @@ const PROGRAMS = [
   "curl",
   "make",
   "tool",
+  "GIT",
+  "baſh",
+  "ſh",
+  "oſascript",
 ];
 for (const name of PROGRAMS) {
   writeFileSync(join(SYS, name), `#!/bin/sh\n# ${name}\n`, { mode: 0o755 });
@@ -211,6 +253,10 @@ for (const name of PROGRAMS) {
 writeFileSync(join(SYS2, "ls"), "#!/bin/sh\n# shadow ls\n", { mode: 0o755 });
 writeFileSync(join(WORK, "ls"), "#!/bin/sh\n# planted\n", { mode: 0o755 });
 symlinkSync(join(SYS, "tool"), join(SYS, "cat"));
+symlinkSync(HOME, join(WORK, "escape"));
+writeFileSync(join(WORK, "a.txt"), "x");
+linkSync(join(WORK, "a.txt"), join(WORK, "b.txt"));
+writeFileSync(join(WORK, "plain.txt"), "x");
 
 const SHA = (name: string) => sha(`${name}-v1`);
 const POLICY = {
@@ -299,26 +345,28 @@ describe("exec_host program grant: the card", () => {
       argv: null,
     });
   });
-  it("offers the exact argv for a program that is not on the any-argv list", async () => {
+  it("offers nothing for a program that is not on the any-argv list (its exact grant stays)", async () => {
     const h = harness();
-    expect(offer(await card(h, host(["tool", "status"])))).toMatchObject({
-      argv: ["tool", "status"],
-    });
+    expect(offer(await card(h, host(["tool", "status"])))).toBeUndefined();
+    expect(await verdict(h, host(["tool", "status"]))).toBe("ask");
   });
   it("never offers it for a program that reads config from the folder (git, make, npm)", async () => {
     const h = harness();
     expect(offer(await card(h, host(["git", "status"])))).toBeUndefined();
     expect(await verdict(h, host(["git", "status"]))).toBe("ask");
   });
-  it("offers exact-argv for a danger flag of a safe tool, and for a link named like one", async () => {
+  it("offers nothing for a danger flag of a safe tool, or a link named like one", async () => {
     const h = harness();
-    expect(offer(await card(h, host(["find", ".", "-delete"])))?.argv).toEqual([
-      "find",
-      ".",
-      "-delete",
-    ]);
+    expect(offer(await card(h, host(["find", ".", "-delete"])))).toBeUndefined();
     const real = host(["cat", "x"], { exe: join(SYS, "tool"), sha: SHA("tool") });
-    expect(offer(await card(h, real))?.argv).toEqual(["cat", "x"]);
+    expect(offer(await card(h, real))).toBeUndefined();
+  });
+  it("never offers it for GIT, baſh or ſh (case and long-s folding)", async () => {
+    const h = harness();
+    for (const n of ["GIT", "baſh", "ſh", "oſascript"]) {
+      const c = host([n, "x"], { exe: join(SYS, n), sha: sha(n) });
+      expect(offer(await card(h, c)), n).toBeUndefined();
+    }
   });
 
   const NO_OFFER: [string, PolicyCall, Partial<PolicyContext>?][] = [
@@ -399,16 +447,13 @@ describe("exec_host program grant: ask / run quietly", () => {
   async function granted() {
     const h = harness();
     await allowProgram(h, host(["ls", "-la"]));
-    await allowProgram(h, host(["tool", "status"]));
     return h;
   }
 
   const RUNS: [string, PolicyCall][] = [
     ["the same command", host(["ls", "-la"])],
-    ["other arguments", host(["ls", "-R", "sub", "-1"])],
+    ["other arguments", host(["ls", "-1", "-R", "sub"])],
     ["a subfolder", host(["ls"], { cwd: join(WORK, "sub") })],
-    ["the exact argv of an exact-argv program", host(["tool", "status"])],
-    ["the exact argv from a subfolder", host(["tool", "status"], { cwd: join(WORK, "sub") })],
   ];
   it.each(RUNS)("runs quietly: %s", async (_n, c) => {
     const h = await granted();
@@ -440,9 +485,13 @@ describe("exec_host program grant: ask / run quietly", () => {
     ["env changes", host(["ls"], { env: { LANG: "C" } })],
     ["network domains", host(["ls"], { domains: ["example.com"] })],
     ["a shell string", host(["ls -la | wc"])],
-    ["other arguments of an exact-argv program", host(["tool", "log"])],
-    ["tool with a -c flag", host(["tool", "-c", "core.pager=sh", "status"])],
-    ["the exact argv plus one more", host(["tool", "status", "--short"])],
+    ["a program that has only its exact grant", host(["tool", "status"])],
+    ["an absolute path outside the folder", host(["ls", "-la", join(HOME, ".aws")])],
+    ["a ~ path", host(["ls", "~/.aws"])],
+    ["a .. path out of the folder", host(["ls", "../../.."])],
+    ["a symlink that leaves the folder", host(["ls", "escape"])],
+    ["a hard-linked file", host(["ls", "a.txt"])],
+    ["an option after an operand", host(["ls", "sub", "-R"])],
     ["a designated person's request", host(["ls"]), { requester: { role: "friend" } } as never],
   ];
   it.each(ASKS)("asks: %s", async (_n, c, ctx = {}) => {
@@ -501,9 +550,9 @@ describe("exec_host program grant: ask / run quietly", () => {
     },
   );
 
-  it("expires after 90 days and stops when revoked", async () => {
+  it("expires after 30 days and stops when revoked", async () => {
     const h = await granted();
-    h.clock.advance(89 * 86_400_000);
+    h.clock.advance(29 * 86_400_000);
     expect(await verdict(h, host(["ls"]))).toBe("allow");
     h.clock.advance(2 * 86_400_000);
     expect(await verdict(h, host(["ls"]))).toBe("ask");
@@ -541,31 +590,77 @@ describe("exec_host program grant: SQLite round trip", () => {
     const first = sqliteBroker(db, clock, opts as never);
     const h: Harness = { broker: first, clock } as Harness;
     await allowProgram(h, host(["ls", "-la"]));
-    await allowProgram(h, host(["tool", "status"]));
 
     const second = sqliteBroker(db, clock, opts as never);
     const d = (c: PolicyCall) => second.decide(c, CTX).then((x) => x.decision);
     expect(await d(host(["ls", "-R"]))).toBe("allow");
-    expect(await d(host(["tool", "status"]))).toBe("allow");
     expect(await d(host(["tool", "log"]))).toBe("ask");
     expect(await d(host(["ls"], { sha: sha("ls-evil") }))).toBe("ask");
     expect(await d(host(["ls"], { cwd: WORK2 }))).toBe("ask");
 
     const grants = await second.listGrants({} as never);
     const mine = grants.filter((g) => (g.subject as { hostProgram?: unknown }).hostProgram);
-    expect(mine).toHaveLength(2);
-    expect(
-      mine.map((g) => (g.subject as { hostProgram: { argv: unknown } }).hostProgram.argv),
-    ).toEqual(expect.arrayContaining([null, ["tool", "status"]]));
+    expect(mine).toHaveLength(1);
+    expect(mine[0]?.subject).toMatchObject({ hostProgram: { argv: null } });
     expect(mine.every((g) => g.scope === "always" && g.revokedAt === null)).toBe(true);
 
     await second.revokeGrant(mine[0]?.id ?? "");
     const third = sqliteBroker(db, clock, opts as never);
-    const left = await Promise.all(
-      [host(["ls"]), host(["tool", "status"])].map((c) =>
-        third.decide(c, CTX).then((x) => x.decision),
-      ),
-    );
-    expect(left.filter((x) => x === "allow")).toHaveLength(1);
+    expect((await third.decide(host(["ls"]), CTX)).decision).toBe("ask");
+  });
+});
+
+describe("exec_host program grant: every path stays inside the folder", () => {
+  async function grantedTools() {
+    const h = harness();
+    await allowProgram(h, host(["ls", "-la"]));
+    await allowProgram(h, host(["find", ".", "-name", "x"]));
+    await allowProgram(h, host(["sed", "-n", "p", "plain.txt"]));
+    await allowProgram(h, host(["rg", "foo"]));
+    await allowProgram(h, host(["tree", "-L", "1"]));
+    return h;
+  }
+  const RUN: [string, string[]][] = [
+    ["ls", ["-la", "sub"]],
+    ["ls", ["--", "-weird"]],
+    ["find", [".", "-name", "*.ts"]],
+    ["find", ["sub", "-type", "f"]],
+    ["sed", ["-n", "/x/p", "plain.txt"]],
+    ["sed", ["-e", "s/a/b/", "plain.txt"]],
+    ["rg", ["foo", "sub"]],
+    ["tree", ["-L", "2"]],
+  ];
+  const ASK: [string, string[]][] = [
+    ["ls", ["-la", join(HOME, ".aws")]],
+    ["ls", ["~"]],
+    ["ls", ["escape"]],
+    ["ls", ["../work2"]],
+    ["find", ["/", "-name", "id_rsa*"]],
+    ["find", ["-name", "x"]],
+    ["find", [".."]],
+    ["find", [".", "-newer", join(HOME, "x")]],
+    ["sed", ["-n", "p", join(HOME, ".aws", "credentials")]],
+    ["sed", ["-n", "p", "../../../etc/passwd"]],
+    ["sed", ["p", "plain.txt", "-e", "1e id"]],
+    ["sed", ["p", "plain.txt", "-i"]],
+    ["rg", ["-uu", "KEY", join(HOME, "proj")]],
+    ["rg", ["foo", "a.txt"]],
+    ["tree", ["-R", "-L", "1"]],
+    ["tree", ["-H", "."]],
+    ["tree", ["/"]],
+  ];
+  it.each(RUN)("%s %j runs quietly", async (name, args) => {
+    const h = await grantedTools();
+    expect(await verdict(h, host([name, ...args]))).toBe("allow");
+  });
+  it.each(ASK)("%s %j asks", async (name, args) => {
+    const h = await grantedTools();
+    expect(await verdict(h, host([name, ...args]))).not.toBe("allow");
+  });
+  it("operandsInside judges the real path, with and without the files existing", () => {
+    expect(operandsInside("ls", ["plain.txt", "not-there/x"], WORK, WORK)).toBe(true);
+    expect(operandsInside("ls", ["escape/proj"], WORK, WORK)).toBe(false);
+    expect(operandsInside("ls", ["a.txt"], WORK, WORK)).toBe(false);
+    expect(operandsInside("ls", [], WORK2, WORK)).toBe(false);
   });
 });

@@ -1,4 +1,5 @@
-import { basename } from "node:path";
+import { lstatSync, realpathSync } from "node:fs";
+import { basename, dirname, isAbsolute, join, resolve } from "node:path";
 import { canonicalPath, isUnder } from "./targets.ts";
 
 /**
@@ -137,7 +138,9 @@ export const HOST_PROGRAM_ANY_ARGV: readonly string[] = [
 
 /** Where a granted binary may live: the system and the package managers' prefixes. */
 export const HOST_PROGRAM_ROOTS: readonly string[] = [
-  "/usr",
+  // Not `/usr/local`: on an Intel Mac Homebrew's prefix there is writable by the owner's processes.
+  "/usr/bin",
+  "/usr/sbin",
   "/bin",
   "/sbin",
   "/opt/homebrew",
@@ -145,8 +148,10 @@ export const HOST_PROGRAM_ROOTS: readonly string[] = [
   "/Applications/Xcode.app",
 ];
 
-const programName = (p: string): string =>
+/** NFKC-folded, lower-cased name: `GIT`, `ſh` and `baſh` are `git`, `sh` and `bash` on APFS. */
+export const programName = (p: string): string =>
   basename(p)
+    .normalize("NFKC")
     .toLowerCase()
     .replace(/\.exe$/, "");
 
@@ -269,6 +274,8 @@ const FIND_UNSAFE = new Set([
 export function anyArgvSafe(program: string, args: readonly string[]): boolean {
   const name = programName(program);
   if (!HOST_PROGRAM_ANY_ARGV.includes(name)) return false;
+  // GNU tools read options after operands (`sed p f -e '1e id'`): a late option is exact-argv.
+  if (scanArgs(name, args).lateOption) return false;
   switch (name) {
     case "find":
       return !args.some((a) => FIND_UNSAFE.has(a));
@@ -284,12 +291,112 @@ export function anyArgvSafe(program: string, args: readonly string[]): boolean {
       return true;
     }
     case "tree":
-      return !args.some((a) => a === "--output" || a.startsWith("--output=") || has(a, "o"));
+      // `-o` writes a file; `-R` and `-H` write `00Tree.html` into directories.
+      return !args.some((a) => a === "--output" || a.startsWith("--output=") || has(a, "oRH"));
     case "file":
       return !args.some((a) => /^--(compile|uncompress|magic-file)/.test(a) || has(a, "CzZm"));
     default:
       return true;
   }
+}
+
+/** Splits arguments into operands and notes an option that follows the first operand. */
+function scanArgs(
+  name: string,
+  args: readonly string[],
+): { operands: string[]; lateOption: boolean } {
+  let afterDD = false;
+  let seen = false;
+  let late = false;
+  let skip = false;
+  const operands: string[] = [];
+  for (const a of args) {
+    if (skip) {
+      skip = false;
+      continue;
+    }
+    if (!afterDD && a === "--") {
+      afterDD = true;
+      continue;
+    }
+    if (!afterDD && a.length > 1 && a.startsWith("-")) {
+      if (seen && name !== "find") late = true;
+      if (name === "sed" && (a === "-e" || a === "--expression")) skip = true;
+      continue;
+    }
+    operands.push(a);
+    seen = true;
+  }
+  return { operands, lateOption: late };
+}
+
+/** The real path of `p`, following symlinks in the part that exists. */
+function realish(p: string): string {
+  let cur = p;
+  const rest: string[] = [];
+  for (;;) {
+    try {
+      return join(realpathSync.native(cur), ...rest.reverse());
+    } catch {
+      const parent = dirname(cur);
+      if (parent === cur) return p;
+      rest.push(basename(cur));
+      cur = parent;
+    }
+  }
+}
+
+/**
+ * Does every path an any-argv command names resolve (symlinks followed) inside the grant folder?
+ * Absolute paths, `..`, `~`, a hard-linked file, a FIFO or device, and a `find` with no start
+ * path or a start path outside all fail. Every non-option argument counts, patterns included:
+ * a pattern that looks like an outside path asks, never runs.
+ */
+export function operandsInside(
+  program: string,
+  args: readonly string[],
+  cwdReal: string,
+  folder: string,
+): boolean {
+  const name = programName(program);
+  let folderReal: string;
+  try {
+    folderReal = realpathSync.native(folder);
+  } catch {
+    return false;
+  }
+  if (!isUnder(cwdReal, folderReal)) return false;
+  let { operands } = scanArgs(name, args);
+  if (name === "sed") {
+    const haveE = args.some(
+      (a) =>
+        a === "-e" ||
+        a.startsWith("--expression") ||
+        (/^-[a-zA-Z]*e/.test(a) && !a.startsWith("--")),
+    );
+    if (!haveE) operands = operands.slice(1);
+  }
+  if (name === "find") {
+    const end = args.findIndex((a) => a.startsWith("-") || a === "(" || a === "!");
+    const starts = end === -1 ? args : args.slice(0, end);
+    if (starts.length === 0) return false;
+  }
+  for (const o of operands) {
+    if (o.includes("\0") || o.startsWith("~")) return false;
+    const real = realish(isAbsolute(o) ? o : resolve(cwdReal, o));
+    if (!isUnder(real, folderReal)) return false;
+    let st: ReturnType<typeof lstatSync> | undefined;
+    try {
+      st = lstatSync(real);
+    } catch {
+      st = undefined;
+    }
+    if (st !== undefined) {
+      if (!st.isFile() && !st.isDirectory()) return false;
+      if (st.isFile() && st.nlink > 1) return false;
+    }
+  }
+  return true;
 }
 
 export interface HostProgramFacts {
@@ -360,10 +467,12 @@ export function hostProgramGrantCovers(g: HostProgramGrant, f: HostProgramFacts)
   if (!isUnder(cwd, g.folder)) return false;
   // A symlink inside the folder must not lead the command out of it.
   if (f.cwdReal !== undefined && !isUnder(f.cwdReal, g.folder)) return false;
-  if (g.argv !== null) {
-    return g.argv.length === f.argv.length && g.argv.every((a, i) => a === f.argv[i]);
-  }
-  return hostProgramCoverage(f.argv, f.executable) === "any";
+  // Only any-argv grants exist; a row with an argv list is not one this build makes.
+  if (g.argv !== null) return false;
+  if (hostProgramCoverage(f.argv, f.executable) !== "any") return false;
+  // Without the real cwd the operands cannot be judged: fail closed.
+  if (f.cwdReal === undefined) return false;
+  return operandsInside(f.argv[0] as string, f.argv.slice(1), f.cwdReal, g.folder);
 }
 
 /** Which kind of grant a card would offer for this argv. */
