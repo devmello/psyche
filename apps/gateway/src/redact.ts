@@ -147,8 +147,17 @@ export function scrubError(err: unknown, known: readonly string[] = []): PsycheE
   });
 }
 
-const SECRET_FLAG =
-  /^--?[A-Za-z0-9_-]*(?:key|token|secret|passw(?:or)?d|auth|credential|cookie|session)[A-Za-z0-9_-]*$/i;
+/** A flag or variable name whose last word names a secret (`--api-key`, `--access-token`, `TOKEN`). */
+const SECRET_WORD =
+  /^(?:key|token|secret|password|passwd|credential|cookie|authorization|bearer|pat)$/i;
+function secretName(name: string): boolean {
+  const words = name
+    .replace(/^-+/, "")
+    .split(/[-_]+/)
+    .filter((w) => w !== "");
+  const last = words.at(-1);
+  return last !== undefined && SECRET_WORD.test(last);
+}
 const TOKEN_PREFIX = /^(?:sk|ak)-|^ghp_|^gho_|^ghs_|^github_pat_|^xox[abprs]-/i;
 
 /** A long run of mixed letters and digits, or a well-known token prefix. */
@@ -177,15 +186,25 @@ export function redactArgv(argv: readonly unknown[]): unknown[] {
       hideNext = false;
       continue;
     }
+    const eq = arg.indexOf("=");
     if (arg.startsWith("-")) {
-      const eq = arg.indexOf("=");
-      if (eq > 0 && SECRET_FLAG.test(arg.slice(0, eq))) {
-        out.push(`${arg.slice(0, eq + 1)}${REDACTED}`);
-        continue;
-      }
-      if (eq < 0 && SECRET_FLAG.test(arg)) {
+      // A flag's value is hidden when the flag's name says secret, or when the value looks like one.
+      if (eq > 0) {
+        const value = arg.slice(eq + 1);
+        if (secretName(arg.slice(0, eq)) || tokenLikeArg(value)) {
+          out.push(`${arg.slice(0, eq + 1)}${REDACTED}`);
+          continue;
+        }
+      } else if (secretName(arg)) {
         out.push(arg);
         hideNext = true;
+        continue;
+      }
+    } else if (eq > 0 && /^[A-Za-z_][A-Za-z0-9_]*$/.test(arg.slice(0, eq))) {
+      // A positional NAME=value (an environment-style argument).
+      const value = arg.slice(eq + 1);
+      if (secretName(arg.slice(0, eq)) || tokenLikeArg(value)) {
+        out.push(`${arg.slice(0, eq + 1)}${REDACTED}`);
         continue;
       }
     }

@@ -154,6 +154,8 @@ export const it: Partial<Catalogue> = {
   "errors.rate_limited": "Troppe richieste; attendi un momento e riprova.",
   "errors.timeout": "Psyche ha impiegato troppo tempo a rispondere.",
   "errors.cancelled": "È stato annullato.",
+  "errors.reason.vault_removal_pending":
+    "Sblocca la cassaforte per completare la rimozione del vecchio server, poi riprova.",
   "errors.reason.updating":
     "Psyche sta per riavviarsi per installare un aggiornamento. Riprova tra un momento.",
   "errors.unavailable": "Psyche non può farlo in questo momento.",

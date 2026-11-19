@@ -140,6 +140,8 @@ export const fr: Partial<Catalogue> = {
   "errors.rate_limited": "Trop de demandes ; patientez un instant puis réessayez.",
   "errors.timeout": "Psyche a mis trop de temps à répondre.",
   "errors.cancelled": "L’opération a été annulée.",
+  "errors.reason.vault_removal_pending":
+    "Déverrouille le coffre pour terminer la suppression de l'ancien serveur, puis réessaie.",
   "errors.reason.updating":
     "Psyche va redémarrer pour installer une mise à jour. Réessayez dans un instant.",
   "errors.unavailable": "Psyche ne peut pas faire cela pour le moment.",

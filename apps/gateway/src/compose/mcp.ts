@@ -333,8 +333,7 @@ export function composeMcp(services: ComposeServices, setup: McpSetup = {}): Com
   const secrets: McpHostOptions["secrets"] = {
     credentials: services.vault,
     // Each secret gets its own device-only card, answered with presence (security §4.6).
-    async approve({ serverId, placeholder: ph, target }) {
-      const check = /^(.+)-probe-[0-9a-f]{8}$/.exec(serverId);
+    async approve({ serverId, placeholder: ph, target, check }) {
       const slug = placeholder.exec(ph)?.[1];
       if (slug === undefined) throw new PsycheError("invalid_params", "not a placeholder");
       const issued = await services.vault.requestFill({
@@ -347,7 +346,7 @@ export function composeMcp(services: ComposeServices, setup: McpSetup = {}): Com
           runId: null,
           taskId: null,
           threadId: null,
-          agent: check === null ? `mcp:${serverId}` : `mcp:${check[1]} check`,
+          agent: check === true ? `mcp:${serverId} check` : `mcp:${serverId}`,
         },
         taint: false,
       });
@@ -647,6 +646,11 @@ export function composeMcp(services: ComposeServices, setup: McpSetup = {}): Com
           payload?: { entries?: { key: string; value: unknown }[] };
         };
         // A key or bundle was revoked: servers that came from it stop (`bundles.stale`).
+        // The vault opened: finish unbinding the items of servers removed while it was locked.
+        if (f.event === "vault.unlocked") {
+          void adder.retryPending();
+          return;
+        }
         if (f.event === "skills.changed") {
           void enqueue(getSetting(services.db, MCP_SERVERS_SETTING)?.value);
           return;

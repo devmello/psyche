@@ -122,6 +122,8 @@ export interface McpAdder {
   commit(proposalId: string, approvalId: string): Promise<{ server: McpServerStatus }>;
   /** `mcp.remove`: drops the entry (its tools unregister, its grants are revoked). */
   remove(serverId: string): Promise<void>;
+  /** Finishes the unbinding of removed servers' vault items that a locked vault left (on unlock). */
+  retryPending(): Promise<void>;
   /**
    * An install the owner approved on a card that showed the config before anything ran (the
    * capability catalogue's `install_capability`): checks the approval against `bindingHash`,
@@ -271,8 +273,13 @@ export function mcpAdder(deps: McpAddDeps): McpAdder {
               },
             }),
             approve: (input) =>
-              // The card names the check (the probe id); the vault target stays the server's own.
-              inj.approve({ ...input, target: rebind(input.target) }),
+              // The card says this is a check; the vault target stays the server's own.
+              inj.approve({
+                ...input,
+                serverId: config.id,
+                check: true,
+                target: rebind(input.target),
+              }),
           };
     const host = createMcpHost({
       ...(secrets === undefined ? {} : { secrets }),
@@ -349,6 +356,7 @@ export function mcpAdder(deps: McpAddDeps): McpAdder {
 
   const propose = async (input: McpServerInput, extra?: ProposeExtra) => {
     sweep();
+    await assertReleased(input.id);
     const current = readServers(services, deps.settingKey);
     if (extra?.replace !== true && current.some((c) => c.id === input.id)) {
       throw new PsycheError("conflict", `an MCP server with id ${input.id} exists`);
@@ -417,6 +425,7 @@ export function mcpAdder(deps: McpAddDeps): McpAdder {
     if (s === undefined) {
       throw new PsycheError("approval_expired", "the probe expired; check the server again");
     }
+    await assertReleased(s.config.id);
     const approval = await services.rawBroker.get(approvalId);
     if (
       approval === undefined ||
@@ -512,6 +521,7 @@ export function mcpAdder(deps: McpAddDeps): McpAdder {
     approvalId: string,
     bindingHash: string,
   ) => {
+    await assertReleased(config.id);
     const approval = await services.rawBroker.get(approvalId);
     const v = await services.rawBroker.verifyBinding(approvalId, bindingHash);
     if (
@@ -577,25 +587,61 @@ export function mcpAdder(deps: McpAddDeps): McpAdder {
     await releaseSecrets(serverId);
   };
 
+  /** Ids of removed servers whose vault items are not unbound yet (a locked vault). Kept in an internal setting. */
+  const PENDING_KEY = "_mcp.pendingUnbind";
+  const pending = (): string[] => {
+    const v = getSetting(services.db, PENDING_KEY)?.value;
+    return Array.isArray(v) ? v.filter((x): x is string => typeof x === "string") : [];
+  };
+  const setPending = (ids: string[]) => {
+    setSetting(services.db, PENDING_KEY, [...new Set(ids)].sort());
+  };
+
   /**
    * The vault items bound to `mcp:<id>` are unbound when the server goes, never deleted: they
-   * stay in the vault for the owner to reuse or delete. A later Add under the same id then can't
-   * be handed a secret the owner gave the old server. A locked vault leaves them bound.
+   * stay in the vault for the owner to reuse or delete. One item failing does not stop the rest.
+   * When any unbind fails (a locked vault), the id is recorded and retried on unlock; until it is
+   * done, an Add under that id is refused (`assertReleased`), so the old secrets can't be filled
+   * into a new server of the same name.
    */
   const releaseSecrets = async (serverId: string) => {
     const target = `mcp:${serverId}`;
+    let failed = false;
+    let items: Awaited<ReturnType<typeof services.vault.list>> = [];
     try {
-      for (const item of await services.vault.list()) {
-        const ours = item.bindings.filter((b) => "connector" in b && b.connector === target);
-        if (ours.length === 0) continue;
-        // Unbind only: the owner may add the server again or use the key elsewhere, and can
-        // delete the item in the vault. An item left with no bindings stays.
+      items = await services.vault.list();
+    } catch {
+      failed = true;
+    }
+    for (const item of items) {
+      const ours = item.bindings.filter((b) => "connector" in b && b.connector === target);
+      if (ours.length === 0) continue;
+      try {
+        // An item left with no bindings at all stays.
         const rest = item.bindings.filter((b) => !ours.includes(b));
         await services.vault.update(item.id, { bindings: rest });
+      } catch {
+        failed = true;
       }
-    } catch {
-      // locked or unavailable: nothing was released
     }
+    const others = pending().filter((id) => id !== serverId);
+    setPending(failed ? [...others, serverId] : others);
+  };
+
+  const assertReleased = async (serverId: string) => {
+    if (!pending().includes(serverId)) return;
+    await releaseSecrets(serverId);
+    if (pending().includes(serverId)) {
+      throw new PsycheError(
+        "unavailable",
+        "Unlock the vault to finish removing the old server first",
+        { details: { reason: "vault_removal_pending" } },
+      );
+    }
+  };
+
+  const retryPending = async () => {
+    for (const id of pending()) await releaseSecrets(id);
   };
 
   const handlers: Record<string, HandlerDef> = {
@@ -621,6 +667,7 @@ export function mcpAdder(deps: McpAddDeps): McpAdder {
     propose,
     commit,
     remove,
+    retryPending,
     install,
     test: (config) => probe(inputOfAny(config), config),
   };

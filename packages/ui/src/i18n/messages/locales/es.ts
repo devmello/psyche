@@ -120,6 +120,8 @@ export const es: Partial<Catalogue> = {
   "errors.rate_limited": "Demasiadas solicitudes; espera un momento e inténtalo de nuevo.",
   "errors.timeout": "Psyche tardó demasiado en responder.",
   "errors.cancelled": "Se canceló.",
+  "errors.reason.vault_removal_pending":
+    "Desbloquea la bóveda para terminar de quitar el servidor anterior y vuelve a intentarlo.",
   "errors.reason.updating":
     "Psyche está a punto de reiniciarse para instalar una actualización. Inténtalo de nuevo en un momento.",
   "errors.unavailable": "Psyche no puede hacer eso ahora mismo.",
