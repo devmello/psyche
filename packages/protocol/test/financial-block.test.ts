@@ -1984,6 +1984,7 @@ describe("isNoCheckoutVenue: where the Link purchase tool never pays", () => {
     "https://www.paypal.com/#/paypalme/john",
     "https://www.paypal.com/us/#/%70aypalme/john/%ZZ",
     "https://www.paypal.com/#/myaccount/transfer/send",
+    "https://www.paypal.com/#/pools/abc",
   ])("%s has no checkout", (url) => {
     expect(isNoCheckoutVenue(url)).toBe(true);
   });
@@ -2002,6 +2003,13 @@ describe("isNoCheckoutVenue: where the Link purchase tool never pays", () => {
     "https://www.paypal.com/webapps/hermes?token=EC-1&return=%",
     "https://www.paypal.com/checkout/?token=100%",
     "https://www.paypal.com/checkout/#/review",
+    // #1342 follow-up: bare hash words of a checkout step are not P2P routes.
+    "https://www.paypal.com/checkoutnow?token=EC-1#/pay",
+    "https://www.paypal.com/checkoutnow?token=EC-1#pay",
+    "https://www.paypal.com/checkoutnow?token=EC-1#/send-otp",
+    "https://www.paypal.com/checkoutweb/signup?token=EC-1#/send-otp",
+    "https://www.paypal.com/authflow/twofactor/#/send-code",
+    "https://www.paypal.com/checkout/otp/#/checkout/otp/send",
     "https://www.amazon.com/gp/buy",
     "https://ultimaterewardspoints.chase.com/travel",
     undefined,

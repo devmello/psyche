@@ -544,7 +544,9 @@ export class LinkSetup {
   #polling = false;
   #db: PsycheDb;
   #authCache: { at: number; value: boolean } | undefined;
-  #authInflight: Promise<boolean | undefined> | undefined;
+  #authInflight: { gen: number; run: Promise<boolean | undefined> } | undefined;
+  #chain = 0;
+  #stopped = false;
   #retry: ReturnType<typeof setTimeout> | undefined;
   #gen = 0;
 
@@ -590,17 +592,22 @@ export class LinkSetup {
   startCheck(): void {
     if (this.#retry !== undefined) clearTimeout(this.#retry);
     this.#retry = undefined;
+    if (this.#stopped) return;
+    // One chain at a time: a newer startCheck, a disconnect or stop() ends an older chain.
+    const me = ++this.#chain;
+    const live = () => !this.#stopped && me === this.#chain;
     let wait = this.#o.statusRetryMs ?? STATUS_RETRY_MS;
     const attempt = async () => {
+      if (!live()) return;
       this.#retry = undefined;
       if (!this.configured()) return;
       const answer = await this.#askStatus();
-      if (answer !== undefined || !this.configured()) return;
-      this.#retry = setTimeout(() => void attempt(), wait);
+      if (!live() || answer !== undefined || !this.configured()) return;
+      this.#retry = setTimeout(() => void attempt().catch(() => undefined), wait);
       this.#retry.unref?.();
       wait = Math.min(wait * 2, STATUS_RETRY_MAX_MS);
     };
-    void attempt();
+    void attempt().catch(() => undefined);
   }
 
   readonly #changeListeners = new Set<() => void>();
@@ -719,8 +726,11 @@ export class LinkSetup {
 
   /** One `auth status` run: true or false when Link answered, undefined when it did not. */
   async #askStatus(): Promise<boolean | undefined> {
-    if (this.#authInflight !== undefined) return this.#authInflight;
     const gen = this.#gen;
+    // Never join a run that started before the last connect, sign-in or disconnect: its answer
+    // belongs to an older generation and would not be kept.
+    if (this.#authInflight !== undefined && this.#authInflight.gen === gen)
+      return this.#authInflight.run;
     const run = (async (): Promise<boolean | undefined> => {
       // A CLI that may not run (gone, swapped, unsafe) is a definite no.
       const ok = this.#runnable();
@@ -739,7 +749,8 @@ export class LinkSetup {
           : undefined;
       }
     })();
-    this.#authInflight = run;
+    const mine = { gen, run };
+    this.#authInflight = mine;
     try {
       const value = await run;
       if (value !== undefined && gen === this.#gen) {
@@ -748,7 +759,7 @@ export class LinkSetup {
       }
       return value;
     } finally {
-      if (this.#authInflight === run) this.#authInflight = undefined;
+      if (this.#authInflight === mine) this.#authInflight = undefined;
     }
   }
 
@@ -964,6 +975,7 @@ export class LinkSetup {
       throw new PsycheError("internal", "The Link auth file could not be removed");
     deleteSettings(this.#db, [LINK_CLI_SETTING]);
     this.#sync();
+    this.#chain += 1;
     if (this.#retry !== undefined) clearTimeout(this.#retry);
     this.#retry = undefined;
     if (logout !== undefined)
@@ -975,6 +987,8 @@ export class LinkSetup {
   }
 
   stop(): void {
+    this.#stopped = true;
+    this.#chain += 1;
     this.#stopPoll();
     if (this.#retry !== undefined) clearTimeout(this.#retry);
     this.#retry = undefined;
