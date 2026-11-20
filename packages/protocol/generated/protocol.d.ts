@@ -9226,6 +9226,7 @@ export interface PluginsInstallResult {
 }
 
 export interface PluginSummary {
+    adds?:        PluginAdds;
     capabilities: PluginCapability[];
     description:  string;
     /**
@@ -9245,6 +9246,13 @@ export interface PluginSummary {
     source:  string;
     status:  PluginStatus;
     version: string;
+}
+
+export interface PluginAdds {
+    commands:   number;
+    hooks:      number;
+    mcpServers: number;
+    skills:     number;
 }
 
 /**

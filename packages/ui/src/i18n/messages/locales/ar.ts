@@ -2437,6 +2437,19 @@ export const ar: Partial<Catalogue> = {
   "settings.plugins.switchOn": "تشغيل {name}",
   "settings.plugins.version": " · الإصدار {version}",
   "settings.plugins.adds": "تضيف: {list}",
+  "settings.plugins.install": "التثبيت من مجلد…",
+  "settings.plugins.pickFailed": "تعذّر على Psyche فتح أداة اختيار المجلد ({reason}).",
+  "settings.plugins.installFailed": "لم يبدأ التثبيت. {reason}",
+  "settings.plugins.proposed": "راجع التثبيت على بطاقة الموافقة.",
+  "settings.plugins.includes": "تتضمن: {list}",
+  "settings.plugins.count.skills":
+    "{n, plural, one {مهارة واحدة} two {مهارتان} few {# مهارات} many {# مهارة} other {# مهارة}}",
+  "settings.plugins.count.commands":
+    "{n, plural, one {أمر واحد} two {أمران} few {# أوامر} many {# أمرًا} other {# أمر}}",
+  "settings.plugins.count.mcpServers":
+    "{n, plural, one {خادم MCP واحد} two {خادما MCP} few {# خوادم MCP} many {# خادم MCP} other {# خادم MCP}}",
+  "settings.plugins.count.hooks":
+    "{n, plural, one {خطاف واحد} two {خطافان} few {# خطافات} many {# خطافًا} other {# خطاف}}",
   "settings.plugins.from": "من {source}",
   "settings.plugins.state.active": "تعمل",
   "settings.plugins.state.disabled": "متوقفة",

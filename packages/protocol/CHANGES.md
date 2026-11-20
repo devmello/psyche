@@ -18,6 +18,9 @@ CI fails when the generated files are stale (`pnpm protocol:check`).
 
 ## Log
 
+### v1 additive — 2026-11-19 (what a plugin adds)
+
+- `PluginSummary` gains an optional `adds` (`PluginAdds`: counts of skills, commands, MCP servers and hooks). The Gateway counts them from the plugin's own files, never from its manifest; plugins installed earlier are counted from their installed folder. Settings → Plugins shows them.
 ### v1 additive — 2026-11-20 (Spaces, wave S0)
 
 - New methods `spaces.*` (24, no handlers yet): `list`, `get`, `create`, `update`, `archive`, `restore`, `delete`, `folders.add|remove|setMode`, `settings.set`, `links.add|remove`, `threads.move`, `automations.move`, `trackers.add|remove|reorder|refresh`, `open`, `context.preview`, `proposals.list|accept|dismiss`. Folders, settings and delete are `operator.admin`. New schemas in `schemas/spaces.ts` (`Space`, `SpaceDetail`, `SpaceSummary`, `SpaceFolder`, `SpaceLink`, `SpaceTracker`, `SpaceProposal`, ...).

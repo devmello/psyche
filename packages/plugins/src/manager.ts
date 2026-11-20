@@ -15,6 +15,7 @@ import type { AgentPluginRegistry } from "@psyche/agent-core";
 import type {
   ApprovalRequest,
   PermissionBroker,
+  PluginAddsSchema,
   PluginCapability,
   PluginProposalSchema,
   PluginStatus,
@@ -48,6 +49,46 @@ import { MANIFEST_FILE, type PluginManifest, parseManifest } from "./manifest.ts
 export const LOCK_FILE = "plugins.lock.json";
 const PROPOSAL_TTL_MS = 30 * 60_000;
 
+const HOOK_CAPABILITIES: readonly string[] = ["before_tool_call", "after_tool_call", "agent_end"];
+
+/**
+ * What a plugin folder really adds, counted from its files and the capabilities its host enforces
+ * (a handler for an undeclared capability is refused). The manifest cannot understate it:
+ * `skills/<name>/SKILL.md`, `commands/*.md`, the servers in `.mcp.json`, hook capabilities and
+ * the events in `hooks/hooks.json`.
+ */
+export function countAdds(tree: SkillTree, capabilities: readonly string[]): PluginAddsSchema {
+  const skills = new Set<string>();
+  const commands = new Set<string>();
+  for (const path of tree.keys()) {
+    const skill = /^skills\/([^/]+)\/SKILL\.md$/.exec(path);
+    if (skill?.[1] !== undefined) skills.add(skill[1]);
+    const cmd = /^commands\/(?:.+\/)?([^/]+)\.md$/.exec(path);
+    if (cmd?.[1] !== undefined) commands.add(path);
+  }
+  const keysOf = (file: string, key: string): string[] => {
+    const f = tree.get(file);
+    const text = f === undefined ? undefined : textOf(f);
+    if (text === undefined) return [];
+    try {
+      const v = (JSON.parse(text) as Record<string, unknown> | null)?.[key];
+      return typeof v === "object" && v !== null && !Array.isArray(v) ? Object.keys(v) : [];
+    } catch {
+      return [];
+    }
+  };
+  const hooks = new Set<string>([
+    ...capabilities.filter((c) => HOOK_CAPABILITIES.includes(c)),
+    ...keysOf("hooks/hooks.json", "hooks").map((k) => `file:${k}`),
+  ]);
+  return {
+    skills: skills.size,
+    commands: commands.size,
+    mcpServers: keysOf(".mcp.json", "mcpServers").length,
+    hooks: hooks.size,
+  };
+}
+
 interface LockEntry {
   version: string;
   description: string;
@@ -58,6 +99,8 @@ interface LockEntry {
   enabled: boolean;
   installedAt: string;
   approvalId: string;
+  /** Counted from the folder at install (`countAdds`). */
+  adds?: PluginAddsSchema;
   /** High-severity scan findings at install: the plugin cannot be switched on. */
   blocked: boolean;
 }
@@ -222,6 +265,7 @@ export class PluginManager {
       hash: p.hash,
       enabled: false,
       installedAt: new Date(this.#now()).toISOString(),
+      adds: countAdds(tree, p.manifest.capabilities),
       approvalId,
       blocked,
     };
@@ -354,6 +398,15 @@ export class PluginManager {
 
   #summary(name: string, e: LockEntry): PluginSummarySchema {
     const error = this.#failed.get(name);
+    let adds = e.adds;
+    if (adds === undefined) {
+      // Installed before counts were stored: count the installed folder, or show nothing.
+      try {
+        adds = countAdds(readSkillDir(join(this.#o.dir, name)), e.capabilities);
+      } catch {
+        adds = undefined;
+      }
+    }
     return {
       name,
       version: e.version,
@@ -364,6 +417,7 @@ export class PluginManager {
       enabled: e.enabled,
       status: this.#status(name, e),
       installedAt: e.installedAt,
+      ...(adds === undefined ? {} : { adds }),
       ...(error === undefined ? {} : { error }),
     };
   }

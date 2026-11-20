@@ -35489,6 +35489,33 @@
       ],
       "type": "string"
     },
+    "PluginAdds": {
+      "properties": {
+        "skills": {
+          "minimum": 0,
+          "type": "integer"
+        },
+        "commands": {
+          "minimum": 0,
+          "type": "integer"
+        },
+        "mcpServers": {
+          "minimum": 0,
+          "type": "integer"
+        },
+        "hooks": {
+          "minimum": 0,
+          "type": "integer"
+        }
+      },
+      "required": [
+        "skills",
+        "commands",
+        "mcpServers",
+        "hooks"
+      ],
+      "type": "object"
+    },
     "PluginCapability": {
       "enum": [
         "context",
@@ -35649,6 +35676,9 @@
         },
         "installedAt": {
           "type": "string"
+        },
+        "adds": {
+          "$ref": "#/$defs/PluginAdds"
         },
         "error": {
           "type": "string"

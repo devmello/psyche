@@ -1125,6 +1125,7 @@
 //   let planBlock = try? JSONDecoder().decode(PlanBlock.self, from: jsonData)
 //   let planStep = try? JSONDecoder().decode(PlanStep.self, from: jsonData)
 //   let planStepStatus = try? JSONDecoder().decode(PlanStepStatus.self, from: jsonData)
+//   let pluginAdds = try? JSONDecoder().decode(PluginAdds.self, from: jsonData)
 //   let pluginCapability = try? JSONDecoder().decode(PluginCapability.self, from: jsonData)
 //   let pluginManifest = try? JSONDecoder().decode(PluginManifest.self, from: jsonData)
 //   let pluginProposal = try? JSONDecoder().decode(PluginProposal.self, from: jsonData)
@@ -26916,6 +26917,7 @@ public struct PluginsInstallResult: Codable, Sendable {
 
 // MARK: - PluginSummary
 public struct PluginSummary: Codable, Sendable {
+    public let adds: PluginAdds?
     public let capabilities: [PluginCapability]
     public let description: String
     /// The owner's switch for this plugin
@@ -26931,6 +26933,7 @@ public struct PluginSummary: Codable, Sendable {
     public let version: String
 
     public enum CodingKeys: String, CodingKey {
+        case adds = "adds"
         case capabilities = "capabilities"
         case description = "description"
         case enabled = "enabled"
@@ -26943,7 +26946,8 @@ public struct PluginSummary: Codable, Sendable {
         case version = "version"
     }
 
-    public init(capabilities: [PluginCapability], description: String, enabled: Bool, error: String? = nil, hash: String, installedAt: String, name: String, source: String, status: PluginStatus, version: String) {
+    public init(adds: PluginAdds? = nil, capabilities: [PluginCapability], description: String, enabled: Bool, error: String? = nil, hash: String, installedAt: String, name: String, source: String, status: PluginStatus, version: String) {
+        self.adds = adds
         self.capabilities = capabilities
         self.description = description
         self.enabled = enabled
@@ -26954,6 +26958,28 @@ public struct PluginSummary: Codable, Sendable {
         self.source = source
         self.status = status
         self.version = version
+    }
+}
+
+// MARK: - PluginAdds
+public struct PluginAdds: Codable, Sendable {
+    public let commands: Int
+    public let hooks: Int
+    public let mcpServers: Int
+    public let skills: Int
+
+    public enum CodingKeys: String, CodingKey {
+        case commands = "commands"
+        case hooks = "hooks"
+        case mcpServers = "mcpServers"
+        case skills = "skills"
+    }
+
+    public init(commands: Int, hooks: Int, mcpServers: Int, skills: Int) {
+        self.commands = commands
+        self.hooks = hooks
+        self.mcpServers = mcpServers
+        self.skills = skills
     }
 }
 
