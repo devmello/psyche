@@ -167,6 +167,9 @@ describe("finding launch config in a folder tree", () => {
       // Each with who it was, so a folder found at its path later can be told apart.
       const pkg = lstatSync(join(root, "pkg"), { bigint: true });
       expect(scan.unreadable?.find((u) => u.rel === "pkg")?.id).toBe(`${pkg.dev}:${pkg.ino}`);
+      // And every folder it listed, with who it was while it listed it (#1457 review r1).
+      const ok = lstatSync(join(root, "ok"), { bigint: true });
+      expect(scan.folders?.ok).toBe(`${ok.dev}:${ok.ino}`);
     } finally {
       chmodSync(join(root, "pkg"), 0o755);
       chmodSync(join(root, "a/b"), 0o755);

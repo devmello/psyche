@@ -28,7 +28,12 @@ import {
   parseStatus,
   REMOTE_PATTERN,
 } from "./git.ts";
-import { guardLaunchConfig, type LaunchConfigReport, launchConfigNotice } from "./launch-guard.ts";
+import {
+  guardLaunchConfig,
+  inShare,
+  type LaunchConfigReport,
+  launchConfigNotice,
+} from "./launch-guard.ts";
 import { applyFilePatch, PATCH_LIMITS, parsePatch, patchStats } from "./patch.ts";
 import { CODE_SEARCH_LIMITS, searchCode } from "./search.ts";
 import {
@@ -924,12 +929,23 @@ function readOnlyHintFor(
 }
 
 /** What the receipt and the model see of a guard's report (no file ids). */
+/**
+ * What the agent sees: counts, and paths in the repository only (#1457 review r1). Never where
+ * the quarantine is, and never a name the guard could not tell was the repository's.
+ */
 function launchConfigOutput(r: LaunchConfigReport) {
+  const unmoved = inShare(r.unmoved);
   return {
     quarantined: r.quarantined,
     changed: r.changed,
-    unmoved: r.unmoved,
+    unmoved,
     incidents: r.incidents,
+    counts: {
+      quarantined: r.quarantined.length,
+      changed: r.changed.length,
+      unmoved: unmoved.length,
+      incidents: r.incidents.length,
+    },
     partial: r.partial,
   };
 }

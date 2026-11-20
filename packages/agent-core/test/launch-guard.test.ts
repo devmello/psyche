@@ -48,6 +48,7 @@ const hooks = vi.hoisted(() => ({
   chmod: undefined as ((path: string) => void) | undefined,
   rename: undefined as ((from: string) => void) | undefined,
   lstat: undefined as ((path: string) => void) | undefined,
+  readdir: undefined as ((path: string) => void) | undefined,
 }));
 vi.mock("node:fs/promises", async (importOriginal) => {
   const real = await importOriginal<typeof import("node:fs/promises")>();
@@ -65,6 +66,10 @@ vi.mock("node:fs/promises", async (importOriginal) => {
       hooks.rename?.(String(from));
       return real.rename(from, to);
     }) as typeof real.rename,
+    readdir: ((path: Parameters<typeof real.readdir>[0], ...rest: unknown[]) => {
+      hooks.readdir?.(String(path));
+      return (real.readdir as (...a: unknown[]) => ReturnType<typeof real.readdir>)(path, ...rest);
+    }) as typeof real.readdir,
     lstat: ((path: Parameters<typeof real.lstat>[0], ...rest: unknown[]) => {
       hooks.lstat?.(String(path));
       return (real.lstat as (...a: unknown[]) => ReturnType<typeof real.lstat>)(path, ...rest);
@@ -84,6 +89,7 @@ afterEach(() => {
   hooks.chmod = undefined;
   hooks.rename = undefined;
   hooks.lstat = undefined;
+  hooks.readdir = undefined;
   writable(dir);
   rmSync(dir, { recursive: true, force: true });
 });
@@ -937,6 +943,41 @@ describe("code.run and launch config", () => {
       const report = reports[0] as LaunchConfigReport;
       untouched(outside, 0o500, ctime);
       expect(report.unmoved).toContain("a/pkg/.npmrc");
+    });
+
+    // #1457 review r1, W1: a folder above swapped for a link while the walk lists it.
+    it("W1: never names what is in a folder outside the repository", async () => {
+      const outside = join(dir, "Elsewhere-Home", "sub");
+      mkdirSync(join(outside, "Secret-Project-X"), { recursive: true });
+      mkdirSync(join(outside, "Secret-Repo", ".git", "hooks"), { recursive: true });
+      writeFileSync(join(outside, "Secret-Repo", ".git", "config"), "[core]\n");
+      writeFileSync(join(outside, ".npmrc"), "registry=x");
+      chmodSync(join(outside, "Secret-Project-X"), 0o000);
+      put("a/sub/readme.md");
+      const { use, runner, reports } = setup();
+      acts(runner, "swap", () => {
+        let done = false;
+        hooks.readdir = (path) => {
+          if (done || path !== join(repo, "a/sub")) return;
+          done = true;
+          renameSync(join(repo, "a"), join(repo, "a.moved"));
+          symlinkSync(join(dir, "Elsewhere-Home"), join(repo, "a"));
+        };
+      });
+      await use("code.open", { path: repo });
+      const r = await use("code.run", { root: repo, argv: ["swap"] });
+      const report = reports[0] as LaunchConfigReport;
+      const said = JSON.stringify([report, r.output.launchConfig]);
+      expect(said).not.toMatch(/Secret|registry|Elsewhere/);
+      expect(report.unmoved.some((p) => p.includes(".npmrc"))).toBe(false);
+      // Said by the folder the swap was in.
+      expect(report.unmoved).toContain("a/sub");
+      expect((r.output.launchConfig as { counts: { unmoved: number } }).counts.unmoved).toBe(
+        report.unmoved.length,
+      );
+      // Nothing outside was moved or changed.
+      expect(readdirSync(outside).sort()).toEqual([".npmrc", "Secret-Project-X", "Secret-Repo"]);
+      expect(lstatSync(join(outside, "Secret-Project-X")).mode & 0o7777).toBe(0o000);
     });
 
     it("R3: a file inside an entry moved across volumes", async () => {

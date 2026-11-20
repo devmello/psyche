@@ -272,8 +272,16 @@ async function settle(
     partial,
   };
   let now: LaunchConfigScan;
+  // Every folder each walk after the run listed: a name from an earlier walk is told by it.
+  const listed: Record<string, string> = {};
+  const note = (scan: LaunchConfigScan) => {
+    for (const [dir, id] of Object.entries(scan.folders ?? {})) {
+      listed[dir] = listed[dir] === "" ? "" : id;
+    }
+  };
   try {
     now = await findLaunchConfig(root, limits);
+    note(now);
   } catch {
     report.unmoved.push(".");
     return report;
@@ -304,6 +312,7 @@ async function settle(
     }
     try {
       now = await findLaunchConfig(root, limits);
+      note(now);
     } catch {
       report.unmoved.push(".");
       return report;
@@ -466,7 +475,90 @@ async function settle(
     report.changed.push(key);
     report.fingerprints[key] = is?.split("\0in:")[0] ?? "gone";
   }
+  // Names go to the agent and to the owner only when they are the repository's (#1457 review r1).
+  // The owner's `.claude` link, while it leads where it did: what it holds is the owner's.
+  const claudeLeads =
+    claude.kind === "link" &&
+    (await resolution(join(root, CLAUDE_DIR)).then(
+      (r) => r.real === claude.real && r.id === claude.targetId,
+    ));
+  const names = reportable(root, listed, (p) => claudeLeads && p.startsWith(`${CLAUDE_DIR}/`));
+  report.unmoved = await names(report.unmoved);
+  report.incidents = await names(report.incidents);
+  const changed = report.changed;
+  report.changed = await names(changed);
+  if (report.changed.join("\0") !== changed.join("\0")) {
+    const fingerprints: Record<string, string> = {};
+    for (const key of changed) {
+      const [name] = await names([key]);
+      if (name === undefined) continue;
+      fingerprints[name] =
+        name === key ? (report.fingerprints[key] ?? "changed") : "changed during the check";
+    }
+    report.fingerprints = fingerprints;
+  }
   return report;
+}
+
+/**
+ * The names that may be reported (#1457 review r1). A folder above a path swapped for a link
+ * while the walk listed it makes the walk read a folder outside the repository, whose entries'
+ * names would reach the agent's tool result and the owner's notice. A path is named only when
+ * the deepest folder above it that the walk listed was listed inside the repository (the walk
+ * notes one it could not tell so as `""`), and, when the path is deeper than that folder (in a
+ * folder never walked, such as a `.git`'s hooks), its own folder is at its real path now.
+ * Otherwise it is named by the folder the swap was in: the one below the deepest folder above
+ * it that was listed inside the repository. `trusted` paths (the owner's `.claude` link, which
+ * leads where it did) are named as they are.
+ */
+function reportable(
+  root: string,
+  folders: Record<string, string> | undefined,
+  trusted: (path: string) => boolean,
+): (paths: readonly string[]) => Promise<string[]> {
+  const listedInside = (dir: string) => {
+    const pin = folders?.[dir];
+    return pin !== undefined && pin !== "";
+  };
+  return async (paths) => {
+    if (folders === undefined) return [...paths];
+    const out = new Set<string>();
+    for (const p of paths) {
+      // The root itself, and what is held in the quarantine (named when it was moved).
+      if (p === "." || p.includes(" (held in ") || trusted(p)) {
+        out.add(p);
+        continue;
+      }
+      const parts = p.split("/");
+      // The folders above `p` the walk listed, deepest first, by how many parts they have.
+      const listed: number[] = [];
+      for (let k = parts.length - 1; k >= 0; k--) {
+        if (folders[k === 0 ? "." : parts.slice(0, k).join("/")] !== undefined) listed.push(k);
+      }
+      if (listed.length === 0) {
+        out.add(p);
+        continue;
+      }
+      let named: string | undefined;
+      for (const k of listed) {
+        if (!listedInside(k === 0 ? "." : parts.slice(0, k).join("/"))) continue;
+        named = parts.slice(0, k + 1).join("/");
+        if (k === listed[0] && k < parts.length - 1) {
+          // Deeper than any folder the walk listed: its folder must be where it says now.
+          const parent = dirname(join(root, p));
+          const real = await realpath(parent).catch((err: unknown) =>
+            (err as NodeJS.ErrnoException).code === "ENOENT" ? parent : undefined,
+          );
+          if (real === parent) named = p;
+        } else if (k === listed[0]) {
+          named = p;
+        }
+        break;
+      }
+      out.add(named ?? ".");
+    }
+    return [...out];
+  };
 }
 
 /**
@@ -941,6 +1033,11 @@ export async function keepQuarantined(
   return result;
 }
 
+/** Repository paths only: what is held is named by its path in the repository, not where. */
+export function inShare(paths: readonly string[]): string[] {
+  return [...new Set(paths.map((p) => p.split(" (held in ")[0] as string))];
+}
+
 /** What the tool result tells the model, when the run touched launch config. */
 export function launchConfigNotice(r: LaunchConfigReport): string | undefined {
   const parts: string[] = [];
@@ -951,7 +1048,7 @@ export function launchConfigNotice(r: LaunchConfigReport): string | undefined {
   }
   if (r.unmoved.length > 0) {
     parts.push(
-      `could not move ${r.unmoved.join(", ")}, which is still in place and not held, and told the owner`,
+      `could not move ${inShare(r.unmoved).join(", ")}, which is still in place and not held, and told the owner`,
     );
   }
   if (r.relinked.length > 0) {

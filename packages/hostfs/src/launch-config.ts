@@ -99,6 +99,13 @@ export interface LaunchConfigScan {
    * search-only folder still lets an app open a launch-config file in it by name.
    */
   unreadable?: LaunchConfigUnlisted[];
+  /**
+   * Every folder the walk listed (`.` for the root), with who it was (dev:ino) while it was
+   * listed, or `""` when that changed during the listing (#1457 review r1). A folder above it
+   * swapped for a link makes the walk list a folder outside the root: a name the walk reports
+   * is only the root's when its folder still is this one, at its real path.
+   */
+  folders?: Record<string, string>;
 }
 
 /** A folder the walk could not list. */
@@ -182,8 +189,9 @@ export async function findLaunchConfig(
   const found: LaunchConfigFound[] = [];
   const unreadable: LaunchConfigUnlisted[] = [];
   const unlisted = unlistedPinner(root, unreadable);
+  const folders: Record<string, string> = {};
   const done = (complete: boolean): LaunchConfigScan =>
-    unreadable.length > 0 ? { found, complete, unreadable } : { found, complete };
+    unreadable.length > 0 ? { found, complete, unreadable, folders } : { found, complete, folders };
   const queue: { rel: string; depth: number }[] = [{ rel: "", depth: 0 }];
   let dirs = 0;
   while (queue.length > 0) {
@@ -191,9 +199,12 @@ export async function findLaunchConfig(
     if (++dirs > maxDirs) return done(false);
     let entries: Dirent[];
     try {
-      entries = await readdir(next.rel === "" ? root : join(root, next.rel), {
-        withFileTypes: true,
-      });
+      entries = await listPinned(
+        next.rel === "" ? root : join(root, next.rel),
+        next.rel === "" ? "." : next.rel,
+        folders,
+        root,
+      );
     } catch (err) {
       if (denied(err)) await unlisted(next.rel === "" ? "." : next.rel);
       continue;
@@ -219,7 +230,7 @@ export async function findLaunchConfig(
         // A folder not walked can still hold a repository an editor finds and runs git in
         // (VS Code looks one and two levels down, in build output too): looked for directly.
         if (limits.nestedGit === true && fold(d.name) !== "node_modules") {
-          for (const g of await nestedGits(root, rel, skip, unlisted)) {
+          for (const g of await nestedGits(root, rel, skip, unlisted, folders)) {
             if (found.length >= maxFound) return done(false);
             found.push(g);
           }
@@ -256,6 +267,38 @@ function unlistedPinner(root: string, into: LaunchConfigUnlisted[]) {
   };
 }
 
+/**
+ * Lists `path` (`rel`), noting who it was: the same folder before and after the listing, and its
+ * folder (listed before it, top down) still the one that was listed, at the same path. Else it
+ * is noted as `""`: a folder on the way was swapped for a link, the listing may be of a folder
+ * outside the root, and nothing it named is reported as the root's.
+ */
+async function listPinned(
+  path: string,
+  rel: string,
+  folders: Record<string, string>,
+  root?: string,
+): Promise<Dirent[]> {
+  const id = async (at: string) => {
+    const st = await lstat(at, { bigint: true }).catch(() => undefined);
+    return st?.isDirectory() === true ? `${st.dev}:${st.ino}` : "";
+  };
+  const was = await id(path);
+  const entries = await readdir(path, { withFileTypes: true });
+  const is = await id(path);
+  let above = true;
+  if (rel !== "." && root !== undefined) {
+    const parent = rel.includes("/") ? rel.slice(0, rel.lastIndexOf("/")) : ".";
+    const pin = folders[parent];
+    above =
+      pin !== undefined &&
+      pin !== "" &&
+      (await id(parent === "." ? root : join(root, parent))) === pin;
+  }
+  folders[rel] = was !== "" && was === is && above ? was : "";
+  return entries;
+}
+
 /** Folders below an unwalked one checked for their own `.git` at most. */
 const MAX_GIT_PROBES = 2_000;
 
@@ -268,6 +311,7 @@ async function nestedGits(
   rel: string,
   children: boolean,
   unlisted: (rel: string) => Promise<void>,
+  folders: Record<string, string>,
 ): Promise<LaunchConfigFound[]> {
   const out: LaunchConfigFound[] = [];
   const probe = async (dir: string) => {
@@ -286,7 +330,7 @@ async function nestedGits(
   if (!children) return out;
   let entries: Dirent[];
   try {
-    entries = await readdir(join(root, rel), { withFileTypes: true });
+    entries = await listPinned(join(root, rel), rel, folders, root);
   } catch (err) {
     if (denied(err)) await unlisted(rel);
     return out;
