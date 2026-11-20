@@ -440,7 +440,7 @@ When `XDG_SESSION_TYPE=x11`: XTest for input (`XTestFakeKeyEvent`, `XTestFakeBut
 
 XShm capture of the root window, XTest input on `:n`, AT-SPI screen coordinates and actions. All of it stays inside the helper's own X server: nothing reaches the owner's display, and no portal dialog appears.
 
-**Follow-up for the agent-input PR** (review of #1452, finding 3): the window manager still raises and focuses every new top-level, so a page's `window.open` in the agent's Firefox can take focus while the agent types into Writer. Before each typed batch, check that the focused window's server-reported pid (X-Resource, as `open_app` uses) is in the scope of the app the agent is acting on, and refuse or refocus otherwise. Not built yet.
+**Follow-up for the agent-input PR** (review of #1452, finding 3): the window manager still raises and focuses every new top-level, so a page's `window.open` in the agent's Firefox can take focus while the agent types into Writer. Before each typed batch, check that the focused window's server-reported pid (X-Resource, as `open_app` uses) is in the scope of the app the agent is acting on, and refuse or refocus otherwise. Built in H1 (`helper/src/headless/focus.rs`): the check reads the X input focus (not `_NET_ACTIVE_WINDOW`) and the pid the X server recorded (X-Resource, not `_NET_WM_PID`), and runs before each typed batch and each chunk; a window outside the target app's scope refuses with `focus_moved`, one that cannot be read with `focus_unknown`, and an app on the deny list with `app_denied`.
 
 ### 7.4 Lifecycle and RAM
 

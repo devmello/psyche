@@ -106,6 +106,26 @@ impl A11y {
                 format!("Needs a graphical session on this computer (no session bus: {e})"),
             )
         })?;
+        Self::connect_via(&session)
+    }
+
+    /// Like [`A11y::connect`], on the session bus at `address` (the headless mode's private bus)
+    /// instead of the one the environment names.
+    pub fn connect_session_address(address: &str) -> CapResult<A11y> {
+        let session = zbus::blocking::connection::Builder::address(address)
+            .map_err(|e| CapError::unavailable("no_a11y_bus", e.to_string()))?
+            .method_timeout(CALL_TIMEOUT)
+            .build()
+            .map_err(|e| {
+                CapError::unavailable(
+                    "no_a11y_bus",
+                    format!("Cannot connect to the session bus: {e}"),
+                )
+            })?;
+        Self::connect_via(&session)
+    }
+
+    fn connect_via(session: &zbus::blocking::Connection) -> CapResult<A11y> {
         let reply = session
             .call_method(
                 Some("org.a11y.Bus"),

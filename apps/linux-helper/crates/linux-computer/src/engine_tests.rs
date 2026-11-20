@@ -245,6 +245,69 @@ fn focus_leaving_the_app_stops_typing_before_a_single_key() {
 }
 
 #[test]
+fn a_surface_that_refuses_the_focus_stops_typing_and_keys_before_anything_is_sent() {
+    // The virtual screen: the focused window's server-recorded process is another app's, or an
+    // app on the deny list. The pid the fake reports for the focus would have passed.
+    for (code, reason) in [("conflict", "focus_moved"), ("policy_denied", "app_denied")] {
+        let r = rig(all_interact());
+        editor(&r);
+        r.fake.s.lock().unwrap().input_target = Some(Err((code, reason)));
+        let typed = call(
+            &r,
+            "computer.type",
+            json!({"text": "hi", "app": "org.gnome.TextEditor", "session": "s1"}),
+            &inv(),
+        )
+        .unwrap_err();
+        assert_eq!((typed.0.as_str(), typed.1.as_str()), (code, reason));
+        let key = call(
+            &r,
+            "computer.key",
+            json!({"keys": "a", "app": "org.gnome.TextEditor", "session": "s1"}),
+            &inv(),
+        )
+        .unwrap_err();
+        assert_eq!(key.1, reason);
+        assert!(r.fake.s.lock().unwrap().typed.is_empty());
+        assert!(r.fake.log().iter().all(|l| !l.starts_with("key ")));
+    }
+}
+
+#[test]
+fn a_surface_that_vouches_for_the_focus_decides_instead_of_the_pid_comparison() {
+    // A child process in the app's scope owns the focused window: the pid differs, the surface
+    // says it is the app's.
+    let r = rig(all_interact());
+    editor(&r);
+    {
+        let mut s = r.fake.s.lock().unwrap();
+        s.focus_pid = Some(TERMINAL_PID);
+        s.focus_denied = true;
+        s.input_target = Some(Ok(true));
+    }
+    call(
+        &r,
+        "computer.type",
+        json!({"text": "ok", "app": "org.gnome.TextEditor", "session": "s1"}),
+        &inv(),
+    )
+    .unwrap();
+    // No opinion (every other surface): the comparison still refuses.
+    r.fake.s.lock().unwrap().input_target = None;
+    assert_eq!(
+        call(
+            &r,
+            "computer.type",
+            json!({"text": "no", "app": "org.gnome.TextEditor", "session": "s1"}),
+            &inv(),
+        )
+        .unwrap_err()
+        .1,
+        "focus_moved"
+    );
+}
+
+#[test]
 fn a_click_presses_by_the_action_without_coordinates() {
     let r = rig(all_interact());
     let e = editor(&r);

@@ -92,9 +92,28 @@ pub enum Path {
     Remote(Box<dyn RemotePath>),
 }
 
+/// What a surface other than the owner's desktop changes about the Linux backend. The helper's
+/// virtual screen (the headless mode) is the one user: apps start in their own scope on the
+/// private display, and keyboard focus is judged from what the X server records, not from what a
+/// window says about itself.
+pub trait SurfaceHooks: Send + Sync {
+    /// Refuses an app before any card (the deny list). Runs after the desktop-entry trust check.
+    fn check_launch(&self, _id: &str) -> CapResult<()> {
+        Ok(())
+    }
+    /// Starts the app on this surface; replaces `gio launch`. The trust checks have passed.
+    /// `desktop_file_stem` is the trusted entry's file name without `.desktop`, in its own case.
+    fn launch(&self, desktop_file_stem: &str, url: Option<&str>) -> CapResult<()>;
+    /// The pid that has keyboard focus, from the X server.
+    fn focus_pid(&self) -> Option<u32>;
+    /// See [`Backend::check_input_target`].
+    fn check_input_target(&self, app: &AppInfo) -> CapResult<bool>;
+}
+
 pub struct LinuxBackend {
     pub a11y: Arc<A11y>,
     pub path: Path,
+    hooks: Option<Arc<dyn SurfaceHooks>>,
     index: Mutex<Option<DesktopIndex>>,
     env: crate::a11y::EnvFn,
 }
@@ -108,9 +127,27 @@ impl LinuxBackend {
         LinuxBackend {
             a11y,
             path,
+            hooks: None,
             index: Mutex::new(None),
             env: Box::new(|k| std::env::var(k).ok().filter(|v| !v.is_empty())),
         }
+    }
+
+    /// Runs this backend on a surface of its own (see [`SurfaceHooks`]).
+    pub fn with_hooks(mut self, hooks: Arc<dyn SurfaceHooks>) -> LinuxBackend {
+        self.hooks = Some(hooks);
+        self
+    }
+
+    /// Waits briefly for the app to show up on the accessibility bus.
+    fn wait_for_app(&self, id: &str, name: Option<&str>) -> Value {
+        for _ in 0..40 {
+            if let Some(a) = self.apps().into_iter().find(|a| a.id == id) {
+                return json!({"bundleId": a.id, "name": a.name, "pid": a.pid});
+            }
+            std::thread::sleep(Duration::from_millis(100));
+        }
+        json!({"bundleId": id, "name": name, "pid": Value::Null, "pending": true})
     }
 
     fn x11(&self) -> Option<&Arc<X11>> {
@@ -350,7 +387,17 @@ impl Backend for LinuxBackend {
         }
     }
 
+    fn check_input_target(&self, app: &AppInfo) -> CapResult<bool> {
+        match &self.hooks {
+            Some(h) => h.check_input_target(app),
+            None => Ok(false),
+        }
+    }
+
     fn keyboard_focus_pid(&self) -> Option<u32> {
+        if let Some(h) = &self.hooks {
+            return h.focus_pid();
+        }
         match &self.path {
             Path::X11(x) => x.focus_pid(),
             Path::Remote(_) => self
@@ -418,12 +465,27 @@ impl Backend for LinuxBackend {
     }
 
     fn check_launch(&self, id: &str) -> CapResult<()> {
-        self.trusted_desktop_file(id).map(|_| ())
+        self.trusted_desktop_file(id)?;
+        match &self.hooks {
+            Some(h) => h.check_launch(id),
+            None => Ok(()),
+        }
     }
 
     fn launch(&self, id: &str, url: Option<&str>) -> CapResult<Value> {
         // Checked again here: the agent may have written a shadowing entry while a card waited.
         let (entry, file, terminal_dirs) = self.trusted_desktop_file(id)?;
+        if let Some(h) = &self.hooks {
+            h.check_launch(id)?;
+            // The surface finds the entry by its file name, which keeps the case the id lost.
+            let stem = file
+                .file_stem()
+                .and_then(|s| s.to_str())
+                .unwrap_or(&entry.id)
+                .to_string();
+            h.launch(&stem, url)?;
+            return Ok(self.wait_for_app(&entry.id, entry.name.as_deref()));
+        }
         // Launch through GLib, which implements the Desktop Entry rules (field codes, DBus
         // activation, Terminal=true) and puts the app in its own scope. The accessibility
         // switches (`launch_env`) make Qt, GTK and Firefox export their trees (design §6.1).
@@ -475,14 +537,7 @@ impl Backend for LinuxBackend {
                 ),
             ));
         }
-        // Wait briefly for the app to show up on the accessibility bus.
-        for _ in 0..40 {
-            if let Some(a) = self.apps().into_iter().find(|a| a.id == entry.id) {
-                return Ok(json!({"bundleId": a.id, "name": a.name, "pid": a.pid}));
-            }
-            std::thread::sleep(Duration::from_millis(100));
-        }
-        Ok(json!({"bundleId": entry.id, "name": entry.name, "pid": Value::Null, "pending": true}))
+        Ok(self.wait_for_app(&entry.id, entry.name.as_deref()))
     }
 
     fn begin_walk(&self, budget: Duration) {

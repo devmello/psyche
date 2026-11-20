@@ -269,6 +269,10 @@ pub struct VscreenManager {
     /// Whether this display session's Firefox profile copy is made. Its own lock: copying can
     /// take seconds and must not block frames and status. Taken after `inner`, never before.
     firefox_fresh: Mutex<bool>,
+    /// The helper-only box has no owner's screen (headless mode, H1): the check that an app is
+    /// not already open on it has nothing to protect. The recipes and the private bus keep the
+    /// launch off any other display; `opened_elsewhere` still catches one that got out.
+    headless: std::sync::atomic::AtomicBool,
 }
 
 fn lock<T>(m: &Mutex<T>) -> std::sync::MutexGuard<'_, T> {
@@ -282,6 +286,7 @@ impl VscreenManager {
             deps,
             idle,
             firefox_fresh: Mutex::new(false),
+            headless: std::sync::atomic::AtomicBool::new(false),
             inner: Mutex::new(Inner {
                 display: None,
                 session: None,
@@ -300,6 +305,16 @@ impl VscreenManager {
 
     pub fn config(&self) -> &Config {
         &self.config
+    }
+
+    /// Marks this box as headless: the virtual screen is its only screen.
+    pub fn set_headless(&self, headless: bool) {
+        self.headless
+            .store(headless, std::sync::atomic::Ordering::Relaxed);
+    }
+
+    pub fn is_headless(&self) -> bool {
+        self.headless.load(std::sync::atomic::Ordering::Relaxed)
     }
 
     fn touch(&self) {
@@ -517,6 +532,41 @@ impl VscreenManager {
             .map(|d| d.xauthority.clone())
     }
 
+    /// The running display, if there is one (no start).
+    pub fn display_handle(&self) -> Option<Arc<VirtualDisplay>> {
+        lock(&self.inner).display.clone()
+    }
+
+    /// Whether `pid` runs in the transient scope of an app launched here as `app_id`. The cgroup
+    /// is the kernel's record of where the process was started, which a window's own claims
+    /// about itself cannot change.
+    pub fn pid_in_app_scope(&self, app_id: &str, pid: u32) -> bool {
+        let units: Vec<String> = lock(&self.inner)
+            .apps
+            .iter()
+            .filter(|a| a.app_id.eq_ignore_ascii_case(app_id))
+            .map(|a| a.unit.clone())
+            .collect();
+        if units.is_empty() {
+            return false;
+        }
+        let cgroup = self.deps.procs.cgroup_text(pid);
+        units.iter().any(|u| in_unit_scope(&cgroup, u))
+    }
+
+    /// The desktop id of the app launched here whose scope holds `pid`.
+    pub fn app_of_pid(&self, pid: u32) -> Option<String> {
+        let apps: Vec<(String, String)> = lock(&self.inner)
+            .apps
+            .iter()
+            .map(|a| (a.app_id.clone(), a.unit.clone()))
+            .collect();
+        let cgroup = self.deps.procs.cgroup_text(pid);
+        apps.into_iter()
+            .find(|(_, unit)| in_unit_scope(&cgroup, unit))
+            .map(|(id, _)| id)
+    }
+
     /// The private session bus, while one runs (the AT-SPI work reads the apps' tree there).
     pub fn session_bus_address(&self) -> Option<String> {
         lock(&self.inner)
@@ -584,7 +634,12 @@ impl VscreenManager {
             ));
         }
         // Before anything starts: is it already open on the owner's screen?
-        check_before_launch(&entry, exe.as_deref(), &*self.deps.bus, &*self.deps.procs).map_err(
+        let guard = if self.is_headless() {
+            Ok(())
+        } else {
+            check_before_launch(&entry, exe.as_deref(), &*self.deps.bus, &*self.deps.procs)
+        };
+        guard.map_err(
             |r| match r {
                 Refusal::AlreadyOpenOnYourScreen => VsError::new(
                     "already_open_on_your_screen",

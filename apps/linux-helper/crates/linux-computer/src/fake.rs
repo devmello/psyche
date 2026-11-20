@@ -29,6 +29,8 @@ pub struct State {
     pub windows: Vec<WinInfo>,
     pub app_roots: HashMap<u32, Vec<u32>>,
     pub focus_pid: Option<u32>,
+    /// What a surface's `check_input_target` answers (the virtual screen): `None` is no opinion.
+    pub input_target: Option<Result<bool, (&'static str, &'static str)>>,
     pub focused_element: Option<u32>,
     pub focus_secure: bool,
     pub geometry_known: bool,
@@ -357,6 +359,13 @@ impl Backend for Fake {
     }
     fn windows(&self) -> Vec<WinInfo> {
         self.s.lock().unwrap().windows.clone()
+    }
+    fn check_input_target(&self, _app: &AppInfo) -> CapResult<bool> {
+        match self.s.lock().unwrap().input_target {
+            None => Ok(false),
+            Some(Ok(v)) => Ok(v),
+            Some(Err((code, reason))) => Err(CapError::new(code, reason, "refused by the surface")),
+        }
     }
     fn keyboard_focus_pid(&self) -> Option<u32> {
         self.s.lock().unwrap().focus_pid

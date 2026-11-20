@@ -14,6 +14,8 @@ pub mod daemon;
 pub mod direct;
 pub mod handshake;
 pub mod hardening;
+#[cfg(target_os = "linux")]
+pub mod headless;
 pub mod identity;
 pub mod idle;
 pub mod paths;

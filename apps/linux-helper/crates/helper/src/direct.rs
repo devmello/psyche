@@ -73,6 +73,10 @@ mod linux {
 
     impl Shared {
         fn engine(&self) -> Result<Arc<Engine<LinuxBackend>>, CapabilityError> {
+            // Headless (H1): the helper's own virtual screen is the only screen.
+            if let Some(engine) = crate::headless::engine() {
+                return engine.map_err(|e| cap_error(&e));
+            }
             let mut guard = self.engine.lock().unwrap_or_else(|e| e.into_inner());
             if let Some(e) = guard.as_ref() {
                 return Ok(e.clone());

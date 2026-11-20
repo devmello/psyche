@@ -832,10 +832,14 @@ impl<B: Backend> Engine<B> {
     /// Another client holding the keyboard (an X11 launcher such as dmenu) also fails closed: the
     /// focus still names the app, but every key would go to the grabbing client.
     fn ensure_keyboard_target(&self, app: &AppInfo) -> CapResult<()> {
-        match self.backend.keyboard_focus_pid() {
-            Some(p) if app.owns(p) => {}
-            Some(_) => return Err(focus_moved(app)),
-            None => return Err(focus_unknown(app)),
+        // A surface that vouches for the focus itself (the virtual screen) has decided; the others
+        // compare the focused process with the app's.
+        if !self.backend.check_input_target(app)? {
+            match self.backend.keyboard_focus_pid() {
+                Some(p) if app.owns(p) => {}
+                Some(_) => return Err(focus_moved(app)),
+                None => return Err(focus_unknown(app)),
+            }
         }
         if !self.backend.keyboard_free()? {
             return Err(keyboard_grabbed(app));
@@ -1155,10 +1159,12 @@ impl<B: Backend> Engine<B> {
                 ..TargetReport::default()
             })))
         };
-        match self.backend.keyboard_focus_pid() {
-            None => return unknown(),
-            Some(p) if !app.owns(p) => return Err(focus_moved(&app)),
-            Some(_) => {}
+        if !self.backend.check_input_target(&app)? {
+            match self.backend.keyboard_focus_pid() {
+                None => return unknown(),
+                Some(p) if !app.owns(p) => return Err(focus_moved(&app)),
+                Some(_) => {}
+            }
         }
         let Some(e) = self.backend.focused_element(Some(&app)) else {
             return unknown();

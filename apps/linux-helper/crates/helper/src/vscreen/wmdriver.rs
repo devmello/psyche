@@ -574,6 +574,37 @@ impl WmDriver {
             .clone()
     }
 
+    /// The mapped top-level that holds the X **input focus**, with the pid the X server
+    /// recorded for its client (X-Resource). Not `_NET_ACTIVE_WINDOW` (a window manager's idea,
+    /// and a property any client may write) and not `_NET_WM_PID` (any client may claim any
+    /// pid): XTest keys go to the input focus, and only the server knows whose it is.
+    /// `None` when the server has no X-Resource (the pid would be a claim), when the focus is on
+    /// the root or nothing, or when it is on a window that is no known top-level's.
+    pub fn input_focus_window(&self) -> Option<WindowRecord> {
+        if !self.has_res {
+            return None;
+        }
+        let mut w = self.conn.get_input_focus().ok()?.reply().ok()?.focus;
+        for _ in 0..8 {
+            if w == 0 || w == 1 || w == self.root {
+                return None;
+            }
+            let found = self
+                .table
+                .lock()
+                .unwrap_or_else(|p| p.into_inner())
+                .windows
+                .iter()
+                .find(|r| r.id == w)
+                .cloned();
+            if found.is_some() {
+                return found;
+            }
+            w = self.conn.query_tree(w).ok()?.reply().ok()?.parent;
+        }
+        None
+    }
+
     pub fn active(&self) -> Option<WinId> {
         self.wm.lock().unwrap_or_else(|p| p.into_inner()).active()
     }

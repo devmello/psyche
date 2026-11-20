@@ -179,6 +179,15 @@ pub trait Backend: TreeSource<Element: Send + 'static> + Send + Sync + 'static {
     fn keyboard_free(&self) -> CapResult<bool> {
         Ok(true)
     }
+    /// A surface that knows more about who owns the keyboard than the pid in `app` says (the
+    /// helper's virtual screen: the X server's own record of the focused window's process, and
+    /// whether that process sits in the app's launch scope) checks it here, before the pid
+    /// comparison below. `Ok(true)`: the focus is the app's own, whatever pid the comparison
+    /// would say. `Ok(false)`: no opinion, the comparison decides. An error refuses input: the
+    /// focus is another app's window, an app that is denied, or unknowable.
+    fn check_input_target(&self, _app: &AppInfo) -> CapResult<bool> {
+        Ok(false)
+    }
     /// Brings the app (or one of its windows) forward. `Ok(true)` when focus moved, `Ok(false)`
     /// when it was only requested (GNOME on Wayland), an error for `focus_denied`.
     fn activate(&self, app: &AppInfo, window: Option<usize>, stop: &StopSignal) -> CapResult<bool>;

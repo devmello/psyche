@@ -98,6 +98,16 @@ impl X11 {
                 format!("Cannot open the display {display}: {e}"),
             )
         })?;
+        Self::from_connection(conn, screen_num, display)
+    }
+
+    /// Uses a connection the caller opened: the headless mode's private Xvfb, reached with its
+    /// cookie in memory, never through `$DISPLAY` or a file the environment names.
+    pub fn from_connection(
+        conn: RustConnection,
+        screen_num: usize,
+        display: String,
+    ) -> CapResult<Arc<X11>> {
         let root = conn.setup().roots[screen_num].root;
         conn.xtest_get_version(2, 2)
             .map_err(xerr)?
