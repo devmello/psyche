@@ -27,6 +27,7 @@ import {
   taintOf,
 } from "./events.ts";
 import { buildUnattendedPrompt } from "./prompt.ts";
+import { isTransientModelError, MAX_RETRIES, retryDelayMs } from "./retry.ts";
 import {
   type AutomationRow,
   automationFromRow,
@@ -67,6 +68,8 @@ export interface SqliteSchedulerOptions {
   watchTimeoutMs?: number;
   /** Watch failure backoff cap. Default 24 h. */
   maxBackoffMs?: number;
+  /** Random source for retry jitter, in [0, 1). Default `Math.random`. */
+  random?: () => number;
   onError?: (error: unknown) => void;
 }
 
@@ -129,6 +132,7 @@ export class SqliteScheduler implements Scheduler {
   #localVersion = 0;
   #timer: unknown;
   #started = false;
+  readonly #retryTimers = new Map<string, unknown>();
 
   constructor(options: SqliteSchedulerOptions) {
     this.#o = options;
@@ -724,6 +728,65 @@ export class SqliteScheduler implements Scheduler {
     }
   }
 
+  /**
+   * A scheduled run that failed with a transient model error, before any side-effecting step, and
+   * has retries left. Watches and manual runs are not retried.
+   */
+  #retryable(row: RunRow, automation: AutomationRow, result: RunResult): boolean {
+    return (
+      result.status === "failed" &&
+      result.noSideEffects === true &&
+      row.trigger !== "manual" &&
+      automation.kind !== "watch" &&
+      (row.attempt ?? 0) < MAX_RETRIES &&
+      isTransientModelError(result.summary ?? "")
+    );
+  }
+
+  /** The run stays `running` (its Mac stays awake) with `retry_at` set until the next attempt. */
+  #scheduleRetry(row: RunRow, result: RunResult): void {
+    const attempt = (row.attempt ?? 0) + 1;
+    const dueMs = this.clock.now() + retryDelayMs(attempt, this.#o.random);
+    this.#db.sqlite
+      .prepare("UPDATE automation_runs SET attempt = ?, retry_at = ?, summary = ? WHERE id = ?")
+      .run(attempt, this.#iso(dueMs), (result.summary ?? "").slice(0, SUMMARY_MAX), row.id);
+    this.#emit([this.#updatedEvent(row.automation_id)]);
+    this.#armRetry(row.id, dueMs);
+  }
+
+  #armRetry(runId: string, dueMs: number): void {
+    const handle = this.#timers.setTimeout(
+      () => {
+        this.#retryTimers.delete(runId);
+        this.#track(this.#retryRun(runId));
+      },
+      Math.max(0, dueMs - this.clock.now()),
+    );
+    this.#retryTimers.set(runId, handle);
+  }
+
+  /** The retry is due: launch a new attempt unless the run or its automation is gone. */
+  async #retryRun(runId: string): Promise<void> {
+    const row = this.#db.sqlite.prepare("SELECT * FROM automation_runs WHERE id = ?").get(runId) as
+      | RunRow
+      | undefined;
+    if (row === undefined || row.status !== "running" || row.retry_at == null) return;
+    this.#db.sqlite.prepare("UPDATE automation_runs SET retry_at = NULL WHERE id = ?").run(runId);
+    if (this.#rowOrUndefined(row.automation_id) === undefined) {
+      await this.#finish(runId, { status: "cancelled", summary: "The automation was deleted" });
+      return;
+    }
+    await this.#dispatch(runId);
+  }
+
+  /** Runs in progress, retries waiting included: what keeps the Mac awake. */
+  activeRunCount(): number {
+    const row = this.#db.sqlite
+      .prepare("SELECT COUNT(*) AS n FROM automation_runs WHERE status = 'running'")
+      .get() as { n: number };
+    return row.n;
+  }
+
   async #finish(runId: string, result: RunResult): Promise<void> {
     const row = this.#db.sqlite.prepare("SELECT * FROM automation_runs WHERE id = ?").get(runId) as
       | RunRow
@@ -731,6 +794,10 @@ export class SqliteScheduler implements Scheduler {
     // Gone (automation deleted) or already finished: nothing to record.
     if (row === undefined || row.status !== "running") return;
     const automation = this.#rowOrUndefined(row.automation_id);
+    if (automation !== undefined && this.#retryable(row, automation, result)) {
+      this.#scheduleRetry(row, result);
+      return;
+    }
     let notificationId: string | null = null;
     if (automation !== undefined) {
       const a = automationFromRow(automation, this.#watchRow(automation.id));
@@ -1032,6 +1099,10 @@ export class SqliteScheduler implements Scheduler {
       .prepare("SELECT * FROM automation_runs WHERE status = 'running'")
       .all() as RunRow[];
     for (const r of stale) {
+      if (r.retry_at != null) {
+        this.#armRetry(r.id, Date.parse(r.retry_at));
+        continue;
+      }
       const followed = this.#o.launcher?.reattach?.(runFromRow(r));
       if (followed === undefined) {
         this.#track(
@@ -1051,6 +1122,9 @@ export class SqliteScheduler implements Scheduler {
     this.#timer = undefined;
     if (this.#eventTimer !== undefined) this.#timers.clearTimeout(this.#eventTimer);
     this.#eventTimer = undefined;
+    // A waiting retry is not lost: its run is still `running` and start() arms it again.
+    for (const handle of this.#retryTimers.values()) this.#timers.clearTimeout(handle);
+    this.#retryTimers.clear();
   }
 
   /** The machine woke from sleep (or the clock jumped): catch up now. */

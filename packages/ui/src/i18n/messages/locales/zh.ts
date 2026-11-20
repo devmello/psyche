@@ -20,6 +20,7 @@ import { final202611 } from "./final-2026-11/zh.ts";
 import { helperCheck } from "./helper-check/zh.ts";
 import { helperOffline } from "./helper-offline/zh.ts";
 import { home } from "./home/zh.ts";
+import { keepAwake } from "./keep-awake/zh.ts";
 import { links } from "./links/zh.ts";
 import { linuxAccess } from "./linux-access/zh.ts";
 import { mailMeetings } from "./mail-meetings/zh.ts";
@@ -3655,4 +3656,5 @@ export const zh: Partial<Catalogue> = {
   ...separateDesktop,
   // Windows variants of the sandbox PC, voice keys and platform terms
   ...windowsPlatform202611,
+  ...keepAwake,
 };

@@ -12,6 +12,11 @@ export interface RunResult {
   /** The deliverable (final message) or the failure reason. */
   summary: string | null;
   taskId?: string;
+  /**
+   * `false` only when the launcher knows the run took no side-effecting step (no tool call was
+   * dispatched). Anything else, including unknown, is treated as "may have acted": never retried.
+   */
+  noSideEffects?: boolean;
 }
 
 export interface AutomationRunRequest {

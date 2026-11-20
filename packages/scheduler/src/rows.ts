@@ -52,6 +52,9 @@ export interface RunRow {
   /** Run trace: the agent run that did the work, and its usage (JSON). */
   run_id?: string | null;
   usage?: string | null;
+  /** Transient-error retries made so far, and when the waiting run's next attempt is due. */
+  attempt?: number | null;
+  retry_at?: string | null;
 }
 
 export interface WatchRow {
@@ -148,5 +151,7 @@ export function runFromRow(r: RunRow): AutomationRun {
   if (r.events != null) run.events = JSON.parse(r.events) as WorkflowEvent[];
   if (r.run_id != null) run.runId = r.run_id;
   if (r.usage != null) run.usage = JSON.parse(r.usage) as NonNullable<AutomationRun["usage"]>;
+  if (r.attempt != null && r.attempt > 0) run.attempt = r.attempt;
+  if (r.retry_at != null) run.retryAt = r.retry_at;
   return run;
 }
