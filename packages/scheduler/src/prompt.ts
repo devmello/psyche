@@ -16,15 +16,7 @@ function localTime(iso: string, timezone: string): string {
  * The unattended-run contract (architecture §4.3; OpenClaw cron payloads) prepended to an
  * automation's prompt, with the catch-up note and the job's scratch note.
  */
-export function buildUnattendedPrompt(
-  automation: Automation,
-  run: AutomationRun,
-  /**
-   * The run's Space context (spaces-2026 §5.2): the same fenced sections an owner turn in the Space
-   * gets, rendered by the Gateway. An automation run has no owner turn, so they go here.
-   */
-  spaceContext?: string,
-): string {
+export function buildUnattendedPrompt(automation: Automation, run: AutomationRun): string {
   const lines = [
     `[Unattended run of the automation "${automation.title}", scheduled for ${localTime(run.scheduledFor, automation.timezone)} (${automation.timezone}); trigger: ${run.trigger}.]`,
     "Nobody is present to answer questions or approve actions:",
@@ -45,7 +37,6 @@ export function buildUnattendedPrompt(
   if (run.events !== undefined && run.events.length > 0) {
     lines.push("", eventsBlock(run.events));
   }
-  if (spaceContext !== undefined && spaceContext.trim() !== "") lines.push("", spaceContext);
   lines.push("", "Job:", automation.prompt);
   return lines.join("\n");
 }

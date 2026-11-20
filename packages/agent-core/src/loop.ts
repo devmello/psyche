@@ -478,6 +478,11 @@ export interface AgentLoopOptions {
    * for the run (SR3). Only owner runs get one (SR11); a subagent inherits its parent's.
    */
   spaceFor?: (threadId: string) => RunSpace | undefined;
+  /**
+   * A Space by id, for a specialist job that inherits its spawning run's Space (§5.1): its
+   * instructions and connector scope, read when the job runs. Undefined once it is archived.
+   */
+  spaceById?: (spaceId: string) => RunSpace | undefined;
   /** Context drawn from the owner's own data, once per owner turn (E12 "From your other chats"). */
   contextProviders?: readonly TurnContextProvider[];
   /**
@@ -678,6 +683,27 @@ interface Gated {
 }
 
 type GateOutcome = { proceed: Gated } | { done: ModelPart };
+
+/** The Gateway's Space tools (`space_get`, `space_add_link`…): offered only in a Space (r1 #10). */
+export const SPACE_TOOL_PREFIX = "space_";
+
+/**
+ * Why a run may not have a tool because of its Space, or undefined when it may:
+ * - a Space's connector scope only narrows (SR5): a connector or MCP server outside it loses its
+ *   tools for runs in the Space, and tools of no connector are untouched;
+ * - the Space tools are hidden in a run outside a Space, so other chats never see them.
+ */
+export function spaceHides(space: RunSpace | undefined, name: string): string | undefined {
+  if (space === undefined) {
+    return name.startsWith(SPACE_TOOL_PREFIX) ? "only in a chat in a Space" : undefined;
+  }
+  const scope = space.connectorScope;
+  if (scope === null) return undefined;
+  const server = parseMcpToolName(name)?.server;
+  return server === undefined || scope.includes(server)
+    ? undefined
+    : "not in this Space's connectors";
+}
 
 const READ_ONLY: ReadonlySet<SideEffect> = new Set(["none", "read"]);
 const INTERACTIVE = new Set(["ask_user", "exit_plan_mode"]);
@@ -1081,6 +1107,11 @@ export class PsycheAgentLoop implements AgentLoop {
           };
           // Never wider than the role allows or the parent had (specialists §4.3).
           run.permissionMode = minMode(run.permissionMode, spec.permissionMode);
+          // The job works in the Space of the run that spawned it: its head and its connector
+          // scope, never its turn context (spaces-2026 §5.1).
+          const inherited =
+            spec.spaceId === undefined ? undefined : this.#o.spaceById?.(spec.spaceId);
+          if (inherited !== undefined) run.space = inherited;
           // Plan first: research read-only until the owner approves the plan (§4.1).
           if (spec.planFirst && spec.planApproved !== true) run.permissionMode = "plan";
         }
@@ -1796,19 +1827,11 @@ export class PsycheAgentLoop implements AgentLoop {
         if (!keep(t.spec.name)) hidden.set(t.spec.name, "not in the role's tools");
       tools = tools.filter((t) => keep(t.spec.name));
     }
-    const scope = run.space?.connectorScope;
-    if (scope !== undefined && scope !== null) {
-      // A Space's connector scope only narrows (SR5): a connector or MCP server outside it loses
-      // its tools for runs in the Space; tools of no connector are untouched.
-      const keep = new Set(scope);
-      const inScope = (name: string) => {
-        const server = parseMcpToolName(name)?.server;
-        return server === undefined || keep.has(server);
-      };
-      for (const t of tools)
-        if (!inScope(t.spec.name)) hidden.set(t.spec.name, "not in this Space's connectors");
-      tools = tools.filter((t) => inScope(t.spec.name));
+    for (const t of tools) {
+      const why = spaceHides(run.space, t.spec.name);
+      if (why !== undefined) hidden.set(t.spec.name, why);
     }
+    tools = tools.filter((t) => spaceHides(run.space, t.spec.name) === undefined);
     if (this.harnesses.list().length === 0) {
       // Offered only once a coding harness is installed (C10).
       tools = tools.filter((t) => t.spec.name !== "harness.delegate");
@@ -2001,10 +2024,22 @@ export class PsycheAgentLoop implements AgentLoop {
         }));
       },
       load: (names) => {
-        const out = { loaded: [] as string[], already: [] as string[], unknown: [] as string[] };
+        const out = {
+          loaded: [] as string[],
+          already: [] as string[],
+          unknown: [] as string[],
+          unavailable: [] as { name: string; why: string }[],
+        };
         run.thread.loadedTools ??= [];
         const list = run.thread.loadedTools;
         for (const name of new Set(names)) {
+          // Outside the run's Space (its connector scope, or a Space tool with no Space): never
+          // loaded, and said so (r1 finding 9).
+          const why = spaceHides(run.space, name);
+          if (why !== undefined) {
+            out.unavailable.push({ name, why });
+            continue;
+          }
           // A tool that registered after this step's assembly (an install just approved).
           const reg = run.deferred?.get(name) ?? this.registry.get(name);
           if (list.includes(name)) out.already.push(name);
@@ -3420,6 +3455,9 @@ export class PsycheAgentLoop implements AgentLoop {
       callId: call.id,
       threadId: run.threadId,
       ...(run.space === undefined ? {} : { spaceId: run.space.id }),
+      ...(run.space?.connectorScope == null
+        ? {}
+        : { connectorScope: [...run.space.connectorScope] }),
       runId: run.runId,
       ...(run.taskId === undefined ? {} : { taskId: run.taskId }),
       taint: run.taint,
@@ -3647,6 +3685,7 @@ export class PsycheAgentLoop implements AgentLoop {
             taint: run.taint,
             taintSources: run.taintSources.map((x) => ({ ...x })) as TaintSource[],
             incognito: this.#o.isIncognito?.(run.threadId) === true,
+            ...(run.space === undefined ? {} : { spaceId: run.space.id }),
           },
           this.#clock.now(),
         );

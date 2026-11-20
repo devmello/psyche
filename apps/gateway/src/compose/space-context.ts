@@ -1,7 +1,5 @@
-import { randomBytes } from "node:crypto";
 import {
   type RunSpace,
-  renderUserContext,
   SPACE_INSTRUCTIONS_CAP,
   spaceSection,
   TRUSTED_CONTEXT_CAP,
@@ -9,7 +7,7 @@ import {
 } from "@psyche/agent-core";
 import { getThread, type PsycheDb } from "@psyche/db";
 import {
-  type Automation,
+  collectWidgetBinds,
   type MethodParams,
   PsycheError,
   type SpaceContextSection,
@@ -17,15 +15,17 @@ import {
 import type { Call, HandlerDef } from "../context.ts";
 import { SpaceStore } from "../spaces/store.ts";
 import type { ComposedPart, ComposeServices } from "./services.ts";
-import { spaceTools } from "./space-tools.ts";
+import { type SpaceToolDeps, spaceTools } from "./space-tools.ts";
 
 /**
  * Spaces wave S3 (docs/design/spaces-2026.md §5): what a run in a Space gets.
  * - The head: the owner's instructions as a `space` section at the end of the stable head
  *   (`spaceSection` in agent-core), read once at run start with the connector scope (`spaceFor`).
  * - The per-turn block: three trusted, code-built sections of at most 1,200 characters each (the
- *   card, work in this Space, tracker summaries) from the `space` turn context provider, or, for
- *   an automation run, in the scheduler's prompt.
+ *   card, work in this Space, tracker summaries) from the `space` turn context provider, for
+ *   owner turns and automation runs alike. They follow the run's own Space (the one its head and
+ *   connector scope come from), and they are turn context, never part of the owner's words, so
+ *   nothing in them becomes an owner-named target (r1 findings 1 and 4).
  * - `spaces.context.preview`: exactly those texts with their sizes.
  * A thread outside a Space gets none of it, so its prompt is byte-identical to before (SR13).
  */
@@ -42,7 +42,10 @@ const INTERNAL_BIND_SOURCES = new Set(["task", "automation", "tool_call", "job"]
 
 const LINE_CAP = 300;
 
-/** The run's Space for a thread: its own `space_id`, or the running automation's (§5.1). */
+/**
+ * The run's Space for a thread: its own `space_id`, or the running automation's (§5.1). An
+ * archived Space gives no context: the run is a plain chat (owner decision, r1 finding 8).
+ */
 export function runSpaceFor(db: PsycheDb, threadId: string): RunSpace | undefined {
   const thread = getThread(db, threadId);
   if (thread === undefined || !SPACE_THREAD_KINDS.has(thread.kind)) return undefined;
@@ -57,8 +60,16 @@ export function runSpaceFor(db: PsycheDb, threadId: string): RunSpace | undefine
     spaceId = row?.spaceId ?? null;
   }
   if (spaceId === null) return undefined;
+  return runSpaceById(db, spaceId);
+}
+
+/**
+ * A Space by id for a run that inherits it (a specialist job, §5.1), or undefined when it is gone
+ * or archived.
+ */
+export function runSpaceById(db: PsycheDb, spaceId: string): RunSpace | undefined {
   const space = new SpaceStore(db).get(spaceId);
-  if (space === undefined) return undefined;
+  if (space === undefined || space.archivedAt !== null) return undefined;
   return {
     id: space.id,
     name: space.name,
@@ -67,12 +78,22 @@ export function runSpaceFor(db: PsycheDb, threadId: string): RunSpace | undefine
   };
 }
 
+/** A line `fit` never cuts at `LINE_CAP`: its builder already capped it by whole items. */
+interface WholeLine {
+  whole: string;
+}
+
 /** Lines joined until the next would pass `cap`; the rest becomes one visible marker. */
-function fit(lines: readonly string[], cap: number): string {
+function fit(lines: readonly (string | WholeLine)[], cap: number): string {
   const out: string[] = [];
   let used = 0;
   for (const [i, raw] of lines.entries()) {
-    const line = raw.length > LINE_CAP ? `${raw.slice(0, LINE_CAP)}…` : raw;
+    const line =
+      typeof raw !== "string"
+        ? raw.whole
+        : raw.length > LINE_CAP
+          ? `${raw.slice(0, LINE_CAP)}…`
+          : raw;
     const marker = `[${lines.length - i} more lines: read them with space_get]`;
     const reserve = i === lines.length - 1 ? 0 : marker.length + 1;
     if (used + line.length + 1 + reserve > cap) {
@@ -92,16 +113,28 @@ interface TrackerRow {
   taint: string;
 }
 
-function bindSources(node: unknown, out: Set<string>, depth = 0): void {
-  if (depth > 12 || typeof node !== "object" || node === null) return;
-  if (Array.isArray(node)) {
-    for (const n of node) bindSources(n, out, depth + 1);
-    return;
+/** Every binding source in a widget spec, at any depth the widget validator allows (r1 #5). */
+function bindSources(spec: unknown): Set<string> {
+  const root = (spec as { root?: unknown } | null)?.root;
+  return new Set(collectWidgetBinds(root).map((b) => String(b.bind.source)));
+}
+
+/** Room the third-party ids line may take: whole ids only, then "+N more" (r1 finding 6). */
+const IDS_LINE_CAP = 900;
+
+/** `lead` and as many whole ids as fit in `cap`, then how many more `space_get` lists. */
+export function idsLine(lead: string, ids: readonly string[], cap = IDS_LINE_CAP): string {
+  let text = lead;
+  for (const [i, id] of ids.entries()) {
+    const next = `${text}${i === 0 ? "" : ", "}${id}`;
+    const rest = ids.length - i - 1;
+    const tail = rest === 0 ? "" : ` (+${rest} more: space_get lists them)`;
+    if (next.length + tail.length > cap) {
+      return `${text}${i === 0 ? "" : " "}(+${ids.length - i} more: space_get lists them)`;
+    }
+    text = next;
   }
-  const rec = node as Record<string, unknown>;
-  const bind = rec.bind as { source?: unknown } | undefined;
-  if (bind !== undefined && bind !== null) out.add(String(bind.source));
-  for (const [k, v] of Object.entries(rec)) if (k !== "bind") bindSources(v, out, depth + 1);
+  return text;
 }
 
 /**
@@ -114,8 +147,7 @@ export function trackerThirdParty(row: Pick<TrackerRow, "kind" | "spec" | "taint
   try {
     const taint = JSON.parse(row.taint) as unknown;
     if (!Array.isArray(taint) || taint.length > 0) return true;
-    const sources = new Set<string>();
-    bindSources(JSON.parse(row.spec), sources);
+    const sources = bindSources(JSON.parse(row.spec));
     return [...sources].some((s) => !INTERNAL_BIND_SOURCES.has(s));
   } catch {
     return true;
@@ -198,12 +230,16 @@ export function spaceTurnSections(db: PsycheDb, spaceId: string): SpaceTurnSecti
     }
     own.push(`Tracker ${row.widgetId} "${oneLine(spec.title)}": ${oneLine(spec.fallbackText)}`);
   }
-  const trackerLines = [...own];
+  const trackerLines: (string | WholeLine)[] = [...own];
   if (thirdParty.length > 0) {
-    // Before the own trackers so `fit` can never cut it: the ids are how the agent reaches them.
-    trackerLines.unshift(
-      `${thirdParty.length} ${thirdParty.length === 1 ? "tracker holds" : "trackers hold"} third-party content and ${thirdParty.length === 1 ? "is" : "are"} not shown; read with space_read_tracker (it marks this turn as having read third-party content): ${thirdParty.join(", ")}`,
-    );
+    // First, and never cut mid-id: the ids are how the agent reaches these trackers. Whole ids
+    // only, then "+N more" when they do not all fit (`space_get` lists every one).
+    trackerLines.unshift({
+      whole: idsLine(
+        `${thirdParty.length} ${thirdParty.length === 1 ? "tracker holds" : "trackers hold"} third-party content and ${thirdParty.length === 1 ? "is" : "are"} not shown; read with space_read_tracker (it marks this turn as having read third-party content): `,
+        thirdParty,
+      ),
+    });
   }
   return {
     card: fit(card, TRUSTED_CONTEXT_CAP),
@@ -225,37 +261,23 @@ function asSections(s: SpaceTurnSections): { title: string; text: string }[] {
 }
 
 /**
- * The per-turn provider. Owner turns only (the loop drops trusted sections elsewhere); an
- * unattended run gets the same sections in its prompt instead (`automationSpaceContext`).
+ * The per-turn provider, for owner turns and automation runs alike. The loop asks it only for the
+ * owner's own runs and passes the run's Space (`spaceFor`, fixed at run start), so the card always
+ * matches the head and the connector scope: an automation aimed at the main chat, or at a chat in
+ * another Space, never gets its own Space's card there (r1 finding 1). The sections are turn
+ * context in the first user message, never the owner's words, so an address or path in them is
+ * not an owner-named target (r1 finding 4).
  */
 export function spaceContextProvider(db: PsycheDb): TurnContextProvider {
   return {
     name: "space",
     async provide(input) {
-      if (input.spaceId === undefined || input.mode === "unattended") return undefined;
+      if (input.spaceId === undefined) return undefined;
       const sections = asSections(spaceTurnSections(db, input.spaceId));
       if (sections.length === 0) return undefined;
       return { trusted: true, source: { sourceKind: "context" }, sections };
     },
   };
-}
-
-/** An automation run's Space sections, fenced like a turn's (§5.2), or undefined outside one. */
-export function automationSpaceContext(db: PsycheDb, automation: Automation): string | undefined {
-  const spaceId = automation.spaceId ?? null;
-  if (spaceId === null || new SpaceStore(db).get(spaceId) === undefined) return undefined;
-  const sections = asSections(spaceTurnSections(db, spaceId)).map((s, i) => ({
-    id: `context:space:${i}`,
-    kind: "hook" as const,
-    title: s.title,
-    source: "context:space",
-    text: s.text,
-  }));
-  if (sections.length === 0) return undefined;
-  const fence = randomBytes(6).toString("hex");
-  return renderUserContext(sections, {}, fence)
-    .map((r) => r.text)
-    .join("\n\n");
 }
 
 /**
@@ -300,15 +322,21 @@ export interface SpaceRunContext {
   readonly part: ComposedPart;
   /** For the agent loop: the run's Space, read once at run start. */
   spaceFor(threadId: string): RunSpace | undefined;
+  /** For the agent loop: the Space a specialist job inherits (§5.1). */
+  spaceById(spaceId: string): RunSpace | undefined;
   readonly provider: TurnContextProvider;
 }
 
 /** Wave S3's composition: the loop's `spaceFor` and provider, the tools and the preview. */
-export function composeSpaceContext(services: ComposeServices): SpaceRunContext {
+export function composeSpaceContext(
+  services: ComposeServices,
+  extra: Pick<SpaceToolDeps, "noteExists"> = {},
+): SpaceRunContext {
   const { db } = services;
   const unregister = spaceTools({
     db,
     publish: (event, payload) => services.publish(event, payload),
+    ...extra,
   }).map((t) => services.tools.register(t));
   return {
     part: {
@@ -318,6 +346,7 @@ export function composeSpaceContext(services: ComposeServices): SpaceRunContext 
       },
     },
     spaceFor: (threadId) => runSpaceFor(db, threadId),
+    spaceById: (spaceId) => runSpaceById(db, spaceId),
     provider: spaceContextProvider(db),
   };
 }

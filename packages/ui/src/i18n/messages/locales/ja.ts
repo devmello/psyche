@@ -172,6 +172,8 @@ export const ja: Partial<Catalogue> = {
     "別のクライアントには、そのクライアント専用のシークレットが必要です。",
   "errors.reason.updating":
     "Psycheはアップデートをインストールするため、まもなく再起動します。しばらくしてからもう一度お試しください。",
+  "errors.reason.space_main_chat":
+    "スペース内のオートメーションはメインチャットでは実行できません。専用のチャットで実行するか、スペースから外してください。",
   "errors.unavailable": "Psycheは現在その操作を実行できません。",
   "errors.approval_required": "先にあなたの承認が必要です。",
   "errors.approval_expired": "承認の期限が切れました。もう一度依頼してください。",

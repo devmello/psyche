@@ -1,6 +1,7 @@
 import { constants } from "node:fs";
 import { open, rm, rmdir } from "node:fs/promises";
 import { dirname, join, resolve } from "node:path";
+import type { AgentToolRegistration } from "@psyche/agent-core";
 import {
   type AppleHelper,
   appleAppOf,
@@ -50,7 +51,7 @@ import {
   isMethodName,
   type NoticeMessage,
   PsycheError,
-  type ToolRegistration,
+  type ToolResult,
 } from "@psyche/protocol";
 import { hostWords } from "@psyche/protocol/host-words";
 import { VaultTokenVault } from "@psyche/vault";
@@ -608,10 +609,62 @@ function busyFrom(output: unknown): BusyBlock[] {
 
 /**
  * `calendar_find_free_time` (§6, C2): free slots across every connected calendar (Apple Calendar
- * and Google), through each connector's own read tool, so their policy and receipts apply.
+ * and Google), through each connector's own read tool, so their policy and receipts apply. In a
+ * Space with a connector scope it reads only the calendars in scope (SR5, r1 finding 7).
  */
-function freeTimeTool(services: ComposeServices, registry: ConnectorRegistry): ToolRegistration {
+export function freeTimeTool(
+  services: ComposeServices,
+  registry: ConnectorRegistry,
+): AgentToolRegistration {
   const zone = Intl.DateTimeFormat().resolvedOptions().timeZone;
+  const find = async (
+    callId: string,
+    params: unknown,
+    signal: AbortSignal,
+    scope: readonly string[] | undefined,
+  ): Promise<ToolResult> => {
+    const p = (params ?? {}) as {
+      from: string;
+      to: string;
+      durationMinutes: number;
+      workStart?: string;
+      workEnd?: string;
+      days?: number[];
+      bufferMinutes?: number;
+      timeZone?: string;
+      limit?: number;
+    };
+    const calendars = (await registry.list()).filter(
+      (r) =>
+        r.status === "connected" &&
+        (r.type === "apple:calendar" || r.type === "google") &&
+        (scope === undefined || scope.includes(r.id)),
+    );
+    const busy: BusyBlock[] = [];
+    const used: string[] = [];
+    for (const r of calendars) {
+      const tool = services.tools.get(toolName(r.id, "calendar_free_busy"));
+      if (tool === undefined) continue;
+      const args =
+        r.type === "google"
+          ? { timeMin: p.from, timeMax: p.to, calendarIds: ["primary"] }
+          : { from: p.from, to: p.to };
+      const res = await tool.execute(`${callId}:${r.id}`, args, signal, () => {});
+      if (res.isError === true) continue;
+      busy.push(...busyFrom(res.output));
+      used.push(r.label);
+    }
+    if (used.length === 0) {
+      throw new PsycheError("unavailable", "Connect a calendar first (Apple Calendar or Google)", {
+        details: { reason: "no_calendar" },
+      });
+    }
+    const slots = findFreeSlots(busy, { ...p, timeZone: p.timeZone ?? zone });
+    return {
+      output: { slots, calendars: used, timeZone: p.timeZone ?? zone },
+      provenance: "trusted",
+    };
+  };
   return {
     spec: {
       name: "calendar_find_free_time",
@@ -635,50 +688,9 @@ function freeTimeTool(services: ComposeServices, registry: ConnectorRegistry): T
       sideEffect: "read",
       provenanceOut: "trusted",
     },
-    async execute(callId, params, signal) {
-      const p = (params ?? {}) as {
-        from: string;
-        to: string;
-        durationMinutes: number;
-        workStart?: string;
-        workEnd?: string;
-        days?: number[];
-        bufferMinutes?: number;
-        timeZone?: string;
-        limit?: number;
-      };
-      const calendars = (await registry.list()).filter(
-        (r) => r.status === "connected" && (r.type === "apple:calendar" || r.type === "google"),
-      );
-      const busy: BusyBlock[] = [];
-      const used: string[] = [];
-      for (const r of calendars) {
-        const tool = services.tools.get(toolName(r.id, "calendar_free_busy"));
-        if (tool === undefined) continue;
-        const args =
-          r.type === "google"
-            ? { timeMin: p.from, timeMax: p.to, calendarIds: ["primary"] }
-            : { from: p.from, to: p.to };
-        const res = await tool.execute(`${callId}:${r.id}`, args, signal, () => {});
-        if (res.isError === true) continue;
-        busy.push(...busyFrom(res.output));
-        used.push(r.label);
-      }
-      if (used.length === 0) {
-        throw new PsycheError(
-          "unavailable",
-          "Connect a calendar first (Apple Calendar or Google)",
-          {
-            details: { reason: "no_calendar" },
-          },
-        );
-      }
-      const slots = findFreeSlots(busy, { ...p, timeZone: p.timeZone ?? zone });
-      return {
-        output: { slots, calendars: used, timeZone: p.timeZone ?? zone },
-        provenance: "trusted",
-      };
-    },
+    execute: (callId, params, signal) => find(callId, params, signal, undefined),
+    // The loop's path: the run's Space scope applies.
+    run: (params, ctx) => find(ctx.callId, params, ctx.signal, ctx.connectorScope),
   };
 }
 

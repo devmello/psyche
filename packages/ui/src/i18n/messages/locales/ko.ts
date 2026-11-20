@@ -174,6 +174,8 @@ export const ko: Partial<Catalogue> = {
   "errors.reason.secret_required": "다른 클라이언트에는 해당 클라이언트의 보안 비밀이 필요합니다.",
   "errors.reason.updating":
     "Psyche가 업데이트를 설치하기 위해 곧 다시 시작됩니다. 잠시 후 다시 시도하십시오.",
+  "errors.reason.space_main_chat":
+    "스페이스에 있는 자동화는 기본 채팅에서 실행할 수 없습니다. 자체 채팅에서 실행하거나 스페이스에서 빼십시오.",
   "errors.unavailable": "Psyche가 지금은 해당 작업을 할 수 없습니다.",
   "errors.approval_required": "먼저 사용자의 승인이 필요합니다.",
   "errors.approval_expired": "승인이 만료되었습니다. 다시 요청하십시오.",

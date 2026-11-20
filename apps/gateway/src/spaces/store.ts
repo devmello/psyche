@@ -12,6 +12,7 @@ import {
   type SpaceSummary,
   type SpaceTracker,
 } from "@psyche/protocol";
+import { spaceMainTargetError } from "@psyche/scheduler";
 
 /**
  * Spaces (docs/design/spaces-2026.md §4.1): rows in the Gateway's own database. A Space is a
@@ -482,15 +483,21 @@ export class SpaceStore {
   ): { moved: string[]; from: Set<string> } {
     if (spaceId !== null) this.requireOpen(spaceId);
     const ids = [...new Set(automationIds)];
-    const rows: { id: string; system: number; space_id: string | null }[] = [];
+    const rows: { id: string; system: number; space_id: string | null; target: string }[] = [];
     for (const id of ids) {
       const row = this.#db.sqlite
-        .prepare("SELECT id, system, space_id FROM automations WHERE id = ?")
-        .get(id) as { id: string; system: number; space_id: string | null } | undefined;
+        .prepare(
+          "SELECT id, system, space_id, session_target AS target FROM automations WHERE id = ?",
+        )
+        .get(id) as
+        | { id: string; system: number; space_id: string | null; target: string }
+        | undefined;
       if (row === undefined) throw new PsycheError("not_found", `automation ${id} not found`);
       if (row.system === 1) {
         throw new PsycheError("invalid_params", "Psyche's own routines cannot be put in a Space");
       }
+      // A run in the main chat would get neither the Space's head nor its scope (r1 finding 1).
+      if (spaceId !== null && row.target === "main") throw spaceMainTargetError();
       rows.push(row);
     }
     const moved: string[] = [];

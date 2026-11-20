@@ -12,6 +12,7 @@ import { PsycheError, type Thread } from "@psyche/protocol";
 import { Type } from "@sinclair/typebox";
 import { transcriptMarkdown } from "../handlers/chat.ts";
 import type { Gateway } from "../server.ts";
+import { hiddenByPrivateSpace } from "./space-context.ts";
 
 /**
  * Cross-thread awareness (feature E12, opt-in with the admin setting
@@ -20,7 +21,8 @@ import type { Gateway } from "../server.ts";
  * channel messages and tool output. Incognito threads are invisible. A message the agent sends is
  * recorded with `agent` provenance and queued as a follow-up, never steering or interrupting; a
  * tainted turn cannot send one, so untrusted content cannot launder itself into an owner-like
- * request in another thread.
+ * request in another thread. A private Space's chats are invisible from any run outside that
+ * Space (SP7, SR10): they are not listed, and reading, messaging or archiving one is `not_found`.
  */
 
 export const CROSS_THREAD_SETTING = "threads.crossThreadAwareness";
@@ -37,13 +39,24 @@ export interface ThreadToolDeps {
   gateway: () => Gateway | null;
 }
 
-/** An owner thread the calling thread may see: exists, not incognito, not the caller itself. */
-function visibleThread(db: PsycheDb, threadId: string, callerThreadId: string): Thread {
+/**
+ * An owner thread the calling run may see: exists, not incognito, not in a private Space other
+ * than the run's own, and not the caller itself.
+ */
+function visibleThread(
+  db: PsycheDb,
+  threadId: string,
+  caller: { threadId: string; spaceId?: string | undefined },
+): Thread {
   const thread = getThread(db, threadId);
-  if (!thread || thread.kind === "incognito") {
+  if (
+    !thread ||
+    thread.kind === "incognito" ||
+    hiddenByPrivateSpace(db, thread.spaceId, caller.spaceId)
+  ) {
     throw new PsycheError("not_found", `thread ${threadId} not found`);
   }
-  if (thread.id === callerThreadId) {
+  if (thread.id === caller.threadId) {
     throw new PsycheError("invalid_params", "that is the current thread");
   }
   return thread;
@@ -74,7 +87,12 @@ export function threadTools(deps: ThreadToolDeps): AgentToolRegistration[] {
         ...(p.query === undefined ? {} : { query: p.query }),
       });
       const threads = page.threads
-        .filter((t) => t.kind !== "incognito" && t.id !== ctx.threadId)
+        .filter(
+          (t) =>
+            t.kind !== "incognito" &&
+            t.id !== ctx.threadId &&
+            !hiddenByPrivateSpace(db, t.spaceId, ctx.spaceId),
+        )
         .slice(0, p.limit ?? 20);
       const activity = threadActivity(
         db,
@@ -113,7 +131,7 @@ export function threadTools(deps: ThreadToolDeps): AgentToolRegistration[] {
       summary: "Read another chat",
     }),
     async run(p, ctx) {
-      const thread = visibleThread(db, p.threadId, ctx.threadId);
+      const thread = visibleThread(db, p.threadId, ctx);
       const { messages } = listMessagesPage(db, thread.id, { limit: p.limit ?? 20 });
       const markdown = transcriptMarkdown(thread, messages);
       const truncated = markdown.length > MAX_READ_CHARS;
@@ -150,7 +168,7 @@ export function threadTools(deps: ThreadToolDeps): AgentToolRegistration[] {
           "This turn read untrusted content, so it cannot message other threads; ask the owner",
         );
       }
-      const thread = visibleThread(db, p.threadId, ctx.threadId);
+      const thread = visibleThread(db, p.threadId, ctx);
       if (thread.archivedAt) throw new PsycheError("conflict", "that thread is archived");
       const from = getThread(db, ctx.threadId);
       const label = from?.title ? `the "${from.title}" thread` : "another thread";
@@ -176,7 +194,7 @@ export function threadTools(deps: ThreadToolDeps): AgentToolRegistration[] {
       bindingFields: { threadId: p.threadId },
     }),
     async run(p, ctx) {
-      const thread = visibleThread(db, p.threadId, ctx.threadId);
+      const thread = visibleThread(db, p.threadId, ctx);
       const gw = requireGateway(deps);
       const archived = db.sqlite.transaction(() => {
         const t = updateThread(db, thread.id, { archivedAt: gw.context.now().toISOString() });

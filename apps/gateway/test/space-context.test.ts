@@ -1,10 +1,8 @@
 import type { ToolRunContext } from "@psyche/agent-core";
 import { TRUSTED_CONTEXT_CAP } from "@psyche/agent-core";
 import type { PsycheDb } from "@psyche/db";
-import type { Automation } from "@psyche/protocol";
 import { afterEach, describe, expect, it } from "vitest";
 import {
-  automationSpaceContext,
   hiddenByPrivateSpace,
   previewHandler,
   runSpaceFor,
@@ -254,7 +252,7 @@ describe("per-turn sections: budget caps and lazy taint (§5.2, §5.5)", () => {
     expect(trackerThirdParty({ kind: row.kind, taint: row.taint, spec })).toBe(expected);
   });
 
-  it("a non-owner, unattended or Space-less turn gets no sections from the provider", async () => {
+  it("a Space-less run gets no sections; an automation run in a Space gets the owner turn's", async () => {
     const { db, c } = await start();
     const space = await newSpace(c);
     const p = spaceContextProvider(db);
@@ -265,18 +263,15 @@ describe("per-turn sections: budget caps and lazy taint (§5.2, §5.5)", () => {
       permissionMode: "balanced",
     } as const;
     expect(await p.provide({ ...input, mode: "attended" })).toBeUndefined();
-    expect(await p.provide({ ...input, mode: "unattended", spaceId: space.id })).toBeUndefined();
-  });
-
-  it("an automation in a Space gets the same sections, fenced; one outside gets none", async () => {
-    const { db, c } = await start();
-    const space = await newSpace(c);
-    const inSpace = automationSpaceContext(db, { spaceId: space.id } as Automation);
-    expect(inSpace).toMatch(/fence="[0-9a-f]{12}"/);
-    expect(inSpace).toContain(
-      'You are working in the Space \\"Kitchen remodel\\"'.replace(/\\/g, ""),
+    expect(await p.provide({ ...input, mode: "unattended" })).toBeUndefined();
+    // r1 findings 1 and 4: an automation run gets its card from the provider, as turn context
+    // for the run's own Space, never in the scheduler's prompt (the Task goal, owner words).
+    const attended = await p.provide({ ...input, mode: "attended", spaceId: space.id });
+    const unattended = await p.provide({ ...input, mode: "unattended", spaceId: space.id });
+    expect(unattended).toEqual(attended);
+    expect(unattended?.sections[0]?.text).toContain(
+      'You are working in the Space "Kitchen remodel"',
     );
-    expect(automationSpaceContext(db, { spaceId: null } as Automation)).toBeUndefined();
   });
 });
 
@@ -297,7 +292,7 @@ describe("keep private (SP7, SR10)", () => {
 });
 
 describe("space_* tools (§4.3, SP4)", () => {
-  it("are refused in every tainted turn, whatever the input", async () => {
+  it("the add tools are refused in every tainted turn; the read tools work (r1 finding 3)", async () => {
     const { db, c } = await start();
     const space = await newSpace(c);
     const chat = await newChat(c, space.id);
@@ -315,17 +310,29 @@ describe("space_* tools (§4.3, SP4)", () => {
       space_add_tracker: { widgetId: w },
       space_add_link: { kind: "url", ref: "https://example.test", label: "Quote" },
     };
+    shelve(db, space.id, widget(db, chat, { title: "Shelved", bind: "task" }), "bound", 0);
+    const shelved = (
+      db.sqlite.prepare("SELECT widget_id AS id FROM space_trackers").get() as { id: string }
+    ).id;
+    inputs.space_read_tracker = { widgetIds: [shelved] };
     for (const tainted of [
       ctx({ threadId: chat, spaceId: space.id, taint: true }),
       ctx({ threadId: chat, spaceId: space.id, taintSources: [{ sourceKind: "mail" }] }),
     ]) {
-      for (const name of names) {
+      for (const name of ["space_add_tracker", "space_add_link"]) {
         const r = await run(name, inputs[name], tainted);
         expect(r.isError, name).toBe(true);
         expect(r.output.error.code, name).toBe("tainted");
       }
+      for (const name of ["space_get", "space_read_tracker"]) {
+        const r = await run(name, inputs[name], tainted);
+        expect(r.isError, name).toBeUndefined();
+      }
     }
-    expect(db.sqlite.prepare("SELECT count(*) AS n FROM space_trackers").get()).toEqual({ n: 0 });
+    // Only the tracker shelved above: the tainted add wrote nothing.
+    expect(db.sqlite.prepare("SELECT widget_id AS id FROM space_trackers").all()).toEqual([
+      { id: shelved },
+    ]);
     expect(db.sqlite.prepare("SELECT count(*) AS n FROM space_links").get()).toEqual({ n: 0 });
   });
 
