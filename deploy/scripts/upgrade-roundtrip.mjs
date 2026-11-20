@@ -96,20 +96,36 @@ function startPsyched(home, extraEnv = {}) {
     stdio: ["ignore", "ignore", "pipe"],
   });
   procs.push(child);
+  // Routine logs go to $PSYCHE_HOME/logs/gateway.log; stderr carries only crashes and logging
+  // failures. Read both.
   return new Promise((resolveOrigin, reject) => {
     let buf = "";
-    const timer = setTimeout(() => reject(new Error(`psyched did not start:\n${buf}`)), 30_000);
+    const logFile = join(home, "logs", "gateway.log");
+    const done = (fn) => {
+      clearTimeout(timer);
+      clearInterval(poll);
+      fn();
+    };
+    const look = () => {
+      let text = buf;
+      try {
+        text += readFileSync(logFile, "utf8");
+      } catch {}
+      const m = /"msg":"gateway listening","origin":"(http:\/\/127\.0\.0\.1:\d+)"/.exec(text);
+      if (m) done(() => resolveOrigin({ url: m[1], child }));
+    };
+    const timer = setTimeout(
+      () => done(() => reject(new Error(`psyched did not start:\n${buf}`))),
+      30_000,
+    );
+    const poll = setInterval(look, 100);
     child.stderr.on("data", (d) => {
       buf += String(d);
-      const m = /"msg":"gateway listening","origin":"(http:\/\/127\.0\.0\.1:\d+)"/.exec(buf);
-      if (m) {
-        clearTimeout(timer);
-        resolveOrigin({ url: m[1], child });
-      }
+      look();
     });
     child.on("exit", (code) => {
-      clearTimeout(timer);
-      reject(new Error(`psyched exited ${code}:\n${buf}`));
+      look();
+      done(() => reject(new Error(`psyched exited ${code}:\n${buf}`)));
     });
   });
 }
