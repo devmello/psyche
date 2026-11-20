@@ -29,7 +29,13 @@ export interface DeferredToolsApi {
   /** Every tool this run may load (loaded or not), in registration order. */
   deferred(): { spec: ToolSpec; loaded: boolean }[];
   /** Appends to the thread's loaded set; names not deferrable come back in `unknown`. */
-  load(names: readonly string[]): { loaded: string[]; already: string[]; unknown: string[] };
+  load(names: readonly string[]): {
+    loaded: string[];
+    already: string[];
+    unknown: string[];
+    /** Tools this run may not have: outside its Space's connectors, or Space tools outside one. */
+    unavailable?: { name: string; why: string }[];
+  };
 }
 
 /** First sentence, at most `max` characters: what `tool_search` and the catalogue show. */
@@ -168,13 +174,18 @@ export const loadToolsTool = defineTool({
       }
       return [n];
     });
-    const r = api.load(names);
+    const { unavailable = [], ...r } = api.load(names);
+    const notes = [
+      ...unavailable.map((u) => `${u.name} is not available: ${u.why}.`),
+      ...(r.unknown.length > 0
+        ? ["Unknown names are not loadable here; use tool_search or find_capability."]
+        : []),
+    ];
     return {
       output: {
         ...r,
-        ...(r.unknown.length > 0
-          ? { note: "Unknown names are not loadable here; use tool_search or find_capability." }
-          : {}),
+        ...(unavailable.length > 0 ? { unavailable: unavailable.map((u) => u.name) } : {}),
+        ...(notes.length > 0 ? { note: notes.join(" ") } : {}),
       },
       provenance: "trusted",
     };

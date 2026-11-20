@@ -135,6 +135,8 @@ export const es: Partial<Catalogue> = {
   "errors.reason.secret_required": "Un cliente distinto necesita su propio secreto de cliente.",
   "errors.reason.updating":
     "Psyche está a punto de reiniciarse para instalar una actualización. Inténtalo de nuevo en un momento.",
+  "errors.reason.space_main_chat":
+    "Una automatización de un Espacio no puede ejecutarse en el chat principal. Ejecútala en su propio chat o sácala del Espacio.",
   "errors.unavailable": "Psyche no puede hacer eso ahora mismo.",
   "errors.approval_required": "Esto necesita tu aprobación primero.",
   "errors.approval_expired": "La aprobación caducó; vuelve a pedirla.",

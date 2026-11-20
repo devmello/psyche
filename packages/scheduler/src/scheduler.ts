@@ -106,6 +106,19 @@ function bad(message: string): never {
   throw new PsycheError("invalid_params", message);
 }
 
+/**
+ * An automation in a Space cannot run in the main chat (spaces-2026 §5.1, r1 finding 1). The UI
+ * says it through `errors.reason.space_main_chat`.
+ */
+export const SPACE_MAIN_CHAT_REASON = "space_main_chat";
+export function spaceMainTargetError(): PsycheError {
+  return new PsycheError(
+    "invalid_params",
+    "An automation in a Space can't run in the main chat. Run it in its own chat, or take it out of the Space.",
+    { details: { reason: SPACE_MAIN_CHAT_REASON } },
+  );
+}
+
 function validateWebhook(url: string | undefined): void {
   if (url === undefined) return;
   const u = URL.canParse(url) ? new URL(url) : bad("delivery.webhook must be a URL");
@@ -260,9 +273,14 @@ export class SqliteScheduler implements Scheduler {
     return schedule;
   }
 
-  /** A Space an automation joins must exist and not be archived. */
-  #checkSpace(spaceId: string | null | undefined): void {
+  /**
+   * A Space an automation joins must exist and not be archived, and the automation must not run
+   * in the main chat: a Space's context follows the chat a run is in, so a run there would get
+   * neither the Space's instructions nor its connector scope (spaces-2026 §5.1, r1 finding 1).
+   */
+  #checkSpace(spaceId: string | null | undefined, sessionTarget: string): void {
     if (spaceId == null) return;
+    if (sessionTarget === "main") throw spaceMainTargetError();
     const row = this.#db.sqlite
       .prepare("SELECT archived_at FROM spaces WHERE id = ?")
       .get(spaceId) as { archived_at: string | null } | undefined;
@@ -322,7 +340,7 @@ export class SqliteScheduler implements Scheduler {
     };
     if (a.title.trim() === "") bad("title is required");
     const schedule = this.#validate(a);
-    this.#checkSpace(a.spaceId);
+    this.#checkSpace(a.spaceId, a.sessionTarget);
     const id = this.#newId();
     const now = this.clock.now();
     if (a.enabled && a.kind !== "event" && schedule.next(now) === undefined) {
@@ -402,7 +420,8 @@ export class SqliteScheduler implements Scheduler {
         bad("a scheduled recording can only be paused or resumed");
       const next = { ...current, ...patch };
       if (patch.spaceId != null && patch.spaceId !== current.spaceId)
-        this.#checkSpace(patch.spaceId);
+        this.#checkSpace(patch.spaceId, next.sessionTarget);
+      else if (next.spaceId != null && next.sessionTarget === "main") throw spaceMainTargetError();
       if (patch.kind !== undefined && patch.kind !== current.kind) bad("kind cannot change");
       const schedule = this.#validate(next);
       // Only a real change reschedules: re-sending the same values (UI round trips, the heartbeat

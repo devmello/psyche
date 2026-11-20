@@ -169,6 +169,8 @@ export const hi: Partial<Catalogue> = {
   "errors.reason.secret_required": "दूसरे क्लाइंट को अपना क्लाइंट सीक्रेट चाहिए।",
   "errors.reason.updating":
     "Psyche अपडेट इंस्टॉल करने के लिए अभी रीस्टार्ट होने वाला है। थोड़ी देर में फिर से कोशिश करें।",
+  "errors.reason.space_main_chat":
+    "किसी स्पेस में मौजूद ऑटोमेशन मुख्य चैट में नहीं चल सकता। इसे इसकी अपनी चैट में चलाएँ, या इसे स्पेस से हटा दें।",
   "errors.unavailable": "Psyche अभी ऐसा नहीं कर सकता।",
   "errors.approval_required": "इसके लिए पहले आपकी स्वीकृति चाहिए।",
   "errors.approval_expired": "स्वीकृति की अवधि समाप्त हो गई; फिर से पूछें।",

@@ -12457,6 +12457,7 @@ export interface SpecialistSpec {
      */
     role:       string;
     rootRunId?: null | string;
+    spaceId?:   string;
     tools:      string[];
 }
 

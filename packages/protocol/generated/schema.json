@@ -46187,6 +46187,12 @@
         "automation": {
           "$ref": "#/$defs/SpecialistAutomation"
         },
+        "spaceId": {
+          "description": "ULID in production",
+          "maxLength": 64,
+          "minLength": 1,
+          "type": "string"
+        },
         "preflight": {
           "items": {
             "$ref": "#/$defs/ApprovalHint"

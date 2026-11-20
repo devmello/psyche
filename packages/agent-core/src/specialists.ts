@@ -368,6 +368,8 @@ export interface ParentRunFacts {
   taint: boolean;
   taintSources: TaintSource[];
   incognito: boolean;
+  /** The spawning run's Space (spaces-2026 §5.1): the job inherits it. */
+  spaceId?: string;
 }
 
 /** Build the job's spec from a role, the request and the parent run (§4.1). */
@@ -400,6 +402,7 @@ export function buildSpecialistSpec(
     queuePosition: null,
     result: null,
     preflight: preflight(role, minMode(parent.permissionMode, role.maxMode)),
+    ...(parent.spaceId === undefined ? {} : { spaceId: parent.spaceId }),
   };
 }
 

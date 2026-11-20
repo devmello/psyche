@@ -265,6 +265,7 @@ import {
 } from "./services.ts";
 import { setupTokenHandlers, setupTokenUsedHook } from "./setup-tokens.ts";
 import { composeSkills } from "./skills.ts";
+import { composeSpaceContext } from "./space-context.ts";
 import { composeSpaces } from "./spaces.ts";
 import { withSpecialistContext } from "./specialist-approvals.ts";
 import {
@@ -1683,6 +1684,17 @@ export async function composeGateway(options: ComposeOptions): Promise<ComposedG
   });
   teachingRef = teaching;
   parts.push(teaching.part);
+  const spaceRun = composeSpaceContext(services, {
+    // Note links name a file in the memory workspace; a path outside it throws, so it is no note.
+    noteExists: (path) => {
+      try {
+        return memory.entryKind(path) === "file";
+      } catch {
+        return false;
+      }
+    },
+  });
+  parts.push(spaceRun.part);
   const loop = createAgentLoop({
     // Screenshots and MCP images are decoded and re-encoded (cut to 1568 px) before the model sees
     // or the thread keeps them; one that cannot be decoded becomes a note.
@@ -1709,7 +1721,10 @@ export async function composeGateway(options: ComposeOptions): Promise<ComposedG
     resumeApproval: (q) => deferredResume.claim(q),
     skills: skills.loader,
     ...(compaction === undefined ? {} : { compaction }),
+    spaceFor: spaceRun.spaceFor,
+    spaceById: spaceRun.spaceById,
     contextProviders: [
+      spaceRun.provider,
       otherChats.provider,
       ...(people === undefined ? [] : [people.recall]),
       memoryRecall.recall,

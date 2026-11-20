@@ -135,6 +135,8 @@ export const pt: Partial<Catalogue> = {
   "errors.reason.secret_required": "Um cliente diferente precisa do próprio segredo do cliente.",
   "errors.reason.updating":
     "O Psyche vai reiniciar para instalar uma atualização. Tente novamente em instantes.",
+  "errors.reason.space_main_chat":
+    "Uma automação em um Espaço não pode ser executada no chat principal. Execute-a no próprio chat ou tire-a do Espaço.",
   "errors.unavailable": "O Psyche não consegue fazer isso agora.",
   "errors.approval_required": "Isso precisa da sua aprovação primeiro.",
   "errors.approval_expired": "A aprovação expirou; peça novamente.",

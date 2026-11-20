@@ -12,6 +12,7 @@ import {
   type SpaceSummary,
   type SpaceTracker,
 } from "@psyche/protocol";
+import { spaceMainTargetError } from "@psyche/scheduler";
 
 /**
  * Spaces (docs/design/spaces-2026.md §4.1): rows in the Gateway's own database. A Space is a
@@ -406,6 +407,8 @@ export class SpaceStore {
   addLink(
     spaceId: string,
     link: { kind: SpaceLink["kind"]; ref: string; label: string },
+    /** Who adds it: the agent's links keep `label_provenance: 'agent'` (spaces-2026 §4.3). */
+    by: "owner" | "agent" = "owner",
   ): SpaceLink {
     this.#require(spaceId);
     const dup = this.#db.sqlite
@@ -417,9 +420,9 @@ export class SpaceStore {
     this.#db.sqlite
       .prepare(
         `INSERT INTO space_links (id, space_id, kind, ref, label, label_provenance, added_by, created_at)
-         VALUES (?, ?, ?, ?, ?, 'owner', 'owner', ?)`,
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
       )
-      .run(id, spaceId, link.kind, link.ref, link.label, at);
+      .run(id, spaceId, link.kind, link.ref, link.label, by, by, at);
     this.#touch(spaceId);
     return linkFromRow(
       this.#db.sqlite.prepare("SELECT * FROM space_links WHERE id = ?").get(id) as LinkRow,
@@ -480,15 +483,21 @@ export class SpaceStore {
   ): { moved: string[]; from: Set<string> } {
     if (spaceId !== null) this.requireOpen(spaceId);
     const ids = [...new Set(automationIds)];
-    const rows: { id: string; system: number; space_id: string | null }[] = [];
+    const rows: { id: string; system: number; space_id: string | null; target: string }[] = [];
     for (const id of ids) {
       const row = this.#db.sqlite
-        .prepare("SELECT id, system, space_id FROM automations WHERE id = ?")
-        .get(id) as { id: string; system: number; space_id: string | null } | undefined;
+        .prepare(
+          "SELECT id, system, space_id, session_target AS target FROM automations WHERE id = ?",
+        )
+        .get(id) as
+        | { id: string; system: number; space_id: string | null; target: string }
+        | undefined;
       if (row === undefined) throw new PsycheError("not_found", `automation ${id} not found`);
       if (row.system === 1) {
         throw new PsycheError("invalid_params", "Psyche's own routines cannot be put in a Space");
       }
+      // A run in the main chat would get neither the Space's head nor its scope (r1 finding 1).
+      if (spaceId !== null && row.target === "main") throw spaceMainTargetError();
       rows.push(row);
     }
     const moved: string[] = [];

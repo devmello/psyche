@@ -30,6 +30,14 @@ export interface ToolRunContext {
   taint: boolean;
   /** Where the taint came from (security §3.6), oldest first; absent or empty when not tainted. */
   taintSources?: readonly TaintSource[];
+  /** The run's Space, fixed at run start (spaces-2026 §5.1); absent outside a Space. */
+  spaceId?: string;
+  /**
+   * The run's Space's connector scope (SR5): connector and MCP server ids whose tools it keeps.
+   * Absent when every connector is in scope. A tool that reaches connectors itself (not through
+   * an `mcp__` name) must keep to it.
+   */
+  connectorScope?: readonly string[];
   permissionMode: PermissionMode;
   mode: RunMode;
   /** Approval that authorized this dispatch, when the broker asked (= `authority.approvalId`). */

@@ -208,6 +208,8 @@ export const ar: Partial<Catalogue> = {
     "Google متصل بعميل آخر. افصل Google أولًا ثم غيّر العميل.",
   "errors.reason.secret_required": "يحتاج العميل المختلف إلى سر عميل خاص به.",
   "errors.reason.updating": "سيعيد Psyche التشغيل الآن لتثبيت تحديث. حاول مرة أخرى بعد لحظة.",
+  "errors.reason.space_main_chat":
+    "لا يمكن تشغيل أتمتة موجودة في مساحة داخل المحادثة الرئيسية. شغّلها في محادثتها الخاصة، أو أخرجها من المساحة.",
   "errors.unavailable": "لا يستطيع Psyche القيام بذلك الآن.",
   "errors.approval_required": "يحتاج هذا إلى موافقتك أولًا.",
   "errors.approval_expired": "انتهت صلاحية الموافقة؛ اطلب مرة أخرى.",

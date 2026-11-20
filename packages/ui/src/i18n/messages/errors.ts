@@ -49,4 +49,6 @@ export const errors = {
   "errors.reason.secret_required": "A different client needs its own client secret.",
   "errors.reason.updating":
     "Psyche is about to restart to install an update. Try again in a moment.",
+  "errors.reason.space_main_chat":
+    "An automation in a Space can't run in the main chat. Run it in its own chat, or take it out of the Space.",
 } as const;
