@@ -605,6 +605,10 @@ describe("untrusted inputs", () => {
       schedule: "0 9 * * 1",
     });
     expect(own.automationId).not.toBeNull();
+    // The model-written title of a tainted card is not carried into the standing automation.
+    const made = (await r.scheduler.list()).find((a) => a.id === own.automationId);
+    expect(made?.title).not.toContain("Book the 10k race");
+    expect(made?.title).toBe("Recurring: Every week, look for a race");
     // A brief written in a tainted turn is refused.
     r.model.enqueue(say(OTHER));
     await r.goals.suggestNextStep(id);
@@ -681,5 +685,66 @@ describe("review follow-ups", () => {
     expect(cleared.goal.plan?.taintedMilestones).toEqual([evil?.id]);
     const kept = (cleared.goal.plan as { evidence: never[] }).evidence;
     expect(isUntrustedEvidence(kept[0] as never)).toBe(true);
+  });
+  it("with no Resume card open, an asked-for card evicts the oldest goal card", async () => {
+    const r = rig();
+    const ids: string[] = [];
+    for (let i = 0; i <= PROACTIVITY_BUDGET.ideas.perWindow; i += 1) {
+      const { goal } = await r.goals.create({ title: `Goal ${i}`, category: "health" });
+      ids.push(goal.id);
+    }
+    const cardIds: string[] = [];
+    for (const id of ids.slice(0, PROACTIVITY_BUDGET.ideas.perWindow)) {
+      r.model.enqueue(say(STEP));
+      cardIds.push((await r.goals.suggestNextStep(id)).ideaId ?? "");
+    }
+    expect(await openCards(r)).toHaveLength(PROACTIVITY_BUDGET.ideas.perWindow);
+    r.model.enqueue(say(STEP));
+    const out = await r.goals.suggestNextStep(ids[ids.length - 1] ?? "");
+    expect(out.ideaId).not.toBeNull();
+    const open = (await openCards(r)).map((c) => c.id);
+    expect(open).toHaveLength(PROACTIVITY_BUDGET.ideas.perWindow);
+    expect(open).toContain(out.ideaId);
+    expect(open).not.toContain(cardIds[0]);
+    expect(open).toContain(cardIds[1]);
+  });
+
+  it("a tainted milestone written while update() awaits the check-in keeps its taint", async () => {
+    const r = rig();
+    const id = await (async () => {
+      const { goal } = await r.goals.create({ title: "Run a 10k", category: "health" });
+      return goal.id;
+    })();
+    const [, detail] = await Promise.all([
+      r.goals.update(id, { cadence: "P1D" }),
+      r.goals.milestone({ goalId: id, title: EVIL, taintSources: EMAIL_TAINT }),
+    ]);
+    const after = await r.goals.get(id);
+    const evil = after.milestones.find((m) => m.title === EVIL);
+    expect(evil).toBeDefined();
+    expect(after.goal.plan?.taintedMilestones).toEqual([evil?.id]);
+    expect(after.goal.cadence).toBe("P1D");
+    expect(after.goal.nextCheckinAt).not.toBeNull();
+    expect(detail).toBeDefined();
+  });
+
+  it("a large evidence patch is deduped and capped, keeping outside evidence", async () => {
+    const r = rig();
+    const id = await (async () => {
+      const { goal } = await r.goals.create({ title: "Run a 10k", category: "health" });
+      return goal.id;
+    })();
+    const items = Array.from({ length: 20_000 }, (_, i) => ({
+      type: "note",
+      text: `n${i % 5000}`,
+    }));
+    const outside = { type: "agent", provenance: "untrusted", text: "outside" };
+    const started = Date.now();
+    const after = await r.goals.update(id, { plan: { evidence: [outside, ...items] } as never });
+    expect(Date.now() - started).toBeLessThan(3000);
+    const kept = (after.goal.plan as { evidence: unknown[] }).evidence;
+    expect(kept.length).toBe(200);
+    expect(kept).toContainEqual(outside);
+    expect(kept.some((e) => isUntrustedEvidence(e as never))).toBe(true);
   });
 });
