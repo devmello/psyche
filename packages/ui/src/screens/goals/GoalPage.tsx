@@ -241,6 +241,9 @@ export interface GoalPageViewProps {
    * may use a model, so it only ever runs at the time chosen here. Absent: the row is not drawn.
    */
   onCheckinChange?: (cadence: string | null) => void;
+  /** "Suggest next step": asks the model for one step, on request only. Absent: no button. */
+  onSuggest?: () => void;
+  suggesting?: boolean;
 }
 
 /** Goal check-in choices: the schedule each one sets (the Gateway's `CHECKIN_CADENCES`). */
@@ -283,6 +286,8 @@ export function GoalPageView({
   onOpenTask,
   onDelete,
   onCheckinChange,
+  onSuggest,
+  suggesting = false,
 }: GoalPageViewProps): ReactElement {
   const titleId = useId();
   const frequencyId = useId();
@@ -429,6 +434,23 @@ export function GoalPageView({
             }
           />
         ) : null}
+        {onSuggest && goal.status === "active" ? (
+          <GroupedRow
+            label={t("screens.goals.suggest")}
+            description={t("screens.goals.suggest.hint")}
+            control={
+              <Button
+                type="button"
+                size="sm"
+                variant="outline"
+                disabled={suggesting}
+                onClick={onSuggest}
+              >
+                {t("screens.goals.suggest")}
+              </Button>
+            }
+          />
+        ) : null}
         {plan.checkins.map((c) => (
           <GroupedRow
             key={c.at}
@@ -512,6 +534,7 @@ export function GoalPage({ goalId, onDelete, onDeleted }: GoalPageProps): ReactE
   const { navigate, openArtifact } = useSlots();
   const call = useCall();
   const g = useGoal(goalId);
+  const [suggesting, setSuggesting] = useState(false);
   const planId = g.goal === null ? null : readGoalPlan(g.goal).planArtifactId;
   const { artifact } = useArtifact(planId);
 
@@ -542,6 +565,22 @@ export function GoalPage({ goalId, onDelete, onDeleted }: GoalPageProps): ReactE
       onRetry={g.reload}
       onOpenTask={(id) => navigate?.(`/agent/activity/${id}`)}
       onDelete={remove}
+      suggesting={suggesting}
+      onSuggest={() => {
+        setSuggesting(true);
+        call("goals.suggest", { goalId }).then(
+          (r) => {
+            setSuggesting(false);
+            toast(
+              t(r.ideaId === null ? "screens.goals.suggest.none" : "screens.goals.suggest.done"),
+            );
+          },
+          (err: unknown) => {
+            setSuggesting(false);
+            toast.error(describeError(err));
+          },
+        );
+      }}
       onCheckinChange={(cadence) => {
         call("goals.update", { goalId, cadence }).then(
           () => g.reload(),

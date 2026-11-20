@@ -3159,6 +3159,11 @@ export const hi: Partial<Catalogue> = {
   "screens.goals.checkinLine":
     "{cadence}{hasNext, select, true { · अगला {next}} other {}}{hasLast, select, true { · पिछला: {last}} other {}}",
   "screens.goals.noSchedule": "कोई शेड्यूल नहीं",
+  "screens.goals.suggest": "अगला कदम सुझाएँ",
+  "screens.goals.suggest.hint":
+    "मॉडल का उपयोग तभी होता है जब आप टैप करें। कार्ड पर शुरू करें दबाने तक कुछ शुरू नहीं होता।",
+  "screens.goals.suggest.done": "सुझाव होम में जोड़ा गया।",
+  "screens.goals.suggest.none": "इस बार कोई सुझाव नहीं। बाद में फिर कोशिश करें।",
   "screens.ideas.start": "शुरू करें",
   "screens.ideas.snooze": "बाद में याद दिलाएँ",
   "screens.ideas.badge.checkin": "चेक-इन",

@@ -3113,6 +3113,10 @@ export const zh: Partial<Catalogue> = {
   "screens.goals.checkinLine":
     "{cadence}{hasNext, select, true { · 下次 {next}} other {}}{hasLast, select, true { · 上次：{last}} other {}}",
   "screens.goals.noSchedule": "无计划",
+  "screens.goals.suggest": "建议下一步",
+  "screens.goals.suggest.hint": "仅在你点按时使用模型。在卡片上点按“开始”之前不会开始任何操作。",
+  "screens.goals.suggest.done": "建议已添加到主页。",
+  "screens.goals.suggest.none": "这次没有建议。请稍后再试。",
   "screens.ideas.start": "开始",
   "screens.ideas.snooze": "稍后提醒",
   "screens.ideas.badge.checkin": "例行检查",

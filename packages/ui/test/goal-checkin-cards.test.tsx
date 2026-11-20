@@ -80,4 +80,19 @@ describe("goal check-in cards", () => {
     await user.selectOptions(select, "Off");
     expect(onCheckinChange).toHaveBeenLastCalledWith(null);
   });
+
+  it("Suggest next step says it uses the model and runs only on a tap", async () => {
+    const onSuggest = vi.fn();
+    const user = userEvent.setup();
+    render(<GoalPageView goal={goal(null)} onSuggest={onSuggest} />);
+    expect(screen.getByText(/Uses the model, only when you tap/)).toBeTruthy();
+    expect(onSuggest).not.toHaveBeenCalled();
+    await user.click(screen.getByRole("button", { name: "Suggest next step" }));
+    expect(onSuggest).toHaveBeenCalledTimes(1);
+  });
+
+  it("a paused goal has no Suggest next step", () => {
+    render(<GoalPageView goal={{ ...goal(null), status: "paused" }} onSuggest={() => {}} />);
+    expect(screen.queryByRole("button", { name: "Suggest next step" })).toBeNull();
+  });
 });

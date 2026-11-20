@@ -3180,6 +3180,11 @@ export const ja: Partial<Catalogue> = {
   "screens.goals.checkinLine":
     "{cadence}{hasNext, select, true { · 次回 {next}} other {}}{hasLast, select, true { · 前回：{last}} other {}}",
   "screens.goals.noSchedule": "スケジュールなし",
+  "screens.goals.suggest": "次のステップを提案",
+  "screens.goals.suggest.hint":
+    "タップしたときだけモデルを使います。カードの「開始」をタップするまで何も始まりません。",
+  "screens.goals.suggest.done": "提案をホームに追加しました。",
+  "screens.goals.suggest.none": "今回は提案がありませんでした。あとでもう一度お試しください。",
   "screens.ideas.start": "開始",
   "screens.ideas.snooze": "あとで通知",
   "screens.ideas.badge.checkin": "チェックイン",

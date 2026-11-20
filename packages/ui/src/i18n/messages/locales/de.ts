@@ -3275,6 +3275,11 @@ export const de: Partial<Catalogue> = {
   "screens.goals.checkinLine":
     "{cadence}{hasNext, select, true { · nächster {next}} other {}}{hasLast, select, true { · zuletzt: {last}} other {}}",
   "screens.goals.noSchedule": "Kein Zeitplan",
+  "screens.goals.suggest": "Nächsten Schritt vorschlagen",
+  "screens.goals.suggest.hint":
+    "Nutzt das Modell, nur wenn du tippst. Nichts startet, bis du auf der Karte „Starten“ tippst.",
+  "screens.goals.suggest.done": "Vorschlag zu Start hinzugefügt.",
+  "screens.goals.suggest.none": "Diesmal kein Vorschlag. Versuch es später noch einmal.",
   "screens.ideas.start": "Starten",
   "screens.ideas.snooze": "Später erinnern",
   "screens.ideas.badge.checkin": "Check-in",

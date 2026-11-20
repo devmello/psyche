@@ -3213,6 +3213,11 @@ export const ar: Partial<Catalogue> = {
   "screens.goals.checkinLine":
     "{cadence}{hasNext, select, true { · التالية {next}} other {}}{hasLast, select, true { · الأخيرة: {last}} other {}}",
   "screens.goals.noSchedule": "لا جدول",
+  "screens.goals.suggest": "اقترح الخطوة التالية",
+  "screens.goals.suggest.hint":
+    "يستخدم النموذج فقط عند الضغط. لا يبدأ شيء حتى تضغط على «ابدأ» في البطاقة.",
+  "screens.goals.suggest.done": "أُضيف الاقتراح إلى الرئيسية.",
+  "screens.goals.suggest.none": "لا يوجد اقتراح هذه المرة. حاول لاحقًا.",
   "screens.ideas.start": "ابدأ",
   "screens.ideas.snooze": "تأجيل",
   "screens.ideas.badge.checkin": "متابعة",

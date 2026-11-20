@@ -550,6 +550,11 @@ export const screens = {
   "screens.goals.checkinLine":
     "{cadence}{hasNext, select, true { · next {next}} other {}}{hasLast, select, true { · last: {last}} other {}}",
   "screens.goals.noSchedule": "No schedule",
+  "screens.goals.suggest": "Suggest next step",
+  "screens.goals.suggest.hint":
+    "Uses the model, only when you tap. Nothing starts until you tap Start on the card.",
+  "screens.goals.suggest.done": "Suggestion added to Home.",
+  "screens.goals.suggest.none": "No suggestion this time. Try again later.",
   "screens.ideas.start": "Start",
   "screens.ideas.snooze": "Snooze",
   "screens.ideas.badge.checkin": "Check-in",

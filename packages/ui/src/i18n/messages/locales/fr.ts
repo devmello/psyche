@@ -3214,6 +3214,11 @@ export const fr: Partial<Catalogue> = {
   "screens.goals.checkinLine":
     "{cadence}{hasNext, select, true { · prochain {next}} other {}}{hasLast, select, true { · dernier : {last}} other {}}",
   "screens.goals.noSchedule": "Aucune planification",
+  "screens.goals.suggest": "Suggérer la prochaine étape",
+  "screens.goals.suggest.hint":
+    "Utilise le modèle, uniquement quand vous appuyez. Rien ne démarre avant que vous appuyiez sur Démarrer sur la carte.",
+  "screens.goals.suggest.done": "Suggestion ajoutée à l’accueil.",
+  "screens.goals.suggest.none": "Aucune suggestion cette fois. Réessayez plus tard.",
   "screens.ideas.start": "Démarrer",
   "screens.ideas.snooze": "Reporter",
   "screens.ideas.badge.checkin": "Point d'étape",

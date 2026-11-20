@@ -3158,6 +3158,11 @@ export const ko: Partial<Catalogue> = {
   "screens.goals.checkinLine":
     "{cadence}{hasNext, select, true { · 다음 {next}} other {}}{hasLast, select, true { · 마지막: {last}} other {}}",
   "screens.goals.noSchedule": "일정 없음",
+  "screens.goals.suggest": "다음 단계 제안",
+  "screens.goals.suggest.hint":
+    "탭할 때만 모델을 사용합니다. 카드에서 시작을 탭하기 전에는 아무것도 시작되지 않습니다.",
+  "screens.goals.suggest.done": "제안을 홈에 추가했습니다.",
+  "screens.goals.suggest.none": "이번에는 제안이 없습니다. 나중에 다시 시도해 주세요.",
   "screens.ideas.start": "시작",
   "screens.ideas.snooze": "다시 알림",
   "screens.ideas.badge.checkin": "체크인",

@@ -9,7 +9,7 @@ import {
 } from "@psyche/protocol";
 import { ulid } from "ulid";
 import { PROACTIVITY_BUDGET } from "../budget.ts";
-import { GOAL_STALLED_SOURCE } from "../goals/checkin.ts";
+import { GOAL_CHECKIN_SOURCE, GOAL_STALLED_SOURCE, goalInputsTainted } from "../goals/checkin.ts";
 import type { GoalsService } from "../goals/service.ts";
 import {
   cadenceKind,
@@ -303,10 +303,12 @@ export class IdeasService {
   }
 
   /**
-   * Puts a card on Home now, outside the nightly batch (a goal check-in's next step, a stalled
-   * task's "Resume?"). The owner's own timing or a free signal triggered it, so the acceptance
-   * threshold does not hold it back, but suppression still applies (open, accepted, dismissed
-   * and snoozed patterns). `supersedes` expires older open cards the new one replaces.
+   * Puts a card on Home now, outside the nightly batch (a goal's suggested next step, a stalled
+   * task's "Resume?"). The owner's tap or a free signal triggered it, so the acceptance threshold
+   * does not hold it back, but suppression still applies (open, accepted, dismissed and snoozed
+   * patterns), except for a next step the owner just asked for, which ignores old dismissals.
+   * Goal cards share the delivery budget: at most `perWindow` are open at once.
+   * `supersedes` expires older open cards the new one replaces.
    * Nothing runs until the owner taps Start (`accept`). No model call.
    */
   async offer(
@@ -315,14 +317,25 @@ export class IdeasService {
   ): Promise<StoredIdea | undefined> {
     const now = this.#o.clock.now();
     const history = this.store.all();
-    if (this.#suppressed(c, history, now) !== undefined) return undefined;
-    if (supersedes !== undefined) {
-      for (const old of history) {
-        if (old.status !== "proposed" || !supersedes(old)) continue;
-        const expired: StoredIdea = { ...old, status: "expired", decidedAt: toIso(now) };
-        this.store.update(expired);
-        if (old.deliveredAt !== null) this.#emit(expired);
-      }
+    const asked = c.source === GOAL_CHECKIN_SOURCE;
+    if (!asked && this.#suppressed(c, history, now) !== undefined) return undefined;
+    const replaced = new Set(
+      supersedes === undefined
+        ? []
+        : history.filter((i) => i.status === "proposed" && supersedes(i)).map((i) => i.id),
+    );
+    const open = history.filter(
+      (i) =>
+        i.status === "proposed" &&
+        (i.source === GOAL_CHECKIN_SOURCE || i.source === GOAL_STALLED_SOURCE) &&
+        !replaced.has(i.id),
+    ).length;
+    if (open >= PROACTIVITY_BUDGET.ideas.perWindow) return undefined;
+    for (const old of history) {
+      if (!replaced.has(old.id)) continue;
+      const expired: StoredIdea = { ...old, status: "expired", decidedAt: toIso(now) };
+      this.store.update(expired);
+      if (old.deliveredAt !== null) this.#emit(expired);
     }
     const idea: StoredIdea = {
       ...c,
@@ -344,7 +357,11 @@ export class IdeasService {
   async offerStalled(): Promise<number> {
     if (this.#o.goals === undefined) return 0;
     let offered = 0;
+    const history = this.store.all();
     for (const { goal, task, idleDays } of await this.#o.goals.stalledTasks()) {
+      const patternKey = `goal:${goal.id}:resume:${task.id}`;
+      // An unanswered card expires and may come back once; after that the owner has said enough.
+      if (history.filter((i) => i.patternKey === patternKey).length >= 2) continue;
       const idea = await this.offer({
         kind: "task",
         title: `Resume: ${task.title.slice(0, 80)}`,
@@ -361,8 +378,9 @@ export class IdeasService {
         ],
         effort: "~15 min",
         source: GOAL_STALLED_SOURCE,
-        patternKey: `goal:${goal.id}:resume:${task.id}`,
-        untrusted: task.taint === true,
+        patternKey,
+        untrusted:
+          task.taint === true || (task.taintSources?.length ?? 0) > 0 || goalInputsTainted(goal),
         action: {
           type: "task",
           title: `Resume: ${task.title.slice(0, 60)}`,
