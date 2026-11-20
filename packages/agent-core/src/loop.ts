@@ -184,7 +184,6 @@ import {
 import {
   stubTurnContext,
   TRUSTED_CONTEXT_CAP,
-  TURN_CONTEXT_STUB,
   type TurnContextProvider,
   UNTRUSTED_CONTEXT_CAP,
 } from "./turn-context.ts";
