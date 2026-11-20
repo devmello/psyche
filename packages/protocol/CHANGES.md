@@ -26,6 +26,7 @@ CI fails when the generated files are stale (`pnpm protocol:check`).
 
 - `ApprovalAnswer` gains an optional `inSpace: true`: "Allow in this Space" on a `folder_access` card that offered it (`details.space`, set by the Gateway), sent with `scope: "once"`. The pick joins that Space's folders.
 - `AccessEntry.scope` gains `space` (a value at the end); new optional `spaceId`, `spaceName` and `automationsWrite` on a `space` row. `access.revoke` takes its id. Design: docs/design/spaces-2026.md §5.3.
+- The `PermissionBroker` contract gains optional `bindRun(RunBindingInput)` and `endRun(threadId, runId)`: the agent loop fixes a run's Space at its start, before the prompt, and drops it at its end (SR3). Bindings are keyed by (thread, run); `preview` never binds. `RunBindingInput.space` lets the loop pass its own run-start Space.
 
 ### v1 additive — 2026-11-19 (machine registry, H3)
 

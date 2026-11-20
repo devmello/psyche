@@ -33,6 +33,11 @@ export const blocksA: Partial<Catalogue> = {
   "blocks.folder.scope.once": "Solo este chat",
   "blocks.folder.scope.always": "Siempre, esta carpeta y lo que contiene",
   "blocks.folder.scope.space": "Permitir en este espacio",
+  "blocks.folder.scope.spaceNamed": "Permitir en {space}",
+  "blocks.folder.space.automationsRead":
+    "Las automatizaciones de Psyche en {space} también pueden leer esta carpeta.",
+  "blocks.folder.space.automationsWrite":
+    "Las automatizaciones de Psyche en {space} también pueden leer y escribir en esta carpeta.",
   "blocks.folder.explain.ro": "{persona} quiere leer los archivos de una carpeta.",
   "blocks.folder.explain.rw": "{persona} quiere leer y modificar los archivos de una carpeta.",
   "blocks.folder.readOnly": "Que solo pueda leer, sin cambiar nada",

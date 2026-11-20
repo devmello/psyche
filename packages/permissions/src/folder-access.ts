@@ -842,8 +842,18 @@ export interface SpaceFolderRecord {
 export type ThreadSpace =
   /** The thread is in this Space (a chat, or the automation it runs for). */
   | { spaceId: string; spaceName: string }
-  /** A subagent thread: it works in the Space its parent thread's current run works in. */
+  /**
+   * A subagent thread: it works in its parent run's Space, which the loop names at the run's
+   * start (`bindRun`'s `parent`). Without that, the subagent's run gets no Space.
+   */
   | { parentThreadId: string };
+
+/**
+ * What storing a card's pick did: `added` (the folder is in the Space at the pick's mode now), or
+ * `not_raised` (the Space holds it read-only and lets automations write there, so a card does not
+ * raise it to read & write: that is the Mac's own `spaces.folders.setMode`; nothing changed).
+ */
+export type SpaceFolderAdd = "added" | "not_raised";
 
 /**
  * The third folder scope, "Allow in this Space", as the Gateway stores it. Reads are synchronous
@@ -851,18 +861,21 @@ export type ThreadSpace =
  * deleted stops counting on the next call. Any throw is taken as "no Space folders" (fail closed).
  */
 export interface SpaceFolderSource {
-  /** The Space a run in this thread works in, read when the run first asks the broker. */
+  /** The Space a run in this thread works in, read once at the run's start (`bindRun`). */
   spaceOf(threadId: string): ThreadSpace | undefined;
   /** The folders of a Space that is not archived; none for an archived or deleted one. */
   folders(spaceId: string): readonly SpaceFolderRecord[];
   /** Every folder of every Space that is not archived (Settings' access list, the root looks). */
   all(): readonly SpaceFolderRecord[];
-  /** Stores an approved pick ("Allow in this Space"); throws when the Space is gone or archived. */
+  /**
+   * Stores an approved pick ("Allow in this Space"); throws when the Space is gone or archived.
+   * Only ever widens a folder, and never to read & write where automations may write (SP8).
+   */
   add(
     spaceId: string,
     entry: { path: string; real: string; mode: "ro" | "rw" },
     by: { deviceId?: string },
-  ): void | Promise<void>;
+  ): SpaceFolderAdd | Promise<SpaceFolderAdd>;
   /** Removes one folder from a Space (the owner's revoke); true when it was there. */
   remove(spaceId: string, path: string): boolean | Promise<boolean>;
 }

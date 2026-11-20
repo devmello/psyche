@@ -107,13 +107,20 @@ function hostProgramOffer(
  * "Allow in this Space" on a folder card, as the Gateway offered it (`details.space`): sent as
  * `once` plus `inSpace`. Never on a tainted card (spaces-2026 §5.3).
  */
-function spaceOffer(approval: ApprovalRequest): { name: string } | null {
+function spaceOffer(approval: ApprovalRequest): { name: string; automationsWrite: boolean } | null {
   if (approval.kind !== "folder_access" || approval.taint) return null;
   const o = (approval.details as Record<string, unknown>).space;
   if (typeof o !== "object" || o === null) return null;
-  const { id, name } = o as { id?: unknown; name?: unknown };
+  const { id, name, automationsWrite } = o as {
+    id?: unknown;
+    name?: unknown;
+    automationsWrite?: unknown;
+  };
   if (typeof id !== "string" || id === "" || !approval.scopesOffered.includes("once")) return null;
-  return { name: typeof name === "string" ? name : "" };
+  return {
+    name: typeof name === "string" ? name : "",
+    automationsWrite: automationsWrite === true,
+  };
 }
 
 export interface ApprovalCardProps {
@@ -721,7 +728,16 @@ export function ApprovalCard({
         ]
       : []),
     ...(inSpaceOffer !== null
-      ? [{ value: "space" as const, label: t("blocks.folder.scope.space") }]
+      ? [
+          {
+            value: "space" as const,
+            // Names the card's Space: the answer applies to that Space only.
+            label:
+              inSpaceOffer.name === ""
+                ? t("blocks.folder.scope.space")
+                : t("blocks.folder.scope.spaceNamed", { space: inSpaceOffer.name }),
+          },
+        ]
       : []),
     // Typing UNSANDBOXED allows this run only, so no lasting scope is offered then.
     ...(offered.includes("session") && !unsandboxed
@@ -1308,6 +1324,17 @@ export function ApprovalCard({
             ) : null}
           </Button>
         </div>
+      ) : null}
+      {/* Below the buttons, so choosing it never moves them (§3.3): who else gets the folder. */}
+      {interactive && choice === "space" && inSpaceOffer !== null && inSpaceOffer.name !== "" ? (
+        <p className="mt-2 text-callout text-label-secondary" data-testid="space-automations">
+          {t(
+            inSpaceOffer.automationsWrite
+              ? "blocks.folder.space.automationsWrite"
+              : "blocks.folder.space.automationsRead",
+            { space: inSpaceOffer.name },
+          )}
+        </p>
       ) : null}
       {/* Below the buttons, so opening it never moves them (§3.3). */}
       {showIds ? (

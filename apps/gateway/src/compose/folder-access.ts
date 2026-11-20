@@ -35,7 +35,7 @@ export interface FolderAccessToolDeps {
    * The folders already granted for this conversation (Settings' list plus its own). A request
    * they cover is answered at once, so the owner is never asked for what they already gave.
    */
-  grantedFolders?: (threadId: string) => readonly FolderGrantEntry[];
+  grantedFolders?: (threadId: string, runId?: string) => readonly FolderGrantEntry[];
 }
 
 export function requestFolderAccessTool(deps: FolderAccessToolDeps): AgentToolRegistration {
@@ -70,7 +70,7 @@ export async function askForFolder(
   const requested = await resolveRequestedFolder(p.path, deps.folderEnv?.() ?? {});
   // Never ask twice for the same scope: a granted folder that covers this request answers it.
   const covered = folderCovers(
-    deps.grantedFolders?.(ctx.threadId) ?? [],
+    deps.grantedFolders?.(ctx.threadId, ctx.runId) ?? [],
     requested.status === "missing" ? p.path : requested.path,
     mode,
   );

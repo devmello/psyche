@@ -95,8 +95,10 @@ const ctx = (threadId: string, over: Partial<PolicyContext> = {}): PolicyContext
   ...over,
 });
 
+/** One call of a run; the run is bound first, as the agent loop does at run start (SR3). */
 function decide(s: ComposeServices, tool: string, p: string, c: PolicyContext) {
   const params = { tool, target: p };
+  s.rawBroker.bindRun({ threadId: c.threadId, runId: c.runId, unattended: c.unattended === true });
   return s.rawBroker.decide(
     {
       tool,
@@ -225,8 +227,10 @@ describe("a Space folder works only in its own Space's runs", () => {
       expect((await decide(s, "read_file", p, ctx(inKitchen))).rule, p).toBe("folder:not_granted");
     }
     // The file tools see the same folders.
-    expect(s.rawBroker.liveSessionFolders(inKitchen).map((f) => f.path)).toEqual([kitchen]);
-    expect(s.rawBroker.liveSessionFolders(inJobs)).toEqual([]);
+    expect(
+      s.rawBroker.liveSessionFolders(inKitchen, `run_${inKitchen}`).map((f) => f.path),
+    ).toEqual([kitchen]);
+    expect(s.rawBroker.liveSessionFolders(inJobs, `run_${inJobs}`)).toEqual([]);
   });
 
   it("an automation reads the Space's folders and writes only where the owner allowed it (SP8)", async () => {
@@ -299,7 +303,7 @@ describe("a Space folder works only in its own Space's runs", () => {
     rmSync(root, { recursive: true });
     symlinkSync(join(work, "elsewhere"), root);
     offset += FOLDER_FRESH_MS + 1;
-    s.rawBroker.liveSessionFolders(chat);
+    s.rawBroker.liveSessionFolders(chat, `run_${chat}`);
     await s.rawBroker.foldersSettled();
     expect((await decide(s, "read_file", file, ctx(chat))).rule).toBe("folder:not_granted");
     const row = ((await owner.call<Json>("access.list", {})).entries as Json[]).find(
@@ -372,5 +376,24 @@ describe("spaceFolderSource (the broker's view)", () => {
     expect(src.folders(id)).toEqual([]);
     expect(src.all()).toEqual([]);
     expect(() => src.add(id, { path: kitchen, real: kitchen, mode: "ro" }, {})).toThrow();
+  });
+
+  it("a card never raises to read & write a folder automations may write in (SP8)", async () => {
+    const { owner, s } = await setup();
+    const id = await space(owner, "Kitchen remodel");
+    const src = spaceFolderSource(s.db);
+    const kitchen = join(work, "kitchen");
+    const jobs = join(work, "jobs");
+    expect(src.add(id, { path: kitchen, real: kitchen, mode: "ro" }, {})).toBe("added");
+    expect(src.add(id, { path: jobs, real: jobs, mode: "ro" }, {})).toBe("added");
+    s.db.sqlite
+      .prepare("UPDATE space_folders SET automations_write = 1 WHERE path = ?")
+      .run(kitchen);
+    expect(src.add(id, { path: kitchen, real: kitchen, mode: "rw" }, {})).toBe("not_raised");
+    // Without the flag a card may raise it; a new folder never gets the flag.
+    expect(src.add(id, { path: jobs, real: jobs, mode: "rw" }, {})).toBe("added");
+    const byPath = new Map(src.folders(id).map((f) => [f.path, f]));
+    expect(byPath.get(kitchen)).toMatchObject({ mode: "ro", automationsWrite: true });
+    expect(byPath.get(jobs)).toMatchObject({ mode: "rw", automationsWrite: false });
   });
 });

@@ -90,6 +90,11 @@ export const blocks = {
   "blocks.folder.scope.once": "Just this chat",
   "blocks.folder.scope.always": "Always, this folder and below",
   "blocks.folder.scope.space": "Allow in this Space",
+  "blocks.folder.scope.spaceNamed": "Allow in {space}",
+  "blocks.folder.space.automationsRead":
+    "Psyche's automations in {space} can read this folder too.",
+  "blocks.folder.space.automationsWrite":
+    "Psyche's automations in {space} can read and write in this folder too.",
   "blocks.folder.explain.ro": "{persona} wants to read the files in a folder.",
   "blocks.folder.explain.rw": "{persona} wants to read and change the files in a folder.",
   "blocks.folder.readOnly": "Let it read only, not change anything",

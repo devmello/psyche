@@ -1139,7 +1139,7 @@ export async function composeGateway(options: ComposeOptions): Promise<ComposedG
     // This conversation's "Allow once" folders count beside the owner's (request_folder_access).
     folders: (scope) => [
       ...rawBroker.grantedFolders(),
-      ...(scope === undefined ? [] : rawBroker.liveSessionFolders(scope.threadId)),
+      ...(scope === undefined ? [] : rawBroker.liveSessionFolders(scope.threadId, scope.runId)),
     ],
     protectedRoots: () => protectedRoots(config.home),
     ownDirs: () => ownWorkdirs(config.home),
@@ -1167,9 +1167,9 @@ export async function composeGateway(options: ComposeOptions): Promise<ComposedG
       broker: executorBroker,
       surfaces: ["desktop", "web"],
       folderEnv: () => folderAccessEnv(config.home),
-      grantedFolders: (threadId) => [
+      grantedFolders: (threadId, runId) => [
         ...rawBroker.grantedFolders(),
-        ...rawBroker.liveSessionFolders(threadId),
+        ...rawBroker.liveSessionFolders(threadId, runId),
       ],
       execHostEnabled: () => rawBroker.policy.exec?.execHostEnabled === true,
       enableExecHost: async () => {
@@ -1213,9 +1213,9 @@ export async function composeGateway(options: ComposeOptions): Promise<ComposedG
     execHostTool({
       broker: executorBroker,
       vault: vault.vault,
-      folders: (threadId) => [
+      folders: (threadId, runId) => [
         ...rawBroker.grantedFolders(),
-        ...rawBroker.liveSessionFolders(threadId),
+        ...rawBroker.liveSessionFolders(threadId, runId),
       ],
       // One live look per root at a time, bounded: a hung mount does not fill the libuv pool.
       lookRoot: (path) => rawBroker.lookRootNow(path),

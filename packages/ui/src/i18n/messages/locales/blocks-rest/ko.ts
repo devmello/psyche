@@ -30,6 +30,10 @@ export const blocksRest: Partial<Catalogue> = {
   "blocks.folder.scope.once": "이 대화만",
   "blocks.folder.scope.always": "항상 (이 폴더와 하위 폴더)",
   "blocks.folder.scope.space": "이 스페이스에서 허용",
+  "blocks.folder.scope.spaceNamed": "{space}에서 허용",
+  "blocks.folder.space.automationsRead": "{space}의 Psyche 자동화도 이 폴더를 읽을 수 있습니다.",
+  "blocks.folder.space.automationsWrite":
+    "{space}의 Psyche 자동화도 이 폴더를 읽고 쓸 수 있습니다.",
   "blocks.folder.explain.ro": "{persona}가 폴더의 파일을 읽으려고 합니다.",
   "blocks.folder.explain.rw": "{persona}가 폴더의 파일을 읽고 변경하려고 합니다.",
   "blocks.folder.readOnly": "읽기만 허용하고 아무것도 변경하지 못하게 하기",

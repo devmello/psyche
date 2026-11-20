@@ -15,14 +15,19 @@ import { SpaceStore } from "./store.ts";
 /**
  * Spaces wave S2 (docs/design/spaces-2026.md §5.3): the folder scope. A Space's folders are a
  * third scope beside Settings' (Always allow) and one conversation's (Allow once):
- * - they count only in the runs of that Space (`spaceOf`), fixed per run by the broker (SR3);
+ * - they count only in the runs of that Space (`spaceOf`), fixed at each run's start (SR3);
  * - every one passes the folder refusals and keeps its recorded real path (SR2);
  * - an automation reads them, and writes only where the owner turned on
  *   `automationsWrite` (SP8, SR4);
  * - archiving or deleting the Space stops them at once: the broker reads them live (SR14).
- * Adding a folder, or widening one (read & write, automations may write), is the owner's, from the
- * Mac itself (`operator.admin` on the desktop shell); removing or narrowing works from any admin
- * device.
+ * There are two ways to add or widen one:
+ * - these methods, on the Mac itself (`operator.admin` on the desktop shell): add a folder, set it
+ *   to read & write, let automations write;
+ * - a folder card's "Allow in this Space", from any approver (a plain tap, like Always allow):
+ *   adds the folder, or raises it to read & write, only where automations may not write there
+ *   (`add` answers `not_raised` otherwise), and never turns on `automationsWrite`. The card says
+ *   that the Space's automations can read the folder too.
+ * Removing or narrowing works from any admin device.
  */
 
 interface FolderRow {
@@ -110,17 +115,32 @@ export function spaceFolderSource(
       if (openSpace(db, spaceId) === undefined) {
         throw new PsycheError("conflict", "that Space is archived or gone");
       }
-      // The same folder again keeps its automations setting; a read & write pick widens it.
-      db.sqlite
-        .prepare(
-          `INSERT INTO space_folders (space_id, path, real, mode, automations_write, added_at, added_by_device)
-           VALUES (?, ?, ?, ?, 0, ?, ?)
-           ON CONFLICT (space_id, path) DO UPDATE SET real = excluded.real,
-             mode = CASE WHEN excluded.mode = 'rw' THEN 'rw' ELSE space_folders.mode END`,
-        )
-        .run(spaceId, entry.path, entry.real, entry.mode, db.now(), by.deviceId ?? null);
-      touch(db, spaceId);
-      changed(spaceId);
+      const store = db.sqlite.transaction((): "added" | "not_raised" => {
+        const had = db.sqlite
+          .prepare(
+            "SELECT mode, automations_write FROM space_folders WHERE space_id = ? AND path = ?",
+          )
+          .get(spaceId, entry.path) as { mode: string; automations_write: number } | undefined;
+        // A card never raises to read & write a folder automations may write in: with the
+        // flag on, that would let them write too. Only the Mac's `setMode` does (SP8).
+        if (entry.mode === "rw" && had?.mode === "ro" && had.automations_write === 1) {
+          return "not_raised";
+        }
+        // The same folder again keeps its automations setting; a read & write pick widens it.
+        db.sqlite
+          .prepare(
+            `INSERT INTO space_folders (space_id, path, real, mode, automations_write, added_at, added_by_device)
+             VALUES (?, ?, ?, ?, 0, ?, ?)
+             ON CONFLICT (space_id, path) DO UPDATE SET real = excluded.real,
+               mode = CASE WHEN excluded.mode = 'rw' THEN 'rw' ELSE space_folders.mode END`,
+          )
+          .run(spaceId, entry.path, entry.real, entry.mode, db.now(), by.deviceId ?? null);
+        touch(db, spaceId);
+        return "added";
+      });
+      const added = store();
+      if (added === "added") changed(spaceId);
+      return added;
     },
     remove(spaceId, path) {
       const res = db.sqlite

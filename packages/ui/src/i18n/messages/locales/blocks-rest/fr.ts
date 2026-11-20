@@ -30,6 +30,11 @@ export const blocksRest: Partial<Catalogue> = {
   "blocks.folder.scope.once": "Cette discussion seulement",
   "blocks.folder.scope.always": "Toujours, ce dossier et ses sous-dossiers",
   "blocks.folder.scope.space": "Autoriser dans cet espace",
+  "blocks.folder.scope.spaceNamed": "Autoriser dans {space}",
+  "blocks.folder.space.automationsRead":
+    "Les automatisations de Psyche dans {space} peuvent aussi lire ce dossier.",
+  "blocks.folder.space.automationsWrite":
+    "Les automatisations de Psyche dans {space} peuvent aussi lire et écrire dans ce dossier.",
   "blocks.folder.explain.ro": "{persona} souhaite lire les fichiers d’un dossier.",
   "blocks.folder.explain.rw": "{persona} souhaite lire et modifier les fichiers d’un dossier.",
   "blocks.folder.readOnly": "Lecture seule, sans rien modifier",

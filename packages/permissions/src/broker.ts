@@ -29,6 +29,7 @@ import {
   PsycheError,
   type Receipt,
   type ReceiptInput,
+  type RunBindingInput,
   type SideEffect,
   type Surface,
   type ToolCallIntent,
@@ -318,17 +319,18 @@ export interface PermissionBrokerOptions {
   spaces?: SpaceFolderSource;
 }
 
-/** The Space a thread's current run works in, fixed when that run first asks (SR3). */
+/**
+ * The Space one run works in, fixed at the run's start (`bindRun`, SR3) and kept until it ends
+ * (`endRun`). Keyed by (thread, run): no other call on the thread reads or changes it.
+ */
 interface RunSpaceBinding {
-  runId: string;
   spaceId?: string;
   spaceName?: string;
   /** An automation's run (or a subagent of one): Space folders are read-only unless SP8. */
   unattended: boolean;
 }
 
-/** How many threads' run bindings are kept (oldest first out); a thread rebinds at its next run. */
-const RUN_SPACE_CAP = 2_000;
+const runKey = (threadId: string, runId: string) => `${threadId}\0${runId}`;
 
 /** How long an attached file stays readable in its conversation (it also ends with the thread). */
 export const ATTACH_GRANT_MS = 24 * 60 * 60 * 1000;
@@ -478,7 +480,10 @@ export class PsychePermissionBroker implements PermissionBroker {
    */
   readonly #attachRecords = new Map<string, number>();
   readonly #spaces: SpaceFolderSource | undefined;
-  /** thread → the Space its current run works in (spaces-2026 §5.1, SR3). */
+  /**
+   * (thread, run) → the Space that run works in (spaces-2026 §5.1, SR3), from `bindRun` at the
+   * run's start to `endRun`. Only the loop writes it; a live run's entry is never evicted.
+   */
   readonly #runSpaces = new Map<string, RunSpaceBinding>();
 
   constructor(options: PermissionBrokerOptions) {
@@ -522,13 +527,13 @@ export class PsychePermissionBroker implements PermissionBroker {
       task: (ctx) => this.#task(ctx),
       peekTask: (ctx) => this.#tasks.get(taskKey(ctx)),
       // This conversation's folders, then its run's Space folders (spaces-2026 §5.3).
-      sessionFolders: (threadId) => {
+      sessionFolders: (threadId, runId) => {
         const own = this.sessionFolders(threadId);
-        return [...own, ...this.#spaceEntries(threadId, own)];
+        return [...own, ...this.#spaceEntries(threadId, runId, own)];
       },
       folderRefused: (path) => this.folderRefused(path),
       workspaceRefused: (path) => this.#workspaceRefused(path),
-      settleFolders: (threadId) => this.#settleFolders(threadId),
+      settleFolders: (threadId, runId) => this.#settleFolders(threadId, runId),
       matchGrant: (key, kind, se, ctx, origin) => this.#matchGrant(key, kind, se, ctx, origin),
       useGrant: (rec, hash, ctx) => this.#useGrant(rec, hash, ctx?.taskId),
       trustedSite: (origin) => this.#trustedSite(origin),
@@ -614,13 +619,14 @@ export class PsychePermissionBroker implements PermissionBroker {
 
   /**
    * This conversation's folders and attached files that still count (see `grantedFolders`), and
-   * the folders of the Space its current run works in (`#spaceEntries`).
+   * with the calling run's id, the folders of the Space that run was bound to at its start
+   * (`#spaceEntries`). Without a run id, or for a run that was never bound, no Space folder.
    */
-  liveSessionFolders(threadId: string): FolderGrantEntry[] {
+  liveSessionFolders(threadId: string, runId?: string): FolderGrantEntry[] {
     const own = this.sessionFolders(threadId)
       .filter((f) => !this.folderRefused(f.path))
       .map((f) => this.#withReal(f));
-    return [...own, ...this.#spaceEntries(threadId, own)];
+    return [...own, ...this.#spaceEntries(threadId, runId, own)];
   }
 
   #withReal<F extends { path: string; real?: string }>(f: F): F {
@@ -748,12 +754,12 @@ export class PsychePermissionBroker implements PermissionBroker {
    * which the root is judged as `folderRefused` says. Undefined when there is nothing to wait for,
    * so an evaluation does not yield for nothing.
    */
-  #settleFolders(threadId: string | undefined): Promise<void> | undefined {
+  #settleFolders(threadId: string | undefined, runId?: string): Promise<void> | undefined {
     const paths = [
       ...this.#policy.folders.map((f) => f.path),
       ...this.#policy.workspaceRoots,
       ...(threadId === undefined ? [] : this.sessionFolders(threadId).map((f) => f.path)),
-      ...(threadId === undefined ? [] : this.#boundSpaceRows(threadId).map((f) => f.path)),
+      ...(threadId === undefined ? [] : this.#boundSpaceRows(threadId, runId).map((f) => f.path)),
     ];
     const now = this.clock.now();
     const waits: Promise<unknown>[] = [];
@@ -919,7 +925,6 @@ export class PsychePermissionBroker implements PermissionBroker {
 
   async decide(call: PolicyCall, ctx: PolicyContext): Promise<PolicyDecision> {
     this.#sweep();
-    this.#bindRunSpace(ctx);
     const { decision, binding } = await this.engine.evaluate(call, ctx);
     if (decision.decision === "ask" && binding !== undefined) {
       // Keyed by the binding alone, kept for twice the approval lifetime: requestApproval restores
@@ -990,7 +995,6 @@ export class PsychePermissionBroker implements PermissionBroker {
    */
   async preview(intents: ToolCallIntent[], ctx: PolicyContext): Promise<PreviewResult[]> {
     const dry: DryRun = { scratch: new Map() };
-    this.#bindRunSpace(ctx);
     const out: PreviewResult[] = [];
     for (const intent of intents) {
       const call = structuredClone(intent) as PolicyCall;
@@ -1245,11 +1249,15 @@ export class PsychePermissionBroker implements PermissionBroker {
     };
   }
 
-  #hostProgramRefusal(f: HostProgramFacts, threadId: string | undefined): string | undefined {
+  #hostProgramRefusal(
+    f: HostProgramFacts,
+    threadId: string | undefined,
+    runId?: string,
+  ): string | undefined {
     return hostProgramRefusal(f, {
       platform: this.#hostProgram.platform ?? process.platform,
       roots: this.#hostProgram.roots ?? HOST_PROGRAM_ROOTS,
-      inGrantedFolder: (path) => this.engine.folderFor(path, threadId) !== undefined,
+      inGrantedFolder: (path) => this.engine.folderFor(path, threadId, runId) !== undefined,
     });
   }
 
@@ -1309,14 +1317,18 @@ export class PsychePermissionBroker implements PermissionBroker {
   }
 
   /** The folder an offer or a grant covers: a shared folder that is not home or a sensitive root. */
-  #hostProgramFolder(cwd: string, threadId: string | undefined): string | undefined {
+  #hostProgramFolder(
+    cwd: string,
+    threadId: string | undefined,
+    runId?: string,
+  ): string | undefined {
     let c: string;
     try {
       c = canonicalPath(cwd);
     } catch {
       return undefined;
     }
-    const root = this.engine.folderFor(c, threadId)?.path;
+    const root = this.engine.folderFor(c, threadId, runId)?.path;
     if (root === undefined) return undefined;
     return refuseFolder(root, this.#refuseEnv()) === undefined ? root : undefined;
   }
@@ -1326,11 +1338,11 @@ export class PsychePermissionBroker implements PermissionBroker {
     if (ctx.taint === true) return undefined;
     if (ctx.requester !== undefined && ctx.requester.role !== "owner") return undefined;
     const f = this.#hostFacts(call);
-    if (f === undefined || this.#hostProgramRefusal(f, ctx.threadId) !== undefined) {
+    if (f === undefined || this.#hostProgramRefusal(f, ctx.threadId, ctx.runId) !== undefined) {
       return undefined;
     }
     // The folder must still be a shared one, and the command must run inside it.
-    if (this.#hostProgramFolder(f.cwd, ctx.threadId) === undefined) return undefined;
+    if (this.#hostProgramFolder(f.cwd, ctx.threadId, ctx.runId) === undefined) return undefined;
     if (readsCwdConfig(f.executable) || readsCwdConfig(f.argv[0] as string)) return undefined;
     const now = this.clock.now();
     for (const rec of this.#store.listGrants()) {
@@ -1340,7 +1352,7 @@ export class PsychePermissionBroker implements PermissionBroker {
       const h = PsychePermissionBroker.hostProgramOf(rec);
       if (h === undefined || !hostProgramGrantCovers(h, f)) continue;
       // Granted folders can be revoked: the grant's own folder must still be shared.
-      if (this.engine.folderFor(h.folder, ctx.threadId) === undefined) continue;
+      if (this.engine.folderFor(h.folder, ctx.threadId, ctx.runId) === undefined) continue;
       if (refuseFolder(h.folder, this.#refuseEnv()) !== undefined) continue;
       return rec;
     }
@@ -1362,10 +1374,10 @@ export class PsychePermissionBroker implements PermissionBroker {
     if (input.taint || ctx.taint === true || ctx.initiator === "mcp_app") return undefined;
     if (ctx.requester !== undefined && ctx.requester.role !== "owner") return undefined;
     const f = this.#hostFacts(call);
-    if (f === undefined || this.#hostProgramRefusal(f, ctx.threadId) !== undefined) {
+    if (f === undefined || this.#hostProgramRefusal(f, ctx.threadId, ctx.runId) !== undefined) {
       return undefined;
     }
-    const folder = this.#hostProgramFolder(f.cwd, ctx.threadId);
+    const folder = this.#hostProgramFolder(f.cwd, ctx.threadId, ctx.runId);
     if (folder === undefined) return undefined;
     // A program that reads config from the working directory (git, make, npm…) never gets a
     // folder-wide grant: the config can change under it, and a grant cannot bind its hashes.
@@ -1811,9 +1823,16 @@ export class PsychePermissionBroker implements PermissionBroker {
       !(input.taint || input.context?.taint === true) &&
       scopesOffered.includes("once")
     ) {
-      const space = this.#requestSpace(input);
+      const resolved = (details as { resolvedPath?: unknown }).resolvedPath;
+      const space = this.#requestSpace(input, typeof resolved === "string" ? resolved : undefined);
       if (space !== undefined) {
-        details.space = { id: space.id, name: sanitizeDisplay(space.name).slice(0, 60) };
+        // The card says the Space's automations can read the folder too, and write where the
+        // owner already let them write there (a card never turns that on).
+        details.space = {
+          id: space.id,
+          name: sanitizeDisplay(space.name).slice(0, 60),
+          automationsWrite: space.automationsWrite,
+        };
       }
     }
     const sources = input.taintSources ?? input.context?.taintSources;
@@ -2591,13 +2610,8 @@ export class PsychePermissionBroker implements PermissionBroker {
         ) {
           // Not a ledger grant: `always` lives in Settings → File access, `once` in the thread.
           // A separate-desktop share only records the pick here; `#applyFolder` is skipped for it.
-          fa.details = {
-            ...fa.details,
-            granted: {
-              ...folderPick,
-              ...(spaceChoice === undefined ? {} : { spaceId: spaceChoice.id }),
-            },
-          };
+          // "Allow in this Space" adds `spaceId` only once the Space has stored the folder.
+          fa.details = { ...fa.details, granted: { ...folderPick } };
         } else if (fa.kind === "batch" && scope === "always") {
           // The one batch grant: prep notes only. It binds the calls' own key, not the batch's.
           grant = this.#newPrepNoteGrant(fresh, by, now);
@@ -2744,23 +2758,46 @@ export class PsychePermissionBroker implements PermissionBroker {
     const threadId = fa.requestedBy.threadId;
     let kept: GrantScope | "space" = scope;
     if (space !== undefined) {
-      // "Allow in this Space": the pick joins that Space's folders, for its runs only.
+      // "Allow in this Space": the pick joins the card's Space, for that Space's runs only. Not
+      // stored, it works for this conversation only: the thread is no longer in the card's Space,
+      // the Space was archived or deleted meanwhile, or the card would raise to read & write a
+      // folder the Space lets automations write in (SP8: only the Mac does that).
+      let reason: string | undefined;
       try {
         if (this.#spaces === undefined) throw new Error("no Spaces");
-        await this.#spaces.add(
-          space.id,
-          { path: pick.path, real: pick.path, mode: pick.mode },
-          "deviceId" in by ? { deviceId: by.deviceId } : {},
-        );
-        kept = "space";
+        const now = threadId == null ? undefined : this.#spaces.spaceOf(threadId);
+        if (now === undefined || !("spaceId" in now) || now.spaceId !== space.id) {
+          reason = "space_moved";
+        } else {
+          const added = await this.#spaces.add(
+            space.id,
+            { path: pick.path, real: pick.path, mode: pick.mode },
+            "deviceId" in by ? { deviceId: by.deviceId } : {},
+          );
+          if (added === "not_raised") reason = "automations_write";
+        }
       } catch {
-        // Not stored (the Space was archived or deleted meanwhile): this conversation only.
+        reason = "space_unavailable";
+      }
+      if (reason === undefined) {
+        kept = "space";
+        // The tool and the card say "this Space" only for a pick the Space really holds.
+        fa.details = {
+          ...fa.details,
+          granted: { ...(fa.details.granted as object), spaceId: space.id },
+        };
+        const rec = this.#store.getApproval(fa.id);
+        if (rec !== undefined) {
+          rec.approval.details = structuredClone(fa.details);
+          this.#store.updateApproval(rec);
+        }
+      } else {
         kept = "once";
         await this.#log(
           "folder.persist_failed",
           actorOf(by),
           { approvalId: fa.id },
-          { ...pick, spaceId: space.id },
+          { ...pick, spaceId: space.id, reason },
         );
       }
     } else if (scope === "always") {
@@ -2835,56 +2872,59 @@ export class PsychePermissionBroker implements PermissionBroker {
   // ---- Space folders (docs/design/spaces-2026.md §5.3) ---------------------------------------
 
   /**
-   * Fixes the Space of the call's run, the first time that run asks (SR3): a thread moved into or
-   * out of a Space mid-run keeps its run's Space until its next run. Only the owner's runs get one
-   * (SR11): a channel peer or another non-owner requester never does. A subagent works in the
-   * Space its parent thread's current run works in, read-only when either run is unattended.
+   * Run start (the agent loop, before it builds the prompt): fixes the Space this run works in for
+   * the whole run (SR3). Keyed by (thread, run), so nothing else on the thread changes it: not a
+   * preview, a widget, another run, nor the thread being moved mid-run. Only the owner's runs get
+   * a Space (SR11). A subagent works in its parent run's Space, read-only when either run is
+   * unattended; a subagent whose parent run is not bound gets none. Binding a run twice keeps
+   * the first binding.
    */
-  #bindRunSpace(ctx: Pick<PolicyContext, "threadId" | "runId" | "unattended" | "requester">): void {
+  bindRun(input: RunBindingInput): void {
     if (this.#spaces === undefined) return;
-    const bound = this.#runSpaces.get(ctx.threadId);
-    if (bound !== undefined && bound.runId === ctx.runId) return;
-    const next = this.#resolveRunSpace(ctx);
-    this.#runSpaces.delete(ctx.threadId);
-    this.#runSpaces.set(ctx.threadId, next);
-    while (this.#runSpaces.size > RUN_SPACE_CAP) {
-      const oldest = this.#runSpaces.keys().next().value;
-      if (oldest === undefined) break;
-      this.#runSpaces.delete(oldest);
-    }
+    const key = runKey(input.threadId, input.runId);
+    if (this.#runSpaces.has(key)) return;
+    this.#runSpaces.set(key, this.#resolveRunSpace(input));
   }
 
-  #resolveRunSpace(
-    ctx: Pick<PolicyContext, "threadId" | "runId" | "unattended" | "requester">,
-  ): RunSpaceBinding {
-    const none: RunSpaceBinding = { runId: ctx.runId, unattended: ctx.unattended === true };
+  /** Run end: drops the run's Space binding. Only the run's own end evicts it. */
+  endRun(threadId: string, runId: string): void {
+    this.#runSpaces.delete(runKey(threadId, runId));
+  }
+
+  #resolveRunSpace(input: RunBindingInput): RunSpaceBinding {
+    const none: RunSpaceBinding = { unattended: input.unattended === true };
     if (this.#spaces === undefined) return none;
-    if (ctx.requester !== undefined && ctx.requester.role !== "owner") return none;
-    let found: ReturnType<SpaceFolderSource["spaceOf"]>;
-    try {
-      found = this.#spaces.spaceOf(ctx.threadId);
-    } catch {
-      return none;
-    }
-    if (found === undefined) return none;
-    if ("parentThreadId" in found) {
-      const parent = this.#runSpaces.get(found.parentThreadId);
-      if (parent?.spaceId === undefined || found.parentThreadId === ctx.threadId) return none;
+    if (input.requester !== undefined && input.requester.role !== "owner") return none;
+    if (input.parent !== undefined) {
+      const parent = this.#runSpaces.get(runKey(input.parent.threadId, input.parent.runId));
+      if (parent?.spaceId === undefined) return none;
       return {
-        ...none,
         spaceId: parent.spaceId,
         ...(parent.spaceName === undefined ? {} : { spaceName: parent.spaceName }),
         unattended: none.unattended || parent.unattended,
       };
     }
+    if (input.space !== undefined) {
+      // The loop's own run-start Space (spaces-2026 §5.1): the prompt and the grants agree.
+      if (input.space === null) return none;
+      return { ...none, spaceId: input.space.id, spaceName: input.space.name ?? "" };
+    }
+    let found: ReturnType<SpaceFolderSource["spaceOf"]>;
+    try {
+      found = this.#spaces.spaceOf(input.threadId);
+    } catch {
+      return none;
+    }
+    if (found === undefined || !("spaceId" in found)) return none;
     return { ...none, spaceId: found.spaceId, spaceName: found.spaceName };
   }
 
-  /** The Space a thread's current run works in, if any (the run was bound by its first call). */
+  /** The Space one run works in, if any (fixed at the run's start by `bindRun`). */
   runSpace(
     threadId: string,
+    runId: string,
   ): { spaceId: string; spaceName?: string; unattended: boolean } | undefined {
-    const b = this.#runSpaces.get(threadId);
+    const b = this.#runSpaces.get(runKey(threadId, runId));
     if (b?.spaceId === undefined) return undefined;
     return {
       spaceId: b.spaceId,
@@ -2893,17 +2933,17 @@ export class PsychePermissionBroker implements PermissionBroker {
     };
   }
 
-  /** The stored folders of the Space a thread's current run works in (live; none on a throw). */
-  #boundSpaceRows(threadId: string): readonly SpaceFolderRecord[] {
-    const spaceId = this.#runSpaces.get(threadId)?.spaceId;
-    if (spaceId === undefined || this.#spaces === undefined) return [];
+  /** The stored folders of the Space one bound run works in (live; none on a throw or no run). */
+  #boundSpaceRows(threadId: string, runId: string | undefined): readonly SpaceFolderRecord[] {
+    if (runId === undefined || this.#spaces === undefined) return [];
+    const spaceId = this.#runSpaces.get(runKey(threadId, runId))?.spaceId;
+    if (spaceId === undefined) return [];
     try {
       return this.#spaces.folders(spaceId).filter((f) => f.spaceId === spaceId);
     } catch {
       return [];
     }
   }
-
   /** Every live Space folder (none on a throw). */
   #allSpaceRows(): readonly SpaceFolderRecord[] {
     if (this.#spaces === undefined) return [];
@@ -2915,16 +2955,21 @@ export class PsychePermissionBroker implements PermissionBroker {
   }
 
   /**
-   * The folders of the Space a thread's current run works in, as grant entries for that run: each
-   * at its mode for this run (`spaceFolderMode`: read-only for an automation unless the owner
-   * turned on "Automations may change files here"), with its recorded real path. A folder that
-   * would be refused (`#spaceFolderRefused`) is left out, and so is one the conversation's or
-   * Settings' own grants already cover at that mode, so a Space folder only ever adds access.
+   * The folders of the Space one bound run works in, as grant entries for that run: each at its
+   * mode for this run (`spaceFolderMode`: read-only for an automation unless the owner turned on
+   * "Automations may change files here"), with its recorded real path. No run id, or a run that
+   * was never bound (a preview, a widget, a webhook), gets none. A folder that would be refused
+   * (`#spaceFolderRefused`) is left out, and so is one the conversation's or Settings' own grants
+   * already cover at that mode, so a Space folder only ever adds access.
    */
-  #spaceEntries(threadId: string, own: readonly FolderGrantEntry[]): FolderGrantEntry[] {
-    const rows = this.#boundSpaceRows(threadId);
-    if (rows.length === 0) return [];
-    const unattended = this.#runSpaces.get(threadId)?.unattended === true;
+  #spaceEntries(
+    threadId: string,
+    runId: string | undefined,
+    own: readonly FolderGrantEntry[],
+  ): FolderGrantEntry[] {
+    const rows = this.#boundSpaceRows(threadId, runId);
+    if (rows.length === 0 || runId === undefined) return [];
+    const unattended = this.#runSpaces.get(runKey(threadId, runId))?.unattended !== false;
     const base = [
       ...(this.policy.folders ?? []).filter((f) => !this.folderRefused(f.path)),
       ...own.filter((f) => f.file !== true),
@@ -2999,31 +3044,44 @@ export class PsychePermissionBroker implements PermissionBroker {
   }
 
   /**
-   * The Space a `folder_access` card may offer "Allow in this Space" for: the one its run works in
-   * (bound by the run's first call), or for a card raised outside a run (the chat's share button),
-   * the Space its thread is in now. Never for a non-owner requester.
+   * The Space a `folder_access` card may offer "Allow in this Space" for: the one its run was
+   * bound to at its start, or for a card raised outside a run (the chat's share button), the
+   * Space its thread is in now. None for a run that was never bound, an unattended run or a
+   * non-owner requester. `automationsWrite`: the Space already lets its automations write in
+   * the requested folder (the card says so; a card never turns that on).
    */
-  #requestSpace(input: PolicyApprovalInput): { id: string; name: string } | undefined {
+  #requestSpace(
+    input: PolicyApprovalInput,
+    path: string | undefined,
+  ): { id: string; name: string; automationsWrite: boolean } | undefined {
     const threadId = input.requestedBy.threadId;
     if (this.#spaces === undefined || threadId == null) return undefined;
     const requester = input.context?.requester;
     if (requester !== undefined && requester.role !== "owner") return undefined;
+    if (input.context?.unattended === true) return undefined;
     const runId = input.requestedBy.runId;
-    let b: RunSpaceBinding | undefined;
-    if (runId == null) {
-      b = this.#resolveRunSpace({ threadId, runId: "", unattended: false });
-    } else {
-      this.#bindRunSpace({
-        threadId,
-        runId,
-        unattended: input.context?.unattended === true,
-        ...(requester === undefined ? {} : { requester }),
-      });
-      b = this.#runSpaces.get(threadId);
-    }
+    const b =
+      runId == null
+        ? this.#resolveRunSpace({ threadId, runId: "" })
+        : this.#runSpaces.get(runKey(threadId, runId));
     // An archived or deleted Space is caught at the answer: `add` refuses it.
-    if (b?.spaceId === undefined) return undefined;
-    return { id: b.spaceId, name: b.spaceName ?? "" };
+    if (b?.spaceId === undefined || b.unattended) return undefined;
+    let rows: readonly SpaceFolderRecord[] = [];
+    try {
+      rows = this.#spaces.folders(b.spaceId);
+    } catch {
+      rows = [];
+    }
+    const automationsWrite =
+      path !== undefined &&
+      rows.some(
+        (r) =>
+          r.spaceId === b.spaceId &&
+          r.mode === "rw" &&
+          r.automationsWrite &&
+          isUnderHostPath(path, r.path),
+      );
+    return { id: b.spaceId, name: b.spaceName ?? "", automationsWrite };
   }
 
   /**
@@ -3881,7 +3939,6 @@ export class PsychePermissionBroker implements PermissionBroker {
   endSession(threadId: string): Promise<Grant[]> {
     this.#tasks.delete(`thread:${threadId}`);
     this.#sessionFolders.delete(threadId);
-    this.#runSpaces.delete(threadId);
     this.#pruneRoots();
     for (const k of this.#fileGrantExpiry.keys()) {
       if (k.startsWith(`${threadId}\0`)) this.#fileGrantExpiry.delete(k);
