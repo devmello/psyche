@@ -2421,6 +2421,36 @@ export const es: Partial<Catalogue> = {
   "settings.skills.removeDescription":
     "Sus archivos se eliminan de este Gateway. Volver a instalarla pasa por la tarjeta de confianza.",
   "settings.skills.switchOn": "{name} activada",
+  "settings.plugins.title": "Plugins",
+  "settings.plugins.description":
+    "Código que añade contexto, revisa llamadas a herramientas o ejecuta evaluaciones. Cada plugin se ejecuta en su propio proceso. Los plugins nunca conceden permisos.",
+  "settings.plugins.off":
+    "Los plugins están desactivados en este Gateway, así que ninguno se ejecuta.",
+  "settings.plugins.loading": "Cargando plugins…",
+  "settings.plugins.error": "No se pudieron cargar los plugins. {reason}",
+  "settings.plugins.empty": "No hay plugins instalados.",
+  "settings.plugins.failed": "El cambio no se guardó. {reason}",
+  "settings.plugins.waitingApproval": "Esperando tu aprobación en este dispositivo.",
+  "settings.plugins.switchOn": "{name} activado",
+  "settings.plugins.version": " · v{version}",
+  "settings.plugins.adds": "Añade: {list}",
+  "settings.plugins.from": "Desde {source}",
+  "settings.plugins.state.active": "En marcha",
+  "settings.plugins.state.disabled": "Desactivado",
+  "settings.plugins.state.off": "Esperando a que se activen los plugins",
+  "settings.plugins.state.hash_mismatch": "Cambió desde la instalación, no se ejecuta",
+  "settings.plugins.state.invalid": "Manifiesto no válido, no se ejecuta",
+  "settings.plugins.state.failed": "Detenido por un error",
+  "settings.plugins.capability.context": "contexto",
+  "settings.plugins.capability.before_tool_call":
+    "una revisión antes de las llamadas a herramientas",
+  "settings.plugins.capability.after_tool_call":
+    "una revisión después de las llamadas a herramientas",
+  "settings.plugins.capability.agent_end": "un paso al final de cada ejecución",
+  "settings.plugins.capability.evaluate": "evaluaciones",
+  "settings.plugins.removeTitle": "¿Quitar {name}?",
+  "settings.plugins.removeDescription":
+    "Sus archivos se borran de este Gateway. Volver a instalarlo pasa por la tarjeta de confianza.",
   "settings.skills.asksFor": "Pide:",
   "settings.skills.toolsLabel": "Herramientas:",
   "settings.skills.title": "Habilidades",

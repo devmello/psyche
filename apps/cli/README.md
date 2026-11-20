@@ -51,6 +51,9 @@ The first connection prints a pairing code. Approve it on the Gateway host with 
 | `pairing deny <code> [--reason r]` | | `devices.deny` |
 | `devices list [--all]` | Paired devices; `*` marks this CLI | `devices.list` |
 | `devices revoke <id> [--yes]` | Permanent | `devices.revoke` |
+| `devices link [--admin] [--lan] [--scopes a,b]` | A single-use, 10-minute pairing link for another computer (at most three live). Only the admin CLI on the Host itself (it reads the per-launch secret in `$PSYCHE_HOME/run`). Once a presence verifier exists it waits for a plain-tap approval card on a paired device | `devices.setupToken.create` |
+| `lan on [--interface eth0]` | Allow computers on this network, on one interface | `settings.get`, `settings.set`, `gateway.info` |
+| `setup [--public-origin https://…] [--lan] [onboard options]` | `onboard`, then `gateway.publicOrigin` and the Tailscale Serve command, LAN, linger and an unencrypted-disk warning | as `onboard` |
 | `skills list` / `install <source> [--ref r]` / `verify [name] [--strict]` | `install` proposes (folder, `.zip` or git URL): the Gateway fetches and scans it and opens a device-only `skill_install` approval; it installs only after the owner approves in the app. `verify` exits 1 on `hash_mismatch`, `invalid` or `blocked` (with `--strict` also unreviewed or unknown-trust skills) | `skills.list`, `skills.proposeInstall` |
 | `automations list [--kind k]` / `run <id>` / `pause <id>` / `resume <id>` | | `automations.list`, `automations.run`, `automations.update` |
 | `vault status` / `list [--kind k]` | Metadata only: names, `{{cred:slug}}` placeholders, bindings, use counts | `vault.status`, `vault.list` |
