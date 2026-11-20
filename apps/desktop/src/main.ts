@@ -181,7 +181,7 @@ import {
   parsePinnedRequirement,
   readBundledPinned,
 } from "./main/update-gate.ts";
-import { startUpdater, stopUpdater } from "./main/updater.ts";
+import { readUpdateChannel, startUpdater, stopUpdater } from "./main/updater.ts";
 import {
   canvasColor,
   chromeViewBackground,
@@ -2400,7 +2400,11 @@ void app.whenReady().then(async () => {
   runTaskbarTask(taskFromArgv(process.argv));
   pairLinks.offerArgv(process.argv);
   pairLinks.showPending();
-  if (perfProbe === undefined) void startUpdater({ stateFile: join(home, "run", "updater.json") });
+  if (perfProbe === undefined) {
+    void readUpdateChannel((method, params) => requireGateway().call(method, params)).then(
+      (channel) => startUpdater({ stateFile: join(home, "run", "updater.json"), channel }),
+    );
+  }
 
   app.on("activate", () => windows?.showMain());
 });

@@ -7,6 +7,7 @@ type AutomationMethod =
   | "automations.update"
   | "automations.delete"
   | "automations.run"
+  | "automations.cancelRetry"
   | "automations.runs"
   | "automations.upcoming";
 
@@ -52,6 +53,7 @@ export function createAutomationHandlers(scheduler: SqliteScheduler): Automation
       const { run, taskId } = await scheduler.trigger(p.automationId);
       return { runId: run.id, taskId };
     },
+    "automations.cancelRetry": async (p) => ({ run: await scheduler.cancelRetry(p.runId) }),
     "automations.runs": async (p) =>
       scheduler.runs(p.automationId, {
         ...(p.cursor === undefined ? {} : { cursor: p.cursor }),

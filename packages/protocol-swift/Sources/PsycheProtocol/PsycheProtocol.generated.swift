@@ -189,6 +189,8 @@
 //   let automationTrigger = try? JSONDecoder().decode(AutomationTrigger.self, from: jsonData)
 //   let automationUpdatedPayload = try? JSONDecoder().decode(AutomationUpdatedPayload.self, from: jsonData)
 //   let automationWorkflowBlock = try? JSONDecoder().decode(AutomationWorkflowBlock.self, from: jsonData)
+//   let automationsCancelRetryParams = try? JSONDecoder().decode(AutomationsCancelRetryParams.self, from: jsonData)
+//   let automationsCancelRetryResult = try? JSONDecoder().decode(AutomationsCancelRetryResult.self, from: jsonData)
 //   let automationsCreateParams = try? JSONDecoder().decode(AutomationsCreateParams.self, from: jsonData)
 //   let automationsDeleteParams = try? JSONDecoder().decode(AutomationsDeleteParams.self, from: jsonData)
 //   let automationsListParams = try? JSONDecoder().decode(AutomationsListParams.self, from: jsonData)
@@ -1527,6 +1529,13 @@
 //   let speechWhisperSetup = try? JSONDecoder().decode(SpeechWhisperSetup.self, from: jsonData)
 //   let speechWhisperSetupState = try? JSONDecoder().decode(SpeechWhisperSetupState.self, from: jsonData)
 //   let starterFolderID = try? JSONDecoder().decode(StarterFolderID.self, from: jsonData)
+//   let storageCategory = try? JSONDecoder().decode(StorageCategory.self, from: jsonData)
+//   let storageCategoryID = try? JSONDecoder().decode(StorageCategoryID.self, from: jsonData)
+//   let storageClearCacheParams = try? JSONDecoder().decode(StorageClearCacheParams.self, from: jsonData)
+//   let storageClearTarget = try? JSONDecoder().decode(StorageClearTarget.self, from: jsonData)
+//   let storageCleared = try? JSONDecoder().decode(StorageCleared.self, from: jsonData)
+//   let storageUsage = try? JSONDecoder().decode(StorageUsage.self, from: jsonData)
+//   let storageUsageParams = try? JSONDecoder().decode(StorageUsageParams.self, from: jsonData)
 //   let taintSource = try? JSONDecoder().decode(TaintSource.self, from: jsonData)
 //   let target = try? JSONDecoder().decode(Target.self, from: jsonData)
 //   let targetKind = try? JSONDecoder().decode(TargetKind.self, from: jsonData)
@@ -7211,6 +7220,32 @@ public enum DailyWorkflowRunKind: String, Codable, Sendable {
 
 public enum AutomationWorkflowBlockType: String, Codable, Sendable {
     case automationWorkflow = "automation_workflow"
+}
+
+// MARK: - AutomationsCancelRetryParams
+public struct AutomationsCancelRetryParams: Codable, Sendable {
+    public let runID: String
+
+    public enum CodingKeys: String, CodingKey {
+        case runID = "runId"
+    }
+
+    public init(runID: String) {
+        self.runID = runID
+    }
+}
+
+// MARK: - AutomationsCancelRetryResult
+public struct AutomationsCancelRetryResult: Codable, Sendable {
+    public let run: AutomationRun
+
+    public enum CodingKeys: String, CodingKey {
+        case run = "run"
+    }
+
+    public init(run: AutomationRun) {
+        self.run = run
+    }
 }
 
 // MARK: - AutomationsCreateParams
@@ -34959,6 +34994,86 @@ public enum SpeechTranscribePreset: String, Codable, Sendable {
     case short = "short"
 }
 
+// MARK: - StorageClearCacheParams
+public struct StorageClearCacheParams: Codable, Sendable {
+    public let targets: [StorageClearTarget]?
+
+    public enum CodingKeys: String, CodingKey {
+        case targets = "targets"
+    }
+
+    public init(targets: [StorageClearTarget]? = nil) {
+        self.targets = targets
+    }
+}
+
+public enum StorageClearTarget: String, Codable, Sendable {
+    case caches = "caches"
+    case recordings = "recordings"
+}
+
+// MARK: - StorageCleared
+public struct StorageCleared: Codable, Sendable {
+    public let cleared: [StorageClearTarget]
+    public let freedBytes: Int
+
+    public enum CodingKeys: String, CodingKey {
+        case cleared = "cleared"
+        case freedBytes = "freedBytes"
+    }
+
+    public init(cleared: [StorageClearTarget], freedBytes: Int) {
+        self.cleared = cleared
+        self.freedBytes = freedBytes
+    }
+}
+
+// MARK: - StorageUsage
+public struct StorageUsage: Codable, Sendable {
+    public let categories: [StorageCategory]
+    public let totalBytes: Int
+
+    public enum CodingKeys: String, CodingKey {
+        case categories = "categories"
+        case totalBytes = "totalBytes"
+    }
+
+    public init(categories: [StorageCategory], totalBytes: Int) {
+        self.categories = categories
+        self.totalBytes = totalBytes
+    }
+}
+
+// MARK: - StorageCategory
+public struct StorageCategory: Codable, Sendable {
+    public let bytes: Int
+    public let clearable: Bool
+    public let id: StorageCategoryID
+
+    public enum CodingKeys: String, CodingKey {
+        case bytes = "bytes"
+        case clearable = "clearable"
+        case id = "id"
+    }
+
+    public init(bytes: Int, clearable: Bool, id: StorageCategoryID) {
+        self.bytes = bytes
+        self.clearable = clearable
+        self.id = id
+    }
+}
+
+public enum StorageCategoryID: String, Codable, Sendable {
+    case browserProfiles = "browserProfiles"
+    case caches = "caches"
+    case database = "database"
+    case library = "library"
+    case logs = "logs"
+    case memoryIndex = "memoryIndex"
+    case other = "other"
+    case recordings = "recordings"
+}
+
 // MARK: - TaskActionPayload
 public struct TaskActionPayload: Codable, Sendable {
     public let action: TaskAction
@@ -40508,6 +40623,7 @@ public typealias Settings = [String: JSONAny]
 public typealias SpecialistsListParams = [String: JSONAny]
 public typealias SpeechEngineDownloadParams = [String: JSONAny]
 public typealias SpeechEngineStatusParams = [String: JSONAny]
+public typealias StorageUsageParams = [String: JSONAny]
 public typealias TeachAppAppsParams = [String: JSONAny]
 public typealias TeachAppCancelParams = [String: JSONAny]
 public typealias TeachAppStatusParams = [String: JSONAny]
