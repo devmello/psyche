@@ -1493,7 +1493,8 @@ mod tests {
 
         // In a trusted dir: an xdg-terminals dir or a file in it this account owns, a
         // writable one, or a symlink to the owner's home is refused.
-        let cases: Vec<(&str, fn(&mut MapFs))> = vec![
+        type Case = (&'static str, fn(&mut MapFs));
+        let cases: Vec<Case> = vec![
             ("own dir", |fs| {
                 fs.set("/usr/local/share/xdg-terminals", ME, 0o40755);
             }),
