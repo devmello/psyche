@@ -126,14 +126,18 @@ export function composeCoding(services: ComposeServices, setup: CodingSetup = {}
     resolve: (id) => services.notifier.resolve(id),
     quarantineDir,
   });
-  const sandboxes = new CodingSandboxes();
+  // Kept across restarts: a container the runner adopts later is still stopped by Keep it.
+  const sandboxes = new CodingSandboxes(join(services.home, "coding", "sandboxes.json"));
   const runner = setup.runner;
   const unregisterKeep = services.notificationActions?.register(KEEP_ACTION, async (_n, id) => {
     const kept = await keepQuarantined(quarantineDir, id, {
       // Keep it is the owner's own tap: the repository's sandbox stops first, so nothing still
       // running in it can swap a folder while entries go back (dev servers in it end too).
       beforeKeep: async (root) => {
-        for (const sandboxId of sandboxes.take(root)) await runner?.destroy(sandboxId);
+        for (const sb of sandboxes.take(root)) {
+          if (runner?.destroyScope !== undefined) await runner.destroyScope(sb.scope);
+          else await runner?.destroy(sb.sandboxId);
+        }
       },
     });
     services.logger?.log("info", "coding: the owner kept launch config a run made", {

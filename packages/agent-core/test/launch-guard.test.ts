@@ -4,6 +4,7 @@ import {
   mkdtempSync,
   readdirSync,
   readFileSync,
+  readlinkSync,
   realpathSync,
   renameSync,
   rmSync,
@@ -307,20 +308,75 @@ describe("code.run and launch config", () => {
     expect(order).toEqual([`stop ${repo}`, "move"]);
   });
 
-  it("notes each repository's sandboxes, so Keep it can stop them", async () => {
-    const sandboxes = new CodingSandboxes();
+  // #1435 review r3, item 2: the list survives a restart, so Keep it stops adopted containers.
+  it("keeps each repository's sandboxes across a restart, so Keep it can stop them", async () => {
+    const file = join(dir, "psyche-home", "coding", "sandboxes.json");
     const runner = new FakeSandboxRunner();
     const tools = codingTools({
       files: fileTools(),
       folders: () => [{ path: dir, mode: "rw" }],
       runner,
-      launchConfig: { quarantineDir: quarantine, sandboxes },
+      launchConfig: { quarantineDir: quarantine, sandboxes: new CodingSandboxes(file) },
     });
     const byName = new Map(tools.map((t) => [t.spec.name, t]));
     await byName.get("code.open")?.run?.({ path: repo }, ctx());
     await byName.get("code.run")?.run?.({ root: repo, argv: ["true"] }, ctx());
-    expect(sandboxes.take(repo)).toEqual([runner.execs[0]?.sandboxId]);
-    expect(sandboxes.take(repo)).toEqual([]);
+    expect(runner.sandboxes()).toHaveLength(1);
+
+    // The Gateway restarts: a new list from the same file; the container is still there.
+    const after = new CodingSandboxes(file);
+    const held = after.take(repo);
+    expect(held.map((h) => h.sandboxId)).toEqual([runner.execs[0]?.sandboxId]);
+    for (const h of held) await runner.destroyScope(h.scope);
+    expect(runner.sandboxes()).toEqual([]);
+    expect(new CodingSandboxes(file).take(repo)).toEqual([]);
+  });
+
+  // #1435 review r3, item 1: a symlinked `.claude`.
+  it("treats a .claude linked outside the repository as known, and watches its settings", async () => {
+    const elsewhere = join(dir, "dotfiles", "claude");
+    mkdirSync(elsewhere, { recursive: true });
+    writeFileSync(join(elsewhere, "settings.json"), "{}");
+    symlinkSync(elsewhere, join(repo, ".claude"));
+    const { use, runner, reports } = setup();
+    acts(runner, "edit", () =>
+      writeFileSync(join(elsewhere, "settings.json"), '{"hooks":{"SessionStart":[]}}'),
+    );
+    await use("code.open", { path: repo });
+    await use("code.run", { root: repo, argv: ["edit"] });
+    // Not quarantined: the owner's own link stays where it is.
+    expect(readlinkSync(join(repo, ".claude"))).toBe(elsewhere);
+    expect(reports[0]?.quarantined).toEqual([]);
+    expect(reports[0]?.changed).toEqual([".claude/settings.json"]);
+  });
+
+  it("mounts the folder a .claude link inside the repository points at read-only", async () => {
+    put("config/claude/settings.json", "{}");
+    symlinkSync("config/claude", join(repo, ".claude"));
+    const { use, runner, reports } = setup();
+    acts(runner, "edit", () =>
+      put("config/claude/settings.json", '{"hooks":{"SessionStart":[{"command":"x"}]}}'),
+    );
+    await use("code.open", { path: repo });
+    await use("code.run", { root: repo, argv: ["edit"] });
+    const id = (await use("code.open", { path: repo })).output.workspace as string;
+    const sbx = await runner.ensureSandbox(
+      { kind: "project", id },
+      {
+        mounts: [
+          { source: repo, target: "/workspace/repo", readOnly: false },
+          {
+            source: join(repo, "config/claude"),
+            target: "/workspace/repo/config/claude",
+            readOnly: true,
+          },
+        ],
+      },
+    );
+    expect(sbx.id).toBe(runner.execs[0]?.sandboxId);
+    expect(existsSync(join(repo, ".claude"))).toBe(true);
+    expect(reports[0]?.quarantined).toEqual([]);
+    expect(reports[0]?.changed).toEqual([".claude/settings.json"]);
   });
 
   // #1435 review r2, B1: a repository the run made, which VS Code finds and runs git in.

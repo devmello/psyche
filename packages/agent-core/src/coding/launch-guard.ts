@@ -12,7 +12,7 @@ import {
   rm,
   writeFile,
 } from "node:fs/promises";
-import { dirname, join } from "node:path";
+import { dirname, isAbsolute, join, relative, sep } from "node:path";
 import { findLaunchConfig, type LaunchConfigScan } from "@psyche/hostfs";
 import { PsycheError, type SandboxMount } from "@psyche/protocol";
 
@@ -116,11 +116,11 @@ export async function guardLaunchConfig(
   const partial = !scan.complete;
   const limits: Limits = partial ? TOP : full;
   if (partial) scan = await findLaunchConfig(root, TOP);
-  const claude = await isRealDir(join(root, CLAUDE_DIR));
+  const claude = await claudeFolder(root);
   const readOnly = [
-    ...(claude ? [CLAUDE_DIR] : []),
+    ...(claude.mount === undefined ? [] : [claude.mount]),
     ...scan.found
-      .filter((f) => f.kind === "dir" && !underClaude(f.rel, claude))
+      .filter((f) => f.kind === "dir" && !underClaude(f.rel, claude.kind === "dir"))
       .map((f) => f.rel)
       .sort((a, b) => depth(a) - depth(b) || (a < b ? -1 : 1)),
   ];
@@ -131,7 +131,7 @@ export async function guardLaunchConfig(
       { details: { reason: "launch_config_too_many", count: readOnly.length } },
     );
   }
-  const before = await prints(root, scan);
+  const before = await prints(root, scan, claude.kind === "link");
   return {
     mounts: readOnly.map((rel) => ({
       source: join(root, rel),
@@ -142,8 +142,35 @@ export async function guardLaunchConfig(
   };
 }
 
+/**
+ * `.claude` as it is before the run, of any kind (#1435 review r3). A real folder is mounted
+ * read-only whole. A link to a folder inside the repository gets that folder mounted read-only
+ * (the link resolves to it in the sandbox too); a link outside it resolves to nothing the
+ * sandbox shares. Either way an existing `.claude` is never quarantined, and the settings files
+ * behind a link are fingerprinted, so a change there shows under "changed".
+ */
+interface ClaudeFolder {
+  kind: "none" | "dir" | "link" | "other";
+  /** The repository-relative folder to mount read-only, if any. */
+  mount?: string;
+}
+
+async function claudeFolder(root: string): Promise<ClaudeFolder> {
+  const path = join(root, CLAUDE_DIR);
+  const st = await lstat(path).catch(() => undefined);
+  if (st === undefined) return { kind: "none" };
+  if (st.isDirectory()) return { kind: "dir", mount: CLAUDE_DIR };
+  if (!st.isSymbolicLink()) return { kind: "other" };
+  const real = await realpath(path).catch(() => undefined);
+  const target = real === undefined ? undefined : await lstat(real).catch(() => undefined);
+  if (real === undefined || target?.isDirectory() !== true) return { kind: "link" };
+  const rel = relative(root, real);
+  const inside = rel !== "" && !rel.startsWith("..") && !isAbsolute(rel);
+  return inside ? { kind: "link", mount: rel.split(sep).join("/") } : { kind: "link" };
+}
+
 const depth = (rel: string) => rel.split("/").length;
-const underClaude = (rel: string, claude: boolean) =>
+const underClaude = (rel: string, claude: boolean): boolean =>
   claude && (rel === CLAUDE_DIR || rel.startsWith(`${CLAUDE_DIR}/`));
 
 async function isRealDir(path: string): Promise<boolean> {
@@ -154,7 +181,7 @@ async function isRealDir(path: string): Promise<boolean> {
 async function settle(
   root: string,
   was: LaunchConfigScan,
-  claudeBefore: boolean,
+  claude: ClaudeFolder,
   before: Map<string, string>,
   limits: Limits,
   partial: boolean,
@@ -182,6 +209,7 @@ async function settle(
   // owner's). A `.git` the run made keeps its objects and refs (a clone keeps its history), but
   // what git runs or reads config from goes: its config, hooks, info and pointer files, or a
   // `.git` file whole.
+  const claudeBefore = claude.kind !== "none";
   const claudeNow = !claudeBefore && (await lstat(join(root, CLAUDE_DIR)).catch(() => undefined));
   const fresh: string[] = claudeNow ? [CLAUDE_DIR] : [];
   for (const f of now.found) {
@@ -226,10 +254,11 @@ async function settle(
     }
   }
   // Existing entries: what is there now against what was there, for the same paths.
-  const after = await prints(root, {
-    found: now.found.filter((f) => known.has(f.rel) || f.git === true),
-    complete: true,
-  });
+  const after = await prints(
+    root,
+    { found: now.found.filter((f) => known.has(f.rel) || f.git === true), complete: true },
+    claude.kind === "link",
+  );
   const keys = new Set([...before.keys(), ...after.keys()]);
   for (const key of [...keys].sort()) {
     const was = before.get(key);
@@ -259,7 +288,11 @@ function noise(key: string, ...prints: (string | undefined)[]): boolean {
  * ctime (a write through any share moves the host ctime, which nothing unprivileged can set
  * back). A print taken inside a launch-config folder carries that folder's path, for `noise`.
  */
-async function prints(root: string, scan: LaunchConfigScan): Promise<Map<string, string>> {
+async function prints(
+  root: string,
+  scan: LaunchConfigScan,
+  claudeLink = false,
+): Promise<Map<string, string>> {
   const out = new Map<string, string>();
   const one = async (rel: string, folder?: string) => {
     const st = await lstat(join(root, rel), { bigint: true }).catch(() => undefined);
@@ -309,6 +342,14 @@ async function prints(root: string, scan: LaunchConfigScan): Promise<Map<string,
     }
   }
   if (await isRealDir(join(root, ".git"))) await gitFolder(".git");
+  if (claudeLink) {
+    // The walk never follows the link: the link itself, and the settings files behind it.
+    await one(CLAUDE_DIR);
+    const names = await readdir(join(root, CLAUDE_DIR)).catch(() => [] as string[]);
+    for (const name of names) {
+      if (/^settings.*\.json$/i.test(name)) await one(`${CLAUDE_DIR}/${name}`);
+    }
+  }
   return out;
 }
 
