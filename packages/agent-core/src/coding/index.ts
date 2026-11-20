@@ -16,6 +16,7 @@ export { CODE_SEARCH_LIMITS, globToRegExp } from "./search.ts";
 export {
   CODE_READ_LINES,
   type CodingLaunchConfig,
+  CodingSandboxes,
   type CodingToolsDeps,
   codingTools,
 } from "./tools.ts";

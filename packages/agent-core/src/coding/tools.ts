@@ -98,9 +98,32 @@ export interface CodingToolsDeps {
 }
 
 /** What `code.run` tells the owner, beside its tool result. */
+/**
+ * The sandboxes `code.run` made per repository, so the owner's "Keep it" can stop them before
+ * anything is put back (nothing left running in one can then swap a folder during the moves).
+ */
+export class CodingSandboxes {
+  readonly #byRoot = new Map<string, Set<string>>();
+
+  track(root: string, sandboxId: string): void {
+    const ids = this.#byRoot.get(root) ?? new Set<string>();
+    ids.add(sandboxId);
+    this.#byRoot.set(root, ids);
+  }
+
+  /** The sandboxes made for `root`, forgotten here (the caller destroys them). */
+  take(root: string): string[] {
+    const ids = [...(this.#byRoot.get(root) ?? [])];
+    this.#byRoot.delete(root);
+    return ids;
+  }
+}
+
 export interface CodingLaunchConfig {
   /** `$PSYCHE_HOME/quarantine/code-run`. */
   quarantineDir: string;
+  /** Where `code.run` notes the sandboxes it made per repository (for "Keep it"). */
+  sandboxes?: CodingSandboxes;
   /** Folders the walk reads at most before it checks only the top levels (default 50 000). */
   maxDirs?: number;
   /** Test seam: runs between a quarantine move's checks and the move. */
@@ -717,6 +740,7 @@ function runTool(
       const sandbox = await ensure(scope, { network, mounts }, () =>
         lc?.recreated?.({ root: ws.root, ctx }),
       );
+      lc?.sandboxes?.track(ws.root, sandbox.id);
       // The sandbox PC shares each folder on its own, so a read-only folder inside the
       // repository would be writable through the repository's share there.
       if (sandbox.backend === "vm" && mounts.some((m) => m.readOnly && m.target !== REPO_MOUNT)) {
@@ -758,6 +782,10 @@ function runTool(
         launch = await guard?.settle();
       }
       const notice = launch === undefined ? undefined : launchConfigNotice(launch);
+      const readOnlyHint = readOnlyHintFor(
+        guard?.mounts ?? [],
+        `${result.stderr}\n${result.stdout}`,
+      );
       if (launch !== undefined && (notice !== undefined || launch.partial)) {
         lc?.report?.(launch, { root: ws.root, ctx });
       }
@@ -797,6 +825,7 @@ function runTool(
           ...(notice === undefined || launch === undefined
             ? {}
             : { launchConfig: { ...launchConfigOutput(launch), notice } }),
+          ...(readOnlyHint === undefined ? {} : { readOnlyHint }),
         },
         // Command output is data (design-07: the workspace's provenance decides the rest).
         provenance: "untrusted",
@@ -807,12 +836,34 @@ function runTool(
   });
 }
 
+/**
+ * When the command failed writing into a folder `code.run` keeps read-only, the way to change it
+ * (#1435 review r2): `.claude` and launch-config folders through `code.edit`.
+ */
+function readOnlyHintFor(
+  mounts: readonly { target: string }[],
+  output: string,
+): string | undefined {
+  if (!/EROFS|read-only file system/i.test(output)) return undefined;
+  const hit = mounts
+    .map((m) => m.target.slice(REPO_MOUNT.length + 1))
+    .filter((rel) => output.includes(rel))
+    .sort((a, b) => b.length - a.length)[0];
+  if (hit === undefined) return undefined;
+  const what =
+    hit === ".claude"
+      ? "`.claude` (Claude Code's settings and worktrees)"
+      : `\`${hit}\` (launch config or git metadata)`;
+  return `${what} is read-only during code.run. To change files there, use code.edit, which asks the owner.`;
+}
+
 /** What the receipt and the model see of a guard's report (no file ids). */
 function launchConfigOutput(r: LaunchConfigReport) {
   return {
     quarantined: r.quarantined,
     changed: r.changed,
     unmoved: r.unmoved,
+    incidents: r.incidents,
     partial: r.partial,
   };
 }

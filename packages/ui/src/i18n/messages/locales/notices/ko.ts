@@ -73,4 +73,8 @@ export const notices: Partial<Catalogue> = {
   "notice.codeRun.recreated.body":
     "읽기 전용 폴더가 바뀌어 실행 중인 서버와 저장소 밖에 설치한 항목이 사라졌습니다. 필요한 것을 다시 시작하세요.",
   "notice.action.keepIt": "유지",
+  "notice.codeRun.incident.title":
+    "Psyche가 {repo}의 코드 실행에서 나온 것이 아닐 수도 있는 항목을 보류했습니다",
+  "notice.codeRun.incident.body":
+    "{paths}을(를) 옮기는 동안 경로의 폴더가 바뀌어, 옮긴 항목이 다른 곳의 것일 수 있습니다. {place}에 보관되어 있습니다. 유지를 탭하기 전에 확인하세요. 유지를 누르면 {repo}의 {paths}에 다시 놓입니다.",
 };

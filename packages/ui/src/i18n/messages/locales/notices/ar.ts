@@ -74,4 +74,7 @@ export const notices: Partial<Catalogue> = {
   "notice.codeRun.recreated.body":
     "تغيّرت مجلداتها المخصصة للقراءة فقط، لذا توقفت الخوادم العاملة واختفى ما ثُبّت خارج المستودع. أعد تشغيل ما تحتاجه.",
   "notice.action.keepIt": "الإبقاء عليها",
+  "notice.codeRun.incident.title": "احتجز Psyche شيئًا قد لا يكون من تنفيذ كود في {repo}",
+  "notice.codeRun.incident.body":
+    "أثناء نقل {paths} جانبًا تغيّر مجلد في الطريق، لذا قد يكون ما نُقل من مكان آخر. هو محفوظ في {place}. راجعه قبل أن تضغط «الإبقاء عليها»، الذي يضعه في {paths} داخل {repo}.",
 };

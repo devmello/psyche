@@ -73,4 +73,7 @@ export const notices: Partial<Catalogue> = {
   "notice.codeRun.recreated.body":
     "इसके केवल-पढ़ने वाले फ़ोल्डर बदल गए, इसलिए चल रहे सर्वर और रिपॉज़िटरी के बाहर इंस्टॉल की गई चीज़ें चली गईं। जो चाहिए उसे फिर से शुरू करें।",
   "notice.action.keepIt": "रखें",
+  "notice.codeRun.incident.title": "Psyche ने कुछ रोक लिया जो शायद {repo} में कोड रन से नहीं आया",
+  "notice.codeRun.incident.body":
+    "{paths} को अलग रखते समय रास्ते का एक फ़ोल्डर बदल गया, इसलिए जो हटाया गया वह कहीं और से हो सकता है। वह {place} में रखा है। रखें पर टैप करने से पहले इसे देख लें, जो इसे {repo} में {paths} पर रख देता है।",
 };

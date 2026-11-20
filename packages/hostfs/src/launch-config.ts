@@ -1,5 +1,5 @@
 import { type Dirent, readdirSync, readlinkSync, realpathSync } from "node:fs";
-import { readdir, readlink } from "node:fs/promises";
+import { lstat, readdir, readlink } from "node:fs/promises";
 import { join } from "node:path";
 
 /**
@@ -193,11 +193,62 @@ export async function findLaunchConfig(
         found.push({ rel, kind, ...(linkTarget === undefined ? {} : { linkTarget }) });
         continue;
       }
-      if (kind !== "dir" || skipped(rel, d.name) || next.depth + 1 > maxDepth) continue;
+      if (kind !== "dir") continue;
+      const skip = skipped(rel, d.name);
+      if (skip || next.depth + 1 > maxDepth) {
+        // A folder not walked can still hold a repository an editor finds and runs git in
+        // (VS Code looks one and two levels down, in build output too): looked for directly.
+        if (limits.nestedGit === true && fold(d.name) !== "node_modules") {
+          for (const g of await nestedGits(root, rel, skip)) {
+            if (found.length >= maxFound) return { found, complete: false };
+            found.push(g);
+          }
+        }
+        continue;
+      }
       queue.push({ rel, depth: next.depth + 1 });
     }
   }
   return { found, complete: true };
+}
+
+/** Folders below an unwalked one checked for their own `.git` at most. */
+const MAX_GIT_PROBES = 2_000;
+
+/**
+ * `<rel>/.git`, and with `children` each `<rel>/<child>/.git`, for a folder the walk does not go
+ * into. Plain `lstat`s and one listing, never a walk.
+ */
+async function nestedGits(
+  root: string,
+  rel: string,
+  children: boolean,
+): Promise<LaunchConfigFound[]> {
+  const out: LaunchConfigFound[] = [];
+  const probe = async (dir: string) => {
+    const st = await lstat(join(root, dir, ".git")).catch(() => undefined);
+    if (st === undefined) return;
+    const kind = st.isSymbolicLink()
+      ? "link"
+      : st.isDirectory()
+        ? "dir"
+        : st.isFile()
+          ? "file"
+          : "other";
+    out.push({ rel: `${dir}/.git`, kind, git: true });
+  };
+  await probe(rel);
+  if (!children) return out;
+  let entries: Dirent[];
+  try {
+    entries = await readdir(join(root, rel), { withFileTypes: true });
+  } catch {
+    return out;
+  }
+  for (const d of entries.slice(0, MAX_GIT_PROBES)) {
+    if (d.isDirectory() && fold(d.name) !== ".git") await probe(`${rel}/${d.name}`);
+  }
+  return out;
 }
 
 /**

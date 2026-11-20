@@ -44,6 +44,8 @@ const FULL = { maxDirs: 50_000, maxFound: 512, nestedGit: true } as const;
 const TOP = { maxDirs: 50_000, maxFound: 512, maxDepth: 1, nestedGit: true } as const;
 /** What a git folder runs code from or reads config from. */
 const GIT_WATCHED = ["config", "hooks", "info"];
+/** The same, plus the files that point git at another folder, for a `.git` a run made. */
+const GIT_RUNS_FROM = ["config", "hooks", "info", "commondir", "gitdir"];
 const QUARANTINE_ID = /^[0-9]{13}-[0-9a-f]{8}$/;
 /** Claude Code's folder: mounted read-only whole, so its worktrees' settings are covered too. */
 const CLAUDE_DIR = ".claude";
@@ -68,8 +70,14 @@ export interface LaunchConfigReport {
   changed: string[];
   /** What each changed path is now (its fingerprint, `gone` when it went). */
   fingerprints: Record<string, string>;
-  /** New entries that could not be moved, or moved something other than was checked. */
+  /** New entries that could not be moved. */
   unmoved: string[];
+  /**
+   * Entries whose move brought in something other than what was checked (a folder on the way
+   * was swapped for a link): held in the quarantine all the same, never moved back, so the
+   * owner can look before Keep it puts them at their path.
+   */
+  incidents: string[];
   /** The repository was too large to walk: only its top levels were checked. */
   partial: boolean;
 }
@@ -157,6 +165,7 @@ async function settle(
     changed: [],
     fingerprints: {},
     unmoved: [],
+    incidents: [],
     partial,
   };
   let now: LaunchConfigScan;
@@ -169,32 +178,51 @@ async function settle(
   if (!now.complete) report.partial = true;
   const known = new Set(was.found.map((f) => f.rel));
   // New: launch config the run created, and a `.claude` that was not there (its worktrees are
-  // never walked). A new nested `.git` is a clone the run made: reported, not moved.
-  const fresh = now.found
-    .filter((f) => !known.has(f.rel) && f.git !== true)
-    .map((f) => f.rel)
-    .filter((rel) => !(!claudeBefore && rel.startsWith(`${CLAUDE_DIR}/`)));
-  if (!claudeBefore && (await lstat(join(root, CLAUDE_DIR)).catch(() => undefined))) {
-    fresh.unshift(CLAUDE_DIR);
+  // never walked; under an existing `.claude`, read-only in the sandbox, anything new is the
+  // owner's). A `.git` the run made keeps its objects and refs (a clone keeps its history), but
+  // what git runs or reads config from goes: its config, hooks, info and pointer files, or a
+  // `.git` file whole.
+  const claudeNow = !claudeBefore && (await lstat(join(root, CLAUDE_DIR)).catch(() => undefined));
+  const fresh: string[] = claudeNow ? [CLAUDE_DIR] : [];
+  for (const f of now.found) {
+    if (known.has(f.rel) || f.rel === CLAUDE_DIR || f.rel.startsWith(`${CLAUDE_DIR}/`)) continue;
+    if (f.git !== true || f.kind !== "dir") {
+      fresh.push(f.rel);
+      continue;
+    }
+    for (const name of GIT_RUNS_FROM) {
+      if (await lstat(join(root, f.rel, name)).catch(() => undefined))
+        fresh.push(`${f.rel}/${name}`);
+    }
   }
   if (fresh.length > 0) {
     const id = `${(options.now?.() ?? new Date()).getTime()}-${randomBytes(4).toString("hex")}`;
     const held = join(options.quarantineDir, id);
+    const incidents: Incident[] = [];
     for (const rel of fresh) {
       try {
-        await moveChecked(join(root, rel), join(held, "entries", rel), {
+        const moved = await moveChecked(join(root, rel), join(held, "entries", rel), {
           root,
           rel,
           ...(options.beforeMove === undefined ? {} : { beforeMove: options.beforeMove }),
         });
         report.quarantined.push(rel);
+        if (moved !== undefined) {
+          report.incidents.push(rel);
+          incidents.push({ rel, ...moved, at: (options.now?.() ?? new Date()).toISOString() });
+        }
       } catch {
         report.unmoved.push(rel);
       }
     }
     if (report.quarantined.length > 0) {
       report.quarantineId = id;
-      await writeRecord(held, { root, entries: report.quarantined }).catch(() => undefined);
+      try {
+        await writeRecord(held, { root, entries: report.quarantined, incidents });
+      } catch {
+        // Without its record Keep it cannot find them: say so rather than hold them silently.
+        report.unmoved.push(...report.quarantined.map((rel) => `${rel} (held in ${held})`));
+      }
     }
   }
   // Existing entries: what is there now against what was there, for the same paths.
@@ -313,16 +341,29 @@ async function assertInside(root: string, rel: string): Promise<void> {
 const same = (a: BigIntStats | undefined, b: BigIntStats | undefined) =>
   a !== undefined && b !== undefined && a.dev === b.dev && a.ino === b.ino;
 
+/** What arrived when a move brought in something other than what was checked. */
+interface Arrived {
+  dev: string;
+  ino: string;
+}
+
+interface Incident extends Arrived {
+  rel: string;
+  at: string;
+}
+
 /**
  * Moves `from` (`rel` in `root`) to `to`, then makes sure what arrived is what was checked and
- * that `from`'s folder is still the one it was: if a folder on the way was swapped for a link,
- * the move is undone and fails. A rename, or a copy then removal across volumes.
+ * that `from`'s folder is still the one it was. When not (a folder on the way was swapped for a
+ * link), what arrived stays where it is: moving it back would go through the same swapped path.
+ * The answer is then its identity, for the incident record. A rename, or a copy then removal
+ * across volumes.
  */
 async function moveChecked(
   from: string,
   to: string,
   at: { root: string; rel: string; beforeMove?: (from: string) => Promise<void> | void },
-): Promise<void> {
+): Promise<Arrived | undefined> {
   await assertInside(at.root, at.rel);
   const entry = await lstat(from, { bigint: true });
   const parent = await lstat(dirname(from), { bigint: true });
@@ -347,24 +388,27 @@ async function moveChecked(
       errorOnExist: true,
       force: false,
     });
-    if (!same(await lstat(from, { bigint: true }).catch(() => undefined), entry)) {
-      throw new PsycheError("forbidden", `${at.rel} changed while it was moved; it was left`);
+    const source = await lstat(from, { bigint: true }).catch(() => undefined);
+    if (!same(source, entry)) {
+      // A copy of something else: kept, and the source is not removed.
+      return { dev: String(source?.dev ?? "?"), ino: String(source?.ino ?? "?") };
     }
     await rm(from, { recursive: true, force: true });
-    return;
+    return undefined;
   }
   const arrived = await lstat(to, { bigint: true }).catch(() => undefined);
   const still = await lstat(dirname(from), { bigint: true }).catch(() => undefined);
   if (!same(arrived, entry) || !same(still, parent)) {
-    // Something else came through a swapped folder: put it back where it came from.
-    await rename(to, from).catch(() => undefined);
-    throw new PsycheError("forbidden", `${at.rel} changed while it was moved; it was left`);
+    return { dev: String(arrived?.dev ?? "?"), ino: String(arrived?.ino ?? "?") };
   }
+  return undefined;
 }
 
 interface QuarantineRecord {
   root: string;
   entries: string[];
+  /** Moves that brought in something other than what was checked: identity and time. */
+  incidents?: Incident[];
 }
 
 async function writeRecord(dir: string, record: QuarantineRecord): Promise<void> {
@@ -388,7 +432,15 @@ export interface KeepResult {
 export async function keepQuarantined(
   quarantineDir: string,
   id: string,
-  options: { beforeMove?: (from: string) => Promise<void> | void } = {},
+  options: {
+    /**
+     * Runs once the record is read, before anything moves: the caller stops the repository's
+     * sandbox there, so nothing still running in it can swap a folder during the moves.
+     */
+    beforeKeep?: (root: string) => Promise<void> | void;
+    /** Test seam: runs between a move's checks and the move. */
+    beforeMove?: (from: string) => Promise<void> | void;
+  } = {},
 ): Promise<KeepResult> {
   if (!QUARANTINE_ID.test(id)) throw new PsycheError("invalid_params", "not a quarantine id");
   const dir = join(quarantineDir, id);
@@ -402,6 +454,7 @@ export async function keepQuarantined(
   if (typeof root !== "string" || (await realpath(root).catch(() => undefined)) !== root) {
     throw new PsycheError("not_found", `${String(root)} is not where it was`);
   }
+  await options.beforeKeep?.(root);
   const result: KeepResult = { root, kept: [], conflicts: [] };
   for (const rel of record.entries) {
     if (typeof rel !== "string" || rel.split("/").some((s) => s === ".." || s === "")) continue;
@@ -422,17 +475,28 @@ export async function keepQuarantined(
         !same(await lstat(dirname(to), { bigint: true }).catch(() => undefined), parent) ||
         (await realpath(dirname(to)).catch(() => undefined)) !== dirname(to)
       ) {
-        // It went through a folder swapped for a link: back into the quarantine.
-        await rename(to, from).catch(() => undefined);
-        throw new PsycheError("forbidden", `${dirname(rel)} moved while ${rel} was put back`);
+        // The sandbox is stopped by now, so only something on the host swapped the folder: what
+        // was put back is not moved again (that would go through the same path). Said loudly.
+        throw new PsycheError(
+          "conflict",
+          `${dirname(rel)} was swapped for a link while ${rel} was put back; check where it went`,
+          { details: { reason: "keep_folder_swapped", path: rel } },
+        );
       }
       result.kept.push(rel);
-    } catch {
+    } catch (err) {
+      if ((err as { details?: { reason?: string } }).details?.reason === "keep_folder_swapped") {
+        throw err;
+      }
       result.conflicts.push(rel);
     }
   }
   if (result.conflicts.length > 0) {
-    await writeRecord(dir, { root, entries: result.conflicts });
+    await writeRecord(dir, {
+      root,
+      entries: result.conflicts,
+      ...(record.incidents === undefined ? {} : { incidents: record.incidents }),
+    });
     throw new PsycheError(
       "conflict",
       `${result.conflicts.join(", ")} could not be put back (something there has the same name, or its folder moved); the rest is back`,

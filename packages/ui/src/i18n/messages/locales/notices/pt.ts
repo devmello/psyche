@@ -77,4 +77,8 @@ export const notices: Partial<Catalogue> = {
   "notice.codeRun.recreated.body":
     "As pastas somente leitura mudaram, então servidores em execução e o que estava instalado fora do repositório se foram. Inicie de novo o que precisar.",
   "notice.action.keepIt": "Manter",
+  "notice.codeRun.incident.title":
+    "O Psyche reteve algo que talvez não venha de uma execução de código em {repo}",
+  "notice.codeRun.incident.body":
+    "Enquanto {paths} era deixado de lado, uma pasta no caminho mudou, então o que foi movido pode vir de outro lugar. Está guardado em {place}. Confira antes de tocar em Manter, que o coloca em {paths} dentro de {repo}.",
 };

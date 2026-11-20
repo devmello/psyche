@@ -11,6 +11,7 @@ const report = (over: Partial<LaunchConfigReport> = {}): LaunchConfigReport => (
   changed: [],
   fingerprints: {},
   unmoved: [],
+  incidents: [],
   partial: false,
   ...over,
 });
@@ -51,7 +52,11 @@ describe("code.run launch-config notices", () => {
       return { id };
     };
     const resolve = (key: string) => open.delete(key);
-    return { notify, shown, resolve };
+    /** `notifier.resolve(id)`: the notice with that id is closed. */
+    const resolveId = (id: string) => {
+      for (const [key, n] of open) if (n.id === id) open.delete(key);
+    };
+    return { notify, shown, resolve, resolveId };
   };
 
   // #1435 review r1, B1: a decoy change must not hide the real one that follows.
@@ -78,6 +83,38 @@ describe("code.run launch-config notices", () => {
     ]);
   });
 
+  // #1435 review r2, item 3: a path never listed before alerts again, not only an unread mark.
+  it("alerts again with a new notice when a path it never listed appears", async () => {
+    const box = inbox();
+    const n = codingNotices(box.notify, { resolve: box.resolveId });
+    const at = "/Users/o/app";
+    await n.report(report({ changed: [".envrc"], fingerprints: { ".envrc": "file:1" } }), at);
+    // The same path changed again: the open notice is updated in place.
+    await n.report(report({ changed: [".envrc"], fingerprints: { ".envrc": "file:2" } }), at);
+    // A new path: the old notice is closed and a new one (a new banner) lists both.
+    await n.report(report({ changed: [".npmrc"], fingerprints: { ".npmrc": "file:3" } }), at);
+    expect(box.shown).toEqual([
+      { id: "ntf_1", paths: ".envrc" },
+      { id: "ntf_1", paths: ".envrc" },
+      { id: "ntf_2", paths: ".npmrc, .envrc" },
+    ]);
+  });
+
+  // #1435 review r2, item 2: a move that brought in something else is held and said so.
+  it("tells where something that may not be the run's is held, with Keep it", async () => {
+    const sent: NotifyInput[] = [];
+    const n = codingNotices((i) => sent.push(i), { quarantineDir: "/p/quarantine/code-run" });
+    await n.report(
+      report({ quarantined: ["sub/.vscode"], incidents: ["sub/.vscode"], quarantineId: "1-ab" }),
+      "/Users/o/app",
+    );
+    const incident = sent.find((s) => s.message?.titleKey === "notice.codeRun.incident.title");
+    expect(incident).toMatchObject({
+      message: { params: { paths: "sub/.vscode", place: "/p/quarantine/code-run/1-ab" } },
+      actions: [{ id: `${KEEP_ACTION}:1-ab`, labelKey: "notice.action.keepIt" }],
+    });
+  });
+
   it("starts a new change notice, with only what is new, once the owner closed the last", async () => {
     const box = inbox();
     const n = codingNotices(box.notify);
@@ -97,7 +134,7 @@ describe("code.run launch-config notices", () => {
 
   it("says when only the top levels were checked, and when the sandbox was made again", () => {
     const sent: NotifyInput[] = [];
-    const n = codingNotices((i) => sent.push(i), new CodingNoticeLimiter(() => 0));
+    const n = codingNotices((i) => sent.push(i), { limiter: new CodingNoticeLimiter(() => 0) });
     n.report(report({ partial: true }), "/Users/o/big");
     n.report(report({ partial: true }), "/Users/o/big");
     n.recreated("/Users/o/big");

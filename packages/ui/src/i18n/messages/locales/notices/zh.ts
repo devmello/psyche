@@ -70,4 +70,7 @@ export const notices: Partial<Catalogue> = {
   "notice.codeRun.recreated.body":
     "它的只读文件夹发生了变化，因此正在运行的服务器以及仓库外安装的内容都已丢失。请重新启动你需要的内容。",
   "notice.action.keepIt": "保留",
+  "notice.codeRun.incident.title": "Psyche 扣下了一些可能并非来自 {repo} 中代码运行的内容",
+  "notice.codeRun.incident.body":
+    "在移开 {paths} 时，途经的一个文件夹发生了变化，因此被移走的内容可能来自别处。它保存在 {place}。轻点“保留”之前请先检查，“保留”会把它放回 {repo} 中的 {paths}。",
 };

@@ -1,4 +1,4 @@
-import { basename } from "node:path";
+import { basename, join } from "node:path";
 import type { LaunchConfigReport } from "@psyche/agent-core";
 import type { NotifyInput } from "@psyche/protocol";
 
@@ -9,7 +9,10 @@ import type { NotifyInput } from "@psyche/protocol";
  * - existing entries changed during a run: one notice per workspace that keeps every changed
  *   path, updated in place (and shown again) only when a path or what it holds is new. None is
  *   ever dropped: for a launch-config file the sandbox can write, this notice is the only guard.
- *   A path that could not be moved joins it too;
+ *   A path that could not be moved joins it too. A path it never listed before alerts again (a
+ *   new notice, so a new banner), not only an unread mark;
+ * - a move brought in something other than what was checked (a folder swapped for a link): its
+ *   own notice, naming where it is held, with Keep it;
  * - the walk fell back to the top levels, or the sandbox was made again: informational, at most
  *   one per workspace an hour.
  */
@@ -58,7 +61,16 @@ async function idOf(sent: unknown): Promise<string | undefined> {
   }
 }
 
-export function codingNotices(notify: Notify, limiter = new CodingNoticeLimiter()) {
+export interface CodingNoticeOptions {
+  /** Closes a notice, so the next one with its key is new and alerts again. */
+  resolve?: (id: string) => Promise<unknown> | unknown;
+  /** Where held entries are (`$PSYCHE_HOME/quarantine/code-run`), named in the incident notice. */
+  quarantineDir?: string;
+  limiter?: CodingNoticeLimiter;
+}
+
+export function codingNotices(notify: Notify, options: CodingNoticeOptions = {}) {
+  const limiter = options.limiter ?? new CodingNoticeLimiter();
   const message = (key: string, params: Record<string, string>) => ({
     titleKey: `notice.codeRun.${key}.title`,
     bodyKey: `notice.codeRun.${key}.body`,
@@ -104,6 +116,16 @@ export function codingNotices(notify: Notify, limiter = new CodingNoticeLimiter(
         { dedupeKey: `code-run-changed:${root}` },
       );
     };
+    // A path this notice never listed: close it, so the next is a new one and alerts again.
+    const newPath = [...fresh.keys()].some((p) => !state.seen.has(p));
+    if (newPath && state.id !== undefined && options.resolve !== undefined) {
+      try {
+        await options.resolve(state.id);
+      } catch {
+        // Already closed or gone: the next notify makes a new one all the same.
+      }
+      state.id = undefined;
+    }
     for (const [path, print] of fresh) {
       state.seen.delete(path);
       state.seen.set(path, print);
@@ -155,6 +177,31 @@ export function codingNotices(notify: Notify, limiter = new CodingNoticeLimiter(
           const fresh = new Map([...now].filter(([p, print]) => seen?.get(p) !== print));
           return fresh.size > 0 ? changedNotice(root, fresh) : undefined;
         });
+      }
+      if (report.incidents.length > 0 && report.quarantineId !== undefined) {
+        const paths = listed(report.incidents);
+        const place =
+          options.quarantineDir === undefined
+            ? report.quarantineId
+            : join(options.quarantineDir, report.quarantineId);
+        send(
+          "incident",
+          { repo, paths, place },
+          {
+            title: `Psyche held back something that may not be from a code run in ${repo}`,
+            body: `While ${paths} was moved aside, a folder on its way changed, so what was moved may come from somewhere else. It is kept in ${place}. Look at it before you tap Keep it, which puts it at ${paths} in ${repo}.`,
+          },
+          {
+            actions: [
+              {
+                id: `${KEEP_ACTION}:${report.quarantineId}`,
+                label: "Keep it",
+                labelKey: "notice.action.keepIt",
+              },
+            ],
+            dedupeKey: `code-run-incident:${report.quarantineId}`,
+          },
+        );
       }
       if (report.partial && limiter.allow(root, "partial")) {
         send(

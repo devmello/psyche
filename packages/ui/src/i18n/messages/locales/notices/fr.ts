@@ -79,4 +79,8 @@ export const notices: Partial<Catalogue> = {
   "notice.codeRun.recreated.body":
     "Ses dossiers en lecture seule ont changé : les serveurs en cours et ce qui était installé hors du dépôt ont disparu. Relancez ce dont vous avez besoin.",
   "notice.action.keepIt": "Garder",
+  "notice.codeRun.incident.title":
+    "Psyche a mis de côté quelque chose qui ne vient peut-être pas d'une exécution de code dans {repo}",
+  "notice.codeRun.incident.body":
+    "Pendant que {paths} était mis de côté, un dossier sur le chemin a changé : ce qui a été déplacé peut venir d'ailleurs. C'est conservé dans {place}. Examinez-le avant de toucher Garder, qui le place à {paths} dans {repo}.",
 };

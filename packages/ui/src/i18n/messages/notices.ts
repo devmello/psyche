@@ -78,4 +78,8 @@ export const notices = {
   "notice.codeRun.recreated.body":
     "Its read-only folders changed, so running servers and anything installed outside the repository are gone. Start again what you need.",
   "notice.action.keepIt": "Keep it",
+  "notice.codeRun.incident.title":
+    "Psyche held back something that may not be from a code run in {repo}",
+  "notice.codeRun.incident.body":
+    "While {paths} was moved aside, a folder on its way changed, so what was moved may come from somewhere else. It is kept in {place}. Look at it before you tap Keep it, which puts it at {paths} in {repo}.",
 } as const;

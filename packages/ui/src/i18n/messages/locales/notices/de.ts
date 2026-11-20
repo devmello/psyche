@@ -79,4 +79,8 @@ export const notices: Partial<Catalogue> = {
   "notice.codeRun.recreated.body":
     "Ihre schreibgeschützten Ordner haben sich geändert, daher sind laufende Server und alles, was außerhalb des Repositorys installiert war, weg. Starte neu, was du brauchst.",
   "notice.action.keepIt": "Behalten",
+  "notice.codeRun.incident.title":
+    "Psyche hat etwas zurückgehalten, das vielleicht nicht aus einem Code-Lauf in {repo} stammt",
+  "notice.codeRun.incident.body":
+    "Während {paths} beiseitegelegt wurde, hat sich ein Ordner auf dem Weg geändert, daher kann das Verschobene von woanders stammen. Es liegt in {place}. Sieh es dir an, bevor du auf Behalten tippst, das es nach {paths} in {repo} legt.",
 };

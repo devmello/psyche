@@ -79,4 +79,8 @@ export const notices: Partial<Catalogue> = {
   "notice.codeRun.recreated.body":
     "Sus carpetas de solo lectura cambiaron, así que los servidores en marcha y lo instalado fuera del repositorio ya no están. Vuelve a iniciar lo que necesites.",
   "notice.action.keepIt": "Conservar",
+  "notice.codeRun.incident.title":
+    "Psyche retuvo algo que quizá no venga de una ejecución de código en {repo}",
+  "notice.codeRun.incident.body":
+    "Mientras se apartaba {paths}, cambió una carpeta del camino, así que lo movido puede venir de otro sitio. Está guardado en {place}. Revísalo antes de tocar Conservar, que lo pone en {paths} dentro de {repo}.",
 };
