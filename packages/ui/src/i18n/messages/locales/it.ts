@@ -21,6 +21,7 @@ import { helperCheck } from "./helper-check/it.ts";
 import { helperOffline } from "./helper-offline/it.ts";
 import { homeRest } from "./home-rest/it.ts";
 import { links } from "./links/it.ts";
+import { mailFollowups } from "./mail-followups/it.ts";
 import { mailMeetings } from "./mail-meetings/it.ts";
 import { meetingRecordRest } from "./meeting-record-rest/it.ts";
 import { memoryAdvancedRest } from "./memory-advanced-rest/it.ts";
@@ -3736,4 +3737,5 @@ export const it: Partial<Catalogue> = {
   ...separateDesktop,
   // Windows variants of the sandbox PC, voice keys and platform terms
   ...windowsPlatform202611,
+  ...mailFollowups,
 };

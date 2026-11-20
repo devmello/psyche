@@ -92,6 +92,14 @@ export interface DailyServiceOptions {
    * numbers and a template, never from message text.
    */
   keepInTouch?: (surface?: BriefSurface) => { text: string; link?: string }[];
+  /**
+   * Quiet email threads (the owner sent the last message and got no reply, or never answered a
+   * question): morning brief only, never on a chat channel. The lines come from mail, so the
+   * caller cleans them; the service cleans them again. An empty list leaves the section out.
+   */
+  quietThreads?: () =>
+    | Promise<{ text: string; link?: string }[]>
+    | { text: string; link?: string }[];
   /** Work memory: Catching up, Worked on today and the due-soon notification (MW4). */
   catchUp?: DailyCatchUp;
   /** Link to the prep note for a calendar event, when meeting prep made one. */
@@ -388,6 +396,26 @@ export class DailyService {
     };
   }
 
+  async #quietThreads(): Promise<Section | undefined> {
+    if (this.#o.quietThreads === undefined) return undefined;
+    let lines: { text: string; link?: string }[];
+    try {
+      lines = await this.#o.quietThreads();
+    } catch (err) {
+      this.#o.onError?.(err);
+      return undefined;
+    }
+    if (lines.length === 0) return undefined;
+    return {
+      id: "quiet_threads",
+      title: "Quiet email threads",
+      items: lines.slice(0, 5).map((l) => ({
+        text: cleanHeader(l.text, 300),
+        ...(l.link === undefined ? {} : { link: l.link }),
+      })),
+    };
+  }
+
   /** Coming up and Keep in touch, which differ by surface: birthdays and people stay off a channel. */
   #lineSections(surface: BriefSurface): Section[] {
     const out: Section[] = [];
@@ -463,6 +491,11 @@ export class DailyService {
       if (weather !== undefined) sections.push(weather);
       const lines = this.#lineSections("brief");
       sections.push(...lines);
+      const quiet = await this.#quietThreads();
+      if (quiet !== undefined) {
+        sections.push(quiet);
+        if (withChannel) channel.set("quiet_threads", undefined);
+      }
       if (withChannel) {
         const forChannel = this.#lineSections("channel");
         for (const id of ["coming_up", "keep_in_touch"]) {

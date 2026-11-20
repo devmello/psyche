@@ -21,6 +21,7 @@ import { helperCheck } from "./helper-check/ko.ts";
 import { helperOffline } from "./helper-offline/ko.ts";
 import { homeRest } from "./home-rest/ko.ts";
 import { links } from "./links/ko.ts";
+import { mailFollowups } from "./mail-followups/ko.ts";
 import { mailMeetings } from "./mail-meetings/ko.ts";
 import { meetingRecordRest } from "./meetingRecord-rest/ko.ts";
 import { memoryMap } from "./memory-map/ko.ts";
@@ -3676,4 +3677,5 @@ export const ko: Partial<Catalogue> = {
   ...separateDesktop,
   // Windows variants of the sandbox PC, voice keys and platform terms
   ...windowsPlatform202611,
+  ...mailFollowups,
 };

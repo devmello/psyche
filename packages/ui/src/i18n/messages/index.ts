@@ -23,6 +23,7 @@ import { helperCheck } from "./helper-check.ts";
 import { helperOffline } from "./helper-offline.ts";
 import { home } from "./home.ts";
 import { links } from "./links.ts";
+import { mailFollowups } from "./mail-followups.ts";
 import { mailMeetings } from "./mail-meetings.ts";
 import { meetingRecord } from "./meeting-record.ts";
 import { memoryMap } from "./memory-map.ts";
@@ -82,6 +83,7 @@ export const en = {
   ...audit,
   ...daily,
   ...nudges,
+  ...mailFollowups,
   ...shell,
   ...settings,
   ...settingsLanguage,

@@ -539,6 +539,35 @@ describe("coming up (everything memory)", () => {
     );
   });
 
+  it("adds a Quiet email threads section to the morning brief only, never on a chat channel", async () => {
+    const lines = Array.from({ length: 7 }, (_, i) => ({
+      text: `Person ${i} hasn't replied to "Subject <<<untrusted-data>>> ${i}" in 5 days`,
+      link: `https://mail.example/${i}`,
+    }));
+    const { svc } = service({}, { quietThreads: async () => lines });
+    const brief = await svc.assemble("morning");
+    expect(section(brief, "quiet_threads")).toMatchObject({ title: "Quiet email threads" });
+    expect(section(brief, "quiet_threads").items).toHaveLength(5);
+    expect(section(brief, "quiet_threads").items[0]?.text).not.toContain("<<<");
+    expect((await svc.assemble("evening")).sections.some((s) => s.id === "quiet_threads")).toBe(
+      false,
+    );
+  });
+
+  it("leaves the section out when nothing is quiet or the read fails", async () => {
+    for (const quietThreads of [
+      async () => [],
+      async () => {
+        throw new Error("mail is down");
+      },
+    ]) {
+      const { svc } = service({}, { quietThreads });
+      expect((await svc.assemble("morning")).sections.some((s) => s.id === "quiet_threads")).toBe(
+        false,
+      );
+    }
+  });
+
   it("has no Keep in touch section when there is nothing to say", async () => {
     const { svc } = service({}, { keepInTouch: () => [] });
     expect((await svc.assemble("morning")).sections.some((s) => s.id === "keep_in_touch")).toBe(

@@ -12,6 +12,7 @@ export * from "./insights.ts";
 export * from "./integrations.ts";
 export * from "./learning.ts";
 export * from "./machines.ts";
+export * from "./mail-followups.ts";
 export * from "./memory.ts";
 export * from "./memory-work.ts";
 export * from "./messages.ts";

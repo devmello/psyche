@@ -21,6 +21,7 @@ import { helperCheck } from "./helper-check/ar.ts";
 import { helperOffline } from "./helper-offline/ar.ts";
 import { home } from "./home/ar.ts";
 import { links } from "./links/ar.ts";
+import { mailFollowups } from "./mail-followups/ar.ts";
 import { mailMeetings } from "./mail-meetings/ar.ts";
 import { meetingRecord } from "./meeting-record/ar.ts";
 import { memoryMap } from "./memory-map/ar.ts";
@@ -3730,4 +3731,5 @@ export const ar: Partial<Catalogue> = {
   ...separateDesktop,
   // Windows variants of the sandbox PC, voice keys and platform terms
   ...windowsPlatform202611,
+  ...mailFollowups,
 };
