@@ -10,7 +10,6 @@ import {
   feedForChannel,
   serveVerifiedUpdate,
   switchToFullPackage,
-  UPDATE_CHANNEL_KEY,
   type UpdateCheck,
   type UpdaterStateFile,
   writeUpdaterState,
