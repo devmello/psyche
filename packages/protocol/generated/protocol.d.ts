@@ -1572,8 +1572,9 @@ export interface AttentionReportParams {
     /**
      * The owner gave input in the app just now (key, click)
      */
-    input?: boolean;
-    pane:   AttentionPane;
+    input?:   boolean;
+    machine?: string;
+    pane:     AttentionPane;
     /**
      * The pane is on screen in the desktop app
      */
@@ -3277,8 +3278,35 @@ export interface CompactionBlock {
 
 export type CompactionBlockType = "compaction";
 
+export interface ComputerWatchFrameParams {
+    machine?:  string;
+    maxWidth?: number;
+    since?:    number;
+}
+
+export interface ComputerWatchInputParams {
+    events:   VscreenInputEvent[];
+    machine?: string;
+}
+
+export interface VscreenInputEvent {
+    button?: Button;
+    type:    VscreenInputEventType;
+    x?:      number;
+    y?:      number;
+    dx?:     number;
+    dy?:     number;
+    key?:    string;
+    text?:   string;
+}
+
+export type Button = "left" | "middle" | "right";
+
+export type VscreenInputEventType = "move" | "down" | "up" | "scroll" | "key_down" | "key_up" | "text";
+
 export interface ComputerWatchParkedPayload {
-    apps: VscreenApp[];
+    apps:     VscreenApp[];
+    machine?: string;
 }
 
 export interface VscreenApp {
@@ -3289,7 +3317,8 @@ export interface VscreenApp {
 }
 
 export interface ComputerWatchResolveParkedParams {
-    action: ComputerWatchParkAction;
+    action:   ComputerWatchParkAction;
+    machine?: string;
 }
 
 export type ComputerWatchParkAction = "look" | "discard" | "keep_open";
@@ -3319,8 +3348,19 @@ export interface VscreenStatus {
 
 export type VscreenState = "stopped" | "starting" | "running" | "stopping";
 
+export interface ComputerWatchStatusParams {
+    machine?: string;
+}
+
+export interface ComputerWatchStopParams {
+    closeApps?: boolean;
+    force?:     boolean;
+    machine?:   string;
+}
+
 export interface ComputerWatchTakeOverParams {
-    on: boolean;
+    machine?: string;
+    on:       boolean;
 }
 
 export interface ComputerWatchTakeOverResult {
@@ -14077,21 +14117,6 @@ export interface VscreenFrameParams {
 export interface VscreenInputParams {
     events: VscreenInputEvent[];
 }
-
-export interface VscreenInputEvent {
-    button?: Button;
-    type:    VscreenInputEventType;
-    x?:      number;
-    y?:      number;
-    dx?:     number;
-    dy?:     number;
-    key?:    string;
-    text?:   string;
-}
-
-export type Button = "left" | "middle" | "right";
-
-export type VscreenInputEventType = "move" | "down" | "up" | "scroll" | "key_down" | "key_up" | "text";
 
 export interface VscreenStartParams {
     height?: number;

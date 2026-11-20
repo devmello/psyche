@@ -25,6 +25,7 @@ import { home } from "./home.ts";
 import { keepAwake } from "./keep-awake.ts";
 import { links } from "./links.ts";
 import { linuxAccess } from "./linux-access.ts";
+import { machines } from "./machines.ts";
 import { mailFollowups } from "./mail-followups.ts";
 import { mailMeetings } from "./mail-meetings.ts";
 import { meetingRecord } from "./meeting-record.ts";
@@ -138,6 +139,7 @@ export const en = {
   ...separateDesktop,
   ...keepAwake,
   ...spaces,
+  ...machines,
 } as const;
 
 export type MessageId = keyof typeof en;

@@ -193,6 +193,23 @@ describe("importMemory", () => {
     await env.cleanup();
   });
 
+  it("is idempotent: importing the same export again stages nothing new", async () => {
+    const first = await importMemory(env.store, "chatgpt", fixture("chatgpt-memories.json"));
+    expect(first.claims.length).toBeGreaterThan(0);
+    const before = (await env.store.listClaims()).length;
+    const again = await importMemory(env.store, "chatgpt", fixture("chatgpt-memories.json"));
+    expect(again.claims).toEqual([]);
+    expect(again.files).toEqual([]);
+    expect((await env.store.listClaims()).length).toBe(before);
+    // Same wording with different spacing and case is the same claim.
+    const spaced = await importMemory(
+      env.store,
+      "chatgpt",
+      "-   PREFERS dark roast   coffee in the morning",
+    );
+    expect(spaced.claims).toEqual([]);
+  });
+
   it("writes memory/imports/<format>-<date>.md and stages agent claims", async () => {
     const result = await importMemory(env.store, "chatgpt", fixture("chatgpt-memories.json"));
     const path = `memory/imports/chatgpt-${TODAY}.md`;

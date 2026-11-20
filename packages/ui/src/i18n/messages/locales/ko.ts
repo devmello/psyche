@@ -23,6 +23,7 @@ import { homeRest } from "./home-rest/ko.ts";
 import { keepAwake } from "./keep-awake/ko.ts";
 import { links } from "./links/ko.ts";
 import { linuxAccess } from "./linux-access/ko.ts";
+import { machines } from "./machines/ko.ts";
 import { mailFollowups } from "./mail-followups/ko.ts";
 import { mailMeetings } from "./mail-meetings/ko.ts";
 import { meetingRecordRest } from "./meetingRecord-rest/ko.ts";
@@ -827,6 +828,8 @@ export const ko: Partial<Catalogue> = {
     "완료되기 전에 중단되었습니다: {reason}. {total}개 중 {done}개 묶음을 가져왔습니다. 다시 가져오면 이어서 진행하며, 이미 가져온 대화는 건너뜁니다.",
   "agent.memory.importConv.retry": "다시 가져오기",
   "agent.memory.exported": "{file}을(를) 내보냈습니다.",
+  "agent.memory.importConv.memoriesFailed":
+    "메모리를 가져오지 못했습니다: {reason}. 다시 가져오기를 눌러 재시도하세요.",
   "agent.memory.export": "모두 내보내기",
   "agent.memory.resetDone":
     "{files, plural, other {파일 #개}}, {claims, plural, other {주장 #개}}를 재설정했습니다.",
@@ -3777,4 +3780,5 @@ export const ko: Partial<Catalogue> = {
   ...mailFollowups,
   ...keepAwake,
   ...spaces,
+  ...machines,
 };
