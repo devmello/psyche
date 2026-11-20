@@ -93,4 +93,7 @@ export const notices: Partial<Catalogue> = {
   "notice.machine.removed.title": "{name} hat sich selbst entfernt",
   "notice.machine.removed.body":
     "Es war ein Computer, den Psyche nutzen konnte. Psyche nutzt ihn nicht wieder, solange du ihn nicht erneut hinzufügst.",
+  "notice.machine.offline.title": "{name} ist offline",
+  "notice.machine.offline.body":
+    "Eine Aufgabe wartet darauf, ihn zu nutzen, und läuft weiter, sobald {name} wieder da ist. Du kannst die Aufgabe auch abbrechen.",
 };

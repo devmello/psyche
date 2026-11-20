@@ -86,4 +86,7 @@ export const notices: Partial<Catalogue> = {
   "notice.machine.removed.title": "{name}이(가) 스스로 제거되었습니다",
   "notice.machine.removed.body":
     "Psyche가 사용할 수 있던 컴퓨터입니다. 다시 추가하지 않으면 Psyche는 이 컴퓨터를 사용하지 않습니다.",
+  "notice.machine.offline.title": "{name}이(가) 오프라인 상태입니다",
+  "notice.machine.offline.body":
+    "작업이 이 컴퓨터를 사용하려고 기다리고 있으며 {name}이(가) 돌아오면 계속됩니다. 작업을 취소할 수도 있습니다.",
 };
