@@ -577,7 +577,9 @@ public final class AlertCenter {
     /// A tap on a notification or one of its buttons.
     func handle(_ incoming: IncomingNotification) async {
         switch AlertAction(rawValue: incoming.actionID) {
-        case .approve: await answer(incoming.id, .allow)
+        // Re-checked against the Gateway's fresh state, like the island: a device-only or presence-gated
+        // card is never approved from a lock-screen button, whatever category the notification had.
+        case .approve: await answer(incoming.id, .allow, onlyIf: AlertPolicy.answersInline)
         case .deny: await answer(incoming.id, .deny)
         case .review, .open: pendingOpen = .item(incoming.id)
         case nil:

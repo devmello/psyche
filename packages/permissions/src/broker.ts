@@ -249,6 +249,12 @@ export interface PermissionBrokerOptions {
   presence?: PresenceVerifier;
   /** Which approvals need a presence assertion once a verifier is configured. */
   presenceFor?: "authentication" | "device_only";
+  /**
+   * The `device:<deviceId>` surfaces of the paired operator devices that answer with a plain tap
+   * (a phone, a tablet): added to every device-only card that needs no presence assertion, each
+   * with its own token. Never a shared per-platform surface, never a chat surface.
+   */
+  deviceSurfaces?: () => readonly Surface[];
   ttlMs?: number;
   armDelayMs?: number;
   /**
@@ -332,7 +338,8 @@ export function presenceChallenge(
   return digest.slice("sha256:".length);
 }
 
-const isChat = (s: Surface) => s.includes(":");
+/** A chat surface is `<channel>:<id>`; `device:<deviceId>` is a paired device, not a chat. */
+const isChat = (s: Surface) => s.includes(":") && !s.startsWith("device:");
 
 function actorOf(by: DecidedBy, surface?: Surface): AuditEntryInput["actor"] {
   if ("deviceId" in by) {
@@ -403,6 +410,7 @@ export class PsychePermissionBroker implements PermissionBroker {
   readonly #notifier: Notifier | undefined;
   readonly #presence: PresenceVerifier | undefined;
   readonly #presenceFor: "authentication" | "device_only";
+  readonly #deviceSurfaces: (() => readonly Surface[]) | undefined;
   readonly #armDelayMs: number;
   readonly #ttlMs: number | undefined;
   readonly #deferredApproval: PermissionBrokerOptions["deferredApproval"];
@@ -470,6 +478,7 @@ export class PsychePermissionBroker implements PermissionBroker {
     this.#notifier = options.notifier;
     this.#presence = options.presence;
     this.#presenceFor = options.presenceFor ?? "authentication";
+    this.#deviceSurfaces = options.deviceSurfaces;
     this.#armDelayMs = options.armDelayMs ?? APPROVAL_ARM_DELAY_MS;
     this.#ttlMs = options.ttlMs;
     this.#deferredApproval = options.deferredApproval;
@@ -1711,6 +1720,17 @@ export class PsychePermissionBroker implements PermissionBroker {
       ),
     ];
     if (surfaces.length === 0) surfaces = ["desktop"];
+    // A device-only card that needs no presence is a plain tap on any paired operator device
+    // (owner's decision, 2026-11-09): each gets its own surface and token. A card that needs a
+    // presence assertion (a payment, enrolling a verifier) stays on the Mac surfaces.
+    if (deviceOnly && !requiresAuthentication && this.#deviceSurfaces !== undefined) {
+      surfaces = [
+        ...new Set([
+          ...surfaces,
+          ...this.#deviceSurfaces().filter((s) => s.startsWith("device:") && !own.has(s)),
+        ]),
+      ];
+    }
 
     const allowed = allowedScopes(se, input.kind);
     const fromDecision = recent?.decision.scopesOffered;

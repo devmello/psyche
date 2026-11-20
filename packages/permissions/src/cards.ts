@@ -231,6 +231,8 @@ export function cardHeader(a: Pick<ApprovalRequest, "kind" | "sideEffect" | "tai
 
 export function surfaceKind(surface: string): CardSurfaceKind {
   if (surface === "desktop" || surface === "web" || surface === "notification") return surface;
+  // A paired phone or tablet (`device:<deviceId>`) is the device itself, not a chat.
+  if (surface.startsWith("device:")) return "desktop";
   const channel = surface.split(":")[0] ?? "";
   if (["telegram", "imessage", "slack", "discord", "signal"].includes(channel))
     return channel as CardSurfaceKind;

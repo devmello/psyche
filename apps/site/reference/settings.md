@@ -21,7 +21,7 @@ Who may change a setting:
 
 - Keys under `appearance`, `ui`, `editor`, `shortcuts`, `locale`, `notifications.sound` and `notifications.badges` need only `operator.write`.
 - Every other key needs `operator.admin`.
-- Security keys also need your approval card once a presence verifier (a passkey or a Windows Hello key) is registered. The card is a plain tap, with no Touch ID or password: anything under `permissions`, `exec`, `vault`, `devices`, `gateway`, `identityLinks` and `computerUse`, plus `commands.ownerAllowFrom` and `channels.<id>.dmPolicy`, `allowFrom` and `groupAllowFrom`. The first call fails with `approval_required` and a device-only card; approve it and retry with its `approvalId`.
+- Security keys also need your approval card once a presence verifier (a passkey or a Windows Hello key) is registered. Before one is registered (the default on a Mac: the helper's own key does not count) an admin device alone is enough and no card appears. The card is a plain tap, with no Touch ID or password: anything under `permissions`, `exec`, `vault`, `devices`, `gateway`, `identityLinks` and `computerUse`, plus `commands.ownerAllowFrom` and `channels.<id>.dmPolicy`, `allowFrom` and `groupAllowFrom`. The first call fails with `approval_required` and a device-only card; approve it and retry with its `approvalId`.
 - Keys starting with `_` are internal to the Gateway. They are hidden from `settings.get` and cannot be set.
 
 **`config.json`** holds the network and transport configuration. The Gateway reads it once at start and refuses to start on an unknown key or a bad value. `psyche config set gateway.<key> <value>` edits it and tells you to restart (`psyche restart`). It holds no secrets.

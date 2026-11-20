@@ -8,7 +8,7 @@ import { afterEach, describe, expect, it } from "vitest";
 import { composeHelper } from "../src/compose/helper.ts";
 import { type ComposedGateway, composeGateway } from "../src/compose/index.ts";
 import { silentLogger } from "../src/log.ts";
-import { desktopClient, ik, newDeviceKey, type TestClient } from "./helpers.ts";
+import { desktopClient, handshake, ik, newDeviceKey, TestClient, wsUrlOf } from "./helpers.ts";
 
 /**
  * The presence audit (owner's decision, 2026-11-09: presence is for payments only). Every gated
@@ -32,7 +32,7 @@ afterEach(async () => {
 });
 
 const ADMIN = "audit-admin";
-const SCOPES = ["operator.read", "operator.write", "operator.approvals"];
+const SCOPES = ["operator.read", "operator.write", "operator.approvals"] as const;
 
 async function boot() {
   const keys = new Map<string, string>();
@@ -85,14 +85,16 @@ describe("non-payment changes are one tap for the owner's admin device", () => {
       expect(got.approval.requiresAuthentication).toBe(false);
       // Never offered in chat: a channel has no token for it.
       expect(
-        got.approval.surfaces.every((s) => ["desktop", "web", "notification"].includes(s)),
+        got.approval.surfaces.every(
+          (s) => ["desktop", "web", "notification"].includes(s) || s.startsWith("device:"),
+        ),
       ).toBe(true);
       const denied = (await member.request(method, params, ik())) as {
         ok: boolean;
         error: { code: string };
       };
       expect(denied.ok).toBe(false);
-      expect(["approval_required", "presence_required"]).not.toContain(denied.error.code);
+      expect(denied.error.code).toBe("forbidden");
     },
   );
 });
@@ -123,5 +125,145 @@ describe("payments and verifier enrolment keep presence", () => {
       sideEffect: "destructive",
     });
     expect(tap.approval.requiresAuthentication).toBe(false);
+  });
+});
+
+/** A paired iPhone: admin and approvals when `admin`, approvals only otherwise. */
+async function phone(c: ComposedGateway, id: string, admin: boolean) {
+  const key = newDeviceKey();
+  (await desktopClient(c.gateway, key, id, "ios")).close();
+  updateDevice(c.gateway.context.db, id, {
+    scopes: admin ? [...SCOPES, "operator.admin"] : [...SCOPES],
+  });
+  const client = await TestClient.open(wsUrlOf(c.gateway));
+  clients.push(client);
+  await handshake(client, c.gateway.origin, { key, deviceId: id, platform: "ios" });
+  return client;
+}
+
+type Got = { approval: ApprovalRequest; answerToken?: string };
+const get = (who: TestClient, approvalId: string) => who.call<Got>("approvals.get", { approvalId });
+const approvalIdOf = (res: unknown) =>
+  (res as { error: { details: { approvalId: string } } }).error.details.approvalId;
+const answer = (who: TestClient, approvalId: string, answerToken: string) =>
+  who.request("approvals.answer", { approvalId, answerToken, decision: "approve" }, ik());
+const armed = () => new Promise((r) => setTimeout(r, 450));
+const requestedBy = { runId: null, taskId: null, threadId: null };
+
+describe("a paired phone taps a device-only card with its own token", () => {
+  it("settings.set: the phone approves with its token and the retry goes through, once", async () => {
+    const { c, admin } = await boot();
+    const p1 = await phone(c, "phone-1", true);
+    const p2 = await phone(c, "phone-2", false);
+    const call = { key: "permissions.policy", value: { allow: [] } };
+    const res = await p1.request("settings.set", call, ik());
+    expect(res).toMatchObject({ ok: false, error: { code: "approval_required" } });
+    const approvalId = approvalIdOf(res);
+    const mine = await get(p1, approvalId);
+    const other = await get(p2, approvalId);
+    const desk = await get(admin, approvalId);
+    // Each device has its own token; no shared per-platform surface; no chat surface.
+    expect(mine.answerToken).toBeDefined();
+    expect(other.answerToken).toBeDefined();
+    expect(desk.answerToken).toBeDefined();
+    expect(new Set([mine.answerToken, other.answerToken, desk.answerToken]).size).toBe(3);
+    expect(mine.approval.surfaces).toEqual(
+      expect.arrayContaining(["desktop", "web", "device:phone-1", "device:phone-2"]),
+    );
+    expect(mine.approval.surfaces.some((s) => s.startsWith("telegram"))).toBe(false);
+    expect(mine.approval).toMatchObject({ deviceOnly: true, requiresAuthentication: false });
+    await armed();
+    // Another phone's token is refused when presented by this phone.
+    expect(await answer(p1, approvalId, other.answerToken ?? "")).toMatchObject({
+      ok: false,
+      error: { code: "forbidden" },
+    });
+    expect(await answer(p1, approvalId, mine.answerToken ?? "")).toMatchObject({ ok: true });
+    expect(await p1.request("settings.set", { ...call, approvalId }, ik())).toMatchObject({
+      ok: true,
+    });
+    // Consumed once.
+    expect(await p1.request("settings.set", { ...call, approvalId }, ik())).toMatchObject({
+      ok: false,
+    });
+  });
+
+  it("exec_host (destructive): a phone approves; the chat surface is stripped", async () => {
+    const { c } = await boot();
+    const p1 = await phone(c, "phone-1", false);
+    const issued = await c.gateway.context.broker.requestApproval({
+      kind: "exec_host",
+      summary: "rm",
+      details: {},
+      requestedBy,
+      surfaces: ["desktop", "notification", "telegram:42"],
+      taint: false,
+      bindingHash: `sha256:${"c".repeat(64)}`,
+      grantKey: "x",
+      sideEffect: "destructive",
+    });
+    const id = issued.approval.id;
+    const mine = await get(p1, id);
+    expect(mine.approval.surfaces).toContain("device:phone-1");
+    expect(mine.approval.surfaces).not.toContain("telegram:42");
+    await armed();
+    expect(await answer(p1, id, mine.answerToken ?? "")).toMatchObject({ ok: true });
+  });
+
+  it("a payment is not offered to the phone, and answering it without presence is refused", async () => {
+    const { c, admin } = await boot();
+    const p1 = await phone(c, "phone-1", true);
+    const issued = await c.gateway.context.broker.requestApproval({
+      kind: "purchase",
+      summary: "pay",
+      details: {},
+      requestedBy,
+      surfaces: ["desktop", "notification"],
+      taint: false,
+      bindingHash: `sha256:${"d".repeat(64)}`,
+      grantKey: "pay",
+      sideEffect: "financial",
+    });
+    const id = issued.approval.id;
+    const mine = await get(p1, id);
+    expect(mine.approval.requiresAuthentication).toBe(true);
+    expect(mine.approval.surfaces.some((s) => s.startsWith("device:"))).toBe(false);
+    expect(mine.answerToken).toBeUndefined();
+    // The desktop's own token, with no presence assertion: the Gateway refuses.
+    const desk = await get(admin, id);
+    await armed();
+    expect(await answer(admin, id, desk.answerToken ?? "")).toMatchObject({
+      ok: false,
+      error: { code: "forbidden", details: { reason: "presence_required" } },
+    });
+  });
+
+  it("the desktop's card surfaces and token are unchanged when no phone is paired", async () => {
+    const { admin } = await boot();
+    const res = await admin.request(
+      "settings.set",
+      { key: "permissions.policy", value: { allow: [] } },
+      ik(),
+    );
+    const got = await get(admin, approvalIdOf(res));
+    expect(got.approval.surfaces).toEqual(["desktop", "web", "notification"]);
+    expect(got.answerToken).toBeDefined();
+  });
+});
+
+describe("a tap on the desktop approves the card without presence", () => {
+  it("answer with the desktop token, retry with the approvalId once", async () => {
+    const { admin } = await boot();
+    const call = { key: "permissions.policy", value: { allow: [] } };
+    const approvalId = approvalIdOf(await admin.request("settings.set", call, ik()));
+    const got = await get(admin, approvalId);
+    await armed();
+    expect(await answer(admin, approvalId, got.answerToken ?? "")).toMatchObject({ ok: true });
+    expect(await admin.request("settings.set", { ...call, approvalId }, ik())).toMatchObject({
+      ok: true,
+    });
+    expect(await admin.request("settings.set", { ...call, approvalId }, ik())).toMatchObject({
+      ok: false,
+    });
   });
 });
