@@ -1,4 +1,4 @@
-import { getMachine } from "@psyche/db";
+import { getDevice, getMachine } from "@psyche/db";
 import {
   type ErrorPayload,
   PsycheError,
@@ -434,9 +434,17 @@ export function composeVirtualScreen(services: ComposeServices): ComposedPart {
     if (record === undefined) throw new PsycheError("not_found", `machine ${machineId} not found`);
     const live = gateway?.context.nodes.machine(record.deviceId);
     if (live === undefined || !live.info.capabilities.some((c) => c.name === capability)) {
-      throw new PsycheError("unavailable", "That computer is offline.", {
-        details: { reason: live === undefined ? "machine_offline" : "machine_surface_unavailable" },
-      });
+      throw new PsycheError(
+        "unavailable",
+        live === undefined
+          ? "That computer is offline."
+          : "That computer is online but has no screen Psyche can use right now.",
+        {
+          details: {
+            reason: live === undefined ? "machine_offline" : "machine_surface_unavailable",
+          },
+        },
+      );
     }
     return live;
   };
@@ -461,7 +469,10 @@ export function composeVirtualScreen(services: ComposeServices): ComposedPart {
         return res.result;
       },
       park(card) {
-        services.publish("computerWatch.parked", { apps: card.apps });
+        services.publish("computerWatch.parked", {
+          apps: card.apps,
+          ...(machineId === undefined ? {} : { machine: machineId }),
+        });
       },
       now: () => services.clock.now(),
     });
@@ -473,6 +484,21 @@ export function composeVirtualScreen(services: ComposeServices): ComposedPart {
     if (id === undefined) return vs;
     if (typeof id !== "string" || id === "") {
       throw new PsycheError("invalid_params", "machine must be a machine id");
+    }
+    // Only a machine that is still paired gets a screen; one that was removed or revoked loses
+    // its cached state with it.
+    const db = gateway?.context.db;
+    for (const known of [...machineScreens.keys()]) {
+      const rec = db === undefined ? undefined : getMachine(db, known);
+      if (rec === undefined || getDevice(db as NonNullable<typeof db>, rec.deviceId)?.revokedAt) {
+        machineScreens.delete(known);
+      }
+    }
+    const record = db === undefined ? undefined : getMachine(db, id);
+    const device =
+      record === undefined || db === undefined ? undefined : getDevice(db, record.deviceId);
+    if (record === undefined || device === undefined || device.revokedAt) {
+      throw new PsycheError("not_found", `machine ${id} not found`);
     }
     let screen = machineScreens.get(id);
     if (screen === undefined) {
@@ -518,7 +544,12 @@ export function composeVirtualScreen(services: ComposeServices): ComposedPart {
         const screen = screenOf(params);
         // The pane reports itself visible or hidden through attention.report; a pane that never
         // reported is treated as visible.
-        screen.setPaneVisible(!services.attention.paneHidden("vscreen"));
+        screen.setPaneVisible(
+          !services.attention.paneHidden(
+            "vscreen",
+            typeof params.machine === "string" ? params.machine : undefined,
+          ),
+        );
         return screen.frame(withoutMachine(params), owner);
       }),
       "computerWatch.input": handler((params, owner) =>

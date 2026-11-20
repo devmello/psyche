@@ -30,7 +30,9 @@ export function approvalMachineLine(
   const machine = approval.machine;
   if (machine === undefined) return null;
   return t("machines.line", {
-    name: machineLabel(machine),
+    // Quoted in the message and isolated here, so a name holding " · " or place words reads as a
+    // name and cannot pass for the rest of the line.
+    name: `\u2068${machineLabel(machine)}\u2069`,
     place: machinePlace(approval.kind, approval.details as Record<string, unknown>),
   });
 }

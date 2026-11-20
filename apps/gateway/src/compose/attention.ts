@@ -27,7 +27,7 @@ export const ATTENTION_WINDOW_MS = 5 * 60_000;
 export class OwnerAttention {
   readonly #now: () => number;
   #lastInput: number | undefined;
-  readonly #visible = new Map<AttentionPane, boolean>();
+  readonly #visible = new Map<string, boolean>();
   readonly #waiters = new Set<() => void>();
 
   constructor(now: () => number) {
@@ -39,9 +39,12 @@ export class OwnerAttention {
     return this.#lastInput;
   }
 
-  /** True only when the desktop reported this pane hidden. */
-  paneHidden(pane: AttentionPane): boolean {
-    return this.#visible.get(pane) === false;
+  /**
+   * True only when the desktop reported this pane hidden. A watch pane on a paired computer is its
+   * own pane (`machine`): hiding one screen never marks another hidden.
+   */
+  paneHidden(pane: AttentionPane, machine?: string): boolean {
+    return this.#visible.get(machine === undefined ? pane : `${pane}:${machine}`) === false;
   }
 
   noteInput(): void {
@@ -49,8 +52,8 @@ export class OwnerAttention {
     this.#wake();
   }
 
-  report(pane: AttentionPane, visible: boolean, input: boolean): void {
-    this.#visible.set(pane, visible);
+  report(pane: AttentionPane, visible: boolean, input: boolean, machine?: string): void {
+    this.#visible.set(machine === undefined ? pane : `${pane}:${machine}`, visible);
     if (input) this.#lastInput = this.#now();
     this.#wake();
   }
@@ -109,7 +112,7 @@ export function attentionHandlers(attention: OwnerAttention): Record<string, Han
         if (call.identity.desktopShell !== true) {
           throw new PsycheError("forbidden", "only the Psyche desktop app reports attention");
         }
-        attention.report(params.pane, params.visible, params.input === true);
+        attention.report(params.pane, params.visible, params.input === true, params.machine);
         return { ok: true as const };
       },
     },

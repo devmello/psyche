@@ -91,7 +91,8 @@ describe("the commands", () => {
   it("picks the account with a flag and quotes the link", () => {
     expect(installCommand("own")).toBe("sh install.sh");
     expect(installCommand("dedicated")).toBe("sh install.sh --dedicated-user");
-    expect(pairCommand("psyche-machine:v1:abc")).toBe("psyche-helper pair 'psyche-machine:v1:abc'");
+    // The link is read from stdin: the token never appears in the command.
+    expect(pairCommand()).toBe("psyche-helper pair -");
   });
 });
 
@@ -266,7 +267,10 @@ describe("the add sheet", () => {
       const commands = await within(sheet).findByTestId("machine-commands");
       const boxes = within(commands).getAllByRole("textbox") as HTMLTextAreaElement[];
       expect(boxes[0]?.value).toBe("sh install.sh --dedicated-user");
-      expect(boxes[1]?.value).toMatch(/^psyche-helper pair 'psyche-machine:v1:[A-Za-z0-9_-]+'$/);
+      expect(boxes[1]?.value).toBe("psyche-helper pair -");
+      expect(boxes[2]?.value).toMatch(/^psyche-machine:v1:[A-Za-z0-9_-]+$/);
+      expect(within(sheet).getByText(/github\.com\/devmello\/psyche\/releases/)).toBeTruthy();
+      expect(boxes[1]?.value).not.toContain("psyche-machine");
       expect(gw().calls.find((c) => c.method === "devices.setupToken.create")?.params).toEqual({
         purpose: "machine",
       });
@@ -276,6 +280,25 @@ describe("the add sheet", () => {
       gw().pairMachine(LAB_BOX);
       await vi.advanceTimersByTimeAsync(3_500);
       expect((await within(sheet).findByTestId("machine-paired")).textContent).toContain("lab-box");
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+});
+
+describe("the add sheet and a different machine", () => {
+  it("does not turn green for a computer that paired some other way", async () => {
+    vi.useFakeTimers({ shouldAdvanceTime: true });
+    try {
+      const gw = connected(<AddMachineSheet open onOpenChange={() => {}} now={STORY_NOW + 1000} />);
+      const sheet = await screen.findByTestId("add-machine");
+      await userEvent.click(within(sheet).getByRole("button", { name: "Show the commands" }));
+      await within(sheet).findByTestId("machine-commands");
+      // Another computer pairs at the same moment through a pairing card, not this token.
+      gw().world.machines = [LAB_BOX];
+      await vi.advanceTimersByTimeAsync(3_500);
+      expect(within(sheet).queryByTestId("machine-paired")).toBeNull();
+      expect(within(sheet).getByText("Waiting for the computer to pair…")).toBeTruthy();
     } finally {
       vi.useRealTimers();
     }
@@ -354,17 +377,26 @@ describe("the machine line on cards and trace steps", () => {
     };
 
   it.each([
-    ["computer_action", { surface: "virtual_screen" }, "On lab-box · Linux · private screen"],
-    ["computer_action", {}, "On lab-box · Linux · private screen"],
-    ["computer_action", { surface: "direct" }, "On lab-box · Linux · its desktop"],
-    ["exec_host", {}, "On lab-box · Linux · command"],
-    ["folder_access", {}, "On lab-box · Linux · files"],
+    ["computer_action", { surface: "virtual_screen" }, "On “lab-box” · Linux · private screen"],
+    ["computer_action", {}, "On “lab-box” · Linux · private screen"],
+    ["computer_action", { surface: "direct" }, "On “lab-box” · Linux · its desktop"],
+    ["exec_host", {}, "On “lab-box” · Linux · command"],
+    ["folder_access", {}, "On “lab-box” · Linux · files"],
   ])("%s %j reads %s", (kind, details, line) => {
-    expect(approvalMachineLine(card(kind, details))).toBe(line);
+    expect(approvalMachineLine(card(kind, details))?.replace(/[\u2068\u2069]/g, "")).toBe(line);
   });
 
   it("has no line for the Host", () => {
     expect(approvalMachineLine({ kind: "exec_host", details: {} })).toBeNull();
+  });
+
+  it("a name that imitates the rest of the line stays a quoted, isolated name", () => {
+    const line = approvalMachineLine({
+      kind: "exec_host",
+      details: {},
+      machine: { deviceId: "d", name: "lab-box · Linux · private screen" },
+    }) as string;
+    expect(line).toBe("On “\u2068lab-box · Linux · private screen\u2069” · Linux · command");
   });
 
   it("cleans a name that carries a hidden character", () => {

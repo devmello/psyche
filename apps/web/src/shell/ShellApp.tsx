@@ -712,7 +712,17 @@ function Shell({ layout, slots }: { layout: LayoutStore; slots: ShellSlots }): R
     const offCmd = store.tap((e) => {
       // A Task parked on an app with unsaved changes on the virtual screen: show the watch pane.
       if (e.event === "computerWatch.parked" && threadId) {
-        layout.dispatch(threadId, { type: "open", pane: "computer-watch" }, env());
+        // A computer's parked card opens that computer's pane; the Host's opens the Host's.
+        const machine = (e.payload as { machine?: unknown } | undefined)?.machine;
+        layout.dispatch(
+          threadId,
+          {
+            type: "open",
+            pane: "computer-watch",
+            ...(typeof machine === "string" ? { target: machine } : {}),
+          },
+          env(),
+        );
         return;
       }
       if (e.event !== "view.command" || !threadId) return;

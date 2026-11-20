@@ -9,7 +9,7 @@ export const machines: Partial<Catalogue> = {
     "Psyche को काम करने के लिए एक Linux कंप्यूटर दें, ताकि आप इस कंप्यूटर को इस्तेमाल करते रहें और वह वहाँ ऐप, कमांड और फ़ाइलें इस्तेमाल कर सके।",
   "machines.add": "Linux कंप्यूटर जोड़ें",
   "machines.add.description":
-    "आप इस कंप्यूटर को इस्तेमाल करते रहते हैं, और Psyche उस कंप्यूटर पर काम करता है। वहाँ हर कार्रवाई पहले की तरह पहले आपसे पूछती है।",
+    "आप इस कंप्यूटर को इस्तेमाल करते रहते हैं, और Psyche उस कंप्यूटर पर काम करता है। वहाँ की कार्रवाइयाँ आपकी मंज़ूरी की सेटिंग के अनुसार चलती हैं।",
   "machines.add.account": "Psyche को वहाँ कौन-सा खाता इस्तेमाल करना चाहिए?",
   "machines.add.account.own": "आपका खाता (सुझाया गया)",
   "machines.add.account.ownHint":
@@ -23,8 +23,8 @@ export const machines: Partial<Catalogue> = {
   "machines.add.again": "नए कमांड बनाएँ",
   "machines.add.commands": "Linux कंप्यूटर के लिए कमांड",
   "machines.add.installStep": "1. Linux कंप्यूटर पर सहायक इंस्टॉल करें",
-  "machines.add.pairStep": "2. फिर उसे पेयर करें",
-  "machines.add.expires": "पेयर करने का कमांड एक बार ही चलता है और {when} समाप्त हो जाएगा।",
+  "machines.add.pairStep": "2. वहाँ पेयरिंग शुरू करें",
+  "machines.add.expires": "लिंक एक बार ही चलता है और {when} समाप्त हो जाएगा।",
   "machines.add.waiting": "कंप्यूटर के पेयर होने का इंतज़ार है…",
   "machines.add.paired": "{name} पेयर हो गया। Psyche अब इसे इस्तेमाल कर सकता है।",
   "machines.add.pairedToast": "{name} जोड़ा गया",
@@ -80,7 +80,7 @@ export const machines: Partial<Catalogue> = {
   "machines.warn.sudo":
     "इस खाते में बिना पासवर्ड का sudo है। Psyche यहाँ sudo इस्तेमाल नहीं कर सकता, पर इस खाते से चलाए गए दूसरे प्रोग्राम कर सकते हैं।",
   "machines.paired": "{when} पेयर किया गया",
-  "machines.line": "{name} पर · Linux · {place}",
+  "machines.line": "“{name}” पर · Linux · {place}",
   "machines.place.screen": "निजी स्क्रीन",
   "machines.place.desktop": "उसका डेस्कटॉप",
   "machines.place.command": "कमांड",
@@ -107,4 +107,11 @@ export const machines: Partial<Catalogue> = {
   "notice.machine.offline.title": "{name} ऑफ़लाइन हो गया",
   "notice.machine.offline.body":
     "दोबारा कनेक्ट होने तक Psyche इसे इस्तेमाल नहीं कर सकता। जिन टास्क को इसकी ज़रूरत है, वे आपका इंतज़ार करेंगे।",
+  "machines.add.linkStep": "3. जब वह लिंक माँगे, तो यह चिपकाएँ",
+  "machines.add.installSource": "{url} से सहायक का पैकेज लें, उसे खोलें, और Linux कंप्यूटर पर यह चलाएँ।",
+  "machines.reports": "{name} बताता है:",
+  "computerWatch.machineLoading": "कंप्यूटर लोड हो रहा है…",
+  "computerWatch.machineMissing": "वह कंप्यूटर उपलब्ध नहीं है।",
+  "settings.key.computerUse.defaultMachine": "बैकग्राउंड काम के लिए डिफ़ॉल्ट कंप्यूटर",
+  "settings.key.computerUse.machineApps": "Linux कंप्यूटर पर ऐप एक्सेस",
 };

@@ -9,7 +9,7 @@ export const machines: Partial<Catalogue> = {
     "امنح Psyche حاسوب Linux ليعمل عليه، فيستخدم التطبيقات والأوامر والملفات هناك بينما تواصل استخدام هذا الحاسوب.",
   "machines.add": "إضافة حاسوب Linux",
   "machines.add.description":
-    "يعمل Psyche على ذلك الحاسوب بينما تواصل استخدام هذا الحاسوب. وكل إجراء هناك يطلب موافقتك أولًا كما في السابق.",
+    "يعمل Psyche على ذلك الحاسوب بينما تواصل استخدام هذا الحاسوب. تتبع الإجراءات هناك إعدادات الموافقة لديك.",
   "machines.add.account": "أي حساب يجب أن يستخدمه Psyche هناك؟",
   "machines.add.account.own": "حسابك (موصى به)",
   "machines.add.account.ownHint":
@@ -23,8 +23,8 @@ export const machines: Partial<Catalogue> = {
   "machines.add.again": "إنشاء أوامر جديدة",
   "machines.add.commands": "أوامر حاسوب Linux",
   "machines.add.installStep": "1. على حاسوب Linux، ثبّت المساعد",
-  "machines.add.pairStep": "2. ثم اقترن به",
-  "machines.add.expires": "يعمل أمر الاقتران مرة واحدة وتنتهي صلاحيته {when}.",
+  "machines.add.pairStep": "2. ابدأ الاقتران هناك",
+  "machines.add.expires": "يعمل الرابط مرة واحدة وتنتهي صلاحيته {when}.",
   "machines.add.waiting": "في انتظار اقتران الحاسوب…",
   "machines.add.paired": "اقترن {name}. يستطيع Psyche استخدامه الآن.",
   "machines.add.pairedToast": "تمت إضافة {name}",
@@ -80,7 +80,7 @@ export const machines: Partial<Catalogue> = {
   "machines.warn.sudo":
     "لهذا الحساب sudo دون كلمة مرور. لا يستطيع Psyche استخدام sudo هنا، لكن برامج أخرى تشغّلها بهذا الحساب تستطيع.",
   "machines.paired": "اقترن {when}",
-  "machines.line": "على {name} · Linux · {place}",
+  "machines.line": "على «{name}» · Linux · {place}",
   "machines.place.screen": "شاشة خاصة",
   "machines.place.desktop": "سطح مكتبه",
   "machines.place.command": "أمر",
@@ -106,4 +106,12 @@ export const machines: Partial<Catalogue> = {
   "notice.machine.offline.title": "انقطع اتصال {name}",
   "notice.machine.offline.body":
     "لا يستطيع Psyche استخدامه حتى يعاود الاتصال. المهام التي تحتاج إليه تنتظرك.",
+  "machines.add.linkStep": "3. عندما يطلب الرابط، الصق هذا",
+  "machines.add.installSource":
+    "احصل على حزمة المساعد من {url} وفك ضغطها، ثم شغّل هذا على حاسوب Linux.",
+  "machines.reports": "{name} يُبلغ:",
+  "computerWatch.machineLoading": "جارٍ تحميل الحاسوب…",
+  "computerWatch.machineMissing": "هذا الحاسوب غير متاح.",
+  "settings.key.computerUse.defaultMachine": "الحاسوب الافتراضي للعمل في الخلفية",
+  "settings.key.computerUse.machineApps": "وصول التطبيقات على حاسوب Linux",
 };

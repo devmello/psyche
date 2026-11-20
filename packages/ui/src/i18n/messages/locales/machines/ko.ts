@@ -9,7 +9,7 @@ export const machines: Partial<Catalogue> = {
     "Psyche에게 작업할 Linux 컴퓨터를 주면, 이 컴퓨터를 계속 쓰는 동안 그곳의 앱, 명령, 파일을 사용할 수 있습니다.",
   "machines.add": "Linux 컴퓨터 추가",
   "machines.add.description":
-    "이 컴퓨터를 계속 쓰는 동안 Psyche는 그 컴퓨터에서 작업합니다. 그곳의 모든 동작은 여전히 먼저 확인을 받습니다.",
+    "이 컴퓨터를 계속 쓰는 동안 Psyche는 그 컴퓨터에서 작업합니다. 그곳의 동작은 승인 설정을 따릅니다.",
   "machines.add.account": "Psyche가 그곳에서 어떤 계정을 사용할까요?",
   "machines.add.account.own": "내 계정(권장)",
   "machines.add.account.ownHint":
@@ -23,8 +23,8 @@ export const machines: Partial<Catalogue> = {
   "machines.add.again": "새 명령 만들기",
   "machines.add.commands": "Linux 컴퓨터용 명령",
   "machines.add.installStep": "1. Linux 컴퓨터에서 도우미를 설치합니다",
-  "machines.add.pairStep": "2. 그런 다음 페어링합니다",
-  "machines.add.expires": "페어링 명령은 한 번만 사용할 수 있으며 {when} 만료됩니다.",
+  "machines.add.pairStep": "2. 그곳에서 페어링을 시작합니다",
+  "machines.add.expires": "링크는 한 번만 사용할 수 있으며 {when} 만료됩니다.",
   "machines.add.waiting": "컴퓨터가 페어링되기를 기다리는 중…",
   "machines.add.paired": "{name}이(가) 페어링되었습니다. 이제 Psyche가 사용할 수 있습니다.",
   "machines.add.pairedToast": "{name}을(를) 추가했습니다",
@@ -81,7 +81,7 @@ export const machines: Partial<Catalogue> = {
   "machines.warn.sudo":
     "이 계정은 비밀번호 없이 sudo를 사용할 수 있습니다. Psyche는 여기서 sudo를 쓸 수 없지만, 이 계정으로 실행하는 다른 프로그램은 쓸 수 있습니다.",
   "machines.paired": "{when} 페어링됨",
-  "machines.line": "{name} · Linux · {place}",
+  "machines.line": "“{name}”에서 · Linux · {place}",
   "machines.place.screen": "비공개 화면",
   "machines.place.desktop": "해당 데스크톱",
   "machines.place.command": "명령",
@@ -109,4 +109,12 @@ export const machines: Partial<Catalogue> = {
   "notice.machine.offline.title": "{name}이(가) 오프라인이 되었습니다",
   "notice.machine.offline.body":
     "다시 연결될 때까지 Psyche가 사용할 수 없습니다. 필요한 작업은 사용자를 기다립니다.",
+  "machines.add.linkStep": "3. 링크를 요청하면 이것을 붙여넣습니다",
+  "machines.add.installSource":
+    "{url}에서 도우미 패키지를 받아 압축을 풀고, Linux 컴퓨터에서 다음을 실행하세요.",
+  "machines.reports": "{name}의 보고:",
+  "computerWatch.machineLoading": "컴퓨터를 불러오는 중…",
+  "computerWatch.machineMissing": "그 컴퓨터를 사용할 수 없습니다.",
+  "settings.key.computerUse.defaultMachine": "백그라운드 작업의 기본 컴퓨터",
+  "settings.key.computerUse.machineApps": "Linux 컴퓨터의 앱 접근",
 };

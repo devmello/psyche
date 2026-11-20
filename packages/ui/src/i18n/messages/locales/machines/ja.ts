@@ -9,7 +9,7 @@ export const machines: Partial<Catalogue> = {
     "PsycheにLinuxコンピューターを渡すと、このコンピューターを使い続けている間に、そちらのアプリ、コマンド、ファイルを使えます。",
   "machines.add": "Linuxコンピューターを追加",
   "machines.add.description":
-    "このコンピューターを使い続けている間も、Psycheはそのコンピューターで作業します。そこでの操作は、これまでどおり先に確認します。",
+    "このコンピューターを使い続けている間も、Psycheはそのコンピューターで作業します。そこでの操作は、承認の設定に従います。",
   "machines.add.account": "Psycheはそちらでどのアカウントを使いますか？",
   "machines.add.account.own": "あなたのアカウント（推奨）",
   "machines.add.account.ownHint":
@@ -23,8 +23,8 @@ export const machines: Partial<Catalogue> = {
   "machines.add.again": "新しいコマンドを作成",
   "machines.add.commands": "Linuxコンピューター用のコマンド",
   "machines.add.installStep": "1. Linuxコンピューターで、ヘルパーをインストールします",
-  "machines.add.pairStep": "2. 次に、ペアリングします",
-  "machines.add.expires": "ペアリング用のコマンドは1回だけ使え、{when}に失効します。",
+  "machines.add.pairStep": "2. そちらでペアリングを開始します",
+  "machines.add.expires": "リンクは1回だけ使え、{when}に失効します。",
   "machines.add.waiting": "コンピューターのペアリングを待っています…",
   "machines.add.paired": "{name}をペアリングしました。Psycheはこれを使えます。",
   "machines.add.pairedToast": "{name}を追加しました",
@@ -82,7 +82,7 @@ export const machines: Partial<Catalogue> = {
   "machines.warn.sudo":
     "このアカウントはパスワードなしのsudoを持っています。Psycheはここでsudoを使えませんが、このアカウントで実行するほかのプログラムは使えます。",
   "machines.paired": "{when}にペアリング",
-  "machines.line": "{name} · Linux · {place}",
+  "machines.line": "「{name}」で · Linux · {place}",
   "machines.place.screen": "専用画面",
   "machines.place.desktop": "そのデスクトップ",
   "machines.place.command": "コマンド",
@@ -111,4 +111,12 @@ export const machines: Partial<Catalogue> = {
   "notice.machine.offline.title": "{name}がオフラインになりました",
   "notice.machine.offline.body":
     "再接続するまでPsycheは使えません。必要とするタスクは、あなたを待ちます。",
+  "machines.add.linkStep": "3. リンクを求められたら、これを貼り付けます",
+  "machines.add.installSource":
+    "{url} からヘルパーのパッケージを入手して展開し、Linuxコンピューターで次を実行してください。",
+  "machines.reports": "{name}の報告：",
+  "computerWatch.machineLoading": "コンピューターを読み込み中…",
+  "computerWatch.machineMissing": "そのコンピューターは利用できません。",
+  "settings.key.computerUse.defaultMachine": "バックグラウンド作業の既定のコンピューター",
+  "settings.key.computerUse.machineApps": "Linuxコンピューターのアプリのアクセス",
 };

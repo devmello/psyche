@@ -9,7 +9,7 @@ export const machines: Partial<Catalogue> = {
     "Gib Psyche einen Linux-Computer zum Arbeiten, damit es dort Apps, Befehle und Dateien nutzen kann, während du diesen weiter benutzt.",
   "machines.add": "Linux-Computer hinzufügen",
   "machines.add.description":
-    "Psyche arbeitet auf diesem Computer, während du diesen weiter benutzt. Jede Aktion dort fragt weiterhin zuerst dich.",
+    "Psyche arbeitet auf diesem Computer, während du diesen weiter benutzt. Aktionen dort folgen deinen Freigabe-Einstellungen.",
   "machines.add.account": "Welches Konto soll Psyche dort verwenden?",
   "machines.add.account.own": "Dein Konto (empfohlen)",
   "machines.add.account.ownHint":
@@ -23,8 +23,8 @@ export const machines: Partial<Catalogue> = {
   "machines.add.again": "Neue Befehle erstellen",
   "machines.add.commands": "Befehle für den Linux-Computer",
   "machines.add.installStep": "1. Installiere den Helfer auf dem Linux-Computer",
-  "machines.add.pairStep": "2. Koppele ihn danach",
-  "machines.add.expires": "Der Kopplungsbefehl funktioniert einmal und läuft {when} ab.",
+  "machines.add.pairStep": "2. Starte dort die Kopplung",
+  "machines.add.expires": "Der Link funktioniert einmal und läuft {when} ab.",
   "machines.add.waiting": "Warte, bis sich der Computer koppelt …",
   "machines.add.paired": "{name} ist gekoppelt. Psyche kann es jetzt nutzen.",
   "machines.add.pairedToast": "{name} wurde hinzugefügt",
@@ -81,7 +81,7 @@ export const machines: Partial<Catalogue> = {
   "machines.warn.sudo":
     "Dieses Konto hat sudo ohne Passwort. Psyche kann hier kein sudo nutzen, andere Programme, die du mit diesem Konto startest, aber schon.",
   "machines.paired": "Gekoppelt {when}",
-  "machines.line": "Auf {name} · Linux · {place}",
+  "machines.line": "Auf „{name}“ · Linux · {place}",
   "machines.place.screen": "privater Bildschirm",
   "machines.place.desktop": "sein Desktop",
   "machines.place.command": "Befehl",
@@ -111,4 +111,12 @@ export const machines: Partial<Catalogue> = {
   "notice.machine.offline.title": "{name} ist offline gegangen",
   "notice.machine.offline.body":
     "Psyche kann es nicht nutzen, bis es sich wieder verbindet. Aufgaben, die es brauchen, warten auf dich.",
+  "machines.add.linkStep": "3. Wenn nach dem Link gefragt wird, füge diesen ein",
+  "machines.add.installSource":
+    "Hole das Helfer-Paket von {url}, entpacke es und führe dann dies auf dem Linux-Computer aus.",
+  "machines.reports": "{name} meldet:",
+  "computerWatch.machineLoading": "Computer wird geladen …",
+  "computerWatch.machineMissing": "Dieser Computer ist nicht verfügbar.",
+  "settings.key.computerUse.defaultMachine": "Standardcomputer für Hintergrundarbeit",
+  "settings.key.computerUse.machineApps": "App-Zugriff auf einem Linux-Computer",
 };

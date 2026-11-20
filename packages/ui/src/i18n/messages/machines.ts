@@ -7,7 +7,7 @@ export const machines = {
     "Give Psyche a Linux computer to work on, so it can use apps, commands and files there while you keep using this one.",
   "machines.add": "Add a Linux computer",
   "machines.add.description":
-    "Psyche works on that computer while you keep using this one. Each action there still asks you first.",
+    "Psyche works on that computer while you keep using this one. Actions there follow your approval settings.",
   "machines.add.account": "Which account should Psyche use there?",
   "machines.add.account.own": "Your account (recommended)",
   "machines.add.account.ownHint":
@@ -21,8 +21,8 @@ export const machines = {
   "machines.add.again": "Make new commands",
   "machines.add.commands": "Commands for the Linux computer",
   "machines.add.installStep": "1. On the Linux computer, install the helper",
-  "machines.add.pairStep": "2. Then pair it",
-  "machines.add.expires": "The pairing command works once and expires {when}.",
+  "machines.add.pairStep": "2. Start pairing there",
+  "machines.add.expires": "The link works once and expires {when}.",
   "machines.add.waiting": "Waiting for the computer to pair…",
   "machines.add.paired": "{name} is paired. Psyche can use it now.",
   "machines.add.pairedToast": "{name} was added",
@@ -79,7 +79,7 @@ export const machines = {
   "machines.warn.sudo":
     "This account has passwordless sudo. Psyche can't use sudo here, but other programs you run as this account can.",
   "machines.paired": "Paired {when}",
-  "machines.line": "On {name} · Linux · {place}",
+  "machines.line": "On “{name}” · Linux · {place}",
   "machines.place.screen": "private screen",
   "machines.place.desktop": "its desktop",
   "machines.place.command": "command",
@@ -108,4 +108,12 @@ export const machines = {
   "notice.machine.offline.title": "{name} went offline",
   "notice.machine.offline.body":
     "Psyche can't use it until it reconnects. Tasks that need it wait for you.",
+  "machines.add.linkStep": "3. When it asks for the link, paste this",
+  "machines.add.installSource":
+    "Get the helper package from {url}, unpack it, then run this on the Linux computer.",
+  "machines.reports": "{name} reports:",
+  "computerWatch.machineLoading": "Loading computer…",
+  "computerWatch.machineMissing": "That computer isn't available.",
+  "settings.key.computerUse.defaultMachine": "Default computer for background work",
+  "settings.key.computerUse.machineApps": "App access on a Linux computer",
 } as const;

@@ -92,10 +92,17 @@ export function installCommand(account: "own" | "dedicated"): string {
   return account === "dedicated" ? "sh install.sh --dedicated-user" : "sh install.sh";
 }
 
-/** What the owner runs on the new computer. The link carries a one-time secret. */
-export function pairCommand(link: string): string {
-  return `psyche-helper pair '${link}'`;
+/**
+ * What the owner runs on the new computer. The link is not part of it: the helper reads it from
+ * standard input (`pair -`), so the one-time token never lands in shell history or in the
+ * process list.
+ */
+export function pairCommand(): string {
+  return "psyche-helper pair -";
 }
+
+/** Where the helper package comes from: the Psyche release page. */
+export const HELPER_RELEASE_URL = "https://github.com/devmello/psyche/releases/latest";
 
 const DISPLAY_WORD = {
   headless: "machines.display.headless",
@@ -410,6 +417,11 @@ function MachineRow({
       ) : null}
 
       {warnings.length > 0 ? (
+        <p className="text-callout text-label-secondary">
+          {t("machines.reports", { name: m.name })}
+        </p>
+      ) : null}
+      {warnings.length > 0 ? (
         <ul className="flex flex-col gap-1" aria-label={t("machines.warnings", { name: m.name })}>
           {warnings.map((w) => (
             <li key={w} className="flex gap-2 text-callout text-approval-text">
@@ -532,7 +544,6 @@ export function AddMachineSheet({
   const [made, setMade] = useState<Made | null>(null);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const known = useRef<ReadonlySet<string> | null>(null);
   const reloadTokens = tokens.reload;
   const reloadMachines = machinesQ.reload;
   const madeId = made?.setupToken.id;
@@ -559,18 +570,13 @@ export function AddMachineSheet({
   }, [madeId, reloadTokens, reloadMachines]);
 
   const machines = machinesQ.data?.machines ?? [];
-  if (madeId !== undefined && known.current === null) {
-    known.current = new Set(machines.map((m) => m.id));
-  }
   const used = tokens.data?.setupTokens.find((s) => s.id === madeId);
+  // Green only for the computer that used this token, never for one that paired at the same time
+  // some other way.
   const arrived =
-    madeId === undefined
+    used?.usedByDeviceId == null
       ? undefined
-      : machines.find(
-          (m) =>
-            (used?.usedByDeviceId != null && m.deviceId === used.usedByDeviceId) ||
-            known.current?.has(m.id) === false,
-        );
+      : machines.find((m) => m.deviceId === used.usedByDeviceId);
   const lapsed =
     made !== undefined && made !== null && Date.parse(made.setupToken.expiresAt) <= clock;
 
@@ -580,11 +586,9 @@ export function AddMachineSheet({
     setBusy(false);
     setChosenVia(null);
     setAccount("own");
-    known.current = null;
   };
 
   const finish = (result: Made) => {
-    known.current = new Set(machines.map((m) => m.id));
     setMade(result);
     tokens.reload();
   };
@@ -695,8 +699,12 @@ export function AddMachineSheet({
               className="flex flex-col gap-3"
               data-testid="machine-commands"
             >
+              <p className="text-callout text-label-secondary">
+                {t("machines.add.installSource", { url: HELPER_RELEASE_URL })}
+              </p>
               <CopyRow label={t("machines.add.installStep")} text={installCommand(account)} />
-              <CopyRow label={t("machines.add.pairStep")} text={pairCommand(made.link)} secret />
+              <CopyRow label={t("machines.add.pairStep")} text={pairCommand()} />
+              <CopyRow label={t("machines.add.linkStep")} text={made.link} secret />
               <p className="text-callout text-label-secondary">
                 {t("machines.add.expires", {
                   when: formatRelative(made.setupToken.expiresAt, clock),

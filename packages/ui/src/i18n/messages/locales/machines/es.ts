@@ -9,7 +9,7 @@ export const machines: Partial<Catalogue> = {
     "Dale a Psyche un ordenador Linux para trabajar, de modo que use allí apps, comandos y archivos mientras sigues usando este.",
   "machines.add": "Añadir un ordenador Linux",
   "machines.add.description":
-    "Psyche trabaja en ese ordenador mientras sigues usando este. Cada acción allí te sigue pidiendo permiso antes.",
+    "Psyche trabaja en ese ordenador mientras sigues usando este. Las acciones allí siguen tus ajustes de aprobación.",
   "machines.add.account": "¿Qué cuenta debe usar Psyche allí?",
   "machines.add.account.own": "Tu cuenta (recomendado)",
   "machines.add.account.ownHint":
@@ -23,8 +23,8 @@ export const machines: Partial<Catalogue> = {
   "machines.add.again": "Crear comandos nuevos",
   "machines.add.commands": "Comandos para el ordenador Linux",
   "machines.add.installStep": "1. En el ordenador Linux, instala el asistente",
-  "machines.add.pairStep": "2. Después, vincúlalo",
-  "machines.add.expires": "El comando de vinculación funciona una vez y caduca {when}.",
+  "machines.add.pairStep": "2. Inicia allí la vinculación",
+  "machines.add.expires": "El enlace funciona una vez y caduca {when}.",
   "machines.add.waiting": "Esperando a que el ordenador se vincule…",
   "machines.add.paired": "{name} está vinculado. Psyche ya puede usarlo.",
   "machines.add.pairedToast": "Se añadió {name}",
@@ -81,7 +81,7 @@ export const machines: Partial<Catalogue> = {
   "machines.warn.sudo":
     "Esta cuenta tiene sudo sin contraseña. Psyche no puede usar sudo aquí, pero otros programas que ejecutes con esta cuenta sí.",
   "machines.paired": "Vinculado {when}",
-  "machines.line": "En {name} · Linux · {place}",
+  "machines.line": "En «{name}» · Linux · {place}",
   "machines.place.screen": "pantalla privada",
   "machines.place.desktop": "su escritorio",
   "machines.place.command": "comando",
@@ -110,4 +110,13 @@ export const machines: Partial<Catalogue> = {
   "notice.machine.offline.title": "{name} se desconectó",
   "notice.machine.offline.body":
     "Psyche no puede usarlo hasta que se reconecte. Las tareas que lo necesitan esperan por ti.",
+  "machines.add.linkStep": "3. Cuando pida el enlace, pega este",
+  "machines.add.installSource":
+    "Obtén el paquete del asistente en {url}, descomprímelo y ejecuta esto en el ordenador Linux.",
+  "machines.reports": "{name} informa:",
+  "computerWatch.machineLoading": "Cargando ordenador…",
+  "computerWatch.machineMissing": "Ese ordenador no está disponible.",
+  "settings.key.computerUse.defaultMachine":
+    "Ordenador predeterminado para el trabajo en segundo plano",
+  "settings.key.computerUse.machineApps": "Acceso a apps en un ordenador Linux",
 };

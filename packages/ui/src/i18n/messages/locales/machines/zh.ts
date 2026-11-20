@@ -9,7 +9,7 @@ export const machines: Partial<Catalogue> = {
     "给 Psyche 一台 Linux 电脑来工作，这样它可以在你继续使用这台电脑时，在那里使用应用、命令和文件。",
   "machines.add": "添加 Linux 电脑",
   "machines.add.description":
-    "你继续使用这台电脑时，Psyche 在那台电脑上工作。那里的每个操作仍会先征求你的同意。",
+    "你继续使用这台电脑时，Psyche 在那台电脑上工作。那里的操作遵循你的审批设置。",
   "machines.add.account": "Psyche 在那里应使用哪个账户？",
   "machines.add.account.own": "你的账户（推荐）",
   "machines.add.account.ownHint":
@@ -23,8 +23,8 @@ export const machines: Partial<Catalogue> = {
   "machines.add.again": "生成新命令",
   "machines.add.commands": "Linux 电脑的命令",
   "machines.add.installStep": "1. 在 Linux 电脑上安装助手",
-  "machines.add.pairStep": "2. 然后配对",
-  "machines.add.expires": "配对命令只能使用一次，将在 {when}失效。",
+  "machines.add.pairStep": "2. 在那里开始配对",
+  "machines.add.expires": "链接只能使用一次，将在 {when}失效。",
   "machines.add.waiting": "正在等待电脑完成配对…",
   "machines.add.paired": "{name} 已配对。Psyche 现在可以使用它。",
   "machines.add.pairedToast": "已添加 {name}",
@@ -77,7 +77,7 @@ export const machines: Partial<Catalogue> = {
   "machines.warn.sudo":
     "该账户有免密码的 sudo。Psyche 在这里不能使用 sudo，但你以该账户运行的其他程序可以。",
   "machines.paired": "{when}配对",
-  "machines.line": "在 {name} · Linux · {place}",
+  "machines.line": "在“{name}”· Linux · {place}",
   "machines.place.screen": "私有屏幕",
   "machines.place.desktop": "它的桌面",
   "machines.place.command": "命令",
@@ -101,4 +101,11 @@ export const machines: Partial<Catalogue> = {
   "notice.machine.working.body": "它正在使用那台电脑的屏幕、应用或文件。可在“设置”→“设备”中观看。",
   "notice.machine.offline.title": "{name} 已离线",
   "notice.machine.offline.body": "重新连接前 Psyche 无法使用它。需要它的任务会等你处理。",
+  "machines.add.linkStep": "3. 提示输入链接时，粘贴这个",
+  "machines.add.installSource": "从 {url} 获取助手安装包，解压后在 Linux 电脑上运行下面的命令。",
+  "machines.reports": "{name} 报告：",
+  "computerWatch.machineLoading": "正在加载电脑…",
+  "computerWatch.machineMissing": "该电脑不可用。",
+  "settings.key.computerUse.defaultMachine": "后台工作的默认电脑",
+  "settings.key.computerUse.machineApps": "Linux 电脑上的应用权限",
 };

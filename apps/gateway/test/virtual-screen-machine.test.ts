@@ -1,8 +1,13 @@
 import { describe, expect, it, vi } from "vitest";
 
+const paired = { removed: false, revoked: false };
 vi.mock("@psyche/db", () => ({
   getMachine: (_db: unknown, id: string) =>
-    id === "mch_lab" ? { id, deviceId: "dev_lab" } : undefined,
+    id === "mch_lab" && !paired.removed ? { id, deviceId: "dev_lab" } : undefined,
+  getDevice: (_db: unknown, id: string) =>
+    id === "dev_lab"
+      ? { id, revokedAt: paired.revoked ? "2026-11-20T00:00:00Z" : null }
+      : undefined,
 }));
 
 import { composeVirtualScreen } from "../src/compose/virtual-screen.ts";
@@ -20,18 +25,28 @@ const STATUS = {
 const FRAME = { changed: true, frameSeq: 8, image: "AAAA", width: 1280, height: 800 };
 
 /** A composed part with a Host helper and (optionally) a live machine `dev_lab`. */
-function part(machine: "online" | "offline" | "no_screen") {
+function part(machine: "online" | "offline" | "no_screen", unsaved = false) {
+  paired.removed = false;
+  paired.revoked = false;
+  const published: { event: string; payload: unknown }[] = [];
+  const hidden = new Set<string>();
   const hostCalls: { capability: string; params: unknown }[] = [];
   const machineCalls: { capability: string; params: unknown }[] = [];
   const answer = (capability: string) =>
     capability === "vscreen.frame"
       ? FRAME
       : capability === "vscreen.status"
-        ? STATUS
-        : { ok: true };
+        ? unsaved
+          ? { ...STATUS, apps: [{ appId: "gedit", pid: 4, hasUnsavedChanges: true }] }
+          : STATUS
+        : capability === "vscreen.stop"
+          ? { ok: !unsaved }
+          : { ok: true };
   const composed = composeVirtualScreen({
-    attention: { paneHidden: () => false },
-    publish: () => undefined,
+    attention: {
+      paneHidden: (pane: string, machine?: string) => hidden.has(`${pane}:${machine ?? ""}`),
+    },
+    publish: (event: string, payload: unknown) => published.push({ event, payload }),
     clock: { now: () => 1_000 },
   } as never);
   composed.start?.({
@@ -57,6 +72,7 @@ function part(machine: "online" | "offline" | "no_screen") {
                           { name: "vscreen.status" },
                           { name: "vscreen.frame" },
                           { name: "vscreen.input" },
+                          { name: "vscreen.stop" },
                         ],
                 },
                 client: {
@@ -74,7 +90,7 @@ function part(machine: "online" | "offline" | "no_screen") {
     (composed.handlers as Record<string, { run: (c: unknown, p: unknown) => unknown }>)[
       method
     ]?.run({ identity: { desktopShell: true }, method }, params);
-  return { run, hostCalls, machineCalls };
+  return { run, hostCalls, machineCalls, published, hidden };
 }
 
 describe("the watch pane's machine param", () => {
@@ -136,5 +152,55 @@ describe("the watch pane's machine param", () => {
       takenOver: boolean;
     };
     expect(again.takenOver).toBe(true);
+  });
+
+  it("refuses take-over on an unknown machine and does not cache it", async () => {
+    const { run, hostCalls } = part("online");
+    await expect(
+      run("computerWatch.takeOver", { on: true, machine: "mch_nope" }),
+    ).rejects.toMatchObject({
+      code: "not_found",
+    });
+    expect(hostCalls).toEqual([]);
+  });
+
+  it("drops a removed or revoked machine's screen and state", async () => {
+    const { run } = part("online");
+    await run("computerWatch.takeOver", { on: true, machine: "mch_lab" });
+    paired.revoked = true;
+    await expect(run("computerWatch.status", { machine: "mch_lab" })).rejects.toMatchObject({
+      code: "not_found",
+    });
+    paired.revoked = false;
+    // Paired again: the old take-over is gone with the old entry.
+    expect(
+      (await run("computerWatch.takeOver", { on: false, machine: "mch_lab" })) as object,
+    ).toEqual({ takenOver: false });
+    paired.removed = true;
+    await expect(run("computerWatch.status", { machine: "mch_lab" })).rejects.toMatchObject({
+      code: "not_found",
+    });
+  });
+
+  it("a parked card carries the machine it belongs to", async () => {
+    const { run, published } = part("online", true);
+    await run("computerWatch.stop", { machine: "mch_lab" });
+    expect(published.filter((p) => p.event === "computerWatch.parked")).toEqual([
+      { event: "computerWatch.parked", payload: { apps: expect.any(Array), machine: "mch_lab" } },
+    ]);
+    // Discard on the Host acts on the Host's own (empty) card, never on the machine's.
+    await expect(run("computerWatch.resolveParked", { action: "discard" })).rejects.toMatchObject({
+      details: { reason: "not_parked" },
+    });
+  });
+
+  it("frame visibility is read for the machine's own pane", async () => {
+    const { run, hidden } = part("online");
+    hidden.add("vscreen:");
+    expect(await run("computerWatch.frame", { machine: "mch_lab" })).toMatchObject({ frameSeq: 8 });
+    hidden.add("vscreen:mch_lab");
+    await expect(run("computerWatch.frame", { machine: "mch_lab" })).rejects.toMatchObject({
+      details: { reason: "pane_hidden" },
+    });
   });
 });

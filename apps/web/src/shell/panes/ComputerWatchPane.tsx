@@ -75,19 +75,26 @@ export function ComputerWatchPane({
   const machineId = machine ?? undefined;
   const client = useMemo(() => watchClient(store, setParked, machineId), [store, machineId]);
   const [name, setName] = useState<string | null>(null);
+  // Until the computer's name is known (or if it can't be found), the pane says so instead of
+  // looking like the Host's screen, and sends nothing to it.
+  const [lookup, setLookup] = useState<"loading" | "found" | "missing">("loading");
 
   // The computer's name for the title; it follows a rename.
   useEffect(() => {
-    if (machineId === undefined) {
-      setName(null);
-      return;
-    }
+    setLookup("loading");
+    setName(null);
+    if (machineId === undefined) return;
     let live = true;
     const load = () =>
       void store
         .call<{ machines: { id: string; name: string }[] }>("machines.list", {})
-        .then((res) => live && setName(res?.machines.find((m) => m.id === machineId)?.name ?? null))
-        .catch(() => undefined);
+        .then((res) => {
+          if (!live) return;
+          const found = res?.machines.find((m) => m.id === machineId)?.name ?? null;
+          setName(found);
+          setLookup(found === null ? "missing" : "found");
+        })
+        .catch(() => live && setLookup("missing"));
     load();
     const off = store.tap((e) => e.event === "machines.changed" && load());
     return () => {
@@ -99,12 +106,28 @@ export function ComputerWatchPane({
   // Frames are pulled only while the pane is shown; tell the Gateway so it can refuse otherwise.
   useEffect(() => {
     const report = (visible: boolean) =>
-      void store.call("attention.report", { pane: "vscreen", visible }).catch(() => undefined);
-    report(!covered);
+      void store
+        .call("attention.report", {
+          pane: "vscreen",
+          visible,
+          ...(machineId === undefined ? {} : { machine: machineId }),
+        })
+        .catch(() => undefined);
+    // Each computer's pane reports on its own: hiding one never hides another.
+    report(!covered && (machineId === undefined || lookup === "found"));
     return () => report(false);
-  }, [store, covered]);
+  }, [store, covered, machineId, lookup]);
 
-  useEffect(() => store.tap((e) => e.event === "computerWatch.parked" && setParked(true)), [store]);
+  // A parked card belongs to one screen: only the pane for that screen shows it.
+  useEffect(
+    () =>
+      store.tap((e) => {
+        if (e.event !== "computerWatch.parked") return;
+        const from = (e.payload as { machine?: string } | undefined)?.machine;
+        if (from === machineId) setParked(true);
+      }),
+    [store, machineId],
+  );
 
   const resolve = (action: "look" | "discard" | "keep_open") =>
     store
@@ -117,6 +140,18 @@ export function ComputerWatchPane({
         setProblem(null);
       })
       .catch((err: unknown) => setProblem(describeError(err)));
+
+  if (machineId !== undefined && lookup !== "found") {
+    return (
+      <div style={{ height: "100%" }} data-testid="computer-watch-pane">
+        <p role="status" style={{ padding: 16, color: "var(--shell-muted)" }}>
+          {t(
+            lookup === "loading" ? "computerWatch.machineLoading" : "computerWatch.machineMissing",
+          )}
+        </p>
+      </div>
+    );
+  }
 
   return (
     <div style={{ height: "100%" }} data-testid="computer-watch-pane">

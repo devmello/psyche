@@ -9,7 +9,7 @@ export const machines: Partial<Catalogue> = {
     "Donne à Psyche un ordinateur Linux pour travailler, afin qu'il y utilise des apps, des commandes et des fichiers pendant que tu continues d'utiliser celui-ci.",
   "machines.add": "Ajouter un ordinateur Linux",
   "machines.add.description":
-    "Psyche travaille sur cet ordinateur pendant que tu continues d'utiliser celui-ci. Chaque action là-bas te demande toujours d'abord.",
+    "Psyche travaille sur cet ordinateur pendant que tu continues d'utiliser celui-ci. Les actions là-bas suivent tes réglages d'approbation.",
   "machines.add.account": "Quel compte Psyche doit-il utiliser là-bas ?",
   "machines.add.account.own": "Ton compte (recommandé)",
   "machines.add.account.ownHint":
@@ -23,8 +23,8 @@ export const machines: Partial<Catalogue> = {
   "machines.add.again": "Créer de nouvelles commandes",
   "machines.add.commands": "Commandes pour l'ordinateur Linux",
   "machines.add.installStep": "1. Sur l'ordinateur Linux, installe l'assistant",
-  "machines.add.pairStep": "2. Puis associe-le",
-  "machines.add.expires": "La commande d'association ne marche qu'une fois et expire {when}.",
+  "machines.add.pairStep": "2. Lance l'association là-bas",
+  "machines.add.expires": "Le lien ne marche qu'une fois et expire {when}.",
   "machines.add.waiting": "En attente de l'association de l'ordinateur…",
   "machines.add.paired": "{name} est associé. Psyche peut l'utiliser.",
   "machines.add.pairedToast": "{name} a été ajouté",
@@ -83,7 +83,7 @@ export const machines: Partial<Catalogue> = {
   "machines.warn.sudo":
     "Ce compte a sudo sans mot de passe. Psyche ne peut pas utiliser sudo ici, mais d'autres programmes lancés avec ce compte le peuvent.",
   "machines.paired": "Associé {when}",
-  "machines.line": "Sur {name} · Linux · {place}",
+  "machines.line": "Sur « {name} » · Linux · {place}",
   "machines.place.screen": "écran privé",
   "machines.place.desktop": "son bureau",
   "machines.place.command": "commande",
@@ -113,4 +113,13 @@ export const machines: Partial<Catalogue> = {
   "notice.machine.offline.title": "{name} est passé hors ligne",
   "notice.machine.offline.body":
     "Psyche ne peut pas l'utiliser avant sa reconnexion. Les tâches qui en ont besoin t'attendent.",
+  "machines.add.linkStep": "3. Quand il demande le lien, colle celui-ci",
+  "machines.add.installSource":
+    "Récupère le paquet de l'assistant sur {url}, décompresse-le, puis exécute ceci sur l'ordinateur Linux.",
+  "machines.reports": "{name} signale :",
+  "computerWatch.machineLoading": "Chargement de l'ordinateur…",
+  "computerWatch.machineMissing": "Cet ordinateur n'est pas disponible.",
+  "settings.key.computerUse.defaultMachine":
+    "Ordinateur par défaut pour le travail en arrière-plan",
+  "settings.key.computerUse.machineApps": "Accès aux apps sur un ordinateur Linux",
 };
