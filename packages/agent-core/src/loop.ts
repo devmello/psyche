@@ -229,19 +229,66 @@ export const DEFAULT_COMPACT_AT = 0.8;
 export const DEFAULT_COMPACT_MAX_TOKENS = 160_000;
 export const DEFAULT_KEEP_RECENT_TURNS = 4;
 
-/** Previous standing instructions first, then new ones, without repeats; the oldest go past the cap. */
-export function carryPinned(previous: readonly string[], added: readonly string[]): string[] {
-  const seen = new Set<string>();
-  const out: string[] = [];
-  for (const item of [...previous, ...added]) {
-    const key = item.replace(/\s+/g, " ").trim().toLowerCase();
-    if (key === "" || seen.has(key)) continue;
-    seen.add(key);
-    out.push(item);
-  }
-  return out.slice(-PINNED_CAP);
-}
 const PINNED_CAP = 40;
+/** New standing instructions one compaction may add. */
+const PINNED_NEW_PER_COMPACTION = 5;
+const pinKey = (item: string) => item.replace(/\s+/g, " ").trim().toLowerCase();
+
+/**
+ * Standing instructions across compactions, decided by code and not by the model copying them:
+ * `carry = previous − retired + new`, deduped. An earlier item leaves only when the summarizer
+ * names it in `retired` (and only when this summary is trusted: a summary that read untrusted text
+ * cannot revoke the owner's rules). At most 5 new items per compaction. Each item remembers whether
+ * a trusted or an untrusted summary added it; past `PINNED_CAP`, untrusted items go first (newest
+ * first), then the newest of the rest, so a flood from an untrusted source never evicts the
+ * owner's earliest rules.
+ */
+export function carryPinned(
+  previous: readonly string[],
+  added: readonly string[],
+  options: {
+    /** Items of `previous` that an untrusted summary added. */
+    untrustedPrevious?: readonly string[];
+    /** Earlier items the owner revoked or replaced, verbatim. */
+    retired?: readonly string[];
+    /** The summary that listed `added` read untrusted content. */
+    untrusted?: boolean;
+  } = {},
+): { items: string[]; untrusted: string[] } {
+  const retired = new Set((options.retired ?? []).map(pinKey));
+  const bad = new Set((options.untrustedPrevious ?? []).map(pinKey));
+  const kept: { text: string; untrusted: boolean }[] = [];
+  const seen = new Set<string>();
+  for (const item of previous) {
+    const key = pinKey(item);
+    if (key === "" || seen.has(key) || retired.has(key)) continue;
+    seen.add(key);
+    kept.push({ text: item, untrusted: bad.has(key) });
+  }
+  let fresh = 0;
+  for (const item of added) {
+    const key = pinKey(item);
+    if (key === "" || seen.has(key)) continue;
+    if (fresh >= PINNED_NEW_PER_COMPACTION) break;
+    seen.add(key);
+    fresh += 1;
+    kept.push({ text: item, untrusted: options.untrusted === true });
+  }
+  while (kept.length > PINNED_CAP) {
+    let drop = -1;
+    for (let i = kept.length - 1; i >= 0; i--) {
+      if (kept[i]?.untrusted === true) {
+        drop = i;
+        break;
+      }
+    }
+    kept.splice(drop < 0 ? kept.length - 1 : drop, 1);
+  }
+  return {
+    items: kept.map((k) => k.text),
+    untrusted: kept.filter((k) => k.untrusted).map((k) => k.text),
+  };
+}
 
 /** How many user messages stay after a compaction (the summarizer is told the cut by count). */
 function keptUserMessages(recent: readonly ModelMessage[]): number {
@@ -1994,6 +2041,7 @@ export class PsycheAgentLoop implements AgentLoop {
     }
     let structured: CompactionSummary;
     let notes: string[] = [];
+    let retiredPins: string[] = [];
     const utility = this.#o.utilityModel ?? run.model;
     const standalone = () =>
       summarizeWithNotes(
@@ -2032,19 +2080,22 @@ export class PsycheAgentLoop implements AgentLoop {
       reply ??= await standalone();
       structured = reply.summary;
       notes = reply.dailyNoteLines;
+      retiredPins = reply.retiredInstructions;
     } catch {
       // An unusable summary never replaces the turns (fail closed: the limit check decides).
       this.#checkAbort(run);
       return false;
     }
     // Standing instructions are carried over mechanically, never left to the model to copy.
-    structured = {
-      ...structured,
-      pinnedInstructions: carryPinned(
-        run.thread.summary?.structured?.pinnedInstructions ?? [],
-        structured.pinnedInstructions,
-      ),
-    };
+    const priorPins = run.thread.summary?.structured?.pinnedInstructions ?? [];
+    const carried = carryPinned(priorPins, structured.pinnedInstructions, {
+      // A summary from before pins were tracked, and untrusted, counts all of its items as such.
+      untrustedPrevious: run.thread.summary?.untrustedPins ?? (priorUntrusted ? priorPins : []),
+      // A summary that read untrusted text cannot revoke the owner's rules.
+      retired: untrusted ? [] : retiredPins,
+      untrusted,
+    });
+    structured = { ...structured, pinnedInstructions: carried.items };
     if (merged && !incognito && notes.length > 0) {
       try {
         // The summarizer read the same stubbed turns; the lines are tainted like the flush's were.
@@ -2056,7 +2107,12 @@ export class PsycheAgentLoop implements AgentLoop {
     const replacedTurns = older.filter(
       (m) => m.role === "user" && m.parts.some((p) => p.type === "text"),
     ).length;
-    run.thread.summary = { text: renderCompactionSummary(structured), untrusted, structured };
+    run.thread.summary = {
+      text: renderCompactionSummary(structured),
+      untrusted,
+      structured,
+      ...(carried.untrusted.length === 0 ? {} : { untrustedPins: carried.untrusted }),
+    };
     run.thread.messages = recent;
     run.turnStart = Math.max(0, run.turnStart - older.length);
     run.thread.compactions = (run.thread.compactions ?? 0) + 1;

@@ -6,7 +6,7 @@ import type {
   ModelRef,
 } from "@psyche/protocol";
 import { oneLine, parseDailyNote } from "./daily.ts";
-import { blockingKinds, looksLikeInstruction } from "./filters.ts";
+import { blockingKinds, looksLikeFlushedInstruction } from "./filters.ts";
 import { dailyNotePath } from "./layout.ts";
 import type { SqliteMemoryStore } from "./store.ts";
 
@@ -154,9 +154,14 @@ async function appendFacts(
   let appended = 0;
   let refused = 0;
   for (const fact of facts) {
-    // An untainted line that reads as an instruction is kept, but as untrusted data: a plain
-    // agent note is read back into later prompts as trusted context.
-    const provenance = tainted || looksLikeInstruction(fact) ? "untrusted" : "agent";
+    // An untainted line that reads as an instruction is dropped (counted as refused): a plain
+    // agent note is read back into later prompts as trusted context, and tagging it untrusted
+    // would taint every thread that loads the note.
+    if (!tainted && looksLikeFlushedInstruction(fact)) {
+      refused++;
+      continue;
+    }
+    const provenance = tainted ? "untrusted" : "agent";
     if (known.has(fact.toLowerCase())) continue;
     if (blockingKinds(fact, config.allowSensitive === true).length > 0) {
       refused++;
