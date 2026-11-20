@@ -22,8 +22,11 @@ export interface Classified {
 
 const ZERO: Usage = { input: 0, output: 0, cacheRead: 0, cacheWrite: 0, reasoning: 0, costUsd: 0 };
 
-/** Invisible characters, including the bidi controls that reorder text (U+202A-202E, U+2066-2069). */
-const INVISIBLE = /[\u200B-\u200F\u202A-\u202E\u2060-\u2064\u2066-\u2069\uFEFF]/g;
+/**
+ * Invisible characters: every format character (zero-width, bidi controls, soft hyphen, tag
+ * characters) and every default-ignorable code point (fillers, variation selectors, CGJ).
+ */
+const INVISIBLE = /[\p{Cf}\p{Default_Ignorable_Code_Point}]/gu;
 /** Either fence marker, in any case, with stray spaces inside the brackets. */
 const FENCE_MARKER = /<<<\s*(?:end-)?untrusted-data\s*>>>/gi;
 
