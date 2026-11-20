@@ -80,6 +80,8 @@ export function createDbSessionResolver(db: PsycheDb): SessionResolver {
           sessionKey: `${RUN_THREAD_PREFIX}${automation.id}:${runId}`,
           title: automation.title,
           parentThreadId: home.id,
+          // The run is in its Space from the start (spaces-2026 SR3): fixed here, not by the model.
+          spaceId: automation.spaceId ?? null,
         }).id;
       }
       const name = /^named:(.+)$/.exec(target)?.[1];
@@ -87,7 +89,12 @@ export function createDbSessionResolver(db: PsycheDb): SessionResolver {
       const key = `named:${name}`;
       return (
         bySessionKey(key)?.id ??
-        createThread(db, { kind: "automation", sessionKey: key, title: automation.title }).id
+        createThread(db, {
+          kind: "automation",
+          sessionKey: key,
+          title: automation.title,
+          spaceId: automation.spaceId ?? null,
+        }).id
       );
     },
   };

@@ -78,9 +78,19 @@ const invalid = (what: string, issues: Parameters<typeof formatWidgetIssues>[0])
     `${what} was rejected. Fix these and call again:\n${formatWidgetIssues(issues)}`,
   );
 
+/**
+ * A tracker the Gateway drew for a Space (a template): its owner is `run space:<id>`. No chat
+ * drew it, so it has no chat to patch it, list it or count it against a cap; it lives on a host
+ * thread only because a widget row needs one (spaces-2026 SR7, SR10).
+ */
+export const isSpaceHosted = (w: { owner: WidgetOwner }): boolean =>
+  w.owner.kind === "run" && w.owner.runId.startsWith("space:");
+
 export interface PatchReach {
   /** The chat that drew the widget. */
   widgetThreadId: string;
+  /** The Gateway drew it for a Space (a template): the host thread has no say. */
+  widgetHosted?: boolean;
   /** The Space whose shelf holds it, if any. */
   shelfSpaceId: string | null;
   shelfArchived: boolean;
@@ -89,6 +99,10 @@ export interface PatchReach {
   callerThreadSpaceId: string | null;
   /** The Space the calling run belongs to, when known (an automation of the Space). */
   callerRunSpaceId: string | null;
+  /** The calling thread's kind; a channel thread never reaches into a Space (SR11). */
+  callerThreadKind?: string | null;
+  /** The caller is not the owner (a channel peer, a delegated persona): SR11. Default false. */
+  callerNotOwner?: boolean;
 }
 
 /**
@@ -98,8 +112,10 @@ export interface PatchReach {
  * server or a channel all look like "no such widget".
  */
 export function mayPatch(r: PatchReach): boolean {
-  if (r.callerThreadId === r.widgetThreadId) return true;
+  if (r.callerNotOwner === true) return r.callerThreadId === r.widgetThreadId && !r.widgetHosted;
+  if (r.callerThreadId === r.widgetThreadId && r.widgetHosted !== true) return true;
   if (r.shelfSpaceId === null || r.shelfArchived) return false;
+  if (r.callerThreadKind === "channel") return false;
   return r.callerThreadSpaceId === r.shelfSpaceId || r.callerRunSpaceId === r.shelfSpaceId;
 }
 
@@ -156,6 +172,8 @@ export class WidgetStore {
     taint: readonly TaintSource[];
     /** The Space the calling run belongs to, when the caller knows it (spaces-2026 SR7). */
     runSpaceId?: string | null;
+    /** The caller is not the owner (a channel peer or delegated persona): no reach into a Space. */
+    notOwner?: boolean;
   }): Widget {
     const shape = validateWidgetPatch({
       widgetId: input.widgetId,
@@ -164,7 +182,7 @@ export class WidgetStore {
     });
     if (!shape.ok) throw invalid("The patch", shape.issues);
     this.#freezeIdle(input.threadId);
-    const current = this.#reach(input.widgetId, input.threadId, input.runSpaceId);
+    const current = this.#reach(input.widgetId, input.threadId, input.runSpaceId, input.notOwner);
     if (current.state === "frozen") {
       throw new PsycheError(
         "conflict",
@@ -195,7 +213,16 @@ export class WidgetStore {
       throw new PsycheError("conflict", "The widget changed while patching; retry.");
     }
     this.#queue(next, current.rev, ops);
+    for (const l of this.#patched) l(next);
     return next;
+  }
+
+  readonly #patched = new Set<(w: Widget) => void>();
+
+  /** Called after a chat or run patched a widget (not for the Gateway's own recompute). */
+  onPatched(listener: (w: Widget) => void): () => void {
+    this.#patched.add(listener);
+    return () => this.#patched.delete(listener);
   }
 
   /**
@@ -256,6 +283,7 @@ export class WidgetStore {
   > {
     this.#freezeIdle(threadId);
     return listThreadWidgets(this.#db, threadId)
+      .filter((w) => !isSpaceHosted(w))
       .reverse()
       .map((w) => ({
         id: w.id,
@@ -315,19 +343,26 @@ export class WidgetStore {
    * The widget `threadId` may patch (D9 plus spaces-2026 SR7): its own chat's, and a tracker on the
    * shelf of the Space the caller's chat or run belongs to. Anything else looks like a missing one.
    */
-  #reach(widgetId: string, threadId: string, runSpaceId?: string | null): Widget {
+  #reach(
+    widgetId: string,
+    threadId: string,
+    runSpaceId?: string | null,
+    notOwner?: boolean,
+  ): Widget {
     const w = getWidget(this.#db, widgetId);
     const shelf = w === null ? null : this.shelfSpace(w.id);
-    const threadSpace = (
-      this.#db.sqlite.prepare("SELECT space_id FROM threads WHERE id = ?").get(threadId) as
-        | { space_id: string | null }
-        | undefined
-    )?.space_id;
+    const thread = this.#db.sqlite
+      .prepare("SELECT space_id, kind FROM threads WHERE id = ?")
+      .get(threadId) as { space_id: string | null; kind: string } | undefined;
+    const threadSpace = thread?.space_id;
     // Another thread's widget looks exactly like a missing one: ids cannot be probed (D9).
     if (
       w === null ||
       !mayPatch({
         widgetThreadId: w.threadId,
+        widgetHosted: isSpaceHosted(w),
+        callerThreadKind: thread?.kind ?? null,
+        callerNotOwner: notOwner === true,
         shelfSpaceId: shelf?.id ?? null,
         shelfArchived: shelf?.archived ?? false,
         callerThreadId: threadId,
@@ -346,7 +381,7 @@ export class WidgetStore {
   #enforceCap(threadId: string, keep: string): void {
     // A tracker on a Space shelf neither counts against the cap nor freezes for it (section 6.1).
     const live = listThreadWidgets(this.#db, threadId, { state: "live" }).filter(
-      (w) => !this.#shelved(w.id),
+      (w) => !this.#shelved(w.id) && !isSpaceHosted(w),
     );
     const over = live.length - WIDGET_LIMITS.livePerThread;
     if (over <= 0) return;

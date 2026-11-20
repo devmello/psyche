@@ -107,6 +107,7 @@ export function composeSpaces(deps: {
           }
         }),
       );
+      unsubscribe.push(widgetStoreFor(services).onPatched((w) => engine.notePatched(w.id)));
       const off = scheduler.onWorkflowEvent?.((event) => engine.signal({ kind: "event", event }));
       if (off !== undefined) unsubscribe.push(off);
     },

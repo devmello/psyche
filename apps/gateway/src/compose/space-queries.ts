@@ -1,6 +1,9 @@
-import { readdirSync, statSync } from "node:fs";
+import { lstat, readdir } from "node:fs/promises";
 import { join } from "node:path";
+import { defangFence } from "@psyche/agent-core";
 import type { PsycheDb } from "@psyche/db";
+import { ACCEPTED_REVIEW_SQL } from "@psyche/memory";
+import { grantedRootRefused, lookupRootFacts } from "@psyche/permissions";
 import { isSpaceQuerySource, type SpaceQuerySource, type TaintSource } from "@psyche/protocol";
 
 /**
@@ -62,22 +65,28 @@ export interface QueryDeps {
    */
   read?: ((tool: string, params: Record<string, unknown>) => Promise<unknown>) | undefined;
   /** The names and times of the files directly in a folder; never contents. Default: the disk. */
-  listFolder?: ((folder: string) => FileEntry[]) | undefined;
+  listFolder?: ((folder: string) => FileEntry[] | Promise<FileEntry[]>) | undefined;
 }
 
-const FENCE = /<<<\/?(?:end-)?untrusted-data>>>/g;
+/** Opening or closing tags of a prompt section (the same set `agent-core` neutralises). */
+const NEUTRALISED_TAG =
+  /[<\uFF1C\uFE64\u2039\u3008]\s*([/\uFF0F\u2215\u2044\u29F8]?)\s*(section|instructions|permissions|secrets|memory|browser|working)\b/gi;
 
-/** Third-party text for a node: one line, no control characters, no fence markers, capped. */
+/**
+ * Third-party text for a node: one line, no control characters, no fence or section markers (the
+ * prompt's own neutralisers, so a title cannot close a section or forge `<instructions>`), capped.
+ */
 export function cleanText(value: unknown, max = 200): string {
   if (typeof value !== "string") return "";
-  return (
-    value
-      .replace(FENCE, "")
-      // biome-ignore lint/suspicious/noControlCharactersInRegex: stripping controls is the point
-      .replace(/[\u0000-\u001f\u007f\p{Zl}\p{Zp}]+/gu, " ")
-      .replace(/\s+/g, " ")
-      .trim()
-      .slice(0, max)
+  const line = value
+    .replace(/<<<\/?(?:end-)?untrusted-data>>>/g, "")
+    .replace(/[\p{Cc}\p{Zl}\p{Zp}]+/gu, " ")
+    .replace(/\s+/g, " ")
+    .trim()
+    .slice(0, max);
+  return defangFence(line).replace(
+    NEUTRALISED_TAG,
+    (_m, slash: string, name: string) => `<${slash === "" ? "" : "/"}\u200B${name}`,
   );
 }
 
@@ -124,7 +133,7 @@ function untrustedFacts(db: PsycheDb, ids: readonly string[], attrs: readonly st
         WHERE entity_id IN (${ids.map(() => "?").join(",")})
           AND attribute IN (${attrs.map(() => "?").join(",")})
           AND provenance = 'untrusted' AND retracted_at IS NULL AND superseded_by IS NULL
-          AND valid_to IS NULL LIMIT 1`,
+          AND valid_to IS NULL AND review IN ${ACCEPTED_REVIEW_SQL} LIMIT 1`,
     )
     .get(...ids, ...attrs);
   return row !== undefined;
@@ -135,7 +144,7 @@ function latestFact(db: PsycheDb, entityId: string, attribute: string): string |
     .prepare(
       `SELECT value FROM graph_facts
         WHERE entity_id = ? AND attribute = ? AND retracted_at IS NULL AND superseded_by IS NULL
-          AND valid_to IS NULL ORDER BY recorded_at DESC LIMIT 1`,
+          AND valid_to IS NULL AND review IN ${ACCEPTED_REVIEW_SQL} ORDER BY recorded_at DESC LIMIT 1`,
     )
     .get(entityId, attribute) as { value: string } | undefined;
   return row?.value;
@@ -155,8 +164,10 @@ export function isProjectOrChild(db: PsycheDb, entityId: string, id: string): bo
   return (
     db.sqlite
       .prepare(
-        `SELECT 1 AS x FROM graph_edges WHERE src = ? AND dst = ? AND rel = 'part_of'
-            AND superseded_by IS NULL AND retracted_at IS NULL LIMIT 1`,
+        `SELECT 1 AS x FROM graph_edges g JOIN graph_entities e ON e.id = g.src
+          WHERE g.src = ? AND g.dst = ? AND g.rel = 'part_of' AND g.superseded_by IS NULL
+            AND g.retracted_at IS NULL AND g.review IN ${ACCEPTED_REVIEW_SQL} AND e.private = 0
+          LIMIT 1`,
       )
       .get(id, entityId) !== undefined
   );
@@ -211,9 +222,11 @@ function workDueQuery(deps: QueryDeps, space: QuerySpace, fields: string[]): Que
   }
   const rows = deps.db.sqlite
     .prepare(
-      `SELECT e.id, e.name, e.due_at, e.title_untrusted FROM graph_edges g
+      `SELECT e.id, e.name, e.due_at, e.title_untrusted, g.provenance AS edge_provenance
+         FROM graph_edges g
          JOIN graph_entities e ON e.id = g.src
         WHERE g.dst = ? AND g.rel = 'part_of' AND g.superseded_by IS NULL AND g.retracted_at IS NULL
+          AND g.review IN ${ACCEPTED_REVIEW_SQL} AND e.private = 0
           AND e.kind = 'assignment' AND e.status = 'active' AND e.hidden = 0
           AND e.work_status IN ${WORK_OPEN}
         ORDER BY (e.due_at IS NULL), e.due_at, e.name, e.id`,
@@ -223,6 +236,7 @@ function workDueQuery(deps: QueryDeps, space: QuerySpace, fields: string[]): Que
     name: string;
     due_at: string | null;
     title_untrusted: number;
+    edge_provenance: string;
   }>;
   const values: Record<string, FieldValue> = {};
   for (const f of fields) {
@@ -240,6 +254,8 @@ function workDueQuery(deps: QueryDeps, space: QuerySpace, fields: string[]): Que
   }
   const shown = rows.slice(0, 5);
   const tainted =
+    // A row reached through an edge someone else's text proposed is theirs, and so is the count.
+    rows.some((r) => r.edge_provenance === "untrusted") ||
     shown.some((r) => r.title_untrusted === 1) ||
     untrustedFacts(
       deps.db,
@@ -254,19 +270,54 @@ async function calendarQuery(
   space: QuerySpace,
   fields: string[],
 ): Promise<QueryResult> {
-  const anchors = spaceAnchors(deps.db, space.entityId).filter((a) => a.kind === "calendar");
-  if (deps.read === undefined) return { values: {}, taint: [], unavailable: true };
+  const read = deps.read;
+  const refs = spaceAnchors(deps.db, space.entityId)
+    .filter((a) => a.kind === "calendar")
+    .map((a) => a.ref)
+    .slice(0, 50);
+  if (read === undefined) return { values: {}, taint: [], unavailable: true };
   const now = deps.now();
-  const weekEnd = new Date(now.getTime() + 7 * 86_400_000);
-  const out = await deps.read("calendar_list_events", {
-    from: now.toISOString(),
-    to: weekEnd.toISOString(),
-    ...(anchors.length > 0 ? { calendarIds: anchors.map((a) => a.ref).slice(0, 50) } : {}),
-    limit: 50,
-  });
-  if (out === undefined) return { values: {}, taint: [], unavailable: true };
+  const from = now.toISOString();
+  const to = new Date(now.getTime() + 7 * 86_400_000).toISOString();
+  let events: Record<string, unknown>[] = [];
+  const trusted = new Set<string>();
   // Without a calendar anchor the project has no events of its own: nothing is shown.
-  const events = anchors.length === 0 ? [] : asList(out, "events");
+  if (refs.length > 0) {
+    let out: unknown;
+    try {
+      // Apple and Outlook take a window and a list of calendars.
+      out = await read("calendar_list_events", { from, to, calendarIds: refs, limit: 50 });
+      events = asList(out, "events");
+    } catch (err) {
+      // Google and Microsoft take one calendar and `timeMin`/`timeMax`.
+      const all: Record<string, unknown>[] = [];
+      for (const id of refs.slice(0, 10)) {
+        const o = await read("calendar_list_events", {
+          calendarId: id,
+          timeMin: from,
+          timeMax: to,
+          maxResults: 50,
+        }).catch(() => {
+          throw err;
+        });
+        out = o;
+        all.push(...asList(o, "events").map((e) => ({ calendarId: id, ...e })));
+      }
+      events = all;
+    }
+    if (out === undefined) return { values: {}, taint: [], unavailable: true };
+    // Trust is decided per calendar, and fails closed: only a calendar the owner can write and
+    // anchored to the project is the owner's own. A list that cannot be read trusts none.
+    try {
+      const calendars = asList(await read("calendar_list_calendars", {}), "calendars");
+      for (const c of calendars) {
+        if (typeof c.id === "string" && c.writable === true && refs.includes(c.id))
+          trusted.add(c.id);
+      }
+    } catch {
+      // none trusted
+    }
+  }
   const values: Record<string, FieldValue> = {};
   for (const f of fields) {
     if (f === "countWeek") values.countWeek = { value: events.length, text: String(events.length) };
@@ -281,12 +332,15 @@ async function calendarQuery(
       };
     }
   }
-  // Invited or shared events are someone else's text (W8): attendees beyond the owner, or a
-  // calendar the connector marks not writable.
-  const foreign = events.slice(0, 50).some((ev) => {
-    const attendees = Array.isArray(ev.attendees) ? ev.attendees.length : 0;
-    return attendees > 1 || ev.organizerIsSelf === false || ev.writable === false;
-  });
+  // Someone else's text unless the event sits on a trusted calendar and has no attendees at all
+  // (an invitation lists the owner too, so one attendee is not "mine"): W8.
+  const foreign = events.some(
+    (ev) =>
+      typeof ev.calendarId !== "string" ||
+      !trusted.has(ev.calendarId) ||
+      !Array.isArray(ev.attendees) ||
+      ev.attendees.length > 0,
+  );
   return { values, taint: foreign ? [{ sourceKind: "calendar" }] : [] };
 }
 
@@ -344,8 +398,12 @@ async function mailQuery(
   const out = await deps.read("mail_search", { limit: 50 });
   if (out === undefined) return { values: {}, taint, unavailable: true };
   const rows = asList(out, "messages").filter((m) => {
+    // Apple's `mail_search` has no thread id: its anchors are message ids (or `account:id`).
     const ids = [m.threadId, m.id].filter((x): x is string => typeof x === "string");
-    return ids.some((id) => refs.has(id));
+    const account = typeof m.account === "string" ? m.account : undefined;
+    return ids.some(
+      (id) => refs.has(id) || (account !== undefined && refs.has(`${account}:${id}`)),
+    );
   });
   const unread = rows.filter((m) => m.read === false || m.unread === true);
   const values: Record<string, FieldValue> = {};
@@ -366,12 +424,18 @@ async function mailQuery(
   return { values, taint };
 }
 
-function diskList(folder: string): FileEntry[] {
+/** The most names read from one folder: a huge directory cannot stall the Gateway. */
+const MAX_FOLDER_ENTRIES = 500;
+
+async function diskList(folder: string): Promise<FileEntry[]> {
+  const names = (await readdir(folder))
+    .filter((n) => !n.startsWith("."))
+    .slice(0, MAX_FOLDER_ENTRIES);
   const out: FileEntry[] = [];
-  for (const name of readdirSync(folder)) {
-    if (name.startsWith(".")) continue;
+  for (const name of names) {
     try {
-      out.push({ name, mtimeMs: statSync(join(folder, name)).mtimeMs });
+      // lstat: an entry that is a link is not followed (a mount behind it cannot hang the read).
+      out.push({ name, mtimeMs: (await lstat(join(folder, name))).mtimeMs });
     } catch {
       // gone between the listing and the stat
     }
@@ -379,20 +443,31 @@ function diskList(folder: string): FileEntry[] {
   return out;
 }
 
-function filesQuery(deps: QueryDeps, space: QuerySpace, fields: string[]): QueryResult {
+async function filesQuery(
+  deps: QueryDeps,
+  space: QuerySpace,
+  fields: string[],
+): Promise<QueryResult> {
   const folders = deps.db.sqlite
-    .prepare("SELECT path FROM space_folders WHERE space_id = ? ORDER BY added_at, path")
-    .all(space.id) as Array<{ path: string }>;
+    .prepare("SELECT path, real FROM space_folders WHERE space_id = ? ORDER BY added_at, path")
+    .all(space.id) as Array<{ path: string; real: string }>;
   if (folders.length === 0) return { values: {}, taint: [], unavailable: true };
   const list = deps.listFolder ?? diskList;
   const entries: FileEntry[] = [];
+  let readable = 0;
   for (const f of folders) {
     try {
-      entries.push(...list(f.path));
+      // The same refusals as a folder grant (SR2): a folder swapped for a link, moved off its
+      // recorded real path, or inside a sensitive root lists nothing.
+      const facts = await lookupRootFacts(f.path);
+      if (grantedRootRefused(f.path, facts, f.real)) continue;
+      entries.push(...(await list(facts.real ?? f.path)));
+      readable++;
     } catch {
       // an unreadable folder contributes nothing
     }
   }
+  if (readable === 0) return { values: {}, taint: [], unavailable: true };
   entries.sort((a, b) => b.mtimeMs - a.mtimeMs || a.name.localeCompare(b.name));
   const values: Record<string, FieldValue> = {};
   for (const f of fields) {
@@ -439,7 +514,7 @@ export async function runQuery(
       case "mail":
         return await mailQuery(deps, space, fields);
       case "files":
-        return filesQuery(deps, space, fields);
+        return await filesQuery(deps, space, fields);
     }
   } catch {
     // A connector that failed leaves the last values and shows "Unavailable"; nothing throws up.

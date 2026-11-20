@@ -46,6 +46,10 @@ export const OPEN_RECOMPUTE_MS = 30_000;
 export const TRACKER_MIN_MS = 60_000;
 export const EVENT_DEBOUNCE_MS = 120_000;
 export const QUERY_STALE_AFTER_S = 900;
+/** The owner's Refresh on a query tracker: at most one recompute per tracker per 10 s. */
+export const FORCE_MIN_MS = 10_000;
+/** `spaces.open` recomputes at most this many stale trackers; the rest wait for the next open. */
+export const OPEN_MAX_RECOMPUTES = 4;
 
 /** The `refresh` column: what a tracker reads and why it last changed. */
 export interface TrackerRefresh {
@@ -175,7 +179,12 @@ export class SpaceTrackers {
   /** Puts a widget or a template on the shelf; recomputes a query tracker at once. */
   async add(
     spaceId: string,
-    input: { widgetId?: string | undefined; template?: SpaceTrackerTemplate | undefined },
+    input: {
+      widgetId?: string | undefined;
+      template?: SpaceTrackerTemplate | undefined;
+      /** An agent tracker's automation: the owner's explicit link, in this Space. */
+      automationId?: string | undefined;
+    },
     addedBy: "owner" | "agent" | "template" = "owner",
   ): Promise<void> {
     this.#store().requireOpen(spaceId);
@@ -221,9 +230,20 @@ export class SpaceTrackers {
         : binds.length > 0
           ? "bound"
           : "agent";
+    if (input.automationId !== undefined) {
+      const own = this.#d.db.sqlite
+        .prepare("SELECT 1 AS x FROM automations WHERE id = ? AND space_id = ?")
+        .get(input.automationId, spaceId);
+      if (own === undefined) {
+        throw new PsycheError("invalid_params", "That automation is not in this Space.");
+      }
+    }
     const refresh: TrackerRefresh = {
       sources,
       ...(input.template === undefined ? {} : { template: input.template }),
+      ...(input.automationId === undefined || kind !== "agent"
+        ? {}
+        : { automationId: input.automationId }),
     };
     const now = new Date(this.#now()).toISOString();
     const position = (
@@ -253,10 +273,14 @@ export class SpaceTrackers {
   }
 
   remove(spaceId: string, widgetId: string): void {
-    this.#row(spaceId, widgetId);
+    const row = this.#row(spaceId, widgetId);
     this.#d.db.sqlite
       .prepare("DELETE FROM space_trackers WHERE space_id = ? AND widget_id = ?")
       .run(spaceId, widgetId);
+    // A template was drawn by the Gateway, not by a chat: there is no chat to return it to.
+    if (row.added_by === "template") {
+      this.#d.db.sqlite.prepare("DELETE FROM widgets WHERE id = ?").run(widgetId);
+    }
     this.#changed(spaceId, ["trackers"]);
   }
 
@@ -304,7 +328,8 @@ export class SpaceTrackers {
       threadId: main.id,
       messageId: `space:${spaceId}`,
       spec,
-      taint: [],
+      // Automation titles are text an agent can write: that tracker starts out tainted.
+      taint: template === "automation_status" ? [{ sourceKind: "automation_title" }] : [],
       owner: { kind: "run", runId: `space:${spaceId}` },
       spaceId,
     });
@@ -342,9 +367,14 @@ export class SpaceTrackers {
     const last = this.#lastOpen.get(spaceId);
     if (space.archivedAt === null && (last === undefined || now - last >= OPEN_RECOMPUTE_MS)) {
       this.#lastOpen.set(spaceId, now);
+      // A cap on the reads one open can start; the stalest wait for the next open.
+      let budget = OPEN_MAX_RECOMPUTES;
       for (const r of this.rows(spaceId)) {
+        if (budget === 0) break;
         if (r.kind !== "query" || parse(r).sources.length === 0) continue;
-        if (this.value(r).stale) await this.#recompute(spaceId, r.widget_id, "open");
+        if (!this.value(r).stale) continue;
+        budget--;
+        await this.#recompute(spaceId, r.widget_id, "open");
       }
     }
     return this.values(spaceId);
@@ -357,29 +387,40 @@ export class SpaceTrackers {
     if (row.kind === "query" && parse(row).sources.length > 0) {
       await this.#recompute(spaceId, widgetId, "refresh", true);
     } else if (row.kind === "agent") {
+      // Only the automation the owner linked to this tracker; a Space's other automations do
+      // other things (send mail, spend money) and a Refresh tap never starts them.
       const refresh = parse(row);
-      const own = refresh.automationId ? [refresh.automationId] : [];
-      const ids =
-        own.length > 0
-          ? own
-          : (
-              this.#d.db.sqlite
-                .prepare("SELECT id FROM automations WHERE space_id = ? AND enabled = 1")
-                .all(space.id) as Array<{ id: string }>
-            ).map((a) => a.id);
-      if (ids.length !== 1 || this.#d.runAgent === undefined) {
+      const linked = refresh.automationId;
+      const owns =
+        linked !== undefined &&
+        this.#d.db.sqlite
+          .prepare("SELECT 1 AS x FROM automations WHERE id = ? AND space_id = ? AND enabled = 1")
+          .get(linked, space.id) !== undefined;
+      if (!owns || this.#d.runAgent === undefined) {
         throw new PsycheError(
           "conflict",
-          "This tracker refreshes when the Space's automation runs. Set one automation in the Space first.",
+          "This tracker is not linked to an automation of the Space, so there is nothing to run. Link one when you add the tracker.",
         );
       }
       this.counters.agentRuns++;
-      await this.#d.runAgent(ids[0] as string);
-      const next: TrackerRefresh = { ...refresh };
-      next.staleSince = undefined;
-      this.#mark(row, next, "refresh");
+      await this.#d.runAgent(linked as string);
+      // Refreshed only when the run's patch lands (`notePatched`), not when it starts.
     }
     return this.value(this.#row(spaceId, widgetId));
+  }
+
+  /**
+   * A chat or run patched a widget. If it is an agent tracker on a live shelf, the patch is the
+   * refresh: the "may be out of date" mark clears and the time moves.
+   */
+  notePatched(widgetId: string): void {
+    const row = this.#d.db.sqlite
+      .prepare("SELECT * FROM space_trackers WHERE widget_id = ? AND kind = 'agent'")
+      .get(widgetId) as Row | undefined;
+    if (row === undefined) return;
+    const next: TrackerRefresh = parse(row);
+    next.staleSince = undefined;
+    this.#mark(row, next, "automation");
   }
 
   /** Whether any live Space has a query tracker on `source`: the mail and calendar poll's reason. */
@@ -519,13 +560,8 @@ export class SpaceTrackers {
     const row = this.#row(spaceId, widgetId);
     const space = this.#store().require(spaceId);
     if (space.archivedAt !== null) return;
-    if (
-      !force &&
-      row.refreshed_at !== null &&
-      this.#now() - Date.parse(row.refreshed_at) < TRACKER_MIN_MS
-    ) {
-      return;
-    }
+    const since = row.refreshed_at === null ? Infinity : this.#now() - Date.parse(row.refreshed_at);
+    if (since < (force ? FORCE_MIN_MS : TRACKER_MIN_MS)) return;
     const widget = getWidget(this.#d.db, widgetId);
     if (widget === null || widget.state === "frozen") return;
     const refresh = parse(row);
@@ -677,7 +713,11 @@ export function spaceTrackerHandlers(engine: SpaceTrackers): Record<string, Hand
   return {
     "spaces.trackers.add": {
       async run(call: Call, p: P<"spaces.trackers.add">): Promise<SpaceDetail> {
-        await engine.add(p.spaceId, { widgetId: p.widgetId, template: p.template });
+        await engine.add(p.spaceId, {
+          widgetId: p.widgetId,
+          template: p.template,
+          automationId: p.automationId,
+        });
         call.ctx.bus.bumpStateVersion();
         return detail(call, p.spaceId);
       },
