@@ -138,6 +138,15 @@ export function applyPairingDecision(
 ): { device: Device; machineId?: { machineId: string } } {
   const { device, machine } = input;
   if (machine) assertMachineCandidate(db, device);
+  // Never widen a Linux helper node, or a machine, with operator scopes by another route: it is
+  // paired as a machine (a link, or a machine card) or not at all.
+  if (
+    !machine &&
+    ((device.role === "node" && getDeviceFamily(db, device.id) === "linux-helper") ||
+      getMachineByDevice(db, device.id) !== undefined)
+  ) {
+    throw new PsycheError("conflict", "A Linux helper pairs as a machine, not with these scopes");
+  }
   const scopes: DeviceScope[] = machine ? ["node"] : [...new Set(input.scopes)];
   const updated = updateDevice(db, device.id, {
     scopes,

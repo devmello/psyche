@@ -83,4 +83,7 @@ export const notices: Partial<Catalogue> = {
   "notice.machine.added.title": "{name}이(가) Psyche가 사용할 수 있는 컴퓨터로 추가되었습니다",
   "notice.machine.added.body":
     "Psyche는 이 컴퓨터의 화면, 앱, 셸, 파일을 사용할 수 있으며, 그곳에서의 모든 동작은 먼저 사용자에게 확인을 요청합니다. 직접 추가한 것이 아니라면 설정 → 기기에서 삭제하세요.",
+  "notice.machine.removed.title": "{name}이(가) 스스로 제거되었습니다",
+  "notice.machine.removed.body":
+    "Psyche가 사용할 수 있던 컴퓨터입니다. 다시 추가하지 않으면 Psyche는 이 컴퓨터를 사용하지 않습니다.",
 };

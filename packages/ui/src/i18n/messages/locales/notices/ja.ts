@@ -84,4 +84,7 @@ export const notices: Partial<Catalogue> = {
   "notice.machine.added.title": "{name}を Psyche が使えるコンピュータとして追加しました",
   "notice.machine.added.body":
     "Psyche はその画面、アプリ、シェル、ファイルを使えますが、そこでの操作はそのつど先に確認します。心当たりがない場合は、設定 → デバイスから削除してください。",
+  "notice.machine.removed.title": "{name}が自分自身を削除しました",
+  "notice.machine.removed.body":
+    "Psyche が使えるコンピュータでした。もう一度追加しない限り、Psyche はこのコンピュータを使いません。",
 };

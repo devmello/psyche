@@ -83,4 +83,7 @@ export const notices: Partial<Catalogue> = {
   "notice.machine.added.title": "تمت إضافة {name} كجهاز كمبيوتر يمكن لـ Psyche استخدامه",
   "notice.machine.added.body":
     "يمكن لـ Psyche استخدام شاشته وتطبيقاته وطرفيته وملفاته، وكل إجراء هناك يطلب موافقتك أولاً. إن لم تكن أنت من أضافه، فأزِله من الإعدادات ← الأجهزة.",
+  "notice.machine.removed.title": "أزال {name} نفسه",
+  "notice.machine.removed.body":
+    "كان جهاز كمبيوتر يمكن لـ Psyche استخدامه. لن يستخدمه Psyche مجدداً ما لم تضفه من جديد.",
 };

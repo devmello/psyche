@@ -3,14 +3,19 @@ import { mkdtempSync } from "node:fs";
 import { hostname, tmpdir } from "node:os";
 import { join } from "node:path";
 import { getDevice, getMachineByDevice, insertDevice, openDb } from "@psyche/db";
-import { connectSigningPayload, PROTOCOL_VERSION } from "@psyche/protocol";
+import { connectSigningPayload, PROTOCOL_VERSION, parseMachineLink } from "@psyche/protocol";
 import { afterEach, describe, expect, it } from "vitest";
 import { runCli } from "../src/cli.ts";
 import { setupTokenHandlers } from "../src/compose/setup-tokens.ts";
-import { forceMachinePairingCardsForTests, machineNameKey } from "../src/nodes/machines.ts";
+import {
+  forceMachinePairingCardsForTests,
+  isMixedScriptName,
+  machineNameKey,
+} from "../src/nodes/machines.ts";
 import { StateSeal } from "../src/security/state-seal.ts";
 import {
   adminClient,
+  handshake,
   ik,
   newDeviceKey,
   startTestGateway,
@@ -68,6 +73,7 @@ async function connect(
     deviceId?: string;
     name?: string;
     family?: string;
+    setupToken?: string;
   } = {},
 ) {
   const gw = t as TestGateway;
@@ -100,6 +106,7 @@ async function connect(
     nonce: c.nonce,
     signature: sign(null, payload, key.privateKey).toString("base64url"),
     gatewayKey,
+    ...(o.setupToken === undefined ? {} : { setupToken: o.setupToken }),
   });
   return {
     client,
@@ -343,5 +350,172 @@ describe("a machines row planted outside Psyche", () => {
     expect(getMachineByDevice(d2, "plain")).toBeUndefined();
     expect(d2.sqlite.prepare("SELECT count(*) AS n FROM machines").get()).toEqual({ n: 0 });
     d2.close();
+  });
+});
+
+describe("a live machine socket never picks up operator scopes (r2 finding 1)", () => {
+  async function machineLink(admin: TestClient): Promise<string> {
+    const made = await admin.call<{ link: string }>("devices.setupToken.create", {
+      purpose: "machine",
+    });
+    return parseMachineLink(made.link).setupToken;
+  }
+
+  it("R3b: a client card approved by the CLI, the same key then paired by machine link", async () => {
+    const gw = await boot();
+    const admin = await adminClient(gw.gateway);
+    open.push(admin);
+    // A client card for a key, queued with admin through the CLI.
+    const key = newDeviceKey();
+    const c = await TestClient.open(wsUrlOf(gw.gateway), forwarded);
+    open.push(c);
+    const pending = await handshake(c, publicOrigin, {
+      key,
+      deviceId: "both",
+      role: "client",
+      deviceFamily: "desktop",
+      gatewayKey: gw.gateway.context.identity.publicKey,
+    });
+    const code = (pending.verifyRes?.payload as { code: string }).code;
+    await cli(["devices", "approve", code]);
+    // The same key pairs as a machine.
+    const m = await connect({
+      key,
+      deviceId: "both",
+      setupToken: await machineLink(admin),
+    });
+    expect(m.out.phase).toBe("paired");
+    expect(nodeOf(gw, "both")?.kind).toBe("machine");
+    offsetMs = DAY + 1000;
+    gw.gateway.context.securityRecoveries?.applyDue();
+    expect(getDevice(gw.gateway.context.db, "both")?.scopes).toEqual(["node"]);
+    // The socket that is still open is refused or closed, never widened.
+    const res = await m.client.request("devices.list", {});
+    expect(res.ok).toBe(false);
+  });
+
+  it("a grant on a machine is refused, at intake and at apply", async () => {
+    const gw = await boot();
+    const admin = await adminClient(gw.gateway);
+    open.push(admin);
+    const m = await connect({ setupToken: await machineLink(admin) });
+    expect(m.out.phase).toBe("paired");
+    const r = await cli(["devices", "grant", m.deviceId, "operator.read,operator.admin"]);
+    expect(r.code).not.toBe(0);
+    offsetMs = DAY + 1000;
+    gw.gateway.context.securityRecoveries?.applyDue();
+    expect(getDevice(gw.gateway.context.db, m.deviceId)?.scopes).toEqual(["node"]);
+  });
+
+  it("a machine socket whose row holds more than [node] is closed on its next call", async () => {
+    const gw = await boot();
+    const admin = await adminClient(gw.gateway);
+    open.push(admin);
+    const m = await connect({ setupToken: await machineLink(admin) });
+    gw.gateway.context.db.sqlite
+      .prepare("UPDATE devices SET scopes = ? WHERE id = ?")
+      .run('["node","operator.read"]', m.deviceId);
+    expect(await m.client.request("devices.list", {})).toMatchObject({
+      ok: false,
+      error: { code: "unauthorized" },
+    });
+  });
+});
+
+describe("machine names: lookalikes and squatting (r2 findings 2 and 3)", () => {
+  const SAME: [string, string][] = [
+    ["lab-box", "l\u0430b-box"],
+    ["lab-box", "lab_box"],
+    ["lab-box", "lab\u2013box"],
+    ["lab-box", "lab\u2010box"],
+    ["This Mac", "This Mac."],
+    ["This Mac", "ThisMac"],
+    ["This Mac", "This-Mac"],
+    ["This Mac", "\u03a4his Mac"],
+    ["lab-box", "\uff4c\uff41\uff42\uff0d\uff42\uff4f\uff58"],
+    ["lab-box", "\u217cab-box"],
+  ];
+  it.each(SAME)("%s and %s are one name", (a, b) => {
+    expect(machineNameKey(a)).toBe(machineNameKey(b));
+  });
+  it("different names stay different", () => {
+    for (const [a, b] of [
+      ["lab-box", "lab-box 2"],
+      ["lab-box", "lab-bay"],
+      ["build", "builds"],
+    ] as const) {
+      expect(machineNameKey(a)).not.toBe(machineNameKey(b));
+    }
+  });
+  it("mixed Latin and Cyrillic or Greek is refused; a whole-script name is not", () => {
+    expect(isMixedScriptName("l\u0430b-box")).toBe(true);
+    expect(isMixedScriptName("\u03a4his Mac")).toBe(true);
+    expect(isMixedScriptName("lab-box")).toBe(false);
+    expect(isMixedScriptName("\u0441\u0435\u0440\u0432\u0435\u0440")).toBe(false);
+    expect(isMixedScriptName("\u5b9e\u9a8c\u673a")).toBe(false);
+  });
+  it("the Host's name without .local is reserved", async () => {
+    const gw = await boot();
+    const { machineNameRefusal } = await import("../src/nodes/machines.ts");
+    const host = hostname();
+    for (const name of [host, host.replace(/\.local$/iu, ""), "This Mac.", "ThisMac"]) {
+      expect(machineNameRefusal(gw.gateway.context.db, name), name).toBe("reserved");
+    }
+  });
+  it("an unpaired or revoked device does not hold a name", async () => {
+    const gw = await boot();
+    const { machineNameRefusal } = await import("../src/nodes/machines.ts");
+    const db = gw.gateway.context.db;
+    insertDevice(db, {
+      id: "unpaired",
+      name: "studio",
+      platform: "linux",
+      role: "client",
+      publicKey: newDeviceKey().publicKey,
+      pairedAt: null,
+    });
+    insertDevice(db, {
+      id: "gone",
+      name: "attic",
+      platform: "linux",
+      role: "client",
+      publicKey: newDeviceKey().publicKey,
+      pairedAt: new Date().toISOString(),
+    });
+    db.sqlite
+      .prepare("UPDATE devices SET revoked_at = ? WHERE id = 'gone'")
+      .run(new Date().toISOString());
+    expect(machineNameRefusal(db, "Studio")).toBeUndefined();
+    expect(machineNameRefusal(db, "attic")).toBeUndefined();
+    insertDevice(db, {
+      id: "real",
+      name: "studio2",
+      platform: "linux",
+      role: "client",
+      publicKey: newDeviceKey().publicKey,
+      pairedAt: new Date().toISOString(),
+    });
+    expect(machineNameRefusal(db, "Studio-2")).toBe("taken");
+  });
+});
+
+describe("node.unpair tells the owner", () => {
+  it("notifies when a machine removes itself, not when the owner removes it", async () => {
+    const { machineChangeHook } = await import("../src/compose/machine-notices.ts");
+    const notes: { title: string; message?: { titleKey: string } }[] = [];
+    const hook = machineChangeHook({
+      audit: { append: async (e) => e as never },
+      notifier: {
+        notify: async (n: never) => {
+          notes.push(n);
+          return n;
+        },
+      } as never,
+    });
+    hook({ change: "removed", machineId: "m", deviceId: "d", name: "lab-box", byDeviceId: "d" });
+    hook({ change: "removed", machineId: "m2", deviceId: "d2", name: "x", byDeviceId: "admin" });
+    expect(notes).toHaveLength(1);
+    expect(notes[0]?.message?.titleKey).toBe("notice.machine.removed.title");
+    expect(notes[0]?.title).toBe("lab-box removed itself");
   });
 });

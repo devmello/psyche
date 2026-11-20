@@ -79,4 +79,7 @@ export const notices: Partial<Catalogue> = {
   "notice.machine.added.title": "已将 {name} 添加为 Psyche 可以使用的电脑",
   "notice.machine.added.body":
     "Psyche 可以使用它的屏幕、应用、终端和文件，且那里的每个操作都会先征求你的同意。如果不是你添加的，请在“设置 → 设备”中移除。",
+  "notice.machine.removed.title": "{name} 已自行移除",
+  "notice.machine.removed.body":
+    "它曾是 Psyche 可以使用的电脑。除非你重新添加，否则 Psyche 不会再使用它。",
 };

@@ -1,7 +1,7 @@
 import { getDevice, getMachine, listMachines, updateDevice } from "@psyche/db";
 import { type MachineInfo, machineNameOk, PsycheError } from "@psyche/protocol";
 import type { Call, HandlerDef } from "../context.ts";
-import { machineInfoOf, machineNameTaken } from "../nodes/machines.ts";
+import { machineInfoOf, machineNameRefusal } from "../nodes/machines.ts";
 
 /**
  * `machines.*` (docs/design/linux-helper-only-2026.md sections 8.2, 9; wave H3). A machine is
@@ -32,8 +32,12 @@ export const machinesHandlers: Record<string, HandlerDef> = {
       if (record === undefined || device === undefined || device.revokedAt) {
         throw new PsycheError("not_found", `machine ${params.id} not found`);
       }
-      // Names match case-insensitively and two machines cannot share one (design 8.2).
-      if (machineNameTaken(db, params.name, record.deviceId)) {
+      // Names compare by look and are unique among paired devices (design 8.2).
+      const why = machineNameRefusal(db, params.name, record.deviceId);
+      if (why === "mixed") {
+        throw new PsycheError("invalid_params", "A name cannot mix Latin letters with look-alikes");
+      }
+      if (why !== undefined) {
         throw new PsycheError("conflict", "That name is taken or reserved");
       }
       if (device.name !== params.name) {

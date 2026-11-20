@@ -49,6 +49,24 @@ export function machineChangeHook(deps: {
           code: PsycheError.from(err).code,
         });
       });
+    // A machine that removed itself (`node.unpair`) tells the owner; one the owner removed does not.
+    if (change.change === "removed" && change.byDeviceId === change.deviceId) {
+      void deps.notifier
+        .notify({
+          kind: "system",
+          title: `${change.name} removed itself`,
+          body: "It was a computer Psyche could use. Psyche won't use it again unless you add it again.",
+          message: {
+            titleKey: "notice.machine.removed.title",
+            bodyKey: "notice.machine.removed.body",
+            params: { name: change.name },
+          },
+          route: "/settings/devices",
+          dedupeKey: `machine-removed:${change.machineId}`,
+        })
+        .catch(() => undefined);
+      return;
+    }
     if (change.change !== "added") return;
     void deps.notifier
       .notify({

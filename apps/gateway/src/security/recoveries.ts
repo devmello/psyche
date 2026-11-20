@@ -1,5 +1,6 @@
 import {
   getDevice,
+  getMachineByDevice,
   getPairingRequest,
   listPairingRequests,
   type PsycheDb,
@@ -433,6 +434,10 @@ export class SecurityRecoveries {
     if (!device?.pairedAt || device.revokedAt) {
       throw new PsycheError("not_found", `no paired device ${deviceId}`);
     }
+    // A machine is `["node"]` and nothing else: no grant, wider or narrower, applies to it.
+    if (getMachineByDevice(db, device.id) !== undefined) {
+      throw new PsycheError("conflict", `${deviceId} is a machine and takes no scopes`);
+    }
     const widens = scopes.some((s) => !device.scopes.includes(s as DeviceScope));
     // Only the first admin applies at once. Narrowing waits too: taking admin away from the
     // owner's last admin device at once would make "no admin exists" true for a first-admin
@@ -634,6 +639,9 @@ export class SecurityRecoveries {
         const device = getDevice(db, String(p.deviceId ?? ""));
         if (!device?.pairedAt || device.revokedAt) {
           throw new PsycheError("not_found", "the device is no longer paired");
+        }
+        if (getMachineByDevice(db, device.id) !== undefined) {
+          throw new PsycheError("conflict", "the device is a machine and takes no scopes");
         }
         const updated = updateDevice(db, device.id, { scopes });
         if (updated === undefined) throw new PsycheError("not_found", "the device is gone");

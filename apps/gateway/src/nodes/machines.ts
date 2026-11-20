@@ -107,42 +107,98 @@ export function forceMachinePairingCardsForTests(on: boolean | undefined): void 
 const IGNORABLE =
   /\p{Cf}|\p{Cc}|\p{Mn}|\p{Me}|[\u180b-\u180f\ufe00-\ufe0f]|\u3164|\uffa0|\u115f|\u1160/gu;
 
+/** Cyrillic and Greek letters that read as a Latin one (lowercase; the key is case-folded first). */
+const CONFUSABLES: Readonly<Record<string, string>> = {
+  "\u0430": "a",
+  "\u0435": "e",
+  "\u043e": "o",
+  "\u0440": "p",
+  "\u0441": "c",
+  "\u0443": "y",
+  "\u0445": "x",
+  "\u0456": "i",
+  "\u0458": "j",
+  "\u0455": "s",
+  "\u04bb": "h",
+  "\u0501": "d",
+  "\u043a": "k",
+  "\u043c": "m",
+  "\u043d": "h",
+  "\u0442": "t",
+  "\u0432": "b",
+  "\u0437": "3",
+  "\u03b1": "a",
+  "\u03b2": "b",
+  "\u03b5": "e",
+  "\u03b6": "z",
+  "\u03b7": "n",
+  "\u03b9": "i",
+  "\u03ba": "k",
+  "\u03bc": "u",
+  "\u03bd": "v",
+  "\u03bf": "o",
+  "\u03c1": "p",
+  "\u03c4": "t",
+  "\u03c5": "u",
+  "\u03c7": "x",
+  "\u03c9": "w",
+};
+
 /**
- * Names compare by what they look like: NFKC (so `\u217c` is `l`), case-folded, with invisible
- * characters and spacing differences removed (design 8.2; a lookalike must not sit next to a real
- * machine under a name that reads the same).
+ * Names compare by what they look like: NFKC (so `\u217c` is `l`), case-folded, invisible
+ * characters removed, Cyrillic and Greek look-alikes mapped to Latin, and everything that is not
+ * a letter or a digit dropped (so `This Mac.`, `ThisMac` and `This-Mac` are one name). Design 8.2:
+ * a lookalike must not sit next to a real machine, or the Host's label, under a name that reads
+ * the same.
  */
 export function machineNameKey(name: string): string {
-  return name
-    .normalize("NFKC")
-    .replace(IGNORABLE, "")
-    .toUpperCase()
-    .toLowerCase()
-    .replace(/\s+/gu, " ")
-    .trim();
+  const folded = name.normalize("NFKC").replace(IGNORABLE, "").toUpperCase().toLowerCase();
+  let out = "";
+  for (const ch of folded) {
+    const c = CONFUSABLES[ch] ?? ch;
+    if (/[\p{L}\p{N}]/u.test(c)) out += c;
+  }
+  return out;
+}
+
+/** A name that mixes Latin letters with Cyrillic or Greek ones is a lookalike attempt. */
+export function isMixedScriptName(name: string): boolean {
+  return /\p{Script=Latin}/u.test(name) && /[\p{Script=Cyrillic}\p{Script=Greek}]/u.test(name);
 }
 
 /** Labels the interface uses for the Host itself: never a machine's name. */
 function reservedNameKeys(): Set<string> {
   const keys = new Set([machineNameKey("This Mac"), machineNameKey("This computer")]);
   const host = hostname().trim();
-  if (host !== "") keys.add(machineNameKey(host));
+  if (host !== "") {
+    keys.add(machineNameKey(host));
+    // `studio.local` and `studio` are both what the Mac calls itself.
+    keys.add(machineNameKey(host.replace(/\.local$/iu, "")));
+    keys.add(machineNameKey(host.split(".")[0] ?? host));
+  }
   return keys;
 }
 
 /**
- * Why a machine may not have this name, or undefined: it is the Host's own label or name, or any
- * other device's or machine's name (the device list and the machine list read the same).
+ * Why a machine may not have this name, or undefined: it is the Host's own label or name, it
+ * mixes scripts, or it is the name of another paired device or machine (the device list and the
+ * machine list read the same). Unpaired and revoked rows hold no name: an unauthenticated caller
+ * cannot squat one.
  */
 export function machineNameRefusal(
   db: PsycheDb,
   name: string,
   exceptDeviceId?: string,
-): "reserved" | "taken" | undefined {
+): "reserved" | "taken" | "mixed" | undefined {
   const key = machineNameKey(name);
   if (key === "" || reservedNameKeys().has(key)) return "reserved";
+  if (isMixedScriptName(name)) return "mixed";
   const taken = listDevices(db).some(
-    (d) => d.id !== exceptDeviceId && machineNameKey(d.name) === key,
+    (d) =>
+      d.id !== exceptDeviceId &&
+      d.pairedAt !== null &&
+      d.revokedAt === null &&
+      machineNameKey(d.name) === key,
   );
   return taken ? "taken" : undefined;
 }
@@ -166,7 +222,8 @@ export function uniqueMachineName(
 ): string {
   const trimmed = requested.trim().slice(0, 56);
   let base = machineNameOk(trimmed) ? trimmed : FALLBACK_MACHINE_NAME;
-  if (machineNameRefusal(db, base, exceptDeviceId) === "reserved") base = FALLBACK_MACHINE_NAME;
+  const why = machineNameRefusal(db, base, exceptDeviceId);
+  if (why === "reserved" || why === "mixed") base = FALLBACK_MACHINE_NAME;
   if (!machineNameTaken(db, base, exceptDeviceId)) return base;
   for (let n = 2; n < 1000; n++) {
     const candidate = `${base} ${n}`;

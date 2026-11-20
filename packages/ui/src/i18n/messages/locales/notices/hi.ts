@@ -82,4 +82,7 @@ export const notices: Partial<Catalogue> = {
   "notice.machine.added.title": "{name} को ऐसे कंप्यूटर के रूप में जोड़ा गया जिसे Psyche इस्तेमाल कर सकता है",
   "notice.machine.added.body":
     "Psyche इसकी स्क्रीन, ऐप, शेल और फ़ाइलें इस्तेमाल कर सकता है, और वहाँ हर कार्रवाई पहले आपसे पूछती है। अगर आपने इसे नहीं जोड़ा, तो सेटिंग → डिवाइस में इसे हटा दें।",
+  "notice.machine.removed.title": "{name} ने खुद को हटा लिया",
+  "notice.machine.removed.body":
+    "यह ऐसा कंप्यूटर था जिसे Psyche इस्तेमाल कर सकता था। जब तक आप इसे दोबारा नहीं जोड़ेंगे, Psyche इसे इस्तेमाल नहीं करेगा।",
 };

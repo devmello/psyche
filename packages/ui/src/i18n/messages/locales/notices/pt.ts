@@ -88,4 +88,7 @@ export const notices: Partial<Catalogue> = {
   "notice.machine.added.title": "{name} foi adicionado como um computador que o Psyche pode usar",
   "notice.machine.added.body":
     "O Psyche pode usar a tela, os apps, o shell e os arquivos dele, e cada ação lá pede sua confirmação antes. Se não foi você que adicionou, remova em Ajustes → Dispositivos.",
+  "notice.machine.removed.title": "{name} se removeu sozinho",
+  "notice.machine.removed.body":
+    "Era um computador que o Psyche podia usar. O Psyche não vai usá-lo de novo, a menos que você o adicione outra vez.",
 };

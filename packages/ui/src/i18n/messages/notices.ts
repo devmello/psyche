@@ -88,4 +88,7 @@ export const notices = {
   "notice.machine.added.title": "{name} was added as a computer Psyche can use",
   "notice.machine.added.body":
     "Psyche can use its screen, apps, shell and files, and each action there asks you first. If you didn't add it, remove it in Settings → Devices.",
+  "notice.machine.removed.title": "{name} removed itself",
+  "notice.machine.removed.body":
+    "It was a computer Psyche could use. Psyche won't use it again unless you add it again.",
 } as const;
