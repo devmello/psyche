@@ -1,6 +1,8 @@
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
+import { DEFAULT_GATEWAY_PORT } from "@psyche/protocol";
 import { GatewayClient, type HttpProbe, probeGateway, type WebSocketFactory } from "./client.ts";
+import { readConfig } from "./config-file.ts";
 import { CliError } from "./errors.ts";
 import { type Exec, nodeExec } from "./exec.ts";
 import { loadOrCreateIdentity } from "./identity.ts";
@@ -32,6 +34,24 @@ export interface GlobalOptions {
   home?: string;
   insecure: boolean;
   timeoutMs: number;
+}
+
+/**
+ * Whether `url` is the Gateway this home's own `psyched` serves: plain http to a loopback host, on
+ * the port it listens on. The port is `PSYCHE_PORT` or the default, or `gateway.port` from this
+ * home's `config.json` (the file that Gateway reads). Unreadable config counts as "not set".
+ */
+export function isOwnGatewayUrl(url: URL, env: NodeJS.ProcessEnv, home: string): boolean {
+  if (url.protocol !== "http:" || !isLoopbackHost(url.hostname)) return false;
+  const ports = new Set([env.PSYCHE_PORT ?? String(DEFAULT_GATEWAY_PORT)]);
+  try {
+    const port = (readConfig(home).config.gateway as { port?: unknown } | undefined)?.port;
+    if (typeof port === "number") ports.add(String(port));
+  } catch {
+    // A broken config.json: only the default port counts.
+  }
+  const urlPort = url.port === "" ? "80" : url.port;
+  return ports.has(urlPort);
 }
 
 export class Ctx {
@@ -71,9 +91,12 @@ export class Ctx {
     }
     const identity = loadOrCreateIdentity(this.home, this.deps.now());
     // The Host proof (`isLocalHostCli` on the Gateway): the launch secret, read from this
-    // computer's own `$PSYCHE_HOME/run`, and sent only to a loopback Gateway.
+    // computer's own `$PSYCHE_HOME/run`, and sent only to this machine's own Gateway: a loopback
+    // URL on the port that Gateway listens on (the default or `PSYCHE_PORT`, or `gateway.port` in
+    // this home's config.json). An arbitrary loopback URL, such as an `ssh -L` to another Host,
+    // gets nothing.
     let handshakeSecret: string | undefined;
-    if (isLoopbackHost(this.gatewayUrl().hostname)) {
+    if (isOwnGatewayUrl(this.gatewayUrl(), this.deps.env, this.home)) {
       try {
         handshakeSecret =
           readFileSync(join(this.home, "run", "handshake.secret"), "utf8").trim() || undefined;

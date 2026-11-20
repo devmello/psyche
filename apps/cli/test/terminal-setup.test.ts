@@ -6,7 +6,7 @@ import { afterEach, describe, expect, it } from "vitest";
 import { run } from "../src/cli.ts";
 import { diskEncryptionOf } from "../src/commands/onboard.ts";
 import { approvalWait, callWithApproval } from "../src/commands/util.ts";
-import { Ctx } from "../src/context.ts";
+import { Ctx, isOwnGatewayUrl } from "../src/context.ts";
 import { HANDLERS } from "./fixtures.ts";
 import { cleanupTempDirs, err, makeDeps, out, runJson, type TestDeps } from "./helpers.ts";
 
@@ -325,20 +325,62 @@ describe("presence_required explains the matching recovery command", () => {
 });
 
 describe("the Host secret", () => {
-  it("is sent to a loopback Gateway from $PSYCHE_HOME/run, and not when there is none", async () => {
-    await start();
-    const withSecret = makeDeps();
-    mkdirSync(join(withSecret.home, "run"), { recursive: true });
-    writeFileSync(join(withSecret.home, "run", "handshake.secret"), "launch-secret\n");
-    expect(await run(["devices", "list", ...urlArgs(withSecret)], withSecret)).toBe(0);
-    expect(gw.connects.at(-1)).toMatchObject({
-      deviceFamily: "cli",
-      handshakeSecret: "launch-secret",
-    });
+  const SECRET = "launch-secret";
+  const homeWithSecret = (extra: Record<string, unknown> = {}) => {
+    const deps = makeDeps({ extraEnv: extra as never });
+    mkdirSync(join(deps.home, "run"), { recursive: true });
+    writeFileSync(join(deps.home, "run", "handshake.secret"), `${SECRET}\n`);
+    return deps;
+  };
+  const listDevices = (deps: TestDeps) => run(["devices", "list", ...urlArgs(deps)], deps);
 
-    const without = makeDeps();
-    expect(await run(["devices", "list", ...urlArgs(without)], without)).toBe(0);
+  it("is sent to this machine's own Gateway (the port in this home's config.json)", async () => {
+    await start();
+    const deps = homeWithSecret();
+    const port = Number(new URL(gw.origin).port);
+    writeFileSync(join(deps.home, "config.json"), JSON.stringify({ gateway: { port } }));
+    expect(await listDevices(deps)).toBe(0);
+    expect(gw.connects.at(-1)).toMatchObject({ deviceFamily: "cli", handshakeSecret: SECRET });
+  });
+
+  it("is sent to the default local URL (PSYCHE_PORT)", async () => {
+    await start();
+    const port = new URL(gw.origin).port;
+    const deps = homeWithSecret({ PSYCHE_PORT: port });
+    expect(await listDevices(deps)).toBe(0);
+    expect(gw.connects.at(-1)?.handshakeSecret).toBe(SECRET);
+  });
+
+  it("is not sent to a loopback --url on a different port (an ssh -L to another Host)", async () => {
+    await start();
+    const deps = homeWithSecret();
+    writeFileSync(join(deps.home, "config.json"), JSON.stringify({ gateway: { port: 7001 } }));
+    expect(await listDevices(deps)).toBe(0);
+    expect(gw.connects.at(-1)).toMatchObject({ deviceFamily: "cli" });
     expect(gw.connects.at(-1)?.handshakeSecret).toBeUndefined();
+  });
+
+  it("is not sent when there is no secret file", async () => {
+    await start();
+    const deps = makeDeps({ extraEnv: { PSYCHE_PORT: new URL(gw.origin).port } });
+    expect(await listDevices(deps)).toBe(0);
+    expect(gw.connects.at(-1)?.handshakeSecret).toBeUndefined();
+  });
+
+  it("isOwnGatewayUrl: loopback http on a known port only", () => {
+    const home = makeDeps().home;
+    const env = { PSYCHE_PORT: "7777" };
+    for (const [url, want] of [
+      ["http://127.0.0.1:7777", true],
+      ["http://localhost:7777", true],
+      ["http://[::1]:7777", true],
+      ["http://127.0.0.1:7778", false],
+      ["https://127.0.0.1:7777", false],
+      ["http://gateway.example:7777", false],
+      ["http://100.64.0.9:7777", false],
+    ] as const) {
+      expect([url, isOwnGatewayUrl(new URL(url), env, home)]).toEqual([url, want]);
+    }
   });
 });
 
