@@ -105,8 +105,10 @@ export type ReconnectRefusal =
   | "different_folder";
 
 export class ReconnectRefused extends Error {
-  constructor(readonly reason: ReconnectRefusal) {
+  readonly reason: ReconnectRefusal;
+  constructor(reason: ReconnectRefusal) {
     super(`cannot reconnect: ${reason}`);
+    this.reason = reason;
   }
 }
 

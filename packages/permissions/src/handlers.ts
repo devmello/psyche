@@ -71,6 +71,7 @@ export interface PermissionHandlers {
   "access.list"(p: unknown, c: Caller): Promise<{ entries: AccessEntry[] }>;
   "access.revoke"(p: unknown, c: Caller): Promise<{ revoked: boolean }>;
   "access.confirmFolder"(p: unknown, c: Caller): Promise<{ confirmed: boolean }>;
+  "access.reconnectFolder"(p: unknown, c: Caller): Promise<{ reconnected: boolean }>;
   "grants.list"(p: unknown, c: Caller): Promise<{ grants: Grant[] }>;
   "grants.revoke"(p: unknown, c: Caller): Promise<{ grant: Grant }>;
   "audit.list"(p: unknown, c: Caller): Promise<{ entries: AuditEntry[] }>;
