@@ -37,6 +37,16 @@ export const WIDGET_BINDINGS = {
     status: ["status", "text"],
     lastStep: ["text"],
   },
+  /**
+   * Spaces query sources (spaces-2026 section 6.2). Declared in S0 so the source enum and this
+   * table agree; the fields arrive with their resolvers in S4. Until then no field is bindable.
+   */
+  entity: {},
+  work_due: {},
+  calendar: {},
+  reminders: {},
+  mail: {},
+  files: {},
 } as const satisfies Record<WidgetBind["source"], Record<string, readonly string[]>>;
 
 /** `null` when `bind` may sit on a node of `nodeType`, else why not (for the model). */

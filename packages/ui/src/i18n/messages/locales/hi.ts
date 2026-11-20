@@ -50,6 +50,7 @@ import { securityState } from "./security-state/hi.ts";
 import { separateDesktop } from "./separate-desktop/hi.ts";
 import { settingsRest } from "./settings-rest/hi.ts";
 import { shellRest } from "./shell-rest/hi.ts";
+import { spaces } from "./spaces/hi.ts";
 import { specialistsRest } from "./specialists-rest/hi.ts";
 import { webRest } from "./web-rest/hi.ts";
 import { widgetsRest } from "./widgets-rest/hi.ts";
@@ -3724,4 +3725,5 @@ export const hi: Partial<Catalogue> = {
   // Windows variants of the sandbox PC, voice keys and platform terms
   ...windowsPlatform202611,
   ...keepAwake,
+  ...spaces,
 };

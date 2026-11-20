@@ -49,6 +49,7 @@ import { settingsLanguage } from "./settings-language/ar.ts";
 import { settingsSections } from "./settings-sections/ar.ts";
 import { shell } from "./shell/ar.ts";
 import { skillAuthor } from "./skill-author/ar.ts";
+import { spaces } from "./spaces/ar.ts";
 import { specialists } from "./specialists/ar.ts";
 import { teach } from "./teach/ar.ts";
 import { web } from "./web/ar.ts";
@@ -3776,4 +3777,5 @@ export const ar: Partial<Catalogue> = {
   // Windows variants of the sandbox PC, voice keys and platform terms
   ...windowsPlatform202611,
   ...keepAwake,
+  ...spaces,
 };

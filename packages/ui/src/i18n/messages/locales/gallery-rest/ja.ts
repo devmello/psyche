@@ -61,6 +61,20 @@ export const galleryRest: Partial<Catalogue> = {
   "gallery.preset.todoist.desc":
     "Todoistのタスクとプロジェクトを確認・管理します。接続時にサインインします。",
   "gallery.preset.todoist.example": "Todoistで今日が期限のものは？",
+  "gallery.preset.dropbox.desc":
+    "Dropboxのファイルを閲覧、検索、読み取りします。接続時にサインインします。",
+  "gallery.preset.dropbox.example": "先月Dropboxに保存した契約書のPDFを探して。",
+  "gallery.preset.figma.desc":
+    "Figmaのデザインとファイルを読み取ります。接続時にサインインします。",
+  "gallery.preset.figma.example": "チームのデザインファイルの最近の変更を要約して。",
+  "gallery.preset.asana.desc":
+    "Asanaのタスクとプロジェクトを確認、更新します。接続時にサインインします。",
+  "gallery.preset.asana.example": "今週が期限のAsanaタスクは？",
+  "gallery.preset.zoom.desc": "Zoomミーティングを検索、管理します。接続時にサインインします。",
+  "gallery.preset.zoom.example": "明日のZoomミーティングは？",
+  "gallery.preset.shopifyDev.desc":
+    "Shopifyの開発者向けドキュメントとAPIスキーマを検索します。アカウントは不要です。",
+  "gallery.preset.shopifyDev.example": "Admin GraphQL APIで商品バリアントを取得するには？",
   "gallery.preset.airtable.desc": "Airtableのベースのレコードを読み取り、更新します。",
   "gallery.preset.airtable.example":
     "Projectsベースで「ブロック中」になっているレコードを一覧表示して。",

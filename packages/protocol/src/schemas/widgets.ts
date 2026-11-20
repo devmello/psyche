@@ -1,5 +1,5 @@
 import { type Static, type TProperties, Type } from "@sinclair/typebox";
-import { Id, IsoDateTime, StringEnum } from "../common.ts";
+import { Id, IsoDateTime, Nullable, StringEnum } from "../common.ts";
 import { TaintSource } from "./permissions.ts";
 
 /**
@@ -69,7 +69,19 @@ export type WidgetAction = Static<typeof WidgetAction>;
 
 // Live bindings (§5.4).
 export const WidgetBindingSource = StringEnum(
-  ["task", "automation", "research", "tool_call", "job"],
+  [
+    "task",
+    "automation",
+    "research",
+    "tool_call",
+    "job",
+    "entity",
+    "work_due",
+    "calendar",
+    "reminders",
+    "mail",
+    "files",
+  ],
   { $id: "WidgetBindingSource" },
 );
 export const WidgetBind = Type.Object(
@@ -383,6 +395,8 @@ export const Widget = Type.Object(
     owner: WidgetOwner,
     state: WidgetState,
     pinned: Type.Boolean(),
+    /** The Space whose shelf holds this widget; read only, from `space_trackers` (spaces §4.2). */
+    spaceId: Nullable(Id),
     createdAt: IsoDateTime,
     updatedAt: IsoDateTime,
   },

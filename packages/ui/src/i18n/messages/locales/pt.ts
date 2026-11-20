@@ -32,6 +32,7 @@ import { settingsB } from "./settings-b/pt.ts";
 import { settingsC } from "./settings-c/pt.ts";
 import { settingsD } from "./settings-d/pt.ts";
 import { settingsE } from "./settings-e/pt.ts";
+import { spaces } from "./spaces/pt.ts";
 import { specialistsA } from "./specialists-a/pt.ts";
 import { teachA } from "./teach-a/pt.ts";
 import { windowsPlatform202611 } from "./windows-platform-2026-11/pt.ts";
@@ -3723,4 +3724,5 @@ export const pt: Partial<Catalogue> = {
   // Windows variants of the sandbox PC, voice keys and platform terms
   ...windowsPlatform202611,
   ...keepAwake,
+  ...spaces,
 };

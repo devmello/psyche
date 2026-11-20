@@ -30,8 +30,8 @@ use super::guard::{
 use super::input::Button;
 use super::recipes::{
     app_environment, application_dirs, find_desktop_entry, firefox_profile_from_ini,
-    fresh_profile_copy, launch_spec, launches_snap, recipe_for, Family, LaunchContext, LaunchSpec,
-    APP_ENV_ALLOW,
+    fresh_profile_copy, launch_spec, launches_snap, recipe_for, DesktopEntry, Family,
+    LaunchContext, LaunchSpec, APP_ENV_ALLOW,
 };
 use super::scope::{
     parse_cpu_quota, parse_memory, parse_tasks_max, unit_name, ScopeRunner, SliceLimits,
@@ -81,9 +81,24 @@ pub struct Config {
     /// How long a polite close gets before the app counts as "has unsaved changes".
     pub close_grace: Duration,
     pub watchdog_every: Duration,
+    /// Run every app by an absolute path found in the system program directories, with those
+    /// directories as its `PATH` (`trust.rs`), never through the owner's `PATH`. Off only in
+    /// tests that start a program built in a build directory (see
+    /// [`Config::untrusted_programs_for_tests`]).
+    trusted_programs: bool,
 }
 
 impl Config {
+    /// For tests that start a program built in a build directory. Does nothing in a release
+    /// build: nothing a user or a caller configures can turn the program check off.
+    #[doc(hidden)]
+    pub fn untrusted_programs_for_tests(&mut self) {
+        #[cfg(debug_assertions)]
+        {
+            self.trusted_programs = false;
+        }
+    }
+
     pub fn from_env(env: &dyn Env) -> Self {
         let home = PathBuf::from(env.get("HOME").unwrap_or_else(|| "/".into()));
         let state = state_dir(env);
@@ -113,6 +128,7 @@ impl Config {
             launch_wait: Duration::from_secs(10),
             close_grace: Duration::from_secs(4),
             watchdog_every: Duration::from_secs(2),
+            trusted_programs: true,
             base_env,
             limits,
             state_dir: state,
@@ -269,6 +285,10 @@ pub struct VscreenManager {
     /// Whether this display session's Firefox profile copy is made. Its own lock: copying can
     /// take seconds and must not block frames and status. Taken after `inner`, never before.
     firefox_fresh: Mutex<bool>,
+    /// The helper-only box has no owner's screen (headless mode, H1): the check that an app is
+    /// not already open on it has nothing to protect. The recipes and the private bus keep the
+    /// launch off any other display; `opened_elsewhere` still catches one that got out.
+    headless: std::sync::atomic::AtomicBool,
 }
 
 fn lock<T>(m: &Mutex<T>) -> std::sync::MutexGuard<'_, T> {
@@ -282,6 +302,7 @@ impl VscreenManager {
             deps,
             idle,
             firefox_fresh: Mutex::new(false),
+            headless: std::sync::atomic::AtomicBool::new(false),
             inner: Mutex::new(Inner {
                 display: None,
                 session: None,
@@ -300,6 +321,16 @@ impl VscreenManager {
 
     pub fn config(&self) -> &Config {
         &self.config
+    }
+
+    /// Marks this box as headless: the virtual screen is its only screen.
+    pub fn set_headless(&self, headless: bool) {
+        self.headless
+            .store(headless, std::sync::atomic::Ordering::Relaxed);
+    }
+
+    pub fn is_headless(&self) -> bool {
+        self.headless.load(std::sync::atomic::Ordering::Relaxed)
     }
 
     fn touch(&self) {
@@ -517,6 +548,54 @@ impl VscreenManager {
             .map(|d| d.xauthority.clone())
     }
 
+    /// The running display, if there is one (no start).
+    pub fn display_handle(&self) -> Option<Arc<VirtualDisplay>> {
+        lock(&self.inner).display.clone()
+    }
+
+    /// Whether `pid` runs in the transient scope of an app launched here as `app_id`. The cgroup
+    /// is the kernel's record of where the process was started, which a window's own claims
+    /// about itself cannot change.
+    pub fn pid_in_app_scope(&self, app_id: &str, pid: u32) -> bool {
+        let units: Vec<String> = lock(&self.inner)
+            .apps
+            .iter()
+            .filter(|a| a.app_id.eq_ignore_ascii_case(app_id))
+            .map(|a| a.unit.clone())
+            .collect();
+        if units.is_empty() {
+            return false;
+        }
+        let cgroup = self.deps.procs.cgroup_text(pid);
+        units.iter().any(|u| in_unit_scope(&cgroup, u))
+    }
+
+    /// The desktop id of the app launched here whose scope holds `pid`.
+    pub fn app_of_pid(&self, pid: u32) -> Option<String> {
+        let apps: Vec<(String, String)> = lock(&self.inner)
+            .apps
+            .iter()
+            .map(|a| (a.app_id.clone(), a.unit.clone()))
+            .collect();
+        let cgroup = self.deps.procs.cgroup_text(pid);
+        apps.into_iter()
+            .find(|(_, unit)| in_unit_scope(&cgroup, unit))
+            .map(|(id, _)| id)
+    }
+
+    /// The session's private runtime dir, while a display runs.
+    pub fn session_dir(&self) -> Option<PathBuf> {
+        lock(&self.inner).session.as_ref().map(|s| s.dir.clone())
+    }
+
+    /// The pid of the accessibility launcher on the private bus, while it runs.
+    pub fn a11y_launcher_pid(&self) -> Option<u32> {
+        lock(&self.inner)
+            .session
+            .as_ref()
+            .and_then(|s| s.a11y.as_ref().map(|(_, c)| c.id()))
+    }
+
     /// The private session bus, while one runs (the AT-SPI work reads the apps' tree there).
     pub fn session_bus_address(&self) -> Option<String> {
         lock(&self.inner)
@@ -575,7 +654,46 @@ impl VscreenManager {
                 format!("No app called {desktop_id} is installed."),
             )
         })?;
-        let exe = resolve_exe(&entry, &self.config.path_var);
+        self.open_entry(entry)
+    }
+
+    /// Opens the app of one desktop file the caller already judged trusted (`trust.rs`): exactly
+    /// that file is parsed, it is not looked up again.
+    pub fn open_trusted_file(self: &Arc<Self>, file: &std::path::Path) -> Result<Opened, VsError> {
+        let stem = file
+            .file_name()
+            .and_then(|f| f.to_str())
+            .and_then(|f| f.strip_suffix(".desktop"))
+            .ok_or_else(|| VsError::new("app_not_found", "That is not a desktop file."))?;
+        let text = std::fs::read_to_string(file)
+            .map_err(|_| VsError::new("app_not_found", format!("{stem} could not be read.")))?;
+        let entry = super::recipes::parse_desktop_entry(stem, &text).ok_or_else(|| {
+            VsError::new(
+                "app_not_found",
+                format!("{stem} is not an app that can run."),
+            )
+        })?;
+        self.open_entry(entry)
+    }
+
+    /// The directories programs are found in: the system ones that nothing running as this
+    /// account can write (`trust.rs`), or the owner's `PATH` when trusted programs are off.
+    fn program_path(&self) -> String {
+        if self.config.trusted_programs {
+            // SAFETY: geteuid has no preconditions and cannot fail.
+            let uid = unsafe { libc::geteuid() };
+            psyche_linux_computer::trust::trusted_search_path(
+                &psyche_linux_computer::trust::RealFs,
+                uid,
+            )
+        } else {
+            self.config.path_var.clone()
+        }
+    }
+
+    fn open_entry(self: &Arc<Self>, entry: DesktopEntry) -> Result<Opened, VsError> {
+        let path_var = self.program_path();
+        let exe = resolve_exe(&entry, &path_var);
         let head = exe.as_deref().and_then(script_head);
         if launches_snap(&entry, exe.as_deref(), head.as_deref()) {
             return Err(VsError::new(
@@ -584,7 +702,16 @@ impl VscreenManager {
             ));
         }
         // Before anything starts: is it already open on the owner's screen?
-        check_before_launch(&entry, exe.as_deref(), &*self.deps.bus, &*self.deps.procs).map_err(
+        // The guard runs in headless mode too: a box that starts without a screen can get one
+        // (the owner logs in), and then an app open there must not get a second instance on the
+        // same files. Only "could not check" passes, since a box with no session bus has no
+        // owner's instance to protect.
+        let guard =
+            match check_before_launch(&entry, exe.as_deref(), &*self.deps.bus, &*self.deps.procs) {
+                Err(Refusal::CannotCheck) if self.is_headless() => Ok(()),
+                other => other,
+            };
+        guard.map_err(
             |r| match r {
                 Refusal::AlreadyOpenOnYourScreen => VsError::new(
                     "already_open_on_your_screen",
@@ -630,7 +757,16 @@ impl VscreenManager {
             None
         };
         let ctx = self.launch_context(&display, &session_dir, &bus_address, firefox_profile);
-        let spec = launch_spec(&entry, &ctx).map_err(|m| VsError::new("launch_failed", m))?;
+        let mut spec = launch_spec(&entry, &ctx).map_err(|m| VsError::new("launch_failed", m))?;
+        if self.config.trusted_programs {
+            pin_program(&mut spec, &path_var).map_err(|m| {
+                VsError::new(
+                    "untrusted_program",
+                    "The app's program is not in a system directory that only an administrator can change, so it was not opened.",
+                )
+                .with_detail(&m)
+            })?;
+        }
         let (unit, serial) = {
             let mut inner = lock(&self.inner);
             let n = inner.next_unit;
@@ -1306,6 +1442,34 @@ pub fn run_input_batch(
     Ok(skipped)
 }
 
+/// Makes the launch run the program the system would, not one an account-owned `PATH` directory
+/// offers: `argv[0]` becomes an absolute path that passes the trust check, and `PATH` is the
+/// trusted directories alone (a wrapper such as `env`, or the app itself, finds its helpers
+/// there too).
+pub fn pin_program(spec: &mut LaunchSpec, trusted_path: &str) -> Result<(), String> {
+    use psyche_linux_computer::trust::{check, RealFs};
+    // SAFETY: geteuid has no preconditions and cannot fail.
+    let uid = unsafe { libc::geteuid() };
+    let first = spec.argv.first().ok_or("no program")?.clone();
+    let candidates: Vec<std::path::PathBuf> = if first.contains('/') {
+        vec![std::path::PathBuf::from(&first)]
+    } else {
+        trusted_path
+            .split(':')
+            .filter(|d| !d.is_empty())
+            .map(|d| std::path::Path::new(d).join(&first))
+            .collect()
+    };
+    let found = candidates
+        .into_iter()
+        .find(|p| check(&RealFs, p, uid).is_ok())
+        .ok_or_else(|| format!("{first} is not a trusted program"))?;
+    spec.argv[0] = found.to_string_lossy().into_owned();
+    spec.env.retain(|(k, _)| k != "PATH");
+    spec.env.push(("PATH".into(), trusted_path.to_string()));
+    Ok(())
+}
+
 /// Housekeeping while a display exists: forget apps that ended, notice a dead server, and stop
 /// the display after `idle_stop` with nothing on it.
 fn watchdog(weak: Weak<VscreenManager>, every: Duration) {
@@ -1326,6 +1490,7 @@ fn watchdog(weak: Weak<VscreenManager>, every: Duration) {
         let windows = display.windows();
         // An app whose process ended and left no window is gone.
         let mut keep = Vec::new();
+        let mut stopped = Vec::new();
         let apps = std::mem::take(&mut inner.apps);
         let snapshot: Vec<usize> = (0..apps.len()).collect();
         for (idx, mut app) in apps.into_iter().enumerate() {
@@ -1341,7 +1506,9 @@ fn watchdog(weak: Weak<VscreenManager>, every: Duration) {
             });
             let _ = (&snapshot, idx);
             if exited && !has_window {
-                m.deps.runner.stop(&app.unit);
+                // Stopped below, once `inner` is let go: stopping waits for the scope's
+                // processes, and one of them may be waiting on this process.
+                stopped.push(app.unit.clone());
                 continue;
             }
             keep.push(app);
@@ -1351,7 +1518,15 @@ fn watchdog(weak: Weak<VscreenManager>, every: Duration) {
             m.teardown_locked(&mut inner);
             crate::log("vscreen: stopped (idle)");
             inner.watchdog = false;
+            drop(inner);
+            for unit in stopped {
+                m.deps.runner.stop(&unit);
+            }
             return;
+        }
+        drop(inner);
+        for unit in stopped {
+            m.deps.runner.stop(&unit);
         }
     }
 }
@@ -1367,6 +1542,50 @@ impl VsError {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    fn executable(path: &std::path::Path) {
+        use std::os::unix::fs::PermissionsExt;
+        std::fs::write(path, "#!/bin/sh\nexit 0\n").unwrap();
+        std::fs::set_permissions(path, std::fs::Permissions::from_mode(0o755)).unwrap();
+    }
+
+    fn spec(argv0: &str, path: &str) -> LaunchSpec {
+        LaunchSpec {
+            argv: vec![argv0.into()],
+            env: vec![("PATH".into(), path.into()), ("HOME".into(), "/h".into())],
+        }
+    }
+
+    #[test]
+    fn a_program_planted_first_in_the_owners_path_is_not_the_one_that_runs() {
+        let dir = tempfile::tempdir().unwrap();
+        executable(&dir.path().join("sh"));
+        let owner_path = format!("{}:/usr/bin:/bin", dir.path().display());
+        let mut s = spec("sh", &owner_path);
+        let trusted = "/usr/bin:/bin";
+        pin_program(&mut s, trusted).unwrap();
+        assert!(
+            s.argv[0] == "/usr/bin/sh" || s.argv[0] == "/bin/sh",
+            "{}",
+            s.argv[0]
+        );
+        let path = s.env.iter().find(|(k, _)| k == "PATH").unwrap();
+        assert_eq!(path.1, trusted, "the app's PATH is the trusted one too");
+        assert_eq!(s.env.iter().filter(|(k, _)| k == "PATH").count(), 1);
+        assert!(s.env.iter().any(|(k, _)| k == "HOME"));
+    }
+
+    #[test]
+    fn an_absolute_program_the_account_can_write_is_refused() {
+        let dir = tempfile::tempdir().unwrap();
+        let planted = dir.path().join("editor");
+        executable(&planted);
+        let mut s = spec(planted.to_str().unwrap(), "/usr/bin");
+        assert!(pin_program(&mut s, "/usr/bin:/bin").is_err());
+        // And a name no trusted directory has is refused rather than searched for elsewhere.
+        let mut s = spec("definitely-not-a-program-h1", "/usr/bin");
+        assert!(pin_program(&mut s, "/usr/bin:/bin").is_err());
+    }
 
     fn key(k: &str) -> InputEvent {
         InputEvent::KeyUp(k.into())

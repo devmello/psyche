@@ -216,5 +216,23 @@ export const settingsE: Partial<Catalogue> = {
   "gallery.preset.todoist.desc":
     "Veja e gerencie suas tarefas e projetos do Todoist. Você entra ao conectar.",
   "gallery.preset.todoist.example": "O que vence hoje no Todoist?",
+  "gallery.preset.dropbox.desc":
+    "Navegue, pesquise e leia os arquivos do seu Dropbox. Você entra quando ele se conecta.",
+  "gallery.preset.dropbox.example":
+    "Encontre o PDF do contrato que salvei no Dropbox no mês passado.",
+  "gallery.preset.figma.desc":
+    "Leia seus designs e arquivos do Figma. Você entra quando ele se conecta.",
+  "gallery.preset.figma.example":
+    "Resuma as últimas mudanças no arquivo de design da minha equipe.",
+  "gallery.preset.asana.desc":
+    "Veja e atualize tarefas e projetos do Asana. Você entra quando ele se conecta.",
+  "gallery.preset.asana.example": "Quais tarefas do Asana vencem esta semana?",
+  "gallery.preset.zoom.desc":
+    "Encontre e gerencie suas reuniões do Zoom. Você entra quando ele se conecta.",
+  "gallery.preset.zoom.example": "Quais reuniões do Zoom tenho amanhã?",
+  "gallery.preset.shopifyDev.desc":
+    "Pesquise a documentação para desenvolvedores e os esquemas de API da Shopify. Não precisa de conta.",
+  "gallery.preset.shopifyDev.example":
+    "Como consulto as variantes de um produto com a API GraphQL Admin?",
   "gallery.preset.airtable.desc": "Leia e atualize os registros das suas bases do Airtable.",
 };

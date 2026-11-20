@@ -49,6 +49,7 @@ import { settingsLanguage } from "./settings-language/zh.ts";
 import { settingsSections } from "./settings-sections/zh.ts";
 import { shell } from "./shell/zh.ts";
 import { skillAuthor } from "./skill-author/zh.ts";
+import { spaces } from "./spaces/zh.ts";
 import { specialists } from "./specialists/zh.ts";
 import { teach } from "./teach/zh.ts";
 import { web } from "./web/zh.ts";
@@ -3666,4 +3667,5 @@ export const zh: Partial<Catalogue> = {
   // Windows variants of the sandbox PC, voice keys and platform terms
   ...windowsPlatform202611,
   ...keepAwake,
+  ...spaces,
 };
