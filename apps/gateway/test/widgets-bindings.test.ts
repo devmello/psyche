@@ -160,4 +160,18 @@ describe("widget bindings (gateway)", () => {
       ),
     ).toThrow(/no such automation\./);
   });
+
+  it.each(["entity", "work_due", "calendar", "reminders", "mail", "files"])(
+    "refuses the Space query source %s until wave S4 resolves it",
+    (source) => {
+      expect(() =>
+        create(
+          specWith(
+            { source, id: "x", field: "status" },
+            { type: "status", label: "a", tone: "neutral" },
+          ),
+        ),
+      ).toThrow(/was rejected/);
+    },
+  );
 });

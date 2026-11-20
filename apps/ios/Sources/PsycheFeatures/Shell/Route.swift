@@ -10,6 +10,10 @@ public enum Route: Hashable, Sendable {
     case inbox
     case scheduled
     case overview
+    /// Home's Feed, Ideas and Goals pages.
+    case feed
+    case ideas
+    case goals
     /// A running task (`psyche://task/<id>`, the Live Activity's tap target): opens the agent sheet.
     case task(id: String)
 
@@ -29,6 +33,9 @@ public enum Route: Hashable, Sendable {
         case ("inbox", 1): self = .inbox
         case ("scheduled", 1): self = .scheduled
         case ("overview", _): self = .overview
+        case ("feed", 1): self = .feed
+        case ("ideas", 1): self = .ideas
+        case ("goals", 1): self = .goals
         case ("task", 2): self = .task(id: parts[1])
         default: return nil
         }

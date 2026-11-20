@@ -84,7 +84,7 @@ if [ "$quick" = 0 ]; then
   if [ -z "$slots" ]; then
     cores="$(sysctl -n hw.ncpu 2>/dev/null || nproc 2>/dev/null || echo 1)"
     mem_gb=$(( $(sysctl -n hw.memsize 2>/dev/null || echo 0) / 1073741824 ))
-    if [ "$cores" -ge 12 ] 2>/dev/null && [ "$mem_gb" -ge 24 ] 2>/dev/null; then slots=5
+    if [ "$cores" -ge 12 ] 2>/dev/null && [ "$mem_gb" -ge 24 ] 2>/dev/null; then slots=8
     elif [ "$cores" -ge 10 ] 2>/dev/null; then slots=3
     else slots=1; fi
   fi
@@ -350,16 +350,22 @@ other="$(echo "$changed" | grep -E '^tests/.*\.(test|spec)\.(ts|tsx|mts)$' || tr
 # shellcheck disable=SC2086
 [ -n "$other" ] && run vitest:tests pnpm exec vitest run --maxWorkers=1 $other
 
+# One Swift build at a time on this Mac. Match the build processes by exact name: `pgrep -f` also
+# matched any shell whose command line mentions them (other sessions' wrappers) and waited forever.
+wait_for_swift_builds() {
+  while pgrep -x swift-build >/dev/null || pgrep -x xcodebuild >/dev/null; do sleep 15; done
+}
+
 if [ "$swift" = 1 ]; then
   for pkg in apps/mac-helper packages/protocol-swift; do
     echo "$changed" | grep -q "^$pkg/" || continue
-    while pgrep -f 'swift-build|xcodebuild' >/dev/null; do sleep 15; done  # one Swift build at a time
+    wait_for_swift_builds
     run "swift-test:$pkg" bash -c "cd '$pkg' && swift build && swift test"
   done
   # The iOS package's test targets (host macOS, no simulator, no UI tests). It also depends on
   # packages/protocol-swift, so a protocol change runs it too.
   if echo "$changed" | grep -qE '^(apps/ios|packages/protocol-swift)/'; then
-    while pgrep -f 'swift-build|xcodebuild' >/dev/null; do sleep 15; done  # one Swift build at a time
+    wait_for_swift_builds
     run "swift-test:apps/ios" bash -c "cd 'apps/ios' && swift test"
   fi
 elif echo "$changed" | grep -qE '\.swift$'; then
