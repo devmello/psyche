@@ -53,6 +53,70 @@ export async function callIfAvailable<T>(
   }
 }
 
+/** How long and how often the CLI waits for an approval card (tests shorten it). */
+export const approvalWait = { timeoutMs: 10 * 60_000, firstPollMs: 1000, maxPollMs: 5000 };
+
+/**
+ * Calls a method that may answer `approval_required` (a plain-tap card on a paired phone or
+ * desktop: owner decision, approvals are a tap). On that answer it says so, waits for the card to
+ * be decided (`approvals.get` with back-off, up to ten minutes; Ctrl-C ends the process), then
+ * repeats the same call with the `approvalId`. Generic on purpose: any method that follows the
+ * `approval_required` + `approvalId` convention works, so more calls can move to cards later.
+ */
+export async function callWithApproval(
+  client: GatewayClient,
+  method: string,
+  params: Record<string, unknown>,
+  say: (text: string) => void,
+): Promise<unknown> {
+  // Not `callOrUnavailable`: its "this CLI lacks the scope" rewrite of `forbidden` would hide the
+  // Gateway's own reason, which the callers explain better.
+  const plain = async (m: string, p: unknown): Promise<unknown> => {
+    try {
+      return await client.call(m, p);
+    } catch (err) {
+      if (isUnavailable(err)) {
+        throw new CliError("unavailable", `${m} is not available on this Gateway yet`, {
+          available: false,
+          method: m,
+        });
+      }
+      throw err;
+    }
+  };
+  try {
+    return await plain(method, params);
+  } catch (err) {
+    const approvalId =
+      err instanceof PsycheError && err.code === "approval_required"
+        ? (err.details as { approvalId?: unknown } | undefined)?.approvalId
+        : undefined;
+    if (typeof approvalId !== "string") throw err;
+    say("Approve this on your paired phone or desktop (waiting… Ctrl-C to cancel)");
+    const deadline = Date.now() + approvalWait.timeoutMs;
+    let delay = approvalWait.firstPollMs;
+    for (;;) {
+      const got = (await plain("approvals.get", { approvalId })) as {
+        approval: { status: string };
+      };
+      const status = got.approval.status;
+      if (status === "approved") break;
+      if (status !== "pending") {
+        throw new CliError("failure", `The approval was ${status}; nothing was changed`);
+      }
+      if (Date.now() + delay > deadline) {
+        throw new CliError(
+          "failure",
+          "Timed out waiting for the approval (10 minutes); nothing was changed",
+        );
+      }
+      await new Promise((r) => setTimeout(r, delay));
+      delay = Math.min(delay * 2, approvalWait.maxPollMs);
+    }
+    return plain(method, { ...params, approvalId });
+  }
+}
+
 export function splitList(value: string | undefined): string[] {
   return (value ?? "")
     .split(",")

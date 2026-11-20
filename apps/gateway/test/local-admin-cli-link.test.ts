@@ -68,6 +68,8 @@ async function cli(
   scopes: DeviceScope[],
   headers: Record<string, string> = {},
   family = "cli",
+  /** What the CLI presents as the handshake secret: the real one by default. */
+  secret: string | null = t.gateway.handshakeSecret,
 ): Promise<TestClient> {
   const key = newDeviceKey();
   const deviceId = `cli-${Math.random().toString(36).slice(2)}`;
@@ -82,6 +84,7 @@ async function cli(
     key,
     deviceId,
     deviceFamily: family,
+    ...(secret === null ? {} : { handshakeSecret: secret }),
     ...(forwarded ? { gatewayKey: t.gateway.context.identity.publicKey } : {}),
   });
   expect(verified<{ phase?: string }>(res)?.phase).toBe("paired");
@@ -200,6 +203,20 @@ describe("refusals", () => {
     await refusedWith(await cli(["operator.read"]));
   });
 
+  it("refuses an admin CLI on loopback that has no handshake secret, or a wrong one", async () => {
+    await start();
+    // What `ssh -L`, socat or `tailscale serve --tcp` give a remote admin CLI: a loopback
+    // connection with no forwarding header, but not the Host's `$PSYCHE_HOME/run`.
+    await refusedWith(await cli(ADMIN, {}, "cli", null));
+    await refusedWith(await cli(ADMIN, {}, "cli", "not-the-secret"));
+    await refusedWith(await cli(ADMIN, {}, "cli", `${t.gateway.handshakeSecret}x`));
+  });
+
+  it("the secret alone grants nothing: a non-admin CLI that holds it is still refused", async () => {
+    await start();
+    await refusedWith(await cli(SCOPES));
+  });
+
   it("refuses an admin device that is not the CLI family", async () => {
     await start();
     await refusedWith(await cli(ADMIN, {}, "web"));
@@ -259,7 +276,12 @@ describe("isLocalAdminCli (the predicate)", () => {
     remoteAddress: "127.0.0.1",
     origin: null,
   };
-  const identity = { deviceId: "d1", scopes: ADMIN, role: "client" as const };
+  const identity = {
+    deviceId: "d1",
+    scopes: ADMIN,
+    role: "client" as const,
+    localHostCli: true as const,
+  };
   insertDevice(db, {
     id: "d1",
     name: "cli",
@@ -285,6 +307,11 @@ describe("isLocalAdminCli (the predicate)", () => {
     ["a guest peer", { ...base, guest: { container: "c", redeem: () => false } }],
   ])("refuses %s", (_name, peer) => {
     expect(isLocalAdminCli(db, identity, peer as never)).toBe(false);
+  });
+
+  it("refuses a connection that did not prove it is on the Host (no localHostCli)", () => {
+    const { localHostCli: _drop, ...noProof } = identity;
+    expect(isLocalAdminCli(db, noProof, base)).toBe(false);
   });
 
   it("refuses a non-admin, a node role and an unknown device", () => {

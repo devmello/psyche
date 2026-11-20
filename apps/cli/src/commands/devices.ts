@@ -1,9 +1,9 @@
 import { type DeviceScope, PsycheError } from "@psyche/protocol";
 import type { GatewayClient } from "../client.ts";
 import { bool, type CommandSpec, str } from "../command.ts";
-import { CliError, isUnavailable } from "../errors.ts";
+import { CliError } from "../errors.ts";
 import { table } from "../output.ts";
-import { callOrUnavailable, splitList } from "./util.ts";
+import { callOrUnavailable, callWithApproval, splitList } from "./util.ts";
 
 const SCOPES: readonly DeviceScope[] = [
   "operator.read",
@@ -67,6 +67,7 @@ interface LanStatus {
 export async function enableLan(
   client: GatewayClient,
   iface: string | undefined,
+  say: (text: string) => void,
 ): Promise<{ origin: string | null; interfaces: string[] }> {
   const got = (await callOrUnavailable(client, "settings.get", { keys: ["gateway.lan"] })) as {
     settings: Record<string, unknown>;
@@ -82,25 +83,35 @@ export async function enableLan(
       ? (current.interfaces as string[])
       : [];
   try {
-    await callOrUnavailable(client, "settings.set", {
-      key: "gateway.lan",
-      value: { ...current, enabled: true, interfaces },
-    });
+    await callWithApproval(
+      client,
+      "settings.set",
+      { key: "gateway.lan", value: { ...current, enabled: true, interfaces } },
+      say,
+    );
   } catch (err) {
-    throw explain(err, "turn LAN on");
+    throw explain(err);
   }
   const info = (await callOrUnavailable(client, "gateway.info", {})) as { lan?: LanStatus };
   return { origin: info.lan?.origin ?? null, interfaces };
 }
 
-/** Turns a refusal into the sentence a person at a terminal needs. */
-function explain(err: unknown, what: string): unknown {
+/**
+ * Turns a refusal into the sentence a person at a terminal needs. `presence_required` is not
+ * "approve first" (approvals are a tap and are waited for): it means nothing can verify now, or the
+ * security records are untrusted, and each has its own recovery command on the Host.
+ */
+export function explain(err: unknown): unknown {
   if (err instanceof CliError) return err;
   if (err instanceof PsycheError && err.code === "presence_required") {
-    return new CliError(
-      "failure",
-      `To ${what}, approve it on a device with Touch ID or a passkey first (${err.message})`,
-    );
+    const reason = (err.details as { reason?: unknown } | undefined)?.reason;
+    const fix =
+      reason === "no_presence_verifier"
+        ? "Run `psyched presence reset` on the Host (it applies after 24 hours), or connect a device that can verify."
+        : reason === "state_untrusted"
+          ? "Run `psyched security reseal` on the Host (it applies after 24 hours) after reviewing your devices."
+          : "Check `psyche doctor`.";
+    return new CliError("failure", `${err.message} ${fix}`);
   }
   return err;
 }
@@ -231,7 +242,7 @@ export const devicesCommands: CommandSpec[] = [
     path: ["devices", "link"],
     summary: "Make a single-use pairing link for another computer (admin CLI on this Host only)",
     description:
-      "Prints a psyche-pair link, valid for 10 minutes and usable once; at most three are live at a time. Without --lan it is a v1 link for gateway.publicOrigin; --lan makes a v2 link for this network (turn LAN on first: `psyche lan on`). Scopes default to operator.read,operator.write,operator.approvals; --admin adds operator.admin. Only an admin CLI connected from this computer, directly and not through a proxy, may make one.",
+      "Prints a psyche-pair link, valid for 10 minutes and usable once; at most three are live at a time. Without --lan it is a v1 link for gateway.publicOrigin; --lan makes a v2 link for this network (turn LAN on first: `psyche lan on`). Scopes default to operator.read,operator.write,operator.approvals; --admin adds operator.admin. Only the admin CLI on the Host itself (it proves that by reading $PSYCHE_HOME/run/handshake.secret) may make one.",
     options: {
       admin: {
         type: "boolean",
@@ -250,28 +261,20 @@ export const devicesCommands: CommandSpec[] = [
         setupToken: { id: string; expiresAt: string; scopes: string[] };
       };
       try {
-        made = (await client.call("devices.setupToken.create", {
-          scopes,
-          ...(bool(opts, "lan") ? { via: "lan" } : {}),
-        })) as typeof made;
+        made = (await callWithApproval(
+          client,
+          "devices.setupToken.create",
+          { scopes, ...(bool(opts, "lan") ? { via: "lan" } : {}) },
+          (t) => ctx.deps.io.err(t),
+        )) as typeof made;
       } catch (err) {
         if (err instanceof PsycheError && err.code === "forbidden") {
           throw new CliError(
             "failure",
-            "Only an admin CLI connected from this Host itself can make a pairing link. Run it on the Host, directly (not through Tailscale Serve or another proxy), as a device with operator.admin: `psyched devices grant <deviceId> operator.read,operator.write,operator.approvals,operator.admin` on the Host.",
+            "Only the admin CLI on the Host's own computer can make a pairing link: run it on the Host itself, as a device with operator.admin (`psyched devices grant <deviceId> operator.read,operator.write,operator.approvals,operator.admin` on the Host), and make sure this CLI can read $PSYCHE_HOME/run/handshake.secret.",
           );
         }
-        if (isUnavailable(err)) {
-          throw new CliError(
-            "unavailable",
-            "devices.setupToken.create is not available on this Gateway yet",
-            {
-              available: false,
-              method: "devices.setupToken.create",
-            },
-          );
-        }
-        throw explain(err, "make a pairing link");
+        throw explain(err);
       }
       return {
         data: made,
@@ -295,7 +298,7 @@ export const devicesCommands: CommandSpec[] = [
     },
     async run(ctx, { opts }) {
       const client = await ctx.gateway();
-      const res = await enableLan(client, str(opts, "interface"));
+      const res = await enableLan(client, str(opts, "interface"), (t) => ctx.deps.io.err(t));
       return {
         data: { enabled: true, ...res },
         human: res.origin

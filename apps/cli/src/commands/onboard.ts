@@ -307,7 +307,9 @@ export const onboardCommands: CommandSpec[] = [
         bool(opts, "lan") || (ask && (await p.confirm("Allow computers on this network?", false)));
       if (wantLan) {
         try {
-          const lan = await enableLan(await ctx.gateway(), str(opts, "interface"));
+          const lan = await enableLan(await ctx.gateway(), str(opts, "interface"), (t) =>
+            ctx.deps.io.err(t),
+          );
           steps.push({
             step: "lan",
             status: "done",

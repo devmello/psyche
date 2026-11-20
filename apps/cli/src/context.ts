@@ -1,8 +1,10 @@
+import { readFileSync } from "node:fs";
+import { join } from "node:path";
 import { GatewayClient, type HttpProbe, probeGateway, type WebSocketFactory } from "./client.ts";
 import { CliError } from "./errors.ts";
 import { type Exec, nodeExec } from "./exec.ts";
 import { loadOrCreateIdentity } from "./identity.ts";
-import { resolveGatewayUrl, resolveHome, wsUrl } from "./paths.ts";
+import { isLoopbackHost, resolveGatewayUrl, resolveHome, wsUrl } from "./paths.ts";
 import { type Prompter, ttyPrompter } from "./prompt.ts";
 
 export interface Io {
@@ -68,8 +70,20 @@ export class Ctx {
       throw new CliError("usage", `Unsupported platform ${this.deps.platform}`);
     }
     const identity = loadOrCreateIdentity(this.home, this.deps.now());
+    // The Host proof (`isLocalHostCli` on the Gateway): the launch secret, read from this
+    // computer's own `$PSYCHE_HOME/run`, and sent only to a loopback Gateway.
+    let handshakeSecret: string | undefined;
+    if (isLoopbackHost(this.gatewayUrl().hostname)) {
+      try {
+        handshakeSecret =
+          readFileSync(join(this.home, "run", "handshake.secret"), "utf8").trim() || undefined;
+      } catch {
+        // No Gateway has run here: the CLI connects as before, without Host privileges.
+      }
+    }
     this.client = await GatewayClient.connect({
       wsUrl: wsUrl(this.gatewayUrl()),
+      ...(handshakeSecret ? { handshakeSecret } : {}),
       identity,
       // Declare the real OS so the Gateway gives a Windows CLI the desktop surface, like a Mac one.
       platform:

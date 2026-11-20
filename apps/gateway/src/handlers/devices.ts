@@ -27,9 +27,12 @@ import type { Call, GatewayContext, HandlerDef, LiveConnection } from "../contex
  * server from the connection, never from the request:
  * - `operator.admin` on the paired device (a stolen read-only CLI key is not enough);
  * - the device declared the `cli` family when it paired;
- * - a plain WebSocket that `resolvePeer` called loopback, which already means the TCP peer is
- *   127.0.0.1/::1 and carried no `Forwarded`/`X-Forwarded-*`/`X-Real-IP` header (a Tailscale
- *   Serve or cloudflared hop is never loopback);
+ * - this connection presented the per-launch handshake secret from `$PSYCHE_HOME/run`
+ *   (`identity.localHostCli`, set at connect by `isLocalHostCli`): proof the caller can read the
+ *   owner's files on the Host. Loopback alone is not that proof, because a forward that adds no
+ *   headers (ssh -L, socat, `tailscale serve --tcp`) arrives on loopback from another computer;
+ * - a plain WebSocket that `resolvePeer` called loopback (a direct 127.0.0.1/::1 peer with no
+ *   `Forwarded`/`X-Forwarded-*`/`X-Real-IP` header);
  * - not the LAN listener, not a guest or relayed socket;
  * - no `Origin`: a browser page (a DNS-rebinding one too) always sends one.
  */
@@ -41,6 +44,7 @@ export function isLocalAdminCli(
   return (
     identity.scopes.includes("operator.admin") &&
     identity.role === "client" &&
+    identity.localHostCli === true &&
     peer.transport === "ws" &&
     peer.remoteLoopback === true &&
     peer.origin === null &&

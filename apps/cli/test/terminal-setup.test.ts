@@ -1,10 +1,12 @@
-import { readFileSync } from "node:fs";
+import { mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { PsycheError } from "@psyche/protocol";
 import { MockGateway } from "@psyche/web/testing";
 import { afterEach, describe, expect, it } from "vitest";
 import { run } from "../src/cli.ts";
 import { diskEncryptionOf } from "../src/commands/onboard.ts";
+import { approvalWait, callWithApproval } from "../src/commands/util.ts";
+import { Ctx } from "../src/context.ts";
 import { HANDLERS } from "./fixtures.ts";
 import { cleanupTempDirs, err, makeDeps, out, runJson, type TestDeps } from "./helpers.ts";
 
@@ -89,7 +91,7 @@ describe("psyche devices link", () => {
     });
     const deps = makeDeps();
     expect(await run(["devices", "link", ...urlArgs(deps)], deps)).toBe(1);
-    expect(err(deps)).toContain("admin CLI connected from this Host itself");
+    expect(err(deps)).toContain("admin CLI on the Host");
   });
 
   it("rejects an unknown scope before calling the Gateway", async () => {
@@ -187,6 +189,156 @@ describe("psyche setup", () => {
       const deps = setupDeps({ encrypted: true, linger: "yes" });
       expect(await run([...base, "--public-origin", bad, ...urlArgs(deps)], deps)).toBe(2);
     }
+  });
+});
+
+describe("approval cards (a plain tap on a paired device)", () => {
+  let created: Record<string, unknown>[];
+  let statuses: string[];
+
+  /** The Gateway asks for a card on the first call and accepts the retry that carries its id. */
+  async function startWithCard(method: string, ok: () => unknown) {
+    created = [];
+    statuses = [];
+    await start({
+      [method]: (p: unknown) => {
+        const params = p as Record<string, unknown>;
+        created.push(params);
+        if (params.approvalId !== "card-1") {
+          throw new PsycheError("approval_required", "needs your approval", {
+            details: { approvalId: "card-1" },
+          });
+        }
+        return ok();
+      },
+      "approvals.get": () => ({
+        approval: { id: "card-1", status: statuses.shift() ?? "pending" },
+      }),
+    });
+  }
+  const fast = () => Object.assign(approvalWait, { timeoutMs: 400, firstPollMs: 5, maxPollMs: 10 });
+  const linkOk = () => ({
+    link: "psyche-pair:v1:AFTERCARD",
+    version: 1,
+    gatewayUrl: "https://lab-box.tail1234.ts.net",
+    setupToken: { id: "t", expiresAt: "2026-10-19T12:10:00.000Z", scopes: ["operator.read"] },
+  });
+
+  afterEach(() =>
+    Object.assign(approvalWait, { timeoutMs: 10 * 60_000, firstPollMs: 1000, maxPollMs: 5000 }),
+  );
+
+  it("devices link: says what to do, waits for the tap, then retries with the approvalId", async () => {
+    fast();
+    await startWithCard("devices.setupToken.create", linkOk);
+    statuses = ["pending", "pending", "approved"];
+    const deps = makeDeps();
+    expect(await run(["devices", "link", ...urlArgs(deps)], deps)).toBe(0);
+    expect(err(deps)).toContain("Approve this on your paired phone or desktop");
+    expect(out(deps)).toContain("psyche-pair:v1:AFTERCARD");
+    expect(created).toHaveLength(2);
+    expect(created[0]?.approvalId).toBeUndefined();
+    expect(created[1]).toMatchObject({ approvalId: "card-1", scopes: created[0]?.scopes });
+    expect(callsTo("approvals.get")).toHaveLength(3);
+  });
+
+  it("lan on: the same flow for settings.set gateway.lan", async () => {
+    fast();
+    await startWithCard("settings.set", () => ({ entry: {} }));
+    statuses = ["approved"];
+    const deps = makeDeps();
+    expect(await run(["lan", "on", "--interface", "eth0", ...urlArgs(deps)], deps)).toBe(0);
+    expect(err(deps)).toContain("Approve this on your paired phone or desktop");
+    expect(created.at(-1)).toMatchObject({ approvalId: "card-1", key: "gateway.lan" });
+  });
+
+  it.each(["denied", "expired", "invalidated"])(
+    "a %s card ends non-zero and never retries",
+    async (status) => {
+      fast();
+      await startWithCard("devices.setupToken.create", linkOk);
+      statuses = ["pending", status];
+      const deps = makeDeps();
+      expect(await run(["devices", "link", ...urlArgs(deps)], deps)).toBe(1);
+      expect(err(deps)).toContain(`The approval was ${status}`);
+      expect(created).toHaveLength(1);
+      expect(out(deps)).not.toContain("psyche-pair");
+    },
+  );
+
+  it("times out when nobody taps, and changes nothing", async () => {
+    fast();
+    Object.assign(approvalWait, { timeoutMs: 60 });
+    await startWithCard("devices.setupToken.create", linkOk);
+    const deps = makeDeps();
+    expect(await run(["devices", "link", ...urlArgs(deps)], deps)).toBe(1);
+    expect(err(deps)).toContain("Timed out waiting for the approval");
+    expect(created).toHaveLength(1);
+  });
+
+  it("is generic: any method that answers approval_required is waited for and retried", async () => {
+    fast();
+    created = [];
+    statuses = ["approved"];
+    await start({
+      "devices.revoke": (p: unknown) => {
+        const params = p as Record<string, unknown>;
+        created.push(params);
+        if (params.approvalId === undefined) {
+          throw new PsycheError("approval_required", "x", { details: { approvalId: "card-1" } });
+        }
+        return { device: { id: "d" } };
+      },
+      "approvals.get": () => ({
+        approval: { id: "card-1", status: statuses.shift() ?? "pending" },
+      }),
+    });
+    const client = await new Ctx(makeDeps(), {
+      json: false,
+      url: gw.origin,
+      insecure: false,
+      timeoutMs: 5000,
+    }).gateway();
+    const said: string[] = [];
+    await callWithApproval(client, "devices.revoke", { deviceId: "d" }, (t) => said.push(t));
+    expect(created.map((c) => c.approvalId)).toEqual([undefined, "card-1"]);
+    expect(said).toHaveLength(1);
+    client.close();
+  });
+});
+
+describe("presence_required explains the matching recovery command", () => {
+  it.each([
+    ["no_presence_verifier", "psyched presence reset"],
+    ["state_untrusted", "psyched security reseal"],
+  ])("%s", async (reason, command) => {
+    await start({
+      "devices.setupToken.create": () => {
+        throw new PsycheError("presence_required", "nothing can verify", { details: { reason } });
+      },
+    });
+    const deps = makeDeps();
+    expect(await run(["devices", "link", ...urlArgs(deps)], deps)).toBe(1);
+    expect(err(deps)).toContain(command);
+    expect(err(deps)).not.toContain("Touch ID or a passkey first");
+  });
+});
+
+describe("the Host secret", () => {
+  it("is sent to a loopback Gateway from $PSYCHE_HOME/run, and not when there is none", async () => {
+    await start();
+    const withSecret = makeDeps();
+    mkdirSync(join(withSecret.home, "run"), { recursive: true });
+    writeFileSync(join(withSecret.home, "run", "handshake.secret"), "launch-secret\n");
+    expect(await run(["devices", "list", ...urlArgs(withSecret)], withSecret)).toBe(0);
+    expect(gw.connects.at(-1)).toMatchObject({
+      deviceFamily: "cli",
+      handshakeSecret: "launch-secret",
+    });
+
+    const without = makeDeps();
+    expect(await run(["devices", "list", ...urlArgs(without)], without)).toBe(0);
+    expect(gw.connects.at(-1)?.handshakeSecret).toBeUndefined();
   });
 });
 
