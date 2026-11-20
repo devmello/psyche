@@ -64,6 +64,14 @@ extension FixtureBackend: HomeBackend {
         }
         publish(.changed(.home))
     }
+
+    public func resolveNotice(id: String, actionID: String) async throws {
+        guard let index = homeState.inbox.firstIndex(where: { $0.id == id }) else { throw BackendError.notFound }
+        // Resolving clears the notice's buttons, as the Gateway does.
+        homeState.inbox[index].actions = []
+        homeState.inbox[index].read = true
+        publish(.changed(.home))
+    }
 }
 
 extension FixtureData {
