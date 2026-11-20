@@ -59,6 +59,12 @@ put() {
 
 check_policy() {
   flat=$(tr -d '\n\r' <"$1")
+  # polkit's own policy files start with this exact DOCTYPE (a public DTD, no internal subset), so
+  # it is allowed once. Anything else that declares a type or an entity is refused.
+  doctype='<!DOCTYPE policyconfig PUBLIC "-//freedesktop//DTD PolicyKit Policy Configuration 1.0//EN" "http://www.freedesktop.org/standards/PolicyKit/1/policyconfig.dtd">'
+  case $flat in
+  *"$doctype"*) flat=${flat%%"$doctype"*}${flat#*"$doctype"} ;;
+  esac
   case $flat in *"<!ENTITY"* | *"<!DOCTYPE"*) die "the polkit policy declares entities" ;; esac
   printf '%s' "$flat" | grep -q 'action id="com\.psyche\.' ||
     die "the polkit policy defines no com.psyche action"

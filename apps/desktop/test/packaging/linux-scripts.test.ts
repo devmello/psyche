@@ -49,6 +49,9 @@ const GOOD = [
   `<allow_inactive>auth_self</allow_inactive>`,
   `<allow_active>auth_self</allow_active>`,
 ].join("");
+// The line polkit's own policy files start with (and the L4 policy does).
+const POLKIT_DOCTYPE =
+  '<!DOCTYPE policyconfig PUBLIC "-//freedesktop//DTD PolicyKit Policy Configuration 1.0//EN"\n "http://www.freedesktop.org/standards/PolicyKit/1/policyconfig.dtd">';
 const ELF = Buffer.concat([Buffer.from([0x7f, 0x45, 0x4c, 0x46]), Buffer.from("rest of an elf")]);
 
 function setup(args: string[], env: Record<string, string>, input?: Buffer) {
@@ -146,6 +149,21 @@ describe.skipIf(!posix)("psyche-system-setup", () => {
       /as root/,
     ],
     ["a policy with entities", `<!DOCTYPE x [<!ENTITY a "b">]>\n${policy(GOOD)}`, /entities/],
+    [
+      "a policy with the standard DOCTYPE and an entity too",
+      `${POLKIT_DOCTYPE}\n<!ENTITY a "b">\n${policy(GOOD)}`,
+      /entities/,
+    ],
+    [
+      "a policy with the standard DOCTYPE twice",
+      `${POLKIT_DOCTYPE}\n${POLKIT_DOCTYPE}\n${policy(GOOD)}`,
+      /entities/,
+    ],
+    [
+      "a policy whose DOCTYPE has an internal subset",
+      `${POLKIT_DOCTYPE.replace(">", "[]>")}\n${policy(GOOD)}`,
+      /entities/,
+    ],
     ["a policy with no action", "<policyconfig/>", /no com.psyche action/],
   ])("refuses %s", (_name, text, why) => {
     const d = temp();
@@ -153,6 +171,21 @@ describe.skipIf(!posix)("psyche-system-setup", () => {
     expect(r.code).not.toBe(0);
     expect(r.out).toMatch(why);
     expect(existsSync(join(d, "usr/share/polkit-1"))).toBe(false);
+  });
+
+  it("installs the real policy file in the repo (it carries polkit's standard DOCTYPE)", () => {
+    const real = readFileSync(
+      join(REPO, "deploy/linux/root/usr/share/polkit-1/actions/com.psyche.presence.policy"),
+      "utf8",
+    );
+    expect(real).toContain("<!DOCTYPE policyconfig");
+    const d = temp();
+    const r = setup(["install", payload({ policy: real })], { DESTDIR: d });
+    expect(r.out).not.toMatch(/entities/);
+    expect(r.code).toBe(0);
+    expect(
+      readFileSync(join(d, "usr/share/polkit-1/actions/com.psyche.presence.policy"), "utf8"),
+    ).toBe(real);
   });
 
   it("will not make a script or a link setuid", () => {
