@@ -136,7 +136,7 @@ if [ -n "$platform" ]; then
   for v in "${variants[@]}"; do
     if [ "$v" = base ]; then tag="$version"; else tag="$version-$v"; fi
     meta="$meta_dir/$v.json"
-    mapfile -t extra < <(extra_args "$v")
+    extra=(); while IFS= read -r line; do extra+=("$line"); done < <(extra_args "$v")
     echo "== $v: $repo ($platform) by digest" >&2
     run docker buildx build \
       --platform "$platform" \
@@ -213,7 +213,7 @@ fi
 for v in "${variants[@]}"; do
   if [ "$v" = base ]; then tag="$version"; else tag="$version-$v"; fi
   meta="$meta_dir/$v.json"
-  mapfile -t extra < <(extra_args "$v")
+  extra=(); while IFS= read -r line; do extra+=("$line"); done < <(extra_args "$v")
   echo "== $v: $repo:$tag for $platforms" >&2
   run docker buildx build \
     --platform "$platforms" \

@@ -2,8 +2,11 @@ import { ArrowLeft } from "lucide-react";
 import type { ReactElement } from "react";
 import { useState } from "react";
 import { Button } from "../../components/ui/button.tsx";
+import { useCall, useGatewayQuery } from "../../data/hooks.ts";
 import { t } from "../../i18n/core.ts";
+import { describeError } from "../../i18n/errors.ts";
 import type { MessageId } from "../../i18n/messages/index.ts";
+import { useSlots } from "../../slots.tsx";
 import { ConnectorGallery, type GalleryEntry, type GalleryGroup } from "./ConnectorGallery.tsx";
 import { VaultField } from "./ConnectorSettingsCards.tsx";
 import {
@@ -13,6 +16,7 @@ import {
   offeredCatalog,
   type ScopeMode,
 } from "./connector-catalog.tsx";
+import { GoogleClientFields, googleClientIdProblem } from "./GoogleClientFields.tsx";
 import { McpAddForm } from "./McpAddForm.tsx";
 import { McpPresetForm } from "./McpPresetForm.tsx";
 import { presetText } from "./mcp-preset-build.ts";
@@ -139,6 +143,44 @@ export function ConnectForm({
   // Obsidian connects to a vault folder shared through File access (#640).
   const [vault, setVault] = useState("");
   const vaultPath = vault.trim();
+  // Google needs the owner's own OAuth client (there is no Psyche-owned one): pasted here once.
+  const call = useCall();
+  const { openExternal } = useSlots();
+  const isGoogle = picked === "google";
+  const googleClient = useGatewayQuery("connectors.googleClient", {}, { enabled: isGoogle });
+  const [clientId, setClientId] = useState("");
+  const [clientSecret, setClientSecret] = useState("");
+  const [changeClient, setChangeClient] = useState(false);
+  const [clientBusy, setClientBusy] = useState(false);
+  const [clientError, setClientError] = useState<string | null>(null);
+  // A Gateway without the method (or still loading) keeps the old behaviour: no gate.
+  const clientStatus = isGoogle ? googleClient.data : undefined;
+  const needsClient = clientStatus !== undefined && (!clientStatus.configured || changeClient);
+  const clientProblem = needsClient ? googleClientIdProblem(clientId) : null;
+  const openDocs = (url: string) => {
+    const fallback = () => globalThis.open?.(url, "_blank", "noopener,noreferrer");
+    if (openExternal === undefined) fallback();
+    else void Promise.resolve(openExternal(url)).catch(fallback);
+  };
+  const saveClientThen = async (go: () => void) => {
+    if (!needsClient) return go();
+    if (clientProblem !== null) return;
+    setClientBusy(true);
+    setClientError(null);
+    try {
+      await call("connectors.googleClient.set", {
+        clientId: clientId.trim(),
+        ...(clientSecret.trim() === "" ? {} : { clientSecret: clientSecret.trim() }),
+      });
+      // The secret draft is dropped once the Gateway has it.
+      setClientSecret("");
+      go();
+    } catch (err) {
+      setClientError(t("settings.googleClient.saveFailed", { reason: describeError(err) }));
+    } finally {
+      setClientBusy(false);
+    }
+  };
 
   const entries = galleryEntries({
     implemented,
@@ -196,6 +238,21 @@ export function ConnectForm({
                 onChange={setMode}
                 persona={persona}
               />
+              {clientStatus !== undefined ? (
+                <GoogleClientFields
+                  configured={clientStatus.configured && !changeClient}
+                  clientId={clientStatus.clientId}
+                  fromConfig={clientStatus.source === "config"}
+                  id={clientId}
+                  secret={clientSecret}
+                  onId={setClientId}
+                  onSecret={setClientSecret}
+                  onChange={clientStatus.source === "app" ? () => setChangeClient(true) : undefined}
+                  problem={clientProblem === "shape" ? clientProblem : null}
+                  error={clientError}
+                  onOpenDocs={openDocs}
+                />
+              ) : null}
               {needsVault ? (
                 <VaultField
                   value={vault}
@@ -217,9 +274,11 @@ export function ConnectForm({
               <Button
                 type="button"
                 size="sm"
-                disabled={!vaultReady}
+                disabled={!vaultReady || clientBusy || clientProblem !== null}
                 onClick={() =>
-                  needsVault ? onConnect(picked, mode, { vaultPath }) : onConnect(picked, mode)
+                  void saveClientThen(() =>
+                    needsVault ? onConnect(picked, mode, { vaultPath }) : onConnect(picked, mode),
+                  )
                 }
               >
                 {t("settings.connectors.continue")}

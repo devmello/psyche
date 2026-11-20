@@ -1,6 +1,7 @@
 # Onboarding 2026: a shorter setup that covers the new features
 
 Status: decided 2026-11-03 (owner request: "Clean up the onboarding and create a smooth process
+> **Update 2026-11-09.** Safety no longer registers a Touch ID key on a Mac: the helper signs approvals with its own device key after the system's owner sheet, so the row reads "Set up" as soon as the helper is paired, and the development-key switch (`devices.presence.allowDevFileKey`) is gone. A Windows helper still registers its Windows Hello key.
 which includes setting up all these new features"). Keeps the ink direction
 (`docs/design/redesign-2026.md`): accent `#2c5aa0` through the existing tokens, paper grays, one
 accent per view, amber only for "needs you". Follows "simple first, powerful one step away"

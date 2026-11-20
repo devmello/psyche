@@ -137,6 +137,11 @@ export function AppShell({
     const created = await threads.newChat("side", threadId ?? undefined);
     onNavigate(`/chat/${created.id}`);
   };
+  // Incognito (E9): its own kind, memory-only, expires after 24 h; an empty one is reused.
+  const newIncognitoChat = async () => {
+    const created = await threads.newChat("incognito", threadId ?? undefined);
+    onNavigate(`/chat/${created.id}`);
+  };
   // A new destination crossfades the content column; a thread switch inside Chat doesn't.
   const go = (to: string) => {
     if (destinationFor(to) !== destinationFor(route)) startTransition(() => onNavigate(to));
@@ -145,6 +150,7 @@ export function AppShell({
   useShortcuts({
     palette: () => setPaletteOpen(true),
     newSideChat: () => void newSideChat(),
+    newIncognitoChat: () => void newIncognitoChat(),
     toggleThreadList: () => (compact ? setDrawerOpen((o) => !o) : setSidebarOpen((o) => !o)),
     compactSidebar: () => {
       if (compact) return;
@@ -225,6 +231,7 @@ export function AppShell({
                 activeThreadId={threadId}
                 onOpenThread={(id) => go(`/chat/${id}`)}
                 onNewSideChat={() => void newSideChat()}
+                onNewIncognitoChat={() => void newIncognitoChat()}
                 width={sidebarWidth}
                 onWidthChange={setSidebarWidth}
                 mode={sidebarMode}
@@ -284,6 +291,10 @@ export function AppShell({
             onNewSideChat={() => {
               setDrawerOpen(false);
               void newSideChat();
+            }}
+            onNewIncognitoChat={() => {
+              setDrawerOpen(false);
+              void newIncognitoChat();
             }}
             {...(now === undefined ? {} : { now })}
           />

@@ -185,7 +185,13 @@ export interface GatewayContext {
   readonly memory: MemoryStore | null;
   /** Reports `settings.set` to the audit trail. */
   readonly onSettingChanged:
-    | ((change: { key: string; before: unknown; after: unknown; deviceId: string }) => void)
+    | ((change: {
+        key: string;
+        before: unknown;
+        after: unknown;
+        deviceId: string;
+        narrowing?: boolean;
+      }) => void)
     | null;
   readonly limits: GatewayLimits;
   readonly failedChallenges: RateLimiter;
@@ -228,6 +234,13 @@ export interface GatewayContext {
    */
   readonly presenceState: () => PresenceState;
   /**
+   * Whether any verifier could verify a presence step now, including a Mac helper's auto-paired
+   * device key. Unlike `presenceState` (which only a registered key or a passkey turns on, so
+   * first-admin bootstrap and the sticky enrollment are not tripped by pairing the helper), this
+   * decides whether adding a verifier (`strong`) must still pass the Mac sheet.
+   */
+  readonly presenceCanVerify: () => boolean;
+  /**
    * The security-state seal (security/state-seal.ts): checked before authorizing reads; while it
    * is untrusted, presence and every widening call fail closed. Absent only in hand-built test
    * contexts.
@@ -260,6 +273,32 @@ export interface GatewayContext {
    * sets it; without one a send naming a context is refused.
    */
   readonly chatContext: { resolve: ChatContextResolver | null };
+  /**
+   * Files attached from disk (desktop): `attach` grants the owner's picks read-only for one
+   * thread (the broker's `attachFiles`), `attached` lists the files it holds for that thread.
+   * The composition root sets both; without them chat.attachFiles is unavailable and a send
+   * naming `attachedFiles` is refused.
+   */
+  readonly chatFiles: {
+    attach:
+      | ((
+          threadId: string,
+          paths: readonly string[],
+          by: { deviceId: string },
+        ) => Promise<{
+          files: { path: string; size: number }[];
+          refused: { path: string; reason: string }[];
+        }>)
+      | null;
+    /** The files attached to the thread whose grant is still live (never folders). */
+    attached: ((threadId: string) => readonly { path: string }[]) | null;
+  };
+  /**
+   * A thread's conversation ended (Clear chat, delete): whatever the broker holds for that
+   * conversation alone (its "Allow once" folders, attached files) ends with it. The composition
+   * root adds `broker.endSession`.
+   */
+  readonly threadEnded: Set<(threadId: string) => void>;
   /** Per-reader pass over messages that carry a life answer (`chat.history`, `chat.message`, exports). */
   readonly messageScrub: MessageScrub;
   serverOrigin(): string;
@@ -283,6 +322,8 @@ export interface Call {
   readonly conn: LiveConnection;
   readonly identity: PairedIdentity;
   readonly method: string;
+  /** What the handler's `prepare` returned. */
+  readonly prepared?: unknown;
   /**
    * Queues an event to publish after the request's transaction commits (architecture §4.2
    * step 6: committed before it is acknowledged). Outside a transaction it publishes at once.
@@ -296,6 +337,11 @@ export type Handler = (call: Call, params: never) => unknown;
 
 export interface HandlerDef {
   readonly run: Handler;
+  /**
+   * Async work that must finish before a transactional handler's transaction opens (file
+   * system checks): its result is `call.prepared`. A throw fails the call.
+   */
+  readonly prepare?: (call: Call, params: never) => Promise<unknown>;
   /**
    * The handler is synchronous and runs inside one SQLite transaction together with its
    * idempotency record; events and `afterCommit` work run only once it commits.

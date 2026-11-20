@@ -32,6 +32,7 @@ import {
   POLICY_KEY,
   policyWithFolders,
 } from "./FileAccessSection.tsx";
+import { McpEditView } from "./McpEditView.tsx";
 import { McpFailureNotice } from "./McpFailureNotice.tsx";
 import {
   McpServerDetail,
@@ -76,7 +77,9 @@ export { trustTier };
 type View =
   | { kind: "list" }
   | { kind: "add"; type?: string | undefined }
-  | { kind: "detail"; id: string };
+  | { kind: "detail"; id: string }
+  /** The Add form, prefilled with a tool server that is already added. */
+  | { kind: "edit"; id: string };
 
 /** The card of rows that need the owner: amber is for "needs you" only. */
 const ATTENTION_CARD = "border-approval-border bg-approval-surface";
@@ -217,6 +220,16 @@ export function ConnectorsPanel({
   const total = connectors.length + servers.length;
   const review = mcp?.review ?? null;
 
+  // An edit that went through (applied now, or approved on the card): back to the server.
+  const updatedCount = useRef(mcp?.updated ?? 0);
+  const updatedNow = mcp?.updated ?? 0;
+  useEffect(() => {
+    if (updatedNow > updatedCount.current && view.kind === "edit") {
+      setView({ kind: "detail", id: view.id });
+    }
+    updatedCount.current = updatedNow;
+  }, [updatedNow, view]);
+
   // A server added from the form shows up in the list: go back to it.
   const serverCount = useRef(servers.length);
   useEffect(() => {
@@ -340,11 +353,18 @@ export function ConnectorsPanel({
 
   // What the detail view is about: a connector, a tool server or one of the two Mac rows.
   const detailId = view.kind === "detail" ? view.id : null;
+  const editing = view.kind === "edit" ? servers.find((s) => s.id === view.id) : undefined;
   const connector = connectors.find((c) => c.id === detailId);
   const server = connector ? undefined : servers.find((s) => s.id === detailId);
   const device = detailId === FILES_ID || detailId === TERMINAL_ID ? detailId : null;
-  const showing: "list" | "add" | "detail" =
-    view.kind === "add" ? "add" : connector || server || device ? "detail" : "list";
+  const showing: "list" | "add" | "detail" | "edit" =
+    view.kind === "add"
+      ? "add"
+      : editing
+        ? "edit"
+        : connector || server || device
+          ? "detail"
+          : "list";
 
   const statusLine = (tone: Tone, label: string, rest: ReactNode) => (
     <span className="flex flex-wrap items-center gap-x-2">
@@ -357,27 +377,32 @@ export function ConnectorsPanel({
   const detailFrame =
     showing === "add"
       ? { title: t("settings.connectors.page.gallery.title"), status: undefined }
-      : connector
+      : editing
         ? {
-            title: connector.label,
-            status: statusLine(
-              rowStatus?.tone ?? "neutral",
-              rowStatus?.label ?? "",
-              connector.account ? <span>{connector.account}</span> : null,
-            ),
+            title: t("settings.mcp.edit.title", { name: editing.name }),
+            status: undefined,
           }
-        : server
+        : connector
           ? {
-              title: server.name,
+              title: connector.label,
               status: statusLine(
-                mcpStatus(server).tone,
-                mcpStatus(server).label,
-                <span>{mcpSubtitle(server)}</span>,
+                rowStatus?.tone ?? "neutral",
+                rowStatus?.label ?? "",
+                connector.account ? <span>{connector.account}</span> : null,
               ),
             }
-          : showing === "detail"
-            ? { title: t("settings.connectors.page.onThisMac"), status: undefined }
-            : null;
+          : server
+            ? {
+                title: server.name,
+                status: statusLine(
+                  mcpStatus(server).tone,
+                  mcpStatus(server).label,
+                  <span>{mcpSubtitle(server)}</span>,
+                ),
+              }
+            : showing === "detail"
+              ? { title: t("settings.connectors.page.onThisMac"), status: undefined }
+              : null;
 
   const body = (
     <LoadGate
@@ -447,6 +472,9 @@ export function ConnectorsPanel({
           {...(defaultCapabilitiesOpen ? { defaultCapabilitiesOpen } : {})}
         />
       ) : null}
+      {showing === "edit" && editing && mcp ? (
+        <McpEditView server={editing} mcp={mcp} onCancel={list} />
+      ) : null}
       {showing === "detail" && server ? (
         <McpServerDetail
           server={server}
@@ -459,6 +487,7 @@ export function ConnectorsPanel({
                   list();
                 },
                 onSetEnabled: mcp.setEnabled,
+                onEdit: (s: typeof server) => setView({ kind: "edit", id: s.id }),
               }
             : {})}
           {...(onTry ? { onTry } : {})}

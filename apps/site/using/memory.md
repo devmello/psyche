@@ -67,11 +67,11 @@ Click **Search memory** in Soul & Memory. Results come from the workspace files 
 
 ## Limits today
 
-- **Dreaming does not run.** Nightly consolidation into `MEMORY.md` exists in the code, scheduled for 03:00, but the Gateway does not start it. Soul & Memory still says "Dreaming rewrites this file every night." under `MEMORY.md`; that is not true yet. `MEMORY.md` changes only when you edit it or approve an agent edit.
+- **Dreaming is deterministic.** At 03:00 each night, Psyche's Dreaming automation (in Scheduled) promotes facts that repeat across your daily notes into `MEMORY.md`, with their dates. It makes no model call and never changes a bullet you wrote without a source. `MEMORY.md` also changes when you edit it or approve an agent edit.
 - `MEMORY.md` is not added to the agent's prompt automatically.
 - The agent has no forget or remember tool of its own. Use `/forget` and `/remember`. There is no Forget button in Soul & Memory.
-- Settings → Persona (name, tagline, emoji, creature, "Describe a change") is saved but not used. Edit `IDENTITY.md` instead.
-- "Export everything" in Soul & Memory and Data controls does not save a file. Use `psyche export --out <folder>` on the Mac that runs the Gateway; see [Backups](/security/backups) for encrypted copies.
+- Settings → Persona edits the name, tagline, emoji and creature. Each save rewrites only those keys in `IDENTITY.md`, through the Gateway; the rest of the file stays as it was. Name is 1 to 40 characters, tagline up to 120, emoji one character. "Describe a change" is not offered yet.
+- "Export everything" in Soul & Memory and Data controls saves a zip file as a download. For a copy in a folder, use `psyche export --out <folder>` on the Mac that runs the Gateway; see [Backups](/security/backups) for encrypted copies.
 - Importing memory from another assistant, picking a tone preset in onboarding, and syncing the workspace to git are not available. You can keep the workspace folder under git yourself.
 - Deleting a chat does not delete what the agent learned from it. Use `/forget`, or reset memory.
 

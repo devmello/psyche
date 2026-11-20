@@ -1786,6 +1786,41 @@ export function appleCatalogueEntry(
   };
 }
 
+/** The helper's `limit` range (`limit must be 1–500`). */
+export const APPLE_LIMIT_MIN = 1;
+export const APPLE_LIMIT_MAX = 500;
+/** The longest window `calendar.list_events` reads (`to must be after from, within 366 days`). */
+export const APPLE_CALENDAR_MAX_SPAN_MS = 366 * 86_400_000;
+
+/**
+ * Brings a caller's `limit` and calendar window inside what the helper accepts, so a caller that
+ * asks for more (or an open-ended range) gets the nearest valid read instead of an error. A window
+ * that ends before it starts is left alone: that is the caller's mistake and the helper says so.
+ */
+export function clampAppleParams(
+  capability: string,
+  p: Record<string, unknown>,
+): Record<string, unknown> {
+  let out = p;
+  if (typeof out.limit === "number" && Number.isFinite(out.limit)) {
+    const limit = Math.min(APPLE_LIMIT_MAX, Math.max(APPLE_LIMIT_MIN, Math.floor(out.limit)));
+    if (limit !== out.limit) out = { ...out, limit };
+  }
+  if (
+    capability === "calendar.list_events" &&
+    typeof out.from === "string" &&
+    typeof out.to === "string"
+  ) {
+    const from = Date.parse(out.from);
+    const to = Date.parse(out.to);
+    if (Number.isFinite(from) && Number.isFinite(to) && to > from) {
+      const capped = Math.min(to, from + APPLE_CALENDAR_MAX_SPAN_MS);
+      if (capped !== to) out = { ...out, to: new Date(capped).toISOString() };
+    }
+  }
+  return out;
+}
+
 /** The helper's TCC refusals (codes or reasons), which the owner fixes in System Settings. */
 const TCC_REASONS = new Set([
   "automation_denied",
@@ -2218,7 +2253,7 @@ class AppleConnector implements Connector {
       throw shortcutOff(String(p.id));
     }
     // `query` is ours (notes.list has no search); the helper's schema does not allow it.
-    let sent = spec.shape === filterNotes ? withoutQuery(p) : p;
+    let sent = clampAppleParams(spec.capability, spec.shape === filterNotes ? withoutQuery(p) : p);
     if (spec.secret !== undefined) {
       sent = { ...sent, [spec.secret.param]: await this.#secret(spec.secret.configKey, ctx) };
     }

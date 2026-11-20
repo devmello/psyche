@@ -7,6 +7,7 @@ import {
   type FolderGrantEntry,
   folderScopesOffered,
   type PolicyContext,
+  persistenceRoots,
   refuseFolder,
   resolveFolderPick,
   resolveRequestedFolder,
@@ -59,6 +60,67 @@ describe("sensitive roots", () => {
     expect(refuseFolder(WIN ? "C:\\" : "/", env)).toBe("sensitive_root");
   });
 
+  it.skipIf(WIN)(
+    "refuses ~/Applications and shell config folders as a share (apps.open review)",
+    async () => {
+      for (const rel of ["Applications", "Applications/Tools", ".config/fish", ".config/git"]) {
+        await mkdir(join(home, rel), { recursive: true });
+        expect(refuseFolder(join(home, rel), env), rel).toBe("sensitive_root");
+        await expect(resolveFolderPick(join(home, rel), env)).rejects.toMatchObject({
+          code: "forbidden",
+        });
+      }
+      // Near misses stay shareable: other `.config` folders, a folder named like it elsewhere.
+      for (const rel of [".config/nvim", "Projects/Applications", "ApplicationsBackup"]) {
+        await mkdir(join(home, rel), { recursive: true });
+        expect(refuseFolder(join(home, rel), env), rel).toBeUndefined();
+      }
+    },
+  );
+
+  it.skipIf(WIN)("refuses other spellings APFS folds to a sensitive root (review r1)", () => {
+    const ci = { ...env, caseInsensitive: true };
+    for (const rel of [
+      "Applicationſ",
+      ".config/ﬁsh",
+      ".ſsh",
+      ".ẞh",
+      ".SSH",
+      "LIBRARY",
+      "Library/Keychains",
+    ]) {
+      expect(refuseFolder(join(home, rel), ci), rel).toBe("sensitive_root");
+    }
+    for (const rel of ["Projects/ſcratch", "Documents/ﬁnance", "Projects/app"]) {
+      expect(refuseFolder(join(home, rel), ci), rel).toBeUndefined();
+    }
+  });
+
+  it.skipIf(WIN)("lists the persistence locations under the owner's home", () => {
+    const roots = persistenceRoots(home);
+    for (const rel of [
+      "Applications",
+      "Library/LaunchAgents",
+      "Library/Services",
+      "Library/Preferences",
+      "Library/Application Support/com.apple.backgroundtaskmanagementagent",
+      ".zshrc",
+      ".zprofile",
+      ".zshenv",
+      ".zlogin",
+      ".bashrc",
+      ".bash_profile",
+      ".profile",
+      ".config/fish",
+      ".gitconfig",
+      ".ssh",
+    ]) {
+      expect(roots, rel).toContain(join(home, rel));
+    }
+    expect(roots).not.toContain(home);
+    expect(roots).not.toContain(join(home, "Library"));
+  });
+
   it("allows an ordinary folder inside home and returns its real path", async () => {
     expect(await resolveFolderPick(docs, env)).toBe(docs);
   });
@@ -89,7 +151,7 @@ describe("sensitive roots", () => {
   it("the Settings path applies the same rule", async () => {
     await expect(assertFolderGrantable(home, env)).rejects.toMatchObject({ code: "forbidden" });
     await expect(assertFolderGrantable("~/.ssh", env)).rejects.toMatchObject({ code: "forbidden" });
-    await expect(assertFolderGrantable(docs, env)).resolves.toBeUndefined();
+    await expect(assertFolderGrantable(docs, env)).resolves.toEqual(expect.any(String));
   });
 });
 
@@ -216,7 +278,7 @@ describe("Psyche's own CLI workdirs", () => {
   it("shares the workdir Psyche made for a CLI provider, with no block on the card", async () => {
     expect(await resolveRequestedFolder(cli, ownEnv)).toEqual({ status: "ok", path: cli });
     expect(await resolveFolderPick(cli, ownEnv)).toBe(cli);
-    await expect(assertFolderGrantable(cli, ownEnv)).resolves.toBeUndefined();
+    await expect(assertFolderGrantable(cli, ownEnv)).resolves.toEqual(expect.any(String));
     expect(refuseFolder(join(cli, "sub"), ownEnv)).toBeUndefined();
   });
 

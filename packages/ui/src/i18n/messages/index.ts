@@ -19,13 +19,16 @@ import { deviceAccess } from "./device-access.ts";
 import { errors } from "./errors.ts";
 import { glass } from "./glass.ts";
 import { helperCheck } from "./helper-check.ts";
+import { helperOffline } from "./helper-offline.ts";
 import { home } from "./home.ts";
 import { links } from "./links.ts";
 import { mailMeetings } from "./mail-meetings.ts";
 import { meetingRecord } from "./meeting-record.ts";
+import { memoryMap } from "./memory-map.ts";
 import { memoryPage } from "./memory-page.ts";
 import { memoryReview } from "./memory-review.ts";
 import { memorySettings } from "./memory-settings.ts";
+import { notices } from "./notices.ts";
 import { nudges } from "./nudges.ts";
 import { onboarding } from "./onboarding.ts";
 import { overview } from "./overview.ts";
@@ -36,6 +39,7 @@ import { platform } from "./platform.ts";
 import { research } from "./research.ts";
 import { sandboxPc } from "./sandbox-pc.ts";
 import { scheduled } from "./scheduled.ts";
+import { scheduledForm } from "./scheduled-form.ts";
 import { screenAsk } from "./screen-ask.ts";
 import { screens } from "./screens.ts";
 import { securityState } from "./security-state.ts";
@@ -93,6 +97,7 @@ export const en = {
   ...whatCanYouDo,
   ...memoryReview,
   ...memoryPage,
+  ...memoryMap,
   ...memorySettings,
   ...people,
   ...work,
@@ -113,12 +118,15 @@ export const en = {
   ...capabilities,
   ...research,
   ...scheduled,
+  ...scheduledForm,
   ...automationChat,
   ...widgets,
   ...platform,
   ...passwordPresence,
   ...helperCheck,
+  ...helperOffline,
   ...securityState,
+  ...notices,
   ...separateDesktop,
 } as const;
 

@@ -64,7 +64,7 @@ Unsigned builds also lose macOS permissions (Accessibility, Screen Recording, Mi
 
 ### 2. Open Psyche
 
-The first time you open the app, it installs the LaunchAgent `com.psyche.gateway` (pointing at the `psyched` inside the app) and starts the Gateway. It also starts Psyche Helper, which pairs itself with the Gateway, with no code to type. The Gateway keeps running when you close the window. Its logs are in `$PSYCHE_HOME/logs/`.
+The first time you open the app, it installs the LaunchAgent `com.psyche.gateway` (pointing at the `psyched` inside the app) and starts the Gateway. It also starts Psyche Helper, which pairs itself with the Gateway, with no code to type. The Gateway keeps running when you close the window; quitting Psyche (⌘Q, or Quit from the menu bar or Dock) also stops Psyche Helper, and it starts again the next time you open Psyche. Its logs are in `$PSYCHE_HOME/logs/`.
 
 Psyche asks for no macOS permissions at first launch. Each one is requested when you turn on a feature that needs it (Settings › Permissions lists them all).
 
@@ -235,7 +235,7 @@ You can also double-click `Psyche-<version>-Setup.exe`. It installs Psyche for y
 
 ### 2. Open Psyche
 
-Open Psyche from the Start menu. The Gateway runs as a scheduled task for your user, `\Psyche\Gateway-<your SID>` (for example `\Psyche\Gateway-S-1-5-21-…-1001`; each Windows account that installs Psyche has its own), started when you sign in to Windows; it keeps running when you close the window. An install of an earlier version used `\Psyche\Gateway` for everyone; the app replaces that task with yours the first time it starts, when the old one is yours. Its logs are in `%USERPROFILE%\.psyche\logs\` (`gateway.out.log`, `gateway.err.log`). Task Scheduler shows the task under **Task Scheduler Library › Psyche**.
+Open Psyche from the Start menu. The Gateway runs as a scheduled task for your user, `\Psyche\Gateway-<your SID>` (for example `\Psyche\Gateway-S-1-5-21-…-1001`; each Windows account that installs Psyche has its own), started when you sign in to Windows; it keeps running when you close the window. An install of an earlier version used `\Psyche\Gateway` for everyone; the app replaces that task with yours the first time it starts, when the old one is yours. Its logs are in `%USERPROFILE%\.psyche\logs\` (`gateway.log`; `gateway.err.log` holds crashes only). Task Scheduler shows the task under **Task Scheduler Library › Psyche**.
 
 To start it from the CLI instead, point `psyche start` at the `psyched.cmd` inside the install (the CLI also finds it on its own):
 

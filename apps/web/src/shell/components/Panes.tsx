@@ -1,5 +1,5 @@
 import type { Task } from "@psyche/protocol";
-import { activeI18n, PanePresence, t } from "@psyche/ui";
+import { activeI18n, mayCloseFilesPane, PanePresence, t } from "@psyche/ui";
 import {
   type PointerEvent,
   type ReactElement,
@@ -409,7 +409,11 @@ function PaneColumns(
                   type="button"
                   title={t("web.panes.closePaneTitle")}
                   aria-label={t("web.panes.closePane")}
-                  onClick={() => props.dispatch({ type: "close", paneId: active.paneId })}
+                  onClick={() => {
+                    // A Files pane with unsaved edits asks before it goes.
+                    if (active.pane === "files" && !mayCloseFilesPane()) return;
+                    props.dispatch({ type: "close", paneId: active.paneId });
+                  }}
                 >
                   ×
                 </button>

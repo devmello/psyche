@@ -56,6 +56,21 @@ export const onboardingRest: Partial<Catalogue> = {
   "onboarding.step.you": "Vous et votre agent",
   "onboarding.step.stuff": "Vos affaires",
   "onboarding.step.safety": "Sécurité",
+  "onboarding.step.folders": "Dossiers",
+  "onboarding.folders.lead":
+    "Laisse {name} lire tes dossiers Documents, Bureau et Téléchargements. Lecture seule : {name} peut consulter les fichiers, jamais les modifier ni les supprimer. Rien n’est partagé sans que tu coches.",
+  "onboarding.folders.group": "Dossiers à partager, en lecture seule",
+  "onboarding.folders.documents": "Documents",
+  "onboarding.folders.desktop": "Bureau",
+  "onboarding.folders.downloads": "Téléchargements",
+  "onboarding.folders.hint":
+    "Tu peux le changer à tout moment dans Réglages, sous Accès aux fichiers.",
+  "onboarding.folders.shareLater":
+    "Tu pourras partager ces dossiers plus tard dans Réglages → Accès aux fichiers.",
+  "onboarding.folders.openFileAccess": "Ouvrir Accès aux fichiers",
+  "onboarding.folders.retry": "Réessayer",
+  "onboarding.folders.continueWithout": "Continuer sans partager",
+  "onboarding.folders.failed": "Impossible de partager ces dossiers : {reason}",
   "onboarding.you.lead":
     "Tout sur cette page est facultatif, et vous pourrez le modifier plus tard.",
   "onboarding.you.agent": "Votre agent",
@@ -80,18 +95,18 @@ export const onboardingRest: Partial<Catalogue> = {
     "Le résumé du matin est désactivé, les personnes n’apparaîtront donc encore nulle part. Activez-le pour les voir.",
   "onboarding.safety.lead":
     "Comment les approbations vous parviennent et ce qui s’exécute seul. L’accès à vos fichiers, apps et écran n’est pas demandé ici : {name} le demande dans la discussion la première fois qu’il en a besoin.",
-  "onboarding.safety.touchId": "Touch ID pour les approbations",
+  "onboarding.safety.touchId": "Touch ID pour les paiements",
   "onboarding.safety.touchId.checking": "Examen de l’assistant Mac…",
   "onboarding.safety.touchId.again": "Vérifier à nouveau",
   "onboarding.safety.touchId.set": "Configurer",
   "onboarding.safety.touchId.setHint":
-    "Les approbations qui ont besoin de vous demandent votre empreinte digitale.",
+    "Les paiements demandent votre empreinte digitale ou le mot de passe de votre Mac.",
   "onboarding.safety.touchId.starting":
     "L’assistant Mac démarre encore. Vérifiez à nouveau dans un instant.",
   "onboarding.safety.touchId.noKey": "L’assistant Mac n’a pas de clé Touch ID ({reason}).",
   "onboarding.safety.touchId.register": "Enregistrer cette clé",
   "onboarding.safety.touchId.hint":
-    "Enregistrez une seule fois la clé de l’assistant Mac pour que Touch ID puisse confirmer les approbations.",
+    "Enregistrez une seule fois la clé de l’assistant Mac pour que Touch ID puisse confirmer les paiements.",
   "onboarding.safety.notifications": "Notifications",
   "onboarding.safety.asks":
     "Si vous autorisez {name} à exécuter des commandes sur ce Mac, celles qui ne font que lire, comme ls ou cat, s’exécutent sans carte. Tout le reste vous demande d’abord.",

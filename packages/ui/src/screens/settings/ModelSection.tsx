@@ -20,6 +20,7 @@ import { NativeSelect } from "../../components/ui/native-select.tsx";
 import { useCall, useGatewayQuery } from "../../data/hooks.ts";
 import { activeI18n, t } from "../../i18n/core.ts";
 import { cn } from "../../lib/utils.ts";
+import { ApiKeysGroup } from "./ApiKeysSettings.tsx";
 import { ContextSettingsGroup } from "./ContextSettings.tsx";
 import {
   Advanced,
@@ -649,6 +650,7 @@ export function ModelSection(props: ModelSectionProps): ReactElement {
   const form = useSettingsForm();
   const call = useCall();
   const list = useGatewayQuery("models.list", {});
+  const apiKeys = useGatewayQuery("keys.status", {});
   const [probing, setProbing] = useState<string | null>(null);
   const [checking, setChecking] = useState<string | null>(null);
   const [actionError, setActionError] = useState<string | null>(null);
@@ -827,6 +829,15 @@ export function ModelSection(props: ModelSectionProps): ReactElement {
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+      {apiKeys.data !== undefined ? (
+        <ApiKeysGroup
+          keys={apiKeys.data.keys}
+          onChanged={() => {
+            apiKeys.reload();
+            reload();
+          }}
+        />
+      ) : null}
       {actionError ? <ErrorNotice what={actionError} /> : null}
       {form.writeError ? <ErrorNotice what={form.writeError} did="" /> : null}
     </div>

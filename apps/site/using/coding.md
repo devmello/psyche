@@ -53,7 +53,7 @@ Text the agent reads from the repository is untrusted content: a README or a tes
 - The coding helper is new in 0.3. It passed its acceptance scenario on Anthropic's Haiku model three times out of three. No OpenAI or local model has been tested with it.
 - The prompt-injection test corpus has no cases for the coding helper yet. The only injection check is the planted instruction in the coding scenario.
 - The container mount has been tested against a fake container runner, not on every backend.
-- The desktop app has a Terminal pane, but the Gateway does not open shells for it yet, so it shows as unavailable. You see the agent's commands on their cards and receipts instead.
+- The app has a Terminal pane. The Gateway runs the owner's login shell on the Host for it. If the Gateway cannot open one, the pane shows the reason. The agent's commands also appear on their cards and receipts.
 - Harness plugins (running Claude Code, Codex or another coding agent behind Psyche's approvals) are not built.
 - To turn the coding helper off, start the Gateway with `PSYCHE_CODING=off`.
 

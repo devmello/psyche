@@ -1,6 +1,15 @@
 import { execFile } from "node:child_process";
 import { createHash } from "node:crypto";
-import { mkdirSync, mkdtempSync, readFileSync, realpathSync, rmSync, writeFileSync } from "node:fs";
+import {
+  mkdirSync,
+  mkdtempSync,
+  readFileSync,
+  realpathSync,
+  renameSync,
+  rmSync,
+  symlinkSync,
+  writeFileSync,
+} from "node:fs";
 import { readFile, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
@@ -212,6 +221,39 @@ describe("code.* tools (V10)", () => {
     });
   });
 
+  it("closes a workspace whose root was swapped for a link after it was opened (PR #1395 r2, D)", async () => {
+    // The outer grant still covers the path lexically; only the live check of the root sees it.
+    const { use } = setup([{ path: dir, mode: "rw" }]);
+    await use("code.open", { path: repo });
+    const elsewhere = join(dir, "Documents");
+    mkdirSync(elsewhere);
+    writeFileSync(join(elsewhere, "secret.js"), "export const a - b = 1;\n");
+    renameSync(repo, join(dir, "repo-moved"));
+    symlinkSync(elsewhere, repo);
+    await expect(use("code.search", { root: repo, pattern: "a\\s-\\sb" })).rejects.toMatchObject({
+      code: "forbidden",
+    });
+    await expect(use("code.read", { root: repo, path: "secret.js" })).rejects.toMatchObject({
+      code: "forbidden",
+    });
+  });
+
+  it("reads the granted folders through an async source (the broker's fresh read)", async () => {
+    const writes: string[] = [];
+    const tools = codingTools({
+      files: fileTools(writes),
+      folders: async () => [{ path: dir, mode: "rw" }],
+      git: hostGit,
+    });
+    const t = tools.find((x) => x.spec.name === "code.open") as AgentToolRegistration;
+    await expect(t.run?.({ path: repo }, ctx())).resolves.toMatchObject({
+      output: { root: repo },
+    });
+    const none = codingTools({ files: fileTools(writes), folders: async () => [], git: hostGit });
+    const t2 = none.find((x) => x.spec.name === "code.open") as AgentToolRegistration;
+    await expect(t2.run?.({ path: repo }, ctx())).rejects.toMatchObject({ code: "forbidden" });
+  });
+
   it("searches and reads with root-relative paths, never outside the root", async () => {
     const { use } = setup();
     await use("code.open", { path: repo });
@@ -228,6 +270,23 @@ describe("code.* tools (V10)", () => {
     ).rejects.toMatchObject({
       code: "forbidden",
     });
+  });
+
+  // #1427 review r1, finding 4: an edit into an app's launch config always shows its card.
+  it("describes an edit into .vscode, .husky or .envrc as destructive, and others as plain", () => {
+    const { byName } = setup();
+    const describe = (file: string) =>
+      byName.get("code.edit")?.describeCall?.({
+        root: repo,
+        patch: `--- /dev/null\n+++ b/${file}\n@@ -0,0 +1 @@\n+x\n`,
+      });
+    for (const file of [".vscode/tasks.json", ".husky/pre-commit", ".envrc", "web/.idea/x.xml"]) {
+      expect(describe(file)?.sideEffect, file).toBe("destructive");
+      expect(describe(file)?.details).toMatchObject({ files: [file] });
+    }
+    for (const file of ["src/vscode.ts", ".vscodeignore", "docs/.envrc.example"]) {
+      expect(describe(file)?.sideEffect, file).toBeUndefined();
+    }
   });
 
   it("applies a patch through write_file, and refuses .git and mismatched hunks before writing", async () => {
@@ -369,6 +428,27 @@ describe("code.* tools (V10)", () => {
     );
     expect((await use("code.git", { root: repo, op: "log" })).output.commits).toHaveLength(1);
   });
+
+  it("a commit's paths are literal: pathspec magic cannot stage the rest of the tree (#1333)", async () => {
+    const { use } = setup();
+    await use("code.open", { path: repo });
+    writeFileSync(join(repo, "notes.md"), "notes\n");
+    writeFileSync(join(repo, ".envrc"), "export X=1\n");
+    writeFileSync(join(repo, "wip.ts"), "// the owner's unfinished work\n");
+    for (const magic of [":!notes.md", ":(exclude)notes.md", "*.ts"]) {
+      await expect(
+        use("code.git", { root: repo, op: "commit", message: "x", paths: [magic] }),
+      ).rejects.toMatchObject({ code: "conflict" });
+    }
+    expect(await sh(repo, "diff", "--cached", "--name-only")).toBe("");
+    expect((await use("code.git", { root: repo, op: "log" })).output.commits).toHaveLength(1);
+    // Positive control: a literal path commits exactly that file.
+    await use("code.git", { root: repo, op: "commit", message: "Notes", paths: ["notes.md"] });
+    expect(await sh(repo, "show", "--name-only", "--format=", "HEAD")).toBe("notes.md");
+    const left = await sh(repo, "status", "--porcelain");
+    expect(left).toContain(".envrc");
+    expect(left).toContain("wip.ts");
+  });
 });
 
 describe("patch paths on the card (#439)", () => {
@@ -473,7 +553,6 @@ describe("gitDriverOverrides (security §5.4)", () => {
       "diff.pwn.textconv",
       "merge.ours.driver",
       "filter.lfs.smudge",
-      "filter.bad name.clean",
       "core.editor",
     ].join("\n");
     const out = gitDriverOverrides(listed);
@@ -489,8 +568,19 @@ describe("gitDriverOverrides (security §5.4)", () => {
     ]) {
       expect(out).toContain(v);
     }
-    expect(out.join(" ")).not.toContain("bad name");
     expect(out.join(" ")).not.toContain("core.editor");
     expect(out.filter((x) => x === "-c")).toHaveLength(out.length / 2);
+  });
+
+  it("fails closed on a driver name -c cannot carry (review of #1329)", () => {
+    for (const listed of [
+      "filter.a=b.clean",
+      "diff.c=d.textconv",
+      "filter.bad name.clean",
+      "filter.tab\tname.clean",
+      "merge.x =y.driver",
+    ]) {
+      expect(() => gitDriverOverrides(listed), listed).toThrow(/cannot be switched off/);
+    }
   });
 });

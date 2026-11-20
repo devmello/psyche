@@ -6,7 +6,7 @@ import { type InboundDecisionEvent, staticSecret } from "@psyche/channels";
 import type { MailBackend, MailMessageView, MailSession } from "@psyche/connectors";
 import { bindingFor } from "@psyche/permissions";
 import type { InboundMessage } from "@psyche/protocol";
-import { FakeModelProvider } from "@psyche/testing";
+import { FakeModelProvider, fixtureSecret } from "@psyche/testing";
 import { afterEach, describe, expect, it } from "vitest";
 import { channelReplyAuthority } from "../src/compose/channels.ts";
 import {
@@ -189,6 +189,45 @@ describe("email transport over the mail backend", () => {
     expect(backend.sent[0]?.raw).toContain(`In-Reply-To: ${THREAD}`);
     // Spent: the same approval does not send twice.
     await expect(t.send(reply, approvalId)).rejects.toMatchObject({ code: "approval_required" });
+  });
+});
+
+describe("email transport: the outbound check", () => {
+  const CARD = fixtureSecret("link-virtual-card");
+  const reply = {
+    thread: THREAD,
+    to: OWNER,
+    subject: "Re: Trip",
+    text: "Tuesday at 9:40.",
+    inReplyTo: THREAD,
+    references: [THREAD],
+  };
+  const transport = async () => {
+    const s = await services();
+    const backend = new StubBackend();
+    const t = mailEmailTransport(s, {
+      address: ME,
+      imap: {},
+      password: staticSecret("pw"),
+      backend,
+    });
+    return { t, backend };
+  };
+
+  it("refuses a body that holds a card, before any approval is looked at", async () => {
+    const { t, backend } = await transport();
+    await expect(t.send({ ...reply, text: `use ${CARD}` }, "appr_none")).rejects.toMatchObject({
+      code: "forbidden",
+    });
+    expect(backend.sent).toEqual([]);
+  });
+
+  it("does not judge the subject: it is the sender's own subject line", async () => {
+    const { t, backend } = await transport();
+    await expect(t.send({ ...reply, subject: `Re: ${CARD}` }, "appr_none")).rejects.toMatchObject({
+      code: "approval_required",
+    });
+    expect(backend.sent).toEqual([]);
   });
 });
 

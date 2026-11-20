@@ -200,9 +200,9 @@ export function DictationHud(): ReactElement | null {
     <output
       aria-live="polite"
       style={{
-        // Fades in when the HUD opens (smoothness-2026 C13). This window has no theme: 150 ms is
-        // `duration.short`, and an opacity fade is kept under reduced motion.
-        animation: "psy-hud-in 150ms ease-out both",
+        // Fades in when the HUD opens (smoothness-2026 C13), on the kit's motion tokens (this
+        // window loads the same stylesheet). An opacity fade is kept under reduced motion.
+        animation: "psy-hud-in var(--duration-short) var(--ease-enter) both",
         display: "flex",
         alignItems: "center",
         gap: 10,

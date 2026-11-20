@@ -112,4 +112,69 @@ final class ChatUITests: PsycheUITestCase {
         waitFor(text("You answered"), 5)
         XCTAssertTrue(app.buttons.matching(NSPredicate(format: "label CONTAINS %@", "Q3-review-final.pdf")).firstMatch.isSelected)
     }
+
+    // MARK: Tab bar comes back
+
+    private var tabBar: XCUIElement { app.tabBars.firstMatch }
+
+    /// The chat hides the tab bar on iPhone; leaving it must always bring it back, whichever way the reader leaves.
+    private func assertTabBarBack(_ message: String, file: StaticString = #filePath, line: UInt = #line) {
+        guard !isPad else { return }
+        XCTAssertTrue(tabBar.waitForExistence(timeout: 5), "tab bar missing \(message)", file: file, line: line)
+        waitFor(tab("Home"), 5, file: file, line: line)
+        XCTAssertTrue(app.frame.contains(tabBar.frame), "tab bar off screen \(message)", file: file, line: line)
+        // The bar works: a tap on Home shows the Home screen.
+        tab("Home").tap()
+        waitFor(match("Needs you"), 10, file: file, line: line)
+    }
+
+    func testTabBarReturnsAfterBackButton() {
+        launch()
+        guard !isPad else { return }
+        openThread("Psyche, Main thread")
+        XCTAssertFalse(tabBar.isHittable, "the tab bar should be hidden inside a thread")
+        app.navigationBars.buttons.firstMatch.tap()
+        assertTabBarBack("after the back button")
+    }
+
+    func testTabBarReturnsAfterInteractiveSwipeBack() {
+        launch()
+        guard !isPad else { return }
+        openThread("Psyche, Main thread")
+        let edge = app.coordinate(withNormalizedOffset: CGVector(dx: 0.0, dy: 0.5))
+        edge.withOffset(CGVector(dx: 2, dy: 0)).press(
+            forDuration: 0.05, thenDragTo: app.coordinate(withNormalizedOffset: CGVector(dx: 0.9, dy: 0.5)))
+        assertTabBarBack("after a swipe back")
+    }
+
+    func testTabBarReturnsAfterAbandonedSwipeAndBackWithKeyboardOpen() {
+        launch()
+        guard !isPad else { return }
+        openThread("Psyche, Main thread")
+        composer.tap()
+        composer.typeText("draft")
+        // A slow swipe that lets go early usually cancels and stays in the thread; either way the reader then
+        // leaves with the back button (if still there) and the bar must be back.
+        let edge = app.coordinate(withNormalizedOffset: CGVector(dx: 0.0, dy: 0.5))
+        edge.withOffset(CGVector(dx: 2, dy: 0)).press(
+            forDuration: 0.05, thenDragTo: app.coordinate(withNormalizedOffset: CGVector(dx: 0.2, dy: 0.5)),
+            withVelocity: .slow, thenHoldForDuration: 0.3)
+        if composer.waitForExistence(timeout: 2) { app.navigationBars.buttons.firstMatch.tap() }
+        assertTabBarBack("after an abandoned swipe and back with the keyboard open")
+    }
+
+    func testTabBarReturnsWhenReopeningTheSameChatTwice() {
+        launch()
+        guard !isPad else { return }
+        openThread("Psyche, Main thread")
+        app.navigationBars.buttons.firstMatch.tap()
+        // Straight back into the same chat from the list, and out again.
+        let row = app.buttons.matching(NSPredicate(format: "label BEGINSWITH %@", "Psyche, Main thread")).firstMatch
+        waitFor(row)
+        row.tap()
+        waitFor(composer, 20)
+        XCTAssertFalse(tabBar.isHittable, "the tab bar should be hidden inside a thread")
+        app.navigationBars.buttons.firstMatch.tap()
+        assertTabBarBack("after the second visit")
+    }
 }

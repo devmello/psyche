@@ -23,6 +23,7 @@ export {
   type MarkdownEditorProps,
 } from "./react/MarkdownEditor.tsx";
 export { PdfViewer, type PdfViewerProps } from "./react/PdfViewer.tsx";
+export { SheetEditor, type SheetEditorProps } from "./react/SheetEditor.tsx";
 export { SheetViewer } from "./react/SheetViewer.tsx";
 export { SlidesViewer } from "./react/SlidesViewer.tsx";
 export {

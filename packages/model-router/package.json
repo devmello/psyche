@@ -15,6 +15,7 @@
     "typecheck": "tsc --noEmit -p tsconfig.json",
     "test": "vitest run --passWithNoTests",
     "prices:update": "node scripts/prices-update.ts",
+    "smoke:deferred-tools": "node scripts/smoke-deferred-tools.ts",
     "test:live": "PSYCHE_LIVE_TESTS=1 vitest run test/live.test.ts"
   },
   "dependencies": {

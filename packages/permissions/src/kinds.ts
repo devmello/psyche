@@ -84,7 +84,7 @@ export const FILE_TOOLS = new Set([
  * command's cwd) get the same folder check as the file tools.
  */
 export const CODE_TOOLS = /^code\.(open|search|read|edit|run|git)$/;
-export const NAVIGATION_TOOLS = /^browser\.(navigate|open|new_tab|goto)$/;
+export const NAVIGATION_TOOLS = /^browser\.(navigate|open|open_tab|new_tab|goto)$/;
 export const BROWSER_WRITE_TOOLS =
   /^browser\.(click|type|select|fill|submit|press|drag|upload|key)$/;
 
@@ -164,8 +164,9 @@ export function allowedScopes(
   kind: ApprovalKind,
 ): GrantScope[] {
   if (kind === "purchase") return ["once"];
-  // Financial calls: `once`, or an `always` the owner confirms on the card (§3.4, §3.12).
-  if (sideEffect === "financial") return ["once", "always"];
+  // Financial calls: `once` only (owner's decision, 2026-11-09). A payment always asks, every
+  // time: no standing grant, no `always`, and no Settings override (§3.4, §3.12).
+  if (sideEffect === "financial") return ["once"];
   // Scripts and Shortcuts are approved per exact source / name + input (security §5.4).
   if (
     [

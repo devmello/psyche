@@ -247,6 +247,7 @@ export function paneForKey(key: string): SettingsPaneId | null {
     browser: "browser",
     computerUse: "computer-use",
     data: "data",
+    devices: "devices",
     gateway: "server",
     memory: "learning",
     map: "data",

@@ -1,3 +1,4 @@
+import { FINANCIAL_APP_PREFIXES, isBrowserWebApp } from "@psyche/protocol/financial-block";
 import type { AppTier } from "./policy.ts";
 
 /**
@@ -9,16 +10,42 @@ import type { AppTier } from "./policy.ts";
 export const TIER_RANK: Record<AppTier, number> = { off: 0, read: 1, click: 2, interact: 3 };
 
 export const BROWSER_APPS = [
+  // Each browser's channels (`com.google.Chrome.beta`, `.dev`, `.canary`, Edge Beta, Brave
+  // Nightly, Firefox Developer Edition, Safari Technology Preview…): read-only like the browser.
+  // Installed web apps (`com.google.Chrome.app.<id>`, `com.apple.Safari.WebApp.<id>`) are not
+  // browsers and keep the owner's tier (`isBrowserWebApp`); computer use reads the page they show
+  // before it acts there (#1321 round 3).
   "com.apple.Safari",
+  "com.apple.Safari.*",
+  "com.apple.SafariTechnologyPreview",
   "com.google.Chrome",
-  "com.google.Chrome.canary",
+  "com.google.Chrome.*",
   "org.mozilla.firefox",
+  "org.mozilla.firefox.*",
+  "org.mozilla.firefoxdeveloperedition",
+  "org.mozilla.nightly",
   "com.microsoft.edgemac",
+  "com.microsoft.edgemac.*",
   "company.thebrowser.Browser",
+  "company.thebrowser.*",
   "com.brave.Browser",
+  "com.brave.Browser.*",
   "com.operasoftware.Opera",
+  "com.operasoftware.*",
   "com.vivaldi.Vivaldi",
+  "com.vivaldi.*",
   "org.chromium.Chromium",
+  "org.chromium.*",
+  "app.zen-browser.zen",
+  "com.kagi.kagimacOS",
+  "com.duckduckgo.macos.browser",
+  "ai.perplexity.comet",
+  "com.openai.atlas",
+  "org.torproject.torbrowser",
+  "com.sigmaos.sigmaos.macos",
+  "net.waterfox.waterfox",
+  "org.mozilla.librewolf",
+  "io.gitlab.librewolf-community",
   // Windows: the helper names an app by its lowercase executable (apps/win-helper).
   "msedge.exe",
   "chrome.exe",
@@ -29,6 +56,11 @@ export const BROWSER_APPS = [
   "arc.exe",
 ];
 
+/**
+ * Terminals, IDEs and script runners: click-only. The same list as the Mac helper's
+ * `FixedCaps.terminalsAndIDEs` (Tiers.swift; a test keeps the two in step), which also caps any
+ * other app whose Info.plist says it is a developer tool or a shell.
+ */
 export const TERMINAL_IDE_APPS = [
   "com.apple.Terminal",
   "com.googlecode.iterm2",
@@ -36,13 +68,24 @@ export const TERMINAL_IDE_APPS = [
   "com.mitchellh.ghostty",
   "net.kovidgoyal.kitty",
   "io.alacritty",
+  "org.alacritty",
+  "com.github.wez.wezterm",
+  "co.zeit.hyper",
+  "app.crynta.terax",
   "com.microsoft.VSCode",
   "com.microsoft.VSCodeInsiders",
+  "com.vscodium",
   "com.todesktop.230313mzl4w4u92",
+  "com.exafunction.windsurf",
   "dev.zed.Zed",
   "com.apple.dt.Xcode",
-  "com.sublimetext.4",
+  "com.sublimetext.*",
   "com.jetbrains.*",
+  "com.google.android.studio",
+  "com.panic.Nova",
+  "com.barebones.bbedit",
+  "com.apple.ScriptEditor2",
+  "com.apple.Automator",
   // Windows terminals, shells and IDEs.
   "windowsterminal.exe",
   "wt.exe",
@@ -89,15 +132,9 @@ export const LOCKED_OFF_APPS = [
   "com.apple.coreservices.uiagent",
   "com.apple.loginwindow",
   "com.dashlane.dashlanephonefinal",
-  "com.robinhood.*",
-  "com.coinbase.*",
-  "com.schwab.*",
-  "com.fidelity.*",
-  "com.etrade.*",
-  "com.webull.*",
-  "com.interactivebrokers.*",
-  "com.paypal.*",
-  "com.chase.*",
+  // Every brokerage, exchange, wallet, bank and P2P app the hard block on trades and transfers
+  // knows (`@psyche/protocol/financial-block`): one list, so the two cannot drift apart.
+  ...FINANCIAL_APP_PREFIXES.flatMap((prefix) => [prefix, `${prefix}.*`]),
   // Windows: password managers, Settings and the system's credential and consent prompts,
   // Psyche's own app and helper.
   "1password.exe",
@@ -132,7 +169,7 @@ export function appCap(bundleId: string): { cap: AppTier; reason: string } {
         "password managers, banking, trading, system settings, notifications and security prompts are off",
     };
   }
-  if (matchesAny(bundleId, BROWSER_APPS)) {
+  if (matchesAny(bundleId, BROWSER_APPS) && !isBrowserWebApp(bundleId)) {
     return { cap: "read", reason: "browsers are read-only; the agent browser acts on the web" };
   }
   if (matchesAny(bundleId, TERMINAL_IDE_APPS)) {

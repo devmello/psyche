@@ -52,6 +52,9 @@ export const chatRest: Partial<Catalogue> = {
   "chat.attach.refused.size":
     "{name}は大きすぎて添付できません（画像は5 MB、ドキュメントは25 MBまで）",
   "chat.attach.refused.count": "{name}: 1通のメッセージに添付できるのは8ファイルまでです",
+  "chat.attach.refused.sensitive": "{name} は保護された場所にあるため、Psyche と共有できません",
+  "chat.attach.refused.unreadable":
+    "{name} を添付できませんでした。ファイルがまだ存在し、フォルダではなくファイルであることを確認してください",
   "chat.message.fromWidget": "ウィジェットから",
   "chat.teach.notLikeThis": "こうではない",
   "chat.teach.dialog": "Psycheに教える",
@@ -130,6 +133,8 @@ export const chatRest: Partial<Catalogue> = {
   "chat.steps.approval": "承認待ち: {summary}",
   "chat.steps.question": "質問: {question}",
   "chat.steps.answered": "回答: {question}",
+  "chat.steps.earlier": "{n, plural, other {以前の # ステップが完了}}",
+  "chat.steps.needsYou": "確認が必要です",
   "chat.steps.writing": "返信を作成中…",
   "chat.steps.thinking": "思考中: {text}",
   "chat.steps.thinkingEmpty": "思考中…",
@@ -188,4 +193,16 @@ export const chatRest: Partial<Catalogue> = {
   "chat.clear.mainOnly":
     "消去はメインチャットで使えます。新しいサイドチャットには/newを使ってください。",
   "chat.commands.clear.description": "メインチャットを消去",
+  "chat.modeSwitch.label": "権限モード",
+  "chat.modeSwitch.autoExplainer":
+    "Autoは許可の範囲内で日常的な操作を実行し、機密性のある操作の前に確認します。支払いは常に確認し、「決して行わない」リストは常に拒否されます。",
+  "chat.modeSwitch.gotIt": "了解",
+  "chat.modeSwitch.autoUnavailable": "Autoは{model}では使えません。",
+  "chat.modeSwitch.needsModel": "Autoには対応モデルが必要です。",
+  "chat.modeSwitch.switchModel": "{model}に切り替えてAutoを使う",
+  "chat.modeSwitch.noModel":
+    "AutoにはClaude、GPT、Geminiなどの対応モデルが必要です。設定でそのキーを追加してください。",
+  "chat.modeSwitch.failed": "モードを変更できませんでした: {reason}",
+  "chat.modeSwitch.notSaved":
+    "このチャットでは変更しましたが、新しいチャットの既定として保存できませんでした。",
 };

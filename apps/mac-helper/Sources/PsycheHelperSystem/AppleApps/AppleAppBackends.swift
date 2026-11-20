@@ -510,13 +510,13 @@ public final class EventKitBackend: CalendarBackend, RemindersBackend, @unchecke
     static let remindersApp = "com.apple.reminders"
     static let flagScript = ScriptHandler.prelude + """
         on psyche_flagged()
-          tell application "Reminders"
+          tell application id "com.apple.reminders"
             set ids to id of (reminders whose flagged is true and completed is false)
           end tell
           return my psyche_join(ids, character id 30)
         end psyche_flagged
         on psyche_set_flagged(rid, f)
-          tell application "Reminders"
+          tell application id "com.apple.reminders"
             set flagged of reminder id ("x-apple-reminder://" & rid) to (f is "true")
           end tell
           return "ok"
@@ -571,17 +571,26 @@ enum ScriptHandler {
     }
 
     /// Launches the target in the background when needed (Automation can only be asked of a running app).
+    /// The bundle is resolved and checked (`CheckedLaunch`): an Applications-folder copy, Apple's
+    /// own for an Apple id, and a running instance must be that copy before a script reaches it.
     static func ensureRunning(_ bundleId: String) async throws {
-        if NSRunningApplication.runningApplications(withBundleIdentifier: bundleId).isEmpty {
-            guard let url = NSWorkspace.shared.urlForApplication(withBundleIdentifier: bundleId) else {
-                throw CapabilityError(.notFound, reason: "app_not_installed", "\(bundleId) is not installed")
+        do {
+            if try await CheckedLaunch.ensureRunning(bundleId, hidden: true) {
+                try await _Concurrency.Task.sleep(nanoseconds: 1_000_000_000)
             }
-            let config = NSWorkspace.OpenConfiguration()
-            config.activates = false
-            config.hides = true
-            _ = try await NSWorkspace.shared.openApplication(at: url, configuration: config)
-            try await _Concurrency.Task.sleep(nanoseconds: 1_000_000_000)
+        } catch let e as CapabilityError where e.reason == "app_not_found" {
+            throw CapabilityError(.notFound, reason: "app_not_installed", "\(bundleId) is not installed")
+        } catch let e as CapabilityError {
+            throw ensureRunningRefusal(bundleId, e)
         }
+    }
+
+    /// A launch check that refused (a copy outside the Applications folders, an Apple id that is
+    /// not Apple's, another copy running): said as such, with the helper's reason and details.
+    static func ensureRunningRefusal(_ bundleId: String, _ e: CapabilityError) -> CapabilityError {
+        var details = e.details
+        details["app"] = .string(bundleId)
+        return CapabilityError(e.code, reason: e.reason, "Psyche did not use \(bundleId): \(e.message)", details: details, retryable: e.retryable)
     }
 
     /// Shared helpers: strip the record separators from text and join records.
@@ -611,14 +620,14 @@ public final class MailScriptingBackend: MailBackend, @unchecked Sendable {
     static let bundleId = "com.apple.mail"
     static let source = ScriptHandler.prelude + """
         on psyche_source(mboxName, acctName)
-          tell application "Mail"
+          tell application id "com.apple.mail"
             if acctName is "" then return inbox
             return mailbox mboxName of account acctName
           end tell
         end psyche_source
         on psyche_line(m)
           set fs to character id 31
-          tell application "Mail"
+          tell application id "com.apple.mail"
             return (id of m as text) & fs & my psyche_clean(name of mailbox of m) & fs & my psyche_clean(name of account of mailbox of m) & fs & my psyche_clean(subject of m) & fs & my psyche_clean(sender of m) & fs & my psyche_iso(date received of m) & fs & (read status of m as text) & fs & (flagged status of m as text) & fs & my psyche_clean(message id of m)
           end tell
         end psyche_line
@@ -642,7 +651,7 @@ public final class MailScriptingBackend: MailBackend, @unchecked Sendable {
           set r2 to (rs2 is "true")
           set fs to character id 31
           with timeout of 12 seconds
-          tell application "Mail"
+          tell application id "com.apple.mail"
             set src to my psyche_source(mboxName, acctName)
             if q is not "" and f is not "" then
               set ids to id of (messages of src whose (subject contains q or sender contains q) and sender contains f and date received ≥ s and date received < u and (read status is r1 or read status is r2))
@@ -671,7 +680,7 @@ public final class MailScriptingBackend: MailBackend, @unchecked Sendable {
           set out to {}
           set t0 to current date
           with timeout of 15 seconds
-            tell application "Mail"
+            tell application id "com.apple.mail"
               set src to my psyche_source(mboxName, acctName)
               repeat with mid in idList
                 if ((current date) - t0) > 10 then exit repeat
@@ -689,7 +698,7 @@ public final class MailScriptingBackend: MailBackend, @unchecked Sendable {
           set fs to character id 31
           set out to {}
           with timeout of 5 seconds
-            tell application "Mail"
+            tell application id "com.apple.mail"
               repeat with a in accounts
                 set end of out to (id of a as text) & fs & my psyche_clean(name of a)
               end repeat
@@ -699,7 +708,7 @@ public final class MailScriptingBackend: MailBackend, @unchecked Sendable {
         end psyche_accounts
         on psyche_read(mid, mboxName, acctName, maxLen)
           set fs to character id 31
-          tell application "Mail"
+          tell application id "com.apple.mail"
             set src to my psyche_source(mboxName, acctName)
             set m to first message of src whose id is (mid as integer)
             set tos to {}
@@ -716,7 +725,7 @@ public final class MailScriptingBackend: MailBackend, @unchecked Sendable {
           return my psyche_line(m) & fs & my psyche_join(tos, character id 29) & fs & my psyche_join(ccs, character id 29) & fs & b
         end psyche_read
         on psyche_compose(toList, ccList, subj, bodyText, mode)
-          tell application "Mail"
+          tell application id "com.apple.mail"
             set msg to make new outgoing message with properties {subject:subj, content:bodyText, visible:false}
             tell msg
               repeat with a in toList
@@ -738,7 +747,7 @@ public final class MailScriptingBackend: MailBackend, @unchecked Sendable {
         -- Wave 1 (docs/connectors/apple-apps-2026.md §4.1, M2–M9). Fixed text; inputs are arguments.
         on psyche_outgoing(r)
           set fs to character id 31
-          tell application "Mail"
+          tell application id "com.apple.mail"
             set tos to {}
             repeat with x in to recipients of r
               set end of tos to my psyche_clean(address of x)
@@ -755,7 +764,7 @@ public final class MailScriptingBackend: MailBackend, @unchecked Sendable {
           end tell
         end psyche_outgoing
         on psyche_mailbox_path(mb)
-          tell application "Mail"
+          tell application id "com.apple.mail"
             set nm to name of mb
             set c to mb
             repeat 8 times
@@ -773,7 +782,7 @@ public final class MailScriptingBackend: MailBackend, @unchecked Sendable {
         on psyche_mailboxes(acctName)
           set fs to character id 31
           set out to {}
-          tell application "Mail"
+          tell application id "com.apple.mail"
             if acctName is "" then set end of out to "" & fs & "INBOX" & fs & (unread count of inbox as text)
             repeat with a in accounts
               if acctName is "" or (name of a) is acctName then
@@ -787,7 +796,7 @@ public final class MailScriptingBackend: MailBackend, @unchecked Sendable {
         end psyche_mailboxes
         on psyche_selected(lim)
           set out to {}
-          tell application "Mail"
+          tell application id "com.apple.mail"
             if (count of message viewers) is 0 then return ""
             set sel to selected messages of front message viewer
             if sel is missing value then return ""
@@ -801,7 +810,7 @@ public final class MailScriptingBackend: MailBackend, @unchecked Sendable {
           return my psyche_join(out, character id 30)
         end psyche_selected
         on psyche_reply(mid, mboxName, acctName, bodyText, replyAll, ccList)
-          tell application "Mail"
+          tell application id "com.apple.mail"
             set src to my psyche_source(mboxName, acctName)
             set m to first message of src whose id is (mid as integer)
             if replyAll is "true" then
@@ -820,7 +829,7 @@ public final class MailScriptingBackend: MailBackend, @unchecked Sendable {
           end tell
         end psyche_reply
         on psyche_forward(mid, mboxName, acctName, toList, ccList, bodyText)
-          tell application "Mail"
+          tell application id "com.apple.mail"
             set src to my psyche_source(mboxName, acctName)
             set m to first message of src whose id is (mid as integer)
             set r to forward m without opening window
@@ -838,21 +847,21 @@ public final class MailScriptingBackend: MailBackend, @unchecked Sendable {
           end tell
         end psyche_forward
         on psyche_draft(did)
-          tell application "Mail"
+          tell application id "com.apple.mail"
             set found to (outgoing messages whose id is (did as integer))
             if (count of found) is 0 then return ""
             return my psyche_outgoing(item 1 of found)
           end tell
         end psyche_draft
         on psyche_send_draft(did)
-          tell application "Mail"
+          tell application id "com.apple.mail"
             send (first outgoing message whose id is (did as integer))
           end tell
           return "sent"
         end psyche_send_draft
         on psyche_flags(idList, mboxName, acctName, readMode, flagMode, flagIdx)
           set n to 0
-          tell application "Mail"
+          tell application id "com.apple.mail"
             set src to my psyche_source(mboxName, acctName)
             repeat with mid in idList
               set m to first message of src whose id is (mid as integer)
@@ -868,7 +877,7 @@ public final class MailScriptingBackend: MailBackend, @unchecked Sendable {
         end psyche_flags
         on psyche_move(idList, mboxName, acctName, destKind, destName, destAcct)
           set n to 0
-          tell application "Mail"
+          tell application id "com.apple.mail"
             set src to my psyche_source(mboxName, acctName)
             repeat with mid in idList
               set m to first message of src whose id is (mid as integer)
@@ -889,7 +898,7 @@ public final class MailScriptingBackend: MailBackend, @unchecked Sendable {
         on psyche_attachments(mid, mboxName, acctName)
           set fs to character id 31
           set out to {}
-          tell application "Mail"
+          tell application id "com.apple.mail"
             set src to my psyche_source(mboxName, acctName)
             set m to first message of src whose id is (mid as integer)
             repeat with a in mail attachments of m
@@ -907,7 +916,7 @@ public final class MailScriptingBackend: MailBackend, @unchecked Sendable {
           return my psyche_join(out, character id 30)
         end psyche_attachments
         on psyche_save_attachment(mid, mboxName, acctName, idx, destPath)
-          tell application "Mail"
+          tell application id "com.apple.mail"
             set src to my psyche_source(mboxName, acctName)
             set m to first message of src whose id is (mid as integer)
             save (mail attachment (idx as integer) of m) in (POSIX file destPath)
@@ -1150,7 +1159,7 @@ public final class NotesScriptingBackend: NotesBackend, @unchecked Sendable {
     static let source = ScriptHandler.prelude + """
         on psyche_line(n)
           set fs to character id 31
-          tell application "Notes"
+          tell application id "com.apple.Notes"
             set cname to ""
             try
               set cname to name of container of n
@@ -1183,7 +1192,7 @@ public final class NotesScriptingBackend: NotesBackend, @unchecked Sendable {
           set dl to {}
           set cl to {}
           with timeout of 40 seconds
-            tell application "Notes"
+            tell application id "com.apple.Notes"
               if folderName is "" then
                 set total to count of notes
               else
@@ -1264,13 +1273,13 @@ public final class NotesScriptingBackend: NotesBackend, @unchecked Sendable {
         end psyche_list
         on psyche_read(nid)
           set fs to character id 31
-          tell application "Notes"
+          tell application id "com.apple.Notes"
             set n to note id nid
             return my psyche_line(n) & fs & my psyche_clean(body of n) & fs & my psyche_clean(plaintext of n)
           end tell
         end psyche_read
         on psyche_create(html, folderName)
-          tell application "Notes"
+          tell application id "com.apple.Notes"
             if folderName is "" then
               set n to make new note with properties {body:html}
             else
@@ -1293,7 +1302,7 @@ public final class NotesScriptingBackend: NotesBackend, @unchecked Sendable {
           set s to my psyche_date(sinceParts)
           set fs to character id 31
           with timeout of 30 seconds
-          tell application "Notes"
+          tell application id "com.apple.Notes"
             if folderName is "" and q is "" then
               set ids to id of (notes whose modification date ≥ s)
               set ds to modification date of (notes whose modification date ≥ s)
@@ -1318,7 +1327,7 @@ public final class NotesScriptingBackend: NotesBackend, @unchecked Sendable {
         on psyche_lines(idList, maxChars)
           set fs to character id 31
           set out to {}
-          tell application "Notes"
+          tell application id "com.apple.Notes"
             repeat with nid in idList
               -- A locked or vanished note is skipped, not fatal to the whole search.
               try
@@ -1333,7 +1342,7 @@ public final class NotesScriptingBackend: NotesBackend, @unchecked Sendable {
         end psyche_lines
         on psyche_walk(f, acctName, pid, out)
           set fs to character id 31
-          tell application "Notes"
+          tell application id "com.apple.Notes"
             set end of out to (id of f as text) & fs & my psyche_clean(name of f) & fs & my psyche_clean(acctName) & fs & pid & fs & ((count of notes of f) as text)
             repeat with g in folders of f
               my psyche_walk(g, acctName, (id of f as text), out)
@@ -1342,7 +1351,7 @@ public final class NotesScriptingBackend: NotesBackend, @unchecked Sendable {
         end psyche_walk
         on psyche_folders()
           set out to {}
-          tell application "Notes"
+          tell application id "com.apple.Notes"
             repeat with a in accounts
               repeat with f in folders of a
                 my psyche_walk(f, (name of a), "", out)
@@ -1354,7 +1363,7 @@ public final class NotesScriptingBackend: NotesBackend, @unchecked Sendable {
         on psyche_attachments(nid)
           set fs to character id 31
           set out to {}
-          tell application "Notes"
+          tell application id "com.apple.Notes"
             repeat with a in attachments of note id nid
               set end of out to (id of a as text) & fs & my psyche_clean(name of a)
             end repeat
@@ -1362,14 +1371,14 @@ public final class NotesScriptingBackend: NotesBackend, @unchecked Sendable {
           return my psyche_join(out, character id 30)
         end psyche_attachments
         on psyche_append(nid, frag)
-          tell application "Notes"
+          tell application id "com.apple.Notes"
             set n to note id nid
             set body of n to (body of n) & frag
             return my psyche_line(n) & (character id 31) & my psyche_clean(body of n)
           end tell
         end psyche_append
         on psyche_update(nid, newName, newBody)
-          tell application "Notes"
+          tell application id "com.apple.Notes"
             set n to note id nid
             if newBody is not "" then set body of n to newBody
             if newName is not "" then set name of n to newName
@@ -1444,7 +1453,7 @@ public final class SafariScriptingBackend: SafariBackend, @unchecked Sendable {
         on psyche_tabs()
           set fs to character id 31
           set out to {}
-          tell application "Safari"
+          tell application id "com.apple.Safari"
             set wi to 0
             repeat with w in windows
               set wi to wi + 1
@@ -1466,7 +1475,7 @@ public final class SafariScriptingBackend: SafariBackend, @unchecked Sendable {
           return my psyche_join(out, character id 30)
         end psyche_tabs
         on psyche_open(u)
-          tell application "Safari"
+          tell application id "com.apple.Safari"
             make new document with properties {URL:u}
           end tell
           return "ok"
@@ -1474,7 +1483,7 @@ public final class SafariScriptingBackend: SafariBackend, @unchecked Sendable {
         -- Wave 1 (§4.7). Fixed text; inputs are arguments. `text` is Safari's tab property, not JavaScript.
         on psyche_tab_text(wIdx, tIdx)
           set fs to character id 31
-          tell application "Safari"
+          tell application id "com.apple.Safari"
             set w to window ((wIdx as integer) + 1)
             if tIdx is "-1" then
               set t to current tab of w
@@ -1495,7 +1504,7 @@ public final class SafariScriptingBackend: SafariBackend, @unchecked Sendable {
           end tell
         end psyche_tab_text
         on psyche_reading_list(u, ttl)
-          tell application "Safari"
+          tell application id "com.apple.Safari"
             if ttl is "" then
               add reading list item u
             else
@@ -1537,7 +1546,7 @@ public final class ChromeScriptingBackend: ChromeBackend, @unchecked Sendable {
         on psyche_tabs()
           set fs to character id 31
           set out to {}
-          tell application "Google Chrome"
+          tell application id "com.google.Chrome"
             set wi to 0
             repeat with w in windows
               set wi to wi + 1

@@ -95,6 +95,8 @@ export const securityHandlers: Record<string, HandlerDef> = {
           },
         },
         params.approvalId,
+        // Applying a presence reset or a device grant at once instead of after 24 hours.
+        { strong: true },
       );
       return { recovery: recoveries.approveNow(params.id, call.identity.deviceId) };
     },

@@ -1,0 +1,23 @@
+# Builder learnings
+
+Curated by the `reflect` skill from PR "Learnings" sections, verify failures and review findings. Builders read this. Builders don't edit it directly: write learnings in your PR body instead. Each line says what happened, what to do, and where it came from.
+
+- zsh does not word-split `$files`. Run multi-file commands and probe loops under `bash -c`, or use arrays. Otherwise vitest reports false failures. (2026-11-05, #1372)
+- macOS has no `timeout` command. Don't wrap commands in it. (2026-11-05)
+- macOS `/bin/bash` is 3.2: no `mapfile`, use a `while read` loop (#1371). `sed -i` needs a suffix argument, `sed -i ''` (#1369). `rg` in the Bash tool is a shell function around the Claude binary, not a file on PATH (#1372). (2026-11-19)
+- Writing a heredoc'd script with absolute paths outside the worktree makes the shell tool refuse as "too complex": write it to the scratchpad and run it. The Write tool turns U+2028 in source into the literal character; use `\p{Zl}\p{Zp}` in regexes (#1366). (2026-11-19)
+- After renaming a prop, check the destructured names: a `ReferenceError` there surfaces in the UI as a generic error (#1369). In tests, `describeCall` reads the sandbox's last known state: call it once and wait a tick before expecting `meta.hostProgram` (#1368). (2026-11-19)
+- `@psyche/audit`'s `sha256` returns a `sha256:`-prefixed digest. Strip the prefix when another side expects bare hex: the helper's and WebAuthn's challenges. (2026-11-09)
+- Edit a test file after running biome and it can still fail lint on formatting. Run `biome check --write` as the very last step. (2026-10-26)
+- Adding a protocol enum value breaks the Swift helper's exhaustive switches, and Linux CI never builds Swift. Grep `apps/mac-helper/Sources` for the enum. (2026-10-26)
+- Some axe and story checks fail only on macOS (`landmark-unique`), so Linux CI can't see them. (2026-11-02)
+- Never spread client `params` into a call that also carries server-decided trust flags (`local`, `decidedBy`, scope). A client can send the same key, and protocol schemas allow extra properties. Set trust fields only from the connection, after the spread or as a separate argument. (2026-11-09, #1299: `local: true` spoofing bypassed the approval lockout)
+- Don't keep a "fails on main" list here: it goes stale (#1307 and #1310 fixed the three that were listed). verify.sh reports base failures itself. To check one by hand, run the file in a clean checkout of `origin/main`. (2026-11-10)
+- `startTestGateway()` defaults `hostPlatform` to the machine's OS. A test that simulates a `linux-helper` must pass `hostPlatform: "linux"`, or it fails on macOS. Compare `tmpdir()` paths after `realpathSync` (`/var` vs `/private/var`). (2026-11-10, #1307)
+- Wording in the broker's error messages is user-visible: iOS shows the Gateway's English message for a failed approval answer. (2026-11-10, #1309)
+- TypeScript: `erasableSyntaxOnly` is on, so no constructor parameter properties (#1399). `@testing-library/react` `getByRole` has no `exact` option; anchor the name with a regex (#1377). Use `satisfies RunFrame` for fixtures; `RunFrame.at` is an ISO string (#1406). Biome can move a `// @ts-expect-error` off its import: use a typed dynamic `import()` for `.mjs` scripts in tests (#1400). (2026-11-19)
+- i18n scan: the hard-coded-string check flags object keys named `text` holding strings, and a dotted-key map passed to `t()`; call `t()` with literal keys (#1385, #1396). `biome check --write` reformats locale files, so run it last. (2026-11-19)
+- UI mock gateway: `fail()` doesn't narrow types, write `return fail(...)`. Storybook and fixture dates against the wall clock show absurd elapsed times ("779:06:42"): pass a fixed `now`. (orchestrator, 2026-11-19)
+- `composeSearch` tests: index fake docs after the first backfill and use kind `connector`, or the Library sync sweep deletes them (#1407). `setEdge` rejects life relations (`attended`, `family`): insert them via SQL (#1396). `VaultHandlers` needs every `vault.*` method; Gateway-only `vault.onePassword.*` are excluded in `packages/vault/src/handlers.ts` (#1375). `devices.hostHelper.status` is written only on change: read `hostHelpers()` in tests (#1380). (2026-11-19)
+- MCP SDK version negotiation spawns two children per stdio connect, so count starts against a baseline. Real child IO ignores fake timers: use `vi.waitFor` (#1401). (2026-11-19)
+- Swift tests: a model type named `Task` shadows concurrency, write `_Concurrency.Task` (#1402). Don't reuse `RunLoopThread` for new taps: it wakes 4 times a second. (2026-11-19)

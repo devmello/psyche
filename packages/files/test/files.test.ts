@@ -1,4 +1,5 @@
 import {
+  chmodSync,
   linkSync,
   mkdirSync,
   mkdtempSync,
@@ -6,18 +7,21 @@ import {
   readFileSync,
   realpathSync,
   rmSync,
+  statSync,
   symlinkSync,
   writeFileSync,
 } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import type { AgentToolRegistration, ToolRunContext } from "@psyche/agent-core";
+import { launchConfigLinkTargets } from "@psyche/hostfs";
 import type { ToolResult } from "@psyche/protocol";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import {
   type FileChange,
   type FileToolsOptions,
   fileTools,
+  foldPathName,
   type GrantedFolder,
   MemoryFileProvenance,
 } from "../src/index.ts";
@@ -84,6 +88,16 @@ describe("ported from the Gateway stand-in", () => {
     });
   });
 
+  it("refuses a FIFO at once instead of waiting on its open (review of #1425 r1)", async () => {
+    const { execFileSync } = await import("node:child_process");
+    execFileSync("mkfifo", [join(granted, "pipe")]);
+    const started = Date.now();
+    await expect(run("read_file", { path: join(granted, "pipe") })).rejects.toMatchObject({
+      code: "invalid_params",
+    });
+    expect(Date.now() - started).toBeLessThan(2_000);
+  });
+
   it("refuses to write through a dangling symlink", async () => {
     symlinkSync(join(outside, "new.plist"), join(granted, "x.plist"));
     await expect(
@@ -96,11 +110,87 @@ describe("ported from the Gateway stand-in", () => {
     writeFileSync(join(granted, "big.txt"), "x".repeat(300 * 1024));
     const r = await run("read_file", { path: join(granted, "big.txt") });
     expect(r.output.truncated).toBe(true);
-    expect((r.output.text as string).length).toBe(256 * 1024);
+    expect((r.output.text as string).length).toBe(32 * 1024);
     const d = tools.write_file?.describeCall?.({ path: join(granted, "n.md"), content: "a" });
     expect(d).toMatchObject({ kind: "file_write", bindingFields: { operation: "overwrite" } });
     expect(readdirSync(granted)).not.toContain("n.md");
     expect(tools.read_file?.validate?.({ path: "relative.md" })).toBeTruthy();
+  });
+});
+
+describe("writes into an app's launch config (#1427 review r1, finding 4)", () => {
+  it.each([
+    ".obsidian/plugins/evil/main.js",
+    ".obsidian/community-plugins.json",
+    ".vscode/tasks.json",
+    ".idea/runConfigurations/run.xml",
+    ".zed/tasks.json",
+    ".envrc",
+    ".husky/pre-commit",
+  ])("%s is destructive, and the card names the path", (rel) => {
+    const path = join(granted, "Vault", rel);
+    for (const d of [
+      tools.write_file?.describeCall?.({ path, content: "x" }),
+      tools.edit_file?.describeCall?.({ path, old_string: "a", new_string: "b" } as never),
+    ]) {
+      expect(d?.sideEffect).toBe("destructive");
+      expect(d?.details).toMatchObject({ path });
+    }
+  });
+
+  it.each([
+    "notes/vscode.md",
+    ".obsidian-backup.md",
+    ".vscodeignore",
+    ".envrc.example",
+    "docs/idea.md",
+  ])("%s stays a plain write", (rel) => {
+    const d = tools.write_file?.describeCall?.({ path: join(granted, rel), content: "x" });
+    expect(d?.sideEffect).toBeUndefined();
+  });
+
+  it.each([
+    ".devcontainer/devcontainer.json",
+    "app.code-workspace",
+    ".claude/settings.local.json",
+    ".mcp.json",
+    ".cursor/mcp.json",
+    ".pre-commit-config.yaml",
+    ".npmrc",
+    ".cargo/config.toml",
+  ])("%s is destructive too (#1434 review r1, finding 2)", (rel) => {
+    const d = tools.write_file?.describeCall?.({ path: join(granted, rel), content: "x" });
+    expect(d?.sideEffect).toBe("destructive");
+  });
+
+  // #1434 review r1, finding 3: a vault's `.obsidian` linked into a dotfiles folder.
+  it("judges a symlinked config folder by where it really is", () => {
+    const vault = join(granted, "Vault");
+    const dotfiles = join(granted, "dotfiles", "obsidian");
+    mkdirSync(vault, { recursive: true });
+    mkdirSync(join(dotfiles, "plugins"), { recursive: true });
+    symlinkSync(dotfiles, join(vault, ".obsidian"));
+    const linked = toolset({ launchConfigLinks: () => launchConfigLinkTargets([granted]) }).tools;
+    const describe = (path: string) =>
+      linked.write_file?.describeCall?.({ path, content: "x" })?.sideEffect;
+    // Through the link's own name, and straight into the folder it points at.
+    expect(describe(join(vault, ".obsidian", "plugins", "x", "main.js"))).toBe("destructive");
+    expect(describe(join(dotfiles, "plugins", "x", "main.js"))).toBe("destructive");
+    expect(describe(join(dotfiles, "community-plugins.json"))).toBe("destructive");
+    // The rest of the dotfiles folder, and the vault's notes, stay plain writes.
+    expect(describe(join(granted, "dotfiles", "zshrc.md"))).toBeUndefined();
+    expect(describe(join(vault, "Daily.md"))).toBeUndefined();
+  });
+
+  it("judges a folder linked into a config folder by its real path", () => {
+    const repo = join(granted, "repo");
+    mkdirSync(join(repo, ".vscode"), { recursive: true });
+    symlinkSync(join(repo, ".vscode"), join(granted, "editor-settings"));
+    const d = tools.write_file?.describeCall?.({
+      path: join(granted, "editor-settings", "tasks.json"),
+      content: "x",
+    });
+    expect(d?.sideEffect).toBe("destructive");
   });
 });
 
@@ -313,6 +403,243 @@ describe("protected locations (#285)", () => {
   });
 });
 
+describe("write-protected persistence locations (apps.open review, finding 2)", () => {
+  // `granted` stands in for an older home-root rw share: the folders below are its children.
+  const persistence = [
+    "Applications/Notes.app/Contents/Info.plist",
+    "Library/LaunchAgents/com.evil.plist",
+    "Library/Preferences/com.apple.Terminal.plist",
+    "Library/Services/Run.workflow/Contents/document.wflow",
+    "Library/Application Support/com.apple.backgroundtaskmanagementagent/backgrounditems.btm",
+    ".zshrc",
+    ".zprofile",
+    ".zshenv",
+    ".zlogin",
+    ".bashrc",
+    ".bash_profile",
+    ".profile",
+    ".config/fish/config.fish",
+    ".gitconfig",
+    ".ssh/authorized_keys",
+  ];
+  const writeRoots = () => [
+    ...[
+      "Applications",
+      "Library/LaunchAgents",
+      "Library/Preferences",
+      "Library/Services",
+      "Library/Application Support/com.apple.backgroundtaskmanagementagent",
+      ".zshrc",
+      ".zprofile",
+      ".zshenv",
+      ".zlogin",
+      ".bashrc",
+      ".bash_profile",
+      ".profile",
+      ".config/fish",
+      ".gitconfig",
+      ".ssh",
+    ].map((rel) => join(granted, rel)),
+  ];
+
+  it.each(persistence)("refuses a write to ~/%s under a granted rw folder", async (rel) => {
+    const path = join(granted, rel);
+    mkdirSync(join(path, ".."), { recursive: true });
+    writeFileSync(path, "before");
+    ({ run } = toolset({ folders: () => folders, writeProtectedRoots: writeRoots }));
+    await expect(run("write_file", { path, content: "after" })).rejects.toMatchObject({
+      code: "forbidden",
+      details: { reason: "protected_path", access: "write" },
+    });
+    await expect(
+      run("edit_file", { path, old_string: "before", new_string: "after" }),
+    ).rejects.toMatchObject({ code: "forbidden" });
+    expect(readFileSync(path, "utf8")).toBe("before");
+    // Reading there follows the grant as before.
+    const read = await run("read_file", { path });
+    expect(JSON.stringify(read.output)).toContain("before");
+  });
+
+  it("refuses a new file there and another spelling of the folder, and leaves near names alone", async () => {
+    ({ run } = toolset({ folders: () => folders, writeProtectedRoots: writeRoots }));
+    mkdirSync(join(granted, "Library", "LaunchAgents"), { recursive: true });
+    await expect(
+      run("write_file", { path: join(granted, "Library/LaunchAgents/new.plist"), content: "x" }),
+    ).rejects.toMatchObject({ code: "forbidden" });
+    if (process.platform === "darwin") {
+      // APFS ignores case by default: the same folder.
+      await expect(
+        run("write_file", { path: join(granted, "library/launchagents/new.plist"), content: "x" }),
+      ).rejects.toMatchObject({ code: "forbidden" });
+    }
+    // Near misses: a sibling with a shared prefix, a backup of an rc file, another app folder.
+    for (const rel of [".zshrc.bak", "Applications-notes/a.md", "Projects/.gitconfig.md"]) {
+      const path = join(granted, rel);
+      mkdirSync(join(path, ".."), { recursive: true });
+      const done = await run("write_file", { path, content: "ok" });
+      expect(done.isError).toBeUndefined();
+    }
+  });
+});
+
+describe("a share of the whole home folder (#1427 review r1, finding 5)", () => {
+  // `granted` stands in for the owner's home, shared read-write by an older grant.
+  const protection = () => ({
+    roots: ["Library", ".vscode/extensions", ".hammerspoon", ".config/nvim"].map((rel) =>
+      join(granted, rel),
+    ),
+    dotHome: granted,
+  });
+  const write = (rel: string) =>
+    run("write_file", { path: join(granted, rel), content: "x" }).then(
+      (r) => r.isError ?? false,
+      (e: { code?: string }) => e.code ?? "error",
+    );
+
+  beforeEach(() => {
+    ({ run } = toolset({ folders: () => folders, writeProtectedRoots: protection }));
+  });
+
+  it.each([
+    "Library/Python/3.12/lib/python/site-packages/evil.pth",
+    "Library/QuickLook/x.qlgenerator/Contents/Info.plist",
+    "Library/Application Support/Code/User/settings.json",
+    "library/mail/bundles/x.plist",
+    ".vscode/extensions/evil/package.json",
+    ".hammerspoon/init.lua",
+    ".config/nvim/init.lua",
+    // Any dot entry directly in home, existing or not.
+    ".newrc",
+    ".tool/config.json",
+    ".vimrc",
+    ".tmux.conf",
+    ".ipython/profile_default/startup/x.py",
+    ".ſsh/config",
+  ])("refuses writing ~/%s", async (rel) => {
+    if (rel.startsWith("library/") && process.platform === "linux") return;
+    mkdirSync(join(granted, rel, ".."), { recursive: true });
+    expect(await write(rel)).toBe("forbidden");
+  });
+
+  it.each([
+    "notes.md",
+    "Documents/plan.txt",
+    "Projects/app/.env",
+    "Projects/app/.gitignore",
+    "Projects/app/src/.eslintrc.json",
+    "Libraryish/notes.md",
+  ])("still writes ~/%s", async (rel) => {
+    mkdirSync(join(granted, rel, ".."), { recursive: true });
+    expect(await write(rel)).toBe(false);
+  });
+
+  it("leaves a dot folder the owner shared by itself to its own grant", async () => {
+    const dotfiles = join(granted, ".dotfiles");
+    mkdirSync(dotfiles);
+    folders.push({ path: dotfiles, mode: "rw" });
+    expect(await write(".dotfiles/zshrc")).toBe(false);
+    // Without that share, the home share's rule applies.
+    folders.pop();
+    expect(await write(".dotfiles/zshrc")).toBe("forbidden");
+  });
+});
+
+describe("other spellings of a write-protected name (review r1, finding 1)", () => {
+  // `granted` stands in for an older home-root share again.
+  const writeRoots = () =>
+    [
+      ".zshrc",
+      ".zshenv",
+      ".profile",
+      ".bash_profile",
+      ".gitconfig",
+      "Library/LaunchAgents",
+      ".config/fish",
+      "Café",
+      "Kit",
+      ".ssh",
+    ].map((rel) => join(granted, rel));
+  const setup = () => {
+    for (const rel of [".zshrc", ".profile", ".bash_profile", ".gitconfig"]) {
+      writeFileSync(join(granted, rel), "before");
+    }
+    mkdirSync(join(granted, "Library", "LaunchAgents"), { recursive: true });
+    mkdirSync(join(granted, ".config", "fish"), { recursive: true });
+    mkdirSync(join(granted, "Café"));
+    mkdirSync(join(granted, "Kit"));
+    ({ run } = toolset({ folders: () => folders, writeProtectedRoots: writeRoots }));
+  };
+
+  it("folds names as APFS does: compatibility forms, case and NFD", () => {
+    expect(foldPathName(".zſhrc")).toBe(".zshrc");
+    expect(foldPathName(".proﬁle")).toBe(".profile");
+    expect(foldPathName("Kit")).toBe("kit");
+    expect(foldPathName("Café")).toBe(foldPathName("Café"));
+    expect(foldPathName(".BASH_PROFILE")).toBe(".bash_profile");
+    expect(foldPathName("Straße")).toBe("strasse");
+    expect(foldPathName(".ẞh")).toBe(".ssh");
+    expect(foldPathName("STRAẞE")).toBe("strasse");
+    expect(foldPathName(".zshrc2")).not.toBe(".zshrc");
+  });
+
+  it.skipIf(process.platform !== "darwin").each([
+    ".zſhrc",
+    ".zſhenv",
+    ".proﬁle",
+    ".baſh_proﬁle",
+    ".gitconﬁg",
+    ".ZSHRC",
+    // Review r2: APFS reads `ẞ` as `ss`; `~/.ssh` does not exist yet here.
+    ".ẞh/config",
+    ".SSH/config",
+    "Library/LaunchAgentſ/x.plist",
+    "library/launchagents/x.plist",
+    ".config/ﬁsh/config.fish",
+    "Café/x.txt",
+    "Kit/x.txt",
+  ])("refuses writing %s", async (rel) => {
+    setup();
+    const path = join(granted, rel);
+    await expect(run("write_file", { path, content: "PWNED" })).rejects.toMatchObject({
+      code: "forbidden",
+      details: { reason: "protected_path" },
+    });
+    for (const f of [".zshrc", ".profile", ".bash_profile", ".gitconfig"]) {
+      expect(readFileSync(join(granted, f), "utf8"), f).toBe("before");
+    }
+  });
+
+  it.each([
+    ".zshrc2",
+    ".zsh_history",
+    ".profile.d/notes.md",
+    "ſomething.txt",
+    "notes-ﬁnal.md",
+    "Cafeteria/x.txt",
+    "Kitchen/x.txt",
+    "Straße.md",
+    "İnbox.md",
+    ".ssh-notes/x.md",
+  ])("still writes %s", async (rel) => {
+    setup();
+    const path = join(granted, rel);
+    mkdirSync(join(path, ".."), { recursive: true });
+    const done = await run("write_file", { path, content: "ok" });
+    expect(done.isError).toBeUndefined();
+  });
+
+  it("refuses a write to another name of the same file (a hard link)", async () => {
+    setup();
+    const other = join(granted, "Projects", "innocent.txt");
+    mkdirSync(join(granted, "Projects"));
+    linkSync(join(granted, ".zshrc"), other);
+    await expect(run("write_file", { path: other, content: "PWNED" })).rejects.toMatchObject({
+      code: "forbidden",
+    });
+    expect(readFileSync(join(granted, ".zshrc"), "utf8")).toBe("before");
+  });
+});
+
 describe("symlinks", () => {
   it("refuses edits and searches through links, and never searches into one", async () => {
     symlinkSync(join(outside, "secret.txt"), join(granted, "link.txt"));
@@ -400,13 +727,18 @@ describe("limits and paging", () => {
     writeFileSync(join(granted, "u.txt"), text);
     const a = await run("read_file", { path: join(granted, "u.txt") });
     expect(a.output.truncated).toBe(true);
-    const b = await run("read_file", {
-      path: join(granted, "u.txt"),
-      offset: a.output.nextOffset,
-    });
-    expect(`${a.output.text}${b.output.text}`).toBe(text);
-    expect(b.output.truncated).toBe(false);
-    expect(a.output.sha256).toBe(b.output.sha256);
+    let got = String(a.output.text);
+    let last = a;
+    while (last.output.nextOffset !== undefined) {
+      last = await run("read_file", {
+        path: join(granted, "u.txt"),
+        offset: last.output.nextOffset,
+      });
+      got += String(last.output.text);
+    }
+    expect(got).toBe(text);
+    expect(last.output.truncated).toBe(false);
+    expect(a.output.sha256).toBe(last.output.sha256);
   });
 
   it("flags binary files and refuses oversized writes", async () => {
@@ -552,5 +884,91 @@ describe("change reporting", () => {
       t.run("write_file", { path: join(readOnly, "x.md"), content: "no" }),
     ).rejects.toThrow();
     expect(seen).toHaveLength(0);
+  });
+});
+
+describe("a document write never leaves a runnable file (#1333 routine writes)", () => {
+  const modeOf = (p: string) => statSync(p).mode & 0o777;
+
+  it("drops the exec bits of an executable document it overwrites or edits", async () => {
+    const doc = join(granted, "notes.md");
+    writeFileSync(doc, "old hi");
+    chmodSync(doc, 0o755);
+    await run("write_file", { path: doc, content: "#!/bin/sh\necho hi\n" });
+    expect(modeOf(doc) & 0o111).toBe(0);
+    chmodSync(doc, 0o755);
+    await run("edit_file", { path: doc, old_string: "echo hi", new_string: "echo hello" });
+    expect(modeOf(doc) & 0o111).toBe(0);
+  });
+
+  it("positive control: a script (not a routine document) keeps its mode", async () => {
+    const script = join(granted, "run.sh");
+    writeFileSync(script, "old");
+    chmodSync(script, 0o755);
+    await run("write_file", { path: script, content: "#!/bin/sh\n" });
+    expect(modeOf(script)).toBe(0o755);
+  });
+});
+
+describe("read_file paging", () => {
+  it("reading a 600 KB file page by page covers every byte exactly once", async () => {
+    // Quotes, backslashes and multi-byte text grow when JSON-escaped: the worst case.
+    const line = 'say "héllo" \\ wörld ✓\n';
+    let body = "";
+    while (Buffer.byteLength(body) < 600 * 1024) body += line;
+    writeFileSync(join(granted, "paged.txt"), body);
+    const chunks: string[] = [];
+    let offset = 0;
+    for (let pages = 0; pages < 100; pages++) {
+      const r = await run("read_file", { path: join(granted, "paged.txt"), offset });
+      const text = r.output.text as string;
+      // What the loop's 50,000-character cap sees must fit whole.
+      expect(JSON.stringify(r.output).length).toBeLessThan(50_000);
+      chunks.push(text);
+      if (r.output.nextOffset === undefined) break;
+      expect(r.output.nextOffset).toBe(offset + Buffer.byteLength(text));
+      offset = r.output.nextOffset as number;
+    }
+    expect(chunks.join("")).toBe(body);
+  });
+});
+
+describe("read_file budget", () => {
+  it("sizes pages to the configured result budget, whole output included", async () => {
+    const body = 'q"\n\t'.repeat(30_000);
+    writeFileSync(join(granted, "b.txt"), body);
+    const budget = 10_000;
+    let offset = 0;
+    let got = "";
+    for (let i = 0; i < 200; i++) {
+      const r = await run(
+        "read_file",
+        { path: join(granted, "b.txt"), offset },
+        ctx({ resultBudgetChars: budget }),
+      );
+      expect(JSON.stringify(r.output).length).toBeLessThanOrEqual(budget);
+      got += String(r.output.text);
+      if (r.output.nextOffset === undefined) break;
+      offset = r.output.nextOffset as number;
+    }
+    expect(got).toBe(body);
+  });
+});
+
+describe("read_file shrink loop", () => {
+  it("returns when no cut fits the budget (fields alone over it), instead of spinning", async () => {
+    // Control characters escape to six characters each: the path alone outgrows a small budget.
+    const dir = join(granted, "\u0001".repeat(200), "\u0002".repeat(200));
+    mkdirSync(dir, { recursive: true });
+    writeFileSync(join(dir, "f.txt"), "abcdefgh".repeat(1_000));
+    const r = await run("read_file", { path: join(dir, "f.txt") }, ctx({ resultBudgetChars: 100 }));
+    expect(r.output.truncated).toBe(true);
+    expect(r.output.nextOffset as number).toBeGreaterThan(0);
+  });
+
+  it("describes document pages by what one call actually returns", () => {
+    const d = tools.read_file?.spec.description ?? "";
+    expect(d).not.toMatch(/about 6\dk characters/);
+    expect(d).toContain("up to 40k characters per call");
   });
 });

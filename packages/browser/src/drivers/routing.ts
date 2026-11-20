@@ -15,7 +15,14 @@ import type { BrowserDriverEx, DriverEventEx, OpenSessionOptions } from "../type
  * Session and tab ids share one owner map: every method's first argument is one of them.
  */
 /** Synchronous lookups that must not throw when nothing owns the id (`describeCall`). */
-const PEEKS = new Set(["peek", "peekSnapshot", "sessionOf", "tabOrigin", "pendingDialog"]);
+const PEEKS = new Set([
+  "peek",
+  "peekSnapshot",
+  "sessionOf",
+  "tabOrigin",
+  "tabUrl",
+  "pendingDialog",
+]);
 
 export interface RoutingDriver extends BrowserDriverEx {
   /** Open a session on an attached driver (`openSession` uses the primary). */

@@ -56,6 +56,21 @@ export const onboardingRest: Partial<Catalogue> = {
   "onboarding.step.you": "Tu e il tuo agente",
   "onboarding.step.stuff": "Le tue cose",
   "onboarding.step.safety": "Sicurezza",
+  "onboarding.step.folders": "Cartelle",
+  "onboarding.folders.lead":
+    "Lascia che {name} legga le cartelle Documenti, Scrivania e Download. Sola lettura: {name} può vedere i file, mai modificarli o eliminarli. Non viene condiviso nulla se non lo selezioni.",
+  "onboarding.folders.group": "Cartelle da condividere, sola lettura",
+  "onboarding.folders.documents": "Documenti",
+  "onboarding.folders.desktop": "Scrivania",
+  "onboarding.folders.downloads": "Download",
+  "onboarding.folders.hint":
+    "Puoi cambiarlo in qualsiasi momento in Impostazioni, sotto Accesso ai file.",
+  "onboarding.folders.shareLater":
+    "Potrai condividere queste cartelle più tardi in Impostazioni → Accesso ai file.",
+  "onboarding.folders.openFileAccess": "Apri Accesso ai file",
+  "onboarding.folders.retry": "Riprova",
+  "onboarding.folders.continueWithout": "Continua senza condividere",
+  "onboarding.folders.failed": "Impossibile condividere queste cartelle: {reason}",
   "onboarding.you.lead": "Tutto in questa pagina è facoltativo e potrai cambiarlo più tardi.",
   "onboarding.you.agent": "Il tuo agente",
   "onboarding.you.customize": "Personalizza l’aspetto",
@@ -79,18 +94,18 @@ export const onboardingRest: Partial<Catalogue> = {
     "Il riepilogo del mattino è disattivato, quindi le persone non compariranno da nessuna parte. Attivalo per vederle.",
   "onboarding.safety.lead":
     "Come ti raggiungono le approvazioni e cosa viene eseguito da solo. L’accesso a file, app e schermo non si chiede qui: {name} lo chiede in chat la prima volta che gli serve.",
-  "onboarding.safety.touchId": "Touch ID per le approvazioni",
+  "onboarding.safety.touchId": "Touch ID per i pagamenti",
   "onboarding.safety.touchId.checking": "Controllo dell’helper del Mac…",
   "onboarding.safety.touchId.again": "Ricontrolla",
   "onboarding.safety.touchId.set": "Configura",
   "onboarding.safety.touchId.setHint":
-    "Le approvazioni che richiedono te chiedono la tua impronta.",
+    "I pagamenti chiedono la tua impronta o la password del tuo Mac.",
   "onboarding.safety.touchId.starting":
     "L’helper del Mac si sta ancora avviando. Ricontrolla tra un momento.",
   "onboarding.safety.touchId.noKey": "L’helper del Mac non ha una chiave Touch ID ({reason}).",
   "onboarding.safety.touchId.register": "Registra questa chiave",
   "onboarding.safety.touchId.hint":
-    "Registra una volta la chiave dell’helper del Mac, così Touch ID potrà confermare le approvazioni.",
+    "Registra una volta la chiave dell’helper del Mac, così Touch ID potrà confermare i pagamenti.",
   "onboarding.safety.notifications": "Notifiche",
   "onboarding.safety.asks":
     "Se lasci che {name} esegua comandi su questo Mac, quelli che si limitano a leggere, come ls o cat, vengono eseguiti senza scheda. Tutto il resto chiede prima a te.",

@@ -1,5 +1,6 @@
 import { BrowserWindow, type IpcMainEvent, ipcMain, screen, type WebContents } from "electron";
 import { IPC } from "../../lib/ipc.ts";
+import { throttleWhenHidden } from "./hidden-throttle.ts";
 
 /**
  * Ask about my screen (docs/design/screen-ask-2026.md §2, §4): the ask panel, a small floating
@@ -107,6 +108,7 @@ export class ScreenAskWindow {
   #win: BrowserWindow | undefined;
   #overlay: BrowserWindow | undefined;
   #overlayDisplay: Rect | undefined;
+  #beforeShow: (() => void) | undefined;
   readonly #sources = new Set<PanelSource>();
   #suspended = false;
   /** An open sent before the renderer loaded, delivered on did-finish-load. */
@@ -201,6 +203,7 @@ export class ScreenAskWindow {
     const display = screen.getDisplayNearestPoint(screen.getCursorScreenPoint());
     win.setBounds(panelBounds(display.workArea, MIN_HEIGHT));
     this.#send({ mode });
+    this.#beforeShow?.();
     win.show();
     win.focus();
   }
@@ -322,6 +325,9 @@ export class ScreenAskWindow {
       this.#warm();
     });
     this.#win = win;
+    const throttle = throttleWhenHidden(win);
+    this.#beforeShow = throttle.beforeShow;
+    win.webContents.on("did-finish-load", throttle.sync);
     void win.loadURL(this.#o.url(SCREEN_ASK_ROUTE)).catch(() => undefined);
     return win;
   }

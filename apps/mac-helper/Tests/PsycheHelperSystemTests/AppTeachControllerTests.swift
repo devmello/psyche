@@ -174,7 +174,7 @@ struct AppTeachControllerTests {
     }
 
     @Test func computerUseWaitsWhileARecordingRuns() throws {
-        let computer = ComputerUse(environment: [:], log: HelperLog(echo: { _ in }))
+        let computer = makeComputerUse(installer: FakeTapInstaller())
         let teach = controller()
         computer.isRecording = { teach.activeId != nil }
         try computer.beginAction(session: "run-1")  // nothing recording: fine
@@ -242,7 +242,7 @@ struct AppTeachControllerTests {
     }
 
     @Test func theCapabilitiesAreNeverStreamingAndNeedAccessibilityToStart() throws {
-        let computer = ComputerUse(environment: [:], log: HelperLog(echo: { _ in }))
+        let computer = makeComputerUse(installer: FakeTapInstaller())
         let handlers = AppTeachCapabilities.make(controller(), computer: computer)
         let names = handlers.map(\.spec.name)
         #expect(names == ["teach.record.start", "teach.record.stop", "teach.record.cancel", "teach.record.status"])

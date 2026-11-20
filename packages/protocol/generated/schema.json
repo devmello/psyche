@@ -239,9 +239,14 @@
         "payload": "#/$defs/LessonChangedPayload"
       },
       {
-        "description": "A Library item was uploaded or deleted from a client, so other paired clients refetch the Library (a hint, not state).",
+        "description": "A Library item was uploaded, deleted or released from quarantine from a client, so other paired clients refetch the Library (a hint, not state).",
         "name": "library.item.changed",
         "payload": "#/$defs/LibraryItemChangedPayload"
+      },
+      {
+        "description": "A machine was added, renamed, changed status or limits, or removed. Emitted once the machine registry lands (wave H3).",
+        "name": "machines.changed",
+        "payload": "#/$defs/MachinesChangedPayload"
       },
       {
         "description": "Record meeting started or ended (stopped, silence, the conference app quit), or the ended recording's notes finished or failed (mail and meeting workflows §4.6).",
@@ -307,6 +312,11 @@
         "description": "A new pairing request awaits the owner's approval.",
         "name": "pairing.requested",
         "payload": "#/$defs/PairingRequestedPayload"
+      },
+      {
+        "description": "Stripe Link setup changed: a CLI was connected, sign-in finished or timed out, or Link was disconnected. Never a token.",
+        "name": "payments.link.changed",
+        "payload": "#/$defs/PaymentsLinkChangedPayload"
       },
       {
         "description": "IDENTITY.md changed: clients refresh the header; maybe regenerate the avatar.",
@@ -503,6 +513,14 @@
     "maxFrameBytes": 1048576,
     "methods": [
       {
+        "description": "Confirms again a folder row of `access.list` marked `moved`: the folder is looked up now and shared where it leads, only if that is still `movedTo` (the place the owner saw) and a grant there would not be refused. A plain tap from an admin device, recorded and reported as that device's security setting change. False when there is nothing to confirm or the folder leads somewhere else now (read the list again).",
+        "name": "access.confirmFolder",
+        "params": "#/$defs/AccessConfirmFolderParams",
+        "result": "#/$defs/AccessConfirmFolderResult",
+        "scope": "operator.admin",
+        "sideEffecting": false
+      },
+      {
         "description": "Lists what the owner has given the agent access to: shared folders (always or for one chat) and standing grants, in one list for Settings.",
         "name": "access.list",
         "params": "#/$defs/AccessListParams",
@@ -535,7 +553,7 @@
         "sideEffecting": false
       },
       {
-        "description": "Approves a requiresAuthentication card from the Psyche desktop window on Linux by typing the owner's password into the system's own polkit dialog (linux design §9), once. The Gateway checks the window's answer token, asks polkit to authorize the approval's action for this session, then answers through the same broker check with a Gateway-created password presence assertion; no password ever reaches Psyche. Same guards as approveWithTouchId: desktop shell only, one dialog at a time, failed or cancelled dialogs count against the rejected-answer cap. Fails unavailable with details.reason presence_unavailable_here, presence_agent_missing, presence_policy_missing or presence_not_enforced (the matching error codes); cancelled when the owner cancels the dialog.",
+        "description": "Approves a requiresAuthentication card from the Psyche desktop window on Linux by typing the owner's password into the system's own polkit dialog (linux design §9), once. The Gateway checks the window's answer token, asks polkit to authorize the approval's action for this session, then answers through the same broker check with a Gateway-created password presence assertion; no password ever reaches Psyche. Same guards as approveWithTouchId: desktop shell only, one dialog at a time, a wrong password counts against the rejected-answer cap of a remote device (a cancelled dialog does not, and the owner's own desktop window is never locked out). Fails unavailable with details.reason presence_unavailable_here, presence_agent_missing, presence_policy_missing or presence_not_enforced (the matching error codes); cancelled when the owner cancels the dialog.",
         "name": "approvals.approveWithPassword",
         "params": "#/$defs/ApprovalsApproveWithPasswordParams",
         "result": "#/$defs/ApprovalsApproveWithPasswordResult",
@@ -543,7 +561,7 @@
         "sideEffecting": false
       },
       {
-        "description": "Approves a requiresAuthentication card from the Psyche desktop window with Touch ID on this Mac (security §3.7), once: the Gateway checks the window's answer token, asks the paired helper (helperDeviceId when given) to run Touch ID with a sheet naming the approval and its code, and to sign the presence challenge for that token with its registered key, then answers through the same broker check. One sheet at a time; failed or cancelled sheets count against the rejected-answer cap. UNSANDBOXED is not available on this path. Desktop shell only. Fails unavailable with details.reason helper_offline, helper_outdated, no_presence_key, presence_key_unavailable or presence_key_invalidated; cancelled when the owner cancels Touch ID.",
+        "description": "Approves a requiresAuthentication card from the Psyche desktop window with the system's own owner sheet on this computer (security §3.7), once: the Gateway checks the window's answer token, asks the paired helper (helperDeviceId when given) to show the sheet (on a Mac: Touch ID, or the login password through Use Password) naming the approval and its code, and to sign the presence challenge for that token with its device key (a Windows helper: its registered Windows Hello key), then answers through the same broker check. One sheet at a time. A cancelled sheet is not an answer: it fails cancelled with details.reason presence_cancelled, the approval stays pending and nothing is counted against the answerer; a failed or invalid confirmation counts against the rejected-answer cap of a remote device (the owner's own desktop window is never locked out); more than a few sheets per approval per minute fail rate_limited. UNSANDBOXED is not available on this path. Desktop shell only. Fails unavailable with details.reason helper_offline, helper_outdated, no_presence_key, presence_key_unavailable, presence_key_invalidated or presence_busy.",
         "name": "approvals.approveWithTouchId",
         "params": "#/$defs/ApprovalsApproveWithTouchIdParams",
         "result": "#/$defs/ApprovalsApproveWithTouchIdResult",
@@ -999,6 +1017,14 @@
         "sideEffecting": false
       },
       {
+        "description": "Desktop app only (the web shell has no real paths and uploads to the Library instead). The owner picked or dropped these files on a message: each gets a read-only grant for exactly that file (not its folder) in this thread, for 24 hours, until Clear chat or deletion of the thread, or until a restart. The pick is the approval, so there is no card; a file under a sensitive root (~/.ssh, ~/.psyche, ~/Library, ...), a folder or a missing file is refused and listed in `refused`. Returns name, size and type for the chip. forbidden outside the desktop app. Side-effecting.",
+        "name": "chat.attachFiles",
+        "params": "#/$defs/ChatAttachFilesParams",
+        "result": "#/$defs/ChatAttachFilesResult",
+        "scope": "operator.admin",
+        "sideEffecting": true
+      },
+      {
         "description": "Cancels the active run (or the given run) in a thread.",
         "name": "chat.cancel",
         "params": "#/$defs/ChatCancelParams",
@@ -1141,6 +1167,22 @@
         "result": "#/$defs/ConnectorsGetCustomProposalResult",
         "scope": "operator.read",
         "sideEffecting": false
+      },
+      {
+        "description": "Whether the owner's own Google OAuth client (Desktop app) is set up on this Gateway, and its client id. Never returns the client secret.",
+        "name": "connectors.googleClient",
+        "params": "#/$defs/ConnectorsGoogleClientParams",
+        "result": "#/$defs/GoogleClientStatus",
+        "scope": "operator.read",
+        "sideEffecting": false
+      },
+      {
+        "description": "Side-effecting: saves the owner's Google OAuth client for Connect. The id is kept as an internal setting and the secret as a vault item bound to Google's token endpoint. invalid_params when the id is not a Google client id; unavailable while the vault is locked and a secret is given. A client set in config.json or the environment wins and is refused with conflict.",
+        "name": "connectors.googleClient.set",
+        "params": "#/$defs/ConnectorsGoogleClientSetParams",
+        "result": "#/$defs/ConnectorsGoogleClientSetResult",
+        "scope": "operator.admin",
+        "sideEffecting": true
       },
       {
         "description": "Side-effecting: enables a staged custom connector; approval_required without its approved skill_install.",
@@ -1327,7 +1369,7 @@
         "sideEffecting": false
       },
       {
-        "description": "Lists the registered helper presence keys (Touch ID approvals, issue #253): device id and key id only.",
+        "description": "Lists the keys that verify helper presence answers: a Windows helper's registered Windows Hello key, and for each paired Mac helper its own device key (kind device_identity, nothing to register). Device id and key id only.",
         "name": "devices.presenceKey.list",
         "params": "#/$defs/DevicesPresenceKeyListParams",
         "result": "#/$defs/DevicesPresenceKeyListResult",
@@ -1335,7 +1377,7 @@
         "sideEffecting": false
       },
       {
-        "description": "Reads the helper's presence key (`presence.public_key`: the Secure Enclave P-256 key of a mac-helper, or the Windows Hello RSA key of a win-helper, `algorithm: rsa-2048-pkcs1-sha256`, SPKI DER of at least 2048 bits) and registers it for that device when its key id equals expectKeyId, so its Touch ID / Windows Hello answers verify. A Secure Enclave file key (kind enclave_file, development builds) is refused unless the setting devices.presence.allowDevFileKey is true. Replaces an earlier key; revoked with the device. Needs fresh presence once the Gateway has a presence verifier (approval_required, then retry with approvalId; presence_required when presence was enrolled but nothing can verify now). Side-effecting.",
+        "description": "Reads the Windows helper's presence key (`presence.public_key`: the Windows Hello RSA key, `algorithm: rsa-2048-pkcs1-sha256`, SPKI DER of at least 2048 bits) and registers it for that device when its key id equals expectKeyId, so its Windows Hello answers verify. A Mac helper needs no registration (its device key is its presence key): conflict with details.reason no_key_needed. Replaces an earlier key; revoked with the device. Needs fresh presence once the Gateway has a presence verifier (approval_required, then retry with approvalId; presence_required when presence was enrolled but nothing can verify now). Side-effecting.",
         "name": "devices.presenceKey.register",
         "params": "#/$defs/DevicesPresenceKeyRegisterParams",
         "result": "#/$defs/DevicesPresenceKeyRegisterResult",
@@ -1495,6 +1537,30 @@
         "sideEffecting": false
       },
       {
+        "description": "The \"Share this folder (read only)\" button on a file tool's outside-every-granted-folder error: raises the same `folder_access` approval card `request_folder_access` raises (same binding, native picker, Allow once / Always; a tainted thread is offered Allow once only) outside an agent run. `path` only pre-fills the card: the owner's pick is what is granted, and nothing is granted without the card. Read only: any other `access` is invalid_params. `pending` carries the card's `approvalId`; `already` when a granted folder covers the path. forbidden for a device without operator.admin; not_found for an unknown thread. Side-effecting.",
+        "name": "files.requestShare",
+        "params": "#/$defs/FilesRequestShareParams",
+        "result": "#/$defs/FilesRequestShareResult",
+        "scope": "operator.admin",
+        "sideEffecting": true
+      },
+      {
+        "description": "The folders onboarding may offer to share read-only (Documents, Desktop, Downloads under the owner's home): only those that exist, are not sensitive roots (`assertFolderGrantable`) and are not already covered by a granted folder. Grants through `settings.set` of `permissions.policy`, never from here.",
+        "name": "files.starterFolders",
+        "params": "#/$defs/FilesStarterFoldersParams",
+        "result": "#/$defs/FilesStarterFoldersResult",
+        "scope": "operator.read",
+        "sideEffecting": false
+      },
+      {
+        "description": "The owner's own edit of an existing text file from the Files pane. Only a paired device with operator.admin can call it; no tool, agent, MCP server or channel reaches it, and it raises no approval card (the agent's write_file asks unless Auto mode or a grant allows it). The path must lie in a folder shared read & write (permissions.policy.folders, mode rw; a single attached file or a read-only folder never qualifies), go through no symlink, stay out of Psyche's home and the credential stores, and end in .md, .markdown, .txt, .csv. The file must exist, have one name and be writable by its owner. Content is UTF-8, at most 524288 bytes (invalid_params above that) so the request fits one frame. ifMatch must equal the file's current etag or the call fails with conflict. The write is atomic (temp file, then rename) and keeps the permission bits (setuid and setgid are dropped). Audited as files.write with the path and byte count, never the content. forbidden, not_found, invalid_params, conflict. Side-effecting.",
+        "name": "files.write",
+        "params": "#/$defs/FilesWriteParams",
+        "result": "#/$defs/FilesWriteResult",
+        "scope": "operator.admin",
+        "sideEffecting": true
+      },
+      {
         "description": "The Gateway's identity key and fingerprint, the Host's name and whether it is set up to be reached from other computers (publicOrigin, trusted proxy). The Host's Settings shows the fingerprint next to a pairing request so the owner can compare it with the one the new computer shows.",
         "name": "gateway.info",
         "params": "#/$defs/GatewayInfoParams",
@@ -1639,6 +1705,30 @@
         "sideEffecting": false
       },
       {
+        "description": "Removes the vault's key for a provider or the web search key and returns its status. Idempotent: clearing an absent key succeeds. An environment variable is not touched. Audited (provider only). Side-effecting.",
+        "name": "keys.clear",
+        "params": "#/$defs/KeysClearParams",
+        "result": "#/$defs/KeysClearResult",
+        "scope": "operator.admin",
+        "sideEffecting": true
+      },
+      {
+        "description": "Stores a provider API key (anthropic, openai, google, openrouter) or the Brave Search key (brave) in the vault as a Gateway-owned item, replacing an earlier one, and returns its status. The Gateway uses it from the next request, no restart. An environment variable still wins when set. invalid_params for an empty key, one with whitespace or one the provider cannot accept; unavailable when the vault cannot be opened. Audited (provider only). Side-effecting; its params are never logged.",
+        "name": "keys.set",
+        "params": "#/$defs/KeysSetParams",
+        "result": "#/$defs/KeysSetResult",
+        "scope": "operator.admin",
+        "sideEffecting": true
+      },
+      {
+        "description": "Which provider API keys and the web search key are configured, and whether each comes from an environment variable or the vault. Never returns a key or any part of one.",
+        "name": "keys.status",
+        "params": "#/$defs/KeysStatusParams",
+        "result": "#/$defs/KeysStatusResult",
+        "scope": "operator.admin",
+        "sideEffecting": false
+      },
+      {
         "description": "Deletes a Library item and its file.",
         "name": "library.delete",
         "params": "#/$defs/LibraryDeleteParams",
@@ -1663,6 +1753,14 @@
         "sideEffecting": false
       },
       {
+        "description": "Decides a quarantined Library file: `trust` releases a download, channel or connector file from quarantine (invalid_params for any other origin, such as a meeting recording; the file stays where it is and is never opened for you; the OS download tag stays; its text stays untrusted data in chat and search), `delete` removes any quarantined item and its file. A plain tap from a paired admin device, no presence step. not_found for an unknown item, invalid_params for one that is not quarantined, conflict when a file to trust no longer matches the hash recorded at download (an integrity check). Audited with the deciding device. Side-effecting.",
+        "name": "library.quarantine.decide",
+        "params": "#/$defs/LibraryQuarantineDecideParams",
+        "result": "#/$defs/LibraryQuarantineDecideResult",
+        "scope": "operator.admin",
+        "sideEffecting": true
+      },
+      {
         "description": "Uploads a file into the Library in base64 chunks (the first chunk omits uploadId; the last sets final and returns the item, origin upload, not quarantined: the owner chose it). invalid_params for a file over 25 MiB or an empty one. Attach the item's id to chat.send. Side-effecting.",
         "name": "library.upload",
         "params": "#/$defs/LibraryUploadParams",
@@ -1677,6 +1775,22 @@
         "result": "#/$defs/LogsTailResult",
         "scope": "operator.read",
         "sideEffecting": false
+      },
+      {
+        "description": "Lists the computers the owner paired for Psyche to use (machines), with status, surfaces, the box's own limits and its account. Read-only. Not implemented until the machine registry lands.",
+        "name": "machines.list",
+        "params": "#/$defs/MachinesListParams",
+        "result": "#/$defs/MachinesListResult",
+        "scope": "operator.read",
+        "sideEffecting": false
+      },
+      {
+        "description": "Renames a machine. Names match case-insensitively and two machines cannot share one (conflict). Side-effecting. Not implemented until the machine registry lands.",
+        "name": "machines.rename",
+        "params": "#/$defs/MachinesRenameParams",
+        "result": "#/$defs/MachinesRenameResult",
+        "scope": "operator.admin",
+        "sideEffecting": true
       },
       {
         "description": "Side-effecting: adds a probed server to mcp.servers with its approved trust card; approval_required without it, conflict when its tools changed since the probe.",
@@ -1695,6 +1809,14 @@
         "sideEffecting": false
       },
       {
+        "description": "A configured server's command or URL, allowed domains and env variable names, to prefill the edit form. Admin only because arguments are the owner's own text. Never a secret value. not_found for an unknown server.",
+        "name": "mcp.config",
+        "params": "#/$defs/McpConfigParams",
+        "result": "#/$defs/McpConfigResult",
+        "scope": "operator.admin",
+        "sideEffecting": false
+      },
+      {
         "description": "The code of an agent-made MCP server (madeBy psyche), read-only. not_found for an unknown server or one not made by Psyche.",
         "name": "mcp.files.read",
         "params": "#/$defs/McpFilesReadParams",
@@ -1707,6 +1829,14 @@
         "name": "mcp.files.write",
         "params": "#/$defs/McpFilesWriteParams",
         "result": "#/$defs/SelfConnectorFilesWriteResult",
+        "scope": "operator.admin",
+        "sideEffecting": true
+      },
+      {
+        "description": "Side-effecting: the owner's word on whether a server's tools move money. always: every tool is financial (Touch ID or the Mac password on each call); never: none is, whatever its tools are called; auto: judged by each tool's name and description. Changing it restarts the server. Anything but always lowers protection and first answers approval_required with a device-only policy_change card; the retry with its approvalId is spent once. not_found for an unknown server.",
+        "name": "mcp.handlesMoney.set",
+        "params": "#/$defs/McpHandlesMoneySetParams",
+        "result": "#/$defs/McpHandlesMoneySetResult",
         "scope": "operator.admin",
         "sideEffecting": true
       },
@@ -1759,6 +1889,14 @@
         "sideEffecting": false
       },
       {
+        "description": "Checks an added server with its approved config: asks the running server for its tools, or, when it is on but not connected, starts the stored config once in the sandbox and stops it. Changes no config, raises no trust card and takes no config from the caller. Admin because it can start a process. not_found for an unknown server; unavailable (reason paused or not_running) for a paused server or one the Gateway does not run.",
+        "name": "mcp.test",
+        "params": "#/$defs/McpTestParams",
+        "result": "#/$defs/McpTestResult",
+        "scope": "operator.admin",
+        "sideEffecting": false
+      },
+      {
         "description": "A configured server's tools (name, description, side effect when annotated) and whether each is offered to the agent. Descriptions are server-authored: render as data. not_found for an unknown server.",
         "name": "mcp.tools",
         "params": "#/$defs/McpToolsParams",
@@ -1771,6 +1909,14 @@
         "name": "mcp.tools.set",
         "params": "#/$defs/McpToolsSetParams",
         "result": "#/$defs/McpToolsSetResult",
+        "scope": "operator.admin",
+        "sideEffecting": true
+      },
+      {
+        "description": "Side-effecting: edits a server in place. A display name applies at once. Anything that changes what runs or where it connects (command, arguments, URL, auth, allowed domains, env names or secrets) is probed in the sandbox and opens the same device-only trust card as mcp.probe, showing the old and the new config; the old server keeps running until mcp.add with that approved card, which restarts it with the new config. Never applied silently. Not available for a Psyche-made, shared or built-in server (only its name). not_found for an unknown server; invalid_params when a field does not fit the server's kind.",
+        "name": "mcp.update",
+        "params": "#/$defs/McpUpdateParams",
+        "result": "#/$defs/McpUpdateResult",
         "scope": "operator.admin",
         "sideEffecting": true
       },
@@ -2149,6 +2295,14 @@
         "result": "#/$defs/MemoryGraphForgetAllResult",
         "scope": "operator.admin",
         "sideEffecting": true
+      },
+      {
+        "description": "The memory map: entities sized by importance with the relations the store already holds (works on, met in, co-mentioned, other). Names and links only: no facts, bodies or identifiers. Read-only.",
+        "name": "memory.graph.map",
+        "params": "#/$defs/MemoryGraphMapParams",
+        "result": "#/$defs/MemoryMap",
+        "scope": "operator.read",
+        "sideEffecting": false
       },
       {
         "description": "Graph health: per-source counts and last ingest, last model pass, budget used, loop precision.",
@@ -2637,6 +2791,38 @@
         "result": "#/$defs/OkResult",
         "scope": "operator.approvals",
         "sideEffecting": true
+      },
+      {
+        "description": "Saves the Link CLI Psyche may run, after checking that it resolves to a real file owned by the user or root and not writable by group or others, with the same for every parent folder. Running a program is a security change: needs fresh presence once the Gateway has a verifier (approval_required with details.approvalId, then retry with approvalId). Takes effect at once. Side-effecting.",
+        "name": "payments.link.connect",
+        "params": "#/$defs/PaymentsLinkConnectParams",
+        "result": "#/$defs/LinkSetupStatus",
+        "scope": "operator.admin",
+        "sideEffecting": true
+      },
+      {
+        "description": "Signs out of Link (best effort at Link, then deletes the auth file in the vault folder) and forgets the saved CLI. Fails conflict (details.reason payment_in_progress, with the merchants) while a payment is open, unless force is true, which gives those payments up and is audited. Narrowing, so admin only. Side-effecting.",
+        "name": "payments.link.disconnect",
+        "params": "#/$defs/PaymentsLinkDisconnectParams",
+        "result": "#/$defs/LinkSetupStatus",
+        "scope": "operator.admin",
+        "sideEffecting": true
+      },
+      {
+        "description": "Starts Link's sign-in with the connected CLI and returns Link's own page (signIn.verificationUrl) and the phrase to compare. The owner signs in on that page; Psyche never sees a password. The Gateway watches for the result and publishes payments.link.changed. Side-effecting.",
+        "name": "payments.link.signIn",
+        "params": "#/$defs/PaymentsLinkSignInParams",
+        "result": "#/$defs/LinkSetupStatus",
+        "scope": "operator.admin",
+        "sideEffecting": true
+      },
+      {
+        "description": "Where Stripe Link stands (Settings → Credentials → Payments): Link CLI not found, found, signed out, signing in or connected. Looks for the CLI in the usual npm locations and checks that it is safe to run; never installs anything. Carries no token.",
+        "name": "payments.link.status",
+        "params": "#/$defs/PaymentsLinkStatusParams",
+        "result": "#/$defs/LinkSetupStatus",
+        "scope": "operator.read",
+        "sideEffecting": false
       },
       {
         "description": "A staged install (manifest, files, findings) for its approval card.",
@@ -3615,6 +3801,38 @@
         "sideEffecting": true
       },
       {
+        "description": "Lets linked 1Password items be read through the 1Password app's CLI integration, once op answers signed in. Psyche finds op itself (a real file owned by the user or root that others cannot write, outside its own data folder) and takes no path from the caller. Read-only, takes effect at once, audited. conflict while credentials.onePassword in config.json supplies the source. Side-effecting.",
+        "name": "vault.onePassword.connect",
+        "params": "#/$defs/VaultOnePasswordConnectParams",
+        "result": "#/$defs/OnePasswordSetupStatus",
+        "scope": "operator.admin",
+        "sideEffecting": true
+      },
+      {
+        "description": "Stops reading 1Password through the app integration: linked items answer unavailable. Items already linked, and 1Password itself, are untouched. Side-effecting.",
+        "name": "vault.onePassword.disconnect",
+        "params": "#/$defs/VaultOnePasswordDisconnectParams",
+        "result": "#/$defs/OnePasswordSetupStatus",
+        "scope": "operator.admin",
+        "sideEffecting": true
+      },
+      {
+        "description": "Where the 1Password setup stands: op not installed, app integration off, locked, or signed in (with the account address and email). Finds and checks the op file (state found) without running it; op's account commands run only with probe true, or while connected (cached 60 s). Never reads an item or a secret; 1Password may show its own unlock prompt.",
+        "name": "vault.onePassword.status",
+        "params": "#/$defs/VaultOnePasswordStatusParams",
+        "result": "#/$defs/OnePasswordSetupStatus",
+        "scope": "operator.admin",
+        "sideEffecting": false
+      },
+      {
+        "description": "Test connection: lists the account's vaults through op and returns how many there are. A harmless read: no names, no items, no secret values.",
+        "name": "vault.onePassword.test",
+        "params": "#/$defs/VaultOnePasswordTestParams",
+        "result": "#/$defs/OnePasswordTestResult",
+        "scope": "operator.admin",
+        "sideEffecting": false
+      },
+      {
         "description": "Lists Stripe Link payments, newest first, with their hold / capture / refund state and merchant references; brand and last4 only.",
         "name": "vault.payments.list",
         "params": "#/$defs/VaultPaymentsListParams",
@@ -3850,6 +4068,36 @@
     "protocolVersion": 1
   },
   "$defs": {
+    "AccessConfirmFolderParams": {
+      "properties": {
+        "entryId": {
+          "maxLength": 4200,
+          "minLength": 1,
+          "type": "string"
+        },
+        "movedTo": {
+          "maxLength": 4096,
+          "minLength": 1,
+          "type": "string"
+        }
+      },
+      "required": [
+        "entryId",
+        "movedTo"
+      ],
+      "type": "object"
+    },
+    "AccessConfirmFolderResult": {
+      "properties": {
+        "confirmed": {
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "confirmed"
+      ],
+      "type": "object"
+    },
     "AccessEntry": {
       "properties": {
         "id": {
@@ -3883,7 +4131,20 @@
           ],
           "type": "string"
         },
+        "file": {
+          "type": "boolean"
+        },
         "path": {
+          "maxLength": 4096,
+          "type": "string"
+        },
+        "refused": {
+          "type": "boolean"
+        },
+        "moved": {
+          "type": "boolean"
+        },
+        "movedTo": {
           "maxLength": 4096,
           "type": "string"
         },
@@ -4258,6 +4519,65 @@
         "date",
         "provenance",
         "span"
+      ],
+      "type": "object"
+    },
+    "ApiKeyId": {
+      "anyOf": [
+        {
+          "const": "anthropic",
+          "type": "string"
+        },
+        {
+          "const": "openai",
+          "type": "string"
+        },
+        {
+          "const": "google",
+          "type": "string"
+        },
+        {
+          "const": "openrouter",
+          "type": "string"
+        },
+        {
+          "const": "brave",
+          "type": "string"
+        }
+      ]
+    },
+    "ApiKeyStatus": {
+      "properties": {
+        "id": {
+          "$ref": "#/$defs/ApiKeyId"
+        },
+        "configured": {
+          "type": "boolean"
+        },
+        "source": {
+          "anyOf": [
+            {
+              "const": "env",
+              "type": "string"
+            },
+            {
+              "const": "vault",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "inVault": {
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "id",
+        "configured",
+        "source",
+        "inVault"
       ],
       "type": "object"
     },
@@ -6999,6 +7319,17 @@
         "scope": {
           "$ref": "#/$defs/GrantScope"
         },
+        "trustSite": {
+          "enum": [
+            "origin",
+            "subdomains"
+          ],
+          "type": "string"
+        },
+        "hostProgram": {
+          "const": true,
+          "type": "boolean"
+        },
         "folderPath": {
           "maxLength": 4096,
           "minLength": 1,
@@ -7030,6 +7361,10 @@
         },
         "via": {
           "$ref": "#/$defs/InputVia"
+        },
+        "bulk": {
+          "const": true,
+          "type": "boolean"
         }
       },
       "required": [
@@ -7230,6 +7565,9 @@
         "target": {
           "$ref": "#/$defs/Target"
         },
+        "machine": {
+          "$ref": "#/$defs/ComputerMachineRef"
+        },
         "surfaces": {
           "items": {
             "description": "\"desktop\" | \"notification\" | \"web\" | \"<channel>:<peerId>\"",
@@ -7252,6 +7590,12 @@
           "type": "boolean"
         },
         "taint": {
+          "type": "boolean"
+        },
+        "riskClass": {
+          "$ref": "#/$defs/RiskClass"
+        },
+        "setAside": {
           "type": "boolean"
         },
         "taintSources": {
@@ -13802,6 +14146,104 @@
       ],
       "type": "object"
     },
+    "ChatAttachFilesParams": {
+      "properties": {
+        "threadId": {
+          "description": "ULID in production",
+          "maxLength": 64,
+          "minLength": 1,
+          "type": "string"
+        },
+        "paths": {
+          "items": {
+            "maxLength": 4096,
+            "minLength": 1,
+            "type": "string"
+          },
+          "maxItems": 8,
+          "minItems": 1,
+          "type": "array"
+        }
+      },
+      "required": [
+        "threadId",
+        "paths"
+      ],
+      "type": "object"
+    },
+    "ChatAttachFilesResult": {
+      "properties": {
+        "files": {
+          "items": {
+            "properties": {
+              "path": {
+                "type": "string"
+              },
+              "name": {
+                "type": "string"
+              },
+              "size": {
+                "minimum": 0,
+                "type": "integer"
+              },
+              "type": {
+                "type": "string"
+              }
+            },
+            "required": [
+              "path",
+              "name",
+              "size",
+              "type"
+            ],
+            "type": "object"
+          },
+          "type": "array"
+        },
+        "refused": {
+          "items": {
+            "properties": {
+              "path": {
+                "type": "string"
+              },
+              "reason": {
+                "enum": [
+                  "sensitive",
+                  "missing",
+                  "not_file",
+                  "invalid"
+                ],
+                "type": "string"
+              }
+            },
+            "required": [
+              "path",
+              "reason"
+            ],
+            "type": "object"
+          },
+          "type": "array"
+        }
+      },
+      "required": [
+        "files",
+        "refused"
+      ],
+      "type": "object"
+    },
+    "ChatAttachedFile": {
+      "properties": {
+        "path": {
+          "maxLength": 4096,
+          "minLength": 1,
+          "type": "string"
+        }
+      },
+      "required": [
+        "path"
+      ],
+      "type": "object"
+    },
     "ChatBlockPayload": {
       "properties": {
         "threadId": {
@@ -14259,6 +14701,14 @@
           "maxItems": 32,
           "type": "array"
         },
+        "attachedFiles": {
+          "description": "Files from disk the owner attached (desktop): only those `chat.attachFiles` granted in this thread are used; the agent sees their name, size and type and reads them with read_file",
+          "items": {
+            "$ref": "#/$defs/ChatAttachedFile"
+          },
+          "maxItems": 8,
+          "type": "array"
+        },
         "mode": {
           "$ref": "#/$defs/QueueMode"
         },
@@ -14655,6 +15105,28 @@
         "decisions",
         "openTasks",
         "pinnedInstructions"
+      ],
+      "type": "object"
+    },
+    "ComputerMachineRef": {
+      "properties": {
+        "deviceId": {
+          "description": "ULID in production",
+          "maxLength": 64,
+          "minLength": 1,
+          "type": "string"
+        },
+        "name": {
+          "description": "No control, bidi, zero-width or invisible characters; no leading or trailing space",
+          "maxLength": 64,
+          "minLength": 1,
+          "pattern": "^(?!.*(?:\\udb40[\\udc00-\\udfff]|(?:\\udb41|\\udb42|\\udb43)[\\udc00-\\udfff]|\\ud804[\\udcbd\\udccd]|\\ud834[\\udd73-\\udd7a]|\\ud82f[\\udca0-\\udca3]|\\ud80d[\\udc30-\\udc3f]))[^\\u0000-\\u001f\\u007f-\\u009f\\u00ad\\u034f\\u0600-\\u0605\\u061c\\u06dd\\u070f\\u0890\\u0891\\u08e2\\u115f\\u1160\\u17b4\\u17b5\\u180b-\\u180f\\u200b-\\u200f\\u2028-\\u202e\\u2060-\\u206f\\u3164\\ufe00-\\ufe0f\\ufeff\\uffa0\\ufff0-\\ufffb\\u00a0\\u1680\\u2000-\\u200a\\u202f\\u205f\\u2800\\u3000\\ufffc\\s](?:[^\\u0000-\\u001f\\u007f-\\u009f\\u00ad\\u034f\\u0600-\\u0605\\u061c\\u06dd\\u070f\\u0890\\u0891\\u08e2\\u115f\\u1160\\u17b4\\u17b5\\u180b-\\u180f\\u200b-\\u200f\\u2028-\\u202e\\u2060-\\u206f\\u3164\\ufe00-\\ufe0f\\ufeff\\uffa0\\ufff0-\\ufffb\\u00a0\\u1680\\u2000-\\u200a\\u202f\\u205f\\u2800\\u3000\\ufffc]*[^\\u0000-\\u001f\\u007f-\\u009f\\u00ad\\u034f\\u0600-\\u0605\\u061c\\u06dd\\u070f\\u0890\\u0891\\u08e2\\u115f\\u1160\\u17b4\\u17b5\\u180b-\\u180f\\u200b-\\u200f\\u2028-\\u202e\\u2060-\\u206f\\u3164\\ufe00-\\ufe0f\\ufeff\\uffa0\\ufff0-\\ufffb\\u00a0\\u1680\\u2000-\\u200a\\u202f\\u205f\\u2800\\u3000\\ufffc\\s])?$",
+          "type": "string"
+        }
+      },
+      "required": [
+        "deviceId",
+        "name"
       ],
       "type": "object"
     },
@@ -15740,6 +16212,39 @@
       },
       "required": [
         "connector"
+      ],
+      "type": "object"
+    },
+    "ConnectorsGoogleClientParams": {
+      "properties": {},
+      "type": "object"
+    },
+    "ConnectorsGoogleClientSetParams": {
+      "properties": {
+        "clientId": {
+          "maxLength": 256,
+          "minLength": 1,
+          "type": "string"
+        },
+        "clientSecret": {
+          "maxLength": 512,
+          "minLength": 1,
+          "type": "string"
+        }
+      },
+      "required": [
+        "clientId"
+      ],
+      "type": "object"
+    },
+    "ConnectorsGoogleClientSetResult": {
+      "properties": {
+        "status": {
+          "$ref": "#/$defs/GoogleClientStatus"
+        }
+      },
+      "required": [
+        "status"
       ],
       "type": "object"
     },
@@ -17936,12 +18441,15 @@
     "DevicesSetupTokenCreateParams": {
       "properties": {
         "scopes": {
-          "description": "What the computer that uses the token gets, chosen by the owner now; never `node`. `operator.admin` only when the owner ticks it",
+          "description": "What the computer that uses the token gets, chosen by the owner now; never `node`. `operator.admin` only when the owner ticks it. Required for purpose `device` (the default); omitted for purpose `machine`, whose scopes are always [\"node\"] (see setupTokenScopesFor)",
           "items": {
             "$ref": "#/$defs/SetupTokenScope"
           },
           "minItems": 1,
           "type": "array"
+        },
+        "purpose": {
+          "$ref": "#/$defs/SetupTokenPurpose"
         },
         "via": {
           "$ref": "#/$defs/SetupTokenVia"
@@ -17953,9 +18461,6 @@
           "type": "string"
         }
       },
-      "required": [
-        "scopes"
-      ],
       "type": "object"
     },
     "DevicesSetupTokenCreateResult": {
@@ -17964,7 +18469,7 @@
           "$ref": "#/$defs/SetupTokenInfo"
         },
         "link": {
-          "description": "psyche-pair:v1 link (gatewayUrl, gatewayFingerprint, setupToken, hostName) for an address, or psyche-pair:v2 link (gatewayUrl, gatewayKey, certPin, setupToken, hostName) for the LAN; nothing else. The token appears only here, once",
+          "description": "For purpose machine, a psyche-machine:v1 link instead (gatewayUrl, gatewayKey, certPin?, setupToken, hostName). Otherwise: psyche-pair:v1 link (gatewayUrl, gatewayFingerprint, setupToken, hostName) for an address, or psyche-pair:v2 link (gatewayUrl, gatewayKey, certPin, setupToken, hostName) for the LAN; nothing else. The token appears only here, once",
           "type": "string"
         },
         "version": {
@@ -20236,6 +20741,132 @@
       ],
       "type": "object"
     },
+    "FilesRequestShareParams": {
+      "properties": {
+        "threadId": {
+          "description": "ULID in production",
+          "maxLength": 64,
+          "minLength": 1,
+          "type": "string"
+        },
+        "path": {
+          "description": "The folder the failed file tool named: a hint for the picker, never what is granted",
+          "maxLength": 1024,
+          "minLength": 1,
+          "type": "string"
+        },
+        "access": {
+          "const": "read",
+          "type": "string"
+        }
+      },
+      "required": [
+        "threadId",
+        "path",
+        "access"
+      ],
+      "type": "object"
+    },
+    "FilesRequestShareResult": {
+      "properties": {
+        "status": {
+          "enum": [
+            "pending",
+            "already"
+          ],
+          "type": "string"
+        },
+        "approvalId": {
+          "description": "ULID in production",
+          "maxLength": 64,
+          "minLength": 1,
+          "type": "string"
+        }
+      },
+      "required": [
+        "status"
+      ],
+      "type": "object"
+    },
+    "FilesStarterFoldersParams": {
+      "properties": {},
+      "type": "object"
+    },
+    "FilesStarterFoldersResult": {
+      "properties": {
+        "folders": {
+          "items": {
+            "properties": {
+              "id": {
+                "$ref": "#/$defs/StarterFolderId"
+              },
+              "path": {
+                "maxLength": 4096,
+                "type": "string"
+              }
+            },
+            "required": [
+              "id",
+              "path"
+            ],
+            "type": "object"
+          },
+          "maxItems": 3,
+          "type": "array"
+        }
+      },
+      "required": [
+        "folders"
+      ],
+      "type": "object"
+    },
+    "FilesWriteParams": {
+      "properties": {
+        "path": {
+          "description": "an absolute path in a granted folder",
+          "maxLength": 4096,
+          "minLength": 2,
+          "pattern": "^(/|[A-Za-z]:[\\\\/])",
+          "type": "string"
+        },
+        "content": {
+          "description": "UTF-8 text",
+          "type": "string"
+        },
+        "ifMatch": {
+          "description": "the etag `files.read` returned; the file must still match",
+          "type": "string"
+        }
+      },
+      "required": [
+        "path",
+        "content",
+        "ifMatch"
+      ],
+      "type": "object"
+    },
+    "FilesWriteResult": {
+      "properties": {
+        "etag": {
+          "type": "string"
+        },
+        "modifiedAt": {
+          "description": "ISO-8601 timestamp (UTC)",
+          "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}(\\.\\d{1,9})?(Z|[+-]\\d{2}:\\d{2})$",
+          "type": "string"
+        },
+        "size": {
+          "minimum": 0,
+          "type": "integer"
+        }
+      },
+      "required": [
+        "etag",
+        "modifiedAt",
+        "size"
+      ],
+      "type": "object"
+    },
     "Frame": {
       "anyOf": [
         {
@@ -21174,6 +21805,40 @@
         "taskIds",
         "milestones",
         "links"
+      ],
+      "type": "object"
+    },
+    "GoogleClientStatus": {
+      "properties": {
+        "configured": {
+          "type": "boolean"
+        },
+        "clientId": {
+          "type": "string"
+        },
+        "hasSecret": {
+          "type": "boolean"
+        },
+        "source": {
+          "anyOf": [
+            {
+              "const": "app",
+              "type": "string"
+            },
+            {
+              "const": "config",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        }
+      },
+      "required": [
+        "configured",
+        "hasSecret",
+        "source"
       ],
       "type": "object"
     },
@@ -24420,6 +25085,74 @@
       "minLength": 1,
       "type": "string"
     },
+    "KeysClearParams": {
+      "properties": {
+        "id": {
+          "$ref": "#/$defs/ApiKeyId"
+        }
+      },
+      "required": [
+        "id"
+      ],
+      "type": "object"
+    },
+    "KeysClearResult": {
+      "properties": {
+        "status": {
+          "$ref": "#/$defs/ApiKeyStatus"
+        }
+      },
+      "required": [
+        "status"
+      ],
+      "type": "object"
+    },
+    "KeysSetParams": {
+      "properties": {
+        "id": {
+          "$ref": "#/$defs/ApiKeyId"
+        },
+        "key": {
+          "maxLength": 4096,
+          "minLength": 1,
+          "type": "string"
+        }
+      },
+      "required": [
+        "id",
+        "key"
+      ],
+      "type": "object"
+    },
+    "KeysSetResult": {
+      "properties": {
+        "status": {
+          "$ref": "#/$defs/ApiKeyStatus"
+        }
+      },
+      "required": [
+        "status"
+      ],
+      "type": "object"
+    },
+    "KeysStatusParams": {
+      "properties": {},
+      "type": "object"
+    },
+    "KeysStatusResult": {
+      "properties": {
+        "keys": {
+          "items": {
+            "$ref": "#/$defs/ApiKeyStatus"
+          },
+          "type": "array"
+        }
+      },
+      "required": [
+        "keys"
+      ],
+      "type": "object"
+    },
     "LearnedBlock": {
       "properties": {
         "type": {
@@ -24997,7 +25730,8 @@
         "change": {
           "enum": [
             "created",
-            "deleted"
+            "deleted",
+            "updated"
           ],
           "type": "string"
         }
@@ -25042,6 +25776,9 @@
           "maxLength": 500,
           "type": "string"
         },
+        "quarantined": {
+          "type": "boolean"
+        },
         "cursor": {
           "description": "Opaque cursor",
           "maxLength": 512,
@@ -25082,6 +25819,53 @@
         "items"
       ],
       "type": "object"
+    },
+    "LibraryQuarantineDecideParams": {
+      "properties": {
+        "itemId": {
+          "description": "ULID in production",
+          "maxLength": 64,
+          "minLength": 1,
+          "type": "string"
+        },
+        "decision": {
+          "$ref": "#/$defs/LibraryQuarantineDecision"
+        }
+      },
+      "required": [
+        "itemId",
+        "decision"
+      ],
+      "type": "object"
+    },
+    "LibraryQuarantineDecideResult": {
+      "properties": {
+        "ok": {
+          "const": true,
+          "type": "boolean"
+        },
+        "item": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/LibraryItem"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        }
+      },
+      "required": [
+        "ok"
+      ],
+      "type": "object"
+    },
+    "LibraryQuarantineDecision": {
+      "enum": [
+        "trust",
+        "delete"
+      ],
+      "type": "string"
     },
     "LibraryUploadParams": {
       "properties": {
@@ -25402,6 +26186,111 @@
       ],
       "type": "object"
     },
+    "LinkSetupReason": {
+      "enum": [
+        "not_absolute",
+        "missing",
+        "not_a_file",
+        "not_executable",
+        "wrong_owner",
+        "writable",
+        "parent_wrong_owner",
+        "parent_writable",
+        "in_psyche_home",
+        "not_link_cli",
+        "volta_shim"
+      ],
+      "type": "string"
+    },
+    "LinkSetupState": {
+      "enum": [
+        "cli_missing",
+        "cli_found",
+        "signed_out",
+        "signing_in",
+        "connected"
+      ],
+      "type": "string"
+    },
+    "LinkSetupStatus": {
+      "properties": {
+        "state": {
+          "$ref": "#/$defs/LinkSetupState"
+        },
+        "cli": {
+          "properties": {
+            "path": {
+              "type": "string"
+            },
+            "source": {
+              "enum": [
+                "saved",
+                "env"
+              ],
+              "type": "string"
+            }
+          },
+          "required": [
+            "path",
+            "source"
+          ],
+          "type": "object"
+        },
+        "candidates": {
+          "items": {
+            "properties": {
+              "path": {
+                "type": "string"
+              }
+            },
+            "required": [
+              "path"
+            ],
+            "type": "object"
+          },
+          "type": "array"
+        },
+        "problem": {
+          "properties": {
+            "path": {
+              "type": "string"
+            },
+            "reason": {
+              "$ref": "#/$defs/LinkSetupReason"
+            }
+          },
+          "required": [
+            "path",
+            "reason"
+          ],
+          "type": "object"
+        },
+        "signIn": {
+          "properties": {
+            "verificationUrl": {
+              "type": "string"
+            },
+            "phrase": {
+              "type": "string"
+            },
+            "expiresAt": {
+              "type": "number"
+            }
+          },
+          "required": [
+            "verificationUrl",
+            "phrase",
+            "expiresAt"
+          ],
+          "type": "object"
+        }
+      },
+      "required": [
+        "state",
+        "candidates"
+      ],
+      "type": "object"
+    },
     "LogLevel": {
       "enum": [
         "debug",
@@ -25490,6 +26379,245 @@
         "lines",
         "subsystems",
         "truncated"
+      ],
+      "type": "object"
+    },
+    "MachineAccount": {
+      "enum": [
+        "own",
+        "dedicated"
+      ],
+      "type": "string"
+    },
+    "MachineChange": {
+      "enum": [
+        "added",
+        "updated",
+        "removed"
+      ],
+      "type": "string"
+    },
+    "MachineDisplay": {
+      "enum": [
+        "headless",
+        "desktop_session",
+        "container"
+      ],
+      "type": "string"
+    },
+    "MachineFileRoot": {
+      "properties": {
+        "path": {
+          "maxLength": 4096,
+          "minLength": 1,
+          "type": "string"
+        },
+        "mode": {
+          "enum": [
+            "ro",
+            "rw"
+          ],
+          "type": "string"
+        }
+      },
+      "required": [
+        "path",
+        "mode"
+      ],
+      "type": "object"
+    },
+    "MachineInfo": {
+      "properties": {
+        "id": {
+          "description": "ULID in production",
+          "maxLength": 64,
+          "minLength": 1,
+          "type": "string"
+        },
+        "deviceId": {
+          "description": "ULID in production",
+          "maxLength": 64,
+          "minLength": 1,
+          "type": "string"
+        },
+        "name": {
+          "description": "No control, bidi, zero-width or invisible characters; no leading or trailing space",
+          "maxLength": 64,
+          "minLength": 1,
+          "pattern": "^(?!.*(?:\\udb40[\\udc00-\\udfff]|(?:\\udb41|\\udb42|\\udb43)[\\udc00-\\udfff]|\\ud804[\\udcbd\\udccd]|\\ud834[\\udd73-\\udd7a]|\\ud82f[\\udca0-\\udca3]|\\ud80d[\\udc30-\\udc3f]))[^\\u0000-\\u001f\\u007f-\\u009f\\u00ad\\u034f\\u0600-\\u0605\\u061c\\u06dd\\u070f\\u0890\\u0891\\u08e2\\u115f\\u1160\\u17b4\\u17b5\\u180b-\\u180f\\u200b-\\u200f\\u2028-\\u202e\\u2060-\\u206f\\u3164\\ufe00-\\ufe0f\\ufeff\\uffa0\\ufff0-\\ufffb\\u00a0\\u1680\\u2000-\\u200a\\u202f\\u205f\\u2800\\u3000\\ufffc\\s](?:[^\\u0000-\\u001f\\u007f-\\u009f\\u00ad\\u034f\\u0600-\\u0605\\u061c\\u06dd\\u070f\\u0890\\u0891\\u08e2\\u115f\\u1160\\u17b4\\u17b5\\u180b-\\u180f\\u200b-\\u200f\\u2028-\\u202e\\u2060-\\u206f\\u3164\\ufe00-\\ufe0f\\ufeff\\uffa0\\ufff0-\\ufffb\\u00a0\\u1680\\u2000-\\u200a\\u202f\\u205f\\u2800\\u3000\\ufffc]*[^\\u0000-\\u001f\\u007f-\\u009f\\u00ad\\u034f\\u0600-\\u0605\\u061c\\u06dd\\u070f\\u0890\\u0891\\u08e2\\u115f\\u1160\\u17b4\\u17b5\\u180b-\\u180f\\u200b-\\u200f\\u2028-\\u202e\\u2060-\\u206f\\u3164\\ufe00-\\ufe0f\\ufeff\\uffa0\\ufff0-\\ufffb\\u00a0\\u1680\\u2000-\\u200a\\u202f\\u205f\\u2800\\u3000\\ufffc\\s])?$",
+          "type": "string"
+        },
+        "platform": {
+          "description": "`linux` today",
+          "maxLength": 32,
+          "type": "string"
+        },
+        "status": {
+          "$ref": "#/$defs/NodeStatus"
+        },
+        "display": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/MachineDisplay"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "surfaces": {
+          "items": {
+            "$ref": "#/$defs/ComputerSurface"
+          },
+          "type": "array"
+        },
+        "exec": {
+          "properties": {
+            "enabled": {
+              "type": "boolean"
+            },
+            "contained": {
+              "type": "boolean"
+            }
+          },
+          "required": [
+            "enabled",
+            "contained"
+          ],
+          "type": "object"
+        },
+        "files": {
+          "properties": {
+            "roots": {
+              "items": {
+                "$ref": "#/$defs/MachineFileRoot"
+              },
+              "type": "array"
+            }
+          },
+          "required": [
+            "roots"
+          ],
+          "type": "object"
+        },
+        "account": {
+          "$ref": "#/$defs/MachineAccount"
+        },
+        "policyOwner": {
+          "$ref": "#/$defs/MachinePolicyOwner"
+        },
+        "passwordlessSudo": {
+          "type": "boolean"
+        },
+        "helperVersion": {
+          "anyOf": [
+            {
+              "maxLength": 64,
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "lastSeenAt": {
+          "anyOf": [
+            {
+              "description": "ISO-8601 timestamp (UTC)",
+              "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}(\\.\\d{1,9})?(Z|[+-]\\d{2}:\\d{2})$",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        }
+      },
+      "required": [
+        "id",
+        "deviceId",
+        "name",
+        "platform",
+        "status",
+        "surfaces",
+        "exec",
+        "files",
+        "account",
+        "policyOwner",
+        "passwordlessSudo"
+      ],
+      "type": "object"
+    },
+    "MachinePolicyOwner": {
+      "enum": [
+        "root",
+        "user"
+      ],
+      "type": "string"
+    },
+    "MachinesChangedPayload": {
+      "properties": {
+        "machine": {
+          "$ref": "#/$defs/MachineInfo"
+        },
+        "change": {
+          "$ref": "#/$defs/MachineChange"
+        }
+      },
+      "required": [
+        "machine",
+        "change"
+      ],
+      "type": "object"
+    },
+    "MachinesListParams": {
+      "properties": {},
+      "type": "object"
+    },
+    "MachinesListResult": {
+      "properties": {
+        "machines": {
+          "items": {
+            "$ref": "#/$defs/MachineInfo"
+          },
+          "type": "array"
+        }
+      },
+      "required": [
+        "machines"
+      ],
+      "type": "object"
+    },
+    "MachinesRenameParams": {
+      "properties": {
+        "id": {
+          "description": "ULID in production",
+          "maxLength": 64,
+          "minLength": 1,
+          "type": "string"
+        },
+        "name": {
+          "description": "No control, bidi, zero-width or invisible characters; no leading or trailing space",
+          "maxLength": 64,
+          "minLength": 1,
+          "pattern": "^(?!.*(?:\\udb40[\\udc00-\\udfff]|(?:\\udb41|\\udb42|\\udb43)[\\udc00-\\udfff]|\\ud804[\\udcbd\\udccd]|\\ud834[\\udd73-\\udd7a]|\\ud82f[\\udca0-\\udca3]|\\ud80d[\\udc30-\\udc3f]))[^\\u0000-\\u001f\\u007f-\\u009f\\u00ad\\u034f\\u0600-\\u0605\\u061c\\u06dd\\u070f\\u0890\\u0891\\u08e2\\u115f\\u1160\\u17b4\\u17b5\\u180b-\\u180f\\u200b-\\u200f\\u2028-\\u202e\\u2060-\\u206f\\u3164\\ufe00-\\ufe0f\\ufeff\\uffa0\\ufff0-\\ufffb\\u00a0\\u1680\\u2000-\\u200a\\u202f\\u205f\\u2800\\u3000\\ufffc\\s](?:[^\\u0000-\\u001f\\u007f-\\u009f\\u00ad\\u034f\\u0600-\\u0605\\u061c\\u06dd\\u070f\\u0890\\u0891\\u08e2\\u115f\\u1160\\u17b4\\u17b5\\u180b-\\u180f\\u200b-\\u200f\\u2028-\\u202e\\u2060-\\u206f\\u3164\\ufe00-\\ufe0f\\ufeff\\uffa0\\ufff0-\\ufffb\\u00a0\\u1680\\u2000-\\u200a\\u202f\\u205f\\u2800\\u3000\\ufffc]*[^\\u0000-\\u001f\\u007f-\\u009f\\u00ad\\u034f\\u0600-\\u0605\\u061c\\u06dd\\u070f\\u0890\\u0891\\u08e2\\u115f\\u1160\\u17b4\\u17b5\\u180b-\\u180f\\u200b-\\u200f\\u2028-\\u202e\\u2060-\\u206f\\u3164\\ufe00-\\ufe0f\\ufeff\\uffa0\\ufff0-\\ufffb\\u00a0\\u1680\\u2000-\\u200a\\u202f\\u205f\\u2800\\u3000\\ufffc\\s])?$",
+          "type": "string"
+        }
+      },
+      "required": [
+        "id",
+        "name"
+      ],
+      "type": "object"
+    },
+    "MachinesRenameResult": {
+      "properties": {
+        "machine": {
+          "$ref": "#/$defs/MachineInfo"
+        }
+      },
+      "required": [
+        "machine"
       ],
       "type": "object"
     },
@@ -25626,6 +26754,30 @@
       ],
       "type": "object"
     },
+    "McpConfigParams": {
+      "properties": {
+        "serverId": {
+          "maxLength": 64,
+          "minLength": 1,
+          "type": "string"
+        }
+      },
+      "required": [
+        "serverId"
+      ],
+      "type": "object"
+    },
+    "McpConfigResult": {
+      "properties": {
+        "config": {
+          "$ref": "#/$defs/McpServerConfigView"
+        }
+      },
+      "required": [
+        "config"
+      ],
+      "type": "object"
+    },
     "McpFilesReadParams": {
       "properties": {
         "serverId": {
@@ -25660,6 +26812,45 @@
         "serverId",
         "path",
         "content"
+      ],
+      "type": "object"
+    },
+    "McpHandlesMoneySetParams": {
+      "properties": {
+        "serverId": {
+          "maxLength": 64,
+          "minLength": 1,
+          "type": "string"
+        },
+        "mode": {
+          "enum": [
+            "auto",
+            "always",
+            "never"
+          ],
+          "type": "string"
+        },
+        "approvalId": {
+          "description": "ULID in production",
+          "maxLength": 64,
+          "minLength": 1,
+          "type": "string"
+        }
+      },
+      "required": [
+        "serverId",
+        "mode"
+      ],
+      "type": "object"
+    },
+    "McpHandlesMoneySetResult": {
+      "properties": {
+        "server": {
+          "$ref": "#/$defs/McpServerStatus"
+        }
+      },
+      "required": [
+        "server"
       ],
       "type": "object"
     },
@@ -25877,6 +27068,159 @@
       ],
       "type": "object"
     },
+    "McpServerChanges": {
+      "properties": {
+        "name": {
+          "maxLength": 100,
+          "minLength": 1,
+          "type": "string"
+        },
+        "command": {
+          "items": {
+            "maxLength": 1000,
+            "minLength": 1,
+            "type": "string"
+          },
+          "maxItems": 64,
+          "minItems": 1,
+          "type": "array"
+        },
+        "env": {
+          "patternProperties": {
+            "^[A-Z_][A-Z0-9_]{0,63}$": {
+              "anyOf": [
+                {
+                  "maxLength": 4000,
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ]
+            }
+          },
+          "type": "object"
+        },
+        "url": {
+          "maxLength": 2000,
+          "pattern": "^https://",
+          "type": "string"
+        },
+        "auth": {
+          "anyOf": [
+            {
+              "properties": {
+                "kind": {
+                  "const": "none",
+                  "type": "string"
+                }
+              },
+              "required": [
+                "kind"
+              ],
+              "type": "object"
+            },
+            {
+              "properties": {
+                "kind": {
+                  "const": "oauth",
+                  "type": "string"
+                }
+              },
+              "required": [
+                "kind"
+              ],
+              "type": "object"
+            },
+            {
+              "properties": {
+                "kind": {
+                  "const": "bearer",
+                  "type": "string"
+                },
+                "credential": {
+                  "pattern": "^\\{\\{cred:[a-z0-9][a-z0-9-]{0,63}(\\.[a-z]+)?\\}\\}$",
+                  "type": "string"
+                }
+              },
+              "required": [
+                "kind",
+                "credential"
+              ],
+              "type": "object"
+            }
+          ]
+        },
+        "allowedDomains": {
+          "items": {
+            "maxLength": 253,
+            "minLength": 1,
+            "type": "string"
+          },
+          "maxItems": 50,
+          "type": "array"
+        }
+      },
+      "type": "object"
+    },
+    "McpServerConfigView": {
+      "properties": {
+        "id": {
+          "type": "string"
+        },
+        "name": {
+          "type": "string"
+        },
+        "kind": {
+          "enum": [
+            "command",
+            "url"
+          ],
+          "type": "string"
+        },
+        "command": {
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
+        },
+        "url": {
+          "type": "string"
+        },
+        "allowedDomains": {
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
+        },
+        "envNames": {
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
+        },
+        "auth": {
+          "enum": [
+            "none",
+            "oauth",
+            "bearer"
+          ],
+          "type": "string"
+        },
+        "editable": {
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "id",
+        "name",
+        "kind",
+        "allowedDomains",
+        "envNames",
+        "editable"
+      ],
+      "type": "object"
+    },
     "McpServerInput": {
       "properties": {
         "id": {
@@ -26059,6 +27403,9 @@
         "enabled": {
           "type": "boolean"
         },
+        "handlesMoney": {
+          "type": "boolean"
+        },
         "madeBy": {
           "const": "psyche",
           "type": "string"
@@ -26164,6 +27511,45 @@
       ],
       "type": "object"
     },
+    "McpTestParams": {
+      "properties": {
+        "id": {
+          "maxLength": 64,
+          "minLength": 1,
+          "type": "string"
+        }
+      },
+      "required": [
+        "id"
+      ],
+      "type": "object"
+    },
+    "McpTestResult": {
+      "properties": {
+        "ok": {
+          "type": "boolean"
+        },
+        "toolCount": {
+          "minimum": 0,
+          "type": "integer"
+        },
+        "tools": {
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
+        },
+        "error": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "ok",
+        "toolCount",
+        "tools"
+      ],
+      "type": "object"
+    },
     "McpToolsParams": {
       "properties": {
         "serverId": {
@@ -26229,6 +27615,44 @@
       },
       "required": [
         "tools"
+      ],
+      "type": "object"
+    },
+    "McpUpdateParams": {
+      "properties": {
+        "id": {
+          "maxLength": 64,
+          "minLength": 1,
+          "type": "string"
+        },
+        "changes": {
+          "$ref": "#/$defs/McpServerChanges"
+        }
+      },
+      "required": [
+        "id",
+        "changes"
+      ],
+      "type": "object"
+    },
+    "McpUpdateResult": {
+      "properties": {
+        "applied": {
+          "type": "boolean"
+        },
+        "server": {
+          "$ref": "#/$defs/McpServerStatus"
+        },
+        "proposal": {
+          "$ref": "#/$defs/McpProposal"
+        },
+        "approval": {
+          "$ref": "#/$defs/ApprovalRequest"
+        }
+      },
+      "required": [
+        "applied",
+        "server"
       ],
       "type": "object"
     },
@@ -28638,6 +30062,25 @@
       ],
       "type": "object"
     },
+    "MemoryGraphMapParams": {
+      "properties": {
+        "limit": {
+          "description": "At most this many entities, most important first (default 2000)",
+          "maximum": 5000,
+          "minimum": 1,
+          "type": "integer"
+        },
+        "kinds": {
+          "description": "Only these entity kinds",
+          "items": {
+            "$ref": "#/$defs/GraphEntityKind"
+          },
+          "maxItems": 7,
+          "type": "array"
+        }
+      },
+      "type": "object"
+    },
     "MemoryGraphStatusParams": {
       "properties": {},
       "type": "object"
@@ -29369,6 +30812,132 @@
       },
       "required": [
         "loop"
+      ],
+      "type": "object"
+    },
+    "MemoryMap": {
+      "properties": {
+        "nodes": {
+          "items": {
+            "$ref": "#/$defs/MemoryMapNode"
+          },
+          "type": "array"
+        },
+        "edges": {
+          "items": {
+            "$ref": "#/$defs/MemoryMapEdge"
+          },
+          "type": "array"
+        },
+        "total": {
+          "description": "Entities in the store before the cap",
+          "minimum": 0,
+          "type": "integer"
+        },
+        "truncated": {
+          "description": "The least important entities were left out",
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "nodes",
+        "edges",
+        "total",
+        "truncated"
+      ],
+      "type": "object"
+    },
+    "MemoryMapEdge": {
+      "properties": {
+        "a": {
+          "description": "ULID in production",
+          "maxLength": 64,
+          "minLength": 1,
+          "type": "string"
+        },
+        "b": {
+          "description": "ULID in production",
+          "maxLength": 64,
+          "minLength": 1,
+          "type": "string"
+        },
+        "kind": {
+          "$ref": "#/$defs/MemoryMapEdgeKind"
+        },
+        "weight": {
+          "description": "Strength 0..1",
+          "maximum": 1,
+          "minimum": 0,
+          "type": "number"
+        }
+      },
+      "required": [
+        "a",
+        "b",
+        "kind",
+        "weight"
+      ],
+      "type": "object"
+    },
+    "MemoryMapEdgeKind": {
+      "description": "works_on: member, stakeholder, employer or part-of relation; met_in: attended or shared a meeting about it; co_mentioned: appeared in several of the same interactions; related: any other accepted relation",
+      "enum": [
+        "works_on",
+        "met_in",
+        "co_mentioned",
+        "related"
+      ],
+      "type": "string"
+    },
+    "MemoryMapNode": {
+      "properties": {
+        "id": {
+          "description": "ULID in production",
+          "maxLength": 64,
+          "minLength": 1,
+          "type": "string"
+        },
+        "kind": {
+          "$ref": "#/$defs/GraphEntityKind"
+        },
+        "name": {
+          "type": "string"
+        },
+        "weight": {
+          "description": "Importance 0..1 from recency, frequency, pins, open loops and links",
+          "maximum": 1,
+          "minimum": 0,
+          "type": "number"
+        },
+        "lastInteractionAt": {
+          "anyOf": [
+            {
+              "description": "ISO-8601 timestamp (UTC)",
+              "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}(\\.\\d{1,9})?(Z|[+-]\\d{2}:\\d{2})$",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "pinned": {
+          "type": "boolean"
+        },
+        "private": {
+          "type": "boolean"
+        },
+        "quiet": {
+          "description": "A person the owner used to be in touch with and has not heard from in a while",
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "id",
+        "kind",
+        "name",
+        "weight",
+        "pinned"
       ],
       "type": "object"
     },
@@ -31886,7 +33455,7 @@
       "type": "object"
     },
     "NodeKind": {
-      "description": "win-helper: the Windows helper on the Host (the node socket plus the handshake secret). host-helper: the helper the desktop launched on the Host (macOS mac-helper or Linux linux-helper; stored rows keep mac-helper, which stays a valid alias). guest: the helper inside a separate desktop (container or VM).",
+      "description": "win-helper: the Windows helper on the Host (the node socket plus the handshake secret). host-helper: the helper the desktop launched on the Host (macOS mac-helper or Linux linux-helper; stored rows keep mac-helper, which stays a valid alias). guest: the helper inside a separate desktop (container or VM). machine: a separate computer that runs only the helper and that the owner paired so the agent can use its screen, apps, shell and files (docs/design/linux-helper-only-2026.md). SECURITY: the owner's approval is the only way a device becomes a machine; a node can never declare this kind in its own handshake or manifest, and the Gateway sets it from the stored decision (wave H3).",
       "enum": [
         "mac-helper",
         "vm-guest",
@@ -31894,7 +33463,8 @@
         "phone",
         "win-helper",
         "host-helper",
-        "guest"
+        "guest",
+        "machine"
       ],
       "type": "string"
     },
@@ -32041,6 +33611,39 @@
       ],
       "type": "object"
     },
+    "NoticeMessage": {
+      "properties": {
+        "titleKey": {
+          "description": "Message id of the title, e.g. notice.browser.chrome.title",
+          "type": "string"
+        },
+        "bodyKey": {
+          "description": "Message id of the body",
+          "type": "string"
+        },
+        "params": {
+          "description": "Values for the placeholders. The Gateway has stripped control, format and bidirectional characters from the strings; show them as plain text, never as markup.",
+          "patternProperties": {
+            "^(.*)$": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "number"
+                }
+              ]
+            }
+          },
+          "type": "object"
+        }
+      },
+      "required": [
+        "titleKey",
+        "bodyKey"
+      ],
+      "type": "object"
+    },
     "Notification": {
       "properties": {
         "id": {
@@ -32057,6 +33660,9 @@
         },
         "body": {
           "type": "string"
+        },
+        "message": {
+          "$ref": "#/$defs/NoticeMessage"
         },
         "taskId": {
           "anyOf": [
@@ -32192,6 +33798,10 @@
         "label": {
           "type": "string"
         },
+        "labelKey": {
+          "description": "Message id of the label (e.g. notice.action.keepIt), so each client words it in its own language; `label` stays the English text for old clients and the OS",
+          "type": "string"
+        },
         "destructive": {
           "type": "boolean"
         },
@@ -32233,6 +33843,9 @@
         },
         "body": {
           "type": "string"
+        },
+        "message": {
+          "$ref": "#/$defs/NoticeMessage"
         },
         "route": {
           "anyOf": [
@@ -32813,6 +34426,99 @@
       ],
       "type": "object"
     },
+    "OnePasswordSetupState": {
+      "enum": [
+        "not_installed",
+        "found",
+        "not_integrated",
+        "locked",
+        "signed_in",
+        "error"
+      ],
+      "type": "string"
+    },
+    "OnePasswordSetupStatus": {
+      "properties": {
+        "state": {
+          "$ref": "#/$defs/OnePasswordSetupState"
+        },
+        "connected": {
+          "type": "boolean"
+        },
+        "managedBy": {
+          "enum": [
+            "config"
+          ],
+          "type": "string"
+        },
+        "problem": {
+          "enum": [
+            "op_changed",
+            "op_unsigned",
+            "op_unsafe_folder"
+          ],
+          "type": "string"
+        },
+        "repinnedAt": {
+          "type": "number"
+        },
+        "os": {
+          "enum": [
+            "macos",
+            "other"
+          ],
+          "type": "string"
+        },
+        "op": {
+          "properties": {
+            "path": {
+              "type": "string"
+            }
+          },
+          "required": [
+            "path"
+          ],
+          "type": "object"
+        },
+        "account": {
+          "properties": {
+            "url": {
+              "type": "string"
+            },
+            "email": {
+              "type": "string"
+            }
+          },
+          "required": [
+            "url",
+            "email"
+          ],
+          "type": "object"
+        }
+      },
+      "required": [
+        "state",
+        "connected",
+        "os"
+      ],
+      "type": "object"
+    },
+    "OnePasswordTestResult": {
+      "properties": {
+        "status": {
+          "$ref": "#/$defs/OnePasswordSetupStatus"
+        },
+        "vaultCount": {
+          "minimum": 0,
+          "type": "integer"
+        }
+      },
+      "required": [
+        "status",
+        "vaultCount"
+      ],
+      "type": "object"
+    },
     "OsPermission": {
       "enum": [
         "a11yBus",
@@ -32836,6 +34542,9 @@
             "channel-sender"
           ],
           "type": "string"
+        },
+        "purpose": {
+          "$ref": "#/$defs/SetupTokenPurpose"
         },
         "code": {
           "type": "string"
@@ -33164,6 +34873,52 @@
         "passkeyId",
         "reauth"
       ],
+      "type": "object"
+    },
+    "PaymentsLinkChangedPayload": {
+      "properties": {
+        "status": {
+          "$ref": "#/$defs/LinkSetupStatus"
+        }
+      },
+      "required": [
+        "status"
+      ],
+      "type": "object"
+    },
+    "PaymentsLinkConnectParams": {
+      "properties": {
+        "path": {
+          "maxLength": 1024,
+          "minLength": 1,
+          "type": "string"
+        },
+        "approvalId": {
+          "description": "ULID in production",
+          "maxLength": 64,
+          "minLength": 1,
+          "type": "string"
+        }
+      },
+      "required": [
+        "path"
+      ],
+      "type": "object"
+    },
+    "PaymentsLinkDisconnectParams": {
+      "properties": {
+        "force": {
+          "type": "boolean"
+        }
+      },
+      "type": "object"
+    },
+    "PaymentsLinkSignInParams": {
+      "properties": {},
+      "type": "object"
+    },
+    "PaymentsLinkStatusParams": {
+      "properties": {},
       "type": "object"
     },
     "PermissionMode": {
@@ -33790,7 +35545,8 @@
     "PresenceKeyAlgorithm": {
       "enum": [
         "p256-ecdsa-sha256",
-        "rsa-2048-pkcs1-sha256"
+        "rsa-2048-pkcs1-sha256",
+        "ed25519"
       ],
       "type": "string"
     },
@@ -33816,7 +35572,8 @@
             "keychain",
             "enclave_keychain_acl",
             "enclave_file",
-            "windows_hello"
+            "windows_hello",
+            "device_identity"
           ],
           "type": "string"
         },
@@ -34723,6 +36480,9 @@
             }
           ]
         },
+        "machine": {
+          "$ref": "#/$defs/ComputerMachineRef"
+        },
         "createdAt": {
           "description": "ISO-8601 timestamp (UTC)",
           "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}(\\.\\d{1,9})?(Z|[+-]\\d{2}:\\d{2})$",
@@ -35281,6 +37041,13 @@
       ],
       "type": "string"
     },
+    "RiskClass": {
+      "enum": [
+        "routine",
+        "sensitive"
+      ],
+      "type": "string"
+    },
     "Run": {
       "properties": {
         "id": {
@@ -35727,6 +37494,9 @@
         "target": {
           "maxLength": 120,
           "type": "string"
+        },
+        "machine": {
+          "$ref": "#/$defs/ComputerMachineRef"
         },
         "startedAt": {
           "description": "ISO-8601 timestamp (UTC)",
@@ -39375,9 +41145,12 @@
         },
         "scopes": {
           "items": {
-            "$ref": "#/$defs/SetupTokenScope"
+            "$ref": "#/$defs/DeviceScope"
           },
           "type": "array"
+        },
+        "purpose": {
+          "$ref": "#/$defs/SetupTokenPurpose"
         },
         "createdAt": {
           "description": "ISO-8601 timestamp (UTC)",
@@ -39444,6 +41217,13 @@
         "status"
       ],
       "type": "object"
+    },
+    "SetupTokenPurpose": {
+      "enum": [
+        "device",
+        "machine"
+      ],
+      "type": "string"
     },
     "SetupTokenScope": {
       "enum": [
@@ -42817,6 +44597,14 @@
         "downloading",
         "ready",
         "error"
+      ],
+      "type": "string"
+    },
+    "StarterFolderId": {
+      "enum": [
+        "documents",
+        "desktop",
+        "downloads"
       ],
       "type": "string"
     },
@@ -46752,6 +48540,26 @@
         "reason",
         "status"
       ],
+      "type": "object"
+    },
+    "VaultOnePasswordConnectParams": {
+      "properties": {},
+      "type": "object"
+    },
+    "VaultOnePasswordDisconnectParams": {
+      "properties": {},
+      "type": "object"
+    },
+    "VaultOnePasswordStatusParams": {
+      "properties": {
+        "probe": {
+          "type": "boolean"
+        }
+      },
+      "type": "object"
+    },
+    "VaultOnePasswordTestParams": {
+      "properties": {},
       "type": "object"
     },
     "VaultPayment": {

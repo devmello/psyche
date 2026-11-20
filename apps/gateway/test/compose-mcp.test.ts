@@ -3,16 +3,16 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { directLauncher } from "@psyche/mcp-host";
-import type { ModelEvent, ModelRequest } from "@psyche/protocol";
+import type { ModelEvent, ModelRequest, NoticeMessage } from "@psyche/protocol";
 import { FakeModelProvider } from "@psyche/testing";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { type ComposedGateway, composeGateway } from "../src/compose/index.ts";
 import { type ComposedMcp, composeMcp, MCP_SERVERS_SETTING } from "../src/compose/mcp.ts";
 import type { ComposeServices } from "../src/compose/services.ts";
 import { createLogger } from "../src/log.ts";
-import { adminClient, ik, type TestClient } from "./helpers.ts";
+import { adminClient, ik, seedMcpServers, type TestClient } from "./helpers.ts";
 
-/** K5: the MCP host mounted in the Gateway, servers managed through `settings.set`. */
+/** K5: the MCP host mounted in the Gateway, servers seeded as server code writes them (`settings.set` refuses the key). */
 
 const SERVER = fileURLToPath(new URL("./fixtures/echo-mcp-server.mjs", import.meta.url));
 const usage = { input: 1, output: 1, cacheRead: 0, cacheWrite: 0, reasoning: 0, costUsd: 0 };
@@ -81,11 +81,7 @@ describe("MCP host in the Gateway (K5)", () => {
     const { owner, mcp, services } = await setup(model);
     const revoke = vi.spyOn(services.rawBroker, "revokeMcpGrants");
 
-    await owner.call(
-      "settings.set",
-      { key: MCP_SERVERS_SETTING, value: [echoServer("bundled")] },
-      ik(),
-    );
+    seedMcpServers(services, [echoServer("bundled")]);
     await mcp.idle();
     expect(services.tools.get("mcp__echo__echo")).toBeDefined();
     expect(await owner.call("mcp.status", {})).toMatchObject({
@@ -121,11 +117,52 @@ describe("MCP host in the Gateway (K5)", () => {
     const last = model.requests.at(-1) as ModelRequest;
     expect(JSON.stringify(last.messages)).toContain("echo: hello");
 
-    await owner.call("settings.set", { key: MCP_SERVERS_SETTING, value: [] }, ik());
+    seedMcpServers(services, []);
     await mcp.idle();
     expect(services.tools.get("mcp__echo__echo")).toBeUndefined();
     expect(await mcp.host.listServers()).toEqual([]);
     expect(revoke).toHaveBeenCalledWith("echo", "removed");
+  }, 30_000);
+
+  it("an owner's handlesMoney switch makes every tool of the server financial; a raw write cannot change it", async () => {
+    const { owner, mcp, services } = await setup(new FakeModelProvider());
+    seedMcpServers(services, [{ ...echoServer("bundled"), handlesMoney: true }]);
+    await mcp.idle();
+    const tool = services.tools.get("mcp__echo__echo");
+    expect(tool?.spec.sideEffect).toBe("financial");
+    // The broker gives that class the presence step.
+    const issued = await services.rawBroker.requestApproval({
+      kind: "connector_action",
+      summary: "Echo",
+      details: {},
+      bindingHash: "b".repeat(64),
+      grantKey: "g",
+      requestedBy: { runId: null, taskId: null, threadId: null },
+      sideEffect: tool?.spec.sideEffect ?? "write",
+      surfaces: ["desktop"],
+      scopesOffered: ["once"],
+      taint: false,
+    });
+    expect(issued.approval.requiresAuthentication).toBe(true);
+    // A raw write cannot change it: settings.set refuses the key outright, so a plain write never
+    // lowers a payment server past the `mcp.handlesMoney.set` card.
+    for (const handlesMoney of ["yes", false]) {
+      await expect(
+        owner.call(
+          "settings.set",
+          { key: MCP_SERVERS_SETTING, value: [{ ...echoServer("bundled"), handlesMoney }] },
+          ik(),
+        ),
+      ).rejects.toThrow(/use_mcp_methods/);
+      await mcp.idle();
+      expect(services.tools.get("mcp__echo__echo")?.spec.sideEffect).toBe("financial");
+    }
+    // `never` through its own method (and card, once presence is enrolled) turns it off.
+    await owner.call("mcp.handlesMoney.set", { serverId: "echo", mode: "never" }, ik());
+    await mcp.idle();
+    await vi.waitFor(() =>
+      expect(services.tools.get("mcp__echo__echo")?.spec.sideEffect).not.toBe("financial"),
+    );
   }, 30_000);
 
   it("a tools/list change revokes the server's grants bound to the old hash (design-28)", async () => {
@@ -135,7 +172,7 @@ describe("MCP host in the Gateway (K5)", () => {
       ...echoServer("bundled"),
       transport: { kind: "stdio", command: [process.execPath, SERVER, "--mutate-after", "300"] },
     };
-    await owner.call("settings.set", { key: MCP_SERVERS_SETTING, value: [server] }, ik());
+    seedMcpServers(services, [server]);
     await mcp.idle();
     expect(services.tools.get("mcp__echo__echo")).toBeDefined();
     const hashes = () => [...new Set(revoke.mock.calls.map((c) => c[1]))];
@@ -149,13 +186,22 @@ describe("MCP host in the Gateway (K5)", () => {
     expect(changed[1]).toMatch(/^sha256:/);
     expect(changed[1]).not.toBe(pinned);
     expect(changed[1]).not.toBe("removed");
-    // The owner sees what changed (#281).
-    await owner.waitForEvent(
+    // The owner sees what changed (#281), worded from message ids and values.
+    const notice = await owner.waitForEvent(
       (e) =>
         e.event === "notification.created" &&
         JSON.stringify(e.payload).includes("MCP server echo changed its tools"),
       10_000,
     );
+    expect(notice.payload).toMatchObject({
+      notification: {
+        message: {
+          titleKey: "notice.mcp.changed.title",
+          bodyKey: "notice.mcp.review.body",
+          params: { server: "echo" },
+        },
+      },
+    });
   }, 30_000);
 
   it("marks a non-bundled server's descriptions untrusted and withholds poisoned tools (#281)", async () => {
@@ -171,19 +217,12 @@ describe("MCP host in the Gateway (K5)", () => {
     const { owner, mcp, services } = await setup(new FakeModelProvider(), [], {
       hostOptions: { launcher },
     });
-    await owner.call(
-      "settings.set",
+    seedMcpServers(services, [
       {
-        key: MCP_SERVERS_SETTING,
-        value: [
-          {
-            ...echoServer("unknown"),
-            transport: { kind: "stdio", command: [process.execPath, SERVER, "--poisoned"] },
-          },
-        ],
+        ...echoServer("unknown"),
+        transport: { kind: "stdio", command: [process.execPath, SERVER, "--poisoned"] },
       },
-      ik(),
-    );
+    ]);
     await mcp.idle();
     const echo = services.tools.get("mcp__echo__echo");
     expect(echo?.spec.description).toMatch(
@@ -196,16 +235,20 @@ describe("MCP host in the Gateway (K5)", () => {
         JSON.stringify(e.payload).includes("suspicious tool descriptions"),
     );
     expect(JSON.stringify(notice.payload)).toContain("Not offered to the agent: mcp__echo__lookup");
+    const message = (notice.payload as { notification: { message: NoticeMessage } }).notification
+      .message;
+    expect(message).toMatchObject({
+      titleKey: "notice.mcp.suspicious.title",
+      bodyKey: "notice.mcp.review.body",
+      params: { server: "echo" },
+    });
+    expect(message.params?.details).toContain("Not offered to the agent: mcp__echo__lookup");
   });
 
   it("refuses a non-bundled stdio server without srt or a container", async () => {
     const logs: string[] = [];
     const { owner, mcp, services } = await setup(new FakeModelProvider(), logs);
-    await owner.call(
-      "settings.set",
-      { key: MCP_SERVERS_SETTING, value: [echoServer("unknown")] },
-      ik(),
-    );
+    seedMcpServers(services, [echoServer("unknown")]);
     await mcp.idle();
     expect(services.tools.get("mcp__echo__echo")).toBeUndefined();
     expect(logs.join("\n")).toMatch(/mcp server (did not connect|could not be added)/);
@@ -226,7 +269,7 @@ describe("MCP host in the Gateway (K5)", () => {
 
   it("runs container servers with network only through the egress allowlist", async () => {
     const calls: unknown[] = [];
-    const { owner, mcp } = await setup(new FakeModelProvider(), [], {
+    const { mcp, services } = await setup(new FakeModelProvider(), [], {
       container: {
         ensureSandbox: async (scope, options) => {
           calls.push(["ensureSandbox", scope, options]);
@@ -240,14 +283,9 @@ describe("MCP host in the Gateway (K5)", () => {
         calls.push(["egressAllowlist", scope, domains]);
       },
     });
-    await owner.call(
-      "settings.set",
-      {
-        key: MCP_SERVERS_SETTING,
-        value: [{ ...echoServer("unknown"), sandbox: { allowedDomains: ["api.example.test"] } }],
-      },
-      ik(),
-    );
+    seedMcpServers(services, [
+      { ...echoServer("unknown"), sandbox: { allowedDomains: ["api.example.test"] } },
+    ]);
     await mcp.idle();
     expect(calls).toEqual([
       ["egressAllowlist", { kind: "task", id: "mcp:echo" }, ["api.example.test"]],

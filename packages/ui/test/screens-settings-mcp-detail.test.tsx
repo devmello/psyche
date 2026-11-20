@@ -110,6 +110,43 @@ describe("MCP server detail → Tools", () => {
   });
 });
 
+describe("MCP server detail → Payments", () => {
+  it("says whether the server's tools move money, in both directions, with automatic as the default", async () => {
+    const gateway = setup("mcp", seedFiles);
+    const row = await openDetails();
+    const group = (await within(row).findByRole("heading", { name: "Payments" })).closest(
+      "section",
+    ) as HTMLElement;
+    expect(
+      within(group)
+        .getByRole("radio", { name: /Decide by each tool's name/ })
+        .getAttribute("aria-checked"),
+    ).toBe("true");
+
+    await userEvent.click(within(group).getByRole("radio", { name: /Every tool moves money/ }));
+    await waitFor(() =>
+      expect(lastCall(gateway(), "mcp.handlesMoney.set")?.params).toEqual({
+        serverId: "files",
+        mode: "always",
+      }),
+    );
+    await userEvent.click(within(group).getByRole("radio", { name: /No tool moves money/ }));
+    await waitFor(() =>
+      expect(lastCall(gateway(), "mcp.handlesMoney.set")?.params).toEqual({
+        serverId: "files",
+        mode: "never",
+      }),
+    );
+    await waitFor(() =>
+      expect(
+        within(group)
+          .getByRole("radio", { name: /No tool moves money/ })
+          .getAttribute("aria-checked"),
+      ).toBe("true"),
+    );
+  });
+});
+
 describe("MCP server detail → Secrets", () => {
   it("shows set or not set by name and replaces a value without showing it", async () => {
     const gateway = setup("mcp", seedFiles);

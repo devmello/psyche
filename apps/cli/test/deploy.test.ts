@@ -683,6 +683,19 @@ describe("deploy/scripts/prune-package-waste.mjs (app size, phase 1)", () => {
       "LICENSE",
     ])
       put(`${pdf}/${f}`);
+    const pty = pkg("node-pty@1.1.0", "node-pty");
+    for (const f of [
+      "lib/utils.js",
+      "prebuilds/darwin-arm64/pty.node",
+      "package.json",
+      "LICENSE",
+      "deps/winpty/winpty.gyp",
+      "src/unix/pty.cc",
+      "third_party/conpty/conpty.dll",
+      "scripts/prebuild.js",
+      "binding.gyp",
+    ])
+      put(`${pty}/${f}`);
     const pw = pkg("playwright-core@1.64.1", "playwright-core");
     for (const f of ["lib/coreBundle.js", "lib/vite/traceViewer/index.html", "index.js"])
       put(`${pw}/${f}`);
@@ -751,6 +764,13 @@ describe("deploy/scripts/prune-package-waste.mjs (app size, phase 1)", () => {
         `${pdf}/legacy/build/pdf.worker.mjs`,
         `${pdf}/standard_fonts/FoxitSans.pfb`,
         `${pdf}/wasm/openjpeg.wasm`,
+      ]);
+      const ptyDir = `${pnpm}/node-pty@1.1.0/node_modules/node-pty`;
+      expect(left.filter((f) => f.startsWith(ptyDir))).toEqual([
+        `${ptyDir}/LICENSE`,
+        `${ptyDir}/lib/utils.js`,
+        `${ptyDir}/package.json`,
+        `${ptyDir}/prebuilds/darwin-arm64/pty.node`,
       ]);
       const pw = `${pnpm}/playwright-core@1.64.1/node_modules/playwright-core`;
       expect(left.filter((f) => f.startsWith(pw))).toEqual([

@@ -68,6 +68,7 @@ export interface SidebarProps {
   activeThreadId: string | null;
   onOpenThread: (threadId: string) => void;
   onNewSideChat?: () => void;
+  onNewIncognitoChat?: () => void;
   onExport?: (threadId: string, format: "markdown" | "json" | "html") => void;
   /** Trailing counts on destinations (Home: what needs you, amber). */
   counts?: Partial<Record<RailItem, number>>;
@@ -227,6 +228,7 @@ export function Sidebar({
   activeThreadId,
   onOpenThread,
   onNewSideChat,
+  onNewIncognitoChat,
   onExport,
   counts = {},
   width = SIDEBAR_WIDTH.default,
@@ -489,6 +491,7 @@ export function Sidebar({
                 activeThreadId={onChat ? activeThreadId : null}
                 onOpen={onOpenThread}
                 {...(onNewSideChat ? { onNewSideChat } : {})}
+                {...(onNewIncognitoChat ? { onNewIncognitoChat } : {})}
                 {...(onExport ? { onExport } : {})}
                 {...(now === undefined ? {} : { now })}
                 filterToken={(filterToken ?? 0) + filterBump}

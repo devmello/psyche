@@ -25,7 +25,7 @@ struct LibraryView: View {
 
 private struct LibraryContent: View {
     @Bindable var model: LibraryModel
-    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+    private let motion = MotionContext()
 
     var body: some View {
         GeometryReader { proxy in
@@ -36,6 +36,7 @@ private struct LibraryContent: View {
                     SectionPicker(selection: $model.section)
                     ForEach(model.uploads) { job in
                         UploadRow(job: job, retry: { model.retry(job.id) }, dismiss: { model.dismiss(job.id) })
+                            .transition(motion.transition(.rise))
                     }
                     PhaseView(phase: model.phase, skeleton: .skeleton, retry: model.load) { items in
                         if items.isEmpty && model.uploads.isEmpty {
@@ -60,7 +61,7 @@ private struct LibraryContent: View {
                 .padding(.trailing, PsycheMetrics.pagePadding)
                 .padding(.bottom, 16)
         }
-        .animation(reduceMotion ? nil : .smooth(duration: 0.25), value: model.uploads.count)
+        .psycheAnimation(.smooth, value: model.uploads.map(\.id))
         .task(id: model.section) { await model.load() }
         .task { await model.observe() }
     }
@@ -96,12 +97,14 @@ private struct SectionPicker: View {
         }
         .padding(3)
         .glassEffect(.regular, in: .capsule)
-        .animation(.smooth(duration: 0.2), value: selection)
+        // The thumb slides to the chosen section on the micro spring (spec §4.4).
+        .psycheAnimation(.micro, value: selection)
     }
 }
 
 private struct LibraryList: View {
     let items: [PsycheStore.LibraryItem]
+    @Environment(\.psycheZoomNamespace) private var zoom
 
     var body: some View {
         PaperCard {
@@ -110,6 +113,7 @@ private struct LibraryList: View {
                     if index > 0 { HairlineDivider().padding(.leading, 70) }
                     NavigationLink(value: Route.file(id: item.id)) { LibraryRow(item: item) }
                         .buttonStyle(.plain)
+                        .psycheZoomSource(id: item.id, in: zoom)
                 }
             }
         }
@@ -144,6 +148,7 @@ private struct LibraryRow: View {
 
 private struct LibraryGrid: View {
     let items: [PsycheStore.LibraryItem]
+    @Environment(\.psycheZoomNamespace) private var zoom
 
     var body: some View {
         LazyVGrid(columns: [GridItem(.adaptive(minimum: 150, maximum: 220), spacing: 18, alignment: .top)], spacing: 22) {
@@ -162,6 +167,7 @@ private struct LibraryGrid: View {
                     .contentShape(Rectangle())
                 }
                 .buttonStyle(.plain)
+                .psycheZoomSource(id: item.id, in: zoom)
                 .accessibilityElement(children: .combine)
             }
         }

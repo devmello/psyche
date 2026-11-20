@@ -1,5 +1,5 @@
 import { appendMessage, createThread, getThread, openDb, setSetting } from "@psyche/db";
-import type { ModelEvent, ModelProvider, Run, Thread } from "@psyche/protocol";
+import type { ModelEvent, ModelProvider, ModelRequest, Run, Thread } from "@psyche/protocol";
 import { describe, expect, it } from "vitest";
 import {
   AUTO_TITLE_SETTING,
@@ -43,11 +43,13 @@ function setup(opts: { reply?: string; fail?: boolean; hang?: boolean } = {}) {
   const db = openDb(":memory:");
   const published: Thread[] = [];
   let calls = 0;
+  const requests: ModelRequest[] = [];
   const provider: ModelProvider = {
     id: "fake",
     capabilities: async () => ({}) as never,
     async *stream(req, o): AsyncIterable<ModelEvent> {
       calls += 1;
+      requests.push(req);
       expect(req.maxOutputTokens).toBe(24);
       if (opts.fail) throw new Error("down");
       if (opts.hang) {
@@ -90,7 +92,7 @@ function setup(opts: { reply?: string; fail?: boolean; hang?: boolean } = {}) {
   };
   const done = (threadId: string) =>
     ({ threadId, status: "done" }) as Pick<Run, "threadId" | "status">;
-  return { db, titler, chat, done, published, calls: () => calls };
+  return { db, titler, chat, done, published, requests, calls: () => calls };
 }
 
 describe("auto titler", () => {
@@ -103,6 +105,19 @@ describe("auto titler", () => {
       "Lisbon trip planning",
     ]);
     expect(getThread(s.db, id)?.titleSource).toBe("auto");
+  });
+
+  it("asks for a cheap one-shot: low effort, thinking off, no cache write, 24 tokens", async () => {
+    const s = setup();
+    await s.titler.onRunFinished(s.done(s.chat()));
+    expect(s.requests).toHaveLength(1);
+    // Thinking would eat the 24-token cap and return an empty title.
+    expect(s.requests[0]).toMatchObject({
+      maxOutputTokens: 24,
+      effort: "low",
+      reasoning: "off",
+      cache: "none",
+    });
   });
 
   it("keeps the first-message title when the model fails or times out", async () => {

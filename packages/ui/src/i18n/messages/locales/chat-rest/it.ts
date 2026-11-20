@@ -53,6 +53,10 @@ export const chatRest: Partial<Catalogue> = {
   "chat.attach.refused.size":
     "{name} è troppo grande per essere allegato (immagini 5 MB, documenti 25 MB)",
   "chat.attach.refused.count": "{name}: a un messaggio si possono allegare al massimo 8 file",
+  "chat.attach.refused.sensitive":
+    "{name} si trova in una posizione protetta e non può essere condiviso con Psyche",
+  "chat.attach.refused.unreadable":
+    "Impossibile allegare {name}. Controlla che esista ancora e che sia un file, non una cartella",
   "chat.message.fromWidget": "Dal widget",
   "chat.teach.notLikeThis": "Non così",
   "chat.teach.dialog": "Insegna a Psyche",
@@ -132,6 +136,9 @@ export const chatRest: Partial<Catalogue> = {
   "chat.steps.approval": "In attesa della tua approvazione: {summary}",
   "chat.steps.question": "Domanda: {question}",
   "chat.steps.answered": "Risposta: {question}",
+  "chat.steps.earlier":
+    "{n, plural, one {# passaggio precedente completato} other {# passaggi precedenti completati}}",
+  "chat.steps.needsYou": "Serve il tuo intervento",
   "chat.steps.writing": "Scrittura della risposta…",
   "chat.steps.thinking": "Ragionamento: {text}",
   "chat.steps.thinkingEmpty": "Sto pensando…",
@@ -198,4 +205,16 @@ export const chatRest: Partial<Catalogue> = {
   "chat.clear.mainOnly":
     "Cancella funziona nella chat principale. Usa /new per una nuova chat secondaria.",
   "chat.commands.clear.description": "Cancella la chat principale",
+  "chat.modeSwitch.label": "Modalità permessi",
+  "chat.modeSwitch.autoExplainer":
+    "Auto esegue le azioni di routine entro i tuoi permessi e chiede prima di qualsiasi cosa delicata. I pagamenti chiedono sempre; il tuo elenco dei divieti viene sempre rifiutato.",
+  "chat.modeSwitch.gotIt": "Ho capito",
+  "chat.modeSwitch.autoUnavailable": "Auto non può usare {model}.",
+  "chat.modeSwitch.needsModel": "Auto richiede un modello supportato.",
+  "chat.modeSwitch.switchModel": "Passa a {model} e usa Auto",
+  "chat.modeSwitch.noModel":
+    "Auto richiede un modello supportato, come Claude, GPT o Gemini. Aggiungi la sua chiave in Impostazioni.",
+  "chat.modeSwitch.failed": "Impossibile cambiare la modalità: {reason}",
+  "chat.modeSwitch.notSaved":
+    "Modificato per questa chat, ma non è stato possibile salvarlo come predefinito per le nuove chat.",
 };

@@ -13,7 +13,7 @@ struct PresenceTests {
         #expect(PresenceMessage.isValidChallenge(Self.challenge))
         #expect(!PresenceMessage.isValidChallenge("abc"))
         #expect(!PresenceMessage.isValidChallenge(String(repeating: "zz", count: 32)))
-        #expect(PresenceMessage.keyId(x963: Data()) == "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855")
+        #expect(PresenceMessage.keyId(publicKey: Data()) == "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855")
     }
 
     @Test func challengeTravelsThroughUserInfoOnlyWhenBiometryIsRequired() throws {
@@ -41,7 +41,32 @@ struct PresenceTests {
         #expect(r.payload["presence"] == ["signature": "c2ln", "keyId": "k1"])
         #expect(r.payload["authenticated"] == true)
         r.presence = nil
-        r.presenceError = "missing_entitlement"
-        #expect(r.payload["presence"] == nil && r.payload["presenceError"] == "missing_entitlement")
+        r.presenceError = "presence_unavailable"
+        #expect(r.payload["presence"] == nil && r.payload["presenceError"] == "presence_unavailable")
+    }
+
+    // The Gateway's real `notify.show` for an approval (apps/gateway/src/compose/helper.ts `deliver`):
+    // `category` not `kind`, S15 action fields. The helper does not validate `inputSchema`; this is what
+    // its decoder must accept, with and without the challenge.
+    static func gatewayPayload(challenge: String?) -> String {
+        let extra = challenge.map { #","presenceChallenge":"\#($0)""# } ?? ""
+        return #"{"id":"apr_1","category":"approval","title":"Buy","body":"$5","interruptionLevel":"timeSensitive","threadId":null,"route":"/approvals/apr_1","actions":[{"id":"approve","label":"Approve","destructive":false,"authenticationRequired":true,"textInput":false},{"id":"deny","label":"Deny","destructive":true,"authenticationRequired":false,"textInput":false}],"approvalId":"apr_1","requireBiometry":true\#(extra)}"#
+    }
+
+    @Test func theGatewaysApprovalNotificationDecodesWithAndWithoutAChallenge() throws {
+        for challenge in [Self.challenge, nil] {
+            let p = try JSONDecoder().decode(NotifyShowParams.self, from: Data(Self.gatewayPayload(challenge: challenge).utf8))
+            #expect(p.kind == .approval && p.interruption == .timeSensitive && p.presenceChallenge == challenge)
+            #expect(p.actions?.map(\.id) == ["approve", "deny"] && p.actions?.first?.requiresAuth == true)
+        }
+    }
+
+    @Test func aPrefixedDigestIsRejectedAsInvalidParams() {
+        // `sha256:<hex>` (the broker's old digest form) is not a challenge: it must fail loudly, not sign.
+        let prefixed = "sha256:" + Self.challenge
+        #expect(!PresenceMessage.isValidChallenge(prefixed))
+        #expect(throws: (any Error).self) {
+            try JSONDecoder().decode(NotifyShowParams.self, from: Data(Self.gatewayPayload(challenge: prefixed).utf8))
+        }
     }
 }

@@ -38,6 +38,7 @@ import { connectorBundles } from "./connector-bundles.ts";
 import { TURN_ON_SANDBOX_PC } from "./guest-sandbox.ts";
 import { type McpAdder, mcpAdder } from "./mcp-add.ts";
 import { mcpAppHandler } from "./mcp-app.ts";
+import { mcpEditHandlers } from "./mcp-edit.ts";
 import { mcpGrantRevocation } from "./mcp-grants.ts";
 import { mcpManageHandlers } from "./mcp-manage.ts";
 import { selfConnectorStore, selfConnectors } from "./self-connectors.ts";
@@ -210,7 +211,13 @@ function readServers(value: unknown, warn: (msg: string) => void): PsycheMcpServ
       continue;
     }
     seen.add(c.id);
-    out.push({ ...c, trust: trustOf(c as PsycheMcpServerConfig) } as PsycheMcpServerConfig);
+    const entry = { ...c, trust: trustOf(c as PsycheMcpServerConfig) } as PsycheMcpServerConfig;
+    // Only a real boolean counts: the owner's "this server moves money" switch (`true`: always,
+    // `false`: never; absent: the guess decides).
+    if (entry.handlesMoney !== undefined && typeof entry.handlesMoney !== "boolean") {
+      Reflect.deleteProperty(entry, "handlesMoney");
+    }
+    out.push(entry);
   }
   return out;
 }
@@ -282,12 +289,25 @@ export function composeMcp(services: ComposeServices, setup: McpSetup = {}): Com
     services.logger?.log("warn", msg, fields);
   const registrations = new Map<string, McpRegistration>();
   /** Owner-visible and audited (security §11 "showing a visual diff"; #281). */
-  const report = (serverId: string, title: string, body: string, data: Record<string, unknown>) => {
+  const report = (
+    serverId: string,
+    titleKey: "notice.mcp.changed.title" | "notice.mcp.suspicious.title",
+    title: string,
+    body: string,
+    data: Record<string, unknown>,
+  ) => {
+    const details = body.slice(0, 1_000);
     services.notifier
       .notify({
         kind: "system",
         title,
-        body: body.slice(0, 1_000),
+        body: details,
+        message: {
+          titleKey,
+          bodyKey: "notice.mcp.review.body",
+          // Values are one line: the server's change list and warnings, joined.
+          params: { server: serverId, details: details.replace(/\s*\n+\s*/g, "; ") },
+        },
         route: "/settings/connectors",
         dedupeKey: `mcp:${serverId}:${String(data.hash ?? "tools")}`,
       })
@@ -313,14 +333,21 @@ export function composeMcp(services: ComposeServices, setup: McpSetup = {}): Com
   const secrets: McpHostOptions["secrets"] = {
     credentials: services.vault,
     // Each secret gets its own device-only card, answered with presence (security §4.6).
-    async approve({ serverId, placeholder: ph, target }) {
+    async approve({ serverId, placeholder: ph, target, check }) {
       const slug = placeholder.exec(ph)?.[1];
       if (slug === undefined) throw new PsycheError("invalid_params", "not a placeholder");
       const issued = await services.vault.requestFill({
         slug,
         target: target.value,
         executor: "connector",
-        requestedBy: { runId: null, taskId: null, threadId: null, agent: `mcp:${serverId}` },
+        // A check of a server being added or edited asks as "mcp:<id> check", not as the
+        // approved server: the owner can tell the two cards apart.
+        requestedBy: {
+          runId: null,
+          taskId: null,
+          threadId: null,
+          agent: check === true ? `mcp:${serverId} check` : `mcp:${serverId}`,
+        },
         taint: false,
       });
       const done = await services.broker.awaitDecision(issued.approval.id);
@@ -333,6 +360,9 @@ export function composeMcp(services: ComposeServices, setup: McpSetup = {}): Com
   const host = createMcpHost({
     ...(launcher === undefined ? {} : { launcher }),
     secrets,
+    // A server `add` checks before starting (agent-made code, a shared file's record, also one
+    // left under an unmarked entry's id) is never restarted by the host behind that check.
+    neverAutoStart: (c) => c.madeBy !== undefined || bundles.checkedAtStart(c),
     ...setup.hostOptions,
     onEvent: (event) => {
       grants.onEvent(event);
@@ -342,6 +372,7 @@ export function composeMcp(services: ComposeServices, setup: McpSetup = {}): Com
           // A changed listing: the owner sees what changed; its grants were revoked above.
           report(
             event.serverId,
+            "notice.mcp.changed.title",
             `MCP server ${event.serverId} changed its tools`,
             [changeLines(event.changes), warningText(event.warnings, new Set())]
               .filter((l) => l !== "")
@@ -371,9 +402,9 @@ export function composeMcp(services: ComposeServices, setup: McpSetup = {}): Com
   /** The tool choices each running server's registrations were made with. */
   const offered = new Map<string, string>();
   const choices = (c: PsycheMcpServerConfig | undefined) => JSON.stringify(c?.disabledTools ?? []);
-  /** What a change of these does not need a restart for: tools re-register, a switch adds or removes. */
+  /** What a change of these does not need a restart for: tools re-register, a switch adds or removes, a rename. */
   const runKey = (c: PsycheMcpServerConfig) => {
-    const { disabledTools: _tools, enabled: _enabled, ...rest } = c;
+    const { disabledTools: _tools, enabled: _enabled, name: _name, ...rest } = c;
     return JSON.stringify(rest);
   };
   const add = async (config: PsycheMcpServerConfig) => {
@@ -410,6 +441,7 @@ export function composeMcp(services: ComposeServices, setup: McpSetup = {}): Com
       if (warnings.length > 0 && config.trust !== "bundled") {
         report(
           config.id,
+          "notice.mcp.suspicious.title",
           `MCP server ${config.id} has suspicious tool descriptions`,
           warningText(warnings, blocked),
           { warnings, blocked: [...blocked] },
@@ -431,6 +463,8 @@ export function composeMcp(services: ComposeServices, setup: McpSetup = {}): Com
   };
   let seeded = false;
   const reconcile = async (value: unknown) => {
+    // The host's restart check reads the bundle ledger from a snapshot: take a fresh one.
+    bundles.resetStartChecks();
     const wanted = readServers(value, (msg) => warn(msg));
     const next = new Map(wanted.map((c) => [c.id, c]));
     // Servers that left the list, or joined it unmarked, by any route (`settings.set` included):
@@ -500,6 +534,7 @@ export function composeMcp(services: ComposeServices, setup: McpSetup = {}): Com
       network: http || (c.sandbox?.allowedDomains?.length ?? 0) > 0,
       connected: registrations.has(c.id),
       ...(c.enabled === false ? { enabled: false } : {}),
+      ...(typeof c.handlesMoney === "boolean" ? { handlesMoney: c.handlesMoney } : {}),
       ...(c.madeBy === "psyche"
         ? { madeBy: "psyche" as const, ...(c.version === undefined ? {} : { version: c.version }) }
         : {}),
@@ -576,6 +611,23 @@ export function composeMcp(services: ComposeServices, setup: McpSetup = {}): Com
         withheld: (id, tool) => known.get(id)?.disabledTools?.includes(tool) === true,
         host,
       }),
+      // Editing a server in place and testing an approved one.
+      ...mcpEditHandlers({
+        services,
+        settingKey: MCP_SERVERS_SETTING,
+        adder,
+        apply: (value) => {
+          void enqueue(value);
+          return Promise.resolve();
+        },
+        status: statusOf,
+        ping: async (id) =>
+          registrations.has(id)
+            ? (await host.listTools(id)).tools.map((t) =>
+                t.name.startsWith(`mcp__${id}__`) ? t.name.slice(`mcp__${id}__`.length) : t.name,
+              )
+            : undefined,
+      }),
       // A server's detail (tools, on/off, secrets).
       ...mcpManageHandlers({
         services,
@@ -593,19 +645,29 @@ export function composeMcp(services: ComposeServices, setup: McpSetup = {}): Com
     },
     start(gateway: Gateway) {
       void enqueue(getSetting(services.db, MCP_SERVERS_SETTING)?.value);
+      // Unbinds a removed server's vault items that an earlier run could not (the vault was locked).
+      void adder.retryPending().catch(() => undefined);
       unsubscribe = gateway.bus.subscribe(["operator.read"], (frame) => {
         const f = JSON.parse(frame) as {
           event?: string;
           payload?: { entries?: { key: string; value: unknown }[] };
         };
         // A key or bundle was revoked: servers that came from it stop (`bundles.stale`).
+        // The vault opened: finish unbinding the items of servers removed while it was locked.
+        if (f.event === "vault.unlocked") {
+          void adder.retryPending();
+          return;
+        }
         if (f.event === "skills.changed") {
           void enqueue(getSetting(services.db, MCP_SERVERS_SETTING)?.value);
           return;
         }
         if (f.event !== "settings.changed") return;
+        // The event carries a redacted copy: reconcile from the stored setting.
         for (const entry of f.payload?.entries ?? []) {
-          if (entry.key === MCP_SERVERS_SETTING) void enqueue(entry.value);
+          if (entry.key === MCP_SERVERS_SETTING) {
+            void enqueue(getSetting(services.db, MCP_SERVERS_SETTING)?.value);
+          }
         }
       });
     },

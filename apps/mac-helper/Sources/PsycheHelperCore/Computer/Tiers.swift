@@ -85,7 +85,7 @@ public enum FixedCaps {
         "org.alacritty", "com.mitchellh.ghostty", "com.github.wez.wezterm", "co.zeit.hyper", "com.microsoft.VSCode",
         "com.microsoft.VSCodeInsiders", "com.vscodium", "com.todesktop.230313mzl4w4u92", "com.exafunction.windsurf",
         "com.apple.dt.Xcode", "com.jetbrains.", "com.google.android.studio", "com.sublimetext.", "dev.zed.Zed",
-        "com.panic.Nova", "com.barebones.bbedit", "com.apple.ScriptEditor2", "com.apple.Automator",
+        "com.panic.Nova", "com.barebones.bbedit", "com.apple.ScriptEditor2", "com.apple.Automator", "app.crynta.terax",
     ]
 
     static let passwordManagers = [
@@ -242,12 +242,23 @@ public final class TierPolicy: @unchecked Sendable {
     /// When the owner last used the keyboard, mouse or trackpad (not the helper's own events).
     /// nil turns the attention check off (unit tests of other rules); the helper always sets it.
     private let ownerInput: (@Sendable () -> Date?)?
+    /// A cap read from the app's own Info.plist (`FixedCaps.isShellLike`: a terminal or developer
+    /// tool that no id list names gets `click`). nil: the id lists alone decide (unit tests).
+    private let infoCap: (@Sendable (String) -> ComputerTier)?
 
     public init(settings: TierSettings = TierSettings(), now: @escaping @Sendable () -> Date = { Date() },
-                ownerInput: (@Sendable () -> Date?)? = nil) {
+                ownerInput: (@Sendable () -> Date?)? = nil, infoCap: (@Sendable (String) -> ComputerTier)? = nil) {
         self.settings = settings
         self.now = now
         self.ownerInput = ownerInput
+        self.infoCap = infoCap
+    }
+
+    /// The fixed cap for an app: the id lists, lowered by its Info.plist (looked up outside the lock).
+    public func fixedCap(for bundleId: String?) -> ComputerTier {
+        let listed = FixedCaps.cap(for: bundleId)
+        guard let id = bundleId, let infoCap, listed > .click else { return listed }
+        return min(listed, infoCap(id))
     }
 
     public func update(_ settings: TierSettings) {
@@ -258,13 +269,13 @@ public final class TierPolicy: @unchecked Sendable {
 
     /// The tier in effect now, without considering an approval on the current call.
     public func effectiveTier(for bundleId: String?) -> ComputerTier {
+        let cap = fixedCap(for: bundleId)
         lock.lock()
         defer { lock.unlock() }
-        return effectiveLocked(bundleId)
+        return effectiveLocked(bundleId, cap: cap)
     }
 
-    private func effectiveLocked(_ bundleId: String?) -> ComputerTier {
-        let cap = FixedCaps.cap(for: bundleId)
+    private func effectiveLocked(_ bundleId: String?, cap: ComputerTier) -> ComputerTier {
         let user: ComputerTier
         switch settings.value(for: bundleId) {
         case .off: user = .off
@@ -285,12 +296,13 @@ public final class TierPolicy: @unchecked Sendable {
     /// app (#267) and for at least the tier needed; when the user setting is `ask`, it records an
     /// "Allow for this session" allowance for the approved tier only (never more).
     public func authorize(_ intent: ComputerIntent, bundleId: String?, appName: String, approval: ApprovalBinding?) throws {
+        let cap = fixedCap(for: bundleId)
+        let shellLike = cap == .click && FixedCaps.cap(for: bundleId) > .click
         lock.lock()
         defer { lock.unlock() }
         let needed = intent.requiredTier
-        let cap = FixedCaps.cap(for: bundleId)
         if cap < needed {
-            throw Self.refusal(needed: needed, have: cap, appName: appName, bundleId: bundleId, fixed: true)
+            throw Self.refusal(needed: needed, have: cap, appName: appName, bundleId: bundleId, fixed: true, shellLike: shellLike)
         }
         if let approval {
             guard let id = bundleId, approval.app.lowercased() == id.lowercased() else {
@@ -299,13 +311,13 @@ public final class TierPolicy: @unchecked Sendable {
                                       details: ["approvedApp": .string(approval.app), "app": .string(bundleId ?? appName)])
             }
         }
-        var have = effectiveLocked(bundleId)
+        var have = effectiveLocked(bundleId, cap: cap)
         let asks = settings.value(for: bundleId) == .ask
         if have < needed, !asks {
             throw Self.refusal(needed: needed, have: have, appName: appName, bundleId: bundleId, fixed: false)
         }
         // Before any card: an approval from a phone is not someone watching this Mac.
-        try checkAttention(intent, bundleId: bundleId, appName: appName)
+        try checkAttention(intent, bundleId: bundleId, appName: appName, shellLike: shellLike)
         if have < needed, asks, let approval, approval.tier >= needed, let key = bundleId?.lowercased() {
             // The Gateway asked the user ("Allow for this session") for this app and tier.
             let granted = min(cap, approval.tier)
@@ -321,8 +333,8 @@ public final class TierPolicy: @unchecked Sendable {
         }
     }
 
-    private func checkAttention(_ intent: ComputerIntent, bundleId: String?, appName: String) throws {
-        guard let ownerInput, Attention.applies(to: intent), Attention.isSensitive(bundleId, settings: settings) else { return }
+    private func checkAttention(_ intent: ComputerIntent, bundleId: String?, appName: String, shellLike: Bool) throws {
+        guard let ownerInput, Attention.applies(to: intent), shellLike || Attention.isSensitive(bundleId, settings: settings) else { return }
         let idle = ownerInput().map { max(0, now().timeIntervalSince($0)) }
         if let idle, idle <= Attention.window { return }
         var details: [String: JSONValue] = ["app": .string(bundleId ?? appName), "windowSeconds": .number(Attention.window)]
@@ -340,9 +352,10 @@ public final class TierPolicy: @unchecked Sendable {
         lock.unlock()
     }
 
-    static func refusal(needed: ComputerTier, have: ComputerTier, appName: String, bundleId: String?, fixed: Bool) -> CapabilityError {
+    static func refusal(needed: ComputerTier, have: ComputerTier, appName: String, bundleId: String?, fixed: Bool,
+                        shellLike: Bool = false) -> CapabilityError {
         let why: String
-        switch (have, FixedCaps.category(of: bundleId)) {
+        switch (have, shellLike ? Optional(FixedCaps.Category.terminalOrIDE) : FixedCaps.category(of: bundleId)) {
         case (.off, .psyche?): why = "Psyche never drives its own windows."
         case (.off, .passwordManager?): why = "Password managers are off limits for computer use."
         case (.off, .finance?): why = "Banking, trading and crypto apps are off limits for computer use."
@@ -370,28 +383,50 @@ public final class ComputerSessionLock: @unchecked Sendable {
     private let lock = NSLock()
     private var holder: (id: String, lastUse: Date)?
     private var stopped: [String] = []
+    /// Sessions ended because one action ran past `maxInFlight`; they fail with `action_time_limit`.
+    private var timedOut: [String] = []
+    /// Actions running now, per session, each with its start time. A session with one running is active
+    /// however long ago it last acquired, so a slow action (a long `computer.type`) keeps its Esc stop.
+    private var actions: [String: [Int: Date]] = [:]
+    private var nextToken = 0
+    /// `end_session` arrived while an action ran: the lock is released when the last one ends.
+    private var releasePending: Set<String> = []
     public let idleTimeout: TimeInterval
+    /// One action running longer than this is stopped and its session released (`reapOverlong`).
+    public let maxInFlight: TimeInterval
     private let now: @Sendable () -> Date
 
-    public init(idleTimeout: TimeInterval = 120, now: @escaping @Sendable () -> Date = { Date() }) {
+    public init(idleTimeout: TimeInterval = 120, maxInFlight: TimeInterval = 30 * 60, now: @escaping @Sendable () -> Date = { Date() }) {
         self.idleTimeout = idleTimeout
+        self.maxInFlight = maxInFlight
         self.now = now
     }
 
+    private func runningLocked(_ id: String) -> Bool { !(actions[id]?.isEmpty ?? true) }
+
     /// Takes or refreshes the lock for `session`; throws `conflict/computer_busy` if another session
-    /// holds it.
-    public func acquire(_ session: String) throws {
+    /// holds it. With `markInFlight`, the action is counted in the same critical section, so an
+    /// `end_session` can never land between taking the session and marking its action as running; the
+    /// returned token goes to `endInvocation`.
+    @discardableResult
+    public func acquire(_ session: String, markInFlight: Bool = false) throws -> Int? {
         lock.lock()
         defer { lock.unlock() }
         if stopped.contains(session) { throw CapabilityError.stopped }
+        if timedOut.contains(session) { throw CapabilityError.actionTimeLimit }
         let t = now()
-        if let h = holder, h.id != session, t.timeIntervalSince(h.lastUse) < idleTimeout {
+        // The run already said it was done (end_session arrived while an action ran): no new actions.
+        if holder?.id == session, releasePending.contains(session) {
+            throw CapabilityError(.conflict, reason: "session_ending", "This session is ending; start a new run to keep going.")
+        }
+        if let h = holder, h.id != session, runningLocked(h.id) || t.timeIntervalSince(h.lastUse) < idleTimeout {
             throw CapabilityError(
                 .conflict, reason: "computer_busy", "Another task is using the computer. Try again when it finishes.",
                 retryable: true
             )
         }
         holder = (session, t)
+        return markInFlight ? beginInvocationLocked(session) : nil
     }
 
     /// Esc: ends the active session for good. Later calls from it fail with `user_stopped`, so the
@@ -402,6 +437,7 @@ public final class ComputerSessionLock: @unchecked Sendable {
         defer { lock.unlock() }
         guard let h = holder else { return nil }
         holder = nil
+        releasePending.remove(h.id)
         stopped.append(h.id)
         if stopped.count > 64 { stopped.removeFirst(stopped.count - 64) }
         return h.id
@@ -409,15 +445,83 @@ public final class ComputerSessionLock: @unchecked Sendable {
 
     public func release(_ session: String) {
         lock.lock()
-        if holder?.id == session { holder = nil }
-        lock.unlock()
+        defer { lock.unlock() }
+        guard holder?.id == session else { return }
+        if runningLocked(session) {
+            releasePending.insert(session)
+        } else {
+            holder = nil
+        }
+    }
+
+    /// Marks one action of `session` as running (call after `acquire`). Pair with `endInvocation`.
+    @discardableResult
+    public func beginInvocation(_ session: String) -> Int {
+        lock.lock()
+        defer { lock.unlock() }
+        return beginInvocationLocked(session)
+    }
+
+    private func beginInvocationLocked(_ session: String) -> Int {
+        nextToken += 1
+        actions[session, default: [:]][nextToken] = now()
+        return nextToken
+    }
+
+    /// How long until the oldest running action of the holder reaches `maxInFlight`; nil with none running.
+    public func timeUntilCap() -> TimeInterval? {
+        lock.lock()
+        defer { lock.unlock() }
+        guard let h = holder, let oldest = actions[h.id]?.values.min() else { return nil }
+        return maxInFlight - now().timeIntervalSince(oldest)
+    }
+
+    /// The holder has one action that has run for `maxInFlight`: `trip` runs FIRST (inside the lock, so
+    /// no new action can slip in untripped and nobody sees the session inactive before the stop), then
+    /// the session ends for good with `action_time_limit`. Returns its id, or nil if none is overlong.
+    ///
+    /// `trip` runs with the session lock held. It must be quick, must never call back into this lock
+    /// (`NSLock` is not recursive, so that deadlocks, and the Esc tap's `activeSession` waits on it),
+    /// and must not log or do I/O: the caller does that after this returns.
+    @discardableResult
+    public func reapOverlong(trip: (String) -> Void) -> String? {
+        lock.lock()
+        defer { lock.unlock() }
+        guard let h = holder, let oldest = actions[h.id]?.values.min(), now().timeIntervalSince(oldest) >= maxInFlight else { return nil }
+        trip(h.id)
+        holder = nil
+        releasePending.remove(h.id)
+        timedOut.append(h.id)
+        if timedOut.count > 64 { timedOut.removeFirst(timedOut.count - 64) }
+        return h.id
+    }
+
+    /// The action ended: refreshes the idle clock, and completes a release that arrived meanwhile.
+    /// Without a token, the oldest running action of the session ends.
+    public func endInvocation(_ session: String, token: Int? = nil) {
+        lock.lock()
+        defer { lock.unlock() }
+        if var running = actions[session] {
+            let key = token ?? running.min(by: { $0.value < $1.value })?.key
+            if let key { running.removeValue(forKey: key) }
+            if running.isEmpty { actions.removeValue(forKey: session) } else { actions[session] = running }
+        }
+        guard !runningLocked(session) else { return }
+        let ending = releasePending.remove(session) != nil
+        guard let h = holder, h.id == session else { return }
+        if ending {
+            holder = nil
+        } else {
+            holder = (h.id, now())
+        }
     }
 
     public var activeSession: String? {
         lock.lock()
         defer { lock.unlock() }
-        guard let h = holder, now().timeIntervalSince(h.lastUse) < idleTimeout else { return nil }
-        return h.id
+        guard let h = holder else { return nil }
+        if runningLocked(h.id) || now().timeIntervalSince(h.lastUse) < idleTimeout { return h.id }
+        return nil
     }
 }
 
@@ -429,6 +533,8 @@ public final class StopSignal: @unchecked Sendable {
     private let lock = NSLock()
     private var issued = 0
     private var stoppedThrough = 0
+    /// Invocations up to this one were stopped by the time limit rather than by Esc.
+    private var timeLimitThrough = 0
 
     @TaskLocal static var token: Int?
 
@@ -447,11 +553,23 @@ public final class StopSignal: @unchecked Sendable {
         }
     }
 
+    public enum Reason: Sendable { case user, timeLimit }
+
     /// Stops every invocation issued so far.
-    public func trip() {
+    public func trip(reason: Reason = .user) {
         lock.lock()
         stoppedThrough = issued
+        if reason == .timeLimit { timeLimitThrough = issued }
         lock.unlock()
+    }
+
+    /// Why the current invocation was stopped: the time limit if it was among those a time-limit trip
+    /// stopped, else Esc.
+    var stopError: CapabilityError {
+        lock.lock()
+        defer { lock.unlock() }
+        if let t = Self.token, t <= timeLimitThrough { return .actionTimeLimit }
+        return .stopped
     }
 
     /// Whether the current invocation (or, outside one, any invocation so far) was stopped.
@@ -464,7 +582,7 @@ public final class StopSignal: @unchecked Sendable {
 
     /// Throws `cancelled/user_stopped` once the user pressed Esc during this invocation.
     public func check() throws {
-        if isTripped { throw CapabilityError.stopped }
+        if isTripped { throw stopError }
         if _Concurrency.Task.isCancelled { throw CapabilityError.cancelled }
     }
 }

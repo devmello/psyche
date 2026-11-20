@@ -13,6 +13,7 @@ import { hostPlatform, traitsFor } from "../platform/index.ts";
 import type { DockPolicy } from "./dock-policy.ts";
 import { hideMenuBar } from "./menu.ts";
 import { createPopOutRegistry } from "./pop-outs.ts";
+import { askBeforeUnload, loadUnloadStrings } from "./unsaved-unload.ts";
 import {
   chromeViewBackground,
   mainWindowOptions,
@@ -276,6 +277,8 @@ export function createAppWindows(opts: WindowOptions): AppWindows {
       },
     });
     win.contentView.addChildView(view, 0); // index 0: agent tab views stay above the app view
+    loadUnloadStrings(() => app.getSystemLocale());
+    askBeforeUnload(view.webContents, win);
     // Windows: the app menu's accelerators work in every window; its bar is never drawn.
     if (hostPlatform() === "win32") hideMenuBar(win);
     const layout = () => {

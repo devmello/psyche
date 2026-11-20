@@ -50,6 +50,8 @@ export const chat: Partial<Catalogue> = {
     "{name}：Psyche 无法读取这类文件。请附加 PDF、Word、Excel、文本或图片文件",
   "chat.attach.refused.size": "{name} 太大，无法附加（图片 5 MB，文档 25 MB）",
   "chat.attach.refused.count": "{name}：每条消息最多附加 8 个文件",
+  "chat.attach.refused.sensitive": "{name} 位于受保护的位置，无法与 Psyche 共享",
+  "chat.attach.refused.unreadable": "无法附加 {name}。请确认它仍然存在，并且是文件而不是文件夹",
   "chat.message.fromWidget": "来自小组件",
   "chat.teach.notLikeThis": "不要这样",
   "chat.teach.dialog": "教教 Psyche",
@@ -126,6 +128,8 @@ export const chat: Partial<Catalogue> = {
   "chat.steps.approval": "正在等你批准：{summary}",
   "chat.steps.question": "已提问：{question}",
   "chat.steps.answered": "已回答：{question}",
+  "chat.steps.earlier": "{n, plural, other {之前的 # 个步骤已完成}}",
+  "chat.steps.needsYou": "需要你处理",
   "chat.steps.writing": "正在撰写回复…",
   "chat.steps.thinking": "思考：{text}",
   "chat.steps.thinkingEmpty": "正在思考…",
@@ -181,4 +185,15 @@ export const chat: Partial<Catalogue> = {
   "chat.clear.failed": "无法清空聊天：{reason}",
   "chat.clear.mainOnly": "“清空”只适用于主聊天。如需全新的支线聊天，请使用 /new。",
   "chat.commands.clear.description": "清空主聊天",
+  "chat.modeSwitch.label": "权限模式",
+  "chat.modeSwitch.autoExplainer":
+    "自动模式会在你的授权范围内执行日常操作，遇到敏感操作时先询问。付款始终会询问；你的“禁止”清单始终会被拒绝。",
+  "chat.modeSwitch.gotIt": "知道了",
+  "chat.modeSwitch.autoUnavailable": "自动模式无法使用 {model}。",
+  "chat.modeSwitch.needsModel": "自动模式需要受支持的模型。",
+  "chat.modeSwitch.switchModel": "切换到 {model} 并使用自动模式",
+  "chat.modeSwitch.noModel":
+    "自动模式需要 Claude、GPT 或 Gemini 等受支持的模型。请在设置中添加其密钥。",
+  "chat.modeSwitch.failed": "无法更改模式：{reason}",
+  "chat.modeSwitch.notSaved": "已在此聊天中更改，但未能保存为新聊天的默认设置。",
 };

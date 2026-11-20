@@ -388,6 +388,42 @@ export const FIXTURE_SITE: FxSite = {
         },
       ],
     },
+    // A payment step whose form action and button say nothing about paying: only the card fields do.
+    "a/pay-step": {
+      title: "Payment details",
+      body: [
+        { kind: "heading", level: 1, text: "Payment details" },
+        {
+          kind: "form",
+          action: "/submit/step3",
+          method: "post",
+          children: [
+            { kind: "input", label: "Card number", name: "cardnumber", autocomplete: "cc-number" },
+            { kind: "input", label: "Security code", name: "cvv", autocomplete: "cc-csc" },
+            { kind: "button", text: "Continue", type: "submit" },
+          ],
+        },
+      ],
+    },
+    // Fields that only look like card fields: email CC, a library card, a card PIN. No payment.
+    "a/not-pay": {
+      title: "New message",
+      body: [
+        { kind: "heading", level: 1, text: "New message" },
+        { kind: "link", text: "Where to buy", href: "/a/cart" },
+        {
+          kind: "form",
+          action: "/submit/message",
+          method: "post",
+          children: [
+            { kind: "input", label: "Cc", name: "cc" },
+            { kind: "input", label: "Library card", name: "library-card" },
+            { kind: "input", label: "PIN", name: "card_pin" },
+            { kind: "button", text: "Send", type: "submit" },
+          ],
+        },
+      ],
+    },
     "a/cart": {
       title: "Cart",
       body: [
@@ -445,6 +481,27 @@ export const FIXTURE_SITE: FxSite = {
           kind: "button",
           text: "Go to tab two",
           onClick: { kind: "push_state", href: "/spa/two" },
+        },
+      ],
+    },
+    // A card form that moves to a review step with pushState (same document, new URL).
+    "a/pay-spa": {
+      title: "Payment",
+      body: [
+        { kind: "heading", level: 1, text: "Payment" },
+        {
+          kind: "form",
+          action: "/submit/pay",
+          method: "post",
+          children: [
+            { kind: "input", label: "Security code", name: "cvv" },
+            { kind: "input", label: "Expiry", name: "expiry" },
+          ],
+        },
+        {
+          kind: "button",
+          text: "Review order",
+          onClick: { kind: "push_state", href: "/a/pay-spa/review" },
         },
       ],
     },
@@ -518,6 +575,7 @@ export const REGRESSION_PAGES = [
   "a/untrusted",
   "a/upload",
   "a/checkout",
+  "a/pay-step",
   "a/cookies",
   "a/captcha",
   "a/spa",

@@ -13,8 +13,6 @@ export const passwordPresence: Partial<Catalogue> = {
     "Autorisé une fois (les approbations par mot de passe depuis cette fenêtre ne valent qu'une fois)",
   "blocks.approval.password.noUnsandboxed":
     "L'exécution d'une commande sans le bac à sable ne peut pas être approuvée par mot de passe depuis cette fenêtre. Configurez plutôt le bac à sable",
-  "blocks.approval.password.cancelled":
-    "La boîte de dialogue du mot de passe a été annulée, rien n'a donc été approuvé",
   "blocks.approval.password.failed":
     "Le mot de passe n'a pas été accepté, rien n'a donc été approuvé. Réessayez.",
   "blocks.approval.password.unavailableHere":

@@ -1,5 +1,13 @@
 import type { McpServerInput } from "@psyche/protocol";
-import { type McpDraft, splitCommand } from "./mcp-input.ts";
+import {
+  ENV_NAME,
+  type EnvRow,
+  isSecretEnvName,
+  type McpDraft,
+  plainEnv,
+  SECRET_ENV_NAME,
+  splitCommand,
+} from "./mcp-input.ts";
 import { secretSlug } from "./mcp-preset-build.ts";
 import type { McpSecret } from "./use-mcp.tsx";
 
@@ -34,11 +42,10 @@ export type ImportResult =
   | { ok: true; servers: readonly ImportedServer[] }
   | { ok: false; reason: "empty" | "invalid" | "shape" | "noServers" };
 
-const SECRET_NAME = /(KEY|TOKEN|SECRET|PASSWORD|PASSWD|CREDENTIAL|AUTH|PAT|COOKIE|SESSION)/i;
+const SECRET_NAME = SECRET_ENV_NAME;
 const SECRET_VALUE =
   /^(sk-|sk_|rk_|pk_live|ghp_|gho_|ghs_|github_pat_|glpat-|xox[abeprs]-|shpat_|AKIA|AIza|ya29\.|eyJ[A-Za-z0-9_-]{10,}\.)/;
 const PLACEHOLDER = /^\{\{cred:[a-z0-9][a-z0-9-]{0,63}(\.[a-z]+)?\}\}$/;
-const ENV_NAME = /^[A-Z_][A-Z0-9_]{0,63}$/;
 
 const looksSecret = (name: string, value: string) =>
   SECRET_NAME.test(name) || SECRET_VALUE.test(value);
@@ -177,6 +184,33 @@ export function withImported(
   for (const s of imported.secrets) if (!s.bearer) env[s.name] = placeholderFor(s);
   return {
     input: { ...input, transport: Object.keys(env).length > 0 ? { ...t, env } : t },
+    secrets,
+  };
+}
+
+/**
+ * The env rows the Add form holds, on top of a server built from them: plain values stay in the
+ * config, and a secret-looking name's value goes to the vault and becomes a `{{cred:slug}}`
+ * placeholder, as a pasted key does (`withImported`). Merges with what `withImported` put there.
+ */
+export function withEnvRows(
+  input: McpServerInput,
+  rows: readonly EnvRow[] | undefined,
+  nonce: string,
+): { input: McpServerInput; secrets: McpSecret[] } {
+  const t = input.transport;
+  if (t.kind !== "stdio") return { input, secrets: [] };
+  const secrets: McpSecret[] = [];
+  const env: Record<string, string> = { ...(t.env ?? {}), ...plainEnv(rows) };
+  for (const r of rows ?? []) {
+    const name = r.name.trim();
+    if (!isSecretEnvName(name) || !ENV_NAME.test(name) || r.value === "") continue;
+    const slug = secretSlug(input.id, name, nonce);
+    secrets.push({ slug, name: `${input.name} ${name}`.slice(0, 200), token: r.value });
+    env[name] = `{{cred:${slug}}}`;
+  }
+  return {
+    input: { ...input, transport: { ...t, ...(Object.keys(env).length > 0 ? { env } : {}) } },
     secrets,
   };
 }

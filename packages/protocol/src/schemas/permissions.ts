@@ -13,6 +13,7 @@ import {
   Target,
   TargetKind,
 } from "../common.ts";
+import { ComputerMachineRef } from "./machines.ts";
 
 /**
  * What a denied or failed call was missing (security §3.13): a tool error or a broker denial
@@ -147,6 +148,9 @@ export const TaintSource = Type.Object(
 );
 export type TaintSource = Static<typeof TaintSource>;
 
+export const RiskClass = StringEnum(["routine", "sensitive"], { $id: "RiskClass" });
+export type RiskClass = Static<typeof RiskClass>;
+
 /** Wire shape (data model §4.1, security §3.7). Answer tokens are never on the wire to clients that did not receive them. */
 export const ApprovalRequest = Type.Object(
   {
@@ -170,11 +174,28 @@ export const ApprovalRequest = Type.Object(
     sideEffect: Type.Optional(SideEffect),
     targetKind: Type.Optional(TargetKind),
     target: Type.Optional(Target),
+    /**
+     * `computer_action`, `exec_host` and `folder_access` cards: the machine (not the Host) the
+     * action is for. Absent means the Host. The binding hash includes its `deviceId`.
+     */
+    machine: Type.Optional(ComputerMachineRef),
     surfaces: Type.Array(Surface),
     scopesOffered: Type.Array(GrantScope, { minItems: 1 }),
     deviceOnly: Type.Boolean(),
     requiresAuthentication: Type.Boolean(),
     taint: Type.Boolean(),
+    /**
+     * The broker's risk class for the card (the automation digest): `routine` only for a plain
+     * mode-default local file or git write, for the owner, untainted, payment-free, not
+     * device-only and not on a path that carries execution. Absent on older cards: not routine.
+     */
+    riskClass: Type.Optional(RiskClass),
+    /**
+     * An unattended run set this action aside and went on without it: nothing waits on the card.
+     * Approving it starts a resume run of the automation, which does the action once if it reaches
+     * the identical call (same binding); otherwise nothing runs and the owner is told.
+     */
+    setAside: Type.Optional(Type.Boolean()),
     /** Where the taint came from (security §3.6, §3.11 `taint.sources`); present only when tainted. */
     taintSources: Type.Optional(Type.Array(TaintSource)),
     status: ApprovalStatus,
@@ -247,6 +268,18 @@ export const ApprovalAnswer = Type.Object(
     decision: StringEnum(["approve", "deny"]),
     scope: Type.Optional(GrantScope),
     /**
+     * "Always for this site" on a first-read card that offered it (`details.trustSite`), with
+     * `scope: "once"`: the Gateway adds the card's own origin to the trusted sites (reads only).
+     * `subdomains` also covers its subdomains; it is accepted only when the card offered it.
+     */
+    trustSite: Type.Optional(StringEnum(["origin", "subdomains"])),
+    /**
+     * "Always allow <program> in <folder>" on an `exec_host` card that offered it
+     * (`details.hostProgram`), with `scope: "once"`: the Gateway stores a 90-day grant for the
+     * card's own binary (real path + SHA-256) and folder. Never from chat, never when tainted.
+     */
+    hostProgram: Type.Optional(Type.Literal(true)),
+    /**
      * `folder_access` only: the folder the owner picked (native picker). This path, resolved by
      * the Gateway, is what is granted, never the agent's own string.
      */
@@ -271,6 +304,11 @@ export const ApprovalAnswer = Type.Object(
     presence: Type.Optional(PresenceAssertionSchema),
     /** `voice`: answered by a spoken phrase after a readback (docs/voice/voice-mode-2026.md §4.6). */
     via: Type.Optional(InputVia),
+    /**
+     * Sent by "Approve all routine ones": the broker refuses it (`invalid_params`, details.reason
+     * `not_routine`) unless the card is its own `routine` class and the scope is `once`.
+     */
+    bulk: Type.Optional(Type.Literal(true)),
   },
   { $id: "ApprovalAnswer" },
 );
@@ -327,6 +365,8 @@ export const Receipt = Type.Object(
     summary: Type.String(),
     externalRefs: Type.Record(Type.String(), Type.Union([Type.String(), Type.Number()])),
     payload: Nullable(JsonObject),
+    /** The machine the action ran on; absent means the Host. */
+    machine: Type.Optional(ComputerMachineRef),
     createdAt: IsoDateTime,
   },
   { $id: "Receipt" },

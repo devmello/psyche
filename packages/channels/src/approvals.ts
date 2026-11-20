@@ -1,3 +1,4 @@
+import { checkOutbound } from "@psyche/permissions";
 import {
   type ApprovalRequest,
   type Channel,
@@ -156,6 +157,12 @@ export class ChatApprovals {
           ...(caps.maxMessageChars === undefined ? {} : { maxChars: caps.maxMessageChars }),
         });
         try {
+          if (checkOutbound(card.text, "other").action !== "allow") {
+            // The card would carry a credential or identifier: the header and a pointer only.
+            await this.#host.sendText(channel, peerId, renderDevicePointer(surface, approval));
+            reports.push({ surface, delivered: false, reason: "sensitive_arguments" });
+            continue;
+          }
           if (!card.answerable) {
             // Too long to show in full (or device-only): point to the Mac, accept no chat answer.
             await this.#host.sendText(channel, peerId, card.text);

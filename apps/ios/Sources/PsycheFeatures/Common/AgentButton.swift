@@ -7,10 +7,15 @@ struct AgentButton: View {
     @Environment(Router.self) private var router
     let needsYou: Bool
     var glass = false
+    @Environment(\.psycheZoomNamespace) private var zoom
+
+    /// The id the agent sheet zooms out of. Only one tab is on screen, so there is one source at a time.
+    static let zoomID = "agent-avatar"
 
     var body: some View {
         Button { router.sheet = .agent } label: { label }
             .buttonStyle(.plain)
+            .psycheZoomSource(id: Self.zoomID, in: zoom)
             .accessibilityLabel(needsYou ? "Open Psyche's activity, something needs you" : "Open Psyche's activity")
             .contextMenu {
                 Button { router.sheet = .settings } label: { Label("Settings", systemImage: "gearshape") }

@@ -10,6 +10,7 @@ import {
   type Unsubscribe,
 } from "@psyche/protocol";
 import { monotonicFactory } from "ulid";
+import { cleanNoticeMessage } from "./notice.ts";
 import { interruptionFor, planDelivery, type RoutingConfig, resolveSurfaces } from "./routing.ts";
 import { MemoryNotificationStore, type NotificationStore } from "./store.ts";
 import type { DeliveryContext, DeliveryOutcome, SurfaceAdapter } from "./surfaces.ts";
@@ -184,6 +185,10 @@ export class PsycheNotifier implements Notifier {
         const n = existing.notification;
         n.title = input.title;
         n.body = input.body;
+        // The ids go with the text they stand for: a replaced English text must not keep old ids.
+        const message = cleanNoticeMessage(input.message);
+        if (message === undefined) delete n.message;
+        else n.message = message;
         if (input.actions !== undefined) n.actions = structuredClone(input.actions);
         if (input.route !== undefined) n.route = input.route;
         if (input.approvalId !== undefined) n.approvalId = input.approvalId;
@@ -203,6 +208,9 @@ export class PsycheNotifier implements Notifier {
         kind: input.kind,
         title: input.title,
         body: input.body,
+        ...(cleanNoticeMessage(input.message) === undefined
+          ? {}
+          : { message: cleanNoticeMessage(input.message) }),
         taskId: input.taskId ?? null,
         approvalId: input.approvalId ?? null,
         route: input.route ?? null,

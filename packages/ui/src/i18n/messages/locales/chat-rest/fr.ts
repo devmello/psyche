@@ -54,6 +54,10 @@ export const chatRest: Partial<Catalogue> = {
   "chat.attach.refused.size":
     "{name} est trop volumineux pour être joint (images 5 Mo, documents 25 Mo)",
   "chat.attach.refused.count": "{name} : un message peut contenir jusqu’à 8 fichiers",
+  "chat.attach.refused.sensitive":
+    "{name} se trouve dans un emplacement protégé et ne peut pas être partagé avec Psyche",
+  "chat.attach.refused.unreadable":
+    "Impossible de joindre {name}. Vérifiez qu’il existe toujours et que c’est un fichier, pas un dossier",
   "chat.message.fromWidget": "Depuis un widget",
   "chat.teach.notLikeThis": "Pas comme ça",
   "chat.teach.dialog": "Enseigner à Psyche",
@@ -132,6 +136,9 @@ export const chatRest: Partial<Catalogue> = {
   "chat.steps.approval": "En attente de votre approbation : {summary}",
   "chat.steps.question": "Question posée : {question}",
   "chat.steps.answered": "Réponse donnée : {question}",
+  "chat.steps.earlier":
+    "{n, plural, one {# étape précédente terminée} other {# étapes précédentes terminées}}",
+  "chat.steps.needsYou": "Besoin de vous",
   "chat.steps.writing": "Rédaction de la réponse…",
   "chat.steps.thinking": "Réflexion : {text}",
   "chat.steps.thinkingEmpty": "Réflexion…",
@@ -195,4 +202,16 @@ export const chatRest: Partial<Catalogue> = {
   "chat.clear.mainOnly":
     "Vider fonctionne dans la discussion principale. Utilisez /new pour une nouvelle discussion annexe.",
   "chat.commands.clear.description": "Vider la discussion principale",
+  "chat.modeSwitch.label": "Mode d’autorisation",
+  "chat.modeSwitch.autoExplainer":
+    "Auto exécute les actions courantes dans le cadre de vos autorisations et demande avant tout ce qui est sensible. Les paiements demandent toujours ; votre liste d’interdits est toujours refusée.",
+  "chat.modeSwitch.gotIt": "Compris",
+  "chat.modeSwitch.autoUnavailable": "Auto ne peut pas utiliser {model}.",
+  "chat.modeSwitch.needsModel": "Auto nécessite un modèle compatible.",
+  "chat.modeSwitch.switchModel": "Passer à {model} et utiliser Auto",
+  "chat.modeSwitch.noModel":
+    "Auto nécessite un modèle compatible, comme Claude, GPT ou Gemini. Ajoutez sa clé dans les Réglages.",
+  "chat.modeSwitch.failed": "Impossible de changer le mode : {reason}",
+  "chat.modeSwitch.notSaved":
+    "Modifié pour ce chat, mais impossible de l’enregistrer comme mode par défaut des nouveaux chats.",
 };

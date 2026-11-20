@@ -13,6 +13,7 @@ import {
 } from "../../components/ui/table.tsx";
 import { activeI18n, t } from "../../i18n/core.ts";
 import { formatRelative } from "../../lib/format.ts";
+import { DisconnectLink, LinkSetupPanel, type LinkSetupView } from "./CredentialLinkSetup.tsx";
 import { EmptyNotice, Group, LoadGate, type LoadProps } from "./shared.tsx";
 
 /**
@@ -22,8 +23,10 @@ import { EmptyNotice, Group, LoadGate, type LoadProps } from "./shared.tsx";
  */
 
 export interface PaymentsView extends LoadProps {
-  /** False when Stripe Link is not set up on the Gateway (`payments_not_configured`). */
+  /** False until Stripe Link is connected and signed in on the Gateway. */
   configured: boolean;
+  /** The guided setup (find, connect, sign in, disconnect); absent on a Gateway without it. */
+  setup?: LinkSetupView;
   methods: readonly LinkPaymentMethod[];
   payments: readonly VaultPayment[];
 }
@@ -151,7 +154,11 @@ export function PaymentsGroup({
         {...(view.onRetry ? { onRetry: view.onRetry } : {})}
       >
         {!view.configured ? (
-          <EmptyNotice text={t("settings.credentials.payments.notConfigured")} />
+          view.setup ? (
+            <LinkSetupPanel view={view.setup} />
+          ) : (
+            <EmptyNotice text={t("settings.credentials.payments.notConfigured")} />
+          )
         ) : (
           <>
             {view.methods.length === 0 ? (
@@ -182,6 +189,18 @@ export function PaymentsGroup({
               <p className="text-callout text-muted-foreground">
                 {t("settings.credentials.payments.removeInLink")}
               </p>
+            ) : null}
+            {view.setup ? (
+              <div className="flex flex-wrap items-center gap-3">
+                <p role="status" className="min-w-0 flex-1 text-callout text-label-secondary">
+                  {view.setup.status.cli
+                    ? t("settings.credentials.payments.setup.connected", {
+                        path: view.setup.status.cli.path,
+                      })
+                    : t("settings.credentials.payments.setup.connectedNoPath")}
+                </p>
+                <DisconnectLink onDisconnect={view.setup.onDisconnect} />
+              </div>
             ) : null}
             {view.payments.length === 0 ? (
               <EmptyNotice text={t("settings.credentials.payments.none")} />

@@ -165,6 +165,23 @@ export {
 export { FollowUpQueue } from "./chat/FollowUpQueue.tsx";
 export { chatFocusFromRoute, requestChatFocus } from "./chat/focus-request.ts";
 export { MessageView, type MessageViewProps, messageText } from "./chat/MessageView.tsx";
+export { ModeSwitch, type ModeSwitchProps } from "./chat/ModeSwitch.tsx";
+export {
+  AUTO_EXPLAINER_KEY,
+  applyModeChoice,
+  autoExplainerSeen,
+  autoModeBlockedBy,
+  autoModeSuggestion,
+  type DefaultSaved,
+  isAutoModelRefusal,
+  isSwitchMode,
+  type ListedModels,
+  markAutoExplainerSeen,
+  SWITCH_MODES,
+  type SwitchMode,
+  safeLocalStorage,
+  shortModel,
+} from "./chat/mode-switch.ts";
 export { OfflineBanner } from "./chat/OfflineBanner.tsx";
 export { ComposerPrefill, usePrefillComposer } from "./chat/prefill.ts";
 export { ChatThread, type ChatThreadProps } from "./chat/Thread.tsx";

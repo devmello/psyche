@@ -83,7 +83,15 @@ export const PolicyConfig = Type.Object(
     folders: Type.Optional(
       Type.Array(
         Type.Object(
-          { path: Type.String({ minLength: 1 }), mode: StringEnum(["ro", "rw"]) },
+          {
+            path: Type.String({ minLength: 1 }),
+            mode: StringEnum(["ro", "rw"]),
+            /**
+             * The folder's real path when it was granted, set by the Gateway only (a pick, a
+             * Settings write, or the first look at an older grant). See `grantedRootRefused`.
+             */
+            real: Type.Optional(Type.String({ minLength: 1 })),
+          },
           { additionalProperties: false },
         ),
       ),
@@ -102,6 +110,16 @@ export const PolicyConfig = Type.Object(
     ),
     /** Sensitive categories: host globs that always ask for reads and pause when unwatched. */
     sensitiveOrigins: Type.Optional(Type.Array(Type.String({ minLength: 1 }))),
+    /** Optional sensitive categories, on unless false (Settings → Permissions). */
+    sensitiveCategories: Type.Optional(
+      Type.Object(
+        {
+          government: Type.Optional(Type.Boolean()),
+          icloud: Type.Optional(Type.Boolean()),
+        },
+        { additionalProperties: false },
+      ),
+    ),
     exec: Type.Optional(
       Type.Object(
         {
@@ -163,6 +181,20 @@ export const DEFAULT_SENSITIVE_ORIGINS = [
   "mail.yahoo.com",
   "*.icloud.com",
 ];
+
+/**
+ * Sensitive categories the owner may turn off (Settings → Permissions). Both are on by default:
+ * `.gov` holds tax, identity and health accounts and iCloud holds mail, photos and files. A
+ * category set to `false` drops its hosts from the sensitive list; anything else keeps them.
+ */
+export const OPTIONAL_SENSITIVE_CATEGORIES = {
+  government: ["*.gov", "*.gov.uk"],
+  icloud: ["*.icloud.com"],
+} as const;
+export type OptionalSensitiveCategory = keyof typeof OPTIONAL_SENSITIVE_CATEGORIES;
+
+/** The owner's Settings toggles are the settings `permissions.sensitive.<category>` (boolean). */
+export const SENSITIVE_CATEGORY_SETTING_PREFIX = "permissions.sensitive.";
 
 export const DEFAULT_POLICY: Required<Pick<PolicyConfig, "defaultMode">> & PolicyConfig = {
   defaultMode: "balanced",
@@ -332,11 +364,20 @@ export function compilePolicy(config: PolicyConfig = DEFAULT_POLICY): CompiledPo
     allow: (parsed.allow ?? []).map(parseRule),
     // A sensitive `*.chase.com` also covers `chase.com` itself (review #9); allow / deny rules keep
     // the strict "*. never covers the bare domain" reading.
-    sensitive: (parsed.sensitiveOrigins ?? DEFAULT_SENSITIVE_ORIGINS).flatMap((g) =>
-      g.startsWith("*.")
-        ? [globToRegExp(g, "plain"), globToRegExp(g.slice(2), "plain")]
-        : [globToRegExp(g, "plain")],
-    ),
+    sensitive: (parsed.sensitiveOrigins ?? DEFAULT_SENSITIVE_ORIGINS)
+      .filter(
+        (g) =>
+          !(Object.keys(OPTIONAL_SENSITIVE_CATEGORIES) as OptionalSensitiveCategory[]).some(
+            (c) =>
+              parsed.sensitiveCategories?.[c] === false &&
+              (OPTIONAL_SENSITIVE_CATEGORIES[c] as readonly string[]).includes(g),
+          ),
+      )
+      .flatMap((g) =>
+        g.startsWith("*.")
+          ? [globToRegExp(g, "plain"), globToRegExp(g.slice(2), "plain")]
+          : [globToRegExp(g, "plain")],
+      ),
     folders: (parsed.folders ?? [])
       .map((f) => ({ path: canonicalPath(f.path), mode: f.mode }))
       .sort((a, b) => b.path.length - a.path.length),

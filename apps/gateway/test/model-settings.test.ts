@@ -287,7 +287,7 @@ describe("subscription CLIs in Settings (fake CLI)", () => {
       {
         ref: "claude-code/haiku",
         toolCheck: "untested",
-        autoMode: false,
+        autoMode: true,
         capabilities: { source: "catalog", contextWindow: 200_000 },
       },
     ]);

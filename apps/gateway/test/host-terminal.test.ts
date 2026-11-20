@@ -328,7 +328,7 @@ describe("who may open a Host terminal", () => {
     expect(ptys).toHaveLength(1);
   });
 
-  it("with a verifier ready, asks for a presence card first and opens only after it is approved", async () => {
+  it("with a verifier ready, asks for a card first (a tap, no presence) and opens only after it is approved", async () => {
     const c = await boot({}, { presence: touchId });
     const { client } = await remoteDevice(c, "remote-admin", [...ADMIN]);
     const first = await client.request("terminal.session.open", { cols: 80, rows: 24 }, ik());
@@ -340,24 +340,14 @@ describe("who may open a Host terminal", () => {
       "approvals.get",
       { approvalId },
     );
-    expect(got.approval).toMatchObject({ kind: "policy_change", requiresAuthentication: true });
+    expect(got.approval).toMatchObject({ kind: "policy_change", requiresAuthentication: false });
     expect(got.approval.summary).toBe("Open a terminal on test-host");
     const token = got.answerToken ?? "";
     await tick(450); // past the arm delay
-    const challenge = presenceChallenge(approvalId, got.approval.bindingHash, token);
     expect(
       await client.request(
         "approvals.answer",
-        {
-          approvalId,
-          answerToken: token,
-          decision: "approve",
-          presence: {
-            kind: "webauthn",
-            deviceId: "remote-admin",
-            signature: `signed:${challenge}`,
-          },
-        },
+        { approvalId, answerToken: token, decision: "approve" },
         ik(),
       ),
     ).toMatchObject({ ok: true });

@@ -133,6 +133,9 @@ export function hostPathsFor(platform: NodeJS.Platform = process.platform): Host
   return platform === "win32" ? WINDOWS_PATHS : POSIX_PATHS;
 }
 
+/** Bind mounts per sandbox at most (a coding workspace: the repository, `.git`, launch config). */
+const MAX_MOUNTS = 32;
+
 /**
  * Bind-mount sources and targets (security §5.1 "mount sources are validated … after path
  * resolution"; §13's never-shared roots). The caller (the coding helper) checks the owner's
@@ -147,8 +150,8 @@ export async function validateMounts(
   platform: NodeJS.Platform = process.platform,
 ): Promise<SandboxMount[]> {
   if (mounts === undefined) return [];
-  if (!Array.isArray(mounts) || mounts.length > 8) {
-    fail("invalid_params", "mounts must be an array of at most 8 entries");
+  if (!Array.isArray(mounts) || mounts.length > MAX_MOUNTS) {
+    fail("invalid_params", `mounts must be an array of at most ${MAX_MOUNTS} entries`);
   }
   const host = hostPathsFor(platform);
   const scratch = host.scratch();

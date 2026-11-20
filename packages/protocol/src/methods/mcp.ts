@@ -1,5 +1,5 @@
 import { type Static, Type } from "@sinclair/typebox";
-import { Id, StringEnum } from "../common.ts";
+import { Id, Nullable, StringEnum } from "../common.ts";
 import { ApprovalRequest } from "../schemas/permissions.ts";
 import { defineMethod, OkResult } from "./define.ts";
 
@@ -21,6 +21,11 @@ export const McpServerStatus = Type.Object(
     connected: Type.Boolean(),
     /** Turned off by the owner (`mcp.setEnabled`): kept in the config, not running. Default on. */
     enabled: Type.Optional(Type.Boolean()),
+    /**
+     * The owner's word on whether this server moves money (`mcp.handlesMoney.set`): `true` makes
+     * every tool a payment, `false` none; absent leaves it to the tool's name and description.
+     */
+    handlesMoney: Type.Optional(Type.Boolean()),
     /** Written by Psyche itself (its code is in `agent-connectors/<id>`); always tier `unknown`. */
     madeBy: Type.Optional(Type.Literal("psyche")),
     /** The agent-made server's version (from its manifest). */
@@ -153,6 +158,67 @@ export const McpServerSecret = Type.Object(
 );
 export type McpServerSecret = Static<typeof McpServerSecret>;
 
+/**
+ * What the owner may change on a server already added (`mcp.update`). Every field is optional and
+ * is applied on top of the stored config by the Gateway, which decides whether the result needs a
+ * trust card by comparing it with what is stored; the caller never says so. A server's kind
+ * (command or URL) does not change: remove it and add another.
+ */
+export const McpServerChanges = Type.Object(
+  {
+    /** The display name: the only change that applies without a trust card. */
+    name: Type.Optional(Type.String({ minLength: 1, maxLength: 100 })),
+    /** A command server's argv (command and arguments). */
+    command: Type.Optional(
+      Type.Array(Type.String({ minLength: 1, maxLength: 1_000 }), { minItems: 1, maxItems: 64 }),
+    ),
+    /** Env variables to set (plain value or a `{{cred:slug}}` placeholder) or, with null, remove. */
+    env: Type.Optional(
+      Type.Record(
+        Type.String({ pattern: "^[A-Z_][A-Z0-9_]{0,63}$" }),
+        Nullable(Type.String({ maxLength: 4_000 })),
+      ),
+    ),
+    /** A URL server's address. */
+    url: Type.Optional(Type.String({ pattern: "^https://", maxLength: 2_000 })),
+    /** A URL server's authentication. */
+    auth: Type.Optional(
+      Type.Union([
+        Type.Object({ kind: Type.Literal("none") }),
+        Type.Object({ kind: Type.Literal("oauth") }),
+        Type.Object({ kind: Type.Literal("bearer"), credential: CredPlaceholder }),
+      ]),
+    ),
+    /** A command server's allowed domains (replaces the list). */
+    allowedDomains: Type.Optional(
+      Type.Array(Type.String({ minLength: 1, maxLength: 253 }), { maxItems: 50 }),
+    ),
+  },
+  { $id: "McpServerChanges" },
+);
+export type McpServerChanges = Static<typeof McpServerChanges>;
+
+/**
+ * A server's config as the edit form shows it: what runs and where it connects. Secrets are
+ * names only (`mcp.secrets` says whether each is set); plain env values are not echoed either.
+ */
+export const McpServerConfigView = Type.Object(
+  {
+    id: Type.String(),
+    name: Type.String(),
+    kind: StringEnum(["command", "url"]),
+    command: Type.Optional(Type.Array(Type.String())),
+    url: Type.Optional(Type.String()),
+    allowedDomains: Type.Array(Type.String()),
+    envNames: Type.Array(Type.String()),
+    auth: Type.Optional(StringEnum(["none", "oauth", "bearer"])),
+    /** False for a Psyche-made or shared server and a built-in one: only its name can change. */
+    editable: Type.Boolean(),
+  },
+  { $id: "McpServerConfigView" },
+);
+export type McpServerConfigView = Static<typeof McpServerConfigView>;
+
 const ServerId = Type.String({ minLength: 1, maxLength: 64 });
 
 /** One file of an agent-made server's code, as the owner sees it. */
@@ -250,6 +316,48 @@ export const McpMethods = {
     description:
       "Side-effecting: removes a server from mcp.servers; its tools unregister and its grants are revoked.",
   }),
+  "mcp.config": defineMethod({
+    params: Type.Object({ serverId: ServerId }),
+    result: Type.Object({ config: McpServerConfigView }, { $id: "McpConfigResult" }),
+    scope: "operator.admin",
+    description:
+      "A configured server's command or URL, allowed domains and env variable names, to prefill the edit form. Admin only because arguments are the owner's own text. Never a secret value. not_found for an unknown server.",
+  }),
+  "mcp.update": defineMethod({
+    params: Type.Object({ id: ServerId, changes: McpServerChanges }),
+    result: Type.Object(
+      {
+        /** True when the change is already in effect (a display name, or nothing differed). */
+        applied: Type.Boolean(),
+        server: McpServerStatus,
+        /** Set when the change needs approval: finish with `mcp.add { proposalId, approvalId }`. */
+        proposal: Type.Optional(McpProposal),
+        approval: Type.Optional(ApprovalRequest),
+      },
+      { $id: "McpUpdateResult" },
+    ),
+    scope: "operator.admin",
+    sideEffecting: true,
+    description:
+      "Side-effecting: edits a server in place. A display name applies at once. Anything that changes what runs or where it connects (command, arguments, URL, auth, allowed domains, env names or secrets) is probed in the sandbox and opens the same device-only trust card as mcp.probe, showing the old and the new config; the old server keeps running until mcp.add with that approved card, which restarts it with the new config. Never applied silently. Not available for a Psyche-made, shared or built-in server (only its name). not_found for an unknown server; invalid_params when a field does not fit the server's kind.",
+  }),
+  "mcp.test": defineMethod({
+    params: Type.Object({ id: ServerId }),
+    result: Type.Object(
+      {
+        ok: Type.Boolean(),
+        toolCount: Type.Integer({ minimum: 0 }),
+        /** The server's own tool names (untrusted: render as data). */
+        tools: Type.Array(Type.String()),
+        /** Why it failed, redacted and shortened (untrusted). */
+        error: Type.Optional(Type.String()),
+      },
+      { $id: "McpTestResult" },
+    ),
+    scope: "operator.admin",
+    description:
+      "Checks an added server with its approved config: asks the running server for its tools, or, when it is on but not connected, starts the stored config once in the sandbox and stops it. Changes no config, raises no trust card and takes no config from the caller. Admin because it can start a process. not_found for an unknown server; unavailable (reason paused or not_running) for a paused server or one the Gateway does not run.",
+  }),
   "mcp.tools": defineMethod({
     params: Type.Object({ serverId: ServerId }),
     result: Type.Object(
@@ -275,6 +383,20 @@ export const McpMethods = {
     sideEffecting: true,
     description:
       "Side-effecting: offers a tool to the agent or withholds it (kept in the server's mcp.servers entry; the server keeps running and its grants stay). A tool the description scan blocked stays off. not_found for an unknown server or tool.",
+  }),
+  "mcp.handlesMoney.set": defineMethod({
+    params: Type.Object({
+      serverId: ServerId,
+      /** `always`: every tool is a payment. `never`: none is. `auto`: judged by name and description. */
+      mode: StringEnum(["auto", "always", "never"]),
+      /** Fresh approval: the `policy_change` card from a first `approval_required` call (any mode but `always`). */
+      approvalId: Type.Optional(Id),
+    }),
+    result: Type.Object({ server: McpServerStatus }, { $id: "McpHandlesMoneySetResult" }),
+    scope: "operator.admin",
+    sideEffecting: true,
+    description:
+      "Side-effecting: the owner's word on whether a server's tools move money. always: every tool is financial (Touch ID or the Mac password on each call); never: none is, whatever its tools are called; auto: judged by each tool's name and description. Changing it restarts the server. Anything but always lowers protection and first answers approval_required with a device-only policy_change card; the retry with its approvalId is spent once. not_found for an unknown server.",
   }),
   "mcp.setEnabled": defineMethod({
     params: Type.Object({ serverId: ServerId, enabled: Type.Boolean() }),

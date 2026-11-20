@@ -325,3 +325,96 @@ public struct DictationKeySet: Sendable {
         return out
     }
 }
+
+/// How long ago a modifier event happened, from its own timestamp (`CGEvent.timestamp`, mach ticks).
+/// The result is clamped to `maxAge`: a timestamp that is missing, in the future or absurdly old (a
+/// remapper's virtual key) must not push the hold's start far into the past, where any keyDown would
+/// turn a real hold into a chord and dictation would never start.
+public enum DictationEventAge {
+    public static let maxAge: TimeInterval = 0.25
+
+    public static func seconds(eventTicks: UInt64, nowTicks: UInt64, numer: UInt32, denom: UInt32) -> TimeInterval {
+        guard eventTicks > 0, nowTicks > eventTicks, denom > 0 else { return 0 }
+        let nanos = Double(nowTicks - eventTicks) * Double(numer) / Double(denom)
+        return min(max(nanos / 1e9, 0), maxAge)
+    }
+}
+
+/// Switches the keystroke listener that detects chords. It stays off while no watched modifier is
+/// held, so ordinary typing does not wake the helper.
+public protocol KeyDownGate: AnyObject, Sendable {
+    func setEnabled(_ on: Bool)
+}
+
+/// `DictationKeySet` plus the gate: the keyDown tap is enabled when a watched key goes down and
+/// disabled again when every key is up (a release, or a chord that ended the hold).
+///
+/// The keyDown tap is switched on from the flagsChanged callback, a different thread, so a key struck
+/// right after the modifier can slip past it. `lastKeyDownAge` (seconds since the system last saw a
+/// keyDown, from the system clock rather than the tap) closes that gap: `recheckChord` treats any
+/// keyDown since the modifier went down as a chord. The engine calls it on every modifier event; the
+/// watch also calls it shortly after a hold starts, before the desktop's hold threshold.
+public final class DictationKeyEngine: @unchecked Sendable {
+    private let lock = NSLock()
+    private var set: DictationKeySet
+    private var gateOn = false
+    private var heldSince: Date?
+    /// Weak: the gate (the Watch) owns the engine, so a strong reference here would be a cycle.
+    private weak var gate: (any KeyDownGate)?
+    private let lastKeyDownAge: @Sendable () -> TimeInterval
+    private let now: @Sendable () -> Date
+
+    public init(
+        _ watched: [DictationWatchedKey], gate: any KeyDownGate,
+        lastKeyDownAge: @escaping @Sendable () -> TimeInterval = { .infinity },
+        now: @escaping @Sendable () -> Date = { Date() }
+    ) {
+        set = DictationKeySet(watched)
+        self.gate = gate
+        self.lastKeyDownAge = lastKeyDownAge
+        self.now = now
+    }
+
+    /// `eventAge` is how long ago the modifier event happened (the callback can run late); the hold is
+    /// anchored at the event's own time, so a keyDown struck before the callback ran still counts.
+    public func flagsChanged(keyCode: Int64, flags: UInt64, eventAge: TimeInterval = 0) -> [DictationKeyChange] {
+        lock.withLock {
+            // A chord whose keyDown the tap missed is a chord before this modifier event is judged.
+            var out = recheckChordLocked()
+            out += set.flagsChanged(keyCode: keyCode, flags: flags)
+            sync(anchorAge: max(0, eventAge))
+            return out
+        }
+    }
+
+    public func keyDown() -> [DictationKeyChange] {
+        lock.withLock {
+            let out = set.keyDown()
+            sync()
+            return out
+        }
+    }
+
+    /// Ends the hold as a chord when the system saw a keyDown since the modifier went down.
+    public func recheckChord() -> [DictationKeyChange] {
+        lock.withLock {
+            let out = recheckChordLocked()
+            sync()
+            return out
+        }
+    }
+
+    private func recheckChordLocked() -> [DictationKeyChange] {
+        guard let since = heldSince, set.trackers.contains(where: { $0.isDown }) else { return [] }
+        guard lastKeyDownAge() < now().timeIntervalSince(since) else { return [] }
+        return set.keyDown()
+    }
+
+    private func sync(anchorAge: TimeInterval = 0) {
+        let want = set.trackers.contains { $0.isDown }
+        guard want != gateOn else { return }
+        gateOn = want
+        heldSince = want ? now().addingTimeInterval(-anchorAge) : nil
+        gate?.setEnabled(want)
+    }
+}

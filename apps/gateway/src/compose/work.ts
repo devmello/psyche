@@ -15,6 +15,7 @@ import {
   type WorkSignalReport,
 } from "@psyche/memory";
 import { type Clock, MEMORY_WORK_SETTING_KEY, type WorkReminderList } from "@psyche/protocol";
+import { failureRuns } from "../failure-runs.ts";
 import type { People } from "./people.ts";
 import type { AppleSearchSeams } from "./search-apple.ts";
 import type { ComposedPart } from "./services.ts";
@@ -262,9 +263,9 @@ const isProtected = (path: string): boolean => {
  */
 export function appleWorkSources(
   apple: AppleSearchSeams,
-  folders: () => readonly { path: string }[],
+  folders: () => readonly { path: string }[] | Promise<readonly { path: string }[]>,
 ): WorkSources {
-  const roots = () => folders().map((f) => f.path);
+  const roots = async () => (await folders()).map((f) => f.path);
   const owned = (app: "reminders" | "calendar") => (row: Obj) =>
     apple.deps.owned?.(app, row) === true;
   return {
@@ -307,16 +308,18 @@ export function appleWorkSources(
       await apple.deps.refreshTrust?.("calendar", signal);
       const out = await call(
         "calendar_list_events",
-        { from: new Date(from).toISOString(), to: new Date(to).toISOString(), limit: 2000 },
+        // The helper reads at most 500 events and 366 days at once (`clampAppleParams` keeps both).
+        { from: new Date(from).toISOString(), to: new Date(to).toISOString(), limit: 500 },
         signal,
       );
       return eventRecords(list(out, "events"), owned("calendar"));
     },
     async files(anchored, since, signal) {
       const out: FileChangeRecord[] = [];
+      const granted = await roots();
       for (const root of anchored) {
         // Only inside a granted folder, and never a protected path: that is what "owner" means.
-        const owner = roots().some((g) => within(root, g)) && !isProtected(root);
+        const owner = granted.some((g) => within(root, g)) && !isProtected(root);
         if (!owner) continue;
         await sweep(root, since, signal, out, true);
       }
@@ -324,7 +327,7 @@ export function appleWorkSources(
     },
     async folders(signal) {
       const out: FolderRecord[] = [];
-      for (const root of roots()) {
+      for (const root of await roots()) {
         if (isProtected(root)) continue;
         await subfolders(root, signal, out);
       }
@@ -341,8 +344,14 @@ export interface WorkDeps {
   people: Pick<People, "graph">;
   /** The Apple seams (the same ones search reads through); absent in tests that inject sources. */
   apple?: AppleSearchSeams;
-  /** The folders the owner granted. */
-  broker?: { policy: { folders?: readonly { path: string }[] } };
+  /**
+   * The folders the owner granted. The sweep follows the roots itself, so it reads them from a
+   * fresh look (`freshGrantedFolders`) when the broker offers one.
+   */
+  broker?: {
+    grantedFolders(): readonly { path: string }[];
+    freshGrantedFolders?(): Promise<readonly { path: string }[]>;
+  };
   /** Replaces the real sources (tests). */
   sources?: WorkSources;
   timeZone?: () => string;
@@ -397,8 +406,13 @@ export function composeWork(deps: WorkDeps): Work {
           files: async () => [],
           folders: async () => [],
         }
-      : appleWorkSources(deps.apple, () => deps.broker?.policy.folders ?? []));
+      : appleWorkSources(deps.apple, () => {
+          const b = deps.broker;
+          if (b === undefined) return [];
+          return b.freshGrantedFolders === undefined ? b.grantedFolders() : b.freshGrantedFolders();
+        }));
   const settings = () => workSettings(getSetting(db, MEMORY_WORK_SETTING_KEY)?.value);
+  const failures = failureRuns({ now: () => clock.now() });
   let running = false;
 
   const run = async (
@@ -413,12 +427,19 @@ export function composeWork(deps: WorkDeps): Work {
       await sources.refresh?.().catch(() => failed.push("refresh"));
       const attempt = async <T>(name: string, read: () => Promise<T>): Promise<T | undefined> => {
         try {
-          return await read();
+          const out = await read();
+          failures.ok(name);
+          return out;
         } catch (err) {
           failed.push(name);
-          deps.logger?.log("warn", `work signals: reading ${name} failed`, {
-            error: err instanceof Error ? err.message : String(err),
-          });
+          const error = err instanceof Error ? err.message : String(err);
+          // A repeat of the same failure is counted, not logged on every pass (`failureRuns`).
+          const v = failures.fail(name, error);
+          if (v.log)
+            deps.logger?.log("warn", `work signals: reading ${name} failed`, {
+              error,
+              repeats: v.repeats,
+            });
           return undefined;
         }
       };

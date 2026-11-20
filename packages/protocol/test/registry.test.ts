@@ -119,6 +119,7 @@ const REQUIRED_METHODS: MethodName[] = [
   "memory.loops.list",
   "memory.loops.update",
   "memory.graph.status",
+  "memory.graph.map",
   "library.list",
   "library.get",
   "library.upload",

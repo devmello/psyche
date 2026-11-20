@@ -70,6 +70,7 @@ export function threadSettingsHandlers(pins: ModelPins): Record<string, HandlerD
         const effectiveRef = modelRef ?? pins.defaultModel?.() ?? null;
         const autoAllowed = effectiveRef !== null && pins.allowsAutoMode(effectiveRef);
         if (params.permissionMode === "auto" && !autoAllowed) {
+          // `details` lets a client offer "Switch to <model>" instead of only reporting the refusal.
           throw new PsycheError(
             "forbidden",
             effectiveRef === null
@@ -77,6 +78,12 @@ export function threadSettingsHandlers(pins: ModelPins): Record<string, HandlerD
               : modelRef === null
                 ? `${effectiveRef} is this thread's default model and is not on the auto-mode allowlist; pick an allowlisted one with /model, or use manual or balanced mode.`
                 : `${effectiveRef} is not on the auto-mode allowlist; it can run this thread in manual or balanced mode.`,
+            {
+              details: {
+                reason: "auto_model_not_allowed",
+                ...(effectiveRef === null ? {} : { model: effectiveRef }),
+              },
+            },
           );
         }
         let permissionMode = params.permissionMode ?? thread.permissionMode;

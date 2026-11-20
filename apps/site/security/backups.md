@@ -53,7 +53,7 @@ The audit log's anchor head is also reset to the restored log, and the reset is 
 
 ## Deleting backups
 
-Settings › Backups lists the archives in `$PSYCHE_HOME/backups/`. Delete needs an admin device, and once a passkey or the helper's Touch ID key is registered, fresh proof that you are present.
+Settings › Backups lists the archives in `$PSYCHE_HOME/backups/`. Delete needs an admin device, and once you have added a presence verifier (a passkey, or a Windows Hello key), a tap on the card. The Mac helper's own key does not count as one, so on a Mac with neither, an admin device alone is enough and no card appears.
 
 ::: info Screenshot placeholder
 Settings › Backups with two archives, each showing its size, "encrypted", when it last verified, and Verify and Delete buttons.

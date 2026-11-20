@@ -20,11 +20,11 @@ export type ShortcutAction =
   | GoAction
   | "palette"
   | "newSideChat"
+  | "newIncognitoChat"
   | "closeThreadView"
   | "toggleThreadList"
   | "toggleCompactSidebar"
   | "cycleThreads"
-  | "forkSelection"
   | "stop"
   | "cycleDisclosure"
   | "openBrowserPane"
@@ -74,6 +74,15 @@ const BASE_SHORTCUTS: readonly Shortcut[] = [
     inText: true,
   },
   {
+    action: "newIncognitoChat",
+    get label() {
+      return t("web.shortcut.newIncognitoChat");
+    },
+    chord: { key: "n", mod: true, shift: true },
+    scope: "app",
+    inText: true,
+  },
+  {
     action: "closeThreadView",
     get label() {
       return t("web.shortcut.closeThreadView");
@@ -108,14 +117,6 @@ const BASE_SHORTCUTS: readonly Shortcut[] = [
     chord: { key: "Tab", ctrl: true },
     scope: "app",
     inText: true,
-  },
-  {
-    action: "forkSelection",
-    get label() {
-      return t("web.shortcut.forkSelection");
-    },
-    chord: { key: ";", mod: true },
-    scope: "app",
   },
   {
     action: "stop",

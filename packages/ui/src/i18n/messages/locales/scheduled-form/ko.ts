@@ -1,0 +1,55 @@
+import type { Catalogue } from "../../index.ts";
+
+/** Automation form strings (ko); merged into `../ko.ts`. */
+export const scheduledForm: Partial<Catalogue> = {
+  "scheduled.form.edit.title": "자동화 편집",
+  "scheduled.form.prompt": "Psyche가 무엇을 해야 하나요?",
+  "scheduled.form.prompt.hint":
+    "Psyche에게 부탁하듯 적어 주세요. 아무도 지켜보지 않는 상태에서 실행되므로 질문은 할 수 없습니다.",
+  "scheduled.form.name": "이름(선택)",
+  "scheduled.form.name.hint": "비워 두면 지시 내용의 첫 줄을 씁니다.",
+  "scheduled.form.when": "실행 시점",
+  "scheduled.form.zone": "시간은 {zone} 기준입니다.",
+  "scheduled.form.when.kind": "반복",
+  "scheduled.form.when.once": "한 번, 날짜와 시간에",
+  "scheduled.form.when.daily": "매일, 정한 시간에",
+  "scheduled.form.when.weekdays": "평일, 정한 시간에",
+  "scheduled.form.when.weekly": "매주, 고른 요일에",
+  "scheduled.form.when.interval": "몇 시간마다",
+  "scheduled.form.when.custom": "현재 일정: {schedule}",
+  "scheduled.form.date": "날짜",
+  "scheduled.form.time": "시간",
+  "scheduled.form.days": "이 요일에",
+  "scheduled.form.hours": "실행 간격(시간)",
+  "scheduled.form.custom.hint":
+    "Psyche는 이 일정을 그대로 유지합니다. 바꾸려면 다른 항목을 고르세요.",
+  "scheduled.form.switch.hint":
+    "한 번만 하는 자동화는 반복으로 바꿀 수 없고, 반복 자동화는 한 번만 하도록 바꿀 수 없습니다. 이 경우 새 자동화를 만드세요.",
+  "scheduled.form.next": "다음 실행",
+  "scheduled.form.next.none": "이 일정에는 더 이상 실행이 없습니다.",
+  "scheduled.form.delivery": "결과를 보낼 곳",
+  "scheduled.form.delivery.inbox": "내 받은편지함",
+  "scheduled.form.delivery.thread": "채팅 하나",
+  "scheduled.form.delivery.none": "보내지 않음(알림 없음)",
+  "scheduled.form.delivery.threadPick": "채팅",
+  "scheduled.form.delivery.pick": "채팅 고르기",
+  "scheduled.form.enabled": "켜짐",
+  "scheduled.form.enabled.hint": "끄면 실행하지 않고 자동화를 보관합니다.",
+  "scheduled.form.approvals":
+    "실행 중에 승인이 필요한 작업이 있으면 그 자리에서 묻지 않습니다. 작업은 승인의 보류 목록에서 답하실 때까지 기다립니다.",
+  "scheduled.form.save": "저장",
+  "scheduled.form.cancel": "취소",
+  "scheduled.form.delete": "삭제",
+  "scheduled.form.error.prompt": "Psyche가 할 일을 적어 주세요.",
+  "scheduled.form.error.name": "이름은 200자 이내로 적어 주세요.",
+  "scheduled.form.error.date": "날짜를 고르세요.",
+  "scheduled.form.error.time": "시간을 고르세요.",
+  "scheduled.form.error.past": "이미 지난 시간입니다. 더 나중 시간을 고르세요.",
+  "scheduled.form.error.days": "요일을 하나 이상 고르세요.",
+  "scheduled.form.error.hours": "1부터 168 사이의 정수 시간을 입력하세요.",
+  "scheduled.form.error.switch":
+    "한 번만 하는 자동화와 반복 자동화는 서로 바꿀 수 없습니다. 새로 만드세요.",
+  "scheduled.form.error.thread": "결과를 받을 채팅을 고르거나 다른 곳을 고르세요.",
+  "scheduled.form.notFound": "그 자동화는 더 이상 없습니다.",
+  "scheduled.form.toast.created": "{title}을(를) 만들었습니다",
+};

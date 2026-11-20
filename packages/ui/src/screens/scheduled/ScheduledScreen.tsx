@@ -1,4 +1,4 @@
-import type { DailyAutomationDraft, ScheduledItem } from "@psyche/protocol";
+import type { Automation, ScheduledItem } from "@psyche/protocol";
 import { CalendarClock, Plus } from "lucide-react";
 import { type ReactElement, type ReactNode, useState } from "react";
 import { toast } from "sonner";
@@ -17,10 +17,12 @@ import { t } from "../../i18n/core.ts";
 import { describeError } from "../../i18n/errors.ts";
 import { useNow } from "../../lib/use-now.ts";
 import { ScreenColumn, ScreenToolbar, ToolbarLabel } from "../feed/ScreenToolbar.tsx";
+import { AutomationForm } from "./AutomationForm.tsx";
 import { itemName } from "./format.ts";
 import { RunHistory } from "./RunHistory.tsx";
 import { ScheduledRow, type ScheduledRowProps } from "./ScheduledRow.tsx";
 import { ScheduledRuns } from "./ScheduledRuns.tsx";
+import { type AutomationFormValues, saveAutomation, systemZone } from "./schedule-form.ts";
 
 const EXAMPLES = [
   "scheduled.empty.example.1",
@@ -35,8 +37,7 @@ export interface ScheduledViewProps
     | "onRunNow"
     | "onDelete"
     | "onOpenSettings"
-    | "onParseEdit"
-    | "onSaveEdit"
+    | "onEdit"
     | "onEditInChat"
     | "renderHistory"
   > {
@@ -46,7 +47,7 @@ export interface ScheduledViewProps
   loading?: boolean;
   error?: string | null;
   onRetry?: () => void;
-  /** Opens a chat with the task → automation flow started; `text` is an example, if one was picked. */
+  /** Opens the automation form; `text` is an example's instructions, if one was picked. */
   onNewAutomation: (text?: string) => void;
   /** The Runs tab's content; without it the screen has no tabs. */
   runsPanel?: ReactNode;
@@ -192,9 +193,12 @@ export function ScheduledScreen({
 }: ScheduledScreenProps): ReactElement {
   const call = useCall();
   const q = useGatewayQuery("scheduled.list", {});
+  const threads = useGatewayQuery("threads.list", {});
   const prefill = usePrefillComposer();
   const now = useNow(30_000, fixedNow);
   const timezone = q.data?.timezone ?? Intl.DateTimeFormat().resolvedOptions().timeZone;
+  // The automation form replaces the list while it is open: a new one, or an edit.
+  const [editor, setEditor] = useState<{ automation?: Automation; prompt?: string } | null>(null);
 
   const fail = (err: unknown) =>
     toast.error(`${t("scheduled.toast.failed")} ${describeError(err)}`);
@@ -209,6 +213,62 @@ export function ScheduledScreen({
         q.reload();
       })
       .catch(fail);
+  // The owner's own automation in full (its delivery is not on the Scheduled list).
+  const openEdit = async (item: ScheduledItem) => {
+    try {
+      const { automations } = await call("automations.list", {});
+      const automation = automations.find((a) => a.id === item.id);
+      if (automation === undefined) return toast.error(t("scheduled.form.notFound"));
+      setEditor({ automation });
+    } catch (err) {
+      fail(err);
+    }
+  };
+  const save = async (values: AutomationFormValues, editing?: Automation) => {
+    const zone = editing?.timezone ?? systemZone();
+    await saveAutomation(
+      call,
+      values,
+      { zone, now: Date.now(), ...(editing ? { editing } : {}) },
+      editing,
+    );
+    toast.success(
+      editing
+        ? t("scheduled.toast.saved", { title: values.title.trim() || editing.title })
+        : t("scheduled.form.toast.created", {
+            title: values.title.trim() || values.prompt.trim().slice(0, 60),
+          }),
+    );
+    setEditor(null);
+    q.reload();
+  };
+
+  if (editor !== null) {
+    const { automation } = editor;
+    return (
+      <AutomationForm
+        {...(automation ? { automation } : {})}
+        {...(editor.prompt ? { initialPrompt: editor.prompt } : {})}
+        now={now}
+        threads={(threads.data?.threads ?? []).map((e) => ({
+          id: e.thread.id,
+          title: e.thread.title,
+        }))}
+        onSave={(values) => save(values, automation)}
+        {...(automation
+          ? {
+              onDelete: () =>
+                call("automations.delete", { automationId: automation.id }).then(() => {
+                  toast.success(t("scheduled.toast.deleted", { title: itemName(automation) }));
+                  setEditor(null);
+                  q.reload();
+                }),
+            }
+          : {})}
+        onCancel={() => setEditor(null)}
+      />
+    );
+  }
 
   return (
     <ScheduledView
@@ -222,7 +282,8 @@ export function ScheduledScreen({
       runsPanel={
         <ScheduledRuns now={now} timezone={timezone} {...(onNavigate ? { onNavigate } : {})} />
       }
-      onNewAutomation={(text) => toChat(text ?? t("scheduled.new.prefill"))}
+      onNewAutomation={(text) => setEditor({ ...(text ? { prompt: text } : {}) })}
+      onEdit={(item) => void openEdit(item)}
       onPause={(item, paused) =>
         void act(
           t(paused ? "scheduled.toast.paused" : "scheduled.toast.resumed", {
@@ -243,18 +304,6 @@ export function ScheduledScreen({
           call("automations.delete", { automationId: item.id }),
         )
       }
-      onParseEdit={(_item, text) => call("daily.automations.parse", { text })}
-      onSaveEdit={async (item, draft: DailyAutomationDraft) => {
-        await call("automations.update", {
-          automationId: item.id,
-          title: draft.title,
-          schedule: draft.schedule,
-          timezone: draft.timezone,
-          prompt: draft.prompt,
-        });
-        toast.success(t("scheduled.toast.saved", { title: draft.title }));
-        q.reload();
-      }}
       onEditInChat={(item) => toChat(t("scheduled.edit.prefill", { title: itemName(item) }))}
       {...(onNavigate
         ? { onOpenSettings: (section: string) => onNavigate(`/settings/${section}`) }

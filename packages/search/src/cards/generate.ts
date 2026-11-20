@@ -34,7 +34,10 @@ export interface GenerateDeps {
 export interface GenerateResult {
   card?: ContextCard;
   dropped: DroppedClaim[];
-  /** Input plus output tokens the call used (estimated when the provider reports none). */
+  /**
+   * Input plus output tokens the call used (estimated when the provider reports none). A failed
+   * call reports what it sent, never 0.
+   */
   tokens: number;
   error?: string;
 }
@@ -77,6 +80,8 @@ ${item.text.replace(/<\/?data>/g, "")}
 </data>`;
   let reply = "";
   let used = 0;
+  const estimate = () =>
+    used > 0 ? used : Math.ceil((prompt.length + CARD_SYSTEM_PROMPT.length + reply.length) / 4);
   try {
     for await (const event of deps.provider.stream(
       {
@@ -86,6 +91,10 @@ ${item.text.replace(/<\/?data>/g, "")}
         toolChoice: "none",
         maxOutputTokens: 1200,
         temperature: 0,
+        // A one-shot extraction: no thinking, and the item is unique, so no cache write.
+        effort: "low",
+        reasoning: "off",
+        cache: "none",
       },
       deps.signal === undefined ? {} : { signal: deps.signal },
     )) {
@@ -95,10 +104,15 @@ ${item.text.replace(/<\/?data>/g, "")}
         throw new Error(event.reason);
     }
   } catch (err) {
-    return { dropped: [], tokens: 0, error: err instanceof Error ? err.message : String(err) };
+    // A failed call still spent what it sent (and any reply that streamed): count it against the
+    // daily budget, or a flaky provider is never limited by it.
+    return {
+      dropped: [],
+      tokens: estimate(),
+      error: err instanceof Error ? err.message : String(err),
+    };
   }
-  const tokens =
-    used > 0 ? used : Math.ceil((prompt.length + CARD_SYSTEM_PROMPT.length + reply.length) / 4);
+  const tokens = estimate();
   const parsed = parseJsonObject(reply);
   const { card, dropped } = validateCard(parsed, item, {
     now: now(),

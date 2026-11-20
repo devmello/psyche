@@ -12,6 +12,7 @@ struct HomeView: View {
     @Environment(Session.self) private var session
     @Environment(Router.self) private var router
     @Environment(\.alerts) private var alerts
+    private let motion = MotionContext()
 
     private let store: any PsycheBackend
 
@@ -36,11 +37,14 @@ struct HomeView: View {
             .padding(.horizontal, PsycheMetrics.pagePadding)
             .padding(.top, 8)
             .padding(.bottom, 24)
+            // Sections and rows that appear or go (an approval answered elsewhere, a task finishing) fade and
+            // the gap closes on the smooth spring; nothing else on the page animates (spec §4.1).
+            .psycheAnimation(.smooth, value: listIdentity)
         }
         .psycheScreen()
         .psycheHidesNavigationBar()
         .overlay(alignment: .bottom) { notice }
-        .animation(.default, value: model.notice)
+        .psycheAnimation(.smooth, value: model.notice)
         .task {
             await model.load()
             await model.observe()
@@ -50,7 +54,7 @@ struct HomeView: View {
         // Screenshots without a swipe: `-psycheHomeScroll pinned` brings the Pinned section into view.
         .onChange(of: model.pinnedWidgets.count) { _, count in
             guard count > 0, UserDefaults.standard.string(forKey: "psycheHomeScroll") == "pinned" else { return }
-            Task { try? await Task.sleep(for: .milliseconds(400)); withAnimation { proxy.scrollTo("pinned", anchor: .top) } }
+            Task { try? await Task.sleep(for: .milliseconds(400)); motion.perform(.gentle) { proxy.scrollTo("pinned", anchor: .top) } }
         }
         #endif
         }
@@ -72,7 +76,7 @@ struct HomeView: View {
                     Image(systemName: active ? "waveform" : "mic")
                         .font(.system(size: 17))
                         .foregroundStyle(active ? PsycheColor.text : PsycheColor.muted)
-                        .symbolEffect(.variableColor.iterative, isActive: active)
+                        .symbolEffect(.variableColor.iterative, isActive: active && !motion.reduced)
                         .frame(width: 32, height: 32)
                         .contentShape(Circle())
                 }
@@ -104,15 +108,24 @@ struct HomeView: View {
 
     // MARK: Sections (empty ones aren't drawn)
 
+    /// What is on the page, by id: a change here is a section or row appearing or leaving.
+    private var listIdentity: [String] {
+        guard let snapshot = model.phase.value else { return [] }
+        return snapshot.needsYou.map(\.id) + snapshot.running.map(\.id) + snapshot.today.map(\.id)
+            + model.comingUp.map(\.id) + model.laterTodos.map(\.id) + snapshot.keepInTouch.map(\.id)
+            + model.pinnedWidgets.map(\.id)
+    }
+
     @ViewBuilder
     private func sections(_ snapshot: HomeSnapshot) -> some View {
-        if !snapshot.needsYou.isEmpty { needsYou(snapshot.needsYou) }
-        if !snapshot.running.isEmpty { running(snapshot.running) }
-        if !snapshot.today.isEmpty { today(snapshot.today) }
-        if !model.comingUp.isEmpty { todos("Coming up", model.comingUp) }
-        if !model.laterTodos.isEmpty { todos("To-do", model.laterTodos) }
-        if !snapshot.keepInTouch.isEmpty { keepInTouch(snapshot.keepInTouch) }
-        if !model.pinnedWidgets.isEmpty { pinned(model.pinnedWidgets) }
+        let rise = motion.transition(.rise)
+        if !snapshot.needsYou.isEmpty { needsYou(snapshot.needsYou).transition(rise) }
+        if !snapshot.running.isEmpty { running(snapshot.running).transition(rise) }
+        if !snapshot.today.isEmpty { today(snapshot.today).transition(rise) }
+        if !model.comingUp.isEmpty { todos("Coming up", model.comingUp).transition(rise) }
+        if !model.laterTodos.isEmpty { todos("To-do", model.laterTodos).transition(rise) }
+        if !snapshot.keepInTouch.isEmpty { keepInTouch(snapshot.keepInTouch).transition(rise) }
+        if !model.pinnedWidgets.isEmpty { pinned(model.pinnedWidgets).transition(rise) }
         more
     }
 
@@ -122,7 +135,7 @@ struct HomeView: View {
             PaperCard {
                 ForEach(Array(items.enumerated()), id: \.element.id) { index, item in
                     if index > 0 { HairlineDivider() }
-                    needsYouRow(item)
+                    needsYouRow(item).transition(motion.transition(.rise))
                 }
             }
         }
@@ -210,6 +223,7 @@ struct HomeView: View {
                     .padding(PsycheMetrics.rowPadding)
                     .frame(maxWidth: .infinity, alignment: .leading)
                     .accessibilityElement(children: .combine)
+                    .transition(motion.transition(.rise))
                 }
             }
         }
@@ -312,7 +326,7 @@ struct HomeView: View {
                 .padding(.vertical, 12)
                 .glassEffect(.regular, in: .capsule)
                 .padding(.bottom, 96)
-                .transition(.opacity.combined(with: .move(edge: .bottom)))
+                .transition(motion.transition(.toast))
         }
     }
 }

@@ -30,6 +30,16 @@ const SWEEP_MS = 10 * 60_000;
 export interface ComposedPayments extends ComposedPart {
   /** The broker, for the purchase tools that hold, capture and refund through it. */
   readonly payments?: PaymentBroker;
+  /**
+   * Set by the guided setup: whether a Link CLI is connected (`configured`) and signed in as well
+   * (`ready`), and when either changes. The purchase tool is offered only while Link is ready, so a
+   * Pay card is never raised for a payment that cannot happen.
+   */
+  readonly availability?: {
+    configured(): boolean;
+    ready(): boolean;
+    onChange(listener: () => void): () => void;
+  };
 }
 
 export function paymentsSetupFromEnv(env: NodeJS.ProcessEnv = process.env): PaymentsSetup {
@@ -97,6 +107,8 @@ export function composePayments(
         unsubscribe = payments.onUpdate((payment) =>
           services.publish("vault.payment.updated", { payment }),
         );
+        // A card revealed but never completed (a crash mid-payment) is ended in Link and shredded.
+        void payments.recoverOrphans().catch(() => undefined);
         sweep();
         timer = setInterval(sweep, setup.sweepMs ?? SWEEP_MS);
         timer.unref?.();

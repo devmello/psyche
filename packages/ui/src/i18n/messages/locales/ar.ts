@@ -17,13 +17,16 @@ import { design } from "./design/ar.ts";
 import { deviceAccess } from "./device-access/ar.ts";
 import { final202611 } from "./final-2026-11/ar.ts";
 import { helperCheck } from "./helper-check/ar.ts";
+import { helperOffline } from "./helper-offline/ar.ts";
 import { home } from "./home/ar.ts";
 import { links } from "./links/ar.ts";
 import { mailMeetings } from "./mail-meetings/ar.ts";
 import { meetingRecord } from "./meeting-record/ar.ts";
+import { memoryMap } from "./memory-map/ar.ts";
 import { memoryPage } from "./memory-page/ar.ts";
 import { memoryReview } from "./memory-review/ar.ts";
 import { memorySettings } from "./memory-settings/ar.ts";
+import { notices } from "./notices/ar.ts";
 import { nudges } from "./nudges/ar.ts";
 import { onboarding } from "./onboarding/ar.ts";
 import { overview } from "./overview/ar.ts";
@@ -33,6 +36,7 @@ import { passwordPresence } from "./password-presence/ar.ts";
 import { people } from "./people/ar.ts";
 import { research } from "./research/ar.ts";
 import { scheduled } from "./scheduled/ar.ts";
+import { scheduledForm } from "./scheduled-form/ar.ts";
 import { screens } from "./screens/ar.ts";
 import { securityState } from "./security-state/ar.ts";
 import { selfConnectors } from "./self-connectors/ar.ts";
@@ -47,12 +51,14 @@ import { teach } from "./teach/ar.ts";
 import { web } from "./web/ar.ts";
 import { whatCanYouDo } from "./what-can-you-do/ar.ts";
 import { widgets } from "./widgets/ar.ts";
+import { windowsPlatform202611 } from "./windows-platform-2026-11/ar.ts";
 import { work } from "./work/ar.ts";
 import { workflows } from "./workflows/ar.ts";
 
 /** Arabic catalogue (ar). Same ids as `en`; missing ids fall back to English. */
 export const ar: Partial<Catalogue> = {
   // common: translated ids (i18n completion)
+  ...memoryMap,
   ...common,
   // chat: translated ids (i18n completion)
   ...chat,
@@ -122,6 +128,7 @@ export const ar: Partial<Catalogue> = {
   ...research,
   // scheduled: translated ids (i18n completion)
   ...scheduled,
+  ...scheduledForm,
   // automation-chat: translated ids (i18n completion)
   ...automationChat,
   // widgets: translated ids (i18n completion)
@@ -190,6 +197,11 @@ export const ar: Partial<Catalogue> = {
   "errors.rate_limited": "طلبات كثيرة جدًا؛ انتظر لحظة وحاول مرة أخرى.",
   "errors.timeout": "استغرق Psyche وقتًا طويلًا في الرد.",
   "errors.cancelled": "تم إلغاؤه.",
+  "errors.reason.vault_removal_pending":
+    "افتح قفل الخزنة لإكمال إزالة الخادم القديم، ثم حاول مرة أخرى.",
+  "errors.reason.connected_with_other_client":
+    "Google متصل بعميل آخر. افصل Google أولًا ثم غيّر العميل.",
+  "errors.reason.secret_required": "يحتاج العميل المختلف إلى سر عميل خاص به.",
   "errors.reason.updating": "سيعيد Psyche التشغيل الآن لتثبيت تحديث. حاول مرة أخرى بعد لحظة.",
   "errors.unavailable": "لا يستطيع Psyche القيام بذلك الآن.",
   "errors.approval_required": "يحتاج هذا إلى موافقتك أولًا.",
@@ -333,6 +345,7 @@ export const ar: Partial<Catalogue> = {
 
   "chat.toolbar.label": "شريط أدوات الدردشة",
   "chat.toolbar.incognito": "متخفٍّ",
+  "chat.incognito.notice": "لا تُستخدم للذاكرة أو البحث أو النشاط. تنتهي صلاحيتها بعد 24 ساعة.",
   "chat.toolbar.view": "عرض النص",
   "chat.toolbar.view.status": "الحالة فقط",
   "chat.toolbar.view.actions": "الإجراءات",
@@ -365,6 +378,10 @@ export const ar: Partial<Catalogue> = {
   "blocks.card.unknown": "لا يستطيع Psyche عرض هذا النوع من العناصر بعد ({type}).",
   "specialists.block.label": "نتيجة {role}: {title}",
   "blocks.toolView.show": "عرض النتيجة",
+  "blocks.toolRun.shareFolder": "مشاركة هذا المجلد (للقراءة فقط)",
+  "blocks.toolRun.shareWaiting": "في انتظار ردّك على البطاقة",
+  "blocks.toolRun.shared": "تمت المشاركة. اطلب مرة أخرى للمتابعة",
+  "blocks.toolRun.shareFailed": "تعذّر طلب مشاركة هذا المجلد. حاول مرة أخرى.",
   "blocks.toolView.loading": "جارٍ تحميل النتيجة…",
   "blocks.toolView.none": "لا يُحتفظ بنتيجة هذا الإجراء.",
   "blocks.toolView.more":
@@ -388,6 +405,7 @@ export const ar: Partial<Catalogue> = {
   "blocks.details.to": "إلى",
   "blocks.details.exactRecipient": "(المستلم بالضبط)",
   "blocks.details.cc": "نسخة",
+  "blocks.details.bcc": "نسخة مخفية",
   "blocks.details.subject": "الموضوع",
   "blocks.details.body": "النص",
   "blocks.details.view": "عرض",
@@ -428,9 +446,16 @@ export const ar: Partial<Catalogue> = {
 
   "blocks.approval.scope.once": "السماح مرة واحدة",
   "blocks.approval.scope.task": "السماح لهذه المهمة",
+  "blocks.approval.scope.trustSite": "دائمًا لهذا الموقع ({site})",
+  "blocks.approval.scope.trustSiteSubdomains": "دائمًا لهذا الموقع ونطاقاته الفرعية ({site})",
+  "blocks.approval.scope.hostProgram": "السماح دائمًا بـ {program} في {folder}",
+  "blocks.approval.scope.hostProgramExact":
+    "السماح دائمًا بـ {program} بهذه الوسائط بالضبط في {folder}",
   "blocks.approval.scope.site": "السماح لهذا الموقع",
   "blocks.approval.scope.session": "السماح لهذه الجلسة",
   "blocks.approval.scope.always": "السماح دائمًا",
+  "blocks.approval.alwaysRecipient": "السماح دائمًا بالإرسال إلى {recipients}",
+  "blocks.approval.alwaysRecipientFrom": "السماح دائمًا بالإرسال إلى {recipients} من {account}",
   "blocks.approval.scopeGranted.once": "سماح مرة واحدة",
   "blocks.approval.scopeGranted.task": "سماح لهذه المهمة",
   "blocks.approval.scopeGranted.site": "سماح لهذا الموقع",
@@ -733,6 +758,24 @@ export const ar: Partial<Catalogue> = {
   "agent.approvals.anAutomation": "أتمتة",
   "agent.approvals.wantedTo": "أراد {what}",
   "agent.approvals.openTask": "فتح المهمة",
+  "agent.approvals.deferredHint":
+    "إجراءات أجّلتها الأتمتة. الموافقة على أحدها تشغّل الأتمتة مرة أخرى لتنفيذه. الإجراء المنتهي الصلاحية لا يُنفَّذ متأخرًا أبدًا.",
+  "agent.approvals.approve": "موافقة",
+  "agent.approvals.decline": "رفض",
+  "agent.approvals.approveRoutine": "الموافقة على كل الإجراءات الروتينية ({n, number})",
+  "agent.approvals.riskRoutine": "روتيني",
+  "agent.approvals.riskSensitive": "حساس",
+  "agent.approvals.setAside": "أُجِّل {when}",
+  "agent.approvals.answerElsewhere": "أجِب حيث أُرسل",
+  "agent.approvals.setAsideNote":
+    "أجّلت أتمتة هذا الإجراء وتابعت عملها. الموافقة تشغّلها مرة أخرى، ولا يُنفَّذ هذا إلا إذا وصل التشغيل إلى الإجراء نفسه.",
+  "agent.approvals.setAsideApproved":
+    "تمت الموافقة. تعمل الأتمتة مرة أخرى ولا تنفّذ هذا إلا إذا وصلت إلى الإجراء نفسه. وإن لم تصل، يصلك إشعار.",
+  "agent.approvals.resuming":
+    "تمت الموافقة. جارٍ تشغيل {names} مرة أخرى. لا يُنفَّذ كل إجراء إلا إذا وصل إليه التشغيل، وإلا يصلك إشعار.",
+  "agent.approvals.notResumable":
+    "لا يمكن تشغيل هذه الأتمتة مرة أخرى، لذا لن تفعل الموافقة شيئًا. ارفضه، أو شغّل الأتمتة بنفسك.",
+  "agent.approvals.notRoutine": "يحتاج هذا الإجراء إلى موافقة مستقلة. وافق عليه من بطاقته.",
   "agent.approvals.noRecent": "لا قرارات في الأيام السبعة الأخيرة.",
   "agent.schedule.once": "{weekday} {day, number} {month} {time}",
   "agent.schedule.every": "كل {span}",
@@ -832,11 +875,11 @@ export const ar: Partial<Catalogue> = {
 
   "shell.shortcut.palette": "لوحة الأوامر",
   "shell.shortcut.newSideChat": "دردشة جانبية جديدة",
+  "shell.shortcut.newIncognitoChat": "دردشة متخفية جديدة",
   "shell.shortcut.closeThread": "إغلاق عرض المحادثة أو النافذة المنبثقة",
   "shell.shortcut.toggleThreadList": "إظهار/إخفاء الشريط الجانبي",
   "shell.shortcut.compactSidebar": "شريط جانبي مضغوط أو كامل",
   "shell.shortcut.cycleThreads": "التنقل بين المحادثات",
-  "shell.shortcut.forkSelection": "تفريع التحديد إلى دردشة جانبية",
   "shell.shortcut.stop": "إيقاف التشغيل؛ تحرير تولّي التحكم",
   "shell.shortcut.cycleDisclosure": "التنقل بين مستويات العرض",
   "shell.shortcut.browserPane": "لوحة المتصفح",
@@ -885,6 +928,7 @@ export const ar: Partial<Catalogue> = {
   "shell.shortcuts.addition": "إضافة من Psyche",
   "shell.shortcuts.description": "تشير † إلى إضافات Psyche على خريطة اختصارات Claude لسطح المكتب.",
   "shell.threads.needsYou": "بحاجة إليك",
+  "shell.threads.nowOn": "الآن: {step}",
   "shell.threads.running": "قيد التشغيل",
   "shell.threads.titleField": "عنوان المحادثة",
   "shell.threads.incognito": "متخفية",
@@ -902,6 +946,7 @@ export const ar: Partial<Catalogue> = {
   "shell.threads.filter": "تصفية المحادثات",
   "shell.threads.search": "البحث في المحادثات",
   "shell.threads.newSideChat": "دردشة جانبية جديدة",
+  "shell.threads.newIncognitoChat": "دردشة متخفية جديدة",
   "shell.threads.loading": "جارٍ تحميل المحادثات",
   "shell.threads.mainChat": "الدردشة الرئيسية",
   "shell.threads.sideChats": "الدردشات الجانبية",
@@ -960,7 +1005,7 @@ export const ar: Partial<Catalogue> = {
   "shell.usage.openHint": "انقر للانتقال إلى الإعدادات ← الاستخدام.",
 
   "settings.shared.needsPresence":
-    "يحتاج تغيير «{label}» إلى موافقتك عبر Touch ID أو مفتاح مرور. وافق عليه في الإعدادات أو في إشعار Psyche، ثم غيّره مرة أخرى.",
+    "يحتاج تغيير «{label}» إلى موافقتك. وافق عليه في الإعدادات أو في إشعار Psyche، ثم غيّره مرة أخرى.",
   "settings.shared.saveFailed": "تعذّر على Psyche حفظ «{label}» ({reason}). لم يتغيّر شيء.",
   "settings.shared.loading": "جارٍ تحميل {label}",
   "settings.shared.nothingChanged": "لم يتغيّر شيء.",
@@ -1046,6 +1091,8 @@ export const ar: Partial<Catalogue> = {
   "settings.key.models.providers": "مزوّدو النماذج",
   "settings.key.permissions.mode": "الوضع الافتراضي",
   "settings.key.permissions.policy": "سياسة الأذونات",
+  "settings.key.permissions.sensitive.government": "اسأل قبل قراءة المواقع الحكومية",
+  "settings.key.permissions.sensitive.icloud": "اسأل قبل قراءة iCloud",
   "settings.key.permissions.folders": "المجلدات المشتركة",
   "settings.key.persona.name": "الاسم",
   "settings.key.persona.tagline": "الطابع أو الشعار",
@@ -1196,6 +1243,58 @@ export const ar: Partial<Catalogue> = {
   "settings.credentials.slot.keyFile": "ملف مفتاح على هذا الـ Mac",
   "settings.credentials.slot.recovery": "مفتاح الاستعادة الخاص بها فقط",
   "settings.credentials.protectedBy": "الخزنة محمية بواسطة:",
+  "settings.credentials.vault.adminOnly": "يمكن لجهاز مشرف فقط تنفيذ ذلك.",
+  "settings.credentials.vault.unlockReason": "تأكيد مفتاح الاسترداد",
+  "settings.credentials.vault.setup.title": "إعداد الخزنة",
+  "settings.credentials.vault.setup.body":
+    "تحفظ الخزنة كلمات المرور والبطاقات ومفاتيح API مشفّرة على هذا الكمبيوتر. ينشئها Psyche مع مفتاح استرداد تحفظه مرة واحدة.",
+  "settings.credentials.vault.setup.button": "إعداد الخزنة",
+  "settings.credentials.vault.setup.failed": "لم يتم إنشاء الخزنة: {reason}",
+  "settings.credentials.vault.setup.noSlot": "لا يوفّر هذا الـ Gateway خانة مفتاح للخزنة.",
+  "settings.credentials.onePassword.title": "1Password",
+  "settings.credentials.onePassword.intro":
+    "اسمح لـ Psyche بقراءة العناصر التي تربطها من 1Password. لا يحفظ Psyche أي كلمة مرور أو رمز من 1Password، ويطلب 1Password نفسه فتح القفل عند الحاجة.",
+  "settings.credentials.onePassword.check": "تحقق مرة أخرى",
+  "settings.credentials.onePassword.guide": "فتح الدليل",
+  "settings.credentials.onePassword.notInstalled.body":
+    "لا يعثر Psyche على أداة سطر أوامر 1Password ‏(op) على هذا الكمبيوتر. ثبّتها ثم تحقق مرة أخرى.",
+  "settings.credentials.onePassword.notIntegrated.body":
+    "في تطبيق 1Password افتح الإعدادات، واختر المطوّر، وفعّل «التكامل مع 1Password CLI». ثم تحقق مرة أخرى.",
+  "settings.credentials.onePassword.locked.body":
+    "افتح قفل تطبيق 1Password ووافق على الطلب إن ظهر. ثم تحقق مرة أخرى.",
+  "settings.credentials.onePassword.error.body":
+    "لم تستجب أداة سطر أوامر 1Password كما هو متوقع. تحقق مرة أخرى؛ وإن استمر الفشل فأعد تثبيت op.",
+  "settings.credentials.onePassword.signedIn.body":
+    "تم تسجيل الدخول إلى 1Password باسم {email} ({url}).",
+  "settings.credentials.onePassword.signedIn.connect": "استخدام 1Password في Psyche",
+  "settings.credentials.onePassword.connected.body":
+    "يقرأ Psyche عناصر 1Password التي تربطها عبر تطبيق 1Password. هي للقراءة فقط؛ ولا يُكتب أي شيء في 1Password.",
+  "settings.credentials.onePassword.test": "اختبار الاتصال",
+  "settings.credentials.onePassword.test.ok":
+    "تم الاتصال. {count, plural, one {عُثر على خزنة واحدة} two {عُثر على خزنتين} few {عُثر على # خزن} many {عُثر على # خزنة} other {عُثر على # خزنة}}.",
+  "settings.credentials.onePassword.test.failed": "لم ينجح الاختبار: {reason}",
+  "settings.credentials.onePassword.disconnect": "قطع الاتصال",
+  "settings.credentials.onePassword.config":
+    "تم إعداد 1Password في ملف config.json الخاص بالـ Gateway. غيّره هناك.",
+  "settings.credentials.onePassword.failed": "لم تنجح العملية: {reason}",
+  "settings.credentials.onePassword.found.body":
+    "عثر Psyche على أداة سطر أوامر 1Password. اختر «فحص» لمعرفة أين وصل الإعداد.",
+  "settings.credentials.onePassword.checkNow": "فحص",
+  "settings.credentials.onePassword.changed.body":
+    "تغيّرت أداة سطر أوامر 1Password منذ اتصالك. تحقق مرة أخرى.",
+  "settings.credentials.onePassword.unsigned.body":
+    "ملف op الذي وجده Psyche غير موقّع من 1Password، لذا لن يشغّله Psyche. ثبّت op من 1Password ثم تحقق مرة أخرى.",
+  "settings.credentials.onePassword.unsafeFolder.body":
+    "عثر Psyche على op، لكن أحد المجلدات التي يوجد فيها ليس ملكك أو يمكن لمستخدمين آخرين تغييره، لذا لن يشغّله Psyche. اجعل هذه المجلدات ملكك وغير قابلة للكتابة من المجموعة أو الآخرين، ثم تحقق مرة أخرى.",
+  "settings.credentials.onePassword.repinned.notice": "تم تحديث 1Password CLI وإعادة فحصه {when}",
+  "settings.credentials.vault.confirm.title": "أكّد مفتاح الاسترداد",
+  "settings.credentials.vault.confirm.body":
+    "اكتب المجموعة الأخيرة من مفتاح الاسترداد، أي الجزء بعد الشرطة الأخيرة، لتُثبت أنك حفظته.",
+  "settings.credentials.vault.confirm.label": "المجموعة الأخيرة",
+  "settings.credentials.vault.confirm.button": "تأكيد",
+  "settings.credentials.vault.confirm.wrong":
+    "هذه ليست المجموعة الأخيرة من مفتاح الاسترداد. تحقّق من مكان حفظه وحاول مرة أخرى.",
+  "settings.credentials.vault.confirm.failed": "لم يتم تأكيد مفتاح الاسترداد: {reason}",
   "settings.credentials.moveToKeychain": "النقل إلى سلسلة المفاتيح",
   "settings.credentials.moveToKeychainNeeds":
     "يحتاج إلى مساعد Psyche موقَّع بمعرّف مطوّر وملف تعريف توفير",
@@ -1290,8 +1389,66 @@ export const ar: Partial<Catalogue> = {
   "settings.credentials.payments.amountRefunded": "{total} · استُردّ {refunded}",
   "settings.credentials.payments.title": "المدفوعات",
   "settings.credentials.payments.loadLabel": "المدفوعات",
-  "settings.credentials.payments.notConfigured":
-    "لم يتم إعداد Stripe Link. ثبّت واجهة Link على جهاز Gateway، وسجّل الدخول إلى Link، واضبط PSYCHE_LINK_CLI؛ عندها يعرض Psyche طرق الدفع هنا.",
+  "settings.credentials.payments.notConfigured": "لم يتم إعداد Stripe Link على هذا الـ Gateway.",
+  "settings.credentials.payments.setup.approvalLabel": "أداة سطر أوامر Stripe Link",
+  "settings.credentials.payments.setup.refused": "لن يشغّل Psyche هذا البرنامج: {reason}.",
+  "settings.credentials.payments.setup.failed": "لم تنجح العملية: {reason}",
+  "settings.credentials.payments.setup.problem": "لن يشغّل Psyche الملف {path}: {reason}.",
+  "settings.credentials.payments.setup.recheck": "تحقق مرة أخرى",
+  "settings.credentials.payments.setup.disconnect": "فصل الاتصال",
+  "settings.credentials.payments.setup.disconnecting": "جارٍ الفصل…",
+  "settings.credentials.payments.setup.disconnectConfirm.title": "فصل Stripe Link؟",
+  "settings.credentials.payments.setup.disconnectConfirm.body":
+    "ينسى Psyche أداة Link CLI ويحذف تسجيل دخول Link المحفوظ. لا يتأثر حسابك في Link ولا بطاقاتك، ويمكنك إعادة الاتصال في أي وقت.",
+  "settings.credentials.payments.setup.disconnectConfirm.go": "فصل الاتصال",
+  "settings.credentials.payments.setup.disconnectConfirm.cancel": "إبقاء الاتصال",
+  "settings.credentials.payments.setup.envOverride":
+    "بدأ هذا الـ Gateway بالمتغير PSYCHE_LINK_CLI، وله الأولوية على المسار المحفوظ هنا.",
+  "settings.credentials.payments.setup.missing.title": "ثبّت أداة سطر أوامر Link",
+  "settings.credentials.payments.setup.missing.body":
+    "يدفع Psyche عبر Stripe Link باستخدام أداة سطر الأوامر الخاصة بـ Link. شغّل الأمر على الجهاز الذي يعمل عليه الـ Gateway ثم تحقق مرة أخرى.",
+  "settings.credentials.payments.setup.missing.region":
+    "مدفوعات Link للوكلاء متاحة في الولايات المتحدة وكندا.",
+  "settings.credentials.payments.setup.found.title": "تم العثور على Link CLI",
+  "settings.credentials.payments.setup.found.body":
+    "اربط النسخة التي ثبّتها. يشغّلها Psyche فقط للتحدث مع Stripe Link، وبعد موافقتك فقط.",
+  "settings.credentials.payments.setup.found.connect": "اتصال",
+  "settings.credentials.payments.setup.found.connecting": "جارٍ الاتصال…",
+  "settings.credentials.payments.setup.found.connectPath": "اربط {path}",
+  "settings.credentials.payments.setup.signedOut.title": "تسجيل الدخول إلى Link",
+  "settings.credentials.payments.setup.signedOut.body":
+    "يفتح Psyche صفحة Link نفسها، حيث تسجّل الدخول وتوافق على هذا الجهاز. تكتب كلمة مرور Link هناك فقط ولا تصل إلى Psyche.",
+  "settings.credentials.payments.setup.signedOut.go": "تسجيل الدخول عبر Link",
+  "settings.credentials.payments.setup.signedOut.starting": "جارٍ البدء…",
+  "settings.credentials.payments.setup.signingIn.title": "أكمل تسجيل الدخول في Link",
+  "settings.credentials.payments.setup.signingIn.body":
+    "افتح صفحة Link وتأكد من أنها تعرض العبارة أدناه ثم وافق.",
+  "settings.credentials.payments.setup.signingIn.phrase": "العبارة:",
+  "settings.credentials.payments.setup.signingIn.open": "فتح صفحة Link",
+  "settings.credentials.payments.setup.signingIn.waiting": "بانتظار موافقتك في Link…",
+  "settings.credentials.payments.setup.connected": "متصل بـ Stripe Link عبر {path}.",
+  "settings.credentials.payments.setup.connectedNoPath": "متصل بـ Stripe Link.",
+  "settings.credentials.payments.setup.reason.not_absolute": "المسار ليس مسارًا مطلقًا",
+  "settings.credentials.payments.setup.reason.missing": "غير موجود",
+  "settings.credentials.payments.setup.reason.not_a_file": "إنه رابط أو ليس ملفًا عاديًا",
+  "settings.credentials.payments.setup.reason.not_executable": "لا يمكن تشغيله",
+  "settings.credentials.payments.setup.reason.wrong_owner": "يعود إلى مستخدم آخر",
+  "settings.credentials.payments.setup.reason.writable": "يمكن لمستخدمين آخرين تعديله",
+  "settings.credentials.payments.setup.reason.parent_wrong_owner": "مجلد أعلاه يعود إلى مستخدم آخر",
+  "settings.credentials.payments.setup.reason.parent_writable":
+    "يمكن لمستخدمين آخرين تعديل مجلد أعلاه",
+  "settings.credentials.payments.setup.reason.in_psyche_home":
+    "إنه داخل مجلد Psyche نفسه؛ ثبّت Link CLI باستخدام npm بدلًا من ذلك",
+  "settings.credentials.payments.setup.reason.not_link_cli": "ليس جزءًا من حزمة Link CLI",
+  "settings.credentials.payments.setup.reason.volta_shim":
+    "إنه shim الخاص بـ Volta؛ استخدم مجلد Link CLI داخل Volta أو ثبّته باستخدام npm",
+  "settings.credentials.payments.setup.paymentInProgress":
+    "لا تزال هناك عملية دفع قيد التنفيذ. افصل الاتصال بعد انتهائها.",
+  "settings.credentials.payments.setup.force.title": "هل تريد فصل الاتصال على أي حال؟",
+  "settings.credentials.payments.setup.force.body":
+    "لا يزال قيد التنفيذ: {payments}. إذا فصلت الاتصال على أي حال، فسيلغيه Psyche حيثما يسمح Link وينساه. ينتهي الحجز لدى التاجر من تلقاء نفسه ولن يتمكن Psyche من الإبلاغ عنه بعد ذلك.",
+  "settings.credentials.payments.setup.force.go": "فصل الاتصال على أي حال",
+  "settings.credentials.payments.setup.force.aPayment": "عملية دفع",
   "settings.credentials.payments.noMethods":
     "لا تحوي محفظة Link لديك أي طرق دفع. أضف واحدة في تطبيق Link.",
   "settings.credentials.payments.methods": "طرق الدفع في Link",
@@ -1464,6 +1621,41 @@ export const ar: Partial<Catalogue> = {
   "settings.channels.loadLabel": "القنوات",
   "settings.channels.empty":
     "لا قنوات بعد. اربط Telegram أو iMessage أو Slack للوصول إلى {persona} بعيدًا عن هذا الـ Mac.",
+  "settings.channels.add.button": "إضافة قناة",
+  "settings.channels.add.title": "إضافة قناة",
+  "settings.channels.add.description":
+    "اختر المكان الذي يمكن التواصل مع {persona} عبره. تذهب الرموز مباشرة إلى الخزنة ولا تُعرض مرة أخرى.",
+  "settings.channels.add.type": "القناة",
+  "settings.channels.add.account.slack": "اسم مساحة العمل",
+  "settings.channels.add.account.discord": "معرّف التطبيق",
+  "settings.channels.add.secret.bot_token": "رمز البوت",
+  "settings.channels.add.secret.app_token": "رمز التطبيق",
+  "settings.channels.add.secret.auth_token": "رمز المصادقة",
+  "settings.channels.add.secret.access_token": "رمز الوصول",
+  "settings.channels.add.secret.app_secret": "سر التطبيق",
+  "settings.channels.add.secret.verify_token": "رمز التحقق",
+  "settings.channels.add.submit": "اتصال",
+  "settings.channels.add.connecting": "جارٍ الاتصال",
+  "settings.channels.add.missing": "املأ جميع الحقول للاتصال.",
+  "settings.channels.add.failed": "تعذّر على Psyche إضافة القناة ({reason}). لم يتم تشغيلها.",
+  "settings.channels.add.account.sms": "رقم الإرسال (+15551234567)",
+  "settings.channels.add.account.whatsapp": "رقم واتساب (+15551234567)",
+  "settings.channels.add.badNumber": "أدخل الرقم بالصيغة الدولية، مثل +15551234567.",
+  "settings.channels.add.exists": "توجد قناة {type} للحساب {account} بالفعل، لذا لم يتغير شيء.",
+  "settings.channels.add.approvalLabel": "إضافة قناة",
+  "settings.channels.add.envNote":
+    "يجب أيضًا تشغيل Gateway مع ضبط {env} على هذا الحساب. يتم إعداد Telegram وiMessage وSignal والبريد الإلكتروني حيث يعمل Gateway؛ راجع وثائق القنوات.",
+  "settings.channels.add.addedInactive":
+    "تمت إضافة القناة لكنها لا تعمل بعد. اضبط {env} على هذا الحساب حيث يعمل Gateway ثم أعد تشغيله.",
+  "settings.channels.add.added":
+    "تمت إضافة القناة. تبدأ عندما يكون {env} في Gateway مضبوطًا على هذا الحساب. ثم راسل {persona} منها للحصول على رمز اقتران ووافق عليه هنا.",
+  "settings.channels.add.storedNote":
+    "محفوظ بالفعل لهذا الحساب: {names}. تُستخدم كما هي ما لم تستبدلها.",
+  "settings.channels.add.replace": "استبدال الرموز المحفوظة",
+  "settings.channels.add.statusFailed":
+    "تعذّر على Psyche التحقق من الرموز المحفوظة ({reason}). لم يتغير شيء.",
+  "settings.channels.add.storedTyped":
+    "توجد رموز محفوظة بالفعل لهذا الحساب. حدّد استبدال الرموز المحفوظة لاستخدام ما كتبته، أو امسح تلك الحقول. لم يتغير شيء.",
   "settings.channels.identities": "روابط الهوية",
   "settings.channels.identitiesDescription":
     "شخص واحد عبر القنوات. لا تتغيّر الروابط إلا من جهاز مقترن.",
@@ -1598,6 +1790,52 @@ export const ar: Partial<Catalogue> = {
   "settings.mcp.command": "الأمر",
   "settings.mcp.domains": "المواقع التي يمكنه الوصول إليها",
   "settings.mcp.domainsHint": "أسماء مضيفين مفصولة بفواصل. اتركه فارغًا لمنع الشبكة.",
+  "settings.mcp.env.title": "متغيرات البيئة",
+  "settings.mcp.env.hint":
+    "قيم يحتاجها الخادم عند بدء التشغيل. الأسماء التي تبدو سرية (الرمز أو المفتاح أو كلمة المرور) تُحفظ في الخزنة.",
+  "settings.mcp.env.name": "اسم المتغير",
+  "settings.mcp.env.value": "القيمة",
+  "settings.mcp.env.namePlaceholder": "API_BASE_URL",
+  "settings.mcp.env.saved": "تم الحفظ",
+  "settings.mcp.updated": "تم تحديث {name}.",
+  "settings.mcp.edit.group": "تعديل واختبار",
+  "settings.mcp.edit.action": "تعديل",
+  "settings.mcp.edit.title": "تعديل {name}",
+  "settings.mcp.edit.intro":
+    "تغيير ما يعمل أو جهة الاتصال يطلب موافقتك من جديد. يظل الخادم الحالي يعمل حتى توافق.",
+  "settings.mcp.edit.save": "حفظ التغييرات",
+  "settings.mcp.edit.loadFailed": "تعذّر تحميل إعدادات هذا الخادم. {reason}",
+  "settings.mcp.edit.locked":
+    "لا يمكن تعديل أمر هذا الخادم واتصاله. أزِله وأضِف خادمًا آخر لتغييرهما.",
+  "settings.mcp.test.action": "اختبار الاتصال",
+  "settings.mcp.test.running": "جارٍ الاختبار…",
+  "settings.mcp.test.hint": "يتحقق من الإعداد المحفوظ مرة أخرى. لا شيء يتغير.",
+  "settings.mcp.test.paused": "شغّل هذا الخادم لاختباره.",
+  "settings.mcp.test.ok":
+    "يعمل. {n, plural, one {أداة واحدة متاحة} two {أداتان متاحتان} few {# أدوات متاحة} many {# أداة متاحة} other {# أداة متاحة} zero {# أداة متاحة}}.",
+  "settings.mcp.test.failed": "لم ينجح: {reason}",
+  "settings.mcp.trust.updateTitle": "هل تريد تحديث {name}؟",
+  "settings.mcp.trust.updateIntro":
+    "شغّل Psyche الإعداد الجديد في بيئته المعزولة ووجد هذه الأدوات. يظل الخادم الحالي يعمل حتى توافق.",
+  "settings.mcp.trust.change.title": "ما الذي يتغير",
+  "settings.mcp.trust.change.none": "لا شيء",
+  "settings.mcp.trust.change.was": "قبل: {value}",
+  "settings.mcp.trust.change.now": "الآن: {value}",
+  "settings.mcp.trust.change.command": "الأمر",
+  "settings.mcp.trust.change.url": "العنوان",
+  "settings.mcp.trust.change.domains": "النطاقات المسموح بها",
+  "settings.mcp.trust.change.auth": "تسجيل الدخول",
+  "settings.mcp.trust.change.envAdded": "متغيرات مضافة",
+  "settings.mcp.trust.change.envRemoved": "متغيرات محذوفة",
+  "settings.mcp.trust.change.envChanged": "متغيرات معدّلة",
+  "settings.mcp.trust.change.query": "معاملات العنوان التي تغيّرت",
+  "settings.mcp.trust.change.userinfo": "بيانات تسجيل الدخول في العنوان",
+  "settings.mcp.trust.change.changed": "تغيّر",
+  "settings.mcp.edit.changeUrl": "تغيير العنوان",
+  "settings.mcp.edit.urlHidden": "أجزاء من هذا العنوان مخفية. لتغييره، أدخل العنوان الجديد كاملًا.",
+  "settings.mcp.env.add": "إضافة متغير",
+  "settings.mcp.env.badName":
+    "تستخدم الأسماء أحرفًا كبيرة وأرقامًا وشرطات سفلية، وتبدأ بحرف أو شرطة سفلية.",
   "settings.mcp.url": "عنوان URL للخادم",
   "settings.mcp.placeholder.command": "npx -y @modelcontextprotocol/server-everything",
   "settings.mcp.placeholder.domains": "api.example.com",
@@ -1664,6 +1902,29 @@ export const ar: Partial<Catalogue> = {
   "settings.webSearch.braveKey": "مفتاح Brave Search",
   "settings.webSearch.braveFromEnv": "مضبوط (PSYCHE_SEARCH_BRAVE_KEY)",
   "settings.webSearch.braveNone": "غير مضبوط (PSYCHE_SEARCH_BRAVE_KEY)",
+  "settings.apiKeys.title": "مفاتيح API",
+  "settings.apiKeys.description":
+    "مفاتيح مزوّدي النماذج والبحث على الويب، تُدخَل هنا بدلًا من الطرفية. يُحفَظ كل مفتاح مشفّرًا في الخزنة ولا يُعرَض مجددًا ويُستخدَم من الطلب التالي. المفتاح المضبوط في البيئة له الأولوية.",
+  "settings.apiKeys.name.anthropic": "Anthropic",
+  "settings.apiKeys.name.openai": "OpenAI",
+  "settings.apiKeys.name.google": "Google Gemini",
+  "settings.apiKeys.name.openrouter": "OpenRouter",
+  "settings.apiKeys.name.brave": "Brave Search",
+  "settings.apiKeys.field": "مفتاح API لـ {name}",
+  "settings.apiKeys.save": "حفظ",
+  "settings.apiKeys.saving": "جارٍ الحفظ…",
+  "settings.apiKeys.clear": "مسح",
+  "settings.apiKeys.none": "غير مضبوط",
+  "settings.apiKeys.vault": "محفوظ في الخزنة",
+  "settings.apiKeys.env": "مضبوط في البيئة (له الأولوية)",
+  "settings.apiKeys.envAndVault": "مضبوط في البيئة (له الأولوية)، ويُحتفَظ أيضًا بمفتاح محفوظ",
+  "settings.apiKeys.empty": "الصق مفتاحًا أولًا.",
+  "settings.apiKeys.whitespace": "لا يحتوي المفتاح على مسافات أو فواصل أسطر.",
+  "settings.apiKeys.failed": "تعذّر حفظ المفتاح: {reason}",
+  "settings.apiKeys.clearFailed": "تعذّر مسح المفتاح: {reason}",
+  "settings.apiKeys.locked": "الخزنة مقفلة. افتحها أولًا ثم احفظ مرة أخرى.",
+  "settings.credentials.managed.web_search": "مفتاح بحث على الويب",
+  "settings.webSearch.braveFromVault": "محفوظ في الخزنة",
   "settings.webSearch.provider.brave": "Brave Search",
   "settings.webSearch.provider.searxng": "SearXNG",
   "settings.webSearch.provider.duckduckgo": "DuckDuckGo (بلا مفتاح، محدود المعدل)",
@@ -1839,7 +2100,7 @@ export const ar: Partial<Catalogue> = {
   "settings.model.role.primary": "الأساسي",
   "settings.model.role.primaryHint": "الدردشة والمهام والأدوات",
   "settings.model.role.utility": "المساعد",
-  "settings.model.role.utilityHint": "العناوين والملخصات ومصنّف الوضع التلقائي",
+  "settings.model.role.utilityHint": "العناوين والملخصات وبطاقات البحث ومهام الخلفية الأخرى",
   "settings.model.role.image": "الصور",
   "settings.model.role.imageHint": "تغييرات الصورة الرمزية؛ «لا شيء» يعني المخلوقات المضمّنة",
   "settings.model.addProvider": "إضافة مزوّد",
@@ -1897,7 +2158,8 @@ export const ar: Partial<Catalogue> = {
   "settings.permissions.never.secrets":
     "كتابة كلمة سر أو رقم بطاقة أو حساب بنكي أو هوية حكومية يمكنه رؤيتها",
   "settings.permissions.never.captcha": "حل CAPTCHA أو تجاوزها",
-  "settings.permissions.never.money": "إجراء تحويل مالي أو صفقة تداول",
+  "settings.permissions.never.money":
+    "تداول الأوراق المالية أو العملات المشفرة، أو تحويل الأموال بين الحسابات المصرفية أو إرسالها إلى شخص، حتى لو وافقت",
   "settings.permissions.never.delete": "حذف البيانات نهائيًا من دون تأكيد مكتوب",
   "settings.permissions.never.injection":
     "اتباع تعليمات موجودة في صفحات ويب أو بريد إلكتروني أو ملفات",
@@ -1925,6 +2187,7 @@ export const ar: Partial<Catalogue> = {
   "settings.permissions.subject.execIn": "{argv} في {cwd}",
   "settings.permissions.subject.emailTo": "إلى {recipient}",
   "settings.permissions.subject.emailAny": "إلى أي مستلم",
+  "settings.permissions.subject.emailFrom": "إلى {recipients} من {account}",
   "settings.permissions.subject.calendarNamed": "التقويم {id}",
   "settings.permissions.subject.calendar": "التقويم",
   "settings.permissions.title": "الأذونات",
@@ -1941,8 +2204,30 @@ export const ar: Partial<Catalogue> = {
   "settings.permissions.toolsChanged":
     "غيّر {name} قائمة أدواته منذ موافقتك عليه، لذا أبطل Psyche تصاريحه. يسأل كل إجراء مرة أخرى حتى تراجعه.",
   "settings.permissions.hash": "tools/list ‏{hash}…",
+  "settings.permissions.sendsTitle": "المستلمون المسموح لهم دائمًا",
+  "settings.permissions.sendsHint":
+    "تُرسل الرسائل إلى هؤلاء المستلمين دون سؤال. أزِل مستلمًا لتُسأل مجددًا.",
+  "settings.permissions.noSends": "لا يوجد مستلم مضبوط على السماح دائمًا.",
   "settings.permissions.origins": "مواقع المتصفح",
   "settings.permissions.originsHint": "المواقع التي يمكن للوكيل فتحها من دون سؤال.",
+  "settings.permissions.trusted.title": "المواقع الموثوقة",
+  "settings.permissions.trusted.description":
+    "يقرأ Psyche هذه المواقع دون سؤال في أي محادثة. أما الكتابة والنماذج والمواقع الحساسة فتسأل أولًا كالمعتاد.",
+  "settings.permissions.trusted.empty":
+    "لا توجد مواقع موثوقة بعد. اختر «دائمًا لهذا الموقع» عند أول طلب قراءة لإضافة موقع.",
+  "settings.permissions.trusted.added": "أُضيف في {date}",
+  "settings.permissions.trusted.remove": "إزالة",
+  "settings.permissions.trusted.removeNamed": "إزالة {name} من المواقع الموثوقة",
+  "settings.permissions.subject.trustedSiteSubdomains": "{origin} ونطاقاته الفرعية",
+  "settings.permissions.subject.hostProgram": "{program} في {folder}، بأي وسائط",
+  "settings.permissions.subject.hostProgramExact": "{program} في {folder}، بهذه الوسائط بالضبط",
+  "settings.permissions.sensitive.title": "المواقع الحساسة",
+  "settings.permissions.sensitive.description":
+    "تسأل البنوك والصحة والبريد الإلكتروني ومديرو كلمات المرور دائمًا قبل القراءة. وكذلك المواقع الحكومية ومواقع iCloud؛ أوقف فئة هنا لقراءتها دون سؤال.",
+  "settings.permissions.sensitive.governmentHint":
+    "المواقع التي تنتهي بـ .gov أو .gov.uk (حسابات الضرائب والهوية والصحة). مفعّلة افتراضيًا.",
+  "settings.permissions.sensitive.icloudHint":
+    "مواقع iCloud (البريد والصور والملفات). مفعّلة افتراضيًا.",
   "settings.permissions.noOrigins": "لا تصاريح دائمة لمواقع ويب. تسأل المواقع الجديدة أولًا.",
   "settings.permissions.scopeExpires": "{scope}، تنتهي {date}",
   "settings.permissions.revokeNamed": "إبطال {name}",
@@ -2290,6 +2575,19 @@ export const ar: Partial<Catalogue> = {
   "settings.connect.noSignIn": "لم يُرجع Gateway صفحة تسجيل دخول",
   "settings.connect.notConfigured":
     "لم يُعدّ {name} على Gateway هذا بعد: يحتاج إلى عميل OAuth خاص بك (دليل ربط Google في وثائق Psyche). أعدّه لاحقًا في الإعدادات ← الموصّلات.",
+  "settings.googleClient.using": "يتم استخدام عميل Google الخاص بك {clientId}.",
+  "settings.googleClient.fromConfig": "تم تعيينه في config.json أو في متغيرات البيئة.",
+  "settings.googleClient.change": "استخدام عميل آخر",
+  "settings.googleClient.help":
+    "ليس لدى Psyche عميل Google خاص به. أنشئ مرة واحدة عميل OAuth مجانيًا من نوع تطبيق سطح المكتب في مشروع Google Cloud الخاص بك، ثم الصق معرّفه هنا.",
+  "settings.googleClient.docs": "كيفية إنشائه",
+  "settings.googleClient.id": "معرّف العميل",
+  "settings.googleClient.idHint": "ينتهي بـ .apps.googleusercontent.com",
+  "settings.googleClient.invalid":
+    "هذا ليس معرّف عميل Google. يجب أن ينتهي بـ .apps.googleusercontent.com.",
+  "settings.googleClient.secret": "سر العميل",
+  "settings.googleClient.secretHint": "يُحفظ في خزنتك ولا يُرسل إلا إلى Google.",
+  "settings.googleClient.saveFailed": "تعذّر حفظ عميل Google: {reason}",
   "settings.connect.alreadyConnected": "{name} متصل بالفعل.",
   "settings.connect.needsPermission": "{name} مُعَدّ، لكن macOS لم يسمح به بعد. اسمح به في",
   "settings.connect.openSystemSettings": "فتح إعدادات النظام",
@@ -2420,7 +2718,6 @@ export const ar: Partial<Catalogue> = {
   "onboarding.model.copyFailed": "تعذّر النسخ. حدد المفتاح وانسخه.",
   "onboarding.model.recoveryBody":
     "أنشأ Psyche خزنتك للتو. احفظ هذا المفتاح في مدير كلمات سر أو على ورقة: فهو يُعرض الآن فقط وهو السبيل الوحيد للعودة إلى الخزنة بعد استعادة أو فقدان خانة مفتاح.",
-  "onboarding.model.savedIt": "حفظته",
   "onboarding.model.subscriptionNote":
     "يستخدم Psyche تطبيق Claude Code أو Codex المسجّل الدخول بالفعل على هذا الـ Mac، لذا لا يحتاج إلى مفتاح API ولا يخزّن أيًا منه. سجّل الدخول هناك أولًا إن لم تفعل.",
   "onboarding.model.toolCheck": "فحص استدعاء الأدوات",
@@ -2535,6 +2832,44 @@ export const ar: Partial<Catalogue> = {
   "screens.feed.explorationTopic": "{topic} · خانة استكشاف",
   "screens.feed.sourcesCount": "المصادر ({n, number})",
   "screens.feed.sources": "المصادر",
+  "screens.feed.sourcesEditor.button": "المصادر",
+  "screens.feed.sourcesEditor.title": "مصادر الخلاصة",
+  "screens.feed.sourcesEditor.description": "ما تقرؤه الخلاصة. يُحفَظ كل تغيير فور إجرائه.",
+  "screens.feed.sourcesEditor.builtIn": "المدمجة",
+  "screens.feed.sourcesEditor.builtInHint": "تقرأ الخلاصة هذه المصادر ما لم تُوقفها.",
+  "screens.feed.sourcesEditor.hackerNews": "Hacker News",
+  "screens.feed.sourcesEditor.hackerNewsHint": "أبرز القصص من Hacker News",
+  "screens.feed.sourcesEditor.arxiv": "arXiv",
+  "screens.feed.sourcesEditor.arxivHint": "أوراق جديدة من arXiv",
+  "screens.feed.sourcesEditor.feeds": "خلاصات RSS وAtom",
+  "screens.feed.sourcesEditor.feedsHint": "كل خلاصة عنوان ويب يبدأ بـ https:// أو http://.",
+  "screens.feed.sourcesEditor.fetchNote":
+    "لا تُظهر الخلاصة بعد متى قُرئت كل خلاصة آخر مرة أو إن كانت قد فشلت.",
+  "screens.feed.sourcesEditor.empty": "لم تُضَف أي خلاصة بعد.",
+  "screens.feed.sourcesEditor.notRead": "لا تُقرأ",
+  "screens.feed.sourcesEditor.kind": "RSS أو Atom",
+  "screens.feed.sourcesEditor.add": "إضافة خلاصة",
+  "screens.feed.sourcesEditor.addTitle": "أضف خلاصة جديدة",
+  "screens.feed.sourcesEditor.addLabel": "عنوان الخلاصة",
+  "screens.feed.sourcesEditor.addPlaceholder": "https://example.com/feed.xml",
+  "screens.feed.sourcesEditor.editLabel": "تعديل {host}",
+  "screens.feed.sourcesEditor.removeLabel": "إزالة {host}",
+  "screens.feed.sourcesEditor.removeTitle": "هل تريد إزالة {host} من الخلاصة؟",
+  "screens.feed.sourcesEditor.removeBody":
+    "لن تقرأ الخلاصة هذا العنوان بعد الآن. تبقى المنشورات التي كُتبت من قبل. يمكنك إضافة العنوان مرة أخرى لاحقاً.",
+  "screens.feed.sourcesEditor.confirmRemove": "إزالة الخلاصة",
+  "screens.feed.sourcesEditor.openLabel": "فتح {host} في المتصفح",
+  "screens.feed.sourcesEditor.openFailed": "تعذّر فتح {host}: {reason}",
+  "screens.feed.sourcesEditor.errEmpty": "أدخل عنوان الويب للخلاصة.",
+  "screens.feed.sourcesEditor.errInvalid": "هذا ليس عنوان ويب. ابدأ بـ https://.",
+  "screens.feed.sourcesEditor.errScheme": "لا تُقبل كخلاصات إلا عناوين http:// وhttps://.",
+  "screens.feed.sourcesEditor.errDuplicate": "هذه الخلاصة موجودة بالفعل في القائمة.",
+  "screens.feed.sourcesEditor.saved": "حُفظت مصادر الخلاصة",
+  "screens.feed.sourcesEditor.added": "أُضيفت الخلاصة",
+  "screens.feed.sourcesEditor.removed": "أُزيلت الخلاصة",
+  "screens.feed.sourcesEditor.saveFailed": "تعذّر حفظ مصادر الخلاصة: {reason}",
+  "screens.feed.sourcesEditor.loadFailed": "تعذّر تحميل مصادر الخلاصة",
+  "screens.feed.sourcesEditor.loading": "جارٍ تحميل مصادر الخلاصة",
   "screens.feed.feedbackOn": "ملاحظات على {title}",
   "screens.feed.like": "إعجاب",
   "screens.feed.moreFeedback": "مزيد من الملاحظات على {title}",
@@ -2668,6 +3003,28 @@ export const ar: Partial<Catalogue> = {
   "screens.files.preview": "معاينة",
   "screens.files.needsApp": "تحتاج المعاينات إلى تطبيق سطح المكتب أو تطبيق الويب.",
   "screens.files.pick": "اختر ملفًا لمعاينته هنا.",
+  "screens.files.editReadOnly": "للقراءة فقط: هذا المجلد مشارَك دون إمكانية التعديل.",
+  "screens.files.editOpening": "جارٍ فتح {name} للتعديل",
+  "screens.files.editFailed": "تعذّر على Psyche فتح {name} للتعديل ({reason}).",
+  "screens.files.editNotText": "{name} ليس نصًا بترميز UTF-8، لذا لا يمكن تعديله هنا.",
+  "screens.files.unsaved": "تغييرات غير محفوظة",
+  "screens.files.saved": "تم الحفظ",
+  "screens.files.saving": "جارٍ الحفظ…",
+  "screens.files.discardAsk": "هل تريد تجاهل التغييرات غير المحفوظة؟",
+  "screens.files.discard": "تجاهل",
+  "screens.files.keepEditing": "متابعة التعديل",
+  "screens.files.conflict": "تغيّر هذا الملف على القرص بعد أن فتحته.",
+  "screens.files.reload": "إعادة التحميل",
+  "screens.files.overwrite": "استبدال…",
+  "screens.files.overwriteAsk": "هل تريد استبدال النسخة الأحدث بتعديلاتك؟ ستفقد النسخة الأحدث.",
+  "screens.files.overwriteConfirm": "استبدال",
+  "screens.files.saveFailed": "تعذّر على Psyche حفظ {name} ({reason}).",
+  "screens.files.notSaved": "لم يتم الحفظ.",
+  "screens.files.editing": "تعديل {name}",
+  "screens.files.editTooLarge": "للعرض فقط: لا يمكن تعديل الملفات التي تزيد على 512 كيلوبايت هنا.",
+  "screens.files.saveTooLarge": "هذا التغيير أكبر من أن يُحفظ من هنا. اختصر النص وحاول مرة أخرى.",
+  "screens.files.editMixedEol": "يخلط {name} بين أنماط نهاية السطر، لذا لا يمكن تعديله هنا.",
+  "screens.files.draftRestored": "تمت استعادة التغييرات غير المحفوظة",
   "screens.library.section.documents": "المستندات",
   "screens.library.empty.documents":
     "لا مستندات بعد. الملفات التي ينشئها الوكيل أو يستلمها تظهر هنا.",
@@ -2708,10 +3065,26 @@ export const ar: Partial<Catalogue> = {
   "screens.library.openLabel": "فتح {name}{editor, select, true { في المحرر} other {}}",
   "screens.library.openInEditor": "فتح في المحرر",
   "screens.library.open": "فتح",
+  "screens.library.deleteDownload": "احذف هذا التنزيل",
+  "screens.library.deleteFailed": "تعذّر على Psyche حذف {name} ({reason}). يبقى في الحجر.",
+  "screens.library.recording.description":
+    "إعادة تشغيل لما فعله الوكيل في المتصفح. حُجب محتوى الصفحة عند التسجيل.",
+  "screens.library.recording.play": "تشغيل",
+  "screens.library.recording.pause": "إيقاف مؤقت",
+  "screens.library.recording.step": "الخطوة {n} من {total}",
+  "screens.library.recording.scrub": "الموضع في التسجيل",
+  "screens.library.recording.steps": "الخطوات",
+  "screens.library.recording.empty": "لا تحتوي هذه اللقطة على خطوات.",
+  "screens.library.recording.noFrame": "لا توجد صورة لهذه الخطوة.",
+  "screens.library.recording.frameAlt": "المتصفح عند الخطوة {n}",
+  "screens.library.recording.loading": "جارٍ تحميل التسجيل",
+  "screens.library.recording.loadFailed": "تعذّر على Psyche تحميل هذا التسجيل ({reason}).",
+  "screens.library.recording.notFound": "لم يعد هذا التسجيل متاحًا.",
   "screens.library.trust": "الوثوق بهذا الملف",
   "screens.library.moreFor": "مزيد من الإجراءات لـ {name}",
   "screens.library.quickLook": "نظرة سريعة",
   "screens.library.reveal": "إظهار في Finder",
+  "screens.library.revealFailed": "تعذّر عرض هذا الملف: {reason}",
   "screens.library.sendToChat": "إرسال إلى الدردشة",
   "screens.library.loading": "جارٍ تحميل المكتبة",
   "screens.library.loadFailed": "تعذّر على Psyche تحميل المكتبة",
@@ -2977,10 +3350,10 @@ export const ar: Partial<Catalogue> = {
   "web.viewers.noPath": "لا مسار لهذا الملف.",
   "web.shortcut.palette": "لوحة الأوامر",
   "web.shortcut.newSideChat": "دردشة جانبية جديدة",
+  "web.shortcut.newIncognitoChat": "دردشة متخفية جديدة",
   "web.shortcut.closeThreadView": "إغلاق عرض المحادثة أو النافذة المنبثقة",
   "web.shortcut.toggleThreadList": "إظهار/إخفاء قائمة المحادثات",
   "web.shortcut.cycleThreads": "التنقل بين المحادثات",
-  "web.shortcut.forkSelection": "تفريع التحديد إلى دردشة جانبية",
   "web.shortcut.stop": "إيقاف التشغيل؛ تحرير تولّي التحكم",
   "web.shortcut.cycleDisclosure": "التنقل بين مستويات العرض: الحالة، الإجراءات، خام",
   "web.shortcut.openBrowserPane": "لوحة المتصفح",
@@ -3019,7 +3392,9 @@ export const ar: Partial<Catalogue> = {
   "web.threads.untitled": "بلا عنوان",
   "web.threads.label": "المحادثات",
   "web.threads.newSideChatTitle": "دردشة جانبية جديدة (⌘N)",
+  "web.threads.newIncognitoChatTitle": "دردشة متخفية جديدة",
   "web.threads.newSideChat": "+ دردشة جانبية",
+  "web.threads.newIncognitoChat": "+ متخفية",
   "web.threads.searchLabel": "البحث في المحادثات",
   "web.threads.searchPlaceholder": "بحث",
   "web.threads.empty": "لا دردشات جانبية بعد.",
@@ -3337,8 +3712,13 @@ export const ar: Partial<Catalogue> = {
   // password approvals on Linux (polkit)
   ...passwordPresence,
   ...helperCheck,
+  ...helperOffline,
   // the security-records banner (docs/design/security-state-integrity-2026.md §7.3)
   ...securityState,
+  // Gateway-authored notices (inbox notifications, security alerts)
+  ...notices,
   // Settings > Computer use > Separate desktop (Linux)
   ...separateDesktop,
+  // Windows variants of the sandbox PC, voice keys and platform terms
+  ...windowsPlatform202611,
 };

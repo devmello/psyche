@@ -197,7 +197,7 @@ describe("Settings → Passkeys against the Gateway (issue #79)", () => {
 });
 
 describe("a security setting approved with a passkey (issue #79)", () => {
-  it("shows the policy_change card, answers it with presence and saves with the approvalId", async () => {
+  it("shows the policy_change card, answers it with a plain tap and saves with the approvalId", async () => {
     const { owner, deviceId } = await setup();
     const { credentials, authenticator } = mockedNavigator();
     const host: PasskeyHost = { deviceId: async () => deviceId, authenticator };
@@ -251,12 +251,13 @@ describe("a security setting approved with a passkey (issue #79)", () => {
     expect(
       await screen.findByText("Saved “Permission policy”.", {}, { timeout: 4000 }),
     ).toBeTruthy();
-    expect(credentials.get).toHaveBeenCalledTimes(1);
+    // Approvals are a plain tap (owner decision, 2026-11-09): only payments and adding a verifier
+    // ask for presence. A policy change is neither, so no passkey sheet opens and the answer
+    // carries no presence payload.
+    expect(credentials.get).not.toHaveBeenCalled();
     expect(answers).toHaveLength(1);
-    expect(answers[0]).toMatchObject({
-      decision: "approve",
-      presence: { kind: "webauthn", deviceId, payload: { credentialId: expect.any(String) } },
-    });
+    expect(answers[0]).toMatchObject({ decision: "approve" });
+    expect((answers[0] as { presence?: unknown }).presence).toBeUndefined();
     const saved = await owner.call<{ settings: Record<string, { folders?: unknown[] }> }>(
       "settings.get",
       { keys: ["permissions.policy"] },

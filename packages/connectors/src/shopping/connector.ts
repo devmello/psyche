@@ -138,6 +138,12 @@ export interface ShoppingFactoryOptions {
   browser: BrowserDriver;
   /** Browser profile for storefront sessions; default the driver's first profile. */
   profileId?: string;
+  /**
+   * Set when the Gateway has Stripe Link configured: the hand-off then points the agent at the
+   * pay tool (it reads the checkout tab itself and asks for the device-only Pay card) instead of
+   * saying paying is not set up.
+   */
+  payments?: { tool: string };
 }
 
 interface LineItem {
@@ -244,6 +250,7 @@ export class ShoppingConnector implements Connector {
   readonly #ctx: ConnectorContext;
   readonly #browser: BrowserDriver;
   readonly #profileId: string | undefined;
+  readonly #payments: { tool: string } | undefined;
   #merchants: Merchant[];
   #status: ConnectorRecord["status"];
 
@@ -252,6 +259,7 @@ export class ShoppingConnector implements Connector {
     this.#ctx = ctx;
     this.#browser = options.browser;
     this.#profileId = options.profileId;
+    this.#payments = options.payments;
     this.#merchants = parseMerchants(record.config as Record<string, unknown>);
     this.#status = record.status;
   }
@@ -542,8 +550,16 @@ export class ShoppingConnector implements Connector {
               total: totalDisplay,
               currency: total.currency,
               checkoutUrl: `${m.origin}${m.cartPath}`,
-              payment: "not_configured",
-              note: "No payment was made and no order was placed. Paying needs Stripe Link (G12), which is not set up yet.",
+              ...(this.#payments === undefined
+                ? {
+                    payment: "not_configured",
+                    note: "No payment was made and no order was placed. Paying needs Stripe Link (G12), which is not set up yet.",
+                  }
+                : {
+                    payment: "stripe_link",
+                    payTool: this.#payments.tool,
+                    note: `No payment was made and no order was placed. To pay, open the checkout in a browser tab, read it, and call ${this.#payments.tool} with that tab id; the owner approves the exact merchant and total first.`,
+                  }),
             },
             {
               externalRefs: { merchant: m.id, total: totalDisplay },

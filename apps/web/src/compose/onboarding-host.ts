@@ -227,9 +227,6 @@ export async function saveMemory(call: Call, choices: MemoryChoices): Promise<vo
   }
 }
 
-/** `devices.presence.allowDevFileKey` (Gateway `DEV_FILE_KEY_SETTING`). */
-const DEV_FILE_KEY_SETTING = "devices.presence.allowDevFileKey";
-
 /** The desktop's Touch ID methods onboarding uses (`platform.helper.touchId`). */
 export interface HelperTouchId {
   identity(): Promise<BundledHelperKey | null>;
@@ -237,9 +234,11 @@ export interface HelperTouchId {
 }
 
 /**
- * Touch ID key setup for Safety, in the same Gateway calls Settings → Devices makes: the key the
- * bundled helper reports, whether the Gateway holds it, the development-key switch, and
- * registering exactly that key. Without a helper port (the web) there is no setup to offer.
+ * Presence key setup for Safety, in the same Gateway calls Settings → Devices makes: the key the
+ * bundled helper reports, whether the Gateway holds it, and registering exactly that key (a
+ * Windows Hello key). A Mac helper needs no key: the Gateway lists its own device key for it, so
+ * it reads as set up once the helper is paired. Without a helper port (the web) there is no setup
+ * to offer.
  */
 export function touchIdSetup(
   call: Call,
@@ -250,26 +249,21 @@ export function touchIdSetup(
     async status() {
       const identity = await helper.identity().catch(() => null);
       let registered = false;
-      if (identity?.keyId !== undefined) {
+      if (identity !== null) {
         const list = (await call("devices.presenceKey.list", {}).catch(() => ({
           presenceKeys: [],
-        }))) as { presenceKeys: { deviceId: string; keyId: string }[] };
+        }))) as { presenceKeys: { deviceId: string; keyId: string; kind?: string }[] };
         registered = list.presenceKeys.some(
-          (k) => k.deviceId === identity.deviceId && k.keyId === identity.keyId,
+          (k) =>
+            k.deviceId === identity.deviceId &&
+            (k.kind === "device_identity" ||
+              (identity.keyId !== undefined && k.keyId === identity.keyId)),
         );
       }
-      const dev = await readSettings(call, [DEV_FILE_KEY_SETTING]);
-      return { identity, registered, allowDevFileKey: dev[DEV_FILE_KEY_SETTING] === true };
+      return { identity, registered };
     },
     async register() {
       await helper.register();
-    },
-    async allowDevFileKey(on) {
-      await call(
-        "settings.set",
-        { key: DEV_FILE_KEY_SETTING, value: on },
-        { idempotencyKey: key("dev-file-key") },
-      );
     },
   };
 }
@@ -286,5 +280,52 @@ export async function createStarterAutomation(
     "automations.create",
     { kind: "cron", title, schedule: cron, prompt, ...(timezone ? { timezone } : {}) },
     { idempotencyKey: key(`automation:${title}`) },
+  );
+}
+
+/**
+ * The Folders step's ticked folders, added to `permissions.policy.folders` read only (never
+ * read-write) with one `settings.set`. The Gateway refuses a sensitive root, and when a
+ * verifier is enrolled it answers `approval_required` with a plain-tap `policy_change` card:
+ * that error is thrown, not swallowed, so the flow can ask the owner to approve and call again
+ * with `approvalId`. A folder already in the list keeps its mode. Nothing is written when
+ * nothing was ticked.
+ */
+export async function shareStarterFolders(
+  call: Call,
+  folders: readonly { id: string; path: string }[] | undefined,
+  approvalId?: string,
+): Promise<void> {
+  // Only the id is checked here; the Gateway's `assertFolderGrantable` is the gate on the path
+  // (a Windows drive or UNC path is as valid as a POSIX one).
+  const wanted = (folders ?? []).filter(
+    (f) => ["documents", "desktop", "downloads"].includes(f.id) && f.path !== "",
+  );
+  if (wanted.length === 0) return;
+  const read = (await call("settings.get", { keys: ["permissions.policy"] })) as {
+    settings?: Record<string, unknown>;
+  };
+  const stored = read.settings?.["permissions.policy"];
+  const policy =
+    typeof stored === "object" && stored !== null && !Array.isArray(stored)
+      ? (stored as Record<string, unknown>)
+      : {};
+  const existing = Array.isArray(policy.folders)
+    ? (policy.folders as { path: string; mode: "ro" | "rw" }[])
+    : [];
+  const added = wanted
+    // Without case: `/Users/x/documents` and `/Users/x/Documents` are one folder on macOS and
+    // Windows, and a second entry differing only in case would be untidy at best.
+    .filter((f) => !existing.some((e) => e.path.toLowerCase() === f.path.toLowerCase()))
+    .map((f) => ({ path: f.path, mode: "ro" as const }));
+  if (added.length === 0) return;
+  await call(
+    "settings.set",
+    {
+      key: "permissions.policy",
+      value: { ...policy, folders: [...existing, ...added] },
+      ...(approvalId === undefined ? {} : { approvalId }),
+    },
+    { idempotencyKey: key("folders") },
   );
 }

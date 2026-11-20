@@ -25,9 +25,10 @@ The main window: the left rail, the thread list with the main chat and two side 
 
 - **Main chat.** One persistent thread. It cannot be archived.
 - **Side chats.** Press ⌘N, or click "New side chat" in the thread list.
+- **Incognito chats.** Press ⇧⌘N, click "New incognito chat" in the thread list, or type `/incognito`. An incognito chat shows a badge and a line saying what is different. Nothing from it is written to memory or search, it is left out of your activity, and other chats cannot read it. Its messages are kept on your Mac until it expires 24 hours after it starts, and the model provider still receives them as in any chat.
 - **Thread menu (More).** Rename, Pin or Unpin, Archive or Restore. Archived chats sit in an "Archived (n)" group.
 - **Message menu (⋯).** **Reply** quotes a message, and the agent sees the quote. **Continue in a side chat** forks the conversation from that message into a new side chat. **Edit and resend** on your own message sends the edit in a side chat forked from there; the original chat keeps the original.
-- **Keyboard.** ⌘K opens the palette, ⌘B shows or hides the thread list, ⌃Tab cycles threads, ⌘/ lists every shortcut.
+- **Keyboard.** ⌘K opens the palette, ⌘N starts a side chat, ⇧⌘N starts an incognito chat, ⌘B shows or hides the thread list, ⌃Tab cycles threads, ⌘/ lists every shortcut.
 
 ### The composer
 
@@ -46,7 +47,7 @@ Supported providers: Anthropic, OpenAI, Google (Gemini), OpenRouter, any OpenAI-
 
 ### Permission mode
 
-Each thread has a permission mode: **manual**, **balanced** (the default), **auto** or **plan**. Change it from the shield menu in the chat header, or press ⇧⌘M to cycle. **auto** needs a model on the auto-mode allowlist; pick one with `/model` first. What each mode allows is in [Approvals and tiers](/security/approvals-and-tiers).
+Each thread has a permission mode: **manual**, **balanced** (the default), **auto** or **plan**. Change it from the shield menu in the chat header, or press ⇧⌘M to cycle. The Manual / Balanced / Auto switch above the message box sets it in one click, for this chat; in the main chat it is also remembered as the default for new chats, where the model allows Auto (the first time you pick Auto, a line explains it). **auto** runs only on a model on the auto-mode allowlist, which covers the current Claude, GPT and Gemini models, the small tiers (Haiku, luna, flash) included, but not older generations or local models; on any other model the switch offers "Switch to <model> and use Auto" with a model you have a key for. Payments always ask and your never list is always refused, in every mode. What each mode allows is in [Approvals and tiers](/security/approvals-and-tiers).
 
 ### Slash commands
 
@@ -75,12 +76,11 @@ Switching a thread's model or mode asks nothing, but some changes are refused: `
 
 ## Limits today
 
-- **Attachments are not available.** The composer has no attach button, and dragging or pasting a file into the chat does nothing yet. Share a folder in Settings → File access and ask the agent to read the file from there (see [Documents and files](/using/documents-and-files)).
-- You cannot add or replace a provider key in Settings → Model & providers yet. Keys are stored only during onboarding, or set through the Gateway's environment.
+- **Attachments are limited.** Use the attach button, drop a file on the composer or paste one. A message takes up to 8 files; images up to 5 MB and other files up to 25 MB. Images need a model that can see them. Files the composer does not accept, and files over the limit, are listed with the reason. Files in a shared folder are also available: see [Documents and files](/using/documents-and-files).
+- You can add or replace a provider key in Settings → Model & providers. Keys saved there are stored in the vault.
 - You cannot delete a single thread. Archive it, then use "Delete archived threads" in Settings → Data controls. Deleting a chat does not delete what the agent learned from it.
 - The "Export as Markdown / JSON / HTML" menu items do nothing; use `/export`. In the desktop app, whether `/export` saves a file is not confirmed.
-- When ⇧⌘M cannot switch to auto, the message wrongly says "Changing the permission mode needs a newer Gateway." The real reason is that the thread's model is not on the auto-mode allowlist.
-- The ⌘; "Fork selection" shortcut is listed but does nothing.
+- When a model is not on the auto-mode allowlist, Auto is refused with "Auto can't run on {model}." The switch offers your nearest allowed model in one tap.
 - The model pill in the header appears only once a thread has its own model.
 - With adaptive thinking on Anthropic models, older versions failed a thread when its mode, model or tools changed between turns. This was fixed in 0.3.
 

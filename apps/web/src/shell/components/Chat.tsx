@@ -1,5 +1,18 @@
 import type { ApprovalRequest, Message, PermissionMode, Thread } from "@psyche/protocol";
-import { t } from "@psyche/ui";
+import {
+  applyModeChoice,
+  autoExplainerSeen,
+  autoModeBlockedBy,
+  autoModeSuggestion,
+  isAutoModelRefusal,
+  type ListedModels,
+  markAutoExplainerSeen,
+  SWITCH_MODES,
+  type SwitchMode,
+  safeLocalStorage,
+  shortModel,
+  t,
+} from "@psyche/ui";
 import {
   type ClipboardEvent,
   type DragEvent,
@@ -541,8 +554,136 @@ export function Composer(props: {
   );
 }
 
+const MODE_LABEL: Record<SwitchMode, () => string> = {
+  manual: () => t("agent.mode.manual"),
+  balanced: () => t("agent.mode.balanced"),
+  auto: () => t("agent.mode.auto"),
+};
+
+/**
+ * Manual / Balanced / Auto in one click above the composer. The choice applies to this chat and
+ * becomes the default for new ones. Auto on a model that cannot run it offers the owner's nearest
+ * allowed model; the first time Auto is chosen a one-line explanation shows.
+ */
+export function ModeSwitch(props: {
+  thread: Thread;
+  listed: ListedModels | undefined;
+  disabled?: boolean;
+}): ReactElement {
+  const { store } = useShell();
+  const [offer, setOffer] = useState<{ model: string | null } | null>(null);
+  const [explainer, setExplainer] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [busy, setBusy] = useState(false);
+  const [notSaved, setNotSaved] = useState(false);
+  const modelRef = props.thread.modelRef ?? null;
+
+  const choose = async (mode: SwitchMode, pinned?: string): Promise<void> => {
+    setError(null);
+    setNotSaved(false);
+    if (mode === "auto" && pinned === undefined) {
+      const blocked = autoModeBlockedBy(props.listed, modelRef);
+      if (blocked !== null) {
+        setOffer({ model: blocked });
+        return;
+      }
+    }
+    setOffer(null);
+    setBusy(true);
+    try {
+      const saved = await applyModeChoice(
+        (m, p) => store.call(m, p),
+        { id: props.thread.id, kind: props.thread.kind },
+        mode,
+        pinned,
+      );
+      if (saved === "failed") setNotSaved(true);
+      void store.refresh();
+      if (mode === "auto" && !autoExplainerSeen(safeLocalStorage())) setExplainer(true);
+    } catch (err) {
+      const refusal = isAutoModelRefusal(err);
+      if (refusal !== null) setOffer(refusal);
+      else setError(err instanceof Error ? err.message : String(err));
+    } finally {
+      setBusy(false);
+    }
+  };
+  const suggestion = offer === null ? null : autoModeSuggestion(props.listed, modelRef);
+
+  return (
+    <div className="mode-switch" data-testid="mode-switch">
+      <div role="radiogroup" aria-label={t("chat.modeSwitch.label")} className="mode-switch-group">
+        {SWITCH_MODES.map((m) => (
+          // biome-ignore lint/a11y/useSemanticElements: a segmented control inside a radiogroup
+          <button
+            key={m}
+            type="button"
+            role="radio"
+            aria-checked={props.thread.permissionMode === m}
+            disabled={props.disabled || busy}
+            className="pill"
+            data-testid={`mode-switch-${m}`}
+            onClick={() => void choose(m)}
+          >
+            {MODE_LABEL[m]()}
+          </button>
+        ))}
+      </div>
+      {offer !== null ? (
+        <p role="status" data-testid="mode-switch-offer">
+          {suggestion === null ? (
+            // "Add its key" only once `models.list` has said what is configured.
+            props.listed === undefined ? (
+              offer.model === null ? (
+                t("chat.modeSwitch.needsModel")
+              ) : (
+                t("chat.modeSwitch.autoUnavailable", { model: shortModel(offer.model) })
+              )
+            ) : (
+              t("chat.modeSwitch.noModel")
+            )
+          ) : (
+            <>
+              {offer.model === null
+                ? t("chat.modeSwitch.needsModel")
+                : t("chat.modeSwitch.autoUnavailable", { model: shortModel(offer.model) })}{" "}
+              <button
+                type="button"
+                className="pill"
+                data-testid="mode-switch-take-offer"
+                onClick={() => void choose("auto", suggestion)}
+              >
+                {t("chat.modeSwitch.switchModel", { model: shortModel(suggestion) })}
+              </button>
+            </>
+          )}
+        </p>
+      ) : null}
+      {explainer ? (
+        <p data-testid="mode-switch-explainer">
+          {t("chat.modeSwitch.autoExplainer")}{" "}
+          <button
+            type="button"
+            className="pill"
+            onClick={() => {
+              markAutoExplainerSeen(safeLocalStorage());
+              setExplainer(false);
+            }}
+          >
+            {t("chat.modeSwitch.gotIt")}
+          </button>
+        </p>
+      ) : null}
+      {notSaved ? <p role="status">{t("chat.modeSwitch.notSaved")}</p> : null}
+      {error !== null ? <p role="alert">{t("chat.modeSwitch.failed", { reason: error })}</p> : null}
+    </div>
+  );
+}
+
 export function ChatView(props: {
   thread: Thread | null;
+  /** `models.list`, for the mode switch's Auto offer. */
+  listedModels?: ListedModels | undefined;
   onModeCycle: () => void;
   /** The model that keeps this thread out of Auto, when known (the mode pill says so). */
   autoBlockedBy?: string | null;
@@ -615,6 +756,9 @@ export function ChatView(props: {
       {dock.slice(-1).map((a) => (
         <ApprovalDock key={a.id} approval={a} />
       ))}
+      {props.thread ? (
+        <ModeSwitch thread={props.thread} listed={props.listedModels} disabled={offline} />
+      ) : null}
       <Composer
         thread={props.thread}
         disabled={offline}

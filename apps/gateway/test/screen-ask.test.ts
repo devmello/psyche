@@ -1,6 +1,7 @@
 import { existsSync, mkdtempSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
+import { createCanvas } from "@napi-rs/canvas";
 import { getAgentThreadState, updateDevice } from "@psyche/db";
 import type { ModelEvent, ModelRequest } from "@psyche/protocol";
 import { FakeModelProvider } from "@psyche/testing";
@@ -32,7 +33,8 @@ const callTool = (id: string, name: string, input: unknown): ModelEvent[] => [
   { type: "finish", reason: "tool_calls" },
 ];
 
-const FRAME = Buffer.from("fake-jpeg-bytes").toString("base64");
+/** A real (tiny) JPEG: screen.look's frame is decoded and re-encoded before the model sees it. */
+const FRAME = createCanvas(16, 10).encodeSync("jpeg", 80).toString("base64");
 const CONTEXT = {
   appName: "Safari",
   bundleId: "com.apple.Safari",
@@ -237,7 +239,9 @@ describe("screen ask (Gateway)", () => {
       .flatMap((m) => m.parts)
       .find((p) => p.type === "tool_result") as { output: unknown; isError?: boolean } | undefined;
     expect(result?.isError ?? false).toBe(false);
-    expect(JSON.stringify(result?.output)).toContain(FRAME);
+    expect(result?.output).toContainEqual(
+      expect.objectContaining({ type: "image", mime: "image/jpeg" }),
+    );
   });
 
   it("a dropped capture sends text context only and deletes the frame", async () => {

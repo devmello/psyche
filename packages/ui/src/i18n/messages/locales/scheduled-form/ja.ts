@@ -1,0 +1,55 @@
+import type { Catalogue } from "../../index.ts";
+
+/** Automation form strings (ja); merged into `../ja.ts`. */
+export const scheduledForm: Partial<Catalogue> = {
+  "scheduled.form.edit.title": "自動化を編集",
+  "scheduled.form.prompt": "Psyche に何をさせますか？",
+  "scheduled.form.prompt.hint":
+    "Psyche に頼むように書いてください。誰も見ていない状態で実行されるため、質問はできません。",
+  "scheduled.form.name": "名前（任意）",
+  "scheduled.form.name.hint": "空欄の場合は指示文の最初の行を使います。",
+  "scheduled.form.when": "実行タイミング",
+  "scheduled.form.zone": "時刻は {zone} です。",
+  "scheduled.form.when.kind": "繰り返し",
+  "scheduled.form.when.once": "1 回、日時を指定",
+  "scheduled.form.when.daily": "毎日、時刻を指定",
+  "scheduled.form.when.weekdays": "平日、時刻を指定",
+  "scheduled.form.when.weekly": "毎週、選んだ曜日",
+  "scheduled.form.when.interval": "数時間ごと",
+  "scheduled.form.when.custom": "現在のスケジュール：{schedule}",
+  "scheduled.form.date": "日付",
+  "scheduled.form.time": "時刻",
+  "scheduled.form.days": "実行する曜日",
+  "scheduled.form.hours": "実行の間隔（時間）",
+  "scheduled.form.custom.hint":
+    "Psyche はこのスケジュールをそのまま保持します。変更するには別の選択肢を選んでください。",
+  "scheduled.form.switch.hint":
+    "1 回だけの自動化は繰り返しにできず、繰り返しの自動化は 1 回だけにできません。その場合は新しく作成してください。",
+  "scheduled.form.next": "次の実行",
+  "scheduled.form.next.none": "このスケジュールでは以降の実行はありません。",
+  "scheduled.form.delivery": "結果の送り先",
+  "scheduled.form.delivery.inbox": "受信トレイ",
+  "scheduled.form.delivery.thread": "チャット",
+  "scheduled.form.delivery.none": "送らない（通知なし）",
+  "scheduled.form.delivery.threadPick": "チャット",
+  "scheduled.form.delivery.pick": "チャットを選ぶ",
+  "scheduled.form.enabled": "有効",
+  "scheduled.form.enabled.hint": "オフにすると、実行せずに保存しておけます。",
+  "scheduled.form.approvals":
+    "実行中に承認が必要な操作があっても、その場では確認しません。操作は承認キューの「保留」に入り、回答するまで待ちます。",
+  "scheduled.form.save": "保存",
+  "scheduled.form.cancel": "キャンセル",
+  "scheduled.form.delete": "削除",
+  "scheduled.form.error.prompt": "Psyche にさせたいことを書いてください。",
+  "scheduled.form.error.name": "名前は 200 文字以内にしてください。",
+  "scheduled.form.error.date": "日付を選んでください。",
+  "scheduled.form.error.time": "時刻を選んでください。",
+  "scheduled.form.error.past": "その時刻はすでに過ぎています。後の時刻を選んでください。",
+  "scheduled.form.error.days": "少なくとも 1 日を選んでください。",
+  "scheduled.form.error.hours": "1 から 168 までの整数の時間を入力してください。",
+  "scheduled.form.error.switch":
+    "1 回だけの自動化と繰り返しの自動化は、互いに変更できません。新しく作成してください。",
+  "scheduled.form.error.thread": "結果を送るチャットを選ぶか、別の送り先を選んでください。",
+  "scheduled.form.notFound": "その自動化はもうありません。",
+  "scheduled.form.toast.created": "{title} を作成しました",
+};

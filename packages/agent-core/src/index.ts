@@ -13,6 +13,7 @@ export * from "./context.ts";
 export * from "./deferred.ts";
 export * from "./evaluator.ts";
 export * from "./evidence.ts";
+export * from "./fence.ts";
 export * from "./hooks.ts";
 export * from "./image-tokens.ts";
 export * from "./loop.ts";
@@ -25,6 +26,7 @@ export * from "./requester.ts";
 export * from "./routines.ts";
 export * from "./specialists.ts";
 export * from "./state.ts";
+export * from "./tool-output.ts";
 export * from "./turn-context.ts";
 export {
   bindingHash,

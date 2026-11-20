@@ -33,6 +33,8 @@ export interface LibraryPageOptions {
   taskId?: string;
   /** Case-insensitive substring of the name. */
   query?: string;
+  /** Only quarantined items (`true`) or only released ones (`false`). */
+  quarantined?: boolean;
   offset?: number;
   limit?: number;
 }
@@ -100,6 +102,9 @@ export function listLibraryItemsPage(
     opts.kind === undefined ? undefined : eq(libraryItems.kind, opts.kind),
     opts.threadId === undefined ? undefined : eq(libraryItems.threadId, opts.threadId),
     opts.taskId === undefined ? undefined : eq(libraryItems.taskId, opts.taskId),
+    opts.quarantined === undefined
+      ? undefined
+      : eq(libraryItems.quarantined, opts.quarantined ? 1 : 0),
     escaped === undefined
       ? undefined
       : sql`lower(${libraryItems.name}) LIKE ${`%${escaped.toLowerCase()}%`} ESCAPE '\\'`,
@@ -118,4 +123,15 @@ export function listLibraryItemsPage(
 /** Removes the row; true when one was there. The caller removes the file first. */
 export function deleteLibraryItem(db: PsycheDb, id: string): boolean {
   return db.drizzle.delete(libraryItems).where(eq(libraryItems.id, id)).run().changes > 0;
+}
+
+/** Clears the quarantine flag; true when a quarantined row was there. */
+export function releaseLibraryItem(db: PsycheDb, id: string): boolean {
+  return (
+    db.drizzle
+      .update(libraryItems)
+      .set({ quarantined: 0 })
+      .where(and(eq(libraryItems.id, id), eq(libraryItems.quarantined, 1)))
+      .run().changes > 0
+  );
 }

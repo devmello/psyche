@@ -43,8 +43,11 @@ const OWNER_KEY = "psyche.chat-outbox.device.v1";
 
 /** Wire codes where waiting and trying again can work; any other answer is final. */
 const TRANSIENT = new Set(["unavailable", "timeout", "rate_limited", "internal", "cancelled"]);
-/** Codes that mean the connection, not the message: they never count against it. */
-const CONNECTION = new Set(["unavailable", "timeout"]);
+/**
+ * Codes that mean the connection or the device's request budget, not the message: they never count
+ * against it. `rate_limited` is the Gateway asking for a pause; the store waits that pause out.
+ */
+const CONNECTION = new Set(["unavailable", "timeout", "rate_limited"]);
 
 /** After this many answered failures a message is given up on and handed back to the owner. */
 export const OUTBOX_MAX_FAILURES = 5;
