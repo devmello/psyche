@@ -2810,7 +2810,11 @@ export class PsycheAgentLoop implements AgentLoop {
       );
     let desc: ToolCallDescription = {};
     try {
-      desc = reg.describeCall?.(call.input) ?? {};
+      desc =
+        reg.describeCall?.(call.input, {
+          runId: run.runId,
+          ...(run.taskId === undefined ? {} : { taskId: run.taskId }),
+        }) ?? {};
     } catch (err) {
       return this.#blocked(run, call, `invalid params: ${errorMessage(err)}`, "failed");
     }
