@@ -15,6 +15,7 @@ import {
   type WorkSignalReport,
 } from "@psyche/memory";
 import { type Clock, MEMORY_WORK_SETTING_KEY, type WorkReminderList } from "@psyche/protocol";
+import { failureRuns } from "../failure-runs.ts";
 import type { People } from "./people.ts";
 import type { AppleSearchSeams } from "./search-apple.ts";
 import type { ComposedPart } from "./services.ts";
@@ -411,6 +412,7 @@ export function composeWork(deps: WorkDeps): Work {
           return b.freshGrantedFolders === undefined ? b.grantedFolders() : b.freshGrantedFolders();
         }));
   const settings = () => workSettings(getSetting(db, MEMORY_WORK_SETTING_KEY)?.value);
+  const failures = failureRuns({ now: () => clock.now() });
   let running = false;
 
   const run = async (
@@ -425,12 +427,19 @@ export function composeWork(deps: WorkDeps): Work {
       await sources.refresh?.().catch(() => failed.push("refresh"));
       const attempt = async <T>(name: string, read: () => Promise<T>): Promise<T | undefined> => {
         try {
-          return await read();
+          const out = await read();
+          failures.ok(name);
+          return out;
         } catch (err) {
           failed.push(name);
-          deps.logger?.log("warn", `work signals: reading ${name} failed`, {
-            error: err instanceof Error ? err.message : String(err),
-          });
+          const error = err instanceof Error ? err.message : String(err);
+          // A repeat of the same failure is counted, not logged on every pass (`failureRuns`).
+          const v = failures.fail(name, error);
+          if (v.log)
+            deps.logger?.log("warn", `work signals: reading ${name} failed`, {
+              error,
+              repeats: v.repeats,
+            });
           return undefined;
         }
       };
