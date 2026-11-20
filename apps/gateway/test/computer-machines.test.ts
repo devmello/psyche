@@ -1024,7 +1024,11 @@ describe("the Host's own virtual screen next to the machine router", () => {
             },
           };
         }
-        return { ok: true, result: { status: "ok", app }, receipt: { outcome: "ok", summary: "ok" } };
+        return {
+          ok: true,
+          result: { status: "ok", app },
+          receipt: { outcome: "ok", summary: "ok" },
+        };
       },
     };
   }
@@ -1064,37 +1068,43 @@ describe("the Host's own virtual screen next to the machine router", () => {
   describe.each(routes)("with %s", (_route, setup) => {
     beforeEach(() => setup());
 
-    it.each(ctxs)("must allow: %s with no machine reaches the Host's screen only", async (_l, ctx) => {
-      const r = await call("computer.snapshot", { app: editor, surface: "virtual_screen" }, ctx);
-      expect(r.isError, JSON.stringify(r.output)).toBeUndefined();
-      expect(screen.calls.map((c) => c.capability)).toEqual(["computer.ax_tree"]);
-      expect(screen.calls[0]?.machine).toBeUndefined();
-      expect(screen.calls[0]?.params).not.toHaveProperty("machine");
-      expect(callsOf(nodes.get(A.deviceId))).toHaveLength(0);
-      expect(callsOf(nodes.get(B.deviceId))).toHaveLength(0);
-      expect(callsOf(host)).toHaveLength(0);
-      expect(cu.sessions().every((s) => s.machine === undefined)).toBe(true);
-    });
+    it.each(ctxs)(
+      "must allow: %s with no machine reaches the Host's screen only",
+      async (_l, ctx) => {
+        const r = await call("computer.snapshot", { app: editor, surface: "virtual_screen" }, ctx);
+        expect(r.isError, JSON.stringify(r.output)).toBeUndefined();
+        expect(screen.calls.map((c) => c.capability)).toEqual(["computer.ax_tree"]);
+        expect(screen.calls[0]?.machine).toBeUndefined();
+        expect(screen.calls[0]?.params).not.toHaveProperty("machine");
+        expect(callsOf(nodes.get(A.deviceId))).toHaveLength(0);
+        expect(callsOf(nodes.get(B.deviceId))).toHaveLength(0);
+        expect(callsOf(host)).toHaveLength(0);
+        expect(cu.sessions().every((s) => s.machine === undefined)).toBe(true);
+      },
+    );
 
-    it.each(ctxs)("must allow: %s asks with a card that names the Host, not a machine", async (_l, ctx) => {
-      const desc = tools.get("computer.act")?.describeCall?.(typed, {
-        runId: "run_1",
-        ...(ctx.taskId === undefined ? {} : { taskId: ctx.taskId }),
-      });
-      expect(desc?.bindingFields).toMatchObject({ surface: "virtual_screen" });
-      expect(desc?.bindingFields).not.toHaveProperty("machine");
-      const r = await call("computer.act", typed, ctx);
-      expect(r.isError, JSON.stringify(r.output)).toBeUndefined();
-      expect(requested).toHaveLength(1);
-      expect(requested[0]?.machine).toBeUndefined();
-      expect(requested[0]?.details).not.toHaveProperty("machine");
-      expect(requested[0]?.summary).toMatch(/^On the virtual screen: /);
-      expect(requested[0]?.summary).not.toMatch(/lab-box|build-box/);
-      expect(issued[0]?.approval.machine).toBeUndefined();
-      expect(screen.calls.filter((c) => c.capability === "computer.type")).toHaveLength(2);
-      expect(callsOf(nodes.get(A.deviceId))).toHaveLength(0);
-      expect(callsOf(nodes.get(B.deviceId))).toHaveLength(0);
-    });
+    it.each(ctxs)(
+      "must allow: %s asks with a card that names the Host, not a machine",
+      async (_l, ctx) => {
+        const desc = tools.get("computer.act")?.describeCall?.(typed, {
+          runId: "run_1",
+          ...(ctx.taskId === undefined ? {} : { taskId: ctx.taskId }),
+        });
+        expect(desc?.bindingFields).toMatchObject({ surface: "virtual_screen" });
+        expect(desc?.bindingFields).not.toHaveProperty("machine");
+        const r = await call("computer.act", typed, ctx);
+        expect(r.isError, JSON.stringify(r.output)).toBeUndefined();
+        expect(requested).toHaveLength(1);
+        expect(requested[0]).not.toHaveProperty("machine");
+        expect(requested[0]?.details).not.toHaveProperty("machine");
+        expect(requested[0]?.summary).toMatch(/^On the virtual screen: /);
+        expect(requested[0]?.summary).not.toMatch(/lab-box|build-box/);
+        expect(issued[0]?.approval.machine).toBeUndefined();
+        expect(screen.calls.filter((c) => c.capability === "computer.type")).toHaveLength(2);
+        expect(callsOf(nodes.get(A.deviceId))).toHaveLength(0);
+        expect(callsOf(nodes.get(B.deviceId))).toHaveLength(0);
+      },
+    );
 
     it("must allow: naming a machine still goes to that machine, never the Host's screen", async () => {
       const r = await call("computer.snapshot", { app: editor, machine: "build-box" });
