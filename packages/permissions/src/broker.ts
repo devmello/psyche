@@ -1188,8 +1188,12 @@ export class PsychePermissionBroker implements PermissionBroker {
       cwd?: unknown;
       env?: unknown;
       allowedDomains?: unknown;
+      machine?: unknown;
     };
     if (hp === undefined || !Array.isArray(p.argv) || typeof p.cwd !== "string") return undefined;
+    // Any `machine` parameter at all keys the facts on it (H5): a program grant is never
+    // offered or matched for a machine command, whatever its meta claims.
+    if (p.machine !== undefined && typeof p.machine !== "string") return undefined;
     if (p.env !== undefined && (typeof p.env !== "object" || p.env === null)) return undefined;
     if (p.allowedDomains !== undefined && !Array.isArray(p.allowedDomains)) return undefined;
     // The binding the engine hashed names the same binary, or the description is not trusted.
@@ -1204,6 +1208,7 @@ export class PsychePermissionBroker implements PermissionBroker {
       executable: hp.executable,
       sha256: hp.sha256,
       cwdReal: hp.cwdReal,
+      ...(typeof p.machine === "string" ? { machine: p.machine } : {}),
     };
   }
 
