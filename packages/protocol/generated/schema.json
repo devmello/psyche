@@ -1861,6 +1861,22 @@
         "sideEffecting": true
       },
       {
+        "description": "Snooze a quiet thread for a week, or dismiss it until the thread has new mail. Side-effecting; sends nothing.",
+        "name": "mailFollowups.act",
+        "params": "#/$defs/MailFollowupsActParams",
+        "result": "#/$defs/MailFollowupsActResult",
+        "scope": "operator.write",
+        "sideEffecting": true
+      },
+      {
+        "description": "Quiet email threads to show now (not snoozed or dismissed), longest quiet first. Empty while the setting is off or no mail source is connected. Reads mail; subjects are untrusted.",
+        "name": "mailFollowups.list",
+        "params": "#/$defs/MailFollowupsListParams",
+        "result": "#/$defs/MailFollowupsListResult",
+        "scope": "operator.read",
+        "sideEffecting": false
+      },
+      {
         "description": "Side-effecting: adds a probed server to mcp.servers with its approved trust card; approval_required without it, conflict when its tools changed since the probe.",
         "name": "mcp.add",
         "params": "#/$defs/McpAddParams",
@@ -14633,7 +14649,8 @@
             "feed_item",
             "search_hit",
             "memory_entity",
-            "life_answer"
+            "life_answer",
+            "mail_followup"
           ],
           "type": "string"
         },
@@ -16923,7 +16940,8 @@
             "feed_item",
             "search_hit",
             "memory_entity",
-            "life_answer"
+            "life_answer",
+            "mail_followup"
           ],
           "type": "string"
         },
@@ -17940,7 +17958,7 @@
           "items": {
             "$ref": "#/$defs/DailySection"
           },
-          "maxItems": 8,
+          "maxItems": 10,
           "type": "array"
         },
         "carryOver": {
@@ -18256,6 +18274,7 @@
         "learned",
         "coming_up",
         "keep_in_touch",
+        "quiet_threads",
         "catching_up",
         "worked_on"
       ],
@@ -27041,6 +27060,124 @@
       },
       "required": [
         "machine"
+      ],
+      "type": "object"
+    },
+    "MailFollowupAction": {
+      "enum": [
+        "snooze",
+        "dismiss"
+      ],
+      "type": "string"
+    },
+    "MailFollowupItem": {
+      "properties": {
+        "id": {
+          "description": "ULID in production",
+          "maxLength": 64,
+          "minLength": 1,
+          "type": "string"
+        },
+        "kind": {
+          "$ref": "#/$defs/MailFollowupKind"
+        },
+        "source": {
+          "enum": [
+            "apple",
+            "gmail",
+            "imap"
+          ],
+          "type": "string"
+        },
+        "who": {
+          "maxLength": 120,
+          "type": "string"
+        },
+        "subject": {
+          "maxLength": 200,
+          "type": "string"
+        },
+        "daysQuiet": {
+          "minimum": 0,
+          "type": "integer"
+        },
+        "link": {
+          "maxLength": 1000,
+          "type": "string"
+        },
+        "untrusted": {
+          "const": true,
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "id",
+        "kind",
+        "source",
+        "who",
+        "subject",
+        "daysQuiet",
+        "untrusted"
+      ],
+      "type": "object"
+    },
+    "MailFollowupKind": {
+      "enum": [
+        "no_reply",
+        "unanswered_question"
+      ],
+      "type": "string"
+    },
+    "MailFollowupsActParams": {
+      "properties": {
+        "id": {
+          "description": "ULID in production",
+          "maxLength": 64,
+          "minLength": 1,
+          "type": "string"
+        },
+        "action": {
+          "$ref": "#/$defs/MailFollowupAction"
+        }
+      },
+      "required": [
+        "id",
+        "action"
+      ],
+      "type": "object"
+    },
+    "MailFollowupsActResult": {
+      "properties": {
+        "ok": {
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "ok"
+      ],
+      "type": "object"
+    },
+    "MailFollowupsListParams": {
+      "properties": {},
+      "type": "object"
+    },
+    "MailFollowupsListResult": {
+      "properties": {
+        "enabled": {
+          "description": "`mail.followups.enabled` is on",
+          "type": "boolean"
+        },
+        "items": {
+          "items": {
+            "$ref": "#/$defs/MailFollowupItem"
+          },
+          "maxItems": 10,
+          "type": "array"
+        }
+      },
+      "required": [
+        "enabled",
+        "items"
       ],
       "type": "object"
     },

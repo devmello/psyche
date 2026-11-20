@@ -2995,7 +2995,7 @@ export type WorkNoteAttribute = "status" | "deadline" | "progress" | "stopped_at
 
 export type ChecklistItemStatus = "pending" | "in_progress" | "completed";
 
-export type BlockKind = "feed_item" | "search_hit" | "memory_entity" | "life_answer";
+export type BlockKind = "feed_item" | "search_hit" | "memory_entity" | "life_answer" | "mail_followup";
 
 /**
  * The kind of model that made the answer
@@ -4800,7 +4800,7 @@ export interface DailySection {
     unavailable?: boolean;
 }
 
-export type DailySectionID = "calendar" | "mail" | "due" | "followups" | "weather" | "done" | "open" | "tomorrow" | "learned" | "coming_up" | "keep_in_touch" | "catching_up" | "worked_on";
+export type DailySectionID = "calendar" | "mail" | "due" | "followups" | "weather" | "done" | "open" | "tomorrow" | "learned" | "coming_up" | "keep_in_touch" | "quiet_threads" | "catching_up" | "worked_on";
 
 export interface InboxDigest {
     accounts: string[];
@@ -6381,6 +6381,40 @@ export interface MachinesRenameParams {
 export interface MachinesRenameResult {
     machine: MachineInfo;
 }
+
+export interface MailFollowupsActParams {
+    action: MailFollowupAction;
+    id:     string;
+}
+
+export type MailFollowupAction = "snooze" | "dismiss";
+
+export interface MailFollowupsActResult {
+    ok: boolean;
+}
+
+export interface MailFollowupsListResult {
+    /**
+     * `mail.followups.enabled` is on
+     */
+    enabled: boolean;
+    items:   MailFollowupItem[];
+}
+
+export interface MailFollowupItem {
+    daysQuiet: number;
+    id:        string;
+    kind:      MailFollowupKind;
+    link?:     string;
+    source:    MailFollowupItemSource;
+    subject:   string;
+    untrusted: boolean;
+    who:       string;
+}
+
+export type MailFollowupKind = "no_reply" | "unanswered_question";
+
+export type MailFollowupItemSource = "apple" | "gmail" | "imap";
 
 export interface MCPAddParams {
     approvalId: string;
