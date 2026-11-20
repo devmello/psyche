@@ -989,7 +989,11 @@ mod tests {
             ("org.*.KeePassXC", "ORG.keepassxc.keepassxc", true),
             ("*PASS*", "org.keepassxc.keepassxc", true),
             ("Firefox", "firefox-esr", false),
-            ("org.keepassxc.KeePassXC", "org.keepassxc.keepassxc.extra", false),
+            (
+                "org.keepassxc.KeePassXC",
+                "org.keepassxc.keepassxc.extra",
+                false,
+            ),
             // Only ASCII is folded.
             ("\u{c9}cole", "\u{e9}cole", false),
             ("\u{c9}cole", "\u{c9}COLE", true),
@@ -1017,14 +1021,32 @@ mod tests {
         ] {
             for cap in ["apps.open", "apps.focus", "computer.click"] {
                 assert!(
-                    !call(&policy, cap, json!({"surface": "virtual_screen", "app": id}), &home),
+                    !call(
+                        &policy,
+                        cap,
+                        json!({"surface": "virtual_screen", "app": id}),
+                        &home
+                    ),
                     "{cap} {id}"
                 );
             }
         }
-        assert!(call(&policy, "apps.open", json!({"surface": "virtual_screen", "app": "gedit"}), &home));
+        assert!(call(
+            &policy,
+            "apps.open",
+            json!({"surface": "virtual_screen", "app": "gedit"}),
+            &home
+        ));
         // An allow list is case-insensitive too.
-        policy.apps = Apps { allow: vec!["Org.Gnome.*".into()], deny: vec![] };
-        assert!(call(&policy, "apps.open", json!({"surface": "virtual_screen", "app": "org.gnome.texteditor"}), &home));
+        policy.apps = Apps {
+            allow: vec!["Org.Gnome.*".into()],
+            deny: vec![],
+        };
+        assert!(call(
+            &policy,
+            "apps.open",
+            json!({"surface": "virtual_screen", "app": "org.gnome.texteditor"}),
+            &home
+        ));
     }
 }
