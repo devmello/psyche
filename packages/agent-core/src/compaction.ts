@@ -10,7 +10,7 @@ import type {
   ToolSpec,
 } from "@psyche/protocol";
 import { estimateMessagesTokens } from "./image-tokens.ts";
-import { outputAsText } from "./tool-output.ts";
+import { outputAsText, safeEnd } from "./tool-output.ts";
 import { estimateTokens } from "./util.ts";
 
 export interface CompactionPolicy {
@@ -191,6 +191,11 @@ export const STRUCTURED_SUMMARIZER_SYSTEM = STRUCTURED_SUMMARY_TASK;
 
 const LIST_KEYS = ["facts", "decisions", "openTasks", "pinnedInstructions"] as const;
 const ITEM_CHARS = 500;
+/** An item as stored: at most `ITEM_CHARS` characters in all, the ellipsis included. */
+export function capItem(x: string): string {
+  const t = x.trim();
+  return t.length > ITEM_CHARS ? `${t.slice(0, safeEnd(t, ITEM_CHARS - 1))}…` : t;
+}
 const ITEMS = 40;
 const NOTE_CHARS = 300;
 const NOTES = 12;
@@ -223,7 +228,7 @@ export function parseCompactionReply(text: string): CompactionReply | undefined 
     summary[key] = (Array.isArray(list) ? list : [])
       .filter((x): x is string => typeof x === "string" && x.trim() !== "")
       .slice(0, ITEMS)
-      .map((x) => (x.length > ITEM_CHARS ? `${x.slice(0, ITEM_CHARS)}…` : x.trim()));
+      .map((x) => capItem(x));
   }
   // Notes the model got wrong are left out, never an error: the summary is what matters.
   const notes = (raw as Record<string, unknown>).dailyNoteLines;

@@ -23,6 +23,7 @@ import { homeRest } from "./home-rest/ko.ts";
 import { keepAwake } from "./keep-awake/ko.ts";
 import { links } from "./links/ko.ts";
 import { linuxAccess } from "./linux-access/ko.ts";
+import { mailFollowups } from "./mail-followups/ko.ts";
 import { mailMeetings } from "./mail-meetings/ko.ts";
 import { meetingRecordRest } from "./meetingRecord-rest/ko.ts";
 import { memoryMap } from "./memory-map/ko.ts";
@@ -50,6 +51,7 @@ import { securityState } from "./security-state/ko.ts";
 import { separateDesktop } from "./separate-desktop/ko.ts";
 import { settingsRest } from "./settings-rest/ko.ts";
 import { shellRest } from "./shell-rest/ko.ts";
+import { spaces } from "./spaces/ko.ts";
 import { specialistsRest } from "./specialists-rest/ko.ts";
 import { webRest } from "./web-rest/ko.ts";
 import { widgetsRest } from "./widgets-rest/ko.ts";
@@ -1027,6 +1029,8 @@ export const ko: Partial<Catalogue> = {
   "settings.key.browser.botAuth": "Web Bot Auth",
   "settings.key.computerUse.enabled": "컴퓨터 사용 허용",
   "settings.key.computerUse.apps": "앱 접근",
+  "settings.key.feed.sources": "피드 소스",
+  "settings.key.computerUse.linuxRevoke": "Linux 컴퓨터 잊기",
   "settings.key.context.maxTokens": "컨텍스트 한도",
   "settings.key.search.web.provider": "웹 검색 제공업체",
   "settings.key.search.web.searxngUrl": "SearXNG URL",
@@ -2368,6 +2372,15 @@ export const ko: Partial<Catalogue> = {
   "settings.plugins.switchOn": "{name} 켜기",
   "settings.plugins.version": " · v{version}",
   "settings.plugins.adds": "추가 기능: {list}",
+  "settings.plugins.install": "폴더에서 설치…",
+  "settings.plugins.pickFailed": "Psyche가 폴더 선택기를 열 수 없습니다({reason}).",
+  "settings.plugins.installFailed": "설치를 시작하지 못했습니다. {reason}",
+  "settings.plugins.proposed": "승인 카드에서 설치 내용을 확인하세요.",
+  "settings.plugins.includes": "포함: {list}",
+  "settings.plugins.count.skills": "{n, plural, other {스킬 #개}}",
+  "settings.plugins.count.commands": "{n, plural, other {명령 #개}}",
+  "settings.plugins.count.mcpServers": "{n, plural, other {MCP 서버 #개}}",
+  "settings.plugins.count.hooks": "{n, plural, other {훅 #개}}",
   "settings.plugins.from": "출처: {source}",
   "settings.plugins.state.active": "실행 중",
   "settings.plugins.state.disabled": "꺼짐",
@@ -3708,5 +3721,7 @@ export const ko: Partial<Catalogue> = {
   ...separateDesktop,
   // Windows variants of the sandbox PC, voice keys and platform terms
   ...windowsPlatform202611,
+  ...mailFollowups,
   ...keepAwake,
+  ...spaces,
 };

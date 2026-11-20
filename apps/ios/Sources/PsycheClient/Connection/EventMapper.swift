@@ -93,6 +93,8 @@ struct EventMapper {
         // data), and Home's Pinned section reloads.
         case "widget.updated":
             return ([.changed(.widgets), .changed(.home)], .none)
+        case "space.updated", "space.tracker.refreshed", "space.proposal.created":
+            return ([.changed(.spaces)], .none)
         case _ where frame.event.hasPrefix("memory."):
             return ([.changed(.memory)], .none)
         case "settings.changed", "persona.updated":

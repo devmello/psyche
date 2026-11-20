@@ -70,6 +70,22 @@ export const pairingRequests = sqliteTable("pairing_requests", {
   publicKeyFingerprint: text("public_key_fingerprint"),
   transport: text("transport"),
   remoteAddress: text("remote_address"),
+  /** What approving this request makes the device: `device` or `machine` (migration 202611191400). */
+  purpose: text("purpose").notNull().default("device"),
+});
+
+/**
+ * The owner's decision that a device is a machine (migration 202611191400). A node's kind is
+ * `machine` only while a row names its device; sealed by the Gateway (`seal-spec.ts`).
+ */
+export const machines = sqliteTable("machines", {
+  id: text("id").primaryKey(),
+  deviceId: text("device_id").notNull(),
+  approvedAt: text("approved_at").notNull(),
+  approvedByDeviceId: text("approved_by_device_id"),
+  via: text("via").notNull(),
+  /** When the "added" notice went out; not sealed. */
+  announcedAt: text("announced_at"),
 });
 
 export const setupTokens = sqliteTable("setup_tokens", {
@@ -477,6 +493,7 @@ export const credentialUses = sqliteTable("credential_uses", {
 export const schema = {
   devices,
   nodes,
+  machines,
   pairingRequests,
   setupTokens,
   channels,
@@ -520,6 +537,7 @@ export type NodeRow = typeof nodes.$inferSelect;
 export type NewNodeRow = typeof nodes.$inferInsert;
 export type PairingRequestRow = typeof pairingRequests.$inferSelect;
 export type NewPairingRequestRow = typeof pairingRequests.$inferInsert;
+export type MachineRow = typeof machines.$inferSelect;
 export type SetupTokenRow = typeof setupTokens.$inferSelect;
 export type ChannelRow = typeof channels.$inferSelect;
 export type IdentityRow = typeof identities.$inferSelect;

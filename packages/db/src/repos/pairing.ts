@@ -22,6 +22,8 @@ export interface NewPairingRequest {
   readonly publicKeyFingerprint?: string | null;
   readonly transport?: "ws" | "unix" | null;
   readonly remoteAddress?: string | null;
+  /** Device requests: what approving makes the device (default `device`). */
+  readonly purpose?: "device" | "machine";
 }
 
 /** Normalizes any parseable timestamp to `Date#toISOString` so string comparison is ordering. */
@@ -52,6 +54,7 @@ export function createPairingRequest(db: PsycheDb, input: NewPairingRequest): Pa
       publicKeyFingerprint: input.publicKeyFingerprint ?? null,
       transport: input.transport ?? null,
       remoteAddress: input.remoteAddress ?? null,
+      purpose: input.purpose ?? "device",
       createdAt: at,
       updatedAt: at,
     })

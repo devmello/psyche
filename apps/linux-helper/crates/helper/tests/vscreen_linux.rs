@@ -104,6 +104,8 @@ fn config(state: &Path, app_dirs: Vec<PathBuf>) -> Config {
     let mut c = Config::from_env(&env as &dyn Env);
     c.app_dirs = app_dirs;
     c.first_display = 80;
+    // The test apps are built in the target directory, which is not a system directory.
+    c.untrusted_programs_for_tests();
     c.launch_wait = Duration::from_secs(10);
     c.close_grace = Duration::from_secs(3);
     c.watchdog_every = Duration::from_millis(200);
