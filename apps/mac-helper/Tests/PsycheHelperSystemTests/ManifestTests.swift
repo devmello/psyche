@@ -16,7 +16,7 @@ struct ManifestTests {
         #expect(groups.isSuperset(of: ["computer", "apps", "permissions", "notify"]))
         for required in ["computer.ax_tree", "computer.click", "computer.double_click", "computer.right_click", "computer.type",
                          "computer.key", "computer.scroll", "computer.drag", "computer.screenshot", "computer.screenshot_pick", "screen.context",
-                         "apps.open", "apps.focus", "apps.list", "apps.applescript", "apps.jxa", "apps.shortcut_run",
+                         "apps.open", "apps.resolve", "apps.focus", "apps.list", "apps.applescript", "apps.jxa", "apps.shortcut_run",
                          "permissions.status", "permissions.request", "notify.show"] {
             #expect(names.contains(required), "missing \(required)")
         }
@@ -36,6 +36,7 @@ struct ManifestTests {
         #expect(byName["computer.click"]?.sideEffect == .write)
         #expect(byName["apps.applescript"]?.sideEffect == .destructive)
         #expect(byName["apps.shortcut_run"]?.sideEffect == .destructive)
+        #expect(byName["apps.resolve"]?.sideEffect == .read)
         for (name, spec) in byName where name.hasPrefix("computer.") && name != "computer.end_session" && name != "computer.screenshot_pick" {
             #expect(spec.targetKind == .app, "\(name) targetKind")
         }

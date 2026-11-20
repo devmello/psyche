@@ -20,6 +20,7 @@ import {
   type FileChange,
   type FileToolsOptions,
   fileTools,
+  foldPathName,
   type GrantedFolder,
   MemoryFileProvenance,
 } from "../src/index.ts";
@@ -322,6 +323,181 @@ describe("protected locations (#285)", () => {
     const names = (listed.output.entries as { name: string }[]).map((e) => e.name);
     expect(names).not.toContain(".psyche");
     expect(names).not.toContain(".ssh");
+  });
+});
+
+describe("write-protected persistence locations (apps.open review, finding 2)", () => {
+  // `granted` stands in for an older home-root rw share: the folders below are its children.
+  const persistence = [
+    "Applications/Notes.app/Contents/Info.plist",
+    "Library/LaunchAgents/com.evil.plist",
+    "Library/Preferences/com.apple.Terminal.plist",
+    "Library/Services/Run.workflow/Contents/document.wflow",
+    "Library/Application Support/com.apple.backgroundtaskmanagementagent/backgrounditems.btm",
+    ".zshrc",
+    ".zprofile",
+    ".zshenv",
+    ".zlogin",
+    ".bashrc",
+    ".bash_profile",
+    ".profile",
+    ".config/fish/config.fish",
+    ".gitconfig",
+    ".ssh/authorized_keys",
+  ];
+  const writeRoots = () => [
+    ...[
+      "Applications",
+      "Library/LaunchAgents",
+      "Library/Preferences",
+      "Library/Services",
+      "Library/Application Support/com.apple.backgroundtaskmanagementagent",
+      ".zshrc",
+      ".zprofile",
+      ".zshenv",
+      ".zlogin",
+      ".bashrc",
+      ".bash_profile",
+      ".profile",
+      ".config/fish",
+      ".gitconfig",
+      ".ssh",
+    ].map((rel) => join(granted, rel)),
+  ];
+
+  it.each(persistence)("refuses a write to ~/%s under a granted rw folder", async (rel) => {
+    const path = join(granted, rel);
+    mkdirSync(join(path, ".."), { recursive: true });
+    writeFileSync(path, "before");
+    ({ run } = toolset({ folders: () => folders, writeProtectedRoots: writeRoots }));
+    await expect(run("write_file", { path, content: "after" })).rejects.toMatchObject({
+      code: "forbidden",
+      details: { reason: "protected_path", access: "write" },
+    });
+    await expect(
+      run("edit_file", { path, old_string: "before", new_string: "after" }),
+    ).rejects.toMatchObject({ code: "forbidden" });
+    expect(readFileSync(path, "utf8")).toBe("before");
+    // Reading there follows the grant as before.
+    const read = await run("read_file", { path });
+    expect(JSON.stringify(read.output)).toContain("before");
+  });
+
+  it("refuses a new file there and another spelling of the folder, and leaves near names alone", async () => {
+    ({ run } = toolset({ folders: () => folders, writeProtectedRoots: writeRoots }));
+    mkdirSync(join(granted, "Library", "LaunchAgents"), { recursive: true });
+    await expect(
+      run("write_file", { path: join(granted, "Library/LaunchAgents/new.plist"), content: "x" }),
+    ).rejects.toMatchObject({ code: "forbidden" });
+    if (process.platform === "darwin") {
+      // APFS ignores case by default: the same folder.
+      await expect(
+        run("write_file", { path: join(granted, "library/launchagents/new.plist"), content: "x" }),
+      ).rejects.toMatchObject({ code: "forbidden" });
+    }
+    // Near misses: a sibling with a shared prefix, a backup of an rc file, another app folder.
+    for (const rel of [".zshrc.bak", "Applications-notes/a.md", "Projects/.gitconfig.md"]) {
+      const path = join(granted, rel);
+      mkdirSync(join(path, ".."), { recursive: true });
+      const done = await run("write_file", { path, content: "ok" });
+      expect(done.isError).toBeUndefined();
+    }
+  });
+});
+
+describe("other spellings of a write-protected name (review r1, finding 1)", () => {
+  // `granted` stands in for an older home-root share again.
+  const writeRoots = () =>
+    [
+      ".zshrc",
+      ".zshenv",
+      ".profile",
+      ".bash_profile",
+      ".gitconfig",
+      "Library/LaunchAgents",
+      ".config/fish",
+      "Café",
+      "Kit",
+      ".ssh",
+    ].map((rel) => join(granted, rel));
+  const setup = () => {
+    for (const rel of [".zshrc", ".profile", ".bash_profile", ".gitconfig"]) {
+      writeFileSync(join(granted, rel), "before");
+    }
+    mkdirSync(join(granted, "Library", "LaunchAgents"), { recursive: true });
+    mkdirSync(join(granted, ".config", "fish"), { recursive: true });
+    mkdirSync(join(granted, "Café"));
+    mkdirSync(join(granted, "Kit"));
+    ({ run } = toolset({ folders: () => folders, writeProtectedRoots: writeRoots }));
+  };
+
+  it("folds names as APFS does: compatibility forms, case and NFD", () => {
+    expect(foldPathName(".zſhrc")).toBe(".zshrc");
+    expect(foldPathName(".proﬁle")).toBe(".profile");
+    expect(foldPathName("Kit")).toBe("kit");
+    expect(foldPathName("Café")).toBe(foldPathName("Café"));
+    expect(foldPathName(".BASH_PROFILE")).toBe(".bash_profile");
+    expect(foldPathName("Straße")).toBe("strasse");
+    expect(foldPathName(".ẞh")).toBe(".ssh");
+    expect(foldPathName("STRAẞE")).toBe("strasse");
+    expect(foldPathName(".zshrc2")).not.toBe(".zshrc");
+  });
+
+  it.skipIf(process.platform !== "darwin").each([
+    ".zſhrc",
+    ".zſhenv",
+    ".proﬁle",
+    ".baſh_proﬁle",
+    ".gitconﬁg",
+    ".ZSHRC",
+    // Review r2: APFS reads `ẞ` as `ss`; `~/.ssh` does not exist yet here.
+    ".ẞh/config",
+    ".SSH/config",
+    "Library/LaunchAgentſ/x.plist",
+    "library/launchagents/x.plist",
+    ".config/ﬁsh/config.fish",
+    "Café/x.txt",
+    "Kit/x.txt",
+  ])("refuses writing %s", async (rel) => {
+    setup();
+    const path = join(granted, rel);
+    await expect(run("write_file", { path, content: "PWNED" })).rejects.toMatchObject({
+      code: "forbidden",
+      details: { reason: "protected_path" },
+    });
+    for (const f of [".zshrc", ".profile", ".bash_profile", ".gitconfig"]) {
+      expect(readFileSync(join(granted, f), "utf8"), f).toBe("before");
+    }
+  });
+
+  it.each([
+    ".zshrc2",
+    ".zsh_history",
+    ".profile.d/notes.md",
+    "ſomething.txt",
+    "notes-ﬁnal.md",
+    "Cafeteria/x.txt",
+    "Kitchen/x.txt",
+    "Straße.md",
+    "İnbox.md",
+    ".ssh-notes/x.md",
+  ])("still writes %s", async (rel) => {
+    setup();
+    const path = join(granted, rel);
+    mkdirSync(join(path, ".."), { recursive: true });
+    const done = await run("write_file", { path, content: "ok" });
+    expect(done.isError).toBeUndefined();
+  });
+
+  it("refuses a write to another name of the same file (a hard link)", async () => {
+    setup();
+    const other = join(granted, "Projects", "innocent.txt");
+    mkdirSync(join(granted, "Projects"));
+    linkSync(join(granted, ".zshrc"), other);
+    await expect(run("write_file", { path: other, content: "PWNED" })).rejects.toMatchObject({
+      code: "forbidden",
+    });
+    expect(readFileSync(join(granted, ".zshrc"), "utf8")).toBe("before");
   });
 });
 

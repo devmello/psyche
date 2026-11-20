@@ -4,12 +4,14 @@ import Foundation
 import OSAKit
 import PsycheHelperCore
 import PsycheProtocol
+import Security
+import UniformTypeIdentifiers
 
 /// `apps.*` (J2 open/focus, J4 Apple Events and Shortcuts). AppleScript and JXA run in-process so
 /// the Automation prompt names Psyche Helper and each target app is asked once (security §12).
 public enum AppsCapabilities {
     public static func make(_ cu: ComputerUse) -> [any CapabilityHandler] {
-        [list(cu), open(cu), focus(cu), applescript(cu), jxa(cu), shortcutRun(cu), shortcutsList()]
+        [list(cu), resolve(), open(cu), focus(cu), applescript(cu), jxa(cu), shortcutRun(cu), shortcutsList()]
     }
 
     // MARK: Running apps
@@ -28,7 +30,7 @@ public enum AppsCapabilities {
                     "bundleId": a.bundleIdentifier.map { .string($0) } ?? .null, "name": .string(a.localizedName ?? ""),
                     "pid": .int(Int(a.processIdentifier)), "active": .bool(a.isActive), "hidden": .bool(a.isHidden),
                     "tier": .string(cu.policy.effectiveTier(for: a.bundleIdentifier).rawValue),
-                    "fixedCap": .string(FixedCaps.cap(for: a.bundleIdentifier).rawValue),
+                    "fixedCap": .string(cu.policy.fixedCap(for: a.bundleIdentifier).rawValue),
                 ]
             })])
         }
@@ -39,41 +41,92 @@ public enum AppsCapabilities {
         var bundleId: String?
         var name: String?
         var url: String?
+        var expectPath: String?
     }
 
-    static let appFolders = ["/Applications", "/System/Applications", "/System/Applications/Utilities", "/Applications/Utilities",
-                             NSHomeDirectory() + "/Applications"]
+    static let appFolders = AppLaunchPolicy.appFolders(home: NSHomeDirectory())
 
-    /// Resolves an installed app. Names are plain names (no `/`, no `..`) and the result must sit
-    /// in an Applications folder, so an agent-written bundle in the workspace is never launched.
-    static func applicationURL(_ p: AppRefParams) throws -> URL {
-        let ws = NSWorkspace.shared
-        var found: URL?
-        if let id = p.bundleId ?? p.app, let url = ws.urlForApplication(withBundleIdentifier: id) { found = url }
-        if found == nil, let name = p.name ?? p.app {
+    /// Resolves an installed app. Names are plain names (no `/`, no `..`); a bundle id must name
+    /// exactly one bundle on disk. Either way the bundle must sit in an Applications folder, not
+    /// inside another app, carry the id it was asked for, and an Apple id must be Apple's own
+    /// signed copy (`AppLaunchPolicy`), so an agent-written bundle or a lookalike never launches.
+    static func applicationURL(_ p: AppRefParams, lookups: AppLaunchPolicy.Lookups = LiveAppLookups.lookups) throws -> URL {
+        let home = NSHomeDirectory()
+        if let id = p.bundleId ?? p.app, id.contains("."), !id.contains("/"), !lookups.candidates(id).isEmpty {
+            return try AppLaunchPolicy.resolve(bundleId: id, home: home, lookups: lookups)
+        }
+        if let name = p.name ?? p.app {
             guard !name.contains("/"), !name.contains(".."), !name.isEmpty else {
                 throw CapabilityError.invalidParams("app name must be a plain name", field: "name")
             }
             for dir in appFolders {
                 let candidate = URL(fileURLWithPath: dir).appendingPathComponent(name.hasSuffix(".app") ? name : name + ".app")
                 if FileManager.default.fileExists(atPath: candidate.path) {
-                    found = candidate
-                    break
+                    let url = URL(fileURLWithPath: AppLaunchPolicy.canonical(candidate))
+                    try AppLaunchPolicy.check(url, requestedId: nil, home: home, lookups: lookups)
+                    return url
                 }
             }
         }
-        guard let url = found?.standardizedFileURL.resolvingSymlinksInPath() else {
-            throw CapabilityError(.notFound, reason: "app_not_found", "No installed app matches \(p.bundleId ?? p.name ?? p.app ?? "")")
-        }
-        guard appFolders.contains(where: { url.path.hasPrefix($0 + "/") }) else {
-            throw CapabilityError(.policyDenied, reason: "app_outside_applications", "Only apps installed in an Applications folder can be opened")
-        }
-        return url
+        throw CapabilityError(.notFound, reason: "app_not_found", "No installed app matches \(p.bundleId ?? p.name ?? p.app ?? "")")
     }
 
-    /// Document types that run code when opened.
-    static let executableExtensions: Set = ["app", "command", "tool", "sh", "zsh", "bash", "scpt", "scptd", "applescript",
-                                            "workflow", "terminal", "shortcut", "pkg", "mpkg", "dmg", "jar", "py", "rb", "pl"]
+    /// Document types that run code when opened (`AppLaunchPolicy.executableExtensions`).
+    static var executableExtensions: Set<String> { AppLaunchPolicy.executableExtensions }
+
+    /// What the item a `file:` URL leads to is, read from the file system (resource values and
+    /// the system's type database; nothing is registered or opened).
+    static func documentFacts(_ resolved: URL) -> AppLaunchPolicy.DocumentFacts {
+        let path = resolved.path
+        let keys: Set<URLResourceKey> = [.isDirectoryKey, .isPackageKey, .isExecutableKey, .isAliasFileKey, .isRegularFileKey, .contentTypeKey]
+        guard let v = try? resolved.resourceValues(forKeys: keys) else { return .init(path: path, exists: false) }
+        let fm = FileManager.default
+        let isDirectory = v.isDirectory ?? false
+        let bundleShaped = isDirectory
+            && (fm.fileExists(atPath: resolved.appendingPathComponent("Contents/Info.plist").path)
+                || fm.fileExists(atPath: resolved.appendingPathComponent("Info.plist").path))
+        let type = v.contentType
+        let conforms = { (ids: [String]) in
+            guard let type else { return false }
+            return ids.contains { id in UTType(id).map { type.conforms(to: $0) } ?? (type.identifier == id) }
+        }
+        return .init(
+            path: path, exists: true, isDirectory: isDirectory, isPackage: v.isPackage ?? false,
+            isExecutable: (v.isRegularFile ?? false) && (v.isExecutable ?? false), isAlias: v.isAliasFile ?? false,
+            bundleShaped: bundleShaped, contentType: type?.identifier,
+            executableType: conforms(AppLaunchPolicy.executableTypes), documentPackage: conforms(AppLaunchPolicy.documentPackageTypes)
+        )
+    }
+
+    /// The URL a document is opened from: resolved first (symlinks, `.` and `..`), checked as the
+    /// item it is (`AppLaunchPolicy.checkDocument`), and that resolved URL is what opens.
+    static func checkedDocumentURL(_ u: URL, facts: (URL) -> AppLaunchPolicy.DocumentFacts = documentFacts) throws -> URL {
+        let resolved = URL(fileURLWithPath: AppLaunchPolicy.canonical(u))
+        try AppLaunchPolicy.checkDocument(facts(resolved), requested: u.path)
+        return resolved
+    }
+
+    static func resolve() -> Capability {
+        Capability(CapabilitySpec(
+            name: "apps.resolve",
+            description: "Which installed app a bundle id opens, without opening it: its bundle id, name and real path, or why apps.open would refuse it.",
+            sideEffect: .read, targetKind: .app,
+            inputSchema: Schema.object(["bundleId": Schema.string("Bundle id")], required: ["bundleId"])
+        )) { ctx in
+            let p = try ctx.decode(AppRefParams.self)
+            guard let id = p.bundleId, !id.isEmpty else { throw CapabilityError.invalidParams("bundleId is required", field: "bundleId") }
+            let url = try applicationURL(AppRefParams(bundleId: id))
+            let bundle = Bundle(url: url)
+            let name = (bundle?.localizedInfoDictionary?["CFBundleDisplayName"] as? String)
+                ?? (bundle?.infoDictionary?["CFBundleDisplayName"] as? String)
+                ?? (bundle?.infoDictionary?["CFBundleName"] as? String)
+                ?? url.deletingPathExtension().lastPathComponent
+            return CapabilityOutput([
+                "bundleId": .string(bundle?.bundleIdentifier ?? id), "name": .string(name), "path": .string(url.path),
+                "fixedCap": .string(min(FixedCaps.cap(for: id), LiveAppLookups.infoCap(id)).rawValue),
+            ])
+        }
+    }
 
     static func open(_ cu: ComputerUse) -> Capability {
         Capability(CapabilitySpec(
@@ -82,17 +135,24 @@ public enum AppsCapabilities {
             inputSchema: Schema.object([
                 "app": Schema.string("Bundle id or name"), "bundleId": Schema.string(), "name": Schema.string(),
                 "url": Schema.string("file:// or https:// URL to open with the app"),
+                "expectPath": Schema.string("The bundle path apps.resolve gave; the call is refused when the id now opens another bundle"),
             ]),
             receiptKind: "app_open"
         )) { ctx in
             try cu.refuseWhileRecording()
             let p = try ctx.decode(AppRefParams.self)
             let appURL = try applicationURL(p)
+            if let expected = p.expectPath, AppLaunchPolicy.canonical(URL(fileURLWithPath: expected)) != appURL.path {
+                throw CapabilityError(.conflict, reason: "app_changed", "\(p.bundleId ?? p.app ?? "The app") now opens \(appURL.path), not \(expected)",
+                                      details: ["path": .string(appURL.path), "expected": .string(expected)])
+            }
             let bundleId = Bundle(url: appURL)?.bundleIdentifier
             let category = FixedCaps.category(of: bundleId)
             if category == .passwordManager || category == .finance {
                 throw CapabilityError(.policyDenied, reason: "tier_off", "Psyche does not open password managers or finance apps")
             }
+            // LaunchServices brings a running instance forward instead of the bundle named here.
+            if let bundleId { try CheckedLaunch.refuseRunningElsewhere(bundleId, expected: appURL) }
             let config = NSWorkspace.OpenConfiguration()
             config.activates = true
             let running: NSRunningApplication
@@ -100,19 +160,26 @@ public enum AppsCapabilities {
                 guard let u = URL(string: s), ["file", "https", "http", "mailto"].contains(u.scheme?.lowercased() ?? "") else {
                     throw CapabilityError.invalidParams("url must be file, http(s) or mailto", field: "url")
                 }
+                var target = u
                 if u.isFileURL {
                     // Opening a document in a terminal, IDE or script runner runs it.
-                    if category == .terminalOrIDE || executableExtensions.contains(u.pathExtension.lowercased()) {
-                        throw CapabilityError(.policyDenied, reason: "executable_document", "Psyche does not open scripts or apps as documents")
+                    let shellLike = category == .terminalOrIDE || bundleId.map { LiveAppLookups.infoCap($0) < .interact } == true
+                    if shellLike {
+                        throw CapabilityError(.policyDenied, reason: "executable_document", "Psyche does not open documents in terminals, IDEs or script runners")
                     }
+                    target = try checkedDocumentURL(u)
                 }
-                running = try await NSWorkspace.shared.open([u], withApplicationAt: appURL, configuration: config)
+                running = try await NSWorkspace.shared.open([target], withApplicationAt: appURL, configuration: config)
             } else {
                 running = try await NSWorkspace.shared.openApplication(at: appURL, configuration: config)
             }
+            try AppLaunchPolicy.checkLaunched(bundleId: bundleId ?? appURL.path, expected: appURL, launched: running.bundleURL)
             let name = running.localizedName ?? appURL.deletingPathExtension().lastPathComponent
             return CapabilityOutput(
-                ["bundleId": running.bundleIdentifier.map { .string($0) } ?? .null, "name": .string(name), "pid": .int(Int(running.processIdentifier))],
+                [
+                    "bundleId": running.bundleIdentifier.map { .string($0) } ?? .null, "name": .string(name),
+                    "pid": .int(Int(running.processIdentifier)), "path": .string(appURL.path),
+                ],
                 receipt: ReceiptDraft(outcome: .ok, summary: "Opened \(name)", externalRefs: ["app": .string(running.bundleIdentifier ?? name)])
             )
         }
@@ -173,9 +240,13 @@ public enum AppsCapabilities {
         )) { ctx in
             try cu.refuseWhileRecording()
             let p = try ctx.decode(ScriptParams.self)
-            try ScriptGuard.check(p.source, language: .appleScript, target: p.target, resolve: AppResolver.bundleId)
+            try ScriptGuard.check(p.source, language: .appleScript, target: p.target, resolve: AppResolver.bundleId,
+                                  cap: { cu.policy.fixedCap(for: $0) })
             let t = p.target ?? ""
-            try await AutomationPermission.ensure(bundleId: AppResolver.bundleId(t) ?? t, ask: true)
+            let id = AppResolver.bundleId(t) ?? t
+            try CheckedLaunch.checkScriptTarget(id)
+            try await AutomationPermission.ensure(bundleId: id, ask: true)
+            try CheckedLaunch.checkScriptTarget(id)
             let out = try await OutOfProcessScript.run(source: p.source, language: .appleScript, timeout: TimeInterval(min(300, max(1, p.timeoutSeconds ?? 60))))
             return scriptOutput(out, target: p.target, kind: "AppleScript")
         }
@@ -190,9 +261,13 @@ public enum AppsCapabilities {
         )) { ctx in
             try cu.refuseWhileRecording()
             let p = try ctx.decode(ScriptParams.self)
-            try ScriptGuard.check(p.source, language: .javaScript, target: p.target, resolve: AppResolver.bundleId)
+            try ScriptGuard.check(p.source, language: .javaScript, target: p.target, resolve: AppResolver.bundleId,
+                                  cap: { cu.policy.fixedCap(for: $0) })
             let t = p.target ?? ""
-            try await AutomationPermission.ensure(bundleId: AppResolver.bundleId(t) ?? t, ask: true)
+            let id = AppResolver.bundleId(t) ?? t
+            try CheckedLaunch.checkScriptTarget(id)
+            try await AutomationPermission.ensure(bundleId: id, ask: true)
+            try CheckedLaunch.checkScriptTarget(id)
             let out = try await OutOfProcessScript.run(source: p.source, language: .javaScript, timeout: TimeInterval(min(300, max(1, p.timeoutSeconds ?? 60))))
             return scriptOutput(out, target: p.target, kind: "JXA")
         }
@@ -243,18 +318,123 @@ public enum AppsCapabilities {
     }
 }
 
+// MARK: - Live app lookups
+
+/// LaunchServices, Info.plist and code-signing lookups for `AppLaunchPolicy`. All read-only:
+/// nothing is registered, launched or prompted for.
+enum LiveAppLookups {
+    static let lookups = AppLaunchPolicy.Lookups(
+        candidates: { NSWorkspace.shared.urlsForApplications(withBundleIdentifier: $0) },
+        info: { infoPlist($0) },
+        exists: { url in
+            var dir: ObjCBool = false
+            return FileManager.default.fileExists(atPath: url.path, isDirectory: &dir) && dir.boolValue
+        },
+        appleSigned: appleSigned
+    )
+
+    /// A bundle's Info.plist, read fresh (not `Bundle`'s cache, which outlives a replaced file).
+    static func infoPlist(_ url: URL) -> [String: Any]? {
+        guard let data = try? Data(contentsOf: url.appendingPathComponent("Contents/Info.plist")),
+              let plist = try? PropertyListSerialization.propertyList(from: data, format: nil) as? [String: Any]
+        else { return nil }
+        return plist
+    }
+
+    /// Apple's own code (`anchor apple`) or Apple's App Store signature, checked statically on
+    /// the bundle's executable (resources are not hashed: the bundle sits in a folder no agent
+    /// writes). Never prompts.
+    @Sendable static func appleSigned(_ url: URL) -> Bool {
+        var code: SecStaticCode?
+        guard SecStaticCodeCreateWithPath(url as CFURL, [], &code) == errSecSuccess, let code else { return false }
+        var requirement: SecRequirement?
+        let text = "anchor apple or (anchor apple generic and certificate leaf[field.1.2.840.113635.100.6.1.9] exists)"
+        guard SecRequirementCreateWithString(text as CFString, [], &requirement) == errSecSuccess, let requirement else { return false }
+        return SecStaticCodeCheckValidity(code, SecCSFlags(rawValue: kSecCSDoNotValidateResources), requirement) == errSecSuccess
+    }
+
+    private static let cacheLock = NSLock()
+    nonisolated(unsafe) private static var capCache: [String: (cap: ComputerTier, at: Date)] = [:]
+
+    /// `click` when any bundle LaunchServices knows for the id says it is a terminal, shell or
+    /// developer tool (`FixedCaps.isShellLike`), else `interact`. Cached for a minute.
+    @Sendable static func infoCap(_ bundleId: String) -> ComputerTier {
+        let key = bundleId.lowercased()
+        cacheLock.lock()
+        if let hit = capCache[key], Date().timeIntervalSince(hit.at) < 60 {
+            cacheLock.unlock()
+            return hit.cap
+        }
+        cacheLock.unlock()
+        let shellLike = NSWorkspace.shared.urlsForApplications(withBundleIdentifier: bundleId)
+            .contains { infoPlist($0).map(FixedCaps.isShellLike(info:)) ?? false }
+        let cap: ComputerTier = shellLike ? .click : .interact
+        cacheLock.lock()
+        if capCache.count > 512 { capCache.removeAll() }
+        capCache[key] = (cap, Date())
+        cacheLock.unlock()
+        return cap
+    }
+}
+
 // MARK: - Script execution
 
 /// Resolves an app name or bundle id to an installed bundle id.
+/// The id is only a name here: `CheckedLaunch.checkScriptTarget` resolves it to a checked bundle
+/// (`AppLaunchPolicy`) before any script runs against it.
 enum AppResolver {
     static func bundleId(_ nameOrId: String) -> String? {
-        if nameOrId.contains("."), NSWorkspace.shared.urlForApplication(withBundleIdentifier: nameOrId) != nil { return nameOrId }
+        if nameOrId.contains("."), (try? CheckedLaunch.url(for: nameOrId)) != nil { return nameOrId }
         let name = nameOrId.hasSuffix(".app") ? nameOrId : nameOrId + ".app"
         guard !name.contains("/"), !name.contains("..") else { return nil }
         for dir in AppsCapabilities.appFolders {
-            if let id = Bundle(url: URL(fileURLWithPath: dir).appendingPathComponent(name))?.bundleIdentifier { return id }
+            let url = URL(fileURLWithPath: dir).appendingPathComponent(name)
+            if let id = LiveAppLookups.infoPlist(url)?["CFBundleIdentifier"] as? String { return id }
         }
         return nameOrId.contains(".") ? nameOrId : nil
+    }
+}
+
+/// Every place the helper launches an app, or sends one Apple Events, goes through here: the
+/// bundle is resolved and checked (`AppLaunchPolicy`), that exact bundle is what launches, and a
+/// running instance must be that bundle. Never "whatever LaunchServices prefers".
+enum CheckedLaunch {
+    /// The checked bundle for an id.
+    static func url(for bundleId: String) throws -> URL {
+        try AppLaunchPolicy.resolve(bundleId: bundleId, home: NSHomeDirectory(), lookups: LiveAppLookups.lookups, purpose: .scriptTarget)
+    }
+
+    static func runningURLs(_ bundleId: String) -> [URL?] {
+        NSRunningApplication.runningApplications(withBundleIdentifier: bundleId).map(\.bundleURL)
+    }
+
+    static func refuseRunningElsewhere(_ bundleId: String, expected: URL) throws {
+        try AppLaunchPolicy.checkRunning(bundleId: bundleId, expected: expected, running: runningURLs(bundleId))
+    }
+
+    /// Before a script addresses `bundleId`: it resolves to a checked bundle, and a running
+    /// instance (which receives the Apple Events) is that bundle.
+    static func checkScriptTarget(_ bundleId: String) throws {
+        let url = try url(for: bundleId)
+        try refuseRunningElsewhere(bundleId, expected: url)
+    }
+
+    /// Launches the checked bundle when the id is not running (hidden in the background when
+    /// `hidden`), and checks what runs. Returns true when it launched.
+    @discardableResult
+    static func ensureRunning(_ bundleId: String, hidden: Bool) async throws -> Bool {
+        let url = try url(for: bundleId)
+        let running = runningURLs(bundleId)
+        if !running.isEmpty {
+            try AppLaunchPolicy.checkRunning(bundleId: bundleId, expected: url, running: running)
+            return false
+        }
+        let config = NSWorkspace.OpenConfiguration()
+        config.activates = !hidden
+        config.hides = hidden
+        let app = try await NSWorkspace.shared.openApplication(at: url, configuration: config)
+        try AppLaunchPolicy.checkLaunched(bundleId: bundleId, expected: url, launched: app.bundleURL)
+        return true
     }
 }
 
