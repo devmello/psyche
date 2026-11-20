@@ -35034,15 +35034,18 @@ public struct StorageCleared: Codable, Sendable {
 // MARK: - StorageUsage
 public struct StorageUsage: Codable, Sendable {
     public let categories: [StorageCategory]
+    public let partial: Bool?
     public let totalBytes: Int
 
     public enum CodingKeys: String, CodingKey {
         case categories = "categories"
+        case partial = "partial"
         case totalBytes = "totalBytes"
     }
 
-    public init(categories: [StorageCategory], totalBytes: Int) {
+    public init(categories: [StorageCategory], partial: Bool? = nil, totalBytes: Int) {
         self.categories = categories
+        self.partial = partial
         self.totalBytes = totalBytes
     }
 }
@@ -35052,17 +35055,20 @@ public struct StorageCategory: Codable, Sendable {
     public let bytes: Int
     public let clearable: Bool
     public let id: StorageCategoryID
+    public let reclaimableBytes: Int?
 
     public enum CodingKeys: String, CodingKey {
         case bytes = "bytes"
         case clearable = "clearable"
         case id = "id"
+        case reclaimableBytes = "reclaimableBytes"
     }
 
-    public init(bytes: Int, clearable: Bool, id: StorageCategoryID) {
+    public init(bytes: Int, clearable: Bool, id: StorageCategoryID, reclaimableBytes: Int? = nil) {
         self.bytes = bytes
         self.clearable = clearable
         self.id = id
+        self.reclaimableBytes = reclaimableBytes
     }
 }
 
