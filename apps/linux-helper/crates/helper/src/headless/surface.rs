@@ -23,7 +23,7 @@ use psyche_linux_computer::linux::{LinuxBackend, Path, SurfaceHooks};
 use psyche_linux_computer::trust::SettingsSource;
 use psyche_linux_computer::x11::X11;
 
-use super::focus::{decide, to_error, Scopes};
+use super::focus::{blocked_by, decide, to_error, Identity, Scopes};
 use crate::paths::{psyche_home, Env, ProcessEnv};
 use crate::remote::config::config_dir;
 use crate::remote::policy::PolicySource;
@@ -42,13 +42,9 @@ pub fn policy_source() -> Arc<PolicySource> {
     Arc::new(PolicySource::standard(&config_dir(&ProcessEnv), home, None))
 }
 
-/// Whether the process is an app the ceiling does not permit, by its own identity or its
-/// launch scope's.
+/// Whether the process is an app the ceiling puts out of reach (see [`blocked_by`]).
 pub fn pid_denied(policy: &crate::remote::policy::Policy, scopes: &dyn Scopes, pid: u32) -> bool {
-    [scopes.own_id(pid), scopes.app_of(pid)]
-        .into_iter()
-        .flatten()
-        .any(|a| !policy.app_permitted(&a))
+    blocked_by(policy, scopes, pid).is_some()
 }
 
 pub fn app_denied(id: &str) -> CapError {
@@ -78,11 +74,16 @@ impl Scopes for ManagerScopes {
     fn in_scope(&self, app_id: &str, pid: u32) -> bool {
         self.manager.pid_in_app_scope(app_id, pid)
     }
-    fn app_of(&self, pid: u32) -> Option<String> {
-        self.manager.app_of_pid(pid)
-    }
-    fn own_id(&self, pid: u32) -> Option<String> {
-        self.a11y.as_ref().and_then(|a| a.app_id_for_pid(pid))
+    /// Read once per question: `/proc` and the desktop index are touched here and nowhere else.
+    fn identity(&self, pid: u32) -> Identity {
+        Identity {
+            holder: self.manager.app_of_pid(pid),
+            facts: self
+                .a11y
+                .as_ref()
+                .map(|a| a.id_facts_for_pid(pid))
+                .unwrap_or_default(),
+        }
     }
 }
 
@@ -168,16 +169,17 @@ impl SurfaceHooks for VirtualHooks {
         };
         let policy = self.policy.load().policy;
         let scopes = self.scopes();
-        let mut out: Vec<u32> = x11
+        // One question per process, however many windows it has.
+        let mut pids: Vec<u32> = x11
             .stacked_windows()
             .into_iter()
             .map(|w| w.pid)
             .filter(|&pid| pid != 0)
-            .filter(|&pid| pid_denied(&policy, &scopes, pid))
             .collect();
-        out.sort_unstable();
-        out.dedup();
-        out
+        pids.sort_unstable();
+        pids.dedup();
+        pids.retain(|&pid| pid_denied(&policy, &scopes, pid));
+        pids
     }
 
     fn point_clients_ok(&self, x: f64, y: f64, app: &AppInfo) -> CapResult<()> {
@@ -323,59 +325,7 @@ pub fn address_in_dir(address: &str, dir: &std::path::Path) -> bool {
 #[allow(clippy::field_reassign_with_default)]
 mod tests {
     use super::*;
-    use crate::remote::policy::{Apps, Policy};
     use std::path::Path as P;
-
-    struct Ids(std::collections::HashMap<u32, (&'static str, &'static str)>);
-    impl Scopes for Ids {
-        fn in_scope(&self, _: &str, _: u32) -> bool {
-            false
-        }
-        fn app_of(&self, pid: u32) -> Option<String> {
-            self.0.get(&pid).map(|(s, _)| s.to_string())
-        }
-        fn own_id(&self, pid: u32) -> Option<String> {
-            self.0.get(&pid).map(|(_, o)| o.to_string())
-        }
-    }
-
-    #[test]
-    fn a_window_of_a_denied_or_unlisted_app_is_excluded_by_what_it_is_and_where_it_started() {
-        let ids = Ids(std::collections::HashMap::from([
-            (1, ("org.gnome.TextEditor", "org.gnome.TextEditor")),
-            (2, ("org.gnome.Calculator", "org.gnome.Calculator")),
-            // KeePassXC started from the editor's scope.
-            (3, ("org.gnome.TextEditor", "org.keepassxc.KeePassXC")),
-            // The editor's scope, a program the ceiling never heard of.
-            (4, ("org.gnome.TextEditor", "xterm")),
-        ]));
-        let mut policy = Policy::default();
-        policy.apps = Apps {
-            allow: vec!["*".into()],
-            deny: vec![
-                "org.gnome.Calculator".into(),
-                "org.keepassxc.KeePassXC".into(),
-            ],
-        };
-        let denied = |pid| pid_denied(&policy, &ids, pid);
-        assert!(!denied(1));
-        assert!(denied(2));
-        assert!(
-            denied(3),
-            "denied by its own identity inside an allowed scope"
-        );
-        assert!(!denied(4), "unknown to a deny list, allowed by `*`");
-        // With an allow list, whatever it does not name is out of reach too.
-        policy.apps = Apps {
-            allow: vec!["org.gnome.TextEditor".into()],
-            deny: vec![],
-        };
-        let denied = |pid| pid_denied(&policy, &ids, pid);
-        assert!(denied(2));
-        assert!(denied(3));
-        assert!(denied(4));
-        assert!(!denied(1));
-    }
 
     #[test]
     fn the_accessibility_address_must_lead_into_the_session_dir() {

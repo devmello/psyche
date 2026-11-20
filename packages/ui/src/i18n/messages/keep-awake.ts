@@ -19,7 +19,6 @@ export const keepAwake = {
   "settings.updates.channel.stable": "Stable",
   "settings.updates.channel.note":
     "Stable is the only channel for now. Beta will show up here once beta builds are published. Every update is checked against Psyche's release key either way.",
-  "settings.updates.saveFailed": "Couldn't save the release channel ({reason}).",
   "settings.storage.title": "Storage",
   "settings.storage.hint": "Disk space Psyche uses in its data folder on this computer.",
   "settings.storage.total": "Total",
@@ -29,7 +28,7 @@ export const keepAwake = {
   "settings.storage.failed": "Couldn't read storage use ({reason}).",
   "settings.storage.confirm.title": "Clear caches and old recordings?",
   "settings.storage.confirm.body":
-    "This deletes up to {size} of caches and browser recordings older than 7 days. Psyche rebuilds caches when it needs them. Your chats, memory, Library, vault and settings aren't touched.",
+    "This deletes {size} of caches and browser recordings older than 7 days, along with those recordings' entries in the Library. Psyche rebuilds caches when it needs them. Your chats, memory, other Library files, vault and settings aren't touched.",
   "settings.storage.confirm.clear": "Clear",
   "settings.storage.cat.database": "Database",
   "settings.storage.cat.memoryIndex": "Memory index",

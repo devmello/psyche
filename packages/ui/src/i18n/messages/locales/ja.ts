@@ -511,6 +511,7 @@ export const ja: Partial<Catalogue> = {
   "blocks.artifact.bytes": "{size} B",
   "blocks.artifact.kilobytes": "{size} KB",
   "blocks.artifact.megabytes": "{size} MB",
+  "blocks.artifact.gigabytes": "{size} GB",
   "blocks.task.status.queued": "待機中",
   "blocks.task.status.running": "実行中",
   "blocks.task.status.awaiting_input": "回答待ち",

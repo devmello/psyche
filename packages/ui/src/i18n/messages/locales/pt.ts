@@ -473,6 +473,7 @@ export const pt: Partial<Catalogue> = {
   "blocks.artifact.bytes": "{size} B",
   "blocks.artifact.kilobytes": "{size} KB",
   "blocks.artifact.megabytes": "{size} MB",
+  "blocks.artifact.gigabytes": "{size} GB",
   "blocks.task.status.queued": "na fila",
   "blocks.task.status.running": "em execução",
   "blocks.task.status.awaiting_input": "precisa da sua resposta",
