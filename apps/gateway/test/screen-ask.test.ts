@@ -194,7 +194,10 @@ describe("screen ask (Gateway)", () => {
     );
     await c.gateway.context.sessions.idle();
     const parts = userParts(model.requests[0]);
-    const text = parts.find((p) => p.type === "text") as { text: string };
+    // The Gateway's image note comes first, then the owner's part (preamble and words).
+    const text = parts.find(
+      (p) => p.type === "text" && p.text.includes("What does this error mean?"),
+    ) as { text: string };
     expect(text.text).toContain('<screen_context untrusted="true">');
     expect(text.text).toContain("What does this error mean?");
     expect(parts).toContainEqual({ type: "image", mime: "image/jpeg", data: FRAME });
