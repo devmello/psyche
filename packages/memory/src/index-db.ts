@@ -122,6 +122,18 @@ export class MemoryIndex {
     this.#vector.clear();
   }
 
+  /**
+   * Merges the full-text index's segments, which drops the tokens of deleted chunks (a Forget
+   * calls this). Best effort: a failure leaves the index as it was.
+   */
+  optimizeFts(): void {
+    try {
+      this.#db.exec("INSERT INTO memory_fts(memory_fts) VALUES('optimize')");
+    } catch {
+      // The tokens go at the next merge.
+    }
+  }
+
   /** Chunks, and chunks embedded by the current model. */
   embeddingCounts(): { chunks: number; vectors: number } {
     const chunks = (
