@@ -130,7 +130,7 @@ describe("findXauthority", () => {
     ["a directory others can enter", { [DIR]: { ...dir, mode: 0o40750 } }],
     ["a link for the directory", { [DIR]: { ...dir, dir: false } }],
   ])("refuses %s", (_what, override) => {
-    const fs = fsOf({ [DIR]: dir, [`${DIR}/xauth-ab12-90-0123456789ab`]: file(1), ...override });
+    const fs = fsOf({ [`${DIR}/xauth-ab12-90-0123456789ab`]: file(1), ...override });
     expect(findXauthority(":90", "/run/user/1000", UID, fs)).toBeNull();
   });
 
@@ -353,7 +353,7 @@ describe("the agent browser on a headless Host (server driver)", () => {
     expect(services.tools.list().map((t) => t.name)).toEqual(
       expect.arrayContaining(["browser.open_tab", "browser.navigate", "browser.request_control"]),
     );
-    expect(services.browserAvailability.check()).toEqual({ ok: true });
+    expect(services.browserAvailability.check?.()).toEqual({ ok: true });
     expect(browser.driverKind).toBeNull();
     const [a, b] = await Promise.all([
       runTool(services, "browser.open_tab", "call_a", { url: "https://example.com/" }),

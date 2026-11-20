@@ -480,13 +480,15 @@ describe("composeVirtualScreen (the watch pane's methods)", () => {
       .filter((l) => /^export (async )?(function|const|let|class)/.test(l));
     for (const line of exported) expect(line, line).not.toMatch(/OwnerProof|newProof/);
     expect(source).not.toMatch(/export \{[^}]*\b(newProof|proof)\b/);
-    // The composed part returns handlers, never the screen or its proof.
+    // The composed part returns handlers and the take-over gate (B3: the browser on the same
+    // screen waits on it), never the screen or its proof.
     const composed = composeVirtualScreen({
       attention: { paneHidden: () => false },
       publish: () => undefined,
       clock: { now: () => 0 },
     } as never) as unknown as Record<string, unknown>;
-    expect(Object.keys(composed).sort()).toEqual(["handlers", "start", "stop"]);
+    expect(Object.keys(composed).sort()).toEqual(["handlers", "start", "stop", "takeOver"]);
+    expect(Object.keys(composed.takeOver as object).sort()).toEqual(["agentGate", "isTakenOver"]);
   });
 
   it("a stop that the helper refuses parks the Task and publishes the card; discard forces it", async () => {
