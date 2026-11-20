@@ -2231,6 +2231,7 @@ export async function composeGateway(options: ComposeOptions): Promise<ComposedG
       services,
       trackers: spaceTrackers,
       tools: connectorToolLookup(registry),
+      folderEnv: () => folderAccessEnv(config.home),
     }),
   );
   parts.push(mailFollowups.part());

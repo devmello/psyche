@@ -89,12 +89,10 @@ export function createDbSessionResolver(db: PsycheDb): SessionResolver {
       const key = `named:${name}`;
       return (
         bySessionKey(key)?.id ??
-        createThread(db, {
-          kind: "automation",
-          sessionKey: key,
-          title: automation.title,
-          spaceId: automation.spaceId ?? null,
-        }).id
+        // A named thread is shared by every automation that names it and outlives their moves, so
+        // it never takes an automation's Space: its Space is whatever the owner put the chat in,
+        // and a run in it takes the running automation's Space (spaces-2026 SR3).
+        createThread(db, { kind: "automation", sessionKey: key, title: automation.title }).id
       );
     },
   };

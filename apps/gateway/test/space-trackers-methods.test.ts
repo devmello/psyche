@@ -2,6 +2,7 @@ import { createThread } from "@psyche/db";
 import { describe, expect, it } from "vitest";
 import { SpaceTrackers, spaceTrackerHandlers } from "../src/compose/space-trackers.ts";
 import { spacesHandlers } from "../src/spaces/handlers.ts";
+import { SpaceStore } from "../src/spaces/store.ts";
 import { checkWidgetBindings } from "../src/widgets/bindings.ts";
 import { WidgetStore } from "../src/widgets/store.ts";
 import { adminClient, ik, startTestGateway } from "./helpers.ts";
@@ -76,6 +77,50 @@ describe("spaces.open and spaces.trackers.* through the real Gateway", () => {
       await expect(c.call("spaces.trackers.add", { spaceId: sp.id })).rejects.toThrow(
         /widgetId or a template/,
       );
+    } finally {
+      c.close();
+      await t.cleanup();
+    }
+  });
+});
+
+describe("hosted templates take no clicks", () => {
+  it("widgets.act and widgets.preview on a template are not_found", async () => {
+    const { composeWidgets } = await import("../src/compose/widgets.ts");
+    let part: ReturnType<typeof composeWidgets> | undefined;
+    const late = (name: string) => ({
+      run: (call: never, params: never) =>
+        (
+          ((part as NonNullable<typeof part>).handlers as Record<string, unknown>)[name] as {
+            run: (c: never, p: never) => unknown;
+          }
+        ).run(call, params),
+    });
+    const t = await startTestGateway({
+      handlers: {
+        "widgets.act": late("widgets.act"),
+        "widgets.preview": late("widgets.preview"),
+      } as never,
+    });
+    const c = await adminClient(t.gateway);
+    try {
+      const db = t.gateway.context.db;
+      createThread(db, { id: "main", kind: "main", sessionKey: "main:1" });
+      const services = { db, tools: { register: () => () => {} }, publish: () => {} } as never;
+      part = composeWidgets(services);
+      const bindings = (root: unknown, threadId: string, spaceId?: string | null) =>
+        checkWidgetBindings(db, root, threadId, spaceId);
+      const widgets = new WidgetStore({ db, bindings, publish: () => {} });
+      const engine = new SpaceTrackers({ db, widgets, bindings, publish: () => {} });
+      const sp = new SpaceStore(db).create({ name: "S" });
+      await engine.add(sp.id, { template: "checklist" });
+      const wid = engine.rows(sp.id)[0]?.widget_id as string;
+      await expect(
+        c.call("widgets.act", { widgetId: wid, nodeId: "items", itemId: "x" }, ik()),
+      ).rejects.toThrow(/No such widget/);
+      await expect(
+        c.call("widgets.preview", { widgetId: wid, nodeId: "items", itemId: "x" }),
+      ).rejects.toThrow(/No such widget/);
     } finally {
       c.close();
       await t.cleanup();

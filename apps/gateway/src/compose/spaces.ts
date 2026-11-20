@@ -1,8 +1,12 @@
+import { getSettings } from "@psyche/db";
+import type { FolderAccessEnv } from "@psyche/permissions";
 import { type Automation, PsycheError, type WorkflowEvent } from "@psyche/protocol";
 import { spacesHandlers } from "../spaces/handlers.ts";
+import { SpaceStore } from "../spaces/store.ts";
 import { checkWidgetBindings } from "../widgets/bindings.ts";
+import { ownerMatrices } from "./connector-matrix.ts";
 import type { ComposedPart, ComposeServices } from "./services.ts";
-import { SpaceTrackers, spaceTrackerHandlers, toolReader } from "./space-trackers.ts";
+import { SpaceTrackers, sourceGuard, spaceTrackerHandlers, toolReader } from "./space-trackers.ts";
 import { widgetStoreFor } from "./widgets.ts";
 
 /** The scheduler as Spaces uses it: pause and resume an automation, and read it back. */
@@ -23,7 +27,10 @@ export interface SpaceTrackersRef {
   current?: SpaceTrackers | undefined;
 }
 
-type Lookup = Parameters<typeof toolReader>[0];
+type Lookup = Parameters<typeof toolReader>[0] & {
+  /** Every registered name for a bare tool (`mcp__<connectorId>__<tool>`). */
+  names?(name: string): string[];
+};
 
 /**
  * Spaces (docs/design/spaces-2026.md): the `spaces.*` handlers over the Gateway's own database.
@@ -37,6 +44,7 @@ export function composeSpaces(deps: {
   trackers?: SpaceTrackersRef;
   /** The connector tools the calendar, reminders and mail queries read (read-only ones only). */
   tools?: Lookup | undefined;
+  folderEnv?: (() => FolderAccessEnv) | undefined;
 }): ComposedPart {
   const { scheduler, services } = deps;
   const base = spacesHandlers({
@@ -68,6 +76,12 @@ export function composeSpaces(deps: {
     bindings: (root, threadId, spaceId) =>
       checkWidgetBindings(services.db, root, threadId, spaceId),
     read,
+    ...(deps.folderEnv === undefined ? {} : { folderEnv: deps.folderEnv }),
+    guard: sourceGuard({
+      names: (tool) => deps.tools?.names?.(tool) ?? [],
+      scopeOf: (spaceId) => new SpaceStore(services.db).get(spaceId)?.connectorScope ?? null,
+      rule: (id, group) => ownerMatrices(getSettings(services.db)).get(id)?.[group],
+    }),
     now: () => services.clock.now(),
     onError: (err) =>
       services.logger?.log("warn", "a Space tracker refresh failed", {
@@ -107,7 +121,9 @@ export function composeSpaces(deps: {
           }
         }),
       );
-      unsubscribe.push(widgetStoreFor(services).onPatched((w) => engine.notePatched(w.id)));
+      unsubscribe.push(
+        widgetStoreFor(services).onPatched((w, by) => engine.notePatched(w.id, by.threadId)),
+      );
       const off = scheduler.onWorkflowEvent?.((event) => engine.signal({ kind: "event", event }));
       if (off !== undefined) unsubscribe.push(off);
     },

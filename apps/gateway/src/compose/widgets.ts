@@ -5,6 +5,7 @@ import {
   type MethodResult,
   PsycheError,
   type ResearchProgressEvent,
+  type Widget,
   type WidgetBind,
 } from "@psyche/protocol";
 import type { Static } from "@sinclair/typebox";
@@ -15,7 +16,7 @@ import { checkWidgetBindings } from "../widgets/bindings.ts";
 import { fetchWidgetImage } from "../widgets/image.ts";
 import { claimWidgetClick } from "../widgets/rate.ts";
 import { ResearchTracker, resolveCallBinding } from "../widgets/resolve.ts";
-import { WidgetStore } from "../widgets/store.ts";
+import { isSpaceHosted, WidgetStore } from "../widgets/store.ts";
 import { widgetTools } from "../widgets/tools.ts";
 import type { ComposedPart, ComposeServices } from "./services.ts";
 
@@ -41,6 +42,14 @@ export function specImageUrls(root: unknown): string[] {
   };
   walk(root, 0);
   return out;
+}
+
+/**
+ * A tracker the Gateway drew for a Space has main as its host thread only because a row needs
+ * one: a click on it must not become a call in the main chat's permission mode (SR7).
+ */
+function refuseHosted(widget: { owner: Widget["owner"] }): void {
+  if (isSpaceHosted(widget)) throw new PsycheError("not_found", "No such widget.");
 }
 
 const stores = new WeakMap<ComposeServices, WidgetStore>();
@@ -125,6 +134,7 @@ export function composeWidgets(services: ComposeServices): ComposedPart {
         run: (call: Call, p: MethodParams<"widgets.act">): MethodResult<"widgets.act"> => {
           const [widget] = getWidgets(services.db, [p.widgetId]);
           if (widget === undefined) throw new PsycheError("not_found", "No such widget.");
+          refuseHosted(widget);
           const thread = requireThread(call, widget.threadId);
           const action = resolveToolAction(widget.spec, p.nodeId, p.itemId, p.values);
           claimWidgetClick(widget.id);
@@ -152,6 +162,7 @@ export function composeWidgets(services: ComposeServices): ComposedPart {
         ): Promise<MethodResult<"widgets.preview">> => {
           const [widget] = getWidgets(services.db, [p.widgetId]);
           if (widget === undefined) throw new PsycheError("not_found", "No such widget.");
+          refuseHosted(widget);
           const thread = requireThread(call, widget.threadId);
           const action = resolveToolAction(widget.spec, p.nodeId, p.itemId, undefined, {
             preview: true,

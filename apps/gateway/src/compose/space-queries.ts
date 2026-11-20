@@ -3,7 +3,7 @@ import { join } from "node:path";
 import { defangFence } from "@psyche/agent-core";
 import type { PsycheDb } from "@psyche/db";
 import { ACCEPTED_REVIEW_SQL } from "@psyche/memory";
-import { grantedRootRefused, lookupRootFacts } from "@psyche/permissions";
+import { type FolderAccessEnv, grantedRootRefused, lookupRootFacts } from "@psyche/permissions";
 import { isSpaceQuerySource, type SpaceQuerySource, type TaintSource } from "@psyche/protocol";
 
 /**
@@ -65,7 +65,16 @@ export interface QueryDeps {
    */
   read?: ((tool: string, params: Record<string, unknown>) => Promise<unknown>) | undefined;
   /** The names and times of the files directly in a folder; never contents. Default: the disk. */
-  listFolder?: ((folder: string) => FileEntry[] | Promise<FileEntry[]>) | undefined;
+  listFolder?:
+    | ((folder: string) => FileEntry[] | FolderListing | Promise<FileEntry[] | FolderListing>)
+    | undefined;
+  /** The Gateway's folder rules (Psyche's home, protected roots): as a folder grant is judged. */
+  folderEnv?: (() => FolderAccessEnv) | undefined;
+  /**
+   * Whether a source may be read for a Space: false when the Space's connector scope leaves its
+   * connector out or the owner's matrix has it Off (spaces-2026 SR5). Absent: allowed.
+   */
+  guard?: ((source: SpaceQuerySource, space: QuerySpace) => boolean) | undefined;
 }
 
 /** Opening or closing tags of a prompt section (the same set `agent-core` neutralises). */
@@ -78,9 +87,15 @@ const NEUTRALISED_TAG =
  */
 export function cleanText(value: unknown, max = 200): string {
   if (typeof value !== "string") return "";
-  const line = value
-    .replace(/<<<\/?(?:end-)?untrusted-data>>>/g, "")
-    .replace(/[\p{Cc}\p{Zl}\p{Zp}]+/gu, " ")
+  // Markers are removed until none is left (one nested in another would be rebuilt by a single
+  // pass), then control, bidi and zero-width characters go: an override cannot reorder a label.
+  let text = value;
+  for (let prev = ""; prev !== text; ) {
+    prev = text;
+    text = text.replace(/<<<\s*\/?\s*(?:end-)?\s*untrusted-data\s*>>>/gi, "");
+  }
+  const line = text
+    .replace(/[\p{Cc}\p{Cf}\p{Zl}\p{Zp}]+/gu, " ")
     .replace(/\s+/g, " ")
     .trim()
     .slice(0, max);
@@ -311,8 +326,11 @@ async function calendarQuery(
     try {
       const calendars = asList(await read("calendar_list_calendars", {}), "calendars");
       for (const c of calendars) {
-        if (typeof c.id === "string" && c.writable === true && refs.includes(c.id))
-          trusted.add(c.id);
+        // Apple and Outlook say `writable`; Google and Microsoft say `accessRole`.
+        const mine =
+          c.writable === true ||
+          (typeof c.accessRole === "string" && ["owner", "writer"].includes(c.accessRole));
+        if (typeof c.id === "string" && mine && refs.includes(c.id)) trusted.add(c.id);
       }
     } catch {
       // none trusted
@@ -398,12 +416,10 @@ async function mailQuery(
   const out = await deps.read("mail_search", { limit: 50 });
   if (out === undefined) return { values: {}, taint, unavailable: true };
   const rows = asList(out, "messages").filter((m) => {
-    // Apple's `mail_search` has no thread id: its anchors are message ids (or `account:id`).
+    // Apple's `mail_search` has no thread id and its anchors are message ids (the anchor ref is
+    // `threadKey ?? messageId`); Gmail rows carry a `threadId`.
     const ids = [m.threadId, m.id].filter((x): x is string => typeof x === "string");
-    const account = typeof m.account === "string" ? m.account : undefined;
-    return ids.some(
-      (id) => refs.has(id) || (account !== undefined && refs.has(`${account}:${id}`)),
-    );
+    return ids.some((id) => refs.has(id));
   });
   const unread = rows.filter((m) => m.read === false || m.unread === true);
   const values: Record<string, FieldValue> = {};
@@ -424,23 +440,40 @@ async function mailQuery(
   return { values, taint };
 }
 
-/** The most names read from one folder: a huge directory cannot stall the Gateway. */
-const MAX_FOLDER_ENTRIES = 500;
+/** The most entries one folder's listing stats; the rest are counted by name only. */
+export const MAX_FOLDER_STATS = 2000;
 
-async function diskList(folder: string): Promise<FileEntry[]> {
-  const names = (await readdir(folder))
-    .filter((n) => !n.startsWith("."))
-    .slice(0, MAX_FOLDER_ENTRIES);
+export interface FolderListing {
+  entries: FileEntry[];
+  /** Every visible name in the folder, including those not stat-ed. */
+  total: number;
+}
+
+/**
+ * The names and times of the files directly in a folder. Every name is counted; at most
+ * `maxStats` are stat-ed (50 at a time, with `lstat`, so a link is not followed and a mount
+ * behind it cannot hang the read).
+ */
+export async function listFolderDisk(
+  folder: string,
+  maxStats: number = MAX_FOLDER_STATS,
+): Promise<FolderListing> {
+  const names = (await readdir(folder)).filter((n) => !n.startsWith("."));
   const out: FileEntry[] = [];
-  for (const name of names) {
-    try {
-      // lstat: an entry that is a link is not followed (a mount behind it cannot hang the read).
-      out.push({ name, mtimeMs: (await lstat(join(folder, name))).mtimeMs });
-    } catch {
-      // gone between the listing and the stat
-    }
+  const todo = names.slice(0, maxStats);
+  for (let i = 0; i < todo.length; i += 50) {
+    const batch = await Promise.all(
+      todo.slice(i, i + 50).map(async (name) => {
+        try {
+          return { name, mtimeMs: (await lstat(join(folder, name))).mtimeMs };
+        } catch {
+          return undefined; // gone between the listing and the stat
+        }
+      }),
+    );
+    for (const e of batch) if (e !== undefined) out.push(e);
   }
-  return out;
+  return { entries: out, total: names.length };
 }
 
 async function filesQuery(
@@ -452,16 +485,20 @@ async function filesQuery(
     .prepare("SELECT path, real FROM space_folders WHERE space_id = ? ORDER BY added_at, path")
     .all(space.id) as Array<{ path: string; real: string }>;
   if (folders.length === 0) return { values: {}, taint: [], unavailable: true };
-  const list = deps.listFolder ?? diskList;
+  const list = deps.listFolder ?? listFolderDisk;
   const entries: FileEntry[] = [];
+  let total = 0;
   let readable = 0;
   for (const f of folders) {
     try {
       // The same refusals as a folder grant (SR2): a folder swapped for a link, moved off its
       // recorded real path, or inside a sensitive root lists nothing.
       const facts = await lookupRootFacts(f.path);
-      if (grantedRootRefused(f.path, facts, f.real)) continue;
-      entries.push(...(await list(facts.real ?? f.path)));
+      if (grantedRootRefused(f.path, facts, f.real, deps.folderEnv?.() ?? {})) continue;
+      const listed = await list(facts.real ?? f.path);
+      const got = Array.isArray(listed) ? { entries: listed, total: listed.length } : listed;
+      entries.push(...got.entries);
+      total += got.total;
       readable++;
     } catch {
       // an unreadable folder contributes nothing
@@ -471,7 +508,7 @@ async function filesQuery(
   entries.sort((a, b) => b.mtimeMs - a.mtimeMs || a.name.localeCompare(b.name));
   const values: Record<string, FieldValue> = {};
   for (const f of fields) {
-    if (f === "count") values.count = { value: entries.length, text: String(entries.length) };
+    if (f === "count") values.count = { value: total, text: String(total) };
     else if (f === "recent") {
       values.recent = {
         items: itemsOf(
@@ -499,6 +536,10 @@ export async function runQuery(
   fields: string[],
 ): Promise<QueryResult> {
   if (!isSpaceQuerySource(source)) return { values: {}, taint: [], unavailable: true };
+  // A source outside the Space's connector scope, or with its connector Off, reads nothing.
+  if (deps.guard !== undefined && !deps.guard(source, space)) {
+    return { values: {}, taint: [], unavailable: true };
+  }
   try {
     switch (source as SpaceQuerySource) {
       case "entity":

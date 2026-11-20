@@ -88,6 +88,9 @@ export interface SpaceTrackersDeps {
   /** A read-only connector tool; undefined result means none is connected. */
   read?: QueryDeps["read"];
   listFolder?: QueryDeps["listFolder"];
+  folderEnv?: QueryDeps["folderEnv"];
+  /** Whether a source may be read for a Space (connector scope and matrix): see `sourceGuard`. */
+  guard?: QueryDeps["guard"];
   /** Starts one automation run: the only path in this file that can reach a model. */
   runAgent?: (automationId: string) => Promise<unknown>;
   now?: () => number;
@@ -410,17 +413,38 @@ export class SpaceTrackers {
   }
 
   /**
-   * A chat or run patched a widget. If it is an agent tracker on a live shelf, the patch is the
-   * refresh: the "may be out of date" mark clears and the time moves.
+   * A chat or run patched a widget. For an agent tracker on a live shelf, a patch from the run of
+   * its own linked automation is its refresh (source "automation"); a patch from a chat of the
+   * Space is a refresh by "chat". Anything else (another automation's run) marks nothing, and an
+   * archived Space publishes nothing.
    */
-  notePatched(widgetId: string): void {
+  notePatched(widgetId: string, threadId?: string): void {
     const row = this.#d.db.sqlite
       .prepare("SELECT * FROM space_trackers WHERE widget_id = ? AND kind = 'agent'")
       .get(widgetId) as Row | undefined;
     if (row === undefined) return;
-    const next: TrackerRefresh = parse(row);
+    const space = this.#store().get(row.space_id);
+    if (space === undefined || space.archivedAt !== null) return;
+    const refresh = parse(row);
+    const t =
+      threadId === undefined
+        ? undefined
+        : (this.#d.db.sqlite
+            .prepare("SELECT kind, session_key FROM threads WHERE id = ?")
+            .get(threadId) as { kind: string; session_key: string } | undefined);
+    let source: "automation" | "chat";
+    if (t?.kind === "automation") {
+      const own =
+        refresh.automationId !== undefined &&
+        t.session_key.startsWith(`cron:${refresh.automationId}:`);
+      if (!own) return;
+      source = "automation";
+    } else {
+      source = "chat";
+    }
+    const next: TrackerRefresh = refresh;
     next.staleSince = undefined;
-    this.#mark(row, next, "automation");
+    this.#mark(row, next, source);
   }
 
   /** Whether any live Space has a query tracker on `source`: the mail and calendar poll's reason. */
@@ -585,6 +609,8 @@ export class SpaceTrackers {
       now: () => new Date(this.#now()),
       read: this.#d.read,
       listFolder: this.#d.listFolder,
+      folderEnv: this.#d.folderEnv,
+      guard: this.#d.guard,
     };
     const results = new Map<string, Awaited<ReturnType<typeof runQuery>>>();
     for (const [key, g] of groups) {
@@ -749,6 +775,51 @@ export function spaceTrackerHandlers(engine: SpaceTrackers): Record<string, Hand
   };
 }
 
+/** The only connector tools a Space query may call: all read-only. */
+export const SPACE_READ_TOOLS: Readonly<Record<string, string>> = {
+  calendar_list_events: "calendar.read",
+  calendar_list_calendars: "calendar.read",
+  reminders_list: "reminders.read",
+  mail_search: "mail.read",
+};
+
+/** The connector id in a registered tool name `mcp__<connectorId>__<tool>`. */
+const connectorIdOf = (registered: string): string | undefined =>
+  /^mcp__(.+)__[^_].*$/.exec(registered)?.[1]?.replace(/__.*$/, "");
+
+/**
+ * SR5: a Space's query reads only what a chat in that Space could. A source is refused when the
+ * Space's `connectorScope` leaves out any connector that offers its tool, or when the owner's
+ * matrix has that tool's group on Deny for one. A scoped Space whose tool cannot be tied to a
+ * connector is refused too (fail closed); an unscoped one is not.
+ */
+export function sourceGuard(opts: {
+  names: (tool: string) => readonly string[];
+  scopeOf: (spaceId: string) => readonly string[] | null;
+  rule: (connectorId: string, group: string) => string | undefined;
+}): NonNullable<QueryDeps["guard"]> {
+  const tools: Record<string, string[]> = {
+    calendar: ["calendar_list_events", "calendar_list_calendars"],
+    reminders: ["reminders_list"],
+    mail: ["mail_search"],
+  };
+  return (source, space) => {
+    const wanted = tools[source];
+    if (wanted === undefined) return true;
+    const scope = opts.scopeOf(space.id);
+    for (const tool of wanted) {
+      const ids = opts.names(tool).map((n) => connectorIdOf(n));
+      if (scope !== null && (ids.length === 0 || ids.some((id) => id === undefined))) return false;
+      for (const id of ids) {
+        if (id === undefined) continue;
+        if (scope !== null && !scope.includes(id)) return false;
+        if (opts.rule(id, SPACE_READ_TOOLS[tool] as string) === "deny") return false;
+      }
+    }
+    return true;
+  };
+}
+
 /** A read-only connector tool as the queries use it. `undefined` when no connector offers it. */
 export function toolReader(
   lookup: {
@@ -762,6 +833,8 @@ export function toolReader(
   makeContext: (callId: string, signal: AbortSignal) => unknown,
 ): NonNullable<QueryDeps["read"]> {
   return async (tool, params) => {
+    // Never a write tool, whatever a caller passes.
+    if (!(tool in SPACE_READ_TOOLS)) throw new Error(`${tool} is not a Space query tool`);
     const reg = lookup.get(tool);
     if (reg === undefined) return undefined;
     const callId = `space:${tool}:${Date.now()}`;

@@ -213,14 +213,14 @@ export class WidgetStore {
       throw new PsycheError("conflict", "The widget changed while patching; retry.");
     }
     this.#queue(next, current.rev, ops);
-    for (const l of this.#patched) l(next);
+    for (const l of this.#patched) l(next, { threadId: input.threadId });
     return next;
   }
 
-  readonly #patched = new Set<(w: Widget) => void>();
+  readonly #patched = new Set<(w: Widget, by: { threadId: string }) => void>();
 
   /** Called after a chat or run patched a widget (not for the Gateway's own recompute). */
-  onPatched(listener: (w: Widget) => void): () => void {
+  onPatched(listener: (w: Widget, by: { threadId: string }) => void): () => void {
     this.#patched.add(listener);
     return () => this.#patched.delete(listener);
   }

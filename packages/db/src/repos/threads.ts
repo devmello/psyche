@@ -205,7 +205,9 @@ export function listThreadsPage(
     opts.includeArchived ? undefined : isNull(threads.archivedAt),
     opts.kind === undefined ? undefined : eq(threads.kind, opts.kind),
     opts.pinnedOnly ? eq(threads.pinned, 1) : undefined,
-    opts.spaceId === undefined ? undefined : eq(threads.spaceId, opts.spaceId),
+    opts.spaceId === undefined
+      ? undefined
+      : and(eq(threads.spaceId, opts.spaceId), sql`${threads.sessionKey} NOT LIKE 'cron:%'`),
     opts.hideEmptyChats ? sql`NOT (${emptyUserChat})` : undefined,
     opts.hideRunThreads
       ? sql`NOT (${threads.kind} = 'automation' AND ${threads.sessionKey} LIKE 'cron:%')`
