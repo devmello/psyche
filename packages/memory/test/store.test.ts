@@ -1,8 +1,11 @@
-import { existsSync, readFileSync, statSync, symlinkSync, writeFileSync } from "node:fs";
+import { existsSync, readFileSync, rmSync, statSync, symlinkSync, writeFileSync } from "node:fs";
+import { tmpdir } from "node:os";
 import { join } from "node:path";
+import { openDb } from "@psyche/db";
 import { PsycheError } from "@psyche/protocol";
-import { afterEach, describe, expect, it } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 import { bootstrapContext, missingMarker } from "../src/context.ts";
+import { MemoryIndex } from "../src/index-db.ts";
 import type { MemoryEvent } from "../src/support.ts";
 import { APPROVED, makeEnv, type TestEnv, vocabularyEmbedder } from "./helpers.ts";
 
@@ -369,6 +372,93 @@ describe("forget (H7: a deleted fact never comes back)", () => {
     expect(r.removedChunkIds).toHaveLength(1);
     expect((await env.store.search("pottery")).length).toBe(1);
     expect(await code(env.store.forget("a"))).toBe("invalid_params");
+  });
+
+  it("leaves no trace of long forgotten notes in the database or WAL files", async () => {
+    const dbPath = join(tmpdir(), `psyche-forget-bytes-${process.pid}-${Date.now()}.sqlite`);
+    const fileDb = openDb(dbPath);
+    env = await makeEnv({ sqlite: fileDb.sqlite });
+    try {
+      // Long notes (many chunks, overflow pages): lines with the phrase among lines to keep.
+      const filler = Array.from(
+        { length: 700 },
+        (_, i) => `- lorem ipsum dolor sit amet number ${i}`,
+      );
+      const withPhrase = (at: number) =>
+        filler.map((l, i) => (i === at ? "- Zorblaxian secret line" : l)).join("\n");
+      await env.store.writeFileAsOwner("memory/agent/one.md", withPhrase(10));
+      await env.store.writeFileAsOwner("memory/agent/two.md", withPhrase(400));
+      await env.store.appendDailyNote({ text: "Keep this note", provenance: "owner" });
+      fileDb.sqlite.pragma("wal_checkpoint(TRUNCATE)");
+      const disk = () =>
+        [dbPath, `${dbPath}-wal`]
+          .filter((f) => existsSync(f))
+          .map((f) => readFileSync(f).toString("latin1").toLowerCase())
+          .join("");
+      expect(disk()).toContain("zorblaxian");
+      const before = fileDb.sqlite.pragma("secure_delete", { simple: true });
+      await env.store.forget("Zorblaxian");
+      expect(fileDb.sqlite.pragma("secure_delete", { simple: true })).toBe(before);
+      expect(disk()).not.toContain("zorblaxian");
+      expect(disk()).toContain("keep this note");
+    } finally {
+      fileDb.close();
+      for (const f of [dbPath, `${dbPath}-wal`, `${dbPath}-shm`]) rmSync(f, { force: true });
+    }
+  });
+
+  it("two forgets at once both run under ON and leave the setting at FAST (SD)", async () => {
+    const dbPath = join(tmpdir(), `psyche-forget-sd-${process.pid}-${Date.now()}.sqlite`);
+    const fileDb = openDb(dbPath);
+    env = await makeEnv({ sqlite: fileDb.sqlite });
+    try {
+      const lines = (word: string) =>
+        Array.from({ length: 600 }, (_, i) => (i === 7 ? `- ${word} line` : `- filler line ${i}`));
+      await env.store.writeFileAsOwner("memory/agent/a.md", lines("Zorblaxian").join("\n"));
+      await env.store.writeFileAsOwner("memory/agent/b.md", lines("Quibblefrax").join("\n"));
+      fileDb.sqlite.pragma("wal_checkpoint(TRUNCATE)");
+      expect(fileDb.sqlite.pragma("secure_delete", { simple: true })).toBe(2);
+      const seen = new Set<unknown>();
+      const pragma = fileDb.sqlite.pragma.bind(fileDb.sqlite);
+      const spy = vi.spyOn(fileDb.sqlite, "pragma").mockImplementation(((...a: unknown[]) => {
+        const out = (pragma as (...x: unknown[]) => unknown)(...a);
+        if (String(a[0]).startsWith("wal_checkpoint")) {
+          seen.add(pragma("secure_delete", { simple: true }));
+        }
+        return out;
+      }) as never);
+      try {
+        await Promise.all([env.store.forget("Zorblaxian"), env.store.forget("Quibblefrax")]);
+      } finally {
+        spy.mockRestore();
+      }
+      // Every checkpoint of a forget ran with secure_delete ON (1), even the first to finish.
+      expect([...seen]).toEqual([1]);
+      expect(fileDb.sqlite.pragma("secure_delete", { simple: true })).toBe(2);
+      const disk = [dbPath, `${dbPath}-wal`]
+        .filter((f) => existsSync(f))
+        .map((f) => readFileSync(f).toString("latin1").toLowerCase())
+        .join("");
+      expect(disk).not.toContain("zorblaxian");
+      expect(disk).not.toContain("quibblefrax");
+    } finally {
+      fileDb.close();
+      for (const f of [dbPath, `${dbPath}-wal`, `${dbPath}-shm`]) rmSync(f, { force: true });
+    }
+  });
+
+  it("merges the full-text segments after a forget, and not after a dry run", async () => {
+    env = await makeEnv();
+    await env.store.appendDailyNote({ text: "Pottery class on Tuesdays", provenance: "owner" });
+    const optimize = vi.spyOn(MemoryIndex.prototype, "optimizeFts");
+    try {
+      await env.store.forget("pottery", { dryRun: true });
+      expect(optimize).not.toHaveBeenCalled();
+      await env.store.forget("pottery");
+      expect(optimize).toHaveBeenCalledTimes(1);
+    } finally {
+      optimize.mockRestore();
+    }
   });
 });
 

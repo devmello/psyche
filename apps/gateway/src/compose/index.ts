@@ -2479,7 +2479,9 @@ export async function composeGateway(options: ComposeOptions): Promise<ComposedG
   const unsubscribeHelperChange = gateway.context.nodes.onHostHelperChange(syncHelperAvailability);
   syncHelperAvailability();
   // The owner's folder grants and rules apply without a restart (settings.set → broker policy).
-  // A run that ends lets a waiting Forget trace pass go on (no polling).
+  // A run that ends lets a waiting Forget trace pass go on (no polling). This relies on the
+  // `run.updated` frame; a run that ends without one is picked up at the next wake or at the
+  // pass's 24 h expiry.
   const unsubscribeTraceScrub = gateway.bus.subscribe(["operator.read"], (frame) => {
     if (!frame.includes('"run.updated"')) return;
     try {
