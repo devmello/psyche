@@ -21,6 +21,7 @@ import { helperCheck } from "./helper-check/it.ts";
 import { helperOffline } from "./helper-offline/it.ts";
 import { homeRest } from "./home-rest/it.ts";
 import { links } from "./links/it.ts";
+import { linuxAccess } from "./linux-access/it.ts";
 import { mailMeetings } from "./mail-meetings/it.ts";
 import { meetingRecordRest } from "./meeting-record-rest/it.ts";
 import { memoryAdvancedRest } from "./memory-advanced-rest/it.ts";
@@ -2397,6 +2398,34 @@ export const it: Partial<Catalogue> = {
   "settings.skills.removeDescription":
     "I suoi file vengono eliminati da questo Gateway. Per installarla di nuovo si passa dalla scheda di attendibilità.",
   "settings.skills.switchOn": "{name} attiva",
+  "settings.plugins.title": "Plugin",
+  "settings.plugins.description":
+    "Codice che aggiunge contesto, controlla le chiamate agli strumenti o esegue valutazioni. Ogni plugin gira nel proprio processo. I plugin non concedono mai permessi.",
+  "settings.plugins.off": "I plugin sono disattivati su questo Gateway, quindi nessuno gira.",
+  "settings.plugins.loading": "Caricamento dei plugin…",
+  "settings.plugins.error": "Impossibile caricare i plugin. {reason}",
+  "settings.plugins.empty": "Nessun plugin installato.",
+  "settings.plugins.failed": "La modifica non è stata salvata. {reason}",
+  "settings.plugins.waitingApproval": "In attesa della tua approvazione su questo dispositivo.",
+  "settings.plugins.switchOn": "{name} attivo",
+  "settings.plugins.version": " · v{version}",
+  "settings.plugins.adds": "Aggiunge: {list}",
+  "settings.plugins.from": "Da {source}",
+  "settings.plugins.state.active": "In esecuzione",
+  "settings.plugins.state.disabled": "Disattivato",
+  "settings.plugins.state.off": "In attesa che i plugin vengano attivati",
+  "settings.plugins.state.hash_mismatch": "Modificato dall'installazione, non gira",
+  "settings.plugins.state.invalid": "Manifesto non valido, non gira",
+  "settings.plugins.state.failed": "Fermato da un errore",
+  "settings.plugins.capability.context": "contesto",
+  "settings.plugins.capability.before_tool_call":
+    "un controllo prima delle chiamate agli strumenti",
+  "settings.plugins.capability.after_tool_call": "un controllo dopo le chiamate agli strumenti",
+  "settings.plugins.capability.agent_end": "un passo alla fine di ogni esecuzione",
+  "settings.plugins.capability.evaluate": "valutazioni",
+  "settings.plugins.removeTitle": "Rimuovere {name}?",
+  "settings.plugins.removeDescription":
+    "I suoi file vengono eliminati da questo Gateway. Reinstallarlo passa dalla scheda di fiducia.",
   "settings.skills.asksFor": "Richiede:",
   "settings.skills.toolsLabel": "Strumenti:",
   "settings.skills.title": "Skill",
@@ -3729,6 +3758,8 @@ export const it: Partial<Catalogue> = {
   ...helperOffline,
   // the security-records banner (docs/design/security-state-integrity-2026.md §7.3)
   ...securityState,
+  // Settings → Computer use on Linux: screen and input access
+  ...linuxAccess,
   // the Virtual screen watch pane (docs/design/linux-desktop-2026.md §7.5)
   ...computerWatch,
   // Gateway-authored notices (inbox notifications, security alerts)

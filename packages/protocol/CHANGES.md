@@ -21,6 +21,9 @@ CI fails when the generated files are stale (`pnpm protocol:check`).
 ### v1 additive — 2026-11-19 (machine registry, H3)
 
 - New method `node.unpair` (scope `node`, `{}` to `{ device }`): a connection paired as a machine removes itself; any other node gets `forbidden`. `MACHINE_TOKENS_ENABLED` is now true. Design: docs/design/linux-helper-only-2026.md §6.6, §9.
+### v1 additive — 2026-11-19 (whose call a description is for)
+
+- `ToolRegistration.describeCall` takes an optional second argument `call?: ToolCallScope` (`{runId, taskId?}`, new type). The agent loop's approval gate passes the run and Task making the call. A description that depends on it (the separate desktop's file-local words, which relax only for the Task that owns the desktop) must be at least as strict without it. Existing implementations ignore it.
 
 ### v1 additive — 2026-11-05 (Linux virtual screen watch pane, L6)
 

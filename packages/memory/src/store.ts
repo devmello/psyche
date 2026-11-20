@@ -15,6 +15,7 @@ import {
 } from "node:fs";
 import { dirname, join } from "node:path";
 import { assetDir } from "@psyche/assets";
+import { holdSecureDelete } from "@psyche/db";
 import {
   type AuditLog,
   type ClaimInput,
@@ -1350,41 +1351,55 @@ export class SqliteMemoryStore implements MemoryStore {
         });
       }
     }
-    // Files first: if a write fails, no claim has been retracted yet.
-    for (const [path, content] of edits) {
-      // Removing lines adds nothing: the file keeps its provenance.
-      const kept = this.#index.getFile(path)?.provenance ?? "owner";
-      const provenance = kept === "untrusted" && isProtected(path) ? "agent" : kept;
-      await this.write(path, content, {
-        provenance,
-        actor: "job",
-        source: "job",
-        link: { ...options.link, tool: options.link?.tool ?? "forget" },
-      });
-    }
-    const now = this.#nowIso();
-    this.#db.transaction(() => {
-      const retract = this.#db.prepare(
-        "UPDATE memory_claims SET text = '[retracted]', sources = '[]', retracted_at = ?, updated_at = ? WHERE id = ?",
+    // Freed pages (overflow of long notes, merged full-text segments) are zeroed while the forget
+    // deletes, so the text is not left in the database file; the WAL is cut at the end.
+    const restoreSecureDelete = holdSecureDelete(this.#db);
+    try {
+      // Files first: if a write fails, no claim has been retracted yet.
+      for (const [path, content] of edits) {
+        // Removing lines adds nothing: the file keeps its provenance.
+        const kept = this.#index.getFile(path)?.provenance ?? "owner";
+        const provenance = kept === "untrusted" && isProtected(path) ? "agent" : kept;
+        await this.write(path, content, {
+          provenance,
+          actor: "job",
+          source: "job",
+          link: { ...options.link, tool: options.link?.tool ?? "forget" },
+        });
+      }
+      const now = this.#nowIso();
+      this.#db.transaction(() => {
+        const retract = this.#db.prepare(
+          "UPDATE memory_claims SET text = '[retracted]', sources = '[]', retracted_at = ?, updated_at = ? WHERE id = ?",
+        );
+        for (const c of claims) retract.run(now, now, c.id);
+      })();
+      // Chunks of files forget does not edit (persona files) leave the index until they change.
+      this.#index.deleteChunks(
+        chunks.map((c) => c.id).filter((id) => this.#index.getChunk(id) !== undefined),
       );
-      for (const c of claims) retract.run(now, now, c.id);
-    })();
-    // Chunks of files forget does not edit (persona files) leave the index until they change.
-    this.#index.deleteChunks(
-      chunks.map((c) => c.id).filter((id) => this.#index.getChunk(id) !== undefined),
-    );
-    if (claims.length + chunks.length + edits.size > 0) {
-      await this.appendDailyNote({
-        text: `Retracted ${claims.length} claim(s) and removed ${chunks.length} memory chunk(s) from ${edits.size} file(s) at the owner's request.`,
-        provenance: "system",
-      });
-      await this.#audit
-        ?.append({
-          kind: "memory.retraction",
-          actor: { type: options.actor === "agent" ? "agent" : "system" },
-          data: { claims: claims.length, chunks: chunks.length, files: edits.size },
-        })
-        .catch(() => undefined);
+      if (claims.length + chunks.length + edits.size > 0) {
+        await this.appendDailyNote({
+          text: `Retracted ${claims.length} claim(s) and removed ${chunks.length} memory chunk(s) from ${edits.size} file(s) at the owner's request.`,
+          provenance: "system",
+        });
+        await this.#audit
+          ?.append({
+            kind: "memory.retraction",
+            actor: { type: options.actor === "agent" ? "agent" : "system" },
+            data: { claims: claims.length, chunks: chunks.length, files: edits.size },
+          })
+          .catch(() => undefined);
+      }
+      // Full-text segments keep the tokens of deleted chunks until they are merged: merge them now.
+      this.#index.optimizeFts();
+      try {
+        this.#db.pragma("wal_checkpoint(TRUNCATE)");
+      } catch {
+        // A reader holding the WAL postpones the cut to the next checkpoint.
+      }
+    } finally {
+      restoreSecureDelete();
     }
     // The forget has committed: a failing hook must not fail it (the owner would see an error
     // for a change that happened, and a retry would repeat the work).

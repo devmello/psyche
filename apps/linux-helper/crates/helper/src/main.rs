@@ -22,6 +22,19 @@ fn main() -> ExitCode {
             return ExitCode::from(2);
         }
     };
+    if matches!(
+        command,
+        Command::Pair { .. } | Command::Remote | Command::Status { .. } | Command::Unpair
+    ) {
+        // Remote mode holds a device key in memory: the same start-up check as serving.
+        if !matches!(command, Command::Status { .. }) {
+            if let Err(message) = refuse_injected_libraries(&ProcessEnv) {
+                log(&message);
+                return ExitCode::from(78);
+            }
+        }
+        return psyche_helper::remote::run::dispatch(command, &ProcessEnv);
+    }
     let Command::Serve { idle } = command else {
         return match run_info(&command, &ProcessEnv) {
             Ok(text) => {
@@ -52,8 +65,10 @@ fn main() -> ExitCode {
         }
     };
     let idle = Arc::new(IdleTimer::new(idle));
-    #[allow(unused_mut)]
     let mut registry = Registry::standard(BuildInfo::current());
+    // Direct computer use (L5): registered here, connected to the desktop on the first call.
+    psyche_helper::direct::register(&mut registry);
+    // Virtual screens (L6).
     #[cfg(target_os = "linux")]
     let vscreen = psyche_helper::vscreen::register(&mut registry, &ProcessEnv, Arc::clone(&idle));
     let mut daemon = Daemon::new(identity, registry, Box::new(ProcessEnv), idle);

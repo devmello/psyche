@@ -156,6 +156,14 @@ export interface PairedIdentity {
    */
   desktopShell?: true;
   /**
+   * This connection is the owner's CLI on the Host's own computer (B2): `deviceFamily: cli` over a
+   * loopback WebSocket without an Origin, presenting this launch's handshake secret from
+   * `$PSYCHE_HOME/run`. A TCP forward from another computer (ssh -L, socat, `tailscale serve --tcp`)
+   * is loopback but cannot read that file. It grants nothing by itself: `isLocalAdminCli` also needs
+   * the device to hold `operator.admin`.
+   */
+  localHostCli?: true;
+  /**
    * This connection is the Host's own helper: a `mac-helper` or `win-helper` node on the local
    * node transport that presented the per-launch handshake secret at this connect. The secret lives in
    * `$PSYCHE_HOME/run`, which the sandbox guest and any other machine cannot read, so neither a
@@ -241,6 +249,23 @@ export function isDesktopShell(
     peer.transport === "ws" &&
     params.role === "client" &&
     params.deviceFamily === "desktop" &&
+    secretMatches(handshakeSecret, params.handshakeSecret)
+  );
+}
+
+/** The Host CLI's connection proof: the desktop shell's, for the `cli` family. */
+export function isLocalHostCli(
+  params: ConnectParams,
+  peer: PeerInfo,
+  handshakeSecret: string,
+): boolean {
+  return (
+    peer.remoteLoopback &&
+    peer.origin === null &&
+    peer.transport === "ws" &&
+    peer.lan !== true &&
+    params.role === "client" &&
+    params.deviceFamily === "cli" &&
     secretMatches(handshakeSecret, params.handshakeSecret)
   );
 }
@@ -597,6 +622,7 @@ export function verifyChallenge(
         scopes: authz.scopes,
         role: params.role,
         ...(isDesktopShell(params, peer, deps.handshakeSecret) ? { desktopShell: true } : {}),
+        ...(isLocalHostCli(params, peer, deps.handshakeSecret) ? { localHostCli: true } : {}),
         ...(isHostHelper(params, peer, deps.handshakeSecret) ? { hostHelper: true } : {}),
         ...(machineRow !== undefined ? { machine: true as const } : {}),
       },
@@ -755,6 +781,7 @@ export function verifyChallenge(
           scopes,
           role: params.role,
           ...(isDesktopShell(params, peer, deps.handshakeSecret) ? { desktopShell: true } : {}),
+          ...(isLocalHostCli(params, peer, deps.handshakeSecret) ? { localHostCli: true } : {}),
           ...(isHostHelper(params, peer, deps.handshakeSecret) ? { hostHelper: true } : {}),
           ...(machineToken ? { machine: true as const } : {}),
         },

@@ -1,4 +1,4 @@
-import { readGuardOfConnection } from "@psyche/db";
+import { holdSecureDelete, readGuardOfConnection } from "@psyche/db";
 import {
   type Clock,
   type GraphCitation,
@@ -1896,14 +1896,13 @@ export class EverythingStore {
   }
 
   #secure<T>(fn: () => T): T {
-    const before = this.#db.pragma("secure_delete", { simple: true });
-    this.#db.pragma("secure_delete = ON");
+    const release = holdSecureDelete(this.#db);
     try {
       const out = this.#db.transaction(fn)();
       if (this.#db.name !== ":memory:") this.#db.pragma("wal_checkpoint(TRUNCATE)");
       return out;
     } finally {
-      this.#db.pragma(`secure_delete = ${before === 1 ? "ON" : "OFF"}`);
+      release();
     }
   }
 }

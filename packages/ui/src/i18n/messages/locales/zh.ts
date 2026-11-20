@@ -21,6 +21,7 @@ import { helperCheck } from "./helper-check/zh.ts";
 import { helperOffline } from "./helper-offline/zh.ts";
 import { home } from "./home/zh.ts";
 import { links } from "./links/zh.ts";
+import { linuxAccess } from "./linux-access/zh.ts";
 import { mailMeetings } from "./mail-meetings/zh.ts";
 import { meetingRecord } from "./meeting-record/zh.ts";
 import { memoryMap } from "./memory-map/zh.ts";
@@ -2341,6 +2342,32 @@ export const zh: Partial<Catalogue> = {
   "settings.skills.removeDescription":
     "其文件会从此 Gateway 中删除。再次安装时需重新经过信任卡片。",
   "settings.skills.switchOn": "{name} 开",
+  "settings.plugins.title": "插件",
+  "settings.plugins.description":
+    "可补充上下文、检查工具调用或运行评估的代码。每个插件在自己的进程中运行。插件从不授予权限。",
+  "settings.plugins.off": "此 Gateway 已关闭插件，因此没有任何插件在运行。",
+  "settings.plugins.loading": "正在加载插件…",
+  "settings.plugins.error": "无法加载插件。{reason}",
+  "settings.plugins.empty": "没有安装任何插件。",
+  "settings.plugins.failed": "更改未保存。{reason}",
+  "settings.plugins.waitingApproval": "正在等待你在此设备上批准。",
+  "settings.plugins.switchOn": "{name} 开启",
+  "settings.plugins.version": " · v{version}",
+  "settings.plugins.adds": "包括：{list}",
+  "settings.plugins.from": "来源：{source}",
+  "settings.plugins.state.active": "运行中",
+  "settings.plugins.state.disabled": "已关闭",
+  "settings.plugins.state.off": "等待开启插件",
+  "settings.plugins.state.hash_mismatch": "安装后已更改，未运行",
+  "settings.plugins.state.invalid": "清单无效，未运行",
+  "settings.plugins.state.failed": "因错误而停止",
+  "settings.plugins.capability.context": "上下文",
+  "settings.plugins.capability.before_tool_call": "工具调用前的检查",
+  "settings.plugins.capability.after_tool_call": "工具调用后的检查",
+  "settings.plugins.capability.agent_end": "每次运行结束时的一步",
+  "settings.plugins.capability.evaluate": "评估",
+  "settings.plugins.removeTitle": "移除 {name}？",
+  "settings.plugins.removeDescription": "它的文件将从此 Gateway 删除。重新安装需要经过信任卡片。",
   "settings.skills.asksFor": "请求：",
   "settings.skills.toolsLabel": "工具：",
   "settings.skills.title": "技能",
@@ -3618,6 +3645,8 @@ export const zh: Partial<Catalogue> = {
   ...helperOffline,
   // the security-records banner (docs/design/security-state-integrity-2026.md §7.3)
   ...securityState,
+  // Settings → Computer use on Linux: screen and input access
+  ...linuxAccess,
   // the Virtual screen watch pane (docs/design/linux-desktop-2026.md §7.5)
   ...computerWatch,
   // Gateway-authored notices (inbox notifications, security alerts)

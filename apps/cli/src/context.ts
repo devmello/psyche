@@ -1,8 +1,10 @@
+import { readFileSync } from "node:fs";
+import { join } from "node:path";
 import { GatewayClient, type HttpProbe, probeGateway, type WebSocketFactory } from "./client.ts";
 import { CliError } from "./errors.ts";
 import { type Exec, nodeExec } from "./exec.ts";
 import { loadOrCreateIdentity } from "./identity.ts";
-import { resolveGatewayUrl, resolveHome, wsUrl } from "./paths.ts";
+import { isLoopbackHost, resolveGatewayUrl, resolveHome, wsUrl } from "./paths.ts";
 import { type Prompter, ttyPrompter } from "./prompt.ts";
 
 export interface Io {
@@ -30,6 +32,38 @@ export interface GlobalOptions {
   home?: string;
   insecure: boolean;
   timeoutMs: number;
+}
+
+/**
+ * Whether `url` is exactly an address this home's own `psyched` is bound to. The Gateway writes the
+ * origin(s) it really listens on to `$PSYCHE_HOME/run/listen.json` (after it binds, with the
+ * handshake secret next to it); scheme, host and port must all equal a listed origin. `localhost`
+ * never matches (it can resolve to an address another account holds), `[::1]` is `::1`, and with no
+ * readable file nothing matches, so a Gateway that is down or an old one gets no secret.
+ */
+export function isOwnGatewayUrl(url: URL, home: string): boolean {
+  const key = (u: URL) => `${u.protocol}//${u.hostname.replace(/^\[|\]$/g, "")}:${u.port || "80"}`;
+  if (url.protocol !== "http:") return false;
+  const host = url.hostname.replace(/^\[|\]$/g, "");
+  if (host.toLowerCase() === "localhost" || !isLoopbackHost(host)) return false;
+  let listed: unknown;
+  try {
+    listed = (
+      JSON.parse(readFileSync(join(home, "run", "listen.json"), "utf8")) as {
+        origins?: unknown;
+      }
+    ).origins;
+  } catch {
+    return false;
+  }
+  if (!Array.isArray(listed)) return false;
+  return listed.some((o) => {
+    try {
+      return typeof o === "string" && key(new URL(o)) === key(url);
+    } catch {
+      return false;
+    }
+  });
 }
 
 export class Ctx {
@@ -68,8 +102,21 @@ export class Ctx {
       throw new CliError("usage", `Unsupported platform ${this.deps.platform}`);
     }
     const identity = loadOrCreateIdentity(this.home, this.deps.now());
+    // The Host proof (`isLocalHostCli` on the Gateway): the launch secret, read from this
+    // computer's own `$PSYCHE_HOME/run`, and sent only to the exact address that Gateway says it is
+    // bound to (`run/listen.json`). Any other URL, loopback or not, gets nothing.
+    let handshakeSecret: string | undefined;
+    if (isOwnGatewayUrl(this.gatewayUrl(), this.home)) {
+      try {
+        handshakeSecret =
+          readFileSync(join(this.home, "run", "handshake.secret"), "utf8").trim() || undefined;
+      } catch {
+        // No Gateway has run here: the CLI connects as before, without Host privileges.
+      }
+    }
     this.client = await GatewayClient.connect({
       wsUrl: wsUrl(this.gatewayUrl()),
+      ...(handshakeSecret ? { handshakeSecret } : {}),
       identity,
       // Declare the real OS so the Gateway gives a Windows CLI the desktop surface, like a Mac one.
       platform:

@@ -23,6 +23,41 @@ import { configWarnings } from "../config.ts";
 import type { Call, GatewayContext, HandlerDef, LiveConnection } from "../context.ts";
 import { announceMachine, machineInfoOf, uniqueMachineName } from "../nodes/machines.ts";
 
+// --- B2: the local admin CLI (linux-helper-only design §7.3, security §10) ------------------------
+
+/**
+ * Whether this connection is an admin CLI device on the Host's own loopback, the one non-desktop
+ * caller allowed to make a pairing link (`devices.setupToken.create`). Every part is set by the
+ * server from the connection, never from the request:
+ * - `operator.admin` on the paired device (a stolen read-only CLI key is not enough);
+ * - the device declared the `cli` family when it paired;
+ * - this connection presented the per-launch handshake secret from `$PSYCHE_HOME/run`
+ *   (`identity.localHostCli`, set at connect by `isLocalHostCli`): proof the caller can read the
+ *   owner's files on the Host. Loopback alone is not that proof, because a forward that adds no
+ *   headers (ssh -L, socat, `tailscale serve --tcp`) arrives on loopback from another computer;
+ * - a plain WebSocket that `resolvePeer` called loopback (a direct 127.0.0.1/::1 peer with no
+ *   `Forwarded`/`X-Forwarded-*`/`X-Real-IP` header);
+ * - not the LAN listener, not a guest or relayed socket;
+ * - no `Origin`: a browser page (a DNS-rebinding one too) always sends one.
+ */
+export function isLocalAdminCli(
+  db: PsycheDb,
+  identity: Call["identity"],
+  peer: Call["conn"]["peer"],
+): boolean {
+  return (
+    identity.scopes.includes("operator.admin") &&
+    identity.role === "client" &&
+    identity.localHostCli === true &&
+    peer.transport === "ws" &&
+    peer.remoteLoopback === true &&
+    peer.origin === null &&
+    peer.lan !== true &&
+    peer.guest === undefined &&
+    getDeviceFamily(db, identity.deviceId) === "cli"
+  );
+}
+
 /**
  * Approves a pending device pairing with owner-chosen scopes. A request whose purpose is `machine`
  * (the card "wants to let Psyche use its screen, apps, shell and files") is the one way this path
