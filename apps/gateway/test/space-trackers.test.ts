@@ -5,7 +5,7 @@ import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { SpaceTrackers, type TrackerRefresh } from "../src/compose/space-trackers.ts";
 import { SpaceStore } from "../src/spaces/store.ts";
 import { checkWidgetBindings } from "../src/widgets/bindings.ts";
-import { mayPatch, WidgetStore } from "../src/widgets/store.ts";
+import { mayPatch, type PatchReach, WidgetStore } from "../src/widgets/store.ts";
 
 /**
  * Space trackers (docs/design/spaces-2026.md section 6, wave S4): query results and provenance,
@@ -867,7 +867,7 @@ describe("the freeze rule", () => {
 // --- patch rights ----------------------------------------------------------------------------------
 
 describe("who may patch a tracker (SR7)", () => {
-  const base = {
+  const base: PatchReach = {
     widgetThreadId: "t-draw",
     shelfSpaceId: "S1",
     shelfArchived: false,
@@ -875,7 +875,7 @@ describe("who may patch a tracker (SR7)", () => {
     callerThreadSpaceId: null,
     callerRunSpaceId: null,
   };
-  const rows: Array<[string, Partial<typeof base>, boolean]> = [
+  const rows: Array<[string, Partial<PatchReach>, boolean]> = [
     ["the chat that drew it (as today)", {}, true],
     ["the chat that drew it, off any shelf", { shelfSpaceId: null }, true],
     [
