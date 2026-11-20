@@ -83,4 +83,8 @@ export const notices: Partial<Catalogue> = {
     "Psyche hat etwas zurückgehalten, das vielleicht nicht aus einem Code-Lauf in {repo} stammt",
   "notice.codeRun.incident.body":
     "Während {paths} beiseitegelegt wurde, hat sich ein Ordner auf dem Weg geändert, daher kann das Verschobene von woanders stammen. Es liegt in {place}. Sieh es dir an, bevor du auf Behalten tippst, das es nach {paths} in {repo} legt.",
+  "notice.codeRun.unmoved.title":
+    "Startkonfiguration aus einem Code-Lauf in {repo} ist noch vorhanden",
+  "notice.codeRun.unmoved.body":
+    "Ein Befehl in der Sandbox hat {paths} angelegt, und Psyche konnte es nicht beiseitelegen, es ist also nicht zurückgehalten. Apps oder dein nächster Befehl könnten daraus Code ausführen. Prüfe oder lösche es, bevor du den Ordner öffnest oder dort etwas ausführst.",
 };

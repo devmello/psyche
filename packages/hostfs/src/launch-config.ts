@@ -94,6 +94,11 @@ export interface LaunchConfigScan {
   found: LaunchConfigFound[];
   /** False when a limit stopped the walk: what was not walked was not checked. */
   complete: boolean;
+  /**
+   * Folders the walk could not list (no read or search permission), when there are any. A
+   * search-only folder still lets an app open a launch-config file in it by name.
+   */
+  unreadable?: string[];
 }
 
 export interface LaunchConfigScanLimits {
@@ -165,29 +170,33 @@ export async function findLaunchConfig(
   const maxFound = limits.maxFound ?? 64;
   const maxDepth = limits.maxDepth ?? Number.POSITIVE_INFINITY;
   const found: LaunchConfigFound[] = [];
+  const unreadable: string[] = [];
+  const done = (complete: boolean): LaunchConfigScan =>
+    unreadable.length > 0 ? { found, complete, unreadable } : { found, complete };
   const queue: { rel: string; depth: number }[] = [{ rel: "", depth: 0 }];
   let dirs = 0;
   while (queue.length > 0) {
     const next = queue.shift() as { rel: string; depth: number };
-    if (++dirs > maxDirs) return { found, complete: false };
+    if (++dirs > maxDirs) return done(false);
     let entries: Dirent[];
     try {
       entries = await readdir(next.rel === "" ? root : join(root, next.rel), {
         withFileTypes: true,
       });
-    } catch {
+    } catch (err) {
+      if (denied(err)) unreadable.push(next.rel === "" ? "." : next.rel);
       continue;
     }
     for (const d of entries) {
       const rel = next.rel === "" ? d.name : `${next.rel}/${d.name}`;
       const kind = kindOf(d);
       if (limits.nestedGit === true && next.rel !== "" && fold(d.name) === ".git") {
-        if (found.length >= maxFound) return { found, complete: false };
+        if (found.length >= maxFound) return done(false);
         found.push({ rel, kind, git: true });
         continue;
       }
       if (launchConfigEntry(rel) !== undefined) {
-        if (found.length >= maxFound) return { found, complete: false };
+        if (found.length >= maxFound) return done(false);
         const linkTarget =
           kind === "link" ? await readlink(join(root, rel)).catch(() => undefined) : undefined;
         found.push({ rel, kind, ...(linkTarget === undefined ? {} : { linkTarget }) });
@@ -199,8 +208,8 @@ export async function findLaunchConfig(
         // A folder not walked can still hold a repository an editor finds and runs git in
         // (VS Code looks one and two levels down, in build output too): looked for directly.
         if (limits.nestedGit === true && fold(d.name) !== "node_modules") {
-          for (const g of await nestedGits(root, rel, skip)) {
-            if (found.length >= maxFound) return { found, complete: false };
+          for (const g of await nestedGits(root, rel, skip, unreadable)) {
+            if (found.length >= maxFound) return done(false);
             found.push(g);
           }
         }
@@ -209,8 +218,13 @@ export async function findLaunchConfig(
       queue.push({ rel, depth: next.depth + 1 });
     }
   }
-  return { found, complete: true };
+  return done(true);
 }
+
+const denied = (err: unknown) => {
+  const code = (err as NodeJS.ErrnoException).code;
+  return code === "EACCES" || code === "EPERM";
+};
 
 /** Folders below an unwalked one checked for their own `.git` at most. */
 const MAX_GIT_PROBES = 2_000;
@@ -223,6 +237,7 @@ async function nestedGits(
   root: string,
   rel: string,
   children: boolean,
+  unreadable: string[],
 ): Promise<LaunchConfigFound[]> {
   const out: LaunchConfigFound[] = [];
   const probe = async (dir: string) => {
@@ -242,7 +257,8 @@ async function nestedGits(
   let entries: Dirent[];
   try {
     entries = await readdir(join(root, rel), { withFileTypes: true });
-  } catch {
+  } catch (err) {
+    if (denied(err)) unreadable.push(rel);
     return out;
   }
   for (const d of entries.slice(0, MAX_GIT_PROBES)) {

@@ -73,4 +73,7 @@ export const notices: Partial<Catalogue> = {
   "notice.codeRun.incident.title": "Psyche 扣下了一些可能并非来自 {repo} 中代码运行的内容",
   "notice.codeRun.incident.body":
     "在移开 {paths} 时，途经的一个文件夹发生了变化，因此被移走的内容可能来自别处。它保存在 {place}。轻点“保留”之前请先检查，“保留”会把它放回 {repo} 中的 {paths}。",
+  "notice.codeRun.unmoved.title": "{repo} 中一次代码运行创建的启动配置仍在原处",
+  "notice.codeRun.unmoved.body":
+    "沙盒中的命令创建了 {paths}，但 Psyche 未能把它移到一旁，所以它没有被扣下。应用或你的下一条命令可能会从中运行代码。打开该文件夹或在其中运行任何内容之前，请先检查或删除它。",
 };

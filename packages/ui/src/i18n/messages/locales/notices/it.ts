@@ -82,4 +82,8 @@ export const notices: Partial<Catalogue> = {
     "Psyche ha trattenuto qualcosa che forse non viene da un'esecuzione di codice in {repo}",
   "notice.codeRun.incident.body":
     "Mentre {paths} veniva messo da parte, una cartella lungo il percorso è cambiata, quindi ciò che è stato spostato potrebbe venire da altrove. È conservato in {place}. Controllalo prima di toccare Tieni, che lo mette in {paths} dentro {repo}.",
+  "notice.codeRun.unmoved.title":
+    "La configurazione di avvio di un'esecuzione di codice in {repo} è ancora al suo posto",
+  "notice.codeRun.unmoved.body":
+    "Un comando nella sandbox ha creato {paths} e Psyche non è riuscito a metterlo da parte, quindi non è trattenuto. Le app o il tuo prossimo comando potrebbero eseguirne del codice. Controllalo o eliminalo prima di aprire la cartella o di eseguirci qualcosa.",
 };

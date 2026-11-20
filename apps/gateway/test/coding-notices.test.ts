@@ -130,7 +130,27 @@ describe("code.run launch-config notices", () => {
       }),
       at,
     );
-    expect(box.shown.at(-1)).toEqual({ id: "ntf_2", paths: ".mcp.json, sub/.vscode" });
+    // ntf_2 is the "still in place" notice for sub/.vscode; the change notice is new again.
+    expect(box.shown.at(-1)).toEqual({ id: "ntf_3", paths: ".mcp.json, sub/.vscode" });
+  });
+
+  // #1438 review r3: what could not be moved is live, so it alerts on its own, every run.
+  it("says loudly what is still in place and not held, every run", async () => {
+    const sent: NotifyInput[] = [];
+    const n = codingNotices((i) => sent.push(i));
+    await n.report(report({ unmoved: [".vscode"] }), "/Users/o/app");
+    await n.report(report({ unmoved: [".vscode"] }), "/Users/o/app");
+    const loud = sent.filter((s) => s.message?.titleKey === "notice.codeRun.unmoved.title");
+    expect(loud).toHaveLength(2);
+    expect(loud[0]).toMatchObject({
+      kind: "system",
+      message: {
+        bodyKey: "notice.codeRun.unmoved.body",
+        params: { repo: "app", paths: ".vscode" },
+      },
+    });
+    expect(loud[0]?.dedupeKey).toBeUndefined();
+    expect(loud[0]?.body).toContain("not held");
   });
 
   it("says when only the top levels were checked, and when the sandbox was made again", () => {

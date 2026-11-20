@@ -78,4 +78,7 @@ export const notices: Partial<Catalogue> = {
     "Psyche は {repo} でのコード実行によるものではないかもしれないものを保留しました",
   "notice.codeRun.incident.body":
     "{paths} を移す途中で経路上のフォルダが変わったため、移したものは別の場所のものかもしれません。{place} に保管しています。「残す」をタップする前に確認してください。「残す」は {repo} の {paths} に戻します。",
+  "notice.codeRun.unmoved.title": "{repo} でのコード実行が作った起動設定がそのまま残っています",
+  "notice.codeRun.unmoved.body":
+    "サンドボックス内のコマンドが {paths} を作成しましたが、Psyche は別の場所へ移せなかったため、保留されていません。アプリや次のコマンドがここからコードを実行する可能性があります。フォルダを開いたり、そこで何かを実行したりする前に、確認するか削除してください。",
 };
