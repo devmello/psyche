@@ -47,7 +47,7 @@ const put = (path: string, text: string): void => {
   if (r.code !== 0) throw new Error(`could not write ${path}: ${r.out}`);
 };
 const LOGIN_MARKER = "kept-by-the-allowlist-7f3a";
-const sleep =(ms: number) => new Promise((r) => setTimeout(r, ms));
+const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
 
 /**
  * Planted app state that runs a program, and the proof that it does: LibreOffice binds the
@@ -510,8 +510,8 @@ describe.skipIf(!REAL)("a real separate desktop", () => {
     const used = exec(
       "/usr/bin/find /workspace/.config/mozilla /workspace/.mozilla -name times.json 2>/dev/null",
     ).out.trim();
-    expect(used.split("\\n"), "Firefox used the rebuilt profile and made no other").toEqual([
-      expect.stringMatching(/\\/psyche\\.default\\/times\\.json$/),
+    expect(used.split("\n"), "Firefox used the rebuilt profile and made no other").toEqual([
+      expect.stringMatching(/\/psyche\.default\/times\.json$/),
     ]);
     expect(
       exec(`cat ${dirname(used)}/logins.json`).out,
