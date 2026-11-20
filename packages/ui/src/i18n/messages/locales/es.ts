@@ -488,6 +488,7 @@ export const es: Partial<Catalogue> = {
   "blocks.artifact.bytes": "{size} B",
   "blocks.artifact.kilobytes": "{size} KB",
   "blocks.artifact.megabytes": "{size} MB",
+  "blocks.artifact.gigabytes": "{size} GB",
 
   "blocks.task.status.queued": "en cola",
   "blocks.task.status.running": "en ejecución",
@@ -3237,6 +3238,20 @@ export const es: Partial<Catalogue> = {
   "screens.goals.checkinLine":
     "{cadence}{hasNext, select, true { · siguiente {next}} other {}}{hasLast, select, true { · último: {last}} other {}}",
   "screens.goals.noSchedule": "Sin programación",
+  "screens.goals.suggest": "Sugerir el siguiente paso",
+  "screens.goals.suggest.hint":
+    "Usa el modelo, solo cuando lo pulsas. Nada empieza hasta que pulsas Empezar en la tarjeta.",
+  "screens.goals.suggest.done": "Sugerencia añadida a Inicio.",
+  "screens.goals.suggest.none": "Sin sugerencia esta vez. Inténtalo más tarde.",
+  "screens.ideas.start": "Empezar",
+  "screens.ideas.snooze": "Posponer",
+  "screens.ideas.badge.checkin": "Revisión",
+  "screens.ideas.badge.resume": "¿Retomar?",
+  "screens.goals.checkinFrequency": "Revisar",
+  "screens.goals.checkinFrequency.off": "Desactivado",
+  "screens.goals.checkinFrequency.daily": "Cada día",
+  "screens.goals.checkinFrequency.weekly": "Cada semana",
+  "screens.goals.checkinFrequency.monthly": "Cada mes",
   "screens.goals.watches": "Vigilancias",
   "screens.goals.nothingWatched": "Nada en vigilancia.",
   "screens.goals.last": "último: {value}",

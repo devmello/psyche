@@ -202,11 +202,14 @@ public struct ApprovalDetail: Sendable, Equatable {
     /// "Payments need Face ID on this phone." nil when no presence check applies.
     public var presenceNote: String?
     public var allowLabel: String
+    /// The paired computer the action is for ("lab-box"), from the approval's `machine`. nil means this Mac.
+    public var machineName: String?
 
     public init(
         kindLabel: String, title: String, summary: String, fields: [Field], evidence: [String],
-        alsoSentTo: String, presenceNote: String?, allowLabel: String
+        alsoSentTo: String, presenceNote: String?, allowLabel: String, machineName: String? = nil
     ) {
+        self.machineName = machineName
         self.kindLabel = kindLabel
         self.title = title
         self.summary = summary

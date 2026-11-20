@@ -1717,6 +1717,14 @@
         "sideEffecting": true
       },
       {
+        "description": "Asks the model for one next step for a goal and offers it as a Home card (Start, Snooze, Dismiss). Uses the model, and runs only when the owner asks. Nothing starts. Side-effecting.",
+        "name": "goals.suggest",
+        "params": "#/$defs/GoalsSuggestParams",
+        "result": "#/$defs/GoalsSuggestResult",
+        "scope": "operator.write",
+        "sideEffecting": true
+      },
+      {
         "description": "Edits a goal; changing the cadence reschedules its check-ins. Side-effecting.",
         "name": "goals.update",
         "params": "#/$defs/GoalsUpdateParams",
@@ -3741,7 +3749,7 @@
         "sideEffecting": false
       },
       {
-        "description": "Side-effecting. Empties the rebuildable caches (converted documents and thumbnails) and deletes finished browser recordings older than 7 days. Recordings still in progress, and every other category, are untouched.",
+        "description": "Side-effecting. Empties the rebuildable caches (converted documents and thumbnails) and deletes finished browser recordings older than 7 days together with their Library entries. Recordings still in progress, and every other category, are untouched.",
         "name": "storage.clearCache",
         "params": "#/$defs/StorageClearCacheParams",
         "result": "#/$defs/StorageCleared",
@@ -22211,6 +22219,38 @@
       ],
       "type": "object"
     },
+    "GoalsSuggestParams": {
+      "properties": {
+        "goalId": {
+          "description": "ULID in production",
+          "maxLength": 64,
+          "minLength": 1,
+          "type": "string"
+        }
+      },
+      "required": [
+        "goalId"
+      ],
+      "type": "object"
+    },
+    "GoalsSuggestResult": {
+      "properties": {
+        "ideaId": {
+          "anyOf": [
+            {
+              "description": "ULID in production",
+              "maxLength": 64,
+              "minLength": 1,
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        }
+      },
+      "type": "object"
+    },
     "GoalsUpdateParams": {
       "properties": {
         "goalId": {
@@ -27152,6 +27192,11 @@
         },
         "link": {
           "maxLength": 1000,
+          "type": "string"
+        },
+        "gmailThreadId": {
+          "maxLength": 64,
+          "pattern": "^[A-Za-z0-9_-]{1,64}$",
           "type": "string"
         },
         "untrusted": {
@@ -46686,6 +46731,10 @@
         },
         "clearable": {
           "type": "boolean"
+        },
+        "reclaimableBytes": {
+          "minimum": 0,
+          "type": "integer"
         }
       },
       "required": [
@@ -46758,6 +46807,9 @@
         "totalBytes": {
           "minimum": 0,
           "type": "integer"
+        },
+        "partial": {
+          "type": "boolean"
         }
       },
       "required": [

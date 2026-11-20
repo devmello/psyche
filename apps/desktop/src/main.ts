@@ -181,7 +181,7 @@ import {
   parsePinnedRequirement,
   readBundledPinned,
 } from "./main/update-gate.ts";
-import { readUpdateChannel, startUpdater, stopUpdater } from "./main/updater.ts";
+import { startUpdater, stopUpdater } from "./main/updater.ts";
 import {
   canvasColor,
   chromeViewBackground,
@@ -2400,11 +2400,9 @@ void app.whenReady().then(async () => {
   runTaskbarTask(taskFromArgv(process.argv));
   pairLinks.offerArgv(process.argv);
   pairLinks.showPending();
-  if (perfProbe === undefined) {
-    void readUpdateChannel((method, params) => requireGateway().call(method, params)).then(
-      (channel) => startUpdater({ stateFile: join(home, "run", "updater.json"), channel }),
-    );
-  }
+  // TODO(beta feed): once the pipeline publishes a beta manifest, read `updates.channel` after the
+  // Gateway is paired (not here: the connection is not up in this tick) and pass it as `channel`.
+  if (perfProbe === undefined) void startUpdater({ stateFile: join(home, "run", "updater.json") });
 
   app.on("activate", () => windows?.showMain());
 });

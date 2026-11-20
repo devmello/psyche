@@ -617,6 +617,8 @@
 //   let goalsListResult = try? JSONDecoder().decode(GoalsListResult.self, from: jsonData)
 //   let goalsMilestoneParams = try? JSONDecoder().decode(GoalsMilestoneParams.self, from: jsonData)
 //   let goalsMilestoneResult = try? JSONDecoder().decode(GoalsMilestoneResult.self, from: jsonData)
+//   let goalsSuggestParams = try? JSONDecoder().decode(GoalsSuggestParams.self, from: jsonData)
+//   let goalsSuggestResult = try? JSONDecoder().decode(GoalsSuggestResult.self, from: jsonData)
 //   let goalsUpdateParams = try? JSONDecoder().decode(GoalsUpdateParams.self, from: jsonData)
 //   let goalsUpdateResult = try? JSONDecoder().decode(GoalsUpdateResult.self, from: jsonData)
 //   let googleClientStatus = try? JSONDecoder().decode(GoogleClientStatus.self, from: jsonData)
@@ -16961,6 +16963,32 @@ public struct GoalsMilestoneResult: Codable, Sendable {
     }
 }
 
+// MARK: - GoalsSuggestParams
+public struct GoalsSuggestParams: Codable, Sendable {
+    public let goalID: String
+
+    public enum CodingKeys: String, CodingKey {
+        case goalID = "goalId"
+    }
+
+    public init(goalID: String) {
+        self.goalID = goalID
+    }
+}
+
+// MARK: - GoalsSuggestResult
+public struct GoalsSuggestResult: Codable, Sendable {
+    public let ideaID: String?
+
+    public enum CodingKeys: String, CodingKey {
+        case ideaID = "ideaId"
+    }
+
+    public init(ideaID: String? = nil) {
+        self.ideaID = ideaID
+    }
+}
+
 // MARK: - GoalsUpdateParams
 public struct GoalsUpdateParams: Codable, Sendable {
     public let cadence: String?
@@ -19387,6 +19415,7 @@ public struct MailFollowupsListResult: Codable, Sendable {
 // MARK: - MailFollowupItem
 public struct MailFollowupItem: Codable, Sendable {
     public let daysQuiet: Int
+    public let gmailThreadID: String?
     public let id: String
     public let kind: MailFollowupKind
     public let link: String?
@@ -19397,6 +19426,7 @@ public struct MailFollowupItem: Codable, Sendable {
 
     public enum CodingKeys: String, CodingKey {
         case daysQuiet = "daysQuiet"
+        case gmailThreadID = "gmailThreadId"
         case id = "id"
         case kind = "kind"
         case link = "link"
@@ -19406,8 +19436,9 @@ public struct MailFollowupItem: Codable, Sendable {
         case who = "who"
     }
 
-    public init(daysQuiet: Int, id: String, kind: MailFollowupKind, link: String? = nil, source: MailFollowupItemSource, subject: String, untrusted: Bool, who: String) {
+    public init(daysQuiet: Int, gmailThreadID: String? = nil, id: String, kind: MailFollowupKind, link: String? = nil, source: MailFollowupItemSource, subject: String, untrusted: Bool, who: String) {
         self.daysQuiet = daysQuiet
+        self.gmailThreadID = gmailThreadID
         self.id = id
         self.kind = kind
         self.link = link
@@ -35031,15 +35062,18 @@ public struct StorageCleared: Codable, Sendable {
 // MARK: - StorageUsage
 public struct StorageUsage: Codable, Sendable {
     public let categories: [StorageCategory]
+    public let partial: Bool?
     public let totalBytes: Int
 
     public enum CodingKeys: String, CodingKey {
         case categories = "categories"
+        case partial = "partial"
         case totalBytes = "totalBytes"
     }
 
-    public init(categories: [StorageCategory], totalBytes: Int) {
+    public init(categories: [StorageCategory], partial: Bool? = nil, totalBytes: Int) {
         self.categories = categories
+        self.partial = partial
         self.totalBytes = totalBytes
     }
 }
@@ -35049,17 +35083,20 @@ public struct StorageCategory: Codable, Sendable {
     public let bytes: Int
     public let clearable: Bool
     public let id: StorageCategoryID
+    public let reclaimableBytes: Int?
 
     public enum CodingKeys: String, CodingKey {
         case bytes = "bytes"
         case clearable = "clearable"
         case id = "id"
+        case reclaimableBytes = "reclaimableBytes"
     }
 
-    public init(bytes: Int, clearable: Bool, id: StorageCategoryID) {
+    public init(bytes: Int, clearable: Bool, id: StorageCategoryID, reclaimableBytes: Int? = nil) {
         self.bytes = bytes
         self.clearable = clearable
         self.id = id
+        self.reclaimableBytes = reclaimableBytes
     }
 }
 

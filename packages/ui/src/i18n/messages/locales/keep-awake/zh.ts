@@ -18,7 +18,6 @@ export const keepAwake: Partial<Catalogue> = {
   "settings.updates.channel.stable": "稳定版",
   "settings.updates.channel.note":
     "目前只有稳定版渠道。发布测试版后，测试版会显示在这里。无论哪个渠道，每次更新都会用 Psyche 的发布密钥验证。",
-  "settings.updates.saveFailed": "无法保存发布渠道（{reason}）。",
   "settings.storage.title": "存储",
   "settings.storage.hint": "Psyche 在这台电脑的数据文件夹中占用的磁盘空间。",
   "settings.storage.total": "总计",
@@ -28,7 +27,7 @@ export const keepAwake: Partial<Catalogue> = {
   "settings.storage.failed": "无法读取存储用量（{reason}）。",
   "settings.storage.confirm.title": "清除缓存和旧录制？",
   "settings.storage.confirm.body":
-    "这将删除最多 {size} 的缓存和超过 7 天的浏览器录制。需要时 Psyche 会重新生成缓存。你的聊天、记忆、资料库、保险库和设置不会受到影响。",
+    "这将删除共 {size} 的缓存和超过 7 天的浏览器录制，以及这些录制在资料库中的条目。需要时 Psyche 会重新生成缓存。你的聊天、记忆、其他资料库文件、保险库和设置不会受到影响。",
   "settings.storage.confirm.clear": "清除",
   "settings.storage.cat.database": "数据库",
   "settings.storage.cat.memoryIndex": "记忆索引",
