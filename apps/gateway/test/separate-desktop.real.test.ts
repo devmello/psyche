@@ -74,7 +74,7 @@ const LO_BINDING =
   '<item oor:path="/org.openoffice.Office.Events/ApplicationEvents/Bindings"><node oor:name="OnStartApp" oor:op="replace"><prop oor:name="BindingURL" oor:op="fuse"><value>macro:///Standard.Module1.AppStart</value></prop></node></item>';
 const soffice = (profile: string | null, doc: string) =>
   exec(
-    `/usr/bin/timeout -s KILL 90 /usr/bin/soffice --headless --norestore ${
+    `/usr/bin/timeout -s KILL 90 /usr/bin/soffice --headless --norestore --convert-to pdf --outdir /tmp ${
       profile ? `-env:UserInstallation=file://${profile} ` : ""
     }${doc}`,
   );
@@ -319,7 +319,7 @@ describe.skipIf(!REAL)("a real separate desktop", () => {
     expect(
       exec("mkdir -p /workspace/lo-docs && echo hello > /workspace/lo-docs/plain.txt").code,
     ).toBe(0);
-    soffice(LO_PROFILE, "--terminate_after_init");
+    soffice(LO_PROFILE, "/workspace/lo-docs/plain.txt");
     put(`${LO_PROFILE}/user/basic/Standard/Module1.xba`, LO_MODULE);
     put("/workspace/lo-binding.xml", LO_BINDING);
     expect(
