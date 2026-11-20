@@ -10,6 +10,7 @@ import { capabilitiesRest } from "./capabilities-rest/ko.ts";
 import { charts } from "./charts/ko.ts";
 import { chatRest } from "./chat-rest/ko.ts";
 import { commonRest } from "./common-rest/ko.ts";
+import { computerWatch } from "./computer-watch/ko.ts";
 import { dailyRest } from "./daily-rest/ko.ts";
 import { deckRest } from "./deck-rest/ko.ts";
 import { designRest } from "./design-rest/ko.ts";
@@ -3661,6 +3662,8 @@ export const ko: Partial<Catalogue> = {
   ...helperOffline,
   // the security-records banner (docs/design/security-state-integrity-2026.md §7.3)
   ...securityState,
+  // the Virtual screen watch pane (docs/design/linux-desktop-2026.md §7.5)
+  ...computerWatch,
   // Gateway-authored notices (inbox notifications, security alerts)
   ...notices,
   // Settings > Computer use > Separate desktop (Linux)

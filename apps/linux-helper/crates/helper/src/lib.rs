@@ -17,6 +17,8 @@ pub mod identity;
 pub mod idle;
 pub mod paths;
 pub mod session;
+#[cfg(target_os = "linux")]
+pub mod vscreen;
 
 /// Structured, content-free logging to stderr: phases, names and sizes only, never params,
 /// results or secrets. The service manager captures it.

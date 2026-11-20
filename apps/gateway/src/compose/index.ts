@@ -292,6 +292,7 @@ import { updateHandlers } from "./update.ts";
 import { usageSummaryHandlers } from "./usage-summary.ts";
 import { createUserProfile } from "./user-profile.ts";
 import { composeVault, maskingLogger, type VaultSetup, vaultSetupFromEnv } from "./vault.ts";
+import { composeVirtualScreen } from "./virtual-screen.ts";
 import type { ComposedVm } from "./vm.ts";
 import { type ComposedWebTools, composeWebTools, type WebToolsSetup } from "./web-tools.ts";
 import { ensureWeeklyCardAutomation, withWeeklyCard } from "./weekly-card.ts";
@@ -1316,6 +1317,8 @@ export async function composeGateway(options: ComposeOptions): Promise<ComposedG
   const skills = composeSkills();
   const partFactories = [
     composeComputer,
+    // Linux virtual screen (watch pane methods); inert without a Linux helper.
+    composeVirtualScreen,
     // The separate desktop (Linux only; nothing runs until a Task asks for it).
     composeSeparateDesktop({
       onSettingChanged: (listener) => void settingListeners.push(listener),

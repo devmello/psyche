@@ -51,14 +51,16 @@ fn main() -> ExitCode {
             return ExitCode::FAILURE;
         }
     };
-    let registry = Registry::standard(BuildInfo::current());
-    let mut daemon = Daemon::new(
-        identity,
-        registry,
-        Box::new(ProcessEnv),
-        Arc::new(IdleTimer::new(idle)),
-    );
-    match daemon.run() {
+    let idle = Arc::new(IdleTimer::new(idle));
+    #[allow(unused_mut)]
+    let mut registry = Registry::standard(BuildInfo::current());
+    #[cfg(target_os = "linux")]
+    let vscreen = psyche_helper::vscreen::register(&mut registry, &ProcessEnv, Arc::clone(&idle));
+    let mut daemon = Daemon::new(identity, registry, Box::new(ProcessEnv), idle);
+    let exit = daemon.run();
+    #[cfg(target_os = "linux")]
+    vscreen.shutdown();
+    match exit {
         Exit::Idle => log("exiting: idle"),
         Exit::Stopped => log("exiting: stopped"),
     }

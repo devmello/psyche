@@ -18,6 +18,10 @@ CI fails when the generated files are stale (`pnpm protocol:check`).
 
 ## Log
 
+### v1 additive — 2026-11-05 (Linux virtual screen watch pane, L6)
+
+- New methods for the desktop's watch pane, all desktop shell only and wrapping the helper's `vscreen.*` capabilities: `computerWatch.status` (`operator.read`, `{ status: VscreenStatus, parked }`), `computerWatch.frame` (`operator.read`, `VscreenFrameParams` to `VscreenFrame`), `computerWatch.input` (`operator.write`), `computerWatch.takeOver` (`operator.write`, `{ on }`), `computerWatch.stop` (`operator.write`, `VscreenStopParams`), `computerWatch.resolveParked` (`operator.write`, `look` | `discard` | `keep_open`). New event `computerWatch.parked` (`apps`). New types `ComputerWatchState`, `ComputerWatchParkAction`. `VscreenStopParams` gains an optional `force` (close an app even if it asks "Save changes?"). `ViewPane` gains `computer-watch` (the Gateway opens the watch pane with `view.command` when a virtual screen starts). `AttentionPane` gains `vscreen` (the watch pane's visibility, so frames are only pulled while it is shown). Design: docs/design/linux-desktop-2026.md §7.5.
+
 ### v1 additive — 2026-11-18 (share the folder a file tool could not reach)
 
 - New method `files.requestShare {threadId, path, access: "read"}` → `{status: pending|already, approvalId?}` (`operator.admin`, side-effecting). It raises the same `folder_access` approval card as `request_folder_access` (same binding, native picker, Allow once / Always; a tainted thread is offered Allow once only), outside an agent run, for the chat's "Share this folder (read only)" button. `path` only pre-fills the card; the pick is what is granted. `access` is `read` only; nothing is granted without the card.

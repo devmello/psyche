@@ -51,3 +51,11 @@ export function createPopOutRegistry(onClosed: (route: string) => void): PopOutR
     has: (route) => live(route) !== undefined,
   };
 }
+
+/** The pane id of the Virtual screen watch view (packages/ui/src/screens/computer-watch). */
+const WATCH_PANE = "computer-watch";
+
+/** The route of the watch pane's pop-out window, in the shape the web shell uses. */
+export function watchPopOutRoute(threadId: string): string {
+  return `/chat/${threadId}/pane/${WATCH_PANE}`;
+}

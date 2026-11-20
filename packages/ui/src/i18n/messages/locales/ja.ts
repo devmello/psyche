@@ -10,6 +10,7 @@ import { capabilitiesRest } from "./capabilities-rest/ja.ts";
 import { charts } from "./charts/ja.ts";
 import { chatRest } from "./chat-rest/ja.ts";
 import { commonRest } from "./common-rest/ja.ts";
+import { computerWatch } from "./computer-watch/ja.ts";
 import { dailyRest } from "./daily-rest/ja.ts";
 import { deckRest } from "./deck-rest/ja.ts";
 import { designRest } from "./design-rest/ja.ts";
@@ -3684,6 +3685,8 @@ export const ja: Partial<Catalogue> = {
   ...helperOffline,
   // the security-records banner (docs/design/security-state-integrity-2026.md §7.3)
   ...securityState,
+  // the Virtual screen watch pane (docs/design/linux-desktop-2026.md §7.5)
+  ...computerWatch,
   // Gateway-authored notices (inbox notifications, security alerts)
   ...notices,
   // Settings > Computer use > Separate desktop (Linux)
