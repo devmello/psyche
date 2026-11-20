@@ -7,6 +7,9 @@ import {
   SPACE_LIMITS,
   type SpaceContextSection,
   type SpaceDetail,
+  type SpaceMigrationOffer,
+  type SpaceOffers,
+  type SpaceProposal,
   type SpaceSummary,
   type SpaceTracker,
   type SpaceTrackerTemplate,
@@ -29,6 +32,12 @@ export interface SpacesWorld {
   due?: Record<string, number>;
   /** Per Space, the sections `spaces.context.preview` answers (default: the instructions). */
   previews?: Record<string, SpaceContextSection[]>;
+  /** Agent proposals (`spaces.proposals.*`). */
+  proposals?: SpaceProposal[];
+  /** The migration offer, or null / absent when none is made or it was decided. */
+  migration?: SpaceMigrationOffer | null;
+  /** Per Space, the offers its page shows after chats moved in (`spaces.offers.list`). */
+  offers?: Record<string, SpaceOffers>;
   /** Per Space, tracker ids that were refreshed through `spaces.trackers.refresh`, for tests. */
   refreshed?: string[];
 }
@@ -134,6 +143,69 @@ export function spacesHandlers(ctx: SpacesMockContext): Handlers {
     ];
     setWidgetSpace(widgetId, detail.space.id);
   };
+  const makeSpace = (
+    p: {
+      name: string;
+      description?: string;
+      icon?: string;
+      instructions?: string;
+      entityId?: string;
+    },
+    createdFrom: SpaceDetail["space"]["createdFrom"] = "owner",
+  ): SpaceDetail => {
+    const world = ctx.world();
+    const now = ctx.now();
+    const detail: SpaceDetail = {
+      space: {
+        id: ctx.id("spc"),
+        name: p.name,
+        description: p.description ?? null,
+        icon: p.icon ?? null,
+        instructions: p.instructions ?? "",
+        instructionsRev: 1,
+        entityId: p.entityId ?? null,
+        defaultPermissionMode: null,
+        connectorScope: null,
+        private: false,
+        sort: world.spaces.reduce((max, s) => Math.max(max, s.space.sort), 0) + 1,
+        archivedAt: null,
+        createdFrom,
+        createdAt: now,
+        updatedAt: now,
+      },
+      folders: [],
+      links: [],
+      trackers: [],
+      automationIds: [],
+      goalIds: [],
+      counts: { chats: 0, trackers: 0, due: 0 },
+      lastActivityAt: null,
+    };
+    world.spaces.push(detail);
+    ctx.emit("space.updated", { spaceId: detail.space.id, changed: ["row"] });
+    return detail;
+  };
+  const moveIn = (threadIds: readonly string[], spaceId: string) => {
+    ctx.setThreads(
+      ctx
+        .threads()
+        .map((e) =>
+          threadIds.includes(e.thread.id) && e.thread.spaceId == null
+            ? { ...e, thread: { ...e.thread, spaceId } }
+            : e,
+        ),
+    );
+  };
+  const decide = (proposalId: string, status: "accepted" | "dismissed"): SpaceProposal => {
+    const world = ctx.world();
+    const found = (world.proposals ?? []).find((x) => x.id === proposalId);
+    if (found === undefined) throw new PsycheError("not_found", `proposal ${proposalId} not found`);
+    if (found.status !== "open")
+      throw new PsycheError("conflict", "that proposal is already decided");
+    const next = { ...found, status, decidedAt: ctx.now() };
+    world.proposals = (world.proposals ?? []).map((x) => (x.id === proposalId ? next : x));
+    return found;
+  };
   const reindex = (detail: SpaceDetail) => {
     detail.trackers = detail.trackers.map((tr, position) => ({ ...tr, position }));
   };
@@ -151,36 +223,7 @@ export function spacesHandlers(ctx: SpacesMockContext): Handlers {
     },
     "spaces.get": (p) => view(find(p.spaceId)),
     "spaces.create": (p) => {
-      const world = ctx.world();
-      const now = ctx.now();
-      const detail: SpaceDetail = {
-        space: {
-          id: ctx.id("spc"),
-          name: p.name,
-          description: p.description ?? null,
-          icon: p.icon ?? null,
-          instructions: p.instructions ?? "",
-          instructionsRev: 1,
-          entityId: p.entityId ?? null,
-          defaultPermissionMode: null,
-          connectorScope: null,
-          private: false,
-          sort: world.spaces.reduce((max, s) => Math.max(max, s.space.sort), 0) + 1,
-          archivedAt: null,
-          createdFrom: "owner",
-          createdAt: now,
-          updatedAt: now,
-        },
-        folders: [],
-        links: [],
-        trackers: [],
-        automationIds: [],
-        goalIds: [],
-        counts: { chats: 0, trackers: 0, due: 0 },
-        lastActivityAt: null,
-      };
-      world.spaces.push(detail);
-      ctx.emit("space.updated", { spaceId: detail.space.id, changed: ["row"] });
+      const detail = makeSpace(p);
       return { space: detail.space };
     },
     "spaces.update": (p) => {
@@ -362,6 +405,43 @@ export function spacesHandlers(ctx: SpacesMockContext): Handlers {
             : [{ kind: "instructions", text, chars: text.length, cap: SPACE_LIMITS.instructions }],
       };
     },
-    "spaces.proposals.list": () => ({ proposals: [] }),
+    "spaces.proposals.list": (p) => ({
+      proposals: (ctx.world().proposals ?? []).filter(
+        (x) => p.status !== "open" || x.status === "open",
+      ),
+    }),
+    "spaces.proposals.accept": (p) => {
+      const found = decide(p.proposalId, "accepted");
+      const detail = makeSpace(
+        {
+          name: p.name ?? found.name,
+          ...(found.entityId === null ? {} : { entityId: found.entityId }),
+        },
+        "proposal",
+      );
+      moveIn(found.threadIds, detail.space.id);
+      return { space: detail.space };
+    },
+    "spaces.proposals.dismiss": (p) => {
+      decide(p.proposalId, "dismissed");
+      return { ok: true };
+    },
+    "spaces.migration.offer": () => ({ offer: ctx.world().migration ?? null }),
+    "spaces.migration.apply": (p) => {
+      const world = ctx.world();
+      const offer = world.migration;
+      if (offer == null) throw new PsycheError("conflict", "That offer is already closed.");
+      const spaces = offer.projects
+        .filter((x) => p.entityIds.includes(x.entityId))
+        .map((x) => makeSpace({ name: x.name, entityId: x.entityId }, "migration").space);
+      world.migration = null;
+      return { spaces };
+    },
+    "spaces.migration.dismiss": () => {
+      ctx.world().migration = null;
+      return { ok: true };
+    },
+    "spaces.offers.list": (p) => ctx.world().offers?.[p.spaceId] ?? { widgets: [], rules: [] },
+    "spaces.offers.dismiss": () => ({ ok: true }),
   };
 }

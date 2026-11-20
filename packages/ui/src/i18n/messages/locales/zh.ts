@@ -205,6 +205,7 @@ export const zh: Partial<Catalogue> = {
   "errors.reason.connected_with_other_client":
     "Google 已通过另一个客户端连接。请先断开 Google，再更改客户端。",
   "errors.reason.secret_required": "不同的客户端需要它自己的客户端密钥。",
+  "errors.reason.project_private": "该项目设为私密，因此不能有 Space。请先关闭“保持私密”。",
   "errors.reason.updating": "Psyche 即将重启以安装更新，请稍后再试。",
   "errors.unavailable": "Psyche 目前无法执行该操作。",
   "errors.approval_required": "此操作需要先获得你的批准。",

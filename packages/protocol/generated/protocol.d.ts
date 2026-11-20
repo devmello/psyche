@@ -9377,7 +9377,7 @@ export interface UpdateBusy {
      * Chat (and automation) turns running right now
      */
     activeChats: number;
-    chats:       ChatElement[];
+    chats:       UpdateBusyChat[];
     /**
      * Approvals waiting for the owner; the runs parked on them resume after a restart
      */
@@ -9393,7 +9393,7 @@ export interface UpdateBusy {
     tasks:        TaskElement[];
 }
 
-export interface ChatElement {
+export interface UpdateBusyChat {
     runId:    string;
     threadId: string;
 }
@@ -11750,20 +11750,52 @@ export type AddedBy = "owner" | "agent" | "template";
 
 export type SpaceTrackerKind = "bound" | "query" | "agent";
 
+export interface SpaceOffers {
+    rules:   SpaceOfferRule[];
+    widgets: SpaceOfferWidget[];
+}
+
+export interface SpaceOfferRule {
+    fromThreadId:    string;
+    fromThreadTitle: string;
+    /**
+     * The pin id, also the dismiss key
+     */
+    id:   string;
+    text: string;
+}
+
+export interface SpaceOfferWidget {
+    fromThreadId: string;
+    /**
+     * Dismiss key
+     */
+    id:       string;
+    title:    string;
+    widgetId: string;
+}
+
 export interface SpaceProposalCreatedPayload {
     proposal: SpaceProposal;
 }
 
 export interface SpaceProposal {
-    createdAt:  string;
-    decidedAt?: null | string;
-    entityId?:  null | string;
-    id:         string;
-    name:       string;
-    reason:     string;
-    status:     SpaceProposalStatus;
-    taint:      TaintSource[];
-    threadIds:  string[];
+    chats?:       SpaceProposalChat[];
+    createdAt:    string;
+    decidedAt?:   null | string;
+    entityId?:    null | string;
+    id:           string;
+    name:         string;
+    projectName?: null | string;
+    reason:       string;
+    status:       SpaceProposalStatus;
+    taint:        TaintSource[];
+    threadIds:    string[];
+}
+
+export interface SpaceProposalChat {
+    id:    string;
+    title: string;
 }
 
 export type SpaceProposalStatus = "open" | "accepted" | "dismissed";
@@ -11885,6 +11917,42 @@ export interface SpaceSummary {
     name:            string;
     private:         boolean;
     sort:            number;
+}
+
+export interface SpacesMigrationApplyParams {
+    entityIds: string[];
+}
+
+export interface SpacesMigrationApplyResult {
+    spaces: Space[];
+}
+
+export interface SpacesMigrationOfferResult {
+    offer?: SpaceMigrationOffer | null;
+}
+
+export interface SpaceMigrationOffer {
+    projects: SpaceMigrationProject[];
+}
+
+export interface SpaceMigrationProject {
+    anchors:  number;
+    entityId: string;
+    /**
+     * Listed in the Space as "shared everywhere"
+     */
+    folders: number;
+    name:    string;
+    threads: number;
+}
+
+export interface SpacesOffersDismissParams {
+    offerId: string;
+    spaceId: string;
+}
+
+export interface SpacesOffersListParams {
+    spaceId: string;
 }
 
 export interface SpacesOpenParams {

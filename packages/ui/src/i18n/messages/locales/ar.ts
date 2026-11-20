@@ -207,6 +207,8 @@ export const ar: Partial<Catalogue> = {
   "errors.reason.connected_with_other_client":
     "Google متصل بعميل آخر. افصل Google أولًا ثم غيّر العميل.",
   "errors.reason.secret_required": "يحتاج العميل المختلف إلى سر عميل خاص به.",
+  "errors.reason.project_private":
+    "هذا المشروع خاص، لذا لا يمكن أن تكون له مساحة. أوقف «إبقاء خاصًا» أولًا.",
   "errors.reason.updating": "سيعيد Psyche التشغيل الآن لتثبيت تحديث. حاول مرة أخرى بعد لحظة.",
   "errors.unavailable": "لا يستطيع Psyche القيام بذلك الآن.",
   "errors.approval_required": "يحتاج هذا إلى موافقتك أولًا.",

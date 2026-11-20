@@ -47,6 +47,8 @@ export const errors = {
   "errors.reason.connected_with_other_client":
     "Google is connected with another client. Disconnect Google first, then change the client.",
   "errors.reason.secret_required": "A different client needs its own client secret.",
+  "errors.reason.project_private":
+    "That project is Keep private, so it can't have a Space. Turn off Keep private first.",
   "errors.reason.updating":
     "Psyche is about to restart to install an update. Try again in a moment.",
 } as const;

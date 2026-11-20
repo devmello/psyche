@@ -98,6 +98,15 @@ export interface SpacePatch {
   readonly sort?: number | undefined;
 }
 
+/**
+ * A Keep-private project gets no Space (SR10): a Space shows on Home and in the Spaces list. The
+ * UI says it through `errors.reason.project_private`.
+ */
+export const projectPrivateError = (): PsycheError =>
+  new PsycheError("forbidden", "That project is Keep private, so it can't have a Space.", {
+    details: { reason: "project_private" },
+  });
+
 const notFound = (id: string): PsycheError => new PsycheError("not_found", `space ${id} not found`);
 
 function spaceFromRow(r: SpaceRow): Space {

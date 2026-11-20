@@ -66,6 +66,20 @@ extension FixtureBackend: SpacesBackend {
         publish(.changed(.spaces))
     }
 
+    public func spaceID(forProject projectID: String) async throws -> String? {
+        await pause()
+        return spacesState.details.first { $0.space.entityID == projectID }?.space.id
+    }
+
+    public func makeSpace(forProject projectID: String, named name: String) async throws -> String {
+        await pause()
+        if let existing = spacesState.details.first(where: { $0.space.entityID == projectID }) { return existing.space.id }
+        let id = "spc_\(projectID)"
+        spacesState.details.append(SpaceDetailItem(space: SpaceItem(id: id, name: name, entityID: projectID)))
+        publish(.changed(.spaces))
+        return id
+    }
+
     /// The counts come from the live state, as `spaces.list` computes them.
     private func counted(_ detail: SpaceDetailItem) -> SpaceDetailItem {
         var detail = detail
