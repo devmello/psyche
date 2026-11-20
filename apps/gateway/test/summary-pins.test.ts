@@ -102,13 +102,13 @@ describe("threads.summary.pins.remove", () => {
     expect(audits).toHaveLength(1);
     // Who, which pin (an id, a short prefix, a hash) and nothing more of its text.
     expect(audits?.[0]?.actor).toMatchObject({ type: "user" });
-    expect((audits?.[0]?.actor as { deviceId?: string }).deviceId).toMatch(/^admin-/);
+    expect(((audits?.[0]?.actor ?? {}) as { deviceId?: string }).deviceId).toMatch(/^admin-/);
     expect(audits?.[0]?.data).toMatchObject({
       pinId: pinId("Never cc ops@example.com."),
       prefix: "Never cc ops@example.com.",
       remaining: 1,
     });
-    expect((audits?.[0]?.data as { sha256: string }).sha256).toMatch(/^[0-9a-f]{64}$/);
+    expect(((audits?.[0]?.data ?? {}) as { sha256?: string }).sha256).toMatch(/^[0-9a-f]{64}$/);
     // Other windows are told: the rewritten block goes out as a chat.message.
     const updated = owner.events.find(
       (e) =>
