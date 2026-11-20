@@ -2,19 +2,23 @@
 //! `fs.mkdir` (write) and `fs.remove` (destructive), with `apps/node`'s names and semantics.
 //!
 //! - Absolute paths only, judged by components (no `..`).
-//! - Confined to the ceiling's `files.roots`, read again on every call. The deepest root that
-//!   holds the path decides its mode, so a read-only root inside a read-write one stays
-//!   read-only. `ro` roots refuse every write.
-//! - Protected paths ([`protected`]) are refused whatever the roots say, and a remove may not
-//!   take a folder that holds one.
+//! - Confined to the ceiling's `files.roots`, read again on every call. A path is judged by its
+//!   real spelling (the real path of the root it was reached through, plus the rest) against
+//!   every root's real path: the deepest root that holds it decides its mode, so a read-only
+//!   root inside a read-write one stays read-only whichever spelling reaches it (#1512 review
+//!   r1, finding 6). `ro` roots refuse every write.
+//! - Protected paths ([`protected`]) are refused whatever the roots say. A remove may not take a
+//!   folder that holds one, nor a root of the ceiling or a folder that holds one.
 //! - Every component below the root is opened with `O_NOFOLLOW` from its parent's descriptor
 //!   ([`walk`]), so a symbolic link (planted before or during the call) never leads out. A file
 //!   with more than one hard link is refused: its other name may be anywhere.
-//! - Reads are chunked (`offset`, `length`, at most 1 MiB) and carry an `etag`; a read or write
-//!   that names an `etag` is refused when the file changed since.
+//! - Reads are chunked (`offset`, `length`, at most 512 KiB, and less when the text would not
+//!   fit in one frame as JSON: `bytes` says how much was read) and carry an `etag`; a read or
+//!   write that names an `etag` is refused when the file changed since.
 //! - Writes go to a new file next to the target and are renamed over it.
 //! - Each write, mkdir and remove leaves one journal line (path and byte count, never content).
 
+pub mod fit;
 pub mod protected;
 pub mod walk;
 
@@ -34,7 +38,10 @@ use crate::journal::Journal;
 use crate::remote::policy::{Mode, Policy, PolicySource};
 use walk::{Entry, WalkError};
 
-pub const FS_READ_MAX_BYTES: u64 = 1024 * 1024;
+/// One read's bytes: base64 of this is ~683 KiB, well inside a 1 MiB frame.
+pub const FS_READ_MAX_BYTES: u64 = 512 * 1024;
+/// One read's text, JSON-encoded, at most.
+pub const FS_READ_JSON_BUDGET: usize = 700 * 1024;
 pub const FS_WRITE_MAX_BYTES: usize = 16 * 1024 * 1024;
 pub const FS_LIST_MAX_ENTRIES: usize = 1000;
 const REMOVE_MAX_ENTRIES: usize = 100_000;
@@ -143,6 +150,20 @@ fn expand_root(path: &str, home: &Path) -> Option<PathBuf> {
     protected::lexical(p.to_str()?)
 }
 
+/// Every root of the ceiling that exists: as written (expanded) and as it resolves.
+pub fn real_roots(policy: &Policy, home: &Path) -> Vec<(PathBuf, PathBuf, Mode)> {
+    policy
+        .files
+        .roots
+        .iter()
+        .filter_map(|root| {
+            let expanded = expand_root(&root.path, home)?;
+            let real = std::fs::canonicalize(&expanded).ok()?;
+            Some((expanded, real, root.mode))
+        })
+        .collect()
+}
+
 /// Where `raw` lies under the ceiling, or why it may not be touched.
 pub fn locate(
     policy: &Policy,
@@ -163,40 +184,45 @@ pub fn locate(
     if protected::is_protected(&lex, home) {
         return Err(refused(&lex));
     }
-    let mut best: Option<(usize, Located)> = None;
-    for root in &policy.files.roots {
-        let Some(expanded) = expand_root(&root.path, home) else {
-            continue;
-        };
-        let Ok(real) = std::fs::canonicalize(&expanded) else {
-            continue;
-        };
-        let rest = lex
-            .strip_prefix(&expanded)
-            .or_else(|_| lex.strip_prefix(&real));
-        let Ok(rest) = rest else { continue };
-        let depth = real.components().count();
-        if best.as_ref().is_some_and(|(d, _)| *d >= depth) {
-            continue;
+    let roots = real_roots(policy, home);
+    // The real spelling: through the root (by either of its spellings) that holds `lex` deepest.
+    let mut reached: Option<(usize, PathBuf)> = None;
+    for (expanded, real, _) in &roots {
+        for spelling in [expanded, real] {
+            let Ok(rest) = lex.strip_prefix(spelling) else {
+                continue;
+            };
+            let depth = spelling.components().count();
+            if reached.as_ref().is_none_or(|(d, _)| depth > *d) {
+                reached = Some((depth, real.join(rest)));
+            }
         }
-        let parts: Vec<OsString> = rest.iter().map(|c| c.to_os_string()).collect();
-        let shown = real.join(rest);
-        best = Some((
-            depth,
-            Located {
-                root: real,
-                parts,
-                shown,
-                mode: root.mode,
-            },
-        ));
     }
-    let Some((_, located)) = best else {
-        return Err(err(
+    let not_allowed = || {
+        err(
             ErrorCode::Forbidden,
             "machine_policy",
             "This computer's limits do not allow that path",
-        ));
+        )
+    };
+    let Some((_, shown)) = reached else {
+        return Err(not_allowed());
+    };
+    // The deepest root by real path that holds the real spelling decides; on a tie (one folder
+    // listed twice), read-only wins.
+    let Some((_, real, mode)) = roots
+        .iter()
+        .filter(|(_, real, _)| shown.starts_with(real))
+        .max_by_key(|(_, real, mode)| (real.components().count(), *mode == Mode::Ro))
+    else {
+        return Err(not_allowed());
+    };
+    let rest = shown.strip_prefix(real).unwrap_or(Path::new(""));
+    let located = Located {
+        root: real.clone(),
+        parts: rest.iter().map(|c| c.to_os_string()).collect(),
+        shown: shown.clone(),
+        mode: *mode,
     };
     if protected::is_protected(&located.shown, home) {
         return Err(refused(&located.shown));
@@ -317,6 +343,7 @@ impl Files {
                 let mut v = entry_json(&e);
                 v["path"] = json!(shown);
                 v["etag"] = json!(e.etag());
+                v["id"] = json!(e.id());
                 v["mode"] = json!(e.mode & 0o7777);
                 Ok(v)
             }
@@ -365,10 +392,15 @@ impl Files {
                     }
                 }
                 buf.truncate(got);
+                // Text is cut where its JSON would no longer fit in one frame; `bytes` says how
+                // far it got, so the next read goes on from there.
                 let content = if b64 {
                     base64::engine::general_purpose::STANDARD.encode(&buf)
                 } else {
-                    String::from_utf8_lossy(&buf).into_owned()
+                    let at_end = offset + got as u64 >= e.size;
+                    let (text, covered) = fit::fit_utf8(&buf, FS_READ_JSON_BUDGET, at_end);
+                    got = covered;
+                    text
                 };
                 Ok(json!({
                     "path": shown,
@@ -508,6 +540,19 @@ impl Files {
                         &format!("{shown} holds protected files"),
                     ));
                 }
+                // A folder that holds another root (a read-only one above all) would take it.
+                if real_roots(&loaded.policy, home)
+                    .iter()
+                    .any(|(_, real, _)| real.starts_with(&at.shown))
+                {
+                    return Err(err(
+                        ErrorCode::Forbidden,
+                        "holds_root",
+                        &format!(
+                            "{shown} holds a root of this computer's limits; it is not removed"
+                        ),
+                    ));
+                }
                 let recursive = opt_bool(map, "recursive")?;
                 let dir = walk::walk(&root, parents, false).map_err(|e| walk_err(e, &at.shown))?;
                 let e = walk::stat_at(&dir, last).map_err(|e| walk_err(e.into(), &at.shown))?;
@@ -540,7 +585,7 @@ impl Capability for FsCapability {
         let (description, side_effect) = match self.op {
             Op::List => ("List a folder inside this computer's file roots.", SideEffect::Read),
             Op::Stat => ("Describe a file or folder inside this computer's file roots.", SideEffect::Read),
-            Op::Read => ("Read part of a file (at most 1 MiB per call) inside this computer's file roots.", SideEffect::Read),
+            Op::Read => ("Read part of a file (at most 512 KiB per call) inside this computer's file roots.", SideEffect::Read),
             Op::Write => ("Write a whole file inside a read-write root of this computer.", SideEffect::Write),
             Op::Mkdir => ("Make a folder inside a read-write root of this computer.", SideEffect::Write),
             Op::Remove => ("Remove a file or folder inside a read-write root of this computer. Needs an approval.", SideEffect::Destructive),

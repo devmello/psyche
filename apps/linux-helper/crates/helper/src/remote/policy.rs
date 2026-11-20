@@ -52,7 +52,9 @@ pub struct Exec {
     pub enabled: bool,
     #[serde(default = "yes")]
     pub contain: bool,
-    #[serde(default = "yes")]
+    /// Whether a contained command may be granted the network. Off unless the owner turns it on
+    /// (owner decision D1 on #1512); even then each card grants it or not.
+    #[serde(default)]
     pub network: bool,
     #[serde(default)]
     pub cwd_roots: Vec<String>,
@@ -118,7 +120,7 @@ fn default_exec() -> Exec {
     Exec {
         enabled: false,
         contain: true,
-        network: true,
+        network: false,
         cwd_roots: vec![],
     }
 }
@@ -532,7 +534,7 @@ impl Policy {
             }
             return Ok(());
         }
-        if capability == "exec.host" {
+        if capability == "exec.host" || capability == "exec.resolve" {
             if !self.exec.enabled {
                 return denied("running commands");
             }
@@ -703,11 +705,15 @@ mod tests {
             (r#"{"surfaces":{"direct":true}}"#, |p| {
                 p.surfaces.virtual_screen && p.surfaces.direct
             }),
+            // The network is off unless the owner turns it on (D1 on #1512).
             (r#"{"exec":{"enabled":true}}"#, |p| {
-                p.exec.enabled && p.exec.contain && p.exec.network && p.exec.cwd_roots.is_empty()
+                p.exec.enabled && p.exec.contain && !p.exec.network && p.exec.cwd_roots.is_empty()
             }),
             (r#"{"exec":{"contain":false}}"#, |p| {
-                !p.exec.enabled && !p.exec.contain && p.exec.network
+                !p.exec.enabled && !p.exec.contain && !p.exec.network
+            }),
+            (r#"{"exec":{"network":true}}"#, |p| {
+                !p.exec.enabled && p.exec.contain && p.exec.network
             }),
             (r#"{"files":{}}"#, |p| p.files.roots.is_empty()),
             (r#"{"apps":{},"surfaces":{},"exec":{}}"#, |p| {

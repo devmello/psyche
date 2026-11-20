@@ -48,8 +48,11 @@ impl Box_ {
         self.p("home").join(rel).display().to_string()
     }
     fn policy(&self, exec: &str) {
+        self.policy_raw(&format!(r#"{{"exec":{exec}}}"#));
+    }
+    fn policy_raw(&self, text: &str) {
         let p = self.p("user-policy.json");
-        std::fs::write(&p, format!(r#"{{"exec":{exec}}}"#)).unwrap();
+        std::fs::write(&p, text).unwrap();
         std::fs::set_permissions(&p, std::fs::Permissions::from_mode(0o600)).unwrap();
     }
     fn source(&self) -> Arc<PolicySource> {
@@ -73,7 +76,23 @@ impl Box_ {
 }
 
 const CONTAINED: &str = r#"{"enabled":true,"contain":true,"network":false,"cwdRoots":["~"]}"#;
+const CONTAINED_NET: &str = r#"{"enabled":true,"contain":true,"network":true,"cwdRoots":["~"]}"#;
 const FULL: &str = r#"{"enabled":true,"contain":false,"network":true,"cwdRoots":["~"]}"#;
+
+/// `params` with the executable's hash, as the Gateway sends it after `exec.resolve`.
+fn bound(mut v: Value) -> Value {
+    if v.get("expectSha256").is_none() {
+        let argv0 = v["argv"][0].as_str().unwrap_or("").to_string();
+        if let Some(cwd) = v["cwd"].as_str().map(PathBuf::from) {
+            if let Ok(exe) = resolve_executable(&argv0, &cwd) {
+                if let Ok(sha) = sha256_file(&exe) {
+                    v["expectSha256"] = json!(sha);
+                }
+            }
+        }
+    }
+    v
+}
 
 fn reason(r: Result<Checked, CapabilityError>) -> String {
     match r {
@@ -96,7 +115,9 @@ fn must_refuse_rows() {
     let p = b.loaded();
     let home = b.p("home");
     let other = format!("sha256:{}", "0".repeat(64));
+    symlink(b.p("home/proj"), b.p("home/projlink")).unwrap();
     let base = |extra: Value| {
+        let explicit = extra.get("expectSha256").is_some();
         let mut v = json!({ "argv": [echo(), "hi"], "cwd": b.h("proj"), "folder": b.h("proj"), "folderMode": "rw" });
         for (k, val) in extra.as_object().unwrap() {
             if val.is_null() {
@@ -105,9 +126,26 @@ fn must_refuse_rows() {
                 v[k] = val.clone();
             }
         }
-        v
+        if explicit {
+            v
+        } else {
+            bound(v)
+        }
     };
     let rows: Vec<(Value, &str)> = vec![
+        // #1512 review r1: the card's binding, the network, a swapped folder.
+        (base(json!({ "expectSha256": null })), "invalid_params"),
+        (base(json!({ "network": true })), "machine_policy"),
+        (base(json!({ "network": "yes" })), "invalid_params"),
+        (
+            base(json!({ "expectContained": false })),
+            "containment_changed",
+        ),
+        (
+            base(json!({ "folder": b.h("projlink"), "cwd": b.h("projlink") })),
+            "folder_moved",
+        ),
+        (base(json!({ "folderId": "0:0" })), "folder_moved"),
         // Where.
         (base(json!({ "cwd": b.h("other") })), "outside_folder"),
         (
@@ -206,6 +244,14 @@ fn must_refuse_rows() {
         reason(check(&b.loaded(), &home, &base(json!({})))),
         "machine_policy"
     );
+    // A read-write folder inside a read-only file root (#1512 review r1, finding 7).
+    b.policy_raw(&format!(
+        r#"{{"exec":{CONTAINED},"files":{{"roots":[{{"path":"~","mode":"rw"}},{{"path":"~/proj","mode":"ro"}}]}}}}"#
+    ));
+    assert_eq!(
+        reason(check(&b.loaded(), &home, &base(json!({})))),
+        "read_only_root"
+    );
     // A symlinked cwd that leads out of the folder.
     b.policy(CONTAINED);
     symlink(b.p("home/other"), b.p("home/proj/out")).unwrap();
@@ -234,15 +280,122 @@ fn must_allow_rows() {
         json!({ "argv": [echo()], "cwd": b.h("proj"), "folder": b.h(""), "folderMode": "ro" }),
         // No folder: the cwd is the folder, read-only.
         json!({ "argv": [echo()], "cwd": b.h("proj") }),
+        // The folder still the one granted, the containment the card showed.
+        json!({ "argv": [echo()], "cwd": b.h("proj"), "folderId": folder_id(&b.p("home/proj")) }),
+        json!({ "argv": [echo()], "cwd": b.h("proj"), "expectContained": true, "network": false }),
     ];
     for params in rows {
+        let params = bound(params);
         let r = check(&p, &home, &params);
         assert!(r.is_ok(), "{params}: {}", reason(r));
     }
-    let c = check(&p, &home, &json!({ "argv": ["echo"], "cwd": b.h("proj") })).unwrap();
+    let c = check(
+        &p,
+        &home,
+        &bound(json!({ "argv": ["echo"], "cwd": b.h("proj") })),
+    )
+    .unwrap();
     assert_eq!(c.sha256, sha);
     assert!(!c.writable);
     assert!(c.contain);
+    assert!(!c.network);
+    // The network, granted on the card, where the ceiling allows it; a deeper read-write root
+    // inside a read-only one lets the folder write, and the read-only roots are kept for the
+    // sandbox.
+    b.policy_raw(&format!(
+        r#"{{"exec":{CONTAINED_NET},"files":{{"roots":[{{"path":"~","mode":"ro"}},{{"path":"~/proj","mode":"rw"}},{{"path":"~/proj/sub","mode":"ro"}}]}}}}"#
+    ));
+    let c = check(
+        &b.loaded(),
+        &home,
+        &bound(
+            json!({ "argv": [echo()], "cwd": b.h("proj"), "folder": b.h("proj"), "folderMode": "rw", "network": true }),
+        ),
+    )
+    .unwrap();
+    assert!(c.network && c.writable);
+    assert!(
+        c.read_only.contains(&b.p("home/proj/sub")),
+        "{:?}",
+        c.read_only
+    );
+}
+
+fn folder_id(p: &Path) -> String {
+    let m = std::fs::metadata(p).unwrap();
+    format!("{:x}:{:x}", m.dev(), m.ino())
+}
+
+#[test]
+fn exec_resolve_names_the_file_and_its_hash_and_how_commands_run() {
+    let b = Box_::new(CONTAINED);
+    let home = b.p("home");
+    let sha = sha256_file(&std::fs::canonicalize(echo()).unwrap()).unwrap();
+    let v = resolve(
+        &b.loaded(),
+        &home,
+        &json!({ "argv0": "echo", "cwd": b.h("proj") }),
+    )
+    .unwrap();
+    assert_eq!(v["executableSha256"], sha);
+    assert_eq!(
+        v["executable"],
+        std::fs::canonicalize(echo()).unwrap().display().to_string()
+    );
+    assert_eq!(v["contained"], true);
+    assert_eq!(v["networkAllowed"], false);
+    std::fs::write(b.p("home/proj/build.sh"), "#!/bin/sh\necho built\n").unwrap();
+    std::fs::set_permissions(
+        b.p("home/proj/build.sh"),
+        std::fs::Permissions::from_mode(0o755),
+    )
+    .unwrap();
+    let v = resolve(
+        &b.loaded(),
+        &home,
+        &json!({ "argv0": "./build.sh", "cwd": b.h("proj") }),
+    )
+    .unwrap();
+    assert_eq!(
+        v["executableSha256"],
+        sha256_file(&b.p("home/proj/build.sh")).unwrap()
+    );
+    // must refuse
+    let rows: Vec<(Value, &str)> = vec![
+        (
+            json!({ "argv0": b.h(".ssh/id_ed25519"), "cwd": b.h("proj") }),
+            "protected_path",
+        ),
+        (
+            json!({ "argv0": "echo", "cwd": b.h(".ssh") }),
+            "protected_path",
+        ),
+        (json!({ "argv0": "echo", "cwd": "/etc" }), "machine_policy"),
+        (
+            json!({ "argv0": "nope-psyche", "cwd": b.h("proj") }),
+            "not_found",
+        ),
+        (json!({ "argv0": "echo" }), "invalid_params"),
+        (
+            json!({ "argv0": "echo", "cwd": b.h("proj"), "x": 1 }),
+            "invalid_params",
+        ),
+    ];
+    for (params, want) in rows {
+        let got = match resolve(&b.loaded(), &home, &params) {
+            Ok(v) => format!("ok {v}"),
+            Err(e) => e.reason,
+        };
+        assert_eq!(got, want, "{params}");
+    }
+    b.policy(r#"{"enabled":false,"cwdRoots":["~"]}"#);
+    let e = resolve(
+        &b.loaded(),
+        &home,
+        &json!({ "argv0": "echo", "cwd": b.h("proj") }),
+    )
+    .unwrap_err();
+    assert_eq!(e.reason, "machine_policy");
 }
 
 #[test]
@@ -300,7 +453,9 @@ fn a_missing_or_broken_bwrap_is_contain_unavailable_and_nothing_runs() {
         .into_iter()
         .find(|p| Path::new(p).exists())
         .unwrap();
-    let params = json!({ "argv": [touch, marker.display().to_string()], "cwd": b.h("proj"), "folder": b.h("proj"), "folderMode": "rw" });
+    let params = bound(
+        json!({ "argv": [touch, marker.display().to_string()], "cwd": b.h("proj"), "folder": b.h("proj"), "folderMode": "rw" }),
+    );
     for bwrap in [
         None,
         Some(PathBuf::from("/nonexistent/bwrap")),
@@ -337,6 +492,7 @@ mod linux {
     use super::*;
 
     fn run_ok(exec: &ExecHost, params: Value) -> (Value, Events) {
+        let params = bound(params);
         let (ctx, events) = ctx_with(params.clone(), Some("apr_1".into()));
         match exec.call(&ctx) {
             Ok(v) => (v, events),
@@ -387,13 +543,27 @@ mod linux {
             "{ev:?}"
         );
         drop(ev);
-        // 300 KB of output: 128 KB kept, flagged truncated.
+        // 300 KB of text: 128 KB kept, flagged truncated.
         let (v, _) = run_ok(
             &exec,
-            json!({ "argv": [bin("head"), "-c", "300000", "/dev/zero"], "cwd": b.h("proj") }),
+            json!({ "argv": [bin("sh"), "-c", "head -c 300000 /dev/zero | tr '\\0' a"], "cwd": b.h("proj") }),
         );
         assert_eq!(v["truncated"], true);
         assert_eq!(v["stdout"].as_str().unwrap().len(), EXEC_OUTPUT_CAP_BYTES);
+        // 300 KB of NULs on both streams (#1512 review r1, finding 3): six bytes each as JSON,
+        // so cut further, and the whole result still fits in one frame.
+        let (v, _) = run_ok(
+            &exec,
+            json!({ "argv": [bin("sh"), "-c", "head -c 300000 /dev/zero; head -c 300000 /dev/zero >&2"], "cwd": b.h("proj") }),
+        );
+        assert_eq!(v["truncated"], true);
+        assert!(v["stdout"].as_str().unwrap().len() * 6 <= EXEC_OUTPUT_JSON_BUDGET);
+        let frame = psyche_protocol::frame::req_line(
+            "h1",
+            "node.result",
+            &json!({ "invocationId": "inv", "ok": true, "result": v }),
+        );
+        assert!(frame.is_ok(), "the result must fit in one frame");
         // The helper's own bus and display variables never reach the command (the agent's socket
         // is checked by the contained test, which owns SSH_AUTH_SOCK).
         std::env::set_var("DBUS_SESSION_BUS_ADDRESS", "unix:path=/run/user/1/bus");
@@ -410,11 +580,231 @@ mod linux {
             .collect();
         let mut sorted = names.clone();
         sorted.sort();
+        // In a user scope (the full account), systemd-run needs the runtime folder's name, and
+        // systemd names the scope's invocation.
+        sorted.retain(|n| {
+            !(v["tree"] == "scope" && matches!(*n, "XDG_RUNTIME_DIR" | "INVOCATION_ID"))
+        });
         assert_eq!(
             sorted,
             ["FOO", "HOME", "LANG", "LOGNAME", "PATH", "TMPDIR", "USER"],
             "{names:?}"
         );
+    }
+
+    /// #1512 review r1, finding 11: on the full account a `setsid` child is in the command's
+    /// scope and dies with it.
+    #[test]
+    fn a_setsid_child_does_not_outlive_a_full_account_command() {
+        let b = Box_::new(FULL);
+        let exec = b.exec(None);
+        let (v, _) = run_ok(
+            &exec,
+            json!({ "argv": [bin("sh"), "-c", "setsid sleep 306 >/dev/null 2>&1 < /dev/null & echo $!"], "cwd": b.h("proj") }),
+        );
+        let pid = v["stdout"].as_str().unwrap().trim().to_string();
+        assert!(!pid.is_empty(), "{v}");
+        if v["tree"] != "scope" {
+            assert!(
+                std::env::var_os("PSYCHE_REQUIRE_BWRAP").is_none(),
+                "the VM has a user manager: the scope must be used ({v})"
+            );
+            eprintln!("skipping: no user manager here ({})", v["tree"]);
+            return;
+        }
+        std::thread::sleep(Duration::from_millis(300));
+        let stat = std::fs::read_to_string(format!("/proc/{pid}/stat")).unwrap_or_default();
+        assert!(
+            stat.is_empty() || stat.contains(") Z "),
+            "setsid child {pid} survived: {stat}"
+        );
+    }
+
+    /// #1512 review r1, finding 10: what runs is the file that was hashed, even if the path is
+    /// swapped between the check and the run.
+    #[test]
+    fn the_file_that_was_hashed_is_the_file_that_runs() {
+        let Some(bwrap) = bwrap_or_skip() else { return };
+        let b = Box_::new(CONTAINED);
+        let script = b.p("home/proj/build.sh");
+        std::fs::write(&script, "#!/bin/sh\necho approved\n").unwrap();
+        std::fs::set_permissions(&script, std::fs::Permissions::from_mode(0o755)).unwrap();
+        let params = bound(
+            json!({ "argv": ["./build.sh"], "cwd": b.h("proj"), "folder": b.h("proj"), "folderMode": "rw" }),
+        );
+        let evil = b.p("home/proj/evil.sh");
+        let plant = || {
+            std::fs::write(&evil, "#!/bin/sh\necho swapped\n").unwrap();
+            std::fs::set_permissions(&evil, std::fs::Permissions::from_mode(0o755)).unwrap();
+        };
+        // The approved file moved away and another put at its path after the hash: the approved
+        // one (the inode that was hashed) is what runs, at the path the command expects.
+        let c = check(&b.loaded(), &b.p("home"), &params).unwrap();
+        std::fs::rename(&script, b.p("home/proj/moved.sh")).unwrap();
+        plant();
+        std::fs::rename(&evil, &script).unwrap();
+        let (ctx, _) = ctx_with(params.clone(), Some("apr_1".into()));
+        let ran = run(&c, &b.p("home"), &ctx, Some(&bwrap)).unwrap();
+        assert_eq!(ran.stdout, "approved\n", "{ran:?}");
+        // Renamed over (the approved file is gone): nothing runs.
+        std::fs::rename(b.p("home/proj/moved.sh"), &script).unwrap();
+        let c = check(&b.loaded(), &b.p("home"), &params).unwrap();
+        plant();
+        std::fs::rename(&evil, &script).unwrap();
+        let (ctx, _) = ctx_with(params, Some("apr_1".into()));
+        let e = run(&c, &b.p("home"), &ctx, Some(&bwrap)).unwrap_err();
+        assert_eq!(e.reason, "executable_changed");
+        // And the next check refuses the new file against the old hash.
+        let again = check(
+            &b.loaded(),
+            &b.p("home"),
+            &json!({ "argv": ["./build.sh"], "cwd": b.h("proj"), "folder": b.h("proj"), "folderMode": "rw", "expectSha256": c.sha256 }),
+        );
+        assert_eq!(reason(again), "executable_changed");
+    }
+
+    fn python() -> Option<String> {
+        ["/usr/bin/python3", "/bin/python3"]
+            .into_iter()
+            .find(|p| Path::new(p).exists())
+            .map(str::to_string)
+    }
+
+    /// #1512 review r1, finding 1 and D2: with the network on, no unix socket can be made, so
+    /// an abstract socket (an X server's) and a path socket under /run are out of reach; TCP
+    /// sockets and socketpair still work. With it off, the network namespace is the sandbox's
+    /// own and /run is empty.
+    #[test]
+    fn a_contained_command_reaches_no_unix_socket_outside_with_the_network_on_or_off() {
+        use std::os::linux::net::SocketAddrExt;
+        let Some(bwrap) = bwrap_or_skip() else { return };
+        let Some(py) = python() else {
+            eprintln!("skipping: no python3");
+            return;
+        };
+        let b = Box_::new(CONTAINED_NET);
+        let exec = b.exec(Some(bwrap));
+        let name = format!("psyche-h5-test-{}", std::process::id());
+        let addr = std::os::unix::net::SocketAddr::from_abstract_name(name.as_bytes()).unwrap();
+        let _abstract = std::os::unix::net::UnixListener::bind_addr(&addr).unwrap();
+        // A path socket under /run, as a system service's would be.
+        // SAFETY: getuid cannot fail.
+        let runtime = PathBuf::from(format!("/run/user/{}", unsafe { libc::getuid() }));
+        let run_sock = runtime.join(format!("psyche-h5-test-{}.sock", std::process::id()));
+        let _path = runtime
+            .is_dir()
+            .then(|| std::os::unix::net::UnixListener::bind(&run_sock).ok())
+            .flatten();
+        let probe = format!(
+            r#"
+import socket
+def try_(f):
+    try:
+        f(); return "open"
+    except OSError as e:
+        return "refused"
+def abstract():
+    s = socket.socket(socket.AF_UNIX); s.connect("\0{name}")
+def path():
+    s = socket.socket(socket.AF_UNIX); s.connect("{sock}")
+def tcp():
+    socket.socket(socket.AF_INET, socket.SOCK_STREAM).close()
+def pair():
+    a, b = socket.socketpair(); a.send(b"x"); assert b.recv(1) == b"x"
+print("abstract", try_(abstract)); print("path", try_(path))
+print("tcp", try_(tcp)); print("pair", try_(pair))
+"#,
+            sock = run_sock.display()
+        );
+        for network in [true, false] {
+            let (v, _) = run_ok(
+                &exec,
+                json!({ "argv": [py.clone(), "-c", probe.clone()], "cwd": b.h("proj"), "network": network }),
+            );
+            let out = v["stdout"].as_str().unwrap();
+            assert!(out.contains("abstract refused"), "network {network}: {v}");
+            assert!(out.contains("path refused"), "network {network}: {v}");
+            assert!(out.contains("pair open"), "network {network}: {v}");
+            if network {
+                assert!(out.contains("tcp open"), "{v}");
+                assert_eq!(v["network"], true);
+            }
+            // /run holds nothing but DNS's files.
+            let (v, _) = run_ok(
+                &exec,
+                json!({ "argv": [bin("sh"), "-c", "ls -A /run; ls -A /run/systemd 2>/dev/null"], "cwd": b.h("proj"), "network": network }),
+            );
+            let listed: Vec<&str> = v["stdout"].as_str().unwrap().split_whitespace().collect();
+            let allowed: &[&str] = if network {
+                &["systemd", "resolve"]
+            } else {
+                &[]
+            };
+            assert!(
+                listed.iter().all(|n| allowed.contains(n)),
+                "network {network}: {listed:?}"
+            );
+        }
+        let _ = std::fs::remove_file(&run_sock);
+    }
+
+    /// #1512 review r1, finding 7: git hooks and config, launch configs and read-only roots
+    /// stay read-only in a read-write folder, missing ones cannot be created, and the stubs
+    /// the sandbox needed are gone afterwards.
+    #[test]
+    fn a_contained_command_cannot_plant_code_in_its_read_write_folder() {
+        let Some(bwrap) = bwrap_or_skip() else { return };
+        let b = Box_::new(CONTAINED);
+        b.policy_raw(&format!(
+            r#"{{"exec":{CONTAINED},"files":{{"roots":[{{"path":"~","mode":"rw"}},{{"path":"~/proj/keep","mode":"ro"}}]}}}}"#
+        ));
+        for d in [
+            "home/proj/.git/hooks",
+            "home/proj/keep",
+            "home/proj/sibling/.git",
+        ] {
+            std::fs::create_dir_all(b.p(d)).unwrap();
+        }
+        std::fs::write(b.p("home/proj/.git/config"), "[core]\n").unwrap();
+        std::fs::write(b.p("home/proj/.git/HEAD"), "ref: refs/heads/main\n").unwrap();
+        let exec = b.exec(Some(bwrap));
+        let script = [
+            "for p in .git/hooks/post-checkout sibling/.git/hooks/post-checkout .envrc .vscode/tasks.json .claude/settings.json .mcp.json .npmrc keep/planted .git/config; do",
+            // A missing file is /dev/null inside: what is written there goes nowhere.
+            "  mkdir -p \"$(dirname \"$p\")\" 2>/dev/null; echo '#!/bin/sh' >> \"$p\" 2>/dev/null; chmod +x \"$p\" 2>/dev/null",
+            "done",
+            "echo ok > ok.txt && echo wrote-ok",
+            "echo y > .git/HEAD && echo wrote-head",
+        ]
+        .join("\n");
+        let (v, _) = run_ok(
+            &exec,
+            json!({ "argv": [bin("sh"), "-c", script], "cwd": b.h("proj"), "folder": b.h("proj"), "folderMode": "rw" }),
+        );
+        let out = v["stdout"].as_str().unwrap();
+        // The folder itself stays writable, and so does git's own state.
+        assert!(
+            out.contains("wrote-ok") && out.contains("wrote-head"),
+            "{v}"
+        );
+        assert!(b.p("home/proj/ok.txt").exists());
+        assert_eq!(
+            std::fs::read_to_string(b.p("home/proj/.git/config")).unwrap(),
+            "[core]\n"
+        );
+        // The stubs the sandbox made are gone.
+        for p in [
+            ".envrc",
+            ".vscode",
+            ".claude",
+            ".mcp.json",
+            ".npmrc",
+            "sibling/.git/hooks",
+        ] {
+            assert!(!b.p("home/proj").join(p).exists(), "{p} left behind");
+        }
+        assert!(!b.p("home/proj/keep/planted").exists());
+        assert!(!b.p("home/proj/.git/hooks/post-checkout").exists());
     }
 
     #[test]
@@ -430,7 +820,9 @@ mod linux {
         // A grandchild in the same group dies with it on cancel (a revoke closes the
         // connection, which sets the same flag).
         let (ctx, events) = ctx_with(
-            json!({ "argv": [bin("sh"), "-c", "sleep 31 & echo $!; wait"], "cwd": b.h("proj") }),
+            bound(
+                json!({ "argv": [bin("sh"), "-c", "sleep 31 & echo $!; wait"], "cwd": b.h("proj") }),
+            ),
             Some("apr_1".into()),
         );
         let flag = Arc::clone(&ctx.cancelled);

@@ -25,6 +25,7 @@ pub fn remote_allowed(name: &str) -> bool {
             | "apps.open"
             | "apps.focus"
             | "exec.host"
+            | "exec.resolve"
             | "fs.list"
             | "fs.stat"
             | "fs.read"
@@ -282,6 +283,8 @@ mod tests {
             "a11y.status",
             "portal.status",
             "exec.host",
+            // The card's binary hash, before it is shown (#1512 review r1, finding 10).
+            "exec.resolve",
             "fs.list",
             "fs.stat",
             "fs.read",

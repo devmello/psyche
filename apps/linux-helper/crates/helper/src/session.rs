@@ -73,10 +73,21 @@ impl<W: Write + Send> Shared<W> {
     }
 
     fn send_request(&self, method: &str, params: &Value) {
+        self.try_send_request(method, params);
+    }
+
+    /// False when the request could not be framed (too large for one frame).
+    fn try_send_request(&self, method: &str, params: &Value) -> bool {
         let id = self.next_request_id();
         match req_line(&id, method, params) {
-            Ok(line) => self.send(line),
-            Err(e) => crate::log(&format!("{method} not sent: {e}")),
+            Ok(line) => {
+                self.send(line);
+                true
+            }
+            Err(e) => {
+                crate::log(&format!("{method} not sent: {e}"));
+                false
+            }
         }
     }
 
@@ -367,8 +378,28 @@ fn finish<W: Write + Send>(
         }
     };
     // Leave the in-flight set only now, so a duplicate id is refused until the result is sent.
-    if let Ok(value) = serde_json::to_value(&params) {
-        shared.send_request("node.result", &value);
+    let sent = serde_json::to_value(&params)
+        .is_ok_and(|value| shared.try_send_request("node.result", &value));
+    if !sent {
+        // Too large for one frame (#1512 review r1, finding 3): the Gateway gets an error result,
+        // never silence it would wait out.
+        let error = CapabilityError::new(
+            ErrorCode::Unavailable,
+            "result_too_large",
+            &format!("{capability}'s result does not fit in one frame; ask for less at a time"),
+        );
+        if let Ok(id) = invocation_id.try_into() {
+            let fallback = NodeResultParams {
+                error: Some(error.payload()),
+                invocation_id: id,
+                ok: false,
+                receipt: None,
+                result: None,
+            };
+            if let Ok(value) = serde_json::to_value(&fallback) {
+                shared.send_request("node.result", &value);
+            }
+        }
     }
     shared.state().in_flight.remove(invocation_id);
     shared.idle.touch();
@@ -454,6 +485,23 @@ mod tests {
         }
     }
 
+    /// A result too large for one frame.
+    struct Big;
+    impl Capability for Big {
+        fn spec(&self) -> CapabilitySpec {
+            CapabilitySpec {
+                name: "test.big",
+                description: "too big",
+                side_effect: SideEffect::None,
+                target_kind: None,
+                streaming: false,
+            }
+        }
+        fn invoke(&self, _: &InvocationContext) -> Result<Value, CapabilityError> {
+            Ok(json!({ "text": "\u{0}".repeat(300_000) }))
+        }
+    }
+
     struct Wait;
     impl Capability for Wait {
         fn spec(&self) -> CapabilitySpec {
@@ -492,6 +540,7 @@ mod tests {
         registry.register(Arc::new(Danger));
         registry.register(Arc::new(Acts));
         registry.register(Arc::new(Wait));
+        registry.register(Arc::new(Big));
         let helper = std::thread::spawn(move || {
             let mut reader = FrameReader::new(a.try_clone().unwrap());
             serve(&mut reader, a, registry, Arc::new(IdleTimer::new(idle))).unwrap()
@@ -539,6 +588,28 @@ mod tests {
         assert_eq!(result["method"], "node.result");
         assert_eq!(result["params"]["ok"], true);
         assert_eq!(result["params"]["result"], json!({ "a": 1 }));
+        assert_eq!(h.finish(), ServeEnd::Closed);
+    }
+
+    #[test]
+    fn a_result_too_large_for_one_frame_is_an_error_result_and_the_session_lives() {
+        let mut h = start(None);
+        // 300 000 NULs are 1.8 MB as JSON: past the 1 MiB frame.
+        h.invoke("r1", "inv1", "test.big", json!({}));
+        assert_eq!(h.read()["payload"]["accepted"], true);
+        let result = h.read();
+        assert_eq!(result["method"], "node.result");
+        assert_eq!(result["params"]["invocationId"], "inv1");
+        assert_eq!(result["params"]["ok"], false);
+        assert_eq!(
+            result["params"]["error"]["details"]["reason"], "result_too_large",
+            "{result}"
+        );
+        // The same session still answers.
+        h.invoke("r2", "inv2", "test.echo", json!({ "b": 2 }));
+        assert_eq!(h.read()["payload"]["accepted"], true);
+        h.read();
+        assert_eq!(h.read()["params"]["result"], json!({ "b": 2 }));
         assert_eq!(h.finish(), ServeEnd::Closed);
     }
 

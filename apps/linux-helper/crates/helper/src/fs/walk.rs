@@ -64,6 +64,7 @@ pub fn open_root(root: &Path) -> io::Result<OwnedFd> {
 pub struct Entry {
     pub mode: u32,
     pub size: u64,
+    pub dev: u64,
     pub ino: u64,
     pub nlink: u64,
     pub mtime_ns: i128,
@@ -88,6 +89,10 @@ impl Entry {
     pub fn etag(&self) -> String {
         format!("{:x}-{:x}-{:x}", self.ino, self.size, self.mtime_ns)
     }
+    /// Who it is (`dev:ino`): a folder swapped for another at the same path has a new one.
+    pub fn id(&self) -> String {
+        format!("{:x}:{:x}", self.dev, self.ino)
+    }
     pub fn mtime_ms(&self) -> i64 {
         i64::try_from(self.mtime_ns / 1_000_000).unwrap_or(i64::MAX)
     }
@@ -98,6 +103,7 @@ fn entry_of(st: &libc::stat) -> Entry {
     Entry {
         mode: st.st_mode as u32,
         size: st.st_size as u64,
+        dev: st.st_dev as u64,
         ino: st.st_ino as u64,
         nlink: st.st_nlink as u64,
         mtime_ns: i128::from(st.st_mtime as i64) * 1_000_000_000

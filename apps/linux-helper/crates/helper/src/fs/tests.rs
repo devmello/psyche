@@ -402,3 +402,107 @@ fn the_ceiling_is_read_again_on_every_call() {
         "machine_policy"
     );
 }
+
+/// #1512 review r1, finding 6: a read-only root is judged by its real path, whichever spelling
+/// (a linked root) reaches it, and no remove takes a folder that holds a root.
+#[test]
+fn read_only_roots_hold_under_every_spelling_and_their_ancestors_are_not_removed() {
+    let b = Box_::new(HOME_RW);
+    for d in [
+        "home/real/work/keep",
+        "home/real/work/other",
+        "home/w/a/keep",
+        "home/w/b",
+    ] {
+        std::fs::create_dir_all(b.p(d)).unwrap();
+    }
+    std::fs::write(b.p("home/real/work/keep/k.txt"), "KEEP").unwrap();
+    std::fs::write(b.p("home/w/a/keep/k.txt"), "KEEP").unwrap();
+    std::fs::write(b.p("home/w/b/x"), "x").unwrap();
+    symlink(b.p("home/real/work"), b.p("home/linkwork")).unwrap();
+    b.policy(
+        r#"{"files":{"roots":[
+            {"path":"~/linkwork","mode":"rw"},
+            {"path":"~/real/work/keep","mode":"ro"},
+            {"path":"~/w","mode":"rw"},
+            {"path":"~/w/a/keep","mode":"ro"}
+        ]}}"#,
+    );
+    let f = b.files();
+    let write =
+        |p: &str| json!({ "path": b.h(p), "content": "OVERWRITTEN", "createParents": true });
+    let remove = |p: &str| json!({ "path": b.h(p), "recursive": true });
+    let must_refuse: Vec<(Op, Value, &str)> = vec![
+        (Op::Write, write("linkwork/keep/k.txt"), "read_only_root"),
+        (Op::Write, write("linkwork/keep/new.txt"), "read_only_root"),
+        (Op::Write, write("real/work/keep/k.txt"), "read_only_root"),
+        (Op::Write, write("w/a/keep/x"), "read_only_root"),
+        (Op::Remove, remove("w/a"), "holds_root"),
+        (Op::Remove, remove("w/a/keep"), "read_only_root"),
+        (Op::Remove, remove("linkwork/keep"), "read_only_root"),
+        (
+            Op::Mkdir,
+            json!({ "path": b.h("linkwork/keep/d") }),
+            "read_only_root",
+        ),
+    ];
+    for (op, params, want) in must_refuse {
+        assert_eq!(reason(f.run(op, &params)), want, "{op:?} {params}");
+    }
+    assert_eq!(
+        std::fs::read_to_string(b.p("home/real/work/keep/k.txt")).unwrap(),
+        "KEEP"
+    );
+    assert!(b.p("home/w/a/keep/k.txt").exists());
+    let must_allow: Vec<(Op, Value)> = vec![
+        (Op::Write, write("linkwork/other/x")),
+        (Op::Read, json!({ "path": b.h("w/a/keep/k.txt") })),
+        (Op::Read, json!({ "path": b.h("linkwork/keep/k.txt") })),
+        (Op::Remove, remove("w/b")),
+    ];
+    for (op, params) in must_allow {
+        let r = f.run(op, &params);
+        assert!(r.is_ok(), "{op:?} {params}: {}", reason(r));
+    }
+    assert!(b.p("home/real/work/other/x").exists());
+    assert!(!b.p("home/w/b").exists());
+}
+
+/// #1512 review r1, finding 3: every read's result fits in one frame, whatever the bytes.
+#[test]
+fn every_read_fits_in_one_frame() {
+    let b = Box_::new(ROOTS);
+    let f = b.files();
+    let frame = |r: &Value| {
+        psyche_protocol::frame::req_line(
+            "h1",
+            "node.result",
+            &json!({ "invocationId": "inv", "ok": true, "result": r }),
+        )
+    };
+    for (name, bytes) in [
+        ("nul.bin", vec![0u8; 1024 * 1024]),
+        ("text.txt", b"line\n".repeat(220_000)),
+        ("quote.txt", vec![b'"'; 1024 * 1024]),
+    ] {
+        std::fs::write(b.p("home/work").join(name), &bytes).unwrap();
+        for encoding in ["utf8", "base64"] {
+            let mut offset = 0u64;
+            loop {
+                let params = json!({ "path": b.h(&format!("work/{name}")), "encoding": encoding, "offset": offset });
+                let r = f.run(Op::Read, &params).unwrap();
+                assert!(frame(&r).is_ok(), "{name} {encoding} at {offset}");
+                let n = r["bytes"].as_u64().unwrap();
+                assert!(
+                    n > 0 || r["eof"] == true,
+                    "{name} {encoding} stuck at {offset}"
+                );
+                offset += n;
+                if r["eof"] == true {
+                    break;
+                }
+            }
+            assert_eq!(offset, bytes.len() as u64, "{name} {encoding}");
+        }
+    }
+}
