@@ -2218,7 +2218,7 @@ export class PsycheAgentLoop implements AgentLoop {
           );
           // It read every message sent, the turns that stay included: the summary is as
           // untrusted as anything in them (and in the previous summary).
-          untrusted = containsUntrusted(messages) || containsUntrusted(recent) || untrusted;
+          untrusted = containsUntrusted(messages) || untrusted;
           read = messages;
         } catch {
           this.#checkAbort(run);
