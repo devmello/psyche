@@ -15,6 +15,7 @@ import { type Static, type TSchema, Type } from "@sinclair/typebox";
 import { Value } from "@sinclair/typebox/value";
 import { type Call, type HandlerDef, hasScope } from "../context.ts";
 import type { Gateway } from "../server.ts";
+import type { HeadlessScreen } from "./headless-screen.ts";
 import type { ComposedPart, ComposeServices } from "./services.ts";
 
 /**
@@ -454,9 +455,17 @@ export function watchAccess(call: Pick<Call, "ctx" | "identity" | "method">): vo
   }
 }
 
-/** The virtual-screen part, plus its take-over for the browser on the same screen (B3). */
+/** The virtual-screen part, plus what the other users of the same screen need (B3). */
 export interface ComposedVirtualScreen extends ComposedPart {
-  readonly takeOver: { isTakenOver(): boolean; agentGate(signal?: AbortSignal): Promise<void> };
+  /** For the agent browser on the screen: it waits while the owner has taken over. */
+  readonly takeOver: {
+    isTakenOver(): boolean;
+    agentGate(signal?: AbortSignal): Promise<void>;
+    /** Runs `listener` whenever the screen stopped (its apps, the browser among them, are gone). */
+    onStopped(listener: () => void): () => void;
+  };
+  /** For headless computer use (`gateHeadlessRouter`): the take-over gate and Task end. */
+  readonly screen: HeadlessScreen;
 }
 
 /**
@@ -470,6 +479,7 @@ export function composeVirtualScreen(services: ComposeServices): ComposedVirtual
   let gateway: Gateway | undefined;
   // The owner's proof never leaves this closure: only the handlers below put it on a call.
   const proof = newProof();
+  const stopped = new Set<() => void>();
   const vs = createVirtualScreen({
     ownerProof: proof,
     async invoke(capability, params, options) {
@@ -486,6 +496,9 @@ export function composeVirtualScreen(services: ComposeServices): ComposedVirtual
       if (capability === "vscreen.start") {
         // The owner can watch from the first moment: open the watch pane in the desktop.
         services.publish("view.command", { command: "open", args: { pane: "computer-watch" } });
+      }
+      if (capability === "vscreen.stop" && (res.result as { ok?: unknown } | null)?.ok === true) {
+        for (const listener of [...stopped]) listener();
       }
       return res.result;
     },
@@ -514,6 +527,20 @@ export function composeVirtualScreen(services: ComposeServices): ComposedVirtual
     takeOver: {
       isTakenOver: () => vs.isTakenOver(),
       agentGate: (signal) => vs.agentGate(signal),
+      onStopped(listener) {
+        stopped.add(listener);
+        return () => void stopped.delete(listener);
+      },
+    },
+    screen: {
+      isTakenOver: () => vs.isTakenOver(),
+      agentGate: (signal) => vs.agentGate(signal),
+      // The Gateway's own housekeeping at Task end (§7.4), not an agent action: it closes apps
+      // the polite way (never `force`), so an app with unsaved changes parks the Task with the
+      // card and the owner decides. The proof stays in this closure.
+      async taskEnded() {
+        await vs.endTask({ closeApps: true }, { owner: proof });
+      },
     },
     start(gw) {
       gateway = gw;

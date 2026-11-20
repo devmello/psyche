@@ -296,6 +296,7 @@ export function composeBrowser(
           : undefined;
   let serverDriver: ServerDriver | undefined;
   let takeOver: ScreenTakeOver | undefined;
+  let offScreenStopped: (() => void) | undefined;
   /** The driver agent sessions open on: a connected desktop's bridge first, else the server's. */
   const primaryDriver = (): BrowserDriverEx | undefined => driver ?? serverDriver;
   /** Session key (task or thread, `#dev` for dev preview) → session on the current driver. */
@@ -873,7 +874,19 @@ export function composeBrowser(
       return driver !== undefined ? "bridge" : serverDriver !== undefined ? "server" : null;
     },
     useTakeOver(next: ScreenTakeOver | undefined) {
+      offScreenStopped?.();
       takeOver = next;
+      // The screen stopped (Task end closed its apps, or the owner stopped it): Chromium went with
+      // it, so the next browser call starts the screen and Chromium again.
+      offScreenStopped = next?.onStopped?.(() => {
+        if (driver !== undefined || serverDriver === undefined) return;
+        const old = serverDriver;
+        serverDriver = undefined;
+        sessions.clear();
+        boxes.clear();
+        void endRecordings();
+        void old.dispose().catch(() => undefined);
+      });
     },
     async ownsTab(callId: string, tabId: string): Promise<void> {
       const d = primaryDriver();

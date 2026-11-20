@@ -33,6 +33,8 @@ export interface ScreenTakeOver {
   isTakenOver(): boolean;
   /** Resolves when the agent may act; rejects (retryable `user_in_control`) after a bound. */
   agentGate(signal?: AbortSignal): Promise<void>;
+  /** Runs `listener` whenever the screen stopped; returns the unsubscribe. */
+  onStopped?(listener: () => void): () => void;
 }
 
 export interface ServerBrowserSetup {

@@ -151,7 +151,7 @@ import {
   toolEffectChange,
 } from "./changes.ts";
 import { ChannelConversations } from "./channel-conversations.ts";
-import { composeComputer } from "./computer.ts";
+import { type ComposedComputer, composeComputer } from "./computer.ts";
 import { CONNECTOR_MATRIX_PREFIX } from "./connector-matrix.ts";
 import { macHelper } from "./connectors.ts";
 import { createContext } from "./context.ts";
@@ -1451,11 +1451,13 @@ export async function composeGateway(options: ComposeOptions): Promise<ComposedG
     return "payments" in p && p.payments !== undefined;
   });
   const browserPart = parts.find((p): p is ComposedBrowser => "ownsTab" in p && "devServers" in p);
-  // B3: the browser on the Host helper's private screen waits while the owner takes it over.
-  browserPart?.useTakeOver(
-    parts.find((p): p is ComposedVirtualScreen => "takeOver" in p && p.takeOver !== undefined)
-      ?.takeOver,
+  // B3: the browser and headless computer use on the Host helper's private screen wait while the
+  // owner takes it over, and a computer-use Task's end closes the screen's apps.
+  const screenPart = parts.find(
+    (p): p is ComposedVirtualScreen => "takeOver" in p && "screen" in p,
   );
+  browserPart?.useTakeOver(screenPart?.takeOver);
+  parts.find((p): p is ComposedComputer => "useScreen" in p)?.useScreen(screenPart?.screen);
   if (paymentsPart !== undefined && browserPart !== undefined) {
     const availability = paymentsPart.availability;
     const purchaseTool = createPurchaseTool({

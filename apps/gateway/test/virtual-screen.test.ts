@@ -487,8 +487,24 @@ describe("composeVirtualScreen (the watch pane's methods)", () => {
       publish: () => undefined,
       clock: { now: () => 0 },
     } as never) as unknown as Record<string, unknown>;
-    expect(Object.keys(composed).sort()).toEqual(["handlers", "start", "stop", "takeOver"]);
-    expect(Object.keys(composed.takeOver as object).sort()).toEqual(["agentGate", "isTakenOver"]);
+    expect(Object.keys(composed).sort()).toEqual([
+      "handlers",
+      "screen",
+      "start",
+      "stop",
+      "takeOver",
+    ]);
+    expect(Object.keys(composed.takeOver as object).sort()).toEqual([
+      "agentGate",
+      "isTakenOver",
+      "onStopped",
+    ]);
+    // Task end closes apps politely with the proof kept inside: no proof, no force, no input.
+    expect(Object.keys(composed.screen as object).sort()).toEqual([
+      "agentGate",
+      "isTakenOver",
+      "taskEnded",
+    ]);
   });
 
   it("a stop that the helper refuses parks the Task and publishes the card; discard forces it", async () => {

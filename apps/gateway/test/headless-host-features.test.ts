@@ -462,6 +462,38 @@ describe("the agent browser on a headless Host (server driver)", () => {
     expect((await pending).output).toMatchObject({ error: { code: "approval_required" } });
   });
 
+  it("starts Chromium again after the private screen stopped (Task end, the owner's stop)", async () => {
+    const fake = await fakeServerDriver();
+    const { services, browser } = await composeServer({
+      server: {
+        screen: async () => ({ display: ":90", xauthority: null }),
+        createDriver: fake.createDriver,
+      },
+    });
+    let stopped: (() => void) | undefined;
+    browser.useTakeOver({
+      isTakenOver: () => false,
+      agentGate: async () => undefined,
+      onStopped(listener) {
+        stopped = listener;
+        return () => {
+          stopped = undefined;
+        };
+      },
+    });
+    await runTool(services, "browser.open_tab", "call_a", { url: "https://example.com/" });
+    expect(browser.driverKind).toBe("server");
+    stopped?.();
+    expect(browser.driverKind).toBeNull();
+    expect(fake.disposed()).toBe(1);
+    await runTool(services, "browser.open_tab", "call_b", { url: "https://example.com/" });
+    expect(browser.driverKind).toBe("server");
+    expect(fake.made).toHaveLength(2);
+    // A new take-over source drops the old subscription.
+    browser.useTakeOver(undefined);
+    expect(stopped).toBeUndefined();
+  });
+
   it("hands over to a desktop's bridge when one connects", async () => {
     const fake = await fakeServerDriver();
     const { services, browser } = await composeServer({
