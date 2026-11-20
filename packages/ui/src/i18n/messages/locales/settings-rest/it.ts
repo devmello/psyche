@@ -233,6 +233,57 @@ export const settingsRest: Partial<Catalogue> = {
     "Psyche non è riuscito a elencare i siti con accesso effettuato ({reason}).",
   "settings.browser.signedIn.forgetFailed":
     "Psyche non è riuscito a disconnettersi da {site} ({reason}).",
+  "settings.browser.import.title": "Importa gli accessi da un altro browser",
+  "settings.browser.import.description":
+    "Porta i tuoi accessi da Chrome, Brave, Edge, Arc o Firefox nel browser di Psyche, così le attività hanno l’accesso dove lo hai tu. Scegli tu i siti; nulla viene importato prima.",
+  "settings.browser.import.from": "Importa gli accessi da…",
+  "settings.browser.import.chooseBrowser": "Scegli un browser",
+  "settings.browser.import.profile": "Profilo",
+  "settings.browser.import.read": "Leggi gli accessi",
+  "settings.browser.import.reading": "Lettura…",
+  "settings.browser.import.noProfiles":
+    "Su questo Mac non è stato trovato alcun profilo di {browser} con accessi.",
+  "settings.browser.import.keychainHint":
+    "macOS ti chiede la password per permettere a Psyche di sbloccare gli accessi di {browser}. Restano su questo Mac e non arrivano mai alla chat, ai log o all’audit.",
+  "settings.browser.import.noneInstalled": "Nessuno di questi browser è su questo Mac.",
+  "settings.browser.import.unsupportedFda":
+    "{browser} non è supportato: leggere i suoi accessi richiede l’accesso completo al disco, che Psyche non chiede.",
+  "settings.browser.import.unsupportedPlatform":
+    "{browser} non è ancora supportato su questo computer. L’importazione degli accessi funziona su macOS.",
+  "settings.browser.import.sourcesFailed":
+    "Psyche non è riuscito a elencare i tuoi browser ({reason}).",
+  "settings.browser.import.readFailed":
+    "Psyche non è riuscito a leggere gli accessi di {browser} ({reason}).",
+  "settings.browser.import.leftOut": "Esclusi: {expired} cookie scaduti e {skipped} illeggibili.",
+  "settings.browser.import.noneFound": "Questo profilo non ha accessi da importare.",
+  "settings.browser.import.search": "Cerca siti",
+  "settings.browser.import.selectAll": "Seleziona tutto tranne i sensibili",
+  "settings.browser.import.clear": "Cancella",
+  "settings.browser.import.noMatch": "Nessun sito corrisponde a «{query}».",
+  "settings.browser.import.cookies": "{count, plural, one {# cookie} other {# cookie}}",
+  "settings.browser.import.sensitive.bank": "Banca",
+  "settings.browser.import.sensitive.payment": "Pagamenti",
+  "settings.browser.import.sensitive.passwords": "Gestore di password",
+  "settings.browser.import.sensitive.email": "Email",
+  "settings.browser.import.sensitiveWarning":
+    "{kind}: una sessione qui può spostare denaro, reimpostare i tuoi altri account o aprire le tue password. Selezionalo solo se le attività ne hanno bisogno.",
+  "settings.browser.import.noTrust":
+    "I siti importati non ottengono fiducia aggiuntiva: acquisti, pagamenti e messaggi ti chiedono sempre prima.",
+  "settings.browser.import.importN":
+    "{count, plural, =0 {Importa} one {Importa # sito} other {Importa # siti}}",
+  "settings.browser.import.cancel": "Annulla",
+  "settings.browser.import.done":
+    "{count, plural, =0 {Nessun accesso importato.} one {Accessi importati per # sito.} other {Accessi importati per # siti.}}",
+  "settings.browser.import.refused":
+    "{count, plural, one {Il browser di Psyche ha rifiutato # cookie.} other {Il browser di Psyche ha rifiutato # cookie.}}",
+  "settings.browser.import.importFailed":
+    "Psyche non è riuscito a importare gli accessi ({reason}).",
+  "settings.browser.import.importedTitle": "Accessi importati",
+  "settings.browser.import.importedFrom":
+    "Da {browser} il {date}, {count, plural, one {# cookie} other {# cookie}}",
+  "settings.browser.import.remove": "Rimuovi gli accessi importati",
+  "settings.browser.import.removeFailed":
+    "Psyche non è riuscito a rimuovere gli accessi importati per {site} ({reason}).",
   "settings.computerUse.appsHint": "Fin dove può spingersi Psyche in ogni app.",
   "settings.connectors.catalog.appleShortcuts": "Comandi rapidi",
   "settings.connectors.catalog.obsidian": "Obsidian",

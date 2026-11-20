@@ -6,6 +6,7 @@ import { useCall, useGatewayQuery } from "../../data/hooks.ts";
 import { t } from "../../i18n/core.ts";
 import { LINK_OPEN_SETTING, type LinkOpenMode, linkOpenMode } from "../../links/link-policy.ts";
 import { usePersona, useSlots } from "../../slots.tsx";
+import { type CookieImportApi, CookieImportGroup } from "./CookieImportGroup.tsx";
 import {
   Advanced,
   ErrorNotice,
@@ -223,6 +224,8 @@ export interface BrowserPanelProps extends SettingsFormProps, LoadProps {
   onOpenProfile?: (profile: string) => Promise<{ path: string }>;
   /** Desktop only: the sites "Stay signed in" kept, with Sign out / forget. */
   signedInSites?: SignedInSitesApi;
+  /** Desktop only: import sign-ins from the owner's other browsers into the profile. */
+  cookieImport?: CookieImportApi;
   /** Desktop only: whether kept recordings can be stored (they are encrypted). */
   teachStorage?: TeachStorageStatus;
 }
@@ -235,6 +238,7 @@ export function BrowserPanel({
   profileLabel = t("settings.browser.profile"),
   onOpenProfile,
   signedInSites,
+  cookieImport,
   teachStorage,
   botAuth,
   onRotateBotAuth,
@@ -351,6 +355,7 @@ export function BrowserPanel({
           />
         </Group>
         {signedInSites ? <SignedInSitesGroup api={signedInSites} /> : null}
+        {cookieImport ? <CookieImportGroup api={cookieImport} /> : null}
         {teachStorage ? <TeachStorageGroup status={teachStorage} /> : null}
         <Advanced description={t("settings.browser.advancedHint")}>
           <Group
@@ -463,10 +468,12 @@ export function BrowserPanel({
 export function BrowserSection({
   onOpenProfile,
   signedInSites,
+  cookieImport,
   teachStorage,
 }: {
   onOpenProfile?: (profile: string) => Promise<{ path: string }>;
   signedInSites?: SignedInSitesApi;
+  cookieImport?: CookieImportApi;
   teachStorage?: TeachStorageStatus;
 }): ReactElement {
   const form = useSettingsForm();
@@ -484,6 +491,7 @@ export function BrowserSection({
         profileLabel={realChromeProfileLabel(named)}
         {...(onOpenProfile ? { onOpenProfile } : {})}
         {...(signedInSites ? { signedInSites } : {})}
+        {...(cookieImport ? { cookieImport } : {})}
         {...(teachStorage ? { teachStorage } : {})}
         botAuth={botAuthQ.data?.status ?? null}
         onRotateBotAuth={() => call("browser.botAuth.rotate", {}).then(() => botAuthQ.reload())}

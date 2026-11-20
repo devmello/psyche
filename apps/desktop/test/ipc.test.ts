@@ -4,11 +4,15 @@ import {
   checkCallable,
   checkClipboardText,
   checkComposerText,
+  checkCookieImportPick,
+  checkCookieImportScan,
   checkExternalUrl,
   checkHttpUrl,
   checkMainRoute,
   checkNotifyRoute,
   checkRoute,
+  checkScanId,
+  checkSiteDomain,
   checkTeachApp,
   checkViewport,
   IPC,
@@ -180,5 +184,49 @@ describe("routes the Settings window opens in the main window", () => {
       { route: "/a b" },
     ])
       expect(() => checkMainRoute(bad), JSON.stringify(bad)).toThrow();
+  });
+});
+
+describe("cookie import IPC (owner only)", () => {
+  it("every channel is refused with a remote Gateway", () => {
+    for (const ch of [
+      IPC.cookieImportSources,
+      IPC.cookieImportScan,
+      IPC.cookieImportImport,
+      IPC.cookieImportDiscard,
+      IPC.cookieImportList,
+      IPC.cookieImportRemove,
+    ])
+      expect(REMOTE_REFUSED_CHANNELS.has(ch), ch).toBe(true);
+  });
+
+  it("the window cannot write the audit entry itself", () => {
+    const known = (m: unknown) => m === "browser.cookieImport.record";
+    expect(() => checkCallable("browser.cookieImport.record", known)).toThrow(/not callable/);
+  });
+
+  it("validates the browser, the scan id and the picked domains", () => {
+    expect(checkCookieImportScan({ browser: "chrome", profileId: "Default" })).toEqual({
+      browser: "chrome",
+      profileId: "Default",
+    });
+    for (const bad of [{ browser: "opera", profileId: "x" }, { browser: "chrome" }, "chrome"])
+      expect(() => checkCookieImportScan(bad), JSON.stringify(bad)).toThrow();
+    const scanId = "0123456789abcdef0123456789abcdef";
+    expect(checkCookieImportPick({ scanId, domains: ["GitHub.com"] })).toEqual({
+      scanId,
+      domains: ["github.com"],
+    });
+    for (const bad of [
+      { scanId, domains: [] },
+      { scanId, domains: ["https://github.com"] },
+      { scanId, domains: ["a b.com"] },
+      { scanId: "nope", domains: ["github.com"] },
+      { scanId, domains: "github.com" },
+    ])
+      expect(() => checkCookieImportPick(bad), JSON.stringify(bad)).toThrow();
+    expect(() => checkScanId("c", "../x")).toThrow();
+    expect(checkSiteDomain("c", "ucsc.edu")).toBe("ucsc.edu");
+    expect(() => checkSiteDomain("c", "../../etc")).toThrow();
   });
 });

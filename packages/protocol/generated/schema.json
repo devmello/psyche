@@ -853,6 +853,14 @@
         "sideEffecting": false
       },
       {
+        "description": "Side-effecting. The desktop records an owner's cookie import or removal in the audit log: domains and counts only. Only the desktop shell's own connection may call it; it imports nothing.",
+        "name": "browser.cookieImport.record",
+        "params": "#/$defs/BrowserCookieImportRecordParams",
+        "result": "#/$defs/OkResult",
+        "scope": "operator.admin",
+        "sideEffecting": true
+      },
+      {
         "description": "Opens a user tab in the agent browser (http and https only).",
         "name": "browser.open",
         "params": "#/$defs/BrowserOpenParams",
@@ -12493,6 +12501,30 @@
       ],
       "type": "string"
     },
+    "BrowserCookieImportRecordParams": {
+      "additionalProperties": false,
+      "properties": {
+        "action": {
+          "$ref": "#/$defs/CookieImportAction"
+        },
+        "browser": {
+          "$ref": "#/$defs/CookieImportBrowser"
+        },
+        "sites": {
+          "items": {
+            "$ref": "#/$defs/CookieImportSite"
+          },
+          "maxItems": 5000,
+          "type": "array"
+        }
+      },
+      "required": [
+        "action",
+        "browser",
+        "sites"
+      ],
+      "type": "object"
+    },
     "BrowserDriverKind": {
       "enum": [
         "cdp",
@@ -17138,6 +17170,45 @@
         "thumbnail"
       ],
       "type": "string"
+    },
+    "CookieImportAction": {
+      "enum": [
+        "imported",
+        "removed"
+      ],
+      "type": "string"
+    },
+    "CookieImportBrowser": {
+      "enum": [
+        "chrome",
+        "brave",
+        "edge",
+        "arc",
+        "firefox",
+        "safari"
+      ],
+      "type": "string"
+    },
+    "CookieImportSite": {
+      "additionalProperties": false,
+      "properties": {
+        "domain": {
+          "maxLength": 253,
+          "minLength": 1,
+          "pattern": "^[a-z0-9.-]+$",
+          "type": "string"
+        },
+        "cookies": {
+          "maximum": 100000,
+          "minimum": 0,
+          "type": "integer"
+        }
+      },
+      "required": [
+        "domain",
+        "cookies"
+      ],
+      "type": "object"
     },
     "CredentialBinding": {
       "anyOf": [

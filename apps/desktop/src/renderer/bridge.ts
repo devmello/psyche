@@ -7,6 +7,9 @@ import {
   type BrowserPort,
   type BundledHelperIdentity,
   browserStorage,
+  type CookieImportPort,
+  type CookieImportScanView,
+  type CookieImportSourceView,
   type DiscoveredGatewayView,
   type DownloadNotice,
   type GatewayPort,
@@ -200,6 +203,16 @@ function fullDesktopPlatform(b: PsycheBridge): ShellPlatform {
       answerPrompt: async (id, action) => void (await b.browser.answerPrompt(id, action)),
       listSignedInSites: () => b.browser.listSignedInSites() as Promise<SignedInSiteView[]>,
       forgetSignedInSite: async (origin) => void (await b.browser.forgetSignedInSite(origin)),
+      cookieImport: {
+        sources: () => b.browser.cookieImportSources() as Promise<CookieImportSourceView[]>,
+        scan: (browser, profileId) =>
+          b.browser.cookieImportScan(browser, profileId) as Promise<CookieImportScanView>,
+        import: (scanId, domains) =>
+          b.browser.cookieImportImport(scanId, domains) as ReturnType<CookieImportPort["import"]>,
+        discard: async (scanId) => void (await b.browser.cookieImportDiscard(scanId)),
+        imported: () => b.browser.cookieImportList() as ReturnType<CookieImportPort["imported"]>,
+        remove: async (domain) => void (await b.browser.cookieImportRemove(domain)),
+      },
       openRealChromeProfile: (profile) =>
         b.browser.openRealChromeProfile(profile) as Promise<{ path: string }>,
       teachStart: async (tabId) => void (await b.browser.teachStart(tabId)),

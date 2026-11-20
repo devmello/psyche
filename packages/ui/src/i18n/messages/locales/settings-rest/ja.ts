@@ -230,6 +230,57 @@ export const settingsRest: Partial<Catalogue> = {
     "Psycheはサインイン済みのサイトを一覧表示できませんでした（{reason}）。",
   "settings.browser.signedIn.forgetFailed":
     "Psycheは{site}からサインアウトできませんでした（{reason}）。",
+  "settings.browser.import.title": "別のブラウザからサインインを読み込む",
+  "settings.browser.import.description":
+    "Chrome、Brave、Edge、Arc、Firefox のサインインを Psyche のブラウザに取り込み、タスクがあなたと同じサイトにサインインした状態で動けるようにします。サイトはあなたが選びます。選ぶまで何も取り込まれません。",
+  "settings.browser.import.from": "サインインの読み込み元…",
+  "settings.browser.import.chooseBrowser": "ブラウザを選択",
+  "settings.browser.import.profile": "プロファイル",
+  "settings.browser.import.read": "サインインを読み取る",
+  "settings.browser.import.reading": "読み取り中…",
+  "settings.browser.import.noProfiles":
+    "この Mac にはサインインのある {browser} のプロファイルが見つかりませんでした。",
+  "settings.browser.import.keychainHint":
+    "Psyche が {browser} のサインインを解除できるよう、macOS がパスワードを求めます。サインインはこの Mac に残り、チャット、ログ、監査には届きません。",
+  "settings.browser.import.noneInstalled": "この Mac にはこれらのブラウザがありません。",
+  "settings.browser.import.unsupportedFda":
+    "{browser} には対応していません。サインインを読み取るにはフルディスクアクセスが必要ですが、Psyche はそれを求めません。",
+  "settings.browser.import.unsupportedPlatform":
+    "{browser} はこのコンピュータではまだ対応していません。サインインの読み込みは macOS で使えます。",
+  "settings.browser.import.sourcesFailed":
+    "Psyche はブラウザの一覧を取得できませんでした（{reason}）。",
+  "settings.browser.import.readFailed":
+    "Psyche は {browser} のサインインを読み取れませんでした（{reason}）。",
+  "settings.browser.import.leftOut":
+    "除外：期限切れの Cookie {expired} 件、読み取れない Cookie {skipped} 件。",
+  "settings.browser.import.noneFound": "このプロファイルには読み込めるサインインがありません。",
+  "settings.browser.import.search": "サイトを検索",
+  "settings.browser.import.selectAll": "機密性の高いサイト以外をすべて選択",
+  "settings.browser.import.clear": "クリア",
+  "settings.browser.import.noMatch": "「{query}」に一致するサイトはありません。",
+  "settings.browser.import.cookies": "{count, plural, other {Cookie # 件}}",
+  "settings.browser.import.sensitive.bank": "銀行",
+  "settings.browser.import.sensitive.payment": "決済",
+  "settings.browser.import.sensitive.passwords": "パスワード管理",
+  "settings.browser.import.sensitive.email": "メール",
+  "settings.browser.import.sensitiveWarning":
+    "{kind}：ここのセッションでは送金、他のアカウントのリセット、パスワードの閲覧ができてしまいます。タスクに必要な場合だけ選んでください。",
+  "settings.browser.import.noTrust":
+    "読み込んだサイトが特別に信頼されることはありません。購入、支払い、送信は引き続き先に確認します。",
+  "settings.browser.import.importN":
+    "{count, plural, =0 {読み込む} other {# 件のサイトを読み込む}}",
+  "settings.browser.import.cancel": "キャンセル",
+  "settings.browser.import.done":
+    "{count, plural, =0 {サインインは読み込まれませんでした。} other {# 件のサイトのサインインを読み込みました。}}",
+  "settings.browser.import.refused":
+    "{count, plural, other {Psyche のブラウザが Cookie # 件を拒否しました。}}",
+  "settings.browser.import.importFailed": "Psyche はサインインを読み込めませんでした（{reason}）。",
+  "settings.browser.import.importedTitle": "読み込んだサインイン",
+  "settings.browser.import.importedFrom":
+    "{browser} から {date} に読み込み、{count, plural, other {Cookie # 件}}",
+  "settings.browser.import.remove": "読み込んだサインインを削除",
+  "settings.browser.import.removeFailed":
+    "Psyche は {site} の読み込んだサインインを削除できませんでした（{reason}）。",
   "settings.computerUse.appsHint": "各アプリでPsycheが操作できる範囲。",
   "settings.connectors.catalog.appleShortcuts": "ショートカット",
   "settings.connectors.catalog.obsidian": "Obsidian",

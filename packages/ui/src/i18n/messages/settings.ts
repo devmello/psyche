@@ -833,6 +833,54 @@ export const settings = {
   "settings.browser.signedIn.forget": "Sign out / forget",
   "settings.browser.signedIn.loadFailed": "Psyche couldn't list the signed-in sites ({reason}).",
   "settings.browser.signedIn.forgetFailed": "Psyche couldn't sign out of {site} ({reason}).",
+  "settings.browser.import.title": "Import sign-ins from another browser",
+  "settings.browser.import.description":
+    "Bring your sign-ins from Chrome, Brave, Edge, Arc or Firefox into Psyche's browser, so tasks are signed in where you are. You pick the sites; nothing is imported until you do.",
+  "settings.browser.import.from": "Import sign-ins from…",
+  "settings.browser.import.chooseBrowser": "Choose a browser",
+  "settings.browser.import.profile": "Profile",
+  "settings.browser.import.read": "Read sign-ins",
+  "settings.browser.import.reading": "Reading…",
+  "settings.browser.import.noProfiles": "No {browser} profile with sign-ins was found on this Mac.",
+  "settings.browser.import.keychainHint":
+    "macOS asks for your password to let Psyche unlock {browser}'s sign-ins. They stay on this Mac and never reach the chat, the logs or the audit.",
+  "settings.browser.import.noneInstalled": "None of these browsers is on this Mac.",
+  "settings.browser.import.unsupportedFda":
+    "{browser} isn't supported: reading its sign-ins needs Full Disk Access, which Psyche doesn't ask for.",
+  "settings.browser.import.unsupportedPlatform":
+    "{browser} isn't supported on this computer yet. Importing sign-ins works on macOS.",
+  "settings.browser.import.sourcesFailed": "Psyche couldn't list your browsers ({reason}).",
+  "settings.browser.import.readFailed": "Psyche couldn't read {browser}'s sign-ins ({reason}).",
+  "settings.browser.import.leftOut":
+    "Left out: {expired} expired and {skipped} unreadable cookies.",
+  "settings.browser.import.noneFound": "This profile has no sign-ins to import.",
+  "settings.browser.import.search": "Search sites",
+  "settings.browser.import.selectAll": "Select all except sensitive",
+  "settings.browser.import.clear": "Clear",
+  "settings.browser.import.noMatch": "No sites match “{query}”.",
+  "settings.browser.import.cookies": "{count, plural, one {# cookie} other {# cookies}}",
+  "settings.browser.import.sensitive.bank": "Bank",
+  "settings.browser.import.sensitive.payment": "Payments",
+  "settings.browser.import.sensitive.passwords": "Password manager",
+  "settings.browser.import.sensitive.email": "Email",
+  "settings.browser.import.sensitiveWarning":
+    "{kind}: a session here can move money, reset your other accounts or open your passwords. Tick it only if tasks need it.",
+  "settings.browser.import.noTrust":
+    "Imported sites get no extra trust: purchases, payments and messages still ask you first.",
+  "settings.browser.import.importN":
+    "{count, plural, =0 {Import} one {Import # site} other {Import # sites}}",
+  "settings.browser.import.cancel": "Cancel",
+  "settings.browser.import.done":
+    "{count, plural, =0 {No sign-ins were imported.} one {Imported sign-ins for # site.} other {Imported sign-ins for # sites.}}",
+  "settings.browser.import.refused":
+    "{count, plural, one {Psyche's browser refused # cookie.} other {Psyche's browser refused # cookies.}}",
+  "settings.browser.import.importFailed": "Psyche couldn't import the sign-ins ({reason}).",
+  "settings.browser.import.importedTitle": "Imported sign-ins",
+  "settings.browser.import.importedFrom":
+    "From {browser} on {date}, {count, plural, one {# cookie} other {# cookies}}",
+  "settings.browser.import.remove": "Remove imported sign-ins",
+  "settings.browser.import.removeFailed":
+    "Psyche couldn't remove the imported sign-ins for {site} ({reason}).",
   "settings.browser.details": "Details",
   "settings.browser.detailsText":
     "While a task uses it, Psyche runs Google Chrome with this profile and a DevTools port on this Mac's loopback (127.0.0.1), and closes it when the task is done. {persona} is not attached while you have the profile open yourself.",

@@ -180,6 +180,51 @@ export const settings: Partial<Catalogue> = {
   "settings.browser.signedIn.forget": "退出登录 / 忘记",
   "settings.browser.signedIn.loadFailed": "Psyche 无法列出已登录的网站（{reason}）。",
   "settings.browser.signedIn.forgetFailed": "Psyche 无法退出 {site} 的登录（{reason}）。",
+  "settings.browser.import.title": "从其他浏览器导入登录",
+  "settings.browser.import.description":
+    "把你在 Chrome、Brave、Edge、Arc 或 Firefox 中的登录带到 Psyche 的浏览器里，让任务在你已登录的网站上保持登录。网站由你挑选；挑选前不会导入任何内容。",
+  "settings.browser.import.from": "导入登录，来源…",
+  "settings.browser.import.chooseBrowser": "选择浏览器",
+  "settings.browser.import.profile": "配置文件",
+  "settings.browser.import.read": "读取登录",
+  "settings.browser.import.reading": "正在读取…",
+  "settings.browser.import.noProfiles": "在这台 Mac 上没有找到带登录的 {browser} 配置文件。",
+  "settings.browser.import.keychainHint":
+    "macOS 会要求你输入密码，让 Psyche 解锁 {browser} 的登录。它们留在这台 Mac 上，绝不会进入聊天、日志或审计记录。",
+  "settings.browser.import.noneInstalled": "这台 Mac 上没有这些浏览器。",
+  "settings.browser.import.unsupportedFda":
+    "不支持 {browser}：读取它的登录需要“完全磁盘访问权限”，而 Psyche 不会申请。",
+  "settings.browser.import.unsupportedPlatform":
+    "这台电脑暂不支持 {browser}。导入登录目前适用于 macOS。",
+  "settings.browser.import.sourcesFailed": "Psyche 无法列出你的浏览器（{reason}）。",
+  "settings.browser.import.readFailed": "Psyche 无法读取 {browser} 的登录（{reason}）。",
+  "settings.browser.import.leftOut":
+    "已略过：{expired} 个过期 Cookie，{skipped} 个无法读取的 Cookie。",
+  "settings.browser.import.noneFound": "此配置文件中没有可导入的登录。",
+  "settings.browser.import.search": "搜索网站",
+  "settings.browser.import.selectAll": "全选（敏感网站除外）",
+  "settings.browser.import.clear": "清除",
+  "settings.browser.import.noMatch": "没有与“{query}”匹配的网站。",
+  "settings.browser.import.cookies": "{count, plural, other {# 个 Cookie}}",
+  "settings.browser.import.sensitive.bank": "银行",
+  "settings.browser.import.sensitive.payment": "支付",
+  "settings.browser.import.sensitive.passwords": "密码管理器",
+  "settings.browser.import.sensitive.email": "电子邮件",
+  "settings.browser.import.sensitiveWarning":
+    "{kind}：这里的会话可以转移资金、重置你的其他账户或打开你的密码。仅在任务需要时勾选。",
+  "settings.browser.import.noTrust":
+    "导入的网站不会获得额外信任：购买、付款和发送消息仍会先征求你的同意。",
+  "settings.browser.import.importN": "{count, plural, =0 {导入} other {导入 # 个网站}}",
+  "settings.browser.import.cancel": "取消",
+  "settings.browser.import.done":
+    "{count, plural, =0 {没有导入任何登录。} other {已导入 # 个网站的登录。}}",
+  "settings.browser.import.refused": "{count, plural, other {Psyche 的浏览器拒绝了 # 个 Cookie。}}",
+  "settings.browser.import.importFailed": "Psyche 无法导入登录（{reason}）。",
+  "settings.browser.import.importedTitle": "已导入的登录",
+  "settings.browser.import.importedFrom":
+    "{date} 从 {browser} 导入，{count, plural, other {# 个 Cookie}}",
+  "settings.browser.import.remove": "移除导入的登录",
+  "settings.browser.import.removeFailed": "Psyche 无法移除 {site} 的导入登录（{reason}）。",
   "settings.computerUse.appsHint": "Psyche 在每个 App 中可以做到什么程度。",
   "settings.connectors.catalog.appleShortcuts": "快捷指令",
   "settings.connectors.catalog.obsidian": "Obsidian",

@@ -290,6 +290,7 @@ export function settingsRoute(
               },
             }
           : {})}
+        {...(platform.browser?.cookieImport ? { cookieImport: platform.browser.cookieImport } : {})}
         {...(platform.browser?.teachStorage
           ? { teachStorage: () => platform.browser?.teachStorage?.() ?? Promise.reject() }
           : {})}

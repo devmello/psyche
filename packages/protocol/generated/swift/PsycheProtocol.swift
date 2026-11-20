@@ -238,6 +238,7 @@
 //   let browserBotAuthStatusResult = try? JSONDecoder().decode(BrowserBotAuthStatusResult.self, from: jsonData)
 //   let browserCloseParams = try? JSONDecoder().decode(BrowserCloseParams.self, from: jsonData)
 //   let browserController = try? JSONDecoder().decode(BrowserController.self, from: jsonData)
+//   let browserCookieImportRecordParams = try? JSONDecoder().decode(BrowserCookieImportRecordParams.self, from: jsonData)
 //   let browserDriverKind = try? JSONDecoder().decode(BrowserDriverKind.self, from: jsonData)
 //   let browserOpenParams = try? JSONDecoder().decode(BrowserOpenParams.self, from: jsonData)
 //   let browserOpenResult = try? JSONDecoder().decode(BrowserOpenResult.self, from: jsonData)
@@ -418,6 +419,9 @@
 //   let contextLimits = try? JSONDecoder().decode(ContextLimits.self, from: jsonData)
 //   let contextUsage = try? JSONDecoder().decode(ContextUsage.self, from: jsonData)
 //   let conversionTarget = try? JSONDecoder().decode(ConversionTarget.self, from: jsonData)
+//   let cookieImportAction = try? JSONDecoder().decode(CookieImportAction.self, from: jsonData)
+//   let cookieImportBrowser = try? JSONDecoder().decode(CookieImportBrowser.self, from: jsonData)
+//   let cookieImportSite = try? JSONDecoder().decode(CookieImportSite.self, from: jsonData)
 //   let credentialBinding = try? JSONDecoder().decode(CredentialBinding.self, from: jsonData)
 //   let credentialKind = try? JSONDecoder().decode(CredentialKind.self, from: jsonData)
 //   let credentialMeta = try? JSONDecoder().decode(CredentialMeta.self, from: jsonData)
@@ -8127,6 +8131,55 @@ public struct BrowserCloseParams: Codable, Sendable {
 
     public init(tabID: String) {
         self.tabID = tabID
+    }
+}
+
+// MARK: - BrowserCookieImportRecordParams
+public struct BrowserCookieImportRecordParams: Codable, Sendable {
+    public let action: CookieImportAction
+    public let browser: CookieImportBrowser
+    public let sites: [CookieImportSite]
+
+    public enum CodingKeys: String, CodingKey {
+        case action = "action"
+        case browser = "browser"
+        case sites = "sites"
+    }
+
+    public init(action: CookieImportAction, browser: CookieImportBrowser, sites: [CookieImportSite]) {
+        self.action = action
+        self.browser = browser
+        self.sites = sites
+    }
+}
+
+public enum CookieImportAction: String, Codable, Sendable {
+    case imported = "imported"
+    case removed = "removed"
+}
+
+public enum CookieImportBrowser: String, Codable, Sendable {
+    case arc = "arc"
+    case brave = "brave"
+    case chrome = "chrome"
+    case edge = "edge"
+    case firefox = "firefox"
+    case safari = "safari"
+}
+
+// MARK: - CookieImportSite
+public struct CookieImportSite: Codable, Sendable {
+    public let cookies: Int
+    public let domain: String
+
+    public enum CodingKeys: String, CodingKey {
+        case cookies = "cookies"
+        case domain = "domain"
+    }
+
+    public init(cookies: Int, domain: String) {
+        self.cookies = cookies
+        self.domain = domain
     }
 }
 

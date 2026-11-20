@@ -23,6 +23,7 @@ import { BrowserSection, type SignedInSitesApi } from "./BrowserSection.tsx";
 import { ChannelsSection } from "./ChannelsSection.tsx";
 import { ComputerUseSection } from "./ComputerUseSection.tsx";
 import { ConnectorsSection, type ConnectorsView, type ScopeMode } from "./ConnectorsSection.tsx";
+import type { CookieImportApi } from "./CookieImportGroup.tsx";
 import { CredentialsSection } from "./CredentialsSection.tsx";
 import { DailySection } from "./DailySection.tsx";
 import {
@@ -183,6 +184,8 @@ export interface SettingsShellProps {
   onOpenRealChromeProfile?: (profile: string) => Promise<{ path: string }>;
   /** Desktop only: sites "Stay signed in" kept in the profile (Settings → Browser). */
   signedInSites?: SignedInSitesApi;
+  /** Desktop only: import sign-ins from another browser (Settings → Browser). */
+  cookieImport?: CookieImportApi;
   /** Desktop only: whether recordings the owner keeps can be stored (Settings → Browser). */
   teachStorage?: () => Promise<{ encrypted: boolean }>;
   /**
@@ -272,6 +275,7 @@ export function SettingsSectionView({
         <BrowserSection
           {...opt("onOpenProfile", s.onOpenRealChromeProfile)}
           {...opt("signedInSites", s.signedInSites)}
+          {...opt("cookieImport", s.cookieImport)}
           {...opt("teachStorage", s.teachStorage)}
         />
       );

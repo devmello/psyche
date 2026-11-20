@@ -180,6 +180,56 @@ export const settingsA: Partial<Catalogue> = {
   "settings.browser.signedIn.loadFailed":
     "Psyche no pudo listar los sitios con sesión iniciada ({reason}).",
   "settings.browser.signedIn.forgetFailed": "Psyche no pudo cerrar la sesión de {site} ({reason}).",
+  "settings.browser.import.title": "Importar inicios de sesión de otro navegador",
+  "settings.browser.import.description":
+    "Trae tus inicios de sesión de Chrome, Brave, Edge, Arc o Firefox al navegador de Psyche, para que las tareas tengan la sesión iniciada donde tú la tienes. Tú eliges los sitios; no se importa nada hasta entonces.",
+  "settings.browser.import.from": "Importar inicios de sesión de…",
+  "settings.browser.import.chooseBrowser": "Elige un navegador",
+  "settings.browser.import.profile": "Perfil",
+  "settings.browser.import.read": "Leer inicios de sesión",
+  "settings.browser.import.reading": "Leyendo…",
+  "settings.browser.import.noProfiles":
+    "No se encontró ningún perfil de {browser} con inicios de sesión en este Mac.",
+  "settings.browser.import.keychainHint":
+    "macOS te pide tu contraseña para que Psyche desbloquee los inicios de sesión de {browser}. Se quedan en este Mac y nunca llegan al chat, los registros ni la auditoría.",
+  "settings.browser.import.noneInstalled": "Ninguno de estos navegadores está en este Mac.",
+  "settings.browser.import.unsupportedFda":
+    "{browser} no es compatible: leer sus inicios de sesión requiere acceso total al disco, y Psyche no lo pide.",
+  "settings.browser.import.unsupportedPlatform":
+    "{browser} aún no es compatible en este ordenador. La importación de inicios de sesión funciona en macOS.",
+  "settings.browser.import.sourcesFailed": "Psyche no pudo listar tus navegadores ({reason}).",
+  "settings.browser.import.readFailed":
+    "Psyche no pudo leer los inicios de sesión de {browser} ({reason}).",
+  "settings.browser.import.leftOut": "Omitidas: {expired} cookies caducadas y {skipped} ilegibles.",
+  "settings.browser.import.noneFound": "Este perfil no tiene inicios de sesión para importar.",
+  "settings.browser.import.search": "Buscar sitios",
+  "settings.browser.import.selectAll": "Seleccionar todo salvo lo sensible",
+  "settings.browser.import.clear": "Borrar",
+  "settings.browser.import.noMatch": "Ningún sitio coincide con «{query}».",
+  "settings.browser.import.cookies": "{count, plural, one {# cookie} other {# cookies}}",
+  "settings.browser.import.sensitive.bank": "Banco",
+  "settings.browser.import.sensitive.payment": "Pagos",
+  "settings.browser.import.sensitive.passwords": "Gestor de contraseñas",
+  "settings.browser.import.sensitive.email": "Correo",
+  "settings.browser.import.sensitiveWarning":
+    "{kind}: una sesión aquí puede mover dinero, restablecer tus otras cuentas o abrir tus contraseñas. Márcalo solo si las tareas lo necesitan.",
+  "settings.browser.import.noTrust":
+    "Los sitios importados no reciben confianza adicional: las compras, los pagos y los mensajes te siguen preguntando primero.",
+  "settings.browser.import.importN":
+    "{count, plural, =0 {Importar} one {Importar # sitio} other {Importar # sitios}}",
+  "settings.browser.import.cancel": "Cancelar",
+  "settings.browser.import.done":
+    "{count, plural, =0 {No se importó ningún inicio de sesión.} one {Inicios de sesión importados para # sitio.} other {Inicios de sesión importados para # sitios.}}",
+  "settings.browser.import.refused":
+    "{count, plural, one {El navegador de Psyche rechazó # cookie.} other {El navegador de Psyche rechazó # cookies.}}",
+  "settings.browser.import.importFailed":
+    "Psyche no pudo importar los inicios de sesión ({reason}).",
+  "settings.browser.import.importedTitle": "Inicios de sesión importados",
+  "settings.browser.import.importedFrom":
+    "De {browser} el {date}, {count, plural, one {# cookie} other {# cookies}}",
+  "settings.browser.import.remove": "Quitar inicios de sesión importados",
+  "settings.browser.import.removeFailed":
+    "Psyche no pudo quitar los inicios de sesión importados de {site} ({reason}).",
   "settings.computerUse.appsHint": "Hasta dónde puede llegar Psyche en cada app.",
   "settings.connectors.catalog.appleShortcuts": "Atajos",
   "settings.connectors.catalog.obsidian": "Obsidian",

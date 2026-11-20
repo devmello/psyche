@@ -222,6 +222,54 @@ export const settingsRest: Partial<Catalogue> = {
   "settings.browser.signedIn.loadFailed":
     "Psyche साइन इन की गई साइटों की सूची नहीं बना सका ({reason})।",
   "settings.browser.signedIn.forgetFailed": "Psyche {site} से साइन आउट नहीं कर सका ({reason})।",
+  "settings.browser.import.title": "दूसरे ब्राउज़र से साइन-इन इंपोर्ट करें",
+  "settings.browser.import.description":
+    "Chrome, Brave, Edge, Arc या Firefox से अपने साइन-इन Psyche के ब्राउज़र में लाएँ, ताकि टास्क वहीं साइन इन रहें जहाँ आप हैं। साइटें आप चुनते हैं; उससे पहले कुछ भी इंपोर्ट नहीं होता।",
+  "settings.browser.import.from": "साइन-इन यहाँ से इंपोर्ट करें…",
+  "settings.browser.import.chooseBrowser": "ब्राउज़र चुनें",
+  "settings.browser.import.profile": "प्रोफ़ाइल",
+  "settings.browser.import.read": "साइन-इन पढ़ें",
+  "settings.browser.import.reading": "पढ़ा जा रहा है…",
+  "settings.browser.import.noProfiles": "इस Mac पर साइन-इन वाली कोई {browser} प्रोफ़ाइल नहीं मिली।",
+  "settings.browser.import.keychainHint":
+    "macOS आपका पासवर्ड माँगता है ताकि Psyche {browser} के साइन-इन खोल सके। वे इसी Mac पर रहते हैं और चैट, लॉग या ऑडिट तक कभी नहीं पहुँचते।",
+  "settings.browser.import.noneInstalled": "इनमें से कोई ब्राउज़र इस Mac पर नहीं है।",
+  "settings.browser.import.unsupportedFda":
+    "{browser} समर्थित नहीं है: इसके साइन-इन पढ़ने के लिए फ़ुल डिस्क एक्सेस चाहिए, जो Psyche नहीं माँगता।",
+  "settings.browser.import.unsupportedPlatform":
+    "{browser} अभी इस कंप्यूटर पर समर्थित नहीं है। साइन-इन इंपोर्ट macOS पर काम करता है।",
+  "settings.browser.import.sourcesFailed": "Psyche आपके ब्राउज़र की सूची नहीं बना सका ({reason})।",
+  "settings.browser.import.readFailed": "Psyche {browser} के साइन-इन नहीं पढ़ सका ({reason})।",
+  "settings.browser.import.leftOut":
+    "छोड़ी गईं: {expired} समय-सीमा खत्म और {skipped} न पढ़ी जा सकने वाली कुकीज़।",
+  "settings.browser.import.noneFound": "इस प्रोफ़ाइल में इंपोर्ट करने के लिए कोई साइन-इन नहीं है।",
+  "settings.browser.import.search": "साइटें खोजें",
+  "settings.browser.import.selectAll": "संवेदनशील को छोड़कर सभी चुनें",
+  "settings.browser.import.clear": "साफ़ करें",
+  "settings.browser.import.noMatch": "“{query}” से कोई साइट मेल नहीं खाती।",
+  "settings.browser.import.cookies": "{count, plural, one {# कुकी} other {# कुकीज़}}",
+  "settings.browser.import.sensitive.bank": "बैंक",
+  "settings.browser.import.sensitive.payment": "भुगतान",
+  "settings.browser.import.sensitive.passwords": "पासवर्ड मैनेजर",
+  "settings.browser.import.sensitive.email": "ईमेल",
+  "settings.browser.import.sensitiveWarning":
+    "{kind}: यहाँ का सेशन पैसे भेज सकता है, आपके दूसरे खाते रीसेट कर सकता है या आपके पासवर्ड खोल सकता है। इसे तभी चुनें जब टास्क को इसकी ज़रूरत हो।",
+  "settings.browser.import.noTrust":
+    "इंपोर्ट की गई साइटों को कोई अतिरिक्त भरोसा नहीं मिलता: खरीदारी, भुगतान और संदेश अब भी पहले आपसे पूछते हैं।",
+  "settings.browser.import.importN":
+    "{count, plural, =0 {इंपोर्ट करें} one {# साइट इंपोर्ट करें} other {# साइटें इंपोर्ट करें}}",
+  "settings.browser.import.cancel": "रद्द करें",
+  "settings.browser.import.done":
+    "{count, plural, =0 {कोई साइन-इन इंपोर्ट नहीं हुआ।} one {# साइट के साइन-इन इंपोर्ट हुए।} other {# साइटों के साइन-इन इंपोर्ट हुए।}}",
+  "settings.browser.import.refused":
+    "{count, plural, one {Psyche के ब्राउज़र ने # कुकी अस्वीकार की।} other {Psyche के ब्राउज़र ने # कुकीज़ अस्वीकार कीं।}}",
+  "settings.browser.import.importFailed": "Psyche साइन-इन इंपोर्ट नहीं कर सका ({reason})।",
+  "settings.browser.import.importedTitle": "इंपोर्ट किए गए साइन-इन",
+  "settings.browser.import.importedFrom":
+    "{browser} से {date} को, {count, plural, one {# कुकी} other {# कुकीज़}}",
+  "settings.browser.import.remove": "इंपोर्ट किए गए साइन-इन हटाएँ",
+  "settings.browser.import.removeFailed":
+    "Psyche {site} के इंपोर्ट किए गए साइन-इन नहीं हटा सका ({reason})।",
   "settings.computerUse.appsHint": "हर ऐप में Psyche कितनी दूर तक जा सकता है।",
   "settings.connectors.catalog.appleShortcuts": "शॉर्टकट",
   "settings.connectors.catalog.obsidian": "Obsidian",
