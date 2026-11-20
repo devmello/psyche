@@ -6,7 +6,6 @@ import {
   RELEASE_CHANNELS,
   UPDATE_CHANNEL_KEY,
 } from "../../src/main/update-flow.ts";
-import { readUpdateChannel } from "../../src/main/updater.ts";
 
 /**
  * The release channel only picks a feed. The pipeline publishes no beta manifest, so Stable is the
@@ -42,21 +41,5 @@ describe("release channel", () => {
     });
     expect(result.state).toBe("no_keys");
     expect(fetched).toEqual([]);
-  });
-
-  it("readUpdateChannel returns the saved value and falls back when the Gateway is unreachable", async () => {
-    expect(
-      await readUpdateChannel(async (method, params) => {
-        expect(method).toBe("settings.get");
-        expect(params).toEqual({ keys: ["updates.channel"] });
-        return { settings: { "updates.channel": "stable" } };
-      }),
-    ).toBe("stable");
-    expect(
-      await readUpdateChannel(() => {
-        throw new Error("not paired");
-      }),
-    ).toBeUndefined();
-    expect(await readUpdateChannel(async () => Promise.reject(new Error("down")))).toBeUndefined();
   });
 });

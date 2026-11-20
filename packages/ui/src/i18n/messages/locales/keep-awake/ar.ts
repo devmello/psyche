@@ -18,7 +18,6 @@ export const keepAwake: Partial<Catalogue> = {
   "settings.updates.channel.stable": "مستقرة",
   "settings.updates.channel.note":
     "القناة المستقرة هي الوحيدة حاليًا. ستظهر القناة التجريبية هنا عند نشر إصدارات تجريبية. يُتحقَّق من كل تحديث بمفتاح إصدار Psyche في كل الأحوال.",
-  "settings.updates.saveFailed": "تعذّر حفظ قناة الإصدارات ({reason}).",
   "settings.storage.title": "التخزين",
   "settings.storage.hint": "مساحة القرص التي يستخدمها Psyche في مجلد بياناته على هذا الكمبيوتر.",
   "settings.storage.total": "الإجمالي",
@@ -28,7 +27,7 @@ export const keepAwake: Partial<Catalogue> = {
   "settings.storage.failed": "تعذّرت قراءة استخدام التخزين ({reason}).",
   "settings.storage.confirm.title": "هل تريد مسح ذاكرات التخزين المؤقت والتسجيلات القديمة؟",
   "settings.storage.confirm.body":
-    "سيؤدي هذا إلى حذف ما يصل إلى {size} من ذاكرات التخزين المؤقت وتسجيلات المتصفح الأقدم من 7 أيام. يعيد Psyche بناء ذاكرات التخزين المؤقت عند الحاجة. لا تتأثر محادثاتك وذاكرتك والمكتبة والخزنة والإعدادات.",
+    "سيؤدي هذا إلى حذف {size} من ذاكرات التخزين المؤقت وتسجيلات المتصفح الأقدم من 7 أيام، مع عناصرها في المكتبة. يعيد Psyche بناء ذاكرات التخزين المؤقت عند الحاجة. لا تتأثر محادثاتك وذاكرتك وملفات المكتبة الأخرى والخزنة والإعدادات.",
   "settings.storage.confirm.clear": "مسح",
   "settings.storage.cat.database": "قاعدة البيانات",
   "settings.storage.cat.memoryIndex": "فهرس الذاكرة",
