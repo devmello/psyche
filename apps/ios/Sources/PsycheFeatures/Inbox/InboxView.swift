@@ -22,6 +22,10 @@ struct InboxView: View {
                     .listRowBackground(Color.clear)
                     .listRowSeparator(.hidden)
             }
+            if let error = model.actionError {
+                Text(error).font(.footnote).foregroundStyle(PsycheColor.muted)
+                    .listRowBackground(Color.clear)
+            }
             switch model.phase {
             case .idle, .loading:
                 rows(.skeleton, title: "Today").redacted(reason: .placeholder).allowsHitTesting(false)
@@ -61,7 +65,9 @@ struct InboxView: View {
     private func rows(_ items: [InboxItem], title: String, needsYou: Bool = false) -> some View {
         Section {
             ForEach(items) { item in
-                InboxRow(item: item) { open(item) }
+                InboxRow(item: item, onOpen: { open(item) }, onAction: { action in
+                    Task { await model.act(item, action) }
+                })
                     .listRowInsets(EdgeInsets())
                     .listRowBackground(PsycheColor.sheet)
                     .listRowSeparatorTint(PsycheColor.hairline)
@@ -92,32 +98,51 @@ struct InboxView: View {
 private struct InboxRow: View {
     let item: InboxItem
     let onOpen: () -> Void
+    let onAction: (InboxAction) -> Void
 
     var body: some View {
-        Button(action: onOpen) {
-            HStack(alignment: .top, spacing: 12) {
-                marker
-                VStack(alignment: .leading, spacing: 3) {
-                    Text(item.title)
-                        .font(.psycheRow.weight(item.read ? .regular : .semibold))
-                        .foregroundStyle(PsycheColor.text)
-                        .multilineTextAlignment(.leading)
-                    if !item.body.isEmpty {
-                        Text(item.body).font(.footnote).foregroundStyle(PsycheColor.muted)
+        // The text opens the entry; the notice's own buttons sit beside it, not inside the tap target.
+        VStack(alignment: .leading, spacing: 10) {
+            Button(action: onOpen) {
+                HStack(alignment: .top, spacing: 12) {
+                    marker
+                    VStack(alignment: .leading, spacing: 3) {
+                        Text(NoticeWording.title(item))
+                            .font(.psycheRow.weight(item.read ? .regular : .semibold))
+                            .foregroundStyle(PsycheColor.text)
                             .multilineTextAlignment(.leading)
+                        if !NoticeWording.body(item).isEmpty {
+                            Text(NoticeWording.body(item)).font(.footnote).foregroundStyle(PsycheColor.muted)
+                                .multilineTextAlignment(.leading)
+                        }
+                        EvidenceLine([item.kindLabel, item.time])
+                            .padding(.top, 1)
                     }
-                    EvidenceLine([item.kindLabel, item.time])
-                        .padding(.top, 1)
+                    Spacer(minLength: 0)
                 }
-                Spacer(minLength: 0)
+                .contentShape(Rectangle())
             }
-            .padding(PsycheMetrics.rowPadding)
-            .padding(.horizontal, 6)
-            .contentShape(Rectangle())
+            .buttonStyle(.plain)
+            .accessibilityElement(children: .combine)
+            .accessibilityValue(item.read ? "Read" : "Unread")
+
+            if !item.actions.isEmpty {
+                HStack(spacing: 8) {
+                    ForEach(item.actions) { action in
+                        Button(role: action.destructive ? .destructive : nil) {
+                            onAction(action)
+                        } label: {
+                            Text(NoticeWording.label(action))
+                        }
+                        .buttonStyle(.bordered)
+                        .controlSize(.small)
+                    }
+                }
+                .padding(.leading, 20)
+            }
         }
-        .buttonStyle(.plain)
-        .accessibilityElement(children: .combine)
-        .accessibilityValue(item.read ? "Read" : "Unread")
+        .padding(PsycheMetrics.rowPadding)
+        .padding(.horizontal, 6)
     }
 
     /// The amber dot for needs-you, a small ink dot for unread, nothing once read.

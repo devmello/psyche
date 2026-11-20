@@ -16,6 +16,7 @@ description: Building and testing Psyche's Swift code on this Mac. Covers the Ma
 ## Mac helper (`apps/mac-helper`)
 
 - Run `swift test --filter <Suite>` on the suites you touched, then `swift build`, or use `bash .claude/scripts/verify.sh --swift`.
+- `verify.sh --swift` covers three packages: `apps/mac-helper` (build and test), `packages/protocol-swift` (build and test), and `apps/ios` (`swift test` of the iOS package's test targets, no simulator, no UI tests). The iOS step runs when the branch touches `apps/ios/` or `packages/protocol-swift/`, and it waits for any other Swift or Xcode build first.
 - Tests must never touch the real login keychain, Touch ID or TCC prompts. Use the injected fakes the existing tests use.
 - Never run the built helper against the owner's Gateway, and never signal the owner's running helper.
 - The helper follows `$PSYCHE_HOME/run/node-socket` (the Gateway writes it on every start). The code that trusts it is `Paths.swift` (private-directory check, one-descriptor read) and `UnixSocket.swift` (`getpeereid`). The rules for any such trust path are in `psyche-permissions` §4.
