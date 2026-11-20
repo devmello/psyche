@@ -190,8 +190,10 @@ ${env === "" ? "" : `${env}\n`}Restart=no
  * no graphical session, so it has no `[Install]` section and, unlike {@link renderHelperUnit}, no
  * `graphical-session.target` (which never starts there). `--display headless` makes the helper's
  * own virtual screen its only screen; the helper exits when idle. `NoNewPrivileges` is inherited
- * by the apps and commands it forks itself (not by the user manager, until bwrap containment). It pairs as the Host helper like the graphical one: same
- * socket, same handshake secret, same peer check.
+ * by the apps and commands it forks itself (not by the user manager, until bwrap containment).
+ * `MemoryHigh` and `TasksMax` sit on the service itself, never in `psyche-vscreen.slice`, whose
+ * caps the helper sets for its apps. It pairs as the Host helper like the graphical one: same socket,
+ * same handshake secret, same peer check.
  */
 export function renderHeadlessHelperUnit(input: HelperUnitInput): string {
   const env = envLines([["PSYCHE_HOME", input.psycheHome]]);
@@ -210,8 +212,11 @@ ${env === "" ? "" : `${env}\n`}Restart=no
 # No app or command the helper forks directly can gain privileges (no sudo, pkexec or setuid).
 # This does not hold against the user manager (systemd-run --user) until bwrap containment lands.
 NoNewPrivileges=yes
-# The private screen's apps and Xvfb get a memory ceiling next to psyched (design section 3.3).
-Slice=psyche-vscreen.slice
+# The helper and its Xvfb get their own ceiling next to psyched (design section 3.3), on this
+# service and not in the private screen's app slice: the helper sets that slice's caps for its
+# apps, and a runaway app there must not stop the helper from forking the Stop that ends it.
+MemoryHigh=1G
+TasksMax=512
 `;
 }
 
