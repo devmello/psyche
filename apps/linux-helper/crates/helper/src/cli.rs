@@ -16,11 +16,13 @@ pub const USAGE: &str =
     "usage: psyche-helper [--idle-timeout <seconds>] [--manifest] [--build-info] [--print-identity]
        psyche-helper pair - | wss://<gateway> [--name N] [--replace]
        psyche-helper remote | status [--json] | unpair
+       psyche-helper update [--check] [--rollback] [--from DIR]
 
   (no flags)        connect to the Gateway's node socket and serve (exits after 5 minutes idle)
   --idle-timeout N  exit after N seconds with no work; 0 never exits (default 300)
   --manifest        print the capability manifest as JSON and exit
   --build-info      print {name, version, build, commit?, platform, arch, protocolVersion} and exit
+  --ceiling-owner   print who the limits count as owned by when this runs as the service (JSON)
   --print-identity  print {deviceId, publicKey, deviceFamily, platform} as JSON and exit: what the
                     Gateway will see (read-only; deviceId and publicKey are null until the helper
                     has run once)
@@ -33,6 +35,9 @@ A computer Psyche uses (it dials your Gateway; nothing listens here):
   remote            serve (what the service runs); exits 78 when it must not be restarted
   status [--json]   Gateway, fingerprint, connection, limits, account (read-only)
   unpair            remove this computer from the Gateway if reachable, then wipe its key
+  update            fetch the newest signed release, check it, install it and restart the service;
+                    --check only looks, --rollback goes back to the previous helper, --from DIR reads
+                    the release files from a directory (a package install updates with apt or dnf)
 ";
 
 /// What `pair` was given.
@@ -59,8 +64,14 @@ pub enum Command {
         json: bool,
     },
     Unpair,
+    Update {
+        check: bool,
+        rollback: bool,
+        from: Option<std::path::PathBuf>,
+    },
     PrintIdentity,
     BuildInfo,
+    CeilingOwner,
     Manifest,
     Help,
 }
@@ -77,6 +88,30 @@ fn parse_remote_command(verb: &str, rest: &[String]) -> Result<Command, String> 
             [flag] if flag == "--json" => Ok(Command::Status { json: true }),
             _ => Err(format!("status takes only --json\n{USAGE}")),
         },
+        "update" => {
+            let (mut check, mut rollback, mut from) = (false, false, None);
+            let mut iter = rest.iter();
+            while let Some(arg) = iter.next() {
+                match arg.as_str() {
+                    "--check" => check = true,
+                    "--rollback" => rollback = true,
+                    "--from" => {
+                        from = Some(std::path::PathBuf::from(
+                            iter.next().ok_or("--from needs a directory")?,
+                        ));
+                    }
+                    other => return Err(format!("unexpected argument {other}\n{USAGE}")),
+                }
+            }
+            if rollback && (check || from.is_some()) {
+                return Err(format!("--rollback stands alone\n{USAGE}"));
+            }
+            Ok(Command::Update {
+                check,
+                rollback,
+                from,
+            })
+        }
         "pair" => {
             let mut target = None;
             let mut replace = false;
@@ -107,7 +142,10 @@ fn parse_remote_command(verb: &str, rest: &[String]) -> Result<Command, String> 
 
 pub fn parse_args(args: &[String], env: &dyn Env) -> Result<Command, String> {
     if let Some(first) = args.first() {
-        if matches!(first.as_str(), "pair" | "remote" | "status" | "unpair") {
+        if matches!(
+            first.as_str(),
+            "pair" | "remote" | "status" | "unpair" | "update"
+        ) {
             return parse_remote_command(first, &args[1..]);
         }
     }
@@ -122,6 +160,7 @@ pub fn parse_args(args: &[String], env: &dyn Env) -> Result<Command, String> {
         match arg.as_str() {
             "--print-identity" => info = Some(Command::PrintIdentity),
             "--build-info" => info = Some(Command::BuildInfo),
+            "--ceiling-owner" => info = Some(Command::CeilingOwner),
             "--manifest" => info = Some(Command::Manifest),
             "--help" | "-h" => info = Some(Command::Help),
             "--idle-timeout" => {
@@ -141,6 +180,7 @@ pub fn parse_args(args: &[String], env: &dyn Env) -> Result<Command, String> {
 pub fn run_info(command: &Command, env: &dyn Env) -> Result<String, String> {
     match command {
         Command::Help => Ok(USAGE.to_string()),
+        Command::CeilingOwner => Ok(crate::update::ceiling_owner_json()),
         Command::BuildInfo => {
             serde_json::to_string(&BuildInfo::current()).map_err(|e| e.to_string())
         }
@@ -162,7 +202,8 @@ pub fn run_info(command: &Command, env: &dyn Env) -> Result<String, String> {
         | Command::Pair { .. }
         | Command::Remote
         | Command::Status { .. }
-        | Command::Unpair => Err("not a one-shot command".into()),
+        | Command::Unpair
+        | Command::Update { .. } => Err("not a one-shot command".into()),
     }
 }
 
@@ -266,6 +307,34 @@ mod tests {
         }
         // The old flags still work, and a remote verb is only a verb in first position.
         assert!(parse_args(&args(&["--idle-timeout", "5", "remote"]), &e).is_err());
+    }
+
+    #[test]
+    fn parses_update() {
+        let e = env(&[]);
+        assert_eq!(
+            parse_args(&args(&["update"]), &e),
+            Ok(Command::Update {
+                check: false,
+                rollback: false,
+                from: None
+            })
+        );
+        assert_eq!(
+            parse_args(&args(&["update", "--check", "--from", "/d"]), &e),
+            Ok(Command::Update {
+                check: true,
+                rollback: false,
+                from: Some("/d".into())
+            })
+        );
+        for bad in [
+            &["update", "--rollback", "--check"][..],
+            &["update", "--from"],
+            &["update", "x"],
+        ] {
+            assert!(parse_args(&args(bad), &e).is_err(), "{bad:?}");
+        }
     }
 
     #[test]

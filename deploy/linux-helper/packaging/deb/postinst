@@ -1,0 +1,7 @@
+#!/bin/sh
+# Nothing is enabled for anyone here: the helper runs as one account that you choose.
+set -e
+if [ "$1" = configure ]; then
+  echo "psyche-helper: run psyche-helper-setup as the account that should run it."
+fi
+exit 0

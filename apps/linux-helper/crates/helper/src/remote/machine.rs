@@ -183,9 +183,13 @@ impl MachineStatus {
         if p.surfaces.direct {
             surfaces.push("direct");
         }
+        // A root-owned file counts as root's only when the program and unit that enforce it are out
+        // of the account's reach too (update.rs); otherwise Settings keeps the user-owned warning.
+        let (owner, reason) = crate::update::ceiling_owner(matches!(loaded.owner, Owner::Root));
         json!({
             "account": self.account,
-            "policyOwner": match loaded.owner { Owner::Root => "root", Owner::User => "user" },
+            "policyOwner": owner,
+            "policyOwnerReason": reason,
             "policyValid": !matches!(loaded.source, Source::Invalid(_)),
             "passwordlessSudo": self.sudo_report(),
             "exec": { "enabled": p.exec.enabled, "contained": p.exec.contain },
