@@ -524,7 +524,11 @@ export class IdeasService {
         throw new PsycheError("invalid_params", "a recurring idea needs a schedule");
       const automation = await this.#o.scheduler.create({
         kind: cadenceKind(schedule),
-        title: action.title,
+        // action.title is model output: on an untrusted card or turn it never names the automation.
+        title:
+          idea.untrusted || (params.taintSources?.length ?? 0) > 0
+            ? neutralTitle(brief)
+            : action.title,
         schedule,
         timezone: params.timezone ?? this.#o.timezone ?? "UTC",
         sessionTarget: "isolated",
@@ -664,4 +668,10 @@ export class IdeasService {
       },
     };
   }
+}
+
+/** A title for an automation made from an untrusted idea: built from the owner's own brief. */
+function neutralTitle(brief: string | undefined): string {
+  const text = (brief ?? "").replace(/\s+/g, " ").trim().slice(0, 60);
+  return text === "" ? "Recurring idea" : `Recurring: ${text}`;
 }
