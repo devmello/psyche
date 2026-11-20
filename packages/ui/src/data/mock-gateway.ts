@@ -67,6 +67,7 @@ import {
   type OnePasswordSetupStatus,
   type PairingRequest,
   PsycheError,
+  pinId,
   type Receipt,
   type Run,
   type RunFrame,
@@ -1452,14 +1453,13 @@ export class MockGateway implements GatewayClient {
     },
     "threads.summary.pins.remove": (p) => {
       this.thread(p.threadId);
-      const key = (s: string) => s.replace(/\s+/g, " ").trim().toLowerCase();
       let left: string[] = [];
       for (const m of this.world.messages) {
         if (m.threadId !== p.threadId) continue;
         for (const b of m.blocks) {
           if (b.type !== "compaction") continue;
           b.summary.pinnedInstructions = b.summary.pinnedInstructions.filter(
-            (i) => key(i) !== key(p.instruction),
+            (i) => pinId(i) !== p.pinId,
           );
           left = b.summary.pinnedInstructions;
         }

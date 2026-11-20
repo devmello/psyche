@@ -2240,6 +2240,7 @@ export async function composeGateway(options: ComposeOptions): Promise<ComposedG
     ...teaching.handlers,
     // The owner's Clear chat: empties a thread in place (the main chat cannot be deleted).
     ...createThreadClear({ db, audit, broker, isRunning: (threadId) => loop.isBusy(threadId) }),
+    ...context.pinHandlers(() => loop),
     ...mountParamsOnly(
       context.handlers(
         () => loop,
