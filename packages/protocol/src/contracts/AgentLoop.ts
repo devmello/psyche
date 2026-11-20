@@ -62,6 +62,18 @@ export interface TurnInput {
    */
   attachmentText?: string;
   /**
+   * Whether `attachmentText` holds someone else's words (a download, a channel or connector file,
+   * a quarantined item, a recording). Absent means yes: only an explicit `false` (the owner's own
+   * upload) makes the text non-tainting. It is then still fenced and quoted apart from the
+   * owner's words, and never a source of standing instructions.
+   */
+  attachmentThirdParty?: boolean;
+  /**
+   * The Gateway's own notes about the attachments ("you can see it", "quarantined", "not found").
+   * Harness text: never fenced as a third party's and never taints.
+   */
+  attachmentNotes?: string;
+  /**
    * Images the model sees with the message (Ask about my screen: a pinned capture). Base64; the
    * turn's caller widens taint for them when they are untrusted (`taintSources`).
    */

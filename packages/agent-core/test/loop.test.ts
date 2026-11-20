@@ -61,9 +61,10 @@ describe("text-only turn", () => {
       // drain
     }
     const parts = h.provider.requests[0]?.messages[0]?.parts ?? [];
-    expect(parts[0]).toEqual({ type: "text", text: "summarize", author: "owner" });
-    expect(parts[1]).toMatchObject({ type: "text", provenance: "untrusted" });
-    expect(parts[1]?.type === "text" ? parts[1].text : "").toContain("hello");
+    // The file's words come first, apart; the owner's request is the last text.
+    expect(parts[0]).toMatchObject({ type: "text", provenance: "untrusted" });
+    expect(parts[0]?.type === "text" ? parts[0].text : "").toContain("hello");
+    expect(parts[1]).toEqual({ type: "text", text: "summarize", author: "owner" });
   });
 
   it("keeps provider-native reasoning verbatim in the next request", async () => {

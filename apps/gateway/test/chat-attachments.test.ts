@@ -98,6 +98,31 @@ describe("resolveAttachments", () => {
     expect(out.text).toContain("[end of attached file]");
   });
 
+  it("keeps the file's words and the Gateway's notes apart", async () => {
+    const doc = await stored("notes.txt", "buy milk");
+    const shot = await stored("shot.png", PNG, { kind: "image", mime: "image/png" });
+    const out = await resolveAttachments(db, home, [doc, shot, "missing"]);
+    expect(out.body).toContain("buy milk");
+    expect(out.body).not.toContain("attached image");
+    expect(out.body).not.toContain("was not found");
+    expect(out.notes).toContain("attached image: shot.png");
+    expect(out.notes).toContain("was not found");
+    expect(out.notes).not.toContain("buy milk");
+    // A screenshot alone has no file text and no taint.
+    const only = await resolveAttachments(db, home, [shot]);
+    expect(only.body).toBe("");
+    expect(only.taint).toEqual([]);
+  });
+
+  it("cuts a text file without splitting a surrogate pair", async () => {
+    // The cut lands between the two halves of an astral character.
+    const text = `${"a".repeat(ATTACHMENT_LIMITS.docChars - 1)}😀tail`;
+    const id = await stored("emoji.txt", text);
+    const out = await resolveAttachments(db, home, [id]);
+    expect(out.body).not.toMatch(/[\ud800-\udbff](?![\udc00-\udfff])/);
+    expect(out.body).toContain("cut: showed");
+  });
+
   it("passes an image as an image part and says the model can see it", async () => {
     const id = await stored("shot.png", PNG, { kind: "image", mime: "image/png" });
     const out = await resolveAttachments(db, home, [id]);
@@ -279,7 +304,33 @@ describe("chat.send with attachments", () => {
     expect(input?.text).toBe("what do these say?");
     expect(input?.attachments).toEqual([{ libraryItemId: doc.id }, { libraryItemId: img.id }]);
     expect(input?.attachmentText).toContain("the plan is to ship on friday");
+    // The owner's own uploads: non-tainting, and the Gateway's notes are not file text.
+    expect(input?.attachmentThirdParty).toBe(false);
+    expect(input?.attachmentText).not.toContain("attached image");
+    expect(input?.attachmentNotes).toContain("attached image: shot.png");
+    expect(agent.turns[0]?.taintSources).toBeUndefined();
     expect(input?.images).toEqual([{ mime: "image/png", data: PNG.toString("base64") }]);
+  });
+
+  it("starts a message from another thread's agent, and the greeting, as not the owner's words", async () => {
+    agent = new GatedAgentLoop();
+    t = await startTestGateway({ agent, broker: new RecordingBroker({ armDelayMs: 0 }) });
+    const c = await desktopClient(t.gateway);
+    clients.push(c);
+    const ctx = t.gateway.context;
+    const mk = async () =>
+      (await c.call<{ thread: { id: string } }>("threads.create", { kind: "side" }, ik())).thread
+        .id;
+    const a = await mk();
+    ctx.sessions.sendFromAgent({ threadId: a, fromThreadId: await mk(), content: "from agent" });
+    await ctx.sessions.idle();
+    const b = await mk();
+    await c.call("chat.send", { threadId: b, content: "typed by the owner" }, ik());
+    await ctx.sessions.idle();
+    const by = (text: string) => agent.turns.find((x) => x.input.text.includes(text));
+    expect(by("from agent")?.ownerWords).toBe(false);
+    // The owner's typed message is not marked (absent means owner words).
+    expect(by("typed by the owner")?.ownerWords).toBeUndefined();
   });
 
   it("taints the run and fences the text when a released download is attached", async () => {
@@ -314,6 +365,8 @@ describe("chat.send with attachments", () => {
     await ctx.sessions.idle();
     const turn = agent.turns[0];
     expect(turn?.input?.attachmentText).toMatch(/\[untrusted:library download #[0-9a-f]{12}\]/);
+    // Someone else's file: never marked non-tainting.
+    expect(turn?.input?.attachmentThirdParty).toBeUndefined();
     expect(turn?.taintSources).toEqual([
       { sourceKind: "library_file", origin: `download:${dl.id}` },
     ]);

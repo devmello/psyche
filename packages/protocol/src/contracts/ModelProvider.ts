@@ -21,11 +21,22 @@ export type ModelPart =
        */
       provenance?: ProvenanceOut;
       /**
-       * `owner` on the words the owner typed themselves in a user turn, set by the loop and never
-       * on attachment text, quoted context or a non-owner's message. Older stored messages lack
-       * it: absent means "not marked", not "not the owner's". Providers ignore it.
+       * `owner` on the words the owner typed themselves in a user turn. Set only by the loop, for
+       * a turn with no requester or an owner requester, `ownerWords` not false, no parent run
+       * and no task. Never on attachment text, quoted context, a non-owner's message, an agent's
+       * message, a widget act, a subagent brief or a task goal. It must never be settable from
+       * client RPC params, tool or MCP output, or restored state: the loop and the thread
+       * rebuild write it, and `ThreadState` loaded from storage is trusted as is. Older stored
+       * messages lack it: absent means "not marked", not "not the owner's". Providers ignore it.
        */
       author?: "owner";
+      /**
+       * Extracted text of a file the owner attached themselves. Data, not instructions: quoted
+       * apart from the owner's words and never a source of standing instructions, but it does
+       * not taint the run or a summary (third-party files carry `provenance: "untrusted"`).
+       * Providers ignore it.
+       */
+      ownerFile?: true;
       /**
        * Context the loop added to a user turn for that run only (turn context providers). The next
        * run replaces it with a fixed stub; a run that is not the owner's own never sees it.

@@ -1,7 +1,7 @@
 import { mkdtempSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { deleteAgentThreadState, getAgentThreadState } from "@psyche/db";
+import { appendMessage, deleteAgentThreadState, getAgentThreadState } from "@psyche/db";
 import type { Thread } from "@psyche/protocol";
 import { FakeModelProvider } from "@psyche/testing";
 import { afterEach, describe, expect, it, vi } from "vitest";
@@ -142,12 +142,17 @@ describe("durable agent thread state (issue #52)", () => {
     expect(sent).toContain("Want a revised version?");
     // The new message is in the request once, not twice.
     expect(sent.split("yes write a revised one").length - 1).toBe(1);
-    // The rebuilt attachment text is its own untrusted part, apart from the owner's words.
+    // The rebuilt file text is its own fenced part ahead of the owner's words. It is the owner's
+    // own upload: flagged `ownerFile`, not untrusted, so the rebuilt thread stays untainted.
     const first = provider.requests.at(0)?.messages[0]?.parts ?? [];
-    expect(first[0]).toMatchObject({ type: "text", text: "review my resume", author: "owner" });
-    expect(first[1]).toMatchObject({ type: "text", provenance: "untrusted" });
-    expect(JSON.stringify(first[1])).toContain("Ada Lovelace");
-    expect(JSON.stringify(first[0])).not.toContain("Ada Lovelace");
+    expect(first[0]).toMatchObject({ type: "text", ownerFile: true });
+    expect(first[0]).not.toHaveProperty("provenance");
+    expect(JSON.stringify(first[0])).toContain("Ada Lovelace");
+    expect((first[0] as { text: string }).text).toMatch(
+      /End of Attached file text\. fence="[0-9a-f]{16}"$/,
+    );
+    expect(first[1]).toMatchObject({ type: "text", text: "review my resume", author: "owner" });
+    expect(JSON.stringify(first[1])).not.toContain("Ada Lovelace");
   });
 
   it("keeps an attached image as an image when the history is rebuilt", async () => {
@@ -189,6 +194,64 @@ describe("durable agent thread state (issue #52)", () => {
     expect(parts.filter((p) => p.type === "image")).toHaveLength(1);
     const text = parts.flatMap((p) => (p.type === "text" ? [p.text] : [])).join("\n");
     expect(text.length).toBeLessThan(5_000);
+  });
+
+  it("rebuilds `author: owner` only on the owner's own typed rows", async () => {
+    home = mkdtempSync(join(tmpdir(), "psyche-state-"));
+    composed = await compose();
+    const desk = await desktopClient(composed.gateway);
+    clients.push(desk);
+    const { thread } = await desk.call<{ thread: Thread }>(
+      "threads.create",
+      { kind: "side" },
+      ik(),
+    );
+    const row = (
+      role: "user" | "agent",
+      md: string,
+      provenance: "owner" | "agent" | "untrusted",
+      via?: "widget",
+    ) =>
+      appendMessage(
+        composed?.db as never,
+        {
+          threadId: thread.id,
+          role,
+          blocks: [{ type: "text", md }],
+          provenance,
+          ...(via === undefined ? {} : { via }),
+        },
+        { expectedWriterRunId: null },
+      );
+    row("user", "owner words", "owner");
+    row("agent", "agent reply", "agent");
+    row("user", "from another thread", "agent");
+    row("agent", "agent reply two", "agent");
+    row("user", "widget act text", "owner", "widget");
+    row("agent", "agent reply three", "agent");
+    row("user", "stranger words", "untrusted");
+    row("agent", "agent reply four", "agent");
+    provider.enqueue([
+      { type: "text_delta", text: "ok" },
+      { type: "finish", reason: "stop" },
+    ]);
+    provider.requests.length = 0;
+    await desk.call("chat.send", { threadId: thread.id, content: "next" }, ik());
+    await composed.gateway.context.sessions.idle();
+    const parts = (provider.requests.at(0)?.messages ?? []).flatMap((m) => m.parts);
+    const find = (needle: string) =>
+      parts.find((p) => p.type === "text" && p.text.includes(needle)) as
+        | { text: string; author?: string; provenance?: string }
+        | undefined;
+    expect(find("owner words")?.author).toBe("owner");
+    for (const other of ["agent reply", "from another thread", "widget act text"]) {
+      expect(find(other), other).toBeDefined();
+      expect(find(other)?.author, other).toBeUndefined();
+    }
+    const stranger = find("stranger words");
+    expect(stranger?.author).toBeUndefined();
+    expect(stranger?.provenance).toBe("untrusted");
+    expect(stranger?.text).toMatch(/fence="[0-9a-f]{16}"/);
   });
 
   it("gives a fork the history it shows", async () => {

@@ -428,9 +428,15 @@ export class SessionController {
   #noteTurnOptions(runId: string, input: SendInput): void {
     if (input.proposedCall === undefined && input.ownerWords === undefined) return;
     this.#turnOptions.set(runId, {
+      ...this.#turnOptions.get(runId),
       ...(input.proposedCall === undefined ? {} : { proposedCall: input.proposedCall }),
       ...(input.ownerWords === undefined ? {} : { ownerWords: input.ownerWords }),
     });
+  }
+
+  /** The turn's text was written by the harness or another agent, not typed by the owner. */
+  #notOwnerWords(runId: string): void {
+    this.#turnOptions.set(runId, { ...this.#turnOptions.get(runId), ownerWords: false });
   }
 
   /** The quoted message of a reply, which must belong to the same thread. */
@@ -485,6 +491,7 @@ export class SessionController {
         origin: requester === undefined ? "owner" : "channel",
       });
       claimWriter(db, thread.id, run.id);
+      if (provenance === "agent") this.#notOwnerWords(run.id);
       this.#bump();
       hooks.emit("run.updated", { run }, thread.id);
       hooks.afterCommit(() =>
@@ -499,6 +506,7 @@ export class SessionController {
       origin: requester === undefined ? "owner" : "channel",
     });
     claimWriter(db, thread.id, run.id);
+    if (provenance === "agent") this.#notOwnerWords(run.id);
     const message = appendMessage(
       db,
       {
@@ -626,6 +634,8 @@ export class SessionController {
       origin: "owner",
     });
     claimWriter(db, thread.id, run.id);
+    // The greeting prompt is the harness's text, not the owner's words.
+    this.#notOwnerWords(run.id);
     this.#bump();
     hooks.emit("run.updated", { run }, thread.id);
     hooks.afterCommit(() => this.#startTurn(thread, run.id, GREETING_PROMPT, []));
@@ -825,9 +835,16 @@ export class SessionController {
           ...(attachments.length > 0
             ? { attachments: attachments.map((libraryItemId) => ({ libraryItemId })) }
             : {}),
-          ...(attached === undefined || attached.text === ""
+          ...(attached === undefined || attached.body === ""
             ? {}
-            : { attachmentText: attached.text }),
+            : { attachmentText: attached.body }),
+          ...(attached === undefined || attached.notes === ""
+            ? {}
+            : { attachmentNotes: attached.notes }),
+          // Only an explicit false (the owner's own upload) makes the text non-tainting.
+          ...(attached === undefined || attached.taint.length > 0
+            ? {}
+            : { attachmentThirdParty: false }),
           ...(allImages.length === 0 ? {} : { images: allImages }),
         },
         mode: "attended",

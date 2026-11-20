@@ -110,7 +110,8 @@ export function renderTranscript(
     .map((m) => {
       // Quoted third-party context (recalled chats, artifacts) is not the owner's words: it gets
       // its own line, so the summarizer cannot read it as something the owner said.
-      const quoted = (p: ModelPart) => p.type === "text" && p.provenance === "untrusted";
+      const quoted = (p: ModelPart) =>
+        p.type === "text" && (p.provenance === "untrusted" || p.ownerFile === true);
       const lines = (own: boolean) =>
         m.parts
           .filter((p) => quoted(p) !== own)
@@ -245,6 +246,29 @@ export function parseCompactionReply(text: string): CompactionReply | undefined 
 /** The model's JSON as a `CompactionSummary`, or `undefined` when it is not one. */
 export function parseCompactionSummary(text: string): CompactionSummary | undefined {
   return parseCompactionReply(text)?.summary;
+}
+
+/**
+ * The text of the owner's own typed words and of file text in these messages, normalised like a
+ * pin. A new pin that appears in the file text and nowhere in the owner's words came from the
+ * file, whoever the file's author was: it is never a trusted standing instruction.
+ */
+export function fileOnlyPins(messages: readonly ModelMessage[], pins: readonly string[]): string[] {
+  const norm = (t: string) => t.replace(/\s+/g, " ").trim().toLowerCase();
+  let owner = "";
+  let file = "";
+  for (const m of messages) {
+    if (m.role !== "user") continue;
+    for (const p of m.parts) {
+      if (p.type !== "text") continue;
+      if (p.ownerFile === true || p.provenance === "untrusted") file += `\n${norm(p.text)}`;
+      else owner += `\n${norm(p.text)}`;
+    }
+  }
+  return pins.filter((pin) => {
+    const k = norm(pin);
+    return k !== "" && file.includes(k) && !owner.includes(k);
+  });
 }
 
 /** The summary as the context section the model reads. */

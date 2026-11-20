@@ -1,4 +1,4 @@
-import { describe, expect, it } from "vitest";
+import { beforeAll, describe, expect, it } from "vitest";
 import { canonicalRoot, isGitInternal, isUnder, resolveInRoot } from "../src/coding/workspace.ts";
 
 /**
@@ -6,7 +6,12 @@ import { canonicalRoot, isGitInternal, isUnder, resolveInRoot } from "../src/cod
  * family), so a model path that spells it another way is refused before `.git` is judged.
  */
 describe.runIf(process.platform === "win32")("coding workspace paths on Windows", () => {
-  const root = canonicalRoot("C:\\Users\\o\\repo");
+  // Not at describe level: vitest runs the body of a skipped `runIf` block while collecting, and
+  // `canonicalRoot` rejects a Windows path on other platforms.
+  let root = "";
+  beforeAll(() => {
+    root = canonicalRoot("C:\\Users\\o\\repo");
+  });
 
   it("canonicalizes the root and compares without case", () => {
     // The drive letter is upper-cased; the rest keeps the case it was given.
