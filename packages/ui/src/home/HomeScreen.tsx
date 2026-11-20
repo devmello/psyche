@@ -1,6 +1,7 @@
 import { type ReactElement, useEffect, useState } from "react";
 import { useNotifications } from "../data/index.ts";
 import { activeI18n, t } from "../i18n/core.ts";
+import { QuietThreadsSection } from "../mail-followups/QuietThreadsSection.tsx";
 import { FeedScreen } from "../screens/feed/FeedScreen.tsx";
 import { ScreenToolbar } from "../screens/feed/ScreenToolbar.tsx";
 import { needsYou } from "../screens/inbox/InboxScreen.tsx";
@@ -102,6 +103,7 @@ export function HomeScreen({
           <SuggestionsSection accent={!waiting} limit={2} onNavigate={navigate} />
           <ComingUpSection onNavigate={navigate} {...clock} />
           <GoalsSection onNavigate={navigate} />
+          <QuietThreadsSection limit={2} />
           <KeepInTouchSection onNavigate={navigate} limit={2} />
           <MoreSection onNavigate={navigate} />
         </div>

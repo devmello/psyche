@@ -23,6 +23,7 @@ import { homeRest } from "./home-rest/it.ts";
 import { keepAwake } from "./keep-awake/it.ts";
 import { links } from "./links/it.ts";
 import { linuxAccess } from "./linux-access/it.ts";
+import { mailFollowups } from "./mail-followups/it.ts";
 import { mailMeetings } from "./mail-meetings/it.ts";
 import { meetingRecordRest } from "./meeting-record-rest/it.ts";
 import { memoryAdvancedRest } from "./memory-advanced-rest/it.ts";
@@ -1029,6 +1030,8 @@ export const it: Partial<Catalogue> = {
   "settings.key.browser.botAuth": "Web Bot Auth",
   "settings.key.computerUse.enabled": "Consenti l’uso del computer",
   "settings.key.computerUse.apps": "Accesso alle app",
+  "settings.key.feed.sources": "Fonti del feed",
+  "settings.key.computerUse.linuxRevoke": "Dimentica il computer Linux",
   "settings.key.context.maxTokens": "Limite del contesto",
   "settings.key.search.web.provider": "Fornitore di ricerca web",
   "settings.key.search.web.searxngUrl": "URL di SearXNG",
@@ -3780,6 +3783,7 @@ export const it: Partial<Catalogue> = {
   ...separateDesktop,
   // Windows variants of the sandbox PC, voice keys and platform terms
   ...windowsPlatform202611,
+  ...mailFollowups,
   ...keepAwake,
   ...spaces,
 };

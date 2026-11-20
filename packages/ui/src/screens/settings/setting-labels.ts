@@ -42,6 +42,8 @@ const LABELLED_KEYS = [
   "nudges.phrasing",
   "computerUse.enabled",
   "computerUse.apps",
+  "computerUse.linuxRevoke",
+  "feed.sources",
   "context.maxTokens",
   "exec.srtPath",
   "devices.hostHelper.status",

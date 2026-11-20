@@ -25,6 +25,7 @@ import { home } from "./home.ts";
 import { keepAwake } from "./keep-awake.ts";
 import { links } from "./links.ts";
 import { linuxAccess } from "./linux-access.ts";
+import { mailFollowups } from "./mail-followups.ts";
 import { mailMeetings } from "./mail-meetings.ts";
 import { meetingRecord } from "./meeting-record.ts";
 import { memoryMap } from "./memory-map.ts";
@@ -85,6 +86,7 @@ export const en = {
   ...audit,
   ...daily,
   ...nudges,
+  ...mailFollowups,
   ...shell,
   ...settings,
   ...settingsLanguage,

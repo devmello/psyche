@@ -23,6 +23,7 @@ import { homeRest } from "./home-rest/ko.ts";
 import { keepAwake } from "./keep-awake/ko.ts";
 import { links } from "./links/ko.ts";
 import { linuxAccess } from "./linux-access/ko.ts";
+import { mailFollowups } from "./mail-followups/ko.ts";
 import { mailMeetings } from "./mail-meetings/ko.ts";
 import { meetingRecordRest } from "./meetingRecord-rest/ko.ts";
 import { memoryMap } from "./memory-map/ko.ts";
@@ -1028,6 +1029,8 @@ export const ko: Partial<Catalogue> = {
   "settings.key.browser.botAuth": "Web Bot Auth",
   "settings.key.computerUse.enabled": "컴퓨터 사용 허용",
   "settings.key.computerUse.apps": "앱 접근",
+  "settings.key.feed.sources": "피드 소스",
+  "settings.key.computerUse.linuxRevoke": "Linux 컴퓨터 잊기",
   "settings.key.context.maxTokens": "컨텍스트 한도",
   "settings.key.search.web.provider": "웹 검색 제공업체",
   "settings.key.search.web.searxngUrl": "SearXNG URL",
@@ -3718,6 +3721,7 @@ export const ko: Partial<Catalogue> = {
   ...separateDesktop,
   // Windows variants of the sandbox PC, voice keys and platform terms
   ...windowsPlatform202611,
+  ...mailFollowups,
   ...keepAwake,
   ...spaces,
 };

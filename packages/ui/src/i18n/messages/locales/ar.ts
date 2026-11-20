@@ -23,6 +23,7 @@ import { home } from "./home/ar.ts";
 import { keepAwake } from "./keep-awake/ar.ts";
 import { links } from "./links/ar.ts";
 import { linuxAccess } from "./linux-access/ar.ts";
+import { mailFollowups } from "./mail-followups/ar.ts";
 import { mailMeetings } from "./mail-meetings/ar.ts";
 import { meetingRecord } from "./meeting-record/ar.ts";
 import { memoryMap } from "./memory-map/ar.ts";
@@ -1087,6 +1088,8 @@ export const ar: Partial<Catalogue> = {
   "settings.key.browser.botAuth": "Web Bot Auth",
   "settings.key.computerUse.enabled": "السماح باستخدام الكمبيوتر",
   "settings.key.computerUse.apps": "الوصول إلى التطبيقات",
+  "settings.key.feed.sources": "مصادر الخلاصة",
+  "settings.key.computerUse.linuxRevoke": "نسيان حاسوب Linux",
   "settings.key.context.maxTokens": "حدّ السياق",
   "settings.key.search.web.provider": "مزوّد البحث على الويب",
   "settings.key.search.web.searxngUrl": "عنوان URL لـ SearXNG",
@@ -3776,6 +3779,7 @@ export const ar: Partial<Catalogue> = {
   ...separateDesktop,
   // Windows variants of the sandbox PC, voice keys and platform terms
   ...windowsPlatform202611,
+  ...mailFollowups,
   ...keepAwake,
   ...spaces,
 };

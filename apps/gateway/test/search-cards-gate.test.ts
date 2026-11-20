@@ -65,7 +65,10 @@ function start(over: { model?: () => ModelRef | undefined; host?: () => CardHost
   } as never);
   const gw = {
     bus: { subscribe: () => () => undefined, publish: () => undefined },
-    context: { updateGate: { accepting: () => true } },
+    context: {
+      updateGate: { accepting: () => true },
+      nodes: { hostHelper: () => undefined, onHostHelperChange: () => () => undefined },
+    },
   };
   search.start?.(gw as never);
   stops.push(() => search.stop?.());

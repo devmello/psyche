@@ -12,6 +12,10 @@
 
 CI fails when the generated files are stale (`pnpm protocol:check`).
 
+## Quiet email threads (follow-ups on mail)
+
+- New methods `mailFollowups.list` and `mailFollowups.act` (`snooze` | `dismiss`); new types `MailFollowupItem`, `MailFollowupKind`, `MailFollowupAction`. `DailySectionId` gains `quiet_threads`; `DailyBrief.sections` allows 10 sections (was 8). Setting keys: the existing `mail.followups.enabled` and `mail.followups.waitDays`.
+
 ## Versioning
 
 `PROTOCOL_VERSION` (in `src/version.ts`) is negotiated at `connect`: clients send a `{min, max}` range and the Gateway answers with the version it will speak or `protocol_version_mismatch`. It changes only for breaking changes.

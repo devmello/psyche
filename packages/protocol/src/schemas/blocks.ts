@@ -76,7 +76,7 @@ export const FileBlock = Type.Object(
 export const ContextBlock = Type.Object(
   {
     type: Type.Literal("context"),
-    kind: StringEnum(["feed_item", "search_hit", "memory_entity", "life_answer"]),
+    kind: StringEnum(["feed_item", "search_hit", "memory_entity", "life_answer", "mail_followup"]),
     id: Id,
     title: Type.String({ maxLength: 300 }),
     url: Type.Optional(Type.String({ maxLength: 2000 })),

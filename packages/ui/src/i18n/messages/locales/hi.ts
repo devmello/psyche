@@ -23,6 +23,7 @@ import { homeRest } from "./home-rest/hi.ts";
 import { keepAwake } from "./keep-awake/hi.ts";
 import { links } from "./links/hi.ts";
 import { linuxAccess } from "./linux-access/hi.ts";
+import { mailFollowups } from "./mail-followups/hi.ts";
 import { mailMeetings } from "./mail-meetings/hi.ts";
 import { meetingRecordRest } from "./meeting-record-rest/hi.ts";
 import { memoryAdvancedRest } from "./memory-advanced-rest/hi.ts";
@@ -1044,6 +1045,8 @@ export const hi: Partial<Catalogue> = {
   "settings.key.browser.botAuth": "Web Bot Auth",
   "settings.key.computerUse.enabled": "कंप्यूटर उपयोग की अनुमति दें",
   "settings.key.computerUse.apps": "ऐप ऐक्सेस",
+  "settings.key.feed.sources": "फ़ीड स्रोत",
+  "settings.key.computerUse.linuxRevoke": "Linux कंप्यूटर भुलाएँ",
   "settings.key.context.maxTokens": "संदर्भ सीमा",
   "settings.key.search.web.provider": "वेब खोज प्रदाता",
   "settings.key.search.web.searxngUrl": "SearXNG URL",
@@ -3724,6 +3727,7 @@ export const hi: Partial<Catalogue> = {
   ...separateDesktop,
   // Windows variants of the sandbox PC, voice keys and platform terms
   ...windowsPlatform202611,
+  ...mailFollowups,
   ...keepAwake,
   ...spaces,
 };

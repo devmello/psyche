@@ -19,6 +19,7 @@ import { homeRest } from "./home-rest/fr.ts";
 import { keepAwake } from "./keep-awake/fr.ts";
 import { links } from "./links/fr.ts";
 import { linuxAccess } from "./linux-access/fr.ts";
+import { mailFollowups } from "./mail-followups/fr.ts";
 import { mailMeetings } from "./mail-meetings/fr.ts";
 import { memoryMap } from "./memory-map/fr.ts";
 import { memoryRest } from "./memory-rest/fr.ts";
@@ -1020,6 +1021,8 @@ export const fr: Partial<Catalogue> = {
   "settings.key.browser.botAuth": "Web Bot Auth",
   "settings.key.computerUse.enabled": "Autoriser l’utilisation de l’ordinateur",
   "settings.key.computerUse.apps": "Accès aux apps",
+  "settings.key.feed.sources": "Sources du flux",
+  "settings.key.computerUse.linuxRevoke": "Oublier l'ordinateur Linux",
   "settings.key.context.maxTokens": "Limite de contexte",
   "settings.key.search.web.provider": "Fournisseur de recherche web",
   "settings.key.search.web.searxngUrl": "URL SearXNG",
@@ -3786,6 +3789,7 @@ export const fr: Partial<Catalogue> = {
   ...separateDesktop,
   // Windows variants of the sandbox PC, voice keys and platform terms
   ...windowsPlatform202611,
+  ...mailFollowups,
   ...keepAwake,
   ...spaces,
 };
