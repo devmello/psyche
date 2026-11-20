@@ -168,6 +168,7 @@ export {
   type SkillTrustCardProps,
   skillSourceOf,
 } from "./SkillsSection.tsx";
+export { StoragePanel, type StoragePanelProps, StorageSection } from "./StorageSection.tsx";
 export { resolveSection } from "./settings-pages.ts";
 export { parseSettingsRoute, type SettingsTarget } from "./settings-route.ts";
 export { useSettingsForm } from "./shared.tsx";

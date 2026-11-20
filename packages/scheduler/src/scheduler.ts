@@ -779,6 +779,34 @@ export class SqliteScheduler implements Scheduler {
     await this.#dispatch(runId);
   }
 
+  /**
+   * Cancel retry (`automations.cancelRetry`): a run waiting for its next attempt after a transient
+   * model error ends as cancelled with its last error kept, the automation shows as failed, and
+   * Run now is free again. `conflict` once the run is not waiting (the attempt already started).
+   */
+  async cancelRetry(runId: string): Promise<AutomationRun> {
+    const row = this.#runRow(runId);
+    if (row.status !== "running" || row.retry_at == null) {
+      throw new PsycheError("conflict", "this run is not waiting to retry");
+    }
+    // Synchronously, before any await: the timer cannot fire and `#retryRun` finds no retry_at.
+    const handle = this.#retryTimers.get(runId);
+    if (handle !== undefined) this.#timers.clearTimeout(handle);
+    this.#retryTimers.delete(runId);
+    this.#db.sqlite.prepare("UPDATE automation_runs SET retry_at = NULL WHERE id = ?").run(runId);
+    const last = (row.summary ?? "").trim();
+    await this.#finish(runId, {
+      status: "cancelled",
+      summary: last === "" ? "Retry cancelled" : `Retry cancelled. Last error: ${last}`,
+    });
+    // The run did fail; only its retries were called off.
+    this.#db.sqlite
+      .prepare("UPDATE automations SET last_status = 'failed' WHERE id = ?")
+      .run(row.automation_id);
+    this.#emit([this.#updatedEvent(row.automation_id)]);
+    return runFromRow(this.#runRow(runId));
+  }
+
   /** Runs in progress, retries waiting included: what keeps the Mac awake. */
   activeRunCount(): number {
     const row = this.#db.sqlite

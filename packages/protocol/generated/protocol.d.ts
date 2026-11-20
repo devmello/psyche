@@ -2017,6 +2017,14 @@ export type DailyWorkflowRunKind = "cron" | "interval";
 
 export type AutomationWorkflowBlockType = "automation_workflow";
 
+export interface AutomationsCancelRetryParams {
+    runId: string;
+}
+
+export interface AutomationsCancelRetryResult {
+    run: AutomationRun;
+}
+
 export interface AutomationsCreateParams {
     delivery?:     Delivery;
     enabled?:      boolean;
@@ -11916,6 +11924,30 @@ export interface TranscriptSegment {
 }
 
 export type SpeechTranscribePreset = "long" | "short";
+
+export interface StorageClearCacheParams {
+    targets?: StorageClearTarget[];
+}
+
+export type StorageClearTarget = "caches" | "recordings";
+
+export interface StorageCleared {
+    cleared:    StorageClearTarget[];
+    freedBytes: number;
+}
+
+export interface StorageUsage {
+    categories: StorageCategory[];
+    totalBytes: number;
+}
+
+export interface StorageCategory {
+    bytes:     number;
+    clearable: boolean;
+    id:        StorageCategoryID;
+}
+
+export type StorageCategoryID = "database" | "memoryIndex" | "library" | "browserProfiles" | "recordings" | "logs" | "caches" | "other";
 
 export interface TaskActionPayload {
     action: TaskAction;

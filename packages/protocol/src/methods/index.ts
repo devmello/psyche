@@ -48,6 +48,7 @@ import { SecurityMethods } from "./security.ts";
 import { SettingsMethods } from "./settings.ts";
 import { SkillsMethods } from "./skills.ts";
 import { SpecialistsMethods } from "./specialists.ts";
+import { StorageMethods } from "./storage.ts";
 import { TasksMethods } from "./tasks.ts";
 import { TeachAppMethods } from "./teach.ts";
 import { TerminalMethods } from "./terminal.ts";
@@ -175,6 +176,7 @@ export const Methods = {
   ...PluginsMethods,
   ...BackupMethods,
   ...LogsMethods,
+  ...StorageMethods,
   ...ModelsMethods,
   ...KeysMethods,
   ...UsageMethods,
