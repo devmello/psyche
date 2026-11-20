@@ -1,3 +1,4 @@
+import { holdSecureDelete } from "@psyche/db";
 import {
   type Clock,
   type EntitySummary,
@@ -2970,8 +2971,7 @@ export class GraphStore {
     };
     const names = [row.name, ...this.#aliases(id)];
     if (dryRun) return { removed, cardPath: row.card_path, names, dryRun };
-    const before = this.#db.pragma("secure_delete", { simple: true });
-    this.#db.pragma("secure_delete = ON");
+    const release = holdSecureDelete(this.#db);
     try {
       this.#db.transaction(() => {
         for (const ident of ids.flatMap((e) => this.identifiers(e)))
@@ -3005,7 +3005,7 @@ export class GraphStore {
       this.#db.exec("INSERT INTO graph_fts (graph_fts) VALUES ('optimize')");
       if (this.#db.name !== ":memory:") this.#db.pragma("wal_checkpoint(TRUNCATE)");
     } finally {
-      this.#db.pragma(`secure_delete = ${before === 1 ? "ON" : "OFF"}`);
+      release();
     }
     this.#emit({
       event: "memory.entity.updated",
@@ -3016,14 +3016,13 @@ export class GraphStore {
 
   /** Runs `fn` with SQLite secure_delete on, then rebuilds the FTS index and checkpoints (§4.9). */
   #secureDelete(fn: () => void): void {
-    const before = this.#db.pragma("secure_delete", { simple: true });
-    this.#db.pragma("secure_delete = ON");
+    const release = holdSecureDelete(this.#db);
     try {
       this.#db.transaction(fn)();
       this.#db.exec("INSERT INTO graph_fts (graph_fts) VALUES ('optimize')");
       if (this.#db.name !== ":memory:") this.#db.pragma("wal_checkpoint(TRUNCATE)");
     } finally {
-      this.#db.pragma(`secure_delete = ${before === 1 ? "ON" : "OFF"}`);
+      release();
     }
   }
 

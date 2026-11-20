@@ -44,20 +44,36 @@ describe.skipIf(!built)("psyched bundle (dist-bin)", () => {
       stdio: ["ignore", "ignore", "pipe"],
     });
     try {
+      // Routine logs go to $PSYCHE_HOME/logs/gateway.log (the Gateway rotates it); stderr carries
+      // only what could not reach the file, or a crash. Read both.
       const origin = await new Promise<string>((ok, fail) => {
         let buf = "";
-        const t = setTimeout(() => fail(new Error(`psyched did not start:\n${buf}`)), 30_000);
+        const logFile = join(home, "logs", "gateway.log");
+        const done = (fn: () => void) => {
+          clearTimeout(t);
+          clearInterval(poll);
+          fn();
+        };
+        const look = () => {
+          let text = buf;
+          try {
+            text += readFileSync(logFile, "utf8");
+          } catch {}
+          const m = /"msg":"gateway listening","origin":"(http:\/\/127\.0\.0\.1:\d+)"/.exec(text);
+          if (m?.[1]) done(() => ok(m[1] as string));
+        };
+        const t = setTimeout(
+          () => done(() => fail(new Error(`psyched did not start:\n${buf}`))),
+          30_000,
+        );
+        const poll = setInterval(look, 100);
         child.stderr?.on("data", (d) => {
           buf += String(d);
-          const m = /"msg":"gateway listening","origin":"(http:\/\/127\.0\.0\.1:\d+)"/.exec(buf);
-          if (m?.[1]) {
-            clearTimeout(t);
-            ok(m[1]);
-          }
+          look();
         });
         child.on("exit", (code) => {
-          clearTimeout(t);
-          fail(new Error(`psyched exited ${code}:\n${buf}`));
+          look();
+          done(() => fail(new Error(`psyched exited ${code}:\n${buf}`)));
         });
       });
       expect(await (await fetch(`${origin}/healthz`)).json()).toEqual({ ok: true });

@@ -10,6 +10,7 @@ import { capabilities } from "./capabilities/zh.ts";
 import { charts } from "./charts/zh.ts";
 import { chat } from "./chat/zh.ts";
 import { common } from "./common/zh.ts";
+import { computerWatch } from "./computer-watch/zh.ts";
 import { connectorGallery } from "./connector-gallery/zh.ts";
 import { connectorsPage } from "./connectors-page/zh.ts";
 import { daily } from "./daily/zh.ts";
@@ -20,6 +21,7 @@ import { helperCheck } from "./helper-check/zh.ts";
 import { helperOffline } from "./helper-offline/zh.ts";
 import { home } from "./home/zh.ts";
 import { links } from "./links/zh.ts";
+import { linuxAccess } from "./linux-access/zh.ts";
 import { mailMeetings } from "./mail-meetings/zh.ts";
 import { meetingRecord } from "./meeting-record/zh.ts";
 import { memoryMap } from "./memory-map/zh.ts";
@@ -623,6 +625,12 @@ export const zh: Partial<Catalogue> = {
   "context.marker.readsInstead": "代理改为读取的摘要：",
   "context.marker.empty": "没有找到值得保留的内容。",
   "context.marker.showReplaced": "显示被替换的内容",
+  "context.marker.removePin": "删除",
+  "context.marker.removePinLabel": "删除这条长期指令：{text}",
+  "context.marker.pinRemoved": "已删除长期指令。",
+  "context.marker.pinRemoveFailed": "无法删除：{reason}",
+  "context.marker.droppedPins":
+    "{count, plural, other {为给新指令腾出空间，已丢弃 # 条较早的长期指令。}}",
   "context.marker.replacedList": "被替换的轮次",
   "context.marker.notLoaded": "被替换的轮次未在此处载入。",
   "context.marker.speaker": "{name}：",
@@ -2986,6 +2994,7 @@ export const zh: Partial<Catalogue> = {
   "screens.library.recording.empty": "此录制没有步骤。",
   "screens.library.recording.noFrame": "此步骤没有画面。",
   "screens.library.recording.frameAlt": "第 {n} 步的浏览器画面",
+  "screens.library.recording.reviewPermissions": "在权限中查看",
   "screens.library.recording.loading": "正在加载录制",
   "screens.library.recording.loadFailed": "Psyche 无法加载此录制（{reason}）。",
   "screens.library.recording.notFound": "此录制已不可用。",
@@ -3610,6 +3619,10 @@ export const zh: Partial<Catalogue> = {
   ...helperOffline,
   // the security-records banner (docs/design/security-state-integrity-2026.md §7.3)
   ...securityState,
+  // Settings → Computer use on Linux: screen and input access
+  ...linuxAccess,
+  // the Virtual screen watch pane (docs/design/linux-desktop-2026.md §7.5)
+  ...computerWatch,
   // Gateway-authored notices (inbox notifications, security alerts)
   ...notices,
   // Settings > Computer use > Separate desktop (Linux)

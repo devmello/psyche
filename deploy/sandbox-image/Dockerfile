@@ -99,6 +99,10 @@ COPY --chown=0:0 --chmod=0644 desktop/libreoffice-lockdown.xcd /usr/lib/libreoff
 # /workspace may be read back as LibreOffice settings or Basic libraries.
 RUN sed -i 's|^UserInstallation=.*|UserInstallation=file:///tmp/lo-user|' /usr/lib/libreoffice/program/bootstraprc \
  && grep -qx 'UserInstallation=file:///tmp/lo-user' /usr/lib/libreoffice/program/bootstraprc
+# The guest helper's tiers and fixed caps: root-owned, so nothing running as the desktop's user can
+# loosen them ($PSYCHE_HOME is writable by it). Generated from the Gateway's lists
+# (apps/gateway/test/guest-computer-use-file.test.ts).
+COPY --chown=0:0 --chmod=0644 desktop/computer-use.json /etc/psyche/computer-use.json
 RUN if [ -n "$HELPER_SHA256" ]; then \
       echo "$HELPER_SHA256  /usr/local/bin/psyche-helper" | sha256sum -c - ; \
     elif [ "$ALLOW_UNVERIFIED_HELPER" = "1" ]; then \
@@ -119,10 +123,12 @@ ENV XDG_RUNTIME_DIR=/tmp/run \
     DISPLAY=:1 \
     GNOME_ACCESSIBILITY=1 \
     MOZ_ENABLE_WAYLAND=0 \
+    MOZ_LEGACY_PROFILES=1 \
     PSYCHE_NODE_SOCKET=/run/psyche/node.sock \
     PSYCHE_HOME=/tmp/psyche \
     PSYCHE_HELPER_STATE=/tmp/psyche-helper \
-    PSYCHE_HELPER_SURFACE=separate_desktop
+    PSYCHE_HELPER_SURFACE=separate_desktop \
+    PSYCHE_COMPUTER_USE_SETTINGS=/etc/psyche/computer-use.json
 LABEL dev.psyche.sandbox.desktop="1"
 USER 1000:1000
 WORKDIR /workspace

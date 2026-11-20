@@ -75,6 +75,10 @@ export function openDb(path: string, opts: OpenDbOptions = {}): PsycheDb {
     if (!readonly) {
       if (!memory) sqlite.pragma("journal_mode = WAL");
       sqlite.pragma("synchronous = NORMAL");
+      // FAST zeroes deleted cells inside a b-tree page. It does not zero pages that go to the
+      // freelist (overflow chains of large rows, merged full-text segments). The Forget paths
+      // (the trace scrub, the memory forget) switch to ON around their own deletes.
+      sqlite.pragma("secure_delete = FAST");
     }
     sqlite.pragma("foreign_keys = ON");
     sqlite.pragma("busy_timeout = 5000");

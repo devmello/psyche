@@ -46,7 +46,8 @@ const put = (path: string, text: string): void => {
   const r = exec(`echo ${Buffer.from(text).toString("base64")} | /usr/bin/base64 -d > ${path}`);
   if (r.code !== 0) throw new Error(`could not write ${path}: ${r.out}`);
 };
-const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
+const LOGIN_MARKER = "kept-by-the-allowlist-7f3a";
+const sleep =(ms: number) => new Promise((r) => setTimeout(r, ms));
 
 /**
  * Planted app state that runs a program, and the proof that it does: LibreOffice binds the
@@ -366,7 +367,7 @@ describe.skipIf(!REAL)("a real separate desktop", () => {
     expect(profile, "Firefox created a profile in the workspace").toMatch(/^\/workspace\//);
     put(`${profile}/handlers.json`, FF_HANDLERS);
     put(`${profile}/user.js`, 'user_pref("xpinstall.signatures.required", false);\n');
-    put(`${profile}/logins.json`, '{"nextId":1,"logins":[]}');
+    put(`${profile}/logins.json`, `{"nextId":1,"logins":[],"psycheMarker":"${LOGIN_MARKER}"}`);
     expect(
       exec(
         `mkdir -p ${profile}/extensions ${profile}/chrome && echo x > ${profile}/extensions/x.xpi && echo x > ${profile}/chrome/userChrome.css`,
@@ -499,17 +500,23 @@ describe.skipIf(!REAL)("a real separate desktop", () => {
       "planted Firefox/LibreOffice state is still reachable",
     ).toBe("");
     expect(exec("cat /workspace/ffdecoy3/handlers.json | /usr/bin/wc -c").out.trim()).not.toBe("0");
-    expect(
-      exec(
-        "/usr/bin/find /workspace -name logins.json -not -path '/workspace/ffdecoy*' | head -1",
-      ).out.trim(),
-      "logins are kept",
-    ).toMatch(/logins\.json$/);
     const ffAfter = await firefoxFetchesPayload();
     expect(ffAfter, "Firefox loads the page and no handler planted earlier runs").toEqual({
       loaded: true,
       ran: false,
     });
+    // The kept logins are in the profile Firefox actually opened: it created no other profile (a
+    // second one would hold a times.json too), and the kept profile holds the marker and was used.
+    const used = exec(
+      "/usr/bin/find /workspace/.config/mozilla /workspace/.mozilla -name times.json 2>/dev/null",
+    ).out.trim();
+    expect(used.split("\\n"), "Firefox used the rebuilt profile and made no other").toEqual([
+      expect.stringMatching(/\\/psyche\\.default\\/times\\.json$/),
+    ]);
+    expect(
+      exec(`cat ${dirname(used)}/logins.json`).out,
+      "the marker kept in logins.json is in the profile Firefox uses",
+    ).toContain(LOGIN_MARKER);
 
     // A long-lived app opens on the display and keeps its profile in the workspace (Firefox ESR uses ~/.config/mozilla).
     exec("DISPLAY=:1 nohup /usr/bin/firefox-esr --no-remote about:blank > /tmp/firefox.log 2>&1 &");

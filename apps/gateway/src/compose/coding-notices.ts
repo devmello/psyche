@@ -11,6 +11,7 @@ import type { NotifyInput } from "@psyche/protocol";
  *   ever dropped: for a launch-config file the sandbox can write, this notice is the only guard.
  *   A path that could not be moved joins it too. A path it never listed before alerts again (a
  *   new notice, so a new banner), not only an unread mark;
+ * - what could not be moved is still in place and not held: its own notice too, every run;
  * - a move brought in something other than what was checked (a folder swapped for a link): its
  *   own notice, naming where it is held, with Keep it;
  * - the walk fell back to the top levels, or the sandbox was made again: informational, at most
@@ -177,6 +178,18 @@ export function codingNotices(notify: Notify, options: CodingNoticeOptions = {})
           const fresh = new Map([...now].filter(([p, print]) => seen?.get(p) !== print));
           return fresh.size > 0 ? changedNotice(root, fresh) : undefined;
         });
+      }
+      // Launch config still in place, not held: its own notice, new every run, so it alerts.
+      if (report.unmoved.length > 0) {
+        const paths = listed(report.unmoved);
+        send(
+          "unmoved",
+          { repo, paths },
+          {
+            title: `Launch config from a code run in ${repo} is still in place`,
+            body: `A command in the sandbox created ${paths}, and Psyche could not move it aside, so it is not held. Apps or your next command could run code from it. Delete it before you open the folder or run anything there. Don't change its permissions to look inside first, since that can let it run.`,
+          },
+        );
       }
       if (report.incidents.length > 0 && report.quarantineId !== undefined) {
         const paths = listed(report.incidents);

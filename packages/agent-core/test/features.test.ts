@@ -427,7 +427,7 @@ describe("model_call_persist", () => {
 });
 
 describe("compaction (B7)", () => {
-  it("flushes memory first, then summarizes older turns with the utility model", async () => {
+  it("summarizes older turns with the utility model, in one call that also lists the daily-note facts", async () => {
     const pad = "x".repeat(1_600);
     const h = harness({
       // Compact just past the ~3,700-token base prompt and tools plus two pads (4,800 tokens) under a 8,000-token window, the hard limit.
@@ -436,7 +436,7 @@ describe("compaction (B7)", () => {
         say("a"),
         say("b"),
         say(
-          '{"facts":["Earlier: the owner likes tea."],"decisions":[],"openTasks":[],"pinnedInstructions":[]}',
+          '{"facts":["Earlier: the owner likes tea."],"decisions":[],"openTasks":[],"pinnedInstructions":[],"dailyNoteLines":["The owner likes tea."]}',
         ),
         say("c"),
       ],
@@ -450,8 +450,12 @@ describe("compaction (B7)", () => {
     await runTurn(h, `second ${pad}`);
     const events = await runTurn(h, `third ${pad}`);
     expect(endOf(events).outcome).toBe("final");
-    expect(order).toEqual(["compaction:1:2"]);
-    expect(h.memory.flushes[0]?.messages).toHaveLength(5);
+    // No separate flush call: the history is read once, by the summarizer.
+    expect(order).toEqual(["compaction:0:2"]);
+    expect(h.memory.flushes).toHaveLength(0);
+    expect(h.memory.flushedLines).toEqual([
+      { threadId: "thr_1", lines: ["The owner likes tea."], taint: false },
+    ]);
     const summarizer = h.provider.requests[2];
     expect(summarizer?.model).toBe("fake/utility");
     expect(summarizer?.system).toBe(STRUCTURED_SUMMARIZER_SYSTEM);
@@ -464,7 +468,7 @@ describe("compaction (B7)", () => {
     });
     expect(main?.messages.map((m) => m.role)).toEqual(["user", "assistant", "user"]);
     const note = await h.memory.readFile("memory/2026-10-18.md");
-    expect(note?.content).toContain("the owner likes tea");
+    expect(note?.content).toContain("The owner likes tea.");
     const explained = await h.loop.explainContext(events[0]?.runId as string);
     expect(explained?.sections.find((s) => s.id === "summary")?.text).toContain("tea");
   });
@@ -499,6 +503,8 @@ describe("compaction (B7)", () => {
       text: "Facts:\n- summary",
       untrusted: true,
       structured: { facts: ["summary"], decisions: [], openTasks: [], pinnedInstructions: [] },
+      // Always recorded now, even when no pin came from untrusted content.
+      untrustedPins: [],
     });
     const last = h.provider.requests.at(-1);
     expect(last?.system).not.toContain("Earlier in this conversation");

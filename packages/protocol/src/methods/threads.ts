@@ -233,4 +233,19 @@ export const ThreadsMethods = {
     description:
       "Side-effecting: compacts the thread's earlier turns now (null when there is nothing to compact); conflict while the thread runs or waits on an approval.",
   }),
+  "threads.summary.pins.remove": defineMethod({
+    params: Type.Object({
+      threadId: Id,
+      /** The standing instruction to remove, as the compaction block shows it. */
+      instruction: Type.String({ minLength: 1, maxLength: 500 }),
+    }),
+    result: Type.Object({
+      /** The standing instructions the thread's summary keeps. */
+      pinnedInstructions: Type.Array(Type.String({ maxLength: 500 }), { maxItems: 40 }),
+    }),
+    scope: "operator.write",
+    sideEffecting: true,
+    description:
+      "Side-effecting: the owner removes one standing instruction from a thread's compaction summary, and from the compaction blocks that show it. A plain tap on a paired device, no presence; the agent and channels cannot reach it. conflict while the thread runs.",
+  }),
 } as const;

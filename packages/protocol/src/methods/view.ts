@@ -23,6 +23,8 @@ export const ViewPane = StringEnum(
     "vm",
     /** A side chat beside the view; `target` is its thread id. */
     "sidechat",
+    /** The Linux virtual screen watch pane (design §7.5). */
+    "computer-watch",
   ],
   { $id: "ViewPane" },
 );

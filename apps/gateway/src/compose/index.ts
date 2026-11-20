@@ -108,6 +108,7 @@ import type { PublicRoute, WebhookRoute } from "../http.ts";
 import { createLogger } from "../log.ts";
 import { personalizeMessageEvent } from "../message-scrub.ts";
 import { openGatewayDb, purgePreUpdateSnapshots, releaseGatewayLock } from "../pre-update.ts";
+import { TraceScrubWorker } from "../run-trace/forget-scrub.ts";
 import { taskRunTrace } from "../run-trace/tasks.ts";
 import { alertNotice, alertNotifyDecision } from "../security/alerts.ts";
 import { sealedPermissionStore } from "../security/sealed-stores.ts";
@@ -211,6 +212,7 @@ import {
   launchConfigLinks,
   ownWorkdirs,
   protectedRoots,
+  runCarveOuts,
   writeProtection,
 } from "./protected-paths.ts";
 import { createPurchaseTool, LINK_PAYMENT_SOURCE, PURCHASE_TOOL } from "./purchase-tool.ts";
@@ -292,6 +294,7 @@ import { updateHandlers } from "./update.ts";
 import { usageSummaryHandlers } from "./usage-summary.ts";
 import { createUserProfile } from "./user-profile.ts";
 import { composeVault, maskingLogger, type VaultSetup, vaultSetupFromEnv } from "./vault.ts";
+import { composeVirtualScreen } from "./virtual-screen.ts";
 import type { ComposedVm } from "./vm.ts";
 import { type ComposedWebTools, composeWebTools, type WebToolsSetup } from "./web-tools.ts";
 import { ensureWeeklyCardAutomation, withWeeklyCard } from "./weekly-card.ts";
@@ -1037,6 +1040,22 @@ export async function composeGateway(options: ComposeOptions): Promise<ComposedG
   const memoryLate = memoryDb.late;
   // The people graph is composed once the tool registry exists; card edits reach it from here.
   let people: People | undefined;
+  // Forget's trace scrub: a queued, resumable pass. A run in progress (the loop's view) keeps the
+  // final pass waiting until it has ended.
+  const traceScrub = new TraceScrubWorker({
+    db,
+    activeRuns: () =>
+      (
+        db.sqlite
+          .prepare(
+            "SELECT id, thread_id FROM runs WHERE status IN ('running', 'awaiting_approval', 'awaiting_input')",
+          )
+          .all() as { id: string; thread_id: string }[]
+      )
+        .filter((r) => loop.isActive(r.thread_id))
+        .map((r) => r.id),
+    log: (level, message) => gwOptions.logger?.log(level, message),
+  });
   const memory = await createMemoryStore({
     db,
     ...(memoryLate === undefined ? {} : { sqlite: memoryDb.sqlite, deferInit: true }),
@@ -1046,6 +1065,22 @@ export async function composeGateway(options: ComposeOptions): Promise<ComposedG
     approvals: brokerApprovalCheck(broker),
     audit,
     onChange: (c) => void changes.record(memoryChange(c)),
+    // Every forget (the RPC and the agent's tool both come here) cuts the forgotten words out of
+    // the saved chats and the run traces. The trace pass is queued first and runs in the
+    // background; the transcript pass is short and synchronous. A failure in either is logged and
+    // never fails the forget, which has already committed.
+    onForget: ({ subject }) => {
+      try {
+        traceScrub.enqueue(subject);
+      } catch {
+        gwOptions.logger?.log("warn", "forget could not queue the run-trace scrub");
+      }
+      try {
+        gatewayRef?.context.messageScrub.heal?.();
+      } catch {
+        gwOptions.logger?.log("warn", "forget could not cut the words from saved chats");
+      }
+    },
     flush: { provider, model: utility ?? modelRef },
     onEvent: (e) => {
       if (e.event === "memory.file.changed") {
@@ -1098,6 +1133,7 @@ export async function composeGateway(options: ComposeOptions): Promise<ComposedG
     ],
     protectedRoots: () => protectedRoots(config.home),
     ownDirs: () => ownWorkdirs(config.home),
+    carveOuts: () => runCarveOuts(),
     writeProtectedRoots: () => writeProtection(),
     launchConfigLinks: launchConfigLinks(() => rawBroker.grantedFolders()),
     onChange: (c) => void changes.record(fileChange(c)),
@@ -1316,6 +1352,8 @@ export async function composeGateway(options: ComposeOptions): Promise<ComposedG
   const skills = composeSkills();
   const partFactories = [
     composeComputer,
+    // Linux virtual screen (watch pane methods); inert without a Linux helper.
+    composeVirtualScreen,
     // The separate desktop (Linux only; nothing runs until a Task asks for it).
     composeSeparateDesktop({
       onSettingChanged: (listener) => void settingListeners.push(listener),
@@ -2420,6 +2458,21 @@ export async function composeGateway(options: ComposeOptions): Promise<ComposedG
   const unsubscribeHelperChange = gateway.context.nodes.onHostHelperChange(syncHelperAvailability);
   syncHelperAvailability();
   // The owner's folder grants and rules apply without a restart (settings.set → broker policy).
+  // A run that ends lets a waiting Forget trace pass go on (no polling). This relies on the
+  // `run.updated` frame; a run that ends without one is picked up at the next wake or at the
+  // pass's 24 h expiry.
+  const unsubscribeTraceScrub = gateway.bus.subscribe(["operator.read"], (frame) => {
+    if (!frame.includes('"run.updated"')) return;
+    try {
+      const f = JSON.parse(frame) as { event?: string; payload?: { run?: { status?: string } } };
+      const status = f.payload?.run?.status;
+      if (f.event === "run.updated" && status !== "running" && !status?.startsWith("awaiting")) {
+        traceScrub.wake();
+      }
+    } catch {
+      // A frame that is not JSON is not a run ending.
+    }
+  });
   const unsubscribePolicy = gateway.bus.subscribe(["operator.read"], (frame) => {
     const f = JSON.parse(frame) as {
       event?: string;
@@ -2496,6 +2549,8 @@ export async function composeGateway(options: ComposeOptions): Promise<ComposedG
   // Clear chat and delete end the conversation: its "Allow once" folders and attached files go.
   gateway.context.threadEnded.add(endSessionQuietly(rawBroker, gwOptions.logger));
   gateway.context.messageScrub.scrub = (message, who) => everything.lifeChat.scrub(message, who);
+  // Phrases still queued by a Forget before the last shutdown resume here.
+  traceScrub.start();
   await proactive.start();
   await ensureWeeklyCardAutomation(scheduler, {
     timezone: timeZone ?? Intl.DateTimeFormat().resolvedOptions().timeZone,
@@ -2555,12 +2610,14 @@ export async function composeGateway(options: ComposeOptions): Promise<ComposedG
     async stop(reason) {
       for (const part of [...parts].reverse()) await part.stop?.();
       proactive.stop();
+      traceScrub.stop();
       vault.stop();
       await pool.stop();
       await specialistPool.stop();
       scheduler.stop();
       memory.unwatch();
       unsubscribePolicy();
+      unsubscribeTraceScrub();
       unsubscribeHelperChange();
       unsubscribeAttention();
       // Suspended subscription-CLI runs end with the Gateway.

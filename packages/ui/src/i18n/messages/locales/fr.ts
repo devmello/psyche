@@ -6,6 +6,7 @@ import { canvas } from "./canvas/fr.ts";
 import { capabilitiesRest } from "./capabilities-rest/fr.ts";
 import { charts } from "./charts/fr.ts";
 import { chatRest } from "./chat-rest/fr.ts";
+import { computerWatch } from "./computer-watch/fr.ts";
 import { dailyRest } from "./daily-rest/fr.ts";
 import { deckRest } from "./deck-rest/fr.ts";
 import { designRest } from "./design-rest/fr.ts";
@@ -16,6 +17,7 @@ import { helperCheck } from "./helper-check/fr.ts";
 import { helperOffline } from "./helper-offline/fr.ts";
 import { homeRest } from "./home-rest/fr.ts";
 import { links } from "./links/fr.ts";
+import { linuxAccess } from "./linux-access/fr.ts";
 import { mailMeetings } from "./mail-meetings/fr.ts";
 import { memoryMap } from "./memory-map/fr.ts";
 import { memoryRest } from "./memory-rest/fr.ts";
@@ -564,6 +566,12 @@ export const fr: Partial<Catalogue> = {
   "context.marker.readsInstead": "Le résumé que l’agent lit à la place :",
   "context.marker.empty": "Rien qui mérite d’être conservé n’a été trouvé.",
   "context.marker.showReplaced": "Afficher ce qui a été remplacé",
+  "context.marker.removePin": "Retirer",
+  "context.marker.removePinLabel": "Retirer cette instruction permanente : {text}",
+  "context.marker.pinRemoved": "Instruction permanente retirée.",
+  "context.marker.pinRemoveFailed": "Impossible de la retirer : {reason}",
+  "context.marker.droppedPins":
+    "{count, plural, one {Une ancienne instruction permanente a été abandonnée} other {# anciennes instructions permanentes ont été abandonnées}} pour faire de la place aux nouvelles.",
   "context.marker.replacedList": "Tours remplacés",
   "context.marker.notLoaded": "Les tours remplacés ne sont pas chargés ici.",
   "context.marker.speaker": "{name} :",
@@ -3083,6 +3091,7 @@ export const fr: Partial<Catalogue> = {
   "screens.library.recording.empty": "Cet enregistrement n'a aucune étape.",
   "screens.library.recording.noFrame": "Aucune image pour cette étape.",
   "screens.library.recording.frameAlt": "Le navigateur à l'étape {n}",
+  "screens.library.recording.reviewPermissions": "Examiner dans Autorisations",
   "screens.library.recording.loading": "Chargement de l'enregistrement",
   "screens.library.recording.loadFailed":
     "Psyche n'a pas pu charger cet enregistrement ({reason}).",
@@ -3729,6 +3738,10 @@ export const fr: Partial<Catalogue> = {
   ...helperOffline,
   // the security-records banner (docs/design/security-state-integrity-2026.md §7.3)
   ...securityState,
+  // Settings → Computer use on Linux: screen and input access
+  ...linuxAccess,
+  // the Virtual screen watch pane (docs/design/linux-desktop-2026.md §7.5)
+  ...computerWatch,
   // Gateway-authored notices (inbox notifications, security alerts)
   ...notices,
   // Settings > Computer use > Separate desktop (Linux)

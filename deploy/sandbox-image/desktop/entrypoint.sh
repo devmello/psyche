@@ -109,7 +109,10 @@ wipe() {
     [ -e "$_t" ] || continue
     /usr/bin/chmod -R u+rwX "$_t" 2> /dev/null || true
     /usr/bin/rm -rf "$_t" 2> /dev/null || true
-    if [ -e "$_t" ]; then /usr/bin/mv "$_t" "$HOME/.psyche-removed-$$" 2> /dev/null || true; fi
+    if [ -e "$_t" ]; then
+      _aside=$(/usr/bin/mktemp -d "$HOME/.psyche-removed.XXXXXX" 2> /dev/null) \
+        && /usr/bin/mv "$_t" "$_aside/" 2> /dev/null || true
+    fi
   done
   return 0
 }

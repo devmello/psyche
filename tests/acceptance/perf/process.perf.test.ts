@@ -168,22 +168,37 @@ async function boot(
   children.add(child);
   const { origin, listenMs } = await new Promise<{ origin: string; listenMs: number }>(
     (ok, fail) => {
+      // Routine logs go to $PSYCHE_HOME/logs/gateway.log; stderr carries only crashes and
+      // logging failures. Read both.
       let buf = "";
+      const logFile = join(home, "logs", "gateway.log");
+      const done = (fn: () => void) => {
+        clearTimeout(timer);
+        clearInterval(poll);
+        fn();
+      };
+      const look = () => {
+        let text = buf;
+        try {
+          text += readFileSync(logFile, "utf8");
+        } catch {}
+        const m = /"msg":"gateway listening","origin":"(http:\/\/127\.0\.0\.1:\d+)"/.exec(text);
+        if (m) {
+          done(() => ok({ origin: m[1] as string, listenMs: performance.now() - t0 }));
+        }
+      };
       const timer = setTimeout(
-        () => fail(new Error(`${t.name}: no "gateway listening" in 30 s\n${buf}`)),
+        () => done(() => fail(new Error(`${t.name}: no "gateway listening" in 30 s\n${buf}`))),
         30_000,
       );
+      const poll = setInterval(look, 100);
       child.stderr?.on("data", (d) => {
         buf += String(d);
-        const m = /"msg":"gateway listening","origin":"(http:\/\/127\.0\.0\.1:\d+)"/.exec(buf);
-        if (m) {
-          clearTimeout(timer);
-          ok({ origin: m[1] as string, listenMs: performance.now() - t0 });
-        }
+        look();
       });
       child.on("exit", (code) => {
-        clearTimeout(timer);
-        fail(new Error(`${t.name} exited ${code}\n${buf}`));
+        look();
+        done(() => fail(new Error(`${t.name} exited ${code}\n${buf}`)));
       });
     },
   );

@@ -204,6 +204,17 @@ before `codesign`. `psyche-helper` goes from 29.7 to 10.1 MiB (31,145,840 to 10,
 `__LINKEDIT` (symbols) shrinks from 21.0 to 1.4 MiB, `__TEXT` is unchanged. Runtime RAM is
 unchanged. `PSYCHE_HELPER_STRIP=x` (strip -x) or `none` overrides it.
 
+## 2026-11-19: psychedMB 208 to 250
+
+Fresh main (2c63447e9) built darwin-arm64 at **209.3 MiB**, over 208. The owner raised the limit to
+250 MiB rather than cutting the bundle. Largest entries on that build (KiB): `runtime/node` 95260
+(Node 24.22.1); `onnxruntime-node` darwin-arm64 dylib 44272; `app/apps/web` 37984; `app/apps/gateway`
+9940; `app/apps/cli` 2244; `playwright-core` 7904; `pdfjs-dist` 7952; `better-sqlite3-multiple-ciphers`
+2320; `better-sqlite3` 2068. Only about 1.4 MiB of the bundle looks like dev material (headers, .md,
+.ts), and nothing is a duplicate copy: the bundle is all real files apart from 62 symlinks.
+The dependency bumps since 205 to 208 are onnxruntime-node 1.30.0 to 1.31.1, pdfjs-dist 6.4.299 to
+6.5.438, playwright-core 1.64.1 to 1.65.1, better-sqlite3 13.0.3 to 13.2.0.
+
 ## 2026-11-18: psychedMB 205 to 208
 
 The Gateway bundle (`Resources/psyched`, the `psychedMB` check) measured **210.4 MiB** on a real

@@ -405,6 +405,20 @@ export class ContainerSandboxRunner implements SandboxRunner {
     });
   }
 
+  /**
+   * Removes the scope's container whether or not this process adopted it (a container from
+   * before a restart keeps its name); the workspace volume and its provenance stay.
+   */
+  async destroyScope(scope: SandboxScope): Promise<void> {
+    validateScope(scope);
+    const entry = this.#byScope.get(scopeKey(scope));
+    if (entry) return this.destroy(entry.instance.id);
+    const backend = await this.#primary().catch(() => undefined);
+    if (backend === undefined) return;
+    const { container } = this.#names(scope);
+    await this.#cli(backend, removeArgs(backend.kind, container), { timeoutMs: 60_000 });
+  }
+
   /** Stops the container (it restarts on the next call); files in `/workspace` persist. */
   async stop(sandboxId: string): Promise<void> {
     const entry = this.#byId.get(sandboxId);

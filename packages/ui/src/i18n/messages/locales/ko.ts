@@ -10,6 +10,7 @@ import { capabilitiesRest } from "./capabilities-rest/ko.ts";
 import { charts } from "./charts/ko.ts";
 import { chatRest } from "./chat-rest/ko.ts";
 import { commonRest } from "./common-rest/ko.ts";
+import { computerWatch } from "./computer-watch/ko.ts";
 import { dailyRest } from "./daily-rest/ko.ts";
 import { deckRest } from "./deck-rest/ko.ts";
 import { designRest } from "./design-rest/ko.ts";
@@ -20,6 +21,7 @@ import { helperCheck } from "./helper-check/ko.ts";
 import { helperOffline } from "./helper-offline/ko.ts";
 import { homeRest } from "./home-rest/ko.ts";
 import { links } from "./links/ko.ts";
+import { linuxAccess } from "./linux-access/ko.ts";
 import { mailMeetings } from "./mail-meetings/ko.ts";
 import { meetingRecordRest } from "./meetingRecord-rest/ko.ts";
 import { memoryMap } from "./memory-map/ko.ts";
@@ -578,6 +580,12 @@ export const ko: Partial<Catalogue> = {
   "context.marker.readsInstead": "에이전트가 대신 읽는 요약:",
   "context.marker.empty": "보존할 만한 내용이 없었습니다.",
   "context.marker.showReplaced": "대체된 내용 보기",
+  "context.marker.removePin": "삭제",
+  "context.marker.removePinLabel": "이 상시 지침 삭제: {text}",
+  "context.marker.pinRemoved": "상시 지침을 삭제했습니다.",
+  "context.marker.pinRemoveFailed": "삭제하지 못했습니다: {reason}",
+  "context.marker.droppedPins":
+    "{count, plural, other {이전 상시 지침 #개를 새 지침을 위한 공간을 만들기 위해 삭제했습니다.}}",
   "context.marker.replacedList": "대체된 턴",
   "context.marker.notLoaded": "대체된 턴은 여기에 로드되지 않았습니다.",
   "context.marker.speaker": "{name}:",
@@ -3027,6 +3035,7 @@ export const ko: Partial<Catalogue> = {
   "screens.library.recording.empty": "이 녹화에는 단계가 없습니다.",
   "screens.library.recording.noFrame": "이 단계에는 화면이 없습니다.",
   "screens.library.recording.frameAlt": "{n}단계의 브라우저",
+  "screens.library.recording.reviewPermissions": "권한에서 검토",
   "screens.library.recording.loading": "녹화를 불러오는 중",
   "screens.library.recording.loadFailed": "Psyche가 이 녹화를 불러오지 못했습니다({reason}).",
   "screens.library.recording.notFound": "이 녹화는 더 이상 사용할 수 없습니다.",
@@ -3661,6 +3670,10 @@ export const ko: Partial<Catalogue> = {
   ...helperOffline,
   // the security-records banner (docs/design/security-state-integrity-2026.md §7.3)
   ...securityState,
+  // Settings → Computer use on Linux: screen and input access
+  ...linuxAccess,
+  // the Virtual screen watch pane (docs/design/linux-desktop-2026.md §7.5)
+  ...computerWatch,
   // Gateway-authored notices (inbox notifications, security alerts)
   ...notices,
   // Settings > Computer use > Separate desktop (Linux)

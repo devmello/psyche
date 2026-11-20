@@ -501,6 +501,9 @@ export class Connection implements LiveConnection {
 
   /** A memory call that removes something: the answers kept in chats lose the words it supported. */
   #healAnswers(method: string): void {
+    // `memory.forget` heals through the memory store's forget hook, which the agent's tool also
+    // reaches; healing here as well would run the same pass twice.
+    if (method === "memory.forget") return;
     if (!/^memory\..*(forget|retract|delete|decide|reject)/i.test(method)) return;
     try {
       this.#ctx.messageScrub.heal?.();

@@ -5,7 +5,9 @@
 #   --quick    lint-level checks only (biome, secret-grep, protocol and i18n checks): seconds, no
 #              typecheck, no tests. The Stop hook uses this.
 #   --related  also run existing tests that import the touched source files (`vitest related`).
-#              The slowest stage: it is for the one merge-gate run of a PR, not for builders.
+#              It also runs the app test files that import a touched packages/<pkg>/src package
+#              (capped by PSYCHE_VERIFY_DEP_CAP, default 60). The slowest stage: it is for the
+#              one merge-gate run of a PR, not for builders.
 #   --base     compare against this ref (default: merge-base with origin/main)
 #   --swift    also build and test touched Swift packages (waits for any other Swift build first)
 #   --quiet    print only the summary and failures
@@ -74,12 +76,17 @@ fi
 # A few full checks at a time on this Mac, never more. Each slot is a lock dir in the shared git
 # dir, so every worktree sees them; a slot whose owner process is gone is taken over. The owner's
 # rule (2026-11-18) was one at a time on the old Mac; on the M4 Pro (2026-11-19, "do what you will
-# with that") machines with 10+ cores get 3 slots. PSYCHE_VERIFY_SLOTS overrides.
+# with that") machines with 10+ cores get 3 slots. 2026-11-19 evening, the owner had more compute
+# to spare: with 18 runs queued the load sat near 6 on 12 cores, so 12+ cores with 24+ GB get 5.
+# PSYCHE_VERIFY_SLOTS overrides.
 if [ "$quick" = 0 ]; then
   slots="${PSYCHE_VERIFY_SLOTS:-}"
   if [ -z "$slots" ]; then
     cores="$(sysctl -n hw.ncpu 2>/dev/null || nproc 2>/dev/null || echo 1)"
-    if [ "$cores" -ge 10 ] 2>/dev/null; then slots=3; else slots=1; fi
+    mem_gb=$(( $(sysctl -n hw.memsize 2>/dev/null || echo 0) / 1073741824 ))
+    if [ "$cores" -ge 12 ] 2>/dev/null && [ "$mem_gb" -ge 24 ] 2>/dev/null; then slots=5
+    elif [ "$cores" -ge 10 ] 2>/dev/null; then slots=3
+    else slots=1; fi
   fi
   lockdir="$(cd "$(git rev-parse --git-common-dir)" && pwd)/agent-verify"
   mkdir -p "$lockdir"
@@ -276,6 +283,63 @@ $(echo "$tracked" | grep -E "/$b\.(test|spec)\.(ts|tsx|mts)$" | sed "s#^$pkg/##"
   [ -n "$pre" ] && warn+=("$name: also failing on the base (pre-existing, not yours):$pre")
   if [ -n "$own" ]; then fail+=("$name|$log.rerun.log"); else pass+=("$name"); fi
 done
+# Dependent app tests (--related only). A change to packages/<pkg>/src can break an app test that
+# imports @psyche/<pkg>, and the per-package run above never reaches it: #1437 broke
+# apps/gateway/test/context.test.ts this way. So for each touched shared package, run the app test
+# files that import it directly (git grep, not the whole app suite). Capped at PSYCHE_VERIFY_DEP_CAP
+# files (default 60); a longer list is cut and noted. A failure is compared with the base, as above.
+if [ "$related" = 1 ]; then
+dep_cap="${PSYCHE_VERIFY_DEP_CAP:-60}"
+dep_list=""
+for dpkg in $(echo "$changed" | grep -E '^packages/[^/]+/src/.*\.(ts|tsx|mts)$' | grep -vE '\.(test|spec)\.' | cut -d/ -f2 | sort -u); do
+  npm_name="$(node -e "const p=require('./packages/$dpkg/package.json');process.stdout.write(p.name||'')" 2>/dev/null)"
+  [ -n "$npm_name" ] || continue
+  hits="$(git grep -l -E "[\"']${npm_name}[\"'/]" -- 'apps/*/test/*' 2>/dev/null | grep -E '\.(test|spec)\.(ts|tsx|mts)$' || true)"
+  dep_list="$dep_list
+$hits"
+done
+dep_list="$(echo "$dep_list" | grep -v '^$' | sort -u || true)"
+dep_total="$(echo "$dep_list" | grep -c . || true)"
+if [ "$dep_total" -gt "$dep_cap" ]; then
+  warn+=("dependents: $dep_total app test files import a touched shared package; ran the first $dep_cap (PSYCHE_VERIFY_DEP_CAP)")
+  dep_list="$(echo "$dep_list" | head -n "$dep_cap")"
+fi
+for app in $(echo "$dep_list" | grep . | cut -d/ -f2 | sort -u); do
+  files="$(echo "$dep_list" | grep "^apps/$app/" | sed "s#^apps/$app/##")"
+  name="vitest-dependents:$app"
+  log="$logdir/${name//[^A-Za-z0-9_.-]/_}"
+  [ "$quiet" = 1 ] || echo "verify: $name ($(echo "$files" | grep -c .) test files import a touched package)"
+  # shellcheck disable=SC2086
+  (cd "apps/$app" && pnpm exec vitest run --passWithNoTests --maxWorkers=1 \
+    --reporter=default --reporter=json --outputFile.json="$log.json" $files) >"$log.log" 2>&1
+  [ $? -eq 0 ] && { pass+=("$name"); continue; }
+  bad="$(failed_files "$log.json")"
+  [ -n "$bad" ] || { fail+=("$name|$log.log"); continue; }  # crashed before reporting: real failure
+  own=""
+  pre=""
+  if bt="$(base_tree)"; then
+    for f in $bad; do
+      rel="${f#"$PWD/apps/$app/"}"
+      bj="$log.base.$(basename "$rel").json"
+      rm -f "$bj"
+      (cd "$bt/apps/$app" && pnpm exec vitest run --maxWorkers=1 --reporter=json --outputFile.json="$bj" \
+        "$rel") >/dev/null 2>&1
+      new="$(new_failures "$log.json" "$f" "$bj")"
+      if [ -z "$new" ]; then
+        pre="$pre $rel"
+      else
+        own="$own $rel"
+        echo "$new" | sed "s#^#        new in $rel: #" >>"$log.log"
+      fi
+    done
+  else
+    own="$bad"
+    warn+=("$name: could not set up the base worktree to tell pre-existing failures apart")
+  fi
+  [ -n "$pre" ] && warn+=("$name: also failing on the base (pre-existing, not yours):$pre")
+  if [ -n "$own" ]; then fail+=("$name|$log.log"); else pass+=("$name"); fi
+done
+fi
 # Message files that name Mac or Touch ID need Linux/Windows variants; `vitest related` misses
 # the platform tests (#1338 broke main), so always run them when the messages change.
 if echo "$changed" | grep -q '^packages/ui/src/i18n/messages/'; then

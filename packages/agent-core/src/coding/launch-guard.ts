@@ -1,18 +1,21 @@
 import { randomBytes } from "node:crypto";
-import type { BigIntStats, Dirent } from "node:fs";
+import { type BigIntStats, constants, type Dirent } from "node:fs";
 import {
   cp,
+  type FileHandle,
   lstat,
   mkdir,
+  open,
   readdir,
   readFile,
   readlink,
   realpath,
   rename,
   rm,
+  symlink,
   writeFile,
 } from "node:fs/promises";
-import { dirname, join } from "node:path";
+import { dirname, isAbsolute, join, relative, sep } from "node:path";
 import { findLaunchConfig, type LaunchConfigScan } from "@psyche/hostfs";
 import { PsycheError, type SandboxMount } from "@psyche/protocol";
 
@@ -33,6 +36,9 @@ import { PsycheError, type SandboxMount } from "@psyche/protocol";
  * Moves check the identity of what they moved: a folder swapped for a link meanwhile (a process
  * the run left running) cannot make one take something of the owner's from elsewhere. A writer
  * left running after the check is not seen (a residual: the copy-out design is the fix).
+ * Mode bits the run set through the share (#1438 review r3) neither pin an entry in place nor
+ * hide it from the walk: on a folder the Gateway's own user owns, the bits a move or the walk
+ * needs are added back (`lift`), only through a handle checked to be that folder.
  */
 
 /** Read-only folder mounts at most (each is one bind mount); over it `code.run` is refused. */
@@ -49,6 +55,10 @@ const GIT_RUNS_FROM = ["config", "hooks", "info", "commondir", "gitdir"];
 const QUARANTINE_ID = /^[0-9]{13}-[0-9a-f]{8}$/;
 /** Claude Code's folder: mounted read-only whole, so its worktrees' settings are covered too. */
 const CLAUDE_DIR = ".claude";
+/** Rounds of making unlistable folders listable again (each one level deeper) at most. */
+const MAX_UNHIDE_ROUNDS = 16;
+/** Folders and files inside one entry given back their owner's bits at most, for a copy. */
+const MAX_LIFTED = 10_000;
 
 /**
  * Files apps rewrite all the time inside their own folder, left out of "changed" (only inside a
@@ -70,7 +80,11 @@ export interface LaunchConfigReport {
   changed: string[];
   /** What each changed path is now (its fingerprint, `gone` when it went). */
   fingerprints: Record<string, string>;
-  /** New entries that could not be moved. */
+  /**
+   * New entries that could not be moved, still in place and not held; folders the run made
+   * unlistable that stay so, or that were swapped while they were made listable; and folders
+   * unlistable before the run that changed during it: nothing in them was checked.
+   */
   unmoved: string[];
   /**
    * Entries whose move brought in something other than what was checked (a folder on the way
@@ -78,6 +92,8 @@ export interface LaunchConfigReport {
    * owner can look before Keep it puts them at their path.
    */
   incidents: string[];
+  /** Links the run replaced or removed, linked again as they were (`.claude`). */
+  relinked: string[];
   /** The repository was too large to walk: only its top levels were checked. */
   partial: boolean;
 }
@@ -116,11 +132,11 @@ export async function guardLaunchConfig(
   const partial = !scan.complete;
   const limits: Limits = partial ? TOP : full;
   if (partial) scan = await findLaunchConfig(root, TOP);
-  const claude = await isRealDir(join(root, CLAUDE_DIR));
+  const claude = await claudeFolder(root);
   const readOnly = [
-    ...(claude ? [CLAUDE_DIR] : []),
+    ...(claude.mount === undefined ? [] : [claude.mount]),
     ...scan.found
-      .filter((f) => f.kind === "dir" && !underClaude(f.rel, claude))
+      .filter((f) => f.kind === "dir" && !underClaude(f.rel, claude.kind === "dir"))
       .map((f) => f.rel)
       .sort((a, b) => depth(a) - depth(b) || (a < b ? -1 : 1)),
   ];
@@ -131,19 +147,104 @@ export async function guardLaunchConfig(
       { details: { reason: "launch_config_too_many", count: readOnly.length } },
     );
   }
-  const before = await prints(root, scan);
+  const before = await prints(root, scan, claude.kind === "link");
+  // Who each read-only folder is (#1438 reviews r1 and r2): a read-only mount moves with its
+  // folder when the run renames the folder above it, so the same path can hold something new
+  // afterwards, and the owner's original can turn up under another name. Only these folders,
+  // whose contents the run cannot change, exempt a new path: a file the run moved or linked
+  // elsewhere can carry new content, so it is held like anything new.
+  const ids: Identities = { mounted: new Map(), originals: new Set(), hidden: new Map() };
+  // Folders already unlistable before the run are left as they are, but watched.
+  for (const { rel } of scan.unreadable ?? []) {
+    const st = await lstat(join(root, rel), { bigint: true }).catch(() => undefined);
+    if (st !== undefined) ids.hidden.set(rel, stamp(st));
+  }
+  for (const rel of readOnly) {
+    const st = await lstat(join(root, rel), { bigint: true }).catch(() => undefined);
+    if (st === undefined) continue;
+    const git = rel === ".git" || rel.endsWith("/.git");
+    ids.mounted.set(rel, { id: idOf(st), git });
+    ids.originals.add(idOf(st));
+  }
   return {
     mounts: readOnly.map((rel) => ({
       source: join(root, rel),
       target: `${mountRoot}/${rel}`,
       readOnly: true,
     })),
-    settle: () => settle(root, scan, claude, before, limits, partial, options),
+    settle: () => settle(root, scan, claude, ids, before, limits, partial, options),
   };
 }
 
+interface Identities {
+  /** Each read-only-mounted folder: its identity, and whether it is a git folder. */
+  mounted: Map<string, { id: string; git: boolean }>;
+  /** Every read-only-mounted folder, by identity: the owner's, wherever it is now. */
+  originals: Set<string>;
+  /** Folders the walk could not list before the run, with their `stamp`. */
+  hidden: Map<string, string>;
+}
+
+const idOf = (st: BigIntStats) => `${st.dev}:${st.ino}`;
+/** Who a folder is and when it or its entries last changed. */
+const stamp = (st: BigIntStats) => `${idOf(st)}:${st.mtimeNs}:${st.ctimeNs}`;
+
+async function identity(path: string): Promise<string | undefined> {
+  const st = await lstat(path, { bigint: true }).catch(() => undefined);
+  return st === undefined ? undefined : idOf(st);
+}
+
+/**
+ * `.claude` as it is before the run, of any kind (#1435 review r3). A real folder is mounted
+ * read-only whole. A link to a folder inside the repository gets that folder mounted read-only
+ * (the link resolves to it in the sandbox too); a link outside it resolves to nothing the
+ * sandbox shares. Either way an existing `.claude` is never quarantined, and the settings files
+ * behind a link are fingerprinted, so a change there shows under "changed".
+ */
+interface ClaudeFolder {
+  kind: "none" | "dir" | "link" | "other";
+  /** The repository-relative folder to mount read-only, if any. */
+  mount?: string;
+  /** A link's own text, to link it again as it was. */
+  linkText?: string;
+  /** Where a link resolved before the run, and what was there (dev:ino); unset when dangling. */
+  real?: string;
+  targetId?: string;
+}
+
+async function claudeFolder(root: string): Promise<ClaudeFolder> {
+  const path = join(root, CLAUDE_DIR);
+  const st = await lstat(path).catch(() => undefined);
+  if (st === undefined) return { kind: "none" };
+  if (st.isDirectory()) return { kind: "dir", mount: CLAUDE_DIR };
+  if (!st.isSymbolicLink()) return { kind: "other" };
+  const linkText = await readlink(path);
+  const { real, id: targetId } = await resolution(path);
+  const resolved = {
+    ...(real === undefined ? {} : { real }),
+    ...(targetId === undefined ? {} : { targetId }),
+  };
+  const target = real === undefined ? undefined : await lstat(real).catch(() => undefined);
+  if (real === undefined || target?.isDirectory() !== true) {
+    return { kind: "link", linkText, ...resolved };
+  }
+  const rel = relative(root, real);
+  const inside = rel !== "" && !rel.startsWith("..") && !isAbsolute(rel);
+  return inside
+    ? { kind: "link", mount: rel.split(sep).join("/"), linkText, ...resolved }
+    : { kind: "link", linkText, ...resolved };
+}
+
+/** Where `path` resolves and who is there (dev:ino); both unset when nothing is. */
+async function resolution(path: string): Promise<{ real?: string; id?: string }> {
+  const real = await realpath(path).catch(() => undefined);
+  if (real === undefined) return {};
+  const id = await identity(real);
+  return id === undefined ? { real } : { real, id };
+}
+
 const depth = (rel: string) => rel.split("/").length;
-const underClaude = (rel: string, claude: boolean) =>
+const underClaude = (rel: string, claude: boolean): boolean =>
   claude && (rel === CLAUDE_DIR || rel.startsWith(`${CLAUDE_DIR}/`));
 
 async function isRealDir(path: string): Promise<boolean> {
@@ -154,7 +255,8 @@ async function isRealDir(path: string): Promise<boolean> {
 async function settle(
   root: string,
   was: LaunchConfigScan,
-  claudeBefore: boolean,
+  claude: ClaudeFolder,
+  ids: Identities,
   before: Map<string, string>,
   limits: Limits,
   partial: boolean,
@@ -166,6 +268,7 @@ async function settle(
     fingerprints: {},
     unmoved: [],
     incidents: [],
+    relinked: [],
     partial,
   };
   let now: LaunchConfigScan;
@@ -175,6 +278,44 @@ async function settle(
     report.unmoved.push(".");
     return report;
   }
+  // A folder the run made unlistable (no read or search permission) hides what is in it from
+  // the walk, though an app can still open a file in it by name: listable again, as it was
+  // before the run, when the Gateway's user owns it; each round can show one more level.
+  const hiddenBefore = new Set(ids.hidden.keys());
+  const tried = new Set<string>();
+  // Refused, or swapped for something else meanwhile: said, whatever is at the path now.
+  const failed = new Set<string>();
+  for (let round = 0; round < MAX_UNHIDE_ROUNDS; round++) {
+    const hidden = (now.unreadable ?? []).filter(
+      (u) => !hiddenBefore.has(u.rel) && !tried.has(u.rel),
+    );
+    if (hidden.length === 0) break;
+    for (const { rel, id } of hidden) {
+      tried.add(rel);
+      try {
+        // Pinned to who the walk found inside the share (#1450 review r2): a folder above it
+        // swapped for a link since cannot aim this at a folder of the owner's elsewhere.
+        if (id === undefined) throw new PsycheError("forbidden", `${rel} moved during the walk`);
+        await assertInside(root, `${rel}/-`);
+        await lift(join(root, rel), 0o500, id);
+      } catch {
+        failed.add(rel);
+      }
+    }
+    try {
+      now = await findLaunchConfig(root, limits);
+    } catch {
+      report.unmoved.push(".");
+      return report;
+    }
+  }
+  for (const { rel } of now.unreadable ?? []) if (!hiddenBefore.has(rel)) failed.add(rel);
+  // One unlistable before the run that changed during it may hold what the run made there.
+  for (const [rel, was] of ids.hidden) {
+    const st = await lstat(join(root, rel), { bigint: true }).catch(() => undefined);
+    if (st === undefined || stamp(st) !== was) failed.add(rel);
+  }
+  report.unmoved.push(...[...failed].sort());
   if (!now.complete) report.partial = true;
   const known = new Set(was.found.map((f) => f.rel));
   // New: launch config the run created, and a `.claude` that was not there (its worktrees are
@@ -182,25 +323,86 @@ async function settle(
   // owner's). A `.git` the run made keeps its objects and refs (a clone keeps its history), but
   // what git runs or reads config from goes: its config, hooks, info and pointer files, or a
   // `.git` file whole.
+  const claudeBefore = claude.kind !== "none";
   const claudeNow = !claudeBefore && (await lstat(join(root, CLAUDE_DIR)).catch(() => undefined));
   const fresh: string[] = claudeNow ? [CLAUDE_DIR] : [];
+  const gitRunsFrom = async (rel: string) => {
+    for (const name of GIT_RUNS_FROM) {
+      if (await lstat(join(root, rel, name)).catch(() => undefined)) fresh.push(`${rel}/${name}`);
+    }
+  };
+  // A read-only folder whose path now holds something else: its folder was renamed during the
+  // run and this was made in its place. It counts as new.
+  const replacedMounts = new Set<string>();
+  for (const [rel, m] of ids.mounted) {
+    const id = await identity(join(root, rel));
+    if (id === undefined || id === m.id) continue;
+    replacedMounts.add(rel);
+    if (m.git) await gitRunsFrom(rel);
+    else fresh.push(rel);
+  }
+  // `.claude` was a link: one the run replaced, retargeted or removed is put back as it was (what
+  // replaced it is held); one that no longer resolves to the folder that was mounted is held.
+  let relink = false;
+  // `.claude` still leads to its mounted target, which was made again in place: the link is the
+  // owner's and stays, unless that target cannot be moved (then the link is held too).
+  let claudeIfTargetStays = false;
+  if (claude.kind === "link" && claude.linkText !== undefined) {
+    const path = join(root, CLAUDE_DIR);
+    const st = await lstat(path).catch(() => undefined);
+    const text = st?.isSymbolicLink() === true ? await readlink(path).catch(() => "") : undefined;
+    if (st === undefined) {
+      relink = true;
+    } else if (text !== claude.linkText) {
+      fresh.push(CLAUDE_DIR);
+      relink = true;
+    } else {
+      // The same text can lead elsewhere when a folder on its way was swapped: held then, and
+      // not linked again (the same text would lead to the same place).
+      const now = await resolution(path);
+      // Its mounted target made again in place is held above; the link itself is the owner's.
+      const targetHeld =
+        claude.mount !== undefined && replacedMounts.has(claude.mount) && now.real === claude.real;
+      if (targetHeld) {
+        claudeIfTargetStays = true;
+      } else if (now.real !== claude.real || now.id !== claude.targetId) {
+        fresh.push(CLAUDE_DIR);
+      }
+    }
+  }
   for (const f of now.found) {
     if (known.has(f.rel) || f.rel === CLAUDE_DIR || f.rel.startsWith(`${CLAUDE_DIR}/`)) continue;
+    // The owner's own read-only folder under the name its renamed parent has now: never held.
+    const id = await identity(join(root, f.rel));
+    if (id !== undefined && ids.originals.has(id)) continue;
     if (f.git !== true || f.kind !== "dir") {
       fresh.push(f.rel);
       continue;
     }
-    for (const name of GIT_RUNS_FROM) {
-      if (await lstat(join(root, f.rel, name)).catch(() => undefined))
-        fresh.push(`${f.rel}/${name}`);
-    }
+    await gitRunsFrom(f.rel);
   }
   if (fresh.length > 0) {
     const id = `${(options.now?.() ?? new Date()).getTime()}-${randomBytes(4).toString("hex")}`;
     const held = join(options.quarantineDir, id);
     const incidents: Incident[] = [];
-    for (const rel of fresh) {
+    const links: Record<string, HeldLink> = {};
+    const hold = async (rel: string) => {
       try {
+        // A link is kept with where it led: the owner's `.claude` with where it led before the
+        // run, any other with where it leads now. Keep it refuses one that would lead elsewhere.
+        const at = join(root, rel);
+        const lst = await lstat(at).catch(() => undefined);
+        if (lst?.isSymbolicLink() === true) {
+          const text = await readlink(at);
+          const was = rel === CLAUDE_DIR && text === claude.linkText;
+          const r = was
+            ? {
+                ...(claude.real === undefined ? {} : { real: claude.real }),
+                ...(claude.targetId === undefined ? {} : { id: claude.targetId }),
+              }
+            : await resolution(at);
+          links[rel] = { text, ...r };
+        }
         const moved = await moveChecked(join(root, rel), join(held, "entries", rel), {
           root,
           rel,
@@ -212,24 +414,50 @@ async function settle(
           incidents.push({ rel, ...moved, at: (options.now?.() ?? new Date()).toISOString() });
         }
       } catch {
+        delete links[rel];
         report.unmoved.push(rel);
       }
+    };
+    for (const rel of fresh) await hold(rel);
+    // Decided only now that the moves are done: a target left in place would be live through
+    // the owner's link, so the link is held as well.
+    if (
+      claudeIfTargetStays &&
+      claude.mount !== undefined &&
+      !report.quarantined.includes(claude.mount)
+    ) {
+      await hold(CLAUDE_DIR);
     }
     if (report.quarantined.length > 0) {
       report.quarantineId = id;
       try {
-        await writeRecord(held, { root, entries: report.quarantined, incidents });
+        await writeRecord(held, { root, entries: report.quarantined, incidents, links });
       } catch {
         // Without its record Keep it cannot find them: say so rather than hold them silently.
         report.unmoved.push(...report.quarantined.map((rel) => `${rel} (held in ${held})`));
       }
     }
   }
+  if (relink && claude.linkText !== undefined) {
+    const path = join(root, CLAUDE_DIR);
+    if ((await lstat(path).catch(() => undefined)) !== undefined) {
+      // Something is at the path again: nothing is linked over it.
+      report.unmoved.push(CLAUDE_DIR);
+    } else {
+      try {
+        await symlink(claude.linkText, path);
+        report.relinked.push(CLAUDE_DIR);
+      } catch {
+        report.unmoved.push(CLAUDE_DIR);
+      }
+    }
+  }
   // Existing entries: what is there now against what was there, for the same paths.
-  const after = await prints(root, {
-    found: now.found.filter((f) => known.has(f.rel) || f.git === true),
-    complete: true,
-  });
+  const after = await prints(
+    root,
+    { found: now.found.filter((f) => known.has(f.rel) || f.git === true), complete: true },
+    claude.kind === "link",
+  );
   const keys = new Set([...before.keys(), ...after.keys()]);
   for (const key of [...keys].sort()) {
     const was = before.get(key);
@@ -259,7 +487,11 @@ function noise(key: string, ...prints: (string | undefined)[]): boolean {
  * ctime (a write through any share moves the host ctime, which nothing unprivileged can set
  * back). A print taken inside a launch-config folder carries that folder's path, for `noise`.
  */
-async function prints(root: string, scan: LaunchConfigScan): Promise<Map<string, string>> {
+async function prints(
+  root: string,
+  scan: LaunchConfigScan,
+  claudeLink = false,
+): Promise<Map<string, string>> {
   const out = new Map<string, string>();
   const one = async (rel: string, folder?: string) => {
     const st = await lstat(join(root, rel), { bigint: true }).catch(() => undefined);
@@ -309,11 +541,23 @@ async function prints(root: string, scan: LaunchConfigScan): Promise<Map<string,
     }
   }
   if (await isRealDir(join(root, ".git"))) await gitFolder(".git");
+  if (claudeLink) {
+    // The walk never follows the link: the link itself, and the settings files behind it.
+    await one(CLAUDE_DIR);
+    const names = await readdir(join(root, CLAUDE_DIR)).catch(() => [] as string[]);
+    for (const name of names) {
+      if (/^settings.*\.json$/i.test(name)) await one(`${CLAUDE_DIR}/${name}`);
+    }
+  }
   return out;
 }
 
 async function print(path: string, st: BigIntStats): Promise<string> {
-  if (st.isSymbolicLink()) return `link:${await readlink(path).catch(() => "?")}`;
+  if (st.isSymbolicLink()) {
+    // The text, and where it leads now (a folder on its way swapped changes that alone).
+    const r = await resolution(path);
+    return `link:${await readlink(path).catch(() => "?")}:${r.real ?? "-"}:${r.id ?? "-"}`;
+  }
   const kind = st.isFile() ? "file" : st.isDirectory() ? "dir" : "other";
   return `${kind}:${st.ino}:${st.size}:${st.mtimeNs}:${st.ctimeNs}`;
 }
@@ -364,9 +608,176 @@ async function moveChecked(
   to: string,
   at: { root: string; rel: string; beforeMove?: (from: string) => Promise<void> | void },
 ): Promise<Arrived | undefined> {
+  // Who the folder and the entry are, taken before the check that the folders above are real
+  // (#1450 review r2): the retry, its mode changes and the move itself are pinned to them, so a
+  // folder above swapped for a link at any point after leads to something else, and is refused.
+  const parent = await lstat(dirname(from), { bigint: true });
+  const entry = await lstat(from, { bigint: true }).catch((err: unknown) => {
+    // Its folder has no search permission: the entry is pinned once the folder has it.
+    if (denied(err)) return undefined;
+    throw err;
+  });
+  try {
+    return await moveOnce(from, to, at, { parent, entry });
+  } catch (err) {
+    if (!denied(err)) throw err;
+  }
+  // Refused for its mode bits (#1438 review r3): a run can make a folder read-only through the
+  // share, and a folder without write permission can neither lose an entry nor gain one, nor be
+  // moved under another folder itself. When the Gateway's user owns them, the folder `from` is
+  // in and the one `to` goes into get write and search permission, and `from` itself write
+  // permission, each through a handle checked to be the folder that was checked (never by
+  // path: a link swapped in would take the mode outside the share); then one more try. The two
+  // folders get their modes back after; what moved keeps its write permission, so the owner
+  // can look at it and Keep it can move it again.
+  const restore: (() => Promise<void>)[] = [];
+  try {
+    // Not there yet when the first try stopped before making it.
+    const into = await lstat(dirname(to), { bigint: true }).catch(() => undefined);
+    await assertInside(at.root, at.rel);
+    const lifted = await lift(dirname(from), 0o300, idOf(parent));
+    if (lifted !== undefined) restore.push(lifted);
+    if (into !== undefined && !same(parent, into)) {
+      const liftedInto = await lift(dirname(to), 0o300, idOf(into));
+      if (liftedInto !== undefined) restore.push(liftedInto);
+    }
+    const pinned = entry ?? (await lstat(from, { bigint: true }));
+    await assertInside(at.root, at.rel);
+    await lift(from, 0o200, idOf(pinned));
+    return await moveOnce(from, to, at, { parent, entry: pinned });
+  } finally {
+    for (const r of restore.reverse()) await r();
+  }
+}
+
+const denied = (err: unknown) => {
+  const code = (err as NodeJS.ErrnoException).code;
+  return code === "EACCES" || code === "EPERM";
+};
+
+const GATEWAY_UID = process.getuid?.();
+/** darwin's `O_EXEC`: with `O_DIRECTORY`, a folder opened to search it, without read permission. */
+const DARWIN_O_EXEC = 0x40000000;
+
+/**
+ * Adds `bits` (user bits only) to the mode of `path` when it is a real folder (or, with `files`,
+ * a regular file) that the Gateway's own user owns and that lacks them, as a folder a run made
+ * through the share can; anything else is left alone. `expect` pins who it must be (dev:ino,
+ * taken inside the share before the path was checked). The answer
+ * restores the mode it had, while it is still the same entry, when anything changed. Only the
+ * permission bits are ever written: setuid, setgid and sticky bits are dropped, never set.
+ */
+async function lift(
+  path: string,
+  bits: number,
+  expect?: string,
+  files = false,
+): Promise<(() => Promise<void>) | undefined> {
+  const st = await lstat(path, { bigint: true });
+  if (expect !== undefined && idOf(st) !== expect) {
+    throw new PsycheError("forbidden", `${path} moved during the check`);
+  }
+  if (!(st.isDirectory() || (files && st.isFile()))) return undefined;
+  if (GATEWAY_UID === undefined || st.uid !== BigInt(GATEWAY_UID)) return undefined;
+  const mode = Number(st.mode & 0o777n);
+  if ((mode & bits) === bits) return undefined;
+  await setMode(path, st, mode | (bits & 0o700));
+  return () => setMode(path, st, mode).catch(() => undefined);
+}
+
+/**
+ * Sets the mode of the entry `st` is, never by path (#1450 review r1): `chmod` follows a link
+ * swapped in meanwhile, which would give a mode the run picked to something of the owner's
+ * outside the share. Only through a handle opened without following a link and checked to be
+ * `st`: a folder for reading, or on macOS for search only; a file for reading or writing. What
+ * cannot be opened so is refused, and its entry stays where it is (said as not held).
+ */
+async function setMode(path: string, st: BigIntStats, mode: number): Promise<void> {
+  const base = constants.O_NOFOLLOW | constants.O_NONBLOCK | constants.O_NOCTTY;
+  const tries = st.isDirectory()
+    ? [
+        base | constants.O_DIRECTORY | constants.O_RDONLY,
+        ...(process.platform === "darwin" ? [base | constants.O_DIRECTORY | DARWIN_O_EXEC] : []),
+      ]
+    : [base | constants.O_RDONLY, base | constants.O_WRONLY];
+  let handle: FileHandle | undefined;
+  for (const flags of tries) {
+    try {
+      handle = await open(path, flags);
+      break;
+    } catch (err) {
+      if (!denied(err)) {
+        throw new PsycheError("forbidden", `${path} moved during the check`);
+      }
+    }
+  }
+  if (handle === undefined) {
+    throw new PsycheError("forbidden", `${path} cannot be opened to give its mode back`);
+  }
+  try {
+    if (!same(await handle.stat({ bigint: true }), st)) {
+      throw new PsycheError("forbidden", `${path} moved during the check`);
+    }
+    await handle.chmod(mode & 0o777);
+  } finally {
+    await handle.close();
+  }
+}
+
+/**
+ * Gives read and write permission back to the folders and files inside `from` (never through a
+ * link), for a copy across volumes and the removal after it; at most `MAX_LIFTED` of them. Each
+ * is pinned by its identity before its folder's real path is checked, and changed only while it
+ * is still that one. One it cannot give them back to, or one swapped meanwhile, stops the move:
+ * the entry stays.
+ */
+async function liftInside(from: string, id: string): Promise<void> {
+  const queue: { dir: string; id: string }[] = [{ dir: from, id }];
+  let count = 0;
+  const pin = async (path: string): Promise<BigIntStats | undefined> => {
+    const st = await lstat(path, { bigint: true }).catch(() => undefined);
+    if (
+      st !== undefined &&
+      (await realpath(dirname(path)).catch(() => undefined)) !== dirname(path)
+    ) {
+      throw new PsycheError("forbidden", `${dirname(path)} moved during the check`);
+    }
+    return st;
+  };
+  while (queue.length > 0 && count < MAX_LIFTED) {
+    const next = queue.shift() as { dir: string; id: string };
+    const st = await lstat(next.dir, { bigint: true }).catch(() => undefined);
+    if (st?.isDirectory() !== true) continue;
+    if (idOf(st) !== next.id)
+      throw new PsycheError("forbidden", `${next.dir} moved during the check`);
+    count++;
+    await lift(next.dir, 0o700, next.id);
+    const entries = await readdir(next.dir, { withFileTypes: true }).catch(() => [] as Dirent[]);
+    for (const d of entries) {
+      if (!d.isDirectory() && !d.isFile()) continue;
+      const path = join(next.dir, d.name);
+      const st = await pin(path);
+      if (st === undefined) continue;
+      if (st.isDirectory()) queue.push({ dir: path, id: idOf(st) });
+      else if (st.isFile() && count++ < MAX_LIFTED) {
+        await lift(path, 0o600, idOf(st), true);
+      }
+    }
+  }
+}
+
+async function moveOnce(
+  from: string,
+  to: string,
+  at: { root: string; rel: string; beforeMove?: (from: string) => Promise<void> | void },
+  pins: { parent: BigIntStats; entry: BigIntStats | undefined },
+): Promise<Arrived | undefined> {
   await assertInside(at.root, at.rel);
   const entry = await lstat(from, { bigint: true });
   const parent = await lstat(dirname(from), { bigint: true });
+  if (!same(parent, pins.parent) || (pins.entry !== undefined && !same(entry, pins.entry))) {
+    throw new PsycheError("forbidden", `${from} moved during the check`);
+  }
   if (
     await lstat(to).then(
       () => true,
@@ -382,6 +793,8 @@ async function moveChecked(
   } catch (err) {
     if ((err as NodeJS.ErrnoException).code !== "EXDEV") throw err;
     // Another volume: copied whole (links as links), and removed only when still the same entry.
+    // A folder or file inside it the run made unreadable or read-only would stop either half way.
+    await liftInside(from, idOf(entry));
     await cp(from, to, {
       recursive: true,
       verbatimSymlinks: true,
@@ -404,9 +817,17 @@ async function moveChecked(
   return undefined;
 }
 
+/** A held link: its text, and where it led (dev:ino of what was there); unset when dangling. */
+interface HeldLink {
+  text: string;
+  real?: string;
+  id?: string;
+}
+
 interface QuarantineRecord {
   root: string;
   entries: string[];
+  links?: Record<string, HeldLink>;
   /** Moves that brought in something other than what was checked: identity and time. */
   incidents?: Incident[];
 }
@@ -461,6 +882,17 @@ export async function keepQuarantined(
     const to = join(root, rel);
     const from = join(dir, "entries", rel);
     try {
+      const link = record.links?.[rel];
+      if (link !== undefined) {
+        const would = await resolution(
+          isAbsolute(link.text) ? link.text : join(dirname(to), link.text),
+        );
+        if (would.real !== link.real || would.id !== link.id) {
+          throw new PsycheError("conflict", `${rel} would now lead somewhere else`, {
+            details: { reason: "link_resolves_elsewhere", path: rel },
+          });
+        }
+      }
       // Checked before any folder is made, then again by the move.
       await assertInside(root, rel);
       await mkdir(dirname(to), { recursive: true });
@@ -496,6 +928,7 @@ export async function keepQuarantined(
       root,
       entries: result.conflicts,
       ...(record.incidents === undefined ? {} : { incidents: record.incidents }),
+      ...(record.links === undefined ? {} : { links: record.links }),
     });
     throw new PsycheError(
       "conflict",
@@ -516,7 +949,14 @@ export function launchConfigNotice(r: LaunchConfigReport): string | undefined {
       `moved what the run created into a quarantine (${r.quarantined.join(", ")}); the owner can keep it`,
     );
   }
-  if (r.unmoved.length > 0) parts.push(`could not move ${r.unmoved.join(", ")}`);
+  if (r.unmoved.length > 0) {
+    parts.push(
+      `could not move ${r.unmoved.join(", ")}, which is still in place and not held, and told the owner`,
+    );
+  }
+  if (r.relinked.length > 0) {
+    parts.push(`linked ${r.relinked.join(", ")} again as it was before the run`);
+  }
   if (r.changed.length > 0) {
     parts.push(
       `noticed changes to existing launch config (${r.changed.join(", ")}) and told the owner`,

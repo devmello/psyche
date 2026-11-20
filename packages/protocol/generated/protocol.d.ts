@@ -1580,7 +1580,7 @@ export interface AttentionReportParams {
     visible: boolean;
 }
 
-export type AttentionPane = "browser" | "computer";
+export type AttentionPane = "browser" | "computer" | "vscreen";
 
 export interface AttentionReportResult {
     ok: boolean;
@@ -2879,6 +2879,7 @@ export interface Block {
      */
     question?:     string;
     compactionId?: string;
+    droppedPins?:  string[];
     replaced?:     Replaced;
     summary?:      CompactionSummary;
     tokensAfter?:  number;
@@ -3252,6 +3253,7 @@ export type ChecklistBlockType = "checklist";
 
 export interface CompactionBlock {
     compactionId: string;
+    droppedPins?: string[];
     replaced:     Replaced;
     summary:      CompactionSummary;
     tokensAfter:  number;
@@ -3261,6 +3263,56 @@ export interface CompactionBlock {
 }
 
 export type CompactionBlockType = "compaction";
+
+export interface ComputerWatchParkedPayload {
+    apps: VscreenApp[];
+}
+
+export interface VscreenApp {
+    appId:              string;
+    hasUnsavedChanges?: boolean;
+    pid:                number;
+    windowTitle?:       null | string;
+}
+
+export interface ComputerWatchResolveParkedParams {
+    action: ComputerWatchParkAction;
+}
+
+export type ComputerWatchParkAction = "look" | "discard" | "keep_open";
+
+export interface ComputerWatchResolveParkedResult {
+    action: ComputerWatchParkAction;
+    view?:  View;
+}
+
+export type View = "computer-watch";
+
+export interface ComputerWatchState {
+    parked: boolean;
+    status: VscreenStatus;
+}
+
+export interface VscreenStatus {
+    apps:       VscreenApp[];
+    display?:   null | string;
+    frameSeq:   number;
+    height:     number;
+    startedAt?: null | string;
+    state:      VscreenState;
+    takenOver:  boolean;
+    width:      number;
+}
+
+export type VscreenState = "stopped" | "starting" | "running" | "stopping";
+
+export interface ComputerWatchTakeOverParams {
+    on: boolean;
+}
+
+export interface ComputerWatchTakeOverResult {
+    takenOver: boolean;
+}
 
 export interface ConnectChallenge {
     expiresAt: string;
@@ -11777,8 +11829,6 @@ export interface SpeechWhisperRuntime {
     sizeBytes: number;
 }
 
-export type VscreenState = "stopped" | "starting" | "running" | "stopping";
-
 export type SpeechWhisperSetupState = "missing" | "downloading" | "ready" | "error";
 
 export interface SpeechModelDownloadPayload {
@@ -12679,6 +12729,15 @@ export interface ThreadsSetContextLimitsResult {
     threadLimits: ContextLimits;
 }
 
+export interface ThreadsSummaryPinsRemoveParams {
+    instruction: string;
+    threadId:    string;
+}
+
+export interface ThreadsSummaryPinsRemoveResult {
+    pinnedInstructions: string[];
+}
+
 export interface ThreadsUpdateParams {
     modelRef?:       null | string;
     permissionMode?: PermissionMode;
@@ -13092,7 +13151,7 @@ export interface ViewPaneState {
     threadId?: null | string;
 }
 
-export type ViewPane = "chat" | "browser" | "terminal" | "files" | "editor" | "diff" | "plan" | "tasks" | "subagents" | "artifact" | "vm" | "sidechat";
+export type ViewPane = "chat" | "browser" | "terminal" | "files" | "editor" | "diff" | "plan" | "tasks" | "subagents" | "artifact" | "vm" | "sidechat" | "computer-watch";
 
 export type ViewPlacement = "main" | "side" | "split";
 
@@ -13592,26 +13651,9 @@ export interface VscreenStartParams {
     width?:  number;
 }
 
-export interface VscreenStatus {
-    apps:       VscreenApp[];
-    display?:   null | string;
-    frameSeq:   number;
-    height:     number;
-    startedAt?: null | string;
-    state:      VscreenState;
-    takenOver:  boolean;
-    width:      number;
-}
-
-export interface VscreenApp {
-    appId:              string;
-    hasUnsavedChanges?: boolean;
-    pid:                number;
-    windowTitle?:       null | string;
-}
-
 export interface VscreenStopParams {
     closeApps?: boolean;
+    force?:     boolean;
 }
 
 export interface WidgetAction {

@@ -467,6 +467,7 @@ export const screens = {
   "screens.library.recording.empty": "This recording has no steps.",
   "screens.library.recording.noFrame": "No picture for this step.",
   "screens.library.recording.frameAlt": "The browser at step {n}",
+  "screens.library.recording.reviewPermissions": "Review in Permissions",
   "screens.library.recording.loading": "Loading the recording",
   "screens.library.recording.loadFailed": "Psyche couldn't load this recording ({reason}).",
   "screens.library.recording.notFound": "This recording isn't available any more.",

@@ -355,6 +355,14 @@
 //   let compactionSummary = try? JSONDecoder().decode(CompactionSummary.self, from: jsonData)
 //   let computerMachineRef = try? JSONDecoder().decode(ComputerMachineRef.self, from: jsonData)
 //   let computerSurface = try? JSONDecoder().decode(ComputerSurface.self, from: jsonData)
+//   let computerWatchParkAction = try? JSONDecoder().decode(ComputerWatchParkAction.self, from: jsonData)
+//   let computerWatchParkedPayload = try? JSONDecoder().decode(ComputerWatchParkedPayload.self, from: jsonData)
+//   let computerWatchResolveParkedParams = try? JSONDecoder().decode(ComputerWatchResolveParkedParams.self, from: jsonData)
+//   let computerWatchResolveParkedResult = try? JSONDecoder().decode(ComputerWatchResolveParkedResult.self, from: jsonData)
+//   let computerWatchState = try? JSONDecoder().decode(ComputerWatchState.self, from: jsonData)
+//   let computerWatchStatusParams = try? JSONDecoder().decode(ComputerWatchStatusParams.self, from: jsonData)
+//   let computerWatchTakeOverParams = try? JSONDecoder().decode(ComputerWatchTakeOverParams.self, from: jsonData)
+//   let computerWatchTakeOverResult = try? JSONDecoder().decode(ComputerWatchTakeOverResult.self, from: jsonData)
 //   let connectChallenge = try? JSONDecoder().decode(ConnectChallenge.self, from: jsonData)
 //   let connectDenied = try? JSONDecoder().decode(ConnectDenied.self, from: jsonData)
 //   let connectPaired = try? JSONDecoder().decode(ConnectPaired.self, from: jsonData)
@@ -1551,6 +1559,8 @@
 //   let threadsRenameParams = try? JSONDecoder().decode(ThreadsRenameParams.self, from: jsonData)
 //   let threadsSetContextLimitsParams = try? JSONDecoder().decode(ThreadsSetContextLimitsParams.self, from: jsonData)
 //   let threadsSetContextLimitsResult = try? JSONDecoder().decode(ThreadsSetContextLimitsResult.self, from: jsonData)
+//   let threadsSummaryPinsRemoveParams = try? JSONDecoder().decode(ThreadsSummaryPinsRemoveParams.self, from: jsonData)
+//   let threadsSummaryPinsRemoveResult = try? JSONDecoder().decode(ThreadsSummaryPinsRemoveResult.self, from: jsonData)
 //   let threadsUpdateParams = try? JSONDecoder().decode(ThreadsUpdateParams.self, from: jsonData)
 //   let toolCall = try? JSONDecoder().decode(ToolCall.self, from: jsonData)
 //   let toolCallBlock = try? JSONDecoder().decode(ToolCallBlock.self, from: jsonData)
@@ -5899,6 +5909,7 @@ public struct AttentionReportParams: Codable, Sendable {
 public enum AttentionPane: String, Codable, Sendable {
     case browser = "browser"
     case computer = "computer"
+    case vscreen = "vscreen"
 }
 
 // MARK: - AttentionReportResult
@@ -9503,6 +9514,7 @@ public struct Block: Codable, Sendable {
     /// The owner's own question
     public let question: String?
     public let compactionID: String?
+    public let droppedPins: [String]?
     public let replaced: Replaced?
     public let summary: CompactionSummary?
     public let tokensAfter: Int?
@@ -9549,6 +9561,7 @@ public struct Block: Codable, Sendable {
         case passages = "passages"
         case question = "question"
         case compactionID = "compactionId"
+        case droppedPins = "droppedPins"
         case replaced = "replaced"
         case summary = "summary"
         case tokensAfter = "tokensAfter"
@@ -9563,7 +9576,7 @@ public struct Block: Codable, Sendable {
         case widgetID = "widgetId"
     }
 
-    public init(md: String? = nil, type: BlockType, level1: String? = nil, status: ToolCallStatus? = nil, tool: String? = nil, toolCallID: String? = nil, planID: String? = nil, items: [ItemElement]? = nil, approvalID: String? = nil, inputRequestID: String? = nil, artifactID: String? = nil, preview: String? = nil, libraryItemID: String? = nil, id: String? = nil, kind: BlockKind? = nil, source: String? = nil, title: String? = nil, url: String? = nil, receiptID: String? = nil, taskID: String? = nil, actions: [WrapUpAction]? = nil, ask: String? = nil, recap: String? = nil, cited: [String]? = nil, answer: String? = nil, factIDS: [String]? = nil, facts: [LifeFactHit]? = nil, model: ModelEnum? = nil, passageIDS: [String]? = nil, passages: [LifeAnswerPassage]? = nil, question: String? = nil, compactionID: String? = nil, replaced: Replaced? = nil, summary: CompactionSummary? = nil, tokensAfter: Int? = nil, tokensBefore: Int? = nil, trigger: BlockTrigger? = nil, feedbackID: String? = nil, lessonID: String? = nil, messageID: String? = nil, statement: String? = nil, proposal: DailyWorkflowProposal? = nil, route: String? = nil, widgetID: String? = nil) {
+    public init(md: String? = nil, type: BlockType, level1: String? = nil, status: ToolCallStatus? = nil, tool: String? = nil, toolCallID: String? = nil, planID: String? = nil, items: [ItemElement]? = nil, approvalID: String? = nil, inputRequestID: String? = nil, artifactID: String? = nil, preview: String? = nil, libraryItemID: String? = nil, id: String? = nil, kind: BlockKind? = nil, source: String? = nil, title: String? = nil, url: String? = nil, receiptID: String? = nil, taskID: String? = nil, actions: [WrapUpAction]? = nil, ask: String? = nil, recap: String? = nil, cited: [String]? = nil, answer: String? = nil, factIDS: [String]? = nil, facts: [LifeFactHit]? = nil, model: ModelEnum? = nil, passageIDS: [String]? = nil, passages: [LifeAnswerPassage]? = nil, question: String? = nil, compactionID: String? = nil, droppedPins: [String]? = nil, replaced: Replaced? = nil, summary: CompactionSummary? = nil, tokensAfter: Int? = nil, tokensBefore: Int? = nil, trigger: BlockTrigger? = nil, feedbackID: String? = nil, lessonID: String? = nil, messageID: String? = nil, statement: String? = nil, proposal: DailyWorkflowProposal? = nil, route: String? = nil, widgetID: String? = nil) {
         self.md = md
         self.type = type
         self.level1 = level1
@@ -9596,6 +9609,7 @@ public struct Block: Codable, Sendable {
         self.passages = passages
         self.question = question
         self.compactionID = compactionID
+        self.droppedPins = droppedPins
         self.replaced = replaced
         self.summary = summary
         self.tokensAfter = tokensAfter
@@ -10652,6 +10666,7 @@ public enum ChecklistBlockType: String, Codable, Sendable {
 // MARK: - CompactionBlock
 public struct CompactionBlock: Codable, Sendable {
     public let compactionID: String
+    public let droppedPins: [String]?
     public let replaced: Replaced
     public let summary: CompactionSummary
     public let tokensAfter: Int
@@ -10661,6 +10676,7 @@ public struct CompactionBlock: Codable, Sendable {
 
     public enum CodingKeys: String, CodingKey {
         case compactionID = "compactionId"
+        case droppedPins = "droppedPins"
         case replaced = "replaced"
         case summary = "summary"
         case tokensAfter = "tokensAfter"
@@ -10669,8 +10685,9 @@ public struct CompactionBlock: Codable, Sendable {
         case type = "type"
     }
 
-    public init(compactionID: String, replaced: Replaced, summary: CompactionSummary, tokensAfter: Int, tokensBefore: Int, trigger: BlockTrigger, type: CompactionBlockType) {
+    public init(compactionID: String, droppedPins: [String]? = nil, replaced: Replaced, summary: CompactionSummary, tokensAfter: Int, tokensBefore: Int, trigger: BlockTrigger, type: CompactionBlockType) {
         self.compactionID = compactionID
+        self.droppedPins = droppedPins
         self.replaced = replaced
         self.summary = summary
         self.tokensAfter = tokensAfter
@@ -10682,6 +10699,163 @@ public struct CompactionBlock: Codable, Sendable {
 
 public enum CompactionBlockType: String, Codable, Sendable {
     case compaction = "compaction"
+}
+
+// MARK: - ComputerWatchParkedPayload
+public struct ComputerWatchParkedPayload: Codable, Sendable {
+    public let apps: [VscreenApp]
+
+    public enum CodingKeys: String, CodingKey {
+        case apps = "apps"
+    }
+
+    public init(apps: [VscreenApp]) {
+        self.apps = apps
+    }
+}
+
+// MARK: - VscreenApp
+public struct VscreenApp: Codable, Sendable {
+    public let appID: String
+    public let hasUnsavedChanges: Bool?
+    public let pid: Int
+    public let windowTitle: String?
+
+    public enum CodingKeys: String, CodingKey {
+        case appID = "appId"
+        case hasUnsavedChanges = "hasUnsavedChanges"
+        case pid = "pid"
+        case windowTitle = "windowTitle"
+    }
+
+    public init(appID: String, hasUnsavedChanges: Bool? = nil, pid: Int, windowTitle: String? = nil) {
+        self.appID = appID
+        self.hasUnsavedChanges = hasUnsavedChanges
+        self.pid = pid
+        self.windowTitle = windowTitle
+    }
+}
+
+// MARK: - ComputerWatchResolveParkedParams
+public struct ComputerWatchResolveParkedParams: Codable, Sendable {
+    public let action: ComputerWatchParkAction
+
+    public enum CodingKeys: String, CodingKey {
+        case action = "action"
+    }
+
+    public init(action: ComputerWatchParkAction) {
+        self.action = action
+    }
+}
+
+public enum ComputerWatchParkAction: String, Codable, Sendable {
+    case discard = "discard"
+    case keepOpen = "keep_open"
+    case look = "look"
+}
+
+// MARK: - ComputerWatchResolveParkedResult
+public struct ComputerWatchResolveParkedResult: Codable, Sendable {
+    public let action: ComputerWatchParkAction
+    public let view: View?
+
+    public enum CodingKeys: String, CodingKey {
+        case action = "action"
+        case view = "view"
+    }
+
+    public init(action: ComputerWatchParkAction, view: View? = nil) {
+        self.action = action
+        self.view = view
+    }
+}
+
+public enum View: String, Codable, Sendable {
+    case computerWatch = "computer-watch"
+}
+
+// MARK: - ComputerWatchState
+public struct ComputerWatchState: Codable, Sendable {
+    public let parked: Bool
+    public let status: VscreenStatus
+
+    public enum CodingKeys: String, CodingKey {
+        case parked = "parked"
+        case status = "status"
+    }
+
+    public init(parked: Bool, status: VscreenStatus) {
+        self.parked = parked
+        self.status = status
+    }
+}
+
+// MARK: - VscreenStatus
+public struct VscreenStatus: Codable, Sendable {
+    public let apps: [VscreenApp]
+    public let display: String?
+    public let frameSeq: Int
+    public let height: Int
+    public let startedAt: String?
+    public let state: VscreenState
+    public let takenOver: Bool
+    public let width: Int
+
+    public enum CodingKeys: String, CodingKey {
+        case apps = "apps"
+        case display = "display"
+        case frameSeq = "frameSeq"
+        case height = "height"
+        case startedAt = "startedAt"
+        case state = "state"
+        case takenOver = "takenOver"
+        case width = "width"
+    }
+
+    public init(apps: [VscreenApp], display: String? = nil, frameSeq: Int, height: Int, startedAt: String? = nil, state: VscreenState, takenOver: Bool, width: Int) {
+        self.apps = apps
+        self.display = display
+        self.frameSeq = frameSeq
+        self.height = height
+        self.startedAt = startedAt
+        self.state = state
+        self.takenOver = takenOver
+        self.width = width
+    }
+}
+
+public enum VscreenState: String, Codable, Sendable {
+    case running = "running"
+    case starting = "starting"
+    case stopped = "stopped"
+    case stopping = "stopping"
+}
+
+// MARK: - ComputerWatchTakeOverParams
+public struct ComputerWatchTakeOverParams: Codable, Sendable {
+    public let on: Bool
+
+    public enum CodingKeys: String, CodingKey {
+        case on = "on"
+    }
+
+    public init(on: Bool) {
+        self.on = on
+    }
+}
+
+// MARK: - ComputerWatchTakeOverResult
+public struct ComputerWatchTakeOverResult: Codable, Sendable {
+    public let takenOver: Bool
+
+    public enum CodingKeys: String, CodingKey {
+        case takenOver = "takenOver"
+    }
+
+    public init(takenOver: Bool) {
+        self.takenOver = takenOver
+    }
 }
 
 // MARK: - ConnectChallenge
@@ -33419,13 +33593,6 @@ public struct SpeechWhisperRuntime: Codable, Sendable {
     }
 }
 
-public enum VscreenState: String, Codable, Sendable {
-    case running = "running"
-    case starting = "starting"
-    case stopped = "stopped"
-    case stopping = "stopping"
-}
-
 public enum SpeechWhisperSetupState: String, Codable, Sendable {
     case downloading = "downloading"
     case error = "error"
@@ -35782,6 +35949,35 @@ public struct ThreadsSetContextLimitsResult: Codable, Sendable {
     }
 }
 
+// MARK: - ThreadsSummaryPinsRemoveParams
+public struct ThreadsSummaryPinsRemoveParams: Codable, Sendable {
+    public let instruction: String
+    public let threadID: String
+
+    public enum CodingKeys: String, CodingKey {
+        case instruction = "instruction"
+        case threadID = "threadId"
+    }
+
+    public init(instruction: String, threadID: String) {
+        self.instruction = instruction
+        self.threadID = threadID
+    }
+}
+
+// MARK: - ThreadsSummaryPinsRemoveResult
+public struct ThreadsSummaryPinsRemoveResult: Codable, Sendable {
+    public let pinnedInstructions: [String]
+
+    public enum CodingKeys: String, CodingKey {
+        case pinnedInstructions = "pinnedInstructions"
+    }
+
+    public init(pinnedInstructions: [String]) {
+        self.pinnedInstructions = pinnedInstructions
+    }
+}
+
 // MARK: - ThreadsUpdateParams
 public struct ThreadsUpdateParams: Codable, Sendable {
     public let modelRef: String?
@@ -37076,6 +37272,7 @@ public enum ViewPane: String, Codable, Sendable {
     case artifact = "artifact"
     case browser = "browser"
     case chat = "chat"
+    case computerWatch = "computer-watch"
     case diff = "diff"
     case editor = "editor"
     case files = "files"
@@ -38396,72 +38593,19 @@ public struct VscreenStartParams: Codable, Sendable {
     }
 }
 
-// MARK: - VscreenStatus
-public struct VscreenStatus: Codable, Sendable {
-    public let apps: [VscreenApp]
-    public let display: String?
-    public let frameSeq: Int
-    public let height: Int
-    public let startedAt: String?
-    public let state: VscreenState
-    public let takenOver: Bool
-    public let width: Int
-
-    public enum CodingKeys: String, CodingKey {
-        case apps = "apps"
-        case display = "display"
-        case frameSeq = "frameSeq"
-        case height = "height"
-        case startedAt = "startedAt"
-        case state = "state"
-        case takenOver = "takenOver"
-        case width = "width"
-    }
-
-    public init(apps: [VscreenApp], display: String? = nil, frameSeq: Int, height: Int, startedAt: String? = nil, state: VscreenState, takenOver: Bool, width: Int) {
-        self.apps = apps
-        self.display = display
-        self.frameSeq = frameSeq
-        self.height = height
-        self.startedAt = startedAt
-        self.state = state
-        self.takenOver = takenOver
-        self.width = width
-    }
-}
-
-// MARK: - VscreenApp
-public struct VscreenApp: Codable, Sendable {
-    public let appID: String
-    public let hasUnsavedChanges: Bool?
-    public let pid: Int
-    public let windowTitle: String?
-
-    public enum CodingKeys: String, CodingKey {
-        case appID = "appId"
-        case hasUnsavedChanges = "hasUnsavedChanges"
-        case pid = "pid"
-        case windowTitle = "windowTitle"
-    }
-
-    public init(appID: String, hasUnsavedChanges: Bool? = nil, pid: Int, windowTitle: String? = nil) {
-        self.appID = appID
-        self.hasUnsavedChanges = hasUnsavedChanges
-        self.pid = pid
-        self.windowTitle = windowTitle
-    }
-}
-
 // MARK: - VscreenStopParams
 public struct VscreenStopParams: Codable, Sendable {
     public let closeApps: Bool?
+    public let force: Bool?
 
     public enum CodingKeys: String, CodingKey {
         case closeApps = "closeApps"
+        case force = "force"
     }
 
-    public init(closeApps: Bool? = nil) {
+    public init(closeApps: Bool? = nil, force: Bool? = nil) {
         self.closeApps = closeApps
+        self.force = force
     }
 }
 
@@ -39100,6 +39244,7 @@ public typealias BrowserBotAuthStatusParams = [String: JSONAny]
 public typealias BrowserRealChromeStatusParams = [String: JSONAny]
 public typealias ChannelsIdentitiesListParams = [String: JSONAny]
 public typealias ChannelsListParams = [String: JSONAny]
+public typealias ComputerWatchStatusParams = [String: JSONAny]
 public typealias ConnectorsCatalogueParams = [String: JSONAny]
 public typealias ConnectorsGoogleClientParams = [String: JSONAny]
 public typealias ConnectorsListParams = [String: JSONAny]

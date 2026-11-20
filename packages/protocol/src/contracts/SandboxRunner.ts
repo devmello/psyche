@@ -113,4 +113,10 @@ export interface SandboxRunner {
    */
   exec(request: ExecRequest): Promise<ExecResult>;
   destroy(sandboxId: string): Promise<void>;
+  /**
+   * Removes the scope's container, also one this process has not adopted yet (left by an earlier
+   * Gateway process); keeps its workspace volume and what is known about the files in it. A
+   * runner without containers of its own may leave it out.
+   */
+  destroyScope?(scope: SandboxScope): Promise<void>;
 }

@@ -42,7 +42,7 @@ import { ArtifactsMethods, ReceiptsMethods } from "./receipts.ts";
 import { RunsMethods } from "./runs.ts";
 import { SandboxMethods } from "./sandbox.ts";
 import { ScheduledMethods } from "./scheduled.ts";
-import { ScreenMethods } from "./screen.ts";
+import { ComputerWatchMethods, ScreenMethods } from "./screen.ts";
 import { SearchMethods } from "./search.ts";
 import { SecurityMethods } from "./security.ts";
 import { SettingsMethods } from "./settings.ts";
@@ -187,6 +187,7 @@ export const Methods = {
   ...LessonsMethods,
   ...GrowthMethods,
   ...ScreenMethods,
+  ...ComputerWatchMethods,
   ...ScheduledMethods,
   ...TerminalMethods,
   ...SecurityMethods,

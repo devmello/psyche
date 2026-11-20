@@ -165,6 +165,18 @@ export class FakeSandboxRunner implements SandboxRunner {
   async destroy(sandboxId: string): Promise<void> {
     this.#sandboxes.delete(sandboxId);
   }
+
+  /** Like the container runner: the scope's sandbox goes, whoever made it. */
+  async destroyScope(scope: SandboxScope): Promise<void> {
+    for (const [id, s] of this.#sandboxes) {
+      if (s.scope.kind === scope.kind && s.scope.id === scope.id) this.#sandboxes.delete(id);
+    }
+  }
+
+  /** The sandboxes this fake holds (a test can tell a destroyed one is gone). */
+  sandboxes(): SandboxInstance[] {
+    return [...this.#sandboxes.values()].map((s) => structuredClone(s));
+  }
 }
 
 function mountsKey(mounts: readonly SandboxMount[]): string {
