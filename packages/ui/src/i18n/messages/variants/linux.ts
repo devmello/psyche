@@ -46,10 +46,7 @@ export const linux: Partial<Record<MessageId, string>> = {
     "Allowed once (password approvals from this window are once only)",
   "blocks.approval.touchId.keyUnavailable":
     "This build of the Linux helper can't keep an approval key, so cards that need your password can't be approved on this computer.",
-  "blocks.approval.touchId.cancelled": "The password prompt was cancelled, so nothing was approved",
   "shell.shortcut.pushToTalkKeys": "Hold Right Ctrl",
-  "settings.shared.needsPresence":
-    "Changing “{label}” needs your approval with your password or a passkey. Approve it in Settings or in the Psyche notification, then change it again.",
   "settings.page.permissions.description":
     "What {persona} may do on this computer without asking, and where it always stops to ask you.",
   "settings.page.data.description":
@@ -148,8 +145,6 @@ export const linux: Partial<Record<MessageId, string>> = {
     "No password key yet. Cards that need your password can't be approved until one is registered.",
   "settings.devices.touchId.noBundledKey":
     "The Linux helper in this app has no approval key ({reason}).",
-  "settings.devices.touchId.manualHint":
-    "Run psyche-helper --print-identity on the computer and paste the presenceKeyId it prints.",
   "settings.devices.noNodes":
     "No nodes. The Linux helper appears here once Psyche runs on this computer.",
   "settings.files.execHost": "Run commands on this computer",
@@ -294,14 +289,14 @@ export const linux: Partial<Record<MessageId, string>> = {
   "onboarding.model.kind.localHint": "Runs on this computer; nothing leaves it.",
   "onboarding.model.subscriptionNote":
     "Psyche uses the Claude Code or Codex app already signed in on this computer, so it needs no API key and stores none. Sign in there first if you haven't.",
-  "onboarding.safety.touchId": "Your password for approvals",
+  "onboarding.safety.touchId": "Your password for payments",
   "onboarding.safety.touchId.checking": "Looking at the Linux helper…",
-  "onboarding.safety.touchId.setHint": "Approvals that need you ask for your password.",
+  "onboarding.safety.touchId.setHint": "Payments ask for your password.",
   "onboarding.safety.touchId.starting":
     "The Linux helper is still starting. Check again in a moment.",
   "onboarding.safety.touchId.noKey": "The Linux helper has no approval key ({reason}).",
   "onboarding.safety.touchId.hint":
-    "Register the Linux helper’s key once, so your password can confirm approvals.",
+    "Register the Linux helper’s key once, so your password can confirm payments.",
   "onboarding.safety.asks":
     "If you let {name} run commands on this computer, ones that only read, like ls or cat, run without a card. Anything else asks you first.",
   "onboarding.done.touchId": "Your password",
@@ -316,7 +311,7 @@ export const linux: Partial<Record<MessageId, string>> = {
   "everything.run.reason.not_idle": "Not now: you are using the computer.",
   "everything.storage.note": "Everything is stored on this computer only.",
   "memoryWork.consent.k1": "Nothing leaves this computer. Dates and status are worked out by code.",
-  "screens.library.reveal": "Show in Files",
+  "screens.library.reveal": "Show in folder",
   "web.zoom.description":
     "How large the app renders on this computer. Ctrl+Plus and Ctrl+Minus change the same setting, so it survives a restart; {min, number}–{max, number} %.",
   "web.transcriptMode.optionTitle": "{mode} (Ctrl+O cycles)",
@@ -407,4 +402,15 @@ export const linux: Partial<Record<MessageId, string>> = {
     "stop requiring your password or a passkey for security changes until a new key is registered.",
   "web.security.needsApproval":
     "Approve the card with your password or a passkey, then press the button again.",
+  "notice.security.changed.body":
+    "A program on this computer changed {count, plural, =1 {# security record} other {# security records}} (devices, keys, grants or settings) without going through Psyche{times, plural, =0 {} =1 {} other {, # times so far}}. Psyche put them back. If you did not do this, check the computer for unwanted software.",
+  "notice.security.untrusted.body":
+    "The check of Psyche's security records failed, so security changes, new devices and password approvals are blocked. Review your devices, then run psyched security reseal on this computer (it applies after 24 hours).",
+  "notice.security.firstAdmin.title": "A command on this computer made the first admin device",
+  "notice.security.firstAdmin.body":
+    "{device}{key, select, none {} other { (key {key})}} became the first admin device {via, select, desktop {from the Psyche app} other {through `psyched`}} on this computer. If that was not you, revoke it in Settings → Devices.",
+  "notice.security.recovery.title":
+    "{state, select, requested {A command on this computer asked for a security change} applied {A security change from this computer was applied} cancelled {A security change from this computer was cancelled} other {A security change from this computer could not be applied}}",
+  "notice.security.recovery.body":
+    "{op, select, approve {Approve the device {device}{key, select, none {} other { (key {key})}} with {scopes}.} grant {Give {device}{key, select, none {} other { (key {key})}} {scopes}.} presence {Turn off the password and passkey requirement for security changes until a new key is registered.} seal {Accept the current security records as they are.} other {A security change.}}{state, select, requested { It applies {when, select, none {in 24 hours} other {on {when}}} unless you cancel it in Psyche.} failed {{reason, select, none {} other { {reason}}}} other {}}",
 };

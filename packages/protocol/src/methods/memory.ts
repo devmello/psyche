@@ -46,6 +46,7 @@ import {
   GraphSuggestion,
   GraphTimelineRow,
   GraphWriteSource,
+  MemoryMap,
   WorkHistoryEntry,
 } from "../schemas/graph.ts";
 import {
@@ -957,6 +958,24 @@ export const MemoryMethods = {
     scope: "operator.read",
     description:
       "Graph health: per-source counts and last ingest, last model pass, budget used, loop precision.",
+  }),
+  "memory.graph.map": defineMethod({
+    params: Type.Object({
+      limit: Type.Optional(
+        Type.Integer({
+          minimum: 1,
+          maximum: 5000,
+          description: "At most this many entities, most important first (default 2000)",
+        }),
+      ),
+      kinds: Type.Optional(
+        Type.Array(GraphEntityKind, { maxItems: 7, description: "Only these entity kinds" }),
+      ),
+    }),
+    result: MemoryMap,
+    scope: "operator.read",
+    description:
+      "The memory map: entities sized by importance with the relations the store already holds (works on, met in, co-mentioned, other). Names and links only: no facts, bodies or identifiers. Read-only.",
   }),
   "memory.graph.forgetAll": defineMethod({
     params: Type.Object({

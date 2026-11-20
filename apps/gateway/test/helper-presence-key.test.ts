@@ -1,4 +1,4 @@
-import { createHash, generateKeyPairSync, type KeyObject, sign } from "node:crypto";
+import { createHash, type KeyObject, sign } from "node:crypto";
 import { mkdtempSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
@@ -8,14 +8,16 @@ import { FakeModelProvider } from "@psyche/testing";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { composeHelper, helperPresenceMessage } from "../src/compose/helper.ts";
 import { type ComposedGateway, composeGateway } from "../src/compose/index.ts";
+import { HelperPresenceKeys } from "../src/compose/presence-keys.ts";
 import { silentLogger } from "../src/log.ts";
 import { FakeNode, type FakeNodeHandler } from "./fake-node.ts";
-import { adminClient, ik, type TestClient } from "./helpers.ts";
+import { adminClient, desktopClient, ik, newDeviceKey, type TestClient } from "./helpers.ts";
 
 /**
- * Issue #253: the owner registers the Mac helper's Secure Enclave presence key, and Touch ID
- * answers from that helper then verify. A wrong signature is refused; revoking the helper
- * revokes its key.
+ * A Mac helper needs no registered presence key: it signs with its own Ed25519 device key, the one
+ * the Gateway pinned when it paired. Owner-sheet answers from that helper verify against it; a
+ * signature by any other key, or over any other challenge, is refused; revoking the helper revokes
+ * its key. The challenge the helper is given is the bare 64-hex digest.
  */
 
 const clients: TestClient[] = [];
@@ -32,42 +34,20 @@ afterEach(async () => {
   home = "";
 });
 
-/** A stand-in for the helper's Secure Enclave key: P-256, X9.63 public point, DER signatures. */
-function enclaveKey() {
-  const { publicKey, privateKey } = generateKeyPairSync("ec", { namedCurve: "P-256" });
-  const jwk = publicKey.export({ format: "jwk" }) as { x: string; y: string };
-  const x963 = Buffer.concat([
-    Buffer.from([0x04]),
-    Buffer.from(jwk.x, "base64url"),
-    Buffer.from(jwk.y, "base64url"),
-  ]);
-  return {
-    publicKey: x963.toString("base64url"),
-    keyId: createHash("sha256").update(x963).digest("hex"),
-    privateKey,
-  };
-}
-
+/** The helper's Ed25519 device key signing the presence message, as the Swift helper does. */
 function signChallenge(privateKey: KeyObject, challenge: string): string {
-  return sign("sha256", helperPresenceMessage(challenge), {
-    key: privateKey,
-    dsaEncoding: "der",
-  }).toString("base64url");
+  return sign(null, helperPresenceMessage(challenge), privateKey).toString("base64url");
 }
 
-/** A helper with `presence.public_key` and the notification capabilities. */
-function helperHandlers(key: ReturnType<typeof enclaveKey>) {
-  const shown: { id: string; presenceChallenge?: string }[] = [];
+/** A helper with the notification capabilities (no `presence.public_key` is ever needed). */
+function helperHandlers() {
+  const shown: Record<string, unknown>[] = [];
   let respond: ((data: unknown) => void) | undefined;
   const handlers: FakeNodeHandler[] = [
     {
-      capability: { name: "presence.public_key", sideEffect: "read", streaming: false },
-      run: () => ({ publicKey: key.publicKey, keyId: key.keyId, kind: "keychain" }),
-    },
-    {
       capability: { name: "notify.show", sideEffect: "write", streaming: false },
       run: (params) => {
-        shown.push(params as { id: string; presenceChallenge?: string });
+        shown.push(params as Record<string, unknown>);
         return { shown: true };
       },
     },
@@ -99,14 +79,15 @@ async function setup() {
   });
   const admin = await adminClient(composed.gateway);
   clients.push(admin);
-  const key = enclaveKey();
-  const h = helperHandlers(key);
+  const key = newDeviceKey();
+  const h = helperHandlers();
   const helperDevice = `helper-${Math.random().toString(36).slice(2)}`;
   const node = await FakeNode.connect(composed.gateway.config.nodeSocketPath, {
     origin: composed.gateway.origin,
     secret: composed.gateway.handshakeSecret,
     handlers: h.handlers,
     deviceId: helperDevice,
+    key,
   });
   nodes.push(node);
   await vi.waitFor(() =>
@@ -115,96 +96,199 @@ async function setup() {
   return { c: composed, admin, key, h, helperDevice };
 }
 
-describe("helper presence keys (issue #253)", () => {
-  it("registers the helper's key; a signed Touch ID answer approves, a wrong one does not", async () => {
+let cardN = 0;
+
+/** A card that needs presence: a payment (presence is for payments only). Returns its id. */
+async function securityCard(_admin: TestClient): Promise<string> {
+  if (composed === null) throw new Error("no gateway");
+  const hash = `${(++cardN).toString(16).padStart(2, "0")}${"c".repeat(62)}`;
+  const issued = await composed.broker.requestApproval({
+    kind: "purchase",
+    summary: "Pay $5 to Example Shop",
+    details: {},
+    bindingHash: hash,
+    grantKey: hash,
+    requestedBy: { runId: null, taskId: null, threadId: null },
+    sideEffect: "financial",
+    surfaces: ["desktop", "notification"],
+    taint: false,
+  });
+  expect(issued.approval.requiresAuthentication).toBe(true);
+  return issued.approval.id;
+}
+
+describe("a Mac helper's device key is its presence key", () => {
+  it("needs no registration: the Gateway lists the device key, and a signed owner-sheet answer approves, a wrong one does not", async () => {
     const { c, admin, key, h, helperDevice } = await setup();
-    expect(await admin.call("devices.presenceKey.list", {})).toEqual({ presenceKeys: [] });
+    // Nothing was registered, yet the device's own key is listed.
+    const listed = await admin.call<{ presenceKeys: Record<string, unknown>[] }>(
+      "devices.presenceKey.list",
+      {},
+    );
+    expect(listed.presenceKeys).toEqual([
+      {
+        deviceId: helperDevice,
+        keyId: createHash("sha256").update(Buffer.from(key.publicKey, "base64url")).digest("hex"),
+        registeredAt: expect.any(String),
+        kind: "device_identity",
+        algorithm: "ed25519",
+      },
+    ]);
+    // There is nothing to register.
     expect(
       await admin.request(
         "devices.presenceKey.register",
         { deviceId: helperDevice, expectKeyId: "0".repeat(64) },
         ik(),
       ),
-    ).toMatchObject({ ok: false, error: { code: "conflict" } });
-
-    // The first verifier on a Gateway with none: registered with operator.admin alone.
-    const reg = await admin.call<{ presenceKey: { keyId: string } }>(
-      "devices.presenceKey.register",
-      { deviceId: helperDevice, expectKeyId: key.keyId },
-      ik(),
-    );
-    expect(reg.presenceKey.keyId).toBe(key.keyId);
-    expect((await c.audit.query({ kind: "presence_key.registered" }))[0]?.data).toMatchObject({
-      deviceId: helperDevice,
-      keyId: key.keyId,
+    ).toMatchObject({
+      ok: false,
+      error: { code: "conflict", details: { reason: "no_key_needed" } },
     });
+    expect(await c.audit.query({ kind: "presence_key.registered" })).toHaveLength(0);
 
-    // A security setting now needs presence; the card reaches the helper with a challenge.
-    const first = await admin.request(
-      "settings.set",
-      { key: "permissions.policy", value: { allow: [] } },
-      ik(),
-    );
-    expect(first).toMatchObject({ ok: false, error: { code: "approval_required" } });
-    const approvalId = (first as { error: { details: { approvalId: string } } }).error.details
-      .approvalId;
+    // A payment needs presence; the card reaches the helper with a challenge.
+    const approvalId = await securityCard(admin);
     await vi.waitFor(() => expect(h.shown.map((s) => s.id)).toContain(approvalId));
     const challenge = h.shown.find((s) => s.id === approvalId)?.presenceChallenge as string;
-    expect(challenge).toEqual(expect.any(String));
+    // The bare 64-hex digest: the helper (and WebAuthn) refuse anything else.
+    expect(challenge).toMatch(/^[0-9a-f]{64}$/);
     await new Promise((r) => setTimeout(r, 450)); // past the arm delay
 
     const status = async () =>
       (await admin.call<{ approval: ApprovalRequest }>("approvals.get", { approvalId })).approval
         .status;
-    const other = enclaveKey();
-    h.respond({
-      type: "notify.response",
-      notificationId: approvalId,
-      actionId: "approve",
-      authenticated: true,
-      presence: { signature: signChallenge(other.privateKey, challenge), keyId: other.keyId },
-    });
-    await new Promise((r) => setTimeout(r, 200));
+    const answer = (signature: string) =>
+      h.respond({
+        type: "notify.response",
+        notificationId: approvalId,
+        actionId: "approve",
+        authenticated: true,
+        presence: { signature },
+      });
+    // Another key, a signature over another challenge, and junk: refused, still pending.
+    answer(signChallenge(newDeviceKey().privateKey, challenge));
+    answer(signChallenge(key.privateKey, "0".repeat(64)));
+    answer("AAAA");
+    await new Promise((r) => setTimeout(r, 250));
     expect(await status()).toBe("pending");
+    expect(
+      (await c.audit.query({ kind: "approval.answer_rejected" })).map((e) => e.data.reason),
+    ).toContain("presence_invalid");
 
+    answer(signChallenge(key.privateKey, challenge));
+    await vi.waitFor(async () => expect(await status()).toBe("approved"));
+  });
+
+  it("a cancelled owner sheet is not an answer: the card stays pending and nothing is counted", async () => {
+    const { c, admin, key, h } = await setup();
+    const approvalId = await securityCard(admin);
+    await vi.waitFor(() => expect(h.shown.map((s) => s.id)).toContain(approvalId));
+    const challenge = h.shown.find((s) => s.id === approvalId)?.presenceChallenge as string;
+    await new Promise((r) => setTimeout(r, 450));
+    const status = async () =>
+      (await admin.call<{ approval: ApprovalRequest }>("approvals.get", { approvalId })).approval
+        .status;
+    // Cancel, many more times than the answer cap: authenticated false, and no signature.
+    for (let i = 0; i < 30; i++) {
+      h.respond({
+        type: "notify.response",
+        notificationId: approvalId,
+        actionId: "approve",
+        authenticated: false,
+      });
+    }
+    // An authenticated flag with no signature is no better.
     h.respond({
       type: "notify.response",
       notificationId: approvalId,
       actionId: "approve",
       authenticated: true,
-      presence: { signature: signChallenge(key.privateKey, challenge), keyId: key.keyId },
+    });
+    await new Promise((r) => setTimeout(r, 300));
+    expect(await status()).toBe("pending");
+    expect(await c.audit.query({ kind: "approval.answer_rejected" })).toHaveLength(0);
+
+    // Not rate limited by the cancels: the real answer still goes through.
+    h.respond({
+      type: "notify.response",
+      notificationId: approvalId,
+      actionId: "approve",
+      authenticated: true,
+      presence: { signature: signChallenge(key.privateKey, challenge) },
     });
     await vi.waitFor(async () => expect(await status()).toBe("approved"));
-    expect(
-      await admin.request(
-        "settings.set",
-        { key: "permissions.policy", value: { allow: [] }, approvalId },
-        ik(),
-      ),
-    ).toMatchObject({ ok: true });
+  });
+
+  it("Deny needs no presence", async () => {
+    const { admin, h } = await setup();
+    const approvalId = await securityCard(admin);
+    await vi.waitFor(() => expect(h.shown.map((s) => s.id)).toContain(approvalId));
+    await new Promise((r) => setTimeout(r, 450));
+    h.respond({ type: "notify.response", notificationId: approvalId, actionId: "deny" });
+    await vi.waitFor(async () =>
+      expect(
+        (await admin.call<{ approval: ApprovalRequest }>("approvals.get", { approvalId })).approval
+          .status,
+      ).toBe("denied"),
+    );
+  });
+
+  it("the Approve button asks for no system unlock (the owner sheet is the helper's, once), and only a presence card carries a challenge", async () => {
+    const { c, h } = await setup();
+    // A purchase is a presence card whose text fits a notification.
+    const buy = await c.broker.requestApproval({
+      kind: "purchase",
+      summary: "Buy a desk",
+      details: { item: "desk" },
+      bindingHash: `sha256:${"a".repeat(64)}`,
+      grantKey: "mac|desk",
+      requestedBy: { runId: null, taskId: null, threadId: null },
+      sideEffect: "financial",
+      surfaces: ["desktop", "notification"],
+      taint: false,
+    });
+    expect(buy.approval.requiresAuthentication).toBe(true);
+    await vi.waitFor(() => expect(h.shown.map((s) => s.id)).toContain(buy.approval.id));
+    const card = h.shown.find((s) => s.id === buy.approval.id) as {
+      requireBiometry: boolean;
+      presenceChallenge?: string;
+      actions: { id: string; authenticationRequired: boolean }[];
+    };
+    expect(card.requireBiometry).toBe(true);
+    expect(card.presenceChallenge).toMatch(/^[0-9a-f]{64}$/);
+    expect(card.actions.map((a) => a.id)).toEqual(["approve", "deny"]);
+    expect(card.actions.every((a) => a.authenticationRequired === false)).toBe(true);
+
+    // A card that needs no presence: no biometry flag, no challenge.
+    const plain = await c.broker.requestApproval({
+      kind: "send_email",
+      summary: "Send a short note",
+      details: {},
+      bindingHash: `sha256:${"d".repeat(64)}`,
+      grantKey: "mail|note",
+      requestedBy: { runId: null, taskId: null, threadId: null },
+      sideEffect: "write",
+      surfaces: ["desktop", "notification"],
+      taint: false,
+    });
+    expect(plain.approval.requiresAuthentication).toBe(false);
+    await vi.waitFor(() => expect(h.shown.map((s) => s.id)).toContain(plain.approval.id));
+    const quiet = h.shown.find((s) => s.id === plain.approval.id) as Record<string, unknown>;
+    expect(quiet.requireBiometry).toBe(false);
+    expect(quiet).not.toHaveProperty("presenceChallenge");
   });
 
   it("a tap on the helper's card tells the desktop which route to open", async () => {
-    const { c, admin, h, helperDevice, key } = await setup();
-    await admin.call(
-      "devices.presenceKey.register",
-      { deviceId: helperDevice, expectKeyId: key.keyId },
-      ik(),
-    );
+    const { c, admin, h } = await setup();
     const frames: string[] = [];
     c.gateway.context.bus.subscribe(["operator.read", "operator.admin"], (f) => frames.push(f));
-    const first = await admin.request(
-      "settings.set",
-      { key: "permissions.policy", value: { allow: [] } },
-      ik(),
-    );
-    const approvalId = (first as { error: { details: { approvalId: string } } }).error.details
-      .approvalId;
+    const approvalId = await securityCard(admin);
     await vi.waitFor(() => expect(h.shown.map((x) => x.id)).toContain(approvalId));
     h.respond({ type: "notify.response", notificationId: approvalId, actionId: "default" });
     await vi.waitFor(() => expect(frames.join("\n")).toContain("notification.opened"));
     const opened = frames.map((f) => JSON.parse(f)).find((f) => f.event === "notification.opened");
-    // A settings approval has no chat, so the tap opens the approvals sheet.
+    // A payment from no chat opens the approvals sheet.
     expect(opened.payload).toEqual({ notificationId: approvalId, route: "/agent/approvals" });
     // The tap decides nothing.
     expect(
@@ -213,33 +297,67 @@ describe("helper presence keys (issue #253)", () => {
     ).toBe("pending");
   });
 
-  it("a second key needs fresh presence; revoking the helper revokes its key", async () => {
+  it("revoking the helper revokes its key", async () => {
     const { c, admin, key, helperDevice } = await setup();
-    await admin.call(
-      "devices.presenceKey.register",
-      { deviceId: helperDevice, expectKeyId: key.keyId },
-      ik(),
-    );
-    // Presence is now enrolled: replacing the key asks for a card.
-    expect(
-      await admin.request(
-        "devices.presenceKey.register",
-        { deviceId: helperDevice, expectKeyId: key.keyId },
-        ik(),
-      ),
-    ).toMatchObject({ ok: false, error: { code: "approval_required" } });
-
-    revokeDevice(c.gateway.context.db, helperDevice);
-    expect(await admin.call("devices.presenceKey.list", {})).toEqual({ presenceKeys: [] });
-    // With the only verifier gone, security changes fail closed.
+    const keys = new HelperPresenceKeys(c.gateway.context.db);
+    expect(keys.get(helperDevice)).toBe(key.publicKey);
+    // Pairing the helper is not deliberate enrollment: the gate stays "off", so a security change
+    // needs only the admin device, and first-admin bootstrap is not shut off (bootstrap-admin).
     expect(
       await admin.request(
         "settings.set",
         { key: "permissions.policy", value: { allow: [] } },
         ik(),
       ),
-    ).toMatchObject({ ok: false, error: { code: "presence_required" } });
-    expect(key.keyId).toMatch(/^[0-9a-f]{64}$/);
+    ).toMatchObject({ ok: true });
+    expect(c.gateway.context.presenceState()).toBe("off");
+
+    revokeDevice(c.gateway.context.db, helperDevice);
+    expect(keys.get(helperDevice)).toBeUndefined();
+    expect(await admin.call("devices.presenceKey.list", {})).toEqual({ presenceKeys: [] });
+  });
+
+  it("on a default Mac a non-admin device's first passkey needs the Mac sheet, not just a tap", async () => {
+    const { c, helperDevice } = await setup();
+    // Default Mac: only the helper's auto-paired key exists, so the gate is "off" ...
+    expect(c.gateway.context.presenceState()).toBe("off");
+    // ... yet the helper can verify, so adding a verifier must pass its sheet.
+    expect(c.gateway.context.presenceCanVerify()).toBe(true);
+    // A device with read/write/approvals but not admin (a paired phone, a stolen token).
+    const phone = await desktopClient(c.gateway, newDeviceKey(), "phone-1");
+    clients.push(phone);
+    const first = await phone.request(
+      "passkeys.register.finish",
+      { ceremonyId: "c".repeat(32), response: {} },
+      ik(),
+    );
+    expect(first).toMatchObject({ ok: false, error: { code: "approval_required" } });
+    const approvalId = (first as { error: { details: { approvalId: string } } }).error.details
+      .approvalId;
+    const card = (await c.broker.get(approvalId)) as ApprovalRequest;
+    // The card needs the presence step; a plain tap is refused.
+    expect(card.requiresAuthentication).toBe(true);
+    const { token } = await phone
+      .call<{ token?: string; answerToken?: string }>("approvals.get", { approvalId })
+      .then((r) => ({ token: r.answerToken ?? r.token }));
+    const tap = await phone.request(
+      "approvals.answer",
+      { approvalId, decision: "approve", scope: "once", answerToken: token },
+      ik(),
+    );
+    expect(tap).toMatchObject({ ok: false });
+    // Still pending: nothing enrolled, and the retry with the unapproved card is refused.
+    expect((await c.broker.get(approvalId))?.status).toBe("pending");
+    expect(
+      await phone.request(
+        "passkeys.register.finish",
+        { ceremonyId: "c".repeat(32), response: {}, approvalId },
+        ik(),
+      ),
+    ).toMatchObject({
+      ok: false,
+    });
+    void helperDevice;
   });
 
   it("an unknown or disconnected device cannot register", async () => {
@@ -251,22 +369,5 @@ describe("helper presence keys (issue #253)", () => {
         ik(),
       ),
     ).toMatchObject({ ok: false, error: { code: "unavailable" } });
-  });
-});
-
-describe("registering needs the genuine helper's key id (security review, finding 1)", () => {
-  it("refuses a registration without expectKeyId, and one whose key id differs", async () => {
-    const { admin, helperDevice } = await setup();
-    expect(
-      await admin.request("devices.presenceKey.register", { deviceId: helperDevice }, ik()),
-    ).toMatchObject({ ok: false, error: { code: "invalid_params" } });
-    expect(
-      await admin.request(
-        "devices.presenceKey.register",
-        { deviceId: helperDevice, expectKeyId: "f".repeat(64) },
-        ik(),
-      ),
-    ).toMatchObject({ ok: false, error: { code: "conflict" } });
-    expect(await admin.call("devices.presenceKey.list", {})).toEqual({ presenceKeys: [] });
   });
 });

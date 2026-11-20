@@ -27,6 +27,7 @@ import type { ApprovalTokens } from "./approval-tokens.ts";
 import type { OwnerAttention } from "./attention.ts";
 import type { CallContexts } from "./call-context.ts";
 import type { ChannelConversations } from "./channel-conversations.ts";
+import type { NotificationActions } from "./notification-actions.ts";
 import type { PageReadHub } from "./page-reads.ts";
 import type { ComposeRateLimits } from "./rate-limits.ts";
 import type { SrtResolver } from "./srt.ts";
@@ -59,6 +60,8 @@ export interface ComposeServices {
   readonly rawBroker: PsychePermissionBroker;
   readonly audit: HashChainAuditLog;
   readonly notifier: PsycheNotifier;
+  /** What a notice's own button does: parts register an action prefix (`NotificationActions`). */
+  readonly notificationActions?: NotificationActions;
   /** Register package executors here: calls get their decision context through `calls`. */
   readonly tools: ToolRegistry;
   readonly calls: CallContexts;
@@ -154,6 +157,12 @@ export interface ComposedPart {
     kind: PresenceAssertion["kind"];
     verifier: PresenceVerifier;
     ready?: () => boolean;
+    /**
+     * Whether it could verify a presence step now, an auto-paired key included. Adding a verifier
+     * (`strong`) needs the Mac sheet whenever this is true, even while `ready` is not (a default
+     * Mac). Absent: same as `ready`.
+     */
+    canVerify?: () => boolean;
   };
   /**
    * Decides whether a loopback origin is the owner's own project (security §3.10). The browser

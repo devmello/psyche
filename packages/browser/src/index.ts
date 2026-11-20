@@ -33,6 +33,15 @@ export * from "./tools/attention.ts";
 export { bindingHash, canonicalJson, classifyActivation } from "./tools/classify.ts";
 export { ApprovalGate, type CallContext } from "./tools/gate.ts";
 export {
+  type OrderLine,
+  type OrderSummary,
+  orderBinding,
+  orderStillMatches,
+  orderSummary,
+  parseMoney,
+  readOrder,
+} from "./tools/order.ts";
+export {
   type BrowserToolDeps,
   browserToolDefs,
   type ControlRequest,

@@ -1,0 +1,101 @@
+---
+name: psyche-builder
+description: How a builder session works on Psyche from brief to PR. Covers reading the brief and goal, finding the code, making the change, the local verification loop, opening the PR and the report format. Invoke it first in any session the orchestrator started to build, fix or investigate something in this repo.
+---
+
+# Building on Psyche
+
+The orchestrator gave you a brief and usually a `/goal`. Your job is one focused PR that meets the "Done means" in the brief, verified locally, with an honest report. The hard rules in `.claude/CLAUDE.md` apply at all times.
+
+## 1. Understand before editing
+
+- **Check main first.** Before you build, `git log origin/main --oneline -S'<identifier>'` or grep for the feature. Two dispatched tasks (helper quits with Psyche; web-client copy, #1392) were already on main. If it is done, report that with the commit and stop; don't re-do it.
+- Restate the task to yourself in one line. If the brief names files, read them first. Otherwise search: `grep -rn` on the user-visible string or error text is usually the fastest way in.
+- Check the domain skills under `.claude/skills/`:
+  - `psyche-i18n` for any string;
+  - `psyche-apple` for Swift, iOS or the Mac helper;
+  - `psyche-permissions` for permissions, approvals, presence, the seal, the Auto allowlist or any payment or risk classifier;
+  - any other skill whose description matches your area.
+- Read `learnings.md` next to this file. It holds traps earlier builders hit.
+- If the brief is ambiguous or seems wrong once you read the code, say so in your report rather than guessing at something large. Small, obvious choices you just make, and you note them in the report.
+
+## 2. Make the change
+
+- Smallest change that fully solves it. Fix the cause, not the symptom, and say what the cause was.
+- Add or update tests that would have caught the bug or prove the feature works. Follow the patterns of the nearest existing test file.
+- **Behaviour changes break old tests.** If you change a rule, a default, an allowlist, an error code or copy a test asserts, `git grep` the tests for the old value and update them in the same commit. This includes an owner decision relayed mid-PR. Eight existing tests broke this way in #1299, #1300 and #1301. One was `model-settings.test.ts` after the small-models decision, left for the orchestrator to fix.
+- **Classifier-like work:** any rule that sorts inputs into "asks" and "doesn't ask", or "counts" and "doesn't count". Write a table-driven test with both lists before you change the rule: inputs that must match, and near-misses that share a word and must not. Every review finding becomes a row. See `psyche-permissions` §3.
+- **Negative tests need a positive control.** A test that only asserts absence (reduced motion #1318, "picker hidden" #1325) passes when the feature is broken. Pair it with a case where the thing does appear, and run the test against the code it is meant to guard: #1327's redaction test built its own redactor, and #1329 B1/B2 tests covered only normal cases while the hole stayed open.
+- **Merge `origin/main` before you start and again before the PR.** Fixtures drift (#1360 after #1346), and a merged-in PR's tests can contradict yours: #1325 hid the Persona picker, #1328 brought it back, main broke (#1331). If the merge touches the same UI or module, re-run the tests of both before you push.
+- **Reordering or adding an emit:** list every subscriber of that event first (`git grep` `subscribe(` and the topic) and say what each relies on (audit row, grant, folder applied). Put the table in the PR body (#1364 did, review passed clean).
+- **A fix that changes a shared predicate** (who is local, enrolled, ready, financial): list its callers and test one you didn't mean to change. Fixes opened new holes in #1299 and #1301. See `psyche-permissions` §2.
+- **Test fixtures use the shapes production sends.** Read the producer first. #1346 tested approvals and grants in shapes the Gateway never sends (real approval details are `{tool, params, target}`, grant subjects `{grantKey, target, sideEffect}`, grantKeys `<tool>|<kind>:…`, accounts can contain `:`). Test persistence on the real store: #1333 and #1355 had SQLite stores that silently dropped new columns on the next read. Every new approval or answer field gets a real-SQLite write-then-read test.
+- **Bulk-approvable or "routine" sets are allowlists, not deny-lists.** #1333's deny-list leaked `.claude/settings.json`, `node_modules/.bin` and `ſetup.py` (case folding on APFS), and r3 found an extension allowlist (`json`, `txt`) was still a deny-list by name (`lefthook.json`, `requirements.txt`). Allow exact known-safe names, not extensions. Redacted display values must never round-trip back as input: refuse placeholders (#1343).
+- **Exec, argv, path or name-list classifiers** (programs, files, keys, tool options): follow `psyche-permissions` §3d.
+- **Lookups fail closed.** A missing optional dependency (`listGrants`, a resolver, a store) must throw when the caller needs it, never fall back to the weaker path (#1361 r2).
+- **Fire-and-forget promises need `.catch`.** psyched has no `unhandledRejection` handler, so a rejected `void` promise can take the Gateway down (#1366; see `compose/thread-end.ts`).
+- **Redact, then truncate.** Any text of the owner's that goes to a model (learner, titles, compaction, search cards) is redacted first and cut second. A cut value no longer matches the redactor: #1407 r1 sent 10 of 16 secret characters to the utility model. Test with the real `SecretRedactor` and a secret that straddles the cut. See `psyche-permissions` §3f.
+- **Caches and fingerprints:** a key on `max(updated_at)`, a count or a rowid misses same-millisecond writes, clock steps and rowid reuse, so a hidden or retracted item can be served for hours (#1396 r2, a privacy regression). Key on content or on a version bumped by every write path, and freeze the clock in tests with fake timers.
+- **Idle timers and wake paths:** a timer that checks only the last acquire drops a safety tap or a connection mid-action. Count in-flight work (#1402 r1, Esc tap). A lazy restart or wake runs every pre-start check a normal start runs (hash, `madeBy`, bundle staleness: #1401 r1).
+- **Frames over 1 MiB** (`MAX_FRAME_BYTES`) close the socket and fail every call in flight: cap text-carrying methods well below it (#1381).
+- **Decoder, normaliser or redaction changes:** fuzz three ways (before, main, head) and report how many inputs got quieter or louder (#1342, #1345). Redaction helpers need two-way tests for every URL form (#1343).
+- **Guard the file list.** An empty `$files` makes `vitest run` or `vitest related` run the whole suite (the whole ui suite ran once by accident). Check `[ -n "$files" ]` first, and never run a whole package suite (`packages/permissions`) to be safe.
+- Keep to the brief's scope. Unrelated problems you notice go in the report under "Noticed", not in the diff. If you do widen the scope (a fix you can't leave out), say so in the report. In #1309 the builder added a label fix the brief never mentioned.
+- Protocol changes: `pnpm protocol:gen`. If you add an enum value, update the Swift helper's exhaustive `switch` sites and the TS `Record<Kind, …>` maps.
+
+## 3. Verify (the loop)
+
+The owner's rule (2026-11-18): don't overheat the Mac. Size checks to the change.
+1. While you work, run only the test files you touched: `pnpm exec vitest run <files> --maxWorkers=1`. Don't run `verify.sh` after every small fix.
+2. When the change is done, run `pnpm exec biome check --write <touched dirs>`, then `bash .claude/scripts/verify.sh` once (add `--swift` if you touched Swift). It typechecks the touched packages and runs the touched tests. Fix failures by re-running just the failing files, then run `verify.sh` once more before you push.
+3. If you changed widely imported code (a shared hook, store, protocol type or permission rule), also run `verify.sh --related` once before the PR. It runs every existing test that imports what you changed, which is where builders most often break things unnoticed (#1299, #1300). Otherwise the merge gate runs it.
+
+**Sibling tests (#1361):** `verify.sh` also runs the same-named test of each touched source file, not differently named tests that import it. Before the PR, `git grep -l "<module name>" -- '*.test.*'` for each changed module and run those too (#1361 hid 9 `exec-host.test.ts` failures).
+
+verify.sh compares your failures with a run on the merge base. "also failing on the base" is not your problem. "new in" is. "base could not run" means unknown: run that file yourself on `origin/main` before you call it pre-existing. Delete untracked build output first (`apps/ios/.build-ios`): biome lints it (#1305).
+
+Run `tsc` only through `verify.sh`, or alone, never in parallel with your own verify (load hit 22).
+
+**How to run `verify.sh` (#1375, #1396, #1397, #1398, #1404, #1407, #1394):**
+- Commit first and merge `origin/main`: it checks the committed diff against the merge base, so uncommitted files or a stale base mean it checks the wrong set.
+- The harness moves a command that runs past ~180 s to the background. That is expected: wait for its completion notice and read the log. Never start a second run.
+- Run it in the foreground, niced, with a long timeout, and write the output to a file with a PR-specific name: `nice bash .claude/scripts/verify.sh > "$SCRATCH/verify-<pr or branch>.log" 2>&1` with the Bash timeout at 600000. A backgrounded `| tail` loses the result, and the Stop hook starts a second full verify if you end your turn while one runs in the background (load 26).
+- Full checks share 3 slots on machines with 10+ cores (1 otherwise); a run waits for a free one, sometimes tens of minutes. Don't start another and don't poll with `pgrep -f "verify.sh"`, it matches itself.
+- Shared scratch dirs belong to every session: name files after your PR or branch (`pr-1404-body.md`, `verify-1404.log`). Another session overwrote `verify2.log` (#1404) and `pr-body.md`.
+- Run git only in your own worktree. A builder switched another worktree's branch.
+- **Fresh worktree (#1369, #1371–#1373):** there is no `node_modules`, so `pnpm exec` and `verify.sh` try a full install and better-sqlite3's node-gyp fails, making every step FAIL. Run `pnpm install --frozen-lockfile --prefer-offline --ignore-scripts` once; if pnpm still reinstalls, set `pnpm_config_verify_deps_before_run=false`. The Gateway bundle build wants `PNPM_CONFIG_IGNORE_SCRIPTS=true` (the `PNPM_CONFIG_` form; `npm_config_*` is ignored).
+- If `pnpm: command not found` (the session's Node has none), run `export PATH=$HOME/.nvm/versions/node/v24.22.3/bin:$PATH`. `verify.sh` itself falls back to nvm's default since #1390.
+
+The Stop hook runs `verify.sh --quick` (lint, secrets, protocol, i18n; seconds) when you try to finish with changes it hasn't seen pass. If it blocks you, fix what it reports. Never skip, weaken, `.skip` or delete a test to get it passing. If you truly cannot fix a failure after 3 attempts, stop and report it plainly.
+
+UI changes: if the brief asks for screenshots, use the browser preview or simulator as it says. Never run the built Psyche.app.
+
+## 4. Open the PR
+
+If the brief says not to push or not to open a PR (a dry run, an investigation, a local-only fix), stop after the local commit and go straight to the report.
+
+- Commit with a clear message ending in your session's `Co-Authored-By` line (see `.claude/CLAUDE.md`).
+- Push, then run `gh pr create --draft` with a body in this shape:
+  - **What and why:** the cause and the fix, in plain words.
+  - **Verification:** the verify.sh summary line and anything else you ran.
+  - **Not verified:** what you could not check (real app, device, CI).
+  - **Owner checks:** manual steps, if any.
+  - **Learnings:** 0–3 one-line, non-obvious things a future builder should know (a trap, a command that works, a file that's easy to miss). Leave it empty if there is nothing new. The `reflect` skill harvests this section into the skills.
+  - The 🤖 footer.
+- Then `gh pr ready <n>`.
+- **Before every later push**, run `gh pr view <n> --json state`. If it is MERGED or CLOSED, the push goes nowhere (#1309: two commits stranded until #1310). Branch from `origin/main`, cherry-pick the new commits, open a new PR, and say so in the report.
+
+## 5. Report
+
+End your turn with:
+- one line on the outcome, with the PR link;
+- the cause, the fix, and the verification result;
+- the head sha and `git diff --stat origin/main...HEAD`. Not `git show --stat HEAD`: when HEAD is a merge commit it shows main's incoming changes (#1293, #1432);
+- "Not verified", "Noticed" and any question for the orchestrator.
+
+Send the report once. Don't re-send it while waiting on background work. No praise or filler. If something failed, say it failed.
+
+When the orchestrator sends review findings, fix them on the same branch, verify, push, and report again in the same shape:
+- Each finding gets a test that fails without your fix.
+- Check the PR is still open before you push (§4).
+- Each round: run the tests for what you changed, then `verify.sh` once before you push. Add `--related` when the round touched shared code; "this change doesn't touch them" was wrong in #1300's last round.

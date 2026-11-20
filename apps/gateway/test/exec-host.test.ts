@@ -7,6 +7,7 @@ import {
   readdirSync,
   readFileSync,
   realpathSync,
+  rmSync,
   statSync,
   symlinkSync,
   writeFileSync,
@@ -21,6 +22,7 @@ import {
 } from "@psyche/agent-core";
 import {
   createPermissionBroker,
+  type FolderGrantEntry,
   type PolicyConfig,
   type PsychePermissionBroker,
   READ_ONLY_RULE,
@@ -33,7 +35,9 @@ import {
 import type { CliDriver, CliOptions, CliResult } from "@psyche/sandbox";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import {
+  execHostSrtSettings,
   execHostTool,
+  isGit,
   READ_ONLY_TIMEOUT_MS,
   type SrtStatus,
   UNSANDBOXED_WORD,
@@ -299,7 +303,8 @@ describe.skipIf(!posixHost)("exec_host: missing permission → request → retry
     expect(a).toMatchObject({
       kind: "permission_request",
       deviceOnly: true,
-      requiresAuthentication: true,
+      // Presence is for payments only: turning exec_host on is a tap.
+      requiresAuthentication: false,
       scopesOffered: ["once"],
       details: { need, reason: "run the tests" },
     });
@@ -372,7 +377,7 @@ describe.skipIf(!posixHost)("exec_host: missing permission → request → retry
 
     const pend = run(requestPermission(), { need: denied.missing, reason: "send it" }, ctx());
     const a = await pending();
-    expect(a.requiresAuthentication).toBe(true);
+    expect(a.requiresAuthentication).toBe(false);
     await answer(a.id);
     expect((await pend).output).toMatchObject({ granted: true });
     expect(connectorAsks).toEqual([["apple.mail", (denied.missing as { group: string }).group]]);
@@ -534,19 +539,21 @@ describe.skipIf(!posixHost)(
   () => {
     const audited: { kind: string; data: Record<string, unknown> }[] = [];
     /** The tool, once its first srt lookup has answered (until then nothing runs quietly). */
-    const quietHost = async () => {
-      const t = makeQuiet();
+    type Folders = (threadId: string) => readonly FolderGrantEntry[];
+    const quietHost = async (folders?: Folders) => {
+      const t = makeQuiet(folders);
       await new Promise((r) => setTimeout(r, 5));
       return t;
     };
-    const makeQuiet = () =>
+    const makeQuiet = (folders?: Folders) =>
       execHostTool({
         broker: recording(),
         vault: { redact: (t) => t },
-        folders: (threadId) => [
-          ...(broker.policy.folders ?? []),
-          ...broker.sessionFolders(threadId),
-        ],
+        folders:
+          folders ??
+          ((threadId) => [...(broker.policy.folders ?? []), ...broker.sessionFolders(threadId)]),
+        // As the Gateway wires it: one live look per root at a time, through the broker.
+        lookRoot: (path) => broker.lookRootNow(path),
         srt: { resolve: async () => srt },
         home: psycheHome,
         userHome: home,
@@ -677,7 +684,10 @@ describe.skipIf(!posixHost)(
       srt = { missing: true, reason: "srt is not installed" };
       const t = await quietHost();
       const desc = t.describeCall?.({ argv: ["date"], cwd: project }) as ToolCallDescription;
-      expect(desc.meta).toEqual({ hostCommand: "read_only", hostSandbox: "missing" });
+      expect(desc.meta).toMatchObject({
+        hostCommand: "read_only",
+        hostSandbox: "missing",
+      });
       expect(desc.details).toMatchObject({ sandbox: "missing", unsandboxedWord: UNSANDBOXED_WORD });
       expect(await decide(t, { argv: ["date"], cwd: project })).toMatchObject({
         decision: "ask",
@@ -710,6 +720,160 @@ describe.skipIf(!posixHost)(
       expect(started).toEqual([]);
     });
 
+    it("a granted root swapped for a link into a system folder after the policy was set covers nothing", async () => {
+      on();
+      // The broker memoised the answer for this root when the policy was set (a real folder).
+      const swapped = join(home, "Projects", "swapped");
+      mkdirSync(swapped, { recursive: true });
+      setPolicy({ ...policy, folders: [...(policy.folders ?? []), { path: swapped, mode: "rw" }] });
+      expect(broker.grantedFolders().map((f) => f.path)).toContain(swapped);
+      // Swapped for a link to /usr (a stand-in for /opt/homebrew); only the link is touched.
+      spawnSync("/bin/rmdir", [swapped]);
+      symlinkSync("/usr", swapped);
+      // The broker may still list it for up to FOLDER_FRESH_MS (it never looks up a root
+      // synchronously); the run looks it up live and refuses.
+      const t = await quietHost();
+      const params = { argv: ["date"], cwd: swapped };
+      const d = await decide(t, params);
+      await expect(
+        run(t, params, ctx({ authority: { rule: d.rule, bindingHash: d.bindingHash as string } })),
+      ).rejects.toMatchObject({ code: "forbidden" });
+      expect(started).toEqual([]);
+    });
+
+    it("a granted root swapped for a link into Psyche's own data covers nothing either", async () => {
+      on();
+      const swapped = join(home, "Projects", "swapped-own");
+      mkdirSync(swapped, { recursive: true });
+      setPolicy({ ...policy, folders: [...(policy.folders ?? []), { path: swapped, mode: "rw" }] });
+      // A link to $PSYCHE_HOME: not a system folder, but a grant on it would be refused.
+      spawnSync("/bin/rmdir", [swapped]);
+      symlinkSync(psycheHome, swapped);
+      // The broker may still list it for up to FOLDER_FRESH_MS (it never looks up a root
+      // synchronously); the run looks it up live and refuses.
+      const t = await quietHost();
+      const params = { argv: ["date"], cwd: swapped };
+      const d = await decide(t, params);
+      await expect(
+        run(t, params, ctx({ authority: { rule: d.rule, bindingHash: d.bindingHash as string } })),
+      ).rejects.toMatchObject({ code: "forbidden" });
+      expect(started).toEqual([]);
+    });
+
+    it.each([
+      ["~/Library", ["Library"]],
+      ["~/.ssh", [".ssh"]],
+      ["~/.local/bin", [".local", "bin"]],
+    ])("a granted root swapped for a link to %s covers nothing", async (_label, parts) => {
+      on();
+      const target = join(home, ...parts);
+      mkdirSync(target, { recursive: true });
+      const swapped = join(home, "Projects", `swapped-${parts.join("-")}`);
+      mkdirSync(swapped, { recursive: true });
+      setPolicy({ ...policy, folders: [...(policy.folders ?? []), { path: swapped, mode: "rw" }] });
+      spawnSync("/bin/rmdir", [swapped]);
+      symlinkSync(target, swapped);
+      const t = await quietHost();
+      const params = { argv: ["date"], cwd: swapped };
+      const d = await decide(t, params);
+      await expect(
+        run(t, params, ctx({ authority: { rule: d.rule, bindingHash: d.bindingHash as string } })),
+      ).rejects.toMatchObject({ code: "forbidden" });
+      expect(started).toEqual([]);
+    });
+
+    it("a granted root swapped for a link to a shareable sibling folder covers nothing", async () => {
+      on();
+      const sibling = join(home, "Documents");
+      mkdirSync(sibling, { recursive: true });
+      const swapped = join(home, "Projects", "swapped-docs");
+      mkdirSync(swapped, { recursive: true });
+      setPolicy({ ...policy, folders: [...(policy.folders ?? []), { path: swapped, mode: "rw" }] });
+      spawnSync("/bin/rmdir", [swapped]);
+      symlinkSync(sibling, swapped);
+      // The broker may still list it for up to FOLDER_FRESH_MS (it never looks up a root
+      // synchronously); the run looks it up live and refuses.
+      const t = await quietHost();
+      const params = { argv: ["date"], cwd: swapped };
+      const d = await decide(t, params);
+      await expect(
+        run(t, params, ctx({ authority: { rule: d.rule, bindingHash: d.bindingHash as string } })),
+      ).rejects.toMatchObject({ code: "forbidden" });
+      expect(started).toEqual([]);
+    });
+
+    // PR #1395 review r1, finding 1: the root's PARENT swapped for a link. Its real path and the
+    // real parent plus its name agree, so only the real path recorded at grant time (or, for
+    // home, ~/Library and ~/.ssh, `refuseFolder` on where it leads) can tell.
+    const live: Folders = (threadId) => [
+      ...broker.grantedFolders(),
+      ...broker.liveSessionFolders(threadId),
+    ];
+    it.each([
+      // [where the parent now leads, granted name, how the grant knows its real path]
+      ["~", "Library", "recorded in Settings"],
+      ["~", ".ssh", "recorded in Settings"],
+      ["~/Documents", "notes", "recorded in Settings"],
+      ["~", "Library", "first seen by the broker"],
+      ["~", ".ssh", "first seen by the broker"],
+      ["~/Documents", "notes", "first seen by the broker"],
+      ["~", "Library", "not recorded at all"],
+      ["~", ".ssh", "not recorded at all"],
+      ["~/Documents", "notes", "not recorded at all"],
+    ])(
+      "a granted root whose parent is swapped for a link to %s (name %s, %s) covers nothing",
+      async (to, name, how) => {
+        on();
+        const target = to === "~" ? home : join(home, "Documents");
+        mkdirSync(join(target, name), { recursive: true });
+        const parent = join(home, "Parents", `${how.split(" ")[0]}-${name}-${to.length}`);
+        const granted = join(parent, name);
+        mkdirSync(granted, { recursive: true });
+        const entry =
+          how === "recorded in Settings"
+            ? { path: granted, mode: "rw" as const, real: granted }
+            : { path: granted, mode: "rw" as const };
+        setPolicy({ ...policy, folders: [...(policy.folders ?? []), entry] });
+        if (how === "first seen by the broker") {
+          await broker.foldersSettled();
+          expect(broker.recordedReal(granted)).toBe(granted);
+        }
+        rmSync(parent, { recursive: true });
+        symlinkSync(target, parent);
+        const t = await quietHost(how === "first seen by the broker" ? live : undefined);
+        const params = { argv: ["date"], cwd: granted };
+        const d = await decide(t, params);
+        await expect(
+          run(
+            t,
+            params,
+            ctx({ authority: { rule: d.rule, bindingHash: d.bindingHash as string } }),
+          ),
+        ).rejects.toMatchObject({ code: "forbidden" });
+        expect(started).toEqual([]);
+      },
+    );
+
+    it("a grant typed through a linked parent that has not moved still runs", async () => {
+      on();
+      const realCloud = join(home, "real-cloud");
+      mkdirSync(join(realCloud, "notes"), { recursive: true });
+      const cloud = join(home, "cloud");
+      symlinkSync(realCloud, cloud);
+      const granted = join(cloud, "notes");
+      // As Settings stores it: the typed path, with the real path it had when it was added.
+      setPolicy({
+        ...policy,
+        folders: [
+          ...(policy.folders ?? []),
+          { path: granted, mode: "rw", real: join(realCloud, "notes") },
+        ],
+      });
+      const t = await quietHost();
+      const res = await quietRun(t, { argv: ["date"], cwd: granted });
+      expect(res.output).toMatchObject({ exitCode: 0, outcome: "ok" });
+    });
+
     it("env, allowedDomains or an absolute argv[0] keep the old card", async () => {
       on();
       const t = await quietHost();
@@ -718,7 +882,7 @@ describe.skipIf(!posixHost)(
         { argv: ["ls"], cwd: project, allowedDomains: ["example.com"] },
         { argv: ["/bin/ls"], cwd: project },
       ]) {
-        expect(described(t, params).meta).toBeUndefined();
+        expect(described(t, params).meta?.hostCommand).toBeUndefined();
         expect((await decide(t, params)).sideEffect).toBe("destructive");
       }
     });
@@ -865,44 +1029,452 @@ describe.skipIf(!posixHost)(
       setPolicy({ folders: [{ path: repo, mode: "rw" }], exec: { execHostEnabled: true } });
     });
 
-    it("git asks for every reading subcommand a repo's config can turn into a program", async () => {
-      mkdirSync(repo, { recursive: true });
-      const git = (...a: string[]) => spawnSync("/usr/bin/git", a, { cwd: repo, env });
-      if (git("init", "-q").status !== 0) return; // no git on this machine
-      // What an untainted turn could write without a card before #1150's review: a filter, a
-      // textconv driver and a gpg program, each touching a marker outside the folder.
-      writeFileSync(join(repo, "a.txt"), "x\n");
-      git("add", "a.txt");
-      git("-c", "user.name=t", "-c", "user.email=t@t", "commit", "-qm", "init");
-      writeFileSync(join(repo, "a.txt"), "changed\n");
-      writeFileSync(join(repo, ".gitattributes"), "* filter=pwn diff=pwn\n");
-      git("config", "filter.pwn.clean", `touch ${marker("filter")}; cat`);
-      git("config", "diff.pwn.textconv", `touch ${marker("textconv")}; cat`);
-      git("config", "gpg.program", `/bin/sh -c 'touch ${marker("gpg")}'`);
-      git("config", "log.showSignature", "true");
-      // The payload is real: plain git runs it.
-      git("diff");
-      expect(existsSync(marker("filter"))).toBe(true);
-      for (const m of ["filter", "textconv", "gpg"]) spawnSync("/bin/rm", ["-f", marker(m)]);
+    // The real program, started the way the tool starts it inside srt with the srt prefix dropped
+    // (the argv, env and hardening alone, without the sandbox's help).
+    const realDriver: CliDriver = {
+      start(file, args, options) {
+        const at = args.indexOf("--");
+        const [exe, ...rest] = at === -1 ? [file, ...args] : args.slice(at + 1);
+        const r = spawnSync(exe as string, rest, {
+          cwd: options?.cwd,
+          env: options?.env,
+          timeout: 20_000,
+        });
+        started.push({ file: exe as string, args: rest, ...(options ? { options } : {}) });
+        return {
+          pid: 1,
+          done: Promise.resolve({
+            exitCode: r.status,
+            signal: null,
+            stdout: r.stdout ?? Buffer.from(""),
+            stderr: r.stderr ?? Buffer.from(""),
+            stdoutTruncated: false,
+            stderrTruncated: false,
+            durationMs: 1,
+          }),
+          kill: () => undefined,
+        };
+      },
+      stream: () => {
+        throw new Error("not used");
+      },
+    };
+    const readyReal = async () => {
+      const t = execHostTool({
+        broker: recording(),
+        vault: { redact: (x) => x },
+        folders: () => broker.policy.folders ?? [],
+        srt: { resolve: async () => srt },
+        home: psycheHome,
+        userHome: home,
+        driver: realDriver,
+        audit: recordingAudit,
+      });
+      await new Promise((r) => setTimeout(r, 5));
+      return t;
+    };
+    const gitIn = (dir: string, ...a: string[]) =>
+      spawnSync("/usr/bin/git", a, { cwd: dir, env, encoding: "utf8" });
+    /** A repository with one commit and a working-tree change; null when git is missing here. */
+    const makeRepo = (name: string): string | null => {
+      const dir = join(home, "Projects", name);
+      mkdirSync(dir, { recursive: true });
+      if (gitIn(dir, "init", "-q").status !== 0) return null;
+      writeFileSync(join(dir, "a.txt"), "x\n");
+      gitIn(dir, "add", "a.txt");
+      gitIn(dir, "-c", "user.name=t", "-c", "user.email=t@t", "commit", "-qm", "init");
+      writeFileSync(join(dir, "a.txt"), "changed\n");
+      return dir;
+    };
 
-      const t = await ready();
+    it("read-only git runs without a card and runs no program the repo's config names", async () => {
+      const dir = makeRepo("gitro-payloads");
+      if (dir === null) return; // no git on this machine
+      // What a hostile checkout carries: an fsmonitor hook, a clean filter, a textconv driver,
+      // an external diff, a gpg program, a pager, an ssh command: each touches a marker.
+      writeFileSync(join(dir, ".gitattributes"), "* filter=pwn diff=pwn\n");
+      gitIn(dir, "config", "core.fsmonitor", `touch ${marker("fsmonitor")} #`);
+      gitIn(dir, "config", "core.pager", `touch ${marker("pager")} #`);
+      gitIn(dir, "config", "core.sshCommand", `touch ${marker("ssh")} #`);
+      gitIn(dir, "config", "diff.external", `touch ${marker("external")} #`);
+      gitIn(dir, "config", "filter.pwn.clean", `touch ${marker("filter")}; cat`);
+      gitIn(dir, "config", "diff.pwn.textconv", `touch ${marker("textconv")}; cat`);
+      gitIn(dir, "config", "gpg.program", `/bin/sh -c 'touch ${marker("gpg")}'`);
+      gitIn(dir, "config", "log.showSignature", "true");
+      gitIn(dir, "config", "pager.status", `touch ${marker("pagerstatus")} #`);
+      const all = ["fsmonitor", "pager", "ssh", "external", "filter", "textconv", "gpg"];
+      const clean = () => {
+        for (const m of [...all, "pagerstatus"]) spawnSync("/bin/rm", ["-f", marker(m)]);
+      };
+      // The payloads are real: plain git runs them.
+      gitIn(dir, "status");
+      gitIn(dir, "diff");
+      expect(existsSync(marker("fsmonitor"))).toBe(true);
+      expect(existsSync(marker("filter"))).toBe(true);
+      clean();
+
+      setPolicy({ folders: [{ path: dir, mode: "rw" }], exec: { execHostEnabled: true } });
+      const t = await readyReal();
+      const runs = [
+        ["git", "status"],
+        ["git", "status", "--short", "--branch"],
+        ["git", "log", "--oneline", "-5"],
+        ["git", "log", "--format=%h %s", "-n", "3"],
+        ["git", "diff"],
+        ["git", "diff", "--stat"],
+        ["git", "show", "HEAD", "--stat"],
+        ["git", "branch"],
+        ["git", "rev-parse", "HEAD"],
+        ["git", "ls-files"],
+        ["git", "remote", "-v"],
+      ];
+      auditTrail.length = 0;
+      for (const argv of runs) {
+        const params = { argv, cwd: dir };
+        expect(described(t, params).meta, argv.join(" ")).toMatchObject({
+          hostCommand: "read_only",
+        });
+        const d = await decide(t, params);
+        expect(d, argv.join(" ")).toMatchObject({ decision: "allow", rule: READ_ONLY_RULE });
+        const res = await run(
+          t,
+          params,
+          ctx({ authority: { rule: d.rule, bindingHash: d.bindingHash as string } }),
+        );
+        expect(
+          res.output,
+          `${argv.join(" ")}: ${(res.output as { stderr: string }).stderr}`,
+        ).toMatchObject({ exitCode: 0, outcome: "ok" });
+        for (const m of [...all, "pagerstatus"]) {
+          expect(existsSync(marker(m)), `${argv.join(" ")} ran the ${m} payload`).toBe(false);
+        }
+      }
+      // blame has no --no-textconv: with a textconv driver defined git refuses to run it (the
+      // override is empty) instead of running the driver. Either way no payload runs.
+      const blame = { argv: ["git", "blame", "a.txt"], cwd: dir };
+      const bd = await decide(t, blame);
+      await run(
+        t,
+        blame,
+        ctx({ authority: { rule: bd.rule, bindingHash: bd.bindingHash as string } }),
+      );
+      for (const m of [...all, "pagerstatus"])
+        expect(existsSync(marker(m)), `blame ${m}`).toBe(false);
+      const log = (await run(
+        t,
+        { argv: ["git", "log", "--oneline", "-5"], cwd: dir },
+        ctx({
+          authority: {
+            rule: READ_ONLY_RULE,
+            bindingHash: (
+              await decide(t, { argv: ["git", "log", "--oneline", "-5"], cwd: dir })
+            ).bindingHash as string,
+          },
+        }),
+      )) as { output: { stdout: string } };
+      expect(log.output.stdout).toContain("init");
+      // Every run is audited before and after, with the reason.
+      const begun = auditTrail.filter((e) => e.kind === "exec_host.read_only_run");
+      expect(begun.length).toBeGreaterThanOrEqual(runs.length);
+      for (const e of auditTrail) expect(e.data.reason).toBe("remembered: read-only git");
+      expect(auditTrail.filter((e) => e.kind === "exec_host.read_only_run.done").length).toBe(
+        begun.length,
+      );
+    });
+
+    it("a driver name -c cannot carry refuses the run and runs nothing (review of #1329, B1)", async () => {
+      const cases: [string, string][] = [
+        ["eq", "a=b"],
+        ["space", "a b"],
+        ["tab", "a\tb"],
+        ["quote", 'a"b'],
+      ];
+      for (const [label, name] of cases) {
+        const dir = makeRepo(`gitro-name-${label}`);
+        if (dir === null) return;
+        const mark = marker(`name-${label}`);
+        writeFileSync(join(dir, ".gitattributes"), `* filter=${name.replace(/\s/g, "")} diff=x\n`);
+        gitIn(dir, "config", `filter.${name}.clean`, `touch ${mark}; cat`);
+        gitIn(dir, "config", `diff.${name}.textconv`, `touch ${mark}; cat`);
+        setPolicy({ folders: [{ path: dir, mode: "rw" }], exec: { execHostEnabled: true } });
+        const t = await readyReal();
+        for (const argv of [
+          ["git", "status"],
+          ["git", "diff"],
+          ["git", "blame", "a.txt"],
+        ]) {
+          const params = { argv, cwd: dir };
+          const d = await decide(t, params);
+          const p = run(
+            t,
+            params,
+            ctx({ authority: { rule: d.rule, bindingHash: d.bindingHash as string } }),
+          );
+          if (label === "quote") {
+            // `-c` can carry a quote: switched off like any other name.
+            await p.catch(() => undefined);
+          } else {
+            await expect(p, `${label}: ${argv.join(" ")}`).rejects.toThrow(
+              /cannot be switched off/,
+            );
+          }
+          expect(existsSync(mark), `${label}: ${argv.join(" ")} ran the driver`).toBe(false);
+        }
+      }
+    });
+
+    it("a git dir embedded in the tree, or cwd inside .git, never runs quietly (B2)", async () => {
+      const dir = makeRepo("gitro-embedded");
+      if (dir === null) return;
+      const mark = marker("embedded");
+      // A committed subdirectory that looks like a bare repository: git opens it, with its own
+      // config (a worktree outside the folder, an fsmonitor payload).
+      const emb = join(dir, "emb");
+      mkdirSync(join(emb, "objects"), { recursive: true });
+      mkdirSync(join(emb, "refs"), { recursive: true });
+      writeFileSync(join(emb, "HEAD"), "ref: refs/heads/main\n");
+      writeFileSync(
+        join(emb, "config"),
+        `[core]\n\tworktree = ${outside}\n\tfsmonitor = "touch ${mark} #"\n`,
+      );
+      setPolicy({ folders: [{ path: dir, mode: "rw" }], exec: { execHostEnabled: true } });
+      const t = await readyReal();
+      for (const cwd of [emb, join(dir, ".git"), join(dir, ".git", "refs")]) {
+        const params = { argv: ["git", "status"], cwd };
+        expect(described(t, params).meta?.hostCommand, cwd).toBeUndefined();
+        expect((await decide(t, params)).decision, cwd).toBe("ask");
+      }
+      // Even if the description were fooled, the run asks git what it opens and refuses.
+      expect(existsSync(mark)).toBe(false);
+      expect(started).toEqual([]);
+    });
+
+    it("alternates pointing outside the folder refuse the quiet run (B2)", async () => {
+      const dir = makeRepo("gitro-alt");
+      if (dir === null) return;
+      mkdirSync(join(dir, ".git", "objects", "info"), { recursive: true });
+      writeFileSync(join(dir, ".git", "objects", "info", "alternates"), `${outside}\n`);
+      setPolicy({ folders: [{ path: dir, mode: "rw" }], exec: { execHostEnabled: true } });
+      const t = await readyReal();
+      const params = { argv: ["git", "log"], cwd: dir };
+      const d = await decide(t, params);
+      await expect(
+        run(t, params, ctx({ authority: { rule: d.rule, bindingHash: d.bindingHash as string } })),
+      ).rejects.toMatchObject({ code: "forbidden" });
+      // Inside the folder refuses too: a store there can name further stores outside it (r2).
+      writeFileSync(
+        join(dir, ".git", "objects", "info", "alternates"),
+        `${join(dir, ".git", "objects")}\n`,
+      );
+      await expect(
+        run(t, params, ctx({ authority: { rule: d.rule, bindingHash: d.bindingHash as string } })),
+      ).rejects.toMatchObject({ code: "forbidden" });
+    });
+
+    it("an empty driver name is switched off too (review of #1329 r2, B3)", async () => {
+      const dir = makeRepo("gitro-empty-name");
+      if (dir === null) return;
+      const mark = marker("empty-name");
+      writeFileSync(join(dir, ".gitattributes"), "* filter= diff=\n");
+      writeFileSync(
+        join(dir, ".git", "config"),
+        `${readFileSync(join(dir, ".git", "config"), "utf8")}[filter ""]\n\tclean = "touch ${mark}; cat"\n[diff ""]\n\ttextconv = "touch ${mark}; cat"\n`,
+      );
+      writeFileSync(join(dir, "a.txt"), "changed\n");
+      setPolicy({ folders: [{ path: dir, mode: "rw" }], exec: { execHostEnabled: true } });
+      const t = await readyReal();
       for (const argv of [
         ["git", "status"],
-        ["git", "status", "-vv"],
         ["git", "diff"],
+        ["git", "blame", "a.txt"],
+      ]) {
+        const params = { argv, cwd: dir };
+        const d = await decide(t, params);
+        await run(
+          t,
+          params,
+          ctx({ authority: { rule: d.rule, bindingHash: d.bindingHash as string } }),
+        ).catch(() => undefined);
+        expect(existsSync(mark), `${argv.join(" ")} ran the empty-named driver`).toBe(false);
+      }
+    });
+
+    it("a repository with submodules never runs quietly (review of #1329 r2, B4)", async () => {
+      for (const [label, setup] of [
+        [
+          "gitmodules",
+          (dir: string) =>
+            writeFileSync(
+              join(dir, ".gitmodules"),
+              '[submodule "s"]\n\tpath = s\n\turl = ./s\n\tignore = none\n',
+            ),
+        ],
+        [
+          "modules dir",
+          (dir: string) => mkdirSync(join(dir, ".git", "modules", "s"), { recursive: true }),
+        ],
+      ] as const) {
+        const dir = makeRepo(`gitro-sub-${label.replace(" ", "-")}`);
+        if (dir === null) return;
+        setup(dir);
+        setPolicy({ folders: [{ path: dir, mode: "rw" }], exec: { execHostEnabled: true } });
+        const t = await readyReal();
+        const params = { argv: ["git", "status"], cwd: dir };
+        const d = await decide(t, params);
+        await expect(
+          run(
+            t,
+            params,
+            ctx({ authority: { rule: d.rule, bindingHash: d.bindingHash as string } }),
+          ),
+          label,
+        ).rejects.toMatchObject({ code: "forbidden" });
+      }
+    });
+
+    it("blame runs quietly in an ordinary repository", async () => {
+      const dir = makeRepo("gitro-blame");
+      if (dir === null) return;
+      setPolicy({ folders: [{ path: dir, mode: "rw" }], exec: { execHostEnabled: true } });
+      const t = await readyReal();
+      const params = { argv: ["git", "blame", "-L", "1,1", "a.txt"], cwd: dir };
+      const d = await decide(t, params);
+      expect(d.rule).toBe(READ_ONLY_RULE);
+      const res = await run(
+        t,
+        params,
+        ctx({ authority: { rule: d.rule, bindingHash: d.bindingHash as string } }),
+      );
+      expect(res.output).toMatchObject({ exitCode: 0, outcome: "ok" });
+    });
+
+    it("git that can write, execute or leave the folder asks (or is denied)", async () => {
+      const dir = makeRepo("gitro-asks");
+      if (dir === null) return;
+      setPolicy({ folders: [{ path: dir, mode: "rw" }], exec: { execHostEnabled: true } });
+      const t = await ready();
+      for (const argv of [
+        ["git", "-c", "core.pager=sh", "status"],
+        ["git", "diff", "--output=/tmp/x"],
+        ["git", "log", "--ext-diff"],
+        ["git", "branch", "evil"],
+        ["git", "push"],
+        ["git", "-C", "/etc", "status"],
+        ["git", "status;", "rm", "-rf", "x"],
         ["git", "log", "--show-signature"],
         ["git", "log", "--format=%G?"],
-        ["git", "show", "--show-signature"],
+        ["git", "status", "-vv"],
         ["git", "branch", "--format=%(signature)"],
+        ["git", "remote", "add", "x", "https://example.com"],
+        ["/usr/bin/git", "status"],
       ]) {
-        const params = { argv, cwd: repo };
+        const params = { argv, cwd: dir };
         expect(described(t, params).meta, argv.join(" ")).toBeUndefined();
         const d = await decide(t, params);
         expect(d.decision, argv.join(" ")).toBe("ask");
         expect(d.sideEffect, argv.join(" ")).toBe("destructive");
       }
+      // Env or network take it out of the class too.
+      for (const extra of [{ env: { COLUMNS: "80" } }, { allowedDomains: ["example.com"] }]) {
+        const params = { argv: ["git", "status"], cwd: dir, ...extra };
+        expect(described(t, params).meta?.hostCommand).toBeUndefined();
+        expect((await decide(t, params)).decision).toBe("ask");
+      }
+      // In a folder the owner has not shared: refused outright, never a quiet run.
+      const other = makeRepo("gitro-unshared");
+      if (other !== null) {
+        const d = await decide(t, { argv: ["git", "status"], cwd: other });
+        expect(d.decision).toBe("deny");
+      }
+      // Manual mode still asks for the plain read.
+      const plain = { argv: ["git", "status"], cwd: dir };
+      expect((await decide(t, plain, false, "manual")).decision).toBe("ask");
+      expect((await decide(t, plain, true)).decision).toBe("ask");
       expect(started).toEqual([]);
-      for (const m of ["filter", "textconv", "gpg"]) expect(existsSync(marker(m))).toBe(false);
+    });
+
+    it("a repository that redirects git (a .git file, core.worktree, include) never runs quietly", async () => {
+      const dir = makeRepo("gitro-redirect");
+      if (dir === null) return;
+      setPolicy({ folders: [{ path: dir, mode: "rw" }], exec: { execHostEnabled: true } });
+      const t = await ready();
+      const params = { argv: ["git", "status"], cwd: dir };
+      expect(described(t, params).meta).toBeDefined();
+      const config = readFileSync(join(dir, ".git", "config"), "utf8");
+      for (const extra of ["[core]\n\tworktree = /\n", "[include]\n\tpath = /tmp/evil\n"]) {
+        writeFileSync(join(dir, ".git", "config"), config + extra);
+        expect(described(t, params).meta?.hostCommand, extra).toBeUndefined();
+        expect((await decide(t, params)).decision).toBe("ask");
+      }
+      writeFileSync(join(dir, ".git", "config"), config);
+      expect(described(t, params).meta).toBeDefined();
+      // A `.git` file (gitdir: elsewhere) is not a plain repository either.
+      const linked = join(home, "Projects", "gitro-linked");
+      mkdirSync(linked, { recursive: true });
+      writeFileSync(join(linked, ".git"), `gitdir: ${join(dir, ".git")}\n`);
+      setPolicy({ folders: [{ path: linked, mode: "rw" }], exec: { execHostEnabled: true } });
+      expect(
+        described(t, { argv: ["git", "status"], cwd: linked }).meta?.hostCommand,
+      ).toBeUndefined();
+      // No repository at all.
+      const bare = join(home, "Projects", "gitro-none");
+      mkdirSync(bare, { recursive: true });
+      setPolicy({ folders: [{ path: bare, mode: "rw" }], exec: { execHostEnabled: true } });
+      expect(described(t, { argv: ["git", "log"], cwd: bare }).meta?.hostCommand).toBeUndefined();
+    });
+
+    it("a folder shared inside a bigger repository does not read the history above it", async () => {
+      const dir = makeRepo("gitro-parent");
+      if (dir === null) return;
+      const sub = join(dir, "sub");
+      mkdirSync(sub, { recursive: true });
+      setPolicy({ folders: [{ path: sub, mode: "rw" }], exec: { execHostEnabled: true } });
+      const t = await ready();
+      const params = { argv: ["git", "log", "--oneline"], cwd: sub };
+      const d = await decide(t, params);
+      expect(d.rule).toBe(READ_ONLY_RULE);
+      await expect(
+        run(t, params, ctx({ authority: { rule: d.rule, bindingHash: d.bindingHash as string } })),
+      ).rejects.toMatchObject({ code: "forbidden" });
+      expect(started).toEqual([]);
+    });
+
+    it("starts the system git with the hardened env and argv", async () => {
+      const dir = makeRepo("gitro-argv");
+      if (dir === null) return;
+      setPolicy({ folders: [{ path: dir, mode: "rw" }], exec: { execHostEnabled: true } });
+      const t = await ready();
+      const params = { argv: ["git", "diff", "--stat"], cwd: dir };
+      const d = await decide(t, params);
+      const pending = run(
+        t,
+        params,
+        ctx({ authority: { rule: d.rule, bindingHash: d.bindingHash as string } }),
+      );
+      await nextStart();
+      finish({});
+      await pending;
+      const s = started[0] as (typeof started)[number];
+      const after = s.args.slice(s.args.indexOf("--") + 2);
+      expect(after).toEqual(expect.arrayContaining(["--no-pager", "core.fsmonitor=false"]));
+      expect(after.slice(-5)).toEqual([
+        "diff",
+        "--no-ext-diff",
+        "--no-textconv",
+        "--ignore-submodules=all",
+        "--stat",
+      ]);
+      expect(after).toEqual(expect.arrayContaining(["diff.submodule=short"]));
+      expect(s.options?.env).toMatchObject({
+        GIT_CONFIG_NOSYSTEM: "1",
+        GIT_CONFIG_GLOBAL: "/dev/null",
+        GIT_PAGER: "cat",
+        GIT_OPTIONAL_LOCKS: "0",
+        GIT_CEILING_DIRECTORIES: join(home, "Projects"),
+        PATH: "/usr/bin:/bin:/usr/sbin:/sbin",
+      });
+      // Nothing writable but scratch: the profile of every read-only run.
+      expect(JSON.stringify(s.settings)).not.toContain(dir);
     });
 
     it("':' arguments (HEAD:../x, :/) never run quietly", async () => {
@@ -913,7 +1485,7 @@ describe.skipIf(!posixHost)(
         ["ls", ":/"],
         ["wc", "-l", ":(top)a.txt"],
       ]) {
-        expect(described(t, { argv, cwd: repo }).meta, argv.join(" ")).toBeUndefined();
+        expect(described(t, { argv, cwd: repo }).meta?.hostCommand, argv.join(" ")).toBeUndefined();
         expect((await decide(t, { argv, cwd: repo })).decision).toBe("ask");
       }
     });
@@ -926,13 +1498,13 @@ describe.skipIf(!posixHost)(
       if (!existsSync(join(dir, "out"))) symlinkSync(join(outside, "secret-dir"), join(dir, "out"));
       setPolicy({ folders: [{ path: dir, mode: "ro" }], exec: { execHostEnabled: true } });
       const t = await ready();
-      expect(described(t, { argv: ["ls", "-RL"], cwd: dir }).meta).toBeUndefined();
+      expect(described(t, { argv: ["ls", "-RL"], cwd: dir }).meta?.hostCommand).toBeUndefined();
       expect((await decide(t, { argv: ["ls", "-RL"], cwd: dir })).decision).toBe("ask");
       // The quiet ls -R, really run: it lists the link, never what is behind it.
       const r = spawnSync("/bin/ls", ["-R"], { cwd: dir, env });
       expect(String(r.stdout)).toContain("out");
       expect(String(r.stdout)).not.toContain("MARKER-outside");
-      expect(described(t, { argv: ["ls", "-R"], cwd: dir }).meta).toEqual({
+      expect(described(t, { argv: ["ls", "-R"], cwd: dir }).meta).toMatchObject({
         hostCommand: "read_only",
       });
     });
@@ -944,7 +1516,7 @@ describe.skipIf(!posixHost)(
         ["file", "-z", "a.gz"],
         ["file", "-Z", "a.gz"],
       ]) {
-        expect(described(t, { argv, cwd: repo }).meta).toBeUndefined();
+        expect(described(t, { argv, cwd: repo }).meta?.hostCommand).toBeUndefined();
       }
     });
 
@@ -955,7 +1527,10 @@ describe.skipIf(!posixHost)(
       const t = await ready();
       setPolicy({ folders: [{ path: dir, mode: "ro" }], exec: { execHostEnabled: true } });
       for (const prog of ["cat", "head", "tail", "wc", "file", "ls", "stat"]) {
-        expect(described(t, { argv: [prog, "pipe"], cwd: dir }).meta, prog).toBeUndefined();
+        expect(
+          described(t, { argv: [prog, "pipe"], cwd: dir }).meta?.hostCommand,
+          prog,
+        ).toBeUndefined();
       }
       writeFileSync(join(dir, "late"), "x");
       const params = { argv: ["cat", "late"], cwd: dir };
@@ -1081,8 +1656,10 @@ describe.skipIf(!posixHost)(
       writeFileSync(join(dir, "plain.txt"), "x");
       setPolicy({ folders: [{ path: dir, mode: "ro" }], exec: { execHostEnabled: true } });
       const t = await ready();
-      expect(described(t, { argv: ["cat", "copy.txt"], cwd: dir }).meta).toBeUndefined();
-      expect(described(t, { argv: ["cat", "plain.txt"], cwd: dir }).meta).toEqual({
+      expect(
+        described(t, { argv: ["cat", "copy.txt"], cwd: dir }).meta?.hostCommand,
+      ).toBeUndefined();
+      expect(described(t, { argv: ["cat", "plain.txt"], cwd: dir }).meta).toMatchObject({
         hostCommand: "read_only",
       });
     });
@@ -1096,7 +1673,8 @@ describe.skipIf(!posixHost)(
       git("config", "diff.pwn.textconv", `touch ${marker("hardened")}; cat`);
       setPolicy({ folders: [{ path: dir, mode: "rw" }], exec: { execHostEnabled: true } });
       const t = await ready();
-      const params = { argv: ["git", "status"], cwd: dir };
+      // A git outside the read-only class (`--show-signature` asks), so it is carded.
+      const params = { argv: ["git", "log", "--show-signature"], cwd: dir };
       const a = await card(t, params);
       await answer(a.id);
       const out = run(t, params, ctx({ approvalId: a.id }));
@@ -1119,7 +1697,7 @@ describe.skipIf(!posixHost)(
         expect(inner, v).toContain(v);
       }
       // The owner's own argv comes last, unchanged.
-      expect(inner.slice(-1)).toEqual(["status"]);
+      expect(inner.slice(-2)).toEqual(["log", "--show-signature"]);
       expect(existsSync(marker("hardened"))).toBe(false);
     });
   },
@@ -1175,7 +1753,7 @@ describe.skipIf(process.platform !== "win32")("exec_host on Windows", () => {
     const t = winHost(true);
     const d = await decide(t, { argv: ["whoami"], cwd: project });
     expect(d.decision).toBe("ask");
-    expect(described(t, { argv: ["whoami"], cwd: project }).meta).toBeUndefined();
+    expect(described(t, { argv: ["whoami"], cwd: project }).meta?.hostCommand).toBeUndefined();
     const a = await card(t, { argv: ["whoami"], cwd: project });
     expect(a.details).toMatchObject({
       sandbox: "missing",
@@ -1275,5 +1853,210 @@ describe.skipIf(process.platform !== "win32")("exec_host on Windows", () => {
       expect(s?.args, v).toContain(v);
     }
     expect(s?.args.slice(-1)).toEqual(["status"]);
+  });
+});
+
+describe("program-grant runs: folder-confined reads, folded git names", () => {
+  const base = {
+    psycheHome: "/Users/me/.psyche",
+    userHome: "/Users/me",
+    scratch: "/Users/me/.psyche/exec-host/s1",
+    writable: [],
+    allowedDomains: [],
+  };
+  it("denies the home and /Volumes and re-allows only the grant folder", () => {
+    const fs = (
+      execHostSrtSettings({ ...base, confineRead: "/Users/me/project" }) as {
+        filesystem: { denyRead: string[]; allowRead: string[] };
+      }
+    ).filesystem;
+    expect(fs.denyRead).toEqual(expect.arrayContaining(["/Users/me", "/Volumes"]));
+    expect(fs.allowRead).toContain("/Users/me/project");
+  });
+  it.skipIf(!posixHost)(
+    "never writes persistence locations, even inside a granted home folder",
+    () => {
+      const fs = (
+        execHostSrtSettings({ ...base, writable: ["/Users/me"] }) as {
+          filesystem: { denyWrite: string[]; allowWrite: string[] };
+        }
+      ).filesystem;
+      expect(fs.allowWrite).toContain("/Users/me");
+      expect(fs.denyWrite).toEqual(
+        expect.arrayContaining([
+          "/Users/me/Applications",
+          "/Users/me/Library/LaunchAgents",
+          "/Users/me/Library/Preferences",
+          "/Users/me/.zshrc",
+          "/Users/me/.bash_profile",
+          "/Users/me/.config/fish",
+          "/Users/me/.gitconfig",
+          "/Users/me/.ssh",
+        ]),
+      );
+      expect(fs.denyWrite).not.toContain("/Users/me");
+    },
+  );
+  // #1434 review r1, finding 4: the file tools' write protection, dot-home rule included.
+  it.skipIf(!posixHost)("denies what the file tools refuse under a home share", () => {
+    const denyWrite = (writable: string[]) =>
+      (
+        execHostSrtSettings({
+          ...base,
+          writable,
+          homeDotEntries: [".newrc", ".tool", ".zshrc"],
+        }) as { filesystem: { denyWrite: string[] } }
+      ).filesystem.denyWrite;
+    const home = denyWrite(["/Users/me"]);
+    expect(home).toEqual(
+      expect.arrayContaining([
+        "/Users/me/.newrc",
+        "/Users/me/.tool",
+        "/Users/me/.aws",
+        ...(process.platform === "darwin"
+          ? ["/Users/me/Library", "/Users/me/bin", "/Users/me/.hammerspoon"]
+          : []),
+      ]),
+    );
+    expect(home).not.toContain("/Users/me/Projects");
+    // A project folder: the dot entries in home are not writable anyway, so none are listed.
+    const project = denyWrite(["/Users/me/Projects/app"]);
+    expect(project).not.toContain("/Users/me/.newrc");
+    expect(project).toContain("/Users/me/.zshrc");
+  });
+  it("leaves an ordinary run's profile alone (control)", () => {
+    const fs = (
+      execHostSrtSettings(base) as { filesystem: { denyRead: string[]; allowRead: string[] } }
+    ).filesystem;
+    expect(fs.denyRead).not.toContain("/Users/me");
+    expect(fs.denyRead).not.toContain("/Volumes");
+  });
+  it("GIT and a long-s spelling get git's hardening on darwin", () => {
+    expect(isGit("/usr/bin/GIT", undefined, "darwin")).toBe(true);
+    expect(isGit("/usr/bin/x", "Git", "darwin")).toBe(true);
+    expect(isGit("/usr/bin/git", undefined, "darwin")).toBe(true);
+    expect(isGit("/usr/bin/gitk", undefined, "darwin")).toBe(false);
+  });
+});
+
+describe.skipIf(!posixHost)("program grant: Always allow <program> in <folder> (run path)", () => {
+  const params = { argv: ["grep", "-r", "foo", "."], cwd: project };
+  const tool = (over: Record<string, unknown> = {}) =>
+    execHostTool({
+      broker: recording(),
+      vault: { redact: (t) => t },
+      folders: (threadId) => [...(broker.policy.folders ?? []), ...broker.sessionFolders(threadId)],
+      srt: { resolve: async () => srt },
+      home: psycheHome,
+      userHome: home,
+      driver,
+      audit: recordingAudit,
+      ...over,
+    });
+
+  /** The owner taps "Always allow grep in <folder>"; returns the grant-authorized context. */
+  async function granted(t: AgentToolRegistration) {
+    setPolicy({ folders: [{ path: project, mode: "rw" }], exec: { execHostEnabled: true } });
+    // The card reads the sandbox's last known state: let the first look finish.
+    t.describeCall?.(params);
+    await new Promise((r) => setTimeout(r, 20));
+    const a = await card(t, params);
+    expect(a.details).toMatchObject({ hostProgram: { program: "grep", argv: null } });
+    await answer(a.id, { hostProgram: true });
+    const d = await decide(t, params);
+    expect(d).toMatchObject({ decision: "allow" });
+    expect(d.rule).toMatch(/^grant:/);
+    const desc = t.describeCall?.(params) as ToolCallDescription;
+    return {
+      d,
+      authority: {
+        rule: d.rule,
+        bindingHash: d.bindingHash as string,
+        grantKey: namespacedGrantKey(t.spec.name, desc.grantKey as string),
+        grantId: d.grantId as string,
+        scope: "always",
+      } as never,
+    };
+  }
+
+  beforeEach(() => {
+    auditTrail.length = 0;
+  });
+
+  it("runs under srt confined to the folder: home and temp roots denied, writes only to scratch, audited", async () => {
+    const t = tool();
+    const { authority } = await granted(t);
+    const pend = run(t, params, ctx({ authority }));
+    await nextStart();
+    const fs = (started[0]?.settings as { filesystem: Record<string, string[]> } | undefined)
+      ?.filesystem as Record<string, string[]>;
+    expect(fs.denyRead).toEqual(
+      expect.arrayContaining([
+        home,
+        "/Volumes",
+        "/tmp",
+        "/private/tmp",
+        "/var/folders",
+        "/private/var/folders",
+        "/Users/Shared",
+      ]),
+    );
+    expect(fs.allowRead).toContain(realpathSync(project));
+    // Nothing is writable but the run's own scratch, although the folder is read-write.
+    expect(fs.allowWrite).toHaveLength(1);
+    // The scratch lives under a denied temp root: it is re-allowed for reading (allowRead wins
+    // over denyRead in srt, as scratch.ts relies on) and is the only writable place.
+    expect(fs.allowRead).toContain(fs.allowWrite?.[0]);
+    expect(auditTrail.map((e) => e.kind)).toEqual(["exec_host.program_run"]);
+    finish({ stdout: Buffer.from("ok") });
+    expect((await pend).output).toMatchObject({ exitCode: 0, sandboxed: true });
+    expect(auditTrail.map((e) => e.kind)).toEqual([
+      "exec_host.program_run",
+      "exec_host.program_run.done",
+    ]);
+  });
+
+  it("an ordinary exact grant is not confined (control)", async () => {
+    const t = tool();
+    setPolicy({ folders: [{ path: project, mode: "rw" }], exec: { execHostEnabled: true } });
+    const a = await card(t, echo);
+    await answer(a.id, {});
+    const pend = run(t, echo, ctx({ approvalId: a.id }));
+    await nextStart();
+    const fs = (started[0]?.settings as { filesystem: Record<string, string[]> } | undefined)
+      ?.filesystem as Record<string, string[]>;
+    expect(fs.denyRead).not.toContain(home);
+    finish({});
+    await pend;
+    expect(auditTrail).toHaveLength(0);
+  });
+
+  it("stops a run at the quiet class's cap (here shortened)", async () => {
+    const t = tool({ readOnlyTimeoutMs: 40 });
+    const { authority } = await granted(t);
+    const pend = run(t, { ...params, timeoutMs: 600_000 }, ctx({ authority }));
+    await nextStart();
+    const r = await pend;
+    expect(killed).toContain("SIGKILL");
+    expect(r.output).toMatchObject({ timedOut: true });
+  });
+
+  it("a revoked grant throws at run time, and nothing starts", async () => {
+    const t = tool();
+    const { d, authority } = await granted(t);
+    await broker.revokeGrant(d.grantId as string);
+    await expect(run(t, params, ctx({ authority }))).rejects.toThrow(/not live/);
+    expect(started).toHaveLength(0);
+  });
+
+  it("a path that now leaves the folder, or a missing ledger, throws instead of running", async () => {
+    const t = tool();
+    const { authority } = await granted(t);
+    await expect(
+      run(t, { argv: ["grep", "-r", "foo", "/etc"], cwd: project }, ctx({ authority })),
+    ).rejects.toThrow(/no longer fits|binding|mismatch/);
+    const bare = tool({ broker: { get: (id: string) => broker.get(id) } });
+    await expect(run(bare, params, ctx({ authority }))).rejects.toThrow(/ledger/);
+    expect(started).toHaveLength(0);
   });
 });

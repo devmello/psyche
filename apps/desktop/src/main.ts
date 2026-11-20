@@ -73,6 +73,7 @@ import {
 } from "./lib/ipc.ts";
 import { LanDiscovery } from "./lib/lan-discovery.ts";
 import { createPinnedFetch, createPinnedWebSocket, PinnedChannel } from "./lib/lan-tls.ts";
+import { checkLibraryReveal, revealLibraryItem } from "./lib/library-reveal.ts";
 import { NotificationRelay } from "./lib/notify-relay.ts";
 import { createPairLinkInbox, isPairLinkUrl, PAIR_LINK_SCHEME } from "./lib/pair-link.ts";
 import { pairingEdge } from "./lib/pairing-edge.ts";
@@ -1335,7 +1336,9 @@ function registerIpc(): void {
         "unavailable",
         id === undefined
           ? `This app has no bundled Psyche Helper to read the ${hostWords().presence} key from`
-          : `The bundled Psyche Helper has no ${hostWords().presence} key (${id.error ?? "unknown"})`,
+          : id.error === undefined && process.platform === "darwin"
+            ? `${hostWords().presence} on this Mac needs no key to register`
+            : `The bundled Psyche Helper has no ${hostWords().presence} key (${id.error ?? "unknown"})`,
       );
     }
     // `confirmReplacesKeyId` is only an accident guard: any admin caller can send it. The owner's
@@ -1399,6 +1402,18 @@ function registerIpc(): void {
       showItemInFolder: (path) => shell.showItemInFolder(path),
     }),
   );
+  // Library → Reveal in Finder: the renderer names an item id; main checks the file is in the Library.
+  handle(IPC.libraryReveal, async (_event, arg) => {
+    const { itemId } = checkLibraryReveal(arg);
+    const result = await revealLibraryItem(itemId, {
+      getItem: (id) => requireGateway().call("library.get", { itemId: id }),
+      libraryRoot: join(home, "library"),
+      showItemInFolder: (path) => shell.showItemInFolder(path),
+    });
+    if (result === "none")
+      throw new PsycheError("not_found", "That file is no longer in the Library");
+    return result;
+  });
   handle(IPC.appInfo, () =>
     appInfo({
       appVersion: app.getVersion(),
@@ -2451,6 +2466,7 @@ app.on("window-all-closed", () => {
 });
 
 app.on("will-quit", () => {
+  stopHelperForQuit();
   dictation?.dispose();
   screenAskShortcut?.dispose();
   quickEntryShortcut?.dispose();
@@ -2459,7 +2475,25 @@ app.on("will-quit", () => {
   globalShortcut.unregisterAll();
 });
 
+/**
+ * Every real quit ends the bundled helper (⌘Q, the menu bar or Dock, "Quit Psyche entirely", an
+ * update or restart relaunch, uninstall); closing the last window while the app stays in the menu
+ * bar never gets here. The Gateway is not touched: "Quit Psyche" leaves it running, "Quit entirely"
+ * boots it out (`quitEntirely`). Runs from both `before-quit` and `will-quit`; the second call finds
+ * the launcher latched and the helper gone. A second copy that exits at once (single-instance lock)
+ * has no launcher, so it never stops the first copy's helper.
+ */
+function stopHelperForQuit(): void {
+  try {
+    const res = helper?.stopForQuit();
+    if (res === "killed" || res === "still-running") console.warn(`[helper] quit: ${res}`);
+  } catch (err) {
+    console.warn(`[helper] could not stop the helper on quit: ${String(err)}`);
+  }
+}
+
 app.on("before-quit", () => {
+  stopHelperForQuit();
   windows?.setQuitting();
   dockPolicy.dispose();
   for (const id of [...terminalOwners.keys()]) closeHostTerminal(id);

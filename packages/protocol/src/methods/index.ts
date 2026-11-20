@@ -22,9 +22,11 @@ import { FilesMethods } from "./files.ts";
 import { GatewayMethods } from "./gateway.ts";
 import { GrantsMethods } from "./grants.ts";
 import { InsightsMethods } from "./insights.ts";
+import { KeysMethods } from "./keys.ts";
 import { FeedbackMethods, GrowthMethods, LessonsMethods } from "./learning.ts";
 import { LibraryMethods } from "./library.ts";
 import { LogsMethods } from "./logs.ts";
+import { MachinesMethods } from "./machines.ts";
 import { McpMethods } from "./mcp.ts";
 import { MemoryMethods } from "./memory.ts";
 import { ModelsMethods } from "./models.ts";
@@ -84,6 +86,7 @@ export * from "./insights.ts";
 export * from "./learning.ts";
 export * from "./library.ts";
 export * from "./logs.ts";
+export * from "./machines.ts";
 export * from "./mcp.ts";
 export * from "./memory.ts";
 export * from "./models.ts";
@@ -173,6 +176,7 @@ export const Methods = {
   ...BackupMethods,
   ...LogsMethods,
   ...ModelsMethods,
+  ...KeysMethods,
   ...UsageMethods,
   ...InsightsMethods,
   ...DailyMethods,
@@ -186,6 +190,7 @@ export const Methods = {
   ...ScheduledMethods,
   ...TerminalMethods,
   ...SecurityMethods,
+  ...MachinesMethods,
 } as const;
 
 export type MethodName = keyof typeof Methods;

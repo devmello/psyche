@@ -1,4 +1,4 @@
-import type { ApprovalRequest } from "@psyche/protocol";
+import { type ApprovalRequest, type LinkPaymentMethod, PsycheError } from "@psyche/protocol";
 import { act, render, screen, waitFor, within } from "@testing-library/react";
 import { userEvent } from "@testing-library/user-event";
 import { describe, expect, it, vi } from "vitest";
@@ -698,6 +698,28 @@ describe("Credentials", () => {
     await waitFor(() => expect(callsOf(gateway(), "vault.delete")).toHaveLength(1));
   });
 
+  it("labels the Brave Search key as a web search key, not a model provider's", async () => {
+    setup(
+      { defaultSection: "credentials" },
+      {
+        edit: (w) => {
+          w.credentials = w.credentials.map((c) =>
+            c.id === IDS.credentials.github
+              ? {
+                  ...c,
+                  slug: "model-brave-search",
+                  managedBy: { kind: "model_provider", setting: "models", removable: false },
+                }
+              : c,
+          );
+        },
+      },
+    );
+    const table = await screen.findByRole("table", { name: "Stored credentials" });
+    expect(within(table).getByText("A web search key")).toBeTruthy();
+    expect(within(table).queryByText("A model provider's key")).toBeNull();
+  });
+
   it("imports a CSV export, reports skipped rows and never shows a value", async () => {
     const { gateway } = setup({ defaultSection: "credentials" });
     const table = await screen.findByRole("table", { name: "Stored credentials" });
@@ -956,14 +978,13 @@ describe("Data controls", () => {
 });
 
 describe("Persona", () => {
-  it("picks a bundled creature and records a described change", async () => {
-    const { gateway } = setup({ defaultSection: "persona" });
-    await userEvent.click(await screen.findByRole("radio", { name: "Owl" }));
-    await waitFor(() => expect(settingValue(gateway(), "persona.creatureId")).toBe("owl"));
-    await userEvent.type(screen.getByLabelText("Describe a change"), "a tiny scarf");
-    await userEvent.click(screen.getByRole("button", { name: "Apply change" }));
-    await waitFor(() => expect(settingValue(gateway(), "persona.creature")).toBe("a tiny scarf"));
-    expect(screen.getByRole("status").textContent).toMatch(/Saved your description/);
+  // The creature picker saves to IDENTITY.md through memory.persona.edit (#1328). "Describe a
+  // change" needs a utility model and stays hidden.
+  it("offers the creature picker but no described change", async () => {
+    setup({ defaultSection: "persona" });
+    await screen.findByRole("heading", { level: 2 });
+    expect(await screen.findByRole("radio", { name: "Owl" })).toBeTruthy();
+    expect(screen.queryByLabelText("Describe a change")).toBeNull();
   });
 });
 
@@ -1376,7 +1397,7 @@ describe("Credentials: Stripe Link payments and 1Password", () => {
     expect(within(table).getAllByText("charged")).toHaveLength(2);
   });
 
-  it("explains that Stripe Link is not set up", async () => {
+  it("explains how to install the Link CLI when it is not found", async () => {
     setup(
       { defaultSection: "credentials" },
       {
@@ -1385,8 +1406,79 @@ describe("Credentials: Stripe Link payments and 1Password", () => {
         },
       },
     );
-    expect(await screen.findByText(/Stripe Link is not set up/)).toBeTruthy();
+    expect(await screen.findByText("Install the Link command-line tool")).toBeTruthy();
+    expect(screen.getByText("npm install -g @stripe/link-cli")).toBeTruthy();
     expect(screen.queryByRole("table", { name: "Recent payments" })).toBeNull();
+  });
+
+  it("connects the Link CLI, signs in on Link's page, and disconnects", async () => {
+    let wallet: LinkPaymentMethod[] = [];
+    const { gateway } = setup(
+      { defaultSection: "credentials" },
+      {
+        edit: (w) => {
+          wallet = w.linkMethods ?? [];
+          delete w.linkMethods;
+          w.linkSetup = {
+            state: "cli_found",
+            candidates: [{ path: "/opt/homebrew/bin/link-cli" }],
+          };
+        },
+      },
+    );
+    const g = gateway();
+    await userEvent.click(
+      await screen.findByRole("button", { name: "Connect /opt/homebrew/bin/link-cli" }),
+    );
+    await waitFor(() => expect(callsOf(g, "payments.link.connect")).toHaveLength(1));
+    expect(callsOf(g, "payments.link.connect")[0]?.params).toEqual({
+      path: "/opt/homebrew/bin/link-cli",
+    });
+
+    await userEvent.click(await screen.findByRole("button", { name: "Sign in with Link" }));
+    expect(await screen.findByText("blue-otter-moon")).toBeTruthy();
+    expect(screen.getByRole("link", { name: "Open Link's page" })).toBeTruthy();
+    // Nothing is read from the vault until Link is signed in.
+    expect(callsOf(g, "vault.payments.methods")).toHaveLength(0);
+
+    // The Gateway sees the owner approve on Link's page and says so.
+    g.world.linkMethods = wallet;
+    const status = {
+      state: "connected" as const,
+      cli: { path: "/opt/homebrew/bin/link-cli", source: "saved" as const },
+      candidates: [],
+    };
+    g.world.linkSetup = status;
+    g.emit("payments.link.changed", { status });
+    expect(await screen.findByRole("list", { name: "Link payment methods" })).toBeTruthy();
+    expect(
+      screen.getByText("Connected to Stripe Link through /opt/homebrew/bin/link-cli."),
+    ).toBeTruthy();
+
+    await userEvent.click(screen.getByRole("button", { name: "Disconnect" }));
+    await userEvent.click(await screen.findByRole("button", { name: "Disconnect" }));
+    await waitFor(() => expect(callsOf(g, "payments.link.disconnect")).toHaveLength(1));
+    expect(await screen.findByText("Link CLI found")).toBeTruthy();
+    expect(screen.queryByRole("list", { name: "Link payment methods" })).toBeNull();
+  });
+
+  it("says why a CLI path was refused", async () => {
+    const { gateway } = setup(
+      { defaultSection: "credentials" },
+      {
+        edit: (w) => {
+          delete w.linkMethods;
+          w.linkSetup = { state: "cli_found", candidates: [{ path: "/opt/x/link-cli" }] };
+        },
+      },
+    );
+    gateway().linkConnectError = new PsycheError("invalid_params", "writable", {
+      details: { reason: "writable" },
+    });
+    await userEvent.click(await screen.findByRole("button", { name: "Connect /opt/x/link-cli" }));
+    expect(
+      await screen.findByText("Psyche won't run that program: other users can change it."),
+    ).toBeTruthy();
   });
 
   it("links a 1Password item by reference and keeps its values out of the edit form", async () => {

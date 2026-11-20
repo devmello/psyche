@@ -93,21 +93,9 @@
     costs nothing to load; elsewhere it falls back to Iowan, Charter or Georgia.
   */
   --font-display: ui-serif, "New York", "Iowan Old Style", Charter, Georgia, serif;
-
-  transition:
-    --accent-9 200ms var(--ease-standard),
-    --accent-10 200ms var(--ease-standard);
 }
-
-/* The accent change animates :root itself, which the reduced-motion rules below never reach. */
-:root[data-reduce-motion="true"] {
-  transition: none;
-}
-@media (prefers-reduced-motion: reduce) {
-  :root:not([data-reduce-motion="false"]) {
-    transition: none;
-  }
-}
+/* An accent change is instant: animating a custom property repaints the whole window on the main
+   thread every frame (motion.md §1.7). */
 
 :root[data-theme="dark"] {
   --approval-text: var(--amber-11);
@@ -263,12 +251,13 @@
   --radius-xl: calc(var(--radius) + 4px);
   --radius-2xl: calc(var(--radius) + 8px);
 
-  /* Motion (§4.5): every transition utility defaults to 120 ms on the Psyche curve. */
-  --default-transition-duration: 120ms;
-  --default-transition-timing-function: cubic-bezier(0.2, 0.8, 0.2, 1);
+  /* Motion (§4.5): every transition utility defaults to --duration-micro on the Psyche curve. */
+  --default-transition-duration: var(--duration-micro);
+  --default-transition-timing-function: var(--ease-standard);
   --animate-psy-rise: psy-rise var(--duration-medium) var(--ease-enter) both;
   --animate-psy-fade: psy-fade var(--duration-medium) var(--ease-enter) both;
-  --animate-psy-pulse-ring: psy-pulse-ring 1.2s ease-in-out infinite;
+  --animate-psy-pulse-ring: psy-pulse-ring var(--duration-pulse) var(--ease-linear) infinite;
+  --animate-psy-working: psy-working var(--duration-pulse) var(--ease-linear) infinite;
   --shadow-level-2: var(--shadow-level-2);
 }
 
@@ -357,7 +346,7 @@
 
 /* A message the Library's "Open in chat" landed on: a brief accent wash that fades out. */
 [data-flash="true"] {
-  animation: psy-flash 1.8s var(--ease-enter) both;
+  animation: psy-flash var(--duration-flash) var(--ease-enter) both;
   border-radius: var(--radius-lg, 12px);
 }
 @keyframes psy-flash {
@@ -371,7 +360,7 @@
 
 /* A Home post that a brief button or notification landed on: an accent outline that fades out. */
 [data-landed="true"] {
-  animation: psy-landed 1.8s var(--ease-enter) both;
+  animation: psy-landed var(--duration-flash) var(--ease-enter) both;
 }
 @keyframes psy-landed {
   from {
@@ -425,13 +414,25 @@
     opacity: 0;
   }
 }
+/* The "needs you" ring (amber): opacity only, never box-shadow (motion.md §1.7). The ring itself is
+   the element's own static outline, so the loop only dims and restores it. */
 @keyframes psy-pulse-ring {
   0%,
   100% {
-    box-shadow: 0 0 0 0 var(--approval);
+    opacity: 1;
   }
   50% {
-    box-shadow: 0 0 0 3px color-mix(in oklch, var(--approval) 40%, transparent);
+    opacity: 0.4;
+  }
+}
+/* The one working pulse (motion.md §4.6), for dots and skeleton blocks. */
+@keyframes psy-working {
+  0%,
+  100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.4;
   }
 }
 @keyframes psy-underline {

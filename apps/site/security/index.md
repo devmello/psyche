@@ -35,7 +35,7 @@ A diagram of the three zones: untrusted content on top, executors in the middle,
 
 ## What Psyche never does
 
-Some actions are refused in every mode, whatever you or the content says. The agent never types a password, card number, bank account or government ID it can see; never solves a CAPTCHA; never makes a financial transfer or trade; never deletes data permanently without a typed confirmation; never follows instructions found in content; never changes its own permissions, grants or pairing from a tool call; and never reads Safari or Passwords.app credentials, your keychains, browser profiles, `~/.ssh` or cloud CLI credentials. The full list is in [docs/05 §3.9](https://github.com/devmello/psyche/blob/main/docs/05-security-and-permissions.md#39-hard-prohibitions-not-configurable) and in Settings → Permissions under Hard prohibitions.
+Some actions are refused in every mode, whatever you or the content says. The agent never types a password, card number, bank account or government ID it can see; never solves a CAPTCHA; never trades securities or crypto, moves money between bank accounts or sends it to a person, even if you approve; never deletes data permanently without a typed confirmation; never follows instructions found in content; never changes its own permissions, grants or pairing from a tool call; and never reads Safari or Passwords.app credentials, your keychains, browser profiles, `~/.ssh` or cloud CLI credentials. The full list is in [docs/05 §3.9](https://github.com/devmello/psyche/blob/main/docs/05-security-and-permissions.md#39-hard-prohibitions-not-configurable) and in Settings → Permissions under Hard prohibitions.
 
 ## Check your own install
 
@@ -56,6 +56,7 @@ Psyche is alpha software (0.3). These parts of the design are not built, or only
 - `state/psyche.sqlite`, your workspace and the Library are not encrypted by Psyche. They rely on FileVault (or LUKS on Linux).
 - Per-task origin sets for the browser are honored by the broker, but nothing fills them yet.
 - The Gateway does not yet check the code signature of a local client. Any process running as you that can read the per-launch handshake secret can pair as the desktop or the helper, with read, write and approval scopes but never admin.
+- Payment approval (Touch ID or your Mac password) does not protect against a stolen or compromised admin device. That device can approve Mac-control actions with a tap, run a program as you, take over the helper's identity and sign the payment check itself. This is your choice from 2026-11-09, for usability. Revoke a lost admin device from another one. See [Approvals and tiers](/security/approvals-and-tiers).
 - Mobile TLS pinning is not built; there is no mobile client yet.
 - The auto-update check stays off until a release signing key is embedded in the app.
 

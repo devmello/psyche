@@ -612,10 +612,10 @@ polkit agent dialog (fixed text from the root-owned .policy) ─► PAM ─► p
 
 | | Touch ID (macOS) | Password via polkit (Linux) |
 | --- | --- | --- |
-| What proves presence | A Secure Enclave signature over the approval's challenge, verified by the Gateway against a registered key | polkitd's yes to psyched's own D-Bus call, after PAM checks the password |
+| What proves presence | The owner sheet (Touch ID or the Mac password), then a signature over the approval's challenge by the helper's device key, verified by the Gateway against the device's pinned key | polkitd's yes to psyched's own D-Bus call, after PAM checks the password |
 | Bound to the exact approval | Cryptographically (the challenge has the binding hash and token) | By psyched's state: one check at a time, one approval, once only |
 | The OS dialog names the action | Yes (fixed wording with the code and summary) | **No** (fixed text only; the code is on Psyche's card) |
-| A same-user process can fake it | Not with the keychain key. With the dev file key it can ask for a signature behind its own prompt (the known release blocker) | Not without the password |
+| A same-user process can fake it | It can read the helper's key file or drive the helper into showing the sheet, but it cannot answer the sheet itself (security §3.7, residual risk) | Not without the password |
 | A keylogger defeats it | No | **Yes on X11**, no on Wayland |
 | Phishing value of the secret | None (a fingerprint can't be phished) | High (often the sudo password) |
 | Works over SSH or headless | No | No (refused by design) |

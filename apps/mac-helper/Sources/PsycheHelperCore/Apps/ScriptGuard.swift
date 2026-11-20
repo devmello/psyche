@@ -38,6 +38,11 @@ public enum ScriptGuard {
     static let neverTargets = [
         "com.apple.finder", "com.apple.systemevents", "com.apple.ScriptEditor2", "com.apple.Automator", "com.apple.shortcuts",
         "com.apple.shortcuts.events", "com.apple.Terminal", "com.googlecode.iterm2", "com.apple.osascript",
+        // Scriptable system agents with effects outside the tier model (#1427 review r4): files at
+        // any path, actions in other apps, Folder Actions, script settings, accessibility, the
+        // menu bar and Control Center. The same list as the Gateway's `NEVER_TARGETS`.
+        "com.apple.databaseevents", "com.apple.imageevents", "com.apple.VoiceOver", "com.apple.FolderActionsDispatcher",
+        "com.apple.AppleScriptUtility", "com.apple.UniversalAccessControl", "com.apple.systemuiserver", "com.apple.controlcenter",
     ]
 
     /// Lowercased, without whitespace, line continuations or invisible format characters.
@@ -63,13 +68,15 @@ public enum ScriptGuard {
     }
 
     /// Full check: tokens, the declared target, and every addressed app equal to it.
-    /// `resolve` maps an app name or bundle id to a bundle id (nil when unknown).
-    public static func check(_ source: String, language: Language, target: String?, resolve: (String) -> String?) throws {
+    /// `resolve` maps an app name or bundle id to a bundle id (nil when unknown); `cap` is the
+    /// app's fixed cap (the id lists, lowered by its Info.plist in the helper: `TierPolicy.fixedCap`).
+    public static func check(_ source: String, language: Language, target: String?, resolve: (String) -> String?,
+                             cap: (String) -> ComputerTier = { FixedCaps.cap(for: $0) }) throws {
         try check(source, language: language)
         guard let target, !target.isEmpty else {
             throw CapabilityError.invalidParams("target (the bundle id the script controls) is required", field: "target")
         }
-        let targetId = try checkTarget(target, resolve: resolve)
+        let targetId = try checkTarget(target, resolve: resolve, cap: cap)
         for addressed in addressedApps(source, language: language) {
             guard addressed != dynamicMarker else {
                 throw CapabilityError(.policyDenied, reason: "script_dynamic_target", "Scripts must name their app literally")
@@ -83,7 +90,8 @@ public enum ScriptGuard {
 
     /// Refuses System Events and other never-targets, and apps whose fixed cap is below interact.
     @discardableResult
-    public static func checkTarget(_ nameOrId: String, resolve: (String) -> String?) throws -> String {
+    public static func checkTarget(_ nameOrId: String, resolve: (String) -> String?,
+                                   cap: (String) -> ComputerTier = { FixedCaps.cap(for: $0) }) throws -> String {
         let lower = nameOrId.lowercased()
         if lower.contains("system events") {
             throw CapabilityError(.policyDenied, reason: "system_events", "Scripts may not drive System Events; use computer.* so tiers and Esc apply")
@@ -91,7 +99,7 @@ public enum ScriptGuard {
         guard let id = resolve(nameOrId) else {
             throw CapabilityError(.notFound, reason: "script_target_unknown", "No installed app named \(nameOrId)")
         }
-        if neverTargets.contains(where: { $0.lowercased() == id.lowercased() }) || FixedCaps.cap(for: id) < .interact {
+        if neverTargets.contains(where: { $0.lowercased() == id.lowercased() }) || FixedCaps.cap(for: id) < .interact || cap(id) < .interact {
             throw CapabilityError(.policyDenied, reason: "script_target_capped", "Scripts may not control \(nameOrId)")
         }
         return id

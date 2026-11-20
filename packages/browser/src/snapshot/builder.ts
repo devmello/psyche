@@ -182,6 +182,13 @@ export interface SnapshotInput {
   options?: SnapshotOptions;
   /** Vault redaction of known secret values (CredentialBroker.redact). */
   redact?: (text: string) => string;
+  /** Nodes a secret was typed into: their values are masked like a password until navigation. */
+  maskNodes?: ReadonlySet<number>;
+  /**
+   * A payment card was typed into this document: every `<input>` value is masked, so a form the
+   * page re-renders (a SPA remount, a route change) cannot show it on a new node.
+   */
+  maskInputs?: boolean;
   fetchMs?: number;
 }
 
@@ -269,6 +276,8 @@ export function buildSnapshot(input: SnapshotInput): BrowserSnapshot {
       secure: info === undefined ? false : dom.isSecure(info),
       frameOrigin: doc?.origin ?? topOrigin,
       opensPopup: target === "_blank" || target === "_new",
+      pageUrl: doc?.url ?? input.url,
+      pageTitle: input.title,
     };
     const a = info?.attrs;
     if (a?.type !== undefined) meta.inputType = a.type.toLowerCase();
@@ -295,6 +304,7 @@ export function buildSnapshot(input: SnapshotInput): BrowserSnapshot {
       }
       meta.formMethod = (form.attrs.method ?? "get").toLowerCase();
       meta.formHasPassword = dom.formHasPassword(form);
+      if (dom.formHasPaymentFields(form)) meta.formHasPaymentFields = true;
     }
     return meta;
   };
@@ -403,7 +413,15 @@ export function buildSnapshot(input: SnapshotInput): BrowserSnapshot {
       else if (v === "mixed") states.push(`${s}=mixed`);
       else if (s === "expanded" && (v === false || v === "false")) states.push("collapsed");
     }
-    const secure = meta?.secure ?? (info === undefined ? false : dom.isSecure(info));
+    const typedInto =
+      (node.backendDOMNodeId !== undefined &&
+        input.maskNodes?.has(node.backendDOMNodeId) === true) ||
+      // Document-wide: `<input>` values only, never editor content (a contenteditable body).
+      (input.maskInputs === true &&
+        VALUE_ROLES.has(role) &&
+        info?.tag.toLowerCase() === "input" &&
+        info.attrs.contenteditable === undefined);
+    const secure = typedInto || (meta?.secure ?? (info === undefined ? false : dom.isSecure(info)));
     if (secure) states.push("secure");
     for (const s of states) line += ` [${s}]`;
     const rawValue = axString(node.value);

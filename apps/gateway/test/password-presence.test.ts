@@ -131,7 +131,7 @@ async function setup(
   return { c: composed, admin };
 }
 
-/** A card that requires authentication, armed. */
+/** A card that requires authentication (a payment: presence is for payments only), armed. */
 async function authCard(
   c: ComposedGateway,
   admin: TestClient,
@@ -139,13 +139,13 @@ async function authCard(
   runId: string | null = null,
 ) {
   const issued = await c.gateway.context.broker.requestApproval({
-    kind: "policy_change",
-    summary: "Change a security setting",
+    kind: "purchase",
+    summary: "Pay $5 to Example Shop",
     details: {},
     bindingHash,
     grantKey: bindingHash,
     requestedBy: { runId, taskId: null, threadId: null },
-    sideEffect: "destructive",
+    sideEffect: "financial",
     surfaces: ["desktop", "web"],
     scopesOffered: ["once"],
     taint: false,

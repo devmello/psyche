@@ -12,7 +12,7 @@ import {
   Mail,
   Presentation,
 } from "lucide-react";
-import { type CSSProperties, type ReactElement, type ReactNode, useState } from "react";
+import { type CSSProperties, type ReactElement, type ReactNode, useEffect, useState } from "react";
 import { EmptyState, LoadingCards } from "../../components/page.tsx";
 import { Badge } from "../../components/ui/badge.tsx";
 import { Button } from "../../components/ui/button.tsx";
@@ -26,6 +26,14 @@ import { usePersona } from "../../slots.tsx";
 import { formatBytes } from "../library/library-items.ts";
 import { folderGrants } from "../settings/FileAccessSection.tsx";
 import type { FolderGrant } from "../settings/types.ts";
+import {
+  canEditPath,
+  EDIT_MAX_BYTES,
+  FileEditFrame,
+  type FileEditSession,
+  fileEditKind,
+} from "./FileEditFrame.tsx";
+import { dropDraft, hasDraft, markLiveDirty } from "./file-drafts.ts";
 
 /**
  * Files pane (UI design §3.7, feature P4): the folders the owner granted (ro / rw) and the
@@ -49,6 +57,12 @@ export interface FilesPaneProps {
   target?: string | null;
   /** Renders the preview; without it the pane names the file only (stories, tests). */
   renderViewer?: (file: FileRef) => ReactNode;
+  /**
+   * Renders the editor for a file under a folder shared read & write (`files.write`); without it
+   * the pane never offers editing. The pane loads the file, owns Save's etag, the conflict flow
+   * and the unsaved-changes warning; the editor gets a `FileEditSession`.
+   */
+  renderEditor?: (session: FileEditSession) => ReactNode;
   /** Opens Settings → File access to share a folder. */
   onShareFolder?: () => void;
   now?: number;
@@ -340,16 +354,76 @@ export function FilesPaneView({
   loading = false,
   target,
   renderViewer,
+  renderEditor,
   onShareFolder,
   now,
 }: FilesPaneViewProps): ReactElement {
   const persona = usePersona();
   const clock = useNow(60_000, now);
   const lib = useLibrary();
-  const [picked, setSelected] = useState<FileRef | null>(null);
+  const [picked, setPicked] = useState<FileRef | null>(null);
+  const [editing, setEditing] = useState(false);
+  const [dirty, setDirty] = useState(false);
+  // What the owner asked for while edits are unsaved; it runs once they agree to discard them.
+  const [leave, setLeave] = useState<(() => void) | null>(null);
   // The target until the owner picks something else; a Library target takes the item's
   // metadata from the store, so a quarantined download keeps its gate (§3.12).
-  const selected = picked ?? fileRefForTarget(target, lib.items);
+  // A new target while edits are unsaved waits for the owner's answer: `shownTarget` is the one
+  // on screen.
+  const [shownTarget, setShownTarget] = useState(target);
+  const selected = picked ?? fileRefForTarget(shownTarget, lib.items);
+  const selectedKey = selected?.path ?? selected?.libraryPath;
+  useEffect(() => {
+    // Back on a file whose edits were kept (the pane was swapped out): reopen its editor.
+    setEditing(typeof selectedKey === "string" && hasDraft(selectedKey));
+    setDirty(false);
+    setLeave(null);
+  }, [selectedKey]);
+  useEffect(() => {
+    if (!editing || !dirty || selectedKey === undefined) return;
+    markLiveDirty(selectedKey, true);
+    return () => markLiveDirty(selectedKey, false);
+  }, [editing, dirty, selectedKey]);
+  useEffect(() => {
+    if (!editing || !dirty) return;
+    const warn = (e: BeforeUnloadEvent) => e.preventDefault();
+    window.addEventListener("beforeunload", warn);
+    return () => window.removeEventListener("beforeunload", warn);
+  }, [editing, dirty]);
+  const guard = (action: () => void) => (editing && dirty ? setLeave(() => action) : action());
+  // biome-ignore lint/correctness/useExhaustiveDependencies: runs when the target prop changes
+  useEffect(() => {
+    if (target === shownTarget) return;
+    // A picked file wins over the target, so only a target that would change the view asks.
+    if (picked === null) guard(() => setShownTarget(target));
+    else setShownTarget(target);
+  }, [target]);
+  const setSelected = (file: FileRef) =>
+    guard(() => {
+      setEditing(false);
+      setDirty(false);
+      setPicked(file);
+    });
+  const stopEditing = () =>
+    guard(() => {
+      setEditing(false);
+      setDirty(false);
+    });
+  const editable =
+    renderEditor !== undefined && selected !== null && canEditPath(selected.path, grants);
+  const tooLarge = selected?.size != null && selected.size > EDIT_MAX_BYTES;
+  const canEdit = editable && !tooLarge;
+  // A text file that cannot be edited here says so, instead of leaving the owner to wonder.
+  const readOnlyNote =
+    renderEditor !== undefined &&
+    selected !== null &&
+    selected.path !== undefined &&
+    fileEditKind(selected.name) !== null &&
+    !canEdit
+      ? editable
+        ? t("screens.files.editTooLarge")
+        : t("screens.files.editReadOnly")
+      : null;
   return (
     <div className="@container flex h-full min-h-0 flex-col bg-background" data-testid="files-pane">
       <div className="grid min-h-0 flex-1 grid-rows-[minmax(0,12rem)_minmax(0,1fr)] @lg:grid-cols-[minmax(11rem,15rem)_minmax(0,1fr)] @lg:grid-rows-1">
@@ -423,9 +497,73 @@ export function FilesPaneView({
                     .filter(Boolean)
                     .join(" · ")}
                 </span>
+                {canEdit ? (
+                  <Button
+                    type="button"
+                    size="xs"
+                    variant="outline"
+                    onClick={editing ? stopEditing : () => setEditing(true)}
+                  >
+                    {editing ? t("common.done") : t("common.edit")}
+                  </Button>
+                ) : null}
               </header>
+              {leave !== null ? (
+                <div
+                  role="alertdialog"
+                  aria-label={t("screens.files.discardAsk")}
+                  className="flex flex-wrap items-center gap-2 border-b border-separator px-3 py-2 text-callout"
+                >
+                  <span className="min-w-0 flex-1">{t("screens.files.discardAsk")}</span>
+                  <Button
+                    type="button"
+                    size="xs"
+                    variant="outline"
+                    onClick={() => {
+                      const go = leave;
+                      setLeave(null);
+                      dropDraft(selected.path);
+                      go();
+                    }}
+                  >
+                    {t("screens.files.discard")}
+                  </Button>
+                  <Button
+                    type="button"
+                    size="xs"
+                    autoFocus
+                    onClick={() => {
+                      setLeave(null);
+                      // The target that was held back is not shown later: keep this file.
+                      if (target !== shownTarget) {
+                        setPicked(selected);
+                        setShownTarget(target);
+                      }
+                    }}
+                  >
+                    {t("screens.files.keepEditing")}
+                  </Button>
+                </div>
+              ) : null}
+              {readOnlyNote !== null && !editing ? (
+                <p className="border-b border-separator px-3 py-1.5 text-callout text-label-secondary">
+                  {readOnlyNote}
+                </p>
+              ) : null}
               <div className="min-h-0 flex-1 overflow-auto" data-testid="files-preview">
-                {renderViewer ? (
+                {editing && renderEditor ? (
+                  <FileEditFrame
+                    key={selectedKey}
+                    file={selected}
+                    renderEditor={renderEditor}
+                    onDirtyChange={setDirty}
+                    onClose={() => {
+                      // The editor asked about unsaved edits itself before it closed.
+                      setEditing(false);
+                      setDirty(false);
+                    }}
+                  />
+                ) : renderViewer ? (
                   renderViewer(selected)
                 ) : (
                   <p className="p-4 text-sm text-label-secondary">{t("screens.files.needsApp")}</p>

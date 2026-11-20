@@ -68,11 +68,33 @@ public enum ChatEvent: Sendable, Equatable {
     /// The streaming item finished.
     case done(threadID: String, itemID: String)
     case status(threadID: String, status: String, kind: ChatThreadSummary.Status)
+    /// The Gateway's run for this thread changed (`run.updated`): a chat reply started, waits for the owner, or
+    /// ended. Carries a task's run too (`isChat` false), which is what ties a task to its chat.
+    case run(threadID: String, update: RunUpdate)
 
     public var threadID: String {
         switch self {
-        case .item(let id, _), .delta(let id, _, _), .done(let id, _), .status(let id, _, _): id
+        case .item(let id, _), .delta(let id, _, _), .done(let id, _), .status(let id, _, _), .run(let id, _): id
         }
+    }
+}
+
+/// What `run.updated` says about one run, reduced to what the phone acts on.
+public struct RunUpdate: Sendable, Equatable {
+    public enum State: Sendable, Equatable { case running, waiting, done, failed, cancelled }
+    public var state: State
+    /// When the Gateway started the run, if it says so.
+    public var startedAt: Date?
+    /// A chat reply (the run kind is `chat`, or unstated), as opposed to a task, automation or helper run.
+    public var isChat: Bool
+    /// The task this run belongs to, for a task's run.
+    public var taskID: String?
+
+    public init(state: State, startedAt: Date? = nil, isChat: Bool = true, taskID: String? = nil) {
+        self.state = state
+        self.startedAt = startedAt
+        self.isChat = isChat
+        self.taskID = taskID
     }
 }
 

@@ -17,6 +17,7 @@ import { Readable, Transform } from "node:stream";
 import { pipeline } from "node:stream/promises";
 import {
   type InstallKind,
+  isUnderPin,
   MANIFEST_FILE,
   type ManifestArtifact,
   ManifestError,
@@ -134,7 +135,7 @@ export async function checkForVerifiedUpdate(d: UpdateCheckDeps): Promise<Update
   const pinned = d.pinnedBase ?? PINNED_RELEASE_BASE;
   const feed = d.feed ?? DEFAULT_FEED;
   const repoReleases = pinned.replace(/download\/$/, "");
-  if (!feed.startsWith(repoReleases) || !feed.endsWith("/")) {
+  if (!isUnderPin(feed, repoReleases) || !feed.endsWith("/")) {
     return {
       state: "refused",
       code: "untrusted_host",

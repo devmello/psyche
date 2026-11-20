@@ -10,7 +10,6 @@ export const passwordPresence: Partial<Catalogue> = {
     "سُمح مرة واحدة (الموافقات بكلمة المرور من هذه النافذة تُمنح مرة واحدة فقط)",
   "blocks.approval.password.noUnsandboxed":
     "لا يمكن الموافقة على تشغيل أمر بدون صندوق الحماية بكلمة المرور من هذه النافذة. أعدّ صندوق الحماية بدلاً من ذلك",
-  "blocks.approval.password.cancelled": "أُلغي مربع حوار كلمة المرور، لذا لم تتم الموافقة على شيء",
   "blocks.approval.password.failed":
     "لم تُقبل كلمة المرور، لذا لم تتم الموافقة على شيء. حاول مرة أخرى.",
   "blocks.approval.password.unavailableHere": "وافق من هذا الكمبيوتر، أو بمفتاح مرور من جهاز آخر.",

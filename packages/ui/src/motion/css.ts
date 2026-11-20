@@ -60,6 +60,10 @@ export function motionCss(): string {
     ["route", "route"],
     ["routeReduced", "route-reduced"],
     ["splashDelay", "splash-delay"],
+    ["pulse", "pulse"],
+    ["shimmer", "shimmer"],
+    ["flash", "flash"],
+    ["orbLevel", "orb-level"],
   ] as const)
     lines.push(`  --duration-${css}: ${duration[name]}ms;`);
   lines.push(`  --route-rise: ${routeRisePx}px;`);

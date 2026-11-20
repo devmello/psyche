@@ -802,7 +802,7 @@ export class SessionController {
     };
 
     try {
-      const inputTaint = this.#inputTaint.get(runId);
+      const queuedTaint = this.#inputTaint.get(runId);
       this.#inputTaint.delete(runId);
       const turnOptions = this.#turnOptions.get(runId);
       this.#turnOptions.delete(runId);
@@ -811,6 +811,11 @@ export class SessionController {
         attachments.length > 0
           ? await resolveAttachments(db, this.#ctx.config.home, attachments, turn.abort.signal)
           : undefined;
+      // Third-party files the owner attached (downloads, channel and connector files) taint the turn.
+      const inputTaint =
+        queuedTaint === undefined && (attached?.taint.length ?? 0) === 0
+          ? undefined
+          : [...(queuedTaint ?? []), ...(attached?.taint ?? [])];
       const allImages = [...(images ?? []), ...(attached?.images ?? [])];
       const stream = agent.startTurn({
         threadId,

@@ -17,7 +17,7 @@ public final class ThingsScriptingBackend: ThingsBackend, @unchecked Sendable {
     static let source = ScriptHandler.prelude + """
         on psyche_line(t)
           set fs to character id 31
-          tell application "Things3"
+          tell application id "com.culturedcode.ThingsMac"
             set pj to ""
             try
               set pj to name of project of t
@@ -51,7 +51,7 @@ public final class ThingsScriptingBackend: ThingsBackend, @unchecked Sendable {
         end psyche_line
         on psyche_list(kindName, listName, q, lim)
           set out to {}
-          tell application "Things3"
+          tell application id "com.culturedcode.ThingsMac"
             if kindName is "project" then
               set src to project listName
             else if kindName is "area" then

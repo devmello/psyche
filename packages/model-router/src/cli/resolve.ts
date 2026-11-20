@@ -64,6 +64,24 @@ function nvmDirs(home: string): string[] {
 }
 
 /**
+ * The directories under the owner's home that hold CLI binaries Psyche runs (path segments from
+ * home). The permission broker refuses to share them, so a folder grant can never reach a binary
+ * Psyche starts; keep this in step with `knownCliDirs` and the link-setup PATH additions.
+ */
+export const CLI_HOME_DIRS: readonly (readonly string[])[] = [
+  [".local", "bin"],
+  [".local", "share", "claude"],
+  [".local", "share", "pnpm"],
+  [".npm-global"],
+  [".bun"],
+  [".claude", "local"],
+  [".nvm"],
+  [".volta"],
+  [".yarn", "bin"],
+  [".cargo", "bin"],
+];
+
+/**
  * Directories installers use, in order: Homebrew (Apple silicon, Intel), user bins, npm's global
  * prefix, Bun, Claude Code's own local install, then nvm. On Windows: Claude Code's native
  * installer (`~\.local\bin`), npm's global prefix (`%APPDATA%\npm`), Bun, Claude Code's local

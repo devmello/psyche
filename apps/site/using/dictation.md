@@ -44,7 +44,7 @@ Settings → Voice & dictation with the Dictation group (Push-to-talk key, Mode)
 - Holding fn on its own can open the macOS emoji picker or Apple's dictation when you let go. Set System Settings › Keyboard › "Press 🌐 key to" to "Do Nothing", or pick Right Option instead.
 - If Psyche's own window is in front, the hotkey does nothing; dictate in the composer instead.
 - On unsigned builds, macOS forgets the Accessibility and Microphone grants each time you install a new build. Grant them again after an upgrade (`psyche doctor` warns about it).
-- The **Speech engine** choice in Settings is saved, but it is not clear yet that the Gateway follows it. The Mac's recognizer is used when Psyche Helper is connected.
+- Dictation uses the Mac's recognizer when Psyche Helper is connected.
 
 ## Learn more
 

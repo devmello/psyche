@@ -52,6 +52,11 @@ export const webRest: Partial<Catalogue> = {
   "web.chat.autoUnavailable":
     "ऑटो उपलब्ध नहीं है: {model} ऑटो-मोड की अनुमत सूची में नहीं है। इसका उपयोग करने के लिए कोई दूसरा मॉडल चुनें।",
   "web.toast.threadUpdateFailed": "Psyche यह चैट सेटिंग नहीं बदल सका।",
+  "web.toast.autoModelRefused":
+    "ऑटो केवल सूचीबद्ध मॉडलों पर चलता है, और {model} ऑटो सूची में नहीं है। कोई अनुमत मॉडल चुनें, या मैनुअल या संतुलित मोड इस्तेमाल करें।",
+  "web.toast.autoModelRefusedNoModel":
+    "ऑटो केवल सूचीबद्ध मॉडलों पर चलता है। पहले मॉडल पिकर से एक मॉडल चुनें।",
+  "web.toast.switchModel": "मॉडल बदलें",
   "web.splash.remote.finding": "{host} खोजा जा रहा है…",
   "web.splash.remote.checking": "जाँच रहा है कि यह सचमुच {host} है…",
   "web.splash.remote.waiting": "{host} पर स्वीकृति की प्रतीक्षा में…",

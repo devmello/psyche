@@ -13,14 +13,17 @@ import { everythingRest } from "./everything-rest/fr.ts";
 import { final202611 } from "./final-2026-11/fr.ts";
 import { galleryRest } from "./gallery-rest/fr.ts";
 import { helperCheck } from "./helper-check/fr.ts";
+import { helperOffline } from "./helper-offline/fr.ts";
 import { homeRest } from "./home-rest/fr.ts";
 import { links } from "./links/fr.ts";
 import { mailMeetings } from "./mail-meetings/fr.ts";
+import { memoryMap } from "./memory-map/fr.ts";
 import { memoryRest } from "./memory-rest/fr.ts";
 import { memoryReviewRest } from "./memoryReview-rest/fr.ts";
 import { memorySurfacesRest } from "./memorySurfaces-rest/fr.ts";
 import { memoryWorkRest } from "./memoryWork-rest/fr.ts";
 import { miscRest } from "./misc-rest/fr.ts";
+import { notices } from "./notices/fr.ts";
 import { nudgesRest } from "./nudges-rest/fr.ts";
 import { onboardingRest } from "./onboarding-rest/fr.ts";
 import { overview } from "./overview/fr.ts";
@@ -29,6 +32,7 @@ import { overviewShared } from "./overview-shared/fr.ts";
 import { passwordPresence } from "./password-presence/fr.ts";
 import { peopleRest } from "./people-rest/fr.ts";
 import { researchRest } from "./research-rest/fr.ts";
+import { scheduledForm } from "./scheduled-form/fr.ts";
 import { scheduledRest } from "./scheduled-rest/fr.ts";
 import { screensRest } from "./screens-rest/fr.ts";
 import { securityState } from "./security-state/fr.ts";
@@ -38,12 +42,14 @@ import { shellRest } from "./shell-rest/fr.ts";
 import { specialistsRest } from "./specialists-rest/fr.ts";
 import { webRest } from "./web-rest/fr.ts";
 import { widgetsRest } from "./widgets-rest/fr.ts";
+import { windowsPlatform202611 } from "./windows-platform-2026-11/fr.ts";
 import { workRest } from "./work-rest/fr.ts";
 import { workflows } from "./workflows/fr.ts";
 
 /** French catalogue (fr). Same ids as `en`; missing ids fall back to English. */
 export const fr: Partial<Catalogue> = {
   // mail and meetings: settings and onboarding (docs/workflows/mail-and-meetings-2026.md §7.3, §7.5)
+  ...memoryMap,
   ...mailMeetings,
   // link menu and the "Open links in" setting
   ...links,
@@ -85,6 +91,7 @@ export const fr: Partial<Catalogue> = {
   ...homeRest,
   ...researchRest,
   ...scheduledRest,
+  ...scheduledForm,
   ...widgetsRest,
   ...miscRest,
   "common.cancel": "Annuler",
@@ -136,6 +143,11 @@ export const fr: Partial<Catalogue> = {
   "errors.rate_limited": "Trop de demandes ; patientez un instant puis réessayez.",
   "errors.timeout": "Psyche a mis trop de temps à répondre.",
   "errors.cancelled": "L’opération a été annulée.",
+  "errors.reason.vault_removal_pending":
+    "Déverrouille le coffre pour terminer la suppression de l'ancien serveur, puis réessaie.",
+  "errors.reason.connected_with_other_client":
+    "Google est connecté avec un autre client. Déconnectez d'abord Google, puis changez de client.",
+  "errors.reason.secret_required": "Un autre client a besoin de son propre secret client.",
   "errors.reason.updating":
     "Psyche va redémarrer pour installer une mise à jour. Réessayez dans un instant.",
   "errors.unavailable": "Psyche ne peut pas faire cela pour le moment.",
@@ -277,6 +289,8 @@ export const fr: Partial<Catalogue> = {
   "chat.runFailed.details": "Détails",
   "chat.toolbar.label": "Barre d’outils de la discussion",
   "chat.toolbar.incognito": "Incognito",
+  "chat.incognito.notice":
+    "Non utilisée pour la mémoire, la recherche ni l'activité. Expire après 24 h.",
   "chat.toolbar.view": "Affichage de la transcription",
   "chat.toolbar.view.status": "État seulement",
   "chat.toolbar.view.actions": "Actions",
@@ -307,6 +321,10 @@ export const fr: Partial<Catalogue> = {
   "blocks.card.unknown": "Psyche ne peut pas encore afficher ce type d’élément ({type}).",
   "specialists.block.label": "Résultat de {role} : {title}",
   "blocks.toolView.show": "Afficher le résultat",
+  "blocks.toolRun.shareFolder": "Partager ce dossier (lecture seule)",
+  "blocks.toolRun.shareWaiting": "En attente de ta réponse sur la carte",
+  "blocks.toolRun.shared": "Partagé. Redemande pour continuer",
+  "blocks.toolRun.shareFailed": "Impossible de demander le partage de ce dossier. Réessaie.",
   "blocks.toolView.loading": "Chargement du résultat…",
   "blocks.toolView.none": "Le résultat de cette action n’est pas conservé.",
   "blocks.toolView.more": "{count, plural, one {# de plus} other {# de plus}}",
@@ -328,6 +346,7 @@ export const fr: Partial<Catalogue> = {
   "blocks.details.to": "À",
   "blocks.details.exactRecipient": "(destinataire exact)",
   "blocks.details.cc": "Cc",
+  "blocks.details.bcc": "Cci",
   "blocks.details.subject": "Objet",
   "blocks.details.body": "Corps",
   "blocks.details.view": "Afficher",
@@ -367,9 +386,18 @@ export const fr: Partial<Catalogue> = {
   "blocks.details.binding": "Liaison",
   "blocks.approval.scope.once": "Autoriser une fois",
   "blocks.approval.scope.task": "Autoriser pour cette tâche",
+  "blocks.approval.scope.trustSite": "Toujours pour ce site ({site})",
+  "blocks.approval.scope.trustSiteSubdomains":
+    "Toujours pour ce site et ses sous-domaines ({site})",
+  "blocks.approval.scope.hostProgram": "Toujours autoriser {program} dans {folder}",
+  "blocks.approval.scope.hostProgramExact":
+    "Toujours autoriser {program} avec exactement ces arguments dans {folder}",
   "blocks.approval.scope.site": "Autoriser pour ce site",
   "blocks.approval.scope.session": "Autoriser pour cette session",
   "blocks.approval.scope.always": "Toujours autoriser",
+  "blocks.approval.alwaysRecipient": "Toujours autoriser l’envoi à {recipients}",
+  "blocks.approval.alwaysRecipientFrom":
+    "Toujours autoriser l’envoi à {recipients} depuis {account}",
   "blocks.approval.scopeGranted.once": "autorisé une fois",
   "blocks.approval.scopeGranted.task": "autorisé pour cette tâche",
   "blocks.approval.scopeGranted.site": "autorisé pour ce site",
@@ -655,6 +683,25 @@ export const fr: Partial<Catalogue> = {
   "agent.approvals.anAutomation": "Une automatisation",
   "agent.approvals.wantedTo": "voulait {what}",
   "agent.approvals.openTask": "Ouvrir la tâche",
+  "agent.approvals.deferredHint":
+    "Actions mises de côté par vos automatisations. En approuver une relance l'automatisation pour l'effectuer. Une action expirée n'est jamais exécutée en retard.",
+  "agent.approvals.approve": "Approuver",
+  "agent.approvals.decline": "Refuser",
+  "agent.approvals.approveRoutine": "Approuver toutes les routines ({n, number})",
+  "agent.approvals.riskRoutine": "Routine",
+  "agent.approvals.riskSensitive": "Sensible",
+  "agent.approvals.setAside": "Mise de côté {when}",
+  "agent.approvals.answerElsewhere": "Répondre là où elle a été envoyée",
+  "agent.approvals.setAsideNote":
+    "Une automatisation a mis ceci de côté et a continué. Approuver la relance, et ceci n'est fait que si l'exécution atteint exactement cette action.",
+  "agent.approvals.setAsideApproved":
+    "Approuvée. L'automatisation est relancée et ne fait ceci que si elle atteint exactement cette action. Sinon, vous recevez une notification.",
+  "agent.approvals.resuming":
+    "Approuvée. {names} est relancée. Chaque action n'est faite que si l'exécution l'atteint ; sinon, vous recevez une notification.",
+  "agent.approvals.notResumable":
+    "Cette automatisation ne peut pas être relancée, donc approuver ne ferait rien. Refusez-la, ou lancez l'automatisation vous-même.",
+  "agent.approvals.notRoutine":
+    "Cette action demande sa propre approbation. Approuvez-la sur sa propre carte.",
   "agent.approvals.noRecent": "Aucune décision depuis 7 jours.",
   "agent.schedule.once": "{weekday} {day, number} {month} à {time}",
   "agent.schedule.every": "toutes les {span}",
@@ -763,11 +810,11 @@ export const fr: Partial<Catalogue> = {
 
   "shell.shortcut.palette": "Palette de commandes",
   "shell.shortcut.newSideChat": "Nouvelle discussion annexe",
+  "shell.shortcut.newIncognitoChat": "Nouvelle discussion incognito",
   "shell.shortcut.closeThread": "Fermer la vue de discussion ou la fenêtre détachée",
   "shell.shortcut.toggleThreadList": "Afficher ou masquer la barre latérale",
   "shell.shortcut.compactSidebar": "Barre latérale compacte ou complète",
   "shell.shortcut.cycleThreads": "Passer d’une discussion à l’autre",
-  "shell.shortcut.forkSelection": "Dériver la sélection dans une discussion annexe",
   "shell.shortcut.stop": "Arrêter l’exécution ; rendre le contrôle",
   "shell.shortcut.cycleDisclosure": "Changer le niveau de détail",
   "shell.shortcut.browserPane": "Panneau Navigateur",
@@ -817,6 +864,7 @@ export const fr: Partial<Catalogue> = {
   "shell.shortcuts.description":
     "† signale les ajouts de Psyche aux raccourcis de Claude pour ordinateur.",
   "shell.threads.needsYou": "Besoin de vous",
+  "shell.threads.nowOn": "En cours : {step}",
   "shell.threads.running": "En cours",
   "shell.threads.titleField": "Titre de la discussion",
   "shell.threads.incognito": "Incognito",
@@ -834,6 +882,7 @@ export const fr: Partial<Catalogue> = {
   "shell.threads.filter": "Filtrer les discussions",
   "shell.threads.search": "Rechercher dans les discussions",
   "shell.threads.newSideChat": "Nouvelle discussion annexe",
+  "shell.threads.newIncognitoChat": "Nouvelle discussion incognito",
   "shell.threads.loading": "Chargement des discussions",
   "shell.threads.mainChat": "Discussion principale",
   "shell.threads.sideChats": "Discussions annexes",
@@ -891,7 +940,7 @@ export const fr: Partial<Catalogue> = {
   "shell.usage.openHint": "Cliquez pour ouvrir Réglages → Utilisation.",
 
   "settings.shared.needsPresence":
-    "Modifier « {label} » nécessite votre approbation avec Touch ID ou une clé d’accès. Approuvez-la dans Réglages ou dans la notification de Psyche, puis modifiez-le de nouveau.",
+    "Modifier « {label} » nécessite votre approbation. Approuvez-la dans Réglages ou dans la notification de Psyche, puis modifiez-le de nouveau.",
   "settings.shared.saveFailed":
     "Psyche n’a pas pu enregistrer « {label} » ({reason}). Rien n’a changé.",
   "settings.shared.loading": "Chargement : {label}",
@@ -975,6 +1024,9 @@ export const fr: Partial<Catalogue> = {
   "settings.key.models.providers": "Fournisseurs de modèles",
   "settings.key.permissions.mode": "Mode par défaut",
   "settings.key.permissions.policy": "Politique d’autorisation",
+  "settings.key.permissions.sensitive.government":
+    "Demander avant de lire les sites gouvernementaux",
+  "settings.key.permissions.sensitive.icloud": "Demander avant de lire iCloud",
   "settings.key.permissions.folders": "Dossiers partagés",
   "settings.key.persona.name": "Nom",
   "settings.key.persona.tagline": "Humeur ou devise",
@@ -1126,6 +1178,61 @@ export const fr: Partial<Catalogue> = {
   "settings.credentials.slot.keyFile": "un fichier de clé sur ce Mac",
   "settings.credentials.slot.recovery": "sa clé de récupération uniquement",
   "settings.credentials.protectedBy": "Coffre protégé par :",
+  "settings.credentials.vault.adminOnly": "Seul un appareil administrateur peut le faire.",
+  "settings.credentials.vault.unlockReason": "Confirmer la clé de récupération",
+  "settings.credentials.vault.setup.title": "Configurer le coffre",
+  "settings.credentials.vault.setup.body":
+    "Le coffre conserve vos mots de passe, cartes et clés d’API chiffrés sur cet ordinateur. Psyche le crée avec une clé de récupération que vous conservez une seule fois.",
+  "settings.credentials.vault.setup.button": "Configurer le coffre",
+  "settings.credentials.vault.setup.failed": "Le coffre n’a pas été créé : {reason}",
+  "settings.credentials.vault.setup.noSlot":
+    "Ce Gateway ne propose aucun emplacement de clé pour le coffre.",
+  "settings.credentials.onePassword.title": "1Password",
+  "settings.credentials.onePassword.intro":
+    "Laissez Psyche lire les éléments que vous liez depuis 1Password. Psyche ne conserve aucun mot de passe ni jeton 1Password, et c’est 1Password qui vous demande de déverrouiller quand il le faut.",
+  "settings.credentials.onePassword.check": "Revérifier",
+  "settings.credentials.onePassword.guide": "Ouvrir le guide",
+  "settings.credentials.onePassword.notInstalled.body":
+    "Psyche ne trouve pas l’outil en ligne de commande de 1Password (op) sur cet ordinateur. Installez-le, puis revérifiez.",
+  "settings.credentials.onePassword.notIntegrated.body":
+    "Dans l’app 1Password, ouvrez Réglages, choisissez Développeur et activez Intégrer à la CLI 1Password. Puis revérifiez.",
+  "settings.credentials.onePassword.locked.body":
+    "Déverrouillez l’app 1Password et approuvez la demande si elle en pose une. Puis revérifiez.",
+  "settings.credentials.onePassword.error.body":
+    "L’outil en ligne de commande de 1Password n’a pas répondu comme prévu. Revérifiez ; si cela échoue encore, réinstallez op.",
+  "settings.credentials.onePassword.signedIn.body":
+    "Connecté à 1Password en tant que {email} ({url}).",
+  "settings.credentials.onePassword.signedIn.connect": "Utiliser 1Password dans Psyche",
+  "settings.credentials.onePassword.connected.body":
+    "Psyche lit les éléments 1Password que vous liez via l’app 1Password. Ils sont en lecture seule ; rien n’est écrit dans 1Password.",
+  "settings.credentials.onePassword.test": "Tester la connexion",
+  "settings.credentials.onePassword.test.ok":
+    "Connecté. {count, plural, one {# coffre trouvé} other {# coffres trouvés}}.",
+  "settings.credentials.onePassword.test.failed": "Le test a échoué : {reason}",
+  "settings.credentials.onePassword.disconnect": "Déconnecter",
+  "settings.credentials.onePassword.config":
+    "1Password est configuré dans le config.json du Gateway. Modifiez-le là-bas.",
+  "settings.credentials.onePassword.failed": "Cela n’a pas fonctionné : {reason}",
+  "settings.credentials.onePassword.found.body":
+    "Psyche a trouvé l’outil en ligne de commande de 1Password. Choisissez Vérifier pour voir où en est la configuration.",
+  "settings.credentials.onePassword.checkNow": "Vérifier",
+  "settings.credentials.onePassword.changed.body":
+    "L’outil en ligne de commande de 1Password a changé depuis votre connexion. Revérifiez.",
+  "settings.credentials.onePassword.unsigned.body":
+    "Le fichier op trouvé par Psyche n’est pas signé par 1Password, donc Psyche ne l’exécutera pas. Installez op depuis 1Password, puis revérifiez.",
+  "settings.credentials.onePassword.unsafeFolder.body":
+    "Psyche a trouvé op, mais un dossier qui le contient ne vous appartient pas ou peut être modifié par d’autres utilisateurs, donc Psyche ne l’exécutera pas. Faites de ces dossiers les vôtres, non modifiables par le groupe ou les autres, puis revérifiez.",
+  "settings.credentials.onePassword.repinned.notice":
+    "CLI 1Password mise à jour et revérifiée {when}",
+  "settings.credentials.vault.confirm.title": "Confirmez votre clé de récupération",
+  "settings.credentials.vault.confirm.body":
+    "Saisissez le dernier groupe de votre clé de récupération, la partie après le dernier tiret, pour montrer que vous l’avez conservée.",
+  "settings.credentials.vault.confirm.label": "Dernier groupe",
+  "settings.credentials.vault.confirm.button": "Confirmer",
+  "settings.credentials.vault.confirm.wrong":
+    "Ce n’est pas le dernier groupe de la clé de récupération. Vérifiez où vous l’avez conservée et réessayez.",
+  "settings.credentials.vault.confirm.failed":
+    "La clé de récupération n’a pas été confirmée : {reason}",
   "settings.credentials.moveToKeychain": "Déplacer vers le trousseau",
   "settings.credentials.moveToKeychainNeeds":
     "Nécessite un Psyche Helper signé avec un Developer ID et un profil d’approvisionnement",
@@ -1218,7 +1325,72 @@ export const fr: Partial<Catalogue> = {
   "settings.credentials.payments.title": "Paiements",
   "settings.credentials.payments.loadLabel": "les paiements",
   "settings.credentials.payments.notConfigured":
-    "Stripe Link n’est pas configuré. Installez la CLI Link sur la machine de la Gateway, connectez-vous à Link et définissez PSYCHE_LINK_CLI ; Psyche affichera alors vos moyens de paiement ici.",
+    "Stripe Link n'est pas configuré sur cette Gateway.",
+  "settings.credentials.payments.setup.approvalLabel": "Outil en ligne de commande Stripe Link",
+  "settings.credentials.payments.setup.refused": "Psyche n'exécutera pas ce programme : {reason}.",
+  "settings.credentials.payments.setup.failed": "Ça n'a pas fonctionné : {reason}",
+  "settings.credentials.payments.setup.problem": "Psyche n'exécutera pas {path} : {reason}.",
+  "settings.credentials.payments.setup.recheck": "Vérifier à nouveau",
+  "settings.credentials.payments.setup.disconnect": "Déconnecter",
+  "settings.credentials.payments.setup.disconnecting": "Déconnexion…",
+  "settings.credentials.payments.setup.disconnectConfirm.title": "Déconnecter Stripe Link ?",
+  "settings.credentials.payments.setup.disconnectConfirm.body":
+    "Psyche oublie la CLI Link et supprime la connexion Link enregistrée. Ton compte Link et tes cartes ne sont pas touchés, et tu peux te reconnecter à tout moment.",
+  "settings.credentials.payments.setup.disconnectConfirm.go": "Déconnecter",
+  "settings.credentials.payments.setup.disconnectConfirm.cancel": "Rester connecté",
+  "settings.credentials.payments.setup.envOverride":
+    "Cette Gateway a été lancée avec PSYCHE_LINK_CLI, qui est prioritaire sur le chemin enregistré ici.",
+  "settings.credentials.payments.setup.missing.title":
+    "Installer l'outil en ligne de commande Link",
+  "settings.credentials.payments.setup.missing.body":
+    "Psyche paie via Stripe Link avec l'outil en ligne de commande de Link. Lance-le sur l'ordinateur qui fait tourner la Gateway, puis vérifie à nouveau.",
+  "settings.credentials.payments.setup.missing.region":
+    "Les paiements Link pour les agents sont disponibles aux États-Unis et au Canada.",
+  "settings.credentials.payments.setup.found.title": "CLI Link trouvée",
+  "settings.credentials.payments.setup.found.body":
+    "Connecte la copie que tu as installée. Psyche ne l'exécute que pour parler à Stripe Link, et seulement après ton accord.",
+  "settings.credentials.payments.setup.found.connect": "Connecter",
+  "settings.credentials.payments.setup.found.connecting": "Connexion…",
+  "settings.credentials.payments.setup.found.connectPath": "Connecter {path}",
+  "settings.credentials.payments.setup.signedOut.title": "Se connecter à Link",
+  "settings.credentials.payments.setup.signedOut.body":
+    "Psyche ouvre la page de Link, où tu te connectes et approuves cet appareil. Tu y saisis ton mot de passe Link ; il n'arrive jamais jusqu'à Psyche.",
+  "settings.credentials.payments.setup.signedOut.go": "Se connecter avec Link",
+  "settings.credentials.payments.setup.signedOut.starting": "Démarrage…",
+  "settings.credentials.payments.setup.signingIn.title": "Termine la connexion sur Link",
+  "settings.credentials.payments.setup.signingIn.body":
+    "Ouvre la page de Link, vérifie qu'elle affiche la phrase ci-dessous, puis approuve.",
+  "settings.credentials.payments.setup.signingIn.phrase": "Phrase :",
+  "settings.credentials.payments.setup.signingIn.open": "Ouvrir la page de Link",
+  "settings.credentials.payments.setup.signingIn.waiting":
+    "En attente de ton approbation dans Link…",
+  "settings.credentials.payments.setup.connected": "Connecté à Stripe Link via {path}.",
+  "settings.credentials.payments.setup.connectedNoPath": "Connecté à Stripe Link.",
+  "settings.credentials.payments.setup.reason.not_absolute": "le chemin n'est pas absolu",
+  "settings.credentials.payments.setup.reason.missing": "il n'existe pas",
+  "settings.credentials.payments.setup.reason.not_a_file":
+    "c'est un lien ou pas un fichier ordinaire",
+  "settings.credentials.payments.setup.reason.not_executable": "il ne peut pas être exécuté",
+  "settings.credentials.payments.setup.reason.wrong_owner": "il appartient à un autre utilisateur",
+  "settings.credentials.payments.setup.reason.writable":
+    "d'autres utilisateurs peuvent le modifier",
+  "settings.credentials.payments.setup.reason.parent_wrong_owner":
+    "un dossier parent appartient à un autre utilisateur",
+  "settings.credentials.payments.setup.reason.parent_writable":
+    "d'autres utilisateurs peuvent modifier un dossier parent",
+  "settings.credentials.payments.setup.reason.in_psyche_home":
+    "il se trouve dans le dossier de Psyche ; installez plutôt le CLI Link avec npm",
+  "settings.credentials.payments.setup.reason.not_link_cli":
+    "il ne fait pas partie du paquet du CLI Link",
+  "settings.credentials.payments.setup.reason.volta_shim":
+    "c'est le shim de Volta ; utilisez le dossier du CLI Link sous Volta ou installez-le avec npm",
+  "settings.credentials.payments.setup.paymentInProgress":
+    "Un paiement est en cours. Déconnectez-vous une fois qu'il est terminé.",
+  "settings.credentials.payments.setup.force.title": "Déconnecter quand même ?",
+  "settings.credentials.payments.setup.force.body":
+    "Toujours en cours : {payments}. Si vous déconnectez quand même, Psyche l'annule là où Link le permet et l'oublie. Une retenue chez le commerçant expire d'elle-même, et Psyche ne pourra plus la signaler.",
+  "settings.credentials.payments.setup.force.go": "Déconnecter quand même",
+  "settings.credentials.payments.setup.force.aPayment": "un paiement",
   "settings.credentials.payments.noMethods":
     "Votre portefeuille Link n’a aucun moyen de paiement. Ajoutez-en un dans l’app Link.",
   "settings.credentials.payments.methods": "Moyens de paiement Link",
@@ -1394,6 +1566,44 @@ export const fr: Partial<Catalogue> = {
   "settings.channels.loadLabel": "les canaux",
   "settings.channels.empty":
     "Aucun canal pour l’instant. Connectez Telegram, iMessage ou Slack pour joindre {persona} loin de ce Mac.",
+  "settings.channels.add.button": "Ajouter un canal",
+  "settings.channels.add.title": "Ajouter un canal",
+  "settings.channels.add.description":
+    "Choisissez où joindre {persona}. Les jetons vont directement dans le coffre et ne sont plus jamais affichés.",
+  "settings.channels.add.type": "Canal",
+  "settings.channels.add.account.slack": "Nom de l'espace de travail",
+  "settings.channels.add.account.discord": "ID de l'application",
+  "settings.channels.add.secret.bot_token": "Jeton du bot",
+  "settings.channels.add.secret.app_token": "Jeton de l'application",
+  "settings.channels.add.secret.auth_token": "Jeton d'authentification",
+  "settings.channels.add.secret.access_token": "Jeton d'accès",
+  "settings.channels.add.secret.app_secret": "Secret de l'application",
+  "settings.channels.add.secret.verify_token": "Jeton de vérification",
+  "settings.channels.add.submit": "Connecter",
+  "settings.channels.add.connecting": "Connexion",
+  "settings.channels.add.missing": "Remplissez tous les champs pour connecter.",
+  "settings.channels.add.failed":
+    "Psyche n'a pas pu ajouter le canal ({reason}). Il n'est pas activé.",
+  "settings.channels.add.account.sms": "Numéro d'envoi (+15551234567)",
+  "settings.channels.add.account.whatsapp": "Numéro WhatsApp (+15551234567)",
+  "settings.channels.add.badNumber":
+    "Saisissez le numéro au format international, par exemple +15551234567.",
+  "settings.channels.add.exists":
+    "Un canal {type} pour {account} existe déjà, rien n'a donc été modifié.",
+  "settings.channels.add.approvalLabel": "Ajout d'un canal",
+  "settings.channels.add.envNote":
+    "La Gateway doit aussi être lancée avec {env} défini sur ce compte. Telegram, iMessage, Signal et l'e-mail se configurent là où tourne la Gateway ; voir la documentation des canaux.",
+  "settings.channels.add.addedInactive":
+    "Canal ajouté, mais il ne tourne pas encore. Définissez {env} sur ce compte là où tourne la Gateway, puis relancez-la.",
+  "settings.channels.add.added":
+    "Canal ajouté. Il démarre dès que la Gateway a {env} défini sur ce compte. Écrivez ensuite à {persona} depuis ce canal pour obtenir un code d'appairage, puis approuvez-le ici.",
+  "settings.channels.add.storedNote":
+    "Déjà enregistré pour ce compte : {names}. Ils sont utilisés tels quels, sauf si vous les remplacez.",
+  "settings.channels.add.replace": "Remplacer les jetons enregistrés",
+  "settings.channels.add.statusFailed":
+    "Psyche n'a pas pu vérifier quels jetons sont déjà enregistrés ({reason}). Rien n'a été modifié.",
+  "settings.channels.add.storedTyped":
+    "Des jetons sont déjà enregistrés pour ce compte. Cochez « Remplacer les jetons enregistrés » pour utiliser ceux saisis, ou videz ces champs. Rien n'a été modifié.",
   "settings.channels.identities": "Liens d’identité",
   "settings.channels.identitiesDescription":
     "Une même personne sur plusieurs canaux. Les liens ne changent que depuis un appareil jumelé.",
@@ -1538,6 +1748,53 @@ export const fr: Partial<Catalogue> = {
   "settings.mcp.domains": "Sites web qu’il peut joindre",
   "settings.mcp.domainsHint":
     "Noms d’hôte séparés par des virgules. Laissez vide pour aucun accès réseau.",
+  "settings.mcp.env.title": "Variables d'environnement",
+  "settings.mcp.env.hint":
+    "Valeurs dont le serveur a besoin au démarrage. Les noms qui ressemblent à des secrets (jeton, clé, mot de passe) sont enregistrés dans votre coffre.",
+  "settings.mcp.env.name": "Nom de la variable",
+  "settings.mcp.env.value": "Valeur",
+  "settings.mcp.env.namePlaceholder": "API_BASE_URL",
+  "settings.mcp.env.saved": "Enregistré",
+  "settings.mcp.updated": "{name} mis à jour.",
+  "settings.mcp.edit.group": "Modifier et tester",
+  "settings.mcp.edit.action": "Modifier",
+  "settings.mcp.edit.title": "Modifier {name}",
+  "settings.mcp.edit.intro":
+    "Changer ce qui s'exécute ou l'endroit où il se connecte demande de nouveau ton accord. Le serveur actuel continue de tourner jusqu'à ton approbation.",
+  "settings.mcp.edit.save": "Enregistrer les modifications",
+  "settings.mcp.edit.loadFailed": "Impossible de charger les réglages de ce serveur. {reason}",
+  "settings.mcp.edit.locked":
+    "La commande et la connexion de ce serveur ne peuvent pas être modifiées. Retire-le et ajoutes-en un autre pour les changer.",
+  "settings.mcp.test.action": "Tester la connexion",
+  "settings.mcp.test.running": "Test en cours…",
+  "settings.mcp.test.hint": "Revérifie la configuration enregistrée. Rien ne change.",
+  "settings.mcp.test.paused": "Active ce serveur pour le tester.",
+  "settings.mcp.test.ok":
+    "Ça marche. {n, plural, one {# outil disponible} other {# outils disponibles}}.",
+  "settings.mcp.test.failed": "Ça n'a pas marché : {reason}",
+  "settings.mcp.trust.updateTitle": "Mettre à jour {name} ?",
+  "settings.mcp.trust.updateIntro":
+    "Psyche a exécuté la nouvelle configuration dans son bac à sable et a trouvé ces outils. Le serveur actuel continue de tourner jusqu'à ton approbation.",
+  "settings.mcp.trust.change.title": "Ce qui change",
+  "settings.mcp.trust.change.none": "aucun",
+  "settings.mcp.trust.change.was": "Avant : {value}",
+  "settings.mcp.trust.change.now": "Après : {value}",
+  "settings.mcp.trust.change.command": "Commande",
+  "settings.mcp.trust.change.url": "Adresse",
+  "settings.mcp.trust.change.domains": "Domaines autorisés",
+  "settings.mcp.trust.change.auth": "Connexion",
+  "settings.mcp.trust.change.envAdded": "Variables ajoutées",
+  "settings.mcp.trust.change.envRemoved": "Variables retirées",
+  "settings.mcp.trust.change.envChanged": "Variables modifiées",
+  "settings.mcp.trust.change.query": "Paramètres de l'adresse modifiés",
+  "settings.mcp.trust.change.userinfo": "Identifiants dans l'adresse",
+  "settings.mcp.trust.change.changed": "Modifié",
+  "settings.mcp.edit.changeUrl": "Changer l'adresse",
+  "settings.mcp.edit.urlHidden":
+    "Certaines parties de cette adresse sont masquées. Pour la changer, saisis la nouvelle adresse complète.",
+  "settings.mcp.env.add": "Ajouter une variable",
+  "settings.mcp.env.badName":
+    "Les noms utilisent des majuscules, des chiffres et des tirets bas, et commencent par une lettre ou un tiret bas.",
   "settings.mcp.url": "URL du serveur",
   "settings.mcp.placeholder.command": "npx -y @modelcontextprotocol/server-everything",
   "settings.mcp.placeholder.domains": "api.example.com",
@@ -1599,6 +1856,31 @@ export const fr: Partial<Catalogue> = {
   "settings.webSearch.braveKey": "Clé Brave Search",
   "settings.webSearch.braveFromEnv": "Définie (PSYCHE_SEARCH_BRAVE_KEY)",
   "settings.webSearch.braveNone": "Non définie (PSYCHE_SEARCH_BRAVE_KEY)",
+  "settings.apiKeys.title": "Clés d’API",
+  "settings.apiKeys.description":
+    "Clés des fournisseurs de modèles et de la recherche web, saisies ici plutôt que dans un terminal. Chacune est stockée chiffrée dans le coffre, n’est plus jamais affichée et sert dès la requête suivante. Une clé définie dans l’environnement est prioritaire.",
+  "settings.apiKeys.name.anthropic": "Anthropic",
+  "settings.apiKeys.name.openai": "OpenAI",
+  "settings.apiKeys.name.google": "Google Gemini",
+  "settings.apiKeys.name.openrouter": "OpenRouter",
+  "settings.apiKeys.name.brave": "Brave Search",
+  "settings.apiKeys.field": "Clé d’API {name}",
+  "settings.apiKeys.save": "Enregistrer",
+  "settings.apiKeys.saving": "Enregistrement…",
+  "settings.apiKeys.clear": "Effacer",
+  "settings.apiKeys.none": "Non définie",
+  "settings.apiKeys.vault": "Enregistrée dans le coffre",
+  "settings.apiKeys.env": "Définie dans l’environnement (prioritaire)",
+  "settings.apiKeys.envAndVault":
+    "Définie dans l’environnement (prioritaire) ; une clé enregistrée est aussi conservée",
+  "settings.apiKeys.empty": "Collez d’abord une clé.",
+  "settings.apiKeys.whitespace": "Une clé ne contient ni espaces ni sauts de ligne.",
+  "settings.apiKeys.failed": "Impossible d’enregistrer la clé : {reason}",
+  "settings.apiKeys.clearFailed": "Impossible d’effacer la clé : {reason}",
+  "settings.apiKeys.locked":
+    "Le coffre est verrouillé. Déverrouillez-le d’abord, puis enregistrez de nouveau.",
+  "settings.credentials.managed.web_search": "Une clé de recherche web",
+  "settings.webSearch.braveFromVault": "Enregistrée dans le coffre",
   "settings.webSearch.provider.brave": "Brave Search",
   "settings.webSearch.provider.searxng": "SearXNG",
   "settings.webSearch.provider.duckduckgo": "DuckDuckGo (sans clé, débit limité)",
@@ -1776,7 +2058,8 @@ export const fr: Partial<Catalogue> = {
   "settings.model.role.primary": "Principal",
   "settings.model.role.primaryHint": "Discussion, tâches et outils",
   "settings.model.role.utility": "Utilitaire",
-  "settings.model.role.utilityHint": "Titres, résumés et classificateur du mode auto",
+  "settings.model.role.utilityHint":
+    "Titres, résumés, cartes de recherche et autres tâches d'arrière-plan",
   "settings.model.role.image": "Image",
   "settings.model.role.imageHint":
     "Changements d’avatar ; « Aucun » signifie les créatures intégrées",
@@ -1836,7 +2119,8 @@ export const fr: Partial<Catalogue> = {
   "settings.permissions.never.secrets":
     "Saisir un mot de passe, un numéro de carte, de compte bancaire ou de pièce d’identité qu’il peut voir",
   "settings.permissions.never.captcha": "Résoudre ou contourner un CAPTCHA",
-  "settings.permissions.never.money": "Effectuer un virement ou une opération financière",
+  "settings.permissions.never.money":
+    "Négocier des titres ou des cryptomonnaies, déplacer de l’argent entre comptes bancaires ou en envoyer à une personne, même si tu approuves",
   "settings.permissions.never.delete":
     "Supprimer définitivement des données sans confirmation saisie au clavier",
   "settings.permissions.never.injection":
@@ -1868,6 +2152,7 @@ export const fr: Partial<Catalogue> = {
   "settings.permissions.subject.execIn": "{argv} dans {cwd}",
   "settings.permissions.subject.emailTo": "à {recipient}",
   "settings.permissions.subject.emailAny": "à n’importe quel destinataire",
+  "settings.permissions.subject.emailFrom": "à {recipients} depuis {account}",
   "settings.permissions.subject.calendarNamed": "calendrier {id}",
   "settings.permissions.subject.calendar": "calendrier",
   "settings.permissions.title": "Autorisations",
@@ -1886,8 +2171,31 @@ export const fr: Partial<Catalogue> = {
   "settings.permissions.toolsChanged":
     "{name} a changé sa liste d’outils depuis votre approbation ; Psyche a donc révoqué ses accords. Chaque action redemande jusqu’à ce que vous l’examiniez.",
   "settings.permissions.hash": "tools/list {hash}…",
+  "settings.permissions.sendsTitle": "Destinataires toujours autorisés",
+  "settings.permissions.sendsHint":
+    "Les e-mails envoyés à ces destinataires partent sans demande. Retirez-en un pour être à nouveau invité à confirmer.",
+  "settings.permissions.noSends": "Aucun destinataire n’est réglé sur toujours autoriser.",
   "settings.permissions.origins": "Origines du navigateur",
   "settings.permissions.originsHint": "Sites que l’agent peut ouvrir sans demander.",
+  "settings.permissions.trusted.title": "Sites de confiance",
+  "settings.permissions.trusted.description":
+    "Psyche lit ces sites sans demander, dans toutes les conversations. L’écriture, les formulaires et les sites sensibles demandent toujours d’abord.",
+  "settings.permissions.trusted.empty":
+    "Aucun site de confiance pour l’instant. Choisissez « Toujours pour ce site » lors d’une première lecture pour en ajouter un.",
+  "settings.permissions.trusted.added": "Ajouté le {date}",
+  "settings.permissions.trusted.remove": "Retirer",
+  "settings.permissions.trusted.removeNamed": "Retirer {name} des sites de confiance",
+  "settings.permissions.subject.trustedSiteSubdomains": "{origin} et ses sous-domaines",
+  "settings.permissions.subject.hostProgram": "{program} dans {folder}, tous arguments",
+  "settings.permissions.subject.hostProgramExact":
+    "{program} dans {folder}, exactement ces arguments",
+  "settings.permissions.sensitive.title": "Sites sensibles",
+  "settings.permissions.sensitive.description":
+    "Les banques, la santé, la messagerie et les gestionnaires de mots de passe demandent toujours avant une lecture. Les sites gouvernementaux et iCloud aussi ; désactivez une catégorie ici pour la lire sans demander.",
+  "settings.permissions.sensitive.governmentHint":
+    "Sites se terminant par .gov ou .gov.uk (comptes d’impôts, d’identité et de santé). Activé par défaut.",
+  "settings.permissions.sensitive.icloudHint":
+    "Sites iCloud (messagerie, photos, fichiers). Activé par défaut.",
   "settings.permissions.noOrigins":
     "Aucun accord permanent pour des sites web. Les nouveaux sites demandent d’abord.",
   "settings.permissions.scopeExpires": "{scope}, expire {date}",
@@ -2247,6 +2555,19 @@ export const fr: Partial<Catalogue> = {
   "settings.connect.noSignIn": "la Gateway n’a pas renvoyé de page de connexion",
   "settings.connect.notConfigured":
     "{name} n’est pas encore configuré sur cette Gateway : il lui faut votre propre client OAuth (voir le guide « Connecting Google » dans la documentation de Psyche). Configurez-le plus tard dans Réglages → Connecteurs.",
+  "settings.googleClient.using": "Votre client Google {clientId} est utilisé.",
+  "settings.googleClient.fromConfig": "Il est défini dans config.json ou l'environnement.",
+  "settings.googleClient.change": "Utiliser un autre client",
+  "settings.googleClient.help":
+    "Psyche n'a pas de client Google à lui. Créez une seule fois un client OAuth gratuit de type application de bureau dans votre propre projet Google Cloud, puis collez son identifiant ici.",
+  "settings.googleClient.docs": "Comment en créer un",
+  "settings.googleClient.id": "ID client",
+  "settings.googleClient.idHint": "Se termine par .apps.googleusercontent.com",
+  "settings.googleClient.invalid":
+    "Ce n'est pas un ID client Google. Il se termine par .apps.googleusercontent.com.",
+  "settings.googleClient.secret": "Secret client",
+  "settings.googleClient.secretHint": "Conservé dans votre coffre et envoyé uniquement à Google.",
+  "settings.googleClient.saveFailed": "Impossible d'enregistrer le client Google : {reason}",
   "settings.connect.alreadyConnected": "{name} est déjà connecté.",
   "settings.connect.needsPermission":
     "{name} est configuré, mais macOS ne l’a pas encore autorisé. Autorisez-le dans",
@@ -2383,7 +2704,6 @@ export const fr: Partial<Catalogue> = {
   "onboarding.model.copyFailed": "Copie impossible. Sélectionnez la clé et copiez-la.",
   "onboarding.model.recoveryBody":
     "Psyche vient de créer votre coffre. Conservez cette clé dans un gestionnaire de mots de passe ou sur papier : elle n’est affichée que maintenant et c’est le seul moyen de rouvrir le coffre après une restauration ou la perte d’un emplacement de clé.",
-  "onboarding.model.savedIt": "Je l’ai conservée",
   "onboarding.model.subscriptionNote":
     "Psyche utilise l’app Claude Code ou Codex déjà connectée sur ce Mac ; il n’a donc besoin d’aucune clé API et n’en enregistre aucune. Connectez-vous d’abord là-bas si ce n’est pas fait.",
   "onboarding.model.toolCheck": "Test d’appel d’outils",
@@ -2500,6 +2820,48 @@ export const fr: Partial<Catalogue> = {
   "screens.feed.explorationTopic": "{topic} · créneau d’exploration",
   "screens.feed.sourcesCount": "Sources ({n, number})",
   "screens.feed.sources": "Sources",
+  "screens.feed.sourcesEditor.button": "Sources",
+  "screens.feed.sourcesEditor.title": "Sources du Feed",
+  "screens.feed.sourcesEditor.description":
+    "Ce que lit le Feed. Chaque modification est enregistrée aussitôt.",
+  "screens.feed.sourcesEditor.builtIn": "Intégrées",
+  "screens.feed.sourcesEditor.builtInHint": "Le Feed lit ces sources sauf si vous les désactivez.",
+  "screens.feed.sourcesEditor.hackerNews": "Hacker News",
+  "screens.feed.sourcesEditor.hackerNewsHint": "Les articles phares de Hacker News",
+  "screens.feed.sourcesEditor.arxiv": "arXiv",
+  "screens.feed.sourcesEditor.arxivHint": "Les nouveaux articles d’arXiv",
+  "screens.feed.sourcesEditor.feeds": "Flux RSS et Atom",
+  "screens.feed.sourcesEditor.feedsHint":
+    "Chaque flux est une adresse web commençant par https:// ou http://.",
+  "screens.feed.sourcesEditor.fetchNote":
+    "Le Feed n’indique pas encore quand un flux a été lu pour la dernière fois, ni s’il a échoué.",
+  "screens.feed.sourcesEditor.empty": "Aucun flux pour l’instant.",
+  "screens.feed.sourcesEditor.notRead": "non lu",
+  "screens.feed.sourcesEditor.kind": "RSS ou Atom",
+  "screens.feed.sourcesEditor.add": "Ajouter le flux",
+  "screens.feed.sourcesEditor.addTitle": "Ajouter un flux",
+  "screens.feed.sourcesEditor.addLabel": "Adresse du flux",
+  "screens.feed.sourcesEditor.addPlaceholder": "https://example.com/feed.xml",
+  "screens.feed.sourcesEditor.editLabel": "Modifier {host}",
+  "screens.feed.sourcesEditor.removeLabel": "Retirer {host}",
+  "screens.feed.sourcesEditor.removeTitle": "Retirer {host} du Feed ?",
+  "screens.feed.sourcesEditor.removeBody":
+    "Le Feed ne lira plus cette adresse. Les publications déjà écrites restent. Vous pourrez rajouter l’adresse plus tard.",
+  "screens.feed.sourcesEditor.confirmRemove": "Retirer le flux",
+  "screens.feed.sourcesEditor.openLabel": "Ouvrir {host} dans le navigateur",
+  "screens.feed.sourcesEditor.openFailed": "Impossible d’ouvrir {host} : {reason}",
+  "screens.feed.sourcesEditor.errEmpty": "Saisissez l’adresse web du flux.",
+  "screens.feed.sourcesEditor.errInvalid": "Ce n’est pas une adresse web. Commencez par https://.",
+  "screens.feed.sourcesEditor.errScheme":
+    "Seules les adresses http:// et https:// peuvent être des flux.",
+  "screens.feed.sourcesEditor.errDuplicate": "Ce flux est déjà dans la liste.",
+  "screens.feed.sourcesEditor.saved": "Sources du Feed enregistrées",
+  "screens.feed.sourcesEditor.added": "Flux ajouté",
+  "screens.feed.sourcesEditor.removed": "Flux retiré",
+  "screens.feed.sourcesEditor.saveFailed":
+    "Impossible d’enregistrer les sources du Feed : {reason}",
+  "screens.feed.sourcesEditor.loadFailed": "Impossible de charger les sources du Feed",
+  "screens.feed.sourcesEditor.loading": "Chargement des sources du Feed",
   "screens.feed.feedbackOn": "Avis sur {title}",
   "screens.feed.like": "J’aime",
   "screens.feed.moreFeedback": "Plus d’avis sur {title}",
@@ -2639,6 +3001,32 @@ export const fr: Partial<Catalogue> = {
   "screens.files.preview": "Aperçu",
   "screens.files.needsApp": "Les aperçus nécessitent l’app de bureau ou l’app web.",
   "screens.files.pick": "Choisissez un fichier pour l’afficher ici.",
+  "screens.files.editReadOnly": "Lecture seule : ce dossier est partagé sans modification.",
+  "screens.files.editOpening": "Ouverture de {name} pour modification",
+  "screens.files.editFailed": "Psyche n’a pas pu ouvrir {name} pour modification ({reason}).",
+  "screens.files.editNotText": "{name} n’est pas du texte UTF-8 ; il ne peut pas être modifié ici.",
+  "screens.files.unsaved": "Modifications non enregistrées",
+  "screens.files.saved": "Enregistré",
+  "screens.files.saving": "Enregistrement…",
+  "screens.files.discardAsk": "Abandonner les modifications non enregistrées ?",
+  "screens.files.discard": "Abandonner",
+  "screens.files.keepEditing": "Continuer à modifier",
+  "screens.files.conflict": "Ce fichier a changé sur le disque après son ouverture.",
+  "screens.files.reload": "Recharger",
+  "screens.files.overwrite": "Écraser…",
+  "screens.files.overwriteAsk":
+    "Remplacer la version plus récente par vos modifications ? La version plus récente sera perdue.",
+  "screens.files.overwriteConfirm": "Écraser",
+  "screens.files.saveFailed": "Psyche n’a pas pu enregistrer {name} ({reason}).",
+  "screens.files.notSaved": "Non enregistré.",
+  "screens.files.editing": "Modification de {name}",
+  "screens.files.editTooLarge":
+    "Affichage seul : les fichiers de plus de 512 Ko ne peuvent pas être modifiés ici.",
+  "screens.files.saveTooLarge":
+    "Cette modification est trop volumineuse pour être enregistrée d’ici. Raccourcissez le texte et réessayez.",
+  "screens.files.editMixedEol":
+    "{name} mélange plusieurs styles de fin de ligne ; il ne peut pas être modifié ici.",
+  "screens.files.draftRestored": "Modifications non enregistrées restaurées",
   "screens.library.section.documents": "Documents",
   "screens.library.empty.documents":
     "Aucun document pour l’instant. Les fichiers que l’agent crée ou reçoit arrivent ici.",
@@ -2682,10 +3070,28 @@ export const fr: Partial<Catalogue> = {
   "screens.library.openLabel": "Ouvrir {name}{editor, select, true { dans l’éditeur} other {}}",
   "screens.library.openInEditor": "Ouvrir dans l’éditeur",
   "screens.library.open": "Ouvrir",
+  "screens.library.deleteDownload": "Supprimer ce téléchargement",
+  "screens.library.deleteFailed":
+    "Psyche n'a pas pu supprimer {name} ({reason}). Il reste en quarantaine.",
+  "screens.library.recording.description":
+    "Une relecture de ce que l'agent a fait dans le navigateur. Le contenu des pages a été masqué à l'enregistrement.",
+  "screens.library.recording.play": "Lire",
+  "screens.library.recording.pause": "Pause",
+  "screens.library.recording.step": "Étape {n} sur {total}",
+  "screens.library.recording.scrub": "Position dans l'enregistrement",
+  "screens.library.recording.steps": "Étapes",
+  "screens.library.recording.empty": "Cet enregistrement n'a aucune étape.",
+  "screens.library.recording.noFrame": "Aucune image pour cette étape.",
+  "screens.library.recording.frameAlt": "Le navigateur à l'étape {n}",
+  "screens.library.recording.loading": "Chargement de l'enregistrement",
+  "screens.library.recording.loadFailed":
+    "Psyche n'a pas pu charger cet enregistrement ({reason}).",
+  "screens.library.recording.notFound": "Cet enregistrement n'est plus disponible.",
   "screens.library.trust": "Faire confiance à ce fichier",
   "screens.library.moreFor": "Autres actions pour {name}",
   "screens.library.quickLook": "Coup d’œil",
   "screens.library.reveal": "Afficher dans le Finder",
+  "screens.library.revealFailed": "Impossible d’afficher ce fichier : {reason}",
   "screens.library.sendToChat": "Envoyer dans la discussion",
   "screens.library.loading": "Chargement de la bibliothèque",
   "screens.library.loadFailed": "Psyche n’a pas pu charger la bibliothèque",
@@ -2952,10 +3358,10 @@ export const fr: Partial<Catalogue> = {
   "web.viewers.noPath": "Ce fichier n’a pas de chemin.",
   "web.shortcut.palette": "Palette de commandes",
   "web.shortcut.newSideChat": "Nouvelle discussion annexe",
+  "web.shortcut.newIncognitoChat": "Nouvelle discussion incognito",
   "web.shortcut.closeThreadView": "Fermer la vue de discussion ou la fenêtre détachée",
   "web.shortcut.toggleThreadList": "Afficher ou masquer la liste des discussions",
   "web.shortcut.cycleThreads": "Passer d’une discussion à l’autre",
-  "web.shortcut.forkSelection": "Dériver la sélection dans une discussion annexe",
   "web.shortcut.stop": "Arrêter l’exécution ; rendre le contrôle",
   "web.shortcut.cycleDisclosure": "Changer le niveau de détail : état, actions, brut",
   "web.shortcut.openBrowserPane": "Panneau Navigateur",
@@ -2994,7 +3400,9 @@ export const fr: Partial<Catalogue> = {
   "web.threads.untitled": "Sans titre",
   "web.threads.label": "Discussions",
   "web.threads.newSideChatTitle": "Nouvelle discussion annexe (⌘N)",
+  "web.threads.newIncognitoChatTitle": "Nouvelle discussion incognito",
   "web.threads.newSideChat": "+ Discussion annexe",
+  "web.threads.newIncognitoChat": "+ Incognito",
   "web.threads.searchLabel": "Rechercher dans les discussions",
   "web.threads.searchPlaceholder": "Rechercher",
   "web.threads.empty": "Aucune discussion annexe pour l’instant.",
@@ -3318,8 +3726,13 @@ export const fr: Partial<Catalogue> = {
   // password approvals on Linux (polkit)
   ...passwordPresence,
   ...helperCheck,
+  ...helperOffline,
   // the security-records banner (docs/design/security-state-integrity-2026.md §7.3)
   ...securityState,
+  // Gateway-authored notices (inbox notifications, security alerts)
+  ...notices,
   // Settings > Computer use > Separate desktop (Linux)
   ...separateDesktop,
+  // Windows variants of the sandbox PC, voice keys and platform terms
+  ...windowsPlatform202611,
 };

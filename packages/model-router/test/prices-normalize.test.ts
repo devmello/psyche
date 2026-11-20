@@ -447,6 +447,17 @@ describe("Prices.cost", () => {
     expect(prices.cost("anthropic/claude-x", u, { cacheTtl: "1h" })).toBe(6);
   });
 
+  it("bills the writes reported under the 1h TTL at the 1h rate, the rest at the 5m rate", () => {
+    const u = usage({ cacheWrite: 1_000_000 });
+    // 400k written by the 1-hour tools/system breakpoints, 600k by the 5-minute tail.
+    expect(prices.cost("anthropic/claude-x", u, { cacheWrite1h: 400_000 })).toBeCloseTo(
+      0.4 * 6 + 0.6 * 3.75,
+      9,
+    );
+    // Never more 1h tokens than writes.
+    expect(prices.cost("anthropic/claude-x", u, { cacheWrite1h: 5_000_000 })).toBe(6);
+  });
+
   it("falls back to the input rate for missing cache rates", () => {
     expect(
       prices.cost("openai/plain", usage({ cacheRead: 1_000_000, cacheWrite: 1_000_000 }), {

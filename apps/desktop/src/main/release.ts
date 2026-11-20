@@ -18,5 +18,6 @@ export function releaseHiddenAfterMs(packaged: boolean, env: NodeJS.ProcessEnv):
  * Runs in the app page before a release: true when any text field still holds something unsent
  * (the composer, an edit box), which a rebuilt page would lose. The renderer keeps drafts only in
  * memory. Hidden helpers (the autosizing composer's aria-hidden measuring textarea) do not count.
+ * Unsaved Files edits count too, also those kept for a tab that isn't showing.
  */
-export const HAS_UNSENT_TEXT = `[...document.querySelectorAll("textarea, input:not([type]), input[type=text], input[type=search], [contenteditable=true], [contenteditable='']")].some((e) => !e.closest("[aria-hidden=true]") && !e.disabled && !e.readOnly && ((e.value ?? e.textContent) || "").trim() !== "")`;
+export const HAS_UNSENT_TEXT = `window.psycheUnsavedFiles?.() === true || [...document.querySelectorAll("textarea, input:not([type]), input[type=text], input[type=search], [contenteditable=true], [contenteditable='']")].some((e) => !e.closest("[aria-hidden=true]") && !e.disabled && !e.readOnly && ((e.value ?? e.textContent) || "").trim() !== "")`;

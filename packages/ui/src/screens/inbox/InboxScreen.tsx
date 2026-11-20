@@ -19,8 +19,9 @@ import { StatusGlyph, type StatusKind } from "../../components/status.tsx";
 import { Button } from "../../components/ui/button.tsx";
 import { Skeleton } from "../../components/ui/skeleton.tsx";
 import { useApproval, useCall, useNotifications, useTask } from "../../data/hooks.ts";
-import { t } from "../../i18n/core.ts";
+import { isMessageId, t } from "../../i18n/core.ts";
 import { describeError } from "../../i18n/errors.ts";
+import { noticeText } from "../../i18n/notice.ts";
 import { formatCountdown, formatRelative } from "../../lib/format.ts";
 import { useNow } from "../../lib/use-now.ts";
 import { cn } from "../../lib/utils.ts";
@@ -300,6 +301,8 @@ export function InboxRow({
   onMarkRead,
 }: InboxRowProps): ReactElement {
   const titleId = useId();
+  // Gateway-authored notices carry message ids; the row words them in the active language.
+  const text = noticeText(n);
   const kind = NOTIFICATION_KIND[n.kind];
   const Icon = kind.icon;
   const unread = n.readAt == null;
@@ -355,7 +358,9 @@ export function InboxRow({
         </Button>
       </>
     );
-  } else if (n.kind === "reminder" && n.actions.length > 0) {
+  } else if ((n.kind === "reminder" || n.kind === "system") && n.actions.length > 0) {
+    // A Gateway notice's own buttons (a reminder's Done, a held entry's Keep it), worded from
+    // `labelKey` when this client knows it.
     actions = n.actions.map((a, i) => (
       <Button
         key={a.id}
@@ -365,7 +370,7 @@ export function InboxRow({
         disabled={busy}
         onClick={() => onAction?.(n, a.id)}
       >
-        {a.label}
+        {a.labelKey !== undefined && isMessageId(a.labelKey) ? t(a.labelKey) : a.label}
       </Button>
     ));
   } else if (notificationHasTarget(n)) {
@@ -403,7 +408,7 @@ export function InboxRow({
         {unread && onMarkRead ? (
           <button
             type="button"
-            aria-label={t("screens.inbox.markReadLabel", { title: n.title })}
+            aria-label={t("screens.inbox.markReadLabel", { title: text.title })}
             title={t("screens.inbox.markRead")}
             onClick={() => onMarkRead(n)}
             className="group/dot flex size-5 items-center justify-center rounded-full hover:bg-fill-quaternary focus-visible:outline-2 focus-visible:outline-ring"
@@ -437,17 +442,17 @@ export function InboxRow({
               className="text-start outline-none focus-visible:underline"
               data-testid="inbox-row-open"
             >
-              {n.title}
+              {text.title}
             </button>
           ) : (
-            n.title
+            text.title
           )}
         </h3>
         {/* Body, kind and time as one evidence line (unslop 2026-11): two lines per row, not three. */}
         <p className="flex flex-wrap items-baseline gap-x-1.5 text-callout text-label-secondary tabular-nums">
-          {n.body ? (
+          {text.body ? (
             <>
-              <span className="min-w-0">{n.body}</span>
+              <span className="min-w-0">{text.body}</span>
               <span aria-hidden="true">·</span>
             </>
           ) : null}

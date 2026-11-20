@@ -1,5 +1,11 @@
 import { createHash } from "node:crypto";
 import type { ApprovalKind, SideEffect } from "@psyche/protocol";
+import {
+  isAmbiguousActionLabel,
+  isMoneyContext,
+  isMoneyFormAction,
+  isMoneyText,
+} from "@psyche/protocol/money-intent";
 import type { ElementMeta } from "../types.ts";
 
 /**
@@ -9,15 +15,11 @@ import type { ElementMeta } from "../types.ts";
  * `financial`. Classes only ever make a call stricter than its spec.
  */
 
-const PURCHASE =
-  /\b(place (your |my )?order|buy( it)? now|complete (purchase|order|payment)|pay( now)?|confirm (and|&) pay|proceed to (checkout|payment)|check ?out|subscribe|start (my |your )?(free )?trial|purchase|add payment)\b/i;
-const PURCHASE_PATH = /\/(checkout|payment|pay|purchase|order|billing|cart\/submit)(\/|$|\?)/i;
 const CONSENT =
   /\b(accept all|accept (cookies|terms)|agree( and continue)?|i agree|allow all|authori[sz]e|grant access)\b/i;
 const DESTRUCTIVE =
   /\b(delete|remove|erase|cancel (my |your )?(subscription|account|order|membership)|close (my |your )?account|deactivate|unsubscribe|empty (trash|bin)|sign up|create (an |my )?account|register)\b/i;
 
-const MONEY = /\b(transfer|send money|withdraw|wire|pay (now|invoice|bill)|donate|tip)\b/i;
 /** View-only controls: expanding, paging, tabs, sorting. */
 const BENIGN =
   /^(show|hide|more|less|expand|collapse|next|previous|prev|back|close|dismiss|open|menu|view|details|load more|read more|see (more|all)|filter|sort|search|go|tab|toggle|zoom|play|pause|reject( all| non-essential)?|decline|no thanks|not now|cancel|skip)\b/i;
@@ -63,11 +65,7 @@ export function stricter(a: SideEffect, b: SideEffect): SideEffect {
 export function classifyActivation(meta: ElementMeta | undefined): ActionClass {
   if (meta === undefined) return { sideEffect: "write", reason: "unknown element" };
   const name = meta.name;
-  const formPath = meta.formAction === undefined ? "" : safePath(meta.formAction);
-  if (MONEY.test(name)) return { sideEffect: "financial", kind: "purchase", reason: "moves money" };
-  if (PURCHASE.test(name) || (meta.submits && PURCHASE_PATH.test(formPath))) {
-    return { sideEffect: "financial", kind: "purchase", reason: "purchase path" };
-  }
+  if (pays(meta)) return { sideEffect: "financial", kind: "purchase", reason: "purchase path" };
   if (CONSENT.test(name)) return { sideEffect: "destructive", reason: "consent or terms" };
   if (DESTRUCTIVE.test(name))
     return { sideEffect: "destructive", reason: "deletes or creates an account" };
@@ -84,8 +82,7 @@ export function classifyActivation(meta: ElementMeta | undefined): ActionClass {
 
 /** Submitting the element's form: Enter in a field, `type {submit: true}`, a submit button. */
 export function classifyFormSubmit(meta: ElementMeta): ActionClass {
-  const formPath = meta.formAction === undefined ? "" : safePath(meta.formAction);
-  if (PURCHASE_PATH.test(formPath)) {
+  if (formPays(meta)) {
     return { sideEffect: "financial", kind: "purchase", reason: "purchase path" };
   }
   return {
@@ -95,27 +92,65 @@ export function classifyFormSubmit(meta: ElementMeta): ActionClass {
   };
 }
 
+/**
+ * The key a chord presses, after its modifiers: `Shift+Enter` and `Alt+Space` still send Return
+ * and a space (the key table in `cdp/keys.ts` reads the part after the last `+`).
+ */
+function chordKey(chord: string): string {
+  const k = chord.split("+").at(-1) ?? "";
+  return k.trim().toLowerCase();
+}
+
+/** Whether a key sequence presses Enter or Space (alone or in a chord) and which of the two. */
+export function activatingKeys(keys: string): { enter: boolean; space: boolean } {
+  const pressed = keys
+    .split(/\s+/)
+    .filter((c) => c !== "")
+    .map(chordKey);
+  return {
+    enter: pressed.some((k) => k === "enter"),
+    space: pressed.some((k) => k === "space" || k === " "),
+  };
+}
+
 /** A key press on `ref`: Enter/Space activate buttons and links; Enter in a field submits. */
 export function classifyKeys(keys: string, meta: ElementMeta | undefined): ActionClass {
-  const chords = keys.toLowerCase().split(/\s+/);
-  const activates = chords.some((k) => k === "enter" || k === "space" || k === " ");
-  if (!activates) return { sideEffect: "read", reason: "navigation keys" };
+  const { enter, space } = activatingKeys(keys);
+  if (!enter && !space) return { sideEffect: "read", reason: "navigation keys" };
   if (meta === undefined) return { sideEffect: "write", reason: "Enter without a target" };
   const field = meta.role === "textbox" || meta.role === "searchbox" || meta.role === "combobox";
   if (field) {
-    return chords.includes("enter") && meta.inForm
+    return enter && meta.inForm
       ? classifyFormSubmit(meta)
       : { sideEffect: "read", reason: "typing" };
   }
   return classifyActivation(meta);
 }
 
-function safePath(url: string): string {
-  try {
-    return new URL(url).pathname;
-  } catch {
-    return url;
-  }
+/** Submitting the element's form pays: real card fields, or a POST to a payment path. */
+function formPays(meta: ElementMeta): boolean {
+  return meta.formHasPaymentFields === true || isMoneyFormAction(meta.formMethod, meta.formAction);
+}
+
+/**
+ * Whether activating the element pays. A link never does (navigation: "Where to buy",
+ * "Pay bills", "Proceed to checkout"); the control that submits does. A submit of a payment form
+ * pays whatever it says, a button labelled as a payment pays, and a bare "Confirm" or "Send"
+ * counts only on a page or form that is clearly payment or checkout.
+ */
+function pays(meta: ElementMeta): boolean {
+  if (meta.role === "link" && !meta.submits) return false;
+  if (isMoneyText(meta.name)) return true;
+  if (meta.submits && formPays(meta)) return true;
+  return (
+    (meta.submits || meta.role === "button" || meta.role === "clickable") &&
+    isAmbiguousActionLabel(meta.name) &&
+    isMoneyContext({
+      url: meta.pageUrl,
+      title: meta.pageTitle,
+      hasPaymentFields: meta.formHasPaymentFields,
+    })
+  );
 }
 
 /** Canonical JSON (security §3.5): sorted keys, NFC strings, finite numbers only. */

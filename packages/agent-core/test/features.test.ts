@@ -170,7 +170,9 @@ describe("unattended runs (C8)", () => {
     expect(endOf(await runTurn(attended, "check canvas")).outcome).toBe("final");
   });
 
-  it("an action needing approval is queued with a notification, never attempted", async () => {
+  // Changed with the automation digest (#1333): an unattended card raises no notice of its own.
+  // The Gateway's one digest notice announces every waiting card, so the loop no longer notifies.
+  it("an action needing approval is queued and set aside with no per-card notice, never attempted", async () => {
     const exec = recorder();
     const h = harness({
       script: [call("c1", "calendar.create", {}), say("Queued the invite for approval.")],
@@ -181,13 +183,105 @@ describe("unattended runs (C8)", () => {
     expect(endOf(events).outcome).toBe("final");
     const pending = await h.broker.list({ status: "pending" });
     expect(pending).toHaveLength(1);
-    const notes = await h.notifier.list();
-    expect(notes[0]).toMatchObject({ kind: "approval", approvalId: pending[0]?.id });
+    expect(await h.notifier.list()).toHaveLength(0);
     expect(h.broker.decisions[0]?.ctx.unattended).toBe(true);
     expect(resultsIn(h.provider.requests[1]).get("c1")?.output).toMatchObject({ deferred: true });
     expect(events.some((e) => e.type === "run.status" && e.status === "awaiting_approval")).toBe(
       false,
     );
+  });
+
+  it("positive control: an attended run's card still goes to the owner (and waits)", async () => {
+    const h = harness({ script: [call("c1", "calendar.create", {}), say("Done.")] });
+    h.loop.registry.register({
+      spec: spec("calendar.create", "write"),
+      execute: recorder().execute,
+    });
+    const turn = start(h, "weekly sync");
+    await until(() => h.broker.issued.length === 1, "attended card");
+    expect(h.broker.issued[0]?.approval.status).toBe("pending");
+    await h.broker.decideLatest("deny", h.clock);
+    await turn.done;
+  });
+
+  it("approve on a set-aside card: the resume run does the identical action exactly once", async () => {
+    const exec = recorder();
+    // What the Gateway's DeferredResume holds: approved set-aside cards, each handed out once.
+    const approved = new Map<string, { kind: string; bindingHash: string }>();
+    const asked: string[] = [];
+    const h = harness({
+      script: [
+        call("c1", "calendar.create", { title: "Weekly sync" }),
+        say("Set aside."),
+        // The resume run re-plans and reaches the same call.
+        call("c2", "calendar.create", { title: "Weekly sync" }),
+        say("Created."),
+        // A later run: the approval is spent, so it asks again.
+        call("c3", "calendar.create", { title: "Weekly sync" }),
+        say("Set aside again."),
+      ],
+      loop: {
+        // The task evaluator would read the scripted turns; it is not under test here.
+        evaluator: { enabled: false },
+        resumeApproval: async (q) => {
+          asked.push(q.taskId);
+          for (const [id, a] of approved) {
+            if (a.kind === q.kind && a.bindingHash === q.bindingHash) {
+              approved.delete(id);
+              return id;
+            }
+          }
+          return undefined;
+        },
+      },
+    });
+    h.loop.registry.register({ spec: spec("calendar.create", "write"), execute: exec.execute });
+
+    await runTurn(h, "weekly sync", { mode: "unattended", taskId: "task_a" });
+    expect(exec.seen).toHaveLength(0);
+    const card = h.broker.issued[0]?.approval;
+    expect(card).toBeDefined();
+    await h.broker.decideLatest("approve", h.clock);
+    approved.set(card?.id ?? "", { kind: card?.kind ?? "", bindingHash: card?.bindingHash ?? "" });
+
+    const resumed = await runTurn(h, "weekly sync", { mode: "unattended", taskId: "task_b" });
+    expect(exec.seen).toHaveLength(1);
+    expect(toolStatuses(resumed, "c2").at(-1)).toBe("ok");
+    expect(h.broker.issued).toHaveLength(1);
+
+    await runTurn(h, "weekly sync", { mode: "unattended", taskId: "task_c" });
+    expect(exec.seen).toHaveLength(1);
+    expect(resultsIn(h.provider.requests.at(-1)).get("c3")?.output).toMatchObject({
+      deferred: true,
+    });
+    expect(h.broker.issued).toHaveLength(2);
+    expect(asked).toEqual(["task_a", "task_b", "task_c"]);
+  });
+
+  it("a hook that hands out the wrong approval is still refused by verifyBinding", async () => {
+    const exec = recorder();
+    let cardId: string | undefined;
+    const h = harness({
+      script: [
+        call("c1", "calendar.create", { title: "Weekly sync" }),
+        say("Set aside."),
+        call("c2", "calendar.create", { title: "Something else" }),
+        say("Set aside."),
+      ],
+      // Wrongly offers the approval for any call: the binding check is the gate, not the hook.
+      loop: { resumeApproval: async () => cardId },
+    });
+    h.loop.registry.register({ spec: spec("calendar.create", "write"), execute: exec.execute });
+    await runTurn(h, "weekly sync", { mode: "unattended", taskId: "task_a" });
+    cardId = h.broker.issued[0]?.approval.id;
+    await h.broker.decideLatest("approve", h.clock);
+    const events = await runTurn(h, "weekly sync", { mode: "unattended", taskId: "task_b" });
+    expect(exec.seen).toHaveLength(0);
+    expect(resultsIn(h.provider.requests.at(-1)).get("c2")?.output).toMatchObject({
+      deferred: true,
+    });
+    expect(h.broker.issued).toHaveLength(2);
+    expect(endOf(events).outcome).toBe("final");
   });
 });
 
@@ -362,7 +456,12 @@ describe("compaction (B7)", () => {
     expect(summarizer?.model).toBe("fake/utility");
     expect(summarizer?.system).toBe(STRUCTURED_SUMMARIZER_SYSTEM);
     const main = h.provider.requests[3];
-    expect(main?.system).toContain("Earlier: the owner likes tea.");
+    // The summary leads the first retained message, not `system`.
+    expect(main?.system).not.toContain("Earlier: the owner likes tea.");
+    expect(main?.messages[0]?.parts[0]).toMatchObject({
+      type: "text",
+      text: expect.stringContaining("Earlier: the owner likes tea."),
+    });
     expect(main?.messages.map((m) => m.role)).toEqual(["user", "assistant", "user"]);
     const note = await h.memory.readFile("memory/2026-10-18.md");
     expect(note?.content).toContain("the owner likes tea");
@@ -401,7 +500,13 @@ describe("compaction (B7)", () => {
       untrusted: true,
       structured: { facts: ["summary"], decisions: [], openTasks: [], pinnedInstructions: [] },
     });
-    expect(h.provider.requests.at(-1)?.system).toMatch(/provenance="untrusted" title="Earlier/);
+    const last = h.provider.requests.at(-1);
+    expect(last?.system).not.toContain("Earlier in this conversation");
+    expect(last?.messages[0]?.parts[0]).toMatchObject({
+      type: "text",
+      provenance: "untrusted",
+      text: expect.stringMatching(/provenance="untrusted" title="Earlier/),
+    });
   });
 });
 

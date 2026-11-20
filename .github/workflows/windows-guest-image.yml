@@ -83,7 +83,7 @@ jobs:
           version="$(jq -r .imageVersion "$out/manifest.json")"
           tag="windows-guest-image-v$version"
           notes="Psyche Windows sandbox-PC guest image $version. Kernel: $(jq -r .tag "$out/kernel-info.json") ($(jq -r .commit "$out/kernel-info.json")), GPL-2.0; source offer in deploy/windows/guest-image/README.md."
-          gh release create "$tag" --repo "$GITHUB_REPOSITORY" --title "Windows guest image $version" --notes "$notes" \
+          gh release create "$tag" --repo "$GITHUB_REPOSITORY" --title "Windows guest image $version" --notes "$notes" --latest=false \
             --target "$GITHUB_SHA" \
             "$out/vmlinuz" "$out/initrd" "$out/rootfs.vhdx.zst" "$out/sessiondata.vhdx" "$out/manifest.json" \
             "$out/SHA256SUMS" "$out/kernel.config" "$out/kernel-info.json" "$out/packages.tsv"

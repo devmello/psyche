@@ -1,3 +1,4 @@
+import { launchConfigEntry } from "@psyche/hostfs";
 import type { ApprovalKind, GrantScope, JsonObject, SideEffect } from "@psyche/protocol";
 import { hostWords } from "@psyche/protocol/host-words";
 import { appleAppAction, appleAppConnector, appleAppEffect } from "./apple-apps.ts";
@@ -28,6 +29,7 @@ import { checkProhibitions, type LocalProjectVerifier } from "./prohibitions.ts"
 import { checkRequester } from "./requester.ts";
 import type { StoredGrant } from "./store.ts";
 import { canonicalPath, canonicalUrl, isUnder } from "./targets.ts";
+import { TRUSTED_SITE_READ_TOOLS } from "./trusted-sites.ts";
 import type { PolicyCall, PolicyContext, PolicyDecision } from "./types.ts";
 
 /**
@@ -103,7 +105,20 @@ export interface DryRun {
 export interface EngineDeps {
   policy(): CompiledPolicy;
   /** Folders the owner allowed for one conversation only (`folder_access`, scope `once`). */
-  sessionFolders?(threadId: string): readonly { path: string; mode: "ro" | "rw" }[];
+  sessionFolders?(threadId: string): readonly { path: string; mode: "ro" | "rw"; file?: true }[];
+  /**
+   * Whether a granted folder is one the owner could not grant today (inside `/opt`,
+   * `/usr`, `/System`...). A folder granted before a root was refused stops covering anything, so
+   * the check is made at use, not only when the grant was made (fail closed).
+   */
+  folderRefused?(path: string): boolean;
+  /** The same for a workspace root (`permissions.policy.workspaceRoots`). */
+  workspaceRefused?(path: string): boolean;
+  /**
+   * Called before each evaluation: a promise to wait for (briefly) while the granted roots'
+   * first looks at the disk are in flight, or undefined when there is nothing to wait for.
+   */
+  settleFolders?(threadId: string | undefined): Promise<void> | undefined;
   /** The Task's state, created on first use (`decide`). */
   task(ctx: PolicyContext): TaskState;
   /** The Task's state if the broker has one, without creating it (`preview`). */
@@ -115,7 +130,12 @@ export interface EngineDeps {
     ctx: PolicyContext,
     origin: string | undefined,
   ): StoredGrant | undefined;
-  useGrant(rec: StoredGrant, bindingHash: string): StoredGrant;
+  /** Counts one use; `ctx` is the call's (its task, for the `grant.used` event). */
+  useGrant(rec: StoredGrant, bindingHash: string, ctx?: PolicyContext): StoredGrant;
+  /** Whether a live trusted-site entry (the owner's "Always for this site") covers this origin. */
+  trustedSite?(origin: string): boolean;
+  /** A live "always allow this program in this folder" grant that covers this host command. */
+  hostProgramGrant?(call: PolicyCall, ctx: PolicyContext): StoredGrant | undefined;
   hooks: readonly PolicyHook[];
   classifier: ActionClassifier;
   localProject: LocalProjectVerifier;
@@ -191,6 +211,13 @@ export function safeOrigin(value: string): string | undefined {
   }
 }
 
+/** A GET-style read tool a trusted site covers (never a write, a submit or a download). */
+export function trustedRead(call: PolicyCall): boolean {
+  if (!TRUSTED_SITE_READ_TOOLS.test(call.tool)) return false;
+  const method = (call.params as { method?: unknown } | null | undefined)?.method;
+  return method === undefined || (typeof method === "string" && /^(GET|HEAD)$/i.test(method));
+}
+
 function originOf(call: PolicyCall): string | undefined {
   return call.target?.kind === "origin" ? safeOrigin(call.target.value) : undefined;
 }
@@ -223,14 +250,21 @@ export class PolicyEngine {
   ): { path: string; mode: "ro" | "rw"; workspace: boolean } | undefined {
     const p = this.#d.policy();
     for (const root of p.workspaceRoots) {
+      if (this.#d.workspaceRefused?.(root) === true) continue;
       if (isUnder(path, root)) return { path: root, mode: "rw", workspace: true };
     }
     // The longest root decides, whether Settings or this conversation granted it.
-    const roots = [
+    const roots: { path: string; mode: "ro" | "rw"; file?: true }[] = [
       ...p.folders,
       ...(threadId === undefined ? [] : (this.#d.sessionFolders?.(threadId) ?? [])),
-    ].sort((a, b) => b.path.length - a.path.length);
-    for (const f of roots) if (isUnder(path, f.path)) return { ...f, workspace: false };
+    ]
+      .filter((f) => this.#d.folderRefused?.(f.path) !== true)
+      .sort((a, b) => b.path.length - a.path.length);
+    for (const f of roots) {
+      const hit =
+        f.file === true ? isUnder(path, f.path) && isUnder(f.path, path) : isUnder(path, f.path);
+      if (hit) return { ...f, workspace: false };
+    }
     return undefined;
   }
 
@@ -287,6 +321,8 @@ export class PolicyEngine {
    * consumes no grant, calls no classifier and changes no Task state: it only reads.
    */
   async evaluate(original: PolicyCall, ctx: PolicyContext, dry?: DryRun): Promise<Evaluation> {
+    const settling = this.#d.settleFolders?.(ctx.threadId ?? undefined);
+    if (settling !== undefined) await settling;
     const trace: string[] = [];
     let call = original;
     let rewritten = false;
@@ -328,6 +364,7 @@ export class PolicyEngine {
       grantId?: string;
       via?: PolicyDecision["via"];
       typedConfirmation?: string;
+      deviceOnly?: true;
       classifier?: PolicyDecision["classifier"];
     },
   ): Evaluation {
@@ -353,6 +390,7 @@ export class PolicyEngine {
       d.approvalKind = x.kind;
       d.scopesOffered = x.scopes ?? allowedScopes(x.se, x.kind);
       if (x.typedConfirmation !== undefined) d.typedConfirmation = x.typedConfirmation;
+      if (x.deviceOnly === true) d.deviceOnly = true;
       if (ctx.unattended === true) d.deferred = true;
     }
     return { decision: d, binding: x.binding };
@@ -378,13 +416,19 @@ export class PolicyEngine {
     // floor, when the Gateway's description says so and this classifier agrees on the argv.
     const hostReadOnly = kind === "exec_host" && readOnlyHostCall(call);
     const declared = hostReadOnly ? "read" : effectiveSideEffect(call.tool, call.sideEffect);
-    // A write inside a repository's `.git/` (config, hooks, info/attributes) is code the next git
-    // command runs: never a plain write, so never without a card (security §5.4).
-    const gitInternals =
-      FILE_TOOLS.has(call.tool) && SEVERITY[declared] >= SEVERITY.write && writesGitInternals(call);
+    // A write inside a repository's `.git/` (config, hooks, info/attributes), which the next git
+    // command runs, or into an app's launch config in a shared folder (`.vscode`, `.obsidian`,
+    // `.envrc`...), which the app runs when it next opens the folder: never a plain write, so
+    // never without a card (security §5.4).
+    const runsLater =
+      FILE_TOOLS.has(call.tool) && SEVERITY[declared] >= SEVERITY.write
+        ? writesRunLater(call)
+        : undefined;
     const se: typeof declared =
-      gitInternals && SEVERITY[declared] < SEVERITY.destructive ? "destructive" : declared;
-    if (gitInternals) trace.push("floor:git_internals");
+      runsLater !== undefined && SEVERITY[declared] < SEVERITY.destructive
+        ? "destructive"
+        : declared;
+    if (runsLater !== undefined) trace.push(`floor:${runsLater}`);
     if (se !== call.sideEffect) trace.push(`floor:${call.sideEffect}->${se}`);
     const tainted = ctx.taint || ctx.initiator === "mcp_app";
     const state = dry === undefined ? d.task(ctx) : dryTask(dry, d, ctx);
@@ -436,8 +480,10 @@ export class PolicyEngine {
     if (prohibited?.effect === "deny") return done("deny", prohibited.id, prohibited.reason);
     const floors: Floor[] = [];
     let typedConfirmation: string | undefined;
+    let deviceOnly: true | undefined;
     if (prohibited !== undefined) {
       if (prohibited.effect === "confirm") typedConfirmation = prohibited.word;
+      if (prohibited.effect === "ask" && prohibited.deviceOnly === true) deviceOnly = true;
       floors.push({ rule: prohibited.id, reason: prohibited.reason, scopes: ["once"] });
     }
 
@@ -494,7 +540,7 @@ export class PolicyEngine {
         const floor = matrixFloor(kind, se, lifted);
         if (floor === undefined)
           allowances.push(
-            lifted && floorClass(kind, se) !== undefined
+            lifted && floorClass(kind, se) !== undefined && se !== "financial"
               ? { rule: `${rule}:override`, lifted: true }
               : { rule },
           );
@@ -502,7 +548,9 @@ export class PolicyEngine {
           floors.push({
             rule: `${rule}:floor`,
             reason: floor,
-            ...(floorClass(kind, se) === undefined ? {} : { grantLiftable: true as const }),
+            ...(floorClass(kind, se) === undefined || se === "financial"
+              ? {}
+              : { grantLiftable: true as const }),
           });
       }
     }
@@ -779,6 +827,7 @@ export class PolicyEngine {
               : ["once", "task", "site"],
         ),
         ...(typedConfirmation === undefined ? {} : { typedConfirmation }),
+        ...(deviceOnly === undefined ? {} : { deviceOnly }),
       });
 
     // Manual mode never consults grants or allowances for writes and above (step 5).
@@ -814,8 +863,18 @@ export class PolicyEngine {
     if (consult) {
       // Financial calls match only an `always` grant the owner confirmed (`allowedScopes`).
       const g = d.matchGrant(binding.grantKey, kind, se, ctx, origin);
+      // An exec_host call no exact grant covers may still sit under a program grant (§5.4). It
+      // needs no escalation of its own: a tainted turn asks below (`escalation`), env, network
+      // and cwd-config programs never match.
+      const hp =
+        g === undefined && kind === "exec_host" && !noAlways && !unbound
+          ? d.hostProgramGrant?.(call, ctx)
+          : undefined;
       if (g !== undefined && !unbound) allowed = { rule: `grant:${g.grant.id}`, grant: g };
-      else if (SEVERITY[se] <= SEVERITY.write) allowed = allowances[0];
+      else if (hp !== undefined) {
+        trace.push("host_program_grant");
+        allowed = { rule: `grant:${hp.grant.id}`, grant: hp };
+      } else if (SEVERITY[se] <= SEVERITY.write) allowed = allowances[0];
       else allowed = allowances.find((a) => a.lifted === true);
     }
     if (allowed !== undefined) {
@@ -849,7 +908,7 @@ export class PolicyEngine {
         // A dry run names the grant it would use without counting a use of it.
         const grantId =
           dry === undefined
-            ? d.useGrant(allowed.grant, binding.bindingHash).grant.id
+            ? d.useGrant(allowed.grant, binding.bindingHash, ctx).grant.id
             : allowed.grant.grant.id;
         return done("allow", allowed.rule, undefined, {
           binding,
@@ -878,6 +937,20 @@ export class PolicyEngine {
           return ask(`${modeRule}:sensitive`, "sensitive-category source");
         }
         if (tk === undefined) return done("allow", modeRule, undefined, { binding });
+        // Balanced only (Manual never skips a first read, Auto has its own rules): a read of an
+        // origin the owner trusts runs in any task. Not in a tainted turn (§3.6 stays exact), not
+        // for a designated person, and a sensitive host was already sent to a card above.
+        if (
+          mode === "balanced" &&
+          !tainted &&
+          origin !== undefined &&
+          trustedRead(call) &&
+          (ctx.requester === undefined || ctx.requester.role === "owner") &&
+          d.trustedSite?.(origin) === true
+        ) {
+          // Never mark the origin touched: a touched origin is allowed later in a tainted turn.
+          return done("allow", `${modeRule}:trusted_site`, undefined, { binding });
+        }
         if (mode === "auto" && !tainted) {
           state.touched.add(tk);
           return done("allow", modeRule, undefined, { binding });
@@ -891,7 +964,7 @@ export class PolicyEngine {
       case "destructive":
         return ask(modeRule);
       case "financial":
-        return ask(modeRule, undefined, ["once", "always"]);
+        return ask(modeRule, undefined, ["once"]);
     }
   }
 
@@ -968,14 +1041,19 @@ export function isGitInternalPath(path: string): boolean {
   return path.split("/").some((s) => s.toLowerCase() === ".git");
 }
 
-/** The file call writes under some `.git/` (its target, or a move or copy destination). */
-function writesGitInternals(call: PolicyCall): boolean {
+/**
+ * Where the file call writes code that runs later (its target, or a move or copy destination):
+ * under some `.git/` (`git_internals`), or into an app's launch config (`launch_config`).
+ */
+function writesRunLater(call: PolicyCall): "git_internals" | "launch_config" | undefined {
   const p = (call.params ?? {}) as Record<string, unknown>;
   const paths = [
     call.target?.kind === "path" ? call.target.value : undefined,
     p.path,
     p.to,
     p.destination,
-  ];
-  return paths.some((v) => typeof v === "string" && isGitInternalPath(v));
+  ].filter((v): v is string => typeof v === "string");
+  if (paths.some(isGitInternalPath)) return "git_internals";
+  if (paths.some((v) => launchConfigEntry(v) !== undefined)) return "launch_config";
+  return undefined;
 }

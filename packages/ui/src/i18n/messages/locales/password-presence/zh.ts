@@ -9,7 +9,6 @@ export const passwordPresence: Partial<Catalogue> = {
   "blocks.approval.status.allowedOncePassword": "已允许一次（从此窗口用密码批准仅限一次）",
   "blocks.approval.password.noUnsandboxed":
     "不使用沙盒运行命令，无法在此窗口用密码批准。请改为设置沙盒",
-  "blocks.approval.password.cancelled": "密码对话框已取消，因此没有批准任何内容",
   "blocks.approval.password.failed": "密码未被接受，因此没有批准任何内容。请重试。",
   "blocks.approval.password.unavailableHere": "请在此电脑上批准，或使用另一台设备上的通行密钥。",
   "blocks.approval.password.agentMissing":

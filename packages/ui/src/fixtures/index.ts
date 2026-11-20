@@ -20,12 +20,14 @@ import type {
   Lesson,
   LibraryItem,
   LinkPaymentMethod,
+  LinkSetupStatus,
   MemoryClaim,
   MemoryFileInfo,
   Message,
   Milestone,
   NodeInfo,
   Notification,
+  OnePasswordSetupStatus,
   PairingRequest,
   Receipt,
   Run,
@@ -41,6 +43,7 @@ import type {
   ThreadListEntry,
   ToolCall,
   VaultPayment,
+  VaultStatus,
   Widget,
 } from "@psyche/protocol";
 import type { ReviewWorld } from "../data/mock-review.ts";
@@ -147,6 +150,12 @@ export interface FixtureWorld {
   credentialUses: CredentialUse[];
   /** Stripe Link (`vault.payments.*`); absent methods → Link is not set up. */
   linkMethods?: LinkPaymentMethod[];
+  /** The vault (`vault.status|setup|confirmRecovery|unlock`); absent → not implemented. */
+  vault?: { status: VaultStatus; recoveryKey?: string };
+  /** The guided Link setup (`payments.link.*`); absent → derived from `linkMethods`. */
+  linkSetup?: LinkSetupStatus;
+  /** The guided 1Password setup (`vault.onePassword.*`); absent → `op` is not installed. */
+  onePassword?: { status: OnePasswordSetupStatus; vaultCount?: number };
   payments?: VaultPayment[];
   settings: Record<string, unknown>;
   /** Workspace file contents by workspace-relative path. */
@@ -178,6 +187,8 @@ export interface FixtureWorld {
   usage: UsageSummary;
   /** `connectors.connect` behaviour in the mock: "unavailable" answers not_implemented. */
   connectorConnect?: "unavailable" | "not_configured";
+  /** `connectors.googleClient`: absent = set in config.json; `null` = not set up yet. */
+  googleClient?: { clientId: string; hasSecret: boolean; source: "app" | "config" } | null;
   /** macOS grant for the Apple connectors (#549); default granted. */
   appleGrant?: "granted" | "denied" | "notDetermined";
   /** The last turn's context usage by thread id; absent → no turn has reported yet. */

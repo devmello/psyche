@@ -31,6 +31,7 @@ import {
   TypedEmitter,
   type Unsubscribe,
 } from "../bridge/bridge-host.ts";
+import { CapturePoller } from "./capture-poller.ts";
 import {
   CdpPolicy,
   filterCdpEvent,
@@ -198,7 +199,7 @@ export class BrowserHost implements BridgeTabHost {
   private readonly rendererZoom: () => number;
   private readonly now: () => number;
   private discardTimer: ReturnType<typeof setInterval> | undefined;
-  private captureTimer: ReturnType<typeof setInterval> | undefined;
+  private readonly capturePoller: CapturePoller;
   private readonly signedIn: SignedInStore;
   private readonly prompts: SignInPrompts;
   private readonly teach: TeachSession;
@@ -278,8 +279,7 @@ export class BrowserHost implements BridgeTabHost {
         },
       ),
     });
-    this.captureTimer = setInterval(() => this.pollCaptures(), opts.captureEveryMs ?? 500);
-    this.captureTimer.unref();
+    this.capturePoller = new CapturePoller(opts.captureEveryMs ?? 500, () => this.pollCaptures());
   }
 
   // ── events ──────────────────────────────────────────────────────────────────────────────
@@ -555,6 +555,7 @@ export class BrowserHost implements BridgeTabHost {
     this.tabs.set(id, t);
     this.byWebContents.set(wc.id, t);
     this.wireControl(t);
+    if (t.control.state === "user") this.capturePoller.start();
     this.wireTab(t);
     this.attachDebugger(t);
     view.setBounds(this.viewBounds());
@@ -603,6 +604,7 @@ export class BrowserHost implements BridgeTabHost {
   private wireControl(t: Tab): void {
     t.subs.push(
       t.control.onChange((state, via) => {
+        if (state === "user" && !this.disposed) this.capturePoller.start();
         this.emitter.emit("controlChanged", { tabId: t.id, state, via });
         this.scheduleState();
       }),
@@ -921,6 +923,7 @@ export class BrowserHost implements BridgeTabHost {
     t.view = view;
     t.wc = view.webContents;
     t.discarded = false;
+    if (t.control.state === "user") this.capturePoller.start();
     t.navigated = false;
     t.lastActive = this.now();
     this.byWebContents.set(t.wc.id, t);
@@ -1243,16 +1246,20 @@ export class BrowserHost implements BridgeTabHost {
   }
 
   /** Only a tab the owner holds is read; an agent-controlled tab is never captured. */
-  private pollCaptures(): void {
-    if (this.disposed) return;
+  private pollCaptures(): boolean {
+    if (this.disposed) return false;
+    let owned = false;
     for (const t of this.tabs.values()) {
       if (t.closing || t.discarded) continue;
       if (t.control.state !== "user") {
         if (t.capture.hasPending) t.capture.reset();
         continue;
       }
+      owned = true;
       void t.capture.tick().catch(() => t.capture.reset());
     }
+    // False stops the timer; it restarts when a tab is created or control changes.
+    return owned;
   }
 
   private async stayOnProfile(tabId: string, origin: string, hosts: string[]): Promise<void> {
@@ -1386,7 +1393,7 @@ export class BrowserHost implements BridgeTabHost {
     this.disposed = true;
     clearTimeout(this.stateTimer);
     clearInterval(this.discardTimer);
-    clearInterval(this.captureTimer);
+    this.capturePoller.stop();
     for (const t of [...this.tabs.values()]) {
       t.closing = true;
       if (!t.discarded && !t.wc.isDestroyed()) t.wc.close();

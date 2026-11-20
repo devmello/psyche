@@ -521,17 +521,21 @@ export function composePasswordPresence(
         deviceId: call.identity.deviceId,
         surface: surfaceOf(services.db, call.identity.deviceId),
       };
+      // The desktop shell on a loopback connection: its refused answers are audited, not counted.
+      const local = call.conn.peer.remoteLoopback;
       // Before any dialog: this window's unused token, an armed card, not rate limited. A bad
       // token counts against the rejected-answer cap.
       await rawBroker.precheckAnswer({
         approvalId: a.id,
         answerToken: params.answerToken,
         decidedBy: by,
+        local,
       });
       const reject = (reason: string, code: ErrorCode, message: string, details?: object) =>
         rawBroker.rejectPresence({
           approvalId: a.id,
           decidedBy: by,
+          local,
           reason,
           code,
           message,
@@ -708,14 +712,17 @@ export function composePasswordPresence(
       };
       // The answer is the window's (its token, its surface); `once` only, because the scope is
       // not part of what polkit confirmed.
-      const approval = await rawBroker.answer({
-        approvalId: a.id,
-        answerToken: params.answerToken,
-        decision: "approve",
-        scope: "once",
-        decidedBy: by,
-        presence: { kind: "password", deviceId: by.deviceId, signature: nonce },
-      });
+      const approval = await rawBroker.answer(
+        {
+          approvalId: a.id,
+          answerToken: params.answerToken,
+          decision: "approve",
+          scope: "once",
+          decidedBy: by,
+          presence: { kind: "password", deviceId: by.deviceId, signature: nonce },
+        },
+        { local },
+      );
       // Audited only once the broker accepted the answer: a refused or late one is the broker's
       // own audit entry, and this one means "approved with the owner's password".
       try {

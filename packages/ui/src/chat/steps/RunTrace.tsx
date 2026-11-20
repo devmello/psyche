@@ -5,6 +5,7 @@ import { type ReactElement, useMemo, useRef, useState } from "react";
 import { StatusGlyph } from "../../components/status.tsx";
 import { formatStepDuration, LiveDuration } from "../../components/steps/LiveDuration.tsx";
 import { useRun, useStoreState } from "../../data/index.ts";
+import { useLatchedVisible } from "../../data/visible.ts";
 import { t } from "../../i18n/core.ts";
 import { useNow } from "../../lib/use-now.ts";
 import { cn } from "../../lib/utils.ts";
@@ -50,7 +51,9 @@ export function RunTrace({
 }): ReactElement | null {
   const persona = usePersona();
   const { navigate } = useSlots();
-  const { run, steps } = useRun(runId);
+  // A chat mounts a trace per run; only the ones near the screen load their steps.
+  const { ref: slot, visible } = useLatchedVisible<HTMLDivElement>();
+  const { run, steps } = useRun(runId, { enabled: visible });
   const top = useMemo(() => steps.filter((s) => s.parentStepId === undefined), [steps]);
   const receipts = useStoreState((s) => s.receipts);
   const live = run !== null && LIVE.includes(run.status);
@@ -66,6 +69,7 @@ export function RunTrace({
   // True once this trace has rendered the live form: the summary then fades in over it.
   const wasLive = useRef(false);
   if (live) wasLive.current = true;
+  if (!visible) return <div ref={slot} aria-hidden="true" data-testid="run-trace-slot" />;
   if (run === null || top.length === 0) return null;
 
   const listLabel = t("chat.steps.label");
@@ -86,7 +90,13 @@ export function RunTrace({
         <div className="flex min-h-7 items-center gap-2 text-callout text-label-secondary">
           <span className="text-headline text-label-primary">{persona.name}</span>
           <span aria-hidden="true">·</span>
-          <span>{t("chat.steps.working")}</span>
+          {active?.status === "waiting" ? (
+            <span className="font-medium text-approval-text" data-testid="trace-waiting">
+              {t("chat.steps.needsYou")}
+            </span>
+          ) : (
+            <span>{t("chat.steps.working")}</span>
+          )}
           <span aria-hidden="true">·</span>
           <LiveDuration
             startedAt={Date.parse(run.startedAt)}

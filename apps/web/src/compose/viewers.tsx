@@ -2,9 +2,11 @@
 import {
   convertFileBytes,
   type EditorSlotProps,
+  type FileEditSession,
   type FileRef,
   type FileSource,
   FilesPane,
+  fileEditKind,
   type GatewayCall,
   readFileBytes,
   t,
@@ -13,6 +15,8 @@ import {
 import {
   ControlledMarkdownEditor,
   configurePdfJs,
+  SheetEditor,
+  type SheetEditorProps,
   ViewerHost,
   type ViewerItem,
 } from "@psyche/viewers";
@@ -21,7 +25,7 @@ import { mimeFromName } from "@psyche/viewers/core/detect";
 import "@psyche/viewers/styles.css";
 import "./viewers.css";
 import workerSrc from "pdfjs-dist/build/pdf.worker.min.mjs?url";
-import { type ReactElement, useCallback, useMemo } from "react";
+import { type ReactElement, useCallback, useEffect, useMemo, useState } from "react";
 
 /**
  * The viewers in the composed app (feature P4; UI design §3.7): `@psyche/viewers` rendering a
@@ -140,15 +144,117 @@ export function ConnectedFileViewer({
 export function ComposedFilesPane({
   target,
   navigate,
+  sheetEditor,
 }: {
   target: string | null;
   navigate: (to: string) => void;
+  /** Overrides the lazily loaded spreadsheet runtime (tests). */
+  sheetEditor?: SheetEditorProps["sheetEditor"];
 }): ReactElement {
   return (
     <FilesPane
       target={target}
       renderViewer={(file) => <ConnectedFileViewer key={sourceKey(file)} file={file} />}
+      renderEditor={(session) =>
+        fileEditKind(session.file.name) === "csv" ? (
+          <CsvFileEditor session={session} {...(sheetEditor ? { sheetEditor } : {})} />
+        ) : (
+          <MarkdownFileEditor session={session} />
+        )
+      }
       onShareFolder={() => navigate("/settings/files")}
+    />
+  );
+}
+
+/**
+ * Markdown and text files in the Files pane: the viewers' Rich / Source / Diff editor over a
+ * draft, with Save and Discard. The pane's frame holds the etag and the conflict flow.
+ */
+export function MarkdownFileEditor({ session }: { session: FileEditSession }): ReactElement {
+  const [base, setBase] = useState(session.text);
+  const [draft, setDraft] = useState(session.draft ?? session.text);
+  const [saving, setSaving] = useState(false);
+  const [saved, setSaved] = useState(false);
+  const dirty = draft !== base;
+  const { setDirty, reportDraft } = session;
+  useEffect(() => setDirty(dirty), [dirty, setDirty]);
+  // The frame keeps the draft outside this component, for when the pane is swapped out.
+  useEffect(() => reportDraft(dirty ? draft : null), [dirty, draft, reportDraft]);
+  const save = async () => {
+    setSaving(true);
+    const content = draft;
+    const ok = await session.save(content);
+    setSaving(false);
+    if (ok) {
+      setBase(content);
+      setSaved(true);
+    }
+  };
+  return (
+    <div className="flex h-full min-h-0 flex-col">
+      <div className="flex shrink-0 items-center gap-2 border-b border-separator px-3 py-1.5 text-callout">
+        <span className="min-w-0 flex-1 text-label-secondary" role="status">
+          {dirty ? t("screens.files.unsaved") : saved ? t("screens.files.saved") : ""}
+        </span>
+        <button
+          type="button"
+          disabled={!dirty || saving || session.readOnly}
+          onClick={() => setDraft(base)}
+        >
+          {t("screens.files.discard")}
+        </button>
+        <button type="button" disabled={!dirty || saving || session.readOnly} onClick={save}>
+          {saving ? t("screens.files.saving") : t("common.save")}
+        </button>
+      </div>
+      <div className="min-h-0 flex-1 overflow-auto">
+        {renderMarkdownEditor({
+          path: session.file.path ?? session.file.name,
+          value: draft,
+          readOnly: session.readOnly,
+          onChange: (value) => {
+            setSaved(false);
+            setDraft(value);
+          },
+        })}
+      </div>
+    </div>
+  );
+}
+
+/** A CSV file in the Files pane: the viewers' spreadsheet editor, saved back as CSV text. */
+export function CsvFileEditor({
+  session,
+  sheetEditor,
+}: {
+  session: FileEditSession;
+  sheetEditor?: SheetEditorProps["sheetEditor"];
+}): ReactElement {
+  const { file, text } = session;
+  const item = useMemo(() => viewerItemOf(file), [file]);
+  // A kept draft is the sheet as the owner left it; `text` stays the saved baseline.
+  const start = session.draft ?? text;
+  const load = useCallback(async () => new TextEncoder().encode(start), [start]);
+  return (
+    <SheetEditor
+      item={item}
+      load={load}
+      {...(sheetEditor ? { sheetEditor } : {})}
+      onSave={async ({ bytes }) => {
+        if (!(await session.save(new TextDecoder("utf-8", { ignoreBOM: true }).decode(bytes)))) {
+          throw new Error(t("screens.files.notSaved"));
+        }
+        session.reportDraft(null);
+      }}
+      onClose={session.close}
+      onDirtyChange={session.setDirty}
+      initialDirty={session.draft !== undefined}
+      onUnsaved={(bytes) =>
+        session.reportDraft(
+          bytes.then((b) => new TextDecoder("utf-8", { ignoreBOM: true }).decode(b)),
+        )
+      }
     />
   );
 }

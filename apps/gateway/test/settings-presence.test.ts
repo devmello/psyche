@@ -2,7 +2,7 @@ import { mkdtempSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { revokeDevice, updateDevice } from "@psyche/db";
-import { type PresenceVerifier, presenceChallenge } from "@psyche/permissions";
+import type { PresenceVerifier } from "@psyche/permissions";
 import type { ApprovalRequest } from "@psyche/protocol";
 import { FakeModelProvider } from "@psyche/testing";
 import { afterEach, describe, expect, it } from "vitest";
@@ -12,10 +12,10 @@ import { silentLogger } from "../src/log.ts";
 import { desktopClient, ik, newDeviceKey, type TestClient } from "./helpers.ts";
 
 /**
- * Security §10: security settings need operator.admin plus fresh user presence. With a presence
- * verifier present, `settings.set` on a security key first creates a device-only `policy_change`
- * card bound to the exact key and value; the change goes through only once that card is approved
- * with a verified presence assertion, and only once.
+ * Security §10: security settings need operator.admin plus an approved card. Presence (Touch ID, a
+ * passkey) is for payments only, so with a verifier present `settings.set` on a security key first
+ * creates a device-only `policy_change` card bound to the exact key and value; the change goes
+ * through once that card is tapped (no presence assertion), and only once.
  */
 
 const clients: TestClient[] = [];
@@ -95,7 +95,7 @@ function answer(admin: TestClient, approvalId: string, token: string, signature?
 }
 
 describe("fresh presence on security settings (security §10)", () => {
-  it("a security key needs a presence-verified card bound to the exact value, used once", async () => {
+  it("a security key needs a tapped card bound to the exact value, used once", async () => {
     const { admin } = await boot(touchId);
     const first = await set(admin, { key: "permissions.policy", value: POLICY });
     const { approvalId, approval, token } = await cardFor(admin, first);
@@ -103,7 +103,8 @@ describe("fresh presence on security settings (security §10)", () => {
       kind: "policy_change",
       status: "pending",
       deviceOnly: true,
-      requiresAuthentication: true,
+      // Presence is for payments only: a tap approves it.
+      requiresAuthentication: false,
       scopesOffered: ["once"],
     });
     expect(approval.details).toMatchObject({ setting: "permissions.policy" });
@@ -114,19 +115,8 @@ describe("fresh presence on security settings (security §10)", () => {
     ).toMatchObject({ ok: false, error: { code: "binding_mismatch" } });
 
     await armed();
-    // A click alone, or a forged assertion, is refused.
-    expect(await answer(admin, approvalId, token)).toMatchObject({
-      ok: false,
-      error: { code: "forbidden" },
-    });
-    expect(await answer(admin, approvalId, token, "signed:other")).toMatchObject({
-      ok: false,
-      error: { code: "forbidden" },
-    });
-    const challenge = presenceChallenge(approvalId, approval.bindingHash, token);
-    expect(await answer(admin, approvalId, token, `signed:${challenge}`)).toMatchObject({
-      ok: true,
-    });
+    // A click alone approves it: no presence assertion is asked for.
+    expect(await answer(admin, approvalId, token)).toMatchObject({ ok: true });
 
     // A different value is not covered; the approved value is, once.
     expect(

@@ -237,6 +237,7 @@ function fullDesktopPlatform(b: PsycheBridge): ShellPlatform {
     notify: { show: (n) => b.notify.show(n) },
     dialogs: {
       pickFolder: (opts) => b.dialogs.pickFolder(opts) as Promise<string | null>,
+      pathOfFile: (file) => b.dialogs.pathOfFile(file) || null,
     },
     permissions: {
       status: () =>
@@ -304,6 +305,7 @@ function fullDesktopPlatform(b: PsycheBridge): ShellPlatform {
     app: {
       info: () => b.app.info() as Promise<HostAppInfo>,
       revealHome: async () => void (await b.app.revealHome()),
+      revealLibraryItem: async (itemId) => void (await b.library.reveal(itemId)),
       ...(b.chrome.uninstall === true
         ? {
             uninstallPlan: (req: { deleteData: boolean; removeKeychain?: boolean }) =>

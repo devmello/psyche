@@ -59,6 +59,8 @@ export function mountPermissions(
           scopes: call.identity.scopes,
           surface,
           role: call.identity.role,
+          // The owner's own Psyche app on this computer: loopback plus the per-launch secret.
+          local: call.identity.desktopShell === true && call.conn.peer.remoteLoopback,
         });
         return withAnswerTokens(name, result, surface, tokens);
       },

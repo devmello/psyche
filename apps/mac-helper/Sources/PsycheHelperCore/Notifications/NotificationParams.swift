@@ -69,12 +69,12 @@ public struct NotifyShowParams: Codable, Sendable, Equatable {
     public var route: String?
     public var interruption: NotifyInterruptionLevel?
     public var approvalId: String?
-    /// Run Touch ID / device-owner authentication before forwarding a non-destructive action.
+    /// Run device-owner authentication (the system sheet) before forwarding the action.
     public var requireBiometry: Bool?
     public var quietHours: NotifyQuietHoursParams?
     public var sound: Bool?
     /// Hex SHA-256 from the Gateway (`presenceChallenge(approvalId, bindingHash, answerToken)`);
-    /// the helper signs it with its Secure Enclave key after Touch ID (issue #84).
+    /// the helper signs it with its device key after the owner sheet (security §3.7).
     public var presenceChallenge: String?
 
     public init(

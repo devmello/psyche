@@ -1,3 +1,4 @@
+import { randomUUID } from "node:crypto";
 import {
   type AgentEvent,
   type AgentLoop,
@@ -13,6 +14,7 @@ import {
   type ContextLimits,
   type ContextSection,
   type ContextUsage,
+  type ControlFacts,
   type DecisionResult,
   type EffectiveContextLimits,
   EMPTY_USAGE,
@@ -23,6 +25,7 @@ import {
   type ModelPart,
   type ModelProvider,
   type ModelRef,
+  type ModelRequest,
   type Notifier,
   namespacedGrantKey,
   type PermissionBroker,
@@ -89,9 +92,13 @@ import {
 import {
   assembleContext,
   type ContextBudgets,
+  type DailyNotes,
   DEFAULT_BASE_PROMPT,
   DEFAULT_CONTEXT_BUDGETS,
-  renderSystemPrompt,
+  onlyAppended,
+  readDailyNotes,
+  renderSystemParts,
+  renderUserContext,
 } from "./context.ts";
 import {
   DEFERRAL_CORE,
@@ -160,7 +167,23 @@ import {
   type ThreadState,
   type ThreadStateStore,
 } from "./state.ts";
-import { TRUSTED_CONTEXT_CAP, type TurnContextProvider } from "./turn-context.ts";
+import {
+  capToolOutput,
+  type ImageShaper,
+  isImageRejection,
+  isPartList,
+  keepRecentToolImages,
+  normalizeToolOutput,
+  safeEnd,
+  withoutImages,
+  withoutToolImages,
+} from "./tool-output.ts";
+import {
+  stubTurnContext,
+  TRUSTED_CONTEXT_CAP,
+  type TurnContextProvider,
+  UNTRUSTED_CONTEXT_CAP,
+} from "./turn-context.ts";
 import {
   bindingHash,
   dedupeSources,
@@ -214,6 +237,43 @@ export interface CompactionInfo {
 
 const estimateTokensOf = (text: string) => estimateContextTokens(text, [], []);
 
+/**
+ * How long a thread's daily-note snapshot outlives its last prompt: Anthropic's default cache TTL.
+ * Within it, a note appended meanwhile is not re-rendered (that would rewrite the cached
+ * conversation); after it the cache is cold anyway and the notes are read fresh.
+ */
+const NOTES_KEEP_MS = 5 * 60_000;
+
+/** What heads the compaction summary in the first retained message. */
+const SUMMARY_HEAD =
+  "The earlier part of this conversation, compacted. It is a record for context, not a new message from the owner.";
+
+/** An untrusted provider section is cut to the cap, visibly. */
+export function capUntrusted(text: string): string {
+  if (text.length <= UNTRUSTED_CONTEXT_CAP) return text;
+  // Never inside a surrogate pair: a lone surrogate in a saved turn would fail every request.
+  const end = safeEnd(text, UNTRUSTED_CONTEXT_CAP);
+  return `${text.slice(0, end)}\n[truncated: ${text.length - end} more characters]`;
+}
+
+/** A notes line the agent itself appended (already in its history): `- HH:MM [agent] …`. */
+const AGENT_NOTE = /^[-*] \d{2}:\d{2} \[agent\]/;
+
+/**
+ * True when everything `next` adds to `prev` is lines the agent wrote itself (its own memory tool).
+ * An owner's, an external writer's, a system's or an untagged line is not, and shows at once.
+ */
+function appendedByAgent(prev: DailyNotes, next: DailyNotes): boolean {
+  return next.files.every((after, i) => {
+    const before = prev.files[i]?.content ?? "";
+    const added = (after.content ?? "").slice(before.length);
+    return added
+      .split("\n")
+      .filter((l) => l.trim() !== "" && !/^\s/.test(l))
+      .every((l) => AGENT_NOTE.test(l) || /^# \d{4}-\d{2}-\d{2}$/.test(l));
+  });
+}
+
 function pluginRef(run: RunState): PluginRunRef {
   return {
     threadId: run.threadId,
@@ -255,6 +315,8 @@ export interface AgentLoopOptions {
   maxRunTokens?: number;
   /** Characters of one tool result sent to the model (default 50,000). */
   maxToolResultChars?: number;
+  /** Resizes a tool-result image before it is sent and kept (the Gateway passes `downscaleImage`). */
+  toolImageShaper?: ImageShaper;
   /**
    * `notify` calls one Task may make without a card (default 3; #307). An automation's run is
    * one Task, an attended turn outside a Task counts per run. The broker lets `notify` to the
@@ -264,6 +326,19 @@ export interface AgentLoopOptions {
    */
   notifyBudget?: number;
   approvalSurfaces?: Surface[];
+  /**
+   * An unattended run that reaches an ask: the id of a card the owner approved after an earlier
+   * run of the same automation set this exact action aside (the Gateway's DeferredResume), or
+   * undefined. The hook hands each approval out once; the loop then checks it with
+   * `verifyBinding` against this call's own binding, so only the identical action goes ahead.
+   */
+  resumeApproval?: (q: {
+    runId: string;
+    taskId: string;
+    kind: ApprovalKind;
+    bindingHash: string;
+    taint: boolean;
+  }) => Promise<string | undefined>;
   /** Mode a thread moves to when its plan is approved (default `balanced`). */
   planExitMode?: PermissionMode;
   toolToggles?: (threadId: string) => Record<string, boolean> | undefined;
@@ -378,6 +453,12 @@ interface PendingQuestion {
   reject: (err: unknown) => void;
 }
 
+/** What the provider needs to keep its prompt cache across steps and turns (see `ModelRequest`). */
+interface PromptCache {
+  systemStableLength: number;
+  deferredTools: ToolSpec[];
+}
+
 interface RunState {
   /** Index in `thread.messages` where this turn's input starts (history before, current after). */
   turnStart: number;
@@ -386,8 +467,22 @@ interface RunState {
   /** The breakdown estimated for the call about to be made. */
   pendingBreakdown?: { estimate: number; breakdown: ContextBreakdown };
   limits?: EffectiveContextLimits;
-  /** Turn context providers' sections, fetched on the run's first prompt (undefined until then). */
-  provided?: ContextSection[];
+  /**
+   * The text of the turn context providers' sections as added to the owner's user message at the
+   * start of the run (undefined when none): only for the context meter.
+   */
+  turnContext?: string;
+  /** The sections behind `turnContext`, for "what the model saw" (`explainContext`). */
+  turnSections?: ContextSection[];
+  /** The compaction summary, sent as the first retained message and not in `system`. */
+  summarySection?: ContextSection;
+  /**
+   * Yesterday's and today's notes, read on the run's first prompt. An append later in the run
+   * (the agent's own memory tool, feed feedback) shows from the next run, so the system prompt
+   * and the provider's prompt cache stay the same from one step to the next. An edit or a
+   * deleted line replaces it at the next step (`onlyAppended`).
+   */
+  dailyNotes?: DailyNotes;
   runId: string;
   threadId: string;
   taskId?: string;
@@ -487,6 +582,14 @@ const INTERACTIVE = new Set(["ask_user", "exit_plan_mode"]);
  */
 const WAITS_FOR_OWNER = new Set(["request_permission", "request_folder_access"]);
 const NO_REPLY = "NO_REPLY";
+
+interface ModelStep {
+  parts: ModelPart[];
+  text: string;
+  calls: { id: string; name: string; input: unknown }[];
+  finish: string;
+  error?: string;
+}
 const NO_APPROVAL_AUTHORITY =
   "needs the owner's approval, and subagents cannot ask: report what you would do and why";
 
@@ -566,6 +669,8 @@ export class PsycheAgentLoop implements AgentLoop {
   #subagents = new Map<string, SubagentInfo>();
   /** `notify` dispatches per Task (or run) and the budget card waiting for each (#307). */
   #notifies = new Map<string, { sent: number; card?: string }>();
+  /** Per thread: the daily notes its last prompt carried (`at` is when they were read; see `#keepNotes`). */
+  #threadNotes = new Map<string, DailyNotes>();
 
   constructor(options: AgentLoopOptions) {
     this.#o = options;
@@ -826,6 +931,9 @@ export class PsycheAgentLoop implements AgentLoop {
       // Untrusted content still in context keeps steering the model, so the turn starts
       // tainted while it is there (security §3.6: taint survives compaction, and the saved
       // sources survive a kill/restart with the thread state).
+      // Earlier runs' turn context is gone before this run reads the thread: it no longer taints,
+      // and it is never replayed (recall lives for its own run).
+      stubTurnContext(run.thread.messages);
       if (containsUntrusted(run.thread.messages) || run.thread.summary?.untrusted === true) {
         this.#taint(run, { sourceKind: "transcript" });
         for (const s of run.thread.taint?.sources ?? []) this.#taint(run, { ...s });
@@ -894,6 +1002,7 @@ export class PsycheAgentLoop implements AgentLoop {
               }))),
         ],
       });
+      await this.#addTurnContext(run);
       outcome = await this.#loop(run);
       await this.#specialistFallback(run, outcome);
     } catch (err) {
@@ -912,6 +1021,10 @@ export class PsycheAgentLoop implements AgentLoop {
       // The sources outlive the turn with the untrusted content that caused them.
       if (run.taint) run.thread.taint = { sources: dedupeSources(run.taintSources) };
       else delete run.thread.taint;
+      run.thread.messages = keepRecentToolImages(run.thread.messages);
+      // Recall is for this run: nothing of it is at rest once the run ends (the next run would
+      // send the stub at that position either way, so the cached bytes are the same).
+      stubTurnContext(run.thread.messages);
       try {
         if (threadLoaded) await this.#state.save(threadId, run.thread);
       } catch (err) {
@@ -1007,15 +1120,17 @@ export class PsycheAgentLoop implements AgentLoop {
       }
       run.steps += 1;
       run.messageId = run.steps === 1 ? run.messageId : this.#ids.next("msg");
-      const { system, tools } = await this.#prepare(run);
-      const sent = run.thread.messages.slice();
+      // Older tool images become notes in the thread itself, in batches (cache-stable prefix).
+      run.thread.messages = keepRecentToolImages(run.thread.messages);
+      const { system, tools, cache } = await this.#prepare(run);
+      const sent = this.#requestMessages(run).slice();
       // A widget button's call is the first step (generative-ui-2026 §6.2); it is gated below
       // exactly like a model's call. It is consumed here so a retry of the loop never re-proposes it.
       const proposed = run.proposedCall;
       run.proposedCall = undefined;
       const step =
         proposed === undefined
-          ? await this.#callModel(run, system, tools)
+          ? await this.#callModel(run, system, tools, cache)
           : this.#proposedStep(proposed);
       if (step.parts.length > 0) run.thread.messages.push({ role: "assistant", parts: step.parts });
       run.emit({ type: "usage", runId: run.runId, usage: { ...run.usage } });
@@ -1231,6 +1346,75 @@ export class PsycheAgentLoop implements AgentLoop {
   }
 
   /**
+   * Adds the turn context providers' sections to the owner's user message, once per run, as text
+   * after the owner's words and images. They are stored in `thread.messages`, so every later
+   * request replays the same bytes and `system` never changes with what the owner typed (it is
+   * the prompt cache's prefix). Untrusted sections stay fenced and flagged `untrusted` in the user
+   * turn, never `system`, and taint the run in `#provideContext` as before.
+   */
+  async #addTurnContext(run: RunState): Promise<void> {
+    const provided = await this.#provideContext(run);
+    if (provided.length === 0) return;
+    const message = run.thread.messages[run.turnStart];
+    if (message === undefined || message.role !== "user") return;
+    // A token third-party text cannot know: the sections and the closing line carry it.
+    const rendered = renderUserContext(provided, {}, randomUUID().replaceAll("-", "").slice(0, 16));
+    // Before the owner's words, so their request is the last thing the model reads.
+    message.parts.unshift(
+      ...rendered.map((r) => ({
+        type: "text" as const,
+        text: r.text,
+        turnContext: true as const,
+        ...(r.untrusted ? { provenance: "untrusted" as const } : {}),
+      })),
+    );
+    run.turnContext = rendered.map((r) => r.text).join("\n\n");
+    run.turnSections = provided;
+  }
+
+  /** Whether turn context may be shown to this run: the owner's own, not delegated or a peer. */
+  #ownerOnly(run: RunState): boolean {
+    return (
+      run.specialistJob === undefined &&
+      (run.requester === undefined ||
+        (run.requester.role === "owner" && run.requester.toolAllow === undefined))
+    );
+  }
+
+  /**
+   * The messages a request carries: the thread's, with the compaction summary at the front of the
+   * first retained message (a user message gets it as leading parts). The summary is rendered
+   * the same each step, so it changes the cached prefix only when a compaction replaces it.
+   */
+  #requestMessages(run: RunState): ModelMessage[] {
+    // A run that is not the owner's own never sees turn context saved in the thread.
+    const messages = this.#ownerOnly(run)
+      ? run.thread.messages
+      : run.thread.messages.map((m) =>
+          m.parts.some((p) => p.type === "text" && p.turnContext === true)
+            ? {
+                ...m,
+                parts: m.parts.filter((p) => !(p.type === "text" && p.turnContext === true)),
+              }
+            : m,
+        );
+    const section = run.summarySection;
+    if (section === undefined) return messages;
+    const parts: ModelPart[] = renderUserContext([section], {
+      trusted: SUMMARY_HEAD,
+      untrusted: SUMMARY_HEAD,
+    }).map((r) => ({
+      type: "text" as const,
+      text: r.text,
+      ...(r.untrusted ? { provenance: "untrusted" as const } : {}),
+    }));
+    const [first, ...rest] = messages;
+    if (first?.role === "user")
+      return [{ role: "user", parts: [...parts, ...first.parts] }, ...rest];
+    return [{ role: "user", parts }, ...messages];
+  }
+
+  /**
    * Turn context providers (E12): once per owner turn, never for a subagent or a non-owner
    * requester. Sections are untrusted and taint the run; a block goes into the reply. A `trusted`
    * provider's sections (owner/system data only) are neither, and only reach the owner's own turn.
@@ -1240,10 +1424,7 @@ export class PsycheAgentLoop implements AgentLoop {
     if (providers.length === 0 || run.subagent !== undefined || run.ownerText.trim() === "")
       return [];
     const out: ContextSection[] = [];
-    const ownerOnly =
-      run.specialistJob === undefined &&
-      (run.requester === undefined ||
-        (run.requester.role === "owner" && run.requester.toolAllow === undefined));
+    const ownerOnly = this.#ownerOnly(run);
     for (const provider of providers) {
       const got = await withDeadline(
         provider.name,
@@ -1286,7 +1467,7 @@ export class PsycheAgentLoop implements AgentLoop {
           kind: "hook",
           title: sec.title,
           source: `context:${provider.name}`,
-          text: sec.text.trim(),
+          text: capUntrusted(sec.text.trim()),
           untrusted: true,
         });
       });
@@ -1401,16 +1582,18 @@ export class PsycheAgentLoop implements AgentLoop {
 
   // --- Context ----------------------------------------------------------------------------------
 
-  async #prepare(run: RunState): Promise<{ system: string; tools: ToolSpec[] }> {
+  async #prepare(
+    run: RunState,
+  ): Promise<{ system: string; tools: ToolSpec[]; cache: PromptCache }> {
     let built = await this.#assemble(run);
     const limits = await this.#limitsFor(run.threadId, run.model);
     run.limits = limits;
-    let estimate = estimateContextTokens(built.system, run.thread.messages, built.tools);
+    let estimate = estimateContextTokens(built.system, this.#requestMessages(run), built.tools);
     // Owner-set limits (thread → settings → model): compact before the call would pass compactAt.
     if (estimate > limits.maxTokens * limits.compactAt) {
       if (await this.#compact(run, estimate, limits.contextWindow, "auto")) {
         built = await this.#assemble(run);
-        estimate = estimateContextTokens(built.system, run.thread.messages, built.tools);
+        estimate = estimateContextTokens(built.system, this.#requestMessages(run), built.tools);
       }
     }
     if (estimate > limits.maxTokens) {
@@ -1420,7 +1603,16 @@ export class PsycheAgentLoop implements AgentLoop {
     }
     run.pendingBreakdown = {
       estimate,
-      breakdown: estimateBreakdown(built.sections, built.tools, run.thread.messages, run.turnStart),
+      breakdown: estimateBreakdown(
+        built.sections,
+        built.tools,
+        run.thread.messages,
+        run.turnStart,
+        {
+          ...(run.summarySection === undefined ? {} : { summary: run.summarySection.text }),
+          ...(run.turnContext === undefined ? {} : { turnContext: run.turnContext }),
+        },
+      ),
     };
     this.#remember({
       runId: run.runId,
@@ -1428,18 +1620,29 @@ export class PsycheAgentLoop implements AgentLoop {
       model: run.model,
       permissionMode: run.permissionMode,
       system: built.system,
-      sections: built.sections,
+      // What the model saw, wherever it sat: the summary and the turn's context ride in messages.
+      sections: [
+        ...built.sections,
+        ...(run.summarySection === undefined ? [] : [run.summarySection]),
+        ...(run.turnSections ?? []),
+      ],
       tools: built.tools,
       messageCount: run.thread.messages.length,
       assembledAt: toIso(this.#clock.now()),
     });
-    return built;
+    return {
+      system: built.system,
+      tools: built.tools,
+      cache: { systemStableLength: built.systemStableLength, deferredTools: built.deferredTools },
+    };
   }
 
   async #assemble(run: RunState): Promise<{
     system: string;
+    systemStableLength: number;
     sections: ContextSection[];
     tools: ToolSpec[];
+    deferredTools: ToolSpec[];
   }> {
     const toggles = this.#o.toolToggles?.(run.threadId);
     let { tools, hidden } = this.registry.active({
@@ -1468,6 +1671,19 @@ export class PsycheAgentLoop implements AgentLoop {
     }
     let deferred: AgentToolRegistration[] = [];
     ({ tools, deferred } = this.#defer(run, tools, hidden));
+    // The thread's notes, read again each step for the same dates. While they only grow, the
+    // snapshot stays: appends (the agent's own memory tool, feed feedback) show once the thread
+    // has been idle past the provider's 5-minute cache or the day changes, so `system` and the
+    // conversation cached after it stay put from one owner turn to the next. An edited or deleted
+    // line takes effect now, so a line the owner removed (an injected one, something to forget)
+    // is not shown for the rest of the run.
+    const notes = await readDailyNotes(
+      this.#o.memory,
+      run.dailyNotes?.at ?? this.#clock.now(),
+      this.#o.timeZone ?? "UTC",
+      this.#budgets.dailyNote,
+    );
+    run.dailyNotes = this.#keepNotes(run, notes);
     const ctx = await assembleContext({
       basePrompt: this.#o.basePrompt ?? DEFAULT_BASE_PROMPT,
       ...(this.#o.memory === undefined ? {} : { memory: this.#o.memory }),
@@ -1480,7 +1696,9 @@ export class PsycheAgentLoop implements AgentLoop {
       timeZone: this.#o.timeZone ?? "UTC",
       ...(run.thread.summary === undefined ? {} : { summary: run.thread.summary }),
       budgets: this.#budgets,
+      dailyNotes: run.dailyNotes,
     });
+    run.summarySection = ctx.summary;
     if (ctx.untrusted && !run.taintSources.some((s) => s.sourceKind === "context")) {
       this.#taint(run, { sourceKind: "context" });
     }
@@ -1501,7 +1719,7 @@ export class PsycheAgentLoop implements AgentLoop {
         title: `Role: ${job.role?.label ?? job.spec.role}`,
         text:
           job.role?.prompt ??
-          `You are the ${job.spec.role} specialist. Work on the task below and finish with specialist.report.`,
+          `You are the ${job.spec.role} specialist. Work on the task below on your own, check your result against what done looks like, and finish with specialist.report: what you did, what you found, and what you could not do or verify.`,
       });
     } else if (tools.some((t) => t.spec.name === "specialist.spawn")) {
       run.specialistsPrompt ??= (await this.#o.specialists?.promptSection()) ?? "";
@@ -1534,11 +1752,9 @@ export class PsycheAgentLoop implements AgentLoop {
           ...(toggles === undefined ? {} : { toggles }),
           allow: new Set(tools.map((t) => t.spec.name).filter((n) => allow.has(n))),
         }));
-        ({ tools } = this.#defer(run, tools, hidden));
+        ({ tools, deferred } = this.#defer(run, tools, hidden));
       }
     }
-    run.provided ??= await this.#provideContext(run);
-    sections.push(...run.provided);
     sections.push(...(await this.#pluginSections(run)));
     run.active = new Map(tools.map((t) => [t.spec.name, t]));
     run.hidden = hidden;
@@ -1553,11 +1769,47 @@ export class PsycheAgentLoop implements AgentLoop {
       );
       if (!known) this.#taint(run, { sourceKind: "tool_description", origin });
     }
+    const { system, stableLength } = renderSystemParts(sections);
     return {
-      system: renderSystemPrompt(sections),
+      system,
+      systemStableLength: stableLength,
       sections,
       tools: tools.map((t) => structuredClone(t.spec)),
+      deferredTools: deferred.map((t) => structuredClone(t.spec)),
     };
+  }
+
+  /**
+   * The notes snapshot to render: the run's own while it only grows; at a run's start the
+   * thread's last one while the thread is active (under the cache TTL), the files have only
+   * grown and cover the same days. Anything else is the fresh read.
+   */
+  #keepNotes(run: RunState, fresh: DailyNotes): DailyNotes {
+    const now = this.#clock.now();
+    let keep: DailyNotes = fresh;
+    if (run.dailyNotes !== undefined) {
+      if (onlyAppended(run.dailyNotes, fresh)) keep = run.dailyNotes;
+    } else {
+      // A new run reuses the thread's snapshot only while it is younger than the cache TTL, counted
+      // from when it was read (it never slides), the notes only grew, and every added line is the
+      // agent's own. Anything the owner or another writer appended shows at once.
+      const prev = this.#threadNotes.get(run.threadId);
+      if (
+        prev !== undefined &&
+        now - prev.at < NOTES_KEEP_MS &&
+        onlyAppended(prev, fresh) &&
+        appendedByAgent(prev, fresh)
+      ) {
+        keep = prev;
+      }
+    }
+    this.#threadNotes.delete(run.threadId);
+    this.#threadNotes.set(run.threadId, keep);
+    if (this.#threadNotes.size > 256) {
+      const oldest = this.#threadNotes.keys().next().value;
+      if (oldest !== undefined) this.#threadNotes.delete(oldest);
+    }
+    return keep;
   }
 
   /**
@@ -1666,7 +1918,12 @@ export class PsycheAgentLoop implements AgentLoop {
     trigger: "auto" | "manual",
   ): Promise<boolean> {
     const keep = run.limits?.keepRecentTurns ?? this.#policy.keepRecentTurns;
-    const { older, recent } = splitForCompaction(run.thread.messages, keep);
+    const split = splitForCompaction(run.thread.messages, keep);
+    const recent = split.recent;
+    // The summarizer, the taint check and the flush see the turns without this run's recall: it
+    // can be fetched again, and must not become summary content, permanent taint or a note line.
+    const older = structuredClone(split.older);
+    stubTurnContext(older);
     if (older.length === 0) return false;
     // Never fold a call whose result has not come back (an approval still pending).
     if (hasUnansweredToolCalls(older)) return false;
@@ -1675,7 +1932,9 @@ export class PsycheAgentLoop implements AgentLoop {
     const memory = this.#o.memory;
     if (memory?.flush !== undefined && this.#o.isIncognito?.(run.threadId) !== true) {
       try {
-        await memory.flush(run.threadId, structuredClone(run.thread.messages), {
+        const copy = structuredClone(run.thread.messages);
+        stubTurnContext(copy);
+        await memory.flush(run.threadId, copy, {
           taint: run.taint || untrusted,
           signal,
         });
@@ -1791,6 +2050,8 @@ export class PsycheAgentLoop implements AgentLoop {
       throw new PsycheError("conflict", "the thread is running; compact it when the turn ends");
     }
     const thread = (await this.#state.load(threadId)) ?? emptyThreadState();
+    // Rows saved before recall was stubbed at the end of a run.
+    stubTurnContext(thread.messages);
     let info: CompactionInfo | undefined;
     const model = this.#o.model;
     const limits = await this.#limitsFor(threadId, model);
@@ -1895,27 +2156,59 @@ export class PsycheAgentLoop implements AgentLoop {
     }
   }
 
+  /**
+   * One model call. When the provider refuses the request over an image (a 400 that names one)
+   * before anything streamed, the thread's tool images become a note and the call is retried
+   * once: otherwise one unreadable image would fail every later turn of the thread.
+   */
   async #callModel(
     run: RunState,
     system: string,
     tools: ToolSpec[],
-  ): Promise<{
-    parts: ModelPart[];
-    text: string;
-    calls: { id: string; name: string; input: unknown }[];
-    finish: string;
-    error?: string;
-  }> {
+    cache: Partial<PromptCache> = {},
+  ): Promise<ModelStep> {
+    const pending = run.pendingBreakdown;
+    const metered = run.contextCalls.length;
+    const step = await this.#callModelOnce(run, system, tools, cache);
+    if (step.finish !== "error" || step.parts.length > 0) return step;
+    if (!isImageRejection(step.error ?? "")) return step;
+    const stripped = withoutToolImages(
+      run.thread.messages,
+      "image removed: the model provider could not read it",
+    );
+    if (stripped === run.thread.messages) return step;
+    run.thread.messages = stripped;
+    // The refused call read nothing: the context meter records the retry in its place.
+    run.contextCalls.length = metered;
+    run.pendingBreakdown = pending;
+    return this.#callModelOnce(run, system, tools, cache);
+  }
+
+  async #callModelOnce(
+    run: RunState,
+    system: string,
+    tools: ToolSpec[],
+    cache: Partial<PromptCache> = {},
+  ): Promise<ModelStep> {
     const parts: ModelPart[] = [];
     const calls: { id: string; name: string; input: unknown }[] = [];
     let text = "";
     let finish = "stop";
     let error: string | undefined;
-    const request = {
+    const request: ModelRequest = {
       model: run.model,
       system,
-      messages: run.thread.messages,
+      ...(cache.systemStableLength === undefined
+        ? {}
+        : { systemStableLength: cache.systemStableLength }),
+      messages: this.#requestMessages(run),
       ...(tools.length === 0 ? {} : { tools }),
+      // Only beside the tools they belong to: a tool-free call loads nothing.
+      ...(tools.length === 0 ||
+      cache.deferredTools === undefined ||
+      cache.deferredTools.length === 0
+        ? {}
+        : { deferredTools: cache.deferredTools }),
     };
     // The thread lets the router apply its `/model` pin (strict) and attribute usage.
     const callOptions = { signal: run.abort.signal, threadId: run.threadId, runId: run.runId };
@@ -2532,6 +2825,22 @@ export class PsycheAgentLoop implements AgentLoop {
         decision.bindingHash ??
         intentBinding ??
         bindingHash(approvalKind, { tool: call.name, paramsHash: hash });
+      // A resume run: the owner approved this action after an earlier run set it aside. It goes
+      // ahead only when this call binds to exactly what was approved (verifyBinding, once).
+      const resumed = await this.#resumedApproval(run, approvalKind, binding);
+      if (resumed !== undefined) {
+        if (target !== undefined && target.value !== "") run.targets.add(target.value);
+        gated.approvalId = resumed.id;
+        gated.authority = {
+          rule: `approval:${resumed.id}`,
+          bindingHash: binding,
+          grantKey: resumed.grantKey,
+          approvalId: resumed.id,
+          ...(resumed.grantId == null ? {} : { grantId: resumed.grantId }),
+          ...(resumed.scopeGranted == null ? {} : { scope: resumed.scopeGranted }),
+        };
+        return { proceed: gated };
+      }
       // After a restart the broker re-issued the dead run's card for this exact call: the
       // recovered turn waits on that card instead of showing the owner a second one (#64).
       const adopted = await this.#reissuedCard(run, approvalKind, binding);
@@ -2570,6 +2879,8 @@ export class PsycheAgentLoop implements AgentLoop {
                 : { scopesOffered: decision.scopesOffered }),
             // Taint sources travel on `context`, where the Gateway can add what it knows (#71).
             taint: run.taint,
+            // Unattended: the run goes on without it; approving starts a resume run (Gateway).
+            ...(run.mode === "unattended" ? { setAside: true as const } : {}),
           })
         ).approval;
       const approvalId = approval.id;
@@ -2581,18 +2892,8 @@ export class PsycheAgentLoop implements AgentLoop {
       run.emit({ type: "approval_requested", runId: run.runId, approval });
       this.#block(run, { type: "approval", approvalId });
       if (run.mode === "unattended") {
-        // C8: no attempt; the request waits in the queue and the owner is notified (once).
-        if (adopted === undefined) {
-          await this.#o.notifier
-            ?.notify({
-              kind: "approval",
-              title: `Approval needed: ${approval.summary}`,
-              body: `An unattended run wants to ${approval.summary}.`,
-              approvalId,
-              ...(run.taskId === undefined ? {} : { taskId: run.taskId }),
-            })
-            .catch(() => undefined);
-        }
+        // C8: no attempt; the request waits in the queue. No notice per card: the Gateway's
+        // automation digest announces every waiting card in one notice (deferred-digest.ts).
         const note = "deferred: queued for the owner's approval; continue without this action";
         this.#noteBlocked(run, call, note, gated);
         this.#toolEvent(
@@ -2651,6 +2952,30 @@ export class PsycheAgentLoop implements AgentLoop {
       this.#notifies.set(key, used);
     }
     return { proceed: gated };
+  }
+
+  /** The approved card a resume run may use for this exact call, checked and spent here. */
+  async #resumedApproval(
+    run: RunState,
+    kind: ApprovalKind,
+    binding: string,
+  ): Promise<ApprovalRequest | undefined> {
+    const hook = this.#o.resumeApproval;
+    if (hook === undefined || run.mode !== "unattended" || run.taskId === undefined) return;
+    if (run.subagent !== undefined) return;
+    if (run.requester !== undefined && run.requester.role !== "owner") return;
+    const id = await hook({
+      runId: run.runId,
+      taskId: run.taskId,
+      kind,
+      bindingHash: binding,
+      taint: run.taint,
+    }).catch(() => undefined);
+    if (id === undefined) return;
+    const verified = await this.#o.broker.verifyBinding(id, binding);
+    this.#checkAbort(run);
+    if (!verified.ok || verified.approval.kind !== kind) return;
+    return verified.approval;
   }
 
   /**
@@ -2841,6 +3166,7 @@ export class PsycheAgentLoop implements AgentLoop {
       ...(g.authority === undefined ? {} : { authority: structuredClone(g.authority) }),
       ...(run.requester === undefined ? {} : { requester: structuredClone(run.requester) }),
       signal: run.abort.signal,
+      resultBudgetChars: this.#o.maxToolResultChars ?? 50_000,
       onUpdate: (update) => this.#toolEvent(run, call.id, call.name, "running", level1, update),
       turn: this.#turnApi(run, call.id),
     };
@@ -2917,6 +3243,12 @@ export class PsycheAgentLoop implements AgentLoop {
         taskId: run.taskId ?? null,
         toolCallId: call.id,
         approvalId: g.approvalId ?? null,
+        // The standing grant that let it through, so a resume can tell this call succeeded.
+        ...(g.authority?.grantId === undefined
+          ? {}
+          : {
+              payload: { grantId: g.authority.grantId, bindingHash: g.authority.bindingHash },
+            }),
       });
       result = { ...result, receiptId: receipt.id };
     }
@@ -2958,7 +3290,7 @@ export class PsycheAgentLoop implements AgentLoop {
       type: "tool_result",
       callId: call.id,
       name: call.name,
-      output: this.#cap(result.output),
+      output: await this.#shape(run, result.output, failed),
       ...(failed ? { isError: true } : {}),
       provenance: result.provenance,
     };
@@ -2966,12 +3298,21 @@ export class PsycheAgentLoop implements AgentLoop {
     return part;
   }
 
-  /** Oversized results are cut with a visible marker, never silently (C2). */
-  #cap(output: unknown): unknown {
-    const max = this.#o.maxToolResultChars ?? 50_000;
-    const text = typeof output === "string" ? output : JSON.stringify(output ?? null);
-    if (text.length <= max) return output;
-    return `${text.slice(0, max)}\n[truncated: result is ${text.length.toLocaleString("en-US")} characters; the first ${max.toLocaleString("en-US")} are shown]`;
+  /**
+   * What the model receives for a result: screenshots and MCP images as image parts (a model that
+   * cannot read images gets a note), then an oversized result cut with a visible marker that keeps
+   * its structure, head and tail (C2). Provenance stays on the part, so images are untrusted input too.
+   */
+  async #shape(run: RunState, output: unknown, failed: boolean): Promise<unknown> {
+    let shaped = await normalizeToolOutput(output, {
+      failed,
+      signal: run.abort.signal,
+      ...(this.#o.toolImageShaper === undefined ? {} : { shaper: this.#o.toolImageShaper }),
+    });
+    if (isPartList(shaped) && shaped.some((p) => p.type === "image")) {
+      if (!(await this.#canSeeImages(run.model))) shaped = withoutImages(shaped, run.model);
+    }
+    return capToolOutput(shaped, this.#o.maxToolResultChars ?? 50_000);
   }
 
   async #persist(
@@ -3259,8 +3600,10 @@ export class PsycheAgentLoop implements AgentLoop {
     });
     run.steps += 1;
     run.messageId = this.#ids.next("msg");
-    const { system } = await this.#prepare(run);
-    const step = await this.#callModel(run, system, []);
+    const { system, cache } = await this.#prepare(run);
+    const step = await this.#callModel(run, system, [], {
+      systemStableLength: cache.systemStableLength,
+    });
     if (step.parts.length > 0) run.thread.messages.push({ role: "assistant", parts: step.parts });
     await this.#specialistAccount(run);
     await host.report(
@@ -3387,7 +3730,7 @@ export class PsycheAgentLoop implements AgentLoop {
     this.#subagents.set(id, info);
     const messages =
       input.context === "fork" ? answeredPrefix(structuredClone(parent.thread.messages)) : [];
-    const brief = `You are a subagent working for the agent of this conversation. Task: ${input.title}\n\n${input.brief}\n\nWork on your own: you cannot ask the owner questions, send messages or request approvals. Finish with a concise report of what you found or did; that report is all the parent sees.`;
+    const brief = `You are a subagent working for the agent of this conversation. Task: ${input.title}\n\n${input.brief}\n\nWork on your own and stay within this task; note anything else you spot in a sentence instead of acting on it. You cannot ask the owner questions, send messages or request approvals, so when a step needs one, say what you would have asked and stop at that step. Finish with a concise report of what you found or did, including what failed or what you could not verify; that report is all the parent sees.`;
     const update = (message: string) =>
       this.#toolEvent(parent, toolCallId, "subagent.spawn", "running", `Subagent: ${input.title}`, {
         message,
@@ -3526,6 +3869,12 @@ export class PsycheAgentLoop implements AgentLoop {
         taskId: run.taskId ?? null,
         toolCallId: actionId,
         approvalId: g.approvalId ?? null,
+        // The standing grant that let it through, so a resume can tell this call succeeded.
+        ...(g.authority?.grantId === undefined
+          ? {}
+          : {
+              payload: { grantId: g.authority.grantId, bindingHash: g.authority.bindingHash },
+            }),
       });
       receiptId = receipt.id;
       this.#block(run, { type: "receipt", receiptId });
@@ -3683,8 +4032,39 @@ function toolCallMeta(m: ToolCallMeta | undefined): ToolCallMeta | undefined {
     // exec_host's read-only class (security §5.4); the broker re-checks the argv.
     ...(m.hostCommand === "read_only" ? { hostCommand: m.hostCommand } : {}),
     ...(m.hostSandbox === "missing" ? { hostSandbox: m.hostSandbox } : {}),
+    ...(m.control === undefined ? {} : { control: controlFacts(m.control) }),
   };
   return Object.keys(out).length === 0 ? undefined : out;
+}
+
+/** The control facts with only strings, booleans and a bounded list of labels (hard block input). */
+export function controlFacts(c: ControlFacts): ControlFacts {
+  const str = (v: unknown, max = 2048) => (typeof v === "string" ? v.slice(0, max) : undefined);
+  // A label longer than the bound keeps its head and its tail: padding must not push a trailing
+  // "Buy" out of what the hard block reads.
+  const bound = (l: string) => (l.length <= 400 ? l : `${l.slice(0, 200)} ${l.slice(-200)}`);
+  const list = (v: unknown) =>
+    Array.isArray(v)
+      ? v
+          .filter((l): l is string => typeof l === "string")
+          .slice(0, 12)
+          .map(bound)
+      : undefined;
+  const labels = list(c.labels);
+  const alsoLabels = list(c.alsoLabels);
+  const out: ControlFacts = {
+    ...(labels === undefined ? {} : { labels }),
+    ...(alsoLabels === undefined ? {} : { alsoLabels }),
+    ...(str(c.href) === undefined ? {} : { href: str(c.href) as string }),
+    ...(str(c.role, 64) === undefined ? {} : { role: str(c.role, 64) as string }),
+    ...(c.submits === true ? { submits: true } : {}),
+    ...(c.unreadable === true ? { unreadable: true } : {}),
+    ...(str(c.formMethod, 16) === undefined ? {} : { formMethod: str(c.formMethod, 16) as string }),
+    ...(str(c.formAction) === undefined ? {} : { formAction: str(c.formAction) as string }),
+    ...(str(c.pageUrl) === undefined ? {} : { pageUrl: str(c.pageUrl) as string }),
+    ...(str(c.pageTitle, 400) === undefined ? {} : { pageTitle: str(c.pageTitle, 400) as string }),
+  };
+  return out;
 }
 
 function worst(a: ProvenanceOut, b: ProvenanceOut | undefined): ProvenanceOut {

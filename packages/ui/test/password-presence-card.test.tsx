@@ -95,9 +95,11 @@ describe("password refusals", () => {
     expect(text(fail("presence_not_enforced", "not_enforced"))).toBe(
       en["blocks.approval.password.notEnforced"],
     );
-    expect(text(fail("cancelled", "presence_cancelled"))).toBe(
-      en["blocks.approval.password.cancelled"],
-    );
+    // Cancelling the dialog is a quiet "not approved": the card says nothing.
+    expect(classifyAnswerError(fail("cancelled", "presence_cancelled"))).toEqual({
+      kind: "cancelled",
+    });
+    expect(text(fail("cancelled", "presence_cancelled"))).toBe("");
     expect(text(fail("forbidden", "password_failed"))).toBe(en["blocks.approval.password.failed"]);
     expect(text(fail("unavailable", "polkit_unreachable"))).toBe(
       en["blocks.approval.password.unreachable"],

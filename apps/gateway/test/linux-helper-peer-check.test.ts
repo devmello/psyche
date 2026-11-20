@@ -920,9 +920,12 @@ describe("the Gateway acts on the peer check", () => {
     expect(g.context.nodes.isHostHelper(n.nodeId)).toBe(true);
   });
 
-  it("a Gateway with no checker leaves the node socket as it is (macOS, Windows, in-process)", async () => {
+  // A linux-helper is only ever the Host helper on a Linux computer (auth.ts hostHelperRefusal), so
+  // this runs with the Gateway's host platform set to Linux. The default is the machine's own OS,
+  // which on macOS refused the helper before the no-checker path was reached.
+  it("a Gateway with no checker leaves the node socket as it is (Linux host, in-process)", async () => {
     await t?.cleanup();
-    t = await startTestGateway();
+    t = await startTestGateway({ hostPlatform: "linux" });
     const g = t.gateway;
     const n = await helper(g);
     expect(g.context.nodes.isHostHelper(n.nodeId)).toBe(true);

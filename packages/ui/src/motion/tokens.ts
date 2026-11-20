@@ -28,6 +28,15 @@ export const duration = {
   splashStroke: 90,
   /** The working pulse's period (motion.md §4.6): 40% → 100%, linear. */
   pulse: 1200,
+  /** The skeleton shimmer's sweep (motion.md §4.7), linear. */
+  shimmer: 1500,
+  /** A landed-on message or post fades its highlight out over this long. */
+  flash: 1800,
+  /** One rise and fall of a listening-orb level bar, and the gap between neighbouring bars. */
+  orbLevel: 900,
+  orbStagger: 120,
+  /** A newly streamed word fades in over this long, by opacity only (motion.md §4.6). */
+  streamFade: 140,
   /** Per-item list stagger, capped at `staggerMax` items. */
   staggerStep: 20,
   staggerMax: 5,
@@ -39,6 +48,9 @@ export const ease = {
   enter: [0.16, 1, 0.3, 1],
   exit: [0.4, 0, 1, 1],
 } as const satisfies Record<string, readonly [number, number, number, number]>;
+
+/** A cubic-bezier control point set as CSS, for the few APIs that take a string (Streamdown). */
+export const cubicBezier = (p: readonly number[]): string => `cubic-bezier(${p.join(", ")})`;
 
 /** Constant speed: progress fills, shimmer, the working pulse. The one non-bezier easing. */
 export const easeLinear = "linear" as const;

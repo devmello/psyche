@@ -16,6 +16,8 @@ export function taskOrigins(services: Pick<ComposeServices, "broker" | "calls" |
     for (const g of await services.broker.listGrants({ kind: "new_origin" })) {
       if (g.revokedAt != null) continue;
       if (g.expiresAt != null && Date.parse(g.expiresAt) <= now) continue;
+      // A trusted site covers the owner's own reads of it, not a redirect from some other fetch.
+      if ((g.subject as { trustedSite?: unknown }).trustedSite !== undefined) continue;
       if (g.scope === "session" || g.scope === "once") continue;
       if (g.scope === "task" && (taskId === undefined || g.taskId !== taskId)) continue;
       const target = g.subject.target as { kind?: unknown; value?: unknown } | undefined;

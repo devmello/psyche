@@ -240,6 +240,7 @@ export interface ShellSlots {
     threadId: string | null;
     onOpen: (threadId: string) => void;
     onNew: () => void;
+    onNewIncognito: () => void;
   }) => ReactNode;
   /** ⌘K (§5.5); absent keeps the shell's own palette. */
   palette?: (props: PaletteSlotProps) => ReactNode;
@@ -310,6 +311,13 @@ export const openSideChatAction = (threadId: string, title?: string): LayoutActi
 
 /** Layout keys of screens that are not a chat start with this; they are never reported. */
 const VIEW_LAYOUT_PREFIX = "view:";
+
+/** The layout action that shows a Library item in the Files pane's viewer (Quick Look, Open). */
+export const openLibraryItemAction = (item: { path: string }): LayoutAction => ({
+  type: "open",
+  pane: "files",
+  target: `library:${item.path}`,
+});
 
 /** The layout action that shows an artifact in the canvas pane. */
 export const openArtifactAction = (artifactId: string, title?: string): LayoutAction => ({
@@ -632,6 +640,7 @@ function Shell({ layout, slots }: { layout: LayoutStore; slots: ShellSlots }): R
     [store, kitStore, dispatch, openChatId],
   );
   const pickFolder = platform.dialogs?.pickFolder;
+  const pathOfFile = platform.dialogs?.pathOfFile;
   const remoteHost = platform.chrome?.remote?.hostName;
   const gatewaysPort = platform.gateways;
   const kitSlots = useMemo<UiSlots>(
@@ -642,12 +651,22 @@ function Shell({ layout, slots }: { layout: LayoutStore; slots: ShellSlots }): R
       openSideChat,
       renderMcpApp,
       ...(pickFolder === undefined ? {} : { pickFolder }),
+      // Real paths are this Mac's: a client of another computer's Gateway uploads instead.
+      ...(pathOfFile === undefined || platform.chrome?.remote !== undefined ? {} : { pathOfFile }),
       ...(remoteHost === undefined ? {} : { remoteHost }),
       ...(gatewaysPort === undefined ? {} : { gateways: gatewaysPort }),
       openSettings: (section: string) => {
         if (platform.windows?.openSettings) platform.windows.openSettings(section);
         else navigate?.(`/settings/${section}`);
       },
+      openLibraryItem: (item) => dispatch(openLibraryItemAction(item)),
+      // Finder reveals only this Mac's own files: a client of another computer's Gateway has none.
+      ...(platform.app?.revealLibraryItem !== undefined && remoteHost === undefined
+        ? {
+            revealLibraryItem: (item) =>
+              platform.app?.revealLibraryItem?.(item.id) ?? Promise.resolve(),
+          }
+        : {}),
     }),
     [
       navigate,
@@ -655,9 +674,13 @@ function Shell({ layout, slots }: { layout: LayoutStore; slots: ShellSlots }): R
       openInPsyche,
       openSideChat,
       pickFolder,
+      pathOfFile,
+      platform.chrome?.remote,
       remoteHost,
       gatewaysPort,
       platform.windows,
+      platform.app,
+      dispatch,
     ],
   );
 
@@ -761,6 +784,8 @@ function Shell({ layout, slots }: { layout: LayoutStore; slots: ShellSlots }): R
         thread.id,
         { permissionMode },
         t("web.toast.permissionModeUnsupported"),
+        // A refused Auto offers the model picker: "Switch model" on the toast.
+        { onSwitchModel: () => setOverlay("model") },
       );
     },
     [thread, store],
@@ -840,6 +865,9 @@ function Shell({ layout, slots }: { layout: LayoutStore; slots: ShellSlots }): R
           return true;
         case "newSideChat":
           newSideChat();
+          return true;
+        case "newIncognitoChat":
+          newIncognitoChat();
           return true;
         case "toggleThreadList":
           // ⌘B: the sidebar, or the threads drawer when compact (redesign §4).
@@ -931,6 +959,7 @@ function Shell({ layout, slots }: { layout: LayoutStore; slots: ShellSlots }): R
       compact,
       toggleSidebar,
       toggleSidebarMode,
+      newIncognitoChat,
     ],
   );
 
@@ -1066,9 +1095,14 @@ function Shell({ layout, slots }: { layout: LayoutStore; slots: ShellSlots }): R
   const openThread = (id: string) => navigate(`/chat/${id}`);
   const threadsFor = (onOpen: (id: string) => void) =>
     slots.threadList ? (
-      slots.threadList({ threadId, onOpen, onNew: newSideChat })
+      slots.threadList({ threadId, onOpen, onNew: newSideChat, onNewIncognito: newIncognitoChat })
     ) : (
-      <ThreadList currentThreadId={threadId} onOpen={onOpen} onNew={newSideChat} />
+      <ThreadList
+        currentThreadId={threadId}
+        onOpen={onOpen}
+        onNew={newSideChat}
+        onNewIncognito={newIncognitoChat}
+      />
     );
   const sidebar = slots.sidebar ? (
     slots.sidebar({
@@ -1121,6 +1155,7 @@ function Shell({ layout, slots }: { layout: LayoutStore; slots: ShellSlots }): R
         thread={thread}
         onModeCycle={cycleMode}
         autoBlockedBy={autoBlockedBy}
+        listedModels={listedModels}
         onModelPicker={() => setOverlay("model")}
         focusToken={focusToken}
       />

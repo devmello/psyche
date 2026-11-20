@@ -17,10 +17,12 @@ import { everythingRest } from "./everything-rest/ko.ts";
 import { final202611 } from "./final-2026-11/ko.ts";
 import { galleryRest } from "./gallery-rest/ko.ts";
 import { helperCheck } from "./helper-check/ko.ts";
+import { helperOffline } from "./helper-offline/ko.ts";
 import { homeRest } from "./home-rest/ko.ts";
 import { links } from "./links/ko.ts";
 import { mailMeetings } from "./mail-meetings/ko.ts";
 import { meetingRecordRest } from "./meetingRecord-rest/ko.ts";
+import { memoryMap } from "./memory-map/ko.ts";
 import { memoryRest } from "./memory-rest/ko.ts";
 import { memoryAdvancedRest } from "./memoryAdvanced-rest/ko.ts";
 import { memoryBasicsRest } from "./memoryBasics-rest/ko.ts";
@@ -28,6 +30,7 @@ import { memoryPrivacyRest } from "./memoryPrivacy-rest/ko.ts";
 import { memoryReviewRest } from "./memoryReview-rest/ko.ts";
 import { memorySurfacesRest } from "./memorySurfaces-rest/ko.ts";
 import { memoryWorkRest } from "./memoryWork-rest/ko.ts";
+import { notices } from "./notices/ko.ts";
 import { nudgesRest } from "./nudges-rest/ko.ts";
 import { onboardingRest } from "./onboarding-rest/ko.ts";
 import { overview } from "./overview/ko.ts";
@@ -37,6 +40,7 @@ import { passwordPresence } from "./password-presence/ko.ts";
 import { peopleRest } from "./people-rest/ko.ts";
 import { personDataRest } from "./personData-rest/ko.ts";
 import { researchRest } from "./research-rest/ko.ts";
+import { scheduledForm } from "./scheduled-form/ko.ts";
 import { scheduledRest } from "./scheduled-rest/ko.ts";
 import { screensRest } from "./screens-rest/ko.ts";
 import { securityState } from "./security-state/ko.ts";
@@ -46,12 +50,14 @@ import { shellRest } from "./shell-rest/ko.ts";
 import { specialistsRest } from "./specialists-rest/ko.ts";
 import { webRest } from "./web-rest/ko.ts";
 import { widgetsRest } from "./widgets-rest/ko.ts";
+import { windowsPlatform202611 } from "./windows-platform-2026-11/ko.ts";
 import { workRest } from "./work-rest/ko.ts";
 import { workflows } from "./workflows/ko.ts";
 
 /** Korean catalogue (ko). Same ids as `en`; missing ids fall back to English. */
 export const ko: Partial<Catalogue> = {
   // mail and meetings: settings and onboarding (docs/workflows/mail-and-meetings-2026.md §7.3, §7.5)
+  ...memoryMap,
   ...mailMeetings,
   // link menu and the "Open links in" setting
   ...links,
@@ -70,6 +76,7 @@ export const ko: Partial<Catalogue> = {
   ...widgetsRest,
   ...automationChatRest,
   ...scheduledRest,
+  ...scheduledForm,
   ...researchRest,
   ...homeRest,
   ...meetingRecordRest,
@@ -155,6 +162,11 @@ export const ko: Partial<Catalogue> = {
   "errors.rate_limited": "요청이 너무 많습니다. 잠시 후 다시 시도하십시오.",
   "errors.timeout": "Psyche의 응답이 너무 오래 걸렸습니다.",
   "errors.cancelled": "취소되었습니다.",
+  "errors.reason.vault_removal_pending":
+    "이전 서버 제거를 마치려면 보관함 잠금을 해제한 뒤 다시 시도하세요.",
+  "errors.reason.connected_with_other_client":
+    "Google이 다른 클라이언트로 연결되어 있습니다. 먼저 Google 연결을 해제한 다음 클라이언트를 변경하세요.",
+  "errors.reason.secret_required": "다른 클라이언트에는 해당 클라이언트의 보안 비밀이 필요합니다.",
   "errors.reason.updating":
     "Psyche가 업데이트를 설치하기 위해 곧 다시 시작됩니다. 잠시 후 다시 시도하십시오.",
   "errors.unavailable": "Psyche가 지금은 해당 작업을 할 수 없습니다.",
@@ -294,6 +306,7 @@ export const ko: Partial<Catalogue> = {
   "chat.runFailed.details": "세부사항",
   "chat.toolbar.label": "채팅 도구 막대",
   "chat.toolbar.incognito": "시크릿",
+  "chat.incognito.notice": "메모리, 검색, 활동에 사용되지 않습니다. 24시간 후 만료됩니다.",
   "chat.toolbar.view": "대화 기록 보기",
   "chat.toolbar.view.status": "상태만",
   "chat.toolbar.view.actions": "동작",
@@ -325,6 +338,10 @@ export const ko: Partial<Catalogue> = {
   "blocks.card.unknown": "Psyche에서 아직 이 유형의 항목을 표시할 수 없습니다({type}).",
   "specialists.block.label": "{role} 결과: {title}",
   "blocks.toolView.show": "결과 보기",
+  "blocks.toolRun.shareFolder": "이 폴더 공유(읽기 전용)",
+  "blocks.toolRun.shareWaiting": "카드에서 답변을 기다리는 중",
+  "blocks.toolRun.shared": "공유했어요. 계속하려면 다시 요청하세요",
+  "blocks.toolRun.shareFailed": "이 폴더 공유를 요청하지 못했어요. 다시 시도하세요.",
   "blocks.toolView.loading": "결과를 불러오는 중…",
   "blocks.toolView.none": "이 작업의 결과는 보관되지 않습니다.",
   "blocks.toolView.more": "{count}개 더 있음",
@@ -346,6 +363,7 @@ export const ko: Partial<Catalogue> = {
   "blocks.details.to": "받는 사람",
   "blocks.details.exactRecipient": "(정확한 수신자)",
   "blocks.details.cc": "참조",
+  "blocks.details.bcc": "숨은 참조",
   "blocks.details.subject": "제목",
   "blocks.details.body": "본문",
   "blocks.details.view": "보기",
@@ -385,9 +403,15 @@ export const ko: Partial<Catalogue> = {
   "blocks.details.binding": "바인딩",
   "blocks.approval.scope.once": "한 번만 허용",
   "blocks.approval.scope.task": "이 작업에 허용",
+  "blocks.approval.scope.trustSite": "이 사이트는 항상 허용 ({site})",
+  "blocks.approval.scope.trustSiteSubdomains": "이 사이트와 하위 도메인은 항상 허용 ({site})",
+  "blocks.approval.scope.hostProgram": "{folder}에서 {program} 항상 허용",
+  "blocks.approval.scope.hostProgramExact": "{folder}에서 정확히 이 인수로 {program} 항상 허용",
   "blocks.approval.scope.site": "이 사이트에 허용",
   "blocks.approval.scope.session": "이 세션에 허용",
   "blocks.approval.scope.always": "항상 허용",
+  "blocks.approval.alwaysRecipient": "{recipients}에게 보내기를 항상 허용",
+  "blocks.approval.alwaysRecipientFrom": "{account} 계정으로 {recipients}에게 보내기를 항상 허용",
   "blocks.approval.scopeGranted.once": "한 번만 허용",
   "blocks.approval.scopeGranted.task": "이 작업에 허용",
   "blocks.approval.scopeGranted.site": "이 사이트에 허용",
@@ -670,6 +694,25 @@ export const ko: Partial<Catalogue> = {
   "agent.approvals.anAutomation": "자동화",
   "agent.approvals.wantedTo": "— 시도한 동작: {what}",
   "agent.approvals.openTask": "작업 열기",
+  "agent.approvals.deferredHint":
+    "자동화가 보류해 둔 작업입니다. 하나를 승인하면 그 작업을 하려고 자동화가 다시 실행됩니다. 만료된 작업은 늦게 실행되지 않습니다.",
+  "agent.approvals.approve": "승인",
+  "agent.approvals.decline": "거절",
+  "agent.approvals.approveRoutine": "일상적인 항목 모두 승인 ({n, number})",
+  "agent.approvals.riskRoutine": "일상",
+  "agent.approvals.riskSensitive": "민감",
+  "agent.approvals.setAside": "{when} 보류됨",
+  "agent.approvals.answerElsewhere": "보낸 곳에서 응답",
+  "agent.approvals.setAsideNote":
+    "자동화가 이 작업을 보류하고 계속 진행했습니다. 승인하면 다시 실행되며, 실행이 정확히 같은 작업에 도달할 때만 진행됩니다.",
+  "agent.approvals.setAsideApproved":
+    "승인됨. 자동화가 다시 실행되며 정확히 같은 작업에 도달할 때만 이 작업을 합니다. 도달하지 못하면 알림을 받습니다.",
+  "agent.approvals.resuming":
+    "승인됨. {names}을(를) 다시 실행하는 중입니다. 각 작업은 실행이 도달할 때만 진행되며, 그렇지 않으면 알림을 받습니다.",
+  "agent.approvals.notResumable":
+    "이 자동화는 다시 실행할 수 없으므로 승인해도 아무 일도 일어나지 않습니다. 거절하거나 자동화를 직접 실행하세요.",
+  "agent.approvals.notRoutine":
+    "이 작업은 별도의 승인이 필요합니다. 해당 작업의 카드에서 승인하세요.",
   "agent.approvals.noRecent": "최근 7일 동안 결정이 없습니다.",
   "agent.schedule.once": "{month} {day, number}일 {weekday} {time}",
   "agent.schedule.every": "{span}마다",
@@ -777,11 +820,11 @@ export const ko: Partial<Catalogue> = {
   // shell
   "shell.shortcut.palette": "명령 팔레트",
   "shell.shortcut.newSideChat": "새 사이드 채팅",
+  "shell.shortcut.newIncognitoChat": "새 시크릿 채팅",
   "shell.shortcut.closeThread": "스레드 보기 또는 팝아웃 닫기",
   "shell.shortcut.toggleThreadList": "사이드바 켜기/끄기",
   "shell.shortcut.compactSidebar": "간단한 사이드바 또는 전체 사이드바",
   "shell.shortcut.cycleThreads": "스레드 전환",
-  "shell.shortcut.forkSelection": "선택 영역에서 사이드 채팅으로 분기",
   "shell.shortcut.stop": "실행 중지, 제어 가져오기 해제",
   "shell.shortcut.cycleDisclosure": "표시 수준 전환",
   "shell.shortcut.browserPane": "브라우저 패널",
@@ -830,6 +873,7 @@ export const ko: Partial<Catalogue> = {
   "shell.shortcuts.addition": "Psyche 추가 항목",
   "shell.shortcuts.description": "†는 Claude 데스크탑 단축키에 Psyche가 추가한 항목입니다.",
   "shell.threads.needsYou": "확인 필요",
+  "shell.threads.nowOn": "지금: {step}",
   "shell.threads.running": "실행 중",
   "shell.threads.titleField": "스레드 제목",
   "shell.threads.incognito": "시크릿",
@@ -847,6 +891,7 @@ export const ko: Partial<Catalogue> = {
   "shell.threads.filter": "스레드 필터",
   "shell.threads.search": "스레드 검색",
   "shell.threads.newSideChat": "새 사이드 채팅",
+  "shell.threads.newIncognitoChat": "새 시크릿 채팅",
   "shell.threads.loading": "스레드 로드 중",
   "shell.threads.mainChat": "메인 채팅",
   "shell.threads.sideChats": "사이드 채팅",
@@ -903,7 +948,7 @@ export const ko: Partial<Catalogue> = {
 
   // settings
   "settings.shared.needsPresence":
-    "“{label}”을(를) 변경하려면 Touch ID 또는 패스키로 승인해야 합니다. 설정이나 Psyche 알림에서 승인한 다음 다시 변경하십시오.",
+    "“{label}”을(를) 변경하려면 승인해야 합니다. 설정이나 Psyche 알림에서 승인한 다음 다시 변경하십시오.",
   "settings.shared.saveFailed":
     "Psyche가 “{label}”을(를) 저장할 수 없습니다({reason}). 변경된 것은 없습니다.",
   "settings.shared.loading": "{label} 로드 중",
@@ -987,6 +1032,8 @@ export const ko: Partial<Catalogue> = {
   "settings.key.models.providers": "모델 제공업체",
   "settings.key.permissions.mode": "기본 모드",
   "settings.key.permissions.policy": "권한 정책",
+  "settings.key.permissions.sensitive.government": "정부 사이트를 읽기 전에 확인",
+  "settings.key.permissions.sensitive.icloud": "iCloud를 읽기 전에 확인",
   "settings.key.permissions.folders": "공유 폴더",
   "settings.key.persona.name": "이름",
   "settings.key.persona.tagline": "분위기 또는 태그라인",
@@ -1138,6 +1185,59 @@ export const ko: Partial<Catalogue> = {
   "settings.credentials.slot.keyFile": "이 Mac의 키 파일",
   "settings.credentials.slot.recovery": "복구 키만",
   "settings.credentials.protectedBy": "금고 보호 수단:",
+  "settings.credentials.vault.adminOnly": "관리자 기기에서만 할 수 있습니다.",
+  "settings.credentials.vault.unlockReason": "복구 키 확인",
+  "settings.credentials.vault.setup.title": "금고 설정",
+  "settings.credentials.vault.setup.body":
+    "금고는 비밀번호, 카드, API 키를 이 컴퓨터에 암호화해 보관합니다. Psyche는 한 번만 저장하는 복구 키와 함께 금고를 만듭니다.",
+  "settings.credentials.vault.setup.button": "금고 설정",
+  "settings.credentials.vault.setup.failed": "금고를 만들지 못했습니다: {reason}",
+  "settings.credentials.vault.setup.noSlot": "이 Gateway에는 금고용 키 슬롯이 없습니다.",
+  "settings.credentials.onePassword.title": "1Password",
+  "settings.credentials.onePassword.intro":
+    "1Password에서 연결한 항목을 Psyche가 읽을 수 있게 합니다. Psyche는 1Password 비밀번호나 토큰을 저장하지 않으며, 잠금 해제가 필요하면 1Password가 직접 묻습니다.",
+  "settings.credentials.onePassword.check": "다시 확인",
+  "settings.credentials.onePassword.guide": "가이드 열기",
+  "settings.credentials.onePassword.notInstalled.body":
+    "이 컴퓨터에서 1Password 명령줄 도구(op)를 찾을 수 없습니다. 설치한 뒤 다시 확인하세요.",
+  "settings.credentials.onePassword.notIntegrated.body":
+    "1Password 앱에서 설정을 열고 개발자를 선택한 다음 1Password CLI와 통합을 켜세요. 그런 다음 다시 확인하세요.",
+  "settings.credentials.onePassword.locked.body":
+    "1Password 앱의 잠금을 해제하고, 요청이 나타나면 승인하세요. 그런 다음 다시 확인하세요.",
+  "settings.credentials.onePassword.error.body":
+    "1Password 명령줄 도구가 예상대로 응답하지 않았습니다. 다시 확인하고, 계속 실패하면 op를 다시 설치하세요.",
+  "settings.credentials.onePassword.signedIn.body":
+    "{email}({url}) 계정으로 1Password에 로그인되어 있습니다.",
+  "settings.credentials.onePassword.signedIn.connect": "Psyche에서 1Password 사용",
+  "settings.credentials.onePassword.connected.body":
+    "Psyche는 연결한 1Password 항목을 1Password 앱을 통해 읽습니다. 읽기 전용이며 1Password에는 아무것도 쓰지 않습니다.",
+  "settings.credentials.onePassword.test": "연결 테스트",
+  "settings.credentials.onePassword.test.ok":
+    "연결되었습니다. 보관함 {count, plural, other {#개}}를 찾았습니다.",
+  "settings.credentials.onePassword.test.failed": "테스트가 실패했습니다: {reason}",
+  "settings.credentials.onePassword.disconnect": "연결 해제",
+  "settings.credentials.onePassword.config":
+    "1Password는 Gateway의 config.json에서 설정되어 있습니다. 그곳에서 변경하세요.",
+  "settings.credentials.onePassword.failed": "작동하지 않았습니다: {reason}",
+  "settings.credentials.onePassword.found.body":
+    "Psyche가 1Password 명령줄 도구를 찾았습니다. 확인을 선택하면 설정이 어디까지 되었는지 볼 수 있습니다.",
+  "settings.credentials.onePassword.checkNow": "확인",
+  "settings.credentials.onePassword.changed.body":
+    "연결한 뒤 1Password 명령줄 도구가 변경되었습니다. 다시 확인하세요.",
+  "settings.credentials.onePassword.unsigned.body":
+    "Psyche가 찾은 op 파일은 1Password가 서명한 것이 아니므로 실행하지 않습니다. 1Password에서 op를 설치한 뒤 다시 확인하세요.",
+  "settings.credentials.onePassword.unsafeFolder.body":
+    "Psyche가 op를 찾았지만, 그것이 들어 있는 폴더가 내 소유가 아니거나 다른 사용자가 바꿀 수 있어 실행하지 않습니다. 해당 폴더를 내 소유로 하고 그룹이나 다른 사용자가 쓸 수 없게 한 뒤 다시 확인하세요.",
+  "settings.credentials.onePassword.repinned.notice":
+    "1Password CLI가 업데이트되어 {when}에 다시 확인했습니다",
+  "settings.credentials.vault.confirm.title": "복구 키를 확인하세요",
+  "settings.credentials.vault.confirm.body":
+    "저장했는지 확인하기 위해 복구 키의 마지막 그룹, 즉 마지막 하이픈 뒤의 부분을 입력하세요.",
+  "settings.credentials.vault.confirm.label": "마지막 그룹",
+  "settings.credentials.vault.confirm.button": "확인",
+  "settings.credentials.vault.confirm.wrong":
+    "복구 키의 마지막 그룹이 아닙니다. 저장한 위치를 확인하고 다시 시도하세요.",
+  "settings.credentials.vault.confirm.failed": "복구 키를 확인하지 못했습니다: {reason}",
   "settings.credentials.moveToKeychain": "키체인으로 이동",
   "settings.credentials.moveToKeychainNeeds":
     "Developer ID와 프로비저닝 프로파일로 서명된 Psyche Helper가 필요합니다",
@@ -1230,7 +1330,70 @@ export const ko: Partial<Catalogue> = {
   "settings.credentials.payments.title": "결제",
   "settings.credentials.payments.loadLabel": "결제",
   "settings.credentials.payments.notConfigured":
-    "Stripe Link가 설정되어 있지 않습니다. Gateway가 실행되는 컴퓨터에 Link CLI를 설치하고 Link에 로그인한 뒤 PSYCHE_LINK_CLI를 설정하면 Psyche가 여기에 결제 수단을 표시합니다.",
+    "이 Gateway에는 Stripe Link가 설정되어 있지 않습니다.",
+  "settings.credentials.payments.setup.approvalLabel": "Stripe Link 명령줄 도구",
+  "settings.credentials.payments.setup.refused":
+    "Psyche는 해당 프로그램을 실행하지 않습니다: {reason}.",
+  "settings.credentials.payments.setup.failed": "실패했습니다: {reason}",
+  "settings.credentials.payments.setup.problem":
+    "Psyche는 {path}을(를) 실행하지 않습니다: {reason}.",
+  "settings.credentials.payments.setup.recheck": "다시 확인",
+  "settings.credentials.payments.setup.disconnect": "연결 해제",
+  "settings.credentials.payments.setup.disconnecting": "해제하는 중…",
+  "settings.credentials.payments.setup.disconnectConfirm.title": "Stripe Link 연결을 해제할까요?",
+  "settings.credentials.payments.setup.disconnectConfirm.body":
+    "Psyche가 Link CLI를 잊고 저장된 Link 로그인을 삭제합니다. Link 계정과 카드는 그대로이며, 언제든 다시 연결할 수 있습니다.",
+  "settings.credentials.payments.setup.disconnectConfirm.go": "연결 해제",
+  "settings.credentials.payments.setup.disconnectConfirm.cancel": "연결 유지",
+  "settings.credentials.payments.setup.envOverride":
+    "이 Gateway는 PSYCHE_LINK_CLI로 시작되어 여기에 저장한 경로보다 우선합니다.",
+  "settings.credentials.payments.setup.missing.title": "Link 명령줄 도구 설치",
+  "settings.credentials.payments.setup.missing.body":
+    "Psyche는 Link의 공식 명령줄 도구로 Stripe Link를 통해 결제합니다. Gateway가 실행되는 컴퓨터에서 실행한 뒤 다시 확인하세요.",
+  "settings.credentials.payments.setup.missing.region":
+    "에이전트용 Link 결제는 미국과 캐나다에서 사용할 수 있습니다.",
+  "settings.credentials.payments.setup.found.title": "Link CLI를 찾았습니다",
+  "settings.credentials.payments.setup.found.body":
+    "설치한 것을 연결하세요. Psyche는 Stripe Link와 통신할 때만, 그리고 승인한 뒤에만 실행합니다.",
+  "settings.credentials.payments.setup.found.connect": "연결",
+  "settings.credentials.payments.setup.found.connecting": "연결하는 중…",
+  "settings.credentials.payments.setup.found.connectPath": "{path} 연결",
+  "settings.credentials.payments.setup.signedOut.title": "Link에 로그인",
+  "settings.credentials.payments.setup.signedOut.body":
+    "Psyche가 Link의 자체 페이지를 엽니다. 로그인과 이 기기 승인은 그곳에서 합니다. Link 비밀번호는 그곳에서만 입력하며 Psyche에는 전달되지 않습니다.",
+  "settings.credentials.payments.setup.signedOut.go": "Link로 로그인",
+  "settings.credentials.payments.setup.signedOut.starting": "시작하는 중…",
+  "settings.credentials.payments.setup.signingIn.title": "Link에서 로그인 마치기",
+  "settings.credentials.payments.setup.signingIn.body":
+    "Link 페이지를 열어 아래 문구가 표시되는지 확인한 뒤 승인하세요.",
+  "settings.credentials.payments.setup.signingIn.phrase": "문구:",
+  "settings.credentials.payments.setup.signingIn.open": "Link 페이지 열기",
+  "settings.credentials.payments.setup.signingIn.waiting": "Link에서 승인하기를 기다리는 중…",
+  "settings.credentials.payments.setup.connected":
+    "{path}을(를) 통해 Stripe Link에 연결되었습니다.",
+  "settings.credentials.payments.setup.connectedNoPath": "Stripe Link에 연결되었습니다.",
+  "settings.credentials.payments.setup.reason.not_absolute": "경로가 절대 경로가 아닙니다",
+  "settings.credentials.payments.setup.reason.missing": "존재하지 않습니다",
+  "settings.credentials.payments.setup.reason.not_a_file": "링크이거나 일반 파일이 아닙니다",
+  "settings.credentials.payments.setup.reason.not_executable": "실행할 수 없습니다",
+  "settings.credentials.payments.setup.reason.wrong_owner": "다른 사용자의 소유입니다",
+  "settings.credentials.payments.setup.reason.writable": "다른 사용자가 수정할 수 있습니다",
+  "settings.credentials.payments.setup.reason.parent_wrong_owner":
+    "상위 폴더가 다른 사용자의 소유입니다",
+  "settings.credentials.payments.setup.reason.parent_writable":
+    "다른 사용자가 상위 폴더를 수정할 수 있습니다",
+  "settings.credentials.payments.setup.reason.in_psyche_home":
+    "Psyche 자체 폴더 안에 있습니다. 대신 npm으로 Link CLI를 설치하세요",
+  "settings.credentials.payments.setup.reason.not_link_cli": "Link CLI 패키지에 속하지 않습니다",
+  "settings.credentials.payments.setup.reason.volta_shim":
+    "Volta의 shim입니다. Volta 안의 Link CLI 폴더를 사용하거나 npm으로 설치하세요",
+  "settings.credentials.payments.setup.paymentInProgress":
+    "결제가 아직 진행 중입니다. 끝난 뒤에 연결을 해제하세요.",
+  "settings.credentials.payments.setup.force.title": "그래도 연결을 해제할까요?",
+  "settings.credentials.payments.setup.force.body":
+    "진행 중: {payments}. 그래도 해제하면 Psyche가 Link에서 허용하는 범위에서 취소하고 기록을 지웁니다. 가맹점의 보류는 저절로 만료되며 Psyche는 더 이상 보고할 수 없습니다.",
+  "settings.credentials.payments.setup.force.go": "그래도 해제",
+  "settings.credentials.payments.setup.force.aPayment": "결제 1건",
   "settings.credentials.payments.noMethods":
     "Link 지갑에 결제 수단이 없습니다. Link 앱에서 추가하십시오.",
   "settings.credentials.payments.methods": "Link 결제 수단",
@@ -1401,6 +1564,43 @@ export const ko: Partial<Catalogue> = {
   "settings.channels.loadLabel": "채널",
   "settings.channels.empty":
     "아직 채널이 없습니다. Telegram, iMessage 또는 Slack을 연결하면 이 Mac을 떠나서도 {persona}에게 연락할 수 있습니다.",
+  "settings.channels.add.button": "채널 추가",
+  "settings.channels.add.title": "채널 추가",
+  "settings.channels.add.description":
+    "{persona}에게 연락할 수 있는 곳을 선택하세요. 토큰은 바로 보관함에 저장되며 다시 표시되지 않습니다.",
+  "settings.channels.add.type": "채널",
+  "settings.channels.add.account.slack": "워크스페이스 이름",
+  "settings.channels.add.account.discord": "애플리케이션 ID",
+  "settings.channels.add.secret.bot_token": "봇 토큰",
+  "settings.channels.add.secret.app_token": "앱 토큰",
+  "settings.channels.add.secret.auth_token": "인증 토큰",
+  "settings.channels.add.secret.access_token": "액세스 토큰",
+  "settings.channels.add.secret.app_secret": "앱 시크릿",
+  "settings.channels.add.secret.verify_token": "확인 토큰",
+  "settings.channels.add.submit": "연결",
+  "settings.channels.add.connecting": "연결 중",
+  "settings.channels.add.missing": "연결하려면 모든 항목을 입력하세요.",
+  "settings.channels.add.failed":
+    "Psyche가 채널을 추가하지 못했습니다({reason}). 켜지지 않았습니다.",
+  "settings.channels.add.account.sms": "발신 번호 (+15551234567)",
+  "settings.channels.add.account.whatsapp": "WhatsApp 번호 (+15551234567)",
+  "settings.channels.add.badNumber": "국제 형식으로 번호를 입력하세요. 예: +15551234567",
+  "settings.channels.add.exists":
+    "{account}용 {type} 채널이 이미 있어서 아무것도 바꾸지 않았습니다.",
+  "settings.channels.add.approvalLabel": "채널 추가",
+  "settings.channels.add.envNote":
+    "Gateway도 {env}를 이 계정으로 설정한 상태로 시작해야 합니다. Telegram, iMessage, Signal, 이메일은 Gateway가 실행되는 곳에서 설정합니다. 채널 문서를 참고하세요.",
+  "settings.channels.add.addedInactive":
+    "채널을 추가했지만 아직 실행되지 않습니다. Gateway가 실행되는 곳에서 {env}를 이 계정으로 설정한 뒤 다시 시작하세요.",
+  "settings.channels.add.added":
+    "채널을 추가했습니다. Gateway에서 {env}가 이 계정으로 설정되면 시작됩니다. 그런 다음 해당 채널에서 {persona}에게 메시지를 보내 페어링 코드를 받고 여기서 승인하세요.",
+  "settings.channels.add.storedNote":
+    "이 계정에 이미 저장됨: {names}. 교체하지 않으면 그대로 사용됩니다.",
+  "settings.channels.add.replace": "저장된 토큰 교체",
+  "settings.channels.add.statusFailed":
+    "Psyche가 이미 저장된 토큰을 확인하지 못했습니다({reason}). 아무것도 바꾸지 않았습니다.",
+  "settings.channels.add.storedTyped":
+    "이 계정에는 이미 저장된 토큰이 있습니다. 입력한 토큰을 쓰려면 '저장된 토큰 교체'를 선택하거나 해당 칸을 비우세요. 아무것도 바꾸지 않았습니다.",
   "settings.channels.identities": "신원 연결",
   "settings.channels.identitiesDescription":
     "여러 채널에 걸친 한 사람입니다. 연결은 페어링된 기기에서만 변경됩니다.",
@@ -1536,6 +1736,52 @@ export const ko: Partial<Catalogue> = {
   "settings.mcp.domains": "접근 가능한 웹사이트",
   "settings.mcp.domainsHint":
     "쉼표로 구분한 호스트 이름입니다. 네트워크를 쓰지 않으려면 비워 두십시오.",
+  "settings.mcp.env.title": "환경 변수",
+  "settings.mcp.env.hint":
+    "서버가 시작할 때 필요한 값입니다. 토큰, 키, 비밀번호처럼 비밀로 보이는 이름의 값은 보관함에 저장됩니다.",
+  "settings.mcp.env.name": "변수 이름",
+  "settings.mcp.env.value": "값",
+  "settings.mcp.env.namePlaceholder": "API_BASE_URL",
+  "settings.mcp.env.saved": "저장됨",
+  "settings.mcp.updated": "{name}을(를) 업데이트했습니다.",
+  "settings.mcp.edit.group": "편집 및 테스트",
+  "settings.mcp.edit.action": "편집",
+  "settings.mcp.edit.title": "{name} 편집",
+  "settings.mcp.edit.intro":
+    "실행 내용이나 연결 대상을 바꾸면 다시 승인해야 합니다. 승인하기 전까지 현재 서버는 계속 실행됩니다.",
+  "settings.mcp.edit.save": "변경 사항 저장",
+  "settings.mcp.edit.loadFailed": "이 서버의 설정을 불러오지 못했습니다. {reason}",
+  "settings.mcp.edit.locked":
+    "이 서버의 명령과 연결은 편집할 수 없습니다. 바꾸려면 삭제한 뒤 다른 서버를 추가하세요.",
+  "settings.mcp.test.action": "연결 테스트",
+  "settings.mcp.test.running": "테스트 중…",
+  "settings.mcp.test.hint": "저장된 설정을 다시 확인합니다. 아무것도 바뀌지 않습니다.",
+  "settings.mcp.test.paused": "테스트하려면 이 서버를 켜세요.",
+  "settings.mcp.test.ok": "작동합니다. 사용할 수 있는 {n, plural, other {도구 #개}}.",
+  "settings.mcp.test.failed": "작동하지 않았습니다: {reason}",
+  "settings.mcp.trust.updateTitle": "{name}을(를) 업데이트할까요?",
+  "settings.mcp.trust.updateIntro":
+    "Psyche가 새 설정을 샌드박스에서 실행하고 이 도구들을 찾았습니다. 승인하기 전까지 현재 서버는 계속 실행됩니다.",
+  "settings.mcp.trust.change.title": "바뀌는 내용",
+  "settings.mcp.trust.change.none": "없음",
+  "settings.mcp.trust.change.was": "이전: {value}",
+  "settings.mcp.trust.change.now": "이후: {value}",
+  "settings.mcp.trust.change.command": "명령",
+  "settings.mcp.trust.change.url": "주소",
+  "settings.mcp.trust.change.domains": "허용된 도메인",
+  "settings.mcp.trust.change.auth": "로그인",
+  "settings.mcp.trust.change.envAdded": "추가된 변수",
+  "settings.mcp.trust.change.envRemoved": "삭제된 변수",
+  "settings.mcp.trust.change.envChanged": "변경된 변수",
+  "settings.mcp.trust.change.query": "변경된 주소 매개변수",
+  "settings.mcp.trust.change.userinfo": "주소에 포함된 로그인 정보",
+  "settings.mcp.trust.change.changed": "변경됨",
+  "settings.mcp.edit.changeUrl": "주소 변경",
+  "settings.mcp.edit.urlHidden":
+    "이 주소의 일부는 숨겨져 있습니다. 바꾸려면 새 주소 전체를 입력하세요.",
+  "settings.mcp.env.add": "변수 추가",
+  "settings.mcp.env.badName":
+    "이름은 대문자, 숫자, 밑줄을 사용하고 문자 또는 밑줄로 시작해야 합니다.",
   "settings.mcp.url": "서버 URL",
   "settings.mcp.placeholder.command": "npx -y @modelcontextprotocol/server-everything",
   "settings.mcp.placeholder.domains": "api.example.com",
@@ -1596,6 +1842,29 @@ export const ko: Partial<Catalogue> = {
   "settings.webSearch.braveKey": "Brave Search 키",
   "settings.webSearch.braveFromEnv": "설정됨 (PSYCHE_SEARCH_BRAVE_KEY)",
   "settings.webSearch.braveNone": "설정 안 됨 (PSYCHE_SEARCH_BRAVE_KEY)",
+  "settings.apiKeys.title": "API 키",
+  "settings.apiKeys.description":
+    "모델 제공업체와 웹 검색의 키를 터미널 대신 여기에서 입력합니다. 각 키는 암호화되어 보관함에 저장되고, 다시 표시되지 않으며, 다음 요청부터 사용됩니다. 환경 변수로 설정한 키가 우선합니다.",
+  "settings.apiKeys.name.anthropic": "Anthropic",
+  "settings.apiKeys.name.openai": "OpenAI",
+  "settings.apiKeys.name.google": "Google Gemini",
+  "settings.apiKeys.name.openrouter": "OpenRouter",
+  "settings.apiKeys.name.brave": "Brave Search",
+  "settings.apiKeys.field": "{name} API 키",
+  "settings.apiKeys.save": "저장",
+  "settings.apiKeys.saving": "저장 중…",
+  "settings.apiKeys.clear": "지우기",
+  "settings.apiKeys.none": "설정되지 않음",
+  "settings.apiKeys.vault": "보관함에 저장됨",
+  "settings.apiKeys.env": "환경 변수로 설정됨(우선 적용)",
+  "settings.apiKeys.envAndVault": "환경 변수로 설정됨(우선 적용). 저장된 키도 함께 보관됩니다",
+  "settings.apiKeys.empty": "먼저 키를 붙여 넣으세요.",
+  "settings.apiKeys.whitespace": "키에는 공백이나 줄바꿈이 없습니다.",
+  "settings.apiKeys.failed": "키를 저장하지 못했습니다: {reason}",
+  "settings.apiKeys.clearFailed": "키를 지우지 못했습니다: {reason}",
+  "settings.apiKeys.locked": "보관함이 잠겨 있습니다. 먼저 잠금을 해제한 뒤 다시 저장하세요.",
+  "settings.credentials.managed.web_search": "웹 검색 키",
+  "settings.webSearch.braveFromVault": "보관함에 저장됨",
   "settings.webSearch.provider.brave": "Brave Search",
   "settings.webSearch.provider.searxng": "SearXNG",
   "settings.webSearch.provider.duckduckgo": "DuckDuckGo (키 없음, 요청 제한 있음)",
@@ -1768,7 +2037,7 @@ export const ko: Partial<Catalogue> = {
   "settings.model.role.primary": "기본",
   "settings.model.role.primaryHint": "채팅, 작업 및 도구",
   "settings.model.role.utility": "유틸리티",
-  "settings.model.role.utilityHint": "제목, 요약 및 자동 모드 분류기",
+  "settings.model.role.utilityHint": "제목, 요약, 검색 카드 및 기타 백그라운드 작업",
   "settings.model.role.image": "이미지",
   "settings.model.role.imageHint": "아바타 변경, 없으면 내장 크리처 사용",
   "settings.model.addProvider": "제공업체 추가",
@@ -1826,7 +2095,8 @@ export const ko: Partial<Catalogue> = {
   "settings.permissions.never.secrets":
     "볼 수 있는 암호, 카드 번호, 은행 계좌 또는 정부 발급 신분증 번호를 입력",
   "settings.permissions.never.captcha": "CAPTCHA 풀기 또는 우회",
-  "settings.permissions.never.money": "금융 이체 또는 거래 실행",
+  "settings.permissions.never.money":
+    "승인하더라도 증권이나 암호화폐 거래, 은행 계좌 간 이체, 개인에게 송금은 하지 않음",
   "settings.permissions.never.delete": "입력한 확인 없이 데이터 영구 삭제",
   "settings.permissions.never.injection": "웹 페이지, 이메일 또는 파일에 있는 지시 따르기",
   "settings.permissions.never.accounts": "사용자 승인 없이 서드파티 계정 생성",
@@ -1852,6 +2122,7 @@ export const ko: Partial<Catalogue> = {
   "settings.permissions.subject.execIn": "{cwd}에서 {argv}",
   "settings.permissions.subject.emailTo": "{recipient}에게",
   "settings.permissions.subject.emailAny": "모든 수신자에게",
+  "settings.permissions.subject.emailFrom": "{recipients}에게, 계정 {account}",
   "settings.permissions.subject.calendarNamed": "캘린더 {id}",
   "settings.permissions.subject.calendar": "캘린더",
   "settings.permissions.title": "권한",
@@ -1868,8 +2139,30 @@ export const ko: Partial<Catalogue> = {
   "settings.permissions.toolsChanged":
     "{name}이(가) 승인 이후 도구 목록을 변경하여 Psyche가 허용을 철회했습니다. 검토할 때까지 모든 동작을 다시 묻습니다.",
   "settings.permissions.hash": "tools/list {hash}…",
+  "settings.permissions.sendsTitle": "항상 허용된 수신자",
+  "settings.permissions.sendsHint":
+    "이 수신자에게 보내는 이메일은 묻지 않고 발송됩니다. 하나를 제거하면 다시 묻습니다.",
+  "settings.permissions.noSends": "항상 허용으로 설정된 수신자가 없습니다.",
   "settings.permissions.origins": "브라우저 출처",
   "settings.permissions.originsHint": "에이전트가 묻지 않고 열 수 있는 사이트입니다.",
+  "settings.permissions.trusted.title": "신뢰하는 사이트",
+  "settings.permissions.trusted.description":
+    "Psyche는 이 사이트를 어떤 대화에서든 묻지 않고 읽습니다. 쓰기, 양식, 민감한 사이트는 계속 먼저 묻습니다.",
+  "settings.permissions.trusted.empty":
+    "아직 신뢰하는 사이트가 없습니다. 첫 읽기 요청에서 ‘이 사이트는 항상 허용’을 선택하면 추가됩니다.",
+  "settings.permissions.trusted.added": "{date}에 추가됨",
+  "settings.permissions.trusted.remove": "제거",
+  "settings.permissions.trusted.removeNamed": "{name}을(를) 신뢰하는 사이트에서 제거",
+  "settings.permissions.subject.trustedSiteSubdomains": "{origin} 및 하위 도메인",
+  "settings.permissions.subject.hostProgram": "{folder}의 {program}, 모든 인수",
+  "settings.permissions.subject.hostProgramExact": "{folder}의 {program}, 정확히 이 인수만",
+  "settings.permissions.sensitive.title": "민감한 사이트",
+  "settings.permissions.sensitive.description":
+    "은행, 건강, 이메일, 비밀번호 관리자는 읽기 전에 항상 묻습니다. 정부 사이트와 iCloud도 묻습니다. 묻지 않고 읽으려면 여기서 해당 범주를 끄세요.",
+  "settings.permissions.sensitive.governmentHint":
+    ".gov 또는 .gov.uk로 끝나는 사이트(세금, 신원, 건강 계정). 기본값은 켜짐입니다.",
+  "settings.permissions.sensitive.icloudHint":
+    "iCloud 사이트(메일, 사진, 파일). 기본값은 켜짐입니다.",
   "settings.permissions.noOrigins": "상시 허용된 웹사이트가 없습니다. 새 사이트는 먼저 묻습니다.",
   "settings.permissions.scopeExpires": "{scope}, {date} 만료",
   "settings.permissions.revokeNamed": "{name} 철회",
@@ -2216,6 +2509,19 @@ export const ko: Partial<Catalogue> = {
   "settings.connect.noSignIn": "Gateway가 로그인 페이지를 반환하지 않았습니다",
   "settings.connect.notConfigured":
     "{name}은(는) 아직 이 Gateway에 설정되어 있지 않습니다. 사용자 자신의 OAuth 클라이언트가 필요합니다(Psyche 문서의 Google 연결 가이드 참조). 나중에 설정 → 커넥터에서 설정하십시오.",
+  "settings.googleClient.using": "내 Google 클라이언트 {clientId}를 사용 중입니다.",
+  "settings.googleClient.fromConfig": "config.json 또는 환경 변수에 설정되어 있습니다.",
+  "settings.googleClient.change": "다른 클라이언트 사용",
+  "settings.googleClient.help":
+    "Psyche에는 자체 Google 클라이언트가 없습니다. 본인의 Google Cloud 프로젝트에서 데스크톱 앱용 무료 OAuth 클라이언트를 한 번 만든 다음 ID를 여기에 붙여넣으세요.",
+  "settings.googleClient.docs": "만드는 방법",
+  "settings.googleClient.id": "클라이언트 ID",
+  "settings.googleClient.idHint": ".apps.googleusercontent.com으로 끝납니다",
+  "settings.googleClient.invalid":
+    "Google 클라이언트 ID가 아닙니다. .apps.googleusercontent.com으로 끝나야 합니다.",
+  "settings.googleClient.secret": "클라이언트 보안 비밀",
+  "settings.googleClient.secretHint": "보관함에 저장되며 Google에만 전송됩니다.",
+  "settings.googleClient.saveFailed": "Google 클라이언트를 저장하지 못했습니다: {reason}",
   "settings.connect.alreadyConnected": "{name}이(가) 이미 연결되어 있습니다.",
   "settings.connect.needsPermission":
     "{name}이(가) 설정되었지만 macOS가 아직 허용하지 않았습니다. 다음에서 허용하십시오:",
@@ -2350,7 +2656,6 @@ export const ko: Partial<Catalogue> = {
   "onboarding.model.copyFailed": "복사할 수 없습니다. 키를 선택하여 복사하십시오.",
   "onboarding.model.recoveryBody":
     "Psyche가 방금 금고를 만들었습니다. 이 키를 암호 관리자나 종이에 보관하십시오. 지금만 표시되며, 복원하거나 키 슬롯을 잃은 뒤 금고에 다시 들어갈 수 있는 유일한 방법입니다.",
-  "onboarding.model.savedIt": "저장했습니다",
   "onboarding.model.subscriptionNote":
     "Psyche는 이 Mac에 이미 로그인된 Claude Code 또는 Codex 앱을 사용하므로 API 키가 필요 없고 저장하지도 않습니다. 아직 로그인하지 않았다면 먼저 그곳에서 로그인하십시오.",
   "onboarding.model.toolCheck": "도구 호출 점검",
@@ -2467,6 +2772,45 @@ export const ko: Partial<Catalogue> = {
   "screens.feed.explorationTopic": "{topic} · 탐색 슬롯",
   "screens.feed.sourcesCount": "출처 ({n, number})",
   "screens.feed.sources": "출처",
+  "screens.feed.sourcesEditor.button": "출처",
+  "screens.feed.sourcesEditor.title": "피드 출처",
+  "screens.feed.sourcesEditor.description": "피드가 읽는 출처입니다. 바꿀 때마다 바로 저장됩니다.",
+  "screens.feed.sourcesEditor.builtIn": "기본 제공",
+  "screens.feed.sourcesEditor.builtInHint": "끄지 않으면 피드가 이 출처들을 읽습니다.",
+  "screens.feed.sourcesEditor.hackerNews": "Hacker News",
+  "screens.feed.sourcesEditor.hackerNewsHint": "Hacker News의 인기 글",
+  "screens.feed.sourcesEditor.arxiv": "arXiv",
+  "screens.feed.sourcesEditor.arxivHint": "arXiv의 새 논문",
+  "screens.feed.sourcesEditor.feeds": "RSS 및 Atom 피드",
+  "screens.feed.sourcesEditor.feedsHint":
+    "각 피드는 https:// 또는 http://로 시작하는 웹 주소입니다.",
+  "screens.feed.sourcesEditor.fetchNote":
+    "피드는 아직 각 피드를 마지막으로 읽은 시각이나 실패 여부를 보여 주지 않습니다.",
+  "screens.feed.sourcesEditor.empty": "추가한 피드가 없습니다.",
+  "screens.feed.sourcesEditor.notRead": "읽지 않음",
+  "screens.feed.sourcesEditor.kind": "RSS 또는 Atom",
+  "screens.feed.sourcesEditor.add": "피드 추가",
+  "screens.feed.sourcesEditor.addTitle": "새 피드 추가",
+  "screens.feed.sourcesEditor.addLabel": "피드 주소",
+  "screens.feed.sourcesEditor.addPlaceholder": "https://example.com/feed.xml",
+  "screens.feed.sourcesEditor.editLabel": "{host} 편집",
+  "screens.feed.sourcesEditor.removeLabel": "{host} 제거",
+  "screens.feed.sourcesEditor.removeTitle": "피드에서 {host}을(를) 제거할까요?",
+  "screens.feed.sourcesEditor.removeBody":
+    "피드가 이 주소를 더 이상 읽지 않습니다. 이미 작성된 게시물은 그대로 남습니다. 나중에 주소를 다시 추가할 수 있습니다.",
+  "screens.feed.sourcesEditor.confirmRemove": "피드 제거",
+  "screens.feed.sourcesEditor.openLabel": "브라우저에서 {host} 열기",
+  "screens.feed.sourcesEditor.openFailed": "{host}을(를) 열 수 없습니다: {reason}",
+  "screens.feed.sourcesEditor.errEmpty": "피드의 웹 주소를 입력하세요.",
+  "screens.feed.sourcesEditor.errInvalid": "웹 주소가 아닙니다. https://로 시작하세요.",
+  "screens.feed.sourcesEditor.errScheme": "피드는 http:// 또는 https:// 주소만 가능합니다.",
+  "screens.feed.sourcesEditor.errDuplicate": "이 피드는 이미 목록에 있습니다.",
+  "screens.feed.sourcesEditor.saved": "피드 출처를 저장했습니다",
+  "screens.feed.sourcesEditor.added": "피드를 추가했습니다",
+  "screens.feed.sourcesEditor.removed": "피드를 제거했습니다",
+  "screens.feed.sourcesEditor.saveFailed": "피드 출처를 저장할 수 없습니다: {reason}",
+  "screens.feed.sourcesEditor.loadFailed": "피드 출처를 불러올 수 없습니다",
+  "screens.feed.sourcesEditor.loading": "피드 출처를 불러오는 중",
   "screens.feed.feedbackOn": "{title}에 대한 피드백",
   "screens.feed.like": "좋아요",
   "screens.feed.moreFeedback": "{title}에 대한 추가 피드백",
@@ -2604,6 +2948,30 @@ export const ko: Partial<Catalogue> = {
   "screens.files.preview": "미리보기",
   "screens.files.needsApp": "미리보기는 데스크탑 또는 웹 앱에서만 볼 수 있습니다.",
   "screens.files.pick": "여기서 미리 볼 파일을 선택하십시오.",
+  "screens.files.editReadOnly": "읽기 전용: 이 폴더는 편집 없이 공유되어 있습니다.",
+  "screens.files.editOpening": "편집하려고 {name} 여는 중",
+  "screens.files.editFailed": "Psyche가 편집하려고 {name}을(를) 열지 못했습니다({reason}).",
+  "screens.files.editNotText": "{name}은(는) UTF-8 텍스트가 아니라서 여기서 편집할 수 없습니다.",
+  "screens.files.unsaved": "저장하지 않은 변경 사항",
+  "screens.files.saved": "저장됨",
+  "screens.files.saving": "저장 중…",
+  "screens.files.discardAsk": "저장하지 않은 변경 사항을 버릴까요?",
+  "screens.files.discard": "버리기",
+  "screens.files.keepEditing": "계속 편집",
+  "screens.files.conflict": "파일을 연 뒤 디스크에서 이 파일이 바뀌었습니다.",
+  "screens.files.reload": "다시 불러오기",
+  "screens.files.overwrite": "덮어쓰기…",
+  "screens.files.overwriteAsk":
+    "더 새로운 버전을 내 편집 내용으로 바꿀까요? 더 새로운 버전은 사라집니다.",
+  "screens.files.overwriteConfirm": "덮어쓰기",
+  "screens.files.saveFailed": "Psyche가 {name}을(를) 저장하지 못했습니다({reason}).",
+  "screens.files.notSaved": "저장되지 않았습니다.",
+  "screens.files.editing": "{name} 편집 중",
+  "screens.files.editTooLarge": "보기 전용: 512KB를 넘는 파일은 여기서 편집할 수 없습니다.",
+  "screens.files.saveTooLarge":
+    "이 변경은 너무 커서 여기서 저장할 수 없습니다. 텍스트를 줄인 뒤 다시 시도하세요.",
+  "screens.files.editMixedEol": "{name}은(는) 줄 바꿈 형식이 섞여 있어 여기서 편집할 수 없습니다.",
+  "screens.files.draftRestored": "저장하지 않은 변경 사항을 복원했습니다",
   "screens.library.section.documents": "문서",
   "screens.library.empty.documents":
     "아직 문서가 없습니다. 에이전트가 만들거나 받은 파일이 여기에 표시됩니다.",
@@ -2646,10 +3014,27 @@ export const ko: Partial<Catalogue> = {
   "screens.library.openLabel": "{name}{editor, select, true {을(를) 편집기에서} other {}} 열기",
   "screens.library.openInEditor": "편집기에서 열기",
   "screens.library.open": "열기",
+  "screens.library.deleteDownload": "이 다운로드 삭제",
+  "screens.library.deleteFailed":
+    "Psyche가 {name}을(를) 삭제하지 못했습니다({reason}). 격리 상태로 남아 있습니다.",
+  "screens.library.recording.description":
+    "에이전트가 브라우저에서 한 일을 다시 보여 줍니다. 페이지 내용은 녹화할 때 가려졌습니다.",
+  "screens.library.recording.play": "재생",
+  "screens.library.recording.pause": "일시정지",
+  "screens.library.recording.step": "{total}단계 중 {n}단계",
+  "screens.library.recording.scrub": "녹화 내 위치",
+  "screens.library.recording.steps": "단계",
+  "screens.library.recording.empty": "이 녹화에는 단계가 없습니다.",
+  "screens.library.recording.noFrame": "이 단계에는 화면이 없습니다.",
+  "screens.library.recording.frameAlt": "{n}단계의 브라우저",
+  "screens.library.recording.loading": "녹화를 불러오는 중",
+  "screens.library.recording.loadFailed": "Psyche가 이 녹화를 불러오지 못했습니다({reason}).",
+  "screens.library.recording.notFound": "이 녹화는 더 이상 사용할 수 없습니다.",
   "screens.library.trust": "이 파일 신뢰",
   "screens.library.moreFor": "{name}에 대한 추가 동작",
   "screens.library.quickLook": "훑어보기",
   "screens.library.reveal": "Finder에서 보기",
+  "screens.library.revealFailed": "이 파일을 보여 줄 수 없습니다: {reason}",
   "screens.library.sendToChat": "채팅으로 보내기",
   "screens.library.loading": "보관함 로드 중",
   "screens.library.loadFailed": "Psyche가 보관함을 로드할 수 없습니다",
@@ -2912,10 +3297,10 @@ export const ko: Partial<Catalogue> = {
   "web.viewers.noPath": "이 파일에는 경로가 없습니다.",
   "web.shortcut.palette": "명령 팔레트",
   "web.shortcut.newSideChat": "새 사이드 채팅",
+  "web.shortcut.newIncognitoChat": "새 시크릿 채팅",
   "web.shortcut.closeThreadView": "스레드 보기 또는 팝아웃 닫기",
   "web.shortcut.toggleThreadList": "스레드 목록 켜기/끄기",
   "web.shortcut.cycleThreads": "스레드 전환",
-  "web.shortcut.forkSelection": "선택 영역을 사이드 채팅으로 분기",
   "web.shortcut.stop": "실행 중지, 제어 가져오기 해제",
   "web.shortcut.cycleDisclosure": "표시 수준 전환: 상태, 동작, 원시",
   "web.shortcut.openBrowserPane": "브라우저 패널",
@@ -2953,7 +3338,9 @@ export const ko: Partial<Catalogue> = {
   "web.threads.untitled": "제목 없음",
   "web.threads.label": "스레드",
   "web.threads.newSideChatTitle": "새 사이드 채팅 (⌘N)",
+  "web.threads.newIncognitoChatTitle": "새 시크릿 채팅",
   "web.threads.newSideChat": "+ 사이드 채팅",
+  "web.threads.newIncognitoChat": "+ 시크릿",
   "web.threads.searchLabel": "스레드 검색",
   "web.threads.searchPlaceholder": "검색",
   "web.threads.empty": "아직 사이드 채팅이 없습니다.",
@@ -3271,8 +3658,13 @@ export const ko: Partial<Catalogue> = {
   // password approvals on Linux (polkit)
   ...passwordPresence,
   ...helperCheck,
+  ...helperOffline,
   // the security-records banner (docs/design/security-state-integrity-2026.md §7.3)
   ...securityState,
+  // Gateway-authored notices (inbox notifications, security alerts)
+  ...notices,
   // Settings > Computer use > Separate desktop (Linux)
   ...separateDesktop,
+  // Windows variants of the sandbox PC, voice keys and platform terms
+  ...windowsPlatform202611,
 };

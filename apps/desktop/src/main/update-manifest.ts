@@ -84,7 +84,11 @@ export interface UpdateManifest {
   format: typeof MANIFEST_FORMAT;
   version: 1;
   release: string;
-  /** Installed versions below this must update before they keep running (security fixes). */
+  /**
+   * Informational only: an installed version below this gets "(required)" in the log and updater
+   * status. Nothing blocks or forces anything on it, and it is not a rollback floor. A client only
+   * ever moves up to the newest signed release it is shown (security §11).
+   */
   minimumVersion: string;
   publishedAt: string;
   /** Every artifact is fetched from `baseUrl + name`. */
@@ -327,8 +331,28 @@ export type UpdatePlan =
       full?: { artifact: ManifestArtifact; url: string };
     };
 
+/**
+ * True when `candidate` is inside `pin` after URL normalisation: same origin, no credentials, and
+ * the resolved path (where `..` and `%2e%2e` are already collapsed) under the pin's path. A raw
+ * string-prefix check is not enough, because `new URL` resolves dot segments afterwards.
+ */
+export function isUnderPin(candidate: string, pin: string): boolean {
+  let c: URL;
+  let p: URL;
+  try {
+    c = new URL(candidate);
+    p = new URL(pin);
+  } catch {
+    return false;
+  }
+  if (c.username || c.password || c.search || c.hash) return false;
+  if (c.origin !== p.origin || c.origin === "null") return false;
+  const prefix = p.pathname.endsWith("/") ? p.pathname : `${p.pathname}/`;
+  return c.pathname.startsWith(prefix) && !/%2f|%5c/i.test(c.pathname);
+}
+
 export function planUpdate(m: UpdateManifest, input: UpdatePlanInput): UpdatePlan {
-  if (!m.baseUrl.startsWith(input.pinnedBase) || !m.baseUrl.endsWith("/")) {
+  if (!isUnderPin(m.baseUrl, input.pinnedBase) || !m.baseUrl.endsWith("/")) {
     throw new ManifestError("untrusted_host", `artifacts are not under ${input.pinnedBase}`);
   }
   const base = new URL(m.baseUrl);

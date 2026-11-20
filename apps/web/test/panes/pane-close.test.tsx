@@ -1,6 +1,8 @@
 // @vitest-environment happy-dom
+
+import { markLiveDirty, resetFileDrafts } from "@psyche/ui";
 import { cleanup, fireEvent, render, screen } from "@testing-library/react";
-import { afterEach, describe, expect, it } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 import { INITIAL_STATUS } from "../../src/client/status.ts";
 import { PaneArea } from "../../src/shell/components/Panes.tsx";
 import { ShellProvider } from "../../src/shell/context.tsx";
@@ -9,7 +11,11 @@ import type { ShellPlatform } from "../../src/shell/platform.ts";
 import { ShellStore } from "../../src/shell/store.ts";
 import { testEnv } from "../layout/helpers.ts";
 
-afterEach(cleanup);
+afterEach(() => {
+  cleanup();
+  resetFileDrafts();
+  vi.unstubAllGlobals();
+});
 
 function setup() {
   const saved = new Map<string, string>();
@@ -49,6 +55,19 @@ function setup() {
 }
 
 describe("the pane beside the chat (#510)", () => {
+  it("asks before the × closes a Files pane with unsaved edits", () => {
+    setup();
+    markLiveDirty("/notes/a.md", true);
+    const confirm = vi.fn(() => false);
+    vi.stubGlobal("confirm", confirm);
+    fireEvent.click(screen.getByRole("button", { name: "Close pane" }));
+    expect(confirm).toHaveBeenCalledWith("Discard unsaved changes?");
+    expect(screen.getByTestId("pane-area")).toBeTruthy();
+    confirm.mockReturnValue(true);
+    fireEvent.click(screen.getByRole("button", { name: "Close pane" }));
+    expect(screen.queryByTestId("pane-area")).toBeNull();
+  });
+
   it("closes from its × and stays closed after a reload", () => {
     const { storage } = setup();
     expect(screen.getByTestId("pane-area")).toBeTruthy();

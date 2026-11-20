@@ -36,6 +36,15 @@ export const fade = {
   exit: { opacity: 0, transition: { duration: seconds(duration.short * duration.exitFactor) } },
 } as const;
 
+/**
+ * The enter/exit variants for a block: the rise under full motion, a plain fade under reduced
+ * motion (§7: "fade 150 ms"). Motion drops the animation of `y` when reduced but still paints the
+ * `initial` offset for a frame, so the offset is left out of the variants altogether.
+ */
+export function useFadeRise(): typeof fade | typeof fadeRise {
+  return useReducedMotionConfig() === true ? fade : fadeRise;
+}
+
 /** A block that fades and rises in, and fades out inside a `Presence`. */
 export function FadeIn({
   still = false,
@@ -44,7 +53,8 @@ export function FadeIn({
   /** Fade only, never move (approval cards: docs/06 §3.3). */
   still?: boolean;
 }): ReactElement {
-  return <m.div {...(still ? fade : fadeRise)} {...props} />;
+  const variants = useFadeRise();
+  return <m.div {...(still ? fade : variants)} {...props} />;
 }
 
 /** A list item: like `FadeIn`, with an optional capped stagger index (§4.1). */
@@ -52,12 +62,13 @@ export function ListItem({
   index = 0,
   ...props
 }: HTMLMotionProps<"li"> & { index?: number }): ReactElement {
+  const v = useFadeRise();
   const delay = seconds(Math.min(index, duration.staggerMax) * duration.staggerStep);
   return (
     <m.li
-      initial={fadeRise.initial}
-      animate={{ ...fadeRise.animate, transition: { ...fadeRise.animate.transition, delay } }}
-      exit={fadeRise.exit}
+      initial={v.initial}
+      animate={{ ...v.animate, transition: { ...v.animate.transition, delay } }}
+      exit={v.exit}
       {...props}
     />
   );

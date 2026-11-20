@@ -9,10 +9,15 @@ import { posix } from "node:path";
  * the system binary).
  *
  * The argv is the boundary, not a hint: a small allowlist of programs, each with its own argument
- * rules. Anything else, or anything this cannot tell, is not read-only and asks as before. Nothing
- * that reads configuration naming programs to run is in it: git runs filters, textconv drivers,
- * fsmonitor and gpg from repository config, so git always asks (re-adding it would need, at least,
- * the real git from `xcrun -f git` and every config-driven program switched off).
+ * rules. Anything else, or anything this cannot tell, is not read-only and asks as before.
+ *
+ * Git is in it again, narrowly (security §5.4): `status`, `log`, `diff`, `show`, `branch` (list
+ * only), `rev-parse`, `ls-files`, `blame` and `remote -v`. git runs filters, textconv drivers,
+ * fsmonitor, pagers and gpg from repository config, so this file only fixes WHICH argv counts (an
+ * allowlist of exact subcommands and flags, no option before the subcommand at all) and the
+ * Gateway runs it hardened: the system git, every config-driven program switched off, no system
+ * or global config, no pager, no optional locks, and the repository checked to be a plain `.git`
+ * directory inside the granted folder (`exec-host.ts`, `gitRepoRoot`).
  */
 
 /** Apple's binaries under System Integrity Protection: a same-user process cannot swap them. */
@@ -117,7 +122,240 @@ function flagsOnly(flag: RegExp): Rule {
   };
 }
 
+/** Alternatives for one `^(…)$` flag pattern. */
+const alt = (...parts: string[]) => new RegExp(`^(${parts.join("|")})$`);
+
+/** Flags `diff`, `log` and `show` share: they shape the diff output and run nothing. */
+const GIT_DIFF_FLAGS = [
+  "-p",
+  "-s",
+  "-z",
+  "-w",
+  "-b",
+  "--patch",
+  "--no-patch",
+  "--stat(=\\d{1,4}(,\\d{1,4}){0,2})?",
+  "--shortstat",
+  "--numstat",
+  "--name-only",
+  "--name-status",
+  "--summary",
+  "--raw",
+  "--no-color",
+  "--color=never",
+  "--no-renames",
+  "-M(\\d{1,3}%?)?",
+  "--find-renames(=\\d{1,3}%?)?",
+  "--minimal",
+  "--patience",
+  "--histogram",
+  "--ignore-space-change",
+  "--ignore-all-space",
+  "--ignore-space-at-eol",
+  "--word-diff(=(plain|color|porcelain|none))?",
+  "-U\\d{1,4}",
+  "--unified=\\d{1,4}",
+  "--diff-filter=[ACDMRTUXB]{1,9}",
+  "--abbrev(=\\d{1,2})?",
+  "--no-abbrev",
+  "--full-index",
+];
+
+/** Flags `log` and `show` share. `--format`/`--pretty` are checked apart (no `%G`: it runs gpg). */
+const GIT_LOG_FLAGS = [
+  "--oneline",
+  "--abbrev-commit",
+  "--no-abbrev-commit",
+  "--decorate(=(short|full|no))?",
+  "--no-decorate",
+  "--date=[A-Za-z0-9:.,-]{1,40}",
+  "--relative-date",
+  "(--pretty|--format)=[^\\x00-\\x1f]{0,300}",
+];
+
+const GIT_REV_SELECT_FLAGS = [
+  "-\\d{1,5}",
+  "-n\\d{1,6}",
+  "--max-count=\\d{1,6}",
+  "--skip=\\d{1,6}",
+  "--graph",
+  "--all",
+  "--branches",
+  "--tags",
+  "--remotes",
+  "--follow",
+  "--reverse",
+  "--merges",
+  "--no-merges",
+  "--first-parent",
+  "--topo-order",
+  "--date-order",
+  "--author-date-order",
+  "--left-right",
+  "--boundary",
+  "--all-match",
+  "--invert-grep",
+  "--regexp-ignore-case",
+  "--(author|committer|grep|since|until|after|before)=[^\\x00-\\x1f]{0,300}",
+];
+
+const GIT_NUMBER = /^\d{1,6}$/;
+
+interface GitSpec {
+  flags: RegExp;
+  /** Flags whose value is the next argument, with the pattern that value must match. */
+  withValue?: Readonly<Record<string, RegExp>>;
+  /** Whether revisions and pathspecs may follow; they all stay inside the folder. */
+  operands: boolean;
+}
+
+const GIT_SPECS: Readonly<Record<string, GitSpec>> = {
+  status: {
+    flags: alt(
+      "-s",
+      "-b",
+      "-z",
+      "--short",
+      "--branch",
+      "--long",
+      "--porcelain(=v[12])?",
+      "--show-stash",
+      "--renames",
+      "--no-renames",
+      "--ahead-behind",
+      "--no-ahead-behind",
+      "-u(no|normal|all)?",
+      "--untracked-files(=(no|normal|all))?",
+      "--ignored(=(traditional|matching|no))?",
+    ),
+    operands: true,
+  },
+  log: {
+    flags: alt(...GIT_DIFF_FLAGS, ...GIT_LOG_FLAGS, ...GIT_REV_SELECT_FLAGS),
+    withValue: { "-n": GIT_NUMBER },
+    operands: true,
+  },
+  show: { flags: alt(...GIT_DIFF_FLAGS, ...GIT_LOG_FLAGS), operands: true },
+  diff: {
+    flags: alt(...GIT_DIFF_FLAGS, "--cached", "--staged", "--exit-code", "--quiet", "--check"),
+    operands: true,
+  },
+  // List only: a name argument would create a branch, so no operand and no option that edits.
+  branch: {
+    flags: alt("-[arv]{1,4}", "--list", "--all", "--remotes", "--verbose", "--show-current"),
+    operands: false,
+  },
+  "rev-parse": {
+    flags: alt(
+      "--show-toplevel",
+      "--git-dir",
+      "--absolute-git-dir",
+      "--git-common-dir",
+      "--is-inside-work-tree",
+      "--is-inside-git-dir",
+      "--is-bare-repository",
+      "--show-prefix",
+      "--show-cdup",
+      "--abbrev-ref",
+      "--short(=\\d{1,2})?",
+      "--verify",
+      "--symbolic",
+      "--symbolic-full-name",
+    ),
+    operands: true,
+  },
+  "ls-files": {
+    flags: alt(
+      "-[cmodsuivzt]{1,6}",
+      "--cached",
+      "--modified",
+      "--others",
+      "--deleted",
+      "--stage",
+      "--unmerged",
+      "--ignored",
+      "--exclude-standard",
+      "--full-name",
+      "--deduplicate",
+      "--eol",
+      "--directory",
+      "--no-empty-directory",
+    ),
+    operands: true,
+  },
+  blame: {
+    flags: alt(
+      "-[lsewtfnp]{1,4}",
+      "--porcelain",
+      "--line-porcelain",
+      "--show-email",
+      "--show-name",
+      "--show-number",
+      "--abbrev=\\d{1,2}",
+      "-M",
+      "-w",
+    ),
+    withValue: { "-L": /^\d{1,7}(,[+-]?\d{1,7})?$/ },
+    operands: true,
+  },
+};
+
+/** `%G…` placeholders make git run its gpg program: not in a quiet format string. */
+const GIT_GPG_FORMAT = /^(--pretty|--format)=.*%G/s;
+
+/**
+ * `git <subcommand> …` from the allowlist: no option before the subcommand (`-c`, `-C`,
+ * `--git-dir`, `--work-tree`, `--exec-path`, `--config-env`, `--no-pager`… are all refused),
+ * only the flags listed for that subcommand, and every revision or pathspec inside the folder.
+ */
+const gitRule: Rule = (args, cwd) => {
+  const [sub, ...rest] = args;
+  if (sub === undefined) return "git needs a subcommand";
+  if (sub === "remote") {
+    return rest.length === 0 || (rest.length === 1 && /^(-v|--verbose)$/.test(rest[0] as string))
+      ? { paths: [] }
+      : "only `git remote` and `git remote -v` are read-only";
+  }
+  const spec = Object.hasOwn(GIT_SPECS, sub) ? GIT_SPECS[sub] : undefined;
+  if (spec === undefined) return `git ${sub} is not in the read-only set`;
+  const paths: string[] = [];
+  let flagsDone = false;
+  for (let i = 0; i < rest.length; i++) {
+    const a = rest[i] as string;
+    if (!flagsDone && a === "--") {
+      if (!spec.operands) return `git ${sub} takes no operands`;
+      flagsDone = true;
+      continue;
+    }
+    if (!flagsDone && a.startsWith("-")) {
+      const valueRule =
+        spec.withValue !== undefined && Object.hasOwn(spec.withValue, a)
+          ? spec.withValue[a]
+          : undefined;
+      if (valueRule !== undefined) {
+        const next = rest[i + 1];
+        if (next === undefined || !valueRule.test(next)) {
+          return `${a} needs a plain value`;
+        }
+        i++;
+        continue;
+      }
+      if (!spec.flags.test(a)) return `git ${sub} ${a} is not in the read-only set`;
+      if (GIT_GPG_FORMAT.test(a)) return `${a} would run gpg`;
+      continue;
+    }
+    if (!spec.operands) return `git ${sub} takes no operands (a name would create a branch)`;
+    if (!insideCwd(a, cwd)) return `${a} is outside the folder`;
+    // No shell runs this, but an operand that reads as shell syntax is a model mistake or an
+    // attempt: it asks. Globs (`*.ts`) and revision syntax (`HEAD@{1}`, `a..b`, `~`, `^`) stay.
+    if (/[\s;&|<>`$()\\'"]/.test(a)) return `${a} looks like shell syntax`;
+    paths.push(a);
+  }
+  return { paths };
+};
+
 const RULES: Readonly<Record<string, Rule>> = {
+  git: gitRule,
   date: flagsOnly(/^(-u|-R|\+[^\n]{0,200})$/),
   pwd: flagsOnly(/^-[LP]$/),
   whoami: flagsOnly(/^$/),
@@ -161,7 +399,10 @@ export function classifyHostCommand(argv: readonly unknown[], cwd: string): Host
   for (const a of argv as string[]) {
     if (/[\0\n\r]/.test(a)) return no("argv contains a control character");
     if (!a.startsWith("-") && !a.startsWith("+") && a.includes(":")) return no(`${a} contains ":"`);
-    if (WRITE_OR_EXEC_FLAGS.test(a)) return no(`${a} writes a file or runs a program`);
+    // git's own allowlist decides its flags (`ls-files -o` lists untracked files; `diff`/`log`
+    // have no `-o`/`--output` in it).
+    if (program !== "git" && WRITE_OR_EXEC_FLAGS.test(a))
+      return no(`${a} writes a file or runs a program`);
     const base = a.split("/").at(-1) ?? a;
     if (INTERPRETERS.has(a) || INTERPRETERS.has(base)) return no(`${a} is an interpreter`);
   }

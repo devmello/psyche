@@ -31,15 +31,97 @@ function tierSummary(p: McpProposal): string {
     .join(" · ");
 }
 
+const strings = (v: unknown): string[] =>
+  Array.isArray(v) ? v.filter((x): x is string => typeof x === "string") : [];
+const text = (v: unknown): string => (typeof v === "string" ? v : "");
+
+/**
+ * What an edit changes, old and new, by name: the Gateway sends names and addresses, never a
+ * variable's value. Everything in it came from the config or the server: shown as data.
+ */
+function ChangeRows({ change }: { change: Record<string, unknown> }): ReactElement {
+  const none = t("settings.mcp.trust.change.none");
+  const pair = (term: string, was: string, now: string) => ({
+    term,
+    value: (
+      <span className="flex flex-col gap-0.5">
+        <span className="text-muted-foreground">
+          {t("settings.mcp.trust.change.was", { value: show(was || none, 500) })}
+        </span>
+        <span>{t("settings.mcp.trust.change.now", { value: show(now || none, 500) })}</span>
+      </span>
+    ),
+  });
+  const list = (term: string, names: string[]) => ({
+    term,
+    value: names.map((n) => show(n, 64)).join(", "),
+  });
+  const items = [
+    ...("newCommand" in change
+      ? [
+          pair(
+            t("settings.mcp.trust.change.command"),
+            text(change.oldCommand),
+            text(change.newCommand),
+          ),
+        ]
+      : []),
+    ...("newUrl" in change
+      ? [pair(t("settings.mcp.trust.change.url"), text(change.oldUrl), text(change.newUrl))]
+      : []),
+    ...("newDomains" in change
+      ? [
+          pair(
+            t("settings.mcp.trust.change.domains"),
+            strings(change.oldDomains).join(", "),
+            strings(change.newDomains).join(", "),
+          ),
+        ]
+      : []),
+    ...("newAuth" in change
+      ? [pair(t("settings.mcp.trust.change.auth"), text(change.oldAuth), text(change.newAuth))]
+      : []),
+    ...(strings(change.queryChanged).length > 0
+      ? [list(t("settings.mcp.trust.change.query"), strings(change.queryChanged))]
+      : []),
+    ...(change.userinfoChanged === true
+      ? [
+          {
+            term: t("settings.mcp.trust.change.userinfo"),
+            value: t("settings.mcp.trust.change.changed"),
+          },
+        ]
+      : []),
+    ...(strings(change.envAdded).length > 0
+      ? [list(t("settings.mcp.trust.change.envAdded"), strings(change.envAdded))]
+      : []),
+    ...(strings(change.envRemoved).length > 0
+      ? [list(t("settings.mcp.trust.change.envRemoved"), strings(change.envRemoved))]
+      : []),
+    ...(strings(change.envChanged).length > 0
+      ? [list(t("settings.mcp.trust.change.envChanged"), strings(change.envChanged))]
+      : []),
+  ];
+  return (
+    <div className="flex flex-col gap-1" data-testid="mcp-trust-change">
+      <h4 className="font-medium">{t("settings.mcp.trust.change.title")}</h4>
+      <Facts items={items} />
+    </div>
+  );
+}
+
 /** What the probe found, with the device-only approval (`children`) under it. */
 export function McpTrustCard({
   proposal,
   children,
   onCancel,
+  change,
 }: {
   proposal: McpProposal;
   children?: ReactNode;
   onCancel: () => void;
+  /** An edit of a server already added: what changes, old and new. */
+  change?: Record<string, unknown>;
 }): ReactElement {
   const s = proposal.server;
   const how =
@@ -52,16 +134,23 @@ export function McpTrustCard({
         : t("settings.mcp.runs.srt");
   return (
     <section
-      aria-label={t("settings.mcp.trust.title", { name: show(s.name, 64) })}
+      aria-label={t(change ? "settings.mcp.trust.updateTitle" : "settings.mcp.trust.title", {
+        name: show(s.name, 64),
+      })}
       data-testid="mcp-trust-card"
       className="flex flex-col gap-4 rounded-lg border border-approval-border bg-gray-2 p-4 text-sm"
     >
       <div className="flex flex-col gap-1">
         <h3 className="text-base font-semibold">
-          {t("settings.mcp.trust.title", { name: show(s.name, 64) })}
+          {t(change ? "settings.mcp.trust.updateTitle" : "settings.mcp.trust.title", {
+            name: show(s.name, 64),
+          })}
         </h3>
-        <p className="text-muted-foreground">{t("settings.mcp.trust.intro")}</p>
+        <p className="text-muted-foreground">
+          {change ? t("settings.mcp.trust.updateIntro") : t("settings.mcp.trust.intro")}
+        </p>
       </div>
+      {change ? <ChangeRows change={change} /> : null}
       <Facts
         items={[
           { term: t("settings.mcp.trust.runs"), value: runs },

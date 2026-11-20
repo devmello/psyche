@@ -88,10 +88,19 @@ public enum DictationCapabilities {
 }
 
 extension DictationCapabilities {
-    static func timestamp() -> String {
-        let f = ISO8601DateFormatter()
-        f.formatOptions = [.withInternetDateTime, .withFractionalSeconds]
-        return f.string(from: Date())
+    private static let formatter: LockedFormatter = LockedFormatter()
+
+    static func timestamp() -> String { formatter.string(Date()) }
+
+    /// One formatter for every event (building one per key change was a measurable cost).
+    private final class LockedFormatter: @unchecked Sendable {
+        private let lock = NSLock()
+        private let f: ISO8601DateFormatter = {
+            let f = ISO8601DateFormatter()
+            f.formatOptions = [.withInternetDateTime, .withFractionalSeconds]
+            return f
+        }()
+        func string(_ d: Date) -> String { lock.withLock { f.string(from: d) } }
     }
 }
 
@@ -185,7 +194,7 @@ public final class DictationKeyWatcher: @unchecked Sendable {
     public func start(_ keys: [DictationWatchedKey]) throws -> AsyncStream<DictationKeyChange> {
         guard AXIsProcessTrusted() else { throw CapabilityError.permissionMissing(.accessibility) }
         let (stream, continuation) = AsyncStream<DictationKeyChange>.makeStream()
-        let watch = Watch(tracker: DictationKeySet(keys), continuation: continuation)
+        let watch = Watch(keys: keys, continuation: continuation)
         guard watch.install() else { throw CapabilityError.permissionMissing(.accessibility) }
         lock.withLock {
             current?.finish()
@@ -205,71 +214,86 @@ public final class DictationKeyWatcher: @unchecked Sendable {
         }
     }
 
-    final class Watch: @unchecked Sendable {
-        private var tracker: DictationKeySet
+    /// Two listen-only taps. The `flagsChanged` tap is on while the watch is armed (modifier changes are
+    /// rare). The `keyDown` tap, which only detects chords such as fn+arrow, is created switched off and
+    /// enabled while a watched modifier is held, so ordinary typing never wakes the helper.
+    final class Watch: @unchecked Sendable, KeyDownGate {
+        private var engine: DictationKeyEngine!
+        private static let recheckQueue = DispatchQueue(label: "com.psyche.helper.dictation-chord-recheck", qos: .userInteractive)
         private let continuation: AsyncStream<DictationKeyChange>.Continuation
-        private var tap: CFMachPort?
-        private var runLoop: CFRunLoop?
+        private var flagsTap: RunLoopEventTap?
+        private var keyTap: RunLoopEventTap?
         private let lock = NSLock()
 
-        init(tracker: DictationKeySet, continuation: AsyncStream<DictationKeyChange>.Continuation) {
-            self.tracker = tracker
+        init(keys: [DictationWatchedKey], continuation: AsyncStream<DictationKeyChange>.Continuation) {
             self.continuation = continuation
+            engine = DictationKeyEngine(keys, gate: self, lastKeyDownAge: {
+                CGEventSource.secondsSinceLastEventType(.combinedSessionState, eventType: .keyDown)
+            })
         }
 
         func install() -> Bool {
-            let mask = CGEventMask(1 << CGEventType.flagsChanged.rawValue) | CGEventMask(1 << CGEventType.keyDown.rawValue)
-            let refcon = Unmanaged.passUnretained(self).toOpaque()
-            guard let port = CGEvent.tapCreate(
-                tap: .cgSessionEventTap, place: .tailAppendEventTap, options: .listenOnly, eventsOfInterest: mask,
-                callback: { _, type, event, refcon in
-                    if let refcon { Unmanaged<Watch>.fromOpaque(refcon).takeUnretainedValue().handle(type, event) }
-                    return Unmanaged.passUnretained(event)
-                }, userInfo: refcon
-            ) else { return false }
-            tap = port
-            let retained = Unmanaged.passRetained(self)  // released when the run loop exits
-            let box = UncheckedSendable(port)
-            let t = Thread { [box] in
-                let port = box.value
-                defer { retained.release() }
-                guard CFMachPortIsValid(port), let src = CFMachPortCreateRunLoopSource(nil, port, 0) else { return }
-                let rl = CFRunLoopGetCurrent()
-                retained.takeUnretainedValue().lock.withLock { retained.takeUnretainedValue().runLoop = rl }
-                CFRunLoopAddSource(rl, src, .commonModes)
-                CGEvent.tapEnable(tap: port, enable: true)
-                CFRunLoopRun()
+            let continuation = continuation
+            let engine = engine!
+            let flags = RunLoopEventTap(
+                place: .tailAppendEventTap, options: .listenOnly, types: [.flagsChanged], qos: .userInteractive,
+                name: "com.psyche.helper.dictation-key"
+            ) { _, event in
+                if event.getIntegerValueField(.eventSourceUserData) != Input.marker {
+                    // The callback can run late: anchor the hold at when the modifier actually changed.
+                    var timebase = mach_timebase_info_data_t()
+                    mach_timebase_info(&timebase)
+                    let age = DictationEventAge.seconds(
+                        eventTicks: event.timestamp, nowTicks: mach_absolute_time(), numer: timebase.numer, denom: timebase.denom)
+                    for change in engine.flagsChanged(
+                        keyCode: event.getIntegerValueField(.keyboardEventKeycode), flags: event.flags.rawValue,
+                        eventAge: age)
+                    {
+                        continuation.yield(change)
+                    }
+                }
+                return Unmanaged.passUnretained(event)
             }
-            t.name = "com.psyche.helper.dictation-key"
-            t.qualityOfService = .userInteractive
-            t.start()
+            let key = RunLoopEventTap(
+                place: .tailAppendEventTap, options: .listenOnly, types: [.keyDown], qos: .userInteractive,
+                name: "com.psyche.helper.dictation-chord", startEnabled: false
+            ) { _, event in
+                if event.getIntegerValueField(.eventSourceUserData) != Input.marker {
+                    for change in engine.keyDown() { continuation.yield(change) }
+                }
+                return Unmanaged.passUnretained(event)
+            }
+            guard let flags, let key else {
+                flags?.remove()
+                key?.remove()
+                return false
+            }
+            lock.withLock {
+                flagsTap = flags
+                keyTap = key
+            }
             return true
         }
 
-        private func handle(_ type: CGEventType, _ event: CGEvent) {
-            if type == .tapDisabledByTimeout || type == .tapDisabledByUserInput {
-                if let tap { CGEvent.tapEnable(tap: tap, enable: true) }
-                return
+        func setEnabled(_ on: Bool) {
+            lock.withLock { keyTap }?.setEnabled(on)
+            guard on else { return }
+            // A key struck before the keyDown tap came on is still in the system clock: look again
+            // before the desktop's hold threshold (250 ms) so a missed chord does not start dictation.
+            let continuation = continuation
+            Self.recheckQueue.asyncAfter(deadline: .now() + 0.1) { [weak self] in
+                guard let engine = self?.engine else { return }
+                for change in engine.recheckChord() { continuation.yield(change) }
             }
-            if event.getIntegerValueField(.eventSourceUserData) == Input.marker { return }
-            let changes: [DictationKeyChange] = lock.withLock {
-                switch type {
-                case .flagsChanged:
-                    tracker.flagsChanged(keyCode: event.getIntegerValueField(.keyboardEventKeycode), flags: event.flags.rawValue)
-                case .keyDown: tracker.keyDown()
-                default: []
-                }
-            }
-            for change in changes { continuation.yield(change) }
         }
 
         func finish() {
-            let (port, rl): (CFMachPort?, CFRunLoop?) = lock.withLock {
-                defer { tap = nil; runLoop = nil }
-                return (tap, runLoop)
+            let (a, b): (RunLoopEventTap?, RunLoopEventTap?) = lock.withLock {
+                defer { flagsTap = nil; keyTap = nil }
+                return (flagsTap, keyTap)
             }
-            if let port { CGEvent.tapEnable(tap: port, enable: false); CFMachPortInvalidate(port) }
-            if let rl { CFRunLoopStop(rl) }
+            a?.remove()
+            b?.remove()
             continuation.finish()
         }
     }

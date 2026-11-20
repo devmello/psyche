@@ -55,6 +55,11 @@ export const webRest: Partial<Catalogue> = {
   "web.chat.autoUnavailable":
     "Auto ist nicht verfügbar: {model} steht nicht auf der Auto-Modus-Zulassungsliste. Wähle ein anderes Modell, um es zu nutzen.",
   "web.toast.threadUpdateFailed": "Psyche konnte diese Chat-Einstellung nicht ändern.",
+  "web.toast.autoModelRefused":
+    "Auto funktioniert nur mit den aufgelisteten Modellen, und {model} steht nicht auf der Auto-Liste. Wähle ein erlaubtes Modell oder nutze Manuell oder Ausgewogen.",
+  "web.toast.autoModelRefusedNoModel":
+    "Auto funktioniert nur mit den aufgelisteten Modellen. Wähle zuerst eines im Modellauswahl-Menü.",
+  "web.toast.switchModel": "Modell wechseln",
   "web.splash.remote.finding": "{host} wird gesucht …",
   "web.splash.remote.checking": "Es wird geprüft, ob es wirklich {host} ist …",
   "web.splash.remote.waiting": "Warten auf Genehmigung auf {host} …",

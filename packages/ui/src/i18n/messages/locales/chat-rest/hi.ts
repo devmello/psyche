@@ -51,6 +51,9 @@ export const chatRest: Partial<Catalogue> = {
     "{name}: Psyche इस तरह की फ़ाइल नहीं पढ़ सकता। PDF, Word, Excel, टेक्स्ट या चित्र फ़ाइल संलग्न करें",
   "chat.attach.refused.size": "{name} संलग्न करने के लिए बहुत बड़ी है (चित्र 5 MB, दस्तावेज़ 25 MB)",
   "chat.attach.refused.count": "{name}: एक संदेश के साथ अधिकतम 8 फ़ाइलें जा सकती हैं",
+  "chat.attach.refused.sensitive": "{name} सुरक्षित स्थान पर है और Psyche के साथ साझा नहीं किया जा सकता",
+  "chat.attach.refused.unreadable":
+    "{name} संलग्न नहीं हो सका। जाँचें कि वह अब भी मौजूद है और फ़ाइल है, फ़ोल्डर नहीं",
   "chat.message.fromWidget": "विजेट से",
   "chat.teach.notLikeThis": "ऐसे नहीं",
   "chat.teach.dialog": "Psyche को सिखाएँ",
@@ -128,6 +131,8 @@ export const chatRest: Partial<Catalogue> = {
   "chat.steps.approval": "आपकी स्वीकृति की प्रतीक्षा में: {summary}",
   "chat.steps.question": "पूछा: {question}",
   "chat.steps.answered": "जवाब दिया: {question}",
+  "chat.steps.earlier": "{n, plural, one {# पिछला चरण पूरा} other {# पिछले चरण पूरे}}",
+  "chat.steps.needsYou": "आपकी ज़रूरत है",
   "chat.steps.writing": "जवाब लिखा जा रहा है…",
   "chat.steps.thinking": "सोच रहा है: {text}",
   "chat.steps.thinkingEmpty": "सोच रहा है…",
@@ -185,4 +190,16 @@ export const chatRest: Partial<Catalogue> = {
   "chat.clear.failed": "चैट साफ़ नहीं की जा सकी: {reason}",
   "chat.clear.mainOnly": "साफ़ करना मुख्य चैट में काम करता है। नई साइड चैट के लिए /new उपयोग करें।",
   "chat.commands.clear.description": "मुख्य चैट साफ़ करें",
+  "chat.modeSwitch.label": "अनुमति मोड",
+  "chat.modeSwitch.autoExplainer":
+    "ऑटो मोड आपकी दी गई अनुमतियों के भीतर रोज़मर्रा के काम चलाता है और किसी भी संवेदनशील काम से पहले पूछता है। भुगतान हमेशा पूछते हैं; आपकी ‘कभी नहीं’ सूची हमेशा अस्वीकार की जाती है।",
+  "chat.modeSwitch.gotIt": "समझ गया",
+  "chat.modeSwitch.autoUnavailable": "ऑटो मोड {model} पर नहीं चल सकता।",
+  "chat.modeSwitch.needsModel": "ऑटो मोड के लिए समर्थित मॉडल चाहिए।",
+  "chat.modeSwitch.switchModel": "{model} पर जाएँ और ऑटो मोड इस्तेमाल करें",
+  "chat.modeSwitch.noModel":
+    "ऑटो मोड के लिए Claude, GPT या Gemini जैसा समर्थित मॉडल चाहिए। सेटिंग्स में उसकी कुंजी जोड़ें।",
+  "chat.modeSwitch.failed": "मोड बदला नहीं जा सका: {reason}",
+  "chat.modeSwitch.notSaved":
+    "इस चैट के लिए बदल दिया गया, लेकिन नई चैट के डिफ़ॉल्ट के रूप में सहेजा नहीं जा सका।",
 };

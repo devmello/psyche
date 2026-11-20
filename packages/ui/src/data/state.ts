@@ -30,6 +30,7 @@ import type {
   VmUpdatedPayload,
   Widget,
 } from "@psyche/protocol";
+import type { LibraryAttachItem } from "../chat/attachments.ts";
 import type { ConnectionState } from "./client.ts";
 
 /** A text delta stream for an agent message that has not been committed yet. */
@@ -76,6 +77,8 @@ export interface QueuedFollowUp {
   replyToMessageId: string | null;
   /** Library item ids sent with it. */
   attachments?: readonly string[];
+  /** Files from disk (desktop) the owner attached; sent as `attachedFiles`. */
+  attachedFiles?: readonly { path: string }[];
   /** Sending failed; the queue stops draining until the user retries or removes it. */
   failed?: boolean;
 }
@@ -182,6 +185,8 @@ export interface UiState {
   clearChatRequest: string | null;
   /** What the next message in a thread is about ("Ask about this" on a Feed item); one send. */
   composerContext: ComposerContext | null;
+  /** Library items a new chat is handed to attach ("Send to chat"); that thread takes them once. */
+  composerAttachments: { threadId: string; items: LibraryAttachItem[] } | null;
   memoryEtags: Dict<string | null>;
   queries: Dict<QueryEntry>;
   /** Sandbox Mac guests as `vm.updated` last reported them, by `<nodeId>/<guest name>`. */
@@ -236,6 +241,7 @@ export const INITIAL_STATE: UiState = {
   composerPrefill: null,
   clearChatRequest: null,
   composerContext: null,
+  composerAttachments: null,
   memoryEtags: {},
   queries: {},
   vmGuests: {},

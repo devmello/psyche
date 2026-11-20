@@ -70,6 +70,10 @@ export const PACKAGE_WASTE = {
     "legacy/build/pdf.sandbox.min.mjs",
   ],
   "playwright-core": ["lib/vite"],
+  // node-pty loads its prebuilt `prebuilds/<platform>-<arch>/pty.node` (lib/utils.js falls back to
+  // build/Release only when that is missing). deps/ and third_party/ (Windows conpty sources) and
+  // src/ are the native build inputs: ~3.9 MiB, never read on macOS.
+  "node-pty": ["deps", "src", "third_party", "scripts", "binding.gyp"],
 };
 
 /** Workspace folders (`apps/*`, `packages/*`) hold sources only: tests and configs never run. */

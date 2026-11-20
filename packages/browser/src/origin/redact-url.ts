@@ -4,7 +4,7 @@
  * the driver keeps the real URL internally.
  */
 const SENSITIVE =
-  /^(code|state|token|access_token|id_token|refresh_token|auth|authorization|password|passwd|pwd|pass|secret|client_secret|api[_-]?key|apikey|key|sig|signature|x-amz-signature|x-goog-signature|session|sessionid|session_id|sid|otp|ticket|jwt|samlresponse|samlrequest|assertion|nonce)$/i;
+  /^(code|state|token|access_token|id_token|refresh_token|auth|authorization|password|passwd|pwd|pass|secret|client_secret|api[_-]?key|apikey|key|sig|signature|x-amz-signature|x-goog-signature|session|sessionid|session_id|sid|otp|ticket|jwt|samlresponse|samlrequest|assertion|nonce|cvc|cvv|cvv2|csc|exp|expiry|exp[_-]?(?:month|year|date)|expiration|ccv|security[_-]?code|card|card[_-]?number|cc[_-]?(?:number|num|exp|csc))$/i;
 
 const MASK = "•••";
 

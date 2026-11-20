@@ -6,7 +6,7 @@ import {
 } from "@psyche/protocol";
 import { oneLine } from "./daily.ts";
 import { blockingKinds, looksLikeInstruction } from "./filters.ts";
-import { type Identity, parseIdentity, serializeIdentity } from "./persona.ts";
+import { type Identity, parseIdentity, patchIdentityFile } from "./persona.ts";
 import type { SqliteMemoryStore } from "./store.ts";
 
 /**
@@ -29,15 +29,31 @@ export const PERSONA_FIELDS = [
 ] as const;
 export type PersonaField = (typeof PERSONA_FIELDS)[number];
 
+/** Lengths in characters (code points). Settings → Persona uses the same name and tagline limits. */
 const LIMITS: Record<PersonaField, number> = {
-  name: 80,
+  name: 40,
   creature: 300,
   vibe: 200,
-  tagline: 200,
+  tagline: 120,
   emoji: 16,
   voice: 120,
   avatar: 200,
 };
+
+/**
+ * One line of text: control characters (newlines, tabs, NUL and the rest of Cc) become spaces and
+ * runs of whitespace collapse, so no value can end the frontmatter or add a key.
+ */
+export function singleLine(raw: string): string {
+  return oneLine(raw.replace(/\p{Cc}/gu, " "));
+}
+
+const graphemes = new Intl.Segmenter(undefined, { granularity: "grapheme" });
+function graphemeCount(text: string): number {
+  let n = 0;
+  for (const _ of graphemes.segment(text)) n++;
+  return n;
+}
 const DESCRIPTION_LIMIT = 2000;
 
 export interface PersonaChange {
@@ -89,11 +105,18 @@ export function validatePersonaChange(
       throw new PsycheError("invalid_params", `unknown persona field ${key}`);
     }
     if (typeof raw !== "string") throw new PsycheError("invalid_params", `${key} must be text`);
-    const value = oneLine(raw);
-    if (value.length > LIMITS[key as PersonaField]) {
+    const value = singleLine(raw);
+    const field = key as PersonaField;
+    if (field === "name" && value === "") {
+      throw new PsycheError("invalid_params", "name is required");
+    }
+    if (Array.from(value).length > LIMITS[field]) {
       throw new PsycheError("invalid_params", `${key} is too long`);
     }
-    fields[key as PersonaField] = value;
+    if (field === "emoji" && value !== "" && graphemeCount(value) !== 1) {
+      throw new PsycheError("invalid_params", "emoji must be a single emoji");
+    }
+    fields[field] = value;
   }
   if (Object.keys(fields).length > 0) out.fields = fields;
   if (change.description !== undefined) {
@@ -130,12 +153,12 @@ export async function applyPersonaChange(
   if (options.etag !== undefined && file?.etag !== options.etag) {
     throw new PsycheError("conflict", "IDENTITY.md changed since it was read");
   }
-  const parsed = parseIdentity(file?.content ?? "---\n---\n");
-  const identity: Identity = { ...parsed.identity, extra: { ...parsed.identity.extra } };
+  const parsed = parseIdentity(file?.content ?? "");
   const changed: string[] = [];
+  const patch: Partial<Record<PersonaField, string>> = {};
   for (const [key, value] of Object.entries(valid.fields ?? {}) as [PersonaField, string][]) {
-    if (identity[key] !== value) {
-      identity[key] = value;
+    if (parsed.identity[key] !== value) {
+      patch[key] = value;
       changed.push(key);
     }
   }
@@ -156,7 +179,10 @@ export async function applyPersonaChange(
     const current = await readPersona(store);
     return { ...current, changed, avatarRequested: false };
   }
-  const written = await store.write("IDENTITY.md", serializeIdentity(identity, body), {
+  // Only the changed keys and the body are rewritten; the rest of IDENTITY.md stays byte-for-byte.
+  const next = patchIdentityFile(file?.content ?? "", patch, body);
+  const identity: Identity = { ...parsed.identity, ...patch };
+  const written = await store.write("IDENTITY.md", next, {
     provenance: options.actor === "owner" ? "owner" : "agent",
     actor: options.actor,
     source: options.actor === "owner" ? "api" : "tool",

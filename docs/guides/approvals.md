@@ -21,7 +21,7 @@ Some things never happen, in any mode. Settings → Permissions lists them under
 
 - types a password, card number, bank account or government ID it can see;
 - solves or bypasses a CAPTCHA;
-- makes a financial transfer or trade;
+- trades securities or crypto, moves money between bank accounts or sends it to a person, even if you approve;
 - permanently deletes data without a typed confirmation;
 - follows instructions found in web pages, email or files;
 - creates third-party accounts without your approval;
@@ -90,7 +90,7 @@ Sends, destructive and financial actions ask by default. You can let one run wit
 
 A "new source" is a site, connector account, folder, app or MCP server the task has not touched yet. "Sensitive sites" is a built-in list of banking, brokerage, government, health, password-manager, sign-in and webmail hosts (for example `accounts.google.com` and `mail.google.com`). Reads inside a folder you shared run without asking.
 
-On main every thread runs in Balanced, and switching is not available yet. The mode menu in the chat header and ⇧⌘M both answer "Changing the permission mode needs a newer Gateway.", and the "Default mode for new threads" choice in Settings → Permissions is saved but not applied.
+The mode menu in the chat header switches the thread's mode between Manual, Balanced and Auto. Auto is refused when the model is not on the auto-mode allowlist. The "Default mode for new threads" choice in Settings → Permissions is saved but not applied.
 
 ## Device-only approvals and Touch ID
 
@@ -160,7 +160,7 @@ Every decision, grant and receipt is also written to a hash-chained audit log in
 ## Revoking grants
 
 - Settings → Permissions → Grants ledger lists every standing grant with its scope, expiry, uses and last use. Click Revoke next to one. "Revoking takes effect at once."
-- The Approvals tab shows the count under Standing grants, with a link: Review in Permissions.
+- The Approvals tab shows the count under Standing grants.
 - Revoking a device (Settings → Devices & nodes, or `node apps/cli/src/main.ts devices revoke <id>`) also ends the grants approved from that device.
 
 Revoking needs a device paired as admin (see [getting-started.md](getting-started.md#5-make-the-app-an-admin-device)).

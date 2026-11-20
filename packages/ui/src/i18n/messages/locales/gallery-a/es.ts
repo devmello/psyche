@@ -164,6 +164,21 @@ export const galleryA: Partial<Catalogue> = {
   "onboarding.step.you": "Tú y tu agente",
   "onboarding.step.stuff": "Tus cosas",
   "onboarding.step.safety": "Seguridad",
+  "onboarding.step.folders": "Carpetas",
+  "onboarding.folders.lead":
+    "Deja que {name} lea tus carpetas Documentos, Escritorio y Descargas. Solo lectura: {name} puede ver los archivos, nunca cambiarlos ni borrarlos. No se comparte nada si no lo marcas.",
+  "onboarding.folders.group": "Carpetas para compartir, solo lectura",
+  "onboarding.folders.documents": "Documentos",
+  "onboarding.folders.desktop": "Escritorio",
+  "onboarding.folders.downloads": "Descargas",
+  "onboarding.folders.hint":
+    "Puedes cambiarlo en cualquier momento en Ajustes, en Acceso a archivos.",
+  "onboarding.folders.shareLater":
+    "Puedes compartir estas carpetas más tarde en Ajustes → Acceso a archivos.",
+  "onboarding.folders.openFileAccess": "Abrir Acceso a archivos",
+  "onboarding.folders.retry": "Reintentar",
+  "onboarding.folders.continueWithout": "Continuar sin compartir",
+  "onboarding.folders.failed": "No se pudieron compartir estas carpetas: {reason}",
   "onboarding.you.lead": "Todo en esta página es opcional y puedes cambiarlo más tarde.",
   "onboarding.you.agent": "Tu agente",
   "onboarding.you.customize": "Personalizar el aspecto",
@@ -187,17 +202,17 @@ export const galleryA: Partial<Catalogue> = {
     "El resumen de la mañana está desactivado, así que las personas no aparecerán todavía. Actívalo para verlas.",
   "onboarding.safety.lead":
     "Cómo te llegan las aprobaciones y qué se ejecuta solo. Aquí no se pide acceso a tus archivos, apps ni pantalla: {name} lo pide en el chat la primera vez que lo necesita.",
-  "onboarding.safety.touchId": "Touch ID para las aprobaciones",
+  "onboarding.safety.touchId": "Touch ID para los pagos",
   "onboarding.safety.touchId.checking": "Examinando el ayudante del Mac…",
   "onboarding.safety.touchId.again": "Comprobar de nuevo",
   "onboarding.safety.touchId.set": "Configurar",
-  "onboarding.safety.touchId.setHint": "Las aprobaciones que te necesitan piden tu huella.",
+  "onboarding.safety.touchId.setHint": "Los pagos piden tu huella o la contraseña de tu Mac.",
   "onboarding.safety.touchId.starting":
     "El ayudante del Mac aún se está iniciando. Vuelve a comprobar en un momento.",
   "onboarding.safety.touchId.noKey": "El ayudante del Mac no tiene clave de Touch ID ({reason}).",
   "onboarding.safety.touchId.register": "Registrar esta clave",
   "onboarding.safety.touchId.hint":
-    "Registra una vez la clave del ayudante del Mac para que Touch ID pueda confirmar las aprobaciones.",
+    "Registra una vez la clave del ayudante del Mac para que Touch ID pueda confirmar los pagos.",
   "onboarding.safety.notifications": "Notificaciones",
   "onboarding.safety.asks":
     "Si dejas que {name} ejecute comandos en este Mac, los que solo leen, como ls o cat, se ejecutan sin tarjeta. Todo lo demás te pregunta antes.",

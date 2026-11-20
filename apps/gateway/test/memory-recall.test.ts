@@ -42,7 +42,10 @@ function recording(): ModelProvider & { prompts: string[] } {
     prompts: [] as string[],
     capabilities: async () => ({ contextWindow: 64_000 }) as never,
     async *stream(req: ModelRequest) {
-      p.prompts.push(JSON.stringify([req.system, req.messages]));
+      // The system prompt and this turn's user message (the recall rides in it); older turns
+      // keep theirs in the transcript, so only the latest is this turn's.
+      const turn = req.messages.filter((m) => m.role === "user").at(-1);
+      p.prompts.push(JSON.stringify([req.system, turn]));
       yield* reply("{}");
     },
   };

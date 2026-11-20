@@ -78,6 +78,23 @@ describe("models.* methods (B1, B4)", () => {
     expect(methodSpec("models.setKey").scope).toBe("operator.admin");
   });
 
+  it("validates keys.*: admin-only, ids are a closed set, status carries no key", () => {
+    for (const m of ["keys.status", "keys.set", "keys.clear"] as const) {
+      expect(methodSpec(m).scope).toBe("operator.admin");
+    }
+    expect(requiresIdempotencyKey("keys.set")).toBe(true);
+    expect(requiresIdempotencyKey("keys.clear")).toBe(true);
+    expect(() => validateParams("keys.set", { id: "brave", key: "BSA-x" })).not.toThrow();
+    expect(() => validateParams("keys.set", { id: "nope", key: "x" })).toThrow();
+    expect(() => validateParams("keys.set", { id: "brave", key: "" })).toThrow();
+    expect(() => validateParams("keys.clear", { id: "openai" })).not.toThrow();
+    expect(() =>
+      validateResult("keys.status", {
+        keys: [{ id: "brave", configured: true, source: "env", inVault: false }],
+      }),
+    ).not.toThrow();
+  });
+
   it("validates a tool-check verdict", () => {
     const result = {
       ref: "llamacpp/qwen3-8b",

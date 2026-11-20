@@ -98,7 +98,7 @@ What the 2026-10-20 run showed, on a locally built app (not quarantined, so ther
 | Path | What |
 | --- | --- |
 | `/Applications/Psyche.app` | The app, the bundled Gateway and Psyche Helper |
-| `~/.psyche/` (`PSYCHE_HOME`) | Everything the Gateway keeps: `state/psyche.sqlite`, `workspace/` (memory files), `vault/` (encrypted vault and its slots), `secrets/vault.key` (unsigned builds only), `logs/gateway.out.log` and `gateway.err.log`, `run/` (node socket, `handshake.secret`, `helper.lock`), backups |
+| `~/.psyche/` (`PSYCHE_HOME`) | Everything the Gateway keeps: `state/psyche.sqlite`, `workspace/` (memory files), `vault/` (encrypted vault and its slots), `secrets/vault.key` (unsigned builds only), `logs/gateway.log` (and `gateway.err.log` for crashes), `run/` (node socket, `handshake.secret`, `helper.lock`), backups |
 | `~/Library/LaunchAgents/com.psyche.gateway.plist` | The Gateway's LaunchAgent (label `com.psyche.gateway`, `KeepAlive`, `RunAtLoad`) |
 | `~/Library/Application Support/Psyche/` | The window's own data: device key, browser profiles, window state |
 | `~/Library/Preferences/com.psyche.desktop.plist`, `com.psyche.helper.plist` | macOS preferences for the two apps |

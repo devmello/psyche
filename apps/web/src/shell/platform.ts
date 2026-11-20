@@ -26,7 +26,7 @@ export interface GatewayPort {
   /** Desktop only: the Gateway process the app starts (LaunchAgent or dev child). */
   getRun?(): Promise<GatewayRunView>;
   onRun?(cb: (run: GatewayRunView) => void): Unsubscribe;
-  /** Desktop only: opens `$PSYCHE_HOME/logs` (gateway.out.log, gateway.err.log). */
+  /** Desktop only: opens `$PSYCHE_HOME/logs` (gateway.log, gateway.err.log, gateway.out.log). */
   showLogs?(): Promise<void>;
   /** Desktop only: starts the Gateway again after a failed start (the splash's Retry). */
   retry?(): Promise<void>;
@@ -438,6 +438,11 @@ export interface WindowChrome {
 export interface DialogPort {
   /** Opens the OS folder chooser; resolves to the folder's real path, or null when cancelled. */
   pickFolder(opts?: { title?: string }): Promise<string | null>;
+  /**
+   * The real path of a file the owner picked or dropped, or null when it has none (a pasted
+   * image). The chat attaches such a file in place instead of uploading its bytes.
+   */
+  pathOfFile?(file: File): string | null;
 }
 
 export interface KeyValueStore {
@@ -508,6 +513,11 @@ export interface AppInfoPort {
   info(): Promise<HostAppInfo>;
   /** Shows the data folder in Finder. Absent for a client of another computer's Gateway. */
   revealHome?(): Promise<void>;
+  /**
+   * Library → Reveal in Finder (or "Show in folder" on Windows and Linux) for one Library item.
+   * Desktop on this Mac's Gateway only; absent on the web and for a client of another computer.
+   */
+  revealLibraryItem?(itemId: string): Promise<void>;
   /**
    * Uninstall Psyche (design updates-and-install §3.5). Desktop shell on this Mac only: absent
    * on the web and for a client of another computer's Gateway.
@@ -612,7 +622,7 @@ export interface BundledHelperIdentity {
   deviceId: string;
   keyId?: string;
   /** `windows_hello` from the Windows helper; its `algorithm` is e.g. "RSA-2048". */
-  kind?: "keychain" | "enclave_keychain_acl" | "enclave_file" | "windows_hello";
+  kind?: "windows_hello" | "device_identity";
   algorithm?: string;
   error?: string;
 }

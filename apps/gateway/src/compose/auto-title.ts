@@ -117,6 +117,10 @@ export function createAutoTitler(deps: AutoTitleDeps) {
           messages: [{ role: "user", parts: [{ type: "text", text: body }] }],
           maxOutputTokens: 24,
           temperature: 0,
+          // One 24-token answer: thinking must not eat the cap, and the unique tail is never re-read.
+          effort: "low",
+          reasoning: "off",
+          cache: "none",
         },
         { signal: ctl.signal },
       )) {

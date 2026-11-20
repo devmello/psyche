@@ -6,7 +6,7 @@ import { Button } from "../../components/ui/button.tsx";
 import { Checkbox } from "../../components/ui/checkbox.tsx";
 import { Label } from "../../components/ui/label.tsx";
 import { useCall, useGatewayQuery } from "../../data/hooks.ts";
-import { t } from "../../i18n/core.ts";
+import { isMessageId, t } from "../../i18n/core.ts";
 import { groupFingerprint } from "../../lib/fingerprint.ts";
 import { formatRelative } from "../../lib/format.ts";
 import { useNow } from "../../lib/use-now.ts";
@@ -49,8 +49,9 @@ const DEFAULT_SCOPES: readonly SetupTokenScope[] = [
 
 type Made = MethodResult<"devices.setupToken.create">;
 
-function scopeWord(s: SetupTokenScope): string {
-  return t(`settings.devices.scope.${s}`);
+function scopeWord(s: string): string {
+  const key = `settings.devices.scope.${s}`;
+  return isMessageId(key) ? t(key) : s;
 }
 
 /** Where the other computer connects: this Mac's public address (a v1 link) or its network (v2). */
