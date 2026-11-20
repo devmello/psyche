@@ -10489,6 +10489,7 @@ export interface SearchHit {
     entityType?:        SearchEntityType;
     group?:             SearchGroup;
     id:                 string;
+    imported?:          ThreadImportSource;
     kind?:              SearchIndexDocKind;
     match?:             SearchMatch;
     provenance?:        Provenance;
@@ -10511,6 +10512,8 @@ export interface SearchHitCard {
     span:    string;
     summary: string;
 }
+
+export type ThreadImportSource = "claude" | "chatgpt";
 
 export type SearchIndexDocKind = "thread" | "message" | "task" | "memory" | "library" | "feed" | "idea" | "goal" | "connector" | "person" | "project";
 
@@ -12539,6 +12542,20 @@ export interface ThreadIDParams {
     threadId: string;
 }
 
+export interface ThreadImportResult {
+    duplicates:  number;
+    imported:    number;
+    skipped:     ThreadImportResultSkipped[];
+    skippedMore: number;
+}
+
+export interface ThreadImportResultSkipped {
+    reason: SkippedReason;
+    title:  string;
+}
+
+export type SkippedReason = "too_many" | "too_large" | "empty" | "invalid";
+
 export interface ThreadResult {
     thread: Thread;
 }
@@ -12550,6 +12567,7 @@ export interface Thread {
     expiresAt?:           null | string;
     forkedFromMessageId?: null | string;
     id:                   string;
+    imported?:            ThreadImportSource;
     kind:                 ThreadKind;
     lastMessageAt?:       null | string;
     modelRef?:            null | string;
@@ -12639,6 +12657,12 @@ export interface ThreadsForkParams {
     messageId: string;
     threadId:  string;
     title?:    string;
+}
+
+export interface ThreadsImportParams {
+    content: string;
+    dryRun?: boolean;
+    format:  ThreadImportSource;
 }
 
 export interface ThreadsListParams {
@@ -12945,10 +12969,10 @@ export type VaultImportParamsFormat = "auto" | "1password" | "bitwarden" | "chro
 
 export interface VaultImportResult {
     imported: CredentialMeta[];
-    skipped:  Skipped[];
+    skipped:  VaultImportResultSkipped[];
 }
 
-export interface Skipped {
+export interface VaultImportResultSkipped {
     reason: string;
     row:    number;
 }

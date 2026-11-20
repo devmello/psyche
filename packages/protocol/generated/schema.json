@@ -3726,6 +3726,14 @@
         "sideEffecting": false
       },
       {
+        "description": "Imports conversations from a claude.ai or ChatGPT export as archived, read-only threads (imported flag). Turns are untrusted data. Capped; the same export again adds nothing. Side-effecting.",
+        "name": "threads.import",
+        "params": "#/$defs/ThreadsImportParams",
+        "result": "#/$defs/ThreadImportResult",
+        "scope": "operator.write",
+        "sideEffecting": true
+      },
+      {
         "description": "Lists threads, most recent first, each with derived activity counts (running / awaiting input / awaiting approval).",
         "name": "threads.list",
         "params": "#/$defs/ThreadsListParams",
@@ -39992,6 +40000,13 @@
         },
         "card": {
           "$ref": "#/$defs/SearchHitCard"
+        },
+        "imported": {
+          "enum": [
+            "claude",
+            "chatgpt"
+          ],
+          "type": "string"
         }
       },
       "required": [
@@ -46729,6 +46744,9 @@
         },
         "userCreated": {
           "type": "boolean"
+        },
+        "imported": {
+          "$ref": "#/$defs/ThreadImportSource"
         }
       },
       "required": [
@@ -46885,6 +46903,68 @@
         "threadId"
       ],
       "type": "object"
+    },
+    "ThreadImportFormat": {
+      "enum": [
+        "claude",
+        "chatgpt"
+      ],
+      "type": "string"
+    },
+    "ThreadImportResult": {
+      "properties": {
+        "imported": {
+          "minimum": 0,
+          "type": "integer"
+        },
+        "duplicates": {
+          "minimum": 0,
+          "type": "integer"
+        },
+        "skipped": {
+          "items": {
+            "properties": {
+              "title": {
+                "type": "string"
+              },
+              "reason": {
+                "enum": [
+                  "too_many",
+                  "too_large",
+                  "empty",
+                  "invalid"
+                ],
+                "type": "string"
+              }
+            },
+            "required": [
+              "title",
+              "reason"
+            ],
+            "type": "object"
+          },
+          "maxItems": 500,
+          "type": "array"
+        },
+        "skippedMore": {
+          "minimum": 0,
+          "type": "integer"
+        }
+      },
+      "required": [
+        "imported",
+        "duplicates",
+        "skipped",
+        "skippedMore"
+      ],
+      "type": "object"
+    },
+    "ThreadImportSource": {
+      "enum": [
+        "claude",
+        "chatgpt"
+      ],
+      "type": "string"
     },
     "ThreadKind": {
       "enum": [
@@ -47133,6 +47213,26 @@
       "required": [
         "threadId",
         "messageId"
+      ],
+      "type": "object"
+    },
+    "ThreadsImportParams": {
+      "properties": {
+        "format": {
+          "$ref": "#/$defs/ThreadImportFormat"
+        },
+        "content": {
+          "maxLength": 25000000,
+          "minLength": 2,
+          "type": "string"
+        },
+        "dryRun": {
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "format",
+        "content"
       ],
       "type": "object"
     },

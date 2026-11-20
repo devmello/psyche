@@ -26,6 +26,7 @@ import {
 } from "@psyche/protocol";
 import { automationIdOfThreadKey } from "@psyche/scheduler";
 import type { Call, HandlerDef } from "../context.ts";
+import { assertWritableThread, importConversations } from "../session/imported-threads.ts";
 
 /** The owner's one persistent main thread (feature E1). */
 export const MAIN_SESSION_KEY = "owner:main";
@@ -374,8 +375,18 @@ export const threadsHandlers: Record<string, HandlerDef> = {
   },
   "threads.restore": {
     transactional: true,
-    run: (call: Call, params: { threadId: string }) =>
-      patch(call, params.threadId, { archivedAt: null }),
+    run: (call: Call, params: { threadId: string }) => {
+      assertWritableThread(requireThread(call, params.threadId), "restored");
+      return patch(call, params.threadId, { archivedAt: null });
+    },
+  },
+  "threads.import": {
+    transactional: true,
+    run(call: Call, params: { format: "claude" | "chatgpt"; content: string; dryRun?: boolean }) {
+      const { result, threads } = importConversations(call.ctx.db, params, call.ctx.now());
+      for (const thread of threads) emitThread(call, thread);
+      return result;
+    },
   },
   "threads.pin": {
     transactional: true,
@@ -399,6 +410,7 @@ export const threadsHandlers: Record<string, HandlerDef> = {
     run(call: Call, params: { threadId: string; messageId: string; title?: string }) {
       const { db } = call.ctx;
       const source = requireThread(call, params.threadId);
+      assertWritableThread(source, "forked");
       const message = getMessage(db, params.messageId);
       if (!message || message.threadId !== source.id) {
         throw new PsycheError(

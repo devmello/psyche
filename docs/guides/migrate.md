@@ -201,3 +201,22 @@ Then follow steps 2 to 7 of "Mac to a Linux server with Docker Compose". Afterwa
 - `psyche migrate --check` says `the data is from a newer Psyche`: the new machine runs an older version. Install the version the old machine ran.
 - A security change fails with `presence_required`: the old setup had a passkey or Touch ID key, and none can verify on the new machine (passkeys are tied to the Gateway's public origin). Run `psyched presence reset` on the new machine, then register a passkey or Touch ID key again.
 - The vault stays locked: run `psyche vault unlock --recovery` again and check the recovery key. A backup cannot open the vault without it.
+
+## Bring your conversations from claude.ai or ChatGPT
+
+You can import past conversations as well as memories. Open the Agent sheet, then Soul, and choose **Import memory**. Pick where the export came from (claude.ai or ChatGPT), then choose:
+
+- **Memories only**: the memory file is staged as claims for you to review, as before.
+- **Memories and conversations**: also adds each conversation from `conversations.json` as a thread.
+
+To get the files, request a data export in claude.ai (Settings, Privacy) or ChatGPT (Settings, Data controls, Export data), unzip it, and pick `conversations.json` for the conversations and the memory file, if there is one, for memories. Psyche reads the file on your Mac. Nothing is sent anywhere.
+
+What you get:
+
+- One archived thread per conversation, with the original title, roles and timestamps. ChatGPT threads follow the branch you last saw.
+- A read-only thread marked **Imported**. You can read it, search it and find it under Archived in the thread list. You cannot reply to it, restore it or fork it.
+- Imported text is untrusted data. It never becomes a pin, a memory you confirmed or a standing instruction, and when it is shown to the agent it is fenced as untrusted.
+
+Limits, so a huge export cannot swamp the machine: up to 200 conversations per run, 400 messages per conversation, 20,000 characters per message (longer ones are cut and marked) and about 25 MB of export text. Anything over a limit is skipped and listed in the summary with the reason. Import the file again for the next batch: conversations already imported are recognised by their id and left alone, so importing the same export twice adds nothing.
+
+Delete an imported thread from the thread list like any other thread.

@@ -13,6 +13,7 @@ import {
 } from "@psyche/protocol";
 import type { Call, HandlerDef, ResolvedChatContext, ResolvedScreen } from "../context.ts";
 import { readerOf, scrubMessage } from "../message-scrub.ts";
+import { assertWritableThread } from "../session/imported-threads.ts";
 import { claimWidgetClick } from "../widgets/rate.ts";
 import {
   type AttachedFileInfo,
@@ -58,7 +59,7 @@ function send(
   },
   mode: QueueMode | undefined,
 ) {
-  requireThread(call, params.threadId);
+  assertWritableThread(requireThread(call, params.threadId), "written to");
   // Checked and described by `prepareAttachedFiles`, before the transaction opened.
   const attachedFiles = call.prepared as AttachedFileInfo[] | undefined;
   if (params.attachedFiles?.length && attachedFiles === undefined) {

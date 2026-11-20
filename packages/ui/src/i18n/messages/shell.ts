@@ -99,6 +99,7 @@ export const shell = {
   "shell.threads.unpin": "Unpin",
   "shell.threads.pin": "Pin",
   "shell.threads.archive": "Archive",
+  "shell.threads.imported": "Imported",
   "shell.threads.restore": "Restore",
   "shell.threads.region": "Threads",
   "shell.threads.filter": "Filter threads",

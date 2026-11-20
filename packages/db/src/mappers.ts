@@ -133,6 +133,7 @@ export function threadFromRow(row: ThreadRow): Thread {
     updatedAt: row.updatedAt,
     lastMessageAt: row.lastMessageAt,
     ...(row.userCreated === 1 ? { userCreated: true } : {}),
+    ...(row.imported === "claude" || row.imported === "chatgpt" ? { imported: row.imported } : {}),
   };
 }
 

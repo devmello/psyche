@@ -46,6 +46,11 @@ export const Thread = Type.Object(
      * from the thread list until they have a message, and deleted when left empty.
      */
     userCreated: Type.Optional(Type.Boolean()),
+    /**
+     * Set on a thread brought over from a claude.ai or ChatGPT export. These are archived and
+     * read-only: no new message, no restore, no fork, and their turns are untrusted data.
+     */
+    imported: Type.Optional(StringEnum(["claude", "chatgpt"], { $id: "ThreadImportSource" })),
   },
   { $id: "Thread" },
 );
