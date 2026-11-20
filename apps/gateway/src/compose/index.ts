@@ -263,6 +263,7 @@ import {
 } from "./services.ts";
 import { setupTokenHandlers, setupTokenUsedHook } from "./setup-tokens.ts";
 import { composeSkills } from "./skills.ts";
+import { automationSpaceContext, composeSpaceContext } from "./space-context.ts";
 import { composeSpaces } from "./spaces.ts";
 import { withSpecialistContext } from "./specialist-approvals.ts";
 import {
@@ -1511,6 +1512,7 @@ export async function composeGateway(options: ComposeOptions): Promise<ComposedG
     notifier,
     launcher: lateLauncher,
     sessions: createDbSessionResolver(db),
+    spaceContext: (automation) => automationSpaceContext(db, automation),
     deliverer: withRunSnapshot(createDeliverer({ notifier, broker }), {
       // `proactive` is composed after the scheduler; a run finishes long after both exist.
       postNotice: (input) => proactive.feed.postNotice(input),
@@ -1664,6 +1666,8 @@ export async function composeGateway(options: ComposeOptions): Promise<ComposedG
   });
   teachingRef = teaching;
   parts.push(teaching.part);
+  const spaceRun = composeSpaceContext(services);
+  parts.push(spaceRun.part);
   const loop = createAgentLoop({
     // Screenshots and MCP images are decoded and re-encoded (cut to 1568 px) before the model sees
     // or the thread keeps them; one that cannot be decoded becomes a note.
@@ -1690,7 +1694,9 @@ export async function composeGateway(options: ComposeOptions): Promise<ComposedG
     resumeApproval: (q) => deferredResume.claim(q),
     skills: skills.loader,
     ...(compaction === undefined ? {} : { compaction }),
+    spaceFor: spaceRun.spaceFor,
     contextProviders: [
+      spaceRun.provider,
       otherChats.provider,
       ...(people === undefined ? [] : [people.recall]),
       memoryRecall.recall,

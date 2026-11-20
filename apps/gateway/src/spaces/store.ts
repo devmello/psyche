@@ -406,6 +406,8 @@ export class SpaceStore {
   addLink(
     spaceId: string,
     link: { kind: SpaceLink["kind"]; ref: string; label: string },
+    /** Who adds it: the agent's links keep `label_provenance: 'agent'` (spaces-2026 §4.3). */
+    by: "owner" | "agent" = "owner",
   ): SpaceLink {
     this.#require(spaceId);
     const dup = this.#db.sqlite
@@ -417,9 +419,9 @@ export class SpaceStore {
     this.#db.sqlite
       .prepare(
         `INSERT INTO space_links (id, space_id, kind, ref, label, label_provenance, added_by, created_at)
-         VALUES (?, ?, ?, ?, ?, 'owner', 'owner', ?)`,
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
       )
-      .run(id, spaceId, link.kind, link.ref, link.label, at);
+      .run(id, spaceId, link.kind, link.ref, link.label, by, by, at);
     this.#touch(spaceId);
     return linkFromRow(
       this.#db.sqlite.prepare("SELECT * FROM space_links WHERE id = ?").get(id) as LinkRow,

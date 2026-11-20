@@ -4,6 +4,7 @@ import type { AuditLog, Block, Message } from "@psyche/protocol";
 import { SqliteSearchIndex } from "@psyche/search";
 import type { Gateway } from "../server.ts";
 import type { ComposedPart } from "./services.ts";
+import { hiddenByPrivateSpace } from "./space-context.ts";
 
 /**
  * "From your other chats" (feature E12, on top of the opt-in thread tools in `thread-tools.ts`).
@@ -134,6 +135,8 @@ export function createOtherChats(deps: OtherChatsDeps): OtherChats {
         if (threadId === input.threadId) continue;
         const t = getThread(db, threadId);
         if (t === undefined || t.archivedAt !== null || t.kind === "incognito") continue;
+        // A private Space's chats stay out of recall in runs outside it (SP7, SR10).
+        if (hiddenByPrivateSpace(db, t.spaceId, input.spaceId)) continue;
         items.push({
           threadId,
           title: cap(t.title || "Untitled chat", 200),

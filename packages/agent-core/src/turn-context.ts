@@ -24,6 +24,8 @@ export interface TurnContextInput {
   text: string;
   mode: RunMode;
   permissionMode: PermissionMode;
+  /** The run's Space, fixed at run start (spaces-2026 §5.1); absent outside a Space. */
+  spaceId?: string;
 }
 
 export interface TurnContext {

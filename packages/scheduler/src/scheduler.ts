@@ -50,6 +50,8 @@ import { evaluateWatch } from "./watch.ts";
 
 export interface SqliteSchedulerOptions {
   db: PsycheDb;
+  /** A run's Space context (spaces-2026 §5.2), fenced by the Gateway; none outside a Space. */
+  spaceContext?: (automation: Automation) => string | undefined;
   clock: Clock;
   timers?: Timers;
   newId?: () => string;
@@ -722,7 +724,7 @@ export class SqliteScheduler implements Scheduler {
         automation,
         run: current,
         threadId,
-        prompt: buildUnattendedPrompt(automation, current),
+        prompt: buildUnattendedPrompt(automation, current, this.#o.spaceContext?.(automation)),
         lightContext: automation.lightContext === true,
         ...(current.events === undefined ? {} : { events: current.events }),
         ...(taintSources.length === 0 ? {} : { taintSources }),

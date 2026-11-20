@@ -116,6 +116,49 @@ export interface AssembleInput {
    * rewrite the system prompt between steps. Read now when absent.
    */
   dailyNotes?: DailyNotes;
+  /**
+   * The run's Space (spaces-2026 §5.2, SP9): its instructions become a `space` section at the end
+   * of the stable head. Absent for a thread outside any Space, whose prompt is then byte-identical
+   * to one assembled before Spaces existed.
+   */
+  space?: SpaceHead;
+}
+
+/** What the prompt needs of a run's Space: owner text only (SR1). */
+export interface SpaceHead {
+  id: string;
+  name: string;
+  instructions: string;
+}
+
+/** A run's Space as the loop holds it: fixed at run start (SR3). */
+export interface RunSpace extends SpaceHead {
+  /** Connector and MCP server ids whose tools a run in this Space keeps; null keeps all (SR5). */
+  connectorScope: readonly string[] | null;
+}
+
+/** Characters of a Space's instructions the head may carry (the same as `USER.md`, §2). */
+export const SPACE_INSTRUCTIONS_CAP = 4_000;
+
+/**
+ * A Space's head section, or undefined when it has no instructions. It is built only from the
+ * Space's name and the owner's instructions, so it changes only when the owner edits them or the
+ * thread moves to another Space; nothing dated or per-turn is in it. Fenced like a persona
+ * section, so the text cannot forge the base prompt's tags (SR13).
+ */
+export function spaceSection(space: SpaceHead): ContextSection | undefined {
+  const raw = space.instructions.trim();
+  if (raw === "") return undefined;
+  const { text, truncated } = applyBudget("Space instructions", raw, SPACE_INSTRUCTIONS_CAP);
+  return {
+    id: "space",
+    kind: "space",
+    title: `Space: ${space.name}`,
+    text: `The owner's standing instructions for this Space. They apply to every chat and automation in it, under the rules above.\n${text}`,
+    budget: SPACE_INSTRUCTIONS_CAP,
+    originalChars: raw.length,
+    ...(truncated ? { truncated } : {}),
+  };
 }
 
 /** Yesterday's and today's daily-note sections, and whether they quote untrusted content. */
@@ -357,6 +400,9 @@ export async function assembleContext(input: AssembleInput): Promise<AssembledCo
   const skills = await skillsSection(input.skills, input.budgets.skillsIndex);
   if (skills !== undefined) sections.push(skills);
   sections.push(toolsSection(input.tools, input.permissionMode, input.runMode, input.deferred));
+  // Last in the stable head: a thread outside a Space adds nothing here (SR13).
+  const space = input.space === undefined ? undefined : spaceSection(input.space);
+  if (space !== undefined) sections.push(space);
   const daily =
     input.dailyNotes ??
     (await readDailyNotes(input.memory, input.now, input.timeZone, input.budgets.dailyNote));
@@ -393,7 +439,8 @@ const NEUTRALISED_TAG =
 
 /**
  * Section kinds that make up the stable head of the system prompt: they change only when the
- * owner edits a persona file or a skill, the tool set changes or the permission mode does.
+ * owner edits a persona file, a skill or the run's Space instructions, the tool set changes or
+ * the permission mode does.
  * Everything from the first other section on (daily notes, the compaction summary, per-turn
  * context, hook and plugin sections) is the volatile tail.
  */
@@ -402,6 +449,7 @@ const STABLE_KINDS: ReadonlySet<ContextSection["kind"]> = new Set([
   "persona",
   "skills",
   "tools",
+  "space",
 ]);
 
 /**

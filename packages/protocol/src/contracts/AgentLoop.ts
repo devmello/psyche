@@ -248,6 +248,8 @@ export type ContextSectionKind =
   | "persona"
   | "skills"
   | "tools"
+  /** The owner's standing instructions for the run's Space (spaces-2026 §5.2): stable head. */
+  | "space"
   | "daily_note"
   | "summary"
   | "hook";

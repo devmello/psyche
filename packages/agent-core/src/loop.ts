@@ -99,6 +99,7 @@ import {
   DEFAULT_BASE_PROMPT,
   DEFAULT_CONTEXT_BUDGETS,
   onlyAppended,
+  type RunSpace,
   readDailyNotes,
   renderSystemParts,
   renderUserContext,
@@ -468,6 +469,11 @@ export interface AgentLoopOptions {
    * and reports. With `tasks`, registers `specialist.spawn`, `.report` and `.status`.
    */
   specialists?: SpecialistHost;
+  /**
+   * The Space a run in this thread works in (spaces-2026 §5.1): read once at run start and fixed
+   * for the run (SR3). Only owner runs get one (SR11); a subagent inherits its parent's.
+   */
+  spaceFor?: (threadId: string) => RunSpace | undefined;
   /** Context drawn from the owner's own data, once per owner turn (E12 "From your other chats"). */
   contextProviders?: readonly TurnContextProvider[];
   /**
@@ -616,6 +622,8 @@ interface RunState {
   emit: (event: AgentEvent) => void;
   /** Set for a subagent run: no questions, messaging, approvals or nesting (C6). */
   subagent?: { parentRunId: string; maxSteps: number };
+  /** The run's Space, fixed at run start (spaces-2026 §5.1, SR3). */
+  space?: RunSpace;
   /** Subagents of this run currently in flight. */
   children: number;
   /** Set when this run is a background specialist's job (specialists §4.2–§4.3). */
@@ -958,7 +966,15 @@ export class PsycheAgentLoop implements AgentLoop {
     input.signal?.addEventListener("abort", onExternalAbort, { once: true });
     const requester = input.requester;
     const ownerSent = requester === undefined || requester.role === "owner";
+    // A subagent works in its parent's Space; a peer or other non-owner requester in none (SR11).
+    const space =
+      child !== undefined
+        ? child.parent.space
+        : ownerSent
+          ? this.#o.spaceFor?.(threadId)
+          : undefined;
     const run: RunState = {
+      ...(space === undefined ? {} : { space }),
       runId,
       threadId,
       ...(input.taskId === undefined ? {} : { taskId: input.taskId }),
@@ -1529,6 +1545,7 @@ export class PsycheAgentLoop implements AgentLoop {
           text: run.ownerText,
           mode: run.mode,
           permissionMode: run.permissionMode,
+          ...(run.space === undefined ? {} : { spaceId: run.space.id }),
         }),
       ).catch(() => undefined);
       if (got === undefined) continue;
@@ -1764,6 +1781,19 @@ export class PsycheAgentLoop implements AgentLoop {
         if (!keep(t.spec.name)) hidden.set(t.spec.name, "not in the role's tools");
       tools = tools.filter((t) => keep(t.spec.name));
     }
+    const scope = run.space?.connectorScope;
+    if (scope !== undefined && scope !== null) {
+      // A Space's connector scope only narrows (SR5): a connector or MCP server outside it loses
+      // its tools for runs in the Space; tools of no connector are untouched.
+      const keep = new Set(scope);
+      const inScope = (name: string) => {
+        const server = parseMcpToolName(name)?.server;
+        return server === undefined || keep.has(server);
+      };
+      for (const t of tools)
+        if (!inScope(t.spec.name)) hidden.set(t.spec.name, "not in this Space's connectors");
+      tools = tools.filter((t) => inScope(t.spec.name));
+    }
     if (this.harnesses.list().length === 0) {
       // Offered only once a coding harness is installed (C10).
       tools = tools.filter((t) => t.spec.name !== "harness.delegate");
@@ -1797,6 +1827,7 @@ export class PsycheAgentLoop implements AgentLoop {
       ...(run.thread.summary === undefined ? {} : { summary: run.thread.summary }),
       budgets: this.#budgets,
       dailyNotes: run.dailyNotes,
+      ...(run.space === undefined ? {} : { space: run.space }),
     });
     run.summarySection = ctx.summary;
     if (ctx.untrusted && !run.taintSources.some((s) => s.sourceKind === "context")) {
@@ -3356,6 +3387,7 @@ export class PsycheAgentLoop implements AgentLoop {
     const ctx: TurnToolContext = {
       callId: call.id,
       threadId: run.threadId,
+      ...(run.space === undefined ? {} : { spaceId: run.space.id }),
       runId: run.runId,
       ...(run.taskId === undefined ? {} : { taskId: run.taskId }),
       taint: run.taint,
