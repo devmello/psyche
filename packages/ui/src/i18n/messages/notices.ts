@@ -65,4 +65,21 @@ export const notices = {
     "Security settings were tightened from {device, select, none {a device} other {{device}}}",
   "notice.security.tightened.body":
     "This only reduced what Psyche is allowed to do, so no approval was needed. If that was not you, revoke the device in Settings → Devices.",
+  "notice.codeRun.held.title": "Psyche held back launch config from a code run in {repo}",
+  "notice.codeRun.held.body":
+    "A command in the sandbox created {paths}. Apps or your next command could run code from it, so Psyche moved it aside without deleting it. If you or your tools made it, tap Keep it.",
+  "notice.codeRun.changed.title": "Launch config changed during a code run in {repo}",
+  "notice.codeRun.changed.body":
+    "{paths} changed while a command ran in the sandbox. If that wasn't you or your editor, check it before you open the folder.",
+  "notice.codeRun.partial.title": "{repo} is too large to check fully",
+  "notice.codeRun.partial.body":
+    "Psyche checked only the top folders for launch config that code runs create.",
+  "notice.codeRun.recreated.title": "The sandbox for {repo} was set up again",
+  "notice.codeRun.recreated.body":
+    "Its read-only folders changed, so running servers and anything installed outside the repository are gone. Start again what you need.",
+  "notice.action.keepIt": "Keep it",
+  "notice.codeRun.incident.title":
+    "Psyche held back something that may not be from a code run in {repo}",
+  "notice.codeRun.incident.body":
+    "While {paths} was moved aside, a folder on its way changed, so what was moved may come from somewhere else. It is kept in {place}. Look at it before you tap Keep it, which puts it at {paths} in {repo}.",
 } as const;

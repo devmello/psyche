@@ -1,12 +1,15 @@
 import { execFile } from "node:child_process";
-import { dirname } from "node:path";
+import { dirname, join } from "node:path";
 import {
   type AgentToolRegistration,
+  CodingSandboxes,
   type CodingToolsDeps,
   codingTools,
   type GitRunner,
+  keepQuarantined,
 } from "@psyche/agent-core";
 import { PsycheError, type SandboxRunner } from "@psyche/protocol";
+import { codingNotices, KEEP_ACTION } from "./coding-notices.ts";
 import { protectedRoots, writeProtectedRoots } from "./protected-paths.ts";
 import type { ComposedPart, ComposeServices } from "./services.ts";
 
@@ -116,6 +119,28 @@ export function composeCoding(services: ComposeServices, setup: CodingSetup = {}
     return {};
   }
   const git = setup.git === undefined ? hostGit() : setup.git;
+  // What a `code.run` creates in a repository's launch config is held here (#1434 review r2):
+  // inside Psyche's home, which no workspace or file tool reaches.
+  const quarantineDir = join(services.home, "quarantine", "code-run");
+  const notices = codingNotices((input) => services.notifier.notify(input), {
+    resolve: (id) => services.notifier.resolve(id),
+    quarantineDir,
+  });
+  const sandboxes = new CodingSandboxes();
+  const runner = setup.runner;
+  const unregisterKeep = services.notificationActions?.register(KEEP_ACTION, async (_n, id) => {
+    const kept = await keepQuarantined(quarantineDir, id, {
+      // Keep it is the owner's own tap: the repository's sandbox stops first, so nothing still
+      // running in it can swap a folder while entries go back (dev servers in it end too).
+      beforeKeep: async (root) => {
+        for (const sandboxId of sandboxes.take(root)) await runner?.destroy(sandboxId);
+      },
+    });
+    services.logger?.log("info", "coding: the owner kept launch config a run made", {
+      root: kept.root,
+      entries: kept.kept.join(", "),
+    });
+  });
   const tools = codingTools({
     files: { read, write },
     // The coding tools follow the root themselves (search, git): a look within the fresh window.
@@ -127,6 +152,12 @@ export function composeCoding(services: ComposeServices, setup: CodingSetup = {}
     ...(setup.runner === undefined ? {} : { runner: setup.runner }),
     ...(setup.track === undefined ? {} : { track: setup.track }),
     ...(git === null ? {} : { git }),
+    launchConfig: {
+      quarantineDir,
+      sandboxes,
+      report: (report, { root }) => void notices.report(report, root),
+      recreated: ({ root }) => notices.recreated(root),
+    },
   });
   const unregister = tools.map((t) => services.tools.register(t));
   services.logger?.log("info", "coding: code.* tools enabled", {
@@ -136,6 +167,7 @@ export function composeCoding(services: ComposeServices, setup: CodingSetup = {}
   return {
     stop: () => {
       for (const u of unregister) u();
+      unregisterKeep?.();
     },
   };
 }
