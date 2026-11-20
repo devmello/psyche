@@ -69,7 +69,7 @@ export function versionBefore(a: string, b: string): boolean {
 export function newestHelperVersion(machines: readonly MachineInfo[]): string | null {
   let newest: string | null = null;
   for (const m of machines) {
-    if (m.helperVersion === null) continue;
+    if (m.helperVersion == null) continue;
     if (newest === null || versionBefore(newest, m.helperVersion)) newest = m.helperVersion;
   }
   return newest;
@@ -220,7 +220,7 @@ function MachineRow({
   const warnings = machineWarnings(m);
   const behind =
     latestHelperVersion !== null &&
-    m.helperVersion !== null &&
+    m.helperVersion != null &&
     versionBefore(m.helperVersion, latestHelperVersion);
   const folders = m.files.roots.length;
 
@@ -292,7 +292,7 @@ function MachineRow({
             >
               {t(`machines.status.${m.status}`)}
             </StatusChip>
-            {m.display !== null ? (
+            {m.display != null ? (
               <span className="text-callout text-muted-foreground">
                 {t(DISPLAY_WORD[m.display])}
               </span>
@@ -397,7 +397,7 @@ function MachineRow({
         {" · "}
         {t("machines.limits.folders", { count: folders })}
         {" · "}
-        {m.helperVersion !== null
+        {m.helperVersion != null
           ? t("machines.helperVersion", { version: m.helperVersion })
           : t("machines.helperVersionUnknown")}
       </p>
@@ -774,7 +774,7 @@ export function MachinesGroup({
   const machines = machinesQ.data?.machines ?? [];
   const identities: Record<string, MachineIdentity> = {};
   for (const d of (devicesQ.data?.devices ?? []) as Device[]) {
-    identities[d.id] = { publicKey: d.publicKey, pairedAt: d.pairedAt };
+    identities[d.id] = { publicKey: d.publicKey, pairedAt: d.pairedAt ?? null };
   }
   return (
     <>
