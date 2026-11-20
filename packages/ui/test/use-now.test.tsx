@@ -43,4 +43,25 @@ describe("useNow", () => {
     renderHook(() => useNow(1000, 5));
     expect(vi.getTimerCount()).toBe(0);
   });
+
+  it("does not tick while inactive and catches up when it becomes active", () => {
+    const { result, rerender } = renderHook(
+      ({ active }: { active: boolean }) => useNow(1000, undefined, active),
+      { initialProps: { active: false } },
+    );
+    act(() => {
+      vi.advanceTimersByTime(30_000);
+    });
+    expect(vi.getTimerCount()).toBe(0);
+    expect(result.current).toBe(1_000_000);
+    rerender({ active: true });
+    expect(result.current).toBe(1_030_000);
+    expect(vi.getTimerCount()).toBe(1);
+    act(() => {
+      vi.advanceTimersByTime(2000);
+    });
+    expect(result.current).toBe(1_032_000);
+    rerender({ active: false });
+    expect(vi.getTimerCount()).toBe(0);
+  });
 });
