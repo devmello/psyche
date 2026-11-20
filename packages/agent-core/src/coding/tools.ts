@@ -27,6 +27,7 @@ import {
   parseStatus,
   REMOTE_PATTERN,
 } from "./git.ts";
+import { guardLaunchConfig, type LaunchConfigReport, launchConfigNotice } from "./launch-guard.ts";
 import { applyFilePatch, PATCH_LIMITS, parsePatch, patchStats } from "./patch.ts";
 import { CODE_SEARCH_LIMITS, searchCode } from "./search.ts";
 import {
@@ -89,6 +90,51 @@ export interface CodingToolsDeps {
   track?(scope: SandboxScope, ctx: DecisionContext): () => void;
   workspaces?: CodingWorkspaces;
   now?: () => Date;
+  /**
+   * The launch-config guard of `code.run` (`guardLaunchConfig`): where new entries are held, and
+   * how the owner hears about them. Without it `code.run` mounts the repository as before.
+   */
+  launchConfig?: CodingLaunchConfig;
+}
+
+/** What `code.run` tells the owner, beside its tool result. */
+/**
+ * The sandboxes `code.run` made per repository, so the owner's "Keep it" can stop them before
+ * anything is put back (nothing left running in one can then swap a folder during the moves).
+ */
+export class CodingSandboxes {
+  readonly #byRoot = new Map<string, Set<string>>();
+
+  track(root: string, sandboxId: string): void {
+    const ids = this.#byRoot.get(root) ?? new Set<string>();
+    ids.add(sandboxId);
+    this.#byRoot.set(root, ids);
+  }
+
+  /** The sandboxes made for `root`, forgotten here (the caller destroys them). */
+  take(root: string): string[] {
+    const ids = [...(this.#byRoot.get(root) ?? [])];
+    this.#byRoot.delete(root);
+    return ids;
+  }
+}
+
+export interface CodingLaunchConfig {
+  /** `$PSYCHE_HOME/quarantine/code-run`. */
+  quarantineDir: string;
+  /** Where `code.run` notes the sandboxes it made per repository (for "Keep it"). */
+  sandboxes?: CodingSandboxes;
+  /** Folders the walk reads at most before it checks only the top levels (default 50 000). */
+  maxDirs?: number;
+  /** Test seam: runs between a quarantine move's checks and the move. */
+  beforeMove?: (from: string) => Promise<void> | void;
+  /** A run created or changed launch config, or the walk fell back to the top levels. */
+  report?(report: LaunchConfigReport, at: { root: string; ctx: ToolRunContext }): void;
+  /**
+   * The sandbox was made again because its mounts changed (a launch-config folder or `.git`
+   * came or went): what ran in it and what it installed outside the repository is gone.
+   */
+  recreated?(at: { root: string; ctx: ToolRunContext }): void;
 }
 
 const MAX_TIMEOUT_MS = 30 * 60_000;
@@ -593,9 +639,34 @@ function runTool(
   workspace: WorkspaceOf,
   receipt: ReceiptFn,
 ): AgentToolRegistration {
+  /** The sandbox each scope runs in, so one whose mounts changed can be made again. */
+  const sandboxIds = new Map<string, string>();
+  const ensure = async (
+    scope: SandboxScope,
+    options: Parameters<SandboxRunner["ensureSandbox"]>[1],
+    onRecreate: () => void,
+  ) => {
+    const key = `${scope.kind}:${scope.id}`;
+    let sandbox: Awaited<ReturnType<SandboxRunner["ensureSandbox"]>>;
+    try {
+      sandbox = await runner.ensureSandbox(scope, options);
+    } catch (err) {
+      // The repository's `.git` or launch-config folders changed since the sandbox was made:
+      // its mounts are fixed, so it is made again (the workspace volume stays).
+      const known = sandboxIds.get(key);
+      if (!(err instanceof PsycheError) || err.code !== "conflict" || known === undefined) {
+        throw err;
+      }
+      await runner.destroy(known);
+      sandbox = await runner.ensureSandbox(scope, options);
+      onRecreate();
+    }
+    sandboxIds.set(key, sandbox.id);
+    return sandbox;
+  };
   return defineTool({
     name: "code.run",
-    description: `Run one command (an argv array, no shell string) in the sandbox with the coding workspace mounted at ${REPO_MOUNT} (cwd is relative to the repository root). Network is off; \`network: "proxy"\` allows the sites the owner approves through the egress proxy. Never runs on the owner's machine. Use it for tests, builds and linters.`,
+    description: `Run one command (an argv array, no shell string) in the sandbox with the coding workspace mounted at ${REPO_MOUNT} (cwd is relative to the repository root). Network is off; \`network: "proxy"\` allows the sites the owner approves through the egress proxy. Never runs on the owner's machine. Use it for tests, builds and linters. App launch config (.vscode, .idea, .husky, .npmrc and the like) is not the run's to create: what a run makes there is held back for the owner, so edit it with code.edit.`,
     input: Type.Object({
       root: AbsolutePath,
       argv: Type.Array(Type.String({ maxLength: 8192 }), { minItems: 1, maxItems: 256 }),
@@ -654,10 +725,31 @@ function runTool(
         },
         () => false,
       );
-      const sandbox = await runner.ensureSandbox(scope, {
-        network,
-        mounts: repoMounts(ws, gitDir),
-      });
+      // App launch config stays as it was (#1434 review r1, finding 1).
+      const lc = deps.launchConfig;
+      const guard =
+        ws.mode === "rw" && lc !== undefined
+          ? await guardLaunchConfig(ws.root, REPO_MOUNT, {
+              quarantineDir: lc.quarantineDir,
+              ...(deps.now === undefined ? {} : { now: deps.now }),
+              ...(lc.maxDirs === undefined ? {} : { maxDirs: lc.maxDirs }),
+              ...(lc.beforeMove === undefined ? {} : { beforeMove: lc.beforeMove }),
+            })
+          : undefined;
+      const mounts = [...repoMounts(ws, gitDir), ...(guard?.mounts ?? [])];
+      const sandbox = await ensure(scope, { network, mounts }, () =>
+        lc?.recreated?.({ root: ws.root, ctx }),
+      );
+      lc?.sandboxes?.track(ws.root, sandbox.id);
+      // The sandbox PC shares each folder on its own, so a read-only folder inside the
+      // repository would be writable through the repository's share there.
+      if (sandbox.backend === "vm" && mounts.some((m) => m.readOnly && m.target !== REPO_MOUNT)) {
+        throw new PsycheError(
+          "unavailable",
+          "code.run needs a container runtime that keeps .git and launch-config folders read-only; the sandbox PC cannot",
+          { details: { reason: "nested_mounts_unsupported" } },
+        );
+      }
       const rel = relativeTo(ws.root, hostCwd);
       const release =
         network === "proxy"
@@ -673,6 +765,7 @@ function runTool(
             })
           : undefined;
       let result: Awaited<ReturnType<SandboxRunner["exec"]>>;
+      let launch: LaunchConfigReport | undefined;
       try {
         result = await runner.exec({
           sandboxId: sandbox.id,
@@ -686,6 +779,15 @@ function runTool(
         });
       } finally {
         release?.();
+        launch = await guard?.settle();
+      }
+      const notice = launch === undefined ? undefined : launchConfigNotice(launch);
+      const readOnlyHint = readOnlyHintFor(
+        guard?.mounts ?? [],
+        `${result.stderr}\n${result.stdout}`,
+      );
+      if (launch !== undefined && (notice !== undefined || launch.partial)) {
+        lc?.report?.(launch, { root: ws.root, ctx });
       }
       const failed = result.outcome === "failed";
       const command = p.argv.join(" ");
@@ -704,6 +806,9 @@ function runTool(
           timedOut: result.timedOut,
           filesChanged: result.filesChanged,
           outcome: result.outcome,
+          ...(notice === undefined || launch === undefined
+            ? {}
+            : { launchConfig: launchConfigOutput(launch) }),
         },
         { exitCode: result.exitCode ?? -1 },
       );
@@ -717,6 +822,10 @@ function runTool(
           timedOut: result.timedOut,
           filesChanged: result.filesChanged,
           outcome: result.outcome,
+          ...(notice === undefined || launch === undefined
+            ? {}
+            : { launchConfig: { ...launchConfigOutput(launch), notice } }),
+          ...(readOnlyHint === undefined ? {} : { readOnlyHint }),
         },
         // Command output is data (design-07: the workspace's provenance decides the rest).
         provenance: "untrusted",
@@ -725,6 +834,38 @@ function runTool(
       };
     },
   });
+}
+
+/**
+ * When the command failed writing into a folder `code.run` keeps read-only, the way to change it
+ * (#1435 review r2): `.claude` and launch-config folders through `code.edit`.
+ */
+function readOnlyHintFor(
+  mounts: readonly { target: string }[],
+  output: string,
+): string | undefined {
+  if (!/EROFS|read-only file system/i.test(output)) return undefined;
+  const hit = mounts
+    .map((m) => m.target.slice(REPO_MOUNT.length + 1))
+    .filter((rel) => output.includes(rel))
+    .sort((a, b) => b.length - a.length)[0];
+  if (hit === undefined) return undefined;
+  const what =
+    hit === ".claude"
+      ? "`.claude` (Claude Code's settings and worktrees)"
+      : `\`${hit}\` (launch config or git metadata)`;
+  return `${what} is read-only during code.run. To change files there, use code.edit, which asks the owner.`;
+}
+
+/** What the receipt and the model see of a guard's report (no file ids). */
+function launchConfigOutput(r: LaunchConfigReport) {
+  return {
+    quarantined: r.quarantined,
+    changed: r.changed,
+    unmoved: r.unmoved,
+    incidents: r.incidents,
+    partial: r.partial,
+  };
 }
 
 async function gitStatus(runner: GitRunner, root: string, signal?: AbortSignal) {
