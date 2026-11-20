@@ -89,6 +89,10 @@ export const notices: Partial<Catalogue> = {
     "Startkonfiguration aus einem Code-Lauf in {repo} ist noch vorhanden",
   "notice.codeRun.unmoved.body":
     "Ein Befehl in der Sandbox hat {paths} angelegt, und Psyche konnte es nicht beiseitelegen, es ist also nicht zurückgehalten. Apps oder dein nächster Befehl könnten daraus Code ausführen. Lösche es, bevor du den Ordner öffnest oder dort etwas ausführst. Ändere nicht zuerst seine Berechtigungen, um hineinzusehen, denn dadurch kann es ausgeführt werden.",
+  "notice.codeRun.unchecked.title":
+    "Psyche konnte nach einem Code-Lauf einen Teil von {repo} nicht prüfen",
+  "notice.codeRun.unchecked.body":
+    "{paths} hat sich geändert, während Psyche es nach einem Befehl in der Sandbox geprüft hat, deshalb wurde darin nichts auf Startkonfiguration geprüft. Wenn weder du noch deine Tools es geändert haben, sieh es dir an, bevor du den Ordner öffnest oder dort etwas ausführst.",
   "notice.machine.added.title": "{name} wurde als Computer hinzugefügt, den Psyche nutzen kann",
   "notice.machine.added.body":
     "Psyche kann dort Bildschirm, Apps, Shell und Dateien nutzen, und jede Aktion fragt zuerst bei dir nach. Wenn du ihn nicht hinzugefügt hast, entferne ihn unter Einstellungen → Geräte.",

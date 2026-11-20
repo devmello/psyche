@@ -89,6 +89,10 @@ export const notices: Partial<Catalogue> = {
     "La configuration de lancement d'une exécution de code dans {repo} est toujours en place",
   "notice.codeRun.unmoved.body":
     "Une commande dans le bac à sable a créé {paths}, et Psyche n'a pas pu le mettre de côté : il n'est donc pas retenu. Des apps ou votre prochaine commande pourraient en exécuter du code. Supprimez-le avant d'ouvrir le dossier ou d'y exécuter quoi que ce soit. Ne modifiez pas d'abord ses autorisations pour regarder dedans : cela peut lui permettre de s'exécuter.",
+  "notice.codeRun.unchecked.title":
+    "Psyche n'a pas pu vérifier une partie de {repo} après une exécution de code",
+  "notice.codeRun.unchecked.body":
+    "{paths} a changé pendant que Psyche le vérifiait après une commande dans le bac à sable : rien à l'intérieur n'a donc été vérifié pour la configuration de lancement. Si ni vous ni vos outils ne l'avez modifié, regardez-le avant d'ouvrir le dossier ou d'y exécuter quoi que ce soit.",
   "notice.machine.added.title": "{name} a été ajouté comme ordinateur que Psyche peut utiliser",
   "notice.machine.added.body":
     "Psyche peut utiliser son écran, ses apps, son shell et ses fichiers, et chaque action vous demande d'abord. Si ce n'est pas vous qui l'avez ajouté, retirez-le dans Réglages → Appareils.",

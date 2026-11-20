@@ -35,8 +35,8 @@ import type { Logger } from "../log.ts";
 import type { Gateway } from "../server.ts";
 import { ATTENTION_WINDOW_MS } from "./attention.ts";
 import {
+  cachedGraphicalSession,
   createLinuxComputerState,
-  hasGraphicalSession,
   startHelperWithSystemd,
 } from "./computer-linux.ts";
 
@@ -656,14 +656,17 @@ export interface ComputerDeps {
   /**
    * Linux: starts the Host helper when none is connected (`startHelperWithSystemd`). Absent on
    * macOS and Windows, which never start it from here. A rejection means "no graphical session".
+   * `graphical` is the session decision the call already made (`graphicalSession`), so the unit
+   * started matches the path the call took; absent, the starter asks itself.
    */
-  startHelper?(signal: AbortSignal): Promise<void>;
+  startHelper?(signal: AbortSignal, graphical?: boolean): Promise<void>;
   /**
-   * Linux: whether logind reports a graphical session. Without one the Host helper runs headless
-   * (B0): `direct` answers `unavailable` with `details.reason: "no_graphical_session"`, and
-   * `virtual_screen` is served by the headless helper's private screen.
+   * Linux: whether logind reports a graphical session (`cachedGraphicalSession`, with the call's
+   * signal). Without one the Host helper runs headless (B0): `direct` answers `unavailable` with
+   * `details.reason: "no_graphical_session"`, and `virtual_screen` is served by the headless
+   * helper's private screen. Asked once per call, in `resolveTarget`.
    */
-  graphicalSession?(): Promise<boolean>;
+  graphicalSession?(signal?: AbortSignal): Promise<boolean>;
   /**
    * The Host's private screen (the virtual-screen part's `screen`), for the headless path's
    * take-over gate and Task-end handling (B3). Absent: nobody can take over and Task end only
@@ -1037,21 +1040,16 @@ export function createComputerUse(deps: ComputerDeps): ComputerUse {
 
   /**
    * The Host's own private screen (B0): with no graphical session the headless helper, started on
-   * demand, serves `virtual_screen` calls itself. A graphical Host never uses it.
+   * demand, serves `virtual_screen` calls itself. A graphical Host never uses it. `resolveTarget`
+   * decides that once per call, before a session is acquired; the router does not ask again, so
+   * a changed answer cannot refuse a call that already holds a session.
    */
   const headlessHostRouter: SurfaceRouter | undefined =
     deps.startHelper === undefined || deps.graphicalSession === undefined
       ? undefined
       : {
           async invoke(call) {
-            if (await deps.graphicalSession?.()) {
-              throw new PsycheError(
-                "unavailable",
-                `The virtual screen is not set up on ${hostWords().thisDevice}, so computer use cannot run there.`,
-                { details: { reason: "surface_unavailable", surface: call.surface } },
-              );
-            }
-            const node = await requireHelper(call.signal);
+            const node = await requireHelper(call.signal, false);
             // B3: after every wait above, and with nothing awaited before the send, the owner's
             // take-over and a parked unsaved-changes card still stop the call (headless-screen.ts).
             deps.headlessScreen?.()?.assertAgentMayAct(call.signal);
@@ -1136,7 +1134,7 @@ export function createComputerUse(deps: ComputerDeps): ComputerUse {
   let starting: Promise<void> | undefined;
 
   /** The connected Host helper; on Linux, started on demand when none is connected. */
-  async function requireHelper(signal: AbortSignal): Promise<HelperNode> {
+  async function requireHelper(signal: AbortSignal, graphical?: boolean): Promise<HelperNode> {
     const node = deps.helper();
     if (node !== undefined) return node;
     if (deps.startHelper !== undefined) {
@@ -1146,7 +1144,7 @@ export function createComputerUse(deps: ComputerDeps): ComputerUse {
           retryable: true,
         });
       const start = deps.startHelper;
-      starting ??= start(signal).finally(() => {
+      starting ??= start(signal, graphical).finally(() => {
         starting = undefined;
       });
       try {
@@ -1195,14 +1193,17 @@ export function createComputerUse(deps: ComputerDeps): ComputerUse {
     signal: AbortSignal,
   ): Promise<Target> {
     if (surface === "direct") {
-      if (deps.graphicalSession !== undefined && !(await deps.graphicalSession())) {
+      if (deps.graphicalSession !== undefined && !(await deps.graphicalSession(signal))) {
         throw new PsycheError(
           "unavailable",
           "Needs a graphical session on this computer. Use the virtual screen instead.",
           { details: { reason: "no_graphical_session" } },
         );
       }
-      const node = await requireHelper(signal);
+      const node = await requireHelper(
+        signal,
+        deps.graphicalSession === undefined ? undefined : true,
+      );
       return {
         nodeId: node.nodeId,
         ...(node.kind === undefined ? {} : { kind: node.kind }),
@@ -1222,11 +1223,12 @@ export function createComputerUse(deps: ComputerDeps): ComputerUse {
     }
     const router = routerFor(surface);
     // The Host's own private screen exists only without a graphical session. Decide that before
-    // a session is acquired, so a refusal leaves no phantom session holding the surface.
+    // a session is acquired, so a refusal leaves no phantom session holding the surface. The
+    // router trusts this decision for the call and does not ask again.
     if (
       router !== undefined &&
       router === gatedHeadlessRouter &&
-      (await deps.graphicalSession?.()) === true
+      (await deps.graphicalSession?.(signal)) === true
     ) {
       throw new PsycheError(
         "unavailable",
@@ -3146,15 +3148,17 @@ export function composeComputer(services: ComposeServices): ComposedComputer {
   let enabled = false;
   const onLinux = process.platform === "linux";
   const helper = computerHelper(() => gateway);
+  // Never handed a starter: turning computer use off, and Revoke, start nothing (owner rule).
   const linux = onLinux
     ? createLinuxComputerState({
         db: services.db,
         publishEntry: (entry) => services.publish("settings.changed", { entries: [entry] }),
         helper,
-        startHelper: startHelperWithSystemd,
         ...(services.logger === undefined ? {} : { logger: services.logger }),
       })
     : undefined;
+  // One logind answer per few seconds for every call site, cut short by the call's signal.
+  const graphical = onLinux ? cachedGraphicalSession() : undefined;
   const cu = createComputerUse({
     // Pause-when-unwatched (#272): the Gateway's shared view of the owner's attention.
     lastOwnerInput: () => services.attention.lastInput(),
@@ -3173,12 +3177,15 @@ export function composeComputer(services: ComposeServices): ComposedComputer {
       const runId = services.calls.get(callId)?.runId;
       if (runId !== undefined) gateway?.context.runTrace.addFrame(runId, callId, frame);
     },
-    ...(onLinux
-      ? {
-          startHelper: (signal: AbortSignal) => startHelperWithSystemd(signal),
-          graphicalSession: () => hasGraphicalSession(),
-        }
-      : {}),
+    ...(graphical === undefined
+      ? {}
+      : {
+          startHelper: (signal: AbortSignal, decided?: boolean) =>
+            startHelperWithSystemd(signal, undefined, () =>
+              decided === undefined ? graphical(signal) : Promise.resolve(decided),
+            ),
+          graphicalSession: (signal?: AbortSignal) => graphical(signal),
+        }),
     ...(linux === undefined ? {} : { sessionEnded: () => void linux.refresh() }),
     headlessScreen: () => screen,
   });

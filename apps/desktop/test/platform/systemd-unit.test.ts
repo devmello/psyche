@@ -119,10 +119,19 @@ describe("headless helper unit", () => {
     expect(unit).toMatch(/^After=default\.target$/m);
     expect(unit).toMatch(/^Restart=no$/m);
     expect(unit).toMatch(/^NoNewPrivileges=yes$/m);
-    expect(unit).toMatch(/^Slice=psyche-vscreen\.slice$/m);
     expect(unit).not.toContain("Nothing the helper starts");
     expect(unit).toContain('ExecStart="/h/psyche-helper" "--display" "headless"');
     expect(unit).toContain('Environment="PSYCHE_HOME=/home/me/.psyche"');
+  });
+  // PR #1498 r2, finding 2: the helper must not share the caps it sets for its own apps.
+  it("caps the helper on the service itself, never in psyche-vscreen.slice", () => {
+    expect(unit).not.toMatch(/^Slice=/m);
+    expect(unit).not.toContain("psyche-vscreen.slice");
+    expect(unit).toMatch(/^MemoryHigh=\d+[KMG]$/m);
+    expect(unit).toMatch(/^TasksMax=\d+$/m);
+    const section = unit.slice(unit.indexOf("[Service]"));
+    expect(section).toMatch(/^MemoryHigh=/m);
+    expect(section).toMatch(/^TasksMax=/m);
   });
   it("appends extra args after the display flag and quotes like the others", () => {
     const u = renderHeadlessHelperUnit({ program: "/a b/h", args: ["--idle-timeout", "60"] });

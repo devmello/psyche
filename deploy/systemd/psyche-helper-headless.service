@@ -12,5 +12,8 @@ Restart=no
 # No app or command the helper forks directly can gain privileges (no sudo, pkexec or setuid).
 # This does not hold against the user manager (systemd-run --user) until bwrap containment lands.
 NoNewPrivileges=yes
-# The private screen's apps and Xvfb get a memory ceiling next to psyched (design section 3.3).
-Slice=psyche-vscreen.slice
+# The helper and its Xvfb get their own ceiling next to psyched (design section 3.3), on this
+# service and not in the private screen's app slice: the helper sets that slice's caps for its
+# apps, and a runaway app there must not stop the helper from forking the Stop that ends it.
+MemoryHigh=1G
+TasksMax=512
