@@ -202,10 +202,13 @@ public struct ApprovalDetail: Sendable, Equatable {
     /// "Payments need Face ID on this phone." nil when no presence check applies.
     public var presenceNote: String?
     public var allowLabel: String
+    /// A device-only card (a security change, a destructive action): a plain tap on the phone, but read in the
+    /// app first, so no Approve button on the lock screen or the Dynamic Island.
+    public var reviewInApp: Bool
 
     public init(
         kindLabel: String, title: String, summary: String, fields: [Field], evidence: [String],
-        alsoSentTo: String, presenceNote: String?, allowLabel: String
+        alsoSentTo: String, presenceNote: String?, allowLabel: String, reviewInApp: Bool = false
     ) {
         self.kindLabel = kindLabel
         self.title = title
@@ -215,6 +218,7 @@ public struct ApprovalDetail: Sendable, Equatable {
         self.alsoSentTo = alsoSentTo
         self.presenceNote = presenceNote
         self.allowLabel = allowLabel
+        self.reviewInApp = reviewInApp
     }
 }
 

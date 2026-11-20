@@ -23,9 +23,10 @@ extension GatewayBackend {
         let current = try await call("approvals.get", .obj(["approvalId": .string(id)]))
         guard let approval = current["approval"] else { throw BackendError.notFound }
         if approval["status"]?.string != "pending" { throw BackendError.refused("That approval is no longer waiting.") }
-        // Device-only and presence-gated approvals need a presence assertion from a registered Secure Enclave
-        // key (companion §5); the phone has none yet, so these stay on the Mac rather than failing late.
-        if approval["deviceOnly"]?.bool == true || approval["requiresAuthentication"]?.bool == true {
+        // Only presence-gated approvals (payments, adding a verifier) need a presence assertion from a registered
+        // Secure Enclave key (companion §5); the phone has none yet, so these stay on the Mac rather than failing
+        // late. Device-only just means "never in chat": the paired phone answers it with a plain tap.
+        if approval["requiresAuthentication"]?.bool == true {
             throw BackendError.refused("This one needs your Mac. Answer it there.")
         }
         guard let token = current["answerToken"]?.string else {
@@ -147,12 +148,14 @@ extension GatewayBackend {
         var evidence: [String] = []
         if let because = a.at("fromLesson", "because")?.string { evidence.append("Because you said: \(because)") }
         if a["taint"]?.bool == true { evidence.append("Based on content from outside Psyche") }
-        let needsMac = a["deviceOnly"]?.bool == true || a["requiresAuthentication"]?.bool == true
+        let needsMac = a["requiresAuthentication"]?.bool == true
+        let deviceOnly = a["deviceOnly"]?.bool == true
         let detail = ApprovalDetail(
             kindLabel: Self.humanized(kind), title: summary,
             summary: agent.map { "Requested by \($0)." } ?? "Psyche is asking before it goes ahead.",
             fields: fields, evidence: evidence, alsoSentTo: "Also sent to your Mac",
-            presenceNote: needsMac ? "This one needs your Mac." : nil, allowLabel: "Allow once")
+            presenceNote: needsMac ? "This one needs your Mac." : nil, allowLabel: "Allow once",
+            reviewInApp: deviceOnly)
         return NeedsYouItem(
             id: id, kind: .approval, title: summary, source: agent ?? Self.humanized(kind),
             time: WireFormat.time(a["requestedAt"]?.string), approval: detail,

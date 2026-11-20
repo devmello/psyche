@@ -145,6 +145,19 @@ struct GatewayBackendTests {
         #expect(answered.all == ["approve|tok|once|nokey", "deny|tok|-|nokey"])
     }
 
+    @Test func aDeviceOnlyApprovalIsAPlainTapOnThePhone() async throws {
+        let answered = OutboxTests.Sent()
+        let (backend, _) = try await live { g in
+            g.on("approvals.get") { _ in .success(.object(["approval": .object(["id": "ap3", "status": "pending", "deviceOnly": .bool(true), "requiresAuthentication": .bool(false)]), "answerToken": "tok"])) }
+            g.on("approvals.answer") { req in
+                answered.add(req.params?["decision"]?.stringValue ?? "")
+                return .success(.object([:]))
+            }
+        }
+        try await backend.answerApproval(id: "ap3", decision: .allow)
+        #expect(answered.all == ["approve"])
+    }
+
     @Test func presenceGatedApprovalsStayOnTheMacAndAreNeverQueued() async throws {
         let (backend, h) = try await live { g in
             g.on("approvals.get") { _ in .success(.object(["approval": .object(["id": "ap2", "status": "pending", "requiresAuthentication": .bool(true)]), "answerToken": "tok"])) }
