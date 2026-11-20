@@ -5965,18 +5965,21 @@ public struct ArtifactsVersionsResult: Codable, Sendable {
 public struct AttentionReportParams: Codable, Sendable {
     /// The owner gave input in the app just now (key, click)
     public let input: Bool?
+    public let machine: String?
     public let pane: AttentionPane
     /// The pane is on screen in the desktop app
     public let visible: Bool
 
     public enum CodingKeys: String, CodingKey {
         case input = "input"
+        case machine = "machine"
         case pane = "pane"
         case visible = "visible"
     }
 
-    public init(input: Bool? = nil, pane: AttentionPane, visible: Bool) {
+    public init(input: Bool? = nil, machine: String? = nil, pane: AttentionPane, visible: Bool) {
         self.input = input
+        self.machine = machine
         self.pane = pane
         self.visible = visible
     }
@@ -10907,13 +10910,16 @@ public enum VscreenInputEventType: String, Codable, Sendable {
 // MARK: - ComputerWatchParkedPayload
 public struct ComputerWatchParkedPayload: Codable, Sendable {
     public let apps: [VscreenApp]
+    public let machine: String?
 
     public enum CodingKeys: String, CodingKey {
         case apps = "apps"
+        case machine = "machine"
     }
 
-    public init(apps: [VscreenApp]) {
+    public init(apps: [VscreenApp], machine: String? = nil) {
         self.apps = apps
+        self.machine = machine
     }
 }
 

@@ -1572,8 +1572,9 @@ export interface AttentionReportParams {
     /**
      * The owner gave input in the app just now (key, click)
      */
-    input?: boolean;
-    pane:   AttentionPane;
+    input?:   boolean;
+    machine?: string;
+    pane:     AttentionPane;
     /**
      * The pane is on screen in the desktop app
      */
@@ -3304,7 +3305,8 @@ export type Button = "left" | "middle" | "right";
 export type VscreenInputEventType = "move" | "down" | "up" | "scroll" | "key_down" | "key_up" | "text";
 
 export interface ComputerWatchParkedPayload {
-    apps: VscreenApp[];
+    apps:     VscreenApp[];
+    machine?: string;
 }
 
 export interface VscreenApp {

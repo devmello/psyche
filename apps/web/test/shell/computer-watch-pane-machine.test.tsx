@@ -53,7 +53,10 @@ function setup(machine: string | undefined, machines: unknown) {
   );
   return {
     calls,
-    emit: (e: { event: string; payload?: unknown }) => act(() => taps.forEach((t) => t(e))),
+    emit: (e: { event: string; payload?: unknown }) =>
+      act(() => {
+        for (const t of taps) t(e);
+      }),
   };
 }
 

@@ -10021,6 +10021,12 @@
           "description": "The pane is on screen in the desktop app",
           "type": "boolean"
         },
+        "machine": {
+          "description": "ULID in production",
+          "maxLength": 64,
+          "minLength": 1,
+          "type": "string"
+        },
         "input": {
           "description": "The owner gave input in the app just now (key, click)",
           "type": "boolean"
@@ -15602,6 +15608,12 @@
             "$ref": "#/$defs/VscreenApp"
           },
           "type": "array"
+        },
+        "machine": {
+          "description": "ULID in production",
+          "maxLength": 64,
+          "minLength": 1,
+          "type": "string"
         }
       },
       "required": [
