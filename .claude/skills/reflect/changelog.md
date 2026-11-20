@@ -2,6 +2,13 @@
 
 Newest first. The `reflect` skill reads the top entry to know where the last pass stopped.
 
+## 2026-11-19 (d): reflect pass over #1432, #1434, #1435, #1439, #1440, #1442, #1443, #1444 (wave 7)
+Evidence: coordinator notes (#1436, #1437, #1438, #1427, #1435).
+- **`psyche-builder`:** `--related` is per package (checked in verify.sh), so a rule to run dependent app tests for shared-package changes (#1437 `context.test.ts`); error handling travels with a moved call (#1436); carry-forward lists (#1437); node-gyp env for pnpm 12.4.1; the `psyche-linux` OrbStack VM.
+- **`psyche-permissions`:** exemptions need probes that the old attack still fails (#1438, #1427); carry-forward trust (#1437).
+- **`orchestrate`:** dependabot PRs recreated on fresh branches; Linux VM note.
+- **Not changed:** `verify.sh` (a cross-package related run would need per-dependent runs, too heavy to do small; left as a rule). Owner could decide whether to build it.
+
 ## 2026-11-19 (c): reflect pass over #1427-#1431 (wave 6)
 Evidence: coordinator notes and the PR Learnings of #1427, #1428, #1430, #1431; #1427 took 3 rounds of regressions (Spotify, Safari, Shortcuts Events).
 - **`psyche-builder`:** report asks for the head sha and `git diff --stat origin/main...HEAD` (merge-commit stat, #1293, #1432); the harness backgrounding verify at ~180 s is expected, wait (coordinator).
