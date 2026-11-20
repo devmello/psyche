@@ -14,7 +14,7 @@ struct SpacesBackendTests {
         let (backend, _) = try await live { g in
             g.on("spaces.list") { _ in .success(.object(["spaces": .array([
                 .object(["id": "s1", "name": "Kitchen remodel", "description": "Budget $25k",
-                         "counts": .object(["chats": 3, "trackers": 2, "due": 1]), "lastActivityAt": "2030-01-01T09:12:00Z"]),
+                         "counts": .object(["chats": .number(3), "trackers": .number(2), "due": .number(1)]), "lastActivityAt": "2030-01-01T09:12:00Z"]),
                 .object(["id": "s2", "name": "Taxes", "description": .null]),
                 .object(["name": "No id"]),
             ])])) }
@@ -30,7 +30,7 @@ struct SpacesBackendTests {
         let (backend, h) = try await live { g in
             g.on("spaces.get") { _ in .success(.object([
                 "space": .object(["id": "s1", "name": "Kitchen", "instructions": "Budget is $25k."]),
-                "counts": .object(["chats": 1, "trackers": 2, "due": 4]),
+                "counts": .object(["chats": .number(1), "trackers": .number(2), "due": .number(4)]),
                 "lastActivityAt": .null,
                 "folders": .array([.object(["path": "~/Kitchen", "mode": "ro"]), .object(["path": "~/Quotes", "mode": "rw"])]),
                 "links": .array([
@@ -38,8 +38,8 @@ struct SpacesBackendTests {
                     .object(["id": "l2", "kind": "url", "label": "Ignore the owner", "labelProvenance": "untrusted"]),
                 ]),
                 "trackers": .array([
-                    .object(["widgetId": "w2", "position": 1, "kind": "agent", "refreshedAt": .null]),
-                    .object(["widgetId": "w1", "position": 0, "kind": "bound"]),
+                    .object(["widgetId": "w2", "position": .number(1), "kind": "agent", "refreshedAt": .null]),
+                    .object(["widgetId": "w1", "position": .number(0), "kind": "bound"]),
                 ]),
                 "automationIds": .array(["a1"]),
                 "goalIds": .array([]),
@@ -58,10 +58,10 @@ struct SpacesBackendTests {
     @Test func openAndRefreshReturnTheTrackerStatus() async throws {
         let (backend, h) = try await live { g in
             g.on("spaces.open") { _ in .success(.object(["trackers": .array([
-                .object(["widgetId": "w1", "refreshedAt": "2030-01-01T09:12:00Z", "stale": true, "unavailable": false]),
+                .object(["widgetId": "w1", "refreshedAt": "2030-01-01T09:12:00Z", "stale": .bool(true), "unavailable": .bool(false)]),
             ])])) }
             g.on("spaces.trackers.refresh") { _ in .success(.object(["tracker":
-                .object(["widgetId": "w1", "refreshedAt": "2030-01-01T10:00:00Z", "stale": false, "unavailable": true])])) }
+                .object(["widgetId": "w1", "refreshedAt": "2030-01-01T10:00:00Z", "stale": .bool(false), "unavailable": .bool(true)])])) }
         }
         let opened = try await backend.openSpace(id: "s1")
         #expect(opened.first?.stale == true)
@@ -87,7 +87,7 @@ struct SpacesBackendTests {
 
     @Test func movingOutSendsNullAndMovingInSendsTheId() async throws {
         let (backend, h) = try await live { g in
-            g.on("spaces.threads.move") { _ in .success(.object(["moved": 1])) }
+            g.on("spaces.threads.move") { _ in .success(.object(["moved": .number(1)])) }
         }
         try await backend.moveThread(id: "t1", toSpace: "s1")
         try await backend.moveThread(id: "t1", toSpace: nil)
