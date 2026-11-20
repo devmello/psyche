@@ -940,13 +940,15 @@ function launchConfigOutput(r: LaunchConfigReport) {
     changed: a.changed,
     unmoved: a.unmoved,
     incidents: a.incidents,
+    // Of what the agent is told, never of the raw lists (#1469 review r2: how many files a
+    // folder outside holds, or whether it exists, would be told by them).
     counts: {
-      quarantined: r.quarantined.length,
-      changed: r.changed.length,
-      unmoved: r.unmoved.length,
-      incidents: r.incidents.length,
+      quarantined: a.quarantined.length,
+      changed: a.changed.length,
+      unmoved: a.unmoved.length,
+      incidents: a.incidents.length,
     },
-    ...(a.withheld > 0 ? { withheld: a.withheld } : {}),
+    ...(a.withheld ? { withheld: true } : {}),
     partial: r.partial,
   };
 }

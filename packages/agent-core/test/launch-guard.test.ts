@@ -49,6 +49,7 @@ const hooks = vi.hoisted(() => ({
   rename: undefined as ((from: string) => void) | undefined,
   lstat: undefined as ((path: string) => void) | undefined,
   readdir: undefined as ((path: string) => void) | undefined,
+  realpath: undefined as ((path: string) => void) | undefined,
 }));
 vi.mock("node:fs/promises", async (importOriginal) => {
   const real = await importOriginal<typeof import("node:fs/promises")>();
@@ -70,6 +71,13 @@ vi.mock("node:fs/promises", async (importOriginal) => {
       hooks.readdir?.(String(path));
       return (real.readdir as (...a: unknown[]) => ReturnType<typeof real.readdir>)(path, ...rest);
     }) as typeof real.readdir,
+    realpath: ((path: Parameters<typeof real.realpath>[0], ...rest: unknown[]) => {
+      hooks.realpath?.(String(path));
+      return (real.realpath as (...a: unknown[]) => ReturnType<typeof real.realpath>)(
+        path,
+        ...rest,
+      );
+    }) as typeof real.realpath,
     lstat: ((path: Parameters<typeof real.lstat>[0], ...rest: unknown[]) => {
       hooks.lstat?.(String(path));
       return (real.lstat as (...a: unknown[]) => ReturnType<typeof real.lstat>)(path, ...rest);
@@ -90,6 +98,7 @@ afterEach(() => {
   hooks.rename = undefined;
   hooks.lstat = undefined;
   hooks.readdir = undefined;
+  hooks.realpath = undefined;
   writable(dir);
   rmSync(dir, { recursive: true, force: true });
 });
@@ -1092,10 +1101,14 @@ describe("code.run and launch config", () => {
         rmSync(join(repo, "evil"), { recursive: true });
       });
       await use("code.open", { path: repo });
-      const r = await use("code.run", { root: repo, argv: ["noop"] });
-      const report = reports[0] as LaunchConfigReport;
-      expect(leaks(r.output.launchConfig)).toEqual([]);
-      expect(report.agent?.changed).toEqual(["web/.vscode"]);
+      // #1469 review r2, item 3: the read-only folder was swapped while the snapshot read it, so
+      // the run is refused (a count only), and the owner's folder is never taken for new.
+      await expect(use("code.run", { root: repo, argv: ["noop"] })).rejects.toMatchObject({
+        code: "forbidden",
+        details: { reason: "launch_config_moved", count: 1 },
+      });
+      expect(reports).toEqual([]);
+      expect(runner.execs).toHaveLength(0);
     });
 
     // C: before-walk swap (W1 shape, but in guardLaunchConfig's scan): an unlistable outside folder.
@@ -1156,6 +1169,136 @@ describe("code.run and launch config", () => {
         await use("code.run", { root: repo, argv: [`edit${i}`] });
       }
       expect(reports[0]?.fingerprints).not.toEqual(reports[1]?.fingerprints);
+    });
+  });
+
+  // #1469 review r2: the reviewer's probes (debug output left out), with what they show asserted.
+  describe("#1469 review r2 probes", () => {
+    /** Probe A's swap, with the agent choosing where `evil/.vscode` leads. */
+    async function oracle(target: string) {
+      put("web/.vscode/settings.json", "{}");
+      const { use, runner, reports } = setup();
+      let armed = false;
+      let swapped = false;
+      acts(runner, "noop", () => {
+        armed = true;
+      });
+      hooks.readdir = (path) => {
+        if (!armed || swapped || path !== join(repo, "web/.vscode")) return;
+        swapped = true;
+        mkdirSync(join(repo, "evil"));
+        symlinkSync(target, join(repo, "evil", ".vscode"));
+        renameSync(join(repo, "web"), join(repo, "web.real"));
+        symlinkSync(join(repo, "evil"), join(repo, "web"));
+      };
+      hooks.lstat = (path) => {
+        if (!swapped || path !== join(repo, ".git")) return;
+        swapped = false;
+        armed = false;
+        rmSync(join(repo, "web"));
+        renameSync(join(repo, "web.real"), join(repo, "web"));
+        rmSync(join(repo, "evil"), { recursive: true });
+      };
+      await use("code.open", { path: repo });
+      const r = await use("code.run", { root: repo, argv: ["noop"] });
+      return { out: r.output.launchConfig, report: reports[0] as LaunchConfigReport };
+    }
+    const outsideWithSeven = () => {
+      const home = join(dir, "Elsewhere-Home");
+      mkdirSync(join(home, "Secret-Sub"), { recursive: true });
+      for (let i = 0; i < 4; i++) writeFileSync(join(home, `f${i}`), "x");
+      for (let i = 0; i < 3; i++) writeFileSync(join(home, "Secret-Sub", `g${i}`), "x");
+      return home;
+    };
+
+    it("R1a: counts/withheld for an outside folder with 7 files", async () => {
+      const { out } = await oracle(outsideWithSeven());
+      expect(leaks(out)).toEqual([]);
+    });
+
+    it("R1b: counts/withheld for a path that does not exist", async () => {
+      const { out } = await oracle(join(dir, "No-Such-Folder"));
+      expect(leaks(out)).toEqual([]);
+    });
+
+    it("tells the agent the same for a folder outside with 7 files and for no folder at all", async () => {
+      const seven = await oracle(outsideWithSeven());
+      // A second repository, the same in every way, whose swap leads nowhere.
+      hooks.readdir = undefined;
+      hooks.lstat = undefined;
+      writable(repo);
+      rmSync(repo, { recursive: true, force: true });
+      mkdirSync(join(repo, "src"), { recursive: true });
+      writeFileSync(join(repo, "src", "a.js"), "export const a = 1;\n");
+      const none = await oracle(join(dir, "No-Such-Folder"));
+      expect(JSON.stringify(seven.out)).toBe(JSON.stringify(none.out));
+      // The owner is told of the change either way.
+      expect(seven.report.changed).toContain("web/.vscode/settings.json");
+      expect(none.report.changed).toContain("web/.vscode/settings.json");
+    });
+
+    it("R2: .claude link to an in-repo target, its parent swapped during prints, back before claudeLeads", async () => {
+      const elsewhere = join(dir, "Elsewhere-Home");
+      mkdirSync(join(elsewhere, "claude"), { recursive: true });
+      writeFileSync(join(elsewhere, "claude", "settings-Secret-client.json"), "{}");
+      put("config/claude/settings.json", "{}");
+      symlinkSync("config/claude", join(repo, ".claude"));
+      const { use, runner } = setup();
+      let armed = false;
+      let swapped = false;
+      acts(runner, "noop", () => {
+        armed = true;
+      });
+      hooks.readdir = (path) => {
+        if (!armed || swapped || path !== join(repo, ".claude")) return;
+        swapped = true;
+        renameSync(join(repo, "config"), join(repo, "config.real"));
+        symlinkSync(elsewhere, join(repo, "config"));
+      };
+      hooks.realpath = (path) => {
+        if (!swapped || path !== join(repo, ".claude")) return;
+        swapped = false;
+        rmSync(join(repo, "config"));
+        renameSync(join(repo, "config.real"), join(repo, "config"));
+      };
+      await use("code.open", { path: repo });
+      const r = await use("code.run", { root: repo, argv: ["noop"] });
+      expect(leaks(r.output.launchConfig)).toEqual([]);
+    });
+
+    it("R3: probe B outcome for the owner's folder", async () => {
+      const home = join(dir, "Elsewhere-Home");
+      mkdirSync(home, { recursive: true });
+      put("web/.vscode/settings.json", "{}");
+      const { use, runner, reports } = setup();
+      let swapped = false;
+      let done = false;
+      hooks.readdir = (path) => {
+        if (done || swapped || path !== join(repo, "web/.vscode")) return;
+        swapped = true;
+        mkdirSync(join(repo, "evil"));
+        symlinkSync(home, join(repo, "evil", ".vscode"));
+        renameSync(join(repo, "web"), join(repo, "web.real"));
+        symlinkSync(join(repo, "evil"), join(repo, "web"));
+      };
+      acts(runner, "noop", () => {
+        done = true;
+        rmSync(join(repo, "web"));
+        renameSync(join(repo, "web.real"), join(repo, "web"));
+        rmSync(join(repo, "evil"), { recursive: true });
+      });
+      await use("code.open", { path: repo });
+      // Swapped while the snapshot read it: refused, so the owner's folder is never taken for
+      // one the run made (#1469 review r2, item 3).
+      await expect(use("code.run", { root: repo, argv: ["noop"] })).rejects.toMatchObject({
+        details: { reason: "launch_config_moved" },
+      });
+      expect(reports).toEqual([]);
+      expect(runner.execs).toHaveLength(0);
+      // Put back as the process would, the owner's folder is where it was.
+      rmSync(join(repo, "web"));
+      renameSync(join(repo, "web.real"), join(repo, "web"));
+      expect(existsSync(join(repo, "web/.vscode/settings.json"))).toBe(true);
     });
   });
 

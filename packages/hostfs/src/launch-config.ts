@@ -317,10 +317,23 @@ async function pinned<T>(
   };
   const aboveBefore = await above();
   const was = await id(path);
-  const out = await inner();
-  const is = await id(path);
-  const aboveAfter = await above();
-  const ok = was !== "" && was === is && aboveBefore && aboveAfter;
+  const settled = async () => {
+    const is = await id(path);
+    const aboveAfter = await above();
+    return was !== "" && was === is && aboveBefore && aboveAfter;
+  };
+  let out: T;
+  try {
+    out = await inner();
+  } catch (err) {
+    // A listing that failed names nothing, but whether it did is itself telling (#1469 review
+    // r2): one that failed through a folder swapped for a link (a link to nothing, to a file)
+    // is noted as swapped. Only the pinned folder refusing for its mode is left unnoted.
+    const code = (err as NodeJS.ErrnoException).code;
+    if (!((code === "EACCES" || code === "EPERM") && (await settled()))) folders[rel] = "";
+    throw err;
+  }
+  const ok = await settled();
   // Once noted as swapped, a folder stays so for this map.
   folders[rel] = ok && folders[rel] !== "" ? was : "";
   return out;

@@ -12,6 +12,7 @@ import {
   realpath,
   rename,
   rm,
+  stat,
   symlink,
   writeFile,
 } from "node:fs/promises";
@@ -114,8 +115,8 @@ export interface AgentLaunchConfigView {
   changed: string[];
   unmoved: string[];
   incidents: string[];
-  /** How many names were replaced by a folder above them. */
-  withheld: number;
+  /** Whether any name was replaced by a folder above it (never how many: #1469 review r2). */
+  withheld: boolean;
 }
 
 /** Fixed names the guard itself appends below a folder (never names read from disk). */
@@ -173,13 +174,15 @@ export async function guardLaunchConfig(
   // Who each folder the snapshot listed was (#1469 review r1, finding 2): a process left from an
   // earlier run can swap a folder for a link while it is taken.
   const beforePins: Record<string, string> = { ...(scan.folders ?? {}) };
-  const before = await prints(root, scan, claude.kind === "link", beforePins);
+  const before = await prints(root, scan, claudeTarget(claude), beforePins);
   // Every read-only mount source must be named through listings that were the repository's:
   // one read through a folder swapped for a link may be a name from elsewhere, and the sandbox
   // names a mount source it refuses. Refused here instead, saying how many, never which. (One
   // whose folder is a link now is refused by the sandbox, by its name, which is the root's.)
   const named = agentNames([beforePins], () => false);
-  const moved = readOnly.filter((rel) => !named.valid(rel)).length;
+  // And each must be the folder the snapshot pinned (#1469 review r2): one swapped while it was
+  // read would leave the guard holding the wrong identity for it.
+  const moved = readOnly.filter((rel) => !named.valid(rel) || beforePins[rel] === "").length;
   if (moved > 0) {
     throw new PsycheError(
       "forbidden",
@@ -207,8 +210,10 @@ export async function guardLaunchConfig(
     const st = await lstat(join(root, rel), { bigint: true }).catch(() => undefined);
     if (st === undefined) continue;
     const git = rel === ".git" || rel.endsWith("/.git");
-    ids.mounted.set(rel, { id: idOf(st), git });
-    ids.originals.add(idOf(st));
+    // Who the snapshot pinned, where it pinned the folder: the identity taken while it was read.
+    const id = beforePins[rel] ?? idOf(st);
+    ids.mounted.set(rel, { id, git });
+    ids.originals.add(id);
   }
   return {
     mounts: readOnly.map((rel) => ({
@@ -512,7 +517,7 @@ async function settle(
   const after = await prints(
     root,
     { found: now.found.filter((f) => known.has(f.rel) || f.git === true), complete: true },
-    claude.kind === "link",
+    claudeTarget(claude),
     listed,
   );
   const keys = new Set([...before.keys(), ...after.keys()]);
@@ -525,21 +530,13 @@ async function settle(
   }
   // What the agent is told (#1457 and #1469 reviews r1): only names read through listings that
   // were the repository's, in every snapshot that read them. The owner's lists stay raw.
-  const claudeLeads =
-    claude.kind === "link" &&
-    (await resolution(join(root, CLAUDE_DIR)).then(
-      (r) => r.real === claude.real && r.id === claude.targetId,
-    ));
-  const names = agentNames(
-    [ids.beforePins, listed],
-    (p) => claudeLeads && p.startsWith(`${CLAUDE_DIR}/`),
-  );
+  const names = agentNames([ids.beforePins, listed], () => false);
   report.agent = {
     quarantined: names.list(report.quarantined),
     changed: names.list(report.changed),
     unmoved: names.list(report.unmoved),
     incidents: names.list(report.incidents),
-    withheld: names.withheld(),
+    withheld: names.withheld() > 0,
   };
   return report;
 }
@@ -605,7 +602,7 @@ function noise(key: string, ...prints: (string | undefined)[]): boolean {
 async function prints(
   root: string,
   scan: LaunchConfigScan,
-  claudeLink: boolean,
+  claudeLink: string | undefined,
   pins: Record<string, string>,
 ): Promise<Map<string, string>> {
   const out = new Map<string, string>();
@@ -659,11 +656,21 @@ async function prints(
     }
   }
   if (await isRealDir(join(root, ".git"))) await gitFolder(".git");
-  if (claudeLink) {
-    // The walk never follows the link: the link itself, and the settings files behind it.
+  if (claudeLink !== undefined) {
+    // The walk never follows the link: the link itself, and the settings files behind it. The
+    // listing behind it is pinned to the folder the link led to before the run (#1469 review
+    // r2): one through a folder swapped for a link names nothing the agent is told.
     await one(CLAUDE_DIR);
-    const names = await readdir(join(root, CLAUDE_DIR)).catch(() => [] as string[]);
-    for (const name of names) {
+    const target = async () => {
+      const st = await stat(join(root, CLAUDE_DIR), { bigint: true }).catch(() => undefined);
+      return st?.isDirectory() === true ? idOf(st) : "";
+    };
+    const was = await target();
+    const names = await readdir(join(root, CLAUDE_DIR)).catch(() => undefined);
+    const is = await target();
+    pins[CLAUDE_DIR] =
+      names !== undefined && was !== "" && was === is && was === claudeLink ? was : "";
+    for (const name of names ?? []) {
       if (/^settings.*\.json$/i.test(name)) await one(`${CLAUDE_DIR}/${name}`);
     }
   }
@@ -1060,13 +1067,25 @@ export async function keepQuarantined(
 }
 
 /**
- * What the agent may be told of a report: its own view, or, for a report without one, no names
- * at all (only how many).
+ * What the agent may be told of a report: its own view, or, for a report without one, the root
+ * for every list that has something (the root's name is always the repository's), so the notice
+ * and the owner's report still follow.
  */
 export function agentView(r: LaunchConfigReport): AgentLaunchConfigView {
   if (r.agent !== undefined) return r.agent;
-  const all = r.quarantined.length + r.changed.length + r.unmoved.length + r.incidents.length;
-  return { quarantined: [], changed: [], unmoved: [], incidents: [], withheld: all };
+  const root = (list: readonly string[]) => (list.length > 0 ? ["."] : []);
+  return {
+    quarantined: root(r.quarantined),
+    changed: root(r.changed),
+    unmoved: root(r.unmoved),
+    incidents: root(r.incidents),
+    withheld: true,
+  };
+}
+
+/** The identity a `.claude` link led to before the run, for its pinned listing; unset if none. */
+function claudeTarget(claude: ClaudeFolder): string | undefined {
+  return claude.kind === "link" ? (claude.targetId ?? "") : undefined;
 }
 
 /** What the tool result tells the model, when the run touched launch config. */
