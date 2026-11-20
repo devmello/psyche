@@ -123,6 +123,9 @@ function send(
         ? {}
         : {
             via: "widget" as const,
+            // The widget wrote the reply's text: it is not the owner's words and names no
+            // targets of theirs (never `author: "owner"`).
+            ownerWords: false,
             ...(fromWidget.length === 0 ? {} : { taintSources: fromWidget }),
           }),
       ...(screen === undefined && context === undefined && attachedFiles === undefined

@@ -248,27 +248,132 @@ export function parseCompactionSummary(text: string): CompactionSummary | undefi
   return parseCompactionReply(text)?.summary;
 }
 
+/** Case, compatibility forms and invisible format characters folded (`＠`, ZWSP, NBSP). */
+const folded = (t: string) =>
+  t
+    .normalize("NFKC")
+    .replace(/\p{Cf}/gu, "")
+    .toLowerCase();
+
+/** Words only, one space apart: "Always CC x." and "always cc x" are the same text. */
+const loose = (t: string) =>
+  ` ${folded(t)
+    .replace(/[^\p{L}\p{N}@]+/gu, " ")
+    .trim()} `;
+
+/** The digits of a number, an amount or a phone number ("$1,200.00" → "1200"). */
+const digitKey = (t: string) =>
+  t
+    .replace(/[^\d.]/g, "")
+    .replace(/^\.+|\.+$/g, "")
+    .replace(/\.0+$/, "");
+
+const EMAIL = /[\p{L}\p{N}._%+-]+@[\p{L}\p{N}-]+(?:\.[\p{L}\p{N}-]+)+/gu;
+const URL_TOKEN = /\b(?:https?|ftp):\/\/[^\s<>"'`)\]]+/gu;
+const DOMAIN =
+  /(?<![\p{L}\p{N}@._-])(?:[\p{L}\p{N}](?:[\p{L}\p{N}-]*[\p{L}\p{N}])?\.)+\p{L}{2,}(?![\p{L}\p{N}@-])/gu;
+const HANDLE = /(?<![\p{L}\p{N}._%+-])@[\p{L}\p{N}_][\p{L}\p{N}_.]*/gu;
+const AMOUNT =
+  /[$€£¥₹₩₽₿]\s?\d(?:[\d,.]*\d)?|\b\d(?:[\d,.]*\d)?\s?(?:usd|eur|gbp|jpy|chf|cad|aud|inr|btc|eth|sol|usdc|usdt|dollars?|euros?|pounds?|bucks)\b/gu;
+/** Phone and account numbers: seven or more digits, with the usual separators. */
+const LONG_NUMBER = /\+?\(?\d[\d\s().-]{5,30}\d/g;
+
+type Token = { kind: "text" | "number"; value: string };
+
 /**
- * The text of the owner's own typed words and of file text in these messages, normalised like a
- * pin. A new pin that appears in the file text and nowhere in the owner's words came from the
- * file, whoever the file's author was: it is never a trusted standing instruction.
+ * The tokens in `text` that name a target: email addresses, URLs, domains, @handles, amounts and
+ * phone or account numbers. Words like these are what an injected rule needs ("cc
+ * ops@evil.example", "pay $500"), and a summarizer can reword a sentence but not them.
  */
-export function fileOnlyPins(messages: readonly ModelMessage[], pins: readonly string[]): string[] {
-  const norm = (t: string) => t.replace(/\s+/g, " ").trim().toLowerCase();
-  let owner = "";
-  let file = "";
+export function distinctiveTokens(text: string): Token[] {
+  const t = folded(text);
+  const out: Token[] = [];
+  const add = (kind: Token["kind"], value: string) => {
+    if (value !== "" && !out.some((o) => o.kind === kind && o.value === value)) {
+      out.push({ kind, value });
+    }
+  };
+  for (const m of t.matchAll(EMAIL)) add("text", m[0].replace(/\.+$/, ""));
+  for (const m of t.matchAll(URL_TOKEN)) {
+    add(
+      "text",
+      m[0]
+        .replace(/^[a-z]+:\/\//, "")
+        .replace(/^www\./, "")
+        .replace(/[.,;:!?/]+$/, ""),
+    );
+  }
+  for (const m of t.matchAll(DOMAIN)) add("text", m[0].replace(/^www\./, ""));
+  for (const m of t.matchAll(HANDLE)) add("text", m[0].replace(/\.+$/, ""));
+  for (const m of t.matchAll(AMOUNT)) add("number", digitKey(m[0]));
+  for (const m of t.matchAll(LONG_NUMBER)) {
+    const digits = m[0].replace(/\D/g, "");
+    if (digits.length >= 7) add("number", digits);
+  }
+  return out;
+}
+
+/** Every number in the owner's words, for matching amounts and phone numbers by their digits. */
+function numberKeys(text: string): string[] {
+  const keys = new Set<string>();
+  for (const m of text.matchAll(/\d(?:[\d,.]*\d)?/g)) keys.add(digitKey(m[0]));
+  for (const m of text.matchAll(LONG_NUMBER)) keys.add(m[0].replace(/\D/g, ""));
+  return [...keys].filter((k) => k !== "");
+}
+
+/**
+ * The items (new pins, daily-note lines) that file text in `messages` may have put there, so
+ * they are never filed as the owner's: never a trusted standing instruction, never a trusted
+ * memory line. `messages` must be exactly what the summarizer read.
+ *
+ * File text is any user-turn text part tagged `ownerFile` (the owner's own upload) or `untrusted`
+ * (someone else's file, a non-owner's message). The owner's words are only parts marked
+ * `author: "owner"`: never the Gateway's notes, turn context or harness text. When there is no
+ * file text, nothing is flagged. Otherwise an item is flagged when:
+ * - it appears in file text and not in the owner's words (case, spacing and punctuation folded); or
+ * - it carries a distinctive token (`distinctiveTokens`) the owner's words do not. That catches a
+ *   reworded rule, a dropped full stop, and a rule split between the owner's words and the file.
+ */
+export function fileOnlyItems(
+  messages: readonly ModelMessage[],
+  items: readonly string[],
+): string[] {
+  const owner: string[] = [];
+  const file: string[] = [];
   for (const m of messages) {
     if (m.role !== "user") continue;
     for (const p of m.parts) {
       if (p.type !== "text") continue;
-      if (p.ownerFile === true || p.provenance === "untrusted") file += `\n${norm(p.text)}`;
-      else owner += `\n${norm(p.text)}`;
+      if (p.ownerFile === true || p.provenance === "untrusted") file.push(p.text);
+      else if (p.author === "owner") owner.push(p.text);
     }
   }
-  return pins.filter((pin) => {
-    const k = norm(pin);
-    return k !== "" && file.includes(k) && !owner.includes(k);
+  if (file.length === 0) return [];
+  const ownerLoose = owner.map(loose);
+  const fileLoose = file.map(loose);
+  const ownerText = owner.map(folded).join("\n");
+  const ownerNumbers = numberKeys(ownerText);
+  const ownerSaid = (t: Token) =>
+    t.kind === "text"
+      ? ownerText.includes(t.value)
+      : ownerNumbers.some(
+          (k) =>
+            k === t.value ||
+            (k.length >= 7 && t.value.length >= 7 && (k.endsWith(t.value) || t.value.endsWith(k))),
+        );
+  return items.filter((item) => {
+    const k = loose(item);
+    if (k.trim() === "") return false;
+    if (fileLoose.some((f) => f.includes(k)) && !ownerLoose.some((o) => o.includes(k))) return true;
+    return distinctiveTokens(item).some((t) => !ownerSaid(t));
   });
+}
+
+/** Whether these messages carry text from a file the owner attached (`ownerFile`). */
+export function readsOwnerFile(messages: readonly ModelMessage[]): boolean {
+  return messages.some(
+    (m) => m.role === "user" && m.parts.some((p) => p.type === "text" && p.ownerFile === true),
+  );
 }
 
 /** The summary as the context section the model reads. */

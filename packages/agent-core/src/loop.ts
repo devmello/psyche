@@ -84,9 +84,10 @@ import {
   DEFAULT_COMPACTION_POLICY,
   estimateBreakdown,
   estimateContextTokens,
-  fileOnlyPins,
+  fileOnlyItems,
   hasUnansweredToolCalls,
   type LoopPrefix,
+  readsOwnerFile,
   renderCompactionSummary,
   scaleBreakdown,
   splitForCompaction,
@@ -1112,7 +1113,12 @@ export class PsycheAgentLoop implements AgentLoop {
           : [
               {
                 type: "text",
-                text: fenceUntrustedText("Attached file text", attached, fence),
+                text: fenceUntrustedText(
+                  "Attached file text",
+                  attached,
+                  fence,
+                  thirdParty ? "third_party" : "owner",
+                ),
                 ...(thirdParty
                   ? { provenance: "untrusted" as const }
                   : { ownerFile: true as const }),
@@ -2095,6 +2101,8 @@ export class PsycheAgentLoop implements AgentLoop {
       try {
         const copy = structuredClone(run.thread.messages);
         stubTurnContext(copy);
+        // No file's words become trusted memory: the flush lists facts from the conversation.
+        stubOwnerFiles(copy);
         await memory.flush(run.threadId, copy, {
           taint: run.taint || untrusted,
           signal,
@@ -2112,6 +2120,8 @@ export class PsycheAgentLoop implements AgentLoop {
       });
     }
     let structured: CompactionSummary;
+    // Exactly what the summarizer read: the trust checks below must cover all of it (#1437).
+    let read: readonly ModelMessage[] = older;
     let notes: string[] = [];
     let retiredPins: string[] = [];
     const utility = this.#o.utilityModel ?? run.model;
@@ -2143,6 +2153,7 @@ export class PsycheAgentLoop implements AgentLoop {
           // It read every message sent, the turns that stay included: the summary is as
           // untrusted as anything in them (and in the previous summary).
           untrusted = containsUntrusted(messages) || untrusted;
+          read = messages;
         } catch {
           this.#checkAbort(run);
           // Once per run: fall back to the standalone request now, and do not fork again.
@@ -2164,13 +2175,18 @@ export class PsycheAgentLoop implements AgentLoop {
       // A summary from before pins were tracked, and untrusted, counts all of its items as such.
       untrustedPrevious: run.thread.summary?.untrustedPins ?? (priorUntrusted ? priorPins : []),
       retired: retiredPins,
-      // A summary that read untrusted text cannot revoke the owner's rules (only untrusted items).
-      canRetireTrusted: !untrusted,
+      // A summary that read untrusted text, or a file the owner attached, cannot revoke the
+      // owner's rules (only untrusted items): no file's words retire a standing instruction.
+      canRetireTrusted: !untrusted && !readsOwnerFile(read),
       untrusted,
-      // A pin only file text said (the owner's upload included) is never a trusted instruction.
-      untrustedAdded: fileOnlyPins(older, structured.pinnedInstructions),
+      // A pin file text may have put there (the owner's upload included) is never trusted.
+      untrustedAdded: fileOnlyItems(read, structured.pinnedInstructions),
     });
     structured = { ...structured, pinnedInstructions: carried.items };
+    // Lines file text may have put there are dropped, not tagged: a tagged line would taint every
+    // run that recalls it, and an untagged one would be trusted memory.
+    const fromFiles = new Set(fileOnlyItems(read, notes));
+    notes = notes.filter((n) => !fromFiles.has(n));
     if (merged && !incognito && notes.length > 0) {
       try {
         // The summarizer read the same stubbed turns; the lines are tainted like the flush's were.
@@ -4326,6 +4342,22 @@ export function controlFacts(c: ControlFacts): ControlFacts {
 
 function worst(a: ProvenanceOut, b: ProvenanceOut | undefined): ProvenanceOut {
   return a === "untrusted" || b === "untrusted" ? "untrusted" : "trusted";
+}
+
+/**
+ * Replaces the text of the owner's own uploads with a stub, in place (a private copy). The
+ * pre-compaction flush lists facts from what it reads, and a file's words never become trusted
+ * memory. Someone else's file stays: it is `untrusted`, so the flush's lines are tagged so.
+ */
+function stubOwnerFiles(messages: ModelMessage[]): void {
+  for (const m of messages) {
+    if (m.role !== "user") continue;
+    m.parts = m.parts.map((p) =>
+      p.type === "text" && p.ownerFile === true
+        ? { type: "text", text: "[text of a file the owner attached, left out]", ownerFile: true }
+        : p,
+    );
+  }
 }
 
 /**

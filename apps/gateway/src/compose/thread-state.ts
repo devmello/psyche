@@ -175,7 +175,12 @@ export class SqliteThreadStateStore implements ThreadStateStore {
           : [
               {
                 type: "text" as const,
-                text: fenceUntrustedText("Attached file text", attachedText, fence),
+                text: fenceUntrustedText(
+                  "Attached file text",
+                  attachedText,
+                  fence,
+                  thirdParty || nonOwner ? "third_party" : "owner",
+                ),
                 ...(thirdParty || nonOwner
                   ? { provenance: "untrusted" as const }
                   : { ownerFile: true as const }),
