@@ -15,7 +15,14 @@ import {
 } from "@psyche/audit";
 import { redactUrl } from "@psyche/browser";
 import type { ConnectorRegistry } from "@psyche/connectors";
-import { getDevice, getSetting, getThread, type PsycheDb, setSetting } from "@psyche/db";
+import {
+  getDevice,
+  getSetting,
+  getThread,
+  type PsycheDb,
+  scrubStepPayloads,
+  setSetting,
+} from "@psyche/db";
 import { fileTools } from "@psyche/files";
 import {
   brokerApprovalCheck,
@@ -1042,6 +1049,14 @@ export async function composeGateway(options: ComposeOptions): Promise<ComposedG
     approvals: brokerApprovalCheck(broker),
     audit,
     onChange: (c) => void changes.record(memoryChange(c)),
+    // A forget (the RPC or the agent's tool) also cuts the forgotten words out of run traces.
+    onForget: ({ pattern }) => {
+      try {
+        scrubStepPayloads(db, pattern);
+      } catch {
+        gwOptions.logger?.log("warn", "forget could not scrub run-trace payloads");
+      }
+    },
     flush: { provider, model: utility ?? modelRef },
     onEvent: (e) => {
       if (e.event === "memory.file.changed") {

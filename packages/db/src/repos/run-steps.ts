@@ -285,6 +285,87 @@ export function putStepPayload(
   return id;
 }
 
+/** What a forgotten phrase becomes in stored run-trace payloads. */
+export const FORGOTTEN_MARKER = "[forgotten]";
+
+/**
+ * Cuts a forgotten phrase out of the stored run-trace payloads (model-call input and output, and
+ * the tool payloads of a step). Intact JSON payloads are scrubbed string by string, so the JSON
+ * escaping never hides a match; truncated ones are plain text. A payload is rewritten only when
+ * it changed. Returns how many payloads changed.
+ *
+ * Step payloads are gzip, so SQL cannot search them: every row is read once, one at a time (ids
+ * first, so no statement walks the table while it is being written). Forget is an owner action,
+ * so the cost is one pass over the trace store per forget.
+ */
+export function scrubStepPayloads(db: PsycheDb, pattern: RegExp): number {
+  const find = new RegExp(
+    pattern.source,
+    pattern.flags.includes("g") ? pattern.flags : `${pattern.flags}g`,
+  );
+  let changed = 0;
+  const stepIds = db.sqlite.prepare("SELECT id FROM step_payloads").all() as { id: string }[];
+  const readStep = db.sqlite.prepare("SELECT data, truncated FROM step_payloads WHERE id = ?");
+  const writeStep = db.sqlite.prepare("UPDATE step_payloads SET data = ? WHERE id = ?");
+  for (const { id } of stepIds) {
+    const row = readStep.get(id) as { data: Buffer; truncated: number } | undefined;
+    if (row === undefined) continue;
+    const text = gunzipSync(Buffer.from(row.data)).toString("utf8");
+    const next = scrubBody(text, row.truncated !== 1, find);
+    if (next === undefined) continue;
+    writeStep.run(gzipSync(Buffer.from(next, "utf8")), id);
+    changed += 1;
+  }
+  const toolIds = db.sqlite
+    .prepare("SELECT id FROM tool_payloads WHERE step_id IS NOT NULL")
+    .all() as { id: string }[];
+  const readTool = db.sqlite.prepare(
+    "SELECT data, mime, truncated FROM tool_payloads WHERE id = ?",
+  );
+  const writeTool = db.sqlite.prepare("UPDATE tool_payloads SET data = ? WHERE id = ?");
+  for (const { id } of toolIds) {
+    const row = readTool.get(id) as { data: Buffer; mime: string; truncated: number } | undefined;
+    if (row === undefined) continue;
+    const text = Buffer.from(row.data).toString("utf8");
+    const next = scrubBody(text, row.mime === "application/json" && row.truncated !== 1, find);
+    if (next === undefined) continue;
+    writeTool.run(Buffer.from(next, "utf8"), id);
+    changed += 1;
+  }
+  return changed;
+}
+
+/** The scrubbed body, or `undefined` when the phrase does not occur in it. */
+function scrubBody(text: string, json: boolean, find: RegExp): string | undefined {
+  if (json) {
+    let value: unknown;
+    let parsed = true;
+    try {
+      value = JSON.parse(text) as unknown;
+    } catch {
+      parsed = false;
+    }
+    if (parsed) {
+      const next = JSON.stringify(scrubJsonStrings(value, find));
+      return next === text ? undefined : next;
+    }
+  }
+  const next = text.replace(find, FORGOTTEN_MARKER);
+  return next === text ? undefined : next;
+}
+
+/** Replaces the phrase in every string value (not in keys), leaving the structure as it is. */
+function scrubJsonStrings(value: unknown, find: RegExp): unknown {
+  if (typeof value === "string") return value.replace(find, FORGOTTEN_MARKER);
+  if (Array.isArray(value)) return value.map((x) => scrubJsonStrings(x, find));
+  if (value !== null && typeof value === "object") {
+    return Object.fromEntries(
+      Object.entries(value).map(([k, x]) => [k, scrubJsonStrings(x, find)]),
+    );
+  }
+  return value;
+}
+
 function safeJson(text: string): unknown {
   try {
     return JSON.parse(text) as unknown;
