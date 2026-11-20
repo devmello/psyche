@@ -184,7 +184,18 @@ pub fn launches_snap(
 ) -> bool {
     let snap_word = |w: &str| w.starts_with("/snap/") || w == "snap" || w.ends_with("/snap");
     let contains = |hay: &[u8], needle: &[u8]| hay.windows(needle.len()).any(|w| w == needle);
-    entry.exec.iter().any(|w| snap_word(w))
+    // `sh -c "snap run firefox"`: the body is one word; look at its own words.
+    let shell_body_runs_snap = entry.exec.windows(3).any(|w| {
+        let shell = w[0].rsplit('/').next().unwrap_or(&w[0]);
+        matches!(shell, "sh" | "bash" | "dash" | "zsh" | "ksh" | "fish")
+            && w[1].starts_with('-')
+            && w[1].contains('c')
+            && w[2]
+                .split(|c: char| c.is_whitespace() || ";|&()`$\"'<>{}".contains(c))
+                .any(|t| snap_word(t) || t.contains("/snap/"))
+    });
+    shell_body_runs_snap
+        || entry.exec.iter().any(|w| snap_word(w))
         || resolved_exe
             .is_some_and(|p| p.starts_with("/snap/") || p.file_name().is_some_and(|n| n == "snap"))
         || exe_head.is_some_and(|h| {
@@ -1206,6 +1217,14 @@ mod tests {
             (&["gimp", "--snapshot"], Some("/usr/bin/gimp"), None, false),
             (&["snapshot"], Some("/usr/bin/snapshot"), None, false),
             (&["flatpak", "run", "org.mozilla.firefox"], Some("/usr/bin/flatpak"), None, false),
+            // A shell body that runs snap, in any of the usual shapes.
+            (&["sh", "-c", "snap run firefox"], None, None, true),
+            (&["/bin/bash", "-lc", "exec /snap/bin/firefox \"$@\""], None, None, true),
+            (&["bash", "-c", "cd /tmp; /usr/bin/snap run x"], None, None, true),
+            (&["sh", "-c", "S=/snap/bin/firefox; exec $S"], None, None, true),
+            // Shell bodies that only share letters.
+            (&["sh", "-c", "gnome-screenshot --snapshot"], None, None, false),
+            (&["sh", "-c", "echo snapper"], None, None, false),
         ];
         for (exec, exe, head, want) in table {
             let e = entry("x", exec);

@@ -776,3 +776,70 @@ fn a_snap_app_is_refused_with_a_clear_reason_and_nothing_starts() {
     assert!(err.message.contains("deb or Flatpak"), "{}", err.message);
     assert!(!m.status().running, "no display was started for a snap");
 }
+
+#[test]
+fn libreoffice_opens_on_its_real_window_not_the_splash() {
+    let _guard = serial();
+    if missing(&[]).is_some() || !have("libreoffice") {
+        eprintln!("skipping: no LibreOffice here");
+        return;
+    }
+    let dir = tempfile::tempdir().unwrap();
+    let mut c = config(dir.path(), vec![PathBuf::from("/usr/share/applications")]);
+    c.launch_wait = Duration::from_secs(40);
+    let (m, _idle) = manager(c);
+    let opened = m.open_app("libreoffice-writer").expect("open Writer");
+    let comm = std::fs::read_to_string(format!("/proc/{}/comm", opened.pid)).unwrap();
+    eprintln!(
+        "LibreOffice window: pid {} comm {} title {:?}",
+        opened.pid,
+        comm.trim(),
+        opened.window_title
+    );
+    assert_eq!(
+        comm.trim(),
+        "soffice.bin",
+        "the document window, not oosplash's"
+    );
+    assert!(
+        ProcFs
+            .cgroup_text(opened.pid)
+            .contains(&format!("{}.scope", opened.unit)),
+        "the window's process is in the launch's scope"
+    );
+    assert!(m.stop(true, true).unwrap().stopped);
+}
+
+#[test]
+fn the_sweep_leaves_a_running_screens_fallback_dir_alone() {
+    let _guard = serial();
+    if missing(&[]).is_some() {
+        return;
+    }
+    let dir = tempfile::tempdir().unwrap();
+    let mut c = config(dir.path(), vec![]);
+    c.xdg_runtime_dir = None;
+    let (m, _idle) = manager(c);
+    m.start(None).expect("start without a runtime dir");
+    let xauth = m.xauthority().expect("the auth file");
+    let fallback = xauth
+        .ancestors()
+        .find(|p| {
+            p.file_name()
+                .is_some_and(|n| n.to_string_lossy().starts_with("psyche-vscreen-"))
+        })
+        .expect("the auth file sits in the fallback dir")
+        .to_path_buf();
+    m.sweep_leftovers();
+    assert!(fallback.is_dir(), "the running screen's fallback dir stays");
+    assert!(xauth.is_file());
+    assert!(
+        m.frame(None, Some(320)).unwrap().changed,
+        "the screen still works"
+    );
+    assert!(m.stop(false, true).unwrap().stopped);
+    assert!(
+        !fallback.exists(),
+        "after the stop the empty fallback dir goes"
+    );
+}

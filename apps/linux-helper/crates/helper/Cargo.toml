@@ -19,7 +19,7 @@ psyche-protocol = { version = "0.1.0", path = "../protocol" }
 serde = { version = "1.0.229", features = ["derive"] }
 serde_json = "1.0.154"
 sha2 = "0.11.1"
-x11rb = { version = "0.14.0", features = ["shm", "xtest"] }
+x11rb = { version = "0.14.0", features = ["res", "shm", "xtest"] }
 x11rb-protocol = "0.14.0"
 zeroize = "1"
 
