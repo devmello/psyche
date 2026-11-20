@@ -292,6 +292,12 @@ if [ "$swift" = 1 ]; then
     while pgrep -f 'swift-build|xcodebuild' >/dev/null; do sleep 15; done  # one Swift build at a time
     run "swift-test:$pkg" bash -c "cd '$pkg' && swift build && swift test"
   done
+  # The iOS package's test targets (host macOS, no simulator, no UI tests). It also depends on
+  # packages/protocol-swift, so a protocol change runs it too.
+  if echo "$changed" | grep -qE '^(apps/ios|packages/protocol-swift)/'; then
+    while pgrep -f 'swift-build|xcodebuild' >/dev/null; do sleep 15; done  # one Swift build at a time
+    run "swift-test:apps/ios" bash -c "cd 'apps/ios' && swift test"
+  fi
 elif echo "$changed" | grep -qE '\.swift$'; then
   echo "verify: Swift files changed; run again with --swift to build and test them."
 fi
