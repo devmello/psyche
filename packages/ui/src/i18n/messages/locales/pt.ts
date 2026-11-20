@@ -14,6 +14,7 @@ import { homeA } from "./home-a/pt.ts";
 import { keepAwake } from "./keep-awake/pt.ts";
 import { links } from "./links/pt.ts";
 import { linuxAccess } from "./linux-access/pt.ts";
+import { mailFollowups } from "./mail-followups/pt.ts";
 import { mailMeetings } from "./mail-meetings/pt.ts";
 import { memoryA } from "./memory-a/pt.ts";
 import { memoryB } from "./memory-b/pt.ts";
@@ -32,6 +33,7 @@ import { settingsB } from "./settings-b/pt.ts";
 import { settingsC } from "./settings-c/pt.ts";
 import { settingsD } from "./settings-d/pt.ts";
 import { settingsE } from "./settings-e/pt.ts";
+import { spaces } from "./spaces/pt.ts";
 import { specialistsA } from "./specialists-a/pt.ts";
 import { teachA } from "./teach-a/pt.ts";
 import { windowsPlatform202611 } from "./windows-platform-2026-11/pt.ts";
@@ -992,6 +994,8 @@ export const pt: Partial<Catalogue> = {
   "settings.key.browser.botAuth": "Web Bot Auth",
   "settings.key.computerUse.enabled": "Permitir uso do computador",
   "settings.key.computerUse.apps": "Acesso a apps",
+  "settings.key.feed.sources": "Fontes do feed",
+  "settings.key.computerUse.linuxRevoke": "Esquecer o computador Linux",
   "settings.key.context.maxTokens": "Limite de contexto",
   "settings.key.search.web.provider": "Provedor de busca na web",
   "settings.key.search.web.searxngUrl": "URL do SearXNG",
@@ -2363,6 +2367,15 @@ export const pt: Partial<Catalogue> = {
   "settings.plugins.switchOn": "{name} ligado",
   "settings.plugins.version": " · v{version}",
   "settings.plugins.adds": "Acrescenta: {list}",
+  "settings.plugins.install": "Instalar de uma pasta…",
+  "settings.plugins.pickFailed": "O Psyche não conseguiu abrir o seletor de pastas ({reason}).",
+  "settings.plugins.installFailed": "A instalação não começou. {reason}",
+  "settings.plugins.proposed": "Revise a instalação no cartão de aprovação.",
+  "settings.plugins.includes": "Inclui: {list}",
+  "settings.plugins.count.skills": "{n, plural, one {# skill} other {# skills}}",
+  "settings.plugins.count.commands": "{n, plural, one {# comando} other {# comandos}}",
+  "settings.plugins.count.mcpServers": "{n, plural, one {# servidor MCP} other {# servidores MCP}}",
+  "settings.plugins.count.hooks": "{n, plural, one {# hook} other {# hooks}}",
   "settings.plugins.from": "De {source}",
   "settings.plugins.state.active": "Em execução",
   "settings.plugins.state.disabled": "Desligado",
@@ -3713,5 +3726,7 @@ export const pt: Partial<Catalogue> = {
   ...separateDesktop,
   // Windows variants of the sandbox PC, voice keys and platform terms
   ...windowsPlatform202611,
+  ...mailFollowups,
   ...keepAwake,
+  ...spaces,
 };

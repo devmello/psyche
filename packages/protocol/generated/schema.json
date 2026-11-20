@@ -741,6 +741,14 @@
         "sideEffecting": false
       },
       {
+        "description": "Cancels a scheduled run that is waiting to retry after a transient model error: the run ends as cancelled (its last error kept in the summary), the automation shows as failed, and Run now is free again. Side-effecting. `conflict` when the run is not waiting to retry (it already started its next attempt, or finished).",
+        "name": "automations.cancelRetry",
+        "params": "#/$defs/AutomationsCancelRetryParams",
+        "result": "#/$defs/AutomationsCancelRetryResult",
+        "scope": "operator.write",
+        "sideEffecting": true
+      },
+      {
         "description": "Creates an automation (enabled by default). Side-effecting.",
         "name": "automations.create",
         "params": "#/$defs/AutomationsCreateParams",
@@ -1869,6 +1877,22 @@
         "sideEffecting": true
       },
       {
+        "description": "Snooze a quiet thread for a week, or dismiss it until the thread has new mail. Side-effecting; sends nothing.",
+        "name": "mailFollowups.act",
+        "params": "#/$defs/MailFollowupsActParams",
+        "result": "#/$defs/MailFollowupsActResult",
+        "scope": "operator.write",
+        "sideEffecting": true
+      },
+      {
+        "description": "Quiet email threads to show now (not snoozed or dismissed), longest quiet first. Empty while the setting is off or no mail source is connected. Reads mail; subjects are untrusted.",
+        "name": "mailFollowups.list",
+        "params": "#/$defs/MailFollowupsListParams",
+        "result": "#/$defs/MailFollowupsListResult",
+        "scope": "operator.read",
+        "sideEffecting": false
+      },
+      {
         "description": "Side-effecting: adds a probed server to mcp.servers with its approved trust card; approval_required without it, conflict when its tools changed since the probe.",
         "name": "mcp.add",
         "params": "#/$defs/McpAddParams",
@@ -2749,6 +2773,14 @@
         "sideEffecting": false
       },
       {
+        "description": "Machine → Gateway: the machine removes itself (`psyche-helper unpair`). Runs the same cascade as devices.revoke on the caller's own device (the stored machine decision, the node, the audit entry machine.revoked, the owner's notice) and the connection closes right after the reply. Takes no device id, so it can never name another device. Only a connection paired as a machine may call it; any other node gets `forbidden`.",
+        "name": "node.unpair",
+        "params": "#/$defs/NodeUnpairParams",
+        "result": "#/$defs/NodeUnpairResult",
+        "scope": "node",
+        "sideEffecting": false
+      },
+      {
         "description": "Returns a node's declared capabilities.",
         "name": "nodes.capabilities",
         "params": "#/$defs/NodesCapabilitiesParams",
@@ -3617,7 +3649,7 @@
         "name": "spaces.proposals.list",
         "params": "#/$defs/SpacesProposalsListParams",
         "result": "#/$defs/SpacesProposalsListResult",
-        "scope": "operator.write",
+        "scope": "operator.read",
         "sideEffecting": false
       },
       {
@@ -3714,6 +3746,22 @@
         "params": "#/$defs/SpeechEngineStatusParams",
         "result": "#/$defs/SpeechEngineStatus",
         "scope": "operator.read",
+        "sideEffecting": false
+      },
+      {
+        "description": "Side-effecting. Empties the rebuildable caches (converted documents and thumbnails) and deletes finished browser recordings older than 7 days. Recordings still in progress, and every other category, are untouched.",
+        "name": "storage.clearCache",
+        "params": "#/$defs/StorageClearCacheParams",
+        "result": "#/$defs/StorageCleared",
+        "scope": "operator.admin",
+        "sideEffecting": true
+      },
+      {
+        "description": "Disk use under the Gateway's data folder by category (database, memory index, attachments and Library, browser profiles, recordings, logs, caches, other). Sizes only; symbolic links are not followed.",
+        "name": "storage.usage",
+        "params": "#/$defs/StorageUsageParams",
+        "result": "#/$defs/StorageUsage",
+        "scope": "operator.admin",
         "sideEffecting": false
       },
       {
@@ -3989,7 +4037,7 @@
         "sideEffecting": false
       },
       {
-        "description": "Side-effecting: the owner removes one standing instruction from a thread's compaction summary, and from the compaction blocks that show it. A plain tap on a paired device, no presence; the agent and channels cannot reach it. conflict while the thread runs.",
+        "description": "Side-effecting: the owner removes one standing instruction (by pin id) from a thread's compaction summary, and from the compaction blocks that show it. A plain tap on a paired device, no presence; the agent and channels cannot reach it. conflict while the thread runs.",
         "name": "threads.summary.pins.remove",
         "params": "#/$defs/ThreadsSummaryPinsRemoveParams",
         "result": "#/$defs/ThreadsSummaryPinsRemoveResult",
@@ -11347,6 +11395,31 @@
       ],
       "type": "object"
     },
+    "AutomationsCancelRetryParams": {
+      "properties": {
+        "runId": {
+          "description": "ULID in production",
+          "maxLength": 64,
+          "minLength": 1,
+          "type": "string"
+        }
+      },
+      "required": [
+        "runId"
+      ],
+      "type": "object"
+    },
+    "AutomationsCancelRetryResult": {
+      "properties": {
+        "run": {
+          "$ref": "#/$defs/AutomationRun"
+        }
+      },
+      "required": [
+        "run"
+      ],
+      "type": "object"
+    },
     "AutomationsCreateParams": {
       "properties": {
         "kind": {
@@ -14667,7 +14740,8 @@
             "feed_item",
             "search_hit",
             "memory_entity",
-            "life_answer"
+            "life_answer",
+            "mail_followup"
           ],
           "type": "string"
         },
@@ -16957,7 +17031,8 @@
             "feed_item",
             "search_hit",
             "memory_entity",
-            "life_answer"
+            "life_answer",
+            "mail_followup"
           ],
           "type": "string"
         },
@@ -17974,7 +18049,7 @@
           "items": {
             "$ref": "#/$defs/DailySection"
           },
-          "maxItems": 8,
+          "maxItems": 10,
           "type": "array"
         },
         "carryOver": {
@@ -18290,6 +18365,7 @@
         "learned",
         "coming_up",
         "keep_in_touch",
+        "quiet_threads",
         "catching_up",
         "worked_on"
       ],
@@ -27078,6 +27154,124 @@
       ],
       "type": "object"
     },
+    "MailFollowupAction": {
+      "enum": [
+        "snooze",
+        "dismiss"
+      ],
+      "type": "string"
+    },
+    "MailFollowupItem": {
+      "properties": {
+        "id": {
+          "description": "ULID in production",
+          "maxLength": 64,
+          "minLength": 1,
+          "type": "string"
+        },
+        "kind": {
+          "$ref": "#/$defs/MailFollowupKind"
+        },
+        "source": {
+          "enum": [
+            "apple",
+            "gmail",
+            "imap"
+          ],
+          "type": "string"
+        },
+        "who": {
+          "maxLength": 120,
+          "type": "string"
+        },
+        "subject": {
+          "maxLength": 200,
+          "type": "string"
+        },
+        "daysQuiet": {
+          "minimum": 0,
+          "type": "integer"
+        },
+        "link": {
+          "maxLength": 1000,
+          "type": "string"
+        },
+        "untrusted": {
+          "const": true,
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "id",
+        "kind",
+        "source",
+        "who",
+        "subject",
+        "daysQuiet",
+        "untrusted"
+      ],
+      "type": "object"
+    },
+    "MailFollowupKind": {
+      "enum": [
+        "no_reply",
+        "unanswered_question"
+      ],
+      "type": "string"
+    },
+    "MailFollowupsActParams": {
+      "properties": {
+        "id": {
+          "description": "ULID in production",
+          "maxLength": 64,
+          "minLength": 1,
+          "type": "string"
+        },
+        "action": {
+          "$ref": "#/$defs/MailFollowupAction"
+        }
+      },
+      "required": [
+        "id",
+        "action"
+      ],
+      "type": "object"
+    },
+    "MailFollowupsActResult": {
+      "properties": {
+        "ok": {
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "ok"
+      ],
+      "type": "object"
+    },
+    "MailFollowupsListParams": {
+      "properties": {},
+      "type": "object"
+    },
+    "MailFollowupsListResult": {
+      "properties": {
+        "enabled": {
+          "description": "`mail.followups.enabled` is on",
+          "type": "boolean"
+        },
+        "items": {
+          "items": {
+            "$ref": "#/$defs/MailFollowupItem"
+          },
+          "maxItems": 10,
+          "type": "array"
+        }
+      },
+      "required": [
+        "enabled",
+        "items"
+      ],
+      "type": "object"
+    },
     "MailThreadRef": {
       "properties": {
         "account": {
@@ -33955,6 +34149,21 @@
       ],
       "type": "string"
     },
+    "NodeUnpairParams": {
+      "properties": {},
+      "type": "object"
+    },
+    "NodeUnpairResult": {
+      "properties": {
+        "device": {
+          "$ref": "#/$defs/Device"
+        }
+      },
+      "required": [
+        "device"
+      ],
+      "type": "object"
+    },
     "NodeUpdatedPayload": {
       "properties": {
         "node": {
@@ -35531,6 +35740,33 @@
       ],
       "type": "string"
     },
+    "PluginAdds": {
+      "properties": {
+        "skills": {
+          "minimum": 0,
+          "type": "integer"
+        },
+        "commands": {
+          "minimum": 0,
+          "type": "integer"
+        },
+        "mcpServers": {
+          "minimum": 0,
+          "type": "integer"
+        },
+        "hooks": {
+          "minimum": 0,
+          "type": "integer"
+        }
+      },
+      "required": [
+        "skills",
+        "commands",
+        "mcpServers",
+        "hooks"
+      ],
+      "type": "object"
+    },
     "PluginCapability": {
       "enum": [
         "context",
@@ -35691,6 +35927,9 @@
         },
         "installedAt": {
           "type": "string"
+        },
+        "adds": {
+          "$ref": "#/$defs/PluginAdds"
         },
         "error": {
           "type": "string"
@@ -46478,6 +46717,101 @@
       ],
       "type": "string"
     },
+    "StorageCategory": {
+      "properties": {
+        "id": {
+          "$ref": "#/$defs/StorageCategoryId"
+        },
+        "bytes": {
+          "minimum": 0,
+          "type": "integer"
+        },
+        "clearable": {
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "id",
+        "bytes",
+        "clearable"
+      ],
+      "type": "object"
+    },
+    "StorageCategoryId": {
+      "enum": [
+        "database",
+        "memoryIndex",
+        "library",
+        "browserProfiles",
+        "recordings",
+        "logs",
+        "caches",
+        "other"
+      ],
+      "type": "string"
+    },
+    "StorageClearCacheParams": {
+      "properties": {
+        "targets": {
+          "items": {
+            "$ref": "#/$defs/StorageClearTarget"
+          },
+          "maxItems": 2,
+          "minItems": 1,
+          "type": "array"
+        }
+      },
+      "type": "object"
+    },
+    "StorageClearTarget": {
+      "enum": [
+        "caches",
+        "recordings"
+      ],
+      "type": "string"
+    },
+    "StorageCleared": {
+      "properties": {
+        "cleared": {
+          "items": {
+            "$ref": "#/$defs/StorageClearTarget"
+          },
+          "type": "array"
+        },
+        "freedBytes": {
+          "minimum": 0,
+          "type": "integer"
+        }
+      },
+      "required": [
+        "cleared",
+        "freedBytes"
+      ],
+      "type": "object"
+    },
+    "StorageUsage": {
+      "properties": {
+        "categories": {
+          "items": {
+            "$ref": "#/$defs/StorageCategory"
+          },
+          "type": "array"
+        },
+        "totalBytes": {
+          "minimum": 0,
+          "type": "integer"
+        }
+      },
+      "required": [
+        "categories",
+        "totalBytes"
+      ],
+      "type": "object"
+    },
+    "StorageUsageParams": {
+      "properties": {},
+      "type": "object"
+    },
     "SurfaceAnswerToken": {
       "minLength": 1,
       "type": "string"
@@ -49047,15 +49381,14 @@
           "minLength": 1,
           "type": "string"
         },
-        "instruction": {
-          "maxLength": 500,
-          "minLength": 1,
+        "pinId": {
+          "pattern": "^[0-9a-f]{16}$",
           "type": "string"
         }
       },
       "required": [
         "threadId",
-        "instruction"
+        "pinId"
       ],
       "type": "object"
     },

@@ -53,6 +53,61 @@ struct Keymap {
     unused: Option<u8>,
 }
 
+/// Run **before** the server is grabbed, once per send: does every slow thing (the policy file,
+/// the process table, the target) and returns the pid the focused client must be. Inside the
+/// grab nothing but that pid is compared; an error refuses the send. The guard is consumed per
+/// call, so a verdict made for one send cannot be reused for another.
+pub type TapGuard = Arc<dyn Fn() -> CapResult<u32> + Send + Sync>;
+
+/// A server grab that is let go of whatever happens in between (an unwind included).
+struct Grab<'a>(&'a RustConnection);
+
+impl<'a> Grab<'a> {
+    fn new(conn: &'a RustConnection) -> CapResult<Grab<'a>> {
+        conn.grab_server().map_err(xerr)?;
+        Ok(Grab(conn))
+    }
+}
+
+impl Drop for Grab<'_> {
+    fn drop(&mut self) {
+        let _ = self.0.ungrab_server();
+        let _ = self.0.flush();
+    }
+}
+
+/// The verdict made inside the grab: the focused client must be exactly the one named.
+pub fn focus_verdict(expected: u32, focused: Option<u32>) -> CapResult<()> {
+    match focused {
+        Some(p) if p == expected => Ok(()),
+        Some(_) => Err(CapError::new(
+            code::CONFLICT,
+            "focus_moved",
+            "Keyboard focus is no longer in the app; input stopped",
+        )
+        .retryable()),
+        None => Err(CapError::new(
+            code::CONFLICT,
+            "focus_unknown",
+            "Psyche cannot tell which window has the keyboard, so it did not type",
+        )
+        .retryable()),
+    }
+}
+
+/// Splits typed text into pieces of at most `max` characters, a grapheme kept whole when it fits
+/// and cut when it does not: no piece, and so no grab, may be longer than that.
+pub fn grab_pieces(text: &str, max: usize) -> Vec<String> {
+    let mut out = Vec::new();
+    for chunk in crate::keychord::typing_chunks(text, max) {
+        let chars: Vec<char> = chunk.chars().collect();
+        for part in chars.chunks(max) {
+            out.push(part.iter().collect());
+        }
+    }
+    out
+}
+
 pub struct X11 {
     conn: RustConnection,
     root: u32,
@@ -70,6 +125,7 @@ pub struct X11 {
     watcher: AtomicBool,
     last_owner: Arc<AtomicU64>,
     display: String,
+    tap_guard: Mutex<Option<TapGuard>>,
 }
 
 fn xerr<E: std::fmt::Display>(e: E) -> CapError {
@@ -98,6 +154,16 @@ impl X11 {
                 format!("Cannot open the display {display}: {e}"),
             )
         })?;
+        Self::from_connection(conn, screen_num, display)
+    }
+
+    /// Uses a connection the caller opened: the headless mode's private Xvfb, reached with its
+    /// cookie in memory, never through `$DISPLAY` or a file the environment names.
+    pub fn from_connection(
+        conn: RustConnection,
+        screen_num: usize,
+        display: String,
+    ) -> CapResult<Arc<X11>> {
         let root = conn.setup().roots[screen_num].root;
         conn.xtest_get_version(2, 2)
             .map_err(xerr)?
@@ -170,6 +236,7 @@ impl X11 {
             watcher: AtomicBool::new(false),
             last_owner: Arc::new(AtomicU64::new(0)),
             display,
+            tap_guard: Mutex::new(None),
         }))
     }
 
@@ -407,8 +474,19 @@ impl X11 {
             .set_input_focus(xproto::InputFocus::POINTER_ROOT, win, x11rb::CURRENT_TIME)
             .map_err(xerr)?;
         self.conn.flush().map_err(xerr)?;
-        std::thread::sleep(Duration::from_millis(80));
-        Ok(self.active().is_none() || self.active() == Some(win))
+        // Until the raise has happened (the target is the active window, or the top-most window
+        // by the server's own stacking), up to 500 ms; a click right after must not race it.
+        let started = Instant::now();
+        loop {
+            std::thread::sleep(Duration::from_millis(20));
+            let on_top = self.stacked_windows().first().is_some_and(|t| t.pid == pid);
+            if self.active() == Some(win) || on_top {
+                return Ok(true);
+            }
+            if started.elapsed() >= Duration::from_millis(500) {
+                return Ok(self.active().is_none());
+            }
+        }
     }
 
     // --- Input ------------------------------------------------------------------------------
@@ -571,6 +649,190 @@ impl X11 {
         result
     }
 
+    /// Installs the guard that runs, with the server grabbed, right before keys are sent.
+    pub fn set_tap_guard(&self, guard: TapGuard) {
+        *self.tap_guard.lock().unwrap_or_else(|e| e.into_inner()) = Some(guard);
+    }
+
+    /// The pid the X server recorded for the client of `w` (X-Resource), `None` for a remote
+    /// client or no answer.
+    pub fn client_pid(&self, w: u32) -> Option<u32> {
+        use x11rb::protocol::res::{ClientIdMask, ClientIdSpec, ConnectionExt as _};
+        let spec = ClientIdSpec {
+            client: w,
+            mask: ClientIdMask::LOCAL_CLIENT_PID,
+        };
+        let reply = self.conn.res_query_client_ids(&[spec]).ok()?.reply().ok()?;
+        reply
+            .ids
+            .iter()
+            .find(|id| id.spec.mask == ClientIdMask::LOCAL_CLIENT_PID)
+            .and_then(|id| id.value.first().copied())
+            .filter(|&p| p > 0)
+    }
+
+    /// The pid of the one client that will receive a key now: the owner of the X input focus,
+    /// asked of the focused window **and every ancestor**, and of **every descendant under the
+    /// pointer** (X delivers a key to the deepest window under the pointer inside the focus
+    /// window). A window-manager frame belongs to this process and is skipped; a window another
+    /// client made anywhere on that chain answers with its own pid and makes the answer `None`.
+    pub fn focused_client_pid(&self) -> Option<u32> {
+        const DEPTH: usize = 8;
+        let focus = self.conn.get_input_focus().ok()?.reply().ok()?.focus;
+        let own = std::process::id();
+        let mut found: Option<u32> = None;
+        let mut take = |pid: u32| -> bool {
+            if pid == own {
+                return true;
+            }
+            match found {
+                None => {
+                    found = Some(pid);
+                    true
+                }
+                Some(p) => p == pid,
+            }
+        };
+        let mut w = focus;
+        let mut ended = false;
+        for _ in 0..DEPTH {
+            if w == 0 || w == 1 || w == self.root {
+                ended = true;
+                break;
+            }
+            if !take(self.client_pid(w)?) {
+                return None;
+            }
+            w = self.conn.query_tree(w).ok()?.reply().ok()?.parent;
+        }
+        // A chain that did not end within the limit is not one this can vouch for.
+        if !ended {
+            return None;
+        }
+        // Below the focus window, along the pointer.
+        let mut d = focus;
+        if d != 0 && d != 1 && d != self.root {
+            let mut ended = false;
+            for _ in 0..DEPTH {
+                let q = self.conn.query_pointer(d).ok()?.reply().ok()?;
+                if !q.same_screen || q.child == 0 {
+                    ended = true;
+                    break;
+                }
+                if !take(self.client_pid(q.child)?) {
+                    return None;
+                }
+                d = q.child;
+            }
+            if !ended {
+                return None;
+            }
+        }
+        found
+    }
+
+    /// The one client every window on the chain under screen point `(x, y)` belongs to (the
+    /// window manager's frames skipped), `None` when two clients are stacked there, a window
+    /// cannot be attributed, or the chain is deeper than this will follow.
+    pub fn client_at_point(&self, x: i32, y: i32) -> Option<u32> {
+        let own = std::process::id();
+        let mut found: Option<u32> = None;
+        let mut w = self.root;
+        let (mut px, mut py) = (x as i16, y as i16);
+        for _ in 0..8 {
+            let t = self
+                .conn
+                .translate_coordinates(w, w, px, py)
+                .ok()?
+                .reply()
+                .ok()?;
+            if t.child == 0 {
+                return found;
+            }
+            let pid = self.client_pid(t.child)?;
+            if pid != own {
+                match found {
+                    None => found = Some(pid),
+                    Some(p) if p == pid => {}
+                    Some(_) => return None,
+                }
+            }
+            // The point, in the child's own coordinates.
+            let g = self.conn.get_geometry(t.child).ok()?.reply().ok()?;
+            px -= g.x;
+            py -= g.y;
+            w = t.child;
+        }
+        None
+    }
+
+    /// Mapped top-level windows, **top first** in the server's own stacking order
+    /// (`QueryTree`), with the pid the server recorded: nothing a client wrote. A frame of the
+    /// window manager (this process) is looked through to its client; a window with no
+    /// attributable pid, an override-redirect popup included, is listed with pid 0, so it
+    /// blocks whatever is behind it and belongs to no app.
+    pub fn stacked_windows(&self) -> Vec<WinInfo> {
+        let own = std::process::id();
+        let Some(tree) = self
+            .conn
+            .query_tree(self.root)
+            .ok()
+            .and_then(|c| c.reply().ok())
+        else {
+            return Vec::new();
+        };
+        let mut out = Vec::new();
+        for w in tree.children.into_iter().rev() {
+            if !self.is_viewable(w) {
+                continue;
+            }
+            let (client, pid) = attribute(own, self.client_pid(w), || {
+                let below = self
+                    .conn
+                    .query_tree(w)
+                    .ok()
+                    .and_then(|c| c.reply().ok())
+                    .map(|t| t.children)
+                    .unwrap_or_default();
+                below
+                    .into_iter()
+                    .rev()
+                    .filter(|c| self.is_viewable(*c))
+                    .find_map(|c| self.client_pid(c).map(|p| (c, p)))
+            });
+            out.push(WinInfo {
+                id: u64::from(client.unwrap_or(w)),
+                pid,
+                title: self.title(client.unwrap_or(w)),
+                bounds: self.rect(w),
+                layer: 0,
+                focused: false,
+                minimized: false,
+            });
+        }
+        out
+    }
+
+    /// Runs `send` so that the focus it was judged against cannot change before the keys are
+    /// delivered: with a guard installed, the server is grabbed (no other client's request,
+    /// the window manager's `SetInputFocus` included, is served), the guard looks at the focus,
+    /// and only then `send` runs. Without a guard it just runs.
+    fn guarded<R>(&self, send: impl FnOnce() -> CapResult<R>) -> CapResult<R> {
+        let guard = self
+            .tap_guard
+            .lock()
+            .unwrap_or_else(|e| e.into_inner())
+            .clone();
+        let Some(guard) = guard else {
+            return send();
+        };
+        // Everything slow first, outside the grab.
+        let expected = guard()?;
+        let _grab = Grab::new(&self.conn)?;
+        focus_verdict(expected, self.focused_client_pid())?;
+        send()
+    }
+
     pub fn key(&self, chord: &KeyChord, stop: &StopSignal) -> CapResult<()> {
         stop.check()?;
         // Our own Escape must not fire our own kill switch.
@@ -579,7 +841,7 @@ impl X11 {
             self.inject_esc.store(true, Ordering::SeqCst);
             self.ungrab();
         }
-        let r = self.tap(chord.keysym, &chord.mods.keysyms());
+        let r = self.guarded(|| self.tap(chord.keysym, &chord.mods.keysyms()));
         if esc {
             std::thread::sleep(Duration::from_millis(30));
             self.inject_esc.store(false, Ordering::SeqCst);
@@ -594,20 +856,56 @@ impl X11 {
         stop: &StopSignal,
         before_chunk: &mut dyn FnMut() -> CapResult<()>,
     ) -> CapResult<()> {
-        for chunk in crate::keychord::typing_chunks(text, 16) {
+        let sym_of = |ch: char| match ch {
+            '\n' | '\r' => keysym::RETURN,
+            '\t' => keysym::TAB,
+            c if (c as u32) < 0x100 => c as u32,
+            c => 0x0100_0000 + c as u32,
+        };
+        let guarded = self
+            .tap_guard
+            .lock()
+            .unwrap_or_else(|e| e.into_inner())
+            .is_some();
+        if guarded {
+            // A character with no key on this keyboard would have to be typed through a borrowed
+            // keycode, which another client only sees after the grab is let go. It would be
+            // dropped and the call would say it typed it. So nothing is typed, and the call says
+            // which characters it cannot type.
+            let missing: String = {
+                let km = self.keymap.lock().unwrap_or_else(|e| e.into_inner());
+                let mut seen = Vec::new();
+                for ch in text.chars() {
+                    if !km.by_sym.contains_key(&sym_of(ch)) && !seen.contains(&ch) {
+                        seen.push(ch);
+                    }
+                }
+                seen.into_iter().take(8).collect()
+            };
+            if !missing.is_empty() {
+                return Err(CapError::new(
+                    code::INVALID_PARAMS,
+                    "unsupported_characters",
+                    format!(
+                        "These characters have no key on the virtual screen's keyboard, so nothing was typed: {missing}. Leave them out or set the text with computer.set_value."
+                    ),
+                ));
+            }
+        }
+        for piece in grab_pieces(text, 16) {
             stop.check()?;
             before_chunk()?;
-            for ch in chunk.chars() {
-                stop.check()?;
-                let sym = match ch {
-                    '\n' | '\r' => keysym::RETURN,
-                    '\t' => keysym::TAB,
-                    c if (c as u32) < 0x100 => c as u32,
-                    c => 0x0100_0000 + c as u32,
-                };
-                self.tap(sym, &[])?;
-                std::thread::sleep(Duration::from_millis(3));
-            }
+            // One grab per piece of at most 16 characters (about 100 ms): the guard's verdict
+            // holds for every key of it, so a focus change between the check and the taps cannot
+            // send any of them (a `\n` included) to another window.
+            self.guarded(|| {
+                for ch in piece.chars() {
+                    stop.check()?;
+                    self.tap(sym_of(ch), &[])?;
+                    std::thread::sleep(Duration::from_millis(3));
+                }
+                Ok(())
+            })?;
         }
         Ok(())
     }
@@ -921,3 +1219,58 @@ fn crate_log(msg: &str) {
 
 #[allow(dead_code)]
 fn _unused(_: shm::Seg) {}
+
+/// Which window and pid a child of the root stands for: its own, a client below it when it is
+/// the window manager's frame (`own` is this process), or pid 0 when the server cannot say.
+pub fn attribute(
+    own: u32,
+    xres: Option<u32>,
+    below: impl FnOnce() -> Option<(u32, u32)>,
+) -> (Option<u32>, u32) {
+    match xres {
+        Some(p) if p == own => match below() {
+            Some((c, pid)) if pid != own => (Some(c), pid),
+            _ => (None, 0),
+        },
+        Some(p) => (None, p),
+        None => (None, 0),
+    }
+}
+
+#[cfg(test)]
+mod focus_tests {
+    use super::*;
+
+    #[test]
+    fn the_verdict_inside_the_grab_is_an_exact_pid() {
+        assert!(focus_verdict(7, Some(7)).is_ok());
+        assert_eq!(focus_verdict(7, Some(8)).unwrap_err().reason, "focus_moved");
+        assert_eq!(focus_verdict(7, None).unwrap_err().reason, "focus_unknown");
+    }
+
+    #[test]
+    fn a_grab_never_covers_more_than_sixteen_characters() {
+        // One grapheme of 1,501 code points is cut; ordinary text stays in its clusters.
+        let long = format!("a{}", "\u{301}".repeat(1500));
+        let pieces = grab_pieces(&long, 16);
+        assert!(pieces.iter().all(|p| p.chars().count() <= 16));
+        assert_eq!(pieces.concat(), long);
+        let plain = grab_pieces("hello world, this is text", 16);
+        assert_eq!(plain.concat(), "hello world, this is text");
+        assert!(plain.iter().all(|p| p.chars().count() <= 16));
+    }
+
+    #[test]
+    fn a_window_is_attributed_by_the_server_never_by_the_window() {
+        let own = 10;
+        // The window manager's frame is looked through to its client.
+        assert_eq!(attribute(own, Some(own), || Some((5, 77))), (Some(5), 77));
+        // A frame with nothing attributable in it, a frame around another frame, a window the
+        // server could not attribute: pid 0, a blocker that belongs to no app.
+        assert_eq!(attribute(own, Some(own), || None), (None, 0));
+        assert_eq!(attribute(own, Some(own), || Some((5, own))), (None, 0));
+        assert_eq!(attribute(own, None, || Some((5, 77))), (None, 0));
+        // A window that is not ours is its own client (no frame, or an override-redirect popup).
+        assert_eq!(attribute(own, Some(42), || Some((5, 77))), (None, 42));
+    }
+}

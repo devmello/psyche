@@ -213,11 +213,26 @@ fn remote(dirs: &Dirs, env: &dyn Env) -> ExitCode {
         }
     };
 
+    // The same mode and NoNewPrivileges step as `serve`, before anything is registered.
+    #[cfg(target_os = "linux")]
+    let headless = match crate::headless::setup(true, env) {
+        Ok(h) => h,
+        Err((message, code)) => {
+            crate::log(&message);
+            return ExitCode::from(code);
+        }
+    };
     let idle = Arc::new(IdleTimer::new(None));
     #[allow(unused_mut)]
     let mut full = Registry::standard(BuildInfo::current());
+    // Direct computer use: offered if the remote allowlist and the ceiling let it through.
+    crate::direct::register(&mut full);
     #[cfg(target_os = "linux")]
     let vscreen = crate::vscreen::register(&mut full, env, Arc::clone(&idle));
+    #[cfg(target_os = "linux")]
+    if headless {
+        crate::headless::install(Arc::clone(&vscreen));
+    }
     #[cfg(not(target_os = "linux"))]
     let _ = &idle;
     let (registry, dropped) = machine_registry(&full, dirs, env);
@@ -503,12 +518,7 @@ fn unpair(dirs: &Dirs, env: &dyn Env) -> Result<(), String> {
                 attempt(&target, identity, &config.machine_name, caps, &pins, None)
             {
                 removed_on_gateway = session
-                    .request(
-                        "unpair",
-                        "devices.revokeSelf",
-                        &json!({}),
-                        Duration::from_secs(5),
-                    )
+                    .request("unpair", "node.unpair", &json!({}), Duration::from_secs(5))
                     .is_ok();
                 session.link.close();
             }
@@ -878,7 +888,12 @@ mod tests {
         assert!(gateway
             .frames()
             .iter()
-            .any(|f| f["method"] == "devices.revokeSelf"));
+            .any(|f| f["method"] == "node.unpair"));
+        // `devices.revokeSelf` needs a scope a machine does not have; it is never called.
+        assert!(gateway
+            .frames()
+            .iter()
+            .all(|f| f["method"] != "devices.revokeSelf"));
         assert!(config::load(&fx.dirs().config).unwrap().is_none());
         assert!(!fx.dirs().state.join(REMOTE_IDENTITY_FILE).exists());
 

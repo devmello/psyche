@@ -28,6 +28,46 @@ export interface AboutPanelProps {
   onRevealHome?: () => void;
   /** Desktop on the Mac or PC running the Gateway only: the Uninstall Psyche sheet. */
   uninstall?: UninstallPort;
+  /** Desktop only: the release channel picker (the desktop app is the one that updates itself). */
+  showUpdates?: boolean;
+}
+
+/** `updates.channel`: which signed release manifest the desktop app reads. Stable only for now. */
+export const UPDATE_CHANNEL_SETTING = "updates.channel";
+
+/** Settings > About > Updates: the release channel. The updater verifies every channel the same way. */
+export function UpdateChannelGroup(): ReactElement {
+  const call = useCall();
+  const [error, setError] = useState<string | null>(null);
+  // "beta" can only be a value a newer build saved: this build reads (and shows) stable.
+  const channel = "stable";
+  return (
+    <Group title={t("settings.updates.group")} description={t("settings.updates.hint")}>
+      <div className="flex flex-col gap-2">
+        <label className="flex items-center gap-3">
+          <span className="font-medium">{t("settings.updates.channel")}</span>
+          <select
+            className="rounded-md border border-separator bg-surface-raised px-2 py-1"
+            value={channel}
+            onChange={(e) => {
+              setError(null);
+              call("settings.set", { key: UPDATE_CHANNEL_SETTING, value: e.target.value }).catch(
+                (err: unknown) => setError(describeError(err)),
+              );
+            }}
+          >
+            <option value="stable">{t("settings.updates.channel.stable")}</option>
+          </select>
+        </label>
+        <p className="text-callout text-label-secondary">{t("settings.updates.channel.note")}</p>
+        {error ? (
+          <p role="alert" className="text-callout text-danger-text">
+            {t("settings.updates.saveFailed", { reason: error })}
+          </p>
+        ) : null}
+      </div>
+    </Group>
+  );
 }
 
 export function AboutPanel({
@@ -38,6 +78,7 @@ export function AboutPanel({
   onOpenLogs,
   onRevealHome,
   uninstall,
+  showUpdates = false,
 }: AboutPanelProps): ReactElement {
   const { navigate } = useSlots();
   return (
@@ -81,6 +122,7 @@ export function AboutPanel({
           ]}
         />
       </Group>
+      {showUpdates ? <UpdateChannelGroup /> : null}
       {navigate ? (
         <Group
           title={t("onboarding.rerun.title")}
