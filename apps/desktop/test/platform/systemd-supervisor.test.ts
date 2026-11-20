@@ -293,6 +293,10 @@ describe("SystemdUserSupervisor", () => {
     expect(readFileSync(join(unitDir, "psyche-helper.service"), "utf8")).toContain(
       "PartOf=graphical-session.target",
     );
+    // psyched starts this one when logind reports no graphical session (B0).
+    const headless = readFileSync(join(unitDir, "psyche-helper-headless.service"), "utf8");
+    expect(headless).toContain('"--display" "headless"');
+    expect(headless).not.toContain("graphical-session.target");
   });
 });
 
