@@ -56,6 +56,16 @@ import { isIncognito } from "@psyche/search";
 import type { Call, HandlerDef } from "../context.ts";
 import type { PublicRoute } from "../http.ts";
 import type { Gateway } from "../server.ts";
+import {
+  createPlaywrightServerDriver,
+  findChromium,
+  type ScreenTakeOver,
+  type ServerBrowserSetup,
+  type ServerDriver,
+  serverBrowserWanted,
+  serverDriverOptions,
+  startServerScreen,
+} from "./browser-server.ts";
 import { createDesktopLauncher, type DesktopLauncher, desktopInstalled } from "./desktop-launch.ts";
 import { IndexedQuarantineWriter } from "./library.ts";
 import { createRealChromeMode, type RealChromeMode, type RealChromeSetup } from "./real-chrome.ts";
@@ -125,6 +135,14 @@ export interface BrowserSetup {
   desktopInstalled?: () => boolean;
   /** How long to wait for the bridge after launching the app (default 25 s). */
   desktopWaitMs?: number;
+  /**
+   * The server driver (B3, linux-helper-only design §7.4): a headless Linux Host has no desktop
+   * to serve the bridge, so the browser runs Chromium on the Host helper's private screen through
+   * the Playwright driver. Default: on when `serverBrowserWanted()` (Linux without a graphical
+   * session), using the Host helper's `vscreen.start`; `false` turns it off. A connected desktop's
+   * bridge is still preferred whenever there is one.
+   */
+  server?: Partial<ServerBrowserSetup> | false;
 }
 
 /**
@@ -194,6 +212,13 @@ export interface ComposedBrowser extends ComposedPart {
   readonly localProject: LocalProjectVerifier;
   /** Real-Chrome mode: status for `psyche security audit`, and its lifecycle. */
   readonly realChrome: RealChromeMode;
+  /** Which driver the agent's tabs use now: the desktop's bridge, the server driver, or none. */
+  readonly driverKind: "bridge" | "server" | null;
+  /**
+   * The private screen's take-over (the virtual-screen part's): while the owner drives it, the
+   * server driver's tools wait. Set by the composition root.
+   */
+  useTakeOver(takeOver: ScreenTakeOver | undefined): void;
 }
 
 /** Retention for recordings (data model §12: 7 days when enabled). */
@@ -259,6 +284,20 @@ export function composeBrowser(
   let client: BridgeClient | undefined;
   let driver: CdpBridgeDriver | undefined;
   let server: BridgeServer | undefined;
+  let gatewayRef: Gateway | undefined;
+  // The server driver (B3): Chromium on the Host helper's private screen, started on first use.
+  const serverSetup: Partial<ServerBrowserSetup> | undefined =
+    setup.server === false
+      ? undefined
+      : setup.server !== undefined
+        ? setup.server
+        : setup.socketPath !== false && serverBrowserWanted()
+          ? {}
+          : undefined;
+  let serverDriver: ServerDriver | undefined;
+  let takeOver: ScreenTakeOver | undefined;
+  /** The driver agent sessions open on: a connected desktop's bridge first, else the server's. */
+  const primaryDriver = (): BrowserDriverEx | undefined => driver ?? serverDriver;
   /** Session key (task or thread, `#dev` for dev preview) → session on the current driver. */
   const sessions = new Map<string, Promise<DriverSession>>();
   // Psyche's own listeners are never the owner's project (security §3.10): the ports parts
@@ -345,8 +384,9 @@ export function composeBrowser(
   const boxes = new Map<string, Map<string, RefBox>>();
   const log = services.logger;
 
-  const current = (): CdpBridgeDriver => {
-    if (driver === undefined) {
+  const current = (): BrowserDriverEx => {
+    const d = primaryDriver();
+    if (d === undefined) {
       // Fails at once (#556): nothing waits for a desktop that may never connect.
       throw new PsycheError(
         "unavailable",
@@ -354,7 +394,7 @@ export function composeBrowser(
         { retryable: true, details: { reason: "no_desktop" } },
       );
     }
-    return driver;
+    return d;
   };
 
   // Unattended runs have no window to rely on: when no desktop is connected the Gateway starts
@@ -368,6 +408,8 @@ export function composeBrowser(
   // while the app can be started in the background.
   services.browserAvailability.check = () => {
     if (driver !== undefined || realChromeOn()) return { ok: true };
+    // The server driver starts the private screen itself; the helper starts on demand (B0).
+    if (serverSetup !== undefined) return { ok: true };
     if (launcher === undefined) {
       return { ok: false, reason: "Psyche's desktop app is not connected and cannot be started" };
     }
@@ -394,9 +436,38 @@ export function composeBrowser(
       }, waitMs);
       bridgeWaiters.add(done);
     });
-  let starting: Promise<CdpBridgeDriver> | undefined;
-  const ensureDesktop = (): Promise<CdpBridgeDriver> => {
+  let starting: Promise<BrowserDriverEx> | undefined;
+  let serverStarting: Promise<BrowserDriverEx> | undefined;
+  const ensureServer = (s: Partial<ServerBrowserSetup>): Promise<BrowserDriverEx> => {
+    if (serverDriver !== undefined) return Promise.resolve(serverDriver);
+    serverStarting ??= (async () => {
+      log?.log("info", "browser on the private screen: starting Chromium there");
+      const startScreen =
+        s.screen ??
+        (() => startServerScreen(gatewayRef?.context.nodes.hostHelper("vscreen.start")?.client));
+      const screen = await startScreen().catch((err: unknown) => {
+        const e = PsycheError.from(err);
+        throw e.code === "unavailable" ? e : unavailable(e.message);
+      });
+      const make = s.createDriver ?? createPlaywrightServerDriver;
+      const d = make(
+        serverDriverOptions(
+          screen,
+          { library: recordingLibrary, broker: services.broker, redact, botAuth },
+          services.home,
+          s.executablePath ?? findChromium(),
+        ),
+      );
+      serverDriver = d;
+      return d;
+    })().finally(() => {
+      serverStarting = undefined;
+    });
+    return serverStarting;
+  };
+  const ensureDesktop = (): Promise<BrowserDriverEx> => {
     if (driver !== undefined) return Promise.resolve(driver);
+    if (serverSetup !== undefined) return ensureServer(serverSetup);
     if (launcher === undefined) return Promise.resolve().then(current);
     starting ??= (async () => {
       log?.log("info", "browser needs the desktop: starting Psyche in the background");
@@ -560,7 +631,13 @@ export function composeBrowser(
       const execute = registration.execute;
       return services.tools.register({
         ...registration,
-        execute: (callId, params, signal, onUpdate) => {
+        execute: async (callId, params, signal, onUpdate) => {
+          // The owner is driving the private screen (watch pane take-over): the agent's browser
+          // waits for them, as on the virtual screen itself. Only the server driver's tabs are
+          // on that screen; a desktop's bridge has its own take-over in the pane.
+          if (driver === undefined && serverDriver !== undefined && takeOver !== undefined) {
+            await takeOver.agentGate(signal);
+          }
           showStatus(name, params);
           return execute(callId, params, signal, onUpdate);
         },
@@ -648,6 +725,11 @@ export function composeBrowser(
     async requestControl(req) {
       const host = req.origin === null ? "a page" : new URL(req.origin).host;
       const reason = req.reason.replace(/\s+/g, " ").trim();
+      // On the private screen the owner takes over in the watch pane, on any of their desktops.
+      const onScreen = driver === undefined && serverDriver !== undefined;
+      if (onScreen) {
+        services.publish("view.command", { command: "open", args: { pane: "computer-watch" } });
+      }
       client
         ?.call("bridge.tab.status", {
           tabId: req.tabId,
@@ -658,10 +740,14 @@ export function composeBrowser(
         .notify({
           kind: "input_needed",
           title: "Psyche needs you in the browser",
-          body: `On ${host}, the agent asks: ${reason}. Take control in the browser pane, then hand it back.`,
+          body: onScreen
+            ? `On ${host}, the agent asks: ${reason}. Take over in the watch pane, then give control back.`
+            : `On ${host}, the agent asks: ${reason}. Take control in the browser pane, then hand it back.`,
           message: {
             titleKey: "notice.browser.takeover.title",
-            bodyKey: "notice.browser.takeover.body",
+            bodyKey: onScreen
+              ? "notice.browser.takeoverScreen.body"
+              : "notice.browser.takeover.body",
             params: { host: String(host), reason: String(reason) },
           },
           ...(req.taskId === undefined ? {} : { taskId: req.taskId }),
@@ -687,7 +773,8 @@ export function composeBrowser(
   const syncTools = (): void => {
     const real = realChromeOn();
     // A background launch can provide the desktop, so the tools do not depend on a window.
-    const runnable = driver !== undefined || real || launcher !== undefined;
+    const runnable =
+      driver !== undefined || real || launcher !== undefined || serverSetup !== undefined;
     // The real-Chrome tools are offered only while the switch is on, so a flip re-registers.
     if (unregisterTools !== undefined && (!runnable || registeredWithRealChrome !== real)) {
       unregisterTools();
@@ -706,6 +793,12 @@ export function composeBrowser(
     sessions.clear();
     boxes.clear();
     void endRecordings();
+    // A desktop's bridge takes over from the server driver (its sessions were cleared above).
+    if (serverDriver !== undefined) {
+      const old = serverDriver;
+      serverDriver = undefined;
+      void old.dispose().catch(() => undefined);
+    }
     client = next;
     driver = new CdpBridgeDriver(next, {
       library: recordingLibrary,
@@ -776,8 +869,14 @@ export function composeBrowser(
     get driver() {
       return driver;
     },
+    get driverKind() {
+      return driver !== undefined ? "bridge" : serverDriver !== undefined ? "server" : null;
+    },
+    useTakeOver(next: ScreenTakeOver | undefined) {
+      takeOver = next;
+    },
     async ownsTab(callId: string, tabId: string): Promise<void> {
-      const d = driver;
+      const d = primaryDriver();
       if (d === undefined) throw new PsycheError("unavailable", "the browser is not connected");
       for (const sessionId of (await toolDeps.openSessions?.(callId)) ?? []) {
         const tabs = await d.listTabs(sessionId).catch(() => []);
@@ -791,6 +890,7 @@ export function composeBrowser(
     localProject,
     realChrome,
     async start(gateway: Gateway) {
+      gatewayRef = gateway;
       // Retention runs at boot; recordings are opt-in and short-lived (data model §12).
       void recordingStore.prune(RECORDING_RETENTION_MS).catch(() => undefined);
       // The real-Chrome switch also decides whether the tools are offered without a desktop.
@@ -826,6 +926,9 @@ export function composeBrowser(
       unregisterCdp();
       driver?.dispose();
       driver = undefined;
+      await serverDriver?.dispose().catch(() => undefined);
+      serverDriver = undefined;
+      gatewayRef = undefined;
       for (const t of publishTimers.values()) clearTimeout(t);
       publishTimers.clear();
       await endRecordings();

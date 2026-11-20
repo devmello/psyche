@@ -687,8 +687,11 @@ export const settingsRest: Partial<Catalogue> = {
     "{persona}の思考を作業中に表示します。保存されることはありません。",
   "settings.connectors.page.onHost": "{host}上",
   "settings.connectors.page.row.onHost": "{host}上",
+  "settings.connectors.page.row.macOnly": "Mac ホストでのみ",
   "settings.computerUse.remote":
     "コンピュータの操作は{host}で行われます。そちらから依頼するか、ブラウザを使ってください。",
+  "settings.computerUse.remoteLinux":
+    "コンピュータ操作は {host} のプライベート画面で行われます。監視ペインで様子を見て、操作を引き継げます。",
   "settings.gateways.title": "このコンピュータのGateway",
   "settings.gateways.description":
     "自宅のMacなど、別のコンピュータのGatewayを使って、このコンピュータからPsycheを利用します。有効なGatewayは一度に1つで、切り替えるとPsycheが再起動します。",

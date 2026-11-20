@@ -155,6 +155,8 @@ export const fr: Partial<Catalogue> = {
   "errors.reason.secret_required": "Un autre client a besoin de son propre secret client.",
   "errors.reason.updating":
     "Psyche va redémarrer pour installer une mise à jour. Réessayez dans un instant.",
+  "errors.reason.passkey_required":
+    "Configurez une clé d’accès pour approuver les paiements sur ce Psyche.",
   "errors.unavailable": "Psyche ne peut pas faire cela pour le moment.",
   "errors.approval_required": "Votre approbation est d’abord nécessaire.",
   "errors.approval_expired": "L’approbation a expiré ; redemandez.",

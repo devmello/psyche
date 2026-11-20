@@ -158,6 +158,8 @@ export const de: Partial<Catalogue> = {
   "errors.reason.secret_required": "Ein anderer Client braucht sein eigenes Client-Secret.",
   "errors.reason.updating":
     "Psyche startet gleich neu, um ein Update zu installieren. Versuche es in einem Moment erneut.",
+  "errors.reason.passkey_required":
+    "Richte einen Passkey ein, um Zahlungen in diesem Psyche zu bestätigen.",
   "errors.unavailable": "Psyche kann das gerade nicht.",
   "errors.approval_required": "Das braucht zuerst deine Genehmigung.",
   "errors.approval_expired": "Die Genehmigung ist abgelaufen; frage erneut.",

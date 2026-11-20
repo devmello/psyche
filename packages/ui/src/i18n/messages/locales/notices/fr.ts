@@ -30,6 +30,8 @@ export const notices: Partial<Catalogue> = {
   "notice.browser.takeover.title": "Psyche a besoin de vous dans le navigateur",
   "notice.browser.takeover.body":
     "Sur {host}, l’agent demande : {reason}. Prenez la main dans le volet du navigateur, puis rendez-la.",
+  "notice.browser.takeoverScreen.body":
+    "Sur {host}, l’agent demande : {reason}. Prenez la main dans le panneau d’observation, puis rendez-la.",
   "notice.connector.consent.title": "Terminer la connexion à Google",
   "notice.connector.consent.body":
     "Ouvrez ce lien sur l’ordinateur où Psyche s’exécute pour accorder l’accès : {url}",

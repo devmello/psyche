@@ -28,6 +28,8 @@ export const notices: Partial<Catalogue> = {
   "notice.browser.takeover.title": "Psyche 需要你在浏览器中协助",
   "notice.browser.takeover.body":
     "在 {host} 上，智能体询问：{reason}。请在浏览器窗格中接管操作，完成后再交还。",
+  "notice.browser.takeoverScreen.body":
+    "在 {host} 上，代理询问：{reason}。请在观看面板中接管，完成后交还控制。",
   "notice.connector.consent.title": "完成 Google 连接",
   "notice.connector.consent.body": "请在运行 Psyche 的电脑上打开此链接以授予访问权限：{url}",
   "notice.connector.changed.title": "连接已更改",

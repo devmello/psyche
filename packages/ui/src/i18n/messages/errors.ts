@@ -49,4 +49,5 @@ export const errors = {
   "errors.reason.secret_required": "A different client needs its own client secret.",
   "errors.reason.updating":
     "Psyche is about to restart to install an update. Try again in a moment.",
+  "errors.reason.passkey_required": "Set up a passkey to approve payments on this Psyche.",
 } as const;

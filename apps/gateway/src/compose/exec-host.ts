@@ -534,6 +534,31 @@ function browserProfiles(home: string): string[] {
 }
 
 /**
+ * Psyche's own files on a Linux Host outside `$PSYCHE_HOME` (linux-helper-only design §7.2, B3):
+ * a host command reads none of them.
+ * - The helper's state (`$XDG_STATE_HOME/psyche-helper`, default `~/.local/state/psyche-helper`):
+ *   its device key and the Gateways it is paired with.
+ * - The private screen's authority cookies and session buses (`$XDG_RUNTIME_DIR/psyche`): with
+ *   a cookie a command could watch, or type into, the screen the agent's browser runs on.
+ * - The desktop app's user data on Linux (`~/.config/Psyche`): its device key.
+ */
+export function linuxPsycheDenyRead(
+  userHome: string,
+  env: { XDG_RUNTIME_DIR?: string; XDG_STATE_HOME?: string },
+): string[] {
+  const absolute = (v: string | undefined) =>
+    v !== undefined && v.startsWith("/") ? v : undefined;
+  const state = absolute(env.XDG_STATE_HOME);
+  const runtime = absolute(env.XDG_RUNTIME_DIR);
+  return [
+    join(userHome, ".local", "state", "psyche-helper"),
+    ...(state === undefined ? [] : [join(state, "psyche-helper")]),
+    ...(runtime === undefined ? [] : [join(runtime, "psyche")]),
+    join(userHome, ".config", "Psyche"),
+  ];
+}
+
+/**
  * Other places the owner's files and every app's temp files live: a program-grant run reads none
  * of them (a link inside the folder could point there). Its own scratch directory is re-allowed.
  */
@@ -576,15 +601,20 @@ export function execHostSrtSettings(input: {
    * dot-home rule, #1434 review r1, finding 4).
    */
   homeDotEntries?: readonly string[];
+  /** The Host's OS (default this process's): Linux adds its own credential and Psyche paths. */
+  platform?: NodeJS.Platform;
+  /** The Host's `XDG_RUNTIME_DIR` and `XDG_STATE_HOME` (Linux; default this process's). */
+  linuxEnv?: { XDG_RUNTIME_DIR?: string; XDG_STATE_HOME?: string };
 }): Record<string, unknown> {
   const h = (...p: string[]) => join(input.userHome, ...p);
   const scratch = scratchReadRules(input.psycheHome, input.scratch);
+  const platform = input.platform ?? process.platform;
   return {
     filesystem: {
       denyRead: [
         ...new Set([
           // The MCP list is rooted at this process's home; re-rooted at the owner's.
-          ...defaultDenyRead(input.psycheHome).map((p) =>
+          ...defaultDenyRead(input.psycheHome, platform).map((p) =>
             p.startsWith(`${homedir()}/`) ? join(input.userHome, p.slice(homedir().length + 1)) : p,
           ),
           join(input.psycheHome, "vault"),
@@ -594,6 +624,9 @@ export function execHostSrtSettings(input: {
           h(".ssh"),
           h("Library", "Keychains"),
           ...browserProfiles(input.userHome),
+          ...(platform === "linux"
+            ? linuxPsycheDenyRead(input.userHome, input.linuxEnv ?? process.env)
+            : []),
           ...scratch.denyRead,
           ...(input.confineRead === undefined ? [] : [input.userHome, ...CONFINED_DENY_READ]),
         ]),

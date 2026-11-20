@@ -169,6 +169,7 @@ export const hi: Partial<Catalogue> = {
   "errors.reason.secret_required": "दूसरे क्लाइंट को अपना क्लाइंट सीक्रेट चाहिए।",
   "errors.reason.updating":
     "Psyche अपडेट इंस्टॉल करने के लिए अभी रीस्टार्ट होने वाला है। थोड़ी देर में फिर से कोशिश करें।",
+  "errors.reason.passkey_required": "इस Psyche पर भुगतान स्वीकृत करने के लिए पासकी सेट करें।",
   "errors.unavailable": "Psyche अभी ऐसा नहीं कर सकता।",
   "errors.approval_required": "इसके लिए पहले आपकी स्वीकृति चाहिए।",
   "errors.approval_expired": "स्वीकृति की अवधि समाप्त हो गई; फिर से पूछें।",

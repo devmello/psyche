@@ -1,3 +1,4 @@
+import { getDeviceFamily } from "@psyche/db";
 import {
   type ErrorPayload,
   PsycheError,
@@ -12,7 +13,7 @@ import {
 } from "@psyche/protocol";
 import { type Static, type TSchema, Type } from "@sinclair/typebox";
 import { Value } from "@sinclair/typebox/value";
-import type { Call, HandlerDef } from "../context.ts";
+import { type Call, type HandlerDef, hasScope } from "../context.ts";
 import type { Gateway } from "../server.ts";
 import type { ComposedPart, ComposeServices } from "./services.ts";
 
@@ -411,6 +412,53 @@ export function refuseUnlessOwner(options: VscreenInvokeOptions): void {
   if (options.actor !== "owner") throw fromPayload(AGENT_UNBROKERED);
 }
 
+/** The `computerWatch.*` methods that drive the screen: the owner's clicks and keys. */
+const TAKE_OVER_METHODS = new Set(["computerWatch.takeOver", "computerWatch.input"]);
+
+/**
+ * Who may use the watch pane (linux-helper-only design §7.4, B3; remote-gateway §4.1 rule 2):
+ * - the desktop shell on the Host itself (loopback plus the per-launch secret), as before;
+ * - a paired desktop app on another computer (`desktopApp`): a client device the owner approved
+ *   with `deviceFamily: desktop`, holding `operator.write`. Take over (`takeOver`, `input`) also
+ *   needs `operator.approvals`, because the owner's input is never gated or brokered.
+ * Never a node, a machine, a browser page, a phone or the CLI, and nothing in `params` counts.
+ * The private screen runs on the Host, so computer use stays Host-only (G5); a Client only
+ * watches it and takes over.
+ */
+export function watchAccess(call: Pick<Call, "ctx" | "identity" | "method">): void {
+  if (!call.method.startsWith("computerWatch.")) {
+    throw new PsycheError("forbidden", "only the Psyche desktop app shows the virtual screen");
+  }
+  if (call.identity.desktopShell === true) return;
+  const desktopApp =
+    call.identity.role === "client" &&
+    call.identity.hostHelper !== true &&
+    call.identity.machine !== true &&
+    getDeviceFamily(call.ctx.db, call.identity.deviceId) === "desktop";
+  if (!desktopApp) {
+    throw new PsycheError("forbidden", "only the Psyche desktop app shows the virtual screen");
+  }
+  if (!hasScope(call.identity, "operator.write")) {
+    throw new PsycheError(
+      "forbidden",
+      "Watching the private screen needs a computer allowed to act (operator.write)",
+      { details: { reason: "scope_missing", scope: "operator.write" } },
+    );
+  }
+  if (TAKE_OVER_METHODS.has(call.method) && !hasScope(call.identity, "operator.approvals")) {
+    throw new PsycheError(
+      "forbidden",
+      "Taking over the private screen needs a computer allowed to approve (operator.approvals)",
+      { details: { reason: "scope_missing", scope: "operator.approvals" } },
+    );
+  }
+}
+
+/** The virtual-screen part, plus its take-over for the browser on the same screen (B3). */
+export interface ComposedVirtualScreen extends ComposedPart {
+  readonly takeOver: { isTakenOver(): boolean; agentGate(signal?: AbortSignal): Promise<void> };
+}
+
 /**
  * The Gateway's virtual-screen part. The watch pane (desktop shell only) reaches the helper only
  * through it; the owner's own pane actions need no approval. The agent's use of the screen
@@ -418,7 +466,7 @@ export function refuseUnlessOwner(options: VscreenInvokeOptions): void {
  * like every other computer-use tool: until that is wired, every `agent` call is refused here
  * instead of being sent to the helper unbrokered, and the screen is not handed to any other code.
  */
-export function composeVirtualScreen(services: ComposeServices): ComposedPart {
+export function composeVirtualScreen(services: ComposeServices): ComposedVirtualScreen {
   let gateway: Gateway | undefined;
   // The owner's proof never leaves this closure: only the handlers below put it on a call.
   const proof = newProof();
@@ -448,20 +496,25 @@ export function composeVirtualScreen(services: ComposeServices): ComposedPart {
   });
 
   // The owner's proof goes only on a `computerWatch.*` request from the desktop shell's own
-  // connection. A desktop-chat agent run carries `desktopShell` too, but never this method; and
-  // nothing in `params` is read for it.
+  // connection or a paired desktop app's (`watchAccess`). A desktop-chat agent run carries
+  // `desktopShell` too, but never this method; and nothing in `params` is read for it.
   const handler = (
     run: (params: Record<string, unknown>, owner: CallOptions) => unknown,
   ): HandlerDef => ({
     run(call: Call, params: unknown) {
-      if (call.identity.desktopShell !== true || !call.method.startsWith("computerWatch.")) {
-        throw new PsycheError("forbidden", "only the Psyche desktop app shows the virtual screen");
-      }
-      return run((params ?? {}) as Record<string, unknown>, { owner: proof });
+      watchAccess(call);
+      // Each device's frame pulls are limited on their own.
+      const caller =
+        call.identity.desktopShell === true ? "watch" : `watch:${call.identity.deviceId}`;
+      return run((params ?? {}) as Record<string, unknown>, { owner: proof, caller });
     },
   });
 
   return {
+    takeOver: {
+      isTakenOver: () => vs.isTakenOver(),
+      agentGate: (signal) => vs.agentGate(signal),
+    },
     start(gw) {
       gateway = gw;
     },
