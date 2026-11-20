@@ -276,7 +276,7 @@ export function composeProactive(setup: ProactiveSetup): ComposedProactive {
           ...setup.catchup,
           timeZone: () => timeZone ?? Intl.DateTimeFormat().resolvedOptions().timeZone,
         });
-  const goals = new GoalsService({
+  const goals: GoalsService = new GoalsService({
     db: db.sqlite,
     clock,
     scheduler,
@@ -289,7 +289,7 @@ export function composeProactive(setup: ProactiveSetup): ComposedProactive {
     nextStep: createNextStepProposer({
       provider,
       model,
-      offer: (candidate, supersedes) => ideas.offer(candidate, supersedes),
+      offer: (candidate, supersedes): Promise<unknown> => ideas.offer(candidate, supersedes),
     }),
     onError: (err) =>
       logger?.log("warn", "goal check-in step failed", { code: PsycheError.from(err).code }),
@@ -309,7 +309,7 @@ export function composeProactive(setup: ProactiveSetup): ComposedProactive {
     ...(catchup === undefined ? {} : { agentView: catchup.agentView }),
   });
   const sessions = createDbSessionResolver(db);
-  const ideas = new IdeasService({
+  const ideas: IdeasService = new IdeasService({
     db: db.sqlite,
     clock,
     scheduler,
