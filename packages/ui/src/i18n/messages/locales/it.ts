@@ -576,6 +576,12 @@ export const it: Partial<Catalogue> = {
   "context.marker.readsInstead": "Il riassunto che l’agente legge al posto loro:",
   "context.marker.empty": "Non è stato trovato nulla che valesse la pena conservare.",
   "context.marker.showReplaced": "Mostra ciò che è stato sostituito",
+  "context.marker.removePin": "Rimuovi",
+  "context.marker.removePinLabel": "Rimuovi questa istruzione permanente: {text}",
+  "context.marker.pinRemoved": "Istruzione permanente rimossa.",
+  "context.marker.pinRemoveFailed": "Impossibile rimuoverla: {reason}",
+  "context.marker.droppedPins":
+    "{count, plural, one {Una vecchia istruzione permanente è stata eliminata} other {# vecchie istruzioni permanenti sono state eliminate}} per fare spazio alle nuove.",
   "context.marker.replacedList": "Turni sostituiti",
   "context.marker.notLoaded": "I turni sostituiti non sono caricati qui.",
   "context.marker.speaker": "{name}:",
@@ -3083,6 +3089,7 @@ export const it: Partial<Catalogue> = {
   "screens.library.recording.empty": "Questa registrazione non ha passi.",
   "screens.library.recording.noFrame": "Nessuna immagine per questo passo.",
   "screens.library.recording.frameAlt": "Il browser al passo {n}",
+  "screens.library.recording.reviewPermissions": "Rivedi in Permessi",
   "screens.library.recording.loading": "Caricamento della registrazione",
   "screens.library.recording.loadFailed":
     "Psyche non è riuscito a caricare questa registrazione ({reason}).",

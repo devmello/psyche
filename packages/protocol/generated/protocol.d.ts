@@ -2879,6 +2879,7 @@ export interface Block {
      */
     question?:     string;
     compactionId?: string;
+    droppedPins?:  string[];
     replaced?:     Replaced;
     summary?:      CompactionSummary;
     tokensAfter?:  number;
@@ -3252,6 +3253,7 @@ export type ChecklistBlockType = "checklist";
 
 export interface CompactionBlock {
     compactionId: string;
+    droppedPins?: string[];
     replaced:     Replaced;
     summary:      CompactionSummary;
     tokensAfter:  number;
@@ -12725,6 +12727,15 @@ export interface ThreadsSetContextLimitsParams {
 export interface ThreadsSetContextLimitsResult {
     limits:       EffectiveContextLimits;
     threadLimits: ContextLimits;
+}
+
+export interface ThreadsSummaryPinsRemoveParams {
+    instruction: string;
+    threadId:    string;
+}
+
+export interface ThreadsSummaryPinsRemoveResult {
+    pinnedInstructions: string[];
 }
 
 export interface ThreadsUpdateParams {

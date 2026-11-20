@@ -205,6 +205,8 @@ export const CompactionBlock = Type.Object(
     }),
     tokensBefore: Type.Integer({ minimum: 0 }),
     tokensAfter: Type.Integer({ minimum: 0 }),
+    /** Older standing instructions dropped to make room for new ones (the list was full). */
+    droppedPins: Type.Optional(Type.Array(Type.String({ maxLength: 500 }), { maxItems: 40 })),
   },
   { $id: "CompactionBlock" },
 );

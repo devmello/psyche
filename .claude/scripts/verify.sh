@@ -76,12 +76,17 @@ fi
 # A few full checks at a time on this Mac, never more. Each slot is a lock dir in the shared git
 # dir, so every worktree sees them; a slot whose owner process is gone is taken over. The owner's
 # rule (2026-11-18) was one at a time on the old Mac; on the M4 Pro (2026-11-19, "do what you will
-# with that") machines with 10+ cores get 3 slots. PSYCHE_VERIFY_SLOTS overrides.
+# with that") machines with 10+ cores get 3 slots. 2026-11-19 evening, the owner had more compute
+# to spare: with 18 runs queued the load sat near 6 on 12 cores, so 12+ cores with 24+ GB get 5.
+# PSYCHE_VERIFY_SLOTS overrides.
 if [ "$quick" = 0 ]; then
   slots="${PSYCHE_VERIFY_SLOTS:-}"
   if [ -z "$slots" ]; then
     cores="$(sysctl -n hw.ncpu 2>/dev/null || nproc 2>/dev/null || echo 1)"
-    if [ "$cores" -ge 10 ] 2>/dev/null; then slots=3; else slots=1; fi
+    mem_gb=$(( $(sysctl -n hw.memsize 2>/dev/null || echo 0) / 1073741824 ))
+    if [ "$cores" -ge 12 ] 2>/dev/null && [ "$mem_gb" -ge 24 ] 2>/dev/null; then slots=5
+    elif [ "$cores" -ge 10 ] 2>/dev/null; then slots=3
+    else slots=1; fi
   fi
   lockdir="$(cd "$(git rev-parse --git-common-dir)" && pwd)/agent-verify"
   mkdir -p "$lockdir"

@@ -84,7 +84,7 @@ export const notices: Partial<Catalogue> = {
   "notice.codeRun.unmoved.title":
     "A configuração de inicialização de uma execução de código em {repo} continua no lugar",
   "notice.codeRun.unmoved.body":
-    "Um comando no sandbox criou {paths} e o Psyche não conseguiu deixá-lo de lado, então ele não está retido. Apps ou seu próximo comando poderiam executar código a partir disso. Confira ou apague antes de abrir a pasta ou executar qualquer coisa nela.",
+    "Um comando no sandbox criou {paths} e o Psyche não conseguiu deixá-lo de lado, então ele não está retido. Apps ou seu próximo comando poderiam executar código a partir disso. Apague antes de abrir a pasta ou executar qualquer coisa nela. Não mude as permissões antes para olhar dentro, porque isso pode deixá-lo ser executado.",
   "notice.machine.added.title": "{name} foi adicionado como um computador que o Psyche pode usar",
   "notice.machine.added.body":
     "O Psyche pode usar a tela, os apps, o shell e os arquivos dele, e cada ação lá pede sua confirmação antes. Se não foi você que adicionou, remova em Ajustes → Dispositivos.",

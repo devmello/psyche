@@ -565,6 +565,12 @@ export const fr: Partial<Catalogue> = {
   "context.marker.readsInstead": "Le résumé que l’agent lit à la place :",
   "context.marker.empty": "Rien qui mérite d’être conservé n’a été trouvé.",
   "context.marker.showReplaced": "Afficher ce qui a été remplacé",
+  "context.marker.removePin": "Retirer",
+  "context.marker.removePinLabel": "Retirer cette instruction permanente : {text}",
+  "context.marker.pinRemoved": "Instruction permanente retirée.",
+  "context.marker.pinRemoveFailed": "Impossible de la retirer : {reason}",
+  "context.marker.droppedPins":
+    "{count, plural, one {Une ancienne instruction permanente a été abandonnée} other {# anciennes instructions permanentes ont été abandonnées}} pour faire de la place aux nouvelles.",
   "context.marker.replacedList": "Tours remplacés",
   "context.marker.notLoaded": "Les tours remplacés ne sont pas chargés ici.",
   "context.marker.speaker": "{name} :",
@@ -3084,6 +3090,7 @@ export const fr: Partial<Catalogue> = {
   "screens.library.recording.empty": "Cet enregistrement n'a aucune étape.",
   "screens.library.recording.noFrame": "Aucune image pour cette étape.",
   "screens.library.recording.frameAlt": "Le navigateur à l'étape {n}",
+  "screens.library.recording.reviewPermissions": "Examiner dans Autorisations",
   "screens.library.recording.loading": "Chargement de l'enregistrement",
   "screens.library.recording.loadFailed":
     "Psyche n'a pas pu charger cet enregistrement ({reason}).",

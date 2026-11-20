@@ -84,7 +84,7 @@ export const notices = {
     "While {paths} was moved aside, a folder on its way changed, so what was moved may come from somewhere else. It is kept in {place}. Look at it before you tap Keep it, which puts it at {paths} in {repo}.",
   "notice.codeRun.unmoved.title": "Launch config from a code run in {repo} is still in place",
   "notice.codeRun.unmoved.body":
-    "A command in the sandbox created {paths}, and Psyche could not move it aside, so it is not held. Apps or your next command could run code from it. Check it, or delete it, before you open the folder or run anything there.",
+    "A command in the sandbox created {paths}, and Psyche could not move it aside, so it is not held. Apps or your next command could run code from it. Delete it before you open the folder or run anything there. Don't change its permissions to look inside first, since that can let it run.",
   "notice.machine.added.title": "{name} was added as a computer Psyche can use",
   "notice.machine.added.body":
     "Psyche can use its screen, apps, shell and files, and each action there asks you first. If you didn't add it, remove it in Settings → Devices.",

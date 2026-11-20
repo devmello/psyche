@@ -1,6 +1,6 @@
 # Linux desktop app (2026)
 
-Status: accepted 2026-11-05 (#1271). **Being built on a Windows machine (WSL2 plus QEMU test VMs); see §0 for where each PR stands.** The design itself changes no code. It reverses the "No Linux desktop support" scope line in [cross-platform-2026.md](cross-platform-2026.md), which is updated in the same PR, and replaces the Linux bullet in §5 of [updates-and-install-2026.md](updates-and-install-2026.md).
+Status: accepted 2026-11-05 (#1271). **Parked 2026-11-19: the Linux desktop app is not planned for now. The owner chose a helper-only plan instead ([linux-helper-only-2026.md](linux-helper-only-2026.md)). The PR states in §0 are as of 2026-11-05.** The design itself changes no code. It reverses the "No Linux desktop support" scope line in [cross-platform-2026.md](cross-platform-2026.md), which is updated in the same PR, and replaces the Linux bullet in §5 of [updates-and-install-2026.md](updates-and-install-2026.md).
 
 The owner decided on 2026-11-05 to ship a **full Linux desktop app**. This doc decides how: packaging, updates, a Linux helper, three computer-use modes, presence by password, and the other platform services. It ends with a numbered PR plan that builders can run in parallel, a test plan for a real Linux machine, and the decisions left to the owner.
 

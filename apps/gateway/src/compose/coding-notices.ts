@@ -187,7 +187,7 @@ export function codingNotices(notify: Notify, options: CodingNoticeOptions = {})
           { repo, paths },
           {
             title: `Launch config from a code run in ${repo} is still in place`,
-            body: `A command in the sandbox created ${paths}, and Psyche could not move it aside, so it is not held. Apps or your next command could run code from it. Check it, or delete it, before you open the folder or run anything there.`,
+            body: `A command in the sandbox created ${paths}, and Psyche could not move it aside, so it is not held. Apps or your next command could run code from it. Delete it before you open the folder or run anything there. Don't change its permissions to look inside first, since that can let it run.`,
           },
         );
       }

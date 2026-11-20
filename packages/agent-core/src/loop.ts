@@ -240,8 +240,8 @@ const pinKey = (item: string) => item.replace(/\s+/g, " ").trim().toLowerCase();
  * names it in `retired` (and only when this summary is trusted: a summary that read untrusted text
  * cannot revoke the owner's rules). At most 5 new items per compaction. Each item remembers whether
  * a trusted or an untrusted summary added it; past `PINNED_CAP`, untrusted items go first (newest
- * first), then the newest of the rest, so a flood from an untrusted source never evicts the
- * owner's earliest rules.
+ * first), then the oldest trusted one, so a flood from an untrusted source never evicts the
+ * owner's rules and a new rule is never the one dropped.
  */
 export function carryPinned(
   previous: readonly string[],
@@ -253,10 +253,20 @@ export function carryPinned(
     retired?: readonly string[];
     /** The summary that listed `added` read untrusted content. */
     untrusted?: boolean;
+    /**
+     * Whether `retired` may remove an item the owner's own words pinned. A summary that read
+     * untrusted text may still retire items an untrusted summary added: removing third-party
+     * content grants no one anything.
+     */
+    canRetireTrusted?: boolean;
   } = {},
-): { items: string[]; untrusted: string[] } {
-  const retired = new Set((options.retired ?? []).map(pinKey));
+): { items: string[]; untrusted: string[]; dropped: string[] } {
   const bad = new Set((options.untrustedPrevious ?? []).map(pinKey));
+  const retired = new Set(
+    (options.retired ?? [])
+      .map(pinKey)
+      .filter((k) => options.canRetireTrusted !== false || bad.has(k)),
+  );
   const kept: { text: string; untrusted: boolean }[] = [];
   const seen = new Set<string>();
   for (const item of previous) {
@@ -274,6 +284,7 @@ export function carryPinned(
     fresh += 1;
     kept.push({ text: item, untrusted: options.untrusted === true });
   }
+  const dropped: string[] = [];
   while (kept.length > PINNED_CAP) {
     let drop = -1;
     for (let i = kept.length - 1; i >= 0; i--) {
@@ -282,11 +293,15 @@ export function carryPinned(
         break;
       }
     }
-    kept.splice(drop < 0 ? kept.length - 1 : drop, 1);
+    // Nothing untrusted left: the oldest of the owner's goes, so a new rule is not lost at once
+    // (the compaction block tells the owner which ones were dropped).
+    const [gone] = kept.splice(drop < 0 ? 0 : drop, 1);
+    if (gone !== undefined) dropped.push(gone.text);
   }
   return {
     items: kept.map((k) => k.text),
     untrusted: kept.filter((k) => k.untrusted).map((k) => k.text),
+    dropped,
   };
 }
 
@@ -308,6 +323,8 @@ export interface CompactionInfo {
   keptTurns: number;
   tokensBefore: number;
   tokensAfter: number;
+  /** Older standing instructions dropped to make room for new ones (the list was full). */
+  droppedPins?: string[];
 }
 
 const estimateTokensOf = (text: string) => estimateContextTokens(text, [], []);
@@ -2091,8 +2108,9 @@ export class PsycheAgentLoop implements AgentLoop {
     const carried = carryPinned(priorPins, structured.pinnedInstructions, {
       // A summary from before pins were tracked, and untrusted, counts all of its items as such.
       untrustedPrevious: run.thread.summary?.untrustedPins ?? (priorUntrusted ? priorPins : []),
-      // A summary that read untrusted text cannot revoke the owner's rules.
-      retired: untrusted ? [] : retiredPins,
+      retired: retiredPins,
+      // A summary that read untrusted text cannot revoke the owner's rules (only untrusted items).
+      canRetireTrusted: !untrusted,
       untrusted,
     });
     structured = { ...structured, pinnedInstructions: carried.items };
@@ -2108,10 +2126,11 @@ export class PsycheAgentLoop implements AgentLoop {
       (m) => m.role === "user" && m.parts.some((p) => p.type === "text"),
     ).length;
     run.thread.summary = {
-      text: renderCompactionSummary(structured),
+      text: renderCompactionSummary(structured, carried.untrusted),
       untrusted,
       structured,
-      ...(carried.untrusted.length === 0 ? {} : { untrustedPins: carried.untrusted }),
+      // Always written (even empty) for summaries made here; only older ones lack it.
+      untrustedPins: carried.untrusted,
     };
     run.thread.messages = recent;
     run.turnStart = Math.max(0, run.turnStart - older.length);
@@ -2128,6 +2147,7 @@ export class PsycheAgentLoop implements AgentLoop {
         keptTurns: keep,
         tokensBefore: estimate,
         tokensAfter: after,
+        ...(carried.dropped.length === 0 ? {} : { droppedPins: carried.dropped }),
       }),
     ).catch(() => undefined);
     return true;
@@ -2186,6 +2206,34 @@ export class PsycheAgentLoop implements AgentLoop {
   /** Whether a run holds the thread right now. */
   isBusy(threadId: string): boolean {
     return this.#threads.get(threadId)?.activeRunId !== undefined;
+  }
+
+  /**
+   * The owner removes one standing instruction from a thread's summary (`threads.summary.pins.remove`):
+   * out of the stored structured summary (and its untrusted list) and the text the model reads.
+   * Returns the instructions left; `conflict` while the thread has a run.
+   */
+  async removePinnedInstruction(threadId: string, instruction: string): Promise<string[]> {
+    if (this.#threads.get(threadId)?.activeRunId !== undefined) {
+      throw new PsycheError("conflict", "the thread is running; try again when the turn ends");
+    }
+    const thread = await this.#state.load(threadId);
+    const summary = thread?.summary;
+    if (thread === undefined || summary?.structured === undefined) return [];
+    const key = pinKey(instruction);
+    const structured = {
+      ...summary.structured,
+      pinnedInstructions: summary.structured.pinnedInstructions.filter((p) => pinKey(p) !== key),
+    };
+    const untrustedPins = (summary.untrustedPins ?? []).filter((p) => pinKey(p) !== key);
+    thread.summary = {
+      ...summary,
+      structured,
+      text: renderCompactionSummary(structured, untrustedPins),
+      ...(summary.untrustedPins === undefined ? {} : { untrustedPins }),
+    };
+    await this.#state.save(threadId, thread);
+    return structured.pinnedInstructions;
   }
 
   /**

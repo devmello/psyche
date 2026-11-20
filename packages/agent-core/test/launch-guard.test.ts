@@ -47,6 +47,7 @@ const hooks = vi.hoisted(() => ({
   open: undefined as ((path: string) => void) | undefined,
   chmod: undefined as ((path: string) => void) | undefined,
   rename: undefined as ((from: string) => void) | undefined,
+  lstat: undefined as ((path: string) => void) | undefined,
 }));
 vi.mock("node:fs/promises", async (importOriginal) => {
   const real = await importOriginal<typeof import("node:fs/promises")>();
@@ -64,6 +65,10 @@ vi.mock("node:fs/promises", async (importOriginal) => {
       hooks.rename?.(String(from));
       return real.rename(from, to);
     }) as typeof real.rename,
+    lstat: ((path: Parameters<typeof real.lstat>[0], ...rest: unknown[]) => {
+      hooks.lstat?.(String(path));
+      return (real.lstat as (...a: unknown[]) => ReturnType<typeof real.lstat>)(path, ...rest);
+    }) as typeof real.lstat,
   };
 });
 
@@ -78,6 +83,7 @@ afterEach(() => {
   hooks.open = undefined;
   hooks.chmod = undefined;
   hooks.rename = undefined;
+  hooks.lstat = undefined;
   writable(dir);
   rmSync(dir, { recursive: true, force: true });
 });
@@ -861,6 +867,76 @@ describe("code.run and launch config", () => {
       expect(readdirSync(outside)).toEqual(["id_ed25519"]);
       expect(report.unmoved).toEqual([".vscode"]);
       expect((r.output.launchConfig as { notice: string }).notice).toMatch(/not held/);
+    });
+
+    // #1450 review r2, R4: a folder above swapped for a link, which `O_NOFOLLOW` does not see.
+    const locked = (mode: number) => {
+      const at = join(dir, "locked", "pkg");
+      mkdirSync(at, { recursive: true });
+      chmodSync(at, mode);
+      return at;
+    };
+    /** Never touched, not even for a moment: its mode and its inode change time are as they were. */
+    const untouched = (at: string, mode: number, ctime: bigint) => {
+      const st = lstatSync(at, { bigint: true });
+      expect(Number(st.mode & 0o7777n)).toBe(mode);
+      expect(st.ctimeNs).toBe(ctime);
+    };
+    const swapAbove = () => {
+      renameSync(join(repo, "a"), join(repo, "a.moved"));
+      symlinkSync(join(dir, "locked"), join(repo, "a"));
+    };
+
+    it("R4: making a folder listable again, when a folder above it is swapped", async () => {
+      const outside = locked(0o300);
+      const ctime = lstatSync(outside, { bigint: true }).ctimeNs;
+      const { use, runner, reports } = setup();
+      acts(runner, "plant", () => {
+        put("a/pkg/.npmrc", "node-options=--require ./x.js");
+        chmodSync(join(repo, "a/pkg"), 0o100);
+        let done = false;
+        hooks.lstat = (path) => {
+          if (done || path !== join(repo, "a/pkg") || !new Error().stack?.includes("at lift ")) {
+            return;
+          }
+          done = true;
+          swapAbove();
+        };
+      });
+      await use("code.open", { path: repo });
+      await use("code.run", { root: repo, argv: ["plant"] });
+      const report = reports[0] as LaunchConfigReport;
+      untouched(outside, 0o300, ctime);
+      expect(report.unmoved).toContain("a/pkg");
+      if (process.platform === "darwin") {
+        expect(report.quarantined).toEqual(["a.moved/pkg/.npmrc"]);
+      }
+    });
+
+    it("R4: moving out of a read-only folder, when a folder above it is swapped", async () => {
+      const outside = locked(0o500);
+      const ctime = lstatSync(outside, { bigint: true }).ctimeNs;
+      const { use, runner, reports } = setup();
+      acts(runner, "plant", () => {
+        put("a/pkg/.npmrc", "node-options=--require ./x.js");
+        chmodSync(join(repo, "a/pkg"), 0o555);
+        // Once the move was refused for its mode, at the next look at its folder.
+        let armed = false;
+        let done = false;
+        hooks.rename = (from) => {
+          if (from === join(repo, "a/pkg/.npmrc")) armed = true;
+        };
+        hooks.lstat = (path) => {
+          if (!armed || done || path !== join(repo, "a/pkg")) return;
+          done = true;
+          swapAbove();
+        };
+      });
+      await use("code.open", { path: repo });
+      await use("code.run", { root: repo, argv: ["plant"] });
+      const report = reports[0] as LaunchConfigReport;
+      untouched(outside, 0o500, ctime);
+      expect(report.unmoved).toContain("a/pkg/.npmrc");
     });
 
     it("R3: a file inside an entry moved across volumes", async () => {

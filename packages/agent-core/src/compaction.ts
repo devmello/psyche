@@ -248,11 +248,24 @@ export function parseCompactionSummary(text: string): CompactionSummary | undefi
 }
 
 /** The summary as the context section the model reads. */
-export function renderCompactionSummary(s: CompactionSummary): string {
+export function renderCompactionSummary(
+  s: CompactionSummary,
+  /** Pins a summary that read untrusted text added: not confirmed as the owner's. */
+  untrustedPins: readonly string[] = [],
+): string {
   const block = (title: string, items: readonly string[]) =>
     items.length === 0 ? undefined : `${title}:\n${items.map((i) => `- ${i}`).join("\n")}`;
+  const bad = new Set(untrustedPins.map((p) => p.replace(/\s+/g, " ").trim().toLowerCase()));
+  const isBad = (p: string) => bad.has(p.replace(/\s+/g, " ").trim().toLowerCase());
   return [
-    block("Standing instructions from the owner", s.pinnedInstructions),
+    block(
+      "Standing instructions from the owner",
+      s.pinnedInstructions.filter((p) => !isBad(p)),
+    ),
+    block(
+      "Instructions recorded from quoted content, not confirmed as the owner's",
+      s.pinnedInstructions.filter(isBad),
+    ),
     block("Decisions", s.decisions),
     block("Open tasks", s.openTasks),
     block("Facts", s.facts),

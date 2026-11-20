@@ -75,7 +75,7 @@ export const notices: Partial<Catalogue> = {
     "在移开 {paths} 时，途经的一个文件夹发生了变化，因此被移走的内容可能来自别处。它保存在 {place}。轻点“保留”之前请先检查，“保留”会把它放回 {repo} 中的 {paths}。",
   "notice.codeRun.unmoved.title": "{repo} 中一次代码运行创建的启动配置仍在原处",
   "notice.codeRun.unmoved.body":
-    "沙盒中的命令创建了 {paths}，但 Psyche 未能把它移到一旁，所以它没有被扣下。应用或你的下一条命令可能会从中运行代码。打开该文件夹或在其中运行任何内容之前，请先检查或删除它。",
+    "沙盒中的命令创建了 {paths}，但 Psyche 未能把它移到一旁，所以它没有被扣下。应用或你的下一条命令可能会从中运行代码。打开该文件夹或在其中运行任何内容之前，请先删除它。不要为了查看内容而先修改它的权限，那样可能让它得以运行。",
   "notice.machine.added.title": "已将 {name} 添加为 Psyche 可以使用的电脑",
   "notice.machine.added.body":
     "Psyche 可以使用它的屏幕、应用、终端和文件，且那里的每个操作都会先征求你的同意。如果不是你添加的，请在“设置 → 设备”中移除。",

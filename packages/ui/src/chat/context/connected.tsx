@@ -14,6 +14,7 @@ import { Input } from "../../components/ui/input.tsx";
 import {
   GatewayRequestError,
   loadOlderMessages,
+  removeSummaryPin,
   useStore,
   useStoreState,
   useThreadContext,
@@ -390,6 +391,13 @@ export function CompactionMessage({
       compaction={compactionView(block, message.createdAt)}
       onShowReplaced={() => void showReplaced()}
       loadingReplaced={state === "loading"}
+      onRemovePin={(instruction) => {
+        removeSummaryPin(store, threadId, instruction).then(
+          () => toast(t("context.marker.pinRemoved")),
+          (err: unknown) =>
+            toast.error(t("context.marker.pinRemoveFailed", { reason: describeError(err) })),
+        );
+      }}
       {...(replaced ? { replaced } : {})}
     />
   );
