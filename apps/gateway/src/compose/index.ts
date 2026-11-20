@@ -263,6 +263,7 @@ import {
 } from "./services.ts";
 import { setupTokenHandlers, setupTokenUsedHook } from "./setup-tokens.ts";
 import { composeSkills } from "./skills.ts";
+import { composeSpaces } from "./spaces.ts";
 import { withSpecialistContext } from "./specialist-approvals.ts";
 import {
   createSpecialistHost,
@@ -2228,6 +2229,7 @@ export async function composeGateway(options: ComposeOptions): Promise<ComposedG
     everything.part(scheduler, timeZone ?? Intl.DateTimeFormat().resolvedOptions().timeZone),
   );
   parts.push(nudges.part());
+  parts.push(composeSpaces({ scheduler }));
   parts.push(
     composeWork({
       db,
