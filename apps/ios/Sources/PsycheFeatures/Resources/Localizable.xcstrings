@@ -355,6 +355,787 @@
           }
         }
       }
+    },
+    "notice.action.keepIt": {
+      "extractionState": "manual",
+      "localizations": {
+        "ar": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "الإبقاء عليها"
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Behalten"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Keep it"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Conservar"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Garder"
+          }
+        },
+        "hi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "रखें"
+          }
+        },
+        "it": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Tieni"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "残す"
+          }
+        },
+        "ko": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "유지"
+          }
+        },
+        "pt": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Manter"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "保留"
+          }
+        }
+      }
+    },
+    "notice.codeRun.changed.body": {
+      "extractionState": "manual",
+      "localizations": {
+        "ar": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "تغيّر {paths} بينما كان أمر يعمل في بيئة العزل. إن لم يكن ذلك منك أو من محررك، فراجعه قبل فتح المجلد."
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "{paths} hat sich geändert, während ein Befehl in der Sandbox lief. Warst das nicht du oder dein Editor, prüfe es, bevor du den Ordner öffnest."
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "{paths} changed while a command ran in the sandbox. If that wasn't you or your editor, check it before you open the folder."
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "{paths} cambió mientras un comando se ejecutaba en el sandbox. Si no fuiste tú ni tu editor, revísalo antes de abrir la carpeta."
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "{paths} a changé pendant qu'une commande s'exécutait dans le bac à sable. Si ce n'était ni vous ni votre éditeur, vérifiez-le avant d'ouvrir le dossier."
+          }
+        },
+        "hi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "सैंडबॉक्स में कमांड चलते समय {paths} बदला। अगर यह आपने या आपके एडिटर ने नहीं किया, तो फ़ोल्डर खोलने से पहले इसे जाँच लें।"
+          }
+        },
+        "it": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "{paths} è cambiato mentre un comando era in esecuzione nella sandbox. Se non sei stato tu o il tuo editor, controllalo prima di aprire la cartella."
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "サンドボックスでコマンドの実行中に {paths} が変わりました。あなたやエディタによる変更でなければ、フォルダを開く前に確認してください。"
+          }
+        },
+        "ko": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "샌드박스에서 명령이 실행되는 동안 {paths}이(가) 바뀌었습니다. 직접 또는 편집기가 바꾼 것이 아니라면 폴더를 열기 전에 확인하세요."
+          }
+        },
+        "pt": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "{paths} mudou enquanto um comando rodava no sandbox. Se não foi você nem seu editor, confira antes de abrir a pasta."
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "沙盒中运行命令时 {paths} 发生了变化。如果不是你或你的编辑器所为，请在打开该文件夹前检查一下。"
+          }
+        }
+      }
+    },
+    "notice.codeRun.changed.title": {
+      "extractionState": "manual",
+      "localizations": {
+        "ar": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "تغيّرت إعدادات التشغيل أثناء تنفيذ كود في {repo}"
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Startkonfiguration hat sich während eines Code-Laufs in {repo} geändert"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Launch config changed during a code run in {repo}"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "La configuración de inicio cambió durante una ejecución de código en {repo}"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "La configuration de lancement a changé pendant une exécution de code dans {repo}"
+          }
+        },
+        "hi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "{repo} में कोड रन के दौरान लॉन्च कॉन्फ़िगरेशन बदली"
+          }
+        },
+        "it": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "La configurazione di avvio è cambiata durante un'esecuzione di codice in {repo}"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "{repo} でのコード実行中に起動設定が変わりました"
+          }
+        },
+        "ko": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "{repo}에서 코드 실행 중 실행 구성이 바뀌었습니다"
+          }
+        },
+        "pt": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "A configuração de inicialização mudou durante uma execução de código em {repo}"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "{repo} 中的启动配置在代码运行期间发生了变化"
+          }
+        }
+      }
+    },
+    "notice.codeRun.held.body": {
+      "extractionState": "manual",
+      "localizations": {
+        "ar": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "أنشأ أمر في بيئة العزل {paths}. قد تشغّل التطبيقات أو أمرك التالي كودًا منها، لذلك نقلها Psyche جانبًا دون حذفها. إن كنت أنت أو أدواتك من أنشأها، فاضغط «الإبقاء عليها»."
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Ein Befehl in der Sandbox hat {paths} angelegt. Apps oder dein nächster Befehl könnten daraus Code ausführen, deshalb hat Psyche es beiseitegelegt, ohne es zu löschen. Wenn du oder deine Werkzeuge es angelegt habt, tippe auf Behalten."
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "A command in the sandbox created {paths}. Apps or your next command could run code from it, so Psyche moved it aside without deleting it. If you or your tools made it, tap Keep it."
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Un comando en el sandbox creó {paths}. Las apps o tu próximo comando podrían ejecutar código desde ahí, así que Psyche lo apartó sin borrarlo. Si lo creaste tú o tus herramientas, toca Conservar."
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Une commande dans le bac à sable a créé {paths}. Des apps ou votre prochaine commande pourraient en exécuter du code, donc Psyche l'a mis de côté sans le supprimer. Si vous ou vos outils l'avez créé, touchez Garder."
+          }
+        },
+        "hi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "सैंडबॉक्स में एक कमांड ने {paths} बनाया। ऐप या आपकी अगली कमांड इससे कोड चला सकती है, इसलिए Psyche ने इसे हटाए बिना अलग रख दिया। अगर इसे आपने या आपके टूल ने बनाया है, तो रखें पर टैप करें।"
+          }
+        },
+        "it": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Un comando nella sandbox ha creato {paths}. Le app o il tuo prossimo comando potrebbero eseguirne del codice, quindi Psyche l'ha messo da parte senza eliminarlo. Se l'hai creato tu o i tuoi strumenti, tocca Tieni."
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "サンドボックス内のコマンドが {paths} を作成しました。アプリや次のコマンドがここからコードを実行する可能性があるため、Psyche は削除せずに別の場所へ移しました。あなたやあなたのツールが作ったものなら「残す」をタップしてください。"
+          }
+        },
+        "ko": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "샌드박스의 명령이 {paths}을(를) 만들었습니다. 앱이나 다음 명령이 여기서 코드를 실행할 수 있어 Psyche가 삭제하지 않고 따로 옮겨 두었습니다. 직접 또는 사용하는 도구가 만든 것이라면 유지를 탭하세요."
+          }
+        },
+        "pt": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Um comando no sandbox criou {paths}. Apps ou seu próximo comando poderiam executar código a partir disso, então o Psyche o deixou de lado sem apagar. Se foi você ou suas ferramentas, toque em Manter."
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "沙盒中的命令创建了 {paths}。应用或你的下一条命令可能会从中运行代码，所以 Psyche 把它移到一旁，没有删除。如果是你或你的工具创建的，请轻点“保留”。"
+          }
+        }
+      }
+    },
+    "notice.codeRun.held.title": {
+      "extractionState": "manual",
+      "localizations": {
+        "ar": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "احتجز Psyche إعدادات تشغيل من تنفيذ كود في {repo}"
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Psyche hat Startkonfiguration aus einem Code-Lauf in {repo} zurückgehalten"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Psyche held back launch config from a code run in {repo}"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Psyche retuvo configuración de inicio de una ejecución de código en {repo}"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Psyche a mis de côté la configuration de lancement d'une exécution de code dans {repo}"
+          }
+        },
+        "hi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Psyche ने {repo} में कोड रन से बनी लॉन्च कॉन्फ़िगरेशन रोक ली"
+          }
+        },
+        "it": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Psyche ha trattenuto la configurazione di avvio di un'esecuzione di codice in {repo}"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Psyche は {repo} でのコード実行が作った起動設定を保留しました"
+          }
+        },
+        "ko": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Psyche가 {repo}에서 코드 실행이 만든 실행 구성을 보류했습니다"
+          }
+        },
+        "pt": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "O Psyche reteve configuração de inicialização de uma execução de código em {repo}"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Psyche 扣下了 {repo} 中一次代码运行创建的启动配置"
+          }
+        }
+      }
+    },
+    "notice.codeRun.incident.body": {
+      "extractionState": "manual",
+      "localizations": {
+        "ar": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "أثناء نقل {paths} جانبًا تغيّر مجلد في الطريق، لذا قد يكون ما نُقل من مكان آخر. هو محفوظ في {place}. راجعه قبل أن تضغط «الإبقاء عليها»، الذي يضعه في {paths} داخل {repo}."
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Während {paths} beiseitegelegt wurde, hat sich ein Ordner auf dem Weg geändert, daher kann das Verschobene von woanders stammen. Es liegt in {place}. Sieh es dir an, bevor du auf Behalten tippst, das es nach {paths} in {repo} legt."
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "While {paths} was moved aside, a folder on its way changed, so what was moved may come from somewhere else. It is kept in {place}. Look at it before you tap Keep it, which puts it at {paths} in {repo}."
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Mientras se apartaba {paths}, cambió una carpeta del camino, así que lo movido puede venir de otro sitio. Está guardado en {place}. Revísalo antes de tocar Conservar, que lo pone en {paths} dentro de {repo}."
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Pendant que {paths} était mis de côté, un dossier sur le chemin a changé : ce qui a été déplacé peut venir d'ailleurs. C'est conservé dans {place}. Examinez-le avant de toucher Garder, qui le place à {paths} dans {repo}."
+          }
+        },
+        "hi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "{paths} को अलग रखते समय रास्ते का एक फ़ोल्डर बदल गया, इसलिए जो हटाया गया वह कहीं और से हो सकता है। वह {place} में रखा है। रखें पर टैप करने से पहले इसे देख लें, जो इसे {repo} में {paths} पर रख देता है।"
+          }
+        },
+        "it": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Mentre {paths} veniva messo da parte, una cartella lungo il percorso è cambiata, quindi ciò che è stato spostato potrebbe venire da altrove. È conservato in {place}. Controllalo prima di toccare Tieni, che lo mette in {paths} dentro {repo}."
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "{paths} を移す途中で経路上のフォルダが変わったため、移したものは別の場所のものかもしれません。{place} に保管しています。「残す」をタップする前に確認してください。「残す」は {repo} の {paths} に戻します。"
+          }
+        },
+        "ko": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "{paths}을(를) 옮기는 동안 경로의 폴더가 바뀌어, 옮긴 항목이 다른 곳의 것일 수 있습니다. {place}에 보관되어 있습니다. 유지를 탭하기 전에 확인하세요. 유지를 누르면 {repo}의 {paths}에 다시 놓입니다."
+          }
+        },
+        "pt": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Enquanto {paths} era deixado de lado, uma pasta no caminho mudou, então o que foi movido pode vir de outro lugar. Está guardado em {place}. Confira antes de tocar em Manter, que o coloca em {paths} dentro de {repo}."
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "在移开 {paths} 时，途经的一个文件夹发生了变化，因此被移走的内容可能来自别处。它保存在 {place}。轻点“保留”之前请先检查，“保留”会把它放回 {repo} 中的 {paths}。"
+          }
+        }
+      }
+    },
+    "notice.codeRun.incident.title": {
+      "extractionState": "manual",
+      "localizations": {
+        "ar": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "احتجز Psyche شيئًا قد لا يكون من تنفيذ كود في {repo}"
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Psyche hat etwas zurückgehalten, das vielleicht nicht aus einem Code-Lauf in {repo} stammt"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Psyche held back something that may not be from a code run in {repo}"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Psyche retuvo algo que quizá no venga de una ejecución de código en {repo}"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Psyche a mis de côté quelque chose qui ne vient peut-être pas d'une exécution de code dans {repo}"
+          }
+        },
+        "hi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Psyche ने कुछ रोक लिया जो शायद {repo} में कोड रन से नहीं आया"
+          }
+        },
+        "it": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Psyche ha trattenuto qualcosa che forse non viene da un'esecuzione di codice in {repo}"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Psyche は {repo} でのコード実行によるものではないかもしれないものを保留しました"
+          }
+        },
+        "ko": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Psyche가 {repo}의 코드 실행에서 나온 것이 아닐 수도 있는 항목을 보류했습니다"
+          }
+        },
+        "pt": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "O Psyche reteve algo que talvez não venha de uma execução de código em {repo}"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Psyche 扣下了一些可能并非来自 {repo} 中代码运行的内容"
+          }
+        }
+      }
+    },
+    "notice.codeRun.partial.body": {
+      "extractionState": "manual",
+      "localizations": {
+        "ar": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "فحص Psyche المجلدات العليا فقط بحثًا عن إعدادات تشغيل تنشئها عمليات تنفيذ الكود."
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Psyche hat nur die oberen Ordner auf Startkonfiguration geprüft, die Code-Läufe anlegen."
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Psyche checked only the top folders for launch config that code runs create."
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Psyche solo revisó las carpetas superiores en busca de configuración de inicio creada por ejecuciones de código."
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Psyche n'a vérifié que les dossiers du haut pour la configuration de lancement que créent les exécutions de code."
+          }
+        },
+        "hi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Psyche ने कोड रन से बनी लॉन्च कॉन्फ़िगरेशन के लिए सिर्फ़ ऊपर के फ़ोल्डर जाँचे।"
+          }
+        },
+        "it": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Psyche ha controllato solo le cartelle principali per la configurazione di avvio creata dalle esecuzioni di codice."
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Psyche はコード実行が作る起動設定について、上位のフォルダだけを確認しました。"
+          }
+        },
+        "ko": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Psyche는 코드 실행이 만드는 실행 구성을 상위 폴더에서만 확인했습니다."
+          }
+        },
+        "pt": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "O Psyche verificou só as pastas de cima em busca de configuração de inicialização criada por execuções de código."
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Psyche 只检查了顶层文件夹中由代码运行创建的启动配置。"
+          }
+        }
+      }
+    },
+    "notice.codeRun.partial.title": {
+      "extractionState": "manual",
+      "localizations": {
+        "ar": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "{repo} أكبر من أن يُفحص بالكامل"
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "{repo} ist zu groß für eine vollständige Prüfung"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "{repo} is too large to check fully"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "{repo} es demasiado grande para revisarlo entero"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "{repo} est trop volumineux pour une vérification complète"
+          }
+        },
+        "hi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "{repo} पूरी तरह जाँचने के लिए बहुत बड़ा है"
+          }
+        },
+        "it": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "{repo} è troppo grande per un controllo completo"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "{repo} は大きすぎて全体を確認できません"
+          }
+        },
+        "ko": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "{repo}이(가) 너무 커서 전부 확인할 수 없습니다"
+          }
+        },
+        "pt": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "{repo} é grande demais para uma verificação completa"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "{repo} 太大，无法完整检查"
+          }
+        }
+      }
+    },
+    "notice.codeRun.recreated.body": {
+      "extractionState": "manual",
+      "localizations": {
+        "ar": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "تغيّرت مجلداتها المخصصة للقراءة فقط، لذا توقفت الخوادم العاملة واختفى ما ثُبّت خارج المستودع. أعد تشغيل ما تحتاجه."
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Ihre schreibgeschützten Ordner haben sich geändert, daher sind laufende Server und alles, was außerhalb des Repositorys installiert war, weg. Starte neu, was du brauchst."
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Its read-only folders changed, so running servers and anything installed outside the repository are gone. Start again what you need."
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Sus carpetas de solo lectura cambiaron, así que los servidores en marcha y lo instalado fuera del repositorio ya no están. Vuelve a iniciar lo que necesites."
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Ses dossiers en lecture seule ont changé : les serveurs en cours et ce qui était installé hors du dépôt ont disparu. Relancez ce dont vous avez besoin."
+          }
+        },
+        "hi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "इसके केवल-पढ़ने वाले फ़ोल्डर बदल गए, इसलिए चल रहे सर्वर और रिपॉज़िटरी के बाहर इंस्टॉल की गई चीज़ें चली गईं। जो चाहिए उसे फिर से शुरू करें।"
+          }
+        },
+        "it": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Le sue cartelle di sola lettura sono cambiate, quindi i server attivi e ciò che era installato fuori dal repository non ci sono più. Riavvia ciò che ti serve."
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "読み取り専用のフォルダが変わったため、実行中のサーバーとリポジトリ外にインストールしたものは消えました。必要なものを再起動してください。"
+          }
+        },
+        "ko": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "읽기 전용 폴더가 바뀌어 실행 중인 서버와 저장소 밖에 설치한 항목이 사라졌습니다. 필요한 것을 다시 시작하세요."
+          }
+        },
+        "pt": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "As pastas somente leitura mudaram, então servidores em execução e o que estava instalado fora do repositório se foram. Inicie de novo o que precisar."
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "它的只读文件夹发生了变化，因此正在运行的服务器以及仓库外安装的内容都已丢失。请重新启动你需要的内容。"
+          }
+        }
+      }
+    },
+    "notice.codeRun.recreated.title": {
+      "extractionState": "manual",
+      "localizations": {
+        "ar": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "أُعيد إنشاء بيئة العزل الخاصة بـ {repo}"
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Die Sandbox für {repo} wurde neu eingerichtet"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "The sandbox for {repo} was set up again"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "El sandbox de {repo} se volvió a crear"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Le bac à sable de {repo} a été recréé"
+          }
+        },
+        "hi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "{repo} का सैंडबॉक्स फिर से बनाया गया"
+          }
+        },
+        "it": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "La sandbox per {repo} è stata ricreata"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "{repo} のサンドボックスを作り直しました"
+          }
+        },
+        "ko": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "{repo}의 샌드박스를 다시 만들었습니다"
+          }
+        },
+        "pt": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "O sandbox de {repo} foi recriado"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "{repo} 的沙盒已重新创建"
+          }
+        }
+      }
     }
   },
   "version": "1.0"

@@ -28,7 +28,6 @@ export function ApprovalDock({
   mode?: string;
   now?: number;
 }): ReactElement | null {
-  const now = useNow(1000, fixedNow);
   const { pending, answer } = useApprovals();
   const persona = usePersona();
   const tasks = useStoreState((s) => s.tasks);
@@ -56,6 +55,8 @@ export function ApprovalDock({
       setOpenId(mine[0]?.approval.id ?? null);
     }
   }, [ids]);
+  // Only a pending approval shows a countdown: with none in this thread the clock stays off.
+  const now = useNow(1000, fixedNow, mine.length > 0);
   const open = mine.find((v) => v.approval.id === openId) ?? mine[0];
   const newest = [...mine].sort((a, b) =>
     b.approval.requestedAt.localeCompare(a.approval.requestedAt),

@@ -191,4 +191,39 @@ struct GatewayBackendTests {
         try await backend.markRead(ids: ["n1", "n2"])
         #expect(marked.all == ["n1,n2"])
     }
+
+    @Test func noticeKeysAndButtonsMapButApprovalsKeepTheirOwn() async throws {
+        let resolved = OutboxTests.Sent()
+        let (backend, _) = try await live { g in
+            g.on("notifications.list") { _ in .success(.object(["notifications": .array([
+                .object([
+                    "id": "n2", "kind": "system", "title": "Held back launch config", "body": "Moved aside",
+                    "message": .object([
+                        "titleKey": "notice.codeRun.held.title", "bodyKey": "notice.codeRun.held.body",
+                        "params": .object(["repo": "psyche", "paths": ".vscode/launch.json", "count": .number(2)]),
+                    ]),
+                    "actions": .array([.object(["id": "keep", "label": "Keep it", "labelKey": "notice.action.keepIt"])]),
+                    "createdAt": "2030-01-01T09:12:00Z", "readAt": .null, "resolvedAt": .null,
+                ]),
+                .object([
+                    "id": "n3", "kind": "approval", "title": "Approve payment", "body": "Pacific Power",
+                    "actions": .array([.object(["id": "allow", "label": "Allow"])]),
+                    "createdAt": "2030-01-01T09:12:00Z", "readAt": .null, "resolvedAt": .null,
+                ]),
+            ])])) }
+            g.on("notifications.resolve") { req in
+                resolved.add("\(req.params?["notificationId"]?.stringValue ?? "")|\(req.params?["actionId"]?.stringValue ?? "")")
+                return .success(.object(["notification": .object(["id": "n2"])]))
+            }
+        }
+        let inbox = try await backend.inbox()
+        let notice = try #require(inbox.first { $0.id == "n2" })
+        #expect(notice.message == InboxNoticeKeys(
+            titleKey: "notice.codeRun.held.title", bodyKey: "notice.codeRun.held.body",
+            params: ["repo": "psyche", "paths": ".vscode/launch.json", "count": "2"]))
+        #expect(notice.actions == [InboxAction(id: "keep", label: "Keep it", labelKey: "notice.action.keepIt")])
+        #expect(inbox.first { $0.id == "n3" }?.actions == [])
+        try await backend.resolveNotice(id: "n2", actionID: "keep")
+        #expect(resolved.all == ["n2|keep"])
+    }
 }
