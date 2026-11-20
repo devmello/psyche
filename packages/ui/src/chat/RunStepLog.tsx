@@ -367,7 +367,8 @@ export function RunStepLog({
   steps: readonly RunStep[];
   now?: number;
 }): ReactElement {
-  const now = useNow(1000, fixedNow);
+  // The clock matters only for the stall check, which needs a run in progress.
+  const now = useNow(1000, fixedNow, run !== null);
   const [all, setAll] = useState(false);
   const current = [...steps]
     .reverse()
