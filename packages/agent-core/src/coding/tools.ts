@@ -949,7 +949,10 @@ function launchConfigOutput(r: LaunchConfigReport) {
       incidents: a.incidents.length,
     },
     ...(a.withheld ? { withheld: true } : {}),
-    partial: r.partial,
+    // Folders swapped for a link while the guard read them (#1469 review r3): said in place of
+    // anything in them, and of whether the walk was partial.
+    ...(a.swapped.length > 0 ? { swapped: a.swapped } : {}),
+    ...(a.partial === undefined ? {} : { partial: a.partial }),
   };
 }
 

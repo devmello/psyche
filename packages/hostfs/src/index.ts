@@ -26,7 +26,7 @@ export {
   launchConfigEntry,
   launchConfigLinkTargets,
   listPinned,
-  pinFolder,
+  withPinned,
 } from "./launch-config.ts";
 export {
   absoluteHostPathPattern,

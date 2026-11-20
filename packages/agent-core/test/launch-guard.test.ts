@@ -980,11 +980,12 @@ describe("code.run and launch config", () => {
       // is filtered; the owner is told the raw paths).
       const said = JSON.stringify([report.agent, r.output.launchConfig]);
       expect(said).not.toMatch(/Secret|registry|Elsewhere/);
-      // Said by the folder the swap was in.
-      expect(report.agent?.unmoved).toContain("a/sub");
-      expect((r.output.launchConfig as { counts: { unmoved: number } }).counts.unmoved).toBe(
-        report.unmoved.length,
-      );
+      // Said by the folder the swap was in, as swapped, with nothing in it (#1469 review r3);
+      // the owner is told it was not checked.
+      expect(report.agent?.swapped).toEqual(["a/sub"]);
+      expect(report.agent?.unmoved).toEqual([]);
+      expect(report.unmoved).toContain("a/sub");
+      expect((r.output.launchConfig as { counts: { unmoved: number } }).counts.unmoved).toBe(0);
       // Nothing outside was moved or changed.
       expect(readdirSync(outside).sort()).toEqual([".npmrc", "Secret-Project-X", "Secret-Repo"]);
       expect(lstatSync(join(outside, "Secret-Project-X")).mode & 0o7777).toBe(0o000);
@@ -1071,9 +1072,12 @@ describe("code.run and launch config", () => {
       const r = await use("code.run", { root: repo, argv: ["noop"] });
       const report = reports[0] as LaunchConfigReport;
       expect(leaks(r.output.launchConfig)).toEqual([]);
-      // The owner is still told of every change, by its raw path; the agent by the folder.
+      // The owner is still told of every change, by its raw path; the agent only that the folder
+      // was swapped (#1469 review r3: nothing at or below it).
       expect(report.changed).toContain("web/.vscode/settings.json");
-      expect(report.agent?.changed).toEqual(["web/.vscode"]);
+      expect(report.unmoved).toContain("web/.vscode");
+      expect(report.agent?.changed).toEqual([]);
+      expect(report.agent?.swapped).toEqual(["web/.vscode"]);
     });
 
     // B: the before-run fingerprint walk (a process left from an earlier run) is not pinned either.
@@ -1142,7 +1146,10 @@ describe("code.run and launch config", () => {
       expect(leaks([reports[0], r?.output.launchConfig, String(err)])).toEqual([]);
     });
 
-    // D: a collapsed change has a constant fingerprint.
+    // D: a collapsed change has a constant fingerprint. Since #1469 review r3 nothing in a folder
+    // swapped while it was read is looked at, so the print is the same ("gone", which the
+    // notices never take as seen); the owner is alerted on every run all the same, as the folder
+    // is said as not checked, in the notice that is new every run.
     it("D: a known .npmrc changed while its folder's listing is forced to '' is named by the folder with a constant print", async () => {
       put("a/sub/.npmrc", "save-exact=true\n");
       const { use, runner, reports } = setup();
@@ -1168,7 +1175,11 @@ describe("code.run and launch config", () => {
         await use("code.open", { path: repo });
         await use("code.run", { root: repo, argv: [`edit${i}`] });
       }
-      expect(reports[0]?.fingerprints).not.toEqual(reports[1]?.fingerprints);
+      for (const r of reports) {
+        expect(r.changed).toEqual(["a/sub/.npmrc"]);
+        expect(r.fingerprints["a/sub/.npmrc"]).toBe("gone");
+        expect(r.unmoved).toEqual(["a/sub"]);
+      }
     });
   });
 
@@ -1299,6 +1310,258 @@ describe("code.run and launch config", () => {
       rmSync(join(repo, "web"));
       renameSync(join(repo, "web.real"), join(repo, "web"));
       expect(existsSync(join(repo, "web/.vscode/settings.json"))).toBe(true);
+    });
+  });
+
+  // #1469 review r3: the reviewer's probes (debug output left out), with what they show asserted,
+  // and the same shape at each other look the guard takes after the run.
+  describe("#1469 review r3 probes", () => {
+    /** A new repository in a new `dir`, for one more case of a comparison. */
+    const fresh = () => {
+      hooks.readdir = undefined;
+      hooks.lstat = undefined;
+      writable(dir);
+      rmSync(dir, { recursive: true, force: true });
+      mkdirSync(join(repo, "src"), { recursive: true });
+      writeFileSync(join(repo, "src", "a.js"), "export const a = 1;\n");
+    };
+    const run = async (s: ReturnType<typeof setup>) => {
+      await s.use("code.open", { path: repo });
+      return s.use("code.run", { root: repo, argv: ["noop"] });
+    };
+
+    // Finding 1: a nested repository found only by probing has a folder no listing named.
+    it("N1: runs on a repository with a nested repo inside a skipped folder (build/lib/.git)", async () => {
+      put("build/lib/.git/config", "[core]\n");
+      put("build/lib/.git/HEAD", "ref: refs/heads/main\n");
+      const s = setup();
+      acts(s.runner, "noop", () => undefined);
+      await run(s);
+      expect(s.runner.execs).toHaveLength(1);
+    });
+
+    it("N1b: runs on a repository walked only at its top levels with packages/foo/.git", async () => {
+      put("packages/foo/.git/config", "[core]\n");
+      put("packages/foo/.git/HEAD", "ref: refs/heads/main\n");
+      for (let i = 0; i < 6; i++) put(`d${i}/x/y.txt`);
+      const s = setup(new FakeSandboxRunner(), 4);
+      acts(s.runner, "noop", () => undefined);
+      await run(s);
+      expect(s.runner.execs).toHaveLength(1);
+    });
+
+    /** Swaps `folder` for a link to `Outside/<its name>` (a nested repository) at `hook`. */
+    const refusedWhen = async (
+      folder: string,
+      at: { readdir?: string; lstat?: string },
+      maxDirs?: number,
+    ) => {
+      const name = folder.split("/").pop() as string;
+      mkdirSync(join(dir, "Outside", name, ".git"), { recursive: true });
+      writeFileSync(join(dir, "Outside", name, ".git", "config"), "[core]\n");
+      const s = setup(new FakeSandboxRunner(), maxDirs);
+      acts(s.runner, "noop", () => undefined);
+      let done = false;
+      const swap = (path: string, want?: string) => {
+        if (done || path !== want) return;
+        done = true;
+        renameSync(join(repo, folder), join(repo, `${folder}.moved`));
+        symlinkSync(join(dir, "Outside", name), join(repo, folder));
+      };
+      hooks.readdir = (path) => swap(path, at.readdir);
+      hooks.lstat = (path) => swap(path, at.lstat);
+      await s.use("code.open", { path: repo });
+      await expect(s.use("code.run", { root: repo, argv: ["noop"] })).rejects.toMatchObject({
+        code: "forbidden",
+        details: { reason: "launch_config_moved" },
+      });
+      expect(done).toBe(true);
+      expect(s.runner.execs).toHaveLength(0);
+    };
+
+    it("N1: still refused when the skipped folder is swapped while it is listed", async () => {
+      put("build/lib/.git/config", "[core]\n");
+      await refusedWhen("build", { readdir: join(repo, "build") });
+    });
+
+    it("N1: still refused when the probed folder is swapped while its git folder is read", async () => {
+      put("build/lib/.git/config", "[core]\n");
+      await refusedWhen("build/lib", { lstat: join(repo, "build/lib/.git/config") });
+    });
+
+    it("N1b: still refused when the probed folder is swapped while its git folder is read", async () => {
+      put("packages/foo/.git/config", "[core]\n");
+      for (let i = 0; i < 6; i++) put(`d${i}/x/y.txt`);
+      await refusedWhen("packages/foo", { lstat: join(repo, "packages/foo/.git/config") }, 4);
+    });
+
+    it("N1b: still refused when the probed folder is swapped while it is probed", async () => {
+      put("packages/foo/.git/config", "[core]\n");
+      for (let i = 0; i < 6; i++) put(`d${i}/x/y.txt`);
+      await refusedWhen("packages/foo", { lstat: join(repo, "packages/foo/.git") }, 4);
+    });
+
+    /**
+     * Finding 2 (W1's shape, after the run): the agent's leftover process swaps `a` for a link to
+     * `Outside` while the walk lists `a/probe`, so the walk reads `Outside/probe`, which is `kind`.
+     */
+    async function w1(kind: "repo" | "locked" | "missing" | "plain") {
+      fresh();
+      const outside = join(dir, "Outside", "probe");
+      mkdirSync(kind === "missing" ? join(dir, "Outside") : outside, { recursive: true });
+      if (kind === "locked") chmodSync(outside, 0o000);
+      if (kind === "repo") {
+        mkdirSync(join(outside, ".git", "hooks"), { recursive: true });
+        writeFileSync(join(outside, ".git", "config"), "[core]\n");
+        mkdirSync(join(outside, ".vscode"), { recursive: true });
+      }
+      if (kind === "plain") writeFileSync(join(outside, "notes.txt"), "x");
+      put("a/probe/readme.md");
+      const s = setup();
+      let armed = false;
+      let done = false;
+      acts(s.runner, "noop", () => {
+        armed = true;
+      });
+      hooks.readdir = (path) => {
+        if (!armed || done || path !== join(repo, "a/probe")) return;
+        done = true;
+        renameSync(join(repo, "a"), join(repo, "a.moved"));
+        symlinkSync(join(dir, "Outside"), join(repo, "a"));
+      };
+      const r = await run(s);
+      expect(done).toBe(true);
+      return { out: r.output.launchConfig, report: s.reports[0] as LaunchConfigReport };
+    }
+
+    it("N2/N3: tells the agent the same for a repository, a locked folder, a missing one and a plain one", async () => {
+      const repoCase = await w1("repo");
+      const locked = await w1("locked");
+      const missing = await w1("missing");
+      const plain = await w1("plain");
+      const said = JSON.stringify(repoCase.out);
+      expect(JSON.stringify(locked.out)).toBe(said);
+      expect(JSON.stringify(missing.out)).toBe(said);
+      expect(JSON.stringify(plain.out)).toBe(said);
+      // The swap alone is said, always with the notice, and nothing about the walk's size.
+      const out = repoCase.out as Record<string, unknown>;
+      expect(out.swapped).toEqual(["a/probe"]);
+      expect(out.notice).toMatch(/could not check a\/probe/);
+      expect(out).not.toHaveProperty("partial");
+      expect(out.unmoved).toEqual([]);
+      // The owner is told it was not checked.
+      expect(repoCase.report.unmoved).toContain("a/probe");
+      expect(repoCase.report.partial).toBe(false);
+    });
+
+    /**
+     * The same, at the probe for a nested repository below a skipped folder: `build/x` swapped for
+     * a link while the walk looks for its `.git`.
+     */
+    async function probed(kind: "repo" | "none") {
+      fresh();
+      const outside = join(dir, "Outside", "x");
+      mkdirSync(outside, { recursive: true });
+      if (kind === "repo") {
+        mkdirSync(join(outside, ".git", "hooks"), { recursive: true });
+        writeFileSync(join(outside, ".git", "config"), "[core]\n");
+      }
+      put("build/x/out.js");
+      const s = setup();
+      let armed = false;
+      let done = false;
+      acts(s.runner, "noop", () => {
+        armed = true;
+      });
+      hooks.lstat = (path) => {
+        if (!armed || done || path !== join(repo, "build/x/.git")) return;
+        done = true;
+        renameSync(join(repo, "build/x"), join(repo, "build/x.moved"));
+        symlinkSync(outside, join(repo, "build/x"));
+      };
+      const r = await run(s);
+      expect(done).toBe(true);
+      return r.output.launchConfig as Record<string, unknown>;
+    }
+
+    it("tells the agent the same whether a folder probed through a swap holds a .git or not", async () => {
+      const yes = await probed("repo");
+      const no = await probed("none");
+      expect(JSON.stringify(yes)).toBe(JSON.stringify(no));
+      expect(yes.swapped).toEqual(["build/x"]);
+    });
+
+    /**
+     * The same, at the look at a read-only folder's identity after the run: `web` swapped for a
+     * link to `Outside` while the guard looks at `web/.vscode`.
+     */
+    async function mounted(kind: "has" | "none") {
+      fresh();
+      put("web/.vscode/settings.json", "{}");
+      const outside = join(dir, "Outside");
+      mkdirSync(outside, { recursive: true });
+      if (kind === "has") {
+        mkdirSync(join(outside, ".vscode"), { recursive: true });
+        writeFileSync(join(outside, ".vscode", "settings.json"), "{}");
+      }
+      const s = setup();
+      let armed = false;
+      let done = false;
+      acts(s.runner, "noop", () => {
+        armed = true;
+      });
+      hooks.lstat = (path) => {
+        if (!armed || done || path !== join(repo, "web/.vscode")) return;
+        done = true;
+        renameSync(join(repo, "web"), join(repo, "web.real"));
+        symlinkSync(outside, join(repo, "web"));
+      };
+      const r = await run(s);
+      expect(done).toBe(true);
+      return { out: r.output.launchConfig as Record<string, unknown>, report: s.reports[0] };
+    }
+
+    it("tells the agent the same whether a read-only folder's swapped path holds one or not", async () => {
+      const yes = await mounted("has");
+      const no = await mounted("none");
+      expect(JSON.stringify(yes.out)).toBe(JSON.stringify(no.out));
+      expect(yes.out.swapped).toEqual(["web"]);
+      // The owner hears of it either way.
+      expect(yes.report?.unmoved).toContain("web");
+      expect(no.report?.unmoved).toContain("web");
+    });
+
+    /**
+     * A move that brings in something else (a folder above swapped for a link right before it):
+     * said to the agent as not moved, as when there is nothing there to bring in.
+     */
+    async function incident(kind: "has" | "none") {
+      fresh();
+      const other = join(dir, "OtherProject");
+      mkdirSync(other, { recursive: true });
+      if (kind === "has") {
+        mkdirSync(join(other, ".vscode"), { recursive: true });
+        writeFileSync(join(other, ".vscode", "settings.json"), "owner's");
+      }
+      put("sub/readme.md");
+      const s = setup(new FakeSandboxRunner(), undefined, () => {
+        renameSync(join(repo, "sub"), join(repo, "sub-was"));
+        symlinkSync(other, join(repo, "sub"));
+      });
+      acts(s.runner, "noop", () => put("sub/.vscode/tasks.json", "{}"));
+      const r = await run(s);
+      return { out: r.output.launchConfig as Record<string, unknown>, report: s.reports[0] };
+    }
+
+    it("tells the agent the same whether a move through a swap brought something in or not", async () => {
+      const yes = await incident("has");
+      const no = await incident("none");
+      // The owner is told of the incident.
+      expect(yes.report?.incidents).toEqual(["sub/.vscode"]);
+      expect(no.report?.incidents).toEqual([]);
+      expect(JSON.stringify(yes.out)).toBe(JSON.stringify(no.out));
+      expect(yes.out.unmoved).toEqual(["sub/.vscode"]);
+      expect(yes.out.quarantined).toEqual([]);
     });
   });
 

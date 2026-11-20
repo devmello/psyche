@@ -100,10 +100,11 @@ export interface LaunchConfigScan {
    */
   unreadable?: LaunchConfigUnlisted[];
   /**
-   * Every folder the walk listed (`.` for the root), with who it was (dev:ino) while it was
-   * listed, or `""` when that changed during the listing (#1457 review r1). A folder above it
-   * swapped for a link makes the walk list a folder outside the root: a name the walk reports
-   * is only the root's when its folder still is this one, at its real path.
+   * Every folder the walk listed or probed for a `.git` (`.` for the root), with who it was
+   * (dev:ino) while it was read, or `""` when that changed meanwhile (#1457 review r1). A folder
+   * above it swapped for a link makes the walk read a folder outside the root: a name the walk
+   * reports is only the root's when its folder still is this one, at its real path. Nothing in a
+   * folder noted `""` is walked or reported (#1469 review r3).
    */
   folders?: Record<string, string>;
 }
@@ -197,18 +198,17 @@ export async function findLaunchConfig(
   while (queue.length > 0) {
     const next = queue.shift() as { rel: string; depth: number };
     if (++dirs > maxDirs) return done(false);
-    let entries: Dirent[];
+    const key = next.rel === "" ? "." : next.rel;
+    let entries: Dirent[] | undefined;
     try {
-      entries = await listPinned(
-        next.rel === "" ? root : join(root, next.rel),
-        next.rel === "" ? "." : next.rel,
-        folders,
-        root,
-      );
+      entries = await listPinned(next.rel === "" ? root : join(root, next.rel), key, folders, root);
     } catch (err) {
-      if (denied(err)) await unlisted(next.rel === "" ? "." : next.rel);
+      // Unlistable as itself: through a swapped folder, whether it was is not the root's either.
+      if (denied(err) && folders[key] !== "") await unlisted(key);
       continue;
     }
+    // Swapped while listed, or gone: nothing it named is the root's, so none of it is walked.
+    if (entries === undefined) continue;
     for (const d of entries) {
       const rel = next.rel === "" ? d.name : `${next.rel}/${d.name}`;
       const kind = kindOf(d);
@@ -268,74 +268,96 @@ function unlistedPinner(root: string, into: LaunchConfigUnlisted[]) {
 }
 
 /**
- * Lists `path` (`rel`), noting who it was in `folders` (#1457 review r1, #1469 review r1): the
- * same folder before and after the listing, and its folder (`rel`'s parent, pinned before it,
- * top down) still the one that was pinned, at the same path, both before and after. Else it is
- * noted as `""`: a folder on the way was swapped for a link, the listing may be of a folder
- * outside the root, and nothing it named is the root's. Without `openat`, a folder swapped out
- * before the first look and back before the last one is not seen (a residual).
+ * Lists `path` (`rel`), noting who it was in `folders` (#1457 review r1, #1469 reviews r1 and r3):
+ * see `withPinned`. The listing only when it was the root's; undefined when it was not, or when
+ * the folder was not there at all: then nothing it named is walked (#1469 review r3, finding 2),
+ * so a folder outside the root is never walked and never spends the walk's limits.
  */
 export async function listPinned(
   path: string,
   rel: string,
   folders: Record<string, string>,
   root?: string,
-): Promise<Dirent[]> {
-  return pinned(path, rel, folders, root, () => readdir(path, { withFileTypes: true }));
+): Promise<Dirent[] | undefined> {
+  return withPinned(path, rel, folders, root, () => readdir(path, { withFileTypes: true }));
 }
 
-/** `listPinned` without the listing: notes who a folder is, for the names below it. */
-export async function pinFolder(
-  path: string,
-  rel: string,
-  folders: Record<string, string>,
-  root?: string,
-): Promise<void> {
-  await pinned(path, rel, folders, root, async () => undefined);
-}
-
-async function pinned<T>(
+/**
+ * Runs `inner` (a read of what is in `path`, `rel` under `root`) and notes who the folder was in
+ * `folders`: the same folder before and after, and its own folder still the one pinned (or, for a
+ * folder no listing named, its real path its path under the root, #1469 review r3, finding 1),
+ * both before and after. Else it is noted as `""`: a folder on the way was swapped for a link,
+ * what `inner` read may be outside the root, and its answer is dropped (undefined). A folder
+ * noted once keeps that identity for this map; one noted as `""` stays so. A folder that was not
+ * there at either look, below a folder that stayed, is left unnoted and its answer dropped: it
+ * is gone, not swapped. Without `openat`, a folder swapped out after the first look and back
+ * before the last one is not seen (a residual).
+ */
+export async function withPinned<T>(
   path: string,
   rel: string,
   folders: Record<string, string>,
   root: string | undefined,
   inner: () => Promise<T>,
-): Promise<T> {
-  const id = async (at: string) => {
+): Promise<T | undefined> {
+  // A folder's identity; `""` for something else (a link, a file), undefined for nothing.
+  const look = async (at: string) => {
     const st = await lstat(at, { bigint: true }).catch(() => undefined);
-    return st?.isDirectory() === true ? `${st.dev}:${st.ino}` : "";
+    if (st === undefined) return undefined;
+    return st.isDirectory() ? `${st.dev}:${st.ino}` : "";
   };
+  const parent =
+    rel === "." || root === undefined
+      ? undefined
+      : rel.includes("/")
+        ? rel.slice(0, rel.lastIndexOf("/"))
+        : ".";
+  let realRoot: string | undefined;
   const above = async () => {
-    if (rel === "." || root === undefined) return true;
-    const parent = rel.includes("/") ? rel.slice(0, rel.lastIndexOf("/")) : ".";
+    if (parent === undefined || root === undefined) return true;
+    const at = parent === "." ? root : join(root, parent);
     const pin = folders[parent];
-    return (
-      pin !== undefined &&
-      pin !== "" &&
-      (await id(parent === "." ? root : join(root, parent))) === pin
-    );
+    if (pin !== undefined) return pin !== "" && (await look(at)) === pin;
+    // A folder no listing named (one past the walk's limits): its real path is checked
+    // instead, as `unlistedPinner` does.
+    realRoot ??= await realpath(root).catch(() => undefined);
+    if (realRoot === undefined) return false;
+    const real = await realpath(at).catch(() => undefined);
+    return real === (parent === "." ? realRoot : join(realRoot, parent));
   };
   const aboveBefore = await above();
-  const was = await id(path);
-  const settled = async () => {
-    const is = await id(path);
-    const aboveAfter = await above();
-    return was !== "" && was === is && aboveBefore && aboveAfter;
+  const was = await look(path);
+  const state = async (): Promise<"ok" | "gone" | "swapped"> => {
+    const is = await look(path);
+    const steady = aboveBefore && (await above());
+    if (steady && was === undefined && is === undefined) return "gone";
+    const prev = folders[rel];
+    const ok =
+      steady &&
+      was !== undefined &&
+      was !== "" &&
+      was === is &&
+      (prev === undefined || prev === was);
+    return ok ? "ok" : "swapped";
   };
   let out: T;
   try {
     out = await inner();
   } catch (err) {
-    // A listing that failed names nothing, but whether it did is itself telling (#1469 review
-    // r2): one that failed through a folder swapped for a link (a link to nothing, to a file)
-    // is noted as swapped. Only the pinned folder refusing for its mode is left unnoted.
-    const code = (err as NodeJS.ErrnoException).code;
-    if (!((code === "EACCES" || code === "EPERM") && (await settled()))) folders[rel] = "";
+    // A read that failed names nothing, but whether it did is itself telling (#1469 review r2):
+    // one that failed through a folder swapped for a link (a link to nothing, to a file) is noted
+    // as swapped. The pinned folder refusing for its mode, or one that is gone, is left unnoted.
+    const s = await state();
+    if (!(s === "gone" || (s === "ok" && denied(err)))) folders[rel] = "";
     throw err;
   }
-  const ok = await settled();
-  // Once noted as swapped, a folder stays so for this map.
-  folders[rel] = ok && folders[rel] !== "" ? was : "";
+  const s = await state();
+  if (s === "gone") return undefined;
+  if (s === "swapped") {
+    folders[rel] = "";
+    return undefined;
+  }
+  folders[rel] = was as string;
   return out;
 }
 
@@ -354,8 +376,13 @@ async function nestedGits(
   folders: Record<string, string>,
 ): Promise<LaunchConfigFound[]> {
   const out: LaunchConfigFound[] = [];
+  // Each folder probed is pinned like a listing (#1469 review r3): a folder on the way swapped
+  // for a link would make the probe say whether a folder outside holds a `.git`. Its pin also
+  // lets the `.git` found in it be pinned later, below a folder that was noted (finding 1).
   const probe = async (dir: string) => {
-    const st = await lstat(join(root, dir, ".git")).catch(() => undefined);
+    const st = await withPinned(join(root, dir), dir, folders, root, () =>
+      lstat(join(root, dir, ".git")).catch(() => undefined),
+    );
     if (st === undefined) return;
     const kind = st.isSymbolicLink()
       ? "link"
@@ -368,14 +395,14 @@ async function nestedGits(
   };
   await probe(rel);
   if (!children) return out;
-  let entries: Dirent[];
+  let entries: Dirent[] | undefined;
   try {
     entries = await listPinned(join(root, rel), rel, folders, root);
   } catch (err) {
-    if (denied(err)) await unlisted(rel);
+    if (denied(err) && folders[rel] !== "") await unlisted(rel);
     return out;
   }
-  for (const d of entries.slice(0, MAX_GIT_PROBES)) {
+  for (const d of (entries ?? []).slice(0, MAX_GIT_PROBES)) {
     if (d.isDirectory() && fold(d.name) !== ".git") await probe(`${rel}/${d.name}`);
   }
   return out;

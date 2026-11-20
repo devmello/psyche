@@ -155,6 +155,18 @@ describe("finding launch config in a folder tree", () => {
     ]);
   });
 
+  // #1469 review r3, finding 1: a folder only probed for a `.git` (below a skipped folder, or past
+  // the depth walked) is pinned like a listed one, so what is in its `.git` can be pinned too.
+  it("pins each folder it probes for a nested repository", async () => {
+    const root = tree(["build/lib/.git/config", "packages/foo/.git/config", "a.md"]);
+    const scan = await findLaunchConfig(root, { nestedGit: true, maxDepth: 1 });
+    expect(scan.found.map((f) => f.rel).sort()).toEqual(["build/lib/.git", "packages/foo/.git"]);
+    for (const dir of ["build", "build/lib", "packages", "packages/foo"]) {
+      const st = lstatSync(join(root, dir), { bigint: true });
+      expect(scan.folders?.[dir]).toBe(`${st.dev}:${st.ino}`);
+    }
+  });
+
   // #1438 review r3: a search-only folder hides its entries from a listing, not from an app.
   it("names the folders it could not list", async () => {
     const root = tree(["pkg/.npmrc", "a/b/.npmrc", "ok/.npmrc"]);
