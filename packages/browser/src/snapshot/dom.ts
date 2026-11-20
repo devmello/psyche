@@ -1,6 +1,7 @@
 import { isPaymentField as isMoneyPaymentField } from "@psyche/protocol/money-intent";
 import type { CaptureSnapshotResult, DocumentSnapshot } from "../cdp/types.ts";
 import { tryOrigin } from "../origin/canonical.ts";
+import { isSecureField } from "./secure-field.ts";
 
 /**
  * Index over `DOMSnapshot.captureSnapshot`: per `backendNodeId`, the tag, attributes, layout
@@ -37,17 +38,6 @@ export interface DomDocumentInfo {
   frameId: string;
   title: string;
 }
-
-const SECURE_AUTOCOMPLETE = [
-  "current-password",
-  "new-password",
-  "one-time-code",
-  "cc-number",
-  "cc-csc",
-  "cc-exp",
-  "cc-exp-month",
-  "cc-exp-year",
-];
 
 export class DomIndex {
   readonly documents: DomDocumentInfo[] = [];
@@ -201,11 +191,31 @@ export class DomIndex {
     return found;
   }
 
-  isSecure(info: DomNodeInfo): boolean {
-    const type = (info.attrs.type ?? "").toLowerCase();
-    if (info.tag === "INPUT" && type === "password") return true;
-    const ac = (info.attrs.autocomplete ?? "").toLowerCase().split(/\s+/);
-    return ac.some((t) => SECURE_AUTOCOMPLETE.includes(t));
+  /**
+   * The element holds a secret (password, one-time code, card detail): see `isSecureField`.
+   * `label` is the accessible name from the AX tree, when the caller has it.
+   */
+  isSecure(info: DomNodeInfo, label?: string): boolean {
+    const a = info.attrs;
+    return isSecureField({
+      tag: info.tag,
+      type: a.type,
+      autocomplete: a.autocomplete,
+      name: a.name,
+      id: a.id,
+      placeholder: a.placeholder,
+      ariaLabel: a["aria-label"],
+      label,
+      contentEditable: a.contenteditable !== undefined && a.contenteditable !== "false",
+    });
+  }
+
+  /** Some secure field in any document holds a value (screenshot guard; ignores the AX tree). */
+  anySecureValue(): boolean {
+    for (const n of this.#byBackend.values()) {
+      if ((n.inputValue ?? "") !== "" && this.isSecure(n)) return true;
+    }
+    return false;
   }
 
   /** Activating the element submits its form. */

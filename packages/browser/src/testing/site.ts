@@ -424,6 +424,32 @@ export const FIXTURE_SITE: FxSite = {
         },
       ],
     },
+    // Pre-filled secret fields that are not `type=password`, beside look-alikes that are not secret.
+    "a/codes": {
+      title: "Verify",
+      body: [
+        { kind: "heading", level: 1, text: "Verify" },
+        {
+          kind: "form",
+          action: "/submit/verify",
+          method: "post",
+          children: [
+            { kind: "input", label: "Verification code", name: "otp", value: "482913" },
+            { kind: "input", label: "Card security code", name: "cvc", value: "7391" },
+            {
+              kind: "input",
+              label: "Code",
+              name: "code",
+              autocomplete: "one-time-code",
+              value: "551122",
+            },
+            { kind: "input", label: "Password hint", name: "hint", value: "first pet" },
+            { kind: "input", label: "Find a flight", name: "pass", type: "search", value: "LHR" },
+            { kind: "button", text: "Verify", type: "submit" },
+          ],
+        },
+      ],
+    },
     "a/cart": {
       title: "Cart",
       body: [

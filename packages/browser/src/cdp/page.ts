@@ -11,7 +11,7 @@ import {
 import { canonicalizeUrl, tryOrigin } from "../origin/canonical.ts";
 import type { Hop, OriginPolicy } from "../origin/policy.ts";
 import { buildSnapshot, extractText, type FrameAx } from "../snapshot/builder.ts";
-import { isPaymentField } from "../snapshot/dom.ts";
+import { DomIndex, isPaymentField } from "../snapshot/dom.ts";
 import { type RefEntry, RefRegistry } from "../snapshot/refs.ts";
 import type {
   ActionTarget,
@@ -1032,11 +1032,13 @@ export class PageController {
   ): Promise<{ text: string; truncated: boolean }> {
     this.#assertReadable();
     this.#assertNoDialog();
-    const [ax, frames] = await Promise.all([
+    const [ax, frames, domSnap] = await Promise.all([
       this.#t.send<{ nodes: AXNode[] }>("Accessibility.getFullAXTree", {}),
       this.#frames(),
+      this.#t.send<CaptureSnapshotResult>("DOMSnapshot.captureSnapshot", { computedStyles: [] }),
     ]);
-    const opts: Parameters<typeof extractText>[1] = { frames };
+    // Secret fields (password, OTP, card) are skipped by their DOM facts, whatever their AX role.
+    const opts: Parameters<typeof extractText>[1] = { frames, dom: new DomIndex(domSnap, 1) };
     if (options.maxChars !== undefined) opts.maxChars = options.maxChars;
     if (this.#o.redact !== undefined) opts.redact = this.#o.redact;
     return extractText(ax.nodes, opts);

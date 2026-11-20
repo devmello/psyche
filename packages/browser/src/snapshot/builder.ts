@@ -273,7 +273,7 @@ export function buildSnapshot(input: SnapshotInput): BrowserSnapshot {
       tag: info?.tag ?? "",
       inForm: form !== undefined,
       submits: info === undefined ? false : dom.submits(info),
-      secure: info === undefined ? false : dom.isSecure(info),
+      secure: info === undefined ? false : dom.isSecure(info, name),
       frameOrigin: doc?.origin ?? topOrigin,
       opensPopup: target === "_blank" || target === "_new",
       pageUrl: doc?.url ?? input.url,
@@ -379,6 +379,12 @@ export function buildSnapshot(input: SnapshotInput): BrowserSnapshot {
     }
     if (isInteractive && CAPTCHA_NAME.test(name)) captcha = true;
     const keep = isInteractive || STRUCTURAL_ROLES.has(role) || role === "rootwebarea";
+    if (!keep && info !== undefined && dom.isSecure(info, name)) {
+      // A secret field under a role the walker does not keep (a contenteditable, a role override):
+      // nothing of it, or of its text, reaches the output.
+      if ((info.inputValue ?? "") !== "" || axString(node.value) !== "") secureFieldActive = true;
+      return;
+    }
     if (!keep) {
       walkKids(depth, parentName, suppressText);
       return;
@@ -421,7 +427,8 @@ export function buildSnapshot(input: SnapshotInput): BrowserSnapshot {
         VALUE_ROLES.has(role) &&
         info?.tag.toLowerCase() === "input" &&
         info.attrs.contenteditable === undefined);
-    const secure = typedInto || (meta?.secure ?? (info === undefined ? false : dom.isSecure(info)));
+    const secure =
+      typedInto || (meta?.secure ?? (info === undefined ? false : dom.isSecure(info, name)));
     if (secure) states.push("secure");
     for (const s of states) line += ` [${s}]`;
     const rawValue = axString(node.value);
@@ -500,7 +507,7 @@ export function buildSnapshot(input: SnapshotInput): BrowserSnapshot {
     text,
     page,
     pages: pageCount,
-    secureFieldActive,
+    secureFieldActive: secureFieldActive || dom.anySecureValue(),
     stats: {
       rawNodes,
       keptNodes: kept,
@@ -593,7 +600,13 @@ function stripUndefined<T extends object>(o: T): Partial<T> {
  */
 export function extractText(
   ax: AXNode[],
-  options: { maxChars?: number; redact?: (s: string) => string; frames?: FrameAx[] } = {},
+  options: {
+    maxChars?: number;
+    redact?: (s: string) => string;
+    frames?: FrameAx[];
+    /** DOM facts, to skip secret fields (password, OTP, card) whatever their AX role. */
+    dom?: DomIndex;
+  } = {},
 ): { text: string; truncated: boolean } {
   const redact = options.redact ?? ((s: string) => s);
   const out: string[] = [];
@@ -608,6 +621,10 @@ export function extractText(
     const visit = (node: AXNode | undefined, depth: number) => {
       if (node === undefined || depth > 200) return;
       const role = roleOf(node);
+      if (options.dom !== undefined) {
+        const info = options.dom.get(node.backendDOMNodeId);
+        if (info !== undefined && options.dom.isSecure(info, axString(node.name))) return;
+      }
       if (role === "statictext") {
         cur += ` ${axString(node.name)}`;
         return;
