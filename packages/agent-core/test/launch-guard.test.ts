@@ -17,6 +17,7 @@ import {
 import { readFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { dirname, join } from "node:path";
+
 import { FakeSandboxRunner } from "@psyche/testing";
 import { Type } from "@sinclair/typebox";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
@@ -980,11 +981,11 @@ describe("code.run and launch config", () => {
       // is filtered; the owner is told the raw paths).
       const said = JSON.stringify([report.agent, r.output.launchConfig]);
       expect(said).not.toMatch(/Secret|registry|Elsewhere/);
-      // Said by the folder the swap was in, as swapped, with nothing in it (#1469 review r3);
-      // the owner is told it was not checked.
+      // Said by the folder the swap was in, as swapped, with nothing in it (#1469 review r3).
+      // Walked again, the link stays a link and is not followed, and the owner's folder is
+      // walked under its real name (#1469 review r4).
       expect(report.agent?.swapped).toEqual(["a/sub"]);
       expect(report.agent?.unmoved).toEqual([]);
-      expect(report.unmoved).toContain("a/sub");
       expect((r.output.launchConfig as { counts: { unmoved: number } }).counts.unmoved).toBe(0);
       // Nothing outside was moved or changed.
       expect(readdirSync(outside).sort()).toEqual([".npmrc", "Secret-Project-X", "Secret-Repo"]);
@@ -1072,12 +1073,14 @@ describe("code.run and launch config", () => {
       const r = await use("code.run", { root: repo, argv: ["noop"] });
       const report = reports[0] as LaunchConfigReport;
       expect(leaks(r.output.launchConfig)).toEqual([]);
-      // The owner is still told of every change, by its raw path; the agent only that the folder
-      // was swapped (#1469 review r3: nothing at or below it).
-      expect(report.changed).toContain("web/.vscode/settings.json");
-      expect(report.unmoved).toContain("web/.vscode");
+      // The agent is told only that the folder was swapped (#1469 review r3: nothing at or below
+      // it). The owner, that it could not be checked (it stayed swapped through every try), and
+      // never that the file in it is gone (#1469 review r4).
       expect(report.agent?.changed).toEqual([]);
       expect(report.agent?.swapped).toEqual(["web/.vscode"]);
+      expect(report.unchecked).toEqual(["web/.vscode"]);
+      expect(report.changed).not.toContain("web/.vscode/settings.json");
+      expect(report.unmoved).toEqual([]);
     });
 
     // B: the before-run fingerprint walk (a process left from an earlier run) is not pinned either.
@@ -1105,14 +1108,15 @@ describe("code.run and launch config", () => {
         rmSync(join(repo, "evil"), { recursive: true });
       });
       await use("code.open", { path: repo });
-      // #1469 review r2, item 3: the read-only folder was swapped while the snapshot read it, so
-      // the run is refused (a count only), and the owner's folder is never taken for new.
-      await expect(use("code.run", { root: repo, argv: ["noop"] })).rejects.toMatchObject({
-        code: "forbidden",
-        details: { reason: "launch_config_moved", count: 1 },
-      });
-      expect(reports).toEqual([]);
-      expect(runner.execs).toHaveLength(0);
+      // #1469 review r2, item 3, and r4, finding 3: the read-only folder was swapped while the
+      // snapshot read it, so the snapshot is taken again. That one sees the link as a link and
+      // the owner's folder under its real name (mounted read-only there), so the run goes ahead,
+      // and the owner's folder is never taken for new when it is put back.
+      const r = await use("code.run", { root: repo, argv: ["noop"] });
+      expect(runner.execs).toHaveLength(1);
+      expect(leaks(r.output.launchConfig)).toEqual([]);
+      expect(reports[0]?.quarantined ?? []).toEqual([]);
+      expect(readFileSync(join(repo, "web/.vscode/settings.json"), "utf8")).toBe("{}");
     });
 
     // C: before-walk swap (W1 shape, but in guardLaunchConfig's scan): an unlistable outside folder.
@@ -1146,10 +1150,8 @@ describe("code.run and launch config", () => {
       expect(leaks([reports[0], r?.output.launchConfig, String(err)])).toEqual([]);
     });
 
-    // D: a collapsed change has a constant fingerprint. Since #1469 review r3 nothing in a folder
-    // swapped while it was read is looked at, so the print is the same ("gone", which the
-    // notices never take as seen); the owner is alerted on every run all the same, as the folder
-    // is said as not checked, in the notice that is new every run.
+    // D: a collapsed change has a constant fingerprint. Since #1469 review r4 a folder swapped
+    // out and back while it is read is read again, so the owner gets the file's real print.
     it("D: a known .npmrc changed while its folder's listing is forced to '' is named by the folder with a constant print", async () => {
       put("a/sub/.npmrc", "save-exact=true\n");
       const { use, runner, reports } = setup();
@@ -1166,8 +1168,9 @@ describe("code.run and launch config", () => {
           renameSync(join(repo, "a"), join(repo, "a.moved"));
           symlinkSync(join(repo, "a.moved"), join(repo, "a"));
         };
+        // Back at the guard's next look anywhere else.
         hooks.lstat = (path) => {
-          if (!done || path !== join(repo, ".git")) return;
+          if (!done || path.startsWith(join(repo, "a"))) return;
           hooks.lstat = undefined;
           rmSync(join(repo, "a"));
           renameSync(join(repo, "a.moved"), join(repo, "a"));
@@ -1175,11 +1178,14 @@ describe("code.run and launch config", () => {
         await use("code.open", { path: repo });
         await use("code.run", { root: repo, argv: [`edit${i}`] });
       }
+      expect(reports[0]?.fingerprints).not.toEqual(reports[1]?.fingerprints);
       for (const r of reports) {
         expect(r.changed).toEqual(["a/sub/.npmrc"]);
-        expect(r.fingerprints["a/sub/.npmrc"]).toBe("gone");
-        expect(r.unmoved).toEqual(["a/sub"]);
+        expect(r.fingerprints["a/sub/.npmrc"]).toMatch(/^file:/);
+        expect(r.unchecked).toBeUndefined();
+        expect(r.unmoved).toEqual([]);
       }
+      expect(readFileSync(join(repo, "a/sub/.npmrc"), "utf8")).toContain("node-options");
     });
   });
 
@@ -1243,9 +1249,9 @@ describe("code.run and launch config", () => {
       writeFileSync(join(repo, "src", "a.js"), "export const a = 1;\n");
       const none = await oracle(join(dir, "No-Such-Folder"));
       expect(JSON.stringify(seven.out)).toBe(JSON.stringify(none.out));
-      // The owner is told of the change either way.
-      expect(seven.report.changed).toContain("web/.vscode/settings.json");
-      expect(none.report.changed).toContain("web/.vscode/settings.json");
+      // The owner is told either way that the folder could not be checked.
+      expect(seven.report.unchecked).toEqual(["web/.vscode"]);
+      expect(none.report.unchecked).toEqual(["web/.vscode"]);
     });
 
     it("R2: .claude link to an in-repo target, its parent swapped during prints, back before claudeLeads", async () => {
@@ -1299,16 +1305,12 @@ describe("code.run and launch config", () => {
         rmSync(join(repo, "evil"), { recursive: true });
       });
       await use("code.open", { path: repo });
-      // Swapped while the snapshot read it: refused, so the owner's folder is never taken for
-      // one the run made (#1469 review r2, item 3).
-      await expect(use("code.run", { root: repo, argv: ["noop"] })).rejects.toMatchObject({
-        details: { reason: "launch_config_moved" },
-      });
-      expect(reports).toEqual([]);
-      expect(runner.execs).toHaveLength(0);
-      // Put back as the process would, the owner's folder is where it was.
-      rmSync(join(repo, "web"));
-      renameSync(join(repo, "web.real"), join(repo, "web"));
+      // Swapped while the snapshot read it: the snapshot is taken again (#1469 review r4), which
+      // reads the owner's folder under its real name, so it is never taken for one the run made
+      // (#1469 review r2, item 3).
+      await use("code.run", { root: repo, argv: ["noop"] });
+      expect(runner.execs).toHaveLength(1);
+      expect(reports[0]?.quarantined ?? []).toEqual([]);
       expect(existsSync(join(repo, "web/.vscode/settings.json"))).toBe(true);
     });
   });
@@ -1350,7 +1352,11 @@ describe("code.run and launch config", () => {
       expect(s.runner.execs).toHaveLength(1);
     });
 
-    /** Swaps `folder` for a link to `Outside/<its name>` (a nested repository) at `hook`. */
+    /**
+     * Swaps `folder` for a link to `Outside/<its name>` (a nested repository) at each read `at`,
+     * and back at the guard's next look anywhere else: it changes every time it is read, in each
+     * snapshot, so no fresh try is ever clean.
+     */
     const refusedWhen = async (
       folder: string,
       at: { readdir?: string; lstat?: string },
@@ -1361,21 +1367,29 @@ describe("code.run and launch config", () => {
       writeFileSync(join(dir, "Outside", name, ".git", "config"), "[core]\n");
       const s = setup(new FakeSandboxRunner(), maxDirs);
       acts(s.runner, "noop", () => undefined);
-      let done = false;
-      const swap = (path: string, want?: string) => {
-        if (done || path !== want) return;
-        done = true;
-        renameSync(join(repo, folder), join(repo, `${folder}.moved`));
-        symlinkSync(join(dir, "Outside", name), join(repo, folder));
+      let out = false;
+      let swaps = 0;
+      const flap = (path: string, want?: string) => {
+        if (!out && path === want) {
+          out = true;
+          swaps++;
+          renameSync(join(repo, folder), join(repo, `${folder}.moved`));
+          symlinkSync(join(dir, "Outside", name), join(repo, folder));
+        } else if (out && path !== want && !path.startsWith(join(repo, folder))) {
+          out = false;
+          rmSync(join(repo, folder));
+          renameSync(join(repo, `${folder}.moved`), join(repo, folder));
+        }
       };
-      hooks.readdir = (path) => swap(path, at.readdir);
-      hooks.lstat = (path) => swap(path, at.lstat);
+      hooks.readdir = (path) => flap(path, at.readdir);
+      hooks.lstat = (path) => flap(path, at.lstat);
       await s.use("code.open", { path: repo });
       await expect(s.use("code.run", { root: repo, argv: ["noop"] })).rejects.toMatchObject({
         code: "forbidden",
         details: { reason: "launch_config_moved" },
       });
-      expect(done).toBe(true);
+      // Swapped in each of the two snapshots (through every fresh try), before the run was refused.
+      expect(swaps).toBeGreaterThanOrEqual(2);
       expect(s.runner.execs).toHaveLength(0);
     };
 
@@ -1446,11 +1460,11 @@ describe("code.run and launch config", () => {
       // The swap alone is said, always with the notice, and nothing about the walk's size.
       const out = repoCase.out as Record<string, unknown>;
       expect(out.swapped).toEqual(["a/probe"]);
-      expect(out.notice).toMatch(/could not check a\/probe/);
+      expect(out.notice).toMatch(/found a\/probe changed while it read them/);
       expect(out).not.toHaveProperty("partial");
       expect(out.unmoved).toEqual([]);
-      // The owner is told it was not checked.
-      expect(repoCase.report.unmoved).toContain("a/probe");
+      // The owner is never told to delete it (#1469 review r4, finding 2).
+      expect(repoCase.report.unmoved).toEqual([]);
       expect(repoCase.report.partial).toBe(false);
     });
 
@@ -1526,9 +1540,10 @@ describe("code.run and launch config", () => {
       const no = await mounted("none");
       expect(JSON.stringify(yes.out)).toBe(JSON.stringify(no.out));
       expect(yes.out.swapped).toEqual(["web"]);
-      // The owner hears of it either way.
-      expect(yes.report?.unmoved).toContain("web");
-      expect(no.report?.unmoved).toContain("web");
+      // The owner hears of it either way, as not checked, never as one to delete.
+      expect(yes.report?.unchecked).toEqual(["web"]);
+      expect(no.report?.unchecked).toEqual(["web"]);
+      expect(yes.report?.unmoved).toEqual([]);
     });
 
     /**
@@ -1562,6 +1577,91 @@ describe("code.run and launch config", () => {
       expect(JSON.stringify(yes.out)).toBe(JSON.stringify(no.out));
       expect(yes.out.unmoved).toEqual(["sub/.vscode"]);
       expect(yes.out.quarantined).toEqual([]);
+    });
+  });
+
+  // #1469 review r4: the reviewer's probes (debug output left out), with what they show asserted.
+  describe("#1469 review r4 probes", () => {
+    // Finding 1: one swap out and back while the after-run walk lists the folder.
+    it("Q1: holds a new a/.vscode when a is swapped out and back while the walk lists it", async () => {
+      put("a/readme.md");
+      const { use, runner, reports } = setup();
+      let armed = false;
+      let state = 0;
+      const back = () => {
+        state = 2;
+        rmSync(join(repo, "a"));
+        renameSync(join(repo, "a.moved"), join(repo, "a"));
+      };
+      acts(runner, "plant", () => {
+        put("a/.vscode/tasks.json", '{"runOn":"folderOpen"}');
+        armed = true;
+      });
+      hooks.readdir = (path) => {
+        if (!armed) return;
+        if (state === 0 && path === join(repo, "a")) {
+          state = 1;
+          renameSync(join(repo, "a"), join(repo, "a.moved"));
+          symlinkSync(join(repo, "a.moved"), join(repo, "a"));
+        } else if (state === 1 && path !== join(repo, "a")) {
+          back();
+        }
+      };
+      hooks.lstat = (path) => {
+        if (state === 1 && path !== join(repo, "a") && !path.startsWith(join(repo, "a"))) back();
+      };
+      await use("code.open", { path: repo });
+      const r = await use("code.run", { root: repo, argv: ["plant"] });
+      expect(state).toBe(2);
+      const report = reports[0] as LaunchConfigReport;
+      // Held, as on main: the folder was read again once it was the repository's.
+      expect(report.quarantined).toEqual(["a/.vscode"]);
+      expect(existsSync(join(repo, "a/.vscode/tasks.json"))).toBe(false);
+      expect(report.unchecked).toBeUndefined();
+      expect(report.unmoved).toEqual([]);
+      // The agent is told only that `a` changed while it was read.
+      const out = r.output.launchConfig as Record<string, unknown>;
+      expect(out.swapped).toEqual(["a"]);
+      expect(out.quarantined).toEqual([]);
+    });
+
+    // Finding 3: a build that makes `dist` again while the snapshot probes it.
+    it("Q2: runs when dist is made again while the snapshot reads it", async () => {
+      put("dist/index.js");
+      const { use, runner } = setup();
+      acts(runner, "noop", () => undefined);
+      let n = 0;
+      hooks.readdir = (path) => {
+        if (path !== join(repo, "dist") || n++ > 0) return;
+        rmSync(join(repo, "dist"), { recursive: true });
+        mkdirSync(join(repo, "dist"));
+      };
+      await use("code.open", { path: repo });
+      await use("code.run", { root: repo, argv: ["noop"] });
+      expect(n).toBeGreaterThan(0);
+      expect(runner.execs).toHaveLength(1);
+    });
+
+    // Finding 2: the owner is never told to delete a folder that only changed while it was read.
+    it("Q3: says nothing to the owner when a watcher makes dist again while the guard settles", async () => {
+      put("dist/index.js");
+      const { use, runner, reports } = setup();
+      let armed = false;
+      let n = 0;
+      acts(runner, "noop", () => {
+        armed = true;
+      });
+      hooks.readdir = (path) => {
+        if (!armed || path !== join(repo, "dist") || n++ > 0) return;
+        rmSync(join(repo, "dist"), { recursive: true });
+        mkdirSync(join(repo, "dist"));
+      };
+      await use("code.open", { path: repo });
+      const r = await use("code.run", { root: repo, argv: ["noop"] });
+      expect(n).toBeGreaterThan(0);
+      expect(reports[0]?.unmoved ?? []).toEqual([]);
+      expect(reports[0]?.unchecked).toBeUndefined();
+      expect((r.output.launchConfig as Record<string, unknown>).swapped).toEqual(["dist"]);
     });
   });
 

@@ -204,6 +204,20 @@ export function codingNotices(notify: Notify, options: CodingNoticeOptions = {})
           },
         );
       }
+      // Folders that changed every time Psyche read them after the run (#1469 review r4): not
+      // made by the run, so never "delete it"; nothing in them was checked. New every run.
+      const unchecked = report.unchecked ?? [];
+      if (unchecked.length > 0) {
+        const paths = listed(unchecked);
+        send(
+          "unchecked",
+          { repo, paths },
+          {
+            title: `Psyche could not check part of ${repo} after a code run`,
+            body: `${paths} changed while Psyche checked it after a command ran in the sandbox, so nothing in it was checked for launch config. If you or your tools didn't change it, look at it before you open the folder or run anything there.`,
+          },
+        );
+      }
       if (report.incidents.length > 0 && report.quarantineId !== undefined) {
         const paths = listed(report.incidents);
         const place =

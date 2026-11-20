@@ -26,6 +26,8 @@ export {
   launchConfigEntry,
   launchConfigLinkTargets,
   listPinned,
+  type PinRetry,
+  SWAP_TRIES,
   withPinned,
 } from "./launch-config.ts";
 export {

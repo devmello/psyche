@@ -103,10 +103,16 @@ export interface LaunchConfigScan {
    * Every folder the walk listed or probed for a `.git` (`.` for the root), with who it was
    * (dev:ino) while it was read, or `""` when that changed meanwhile (#1457 review r1). A folder
    * above it swapped for a link makes the walk read a folder outside the root: a name the walk
-   * reports is only the root's when its folder still is this one, at its real path. Nothing in a
-   * folder noted `""` is walked or reported (#1469 review r3).
+   * reports is only the root's when its folder still is this one, at its real path. A folder
+   * that changed is read again a few times (`SWAP_TRIES`, #1469 review r4); nothing in one still
+   * noted `""` after that is walked or reported (#1469 review r3).
    */
   folders?: Record<string, string>;
+  /**
+   * Every folder that changed while the walk read it at least once, read again cleanly or not:
+   * what was read of it before then may have been a folder outside the root.
+   */
+  swapped?: string[];
 }
 
 /** A folder the walk could not list. */
@@ -191,8 +197,14 @@ export async function findLaunchConfig(
   const unreadable: LaunchConfigUnlisted[] = [];
   const unlisted = unlistedPinner(root, unreadable);
   const folders: Record<string, string> = {};
-  const done = (complete: boolean): LaunchConfigScan =>
-    unreadable.length > 0 ? { found, complete, unreadable, folders } : { found, complete, folders };
+  const retry: PinRetry = { tries: SWAP_TRIES, seen: new Set() };
+  const done = (complete: boolean): LaunchConfigScan => ({
+    found,
+    complete,
+    ...(unreadable.length > 0 ? { unreadable } : {}),
+    folders,
+    ...(retry.seen.size > 0 ? { swapped: [...retry.seen].sort() } : {}),
+  });
   const queue: { rel: string; depth: number }[] = [{ rel: "", depth: 0 }];
   let dirs = 0;
   while (queue.length > 0) {
@@ -201,7 +213,13 @@ export async function findLaunchConfig(
     const key = next.rel === "" ? "." : next.rel;
     let entries: Dirent[] | undefined;
     try {
-      entries = await listPinned(next.rel === "" ? root : join(root, next.rel), key, folders, root);
+      entries = await listPinned(
+        next.rel === "" ? root : join(root, next.rel),
+        key,
+        folders,
+        root,
+        retry,
+      );
     } catch (err) {
       // Unlistable as itself: through a swapped folder, whether it was is not the root's either.
       if (denied(err) && folders[key] !== "") await unlisted(key);
@@ -230,7 +248,7 @@ export async function findLaunchConfig(
         // A folder not walked can still hold a repository an editor finds and runs git in
         // (VS Code looks one and two levels down, in build output too): looked for directly.
         if (limits.nestedGit === true && fold(d.name) !== "node_modules") {
-          for (const g of await nestedGits(root, rel, skip, unlisted, folders)) {
+          for (const g of await nestedGits(root, rel, skip, unlisted, folders, retry)) {
             if (found.length >= maxFound) return done(false);
             found.push(g);
           }
@@ -267,9 +285,18 @@ function unlistedPinner(root: string, into: LaunchConfigUnlisted[]) {
   };
 }
 
+/** Fresh tries at a folder that changed while it was read, before it is taken as swapped. */
+export const SWAP_TRIES = 3;
+
+/** Tries again at a folder that changed while read, noting each such folder in `seen`. */
+export interface PinRetry {
+  tries: number;
+  seen: Set<string>;
+}
+
 /**
- * Lists `path` (`rel`), noting who it was in `folders` (#1457 review r1, #1469 reviews r1 and r3):
- * see `withPinned`. The listing only when it was the root's; undefined when it was not, or when
+ * Lists `path` (`rel`), noting who it was in `folders` (#1457 review r1, #1469 reviews r1 to r4):
+ * see `withPinned`. The listing only when it was the root's; undefined when it never was, or when
  * the folder was not there at all: then nothing it named is walked (#1469 review r3, finding 2),
  * so a folder outside the root is never walked and never spends the walk's limits.
  */
@@ -278,8 +305,9 @@ export async function listPinned(
   rel: string,
   folders: Record<string, string>,
   root?: string,
+  retry?: PinRetry,
 ): Promise<Dirent[] | undefined> {
-  return withPinned(path, rel, folders, root, () => readdir(path, { withFileTypes: true }));
+  return withPinned(path, rel, folders, root, () => readdir(path, { withFileTypes: true }), retry);
 }
 
 /**
@@ -287,11 +315,14 @@ export async function listPinned(
  * `folders`: the same folder before and after, and its own folder still the one pinned (or, for a
  * folder no listing named, its real path its path under the root, #1469 review r3, finding 1),
  * both before and after. Else it is noted as `""`: a folder on the way was swapped for a link,
- * what `inner` read may be outside the root, and its answer is dropped (undefined). A folder
- * noted once keeps that identity for this map; one noted as `""` stays so. A folder that was not
- * there at either look, below a folder that stayed, is left unnoted and its answer dropped: it
- * is gone, not swapped. Without `openat`, a folder swapped out after the first look and back
- * before the last one is not seen (a residual).
+ * what `inner` read may be outside the root, and its answer is dropped. With `retry`, it is then
+ * read again, up to `retry.tries` times, each pinned afresh below its folder's pin (#1469 review
+ * r4: a swap out and back must not hide what the folder holds), and noted in `retry.seen`. The
+ * answer is undefined when no try was clean. A folder noted once keeps that identity for this
+ * map, unless a fresh try pins it again. A folder that was not there at either look, below a
+ * folder that stayed, is left unnoted and its answer dropped: it is gone, not swapped. Without
+ * `openat`, a folder swapped out after the first look and back before the last one is not seen
+ * (a residual).
  */
 export async function withPinned<T>(
   path: string,
@@ -299,24 +330,66 @@ export async function withPinned<T>(
   folders: Record<string, string>,
   root: string | undefined,
   inner: () => Promise<T>,
+  retry?: PinRetry,
 ): Promise<T | undefined> {
-  // A folder's identity; `""` for something else (a link, a file), undefined for nothing.
-  const look = async (at: string) => {
-    const st = await lstat(at, { bigint: true }).catch(() => undefined);
-    if (st === undefined) return undefined;
-    return st.isDirectory() ? `${st.dev}:${st.ino}` : "";
-  };
   const parent =
     rel === "." || root === undefined
       ? undefined
       : rel.includes("/")
         ? rel.slice(0, rel.lastIndexOf("/"))
         : ".";
+  for (let attempt = 0; ; attempt++) {
+    // A fresh try knows only who the folder above is: what this one was noted as is not kept.
+    const map: Record<string, string> =
+      attempt === 0
+        ? folders
+        : parent !== undefined && folders[parent] !== undefined
+          ? { [parent]: folders[parent] as string }
+          : {};
+    const r = await pinOnce(path, rel, parent, map, root, inner);
+    if (r.state === "swapped") {
+      retry?.seen.add(rel);
+      folders[rel] = "";
+      if (attempt < (retry?.tries ?? 0)) continue;
+      return undefined;
+    }
+    if (attempt > 0) {
+      const id = map[rel];
+      if (id === undefined) delete folders[rel];
+      else folders[rel] = id;
+    }
+    if (r.failed) throw r.error;
+    return r.state === "ok" ? r.value : undefined;
+  }
+}
+
+interface PinTry<T> {
+  state: "ok" | "gone" | "swapped";
+  value?: T;
+  failed: boolean;
+  error?: unknown;
+}
+
+/** One pinned read; a clean one notes the folder's identity in `map`. */
+async function pinOnce<T>(
+  path: string,
+  rel: string,
+  parent: string | undefined,
+  map: Record<string, string>,
+  root: string | undefined,
+  inner: () => Promise<T>,
+): Promise<PinTry<T>> {
+  // A folder's identity; `""` for something else (a link, a file), undefined for nothing.
+  const look = async (at: string) => {
+    const st = await lstat(at, { bigint: true }).catch(() => undefined);
+    if (st === undefined) return undefined;
+    return st.isDirectory() ? `${st.dev}:${st.ino}` : "";
+  };
   let realRoot: string | undefined;
   const above = async () => {
     if (parent === undefined || root === undefined) return true;
     const at = parent === "." ? root : join(root, parent);
-    const pin = folders[parent];
+    const pin = map[parent];
     if (pin !== undefined) return pin !== "" && (await look(at)) === pin;
     // A folder no listing named (one past the walk's limits): its real path is checked
     // instead, as `unlistedPinner` does.
@@ -327,38 +400,35 @@ export async function withPinned<T>(
   };
   const aboveBefore = await above();
   const was = await look(path);
-  const state = async (): Promise<"ok" | "gone" | "swapped"> => {
-    const is = await look(path);
-    const steady = aboveBefore && (await above());
-    if (steady && was === undefined && is === undefined) return "gone";
-    const prev = folders[rel];
-    const ok =
+  let value: T | undefined;
+  let error: unknown;
+  let failed = false;
+  try {
+    value = await inner();
+  } catch (err) {
+    error = err;
+    failed = true;
+  }
+  const is = await look(path);
+  const steady = aboveBefore && (await above());
+  let state: PinTry<T>["state"];
+  if (steady && was === undefined && is === undefined) {
+    state = "gone";
+  } else {
+    const prev = map[rel];
+    const same =
       steady &&
       was !== undefined &&
       was !== "" &&
       was === is &&
       (prev === undefined || prev === was);
-    return ok ? "ok" : "swapped";
-  };
-  let out: T;
-  try {
-    out = await inner();
-  } catch (err) {
     // A read that failed names nothing, but whether it did is itself telling (#1469 review r2):
-    // one that failed through a folder swapped for a link (a link to nothing, to a file) is noted
-    // as swapped. The pinned folder refusing for its mode, or one that is gone, is left unnoted.
-    const s = await state();
-    if (!(s === "gone" || (s === "ok" && denied(err)))) folders[rel] = "";
-    throw err;
+    // one that failed through a folder swapped for a link (a link to nothing, to a file) is
+    // noted as swapped. Only the pinned folder refusing for its mode is left unnoted.
+    state = same && (!failed || denied(error)) ? "ok" : "swapped";
   }
-  const s = await state();
-  if (s === "gone") return undefined;
-  if (s === "swapped") {
-    folders[rel] = "";
-    return undefined;
-  }
-  folders[rel] = was as string;
-  return out;
+  if (state === "ok" && !failed) map[rel] = was as string;
+  return failed ? { state, failed, error } : { state, failed, value: value as T };
 }
 
 /** Folders below an unwalked one checked for their own `.git` at most. */
@@ -374,14 +444,20 @@ async function nestedGits(
   children: boolean,
   unlisted: (rel: string) => Promise<void>,
   folders: Record<string, string>,
+  retry: PinRetry,
 ): Promise<LaunchConfigFound[]> {
   const out: LaunchConfigFound[] = [];
   // Each folder probed is pinned like a listing (#1469 review r3): a folder on the way swapped
   // for a link would make the probe say whether a folder outside holds a `.git`. Its pin also
   // lets the `.git` found in it be pinned later, below a folder that was noted (finding 1).
   const probe = async (dir: string) => {
-    const st = await withPinned(join(root, dir), dir, folders, root, () =>
-      lstat(join(root, dir, ".git")).catch(() => undefined),
+    const st = await withPinned(
+      join(root, dir),
+      dir,
+      folders,
+      root,
+      () => lstat(join(root, dir, ".git")).catch(() => undefined),
+      retry,
     );
     if (st === undefined) return;
     const kind = st.isSymbolicLink()
@@ -397,7 +473,7 @@ async function nestedGits(
   if (!children) return out;
   let entries: Dirent[] | undefined;
   try {
-    entries = await listPinned(join(root, rel), rel, folders, root);
+    entries = await listPinned(join(root, rel), rel, folders, root, retry);
   } catch (err) {
     if (denied(err) && folders[rel] !== "") await unlisted(rel);
     return out;
