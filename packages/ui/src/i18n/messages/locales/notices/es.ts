@@ -64,4 +64,19 @@ export const notices: Partial<Catalogue> = {
     "Se reforzaron los ajustes de seguridad desde {device, select, none {un dispositivo} other {{device}}}",
   "notice.security.tightened.body":
     "Esto solo redujo lo que Psyche puede hacer, así que no hizo falta aprobación. Si no fuiste tú, revoca el dispositivo en Ajustes → Dispositivos.",
+  "notice.codeRun.held.title":
+    "Psyche retuvo configuración de inicio de una ejecución de código en {repo}",
+  "notice.codeRun.held.body":
+    "Un comando en el sandbox creó {paths}. Las apps o tu próximo comando podrían ejecutar código desde ahí, así que Psyche lo apartó sin borrarlo. Si lo creaste tú o tus herramientas, toca Conservar.",
+  "notice.codeRun.changed.title":
+    "La configuración de inicio cambió durante una ejecución de código en {repo}",
+  "notice.codeRun.changed.body":
+    "{paths} cambió mientras un comando se ejecutaba en el sandbox. Si no fuiste tú ni tu editor, revísalo antes de abrir la carpeta.",
+  "notice.codeRun.partial.title": "{repo} es demasiado grande para revisarlo entero",
+  "notice.codeRun.partial.body":
+    "Psyche solo revisó las carpetas superiores en busca de configuración de inicio creada por ejecuciones de código.",
+  "notice.codeRun.recreated.title": "El sandbox de {repo} se volvió a crear",
+  "notice.codeRun.recreated.body":
+    "Sus carpetas de solo lectura cambiaron, así que los servidores en marcha y lo instalado fuera del repositorio ya no están. Vuelve a iniciar lo que necesites.",
+  "notice.action.keepIt": "Conservar",
 };

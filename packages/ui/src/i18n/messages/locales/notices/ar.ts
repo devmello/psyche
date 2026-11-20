@@ -61,4 +61,17 @@ export const notices: Partial<Catalogue> = {
     "تم تشديد إعدادات الأمان من {device, select, none {أحد الأجهزة} other {{device}}}",
   "notice.security.tightened.body":
     "هذا قلّل فقط ما يُسمح لـ Psyche بفعله، لذلك لم تكن هناك حاجة إلى موافقة. إن لم تكن أنت، فألغِ ربط الجهاز من الإعدادات ← الأجهزة.",
+  "notice.codeRun.held.title": "احتجز Psyche إعدادات تشغيل من تنفيذ كود في {repo}",
+  "notice.codeRun.held.body":
+    "أنشأ أمر في بيئة العزل {paths}. قد تشغّل التطبيقات أو أمرك التالي كودًا منها، لذلك نقلها Psyche جانبًا دون حذفها. إن كنت أنت أو أدواتك من أنشأها، فاضغط «الإبقاء عليها».",
+  "notice.codeRun.changed.title": "تغيّرت إعدادات التشغيل أثناء تنفيذ كود في {repo}",
+  "notice.codeRun.changed.body":
+    "تغيّر {paths} بينما كان أمر يعمل في بيئة العزل. إن لم يكن ذلك منك أو من محررك، فراجعه قبل فتح المجلد.",
+  "notice.codeRun.partial.title": "{repo} أكبر من أن يُفحص بالكامل",
+  "notice.codeRun.partial.body":
+    "فحص Psyche المجلدات العليا فقط بحثًا عن إعدادات تشغيل تنشئها عمليات تنفيذ الكود.",
+  "notice.codeRun.recreated.title": "أُعيد إنشاء بيئة العزل الخاصة بـ {repo}",
+  "notice.codeRun.recreated.body":
+    "تغيّرت مجلداتها المخصصة للقراءة فقط، لذا توقفت الخوادم العاملة واختفى ما ثُبّت خارج المستودع. أعد تشغيل ما تحتاجه.",
+  "notice.action.keepIt": "الإبقاء عليها",
 };

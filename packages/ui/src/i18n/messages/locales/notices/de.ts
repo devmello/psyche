@@ -64,4 +64,19 @@ export const notices: Partial<Catalogue> = {
     "Sicherheitseinstellungen wurden verschärft von {device, select, none {einem Gerät} other {{device}}}",
   "notice.security.tightened.body":
     "Das hat nur eingeschränkt, was Psyche darf, deshalb war keine Freigabe nötig. Warst du das nicht, entferne das Gerät unter Einstellungen → Geräte.",
+  "notice.codeRun.held.title":
+    "Psyche hat Startkonfiguration aus einem Code-Lauf in {repo} zurückgehalten",
+  "notice.codeRun.held.body":
+    "Ein Befehl in der Sandbox hat {paths} angelegt. Apps oder dein nächster Befehl könnten daraus Code ausführen, deshalb hat Psyche es beiseitegelegt, ohne es zu löschen. Wenn du oder deine Werkzeuge es angelegt habt, tippe auf Behalten.",
+  "notice.codeRun.changed.title":
+    "Startkonfiguration hat sich während eines Code-Laufs in {repo} geändert",
+  "notice.codeRun.changed.body":
+    "{paths} hat sich geändert, während ein Befehl in der Sandbox lief. Warst das nicht du oder dein Editor, prüfe es, bevor du den Ordner öffnest.",
+  "notice.codeRun.partial.title": "{repo} ist zu groß für eine vollständige Prüfung",
+  "notice.codeRun.partial.body":
+    "Psyche hat nur die oberen Ordner auf Startkonfiguration geprüft, die Code-Läufe anlegen.",
+  "notice.codeRun.recreated.title": "Die Sandbox für {repo} wurde neu eingerichtet",
+  "notice.codeRun.recreated.body":
+    "Ihre schreibgeschützten Ordner haben sich geändert, daher sind laufende Server und alles, was außerhalb des Repositorys installiert war, weg. Starte neu, was du brauchst.",
+  "notice.action.keepIt": "Behalten",
 };

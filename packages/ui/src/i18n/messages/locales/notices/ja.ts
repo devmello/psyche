@@ -61,4 +61,17 @@ export const notices: Partial<Catalogue> = {
     "{device, select, none {あるデバイス} other {{device}}}からセキュリティ設定が厳しくなりました",
   "notice.security.tightened.body":
     "Psycheができることを減らしただけなので、承認は不要でした。心当たりがない場合は、設定 → デバイスでそのデバイスを取り消してください。",
+  "notice.codeRun.held.title": "Psyche は {repo} でのコード実行が作った起動設定を保留しました",
+  "notice.codeRun.held.body":
+    "サンドボックス内のコマンドが {paths} を作成しました。アプリや次のコマンドがここからコードを実行する可能性があるため、Psyche は削除せずに別の場所へ移しました。あなたやあなたのツールが作ったものなら「残す」をタップしてください。",
+  "notice.codeRun.changed.title": "{repo} でのコード実行中に起動設定が変わりました",
+  "notice.codeRun.changed.body":
+    "サンドボックスでコマンドの実行中に {paths} が変わりました。あなたやエディタによる変更でなければ、フォルダを開く前に確認してください。",
+  "notice.codeRun.partial.title": "{repo} は大きすぎて全体を確認できません",
+  "notice.codeRun.partial.body":
+    "Psyche はコード実行が作る起動設定について、上位のフォルダだけを確認しました。",
+  "notice.codeRun.recreated.title": "{repo} のサンドボックスを作り直しました",
+  "notice.codeRun.recreated.body":
+    "読み取り専用のフォルダが変わったため、実行中のサーバーとリポジトリ外にインストールしたものは消えました。必要なものを再起動してください。",
+  "notice.action.keepIt": "残す",
 };

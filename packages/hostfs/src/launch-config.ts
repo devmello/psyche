@@ -1,4 +1,5 @@
 import { type Dirent, readdirSync, readlinkSync, realpathSync } from "node:fs";
+import { readdir, readlink } from "node:fs/promises";
 import { join } from "node:path";
 
 /**
@@ -79,15 +80,113 @@ export function launchConfigEntry(path: string): string | undefined {
   return undefined;
 }
 
+/** One launch-config entry found in a folder tree, relative to its root (`/`-separated). */
+export interface LaunchConfigFound {
+  rel: string;
+  kind: "dir" | "file" | "link" | "other";
+  /** A link's own target, as written. */
+  linkTarget?: string;
+}
+
+export interface LaunchConfigScan {
+  found: LaunchConfigFound[];
+  /** False when a limit stopped the walk: what was not walked was not checked. */
+  complete: boolean;
+}
+
 export interface LaunchConfigScanLimits {
-  /** Folders read at most per root (default 5 000). */
+  /** Folders read at most (default 20 000). */
   maxDirs?: number;
-  /** Folder depth below the root (default 6). */
+  /** Entries returned at most (default 64). */
+  maxFound?: number;
+  /**
+   * Folder depth below the root (default unlimited). Deeper folders are not walked, and that
+   * alone does not make the scan incomplete: a depth is a choice, the other limits are not.
+   */
   maxDepth?: number;
 }
 
-/** Never walked: git's own metadata (guarded on its own) and installed packages. */
-const SKIPPED_DIRS = new Set([".git", "node_modules"]);
+/**
+ * Never walked: git's own metadata (guarded on its own), installed packages, and build and
+ * cache output. Launchers read their config at the folders the owner opens, never in these.
+ */
+export const LAUNCH_SCAN_SKIPPED_DIRS: ReadonlySet<string> = new Set([
+  ".git",
+  "node_modules",
+  "target",
+  ".build",
+  "build",
+  "dist",
+  "out",
+  ".venv",
+  "venv",
+  "__pycache__",
+  ".next",
+  "deriveddata",
+  "pods",
+  ".gradle",
+  ".cache",
+]);
+
+/** Folders never walked by their path from the root: agent worktrees are checkouts of their own. */
+const SKIPPED_PATHS = new Set([".claude/worktrees"]);
+
+function skipped(rel: string, name: string): boolean {
+  return (
+    LAUNCH_SCAN_SKIPPED_DIRS.has(fold(name)) ||
+    SKIPPED_PATHS.has(rel.split("/").map(fold).join("/"))
+  );
+}
+
+function kindOf(d: Dirent): LaunchConfigFound["kind"] {
+  if (d.isSymbolicLink()) return "link";
+  if (d.isDirectory()) return "dir";
+  if (d.isFile()) return "file";
+  return "other";
+}
+
+/**
+ * Every launch-config entry under `root`, without following links (a link named `.obsidian` is
+ * reported as a link, never walked) and without walking into an entry or a skipped folder
+ * (`LAUNCH_SCAN_SKIPPED_DIRS`, `.claude/worktrees`). Bounded by `limits`.
+ */
+export async function findLaunchConfig(
+  root: string,
+  limits: LaunchConfigScanLimits = {},
+): Promise<LaunchConfigScan> {
+  const maxDirs = limits.maxDirs ?? 20_000;
+  const maxFound = limits.maxFound ?? 64;
+  const maxDepth = limits.maxDepth ?? Number.POSITIVE_INFINITY;
+  const found: LaunchConfigFound[] = [];
+  const queue: { rel: string; depth: number }[] = [{ rel: "", depth: 0 }];
+  let dirs = 0;
+  while (queue.length > 0) {
+    const next = queue.shift() as { rel: string; depth: number };
+    if (++dirs > maxDirs) return { found, complete: false };
+    let entries: Dirent[];
+    try {
+      entries = await readdir(next.rel === "" ? root : join(root, next.rel), {
+        withFileTypes: true,
+      });
+    } catch {
+      continue;
+    }
+    for (const d of entries) {
+      const rel = next.rel === "" ? d.name : `${next.rel}/${d.name}`;
+      const kind = kindOf(d);
+      if (launchConfigEntry(rel) !== undefined) {
+        if (found.length >= maxFound) return { found, complete: false };
+        const linkTarget =
+          kind === "link" ? await readlink(join(root, rel)).catch(() => undefined) : undefined;
+        found.push({ rel, kind, ...(linkTarget === undefined ? {} : { linkTarget }) });
+        continue;
+      }
+      if (kind !== "dir" || skipped(rel, d.name) || next.depth + 1 > maxDepth) continue;
+      queue.push({ rel, depth: next.depth + 1 });
+    }
+  }
+  return { found, complete: true };
+}
 
 /**
  * The real paths symlinked launch-config entries under `roots` point at (#1434 review r1,
@@ -125,7 +224,11 @@ export function launchConfigLinkTargets(
           }
           continue;
         }
-        if (!d.isDirectory() || SKIPPED_DIRS.has(fold(d.name)) || next.depth + 1 > maxDepth) {
+        if (
+          !d.isDirectory() ||
+          LAUNCH_SCAN_SKIPPED_DIRS.has(fold(d.name)) ||
+          next.depth + 1 > maxDepth
+        ) {
           continue;
         }
         queue.push({ dir: path, depth: next.depth + 1 });

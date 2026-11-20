@@ -64,4 +64,19 @@ export const notices: Partial<Catalogue> = {
     "Les réglages de sécurité ont été renforcés depuis {device, select, none {un appareil} other {{device}}}",
   "notice.security.tightened.body":
     "Cela a seulement réduit ce que Psyche peut faire, aucune approbation n'était donc nécessaire. Si ce n'était pas vous, révoquez l'appareil dans Réglages → Appareils.",
+  "notice.codeRun.held.title":
+    "Psyche a mis de côté la configuration de lancement d'une exécution de code dans {repo}",
+  "notice.codeRun.held.body":
+    "Une commande dans le bac à sable a créé {paths}. Des apps ou votre prochaine commande pourraient en exécuter du code, donc Psyche l'a mis de côté sans le supprimer. Si vous ou vos outils l'avez créé, touchez Garder.",
+  "notice.codeRun.changed.title":
+    "La configuration de lancement a changé pendant une exécution de code dans {repo}",
+  "notice.codeRun.changed.body":
+    "{paths} a changé pendant qu'une commande s'exécutait dans le bac à sable. Si ce n'était ni vous ni votre éditeur, vérifiez-le avant d'ouvrir le dossier.",
+  "notice.codeRun.partial.title": "{repo} est trop volumineux pour une vérification complète",
+  "notice.codeRun.partial.body":
+    "Psyche n'a vérifié que les dossiers du haut pour la configuration de lancement que créent les exécutions de code.",
+  "notice.codeRun.recreated.title": "Le bac à sable de {repo} a été recréé",
+  "notice.codeRun.recreated.body":
+    "Ses dossiers en lecture seule ont changé : les serveurs en cours et ce qui était installé hors du dépôt ont disparu. Relancez ce dont vous avez besoin.",
+  "notice.action.keepIt": "Garder",
 };
