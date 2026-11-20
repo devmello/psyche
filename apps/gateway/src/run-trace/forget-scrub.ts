@@ -158,12 +158,6 @@ export class TraceScrubWorker {
     if (!row.final && !row.started) beginTraceScrub(db, row.id, [...active]);
 
     const batch = runTraceScrubBatch(db, row, this.#o.budgetBytes ?? TRACE_SCRUB_BUDGET_BYTES);
-    if (batch.slow > 0) {
-      this.#o.log(
-        "warn",
-        `forget finished ${batch.slow} slow run-trace row(s) with a plain text match`,
-      );
-    }
     if (!batch.finished) return "more";
 
     // The pass covered every table. Its counts and watch list are read again after the save.

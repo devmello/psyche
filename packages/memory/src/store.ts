@@ -15,6 +15,7 @@ import {
 } from "node:fs";
 import { dirname, join } from "node:path";
 import { assetDir } from "@psyche/assets";
+import { holdSecureDelete } from "@psyche/db";
 import {
   type AuditLog,
   type ClaimInput,
@@ -1278,26 +1279,6 @@ export class SqliteMemoryStore implements MemoryStore {
     return { claim, chunks: [...seen.values()] };
   }
 
-  /** Turns `secure_delete` on for this connection; the returned function puts it back. */
-  #secureDeleteOn(): () => void {
-    let previous: number;
-    try {
-      previous = Number(this.#db.pragma("secure_delete", { simple: true }));
-      this.#db.pragma("secure_delete = ON");
-    } catch {
-      return () => undefined;
-    }
-    return () => {
-      try {
-        this.#db.pragma(
-          `secure_delete = ${previous === 2 ? "FAST" : previous === 1 ? "ON" : "OFF"}`,
-        );
-      } catch {
-        // The connection is closed: nothing to restore.
-      }
-    };
-  }
-
   /**
    * Retracts claims that mention `subject` (as a whole word or phrase, case-insensitive),
    * deletes the daily-note entries and file lines that mention it (and entries linked to
@@ -1372,7 +1353,7 @@ export class SqliteMemoryStore implements MemoryStore {
     }
     // Freed pages (overflow of long notes, merged full-text segments) are zeroed while the forget
     // deletes, so the text is not left in the database file; the WAL is cut at the end.
-    const restoreSecureDelete = this.#secureDeleteOn();
+    const restoreSecureDelete = holdSecureDelete(this.#db);
     try {
       // Files first: if a write fails, no claim has been retracted yet.
       for (const [path, content] of edits) {

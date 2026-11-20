@@ -407,6 +407,46 @@ describe("forget (H7: a deleted fact never comes back)", () => {
     }
   });
 
+  it("two forgets at once both run under ON and leave the setting at FAST (SD)", async () => {
+    const dbPath = join(tmpdir(), `psyche-forget-sd-${process.pid}-${Date.now()}.sqlite`);
+    const fileDb = openDb(dbPath);
+    env = await makeEnv({ sqlite: fileDb.sqlite });
+    try {
+      const lines = (word: string) =>
+        Array.from({ length: 600 }, (_, i) => (i === 7 ? `- ${word} line` : `- filler line ${i}`));
+      await env.store.writeFileAsOwner("memory/agent/a.md", lines("Zorblaxian").join("\n"));
+      await env.store.writeFileAsOwner("memory/agent/b.md", lines("Quibblefrax").join("\n"));
+      fileDb.sqlite.pragma("wal_checkpoint(TRUNCATE)");
+      expect(fileDb.sqlite.pragma("secure_delete", { simple: true })).toBe(2);
+      const seen = new Set<unknown>();
+      const pragma = fileDb.sqlite.pragma.bind(fileDb.sqlite);
+      const spy = vi.spyOn(fileDb.sqlite, "pragma").mockImplementation(((...a: unknown[]) => {
+        const out = (pragma as (...x: unknown[]) => unknown)(...a);
+        if (String(a[0]).startsWith("wal_checkpoint")) {
+          seen.add(pragma("secure_delete", { simple: true }));
+        }
+        return out;
+      }) as never);
+      try {
+        await Promise.all([env.store.forget("Zorblaxian"), env.store.forget("Quibblefrax")]);
+      } finally {
+        spy.mockRestore();
+      }
+      // Every checkpoint of a forget ran with secure_delete ON (1), even the first to finish.
+      expect([...seen]).toEqual([1]);
+      expect(fileDb.sqlite.pragma("secure_delete", { simple: true })).toBe(2);
+      const disk = [dbPath, `${dbPath}-wal`]
+        .filter((f) => existsSync(f))
+        .map((f) => readFileSync(f).toString("latin1").toLowerCase())
+        .join("");
+      expect(disk).not.toContain("zorblaxian");
+      expect(disk).not.toContain("quibblefrax");
+    } finally {
+      fileDb.close();
+      for (const f of [dbPath, `${dbPath}-wal`, `${dbPath}-shm`]) rmSync(f, { force: true });
+    }
+  });
+
   it("merges the full-text segments after a forget, and not after a dry run", async () => {
     env = await makeEnv();
     await env.store.appendDailyNote({ text: "Pottery class on Tuesdays", provenance: "owner" });

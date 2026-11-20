@@ -1,5 +1,6 @@
 import { gunzipSync, gzipSync } from "node:zlib";
 import type { PsycheDb } from "../open.ts";
+import { withSecureDeleteOn } from "../secure-delete.ts";
 
 /**
  * Forget's pass over the run trace. A forgotten phrase is queued in `trace_scrub_queue` (one row
@@ -69,7 +70,7 @@ const KEEP_MARKER = String.raw`\[forgotten\]`;
  * person's name. Its own capture group, so a phrase that is the whole name can still be scrubbed.
  * Only truncated top-level rows use it; nested JSON text does not.
  */
-const KEEP_DEFINITION = String.raw`(?-i:("name"\s*:\s*"[A-Za-z0-9]+[_.:-][A-Za-z0-9_.:-]*"(?=\s*,\s*"description"\s*:)))`;
+const KEEP_DEFINITION = String.raw`(?-i:(?<def>"name"\s*:\s*"[A-Za-z0-9]+[_.:-][A-Za-z0-9_.:-]*"(?=\s*,\s*"description"\s*:)))`;
 const KEEP_TOP = [...KEEP_COMMON, KEEP_DEFINITION, KEEP_MARKER].join("|");
 const KEEP_NESTED = [...KEEP_COMMON, KEEP_MARKER].join("|");
 
@@ -123,89 +124,48 @@ function phraseBody(phrase: string): string {
  * breaks between words), whole words only. Matches are case-insensitive.
  */
 export function phrasePattern(phrase: string, extra: string = KEEP_TOP): RegExp {
-  return new RegExp(`(${extra})|${LEFT}${phraseBody(phrase)}${RIGHT}`, "giu");
+  return new RegExp(`(?<keep>${extra})|${LEFT}${phraseBody(phrase)}${RIGHT}`, "giu");
 }
-
-/** Regex work allowed per row before the rest of the row is scrubbed by the literal pass. */
-export const ROW_REGEX_BUDGET_MS = 50;
-
-const escapeRegex = (s: string): string => s.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
 
 /**
- * The cheap fallback: the phrase's plain, JSON-escaped, ASCII-escaped (`\uXXXX`) and `\/` forms,
- * matched literally, case-insensitively, with no boundaries and no guards (linear time).
+ * Replacement for a match: a kept guard (the `keep` group), a definition name that is the whole
+ * phrase (the `def` group, top-level rows only), or a hit on the phrase itself.
  */
-function literalPattern(phrase: string): RegExp {
-  const ascii = (s: string) =>
-    s.replace(/[\u0080-￿]/g, (ch) =>
-      Array.from({ length: ch.length }, (_, i) => ch.charCodeAt(i))
-        .map((u) => `\\u${u.toString(16).padStart(4, "0")}`)
-        .join(""),
-    );
-  const wordForms = (w: string): string => {
-    const jsonForm = JSON.stringify(w).slice(1, -1);
-    const forms = new Set([w, jsonForm, ascii(w), ascii(jsonForm), w.replace(/\//g, "\\/")]);
-    return `(?:${[...forms].map(escapeRegex).join("|")})`;
-  };
-  // One separator between words (a space, or a JSON escape of one): no repetition, so linear.
-  const sep = String.raw`(?:\s|\\[nrt]|${WS_ESCAPE})`;
-  const words = phrase
-    .trim()
-    .split(/\s+/)
-    .filter((w) => w.length > 0);
-  return new RegExp(words.map(wordForms).join(sep), "giu");
-}
-
-/** Replacement for a match: a kept guard group, a definition name that is the phrase, or a hit. */
-function replaceWith(whole: RegExp): (m: string, guard?: string, definition?: string) => string {
-  return (m, guard, definition) => {
-    if (guard === undefined) return FORGOTTEN_MARKER;
-    if (definition !== undefined) {
-      const value = m.slice(m.indexOf(":") + 1).trim();
+function replaceWith(whole: RegExp): (match: string, ...rest: unknown[]) => string {
+  return (match, ...rest) => {
+    const last = rest[rest.length - 1];
+    const groups = (typeof last === "object" && last !== null ? last : {}) as {
+      keep?: string;
+      def?: string;
+    };
+    if (groups.keep === undefined) return FORGOTTEN_MARKER;
+    if (groups.def !== undefined) {
+      const value = match.slice(match.indexOf(":") + 1).trim();
       if (whole.test(value.slice(1, -1))) {
-        return m.replace(/("name"\s*:\s*")[^"]*(")$/, `$1${FORGOTTEN_MARKER}$2`);
+        return match.replace(/("name"\s*:\s*")[^"]*(")$/, `$1${FORGOTTEN_MARKER}$2`);
       }
     }
-    return m;
+    return match;
   };
 }
 
 export interface RowScrubber {
-  /** Starts a row: the regex budget is counted from here. */
-  startRow(): void;
   json(text: string): string | undefined;
   text(text: string): string | undefined;
-  /** Rows (so far) whose regex work ran over the budget and finished with the literal pass. */
-  readonly slowRows: number;
 }
 
 /** The scrubber for one phrase: JSON-aware for intact rows, text-only for truncated ones. */
-export function makeScrubber(phrase: string, options: { rowBudgetMs?: number } = {}): RowScrubber {
-  const budget = options.rowBudgetMs ?? ROW_REGEX_BUDGET_MS;
+export function makeScrubber(phrase: string): RowScrubber {
   const top = phrasePattern(phrase, KEEP_TOP);
   const nested = phrasePattern(phrase, KEEP_NESTED);
-  const literal = literalPattern(phrase);
   const whole = new RegExp(`^${phraseBody(phrase)}$`, "iu");
-  const onTop = replaceWith(whole);
-  const onNested = replaceWith(whole);
-  let rowStart = 0;
-  let degraded = false;
-  let slowRows = 0;
-  const run = (s: string, pattern: RegExp, on: ReturnType<typeof replaceWith>): string => {
-    if (degraded) return s.replace(literal, FORGOTTEN_MARKER);
-    const out = s.replace(pattern, on);
-    if (performance.now() - rowStart > budget) {
-      degraded = true;
-      slowRows += 1;
-    }
-    return out;
-  };
+  const on = replaceWith(whole);
   // A string value is text; nested JSON text (MCP results, connector payloads) is scrubbed as
   // text too, in its escaped form, so every byte outside a match stays as it was (ids above 2^53,
   // formatting, number spelling).
   // `inToolList`: the value is an entry of a `tools` list, so its `name` is a tool's.
   const walk = (value: unknown, inToolList = false): unknown => {
-    if (typeof value === "string") return run(value, nested, onNested);
+    if (typeof value === "string") return value.replace(nested, on);
     if (Array.isArray(value)) return value.map((v) => walk(v, inToolList));
     if (value !== null && typeof value === "object") {
       const o = value as Record<string, unknown>;
@@ -222,14 +182,10 @@ export function makeScrubber(phrase: string, options: { rowBudgetMs?: number } =
     return value;
   };
   const text = (s: string): string | undefined => {
-    const next = run(s, top, onTop);
+    const next = s.replace(top, on);
     return next === s ? undefined : next;
   };
   return {
-    startRow() {
-      rowStart = performance.now();
-      degraded = false;
-    },
     json: (s) => {
       let parsed: unknown;
       try {
@@ -241,9 +197,6 @@ export function makeScrubber(phrase: string, options: { rowBudgetMs?: number } =
       return walked === JSON.stringify(parsed) ? undefined : walked;
     },
     text,
-    get slowRows() {
-      return slowRows;
-    },
   };
 }
 
@@ -252,13 +205,7 @@ export function makeScrubber(phrase: string, options: { rowBudgetMs?: number } =
  * replaces does not linger in the file, then puts the setting back.
  */
 export function withSecureDelete<T>(db: PsycheDb, fn: () => T): T {
-  const previous = Number(db.sqlite.pragma("secure_delete", { simple: true }));
-  db.sqlite.pragma("secure_delete = ON");
-  try {
-    return fn();
-  } finally {
-    db.sqlite.pragma(`secure_delete = ${previous === 2 ? "FAST" : previous === 1 ? "ON" : "OFF"}`);
-  }
+  return withSecureDeleteOn(db.sqlite, fn);
 }
 
 /** Queues a phrase for the trace pass. A phrase already queued starts its pass over. */
@@ -401,34 +348,25 @@ interface BatchResult {
   finished: boolean;
   rewritten: number;
   skipped: number;
-  /** Rows whose regex work ran over the budget and were finished by the literal pass. */
-  slow: number;
 }
 
 /**
  * Scrubs rows from the saved cursor until `budgetBytes` of decoded text has been read, then saves
  * the cursor. Rows are streamed and only a bounded chunk is held. A row that throws is counted as
  * skipped and the pass goes on. Each write is its own statement, so no write transaction is held.
- * Returns `finished` when every table is done. A row whose regex work passes `rowBudgetMs`
- * (default 50 ms) is finished with a cheap literal pass (counted in `slow`), so a slow row can
- * never keep a phrase queued.
+ * Returns `finished` when every table is done. The matcher is linear in the text, and rows are
+ * capped (1 MB tool payloads, 128 KB model payloads), so a row's cost is bounded.
  */
 export function runTraceScrubBatch(
   db: PsycheDb,
   row: BatchRow,
   budgetBytes: number = TRACE_SCRUB_BUDGET_BYTES,
-  rowBudgetMs?: number,
 ): BatchResult {
-  return withSecureDelete(db, () => scrubBatch(db, row, budgetBytes, rowBudgetMs));
+  return withSecureDelete(db, () => scrubBatch(db, row, budgetBytes));
 }
 
-function scrubBatch(
-  db: PsycheDb,
-  row: BatchRow,
-  budgetBytes: number,
-  rowBudgetMs?: number,
-): BatchResult {
-  const scrub = makeScrubber(row.subject, rowBudgetMs === undefined ? {} : { rowBudgetMs });
+function scrubBatch(db: PsycheDb, row: BatchRow, budgetBytes: number): BatchResult {
+  const scrub = makeScrubber(row.subject);
   const readers = READERS.map((sql) => db.sqlite.prepare(sql));
   const writeStep = db.sqlite.prepare("UPDATE step_payloads SET data = ? WHERE rowid = ?");
   const writeTool = db.sqlite.prepare("UPDATE tool_payloads SET data = ? WHERE rowid = ?");
@@ -499,7 +437,6 @@ function scrubBatch(
     }
     for (const r of rows) {
       try {
-        scrub.startRow();
         const out = handlers[phase]?.(r);
         if (out?.changed) rewritten += 1;
         bytes += out?.bytes ?? 0;
@@ -509,7 +446,7 @@ function scrubBatch(
       cursor = r.rid as number;
       if (bytes >= budgetBytes) {
         save();
-        return { finished: false, rewritten, skipped, slow: scrub.slowRows };
+        return { finished: false, rewritten, skipped };
       }
     }
     if (exhausted) {
@@ -518,5 +455,5 @@ function scrubBatch(
     }
   }
   save();
-  return { finished: true, rewritten, skipped, slow: scrub.slowRows };
+  return { finished: true, rewritten, skipped };
 }

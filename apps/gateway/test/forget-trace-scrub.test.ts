@@ -1028,27 +1028,4 @@ describe("Forget scrubs the forgotten words from every stored copy", () => {
     const kept = (stepPayloads(db, "s4") as { input: string }).input;
     expect(kept).toContain(esc("мимо абзац"));
   });
-
-  it("a row over the regex budget is finished with the literal pass, and counted", async () => {
-    composed = await compose();
-    const db = composed.db;
-    putStepPayload(db, {
-      runId: "r",
-      stepId: "f1",
-      kind: "input",
-      text: JSON.stringify({
-        a: "Quillon Phrase here",
-        b: "again Quillon Phrase",
-        c: "Quillon\\nPhrase",
-      }),
-      truncated: false,
-    });
-    enqueueTraceScrub(db, "Quillon Phrase", new Date().toISOString());
-    const row = nextTraceScrub(db) as NonNullable<ReturnType<typeof nextTraceScrub>>;
-    const batch = runTraceScrubBatch(db, row, Number.MAX_SAFE_INTEGER, -1);
-    expect(batch).toMatchObject({ finished: true, slow: 1 });
-    const out = JSON.stringify(stepPayloads(db, "f1"));
-    expect(out).not.toContain("Quillon");
-    deleteTraceScrub(db, "Quillon Phrase");
-  });
 });
