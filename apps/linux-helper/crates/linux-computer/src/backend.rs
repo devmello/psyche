@@ -187,6 +187,18 @@ pub trait Backend: TreeSource<Element: Send + 'static> + Send + Sync + 'static {
     fn check_input_target(&self, _app: &AppInfo) -> CapResult<()> {
         Ok(())
     }
+    /// Pids of windows the surface keeps out of every capture beyond the fixed caps and tier Off:
+    /// the helper's machine ceiling (`apps.deny`, or not in `apps.allow`). Blacked out of other
+    /// apps' screenshots like a password manager is.
+    fn extra_excluded_pids(&self) -> Vec<u32> {
+        Vec::new()
+    }
+    /// Whether a point click at `(x, y)` would reach `app` and nothing else: the surface checks
+    /// every window on the chain under the point, not only the top-level (a window another
+    /// client embedded in the app's own would otherwise get the click).
+    fn point_clients_ok(&self, _x: f64, _y: f64, _app: &AppInfo) -> CapResult<()> {
+        Ok(())
+    }
     /// Brings the app (or one of its windows) forward. `Ok(true)` when focus moved, `Ok(false)`
     /// when it was only requested (GNOME on Wayland), an error for `focus_denied`.
     fn activate(&self, app: &AppInfo, window: Option<usize>, stop: &StopSignal) -> CapResult<bool>;

@@ -166,6 +166,18 @@ fn main() {
             r#"{"version":1,"default":"interact","apps":{"org.gnome.calculator":"off"}}"#
         };
         std::fs::write(&cfg, off).unwrap();
+        if let Ok(dir) = std::env::var("PSYCHE_HELPER_CONFIG") {
+            if std::env::var("PROBE_DENY").is_ok_and(|v| !v.is_empty()) {
+                use std::os::unix::fs::PermissionsExt;
+                let file = format!("{dir}/policy.json");
+                std::fs::write(
+                    &file,
+                    r#"{"apps":{"allow":["*"],"deny":["org.gnome.Calculator"]}}"#,
+                )
+                .unwrap();
+                std::fs::set_permissions(&file, std::fs::Permissions::from_mode(0o600)).unwrap();
+            }
+        }
         let shot = call("computer.screenshot", json!({ "app": app }));
         if let Ok(v) = &shot {
             // Whatever field carries the picture is written out for a pixel check.

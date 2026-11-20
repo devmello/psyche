@@ -878,6 +878,7 @@ impl<B: Backend> Engine<B> {
                 ),
             ));
         }
+        self.backend.point_clients_ok(x, y, app)?;
         if hit.secure {
             return Err(CapError::secure_refusal());
         }
@@ -1856,6 +1857,7 @@ impl<B: Backend> Engine<B> {
             .collect();
         let mut excluded = hygiene::excluded_pids(&running, self.own_pid, &self.policy);
         excluded.extend(self.psyche_pids());
+        excluded.extend(self.backend.extra_excluded_pids());
         if excluded.contains(&app.pid) {
             return Err(CapError::new(
                 code::POLICY_DENIED,

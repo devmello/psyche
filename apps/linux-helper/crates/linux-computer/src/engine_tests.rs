@@ -849,6 +849,73 @@ fn screenshots_black_out_protected_windows_and_refuse_when_that_is_impossible() 
 }
 
 #[test]
+fn an_older_denied_window_raised_over_the_target_is_blacked_out_by_pixels() {
+    use crate::hygiene::{redactions, WindowRef};
+    use std::collections::HashSet;
+    // Front to back: the denied app's window (older, just raised) over the editor's.
+    let windows = vec![
+        WindowRef {
+            id: 2,
+            pid: MAIL_PID,
+            layer: 0,
+            bounds: Rect::new(100.0, 0.0, 300.0, 200.0),
+            alpha: 1.0,
+        },
+        WindowRef {
+            id: 1,
+            pid: EDITOR_PID,
+            layer: 0,
+            bounds: Rect::new(0.0, 0.0, 1000.0, 200.0),
+            alpha: 1.0,
+        },
+    ];
+    let excluded = HashSet::from([MAIL_PID]);
+    let mut f = crate::backend::Frame {
+        width: 1000,
+        height: 200,
+        rgba: vec![255; 1000 * 200 * 4],
+        screen: Rect::new(0.0, 0.0, 1000.0, 200.0),
+        scale: 1.0,
+    };
+    for r in redactions(&windows, &excluded, f.screen) {
+        f.fill_black(r);
+    }
+    assert!(!f.any_lit(Rect::new(100.0, 0.0, 300.0, 200.0)));
+    assert!(f.any_lit(Rect::new(0.0, 0.0, 100.0, 200.0)));
+    assert!(f.any_lit(Rect::new(400.0, 0.0, 600.0, 200.0)));
+}
+
+#[test]
+fn a_screenshot_counts_the_windows_the_surface_excludes() {
+    let r = rig(all_interact());
+    editor(&r);
+    let n = |r: &Rig| {
+        call(
+            r,
+            "computer.screenshot",
+            json!({"app": "org.gnome.TextEditor"}),
+            &inv(),
+        )
+        .unwrap()["excludedApps"]
+            .as_u64()
+            .unwrap()
+    };
+    let before = n(&r);
+    r.fake.s.lock().unwrap().extra_excluded = vec![MAIL_PID];
+    assert_eq!(n(&r), before + 1);
+    // The target itself being excluded refuses the capture.
+    r.fake.s.lock().unwrap().extra_excluded = vec![EDITOR_PID];
+    let err = call(
+        &r,
+        "computer.screenshot",
+        json!({"app": "org.gnome.TextEditor"}),
+        &inv(),
+    )
+    .unwrap_err();
+    assert_eq!(err.1, "app_excluded");
+}
+
+#[test]
 fn redaction_geometry_blanks_exactly_the_protected_windows() {
     use crate::hygiene::{redactions, WindowRef};
     use std::collections::HashSet;

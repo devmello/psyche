@@ -35,13 +35,39 @@ pub fn set_display_flag(flag: Option<mode::DisplayMode>) {
     let _ = FLAG.set(flag);
 }
 
+/// Whether the helper runs headless. `remote` (a machine paired to a Gateway) is **always**
+/// headless: the private screen is all a machine offers until the later desktop opt-in (H9), and
+/// `auto` must not turn it into a helper that reads the owner's desktop because a `DISPLAY`
+/// happened to be set. An explicit `--display desktop` is refused there, not honoured.
+pub fn resolve_headless(
+    remote: bool,
+    flag: Option<mode::DisplayMode>,
+    env: &dyn Env,
+) -> Result<bool, String> {
+    if remote {
+        if flag == Some(mode::DisplayMode::Desktop) {
+            return Err("remote mode serves the private screen only; --display desktop is not available there".into());
+        }
+        if flag.is_none() {
+            // PSYCHE_DISPLAY=desktop is the same request as the flag.
+            if let Some(v) = env.get("PSYCHE_DISPLAY") {
+                if mode::DisplayMode::parse(v.trim()) == Some(mode::DisplayMode::Desktop) {
+                    return Err("remote mode serves the private screen only; PSYCHE_DISPLAY=desktop is not available there".into());
+                }
+            }
+        }
+        return Ok(true);
+    }
+    mode::is_headless(flag, env)
+}
+
 /// The one setup both `serve` and `remote` run before anything is registered: resolve the mode
 /// and, when headless, set `NoNewPrivileges` on the helper. `Err` is `(message, exit code)`.
 /// Afterwards the entry point registers its capabilities and, if this returned `true`, calls
 /// [`install`] with the virtual-screen manager.
-pub fn setup(env: &dyn Env) -> Result<bool, (String, u8)> {
+pub fn setup(remote: bool, env: &dyn Env) -> Result<bool, (String, u8)> {
     let flag = FLAG.get().copied().flatten();
-    let headless = mode::is_headless(flag, env).map_err(|m| (m, 2))?;
+    let headless = resolve_headless(remote, flag, env).map_err(|m| (m, 2))?;
     if headless {
         nnp::enforce().map_err(|m| (m, 78))?;
         crate::log("display: headless (the virtual screen is the only screen)");
@@ -92,6 +118,32 @@ pub fn engine() -> Option<CapResult<Arc<Engine<LinuxBackend>>>> {
 mod tests {
     use super::*;
     use serde_json::json;
+
+    #[test]
+    fn remote_is_headless_whatever_the_environment_says() {
+        use std::collections::HashMap;
+        let desk: HashMap<String, String> = [
+            ("DISPLAY".to_string(), ":0".to_string()),
+            ("WAYLAND_DISPLAY".to_string(), "wayland-0".to_string()),
+        ]
+        .into();
+        // `serve` follows the environment; `remote` does not.
+        assert_eq!(resolve_headless(false, None, &desk), Ok(false));
+        assert_eq!(resolve_headless(true, None, &desk), Ok(true));
+        assert_eq!(
+            resolve_headless(true, Some(mode::DisplayMode::Auto), &desk),
+            Ok(true)
+        );
+        assert_eq!(
+            resolve_headless(true, Some(mode::DisplayMode::Headless), &desk),
+            Ok(true)
+        );
+        // The desktop is refused for a machine, by flag or by variable.
+        assert!(resolve_headless(true, Some(mode::DisplayMode::Desktop), &desk).is_err());
+        let mut env = desk.clone();
+        env.insert("PSYCHE_DISPLAY".into(), "desktop".into());
+        assert!(resolve_headless(true, None, &env).is_err());
+    }
 
     #[test]
     fn a_call_for_another_surface_is_not_served() {

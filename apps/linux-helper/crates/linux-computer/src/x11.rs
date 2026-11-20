@@ -474,8 +474,19 @@ impl X11 {
             .set_input_focus(xproto::InputFocus::POINTER_ROOT, win, x11rb::CURRENT_TIME)
             .map_err(xerr)?;
         self.conn.flush().map_err(xerr)?;
-        std::thread::sleep(Duration::from_millis(80));
-        Ok(self.active().is_none() || self.active() == Some(win))
+        // Until the raise has happened (the target is the active window, or the top-most window
+        // by the server's own stacking), up to 500 ms; a click right after must not race it.
+        let started = Instant::now();
+        loop {
+            std::thread::sleep(Duration::from_millis(20));
+            let on_top = self.stacked_windows().first().is_some_and(|t| t.pid == pid);
+            if self.active() == Some(win) || on_top {
+                return Ok(true);
+            }
+            if started.elapsed() >= Duration::from_millis(500) {
+                return Ok(self.active().is_none());
+            }
+        }
     }
 
     // --- Input ------------------------------------------------------------------------------
@@ -666,6 +677,7 @@ impl X11 {
     /// window). A window-manager frame belongs to this process and is skipped; a window another
     /// client made anywhere on that chain answers with its own pid and makes the answer `None`.
     pub fn focused_client_pid(&self) -> Option<u32> {
+        const DEPTH: usize = 8;
         let focus = self.conn.get_input_focus().ok()?.reply().ok()?.focus;
         let own = std::process::id();
         let mut found: Option<u32> = None;
@@ -682,8 +694,10 @@ impl X11 {
             }
         };
         let mut w = focus;
-        for _ in 0..8 {
+        let mut ended = false;
+        for _ in 0..DEPTH {
             if w == 0 || w == 1 || w == self.root {
+                ended = true;
                 break;
             }
             if !take(self.client_pid(w)?) {
@@ -691,12 +705,18 @@ impl X11 {
             }
             w = self.conn.query_tree(w).ok()?.reply().ok()?.parent;
         }
+        // A chain that did not end within the limit is not one this can vouch for.
+        if !ended {
+            return None;
+        }
         // Below the focus window, along the pointer.
         let mut d = focus;
         if d != 0 && d != 1 && d != self.root {
-            for _ in 0..8 {
+            let mut ended = false;
+            for _ in 0..DEPTH {
                 let q = self.conn.query_pointer(d).ok()?.reply().ok()?;
                 if !q.same_screen || q.child == 0 {
+                    ended = true;
                     break;
                 }
                 if !take(self.client_pid(q.child)?) {
@@ -704,8 +724,46 @@ impl X11 {
                 }
                 d = q.child;
             }
+            if !ended {
+                return None;
+            }
         }
         found
+    }
+
+    /// The one client every window on the chain under screen point `(x, y)` belongs to (the
+    /// window manager's frames skipped), `None` when two clients are stacked there, a window
+    /// cannot be attributed, or the chain is deeper than this will follow.
+    pub fn client_at_point(&self, x: i32, y: i32) -> Option<u32> {
+        let own = std::process::id();
+        let mut found: Option<u32> = None;
+        let mut w = self.root;
+        let (mut px, mut py) = (x as i16, y as i16);
+        for _ in 0..8 {
+            let t = self
+                .conn
+                .translate_coordinates(w, w, px, py)
+                .ok()?
+                .reply()
+                .ok()?;
+            if t.child == 0 {
+                return found;
+            }
+            let pid = self.client_pid(t.child)?;
+            if pid != own {
+                match found {
+                    None => found = Some(pid),
+                    Some(p) if p == pid => {}
+                    Some(_) => return None,
+                }
+            }
+            // The point, in the child's own coordinates.
+            let g = self.conn.get_geometry(t.child).ok()?.reply().ok()?;
+            px -= g.x;
+            py -= g.y;
+            w = t.child;
+        }
+        None
     }
 
     /// Mapped top-level windows, **top first** in the server's own stacking order

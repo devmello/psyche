@@ -215,7 +215,7 @@ fn remote(dirs: &Dirs, env: &dyn Env) -> ExitCode {
 
     // The same mode and NoNewPrivileges step as `serve`, before anything is registered.
     #[cfg(target_os = "linux")]
-    let headless = match crate::headless::setup(env) {
+    let headless = match crate::headless::setup(true, env) {
         Ok(h) => h,
         Err((message, code)) => {
             crate::log(&message);

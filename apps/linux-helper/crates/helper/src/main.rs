@@ -67,7 +67,7 @@ fn main() -> ExitCode {
     }
     // The mode, and NoNewPrivileges when headless: the same step `remote` runs.
     #[cfg(target_os = "linux")]
-    let headless = match psyche_helper::headless::setup(&ProcessEnv) {
+    let headless = match psyche_helper::headless::setup(false, &ProcessEnv) {
         Ok(h) => h,
         Err((message, code)) => {
             log(&message);

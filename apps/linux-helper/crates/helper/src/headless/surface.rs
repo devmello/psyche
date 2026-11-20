@@ -42,6 +42,15 @@ pub fn policy_source() -> Arc<PolicySource> {
     Arc::new(PolicySource::standard(&config_dir(&ProcessEnv), home, None))
 }
 
+/// Whether the process is an app the ceiling does not permit, by its own identity or its
+/// launch scope's.
+pub fn pid_denied(policy: &crate::remote::policy::Policy, scopes: &dyn Scopes, pid: u32) -> bool {
+    [scopes.own_id(pid), scopes.app_of(pid)]
+        .into_iter()
+        .flatten()
+        .any(|a| !policy.app_permitted(&a))
+}
+
 pub fn app_denied(id: &str) -> CapError {
     CapError::new(
         code::POLICY_DENIED,
@@ -77,14 +86,17 @@ impl Scopes for ManagerScopes {
     }
 }
 
+thread_local! {
+    /// The app the last input check on **this thread** was made for. A call runs on one thread
+    /// from its check to its send, so another call's check cannot refill it.
+    static PREPARED: std::cell::RefCell<Option<AppInfo>> = const { std::cell::RefCell::new(None) };
+}
+
 pub struct VirtualHooks {
     manager: Arc<VscreenManager>,
     policy: Arc<PolicySource>,
     a11y: OnceLock<Arc<A11y>>,
     x11: OnceLock<Arc<X11>>,
-    /// The app the last input check was made for: the guard that runs with the server grabbed
-    /// judges the focus against it.
-    prepared: Mutex<Option<AppInfo>>,
 }
 
 impl VirtualHooks {
@@ -101,12 +113,7 @@ impl VirtualHooks {
     /// check, and a send with none is refused. Inside the grab only that pid is compared, so the
     /// grab waits for no file, lock or bus.
     fn prepare_send(&self) -> CapResult<u32> {
-        let Some(app) = self
-            .prepared
-            .lock()
-            .unwrap_or_else(|e| e.into_inner())
-            .take()
-        else {
+        let Some(app) = PREPARED.with(|p| p.borrow_mut().take()) else {
             return Err(CapError::new(
                 code::CONFLICT,
                 "focus_unknown",
@@ -147,9 +154,48 @@ impl SurfaceHooks for VirtualHooks {
     }
 
     fn check_input_target(&self, app: &AppInfo) -> CapResult<()> {
-        *self.prepared.lock().unwrap_or_else(|e| e.into_inner()) = Some(app.clone());
+        PREPARED.with(|p| *p.borrow_mut() = Some(app.clone()));
         let deny = self.policy.load().policy;
         decide(&app.id, self.focus_pid(), &self.scopes(), &deny).map_err(|r| to_error(&r, app))
+    }
+
+    /// Windows of apps the machine ceiling does not permit, by what the process itself is and by
+    /// the scope it was started in: blacked out of other apps' screenshots, as a password
+    /// manager is.
+    fn excluded_pids(&self) -> Vec<u32> {
+        let Some(x11) = self.x11.get() else {
+            return Vec::new();
+        };
+        let policy = self.policy.load().policy;
+        let scopes = self.scopes();
+        let mut out: Vec<u32> = x11
+            .stacked_windows()
+            .into_iter()
+            .map(|w| w.pid)
+            .filter(|&pid| pid != 0)
+            .filter(|&pid| pid_denied(&policy, &scopes, pid))
+            .collect();
+        out.sort_unstable();
+        out.dedup();
+        out
+    }
+
+    fn point_clients_ok(&self, x: f64, y: f64, app: &AppInfo) -> CapResult<()> {
+        match self
+            .x11
+            .get()
+            .and_then(|x11| x11.client_at_point(x as i32, y as i32))
+        {
+            Some(pid) if app.owns(pid) => Ok(()),
+            _ => Err(CapError::new(
+                code::CONFLICT,
+                "occluded",
+                format!(
+                    "Another window is at {},{}; bring {} forward and re-snapshot",
+                    x as i64, y as i64, app.name
+                ),
+            )),
+        }
     }
 
     /// The server's own stacking order (top first) with the pids it recorded: what a hit test,
@@ -205,7 +251,6 @@ impl HeadlessSurface {
             policy: Arc::clone(&hooks_policy),
             a11y: OnceLock::new(),
             x11: OnceLock::new(),
-            prepared: Mutex::new(None),
         });
         let _ = hooks.a11y.set(Arc::clone(&a11y));
         let _ = hooks.x11.set(Arc::clone(&x11));
@@ -275,9 +320,62 @@ pub fn address_in_dir(address: &str, dir: &std::path::Path) -> bool {
 }
 
 #[cfg(test)]
+#[allow(clippy::field_reassign_with_default)]
 mod tests {
     use super::*;
+    use crate::remote::policy::{Apps, Policy};
     use std::path::Path as P;
+
+    struct Ids(std::collections::HashMap<u32, (&'static str, &'static str)>);
+    impl Scopes for Ids {
+        fn in_scope(&self, _: &str, _: u32) -> bool {
+            false
+        }
+        fn app_of(&self, pid: u32) -> Option<String> {
+            self.0.get(&pid).map(|(s, _)| s.to_string())
+        }
+        fn own_id(&self, pid: u32) -> Option<String> {
+            self.0.get(&pid).map(|(_, o)| o.to_string())
+        }
+    }
+
+    #[test]
+    fn a_window_of_a_denied_or_unlisted_app_is_excluded_by_what_it_is_and_where_it_started() {
+        let ids = Ids(std::collections::HashMap::from([
+            (1, ("org.gnome.TextEditor", "org.gnome.TextEditor")),
+            (2, ("org.gnome.Calculator", "org.gnome.Calculator")),
+            // KeePassXC started from the editor's scope.
+            (3, ("org.gnome.TextEditor", "org.keepassxc.KeePassXC")),
+            // The editor's scope, a program the ceiling never heard of.
+            (4, ("org.gnome.TextEditor", "xterm")),
+        ]));
+        let mut policy = Policy::default();
+        policy.apps = Apps {
+            allow: vec!["*".into()],
+            deny: vec![
+                "org.gnome.Calculator".into(),
+                "org.keepassxc.KeePassXC".into(),
+            ],
+        };
+        let denied = |pid| pid_denied(&policy, &ids, pid);
+        assert!(!denied(1));
+        assert!(denied(2));
+        assert!(
+            denied(3),
+            "denied by its own identity inside an allowed scope"
+        );
+        assert!(!denied(4), "unknown to a deny list, allowed by `*`");
+        // With an allow list, whatever it does not name is out of reach too.
+        policy.apps = Apps {
+            allow: vec!["org.gnome.TextEditor".into()],
+            deny: vec![],
+        };
+        let denied = |pid| pid_denied(&policy, &ids, pid);
+        assert!(denied(2));
+        assert!(denied(3));
+        assert!(denied(4));
+        assert!(!denied(1));
+    }
 
     #[test]
     fn the_accessibility_address_must_lead_into_the_session_dir() {

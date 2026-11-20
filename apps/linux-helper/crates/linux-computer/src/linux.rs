@@ -109,6 +109,14 @@ pub trait SurfaceHooks: Send + Sync {
     fn focus_pid(&self) -> Option<u32>;
     /// See [`Backend::check_input_target`].
     fn check_input_target(&self, app: &AppInfo) -> CapResult<()>;
+    /// See [`Backend::extra_excluded_pids`].
+    fn excluded_pids(&self) -> Vec<u32> {
+        Vec::new()
+    }
+    /// See [`Backend::point_clients_ok`].
+    fn point_clients_ok(&self, _x: f64, _y: f64, _app: &AppInfo) -> CapResult<()> {
+        Ok(())
+    }
     /// The surface's own table of top-level windows, front to back, with pids the X server
     /// recorded; replaces the EWMH list and `_NET_WM_PID`, which a client can write.
     fn windows(&self) -> Option<Vec<WinInfo>> {
@@ -399,6 +407,20 @@ impl Backend for LinuxBackend {
     fn check_input_target(&self, app: &AppInfo) -> CapResult<()> {
         match &self.hooks {
             Some(h) => h.check_input_target(app),
+            None => Ok(()),
+        }
+    }
+
+    fn extra_excluded_pids(&self) -> Vec<u32> {
+        self.hooks
+            .as_ref()
+            .map(|h| h.excluded_pids())
+            .unwrap_or_default()
+    }
+
+    fn point_clients_ok(&self, x: f64, y: f64, app: &AppInfo) -> CapResult<()> {
+        match &self.hooks {
+            Some(h) => h.point_clients_ok(x, y, app),
             None => Ok(()),
         }
     }

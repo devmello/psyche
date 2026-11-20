@@ -96,6 +96,9 @@ pub struct A11y {
     focus_started: AtomicBool,
 }
 
+/// Judges the accessibility bus address and the pid of the client that owns `org.a11y.Bus`.
+pub type BusJudge<'a> = dyn Fn(&str, Option<u32>) -> bool + 'a;
+
 impl A11y {
     /// Connects through the session bus's `org.a11y.Bus`. Refuses with
     /// `unavailable/no_a11y_bus` when there is no session bus or no accessibility bus.
@@ -106,7 +109,7 @@ impl A11y {
                 format!("Needs a graphical session on this computer (no session bus: {e})"),
             )
         })?;
-        Self::connect_via(&session, &|_, _| true)
+        Self::connect_via(&session, None)
     }
 
     /// Like [`A11y::connect`], on the session bus at `address` (the headless mode's private bus)
@@ -130,12 +133,12 @@ impl A11y {
                     format!("Cannot connect to the session bus: {e}"),
                 )
             })?;
-        Self::connect_via(&session, accept)
+        Self::connect_via(&session, Some(accept))
     }
 
     fn connect_via(
         session: &zbus::blocking::Connection,
-        accept: &dyn Fn(&str, Option<u32>) -> bool,
+        accept: Option<&BusJudge<'_>>,
     ) -> CapResult<A11y> {
         let dbus = |method: &str, body: &str| {
             session.call_method(
@@ -145,6 +148,29 @@ impl A11y {
                 method,
                 &body,
             )
+        };
+        // The desktop path asks the well-known name, which D-Bus starts if it is not running (a
+        // desktop that does not autostart at-spi); only the headless validator pins the owner.
+        let Some(accept) = accept else {
+            let reply = session
+                .call_method(
+                    Some("org.a11y.Bus"),
+                    "/org/a11y/bus",
+                    Some("org.a11y.Bus"),
+                    "GetAddress",
+                    &(),
+                )
+                .map_err(|e| {
+                    CapError::unavailable(
+                        "no_a11y_bus",
+                        format!("The accessibility bus is not running: {e}"),
+                    )
+                })?;
+            let address: String = reply
+                .body()
+                .deserialize()
+                .map_err(|e| CapError::unavailable("no_a11y_bus", e.to_string()))?;
+            return Self::connect_address(&address);
         };
         // The name's owner first, then everything is asked of that unique name: the owner whose
         // process id is judged is the one that answers `GetAddress`, even if the well-known name
