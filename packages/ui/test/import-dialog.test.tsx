@@ -87,4 +87,38 @@ describe("ImportDialog", () => {
     expect((await screen.findByRole("alert")).textContent).toMatch(/900 KB/);
     expect(run).not.toHaveBeenCalled();
   });
+
+  it("measures the escaped size: a quote-dense file under 900 KB raw is still refused", async () => {
+    const { run, user } = setup();
+    await user.upload(
+      await screen.findByLabelText("Memories file"),
+      file("memories.json", '"'.repeat(600_000)),
+    );
+    await user.click(screen.getByRole("button", { name: "Import" }));
+    expect((await screen.findByRole("alert")).textContent).toMatch(/900 KB/);
+    expect(run).not.toHaveBeenCalled();
+  });
+
+  it("keeps what was imported when a step failed and offers to import again", async () => {
+    const partial: ImportSummary = {
+      memories: 0,
+      threads: 2,
+      duplicates: 0,
+      skipped: [],
+      skippedMore: 0,
+      error: "gateway went away",
+      batchesDone: 1,
+      batchesTotal: 3,
+    };
+    const run = vi.fn(async () => partial);
+    const user = userEvent.setup();
+    render(<ImportDialog open onOpenChange={() => {}} run={run} />);
+    await user.click(await screen.findByRole("radio", { name: "Memories and conversations" }));
+    await user.upload(screen.getByLabelText(/Conversations file/), file("c.json", "[]"));
+    await user.click(screen.getByRole("button", { name: "Import" }));
+    expect((await screen.findByRole("alert")).textContent).toMatch(/1 of 3 batches/);
+    expect(screen.getByText("Conversations imported: 2")).toBeTruthy();
+    await user.click(screen.getByRole("button", { name: "Import again" }));
+    expect(run).toHaveBeenCalledTimes(2);
+  });
 });

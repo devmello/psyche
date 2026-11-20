@@ -822,6 +822,9 @@ export const ja: Partial<Catalogue> = {
     "このファイルは {mb} MB を超えており、ここでは大きすぎて読めません。範囲を小さくして書き出し直してください。",
   "agent.memory.importConv.memoriesTooBig":
     "このメモリファイルは {kb} KB を超えており、一度に読み込めません。分割するか、書き出すメモリを減らしてください。",
+  "agent.memory.importConv.partial":
+    "完了前に停止しました：{reason}。{total} 件中 {done} 件のバッチを読み込みました。もう一度読み込むと続きから進み、読み込み済みの会話はスキップされます。",
+  "agent.memory.importConv.retry": "もう一度読み込む",
   "agent.memory.exported": "{file}を書き出しました。",
   "agent.memory.export": "すべてを書き出す",
   "agent.memory.resetDone":

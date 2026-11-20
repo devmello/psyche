@@ -840,6 +840,7 @@ export function ChatThread({
                           ) : null}
                           <MessageView
                             message={m}
+                            {...(importedThread ? { imported: true } : {})}
                             streamingText={d.streamingText}
                             quoted={
                               m.replyToMessageId ? (byId.get(m.replyToMessageId) ?? null) : null

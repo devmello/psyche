@@ -21,6 +21,77 @@ export interface SplitResult {
 }
 
 const encoder = new TextEncoder();
+const TEXT_CAP = 20_000;
+
+const isRec = (v: unknown): v is Record<string, unknown> =>
+  v !== null && typeof v === "object" && !Array.isArray(v);
+const cap = (s: string): string =>
+  s.length <= TEXT_CAP ? s : `${s.slice(0, TEXT_CAP - 20)}\n[truncated]`;
+
+/**
+ * Keeps only what the Gateway's parser reads, so abandoned branches, tool nodes and metadata do
+ * not make a long conversation look too big for a batch.
+ */
+export function trimEntry(el: unknown): unknown {
+  if (!isRec(el)) return el;
+  const out: Record<string, unknown> = {};
+  for (const k of ["uuid", "id", "conversation_id", "name", "title"]) {
+    if (typeof el[k] === "string") out[k] = (el[k] as string).slice(0, 400);
+  }
+  for (const k of ["created_at", "updated_at", "create_time", "update_time"]) {
+    if (typeof el[k] === "string" || typeof el[k] === "number") out[k] = el[k];
+  }
+  if (Array.isArray(el.chat_messages)) {
+    out.chat_messages = el.chat_messages.flatMap((m: unknown) => {
+      if (!isRec(m)) return [];
+      let text = typeof m.text === "string" ? m.text : "";
+      if (Array.isArray(m.content)) {
+        const parts = m.content.flatMap((c: unknown) =>
+          isRec(c) && c.type === "text" && typeof c.text === "string" ? [c.text] : [],
+        );
+        if (parts.length > 0) text = parts.join("\n\n");
+      }
+      return [{ sender: m.sender, created_at: m.created_at, text: cap(text) }];
+    });
+  }
+  if (isRec(el.mapping)) {
+    const mapping = el.mapping;
+    let id: string | undefined = typeof el.current_node === "string" ? el.current_node : undefined;
+    if (id === undefined || !isRec(mapping[id])) {
+      id = Object.keys(mapping).find((k) => {
+        const n = mapping[k];
+        return isRec(n) && Array.isArray(n.children) && n.children.length === 0;
+      });
+    }
+    const kept: Record<string, unknown> = {};
+    const seen = new Set<string>();
+    out.current_node = id;
+    while (id !== undefined && !seen.has(id) && seen.size < 5_000) {
+      seen.add(id);
+      const node = mapping[id];
+      if (!isRec(node)) break;
+      const msg = isRec(node.message) ? node.message : undefined;
+      const parts =
+        msg && isRec(msg.content) && Array.isArray(msg.content.parts)
+          ? msg.content.parts.filter((p: unknown): p is string => typeof p === "string").map(cap)
+          : [];
+      kept[id] = {
+        parent: node.parent,
+        children: [],
+        message: msg
+          ? {
+              author: { role: isRec(msg.author) ? msg.author.role : undefined },
+              content: { content_type: "text", parts },
+              create_time: msg.create_time,
+            }
+          : null,
+      };
+      id = typeof node.parent === "string" ? node.parent : undefined;
+    }
+    out.mapping = kept;
+  }
+  return out;
+}
 
 function titleOf(el: unknown): string {
   if (el === null || typeof el !== "object") return "";
@@ -49,7 +120,7 @@ export function splitExport(text: string): SplitResult {
       skipped.push({ title: titleOf(el), reason: "too_many" });
       continue;
     }
-    const json = JSON.stringify(el);
+    const json = JSON.stringify(trimEntry(el));
     if (json === undefined || el === null || typeof el !== "object") {
       skipped.push({ title: "", reason: "invalid" });
       continue;

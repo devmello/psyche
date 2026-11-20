@@ -823,6 +823,9 @@ export const ko: Partial<Catalogue> = {
     "이 파일은 {mb}MB를 넘어 여기서 읽기에는 너무 큽니다. 범위를 줄여 다시 내보내세요.",
   "agent.memory.importConv.memoriesTooBig":
     "이 메모리 파일은 {kb}KB를 넘어 한 번에 가져올 수 없습니다. 파일을 나누거나 내보낼 메모리를 줄이세요.",
+  "agent.memory.importConv.partial":
+    "완료되기 전에 중단되었습니다: {reason}. {total}개 중 {done}개 묶음을 가져왔습니다. 다시 가져오면 이어서 진행하며, 이미 가져온 대화는 건너뜁니다.",
+  "agent.memory.importConv.retry": "다시 가져오기",
   "agent.memory.exported": "{file}을(를) 내보냈습니다.",
   "agent.memory.export": "모두 내보내기",
   "agent.memory.resetDone":

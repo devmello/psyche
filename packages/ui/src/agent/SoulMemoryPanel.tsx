@@ -386,8 +386,12 @@ export function SoulMemoryPanel({
     };
     if (req.memories !== undefined) {
       onStage("memories");
-      const res = await call("memory.import", { format: req.source, content: req.memories });
-      summary.memories = res.claims.length;
+      try {
+        const res = await call("memory.import", { format: req.source, content: req.memories });
+        summary.memories = res.claims.length;
+      } catch (err) {
+        summary.error = describeError(err);
+      }
     }
     if (req.mode === "both" && req.conversations !== undefined) {
       onStage("conversations");
@@ -395,13 +399,22 @@ export function SoulMemoryPanel({
       const split = splitExport(req.conversations);
       summary.skipped.push(...split.skipped);
       onProgress(0, split.batches.length);
-      for (const [i, batch] of split.batches.entries()) {
-        const res = await call("threads.import", { format: req.source, content: batch });
-        summary.threads += res.imported;
-        summary.duplicates += res.duplicates;
-        summary.skipped.push(...res.skipped);
-        summary.skippedMore += res.skippedMore;
-        onProgress(i + 1, split.batches.length);
+      summary.batchesDone = 0;
+      summary.batchesTotal = split.batches.length;
+      for (const batch of split.batches) {
+        try {
+          const res = await call("threads.import", { format: req.source, content: batch });
+          summary.threads += res.imported;
+          summary.duplicates += res.duplicates;
+          summary.skipped.push(...res.skipped);
+          summary.skippedMore += res.skippedMore;
+        } catch (err) {
+          // What the earlier batches brought in stays; importing again skips it and carries on.
+          summary.error = describeError(err);
+          break;
+        }
+        summary.batchesDone += 1;
+        onProgress(summary.batchesDone, split.batches.length);
       }
     }
     return summary;

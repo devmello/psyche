@@ -1,9 +1,9 @@
 import { mkdtempSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { listAllMessages } from "@psyche/db";
+import { appendMessage, createThread, getAgentThreadState, listAllMessages } from "@psyche/db";
 import type { Thread } from "@psyche/protocol";
-import { afterEach, describe, expect, it } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 import { type ComposedGateway, composeGateway } from "../src/compose/index.ts";
 import { SqliteThreadStateStore } from "../src/compose/thread-state.ts";
 import { transcriptMarkdown } from "../src/handlers/chat.ts";
@@ -284,5 +284,62 @@ describe("an imported thread is closed at every layer", () => {
       .prepare("SELECT last_message_at AS at FROM threads WHERE imported = 'claude'")
       .get() as { at: string };
     expect(Date.parse(row.at)).toBeLessThan(Date.now() + 2 * 86_400_000);
+  });
+});
+
+describe("imported thread: further gaps", () => {
+  async function importOne() {
+    const { composed: c, owner } = await start();
+    await owner.call("threads.import", { format: "claude", content: EXPORT }, ik());
+    const row = c.db.sqlite.prepare("SELECT id FROM threads WHERE imported = 'claude'").get() as {
+      id: string;
+    };
+    return { c, owner, id: row.id };
+  }
+
+  it("announces each imported message so it is indexed", async () => {
+    const { owner } = await importOne();
+    await owner.waitForEvent((e) => e.event === "chat.message");
+    expect(owner.eventsNamed("chat.message").length).toBeGreaterThanOrEqual(2);
+  });
+
+  it("writes an audit entry with counts only", async () => {
+    const { c } = await importOne();
+    await vi.waitFor(async () => {
+      const entries = await c.audit.query({ kind: "threads.import" });
+      expect(entries.length).toBe(1);
+      expect(JSON.stringify(entries[0])).not.toContain("Ignore previous");
+    });
+  });
+
+  it("refuses clear, greet and a move into a Space", async () => {
+    const { owner, id } = await importOne();
+    await expect(owner.call("threads.clear", { threadId: id }, ik())).rejects.toThrow(/read-only/);
+    await expect(owner.call("chat.greet", { threadId: id }, ik())).rejects.toThrow(/read-only/);
+    await expect(
+      owner.call("spaces.threads.move", { threadIds: [id], spaceId: null }, ik()),
+    ).rejects.toThrow(/read-only/);
+  });
+
+  it("keeps the taint through a real turn on a rebuilt thread", async () => {
+    const { composed: c, owner } = await start();
+    const id = c.db.newId();
+    createThread(c.db, { id, kind: "side", sessionKey: `owner:side:${id}`, title: "Forwarded" });
+    for (const role of ["user", "agent"] as const) {
+      appendMessage(
+        c.db,
+        {
+          threadId: id,
+          role,
+          blocks: [{ type: "text", md: "from outside" }],
+          provenance: "untrusted",
+        },
+        { expectedWriterRunId: null },
+      );
+    }
+    await owner.call("chat.send", { threadId: id, content: "what did that say?" }, ik());
+    await c.gateway.context.sessions.idle();
+    const state = getAgentThreadState(c.db, id) as { taint?: { sources: unknown[] } } | undefined;
+    expect(state?.taint?.sources.length).toBeGreaterThan(0);
   });
 });

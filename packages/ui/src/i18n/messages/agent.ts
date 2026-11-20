@@ -400,6 +400,9 @@ export const agent = {
     "This file is over {mb} MB, which is too big to read here. Export again with a smaller range.",
   "agent.memory.importConv.memoriesTooBig":
     "This memory file is over {kb} KB, which is too big to import in one go. Split it or export fewer memories.",
+  "agent.memory.importConv.partial":
+    "Stopped before finishing: {reason}. {done} of {total} batches were imported. Import again to continue; conversations already imported are skipped.",
+  "agent.memory.importConv.retry": "Import again",
   "agent.memory.exported": "Exported {file}.",
   "agent.memory.export": "Export everything",
   "agent.memory.resetDone":

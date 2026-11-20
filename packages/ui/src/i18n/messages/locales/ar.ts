@@ -885,6 +885,9 @@ export const ar: Partial<Catalogue> = {
     "حجم هذا الملف يتجاوز {mb} ميغابايت وهو كبير جدًا للقراءة هنا. أعد التصدير بنطاق أصغر.",
   "agent.memory.importConv.memoriesTooBig":
     "ملف الذكريات هذا يتجاوز {kb} كيلوبايت وهو كبير جدًا للاستيراد دفعة واحدة. قسّمه أو صدّر ذكريات أقل.",
+  "agent.memory.importConv.partial":
+    "توقف قبل الاكتمال: {reason}. تم استيراد {done} من {total} دفعات. أعد الاستيراد للمتابعة؛ تُتخطى المحادثات المستوردة سابقًا.",
+  "agent.memory.importConv.retry": "إعادة الاستيراد",
   "agent.memory.exported": "تم تصدير {file}.",
   "agent.memory.export": "تصدير كل شيء",
   "agent.memory.resetDone":

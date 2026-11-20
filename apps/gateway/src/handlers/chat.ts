@@ -307,7 +307,7 @@ export const chatHandlers: Record<string, HandlerDef> = {
   "chat.greet": {
     transactional: true,
     run: (call: Call, params: { threadId: string }) => {
-      requireThread(call, params.threadId);
+      assertWritableThread(requireThread(call, params.threadId), "greeted");
       return call.ctx.sessions.greet(params.threadId, {
         emit: call.emit,
         afterCommit: call.afterCommit,

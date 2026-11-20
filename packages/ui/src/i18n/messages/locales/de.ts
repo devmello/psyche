@@ -847,6 +847,9 @@ export const de: Partial<Catalogue> = {
     "Diese Datei ist größer als {mb} MB und hier zu groß zum Lesen. Exportiere erneut mit kleinerem Zeitraum.",
   "agent.memory.importConv.memoriesTooBig":
     "Diese Erinnerungsdatei ist größer als {kb} KB und lässt sich nicht auf einmal importieren. Teile sie auf oder exportiere weniger Erinnerungen.",
+  "agent.memory.importConv.partial":
+    "Vor dem Ende gestoppt: {reason}. {done} von {total} Paketen wurden importiert. Importiere erneut, um fortzufahren; bereits importierte Unterhaltungen werden übersprungen.",
+  "agent.memory.importConv.retry": "Erneut importieren",
   "agent.memory.exported": "{file} exportiert.",
   "agent.memory.export": "Alles exportieren",
   "agent.memory.resetDone":

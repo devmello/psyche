@@ -29,6 +29,10 @@ export interface ImportSummary {
   duplicates: number;
   skipped: { title: string; reason: "too_many" | "too_large" | "empty" | "invalid" }[];
   skippedMore: number;
+  /** Set when a step failed: what was imported before it is kept in the fields above. */
+  error?: string;
+  batchesDone?: number;
+  batchesTotal?: number;
 }
 
 export type ImportStage = "memories" | "conversations";
@@ -83,8 +87,10 @@ export function ImportDialog({
     const tooBig = [memories, mode === "both" ? conversations : null].find(
       (f) => f !== null && f.size > MAX_EXPORT_BYTES,
     );
-    if (memories !== null && memories.size > BATCH_BYTES) {
+    const memoriesTooBig = () =>
       setError(t("agent.memory.importConv.memoriesTooBig", { kb: Math.round(BATCH_BYTES / 1000) }));
+    if (memories !== null && memories.size > BATCH_BYTES) {
+      memoriesTooBig();
       return;
     }
     if (tooBig) {
@@ -96,7 +102,14 @@ export function ImportDialog({
     setStage(mode === "both" && memories === null ? "conversations" : "memories");
     try {
       const req: ImportRequest = { source, mode };
-      if (memories !== null) req.memories = await memories.text();
+      if (memories !== null) {
+        req.memories = await memories.text();
+        // Quotes, backslashes and newlines double in the frame: measure the escaped text.
+        if (new TextEncoder().encode(JSON.stringify(req.memories)).length > BATCH_BYTES) {
+          memoriesTooBig();
+          return;
+        }
+      }
       if (mode === "both" && conversations !== null) req.conversations = await conversations.text();
       setSummary(await run(req, setStage, (done, total) => setProgress({ done, total })));
     } catch (err) {
@@ -203,6 +216,16 @@ export function ImportDialog({
           </p>
         ) : null}
 
+        {summary?.error !== undefined ? (
+          <p role="alert" className="m-0 text-callout text-danger-text">
+            {t("agent.memory.importConv.partial", {
+              reason: summary.error,
+              done: summary.batchesDone ?? 0,
+              total: summary.batchesTotal ?? 0,
+            })}
+          </p>
+        ) : null}
+
         {summary !== null ? (
           <div role="status" className="flex flex-col gap-1 text-callout text-label-primary">
             <p className="m-0 font-medium">{t("agent.memory.importConv.done")}</p>
@@ -247,9 +270,15 @@ export function ImportDialog({
               summary === null ? "agent.memory.importConv.cancel" : "agent.memory.importConv.close",
             )}
           </Button>
-          {summary === null ? (
+          {summary === null || summary.error !== undefined ? (
             <Button disabled={!ready || busy} onClick={() => void start()}>
-              {t(busy ? "agent.memory.importConv.working" : "agent.memory.importConv.start")}
+              {t(
+                busy
+                  ? "agent.memory.importConv.working"
+                  : summary?.error !== undefined
+                    ? "agent.memory.importConv.retry"
+                    : "agent.memory.importConv.start",
+              )}
             </Button>
           ) : null}
         </div>
