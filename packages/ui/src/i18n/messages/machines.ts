@@ -91,7 +91,7 @@ export const machines = {
   "machines.picker.show": "Show app access for",
   "machines.picker.default": "Default computer for background work",
   "machines.picker.defaultHint":
-    "Tasks and automations run there unless they name a computer. A Mac has no private screen, so a Linux computer is how Psyche works over there while you work here.",
+    "Tasks and automations run there unless they name a computer. Pick a Linux computer to have Psyche work over there while you work here.",
   "machines.picker.appsOn": "Apps on {name}",
   "machines.picker.appsHint":
     "Psyche syncs these to {name} and never goes beyond what that computer's own limits allow.",

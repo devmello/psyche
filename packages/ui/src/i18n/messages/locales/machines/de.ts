@@ -93,7 +93,7 @@ export const machines: Partial<Catalogue> = {
   "machines.picker.show": "App-Zugriff anzeigen für",
   "machines.picker.default": "Standardcomputer für Hintergrundarbeit",
   "machines.picker.defaultHint":
-    "Aufgaben und Automationen laufen dort, sofern sie keinen Computer nennen. Ein Mac hat keinen privaten Bildschirm; mit einem Linux-Computer arbeitet Psyche dort drüben, während du hier arbeitest.",
+    "Aufgaben und Automationen laufen dort, sofern sie keinen Computer nennen. Wähle einen Linux-Computer, damit Psyche dort drüben arbeitet, während du hier arbeitest.",
   "machines.picker.appsOn": "Apps auf {name}",
   "machines.picker.appsHint":
     "Psyche gleicht diese mit {name} ab und geht nie über die eigenen Grenzen dieses Computers hinaus.",

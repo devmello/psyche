@@ -94,7 +94,7 @@ export const machines: Partial<Catalogue> = {
   "machines.picker.show": "アプリのアクセスを表示する対象",
   "machines.picker.default": "バックグラウンド作業の既定のコンピューター",
   "machines.picker.defaultHint":
-    "タスクと自動化は、コンピューターを指定しない限りそこで実行されます。Macには専用画面がないため、Linuxコンピューターがあれば、こちらで作業している間にPsycheがあちらで作業できます。",
+    "タスクと自動化は、コンピューターを指定しない限りそこで実行されます。Linuxコンピューターを選ぶと、こちらで作業している間にPsycheがあちらで作業します。",
   "machines.picker.appsOn": "{name}のアプリ",
   "machines.picker.appsHint":
     "Psycheはこれらを{name}と同期し、そのコンピューター自身の制限を超えることはありません。",

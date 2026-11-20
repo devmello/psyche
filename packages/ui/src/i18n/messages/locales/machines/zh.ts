@@ -89,7 +89,7 @@ export const machines: Partial<Catalogue> = {
   "machines.picker.show": "显示应用权限的电脑",
   "machines.picker.default": "后台工作的默认电脑",
   "machines.picker.defaultHint":
-    "任务和自动化会在那里运行，除非它们指定了电脑。Mac 没有私有屏幕，有了 Linux 电脑，你在这边工作时 Psyche 就能在那边工作。",
+    "任务和自动化会在那里运行，除非它们指定了电脑。选择一台 Linux 电脑，你在这边工作时 Psyche 就在那边工作。",
   "machines.picker.appsOn": "{name} 上的应用",
   "machines.picker.appsHint": "Psyche 会把这些同步到 {name}，并且不会超出那台电脑自身的限制。",
   "machines.picker.noApps": "Psyche 还没有在 {name} 上看到应用。看到后会显示在这里。",

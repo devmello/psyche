@@ -92,7 +92,7 @@ export const machines: Partial<Catalogue> = {
   "machines.picker.show": "عرض وصول التطبيقات لـ",
   "machines.picker.default": "الحاسوب الافتراضي للعمل في الخلفية",
   "machines.picker.defaultHint":
-    "تعمل المهام والأتمتة هناك ما لم تُسمِّ حاسوبًا. لا يملك Mac شاشة خاصة، فمع حاسوب Linux يعمل Psyche هناك بينما تعمل أنت هنا.",
+    "تعمل المهام والأتمتة هناك ما لم تُسمِّ حاسوبًا. اختر حاسوب Linux ليعمل Psyche هناك بينما تعمل أنت هنا.",
   "machines.picker.appsOn": "التطبيقات على {name}",
   "machines.picker.appsHint": "يزامن Psyche هذه مع {name} ولا يتجاوز أبدًا حدود ذلك الحاسوب نفسه.",
   "machines.picker.noApps": "لم ير Psyche أي تطبيقات على {name} بعد. ستظهر هنا حين يراها.",

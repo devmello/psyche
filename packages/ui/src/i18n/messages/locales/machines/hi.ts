@@ -92,7 +92,7 @@ export const machines: Partial<Catalogue> = {
   "machines.picker.show": "इसके लिए ऐप एक्सेस दिखाएँ",
   "machines.picker.default": "बैकग्राउंड काम के लिए डिफ़ॉल्ट कंप्यूटर",
   "machines.picker.defaultHint":
-    "टास्क और ऑटोमेशन वहीं चलते हैं, जब तक वे किसी कंप्यूटर का नाम न लें। Mac में निजी स्क्रीन नहीं होती; Linux कंप्यूटर से आप यहाँ काम करते हैं और Psyche वहाँ।",
+    "टास्क और ऑटोमेशन वहीं चलते हैं, जब तक वे किसी कंप्यूटर का नाम न लें। कोई Linux कंप्यूटर चुनें, ताकि आप यहाँ काम करें और Psyche वहाँ।",
   "machines.picker.appsOn": "{name} पर ऐप",
   "machines.picker.appsHint":
     "Psyche इन्हें {name} से सिंक करता है और उस कंप्यूटर की अपनी सीमाओं से आगे कभी नहीं जाता।",

@@ -23,7 +23,7 @@ export function watchClient(
   machine?: string,
 ): ComputerWatchClient {
   // A paired computer's pane names it in every call; the Host's pane sends nothing extra.
-  const on = machine === undefined ? {} : { machine };
+  const scope = machine === undefined ? {} : { machine };
   const call = async <T,>(method: string, params: unknown): Promise<T> => {
     const res = await store.call<T>(method, params);
     if (res === undefined) throw new Error(`${method} is not available`);
@@ -31,25 +31,25 @@ export function watchClient(
   };
   return {
     async status() {
-      const res = await call<State>("computerWatch.status", { ...on });
+      const res = await call<State>("computerWatch.status", { ...scope });
       onParked(res.parked);
       return res.status;
     },
     frame: (since, maxWidth) =>
       call("computerWatch.frame", {
-        ...on,
+        ...scope,
         ...(since === undefined ? {} : { since }),
         ...(maxWidth === undefined ? {} : { maxWidth }),
       }),
     async input(events) {
-      await call("computerWatch.input", { ...on, events });
+      await call("computerWatch.input", { ...scope, events });
     },
     async setTakenOver(on) {
-      await call("computerWatch.takeOver", { ...on, on });
+      await call("computerWatch.takeOver", { ...scope, on });
     },
     async stop() {
       const res = await call<{ ok: boolean }>("computerWatch.stop", {
-        ...on,
+        ...scope,
         closeApps: true,
       });
       // Refused because an app asks to save: the card (computerWatch.parked) takes over.

@@ -93,7 +93,7 @@ export const machines: Partial<Catalogue> = {
   "machines.picker.show": "앱 접근을 표시할 컴퓨터",
   "machines.picker.default": "백그라운드 작업의 기본 컴퓨터",
   "machines.picker.defaultHint":
-    "작업과 자동화는 컴퓨터를 지정하지 않으면 그곳에서 실행됩니다. Mac에는 비공개 화면이 없으므로, Linux 컴퓨터가 있으면 내가 여기서 일하는 동안 Psyche가 저기서 일할 수 있습니다.",
+    "작업과 자동화는 컴퓨터를 지정하지 않으면 그곳에서 실행됩니다. Linux 컴퓨터를 고르면 내가 여기서 일하는 동안 Psyche가 저기서 일합니다.",
   "machines.picker.appsOn": "{name}의 앱",
   "machines.picker.appsHint":
     "Psyche는 이를 {name}과(와) 동기화하며, 그 컴퓨터 자체의 제한을 넘지 않습니다.",
