@@ -81,4 +81,8 @@ export const notices: Partial<Catalogue> = {
     "O Psyche reteve algo que talvez não venha de uma execução de código em {repo}",
   "notice.codeRun.incident.body":
     "Enquanto {paths} era deixado de lado, uma pasta no caminho mudou, então o que foi movido pode vir de outro lugar. Está guardado em {place}. Confira antes de tocar em Manter, que o coloca em {paths} dentro de {repo}.",
+  "notice.codeRun.unmoved.title":
+    "A configuração de inicialização de uma execução de código em {repo} continua no lugar",
+  "notice.codeRun.unmoved.body":
+    "Um comando no sandbox criou {paths} e o Psyche não conseguiu deixá-lo de lado, então ele não está retido. Apps ou seu próximo comando poderiam executar código a partir disso. Confira ou apague antes de abrir a pasta ou executar qualquer coisa nela.",
 };

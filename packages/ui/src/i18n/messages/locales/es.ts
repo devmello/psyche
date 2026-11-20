@@ -4,6 +4,7 @@ import { blocksA } from "./blocks-a/es.ts";
 import { canvas } from "./canvas/es.ts";
 import { charts } from "./charts/es.ts";
 import { chatA } from "./chat-a/es.ts";
+import { computerWatch } from "./computer-watch/es.ts";
 import { dailyA } from "./daily-a/es.ts";
 import { final202611 } from "./final-2026-11/es.ts";
 import { galleryA } from "./gallery-a/es.ts";
@@ -3762,6 +3763,8 @@ export const es: Partial<Catalogue> = {
   ...securityState,
   // Settings → Computer use on Linux: screen and input access
   ...linuxAccess,
+  // the Virtual screen watch pane (docs/design/linux-desktop-2026.md §7.5)
+  ...computerWatch,
   // Gateway-authored notices (inbox notifications, security alerts)
   ...notices,
   // Settings > Computer use > Separate desktop (Linux)

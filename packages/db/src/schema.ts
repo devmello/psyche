@@ -247,6 +247,26 @@ export const stepPayloadRows = sqliteTable("step_payloads", {
   createdAt: text("created_at").notNull(),
 });
 
+/** Forget's pending trace scrubs: the phrase, written once (migration 202611191200). */
+export const traceScrubQueue = sqliteTable("trace_scrub_queue", {
+  id: integer("id").primaryKey(),
+  subject: text("subject").notNull().unique(),
+  createdAt: text("created_at").notNull(),
+});
+
+/** The worker's cursor for a queued phrase, kept apart from the phrase's own row. */
+export const traceScrubState = sqliteTable("trace_scrub_state", {
+  queueId: integer("queue_id").primaryKey(),
+  phase: integer("phase").notNull().default(0),
+  cursor: integer("cursor").notNull().default(0),
+  started: integer("started").notNull().default(0),
+  watchRuns: text("watch_runs").notNull().default("[]"),
+  final: integer("final").notNull().default(0),
+  finalSince: text("final_since"),
+  rewritten: integer("rewritten").notNull().default(0),
+  skipped: integer("skipped").notNull().default(0),
+});
+
 /** Run-trace steps (run trace §4.2): the RunStep as JSON plus the retained thinking text. */
 export const runSteps = sqliteTable(
   "run_steps",
@@ -466,6 +486,8 @@ export const schema = {
   chatQueue,
   toolPayloads,
   stepPayloadRows,
+  traceScrubQueue,
+  traceScrubState,
   runSteps,
   runFrames,
   gatewayIdempotency,

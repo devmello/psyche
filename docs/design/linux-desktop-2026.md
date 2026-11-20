@@ -439,6 +439,8 @@ When `XDG_SESSION_TYPE=x11`: XTest for input (`XTestFakeKeyEvent`, `XTestFakeBut
 
 XShm capture of the root window, XTest input on `:n`, AT-SPI screen coordinates and actions. All of it stays inside the helper's own X server: nothing reaches the owner's display, and no portal dialog appears.
 
+**Follow-up for the agent-input PR** (review of #1452, finding 3): the window manager still raises and focuses every new top-level, so a page's `window.open` in the agent's Firefox can take focus while the agent types into Writer. Before each typed batch, check that the focused window's server-reported pid (X-Resource, as `open_app` uses) is in the scope of the app the agent is acting on, and refuse or refocus otherwise. Not built yet.
+
 ### 7.4 Lifecycle and RAM
 
 - **Start on demand** at the first `surface: "virtual_screen"` call. `Xvfb :<n> -screen 0 1280x800x24 -nolisten tcp -auth <0600 file in $XDG_RUNTIME_DIR/psyche>` ([Xvfb(1)](https://www.x.org/releases/current/doc/man/man1/Xvfb.1.xhtml)) runs as a child of the helper, in the same slice. `n` is the first free display number from 90 up.

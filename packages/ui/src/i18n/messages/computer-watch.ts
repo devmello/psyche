@@ -1,0 +1,22 @@
+/** The Virtual screen watch pane on Linux (docs/design/linux-desktop-2026.md §7.5). */
+export const computerWatch = {
+  "computerWatch.title": "Virtual screen",
+  "web.panes.title.computer-watch": "Virtual screen",
+  "computerWatch.frame.alt": "Live view of the virtual screen",
+  "computerWatch.stop": "Stop",
+  "computerWatch.takeOver": "Take over",
+  "computerWatch.control.agent": "The agent is in control.",
+  "computerWatch.control.you": "You are in control. The agent is paused.",
+  "computerWatch.apps.title": "Open apps",
+  "computerWatch.apps.empty": "No apps are open.",
+  "computerWatch.apps.unsaved": "Unsaved changes",
+  "computerWatch.empty.title": "No virtual screen is running",
+  "computerWatch.empty.body": "When the agent needs a screen of its own, you can watch it here.",
+  "computerWatch.starting": "Starting the virtual screen…",
+  "computerWatch.error": "Can't reach the virtual screen. Trying again…",
+  "computerWatch.parked.title": "Waiting for you",
+  "computerWatch.parked.body": "An app has unsaved changes, so the task is paused.",
+  "computerWatch.parked.look": "Look",
+  "computerWatch.parked.discard": "Discard",
+  "computerWatch.parked.keepOpen": "Keep it open",
+} as const;

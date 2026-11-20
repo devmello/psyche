@@ -83,4 +83,8 @@ export const notices: Partial<Catalogue> = {
     "Psyche a mis de côté quelque chose qui ne vient peut-être pas d'une exécution de code dans {repo}",
   "notice.codeRun.incident.body":
     "Pendant que {paths} était mis de côté, un dossier sur le chemin a changé : ce qui a été déplacé peut venir d'ailleurs. C'est conservé dans {place}. Examinez-le avant de toucher Garder, qui le place à {paths} dans {repo}.",
+  "notice.codeRun.unmoved.title":
+    "La configuration de lancement d'une exécution de code dans {repo} est toujours en place",
+  "notice.codeRun.unmoved.body":
+    "Une commande dans le bac à sable a créé {paths}, et Psyche n'a pas pu le mettre de côté : il n'est donc pas retenu. Des apps ou votre prochaine commande pourraient en exécuter du code. Vérifiez-le ou supprimez-le avant d'ouvrir le dossier ou d'y exécuter quoi que ce soit.",
 };

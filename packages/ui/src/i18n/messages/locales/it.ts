@@ -10,6 +10,7 @@ import { capabilitiesRest } from "./capabilities-rest/it.ts";
 import { charts } from "./charts/it.ts";
 import { chatRest } from "./chat-rest/it.ts";
 import { commonRest } from "./common-rest/it.ts";
+import { computerWatch } from "./computer-watch/it.ts";
 import { dailyRest } from "./daily-rest/it.ts";
 import { deckRest } from "./deck-rest/it.ts";
 import { designRest } from "./design-rest/it.ts";
@@ -3724,6 +3725,8 @@ export const it: Partial<Catalogue> = {
   ...securityState,
   // Settings → Computer use on Linux: screen and input access
   ...linuxAccess,
+  // the Virtual screen watch pane (docs/design/linux-desktop-2026.md §7.5)
+  ...computerWatch,
   // Gateway-authored notices (inbox notifications, security alerts)
   ...notices,
   // Settings > Computer use > Separate desktop (Linux)

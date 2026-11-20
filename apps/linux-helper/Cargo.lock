@@ -614,6 +614,12 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "b454d911ac55068f53495488d8ccd0646eaa540c033a28ee15b07838afafb01f"
 
 [[package]]
+name = "jpeg-encoder"
+version = "0.7.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "a0370574b86f7eca156b9f298392b5e69a23f8c86f3f865add60bbc2e79467a6"
+
+[[package]]
 name = "js-sys"
 version = "0.3.107"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -838,6 +844,7 @@ dependencies = [
  "base64",
  "ed25519-dalek",
  "getrandom",
+ "jpeg-encoder 0.7.1",
  "libc",
  "psyche-linux-computer",
  "psyche-protocol",
@@ -845,6 +852,8 @@ dependencies = [
  "serde_json",
  "sha2",
  "tempfile",
+ "x11rb",
+ "x11rb-protocol",
  "zeroize",
 ]
 
@@ -853,7 +862,7 @@ name = "psyche-linux-computer"
 version = "0.1.0"
 dependencies = [
  "base64",
- "jpeg-encoder",
+ "jpeg-encoder 0.6.1",
  "libc",
  "pipewire",
  "serde",

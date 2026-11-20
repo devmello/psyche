@@ -10,6 +10,7 @@ import { capabilities } from "./capabilities/ar.ts";
 import { charts } from "./charts/ar.ts";
 import { chat } from "./chat/ar.ts";
 import { common } from "./common/ar.ts";
+import { computerWatch } from "./computer-watch/ar.ts";
 import { connectorGallery } from "./connector-gallery/ar.ts";
 import { connectorsPage } from "./connectors-page/ar.ts";
 import { daily } from "./daily/ar.ts";
@@ -3718,6 +3719,8 @@ export const ar: Partial<Catalogue> = {
   ...securityState,
   // Settings → Computer use on Linux: screen and input access
   ...linuxAccess,
+  // the Virtual screen watch pane (docs/design/linux-desktop-2026.md §7.5)
+  ...computerWatch,
   // Gateway-authored notices (inbox notifications, security alerts)
   ...notices,
   // Settings > Computer use > Separate desktop (Linux)

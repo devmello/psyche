@@ -10,6 +10,7 @@ import { capabilities } from "./capabilities/zh.ts";
 import { charts } from "./charts/zh.ts";
 import { chat } from "./chat/zh.ts";
 import { common } from "./common/zh.ts";
+import { computerWatch } from "./computer-watch/zh.ts";
 import { connectorGallery } from "./connector-gallery/zh.ts";
 import { connectorsPage } from "./connectors-page/zh.ts";
 import { daily } from "./daily/zh.ts";
@@ -3613,6 +3614,8 @@ export const zh: Partial<Catalogue> = {
   ...securityState,
   // Settings → Computer use on Linux: screen and input access
   ...linuxAccess,
+  // the Virtual screen watch pane (docs/design/linux-desktop-2026.md §7.5)
+  ...computerWatch,
   // Gateway-authored notices (inbox notifications, security alerts)
   ...notices,
   // Settings > Computer use > Separate desktop (Linux)
