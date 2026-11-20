@@ -1,6 +1,6 @@
 # Linux test results
 
-Fill this in during the real-machine test run in [the Linux desktop design, section 13](../design/linux-desktop-2026.md). One copy of the machine block and the step table per machine. Mark each step PASS, FAIL (with a note or an issue link) or SKIP (with the reason). Leave a cell empty if the step was not reached.
+Status 2026-11-19: the Linux desktop app is parked, so this run is on hold. It stays here for the helper-only work, which is planned in [linux-helper-only-2026.md](../design/linux-helper-only-2026.md). Fill this in during the real-machine test run in [the Linux desktop design, section 13](../design/linux-desktop-2026.md). One copy of the machine block and the step table per machine. Mark each step PASS, FAIL (with a note or an issue link) or SKIP (with the reason). Leave a cell empty if the step was not reached.
 
 Before starting, tell the owner: a desktop VM uses 4 to 6 GB of RAM while it runs, so other sessions pause first. Shut the VM down afterwards.
 

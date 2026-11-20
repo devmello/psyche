@@ -15,6 +15,8 @@ The agent reads and writes files only inside folders you share. Anything else is
 3. To let the agent save changes there, switch it to **Read and write**.
 4. To stop sharing, remove it from the list.
 
+When a file tool reaches outside every shared folder, its error row offers **Share this folder (read only)**. That button raises the normal folder card; nothing is shared until you approve it, and the agent does not retry the tool by itself.
+
 Changes apply at once. Sharing a folder needs a device paired as admin; see [Getting started](/guides/getting-started) for how to make the app an admin device. On the web client there is no folder chooser: type the folder's full path.
 
 Use real paths. A path through a symbolic link is refused, so on macOS share `/private/tmp`, not `/tmp`.
