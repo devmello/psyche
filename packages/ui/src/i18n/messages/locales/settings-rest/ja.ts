@@ -676,6 +676,13 @@ export const settingsRest: Partial<Catalogue> = {
   "settings.access.moved": "現在は {path} を指しています。自分で移動した場合のみ確認してください",
   "settings.access.confirm": "確認",
   "settings.access.confirmNamed": "{path} の {name} をもう一度確認",
+  "settings.access.reconnectPrompt": "{name} を再接続しますか？現在は {path} にあります",
+  "settings.access.reconnect": "再接続",
+  "settings.access.reconnectNamed": "{name} を {path} に再接続",
+  "settings.access.reconnectFailed":
+    "{name} が再び移動されたか、再接続できません。リストを更新しました。",
+  "settings.access.reconnectBlocked":
+    "{name} は移動されましたが、安全に再接続できません。ルール、または中のフォルダが古い場所を指しています。共有を取り消して、もう一度共有してください。",
   "settings.model.advancedHint": "コンテキストの上限、ローカルモデル",
   "settings.permissions.subject.prepNotes": "「Prep:」で始まるタイトルのメモ（会議の準備）",
   "settings.permissions.specificConnectors":

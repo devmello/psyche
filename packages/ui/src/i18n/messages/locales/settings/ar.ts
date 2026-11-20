@@ -627,6 +627,13 @@ export const settings: Partial<Catalogue> = {
   "settings.access.moved": "يشير الآن إلى {path} — لا تؤكّد إلا إذا نقلته بنفسك",
   "settings.access.confirm": "تأكيد",
   "settings.access.confirmNamed": "تأكيد {name} مجددًا في {path}",
+  "settings.access.reconnectPrompt": "إعادة ربط {name}؟ أصبح الآن في {path}",
+  "settings.access.reconnect": "إعادة الربط",
+  "settings.access.reconnectNamed": "إعادة ربط {name} بـ {path}",
+  "settings.access.reconnectFailed":
+    "تم نقل {name} مرة أخرى أو لا يمكن إعادة ربطه. جرى تحديث القائمة.",
+  "settings.access.reconnectBlocked":
+    "تم نقل {name}، لكن لا يمكن إعادة ربطه بأمان: توجد قاعدة أو مجلد بداخله يشير إلى المكان القديم. ألغِ المشاركة وشاركه من جديد.",
   "settings.model.advancedHint": "حدود السياق، النماذج المحلية",
   "settings.permissions.subject.prepNotes": "ملاحظات عنوانها «Prep:» (التحضير للاجتماعات)",
   "settings.permissions.specificConnectors": "تُضبط أذونات موصّل محدد في صفحته ضمن الموصّلات.",

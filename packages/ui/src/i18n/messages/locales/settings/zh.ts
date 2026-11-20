@@ -592,6 +592,12 @@ export const settings: Partial<Catalogue> = {
   "settings.access.moved": "现在指向 {path}——仅当是你自己移动的才确认",
   "settings.access.confirm": "确认",
   "settings.access.confirmNamed": "在 {path} 重新确认 {name}",
+  "settings.access.reconnectPrompt": "重新连接 {name}？它现在位于 {path}",
+  "settings.access.reconnect": "重新连接",
+  "settings.access.reconnectNamed": "将 {name} 重新连接到 {path}",
+  "settings.access.reconnectFailed": "{name} 又被移动了，或无法重新连接。列表已刷新。",
+  "settings.access.reconnectBlocked":
+    "{name} 已被移动，但无法安全地重新连接：某条规则或其中的文件夹仍指向旧位置。请撤销后重新共享。",
   "settings.model.advancedHint": "上下文上限、本地模型",
   "settings.permissions.subject.prepNotes": "标题为“Prep:”的备忘录（会议准备）",
   "settings.permissions.specificConnectors": "特定连接器的权限在“连接器”中它自己的页面上设置。",

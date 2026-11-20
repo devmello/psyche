@@ -692,6 +692,13 @@ export const settingsRest: Partial<Catalogue> = {
     "Zeigt jetzt auf {path} – bestätige nur, wenn du ihn selbst verschoben hast",
   "settings.access.confirm": "Bestätigen",
   "settings.access.confirmNamed": "{name} erneut unter {path} bestätigen",
+  "settings.access.reconnectPrompt": "{name} wieder verbinden? Der Ordner liegt jetzt unter {path}",
+  "settings.access.reconnect": "Wieder verbinden",
+  "settings.access.reconnectNamed": "{name} mit {path} wieder verbinden",
+  "settings.access.reconnectFailed":
+    "{name} wurde erneut verschoben oder lässt sich nicht verbinden. Die Liste wurde aktualisiert.",
+  "settings.access.reconnectBlocked":
+    "{name} wurde verschoben, lässt sich aber nicht sicher verbinden: Eine Regel oder ein Ordner darin zeigt noch auf den alten Ort. Widerrufe die Freigabe und gib den Ordner neu frei.",
   "settings.model.advancedHint": "Kontextgrenzen, lokale Modelle",
   "settings.permissions.subject.prepNotes": "Notizen mit dem Titel „Prep:“ (Meeting-Vorbereitung)",
   "settings.permissions.specificConnectors":

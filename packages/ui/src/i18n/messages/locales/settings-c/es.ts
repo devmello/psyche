@@ -149,6 +149,13 @@ export const settingsC: Partial<Catalogue> = {
   "settings.access.moved": "Ahora apunta a {path}: confírmala solo si la moviste tú",
   "settings.access.confirm": "Confirmar",
   "settings.access.confirmNamed": "Confirmar de nuevo {name} en {path}",
+  "settings.access.reconnectPrompt": "¿Reconectar {name}? Ahora está en {path}",
+  "settings.access.reconnect": "Reconectar",
+  "settings.access.reconnectNamed": "Reconectar {name} con {path}",
+  "settings.access.reconnectFailed":
+    "{name} se movió de nuevo o no se puede reconectar. Se actualizó la lista.",
+  "settings.access.reconnectBlocked":
+    "{name} se movió, pero no se puede reconectar con seguridad: una regla o una carpeta dentro apunta al lugar anterior. Revócala y compártela de nuevo.",
   "settings.model.advancedHint": "Límites de contexto, modelos locales",
   "settings.permissions.subject.prepNotes": "Notas tituladas «Prep:» (preparación de reuniones)",
   "settings.permissions.specificConnectors":
