@@ -506,7 +506,9 @@
   .psy-shimmer {
     mask-image: linear-gradient(90deg, black 30%, oklch(0 0 0 / 55%) 50%, black 70%);
     mask-size: 300% 100%;
-    animation: psy-shimmer var(--duration-shimmer) var(--ease-linear) infinite;
+    /* Seven passes (~10 s), then it rests at mask-position 0 0, where each pass also ends: a
+       skeleton stuck on a failed load stops repainting without a visible jump. */
+    animation: psy-shimmer var(--duration-shimmer) var(--ease-linear) 7;
   }
 }
 
