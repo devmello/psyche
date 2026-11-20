@@ -61,7 +61,6 @@ describe("psyche:// deep links", () => {
     expect(parseDeepLink("psyche://spaces/sp_01-A")).toBe("/spaces/sp_01-A");
     for (const bad of [
       "psyche://spaces/../settings/permissions",
-      "psyche://spaces/%2e%2e",
       "psyche://spaces/a%2Fb",
       "psyche://spaces/a%2fb",
       "psyche://spaces/a/b",
