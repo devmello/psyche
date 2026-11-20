@@ -173,6 +173,15 @@ export const SpaceProposal = Type.Object(
     status: SpaceProposalStatus,
     createdAt: IsoDateTime,
     decidedAt: Nullable(IsoDateTime),
+    /**
+     * `spaces.proposals.list` only: the chats Create would move now (no Space yet, not the main
+     * chat or a channel chat), so the card shows exactly what moves.
+     */
+    chats: Type.Optional(
+      Type.Array(Type.Object({ id: Id, title: Type.String() }, { ...Strict }), { maxItems: 10 }),
+    ),
+    /** `spaces.proposals.list` only: the linked project's name, when Memory knows it. */
+    projectName: Type.Optional(Nullable(Type.String())),
   },
   { $id: "SpaceProposal", ...Strict },
 );

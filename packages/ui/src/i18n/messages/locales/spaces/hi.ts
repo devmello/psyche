@@ -131,6 +131,12 @@ export const spaces: Partial<Catalogue> = {
   "spaces.proposal.title": "{name} के लिए Space बनाएँ?",
   "spaces.proposal.untrusted":
     "अविश्वसनीय सामग्री ({source}) पढ़ते समय सुझाया गया। नीचे का पाठ उद्धरण है, Psyche के अपने शब्द नहीं।",
+  "spaces.proposal.titleUntrusted": "यह सुझाया गया Space बनाएँ?",
+  "spaces.proposal.project": "प्रोजेक्ट {name} को जोड़ता है",
+  "spaces.proposal.chats":
+    "{n, plural, =0 {कोई चैट नहीं ले जाता} one {# चैट ले जाता है:} other {# चैट ले जाता है:}}",
+  "spaces.proposal.chatsLabel": "जो चैट ले जाए जाएँगे",
+  "spaces.proposal.untitledChat": "बिना शीर्षक की चैट",
   "spaces.proposal.create": "बनाएँ",
   "spaces.proposal.notNow": "अभी नहीं",
   "spaces.proposal.created": "Space {name} बन गया",

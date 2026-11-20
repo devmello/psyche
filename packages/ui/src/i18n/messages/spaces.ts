@@ -135,6 +135,12 @@ export const spaces = {
   "spaces.proposal.title": "Make a Space for {name}?",
   "spaces.proposal.untrusted":
     "Suggested while reading untrusted content ({source}). The text below is quoted, not Psyche's own words.",
+  "spaces.proposal.titleUntrusted": "Make this suggested Space?",
+  "spaces.proposal.project": "Links the project {name}",
+  "spaces.proposal.chats":
+    "{n, plural, =0 {Moves no chats} one {Moves # chat:} other {Moves # chats:}}",
+  "spaces.proposal.chatsLabel": "Chats it moves",
+  "spaces.proposal.untitledChat": "Untitled chat",
   "spaces.proposal.create": "Create",
   "spaces.proposal.notNow": "Not now",
   "spaces.proposal.created": "Made the Space {name}",

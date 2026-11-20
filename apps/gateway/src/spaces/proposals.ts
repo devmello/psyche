@@ -9,8 +9,12 @@ import { SpaceStore } from "./store.ts";
  * that read untrusted content keeps that turn's taint, so the card can show where it came from.
  */
 
-/** Open proposals at most: a flood of proposals is not a stack of cards on Home. */
+/**
+ * Open proposals at most: a flood of proposals is not a stack of cards on Home. Proposals from a
+ * tainted turn have their own, smaller cap, so they can never fill the clean ones' room.
+ */
 export const MAX_OPEN_PROPOSALS = 5;
+export const MAX_OPEN_TAINTED_PROPOSALS = 2;
 export const MAX_PROPOSAL_THREADS = 10;
 export const MAX_REASON_CHARS = 300;
 
@@ -31,18 +35,52 @@ export interface ProposeDeps {
   readonly projectExists?: ((entityId: string) => boolean) | undefined;
 }
 
-/** One line, no control characters, cut to `max`. */
-function oneLine(text: string, max: number): string {
-  const clean = text.replace(/[\p{Cc}\p{Zl}\p{Zp}]+/gu, " ");
+/**
+ * One line, cut to `max`: no control characters or line breaks (they become a space), and no
+ * format characters (bidi overrides and isolates U+202A-202E and U+2066-2069, the marks U+200E/F,
+ * zero-width characters, U+FEFF), which are dropped so they cannot reorder what the owner reads.
+ */
+export function oneLine(text: string, max: number): string {
+  const clean = text
+    .replace(/[\p{Cf}\u200e\u200f\u202a-\u202e\u2066-\u2069]+/gu, "")
+    .replace(/[\p{Cc}\p{Zl}\p{Zp}]+/gu, " ");
   return clean.replace(/\s+/g, " ").trim().slice(0, max).trim();
 }
 
-const key = (name: string): string => name.toLowerCase();
+/**
+ * How two Space names compare: Unicode case-insensitively (NFKC, then a case fold through upper
+ * and lower case), the same in every check. SQLite's `lower()` folds ASCII only.
+ */
+export const nameKey = (name: string): string =>
+  name.normalize("NFKC").toUpperCase().toLowerCase().normalize("NFKC").trim();
+
+/**
+ * Chats a proposal may bring in, now: they exist, have no Space yet (a chat in another Space,
+ * private or not, is never named or moved), and are not main, incognito or a channel chat.
+ */
+export function proposalChats(
+  db: PsycheDb,
+  ids: readonly string[],
+): { id: string; title: string }[] {
+  const out: { id: string; title: string }[] = [];
+  for (const id of ids) {
+    const row = db.sqlite
+      .prepare("SELECT kind, title, space_id FROM threads WHERE id = ?")
+      .get(id) as { kind: string; title: string | null; space_id: string | null } | undefined;
+    if (row === undefined || row.space_id !== null || UNMOVABLE_KINDS.has(row.kind)) continue;
+    out.push({ id, title: (row.title ?? "").slice(0, 120) });
+  }
+  return out;
+}
+
+/** Thread kinds a proposal never moves. A channel chat waits for SR11 (owner decision, S7 r1). */
+const UNMOVABLE_KINDS = new Set(["main", "incognito", "channel"]);
 
 /**
  * Records a proposal. Returns the existing open one when the same name or project is already
- * proposed, and refuses what the owner already decided: a Space that exists, a proposal they
- * dismissed or accepted. Throws `invalid_params` or `conflict` with a message the model can act on.
+ * proposed, and refuses what the owner already decided: a Space that exists, a clean proposal they
+ * dismissed or accepted. A clean proposal replaces an open tainted one with the same name or
+ * project. Throws `invalid_params`, `forbidden` or `conflict` with a message the model can act on.
  */
 export function createProposal(
   deps: ProposeDeps,
@@ -76,44 +114,58 @@ export function createProposal(
   if (wanted.length > MAX_PROPOSAL_THREADS) {
     throw new PsycheError("invalid_params", `Name at most ${MAX_PROPOSAL_THREADS} chats.`);
   }
-  const threadIds: string[] = [];
   for (const id of wanted) {
     const row = db.sqlite.prepare("SELECT kind FROM threads WHERE id = ?").get(id) as
       | { kind: string }
       | undefined;
-    if (row === undefined) {
-      if (input.threadIds?.includes(id) === true) {
-        throw new PsycheError("not_found", `Chat ${id} does not exist.`);
-      }
-      continue;
+    if (row === undefined && input.threadIds?.includes(id) === true) {
+      throw new PsycheError("not_found", `Chat ${id} does not exist.`);
     }
-    if (row.kind === "main" || row.kind === "incognito") continue;
-    threadIds.push(id);
+    // Owner decision (S7 r1): a channel chat is not pulled into a Space by a proposal until
+    // Space context is kept from channel peers at run time (SR11).
+    if (row?.kind === "channel") {
+      throw new PsycheError(
+        "forbidden",
+        "Chats from messaging channels can't be put in a Space yet. Do not propose it.",
+      );
+    }
   }
+  // A chat already in a Space (private or not) is left out, and so is the main chat.
+  const threadIds = proposalChats(db, wanted).map((c) => c.id);
 
   const all = store.proposals(false);
+  const isTainted = (p: SpaceProposal): boolean => p.taint.length > 0;
   const same = (p: SpaceProposal): boolean =>
-    key(p.name) === key(name) || (input.entityId !== undefined && p.entityId === input.entityId);
-  const open = all.find((p) => p.status === "open" && same(p));
+    nameKey(p.name) === nameKey(name) ||
+    (input.entityId !== undefined && p.entityId === input.entityId);
+  // A clean proposal is never answered with a tainted one: it replaces it on Home.
+  const open = all.find((p) => p.status === "open" && same(p) && (tainted || !isTainted(p)));
   if (open !== undefined) return { proposal: open, created: false };
-  if (all.some((p) => p.status !== "open" && same(p))) {
+  // The owner's answer to a tainted proposal is about that proposal only: it does not stop a
+  // later proposal with the same name or project.
+  if (all.some((p) => p.status !== "open" && same(p) && !isTainted(p))) {
     throw new PsycheError(
       "conflict",
       "The owner already decided on a Space like this. Do not propose it again.",
     );
   }
-  const existing = db.sqlite
-    .prepare("SELECT id FROM spaces WHERE lower(name) = ? AND archived_at IS NULL")
-    .get(key(name)) as { id: string } | undefined;
-  if (existing !== undefined) {
+  const names = db.sqlite.prepare("SELECT name FROM spaces WHERE archived_at IS NULL").all() as {
+    name: string;
+  }[];
+  if (names.some((r) => nameKey(r.name) === nameKey(name))) {
     throw new PsycheError("conflict", "A Space with that name already exists.");
   }
-  if (all.filter((p) => p.status === "open").length >= MAX_OPEN_PROPOSALS) {
+  const superseded = tainted ? [] : all.filter((p) => p.status === "open" && same(p));
+  const stillOpen = all.filter((p) => p.status === "open" && !superseded.includes(p));
+  const cap = tainted ? MAX_OPEN_TAINTED_PROPOSALS : MAX_OPEN_PROPOSALS;
+  if (stillOpen.filter((p) => isTainted(p) === tainted).length >= cap) {
     throw new PsycheError(
       "conflict",
       "There are already proposals waiting on the owner. Wait for them to decide.",
     );
   }
+  const drop = db.sqlite.prepare("DELETE FROM space_proposals WHERE id = ? AND status = 'open'");
+  for (const p of superseded) drop.run(p.id);
 
   const id = db.newId();
   db.sqlite

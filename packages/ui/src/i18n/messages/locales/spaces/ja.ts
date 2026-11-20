@@ -135,6 +135,12 @@ export const spaces: Partial<Catalogue> = {
   "spaces.proposal.title": "{name}のSpaceを作成しますか？",
   "spaces.proposal.untrusted":
     "信頼できない内容（{source}）を読んでいる間に提案されました。以下の文は引用で、Psycheの言葉ではありません。",
+  "spaces.proposal.titleUntrusted": "この提案されたSpaceを作成しますか？",
+  "spaces.proposal.project": "プロジェクト「{name}」にリンクします",
+  "spaces.proposal.chats":
+    "{n, plural, =0 {移動するチャットはありません} other {#件のチャットを移動します:}}",
+  "spaces.proposal.chatsLabel": "移動するチャット",
+  "spaces.proposal.untitledChat": "無題のチャット",
   "spaces.proposal.create": "作成",
   "spaces.proposal.notNow": "今はしない",
   "spaces.proposal.created": "Space「{name}」を作成しました",

@@ -259,7 +259,7 @@ export const SpacesMethods = {
     scope: "operator.write",
     sideEffecting: true,
     description:
-      "The owner's Create on the migration offer: one Space per checked project (createdFrom migration), linked, with the project's anchored chats moved in. Closes the offer.",
+      "Side-effecting. The owner's Create on the migration offer: one Space per checked project (createdFrom migration), linked, with the project's anchored chats moved in. Closes the offer.",
   }),
   "spaces.migration.dismiss": defineMethod({
     params: Type.Object({}),

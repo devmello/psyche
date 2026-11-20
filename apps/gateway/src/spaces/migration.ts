@@ -10,7 +10,7 @@ import {
   type SpaceOffers,
 } from "@psyche/protocol";
 import type { Call, HandlerDef } from "../context.ts";
-import { SpaceStore } from "./store.ts";
+import { projectPrivateError, SpaceStore } from "./store.ts";
 
 /**
  * Migration offers (docs/design/spaces-2026.md §8, SP12). Nothing here converts anything by
@@ -21,6 +21,9 @@ import { SpaceStore } from "./store.ts";
  * - Pinned widgets stay on Home. When their chat is in a Space, the Space page offers the shelf.
  * - Standing instructions in a chat's summary stay there. When the chat is in a Space, the page
  *   offers the ones the owner gave. A pin an untrusted summary added is never offered.
+ * - A chat where anyone but the owner wrote (a channel chat, or any chat with a message row that
+ *   is not the owner's) offers no rules and no widgets at all (SR1): its summary can carry another
+ *   person's words without taint.
  */
 
 export const MAX_MIGRATION_PROJECTS = 5;
@@ -163,6 +166,11 @@ export class SpaceMigration {
   apply(entityIds: readonly string[]): { spaces: Space[]; movedThreadIds: string[] } {
     if (this.#decided()) throw new PsycheError("conflict", "That offer is already closed.");
     const chosen = new Set(entityIds);
+    // A project made Keep private since the offer is refused by name, not as a stale offer (SR10).
+    const memory = this.#deps.memory?.();
+    if (memory?.listEntities(["project"]).some((e) => chosen.has(e.id) && e.private === true)) {
+      throw projectPrivateError();
+    }
     const candidates = this.#candidates().filter((c) => chosen.has(c.entityId));
     if (candidates.length !== chosen.size) {
       throw new PsycheError("conflict", "One of those projects is no longer on the offer.");
@@ -202,6 +210,28 @@ export class SpaceMigration {
   }
 
   /**
+   * The chats among `ids` where only the owner wrote: not a channel chat, and no message row from
+   * anyone else. A user-role row that is not `owner` provenance is someone else's words (a channel
+   * peer, a forwarded or agent-sent request), and an `untrusted` row of any role is third-party
+   * text. Read from the rows, not from the summary's taint, which a peer's plain text never sets.
+   */
+  #ownerOnly(ids: readonly string[]): Set<string> {
+    const marks = ids.map(() => "?").join(", ");
+    const rows = this.#db.sqlite
+      .prepare(
+        `SELECT t.id FROM threads t
+         WHERE t.id IN (${marks}) AND t.kind <> 'channel'
+           AND NOT EXISTS (
+             SELECT 1 FROM messages m
+             WHERE m.thread_id = t.id
+               AND (m.provenance = 'untrusted' OR (m.role = 'user' AND m.provenance <> 'owner'))
+           )`,
+      )
+      .all(...ids) as { id: string }[];
+    return new Set(rows.map((r) => r.id));
+  }
+
+  /**
    * Offers for a Space whose chats came in: their pinned widgets (not yet on the shelf, drawn from
    * trusted content only) and the standing instructions the owner gave in them. A widget that read
    * untrusted content and a pin that an untrusted summary added are never offered.
@@ -216,8 +246,11 @@ export class SpaceMigration {
     const widgets: SpaceOffers["widgets"] = [];
     const rules: SpaceOffers["rules"] = [];
     if (threads.length === 0) return { widgets, rules };
+    const owners = this.#ownerOnly(threads.map((t) => t.id));
+    const ownerThreads = threads.filter((t) => owners.has(t.id));
+    if (ownerThreads.length === 0) return { widgets, rules };
 
-    const marks = threads.map(() => "?").join(", ");
+    const marks = ownerThreads.map(() => "?").join(", ");
     const pinned = this.#db.sqlite
       .prepare(
         `SELECT w.id, w.thread_id, w.taint, json_extract(w.spec, '$.title') AS title
@@ -226,7 +259,7 @@ export class SpaceMigration {
            AND NOT EXISTS (SELECT 1 FROM space_trackers t WHERE t.widget_id = w.id)
          ORDER BY w.updated_at DESC, w.id`,
       )
-      .all(...threads.map((t) => t.id)) as {
+      .all(...ownerThreads.map((t) => t.id)) as {
       id: string;
       thread_id: string;
       taint: string;
@@ -248,7 +281,7 @@ export class SpaceMigration {
     const seen = new Set<string>();
     const states = this.#deps.states;
     if (states !== undefined) {
-      for (const t of threads) {
+      for (const t of ownerThreads) {
         const summary = (await states.load(t.id))?.summary;
         const pins = summary?.structured?.pinnedInstructions ?? [];
         if (pins.length === 0) continue;

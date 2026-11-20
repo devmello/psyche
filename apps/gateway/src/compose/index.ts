@@ -2209,7 +2209,7 @@ export async function composeGateway(options: ComposeOptions): Promise<ComposedG
   );
   parts.push(nudges.part());
   parts.push(mailFollowups.part());
-  parts.push(composeSpaces({ scheduler }));
+  parts.push(composeSpaces({ scheduler, projects: () => people.graph }));
   // Proposals and migration offers (Spaces S7): the agent only proposes, the owner taps Create.
   parts.push(
     composeSpaceOffers({

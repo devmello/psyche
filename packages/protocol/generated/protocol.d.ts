@@ -9377,7 +9377,7 @@ export interface UpdateBusy {
      * Chat (and automation) turns running right now
      */
     activeChats: number;
-    chats:       ChatElement[];
+    chats:       UpdateBusyChat[];
     /**
      * Approvals waiting for the owner; the runs parked on them resume after a restart
      */
@@ -9393,7 +9393,7 @@ export interface UpdateBusy {
     tasks:        TaskElement[];
 }
 
-export interface ChatElement {
+export interface UpdateBusyChat {
     runId:    string;
     threadId: string;
 }
@@ -11780,15 +11780,22 @@ export interface SpaceProposalCreatedPayload {
 }
 
 export interface SpaceProposal {
-    createdAt:  string;
-    decidedAt?: null | string;
-    entityId?:  null | string;
-    id:         string;
-    name:       string;
-    reason:     string;
-    status:     SpaceProposalStatus;
-    taint:      TaintSource[];
-    threadIds:  string[];
+    chats?:       SpaceProposalChat[];
+    createdAt:    string;
+    decidedAt?:   null | string;
+    entityId?:    null | string;
+    id:           string;
+    name:         string;
+    projectName?: null | string;
+    reason:       string;
+    status:       SpaceProposalStatus;
+    taint:        TaintSource[];
+    threadIds:    string[];
+}
+
+export interface SpaceProposalChat {
+    id:    string;
+    title: string;
 }
 
 export type SpaceProposalStatus = "open" | "accepted" | "dismissed";

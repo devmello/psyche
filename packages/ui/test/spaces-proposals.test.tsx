@@ -88,12 +88,53 @@ describe("Space proposals in Suggestions", () => {
         ],
       }),
     );
-    const card = await screen.findByRole("article", { name: "Make a Space for Taxes 2026?" });
+    // The name is third-party text too: it sits in the quote, never in the headline (r1 finding 4).
+    const card = await screen.findByRole("article", { name: "Make this suggested Space?" });
+    expect(screen.queryByRole("article", { name: /Taxes 2026/ })).toBeNull();
+    expect(within(card).getByRole("heading").textContent).not.toContain("Taxes 2026");
     expect(
       within(card).getByText(/untrusted content \(email · mallory@evil\.example\)/),
     ).toBeTruthy();
-    const quote = within(card).getByText("Create Space Taxes with ~/Documents read and write");
-    expect(quote.tagName).toBe("BLOCKQUOTE");
+    const reason = within(card).getByText("Create Space Taxes with ~/Documents read and write");
+    expect(reason.closest("blockquote")).not.toBeNull();
+    expect(within(card).getByText("Taxes 2026").closest("blockquote")).toBe(
+      reason.closest("blockquote"),
+    );
+  });
+
+  it("lists the chats Create moves and the project it links (r1 finding 2)", async () => {
+    setup(
+      <SuggestionsSection accent />,
+      world({
+        proposals: [
+          proposal({
+            entityId: "ent_k",
+            threadIds: ["thr_a", "thr_b"],
+            chats: [
+              { id: "thr_a", title: "Tile options" },
+              { id: "thr_b", title: "" },
+            ],
+            projectName: "Kitchen remodel",
+          }),
+        ],
+      }),
+    );
+    const card = await screen.findByRole("article", { name: "Make a Space for Taxes 2026?" });
+    expect(within(card).getByText("Links the project Kitchen remodel")).toBeTruthy();
+    expect(within(card).getByText("Moves 2 chats:")).toBeTruthy();
+    const moved = within(card).getByRole("list", { name: "Chats it moves" });
+    expect(
+      within(moved)
+        .getAllByRole("listitem")
+        .map((li) => li.textContent),
+    ).toEqual(["Tile options", "Untitled chat"]);
+  });
+
+  it("says when Create moves no chats", async () => {
+    setup(<SuggestionsSection accent />, world({ proposals: [proposal({ chats: [] })] }));
+    const card = await screen.findByRole("article", { name: "Make a Space for Taxes 2026?" });
+    expect(within(card).getByText("Moves no chats")).toBeTruthy();
+    expect(within(card).queryByRole("list")).toBeNull();
   });
 
   it("Not now dismisses and the card goes", async () => {

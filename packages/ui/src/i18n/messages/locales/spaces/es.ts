@@ -135,6 +135,12 @@ export const spaces: Partial<Catalogue> = {
   "spaces.proposal.title": "¿Crear un Space para {name}?",
   "spaces.proposal.untrusted":
     "Sugerido al leer contenido no fiable ({source}). El texto de abajo es una cita, no palabras de Psyche.",
+  "spaces.proposal.titleUntrusted": "¿Crear este Space sugerido?",
+  "spaces.proposal.project": "Vincula el proyecto {name}",
+  "spaces.proposal.chats":
+    "{n, plural, =0 {No mueve ningún chat} one {Mueve # chat:} other {Mueve # chats:}}",
+  "spaces.proposal.chatsLabel": "Chats que mueve",
+  "spaces.proposal.untitledChat": "Chat sin título",
   "spaces.proposal.create": "Crear",
   "spaces.proposal.notNow": "Ahora no",
   "spaces.proposal.created": "Space {name} creado",

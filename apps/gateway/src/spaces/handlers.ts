@@ -9,7 +9,8 @@ import {
   type SpaceLink,
 } from "@psyche/protocol";
 import type { Call, HandlerDef } from "../context.ts";
-import { SpaceStore } from "./store.ts";
+import { proposalChats } from "./proposals.ts";
+import { projectPrivateError, SpaceStore } from "./store.ts";
 
 /**
  * `spaces.*` handlers (docs/design/spaces-2026.md §4.2), wave S1: the Space itself, links, moving
@@ -26,9 +27,16 @@ export interface SpaceAutomations {
   get(id: string): Promise<Automation | undefined>;
 }
 
+/** What the handlers read of a Memory project: whether it is Keep private, and its name. */
+export interface SpaceProjects {
+  getEntity(id: string): { name?: string; private?: boolean | undefined } | undefined;
+}
+
 export interface SpaceHandlerDeps {
   /** The scheduler. Without one the automations table is written directly (tests). */
   readonly automations?: SpaceAutomations | undefined;
+  /** The people graph, to refuse a Keep-private project (SR10) and name the linked one. */
+  readonly projects?: (() => SpaceProjects | undefined) | undefined;
 }
 
 type P<M extends MethodName> = MethodParams<M>;
@@ -49,6 +57,11 @@ const URL_REF = /^https?:\/\//i;
 
 export function spacesHandlers(deps: SpaceHandlerDeps = {}): Record<string, HandlerDef> {
   const store = (call: Call) => new SpaceStore(call.ctx.db);
+  const project = (id: string) => deps.projects?.()?.getEntity(id);
+  /** A Keep-private project never gets a Space, whoever asks (SR10). */
+  const refusePrivate = (entityId: string | null | undefined): void => {
+    if (entityId != null && project(entityId)?.private === true) throw projectPrivateError();
+  };
 
   async function automationsChanged(call: Call, ids: readonly string[]): Promise<void> {
     if (deps.automations === undefined) return;
@@ -89,6 +102,7 @@ export function spacesHandlers(deps: SpaceHandlerDeps = {}): Record<string, Hand
     "spaces.create": {
       transactional: true,
       run(call: Call, p: P<"spaces.create">): MethodResult<"spaces.create"> {
+        refusePrivate(p.entityId);
         const space = store(call).create(p);
         changed(call, space.id, ["row"]);
         return { space };
@@ -98,6 +112,7 @@ export function spacesHandlers(deps: SpaceHandlerDeps = {}): Record<string, Hand
       transactional: true,
       run(call: Call, p: P<"spaces.update">): MethodResult<"spaces.update"> {
         const { spaceId, ...patch } = p;
+        refusePrivate(patch.entityId);
         const space = store(call).update(spaceId, patch);
         changed(call, spaceId, ["row"]);
         return { space };
@@ -202,7 +217,17 @@ export function spacesHandlers(deps: SpaceHandlerDeps = {}): Record<string, Hand
     },
     "spaces.proposals.list": {
       run: (call: Call, p: P<"spaces.proposals.list">) => ({
-        proposals: store(call).proposals(p.status === "open"),
+        // Each card shows exactly what its Create would move, and the project it would link.
+        proposals: store(call)
+          .proposals(p.status === "open")
+          .map((proposal) => ({
+            ...proposal,
+            chats: proposalChats(call.ctx.db, proposal.threadIds),
+            projectName:
+              proposal.entityId === null
+                ? null
+                : (project(proposal.entityId)?.name?.slice(0, 120) ?? null),
+          })),
       }),
     },
     "spaces.proposals.accept": {
@@ -212,17 +237,17 @@ export function spacesHandlers(deps: SpaceHandlerDeps = {}): Record<string, Hand
         const proposal = s.proposal(p.proposalId);
         if (proposal.status !== "open")
           throw new PsycheError("conflict", "that proposal is already decided");
+        // Checked again now: the project may have been made private since the proposal.
+        refusePrivate(proposal.entityId);
         const space = s.create({
           name: p.name ?? proposal.name,
           ...(proposal.entityId === null ? {} : { entityId: proposal.entityId }),
           createdFrom: "proposal",
         });
         s.decideProposal(proposal.id, "accepted");
-        // The threads it names that still exist (and can be in a Space) come in; the rest are skipped.
-        const movable = proposal.threadIds.filter((id) => {
-          const t = getThread(call.ctx.db, id);
-          return t !== undefined && t.kind !== "main";
-        });
+        // Only chats with no Space yet come in (as in migration), never main or a channel chat:
+        // a chat is never taken out of another Space, private or not.
+        const movable = proposalChats(call.ctx.db, proposal.threadIds).map((c) => c.id);
         const { moved } = s.moveThreads(movable, space.id);
         changed(call, space.id, ["row"]);
         threadsChanged(call, moved);

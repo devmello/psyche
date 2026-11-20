@@ -133,6 +133,11 @@ export const spaces: Partial<Catalogue> = {
   "spaces.proposal.title": "{name}용 Space를 만들까요?",
   "spaces.proposal.untrusted":
     "신뢰할 수 없는 내용({source})을 읽는 중에 제안되었습니다. 아래 글은 인용이며 Psyche의 말이 아닙니다.",
+  "spaces.proposal.titleUntrusted": "제안된 이 Space를 만들까요?",
+  "spaces.proposal.project": "프로젝트 {name}에 연결합니다",
+  "spaces.proposal.chats": "{n, plural, =0 {옮기는 채팅이 없습니다} other {채팅 #개를 옮깁니다:}}",
+  "spaces.proposal.chatsLabel": "옮길 채팅",
+  "spaces.proposal.untitledChat": "제목 없는 채팅",
   "spaces.proposal.create": "만들기",
   "spaces.proposal.notNow": "나중에",
   "spaces.proposal.created": "Space {name}을(를) 만들었습니다",

@@ -94,21 +94,29 @@ export function SpaceProposalCard({
         <Layers className="size-3.5" aria-hidden="true" />
         {t("spaces.proposal.kicker")}
       </p>
-      <h3 id={titleId} className="text-headline text-label-primary">
-        {t("spaces.proposal.title", { name: proposal.name })}
-      </h3>
       {untrusted ? (
         <>
+          {/* A tainted proposal's name is third-party text: never in the headline (SR9). */}
+          <h3 id={titleId} className="text-headline text-label-primary">
+            {t("spaces.proposal.titleUntrusted")}
+          </h3>
           <p className="text-callout text-label-secondary">
             {t("spaces.proposal.untrusted", { source: taintLine(proposal.taint) })}
           </p>
-          <blockquote className="border-s-2 border-separator ps-2 text-callout text-label-secondary">
-            {proposal.reason}
+          <blockquote className="flex flex-col gap-0.5 border-s-2 border-separator ps-2 text-callout text-label-secondary">
+            <span className="text-label-primary">{proposal.name}</span>
+            <span>{proposal.reason}</span>
           </blockquote>
         </>
       ) : (
-        <p className="text-callout text-label-secondary">{proposal.reason}</p>
+        <>
+          <h3 id={titleId} className="text-headline text-label-primary">
+            {t("spaces.proposal.title", { name: proposal.name })}
+          </h3>
+          <p className="text-callout text-label-secondary">{proposal.reason}</p>
+        </>
       )}
+      <ProposalMoves proposal={proposal} />
       <div className="mt-1 flex flex-wrap gap-1.5">
         <Button
           type="button"
@@ -124,6 +132,28 @@ export function SpaceProposalCard({
         </Button>
       </div>
     </article>
+  );
+}
+
+/** What Create would do, read from the Gateway: the project it links and the chats it moves. */
+function ProposalMoves({ proposal }: { proposal: SpaceProposal }): ReactElement {
+  const chats = proposal.chats ?? [];
+  return (
+    <div className="flex flex-col gap-0.5 text-callout text-label-secondary">
+      {proposal.entityId === null ? null : (
+        <p>{t("spaces.proposal.project", { name: proposal.projectName ?? proposal.entityId })}</p>
+      )}
+      <p>{t("spaces.proposal.chats", { n: chats.length })}</p>
+      {chats.length === 0 ? null : (
+        <ul className="list-disc ps-5" aria-label={t("spaces.proposal.chatsLabel")}>
+          {chats.map((c) => (
+            <li key={c.id} className="truncate">
+              {c.title === "" ? t("spaces.proposal.untitledChat") : c.title}
+            </li>
+          ))}
+        </ul>
+      )}
+    </div>
   );
 }
 

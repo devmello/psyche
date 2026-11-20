@@ -133,6 +133,8 @@ export const pt: Partial<Catalogue> = {
   "errors.reason.connected_with_other_client":
     "O Google está conectado com outro cliente. Desconecte o Google primeiro e depois troque o cliente.",
   "errors.reason.secret_required": "Um cliente diferente precisa do próprio segredo do cliente.",
+  "errors.reason.project_private":
+    "Esse projeto é privado, então não pode ter um Space. Desative Manter privado primeiro.",
   "errors.reason.updating":
     "O Psyche vai reiniciar para instalar uma atualização. Tente novamente em instantes.",
   "errors.unavailable": "O Psyche não consegue fazer isso agora.",

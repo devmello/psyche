@@ -173,9 +173,12 @@ struct ProjectPage: View {
     }
 
     /// "Open Space" for a project that has one, "Make a Space" for one that doesn't. A Space is made only by this tap.
+    /// A Keep-private project gets neither: a Space would show on Home and in the Spaces list (SR10).
     @ViewBuilder
     private func spaceButton(_ detail: ProjectDetail) -> some View {
-        if let spaceID = model.spaceID {
+        if detail.isPrivate {
+            EmptyView()
+        } else if let spaceID = model.spaceID {
             Button { openedSpace = .space(id: spaceID) } label: {
                 Label(String(localized: "Open Space", bundle: .module), systemImage: "square.stack")
             }

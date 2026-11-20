@@ -3621,7 +3621,7 @@
         "sideEffecting": false
       },
       {
-        "description": "The owner's Create on the migration offer: one Space per checked project (createdFrom migration), linked, with the project's anchored chats moved in. Closes the offer.",
+        "description": "Side-effecting. The owner's Create on the migration offer: one Space per checked project (createdFrom migration), linked, with the project's anchored chats moved in. Closes the offer.",
         "name": "spaces.migration.apply",
         "params": "#/$defs/SpacesMigrationApplyParams",
         "result": "#/$defs/SpacesMigrationApplyResult",
@@ -44615,6 +44615,39 @@
             {
               "description": "ISO-8601 timestamp (UTC)",
               "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}(\\.\\d{1,9})?(Z|[+-]\\d{2}:\\d{2})$",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "chats": {
+          "items": {
+            "additionalProperties": false,
+            "properties": {
+              "id": {
+                "description": "ULID in production",
+                "maxLength": 64,
+                "minLength": 1,
+                "type": "string"
+              },
+              "title": {
+                "type": "string"
+              }
+            },
+            "required": [
+              "id",
+              "title"
+            ],
+            "type": "object"
+          },
+          "maxItems": 10,
+          "type": "array"
+        },
+        "projectName": {
+          "anyOf": [
+            {
               "type": "string"
             },
             {

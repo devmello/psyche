@@ -131,6 +131,11 @@ export const spaces: Partial<Catalogue> = {
   "spaces.proposal.title": "为{name}创建一个 Space？",
   "spaces.proposal.untrusted":
     "这是在读取不可信内容（{source}）时提出的建议。下面的文字是引用，不是 Psyche 的原话。",
+  "spaces.proposal.titleUntrusted": "要创建这个建议的 Space 吗？",
+  "spaces.proposal.project": "关联项目 {name}",
+  "spaces.proposal.chats": "{n, plural, =0 {不移动任何对话} other {移动 # 个对话：}}",
+  "spaces.proposal.chatsLabel": "将移动的对话",
+  "spaces.proposal.untitledChat": "无标题对话",
   "spaces.proposal.create": "创建",
   "spaces.proposal.notNow": "暂不",
   "spaces.proposal.created": "已创建 Space {name}",

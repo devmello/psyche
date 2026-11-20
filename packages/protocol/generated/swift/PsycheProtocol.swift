@@ -27342,7 +27342,7 @@ public struct PrepareUpdateResult: Codable, Sendable {
 public struct UpdateBusy: Codable, Sendable {
     /// Chat (and automation) turns running right now
     public let activeChats: Int
-    public let chats: [ChatElement]
+    public let chats: [UpdateBusyChat]
     /// Approvals waiting for the owner; the runs parked on them resume after a restart
     public let pendingApprovals: Int
     /// Recordings in progress that the Gateway knows of (a Mac app being recorded)
@@ -27360,7 +27360,7 @@ public struct UpdateBusy: Codable, Sendable {
         case tasks = "tasks"
     }
 
-    public init(activeChats: Int, chats: [ChatElement], pendingApprovals: Int, recordings: Int, runningTasks: Int, tasks: [TaskElement]) {
+    public init(activeChats: Int, chats: [UpdateBusyChat], pendingApprovals: Int, recordings: Int, runningTasks: Int, tasks: [TaskElement]) {
         self.activeChats = activeChats
         self.chats = chats
         self.pendingApprovals = pendingApprovals
@@ -27370,8 +27370,8 @@ public struct UpdateBusy: Codable, Sendable {
     }
 }
 
-// MARK: - ChatElement
-public struct ChatElement: Codable, Sendable {
+// MARK: - UpdateBusyChat
+public struct UpdateBusyChat: Codable, Sendable {
     public let runID: String
     public let threadID: String
 
@@ -33578,38 +33578,60 @@ public struct SpaceProposalCreatedPayload: Codable, Sendable {
 
 // MARK: - SpaceProposal
 public struct SpaceProposal: Codable, Sendable {
+    public let chats: [SpaceProposalChat]?
     public let createdAt: String
     public let decidedAt: String?
     public let entityID: String?
     public let id: String
     public let name: String
+    public let projectName: String?
     public let reason: String
     public let status: SpaceProposalStatus
     public let taint: [TaintSource]
     public let threadIDS: [String]
 
     public enum CodingKeys: String, CodingKey {
+        case chats = "chats"
         case createdAt = "createdAt"
         case decidedAt = "decidedAt"
         case entityID = "entityId"
         case id = "id"
         case name = "name"
+        case projectName = "projectName"
         case reason = "reason"
         case status = "status"
         case taint = "taint"
         case threadIDS = "threadIds"
     }
 
-    public init(createdAt: String, decidedAt: String? = nil, entityID: String? = nil, id: String, name: String, reason: String, status: SpaceProposalStatus, taint: [TaintSource], threadIDS: [String]) {
+    public init(chats: [SpaceProposalChat]? = nil, createdAt: String, decidedAt: String? = nil, entityID: String? = nil, id: String, name: String, projectName: String? = nil, reason: String, status: SpaceProposalStatus, taint: [TaintSource], threadIDS: [String]) {
+        self.chats = chats
         self.createdAt = createdAt
         self.decidedAt = decidedAt
         self.entityID = entityID
         self.id = id
         self.name = name
+        self.projectName = projectName
         self.reason = reason
         self.status = status
         self.taint = taint
         self.threadIDS = threadIDS
+    }
+}
+
+// MARK: - SpaceProposalChat
+public struct SpaceProposalChat: Codable, Sendable {
+    public let id: String
+    public let title: String
+
+    public enum CodingKeys: String, CodingKey {
+        case id = "id"
+        case title = "title"
+    }
+
+    public init(id: String, title: String) {
+        self.id = id
+        self.title = title
     }
 }
 
