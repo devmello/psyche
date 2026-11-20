@@ -435,6 +435,10 @@ export class Connection implements LiveConnection {
         "Psyche's security records are untrusted and this device is not one it knows; pair it again after a re-seal",
       );
     }
+    // A machine is `["node"]` and nothing else; if its row ever holds more, the socket ends.
+    if (identity.machine === true && (authz.scopes.length !== 1 || authz.scopes[0] !== "node")) {
+      throw new PsycheError("unauthorized", "This computer is paired as a machine only");
+    }
     const same =
       authz.scopes.length === identity.scopes.length &&
       authz.scopes.every((s) => identity.scopes.includes(s));

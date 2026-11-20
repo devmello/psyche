@@ -189,6 +189,8 @@
 //   let automationTrigger = try? JSONDecoder().decode(AutomationTrigger.self, from: jsonData)
 //   let automationUpdatedPayload = try? JSONDecoder().decode(AutomationUpdatedPayload.self, from: jsonData)
 //   let automationWorkflowBlock = try? JSONDecoder().decode(AutomationWorkflowBlock.self, from: jsonData)
+//   let automationsCancelRetryParams = try? JSONDecoder().decode(AutomationsCancelRetryParams.self, from: jsonData)
+//   let automationsCancelRetryResult = try? JSONDecoder().decode(AutomationsCancelRetryResult.self, from: jsonData)
 //   let automationsCreateParams = try? JSONDecoder().decode(AutomationsCreateParams.self, from: jsonData)
 //   let automationsDeleteParams = try? JSONDecoder().decode(AutomationsDeleteParams.self, from: jsonData)
 //   let automationsListParams = try? JSONDecoder().decode(AutomationsListParams.self, from: jsonData)
@@ -757,6 +759,13 @@
 //   let machinesListResult = try? JSONDecoder().decode(MachinesListResult.self, from: jsonData)
 //   let machinesRenameParams = try? JSONDecoder().decode(MachinesRenameParams.self, from: jsonData)
 //   let machinesRenameResult = try? JSONDecoder().decode(MachinesRenameResult.self, from: jsonData)
+//   let mailFollowupAction = try? JSONDecoder().decode(MailFollowupAction.self, from: jsonData)
+//   let mailFollowupItem = try? JSONDecoder().decode(MailFollowupItem.self, from: jsonData)
+//   let mailFollowupKind = try? JSONDecoder().decode(MailFollowupKind.self, from: jsonData)
+//   let mailFollowupsActParams = try? JSONDecoder().decode(MailFollowupsActParams.self, from: jsonData)
+//   let mailFollowupsActResult = try? JSONDecoder().decode(MailFollowupsActResult.self, from: jsonData)
+//   let mailFollowupsListParams = try? JSONDecoder().decode(MailFollowupsListParams.self, from: jsonData)
+//   let mailFollowupsListResult = try? JSONDecoder().decode(MailFollowupsListResult.self, from: jsonData)
 //   let mailThreadRef = try? JSONDecoder().decode(MailThreadRef.self, from: jsonData)
 //   let mCPAddParams = try? JSONDecoder().decode(MCPAddParams.self, from: jsonData)
 //   let mCPAddResult = try? JSONDecoder().decode(MCPAddResult.self, from: jsonData)
@@ -1053,6 +1062,8 @@
 //   let nodeKind = try? JSONDecoder().decode(NodeKind.self, from: jsonData)
 //   let nodeResultParams = try? JSONDecoder().decode(NodeResultParams.self, from: jsonData)
 //   let nodeStatus = try? JSONDecoder().decode(NodeStatus.self, from: jsonData)
+//   let nodeUnpairParams = try? JSONDecoder().decode(NodeUnpairParams.self, from: jsonData)
+//   let nodeUnpairResult = try? JSONDecoder().decode(NodeUnpairResult.self, from: jsonData)
 //   let nodeUpdatedPayload = try? JSONDecoder().decode(NodeUpdatedPayload.self, from: jsonData)
 //   let nodesCapabilitiesParams = try? JSONDecoder().decode(NodesCapabilitiesParams.self, from: jsonData)
 //   let nodesCapabilitiesResult = try? JSONDecoder().decode(NodesCapabilitiesResult.self, from: jsonData)
@@ -1125,6 +1136,7 @@
 //   let planBlock = try? JSONDecoder().decode(PlanBlock.self, from: jsonData)
 //   let planStep = try? JSONDecoder().decode(PlanStep.self, from: jsonData)
 //   let planStepStatus = try? JSONDecoder().decode(PlanStepStatus.self, from: jsonData)
+//   let pluginAdds = try? JSONDecoder().decode(PluginAdds.self, from: jsonData)
 //   let pluginCapability = try? JSONDecoder().decode(PluginCapability.self, from: jsonData)
 //   let pluginManifest = try? JSONDecoder().decode(PluginManifest.self, from: jsonData)
 //   let pluginProposal = try? JSONDecoder().decode(PluginProposal.self, from: jsonData)
@@ -1517,6 +1529,13 @@
 //   let speechWhisperSetup = try? JSONDecoder().decode(SpeechWhisperSetup.self, from: jsonData)
 //   let speechWhisperSetupState = try? JSONDecoder().decode(SpeechWhisperSetupState.self, from: jsonData)
 //   let starterFolderID = try? JSONDecoder().decode(StarterFolderID.self, from: jsonData)
+//   let storageCategory = try? JSONDecoder().decode(StorageCategory.self, from: jsonData)
+//   let storageCategoryID = try? JSONDecoder().decode(StorageCategoryID.self, from: jsonData)
+//   let storageClearCacheParams = try? JSONDecoder().decode(StorageClearCacheParams.self, from: jsonData)
+//   let storageClearTarget = try? JSONDecoder().decode(StorageClearTarget.self, from: jsonData)
+//   let storageCleared = try? JSONDecoder().decode(StorageCleared.self, from: jsonData)
+//   let storageUsage = try? JSONDecoder().decode(StorageUsage.self, from: jsonData)
+//   let storageUsageParams = try? JSONDecoder().decode(StorageUsageParams.self, from: jsonData)
 //   let taintSource = try? JSONDecoder().decode(TaintSource.self, from: jsonData)
 //   let target = try? JSONDecoder().decode(Target.self, from: jsonData)
 //   let targetKind = try? JSONDecoder().decode(TargetKind.self, from: jsonData)
@@ -7203,6 +7222,32 @@ public enum AutomationWorkflowBlockType: String, Codable, Sendable {
     case automationWorkflow = "automation_workflow"
 }
 
+// MARK: - AutomationsCancelRetryParams
+public struct AutomationsCancelRetryParams: Codable, Sendable {
+    public let runID: String
+
+    public enum CodingKeys: String, CodingKey {
+        case runID = "runId"
+    }
+
+    public init(runID: String) {
+        self.runID = runID
+    }
+}
+
+// MARK: - AutomationsCancelRetryResult
+public struct AutomationsCancelRetryResult: Codable, Sendable {
+    public let run: AutomationRun
+
+    public enum CodingKeys: String, CodingKey {
+        case run = "run"
+    }
+
+    public init(run: AutomationRun) {
+        self.run = run
+    }
+}
+
 // MARK: - AutomationsCreateParams
 public struct AutomationsCreateParams: Codable, Sendable {
     public let delivery: Delivery?
@@ -9992,6 +10037,7 @@ public enum ChecklistItemStatus: String, Codable, Sendable {
 public enum BlockKind: String, Codable, Sendable {
     case feedItem = "feed_item"
     case lifeAnswer = "life_answer"
+    case mailFollowup = "mail_followup"
     case memoryEntity = "memory_entity"
     case searchHit = "search_hit"
 }
@@ -14786,6 +14832,7 @@ public enum DailySectionID: String, Codable, Sendable {
     case keepInTouch = "keep_in_touch"
     case learned = "learned"
     case mail = "mail"
+    case quietThreads = "quiet_threads"
     case tomorrow = "tomorrow"
     case weather = "weather"
     case workedOn = "worked_on"
@@ -19284,6 +19331,105 @@ public struct MachinesRenameResult: Codable, Sendable {
     public init(machine: MachineInfo) {
         self.machine = machine
     }
+}
+
+// MARK: - MailFollowupsActParams
+public struct MailFollowupsActParams: Codable, Sendable {
+    public let action: MailFollowupAction
+    public let id: String
+
+    public enum CodingKeys: String, CodingKey {
+        case action = "action"
+        case id = "id"
+    }
+
+    public init(action: MailFollowupAction, id: String) {
+        self.action = action
+        self.id = id
+    }
+}
+
+public enum MailFollowupAction: String, Codable, Sendable {
+    case dismiss = "dismiss"
+    case snooze = "snooze"
+}
+
+// MARK: - MailFollowupsActResult
+public struct MailFollowupsActResult: Codable, Sendable {
+    public let ok: Bool
+
+    public enum CodingKeys: String, CodingKey {
+        case ok = "ok"
+    }
+
+    public init(ok: Bool) {
+        self.ok = ok
+    }
+}
+
+// MARK: - MailFollowupsListResult
+public struct MailFollowupsListResult: Codable, Sendable {
+    /// `mail.followups.enabled` is on
+    public let enabled: Bool
+    public let items: [MailFollowupItem]
+
+    public enum CodingKeys: String, CodingKey {
+        case enabled = "enabled"
+        case items = "items"
+    }
+
+    public init(enabled: Bool, items: [MailFollowupItem]) {
+        self.enabled = enabled
+        self.items = items
+    }
+}
+
+// MARK: - MailFollowupItem
+public struct MailFollowupItem: Codable, Sendable {
+    public let daysQuiet: Int
+    public let gmailThreadID: String?
+    public let id: String
+    public let kind: MailFollowupKind
+    public let link: String?
+    public let source: MailFollowupItemSource
+    public let subject: String
+    public let untrusted: Bool
+    public let who: String
+
+    public enum CodingKeys: String, CodingKey {
+        case daysQuiet = "daysQuiet"
+        case gmailThreadID = "gmailThreadId"
+        case id = "id"
+        case kind = "kind"
+        case link = "link"
+        case source = "source"
+        case subject = "subject"
+        case untrusted = "untrusted"
+        case who = "who"
+    }
+
+    public init(daysQuiet: Int, gmailThreadID: String? = nil, id: String, kind: MailFollowupKind, link: String? = nil, source: MailFollowupItemSource, subject: String, untrusted: Bool, who: String) {
+        self.daysQuiet = daysQuiet
+        self.gmailThreadID = gmailThreadID
+        self.id = id
+        self.kind = kind
+        self.link = link
+        self.source = source
+        self.subject = subject
+        self.untrusted = untrusted
+        self.who = who
+    }
+}
+
+public enum MailFollowupKind: String, Codable, Sendable {
+    case noReply = "no_reply"
+    case unansweredQuestion = "unanswered_question"
+}
+
+public enum MailFollowupItemSource: String, Codable, Sendable {
+    case apple = "apple"
+    case gmail = "gmail"
+    case imap = "imap"
 }
 
 // MARK: - MCPAddParams
@@ -25531,6 +25677,19 @@ public enum ReceiptOutcome: String, Codable, Sendable {
     case uncertain = "uncertain"
 }
 
+// MARK: - NodeUnpairResult
+public struct NodeUnpairResult: Codable, Sendable {
+    public let device: Device
+
+    public enum CodingKeys: String, CodingKey {
+        case device = "device"
+    }
+
+    public init(device: Device) {
+        self.device = device
+    }
+}
+
 // MARK: - NodeUpdatedPayload
 public struct NodeUpdatedPayload: Codable, Sendable {
     public let node: NodeInfo
@@ -26916,6 +27075,7 @@ public struct PluginsInstallResult: Codable, Sendable {
 
 // MARK: - PluginSummary
 public struct PluginSummary: Codable, Sendable {
+    public let adds: PluginAdds?
     public let capabilities: [PluginCapability]
     public let description: String
     /// The owner's switch for this plugin
@@ -26931,6 +27091,7 @@ public struct PluginSummary: Codable, Sendable {
     public let version: String
 
     public enum CodingKeys: String, CodingKey {
+        case adds = "adds"
         case capabilities = "capabilities"
         case description = "description"
         case enabled = "enabled"
@@ -26943,7 +27104,8 @@ public struct PluginSummary: Codable, Sendable {
         case version = "version"
     }
 
-    public init(capabilities: [PluginCapability], description: String, enabled: Bool, error: String? = nil, hash: String, installedAt: String, name: String, source: String, status: PluginStatus, version: String) {
+    public init(adds: PluginAdds? = nil, capabilities: [PluginCapability], description: String, enabled: Bool, error: String? = nil, hash: String, installedAt: String, name: String, source: String, status: PluginStatus, version: String) {
+        self.adds = adds
         self.capabilities = capabilities
         self.description = description
         self.enabled = enabled
@@ -26954,6 +27116,28 @@ public struct PluginSummary: Codable, Sendable {
         self.source = source
         self.status = status
         self.version = version
+    }
+}
+
+// MARK: - PluginAdds
+public struct PluginAdds: Codable, Sendable {
+    public let commands: Int
+    public let hooks: Int
+    public let mcpServers: Int
+    public let skills: Int
+
+    public enum CodingKeys: String, CodingKey {
+        case commands = "commands"
+        case hooks = "hooks"
+        case mcpServers = "mcpServers"
+        case skills = "skills"
+    }
+
+    public init(commands: Int, hooks: Int, mcpServers: Int, skills: Int) {
+        self.commands = commands
+        self.hooks = hooks
+        self.mcpServers = mcpServers
+        self.skills = skills
     }
 }
 
@@ -34813,6 +34997,92 @@ public enum SpeechTranscribePreset: String, Codable, Sendable {
     case short = "short"
 }
 
+// MARK: - StorageClearCacheParams
+public struct StorageClearCacheParams: Codable, Sendable {
+    public let targets: [StorageClearTarget]?
+
+    public enum CodingKeys: String, CodingKey {
+        case targets = "targets"
+    }
+
+    public init(targets: [StorageClearTarget]? = nil) {
+        self.targets = targets
+    }
+}
+
+public enum StorageClearTarget: String, Codable, Sendable {
+    case caches = "caches"
+    case recordings = "recordings"
+}
+
+// MARK: - StorageCleared
+public struct StorageCleared: Codable, Sendable {
+    public let cleared: [StorageClearTarget]
+    public let freedBytes: Int
+
+    public enum CodingKeys: String, CodingKey {
+        case cleared = "cleared"
+        case freedBytes = "freedBytes"
+    }
+
+    public init(cleared: [StorageClearTarget], freedBytes: Int) {
+        self.cleared = cleared
+        self.freedBytes = freedBytes
+    }
+}
+
+// MARK: - StorageUsage
+public struct StorageUsage: Codable, Sendable {
+    public let categories: [StorageCategory]
+    public let partial: Bool?
+    public let totalBytes: Int
+
+    public enum CodingKeys: String, CodingKey {
+        case categories = "categories"
+        case partial = "partial"
+        case totalBytes = "totalBytes"
+    }
+
+    public init(categories: [StorageCategory], partial: Bool? = nil, totalBytes: Int) {
+        self.categories = categories
+        self.partial = partial
+        self.totalBytes = totalBytes
+    }
+}
+
+// MARK: - StorageCategory
+public struct StorageCategory: Codable, Sendable {
+    public let bytes: Int
+    public let clearable: Bool
+    public let id: StorageCategoryID
+    public let reclaimableBytes: Int?
+
+    public enum CodingKeys: String, CodingKey {
+        case bytes = "bytes"
+        case clearable = "clearable"
+        case id = "id"
+        case reclaimableBytes = "reclaimableBytes"
+    }
+
+    public init(bytes: Int, clearable: Bool, id: StorageCategoryID, reclaimableBytes: Int? = nil) {
+        self.bytes = bytes
+        self.clearable = clearable
+        self.id = id
+        self.reclaimableBytes = reclaimableBytes
+    }
+}
+
+public enum StorageCategoryID: String, Codable, Sendable {
+    case browserProfiles = "browserProfiles"
+    case caches = "caches"
+    case database = "database"
+    case library = "library"
+    case logs = "logs"
+    case memoryIndex = "memoryIndex"
+    case other = "other"
+    case recordings = "recordings"
+}
+
 // MARK: - TaskActionPayload
 public struct TaskActionPayload: Codable, Sendable {
     public let action: TaskAction
@@ -37009,16 +37279,16 @@ public struct ThreadsSetContextLimitsResult: Codable, Sendable {
 
 // MARK: - ThreadsSummaryPinsRemoveParams
 public struct ThreadsSummaryPinsRemoveParams: Codable, Sendable {
-    public let instruction: String
+    public let pinID: String
     public let threadID: String
 
     public enum CodingKeys: String, CodingKey {
-        case instruction = "instruction"
+        case pinID = "pinId"
         case threadID = "threadId"
     }
 
-    public init(instruction: String, threadID: String) {
-        self.instruction = instruction
+    public init(pinID: String, threadID: String) {
+        self.pinID = pinID
         self.threadID = threadID
     }
 }
@@ -40328,6 +40598,7 @@ public typealias GatewayInfoParams = [String: JSONAny]
 public typealias GrowthUpdatedPayload = [String: JSONAny]
 public typealias KeysStatusParams = [String: JSONAny]
 public typealias MachinesListParams = [String: JSONAny]
+public typealias MailFollowupsListParams = [String: JSONAny]
 public typealias MCPStatusParams = [String: JSONAny]
 public typealias MeetingsRecordPushResult = [String: JSONAny]
 public typealias MeetingsRecordStatusParams = [String: JSONAny]
@@ -40343,6 +40614,7 @@ public typealias MemoryStatusParams = [String: JSONAny]
 public typealias MemoryWorkListsParams = [String: JSONAny]
 public typealias ModelsAppleStatusParams = [String: JSONAny]
 public typealias ModelsListParams = [String: JSONAny]
+public typealias NodeUnpairParams = [String: JSONAny]
 public typealias NodesListParams = [String: JSONAny]
 public typealias PasskeysListParams = [String: JSONAny]
 public typealias PasskeysReauthBeginParams = [String: JSONAny]
@@ -40360,6 +40632,7 @@ public typealias Settings = [String: JSONAny]
 public typealias SpecialistsListParams = [String: JSONAny]
 public typealias SpeechEngineDownloadParams = [String: JSONAny]
 public typealias SpeechEngineStatusParams = [String: JSONAny]
+public typealias StorageUsageParams = [String: JSONAny]
 public typealias TeachAppAppsParams = [String: JSONAny]
 public typealias TeachAppCancelParams = [String: JSONAny]
 public typealias TeachAppStatusParams = [String: JSONAny]

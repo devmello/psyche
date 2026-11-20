@@ -31,6 +31,8 @@ export interface AutomationRow {
   specialist?: string | null;
   /** 202611041600_scheduler_recorded_skill: the {skill} of a recording skill's schedule. */
   recorded_skill?: string | null;
+  /** 202611201000_gateway_spaces: the Space the automation runs in. */
+  space_id?: string | null;
 }
 
 export interface RunRow {
@@ -95,6 +97,7 @@ export function automationFromRow(r: AutomationRow, w?: WatchRow): Automation {
     delivery: JSON.parse(r.delivery) as Automation["delivery"],
     prompt: r.prompt,
     scratch: r.scratch,
+    spaceId: r.space_id ?? null,
     enabled: r.enabled === 1,
     nextRunAt: r.next_run_at,
     lastRunAt: r.last_run_at,

@@ -41,6 +41,27 @@ import {
 export const PINNED_RELEASE_BASE = "https://github.com/devmello/psyche/releases/download/";
 export const DEFAULT_FEED = "https://github.com/devmello/psyche/releases/latest/download/";
 
+/**
+ * Release channels (Settings > About > Updates, key `updates.channel`). The release pipeline
+ * publishes one signed manifest per release at `releases/latest/download/`, and GitHub's "latest"
+ * skips prereleases, so there is no beta manifest to read: `stable` is the only channel until the
+ * pipeline publishes one (deploy/scripts/update-manifest.mjs has no channel option). A channel only
+ * ever picks a feed; the signature, the pinned host, the key and the downgrade checks are the same
+ * for every one.
+ */
+export const RELEASE_CHANNELS = ["stable"] as const;
+export type ReleaseChannel = (typeof RELEASE_CHANNELS)[number];
+export const UPDATE_CHANNEL_KEY = "updates.channel";
+
+const CHANNEL_FEEDS: Record<ReleaseChannel, string> = { stable: DEFAULT_FEED };
+
+/** The feed for a stored channel; anything unknown (a "beta" saved by a newer build) is stable. */
+export function feedForChannel(channel: unknown): string {
+  return typeof channel === "string" && Object.hasOwn(CHANNEL_FEEDS, channel)
+    ? CHANNEL_FEEDS[channel as ReleaseChannel]
+    : DEFAULT_FEED;
+}
+
 export interface UpdateCheckDeps {
   fetch: typeof fetch;
   currentVersion: string;

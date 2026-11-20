@@ -91,7 +91,7 @@ export const RAIL_ITEMS: readonly {
 ];
 
 /** Pages off the sidebar, by the place they are reached from (their row stays marked). */
-const UNDER_HOME = new Set(["inbox", "feed", "ideas", "goals", "scheduled", "overview"]);
+const UNDER_HOME = new Set(["inbox", "feed", "ideas", "goals", "scheduled", "overview", "spaces"]);
 
 /**
  * The destination a route belongs to (`/library/documents` → library, `/scheduled` → home), or

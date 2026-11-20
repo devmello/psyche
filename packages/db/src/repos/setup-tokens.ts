@@ -1,6 +1,6 @@
 import { createHash, randomBytes } from "node:crypto";
-import type { DeviceScope, SetupTokenScope } from "@psyche/protocol";
-import { PsycheError, SETUP_TOKEN_TTL_MS } from "@psyche/protocol";
+import type { DeviceScope, SetupTokenPurpose, SetupTokenScope } from "@psyche/protocol";
+import { MACHINE_TOKEN_SCOPES, PsycheError, SETUP_TOKEN_TTL_MS } from "@psyche/protocol";
 import { and, desc, eq, gt, gte, isNull, lt, or, sql } from "drizzle-orm";
 import type { PsycheDb } from "../open.ts";
 import { type SetupTokenRow, setupTokens } from "../schema.ts";
@@ -27,9 +27,28 @@ function isTokenScope(scope: DeviceScope): scope is SetupTokenScope {
   return (SETUP_TOKEN_SCOPES as readonly string[]).includes(scope);
 }
 
+/**
+ * What a token is for, derived from the sealed `scopes` column and nothing else: exactly
+ * `["node"]` is a `machine` token, operator scopes only is a `device` token, and anything else
+ * (a mix, an empty list, an unknown scope) is neither and is refused everywhere. There is no
+ * separate purpose column to disagree with the scopes.
+ */
+export function setupTokenPurposeOf(scopes: readonly string[]): SetupTokenPurpose | undefined {
+  if (scopes.length === 1 && scopes[0] === MACHINE_TOKEN_SCOPES[0]) return "machine";
+  if (
+    scopes.length > 0 &&
+    scopes.every((s) => (SETUP_TOKEN_SCOPES as readonly string[]).includes(s))
+  ) {
+    return "device";
+  }
+  return undefined;
+}
+
 export interface SetupTokenRecord {
   id: string;
-  scopes: SetupTokenScope[];
+  /** Operator scopes for a `device` token; exactly `["node"]` for a `machine` token. */
+  scopes: DeviceScope[];
+  purpose: SetupTokenPurpose;
   createdAt: string;
   expiresAt: string;
   usedAt: string | null;
@@ -44,7 +63,10 @@ export function hashSetupToken(token: string): string {
 }
 
 function toRecord(row: SetupTokenRow, now: string): SetupTokenRecord {
-  const scopes = (JSON.parse(row.scopes) as DeviceScope[]).filter(isTokenScope);
+  const stored = JSON.parse(row.scopes) as DeviceScope[];
+  const purpose = setupTokenPurposeOf(stored) ?? "device";
+  // A row that is neither shows no scopes at all (and `consumeSetupToken` refuses it).
+  const scopes = setupTokenPurposeOf(stored) === undefined ? [] : stored;
   const status =
     row.revokedAt !== null
       ? "revoked"
@@ -56,6 +78,7 @@ function toRecord(row: SetupTokenRow, now: string): SetupTokenRecord {
   return {
     id: row.id,
     scopes,
+    purpose,
     createdAt: row.createdAt,
     expiresAt: row.expiresAt,
     usedAt: row.usedAt,
@@ -66,23 +89,35 @@ function toRecord(row: SetupTokenRow, now: string): SetupTokenRecord {
 }
 
 /**
- * Makes a token. Returns the token (the only time it exists in the clear) and its record. Refuses
- * the scope `node`, an empty list, and a live token beyond `MAX_LIVE_SETUP_TOKENS`.
+ * Makes a token. Returns the token (the only time it exists in the clear) and its record. A
+ * `device` token (the default) refuses the scope `node` and an empty list. A `machine` token takes
+ * no scopes of its own and is always exactly `["node"]`. Both refuse a live token beyond
+ * `MAX_LIVE_SETUP_TOKENS`.
  */
 export function createSetupToken(
   db: PsycheDb,
   input: {
-    scopes: readonly DeviceScope[];
+    scopes?: readonly DeviceScope[];
+    /** Default `device`. */
+    purpose?: SetupTokenPurpose;
     createdByDeviceId?: string | null;
     ttlMs?: number;
     /** The LAN certificate pin the token's link carries (a v2 link). */
     certPin?: string | null;
   },
 ): { token: string; record: SetupTokenRecord } {
-  const requested = [...new Set(input.scopes)];
-  const scopes = requested.filter(isTokenScope);
-  if (scopes.length === 0 || scopes.length !== requested.length) {
-    throw new PsycheError("invalid_params", "A setup token grants operator scopes only");
+  let scopes: DeviceScope[];
+  if (input.purpose === "machine") {
+    if (input.scopes !== undefined && input.scopes.length > 0) {
+      throw new PsycheError("invalid_params", "A machine setup token takes no scopes");
+    }
+    scopes = [...MACHINE_TOKEN_SCOPES];
+  } else {
+    const requested = [...new Set(input.scopes ?? [])];
+    scopes = requested.filter(isTokenScope);
+    if (scopes.length === 0 || scopes.length !== requested.length) {
+      throw new PsycheError("invalid_params", "A setup token grants operator scopes only");
+    }
   }
   const token = `pst_${randomBytes(32).toString("base64url")}`;
   return db.sqlite
@@ -148,14 +183,35 @@ export function pruneSetupTokens(db: PsycheDb, now: string = db.now()): number {
  * Spends a token for `deviceId`: succeeds only for a token that exists, is unused, unrevoked and
  * not yet expired, and then marks it used in the same statement, so a second caller (or a retry)
  * gets `undefined`. Returns the scopes it was made with.
+ *
+ * `purpose` is what the presenting connection is: a `device` token is spent only by a client, a
+ * `machine` token only by a node, and the check is part of the same UPDATE, so a token presented
+ * for the wrong purpose is refused and stays unspent. `any` spends a token whatever it is for
+ * (a device that is already paired burns the link it presented, and gets nothing from it).
  */
 export function consumeSetupToken(
   db: PsycheDb,
   token: string,
   deviceId: string,
   now: string = db.now(),
-): { id: string; scopes: SetupTokenScope[] } | undefined {
+  purpose: SetupTokenPurpose | "any" = "device",
+):
+  | {
+      id: string;
+      scopes: DeviceScope[];
+      purpose: SetupTokenPurpose;
+      createdByDeviceId: string | null;
+    }
+  | undefined {
   const at = new Date(now).toISOString();
+  const machineScopes = JSON.stringify([...MACHINE_TOKEN_SCOPES]);
+  // `node` anywhere in the scopes makes a token a machine token; a device token has none.
+  const purposeMatches =
+    purpose === "any"
+      ? sql`1 = 1`
+      : purpose === "machine"
+        ? sql`${setupTokens.scopes} = ${machineScopes}`
+        : sql`NOT EXISTS (SELECT 1 FROM json_each(${setupTokens.scopes}) WHERE value = 'node')`;
   const row = db.drizzle
     .update(setupTokens)
     .set({ usedAt: at, usedByDeviceId: deviceId })
@@ -165,15 +221,18 @@ export function consumeSetupToken(
         isNull(setupTokens.usedAt),
         isNull(setupTokens.revokedAt),
         gt(setupTokens.expiresAt, at),
+        purposeMatches,
       ),
     )
     .returning()
     .get();
   if (row === undefined) return undefined;
   const stored = JSON.parse(row.scopes) as DeviceScope[];
-  const scopes = toRecord(row, at).scopes;
-  // A row that somehow holds a scope outside the allowed set pairs nobody (and is now spent).
-  return scopes.length === stored.length ? { id: row.id, scopes } : undefined;
+  const found = setupTokenPurposeOf(stored);
+  // A row that is neither kind of token pairs nobody (and is now spent).
+  return found === undefined
+    ? undefined
+    : { id: row.id, scopes: stored, purpose: found, createdByDeviceId: row.createdByDeviceId };
 }
 
 /**

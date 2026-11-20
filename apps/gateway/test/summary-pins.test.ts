@@ -8,6 +8,7 @@ import {
   putAgentThreadState,
   updateDevice,
 } from "@psyche/db";
+import { pinId } from "@psyche/protocol";
 import { FakeModelProvider } from "@psyche/testing";
 import { afterEach, describe, expect, it } from "vitest";
 import { type ComposedGateway, composeGateway } from "../src/compose/index.ts";
@@ -28,7 +29,7 @@ afterEach(async () => {
 
 const PINS = ["Always sign updates as Avery.", "Never cc ops@example.com."];
 
-async function setup() {
+async function setup(pins: string[] = PINS, withStructured = true) {
   home = mkdtempSync(join(tmpdir(), "psyche-pins-"));
   composed = await composeGateway({
     logger: silentLogger,
@@ -44,11 +45,13 @@ async function setup() {
     { kind: "main" },
     ik(),
   );
-  const structured = { facts: [], decisions: [], openTasks: [], pinnedInstructions: PINS };
+  const structured = { facts: [], decisions: [], openTasks: [], pinnedInstructions: pins };
   putAgentThreadState(composed.db, thread.id, {
     messages: [],
     checklist: [],
-    summary: { text: "Standing instructions", untrusted: false, structured, untrustedPins: [] },
+    summary: withStructured
+      ? { text: "Standing instructions", untrusted: false, structured, untrustedPins: [] }
+      : { text: "Standing instructions", untrusted: false },
   });
   appendMessage(
     composed.db,
@@ -79,7 +82,7 @@ describe("threads.summary.pins.remove", () => {
     const { owner, threadId } = await setup();
     const r = await owner.call<{ pinnedInstructions: string[] }>(
       "threads.summary.pins.remove",
-      { threadId, instruction: "never  cc ops@example.com." },
+      { threadId, pinId: pinId("never  cc ops@example.com.") },
       ik(),
     );
     expect(r.pinnedInstructions).toEqual(["Always sign updates as Avery."]);
@@ -97,6 +100,52 @@ describe("threads.summary.pins.remove", () => {
     ]);
     const audits = await composed?.audit.list({ kind: "thread.summary_pin_removed" });
     expect(audits).toHaveLength(1);
+    // Who, which pin (an id, a short prefix, a hash) and nothing more of its text.
+    expect(audits?.[0]?.actor).toMatchObject({ type: "user" });
+    expect(((audits?.[0]?.actor ?? {}) as { deviceId?: string }).deviceId).toMatch(/^admin-/);
+    expect(audits?.[0]?.data).toMatchObject({
+      pinId: pinId("Never cc ops@example.com."),
+      prefix: "Never cc ops@example.com.",
+      remaining: 1,
+    });
+    expect(((audits?.[0]?.data ?? {}) as { sha256?: string }).sha256).toMatch(/^[0-9a-f]{64}$/);
+    // Other windows are told: the rewritten block goes out as a chat.message.
+    const updated = owner.events.find(
+      (e) =>
+        e.event === "chat.message" &&
+        JSON.stringify(e.payload).includes('"compaction"') &&
+        !JSON.stringify(e.payload).includes("Never cc ops@example.com."),
+    );
+    expect(updated).toBeDefined();
+  });
+
+  it("removes a pin saved at 501 characters by an older compaction, by its id", async () => {
+    const legacy = `${"z".repeat(500)}…`;
+    const { owner, threadId } = await setup([legacy, ...PINS]);
+    const r = await owner.call<{ pinnedInstructions: string[] }>(
+      "threads.summary.pins.remove",
+      { threadId, pinId: pinId(legacy) },
+      ik(),
+    );
+    expect(r.pinnedInstructions).toEqual(PINS);
+  });
+
+  it("refuses a chat with no structured summary and leaves its blocks alone", async () => {
+    const { owner, threadId } = await setup(PINS, false);
+    await expect(
+      owner.call(
+        "threads.summary.pins.remove",
+        { threadId, pinId: pinId("Never cc ops@example.com.") },
+        ik(),
+      ),
+    ).rejects.toThrow(/not_found/);
+    const blocks = listMessagesPage(composed?.db as never, threadId, {
+      limit: 20,
+    }).messages.flatMap((m) => m.blocks);
+    const compaction = blocks.find((b) => b.type === "compaction");
+    expect(compaction?.type === "compaction" && compaction.summary.pinnedInstructions).toEqual(
+      PINS,
+    );
   });
 
   it("is refused for a device without the write scope, and for an unknown thread", async () => {
@@ -112,7 +161,7 @@ describe("threads.summary.pins.remove", () => {
     await expect(
       reader.call(
         "threads.summary.pins.remove",
-        { threadId, instruction: "Always sign updates as Avery." },
+        { threadId, pinId: pinId("Always sign updates as Avery.") },
         ik(),
       ),
     ).rejects.toThrow(/forbidden|scope|denied|unauthor/i);
@@ -123,7 +172,7 @@ describe("threads.summary.pins.remove", () => {
     await expect(
       owner.call(
         "threads.summary.pins.remove",
-        { threadId: "thr_missing", instruction: "x" },
+        { threadId: "thr_missing", pinId: pinId("x") },
         ik(),
       ),
     ).rejects.toThrow(/not_found/);

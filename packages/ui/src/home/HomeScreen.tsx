@@ -1,10 +1,12 @@
 import { type ReactElement, useEffect, useState } from "react";
 import { useNotifications } from "../data/index.ts";
 import { activeI18n, t } from "../i18n/core.ts";
+import { QuietThreadsSection } from "../mail-followups/QuietThreadsSection.tsx";
 import { FeedScreen } from "../screens/feed/FeedScreen.tsx";
 import { ScreenToolbar } from "../screens/feed/ScreenToolbar.tsx";
 import { needsYou } from "../screens/inbox/InboxScreen.tsx";
 import { useSlots } from "../slots.tsx";
+import { HomeSpacesSection } from "../spaces/HomeSpacesSection.tsx";
 import { PinnedWidgets } from "../widgets/PinnedWidgets.tsx";
 import { CatchUp } from "./CatchUp.tsx";
 import { useRouteRepeat } from "./route-repeat.ts";
@@ -88,6 +90,7 @@ export function HomeScreen({
         <div className="flex flex-col [&>*+*]:mt-10 [&>*+*]:border-t [&>*+*]:border-separator [&>*+*]:pt-10">
           <NeedsYouSection onNavigate={navigate} {...clock} />
           <PinnedWidgets />
+          <HomeSpacesSection onNavigate={navigate} {...clock} />
           <FeedScreen
             onCloseInstructions={() => navigate("/home")}
             collapseAfter={3}
@@ -100,6 +103,7 @@ export function HomeScreen({
           <SuggestionsSection accent={!waiting} limit={2} onNavigate={navigate} />
           <ComingUpSection onNavigate={navigate} {...clock} />
           <GoalsSection onNavigate={navigate} />
+          <QuietThreadsSection limit={2} />
           <KeepInTouchSection onNavigate={navigate} limit={2} />
           <MoreSection onNavigate={navigate} />
         </div>

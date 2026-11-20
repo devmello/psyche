@@ -20,6 +20,7 @@ import type { Idempotency } from "./idempotency.ts";
 import type { GatewayIdentity } from "./identity.ts";
 import type { LanStatus } from "./lan/listener.ts";
 import type { Logger } from "./log.ts";
+import type { MachineChange } from "./nodes/machines.ts";
 import type { NodeRegistry } from "./nodes/registry.ts";
 import type { PresenceState } from "./presence-gate.ts";
 import type { RateLimiter } from "./rate-limit.ts";
@@ -132,6 +133,8 @@ export interface ResolvedChatContext {
   /** Carried by the user message instead of `block` when set (a life answer's own block). */
   blocks?: Block[];
   taintSources: TaintSource[];
+  /** The taint stays on the chat for its later turns (a mail follow-up draft). */
+  stickyTaint?: boolean;
 }
 
 /** Who is sending and where: a context that depends on the connection or the chat's model reads it. */
@@ -226,6 +229,8 @@ export interface GatewayContext {
   readonly onSetupTokenUsed?:
     | ((used: { tokenId: string; deviceId: string; scopes: DeviceScope[] }) => void)
     | null;
+  /** A machine was added or removed (the composition root audits it and tells every device). */
+  readonly onMachineChange?: ((change: MachineChange) => void) | null;
   /** The broker emits `receipt.created` itself; handlers must not publish it again. */
   readonly brokerPublishesReceipts: boolean;
   /**

@@ -23,6 +23,7 @@ export const DailySectionId = StringEnum(
     "learned",
     "coming_up",
     "keep_in_touch",
+    "quiet_threads",
     // Memory for everything (docs/design/memory-everything-2026.md §5.5): `catching_up` replaces
     // `due` in the morning brief when work memory is on; `worked_on` joins the evening wrap-up.
     "catching_up",
@@ -58,7 +59,7 @@ export const DailyBrief = Type.Object(
     /** Local date, `YYYY-MM-DD`. */
     date: Type.String({ pattern: "^\\d{4}-\\d{2}-\\d{2}$" }),
     summary: Type.String({ maxLength: 1000 }),
-    sections: Type.Array(DailySection, { maxItems: 8 }),
+    sections: Type.Array(DailySection, { maxItems: 10 }),
     /** Evening only: open items the owner can carry over to tomorrow. */
     carryOver: Type.Optional(Type.Array(DailyItem, { maxItems: 20 })),
   },
