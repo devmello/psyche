@@ -15,14 +15,7 @@ import {
 } from "@psyche/audit";
 import { redactUrl } from "@psyche/browser";
 import type { ConnectorRegistry } from "@psyche/connectors";
-import {
-  getDevice,
-  getSetting,
-  getThread,
-  type PsycheDb,
-  scrubTracePayloads,
-  setSetting,
-} from "@psyche/db";
+import { getDevice, getSetting, getThread, type PsycheDb, setSetting } from "@psyche/db";
 import { fileTools } from "@psyche/files";
 import {
   brokerApprovalCheck,
@@ -115,6 +108,7 @@ import type { PublicRoute, WebhookRoute } from "../http.ts";
 import { createLogger } from "../log.ts";
 import { personalizeMessageEvent } from "../message-scrub.ts";
 import { openGatewayDb, purgePreUpdateSnapshots, releaseGatewayLock } from "../pre-update.ts";
+import { TraceScrubWorker } from "../run-trace/forget-scrub.ts";
 import { taskRunTrace } from "../run-trace/tasks.ts";
 import { alertNotice, alertNotifyDecision } from "../security/alerts.ts";
 import { sealedPermissionStore } from "../security/sealed-stores.ts";
@@ -1040,6 +1034,22 @@ export async function composeGateway(options: ComposeOptions): Promise<ComposedG
   const memoryLate = memoryDb.late;
   // The people graph is composed once the tool registry exists; card edits reach it from here.
   let people: People | undefined;
+  // Forget's trace scrub: a queued, resumable pass. A run in progress (the loop's view) keeps the
+  // final pass waiting until it has ended.
+  const traceScrub = new TraceScrubWorker({
+    db,
+    activeRuns: () =>
+      (
+        db.sqlite
+          .prepare(
+            "SELECT id, thread_id FROM runs WHERE status IN ('running', 'awaiting_approval', 'awaiting_input')",
+          )
+          .all() as { id: string; thread_id: string }[]
+      )
+        .filter((r) => loop.isActive(r.thread_id))
+        .map((r) => r.id),
+    log: (level, message) => gwOptions.logger?.log(level, message),
+  });
   const memory = await createMemoryStore({
     db,
     ...(memoryLate === undefined ? {} : { sqlite: memoryDb.sqlite, deferInit: true }),
@@ -1050,14 +1060,20 @@ export async function composeGateway(options: ComposeOptions): Promise<ComposedG
     audit,
     onChange: (c) => void changes.record(memoryChange(c)),
     // Every forget (the RPC and the agent's tool both come here) cuts the forgotten words out of
-    // the saved chats and the run traces. The transcript pass is synchronous and short; the trace
-    // pass runs in the background, in batches that yield, so Forget returns at once.
-    onForget: ({ pattern }) => {
-      gatewayRef?.context.messageScrub.heal?.();
-      scrubTracePayloads(db, pattern).then(
-        (n) => gwOptions.logger?.log("info", `forget rewrote ${n} run-trace row(s)`),
-        () => gwOptions.logger?.log("warn", "forget could not scrub run-trace rows"),
-      );
+    // the saved chats and the run traces. The trace pass is queued first and runs in the
+    // background; the transcript pass is short and synchronous. A failure in either is logged and
+    // never fails the forget, which has already committed.
+    onForget: ({ subject }) => {
+      try {
+        traceScrub.enqueue(subject);
+      } catch {
+        gwOptions.logger?.log("warn", "forget could not queue the run-trace scrub");
+      }
+      try {
+        gatewayRef?.context.messageScrub.heal?.();
+      } catch {
+        gwOptions.logger?.log("warn", "forget could not cut the words from saved chats");
+      }
     },
     flush: { provider, model: utility ?? modelRef },
     onEvent: (e) => {
@@ -2508,6 +2524,8 @@ export async function composeGateway(options: ComposeOptions): Promise<ComposedG
   // Clear chat and delete end the conversation: its "Allow once" folders and attached files go.
   gateway.context.threadEnded.add(endSessionQuietly(rawBroker, gwOptions.logger));
   gateway.context.messageScrub.scrub = (message, who) => everything.lifeChat.scrub(message, who);
+  // Phrases still queued by a Forget before the last shutdown resume here.
+  traceScrub.start();
   await proactive.start();
   await ensureWeeklyCardAutomation(scheduler, {
     timezone: timeZone ?? Intl.DateTimeFormat().resolvedOptions().timeZone,
@@ -2567,6 +2585,7 @@ export async function composeGateway(options: ComposeOptions): Promise<ComposedG
     async stop(reason) {
       for (const part of [...parts].reverse()) await part.stop?.();
       proactive.stop();
+      traceScrub.stop();
       vault.stop();
       await pool.stop();
       await specialistPool.stop();

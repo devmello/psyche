@@ -1386,7 +1386,13 @@ export class SqliteMemoryStore implements MemoryStore {
         })
         .catch(() => undefined);
     }
-    this.#onForget?.({ subject: phrase, pattern });
+    // The forget has committed: a failing hook must not fail it (the owner would see an error
+    // for a change that happened, and a retry would repeat the work).
+    try {
+      this.#onForget?.({ subject: phrase, pattern });
+    } catch {
+      // The hook logs its own failures.
+    }
     return result;
   }
 
