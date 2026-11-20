@@ -94,7 +94,7 @@ describe("stated goals (O9)", () => {
     await goals.update(goal.id, { status: "paused" });
     expect((await scheduler.list())[0]).toMatchObject({ enabled: false });
     expect((await goals.get(goal.id)).goal.nextCheckinAt).toBeNull();
-    await goals.update(goal.id, { status: "active", cadence: "PT12H" });
+    await goals.update(goal.id, { status: "active", cadence: "PT48H" });
     expect((await scheduler.list())[0]).toMatchObject({ kind: "interval", enabled: true });
     await goals.update(goal.id, { cadence: null });
     expect(await scheduler.list()).toEqual([]);
@@ -182,7 +182,7 @@ describe("inferred candidates are confirm-first", () => {
     await expect(goals.decide(goal?.id ?? "", "confirm")).rejects.toMatchObject({
       code: "conflict",
     });
-    await goals.update(goal?.id ?? "", { cadence: "PT1H" });
+    await goals.update(goal?.id ?? "", { cadence: "PT24H" });
     expect(await scheduler.list()).toHaveLength(1);
   });
 
