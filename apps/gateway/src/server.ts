@@ -46,6 +46,7 @@ import {
   newHandshakeSecret,
   removeHandshakeSecret,
   writeHandshakeSecret,
+  writeListenFile,
 } from "./home.ts";
 import {
   handleHttp,
@@ -758,6 +759,8 @@ export async function startGateway(options: GatewayOptions = {}): Promise<Gatewa
   // The secret first: a helper that reconnects the moment a socket opens (a Gateway restart)
   // must find this launch's secret, never the previous one or none.
   const { path: secretPath } = writeHandshakeSecret(config.home, handshakeSecret);
+  // And the address it is bound to, for the CLI's "is this my Gateway" check (`writeListenFile`).
+  const listenPath = writeListenFile(config.home, [origin]);
   const nodeServer = serveNodes("unix");
   try {
     await listenOn(nodeServer, config.nodeSocketPath);
@@ -854,6 +857,7 @@ export async function startGateway(options: GatewayOptions = {}): Promise<Gatewa
       if (guestPipe) rmSync(join(config.home, "run", "guest-socket"), { force: true });
       rmSync(join(config.home, "run", "node-socket"), { force: true });
       removeHandshakeSecret(secretPath);
+      rmSync(listenPath, { force: true });
       seal.close();
       if (!options.db) {
         db.close();
