@@ -139,11 +139,14 @@ impl LinuxBackend {
     /// and for a `DBusActivatable` entry so must the session bus service that would start it
     /// (`policy_denied/untrusted_dbus_activation`, [`crate::trust::check_dbus_activation`]).
     /// Notes `Terminal=true` from that very file, so the cap applies even when the index parsed
-    /// another one; the returned flag picks the private config dirs ([`crate::trust::launch_env`]).
+    /// another one. For a terminal entry also returns the `XDG_DATA_DIRS` it gets, which must
+    /// hold no terminal entry Psyche cannot vouch for
+    /// (`policy_denied/untrusted_terminal_choice`, [`crate::trust::terminal_data_dirs`]); with
+    /// the private dirs they make up its environment ([`crate::trust::launch_env`]).
     fn trusted_desktop_file(
         &self,
         id: &str,
-    ) -> CapResult<(app_id::DesktopEntry, std::path::PathBuf, bool)> {
+    ) -> CapResult<(app_id::DesktopEntry, std::path::PathBuf, Option<String>)> {
         let index = self.desktop_index();
         let entry = index.get(id).cloned().ok_or_else(|| {
             CapError::new(
@@ -176,10 +179,20 @@ impl LinuxBackend {
             own_uid,
         )?;
         let terminal = terminal || app_id::runs_in_terminal(&entry.id);
-        Ok((entry, file, terminal))
+        let data_dirs = if terminal {
+            Some(crate::trust::terminal_data_dirs(
+                &fs,
+                &|k| (self.env)(k),
+                &entry.id,
+                own_uid,
+            )?)
+        } else {
+            None
+        };
+        Ok((entry, file, data_dirs))
     }
 
-    /// A fresh, empty, private dir for one terminal launch (`config` and `cache` inside), under
+    /// A fresh, empty, private dir for one terminal launch (`config`, `cache` and `data` inside), under
     /// [`crate::trust::private_launch_root`]. It is left in place: the terminal keeps using it
     /// after gio returns, and the runtime dir is cleared at logout.
     fn private_launch_dir(
@@ -214,7 +227,12 @@ impl LinuxBackend {
             NEXT.fetch_add(1, Ordering::Relaxed)
         ));
         // `create` fails if the name exists, so nothing planted is reused.
-        for d in [dir.clone(), dir.join("config"), dir.join("cache")] {
+        for d in [
+            dir.clone(),
+            dir.join("config"),
+            dir.join("cache"),
+            dir.join("data"),
+        ] {
             b.create(&d).map_err(|e| fail(e.to_string()))?;
         }
         if !crate::trust::private_launch_dir_ok(fs, &dir, own_uid) {
@@ -401,7 +419,7 @@ impl Backend for LinuxBackend {
 
     fn launch(&self, id: &str, url: Option<&str>) -> CapResult<Value> {
         // Checked again here: the agent may have written a shadowing entry while a card waited.
-        let (entry, file, terminal) = self.trusted_desktop_file(id)?;
+        let (entry, file, terminal_data_dirs) = self.trusted_desktop_file(id)?;
         // Launch through GLib, which implements the Desktop Entry rules (field codes, DBus
         // activation, Terminal=true) and puts the app in its own scope. The accessibility
         // switches (`launch_env`) make Qt, GTK and Firefox export their trees (design §6.1).
@@ -418,12 +436,12 @@ impl Backend for LinuxBackend {
                 "gio (GLib) is not installed system-wide, so Psyche cannot open apps",
             )
         })?;
-        // A terminal entry gets an empty private XDG_CONFIG_HOME and XDG_CACHE_HOME, made and
-        // vetted right before gio runs (xdg-terminal-exec, see `launch_env`).
-        let private = if terminal {
-            Some(self.private_launch_dir(&fs, own_uid)?)
-        } else {
-            None
+        // A terminal entry gets an empty private XDG_CONFIG_HOME, XDG_CACHE_HOME and
+        // XDG_DATA_HOME, made and vetted right before gio runs, and only the trusted
+        // XDG_DATA_DIRS (xdg-terminal-exec, see `launch_env`).
+        let private = match &terminal_data_dirs {
+            Some(_) => Some(self.private_launch_dir(&fs, own_uid)?),
+            None => None,
         };
         let mut cmd = std::process::Command::new(gio);
         cmd.arg("launch").arg(&file);
@@ -432,7 +450,7 @@ impl Backend for LinuxBackend {
         }
         for (k, v) in crate::trust::launch_env(
             &crate::trust::trusted_search_path(&fs, own_uid),
-            private.as_deref(),
+            private.as_deref().zip(terminal_data_dirs.as_deref()),
         ) {
             cmd.env(k, v);
         }

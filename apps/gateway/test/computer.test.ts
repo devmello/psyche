@@ -1052,9 +1052,11 @@ describe("computer-use agent tools (J1–J5)", () => {
   it("pauses when unwatched: a sensitive app gets a card after 5 minutes without owner input (#272)", () => {
     let clock = 1_000_000;
     let lastInput: number | undefined;
+    // A Mac Host (Messages is a Mac app): with no helper kind the Host is `process.platform`,
+    // and on a Linux runner the card would be placed "On this computer: ".
     const watched = createComputerUse({
       broker,
-      helper: () => undefined,
+      helper: () => ({ nodeId: helper.nodeId, client: helper, kind: "mac-helper" }),
       context: () => {
         throw new Error("unused");
       },

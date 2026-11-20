@@ -529,7 +529,7 @@ mod linux {
             .unwrap_or_else(|e| e.into_inner())
             .clone();
         let kill_switch = match backend {
-            "x11" => built.map_or(true, |e| e.backend.kill_switch_status()),
+            "x11" => built.is_none_or(|e| e.backend.kill_switch_status()),
             "portal" => !active || built.is_some_and(|e| e.backend.kill_switch_status()),
             _ => false,
         };
