@@ -3089,6 +3089,7 @@ export const it: Partial<Catalogue> = {
   "screens.library.recording.empty": "Questa registrazione non ha passi.",
   "screens.library.recording.noFrame": "Nessuna immagine per questo passo.",
   "screens.library.recording.frameAlt": "Il browser al passo {n}",
+  "screens.library.recording.reviewPermissions": "Rivedi in Permessi",
   "screens.library.recording.loading": "Caricamento della registrazione",
   "screens.library.recording.loadFailed":
     "Psyche non è riuscito a caricare questa registrazione ({reason}).",

@@ -3090,6 +3090,7 @@ export const fr: Partial<Catalogue> = {
   "screens.library.recording.empty": "Cet enregistrement n'a aucune étape.",
   "screens.library.recording.noFrame": "Aucune image pour cette étape.",
   "screens.library.recording.frameAlt": "Le navigateur à l'étape {n}",
+  "screens.library.recording.reviewPermissions": "Examiner dans Autorisations",
   "screens.library.recording.loading": "Chargement de l'enregistrement",
   "screens.library.recording.loadFailed":
     "Psyche n'a pas pu charger cet enregistrement ({reason}).",

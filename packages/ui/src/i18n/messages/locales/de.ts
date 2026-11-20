@@ -3152,6 +3152,7 @@ export const de: Partial<Catalogue> = {
   "screens.library.recording.empty": "Diese Aufnahme enthält keine Schritte.",
   "screens.library.recording.noFrame": "Für diesen Schritt gibt es kein Bild.",
   "screens.library.recording.frameAlt": "Der Browser bei Schritt {n}",
+  "screens.library.recording.reviewPermissions": "In Berechtigungen prüfen",
   "screens.library.recording.loading": "Aufnahme wird geladen",
   "screens.library.recording.loadFailed": "Psyche konnte diese Aufnahme nicht laden ({reason}).",
   "screens.library.recording.notFound": "Diese Aufnahme ist nicht mehr verfügbar.",

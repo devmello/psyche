@@ -3084,6 +3084,7 @@ export const ar: Partial<Catalogue> = {
   "screens.library.recording.empty": "لا تحتوي هذه اللقطة على خطوات.",
   "screens.library.recording.noFrame": "لا توجد صورة لهذه الخطوة.",
   "screens.library.recording.frameAlt": "المتصفح عند الخطوة {n}",
+  "screens.library.recording.reviewPermissions": "المراجعة في الأذونات",
   "screens.library.recording.loading": "جارٍ تحميل التسجيل",
   "screens.library.recording.loadFailed": "تعذّر على Psyche تحميل هذا التسجيل ({reason}).",
   "screens.library.recording.notFound": "لم يعد هذا التسجيل متاحًا.",

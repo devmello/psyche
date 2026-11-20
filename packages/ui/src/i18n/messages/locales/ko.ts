@@ -3034,6 +3034,7 @@ export const ko: Partial<Catalogue> = {
   "screens.library.recording.empty": "이 녹화에는 단계가 없습니다.",
   "screens.library.recording.noFrame": "이 단계에는 화면이 없습니다.",
   "screens.library.recording.frameAlt": "{n}단계의 브라우저",
+  "screens.library.recording.reviewPermissions": "권한에서 검토",
   "screens.library.recording.loading": "녹화를 불러오는 중",
   "screens.library.recording.loadFailed": "Psyche가 이 녹화를 불러오지 못했습니다({reason}).",
   "screens.library.recording.notFound": "이 녹화는 더 이상 사용할 수 없습니다.",

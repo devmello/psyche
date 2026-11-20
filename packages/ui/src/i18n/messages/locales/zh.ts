@@ -2993,6 +2993,7 @@ export const zh: Partial<Catalogue> = {
   "screens.library.recording.empty": "此录制没有步骤。",
   "screens.library.recording.noFrame": "此步骤没有画面。",
   "screens.library.recording.frameAlt": "第 {n} 步的浏览器画面",
+  "screens.library.recording.reviewPermissions": "在权限中查看",
   "screens.library.recording.loading": "正在加载录制",
   "screens.library.recording.loadFailed": "Psyche 无法加载此录制（{reason}）。",
   "screens.library.recording.notFound": "此录制已不可用。",
