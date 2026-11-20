@@ -14,15 +14,16 @@
 use psyche_linux_computer::backend::AppInfo;
 use psyche_linux_computer::error::{code, CapError};
 
-use psyche_linux_computer::app_id::aliases;
+use psyche_linux_computer::app_id::IdFacts;
+use psyche_linux_computer::tiers::fixed_caps;
 
 use crate::remote::policy::Policy;
 
-/// The machine ceiling's two lists, asked separately.
+/// The machine ceiling's two lists, asked separately (each matches snap aliases too).
 pub trait Denies {
     /// Whether `apps.deny` names this id.
     fn deny_listed(&self, app_id: &str) -> bool;
-    /// Whether `apps.allow` names this id, or an alias of it (a snap's `<snap>_<app>`).
+    /// Whether `apps.allow` names this id.
     fn allow_listed(&self, app_id: &str) -> bool;
     /// Out of reach for the app a call names: denied, or not allowed.
     fn is_denied(&self, app_id: &str) -> bool {
@@ -35,66 +36,73 @@ impl Denies for Policy {
         Policy::deny_listed(self, app_id)
     }
     fn allow_listed(&self, app_id: &str) -> bool {
-        aliases(app_id)
-            .iter()
-            .any(|a| Policy::allow_listed(self, a))
+        Policy::allow_listed(self, app_id)
     }
 }
 
-/// Where processes belong.
+/// Who a process is: the app whose launch scope holds it, and what the process itself is.
+#[derive(Debug, Clone, Default, PartialEq, Eq)]
+pub struct Identity {
+    /// The app whose **launch scope** holds the process. A program the app started (a link
+    /// opened through `xdg-open`, a helper run by `gio launch`) stays in that scope, so this
+    /// names the parent, not the program. `None` for a process that left every scope.
+    pub holder: Option<String>,
+    pub facts: IdFacts,
+}
+
+/// Where processes belong. `identity` is read **once** per process per question.
 pub trait Scopes {
     /// Whether `pid` runs in the scope of an app launched here as `app_id`.
     fn in_scope(&self, app_id: &str, pid: u32) -> bool;
-    /// The app whose **launch scope** holds `pid`. A program the app started (a link opened
-    /// through `xdg-open`, a helper run by `gio launch`) stays in that scope, so this names the
-    /// parent, not the program.
-    fn app_of(&self, pid: u32) -> Option<String>;
-    /// The app the process itself is (the strictest candidate), whichever scope it sits in. What
-    /// errors name.
-    fn own_id(&self, pid: u32) -> Option<String>;
-    /// `own_id` when it names an installed desktop entry, else nothing: what an **allow list**
-    /// is applied to. A name taken from the executable (`soffice.bin`) says nothing about
-    /// whether the app is allowed.
-    fn resolved_id(&self, pid: u32) -> Option<String> {
-        self.own_id(pid)
-    }
-    /// Every id the process could be; a **deny list** is judged on all of them.
-    fn own_ids(&self, pid: u32) -> Vec<String> {
-        self.own_id(pid).into_iter().collect()
-    }
+    fn identity(&self, pid: u32) -> Identity;
 }
 
 /// Why the ceiling puts a process out of reach: `(the app to name, the id that matched)`.
 ///
-/// - `apps.deny` is applied to **every** identity the process has: its launch scope's app, its
-///   resolved id and each candidate (cgroup, desktop entries of its executable, launched file,
-///   executable name, `comm`, a Flatpak's name).
-/// - `apps.allow` is applied only to the launch scope's app and the resolved id, with snap
-///   aliases. Candidates taken from file names do not take part: they would deny the apps the
-///   list names (`gnome-text-edit` for the editor, `soffice.bin` for Writer).
+/// - `apps.deny` is applied to **every** identity: the launch scope's app, the strictest
+///   candidate, the resolved entries and each candidate (cgroup, executable name, `comm`, a
+///   Flatpak's name).
+/// - `apps.allow` must cover the launch scope's app and every **resolved** desktop entry (the
+///   executable's own entries: an xterm in an allowed app's scope resolves to `debian-xterm`).
+///   It also covers the strictest candidate when that has a stricter fixed cap than the scope's
+///   app (a terminal or browser with no entry), and when there is no scope and nothing
+///   resolved. File-name candidates otherwise take no part: they would deny the apps the list
+///   names (`soffice.bin` for Writer, `gnome-text-edit` for the editor).
+/// - Gap, documented: a program an allowed app starts that has no desktop entry of its own, and
+///   no stricter cap, is not covered by the allow list. It is never driven (the engine's exact
+///   pid check), only shown.
 pub fn blocked_by(deny: &dyn Denies, scopes: &dyn Scopes, pid: u32) -> Option<(String, String)> {
-    let holder = scopes.app_of(pid);
-    let resolved = scopes.resolved_id(pid);
-    let all = scopes.own_ids(pid);
-    let name = || {
-        scopes
-            .own_id(pid)
-            .or_else(|| holder.clone())
-            .unwrap_or_default()
-    };
-    if let Some(m) = holder
+    let id = scopes.identity(pid);
+    let name = id
+        .facts
+        .own
+        .clone()
+        .or_else(|| id.holder.clone())
+        .unwrap_or_default();
+    if let Some(m) = id
+        .holder
         .iter()
-        .chain(resolved.iter())
-        .chain(all.iter())
-        .find(|id| deny.deny_listed(id))
+        .chain(id.facts.own.iter())
+        .chain(id.facts.resolved.iter())
+        .chain(id.facts.candidates.iter())
+        .find(|i| deny.deny_listed(i))
     {
-        return Some((name(), m.clone()));
+        return Some((name, m.clone()));
     }
-    holder
-        .iter()
-        .chain(resolved.iter())
-        .find(|id| !deny.allow_listed(id))
-        .map(|m| (name(), m.clone()))
+    let mut judged: Vec<&String> = id.holder.iter().chain(id.facts.resolved.iter()).collect();
+    if let Some(own) = &id.facts.own {
+        let judge_own = match &id.holder {
+            None => id.facts.resolved.is_empty(),
+            Some(h) => fixed_caps::cap(Some(own)) < fixed_caps::cap(Some(h)),
+        };
+        if judge_own {
+            judged.push(own);
+        }
+    }
+    judged
+        .into_iter()
+        .find(|i| !deny.allow_listed(i))
+        .map(|m| (name, m.clone()))
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -135,7 +143,10 @@ pub fn decide(
         Ok(())
     } else {
         Err(Refusal::Moved {
-            other: scopes.app_of(pid).or_else(|| scopes.own_id(pid)),
+            other: {
+                let i = scopes.identity(pid);
+                i.holder.or(i.facts.own)
+            },
         })
     }
 }
@@ -183,7 +194,7 @@ pub fn to_error(refusal: &Refusal, app: &AppInfo) -> CapError {
 mod tests {
     use super::*;
     use crate::remote::policy::Apps;
-    use psyche_linux_computer::app_id::{candidates, choose, normalize, DesktopIndex, Evidence};
+    use psyche_linux_computer::app_id::{id_facts, DesktopIndex, Evidence};
     use std::collections::HashMap;
 
     fn policy(allow: &[&str], deny: &[&str]) -> Policy {
@@ -195,7 +206,7 @@ mod tests {
         p
     }
 
-    /// pid -> (launch scope's app, the process's own app).
+    /// pid -> (launch scope's app, the process's own app), the own app being resolved.
     struct Fake(HashMap<u32, (&'static str, &'static str)>);
 
     impl Scopes for Fake {
@@ -204,11 +215,18 @@ mod tests {
                 .get(&pid)
                 .is_some_and(|(scope, _)| scope.eq_ignore_ascii_case(app_id))
         }
-        fn app_of(&self, pid: u32) -> Option<String> {
-            self.0.get(&pid).map(|(scope, _)| scope.to_string())
-        }
-        fn own_id(&self, pid: u32) -> Option<String> {
-            self.0.get(&pid).map(|(_, own)| own.to_string())
+        fn identity(&self, pid: u32) -> Identity {
+            match self.0.get(&pid) {
+                Some((scope, own)) => Identity {
+                    holder: Some(scope.to_string()),
+                    facts: IdFacts {
+                        own: Some(own.to_string()),
+                        resolved: vec![own.to_string()],
+                        candidates: vec![own.to_string()],
+                    },
+                },
+                None => Identity::default(),
+            }
         }
     }
 
@@ -241,29 +259,18 @@ mod tests {
 
     #[test]
     fn the_scope_check_only_refuses_and_a_scope_child_passes_it_unvouched() {
-        // The check passes for a process in the scope (the editor, and the xterm it started).
-        // That is not permission: the engine's own exact-pid comparison still runs after it,
-        // and refuses the xterm (engine test
+        // Under `*` the check passes for a process in the scope (the editor, and the xterm it
+        // started). That is not permission: the engine's own exact-pid comparison still runs
+        // after it, and refuses the xterm (engine test
         // `a_surface_that_allows_the_focus_does_not_replace_the_pid_comparison`).
         let n = policy(&["*"], &[]);
-        assert_eq!(
-            decide("org.gnome.TextEditor", Some(100), &scopes(), &n),
-            Ok(())
-        );
-        assert_eq!(
-            decide("org.gnome.TextEditor", Some(101), &scopes(), &n),
-            Ok(())
-        );
+        assert_eq!(decide("org.gnome.TextEditor", Some(100), &scopes(), &n), Ok(()));
+        assert_eq!(decide("org.gnome.TextEditor", Some(101), &scopes(), &n), Ok(()));
     }
 
     #[test]
     fn typing_is_refused_when_the_focus_is_another_apps_window() {
-        let r = decide(
-            "org.gnome.TextEditor",
-            Some(200),
-            &scopes(),
-            &policy(&["*"], &[]),
-        );
+        let r = decide("org.gnome.TextEditor", Some(200), &scopes(), &policy(&["*"], &[]));
         assert_eq!(
             r,
             Err(Refusal::Moved {
@@ -277,36 +284,21 @@ mod tests {
 
     #[test]
     fn typing_is_refused_for_a_window_that_belongs_to_no_launched_app() {
-        let r = decide(
-            "org.gnome.TextEditor",
-            Some(4242),
-            &scopes(),
-            &policy(&["*"], &[]),
-        );
+        let r = decide("org.gnome.TextEditor", Some(4242), &scopes(), &policy(&["*"], &[]));
         assert_eq!(r, Err(Refusal::Moved { other: None }));
     }
 
     #[test]
     fn typing_is_refused_when_the_focus_cannot_be_read() {
         assert_eq!(
-            decide(
-                "org.gnome.TextEditor",
-                None,
-                &scopes(),
-                &policy(&["*"], &[])
-            ),
+            decide("org.gnome.TextEditor", None, &scopes(), &policy(&["*"], &[])),
             Err(Refusal::Unknown)
         );
     }
 
     #[test]
     fn a_denied_app_with_the_focus_gets_no_input_and_the_error_names_what_it_is() {
-        let r = decide(
-            "org.gnome.TextEditor",
-            Some(300),
-            &scopes(),
-            &keepass_denied(),
-        );
+        let r = decide("org.gnome.TextEditor", Some(300), &scopes(), &keepass_denied());
         assert_eq!(
             r,
             Err(Refusal::Denied {
@@ -314,12 +306,7 @@ mod tests {
                 matched: "org.keepassxc.KeePassXC".into()
             })
         );
-        let r = decide(
-            "org.keepassxc.KeePassXC",
-            Some(300),
-            &scopes(),
-            &keepass_denied(),
-        );
+        let r = decide("org.keepassxc.KeePassXC", Some(300), &scopes(), &keepass_denied());
         let e = to_error(&r.unwrap_err(), &info("org.keepassxc.keepassxc", 300));
         assert_eq!((e.code, e.reason.as_str()), ("policy_denied", "app_denied"));
         assert!(!e.retryable);
@@ -327,13 +314,7 @@ mod tests {
 
     #[test]
     fn a_denied_program_started_by_an_allowed_app_gets_no_input() {
-        // Its scope is the editor's; the process itself is KeePassXC.
-        let r = decide(
-            "org.gnome.TextEditor",
-            Some(301),
-            &scopes(),
-            &keepass_denied(),
-        );
+        let r = decide("org.gnome.TextEditor", Some(301), &scopes(), &keepass_denied());
         assert!(matches!(r, Err(Refusal::Denied { .. })));
     }
 
@@ -346,22 +327,18 @@ mod tests {
             fn in_scope(&self, _: &str, _: u32) -> bool {
                 true
             }
-            fn app_of(&self, _: u32) -> Option<String> {
-                Some("org.gnome.TextEditor".into())
-            }
-            fn own_id(&self, _: u32) -> Option<String> {
-                Some("org.gnome.texteditor".into())
-            }
-            fn own_ids(&self, _: u32) -> Vec<String> {
-                vec!["org.gnome.texteditor".into(), "gnome-text-edit".into()]
+            fn identity(&self, _: u32) -> Identity {
+                Identity {
+                    holder: Some("org.gnome.TextEditor".into()),
+                    facts: IdFacts {
+                        own: Some("org.gnome.texteditor".into()),
+                        resolved: vec!["org.gnome.texteditor".into()],
+                        candidates: vec!["org.gnome.texteditor".into(), "gnome-text-edit".into()],
+                    },
+                }
             }
         }
-        let r = decide(
-            "org.gnome.TextEditor",
-            Some(1),
-            &Comm,
-            &policy(&["*"], &["gnome-text-edit"]),
-        );
+        let r = decide("org.gnome.TextEditor", Some(1), &Comm, &policy(&["*"], &["gnome-text-edit"]));
         assert_eq!(
             r,
             Err(Refusal::Denied {
@@ -374,45 +351,23 @@ mod tests {
         assert_eq!(e.details["matched"], "gnome-text-edit");
     }
 
-    /// Scopes built from the **real** candidate resolver over desktop files on disk, the way
-    /// `A11y` builds them: the launch scope names the app, the evidence names the process.
+    /// Identities built by the **real** resolver over desktop files on disk, the way `A11y`
+    /// builds them.
     struct Real {
         index: DesktopIndex,
-        procs: HashMap<u32, (&'static str, Evidence)>,
-    }
-
-    impl Real {
-        fn cands(&self, pid: u32) -> Vec<String> {
-            let (_, ev) = &self.procs[&pid];
-            let mut c = candidates(ev, &self.index);
-            if let Some(comm) = ev.comm.as_deref().map(normalize) {
-                if !c.contains(&comm) {
-                    c.push(comm);
-                }
-            }
-            c
-        }
+        procs: HashMap<u32, (Option<&'static str>, Evidence)>,
     }
 
     impl Scopes for Real {
         fn in_scope(&self, app_id: &str, pid: u32) -> bool {
-            self.procs[&pid].0.eq_ignore_ascii_case(app_id)
+            self.procs[&pid].0.is_some_and(|h| h.eq_ignore_ascii_case(app_id))
         }
-        fn app_of(&self, pid: u32) -> Option<String> {
-            Some(self.procs[&pid].0.to_string())
-        }
-        fn own_id(&self, pid: u32) -> Option<String> {
-            choose(&self.cands(pid))
-        }
-        fn resolved_id(&self, pid: u32) -> Option<String> {
-            let id = self.own_id(pid)?;
-            aliases(&id)
-                .iter()
-                .any(|a| self.index.get(a).is_some())
-                .then_some(id)
-        }
-        fn own_ids(&self, pid: u32) -> Vec<String> {
-            self.cands(pid)
+        fn identity(&self, pid: u32) -> Identity {
+            let (holder, ev) = &self.procs[&pid];
+            Identity {
+                holder: holder.map(str::to_string),
+                facts: id_facts(ev, &self.index, None),
+            }
         }
     }
 
@@ -423,10 +378,7 @@ mod tests {
         for (file, exec) in [
             ("org.gnome.TextEditor.desktop", "gnome-text-editor %U"),
             ("libreoffice-writer.desktop", "libreoffice --writer %U"),
-            (
-                "firefox_firefox.desktop",
-                "env BAMF_DESKTOP_FILE_HINT=x /snap/bin/firefox %u",
-            ),
+            ("firefox_firefox.desktop", "env BAMF_DESKTOP_FILE_HINT=x /snap/bin/firefox %u"),
             ("debian-xterm.desktop", "xterm"),
         ] {
             std::fs::write(
@@ -442,32 +394,31 @@ mod tests {
             ..Default::default()
         };
         let procs = HashMap::from([
-            (
-                1,
-                (
-                    "org.gnome.TextEditor",
-                    ev("/usr/bin/gnome-text-editor", "gnome-text-edit"),
-                ),
-            ),
+            (1, (Some("org.gnome.TextEditor"), ev("/usr/bin/gnome-text-editor", "gnome-text-edit"))),
             (
                 2,
                 (
-                    "libreoffice-writer",
+                    Some("libreoffice-writer"),
                     ev("/usr/lib/libreoffice/program/soffice.bin", "soffice.bin"),
                 ),
             ),
             (
                 3,
                 (
-                    "firefox",
+                    Some("firefox"),
                     Evidence {
                         cgroup: Some("0::/user.slice/app-snap.firefox.firefox-1234.scope".into()),
                         ..ev("/snap/firefox/current/usr/lib/firefox/firefox", "firefox")
                     },
                 ),
             ),
-            // An xterm the editor started: the editor's scope, its own executable.
-            (4, ("org.gnome.TextEditor", ev("/usr/bin/xterm", "xterm"))),
+            // (a) an xterm the editor started: the editor's scope, its own executable.
+            (4, (Some("org.gnome.TextEditor"), ev("/usr/bin/xterm", "xterm"))),
+            // (b) a process that left every scope.
+            (5, (None, ev("/usr/bin/xterm", "xterm"))),
+            (6, (None, ev("/usr/lib/libreoffice/program/soffice.bin", "soffice.bin"))),
+            // (c) a program with no desktop entry in an allowed scope: the documented gap.
+            (7, (Some("org.gnome.TextEditor"), ev("/usr/bin/foo", "foo"))),
         ]);
         (dir, Real { index, procs })
     }
@@ -483,25 +434,68 @@ mod tests {
             (3, "firefox"),
         ] {
             let p = policy(&[allow], &[]);
-            assert_eq!(
-                blocked_by(&p, &real, pid),
-                None,
-                "{allow} {:?}",
-                real.cands(pid)
-            );
+            assert_eq!(blocked_by(&p, &real, pid), None, "{allow} {:?}", real.identity(pid));
         }
         // And the same apps under an allow list that names something else are out of reach.
         for pid in [1, 2, 3] {
             assert!(blocked_by(&policy(&["org.other.App"], &[]), &real, pid).is_some());
         }
-        // A program the editor started whose executable resolves to no desktop entry is not
-        // covered by an allow list yet (the follow-up: an unresolved id is not permitted). It
-        // still gets no keys (the engine's exact pid check), and a deny entry catches it, see
-        // `a_deny_list_catches_a_process_under_any_candidate_id`.
     }
 
-    /// The deny list, on the other hand, catches any identity: the executable's name, the
-    /// `comm`, the desktop entry, a file name.
+    /// (a) and (b) of the r2 review: what main hid stays hidden.
+    #[test]
+    fn under_a_narrow_allow_list_a_program_started_by_an_allowed_app_or_with_no_scope_is_out_of_reach() {
+        let (_keep, real) = real();
+        let p = policy(&["org.gnome.TextEditor"], &[]);
+        // (a) The xterm in the editor's scope resolves to its own entry, `debian-xterm`.
+        let (_, matched) = blocked_by(&p, &real, 4).expect("xterm in the editor's scope");
+        assert_eq!(matched, "debian-xterm");
+        // (b) No scope: the process is judged on what it is. An xterm, and Writer's executable
+        // with no scope (nothing resolves, `soffice.bin` is not on the list).
+        assert!(blocked_by(&p, &real, 5).is_some());
+        assert!(blocked_by(&p, &real, 6).is_some());
+        // ... and the same processes are fine when the list names them.
+        assert_eq!(blocked_by(&policy(&["debian-xterm"], &[]), &real, 5), None);
+        assert_eq!(blocked_by(&policy(&["soffice.bin"], &[]), &real, 6), None);
+    }
+
+    /// (c): no entry, no stricter cap, inside an allowed scope. Shown, never driven.
+    #[test]
+    fn an_unknown_program_in_an_allowed_scope_is_the_documented_gap() {
+        let (_keep, real) = real();
+        let p = policy(&["org.gnome.TextEditor"], &[]);
+        assert_eq!(blocked_by(&p, &real, 7), None);
+        // It is never driven: the deny list catches it by name, and the engine's exact pid
+        // check refuses keys to anything that is not the app's own process.
+        assert!(blocked_by(&policy(&["*"], &["foo"]), &real, 7).is_some());
+    }
+
+    /// A terminal with no desktop entry has a stricter fixed cap than the scope's app, so the
+    /// allow list is applied to it even though nothing resolves.
+    #[test]
+    fn an_own_id_with_a_stricter_cap_is_judged_even_when_it_resolves_to_nothing() {
+        struct Term;
+        impl Scopes for Term {
+            fn in_scope(&self, _: &str, _: u32) -> bool {
+                true
+            }
+            fn identity(&self, _: u32) -> Identity {
+                Identity {
+                    holder: Some("org.gnome.TextEditor".into()),
+                    facts: IdFacts {
+                        own: Some("xterm".into()),
+                        resolved: vec![],
+                        candidates: vec!["xterm".into()],
+                    },
+                }
+            }
+        }
+        assert!(blocked_by(&policy(&["org.gnome.TextEditor"], &[]), &Term, 1).is_some());
+        assert_eq!(blocked_by(&policy(&["*"], &[]), &Term, 1), None);
+    }
+
+    /// The deny list catches any identity: the executable's name, the `comm`, the desktop
+    /// entry, a file name.
     #[test]
     fn a_deny_list_catches_a_process_under_any_candidate_id() {
         let (_keep, real) = real();
@@ -517,32 +511,28 @@ mod tests {
             let p = policy(&["*"], &[entry]);
             assert!(blocked_by(&p, &real, pid).is_some(), "{entry} for {pid}");
         }
-        // A near miss is not denied.
-        assert_eq!(
-            blocked_by(&policy(&["*"], &["gnome-calculator"]), &real, 1),
-            None
-        );
+        assert_eq!(blocked_by(&policy(&["*"], &["gnome-calculator"]), &real, 1), None);
+    }
+
+    /// Snap aliases agree everywhere: the gate's matcher and this one are the same.
+    #[test]
+    fn snap_aliases_match_on_both_lists_in_the_policy_itself() {
+        let p = policy(&["firefox"], &[]);
+        assert!(p.app_permitted("firefox_firefox"));
+        assert!(!p.app_permitted("thunderbird_thunderbird"));
+        let p = policy(&["*"], &["firefox"]);
+        assert!(!p.app_permitted("firefox_firefox"));
+        assert!(p.app_permitted("firefox-esr"));
     }
 
     #[test]
     fn the_deny_list_does_not_touch_other_apps() {
         assert_eq!(
-            decide(
-                "org.gnome.TextEditor",
-                Some(100),
-                &scopes(),
-                &keepass_denied()
-            ),
+            decide("org.gnome.TextEditor", Some(100), &scopes(), &keepass_denied()),
             Ok(())
         );
-        // A policy that allows nothing puts everything out of reach.
         assert!(matches!(
-            decide(
-                "org.gnome.TextEditor",
-                Some(100),
-                &scopes(),
-                &policy(&[], &[])
-            ),
+            decide("org.gnome.TextEditor", Some(100), &scopes(), &policy(&[], &[])),
             Err(Refusal::Denied { .. })
         ));
     }

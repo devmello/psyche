@@ -387,44 +387,14 @@ impl A11y {
         }
     }
 
-    /// **Every** id the process could be (cgroup, each desktop entry its executable belongs to,
-    /// the launched file, the executable's name, its `comm`), not only the strictest: a deny
-    /// list must catch it under any of them.
-    pub fn all_ids_for_pid(&self, pid: u32) -> Vec<String> {
+    /// Who a process is, from one read of `/proc/<pid>` and one copy of the desktop index (see
+    /// [`app_id::IdFacts`]); a Flatpak's own name is read from its sandbox.
+    pub fn id_facts_for_pid(&self, pid: u32) -> app_id::IdFacts {
         let ev = Self::evidence(pid);
-        let mut out = app_id::candidates(&ev, &self.desktop_index());
-        if let Some(c) = ev
-            .comm
-            .as_deref()
-            .map(app_id::normalize)
-            .filter(|c| app_id::is_app_id(c))
-        {
-            if !out.contains(&c) {
-                out.push(c);
-            }
-        }
-        // Inside a Flatpak sandbox the app id is what the sandbox says it is.
-        if let Some(name) = std::fs::read_to_string(format!("/proc/{pid}/root/.flatpak-info"))
+        let flatpak = std::fs::read_to_string(format!("/proc/{pid}/root/.flatpak-info"))
             .ok()
-            .and_then(|t| app_id::flatpak_app_name(&t))
-        {
-            if !out.contains(&name) {
-                out.push(name);
-            }
-        }
-        out
-    }
-
-    /// The process's id **only if it names an installed desktop entry** (or a snap alias of
-    /// one); a name taken from the executable or `comm` (`soffice.bin`, `gnome-text-edit`)
-    /// resolves to nothing, so an allow list is not applied to it.
-    pub fn resolved_id_for_pid(&self, pid: u32) -> Option<String> {
-        let id = self.app_id_for_pid(pid)?;
-        let index = self.desktop_index();
-        app_id::aliases(&id)
-            .iter()
-            .any(|a| index.get(a).is_some())
-            .then_some(id)
+            .and_then(|t| app_id::flatpak_app_name(&t));
+        app_id::id_facts(&ev, &self.desktop_index(), flatpak)
     }
 
     /// The desktop-file id of a process (strictest candidate wins, see [`app_id::choose`]).

@@ -29,6 +29,45 @@ pub fn normalize(id: &str) -> String {
     lower.strip_suffix(".desktop").unwrap_or(&lower).to_string()
 }
 
+/// What is known about who a process is, computed once from its evidence.
+#[derive(Debug, Default, Clone, PartialEq, Eq)]
+pub struct IdFacts {
+    /// The strictest candidate (what [`choose`] reports), `comm` as the last resort.
+    pub own: Option<String>,
+    /// The candidates that name an installed desktop entry (or a snap alias of one): the
+    /// executable's own entries, the launched file, the cgroup id when it is one.
+    pub resolved: Vec<String>,
+    /// Every candidate, `comm` and a Flatpak's name included: what a deny list is matched on.
+    pub candidates: Vec<String>,
+}
+
+/// Builds [`IdFacts`] from one read of the evidence and one index.
+pub fn id_facts(ev: &Evidence, index: &DesktopIndex, flatpak: Option<String>) -> IdFacts {
+    let mut cands = candidates(ev, index);
+    let own = choose(&cands).or_else(|| {
+        ev.comm
+            .as_deref()
+            .map(normalize)
+            .filter(|c| is_app_id(c))
+    });
+    let resolved: Vec<String> = cands
+        .iter()
+        .filter(|c| aliases(c).iter().any(|a| index.get(a).is_some()))
+        .cloned()
+        .collect();
+    let comm = ev.comm.as_deref().map(normalize).filter(|c| is_app_id(c));
+    for extra in comm.into_iter().chain(flatpak) {
+        if !cands.contains(&extra) {
+            cands.push(extra);
+        }
+    }
+    IdFacts {
+        own,
+        resolved,
+        candidates: cands,
+    }
+}
+
 /// The app id in a Flatpak's `/.flatpak-info` (`[Application]` group, `name=`): what a process
 /// inside a Flatpak sandbox is, whatever scope launched it.
 pub fn flatpak_app_name(info: &str) -> Option<String> {

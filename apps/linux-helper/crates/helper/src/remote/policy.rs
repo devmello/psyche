@@ -400,22 +400,21 @@ impl Policy {
         !self.deny_listed(id) && self.allow_listed(id)
     }
 
-    /// Whether `apps.deny` names this id (normalised on both sides).
+    /// Whether `apps.deny` names this id or an alias of it (a snap's `<snap>_<app>` is also
+    /// `<app>` and `<snap>`), normalised on both sides.
     pub fn deny_listed(&self, id: &str) -> bool {
-        let id = normalize(id);
-        self.apps
-            .deny
-            .iter()
-            .any(|p| glob_match(&normalize(p), &id))
+        Self::listed(&self.apps.deny, id)
     }
 
-    /// Whether `apps.allow` names this id (normalised on both sides).
+    /// Whether `apps.allow` names this id or an alias of it.
     pub fn allow_listed(&self, id: &str) -> bool {
-        let id = normalize(id);
-        self.apps
-            .allow
+        Self::listed(&self.apps.allow, id)
+    }
+
+    fn listed(list: &[String], id: &str) -> bool {
+        psyche_linux_computer::app_id::aliases(id)
             .iter()
-            .any(|p| glob_match(&normalize(p), &id))
+            .any(|a| list.iter().any(|p| glob_match(&normalize(p), a)))
     }
 
     /// The same for a call that names no app: it is as permitted as the empty id, so `*` and

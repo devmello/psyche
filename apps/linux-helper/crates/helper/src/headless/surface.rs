@@ -23,7 +23,7 @@ use psyche_linux_computer::linux::{LinuxBackend, Path, SurfaceHooks};
 use psyche_linux_computer::trust::SettingsSource;
 use psyche_linux_computer::x11::X11;
 
-use super::focus::{blocked_by, decide, to_error, Scopes};
+use super::focus::{blocked_by, decide, to_error, Identity, Scopes};
 use crate::paths::{psyche_home, Env, ProcessEnv};
 use crate::remote::config::config_dir;
 use crate::remote::policy::PolicySource;
@@ -74,20 +74,16 @@ impl Scopes for ManagerScopes {
     fn in_scope(&self, app_id: &str, pid: u32) -> bool {
         self.manager.pid_in_app_scope(app_id, pid)
     }
-    fn app_of(&self, pid: u32) -> Option<String> {
-        self.manager.app_of_pid(pid)
-    }
-    fn own_id(&self, pid: u32) -> Option<String> {
-        self.a11y.as_ref().and_then(|a| a.app_id_for_pid(pid))
-    }
-    fn resolved_id(&self, pid: u32) -> Option<String> {
-        self.a11y.as_ref().and_then(|a| a.resolved_id_for_pid(pid))
-    }
-    fn own_ids(&self, pid: u32) -> Vec<String> {
-        self.a11y
-            .as_ref()
-            .map(|a| a.all_ids_for_pid(pid))
-            .unwrap_or_default()
+    /// Read once per question: `/proc` and the desktop index are touched here and nowhere else.
+    fn identity(&self, pid: u32) -> Identity {
+        Identity {
+            holder: self.manager.app_of_pid(pid),
+            facts: self
+                .a11y
+                .as_ref()
+                .map(|a| a.id_facts_for_pid(pid))
+                .unwrap_or_default(),
+        }
     }
 }
 
@@ -173,16 +169,17 @@ impl SurfaceHooks for VirtualHooks {
         };
         let policy = self.policy.load().policy;
         let scopes = self.scopes();
-        let mut out: Vec<u32> = x11
+        // One question per process, however many windows it has.
+        let mut pids: Vec<u32> = x11
             .stacked_windows()
             .into_iter()
             .map(|w| w.pid)
             .filter(|&pid| pid != 0)
-            .filter(|&pid| pid_denied(&policy, &scopes, pid))
             .collect();
-        out.sort_unstable();
-        out.dedup();
-        out
+        pids.sort_unstable();
+        pids.dedup();
+        pids.retain(|&pid| pid_denied(&policy, &scopes, pid));
+        pids
     }
 
     fn point_clients_ok(&self, x: f64, y: f64, app: &AppInfo) -> CapResult<()> {
