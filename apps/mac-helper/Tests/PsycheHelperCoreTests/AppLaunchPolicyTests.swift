@@ -149,6 +149,48 @@ struct AppLaunchPolicyTests {
         }
     }
 
+    /// Review r3: Shortcuts Events lives only in CoreServices. A background script target may be
+    /// Apple's own agent there; `apps.open` never launches from there, and nothing else does.
+    @Test func appleAgentsInCoreServicesAreScriptTargetsOnly() throws {
+        let events = "/System/Library/CoreServices/Shortcuts Events.app"
+        var agent = FakeBundle(path: events, id: "com.apple.shortcuts.events", appleSigned: true)
+        let l = lookups([agent])
+        let url = try AppLaunchPolicy.resolve(bundleId: "com.apple.shortcuts.events", home: home, lookups: l, purpose: .scriptTarget)
+        #expect(url.path == events)
+        // apps.open (the default purpose) still refuses it.
+        #expect(reason("com.apple.shortcuts.events", [agent]) == "app_outside_applications")
+        // Not Apple-signed: refused even as a script target.
+        agent.appleSigned = false
+        #expect(throws: CapabilityError.self) {
+            try AppLaunchPolicy.resolve(bundleId: "com.apple.shortcuts.events", home: home, lookups: lookups([agent]), purpose: .scriptTarget)
+        }
+        // A non-Apple id at that path is refused as a script target.
+        let other = FakeBundle(path: "/System/Library/CoreServices/Helper.app", id: "com.example.helper", appleSigned: true)
+        do {
+            _ = try AppLaunchPolicy.resolve(bundleId: "com.example.helper", home: home, lookups: lookups([other]), purpose: .scriptTarget)
+            Issue.record("a non-Apple id in CoreServices must be refused")
+        } catch let e as CapabilityError {
+            #expect(e.reason == "app_outside_applications")
+        }
+        // Only direct children: not deeper, not a lookalike folder name.
+        for path in ["/System/Library/CoreServices/Finder.app/Contents/Applications/X.app",
+                     "/System/Library/CoreServicesX/X.app", "/System/Library/CoreServices/X"] {
+            let b = FakeBundle(path: path, id: "com.apple.x", appleSigned: true)
+            #expect(throws: CapabilityError.self) {
+                try AppLaunchPolicy.resolve(bundleId: "com.apple.x", home: home, lookups: lookups([b]), purpose: .scriptTarget)
+            }
+        }
+        // Judged by the real path: a copy named like it in a granted folder does not count.
+        let linked = AppLaunchPolicy.Lookups(
+            candidates: { _ in [URL(fileURLWithPath: home + "/Projects/Shortcuts Events.app")] },
+            info: { _ in ["CFBundleIdentifier": "com.apple.shortcuts.events", "CFBundleExecutable": "X"] },
+            exists: { _ in true }, appleSigned: { _ in true },
+            realPath: { $0.path })
+        #expect(throws: CapabilityError.self) {
+            try AppLaunchPolicy.resolve(bundleId: "com.apple.shortcuts.events", home: home, lookups: linked, purpose: .scriptTarget)
+        }
+    }
+
     /// Review r1, finding 2: LaunchServices activates an instance that is already running.
     @Test func aRunningCopyMustBeTheCheckedOne() throws {
         let checked = URL(fileURLWithPath: "/Applications/Zephium.app")

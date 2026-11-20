@@ -401,7 +401,7 @@ enum AppResolver {
 enum CheckedLaunch {
     /// The checked bundle for an id.
     static func url(for bundleId: String) throws -> URL {
-        try AppLaunchPolicy.resolve(bundleId: bundleId, home: NSHomeDirectory(), lookups: LiveAppLookups.lookups)
+        try AppLaunchPolicy.resolve(bundleId: bundleId, home: NSHomeDirectory(), lookups: LiveAppLookups.lookups, purpose: .scriptTarget)
     }
 
     static func runningURLs(_ bundleId: String) -> [URL?] {

@@ -19,6 +19,21 @@ public enum AppLaunchPolicy {
         "/System/Cryptexes/App/System/Applications", "/System/Volumes/Preboot/Cryptexes/App/System/Applications",
     ]
 
+    /// Why a bundle is resolved: `open` for `apps.open` (an app the owner sees), `scriptTarget`
+    /// for a background launch or an Apple Event target (`ensureRunning`, script targets, the
+    /// Automation request), which may also be an Apple agent in `coreServicesFolder`.
+    public enum Purpose: Sendable { case open, scriptTarget }
+
+    /// Apple's background agents on the sealed system volume (Shortcuts Events lives only here).
+    public static let coreServicesFolder = "/System/Library/CoreServices"
+
+    /// `path` is `<folder>/<name>.app`, directly inside it.
+    static func isDirectChild(_ path: String, of folder: String) -> Bool {
+        guard path.hasPrefix(folder + "/") else { return false }
+        let rest = path.dropFirst(folder.count + 1)
+        return !rest.contains("/") && rest.lowercased().hasSuffix(".app") && rest.count > 4
+    }
+
     /// Where Apple's own apps live. A `com.apple.*` id from anywhere else is a lookalike.
     static let appleFolders = ["/System/", "/Applications/"]
 
@@ -70,7 +85,7 @@ public enum AppLaunchPolicy {
     /// (`/System` > `/Applications` > `~/Applications`). Refuses an id no checked bundle has (with
     /// the reason the best other copy failed, else `app_not_found`) and two checked copies in the
     /// same launch folder tier (`app_ambiguous`: LaunchServices would pick by version).
-    public static func resolve(bundleId: String, home: String, lookups: Lookups) throws -> URL {
+    public static func resolve(bundleId: String, home: String, lookups: Lookups, purpose: Purpose = .open) throws -> URL {
         var seen: [String] = []
         for url in lookups.candidates(bundleId) where lookups.exists(url) {
             let path = lookups.realPath(url)
@@ -80,7 +95,7 @@ public enum AppLaunchPolicy {
         var failure: (tier: Int, error: CapabilityError)?
         for path in seen {
             do {
-                try check(URL(fileURLWithPath: path), requestedId: bundleId, home: home, lookups: lookups)
+                try check(URL(fileURLWithPath: path), requestedId: bundleId, home: home, lookups: lookups, purpose: purpose)
                 passed.append(path)
             } catch let e as CapabilityError {
                 // Report why the copy nearest a launch folder failed (a lookalike Apple app).
@@ -135,9 +150,15 @@ public enum AppLaunchPolicy {
     /// - its own Info.plist names the requested id, and its executable inside the bundle
     ///   (`CFBundleExecutable` is a plain name, never `../../bin/bash`);
     /// - a `com.apple.*` id lives in `/System` or `/Applications` and carries Apple's signature.
-    public static func check(_ url: URL, requestedId: String?, home: String, lookups: Lookups) throws {
+    public static func check(_ url: URL, requestedId: String?, home: String, lookups: Lookups, purpose: Purpose = .open) throws {
         let path = lookups.realPath(url)
-        guard appFolders(home: home).contains(where: { path.hasPrefix($0 + "/") }) else {
+        let id = (lookups.info(url)?["CFBundleIdentifier"] as? String) ?? requestedId
+        // A background script target may also be one of Apple's own agents in CoreServices
+        // (Shortcuts Events), judged by its real path, so a link cannot lead there; the Apple
+        // signature check below still applies. `apps.open` never launches from there.
+        let coreService = purpose == .scriptTarget && id?.lowercased().hasPrefix("com.apple.") == true
+            && isDirectChild(path, of: coreServicesFolder)
+        guard coreService || appFolders(home: home).contains(where: { path.hasPrefix($0 + "/") }) else {
             throw CapabilityError(.policyDenied, reason: "app_outside_applications", "Only apps installed in an Applications folder can be opened")
         }
         if nestedInBundle(path) {
