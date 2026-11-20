@@ -1,4 +1,5 @@
-import type { ModelEvent, ToolRunContext } from "@psyche/protocol";
+import type { ToolRunContext } from "@psyche/agent-core";
+import type { ModelEvent } from "@psyche/protocol";
 import { createDbSessionResolver, SqliteScheduler } from "@psyche/scheduler";
 import {
   createIdGenerator,
