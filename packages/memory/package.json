@@ -21,7 +21,7 @@
     "@psyche/hostfs": "workspace:*",
     "@psyche/protocol": "workspace:*",
     "@sinclair/typebox": "0.34.52",
-    "better-sqlite3-multiple-ciphers": "13.1.1",
+    "better-sqlite3-multiple-ciphers": "13.2.0",
     "fflate": "0.8.3",
     "sqlite-vec": "0.1.9",
     "ulid": "3.0.2",
