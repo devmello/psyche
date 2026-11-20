@@ -84,7 +84,7 @@ if [ "$quick" = 0 ]; then
   if [ -z "$slots" ]; then
     cores="$(sysctl -n hw.ncpu 2>/dev/null || nproc 2>/dev/null || echo 1)"
     mem_gb=$(( $(sysctl -n hw.memsize 2>/dev/null || echo 0) / 1073741824 ))
-    if [ "$cores" -ge 12 ] 2>/dev/null && [ "$mem_gb" -ge 24 ] 2>/dev/null; then slots=5
+    if [ "$cores" -ge 12 ] 2>/dev/null && [ "$mem_gb" -ge 24 ] 2>/dev/null; then slots=8
     elif [ "$cores" -ge 10 ] 2>/dev/null; then slots=3
     else slots=1; fi
   fi
