@@ -57,27 +57,66 @@ export function approvePairing(
     throw new PsycheError("conflict", "The device key changed since the request was created");
   }
   const machine = request.purpose === "machine";
-  if (machine && (device.role !== "node" || getDeviceFamily(db, device.id) !== "linux-helper")) {
-    throw new PsycheError("conflict", "That request is not from a Linux helper node");
-  }
+  if (machine) assertMachineCandidate(db, device);
   const decided = decidePairingRequest(db, request.id, {
     decision: "approved",
     decidedByDeviceId: input.decidedByDeviceId,
   });
+  const done = applyPairingDecision(db, {
+    device,
+    machine,
+    scopes: input.scopes,
+    pairedAt: db.now(),
+    decidedByDeviceId: input.decidedByDeviceId,
+  });
+  return {
+    device: done.device,
+    request: decided,
+    ...(done.machineId === undefined ? {} : { machineId: done.machineId.machineId }),
+  };
+}
+
+/** A machine request is from a node in the `linux-helper` family, as the card said. */
+function assertMachineCandidate(db: PsycheDb, device: Device): void {
+  if (device.role !== "node" || getDeviceFamily(db, device.id) !== "linux-helper") {
+    throw new PsycheError("conflict", "That request is not from a Linux helper node");
+  }
+}
+
+/**
+ * The one place a pairing decision turns into a paired device, for all three ways the owner
+ * decides: the card (`devices.approve`), the first-admin CLI shortcut, and a recovery that applies
+ * after the card expired (`security/recoveries.ts`). For a machine request the scopes the caller
+ * passed are ignored: they are `["node"]`, the role and family are checked again, the name is a
+ * unique machine name, and the stored decision is written in the same transaction. Any other
+ * request gets the scopes it was given and never makes a machine.
+ */
+export function applyPairingDecision(
+  db: PsycheDb,
+  input: {
+    device: Device;
+    machine: boolean;
+    scopes: readonly DeviceScope[];
+    pairedAt: string;
+    decidedByDeviceId: string | null;
+  },
+): { device: Device; machineId?: { machineId: string } } {
+  const { device, machine } = input;
+  if (machine) assertMachineCandidate(db, device);
   const scopes: DeviceScope[] = machine ? ["node"] : [...new Set(input.scopes)];
   const updated = updateDevice(db, device.id, {
     scopes,
-    pairedAt: db.now(),
+    pairedAt: input.pairedAt,
     ...(machine ? { name: uniqueMachineName(db, device.name, device.id) } : {}),
   });
   if (!updated) throw new PsycheError("not_found", "device not found");
-  if (!machine) return { device: updated, request: decided };
+  if (!machine) return { device: updated };
   const record = insertMachine(db, {
     deviceId: device.id,
     approvedByDeviceId: input.decidedByDeviceId,
     via: "pairing_card",
   });
-  return { device: updated, request: decided, machineId: record.id };
+  return { device: updated, machineId: { machineId: record.id } };
 }
 
 function closeDeviceConnections(
@@ -239,6 +278,17 @@ export const devicesHandlers: Record<string, HandlerDef> = {
     transactional: true,
     run(call: Call, params: { deviceId: string }) {
       return { device: revokeNow(call, params.deviceId) };
+    },
+  },
+  "node.unpair": {
+    transactional: true,
+    run(call: Call) {
+      // Only a connection the Gateway paired as a machine (from the sealed decision at this
+      // connect), and only its own device: the method takes no id.
+      if (call.identity.machine !== true || call.identity.role !== "node") {
+        throw new PsycheError("forbidden", "Only a paired machine can unpair itself");
+      }
+      return { device: revokeNow(call, call.identity.deviceId) };
     },
   },
   "devices.revokeSelf": {

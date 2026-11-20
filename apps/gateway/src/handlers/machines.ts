@@ -1,5 +1,5 @@
 import { getDevice, getMachine, listMachines, updateDevice } from "@psyche/db";
-import { type MachineInfo, PsycheError } from "@psyche/protocol";
+import { type MachineInfo, machineNameOk, PsycheError } from "@psyche/protocol";
 import type { Call, HandlerDef } from "../context.ts";
 import { machineInfoOf, machineNameTaken } from "../nodes/machines.ts";
 
@@ -23,6 +23,10 @@ export const machinesHandlers: Record<string, HandlerDef> = {
     transactional: true,
     run(call: Call, params: { id: string; name: string }): { machine: MachineInfo } {
       const { db } = call.ctx;
+      // The schema pattern alone lets a lone surrogate through; the code point check is the rule.
+      if (!machineNameOk(params.name)) {
+        throw new PsycheError("invalid_params", "That is not a name a computer can have");
+      }
       const record = getMachine(db, params.id);
       const device = record === undefined ? undefined : getDevice(db, record.deviceId);
       if (record === undefined || device === undefined || device.revokedAt) {
@@ -30,7 +34,7 @@ export const machinesHandlers: Record<string, HandlerDef> = {
       }
       // Names match case-insensitively and two machines cannot share one (design 8.2).
       if (machineNameTaken(db, params.name, record.deviceId)) {
-        throw new PsycheError("conflict", "Another computer already has that name");
+        throw new PsycheError("conflict", "That name is taken or reserved");
       }
       if (device.name !== params.name) {
         if (updateDevice(db, device.id, { name: params.name }) === undefined) {

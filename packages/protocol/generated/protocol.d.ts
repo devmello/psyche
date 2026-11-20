@@ -8713,6 +8713,10 @@ export type ExternalRef = number | string;
 
 export type ReceiptOutcome = "ok" | "failed" | "uncertain";
 
+export interface NodeUnpairResult {
+    device: Device;
+}
+
 export interface NodeUpdatedPayload {
     node: NodeInfo;
 }

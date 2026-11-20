@@ -41,7 +41,7 @@ import {
 } from "@psyche/protocol";
 import type { GatewayLimits } from "./context.ts";
 import type { GatewayIdentity } from "./identity.ts";
-import { uniqueMachineName } from "./nodes/machines.ts";
+import { machinePairingCardsEnabled, uniqueMachineName } from "./nodes/machines.ts";
 import { recordPeerRefusal } from "./nodes/registry.ts";
 import type { RateLimiter } from "./rate-limit.ts";
 import { stateSealFor } from "./security/state-seal.ts";
@@ -656,7 +656,8 @@ export function verifyChallenge(
     scopes === null &&
     params.role === "node" &&
     isHostHelperFamily(params.deviceFamily) &&
-    !machineCandidate
+    // A machine pairs with a link; a card for one (no token) only once the machine UI can show it.
+    !(machineCandidate && (presentedToken !== undefined || machinePairingCardsEnabled()))
   ) {
     return denied(
       params.deviceFamily === "win-helper"
@@ -715,6 +716,18 @@ export function verifyChallenge(
     } else {
       // Unpaired rows carry no authority. The holder of the handshake secret replaces a squatter.
       if (keyChanged) expirePendingPairingsForDevice(db, existing.id);
+      // A pending machine card shows what the box claimed when it asked. If the box comes back
+      // claiming another name, role or family, that card no longer describes it: it expires and a
+      // new one (with a new code) shows the new claim.
+      if (
+        machineCandidate &&
+        existing.pairedAt === null &&
+        (existing.name !== params.name ||
+          existing.role !== role ||
+          getDeviceFamily(db, existing.id) !== params.deviceFamily)
+      ) {
+        expirePendingPairingsForDevice(db, existing.id);
+      }
       updateDevice(db, existing.id, {
         name: deviceName,
         publicKey: params.publicKey,

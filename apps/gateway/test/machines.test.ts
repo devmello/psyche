@@ -1,5 +1,5 @@
 import { sign } from "node:crypto";
-import { getMachineByDevice, insertDevice, openDb, updateDevice } from "@psyche/db";
+import { getDevice, getMachineByDevice, insertDevice, openDb, updateDevice } from "@psyche/db";
 import {
   connectSigningPayload,
   type NodeCapability,
@@ -10,7 +10,7 @@ import {
 import { afterEach, describe, expect, it, vi } from "vitest";
 import type { PairedIdentity } from "../src/auth.ts";
 import { setupTokenHandlers } from "../src/compose/setup-tokens.ts";
-import type { MachineChange } from "../src/nodes/machines.ts";
+import { forceMachinePairingCardsForTests, type MachineChange } from "../src/nodes/machines.ts";
 import { nodeKindOf } from "../src/nodes/registry.ts";
 import {
   adminClient,
@@ -78,6 +78,7 @@ async function start() {
 }
 
 afterEach(async () => {
+  forceMachinePairingCardsForTests(undefined);
   audited.length = 0;
   changes.length = 0;
   for (const c of open.splice(0)) c.close();
@@ -246,6 +247,7 @@ describe("kind comes from the owner's decision", () => {
   });
 
   it("an unapproved linux-helper that asks to pair is a pending machine card, not a machine", async () => {
+    forceMachinePairingCardsForTests(true);
     await start();
     const m = await connect();
     expect(m.out.phase).toBe("pending");
@@ -259,6 +261,7 @@ describe("kind comes from the owner's decision", () => {
   });
 
   it("approving the machine card makes the machine; scopes are forced to [node]", async () => {
+    forceMachinePairingCardsForTests(true);
     await start();
     const m = await connect({ name: "lab-box" });
     const a = await admin();
@@ -330,6 +333,8 @@ describe("v2 signing is required and the family is pinned", () => {
     // The token was not spent by it.
     const ok = await connect({ setupToken: token });
     expect(ok.out.phase).toBe("paired");
+    expect((await connect({ gatewayKey: "none" })).verify.ok).toBe(false);
+    forceMachinePairingCardsForTests(true);
     expect((await connect({ gatewayKey: "none" })).verify.ok).toBe(false);
   });
 
@@ -595,5 +600,55 @@ describe("revoking a machine", () => {
       ),
     ).toThrow(/no longer paired/);
     expect(close).toHaveBeenCalled();
+  });
+});
+
+describe("a machine unpairing itself (node.unpair)", () => {
+  it("runs the revoke cascade for its own device and nothing else", async () => {
+    await start();
+    const { a, m } = await pairMachine();
+    const other = await pairMachine("second");
+    const closed = new Promise<void>((resolve) => m.client.ws.once("close", () => resolve()));
+    // It takes no id: a device id in the params changes nothing.
+    const res = await m.client.request("node.unpair", { deviceId: other.m.deviceId });
+    expect(res).toMatchObject({ ok: true, payload: { device: { id: m.deviceId } } });
+    await closed;
+    expect(getMachineByDevice(t.gateway.context.db, m.deviceId)).toBeUndefined();
+    expect(getMachineByDevice(t.gateway.context.db, other.m.deviceId)).toBeDefined();
+    expect(changes.map((c) => `${c.change}:${c.name}`)).toContain("removed:lab-box");
+    expect(changes.find((c) => c.change === "removed")).toMatchObject({ byDeviceId: m.deviceId });
+    const { machines } = await a.call<{ machines: { name: string }[] }>("machines.list");
+    expect(machines.map((x) => x.name)).toEqual(["second"]);
+    expect((await connect({ key: m.key, deviceId: m.deviceId })).out).toMatchObject({
+      phase: "denied",
+      code: "device_revoked",
+    });
+  });
+
+  it("a node that is not a machine gets nothing new, and a client cannot call it", async () => {
+    await start();
+    const key = newDeviceKey();
+    insertDevice(t.gateway.context.db, {
+      id: "plain-node",
+      name: "plain",
+      platform: "linux",
+      role: "node",
+      publicKey: key.publicKey,
+      scopes: ["node"],
+      pairedAt: new Date().toISOString(),
+      deviceFamily: "psyche-node",
+    });
+    const n = await connect({ key, deviceId: "plain-node", family: "psyche-node" });
+    expect(n.out.phase).toBe("paired");
+    expect(await n.client.request("node.unpair", {})).toMatchObject({
+      ok: false,
+      error: { code: "forbidden" },
+    });
+    expect(getDevice(t.gateway.context.db, "plain-node")?.revokedAt).toBeNull();
+    const a = await admin();
+    expect(await a.request("node.unpair", {})).toMatchObject({
+      ok: false,
+      error: { code: "forbidden" },
+    });
   });
 });

@@ -1,7 +1,8 @@
+import { hostname } from "node:os";
 import {
   getDevice,
   getNodeByDevice,
-  listMachines,
+  listDevices,
   type MachineRecord,
   markMachineAnnounced,
   type PsycheDb,
@@ -87,19 +88,68 @@ export function filterMachineCapabilities(
   return kept;
 }
 
-/** Names compare case-insensitively (design 8.2). */
-export function machineNameKey(name: string): string {
-  return name.normalize("NFC").toLowerCase();
+/**
+ * Whether a network `linux-helper` that has no machine token may open a pairing card. Off until the
+ * machine UI (wave H6) can show the card for what it is; until then a machine pairs only with a
+ * link. The card path's code and tests stay behind this one flag.
+ */
+export const MACHINE_PAIRING_CARDS_ENABLED = false as boolean;
+let cardsOverride: boolean | undefined;
+export function machinePairingCardsEnabled(): boolean {
+  return cardsOverride ?? MACHINE_PAIRING_CARDS_ENABLED;
+}
+/** Tests only: turn the card path on or back to its constant. */
+export function forceMachinePairingCardsForTests(on: boolean | undefined): void {
+  cardsOverride = on;
 }
 
-/** Whether another machine already has this name (a machine's name is its device's name). */
-export function machineNameTaken(db: PsycheDb, name: string, exceptDeviceId?: string): boolean {
+/** Format and default-ignorable characters that make two names look the same (and are not shown). */
+const IGNORABLE =
+  /\p{Cf}|\p{Cc}|\p{Mn}|\p{Me}|[\u180b-\u180f\ufe00-\ufe0f]|\u3164|\uffa0|\u115f|\u1160/gu;
+
+/**
+ * Names compare by what they look like: NFKC (so `\u217c` is `l`), case-folded, with invisible
+ * characters and spacing differences removed (design 8.2; a lookalike must not sit next to a real
+ * machine under a name that reads the same).
+ */
+export function machineNameKey(name: string): string {
+  return name
+    .normalize("NFKC")
+    .replace(IGNORABLE, "")
+    .toUpperCase()
+    .toLowerCase()
+    .replace(/\s+/gu, " ")
+    .trim();
+}
+
+/** Labels the interface uses for the Host itself: never a machine's name. */
+function reservedNameKeys(): Set<string> {
+  const keys = new Set([machineNameKey("This Mac"), machineNameKey("This computer")]);
+  const host = hostname().trim();
+  if (host !== "") keys.add(machineNameKey(host));
+  return keys;
+}
+
+/**
+ * Why a machine may not have this name, or undefined: it is the Host's own label or name, or any
+ * other device's or machine's name (the device list and the machine list read the same).
+ */
+export function machineNameRefusal(
+  db: PsycheDb,
+  name: string,
+  exceptDeviceId?: string,
+): "reserved" | "taken" | undefined {
   const key = machineNameKey(name);
-  return listMachines(db).some((m) => {
-    if (m.deviceId === exceptDeviceId) return false;
-    const device = getDevice(db, m.deviceId);
-    return device !== undefined && machineNameKey(device.name) === key;
-  });
+  if (key === "" || reservedNameKeys().has(key)) return "reserved";
+  const taken = listDevices(db).some(
+    (d) => d.id !== exceptDeviceId && machineNameKey(d.name) === key,
+  );
+  return taken ? "taken" : undefined;
+}
+
+/** Whether another device or machine already has this name, or it is reserved. */
+export function machineNameTaken(db: PsycheDb, name: string, exceptDeviceId?: string): boolean {
+  return machineNameRefusal(db, name, exceptDeviceId) !== undefined;
 }
 
 const FALLBACK_MACHINE_NAME = "Linux computer";
@@ -115,7 +165,8 @@ export function uniqueMachineName(
   exceptDeviceId?: string,
 ): string {
   const trimmed = requested.trim().slice(0, 56);
-  const base = machineNameOk(trimmed) ? trimmed : FALLBACK_MACHINE_NAME;
+  let base = machineNameOk(trimmed) ? trimmed : FALLBACK_MACHINE_NAME;
+  if (machineNameRefusal(db, base, exceptDeviceId) === "reserved") base = FALLBACK_MACHINE_NAME;
   if (!machineNameTaken(db, base, exceptDeviceId)) return base;
   for (let n = 2; n < 1000; n++) {
     const candidate = `${base} ${n}`;
