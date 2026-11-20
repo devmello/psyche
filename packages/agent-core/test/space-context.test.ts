@@ -8,14 +8,14 @@ import {
   renderSystemParts,
   SPACE_INSTRUCTIONS_CAP,
 } from "../src/index.ts";
-import { harness, runTurn, say, spec } from "./harness.ts";
+import { call, harness, recorder, runTurn, say, spec } from "./harness.ts";
 
 /** Spaces wave S3 (spaces-2026 §5.2): the `space` head section, prefix stability, scope. */
 
 const base = (over: Partial<AssembleInput> = {}): AssembleInput => ({
   basePrompt: "You are Psyche.",
   tools: [spec("notes.list", "read")],
-  permissionMode: "default",
+  permissionMode: "balanced",
   runMode: "attended",
   now: Date.parse("2026-11-19T10:00:00Z"),
   timeZone: "UTC",
@@ -85,22 +85,31 @@ describe("space head section: prefix stability (SR13)", () => {
 describe("the loop and a run's Space", () => {
   const tools = ["notes.list", "mcp__gmail__search", "mcp__notion__search"];
 
-  function withTools(space: RunSpace | undefined, seen: (string | undefined)[] = []) {
-    const h = harness({
-      script: [say("ok"), say("ok again")],
-      loop: { spaceFor: () => space },
-    });
+  function withTools(
+    space: RunSpace | undefined,
+    seen: (string | undefined)[] = [],
+    script = [say("ok"), say("ok again")],
+  ) {
+    const h = harness({ script, loop: { spaceFor: () => space } });
     for (const name of tools) {
       h.loop.registry.register({
         spec: spec(name, "read"),
-        execute: async (_input: unknown, ctx: ToolRunContext) => {
+        execute: recorder().execute,
+        run: async (_input: unknown, ctx: ToolRunContext) => {
           seen.push(ctx.spaceId);
-          return { output: "ok", provenance: "trusted" };
+          return { output: "ok", provenance: "trusted" as const };
         },
       });
     }
     return h;
   }
+
+  it("tools see the run's Space id, and none outside a Space", async () => {
+    const seen: (string | undefined)[] = [];
+    await runTurn(withTools(KITCHEN, seen, [call("r1", "notes.list", {}), say("done")]), "go");
+    await runTurn(withTools(undefined, seen, [call("r1", "notes.list", {}), say("done")]), "go");
+    expect(seen).toEqual(["spc_kitchen", undefined]);
+  });
 
   it("connectorScope only narrows: tools of other connectors go, tools of none stay", async () => {
     const h = withTools({ ...KITCHEN, connectorScope: ["notion"] });

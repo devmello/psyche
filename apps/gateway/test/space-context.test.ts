@@ -87,7 +87,7 @@ const ctx = (over: Partial<ToolRunContext> = {}): ToolRunContext =>
     threadId: "thr_x",
     runId: "run_1",
     taint: false,
-    permissionMode: "default",
+    permissionMode: "balanced",
     mode: "attended",
     signal: new AbortController().signal,
     onUpdate: () => undefined,
@@ -221,7 +221,7 @@ describe("per-turn sections: budget caps and lazy taint (§5.2, §5.5)", () => {
       runId: "run_1",
       text: "hi",
       mode: "attended",
-      permissionMode: "default",
+      permissionMode: "balanced",
       spaceId: space.id,
     });
     expect(provided?.trusted).toBe(true);
@@ -258,7 +258,12 @@ describe("per-turn sections: budget caps and lazy taint (§5.2, §5.5)", () => {
     const { db, c } = await start();
     const space = await newSpace(c);
     const p = spaceContextProvider(db);
-    const input = { threadId: "thr_x", runId: "r", text: "hi", permissionMode: "default" } as const;
+    const input = {
+      threadId: "thr_x",
+      runId: "r",
+      text: "hi",
+      permissionMode: "balanced",
+    } as const;
     expect(await p.provide({ ...input, mode: "attended" })).toBeUndefined();
     expect(await p.provide({ ...input, mode: "unattended", spaceId: space.id })).toBeUndefined();
   });
