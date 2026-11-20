@@ -149,6 +149,7 @@ import { CONNECTOR_MATRIX_PREFIX } from "./connector-matrix.ts";
 import { macHelper } from "./connectors.ts";
 import { createContext } from "./context.ts";
 import { composeConversion } from "./convert.ts";
+import { cookieImportHandlers } from "./cookie-import.ts";
 import { DeferredDigest } from "./deferred-digest.ts";
 import { DeferredResume } from "./deferred-resume.ts";
 import { composeDeviceNotifications, DeviceNotifications } from "./device-notify.ts";
@@ -2361,6 +2362,7 @@ export async function composeGateway(options: ComposeOptions): Promise<ComposedG
       },
     }),
     ...attentionHandlers(attention),
+    ...cookieImportHandlers(audit),
     ...libraryHandlers({ db, home: config.home, audit }),
     ...modelSettingsHandlers(modelSettings),
     ...apiKeyHandlers({

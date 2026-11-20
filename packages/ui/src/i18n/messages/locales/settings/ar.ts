@@ -191,6 +191,57 @@ export const settings: Partial<Catalogue> = {
   "settings.browser.signedIn.forget": "تسجيل الخروج / النسيان",
   "settings.browser.signedIn.loadFailed": "تعذّر على Psyche سرد المواقع المسجّل دخولها ({reason}).",
   "settings.browser.signedIn.forgetFailed": "تعذّر على Psyche تسجيل الخروج من {site} ({reason}).",
+  "settings.browser.import.title": "استيراد تسجيلات الدخول من متصفح آخر",
+  "settings.browser.import.description":
+    "انقل تسجيلات دخولك من Chrome أو Brave أو Edge أو Arc أو Firefox إلى متصفح Psyche، لتبقى المهام مسجّلة الدخول حيث أنت. أنت تختار المواقع، ولا يُستورد شيء قبل ذلك.",
+  "settings.browser.import.from": "استيراد تسجيلات الدخول من…",
+  "settings.browser.import.chooseBrowser": "اختر متصفحًا",
+  "settings.browser.import.profile": "الملف الشخصي",
+  "settings.browser.import.read": "قراءة تسجيلات الدخول",
+  "settings.browser.import.reading": "جارٍ القراءة…",
+  "settings.browser.import.noProfiles":
+    "لم يُعثر على ملف شخصي في {browser} فيه تسجيلات دخول على هذا الكمبيوتر.",
+  "settings.browser.import.keychainHint":
+    "يطلب macOS كلمة السر ليتمكن Psyche من فتح تسجيلات الدخول في {browser}. تبقى على هذا الـMac ولا تصل أبدًا إلى الدردشة أو السجلات أو التدقيق.",
+  "settings.browser.import.noneInstalled": "لا يوجد أي من هذه المتصفحات على هذا الكمبيوتر.",
+  "settings.browser.import.unsupportedFda":
+    "{browser} غير مدعوم: قراءة تسجيلات الدخول فيه تتطلب الوصول الكامل إلى القرص، ولا يطلبه Psyche.",
+  "settings.browser.import.unsupportedPlatform":
+    "{browser} غير مدعوم بعد على هذا الكمبيوتر. يعمل استيراد تسجيلات الدخول على macOS.",
+  "settings.browser.import.sourcesFailed": "تعذّر على Psyche عرض متصفحاتك ({reason}).",
+  "settings.browser.import.readFailed":
+    "تعذّر على Psyche قراءة تسجيلات الدخول في {browser} ({reason}).",
+  "settings.browser.import.leftOut":
+    "تم استبعاد: {expired} ملفات تعريف ارتباط منتهية و{skipped} غير مقروءة.",
+  "settings.browser.import.noneFound": "لا توجد في هذا الملف الشخصي تسجيلات دخول لاستيرادها.",
+  "settings.browser.import.search": "ابحث في المواقع",
+  "settings.browser.import.selectAll": "تحديد الكل باستثناء الحساس",
+  "settings.browser.import.clear": "مسح",
+  "settings.browser.import.noMatch": "لا توجد مواقع تطابق «{query}».",
+  "settings.browser.import.cookies":
+    "{count, plural, one {ملف تعريف ارتباط واحد} other {# ملفات تعريف ارتباط}}",
+  "settings.browser.import.sensitive.bank": "مصرف",
+  "settings.browser.import.sensitive.payment": "مدفوعات",
+  "settings.browser.import.sensitive.passwords": "مدير كلمات السر",
+  "settings.browser.import.sensitive.email": "بريد إلكتروني",
+  "settings.browser.import.sensitiveWarning":
+    "{kind}: الجلسة هنا يمكنها نقل المال أو إعادة تعيين حساباتك الأخرى أو فتح كلمات السر. حدّده فقط إذا احتاجته المهام.",
+  "settings.browser.import.noTrust":
+    "لا تحصل المواقع المستوردة على ثقة إضافية: ما زالت المشتريات والمدفوعات والرسائل تسألك أولًا.",
+  "settings.browser.import.importN":
+    "{count, plural, =0 {استيراد} one {استيراد موقع واحد} other {استيراد # مواقع}}",
+  "settings.browser.import.cancel": "إلغاء",
+  "settings.browser.import.done":
+    "{count, plural, =0 {لم يُستورد أي تسجيل دخول.} one {تم استيراد تسجيلات الدخول لموقع واحد.} other {تم استيراد تسجيلات الدخول لـ# مواقع.}}",
+  "settings.browser.import.refused":
+    "{count, plural, one {رفض متصفح Psyche ملف تعريف ارتباط واحدًا.} other {رفض متصفح Psyche # ملفات تعريف ارتباط.}}",
+  "settings.browser.import.importFailed": "تعذّر على Psyche استيراد تسجيلات الدخول ({reason}).",
+  "settings.browser.import.importedTitle": "تسجيلات الدخول المستوردة",
+  "settings.browser.import.importedFrom":
+    "من {browser} في {date}، {count, plural, one {ملف تعريف ارتباط واحد} other {# ملفات تعريف ارتباط}}",
+  "settings.browser.import.remove": "إزالة تسجيلات الدخول المستوردة",
+  "settings.browser.import.removeFailed":
+    "تعذّر على Psyche إزالة تسجيلات الدخول المستوردة لـ{site} ({reason}).",
   "settings.computerUse.appsHint": "إلى أي مدى يستطيع Psyche الذهاب في كل تطبيق.",
   "settings.connectors.catalog.appleShortcuts": "الاختصارات",
   "settings.connectors.catalog.obsidian": "Obsidian",

@@ -231,6 +231,59 @@ export const settingsRest: Partial<Catalogue> = {
   "settings.browser.signedIn.loadFailed":
     "Psyche konnte die angemeldeten Websites nicht auflisten ({reason}).",
   "settings.browser.signedIn.forgetFailed": "Psyche konnte {site} nicht abmelden ({reason}).",
+  "settings.browser.import.title": "Anmeldungen aus einem anderen Browser importieren",
+  "settings.browser.import.description":
+    "Übernimm deine Anmeldungen aus Chrome, Brave, Edge, Arc oder Firefox in den Browser von Psyche, damit Aufgaben dort angemeldet sind, wo du es bist. Du wählst die Websites aus; vorher wird nichts importiert.",
+  "settings.browser.import.from": "Anmeldungen importieren aus…",
+  "settings.browser.import.chooseBrowser": "Browser auswählen",
+  "settings.browser.import.profile": "Profil",
+  "settings.browser.import.read": "Anmeldungen lesen",
+  "settings.browser.import.reading": "Wird gelesen…",
+  "settings.browser.import.noProfiles":
+    "Auf diesem Computer wurde kein {browser}-Profil mit Anmeldungen gefunden.",
+  "settings.browser.import.keychainHint":
+    "macOS fragt nach deinem Passwort, damit Psyche die Anmeldungen von {browser} entsperren kann. Sie bleiben auf diesem Mac und gelangen nie in den Chat, die Protokolle oder das Audit.",
+  "settings.browser.import.noneInstalled":
+    "Keiner dieser Browser ist auf diesem Computer installiert.",
+  "settings.browser.import.unsupportedFda":
+    "{browser} wird nicht unterstützt: Zum Lesen der Anmeldungen ist der Festplattenvollzugriff nötig, und den fordert Psyche nicht an.",
+  "settings.browser.import.unsupportedPlatform":
+    "{browser} wird auf diesem Computer noch nicht unterstützt. Der Import von Anmeldungen funktioniert unter macOS.",
+  "settings.browser.import.sourcesFailed":
+    "Psyche konnte deine Browser nicht auflisten ({reason}).",
+  "settings.browser.import.readFailed":
+    "Psyche konnte die Anmeldungen von {browser} nicht lesen ({reason}).",
+  "settings.browser.import.leftOut":
+    "Ausgelassen: {expired} abgelaufene und {skipped} unlesbare Cookies.",
+  "settings.browser.import.noneFound": "Dieses Profil hat keine Anmeldungen zum Importieren.",
+  "settings.browser.import.search": "Websites suchen",
+  "settings.browser.import.selectAll": "Alle außer sensiblen auswählen",
+  "settings.browser.import.clear": "Leeren",
+  "settings.browser.import.noMatch": "Keine Website passt zu „{query}“.",
+  "settings.browser.import.cookies": "{count, plural, one {# Cookie} other {# Cookies}}",
+  "settings.browser.import.sensitive.bank": "Bank",
+  "settings.browser.import.sensitive.payment": "Zahlungen",
+  "settings.browser.import.sensitive.passwords": "Passwortmanager",
+  "settings.browser.import.sensitive.email": "E-Mail",
+  "settings.browser.import.sensitiveWarning":
+    "{kind}: Eine Sitzung hier kann Geld bewegen, deine anderen Konten zurücksetzen oder deine Passwörter öffnen. Wähle sie nur, wenn Aufgaben sie brauchen.",
+  "settings.browser.import.noTrust":
+    "Importierte Websites bekommen kein zusätzliches Vertrauen: Käufe, Zahlungen und Nachrichten fragen dich weiterhin zuerst.",
+  "settings.browser.import.importN":
+    "{count, plural, =0 {Importieren} one {# Website importieren} other {# Websites importieren}}",
+  "settings.browser.import.cancel": "Abbrechen",
+  "settings.browser.import.done":
+    "{count, plural, =0 {Es wurden keine Anmeldungen importiert.} one {Anmeldungen für # Website importiert.} other {Anmeldungen für # Websites importiert.}}",
+  "settings.browser.import.refused":
+    "{count, plural, one {Der Browser von Psyche hat # Cookie abgelehnt.} other {Der Browser von Psyche hat # Cookies abgelehnt.}}",
+  "settings.browser.import.importFailed":
+    "Psyche konnte die Anmeldungen nicht importieren ({reason}).",
+  "settings.browser.import.importedTitle": "Importierte Anmeldungen",
+  "settings.browser.import.importedFrom":
+    "Aus {browser} am {date}, {count, plural, one {# Cookie} other {# Cookies}}",
+  "settings.browser.import.remove": "Importierte Anmeldungen entfernen",
+  "settings.browser.import.removeFailed":
+    "Psyche konnte die importierten Anmeldungen für {site} nicht entfernen ({reason}).",
   "settings.computerUse.appsHint": "Wie weit Psyche in jeder App gehen darf.",
   "settings.connectors.catalog.appleShortcuts": "Kurzbefehle",
   "settings.connectors.catalog.obsidian": "Obsidian",

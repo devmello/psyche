@@ -226,6 +226,55 @@ export const settingsRest: Partial<Catalogue> = {
     "Psyche가 로그인된 사이트 목록을 가져오지 못했습니다 ({reason}).",
   "settings.browser.signedIn.forgetFailed":
     "Psyche가 {site}에서 로그아웃하지 못했습니다 ({reason}).",
+  "settings.browser.import.title": "다른 브라우저에서 로그인 가져오기",
+  "settings.browser.import.description":
+    "Chrome, Brave, Edge, Arc 또는 Firefox의 로그인을 Psyche 브라우저로 가져와, 작업이 사용자와 같은 곳에 로그인된 상태로 실행되게 합니다. 사이트는 직접 고르며, 고르기 전에는 아무것도 가져오지 않습니다.",
+  "settings.browser.import.from": "로그인 가져올 브라우저…",
+  "settings.browser.import.chooseBrowser": "브라우저 선택",
+  "settings.browser.import.profile": "프로필",
+  "settings.browser.import.read": "로그인 읽기",
+  "settings.browser.import.reading": "읽는 중…",
+  "settings.browser.import.noProfiles":
+    "이 컴퓨터에서 로그인이 있는 {browser} 프로필을 찾지 못했습니다.",
+  "settings.browser.import.keychainHint":
+    "Psyche가 {browser}의 로그인을 열 수 있도록 macOS가 암호를 묻습니다. 로그인은 이 Mac에만 남고 채팅, 로그, 감사 기록에는 절대 전달되지 않습니다.",
+  "settings.browser.import.noneInstalled": "이 컴퓨터에는 이 브라우저들이 없습니다.",
+  "settings.browser.import.unsupportedFda":
+    "{browser}은(는) 지원되지 않습니다. 로그인을 읽으려면 전체 디스크 접근 권한이 필요한데, Psyche는 이를 요청하지 않습니다.",
+  "settings.browser.import.unsupportedPlatform":
+    "이 컴퓨터에서는 아직 {browser}을(를) 지원하지 않습니다. 로그인 가져오기는 macOS에서 작동합니다.",
+  "settings.browser.import.sourcesFailed":
+    "Psyche가 브라우저 목록을 가져오지 못했습니다 ({reason}).",
+  "settings.browser.import.readFailed": "Psyche가 {browser}의 로그인을 읽지 못했습니다 ({reason}).",
+  "settings.browser.import.leftOut":
+    "제외됨: 만료된 쿠키 {expired}개, 읽을 수 없는 쿠키 {skipped}개.",
+  "settings.browser.import.noneFound": "이 프로필에는 가져올 로그인이 없습니다.",
+  "settings.browser.import.search": "사이트 검색",
+  "settings.browser.import.selectAll": "민감한 사이트를 제외하고 모두 선택",
+  "settings.browser.import.clear": "지우기",
+  "settings.browser.import.noMatch": "“{query}”와(과) 일치하는 사이트가 없습니다.",
+  "settings.browser.import.cookies": "{count, plural, other {쿠키 #개}}",
+  "settings.browser.import.sensitive.bank": "은행",
+  "settings.browser.import.sensitive.payment": "결제",
+  "settings.browser.import.sensitive.passwords": "비밀번호 관리자",
+  "settings.browser.import.sensitive.email": "이메일",
+  "settings.browser.import.sensitiveWarning":
+    "{kind}: 이곳의 세션으로 돈을 옮기거나, 다른 계정을 재설정하거나, 비밀번호를 열 수 있습니다. 작업에 필요할 때만 선택하세요.",
+  "settings.browser.import.noTrust":
+    "가져온 사이트에는 추가 신뢰가 주어지지 않습니다. 구매, 결제, 메시지는 여전히 먼저 확인합니다.",
+  "settings.browser.import.importN": "{count, plural, =0 {가져오기} other {사이트 #개 가져오기}}",
+  "settings.browser.import.cancel": "취소",
+  "settings.browser.import.done":
+    "{count, plural, =0 {가져온 로그인이 없습니다.} other {사이트 #개의 로그인을 가져왔습니다.}}",
+  "settings.browser.import.refused":
+    "{count, plural, other {Psyche 브라우저가 쿠키 #개를 거부했습니다.}}",
+  "settings.browser.import.importFailed": "Psyche가 로그인을 가져오지 못했습니다 ({reason}).",
+  "settings.browser.import.importedTitle": "가져온 로그인",
+  "settings.browser.import.importedFrom":
+    "{date}에 {browser}에서 가져옴, {count, plural, other {쿠키 #개}}",
+  "settings.browser.import.remove": "가져온 로그인 삭제",
+  "settings.browser.import.removeFailed":
+    "Psyche가 {site}의 가져온 로그인을 삭제하지 못했습니다 ({reason}).",
   "settings.computerUse.appsHint": "각 앱에서 Psyche가 어디까지 조작할 수 있는지 설정합니다.",
   "settings.connectors.catalog.appleShortcuts": "단축어",
   "settings.connectors.catalog.obsidian": "Obsidian",

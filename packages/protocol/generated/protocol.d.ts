@@ -2346,6 +2346,21 @@ export interface BrowserCloseParams {
     tabId: string;
 }
 
+export interface BrowserCookieImportRecordParams {
+    action:  CookieImportAction;
+    browser: CookieImportBrowser;
+    sites:   CookieImportSite[];
+}
+
+export type CookieImportAction = "imported" | "removed";
+
+export type CookieImportBrowser = "chrome" | "brave" | "edge" | "arc" | "firefox" | "safari";
+
+export interface CookieImportSite {
+    cookies: number;
+    domain:  string;
+}
+
 export interface BrowserOpenParams {
     background?: boolean;
     profile?:    BrowserProfile;

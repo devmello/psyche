@@ -53,6 +53,8 @@ import {
   checkClipboardClearAfter,
   checkClipboardText,
   checkComposerText,
+  checkCookieImportPick,
+  checkCookieImportScan,
   checkExternalUrl,
   checkHttpUrl,
   checkIdempotencyKey,
@@ -60,6 +62,8 @@ import {
   checkNotifyRoute,
   checkPasskeyOptions,
   checkRoute,
+  checkScanId,
+  checkSiteDomain,
   checkTeachApp,
   checkTeachId,
   checkTeachKeep,
@@ -1257,6 +1261,24 @@ function registerIpc(): void {
   handle(IPC.browserSignedInForget, (_e, arg) =>
     requireBrowser().forgetSignedInSite(checkHttpUrl(IPC.browserSignedInForget, arg)),
   );
+  // Import sign-ins from another browser: the owner's clicks in Settings → Browser only.
+  // Values never cross this boundary; the window gets domains, counts and flags.
+  handle(IPC.cookieImportSources, () => requireBrowser().cookieImport().sources());
+  handle(IPC.cookieImportScan, (_e, arg) => {
+    const r = checkCookieImportScan(arg);
+    return requireBrowser().cookieImport().scan(r.browser, r.profileId);
+  });
+  handle(IPC.cookieImportImport, (_e, arg) => {
+    const r = checkCookieImportPick(arg);
+    return requireBrowser().cookieImport().import(r.scanId, r.domains);
+  });
+  handle(IPC.cookieImportDiscard, (_e, arg) =>
+    requireBrowser().cookieImport().discard(checkScanId(IPC.cookieImportDiscard, arg)),
+  );
+  handle(IPC.cookieImportList, () => requireBrowser().cookieImport().imported());
+  handle(IPC.cookieImportRemove, (_e, arg) =>
+    requireBrowser().cookieImport().remove(checkSiteDomain(IPC.cookieImportRemove, arg)),
+  );
   handle(IPC.browserClearData, (_e, arg) =>
     requireBrowser().clearBrowsingData(arg === "clean" ? "clean" : "logged-in"),
   );
@@ -1987,6 +2009,9 @@ void app.whenReady().then(async () => {
         // Straight from this process to the Gateway's vault: the value never goes through the
         // renderer, a log or the model.
         vaultAdd: async (item) => void (await requireGateway().call("vault.add", item)),
+        // The audit entry for an import or a removal: domains and counts only.
+        recordCookieImport: async (entry) =>
+          void (await requireGateway().call("browser.cookieImport.record", entry)),
         // Dev and test runs may shorten the idle time before a background tab is discarded.
         ...tabDiscardOverride(app.isPackaged, process.env),
       });
