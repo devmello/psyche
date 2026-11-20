@@ -757,6 +757,13 @@
 //   let machinesListResult = try? JSONDecoder().decode(MachinesListResult.self, from: jsonData)
 //   let machinesRenameParams = try? JSONDecoder().decode(MachinesRenameParams.self, from: jsonData)
 //   let machinesRenameResult = try? JSONDecoder().decode(MachinesRenameResult.self, from: jsonData)
+//   let mailFollowupAction = try? JSONDecoder().decode(MailFollowupAction.self, from: jsonData)
+//   let mailFollowupItem = try? JSONDecoder().decode(MailFollowupItem.self, from: jsonData)
+//   let mailFollowupKind = try? JSONDecoder().decode(MailFollowupKind.self, from: jsonData)
+//   let mailFollowupsActParams = try? JSONDecoder().decode(MailFollowupsActParams.self, from: jsonData)
+//   let mailFollowupsActResult = try? JSONDecoder().decode(MailFollowupsActResult.self, from: jsonData)
+//   let mailFollowupsListParams = try? JSONDecoder().decode(MailFollowupsListParams.self, from: jsonData)
+//   let mailFollowupsListResult = try? JSONDecoder().decode(MailFollowupsListResult.self, from: jsonData)
 //   let mailThreadRef = try? JSONDecoder().decode(MailThreadRef.self, from: jsonData)
 //   let mCPAddParams = try? JSONDecoder().decode(MCPAddParams.self, from: jsonData)
 //   let mCPAddResult = try? JSONDecoder().decode(MCPAddResult.self, from: jsonData)
@@ -1053,6 +1060,8 @@
 //   let nodeKind = try? JSONDecoder().decode(NodeKind.self, from: jsonData)
 //   let nodeResultParams = try? JSONDecoder().decode(NodeResultParams.self, from: jsonData)
 //   let nodeStatus = try? JSONDecoder().decode(NodeStatus.self, from: jsonData)
+//   let nodeUnpairParams = try? JSONDecoder().decode(NodeUnpairParams.self, from: jsonData)
+//   let nodeUnpairResult = try? JSONDecoder().decode(NodeUnpairResult.self, from: jsonData)
 //   let nodeUpdatedPayload = try? JSONDecoder().decode(NodeUpdatedPayload.self, from: jsonData)
 //   let nodesCapabilitiesParams = try? JSONDecoder().decode(NodesCapabilitiesParams.self, from: jsonData)
 //   let nodesCapabilitiesResult = try? JSONDecoder().decode(NodesCapabilitiesResult.self, from: jsonData)
@@ -1125,6 +1134,7 @@
 //   let planBlock = try? JSONDecoder().decode(PlanBlock.self, from: jsonData)
 //   let planStep = try? JSONDecoder().decode(PlanStep.self, from: jsonData)
 //   let planStepStatus = try? JSONDecoder().decode(PlanStepStatus.self, from: jsonData)
+//   let pluginAdds = try? JSONDecoder().decode(PluginAdds.self, from: jsonData)
 //   let pluginCapability = try? JSONDecoder().decode(PluginCapability.self, from: jsonData)
 //   let pluginManifest = try? JSONDecoder().decode(PluginManifest.self, from: jsonData)
 //   let pluginProposal = try? JSONDecoder().decode(PluginProposal.self, from: jsonData)
@@ -9996,6 +10006,7 @@ public enum ChecklistItemStatus: String, Codable, Sendable {
 public enum BlockKind: String, Codable, Sendable {
     case feedItem = "feed_item"
     case lifeAnswer = "life_answer"
+    case mailFollowup = "mail_followup"
     case memoryEntity = "memory_entity"
     case searchHit = "search_hit"
 }
@@ -14790,6 +14801,7 @@ public enum DailySectionID: String, Codable, Sendable {
     case keepInTouch = "keep_in_touch"
     case learned = "learned"
     case mail = "mail"
+    case quietThreads = "quiet_threads"
     case tomorrow = "tomorrow"
     case weather = "weather"
     case workedOn = "worked_on"
@@ -19288,6 +19300,102 @@ public struct MachinesRenameResult: Codable, Sendable {
     public init(machine: MachineInfo) {
         self.machine = machine
     }
+}
+
+// MARK: - MailFollowupsActParams
+public struct MailFollowupsActParams: Codable, Sendable {
+    public let action: MailFollowupAction
+    public let id: String
+
+    public enum CodingKeys: String, CodingKey {
+        case action = "action"
+        case id = "id"
+    }
+
+    public init(action: MailFollowupAction, id: String) {
+        self.action = action
+        self.id = id
+    }
+}
+
+public enum MailFollowupAction: String, Codable, Sendable {
+    case dismiss = "dismiss"
+    case snooze = "snooze"
+}
+
+// MARK: - MailFollowupsActResult
+public struct MailFollowupsActResult: Codable, Sendable {
+    public let ok: Bool
+
+    public enum CodingKeys: String, CodingKey {
+        case ok = "ok"
+    }
+
+    public init(ok: Bool) {
+        self.ok = ok
+    }
+}
+
+// MARK: - MailFollowupsListResult
+public struct MailFollowupsListResult: Codable, Sendable {
+    /// `mail.followups.enabled` is on
+    public let enabled: Bool
+    public let items: [MailFollowupItem]
+
+    public enum CodingKeys: String, CodingKey {
+        case enabled = "enabled"
+        case items = "items"
+    }
+
+    public init(enabled: Bool, items: [MailFollowupItem]) {
+        self.enabled = enabled
+        self.items = items
+    }
+}
+
+// MARK: - MailFollowupItem
+public struct MailFollowupItem: Codable, Sendable {
+    public let daysQuiet: Int
+    public let id: String
+    public let kind: MailFollowupKind
+    public let link: String?
+    public let source: MailFollowupItemSource
+    public let subject: String
+    public let untrusted: Bool
+    public let who: String
+
+    public enum CodingKeys: String, CodingKey {
+        case daysQuiet = "daysQuiet"
+        case id = "id"
+        case kind = "kind"
+        case link = "link"
+        case source = "source"
+        case subject = "subject"
+        case untrusted = "untrusted"
+        case who = "who"
+    }
+
+    public init(daysQuiet: Int, id: String, kind: MailFollowupKind, link: String? = nil, source: MailFollowupItemSource, subject: String, untrusted: Bool, who: String) {
+        self.daysQuiet = daysQuiet
+        self.id = id
+        self.kind = kind
+        self.link = link
+        self.source = source
+        self.subject = subject
+        self.untrusted = untrusted
+        self.who = who
+    }
+}
+
+public enum MailFollowupKind: String, Codable, Sendable {
+    case noReply = "no_reply"
+    case unansweredQuestion = "unanswered_question"
+}
+
+public enum MailFollowupItemSource: String, Codable, Sendable {
+    case apple = "apple"
+    case gmail = "gmail"
+    case imap = "imap"
 }
 
 // MARK: - MCPAddParams
@@ -25535,6 +25643,19 @@ public enum ReceiptOutcome: String, Codable, Sendable {
     case uncertain = "uncertain"
 }
 
+// MARK: - NodeUnpairResult
+public struct NodeUnpairResult: Codable, Sendable {
+    public let device: Device
+
+    public enum CodingKeys: String, CodingKey {
+        case device = "device"
+    }
+
+    public init(device: Device) {
+        self.device = device
+    }
+}
+
 // MARK: - NodeUpdatedPayload
 public struct NodeUpdatedPayload: Codable, Sendable {
     public let node: NodeInfo
@@ -26920,6 +27041,7 @@ public struct PluginsInstallResult: Codable, Sendable {
 
 // MARK: - PluginSummary
 public struct PluginSummary: Codable, Sendable {
+    public let adds: PluginAdds?
     public let capabilities: [PluginCapability]
     public let description: String
     /// The owner's switch for this plugin
@@ -26935,6 +27057,7 @@ public struct PluginSummary: Codable, Sendable {
     public let version: String
 
     public enum CodingKeys: String, CodingKey {
+        case adds = "adds"
         case capabilities = "capabilities"
         case description = "description"
         case enabled = "enabled"
@@ -26947,7 +27070,8 @@ public struct PluginSummary: Codable, Sendable {
         case version = "version"
     }
 
-    public init(capabilities: [PluginCapability], description: String, enabled: Bool, error: String? = nil, hash: String, installedAt: String, name: String, source: String, status: PluginStatus, version: String) {
+    public init(adds: PluginAdds? = nil, capabilities: [PluginCapability], description: String, enabled: Bool, error: String? = nil, hash: String, installedAt: String, name: String, source: String, status: PluginStatus, version: String) {
+        self.adds = adds
         self.capabilities = capabilities
         self.description = description
         self.enabled = enabled
@@ -26958,6 +27082,28 @@ public struct PluginSummary: Codable, Sendable {
         self.source = source
         self.status = status
         self.version = version
+    }
+}
+
+// MARK: - PluginAdds
+public struct PluginAdds: Codable, Sendable {
+    public let commands: Int
+    public let hooks: Int
+    public let mcpServers: Int
+    public let skills: Int
+
+    public enum CodingKeys: String, CodingKey {
+        case commands = "commands"
+        case hooks = "hooks"
+        case mcpServers = "mcpServers"
+        case skills = "skills"
+    }
+
+    public init(commands: Int, hooks: Int, mcpServers: Int, skills: Int) {
+        self.commands = commands
+        self.hooks = hooks
+        self.mcpServers = mcpServers
+        self.skills = skills
     }
 }
 
@@ -37088,16 +37234,16 @@ public struct ThreadsSetContextLimitsResult: Codable, Sendable {
 
 // MARK: - ThreadsSummaryPinsRemoveParams
 public struct ThreadsSummaryPinsRemoveParams: Codable, Sendable {
-    public let instruction: String
+    public let pinID: String
     public let threadID: String
 
     public enum CodingKeys: String, CodingKey {
-        case instruction = "instruction"
+        case pinID = "pinId"
         case threadID = "threadId"
     }
 
-    public init(instruction: String, threadID: String) {
-        self.instruction = instruction
+    public init(pinID: String, threadID: String) {
+        self.pinID = pinID
         self.threadID = threadID
     }
 }
@@ -40407,6 +40553,7 @@ public typealias GatewayInfoParams = [String: JSONAny]
 public typealias GrowthUpdatedPayload = [String: JSONAny]
 public typealias KeysStatusParams = [String: JSONAny]
 public typealias MachinesListParams = [String: JSONAny]
+public typealias MailFollowupsListParams = [String: JSONAny]
 public typealias MCPStatusParams = [String: JSONAny]
 public typealias MeetingsRecordPushResult = [String: JSONAny]
 public typealias MeetingsRecordStatusParams = [String: JSONAny]
@@ -40422,6 +40569,7 @@ public typealias MemoryStatusParams = [String: JSONAny]
 public typealias MemoryWorkListsParams = [String: JSONAny]
 public typealias ModelsAppleStatusParams = [String: JSONAny]
 public typealias ModelsListParams = [String: JSONAny]
+public typealias NodeUnpairParams = [String: JSONAny]
 public typealias NodesListParams = [String: JSONAny]
 public typealias PasskeysListParams = [String: JSONAny]
 public typealias PasskeysReauthBeginParams = [String: JSONAny]

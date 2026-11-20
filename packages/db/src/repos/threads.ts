@@ -23,6 +23,8 @@ export interface NewThread {
   readonly imported?: { readonly source: "claude" | "chatgpt"; readonly key: string };
   readonly createdAt?: string;
   readonly archivedAt?: string | null;
+  /** The Space the chat starts in. */
+  readonly spaceId?: string | null;
 }
 
 export function createThread(db: PsycheDb, input: NewThread): Thread {
@@ -47,6 +49,7 @@ export function createThread(db: PsycheDb, input: NewThread): Thread {
       importKey: input.imported?.key ?? null,
       archivedAt: input.archivedAt ?? null,
       createdAt: input.createdAt ?? at,
+      spaceId: input.spaceId ?? null,
       updatedAt: at,
     })
     .returning()
@@ -98,6 +101,8 @@ export interface ThreadPatch {
   readonly archivedAt?: string | null;
   readonly permissionMode?: PermissionMode;
   readonly modelRef?: string | null;
+  /** Move into a Space, or null to move out. */
+  readonly spaceId?: string | null;
 }
 
 /** Applies a patch; `undefined` if the thread does not exist. */
@@ -109,6 +114,7 @@ export function updateThread(db: PsycheDb, id: string, patch: ThreadPatch): Thre
   if (patch.archivedAt !== undefined) set.archivedAt = patch.archivedAt;
   if (patch.permissionMode !== undefined) set.permissionMode = patch.permissionMode;
   if (patch.modelRef !== undefined) set.modelRef = patch.modelRef;
+  if (patch.spaceId !== undefined) set.spaceId = patch.spaceId;
   const row = db.drizzle.update(threads).set(set).where(eq(threads.id, id)).returning().get();
   return row === undefined ? undefined : threadFromRow(row);
 }
@@ -176,6 +182,8 @@ export function listEmptyUserChats(db: PsycheDb, opts: EmptyChatOptions = {}): T
 
 export interface ThreadPageOptions extends ListThreadsOptions {
   readonly pinnedOnly?: boolean;
+  /** Only threads in this Space. */
+  readonly spaceId?: string;
   /** Leave out "New chat" threads that have no message yet (the sidebar never lists them). */
   readonly hideEmptyChats?: boolean;
   /** Case-insensitive substring of the title. */
@@ -197,6 +205,7 @@ export function listThreadsPage(
     opts.includeArchived ? undefined : isNull(threads.archivedAt),
     opts.kind === undefined ? undefined : eq(threads.kind, opts.kind),
     opts.pinnedOnly ? eq(threads.pinned, 1) : undefined,
+    opts.spaceId === undefined ? undefined : eq(threads.spaceId, opts.spaceId),
     opts.hideEmptyChats ? sql`NOT (${emptyUserChat})` : undefined,
     opts.hideRunThreads
       ? sql`NOT (${threads.kind} = 'automation' AND ${threads.sessionKey} LIKE 'cron:%')`

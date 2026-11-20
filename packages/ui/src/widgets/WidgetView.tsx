@@ -9,6 +9,7 @@ import { describeError } from "../i18n/errors.ts";
 import { copyText } from "../lib/clipboard.ts";
 import { cn } from "../lib/utils.ts";
 import { useSlots } from "../slots.tsx";
+import { AddToSpaceButton } from "../spaces/AddToSpaceButton.tsx";
 import { WidgetContext, type WidgetContextValue } from "./context.ts";
 import { RenderNode } from "./nodes.tsx";
 import { widgetText } from "./text.ts";
@@ -125,6 +126,9 @@ export default function WidgetView({
             {widget.pinned ? <PinOff className="size-3.5" /> : <Pin className="size-3.5" />}
           </button>
         )}
+        {surface === "chat" ? (
+          <AddToSpaceButton widgetId={widget.id} spaceId={widget.spaceId} />
+        ) : null}
         <button
           type="button"
           className="inline-flex size-6 shrink-0 items-center justify-center rounded-md hover:bg-fill-quaternary"

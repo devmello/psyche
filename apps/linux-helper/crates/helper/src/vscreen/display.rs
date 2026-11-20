@@ -87,6 +87,25 @@ impl VirtualDisplay {
         self.driver.windows()
     }
 
+    /// A new client connection to this display, authenticated with its cookie in memory (the
+    /// computer-use engine's own: input, structure and capture of the virtual screen).
+    pub fn connect_client(&self) -> Result<(RustConnection, usize), String> {
+        let (n, pid, cookie) = {
+            let x = self.xvfb.lock().unwrap_or_else(|p| p.into_inner());
+            (x.display_number, x.pid(), x.cookie)
+        };
+        let unix = connect_verified(n, pid)?;
+        let (stream, _) = DefaultStream::from_unix_stream(unix).map_err(|e| e.to_string())?;
+        RustConnection::connect_to_stream_with_auth_info(
+            stream,
+            0,
+            AUTH_NAME.to_vec(),
+            cookie.to_vec(),
+        )
+        .map(|c| (c, 0))
+        .map_err(|e| e.to_string())
+    }
+
     pub fn window_serial(&self) -> u64 {
         self.driver.serial()
     }

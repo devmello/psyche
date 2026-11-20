@@ -272,8 +272,8 @@ export const ThreadsMethods = {
   "threads.summary.pins.remove": defineMethod({
     params: Type.Object({
       threadId: Id,
-      /** The standing instruction to remove, as the compaction block shows it. */
-      instruction: Type.String({ minLength: 1, maxLength: 500 }),
+      /** The pin's id (`pinId(text)` in @psyche/protocol): the text itself never travels. */
+      pinId: Type.String({ pattern: "^[0-9a-f]{16}$" }),
     }),
     result: Type.Object({
       /** The standing instructions the thread's summary keeps. */
@@ -282,6 +282,6 @@ export const ThreadsMethods = {
     scope: "operator.write",
     sideEffecting: true,
     description:
-      "Side-effecting: the owner removes one standing instruction from a thread's compaction summary, and from the compaction blocks that show it. A plain tap on a paired device, no presence; the agent and channels cannot reach it. conflict while the thread runs.",
+      "Side-effecting: the owner removes one standing instruction (by pin id) from a thread's compaction summary, and from the compaction blocks that show it. A plain tap on a paired device, no presence; the agent and channels cannot reach it. conflict while the thread runs.",
   }),
 } as const;

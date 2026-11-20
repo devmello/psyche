@@ -15,6 +15,17 @@ fn main() -> ExitCode {
     // are not ours to keep. A process that still holds one could be talking as this helper.
     close_inherited_fds();
     let args: Vec<String> = std::env::args().skip(1).collect();
+    // `--display auto|headless|desktop` (H1) is read before the command line is parsed.
+    #[cfg(target_os = "linux")]
+    let (args, display_flag) = match psyche_helper::headless::mode::extract_flag(&args) {
+        Ok(x) => x,
+        Err(message) => {
+            eprintln!("{message}");
+            return ExitCode::from(2);
+        }
+    };
+    #[cfg(target_os = "linux")]
+    psyche_helper::headless::set_display_flag(display_flag);
     let command = match parse_args(&args, &ProcessEnv) {
         Ok(command) => command,
         Err(message) => {
@@ -54,6 +65,15 @@ fn main() -> ExitCode {
         log(&message);
         return ExitCode::from(78);
     }
+    // The mode, and NoNewPrivileges when headless: the same step `remote` runs.
+    #[cfg(target_os = "linux")]
+    let headless = match psyche_helper::headless::setup(false, &ProcessEnv) {
+        Ok(h) => h,
+        Err((message, code)) => {
+            log(&message);
+            return ExitCode::from(code);
+        }
+    };
     // Hardening is done: say so, so the Gateway can tell this from a process still starting up.
     mark_ready();
 
@@ -71,6 +91,11 @@ fn main() -> ExitCode {
     // Virtual screens (L6).
     #[cfg(target_os = "linux")]
     let vscreen = psyche_helper::vscreen::register(&mut registry, &ProcessEnv, Arc::clone(&idle));
+    // Headless: `apps.*` and `computer.*` act on the virtual screen.
+    #[cfg(target_os = "linux")]
+    if headless {
+        psyche_helper::headless::install(std::sync::Arc::clone(&vscreen));
+    }
     let mut daemon = Daemon::new(identity, registry, Box::new(ProcessEnv), idle);
     let exit = daemon.run();
     #[cfg(target_os = "linux")]

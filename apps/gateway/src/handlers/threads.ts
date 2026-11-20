@@ -130,6 +130,15 @@ function withPreview<T extends { thread: Thread; activity?: ThreadActivity }>(
   return lastMessage === undefined ? out : { ...out, lastMessage };
 }
 
+/** A Space a chat may join: it exists and is not archived. */
+export function requireOpenSpace(db: Call["ctx"]["db"], spaceId: string): void {
+  const row = db.sqlite.prepare("SELECT archived_at FROM spaces WHERE id = ?").get(spaceId) as
+    | { archived_at: string | null }
+    | undefined;
+  if (row === undefined) throw new PsycheError("not_found", `space ${spaceId} not found`);
+  if (row.archived_at !== null) throw new PsycheError("conflict", "that Space is archived");
+}
+
 export function requireThread(call: Call, threadId: string): Thread {
   const thread = getThread(call.ctx.db, threadId);
   if (!thread) throw new PsycheError("not_found", `thread ${threadId} not found`);
@@ -218,6 +227,7 @@ export const threadsHandlers: Record<string, HandlerDef> = {
         permissionMode?: PermissionMode;
         modelRef?: ModelRef;
         parentThreadId?: string;
+        spaceId?: string;
       },
     ) {
       const { db } = call.ctx;
@@ -239,6 +249,10 @@ export const threadsHandlers: Record<string, HandlerDef> = {
           );
         }
       }
+      if (params.spaceId !== undefined) {
+        if (kind === "main") throw new PsycheError("invalid_params", "the main chat has no Space");
+        requireOpenSpace(db, params.spaceId);
+      }
       if (kind === "main") {
         const existing = findThreadBySessionKey(db, MAIN_SESSION_KEY, "main");
         if (existing) return { thread: existing };
@@ -253,6 +267,7 @@ export const threadsHandlers: Record<string, HandlerDef> = {
         ...(mode === undefined ? {} : { permissionMode: mode }),
         modelRef: params.modelRef ?? null,
         parentThreadId: params.parentThreadId ?? null,
+        ...(params.spaceId === undefined ? {} : { spaceId: params.spaceId }),
         expiresAt:
           kind === "incognito"
             ? new Date(call.ctx.now().getTime() + INCOGNITO_TTL_MS).toISOString()
@@ -277,13 +292,18 @@ export const threadsHandlers: Record<string, HandlerDef> = {
   },
   "threads.newChat": {
     transactional: true,
-    run(call: Call, params: { kind: "side" | "incognito"; preferThreadId?: string }) {
+    run(
+      call: Call,
+      params: { kind: "side" | "incognito"; preferThreadId?: string; spaceId?: string },
+    ) {
       const { db } = call.ctx;
+      if (params.spaceId !== undefined) requireOpenSpace(db, params.spaceId);
       const empty = listEmptyUserChats(db, { kind: params.kind });
       const reuse = empty.find((t) => t.id === params.preferThreadId) ?? empty[0];
       if (reuse) {
-        // Opening it again restarts its clock for the empty-chat sweep.
-        const thread = updateThread(db, reuse.id, {}) as Thread;
+        // Opening it again restarts its clock for the empty-chat sweep. A reused empty chat joins
+        // the Space asked for (or none), so "New chat in Kitchen" lands where it was asked.
+        const thread = updateThread(db, reuse.id, { spaceId: params.spaceId ?? null }) as Thread;
         return { thread, reused: true };
       }
       const id = db.newId();
@@ -292,6 +312,7 @@ export const threadsHandlers: Record<string, HandlerDef> = {
         kind: params.kind,
         sessionKey: `owner:${params.kind}:${id}`,
         userCreated: true,
+        ...(params.spaceId === undefined ? {} : { spaceId: params.spaceId }),
         expiresAt:
           params.kind === "incognito"
             ? new Date(call.ctx.now().getTime() + INCOGNITO_TTL_MS).toISOString()
@@ -318,6 +339,7 @@ export const threadsHandlers: Record<string, HandlerDef> = {
         kind?: ThreadKind;
         includeArchived?: boolean;
         pinnedOnly?: boolean;
+        spaceId?: string;
         query?: string;
         cursor?: string;
         limit?: number;
@@ -333,6 +355,7 @@ export const threadsHandlers: Record<string, HandlerDef> = {
           ? {}
           : { includeArchived: params.includeArchived }),
         ...(params.pinnedOnly === undefined ? {} : { pinnedOnly: params.pinnedOnly }),
+        ...(params.spaceId === undefined ? {} : { spaceId: params.spaceId }),
         hideEmptyChats: true,
         hideRunThreads: true,
         ...(params.query === undefined ? {} : { query: params.query }),
@@ -429,6 +452,8 @@ export const threadsHandlers: Record<string, HandlerDef> = {
         forkedFromMessageId: message.id,
         permissionMode: source.permissionMode,
         modelRef: source.modelRef ?? null,
+        // A fork stays in its source's Space.
+        spaceId: source.spaceId,
       });
       // Tool results and provider-native turns are copied verbatim (feature E2).
       copyMessagesForFork(db, source.id, thread.id, message.seq);
