@@ -897,6 +897,9 @@ importers:
       '@psyche/hostfs':
         specifier: workspace:*
         version: link:../hostfs
+      '@psyche/model-router':
+        specifier: workspace:*
+        version: link:../model-router
       '@psyche/protocol':
         specifier: workspace:*
         version: link:../protocol
@@ -913,9 +916,6 @@ importers:
       '@psyche/db':
         specifier: workspace:*
         version: link:../db
-      '@psyche/model-router':
-        specifier: workspace:*
-        version: link:../model-router
       '@psyche/testing':
         specifier: workspace:*
         version: link:../testing
