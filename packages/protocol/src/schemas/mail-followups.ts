@@ -25,6 +25,8 @@ export const MailFollowupItem = Type.Object(
     /** Whole days since the last message. */
     daysQuiet: Type.Integer({ minimum: 0 }),
     link: Type.Optional(Type.String({ maxLength: 1000 })),
+    /** Gmail only: the API's own opaque thread id, so a draft can open the exact thread. */
+    gmailThreadId: Type.Optional(Type.String({ pattern: "^[A-Za-z0-9_-]{1,64}$", maxLength: 64 })),
     /** Always true: the subject and name come from mail. */
     untrusted: Type.Literal(true),
   },

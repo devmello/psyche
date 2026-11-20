@@ -133,6 +133,8 @@ export interface ResolvedChatContext {
   /** Carried by the user message instead of `block` when set (a life answer's own block). */
   blocks?: Block[];
   taintSources: TaintSource[];
+  /** The taint stays on the chat for its later turns (a mail follow-up draft). */
+  stickyTaint?: boolean;
 }
 
 /** Who is sending and where: a context that depends on the connection or the chat's model reads it. */

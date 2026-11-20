@@ -387,6 +387,16 @@ impl A11y {
         }
     }
 
+    /// Who a process is, from one read of `/proc/<pid>` and one copy of the desktop index (see
+    /// [`app_id::IdFacts`]); a Flatpak's own name is read from its sandbox.
+    pub fn id_facts_for_pid(&self, pid: u32) -> app_id::IdFacts {
+        let ev = Self::evidence(pid);
+        let flatpak = std::fs::read_to_string(format!("/proc/{pid}/root/.flatpak-info"))
+            .ok()
+            .and_then(|t| app_id::flatpak_app_name(&t));
+        app_id::id_facts(&ev, &self.desktop_index(), flatpak)
+    }
+
     /// The desktop-file id of a process (strictest candidate wins, see [`app_id::choose`]).
     pub fn app_id_for_pid(&self, pid: u32) -> Option<String> {
         let ev = Self::evidence(pid);

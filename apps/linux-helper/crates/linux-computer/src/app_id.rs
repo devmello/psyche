@@ -29,6 +29,58 @@ pub fn normalize(id: &str) -> String {
     lower.strip_suffix(".desktop").unwrap_or(&lower).to_string()
 }
 
+/// What is known about who a process is, computed once from its evidence.
+#[derive(Debug, Default, Clone, PartialEq, Eq)]
+pub struct IdFacts {
+    /// The strictest candidate (what [`choose`] reports), `comm` as the last resort.
+    pub own: Option<String>,
+    /// The candidates that name an installed desktop entry (or a snap alias of one): the
+    /// executable's own entries, the launched file, the cgroup id when it is one.
+    pub resolved: Vec<String>,
+    /// Every candidate, `comm` and a Flatpak's name included: what a deny list is matched on.
+    pub candidates: Vec<String>,
+}
+
+/// Builds [`IdFacts`] from one read of the evidence and one index.
+pub fn id_facts(ev: &Evidence, index: &DesktopIndex, flatpak: Option<String>) -> IdFacts {
+    let mut cands = candidates(ev, index);
+    let own = choose(&cands).or_else(|| ev.comm.as_deref().map(normalize).filter(|c| is_app_id(c)));
+    let resolved: Vec<String> = cands
+        .iter()
+        .filter(|c| aliases(c).iter().any(|a| index.get(a).is_some()))
+        .cloned()
+        .collect();
+    let comm = ev.comm.as_deref().map(normalize).filter(|c| is_app_id(c));
+    for extra in comm.into_iter().chain(flatpak) {
+        if !cands.contains(&extra) {
+            cands.push(extra);
+        }
+    }
+    IdFacts {
+        own,
+        resolved,
+        candidates: cands,
+    }
+}
+
+/// The app id in a Flatpak's `/.flatpak-info` (`[Application]` group, `name=`): what a process
+/// inside a Flatpak sandbox is, whatever scope launched it.
+pub fn flatpak_app_name(info: &str) -> Option<String> {
+    let mut in_app = false;
+    for line in info.lines() {
+        let line = line.trim();
+        if line.starts_with('[') {
+            in_app = line == "[Application]";
+        } else if in_app {
+            if let Some(name) = line.strip_prefix("name=") {
+                let name = name.trim();
+                return is_app_id(name).then(|| normalize(name));
+            }
+        }
+    }
+    None
+}
+
 /// Whether `query` looks like an app id (as opposed to a free-form display name or a path).
 pub fn is_app_id(query: &str) -> bool {
     let q = query.trim();
@@ -947,5 +999,23 @@ mod tests {
         assert!(!is_app_id("Text Editor"));
         assert!(!is_app_id(""));
         assert!(!is_app_id("-rf"));
+    }
+}
+
+#[cfg(test)]
+mod flatpak_tests {
+    use super::*;
+
+    #[test]
+    fn the_flatpak_name_is_read_from_the_application_group_only() {
+        let info =
+            "[Application]\nname=org.keepassxc.KeePassXC\nruntime=x\n\n[Instance]\nname=other\n";
+        assert_eq!(
+            flatpak_app_name(info).as_deref(),
+            Some("org.keepassxc.keepassxc")
+        );
+        assert_eq!(flatpak_app_name("[Instance]\nname=a.b\n"), None);
+        assert_eq!(flatpak_app_name("[Application]\nname=../x y\n"), None);
+        assert_eq!(flatpak_app_name(""), None);
     }
 }
