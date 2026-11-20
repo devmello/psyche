@@ -9932,6 +9932,7 @@ public enum ChecklistItemStatus: String, Codable, Sendable {
 public enum BlockKind: String, Codable, Sendable {
     case feedItem = "feed_item"
     case lifeAnswer = "life_answer"
+    case mailFollowup = "mail_followup"
     case memoryEntity = "memory_entity"
     case searchHit = "search_hit"
 }

@@ -22,18 +22,38 @@ export interface Classified {
 
 const ZERO: Usage = { input: 0, output: 0, cacheRead: 0, cacheWrite: 0, reasoning: 0, costUsd: 0 };
 
+/** Invisible characters, including the bidi controls that reorder text (U+202A-202E, U+2066-2069). */
+const INVISIBLE = /[\u200B-\u200F\u202A-\u202E\u2060-\u2064\u2066-\u2069\uFEFF]/g;
+/** Either fence marker, in any case, with stray spaces inside the brackets. */
+const FENCE_MARKER = /<<<\s*(?:end-)?untrusted-data\s*>>>/gi;
+
+/**
+ * Removes fence markers until none is left: one pass is not enough, because cutting out an inner
+ * marker can join the halves of an outer one around it.
+ */
+export function stripFences(text: string): string {
+  let out = text;
+  for (let i = 0; i < 64; i++) {
+    const next = out.replace(FENCE_MARKER, "");
+    if (next === out) return out;
+    out = next;
+  }
+  // Pathological nesting: drop every bracket run rather than trust what is left.
+  return out.replaceAll("<<<", "").replaceAll(">>>", "");
+}
+
 /** Strips hidden text and fences before the model reads mail (§3 rule 10). */
 export function sanitizeMailText(text: string, max = 600): string {
-  return text
-    .replace(/<!--[\s\S]*?-->/g, " ")
-    .replace(
-      /<[^>]*(display\s*:\s*none|font-size\s*:\s*0|visibility\s*:\s*hidden)[^>]*>[\s\S]*?<\/[^>]+>/gi,
-      " ",
-    )
-    .replace(/<[^>]+>/g, " ")
-    .replace(/[​-‏⁠-⁤﻿]/g, "")
-    .replaceAll(FENCE, "")
-    .replaceAll(FENCE_END, "")
+  return stripFences(
+    text
+      .replace(/<!--[\s\S]*?-->/g, " ")
+      .replace(
+        /<[^>]*(display\s*:\s*none|font-size\s*:\s*0|visibility\s*:\s*hidden)[^>]*>[\s\S]*?<\/[^>]+>/gi,
+        " ",
+      )
+      .replace(/<[^>]+>/g, " ")
+      .replace(INVISIBLE, ""),
+  )
     .replace(/\s+/g, " ")
     .trim()
     .slice(0, max);
@@ -41,13 +61,7 @@ export function sanitizeMailText(text: string, max = 600): string {
 
 /** Headers (sender, subject): fences and invisible characters out, no tag stripping (`<a@b>`). */
 export function cleanHeader(text: string, max = 300): string {
-  return text
-    .replace(/[\u200B-\u200F\u2060-\u2064\uFEFF]/g, "")
-    .replaceAll(FENCE, "")
-    .replaceAll(FENCE_END, "")
-    .replace(/\s+/g, " ")
-    .trim()
-    .slice(0, max);
+  return stripFences(text.replace(INVISIBLE, "")).replace(/\s+/g, " ").trim().slice(0, max);
 }
 
 function oneLine(m: MailItem): string {

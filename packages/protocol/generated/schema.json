@@ -14385,7 +14385,8 @@
             "feed_item",
             "search_hit",
             "memory_entity",
-            "life_answer"
+            "life_answer",
+            "mail_followup"
           ],
           "type": "string"
         },
@@ -16675,7 +16676,8 @@
             "feed_item",
             "search_hit",
             "memory_entity",
-            "life_answer"
+            "life_answer",
+            "mail_followup"
           ],
           "type": "string"
         },

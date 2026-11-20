@@ -1,31 +1,45 @@
 import type { MailFollowupAction, MailFollowupItem } from "@psyche/protocol";
 import { type ReactElement, useState } from "react";
 import { toast } from "sonner";
-import { usePrefillComposer } from "../chat/prefill.ts";
 import { Button } from "../components/ui/button.tsx";
-import { useCall, useGatewayQuery } from "../data/index.ts";
+import { useCall, useGatewayQuery, useStore, useThreads } from "../data/index.ts";
 import { t } from "../i18n/core.ts";
 import { describeError } from "../i18n/errors.ts";
 import { ScreenSection } from "../screens/feed/ScreenToolbar.tsx";
-
-const FENCE = "<<<untrusted-data>>>";
-const FENCE_END = "<<<end-untrusted-data>>>";
+import { useSlots } from "../slots.tsx";
 
 /**
- * The text "Draft a follow-up" fills into the chat composer. Nothing is sent: the prompt asks for
- * a draft, and any send still goes through the usual approval card. The subject and name come
- * from mail, so they are fenced as data and any fence inside them is removed first.
+ * "Draft a follow-up": a new side chat with the thread as the composer's context chip and a fixed
+ * sentence of the owner's own in the composer. None of the email's words (the sender's name, the
+ * subject) go into the message: the Gateway reads the thread by id on send, fences it and starts
+ * the turn tainted. Nothing is sent. Undefined where no chat can be opened (a detached window).
  */
-export function followupDraftPrompt(item: MailFollowupItem): string {
-  const clean = (s: string) => s.replaceAll(FENCE, "").replaceAll(FENCE_END, "");
-  const vars = {
-    who: item.who === "" ? t("mailFollowups.someone") : clean(item.who),
-    days: item.daysQuiet,
-    subject: `${FENCE}${clean(item.subject)}${FENCE_END}`,
+export function useDraftFollowup(): ((item: MailFollowupItem) => void) | undefined {
+  const store = useStore();
+  const threads = useThreads();
+  const { navigate } = useSlots();
+  if (!navigate || store.detached) return undefined;
+  return (item) => {
+    threads
+      .create({ kind: "side", title: t("mailFollowups.thread.title") })
+      .then((thread) => {
+        store.update((s) => ({
+          ...s,
+          composerPrefill: t("mailFollowups.prefill"),
+          composerContext: {
+            threadId: thread.id,
+            ref: { kind: "mail_followup", id: item.id },
+            title: item.subject.slice(0, 300),
+            source: item.who === "" ? null : item.who.slice(0, 200),
+            url: null,
+          },
+        }));
+        navigate(`/chat/${thread.id}`);
+      })
+      .catch((err: unknown) => {
+        toast(t("mailFollowups.failed", { reason: describeError(err) }));
+      });
   };
-  return item.kind === "no_reply"
-    ? t("mailFollowups.draft.noReply", vars)
-    : t("mailFollowups.draft.question", vars);
 }
 
 export function QuietThreadRow({
@@ -34,7 +48,7 @@ export function QuietThreadRow({
   onAct,
 }: {
   item: MailFollowupItem;
-  onDraft?: (prompt: string) => void;
+  onDraft?: () => void;
   onAct: (action: MailFollowupAction) => Promise<unknown>;
 }): ReactElement {
   const [busy, setBusy] = useState(false);
@@ -69,13 +83,7 @@ export function QuietThreadRow({
       </div>
       <div className="flex flex-wrap items-center gap-2">
         {onDraft ? (
-          <Button
-            type="button"
-            size="sm"
-            variant="outline"
-            disabled={busy}
-            onClick={() => onDraft(followupDraftPrompt(item))}
-          >
+          <Button type="button" size="sm" variant="outline" disabled={busy} onClick={onDraft}>
             {t("mailFollowups.draft")}
           </Button>
         ) : null}
@@ -111,7 +119,7 @@ const SHOWN = 3;
 export function QuietThreadsSection({ limit = SHOWN }: { limit?: number }): ReactElement | null {
   const call = useCall();
   const list = useGatewayQuery("mailFollowups.list", {});
-  const prefill = usePrefillComposer();
+  const draft = useDraftFollowup();
   const items = list.data?.enabled ? list.data.items.slice(0, limit) : [];
   if (items.length === 0) return null;
   return (
@@ -129,7 +137,7 @@ export function QuietThreadsSection({ limit = SHOWN }: { limit?: number }): Reac
           <QuietThreadRow
             key={item.id}
             item={item}
-            {...(prefill ? { onDraft: prefill } : {})}
+            {...(draft ? { onDraft: () => draft(item) } : {})}
             onAct={(action) =>
               call("mailFollowups.act", { id: item.id, action }).finally(() => list.reload())
             }

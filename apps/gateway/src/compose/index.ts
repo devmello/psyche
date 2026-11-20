@@ -2551,7 +2551,9 @@ export async function composeGateway(options: ComposeOptions): Promise<ComposedG
   gateway.context.chatContext.resolve = (ref, caller) =>
     ref.kind === "life_answer"
       ? everything.lifeChat.resolve(ref, caller)
-      : baseChatContext(ref, caller);
+      : ref.kind === "mail_followup"
+        ? mailFollowups.resolveContext(ref)
+        : baseChatContext(ref, caller);
   gateway.context.chatFiles.attach = (threadId, paths, by) =>
     rawBroker.attachFiles(threadId, paths, by);
   gateway.context.chatFiles.attached = (threadId) => rawBroker.attachedFiles(threadId);

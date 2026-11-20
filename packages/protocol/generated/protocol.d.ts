@@ -2990,7 +2990,7 @@ export type WorkNoteAttribute = "status" | "deadline" | "progress" | "stopped_at
 
 export type ChecklistItemStatus = "pending" | "in_progress" | "completed";
 
-export type BlockKind = "feed_item" | "search_hit" | "memory_entity" | "life_answer";
+export type BlockKind = "feed_item" | "search_hit" | "memory_entity" | "life_answer" | "mail_followup";
 
 /**
  * The kind of model that made the answer
