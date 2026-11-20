@@ -58,6 +58,8 @@ export const PROACTIVITY_BUDGET = {
     maxOpenCandidates: 3,
     /** A check-in run raises at most one `reminder` notification. */
     notificationsPerCheckin: 1,
+    /** A goal's linked task with no progress for this many days gets a free "Resume?" card. */
+    stalledAfterDays: 7,
   },
 } as const;
 
