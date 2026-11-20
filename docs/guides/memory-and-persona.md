@@ -6,17 +6,17 @@ Psyche keeps the agent's persona and memory as plain Markdown files you can read
 
 The files live in `~/.psyche/workspace/` (`$PSYCHE_HOME/workspace/`). On the first start, the Gateway copies them from the repository's `templates/` folder. They are ordinary files: you can open them in Soul & Memory, in any editor, or in Finder.
 
-| File | What it holds |
-| --- | --- |
-| `SOUL.md` | Core truths, boundaries and personality, written in the first person for you to read |
-| `IDENTITY.md` | The agent's name, creature, vibe, tagline, emoji, avatar and voice in a frontmatter block, plus a one-line self-description |
-| `AGENTS.md` | Operating instructions: safety, asking versus acting, approvals and receipts, memory, status lines |
-| `USER.md` | Stable facts about you and dated directives; the latest directive wins |
-| `MEMORY.md` | Curated long-term memory; each bullet ends with the dates it came from |
-| `memory/YYYY-MM-DD.md` | Daily notes, one bullet per entry |
-| `interests.md` | The Feed's interest ledger: one topic per line with a weight and a reason |
-| `BOOTSTRAP.md` | A first-run ritual, copied only into a fresh workspace |
-| `DREAMS.md` | The diary of nightly dreaming |
+| File                   | What it holds                                                                                                               |
+| ---------------------- | --------------------------------------------------------------------------------------------------------------------------- |
+| `SOUL.md`              | Core truths, boundaries and personality, written in the first person for you to read                                        |
+| `IDENTITY.md`          | The agent's name, creature, vibe, tagline, emoji, avatar and voice in a frontmatter block, plus a one-line self-description |
+| `AGENTS.md`            | Operating instructions: safety, asking versus acting, approvals and receipts, memory, status lines                          |
+| `USER.md`              | Stable facts about you and dated directives; the latest directive wins                                                      |
+| `MEMORY.md`            | Curated long-term memory; each bullet ends with the dates it came from                                                      |
+| `memory/YYYY-MM-DD.md` | Daily notes, one bullet per entry                                                                                           |
+| `interests.md`         | The Feed's interest ledger: one topic per line with a weight and a reason                                                   |
+| `BOOTSTRAP.md`         | A first-run ritual, copied only into a fresh workspace                                                                      |
+| `DREAMS.md`            | The diary of nightly dreaming                                                                                               |
 
 A daily note entry looks like `- HH:MM [tag] text`. The tag says where the entry came from: `owner`, `agent`, `system`, or `untrusted` (with the kind and source of the content). A `USER.md` directive looks like `- YYYY-MM-DD active: …`. When you replace one, the old line stays, marked `superseded by` the new date.
 

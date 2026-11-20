@@ -44,6 +44,7 @@ import {
   type ImportStage,
   type ImportSummary,
 } from "./ImportDialog.tsx";
+import { splitExport } from "./split-export.ts";
 
 /** Persona files and their budgets (architecture §4.2: 20k per file, 4k for USER.md). */
 export const PERSONA_FILES = [
@@ -374,6 +375,7 @@ export function SoulMemoryPanel({
   const runImport = async (
     req: ImportRequest,
     onStage: (stage: ImportStage) => void,
+    onProgress: (done: number, total: number) => void,
   ): Promise<ImportSummary> => {
     const summary: ImportSummary = {
       memories: 0,
@@ -389,11 +391,18 @@ export function SoulMemoryPanel({
     }
     if (req.mode === "both" && req.conversations !== undefined) {
       onStage("conversations");
-      const res = await call("threads.import", { format: req.source, content: req.conversations });
-      summary.threads = res.imported;
-      summary.duplicates = res.duplicates;
-      summary.skipped = res.skipped;
-      summary.skippedMore = res.skippedMore;
+      // A frame is 1 MiB: whole conversations go in batches, each import idempotent.
+      const split = splitExport(req.conversations);
+      summary.skipped.push(...split.skipped);
+      onProgress(0, split.batches.length);
+      for (const [i, batch] of split.batches.entries()) {
+        const res = await call("threads.import", { format: req.source, content: batch });
+        summary.threads += res.imported;
+        summary.duplicates += res.duplicates;
+        summary.skipped.push(...res.skipped);
+        summary.skippedMore += res.skippedMore;
+        onProgress(i + 1, split.batches.length);
+      }
     }
     return summary;
   };

@@ -119,6 +119,13 @@ export interface GatewayOptions {
   peerCheckRequired?: () => boolean;
   /** The platform the Gateway reports for the host-helper family rule (tests). Default: this one. */
   hostPlatform?: NodeJS.Platform;
+  /** The owner imported conversations (audit trail: counts only). */
+  onThreadsImported?: (e: {
+    source: string;
+    imported: number;
+    duplicates: number;
+    deviceId: string;
+  }) => void;
   /** The owner changed a setting (audit trail: key and value hashes, never the value). */
   onSettingChanged?: (change: {
     key: string;
@@ -343,6 +350,7 @@ export async function startGateway(options: GatewayOptions = {}): Promise<Gatewa
     onSetupTokenUsed: options.onSetupTokenUsed ?? null,
     onMachineChange: options.onMachineChange ?? null,
     onSettingChanged: options.onSettingChanged ?? null,
+    onThreadsImported: options.onThreadsImported ?? null,
     brokerPublishesReceipts: options.brokerPublishesReceipts ?? false,
     presenceState,
     presenceCanVerify: options.presenceCanVerify ?? options.settingsPresence ?? (() => false),

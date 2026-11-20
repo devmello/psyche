@@ -4,15 +4,15 @@ A Psyche backup is one encrypted file, `psyche-<time>.tar.gz.age`. You can make 
 
 ## What a backup holds
 
-| Included | Not included |
-| --- | --- |
-| `state/`: the database (threads, tasks, approvals, grants, receipts) and channel sessions in `state/channels/` | `cli/`: the CLI's device key (each machine pairs again) |
-| `workspace/`: your agent's Markdown files | `run/`: sockets |
-| `vault/`: the encrypted vault database | Logs |
-| `library/`: files and recordings | Browser profiles |
-| `audit/`: the audit log | Sandbox workspaces and VM disks |
-| `config.json` | Earlier backups in `$PSYCHE_HOME/backups/` |
-| | `security/`: the revocation ledger and the audit anchor key, which stay on the machine |
+| Included                                                                                                       | Not included                                                                           |
+| -------------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------- |
+| `state/`: the database (threads, tasks, approvals, grants, receipts) and channel sessions in `state/channels/` | `cli/`: the CLI's device key (each machine pairs again)                                |
+| `workspace/`: your agent's Markdown files                                                                      | `run/`: sockets                                                                        |
+| `vault/`: the encrypted vault database                                                                         | Logs                                                                                   |
+| `library/`: files and recordings                                                                               | Browser profiles                                                                       |
+| `audit/`: the audit log                                                                                        | Sandbox workspaces and VM disks                                                        |
+| `config.json`                                                                                                  | Earlier backups in `$PSYCHE_HOME/backups/`                                             |
+|                                                                                                                | `security/`: the revocation ledger and the audit anchor key, which stay on the machine |
 
 Every archive also holds a manifest with the SHA-256 of each file, so a damaged or altered archive is detected.
 

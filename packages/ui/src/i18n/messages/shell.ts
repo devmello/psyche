@@ -100,6 +100,7 @@ export const shell = {
   "shell.threads.pin": "Pin",
   "shell.threads.archive": "Archive",
   "shell.threads.imported": "Imported",
+  "shell.threads.importedReadOnly": "This imported conversation is read-only.",
   "shell.threads.restore": "Restore",
   "shell.threads.region": "Threads",
   "shell.threads.filter": "Filter threads",

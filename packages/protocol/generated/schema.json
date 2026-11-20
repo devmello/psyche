@@ -49083,7 +49083,7 @@
           "$ref": "#/$defs/ThreadImportFormat"
         },
         "content": {
-          "maxLength": 25000000,
+          "maxLength": 330000,
           "minLength": 2,
           "type": "string"
         },

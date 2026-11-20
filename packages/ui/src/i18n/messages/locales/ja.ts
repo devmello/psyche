@@ -816,6 +816,8 @@ export const ja: Partial<Catalogue> = {
   "agent.memory.importConv.skipEmpty": "メッセージがありません",
   "agent.memory.importConv.skipInvalid": "読み取れませんでした",
   "agent.memory.importConv.untitled": "無題",
+  "agent.memory.importConv.progressCount": "会話を読み込み中… {done} / {total}",
+  "agent.memory.importConv.tooBig": "このファイルは {mb} MB を超えており、ここでは大きすぎて読めません。範囲を小さくして書き出し直してください。",
   "agent.memory.exported": "{file}を書き出しました。",
   "agent.memory.export": "すべてを書き出す",
   "agent.memory.resetDone":
@@ -924,6 +926,7 @@ export const ja: Partial<Catalogue> = {
   "shell.threads.pin": "ピン留め",
   "shell.threads.archive": "アーカイブ",
   "shell.threads.imported": "読み込み済み",
+  "shell.threads.importedReadOnly": "この読み込んだ会話は読み取り専用です。",
   "shell.threads.restore": "復元",
   "shell.threads.region": "スレッド",
   "shell.threads.filter": "スレッドを絞り込む",

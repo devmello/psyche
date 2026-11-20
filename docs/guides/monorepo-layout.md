@@ -4,15 +4,15 @@ Psyche is one repository for every platform: the TypeScript Gateway, web app, de
 
 ## Where each platform lives
 
-| Platform | Folder | Toolchain | Status |
-| --- | --- | --- | --- |
-| Gateway, web, desktop, CLI, node, docs site | `apps/gateway`, `apps/web`, `apps/desktop`, `apps/cli`, `apps/node`, `apps/site` | Node 24 and pnpm | exists |
-| TypeScript libraries | `packages/*` | Node 24 and pnpm | exists |
-| Mac helper (Swift) | `apps/mac-helper` | Xcode or the Swift toolchain | exists |
-| Swift code shared by the Mac helper and iOS | `packages/swift` (one SwiftPM package) | Swift | planned |
-| Windows helper (Rust) | `apps/win-helper`, with the `crates/win-dictation` and `crates/win-computer` crates | Rust (stable) and the Visual Studio 2022 C++ build tools | exists |
-| iOS app (SwiftUI) | `apps/ios` | Xcode | planned |
-| Android app (Kotlin) | `apps/android` | Android SDK and Gradle | planned |
+| Platform                                    | Folder                                                                              | Toolchain                                                | Status  |
+| ------------------------------------------- | ----------------------------------------------------------------------------------- | -------------------------------------------------------- | ------- |
+| Gateway, web, desktop, CLI, node, docs site | `apps/gateway`, `apps/web`, `apps/desktop`, `apps/cli`, `apps/node`, `apps/site`    | Node 24 and pnpm                                         | exists  |
+| TypeScript libraries                        | `packages/*`                                                                        | Node 24 and pnpm                                         | exists  |
+| Mac helper (Swift)                          | `apps/mac-helper`                                                                   | Xcode or the Swift toolchain                             | exists  |
+| Swift code shared by the Mac helper and iOS | `packages/swift` (one SwiftPM package)                                              | Swift                                                    | planned |
+| Windows helper (Rust)                       | `apps/win-helper`, with the `crates/win-dictation` and `crates/win-computer` crates | Rust (stable) and the Visual Studio 2022 C++ build tools | exists  |
+| iOS app (SwiftUI)                           | `apps/ios`                                                                          | Xcode                                                    | planned |
+| Android app (Kotlin)                        | `apps/android`                                                                      | Android SDK and Gradle                                   | planned |
 
 The planned native folders do not exist yet. Create each one in the PR that adds the app, and add its paths to the three places that name them: `scripts/dev/sparse.sh`, the `changes` job in `.github/workflows/ci.yml`, and `.github/CODEOWNERS`.
 
@@ -50,26 +50,26 @@ Sparse checkout is per worktree, so each session picks its own profile. Files in
 
 The `changes` job in `.github/workflows/ci.yml` diffs the pull request (or push) against its base and publishes one output per platform. A platform job declares `needs: changes` and `if: needs.changes.outputs.<platform> == 'true'`.
 
-| Output | True when the change touches | Job |
-| --- | --- | --- |
-| `ts` | anything except native app folders | `ci` (typecheck, lint, tests, protocol freshness) |
-| `helper` | `packages/protocol/`, `packages/swift/`, `apps/mac-helper/` | `helper` (Swift build and test on macOS) |
-| `windows` | `packages/protocol/`, `apps/win-helper/` | `win-helper` (cargo build, test and clippy on windows-latest) |
-| `ios` | `packages/protocol/`, `packages/swift/`, `apps/ios/` | to add with the app |
-| `android` | `packages/protocol/`, `apps/android/` | to add with the app |
+| Output    | True when the change touches                                | Job                                                           |
+| --------- | ----------------------------------------------------------- | ------------------------------------------------------------- |
+| `ts`      | anything except native app folders                          | `ci` (typecheck, lint, tests, protocol freshness)             |
+| `helper`  | `packages/protocol/`, `packages/swift/`, `apps/mac-helper/` | `helper` (Swift build and test on macOS)                      |
+| `windows` | `packages/protocol/`, `apps/win-helper/`                    | `win-helper` (cargo build, test and clippy on windows-latest) |
+| `ios`     | `packages/protocol/`, `packages/swift/`, `apps/ios/`        | to add with the app                                           |
+| `android` | `packages/protocol/`, `apps/android/`                       | to add with the app                                           |
 
 A manual run, a tag, a new branch and any change to `ci.yml` itself run everything. The generated Swift protocol files count as TypeScript changes, so their freshness check still runs. A new platform job looks like the `win-helper` one:
 
 ```yaml
-  win-helper:
-    needs: changes
-    if: needs.changes.outputs.windows == 'true'
-    runs-on: windows-latest
-    steps:
-      - uses: actions/checkout@<pinned sha>
-      - run: cargo build --release --locked --manifest-path apps/win-helper/Cargo.toml
-      - run: cargo test --locked --manifest-path apps/win-helper/Cargo.toml
-      - run: cargo clippy --locked --manifest-path apps/win-helper/Cargo.toml --all-targets -- -D warnings
+win-helper:
+  needs: changes
+  if: needs.changes.outputs.windows == 'true'
+  runs-on: windows-latest
+  steps:
+    - uses: actions/checkout@<pinned sha>
+    - run: cargo build --release --locked --manifest-path apps/win-helper/Cargo.toml
+    - run: cargo test --locked --manifest-path apps/win-helper/Cargo.toml
+    - run: cargo clippy --locked --manifest-path apps/win-helper/Cargo.toml --all-targets -- -D warnings
 ```
 
 Workflows that only run on a schedule, on tags or on demand (`desktop`, `security`, `release`) need no path filter; `docs` already has one.
@@ -78,11 +78,11 @@ Workflows that only run on a schedule, on tags or on demand (`desktop`, `securit
 
 A worktree reports about 2.6 GB with `du`, nearly all of it `node_modules`. Almost none of that is real disk on macOS: pnpm imports packages from its global store (`~/Library/pnpm/store/v11`) as APFS clones, which share blocks with the store. `du` counts shared blocks once per file, so it overstates. What a new worktree really costs, measured with `df` before and after (not `du`):
 
-| Step | Real disk written |
-| --- | --- |
-| `pnpm install` in a new worktree | about 35 MB (`node_modules` symlinks and metadata, node-pty's native build restored from the store) |
-| Electron's `dist`, extracted the first time anything launches Electron | 308 MB, without sharing |
-| Electron's `dist`, cloned from the shared copy by the root `postinstall` | about 0 MB |
+| Step                                                                     | Real disk written                                                                                   |
+| ------------------------------------------------------------------------ | --------------------------------------------------------------------------------------------------- |
+| `pnpm install` in a new worktree                                         | about 35 MB (`node_modules` symlinks and metadata, node-pty's native build restored from the store) |
+| Electron's `dist`, extracted the first time anything launches Electron   | 308 MB, without sharing                                                                             |
+| Electron's `dist`, cloned from the shared copy by the root `postinstall` | about 0 MB                                                                                          |
 
 So the per-worktree cost drops from about 343 MB to about 35 MB, plus whatever build outputs a session produces.
 
@@ -96,13 +96,13 @@ Electron 44 has no install script, so pnpm's side-effects cache cannot hold its 
 
 ### Shared caches
 
-| Cache | Location | Notes |
-| --- | --- | --- |
-| pnpm store | `~/Library/pnpm/store/v11` | global; the source of the clones |
-| Turbo | `~/Library/Caches/psyche/turbo` | set by `scripts/dev/turbo.sh`, which the root `build`, `dev` and `typecheck` scripts run; capped at 5 GB by `PSYCHE_TURBO_CACHE_MAX_MB`; `pnpm cache:prune` prunes by age and size |
-| Electron download | `~/Library/Caches/electron` | global by default |
-| Playwright browsers | `~/Library/Caches/ms-playwright` | global by default; `PLAYWRIGHT_BROWSERS_PATH` is not set anywhere in the repo and must not be |
-| Vite and Storybook | `node_modules/.vite`, `node_modules/.cache` | inside `node_modules`, so never committed and removed with it |
+| Cache               | Location                                    | Notes                                                                                                                                                                              |
+| ------------------- | ------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| pnpm store          | `~/Library/pnpm/store/v11`                  | global; the source of the clones                                                                                                                                                   |
+| Turbo               | `~/Library/Caches/psyche/turbo`             | set by `scripts/dev/turbo.sh`, which the root `build`, `dev` and `typecheck` scripts run; capped at 5 GB by `PSYCHE_TURBO_CACHE_MAX_MB`; `pnpm cache:prune` prunes by age and size |
+| Electron download   | `~/Library/Caches/electron`                 | global by default                                                                                                                                                                  |
+| Playwright browsers | `~/Library/Caches/ms-playwright`            | global by default; `PLAYWRIGHT_BROWSERS_PATH` is not set anywhere in the repo and must not be                                                                                      |
+| Vite and Storybook  | `node_modules/.vite`, `node_modules/.cache` | inside `node_modules`, so never committed and removed with it                                                                                                                      |
 
 Set `PSYCHE_CACHE_DIR` to move everything under `~/Library/Caches/psyche`. These native defaults are already global and must stay that way, so a second worktree does not rebuild them:
 

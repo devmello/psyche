@@ -103,8 +103,8 @@ export const ThreadsMethods = {
   "threads.import": defineMethod({
     params: Type.Object({
       format: StringEnum(["claude", "chatgpt"], { $id: "ThreadImportFormat" }),
-      /** The export's `conversations.json` text. */
-      content: Type.String({ minLength: 2, maxLength: 25_000_000 }),
+      /** A batch of whole conversations from the export (a frame is 1 MiB; clients split the file). */
+      content: Type.String({ minLength: 2, maxLength: 330_000 }),
       dryRun: Type.Optional(Type.Boolean()),
     }),
     result: Type.Object(

@@ -10,15 +10,15 @@ Status: proposal v1 (2026-10-26), for the owner's sign-off. Applies to psyche-de
 
 ## 1. What exists today
 
-| Piece | Where | Reused for |
-| --- | --- | --- |
-| `computer.screenshot` (ScreenCaptureKit, `windowOnly`, hygiene: Psyche's own windows, password managers, finance apps and Off apps left out; refused while a password field has focus) | `apps/mac-helper/Sources/PsycheHelperSystem/Computer/Screenshots.swift` | The window capture. Region mode adds a crop rect. |
-| `computer.screenshot_pick` (system content picker, no Screen Recording grant) | same file | The fallback when Screen Recording is missing (§3.4). |
-| AX snapshot (`AXURL`, titles, focus, `focusedIsSecure`) | `LiveAX.swift`, `AXEngine.swift` | App name, window title, selected text (`AXSelectedText`) and browser URL. |
-| Voice HUD window (non-activating panel, kept warm) | `apps/desktop/src/main/voice/hud.ts`, `/voice-hud`, `VoiceHudView` | The panel window pattern, placement and material. |
-| Composer dictation (`useComposerVoice`) and the two-key `dictation.watch` | `apps/web/src/shell/components/composer-voice.ts`, `apps/desktop/src/main/dictation/` | Speaking into the panel. |
-| Quick entry on ⌥Space (⌃⌥Space fallback) | `apps/desktop/src/main.ts` | The shortcut registration pattern, and the key to avoid. |
-| `data.replayRetentionDays` | `apps/gateway/src/retention.ts` | How long the capture is kept. |
+| Piece                                                                                                                                                                                  | Where                                                                                 | Reused for                                                                |
+| -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------- | ------------------------------------------------------------------------- |
+| `computer.screenshot` (ScreenCaptureKit, `windowOnly`, hygiene: Psyche's own windows, password managers, finance apps and Off apps left out; refused while a password field has focus) | `apps/mac-helper/Sources/PsycheHelperSystem/Computer/Screenshots.swift`               | The window capture. Region mode adds a crop rect.                         |
+| `computer.screenshot_pick` (system content picker, no Screen Recording grant)                                                                                                          | same file                                                                             | The fallback when Screen Recording is missing (§3.4).                     |
+| AX snapshot (`AXURL`, titles, focus, `focusedIsSecure`)                                                                                                                                | `LiveAX.swift`, `AXEngine.swift`                                                      | App name, window title, selected text (`AXSelectedText`) and browser URL. |
+| Voice HUD window (non-activating panel, kept warm)                                                                                                                                     | `apps/desktop/src/main/voice/hud.ts`, `/voice-hud`, `VoiceHudView`                    | The panel window pattern, placement and material.                         |
+| Composer dictation (`useComposerVoice`) and the two-key `dictation.watch`                                                                                                              | `apps/web/src/shell/components/composer-voice.ts`, `apps/desktop/src/main/dictation/` | Speaking into the panel.                                                  |
+| Quick entry on ⌥Space (⌃⌥Space fallback)                                                                                                                                               | `apps/desktop/src/main.ts`                                                            | The shortcut registration pattern, and the key to avoid.                  |
+| `data.replayRetentionDays`                                                                                                                                                             | `apps/gateway/src/retention.ts`                                                       | How long the capture is kept.                                             |
 
 **The gap:** `chat.send` takes text plus Library item ids, and there's no upload method (`library.upload` is still "unavailable" in the web and desktop clients). So a capture needs a Gateway-side path into the Library. §4 covers that.
 
@@ -34,7 +34,9 @@ Status: proposal v1 (2026-10-26), for the owner's sign-off. Applies to psyche-de
 ## 3. Capture
 
 ### 3.1 Helper: `screen.context` (new capability)
+
 One call returns everything, so the panel opens on one round trip:
+
 - `image`: the frontmost window (or `rect` in global points for region mode), JPEG, at most 1600 px on the long side. It goes through the same `CaptureHygiene` and secure-field checks as `computer.screenshot`.
 - `app` (name and bundle id), `windowTitle`.
 - `selectedText`: the focused element's `AXSelectedText`, at most 4,000 characters. Empty when the focused element is secure.
@@ -44,24 +46,28 @@ One call returns everything, so the panel opens on one round trip:
 It's a new capability rather than a flag on `computer.screenshot`. That's because it isn't agent-invoked computer use: it doesn't go through tier approvals or need a computer-use session, and it's owner-initiated. The helper only answers it while a trigger is in flight (a token the desktop gets from the Gateway's `screen.capture`), so no agent or skill can call it.
 
 ### 3.2 Gateway: `screen.capture` and `screen.discard` (new methods)
+
 - `screen.capture { mode: "window" | "region", rect? }`: invokes the helper's `screen.context` and stores the image as a Library item (`kind: image`, origin `screen`, provenance `untrusted`). Returns `{ captureId, libraryItemId, thumbnail, context }`. The thumbnail is a small data URL.
 - `screen.discard { captureId }`: deletes the item. The panel calls it on ✕, Esc, or closing without sending.
 - A capture that's never sent is deleted after 10 minutes anyway.
 
 ### 3.3 What's sent
 
-| Always (when captured) | Only when relevant or pinned |
-| --- | --- |
-| App, window title, URL, selected text: one fenced, untrusted "What's on screen" block ahead of the request | The image, as an attachment |
+| Always (when captured)                                                                                     | Only when relevant or pinned |
+| ---------------------------------------------------------------------------------------------------------- | ---------------------------- |
+| App, window title, URL, selected text: one fenced, untrusted "What's on screen" block ahead of the request | The image, as an attachment  |
 
 **"Relevant"** is decided on the Gateway, before the model sees anything, by two checks:
+
 1. **Cheap rule:** deictic or visual words ("this", "that", "here", "on screen", "what am I looking at", "the error", "this chart"…) in all ten locales, or a region capture (dragging a box always means "look at this").
 2. Otherwise **the model decides:** the image isn't attached, but the agent gets a `screen.look` tool bound to this one capture. That covers "summarise this page" when the text context isn't enough. The tool reads the stored frame and never captures again.
 
 Pinning (📌 on the chip) always sends the image. ✕ drops it, and the text context too.
 
 ### 3.4 Permissions
+
 These reuse onboarding's existing flows; the panel doesn't add its own.
+
 - **Without Screen Recording:** the panel opens with text context only, plus a chip: "Allow screen capture". It opens the same Settings deep link onboarding uses. A one-off **Pick window…** uses `computer.screenshot_pick` (no grant needed).
 - **Without Accessibility:** there's no text context or dictation key. Typing still works, and the chip links to the Accessibility pane.
 
@@ -151,4 +157,5 @@ A quick pass over macOS 26 Siri, Raycast AI's Quick AI, the ChatGPT launcher (�
 - **Size:** 560 pt wide (was 480); 72 pt for one bar up to 560 pt (was 120–360).
 
 ### 10.4 Left as it was
+
 Approvals still show only as the pointer line that says to open the thread; the panel has no approval dock, so they are answered in Psyche. The settings (shortcut, send-to default, always include) stay in Settings → Voice & dictation.

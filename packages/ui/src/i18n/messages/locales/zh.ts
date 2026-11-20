@@ -864,6 +864,8 @@ export const zh: Partial<Catalogue> = {
   "agent.memory.importConv.skipEmpty": "没有消息",
   "agent.memory.importConv.skipInvalid": "无法读取",
   "agent.memory.importConv.untitled": "无标题",
+  "agent.memory.importConv.progressCount": "正在导入对话… {done} / {total}",
+  "agent.memory.importConv.tooBig": "此文件超过 {mb} MB，太大无法在此读取。请缩小范围后重新导出。",
   "agent.memory.exported": "已导出 {file}。",
   "agent.memory.export": "导出全部",
   "agent.memory.resetDone":
@@ -965,6 +967,7 @@ export const zh: Partial<Catalogue> = {
   "shell.threads.pin": "置顶",
   "shell.threads.archive": "归档",
   "shell.threads.imported": "已导入",
+  "shell.threads.importedReadOnly": "此导入的对话为只读。",
   "shell.threads.restore": "恢复",
   "shell.threads.region": "会话",
   "shell.threads.filter": "过滤会话",

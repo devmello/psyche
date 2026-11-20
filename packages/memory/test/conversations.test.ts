@@ -128,4 +128,52 @@ describe("parseConversations", () => {
       parseConversations("claude", " ".repeat(CONVERSATION_LIMITS.inputChars + 1)),
     ).toThrow();
   });
+
+  it("counts the cap after dedupe: 205 then the next batch of 5", () => {
+    const many = Array.from({ length: 205 }, (_, i) => ({
+      uuid: `c${i}`,
+      name: `T${i}`,
+      chat_messages: [{ sender: "human", text: "hi", created_at: "2025-01-01T00:00:00Z" }],
+    }));
+    const text = JSON.stringify(many);
+    const first = parseConversations("claude", text, { conversations: 200 });
+    expect(first.conversations).toHaveLength(200);
+    expect(first.skipped).toHaveLength(5);
+    const known = new Set(first.conversations.map((c) => c.key));
+    const second = parseConversations("claude", text, {
+      conversations: 200,
+      isKnown: (k) => known.has(k),
+    });
+    expect(second.duplicates).toBe(200);
+    expect(second.conversations.map((c) => c.title)).toEqual([
+      "T200",
+      "T201",
+      "T202",
+      "T203",
+      "T204",
+    ]);
+    expect(second.skipped).toEqual([]);
+  });
+
+  it("clamps times, fixes lone surrogates, strips bidi from titles, reports repeated ids", () => {
+    const now = new Date("2026-11-20T00:00:00Z");
+    const m = (at: string, text: string) => ({ sender: "human", text, created_at: at });
+    const text = JSON.stringify([
+      {
+        uuid: "a",
+        name: "Re\u202Eport\u200B",
+        chat_messages: [m("5138-01-01T00:00:00Z", "x\uD800y")],
+      },
+      { uuid: "a", name: "Again", chat_messages: [m("2025-01-01T00:00:00Z", "z")] },
+      { uuid: "b", name: "Old", chat_messages: [m("1801-01-01T00:00:00Z", "z")] },
+    ]);
+    const { conversations, skipped } = parseConversations("claude", text, { now });
+    expect(conversations[0]?.title).toBe("Report");
+    expect(conversations[0]?.messages[0]?.text).toBe("x\uFFFDy");
+    expect(Date.parse(conversations[0]?.messages[0]?.at ?? "")).toBeLessThanOrEqual(
+      now.getTime() + 86_400_000,
+    );
+    expect(conversations[1]?.messages[0]?.at).toBe("1990-01-01T00:00:00.000Z");
+    expect(skipped).toEqual([{ title: "Again", reason: "invalid" }]);
+  });
 });

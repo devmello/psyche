@@ -838,6 +838,8 @@ export const hi: Partial<Catalogue> = {
   "agent.memory.importConv.skipEmpty": "कोई संदेश नहीं",
   "agent.memory.importConv.skipInvalid": "पढ़ी नहीं जा सकी",
   "agent.memory.importConv.untitled": "बिना शीर्षक",
+  "agent.memory.importConv.progressCount": "बातचीत इंपोर्ट हो रही है… {total} में से {done}",
+  "agent.memory.importConv.tooBig": "यह फ़ाइल {mb} MB से बड़ी है और यहाँ पढ़ने के लिए बहुत बड़ी है। छोटी अवधि चुनकर दोबारा एक्सपोर्ट करें।",
   "agent.memory.exported": "{file} एक्सपोर्ट की गई।",
   "agent.memory.export": "सब कुछ एक्सपोर्ट करें",
   "agent.memory.resetDone":
@@ -941,6 +943,7 @@ export const hi: Partial<Catalogue> = {
   "shell.threads.pin": "पिन करें",
   "shell.threads.archive": "आर्काइव करें",
   "shell.threads.imported": "इंपोर्ट की गई",
+  "shell.threads.importedReadOnly": "यह इंपोर्ट की गई बातचीत केवल पढ़ने के लिए है।",
   "shell.threads.restore": "रीस्टोर करें",
   "shell.threads.region": "थ्रेड",
   "shell.threads.filter": "थ्रेड फ़िल्टर करें",

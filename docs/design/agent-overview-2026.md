@@ -26,29 +26,29 @@ Two research passes informed this spec:
 - **Agent side panels and inspectors:** Apple HIG, ChatGPT and Claude memory, Raycast, Linear, Cursor and Notion.
 - **"Your usage / insights" pages:** Spotify Wrapped, Screen Time, GitHub, Duolingo, Oura, Whoop, Raycast Wrapped and AI usage pages.
 
-Sources are listed at the end. Items marked *kb* come from background knowledge, not a page we read.
+Sources are listed at the end. Items marked _kb_ come from background knowledge, not a page we read.
 
 ### 2.1 Side panels
 
-| Finding | Source | What we take |
-|---|---|---|
-| Segmented controls top out at about 5 to 7 segments in wide UIs and 5 on iPhone. Never use them for actions. When a tab bar can't hold the sections, move the less-used ones elsewhere. | Apple HIG (segmented controls, sidebars) | Two segments in a 420 px sheet, never more. |
-| Cursor raised its right sidebar's minimum width so its chat tabs would stop scrolling, and users complained it squeezed the editor. | Cursor forum | Overflowing tabs force a wider panel. Fix the information architecture instead. |
-| Memory is a list of facts. Each fact shows provenance (explicit vs inferred), a date, edit and delete. The list also has "clear all", an on/off switch, and a "not exhaustive" note. | OpenAI Memory FAQ; Anthropic memory | This already matches Soul & Memory. Keep it and give it room. |
-| Approvals sit at the top, render only when there are any, carry a count badge on the opener, and offer inline approve and deny. | Raycast; triage-agent patterns | The Approvals segment is the sheet's default whenever anything is waiting. |
-| A one-line pinned status (state, current task, next item) beats a status tab. | Synthesis | A "Now / next" line in the sheet header. |
+| Finding                                                                                                                                                                                 | Source                                   | What we take                                                                    |
+| --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ---------------------------------------- | ------------------------------------------------------------------------------- |
+| Segmented controls top out at about 5 to 7 segments in wide UIs and 5 on iPhone. Never use them for actions. When a tab bar can't hold the sections, move the less-used ones elsewhere. | Apple HIG (segmented controls, sidebars) | Two segments in a 420 px sheet, never more.                                     |
+| Cursor raised its right sidebar's minimum width so its chat tabs would stop scrolling, and users complained it squeezed the editor.                                                     | Cursor forum                             | Overflowing tabs force a wider panel. Fix the information architecture instead. |
+| Memory is a list of facts. Each fact shows provenance (explicit vs inferred), a date, edit and delete. The list also has "clear all", an on/off switch, and a "not exhaustive" note.    | OpenAI Memory FAQ; Anthropic memory      | This already matches Soul & Memory. Keep it and give it room.                   |
+| Approvals sit at the top, render only when there are any, carry a count badge on the opener, and offer inline approve and deny.                                                         | Raycast; triage-agent patterns           | The Approvals segment is the sheet's default whenever anything is waiting.      |
+| A one-line pinned status (state, current task, next item) beats a status tab.                                                                                                           | Synthesis                                | A "Now / next" line in the sheet header.                                        |
 
 ### 2.2 Insights pages
 
-| Product | Pattern | What we take |
-|---|---|---|
-| Screen Time *kb* | A hero total, then one bar chart with a Day / Week toggle, then categories, then a "vs last week" line, with drill-down on each bar | One period selector drives the whole page. Bars for daily totals. |
-| GitHub contributions and Pulse *kb* | A 52 × 7 heatmap in 4 to 5 buckets with a legend, exact counts on hover, and a period selector over plain counts | A heatmap for consistency over months. Counts, never "value". |
-| Oura / Whoop | One score explained by named contributors against your own baseline. The baseline takes about 2 weeks to learn. Weekly, monthly and 6-month trends. | Show the contributors (raw counts) and **skip the composite score**. Hold back comparisons until there is a baseline. |
-| Raycast Wrapped | Opened from a command. Stored locally. Section by section. Shows nothing below 14 days of data. | Have a minimum-history empty state instead of thin charts. Keep it local and private. |
-| Spotify Wrapped | Each card holds one idea, told as a personal narrative | Lead with a sentence built from the data. Leave out the share and FOMO mechanics. |
-| Duolingo *kb* | The streak is the hero | **Avoid it**: streak guilt doesn't suit an assistant. |
-| Copilot "time saved" | 60% of 2,898 engineers report saving under 1 hour, and satisfaction tracks time saved only weakly (r = 0.34). Critics call the vendors' figures proxies that ignore review and bugs. | **No "time saved" number.** Measured durations and counts are defensible. Estimates are not. |
+| Product                             | Pattern                                                                                                                                                                              | What we take                                                                                                          |
+| ----------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ | --------------------------------------------------------------------------------------------------------------------- |
+| Screen Time _kb_                    | A hero total, then one bar chart with a Day / Week toggle, then categories, then a "vs last week" line, with drill-down on each bar                                                  | One period selector drives the whole page. Bars for daily totals.                                                     |
+| GitHub contributions and Pulse _kb_ | A 52 × 7 heatmap in 4 to 5 buckets with a legend, exact counts on hover, and a period selector over plain counts                                                                     | A heatmap for consistency over months. Counts, never "value".                                                         |
+| Oura / Whoop                        | One score explained by named contributors against your own baseline. The baseline takes about 2 weeks to learn. Weekly, monthly and 6-month trends.                                  | Show the contributors (raw counts) and **skip the composite score**. Hold back comparisons until there is a baseline. |
+| Raycast Wrapped                     | Opened from a command. Stored locally. Section by section. Shows nothing below 14 days of data.                                                                                      | Have a minimum-history empty state instead of thin charts. Keep it local and private.                                 |
+| Spotify Wrapped                     | Each card holds one idea, told as a personal narrative                                                                                                                               | Lead with a sentence built from the data. Leave out the share and FOMO mechanics.                                     |
+| Duolingo _kb_                       | The streak is the hero                                                                                                                                                               | **Avoid it**: streak guilt doesn't suit an assistant.                                                                 |
+| Copilot "time saved"                | 60% of 2,898 engineers report saving under 1 hour, and satisfaction tracks time saved only weakly (r = 0.34). Critics call the vendors' figures proxies that ignore review and bugs. | **No "time saved" number.** Measured durations and counts are defensible. Estimates are not.                          |
 
 Cross-cutting rules we adopt:
 
@@ -115,10 +115,10 @@ Agent sheet                              Agent sheet (slim)
 
 **Now / next line.** One line in `text-callout`, `--label-secondary`. It shows one of:
 
-- *Working:* "Working on Book flights · 0:42", with a live duration and the step's status line in a tooltip.
-- *Waiting:* "Waiting for you · 2 approvals".
-- *Idle:* "Idle · next: {automation} {relative}". The data comes from `automations.upcoming`, limit 1.
-- *Paused:* "Memory paused" or "Automations paused", when either is paused.
+- _Working:_ "Working on Book flights · 0:42", with a live duration and the step's status line in a tooltip.
+- _Waiting:_ "Waiting for you · 2 approvals".
+- _Idle:_ "Idle · next: {automation} {relative}". The data comes from `automations.upcoming`, limit 1.
+- _Paused:_ "Memory paused" or "Automations paused", when either is paused.
 
 Clicking the line opens the run's Timeline on the Overview, or the Overview's Now & next section. "Open overview" is always present, and a ⌘-click opens it without closing the sheet.
 
@@ -398,15 +398,15 @@ Each section lists its data and its honest-number rules. "Period" means the sele
 
 ### 6.1 What exists
 
-| Section | Methods (exist today) |
-|---|---|
-| Now & next | `runs.list {status:[running]}`, `approvals.list`, `questions.list`, `automations.upcoming` (in the protocol and mock, no UI caller yet) |
-| Growth | `growth.summary {window: 7d\|30d\|all}` with lessons, metrics (with `previousRate` and `evidence`), milestones and timeline; `memory.lessons.*` |
-| People | `memory.graph.status` (counts, sources), `memory.entities.search` (`EntitySummary.lastInteractionAt`, `openLoops`) |
-| Built for you | `artifacts.list` (paged, newest first), `artifacts.get`, `ArtifactCard`, `ChartView` |
-| Specialists | `specialists.list`, `specialists.jobs` |
-| Upcoming | `automations.upcoming`, `automations.list`, `automations.update` |
-| Recent / Timeline | `runs.list` (cursor, `since`, filters), `runs.get`, `runs.steps`, … |
+| Section           | Methods (exist today)                                                                                                                           |
+| ----------------- | ----------------------------------------------------------------------------------------------------------------------------------------------- |
+| Now & next        | `runs.list {status:[running]}`, `approvals.list`, `questions.list`, `automations.upcoming` (in the protocol and mock, no UI caller yet)         |
+| Growth            | `growth.summary {window: 7d\|30d\|all}` with lessons, metrics (with `previousRate` and `evidence`), milestones and timeline; `memory.lessons.*` |
+| People            | `memory.graph.status` (counts, sources), `memory.entities.search` (`EntitySummary.lastInteractionAt`, `openLoops`)                              |
+| Built for you     | `artifacts.list` (paged, newest first), `artifacts.get`, `ArtifactCard`, `ChartView`                                                            |
+| Specialists       | `specialists.list`, `specialists.jobs`                                                                                                          |
+| Upcoming          | `automations.upcoming`, `automations.list`, `automations.update`                                                                                |
+| Recent / Timeline | `runs.list` (cursor, `since`, filters), `runs.get`, `runs.steps`, …                                                                             |
 
 ### 6.2 What's missing, and the one addition
 
@@ -456,17 +456,17 @@ InsightTotals = {
 
 ## 7. Implementation plan (small PRs, each green on every CI check)
 
-| # | PR | Contents | Depends |
-|---|---|---|---|
-| O1 | `insights.summary` | Protocol + codegen; gateway compose module (SQL, tests against the in-memory db); mock gateway fixtures; `useInsights(window)` hook + store invalidation | — |
-| O2 | Overview shell + navigation | `/overview` route in `screenRoute`; `RailItem` "overview" + `destinationFor`; sidebar row; ⌘K action; page frame, period control (URL state), section anchors and jump bar; new-user state; English strings | — (renders sections behind data from O1 as they land) |
-| O3 | Chart primitives | `components/charts/`: `StatTile` (number, delta, `Sparkline`), `StackedBars`, `CalendarHeatmap`, chart `figure` + hidden table helper, keyboard model; stories incl. RTL and dark; pure layout/bucketing tests | — |
-| O4 | Summary + Activity | Sentence templates, 4 tiles, Activity card | O1, O2, O3 |
-| O5 | Now & next + Upcoming + Recent + Timeline route | Reuse `MissionControl` rows / `UpcomingRow`, day grouping + cadence collapse; Recent list moves; `/overview/run/<id>`; redirects from `/agent/activity…` | O2 |
-| O6 | Slim sheet | 2 segments, Now / next line, "Open overview", Approvals "Decided recently", route redirects for `upcoming`/`growth`, ⌘K agent actions updated; remove Activity/Upcoming/Growth tab bodies from the sheet | O5 |
-| O7 | Growth + People map | Growth section from `GrowthPanel` parts (window from page), weekly card row; `PeopleMap` (radial, deterministic) + list equivalent | O1, O2 |
-| O8 | Built for you + Specialists | Artifact grid with chart thumbs; specialist result rows | O1, O2 |
-| O9 | Locales + baselines | All ten locales for `overview.*`/`agent.sheet.*` (if not done per PR), Storybook baselines (light, dark, `ar`, compact) for `Overview/*` and `Agent/Sheet` | all |
+| #   | PR                                              | Contents                                                                                                                                                                                                       | Depends                                               |
+| --- | ----------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ----------------------------------------------------- |
+| O1  | `insights.summary`                              | Protocol + codegen; gateway compose module (SQL, tests against the in-memory db); mock gateway fixtures; `useInsights(window)` hook + store invalidation                                                       | —                                                     |
+| O2  | Overview shell + navigation                     | `/overview` route in `screenRoute`; `RailItem` "overview" + `destinationFor`; sidebar row; ⌘K action; page frame, period control (URL state), section anchors and jump bar; new-user state; English strings    | — (renders sections behind data from O1 as they land) |
+| O3  | Chart primitives                                | `components/charts/`: `StatTile` (number, delta, `Sparkline`), `StackedBars`, `CalendarHeatmap`, chart `figure` + hidden table helper, keyboard model; stories incl. RTL and dark; pure layout/bucketing tests | —                                                     |
+| O4  | Summary + Activity                              | Sentence templates, 4 tiles, Activity card                                                                                                                                                                     | O1, O2, O3                                            |
+| O5  | Now & next + Upcoming + Recent + Timeline route | Reuse `MissionControl` rows / `UpcomingRow`, day grouping + cadence collapse; Recent list moves; `/overview/run/<id>`; redirects from `/agent/activity…`                                                       | O2                                                    |
+| O6  | Slim sheet                                      | 2 segments, Now / next line, "Open overview", Approvals "Decided recently", route redirects for `upcoming`/`growth`, ⌘K agent actions updated; remove Activity/Upcoming/Growth tab bodies from the sheet       | O5                                                    |
+| O7  | Growth + People map                             | Growth section from `GrowthPanel` parts (window from page), weekly card row; `PeopleMap` (radial, deterministic) + list equivalent                                                                             | O1, O2                                                |
+| O8  | Built for you + Specialists                     | Artifact grid with chart thumbs; specialist result rows                                                                                                                                                        | O1, O2                                                |
+| O9  | Locales + baselines                             | All ten locales for `overview.*`/`agent.sheet.*` (if not done per PR), Storybook baselines (light, dark, `ar`, compact) for `Overview/*` and `Agent/Sheet`                                                     | all                                                   |
 
 Rules:
 

@@ -10,7 +10,7 @@ before/after numbers (phase C).
 
 ## How it was measured (2026-10-26, arm64, macOS 27, Node 24.18, Electron 44.9)
 
-- **Metric.** macOS *physical footprint* (`footprint <pid>`): the memory a process costs, including
+- **Metric.** macOS _physical footprint_ (`footprint <pid>`): the memory a process costs, including
   compressed pages. RSS is misleading on macOS: the same idle Gateway reads 205 MB RSS at +4 s and
   80 MB a minute later, while its footprint does not move. RSS is quoted only for comparison with
   older numbers.
@@ -37,11 +37,11 @@ before/after numbers (phase C).
 
 ### The Gateway
 
-| Settled idle | Footprint | JS heap used | Notes |
-|---|---|---|---|
-| Source tree, type stripping (before #929) | **152 MB** | 58 MB | 3 runs: 152 / 151 / 152 |
-| esbuild bundle (#929, on main) | **127 MB** | 31 MB | 3 runs: 127 / 127 / 127 |
-| Bundle, after one chat turn | 126 MB | 31 MB | no growth from a turn |
+| Settled idle                              | Footprint  | JS heap used | Notes                   |
+| ----------------------------------------- | ---------- | ------------ | ----------------------- |
+| Source tree, type stripping (before #929) | **152 MB** | 58 MB        | 3 runs: 152 / 151 / 152 |
+| esbuild bundle (#929, on main)            | **127 MB** | 31 MB        | 3 runs: 127 / 127 / 127 |
+| Bundle, after one chat turn               | 126 MB     | 31 MB        | no growth from a turn   |
 
 - **The "205 MB idle" figure is RSS at +4 s**, during startup. It is confirmed as a startup peak
   (157–201 MB RSS at +5 s in five runs), not as idle cost.
@@ -66,14 +66,14 @@ before/after numbers (phase C).
 adds on top of what is always loaded (`zod`, `ai`, `@ai-sdk/provider-utils`, typebox, `ws`),
 measured unbundled, so they are upper bounds:
 
-| Library | Heap | Used for | Needed at boot? |
-|---|---|---|---|
-| `@modelcontextprotocol/client` | 4.2 MB | MCP host, connectors | only with an MCP server configured |
-| AI SDK providers other than the one in use (google, anthropic, openrouter, ollama) | 3.3 MB | `model-router/factory.ts` imports all six statically | one or two |
-| `grammy` | 3.3 MB | Telegram channel adapter | only with Telegram configured |
-| `turndown` + domino | 1.8 MB | `connectors/web/html.ts` | on first web fetch |
-| `age-encryption` | 3.1 MB | vault | yes |
-| luxon, cron-parser, yaml | 2.6 MB | scheduler, skills | yes |
+| Library                                                                            | Heap   | Used for                                             | Needed at boot?                    |
+| ---------------------------------------------------------------------------------- | ------ | ---------------------------------------------------- | ---------------------------------- |
+| `@modelcontextprotocol/client`                                                     | 4.2 MB | MCP host, connectors                                 | only with an MCP server configured |
+| AI SDK providers other than the one in use (google, anthropic, openrouter, ollama) | 3.3 MB | `model-router/factory.ts` imports all six statically | one or two                         |
+| `grammy`                                                                           | 3.3 MB | Telegram channel adapter                             | only with Telegram configured      |
+| `turndown` + domino                                                                | 1.8 MB | `connectors/web/html.ts`                             | on first web fetch                 |
+| `age-encryption`                                                                   | 3.1 MB | vault                                                | yes                                |
+| luxon, cron-parser, yaml                                                           | 2.6 MB | scheduler, skills                                    | yes                                |
 
 playwright-core, pdfjs-dist and onnxruntime are **not** loaded at boot: they are already behind
 dynamic imports. The bundle is one file with no code splitting, so inside it a dynamic `import()`
@@ -83,13 +83,13 @@ saves the module's evaluation but not its source text, which stays in the 5.8 MB
 
 Settled per-process footprint (MB). The main chat window is open in every row.
 
-| Scenario | Main | Renderer: chat | Renderer: screen-ask panel (warm) | GPU | Network | Gateway | Total |
-|---|---|---|---|---|---|---|---|
-| Idle, no inspector | 88–92 | 63–66 | 70–72 | 12 | 7 | 127 | ≈ 370 |
-| After one chat turn | 95 | 102 | 60 | 12–155 | 7 | 126 | ≈ 400–545 |
-| Window closed to the menu bar | 91 | 91 (hidden) | – | 154 | 7 | 85* | 428 |
-| Window destroyed (experiment) | 90 | – | – | 45 | 7 | 86* | 228 |
-| Browser pane, 2 background tabs | 98 | 79 | 71 | 123–289 | 10 | 91* | 533 + tabs |
+| Scenario                        | Main  | Renderer: chat | Renderer: screen-ask panel (warm) | GPU     | Network | Gateway | Total      |
+| ------------------------------- | ----- | -------------- | --------------------------------- | ------- | ------- | ------- | ---------- |
+| Idle, no inspector              | 88–92 | 63–66          | 70–72                             | 12      | 7       | 127     | ≈ 370      |
+| After one chat turn             | 95    | 102            | 60                                | 12–155  | 7       | 126     | ≈ 400–545  |
+| Window closed to the menu bar   | 91    | 91 (hidden)    | –                                 | 154     | 7       | 85*     | 428        |
+| Window destroyed (experiment)   | 90    | –              | –                                 | 45      | 7       | 86*     | 228        |
+| Browser pane, 2 background tabs | 98    | 79             | 71                                | 123–289 | 10      | 91*     | 533 + tabs |
 
 \* Under memory pressure from other work on the machine, the Gateway's footprint fell below its
 settled number. The Gateway row above is the reliable one.
@@ -124,15 +124,15 @@ Psyche.app 510 MiB, DMG 198 MiB; `deploy/size-budget.json` enforces 205 / 530 / 
 
 RAM items first. "Saving" is footprint unless it says heap.
 
-| # | Change | Saving | User-visible trade-off | Risk | Status |
-|---|---|---|---|---|---|
-| 1 | Gateway bundled with esbuild | −25 MB Gateway, always | none | done | **#929, merged** |
-| 2 | Release the main window's app renderer after 10 minutes in the menu bar (the window and the agent's tab views stay; skipped while any field holds unsent text) | measured: the chat renderer's 177 MB freed (671 → 436 MB in total with one tab open) | reopening after a release: the window shows at once over a static skeleton, the transcript is back in ≈ 0.36 s on the same route; within 10 minutes still instant | owner approved; **done** |
-| 3 | A lean entry for the screen-ask panel and dictation HUD (only their components, not the app barrel) | −35 to −50 MB while the panel is warm, which is always when Ask about screen is on | none (it opens faster cold) | low | **#933**: 72 → 54 MB |
-| 4 | Discard background browser tabs after 15 minutes idle (never the active tab, a task's tab, a tab under take-control or in use over CDP, a popped-out, loading or audible tab) | measured: a Wikipedia tab's 51 MB freed; −20 to −50 MB per tab | the tab reloads when shown again (≈ 1 s for Wikipedia), losing scroll and form state | owner approved; **done** |
-| 5 | Lazy Gateway subsystems: MCP client, AI SDK providers on first use, grammy, turndown, with esbuild `splitting` so lazy code stays out of the bundle's source string | up to −12 MB heap (upper bound) | first use of each costs 10–60 ms once | low/medium (async factory in the model router) | **#934**: Gateway 128 → 92 MB (providers, MCP SDK, splitting; grammy and turndown left) |
-| 6 | Lazy routes in the main renderer (8 MB entry) | est. −10 MB per window, faster first paint | a route's first open loads its chunk (tens of ms) | low | do after 3 |
-| 7 | Regression guard: settled idle Gateway footprint and heap, and bundle size, with budgets | protects the above | none | none | **#932**, budgets tightened after #934 |
+| #   | Change                                                                                                                                                                        | Saving                                                                               | User-visible trade-off                                                                                                                                            | Risk                                           | Status                                                                                  |
+| --- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------ | ----------------------------------------------------------------------------------------------------------------------------------------------------------------- | ---------------------------------------------- | --------------------------------------------------------------------------------------- |
+| 1   | Gateway bundled with esbuild                                                                                                                                                  | −25 MB Gateway, always                                                               | none                                                                                                                                                              | done                                           | **#929, merged**                                                                        |
+| 2   | Release the main window's app renderer after 10 minutes in the menu bar (the window and the agent's tab views stay; skipped while any field holds unsent text)                | measured: the chat renderer's 177 MB freed (671 → 436 MB in total with one tab open) | reopening after a release: the window shows at once over a static skeleton, the transcript is back in ≈ 0.36 s on the same route; within 10 minutes still instant | owner approved; **done**                       |
+| 3   | A lean entry for the screen-ask panel and dictation HUD (only their components, not the app barrel)                                                                           | −35 to −50 MB while the panel is warm, which is always when Ask about screen is on   | none (it opens faster cold)                                                                                                                                       | low                                            | **#933**: 72 → 54 MB                                                                    |
+| 4   | Discard background browser tabs after 15 minutes idle (never the active tab, a task's tab, a tab under take-control or in use over CDP, a popped-out, loading or audible tab) | measured: a Wikipedia tab's 51 MB freed; −20 to −50 MB per tab                       | the tab reloads when shown again (≈ 1 s for Wikipedia), losing scroll and form state                                                                              | owner approved; **done**                       |
+| 5   | Lazy Gateway subsystems: MCP client, AI SDK providers on first use, grammy, turndown, with esbuild `splitting` so lazy code stays out of the bundle's source string           | up to −12 MB heap (upper bound)                                                      | first use of each costs 10–60 ms once                                                                                                                             | low/medium (async factory in the model router) | **#934**: Gateway 128 → 92 MB (providers, MCP SDK, splitting; grammy and turndown left) |
+| 6   | Lazy routes in the main renderer (8 MB entry)                                                                                                                                 | est. −10 MB per window, faster first paint                                           | a route's first open loads its chunk (tens of ms)                                                                                                                 | low                                            | do after 3                                                                              |
+| 7   | Regression guard: settled idle Gateway footprint and heap, and bundle size, with budgets                                                                                      | protects the above                                                                   | none                                                                                                                                                              | none                                           | **#932**, budgets tightened after #934                                                  |
 
 Refuted or deferred, with reasons:
 
@@ -147,14 +147,14 @@ Refuted or deferred, with reasons:
 
 Storage items (none costs RAM):
 
-| # | Change | Saving | Trade-off | Risk |
-|---|---|---|---|---|
-| S1 | `strip` the helper binary before signing (Swift `-Xlinker -dead_strip`, `strip -x` or full) | −16 MB (`strip -x`) to −20 MB (full) of the helper's 30 MB | crash logs need the dSYM, kept as a build artifact | low |
-| S2 | One UI copy: the web client becomes a third entry (`web.html`) of the desktop renderer build, and the packaged Gateway serves it from `app.asar` instead of its own `apps/web/dist` (the other direction would move the renderer out of the asar's integrity check) | ≈ −30 MB (the two 31 MB asset folders share only 1 MB byte for byte, but they are the same modules) | none | **done**: the files stay in `app.asar`; the Gateway checks the header against `ElectronAsarIntegrity` and each file against its SHA-256 before serving |
-| S3 | DMG as ULMO (LZMA) instead of ULFO | measured on today's app: 172 → 130 MB (−24%) | copying the app out of the DMG at install 0.7 → 3.9 s, once; mounting unchanged (0.13 s); `make-dmg.sh` 8 → 62 s | low; owner approved; **done** (`PSYCHE_DMG_FORMAT=ULFO` switches back) |
-| S4 | Drop `libvk_swiftshader.dylib` | −16.6 MB | none: tested on Electron 44 with the library removed (GPU on: same feature status, WebGL and WebGPU; `--disable-gpu`: software compositing paints, WebGL off as in the stock build, since Chromium only falls back to SwiftShader with `--enable-unsafe-swiftshader`) | low; **done** |
-| S5 | Trimmed ICU data | – | – | **refuted**: the browser pane renders arbitrary sites, and `icudtl.dat` sits inside the signed Electron framework |
-| S6 | Grammar and locale trimming in the UI chunks | part of S2's 31 MB | rarely used languages highlight as plain text | low; after S2 |
+| #   | Change                                                                                                                                                                                                                                                              | Saving                                                                                              | Trade-off                                                                                                                                                                                                                                                             | Risk                                                                                                                                                   |
+| --- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| S1  | `strip` the helper binary before signing (Swift `-Xlinker -dead_strip`, `strip -x` or full)                                                                                                                                                                         | −16 MB (`strip -x`) to −20 MB (full) of the helper's 30 MB                                          | crash logs need the dSYM, kept as a build artifact                                                                                                                                                                                                                    | low                                                                                                                                                    |
+| S2  | One UI copy: the web client becomes a third entry (`web.html`) of the desktop renderer build, and the packaged Gateway serves it from `app.asar` instead of its own `apps/web/dist` (the other direction would move the renderer out of the asar's integrity check) | ≈ −30 MB (the two 31 MB asset folders share only 1 MB byte for byte, but they are the same modules) | none                                                                                                                                                                                                                                                                  | **done**: the files stay in `app.asar`; the Gateway checks the header against `ElectronAsarIntegrity` and each file against its SHA-256 before serving |
+| S3  | DMG as ULMO (LZMA) instead of ULFO                                                                                                                                                                                                                                  | measured on today's app: 172 → 130 MB (−24%)                                                        | copying the app out of the DMG at install 0.7 → 3.9 s, once; mounting unchanged (0.13 s); `make-dmg.sh` 8 → 62 s                                                                                                                                                      | low; owner approved; **done** (`PSYCHE_DMG_FORMAT=ULFO` switches back)                                                                                 |
+| S4  | Drop `libvk_swiftshader.dylib`                                                                                                                                                                                                                                      | −16.6 MB                                                                                            | none: tested on Electron 44 with the library removed (GPU on: same feature status, WebGL and WebGPU; `--disable-gpu`: software compositing paints, WebGL off as in the stock build, since Chromium only falls back to SwiftShader with `--enable-unsafe-swiftshader`) | low; **done**                                                                                                                                          |
+| S5  | Trimmed ICU data                                                                                                                                                                                                                                                    | –                                                                                                   | –                                                                                                                                                                                                                                                                     | **refuted**: the browser pane renders arbitrary sites, and `icudtl.dat` sits inside the signed Electron framework                                      |
+| S6  | Grammar and locale trimming in the UI chunks                                                                                                                                                                                                                        | part of S2's 31 MB                                                                                  | rarely used languages highlight as plain text                                                                                                                                                                                                                         | low; after S2                                                                                                                                          |
 
 ### Test plans
 
@@ -172,18 +172,18 @@ Storage items (none costs RAM):
 
 ## Phase C: results
 
-| PR | Change | Before → after |
-|---|---|---|
-| #929 | esbuild Gateway bundle | Gateway settled idle 152 → 127 MB footprint, heap 58 → 31 MB |
-| #931 | `strip` the helper before signing (dSYM kept outside the app) | `psyche-helper` 31.1 → 10.6 MB on disk; RAM unchanged |
-| #932 | `deploy/scripts/memory-budget.mjs`, budgets in `deploy/size-budget.json`, `PSYCHE_PERF_HOLD` | guard only |
-| #933 | Lean renderer entry for the screen-ask panel, region overlay and dictation HUD | warm panel 72 → 54 MB footprint, heap 24 → 16 MB, static JS 8.2 → 4.4 MiB |
-| #934 | AI SDK providers and the MCP SDK loaded on first use; esbuild code splitting | Gateway 128 → 92 MB footprint, heap 31 → 25 MB; first chat turn +9 ms once |
-| #936 | SwiftShader removed before signing (`src/packaging/swiftshader.ts`) | Electron Framework −16.6 MB on disk; RAM unchanged |
-| #937 | One UI copy: the web client is a third entry of the desktop renderer build, served by the packaged Gateway from `app.asar` (header and per-file integrity checked) | `Resources/psyched` 196 → 164 MiB; renderer build +28 KB; RAM unchanged |
-| #938 | DMG compressed with LZMA (ULMO) | DMG 172 → 130 MB; install copy +3.2 s once; budget `dmgMB` 210 → 150 |
-| #939 | Idle background browser tabs discarded after 15 min | −51 MB for a discarded Wikipedia tab; restore ≈ 1 s on activation |
-| (this PR) | Main renderer freed after 10 min hidden in the menu bar; static skeleton in index.html | −177 MB while in the menu bar (a one-turn chat); reopen 0.36 s to content |
+| PR        | Change                                                                                                                                                             | Before → after                                                             |
+| --------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------ | -------------------------------------------------------------------------- |
+| #929      | esbuild Gateway bundle                                                                                                                                             | Gateway settled idle 152 → 127 MB footprint, heap 58 → 31 MB               |
+| #931      | `strip` the helper before signing (dSYM kept outside the app)                                                                                                      | `psyche-helper` 31.1 → 10.6 MB on disk; RAM unchanged                      |
+| #932      | `deploy/scripts/memory-budget.mjs`, budgets in `deploy/size-budget.json`, `PSYCHE_PERF_HOLD`                                                                       | guard only                                                                 |
+| #933      | Lean renderer entry for the screen-ask panel, region overlay and dictation HUD                                                                                     | warm panel 72 → 54 MB footprint, heap 24 → 16 MB, static JS 8.2 → 4.4 MiB  |
+| #934      | AI SDK providers and the MCP SDK loaded on first use; esbuild code splitting                                                                                       | Gateway 128 → 92 MB footprint, heap 31 → 25 MB; first chat turn +9 ms once |
+| #936      | SwiftShader removed before signing (`src/packaging/swiftshader.ts`)                                                                                                | Electron Framework −16.6 MB on disk; RAM unchanged                         |
+| #937      | One UI copy: the web client is a third entry of the desktop renderer build, served by the packaged Gateway from `app.asar` (header and per-file integrity checked) | `Resources/psyched` 196 → 164 MiB; renderer build +28 KB; RAM unchanged    |
+| #938      | DMG compressed with LZMA (ULMO)                                                                                                                                    | DMG 172 → 130 MB; install copy +3.2 s once; budget `dmgMB` 210 → 150       |
+| #939      | Idle background browser tabs discarded after 15 min                                                                                                                | −51 MB for a discarded Wikipedia tab; restore ≈ 1 s on activation          |
+| (this PR) | Main renderer freed after 10 min hidden in the menu bar; static skeleton in index.html                                                                             | −177 MB while in the menu bar (a one-turn chat); reopen 0.36 s to content  |
 
 Measured by the guard on the packaged tree (`build-psyched.mjs`, the bundle's own Node) after #934:
 **91 MB footprint, 26 MB heap, 5.6 MiB of bundle JS** (entry plus chunks). The budgets are now 105 /

@@ -205,6 +205,11 @@ export function MessageView({
         aria-label={t("chat.message.userLabel", { time })}
         data-role="user"
       >
+        {message.provenance === "untrusted" ? (
+          <span className="mb-0.5 text-callout text-label-secondary">
+            {t("shell.threads.imported")}
+          </span>
+        ) : null}
         {message.via === "widget" ? (
           <span
             className="mb-0.5 inline-flex items-center gap-1 text-callout text-label-secondary"

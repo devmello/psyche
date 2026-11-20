@@ -209,7 +209,7 @@ You can import past conversations as well as memories. Open the Agent sheet, the
 - **Memories only**: the memory file is staged as claims for you to review, as before.
 - **Memories and conversations**: also adds each conversation from `conversations.json` as a thread.
 
-To get the files, request a data export in claude.ai (Settings, Privacy) or ChatGPT (Settings, Data controls, Export data), unzip it, and pick `conversations.json` for the conversations and the memory file, if there is one, for memories. Psyche reads the file on your Mac. Nothing is sent anywhere.
+To get the files, request a data export in claude.ai (Settings, Privacy) or ChatGPT (Settings, Data controls, Export data), unzip it, and pick `conversations.json` for the conversations and the memory file, if there is one, for memories. The app reads the file on the device you pick it on and sends the conversations, in small batches, to your Gateway. With a Gateway on another machine they travel over your paired connection to it. Nothing goes to any other service.
 
 What you get:
 
@@ -217,6 +217,6 @@ What you get:
 - A read-only thread marked **Imported**. You can read it, search it and find it under Archived in the thread list. You cannot reply to it, restore it or fork it.
 - Imported text is untrusted data. It never becomes a pin, a memory you confirmed or a standing instruction, and when it is shown to the agent it is fenced as untrusted.
 
-Limits, so a huge export cannot swamp the machine: up to 200 conversations per run, 400 messages per conversation, 20,000 characters per message (longer ones are cut and marked) and about 25 MB of export text. Anything over a limit is skipped and listed in the summary with the reason. Import the file again for the next batch: conversations already imported are recognised by their id and left alone, so importing the same export twice adds nothing.
+A large export is fine: the app splits `conversations.json` into batches of whole conversations (each under about 900 KB, because that is the size of one Gateway message) and sends them one after another, with progress, in a single import. Limits, so a huge export cannot swamp the machine: files up to 400 MB, up to 20,000 conversations per import, 400 messages per conversation, 20,000 characters per message (longer ones are cut and marked), and a conversation too big for one batch is skipped. Anything skipped is listed in the summary with the reason. Conversations already imported are recognised by their id and left alone, so importing the same export twice adds nothing. Each import is recorded in the audit log (counts only, never the text).
 
 Delete an imported thread from the thread list like any other thread.

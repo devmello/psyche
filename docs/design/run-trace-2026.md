@@ -3,6 +3,7 @@
 Status: proposal v1 (2026-10-25), for the owner's sign-off. It applies to psyche-desktop and psyche-web, and builds on [redesign-2026.md](redesign-2026.md) (the visual language, §3), [motion.md](motion.md) and the copy rules in [../copy/voice.md](../copy/voice.md).
 
 Companion documents:
+
 - [research/agent-traces.md](research/agent-traces.md): sourced notes on how 15 products present agent steps, branches, time, failures, replay and cross-run overviews.
 - [../04-data-model.md](../04-data-model.md) §2, §11, §12, which §4 of this document extends.
 - [../02-architecture.md](../02-architecture.md) §14 (observability), which this document makes concrete for runs.
@@ -10,6 +11,7 @@ Companion documents:
 **The owner's brief:** "Make following the agent's workflow as cool as possible and you can view the individual steps and everything."
 
 **The short answer:**
+
 - Today a run shows as a live step log in the chat (#630). It has tool steps with pending, ok and failed states, Thinking steps (#635) and a stalled hint. The log disappears when the run ends. Past runs can't be reopened, task and automation runs use a separate model, and nothing shows branches, time, cost or frames.
 - This spec makes one **trace** of every run, in two levels of detail:
   1. **Steps**, in the chat. A calm, live list while Psyche works, which settles into one summary row when it's done.
@@ -26,7 +28,8 @@ The full notes, with sources and dates, are in [research/agent-traces.md](resear
 Numbers in brackets point to the numbered Sources in the research notes.
 
 **What the best ones share:**
-- **One step model, several views.** Braintrust, Langfuse and Temporal draw the same span tree as a list, a conversation, a timeline and raw JSON [37][38][48][50]. Psyche stores one tree and renders a *story* (the chat) and a *debugger* (the Timeline) from it (§2, principle 1).
+
+- **One step model, several views.** Braintrust, Langfuse and Temporal draw the same span tree as a list, a conversation, a timeline and raw JSON [37][38][48][50]. Psyche stores one tree and renders a _story_ (the chat) and a _debugger_ (the Timeline) from it (§2, principle 1).
 - **A finished turn folds to one line.** Braintrust's "Worked" block and Claude Code's "Cooked for 1m 6s" show duration, calls and errors [5][48]. This is the default for a non-technical owner (§3.2).
 - **A small, closed set of states, with "needs you" first.** Linear: pending, active, awaitingInput, error, complete, stale [59]. Claude Code's agent view: Working, Needs input (yellow), Idle (dimmed), with input-needed sorted first [4].
 - **The live line replaces itself, and verbs flip tense.** Linear swaps ephemeral activities in place, and "Searching" becomes "Searched" when a step ends [59]. Claude Code rate-limits background summaries to about every 15 s [4].
@@ -39,6 +42,7 @@ Numbers in brackets point to the numbered Sources in the research notes.
 - **Redact by default.** Claude Code's and OpenAI's telemetry exclude content unless opted in [6][19]. Langfuse and LangSmith mask before export [42][46]. Operator never records takeover typing [21].
 
 **What makes traces noisy** (the anti-patterns this spec designs out):
+
 - Every tool call at equal weight. Claude Code folds repeats ("Called slack 3 times") [1], and Linear groups similar events [58].
 - Raw chain-of-thought inline by default [5][31].
 - Video as the only replay [23].
@@ -49,6 +53,7 @@ Numbers in brackets point to the numbered Sources in the research notes.
 - Motion that conveys no state [5].
 
 **Data:**
+
 - The OpenTelemetry GenAI conventions (`invoke_agent`, `execute_tool`, `gen_ai.usage.*`) are still in development, with content opt-in [see Data model notes].
 - The common shape is an append-only event log folded into a span tree, exportable as OTLP JSON.
 - Retention varies: Langfuse keeps indefinitely, LangSmith 14 or 400 days, Claude Code cleans up after 30 days.
@@ -57,7 +62,7 @@ Numbers in brackets point to the numbered Sources in the research notes.
 
 ## 2. Principles
 
-1. **Two levels, one model.** The chat shows *what Psyche is doing* in plain words. The Timeline shows *exactly what happened*. Both read the same steps, so a step never says one thing in the chat and another in the Timeline.
+1. **Two levels, one model.** The chat shows _what Psyche is doing_ in plain words. The Timeline shows _exactly what happened_. Both read the same steps, so a step never says one thing in the chat and another in the Timeline.
 2. **Alive, not busy.** One thing moves at a time: the step that's running. New steps enter, settle and stop moving. Elapsed time ticks only on the active step. Nothing loops after the run ends (motion.md §1, SC 2.2.2).
 3. **Progressive disclosure.** In the chat a step is one line. It opens to a short preview, and the raw input and output live only in the inspector. The disclosure levels match docs/06 §3.2 (0 status, 1 actions, 2 raw, ⌃O).
 4. **Time is the spine.** Every step has a start and an end. Durations are always visible in the Timeline and on hover or focus in the chat. Parallel work lays out side by side, never as a confusing interleave.
@@ -71,11 +76,11 @@ Numbers in brackets point to the numbered Sources in the research notes.
 
 The glossary says "task, not run". The trace keeps that rule in user-facing text and adds three nouns:
 
-| Use | Not | Meaning |
-| --- | --- | --- |
-| step | span, event, action (in the chat) | One thing Psyche did: thought, used a tool, asked, waited, handed work to a helper |
-| Timeline | trace, run view, log | The full view of one task's steps over time, in the agent sheet |
-| helper | subagent, child agent | Work Psyche handed to a parallel copy of itself (`subagent.spawn`) |
+| Use      | Not                               | Meaning                                                                            |
+| -------- | --------------------------------- | ---------------------------------------------------------------------------------- |
+| step     | span, event, action (in the chat) | One thing Psyche did: thought, used a tool, asked, waited, handed work to a helper |
+| Timeline | trace, run view, log              | The full view of one task's steps over time, in the agent sheet                    |
+| helper   | subagent, child agent             | Work Psyche handed to a parallel copy of itself (`subagent.spawn`)                 |
 
 - "Run", "span" and "trace" stay internal (protocol, code, export format names).
 - A chat turn that does work is still called a task in the UI: "Wren worked for 1 min 12 s".
@@ -131,6 +136,7 @@ This extends #630's `RunStepLog`. The log no longer disappears at the end of a r
 - A receipt line stays where it is (redesign §5.3). The summary row links to it but never repeats it.
 
 **Motion** (the motion.md §4.9 addition, §3.7 here):
+
 - A new row enters with `fadeRise` on `spring.snappy`. It's the list enter (§4.1), with no stagger, because steps arrive one by one.
 - Glyph changes crossfade over `duration.short`, and the ✓ scales 0.8 → 1 on `spring.micro`.
 - The active label carries the `psy-shimmer` mask (motion.md §4.7). It stops when the step ends.
@@ -138,6 +144,7 @@ This extends #630's `RunStepLog`. The log no longer disappears at the end of a r
 - **Reduced motion:** rows appear without movement, there's no shimmer and no pulse, the elapsed time still updates, and the collapse is a crossfade.
 
 **Accessibility:**
+
 - The log is a `list` inside the transcript `log`, and each row is a `listitem`.
 - The live region is polite and announces only the start of a step and its outcome. Durations and elapsed ticks aren't announced.
 - "Stop" stays reachable with Esc (docs/06 §4.11).
@@ -168,6 +175,7 @@ A new **Timeline** opens from three places: the summary row ("Timeline ›"), a 
 ```
 
 **Run header:**
+
 - The state glyph, then the task title (the automation's or task's title, or the first line of the user's message for a chat task).
 - One fact line: state, duration (live elapsed while running), steps, tokens and cost (the `Run.usage` totals), separated by `·`.
 - A second line for provenance: when it started, who started it (you, an automation, a channel), where (the thread), and the model, plus the fallback model if the router switched.
@@ -180,6 +188,7 @@ A new **Timeline** opens from three places: the summary row ("Timeline ›"), a 
   - It is built from the failed step's error and the connector state (voice.md rule 4).
 
 **Waterfall:**
+
 - One row per step: the label at a fixed 200 px, then a bar on a shared time axis.
 - Bars are 6 px tall, rounded 3 px, coloured by kind:
   - thinking: `--fill-secondary`
@@ -199,6 +208,7 @@ A new **Timeline** opens from three places: the summary row ("Timeline ›"), a 
 **List view:** a segmented control in the header switches Waterfall and List. List is one scrolling log of every step with its preview, including folded ones, so ⌘F finds text anywhere in the task.
 
 **Step inspector** (a right pane at 360 px, or a bottom pane under 1100 px). A failed task opens with its failed step selected and the Output tab showing the error:
+
 - **Overview:** the label, status, kind and tool, the target, and why. "Why" is the Thinking step just before this one, shown as a quote when it's retained. Links go to the receipt, approval, artifact, memory file (a diff of what changed) and the helper's own Timeline.
 - **Input:** the redacted parameters as a collapsible JSON view. Vault values show as `‹vault: name›` and secret strings as `‹redacted›`. Actions: [Copy] (the redacted text) and a "Raw" toggle for pretty or exact JSON.
 - **Output:** a preview of the result (text, a table for structured results, an image for a screenshot). Then the raw result, truncated at 64 KB with "Showing 64 KB of 1.2 MB" and [Save full output] when the payload is retained. Errors show the message and code first.
@@ -209,16 +219,16 @@ A new **Timeline** opens from three places: the summary row ("Timeline ›"), a 
 
 **Keyboard:**
 
-| Key | Action |
-| --- | --- |
-| ↑ / ↓ | Previous or next step (the inspector follows) |
-| ← / → | Fold or unfold a group or helper |
-| Return | Focus the inspector; Esc returns to the step |
-| Space | Play or pause the replay |
-| , / . | Step back or forward one event while paused |
-| [ / ] | Previous or next failed or retried step |
-| ⌘C | Copy the step's redacted JSON |
-| ⌘+ / ⌘− / ⌘0 | Zoom the waterfall |
+| Key          | Action                                        |
+| ------------ | --------------------------------------------- |
+| ↑ / ↓        | Previous or next step (the inspector follows) |
+| ← / →        | Fold or unfold a group or helper              |
+| Return       | Focus the inspector; Esc returns to the step  |
+| Space        | Play or pause the replay                      |
+| , / .        | Step back or forward one event while paused   |
+| [ / ]        | Previous or next failed or retried step       |
+| ⌘C           | Copy the step's redacted JSON                 |
+| ⌘+ / ⌘− / ⌘0 | Zoom the waterfall                            |
 
 - The waterfall is a `treegrid`. Each row has a label, status, duration and level, and bars are decorative.
 - Arrow keys move a roving focus; the selection fill plus an inset ring marks the focused row (redesign §8).
@@ -270,19 +280,19 @@ Recent
 
 ### 3.7 Motion summary (adds motion.md §4.9 "Steps and the Timeline")
 
-| Element | Full motion | Reduced motion |
-| --- | --- | --- |
-| New step row | `fadeRise`, `spring.snappy` | Appears in place |
-| Status change | Glyph crossfade `duration.short`; ✓ scale 0.8→1 `spring.micro` | Crossfade only |
-| Active label | `psy-shimmer`, stops at step end | Static; "· running" text |
-| Elapsed time | Ticks 1 Hz, tabular numbers, no animation | Same |
-| Log → summary row | Height + opacity on `spring.smooth` | Crossfade 120 ms |
-| Summary glyph → Timeline header | Shared `layoutId` | Crossfade |
-| Waterfall bar (live) | Width grows each animation frame while running (transform: scaleX) | Width updates 1 Hz |
-| Playhead drag | Follows the pointer 1:1, no spring | Same |
-| Replay play | Bars grow at playback speed | Step-by-step, 600 ms |
-| Now rows | List enter and exit (§4.1) | Fade |
-| Sparkline (live) | New bucket slides in over `duration.medium` | Redraws in place |
+| Element                         | Full motion                                                        | Reduced motion           |
+| ------------------------------- | ------------------------------------------------------------------ | ------------------------ |
+| New step row                    | `fadeRise`, `spring.snappy`                                        | Appears in place         |
+| Status change                   | Glyph crossfade `duration.short`; ✓ scale 0.8→1 `spring.micro`     | Crossfade only           |
+| Active label                    | `psy-shimmer`, stops at step end                                   | Static; "· running" text |
+| Elapsed time                    | Ticks 1 Hz, tabular numbers, no animation                          | Same                     |
+| Log → summary row               | Height + opacity on `spring.smooth`                                | Crossfade 120 ms         |
+| Summary glyph → Timeline header | Shared `layoutId`                                                  | Crossfade                |
+| Waterfall bar (live)            | Width grows each animation frame while running (transform: scaleX) | Width updates 1 Hz       |
+| Playhead drag                   | Follows the pointer 1:1, no spring                                 | Same                     |
+| Replay play                     | Bars grow at playback speed                                        | Step-by-step, 600 ms     |
+| Now rows                        | List enter and exit (§4.1)                                         | Fade                     |
+| Sparkline (live)                | New bucket slides in over `duration.medium`                        | Redraws in place         |
 
 - Everything animates transform and opacity only, except the SVG sparkline path, which redraws at most at 1 Hz. The budget is motion.md §5's 120 Hz target.
 - Live updates batch to one render per animation frame. Progress events are throttled to 4 per second per step (§4.4).
@@ -302,6 +312,7 @@ Recent
 ### 4.1 What exists and what's missing
 
 Grounded in the code at `41009f99`:
+
 - **Persisted:**
   - `runs` (status, usage totals)
   - `tool_calls` (redacted params; `resultRef` always null)
@@ -358,6 +369,7 @@ RunStep = {
 - S02's background specialists (docs/agent/specialists-2026.md) use the same shape: a specialist is a child run backed by a Task (`createdFrom: "subagent"`, a specialist role id), and its spawn is a `subagent` step on the parent. In the UI a spawned copy is a "helper"; a specialist shows under its role's name.
 
 **Ids:**
+
 - The Gateway assigns step ids as ULIDs, prefixed by kind (`stp_`).
 - A Thinking step's id **is** the `chat.reasoning` `stepId`. The loop's `rsn_` id becomes the step id, so the live stream and the stored step are the same object.
 - A tool step's id is a fresh `stp_` id. `ToolCall` gains `stepId`, and `tool_call.updated` carries it, so the chat, the Timeline and receipts resolve to one step.
@@ -366,20 +378,21 @@ RunStep = {
 
 **Where each step comes from** (all in the Gateway; the loop gains no storage):
 
-| Step | Source | Notes |
-| --- | --- | --- |
-| thinking | `reasoning` AgentEvent | Same id as `chat.reasoning.stepId` |
-| model | `usage` AgentEvent | The model step covers the call; `usage` rows gain `stepId` |
-| tool | `tool_call` AgentEvent | `update` (ToolUpdate) becomes `progress`, throttled 4/s |
-| approval / question | `approval_requested`, `question` | `waiting` until answered; the outcome is the label |
-| subagent | `subagent.spawn` (and S02 specialists) + `onSubagentEvent` | The child gets its own `runs` row (`parentRunId`, `rootRunId`); the step carries `childRunId` and `taskId` |
-| memory | `memory.file.changed` with `source: tool` | The event gains `runId` and `stepId` |
-| artifact | `block` (artifact) | Links `artifactId` |
-| text | `chat.delta` boundaries | One step per written reply, for timing only (no text copy) |
+| Step                | Source                                                     | Notes                                                                                                      |
+| ------------------- | ---------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------- |
+| thinking            | `reasoning` AgentEvent                                     | Same id as `chat.reasoning.stepId`                                                                         |
+| model               | `usage` AgentEvent                                         | The model step covers the call; `usage` rows gain `stepId`                                                 |
+| tool                | `tool_call` AgentEvent                                     | `update` (ToolUpdate) becomes `progress`, throttled 4/s                                                    |
+| approval / question | `approval_requested`, `question`                           | `waiting` until answered; the outcome is the label                                                         |
+| subagent            | `subagent.spawn` (and S02 specialists) + `onSubagentEvent` | The child gets its own `runs` row (`parentRunId`, `rootRunId`); the step carries `childRunId` and `taskId` |
+| memory              | `memory.file.changed` with `source: tool`                  | The event gains `runId` and `stepId`                                                                       |
+| artifact            | `block` (artifact)                                         | Links `artifactId`                                                                                         |
+| text                | `chat.delta` boundaries                                    | One step per written reply, for timing only (no text copy)                                                 |
 
 **Task and automation runs:** the task worker (`packages/tasks/src/worker.ts`) writes `runs`, `tool_calls` and `run_steps` through the same Gateway sink as chat runs, and publishes `run.updated` and `run.step`. `task_actions` stays as the task's action log until its UI moves to the Timeline. `AutomationRun` gains `runId` and `usage`.
 
 **Frames:**
+
 - One frame model per run, stored under `$PSYCHE_HOME/library/recordings/<runId>/`: the existing recorder layout with `index.json` and JPEG frames.
 - Browser recordings keep their recorder, and their events gain `runId` and `stepId`.
 - Computer-use screenshots are written as frames: downscaled to a long edge of 1280 px, JPEG at quality 70, masked as today. The tool output keeps a frame reference instead of inline base64.
@@ -388,14 +401,14 @@ RunStep = {
 
 #633 kept reasoning transient. This spec makes it **kept for 7 days by default, behind a setting**, because the Timeline's "why" and failure diagnosis depend on it and the owner asked to "view the individual steps and everything".
 
-| Data | Default | Setting (Settings → Data controls → Memory) | Notes |
-| --- | --- | --- | --- |
-| Steps (label, timing, status, links, previews) | Kept with the thread | — | Deleted with the thread; incognito: never written |
-| Thinking, full text | 7 days | New `data.reasoningRetentionDays`: Off · 1 · 7 · 30 days | Off = today's behaviour (summary line only). Never written when `agent.showReasoning` is off |
-| Thinking, summary line | Kept with the thread | — | ≤ 120 chars, redacted |
-| Tool inputs and outputs (`tool_payloads`) | 30 days | Existing `cleanupPeriodDays` | Previews (2 KB) stay with the step |
-| Frames (browser and computer use) | 7 days | Existing "Keep task replays for" (`data.replayRetentionDays`), gaining Off and 1 day | Today the UI shows 7 · 30 · 90 days (default 30) but the Gateway never reads it: the recorder prunes at 7 days (`compose/browser.ts:164`). T1 wires it, and the default becomes 7 days, matching what is actually kept. The browser-recording opt-in stays for full screencasts (every frame, not only the ones Psyche looked at) |
-| Usage per step | Kept with the thread | — | Feeds Usage |
+| Data                                           | Default              | Setting (Settings → Data controls → Memory)                                          | Notes                                                                                                                                                                                                                                                                                                                             |
+| ---------------------------------------------- | -------------------- | ------------------------------------------------------------------------------------ | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Steps (label, timing, status, links, previews) | Kept with the thread | —                                                                                    | Deleted with the thread; incognito: never written                                                                                                                                                                                                                                                                                 |
+| Thinking, full text                            | 7 days               | New `data.reasoningRetentionDays`: Off · 1 · 7 · 30 days                             | Off = today's behaviour (summary line only). Never written when `agent.showReasoning` is off                                                                                                                                                                                                                                      |
+| Thinking, summary line                         | Kept with the thread | —                                                                                    | ≤ 120 chars, redacted                                                                                                                                                                                                                                                                                                             |
+| Tool inputs and outputs (`tool_payloads`)      | 30 days              | Existing `cleanupPeriodDays`                                                         | Previews (2 KB) stay with the step                                                                                                                                                                                                                                                                                                |
+| Frames (browser and computer use)              | 7 days               | Existing "Keep task replays for" (`data.replayRetentionDays`), gaining Off and 1 day | Today the UI shows 7 · 30 · 90 days (default 30) but the Gateway never reads it: the recorder prunes at 7 days (`compose/browser.ts:164`). T1 wires it, and the default becomes 7 days, matching what is actually kept. The browser-recording opt-in stays for full screencasts (every frame, not only the ones Psyche looked at) |
+| Usage per step                                 | Kept with the thread | —                                                                                    | Feeds Usage                                                                                                                                                                                                                                                                                                                       |
 
 - Retention runs in the existing hourly `retention.ts` job. Expiry blanks `text.full` and frame files. The step keeps `expiresAt` so the UI can say why the detail is gone.
 - "Delete trace" (⋯) removes a run's steps, payloads and frames but keeps receipts. Receipts and audit are never deleted (04-data-model §12).
@@ -404,21 +417,22 @@ RunStep = {
 
 **Methods** (`methods/runs.ts`, new; scope `operator.read`):
 
-| Method | Params | Result |
-| --- | --- | --- |
-| `runs.get` | `{runId}` | `{run, steps: RunStep[] (first 500), children: Run[]}` |
-| `runs.steps` | `{runId, afterSeq?, limit? ≤ 500}` | `{steps, nextSeq?}` |
-| `runs.list` | `{status?: RunStatus[], kind?, threadId?, taskId?, automationId?, parentRunId?, rootRunId?, since?, cursor?, limit? ≤ 100}` | `{runs: RunSummary[], cursor?}` |
-| `runs.children` | `{runId}` | `{runs: RunSummary[]}`: child runs with status, `budget` and `deadline` (S02 mission control; the same as `runs.list {parentRunId}`) |
-| `runs.step` | `{runId, stepId}` | `{step, input?: unknown, output?: unknown, truncated: boolean}` (payload bodies, redacted) |
-| `runs.frames` | `{runId, stepId?, afterSeq?, limit?}` | `{frames: {seq, at, stepId, url?, width, height}[]}` |
-| `runs.frame` | `{runId, seq, size: "thumb" \| "full"}` | `{mime, dataBase64}` |
-| `runs.export` | `{runId, format: "psyche-trace+json" \| "markdown", includeFrames?: boolean}` | `{fileName, mime, dataBase64}` or a Library file ref over 8 MB |
-| `runs.delete` | `{runId}` | `{ok}` (scope `operator.write`) |
+| Method          | Params                                                                                                                      | Result                                                                                                                               |
+| --------------- | --------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------ |
+| `runs.get`      | `{runId}`                                                                                                                   | `{run, steps: RunStep[] (first 500), children: Run[]}`                                                                               |
+| `runs.steps`    | `{runId, afterSeq?, limit? ≤ 500}`                                                                                          | `{steps, nextSeq?}`                                                                                                                  |
+| `runs.list`     | `{status?: RunStatus[], kind?, threadId?, taskId?, automationId?, parentRunId?, rootRunId?, since?, cursor?, limit? ≤ 100}` | `{runs: RunSummary[], cursor?}`                                                                                                      |
+| `runs.children` | `{runId}`                                                                                                                   | `{runs: RunSummary[]}`: child runs with status, `budget` and `deadline` (S02 mission control; the same as `runs.list {parentRunId}`) |
+| `runs.step`     | `{runId, stepId}`                                                                                                           | `{step, input?: unknown, output?: unknown, truncated: boolean}` (payload bodies, redacted)                                           |
+| `runs.frames`   | `{runId, stepId?, afterSeq?, limit?}`                                                                                       | `{frames: {seq, at, stepId, url?, width, height}[]}`                                                                                 |
+| `runs.frame`    | `{runId, seq, size: "thumb" \| "full"}`                                                                                     | `{mime, dataBase64}`                                                                                                                 |
+| `runs.export`   | `{runId, format: "psyche-trace+json" \| "markdown", includeFrames?: boolean}`                                               | `{fileName, mime, dataBase64}` or a Library file ref over 8 MB                                                                       |
+| `runs.delete`   | `{runId}`                                                                                                                   | `{ok}` (scope `operator.write`)                                                                                                      |
 
 `RunSummary` = `Run` fields plus `currentStep?: {label, status, startedAt}`, `activity?: number[]` (12 × 5 s buckets, for the sparkline), and `durationsMs?: number[]` (automations: the last 10).
 
 **Events:**
+
 - `run.step` `{runId, step: RunStep}`: an upsert per change, carrying the whole step except `text.full` and payloads. It's coalesced to one per step per animation frame on the Gateway (≤ 4/s for `progress`).
 - `run.updated` (existing) gains the new `Run` fields.
 - `chat.reasoning` (existing) is unchanged: the deltas stream there, and the stored text is read with `runs.step`.
@@ -476,6 +490,7 @@ Four workstreams with disjoint files. T1 and T4 start together. T2 and T3 start 
 ### 5.1 Workstreams
 
 #### T1: run store, protocol and the UI data layer (#660)
+
 - **Owns:**
   - `packages/protocol/src/{schemas/runs.ts, methods/runs.ts}` and additive fields in `schemas/threads.ts`, `schemas/tools.ts`, `schemas/integrations.ts` and `events.ts`
   - `packages/db` (the `run_steps` table, migration, `repos/run-steps.ts`; `tool_payloads` writes)
@@ -494,6 +509,7 @@ Four workstreams with disjoint files. T1 and T4 start together. T2 and T3 start 
   - No UI changes beyond the data layer and the two Data controls rows.
 
 #### T2: steps in the chat (#661)
+
 - **Owns:**
   - `packages/ui/src/chat/RunStepLog.tsx` and a new `chat/steps/**`
   - `packages/ui/src/blocks/ToolRun.tsx` (the summary row) and the run-log mount in `chat/Thread.tsx`
@@ -507,6 +523,7 @@ Four workstreams with disjoint files. T1 and T4 start together. T2 and T3 start 
   - No layout shift when the log condenses (a test on the summary row's anchor).
 
 #### T3: Timeline and Activity in the agent sheet (#662)
+
 - **Owns:**
   - `packages/ui/src/agent/**` (`ActivityPanel` → Needs you, Now, Next up and Recent; the new `agent/timeline/**`: `TimelineView`, `RunHeader`, `Waterfall`, `StepInspector`, `FrameViewer`, `Scrubber`, `FailureBanner`)
   - the sheet's Timeline route in `apps/web/src/compose/PsycheApp.tsx` (`agentRoute` only)
@@ -521,6 +538,7 @@ Four workstreams with disjoint files. T1 and T4 start together. T2 and T3 start 
   - The waterfall renders 2,000 steps at 60 fps or better: rows are virtualised, measured with the fps probe in a story.
 
 #### T4: motion and primitives (#663)
+
 - **Owns:**
   - `packages/ui/src/motion/**`
   - `packages/ui/src/components/{status.tsx, steps/**, timeline/**, json-view.tsx, filmstrip.tsx, sparkline.tsx}`, with `Sparkline` moved from `shell/UsageFooter.tsx` and re-exported
@@ -542,6 +560,7 @@ Four workstreams with disjoint files. T1 and T4 start together. T2 and T3 start 
 4. The integrator merges T2 and T3. The docs/06 amendment (Activity §3.14, chat anatomy §3.2) comes with T3.
 
 **Shared files:**
+
 - **`packages/ui/src/index.tsx`:** each workstream adds its own export lines.
 - **`PsycheApp.tsx`:** T3 touches only `agentRoute`.
 - **`data/store.ts`:** T1 only; T2 and T3 read through hooks.
@@ -553,15 +572,15 @@ Every PR adds the fixtures its stories need to `fixtures/runs.ts` (T1 creates it
 
 ### 5.4 Risks
 
-| Risk | Mitigation |
-| --- | --- |
-| Event volume during a fast run floods the renderer | Gateway coalescing (§4.4); client batching per animation frame; a virtualised waterfall |
-| Storing reasoning and frames surprises the owner | Defaults are stated in onboarding's privacy step and Settings → Data controls; Off restores today's behaviour; incognito never stores |
-| Secret leakage through new stored fields | One redactor at write; export re-redacts; T1 adds a redaction test per stored field |
-| Two run models (chat vs task) drift again | One Gateway sink for both; `task_actions` becomes a view over steps in a follow-up |
-| Helper id change breaks existing helper threads | Old `:sub:` ids stay readable; only new runs get ULIDs |
-| Waterfall cost on long tasks | Virtualise rows; idle-gap breaks; 2,000-step cap with folding |
-| "Run" leaking into copy | The §3.1 glossary amendment and the i18n check's word list |
+| Risk                                               | Mitigation                                                                                                                            |
+| -------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------- |
+| Event volume during a fast run floods the renderer | Gateway coalescing (§4.4); client batching per animation frame; a virtualised waterfall                                               |
+| Storing reasoning and frames surprises the owner   | Defaults are stated in onboarding's privacy step and Settings → Data controls; Off restores today's behaviour; incognito never stores |
+| Secret leakage through new stored fields           | One redactor at write; export re-redacts; T1 adds a redaction test per stored field                                                   |
+| Two run models (chat vs task) drift again          | One Gateway sink for both; `task_actions` becomes a view over steps in a follow-up                                                    |
+| Helper id change breaks existing helper threads    | Old `:sub:` ids stay readable; only new runs get ULIDs                                                                                |
+| Waterfall cost on long tasks                       | Virtualise rows; idle-gap breaks; 2,000-step cap with folding                                                                         |
+| "Run" leaking into copy                            | The §3.1 glossary amendment and the i18n check's word list                                                                            |
 
 ## 6. Decisions the owner should confirm
 

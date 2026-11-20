@@ -12,7 +12,7 @@ Compiled 2026-10-25 for the 2026 redesign ([redesign-2026.md](../redesign-2026.m
 
    Psyche's spec (sidebar edge to edge, opaque content, chrome-only glass) is closer to macOS 27 than to Tahoe's floating-glass look.
 2. **Native glass in Electron is one sheet behind the window, sampling the desktop.**
-   - `electron-liquid-glass` and Tauri's `window-vibrancy` put one `NSGlassEffectView` *behind all web content*. It refracts the desktop, never the app's own content, and it has no regions [E1][E3][E19].
+   - `electron-liquid-glass` and Tauri's `window-vibrancy` put one `NSGlassEffectView` _behind all web content_. It refracts the desktop, never the app's own content, and it has no regions [E1][E3][E19].
    - The only per-element native design was Electron PR #50415's `setGlassEffectRegions`. Felix Rieseberg closed it unmerged on 2026-06-30, with no reason posted [E6].
    - Native glass also needs `transparent: true`. That brings Electron's transparent-window limits [E12] and a known Chromium bug that breaks CSS `backdrop-filter` over text [E13].
 3. **Glass that refracts the app's own content can only be done in CSS, and Electron is the one place that works fully.**
@@ -30,6 +30,7 @@ Compiled 2026-10-25 for the 2026 redesign ([redesign-2026.md](../redesign-2026.m
 ## 1. The design, from Apple's sources
 
 ### 1.1 Two layers
+
 - Liquid Glass is "a distinct functional layer for controls and navigation elements" that floats above content [5]. Session 219: it "is best reserved for the navigation layer" [1].
 - **"Don't use Liquid Glass in the content layer"** [5]. The exception is transient controls (sliders, toggles), which are glass only while being dragged [5][3][12]. A table view is Apple's example of content that must not be glass [1].
 - Content stays opaque and runs edge to edge underneath. AppKit's checklist [4]:
@@ -39,6 +40,7 @@ Compiled 2026-10-25 for the 2026 redesign ([redesign-2026.md](../redesign-2026.m
 - Hierarchy comes "through layout and grouping", not decoration [2].
 
 ### 1.2 Variants
+
 - **Regular** is the default. It is adaptive, "works in any size, over any content" [1], and blurs and adjusts the luminosity of what is behind it. Use it wherever there is text: alerts, sidebars, popovers [5].
 - **Clear** is "permanently more transparent" and not adaptive [1]. Use it only when all three hold [1]:
   1. it sits over media-rich content;
@@ -50,6 +52,7 @@ Compiled 2026-10-25 for the 2026 redesign ([redesign-2026.md](../redesign-2026.m
 - The look also depends on system settings: the Liquid Glass setting (Clear/Tinted in 26.1, a slider in 27), Reduce Transparency and Increase Contrast [5][27][30].
 
 ### 1.3 Optics
+
 - **Lensing is the defining trait.** It bends and concentrates light in real time rather than scattering it like a blur [1]. Apple: it "reflects and refracts its surroundings" [25]. Bigger glass gets stronger lensing and "deeper, richer shadows" [1].
 - **Specular highlights** come from environmental light and "respond to geometry" [1][25].
 - **Shadows adapt.** They get more opaque over text and lighter over a plain light background [1].
@@ -57,16 +60,19 @@ Compiled 2026-10-25 for the 2026 redesign ([redesign-2026.md](../redesign-2026.m
 - **Interaction:** pressed glass "illuminates from within" [1]. macOS 27 adds a click bounce for glass controls: "A little goes a long way!" [28].
 
 ### 1.4 Adapting to what's behind
+
 - **Small glass** (toolbar items, tab bars, symbols) flips between light and dark with the content behind it. Its labels are monochrome: dark over light, light over dark [1][10]. AppKit reports the flip through `NSAppearance` [4].
 - **Large glass** (sidebars, menus) "don't flip from light to dark". It stays more opaque, and nearby colour "spills onto its surface" [1][10].
 
 ### 1.5 Shape
+
 - **Three shape types:** fixed, **capsule** (radius = half the height) and **concentric** (the parent's radius minus the padding). Nested shapes share a centre, so corners are neither "pinched" nor "flared" [2].
 - **macOS controls:** Mini to Medium stay rounded rectangles; Large and X-Large are capsules [2][4].
 - **Defaults:** the default `glassEffect` shape is a capsule; larger custom panels use about `.rect(cornerRadius: 16)` [18][21].
 - **Windows:** Tahoe had a larger radius for windows with toolbars. macOS 27 uses one radius for all windows, less round, with stronger window shadows [4][30][32]. Apple publishes no point value. A hidden default of 20 in 27 is **[unverified]**.
 
 ### 1.6 Islands, containers, morphing
+
 - **"Always avoid glass on glass."** [1] Glass can't sample other glass, so nearby glass shares one container (`NSGlassEffectContainerView`, `GlassEffectContainer`). The container merges shapes within its `spacing` and needs fewer render passes [3][4][16].
 - **Toolbar grouping** [2][6][12]:
   - group items by function and frequency, with "a maximum of three" groups;
@@ -76,26 +82,30 @@ Compiled 2026-10-25 for the 2026 redesign ([redesign-2026.md](../redesign-2026.m
 - **At rest, glass shapes never intersect** [1].
 - **Morphing:** `glassEffectID(_:in:)` inside a container animates shapes into and out of each other. `glassEffectUnion` keeps them merged at rest [20][21].
 - **Budget:** "Limit the use of Liquid Glass effects onscreen at the same time" [21].
-- **Placement:** put content *inside* the glass (`contentView`). "Avoid placing the NSGlassEffectView behind your content as a sibling view" [4]. This is exactly what every Electron addon does (§3.1).
+- **Placement:** put content _inside_ the glass (`contentView`). "Avoid placing the NSGlassEffectView behind your content as a sibling view" [4]. This is exactly what every Electron addon does (§3.1).
 
 ### 1.7 Scroll edges
+
 - Scroll edge effects replace dividers with a blur where pinned chrome overlaps scrolling content. They "don't block or darken like overlays" [2].
 - **Soft vs hard:** soft is a "subtle, blurred boundary". Hard is a "linear, nearly opaque boundary" and is "mostly used on macOS" [2][24]. In macOS 27, `automatic` resolves to **hard** when the window title floats over content [28].
 - **Rules:** one effect per view; don't mix soft and hard; use none where nothing floats [2].
 
 ### 1.8 Colour and legibility
+
 - Glass "has no inherent color" [10].
-- **Tint sparingly:** "Avoid tinting all your elements". Colour the *background* of the one primary action, not its glyph. Brand colour belongs in the content layer [1][3][10].
+- **Tint sparingly:** "Avoid tinting all your elements". Colour the _background_ of the one primary action, not its glyph. Brand colour belongs in the content layer [1][3][10].
 - Use **vibrant** label colours on glass. Non-vibrant greys have poor contrast there, and quaternary labels must not sit on thin materials [5].
 - Modal glass needs a dimming layer. A sheet dragged up turns more opaque [2][12].
 
 ### 1.9 Accessibility, as Apple describes it
+
 - **Reduce Transparency:** glass becomes "frostier and obscures more of the content behind it" [1].
 - **Increase Contrast:** elements become "predominantly black or white" with a contrasting border [1].
 - **Reduce Motion:** turns down some effects and disables the elastic behaviour [1].
 - **Observed on Tahoe:** Increase Contrast forces Reduce Transparency on [38], and either one disables the Clear/Tinted choice [36].
 
 ### 1.10 Don'ts (consolidated)
+
 1. No glass in the content layer.
 2. No glass on glass, and no shapes intersecting at rest.
 3. No mixing regular and clear; no clear without dimming.
@@ -109,6 +119,7 @@ Compiled 2026-10-25 for the 2026 redesign ([redesign-2026.md](../redesign-2026.m
 [1][2][4][5][12][21]
 
 ### 1.11 What changed after Tahoe
+
 - **iOS 26 / macOS 26 betas (June–July 2025):** opacity swung between betas as Apple chased legibility [40][41][42] **[unverified detail]**.
 - **26.1 (3 Nov 2025):** a Clear/Tinted Liquid Glass setting. Reviewers called the difference small [27][36][37][38].
 - **Through Dec 2025:** critics kept citing washed-out light mode, unreadable menus, a barely visible Finder selection, and a sidebar bleeding through the search field [37][39].
@@ -121,23 +132,23 @@ Compiled 2026-10-25 for the 2026 redesign ([redesign-2026.md](../redesign-2026.m
 
 ## 2. How shipping apps use it
 
-| App | Stack | What it does | Source |
-| --- | --- | --- | --- |
-| Safari (Tahoe) | Native | Glass toolbar and sidebar, tabs as sunken pills; the best-received implementation | [33][34] |
-| Finder (Tahoe) | Native | Translucent sidebar and toolbar, but the buttons read as "flat, light gray shapes"; weak selection | [33][34][39] |
-| Music, Photos (Tahoe) | Native | A floating playback pill and toolbar over artwork; legibility criticised | [33][34] |
-| System Settings (Tahoe) | Native | Glass sidebar that bleeds through the search field | [37] |
-| Apple apps (macOS 27) | Native | Edge-to-edge sidebars, uniform toolbars, coloured sidebar icons; "more coherent and usable" | [30][32] |
-| Things 3 | Native | "a touch of glass in the sidebar", rounder controls (3.22, 2025-09-15); refined for OS 27 (3.24, 2026-09-14) | [44][45] |
-| Fantastical / Cardhop | Native | Updated to the Tahoe design (2025-09-22); no specifics | [46] |
-| Craft | Native | Liquid Glass on day 1 of OS 26 **[unverified detail]** | [47] |
-| Raycast | Native shell | Glass controls in AI Chat (2025-09-16); every UI updated for macOS 27 (v2.4, 2026-09-14) | [48][49] |
-| Dia | Native shell on Chromium | "Tahoe Liquid Glass designs… polished corners" (1.15.0, Jan 2026); doesn't say whether it uses `NSGlassEffectView` | [50] |
-| Arc | Native shell on Chromium | No glass; in maintenance mode | [51] |
-| Linear, Notion, Slack, Cursor, Claude desktop | Electron | No Liquid Glass adoption found | [52][53] |
-| Spotify | CEF | No adoption found | [52] |
-| Figma | Electron + WASM | The app chrome didn't adopt glass, but Figma shipped a *Glass effect* for users' own designs (July 2025) | [52][63] |
-| ChatGPT desktop | Native Swift | Not confirmed either way | [52] |
+| App                                           | Stack                    | What it does                                                                                                       | Source       |
+| --------------------------------------------- | ------------------------ | ------------------------------------------------------------------------------------------------------------------ | ------------ |
+| Safari (Tahoe)                                | Native                   | Glass toolbar and sidebar, tabs as sunken pills; the best-received implementation                                  | [33][34]     |
+| Finder (Tahoe)                                | Native                   | Translucent sidebar and toolbar, but the buttons read as "flat, light gray shapes"; weak selection                 | [33][34][39] |
+| Music, Photos (Tahoe)                         | Native                   | A floating playback pill and toolbar over artwork; legibility criticised                                           | [33][34]     |
+| System Settings (Tahoe)                       | Native                   | Glass sidebar that bleeds through the search field                                                                 | [37]         |
+| Apple apps (macOS 27)                         | Native                   | Edge-to-edge sidebars, uniform toolbars, coloured sidebar icons; "more coherent and usable"                        | [30][32]     |
+| Things 3                                      | Native                   | "a touch of glass in the sidebar", rounder controls (3.22, 2025-09-15); refined for OS 27 (3.24, 2026-09-14)       | [44][45]     |
+| Fantastical / Cardhop                         | Native                   | Updated to the Tahoe design (2025-09-22); no specifics                                                             | [46]         |
+| Craft                                         | Native                   | Liquid Glass on day 1 of OS 26 **[unverified detail]**                                                             | [47]         |
+| Raycast                                       | Native shell             | Glass controls in AI Chat (2025-09-16); every UI updated for macOS 27 (v2.4, 2026-09-14)                           | [48][49]     |
+| Dia                                           | Native shell on Chromium | "Tahoe Liquid Glass designs… polished corners" (1.15.0, Jan 2026); doesn't say whether it uses `NSGlassEffectView` | [50]         |
+| Arc                                           | Native shell on Chromium | No glass; in maintenance mode                                                                                      | [51]         |
+| Linear, Notion, Slack, Cursor, Claude desktop | Electron                 | No Liquid Glass adoption found                                                                                     | [52][53]     |
+| Spotify                                       | CEF                      | No adoption found                                                                                                  | [52]         |
+| Figma                                         | Electron + WASM          | The app chrome didn't adopt glass, but Figma shipped a _Glass effect_ for users' own designs (July 2025)           | [52][63]     |
+| ChatGPT desktop                               | Native Swift             | Not confirmed either way                                                                                           | [52]         |
 
 **Pattern:** every app that shipped real glass is native. No Electron app has shipped Liquid Glass chrome. Their only Tahoe work was picking up Electron's WindowServer-lag fix [58][59]. Psyche would be among the first. The safe interpretation is the one Apple moved to in 27: glass on small floating controls, sidebars as a quiet edge-to-edge material, content opaque.
 
@@ -146,9 +157,11 @@ Compiled 2026-10-25 for the 2026 redesign ([redesign-2026.md](../redesign-2026.m
 ### 3.1 Native: `electron-liquid-glass` (Meridius Labs)
 
 **Package and API**
+
 - Version 1.1.1 (2025-09-17), MIT, about 588 stars [E1][E2][E5].
 - 193 KB unpacked. N-API prebuilds: arm64 98.6 KB, x64 54.4 KB. No install script since 1.1.1 [E2][E3].
 - API [E3]:
+
   ```ts
   liquidGlass.addView(win.getNativeWindowHandle(), { cornerRadius?, tintColor?: "#RRGGBBAA", opaque? }) // → id, -1 unsupported
   liquidGlass.isGlassSupported()            // execSync("sw_vers") ≥ 26
@@ -156,35 +169,41 @@ Compiled 2026-10-25 for the 2026 redesign ([redesign-2026.md](../redesign-2026.m
   ```
 
 **How it attaches** (read from `src/glass_effect.mm`) [E3]
+
 - It dereferences the handle to the window's root `NSView`, creates `NSGlassEffectView` at the full bounds with autoresizing, and calls `addSubview:positioned:NSWindowBelow relativeTo:nil`. So the glass is **behind every subview, web contents included**.
 - There is no region API, and no remove or update call.
 - Corner radius goes through `layer.cornerRadius`, not the public property.
 - On macOS before 26 it falls back to `NSVisualEffectView` (`UnderWindowBackground`).
 
 **Requirements and limits**
+
 - The window must be `transparent: true`, and `vibrancy` must not be set: it "will override and look blurry" [E1].
 - Transparent windows have no click-through, no native shadow on some setups, and lose transparency while DevTools is open [E12].
 - In a transparent or vibrant window, CSS `backdrop-filter` blur renders wrongly over text. Electron closed #39529 and #44720 as not planned and handed it to Chromium 380416865 (status **[unverified]**) [E13].
 
 **Public vs private API**
+
 - Apple documents `NSGlassEffectView` as **public, macOS 26.0+**, with `contentView`, `cornerRadius`, `tintColor`, `style`, and `effectIsInteractive` from macOS 27 [14][E18]. The README's "reverse-engineered" wording predates the SDK.
 - Only the `unstable_*` setters are private [E3].
 - Apple guarantees placement only for the `contentView`; arbitrary sibling subviews have no z-order guarantee [E18].
 
 **Signing**
+
 - No new entitlement is needed if the `.node` is signed with the app, as `pty.node` already is [E33][E34][E35].
 - Ad-hoc builds run without the hardened runtime, so library validation doesn't apply to them [E35].
 - Packaging would need the addon kept external and copied with its `prebuilds/`, like node-pty. The existing `*.node` asar-unpack glob covers it.
 
 **Maintenance and bundler gotcha**
+
 - One maintainer; no functional commit since 2025-09; open PRs are all Dependabot [E5].
 - The maintainer is the person who found Electron's Tahoe `_cornerMask` bug [E7], so the AppKit skill is real, but the package is idle.
 - **Gotcha found by the spike:** Vite resolved a constant dynamic-import specifier and bundled the addon into the main chunk, which breaks its `import.meta.url` loader. The addon must be marked external (`vite.main.config.ts`).
 
 ### 3.2 Native: Electron itself
+
 - **PR #50415** (Felix Rieseberg, opened 2026-03-22, closed unmerged 2026-06-30, no stated reason) [E6] proposed:
   - `win.setGlassEffect({ style, cornerRadius, tintColor })`: one view behind the content, the same model as the addon.
-  - `win.setGlassEffectRegions([...])`: an `NSGlassEffectContainerView` *above* the web view, with `hitTest:` returning nil so clicks pass through, rects pushed from a `ResizeObserver`, and a `contentImage` for crisp content, since DOM under a region gets refracted.
+  - `win.setGlassEffectRegions([...])`: an `NSGlassEffectContainerView` _above_ the web view, with `hitTest:` returning nil so clicks pass through, rects pushed from a `ResizeObserver`, and a `contentImage` for crisp content, since DOM under a region gets refracted.
   - `isGlassEffectSupported()`.
 
   It carried `api-review/requested` and `wip` labels. Electron has no other Liquid Glass work [E6][E15].
@@ -199,6 +218,7 @@ Compiled 2026-10-25 for the 2026 redesign ([redesign-2026.md](../redesign-2026.m
 - **Reference implementation:** Tauri's `window-vibrancy` 0.8.1 (2026-09-22) uses the public `NSGlassEffectView` with `style`, `cornerRadius` and `clipsToBounds`, and can **reparent the webview into `glass.contentView`**, the placement Apple guarantees. It is also whole-window only [E19]. Model an in-repo addon on it, not on electron-liquid-glass.
 
 ### 3.3 Web: CSS glass
+
 - **Plain glass:** `backdrop-filter: blur() saturate()` over a translucent tint. It is supported in Chrome 76+, Safari 18 unprefixed and Firefox 103+ [E27].
 - **Specular rim:** an inset top highlight plus a 1 px gradient ring drawn with a `mask` / `mask-composite: exclude` pseudo-element [E26]. `backdrop-filter` samples only the pixels directly behind the element; Josh Comeau's taller masked child fixes colour bleed at edges [E26].
 - **Refraction** (Chris Feijoo, kube.io, 2025-09-04) [E21]:
@@ -211,6 +231,7 @@ Compiled 2026-10-25 for the 2026 redesign ([redesign-2026.md](../redesign-2026.m
 - **Scroll edge:** a 24 px `mask-image` gradient on the scroller approximates the hard style [E41]. Apple's real effect is a blur, which a mask can't reproduce [E41].
 
 ### 3.4 Performance (sources; the spike's numbers are in §5)
+
 - Each `backdrop-filter` creates a render surface. Damage under it re-filters the whole surface, so cost scales with **area** [E37] **[unverified mechanism]**.
 - Published measurements, none on Apple silicon [E36]:
   - Galaxy A15: one blurred panel cost about 3.5 ms of GPU-process time per frame.
@@ -218,11 +239,12 @@ Compiled 2026-10-25 for the 2026 redesign ([redesign-2026.md](../redesign-2026.m
 - At 120 Hz the frame budget is **8.33 ms**.
 
 ### 3.5 Accessibility from Electron
-| Setting | Main process | Renderer |
-| --- | --- | --- |
+
+| Setting             | Main process                                                                                                                               | Renderer                                                      |
+| ------------------- | ------------------------------------------------------------------------------------------------------------------------------------------ | ------------------------------------------------------------- |
 | Reduce Transparency | `nativeTheme.prefersReducedTransparency` (2024-07; the old `systemPreferences.accessibilityDisplayShouldReduceTransparency` is deprecated) | `@media (prefers-reduced-transparency: reduce)` (Chrome 118+) |
-| Increase Contrast | `nativeTheme.shouldUseHighContrastColors` | `@media (prefers-contrast: more)` |
-| Reduce Motion | `systemPreferences.getAnimationSettings().prefersReducedMotion` | `@media (prefers-reduced-motion: reduce)` |
+| Increase Contrast   | `nativeTheme.shouldUseHighContrastColors`                                                                                                  | `@media (prefers-contrast: more)`                             |
+| Reduce Motion       | `systemPreferences.getAnimationSettings().prefersReducedMotion`                                                                            | `@media (prefers-reduced-motion: reduce)`                     |
 
 [E27][E28][E31][E32]
 
@@ -233,28 +255,30 @@ Compiled 2026-10-25 for the 2026 redesign ([redesign-2026.md](../redesign-2026.m
 
 ## 4. The spike (this PR)
 
-| Piece | Where | What it does |
-| --- | --- | --- |
+| Piece          | Where                                          | What it does                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                        |
+| -------------- | ---------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | `GlassSurface` | `packages/ui/src/components/glass-surface.tsx` | One primitive with four rungs: `native` (transparent, so a native view under the window shows), `refraction`, `css`, `opaque`. `resolveGlassImpl` walks native → refraction → css → opaque and lands on opaque under Reduce Transparency, Increase Contrast or no `backdrop-filter`. It reads `data-glass`, `data-reduce-transparency` and `data-contrast` on `<html>` plus the two media queries, and updates live. Every rung keeps the same tint, 1 px gradient rim and inset highlight, so the shape reads the same. 6.0 KB min / **2.6 KB gz** **[measured]**. |
-| Lens map | `packages/ui/src/lib/glass.ts` | A rounded-rect SDF plus a squircle-rim slope (`(1 − (1 − t)⁴)^¼`), encoded for `feDisplacementMap`. It is drawn to a canvas at half resolution and rebuilt on resize (`ResizeObserver`). Unit-tested in `test/glass.test.ts`. |
-| Stories | `Primitives/GlassSurface` | The same sidebar, toolbar group and composer drawn as CSS, refraction and native side by side, over a scrolling procedural photo and over text, in light and dark; plus clear-over-photo, Reduce Transparency and Increase Contrast stories. Four `Probe*` stories (tagged `no-visual`) expose `window.__glassProbe(seconds)`. |
-| Probe runner | `packages/ui/visual/glass-probe.mjs` | `shots` takes the screenshots; `probe` scrolls each probe story and records rAF frame times, plus Chrome's GPU-process and renderer CPU time through CDP `SystemInfo.getProcessInfo`. |
-| Native proof | `apps/desktop/src/main/glass.ts` | Off unless `PSYCHE_GLASS=native` on an unpackaged macOS run. It makes the main window `transparent`, attaches `electron-liquid-glass` (not a dependency: loaded at runtime with `require` if a probe installed it locally, kept external by Vite) and injects CSS that clears the frame, rail and thread list while `.shell > main` stays opaque. `PSYCHE_GLASS_PROBE=<file>` runs a scripted scroll that records frame times, Electron's GPU and renderer CPU and WindowServer CPU, and screenshots the window with `screencapture`. |
+| Lens map       | `packages/ui/src/lib/glass.ts`                 | A rounded-rect SDF plus a squircle-rim slope (`(1 − (1 − t)⁴)^¼`), encoded for `feDisplacementMap`. It is drawn to a canvas at half resolution and rebuilt on resize (`ResizeObserver`). Unit-tested in `test/glass.test.ts`.                                                                                                                                                                                                                                                                                                                                       |
+| Stories        | `Primitives/GlassSurface`                      | The same sidebar, toolbar group and composer drawn as CSS, refraction and native side by side, over a scrolling procedural photo and over text, in light and dark; plus clear-over-photo, Reduce Transparency and Increase Contrast stories. Four `Probe*` stories (tagged `no-visual`) expose `window.__glassProbe(seconds)`.                                                                                                                                                                                                                                      |
+| Probe runner   | `packages/ui/visual/glass-probe.mjs`           | `shots` takes the screenshots; `probe` scrolls each probe story and records rAF frame times, plus Chrome's GPU-process and renderer CPU time through CDP `SystemInfo.getProcessInfo`.                                                                                                                                                                                                                                                                                                                                                                               |
+| Native proof   | `apps/desktop/src/main/glass.ts`               | Off unless `PSYCHE_GLASS=native` on an unpackaged macOS run. It makes the main window `transparent`, attaches `electron-liquid-glass` (not a dependency: loaded at runtime with `require` if a probe installed it locally, kept external by Vite) and injects CSS that clears the frame, rail and thread list while `.shell > main` stays opaque. `PSYCHE_GLASS_PROBE=<file>` runs a scripted scroll that records frame times, Electron's GPU and renderer CPU and WindowServer CPU, and screenshots the window with `screencapture`.                               |
 
 ## 5. Measurements
 
 ### 5.1 CSS and refraction, in Chrome on this Mac
+
 **Setup**
+
 - Probe stories at 940 × 700. The backdrop scrolls 4 px a frame for 6 s under three glass surfaces (sidebar, toolbar group, composer).
 - Two runs each, headed Chrome 154 on the built-in display (ANGLE Metal, Apple M5), so rAF ran at the panel's **120 Hz** (8.33 ms).
 - `GPU %` and `renderer %` are those processes' CPU time per wall-clock second, as a share of one core (CDP). They stand in for compositor cost, which rAF pacing hides.
 
-| Story | Frames in 6 s | p50 / p95 / p99 ms | Over 1.5× p50 | GPU process % | Renderer % |
-| --- | --- | --- | --- | --- | --- |
-| Opaque (baseline) | 715 | 8.3 / 9.3–9.6 / 10.1–10.2 | 0 | 3.1–5.1 | 3.5–5.1 |
-| CSS blur (20 px, saturate 1.6) | 715 | 8.3 / 8.8–9.4 / 10.0–10.1 | 0 | 11.0–20.4 | 3.6–6.1 |
-| CSS + refraction, over photo | 715 | 8.3 / 9.7–9.8 / 10.2–10.3 | 0 | 11.7–14.1 | 4.6–5.0 |
-| CSS + refraction, over text | 715 | 8.3 / 10.0 / 10.3 | 0 | 12.7–13.4 | 4.5–4.9 |
+| Story                          | Frames in 6 s | p50 / p95 / p99 ms        | Over 1.5× p50 | GPU process % | Renderer % |
+| ------------------------------ | ------------- | ------------------------- | ------------- | ------------- | ---------- |
+| Opaque (baseline)              | 715           | 8.3 / 9.3–9.6 / 10.1–10.2 | 0             | 3.1–5.1       | 3.5–5.1    |
+| CSS blur (20 px, saturate 1.6) | 715           | 8.3 / 8.8–9.4 / 10.0–10.1 | 0             | 11.0–20.4     | 3.6–6.1    |
+| CSS + refraction, over photo   | 715           | 8.3 / 9.7–9.8 / 10.2–10.3 | 0             | 11.7–14.1     | 4.6–5.0    |
+| CSS + refraction, over text    | 715           | 8.3 / 10.0 / 10.3         | 0             | 12.7–13.4     | 4.5–4.9    |
 
 **[measured]**
 
@@ -262,7 +286,7 @@ Compiled 2026-10-25 for the 2026 redesign ([redesign-2026.md](../redesign-2026.m
 - **Refraction costs the same as plain blur** (overlapping ranges). It swaps a 20 px blur for a 10 px blur plus one displacement pass.
 - Headless Chrome (also Metal) paces at a fixed 60 Hz and showed the same ordering at lower levels: opaque 1.5–2.9 %, CSS 5.4–5.7 %, refraction 5.9–10.5 %, refraction over text 10.2–14.6 %.
 - **Caveats:**
-  - These are three small-to-medium surfaces on an M5. Cost scales with glass *area* (§3.4), and the 248 px full-height sidebar is the largest surface in the spike.
+  - These are three small-to-medium surfaces on an M5. Cost scales with glass _area_ (§3.4), and the 248 px full-height sidebar is the largest surface in the spike.
   - The GPU process's own Metal time isn't visible to CDP.
   - Repeat the probe on the slowest supported Mac before raising the glass budget.
 - **What it looks like** (screenshots in the PR):
@@ -274,17 +298,18 @@ Compiled 2026-10-25 for the 2026 redesign ([redesign-2026.md](../redesign-2026.m
   - **Dark mode:** both rungs keep labels legible. The rim highlight carries the edge.
 
 ### 5.2 Native path (`PSYCHE_GLASS=native`)
+
 **Only partly measured.** Here is what was verified and what is still open.
 
-| Item | Result |
-| --- | --- |
-| Install | For the spike, `pnpm add -O electron-liquid-glass@1.1.1` installed with no build step. The arm64 addon is **98.6 KB**, the package 193 KB unpacked **[measured]**. Psyche does **not** keep it as a dependency (§6). `main/glass.ts` explains how to install it locally for a probe and drop it again. |
-| Load under Electron 44 | `require("electron-liquid-glass")` under Electron's Node gives `addView: function` and `isGlassSupported() === true` on macOS 27.0.1 **[measured]**. |
-| Bundling | First launch failed: Vite resolved the constant dynamic import and bundled the addon, which breaks its `import.meta.url` loader. Fixed by making it external in `vite.main.config.ts`. |
-| Attach | Second launch (`PSYCHE_HOME=~/.psyche-try PSYCHE_PORT=7989 PSYCHE_GLASS=native`) attached with no error: `addView` returned an id ≥ 0. |
-| Frame times, CPU, screenshots | **Not captured.** The scripted probe waits for animation frames, and the window sat behind other windows, where Chromium sends none. Bringing it forward or taking a screenshot needed computer-use access to the window, which the owner declined. The probe now raises the window itself before measuring. |
-| Capturing evidence from inside the app | `webContents.capturePage()` can't serve as evidence: it renders only the web contents, and the native `NSGlassEffectView` sits *below* the web view, so the capture would show transparent pixels where the glass is. Only a window-level capture (`screencapture -l`, which needs Screen Recording permission) or a look at the screen shows the native glass. The Reduce Transparency check belongs on `nativeTheme.prefersReducedTransparency`; `systemPreferences.accessibilityDisplayShouldReduceTransparency` is deprecated [E31]. |
-| Signing | Not exercised. Dev runs are unsigned. A packaged build would need the addon copied like node-pty and signed with the app (§3.1). |
+| Item                                   | Result                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                   |
+| -------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Install                                | For the spike, `pnpm add -O electron-liquid-glass@1.1.1` installed with no build step. The arm64 addon is **98.6 KB**, the package 193 KB unpacked **[measured]**. Psyche does **not** keep it as a dependency (§6). `main/glass.ts` explains how to install it locally for a probe and drop it again.                                                                                                                                                                                                                                   |
+| Load under Electron 44                 | `require("electron-liquid-glass")` under Electron's Node gives `addView: function` and `isGlassSupported() === true` on macOS 27.0.1 **[measured]**.                                                                                                                                                                                                                                                                                                                                                                                     |
+| Bundling                               | First launch failed: Vite resolved the constant dynamic import and bundled the addon, which breaks its `import.meta.url` loader. Fixed by making it external in `vite.main.config.ts`.                                                                                                                                                                                                                                                                                                                                                   |
+| Attach                                 | Second launch (`PSYCHE_HOME=~/.psyche-try PSYCHE_PORT=7989 PSYCHE_GLASS=native`) attached with no error: `addView` returned an id ≥ 0.                                                                                                                                                                                                                                                                                                                                                                                                   |
+| Frame times, CPU, screenshots          | **Not captured.** The scripted probe waits for animation frames, and the window sat behind other windows, where Chromium sends none. Bringing it forward or taking a screenshot needed computer-use access to the window, which the owner declined. The probe now raises the window itself before measuring.                                                                                                                                                                                                                             |
+| Capturing evidence from inside the app | `webContents.capturePage()` can't serve as evidence: it renders only the web contents, and the native `NSGlassEffectView` sits _below_ the web view, so the capture would show transparent pixels where the glass is. Only a window-level capture (`screencapture -l`, which needs Screen Recording permission) or a look at the screen shows the native glass. The Reduce Transparency check belongs on `nativeTheme.prefersReducedTransparency`; `systemPreferences.accessibilityDisplayShouldReduceTransparency` is deprecated [E31]. |
+| Signing                                | Not exercised. Dev runs are unsigned. A packaged build would need the addon copied like node-pty and signed with the app (§3.1).                                                                                                                                                                                                                                                                                                                                                                                                         |
 
 **How the owner can finish it** (one launch, about 30 s, window in front):
 
@@ -293,6 +318,7 @@ PSYCHE_HOME=~/.psyche-try PSYCHE_PORT=7989 PSYCHE_GLASS=native PSYCHE_GLASS_PROB
 ```
 
 The probe needs no input. It:
+
 - scrolls the transcript for 6 s three times: glass in light, glass in dark, and the page painted opaque over the glass;
 - records rAF frame times, Electron GPU and renderer CPU, and WindowServer CPU for each;
 - screenshots each state with `screencapture -l` (this needs Screen Recording for the terminal).
@@ -300,6 +326,7 @@ The probe needs no input. It:
 It writes `probe.json` and the `.png`s next to it.
 
 **What the design analysis already settles**, measurements aside:
+
 - The native sheet sits behind the web contents and samples the **desktop**, so it can only ever stand in for the sidebar material. That is the same role `vibrancy: "sidebar"` already fills, at the price of `transparent: true` (§3.1).
 - It cannot give the composer or toolbar groups lensing over the app's own content. Only the CSS rungs can.
 - That is why §6 keeps vibrancy for the sidebar and doesn't adopt the addon.
@@ -307,17 +334,19 @@ It writes `probe.json` and the `.png`s next to it.
 ## 6. Recommendation
 
 ### 6.1 Per surface
-| Surface | Desktop (Electron) | Web, Chromium | Web, Safari/Firefox | Notes |
-| --- | --- | --- | --- | --- |
-| **Sidebar** (rail + thread list) | Native `vibrancy: "sidebar"`, `visualEffectState: "followWindow"` (A2 as planned) | Opaque `--surface-sidebar` | Opaque | macOS 27 sidebars are edge to edge and quiet again, so vibrancy is the right weight. It's the largest surface, so it's too costly for CSS blur. |
-| **Toolbar** (52 px strip) | **No material.** A hard scroll edge (24 px `mask-image`) over the opaque canvas | Same | Same | In macOS 27 `automatic` resolves to hard when the title floats [28]. Non-interactive titles and status stay off glass [4]. |
-| **Toolbar control groups** (mode + model pills, bell / ⋯) | `GlassSurface impl="refraction"`, capsule, regular | Refraction | CSS blur | At most three groups [2]. One tinted primary at most. Text and symbols in separate groups. |
-| **Composer** | `GlassSurface impl="refraction"`, regular, radius = height / 2 | Refraction | CSS blur | The signature surface: small, fixed height, content scrolls under it. Rebuild the lens map on width change only. |
-| **Popovers, menus, ⌘K palette** | `GlassSurface impl="css"`, regular, tint 72 % (today's `.material-glass`) | CSS | CSS | Transient and text-heavy. Large glass stays more opaque and doesn't flip [1]. |
-| **Agent sheet, Settings sheets, dialogs** | Opaque `--surface-overlay` with `--elevation-3`, plus a dimming scrim | Opaque | Opaque | Apple: modal glass needs dimming, and sheets turn opaque as they grow [2][12]. Big glass costs the most. |
-| **Clear variant** | Only for controls over media (image or video viewer, avatar crop) with a 35 % dark dim behind the labels | Same | CSS | Never mixed with regular in one view [1]. |
+
+| Surface                                                   | Desktop (Electron)                                                                                       | Web, Chromium              | Web, Safari/Firefox | Notes                                                                                                                                           |
+| --------------------------------------------------------- | -------------------------------------------------------------------------------------------------------- | -------------------------- | ------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------- |
+| **Sidebar** (rail + thread list)                          | Native `vibrancy: "sidebar"`, `visualEffectState: "followWindow"` (A2 as planned)                        | Opaque `--surface-sidebar` | Opaque              | macOS 27 sidebars are edge to edge and quiet again, so vibrancy is the right weight. It's the largest surface, so it's too costly for CSS blur. |
+| **Toolbar** (52 px strip)                                 | **No material.** A hard scroll edge (24 px `mask-image`) over the opaque canvas                          | Same                       | Same                | In macOS 27 `automatic` resolves to hard when the title floats [28]. Non-interactive titles and status stay off glass [4].                      |
+| **Toolbar control groups** (mode + model pills, bell / ⋯) | `GlassSurface impl="refraction"`, capsule, regular                                                       | Refraction                 | CSS blur            | At most three groups [2]. One tinted primary at most. Text and symbols in separate groups.                                                      |
+| **Composer**                                              | `GlassSurface impl="refraction"`, regular, radius = height / 2                                           | Refraction                 | CSS blur            | The signature surface: small, fixed height, content scrolls under it. Rebuild the lens map on width change only.                                |
+| **Popovers, menus, ⌘K palette**                           | `GlassSurface impl="css"`, regular, tint 72 % (today's `.material-glass`)                                | CSS                        | CSS                 | Transient and text-heavy. Large glass stays more opaque and doesn't flip [1].                                                                   |
+| **Agent sheet, Settings sheets, dialogs**                 | Opaque `--surface-overlay` with `--elevation-3`, plus a dimming scrim                                    | Opaque                     | Opaque              | Apple: modal glass needs dimming, and sheets turn opaque as they grow [2][12]. Big glass costs the most.                                        |
+| **Clear variant**                                         | Only for controls over media (image or video viewer, avatar crop) with a 35 % dark dim behind the labels | Same                       | CSS                 | Never mixed with regular in one view [1].                                                                                                       |
 
 ### 6.2 The fallback ladder
+
 1. **native**: desktop sidebar only, through Electron `vibrancy`. A true `NSGlassEffectView` path waits for an in-repo addon (§6.4).
 2. **refraction**: small fixed-size chrome in Chromium (desktop and Chromium browsers).
 3. **css**: everything else that is glass, and refraction's fallback in Safari and Firefox.
@@ -326,6 +355,7 @@ It writes `probe.json` and the `.png`s next to it.
 `resolveGlassImpl` already implements rungs 1–4. Wiring the inactive-window and budget rules is A2's job (§6.3).
 
 ### 6.3 What workstream A should change (follow-ups to A2)
+
 A2's window chrome merged while this research ran. Already on main: `VibrancyController` (`appearance.vibrancy`, off by default), `visualEffectState: "followWindow"`, a per-appearance `backgroundColor`, and the Settings window. The list below is written against that.
 
 1. **Keep** `vibrancy: "sidebar"` behind `appearance.vibrancy`, with `transparent: false`, and keep it **off by default** until someone checks it on macOS 27. This spike did not verify vibrancy. **Don't** adopt `electron-liquid-glass`: whole-window, desktop-sampling, a sibling placement Apple warns against, `transparent: true` with its shadow, click-through and DevTools limits, the CSS `backdrop-filter` text bug in transparent windows, and an idle maintainer (§3.1).
@@ -340,7 +370,9 @@ A2's window chrome merged while this research ran. Already on main: `VibrancyCon
 10. **Corner radius:** don't hard-code a window radius. macOS 27 uses one smaller radius for every window, and the system draws it. Concentric inner radii come from `--radius-window` minus padding, measured at runtime if needed.
 
 ### 6.4 Later: a real native glass layer
+
 If the owner wants real `NSGlassEffectView` on the sidebar, write a ~200-line in-repo addon modelled on Tauri's `window-vibrancy` `liquid_glass.rs` [E19]:
+
 - public API only (`style`, `cornerRadius`, `tintColor`, `clipsToBounds`);
 - remove/update calls;
 - `nativeTheme.prefersReducedTransparency` gating;

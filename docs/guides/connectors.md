@@ -4,15 +4,15 @@ Connectors give the agent your accounts (mail, calendar, files); channels let yo
 
 ## What works today
 
-| Feature | On main |
-| --- | --- |
-| Google (Gmail, Calendar, Drive) | The Gateway connects it with your own OAuth client ([connectors-google.md](connectors-google.md)); the app's Connect button is not wired yet |
-| Other mail (IMAP, Fastmail over JMAP) | Not available yet: the Gateway does not include the mail connector |
-| Apple Notes, Reminders, Calendar, Mail | Connect through the Psyche helper on your Mac ([below](#apple-apps-on-your-mac)) |
-| 1Password | Not available yet |
-| Telegram | The Gateway runs the bot, but the Telegram channel cannot be created from the app or the CLI yet |
-| Web search | Not available yet |
-| MCP servers | Add them in Settings → MCP servers ([below](#mcp-servers)) |
+| Feature                                | On main                                                                                                                                      |
+| -------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------- |
+| Google (Gmail, Calendar, Drive)        | The Gateway connects it with your own OAuth client ([connectors-google.md](connectors-google.md)); the app's Connect button is not wired yet |
+| Other mail (IMAP, Fastmail over JMAP)  | Not available yet: the Gateway does not include the mail connector                                                                           |
+| Apple Notes, Reminders, Calendar, Mail | Connect through the Psyche helper on your Mac ([below](#apple-apps-on-your-mac))                                                             |
+| 1Password                              | Not available yet                                                                                                                            |
+| Telegram                               | The Gateway runs the bot, but the Telegram channel cannot be created from the app or the CLI yet                                             |
+| Web search                             | Not available yet                                                                                                                            |
+| MCP servers                            | Add them in Settings → MCP servers ([below](#mcp-servers))                                                                                   |
 
 Settings → Connectors and the onboarding Connectors step offer only what this Gateway can connect; anything without an implementation, such as Microsoft, is left out. In Settings, two rows are not accounts: **MCP server** opens Settings → MCP servers ([below](#mcp-servers)), and **Slack** opens Settings → Channels, because Slack is a place to chat with Psyche, not an account it reads.
 
@@ -22,10 +22,10 @@ Settings → Connectors and the onboarding Connectors step offer only what this 
 
 The Google connector covers Gmail, Google Calendar and Google Drive. It runs on your own Google Cloud OAuth client, so your mail never passes through anyone else's server. When you connect, you choose what the agent may do:
 
-| Choice | Google scopes requested |
-| --- | --- |
-| Read only | `gmail.readonly`, `calendar.readonly`, `drive.file` |
-| Read and act | `gmail.modify`, `calendar`, `drive.file` |
+| Choice       | Google scopes requested                             |
+| ------------ | --------------------------------------------------- |
+| Read only    | `gmail.readonly`, `calendar.readonly`, `drive.file` |
+| Read and act | `gmail.modify`, `calendar`, `drive.file`            |
 
 - Read only: the agent can read and search. Nothing is sent, changed or deleted, and the write tools are not even offered to it.
 - Read and act: the agent can also draft, label and send mail, and create, change and delete events. Each action still follows your permissions, and sending an email is a destructive action, so it always asks on your device.
@@ -60,12 +60,12 @@ Apple Notes, Apple Reminders, Apple Calendar and Apple Mail connect through the 
 
 What each one can do:
 
-| App | Read only | Read and act adds |
-| --- | --- | --- |
-| Apple Notes | List notes (by folder, or matching a title) and read one | Create a note (plain text) |
-| Apple Reminders | List lists and reminders | Add a reminder, change or complete one |
-| Apple Calendar | List calendars and events (at most 366 days at a time) | Add an event, change one |
-| Apple Mail | List or search mail, newest first (unread or read only, since / until a date, by sender or text); unread counts per mailbox; the email you have selected; read a message | Mark read or unread, flag, move or archive, save attachments; draft replies and forwards; send (always asks, with the exact recipients and text) |
+| App             | Read only                                                                                                                                                                | Read and act adds                                                                                                                                |
+| --------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------ |
+| Apple Notes     | List notes (by folder, or matching a title) and read one                                                                                                                 | Create a note (plain text)                                                                                                                       |
+| Apple Reminders | List lists and reminders                                                                                                                                                 | Add a reminder, change or complete one                                                                                                           |
+| Apple Calendar  | List calendars and events (at most 366 days at a time)                                                                                                                   | Add an event, change one                                                                                                                         |
+| Apple Mail      | List or search mail, newest first (unread or read only, since / until a date, by sender or text); unread counts per mailbox; the email you have selected; read a message | Mark read or unread, flag, move or archive, save attachments; draft replies and forwards; send (always asks, with the exact recipients and text) |
 
 Reading is allowed by default. Every change asks first, and sending mail always asks with the exact recipients, subject and text, even if you set it to allow. Notes, reminders, events and mail are untrusted content (see [approvals.md](approvals.md#untrusted-content)). Deleting notes, reminders or events is not offered.
 

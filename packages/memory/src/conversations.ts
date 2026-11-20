@@ -9,10 +9,13 @@ import { PsycheError } from "@psyche/protocol";
 export type ConversationFormat = "claude" | "chatgpt";
 
 export const CONVERSATION_LIMITS = {
-  /** Characters of export text accepted. */
-  inputChars: 25_000_000,
-  /** Conversations imported per run; the rest are reported as skipped. */
-  conversations: 200,
+  /**
+   * Characters accepted in one call. The Gateway's WebSocket frame is 1 MiB; at 3 bytes a
+   * character this leaves room for the envelope. Clients send whole conversations in batches.
+   */
+  inputChars: 330_000,
+  /** New conversations taken from one call; the rest are reported as skipped. */
+  conversations: 2_000,
   messagesPerConversation: 400,
   /** Characters kept of one message; longer ones are cut and marked. */
   messageChars: 20_000,
@@ -45,6 +48,8 @@ export interface SkippedConversation {
 export interface ParsedConversations {
   conversations: ImportedConversation[];
   skipped: SkippedConversation[];
+  /** Conversations already imported earlier (left as they are). */
+  duplicates: number;
 }
 
 const isRecord = (v: unknown): v is Record<string, unknown> =>
@@ -52,21 +57,37 @@ const isRecord = (v: unknown): v is Record<string, unknown> =>
 
 const str = (v: unknown): string | undefined => (typeof v === "string" && v !== "" ? v : undefined);
 
-function isoOf(v: unknown): string | undefined {
+const FLOOR_MS = Date.UTC(1990, 0, 1);
+const DAY_MS = 86_400_000;
+
+/** Times are clamped to [1990, now + 1 day]: a forged far-future date must not pin a thread first. */
+function isoOf(v: unknown, now: number): string | undefined {
+  let ms: number | undefined;
   if (typeof v === "number" && Number.isFinite(v)) {
     // ChatGPT: seconds since the epoch (fractional).
-    const d = new Date(v < 1e11 ? v * 1000 : v);
-    return Number.isNaN(d.getTime()) ? undefined : d.toISOString();
+    ms = v < 1e11 ? v * 1000 : v;
+  } else if (typeof v === "string") {
+    ms = new Date(v).getTime();
   }
-  if (typeof v === "string") {
-    const d = new Date(v);
-    return Number.isNaN(d.getTime()) ? undefined : d.toISOString();
-  }
-  return undefined;
+  if (ms === undefined || Number.isNaN(ms)) return undefined;
+  return new Date(Math.min(Math.max(ms, FLOOR_MS), now + DAY_MS)).toISOString();
 }
 
+/** Lone surrogates would make a later model request fail: replace them. */
+export function wellFormed(text: string): string {
+  return text.replace(
+    /[\uD800-\uDBFF](?![\uDC00-\uDFFF])|(?<![\uD800-\uDBFF])[\uDC00-\uDFFF]/g,
+    "\uFFFD",
+  );
+}
+
+/** Bidirectional and zero-width controls in a title can disguise it. */
+const INVISIBLE = /[\u200B-\u200F\u202A-\u202E\u2060-\u2064\u2066-\u2069\uFEFF]/g;
 function cleanTitle(raw: unknown, fallback: string): string {
-  const t = (str(raw) ?? fallback).replace(/\s+/g, " ").trim();
+  const t = wellFormed(str(raw) ?? fallback)
+    .replace(INVISIBLE, "")
+    .replace(/\s+/g, " ")
+    .trim();
   return t.length > CONVERSATION_LIMITS.titleChars
     ? `${t.slice(0, CONVERSATION_LIMITS.titleChars - 1)}…`
     : t;
@@ -81,12 +102,12 @@ function capText(text: string): string {
   return `${text.slice(0, end)}\n[truncated: ${text.length - end} more characters]`;
 }
 
-function claudeMessages(chat: unknown[]): ImportedMessage[] {
+function claudeMessages(chat: unknown[], now: number): ImportedMessage[] {
   const out: ImportedMessage[] = [];
   for (const m of chat) {
     if (!isRecord(m)) continue;
     const role = m.sender === "human" ? "user" : m.sender === "assistant" ? "agent" : undefined;
-    const at = isoOf(m.created_at);
+    const at = isoOf(m.created_at, now);
     let text = str(m.text);
     if (Array.isArray(m.content)) {
       const parts = m.content
@@ -102,7 +123,11 @@ function claudeMessages(chat: unknown[]): ImportedMessage[] {
 }
 
 /** The branch the owner last saw: from `current_node` up through parents, oldest first. */
-function chatgptMessages(mapping: Record<string, unknown>, current: unknown): ImportedMessage[] {
+function chatgptMessages(
+  mapping: Record<string, unknown>,
+  current: unknown,
+  now: number,
+): ImportedMessage[] {
   const chain: Record<string, unknown>[] = [];
   const seen = new Set<string>();
   let id = str(current);
@@ -129,7 +154,7 @@ function chatgptMessages(mapping: Record<string, unknown>, current: unknown): Im
     if (role === undefined || !isRecord(msg.content)) continue;
     const parts = Array.isArray(msg.content.parts) ? msg.content.parts : [];
     const text = parts.filter((p): p is string => typeof p === "string").join("\n\n");
-    const at = isoOf(msg.create_time);
+    const at = isoOf(msg.create_time, now);
     if (text.trim() === "" || at === undefined) continue;
     out.push({ role, text, at });
   }
@@ -140,8 +165,14 @@ function chatgptMessages(mapping: Record<string, unknown>, current: unknown): Im
 export function parseConversations(
   format: ConversationFormat,
   content: string,
-  limits: { conversations?: number } = {},
+  options: {
+    conversations?: number;
+    /** True for a key already imported: counted as a duplicate and never against the cap. */
+    isKnown?: (key: string) => boolean;
+    now?: Date;
+  } = {},
 ): ParsedConversations {
+  const now = (options.now ?? new Date()).getTime();
   if (content.length > CONVERSATION_LIMITS.inputChars) {
     throw new PsycheError("invalid_params", "import is too large");
   }
@@ -154,7 +185,8 @@ export function parseConversations(
   if (!Array.isArray(parsed)) {
     throw new PsycheError("invalid_params", "the file is not a conversations export");
   }
-  const maxConversations = limits.conversations ?? CONVERSATION_LIMITS.conversations;
+  const maxConversations = options.conversations ?? CONVERSATION_LIMITS.conversations;
+  let duplicates = 0;
   const conversations: ImportedConversation[] = [];
   const skipped: SkippedConversation[] = [];
   const keys = new Set<string>();
@@ -170,13 +202,20 @@ export function parseConversations(
       continue;
     }
     const key = `${format}:${id}`;
-    if (keys.has(key)) continue;
+    if (keys.has(key)) {
+      skipped.push({ title, reason: "invalid" }); // the same id twice in one file
+      continue;
+    }
     keys.add(key);
+    if (options.isKnown?.(key) === true) {
+      duplicates += 1;
+      continue;
+    }
     let messages: ImportedMessage[];
     if (format === "claude") {
-      messages = Array.isArray(raw.chat_messages) ? claudeMessages(raw.chat_messages) : [];
+      messages = Array.isArray(raw.chat_messages) ? claudeMessages(raw.chat_messages, now) : [];
     } else {
-      messages = isRecord(raw.mapping) ? chatgptMessages(raw.mapping, raw.current_node) : [];
+      messages = isRecord(raw.mapping) ? chatgptMessages(raw.mapping, raw.current_node, now) : [];
     }
     if (messages.length === 0) {
       skipped.push({ title, reason: "empty" });
@@ -195,10 +234,10 @@ export function parseConversations(
     conversations.push({
       key,
       title,
-      createdAt: isoOf(raw.created_at ?? raw.create_time) ?? first.at,
-      updatedAt: isoOf(raw.updated_at ?? raw.update_time) ?? last.at,
-      messages: messages.map((m) => ({ ...m, text: capText(m.text) })),
+      createdAt: isoOf(raw.created_at ?? raw.create_time, now) ?? first.at,
+      updatedAt: isoOf(raw.updated_at ?? raw.update_time, now) ?? last.at,
+      messages: messages.map((m) => ({ ...m, text: capText(wellFormed(m.text)) })),
     });
   }
-  return { conversations, skipped };
+  return { conversations, skipped, duplicates };
 }

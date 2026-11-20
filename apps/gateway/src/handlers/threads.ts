@@ -406,8 +406,22 @@ export const threadsHandlers: Record<string, HandlerDef> = {
   "threads.import": {
     transactional: true,
     run(call: Call, params: { format: "claude" | "chatgpt"; content: string; dryRun?: boolean }) {
-      const { result, threads } = importConversations(call.ctx.db, params, call.ctx.now());
+      const { result, threads, messages } = importConversations(
+        call.ctx.db,
+        params,
+        call.ctx.now(),
+      );
       for (const thread of threads) emitThread(call, thread);
+      // Message text is searchable at once; the docs keep the turns' untrusted provenance.
+      for (const message of messages) call.emit("chat.message", { message }, message.threadId);
+      if (params.dryRun !== true) {
+        call.ctx.onThreadsImported?.({
+          source: params.format,
+          imported: result.imported,
+          duplicates: result.duplicates,
+          deviceId: call.identity.deviceId,
+        });
+      }
       return result;
     },
   },

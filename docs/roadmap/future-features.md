@@ -13,6 +13,7 @@ Each entry has the same parts: what it is, why it beats existing assistants, rou
 **Why it beats existing assistants.** Cloud assistants either can't see your mail and messages, or they see them and answer without showing where a claim came from. Psyche already keeps the sources on your machine, so it can show every source and refuse to answer when it has none. An answer with no citation is not shown as an answer.
 
 **What is built (as of 2026-11-04).**
+
 - The Life search group (by name and by words) is merged: [#1078](https://github.com/devmello/psyche/pull/1078).
 - Search by meaning and a grounded answer are merged: [#1087](https://github.com/devmello/psyche/pull/1087). The method is `memory.life.answer`. It answers from reviewed, non-sensitive facts about people, cites each claim to a fact, and returns no answer, with a reason, when the model is off, no fact matches or the reply cites nothing it was given. Sensitive facts never go to a model.
 - The answer card in Search and ⌘K (phase 1): for a query that reads like a question it asks `memory.life.answer` and shows the answer above the results, a citation chip after each claim (one chip with a count when a claim rests on several facts), the fact and when Psyche learned it under the chip, a plain reason when there is no answer, and "Open as a chat". The chip opens the fact inline with "Open in Memory"; it does not yet scroll to or highlight the fact on the person's page.
@@ -22,6 +23,7 @@ Each entry has the same parts: what it is, why it beats existing assistants, rou
 - The index and the nightly memory pass behind it: [design/search-2026.md](../design/search-2026.md), [design/search-roadmap-2026.md](../design/search-roadmap-2026.md), [design/everything-memory-2026.md](../design/everything-memory-2026.md).
 
 **What is left.**
+
 - Phase 2 limits still stand. Mail indexed before phase 2 has no stored Message-ID until it is read again (Settings → Search sources → Rebuild), so it opens in the panel only. Messages, Notes, Calendar, Reminders and Contacts have no safe deep link and open in the panel only. A file is shown in Finder, not opened. The panel shows the indexed text, not the live message, so it cannot show an edit made since. A chip does not yet scroll to or highlight the fact on the person's page.
 - The passage a model read is a window of at most 1,200 characters around the question's words; the panel shows the whole indexed text (to 20,000 characters), not the window, and the chip does not highlight the part the model used.
 - Not covered: the agent's own replies in the opened chat, its compaction summaries and the chat digests other chats read are written by models from what the agent saw and are not scrubbed again; the preamble in the agent's saved history is marked with the model kind it was built for (`built="local"` or `"cloud"`), and when the thread's model is a cloud one at the start of a turn (a pinned change; an unknown model counts as cloud) a local-built preamble is rebuilt with the cloud rules and saved back. A router fallback to a cloud model inside a single turn is not seen by that check, and a preamble already folded into a compaction summary is not rebuilt.
@@ -32,12 +34,14 @@ Each entry has the same parts: what it is, why it beats existing assistants, rou
 - The iOS app still asks for facts only (it does not pass `passages`), so it shows no passage chips yet.
 
 **Rough phases.**
+
 1. The answer card in Search/⌘K for `memory.life.answer`, with chips that open the fact.
 2. Chips that open the source passage in Mail, Messages or the file viewer. (Done: see "What is built".)
 3. Questions that need raw passages as well as facts, with the same rule: no citation, no claim, plus follow-up questions. (Done: see "What is built".)
 4. "Open as a chat" carries the answer and its chips into the chat, read again per connection and per model. (Done: see "What is built".)
 
 **Decisions (2026-11-04).** These were the open questions.
+
 - Raw passages are asked for, not automatic: typing a question answers from reviewed facts only, as before, and nothing from mail, messages or files goes to a model until the owner clicks "Answer from my mail, messages and files" on the card (follow-ups then keep reading passages). The owner can change this later, for example with a setting that answers from passages on its own.
 - Many facts behind one claim: one chip per claim, never a row of chips. The chip says what it rests on (the one fact, the one passage, or a count: "3 facts", "2 sources"). Opening it lists passages first, then facts, newest first by when Psyche learned them. The model may cite up to the ids it was given for one claim; the list is not otherwise capped.
 - Facts that disagree: both stay visible and the claim is not silently resolved. The model is given each fact's learned date and told to say they differ and give the newest first. The panel notes "These facts differ. Newest first." when two cited facts give one person's same attribute different values. Nothing is deleted or demoted; correcting a fact stays in Memory.
@@ -54,6 +58,7 @@ Each entry has the same parts: what it is, why it beats existing assistants, rou
 **Why it beats existing assistants.** Most assistants make you describe a task in words, or give you a script editor. Showing is how people already teach each other. The review step matters: the recording is turned into steps you can read and edit, not into a black box that replays clicks.
 
 **What is built.** The pieces it stands on:
+
 - Computer use on the Mac (accessibility snapshot, actions, screenshots, tiers and caps): feature spec J1–J6 in [03-feature-spec.md](../03-feature-spec.md), and the M2 computer-use work ([#212](https://github.com/devmello/psyche/pull/212)).
 - The built-in browser, including the signed-in profile and background use ([#996](https://github.com/devmello/psyche/pull/996), [#1036](https://github.com/devmello/psyche/pull/1036)).
 - Self-made skills and connectors, owner-approved and sandboxed ([#977](https://github.com/devmello/psyche/pull/977)), and agent-proposed skill drafts from repeated routines ([`packages/skills/src/drafts.ts`](../../packages/skills/src/drafts.ts)).
@@ -67,11 +72,13 @@ Each entry has the same parts: what it is, why it beats existing assistants, rou
 **What is left.** Recording keyboard shortcuts and drags in apps, apps with poor accessibility trees, and asking which values were examples across recordings. Scheduled runs that ask the owner for a value, instead of refusing the skill, are not built.
 
 **Rough phases.**
+
 1. **Browser only.** Record clicks, typing and navigation in the built-in browser. Turn them into a draft skill that uses the browser tools. Show the steps; the owner edits and approves. Run it once with the owner watching.
 2. **Mac apps. Built.** Record accessibility events (J1/J2) in one app the owner has already granted. Same review screen.
 3. **Generalize.** Ask which values were examples ("this recipient", "this date") and make them inputs. ("Run it every week" through Scheduled is built for skills that need no input.)
 
 **Open questions.** Answered for phase 1 in [the design](../design/teach-by-showing-2026.md#10-answers-to-the-roadmaps-open-questions); the text below is the original question.
+
 - What gets recorded. Screens and typed text can hold passwords and private data. The recorder needs to skip password fields, mask what it stores, and keep the recording on the Mac, deleted once the skill is made unless the owner keeps it.
 - What happens when the page or app changes later. Replay should stop and ask, not guess.
 - Whether a recording becomes a skill (instructions the agent follows) or an automation (fixed steps), and who decides. Likely the skill by default, since an agent can recover from small changes.
@@ -86,6 +93,7 @@ Each entry has the same parts: what it is, why it beats existing assistants, rou
 **Why it beats existing assistants.** Most assistants either have a central store you have to trust, or no sharing at all. Here sharing needs no store: a file, a URL or a git repo is enough. Permissions are shown up front, and nothing runs until the owner approves.
 
 **What is built.**
+
 - Skill install from a folder, a zip or a git URL at a pinned ref, with a scanner, a full-file approval card, a whole-tree hash re-verified on every load, and update checks. The code is in [`packages/skills`](../../packages/skills/src/lock.ts), and the protocol is in `packages/protocol/src/methods/skills.ts`. Trust levels today are `bundled`, `verified`, `local` and `unknown`.
 - Third-party skill and MCP descriptions are marked as "not instructions" in the prompt.
 - Psyche can build its own skills and connectors with approval ([#977](https://github.com/devmello/psyche/pull/977)), which gives something worth sharing.
@@ -94,18 +102,21 @@ Each entry has the same parts: what it is, why it beats existing assistants, rou
 **Design and status.** [Shared bundles design](../design/shared-bundles-2026.md) (2026-11-04) answers the open questions below and records what is built. Phases 1 to 3 are built there. Skills: the `.psyche-skill` file, signing with an author key, export, import from a file or an https link, the signer block on the trust card, "trust this author", the key-changed warning, the update diff, the "asks for more" warning and local revocation. Connectors: the `.psyche-connector` file (command and arguments, the names of the variables and secrets it needs, the network it asks for, the tools it says it lists, optional scripts), export from Settings → Connectors behind the same gates as a skill export, import from a file or a link with the full card, the sandboxed first run through `mcp.probe` / `mcp.add`, then the secrets by name, and updates with a diff and re-approval when the command, env, secrets, network or tools widen. Key rotation (the old key signs a statement naming the new one) and signed revocation notices (a key or one bundle, imported by file or link) are built for both. Lists (phase 4) are designed and not built.
 
 **What is left.**
+
 - A way to find things without a central store: a share link, a pasted URL, or a git repo with a small index file (phase 4). A link and a file already work.
 - A CLI `psyche skills export` / `import`, and phone surfaces for the new fields.
 - Trusting a connector author while installing (the "trust this author" box on the connector card): today trust is given from Settings → Skills → Advanced.
 - A connector that the sandbox cannot run (a native binary, a host-only app) is refused with a plain card, not run on the Mac; whether to offer an explicit "run on this Mac" is open.
 
 **Rough phases.**
+
 1. Export and import of skills as one file, with permissions shown before install. Unsigned bundles are `unknown`.
 2. Signing and author trust. Updates with a diff and re-approval on wider permissions.
 3. Connectors (MCP servers) in the same bundle format, including the command they run and the network and secrets they ask for. Built, with key rotation and signed revocation notices.
 4. Optional lists: a git repo or URL that lists bundles, with no server run by Psyche.
 
 **Open questions.**
+
 - What "verified" means when there is no central authority: a key the owner has trusted before, a key vouched for by someone they trust, or neither.
 - Connectors run code. How much can we show about a connector's behavior before it runs, and should the first run always be in the sandbox?
 - Whether bundles may carry secrets or settings (no, by default; only the names of what they need).
@@ -132,6 +143,7 @@ Each entry has the same parts: what it is, why it beats existing assistants, rou
 **The honest cost.** Push on iOS needs a paid Apple Developer account, and the owner builds the app under their own team. App Store distribution to other people is out of scope for now. Without an account, the PWA still gives Web Push with fewer features.
 
 **Design and phases.** All of it is in [design/mobile-companion-2026.md](../design/mobile-companion-2026.md):
+
 - M0: PWA with Web Push.
 - M1: iOS app over LAN and Tailscale.
 - M2: direct-APNs push, lock-screen approvals and Live Activities.
@@ -152,6 +164,7 @@ Each entry has the same parts: what it is, why it beats existing assistants, rou
 **Status.** A1, A2 and A4 are built behind fakes; **not yet run against the real model**, because running a local model is something the owner is told about first. Details and the list of what needs a real run are in [design/search-roadmap-2026.md](../design/search-roadmap-2026.md) ("Apple on-device model"). Private Cloud Compute (Apple's server-side model) is deliberately not used: it sends the text off the Mac.
 
 **Phases.**
+
 - A1 (built): the Mac helper's `llm.apple.availability` and `llm.apple.generate`, the router provider `apple` (ref `apple/on-device`), the `models.appleStatus` method and the `search.model.engine` setting (`utility` or `apple`).
 - A2 (built behind fakes, 2026-11-04): Settings → Search → Model for search has "Use Apple's on-device model for private search jobs", with the plain statement (text stays on this Mac, no download or key, about 4k tokens, never a fallback to the cloud) and the availability reason from `models.appleStatus` (Apple Intelligence off, unsupported Mac or region, older macOS, still getting ready). It is disabled while unavailable and shown as the Host's setting in a remote client window.
 - A3: a real run on a Mac the owner approves, to measure it with the search eval (`--live` for Apple) and tune the prompts and the rerank size.
@@ -166,11 +179,13 @@ Each entry has the same parts: what it is, why it beats existing assistants, rou
 **Why it beats existing assistants.** Cloud assistants put your data on someone else's server so that every device can reach it. Here your devices reach your own machine over your own tailnet. Nobody runs a relay, nothing is synced to a third party, and a lost laptop is one **Remove** away from having no access.
 
 **What is built.**
+
 - The signed connect, pairing codes, owner-chosen scopes and revocation (`packages/protocol/src/methods/{connect,devices}.ts`, `apps/gateway/src/auth.ts`).
 - The desktop's `external` mode and the Tailscale Serve setup in [guides/server-mode.md](../guides/server-mode.md#the-desktop-app). Today a Mac can already connect to a remote Gateway by hand, with environment variables.
 - Reconnecting and resyncing after a drop (N14), and chunked upload and download over the WebSocket.
 
 **What is left.**
+
 - Choosing and saving Gateways in the app, with a startup screen that explains an unreachable host.
 - The Gateway identity-key pin, shared with the phone.
 - Fixing how the Gateway picks a Mac helper, so a second Mac can never receive the agent's computer use or Apple apps.
@@ -178,6 +193,7 @@ Each entry has the same parts: what it is, why it beats existing assistants, rou
 - A client-only Windows build.
 
 **Rough phases.** All of it is in [design/remote-gateway-2026.md](../design/remote-gateway-2026.md):
+
 - R0: node routing and the desktop gates (no visible change).
 - R1: a Mac remote client over Tailscale Serve, with saved Gateways, the identity pin and the startup states.
 - R2: pairing links, Touch ID or Windows Hello for approvals on the client, and notifications on the client.
@@ -195,12 +211,14 @@ Each entry has the same parts: what it is, why it beats existing assistants, rou
 **Why it beats existing assistants.** To-do apps know a due date but not your progress. Chat assistants forget between conversations. Psyche already reads your Reminders, calendar, files, sent mail and your chats with it, on your Mac. So it can tell you where you left off, with a source for every claim. It does this without anything leaving the Mac unless you picked a cloud model, and without letting a crafted email mark your work done or move a deadline.
 
 **What is built.** The graph it extends:
+
 - the people graph with `project` entities, `due_at`, loops and cited facts ([people-and-projects](../memory/people-and-projects-2026.md));
 - everything memory, with the review queue, quarantine and the red-team suite ([everything-memory-2026.md](../design/everything-memory-2026.md));
 - the daily brief's Coming up and Learned yesterday;
 - the Reminders and Calendar connectors and the files watcher.
 
 **What is left.** All of it is in [design/memory-everything-2026.md](../design/memory-everything-2026.md):
+
 - the `assignment` kind, courses as a project type, and anchors that link folders, threads and Reminders lists to a work item;
 - status and a per-item timeline from signals, with code deciding status and never third-party text;
 - privacy tiers per surface: work in the brief and on Home by default, facts about people off unless enabled;
@@ -208,6 +226,7 @@ Each entry has the same parts: what it is, why it beats existing assistants, rou
 - the Memory page.
 
 **Rough phases.**
+
 1. MW1: the Memory page and sidebar swap. MW0: the protocol. These run in parallel.
 2. MW1b: review on the Memory page. MW2: the store.
 3. MW3: deterministic signals. MW4: catch-up and the brief. MW6: the work pages.

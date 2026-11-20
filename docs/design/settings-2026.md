@@ -8,14 +8,14 @@ PR, 2026-11-02. Owner asleep; decisions below are the session's own and easy to 
 Settings had grown to **25 flat sections** in five sidebar groups. An inventory of every control
 (about 140 labelled keys plus RPC-backed controls) found the same concept in several places:
 
-| Concept | Where it appeared | Keys / calls |
-|---|---|---|
-| Search sources and search settings | At the bottom of *Model & providers*, far from the sources; *Everything memory* had its own source list that only works for sources Search indexes | `search.*`, `search.sources`, `memory.everything.optOut` |
-| Shared folders | *File access* (editor), *Connectors → Files on this Mac* (second editor), *Permissions → Folders* (read-only copy) | `permissions.policy.folders` |
-| Run commands on this Mac | *File access* and *Connectors → Terminal* (same switch twice) | `permissions.policy.exec.execHostEnabled` |
-| Export | *Data controls → Export everything* and *People & projects → Export* (same `memory.export` call) | `memory.export` |
-| Memory switches | Pause memory, transcript recall, recall mode and Learning sat in *Data controls*, away from the memory sections | `memory.recall.mode`, `data.transcriptRecall`, `teaching.*` |
-| Dangerous actions | Delete threads and Reset memory sat between ordinary groups | `threads.delete`, `memory.reset` |
+| Concept                            | Where it appeared                                                                                                                                  | Keys / calls                                                |
+| ---------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------- |
+| Search sources and search settings | At the bottom of _Model & providers_, far from the sources; _Everything memory_ had its own source list that only works for sources Search indexes | `search.*`, `search.sources`, `memory.everything.optOut`    |
+| Shared folders                     | _File access_ (editor), _Connectors → Files on this Mac_ (second editor), _Permissions → Folders_ (read-only copy)                                 | `permissions.policy.folders`                                |
+| Run commands on this Mac           | _File access_ and _Connectors → Terminal_ (same switch twice)                                                                                      | `permissions.policy.exec.execHostEnabled`                   |
+| Export                             | _Data controls → Export everything_ and _People & projects → Export_ (same `memory.export` call)                                                   | `memory.export`                                             |
+| Memory switches                    | Pause memory, transcript recall, recall mode and Learning sat in _Data controls_, away from the memory sections                                    | `memory.recall.mode`, `data.transcriptRecall`, `teaching.*` |
+| Dangerous actions                  | Delete threads and Reset memory sat between ordinary groups                                                                                        | `threads.delete`, `memory.reset`                            |
 
 The sidebar search only matched section names and 103 of 138 labelled keys (35 keys, including all
 `search.*`, `ui.*`, `teaching.*`, `screenAsk.*` and `widgets.*`, found no section), and it could
@@ -30,17 +30,17 @@ drove changes.
 Nine pages, ordered by how often people need them. Each page is a column of **panes**; a pane is
 one of the old sections, kept whole, so its settings, stories and tests stay where they were.
 
-| Page (`/settings/<id>`) | Panes, in order (each also a route) |
-|---|---|
-| **General** `general` | Appearance `appearance` · Persona `persona` · Notifications `notifications` · Voice & dictation `voice` |
-| **Models** `model` | Model & providers `model` · Usage `usage` |
-| **Connectors & sources** `connectors` | Connectors `connectors` · Search `search` (new) · Mail & meetings `mail` · Channels `channels` |
-| **Memory** `memory` | Memory review `memory` · Remembering & learning `learning` (new) · Everything memory `everything` · Work `work` (new) · Where memory shows `surfaces` (new) · People & projects `people` |
-| **Routines & skills** `daily` | Daily `daily` · Skills `skills` · Specialists `specialists` |
-| **Permissions** `permissions` | Approval rules `permissions` · Computer use `computer-use` · Browser `browser` · File access `files` · Credentials `credentials` · VM mode `vm` |
-| **Privacy & data** `data` | Privacy & data `data` |
-| **Devices** `devices` | Devices & nodes `devices` · Server & remote access `server` |
-| **About** `about` | About `about` |
+| Page (`/settings/<id>`)               | Panes, in order (each also a route)                                                                                                                                                      |
+| ------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **General** `general`                 | Appearance `appearance` · Persona `persona` · Notifications `notifications` · Voice & dictation `voice`                                                                                  |
+| **Models** `model`                    | Model & providers `model` · Usage `usage`                                                                                                                                                |
+| **Connectors & sources** `connectors` | Connectors `connectors` · Search `search` (new) · Mail & meetings `mail` · Channels `channels`                                                                                           |
+| **Memory** `memory`                   | Memory review `memory` · Remembering & learning `learning` (new) · Everything memory `everything` · Work `work` (new) · Where memory shows `surfaces` (new) · People & projects `people` |
+| **Routines & skills** `daily`         | Daily `daily` · Skills `skills` · Specialists `specialists`                                                                                                                              |
+| **Permissions** `permissions`         | Approval rules `permissions` · Computer use `computer-use` · Browser `browser` · File access `files` · Credentials `credentials` · VM mode `vm`                                          |
+| **Privacy & data** `data`             | Privacy & data `data`                                                                                                                                                                    |
+| **Devices** `devices`                 | Devices & nodes `devices` · Server & remote access `server`                                                                                                                              |
+| **About** `about`                     | About `about`                                                                                                                                                                            |
 
 - A page's id is its first pane's id where it has one, so `/settings/model` opens the top of
   Models either way. Only `general`, `search` and `learning` are new ids
@@ -59,25 +59,25 @@ is an h3 in the serif at 20 px with a hairline above it; groups step down to h4.
 
 ## 3. Decisions on the duplicates
 
-1. **Search has one home**: *Connectors & sources → Search* holds Search sources, Semantic search
+1. **Search has one home**: _Connectors & sources → Search_ holds Search sources, Semantic search
    (with re-rank, query reading, encrypt the index) and Web search. Removed from Model & providers.
 2. **Memory follows Search** (supersedes "Everything memory sources stay", 2026-11-03). The two
    lists disagreed: a memory source could be on for a source Search did not index, which read
    nothing. Now Search sources is the one list of what Psyche may read, and memory learns from
-   each source Search reads unless the owner opts it out. *Memory → Sources* lists the same
+   each source Search reads unless the owner opts it out. _Memory → Sources_ lists the same
    sources in the same order, each with **Learning from it** (the opt-out, `memory.everything.optOut`)
    when Search reads it, and when it does not, a disabled row saying "Psyche doesn't read Mail"
    with **Let Psyche read Mail**, which turns on the Search source in one click (the call Essentials
    makes). Essentials and Search sources keep their meaning and say that turning a source on also
-   lets memory learn from it unless the owner opts out on *Memory → Sources*. The Gateway reads
+   lets memory learn from it unless the owner opts out on _Memory → Sources_. The Gateway reads
    `indexed && !optOut` (everything-memory-2026 D12).
-3. **Folders and Run commands have one editor**: *Permissions → File access*. Connectors' *Files on
-   this Mac* and *Terminal* cards stay (people look for them there; `find_capability` points there)
+3. **Folders and Run commands have one editor**: _Permissions → File access_. Connectors' _Files on
+   this Mac_ and _Terminal_ cards stay (people look for them there; `find_capability` points there)
    but now show the shared folders and whether running commands is on, with **Open File access**.
    The read-only Folders group in Approval rules is gone (File access is on the same page).
-4. **One export**: *Privacy & data → Export everything* (it already includes `graph.json` and the
+4. **One export**: _Privacy & data → Export everything_ (it already includes `graph.json` and the
    cards). People & projects says so and links there.
-5. **Memory switches live on the Memory page**: a new *Remembering & learning* pane holds Pause
+5. **Memory switches live on the Memory page**: a new _Remembering & learning_ pane holds Pause
    memory, Transcript recall, How memory is recalled and Learning. Privacy & data keeps retention
    ("How long things are kept"), Maps, Widgets in chat and Export.
 6. **Dangerous actions are separate**: Privacy & data ends with a **Delete and start over** section
@@ -153,13 +153,13 @@ permission they give."
 also lands there. It holds the five choices a newcomer makes, each written to the same key or call
 as its detailed pane, with **More** opening that pane:
 
-| Group | What it changes | Default |
-|---|---|---|
-| Model | shows the primary model and whether its provider answers; **Set up a model** (amber, the page's one filled button) when none | none until set up |
-| What Psyche may read | Mail, Messages, Notes, Calendar, Reminders, Files (`search.sources.configure`); memory learns from what is on unless opted out on *Memory → Sources* | all off |
-| How often Psyche asks first | `permissions.mode` (Balanced, Manual, Auto) | Balanced |
-| When Psyche may interrupt you | Quiet hours (`notifications.quietHours.enabled`), Morning brief (`daily.brief.enabled`) | quiet hours **on**, brief off |
-| Memory | Let Psyche remember our chats (`memory.pause`) | on |
+| Group                         | What it changes                                                                                                                                      | Default                       |
+| ----------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------- | ----------------------------- |
+| Model                         | shows the primary model and whether its provider answers; **Set up a model** (amber, the page's one filled button) when none                         | none until set up             |
+| What Psyche may read          | Mail, Messages, Notes, Calendar, Reminders, Files (`search.sources.configure`); memory learns from what is on unless opted out on _Memory → Sources_ | all off                       |
+| How often Psyche asks first   | `permissions.mode` (Balanced, Manual, Auto)                                                                                                          | Balanced                      |
+| When Psyche may interrupt you | Quiet hours (`notifications.quietHours.enabled`), Morning brief (`daily.brief.enabled`)                                                              | quiet hours **on**, brief off |
+| Memory                        | Let Psyche remember our chats (`memory.pause`)                                                                                                       | on                            |
 
 Nothing on Essentials is its only home: power users change everything, and more, in the pages
 below. Essentials repeats a setting on purpose (a shortcut), which is the one exception to "one home

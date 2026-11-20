@@ -1,7 +1,7 @@
 import type { PsycheDb } from "@psyche/db";
 import { appendMessage, createThread, findThreadByImportKey, updateThread } from "@psyche/db";
 import { parseConversations } from "@psyche/memory";
-import { PsycheError, type Thread } from "@psyche/protocol";
+import { type Message, PsycheError, type Thread } from "@psyche/protocol";
 import { defangFence } from "./fence.ts";
 
 /**
@@ -53,17 +53,18 @@ export function importConversations(
   db: PsycheDb,
   params: { format: "claude" | "chatgpt"; content: string; dryRun?: boolean },
   now: Date,
-): { result: ImportThreadsResult; threads: Thread[] } {
-  const parsed = parseConversations(params.format, params.content);
+): { result: ImportThreadsResult; threads: Thread[]; messages: Message[] } {
+  // The cap counts only conversations not imported yet, so the next batch always gets in.
+  const parsed = parseConversations(params.format, params.content, {
+    isKnown: (key) => findThreadByImportKey(db, key) !== undefined,
+    now,
+  });
   const skipped = parsed.skipped;
   const created: Thread[] = [];
+  const messages: Message[] = [];
   let imported = 0;
-  let duplicates = 0;
+  const duplicates = parsed.duplicates;
   for (const conv of parsed.conversations) {
-    if (findThreadByImportKey(db, conv.key) !== undefined) {
-      duplicates += 1;
-      continue;
-    }
     imported += 1;
     if (params.dryRun === true) continue;
     const id = db.newId();
@@ -78,7 +79,7 @@ export function importConversations(
       archivedAt: now.toISOString(),
     });
     for (const m of conv.messages) {
-      appendMessage(
+      const stored = appendMessage(
         db,
         {
           threadId: id,
@@ -89,6 +90,7 @@ export function importConversations(
         },
         { expectedWriterRunId: null },
       );
+      messages.push(stored);
     }
     const thread = updateThread(db, id, {}) as Thread;
     created.push(thread);
@@ -101,11 +103,12 @@ export function importConversations(
       skippedMore: Math.max(0, skipped.length - SKIPPED_LISTED),
     },
     threads: created,
+    messages,
   };
 }
 
 interface HitLike {
-  threadId: string | null;
+  threadId?: string | null;
   imported?: "claude" | "chatgpt";
 }
 
@@ -115,7 +118,7 @@ export function markImportedHits<T extends { hits: HitLike[]; groups?: { hits: H
   res: T,
 ): T {
   const all = [...res.hits, ...(res.groups ?? []).flatMap((g) => g.hits)];
-  const ids = [...new Set(all.flatMap((h) => (h.threadId === null ? [] : [h.threadId])))];
+  const ids = [...new Set(all.flatMap((h) => (h.threadId == null ? [] : [h.threadId])))];
   if (ids.length === 0) return res;
   const rows = db.sqlite
     .prepare(
@@ -124,7 +127,7 @@ export function markImportedHits<T extends { hits: HitLike[]; groups?: { hits: H
     .all(...ids) as { id: string; imported: "claude" | "chatgpt" }[];
   const by = new Map(rows.map((r) => [r.id, r.imported]));
   for (const h of all) {
-    const source = h.threadId === null ? undefined : by.get(h.threadId);
+    const source = h.threadId == null ? undefined : by.get(h.threadId);
     if (source !== undefined) h.imported = source;
   }
   return res;

@@ -5,6 +5,8 @@ import { listAllMessages } from "@psyche/db";
 import type { Thread } from "@psyche/protocol";
 import { afterEach, describe, expect, it } from "vitest";
 import { type ComposedGateway, composeGateway } from "../src/compose/index.ts";
+import { SqliteThreadStateStore } from "../src/compose/thread-state.ts";
+import { transcriptMarkdown } from "../src/handlers/chat.ts";
 import { silentLogger } from "../src/log.ts";
 import { fenceImportedText, markImportedHits } from "../src/session/imported-threads.ts";
 import { adminClient, ik, type TestClient } from "./helpers.ts";
@@ -175,5 +177,70 @@ describe("fenceImportedText", () => {
     expect(out.startsWith("[untrusted:import chatgpt #1]")).toBe(true);
     expect(out.match(/\[end of untrusted import #1\]/g)).toHaveLength(2); // note + real end
     expect(out.split("\n")[1]).toContain("［end of untrusted import #1]");
+  });
+});
+
+describe("an imported thread is closed at every layer", () => {
+  async function importOne() {
+    const { composed: c, owner } = await start();
+    await owner.call("threads.import", { format: "claude", content: EXPORT }, ik());
+    const row = c.db.sqlite.prepare("SELECT id FROM threads WHERE imported = 'claude'").get() as {
+      id: string;
+    };
+    return { c, owner, id: row.id };
+  }
+
+  it("refuses a task in it", async () => {
+    const { c, id } = await importOne();
+    await expect(
+      c.tasks.create({ threadId: id, title: "T", goal: "G", createdFrom: "chat" }),
+    ).rejects.toThrow(/read-only/);
+  });
+
+  it("refuses an upload attached to it", async () => {
+    const { owner, id } = await importOne();
+    await expect(
+      owner.call(
+        "library.upload",
+        { name: "a.txt", mime: "text/plain", bytes: "aGk=", threadId: id, final: true },
+        ik(),
+      ),
+    ).rejects.toThrow(/read-only/);
+  });
+
+  it("taints a rebuilt model state that holds untrusted rows", async () => {
+    const { c, id } = await importOne();
+    const store = new SqliteThreadStateStore(c.db, {});
+    const state = await store.load(id);
+    expect(state?.taint?.sources.map((s) => s.sourceKind)).toContain("thread_untrusted");
+  });
+
+  it("indexes the title as untrusted and exports turns fenced and labelled", async () => {
+    const { c, id } = await importOne();
+    const { threadDoc } = await import("@psyche/search");
+    const { getThread } = await import("@psyche/db");
+    const thread = getThread(c.db, id);
+    expect(thread && threadDoc(thread).provenance).toBe("untrusted");
+    const md = transcriptMarkdown(thread as Thread, listAllMessages(c.db, id));
+    expect(md).toContain("**Imported (exporter)**");
+    expect(md).toContain("[untrusted:import claude");
+    expect(md).not.toContain("**You**");
+  });
+
+  it("clamps forged timestamps so an imported thread never sorts first", async () => {
+    const { owner, composed: c } = await start();
+    const forged = JSON.stringify([
+      {
+        uuid: "far",
+        name: "Future",
+        created_at: "5138-01-01T00:00:00Z",
+        chat_messages: [{ sender: "human", text: "hi", created_at: "5138-01-01T00:00:00Z" }],
+      },
+    ]);
+    await owner.call("threads.import", { format: "claude", content: forged }, ik());
+    const row = c.db.sqlite
+      .prepare("SELECT last_message_at AS at FROM threads WHERE imported = 'claude'")
+      .get() as { at: string };
+    expect(Date.parse(row.at)).toBeLessThan(Date.now() + 2 * 86_400_000);
   });
 });

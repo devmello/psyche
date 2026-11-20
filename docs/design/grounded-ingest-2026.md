@@ -3,11 +3,13 @@
 Goal: search as "a searchable version of your life you can prompt in English". At ingest, a cheap model writes a **context card** for each item; the card is indexed with the item.
 
 ## Audit (before)
+
 - `memory` / `remember` tools append to daily notes (`packages/memory`); USER.md learning (#959) and agent self-notes (#977) write workspace files. Memory is searched through `MemoryStore` (chunks, BM25 + vectors), not `search_docs`.
 - `packages/search`: `search_docs` + external-content FTS5 (`title, body, extra`), optional on-device embeddings (`SemanticIndex`, chunks of 1200 chars, RRF fusion). Producers: chat events (`SearchIndexer`), backfill sources, Library sync, connector caches, people graph.
-- Gaps: a long document's later chunks lost their title/source/date; nothing described *what an item is about* in the words people ask with; no entity/date columns.
+- Gaps: a long document's later chunks lost their title/source/date; nothing described _what an item is about_ in the words people ask with; no entity/date columns.
 
 ## What it does
+
 - `packages/search/src/cards/`: `generateCard` (one tool-less call, `toolChoice: none`, source inside `<data>`), `validateCard`, `CardStore` (`search_cards`, `search_card_entities`, `search_card_dates`, `search_card_queue`), `CardQueue`, `syncMemoryNotes`.
 - **No hallucination.** Every claim has `quote`, `[start,end)` offsets into the source and a `confidence`. Validation drops a claim when the quote is not in the source (case/whitespace tolerant), the value is not inside its quote, or it contains a number the source lacks. Resolved values (a date "next Friday" → ISO) must be marked `derived` with a `basis`, otherwise the ISO is dropped. A card without a grounded title and summary is discarded.
 - **Taint.** The card inherits the source's provenance (least trusted for memory notes); untrusted sources cap confidence at 0.6 and the source is wrapped as data. A card is stored on the document row's scope, so delegated viewers and incognito rules apply unchanged; deleting the document deletes the card.
@@ -17,4 +19,5 @@ Goal: search as "a searchable version of your life you can prompt in English". A
 - **Memory tool guidance.** `remember` and `memory` descriptions ask for who/what/when (calendar date)/where/why, only what was said, inferences marked.
 
 ## Estimated cost per item
+
 About 1.4k input tokens (system prompt ~600 + capped source) and ~500 output tokens, so ~1.9k tokens. At an assumed Haiku-class price of $1/M in and $5/M out, about $0.004 per card; the default daily budget bounds spend to roughly $0.40/day.

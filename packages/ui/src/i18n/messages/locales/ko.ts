@@ -817,6 +817,8 @@ export const ko: Partial<Catalogue> = {
   "agent.memory.importConv.skipEmpty": "메시지가 없습니다",
   "agent.memory.importConv.skipInvalid": "읽을 수 없습니다",
   "agent.memory.importConv.untitled": "제목 없음",
+  "agent.memory.importConv.progressCount": "대화를 가져오는 중… {done}/{total}",
+  "agent.memory.importConv.tooBig": "이 파일은 {mb}MB를 넘어 여기서 읽기에는 너무 큽니다. 범위를 줄여 다시 내보내세요.",
   "agent.memory.exported": "{file}을(를) 내보냈습니다.",
   "agent.memory.export": "모두 내보내기",
   "agent.memory.resetDone":
@@ -926,6 +928,7 @@ export const ko: Partial<Catalogue> = {
   "shell.threads.pin": "고정",
   "shell.threads.archive": "보관",
   "shell.threads.imported": "가져옴",
+  "shell.threads.importedReadOnly": "가져온 이 대화는 읽기 전용입니다.",
   "shell.threads.restore": "복원",
   "shell.threads.region": "스레드",
   "shell.threads.filter": "스레드 필터",

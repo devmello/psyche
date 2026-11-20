@@ -9,6 +9,7 @@ import {
 } from "../components/ui/dialog.tsx";
 import { t } from "../i18n/core.ts";
 import { describeError } from "../i18n/errors.ts";
+import { MAX_EXPORT_BYTES } from "./split-export.ts";
 
 export type ImportSourceName = "claude" | "chatgpt";
 export type ImportMode = "memories" | "both";
@@ -57,7 +58,11 @@ export function ImportDialog({
 }: {
   open: boolean;
   onOpenChange: (open: boolean) => void;
-  run: (req: ImportRequest, onStage: (stage: ImportStage) => void) => Promise<ImportSummary>;
+  run: (
+    req: ImportRequest,
+    onStage: (stage: ImportStage) => void,
+    onProgress: (done: number, total: number) => void,
+  ) => Promise<ImportSummary>;
 }): ReactElement {
   const id = useId();
   const [source, setSource] = useState<ImportSourceName>("claude");
@@ -67,18 +72,29 @@ export function ImportDialog({
   const [stage, setStage] = useState<ImportStage | null>(null);
   const [summary, setSummary] = useState<ImportSummary | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [progress, setProgress] = useState<{ done: number; total: number } | null>(null);
   const busy = stage !== null;
   const ready = mode === "memories" ? memories !== null : conversations !== null;
 
   const start = async () => {
     setError(null);
     setSummary(null);
+    setProgress(null);
+    const tooBig = [memories, mode === "both" ? conversations : null].find(
+      (f) => f !== null && f.size > MAX_EXPORT_BYTES,
+    );
+    if (tooBig) {
+      setError(
+        t("agent.memory.importConv.tooBig", { mb: Math.round(MAX_EXPORT_BYTES / 1024 / 1024) }),
+      );
+      return;
+    }
     setStage(mode === "both" && memories === null ? "conversations" : "memories");
     try {
       const req: ImportRequest = { source, mode };
       if (memories !== null) req.memories = await memories.text();
       if (mode === "both" && conversations !== null) req.conversations = await conversations.text();
-      setSummary(await run(req, setStage));
+      setSummary(await run(req, setStage, (done, total) => setProgress({ done, total })));
     } catch (err) {
       setError(describeError(err));
     } finally {
@@ -164,11 +180,16 @@ export function ImportDialog({
 
         {stage !== null ? (
           <p role="status" className="m-0 text-callout text-label-secondary">
-            {t(
-              stage === "memories"
-                ? "agent.memory.importConv.progressMemories"
-                : "agent.memory.importConv.progressConversations",
-            )}
+            {stage === "conversations" && progress !== null
+              ? t("agent.memory.importConv.progressCount", {
+                  done: progress.done,
+                  total: progress.total,
+                })
+              : t(
+                  stage === "memories"
+                    ? "agent.memory.importConv.progressMemories"
+                    : "agent.memory.importConv.progressConversations",
+                )}
           </p>
         ) : null}
 

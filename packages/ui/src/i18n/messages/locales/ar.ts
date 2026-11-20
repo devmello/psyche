@@ -879,6 +879,8 @@ export const ar: Partial<Catalogue> = {
   "agent.memory.importConv.skipEmpty": "بلا رسائل",
   "agent.memory.importConv.skipInvalid": "تعذّرت قراءتها",
   "agent.memory.importConv.untitled": "بلا عنوان",
+  "agent.memory.importConv.progressCount": "جارٍ استيراد المحادثات… {done} من {total}",
+  "agent.memory.importConv.tooBig": "حجم هذا الملف يتجاوز {mb} ميغابايت وهو كبير جدًا للقراءة هنا. أعد التصدير بنطاق أصغر.",
   "agent.memory.exported": "تم تصدير {file}.",
   "agent.memory.export": "تصدير كل شيء",
   "agent.memory.resetDone":
@@ -981,6 +983,7 @@ export const ar: Partial<Catalogue> = {
   "shell.threads.pin": "تثبيت",
   "shell.threads.archive": "أرشفة",
   "shell.threads.imported": "مستوردة",
+  "shell.threads.importedReadOnly": "هذه المحادثة المستوردة للقراءة فقط.",
   "shell.threads.restore": "استعادة",
   "shell.threads.region": "المحادثات",
   "shell.threads.filter": "تصفية المحادثات",

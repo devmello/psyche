@@ -65,6 +65,7 @@ pnpm i18n:check
 It also prints each language's coverage (`de: 2790/2840 ids translated (warning: 50 fall back to English)`). Missing ids are a warning, not a failure: they fall back to English one by one.
 
 These are exempt:
+
 - text inside `<code>`, `<kbd>`, `<pre>` and `<samp>`;
 - class-name-like values in object literals (`"text-muted-foreground"`);
 - stories, fixtures, tests, `mock-*` files and `sample-data` files.
@@ -72,6 +73,7 @@ These are exempt:
 For anything else that must stay as written, such as a product name or a protocol keyword, put `i18n-ignore` and the reason in a comment on that line or the line above. For a block of such values, use `i18n-ignore-start: <reason>` and `i18n-ignore-end`. The provider and model names in onboarding use this.
 
 The kit and the web app have no hard-coded text left, so `scripts/i18n-baseline.json` is empty: every file must stay at zero. The baseline mechanism remains for future checks that need one:
+
 - `pnpm i18n:check --update` locks in lower counts and refuses higher ones;
 - `--verbose` lists every remaining string.
 

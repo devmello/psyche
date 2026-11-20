@@ -5,8 +5,8 @@ Research for the Psyche run-trace design spec. Compiled 2026-10-25 from web sour
 **How to read this**
 
 - Bracketed numbers like `[12]` point to the numbered **Sources** list at the end. Every factual bullet carries at least one.
-- Source quality, best first: official docs, then changelogs and engineering blogs, then reputable press and reviews. Third-party claims are marked *(3p)*.
-- Dates: most sources are from 2025–2026. Older material is flagged *(older: year)*.
+- Source quality, best first: official docs, then changelogs and engineering blogs, then reputable press and reviews. Third-party claims are marked _(3p)_.
+- Dates: most sources are from 2025–2026. Older material is flagged _(older: year)_.
 - "Not documented" means I could not find the behaviour in the sources I checked. It does not mean the product lacks it.
 - The same ten facets are used for every product: **Step**, **Hierarchy**, **Time**, **Failure/retry**, **Live**, **Inspector**, **Replay**, **Cross-run**, **Export/share**, **Keys**.
 
@@ -157,7 +157,7 @@ Research for the Psyche run-trace design spec. Compiled 2026-10-25 from web sour
   - `GET /v1/agents/sessions/{id}/traces` returns **OTLP JSON**, paginated with `has_more` [20].
   - About 30 third-party processors are supported, including Langfuse, LangSmith, Braintrust and Datadog [19].
 
-**Operator** *(older: Jan 2025)*
+**Operator** _(older: Jan 2025)_
 
 - Operator works from screenshots in a remote browser [21].
 - **Takeover mode** applies to logins and payments, and in it Operator "does not collect or screenshot" what the user enters [21].
@@ -165,7 +165,7 @@ Research for the Psyche run-trace design spec. Compiled 2026-10-25 from web sour
 - **Watch mode** requires supervision on sensitive sites such as email [21][22].
 - A prompt-injection monitor pauses execution when it sees suspicious content [22].
 
-**ChatGPT agent** *(Jul 2025; mostly 3p)*
+**ChatGPT agent** _(Jul 2025; mostly 3p)_
 
 - Each chat gets a cloud VM [25].
 - Reviewers describe watching the run live and taking control at any time [23].
@@ -222,7 +222,7 @@ Research for the Psyche run-trace design spec. Compiled 2026-10-25 from web sour
   - Observation types are event, span, generation, agent, tool, chain, retriever, evaluator, embedding and guardrail [40].
 - **Views**
   - Tree/timeline toggle with search by type, ID or name, and optional colour coding (Mar 2025) [37].
-  - The timeline view is meant for latency bottlenecks and parallel steps *(older: Jun 2024)* [36].
+  - The timeline view is meant for latency bottlenecks and parallel steps _(older: Jun 2024)_ [36].
   - Agent graphs are inferred from timing and nesting (GA Nov 2025). They have an "Aggregated" view and an "as it ran" view [38][39].
   - The **Log View** concatenates every observation so you "skim every agent step just by scrolling" and can `Cmd+F` across the whole trace [38].
 - **Tools**: each generation lists all the tools available to the LLM, numbered, so called tools can be checked against what was offered [38].
@@ -281,7 +281,7 @@ Research for the Psyche run-trace design spec. Compiled 2026-10-25 from web sour
   - **JSON**: the raw history.
 - **Timeline rows**
   - Scheduled, Started and Completed collapse into **one Activity row that spans its duration**. Green means completed and red means failed [52].
-  - Retrying activities show a retry icon with the **current attempt number**. Tooltips show exact start, end and duration [52] *(older: Oct 2023)*.
+  - Retrying activities show a retry icon with the **current attempt number**. Tooltips show exact start, end and duration [52] _(older: Oct 2023)_.
 - **Live and filters (Aug 2024)** [51]
   - Events update live, and live updates can be **paused** while investigating.
   - Filter by event type and "Pending and Failed Events Only".
@@ -315,7 +315,7 @@ Research for the Psyche run-trace design spec. Compiled 2026-10-25 from web sour
 
 ## 11. Xcode Instruments (macOS-native reference)
 
-*(Help pages are undated or older, roughly 2017–2019. They are the macOS design reference, not agent-specific.)*
+_(Help pages are undated or older, roughly 2017–2019. They are the macOS design reference, not agent-specific.)_
 
 - **Tracks and timeline**
   - Each instrument, CPU core or thread gets its own **track** in a read-only timeline [55].
@@ -355,9 +355,9 @@ Research for the Psyche run-trace design spec. Compiled 2026-10-25 from web sour
 - **Time**: each step shows how long it took [61].
 - **Failure**: steps are collapsible, and **failed steps auto-expand** [61].
 - **Search and links**
-  - "Search logs" only searches *expanded* steps [61].
+  - "Search logs" only searches _expanded_ steps [61].
   - Clicking a line number gives a permalink to that line [61].
-- **Grouping**: `::group::title` … `::endgroup::` creates an expandable section inside a step's log [62] *(older doc version)*.
+- **Grouping**: `::group::title` … `::endgroup::` creates an expandable section inside a step's log [62] _(older doc version)_.
 - **Export**
   - "Download log archive" is in the gear menu. For a partially re-run workflow it contains only the re-run jobs [61].
   - The CLI `gh run view --log-failed` shows only failed steps [61].
@@ -376,8 +376,8 @@ Research for the Psyche run-trace design spec. Compiled 2026-10-25 from web sour
   - Action guards: approval before irreversible steps, at a frequency the user chooses.
   - Sandboxed execution.
   - Co-tasking, multi-tasking and long-term memory.
-- **Response-time limits (Nielsen)**: 0.1 s feels instant, 1 s keeps flow, 10 s keeps attention. Beyond 10 s, show a percent-done indicator and a way to interrupt [66] *(older: 1993, updated 2014)*.
-- **Perceived progress (Harrison et al., UIST 2007)**: progress-bar behaviour measurably changes how fast a process feels, and real progress is non-linear [67] *(older: 2007)*.
+- **Response-time limits (Nielsen)**: 0.1 s feels instant, 1 s keeps flow, 10 s keeps attention. Beyond 10 s, show a percent-done indicator and a way to interrupt [66] _(older: 1993, updated 2014)_.
+- **Perceived progress (Harrison et al., UIST 2007)**: progress-bar behaviour measurably changes how fast a process feels, and real progress is non-linear [67] _(older: 2007)_.
 - **Product evidence for "alive" waiting**
   - Claude Code's spinner verbs and tips, with a reduce-motion setting [5].
   - Linear's ephemeral `thought`/`action` lines replace one another instead of piling up [59].
@@ -551,7 +551,7 @@ Research for the Psyche run-trace design spec. Compiled 2026-10-25 from web sour
 - JSONL transcripts are stored per session and per subagent, with 30-day cleanup by default [3].
 - Optional OTel metrics, logs and events, and beta traces, with content redacted by default [6].
 
-**Implication for Psyche** *(synthesis)*
+**Implication for Psyche** _(synthesis)_
 
 - Persist an append-only `RunEvent` log, closest to the Linear and Temporal models.
 - Derive the span tree from that log, with OTel GenAI-compatible names (`invoke_agent`, `execute_tool`, `chat`) and a per-attempt `attempt` field.

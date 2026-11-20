@@ -815,6 +815,8 @@ export const es: Partial<Catalogue> = {
   "agent.memory.importConv.skipEmpty": "sin mensajes",
   "agent.memory.importConv.skipInvalid": "no se pudo leer",
   "agent.memory.importConv.untitled": "Sin título",
+  "agent.memory.importConv.progressCount": "Importando conversaciones… {done} de {total}",
+  "agent.memory.importConv.tooBig": "Este archivo supera los {mb} MB y es demasiado grande para leerlo aquí. Vuelve a exportar con un rango menor.",
   "agent.memory.exported": "Se exportó {file}.",
   "agent.memory.export": "Exportar todo",
   "agent.memory.resetDone":
@@ -926,6 +928,7 @@ export const es: Partial<Catalogue> = {
   "shell.threads.pin": "Fijar",
   "shell.threads.archive": "Archivar",
   "shell.threads.imported": "Importada",
+  "shell.threads.importedReadOnly": "Esta conversación importada es de solo lectura.",
   "shell.threads.restore": "Restaurar",
   "shell.threads.region": "Conversaciones",
   "shell.threads.filter": "Filtrar conversaciones",
