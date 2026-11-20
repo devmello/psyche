@@ -17,6 +17,7 @@ import {
 import { readFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { dirname, join } from "node:path";
+
 import { FakeSandboxRunner } from "@psyche/testing";
 import { Type } from "@sinclair/typebox";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
@@ -48,6 +49,8 @@ const hooks = vi.hoisted(() => ({
   chmod: undefined as ((path: string) => void) | undefined,
   rename: undefined as ((from: string) => void) | undefined,
   lstat: undefined as ((path: string) => void) | undefined,
+  readdir: undefined as ((path: string) => void) | undefined,
+  realpath: undefined as ((path: string) => void) | undefined,
 }));
 vi.mock("node:fs/promises", async (importOriginal) => {
   const real = await importOriginal<typeof import("node:fs/promises")>();
@@ -65,6 +68,17 @@ vi.mock("node:fs/promises", async (importOriginal) => {
       hooks.rename?.(String(from));
       return real.rename(from, to);
     }) as typeof real.rename,
+    readdir: ((path: Parameters<typeof real.readdir>[0], ...rest: unknown[]) => {
+      hooks.readdir?.(String(path));
+      return (real.readdir as (...a: unknown[]) => ReturnType<typeof real.readdir>)(path, ...rest);
+    }) as typeof real.readdir,
+    realpath: ((path: Parameters<typeof real.realpath>[0], ...rest: unknown[]) => {
+      hooks.realpath?.(String(path));
+      return (real.realpath as (...a: unknown[]) => ReturnType<typeof real.realpath>)(
+        path,
+        ...rest,
+      );
+    }) as typeof real.realpath,
     lstat: ((path: Parameters<typeof real.lstat>[0], ...rest: unknown[]) => {
       hooks.lstat?.(String(path));
       return (real.lstat as (...a: unknown[]) => ReturnType<typeof real.lstat>)(path, ...rest);
@@ -84,6 +98,8 @@ afterEach(() => {
   hooks.chmod = undefined;
   hooks.rename = undefined;
   hooks.lstat = undefined;
+  hooks.readdir = undefined;
+  hooks.realpath = undefined;
   writable(dir);
   rmSync(dir, { recursive: true, force: true });
 });
@@ -939,6 +955,43 @@ describe("code.run and launch config", () => {
       expect(report.unmoved).toContain("a/pkg/.npmrc");
     });
 
+    // #1457 review r1, W1: a folder above swapped for a link while the walk lists it.
+    it("W1: never names what is in a folder outside the repository", async () => {
+      const outside = join(dir, "Elsewhere-Home", "sub");
+      mkdirSync(join(outside, "Secret-Project-X"), { recursive: true });
+      mkdirSync(join(outside, "Secret-Repo", ".git", "hooks"), { recursive: true });
+      writeFileSync(join(outside, "Secret-Repo", ".git", "config"), "[core]\n");
+      writeFileSync(join(outside, ".npmrc"), "registry=x");
+      chmodSync(join(outside, "Secret-Project-X"), 0o000);
+      put("a/sub/readme.md");
+      const { use, runner, reports } = setup();
+      acts(runner, "swap", () => {
+        let done = false;
+        hooks.readdir = (path) => {
+          if (done || path !== join(repo, "a/sub")) return;
+          done = true;
+          renameSync(join(repo, "a"), join(repo, "a.moved"));
+          symlinkSync(join(dir, "Elsewhere-Home"), join(repo, "a"));
+        };
+      });
+      await use("code.open", { path: repo });
+      const r = await use("code.run", { root: repo, argv: ["swap"] });
+      const report = reports[0] as LaunchConfigReport;
+      // What the agent is told names nothing from there (#1469 review r1: only the agent's view
+      // is filtered; the owner is told the raw paths).
+      const said = JSON.stringify([report.agent, r.output.launchConfig]);
+      expect(said).not.toMatch(/Secret|registry|Elsewhere/);
+      // Said by the folder the swap was in, as swapped, with nothing in it (#1469 review r3).
+      // Walked again, the link stays a link and is not followed, and the owner's folder is
+      // walked under its real name (#1469 review r4).
+      expect(report.agent?.swapped).toEqual(["a/sub"]);
+      expect(report.agent?.unmoved).toEqual([]);
+      expect((r.output.launchConfig as { counts: { unmoved: number } }).counts.unmoved).toBe(0);
+      // Nothing outside was moved or changed.
+      expect(readdirSync(outside).sort()).toEqual([".npmrc", "Secret-Project-X", "Secret-Repo"]);
+      expect(lstatSync(join(outside, "Secret-Project-X")).mode & 0o7777).toBe(0o000);
+    });
+
     it("R3: a file inside an entry moved across volumes", async () => {
       const outside = owner();
       const { use, runner, reports } = setup();
@@ -978,6 +1031,637 @@ describe("code.run and launch config", () => {
       expect(existsSync(join(repo, ".vscode"))).toBe(false);
       const held = join(quarantine, report.quarantineId as string, "entries");
       expect(readFileSync(join(held, ".vscode/sub/tasks.json"), "utf8")).toBe("{}");
+    });
+  });
+
+  const leaks = (x: unknown) => JSON.stringify(x).match(/Secret[^"\\]*/g) ?? [];
+
+  // #1469 review r1: the reviewer's probes, as given (debug output left out). A folder swapped
+  // for a link while the guard reads names through it: no outside name reaches the agent, and the
+  // owner still hears of every change.
+  describe("#1469 review r1 probes", () => {
+    // A: the after-run fingerprint walk of an existing nested launch-config folder is not pinned.
+    it("A: after-prints swap of a rw parent, swapped back before the report", async () => {
+      const home = join(dir, "Elsewhere-Home");
+      mkdirSync(join(home, "Secret-Project-X"), { recursive: true });
+      writeFileSync(join(home, "Secret-Project-X", "plan-Secret.txt"), "x");
+      writeFileSync(join(home, "Secret-taxes.pdf"), "x");
+      put("web/.vscode/settings.json", "{}");
+      const { use, runner, reports } = setup();
+      let armed = false;
+      let swapped = false;
+      acts(runner, "noop", () => {
+        armed = true;
+      });
+      hooks.readdir = (path) => {
+        if (!armed || swapped || path !== join(repo, "web/.vscode")) return;
+        swapped = true;
+        mkdirSync(join(repo, "evil"));
+        symlinkSync(home, join(repo, "evil", ".vscode"));
+        renameSync(join(repo, "web"), join(repo, "web.real"));
+        symlinkSync(join(repo, "evil"), join(repo, "web"));
+      };
+      hooks.lstat = (path) => {
+        if (!swapped || path !== join(repo, ".git")) return;
+        swapped = false;
+        armed = false;
+        rmSync(join(repo, "web"));
+        renameSync(join(repo, "web.real"), join(repo, "web"));
+        rmSync(join(repo, "evil"), { recursive: true });
+      };
+      await use("code.open", { path: repo });
+      const r = await use("code.run", { root: repo, argv: ["noop"] });
+      const report = reports[0] as LaunchConfigReport;
+      expect(leaks(r.output.launchConfig)).toEqual([]);
+      // The agent is told only that the folder was swapped (#1469 review r3: nothing at or below
+      // it). The owner, that it could not be checked (it stayed swapped through every try), and
+      // never that the file in it is gone (#1469 review r4).
+      expect(report.agent?.changed).toEqual([]);
+      expect(report.agent?.swapped).toEqual(["web/.vscode"]);
+      expect(report.unchecked).toEqual(["web/.vscode"]);
+      expect(report.changed).not.toContain("web/.vscode/settings.json");
+      expect(report.unmoved).toEqual([]);
+    });
+
+    // B: the before-run fingerprint walk (a process left from an earlier run) is not pinned either.
+    it("B: before-prints swap, swapped back during the run", async () => {
+      const home = join(dir, "Elsewhere-Home");
+      mkdirSync(join(home, "Secret-Project-X"), { recursive: true });
+      writeFileSync(join(home, "Secret-Project-X", "plan-Secret.txt"), "x");
+      put("web/.vscode/settings.json", "{}");
+      const { use, runner, reports } = setup();
+      let swapped = false;
+      let done = false;
+      hooks.readdir = (path) => {
+        if (done || swapped || path !== join(repo, "web/.vscode")) return;
+        swapped = true;
+        mkdirSync(join(repo, "evil"));
+        symlinkSync(home, join(repo, "evil", ".vscode"));
+        renameSync(join(repo, "web"), join(repo, "web.real"));
+        symlinkSync(join(repo, "evil"), join(repo, "web"));
+      };
+      acts(runner, "noop", () => {
+        done = true;
+        swapped = false;
+        rmSync(join(repo, "web"));
+        renameSync(join(repo, "web.real"), join(repo, "web"));
+        rmSync(join(repo, "evil"), { recursive: true });
+      });
+      await use("code.open", { path: repo });
+      // #1469 review r2, item 3, and r4, finding 3: the read-only folder was swapped while the
+      // snapshot read it, so the snapshot is taken again. That one sees the link as a link and
+      // the owner's folder under its real name (mounted read-only there), so the run goes ahead,
+      // and the owner's folder is never taken for new when it is put back.
+      const r = await use("code.run", { root: repo, argv: ["noop"] });
+      expect(runner.execs).toHaveLength(1);
+      expect(leaks(r.output.launchConfig)).toEqual([]);
+      expect(reports[0]?.quarantined ?? []).toEqual([]);
+      expect(readFileSync(join(repo, "web/.vscode/settings.json"), "utf8")).toBe("{}");
+    });
+
+    // C: before-walk swap (W1 shape, but in guardLaunchConfig's scan): an unlistable outside folder.
+    it("C: before-walk swap leaks an unlistable outside name via ids.hidden", async () => {
+      const outside = join(dir, "Elsewhere-Home", "sub");
+      mkdirSync(join(outside, "Secret-Project-X"), { recursive: true });
+      mkdirSync(join(outside, "Secret-Repo", ".git", "hooks"), { recursive: true });
+      writeFileSync(join(outside, "Secret-Repo", ".git", "config"), "[core]\n");
+      chmodSync(join(outside, "Secret-Project-X"), 0o000);
+      put("a/sub/readme.md");
+      const { use, runner, reports } = setup();
+      let done = false;
+      hooks.readdir = (path) => {
+        if (done || path !== join(repo, "a/sub")) return;
+        done = true;
+        renameSync(join(repo, "a"), join(repo, "a.moved"));
+        symlinkSync(join(dir, "Elsewhere-Home"), join(repo, "a"));
+      };
+      acts(runner, "noop", () => {
+        rmSync(join(repo, "a"));
+        renameSync(join(repo, "a.moved"), join(repo, "a"));
+      });
+      await use("code.open", { path: repo });
+      let r: { output: Record<string, unknown> } | undefined;
+      let err: unknown;
+      try {
+        r = await use("code.run", { root: repo, argv: ["noop"] });
+      } catch (e) {
+        err = e;
+      }
+      expect(leaks([reports[0], r?.output.launchConfig, String(err)])).toEqual([]);
+    });
+
+    // D: a collapsed change has a constant fingerprint. Since #1469 review r4 a folder swapped
+    // out and back while it is read is read again, so the owner gets the file's real print.
+    it("D: a known .npmrc changed while its folder's listing is forced to '' is named by the folder with a constant print", async () => {
+      put("a/sub/.npmrc", "save-exact=true\n");
+      const { use, runner, reports } = setup();
+      for (let i = 0; i < 2; i++) {
+        let armed = false;
+        let done = false;
+        acts(runner, `edit${i}`, () => {
+          put("a/sub/.npmrc", `node-options=--require /tmp/x${i}.js\n`);
+          armed = true;
+        });
+        hooks.readdir = (path) => {
+          if (!armed || done || path !== join(repo, "a/sub")) return;
+          done = true;
+          renameSync(join(repo, "a"), join(repo, "a.moved"));
+          symlinkSync(join(repo, "a.moved"), join(repo, "a"));
+        };
+        // Back at the guard's next look anywhere else.
+        hooks.lstat = (path) => {
+          if (!done || path.startsWith(join(repo, "a"))) return;
+          hooks.lstat = undefined;
+          rmSync(join(repo, "a"));
+          renameSync(join(repo, "a.moved"), join(repo, "a"));
+        };
+        await use("code.open", { path: repo });
+        await use("code.run", { root: repo, argv: [`edit${i}`] });
+      }
+      expect(reports[0]?.fingerprints).not.toEqual(reports[1]?.fingerprints);
+      for (const r of reports) {
+        expect(r.changed).toEqual(["a/sub/.npmrc"]);
+        expect(r.fingerprints["a/sub/.npmrc"]).toMatch(/^file:/);
+        expect(r.unchecked).toBeUndefined();
+        expect(r.unmoved).toEqual([]);
+      }
+      expect(readFileSync(join(repo, "a/sub/.npmrc"), "utf8")).toContain("node-options");
+    });
+  });
+
+  // #1469 review r2: the reviewer's probes (debug output left out), with what they show asserted.
+  describe("#1469 review r2 probes", () => {
+    /** Probe A's swap, with the agent choosing where `evil/.vscode` leads. */
+    async function oracle(target: string) {
+      put("web/.vscode/settings.json", "{}");
+      const { use, runner, reports } = setup();
+      let armed = false;
+      let swapped = false;
+      acts(runner, "noop", () => {
+        armed = true;
+      });
+      hooks.readdir = (path) => {
+        if (!armed || swapped || path !== join(repo, "web/.vscode")) return;
+        swapped = true;
+        mkdirSync(join(repo, "evil"));
+        symlinkSync(target, join(repo, "evil", ".vscode"));
+        renameSync(join(repo, "web"), join(repo, "web.real"));
+        symlinkSync(join(repo, "evil"), join(repo, "web"));
+      };
+      hooks.lstat = (path) => {
+        if (!swapped || path !== join(repo, ".git")) return;
+        swapped = false;
+        armed = false;
+        rmSync(join(repo, "web"));
+        renameSync(join(repo, "web.real"), join(repo, "web"));
+        rmSync(join(repo, "evil"), { recursive: true });
+      };
+      await use("code.open", { path: repo });
+      const r = await use("code.run", { root: repo, argv: ["noop"] });
+      return { out: r.output.launchConfig, report: reports[0] as LaunchConfigReport };
+    }
+    const outsideWithSeven = () => {
+      const home = join(dir, "Elsewhere-Home");
+      mkdirSync(join(home, "Secret-Sub"), { recursive: true });
+      for (let i = 0; i < 4; i++) writeFileSync(join(home, `f${i}`), "x");
+      for (let i = 0; i < 3; i++) writeFileSync(join(home, "Secret-Sub", `g${i}`), "x");
+      return home;
+    };
+
+    it("R1a: counts/withheld for an outside folder with 7 files", async () => {
+      const { out } = await oracle(outsideWithSeven());
+      expect(leaks(out)).toEqual([]);
+    });
+
+    it("R1b: counts/withheld for a path that does not exist", async () => {
+      const { out } = await oracle(join(dir, "No-Such-Folder"));
+      expect(leaks(out)).toEqual([]);
+    });
+
+    it("tells the agent the same for a folder outside with 7 files and for no folder at all", async () => {
+      const seven = await oracle(outsideWithSeven());
+      // A second repository, the same in every way, whose swap leads nowhere.
+      hooks.readdir = undefined;
+      hooks.lstat = undefined;
+      writable(repo);
+      rmSync(repo, { recursive: true, force: true });
+      mkdirSync(join(repo, "src"), { recursive: true });
+      writeFileSync(join(repo, "src", "a.js"), "export const a = 1;\n");
+      const none = await oracle(join(dir, "No-Such-Folder"));
+      expect(JSON.stringify(seven.out)).toBe(JSON.stringify(none.out));
+      // The owner is told either way that the folder could not be checked.
+      expect(seven.report.unchecked).toEqual(["web/.vscode"]);
+      expect(none.report.unchecked).toEqual(["web/.vscode"]);
+    });
+
+    it("R2: .claude link to an in-repo target, its parent swapped during prints, back before claudeLeads", async () => {
+      const elsewhere = join(dir, "Elsewhere-Home");
+      mkdirSync(join(elsewhere, "claude"), { recursive: true });
+      writeFileSync(join(elsewhere, "claude", "settings-Secret-client.json"), "{}");
+      put("config/claude/settings.json", "{}");
+      symlinkSync("config/claude", join(repo, ".claude"));
+      const { use, runner } = setup();
+      let armed = false;
+      let swapped = false;
+      acts(runner, "noop", () => {
+        armed = true;
+      });
+      hooks.readdir = (path) => {
+        if (!armed || swapped || path !== join(repo, ".claude")) return;
+        swapped = true;
+        renameSync(join(repo, "config"), join(repo, "config.real"));
+        symlinkSync(elsewhere, join(repo, "config"));
+      };
+      hooks.realpath = (path) => {
+        if (!swapped || path !== join(repo, ".claude")) return;
+        swapped = false;
+        rmSync(join(repo, "config"));
+        renameSync(join(repo, "config.real"), join(repo, "config"));
+      };
+      await use("code.open", { path: repo });
+      const r = await use("code.run", { root: repo, argv: ["noop"] });
+      expect(leaks(r.output.launchConfig)).toEqual([]);
+    });
+
+    it("R3: probe B outcome for the owner's folder", async () => {
+      const home = join(dir, "Elsewhere-Home");
+      mkdirSync(home, { recursive: true });
+      put("web/.vscode/settings.json", "{}");
+      const { use, runner, reports } = setup();
+      let swapped = false;
+      let done = false;
+      hooks.readdir = (path) => {
+        if (done || swapped || path !== join(repo, "web/.vscode")) return;
+        swapped = true;
+        mkdirSync(join(repo, "evil"));
+        symlinkSync(home, join(repo, "evil", ".vscode"));
+        renameSync(join(repo, "web"), join(repo, "web.real"));
+        symlinkSync(join(repo, "evil"), join(repo, "web"));
+      };
+      acts(runner, "noop", () => {
+        done = true;
+        rmSync(join(repo, "web"));
+        renameSync(join(repo, "web.real"), join(repo, "web"));
+        rmSync(join(repo, "evil"), { recursive: true });
+      });
+      await use("code.open", { path: repo });
+      // Swapped while the snapshot read it: the snapshot is taken again (#1469 review r4), which
+      // reads the owner's folder under its real name, so it is never taken for one the run made
+      // (#1469 review r2, item 3).
+      await use("code.run", { root: repo, argv: ["noop"] });
+      expect(runner.execs).toHaveLength(1);
+      expect(reports[0]?.quarantined ?? []).toEqual([]);
+      expect(existsSync(join(repo, "web/.vscode/settings.json"))).toBe(true);
+    });
+  });
+
+  // #1469 review r3: the reviewer's probes (debug output left out), with what they show asserted,
+  // and the same shape at each other look the guard takes after the run.
+  describe("#1469 review r3 probes", () => {
+    /** A new repository in a new `dir`, for one more case of a comparison. */
+    const fresh = () => {
+      hooks.readdir = undefined;
+      hooks.lstat = undefined;
+      writable(dir);
+      rmSync(dir, { recursive: true, force: true });
+      mkdirSync(join(repo, "src"), { recursive: true });
+      writeFileSync(join(repo, "src", "a.js"), "export const a = 1;\n");
+    };
+    const run = async (s: ReturnType<typeof setup>) => {
+      await s.use("code.open", { path: repo });
+      return s.use("code.run", { root: repo, argv: ["noop"] });
+    };
+
+    // Finding 1: a nested repository found only by probing has a folder no listing named.
+    it("N1: runs on a repository with a nested repo inside a skipped folder (build/lib/.git)", async () => {
+      put("build/lib/.git/config", "[core]\n");
+      put("build/lib/.git/HEAD", "ref: refs/heads/main\n");
+      const s = setup();
+      acts(s.runner, "noop", () => undefined);
+      await run(s);
+      expect(s.runner.execs).toHaveLength(1);
+    });
+
+    it("N1b: runs on a repository walked only at its top levels with packages/foo/.git", async () => {
+      put("packages/foo/.git/config", "[core]\n");
+      put("packages/foo/.git/HEAD", "ref: refs/heads/main\n");
+      for (let i = 0; i < 6; i++) put(`d${i}/x/y.txt`);
+      const s = setup(new FakeSandboxRunner(), 4);
+      acts(s.runner, "noop", () => undefined);
+      await run(s);
+      expect(s.runner.execs).toHaveLength(1);
+    });
+
+    /**
+     * Swaps `folder` for a link to `Outside/<its name>` (a nested repository) at each read `at`,
+     * and back at the guard's next look anywhere else: it changes every time it is read, in each
+     * snapshot, so no fresh try is ever clean.
+     */
+    const refusedWhen = async (
+      folder: string,
+      at: { readdir?: string; lstat?: string },
+      maxDirs?: number,
+    ) => {
+      const name = folder.split("/").pop() as string;
+      mkdirSync(join(dir, "Outside", name, ".git"), { recursive: true });
+      writeFileSync(join(dir, "Outside", name, ".git", "config"), "[core]\n");
+      const s = setup(new FakeSandboxRunner(), maxDirs);
+      acts(s.runner, "noop", () => undefined);
+      let out = false;
+      let swaps = 0;
+      const flap = (path: string, want?: string) => {
+        if (!out && path === want) {
+          out = true;
+          swaps++;
+          renameSync(join(repo, folder), join(repo, `${folder}.moved`));
+          symlinkSync(join(dir, "Outside", name), join(repo, folder));
+        } else if (out && path !== want && !path.startsWith(join(repo, folder))) {
+          out = false;
+          rmSync(join(repo, folder));
+          renameSync(join(repo, `${folder}.moved`), join(repo, folder));
+        }
+      };
+      hooks.readdir = (path) => flap(path, at.readdir);
+      hooks.lstat = (path) => flap(path, at.lstat);
+      await s.use("code.open", { path: repo });
+      await expect(s.use("code.run", { root: repo, argv: ["noop"] })).rejects.toMatchObject({
+        code: "forbidden",
+        details: { reason: "launch_config_moved" },
+      });
+      // Swapped in each of the two snapshots (through every fresh try), before the run was refused.
+      expect(swaps).toBeGreaterThanOrEqual(2);
+      expect(s.runner.execs).toHaveLength(0);
+    };
+
+    it("N1: still refused when the skipped folder is swapped while it is listed", async () => {
+      put("build/lib/.git/config", "[core]\n");
+      await refusedWhen("build", { readdir: join(repo, "build") });
+    });
+
+    it("N1: still refused when the probed folder is swapped while its git folder is read", async () => {
+      put("build/lib/.git/config", "[core]\n");
+      await refusedWhen("build/lib", { lstat: join(repo, "build/lib/.git/config") });
+    });
+
+    it("N1b: still refused when the probed folder is swapped while its git folder is read", async () => {
+      put("packages/foo/.git/config", "[core]\n");
+      for (let i = 0; i < 6; i++) put(`d${i}/x/y.txt`);
+      await refusedWhen("packages/foo", { lstat: join(repo, "packages/foo/.git/config") }, 4);
+    });
+
+    it("N1b: still refused when the probed folder is swapped while it is probed", async () => {
+      put("packages/foo/.git/config", "[core]\n");
+      for (let i = 0; i < 6; i++) put(`d${i}/x/y.txt`);
+      await refusedWhen("packages/foo", { lstat: join(repo, "packages/foo/.git") }, 4);
+    });
+
+    /**
+     * Finding 2 (W1's shape, after the run): the agent's leftover process swaps `a` for a link to
+     * `Outside` while the walk lists `a/probe`, so the walk reads `Outside/probe`, which is `kind`.
+     */
+    async function w1(kind: "repo" | "locked" | "missing" | "plain") {
+      fresh();
+      const outside = join(dir, "Outside", "probe");
+      mkdirSync(kind === "missing" ? join(dir, "Outside") : outside, { recursive: true });
+      if (kind === "locked") chmodSync(outside, 0o000);
+      if (kind === "repo") {
+        mkdirSync(join(outside, ".git", "hooks"), { recursive: true });
+        writeFileSync(join(outside, ".git", "config"), "[core]\n");
+        mkdirSync(join(outside, ".vscode"), { recursive: true });
+      }
+      if (kind === "plain") writeFileSync(join(outside, "notes.txt"), "x");
+      put("a/probe/readme.md");
+      const s = setup();
+      let armed = false;
+      let done = false;
+      acts(s.runner, "noop", () => {
+        armed = true;
+      });
+      hooks.readdir = (path) => {
+        if (!armed || done || path !== join(repo, "a/probe")) return;
+        done = true;
+        renameSync(join(repo, "a"), join(repo, "a.moved"));
+        symlinkSync(join(dir, "Outside"), join(repo, "a"));
+      };
+      const r = await run(s);
+      expect(done).toBe(true);
+      return { out: r.output.launchConfig, report: s.reports[0] as LaunchConfigReport };
+    }
+
+    it("N2/N3: tells the agent the same for a repository, a locked folder, a missing one and a plain one", async () => {
+      const repoCase = await w1("repo");
+      const locked = await w1("locked");
+      const missing = await w1("missing");
+      const plain = await w1("plain");
+      const said = JSON.stringify(repoCase.out);
+      expect(JSON.stringify(locked.out)).toBe(said);
+      expect(JSON.stringify(missing.out)).toBe(said);
+      expect(JSON.stringify(plain.out)).toBe(said);
+      // The swap alone is said, always with the notice, and nothing about the walk's size.
+      const out = repoCase.out as Record<string, unknown>;
+      expect(out.swapped).toEqual(["a/probe"]);
+      expect(out.notice).toMatch(/found a\/probe changed while it read them/);
+      expect(out).not.toHaveProperty("partial");
+      expect(out.unmoved).toEqual([]);
+      // The owner is never told to delete it (#1469 review r4, finding 2).
+      expect(repoCase.report.unmoved).toEqual([]);
+      expect(repoCase.report.partial).toBe(false);
+    });
+
+    /**
+     * The same, at the probe for a nested repository below a skipped folder: `build/x` swapped for
+     * a link while the walk looks for its `.git`.
+     */
+    async function probed(kind: "repo" | "none") {
+      fresh();
+      const outside = join(dir, "Outside", "x");
+      mkdirSync(outside, { recursive: true });
+      if (kind === "repo") {
+        mkdirSync(join(outside, ".git", "hooks"), { recursive: true });
+        writeFileSync(join(outside, ".git", "config"), "[core]\n");
+      }
+      put("build/x/out.js");
+      const s = setup();
+      let armed = false;
+      let done = false;
+      acts(s.runner, "noop", () => {
+        armed = true;
+      });
+      hooks.lstat = (path) => {
+        if (!armed || done || path !== join(repo, "build/x/.git")) return;
+        done = true;
+        renameSync(join(repo, "build/x"), join(repo, "build/x.moved"));
+        symlinkSync(outside, join(repo, "build/x"));
+      };
+      const r = await run(s);
+      expect(done).toBe(true);
+      return r.output.launchConfig as Record<string, unknown>;
+    }
+
+    it("tells the agent the same whether a folder probed through a swap holds a .git or not", async () => {
+      const yes = await probed("repo");
+      const no = await probed("none");
+      expect(JSON.stringify(yes)).toBe(JSON.stringify(no));
+      expect(yes.swapped).toEqual(["build/x"]);
+    });
+
+    /**
+     * The same, at the look at a read-only folder's identity after the run: `web` swapped for a
+     * link to `Outside` while the guard looks at `web/.vscode`.
+     */
+    async function mounted(kind: "has" | "none") {
+      fresh();
+      put("web/.vscode/settings.json", "{}");
+      const outside = join(dir, "Outside");
+      mkdirSync(outside, { recursive: true });
+      if (kind === "has") {
+        mkdirSync(join(outside, ".vscode"), { recursive: true });
+        writeFileSync(join(outside, ".vscode", "settings.json"), "{}");
+      }
+      const s = setup();
+      let armed = false;
+      let done = false;
+      acts(s.runner, "noop", () => {
+        armed = true;
+      });
+      hooks.lstat = (path) => {
+        if (!armed || done || path !== join(repo, "web/.vscode")) return;
+        done = true;
+        renameSync(join(repo, "web"), join(repo, "web.real"));
+        symlinkSync(outside, join(repo, "web"));
+      };
+      const r = await run(s);
+      expect(done).toBe(true);
+      return { out: r.output.launchConfig as Record<string, unknown>, report: s.reports[0] };
+    }
+
+    it("tells the agent the same whether a read-only folder's swapped path holds one or not", async () => {
+      const yes = await mounted("has");
+      const no = await mounted("none");
+      expect(JSON.stringify(yes.out)).toBe(JSON.stringify(no.out));
+      expect(yes.out.swapped).toEqual(["web"]);
+      // The owner hears of it either way, as not checked, never as one to delete.
+      expect(yes.report?.unchecked).toEqual(["web"]);
+      expect(no.report?.unchecked).toEqual(["web"]);
+      expect(yes.report?.unmoved).toEqual([]);
+    });
+
+    /**
+     * A move that brings in something else (a folder above swapped for a link right before it):
+     * said to the agent as not moved, as when there is nothing there to bring in.
+     */
+    async function incident(kind: "has" | "none") {
+      fresh();
+      const other = join(dir, "OtherProject");
+      mkdirSync(other, { recursive: true });
+      if (kind === "has") {
+        mkdirSync(join(other, ".vscode"), { recursive: true });
+        writeFileSync(join(other, ".vscode", "settings.json"), "owner's");
+      }
+      put("sub/readme.md");
+      const s = setup(new FakeSandboxRunner(), undefined, () => {
+        renameSync(join(repo, "sub"), join(repo, "sub-was"));
+        symlinkSync(other, join(repo, "sub"));
+      });
+      acts(s.runner, "noop", () => put("sub/.vscode/tasks.json", "{}"));
+      const r = await run(s);
+      return { out: r.output.launchConfig as Record<string, unknown>, report: s.reports[0] };
+    }
+
+    it("tells the agent the same whether a move through a swap brought something in or not", async () => {
+      const yes = await incident("has");
+      const no = await incident("none");
+      // The owner is told of the incident.
+      expect(yes.report?.incidents).toEqual(["sub/.vscode"]);
+      expect(no.report?.incidents).toEqual([]);
+      expect(JSON.stringify(yes.out)).toBe(JSON.stringify(no.out));
+      expect(yes.out.unmoved).toEqual(["sub/.vscode"]);
+      expect(yes.out.quarantined).toEqual([]);
+    });
+  });
+
+  // #1469 review r4: the reviewer's probes (debug output left out), with what they show asserted.
+  describe("#1469 review r4 probes", () => {
+    // Finding 1: one swap out and back while the after-run walk lists the folder.
+    it("Q1: holds a new a/.vscode when a is swapped out and back while the walk lists it", async () => {
+      put("a/readme.md");
+      const { use, runner, reports } = setup();
+      let armed = false;
+      let state = 0;
+      const back = () => {
+        state = 2;
+        rmSync(join(repo, "a"));
+        renameSync(join(repo, "a.moved"), join(repo, "a"));
+      };
+      acts(runner, "plant", () => {
+        put("a/.vscode/tasks.json", '{"runOn":"folderOpen"}');
+        armed = true;
+      });
+      hooks.readdir = (path) => {
+        if (!armed) return;
+        if (state === 0 && path === join(repo, "a")) {
+          state = 1;
+          renameSync(join(repo, "a"), join(repo, "a.moved"));
+          symlinkSync(join(repo, "a.moved"), join(repo, "a"));
+        } else if (state === 1 && path !== join(repo, "a")) {
+          back();
+        }
+      };
+      hooks.lstat = (path) => {
+        if (state === 1 && path !== join(repo, "a") && !path.startsWith(join(repo, "a"))) back();
+      };
+      await use("code.open", { path: repo });
+      const r = await use("code.run", { root: repo, argv: ["plant"] });
+      expect(state).toBe(2);
+      const report = reports[0] as LaunchConfigReport;
+      // Held, as on main: the folder was read again once it was the repository's.
+      expect(report.quarantined).toEqual(["a/.vscode"]);
+      expect(existsSync(join(repo, "a/.vscode/tasks.json"))).toBe(false);
+      expect(report.unchecked).toBeUndefined();
+      expect(report.unmoved).toEqual([]);
+      // The agent is told only that `a` changed while it was read.
+      const out = r.output.launchConfig as Record<string, unknown>;
+      expect(out.swapped).toEqual(["a"]);
+      expect(out.quarantined).toEqual([]);
+    });
+
+    // Finding 3: a build that makes `dist` again while the snapshot probes it.
+    it("Q2: runs when dist is made again while the snapshot reads it", async () => {
+      put("dist/index.js");
+      const { use, runner } = setup();
+      acts(runner, "noop", () => undefined);
+      let n = 0;
+      hooks.readdir = (path) => {
+        if (path !== join(repo, "dist") || n++ > 0) return;
+        rmSync(join(repo, "dist"), { recursive: true });
+        mkdirSync(join(repo, "dist"));
+      };
+      await use("code.open", { path: repo });
+      await use("code.run", { root: repo, argv: ["noop"] });
+      expect(n).toBeGreaterThan(0);
+      expect(runner.execs).toHaveLength(1);
+    });
+
+    // Finding 2: the owner is never told to delete a folder that only changed while it was read.
+    it("Q3: says nothing to the owner when a watcher makes dist again while the guard settles", async () => {
+      put("dist/index.js");
+      const { use, runner, reports } = setup();
+      let armed = false;
+      let n = 0;
+      acts(runner, "noop", () => {
+        armed = true;
+      });
+      hooks.readdir = (path) => {
+        if (!armed || path !== join(repo, "dist") || n++ > 0) return;
+        rmSync(join(repo, "dist"), { recursive: true });
+        mkdirSync(join(repo, "dist"));
+      };
+      await use("code.open", { path: repo });
+      const r = await use("code.run", { root: repo, argv: ["noop"] });
+      expect(n).toBeGreaterThan(0);
+      expect(reports[0]?.unmoved ?? []).toEqual([]);
+      expect(reports[0]?.unchecked).toBeUndefined();
+      expect((r.output.launchConfig as Record<string, unknown>).swapped).toEqual(["dist"]);
     });
   });
 

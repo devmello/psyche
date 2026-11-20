@@ -26,6 +26,7 @@ import type { LibrarySink } from "@psyche/connectors";
 import {
   deleteLibraryItem,
   getLibraryItem,
+  getThread,
   insertLibraryItem,
   listLibraryItemsPage,
   type NewLibraryItem,
@@ -44,6 +45,7 @@ import {
 } from "@psyche/protocol";
 import type { Call, HandlerDef } from "../context.ts";
 import { decodeOffset, encodeOffset } from "../handlers/threads.ts";
+import { assertWritableThread } from "../session/imported-threads.ts";
 
 /**
  * The Library (data model §9; feature P4): files under `$PSYCHE_HOME/library`, indexed in the
@@ -362,6 +364,10 @@ export function libraryHandlers(setup: LibrarySetup): Record<string, HandlerDef>
         let uploadId = params.uploadId;
         let u: Staged | undefined;
         if (uploadId === undefined) {
+          if (params.threadId != null) {
+            const host = getThread(db, params.threadId);
+            if (host !== undefined) assertWritableThread(host, "attached to");
+          }
           const mine = [...staged.values()].filter((s) => s.deviceId === call.identity.deviceId);
           if (mine.length >= UPLOADS_PER_DEVICE) {
             throw new PsycheError("rate_limited", "too many uploads in progress");

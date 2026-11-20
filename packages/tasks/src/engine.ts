@@ -303,6 +303,16 @@ export class SqliteTaskEngine implements TaskEngine {
   // --- TaskEngine ------------------------------------------------------------------------------
 
   async create(input: CreateTaskInput): Promise<Task> {
+    // An imported conversation is somebody's export file: nothing runs in it (read-only).
+    const host = this.#db.sqlite
+      .prepare("SELECT imported FROM threads WHERE id = ?")
+      .get(input.threadId) as { imported: string | null } | undefined;
+    if (host?.imported != null) {
+      throw new PsycheError(
+        "forbidden",
+        "Imported conversations are read-only: no task can run in one.",
+      );
+    }
     const id = this.#newId();
     const now = this.#iso();
     const event = this.#tx(() => {
