@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { KeepAwake, type PowerProcess } from "../src/index.ts";
+import { CAFFEINATE_PATH, KeepAwake, type PowerProcess } from "../src/index.ts";
 
 /** A fake power API: records each caffeinate start and lets the test end it. */
 function fakePower() {
@@ -58,7 +58,7 @@ describe("keep-awake hold", () => {
     keep.sync();
     expect(keep.holding()).toBe(true);
     expect(power.started).toHaveLength(1);
-    expect(power.started[0]?.command).toBe("caffeinate");
+    expect(power.started[0]?.command).toBe("/usr/bin/caffeinate");
     expect(power.started[0]?.args).toEqual(["-i", "-w", "4242"]);
     // Another sync with the same run does not start a second assertion.
     keep.sync();

@@ -3,6 +3,9 @@ import { spawn as nodeSpawn } from "node:child_process";
 /** The setting the owner turns on in Settings → Scheduled ("Keep this Mac awake while scheduled work runs"). */
 export const KEEP_AWAKE_SETTING = "scheduled.keepAwake";
 
+/** The macOS power tool, by absolute path: the Gateway's PATH never decides which program runs. */
+export const CAFFEINATE_PATH = "/usr/bin/caffeinate";
+
 /** The part of a child process the hold needs. */
 export interface PowerProcess {
   kill(): boolean | void;
@@ -63,7 +66,7 @@ export class KeepAwake {
     const pid = this.#o.pid ?? process.pid;
     let proc: PowerProcess;
     try {
-      proc = spawn("caffeinate", ["-i", "-w", String(pid)]);
+      proc = spawn(CAFFEINATE_PATH, ["-i", "-w", String(pid)]);
     } catch (e) {
       this.#o.onError?.(e);
       return;
