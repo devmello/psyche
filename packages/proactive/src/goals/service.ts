@@ -599,7 +599,7 @@ export class GoalsService {
         ? {}
         : {
             plan: mergePlan(
-              goal.plan,
+              goal.plan ?? null,
               patch.plan,
               new Set(this.store.milestones(goalId).map((m) => m.id)),
             ),
