@@ -84,10 +84,12 @@ import {
   estimateBreakdown,
   estimateContextTokens,
   hasUnansweredToolCalls,
+  type LoopPrefix,
   renderCompactionSummary,
   scaleBreakdown,
   splitForCompaction,
-  summarizeStructured,
+  summarizeInPlace,
+  summarizeWithNotes,
 } from "./compaction.ts";
 import {
   assembleContext,
@@ -181,6 +183,7 @@ import {
 import {
   stubTurnContext,
   TRUSTED_CONTEXT_CAP,
+  TURN_CONTEXT_STUB,
   type TurnContextProvider,
   UNTRUSTED_CONTEXT_CAP,
 } from "./turn-context.ts";
@@ -218,7 +221,25 @@ const notifyKey = (run: { taskId?: string; runId: string }) =>
   run.taskId === undefined ? `run:${run.runId}` : `task:${run.taskId}`;
 
 export const DEFAULT_COMPACT_AT = 0.8;
+/**
+ * The default threshold is also capped in tokens: a window of a million tokens would otherwise
+ * read 800,000 of them on every step before compacting. Owner limits win over it: an explicit
+ * `compactAt`, an explicit `maxTokens`, or the loop's `compaction.thresholdRatio`.
+ */
+export const DEFAULT_COMPACT_MAX_TOKENS = 160_000;
 export const DEFAULT_KEEP_RECENT_TURNS = 4;
+
+/** The start of the first message that stays after a compaction (names the cut for the summarizer). */
+function keptFromText(recent: readonly ModelMessage[]): string | undefined {
+  const first = recent[0];
+  if (first === undefined) return undefined;
+  for (const p of first.parts) {
+    if (p.type !== "text" || p.turnContext === true || p.text === TURN_CONTEXT_STUB) continue;
+    const text = p.text.replace(/\s+/g, " ").replace(/"/g, "'").trim();
+    if (text !== "") return text.slice(0, safeEnd(text, 120));
+  }
+  return undefined;
+}
 
 /** What a compaction did, for the Gateway's `compaction` block and audit entry. */
 export interface CompactionInfo {
@@ -1591,7 +1612,13 @@ export class PsycheAgentLoop implements AgentLoop {
     let estimate = estimateContextTokens(built.system, this.#requestMessages(run), built.tools);
     // Owner-set limits (thread → settings → model): compact before the call would pass compactAt.
     if (estimate > limits.maxTokens * limits.compactAt) {
-      if (await this.#compact(run, estimate, limits.contextWindow, "auto")) {
+      const prefix = {
+        system: built.system,
+        systemStableLength: built.systemStableLength,
+        tools: built.tools,
+        deferredTools: built.tools.length === 0 ? [] : built.deferredTools,
+      };
+      if (await this.#compact(run, estimate, limits.contextWindow, "auto", prefix)) {
         built = await this.#assemble(run);
         estimate = estimateContextTokens(built.system, this.#requestMessages(run), built.tools);
       }
@@ -1916,6 +1943,8 @@ export class PsycheAgentLoop implements AgentLoop {
     estimate: number,
     window: number,
     trigger: "auto" | "manual",
+    /** The loop's own system and tools, for a summarizer that reuses its cached prefix. */
+    prefix?: Omit<LoopPrefix, "model" | "messages">,
   ): Promise<boolean> {
     const keep = run.limits?.keepRecentTurns ?? this.#policy.keepRecentTurns;
     const split = splitForCompaction(run.thread.messages, keep);
@@ -1930,7 +1959,10 @@ export class PsycheAgentLoop implements AgentLoop {
     const untrusted = containsUntrusted(older) || run.thread.summary?.untrusted === true;
     const signal = run.abort.signal;
     const memory = this.#o.memory;
-    if (memory?.flush !== undefined && this.#o.isIncognito?.(run.threadId) !== true) {
+    const incognito = this.#o.isIncognito?.(run.threadId) === true;
+    const merged = memory?.flushLines !== undefined;
+    // A store without `flushLines` still gets its own flush call first, on the same stubbed turns.
+    if (!merged && memory?.flush !== undefined && !incognito) {
       try {
         const copy = structuredClone(run.thread.messages);
         stubTurnContext(copy);
@@ -1951,20 +1983,47 @@ export class PsycheAgentLoop implements AgentLoop {
       });
     }
     let structured: CompactionSummary;
+    let notes: string[] = [];
     try {
-      structured = await summarizeStructured(
-        this.#o.provider,
-        this.#o.utilityModel ?? run.model,
-        run.thread.summary?.structured,
-        run.thread.summary?.structured === undefined ? run.thread.summary?.text : undefined,
-        older,
-        this.#policy,
-        { signal },
-      );
+      const utility = this.#o.utilityModel ?? run.model;
+      // On the run's own model the summarizer is a fork of the loop's request, so the provider
+      // serves the history from its cache. A different (cheaper) utility model has no such cache:
+      // it gets the standalone request, which costs less than cached reads on the primary model.
+      const reply =
+        prefix !== undefined && utility === run.model
+          ? await (async () => {
+              const messages = structuredClone(this.#requestMessages(run));
+              stubTurnContext(messages);
+              return summarizeInPlace(
+                this.#o.provider,
+                { ...prefix, model: run.model, messages },
+                keptFromText(recent),
+                { signal },
+              );
+            })()
+          : await summarizeWithNotes(
+              this.#o.provider,
+              utility,
+              run.thread.summary?.structured,
+              run.thread.summary?.structured === undefined ? run.thread.summary?.text : undefined,
+              older,
+              this.#policy,
+              { signal },
+            );
+      structured = reply.summary;
+      notes = reply.dailyNoteLines;
     } catch {
       // An unusable summary never replaces the turns (fail closed: the limit check decides).
       this.#checkAbort(run);
       return false;
+    }
+    if (merged && !incognito && notes.length > 0) {
+      try {
+        // The summarizer read the same stubbed turns; the lines are tainted like the flush's were.
+        await memory?.flushLines?.(run.threadId, notes, { taint: run.taint || untrusted });
+      } catch {
+        // A failed note write never blocks the compaction.
+      }
     }
     const replacedTurns = older.filter(
       (m) => m.role === "user" && m.parts.some((p) => p.type === "text"),
@@ -1999,7 +2058,12 @@ export class PsycheAgentLoop implements AgentLoop {
       maxTokens,
       // The owner's limits, else the loop's own compaction policy when one was configured
       // (`compaction.thresholdRatio` / `keepRecentTurns`), else the defaults.
-      compactAt: own?.compactAt ?? this.#o.compaction?.thresholdRatio ?? DEFAULT_COMPACT_AT,
+      compactAt:
+        own?.compactAt ??
+        this.#o.compaction?.thresholdRatio ??
+        (own?.maxTokens === undefined
+          ? Math.min(DEFAULT_COMPACT_AT, DEFAULT_COMPACT_MAX_TOKENS / maxTokens)
+          : DEFAULT_COMPACT_AT),
       keepRecentTurns:
         own?.keepRecentTurns ?? this.#o.compaction?.keepRecentTurns ?? DEFAULT_KEEP_RECENT_TURNS,
       contextWindow: window,
