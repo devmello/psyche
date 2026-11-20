@@ -487,10 +487,14 @@ mod tests {
         let mut reader = BufReader::new(dialed.link.reader());
         writer.write_all(b"{\"a\":1}\n").unwrap();
         let mut line = String::new();
+        let give_up = Instant::now() + Duration::from_secs(10);
         loop {
             match reader.read_line(&mut line) {
                 Ok(_) => break,
-                Err(e) if e.kind() == ErrorKind::WouldBlock => continue,
+                Err(e) if e.kind() == ErrorKind::WouldBlock => {
+                    assert!(Instant::now() < give_up, "timed out waiting for the link");
+                    continue;
+                }
                 Err(e) => panic!("{e}"),
             }
         }
@@ -512,9 +516,13 @@ mod tests {
             let dialed = dial(&gateway.target_plain()).unwrap();
             let mut reader = dialed.link.reader();
             let mut buf = [0u8; 64];
+            let give_up = Instant::now() + Duration::from_secs(10);
             let err = loop {
                 match reader.read(&mut buf) {
-                    Err(e) if e.kind() == ErrorKind::WouldBlock => continue,
+                    Err(e) if e.kind() == ErrorKind::WouldBlock => {
+                        assert!(Instant::now() < give_up, "timed out waiting for the link");
+                        continue;
+                    }
                     other => break other,
                 }
             };
@@ -532,9 +540,13 @@ mod tests {
             .with_keepalive(Duration::from_millis(50), Duration::from_millis(400));
         let started = Instant::now();
         let mut buf = [0u8; 8];
+        let give_up = Instant::now() + Duration::from_secs(10);
         let err = loop {
             match reader.read(&mut buf) {
-                Err(e) if e.kind() == ErrorKind::WouldBlock => continue,
+                Err(e) if e.kind() == ErrorKind::WouldBlock => {
+                    assert!(Instant::now() < give_up, "timed out waiting for the link");
+                    continue;
+                }
                 other => break other,
             }
         };
