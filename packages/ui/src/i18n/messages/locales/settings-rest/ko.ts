@@ -659,6 +659,7 @@ export const settingsRest: Partial<Catalogue> = {
     "아직 없습니다. {persona}가 폴더나 앱이 필요하면 대화에서 묻고, 허용한 항목이 여기에 표시됩니다.",
   "settings.access.scope.always": "항상",
   "settings.access.scope.conversation": "이 대화",
+  "settings.access.scope.space": "스페이스에서",
   "settings.access.scope.limited": "지금만",
   "settings.access.used": "{when}에 사용됨",
   "settings.access.fileOnly": "파일 하나 · 읽기 전용",

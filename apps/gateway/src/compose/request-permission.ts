@@ -32,7 +32,7 @@ export interface RequestPermissionDeps {
   /** The sensitive-root environment a requested folder is judged by (see `askForFolder`). */
   folderEnv?: () => FolderAccessEnv;
   /** Folders already shared (Settings' list plus this conversation's): a request they cover is not asked. */
-  grantedFolders?: (threadId: string) => readonly FolderGrantEntry[];
+  grantedFolders?: (threadId: string, runId?: string) => readonly FolderGrantEntry[];
   /** Whether `exec_host` is on now. */
   execHostEnabled(): boolean;
   /** Turns `exec_host` on in `permissions.policy` (after the owner's Enable). */

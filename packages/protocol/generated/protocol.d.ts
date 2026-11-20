@@ -15,28 +15,31 @@ export interface AccessListResult {
 }
 
 export interface AccessEntry {
-    file?:       boolean;
-    grantId?:    string;
-    id:          string;
-    kind?:       ApprovalKind;
-    label:       string;
-    lastUsedAt?: string;
-    mode?:       FolderModeEnum;
-    moved?:      boolean;
-    movedTo?:    string;
-    path?:       string;
-    refused?:    boolean;
-    scope:       AccessEntryScope;
-    since?:      string;
-    threadId?:   string;
-    type:        AccessEntryType;
+    automationsWrite?: boolean;
+    file?:             boolean;
+    grantId?:          string;
+    id:                string;
+    kind?:             ApprovalKind;
+    label:             string;
+    lastUsedAt?:       string;
+    mode?:             FolderModeEnum;
+    moved?:            boolean;
+    movedTo?:          string;
+    path?:             string;
+    refused?:          boolean;
+    scope:             AccessEntryScope;
+    since?:            string;
+    spaceId?:          string;
+    spaceName?:        string;
+    threadId?:         string;
+    type:              AccessEntryType;
 }
 
 export type ApprovalKind = "exec" | "exec_host" | "send_email" | "calendar_write" | "message_send" | "browser_submit" | "credential_fill" | "purchase" | "file_write" | "connector_action" | "computer_action" | "new_origin" | "plan_exit" | "skill_install" | "mcp_tool" | "archive_thread" | "memory_protected_write" | "pairing" | "policy_change" | "task_start" | "apple_script" | "shortcut_run" | "git_write" | "git_push" | "folder_access" | "separate_desktop_share" | "batch" | "permission_request";
 
 export type FolderModeEnum = "ro" | "rw";
 
-export type AccessEntryScope = "always" | "conversation" | "limited";
+export type AccessEntryScope = "always" | "conversation" | "limited" | "space";
 
 export type AccessEntryType = "folder" | "grant";
 
@@ -1031,6 +1034,7 @@ export interface ApprovalAnswer {
     folderMode?:      FolderModeEnum;
     folderPath?:      string;
     hostProgram?:     boolean;
+    inSpace?:         boolean;
     presence?:        PresenceAssertion;
     recipientChoice?: string;
     scope?:           GrantScope;

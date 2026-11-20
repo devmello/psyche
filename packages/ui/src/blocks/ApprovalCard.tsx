@@ -69,7 +69,12 @@ export type ApprovalChoice = "deny" | "once" | "task" | "site" | "always" | "ses
  * `trust` / `trustSubdomains` are "Always for this site" (and its subdomains): sent as `once` plus
  * `trustSite`, only on a first-read card that offers it (`details.trustSite`).
  */
-type AllowScope = Exclude<ApprovalChoice, "deny"> | "trust" | "trustSubdomains" | "program";
+type AllowScope =
+  | Exclude<ApprovalChoice, "deny">
+  | "trust"
+  | "trustSubdomains"
+  | "program"
+  | "space";
 
 /** The origin a first-read card offers to trust, as the Gateway computed it. */
 function trustSiteOffer(
@@ -96,6 +101,26 @@ function hostProgramOffer(
   if (typeof program !== "string" || typeof folder !== "string") return null;
   if (!approval.scopesOffered.includes("once")) return null;
   return { program, folder, exact: Array.isArray(argv) };
+}
+
+/**
+ * "Allow in this Space" on a folder card, as the Gateway offered it (`details.space`): sent as
+ * `once` plus `inSpace`. Never on a tainted card (spaces-2026 §5.3).
+ */
+function spaceOffer(approval: ApprovalRequest): { name: string; automationsWrite: boolean } | null {
+  if (approval.kind !== "folder_access" || approval.taint) return null;
+  const o = (approval.details as Record<string, unknown>).space;
+  if (typeof o !== "object" || o === null) return null;
+  const { id, name, automationsWrite } = o as {
+    id?: unknown;
+    name?: unknown;
+    automationsWrite?: unknown;
+  };
+  if (typeof id !== "string" || id === "" || !approval.scopesOffered.includes("once")) return null;
+  return {
+    name: typeof name === "string" ? name : "",
+    automationsWrite: automationsWrite === true,
+  };
 }
 
 export interface ApprovalCardProps {
@@ -128,6 +153,8 @@ export interface ApprovalCardProps {
       trustSite?: "origin" | "subdomains";
       /** "Always allow <program> in <folder>" on a host-command card (sent with scope `once`). */
       hostProgram?: true;
+      /** "Allow in this Space" on a folder card that offers it (sent with scope `once`). */
+      inSpace?: true;
     },
   ) => unknown;
   /** Fixed clock (stories, tests). */
@@ -516,6 +543,7 @@ export function ApprovalCard({
   const site = originOf(approval);
   const trustOffer = approval.status === "pending" ? trustSiteOffer(approval) : null;
   const programOffer = approval.status === "pending" ? hostProgramOffer(approval) : null;
+  const inSpaceOffer = approval.status === "pending" ? spaceOffer(approval) : null;
   // A send / destructive / financial card (§3.12): Always allow lifts its floor for this call
   // class, so it confirms first, and a tainted one never offers it (§3.6).
   const floor = floorClassOf(approval.kind, approval.sideEffect);
@@ -544,10 +572,11 @@ export function ApprovalCard({
           ? ("subdomains" as const)
           : undefined;
     const hostProgram = decision === "approve" && choice === "program";
+    const inSpace = decision === "approve" && choice === "space" && inSpaceOffer !== null;
     const scope: GrantScope | undefined =
       decision === "deny"
         ? undefined
-        : trustSite !== undefined || hostProgram
+        : trustSite !== undefined || hostProgram || inSpace
           ? "once"
           : (choice as GrantScope);
     inFlight.current = true;
@@ -573,6 +602,7 @@ export function ApprovalCard({
             ? {
                 folderPath: folder,
                 ...(asksWrite && readOnly ? { folderMode: "ro" as const } : {}),
+                ...(inSpace ? { inSpace: true as const } : {}),
               }
             : unsandboxed && decision === "approve"
               ? { unsandboxed: "UNSANDBOXED" }
@@ -694,6 +724,18 @@ export function ApprovalCard({
                 : "blocks.approval.scope.hostProgram",
               { program: programOffer.program, folder: programOffer.folder },
             ),
+          },
+        ]
+      : []),
+    ...(inSpaceOffer !== null
+      ? [
+          {
+            value: "space" as const,
+            // Names the card's Space: the answer applies to that Space only.
+            label:
+              inSpaceOffer.name === ""
+                ? t("blocks.folder.scope.space")
+                : t("blocks.folder.scope.spaceNamed", { space: inSpaceOffer.name }),
           },
         ]
       : []),
@@ -1282,6 +1324,17 @@ export function ApprovalCard({
             ) : null}
           </Button>
         </div>
+      ) : null}
+      {/* Below the buttons, so choosing it never moves them (§3.3): who else gets the folder. */}
+      {interactive && choice === "space" && inSpaceOffer !== null && inSpaceOffer.name !== "" ? (
+        <p className="mt-2 text-callout text-label-secondary" data-testid="space-automations">
+          {t(
+            inSpaceOffer.automationsWrite
+              ? "blocks.folder.space.automationsWrite"
+              : "blocks.folder.space.automationsRead",
+            { space: inSpaceOffer.name },
+          )}
+        </p>
       ) : null}
       {/* Below the buttons, so opening it never moves them (§3.3). */}
       {showIds ? (
