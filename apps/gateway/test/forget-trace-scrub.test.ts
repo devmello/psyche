@@ -858,7 +858,7 @@ describe("Forget scrubs the forgotten words from every stored copy", () => {
       // phrase, step id, nested JSON text that holds it
       ["José García", "q1", py('{"a": "José García", "b": "JOSÉ GARCÍA"}')],
       ["AC/DC", "q2", '{"band": "AC\\/DC rocks"}'],
-      ["Sam Quillon", "q3", py('{"d": "xéSam Quillon"}')],
+      ["Sam Quillon", "q3", py('{"d": "x Sam Quillon"}')],
       ["😀 smile", "q4", '{"f": "\\ud83d\\ude00 smile"}'],
     ];
     for (const [, id, inner] of rows) {
@@ -889,7 +889,7 @@ describe("Forget scrubs the forgotten words from every stored copy", () => {
     expect(text("q1t")).not.toMatch(/jos|gar/i);
     expect(text("q2")).not.toContain("DC");
     expect(text("q3")).not.toContain("Quillon");
-    expect(text("q3")).toContain("u00e9"); // the escape before the phrase stays
+    expect(text("q3")).toContain("u00a0"); // the escape before the phrase stays
     expect(text("q4")).not.toContain("smile");
     expect(text("q4t")).not.toContain("smile");
   });
@@ -937,5 +937,118 @@ describe("Forget scrubs the forgotten words from every stored copy", () => {
     expect(t2.match(/apple_notes_search/g)).toHaveLength(2);
     expect(t2).toContain("Search [forgotten] Notes");
     expect(t2).toContain('"output":"[forgotten] pie"');
+  });
+
+  it("a phrase that is a whole identifier-like name is scrubbed, in text and nested rows (Q2b)", async () => {
+    composed = await compose();
+    const db = composed.db;
+    const list = (name: string) =>
+      `{"tools":[{"name":"${name}","description":"d"}],"x":"apple_notes_search"}`;
+    const names = ["acme-corp", "sam.smith", "Sam"];
+    for (const [i, name] of names.entries()) {
+      putStepPayload(db, {
+        runId: "r",
+        stepId: `n${i}t`,
+        kind: "input",
+        text: `${list(name)} [cut]`,
+        truncated: true,
+      });
+      putStepPayload(db, {
+        runId: "r",
+        stepId: `n${i}`,
+        kind: "input",
+        text: JSON.stringify({ result: list(name) }),
+        truncated: false,
+      });
+    }
+    putStepPayload(db, {
+      runId: "r",
+      stepId: "keep",
+      kind: "input",
+      text: `{"tools":[{"name":"apple_notes_search","description":"Search Apple"}]} [cut]`,
+      truncated: true,
+    });
+    for (const [i, name] of names.entries()) {
+      scrubNow(db, name);
+      expect(JSON.stringify(stepPayloads(db, `n${i}t`)), `${name} text`).not.toContain(name);
+      expect(JSON.stringify(stepPayloads(db, `n${i}`)), `${name} nested`).not.toContain(name);
+    }
+    scrubNow(db, "Apple");
+    expect(JSON.stringify(stepPayloads(db, "keep"))).toContain("apple_notes_search");
+  });
+
+  it("a person under a deep `tools` key is scrubbed; only tool definitions keep their name", async () => {
+    composed = await compose();
+    const db = composed.db;
+    putStepPayload(db, {
+      runId: "r",
+      stepId: "d1",
+      kind: "input",
+      text: JSON.stringify({
+        result: { tools: [{ name: "Sam Rivera" }] },
+        tools: [{ name: "sam_tool", description: "x" }],
+      }),
+      truncated: false,
+    });
+    scrubNow(db, "Sam Rivera");
+    scrubNow(db, "Sam");
+    const out = JSON.stringify(stepPayloads(db, "d1"));
+    expect(out).not.toContain("Sam Rivera");
+    expect(out).toContain("sam_tool");
+  });
+
+  it("non-ASCII phrases do not backtrack: escaped text finishes fast and never over-matches", async () => {
+    composed = await compose();
+    const db = composed.db;
+    const esc = (s: string) =>
+      s.replace(/[\u0080-￿]/g, (c) => `\\u${c.charCodeAt(0).toString(16).padStart(4, "0")}`);
+    // The reviewer's cases: a 2-word Cyrillic name over 200 KB of escaped `Иван `, and a 6-word phrase.
+    const ivan = esc("Иван ").repeat(8000);
+    const eacute = "é".repeat(480);
+    const between = `${esc("Иван")} ${esc("мимо абзац мимо абзац")} ${esc("Петров")}`;
+    putStepPayload(db, { runId: "r", stepId: "s1", kind: "input", text: ivan, truncated: true });
+    putStepPayload(db, {
+      runId: "r",
+      stepId: "s2",
+      kind: "input",
+      text: JSON.stringify({ t: ivan }),
+      truncated: false,
+    });
+    putStepPayload(db, { runId: "r", stepId: "s3", kind: "input", text: eacute, truncated: true });
+    putStepPayload(db, { runId: "r", stepId: "s4", kind: "input", text: between, truncated: true });
+    for (const [phrase, budget] of [
+      ["Иван Петров", 1000],
+      ["é é é é é é zq", 1000],
+    ] as const) {
+      const t0 = performance.now();
+      scrubNow(db, phrase);
+      expect(performance.now() - t0, phrase).toBeLessThan(budget);
+    }
+    // Words with other words between them are not one match.
+    const kept = (stepPayloads(db, "s4") as { input: string }).input;
+    expect(kept).toContain(esc("мимо абзац"));
+  });
+
+  it("a row over the regex budget is finished with the literal pass, and counted", async () => {
+    composed = await compose();
+    const db = composed.db;
+    putStepPayload(db, {
+      runId: "r",
+      stepId: "f1",
+      kind: "input",
+      text: JSON.stringify({
+        a: "Quillon Phrase here",
+        b: "again Quillon Phrase",
+        c: "Quillon\\nPhrase",
+      }),
+      truncated: false,
+    });
+    enqueueTraceScrub(db, "Quillon Phrase", new Date().toISOString());
+    const row = nextTraceScrub(db) as NonNullable<ReturnType<typeof nextTraceScrub>>;
+    const batch = runTraceScrubBatch(db, row, Number.MAX_SAFE_INTEGER, -1);
+    expect(batch).toMatchObject({ finished: true, slow: 1 });
+    const out = JSON.stringify(stepPayloads(db, "f1"));
+    expect(out).not.toContain("Quillon");
+    deleteTraceScrub(db, "Quillon Phrase");
   });
 });
