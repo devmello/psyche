@@ -82,4 +82,7 @@ export const notices = {
     "Psyche held back something that may not be from a code run in {repo}",
   "notice.codeRun.incident.body":
     "While {paths} was moved aside, a folder on its way changed, so what was moved may come from somewhere else. It is kept in {place}. Look at it before you tap Keep it, which puts it at {paths} in {repo}.",
+  "notice.codeRun.unmoved.title": "Launch config from a code run in {repo} is still in place",
+  "notice.codeRun.unmoved.body":
+    "A command in the sandbox created {paths}, and Psyche could not move it aside, so it is not held. Apps or your next command could run code from it. Delete it before you open the folder or run anything there. Don't change its permissions to look inside first, since that can let it run.",
 } as const;

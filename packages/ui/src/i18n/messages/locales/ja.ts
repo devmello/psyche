@@ -21,6 +21,7 @@ import { helperCheck } from "./helper-check/ja.ts";
 import { helperOffline } from "./helper-offline/ja.ts";
 import { homeRest } from "./home-rest/ja.ts";
 import { links } from "./links/ja.ts";
+import { linuxAccess } from "./linux-access/ja.ts";
 import { mailMeetings } from "./mail-meetings/ja.ts";
 import { meetingRecordRest } from "./meetingRecord-rest/ja.ts";
 import { memoryMap } from "./memory-map/ja.ts";
@@ -579,6 +580,12 @@ export const ja: Partial<Catalogue> = {
   "context.marker.readsInstead": "代わりにエージェントが読む要約：",
   "context.marker.empty": "残す価値のある内容は見つかりませんでした。",
   "context.marker.showReplaced": "置き換えられた内容を表示",
+  "context.marker.removePin": "削除",
+  "context.marker.removePinLabel": "この常設の指示を削除: {text}",
+  "context.marker.pinRemoved": "常設の指示を削除しました。",
+  "context.marker.pinRemoveFailed": "削除できませんでした: {reason}",
+  "context.marker.droppedPins":
+    "{count, plural, other {古い常設の指示 # 件を、新しい指示の余地を作るために破棄しました。}}",
   "context.marker.replacedList": "置き換えられたターン",
   "context.marker.notLoaded": "置き換えられたターンはここには読み込まれていません。",
   "context.marker.speaker": "{name}：",
@@ -3050,6 +3057,7 @@ export const ja: Partial<Catalogue> = {
   "screens.library.recording.empty": "この録画にはステップがありません。",
   "screens.library.recording.noFrame": "このステップの画像はありません。",
   "screens.library.recording.frameAlt": "ステップ {n} のブラウザ",
+  "screens.library.recording.reviewPermissions": "権限で確認",
   "screens.library.recording.loading": "録画を読み込み中",
   "screens.library.recording.loadFailed": "Psyche はこの録画を読み込めませんでした（{reason}）。",
   "screens.library.recording.notFound": "この録画はもう利用できません。",
@@ -3685,6 +3693,8 @@ export const ja: Partial<Catalogue> = {
   ...helperOffline,
   // the security-records banner (docs/design/security-state-integrity-2026.md §7.3)
   ...securityState,
+  // Settings → Computer use on Linux: screen and input access
+  ...linuxAccess,
   // the Virtual screen watch pane (docs/design/linux-desktop-2026.md §7.5)
   ...computerWatch,
   // Gateway-authored notices (inbox notifications, security alerts)

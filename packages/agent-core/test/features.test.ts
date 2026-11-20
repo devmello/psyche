@@ -503,6 +503,8 @@ describe("compaction (B7)", () => {
       text: "Facts:\n- summary",
       untrusted: true,
       structured: { facts: ["summary"], decisions: [], openTasks: [], pinnedInstructions: [] },
+      // Always recorded now, even when no pin came from untrusted content.
+      untrustedPins: [],
     });
     const last = h.provider.requests.at(-1);
     expect(last?.system).not.toContain("Earlier in this conversation");

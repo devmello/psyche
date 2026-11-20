@@ -83,4 +83,8 @@ export const notices: Partial<Catalogue> = {
     "Psyche retuvo algo que quizá no venga de una ejecución de código en {repo}",
   "notice.codeRun.incident.body":
     "Mientras se apartaba {paths}, cambió una carpeta del camino, así que lo movido puede venir de otro sitio. Está guardado en {place}. Revísalo antes de tocar Conservar, que lo pone en {paths} dentro de {repo}.",
+  "notice.codeRun.unmoved.title":
+    "La configuración de inicio de una ejecución de código en {repo} sigue en su sitio",
+  "notice.codeRun.unmoved.body":
+    "Un comando en el sandbox creó {paths} y Psyche no pudo apartarlo, así que no está retenido. Las apps o tu próximo comando podrían ejecutar código desde ahí. Bórralo antes de abrir la carpeta o ejecutar algo en ella. No cambies antes sus permisos para mirar dentro, porque eso puede dejar que se ejecute.",
 };

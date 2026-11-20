@@ -1,4 +1,12 @@
-import { mkdirSync, mkdtempSync, rmSync, symlinkSync, writeFileSync } from "node:fs";
+import {
+  chmodSync,
+  lstatSync,
+  mkdirSync,
+  mkdtempSync,
+  rmSync,
+  symlinkSync,
+  writeFileSync,
+} from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { afterEach, describe, expect, it } from "vitest";
@@ -145,6 +153,25 @@ describe("finding launch config in a folder tree", () => {
     expect((await findLaunchConfig(root, { nestedGit: true })).found).toEqual([
       { rel: "vendor/lib/.git", kind: "dir", git: true },
     ]);
+  });
+
+  // #1438 review r3: a search-only folder hides its entries from a listing, not from an app.
+  it("names the folders it could not list", async () => {
+    const root = tree(["pkg/.npmrc", "a/b/.npmrc", "ok/.npmrc"]);
+    chmodSync(join(root, "pkg"), 0o111);
+    chmodSync(join(root, "a/b"), 0o000);
+    try {
+      const scan = await findLaunchConfig(root);
+      expect(scan.found.map((f) => f.rel)).toEqual(["ok/.npmrc"]);
+      expect(scan.unreadable?.map((u) => u.rel).sort()).toEqual(["a/b", "pkg"]);
+      // Each with who it was, so a folder found at its path later can be told apart.
+      const pkg = lstatSync(join(root, "pkg"), { bigint: true });
+      expect(scan.unreadable?.find((u) => u.rel === "pkg")?.id).toBe(`${pkg.dev}:${pkg.ino}`);
+    } finally {
+      chmodSync(join(root, "pkg"), 0o755);
+      chmodSync(join(root, "a/b"), 0o755);
+    }
+    expect((await findLaunchConfig(root)).unreadable).toBeUndefined();
   });
 
   it("reports a link as a link, and says when a limit stopped the walk", async () => {

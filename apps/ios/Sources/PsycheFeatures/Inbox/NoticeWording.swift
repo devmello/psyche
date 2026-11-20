@@ -12,6 +12,7 @@ enum NoticeWording {
         "notice.codeRun.partial.title", "notice.codeRun.partial.body",
         "notice.codeRun.recreated.title", "notice.codeRun.recreated.body",
         "notice.codeRun.incident.title", "notice.codeRun.incident.body",
+        "notice.codeRun.unmoved.title", "notice.codeRun.unmoved.body",
         "notice.action.keepIt",
     ]
 

@@ -28,8 +28,9 @@ import {
 } from "@psyche/sandbox";
 import { GuestSockets } from "../nodes/guest-sockets.ts";
 import type { Gateway } from "../server.ts";
-import { isRiskyLabel } from "./computer.ts";
+import { isRiskyLabel, registerSurfaceRouter } from "./computer.ts";
 import { folderAccessEnv } from "./protected-paths.ts";
+import { separateDesktopRouter } from "./separate-desktop-route.ts";
 import type { ComposedPart } from "./services.ts";
 
 /**
@@ -300,6 +301,11 @@ export class SeparateDesktop {
       });
     }
     return client;
+  }
+
+  /** The Task the desktop is serving now (`use` until `release`), if any. */
+  owner(): string | undefined {
+    return this.#task?.id;
   }
 
   /** Whether the helper inside is paired and connected. */
@@ -894,6 +900,7 @@ export function composeSeparateDesktop(
   return (services) => {
     let gateway: Gateway | undefined;
     let guests: GuestSockets | undefined;
+    let unroute: (() => void) | undefined;
     const holder: { current: SeparateDesktop | undefined } = { current: undefined };
     const desktop = options.desktop ?? new DesktopContainers();
     const inert = (options.platform ?? process.platform) !== "linux";
@@ -950,6 +957,8 @@ export function composeSeparateDesktop(
           ...(options.unsaved === undefined ? {} : { unsaved: options.unsaved }),
         });
         holder.current = sd;
+        // `surface: "separate_desktop"` calls reach the guest through this and nothing else.
+        unroute = registerSurfaceRouter("separate_desktop", separateDesktopRouter(sd));
         options.onSettingChanged?.((c) => {
           if (
             c.key === SEPARATE_DESKTOP_SETTINGS.reset &&
@@ -965,6 +974,8 @@ export function composeSeparateDesktop(
         });
       },
       async stop() {
+        unroute?.();
+        unroute = undefined;
         await holder.current?.shutdown().catch(() => undefined);
         guests?.closeAll();
         void gateway;

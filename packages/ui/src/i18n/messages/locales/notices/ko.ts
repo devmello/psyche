@@ -77,4 +77,7 @@ export const notices: Partial<Catalogue> = {
     "Psyche가 {repo}의 코드 실행에서 나온 것이 아닐 수도 있는 항목을 보류했습니다",
   "notice.codeRun.incident.body":
     "{paths}을(를) 옮기는 동안 경로의 폴더가 바뀌어, 옮긴 항목이 다른 곳의 것일 수 있습니다. {place}에 보관되어 있습니다. 유지를 탭하기 전에 확인하세요. 유지를 누르면 {repo}의 {paths}에 다시 놓입니다.",
+  "notice.codeRun.unmoved.title": "{repo}에서 코드 실행이 만든 실행 구성이 그대로 남아 있습니다",
+  "notice.codeRun.unmoved.body":
+    "샌드박스의 명령이 {paths}을(를) 만들었지만 Psyche가 따로 옮기지 못해 보류되지 않았습니다. 앱이나 다음 명령이 여기서 코드를 실행할 수 있습니다. 폴더를 열거나 그곳에서 무엇이든 실행하기 전에 삭제하세요. 안을 보려고 먼저 권한을 바꾸지 마세요. 그러면 실행될 수 있습니다.",
 };

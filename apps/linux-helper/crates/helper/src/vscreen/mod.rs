@@ -55,10 +55,7 @@ pub fn register(
     env: &dyn Env,
     idle: Arc<IdleTimer>,
 ) -> Arc<VscreenManager> {
-    let manager = VscreenManager::new(Config::from_env(env), Deps::real(), idle);
-    for capability in capabilities::all(&manager) {
-        registry.register(capability);
-    }
+    let manager = add_capabilities(registry, env, idle);
     // A helper that crashed left its bus, accessibility launcher, app scopes and session dirs.
     let sweeper = Arc::clone(&manager);
     std::thread::Builder::new()
@@ -66,4 +63,38 @@ pub fn register(
         .spawn(move || sweeper.sweep_leftovers())
         .ok();
     manager
+}
+
+/// [`register`] without the leftover sweep: the capabilities and their manager, which starts
+/// nothing on its own.
+pub fn add_capabilities(
+    registry: &mut Registry,
+    env: &dyn Env,
+    idle: Arc<IdleTimer>,
+) -> Arc<VscreenManager> {
+    let manager = VscreenManager::new(Config::from_env(env), Deps::real(), idle);
+    for capability in capabilities::all(&manager) {
+        registry.register(capability);
+    }
+    manager
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::buildinfo::BuildInfo;
+
+    /// The registry `main` builds: direct computer use (L5), then virtual screens (L6).
+    /// `Registry::register` panics on a duplicate name, so a clash fails here, not at start.
+    #[test]
+    fn main_registers_direct_and_vscreen_with_distinct_names() {
+        let mut registry = Registry::standard(BuildInfo::current());
+        crate::direct::register(&mut registry);
+        add_capabilities(
+            &mut registry,
+            &crate::paths::ProcessEnv,
+            Arc::new(IdleTimer::new(None)),
+        );
+        assert!(registry.get("apps.open").is_some() && registry.get("vscreen.start").is_some());
+    }
 }

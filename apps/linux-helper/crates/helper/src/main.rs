@@ -65,8 +65,10 @@ fn main() -> ExitCode {
         }
     };
     let idle = Arc::new(IdleTimer::new(idle));
-    #[allow(unused_mut)]
     let mut registry = Registry::standard(BuildInfo::current());
+    // Direct computer use (L5): registered here, connected to the desktop on the first call.
+    psyche_helper::direct::register(&mut registry);
+    // Virtual screens (L6).
     #[cfg(target_os = "linux")]
     let vscreen = psyche_helper::vscreen::register(&mut registry, &ProcessEnv, Arc::clone(&idle));
     let mut daemon = Daemon::new(identity, registry, Box::new(ProcessEnv), idle);

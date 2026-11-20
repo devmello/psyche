@@ -21,6 +21,7 @@ import { helperCheck } from "./helper-check/it.ts";
 import { helperOffline } from "./helper-offline/it.ts";
 import { homeRest } from "./home-rest/it.ts";
 import { links } from "./links/it.ts";
+import { linuxAccess } from "./linux-access/it.ts";
 import { mailMeetings } from "./mail-meetings/it.ts";
 import { meetingRecordRest } from "./meeting-record-rest/it.ts";
 import { memoryAdvancedRest } from "./memory-advanced-rest/it.ts";
@@ -576,6 +577,12 @@ export const it: Partial<Catalogue> = {
   "context.marker.readsInstead": "Il riassunto che l’agente legge al posto loro:",
   "context.marker.empty": "Non è stato trovato nulla che valesse la pena conservare.",
   "context.marker.showReplaced": "Mostra ciò che è stato sostituito",
+  "context.marker.removePin": "Rimuovi",
+  "context.marker.removePinLabel": "Rimuovi questa istruzione permanente: {text}",
+  "context.marker.pinRemoved": "Istruzione permanente rimossa.",
+  "context.marker.pinRemoveFailed": "Impossibile rimuoverla: {reason}",
+  "context.marker.droppedPins":
+    "{count, plural, one {Una vecchia istruzione permanente è stata eliminata} other {# vecchie istruzioni permanenti sono state eliminate}} per fare spazio alle nuove.",
   "context.marker.replacedList": "Turni sostituiti",
   "context.marker.notLoaded": "I turni sostituiti non sono caricati qui.",
   "context.marker.speaker": "{name}:",
@@ -3083,6 +3090,7 @@ export const it: Partial<Catalogue> = {
   "screens.library.recording.empty": "Questa registrazione non ha passi.",
   "screens.library.recording.noFrame": "Nessuna immagine per questo passo.",
   "screens.library.recording.frameAlt": "Il browser al passo {n}",
+  "screens.library.recording.reviewPermissions": "Rivedi in Permessi",
   "screens.library.recording.loading": "Caricamento della registrazione",
   "screens.library.recording.loadFailed":
     "Psyche non è riuscito a caricare questa registrazione ({reason}).",
@@ -3722,6 +3730,8 @@ export const it: Partial<Catalogue> = {
   ...helperOffline,
   // the security-records banner (docs/design/security-state-integrity-2026.md §7.3)
   ...securityState,
+  // Settings → Computer use on Linux: screen and input access
+  ...linuxAccess,
   // the Virtual screen watch pane (docs/design/linux-desktop-2026.md §7.5)
   ...computerWatch,
   // Gateway-authored notices (inbox notifications, security alerts)

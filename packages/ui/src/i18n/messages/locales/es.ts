@@ -12,6 +12,7 @@ import { helperCheck } from "./helper-check/es.ts";
 import { helperOffline } from "./helper-offline/es.ts";
 import { homeA } from "./home-a/es.ts";
 import { links } from "./links/es.ts";
+import { linuxAccess } from "./linux-access/es.ts";
 import { mailMeetings } from "./mail-meetings/es.ts";
 import { memoryA } from "./memory-a/es.ts";
 import { memoryB } from "./memory-b/es.ts";
@@ -568,6 +569,12 @@ export const es: Partial<Catalogue> = {
   "context.marker.readsInstead": "El resumen que el agente lee en su lugar:",
   "context.marker.empty": "No se encontró nada que mereciera conservarse.",
   "context.marker.showReplaced": "Mostrar lo que se sustituyó",
+  "context.marker.removePin": "Quitar",
+  "context.marker.removePinLabel": "Quitar esta instrucción permanente: {text}",
+  "context.marker.pinRemoved": "Instrucción permanente quitada.",
+  "context.marker.pinRemoveFailed": "No se pudo quitar: {reason}",
+  "context.marker.droppedPins":
+    "{count, plural, one {Se descartó una instrucción permanente anterior} other {Se descartaron # instrucciones permanentes anteriores}} para dejar sitio a las nuevas.",
   "context.marker.replacedList": "Turnos sustituidos",
   "context.marker.notLoaded": "Los turnos sustituidos no están cargados aquí.",
   "context.marker.speaker": "{name}:",
@@ -3105,6 +3112,7 @@ export const es: Partial<Catalogue> = {
   "screens.library.recording.empty": "Esta grabación no tiene pasos.",
   "screens.library.recording.noFrame": "No hay imagen para este paso.",
   "screens.library.recording.frameAlt": "El navegador en el paso {n}",
+  "screens.library.recording.reviewPermissions": "Revisar en Permisos",
   "screens.library.recording.loading": "Cargando la grabación",
   "screens.library.recording.loadFailed": "Psyche no pudo cargar esta grabación ({reason}).",
   "screens.library.recording.notFound": "Esta grabación ya no está disponible.",
@@ -3760,6 +3768,8 @@ export const es: Partial<Catalogue> = {
   ...helperOffline,
   // the security-records banner (docs/design/security-state-integrity-2026.md §7.3)
   ...securityState,
+  // Settings → Computer use on Linux: screen and input access
+  ...linuxAccess,
   // the Virtual screen watch pane (docs/design/linux-desktop-2026.md §7.5)
   ...computerWatch,
   // Gateway-authored notices (inbox notifications, security alerts)
