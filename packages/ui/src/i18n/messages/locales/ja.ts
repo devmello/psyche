@@ -578,6 +578,12 @@ export const ja: Partial<Catalogue> = {
   "context.marker.readsInstead": "代わりにエージェントが読む要約：",
   "context.marker.empty": "残す価値のある内容は見つかりませんでした。",
   "context.marker.showReplaced": "置き換えられた内容を表示",
+  "context.marker.removePin": "削除",
+  "context.marker.removePinLabel": "この常設の指示を削除: {text}",
+  "context.marker.pinRemoved": "常設の指示を削除しました。",
+  "context.marker.pinRemoveFailed": "削除できませんでした: {reason}",
+  "context.marker.droppedPins":
+    "{count, plural, other {古い常設の指示 # 件を、新しい指示の余地を作るために破棄しました。}}",
   "context.marker.replacedList": "置き換えられたターン",
   "context.marker.notLoaded": "置き換えられたターンはここには読み込まれていません。",
   "context.marker.speaker": "{name}：",

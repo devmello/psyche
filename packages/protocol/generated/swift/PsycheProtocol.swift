@@ -1551,6 +1551,8 @@
 //   let threadsRenameParams = try? JSONDecoder().decode(ThreadsRenameParams.self, from: jsonData)
 //   let threadsSetContextLimitsParams = try? JSONDecoder().decode(ThreadsSetContextLimitsParams.self, from: jsonData)
 //   let threadsSetContextLimitsResult = try? JSONDecoder().decode(ThreadsSetContextLimitsResult.self, from: jsonData)
+//   let threadsSummaryPinsRemoveParams = try? JSONDecoder().decode(ThreadsSummaryPinsRemoveParams.self, from: jsonData)
+//   let threadsSummaryPinsRemoveResult = try? JSONDecoder().decode(ThreadsSummaryPinsRemoveResult.self, from: jsonData)
 //   let threadsUpdateParams = try? JSONDecoder().decode(ThreadsUpdateParams.self, from: jsonData)
 //   let toolCall = try? JSONDecoder().decode(ToolCall.self, from: jsonData)
 //   let toolCallBlock = try? JSONDecoder().decode(ToolCallBlock.self, from: jsonData)
@@ -9503,6 +9505,7 @@ public struct Block: Codable, Sendable {
     /// The owner's own question
     public let question: String?
     public let compactionID: String?
+    public let droppedPins: [String]?
     public let replaced: Replaced?
     public let summary: CompactionSummary?
     public let tokensAfter: Int?
@@ -9549,6 +9552,7 @@ public struct Block: Codable, Sendable {
         case passages = "passages"
         case question = "question"
         case compactionID = "compactionId"
+        case droppedPins = "droppedPins"
         case replaced = "replaced"
         case summary = "summary"
         case tokensAfter = "tokensAfter"
@@ -9563,7 +9567,7 @@ public struct Block: Codable, Sendable {
         case widgetID = "widgetId"
     }
 
-    public init(md: String? = nil, type: BlockType, level1: String? = nil, status: ToolCallStatus? = nil, tool: String? = nil, toolCallID: String? = nil, planID: String? = nil, items: [ItemElement]? = nil, approvalID: String? = nil, inputRequestID: String? = nil, artifactID: String? = nil, preview: String? = nil, libraryItemID: String? = nil, id: String? = nil, kind: BlockKind? = nil, source: String? = nil, title: String? = nil, url: String? = nil, receiptID: String? = nil, taskID: String? = nil, actions: [WrapUpAction]? = nil, ask: String? = nil, recap: String? = nil, cited: [String]? = nil, answer: String? = nil, factIDS: [String]? = nil, facts: [LifeFactHit]? = nil, model: ModelEnum? = nil, passageIDS: [String]? = nil, passages: [LifeAnswerPassage]? = nil, question: String? = nil, compactionID: String? = nil, replaced: Replaced? = nil, summary: CompactionSummary? = nil, tokensAfter: Int? = nil, tokensBefore: Int? = nil, trigger: BlockTrigger? = nil, feedbackID: String? = nil, lessonID: String? = nil, messageID: String? = nil, statement: String? = nil, proposal: DailyWorkflowProposal? = nil, route: String? = nil, widgetID: String? = nil) {
+    public init(md: String? = nil, type: BlockType, level1: String? = nil, status: ToolCallStatus? = nil, tool: String? = nil, toolCallID: String? = nil, planID: String? = nil, items: [ItemElement]? = nil, approvalID: String? = nil, inputRequestID: String? = nil, artifactID: String? = nil, preview: String? = nil, libraryItemID: String? = nil, id: String? = nil, kind: BlockKind? = nil, source: String? = nil, title: String? = nil, url: String? = nil, receiptID: String? = nil, taskID: String? = nil, actions: [WrapUpAction]? = nil, ask: String? = nil, recap: String? = nil, cited: [String]? = nil, answer: String? = nil, factIDS: [String]? = nil, facts: [LifeFactHit]? = nil, model: ModelEnum? = nil, passageIDS: [String]? = nil, passages: [LifeAnswerPassage]? = nil, question: String? = nil, compactionID: String? = nil, droppedPins: [String]? = nil, replaced: Replaced? = nil, summary: CompactionSummary? = nil, tokensAfter: Int? = nil, tokensBefore: Int? = nil, trigger: BlockTrigger? = nil, feedbackID: String? = nil, lessonID: String? = nil, messageID: String? = nil, statement: String? = nil, proposal: DailyWorkflowProposal? = nil, route: String? = nil, widgetID: String? = nil) {
         self.md = md
         self.type = type
         self.level1 = level1
@@ -9596,6 +9600,7 @@ public struct Block: Codable, Sendable {
         self.passages = passages
         self.question = question
         self.compactionID = compactionID
+        self.droppedPins = droppedPins
         self.replaced = replaced
         self.summary = summary
         self.tokensAfter = tokensAfter
@@ -10652,6 +10657,7 @@ public enum ChecklistBlockType: String, Codable, Sendable {
 // MARK: - CompactionBlock
 public struct CompactionBlock: Codable, Sendable {
     public let compactionID: String
+    public let droppedPins: [String]?
     public let replaced: Replaced
     public let summary: CompactionSummary
     public let tokensAfter: Int
@@ -10661,6 +10667,7 @@ public struct CompactionBlock: Codable, Sendable {
 
     public enum CodingKeys: String, CodingKey {
         case compactionID = "compactionId"
+        case droppedPins = "droppedPins"
         case replaced = "replaced"
         case summary = "summary"
         case tokensAfter = "tokensAfter"
@@ -10669,8 +10676,9 @@ public struct CompactionBlock: Codable, Sendable {
         case type = "type"
     }
 
-    public init(compactionID: String, replaced: Replaced, summary: CompactionSummary, tokensAfter: Int, tokensBefore: Int, trigger: BlockTrigger, type: CompactionBlockType) {
+    public init(compactionID: String, droppedPins: [String]? = nil, replaced: Replaced, summary: CompactionSummary, tokensAfter: Int, tokensBefore: Int, trigger: BlockTrigger, type: CompactionBlockType) {
         self.compactionID = compactionID
+        self.droppedPins = droppedPins
         self.replaced = replaced
         self.summary = summary
         self.tokensAfter = tokensAfter
@@ -35779,6 +35787,35 @@ public struct ThreadsSetContextLimitsResult: Codable, Sendable {
     public init(limits: EffectiveContextLimits, threadLimits: ContextLimits) {
         self.limits = limits
         self.threadLimits = threadLimits
+    }
+}
+
+// MARK: - ThreadsSummaryPinsRemoveParams
+public struct ThreadsSummaryPinsRemoveParams: Codable, Sendable {
+    public let instruction: String
+    public let threadID: String
+
+    public enum CodingKeys: String, CodingKey {
+        case instruction = "instruction"
+        case threadID = "threadId"
+    }
+
+    public init(instruction: String, threadID: String) {
+        self.instruction = instruction
+        self.threadID = threadID
+    }
+}
+
+// MARK: - ThreadsSummaryPinsRemoveResult
+public struct ThreadsSummaryPinsRemoveResult: Codable, Sendable {
+    public let pinnedInstructions: [String]
+
+    public enum CodingKeys: String, CodingKey {
+        case pinnedInstructions = "pinnedInstructions"
+    }
+
+    public init(pinnedInstructions: [String]) {
+        self.pinnedInstructions = pinnedInstructions
     }
 }
 

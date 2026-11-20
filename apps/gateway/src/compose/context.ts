@@ -56,6 +56,7 @@ export interface ContextDeps {
   isRunning(threadId: string): boolean;
 }
 
+const pinKey = (s: string) => s.replace(/\s+/g, " ").trim().toLowerCase();
 const num = (v: unknown) => (typeof v === "number" && Number.isFinite(v) ? v : undefined);
 
 function settingsLimits(db: PsycheDb): ContextLimits {
@@ -126,6 +127,9 @@ export function createContext(deps: ContextDeps) {
       },
       tokensBefore: c.tokensBefore,
       tokensAfter: c.tokensAfter,
+      ...(c.droppedPins === undefined || c.droppedPins.length === 0
+        ? {}
+        : { droppedPins: c.droppedPins }),
     };
     let message: Message | undefined;
     try {
@@ -189,6 +193,44 @@ export function createContext(deps: ContextDeps) {
       }
       setSetting(db, threadKey(p.threadId), p.limits ?? {});
       return { limits: await window(p.threadId), threadLimits: threadLimits(db, p.threadId) };
+    },
+    "threads.summary.pins.remove": async (
+      p: MethodParams<"threads.summary.pins.remove">,
+    ): Promise<MethodResult<"threads.summary.pins.remove">> => {
+      if (getThread(db, p.threadId) === undefined)
+        throw new PsycheError("not_found", "no such thread");
+      if (deps.isRunning(p.threadId)) {
+        throw new PsycheError("conflict", "the thread is running; try again when the turn ends");
+      }
+      const pinnedInstructions = await loop().removePinnedInstruction(p.threadId, p.instruction);
+      // The compaction blocks that show it stop showing it (the transcript otherwise stays).
+      const key = pinKey(p.instruction);
+      const rows = db.sqlite
+        .prepare("SELECT id, blocks FROM messages WHERE thread_id = ? AND blocks LIKE ?")
+        .all(p.threadId, '%"compaction"%') as { id: string; blocks: string }[];
+      const put = db.sqlite.prepare("UPDATE messages SET blocks = ? WHERE id = ?");
+      for (const row of rows) {
+        const blocks = JSON.parse(row.blocks) as Block[];
+        let changed = false;
+        for (const b of blocks) {
+          if (b.type !== "compaction") continue;
+          const kept = b.summary.pinnedInstructions.filter((i) => pinKey(i) !== key);
+          if (kept.length !== b.summary.pinnedInstructions.length) {
+            b.summary.pinnedInstructions = kept;
+            changed = true;
+          }
+        }
+        if (changed) put.run(JSON.stringify(blocks), row.id);
+      }
+      await deps.audit
+        .append({
+          kind: "thread.summary_pin_removed",
+          actor: { type: "user" },
+          subject: { threadId: p.threadId },
+          data: { remaining: pinnedInstructions.length },
+        })
+        .catch(() => undefined);
+      return { pinnedInstructions };
     },
     "threads.compact": async (
       p: MethodParams<"threads.compact">,

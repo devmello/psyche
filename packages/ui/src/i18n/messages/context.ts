@@ -36,6 +36,12 @@ export const context = {
   "context.marker.readsInstead": "The summary the agent reads instead:",
   "context.marker.empty": "Nothing worth keeping was found.",
   "context.marker.showReplaced": "Show what was replaced",
+  "context.marker.removePin": "Remove",
+  "context.marker.removePinLabel": "Remove this standing instruction: {text}",
+  "context.marker.pinRemoved": "Standing instruction removed.",
+  "context.marker.pinRemoveFailed": "Couldn't remove it: {reason}",
+  "context.marker.droppedPins":
+    "{count, plural, one {An older standing instruction was} other {# older standing instructions were}} dropped to make room for new ones.",
   "context.marker.replacedList": "Replaced turns",
   "context.marker.notLoaded": "The replaced turns aren't loaded here.",
   "context.marker.speaker": "{name}:",

@@ -695,6 +695,41 @@ export async function compactThread(
 }
 
 /**
+ * Removes one standing instruction from a thread's summary (the owner's own control), and from
+ * the compaction blocks already loaded, which would otherwise keep showing it.
+ */
+export async function removeSummaryPin(
+  store: GatewayStore,
+  threadId: string,
+  instruction: string,
+): Promise<void> {
+  await store.call("threads.summary.pins.remove", { threadId, instruction });
+  const key = (s: string) => s.replace(/\s+/g, " ").trim().toLowerCase();
+  store.update((s) => ({
+    ...s,
+    messages: {
+      ...s.messages,
+      [threadId]: (s.messages[threadId] ?? []).map((m) => ({
+        ...m,
+        blocks: m.blocks.map((b) =>
+          b.type === "compaction"
+            ? {
+                ...b,
+                summary: {
+                  ...b.summary,
+                  pinnedInstructions: b.summary.pinnedInstructions.filter(
+                    (i) => key(i) !== key(instruction),
+                  ),
+                },
+              }
+            : b,
+        ),
+      })),
+    },
+  }));
+}
+
+/**
  * A thread's context usage and limits (the header meter, "Compact now", the per-chat limits):
  * `threads.contextUsage` on open, then `thread.context.updated` after every turn.
  */

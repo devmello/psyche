@@ -623,6 +623,12 @@ export const zh: Partial<Catalogue> = {
   "context.marker.readsInstead": "代理改为读取的摘要：",
   "context.marker.empty": "没有找到值得保留的内容。",
   "context.marker.showReplaced": "显示被替换的内容",
+  "context.marker.removePin": "删除",
+  "context.marker.removePinLabel": "删除这条长期指令：{text}",
+  "context.marker.pinRemoved": "已删除长期指令。",
+  "context.marker.pinRemoveFailed": "无法删除：{reason}",
+  "context.marker.droppedPins":
+    "{count, plural, other {为给新指令腾出空间，已丢弃 # 条较早的长期指令。}}",
   "context.marker.replacedList": "被替换的轮次",
   "context.marker.notLoaded": "被替换的轮次未在此处载入。",
   "context.marker.speaker": "{name}：",

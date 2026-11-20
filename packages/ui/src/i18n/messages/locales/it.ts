@@ -575,6 +575,12 @@ export const it: Partial<Catalogue> = {
   "context.marker.readsInstead": "Il riassunto che l’agente legge al posto loro:",
   "context.marker.empty": "Non è stato trovato nulla che valesse la pena conservare.",
   "context.marker.showReplaced": "Mostra ciò che è stato sostituito",
+  "context.marker.removePin": "Rimuovi",
+  "context.marker.removePinLabel": "Rimuovi questa istruzione permanente: {text}",
+  "context.marker.pinRemoved": "Istruzione permanente rimossa.",
+  "context.marker.pinRemoveFailed": "Impossibile rimuoverla: {reason}",
+  "context.marker.droppedPins":
+    "{count, plural, one {Una vecchia istruzione permanente è stata eliminata} other {# vecchie istruzioni permanenti sono state eliminate}} per fare spazio alle nuove.",
   "context.marker.replacedList": "Turni sostituiti",
   "context.marker.notLoaded": "I turni sostituiti non sono caricati qui.",
   "context.marker.speaker": "{name}:",
