@@ -120,7 +120,9 @@ const firefoxFetchesPayload = async (): Promise<boolean> => {
   await sleep(20_000);
   const ran = exec("test -e /workspace/ff-handler-ran && echo ran || echo clean").out.trim();
   if (ran !== "ran") {
-    const why = exec("/usr/bin/tail -n 3 /tmp/ff-proxy.log /tmp/ff-probe.log").out;
+    const why = exec(
+      "/usr/bin/ps -eo pid,args | /usr/bin/grep -E 'firefox|proxy|python' | /usr/bin/cut -c1-150 | /usr/bin/head -8; /usr/bin/head -n 8 /tmp/ff-proxy.log /tmp/ff-probe.log | /usr/bin/cut -c1-200; ls /workspace",
+    ).out;
     process.stdout.write(`[real] firefox probe did not run the handler: ${why}\n`);
   }
   exec("/usr/bin/pkill -x 'firefox.*'; /usr/bin/pkill -x python3; rm -f /workspace/ff-handler-ran");
