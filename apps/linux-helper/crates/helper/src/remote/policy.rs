@@ -400,21 +400,72 @@ impl Policy {
         !self.deny_listed(id) && self.allow_listed(id)
     }
 
-    /// Whether `apps.deny` names this id or an alias of it (a snap's `<snap>_<app>` is also
-    /// `<app>` and `<snap>`), normalised on both sides.
+    /// Whether `apps.deny` names this id under **any** alias (a snap's `<snap>_<app>` is also
+    /// `<app>` and `<snap>`, with a parallel-install `+key` stripped), or by the short name's
+    /// `x_x` form. Wide on purpose: the deny list protects, and a miss lets an app through.
     pub fn deny_listed(&self, id: &str) -> bool {
-        Self::listed(&self.apps.deny, id)
+        let mut ids = psyche_linux_computer::app_id::aliases(id);
+        for form in Self::forms(id) {
+            if !ids.contains(&form) {
+                ids.push(form);
+            }
+        }
+        self.apps.deny.iter().any(|p| {
+            let p = normalize(p);
+            let patterns = if p.contains('*') {
+                vec![p]
+            } else {
+                Self::forms(&p)
+            };
+            patterns
+                .iter()
+                .any(|pat| ids.iter().any(|id| glob_match(pat, id)))
+        })
     }
 
-    /// Whether `apps.allow` names this id or an alias of it.
+    /// Whether `apps.allow` names this id, or its short form (`x` and `x_x` only): the allow
+    /// list is narrow, so that `firefox` does not allow `evil_firefox` or `code_insiders`.
     pub fn allow_listed(&self, id: &str) -> bool {
         Self::listed(&self.apps.allow, id)
     }
 
     fn listed(list: &[String], id: &str) -> bool {
-        psyche_linux_computer::app_id::aliases(id)
-            .iter()
-            .any(|a| list.iter().any(|p| glob_match(&normalize(p), a)))
+        // The id as written; a plain pattern names its own `x` / `x_x` forms, a wildcard one is
+        // matched as written. (Not the id's forms: `*_*` must not reach `xterm`.)
+        let ids = [normalize(id)];
+        list.iter().any(|p| {
+            let p = normalize(p);
+            // A pattern with a `*` is matched as written; a plain one may name either form.
+            let patterns = if p.contains('*') {
+                vec![p]
+            } else {
+                Self::forms(&p)
+            };
+            patterns
+                .iter()
+                .any(|pat| ids.iter().any(|id| glob_match(pat, id)))
+        })
+    }
+
+    /// The ids an id can be written as. A snap's desktop id is `<snap>_<app>`; when the two
+    /// are the same name (`firefox_firefox`) it is also just `firefox`, the id `apps.list`
+    /// reports. Nothing wider: `evil_firefox` and `firefox_evil` are not `firefox`, and
+    /// `code_insiders` is not `code`.
+    fn forms(id: &str) -> Vec<String> {
+        let id = normalize(id);
+        let mut out = vec![id.clone()];
+        if !id.contains('.') {
+            if let Some((a, b)) = id.split_once('_') {
+                if a == b && !a.is_empty() && !b.contains('_') {
+                    out.push(a.to_string());
+                }
+            }
+            // The short name also stands for the snap's id.
+            if !id.contains('_') && !id.is_empty() && !id.contains('*') {
+                out.push(format!("{id}_{id}"));
+            }
+        }
+        out
     }
 
     /// The same for a call that names no app: it is as permitted as the empty id, so `*` and
