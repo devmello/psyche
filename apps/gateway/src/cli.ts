@@ -7,13 +7,13 @@ import {
 } from "@psyche/db";
 import { DeviceScope, PsycheError, type DeviceScope as Scope } from "@psyche/protocol";
 import { resolveConfig } from "./config.ts";
+import { loadOrCreateGatewayIdentity, rotateGatewayIdentity } from "./identity.ts";
 import {
   acquireGatewayLock,
   listSnapshots,
   releaseGatewayLock,
   restoreWithMarker,
 } from "./pre-update.ts";
-import { loadOrCreateGatewayIdentity, rotateGatewayIdentity } from "./identity.ts";
 import { DEFAULT_APPROVE_SCOPES } from "./security/recoveries.ts";
 
 /**

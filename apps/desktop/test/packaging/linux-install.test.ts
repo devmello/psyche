@@ -24,18 +24,77 @@ function runner(owners: { dpkg?: boolean; rpm?: boolean; missing?: string[] }) {
 const EXE = "/usr/lib/psyche/psyche";
 
 describe("detectInstallKind", () => {
-  it("an absolute $APPIMAGE means AppImage, without asking a package manager", async () => {
+  const IMAGE = "/home/me/Applications/Psyche.AppImage";
+  const MOUNT = "/tmp/.mount_PsycheAbc";
+  const mounted = (source = IMAGE) =>
+    `36 35 0:42 / ${MOUNT} ro,nosuid - fuse.Psyche.AppImage ${source} ro\n`;
+
+  it("an AppImage that proves itself (a FUSE mount of $APPIMAGE holding this executable) is an AppImage, without asking a package manager", async () => {
     const r = runner({ dpkg: true });
     const got = await detectInstallKind({
-      env: { APPIMAGE: "/home/me/Applications/Psyche.AppImage" },
-      execPath: "/tmp/.mount_x/psyche",
+      env: { APPIMAGE: IMAGE, APPDIR: MOUNT },
+      execPath: `${MOUNT}/usr/lib/psyche/psyche`,
+      mountInfo: () => mounted(),
       run: r.run,
     });
-    expect(got).toEqual({
-      kind: "appimage",
-      appImagePath: "/home/me/Applications/Psyche.AppImage",
-    });
+    expect(got).toEqual({ kind: "appimage", appImagePath: IMAGE });
     expect(r.calls).toEqual([]);
+  });
+
+  it("$APPIMAGE alone proves nothing: no mount, another file's mount, or a path outside $APPDIR", async () => {
+    const cases: [string, Parameters<typeof detectInstallKind>[0]][] = [
+      [
+        "no mount line",
+        {
+          env: { APPIMAGE: IMAGE, APPDIR: MOUNT },
+          execPath: `${MOUNT}/psyche`,
+          mountInfo: () => "",
+          run: runner({}).run,
+        },
+      ],
+      [
+        "the mount is another app's image",
+        {
+          env: { APPIMAGE: IMAGE, APPDIR: MOUNT },
+          execPath: `${MOUNT}/psyche`,
+          mountInfo: () => mounted("/home/me/Other.AppImage").replace("Psyche.AppImage", "Other"),
+          run: runner({}).run,
+        },
+      ],
+      [
+        "the executable is not inside $APPDIR",
+        {
+          env: { APPIMAGE: IMAGE, APPDIR: MOUNT },
+          execPath: "/usr/lib/psyche/psyche",
+          mountInfo: () => mounted(),
+          run: runner({}).run,
+        },
+      ],
+      [
+        "$APPDIR is not a runtime mount point",
+        {
+          env: { APPIMAGE: IMAGE, APPDIR: "/home/me/evil" },
+          execPath: "/home/me/evil/psyche",
+          mountInfo: () => mounted(),
+          run: runner({}).run,
+        },
+      ],
+    ];
+    for (const [name, probe] of cases) {
+      expect(await detectInstallKind(probe), name).toBeUndefined();
+    }
+  });
+
+  it("a forged $APPIMAGE does not hide a deb: the package check still decides", async () => {
+    const r = runner({ dpkg: true });
+    expect(
+      await detectInstallKind({
+        env: { APPIMAGE: IMAGE, APPDIR: MOUNT },
+        execPath: EXE,
+        mountInfo: () => "",
+        run: r.run,
+      }),
+    ).toEqual({ kind: "deb" });
   });
 
   it("ignores a relative or empty $APPIMAGE", async () => {
