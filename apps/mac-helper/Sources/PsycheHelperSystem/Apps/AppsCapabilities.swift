@@ -384,7 +384,8 @@ enum LiveAppLookups {
 /// (`AppLaunchPolicy`) before any script runs against it.
 enum AppResolver {
     static func bundleId(_ nameOrId: String) -> String? {
-        if nameOrId.contains("."), (try? CheckedLaunch.url(for: nameOrId)) != nil { return nameOrId }
+        // An agent's script target: judged as an app it could open (`.open`), never a CoreServices agent.
+        if nameOrId.contains("."), (try? CheckedLaunch.url(for: nameOrId, purpose: .open)) != nil { return nameOrId }
         let name = nameOrId.hasSuffix(".app") ? nameOrId : nameOrId + ".app"
         guard !name.contains("/"), !name.contains("..") else { return nil }
         for dir in AppsCapabilities.appFolders {
@@ -399,9 +400,10 @@ enum AppResolver {
 /// bundle is resolved and checked (`AppLaunchPolicy`), that exact bundle is what launches, and a
 /// running instance must be that bundle. Never "whatever LaunchServices prefers".
 enum CheckedLaunch {
-    /// The checked bundle for an id.
-    static func url(for bundleId: String) throws -> URL {
-        try AppLaunchPolicy.resolve(bundleId: bundleId, home: NSHomeDirectory(), lookups: LiveAppLookups.lookups, purpose: .scriptTarget)
+    /// The checked bundle for an id. `.scriptTarget` (the default) is for the helper's own
+    /// backends; an agent's AppleScript or JXA target is judged `.open`.
+    static func url(for bundleId: String, purpose: AppLaunchPolicy.Purpose = .scriptTarget) throws -> URL {
+        try AppLaunchPolicy.resolve(bundleId: bundleId, home: NSHomeDirectory(), lookups: LiveAppLookups.lookups, purpose: purpose)
     }
 
     static func runningURLs(_ bundleId: String) -> [URL?] {
@@ -412,10 +414,11 @@ enum CheckedLaunch {
         try AppLaunchPolicy.checkRunning(bundleId: bundleId, expected: expected, running: runningURLs(bundleId))
     }
 
-    /// Before a script addresses `bundleId`: it resolves to a checked bundle, and a running
-    /// instance (which receives the Apple Events) is that bundle.
+    /// Before an agent's script addresses `bundleId`: it resolves to a checked bundle it could
+    /// open (`.open`: no CoreServices agents), and a running instance (which receives the Apple
+    /// Events) is that bundle.
     static func checkScriptTarget(_ bundleId: String) throws {
-        let url = try url(for: bundleId)
+        let url = try url(for: bundleId, purpose: .open)
         try refuseRunningElsewhere(bundleId, expected: url)
     }
 

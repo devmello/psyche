@@ -15,6 +15,13 @@ export {
   windowsLaunchable,
 } from "./launch.ts";
 export {
+  LAUNCH_CONFIG_DIRS,
+  LAUNCH_CONFIG_FILES,
+  type LaunchConfigScanLimits,
+  launchConfigEntry,
+  launchConfigLinkTargets,
+} from "./launch-config.ts";
+export {
   absoluteHostPathPattern,
   canonicalHostPath,
   foldHostPath,

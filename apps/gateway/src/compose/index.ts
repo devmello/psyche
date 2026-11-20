@@ -207,9 +207,10 @@ import { composePlugins } from "./plugins.ts";
 import { type ComposedProactive, composeProactive } from "./proactive.ts";
 import {
   folderAccessEnv,
+  launchConfigLinks,
   ownWorkdirs,
   protectedRoots,
-  writeProtectedRoots,
+  writeProtection,
 } from "./protected-paths.ts";
 import { createPurchaseTool, LINK_PAYMENT_SOURCE, PURCHASE_TOOL } from "./purchase-tool.ts";
 import { notifierRouting } from "./quiet-hours.ts";
@@ -1092,7 +1093,8 @@ export async function composeGateway(options: ComposeOptions): Promise<ComposedG
     ],
     protectedRoots: () => protectedRoots(config.home),
     ownDirs: () => ownWorkdirs(config.home),
-    writeProtectedRoots: () => writeProtectedRoots(),
+    writeProtectedRoots: () => writeProtection(),
+    launchConfigLinks: launchConfigLinks(() => rawBroker.grantedFolders()),
     onChange: (c) => void changes.record(fileChange(c)),
   }))
     registry.register(tool);
