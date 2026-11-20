@@ -36,6 +36,7 @@ export * from "./repos/tool-calls.ts";
 export * from "./repos/trace-scrub.ts";
 export * from "./repos/widgets.ts";
 export * from "./schema.ts";
+export * from "./secure-delete.ts";
 export {
   backupDatabaseFile,
   checkpointDatabaseFile,
