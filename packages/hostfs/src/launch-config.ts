@@ -86,6 +86,8 @@ export interface LaunchConfigFound {
   kind: "dir" | "file" | "link" | "other";
   /** A link's own target, as written. */
   linkTarget?: string;
+  /** A nested repository's own git folder (`vendor/lib/.git`), with `nestedGit`. */
+  git?: true;
 }
 
 export interface LaunchConfigScan {
@@ -104,6 +106,11 @@ export interface LaunchConfigScanLimits {
    * alone does not make the scan incomplete: a depth is a choice, the other limits are not.
    */
   maxDepth?: number;
+  /**
+   * Also report each `.git` below the root (a vendored clone's own repository), as an entry
+   * with `git: true`. It is never walked either.
+   */
+  nestedGit?: boolean;
 }
 
 /**
@@ -174,6 +181,11 @@ export async function findLaunchConfig(
     for (const d of entries) {
       const rel = next.rel === "" ? d.name : `${next.rel}/${d.name}`;
       const kind = kindOf(d);
+      if (limits.nestedGit === true && next.rel !== "" && fold(d.name) === ".git") {
+        if (found.length >= maxFound) return { found, complete: false };
+        found.push({ rel, kind, git: true });
+        continue;
+      }
       if (launchConfigEntry(rel) !== undefined) {
         if (found.length >= maxFound) return { found, complete: false };
         const linkTarget =

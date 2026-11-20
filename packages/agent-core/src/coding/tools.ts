@@ -103,6 +103,8 @@ export interface CodingLaunchConfig {
   quarantineDir: string;
   /** Folders the walk reads at most before it checks only the top levels (default 50 000). */
   maxDirs?: number;
+  /** Test seam: runs between a quarantine move's checks and the move. */
+  beforeMove?: (from: string) => Promise<void> | void;
   /** A run created or changed launch config, or the walk fell back to the top levels. */
   report?(report: LaunchConfigReport, at: { root: string; ctx: ToolRunContext }): void;
   /**
@@ -708,6 +710,7 @@ function runTool(
               quarantineDir: lc.quarantineDir,
               ...(deps.now === undefined ? {} : { now: deps.now }),
               ...(lc.maxDirs === undefined ? {} : { maxDirs: lc.maxDirs }),
+              ...(lc.beforeMove === undefined ? {} : { beforeMove: lc.beforeMove }),
             })
           : undefined;
       const mounts = [...repoMounts(ws, gitDir), ...(guard?.mounts ?? [])];
@@ -775,7 +778,9 @@ function runTool(
           timedOut: result.timedOut,
           filesChanged: result.filesChanged,
           outcome: result.outcome,
-          ...(notice === undefined ? {} : { launchConfig: launch }),
+          ...(notice === undefined || launch === undefined
+            ? {}
+            : { launchConfig: launchConfigOutput(launch) }),
         },
         { exitCode: result.exitCode ?? -1 },
       );
@@ -789,7 +794,9 @@ function runTool(
           timedOut: result.timedOut,
           filesChanged: result.filesChanged,
           outcome: result.outcome,
-          ...(notice === undefined ? {} : { launchConfig: { ...launch, notice } }),
+          ...(notice === undefined || launch === undefined
+            ? {}
+            : { launchConfig: { ...launchConfigOutput(launch), notice } }),
         },
         // Command output is data (design-07: the workspace's provenance decides the rest).
         provenance: "untrusted",
@@ -798,6 +805,16 @@ function runTool(
       };
     },
   });
+}
+
+/** What the receipt and the model see of a guard's report (no file ids). */
+function launchConfigOutput(r: LaunchConfigReport) {
+  return {
+    quarantined: r.quarantined,
+    changed: r.changed,
+    unmoved: r.unmoved,
+    partial: r.partial,
+  };
 }
 
 async function gitStatus(runner: GitRunner, root: string, signal?: AbortSignal) {

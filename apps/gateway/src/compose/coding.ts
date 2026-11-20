@@ -142,7 +142,7 @@ export function composeCoding(services: ComposeServices, setup: CodingSetup = {}
     ...(git === null ? {} : { git }),
     launchConfig: {
       quarantineDir,
-      report: (report, { root }) => notices.report(report, root),
+      report: (report, { root }) => void notices.report(report, root),
       recreated: ({ root }) => notices.recreated(root),
     },
   });

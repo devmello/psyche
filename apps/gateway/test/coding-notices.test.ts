@@ -9,12 +9,11 @@ import { NotificationActions } from "../src/compose/notification-actions.ts";
 const report = (over: Partial<LaunchConfigReport> = {}): LaunchConfigReport => ({
   quarantined: [],
   changed: [],
+  fingerprints: {},
   unmoved: [],
   partial: false,
   ...over,
 });
-
-const HOUR = 3_600_000;
 
 describe("code.run launch-config notices", () => {
   it("names what was held, with a translated one-tap Keep it", async () => {
@@ -38,27 +37,62 @@ describe("code.run launch-config notices", () => {
     });
   });
 
-  it("tells about changes at most once an hour per workspace, never the same files twice in a row", () => {
-    let t = 0;
-    const limiter = new CodingNoticeLimiter(() => t);
-    const sent: NotifyInput[] = [];
-    const n = codingNotices((i) => sent.push(i), limiter);
-    const idea = report({ changed: [".idea/workspace.xml"] });
-    n.report(idea, "/Users/o/app");
-    t = HOUR / 2;
-    n.report(report({ changed: [".npmrc"] }), "/Users/o/app");
-    // Another workspace has its own hour.
-    n.report(idea, "/Users/o/other");
-    t = 2 * HOUR;
-    // The IDE rewrote the same file again: no second notice.
-    n.report(idea, "/Users/o/app");
-    t = 3 * HOUR;
-    n.report(report({ changed: [".claude/settings.local.json"] }), "/Users/o/app");
-    expect(sent.map((s) => [s.message?.params?.repo, s.message?.params?.paths])).toEqual([
-      ["app", ".idea/workspace.xml"],
-      ["other", ".idea/workspace.xml"],
-      ["app", ".claude/settings.local.json"],
+  /** A notifier that, like the real one, updates the open notice that has the same key. */
+  const inbox = () => {
+    const open = new Map<string, { id: string; input: NotifyInput }>();
+    const shown: { id: string; paths: unknown }[] = [];
+    let next = 1;
+    const notify = async (input: NotifyInput) => {
+      const key = input.dedupeKey ?? `n${next}`;
+      const had = open.get(key);
+      const id = had?.id ?? `ntf_${next++}`;
+      open.set(key, { id, input });
+      shown.push({ id, paths: input.message?.params?.paths });
+      return { id };
+    };
+    const resolve = (key: string) => open.delete(key);
+    return { notify, shown, resolve };
+  };
+
+  // #1435 review r1, B1: a decoy change must not hide the real one that follows.
+  it("never drops a change: one notice per workspace, updated with each new path", async () => {
+    const box = inbox();
+    const n = codingNotices(box.notify);
+    const at = "/Users/o/app";
+    await n.report(report({ changed: [".envrc"], fingerprints: { ".envrc": "file:1" } }), at);
+    await n.report(
+      report({
+        changed: [".pre-commit-config.yaml"],
+        fingerprints: { ".pre-commit-config.yaml": "file:2" },
+      }),
+      at,
+    );
+    // The same file with the same content again: nothing new to show.
+    await n.report(report({ changed: [".envrc"], fingerprints: { ".envrc": "file:1" } }), at);
+    // The same file changed again: shown again.
+    await n.report(report({ changed: [".envrc"], fingerprints: { ".envrc": "file:3" } }), at);
+    expect(box.shown).toEqual([
+      { id: "ntf_1", paths: ".envrc" },
+      { id: "ntf_1", paths: ".pre-commit-config.yaml, .envrc" },
+      { id: "ntf_1", paths: ".envrc, .pre-commit-config.yaml" },
     ]);
+  });
+
+  it("starts a new change notice, with only what is new, once the owner closed the last", async () => {
+    const box = inbox();
+    const n = codingNotices(box.notify);
+    const at = "/Users/o/app";
+    await n.report(report({ changed: [".npmrc"], fingerprints: { ".npmrc": "file:1" } }), at);
+    box.resolve(`code-run-changed:${at}`);
+    await n.report(
+      report({
+        changed: [".mcp.json"],
+        unmoved: ["sub/.vscode"],
+        fingerprints: { ".mcp.json": "f" },
+      }),
+      at,
+    );
+    expect(box.shown.at(-1)).toEqual({ id: "ntf_2", paths: ".mcp.json, sub/.vscode" });
   });
 
   it("says when only the top levels were checked, and when the sandbox was made again", () => {
@@ -66,6 +100,7 @@ describe("code.run launch-config notices", () => {
     const n = codingNotices((i) => sent.push(i), new CodingNoticeLimiter(() => 0));
     n.report(report({ partial: true }), "/Users/o/big");
     n.report(report({ partial: true }), "/Users/o/big");
+    n.recreated("/Users/o/big");
     n.recreated("/Users/o/big");
     expect(sent.map((s) => s.message?.titleKey)).toEqual([
       "notice.codeRun.partial.title",

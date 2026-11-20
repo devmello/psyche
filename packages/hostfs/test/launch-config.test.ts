@@ -134,6 +134,19 @@ describe("finding launch config in a folder tree", () => {
     ]);
   });
 
+  it("reports nested repositories' .git when asked, never the root's, never walked", async () => {
+    const root = tree([
+      ".git/config",
+      "vendor/lib/.git/config",
+      "vendor/lib/.git/.vscode/x",
+      "a.md",
+    ]);
+    expect((await findLaunchConfig(root)).found).toEqual([]);
+    expect((await findLaunchConfig(root, { nestedGit: true })).found).toEqual([
+      { rel: "vendor/lib/.git", kind: "dir", git: true },
+    ]);
+  });
+
   it("reports a link as a link, and says when a limit stopped the walk", async () => {
     const root = tree(["a/b/c/d/x.txt"]);
     const target = tree(["obsidian/app.json"]);
