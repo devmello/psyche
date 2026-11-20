@@ -509,6 +509,7 @@ export const ko: Partial<Catalogue> = {
   "blocks.artifact.bytes": "{size}B",
   "blocks.artifact.kilobytes": "{size}KB",
   "blocks.artifact.megabytes": "{size}MB",
+  "blocks.artifact.gigabytes": "{size}GB",
   "blocks.task.status.queued": "대기열에 있음",
   "blocks.task.status.running": "실행 중",
   "blocks.task.status.awaiting_input": "답변 필요",

@@ -495,6 +495,7 @@ export const fr: Partial<Catalogue> = {
   "blocks.artifact.bytes": "{size} o",
   "blocks.artifact.kilobytes": "{size} Ko",
   "blocks.artifact.megabytes": "{size} Mo",
+  "blocks.artifact.gigabytes": "{size} Go",
   "blocks.task.status.queued": "en file d’attente",
   "blocks.task.status.running": "en cours",
   "blocks.task.status.awaiting_input": "attend votre réponse",

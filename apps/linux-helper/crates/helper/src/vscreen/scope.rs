@@ -21,6 +21,90 @@ pub const DEFAULT_MEMORY_HIGH: &str = "2G";
 pub const DEFAULT_MEMORY_MAX: &str = "3G";
 pub const DEFAULT_TASKS_MAX: u32 = 2048;
 
+/// Checks `systemctl show` output (`MemoryHigh`, `MemoryMax`, `TasksMax`, `CPUQuotaPerSecUSec`)
+/// against what was asked for. A `set-property` that exited 0 but did not take (a controller
+/// that is not delegated to the user manager) leaves the slice looser than asked, and that is an
+/// `Err`: the start stops. A value that is missing or that we cannot parse (a systemd output
+/// format we do not know) is only a warning in `Ok`: it must not break the screen. Tighter than
+/// asked passes. A percentage memory value only has to be finite.
+pub fn check_limits_readback(show: &str, limits: &SliceLimits) -> Result<Vec<String>, String> {
+    let get = |key: &str| {
+        show.lines()
+            .find_map(|l| l.strip_prefix(key)?.strip_prefix('=').map(str::trim))
+    };
+    let mut warnings = Vec::new();
+    // `Ok(Some(n))` a number, `Ok(None)` unreadable (warned), `Err` is infinity.
+    let mut number =
+        |key: &str, parse: &dyn Fn(&str) -> Option<f64>| -> Result<Option<f64>, String> {
+            match get(key) {
+                None => {
+                    warnings.push(format!("{key} is not reported"));
+                    Ok(None)
+                }
+                Some("infinity") => Err(format!("{key} reads back as infinity")),
+                Some(v) => match parse(v) {
+                    Some(n) => Ok(Some(n)),
+                    None => {
+                        warnings.push(format!(
+                            "{key} reads back as {v:?}, which was not understood"
+                        ));
+                        Ok(None)
+                    }
+                },
+            }
+        };
+    let bytes = |v: &str| v.parse::<u64>().ok().map(|n| n as f64);
+    let high_asked = match (
+        memory_bytes(&limits.memory_high),
+        memory_bytes(&limits.memory_max),
+    ) {
+        (Some(h), Some(m)) => Some(h.min(m)),
+        (h, _) => h,
+    };
+    type Check<'a> = (&'a str, Option<f64>, &'a dyn Fn(&str) -> Option<f64>);
+    let checks: [Check; 4] = [
+        ("MemoryHigh", high_asked.map(|n| n as f64), &bytes),
+        (
+            "MemoryMax",
+            memory_bytes(&limits.memory_max).map(|n| n as f64),
+            &bytes,
+        ),
+        ("TasksMax", Some(f64::from(limits.tasks_max)), &|v: &str| {
+            v.parse::<u32>().ok().map(f64::from)
+        }),
+        (
+            "CPUQuotaPerSecUSec",
+            Some(f64::from(limits.cpu_quota_percent) * 10_000.0),
+            &timespan_usec,
+        ),
+    ];
+    for (key, asked, parse) in checks {
+        if let (Some(got), Some(asked)) = (number(key, parse)?, asked) {
+            if got > asked * 1.01 + 1.0 {
+                return Err(format!(
+                    "{key} reads back as {got}, looser than the {asked} asked"
+                ));
+            }
+        }
+    }
+    Ok(warnings)
+}
+
+/// Microseconds of a systemd timespan such as `1s`, `1.5s`, `500ms` or `250us`; `None` for
+/// `infinity` and anything else.
+fn timespan_usec(text: &str) -> Option<f64> {
+    let t = text.trim();
+    let (num, mult) = if let Some(n) = t.strip_suffix("us") {
+        (n, 1.0)
+    } else if let Some(n) = t.strip_suffix("ms") {
+        (n, 1_000.0)
+    } else {
+        (t.strip_suffix('s')?, 1_000_000.0)
+    };
+    let v: f64 = num.trim().parse().ok()?;
+    (v.is_finite() && v >= 0.0).then_some(v * mult)
+}
+
 /// The slice's caps, as systemd properties.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct SliceLimits {
@@ -350,13 +434,119 @@ impl ScopeRunner for SystemdRunner {
                 .args(["--user", "set-property", "--runtime", SLICE_NAME])
                 .args(limits.properties()),
             "systemctl set-property",
-        )
+        )?;
+        // Read the caps back: exit 0 does not mean the controllers took them.
+        let out = Command::new("systemctl")
+            .args([
+                "--user",
+                "show",
+                "-p",
+                "MemoryHigh",
+                "-p",
+                "MemoryMax",
+                "-p",
+                "TasksMax",
+                "-p",
+                "CPUQuotaPerSecUSec",
+                SLICE_NAME,
+            ])
+            .stdin(Stdio::null())
+            .stderr(Stdio::null())
+            .output();
+        let out = match out {
+            Ok(o) => o,
+            Err(e) => {
+                crate::log(&format!("vscreen: cannot read the slice limits back: {e}"));
+                return Ok(());
+            }
+        };
+        for w in check_limits_readback(&String::from_utf8_lossy(&out.stdout), limits)? {
+            crate::log(&format!("vscreen: slice limits read-back: {w}"));
+        }
+        Ok(())
     }
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    // Captured from `systemctl --user show -p MemoryHigh -p MemoryMax -p TasksMax
+    // -p CPUQuotaPerSecUSec` on Ubuntu 24.04 (systemd 255.4-1ubuntu8.18) after
+    // `systemd-run --user --scope -p MemoryHigh=2G -p MemoryMax=3G -p TasksMax=2048 -p CPUQuota=150%`.
+    const SHOW_2G_3G_2048_150: &str = "CPUQuotaPerSecUSec=1.500000s\nMemoryHigh=2147483648\nMemoryMax=3221225472\nTasksMax=2048\n";
+    // The same unit after `set-property --runtime MemoryHigh=1G MemoryMax=1536M TasksMax=100
+    // CPUQuota=50%`: the quota prints in `ms` now.
+    const SHOW_AFTER_SET_PROPERTY: &str =
+        "CPUQuotaPerSecUSec=500ms\nMemoryHigh=1073741824\nMemoryMax=1610612736\nTasksMax=100\n";
+    // A unit with no caps.
+    const SHOW_UNCAPPED: &str =
+        "CPUQuotaPerSecUSec=infinity\nMemoryHigh=infinity\nMemoryMax=infinity\nTasksMax=infinity\n";
+
+    fn limits(high: &str, max: &str, tasks: u32, cpu: u32) -> SliceLimits {
+        SliceLimits {
+            memory_high: high.into(),
+            memory_max: max.into(),
+            tasks_max: tasks,
+            cpu_quota_percent: cpu,
+        }
+    }
+
+    #[test]
+    fn real_systemd_output_reads_back_clean() {
+        let l = limits("2G", "3G", 2048, 150);
+        assert_eq!(check_limits_readback(SHOW_2G_3G_2048_150, &l), Ok(vec![]));
+        let l = limits("1G", "1536M", 100, 50);
+        assert_eq!(
+            check_limits_readback(SHOW_AFTER_SET_PROPERTY, &l),
+            Ok(vec![])
+        );
+    }
+
+    #[test]
+    fn caps_that_did_not_take_stop_the_start() {
+        let l = limits("2G", "3G", 2048, 150);
+        assert!(check_limits_readback(SHOW_UNCAPPED, &l).is_err());
+        for bad in [
+            SHOW_2G_3G_2048_150.replace("MemoryMax=3221225472", "MemoryMax=infinity"),
+            SHOW_2G_3G_2048_150.replace("MemoryHigh=2147483648", "MemoryHigh=infinity"),
+            SHOW_2G_3G_2048_150.replace("TasksMax=2048", "TasksMax=infinity"),
+            SHOW_2G_3G_2048_150.replace("TasksMax=2048", "TasksMax=4096"),
+            SHOW_2G_3G_2048_150.replace("1.500000s", "infinity"),
+            SHOW_2G_3G_2048_150.replace("1.500000s", "3s"),
+            SHOW_2G_3G_2048_150.replace("MemoryMax=3221225472", "MemoryMax=9999999999"),
+        ] {
+            assert!(check_limits_readback(&bad, &l).is_err(), "{bad:?}");
+        }
+        // Tighter than asked passes.
+        let tighter = limits("4G", "6G", 4096, 300);
+        assert_eq!(
+            check_limits_readback(SHOW_2G_3G_2048_150, &tighter),
+            Ok(vec![])
+        );
+    }
+
+    #[test]
+    fn output_we_do_not_understand_warns_and_does_not_fail() {
+        let l = limits("2G", "3G", 2048, 150);
+        for odd in [
+            SHOW_2G_3G_2048_150.replace("1.500000s", "1min 30s"),
+            SHOW_2G_3G_2048_150.replace("MemoryHigh=2147483648", "MemoryHigh=2G"),
+            SHOW_2G_3G_2048_150.replace("TasksMax=2048", "TasksMax=[not set]"),
+            "MemoryHigh=2147483648\nMemoryMax=3221225472\nTasksMax=2048\n".to_string(),
+            String::new(),
+        ] {
+            let r = check_limits_readback(&odd, &l);
+            assert!(matches!(&r, Ok(w) if !w.is_empty()), "{odd:?}: {r:?}");
+        }
+    }
+
+    #[test]
+    fn a_memory_high_above_the_max_is_lowered_to_it() {
+        let l = limits("4G", "3G", 2048, 150);
+        let show = SHOW_2G_3G_2048_150.replace("MemoryHigh=2147483648", "MemoryHigh=3221225472");
+        assert_eq!(check_limits_readback(&show, &l), Ok(vec![]));
+    }
 
     #[test]
     fn unit_names_are_safe_and_short() {

@@ -547,6 +547,7 @@ export const zh: Partial<Catalogue> = {
   "blocks.artifact.bytes": "{size} B",
   "blocks.artifact.kilobytes": "{size} KB",
   "blocks.artifact.megabytes": "{size} MB",
+  "blocks.artifact.gigabytes": "{size} GB",
 
   "blocks.task.status.queued": "已排队",
   "blocks.task.status.running": "运行中",
