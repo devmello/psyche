@@ -18,7 +18,6 @@ export const keepAwake: Partial<Catalogue> = {
   "settings.updates.channel.stable": "安定版",
   "settings.updates.channel.note":
     "現在、チャンネルは安定版のみです。ベータ版が公開されると、ここに表示されます。どのチャンネルでも、アップデートは必ず Psyche のリリースキーで検証されます。",
-  "settings.updates.saveFailed": "リリースチャンネルを保存できませんでした（{reason}）。",
   "settings.storage.title": "ストレージ",
   "settings.storage.hint":
     "このコンピュータ上の Psyche のデータフォルダが使用しているディスク容量です。",
@@ -29,7 +28,7 @@ export const keepAwake: Partial<Catalogue> = {
   "settings.storage.failed": "ストレージ使用量を読み取れませんでした（{reason}）。",
   "settings.storage.confirm.title": "キャッシュと古い録画を消去しますか？",
   "settings.storage.confirm.body":
-    "キャッシュと、7日より古いブラウザ録画を最大 {size} 削除します。キャッシュは必要になると Psyche が作り直します。チャット、メモリ、ライブラリ、ボールト、設定には影響しません。",
+    "キャッシュと、7日より古いブラウザ録画を合計 {size} 削除し、それらの録画のライブラリ項目も削除します。キャッシュは必要になると Psyche が作り直します。チャット、メモリ、その他のライブラリファイル、ボールト、設定には影響しません。",
   "settings.storage.confirm.clear": "消去",
   "settings.storage.cat.database": "データベース",
   "settings.storage.cat.memoryIndex": "メモリインデックス",

@@ -62,20 +62,6 @@ export interface UpdaterOptions {
   stateFile?: string;
 }
 
-/** Reads `updates.channel` through a Gateway call; any failure means the default channel. */
-export async function readUpdateChannel(
-  call: (method: string, params: unknown) => Promise<unknown>,
-): Promise<unknown> {
-  try {
-    const res = (await call("settings.get", { keys: [UPDATE_CHANNEL_KEY] })) as {
-      settings?: Record<string, unknown>;
-    };
-    return res.settings?.[UPDATE_CHANNEL_KEY];
-  } catch {
-    return undefined;
-  }
-}
-
 function stderrLog(message: string): void {
   process.stderr.write(`[updater] ${message}\n`);
 }

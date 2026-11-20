@@ -3741,7 +3741,7 @@
         "sideEffecting": false
       },
       {
-        "description": "Side-effecting. Empties the rebuildable caches (converted documents and thumbnails) and deletes finished browser recordings older than 7 days. Recordings still in progress, and every other category, are untouched.",
+        "description": "Side-effecting. Empties the rebuildable caches (converted documents and thumbnails) and deletes finished browser recordings older than 7 days together with their Library entries. Recordings still in progress, and every other category, are untouched.",
         "name": "storage.clearCache",
         "params": "#/$defs/StorageClearCacheParams",
         "result": "#/$defs/StorageCleared",
@@ -46686,6 +46686,10 @@
         },
         "clearable": {
           "type": "boolean"
+        },
+        "reclaimableBytes": {
+          "minimum": 0,
+          "type": "integer"
         }
       },
       "required": [
@@ -46758,6 +46762,9 @@
         "totalBytes": {
           "minimum": 0,
           "type": "integer"
+        },
+        "partial": {
+          "type": "boolean"
         }
       },
       "required": [

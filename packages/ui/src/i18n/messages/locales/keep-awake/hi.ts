@@ -18,7 +18,6 @@ export const keepAwake: Partial<Catalogue> = {
   "settings.updates.channel.stable": "स्टेबल",
   "settings.updates.channel.note":
     "फ़िलहाल स्टेबल ही एकमात्र चैनल है। बीटा बिल्ड प्रकाशित होने पर बीटा यहाँ दिखेगा। हर अपडेट की जाँच हर हाल में Psyche की रिलीज़ कुंजी से होती है।",
-  "settings.updates.saveFailed": "रिलीज़ चैनल सहेजा नहीं जा सका ({reason})।",
   "settings.storage.title": "स्टोरेज",
   "settings.storage.hint": "इस कंप्यूटर पर Psyche अपने डेटा फ़ोल्डर में जितनी डिस्क जगह इस्तेमाल करता है।",
   "settings.storage.total": "कुल",
@@ -28,7 +27,7 @@ export const keepAwake: Partial<Catalogue> = {
   "settings.storage.failed": "स्टोरेज का उपयोग पढ़ा नहीं जा सका ({reason})।",
   "settings.storage.confirm.title": "कैश और पुरानी रिकॉर्डिंग साफ़ करें?",
   "settings.storage.confirm.body":
-    "इससे {size} तक के कैश और 7 दिन से पुरानी ब्राउज़र रिकॉर्डिंग हट जाएँगी। ज़रूरत पड़ने पर Psyche कैश दोबारा बना लेता है। आपकी चैट, मेमोरी, लाइब्रेरी, वॉल्ट और सेटिंग्स को छुआ नहीं जाता।",
+    "इससे कैश और 7 दिन से पुरानी ब्राउज़र रिकॉर्डिंग मिलाकर {size} हट जाएगा, साथ ही उन रिकॉर्डिंग की लाइब्रेरी प्रविष्टियाँ भी। ज़रूरत पड़ने पर Psyche कैश दोबारा बना लेता है। आपकी चैट, मेमोरी, लाइब्रेरी की अन्य फ़ाइलें, वॉल्ट और सेटिंग्स को छुआ नहीं जाता।",
   "settings.storage.confirm.clear": "साफ़ करें",
   "settings.storage.cat.database": "डेटाबेस",
   "settings.storage.cat.memoryIndex": "मेमोरी इंडेक्स",

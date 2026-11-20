@@ -48,7 +48,8 @@ export function StoragePanel({
   const [busy, setBusy] = useState(false);
   const [notice, setNotice] = useState<{ kind: "ok" | "error"; text: string } | null>(null);
   const clearable = (categories ?? []).filter((c) => c.clearable);
-  const clearableBytes = clearable.reduce((a, c) => a + c.bytes, 0);
+  // What Clear would free now: recordings count only those older than 7 days.
+  const clearableBytes = clearable.reduce((a, c) => a + (c.reclaimableBytes ?? c.bytes), 0);
 
   const run = async (): Promise<void> => {
     if (!onClear) return;
