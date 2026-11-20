@@ -81,6 +81,7 @@ Goal: credentials, proactivity, computer use, server mode.
 - G11 Bitwarden; I14 Web Bot Auth; M6 Microsoft Graph; M9 custom connectors; J8 teach mode; Q5 voice mode; T3 agent-proposed skills; T4 plugins; E12 cross-thread awareness; A12 localization; Windows and Linux desktops.
 - **Linux desktop app: parked, not planned for now (owner, 2026-11-19).** Linux gets a helper-only machine and a headless Linux Host instead; see [linux-helper-only-2026.md](design/linux-helper-only-2026.md). The earlier desktop design ([linux-desktop-2026.md](design/linux-desktop-2026.md)) is kept for reference, and its packaging PR (#1274) is parked. The Linux helper, with its virtual screen (#1293), is on main.
 - Generative UI: the agent builds live widgets (progress, task lists, tables, charts, forms) in chat from a declarative spec; see [design/generative-ui-2026.md](design/generative-ui-2026.md).
+- Spaces (planned, 2026-11-20): a lasting workspace for one project, with its folders, instructions, links, chats, automations and live trackers, refreshed from free signals only; see [design/spaces-2026.md](design/spaces-2026.md). Owner decisions SP1–SP12 are open.
 
 ## Workstreams (can proceed in parallel after Milestone 0)
 

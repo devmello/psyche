@@ -20,6 +20,7 @@ import { galleryRest } from "./gallery-rest/hi.ts";
 import { helperCheck } from "./helper-check/hi.ts";
 import { helperOffline } from "./helper-offline/hi.ts";
 import { homeRest } from "./home-rest/hi.ts";
+import { keepAwake } from "./keep-awake/hi.ts";
 import { links } from "./links/hi.ts";
 import { linuxAccess } from "./linux-access/hi.ts";
 import { mailMeetings } from "./mail-meetings/hi.ts";
@@ -2372,6 +2373,33 @@ export const hi: Partial<Catalogue> = {
   "settings.skills.removeDescription":
     "इसकी फ़ाइलें इस Gateway से डिलीट हो जाती हैं। इसे दोबारा इंस्टॉल करना भरोसा कार्ड से होकर गुज़रता है।",
   "settings.skills.switchOn": "{name} चालू",
+  "settings.plugins.title": "प्लगइन",
+  "settings.plugins.description":
+    "ऐसा कोड जो संदर्भ जोड़ता है, टूल कॉल जाँचता है या मूल्यांकन चलाता है। हर प्लगइन अपनी प्रक्रिया में चलता है। प्लगइन कभी अनुमति नहीं देते।",
+  "settings.plugins.off": "इस Gateway पर प्लगइन बंद हैं, इसलिए कोई भी नहीं चल रहा।",
+  "settings.plugins.loading": "प्लगइन लोड हो रहे हैं…",
+  "settings.plugins.error": "प्लगइन लोड नहीं हो सके। {reason}",
+  "settings.plugins.empty": "कोई प्लगइन इंस्टॉल नहीं है।",
+  "settings.plugins.failed": "बदलाव सहेजा नहीं गया। {reason}",
+  "settings.plugins.waitingApproval": "इस डिवाइस पर आपकी मंज़ूरी का इंतज़ार है।",
+  "settings.plugins.switchOn": "{name} चालू",
+  "settings.plugins.version": " · v{version}",
+  "settings.plugins.adds": "जोड़ता है: {list}",
+  "settings.plugins.from": "स्रोत: {source}",
+  "settings.plugins.state.active": "चल रहा है",
+  "settings.plugins.state.disabled": "बंद",
+  "settings.plugins.state.off": "प्लगइन चालू होने का इंतज़ार",
+  "settings.plugins.state.hash_mismatch": "इंस्टॉल के बाद बदला गया, नहीं चल रहा",
+  "settings.plugins.state.invalid": "मैनिफ़ेस्ट अमान्य है, नहीं चल रहा",
+  "settings.plugins.state.failed": "त्रुटि से रुका",
+  "settings.plugins.capability.context": "संदर्भ",
+  "settings.plugins.capability.before_tool_call": "टूल कॉल से पहले की जाँच",
+  "settings.plugins.capability.after_tool_call": "टूल कॉल के बाद की जाँच",
+  "settings.plugins.capability.agent_end": "हर रन के अंत में एक चरण",
+  "settings.plugins.capability.evaluate": "मूल्यांकन",
+  "settings.plugins.removeTitle": "{name} हटाएँ?",
+  "settings.plugins.removeDescription":
+    "इसकी फ़ाइलें इस Gateway से मिटा दी जाएँगी। दोबारा इंस्टॉल करने के लिए ट्रस्ट कार्ड से गुज़रना होगा।",
   "settings.skills.asksFor": "माँगती है:",
   "settings.skills.toolsLabel": "टूल:",
   "settings.skills.title": "स्किल",
@@ -3686,4 +3714,5 @@ export const hi: Partial<Catalogue> = {
   ...separateDesktop,
   // Windows variants of the sandbox PC, voice keys and platform terms
   ...windowsPlatform202611,
+  ...keepAwake,
 };

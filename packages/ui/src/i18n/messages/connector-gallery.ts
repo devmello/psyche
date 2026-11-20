@@ -63,6 +63,20 @@ export const connectorGallery = {
   "gallery.preset.todoist.desc":
     "See and manage your Todoist tasks and projects. You sign in when it connects.",
   "gallery.preset.todoist.example": "What is due today in Todoist?",
+  "gallery.preset.dropbox.desc":
+    "Browse, search and read the files in your Dropbox. You sign in when it connects.",
+  "gallery.preset.dropbox.example": "Find the contract PDF I saved to Dropbox last month.",
+  "gallery.preset.figma.desc": "Read your Figma designs and files. You sign in when it connects.",
+  "gallery.preset.figma.example": "Summarize the latest changes in my team's design file.",
+  "gallery.preset.asana.desc":
+    "See and update Asana tasks and projects. You sign in when it connects.",
+  "gallery.preset.asana.example": "Which Asana tasks are due this week?",
+  "gallery.preset.zoom.desc": "Find and manage your Zoom meetings. You sign in when it connects.",
+  "gallery.preset.zoom.example": "Which Zoom meetings do I have tomorrow?",
+  "gallery.preset.shopifyDev.desc":
+    "Search Shopify's developer docs and API schemas. No account needed.",
+  "gallery.preset.shopifyDev.example":
+    "How do I query product variants with the Admin GraphQL API?",
   "gallery.preset.airtable.desc": "Read and update the records in your Airtable bases.",
   "gallery.preset.airtable.example":
     "List the records in my Projects base that are marked blocked.",

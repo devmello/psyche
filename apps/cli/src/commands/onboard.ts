@@ -1,10 +1,12 @@
 import { chmodSync, mkdirSync } from "node:fs";
 import { PsycheError } from "@psyche/protocol";
-import { bool, type CommandSpec, str } from "../command.ts";
+import { bool, type CommandSpec, type OptionSpec, str } from "../command.ts";
+import { readConfig, setPath, validateConfig, writeConfig } from "../config-file.ts";
 import type { Ctx } from "../context.ts";
 import { CliError } from "../errors.ts";
 import { readAll } from "../prompt.ts";
 import { detectSupervisor, resolvePsyched, startService } from "../supervisor.ts";
+import { enableLan } from "./devices.ts";
 import { supervisorEnv } from "./service.ts";
 import { callIfAvailable } from "./util.ts";
 
@@ -61,29 +63,31 @@ async function pairWithWait(ctx: Ctx, wait: boolean, steps: Step[]): Promise<boo
   }
 }
 
+const ONBOARD_OPTIONS: Record<string, OptionSpec> = {
+  yes: { type: "boolean", short: "y", description: "Accept defaults; never prompt" },
+  start: {
+    type: "boolean",
+    description: "Install and start the Gateway service if it is not running",
+  },
+  psyched: { type: "string", description: "Path of the psyched executable" },
+  "no-wait": { type: "boolean", description: "Do not wait for pairing approval" },
+  provider: {
+    type: "string",
+    description: `Model provider: ${Object.keys(PROVIDERS).join(" | ")} | skip`,
+    choices: [...Object.keys(PROVIDERS), "skip"],
+  },
+  "key-stdin": { type: "boolean", description: "Read the provider API key from stdin" },
+  "agent-name": { type: "string", description: "Your agent's name (IDENTITY.md)" },
+  "user-name": { type: "string", description: "What the agent calls you (USER.md)" },
+};
+
 export const onboardCommands: CommandSpec[] = [
   {
     path: ["onboard"],
     summary: "Guided setup: data dir, Gateway service, pairing, a model key, persona basics",
     description:
       "Interactive by default. Non-interactive: --yes --start --provider anthropic --key-stdin --agent-name Pip --user-name Ada.",
-    options: {
-      yes: { type: "boolean", short: "y", description: "Accept defaults; never prompt" },
-      start: {
-        type: "boolean",
-        description: "Install and start the Gateway service if it is not running",
-      },
-      psyched: { type: "string", description: "Path of the psyched executable" },
-      "no-wait": { type: "boolean", description: "Do not wait for pairing approval" },
-      provider: {
-        type: "string",
-        description: `Model provider: ${Object.keys(PROVIDERS).join(" | ")} | skip`,
-        choices: [...Object.keys(PROVIDERS), "skip"],
-      },
-      "key-stdin": { type: "boolean", description: "Read the provider API key from stdin" },
-      "agent-name": { type: "string", description: "Your agent's name (IDENTITY.md)" },
-      "user-name": { type: "string", description: "What the agent calls you (USER.md)" },
-    },
+    options: ONBOARD_OPTIONS,
     async run(ctx, { opts }) {
       const yes = bool(opts, "yes");
       const p = ctx.deps.prompter;
@@ -242,7 +246,186 @@ export const onboardCommands: CommandSpec[] = [
       return finish(steps, 0);
     },
   },
+  {
+    path: ["setup"],
+    summary: "Set up a Host from the terminal: model key, public origin, LAN, linger, disk check",
+    description:
+      "Runs `psyche onboard` first (service, pairing, model key, persona), then: gateway.publicOrigin (with the Tailscale Serve command), LAN on one interface, whether the user service keeps running after logout (linger), and a warning when the disk is not encrypted. Non-interactive: --yes --public-origin https://lab-box.tailnet.ts.net --lan --interface eth0.",
+    options: {
+      ...ONBOARD_OPTIONS,
+      "public-origin": {
+        type: "string",
+        description: "https origin other computers reach this Host at (gateway.publicOrigin)",
+      },
+      lan: { type: "boolean", description: "Also allow computers on this network" },
+      interface: { type: "string", description: "Interface for --lan (eth0, 192.168.1.20)" },
+    },
+    async run(ctx, input) {
+      const { opts } = input;
+      const first = await (onboardCommands[0] as CommandSpec).run(ctx, input);
+      const steps = ((first.data as { steps?: Step[] }).steps ?? []).slice();
+      if ((first.exitCode ?? 0) !== 0) return finish(steps, first.exitCode ?? 1);
+      const ask = !bool(opts, "yes") && ctx.deps.prompter.interactive;
+      const p = ctx.deps.prompter;
+
+      // gateway.publicOrigin lives in config.json (restart to apply). The Serve command is a hint,
+      // never run for the user: Serve changes what the whole tailnet can reach.
+      const port = ctx.gatewayUrl().port || "7777";
+      const { config } = readConfig(ctx.home);
+      const stored = (config.gateway as Record<string, unknown> | undefined)?.publicOrigin;
+      let origin = str(opts, "public-origin");
+      if (origin === undefined && typeof stored !== "string" && ask) {
+        origin = await p.text(
+          "Public https address of this Host (blank to skip; for Tailscale, the .ts.net name)",
+          "",
+        );
+      }
+      if (origin) {
+        const normalized = parsePublicOrigin(origin);
+        const next = setPath(config, "gateway.publicOrigin", normalized);
+        const problems = validateConfig(next);
+        if (problems.length) throw new CliError("usage", `Invalid config: ${problems.join("; ")}`);
+        writeConfig(ctx.home, next);
+        steps.push({
+          step: "publicOrigin",
+          status: "done",
+          detail: `${normalized} (restart the Gateway to apply: psyche restart)`,
+        });
+      } else if (typeof stored === "string") {
+        steps.push({ step: "publicOrigin", status: "done", detail: stored });
+      } else {
+        steps.push({ step: "publicOrigin", status: "skipped", detail: "not set" });
+      }
+      steps.push({
+        step: "tailscale",
+        status: "pending",
+        detail: `to serve it over HTTPS on your tailnet, run: tailscale serve --bg --https=443 http://127.0.0.1:${port}`,
+      });
+
+      // LAN on one interface (the existing gateway.lan setting).
+      const wantLan =
+        bool(opts, "lan") || (ask && (await p.confirm("Allow computers on this network?", false)));
+      if (wantLan) {
+        try {
+          const lan = await enableLan(await ctx.gateway(), str(opts, "interface"), (t) =>
+            ctx.deps.io.err(t),
+          );
+          steps.push({
+            step: "lan",
+            status: "done",
+            detail: lan.origin ?? `on (${lan.interfaces.join(", ") || "primary interface"})`,
+          });
+        } catch (err) {
+          steps.push({
+            step: "lan",
+            status: "failed",
+            detail: err instanceof Error ? err.message : String(err),
+          });
+        }
+      } else {
+        steps.push({ step: "lan", status: "skipped", detail: "off; `psyche lan on` turns it on" });
+      }
+
+      // Linux only: linger keeps the user service running after logout, and disk encryption
+      // protects the vault key file. Both are checks and hints; setup changes neither.
+      if (ctx.deps.platform === "linux") {
+        const user = ctx.env.USER ?? ctx.env.LOGNAME ?? "$USER";
+        const linger = await ctx.deps.exec("loginctl", [
+          "show-user",
+          user,
+          "-p",
+          "Linger",
+          "--value",
+        ]);
+        steps.push(
+          linger.code === 0 && linger.stdout.trim() === "yes"
+            ? { step: "linger", status: "done", detail: "the service keeps running after logout" }
+            : {
+                step: "linger",
+                status: "pending",
+                detail: `the Gateway stops when you log out; run: loginctl enable-linger ${user}`,
+              },
+        );
+        const disk = await ctx.deps.exec("lsblk", ["-J", "-s", "-o", "TYPE,MOUNTPOINT"]);
+        const enc = disk.code === 0 ? diskEncryptionOf(disk.stdout, ctx.home) : "unknown";
+        steps.push(
+          enc === "encrypted"
+            ? { step: "disk", status: "done", detail: "encrypted (LUKS)" }
+            : enc === "not_encrypted"
+              ? {
+                  step: "disk",
+                  status: "pending",
+                  detail:
+                    "WARNING: this disk is not encrypted. The vault key is a file here, so anyone who images or steals the disk can read your secrets. Encrypt it (LUKS) before storing real keys.",
+                }
+              : {
+                  step: "disk",
+                  status: "skipped",
+                  detail:
+                    "could not tell whether the disk is encrypted (lsblk unavailable); check it yourself",
+                },
+        );
+      }
+      return finish(steps, 0);
+    },
+  },
 ];
+
+interface LsblkNode {
+  type?: string;
+  mountpoint?: string | null;
+  mountpoints?: (string | null)[];
+  children?: LsblkNode[];
+}
+
+/**
+ * Whether the volume holding `home` sits on LUKS: `lsblk -J -s -o TYPE,MOUNTPOINT` lists each
+ * device with what it sits on as `children`. The longest mount that covers `home` decides.
+ * Mirrors the desktop's onboarding check (the CLI cannot import the desktop app).
+ */
+export function diskEncryptionOf(
+  json: string,
+  home: string,
+): "encrypted" | "not_encrypted" | "unknown" {
+  let tree: { blockdevices?: LsblkNode[] };
+  try {
+    tree = JSON.parse(json) as { blockdevices?: LsblkNode[] };
+  } catch {
+    return "unknown";
+  }
+  const hasCrypt = (n: LsblkNode): boolean =>
+    n.type === "crypt" || (n.children ?? []).some(hasCrypt);
+  let best: { mount: string; node: LsblkNode } | undefined;
+  for (const node of tree.blockdevices ?? []) {
+    const mounts = [...(node.mountpoints ?? []), node.mountpoint ?? null].filter(
+      (m): m is string => typeof m === "string" && m !== "",
+    );
+    for (const mount of mounts) {
+      const covers = mount === "/" || home === mount || home.startsWith(`${mount}/`);
+      if (covers && (best === undefined || mount.length > best.mount.length))
+        best = { mount, node };
+    }
+  }
+  if (best === undefined) return "unknown";
+  return hasCrypt(best.node) ? "encrypted" : "not_encrypted";
+}
+
+/** An https origin with no path, as `gateway.publicOrigin` requires (passkeys need HTTPS). */
+function parsePublicOrigin(raw: string): string {
+  let url: URL;
+  try {
+    url = new URL(raw.trim());
+  } catch {
+    throw new CliError("usage", `--public-origin is not a URL: ${raw}`);
+  }
+  if (url.protocol !== "https:" || url.pathname !== "/" || url.search !== "" || url.hash !== "") {
+    throw new CliError(
+      "usage",
+      "--public-origin must be an https:// origin without a path, such as https://lab-box.tailnet.ts.net",
+    );
+  }
+  return url.origin;
+}
 
 function finish(steps: Step[], exitCode: number) {
   const mark = { done: "ok  ", skipped: "skip", pending: "todo", failed: "FAIL" } as const;

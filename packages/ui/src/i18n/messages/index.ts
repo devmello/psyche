@@ -22,6 +22,7 @@ import { glass } from "./glass.ts";
 import { helperCheck } from "./helper-check.ts";
 import { helperOffline } from "./helper-offline.ts";
 import { home } from "./home.ts";
+import { keepAwake } from "./keep-awake.ts";
 import { links } from "./links.ts";
 import { linuxAccess } from "./linux-access.ts";
 import { mailMeetings } from "./mail-meetings.ts";
@@ -132,6 +133,7 @@ export const en = {
   ...computerWatch,
   ...notices,
   ...separateDesktop,
+  ...keepAwake,
 } as const;
 
 export type MessageId = keyof typeof en;
