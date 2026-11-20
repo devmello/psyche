@@ -215,3 +215,39 @@ describe("folder-access card", () => {
     await waitFor(() => expect(onAnswer).toHaveBeenCalledWith("deny", undefined, undefined));
   });
 });
+
+describe('"Allow in this Space" (spaces-2026 §5.3)', () => {
+  const inSpace = (over: Partial<ApprovalRequest> = {}) =>
+    folderApproval({
+      details: {
+        ...folderApproval().details,
+        space: { id: "spc_kitchen", name: "Kitchen remodel" },
+      },
+      ...over,
+    });
+
+  it("is offered beside once and always, and sent as once plus inSpace", async () => {
+    const onAnswer = show(inSpace(), async () => null);
+    for (const name of ["Just this chat", "Allow in this Space", "Always, this folder and below"]) {
+      expect(screen.getByRole("option", { name })).toBeTruthy();
+    }
+    await userEvent.selectOptions(screen.getByRole("combobox", { name: "Allow for" }), "space");
+    await userEvent.click(allow());
+    await waitFor(() =>
+      expect(onAnswer).toHaveBeenCalledWith("approve", "once", {
+        folderPath: "/Users/me/Projects/app",
+        inSpace: true,
+      }),
+    );
+  });
+
+  it("is not offered on a card outside a Space", () => {
+    show(folderApproval(), async () => null);
+    expect(screen.queryByRole("option", { name: "Allow in this Space" })).toBeNull();
+  });
+
+  it("a tainted card never offers it, even when details name a Space", () => {
+    show(inSpace({ taint: true, scopesOffered: ["once"] }), async () => null);
+    expect(screen.queryByRole("option", { name: "Allow in this Space" })).toBeNull();
+  });
+});

@@ -28,6 +28,7 @@ export const blocksRest: Partial<Catalogue> = {
     "“बस यह चैट” बातचीत खत्म होने तक रहता है। “हमेशा” फ़ोल्डर को तब तक रखता है जब तक आप उसे सेटिंग्ज़ → अनुमतियाँ → एक्सेस में नहीं हटाते।",
   "blocks.folder.scope.once": "बस यह चैट",
   "blocks.folder.scope.always": "हमेशा, यह फ़ोल्डर और इसके अंदर सब कुछ",
+  "blocks.folder.scope.space": "इस स्पेस में अनुमति दें",
   "blocks.folder.explain.ro": "{persona} किसी फ़ोल्डर की फ़ाइलें पढ़ना चाहता है।",
   "blocks.folder.explain.rw": "{persona} किसी फ़ोल्डर की फ़ाइलें पढ़ना और बदलना चाहता है।",
   "blocks.folder.readOnly": "सिर्फ़ पढ़ने दें, कुछ बदलने न दें",

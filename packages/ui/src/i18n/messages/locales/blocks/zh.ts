@@ -27,6 +27,7 @@ export const blocks: Partial<Catalogue> = {
     "“仅此聊天”在对话结束前有效。“始终”会一直保留该文件夹，直到你在“设置 → 权限 → 访问”中将其移除。",
   "blocks.folder.scope.once": "仅此聊天",
   "blocks.folder.scope.always": "始终，此文件夹及其下所有内容",
+  "blocks.folder.scope.space": "在此空间中允许",
   "blocks.folder.explain.ro": "{persona}想读取某个文件夹中的文件。",
   "blocks.folder.explain.rw": "{persona}想读取并更改某个文件夹中的文件。",
   "blocks.folder.readOnly": "只允许读取，不允许更改任何内容",

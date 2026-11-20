@@ -89,6 +89,7 @@ export const blocks = {
     "Just this chat lasts until the conversation ends. Always keeps the folder until you remove it in Settings → Permissions → Access.",
   "blocks.folder.scope.once": "Just this chat",
   "blocks.folder.scope.always": "Always, this folder and below",
+  "blocks.folder.scope.space": "Allow in this Space",
   "blocks.folder.explain.ro": "{persona} wants to read the files in a folder.",
   "blocks.folder.explain.rw": "{persona} wants to read and change the files in a folder.",
   "blocks.folder.readOnly": "Let it read only, not change anything",

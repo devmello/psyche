@@ -666,6 +666,7 @@ export const settingsRest: Partial<Catalogue> = {
     "まだありません。{persona}がフォルダやアプリを必要とするとチャットで尋ね、許可したものがここに表示されます。",
   "settings.access.scope.always": "常時",
   "settings.access.scope.conversation": "このチャット",
+  "settings.access.scope.space": "スペース内",
   "settings.access.scope.limited": "一時的",
   "settings.access.used": "{when}に使用",
   "settings.access.fileOnly": "ファイル 1 つ · 読み取り専用",

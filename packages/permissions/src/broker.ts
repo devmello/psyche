@@ -71,7 +71,10 @@ import {
   refuseFolder,
   resolveFilePick,
   resolveFolderPick,
+  type SpaceFolderRecord,
+  type SpaceFolderSource,
   sameRootSpelling,
+  spaceFolderMode,
 } from "./folder-access.ts";
 import {
   HOST_PROGRAM_ROOTS,
@@ -306,7 +309,26 @@ export interface PermissionBrokerOptions {
      */
     recordReal?: (path: string, real: string, by?: { deviceId: string }) => void | Promise<void>;
   };
+  /**
+   * Spaces (docs/design/spaces-2026.md §5.3): the third folder scope, "Allow in this Space". A
+   * run's Space is read once, at its first call to the broker, and fixed for the run (SR3); its
+   * folders count beside Settings' and the conversation's, for that run only. Without it no
+   * folder is ever Space-scoped.
+   */
+  spaces?: SpaceFolderSource;
 }
+
+/** The Space a thread's current run works in, fixed when that run first asks (SR3). */
+interface RunSpaceBinding {
+  runId: string;
+  spaceId?: string;
+  spaceName?: string;
+  /** An automation's run (or a subagent of one): Space folders are read-only unless SP8. */
+  unattended: boolean;
+}
+
+/** How many threads' run bindings are kept (oldest first out); a thread rebinds at its next run. */
+const RUN_SPACE_CAP = 2_000;
 
 /** How long an attached file stays readable in its conversation (it also ends with the thread). */
 export const ATTACH_GRANT_MS = 24 * 60 * 60 * 1000;
@@ -455,6 +477,9 @@ export class PsychePermissionBroker implements PermissionBroker {
    * grant entry but is still attached. The record alone never grants a read.
    */
   readonly #attachRecords = new Map<string, number>();
+  readonly #spaces: SpaceFolderSource | undefined;
+  /** thread → the Space its current run works in (spaces-2026 §5.1, SR3). */
+  readonly #runSpaces = new Map<string, RunSpaceBinding>();
 
   constructor(options: PermissionBrokerOptions) {
     this.clock = options.clock ?? { now: () => Date.now() };
@@ -480,6 +505,7 @@ export class PsychePermissionBroker implements PermissionBroker {
     this.#revocations = options.revocations;
     this.#channelConversations = options.channelConversations;
     this.#folderAccess = options.folderAccess;
+    this.#spaces = options.spaces;
     this.#hostProgram = options.hostProgram ?? {};
     this.#psycheHome = options.psycheHome;
     const ulid = monotonicFactory();
@@ -495,7 +521,11 @@ export class PsychePermissionBroker implements PermissionBroker {
       policy: () => this.#policy,
       task: (ctx) => this.#task(ctx),
       peekTask: (ctx) => this.#tasks.get(taskKey(ctx)),
-      sessionFolders: (threadId) => this.sessionFolders(threadId),
+      // This conversation's folders, then its run's Space folders (spaces-2026 §5.3).
+      sessionFolders: (threadId) => {
+        const own = this.sessionFolders(threadId);
+        return [...own, ...this.#spaceEntries(threadId, own)];
+      },
       folderRefused: (path) => this.folderRefused(path),
       workspaceRefused: (path) => this.#workspaceRefused(path),
       settleFolders: (threadId) => this.#settleFolders(threadId),
@@ -582,11 +612,15 @@ export class PsychePermissionBroker implements PermissionBroker {
       .map((f) => this.#withReal(f));
   }
 
-  /** This conversation's folders and attached files that still count (see `grantedFolders`). */
+  /**
+   * This conversation's folders and attached files that still count (see `grantedFolders`), and
+   * the folders of the Space its current run works in (`#spaceEntries`).
+   */
   liveSessionFolders(threadId: string): FolderGrantEntry[] {
-    return this.sessionFolders(threadId)
+    const own = this.sessionFolders(threadId)
       .filter((f) => !this.folderRefused(f.path))
       .map((f) => this.#withReal(f));
+    return [...own, ...this.#spaceEntries(threadId, own)];
   }
 
   #withReal<F extends { path: string; real?: string }>(f: F): F {
@@ -670,6 +704,7 @@ export class PsychePermissionBroker implements PermissionBroker {
     for (const f of this.#policy.config.folders ?? []) live.add(f.path);
     for (const f of this.#policy.folders) live.add(f.path);
     for (const roots of this.#sessionFolders.values()) for (const r of roots) live.add(r.path);
+    for (const f of this.#allSpaceRows()) live.add(f.path);
     return live;
   }
 
@@ -718,6 +753,7 @@ export class PsychePermissionBroker implements PermissionBroker {
       ...this.#policy.folders.map((f) => f.path),
       ...this.#policy.workspaceRoots,
       ...(threadId === undefined ? [] : this.sessionFolders(threadId).map((f) => f.path)),
+      ...(threadId === undefined ? [] : this.#boundSpaceRows(threadId).map((f) => f.path)),
     ];
     const now = this.clock.now();
     const waits: Promise<unknown>[] = [];
@@ -883,6 +919,7 @@ export class PsychePermissionBroker implements PermissionBroker {
 
   async decide(call: PolicyCall, ctx: PolicyContext): Promise<PolicyDecision> {
     this.#sweep();
+    this.#bindRunSpace(ctx);
     const { decision, binding } = await this.engine.evaluate(call, ctx);
     if (decision.decision === "ask" && binding !== undefined) {
       // Keyed by the binding alone, kept for twice the approval lifetime: requestApproval restores
@@ -953,6 +990,7 @@ export class PsychePermissionBroker implements PermissionBroker {
    */
   async preview(intents: ToolCallIntent[], ctx: PolicyContext): Promise<PreviewResult[]> {
     const dry: DryRun = { scratch: new Map() };
+    this.#bindRunSpace(ctx);
     const out: PreviewResult[] = [];
     for (const intent of intents) {
       const call = structuredClone(intent) as PolicyCall;
@@ -1765,6 +1803,19 @@ export class PsychePermissionBroker implements PermissionBroker {
         argv: programOffer.argv,
       };
     }
+    // "Allow in this Space" (spaces-2026 §5.3): only the Gateway offers it, on an untainted
+    // folder card whose run works in a Space, beside Allow once (SR2). A caller's own is dropped.
+    delete details.space;
+    if (
+      input.kind === "folder_access" &&
+      !(input.taint || input.context?.taint === true) &&
+      scopesOffered.includes("once")
+    ) {
+      const space = this.#requestSpace(input);
+      if (space !== undefined) {
+        details.space = { id: space.id, name: sanitizeDisplay(space.name).slice(0, 60) };
+      }
+    }
     const sources = input.taintSources ?? input.context?.taintSources;
     if (sources !== undefined && sources.length > 0) {
       details.taintSources = sources.map((s) =>
@@ -2387,6 +2438,32 @@ export class PsychePermissionBroker implements PermissionBroker {
       programChoice = true;
     }
 
+    // "Allow in this Space": a device answers it, on an untainted folder card that offered it,
+    // with scope `once`; the Space is the Gateway's own, from the card (spaces-2026 §5.3).
+    let spaceChoice: { id: string; name: string } | undefined;
+    if (input.inSpace === true && input.decision === "approve") {
+      const offer = (a.details as { space?: { id?: unknown; name?: unknown } }).space;
+      if (
+        chat ||
+        scope !== "once" ||
+        a.taint ||
+        a.kind !== "folder_access" ||
+        offer === undefined ||
+        typeof offer.id !== "string" ||
+        offer.id === ""
+      ) {
+        return this.#reject(
+          rec,
+          id,
+          by,
+          "space_not_offered",
+          "invalid_params",
+          "this card does not offer to allow the folder in a Space",
+        );
+      }
+      spaceChoice = { id: offer.id, name: typeof offer.name === "string" ? offer.name : "" };
+    }
+
     // Security §5.4: `UNSANDBOXED` typed on an exec_host card runs that one command without srt.
     if (input.unsandboxed !== undefined) {
       if (input.decision !== "approve" || a.kind !== "exec_host" || scope !== "once") {
@@ -2514,7 +2591,13 @@ export class PsychePermissionBroker implements PermissionBroker {
         ) {
           // Not a ledger grant: `always` lives in Settings → File access, `once` in the thread.
           // A separate-desktop share only records the pick here; `#applyFolder` is skipped for it.
-          fa.details = { ...fa.details, granted: { ...folderPick } };
+          fa.details = {
+            ...fa.details,
+            granted: {
+              ...folderPick,
+              ...(spaceChoice === undefined ? {} : { spaceId: spaceChoice.id }),
+            },
+          };
         } else if (fa.kind === "batch" && scope === "always") {
           // The one batch grant: prep notes only. It binds the calls' own key, not the batch's.
           grant = this.#newPrepNoteGrant(fresh, by, now);
@@ -2593,7 +2676,7 @@ export class PsychePermissionBroker implements PermissionBroker {
     // the end, once the folder pick is applied.
     this.#emit({ type: "approval.decided", approval: fa });
     if (fa.status === "approved" && folderPick !== undefined && fa.kind === "folder_access") {
-      await this.#applyFolder(fa, folderPick, scope, by);
+      await this.#applyFolder(fa, folderPick, scope, by, spaceChoice);
     }
     if (
       fa.status === "approved" &&
@@ -2656,10 +2739,31 @@ export class PsychePermissionBroker implements PermissionBroker {
     pick: FolderGrantEntry,
     scope: GrantScope,
     by: DecidedBy,
+    space?: { id: string; name: string },
   ): Promise<void> {
     const threadId = fa.requestedBy.threadId;
-    let kept: GrantScope = scope;
-    if (scope === "always") {
+    let kept: GrantScope | "space" = scope;
+    if (space !== undefined) {
+      // "Allow in this Space": the pick joins that Space's folders, for its runs only.
+      try {
+        if (this.#spaces === undefined) throw new Error("no Spaces");
+        await this.#spaces.add(
+          space.id,
+          { path: pick.path, real: pick.path, mode: pick.mode },
+          "deviceId" in by ? { deviceId: by.deviceId } : {},
+        );
+        kept = "space";
+      } catch {
+        // Not stored (the Space was archived or deleted meanwhile): this conversation only.
+        kept = "once";
+        await this.#log(
+          "folder.persist_failed",
+          actorOf(by),
+          { approvalId: fa.id },
+          { ...pick, spaceId: space.id },
+        );
+      }
+    } else if (scope === "always") {
       try {
         await this.#folderAccess?.persist(pick);
       } catch {
@@ -2669,6 +2773,7 @@ export class PsychePermissionBroker implements PermissionBroker {
       }
     }
     this.#pickedRoot(pick.path);
+    if (kept === "space") this.spaceFoldersChanged();
     if (kept === "once" && threadId != null) {
       const roots = this.#sessionFolders.get(threadId) ?? [];
       this.#sessionFolders.set(threadId, [...roots.filter((r) => r.path !== pick.path), pick]);
@@ -2677,7 +2782,13 @@ export class PsychePermissionBroker implements PermissionBroker {
       "folder.granted",
       actorOf(by),
       { approvalId: fa.id, ...(threadId == null ? {} : { threadId }) },
-      { path: pick.path, mode: pick.mode, scope: kept, taint: fa.taint },
+      {
+        path: pick.path,
+        mode: pick.mode,
+        scope: kept,
+        taint: fa.taint,
+        ...(kept === "space" && space !== undefined ? { spaceId: space.id } : {}),
+      },
     );
   }
 
@@ -2719,6 +2830,200 @@ export class PsychePermissionBroker implements PermissionBroker {
         e.file !== true ||
         !(this.policy.folders ?? []).some((f) => isUnderHostPath(e.path, f.path)),
     );
+  }
+
+  // ---- Space folders (docs/design/spaces-2026.md §5.3) ---------------------------------------
+
+  /**
+   * Fixes the Space of the call's run, the first time that run asks (SR3): a thread moved into or
+   * out of a Space mid-run keeps its run's Space until its next run. Only the owner's runs get one
+   * (SR11): a channel peer or another non-owner requester never does. A subagent works in the
+   * Space its parent thread's current run works in, read-only when either run is unattended.
+   */
+  #bindRunSpace(ctx: Pick<PolicyContext, "threadId" | "runId" | "unattended" | "requester">): void {
+    if (this.#spaces === undefined) return;
+    const bound = this.#runSpaces.get(ctx.threadId);
+    if (bound !== undefined && bound.runId === ctx.runId) return;
+    const next = this.#resolveRunSpace(ctx);
+    this.#runSpaces.delete(ctx.threadId);
+    this.#runSpaces.set(ctx.threadId, next);
+    while (this.#runSpaces.size > RUN_SPACE_CAP) {
+      const oldest = this.#runSpaces.keys().next().value;
+      if (oldest === undefined) break;
+      this.#runSpaces.delete(oldest);
+    }
+  }
+
+  #resolveRunSpace(
+    ctx: Pick<PolicyContext, "threadId" | "runId" | "unattended" | "requester">,
+  ): RunSpaceBinding {
+    const none: RunSpaceBinding = { runId: ctx.runId, unattended: ctx.unattended === true };
+    if (this.#spaces === undefined) return none;
+    if (ctx.requester !== undefined && ctx.requester.role !== "owner") return none;
+    let found: ReturnType<SpaceFolderSource["spaceOf"]>;
+    try {
+      found = this.#spaces.spaceOf(ctx.threadId);
+    } catch {
+      return none;
+    }
+    if (found === undefined) return none;
+    if ("parentThreadId" in found) {
+      const parent = this.#runSpaces.get(found.parentThreadId);
+      if (parent?.spaceId === undefined || found.parentThreadId === ctx.threadId) return none;
+      return {
+        ...none,
+        spaceId: parent.spaceId,
+        ...(parent.spaceName === undefined ? {} : { spaceName: parent.spaceName }),
+        unattended: none.unattended || parent.unattended,
+      };
+    }
+    return { ...none, spaceId: found.spaceId, spaceName: found.spaceName };
+  }
+
+  /** The Space a thread's current run works in, if any (the run was bound by its first call). */
+  runSpace(
+    threadId: string,
+  ): { spaceId: string; spaceName?: string; unattended: boolean } | undefined {
+    const b = this.#runSpaces.get(threadId);
+    if (b?.spaceId === undefined) return undefined;
+    return {
+      spaceId: b.spaceId,
+      ...(b.spaceName === undefined ? {} : { spaceName: b.spaceName }),
+      unattended: b.unattended,
+    };
+  }
+
+  /** The stored folders of the Space a thread's current run works in (live; none on a throw). */
+  #boundSpaceRows(threadId: string): readonly SpaceFolderRecord[] {
+    const spaceId = this.#runSpaces.get(threadId)?.spaceId;
+    if (spaceId === undefined || this.#spaces === undefined) return [];
+    try {
+      return this.#spaces.folders(spaceId).filter((f) => f.spaceId === spaceId);
+    } catch {
+      return [];
+    }
+  }
+
+  /** Every live Space folder (none on a throw). */
+  #allSpaceRows(): readonly SpaceFolderRecord[] {
+    if (this.#spaces === undefined) return [];
+    try {
+      return this.#spaces.all();
+    } catch {
+      return [];
+    }
+  }
+
+  /**
+   * The folders of the Space a thread's current run works in, as grant entries for that run: each
+   * at its mode for this run (`spaceFolderMode`: read-only for an automation unless the owner
+   * turned on "Automations may change files here"), with its recorded real path. A folder that
+   * would be refused (`#spaceFolderRefused`) is left out, and so is one the conversation's or
+   * Settings' own grants already cover at that mode, so a Space folder only ever adds access.
+   */
+  #spaceEntries(threadId: string, own: readonly FolderGrantEntry[]): FolderGrantEntry[] {
+    const rows = this.#boundSpaceRows(threadId);
+    if (rows.length === 0) return [];
+    const unattended = this.#runSpaces.get(threadId)?.unattended === true;
+    const base = [
+      ...(this.policy.folders ?? []).filter((f) => !this.folderRefused(f.path)),
+      ...own.filter((f) => f.file !== true),
+    ];
+    const out: FolderGrantEntry[] = [];
+    for (const row of rows) {
+      if (this.#spaceFolderRefused(row)) continue;
+      const entry: FolderGrantEntry = {
+        path: row.path,
+        mode: spaceFolderMode(row, unattended),
+        real: row.real,
+      };
+      if (folderCovers(base, entry.path, entry.mode) !== undefined) continue;
+      if (out.some((o) => o.path === entry.path)) continue;
+      out.push(entry);
+    }
+    return out;
+  }
+
+  /**
+   * Whether a Space folder covers nothing now. Everything `folderRefused` refuses, and more, since
+   * a Space can never hold a folder Settings would refuse (SR2): a path a pick would be refused at
+   * today (`refuseFolder`), or a root whose real path is not the one recorded when it was added (a
+   * root or a parent swapped for a link after the grant, `grantedRootRefused`). Judged from the
+   * broker's last look at the disk; before the first look completes, only by name.
+   */
+  #spaceFolderRefused(row: SpaceFolderRecord): boolean {
+    if (this.folderRefused(row.path)) return true;
+    const env = this.#confirmEnv();
+    const key = `space\0${row.path}\0${row.real}`;
+    let named = this.#refusedMemo.get(key);
+    if (named === undefined) {
+      named =
+        refuseFolder(row.path, env) !== undefined || refuseFolder(row.real, env) !== undefined;
+      this.#refusedMemo.set(key, named);
+    }
+    if (named) return true;
+    const look = this.#rootLooks.get(row.path);
+    if (look === undefined || look.facts === "error") return true;
+    if (look.first === true) return !sameRootSpelling(row.real, row.path, env);
+    return grantedRootRefused(row.path, look.facts, row.real, env);
+  }
+
+  /** Every Space folder that is not archived, for Settings' access list. */
+  allSpaceFolders(): readonly (SpaceFolderRecord & { refused: boolean })[] {
+    return this.#allSpaceRows().map((f) => ({ ...f, refused: this.#spaceFolderRefused(f) }));
+  }
+
+  /**
+   * The owner's revoke of one Space folder (Settings, or the Space page): it stops working on the
+   * next call, in every run of that Space. True when it was there.
+   */
+  async revokeSpaceFolder(spaceId: string, path: string): Promise<boolean> {
+    if (this.#spaces === undefined) return false;
+    const removed = await this.#spaces.remove(spaceId, path);
+    this.spaceFoldersChanged();
+    if (removed)
+      await this.#log("folder.revoked", { type: "system" }, {}, { path, scope: "space", spaceId });
+    return removed;
+  }
+
+  /**
+   * Call after the Gateway changed Space folders itself (a folder added, removed or re-moded, a
+   * Space archived, restored or deleted): verdicts are recomputed and roots nothing grants any more
+   * are forgotten. Reads already answer the live state; this only keeps the caches honest.
+   */
+  spaceFoldersChanged(): void {
+    for (const k of [...this.#refusedMemo.keys()])
+      if (k.startsWith("space\0")) this.#refusedMemo.delete(k);
+    this.#pruneRoots();
+    for (const f of this.#allSpaceRows()) this.folderRefused(f.path);
+  }
+
+  /**
+   * The Space a `folder_access` card may offer "Allow in this Space" for: the one its run works in
+   * (bound by the run's first call), or for a card raised outside a run (the chat's share button),
+   * the Space its thread is in now. Never for a non-owner requester.
+   */
+  #requestSpace(input: PolicyApprovalInput): { id: string; name: string } | undefined {
+    const threadId = input.requestedBy.threadId;
+    if (this.#spaces === undefined || threadId == null) return undefined;
+    const requester = input.context?.requester;
+    if (requester !== undefined && requester.role !== "owner") return undefined;
+    const runId = input.requestedBy.runId;
+    let b: RunSpaceBinding | undefined;
+    if (runId == null) {
+      b = this.#resolveRunSpace({ threadId, runId: "", unattended: false });
+    } else {
+      this.#bindRunSpace({
+        threadId,
+        runId,
+        unattended: input.context?.unattended === true,
+        ...(requester === undefined ? {} : { requester }),
+      });
+      b = this.#runSpaces.get(threadId);
+    }
+    // An archived or deleted Space is caught at the answer: `add` refuses it.
+    if (b?.spaceId === undefined) return undefined;
+    return { id: b.spaceId, name: b.spaceName ?? "" };
   }
 
   /**
@@ -3576,6 +3881,7 @@ export class PsychePermissionBroker implements PermissionBroker {
   endSession(threadId: string): Promise<Grant[]> {
     this.#tasks.delete(`thread:${threadId}`);
     this.#sessionFolders.delete(threadId);
+    this.#runSpaces.delete(threadId);
     this.#pruneRoots();
     for (const k of this.#fileGrantExpiry.keys()) {
       if (k.startsWith(`${threadId}\0`)) this.#fileGrantExpiry.delete(k);

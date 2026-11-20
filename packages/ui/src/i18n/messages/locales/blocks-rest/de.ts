@@ -29,6 +29,7 @@ export const blocksRest: Partial<Catalogue> = {
     "„Nur dieser Chat“ gilt, bis die Unterhaltung endet. „Immer“ behält den Ordner, bis du ihn unter Einstellungen → Berechtigungen → Zugriff entfernst.",
   "blocks.folder.scope.once": "Nur dieser Chat",
   "blocks.folder.scope.always": "Immer, dieser Ordner und darunter",
+  "blocks.folder.scope.space": "In diesem Space erlauben",
   "blocks.folder.explain.ro": "{persona} möchte die Dateien in einem Ordner lesen.",
   "blocks.folder.explain.rw": "{persona} möchte die Dateien in einem Ordner lesen und ändern.",
   "blocks.folder.readOnly": "Nur lesen lassen, nichts ändern",

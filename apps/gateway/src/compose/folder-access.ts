@@ -20,8 +20,9 @@ import { Type } from "@sinclair/typebox";
  * `request_folder_access` (security §3.5, "Folder access"): the agent asks for a folder its file
  * tools cannot reach. The owner answers an approval card, picks the folder with the native
  * picker (the pick is what is granted, never this tool's `path`) and chooses Allow once (this
- * conversation) or Always allow (kept in Settings → File access until revoked). A tainted turn
- * is offered Allow once only. The tool never touches the disk: the broker applies the grant
+ * conversation) or Always allow (kept in Settings → File access until revoked). In a Space's run
+ * the broker also offers Allow in this Space (the folder joins that Space, for its runs only;
+ * docs/design/spaces-2026.md §5.3). A tainted turn is offered Allow once only. The tool never touches the disk: the broker applies the grant
  * before this call returns, so the next file tool call in the same turn already sees the folder.
  */
 
@@ -134,7 +135,12 @@ export async function askForFolder(
       granted: true,
       path: granted.path,
       access: granted.mode === "rw" ? "read_write" : "read",
-      until: done.scopeGranted === "always" ? "revoked" : "end of this conversation",
+      until:
+        done.scopeGranted === "always"
+          ? "revoked"
+          : typeof (granted as { spaceId?: unknown }).spaceId === "string"
+            ? "removed from this Space (it works in this Space's chats and automations only)"
+            : "end of this conversation",
     },
     provenance: "trusted",
   };

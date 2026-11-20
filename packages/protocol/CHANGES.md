@@ -22,6 +22,11 @@ CI fails when the generated files are stale (`pnpm protocol:check`).
 
 ## Log
 
+### v1 additive — 2026-11-20 (Spaces, wave S2: folder scope)
+
+- `ApprovalAnswer` gains an optional `inSpace: true`: "Allow in this Space" on a `folder_access` card that offered it (`details.space`, set by the Gateway), sent with `scope: "once"`. The pick joins that Space's folders.
+- `AccessEntry.scope` gains `space` (a value at the end); new optional `spaceId`, `spaceName` and `automationsWrite` on a `space` row. `access.revoke` takes its id. Design: docs/design/spaces-2026.md §5.3.
+
 ### v1 additive — 2026-11-19 (machine registry, H3)
 
 - New method `node.unpair` (scope `node`, `{}` to `{ device }`): a connection paired as a machine removes itself; any other node gets `forbidden`. `MACHINE_TOKENS_ENABLED` is now true. Design: docs/design/linux-helper-only-2026.md §6.6, §9.

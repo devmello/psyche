@@ -117,6 +117,7 @@ import { sealedPermissionStore } from "../security/sealed-stores.ts";
 import { StateSeal } from "../security/state-seal.ts";
 import { type Gateway, type GatewayOptions, startGateway } from "../server.ts";
 import { reencodeToolImage } from "../session/image-resize.ts";
+import { composeSpaceFolders, spaceFolderSource } from "../spaces/folders.ts";
 import { BusySources, UpdateGate } from "../update-gate.ts";
 import {
   API_KEY_IDS,
@@ -791,6 +792,10 @@ export async function composeGateway(options: ComposeOptions): Promise<ComposedG
       recordReal: recordFolderReal,
     },
     channelConversations: (ref) => channelConversations.get(ref),
+    // Spaces S2: "Allow in this Space" and the Space folders a run in a Space may use.
+    spaces: spaceFolderSource(db, (spaceId) =>
+      publish("space.updated", { spaceId, changed: ["folders"] }),
+    ),
     approvers: {
       async device(deviceId) {
         seal.ensure();
@@ -2209,6 +2214,7 @@ export async function composeGateway(options: ComposeOptions): Promise<ComposedG
   parts.push(nudges.part());
   parts.push(mailFollowups.part());
   parts.push(composeSpaces({ scheduler }));
+  parts.push(composeSpaceFolders({ broker: () => rawBroker, home: config.home }));
   parts.push(
     composeWork({
       db,

@@ -32,6 +32,7 @@ export const blocksA: Partial<Catalogue> = {
     "“Só este chat” dura até a conversa terminar. “Sempre” mantém a pasta até você removê-la em Ajustes → Permissões → Acesso.",
   "blocks.folder.scope.once": "Só este chat",
   "blocks.folder.scope.always": "Sempre, esta pasta e tudo dentro dela",
+  "blocks.folder.scope.space": "Permitir neste espaço",
   "blocks.folder.explain.ro": "{persona} quer ler os arquivos de uma pasta.",
   "blocks.folder.explain.rw": "{persona} quer ler e alterar os arquivos de uma pasta.",
   "blocks.folder.readOnly": "Permitir só leitura, sem alterar nada",

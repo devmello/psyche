@@ -32,6 +32,7 @@ export const blocksA: Partial<Catalogue> = {
     "«Solo este chat» dura hasta que termina la conversación. «Siempre» conserva la carpeta hasta que la quites en Ajustes → Permisos → Acceso.",
   "blocks.folder.scope.once": "Solo este chat",
   "blocks.folder.scope.always": "Siempre, esta carpeta y lo que contiene",
+  "blocks.folder.scope.space": "Permitir en este espacio",
   "blocks.folder.explain.ro": "{persona} quiere leer los archivos de una carpeta.",
   "blocks.folder.explain.rw": "{persona} quiere leer y modificar los archivos de una carpeta.",
   "blocks.folder.readOnly": "Que solo pueda leer, sin cambiar nada",

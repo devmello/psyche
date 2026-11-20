@@ -29,6 +29,7 @@ export const blocksRest: Partial<Catalogue> = {
     "« Cette discussion seulement » dure jusqu’à la fin de la conversation. « Toujours » conserve le dossier jusqu’à ce que vous le retiriez dans Réglages → Autorisations → Accès.",
   "blocks.folder.scope.once": "Cette discussion seulement",
   "blocks.folder.scope.always": "Toujours, ce dossier et ses sous-dossiers",
+  "blocks.folder.scope.space": "Autoriser dans cet espace",
   "blocks.folder.explain.ro": "{persona} souhaite lire les fichiers d’un dossier.",
   "blocks.folder.explain.rw": "{persona} souhaite lire et modifier les fichiers d’un dossier.",
   "blocks.folder.readOnly": "Lecture seule, sans rien modifier",
