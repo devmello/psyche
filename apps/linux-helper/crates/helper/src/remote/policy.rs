@@ -430,7 +430,9 @@ impl Policy {
     }
 
     fn listed(list: &[String], id: &str) -> bool {
-        let ids = Self::forms(id);
+        // The id as written; a plain pattern names its own `x` / `x_x` forms, a wildcard one is
+        // matched as written. (Not the id's forms: `*_*` must not reach `xterm`.)
+        let ids = [normalize(id)];
         list.iter().any(|p| {
             let p = normalize(p);
             // A pattern with a `*` is matched as written; a plain one may name either form.

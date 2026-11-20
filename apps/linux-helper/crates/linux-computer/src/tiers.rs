@@ -635,7 +635,7 @@ type SessionState = (Option<(String, f64)>, Vec<String>);
 /// session" allowances (30 minutes). Thread-safe.
 /// Judges an app by the id the engine **resolved** (after a pid, a display name or the focus
 /// became an app). The helper's machine ceiling (`apps.allow` / `apps.deny`) is one.
-pub type AppGate = std::sync::Arc<dyn Fn(&str) -> CapResult<()> + Send + Sync>;
+pub type AppGate = std::sync::Arc<dyn Fn(&str, &[String]) -> CapResult<()> + Send + Sync>;
 
 pub struct TierPolicy {
     gate: Mutex<Option<AppGate>>,
@@ -713,10 +713,33 @@ impl TierPolicy {
         app_name: &str,
         approval: Option<&ApprovalBinding>,
     ) -> CapResult<()> {
+        self.authorize_with(intent, bundle_id, &[], app_name, approval)
+    }
+
+    /// [`TierPolicy::authorize`] for a running app: the machine ceiling is asked of its id and
+    /// of the other ids it carries ([`AppInfo::also_ids`]) together, so every gate gives one
+    /// answer for one program.
+    pub fn authorize_app(
+        &self,
+        intent: Intent,
+        app: &crate::backend::AppInfo,
+        approval: Option<&ApprovalBinding>,
+    ) -> CapResult<()> {
+        self.authorize_with(intent, Some(&app.id), &app.also_ids, &app.name, approval)
+    }
+
+    fn authorize_with(
+        &self,
+        intent: Intent,
+        bundle_id: Option<&str>,
+        also: &[String],
+        app_name: &str,
+        approval: Option<&ApprovalBinding>,
+    ) -> CapResult<()> {
         if let Some(id) = bundle_id {
             let gate = self.gate.lock().unwrap_or_else(|e| e.into_inner()).clone();
             if let Some(gate) = gate {
-                gate(id)?;
+                gate(id, also)?;
             }
         }
         let mut guard = self.state.lock().unwrap();

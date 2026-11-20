@@ -275,17 +275,58 @@ fn a_surface_that_refuses_the_focus_stops_typing_and_keys_before_anything_is_sen
 
 /// The machine ceiling's gate sees the app the engine resolved, however the call named it.
 fn deny_keepass(r: &Rig) {
-    r.engine.policy.set_app_gate(std::sync::Arc::new(|id| {
-        if crate::app_id::normalize(id) == "keepassxc" {
-            Err(crate::error::CapError::new(
-                "policy_denied",
-                "app_denied",
-                "out of reach",
-            ))
-        } else {
-            Ok(())
-        }
-    }));
+    r.engine
+        .policy
+        .set_app_gate(std::sync::Arc::new(|id, _also| {
+            if crate::app_id::normalize(id) == "keepassxc" {
+                Err(crate::error::CapError::new(
+                    "policy_denied",
+                    "app_denied",
+                    "out of reach",
+                ))
+            } else {
+                Ok(())
+            }
+        }));
+}
+
+/// The gate is asked of the app's id and of the other ids it carries, for every authorization.
+#[test]
+fn the_app_gate_is_asked_with_the_ids_the_app_carries() {
+    let r = rig(all_interact());
+    editor(&r);
+    r.engine
+        .policy
+        .set_app_gate(std::sync::Arc::new(|_id, also| {
+            if also.iter().any(|a| a == "com.example.flatpak") {
+                Ok(())
+            } else {
+                Err(crate::error::CapError::new(
+                    "policy_denied",
+                    "app_denied",
+                    "out of reach",
+                ))
+            }
+        }));
+    let tree = |r: &Rig| {
+        call(
+            r,
+            "computer.ax_tree",
+            json!({"app": "org.gnome.TextEditor"}),
+            &inv(),
+        )
+    };
+    assert_eq!(tree(&r).unwrap_err().1, "app_denied");
+    {
+        let mut s = r.fake.s.lock().unwrap();
+        let editor = s
+            .apps
+            .iter_mut()
+            .find(|a| a.id == "org.gnome.texteditor")
+            .unwrap();
+        editor.also_ids = vec!["com.example.flatpak".into()];
+    }
+    tree(&r).unwrap();
 }
 
 #[test]

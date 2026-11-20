@@ -459,9 +459,22 @@ impl A11y {
                 .into_iter()
                 .filter(|w| self.role_of(w).is_some_and(is_window_role))
                 .collect();
-            let Some(id) = self.app_id_for_pid(pid) else {
+            let holder = self
+                .holder_hint
+                .lock()
+                .unwrap_or_else(|e| e.into_inner())
+                .as_ref()
+                .and_then(|h| h(pid));
+            let facts = self.id_facts_for_pid(pid, holder.as_deref());
+            let Some(id) = facts.own.clone() else {
                 continue;
             };
+            let also_ids: Vec<String> = facts
+                .flatpak
+                .iter()
+                .filter(|f| **f != id)
+                .cloned()
+                .collect();
             let active = match active_pid {
                 Some(p) => p == pid,
                 None => wins
@@ -485,6 +498,7 @@ impl A11y {
                 electron,
                 frontmost: active,
                 windows: wins.len(),
+                also_ids,
             });
         }
         out

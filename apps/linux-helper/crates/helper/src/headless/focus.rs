@@ -27,7 +27,15 @@ pub trait Denies {
     fn allow_listed(&self, app_id: &str) -> bool;
     /// Out of reach for the app a call names: denied, or not allowed.
     fn is_denied(&self, app_id: &str) -> bool {
-        self.deny_listed(app_id) || !self.allow_listed(app_id)
+        !self.permits(app_id, &[])
+    }
+    /// **The** predicate every gate of the ceiling uses, for an app with its id and the other
+    /// ids it carries (a verified Flatpak's own id beside the stricter host id that caps it):
+    /// not denied under any of them, and allowed under at least one. They are one program, so
+    /// the owner may name either.
+    fn permits(&self, id: &str, also: &[String]) -> bool {
+        let ids = std::iter::once(id).chain(also.iter().map(String::as_str));
+        ids.clone().all(|i| !self.deny_listed(i)) && ids.clone().any(|i| self.allow_listed(i))
     }
 }
 
@@ -88,6 +96,17 @@ pub fn blocked_by(deny: &dyn Denies, scopes: &dyn Scopes, pid: u32) -> Option<(S
     {
         return Some((name, m.clone()));
     }
+    // A verified Flatpak is one program under several names (its own id, the scope's app, the
+    // host id that caps it): the allow list may name any of them.
+    if let Some(f) = &id.facts.flatpak {
+        let named = id
+            .holder
+            .iter()
+            .chain(std::iter::once(f))
+            .chain(id.facts.own.iter())
+            .any(|i| deny.allow_listed(i));
+        return (!named).then(|| (name, f.clone()));
+    }
     // A launcher shared by several entries (`libreoffice` starts Writer, Calc and the Start
     // Center from one `soffice.bin`) resolves to all of them. When the scope's own app is one of
     // them (and its desktop file is trusted: one in the account's own directories cannot make
@@ -142,7 +161,18 @@ pub fn decide(
     scopes: &dyn Scopes,
     deny: &dyn Denies,
 ) -> Result<(), Refusal> {
-    if deny.is_denied(target) {
+    decide_app(target, &[], focus_pid, scopes, deny)
+}
+
+/// [`decide`] for a running app, with the other ids it carries.
+pub fn decide_app(
+    target: &str,
+    also: &[String],
+    focus_pid: Option<u32>,
+    scopes: &dyn Scopes,
+    deny: &dyn Denies,
+) -> Result<(), Refusal> {
+    if !deny.permits(target, also) {
         return Err(Refusal::Denied {
             app: target.to_string(),
             matched: target.to_string(),
@@ -267,6 +297,7 @@ mod tests {
             electron: false,
             frontmost: true,
             windows: 1,
+            also_ids: Vec::new(),
         }
     }
 
@@ -665,7 +696,12 @@ mod tests {
             ("firefox", "firefox-esr", false, false),
             ("org.mozilla.firefox", "firefox", false, false),
             // A snap whose app is not its name, and a parallel install: denied by the snap name.
-            ("*_firefox", "firefox", true, true),
+            ("*_firefox", "firefox", false, true),
+            // A wildcard allow is matched against the id as written: it reaches no plain id.
+            ("*_*", "xterm", false, true),
+            ("*_*", "gnome-calculator", false, true),
+            ("*_c*", "chromium", false, true),
+            ("*_*", "org.gnome.texteditor", false, false),
             ("libreoffice", "libreoffice_writer", false, true),
             ("firefox", "firefox+beta_firefox", false, true),
         ] {

@@ -20,10 +20,11 @@ use psyche_linux_computer::backend::{AppInfo, WinInfo};
 use psyche_linux_computer::engine::Engine;
 use psyche_linux_computer::error::{code, CapError, CapResult};
 use psyche_linux_computer::linux::{LinuxBackend, Path, SurfaceHooks};
+use psyche_linux_computer::tiers::AppGate;
 use psyche_linux_computer::trust::SettingsSource;
 use psyche_linux_computer::x11::X11;
 
-use super::focus::{blocked_by, decide, to_error, Identity, Scopes};
+use super::focus::{blocked_by, decide_app, to_error, Denies, Identity, Scopes};
 use crate::paths::{psyche_home, Env, ProcessEnv};
 use crate::remote::config::config_dir;
 use crate::remote::policy::PolicySource;
@@ -45,6 +46,30 @@ pub fn policy_source() -> Arc<PolicySource> {
 /// Whether the process is an app the ceiling puts out of reach (see [`blocked_by`]).
 pub fn pid_denied(policy: &crate::remote::policy::Policy, scopes: &dyn Scopes, pid: u32) -> bool {
     blocked_by(policy, scopes, pid).is_some()
+}
+
+/// The ceiling's gate for the engine: asked of every authorization with the app's id and the
+/// other ids it carries. `load` reads the policy afresh each time.
+pub fn ceiling_gate(
+    load: impl Fn() -> crate::remote::policy::Policy + Send + Sync + 'static,
+) -> AppGate {
+    Arc::new(move |id, also| {
+        if load().permits(id, also) {
+            Ok(())
+        } else {
+            Err(app_denied(id))
+        }
+    })
+}
+
+/// The pre-send check of the app the last input check was made for: the pid the focused client
+/// must be, or the refusal. Same predicate as the gate.
+pub fn send_allowed(policy: &crate::remote::policy::Policy, app: &AppInfo) -> CapResult<u32> {
+    if policy.permits(&app.id, &app.also_ids) {
+        Ok(app.pid)
+    } else {
+        Err(app_denied(&app.id))
+    }
 }
 
 pub fn app_denied(id: &str) -> CapError {
@@ -121,10 +146,7 @@ impl VirtualHooks {
                 "No app is the target of this input",
             ));
         };
-        if !self.policy.load().policy.app_permitted(&app.id) {
-            return Err(app_denied(&app.id));
-        }
-        Ok(app.pid)
+        send_allowed(&self.policy.load().policy, &app)
     }
 }
 
@@ -157,7 +179,14 @@ impl SurfaceHooks for VirtualHooks {
     fn check_input_target(&self, app: &AppInfo) -> CapResult<()> {
         PREPARED.with(|p| *p.borrow_mut() = Some(app.clone()));
         let deny = self.policy.load().policy;
-        decide(&app.id, self.focus_pid(), &self.scopes(), &deny).map_err(|r| to_error(&r, app))
+        decide_app(
+            &app.id,
+            &app.also_ids,
+            self.focus_pid(),
+            &self.scopes(),
+            &deny,
+        )
+        .map_err(|r| to_error(&r, app))
     }
 
     /// Windows of apps the machine ceiling does not permit, by what the process itself is and by
@@ -277,13 +306,9 @@ impl HeadlessSurface {
         // asks the machine ceiling first, so clicks, accessibility actions, snapshots and
         // screenshots are covered as well as keys.
         let source = Arc::clone(&hooks_policy);
-        engine.policy.set_app_gate(Arc::new(move |id| {
-            if source.load().policy.app_permitted(id) {
-                Ok(())
-            } else {
-                Err(app_denied(id))
-            }
-        }));
+        engine
+            .policy
+            .set_app_gate(ceiling_gate(move || source.load().policy));
         *guard = Some((key, Arc::clone(&engine)));
         Ok(engine)
     }
@@ -328,7 +353,141 @@ pub fn address_in_dir(address: &str, dir: &std::path::Path) -> bool {
 #[allow(clippy::field_reassign_with_default)]
 mod tests {
     use super::*;
+    use crate::remote::policy::{Apps, Policy};
+    use psyche_linux_computer::app_id::IdFacts;
     use std::path::Path as P;
+
+    /// Every gate of the ceiling answers the same for one program. Rows: a system-installed
+    /// Flatpak whose id is in no cap table, capped by its host id (`sublime_text`), and ordinary
+    /// apps; under allow and deny lists that name either id, both, or neither.
+    #[test]
+    fn every_gate_agrees_about_one_program() {
+        use super::super::focus::decide_app;
+        use psyche_linux_computer::error::code;
+        struct Ident(Identity);
+        impl Scopes for Ident {
+            fn in_scope(&self, _: &str, _: u32) -> bool {
+                true
+            }
+            fn identity(&self, _: u32) -> Identity {
+                self.0.clone()
+            }
+        }
+        let flatpak = "com.sublimetext.three";
+        let host = "sublime_text";
+        let capped = || {
+            (
+                Identity {
+                    holder: Some(flatpak.into()),
+                    facts: IdFacts {
+                        own: Some(host.into()),
+                        resolved: vec![flatpak.into()],
+                        candidates: vec![host.into(), flatpak.into()],
+                        flatpak: Some(flatpak.into()),
+                        ..Default::default()
+                    },
+                },
+                AppInfo {
+                    id: host.into(),
+                    name: "Sublime".into(),
+                    pid: 7,
+                    electron: false,
+                    frontmost: true,
+                    windows: 1,
+                    also_ids: vec![flatpak.into()],
+                },
+            )
+        };
+        let plain = || {
+            (
+                Identity {
+                    holder: Some("org.gnome.TextEditor".into()),
+                    facts: IdFacts {
+                        own: Some("org.gnome.texteditor".into()),
+                        resolved: vec!["org.gnome.texteditor".into()],
+                        trusted: vec!["org.gnome.texteditor".into()],
+                        candidates: vec!["org.gnome.texteditor".into()],
+                        ..Default::default()
+                    },
+                },
+                AppInfo {
+                    id: "org.gnome.texteditor".into(),
+                    name: "Text Editor".into(),
+                    pid: 8,
+                    electron: false,
+                    frontmost: true,
+                    windows: 1,
+                    also_ids: Vec::new(),
+                },
+            )
+        };
+        // (program, allow, deny, expected: in reach)
+        let rows: Vec<(bool, Vec<&str>, Vec<&str>, bool)> = vec![
+            // S1: the owner names the Flatpak's own id.
+            (true, vec![flatpak], vec![], true),
+            // S2: the owner names the host id; the same program.
+            (true, vec![host], vec![], true),
+            // S3: both.
+            (true, vec![flatpak, host], vec![], true),
+            // Neither, or something else.
+            (true, vec!["org.other.App"], vec![], false),
+            (true, vec!["*"], vec![], true),
+            // Denied under either id, whichever the allow list names.
+            (true, vec!["*"], vec![flatpak], false),
+            (true, vec!["*"], vec![host], false),
+            (true, vec![flatpak], vec![host], false),
+            // An ordinary app.
+            (false, vec!["org.gnome.TextEditor"], vec![], true),
+            (false, vec![flatpak], vec![], false),
+            (false, vec!["*"], vec!["org.gnome.TextEditor"], false),
+        ];
+        for (is_capped, allow, deny, want) in rows {
+            let mut policy = Policy::default();
+            policy.apps = Apps {
+                allow: allow.iter().map(|s| s.to_string()).collect(),
+                deny: deny.iter().map(|s| s.to_string()).collect(),
+            };
+            let (identity, app) = if is_capped { capped() } else { plain() };
+            let row = format!("capped={is_capped} allow={allow:?} deny={deny:?}");
+            // 1. What is shown in screenshots and judged on the focused window.
+            let scopes = Ident(identity);
+            assert_eq!(
+                blocked_by(&policy, &scopes, 1).is_none(),
+                want,
+                "blocked_by {row}"
+            );
+            // 2. The engine gate every Read, Click and Type authorization asks.
+            let gate = ceiling_gate({
+                let policy = policy.clone();
+                move || policy.clone()
+            });
+            assert_eq!(gate(&app.id, &app.also_ids).is_ok(), want, "gate {row}");
+            // 3. The check made as keys are sent.
+            assert_eq!(send_allowed(&policy, &app).is_ok(), want, "send {row}");
+            // 4. The check made before a batch is typed.
+            let typed = decide_app(&app.id, &app.also_ids, Some(1), &scopes, &policy);
+            assert_eq!(
+                !matches!(typed, Err(super::super::focus::Refusal::Denied { .. })),
+                want,
+                "decide {row}"
+            );
+            // And the refusal is a policy refusal, not a focus one.
+            if !want {
+                assert_eq!(
+                    gate(&app.id, &app.also_ids).unwrap_err().code,
+                    code::POLICY_DENIED
+                );
+            }
+        }
+        // 5. Launching names a desktop id and carries no others: it is judged on that id.
+        let mut policy = Policy::default();
+        policy.apps = Apps {
+            allow: vec![flatpak.into()],
+            deny: vec![],
+        };
+        assert!(policy.app_permitted(flatpak));
+        assert!(!policy.app_permitted("org.gnome.TextEditor"));
+    }
 
     #[test]
     fn the_accessibility_address_must_lead_into_the_session_dir() {

@@ -29,6 +29,11 @@ pub struct AppInfo {
     pub frontmost: bool,
     /// Number of top-level windows.
     pub windows: usize,
+    /// Other ids the same program has that the machine ceiling counts for it: a verified
+    /// Flatpak's own id when `id` is the stricter host id it is capped by. Caps, tiers and
+    /// capture exclusion key on `id`; `apps.allow` and `apps.deny` are asked of `id` and these
+    /// together (one predicate, [`crate::tiers::AppGate`]).
+    pub also_ids: Vec<String>,
 }
 
 impl AppInfo {

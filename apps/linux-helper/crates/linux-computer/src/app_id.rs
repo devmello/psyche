@@ -148,8 +148,9 @@ pub fn flatpak_app_name(info: &str) -> Option<String> {
 ///
 /// `name` is the raw `name=` (the directory name is case-sensitive). User installs live in a
 /// directory the account can write, so they are never verified: their name is a deny candidate
-/// only. What remains is code that already runs as the user and can mount the installed files
-/// and run an installed program under a forged `.flatpak-info`; it can only be that program.
+/// only. What remains is code that already runs as the user: it can run an installed system
+/// Flatpak's real binary with its own code injected (`LD_PRELOAD`, `ptrace`) and so verify as that
+/// Flatpak. That is an accepted residual, the same family as a renamed binary.
 /// `trusted` judges the deploy directory (root-owned, not writable by the account).
 pub fn flatpak_app_is_installed(
     proc_dir: &Path,
