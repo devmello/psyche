@@ -1610,6 +1610,9 @@
 //   let threadContextUpdatedPayload = try? JSONDecoder().decode(ThreadContextUpdatedPayload.self, from: jsonData)
 //   let threadDeletedPayload = try? JSONDecoder().decode(ThreadDeletedPayload.self, from: jsonData)
 //   let threadIDParams = try? JSONDecoder().decode(ThreadIDParams.self, from: jsonData)
+//   let threadImportFormat = try? JSONDecoder().decode(ThreadImportFormat.self, from: jsonData)
+//   let threadImportResult = try? JSONDecoder().decode(ThreadImportResult.self, from: jsonData)
+//   let threadImportSource = try? JSONDecoder().decode(ThreadImportSource.self, from: jsonData)
 //   let threadKind = try? JSONDecoder().decode(ThreadKind.self, from: jsonData)
 //   let threadListEntry = try? JSONDecoder().decode(ThreadListEntry.self, from: jsonData)
 //   let threadPreview = try? JSONDecoder().decode(ThreadPreview.self, from: jsonData)
@@ -1624,6 +1627,7 @@
 //   let threadsDeleteParams = try? JSONDecoder().decode(ThreadsDeleteParams.self, from: jsonData)
 //   let threadsDiscardEmptyResult = try? JSONDecoder().decode(ThreadsDiscardEmptyResult.self, from: jsonData)
 //   let threadsForkParams = try? JSONDecoder().decode(ThreadsForkParams.self, from: jsonData)
+//   let threadsImportParams = try? JSONDecoder().decode(ThreadsImportParams.self, from: jsonData)
 //   let threadsListParams = try? JSONDecoder().decode(ThreadsListParams.self, from: jsonData)
 //   let threadsListResult = try? JSONDecoder().decode(ThreadsListResult.self, from: jsonData)
 //   let threadsNewChatParams = try? JSONDecoder().decode(ThreadsNewChatParams.self, from: jsonData)
@@ -30571,6 +30575,7 @@ public struct SearchHit: Codable, Sendable {
     public let entityType: SearchEntityType?
     public let group: SearchGroup?
     public let id: String
+    public let imported: ThreadImportSource?
     public let kind: SearchIndexDocKind?
     public let match: SearchMatch?
     public let provenance: Provenance?
@@ -30589,6 +30594,7 @@ public struct SearchHit: Codable, Sendable {
         case entityType = "entityType"
         case group = "group"
         case id = "id"
+        case imported = "imported"
         case kind = "kind"
         case match = "match"
         case provenance = "provenance"
@@ -30602,12 +30608,13 @@ public struct SearchHit: Codable, Sendable {
         case titleHighlights = "titleHighlights"
     }
 
-    public init(card: SearchHitCard? = nil, createdAt: Int? = nil, entityType: SearchEntityType? = nil, group: SearchGroup? = nil, id: String, kind: SearchIndexDocKind? = nil, match: SearchMatch? = nil, provenance: Provenance? = nil, route: String? = nil, scope: SearchScope, score: Double, snippet: String, snippetHighlights: [[Int]]? = nil, threadID: String? = nil, title: String, titleHighlights: [[Int]]? = nil) {
+    public init(card: SearchHitCard? = nil, createdAt: Int? = nil, entityType: SearchEntityType? = nil, group: SearchGroup? = nil, id: String, imported: ThreadImportSource? = nil, kind: SearchIndexDocKind? = nil, match: SearchMatch? = nil, provenance: Provenance? = nil, route: String? = nil, scope: SearchScope, score: Double, snippet: String, snippetHighlights: [[Int]]? = nil, threadID: String? = nil, title: String, titleHighlights: [[Int]]? = nil) {
         self.card = card
         self.createdAt = createdAt
         self.entityType = entityType
         self.group = group
         self.id = id
+        self.imported = imported
         self.kind = kind
         self.match = match
         self.provenance = provenance
@@ -30643,6 +30650,11 @@ public struct SearchHitCard: Codable, Sendable {
         self.span = span
         self.summary = summary
     }
+}
+
+public enum ThreadImportSource: String, Codable, Sendable {
+    case chatgpt = "chatgpt"
+    case claude = "claude"
 }
 
 public enum SearchIndexDocKind: String, Codable, Sendable {
@@ -36738,6 +36750,51 @@ public struct ThreadIDParams: Codable, Sendable {
     }
 }
 
+// MARK: - ThreadImportResult
+public struct ThreadImportResult: Codable, Sendable {
+    public let duplicates: Int
+    public let imported: Int
+    public let skipped: [ThreadImportResultSkipped]
+    public let skippedMore: Int
+
+    public enum CodingKeys: String, CodingKey {
+        case duplicates = "duplicates"
+        case imported = "imported"
+        case skipped = "skipped"
+        case skippedMore = "skippedMore"
+    }
+
+    public init(duplicates: Int, imported: Int, skipped: [ThreadImportResultSkipped], skippedMore: Int) {
+        self.duplicates = duplicates
+        self.imported = imported
+        self.skipped = skipped
+        self.skippedMore = skippedMore
+    }
+}
+
+// MARK: - ThreadImportResultSkipped
+public struct ThreadImportResultSkipped: Codable, Sendable {
+    public let reason: SkippedReason
+    public let title: String
+
+    public enum CodingKeys: String, CodingKey {
+        case reason = "reason"
+        case title = "title"
+    }
+
+    public init(reason: SkippedReason, title: String) {
+        self.reason = reason
+        self.title = title
+    }
+}
+
+public enum SkippedReason: String, Codable, Sendable {
+    case empty = "empty"
+    case invalid = "invalid"
+    case tooLarge = "too_large"
+    case tooMany = "too_many"
+}
+
 // MARK: - ThreadResult
 public struct ThreadResult: Codable, Sendable {
     public let thread: Thread
@@ -36759,6 +36816,7 @@ public struct Thread: Codable, Sendable {
     public let expiresAt: String?
     public let forkedFromMessageID: String?
     public let id: String
+    public let imported: ThreadImportSource?
     public let kind: ThreadKind
     public let lastMessageAt: String?
     public let modelRef: String?
@@ -36781,6 +36839,7 @@ public struct Thread: Codable, Sendable {
         case expiresAt = "expiresAt"
         case forkedFromMessageID = "forkedFromMessageId"
         case id = "id"
+        case imported = "imported"
         case kind = "kind"
         case lastMessageAt = "lastMessageAt"
         case modelRef = "modelRef"
@@ -36796,13 +36855,14 @@ public struct Thread: Codable, Sendable {
         case userCreated = "userCreated"
     }
 
-    public init(activeWriterRunID: String? = nil, archivedAt: String? = nil, createdAt: String, expiresAt: String? = nil, forkedFromMessageID: String? = nil, id: String, kind: ThreadKind, lastMessageAt: String? = nil, modelRef: String? = nil, parentThreadID: String? = nil, permissionMode: PermissionMode, personaOverlay: String? = nil, pinned: Bool, sessionKey: String, spaceID: String? = nil, title: String, titleSource: TitleSource, updatedAt: String, userCreated: Bool? = nil) {
+    public init(activeWriterRunID: String? = nil, archivedAt: String? = nil, createdAt: String, expiresAt: String? = nil, forkedFromMessageID: String? = nil, id: String, imported: ThreadImportSource? = nil, kind: ThreadKind, lastMessageAt: String? = nil, modelRef: String? = nil, parentThreadID: String? = nil, permissionMode: PermissionMode, personaOverlay: String? = nil, pinned: Bool, sessionKey: String, spaceID: String? = nil, title: String, titleSource: TitleSource, updatedAt: String, userCreated: Bool? = nil) {
         self.activeWriterRunID = activeWriterRunID
         self.archivedAt = archivedAt
         self.createdAt = createdAt
         self.expiresAt = expiresAt
         self.forkedFromMessageID = forkedFromMessageID
         self.id = id
+        self.imported = imported
         self.kind = kind
         self.lastMessageAt = lastMessageAt
         self.modelRef = modelRef
@@ -37039,6 +37099,25 @@ public struct ThreadsForkParams: Codable, Sendable {
         self.messageID = messageID
         self.threadID = threadID
         self.title = title
+    }
+}
+
+// MARK: - ThreadsImportParams
+public struct ThreadsImportParams: Codable, Sendable {
+    public let content: String
+    public let dryRun: Bool?
+    public let format: ThreadImportSource
+
+    public enum CodingKeys: String, CodingKey {
+        case content = "content"
+        case dryRun = "dryRun"
+        case format = "format"
+    }
+
+    public init(content: String, dryRun: Bool? = nil, format: ThreadImportSource) {
+        self.content = content
+        self.dryRun = dryRun
+        self.format = format
     }
 }
 
@@ -37953,21 +38032,21 @@ public enum VaultImportParamsFormat: String, Codable, Sendable {
 // MARK: - VaultImportResult
 public struct VaultImportResult: Codable, Sendable {
     public let imported: [CredentialMeta]
-    public let skipped: [Skipped]
+    public let skipped: [VaultImportResultSkipped]
 
     public enum CodingKeys: String, CodingKey {
         case imported = "imported"
         case skipped = "skipped"
     }
 
-    public init(imported: [CredentialMeta], skipped: [Skipped]) {
+    public init(imported: [CredentialMeta], skipped: [VaultImportResultSkipped]) {
         self.imported = imported
         self.skipped = skipped
     }
 }
 
-// MARK: - Skipped
-public struct Skipped: Codable, Sendable {
+// MARK: - VaultImportResultSkipped
+public struct VaultImportResultSkipped: Codable, Sendable {
     public let reason: String
     public let row: Int
 
