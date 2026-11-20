@@ -123,7 +123,7 @@ public final class Router {
         case .thread(let id): openThread(id)
         case .project, .person: tab = .memory; memoryPath = [route]
         case .file: tab = .library; libraryPath = [route]
-        case .inbox, .scheduled, .overview, .feed, .ideas, .goals: tab = .home; homePath = [route]
+        case .inbox, .scheduled, .overview, .feed, .ideas, .goals, .space: tab = .home; homePath = [route]
         case .task(let id): openTask(id)
         }
     }
