@@ -78,4 +78,13 @@ describe("ImportDialog", () => {
     await user.click(screen.getByRole("button", { name: "Import" }));
     expect((await screen.findByRole("alert")).textContent).toMatch(/Couldn't import this file/);
   });
+
+  it("refuses a memory file too big for one message, without calling the Gateway", async () => {
+    const { run, user } = setup();
+    const big = file("memories.json", "x".repeat(900_001));
+    await user.upload(await screen.findByLabelText("Memories file"), big);
+    await user.click(screen.getByRole("button", { name: "Import" }));
+    expect((await screen.findByRole("alert")).textContent).toMatch(/900 KB/);
+    expect(run).not.toHaveBeenCalled();
+  });
 });

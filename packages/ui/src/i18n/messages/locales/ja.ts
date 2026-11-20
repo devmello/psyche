@@ -819,6 +819,8 @@ export const ja: Partial<Catalogue> = {
   "agent.memory.importConv.progressCount": "会話を読み込み中… {done} / {total}",
   "agent.memory.importConv.tooBig":
     "このファイルは {mb} MB を超えており、ここでは大きすぎて読めません。範囲を小さくして書き出し直してください。",
+  "agent.memory.importConv.memoriesTooBig":
+    "このメモリファイルは {kb} KB を超えており、一度に読み込めません。分割するか、書き出すメモリを減らしてください。",
   "agent.memory.exported": "{file}を書き出しました。",
   "agent.memory.export": "すべてを書き出す",
   "agent.memory.resetDone":

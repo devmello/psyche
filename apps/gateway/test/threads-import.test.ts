@@ -208,6 +208,48 @@ describe("an imported thread is closed at every layer", () => {
     ).rejects.toThrow(/read-only/);
   });
 
+  it("refuses a voice memo saved into it", async () => {
+    const { owner, id } = await importOne();
+    await expect(
+      owner.call("voice.memo.save", { sessionId: "s1", threadId: id }, ik()),
+    ).rejects.toThrow(/read-only/);
+  });
+
+  it("refuses feedback on one of its messages", async () => {
+    const { c, owner, id } = await importOne();
+    const first = listAllMessages(c.db, id)[1];
+    await expect(
+      owner.call(
+        "feedback.give",
+        { target: { type: "message", id: first?.id, threadId: id }, kind: "helpful" },
+        ik(),
+      ),
+    ).rejects.toThrow(/read-only/);
+  });
+
+  it("Ask about this on its hit is tainted, and recall returns it as untrusted", async () => {
+    const { c, id } = await importOne();
+    const { createSearchIndex, threadDoc, searchEverything } = await import("@psyche/search");
+    const { getThread } = await import("@psyche/db");
+    const { resolveSearchHitContext } = await import("../src/compose/search-hit-context.ts");
+    const index = createSearchIndex({ now: () => Date.now() });
+    await index.index(threadDoc(getThread(c.db, id) as Thread));
+    const ctx = resolveSearchHitContext(
+      { kind: "search_hit", id, title: "Plans", scope: "Threads" },
+      (x) => index.docOf(x),
+    );
+    expect(ctx.taintSources.length).toBeGreaterThan(0);
+    const { output, provenance } = await searchEverything(
+      { index },
+      { query: "Plans" },
+      {
+        threadId: "t1",
+      },
+    );
+    expect(output.hits.find((h) => h.id === id)?.provenance).toBe("untrusted");
+    expect(provenance).toBe("untrusted");
+  });
+
   it("taints a rebuilt model state that holds untrusted rows", async () => {
     const { c, id } = await importOne();
     const store = new SqliteThreadStateStore(c.db, { redact: (t: string) => t });

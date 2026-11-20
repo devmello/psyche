@@ -398,6 +398,8 @@ export const agent = {
   "agent.memory.importConv.progressCount": "Importing conversations… {done} of {total}",
   "agent.memory.importConv.tooBig":
     "This file is over {mb} MB, which is too big to read here. Export again with a smaller range.",
+  "agent.memory.importConv.memoriesTooBig":
+    "This memory file is over {kb} KB, which is too big to import in one go. Split it or export fewer memories.",
   "agent.memory.exported": "Exported {file}.",
   "agent.memory.export": "Export everything",
   "agent.memory.resetDone":

@@ -9,7 +9,7 @@ import {
 } from "../components/ui/dialog.tsx";
 import { t } from "../i18n/core.ts";
 import { describeError } from "../i18n/errors.ts";
-import { MAX_EXPORT_BYTES } from "./split-export.ts";
+import { BATCH_BYTES, MAX_EXPORT_BYTES } from "./split-export.ts";
 
 export type ImportSourceName = "claude" | "chatgpt";
 export type ImportMode = "memories" | "both";
@@ -83,6 +83,10 @@ export function ImportDialog({
     const tooBig = [memories, mode === "both" ? conversations : null].find(
       (f) => f !== null && f.size > MAX_EXPORT_BYTES,
     );
+    if (memories !== null && memories.size > BATCH_BYTES) {
+      setError(t("agent.memory.importConv.memoriesTooBig", { kb: Math.round(BATCH_BYTES / 1000) }));
+      return;
+    }
     if (tooBig) {
       setError(
         t("agent.memory.importConv.tooBig", { mb: Math.round(MAX_EXPORT_BYTES / 1024 / 1024) }),

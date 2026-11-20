@@ -809,6 +809,8 @@ export const fr: Partial<Catalogue> = {
   "agent.memory.importConv.progressCount": "Importation des conversations… {done} sur {total}",
   "agent.memory.importConv.tooBig":
     "Ce fichier dépasse {mb} Mo : il est trop gros pour être lu ici. Exportez à nouveau une période plus courte.",
+  "agent.memory.importConv.memoriesTooBig":
+    "Ce fichier de souvenirs dépasse {kb} Ko : il est trop gros pour être importé d’un coup. Découpez-le ou exportez moins de souvenirs.",
   "agent.memory.exported": "{file} exporté.",
   "agent.memory.export": "Tout exporter",
   "agent.memory.resetDone":

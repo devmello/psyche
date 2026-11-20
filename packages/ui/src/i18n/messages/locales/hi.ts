@@ -841,6 +841,8 @@ export const hi: Partial<Catalogue> = {
   "agent.memory.importConv.progressCount": "बातचीत इंपोर्ट हो रही है… {total} में से {done}",
   "agent.memory.importConv.tooBig":
     "यह फ़ाइल {mb} MB से बड़ी है और यहाँ पढ़ने के लिए बहुत बड़ी है। छोटी अवधि चुनकर दोबारा एक्सपोर्ट करें।",
+  "agent.memory.importConv.memoriesTooBig":
+    "यह मेमोरी फ़ाइल {kb} KB से बड़ी है और एक बार में इंपोर्ट नहीं हो सकती। इसे बाँटें या कम मेमोरी एक्सपोर्ट करें।",
   "agent.memory.exported": "{file} एक्सपोर्ट की गई।",
   "agent.memory.export": "सब कुछ एक्सपोर्ट करें",
   "agent.memory.resetDone":

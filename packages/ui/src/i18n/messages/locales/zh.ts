@@ -867,6 +867,8 @@ export const zh: Partial<Catalogue> = {
   "agent.memory.importConv.progressCount": "正在导入对话… {done} / {total}",
   "agent.memory.importConv.tooBig": "此文件超过 {mb} MB，太大无法在此读取。请缩小范围后重新导出。",
   "agent.memory.exported": "已导出 {file}。",
+  "agent.memory.importConv.memoriesTooBig":
+    "此记忆文件超过 {kb} KB，无法一次性导入。请拆分文件或导出更少的记忆。",
   "agent.memory.export": "导出全部",
   "agent.memory.resetDone":
     "已重置 {files, plural, other {# 个文件}}、{claims, plural, other {# 条断言}}。",
