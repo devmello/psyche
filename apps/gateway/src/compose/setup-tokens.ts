@@ -17,6 +17,7 @@ import {
 } from "@psyche/protocol";
 import { hostWords } from "@psyche/protocol/host-words";
 import type { Call, HandlerDef } from "../context.ts";
+import { isLocalAdminCli } from "../handlers/devices.ts";
 import type { Logger } from "../log.ts";
 
 /**
@@ -102,11 +103,13 @@ export function setupTokenHandlers(deps: {
         // The link is a secret that pairs a new device. Only the Host's own desktop shell may make
         // one (loopback, no Origin, the per-launch handshake secret): a remote device must never
         // mint a way in, even with admin and presence. With presence off the same rule holds.
-        if (
-          call.identity.desktopShell !== true ||
-          !call.conn.peer.remoteLoopback ||
-          call.conn.peer.origin !== null
-        ) {
+        // B2 adds one more caller on the same computer: an admin CLI device on the Host's
+        // loopback (`isLocalAdminCli`), so a headless Host can make a link from its terminal.
+        const fromDesktopShell =
+          call.identity.desktopShell === true &&
+          call.conn.peer.remoteLoopback &&
+          call.conn.peer.origin === null;
+        if (!fromDesktopShell && !isLocalAdminCli(db, call.identity, call.conn.peer)) {
           throw new PsycheError(
             "forbidden",
             "Only Psyche on the Host itself can make a pairing link",
@@ -196,6 +199,7 @@ export function setupTokenHandlers(deps: {
               scopes: record.scopes,
               expiresAt: record.expiresAt,
               linkVersion: lan ? 2 : 1,
+              madeBy: fromDesktopShell ? "desktop" : "local_admin_cli",
             },
           });
         } catch (err) {

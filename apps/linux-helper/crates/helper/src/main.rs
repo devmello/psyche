@@ -31,6 +31,19 @@ fn main() -> ExitCode {
             return ExitCode::from(2);
         }
     };
+    if matches!(
+        command,
+        Command::Pair { .. } | Command::Remote | Command::Status { .. } | Command::Unpair
+    ) {
+        // Remote mode holds a device key in memory: the same start-up check as serving.
+        if !matches!(command, Command::Status { .. }) {
+            if let Err(message) = refuse_injected_libraries(&ProcessEnv) {
+                log(&message);
+                return ExitCode::from(78);
+            }
+        }
+        return psyche_helper::remote::run::dispatch(command, &ProcessEnv);
+    }
     let Command::Serve { idle } = command else {
         return match run_info(&command, &ProcessEnv) {
             Ok(text) => {

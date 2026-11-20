@@ -43,6 +43,7 @@ import { NotificationsSection } from "./NotificationsSection.tsx";
 import { PeopleSection } from "./PeopleSection.tsx";
 import { PermissionsSection } from "./PermissionsSection.tsx";
 import { PersonaSection } from "./PersonaSection.tsx";
+import { PluginsSection } from "./PluginsSection.tsx";
 import { SearchSection } from "./SearchSection.tsx";
 import { ServerSection } from "./ServerSection.tsx";
 import { SettingsApprovalProvider } from "./SettingsApproval.tsx";
@@ -249,7 +250,12 @@ export function SettingsSectionView({
         />
       );
     case "skills":
-      return <SkillsSection {...opt("now", s.now)} {...opt("onPickFolder", s.onPickSkillFolder)} />;
+      return (
+        <>
+          <SkillsSection {...opt("now", s.now)} {...opt("onPickFolder", s.onPickSkillFolder)} />
+          <PluginsSection />
+        </>
+      );
     case "specialists":
       return <SpecialistsSection />;
     case "permissions":

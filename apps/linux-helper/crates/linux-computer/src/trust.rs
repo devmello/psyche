@@ -47,6 +47,9 @@ pub trait FsView {
     fn read_link(&self, path: &Path) -> Option<PathBuf>;
     /// The entries of a directory (full paths), empty when it does not exist.
     fn list(&self, dir: &Path) -> Vec<PathBuf>;
+    /// `(st_dev, st_ino)` of the directory `path` names, symlinks followed; `None` when it is
+    /// not a directory or cannot be examined.
+    fn dir_id(&self, path: &Path) -> Option<(u64, u64)>;
     /// A file's bytes, `None` when it cannot be read.
     fn read(&self, path: &Path) -> Option<Vec<u8>>;
 }
@@ -334,8 +337,10 @@ const XDG_TERMINAL_EXEC_SYSTEM_DIRS: &[&str] = &[
 /// (`policy_denied/untrusted_terminal_choice`) when any of these fails [`check`]:
 /// - a kept data dir's `xdg-terminals/` or `xdg-terminal-exec/`, or a file in it;
 /// - `/usr/local/share/xdg-terminal-exec/` or `/usr/share/xdg-terminal-exec/`, or a file in it;
-/// - a subdir or `.desktop` entry of a kept data dir's `applications/`, whatever its category:
-///   a file this account owns could gain `TerminalEmulator` after the check;
+/// - a subdir or `.desktop` entry of a kept data dir's `applications/`, at any depth and through
+///   symlinked subdirs (upstream walks it with `find -L`), whatever its category: a file this
+///   account owns could gain `TerminalEmulator` after the check. A walk past
+///   [`VET_MAX_ENTRIES`] entries is refused too;
 /// - an `*xdg-terminals.list` in a kept config dir.
 ///
 /// A data dir whose `applications/` itself fails [`check`] is dropped. Also refused when no data
@@ -348,6 +353,11 @@ pub fn terminal_dirs(
 ) -> CapResult<TerminalDirs> {
     let trusted = |p: &Path| check(fs, p, own_uid).is_ok();
     let refuse = |at: &Path| Err(untrusted_terminal(id, Some(at)));
+    // `/etc/xdg` missing under a trusted `/etc`: only root could create it, so it stays the
+    // config dir rather than leaving none (a box without it would refuse every terminal).
+    let root_only_absent = |p: &Path| {
+        p == Path::new("/etc/xdg") && fs.lstat(p).is_none() && trusted(Path::new("/etc"))
+    };
     let kept = |var: &str, default: &str| -> Vec<PathBuf> {
         let session = env(var)
             .filter(|v| !v.is_empty())
@@ -358,7 +368,7 @@ pub fn terminal_dirs(
             .filter(|d| !d.is_empty())
             .map(PathBuf::from)
         {
-            if !keep.contains(&dir) && trusted(&dir) {
+            if !keep.contains(&dir) && (trusted(&dir) || root_only_absent(&dir)) {
                 keep.push(dir);
             }
         }
@@ -374,7 +384,7 @@ pub fn terminal_dirs(
     let mut data: Vec<PathBuf> = Vec::new();
     for dir in kept("XDG_DATA_DIRS", "/usr/local/share:/usr/share") {
         for list in ["xdg-terminals", "xdg-terminal-exec"] {
-            if let Err(bad) = vet_dir(fs, &dir.join(list), own_uid, 0, &|_| true) {
+            if let Err(bad) = vet_dir(fs, &dir.join(list), own_uid, false, &|_| true) {
                 return refuse(&bad);
             }
         }
@@ -388,13 +398,13 @@ pub fn terminal_dirs(
                     .lstat(p)
                     .is_some_and(|m| m.mode & 0o170000 == 0o040000 || m.is_symlink)
         };
-        if let Err(bad) = vet_dir(fs, &apps, own_uid, 3, &entry) {
+        if let Err(bad) = vet_dir(fs, &apps, own_uid, true, &entry) {
             return refuse(&bad);
         }
         data.push(dir);
     }
     for dir in XDG_TERMINAL_EXEC_SYSTEM_DIRS {
-        if let Err(bad) = vet_dir(fs, Path::new(dir), own_uid, 0, &|_| true) {
+        if let Err(bad) = vet_dir(fs, Path::new(dir), own_uid, false, &|_| true) {
             return refuse(&bad);
         }
     }
@@ -418,13 +428,19 @@ pub fn terminal_dirs(
     })
 }
 
-/// Whether `dir` (when it exists) and every entry `relevant` picks in it, `depth` levels of
-/// subdirs down, pass [`check`]; the first that fails otherwise.
+/// How many entries one [`vet_dir`] walk lists before it gives up (and the launch is refused).
+pub const VET_MAX_ENTRIES: usize = 5_000;
+
+/// Whether `dir` (when it exists) and every entry `relevant` picks in it pass [`check`]; the
+/// first that fails otherwise. With `recurse`, subdirs are walked at any depth and symlinked ones
+/// followed, each directory once (by `(st_dev, st_ino)`, so a link loop ends), like `find -L`.
+/// A walk that lists more than [`VET_MAX_ENTRIES`] entries fails at `dir`: what it did not see
+/// could be planted.
 fn vet_dir(
     fs: &dyn FsView,
     dir: &Path,
     own_uid: u32,
-    depth: usize,
+    recurse: bool,
     relevant: &dyn Fn(&Path) -> bool,
 ) -> Result<(), PathBuf> {
     if fs.lstat(dir).is_none() {
@@ -433,18 +449,31 @@ fn vet_dir(
     if check(fs, dir, own_uid).is_err() {
         return Err(dir.to_path_buf());
     }
-    for e in fs.list(dir) {
-        if !relevant(&e) {
-            continue;
-        }
-        if check(fs, &e, own_uid).is_err() {
-            return Err(e);
-        }
-        let is_dir = fs
-            .lstat(&e)
-            .is_some_and(|m| !m.is_symlink && m.mode & 0o170000 == 0o040000);
-        if depth > 0 && is_dir {
-            vet_dir(fs, &e, own_uid, depth - 1, relevant)?;
+    let mut seen: std::collections::HashSet<(u64, u64)> = std::collections::HashSet::new();
+    if let Some(id) = fs.dir_id(dir) {
+        seen.insert(id);
+    }
+    let mut pending = vec![dir.to_path_buf()];
+    let mut listed = 0usize;
+    while let Some(d) = pending.pop() {
+        for e in fs.list(&d) {
+            listed += 1;
+            if listed > VET_MAX_ENTRIES {
+                return Err(dir.to_path_buf());
+            }
+            if !relevant(&e) {
+                continue;
+            }
+            if check(fs, &e, own_uid).is_err() {
+                return Err(e);
+            }
+            if recurse {
+                if let Some(id) = fs.dir_id(&e) {
+                    if seen.insert(id) {
+                        pending.push(e);
+                    }
+                }
+            }
         }
     }
     Ok(())
@@ -1022,6 +1051,12 @@ impl FsView for RealFs {
             .unwrap_or_default()
     }
 
+    fn dir_id(&self, path: &Path) -> Option<(u64, u64)> {
+        use std::os::unix::fs::MetadataExt;
+        let m = std::fs::metadata(path).ok()?;
+        m.is_dir().then(|| (m.dev(), m.ino()))
+    }
+
     fn read(&self, path: &Path) -> Option<Vec<u8>> {
         use std::io::Read;
         // Bounded: a settings or desktop file is a few KiB.
@@ -1118,6 +1153,41 @@ mod tests {
         }
     }
 
+    impl MapFs {
+        /// `path` with every symlink resolved (at most 40), `None` when a component is missing.
+        fn resolve(&self, path: &Path) -> Option<PathBuf> {
+            let mut pending: Vec<OsString> = Vec::new();
+            push_components(&mut pending, path);
+            let mut real = PathBuf::from("/");
+            let mut links = 0;
+            while let Some(c) = pending.pop() {
+                if c == "." {
+                    continue;
+                }
+                if c == ".." {
+                    real.pop();
+                    continue;
+                }
+                let next = real.join(&c);
+                let node = self.nodes.get(&next)?;
+                if node.0.is_symlink {
+                    links += 1;
+                    if links > 40 {
+                        return None;
+                    }
+                    let target = node.1.clone()?;
+                    if target.is_absolute() {
+                        real = PathBuf::from("/");
+                    }
+                    push_components(&mut pending, &target);
+                    continue;
+                }
+                real = next;
+            }
+            Some(real)
+        }
+    }
+
     impl FsView for MapFs {
         fn lstat(&self, path: &Path) -> Option<Meta> {
             self.nodes.get(path).map(|n| n.0)
@@ -1125,12 +1195,27 @@ mod tests {
         fn read_link(&self, path: &Path) -> Option<PathBuf> {
             self.nodes.get(path).and_then(|n| n.1.clone())
         }
+        /// Like `read_dir`: a symlinked dir lists its target's entries under its own path.
         fn list(&self, dir: &Path) -> Vec<PathBuf> {
+            let Some(real) = self.resolve(dir) else {
+                return Vec::new();
+            };
             self.nodes
                 .keys()
-                .filter(|p| p.parent() == Some(dir) && p.as_path() != dir)
-                .cloned()
+                .filter(|p| p.parent() == Some(real.as_path()) && **p != real)
+                .filter_map(|p| p.file_name().map(|n| dir.join(n)))
                 .collect()
+        }
+        fn dir_id(&self, path: &Path) -> Option<(u64, u64)> {
+            use std::hash::{Hash, Hasher};
+            let real = self.resolve(path)?;
+            let node = self.nodes.get(&real)?;
+            if node.0.mode & 0o170000 != 0o040000 {
+                return None;
+            }
+            let mut h = std::collections::hash_map::DefaultHasher::new();
+            real.hash(&mut h);
+            Some((0, h.finish()))
         }
         fn read(&self, path: &Path) -> Option<Vec<u8>> {
             self.nodes.get(path).map(|n| n.2.clone())
@@ -1723,6 +1808,79 @@ mod tests {
         let mut fs = base();
         fs.file("/usr/share/applications/notes.txt", ME, 0o644, "x");
         assert_eq!(run(&fs, session, None), OK);
+
+        // Round 9: applications/ is walked like `find -L`, at any depth, through symlinked
+        // subdirs, each dir once, and refused past VET_MAX_ENTRIES.
+        let mut fs = base();
+        fs.dirs("/usr/share/applications/a/b/c/d/e/f");
+        fs.file(
+            "/usr/share/applications/a/b/c/d/e/f/evil.desktop",
+            ME,
+            0o644,
+            "x",
+        );
+        assert_eq!(run(&fs, session, None), REFUSED, "deep nesting");
+        let mut fs = base();
+        fs.dirs("/usr/share/applications/a/b/c/d/e/f");
+        fs.file(
+            "/usr/share/applications/a/b/c/d/e/f/ok.desktop",
+            ROOT,
+            0o644,
+            "x",
+        );
+        assert_eq!(run(&fs, session, None), OK, "deep nesting, all root-owned");
+        let mut fs = base();
+        fs.dirs("/opt/vendor/apps");
+        fs.file("/opt/vendor/apps/evil.desktop", ME, 0o644, "x");
+        fs.link("/usr/share/applications/vendor", ROOT, "/opt/vendor/apps");
+        assert_eq!(
+            run(&fs, session, None),
+            REFUSED,
+            "symlinked subdir with an owned entry"
+        );
+        let mut fs = base();
+        fs.dirs("/opt/vendor/apps");
+        fs.file("/opt/vendor/apps/ok.desktop", ROOT, 0o644, "x");
+        fs.link("/usr/share/applications/vendor", ROOT, "/opt/vendor/apps");
+        assert_eq!(run(&fs, session, None), OK, "symlinked subdir, root-owned");
+        let mut fs = base();
+        fs.link(
+            "/usr/share/applications/loop",
+            ROOT,
+            "/usr/share/applications",
+        );
+        fs.link(
+            "/usr/share/applications/xterm.d",
+            ROOT,
+            "../applications/loop",
+        );
+        assert_eq!(run(&fs, session, None), OK, "a symlink loop ends");
+        let mut fs = base();
+        for i in 0..VET_MAX_ENTRIES {
+            fs.file(
+                &format!("/usr/share/applications/app{i}.desktop"),
+                ROOT,
+                0o644,
+                "x",
+            );
+        }
+        assert_eq!(run(&fs, session, None), REFUSED, "past the entry cap");
+
+        // Round 9, residual 2: a missing /etc/xdg under a trusted /etc stays the config dir
+        // (only root could create it); under an /etc this account owns, it does not.
+        let mut fs = base();
+        fs.nodes.remove(Path::new("/etc/xdg"));
+        assert_eq!(run(&fs, session, None), OK, "/etc/xdg missing");
+        assert_eq!(
+            run(&fs, session, Some("/home/me/.config/kdedefaults:/etc/xdg")),
+            OK
+        );
+        fs.set("/etc", ME, 0o40755);
+        assert_eq!(
+            run(&fs, session, None),
+            REFUSED,
+            "/etc owned, /etc/xdg missing"
+        );
 
         // Nothing trusted left: refused.
         assert_eq!(

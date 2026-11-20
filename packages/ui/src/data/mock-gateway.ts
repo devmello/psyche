@@ -9,6 +9,7 @@ import type {
   EndpointProbe,
   ModelProviderSummary,
   ModelRoles,
+  PluginSummarySchema,
 } from "@psyche/protocol";
 import {
   AGENT_NOTES_DIR,
@@ -199,6 +200,9 @@ export interface MockWorld {
   skills: SkillDetails[];
   skillSources: Record<string, MockSkillSource>;
   skillDrafts: SkillDraft[];
+  /** Settings → Skills → Plugins: `plugins.list` and the admin switch `plugins.enabled`. */
+  plugins: PluginSummarySchema[];
+  pluginsEnabled: boolean;
   /** `models.list` providers (B1, B4); absent → `models.list` answers with none. */
   modelProviders?: ModelProviderSummary[];
   modelRoles?: ModelRoles;
@@ -325,6 +329,8 @@ export const EMPTY_WORLD: MockWorld = {
   skills: [],
   skillSources: {},
   skillDrafts: [],
+  plugins: [],
+  pluginsEnabled: false,
 };
 
 export interface MockGatewayOptions {
@@ -3168,6 +3174,28 @@ export class MockGateway implements GatewayClient {
       return { status: structuredClone(this.world.botAuth) };
     },
     "skills.list": () => ({ skills: this.world.skills }),
+    "plugins.list": () => ({
+      enabled: this.world.pluginsEnabled,
+      plugins: structuredClone(this.world.plugins),
+    }),
+    "plugins.setEnabled": (p) => {
+      const current =
+        this.world.plugins.find((x) => x.name === p.name) ??
+        fail("not_found", `no plugin ${p.name}`);
+      const plugin: PluginSummarySchema = {
+        ...current,
+        enabled: p.enabled,
+        status: !p.enabled ? "disabled" : this.world.pluginsEnabled ? "active" : "off",
+      };
+      this.world.plugins = this.world.plugins.map((x) => (x === current ? plugin : x));
+      return { plugin: structuredClone(plugin) };
+    },
+    "plugins.remove": (p) => {
+      if (!this.world.plugins.some((x) => x.name === p.name))
+        return fail("not_found", `no plugin ${p.name}`);
+      this.world.plugins = this.world.plugins.filter((x) => x.name !== p.name);
+      return { ok: true as const };
+    },
     "skills.commands": () => ({
       commands: this.world.skills
         .filter((x) => x.enabled && x.userInvocable)

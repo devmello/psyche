@@ -29,6 +29,7 @@ import type {
   Notification,
   OnePasswordSetupStatus,
   PairingRequest,
+  PluginSummarySchema,
   Receipt,
   Run,
   RunFrame,
@@ -53,6 +54,7 @@ import { fileTree, type MockFileNode } from "./files.ts";
 import { feedbackEvents, lessons, milestones } from "./learning.ts";
 import { memoryClaims, memoryFileInfos, memoryFiles, searchHits } from "./memory.ts";
 import { type GraphWorld, graphWorld } from "./people.ts";
+import { plugins } from "./plugins.ts";
 import { automations, feed, goals, ideas, NEXT_BRIEF_AT, notifications } from "./proactive.ts";
 import {
   channels,
@@ -184,6 +186,10 @@ export interface FixtureWorld {
   skillSources: Record<string, MockSkillSource>;
   /** Agent-proposed skill drafts (T3). */
   skillDrafts: SkillDraft[];
+  /** Settings → Skills → Plugins: `plugins.list`. */
+  plugins: PluginSummarySchema[];
+  /** The admin switch `plugins.enabled`. */
+  pluginsEnabled: boolean;
   usage: UsageSummary;
   /** `connectors.connect` behaviour in the mock: "unavailable" answers not_implemented. */
   connectorConnect?: "unavailable" | "not_configured";
@@ -277,6 +283,8 @@ export function createFixtureWorld(): FixtureWorld {
     skills: skills(),
     skillSources: skillSources(),
     skillDrafts: skillDrafts(),
+    plugins: plugins(),
+    pluginsEnabled: true,
     usage: usage(),
     specialistRoles: specialistRoles(),
     specialistJobs: specialistJobs(),

@@ -324,6 +324,7 @@ The owner wants shell commands and file reads and writes on a machine from v1, w
 - **The owner sets the defaults** shown above at install. `psyche-helper status` and the machine's Settings row show the effective ceiling.
 - **Root-owned in deb/rpm,** under `/etc`, so neither the owner's account nor anything the helper runs can change it. `NoNewPrivileges` closes the sudo route even where the owner has passwordless sudo (§6.5).
 - **User-owned with the tarball.** A full-account shell could rewrite it, so Settings flags "This computer's limits can be changed by Psyche's own commands". The contained shell can't reach it, because it sits under the hidden `~/.config/psyche-helper`.
+- **The user-owned file is advisory.** An agent with a shell or a GUI terminal on the box runs as the same account and can edit it. Only the root-owned `/etc` ceiling (deb/rpm) is a limit that account cannot change; the Gateway's own machine rules (H3, H4) apply either way. The helper reads the file again on every call and denies everything if it, or a root-owned policy that exists, cannot be read or trusted. `apps.deny` means an app is never launched by a call; it does not stop an allowed app from opening a denied one, so H1 also checks the focused window's app against it.
 
 ---
 
