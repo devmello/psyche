@@ -105,6 +105,7 @@ import { toBase64 } from "./files.ts";
 import { emptyGraph, graphHandlers } from "./mock-graph.ts";
 import { type ProposalMockContext, proposalHandlers, settleBatch } from "./mock-proposals.ts";
 import { emptyReview, type ReviewWorld, reviewHandlers } from "./mock-review.ts";
+import { emptySpaces, type SpacesWorld, spacesHandlers } from "./mock-spaces.ts";
 
 /**
  * In-memory Gateway for stories and tests (no network). It speaks the protocol exactly: every
@@ -194,6 +195,8 @@ export interface MockWorld {
   };
   /** The people and projects graph (`memory.entities.*`); absent → empty. */
   graph?: GraphWorld;
+  /** Spaces (`spaces.*`, docs/design/spaces-2026.md); absent → none. */
+  spaces?: SpacesWorld;
   /** Batch proposals (`proposals.*`) and the calls that fail when one runs, by proposal id. */
   proposals?: ActionProposal[];
   proposalFailures?: Record<string, Record<number, string>>;
@@ -1314,13 +1317,31 @@ export class MockGateway implements GatewayClient {
       now: () => this.now(),
     }),
     ...proposalHandlers(this.proposalContext()),
+    ...spacesHandlers({
+      world: () => {
+        this.world.spaces ??= emptySpaces();
+        return this.world.spaces;
+      },
+      threads: () => this.world.threads,
+      setThreads: (next) => {
+        this.world.threads = next;
+      },
+      widgets: () => this.world.widgets,
+      setWidgets: (next) => {
+        this.world.widgets = next;
+      },
+      now: () => this.now(),
+      id: (prefix) => this.id(prefix),
+      emit: (event, payload) => this.emit(event, payload),
+    }),
     "events.subscribe": () => ({ stateVersion: this.stateVersion }),
 
     "threads.list": (p) => ({
       threads: this.world.threads
         .filter((t) => !isEmptyUserChat(t))
         .filter((t) => p.includeArchived === true || t.thread.archivedAt == null)
-        .filter((t) => p.kind === undefined || t.thread.kind === p.kind),
+        .filter((t) => p.kind === undefined || t.thread.kind === p.kind)
+        .filter((t) => p.spaceId === undefined || t.thread.spaceId === p.spaceId),
       nextCursor: null,
     }),
     "threads.get": (p) => this.thread(p.threadId),
@@ -1344,6 +1365,7 @@ export class MockGateway implements GatewayClient {
         createdAt: now,
         updatedAt: now,
         lastMessageAt: null,
+        ...(p.spaceId === undefined ? {} : { spaceId: p.spaceId }),
       };
       this.world.threads.push({
         thread,
@@ -1355,14 +1377,22 @@ export class MockGateway implements GatewayClient {
     "threads.newChat": (p) => {
       const reusable = (id: string) => {
         const e = this.world.threads.find((x) => x.thread.id === id);
-        return e !== undefined && isEmptyUserChat(e) && e.thread.kind === p.kind;
+        return (
+          e !== undefined &&
+          isEmptyUserChat(e) &&
+          e.thread.kind === p.kind &&
+          (e.thread.spaceId ?? null) === (p.spaceId ?? null)
+        );
       };
       const empty = this.world.threads.filter((x) => reusable(x.thread.id));
       const reuse = empty.find((x) => x.thread.id === p.preferThreadId) ?? empty[empty.length - 1];
       if (reuse) return { thread: reuse.thread, reused: true };
       const create = this.handlers["threads.create"];
       if (create === undefined) return fail("not_found", "threads.create");
-      const { thread } = create({ kind: p.kind }) as { thread: ThreadListEntry["thread"] };
+      const { thread } = create({
+        kind: p.kind,
+        ...(p.spaceId === undefined ? {} : { spaceId: p.spaceId }),
+      }) as { thread: ThreadListEntry["thread"] };
       const marked = { ...thread, title: "", userCreated: true };
       const entry = this.world.threads.find((x) => x.thread.id === thread.id);
       if (entry) entry.thread = marked;

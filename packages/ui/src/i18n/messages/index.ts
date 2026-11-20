@@ -53,6 +53,7 @@ import { settingsLanguage } from "./settings-language.ts";
 import { settingsSections } from "./settings-sections.ts";
 import { shell } from "./shell.ts";
 import { skillAuthor } from "./skill-author.ts";
+import { spaces } from "./spaces.ts";
 import { specialists } from "./specialists.ts";
 import { teach } from "./teach.ts";
 import { time } from "./time.ts";
@@ -134,6 +135,7 @@ export const en = {
   ...notices,
   ...separateDesktop,
   ...keepAwake,
+  ...spaces,
 } as const;
 
 export type MessageId = keyof typeof en;
