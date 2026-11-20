@@ -7,6 +7,12 @@
 //! - **Fails closed.** A file that cannot be read, is not valid, has an unknown field, is owned by
 //!   the wrong user, or can be written by others means *everything is denied*. A missing file
 //!   means the defaults: computer use on the helper's own virtual screen, no shell, no files.
+//! - **The user-owned file is advisory.** An agent with a shell or a GUI terminal on the box runs
+//!   as the same account and can edit it. Only the root-owned `/etc` ceiling (deb/rpm) is a limit
+//!   the account cannot change. The Gateway's own machine rules (H3, H4) apply either way.
+//! - `apps.deny` means "never launched": the call that opens or drives an app is refused. It does
+//!   not stop an allowed app from opening a denied one, or a denied window that is already on the
+//!   screen. H1 must also check the focused window's app against this list.
 //! - Paths are lexical: no `..`, absolute after `~`. An existing path is also resolved through
 //!   symlinks and must still be inside its root, so a link cannot lead out. (The shell and file
 //!   implementations repeat the confinement; this is the first gate.)
@@ -192,8 +198,15 @@ impl PolicySource {
     pub fn load(&self) -> Loaded {
         // SAFETY: geteuid has no preconditions and cannot fail.
         let me = unsafe { libc::geteuid() };
-        if std::fs::symlink_metadata(&self.etc).is_ok() {
-            return load_file(&self.etc, self.etc_owner, Owner::Root);
+        // Only "there is no root policy" may fall through to the user's. Any other error (a
+        // directory this account cannot enter, an I/O error) means a root policy may exist that
+        // cannot be read, and the answer is to deny everything, never to read the user's file.
+        match std::fs::symlink_metadata(&self.etc) {
+            Ok(_) => return load_file(&self.etc, self.etc_owner, Owner::Root),
+            Err(e) if e.kind() == std::io::ErrorKind::NotFound => {}
+            Err(e) => {
+                return invalid(Owner::Root, format!("policy.json (root): {}", e.kind()));
+            }
         }
         match std::fs::symlink_metadata(&self.user) {
             Ok(_) => load_file(&self.user, me, Owner::User),
@@ -371,6 +384,28 @@ impl Policy {
         }
     }
 
+    /// Whether `path` is below `root` by components that are all real files or directories.
+    /// A symlink (even a dangling one) below the root is refused. This is a gate, not a
+    /// confinement: H5 must open every file with `openat2(RESOLVE_BENEATH | RESOLVE_NO_SYMLINKS)`
+    /// so a link swapped in after this check cannot lead out.
+    fn no_links_below(root: &Path, path: &Path) -> bool {
+        let Ok(rest) = path.strip_prefix(root) else {
+            return false;
+        };
+        let mut probe = root.to_path_buf();
+        for part in rest.components() {
+            probe.push(part);
+            match std::fs::symlink_metadata(&probe) {
+                Ok(m) if m.file_type().is_symlink() => return false,
+                Ok(_) => {}
+                // Nothing here, so nothing below it either.
+                Err(e) if e.kind() == std::io::ErrorKind::NotFound => return true,
+                Err(_) => return false,
+            }
+        }
+        true
+    }
+
     fn root_for<'a>(
         &'a self,
         roots: impl Iterator<Item = (&'a str, Mode)>,
@@ -386,7 +421,7 @@ impl Policy {
             let Some(root) = expand(root, home) else {
                 return false;
             };
-            if !under(path, &root) {
+            if !under(path, &root) || !Self::no_links_below(&root, path) {
                 return false;
             }
             // A symlink inside the root must not lead out of it.
@@ -427,8 +462,11 @@ impl Policy {
             };
         }
         if capability.starts_with("computer.") || matches!(capability, "apps.open" | "apps.focus") {
-            // The headless helper has one screen; a call that names none means that one.
-            let surface = string("surface").unwrap_or("virtual_screen");
+            // A call that names no surface is refused, not defaulted: what the helper runs for
+            // a missing `surface` must not be able to differ from what this checked.
+            let Some(surface) = string("surface") else {
+                return denied("a call that names no screen");
+            };
             if !on_surface(surface) {
                 return denied(&format!("the {surface} screen"));
             }
@@ -449,8 +487,8 @@ impl Policy {
             if !self.exec.enabled {
                 return denied("running commands");
             }
-            let cwd = string("cwd").unwrap_or("~");
-            let Some(cwd) = expand(cwd, home) else {
+            // No `cwd` is refused, not read as `~`, for the same reason.
+            let Some(cwd) = string("cwd").and_then(|c| expand(c, home)) else {
                 return denied("that folder");
             };
             let roots = self.exec.cwd_roots.iter().map(|r| (r.as_str(), Mode::Rw));
@@ -534,7 +572,12 @@ mod tests {
             json!({"surface":"virtual_screen"}),
             &home
         ));
-        assert!(call(&p, "computer.snapshot", json!({}), &home));
+        assert!(call(
+            &p,
+            "computer.snapshot",
+            json!({"surface": "virtual_screen"}),
+            &home
+        ));
         assert!(!call(
             &p,
             "computer.click",
@@ -735,24 +778,34 @@ mod tests {
         assert!(call(
             &policy,
             "computer.click",
-            json!({"app":"org.gnome.TextEditor"}),
+            json!({"surface": "virtual_screen", "app":"org.gnome.TextEditor"}),
             &home
         ));
-        assert!(call(&policy, "apps.open", json!({"appId":"gedit"}), &home));
+        assert!(call(
+            &policy,
+            "apps.open",
+            json!({"surface": "virtual_screen", "appId":"gedit"}),
+            &home
+        ));
         assert!(!call(
             &policy,
             "apps.open",
-            json!({"appId":"org.keepassxc.KeePassXC"}),
+            json!({"surface": "virtual_screen", "appId":"org.keepassxc.KeePassXC"}),
             &home
         ));
         assert!(!call(
             &policy,
             "computer.type",
-            json!({"bundleId":"firefox"}),
+            json!({"surface": "virtual_screen", "bundleId":"firefox"}),
             &home
         ));
         assert!(
-            !call(&policy, "apps.focus", json!({"app": 5}), &home),
+            !call(
+                &policy,
+                "apps.focus",
+                json!({"surface": "virtual_screen", "app": 5}),
+                &home
+            ),
             "not a string"
         );
         // An allowlist: a call that names no app is not allowed, one that names another is not.
@@ -763,13 +816,13 @@ mod tests {
         assert!(call(
             &policy,
             "computer.click",
-            json!({"app":"org.gnome.TextEditor"}),
+            json!({"surface": "virtual_screen", "app":"org.gnome.TextEditor"}),
             &home
         ));
         assert!(!call(
             &policy,
             "computer.click",
-            json!({"app":"firefox"}),
+            json!({"surface": "virtual_screen", "app":"firefox"}),
             &home
         ));
         assert!(!call(&policy, "computer.click", json!({}), &home));
@@ -805,6 +858,101 @@ mod tests {
             json!({"surface": 1}),
             &home
         ));
+    }
+
+    #[test]
+    fn a_call_without_a_surface_or_a_cwd_is_refused_not_defaulted() {
+        let home = PathBuf::from("/h");
+        let mut policy = Policy::default();
+        policy.exec = Exec {
+            enabled: true,
+            contain: true,
+            network: true,
+            cwd_roots: vec!["~".into()],
+        };
+        for cap in [
+            "computer.click",
+            "computer.snapshot",
+            "apps.open",
+            "apps.focus",
+        ] {
+            assert!(
+                !call(&policy, cap, json!({}), &home),
+                "{cap} without a surface"
+            );
+            assert!(!call(&policy, cap, json!({"app": "gedit"}), &home), "{cap}");
+            assert!(
+                call(&policy, cap, json!({"surface": "virtual_screen"}), &home),
+                "{cap}"
+            );
+        }
+        assert!(!call(&policy, "exec.host", json!({}), &home));
+        assert!(!call(&policy, "exec.host", json!({"argv": ["ls"]}), &home));
+        assert!(call(&policy, "exec.host", json!({"cwd": "~"}), &home));
+    }
+
+    #[test]
+    fn a_symlink_below_a_root_is_refused_even_when_it_dangles_or_points_inside() {
+        let f = Fixture::new();
+        let home = f.path("home");
+        std::fs::create_dir_all(home.join("work/real")).unwrap();
+        symlink("/nonexistent/target", home.join("work/dangling")).unwrap();
+        symlink(home.join("work/real"), home.join("work/inside")).unwrap();
+        symlink("/etc", home.join("work/out")).unwrap();
+        let policy = Policy {
+            files: Files {
+                roots: vec![Root {
+                    path: "~/work".into(),
+                    mode: Mode::Rw,
+                }],
+            },
+            ..Policy::default()
+        };
+        let p = |s: &str| json!({ "path": s });
+        assert!(call(&policy, "fs.write", p("~/work/real/a.txt"), &home));
+        for path in [
+            "~/work/dangling",
+            "~/work/dangling/new",
+            "~/work/inside/a.txt",
+            "~/work/out/passwd",
+        ] {
+            for cap in ["fs.read", "fs.write", "fs.mkdir", "fs.remove", "fs.stat"] {
+                assert!(!call(&policy, cap, p(path), &home), "{cap} {path}");
+            }
+        }
+    }
+
+    #[test]
+    fn an_unreadable_root_policy_denies_everything_and_never_falls_back_to_the_users() {
+        let f = Fixture::new();
+        // A user policy that would allow everything.
+        f.write(
+            "user-policy.json",
+            r#"{"surfaces":{"virtualScreen":true,"direct":true},"exec":{"enabled":true,"contain":false,"network":true,"cwdRoots":["~"]}}"#,
+            0o600,
+        );
+        // The root policy's directory cannot be entered (EACCES, not NotFound).
+        let locked = f.path("etc-dir");
+        std::fs::create_dir(&locked).unwrap();
+        std::fs::write(locked.join("policy.json"), "{}").unwrap();
+        std::fs::set_permissions(&locked, std::fs::Permissions::from_mode(0o000)).unwrap();
+        let mut source = f.source();
+        source.etc = locked.join("policy.json");
+        let loaded = source.load();
+        std::fs::set_permissions(&locked, std::fs::Permissions::from_mode(0o700)).unwrap();
+        // (Running as root defeats the test: root can read a mode 000 directory.)
+        if me() != 0 {
+            assert!(
+                matches!(loaded.source, Source::Invalid(_)),
+                "{:?}",
+                loaded.source
+            );
+            assert_eq!(loaded.owner, Owner::Root);
+            assert_eq!(loaded.policy, Policy::deny_all());
+        }
+        // A root policy that is simply absent does fall through to the user's.
+        source.etc = f.path("absent/policy.json");
+        assert!(matches!(source.load().source, Source::File(_)));
     }
 
     #[test]

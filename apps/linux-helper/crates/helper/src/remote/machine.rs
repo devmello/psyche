@@ -358,7 +358,9 @@ mod tests {
 
         // The default policy allows the private screen and refuses the shell.
         let click = registry.get("computer.click").unwrap();
-        assert!(click.invoke(&ctx("computer.click", json!({}))).is_ok());
+        assert!(click
+            .invoke(&ctx("computer.click", json!({"surface": "virtual_screen"})))
+            .is_ok());
         assert!(ran.swap(false, std::sync::atomic::Ordering::SeqCst));
         let exec = registry.get("exec.host").unwrap();
         let err = exec
@@ -389,7 +391,9 @@ mod tests {
         ));
         let (registry, _) = remote_registry(&full, Arc::clone(&src), status);
         let click = registry.get("computer.click").unwrap();
-        assert!(click.invoke(&ctx("computer.click", json!({}))).is_ok());
+        assert!(click
+            .invoke(&ctx("computer.click", json!({"surface": "virtual_screen"})))
+            .is_ok());
         // The owner turns the screen off: the very next call is refused.
         std::fs::write(
             dir.path().join("user.json"),
@@ -401,10 +405,14 @@ mod tests {
             std::fs::Permissions::from_mode(0o600),
         )
         .unwrap();
-        assert!(click.invoke(&ctx("computer.click", json!({}))).is_err());
+        assert!(click
+            .invoke(&ctx("computer.click", json!({"surface": "virtual_screen"})))
+            .is_err());
         // The file is damaged: closed, not open.
         std::fs::write(dir.path().join("user.json"), "garbage").unwrap();
-        assert!(click.invoke(&ctx("computer.click", json!({}))).is_err());
+        assert!(click
+            .invoke(&ctx("computer.click", json!({"surface": "virtual_screen"})))
+            .is_err());
     }
 
     #[test]

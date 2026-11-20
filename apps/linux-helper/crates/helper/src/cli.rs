@@ -14,7 +14,7 @@ use crate::paths::{state_dir, Env};
 
 pub const USAGE: &str =
     "usage: psyche-helper [--idle-timeout <seconds>] [--manifest] [--build-info] [--print-identity]
-       psyche-helper pair '<psyche-machine:v1:...>' | wss://<gateway> | - [--name N] [--replace]
+       psyche-helper pair - | wss://<gateway> [--name N] [--replace]
        psyche-helper remote | status [--json] | unpair
 
   (no flags)        connect to the Gateway's node socket and serve (exits after 5 minutes idle)
@@ -26,8 +26,9 @@ pub const USAGE: &str =
                     has run once)
 
 A computer Psyche uses (it dials your Gateway; nothing listens here):
-  pair LINK         pin the Gateway from a psyche-machine: link and pair with its one-time token
-                    (`-` reads the link from standard input, so it stays out of `ps`)
+  pair -            read a psyche-machine: link (paste it, nothing is echoed, or pipe it in) and
+                    pair with its one-time token; a link given as an argument works but shows
+                    in `ps` and your shell history, and the helper warns
   pair wss://HOST   no link: shows the Gateway's fingerprint and a code; approve on the Mac
   remote            serve (what the service runs); exits 78 when it must not be restarted
   status [--json]   Gateway, fingerprint, connection, limits, account (read-only)

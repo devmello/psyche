@@ -4,9 +4,14 @@
 //!   stayed paired for 10 s. A ping every 25 s keeps NAT and DERP paths alive (`transport`).
 //! - **Exit 78 (`EX_CONFIG`), so a service manager does not restart it in a loop:**
 //!   - the Gateway answered `denied` with `device_revoked`: the key and `remote.json` are wiped;
-//!   - the Gateway failed an identity check, or the pinned certificate is not the one served, or
+//!   - the Gateway failed an identity check *after* the pinned TLS authenticated it, or
 //!     `protocol_version_mismatch`: the key is kept (the owner may re-pair), nothing is signed;
 //!   - this computer is not paired.
+//! - **A certificate that is not the pinned one does not stop the helper.** That failure happens
+//!   inside TLS, before the peer has proved anything, so anyone on the LAN can cause it (mDNS or
+//!   ARP spoofing, a recycled address) and so can the Gateway's own certificate rotation. The
+//!   helper writes nothing to it, says `certificate_changed` in its status and journal, and
+//!   retries slowly (30 s doubling to 10 minutes).
 //! - The helper never goes idle in remote mode: the box is a computer the agent can use at any
 //!   time.
 
@@ -129,12 +134,16 @@ impl Exit {
 
 #[derive(Debug)]
 enum Outcome {
-    Served { lasted: Duration },
+    Served {
+        lasted: Duration,
+    },
     Pending,
     Denied,
     Revoked,
     Identity(IdentityError),
     VersionMismatch,
+    /// TLS served a certificate that is not the pinned one.
+    CertificateChanged,
     Failed,
 }
 
@@ -146,8 +155,17 @@ pub struct RemoteDaemon {
     config_dir: std::path::PathBuf,
     state_dir: std::path::PathBuf,
     backoff: Backoff,
+    cert_backoff: Backoff,
     stop: Arc<AtomicBool>,
     current: Mutex<Option<StopHandle>>,
+}
+
+/// Retry schedule for a certificate that is not the pinned one: 30 s doubling to 10 minutes.
+fn slow_backoff() -> Backoff {
+    let mut b = Backoff::default();
+    b.initial = Duration::from_secs(30);
+    b.max = Duration::from_secs(600);
+    b
 }
 
 fn now_secs() -> u64 {
@@ -188,6 +206,7 @@ impl RemoteDaemon {
             config_dir,
             state_dir,
             backoff: Backoff::default(),
+            cert_backoff: slow_backoff(),
             stop: Arc::new(AtomicBool::new(false)),
             current: Mutex::new(None),
         }
@@ -195,6 +214,11 @@ impl RemoteDaemon {
 
     pub fn with_backoff(mut self, backoff: Backoff) -> Self {
         self.backoff = backoff;
+        self
+    }
+
+    pub fn with_cert_backoff(mut self, backoff: Backoff) -> Self {
+        self.cert_backoff = backoff;
         self
     }
 
@@ -213,7 +237,7 @@ impl RemoteDaemon {
     }
 
     fn status(&self, state: &str, detail: Option<&str>) {
-        config::write_status(
+        if let Err(e) = config::write_status(
             &self.state_dir,
             &StatusFile {
                 state: state.into(),
@@ -221,12 +245,15 @@ impl RemoteDaemon {
                 pid: std::process::id(),
                 detail: detail.map(str::to_string),
             },
-        );
+        ) {
+            crate::log(&format!("status file: {e}"));
+        }
     }
 
     pub fn run(&mut self) -> Exit {
         while !self.stopped() {
             self.status("connecting", None);
+            let mut cert_changed = false;
             let delay = match self.run_once() {
                 Outcome::Revoked => {
                     crate::log("this computer was removed on the Gateway: wiping its key");
@@ -250,9 +277,21 @@ impl RemoteDaemon {
                     );
                     return Exit::VersionMismatch;
                 }
+                Outcome::CertificateChanged => {
+                    cert_changed = true;
+                    self.status("certificate_changed", Some("certificate_changed"));
+                    crate::log(
+                        "the Gateway's certificate is not the pinned one; nothing was sent to it. \
+                         If the Gateway's certificate really changed, run `psyche-helper pair \
+                         --replace` with a new link; otherwise something else is answering at \
+                         this address",
+                    );
+                    self.cert_backoff.next_failure(random_unit())
+                }
                 Outcome::Served { lasted } => {
                     if lasted >= HEALTHY_AFTER {
                         self.backoff.reset();
+                        self.cert_backoff.reset();
                         self.backoff.initial
                     } else {
                         self.backoff.next_failure(random_unit())
@@ -262,7 +301,7 @@ impl RemoteDaemon {
                 Outcome::Denied => self.backoff.denied_retry,
                 Outcome::Failed => self.backoff.next_failure(random_unit()),
             };
-            if !self.stopped() {
+            if !self.stopped() && !cert_changed {
                 self.status("offline", None);
             }
             self.sleep(delay);
@@ -296,7 +335,7 @@ impl RemoteDaemon {
         ) {
             Ok(done) => done,
             Err(AttemptError::Dial(TransportError::PinMismatch)) => {
-                return Outcome::Identity(IdentityError::CertChanged)
+                return Outcome::CertificateChanged
             }
             Err(AttemptError::Dial(e)) => {
                 crate::log(&format!("connect failed: {e}"));
@@ -540,18 +579,57 @@ mod tests {
     }
 
     #[test]
-    fn a_pinned_certificate_that_changed_exits_78_with_no_upgrade() {
+    fn a_certificate_that_is_not_the_pinned_one_retries_slowly_and_never_exits_78() {
         let fx = Fx::new();
         let gateway = FakeGateway::start_tls(Script::gateway(GatewayCfg::new()));
         let mut target = gateway.target_tls();
         target.security =
             crate::remote::transport::Security::Pin(crate::remote::testutil::other_pin());
-        let mut daemon = fx.daemon(&gateway.gateway_key(), target);
-        assert_eq!(
-            daemon.run(),
-            Exit::IdentityMismatch(IdentityError::CertChanged)
+        let mut quick = Backoff::default();
+        quick.initial = Duration::from_millis(20);
+        quick.max = Duration::from_millis(60);
+        let mut daemon = fx
+            .daemon(&gateway.gateway_key(), target)
+            .with_cert_backoff(quick);
+        let stop = daemon.stopper();
+        let handle = std::thread::spawn(move || daemon.run());
+        let deadline = Instant::now() + Duration::from_secs(10);
+        while gateway.connections() < 3 && Instant::now() < deadline {
+            std::thread::sleep(Duration::from_millis(20));
+        }
+        let status = config::read_status(&fx.state()).unwrap();
+        stop();
+        // Anyone on the LAN can serve another certificate: the helper keeps trying, says why,
+        // keeps its key, and never writes a byte to the stranger.
+        assert_eq!(handle.join().unwrap(), Exit::Stopped);
+        assert!(
+            gateway.connections() >= 3,
+            "retried: {}",
+            gateway.connections()
         );
+        assert!(matches!(
+            status.state.as_str(),
+            "certificate_changed" | "connecting"
+        ));
         assert_eq!(gateway.app_bytes_received(), 0);
+        assert!(fx
+            .state()
+            .join(crate::identity::REMOTE_IDENTITY_FILE)
+            .exists());
+        assert!(config::remote_path(&fx.cfg_dir()).exists());
+    }
+
+    #[test]
+    fn a_certificate_the_gateway_vouched_against_after_tls_authenticated_it_still_exits_78() {
+        let fx = Fx::new();
+        let mut cfg = GatewayCfg::new();
+        cfg.lan_cert = LanCert::Other("DAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAw".into());
+        let gateway = FakeGateway::start_tls(Script::gateway(cfg));
+        let mut daemon = fx.daemon(&gateway.gateway_key(), gateway.target_tls());
+        daemon.config.cert_pin = Some(gateway.pin());
+        let exit = daemon.run();
+        assert_eq!(exit, Exit::IdentityMismatch(IdentityError::CertChanged));
+        assert_eq!(exit.code(), 78);
     }
 
     #[test]

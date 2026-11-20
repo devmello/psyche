@@ -135,6 +135,42 @@ pub fn dispatch(command: Command, env: &dyn Env) -> ExitCode {
     }
 }
 
+/// The key's directory must be ours and not writable by others before a key is read, made or
+/// wiped in it. A directory that does not exist yet is fine: it is created 0700.
+fn state_ok(dirs: &Dirs) -> Result<(), String> {
+    if dirs.state.exists() {
+        config::check_dir(&dirs.state).map_err(|e| e.to_string())?;
+    }
+    Ok(())
+}
+
+/// Reads one line from a terminal without echoing it (the link holds a one-time token).
+fn prompt_no_echo(prompt: &str) -> Result<String, String> {
+    eprint!("{prompt}");
+    // SAFETY: termios calls on standard input with a zeroed, then filled, struct.
+    let saved = unsafe {
+        let mut t: libc::termios = std::mem::zeroed();
+        if libc::tcgetattr(0, &mut t) != 0 {
+            return Err("could not read the terminal settings".into());
+        }
+        let saved = t;
+        t.c_lflag &= !libc::ECHO;
+        if libc::tcsetattr(0, libc::TCSANOW, &t) != 0 {
+            return Err("could not turn off echo".into());
+        }
+        saved
+    };
+    let mut line = String::new();
+    let read = std::io::stdin().read_line(&mut line);
+    // SAFETY: restores the settings read above.
+    unsafe {
+        libc::tcsetattr(0, libc::TCSANOW, &saved);
+    }
+    eprintln!();
+    read.map_err(|e| format!("could not read the link: {e}"))?;
+    Ok(line)
+}
+
 fn finish(result: Result<(), String>) -> ExitCode {
     match result {
         Ok(()) => ExitCode::SUCCESS,
@@ -160,6 +196,10 @@ fn remote(dirs: &Dirs, env: &dyn Env) -> ExitCode {
             return ExitCode::from(EXIT_CONFIG);
         }
     };
+    if let Err(e) = state_ok(dirs) {
+        crate::log(&format!("state directory: {e}"));
+        return ExitCode::from(EXIT_CONFIG);
+    }
     // Loaded, never created: a missing key means the pairing is gone, not "pair as someone new".
     let identity = match identity::load_file(&dirs.state, REMOTE_IDENTITY_FILE) {
         Ok(Some(i)) => i,
@@ -212,6 +252,12 @@ fn remote(dirs: &Dirs, env: &dyn Env) -> ExitCode {
 fn read_link_arg(target: &PairTarget) -> Result<PairInput, String> {
     match target {
         PairTarget::Stdin => {
+            // SAFETY: isatty only inspects descriptor 0.
+            if unsafe { libc::isatty(0) } == 1 {
+                return Ok(PairInput::Link(prompt_no_echo(
+                    "Paste the link from Psyche: ",
+                )?));
+            }
             let mut text = String::new();
             std::io::stdin()
                 .take(4096)
@@ -222,6 +268,11 @@ fn read_link_arg(target: &PairTarget) -> Result<PairInput, String> {
         PairTarget::Text(text) => {
             let lower = text.trim().to_ascii_lowercase();
             if lower.starts_with("psyche-machine:") {
+                eprintln!(
+                    "psyche-helper: a link on the command line is visible to other users in `ps` \
+                     and stays in your shell history; its token works once for ten minutes. \
+                     Prefer `psyche-helper pair -` and paste it."
+                );
                 Ok(PairInput::Link(text.clone()))
             } else if lower.starts_with("psyche-pair:") {
                 Err(
@@ -275,6 +326,7 @@ fn pair(
             "that name has hidden or control characters, or is not 1 to 64 characters".into(),
         );
     }
+    state_ok(dirs)?;
     let existing = config::load(&dirs.config).map_err(|e| e.to_string())?;
     if let Some(existing) = existing {
         if !replace {
@@ -287,6 +339,7 @@ fn pair(
     }
     // A fresh key for every pairing. Whatever an earlier, unfinished attempt left is wiped.
     config::wipe(&dirs.config, &dirs.state).map_err(|e| e.to_string())?;
+    config::ensure_private_dir(&dirs.state).map_err(|e| e.to_string())?;
     let identity = identity::load_or_create_file(&dirs.state, REMOTE_IDENTITY_FILE)
         .map_err(|e| e.to_string())?;
     let caps = pairing_capabilities(dirs, env);
@@ -433,6 +486,7 @@ fn pair_loop(
 // unpair
 
 fn unpair(dirs: &Dirs, env: &dyn Env) -> Result<(), String> {
+    state_ok(dirs)?;
     let config = config::load(&dirs.config).unwrap_or(None);
     let identity = identity::load_file(&dirs.state, REMOTE_IDENTITY_FILE).unwrap_or(None);
     let mut removed_on_gateway = false;
@@ -483,6 +537,7 @@ fn process_alive(pid: u32) -> bool {
 }
 
 fn status(dirs: &Dirs, env: &dyn Env, as_json: bool) -> Result<String, String> {
+    state_ok(dirs)?;
     let config = config::load(&dirs.config).map_err(|e| e.to_string())?;
     let Some(config) = config else {
         return Ok(if as_json {

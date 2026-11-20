@@ -6,7 +6,7 @@
 
 use std::fs;
 use std::io::Write;
-use std::os::unix::fs::{DirBuilderExt, OpenOptionsExt, PermissionsExt};
+use std::os::unix::fs::{DirBuilderExt, MetadataExt, OpenOptionsExt, PermissionsExt};
 use std::path::{Path, PathBuf};
 
 use base64::engine::general_purpose::URL_SAFE_NO_PAD;
@@ -139,17 +139,27 @@ pub const REMOTE_IDENTITY_FILE: &str = "remote-identity.json";
 /// [`load`] for a named identity file in the state directory.
 pub fn load_file(state_dir: &Path, file: &str) -> Result<Option<DeviceIdentity>, IdentityError> {
     let path = state_dir.join(file);
-    let meta = match fs::metadata(&path) {
-        Ok(m) => m,
+    // Opened without following a link, and checked on the open file: what is read is what was
+    // checked.
+    let mut handle = match fs::OpenOptions::new()
+        .read(true)
+        .custom_flags(libc::O_NOFOLLOW)
+        .open(&path)
+    {
+        Ok(f) => f,
         Err(e) if e.kind() == std::io::ErrorKind::NotFound => return Ok(None),
         Err(e) => return Err(e.into()),
     };
+    let meta = handle.metadata()?;
     let mode = meta.permissions().mode() & 0o777;
-    if mode & 0o077 != 0 {
+    // SAFETY: geteuid has no preconditions and cannot fail.
+    if mode & 0o077 != 0 || !meta.is_file() || meta.uid() != unsafe { libc::geteuid() } {
         return Err(IdentityError::Permissions { path, mode });
     }
-    let stored: Stored = serde_json::from_slice(&fs::read(&path)?)
-        .map_err(|_| IdentityError::Malformed(path.clone()))?;
+    let mut bytes = Vec::new();
+    std::io::Read::read_to_end(&mut handle, &mut bytes)?;
+    let stored: Stored =
+        serde_json::from_slice(&bytes).map_err(|_| IdentityError::Malformed(path.clone()))?;
     let mut decoded = URL_SAFE_NO_PAD
         .decode(&stored.seed)
         .map_err(|_| IdentityError::Malformed(path.clone()))?;

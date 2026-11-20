@@ -173,13 +173,19 @@ fn write_private(path: &Path, bytes: &[u8]) -> Result<(), ConfigError> {
 }
 
 fn read_private(path: &Path) -> Result<Option<Vec<u8>>, ConfigError> {
-    let meta = match fs::metadata(path) {
+    let meta = match fs::symlink_metadata(path) {
         Ok(m) => m,
         Err(e) if e.kind() == std::io::ErrorKind::NotFound => return Ok(None),
         Err(e) => return Err(e.into()),
     };
     if let Some(dir) = path.parent() {
         check_dir(dir)?;
+    }
+    if !meta.file_type().is_file() {
+        return Err(ConfigError::Unsafe(format!(
+            "{} must be a regular file, not a link",
+            path.display()
+        )));
     }
     let mode = meta.permissions().mode() & 0o777;
     if mode & 0o077 != 0 {
@@ -230,10 +236,9 @@ pub struct StatusFile {
     pub detail: Option<String>,
 }
 
-pub fn write_status(state_dir: &Path, status: &StatusFile) {
-    if let Ok(bytes) = serde_json::to_vec(status) {
-        let _ = write_private(&state_dir.join(STATUS_FILE), &bytes);
-    }
+pub fn write_status(state_dir: &Path, status: &StatusFile) -> Result<(), ConfigError> {
+    let bytes = serde_json::to_vec(status).map_err(|e| ConfigError::Invalid(e.to_string()))?;
+    write_private(&state_dir.join(STATUS_FILE), &bytes)
 }
 
 pub fn read_status(state_dir: &Path) -> Option<StatusFile> {
@@ -241,16 +246,21 @@ pub fn read_status(state_dir: &Path) -> Option<StatusFile> {
     serde_json::from_slice(&bytes).ok()
 }
 
-/// Removes the key, the saved Gateway and the status. The key file is overwritten before it is
-/// unlinked, so it does not linger in a freed block. Missing files are fine.
+/// Deletes the key, the saved Gateway and the status. The key file is overwritten with zeros
+/// first, which is best effort only: it does nothing on a copy-on-write filesystem or an SSD, so
+/// the guarantee is "deleted", not "gone from the disk". A symlink where the key should be is not
+/// followed. Missing files are fine.
 pub fn wipe(config_dir: &Path, state_dir: &Path) -> Result<(), ConfigError> {
     let key = state_dir.join(REMOTE_IDENTITY_FILE);
-    if let Ok(meta) = fs::metadata(&key) {
-        if let Ok(mut file) = fs::OpenOptions::new().write(true).open(&key) {
-            let zeros = vec![0u8; usize::try_from(meta.len()).unwrap_or(0).min(1 << 20)];
-            let _ = file.write_all(&zeros);
-            let _ = file.sync_all();
-        }
+    if let Ok(mut file) = fs::OpenOptions::new()
+        .write(true)
+        .custom_flags(libc::O_NOFOLLOW)
+        .open(&key)
+    {
+        let len = file.metadata().map(|m| m.len()).unwrap_or(0);
+        let zeros = vec![0u8; usize::try_from(len).unwrap_or(0).min(1 << 20)];
+        let _ = file.write_all(&zeros);
+        let _ = file.sync_all();
     }
     let mut result = Ok(());
     for path in [key, remote_path(config_dir), state_dir.join(STATUS_FILE)] {
@@ -390,7 +400,8 @@ mod tests {
                 pid: 1,
                 detail: None,
             },
-        );
+        )
+        .unwrap();
         assert!(state.join(STATUS_FILE).exists());
         wipe(&cfg_dir, &state).unwrap();
         assert!(!remote_path(&cfg_dir).exists());
@@ -413,7 +424,58 @@ mod tests {
             pid: 2,
             detail: Some("x".into()),
         };
-        write_status(dir.path(), &status);
+        write_status(dir.path(), &status).unwrap();
         assert_eq!(read_status(dir.path()).unwrap(), status);
+    }
+
+    #[test]
+    fn links_are_never_followed_for_the_key_remote_json_or_a_wipe() {
+        use std::os::unix::fs::symlink;
+        let dir = tempfile::tempdir().unwrap();
+        let (cfg_dir, state) = (dir.path().join("cfg"), dir.path().join("state"));
+        save(&cfg_dir, &config()).unwrap();
+        crate::identity::load_or_create_file(&state, REMOTE_IDENTITY_FILE).unwrap();
+        // remote.json replaced by a link to a good file: refused.
+        let real = dir.path().join("elsewhere.json");
+        fs::copy(remote_path(&cfg_dir), &real).unwrap();
+        fs::set_permissions(&real, fs::Permissions::from_mode(0o600)).unwrap();
+        fs::remove_file(remote_path(&cfg_dir)).unwrap();
+        symlink(&real, remote_path(&cfg_dir)).unwrap();
+        assert!(matches!(load(&cfg_dir), Err(ConfigError::Unsafe(_))));
+        // The key replaced by a link: refused, and a wipe does not overwrite the target.
+        let key = state.join(REMOTE_IDENTITY_FILE);
+        let target = dir.path().join("target-key.json");
+        fs::copy(&key, &target).unwrap();
+        fs::set_permissions(&target, fs::Permissions::from_mode(0o600)).unwrap();
+        let before = fs::read(&target).unwrap();
+        fs::remove_file(&key).unwrap();
+        symlink(&target, &key).unwrap();
+        assert!(crate::identity::load_file(&state, REMOTE_IDENTITY_FILE).is_err());
+        wipe(&cfg_dir, &state).unwrap();
+        assert_eq!(
+            fs::read(&target).unwrap(),
+            before,
+            "the link's target is untouched"
+        );
+        assert!(!key.exists());
+    }
+
+    #[test]
+    fn a_state_directory_others_can_write_is_refused() {
+        let dir = tempfile::tempdir().unwrap();
+        let state = dir.path().join("state");
+        ensure_private_dir(&state).unwrap();
+        fs::set_permissions(&state, fs::Permissions::from_mode(0o770)).unwrap();
+        assert!(matches!(check_dir(&state), Err(ConfigError::Unsafe(_))));
+        assert!(write_status(
+            &state,
+            &StatusFile {
+                state: "x".into(),
+                since: 1,
+                pid: 1,
+                detail: None
+            }
+        )
+        .is_err());
     }
 }
