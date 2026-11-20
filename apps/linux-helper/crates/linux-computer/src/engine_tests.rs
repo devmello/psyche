@@ -273,6 +273,65 @@ fn a_surface_that_refuses_the_focus_stops_typing_and_keys_before_anything_is_sen
     }
 }
 
+/// The machine ceiling's gate sees the app the engine resolved, however the call named it.
+fn deny_keepass(r: &Rig) {
+    r.engine.policy.set_app_gate(std::sync::Arc::new(|id| {
+        if crate::app_id::normalize(id) == "keepassxc" {
+            Err(crate::error::CapError::new(
+                "policy_denied",
+                "app_denied",
+                "out of reach",
+            ))
+        } else {
+            Ok(())
+        }
+    }));
+}
+
+#[test]
+fn a_denied_app_is_refused_whether_the_call_names_its_id_its_display_name_or_its_pid() {
+    let r = rig(all_interact());
+    editor(&r);
+    deny_keepass(&r);
+    for params in [
+        // An id.
+        json!({"app": "keepassxc", "x": 10, "y": 10, "session": "s1"}),
+        json!({"app": " KeePassXC.desktop", "x": 10, "y": 10, "session": "s1"}),
+        // The display name.
+        json!({"app": "KeePassXC", "x": 10, "y": 10, "session": "s1"}),
+        // A pid, no app key at all.
+        json!({"pid": KEEPASS_PID, "x": 10, "y": 10, "session": "s1"}),
+    ] {
+        for cap in ["computer.click", "computer.screenshot", "computer.ax_tree"] {
+            let mut p = params.clone();
+            // Only the tree takes a pid; the other calls name their app.
+            if p.get("pid").is_some() && cap != "computer.ax_tree" {
+                continue;
+            }
+            if cap != "computer.click" {
+                p.as_object_mut()
+                    .unwrap()
+                    .retain(|k, _| matches!(k.as_str(), "app" | "pid"));
+            }
+            let err = call(&r, cap, p.clone(), &inv()).unwrap_err();
+            // A point click can also be refused for landing in a different app than it
+            // named; either way it is a policy refusal and nothing is sent.
+            let reason_ok =
+                err.1 == "app_denied" || (cap == "computer.click" && err.1 == "app_mismatch");
+            assert!(err.0 == "policy_denied" && reason_ok, "{cap} {p}: {err:?}");
+        }
+    }
+    assert!(r.fake.log().iter().all(|l| !l.starts_with("click")));
+    // Another app still works.
+    call(
+        &r,
+        "computer.ax_tree",
+        json!({"app": "org.gnome.TextEditor"}),
+        &inv(),
+    )
+    .unwrap();
+}
+
 #[test]
 fn a_surface_that_allows_the_focus_does_not_replace_the_pid_comparison() {
     // A child process the app started sits in the app's scope and has the focus: the surface's

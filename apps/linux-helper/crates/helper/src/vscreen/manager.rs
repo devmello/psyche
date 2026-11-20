@@ -83,11 +83,22 @@ pub struct Config {
     pub watchdog_every: Duration,
     /// Run every app by an absolute path found in the system program directories, with those
     /// directories as its `PATH` (`trust.rs`), never through the owner's `PATH`. Off only in
-    /// tests that start a program built in a build directory.
-    pub trusted_programs: bool,
+    /// tests that start a program built in a build directory (see
+    /// [`Config::untrusted_programs_for_tests`]).
+    trusted_programs: bool,
 }
 
 impl Config {
+    /// For tests that start a program built in a build directory. Does nothing in a release
+    /// build: nothing a user or a caller configures can turn the program check off.
+    #[doc(hidden)]
+    pub fn untrusted_programs_for_tests(&mut self) {
+        #[cfg(debug_assertions)]
+        {
+            self.trusted_programs = false;
+        }
+    }
+
     pub fn from_env(env: &dyn Env) -> Self {
         let home = PathBuf::from(env.get("HOME").unwrap_or_else(|| "/".into()));
         let state = state_dir(env);
@@ -1479,6 +1490,7 @@ fn watchdog(weak: Weak<VscreenManager>, every: Duration) {
         let windows = display.windows();
         // An app whose process ended and left no window is gone.
         let mut keep = Vec::new();
+        let mut stopped = Vec::new();
         let apps = std::mem::take(&mut inner.apps);
         let snapshot: Vec<usize> = (0..apps.len()).collect();
         for (idx, mut app) in apps.into_iter().enumerate() {
@@ -1494,7 +1506,9 @@ fn watchdog(weak: Weak<VscreenManager>, every: Duration) {
             });
             let _ = (&snapshot, idx);
             if exited && !has_window {
-                m.deps.runner.stop(&app.unit);
+                // Stopped below, once `inner` is let go: stopping waits for the scope's
+                // processes, and one of them may be waiting on this process.
+                stopped.push(app.unit.clone());
                 continue;
             }
             keep.push(app);
@@ -1504,7 +1518,15 @@ fn watchdog(weak: Weak<VscreenManager>, every: Duration) {
             m.teardown_locked(&mut inner);
             crate::log("vscreen: stopped (idle)");
             inner.watchdog = false;
+            drop(inner);
+            for unit in stopped {
+                m.deps.runner.stop(&unit);
+            }
             return;
+        }
+        drop(inner);
+        for unit in stopped {
+            m.deps.runner.stop(&unit);
         }
     }
 }

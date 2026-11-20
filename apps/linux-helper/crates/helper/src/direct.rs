@@ -143,6 +143,20 @@ mod linux {
         crate::paths::psyche_home(&ProcessEnv)
     }
 
+    /// A call that names a surface other than the one this helper serves is refused: the engine
+    /// behind it is the other surface's (the owner's real screen, or the private one).
+    fn surface_check(params: &Value) -> Result<(), CapabilityError> {
+        if crate::headless::surface_matches(params.get("surface"), crate::headless::active()) {
+            Ok(())
+        } else {
+            Err(CapabilityError::new(
+                ErrorCode::Forbidden,
+                "surface_mismatch",
+                "This computer does not serve that screen",
+            ))
+        }
+    }
+
     fn side_effect(s: &str) -> SideEffect {
         match s {
             "none" => SideEffect::None,
@@ -175,6 +189,7 @@ mod linux {
         }
 
         fn invoke(&self, ctx: &InvocationContext) -> Result<Value, CapabilityError> {
+            surface_check(&ctx.params)?;
             let engine = self.shared.engine()?;
             let inv = Invocation {
                 approval_id: ctx.approval_id.clone(),
@@ -312,6 +327,7 @@ mod linux {
         }
 
         fn invoke(&self, ctx: &InvocationContext) -> Result<Value, CapabilityError> {
+            surface_check(&ctx.params)?;
             let engine = self.shared.engine()?;
             engine.reload_settings();
             let binding = ApprovalBinding::from(ctx.approval_id.as_deref(), &ctx.params);

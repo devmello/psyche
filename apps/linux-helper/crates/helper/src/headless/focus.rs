@@ -14,7 +14,18 @@
 use psyche_linux_computer::backend::AppInfo;
 use psyche_linux_computer::error::{code, CapError};
 
-use super::deny::Deny;
+use crate::remote::policy::Policy;
+
+/// Whether an app is out of reach (not allowed, or denied) under the machine ceiling.
+pub trait Denies {
+    fn is_denied(&self, app_id: &str) -> bool;
+}
+
+impl Denies for Policy {
+    fn is_denied(&self, app_id: &str) -> bool {
+        !self.app_permitted(app_id)
+    }
+}
 
 /// Where processes belong.
 pub trait Scopes {
@@ -52,7 +63,7 @@ pub fn decide(
     target: &str,
     focus_pid: Option<u32>,
     scopes: &dyn Scopes,
-    deny: &Deny,
+    deny: &dyn Denies,
 ) -> Result<(), Refusal> {
     if deny.is_denied(target) {
         return Err(Refusal::Denied {
@@ -77,24 +88,6 @@ pub fn decide(
         Err(Refusal::Moved {
             other: holder.or(own),
         })
-    }
-}
-
-/// The last check, made as the keys are sent with the server held (so the focus cannot change
-/// between this and delivery): everything `decide` checks, and the focused client must be the
-/// app's own process, exactly.
-pub fn at_send(
-    app: &AppInfo,
-    focus_pid: Option<u32>,
-    scopes: &dyn Scopes,
-    deny: &Deny,
-) -> Result<(), Refusal> {
-    decide(&app.id, focus_pid, scopes, deny)?;
-    match focus_pid {
-        Some(p) if app.owns(p) => Ok(()),
-        _ => Err(Refusal::Moved {
-            other: focus_pid.and_then(|p| scopes.own_id(p)),
-        }),
     }
 }
 
@@ -136,6 +129,22 @@ pub fn to_error(refusal: &Refusal, app: &AppInfo) -> CapError {
 mod tests {
     use super::*;
     use std::collections::HashMap;
+
+    enum Deny {
+        Nothing,
+        Some(Vec<String>),
+        Everything,
+    }
+
+    impl Denies for Deny {
+        fn is_denied(&self, id: &str) -> bool {
+            match self {
+                Deny::Nothing => false,
+                Deny::Everything => true,
+                Deny::Some(l) => l.iter().any(|d| d.eq_ignore_ascii_case(id)),
+            }
+        }
+    }
 
     /// pid -> (launch scope's app, the process's own app).
     struct Fake(HashMap<u32, (&'static str, &'static str)>);
@@ -196,33 +205,6 @@ mod tests {
             decide("org.gnome.TextEditor", Some(101), &scopes(), &n),
             Ok(())
         );
-    }
-
-    #[test]
-    fn a_focus_change_between_the_check_and_the_send_leaks_nothing() {
-        let app = info("org.gnome.TextEditor", 100);
-        let n = Deny::Nothing;
-        // The check passed with the editor focused; at send time the focus is a window of
-        // another program (an xterm in the editor's scope, Firefox, an unknown client).
-        assert_eq!(at_send(&app, Some(100), &scopes(), &n), Ok(()));
-        assert!(matches!(
-            at_send(&app, Some(101), &scopes(), &n),
-            Err(Refusal::Moved { .. })
-        ));
-        assert!(matches!(
-            at_send(&app, Some(200), &scopes(), &n),
-            Err(Refusal::Moved { .. })
-        ));
-        assert!(matches!(
-            at_send(&app, Some(4242), &scopes(), &n),
-            Err(Refusal::Moved { .. })
-        ));
-        assert_eq!(at_send(&app, None, &scopes(), &n), Err(Refusal::Unknown));
-        // And a denied program is refused as denied, not as a focus change.
-        assert!(matches!(
-            at_send(&app, Some(301), &scopes(), &keepass_denied()),
-            Err(Refusal::Denied { .. })
-        ));
     }
 
     #[test]

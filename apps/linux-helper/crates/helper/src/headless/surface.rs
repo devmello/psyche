@@ -20,18 +20,36 @@ use psyche_linux_computer::backend::{AppInfo, WinInfo};
 use psyche_linux_computer::engine::Engine;
 use psyche_linux_computer::error::{code, CapError, CapResult};
 use psyche_linux_computer::linux::{LinuxBackend, Path, SurfaceHooks};
-use psyche_linux_computer::snapshot::Rect;
 use psyche_linux_computer::trust::SettingsSource;
 use psyche_linux_computer::x11::X11;
 
-use super::deny::DenyPolicy;
-use super::focus::{at_send, decide, to_error, Scopes};
-use crate::paths::{psyche_home, ProcessEnv};
+use super::focus::{decide, to_error, Scopes};
+use crate::paths::{psyche_home, Env, ProcessEnv};
+use crate::remote::config::config_dir;
+use crate::remote::policy::PolicySource;
 use crate::vscreen::manager::VsError;
 use crate::vscreen::VscreenManager;
 
 /// How long the accessibility bus gets to appear after the display starts.
 const A11Y_WAIT: Duration = Duration::from_secs(8);
+
+/// The machine ceiling (`policy.json`, `/etc` first), read again at every use.
+pub fn policy_source() -> Arc<PolicySource> {
+    let home = ProcessEnv
+        .get("HOME")
+        .map(std::path::PathBuf::from)
+        .unwrap_or_else(|| std::path::PathBuf::from("/"));
+    Arc::new(PolicySource::standard(&config_dir(&ProcessEnv), home, None))
+}
+
+pub fn app_denied(id: &str) -> CapError {
+    CapError::new(
+        code::POLICY_DENIED,
+        "app_denied",
+        "This computer's owner has put that app out of Psyche's reach",
+    )
+    .detail("app", id)
+}
 
 pub fn cap_error(e: VsError) -> CapError {
     let code = match e.reason {
@@ -61,12 +79,12 @@ impl Scopes for ManagerScopes {
 
 pub struct VirtualHooks {
     manager: Arc<VscreenManager>,
-    deny: DenyPolicy,
+    policy: Arc<PolicySource>,
     a11y: OnceLock<Arc<A11y>>,
     x11: OnceLock<Arc<X11>>,
     /// The app the last input check was made for: the guard that runs with the server grabbed
     /// judges the focus against it.
-    target: Mutex<Option<AppInfo>>,
+    prepared: Mutex<Option<AppInfo>>,
 }
 
 impl VirtualHooks {
@@ -77,15 +95,17 @@ impl VirtualHooks {
         }
     }
 
-    /// The last line, run with the X server grabbed right before keys are sent (`X11::guarded`):
-    /// the focused client must be the app the last check was made for, exactly, and still pass
-    /// the scope and deny checks. No D-Bus here: the apps cannot answer while the server is held.
-    fn tap_guard(&self, focus_pid: Option<u32>) -> CapResult<()> {
+    /// Run before the X server is grabbed for a send (`X11::guarded`): everything slow is done
+    /// here, and the pid the focused client must be is returned. The app is the one the last
+    /// check (`check_input_target`) was made for, and is **consumed**: each send needs its own
+    /// check, and a send with none is refused. Inside the grab only that pid is compared, so the
+    /// grab waits for no file, lock or bus.
+    fn prepare_send(&self) -> CapResult<u32> {
         let Some(app) = self
-            .target
+            .prepared
             .lock()
             .unwrap_or_else(|e| e.into_inner())
-            .clone()
+            .take()
         else {
             return Err(CapError::new(
                 code::CONFLICT,
@@ -93,20 +113,17 @@ impl VirtualHooks {
                 "No app is the target of this input",
             ));
         };
-        let deny = self.deny.current();
-        at_send(&app, focus_pid, &self.scopes(), &deny).map_err(|r| to_error(&r, &app))
+        if !self.policy.load().policy.app_permitted(&app.id) {
+            return Err(app_denied(&app.id));
+        }
+        Ok(app.pid)
     }
 }
 
 impl SurfaceHooks for VirtualHooks {
     fn check_launch(&self, id: &str) -> CapResult<()> {
-        if self.deny.is_denied(id) {
-            return Err(CapError::new(
-                code::POLICY_DENIED,
-                "app_denied",
-                "This computer's owner has put that app out of Psyche's reach",
-            )
-            .detail("app", id));
+        if !self.policy.load().policy.app_permitted(id) {
+            return Err(app_denied(id));
         }
         Ok(())
     }
@@ -130,36 +147,16 @@ impl SurfaceHooks for VirtualHooks {
     }
 
     fn check_input_target(&self, app: &AppInfo) -> CapResult<()> {
-        *self.target.lock().unwrap_or_else(|e| e.into_inner()) = Some(app.clone());
-        let deny = self.deny.current();
+        *self.prepared.lock().unwrap_or_else(|e| e.into_inner()) = Some(app.clone());
+        let deny = self.policy.load().policy;
         decide(&app.id, self.focus_pid(), &self.scopes(), &deny).map_err(|r| to_error(&r, app))
     }
 
-    /// The window manager's own table: windows it manages, with the pid the server recorded.
+    /// The server's own stacking order (top first) with the pids it recorded: what a hit test,
+    /// a window-only capture and the redaction of protected windows are judged by. A window it
+    /// cannot attribute (an override-redirect popup, say) is a blocker with pid 0.
     fn windows(&self) -> Option<Vec<WinInfo>> {
-        let display = self.manager.display_handle()?;
-        Some(
-            display
-                .windows()
-                .into_iter()
-                .rev()
-                .map(|w| WinInfo {
-                    id: u64::from(w.id),
-                    // 0 matches no app: a window the server could not attribute is nobody's.
-                    pid: w.pid.unwrap_or(0),
-                    title: w.title.unwrap_or_default(),
-                    bounds: Some(Rect::new(
-                        f64::from(w.rect.x),
-                        f64::from(w.rect.y),
-                        f64::from(w.rect.w),
-                        f64::from(w.rect.h),
-                    )),
-                    layer: 0,
-                    focused: false,
-                    minimized: false,
-                })
-                .collect(),
-        )
+        Some(self.x11.get()?.stacked_windows())
     }
 }
 
@@ -202,19 +199,20 @@ impl HeadlessSurface {
         let a11y = Arc::new(connect_a11y(&self.manager, &bus)?);
         // A new display gets new hooks state; the cells are set once per surface, so build the
         // hooks again when the display changes.
+        let hooks_policy = policy_source();
         let hooks = Arc::new(VirtualHooks {
             manager: Arc::clone(&self.manager),
-            deny: DenyPolicy::from_env(&ProcessEnv),
+            policy: Arc::clone(&hooks_policy),
             a11y: OnceLock::new(),
             x11: OnceLock::new(),
-            target: Mutex::new(None),
+            prepared: Mutex::new(None),
         });
         let _ = hooks.a11y.set(Arc::clone(&a11y));
         let _ = hooks.x11.set(Arc::clone(&x11));
         // Weak: the X connection holds the guard and the hooks hold the connection.
         let weak = Arc::downgrade(&hooks);
-        x11.set_tap_guard(Arc::new(move |pid| match weak.upgrade() {
-            Some(h) => h.tap_guard(pid),
+        x11.set_tap_guard(Arc::new(move || match weak.upgrade() {
+            Some(h) => h.prepare_send(),
             None => Err(CapError::unavailable("display_failed", "The screen ended")),
         }));
         let backend = Arc::new(
@@ -225,6 +223,17 @@ impl HeadlessSurface {
         let own_uid = unsafe { libc::geteuid() };
         let settings = SettingsSource::choose(false, &env_get, &psyche_home(&ProcessEnv), own_uid);
         let engine = Engine::with_settings(backend, settings);
+        // Every authorization of an app the engine resolved (a pid, a display name, the focus)
+        // asks the machine ceiling first, so clicks, accessibility actions, snapshots and
+        // screenshots are covered as well as keys.
+        let source = Arc::clone(&hooks_policy);
+        engine.policy.set_app_gate(Arc::new(move |id| {
+            if source.load().policy.app_permitted(id) {
+                Ok(())
+            } else {
+                Err(app_denied(id))
+            }
+        }));
         *guard = Some((key, Arc::clone(&engine)));
         Ok(engine)
     }

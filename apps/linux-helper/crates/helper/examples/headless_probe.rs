@@ -4,7 +4,7 @@
 #![cfg(target_os = "linux")]
 
 use std::sync::Arc;
-use std::time::Duration;
+use std::time::{Duration, Instant};
 
 use psyche_helper::headless::surface::HeadlessSurface;
 use psyche_helper::idle::IdleTimer;
@@ -107,6 +107,98 @@ fn main() {
     match &shot {
         Ok(v) => println!("screenshot ok: {} bytes of result", v.to_string().len()),
         Err(e) => println!("screenshot failed: {e}"),
+    }
+    if std::env::var("PROBE_TEXT").is_ok_and(|v| !v.is_empty()) {
+        let r = call(
+            "computer.type",
+            json!({ "app": app, "text": "cafe-\u{e9}-\u{f1}-\u{20ac}5-na\u{ef}ve-\u{3a9}-\u{6f22}\u{5b57}-\u{1f600}-end", "session": "probe" }),
+        );
+        println!("TEXT non-keymap string: {r:?}");
+        let started = Instant::now();
+        let long = format!("a{}", "\u{301}".repeat(1500));
+        let r = call(
+            "computer.type",
+            json!({ "app": app, "text": long, "session": "probe" }),
+        );
+        println!(
+            "TEXT 1501-codepoint grapheme: {:?} in {:?}",
+            r.is_ok() || r.is_err(),
+            started.elapsed()
+        );
+    }
+    // Stacking: an older tier-off window raised over a newer one must be redacted, and a click
+    // on the raised window must resolve to it.
+    if std::env::var("PROBE_STACK").is_ok_and(|v| !v.is_empty()) {
+        let home = std::env::var("PSYCHE_HOME").unwrap();
+        let cfg = format!("{home}/config/computer-use.json");
+        let display = manager.status().display.expect("display");
+        let auth = manager.xauthority().expect("xauthority");
+        let calc = "org.gnome.Calculator";
+        println!(
+            "open calc: {:?}",
+            engine.open_app(&json!({ "bundleId": calc }), None)
+        );
+        std::thread::sleep(Duration::from_secs(3));
+        let raise = |name: &str| {
+            let out = std::process::Command::new("xdotool")
+                .args(["search", "--name", name])
+                .env("DISPLAY", &display)
+                .env("XAUTHORITY", &auth)
+                .output()
+                .unwrap();
+            let id = String::from_utf8_lossy(&out.stdout)
+                .lines()
+                .last()
+                .unwrap_or("")
+                .to_string();
+            let _ = std::process::Command::new("xdotool")
+                .args(["windowactivate", &id])
+                .env("DISPLAY", &display)
+                .env("XAUTHORITY", &auth)
+                .status();
+        };
+        raise("Calculator");
+        std::thread::sleep(Duration::from_secs(1));
+        // The editor is the newest window; the calculator is raised over it.
+        let off = if std::env::var("PROBE_NOOFF").is_ok_and(|v| !v.is_empty()) {
+            r#"{"version":1,"default":"interact"}"#
+        } else {
+            r#"{"version":1,"default":"interact","apps":{"org.gnome.calculator":"off"}}"#
+        };
+        std::fs::write(&cfg, off).unwrap();
+        let shot = call("computer.screenshot", json!({ "app": app }));
+        if let Ok(v) = &shot {
+            // Whatever field carries the picture is written out for a pixel check.
+            if let Some(o) = v.as_object() {
+                for (k, val) in o {
+                    if let Some(t) = val.as_str().filter(|t| t.len() > 1000) {
+                        use base64::Engine as _;
+                        if let Ok(bytes) = base64::engine::general_purpose::STANDARD.decode(t) {
+                            let _ = std::fs::write("/tmp/h1-stack-shot.jpg", bytes);
+                            println!("STACK picture field: {k}");
+                        }
+                    }
+                }
+            }
+        }
+        match &shot {
+            Ok(v) => {
+                let mut v = v.clone();
+                if let Some(o) = v.as_object_mut() {
+                    for k in ["image", "data", "base64"] {
+                        o.remove(k);
+                    }
+                }
+                println!("STACK screenshot result: {v}");
+            }
+            Err(e) => println!("STACK screenshot failed: {e}"),
+        }
+        std::fs::write(&cfg, r#"{"version":1,"default":"interact"}"#).unwrap();
+        let click = call(
+            "computer.click",
+            json!({ "app": calc, "x": 640, "y": 400, "session": "probe" }),
+        );
+        println!("STACK click on the raised calculator: {click:?}");
     }
     // A foreign client takes the focus N ms into a long `computer.type`: nothing may reach it.
     if let Some(ms) = std::env::var("PROBE_STEAL_MS")

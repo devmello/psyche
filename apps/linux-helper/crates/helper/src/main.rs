@@ -24,6 +24,8 @@ fn main() -> ExitCode {
             return ExitCode::from(2);
         }
     };
+    #[cfg(target_os = "linux")]
+    psyche_helper::headless::set_display_flag(display_flag);
     let command = match parse_args(&args, &ProcessEnv) {
         Ok(command) => command,
         Err(message) => {
@@ -63,23 +65,15 @@ fn main() -> ExitCode {
         log(&message);
         return ExitCode::from(78);
     }
-    // Headless: nothing the helper starts may gain privileges, however it was started.
+    // The mode, and NoNewPrivileges when headless: the same step `remote` runs.
     #[cfg(target_os = "linux")]
-    let headless = match psyche_helper::headless::mode::is_headless(display_flag, &ProcessEnv) {
+    let headless = match psyche_helper::headless::setup(&ProcessEnv) {
         Ok(h) => h,
-        Err(message) => {
+        Err((message, code)) => {
             log(&message);
-            return ExitCode::from(2);
+            return ExitCode::from(code);
         }
     };
-    #[cfg(target_os = "linux")]
-    if headless {
-        if let Err(message) = psyche_helper::headless::nnp::enforce() {
-            log(&message);
-            return ExitCode::from(78);
-        }
-        log("display: headless (the virtual screen is the only screen)");
-    }
     // Hardening is done: say so, so the Gateway can tell this from a process still starting up.
     mark_ready();
 

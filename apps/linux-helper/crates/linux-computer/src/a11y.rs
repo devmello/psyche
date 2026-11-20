@@ -137,9 +137,30 @@ impl A11y {
         session: &zbus::blocking::Connection,
         accept: &dyn Fn(&str, Option<u32>) -> bool,
     ) -> CapResult<A11y> {
+        let dbus = |method: &str, body: &str| {
+            session.call_method(
+                Some("org.freedesktop.DBus"),
+                "/org/freedesktop/DBus",
+                Some("org.freedesktop.DBus"),
+                method,
+                &body,
+            )
+        };
+        // The name's owner first, then everything is asked of that unique name: the owner whose
+        // process id is judged is the one that answers `GetAddress`, even if the well-known name
+        // changes hands in between.
+        let owner: String = dbus("GetNameOwner", "org.a11y.Bus")
+            .ok()
+            .and_then(|r| r.body().deserialize().ok())
+            .ok_or_else(|| {
+                CapError::unavailable("no_a11y_bus", "The accessibility bus is not running")
+            })?;
+        let owner_pid = dbus("GetConnectionUnixProcessID", &owner)
+            .ok()
+            .and_then(|r| r.body().deserialize::<u32>().ok());
         let reply = session
             .call_method(
-                Some("org.a11y.Bus"),
+                Some(owner.as_str()),
                 "/org/a11y/bus",
                 Some("org.a11y.Bus"),
                 "GetAddress",
@@ -155,28 +176,6 @@ impl A11y {
             .body()
             .deserialize()
             .map_err(|e| CapError::unavailable("no_a11y_bus", e.to_string()))?;
-        let owner_pid = session
-            .call_method(
-                Some("org.freedesktop.DBus"),
-                "/org/freedesktop/DBus",
-                Some("org.freedesktop.DBus"),
-                "GetNameOwner",
-                &"org.a11y.Bus",
-            )
-            .ok()
-            .and_then(|r| r.body().deserialize::<String>().ok())
-            .and_then(|owner| {
-                session
-                    .call_method(
-                        Some("org.freedesktop.DBus"),
-                        "/org/freedesktop/DBus",
-                        Some("org.freedesktop.DBus"),
-                        "GetConnectionUnixProcessID",
-                        &owner.as_str(),
-                    )
-                    .ok()
-            })
-            .and_then(|r| r.body().deserialize::<u32>().ok());
         if !accept(&address, owner_pid) {
             return Err(CapError::unavailable(
                 "no_a11y_bus",
