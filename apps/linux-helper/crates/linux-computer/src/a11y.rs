@@ -85,6 +85,7 @@ pub struct A11y {
     pids: Mutex<HashMap<String, u32>>,
     desktop: Mutex<DesktopIndex>,
     index_loaded: AtomicBool,
+    holder_hint: Mutex<Option<HolderHint>>,
     env: EnvFn,
     toolkits: Mutex<HashMap<String, String>>,
     cache: Mutex<ReadCache>,
@@ -95,6 +96,10 @@ pub struct A11y {
     focus: Arc<Mutex<Option<Acc>>>,
     focus_started: AtomicBool,
 }
+
+/// Which app's launch scope holds a process (the helper's virtual screen knows; the owner's
+/// desktop does not).
+pub type HolderHint = Box<dyn Fn(u32) -> Option<String> + Send + Sync>;
 
 /// Judges the accessibility bus address and the pid of the client that owns `org.a11y.Bus`.
 pub type BusJudge<'a> = dyn Fn(&str, Option<u32>) -> bool + 'a;
@@ -228,6 +233,7 @@ impl A11y {
             pids: Mutex::new(HashMap::new()),
             desktop: Mutex::new(DesktopIndex::default()),
             index_loaded: AtomicBool::new(false),
+            holder_hint: Mutex::new(None),
             env: Box::new(|k| std::env::var(k).ok().filter(|v| !v.is_empty())),
             toolkits: Mutex::new(HashMap::new()),
             cache: Mutex::new(HashMap::new()),
@@ -358,14 +364,21 @@ impl A11y {
     }
 
     fn desktop_index(&self) -> DesktopIndex {
-        if !self.index_loaded.swap(true, Ordering::SeqCst) {
+        // The lock is held across the load: a question that arrives meanwhile waits for the
+        // index instead of being answered from an empty one.
+        let mut index = self.desktop.lock().unwrap_or_else(|e| e.into_inner());
+        if !self.index_loaded.load(Ordering::SeqCst) {
             let dirs = DesktopIndex::default_dirs(&|k| (self.env)(k));
-            *self.desktop.lock().unwrap_or_else(|e| e.into_inner()) = DesktopIndex::load(&dirs);
+            *index = DesktopIndex::load(&dirs);
+            self.index_loaded.store(true, Ordering::SeqCst);
         }
-        self.desktop
-            .lock()
-            .unwrap_or_else(|e| e.into_inner())
-            .clone()
+        index.clone()
+    }
+
+    /// Tells which app's launch scope holds a process, so that a launcher shared by several
+    /// entries is named for the one that was launched.
+    pub fn set_holder_hint(&self, hint: HolderHint) {
+        *self.holder_hint.lock().unwrap_or_else(|e| e.into_inner()) = Some(hint);
     }
 
     /// Everything `/proc/<pid>` says about the app, for [`app_id::choose`].
@@ -388,25 +401,35 @@ impl A11y {
     }
 
     /// Who a process is, from one read of `/proc/<pid>` and one copy of the desktop index (see
-    /// [`app_id::IdFacts`]); a Flatpak's own name is read from its sandbox.
+    /// [`app_id::IdFacts`]). A Flatpak's own name counts as its identity only when the
+    /// sandbox's `/app` is that Flatpak's installed files.
     pub fn id_facts_for_pid(&self, pid: u32) -> app_id::IdFacts {
         let ev = Self::evidence(pid);
         let flatpak = std::fs::read_to_string(format!("/proc/{pid}/root/.flatpak-info"))
             .ok()
             .and_then(|t| app_id::flatpak_app_name(&t));
-        app_id::id_facts(&ev, &self.desktop_index(), flatpak)
+        let verified = flatpak
+            .as_deref()
+            .is_some_and(|name| flatpak_app_is_installed(pid, name, &(self.env)("HOME")));
+        let prefer = self
+            .holder_hint
+            .lock()
+            .unwrap_or_else(|e| e.into_inner())
+            .as_ref()
+            .and_then(|h| h(pid));
+        app_id::id_facts(
+            &ev,
+            &self.desktop_index(),
+            prefer.as_deref(),
+            flatpak,
+            verified,
+        )
     }
 
-    /// The desktop-file id of a process (strictest candidate wins, see [`app_id::choose`]).
+    /// The desktop-file id of a process (strictest candidate wins, see [`app_id::choose`]; the
+    /// app whose scope holds the process when the candidates include it).
     pub fn app_id_for_pid(&self, pid: u32) -> Option<String> {
-        let ev = Self::evidence(pid);
-        let cands = app_id::candidates(&ev, &self.desktop_index());
-        app_id::choose(&cands).or_else(|| {
-            ev.comm
-                .as_deref()
-                .map(app_id::normalize)
-                .filter(|c| app_id::is_app_id(c))
-        })
+        self.id_facts_for_pid(pid).own
     }
 
     fn display_name(&self, id: &str, accessible_name: Option<String>) -> String {
@@ -1302,4 +1325,26 @@ impl TreeSource for Tree<'_> {
 #[allow(dead_code)]
 fn _code_is_used() -> &'static str {
     code::INTERNAL
+}
+
+/// Whether the sandbox of `pid` has, as its `/app`, the files Flatpak installed for `name`
+/// (same device and inode as the deploy directory, system or user install). A process cannot
+/// fake that: it would need the installed directory itself.
+fn flatpak_app_is_installed(pid: u32, name: &str, home: &Option<String>) -> bool {
+    use std::os::unix::fs::MetadataExt;
+    let Ok(app) = std::fs::metadata(format!("/proc/{pid}/root/app")) else {
+        return false;
+    };
+    let mut deploys = vec![std::path::PathBuf::from(format!(
+        "/var/lib/flatpak/app/{name}/current/active/files"
+    ))];
+    if let Some(home) = home {
+        deploys.push(std::path::PathBuf::from(format!(
+            "{home}/.local/share/flatpak/app/{name}/current/active/files"
+        )));
+    }
+    deploys
+        .iter()
+        .filter_map(|d| std::fs::metadata(d).ok())
+        .any(|d| d.dev() == app.dev() && d.ino() == app.ino())
 }

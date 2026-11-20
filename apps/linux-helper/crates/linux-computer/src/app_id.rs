@@ -42,9 +42,35 @@ pub struct IdFacts {
 }
 
 /// Builds [`IdFacts`] from one read of the evidence and one index.
-pub fn id_facts(ev: &Evidence, index: &DesktopIndex, flatpak: Option<String>) -> IdFacts {
+///
+/// - `prefer` is the app whose launch scope holds the process. When it is one of the
+///   candidates and its cap is no looser than the strictest candidate's, it is what the process
+///   is called: a launcher shared by several entries (`libreoffice` runs Writer, Calc and the
+///   Start Center from one `soffice.bin`) is not told apart by the executable, but the scope
+///   knows which was launched.
+/// - `flatpak` is the name the process's `.flatpak-info` gives, and `flatpak_verified` says the
+///   sandbox's `/app` is that Flatpak's installed files. Only then is it the process's
+///   identity; a name that cannot be shown to be real only adds a candidate (a deny entry can
+///   match it, an allow list never relies on it).
+pub fn id_facts(
+    ev: &Evidence,
+    index: &DesktopIndex,
+    prefer: Option<&str>,
+    flatpak: Option<String>,
+    flatpak_verified: bool,
+) -> IdFacts {
+    let flatpak = flatpak.map(|f| normalize(&f));
     let mut cands = candidates(ev, index);
-    let own = choose(&cands).or_else(|| ev.comm.as_deref().map(normalize).filter(|c| is_app_id(c)));
+    let mut own =
+        choose(&cands).or_else(|| ev.comm.as_deref().map(normalize).filter(|c| is_app_id(c)));
+    if let (Some(pref), Some(picked)) = (prefer.map(normalize), own.as_deref()) {
+        if cands.contains(&pref)
+            && pref != picked
+            && fixed_caps::cap(Some(&pref)) <= fixed_caps::cap(Some(picked))
+        {
+            own = Some(pref);
+        }
+    }
     let resolved: Vec<String> = cands
         .iter()
         .filter(|c| aliases(c).iter().any(|a| index.get(a).is_some()))
@@ -56,10 +82,7 @@ pub fn id_facts(ev: &Evidence, index: &DesktopIndex, flatpak: Option<String>) ->
             cands.push(extra);
         }
     }
-    // A process in a Flatpak sandbox is the app the sandbox says it is. Its `/app/...`
-    // executable is no host path, so host entries that happen to share a file name (the host's
-    // own `firefox`) say nothing about it.
-    if let Some(name) = flatpak {
+    if let (Some(name), true) = (flatpak, flatpak_verified) {
         return IdFacts {
             own: Some(name.clone()),
             resolved: vec![name],
@@ -443,6 +466,11 @@ pub struct DesktopIndex {
 impl DesktopIndex {
     /// Reads `applications/` under each data dir (XDG_DATA_DIRS, XDG_DATA_HOME, flatpak exports).
     pub fn load(dirs: &[PathBuf]) -> DesktopIndex {
+        Self::load_with(dirs, &system_trusted)
+    }
+
+    /// [`DesktopIndex::load`] with the notion of a trusted launcher given.
+    pub fn load_with(dirs: &[PathBuf], trusted: &dyn Fn(&Path) -> bool) -> DesktopIndex {
         let mut entries: Vec<DesktopEntry> = Vec::new();
         let mut seen: HashMap<String, ()> = HashMap::new();
         for dir in dirs {
@@ -479,10 +507,20 @@ impl DesktopIndex {
                 }
             }
         }
+        let services = service_targets();
         let targets = entries
             .iter()
             .filter(|e| !e.exec.starts_with("flatpak:"))
-            .map(|e| (e.id.clone(), wrapper_targets(&e.exec)))
+            .map(|e| {
+                let mut t = wrapper_targets_with(&e.exec, trusted);
+                // An app the bus starts (`gnome-terminal-server`) is its service file's program.
+                if let Some(svc) = services.get(&e.id) {
+                    if !t.contains(svc) {
+                        t.push(svc.clone());
+                    }
+                }
+                (e.id.clone(), t)
+            })
             .filter(|(_, t)| !t.is_empty())
             .collect();
         DesktopIndex { entries, targets }
@@ -540,6 +578,33 @@ impl DesktopIndex {
 /// Never the account's own `PATH`.
 const WRAPPER_DIRS: &[&str] = &["/usr/local/bin", "/usr/bin", "/bin", "/snap/bin"];
 
+/// Where D-Bus service files live; an app that is started by the bus is its `.service`'s `Exec=`.
+const SERVICE_DIRS: &[&str] = &[
+    "/usr/local/share/dbus-1/services",
+    "/usr/share/dbus-1/services",
+];
+
+/// A script is read at most this far, for at most this many words, and one entry follows at most
+/// this many files: a hostile launcher cannot make identity resolution expensive.
+const SCRIPT_BYTES: u64 = 16 * 1024;
+const SCRIPT_WORDS: usize = 64;
+const WALK_FILES: usize = 8;
+
+/// Whether a path is trusted to name what a program really is: owned by someone else than this
+/// account and not writable by group or others, the whole way down (`trust::check`, as for
+/// desktop files). A launcher in the account's own directories says nothing.
+#[cfg(unix)]
+pub fn system_trusted(path: &Path) -> bool {
+    // SAFETY: geteuid has no preconditions and cannot fail.
+    let uid = unsafe { libc::geteuid() };
+    crate::trust::check(&crate::trust::RealFs, path, uid).is_ok()
+}
+
+#[cfg(not(unix))]
+pub fn system_trusted(_path: &Path) -> bool {
+    false
+}
+
 fn plain_file_name(word: &str) -> Option<String> {
     let w = word.trim_matches(|c| c == '"' || c == '\'' || c == ';');
     let base = w.rsplit('/').next()?;
@@ -552,11 +617,69 @@ fn plain_file_name(word: &str) -> Option<String> {
     .then(|| base.to_string())
 }
 
+/// The program an `exec` line runs, or `None` for a line that is not an `exec` of a program.
+/// Accepts `exec` at the start of the line (after `then`, `else`, `do`, `&&`, `||` or `;`),
+/// skips `-a NAME`, `-c`, `-l`, `env` and its `VAR=value` words, and takes only the first word
+/// left. A redirection-only `exec` (`exec 2> ...`, `exec >file`) runs nothing.
+fn script_exec_program(line: &str) -> Option<&str> {
+    let mut rest = line.trim();
+    for prefix in ["then", "else", "do", "&&", "||", ";"] {
+        if let Some(r) = rest.strip_prefix(prefix) {
+            rest = r.trim_start();
+        }
+    }
+    let rest = rest.strip_prefix("exec")?;
+    if !rest.starts_with(char::is_whitespace) {
+        return None;
+    }
+    let mut words = rest.split_whitespace().take(SCRIPT_WORDS);
+    let mut first = true;
+    while let Some(w) = words.next() {
+        let bare = w.trim_matches(|c| c == '"' || c == '\'');
+        let redirect = bare.starts_with(['<', '>'])
+            || bare
+                .split_once(['<', '>'])
+                .is_some_and(|(n, _)| !n.is_empty() && n.chars().all(|c| c.is_ascii_digit()));
+        if redirect {
+            // `exec 2> file` and `exec <file` run nothing; a redirection after the program is
+            // not reached because the program ends the search.
+            if first {
+                return None;
+            }
+            continue;
+        }
+        first = false;
+        match bare {
+            "-c" | "-l" | "env" => continue,
+            "-a" => {
+                words.next();
+                continue;
+            }
+            _ => {}
+        }
+        if bare.starts_with('-') || bare.contains('=') {
+            continue;
+        }
+        // A variable on its own (`$GDBTRACECHECK`, `"$0"`) names no program.
+        if bare.starts_with('$') && !bare.contains('/') {
+            continue;
+        }
+        return Some(bare);
+    }
+    None
+}
+
 /// The file names of the programs `program` (an `Exec=` first token) really runs: its own
-/// resolved name, then, if it is a launcher script (`#!`), the programs on its `exec` lines
-/// (`exec "$sd_prog/soffice.bin" "$@"` gives `soffice.bin`), following absolute paths up to
-/// three scripts deep. Only reads files; never runs anything.
+/// resolved name, then, if it is a launcher script (`#!`), the program on each of its `exec`
+/// lines (`exec "$sd_prog/soffice.bin" "$@"` gives `soffice.bin`), following absolute paths up
+/// to three scripts deep. Only **trusted** files are followed ([`system_trusted`]); each is read
+/// once, and the whole walk is bounded. Only reads files; never runs anything.
 pub fn wrapper_targets(program: &str) -> Vec<String> {
+    wrapper_targets_with(program, &system_trusted)
+}
+
+/// [`wrapper_targets`] with the notion of "trusted" given (tests use files they made).
+pub fn wrapper_targets_with(program: &str, trusted: &dyn Fn(&Path) -> bool) -> Vec<String> {
     let start: Option<PathBuf> = if program.starts_with('/') {
         Some(PathBuf::from(program))
     } else if program.contains('/') {
@@ -569,16 +692,30 @@ pub fn wrapper_targets(program: &str) -> Vec<String> {
     };
     let mut out = Vec::new();
     if let Some(start) = start {
-        walk_launcher(&start, 0, &mut out);
+        let mut seen: Vec<PathBuf> = Vec::new();
+        walk_launcher(&start, 0, trusted, &mut seen, &mut out);
     }
     out
 }
 
-fn walk_launcher(path: &Path, depth: usize, out: &mut Vec<String>) {
+fn walk_launcher(
+    path: &Path,
+    depth: usize,
+    trusted: &dyn Fn(&Path) -> bool,
+    seen: &mut Vec<PathBuf>,
+    out: &mut Vec<String>,
+) {
     use std::io::Read;
+    if seen.len() >= WALK_FILES {
+        return;
+    }
     let Ok(real) = std::fs::canonicalize(path) else {
         return;
     };
+    if seen.contains(&real) || !trusted(&real) {
+        return;
+    }
+    seen.push(real.clone());
     if let Some(name) = real.file_name().and_then(|f| f.to_str()) {
         if !out.iter().any(|o| o == name) {
             out.push(name.to_string());
@@ -591,35 +728,62 @@ fn walk_launcher(path: &Path, depth: usize, out: &mut Vec<String>) {
         return;
     };
     let mut head = Vec::new();
-    if file.take(16 * 1024).read_to_end(&mut head).is_err() || !head.starts_with(b"#!") {
+    if file.take(SCRIPT_BYTES).read_to_end(&mut head).is_err() || !head.starts_with(b"#!") {
         return;
     }
     let text = String::from_utf8_lossy(&head);
     for line in text.lines() {
-        let line = line.trim();
-        if line.starts_with('#') {
+        if line.trim_start().starts_with('#') {
             continue;
         }
-        let Some(at) = line.find("exec ") else {
+        let Some(program) = script_exec_program(line) else {
             continue;
         };
-        for word in line[at + 5..].split_whitespace() {
-            // A variable on its own (`$GDBTRACECHECK`, `"$0"`) names no program; one with a
-            // path (`"$sd_prog/soffice.bin"`) names its file.
-            let w = word.trim_matches(|c| c == '"' || c == '\'');
-            if w.starts_with('-') || w.contains('=') || (w.starts_with('$') && !w.contains('/')) {
+        if let Some(name) = plain_file_name(program) {
+            if !out.contains(&name) {
+                out.push(name);
+            }
+        }
+        if program.starts_with('/') {
+            walk_launcher(Path::new(program), depth + 1, trusted, seen, out);
+        }
+    }
+}
+
+/// The program a D-Bus service file starts (`Exec=` first word), as a file name.
+fn service_target(text: &str) -> Option<String> {
+    let line = text.lines().find_map(|l| l.trim().strip_prefix("Exec="))?;
+    plain_file_name(line.split_whitespace().next()?)
+}
+
+/// `<desktop id>.service` files of the system's D-Bus services: id (lower case) -> program.
+fn service_targets() -> HashMap<String, String> {
+    let mut out = HashMap::new();
+    for dir in SERVICE_DIRS {
+        let Ok(rd) = std::fs::read_dir(dir) else {
+            continue;
+        };
+        for e in rd.flatten() {
+            let path = e.path();
+            let Some(stem) = path
+                .file_name()
+                .and_then(|f| f.to_str())
+                .and_then(|f| f.strip_suffix(".service"))
+            else {
+                continue;
+            };
+            let Ok(text) = std::fs::read_to_string(&path) else {
+                continue;
+            };
+            if text.len() > 16 * 1024 {
                 continue;
             }
-            if let Some(name) = plain_file_name(w) {
-                if !out.contains(&name) {
-                    out.push(name);
-                }
-            }
-            if w.starts_with('/') && Path::new(w).is_file() {
-                walk_launcher(Path::new(w), depth + 1, out);
+            if let Some(t) = service_target(&text) {
+                out.entry(normalize(stem)).or_insert(t);
             }
         }
     }
+    out
 }
 
 /// Everything known about one process, gathered by the caller.
@@ -1149,7 +1313,7 @@ mod wrapper_tests {
             &w,
             "#!/bin/sh\n# exec nothing here\nexec $GDB \"$sd_prog/soffice.bin\" \"$@\"\n",
         );
-        let t = wrapper_targets(w.to_str().unwrap());
+        let t = wrapper_targets_with(w.to_str().unwrap(), &|_| true);
         assert!(t.contains(&"libreoffice".to_string()));
         assert!(t.contains(&"soffice.bin".to_string()), "{t:?}");
         // A variable alone, an option and an assignment name no program.
@@ -1169,9 +1333,94 @@ mod wrapper_tests {
             ),
         );
         std::os::unix::fs::symlink(&inner, &outer).unwrap();
-        let t = wrapper_targets(outer.to_str().unwrap());
+        let t = wrapper_targets_with(outer.to_str().unwrap(), &|_| true);
         assert!(t.contains(&"google-chrome".to_string()), "{t:?}");
         assert!(t.contains(&"chrome".to_string()), "{t:?}");
+    }
+
+    #[test]
+    fn only_the_program_of_an_exec_line_is_a_target() {
+        for (line, want) in [
+            (
+                "exec $GDB \"$sd_prog/soffice.bin\" \"$@\"",
+                Some("$sd_prog/soffice.bin"),
+            ),
+            (
+                "exec -a \"$0\" /opt/google/chrome/chrome \"$@\"",
+                Some("/opt/google/chrome/chrome"),
+            ),
+            ("exec env X=1 /usr/bin/xterm -e foo", Some("/usr/bin/xterm")),
+            ("  then exec foo bar", Some("foo")),
+            ("exec 2> >(exec cat >&2)", None),
+            ("exec >/dev/null", None),
+            ("exec <file", None),
+            ("exec 3>&1", None),
+            ("echo \"cannot exec foo\"", None),
+            ("execute foo", None),
+            ("exec", None),
+            ("exec $ONLYVAR", None),
+        ] {
+            assert_eq!(script_exec_program(line), want, "{line}");
+        }
+    }
+
+    #[test]
+    fn a_walk_is_bounded_and_cannot_loop() {
+        let dir = tempfile::tempdir().unwrap();
+        let a = dir.path().join("a");
+        let b = dir.path().join("b");
+        // Two scripts that exec each other, and one that names itself over and over.
+        script(
+            &a,
+            &format!("#!/bin/sh\nexec {}\nexec {}\n", b.display(), a.display()),
+        );
+        script(&b, &format!("#!/bin/sh\nexec {}\n", a.display()));
+        let t = wrapper_targets_with(a.to_str().unwrap(), &|_| true);
+        assert_eq!(t, vec!["a".to_string(), "b".to_string()]);
+        // Untrusted files are not followed at all.
+        assert!(wrapper_targets_with(a.to_str().unwrap(), &|_| false).is_empty());
+        // And a script of ten thousand words is read as far as the cap, no further.
+        let big = dir.path().join("big");
+        let words = (0..10_000)
+            .map(|i| format!("/x/y{i}"))
+            .collect::<Vec<_>>()
+            .join(" ");
+        script(&big, &format!("#!/bin/sh\nexec {words}\n"));
+        assert!(wrapper_targets_with(big.to_str().unwrap(), &|_| true).len() <= 2);
+    }
+
+    #[test]
+    fn an_interpreter_app_and_a_bus_started_app_resolve_through_their_entries() {
+        // `Exec=gjs …` runs `gjs-console`: the symlink's target is the name the process has.
+        let dir = tempfile::tempdir().unwrap();
+        let bin = dir.path().join("bin");
+        std::fs::create_dir_all(&bin).unwrap();
+        script(&bin.join("gjs-console"), "#!/bin/sh\n");
+        std::os::unix::fs::symlink("gjs-console", bin.join("gjs")).unwrap();
+        let apps = dir.path().join("applications");
+        std::fs::create_dir_all(&apps).unwrap();
+        std::fs::write(
+            apps.join("org.gnome.Characters.desktop"),
+            format!(
+                "[Desktop Entry]\nType=Application\nName=C\nExec={}/gjs -m /usr/share/x/main.js\n",
+                bin.display()
+            ),
+        )
+        .unwrap();
+        let index = DesktopIndex::load_with(&[dir.path().to_path_buf()], &|_| true);
+        assert_eq!(
+            index.ids_for_exe("/usr/bin/gjs-console"),
+            vec!["org.gnome.characters".to_string()]
+        );
+        // A D-Bus service file names the program the bus starts for an app.
+        assert_eq!(
+            service_target(
+                "[D-BUS Service]\nName=org.gnome.Terminal\nExec=/usr/libexec/gnome-terminal-server\n"
+            )
+            .as_deref(),
+            Some("gnome-terminal-server")
+        );
+        assert_eq!(service_target("[D-BUS Service]\nName=x\n"), None);
     }
 
     /// On a box with LibreOffice installed, the real launcher script gives `soffice.bin`.
@@ -1211,7 +1460,7 @@ mod wrapper_tests {
             ),
         )
         .unwrap();
-        let index = DesktopIndex::load(&[dir.path().to_path_buf()]);
+        let index = DesktopIndex::load_with(&[dir.path().to_path_buf()], &|_| true);
         assert_eq!(
             index.ids_for_exe("/usr/lib/libreoffice/program/soffice.bin"),
             vec!["libreoffice-writer".to_string()]

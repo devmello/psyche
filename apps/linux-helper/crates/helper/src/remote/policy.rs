@@ -400,13 +400,26 @@ impl Policy {
         !self.deny_listed(id) && self.allow_listed(id)
     }
 
-    /// Whether `apps.deny` names this id or an alias of it (a snap's `<snap>_<app>` is also
-    /// `<app>` and `<snap>`), normalised on both sides.
+    /// Whether `apps.deny` names this id under **any** alias (a snap's `<snap>_<app>` is also
+    /// `<app>` and `<snap>`, with a parallel-install `+key` stripped), or by the short name's
+    /// `x_x` form. Wide on purpose: the deny list protects, and a miss lets an app through.
     pub fn deny_listed(&self, id: &str) -> bool {
-        Self::listed(&self.apps.deny, id)
+        let ids = psyche_linux_computer::app_id::aliases(id);
+        self.apps.deny.iter().any(|p| {
+            let p = normalize(p);
+            let patterns = if p.contains('*') {
+                vec![p]
+            } else {
+                Self::forms(&p)
+            };
+            patterns
+                .iter()
+                .any(|pat| ids.iter().any(|id| glob_match(pat, id)))
+        })
     }
 
-    /// Whether `apps.allow` names this id or an alias of it.
+    /// Whether `apps.allow` names this id, or its short form (`x` and `x_x` only): the allow
+    /// list is narrow, so that `firefox` does not allow `evil_firefox` or `code_insiders`.
     pub fn allow_listed(&self, id: &str) -> bool {
         Self::listed(&self.apps.allow, id)
     }

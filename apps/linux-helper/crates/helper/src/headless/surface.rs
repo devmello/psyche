@@ -245,6 +245,9 @@ impl HeadlessSurface {
             )
         })?;
         let a11y = Arc::new(connect_a11y(&self.manager, &bus)?);
+        // The scope that holds a process names it when its executable is shared by entries.
+        let manager = Arc::clone(&self.manager);
+        a11y.set_holder_hint(Box::new(move |pid| manager.app_of_pid(pid)));
         // A new display gets new hooks state; the cells are set once per surface, so build the
         // hooks again when the display changes.
         let hooks_policy = policy_source();

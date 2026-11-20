@@ -14,7 +14,7 @@
 use psyche_linux_computer::backend::AppInfo;
 use psyche_linux_computer::error::{code, CapError};
 
-use psyche_linux_computer::app_id::IdFacts;
+use psyche_linux_computer::app_id::{normalize, IdFacts};
 use psyche_linux_computer::tiers::fixed_caps;
 
 use crate::remote::policy::Policy;
@@ -88,7 +88,18 @@ pub fn blocked_by(deny: &dyn Denies, scopes: &dyn Scopes, pid: u32) -> Option<(S
     {
         return Some((name, m.clone()));
     }
-    let mut judged: Vec<&String> = id.holder.iter().chain(id.facts.resolved.iter()).collect();
+    // A launcher shared by several entries (`libreoffice` starts Writer, Calc and the Start
+    // Center from one `soffice.bin`) resolves to all of them. When the scope's own app is one of
+    // them, the others are the same program and the scope's app is the answer.
+    let holder_resolved = id.holder.as_deref().is_some_and(|h| {
+        let h = normalize(h);
+        id.facts.resolved.iter().any(|r| normalize(r) == h)
+    });
+    let mut judged: Vec<&String> = if holder_resolved {
+        id.holder.iter().collect()
+    } else {
+        id.holder.iter().chain(id.facts.resolved.iter()).collect()
+    };
     if let Some(own) = &id.facts.own {
         let judge_own = match &id.holder {
             None => id.facts.resolved.is_empty(),
@@ -410,7 +421,7 @@ mod tests {
             let (holder, ev) = &self.procs[&pid];
             Identity {
                 holder: holder.map(str::to_string),
-                facts: id_facts(ev, &self.index, None),
+                facts: id_facts(ev, &self.index, holder.as_deref(), None, false),
             }
         }
     }
@@ -431,6 +442,8 @@ mod tests {
         for (file, exec) in [
             ("org.gnome.TextEditor.desktop", "gnome-text-editor %U"),
             ("libreoffice-writer.desktop", writer_exec.as_str()),
+            ("libreoffice-startcenter.desktop", writer_exec.as_str()),
+            ("libreoffice-calc.desktop", writer_exec.as_str()),
             (
                 "firefox_firefox.desktop",
                 "env BAMF_DESKTOP_FILE_HINT=x /snap/bin/firefox %u",
@@ -443,7 +456,7 @@ mod tests {
             )
             .unwrap();
         }
-        let index = DesktopIndex::load(&[dir.path().to_path_buf()]);
+        let index = DesktopIndex::load_with(&[dir.path().to_path_buf()], &|_| true);
         let ev = |exe: &str, comm: &str| Evidence {
             exe: Some(exe.into()),
             comm: Some(comm.into()),
@@ -533,10 +546,9 @@ mod tests {
         assert!(blocked_by(&p, &real, 6).is_some());
         // ... and the same processes are fine when the list names them.
         assert_eq!(blocked_by(&policy(&["debian-xterm"], &[]), &real, 5), None);
-        assert_eq!(
-            blocked_by(&policy(&["libreoffice-writer"], &[]), &real, 6),
-            None
-        );
+        // With no scope to say which LibreOffice app it is, the list must name them all.
+        assert!(blocked_by(&policy(&["libreoffice-writer"], &[]), &real, 6).is_some());
+        assert_eq!(blocked_by(&policy(&["libreoffice-*"], &[]), &real, 6), None);
     }
 
     /// (c), closed: a program with no desktop entry inside an allowed app's scope is not on a
@@ -552,7 +564,17 @@ mod tests {
         assert_eq!(blocked_by(&policy(&["*"], &[]), &real, 7), None);
         // Writer's executable is `soffice.bin`; its launcher script names it, so it resolves.
         let facts = real.identity(2).facts;
-        assert_eq!(facts.resolved, vec!["libreoffice-writer".to_string()]);
+        // Every LibreOffice entry shares the launcher, so all of them resolve; the scope's app
+        // names the process, and the others collapse into it.
+        assert!(facts.resolved.iter().any(|r| r == "libreoffice-writer"));
+        assert!(facts.resolved.iter().any(|r| r == "libreoffice-calc"));
+        assert_eq!(facts.own.as_deref(), Some("libreoffice-writer"));
+        assert_eq!(
+            blocked_by(&policy(&["libreoffice-writer"], &[]), &real, 2),
+            None,
+            "Writer is shown under its own narrow list"
+        );
+        assert!(blocked_by(&policy(&["libreoffice-calc"], &[]), &real, 2).is_some());
     }
 
     /// A terminal with no desktop entry has a stricter fixed cap than the scope's app, so the
@@ -616,28 +638,32 @@ mod tests {
         assert!(p.app_permitted("firefox"));
     }
 
-    /// Snap aliases are narrow: the snap's own id and its short name, nothing wider.
+    /// The allow list's snap aliases are narrow: the snap's own id and its short name, nothing
+    /// wider. The deny list's are wide: every form an id can take.
     #[test]
-    fn snap_aliases_do_not_widen_a_pattern_to_other_snaps() {
-        // Both spellings, on both sides.
-        for (pattern, id, want) in [
-            ("firefox", "firefox_firefox", true),
-            ("firefox_firefox", "firefox", true),
-            ("firefox_firefox", "firefox_firefox", true),
-            ("firefox", "firefox", true),
-            // Near misses that share a word.
-            ("firefox", "evil_firefox", false),
-            ("firefox", "firefox_evil", false),
-            ("code", "code_insiders", false),
-            ("code_insiders", "code", false),
-            ("firefox_firefox", "evil_firefox", false),
-            ("firefox", "firefox-esr", false),
-            ("org.mozilla.firefox", "firefox", false),
+    fn snap_aliases_are_narrow_on_allow_and_wide_on_deny() {
+        // (pattern, id, allow matches, deny matches)
+        for (pattern, id, allow, deny) in [
+            ("firefox", "firefox_firefox", true, true),
+            ("firefox_firefox", "firefox", true, true),
+            ("firefox_firefox", "firefox_firefox", true, true),
+            ("firefox", "firefox", true, true),
+            // Near misses that share a word: never allowed.
+            ("firefox", "evil_firefox", false, true),
+            ("firefox", "firefox_evil", false, true),
+            ("code", "code_insiders", false, true),
+            ("code_insiders", "code", false, false),
+            ("firefox_firefox", "evil_firefox", false, true),
+            ("firefox", "firefox-esr", false, false),
+            ("org.mozilla.firefox", "firefox", false, false),
+            // A snap whose app is not its name, and a parallel install: denied by the snap name.
+            ("libreoffice", "libreoffice_writer", false, true),
+            ("firefox", "firefox+beta_firefox", false, true),
         ] {
             let p = policy(&[pattern], &[]);
-            assert_eq!(p.allow_listed(id), want, "allow {pattern} vs {id}");
+            assert_eq!(p.allow_listed(id), allow, "allow {pattern} vs {id}");
             let p = policy(&["*"], &[pattern]);
-            assert_eq!(p.deny_listed(id), want, "deny {pattern} vs {id}");
+            assert_eq!(p.deny_listed(id), deny, "deny {pattern} vs {id}");
         }
     }
 
@@ -651,11 +677,32 @@ mod tests {
             comm: Some("firefox".into()),
             ..Default::default()
         };
-        let facts = id_facts(&ev, &real.index, Some("org.mozilla.firefox".into()));
+        let facts = id_facts(
+            &ev,
+            &real.index,
+            None,
+            Some("org.mozilla.firefox".into()),
+            true,
+        );
         assert_eq!(facts.own.as_deref(), Some("org.mozilla.firefox"));
         assert_eq!(facts.resolved, vec!["org.mozilla.firefox".to_string()]);
         // Without the sandbox's name, the host's `firefox_firefox` entry would answer for it.
-        let host = id_facts(&ev, &real.index, None);
+        let host = id_facts(&ev, &real.index, None, None, false);
+        // A name that is not shown to be the installed Flatpak adds a deny candidate and nothing
+        // else: it gives no identity for an allow list to rely on.
+        let forged = id_facts(
+            &ev,
+            &real.index,
+            None,
+            Some("org.gnome.TextEditor".into()),
+            false,
+        );
+        assert_eq!(forged.own, host.own);
+        assert_eq!(forged.resolved, host.resolved);
+        assert!(forged
+            .candidates
+            .iter()
+            .any(|c| c == "org.gnome.texteditor"));
         assert!(host.resolved.iter().any(|r| r == "firefox_firefox"));
         // And so the allow list that names the Flatpak covers it.
         let identity = Identity {
