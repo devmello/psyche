@@ -9201,7 +9201,6 @@ export interface PluginProposalFile {
 }
 
 export interface PluginManifest {
-    adds?:        PluginAddsDeclared;
     capabilities: PluginCapability[];
     description:  string;
     /**
@@ -9210,13 +9209,6 @@ export interface PluginManifest {
     main:    string;
     name:    string;
     version: string;
-}
-
-export interface PluginAddsDeclared {
-    commands?:   string[];
-    hooks?:      string[];
-    mcpServers?: string[];
-    skills?:     string[];
 }
 
 export type PluginCapability = "context" | "before_tool_call" | "after_tool_call" | "agent_end" | "evaluate";

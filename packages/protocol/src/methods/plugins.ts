@@ -31,17 +31,7 @@ export const PluginCapability = StringEnum(
 );
 export type PluginCapability = Static<typeof PluginCapability>;
 
-const AddedNames = Type.Optional(
-  Type.Array(Type.String({ minLength: 1, maxLength: 128 }), { maxItems: 100 }),
-);
-
-/** What a plugin says it adds besides its capabilities, by name (shown as counts on its row). */
-export const PluginAddsDeclaredSchema = Type.Object(
-  { skills: AddedNames, commands: AddedNames, mcpServers: AddedNames, hooks: AddedNames },
-  { $id: "PluginAddsDeclared" },
-);
-
-/** How many of each kind a plugin adds. */
+/** How many of each kind a plugin really adds: counted from its files, never from its manifest. */
 export const PluginAddsSchema = Type.Object(
   {
     skills: Type.Integer({ minimum: 0 }),
@@ -60,7 +50,6 @@ export const PluginManifestSchema = Type.Object(
     description: Type.String({ maxLength: 1024 }),
     main: Type.String({ minLength: 1, maxLength: 256, description: "ES module inside the folder" }),
     capabilities: Type.Array(PluginCapability, { minItems: 1, maxItems: 5 }),
-    adds: Type.Optional(PluginAddsDeclaredSchema),
   },
   { $id: "PluginManifest" },
 );

@@ -20,7 +20,7 @@ CI fails when the generated files are stale (`pnpm protocol:check`).
 
 ### v1 additive — 2026-11-19 (what a plugin adds)
 
-- `PluginManifest` gains an optional `adds` (`PluginAddsDeclared`: names of `skills`, `commands`, `mcpServers`, `hooks`). `PluginSummary` gains an optional `adds` (`PluginAdds`: the four counts), filled by the Gateway from the manifest at install; plugins installed earlier omit it. Settings → Plugins shows the counts.
+- `PluginSummary` gains an optional `adds` (`PluginAdds`: counts of skills, commands, MCP servers and hooks). The Gateway counts them from the plugin's own files, never from its manifest; plugins installed earlier are counted from their installed folder. Settings → Plugins shows them.
 
 ### v1 additive — 2026-11-19 (whose call a description is for)
 

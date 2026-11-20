@@ -1126,7 +1126,6 @@
 //   let planStep = try? JSONDecoder().decode(PlanStep.self, from: jsonData)
 //   let planStepStatus = try? JSONDecoder().decode(PlanStepStatus.self, from: jsonData)
 //   let pluginAdds = try? JSONDecoder().decode(PluginAdds.self, from: jsonData)
-//   let pluginAddsDeclared = try? JSONDecoder().decode(PluginAddsDeclared.self, from: jsonData)
 //   let pluginCapability = try? JSONDecoder().decode(PluginCapability.self, from: jsonData)
 //   let pluginManifest = try? JSONDecoder().decode(PluginManifest.self, from: jsonData)
 //   let pluginProposal = try? JSONDecoder().decode(PluginProposal.self, from: jsonData)
@@ -26794,7 +26793,6 @@ public struct PluginProposalFile: Codable, Sendable {
 
 // MARK: - PluginManifest
 public struct PluginManifest: Codable, Sendable {
-    public let adds: PluginAddsDeclared?
     public let capabilities: [PluginCapability]
     public let description: String
     /// ES module inside the folder
@@ -26803,7 +26801,6 @@ public struct PluginManifest: Codable, Sendable {
     public let version: String
 
     public enum CodingKeys: String, CodingKey {
-        case adds = "adds"
         case capabilities = "capabilities"
         case description = "description"
         case main = "main"
@@ -26811,35 +26808,12 @@ public struct PluginManifest: Codable, Sendable {
         case version = "version"
     }
 
-    public init(adds: PluginAddsDeclared? = nil, capabilities: [PluginCapability], description: String, main: String, name: String, version: String) {
-        self.adds = adds
+    public init(capabilities: [PluginCapability], description: String, main: String, name: String, version: String) {
         self.capabilities = capabilities
         self.description = description
         self.main = main
         self.name = name
         self.version = version
-    }
-}
-
-// MARK: - PluginAddsDeclared
-public struct PluginAddsDeclared: Codable, Sendable {
-    public let commands: [String]?
-    public let hooks: [String]?
-    public let mcpServers: [String]?
-    public let skills: [String]?
-
-    public enum CodingKeys: String, CodingKey {
-        case commands = "commands"
-        case hooks = "hooks"
-        case mcpServers = "mcpServers"
-        case skills = "skills"
-    }
-
-    public init(commands: [String]? = nil, hooks: [String]? = nil, mcpServers: [String]? = nil, skills: [String]? = nil) {
-        self.commands = commands
-        self.hooks = hooks
-        self.mcpServers = mcpServers
-        self.skills = skills
     }
 }
 
