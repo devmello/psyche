@@ -456,7 +456,12 @@ describe("compaction (B7)", () => {
     expect(summarizer?.model).toBe("fake/utility");
     expect(summarizer?.system).toBe(STRUCTURED_SUMMARIZER_SYSTEM);
     const main = h.provider.requests[3];
-    expect(main?.system).toContain("Earlier: the owner likes tea.");
+    // The summary leads the first retained message, not `system`.
+    expect(main?.system).not.toContain("Earlier: the owner likes tea.");
+    expect(main?.messages[0]?.parts[0]).toMatchObject({
+      type: "text",
+      text: expect.stringContaining("Earlier: the owner likes tea."),
+    });
     expect(main?.messages.map((m) => m.role)).toEqual(["user", "assistant", "user"]);
     const note = await h.memory.readFile("memory/2026-10-18.md");
     expect(note?.content).toContain("the owner likes tea");
@@ -495,7 +500,13 @@ describe("compaction (B7)", () => {
       untrusted: true,
       structured: { facts: ["summary"], decisions: [], openTasks: [], pinnedInstructions: [] },
     });
-    expect(h.provider.requests.at(-1)?.system).toMatch(/provenance="untrusted" title="Earlier/);
+    const last = h.provider.requests.at(-1);
+    expect(last?.system).not.toContain("Earlier in this conversation");
+    expect(last?.messages[0]?.parts[0]).toMatchObject({
+      type: "text",
+      provenance: "untrusted",
+      text: expect.stringMatching(/provenance="untrusted" title="Earlier/),
+    });
   });
 });
 

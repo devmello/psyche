@@ -65,11 +65,16 @@ export function splitForCompaction(
   return { older: messages.slice(0, cut), recent: messages.slice(cut) };
 }
 
-/** Untrusted content in these messages: tool results tagged so, or provider-executed results. */
+/**
+ * Untrusted content in these messages: tool results tagged so, provider-executed results, and
+ * per-turn context text a provider quoted from third parties (a text part tagged `untrusted`).
+ */
 export function containsUntrusted(messages: readonly ModelMessage[]): boolean {
   return messages.some((m) =>
     m.parts.some(
-      (p) => p.type === "tool_result" && (p.provenance === "untrusted" || m.role === "assistant"),
+      (p) =>
+        (p.type === "tool_result" && (p.provenance === "untrusted" || m.role === "assistant")) ||
+        (p.type === "text" && p.provenance === "untrusted"),
     ),
   );
 }
@@ -102,10 +107,23 @@ export function renderTranscript(
   const role = { user: "Owner", assistant: "Agent", tool: "Tool" } as const;
   return messages
     .map((m) => {
-      const parts = m.parts
-        .map((p) => renderPart(p, toolResultChars))
-        .filter((t): t is string => t !== undefined && t.length > 0);
-      return parts.length === 0 ? undefined : `${role[m.role]}: ${parts.join("\n")}`;
+      // Quoted third-party context (recalled chats, artifacts) is not the owner's words: it gets
+      // its own line, so the summarizer cannot read it as something the owner said.
+      const quoted = (p: ModelPart) => p.type === "text" && p.provenance === "untrusted";
+      const lines = (own: boolean) =>
+        m.parts
+          .filter((p) => quoted(p) !== own)
+          .map((p) => renderPart(p, toolResultChars))
+          .filter((t): t is string => t !== undefined && t.length > 0);
+      const said = lines(true);
+      const context = lines(false);
+      const out = [
+        said.length === 0 ? undefined : `${role[m.role]}: ${said.join("\n")}`,
+        context.length === 0
+          ? undefined
+          : `Quoted context (untrusted data from other content, not the owner's words): ${context.join("\n")}`,
+      ].filter((l): l is string => l !== undefined);
+      return out.length === 0 ? undefined : out.join("\n");
     })
     .filter((l): l is string => l !== undefined)
     .join("\n\n");
@@ -259,6 +277,12 @@ export function estimateBreakdown(
   tools: readonly ToolSpec[],
   messages: readonly ModelMessage[],
   turnStart: number,
+  /**
+   * Text that is not in `system` but belongs to another meter row: the compaction summary (sent
+   * as the first retained message, not part of `messages` here: history) and this turn's provider
+   * context (already inside the owner's user message in `messages`: context, not the turn).
+   */
+  moved: { summary?: string; turnContext?: string } = {},
 ): ContextBreakdown {
   const b: ContextBreakdown = { system: 0, tools: 0, context: 0, history: 0, current: 0 };
   for (const s of sections) {
@@ -272,6 +296,13 @@ export function estimateBreakdown(
   const cut = Math.max(0, Math.min(turnStart, messages.length));
   b.history += cut === 0 ? 0 : estimateMessagesTokens(messages.slice(0, cut));
   b.current += cut === messages.length ? 0 : estimateMessagesTokens(messages.slice(cut));
+  if (moved.summary !== undefined && moved.summary !== "")
+    b.history += estimateTokens(moved.summary);
+  if (moved.turnContext !== undefined && moved.turnContext !== "") {
+    const t = Math.min(estimateTokens(moved.turnContext), b.current);
+    b.current -= t;
+    b.context += t;
+  }
   return b;
 }
 

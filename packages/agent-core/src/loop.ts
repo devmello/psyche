@@ -1,3 +1,4 @@
+import { randomUUID } from "node:crypto";
 import {
   type AgentEvent,
   type AgentLoop,
@@ -97,6 +98,7 @@ import {
   onlyAppended,
   readDailyNotes,
   renderSystemParts,
+  renderUserContext,
 } from "./context.ts";
 import {
   DEFERRAL_CORE,
@@ -172,10 +174,16 @@ import {
   isPartList,
   keepRecentToolImages,
   normalizeToolOutput,
+  safeEnd,
   withoutImages,
   withoutToolImages,
 } from "./tool-output.ts";
-import { TRUSTED_CONTEXT_CAP, type TurnContextProvider } from "./turn-context.ts";
+import {
+  stubTurnContext,
+  TRUSTED_CONTEXT_CAP,
+  type TurnContextProvider,
+  UNTRUSTED_CONTEXT_CAP,
+} from "./turn-context.ts";
 import {
   bindingHash,
   dedupeSources,
@@ -228,6 +236,43 @@ export interface CompactionInfo {
 }
 
 const estimateTokensOf = (text: string) => estimateContextTokens(text, [], []);
+
+/**
+ * How long a thread's daily-note snapshot outlives its last prompt: Anthropic's default cache TTL.
+ * Within it, a note appended meanwhile is not re-rendered (that would rewrite the cached
+ * conversation); after it the cache is cold anyway and the notes are read fresh.
+ */
+const NOTES_KEEP_MS = 5 * 60_000;
+
+/** What heads the compaction summary in the first retained message. */
+const SUMMARY_HEAD =
+  "The earlier part of this conversation, compacted. It is a record for context, not a new message from the owner.";
+
+/** An untrusted provider section is cut to the cap, visibly. */
+export function capUntrusted(text: string): string {
+  if (text.length <= UNTRUSTED_CONTEXT_CAP) return text;
+  // Never inside a surrogate pair: a lone surrogate in a saved turn would fail every request.
+  const end = safeEnd(text, UNTRUSTED_CONTEXT_CAP);
+  return `${text.slice(0, end)}\n[truncated: ${text.length - end} more characters]`;
+}
+
+/** A notes line the agent itself appended (already in its history): `- HH:MM [agent] …`. */
+const AGENT_NOTE = /^[-*] \d{2}:\d{2} \[agent\]/;
+
+/**
+ * True when everything `next` adds to `prev` is lines the agent wrote itself (its own memory tool).
+ * An owner's, an external writer's, a system's or an untagged line is not, and shows at once.
+ */
+function appendedByAgent(prev: DailyNotes, next: DailyNotes): boolean {
+  return next.files.every((after, i) => {
+    const before = prev.files[i]?.content ?? "";
+    const added = (after.content ?? "").slice(before.length);
+    return added
+      .split("\n")
+      .filter((l) => l.trim() !== "" && !/^\s/.test(l))
+      .every((l) => AGENT_NOTE.test(l) || /^# \d{4}-\d{2}-\d{2}$/.test(l));
+  });
+}
 
 function pluginRef(run: RunState): PluginRunRef {
   return {
@@ -422,8 +467,15 @@ interface RunState {
   /** The breakdown estimated for the call about to be made. */
   pendingBreakdown?: { estimate: number; breakdown: ContextBreakdown };
   limits?: EffectiveContextLimits;
-  /** Turn context providers' sections, fetched on the run's first prompt (undefined until then). */
-  provided?: ContextSection[];
+  /**
+   * The text of the turn context providers' sections as added to the owner's user message at the
+   * start of the run (undefined when none): only for the context meter.
+   */
+  turnContext?: string;
+  /** The sections behind `turnContext`, for "what the model saw" (`explainContext`). */
+  turnSections?: ContextSection[];
+  /** The compaction summary, sent as the first retained message and not in `system`. */
+  summarySection?: ContextSection;
   /**
    * Yesterday's and today's notes, read on the run's first prompt. An append later in the run
    * (the agent's own memory tool, feed feedback) shows from the next run, so the system prompt
@@ -617,6 +669,8 @@ export class PsycheAgentLoop implements AgentLoop {
   #subagents = new Map<string, SubagentInfo>();
   /** `notify` dispatches per Task (or run) and the budget card waiting for each (#307). */
   #notifies = new Map<string, { sent: number; card?: string }>();
+  /** Per thread: the daily notes its last prompt carried (`at` is when they were read; see `#keepNotes`). */
+  #threadNotes = new Map<string, DailyNotes>();
 
   constructor(options: AgentLoopOptions) {
     this.#o = options;
@@ -877,6 +931,9 @@ export class PsycheAgentLoop implements AgentLoop {
       // Untrusted content still in context keeps steering the model, so the turn starts
       // tainted while it is there (security §3.6: taint survives compaction, and the saved
       // sources survive a kill/restart with the thread state).
+      // Earlier runs' turn context is gone before this run reads the thread: it no longer taints,
+      // and it is never replayed (recall lives for its own run).
+      stubTurnContext(run.thread.messages);
       if (containsUntrusted(run.thread.messages) || run.thread.summary?.untrusted === true) {
         this.#taint(run, { sourceKind: "transcript" });
         for (const s of run.thread.taint?.sources ?? []) this.#taint(run, { ...s });
@@ -945,6 +1002,7 @@ export class PsycheAgentLoop implements AgentLoop {
               }))),
         ],
       });
+      await this.#addTurnContext(run);
       outcome = await this.#loop(run);
       await this.#specialistFallback(run, outcome);
     } catch (err) {
@@ -964,6 +1022,9 @@ export class PsycheAgentLoop implements AgentLoop {
       if (run.taint) run.thread.taint = { sources: dedupeSources(run.taintSources) };
       else delete run.thread.taint;
       run.thread.messages = keepRecentToolImages(run.thread.messages);
+      // Recall is for this run: nothing of it is at rest once the run ends (the next run would
+      // send the stub at that position either way, so the cached bytes are the same).
+      stubTurnContext(run.thread.messages);
       try {
         if (threadLoaded) await this.#state.save(threadId, run.thread);
       } catch (err) {
@@ -1062,7 +1123,7 @@ export class PsycheAgentLoop implements AgentLoop {
       // Older tool images become notes in the thread itself, in batches (cache-stable prefix).
       run.thread.messages = keepRecentToolImages(run.thread.messages);
       const { system, tools, cache } = await this.#prepare(run);
-      const sent = run.thread.messages.slice();
+      const sent = this.#requestMessages(run).slice();
       // A widget button's call is the first step (generative-ui-2026 §6.2); it is gated below
       // exactly like a model's call. It is consumed here so a retry of the loop never re-proposes it.
       const proposed = run.proposedCall;
@@ -1285,6 +1346,75 @@ export class PsycheAgentLoop implements AgentLoop {
   }
 
   /**
+   * Adds the turn context providers' sections to the owner's user message, once per run, as text
+   * after the owner's words and images. They are stored in `thread.messages`, so every later
+   * request replays the same bytes and `system` never changes with what the owner typed (it is
+   * the prompt cache's prefix). Untrusted sections stay fenced and flagged `untrusted` in the user
+   * turn, never `system`, and taint the run in `#provideContext` as before.
+   */
+  async #addTurnContext(run: RunState): Promise<void> {
+    const provided = await this.#provideContext(run);
+    if (provided.length === 0) return;
+    const message = run.thread.messages[run.turnStart];
+    if (message === undefined || message.role !== "user") return;
+    // A token third-party text cannot know: the sections and the closing line carry it.
+    const rendered = renderUserContext(provided, {}, randomUUID().replaceAll("-", "").slice(0, 16));
+    // Before the owner's words, so their request is the last thing the model reads.
+    message.parts.unshift(
+      ...rendered.map((r) => ({
+        type: "text" as const,
+        text: r.text,
+        turnContext: true as const,
+        ...(r.untrusted ? { provenance: "untrusted" as const } : {}),
+      })),
+    );
+    run.turnContext = rendered.map((r) => r.text).join("\n\n");
+    run.turnSections = provided;
+  }
+
+  /** Whether turn context may be shown to this run: the owner's own, not delegated or a peer. */
+  #ownerOnly(run: RunState): boolean {
+    return (
+      run.specialistJob === undefined &&
+      (run.requester === undefined ||
+        (run.requester.role === "owner" && run.requester.toolAllow === undefined))
+    );
+  }
+
+  /**
+   * The messages a request carries: the thread's, with the compaction summary at the front of the
+   * first retained message (a user message gets it as leading parts). The summary is rendered
+   * the same each step, so it changes the cached prefix only when a compaction replaces it.
+   */
+  #requestMessages(run: RunState): ModelMessage[] {
+    // A run that is not the owner's own never sees turn context saved in the thread.
+    const messages = this.#ownerOnly(run)
+      ? run.thread.messages
+      : run.thread.messages.map((m) =>
+          m.parts.some((p) => p.type === "text" && p.turnContext === true)
+            ? {
+                ...m,
+                parts: m.parts.filter((p) => !(p.type === "text" && p.turnContext === true)),
+              }
+            : m,
+        );
+    const section = run.summarySection;
+    if (section === undefined) return messages;
+    const parts: ModelPart[] = renderUserContext([section], {
+      trusted: SUMMARY_HEAD,
+      untrusted: SUMMARY_HEAD,
+    }).map((r) => ({
+      type: "text" as const,
+      text: r.text,
+      ...(r.untrusted ? { provenance: "untrusted" as const } : {}),
+    }));
+    const [first, ...rest] = messages;
+    if (first?.role === "user")
+      return [{ role: "user", parts: [...parts, ...first.parts] }, ...rest];
+    return [{ role: "user", parts }, ...messages];
+  }
+
+  /**
    * Turn context providers (E12): once per owner turn, never for a subagent or a non-owner
    * requester. Sections are untrusted and taint the run; a block goes into the reply. A `trusted`
    * provider's sections (owner/system data only) are neither, and only reach the owner's own turn.
@@ -1294,10 +1424,7 @@ export class PsycheAgentLoop implements AgentLoop {
     if (providers.length === 0 || run.subagent !== undefined || run.ownerText.trim() === "")
       return [];
     const out: ContextSection[] = [];
-    const ownerOnly =
-      run.specialistJob === undefined &&
-      (run.requester === undefined ||
-        (run.requester.role === "owner" && run.requester.toolAllow === undefined));
+    const ownerOnly = this.#ownerOnly(run);
     for (const provider of providers) {
       const got = await withDeadline(
         provider.name,
@@ -1340,7 +1467,7 @@ export class PsycheAgentLoop implements AgentLoop {
           kind: "hook",
           title: sec.title,
           source: `context:${provider.name}`,
-          text: sec.text.trim(),
+          text: capUntrusted(sec.text.trim()),
           untrusted: true,
         });
       });
@@ -1461,12 +1588,12 @@ export class PsycheAgentLoop implements AgentLoop {
     let built = await this.#assemble(run);
     const limits = await this.#limitsFor(run.threadId, run.model);
     run.limits = limits;
-    let estimate = estimateContextTokens(built.system, run.thread.messages, built.tools);
+    let estimate = estimateContextTokens(built.system, this.#requestMessages(run), built.tools);
     // Owner-set limits (thread → settings → model): compact before the call would pass compactAt.
     if (estimate > limits.maxTokens * limits.compactAt) {
       if (await this.#compact(run, estimate, limits.contextWindow, "auto")) {
         built = await this.#assemble(run);
-        estimate = estimateContextTokens(built.system, run.thread.messages, built.tools);
+        estimate = estimateContextTokens(built.system, this.#requestMessages(run), built.tools);
       }
     }
     if (estimate > limits.maxTokens) {
@@ -1476,7 +1603,16 @@ export class PsycheAgentLoop implements AgentLoop {
     }
     run.pendingBreakdown = {
       estimate,
-      breakdown: estimateBreakdown(built.sections, built.tools, run.thread.messages, run.turnStart),
+      breakdown: estimateBreakdown(
+        built.sections,
+        built.tools,
+        run.thread.messages,
+        run.turnStart,
+        {
+          ...(run.summarySection === undefined ? {} : { summary: run.summarySection.text }),
+          ...(run.turnContext === undefined ? {} : { turnContext: run.turnContext }),
+        },
+      ),
     };
     this.#remember({
       runId: run.runId,
@@ -1484,7 +1620,12 @@ export class PsycheAgentLoop implements AgentLoop {
       model: run.model,
       permissionMode: run.permissionMode,
       system: built.system,
-      sections: built.sections,
+      // What the model saw, wherever it sat: the summary and the turn's context ride in messages.
+      sections: [
+        ...built.sections,
+        ...(run.summarySection === undefined ? [] : [run.summarySection]),
+        ...(run.turnSections ?? []),
+      ],
       tools: built.tools,
       messageCount: run.thread.messages.length,
       assembledAt: toIso(this.#clock.now()),
@@ -1530,19 +1671,19 @@ export class PsycheAgentLoop implements AgentLoop {
     }
     let deferred: AgentToolRegistration[] = [];
     ({ tools, deferred } = this.#defer(run, tools, hidden));
-    // The run's notes, read again each step for the same dates. While they only grow, the
-    // run keeps its first read: appends show from the next run, so the system prompt and the
-    // prompt cache stay put. An edited or deleted line takes effect now, so a line the owner
-    // removed (an injected one, something to forget) is not shown for the rest of the run.
+    // The thread's notes, read again each step for the same dates. While they only grow, the
+    // snapshot stays: appends (the agent's own memory tool, feed feedback) show once the thread
+    // has been idle past the provider's 5-minute cache or the day changes, so `system` and the
+    // conversation cached after it stay put from one owner turn to the next. An edited or deleted
+    // line takes effect now, so a line the owner removed (an injected one, something to forget)
+    // is not shown for the rest of the run.
     const notes = await readDailyNotes(
       this.#o.memory,
       run.dailyNotes?.at ?? this.#clock.now(),
       this.#o.timeZone ?? "UTC",
       this.#budgets.dailyNote,
     );
-    if (run.dailyNotes === undefined || !onlyAppended(run.dailyNotes, notes)) {
-      run.dailyNotes = notes;
-    }
+    run.dailyNotes = this.#keepNotes(run, notes);
     const ctx = await assembleContext({
       basePrompt: this.#o.basePrompt ?? DEFAULT_BASE_PROMPT,
       ...(this.#o.memory === undefined ? {} : { memory: this.#o.memory }),
@@ -1557,6 +1698,7 @@ export class PsycheAgentLoop implements AgentLoop {
       budgets: this.#budgets,
       dailyNotes: run.dailyNotes,
     });
+    run.summarySection = ctx.summary;
     if (ctx.untrusted && !run.taintSources.some((s) => s.sourceKind === "context")) {
       this.#taint(run, { sourceKind: "context" });
     }
@@ -1613,8 +1755,6 @@ export class PsycheAgentLoop implements AgentLoop {
         ({ tools, deferred } = this.#defer(run, tools, hidden));
       }
     }
-    run.provided ??= await this.#provideContext(run);
-    sections.push(...run.provided);
     sections.push(...(await this.#pluginSections(run)));
     run.active = new Map(tools.map((t) => [t.spec.name, t]));
     run.hidden = hidden;
@@ -1637,6 +1777,39 @@ export class PsycheAgentLoop implements AgentLoop {
       tools: tools.map((t) => structuredClone(t.spec)),
       deferredTools: deferred.map((t) => structuredClone(t.spec)),
     };
+  }
+
+  /**
+   * The notes snapshot to render: the run's own while it only grows; at a run's start the
+   * thread's last one while the thread is active (under the cache TTL), the files have only
+   * grown and cover the same days. Anything else is the fresh read.
+   */
+  #keepNotes(run: RunState, fresh: DailyNotes): DailyNotes {
+    const now = this.#clock.now();
+    let keep: DailyNotes = fresh;
+    if (run.dailyNotes !== undefined) {
+      if (onlyAppended(run.dailyNotes, fresh)) keep = run.dailyNotes;
+    } else {
+      // A new run reuses the thread's snapshot only while it is younger than the cache TTL, counted
+      // from when it was read (it never slides), the notes only grew, and every added line is the
+      // agent's own. Anything the owner or another writer appended shows at once.
+      const prev = this.#threadNotes.get(run.threadId);
+      if (
+        prev !== undefined &&
+        now - prev.at < NOTES_KEEP_MS &&
+        onlyAppended(prev, fresh) &&
+        appendedByAgent(prev, fresh)
+      ) {
+        keep = prev;
+      }
+    }
+    this.#threadNotes.delete(run.threadId);
+    this.#threadNotes.set(run.threadId, keep);
+    if (this.#threadNotes.size > 256) {
+      const oldest = this.#threadNotes.keys().next().value;
+      if (oldest !== undefined) this.#threadNotes.delete(oldest);
+    }
+    return keep;
   }
 
   /**
@@ -1745,7 +1918,12 @@ export class PsycheAgentLoop implements AgentLoop {
     trigger: "auto" | "manual",
   ): Promise<boolean> {
     const keep = run.limits?.keepRecentTurns ?? this.#policy.keepRecentTurns;
-    const { older, recent } = splitForCompaction(run.thread.messages, keep);
+    const split = splitForCompaction(run.thread.messages, keep);
+    const recent = split.recent;
+    // The summarizer, the taint check and the flush see the turns without this run's recall: it
+    // can be fetched again, and must not become summary content, permanent taint or a note line.
+    const older = structuredClone(split.older);
+    stubTurnContext(older);
     if (older.length === 0) return false;
     // Never fold a call whose result has not come back (an approval still pending).
     if (hasUnansweredToolCalls(older)) return false;
@@ -1754,7 +1932,9 @@ export class PsycheAgentLoop implements AgentLoop {
     const memory = this.#o.memory;
     if (memory?.flush !== undefined && this.#o.isIncognito?.(run.threadId) !== true) {
       try {
-        await memory.flush(run.threadId, structuredClone(run.thread.messages), {
+        const copy = structuredClone(run.thread.messages);
+        stubTurnContext(copy);
+        await memory.flush(run.threadId, copy, {
           taint: run.taint || untrusted,
           signal,
         });
@@ -1870,6 +2050,8 @@ export class PsycheAgentLoop implements AgentLoop {
       throw new PsycheError("conflict", "the thread is running; compact it when the turn ends");
     }
     const thread = (await this.#state.load(threadId)) ?? emptyThreadState();
+    // Rows saved before recall was stubbed at the end of a run.
+    stubTurnContext(thread.messages);
     let info: CompactionInfo | undefined;
     const model = this.#o.model;
     const limits = await this.#limitsFor(threadId, model);
@@ -2019,7 +2201,7 @@ export class PsycheAgentLoop implements AgentLoop {
       ...(cache.systemStableLength === undefined
         ? {}
         : { systemStableLength: cache.systemStableLength }),
-      messages: run.thread.messages,
+      messages: this.#requestMessages(run),
       ...(tools.length === 0 ? {} : { tools }),
       // Only beside the tools they belong to: a tool-free call loads nothing.
       ...(tools.length === 0 ||
