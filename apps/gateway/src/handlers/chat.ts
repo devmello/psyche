@@ -145,6 +145,7 @@ function send(
           }),
       ...(screen === undefined ? {} : { images: screen.images }),
       ...(context === undefined ? {} : { contextBlocks: context.blocks ?? [context.block] }),
+      ...(context?.stickyTaint === true ? { stickyTaint: true } : {}),
       ...(params.replyToMessageId === undefined
         ? {}
         : { replyToMessageId: params.replyToMessageId }),

@@ -1,8 +1,9 @@
 import type { AuditChange, AutomationRun } from "@psyche/protocol";
 import { type ReactElement, type ReactNode, useState } from "react";
 import { Button } from "../../components/ui/button.tsx";
-import { useChanges, useGatewayQuery } from "../../data/index.ts";
+import { useCall, useChanges, useGatewayQuery } from "../../data/index.ts";
 import { t } from "../../i18n/core.ts";
+import { describeError } from "../../i18n/errors.ts";
 import { formatDuration, formatRelative } from "../../lib/format.ts";
 import { absoluteWhen, clockOf, statusLabel } from "./format.ts";
 
@@ -16,6 +17,8 @@ export interface RunHistoryViewProps {
   onOpenTranscript?: (runId: string) => void;
   /** The audit records of one run (`audit.changes` by run id), below its row. */
   renderChanges?: (run: AutomationRun) => ReactNode;
+  /** Ends a run that is waiting to retry (`automations.cancelRetry`); resolves when done. */
+  onCancelRetry?: (run: AutomationRun) => Promise<void>;
 }
 
 /** Each past run: status, when, how long, a link to its chat or transcript, and its audit records. */
@@ -28,6 +31,7 @@ export function RunHistoryView({
   onOpenChat,
   onOpenTranscript,
   renderChanges,
+  onCancelRetry,
 }: RunHistoryViewProps): ReactElement {
   return (
     <section aria-label={t("scheduled.history.title")} className="flex flex-col gap-2">
@@ -96,6 +100,9 @@ export function RunHistoryView({
                       {t("scheduled.history.openChat")}
                     </Button>
                   ) : null}
+                  {run.status === "running" && run.retryAt != null && onCancelRetry ? (
+                    <CancelRetryButton run={run} when={when} onCancelRetry={onCancelRetry} />
+                  ) : null}
                   {run.runId != null && onOpenTranscript ? (
                     <Button
                       type="button"
@@ -115,6 +122,45 @@ export function RunHistoryView({
         </ul>
       )}
     </section>
+  );
+}
+
+/** "Cancel retry" on a run waiting for its next attempt; says so if the Gateway refuses. */
+function CancelRetryButton({
+  run,
+  when,
+  onCancelRetry,
+}: {
+  run: AutomationRun;
+  when: string;
+  onCancelRetry: (run: AutomationRun) => Promise<void>;
+}): ReactElement {
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  return (
+    <>
+      <Button
+        type="button"
+        size="sm"
+        variant="outline"
+        disabled={busy}
+        aria-label={t("scheduled.history.cancelRetry.aria", { when })}
+        onClick={() => {
+          setBusy(true);
+          setError(null);
+          onCancelRetry(run)
+            .catch((err: unknown) => setError(describeError(err)))
+            .finally(() => setBusy(false));
+        }}
+      >
+        {t("scheduled.history.cancelRetry")}
+      </Button>
+      {error ? (
+        <span role="alert" className="text-callout text-destructive">
+          {t("scheduled.history.cancelRetry.failed", { reason: error })}
+        </span>
+      ) : null}
+    </>
   );
 }
 
@@ -185,6 +231,7 @@ export function RunHistory({
   onNavigate,
 }: RunHistoryProps): ReactElement {
   const q = useGatewayQuery("automations.runs", { automationId, limit: 20 });
+  const call = useCall();
   return (
     <RunHistoryView
       runs={q.data?.runs ?? []}
@@ -199,6 +246,10 @@ export function RunHistory({
           }
         : {})}
       renderChanges={(run) => <RunChanges run={run} />}
+      onCancelRetry={async (run) => {
+        await call("automations.cancelRetry", { runId: run.id });
+        q.reload();
+      }}
     />
   );
 }
