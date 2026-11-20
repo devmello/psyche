@@ -146,12 +146,17 @@ sudo useradd -m -s /bin/bash psyche-h7-own
 OWN=psyche-h7-own; OWN_UID="$(uid_of $OWN)"
 mkdir -p "$W/own" && tar --zstd -xf "$W/pk-stub/$TAR" -C "$W/own" && chmod -R a+rX "$W/own"
 INST="$W/own/psyche-helper-0.1.0-linux-$ARCH/install.sh"
+H="/home/$OWN"
 refuse "own account: refuses to run as root" sudo bash "$INST"
+# Directories the owner already has stay exactly as they are (the installer only creates missing ones).
+sudo -u $OWN mkdir -m 0700 "$H/.config" "$H/.local"
+sudo -u $OWN mkdir -m 0750 "$H/.config/systemd"
 as $OWN bash "$INST" >"$W/own-1.log" 2>&1
+check "own account: an existing 0700 ~/.config, 0700 ~/.local and 0750 ~/.config/systemd keep their modes" sudo bash -c "[ \"\$(stat -c %a $H/.config)\" = 700 ] && [ \"\$(stat -c %a $H/.local)\" = 700 ] && [ \"\$(stat -c %a $H/.config/systemd)\" = 750 ]"
+check "own account: directories it created are private (0700)" sudo bash -c "[ \"\$(stat -c %a $H/.config/systemd/user)\" = 700 ] && [ \"\$(stat -c %a $H/.local/lib/psyche-helper)\" = 700 ]"
 check "own account: the installer turns linger on and says why" grep -q "turning on linger for $OWN: this lets the helper start at boot" "$W/own-1.log"
 wait_for 20 sock "$OWN_UID" || bad "own: user manager did not start"
 as $OWN bash "$INST" >"$W/own-2.log" 2>&1 && ok "own account: installer, second run (idempotent)" || { bad "own account: installer"; cat "$W/own-2.log"; }
-H="/home/$OWN"
 check "own account: binary, symlink, unit and slice are in the account's home" sudo bash -c "[ -x $H/.local/lib/psyche-helper/psyche-helper ] && [ -L $H/.local/bin/psyche-helper ] && [ -f $H/.config/systemd/user/psyche-helper-remote.service ] && [ -f $H/.config/systemd/user/psyche-machine.slice ]"
 check "own account: the unit runs the installed copy" sudo grep -q "^ExecStart=$H/.local/lib/psyche-helper/psyche-helper remote" "$H/.config/systemd/user/psyche-helper-remote.service"
 check "own account: files belong to the account" sudo bash -c "[ \"\$(stat -c %U $H/.local/lib/psyche-helper/psyche-helper)\" = $OWN ]"
@@ -198,7 +203,9 @@ DED_UID="$(uid_of $DED 2>/dev/null || echo 0)"
 check "dedicated: the account has no login shell and a Psyche marker" bash -c "getent passwd $DED | grep -q 'nologin' && getent passwd $DED | grep -q 'Psyche helper'"
 check "dedicated: the policy is root-owned, 0644, narrow" bash -c "[ \"\$(stat -c %U:%a /etc/psyche-helper/policy.json)\" = root:644 ] && grep -q '\"enabled\": false' /etc/psyche-helper/policy.json"
 check "dedicated: the account cannot write the policy" bash -c "! sudo -u $DED sh -c 'echo x >> /etc/psyche-helper/policy.json'"
-check "dedicated: the program is the account's own copy" sudo test -x "/home/$DED/.local/lib/psyche-helper/psyche-helper"
+check "dedicated: the program is root's, in root's folders, and the account has no copy" bash -c "[ \"\$(stat -c %U:%a /usr/local/lib/psyche-helper/psyche-helper)\" = root:755 ] && [ \"\$(stat -c %U:%a /usr/local/lib/psyche-helper)\" = root:755 ] && sudo test ! -e /home/$DED/.local/lib/psyche-helper"
+check "dedicated: the service file is root's too (/etc/systemd/user) and verifies" bash -c "[ \"\$(stat -c %U:%a /etc/systemd/user/psyche-helper-remote.service)\" = root:644 ] && grep -q '^ExecStart=/usr/local/lib/psyche-helper/psyche-helper remote' /etc/systemd/user/psyche-helper-remote.service && systemd-analyze verify --user /etc/systemd/user/psyche-helper-remote.service /etc/systemd/user/psyche-machine.slice"
+check "dedicated: the account cannot replace the program or the service file" bash -c "! sudo -u $DED sh -c 'echo x > /usr/local/lib/psyche-helper/psyche-helper' && ! sudo -u $DED sh -c 'echo x > /etc/systemd/user/psyche-helper-remote.service'"
 ctl $DED start psyche-helper-remote.service
 check "dedicated: the helper runs as the dedicated account" bash -c "wait_for 10 ctl $DED is-active --quiet psyche-helper-remote.service && [ \"\$(ps -o user= -p \$(ctl $DED show -p MainPID --value psyche-helper-remote.service))\" = $DED ]"
 check "dedicated: a second run reuses the account and keeps the root-owned policy" bash -c "sudo bash $INST --dedicated-user $DED 2>&1 | grep -q 'kept as it is'"
@@ -207,8 +214,26 @@ sudo userdel -r psyche-h7-upd >/dev/null 2>&1
 PIDD="$(ctl $DED show -p MainPID --value psyche-helper-remote.service)"
 sudo systemctl stop "user@$DED_UID.service"; sudo systemctl start "user@$DED_UID.service"
 check "reboot (simulated): the dedicated helper is back" bash -c "wait_for 20 ctl $DED is-active --quiet psyche-helper-remote.service && [ \"\$(ctl $DED show -p MainPID --value psyche-helper-remote.service)\" != $PIDD ]"
-sudo bash "$INST" --dedicated-user $DED --uninstall --purge >/dev/null 2>&1
-check "dedicated: --uninstall --purge removes the account" bash -c "! id $DED"
+# Links the account plants in its own home must lead nowhere with root's rights: re-run the installer,
+# --uninstall and --uninstall --purge as root and see that what the links point at is untouched.
+V1=/var/tmp/psyche-h7-victim1; V2=/var/tmp/psyche-h7-victim2
+sudo rm -rf $V1 $V2; sudo mkdir -p $V1/lib $V2; echo keep | sudo tee $V1/file $V2/file >/dev/null
+sudo chmod 755 $V1 $V2 $V1/lib
+snap() { sudo bash -c "stat -c '%n %U:%G %a' $V1 $V1/lib $V2 /etc /etc/psyche-helper /etc/psyche-helper/policy.json /etc/passwd; find $V1 $V2 /etc/psyche-helper | sort; cat $V1/file $V2/file; sha256sum /etc/psyche-helper/policy.json"; }
+snap >"$W/snap0"
+sudo -u $DED bash -c "cd /home/$DED && mkdir -p .local .config && mv .local .local.old && ln -s $V1 .local && mv .config .config.old && ln -s $V2 .config"
+sudo bash "$INST" --dedicated-user $DED >"$W/ded-plant1.log" 2>&1
+sudo bash "$INST" --dedicated-user $DED --uninstall >"$W/ded-plant2.log" 2>&1
+snap >"$W/snap0b"
+check "planted links (.local, .config): install and --uninstall as root leave their targets and /etc alone" cmp "$W/snap0" "$W/snap0b"
+sudo -u $DED bash -c "cd /home/$DED && rm -f .local .config && mv .local.old .local && mv .config.old .config && mkdir -p .local && rm -rf .local/lib && ln -s /etc .local/lib && ln -sfn /etc/psyche-helper .config/psyche-helper"
+snap >"$W/snap1"
+sudo bash "$INST" --dedicated-user $DED >"$W/ded-plant3.log" 2>&1
+sudo bash "$INST" --dedicated-user $DED --uninstall --purge >"$W/ded-plant4.log" 2>&1
+snap >"$W/snap1b"
+check "planted links (.local/lib -> /etc, .config/psyche-helper -> /etc/psyche-helper): install, --uninstall --purge leave /etc alone" cmp "$W/snap1" "$W/snap1b"
+check "dedicated: --uninstall --purge removes the account and root's files" bash -c "! id $DED && [ ! -e /usr/local/lib/psyche-helper ] && [ ! -e /etc/systemd/user/psyche-helper-remote.service ]"
+sudo rm -rf $V1 $V2
 sudo rm -rf /etc/psyche-helper
 
 # --- update (real binaries) -------------------------------------------------------------------
@@ -219,6 +244,9 @@ wait_for 20 sock "$UPD_UID"
 mkdir -p "$W/upd" && tar --zstd -xf "$W/pk-real1/$TAR" -C "$W/upd" && chmod -R a+rX "$W/upd"
 as $UPD bash "$W/upd/psyche-helper-0.1.0-linux-$ARCH/install.sh" >"$W/upd-install.log" 2>&1 && ok "update: install 0.1.0 (real binary)" || { bad "update: install"; cat "$W/upd-install.log"; }
 HB="$UH/.local/lib/psyche-helper/psyche-helper"
+sudo "$HB" update --check >"$W/u-root.log" 2>&1; RR=$?
+check "update refuses to run as root, and says why" bash -c "[ $RR -ne 0 ] && grep -q 'do not run update as root' $W/u-root.log"
+check "--build-info lists the update key ids (the release job compares them with release-keys.ts)" bash -c "as $UPD $HB --build-info | grep -q '\"updateKeys\":\\[.*37312dba0e2eddad'"
 ver() { as $UPD "$HB" --build-info | sed -n 's/.*"version":"\([^"]*\)".*/\1/p'; }
 [ "$(ver)" = 0.1.0 ] && ok "update: the installed helper reports 0.1.0" || bad "update: installed version is $(ver)"
 

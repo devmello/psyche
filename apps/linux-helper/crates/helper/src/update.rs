@@ -507,7 +507,9 @@ fn decode_chunked(mut data: &[u8], max: usize) -> Result<Vec<u8>, String> {
         if size == 0 {
             return Ok(out);
         }
-        if out.len() + size > max || data.len() < size + 2 {
+        let too_big = out.len().checked_add(size).is_none_or(|n| n > max);
+        let end = size.checked_add(2);
+        if too_big || end.is_none_or(|n| data.len() < n) {
             return Err("chunk too large or truncated".into());
         }
         out.extend_from_slice(&data[..size]);
@@ -712,7 +714,8 @@ pub fn tarball_binary(exe: &Path) -> Result<PathBuf, UpdateError> {
     let probe = dir.join(".psyche-helper-write-test");
     fs::write(&probe, b"").map_err(|_| {
         UpdateError::Install(format!(
-            "{} is not writable by this account: this helper cannot update itself",
+            "{} is not writable by this account: this helper cannot update itself (a root-owned \
+             install is updated by running the new release's install.sh again)",
             dir.display()
         ))
     })?;
@@ -724,31 +727,49 @@ fn prev_path(bin: &Path) -> PathBuf {
     bin.with_file_name("psyche-helper.prev")
 }
 
-/// Unpacks the (already verified) tarball and returns the new binary, staged next to `bin` so the
-/// final rename is atomic. The tar is run with a fixed argument list, never a shell.
+/// A private work directory, created atomically with mode 0700 (it fails if the name exists, so
+/// nobody can have planted it).
+fn private_dir(parent: &Path) -> Result<PathBuf, UpdateError> {
+    use std::os::unix::fs::DirBuilderExt;
+    let mut seed = [0u8; 8];
+    getrandom::fill(&mut seed).map_err(|e| UpdateError::Install(e.to_string()))?;
+    let name = format!(
+        ".update-{}-{}",
+        std::process::id(),
+        seed.iter().map(|b| format!("{b:02x}")).collect::<String>()
+    );
+    let dir = parent.join(name);
+    fs::DirBuilder::new()
+        .mode(0o700)
+        .create(&dir)
+        .map_err(|e| UpdateError::Install(format!("could not make a work directory: {e}")))?;
+    Ok(dir)
+}
+
+/// Unpacks the (already verified) tarball and returns the new binary, staged next to `bin`. The
+/// bytes go to `tar` on its standard input (no archive file to swap), the work directory is private
+/// from the moment it exists, and the binary is hashed when it comes out and again just before it
+/// is used. The tar is run with a fixed argument list, never a shell.
 fn stage(bin: &Path, tar_bytes: &[u8], release: &str, arch: &str) -> Result<PathBuf, UpdateError> {
+    use std::os::unix::fs::{OpenOptionsExt, PermissionsExt};
     let err = |m: String| UpdateError::Install(m);
     let dir = bin.parent().unwrap();
-    let work = dir.join(format!(".update-{}", std::process::id()));
-    let _ = fs::remove_dir_all(&work);
-    fs::create_dir(&work).map_err(|e| err(e.to_string()))?;
-    {
-        use std::os::unix::fs::PermissionsExt;
-        fs::set_permissions(&work, fs::Permissions::from_mode(0o700)).ok();
-    }
+    let work = private_dir(dir)?;
     let result = (|| {
-        let archive = work.join("release.tar.zst");
-        fs::write(&archive, tar_bytes).map_err(|e| err(e.to_string()))?;
         let out = work.join("x");
         fs::create_dir(&out).map_err(|e| err(e.to_string()))?;
-        let status = Process::new("tar")
-            .args(["--zstd", "-xf"])
-            .arg(&archive)
-            .arg("-C")
+        let mut child = Process::new("tar")
+            .args(["--zstd", "-xf", "-", "-C"])
             .arg(&out)
             .arg("--no-same-owner")
-            .status()
+            .stdin(std::process::Stdio::piped())
+            .spawn()
             .map_err(|e| err(format!("could not run tar (is zstd installed?): {e}")))?;
+        let mut stdin = child.stdin.take().unwrap();
+        let bytes = tar_bytes.to_vec();
+        let writer = std::thread::spawn(move || stdin.write_all(&bytes));
+        let status = child.wait().map_err(|e| err(e.to_string()))?;
+        let _ = writer.join();
         if !status.success() {
             return Err(err(
                 "could not unpack the release (needs tar and zstd)".into()
@@ -764,29 +785,47 @@ fn stage(bin: &Path, tar_bytes: &[u8], release: &str, arch: &str) -> Result<Path
                 "bin/psyche-helper in the release is not a regular file".into(),
             ));
         }
-        {
-            use std::os::unix::fs::PermissionsExt;
-            fs::set_permissions(&new, fs::Permissions::from_mode(0o755))
-                .map_err(|e| err(e.to_string()))?;
-        }
-        // It must be a helper of this release before it replaces anything.
-        let info = Process::new(&new)
-            .arg("--build-info")
-            .output()
-            .map_err(|e| err(format!("the new helper does not run: {e}")))?;
-        let v: Value = serde_json::from_slice(&info.stdout)
-            .map_err(|_| err("the new helper did not answer --build-info".into()))?;
-        if !info.status.success() || v["name"] != "psyche-helper" || v["version"] != release {
-            return Err(err(format!(
-                "the new helper reports version {}, not {release}",
-                v["version"]
-            )));
-        }
+        let data = fs::read(&new).map_err(|e| err(e.to_string()))?;
+        let want = sha256_hex(&data);
         let staged = dir.join(".psyche-helper.new");
-        fs::copy(&new, &staged).map_err(|e| err(e.to_string()))?;
-        use std::os::unix::fs::PermissionsExt;
-        fs::set_permissions(&staged, fs::Permissions::from_mode(0o755))
+        let _ = fs::remove_file(&staged);
+        let mut f = fs::OpenOptions::new()
+            .write(true)
+            .create_new(true)
+            .mode(0o755)
+            .open(&staged)
             .map_err(|e| err(e.to_string()))?;
+        f.write_all(&data).map_err(|e| err(e.to_string()))?;
+        f.sync_all().map_err(|e| err(e.to_string()))?;
+        drop(f);
+        let check = (|| {
+            // The file that is about to run is the file that was unpacked.
+            if sha256_hex(&fs::read(&staged).map_err(|e| err(e.to_string()))?) != want {
+                return Err(err("the staged helper changed while it was staged".into()));
+            }
+            // It must be a helper of this release before it replaces anything.
+            let info = Process::new(&staged)
+                .arg("--build-info")
+                .output()
+                .map_err(|e| err(format!("the new helper does not run: {e}")))?;
+            let v: Value = serde_json::from_slice(&info.stdout)
+                .map_err(|_| err("the new helper did not answer --build-info".into()))?;
+            if !info.status.success() || v["name"] != "psyche-helper" || v["version"] != release {
+                return Err(err(format!(
+                    "the new helper reports version {}, not {release}",
+                    v["version"]
+                )));
+            }
+            if sha256_hex(&fs::read(&staged).map_err(|e| err(e.to_string()))?) != want {
+                return Err(err("the staged helper changed while it was checked".into()));
+            }
+            fs::set_permissions(&staged, fs::Permissions::from_mode(0o755))
+                .map_err(|e| err(e.to_string()))
+        })();
+        if let Err(e) = check {
+            let _ = fs::remove_file(&staged);
+            return Err(e);
+        }
         Ok(staged)
     })();
     let _ = fs::remove_dir_all(&work);
@@ -850,21 +889,24 @@ pub fn update(
     })
 }
 
-/// `staged` becomes `bin`; the old `bin` is kept as `psyche-helper.prev`.
+/// `staged` becomes `bin`; the old `bin` is kept as `psyche-helper.prev`. The old file gets a
+/// second name first (a hard link, a copy where links are not allowed) and then one rename
+/// replaces `bin`, so at every moment `bin` is a whole helper: a crash cannot leave none.
 fn swap_in(bin: &Path, staged: &Path) -> Result<(), UpdateError> {
     let err = |m: String| UpdateError::Install(m);
     let prev = prev_path(bin);
     let _ = fs::remove_file(&prev);
-    fs::rename(bin, &prev).map_err(|e| err(format!("could not keep the old helper: {e}")))?;
-    if let Err(e) = fs::rename(staged, bin) {
-        let _ = fs::rename(&prev, bin);
-        return Err(err(format!("could not put the new helper in place: {e}")));
+    if fs::hard_link(bin, &prev).is_err() {
+        fs::copy(bin, &prev).map_err(|e| err(format!("could not keep the old helper: {e}")))?;
     }
-    Ok(())
+    fs::rename(staged, bin).map_err(|e| {
+        let _ = fs::remove_file(&prev);
+        err(format!("could not put the new helper in place: {e}"))
+    })
 }
 
 /// Swaps the previous binary back in (and keeps the one it replaces as the new `.prev`, so a
-/// second `--rollback` goes forward again).
+/// second `--rollback` goes forward again). Also never without a `bin`: one rename replaces it.
 pub fn rollback(bin: &Path) -> Result<(), UpdateError> {
     let prev = prev_path(bin);
     if !prev.is_file() {
@@ -874,9 +916,12 @@ pub fn rollback(bin: &Path) -> Result<(), UpdateError> {
     }
     let tmp = bin.with_file_name(".psyche-helper.swap");
     let err = |m: String| UpdateError::Install(m);
-    fs::rename(bin, &tmp).map_err(|e| err(e.to_string()))?;
+    let _ = fs::remove_file(&tmp);
+    if fs::hard_link(bin, &tmp).is_err() {
+        fs::copy(bin, &tmp).map_err(|e| err(e.to_string()))?;
+    }
     if let Err(e) = fs::rename(&prev, bin) {
-        let _ = fs::rename(&tmp, bin);
+        let _ = fs::remove_file(&tmp);
         return Err(err(e.to_string()));
     }
     fs::rename(&tmp, &prev).map_err(|e| err(e.to_string()))?;
@@ -893,6 +938,15 @@ pub fn arch_name() -> Result<&'static str, String> {
 
 /// The command: `psyche-helper update [--check] [--rollback] [--from <dir>]`.
 pub fn run(check: bool, do_rollback: bool, from: Option<&Path>) -> Result<String, String> {
+    // SAFETY: geteuid has no preconditions.
+    if unsafe { libc::geteuid() } == 0 {
+        return Err(
+            "do not run update as root: it works in the helper's own folder, which the \
+            helper's account owns. Run it as that account (a root-owned install is updated by \
+            running the new release's install.sh again)"
+                .into(),
+        );
+    }
     let exe = std::env::current_exe().map_err(|e| e.to_string())?;
     let bin = tarball_binary(&exe).map_err(|e| e.to_string())?;
     if do_rollback {
@@ -930,6 +984,109 @@ pub fn run(check: bool, do_rollback: bool, from: Option<&Path>) -> Result<String
             "{tried} did not start cleanly, so the previous helper is back; nothing else changed"
         )),
     }
+}
+
+/// The key ids this binary trusts for updates, sorted. `--build-info` prints them and the release
+/// job compares them with the app's `release-keys.ts` (a test key or a drifted list fails there).
+pub fn trusted_key_ids() -> Vec<String> {
+    let mut ids: Vec<String> = trusted_keys().into_iter().map(|k| k.key_id).collect();
+    ids.sort();
+    ids
+}
+
+// ---------------------------------------------------------------------------------------------
+// Who really owns the ceiling
+
+/// Whether `path` and every directory above it belong to root and cannot be written by group or
+/// others. A root-owned `policy.json` limits the account only if the program that reads it is out
+/// of the account's reach too.
+pub fn root_controlled(path: &Path) -> bool {
+    use std::os::unix::fs::MetadataExt;
+    let Ok(real) = fs::canonicalize(path) else {
+        return false;
+    };
+    real.ancestors()
+        .all(|p| fs::symlink_metadata(p).is_ok_and(|m| m.uid() == 0 && m.mode() & 0o022 == 0))
+}
+
+/// Whether `systemctl --user show -p FragmentPath -p DropInPaths` output names only unit files in
+/// root-owned directories.
+pub fn unit_files_packaged(show_output: &str) -> bool {
+    const OK: [&str; 4] = [
+        "/usr/lib/systemd/user/",
+        "/lib/systemd/user/",
+        "/etc/systemd/user/",
+        "/usr/local/lib/systemd/user/",
+    ];
+    let mut fragment = false;
+    for line in show_output.lines() {
+        if let Some(v) = line.strip_prefix("FragmentPath=") {
+            fragment = OK.iter().any(|p| v.starts_with(p));
+            if !fragment {
+                return false;
+            }
+        } else if let Some(v) = line.strip_prefix("DropInPaths=") {
+            if v.split_whitespace()
+                .any(|d| !OK.iter().any(|p| d.starts_with(p)))
+            {
+                return false;
+            }
+        }
+    }
+    fragment
+}
+
+fn unit_is_packaged() -> bool {
+    static CACHE: std::sync::OnceLock<bool> = std::sync::OnceLock::new();
+    *CACHE.get_or_init(|| {
+        // Run by hand (`psyche-helper remote` in a terminal): there is no unit to check.
+        if std::env::var_os("INVOCATION_ID").is_none() {
+            return true;
+        }
+        Process::new("systemctl")
+            .args([
+                "--user",
+                "show",
+                "-p",
+                "FragmentPath",
+                "-p",
+                "DropInPaths",
+                UNIT,
+            ])
+            .output()
+            .ok()
+            .filter(|o| o.status.success())
+            .is_some_and(|o| unit_files_packaged(&String::from_utf8_lossy(&o.stdout)))
+    })
+}
+
+/// `("root" | "user", reason)` for what Settings should say about the ceiling. A root-owned
+/// `policy.json` counts as root's only when nothing the account owns can stand between the
+/// file and the program that enforces it: the program and its folders are root's, and the
+/// service's unit files are in root-owned places.
+pub fn ceiling_owner(policy_is_root: bool) -> (&'static str, Option<&'static str>) {
+    ceiling_owner_with(
+        policy_is_root,
+        std::env::current_exe().is_ok_and(|e| root_controlled(&e)),
+        unit_is_packaged,
+    )
+}
+
+pub fn ceiling_owner_with(
+    policy_is_root: bool,
+    program_root_controlled: bool,
+    unit_packaged: impl FnOnce() -> bool,
+) -> (&'static str, Option<&'static str>) {
+    if !policy_is_root {
+        return ("user", None);
+    }
+    if !program_root_controlled {
+        return ("user", Some("program_writable"));
+    }
+    if !unit_packaged() {
+        return ("user", Some("unit_overridden"));
+    }
+    ("root", None)
 }
 
 #[cfg(test)]
@@ -1466,5 +1623,90 @@ mod tests {
             assert!(!p.surfaces.direct, "{name}");
             assert!(p.surfaces.virtual_screen, "{name}");
         }
+    }
+
+    #[test]
+    fn a_chunk_size_that_overflows_is_refused_not_a_panic() {
+        assert!(decode_chunked(b"1\r\na\r\nfffffffffffffffe\r\nxx", 100).is_err());
+        assert!(decode_chunked(b"ffffffffffffffff\r\nxx", usize::MAX).is_err());
+        assert!(decode_chunked(b"fffffffffffffffe\r\nxx", usize::MAX).is_err());
+    }
+
+    #[test]
+    fn the_ceiling_is_root_owned_only_when_nothing_the_account_owns_is_in_the_way() {
+        assert_eq!(ceiling_owner_with(false, true, || true), ("user", None));
+        assert_eq!(
+            ceiling_owner_with(true, false, || true),
+            ("user", Some("program_writable"))
+        );
+        assert_eq!(
+            ceiling_owner_with(true, true, || false),
+            ("user", Some("unit_overridden"))
+        );
+        assert_eq!(ceiling_owner_with(true, true, || true), ("root", None));
+        // The unit is not even asked when the program already settles it.
+        assert_eq!(
+            ceiling_owner_with(true, false, || panic!("not needed")),
+            ("user", Some("program_writable"))
+        );
+    }
+
+    #[test]
+    fn unit_files_must_be_in_root_owned_places() {
+        let ok = "FragmentPath=/usr/lib/systemd/user/psyche-helper-remote.service\nDropInPaths=\n";
+        assert!(unit_files_packaged(ok));
+        assert!(unit_files_packaged(
+            "FragmentPath=/etc/systemd/user/psyche-helper-remote.service\nDropInPaths=/etc/systemd/user/psyche-helper-remote.service.d/a.conf\n"
+        ));
+        for bad in [
+            "FragmentPath=/home/a/.config/systemd/user/psyche-helper-remote.service\nDropInPaths=\n",
+            "FragmentPath=/home/a/.local/share/systemd/user/psyche-helper-remote.service\nDropInPaths=\n",
+            "FragmentPath=/run/user/1000/systemd/user/psyche-helper-remote.service\nDropInPaths=\n",
+            "FragmentPath=/usr/lib/systemd/user/psyche-helper-remote.service\nDropInPaths=/home/a/.config/systemd/user/psyche-helper-remote.service.d/x.conf\n",
+            "FragmentPath=/usr/lib/systemd/user/psyche-helper-remote.service\nDropInPaths=/usr/lib/systemd/user/x.d/a.conf /home/a/x.conf\n",
+            "FragmentPath=/usr/lib/systemd/user-evil/x.service\nDropInPaths=\n",
+            "FragmentPath=\nDropInPaths=\n",
+            "",
+        ] {
+            assert!(!unit_files_packaged(bad), "{bad}");
+        }
+    }
+
+    #[test]
+    fn a_program_is_root_controlled_only_in_root_owned_folders() {
+        // SAFETY: geteuid has no preconditions.
+        if unsafe { libc::geteuid() } != 0 {
+            let dir = tempfile::tempdir().unwrap();
+            let f = dir.path().join("p");
+            fs::write(&f, "x").unwrap();
+            assert!(!root_controlled(&f));
+        }
+        assert!(!root_controlled(Path::new("/nonexistent/psyche")));
+        #[cfg(target_os = "linux")]
+        assert!(root_controlled(Path::new("/usr/bin/env")));
+    }
+
+    #[test]
+    fn the_trusted_key_ids_are_listed() {
+        assert!(trusted_key_ids().contains(&"37312dba0e2eddad".to_string()));
+    }
+
+    #[test]
+    fn a_swap_never_leaves_no_binary_and_update_refuses_root_paths_to_a_missing_prev() {
+        let dir = tempfile::tempdir().unwrap();
+        let bin = dir.path().join("psyche-helper");
+        fs::write(&bin, "old").unwrap();
+        let staged = dir.path().join("new");
+        fs::write(&staged, "new").unwrap();
+        swap_in(&bin, &staged).unwrap();
+        assert_eq!(fs::read_to_string(&bin).unwrap(), "new");
+        assert_eq!(fs::read_to_string(prev_path(&bin)).unwrap(), "old");
+        // A failed final rename leaves the old helper where it was and removes the .prev copy.
+        let bin2 = dir.path().join("b2");
+        fs::write(&bin2, "old2").unwrap();
+        assert!(swap_in(&bin2, &dir.path().join("missing")).is_err());
+        assert_eq!(fs::read_to_string(&bin2).unwrap(), "old2");
+        assert!(!prev_path(&bin2).exists());
+        assert!(rollback(&bin2).is_err());
     }
 }

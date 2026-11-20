@@ -25,6 +25,9 @@ pub struct BuildInfo {
     pub arch: &'static str,
     #[serde(rename = "protocolVersion")]
     pub protocol_version: u64,
+    /// The update-manifest key ids this build trusts (the release job compares them with the app's).
+    #[serde(rename = "updateKeys")]
+    pub update_keys: Vec<String>,
 }
 
 impl BuildInfo {
@@ -40,6 +43,7 @@ impl BuildInfo {
             platform: PLATFORM,
             arch: std::env::consts::ARCH,
             protocol_version: PROTOCOL_VERSION,
+            update_keys: crate::update::trusted_key_ids(),
         }
     }
 }

@@ -1327,6 +1327,10 @@ jobs:
         run: |
           sudo apt-get update
           sudo apt-get install -y --no-install-recommends zstd rpm dpkg-dev fakeroot
+      - name: Set up Node
+        uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version-file: .nvmrc
       - name: Rust toolchain
         run: |
           rustup toolchain install 1.91.0 --profile minimal
@@ -1346,6 +1350,18 @@ jobs:
           got="$(apps/linux-helper/target/release/psyche-helper --build-info | node -p 'JSON.parse(require("fs").readFileSync(0, "utf8")).version')"
           if [ "$got" != "$PSYCHE_RELEASE_VERSION" ]; then
             echo "::error::the helper reports version $got, this release is $PSYCHE_RELEASE_VERSION"; exit 1
+          fi
+      - name: The helper trusts exactly the app's release keys
+        run: |
+          # The binary lists the key ids it will accept for updates. They must equal the ids in the
+          # app's release-keys.ts: a test key compiled in by any route (the environment, a cargo
+          # config [env]) shows up as an extra id, a drifted list as a missing one.
+          have="$(apps/linux-helper/target/release/psyche-helper --build-info | node -p 'JSON.parse(require("fs").readFileSync(0, "utf8")).updateKeys.sort().join(",")')"
+          want="$(node --input-type=module -e 'import { loadTrustedKeys } from "./deploy/scripts/update-manifest.mjs"; const k = await loadTrustedKeys("apps/desktop/src/main/release-keys.ts"); console.log(k.map((x) => x.keyId).sort().join(","));')"
+          echo "helper: $have"
+          echo "app:    $want"
+          if [ -z "$want" ] || [ "$have" != "$want" ]; then
+            echo "::error::the helper's update keys differ from apps/desktop/src/main/release-keys.ts"; exit 1
           fi
       - name: Package (tar.zst, deb, rpm) as psyche-helper-<version>-linux-<arch>.<ext>
         env:

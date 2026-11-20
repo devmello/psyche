@@ -574,9 +574,12 @@ fn status(dirs: &Dirs, env: &dyn Env, as_json: bool) -> Result<String, String> {
         Source::Default => "defaults (no policy.json)".to_string(),
         Source::Invalid(why) => format!("INVALID, everything is denied ({why})"),
     };
-    let owner = match loaded.owner {
-        Owner::Root => "root",
-        Owner::User => "your account",
+    let owner = match crate::update::ceiling_owner(matches!(loaded.owner, Owner::Root)) {
+        ("root", _) => "root",
+        (_, Some(_)) if matches!(loaded.owner, Owner::Root) => {
+            "root (but the program or its service file can be changed by your account)"
+        }
+        _ => "your account",
     };
     let account = if env.get("PSYCHE_HELPER_ACCOUNT").as_deref() == Some("dedicated") {
         "dedicated"

@@ -6,29 +6,41 @@
 # rpm install) as `psyche-helper-setup`.
 #
 #   ./install.sh                       the helper runs as YOUR account (the default; at a terminal
-#                                        it asks once, --own-account skips the question)
+#                                        it asks once, --own-account skips the question). The
+#                                        program and its settings live in your home
 #   sudo ./install.sh --dedicated-user [NAME]
-#                                      the helper runs as its own account (default psyche-helper)
+#                                      the helper runs as its own account (default psyche-helper).
+#                                        The program is root's (/usr/local/lib/psyche-helper), its
+#                                        service file is root's (/etc/systemd/user) and so are the
+#                                        limits: that account can change none of them
 #   --ceiling default|narrow           the limits written on first install (default: default)
 #                                        default: its own screen, contained commands, files under ~
-#                                        narrow:  its own screen only, no commands, no files
+#                                        narrow:  apps only, no commands and no files
 #   --root-policy                      keep the limits in /etc/psyche-helper/policy.json, owned by
-#                                        root, so neither this account nor anything the helper
-#                                        starts can change them (one sudo write). Always so for
-#                                        --dedicated-user and for deb/rpm installs
+#                                        root (one sudo write). On an own-account tarball install
+#                                        the program still lives in your home, which your account
+#                                        can change, so Psyche shows the limits as changeable. Always
+#                                        root's for --dedicated-user and for deb/rpm installs
 #   --no-linger                        do not turn on linger (the helper then runs only while the
 #                                        account is logged in)
-#   --uninstall [--purge]              remove the unit and the helper (--purge: also its settings,
-#                                        and a dedicated account)
+#   --uninstall [--purge]              remove the helper (--purge: also its settings, and a
+#                                        dedicated account)
 #
 # Linger is the one step that needs an administrator: it lets the account's service manager start
-# at boot with nobody logged in, which is what keeps the helper reachable. Nothing else here does.
+# at boot with nobody logged in, which is what keeps the helper reachable.
+#
+# Whatever runs as root here touches only root-owned paths. Everything in an account's home is
+# written and removed by that account itself, so a link it planted there leads nowhere with root's
+# rights.
 set -euo pipefail
 
 NAME=psyche-helper
 UNIT=psyche-helper-remote.service
 SLICE=psyche-machine.slice
 PKG_LIB=/usr/lib/psyche-helper
+ROOT_LIB=/usr/local/lib/psyche-helper
+ROOT_BIN=/usr/local/bin/psyche-helper
+ROOT_UNITDIR=/etc/systemd/user
 ETC_POLICY=/etc/psyche-helper/policy.json
 
 say() { printf '%s\n' "$*"; }
@@ -84,7 +96,6 @@ else
   die "no helper found: run this from an unpacked psyche-helper tarball, or install the deb or rpm first"
 fi
 
-# --- who runs the helper ----------------------------------------------------------------------
 # At a terminal, with no choice made, ask once (design 6.5). Anywhere else the default is your account.
 if [ "$ASKED" = 0 ] && [ "$UNINSTALL" = 0 ] && [ "$(id -u)" != 0 ] && [ -t 0 ] && [ -t 1 ]; then
   printf 'Run the helper as your account (%s) [Y], or as a separate "%s" account [n]? ' "$(id -un)" "$NAME"
@@ -93,6 +104,7 @@ if [ "$ASKED" = 0 ] && [ "$UNINSTALL" = 0 ] && [ "$(id -u)" != 0 ] && [ -t 0 ] &
   ORIG_ARGS+=("$([ "$DEDICATED" = 1 ] && echo --dedicated-user || echo --own-account)")
 fi
 
+# --- who runs the helper ----------------------------------------------------------------------
 if [ "$DEDICATED" = 1 ]; then
   if [ "$(id -u)" != 0 ]; then
     command -v sudo >/dev/null || die "--dedicated-user needs root"
@@ -127,7 +139,8 @@ T_HOME="$(getent passwd "$T_USER" | cut -d: -f6)"
 case "$T_HOME" in *[[:space:]]*) die "a home directory with spaces is not supported: $T_HOME" ;; esac
 RUNDIR="/run/user/$T_UID"
 
-# Run a command as the target account with its service manager's environment.
+# Run a command AS the target account (never as root) with its service manager's environment.
+# Everything that reads or writes under its home goes through here.
 as_target() {
   if [ "$(id -un)" = "$T_USER" ]; then
     XDG_RUNTIME_DIR="$RUNDIR" DBUS_SESSION_BUS_ADDRESS="unix:path=$RUNDIR/bus" "$@"
@@ -136,15 +149,20 @@ as_target() {
       DBUS_SESSION_BUS_ADDRESS="unix:path=$RUNDIR/bus" "$@"
   fi
 }
-OWNER=()
-[ "$(id -u)" = 0 ] && OWNER=(-o "$T_USER" -g "$(id -gn "$T_USER")")
-# install(1) as the target account's files (root creating files for another account).
-put() { install "${OWNER[@]}" "$@"; }
 
 LIB="$T_HOME/.local/lib/$NAME"
 BIN="$T_HOME/.local/bin"
 UNITDIR="$T_HOME/.config/systemd/user"
 CFG="$T_HOME/.config/$NAME"
+
+# The own-account tarball keeps everything in the home; a dedicated account's program and unit are root's.
+if [ "$PAYLOAD" = package ]; then
+  EXEC_PATH=/usr/bin/psyche-helper
+elif [ "$DEDICATED" = 1 ]; then
+  EXEC_PATH="$ROOT_LIB/psyche-helper"
+else
+  EXEC_PATH="$LIB/psyche-helper"
+fi
 
 linger_on() {
   [ "$LINGER" = 1 ] || return 0
@@ -174,12 +192,17 @@ if [ "$UNINSTALL" = 1 ]; then
   if [ -S "$RUNDIR/bus" ]; then
     as_target systemctl --user disable --now "$UNIT" 2>/dev/null || true
   fi
-  rm -f "$UNITDIR/$UNIT" "$UNITDIR/$SLICE" "$UNITDIR/default.target.wants/$UNIT"
-  rm -f "$BIN/$NAME"
-  rm -rf "$LIB"
+  # Root's own files (a dedicated account's program and service file) ...
+  if [ "$DEDICATED" = 1 ]; then
+    rm -f "$ROOT_UNITDIR/$UNIT" "$ROOT_UNITDIR/$SLICE" "$ROOT_BIN"
+    rm -rf "$ROOT_LIB"
+  fi
+  # ... and the account's, removed by the account.
+  as_target rm -f "$UNITDIR/$UNIT" "$UNITDIR/$SLICE" "$UNITDIR/default.target.wants/$UNIT" "$BIN/$NAME" || warn "could not remove some of the account's files"
+  as_target rm -rf "$LIB" || warn "could not remove $LIB"
   if [ -S "$RUNDIR/bus" ]; then as_target systemctl --user daemon-reload 2>/dev/null || true; fi
   if [ "$PURGE" = 1 ]; then
-    rm -rf "$CFG" "$T_HOME/.local/state/$NAME"
+    as_target rm -rf "$CFG" "$T_HOME/.local/state/$NAME" || warn "could not remove the account's settings"
     if [ "$DEDICATED" = 1 ]; then
       loginctl disable-linger "$T_USER" 2>/dev/null || true
       loginctl terminate-user "$T_USER" 2>/dev/null || true
@@ -201,19 +224,29 @@ policy_source() {
   fi
 }
 
+# A directory that does not exist yet, made private. One that exists is left exactly as it is.
+mkdir_private() {
+  local d
+  for d in "$@"; do [ -d "$d" ] || install -d -m 0700 "$d"; done
+}
+
 POLICY_NOTE=""
 install_policy() {
   local src
   src="$(policy_source)"
-  [ -f "$src" ] || die "$src is missing"
+  if [ ! -f "$src" ] || [ -L "$src" ]; then die "$src is missing"; fi
   if [ -e "$ETC_POLICY" ]; then
     POLICY_NOTE="limits: $ETC_POLICY (root-owned, kept as it is)"
     return
   fi
   if [ "$DEDICATED" = 1 ] || [ "$ROOT_POLICY" = 1 ]; then
-    as_root install -d -m 0755 /etc/psyche-helper
+    as_root install -d -m 0755 -o root -g root /etc/psyche-helper
     as_root install -o root -g root -m 0644 "$src" "$ETC_POLICY"
-    POLICY_NOTE="limits: $ETC_POLICY, root-owned: the helper's account cannot change them"
+    if [ "$DEDICATED" = 1 ] || [ "$PAYLOAD" = package ]; then
+      POLICY_NOTE="limits: $ETC_POLICY, root-owned. The helper's account cannot change them, the program or its service file"
+    else
+      POLICY_NOTE="limits: $ETC_POLICY, root-owned. The program runs from your home, which this account can change, so Psyche still shows the limits as changeable"
+    fi
     return
   fi
   local user_file="$CFG/policy.json"
@@ -221,8 +254,8 @@ install_policy() {
     POLICY_NOTE="limits: $user_file (kept as it is). Your account can edit it, so Psyche shows it as changeable (use --root-policy to pin it)"
     return
   fi
-  put -d -m 0700 "$CFG"
-  put -m 0600 "$src" "$user_file"
+  mkdir_private "$T_HOME/.config" "$CFG"
+  install -m 0600 "$src" "$user_file"
   POLICY_NOTE="limits: $user_file ($CEILING). Your account can edit it, so Psyche shows it as changeable (use --root-policy to pin it)"
 }
 
@@ -232,24 +265,36 @@ if [ "$DEDICATED" = 1 ]; then
   linger_on
 fi
 
+render_unit() { # render_unit EXEC_PATH -> stdout
+  sed "s#^ExecStart=/usr/bin/psyche-helper #ExecStart=$1 #" "$SHARE/$UNIT"
+}
+
 if [ "$PAYLOAD" = tarball ]; then
-  put -d -m 0755 "$T_HOME/.local" "$T_HOME/.local/lib" "$LIB" "$BIN"
-  put -d -m 0755 "$T_HOME/.config" "$T_HOME/.config/systemd" "$UNITDIR"
-  tmp="$LIB/.psyche-helper.install"
-  put -m 0755 "$SELF_DIR/bin/psyche-helper" "$tmp"
-  mv -f "$tmp" "$LIB/psyche-helper"
-  ln -sfn "$LIB/psyche-helper" "$BIN/$NAME"
-  [ "$(id -u)" = 0 ] && chown -h "$T_USER:$(id -gn "$T_USER")" "$BIN/$NAME"
-  # The unit runs the copy under the account's home.
+  for f in "$SELF_DIR/bin/psyche-helper" "$SHARE/$UNIT" "$SHARE/$SLICE"; do
+    if [ ! -f "$f" ] || [ -L "$f" ]; then die "$f is not a regular file"; fi
+  done
   rendered="$(mktemp)"
-  sed "s#^ExecStart=/usr/bin/psyche-helper #ExecStart=$LIB/psyche-helper #" "$SHARE/$UNIT" >"$rendered"
-  grep -q "^ExecStart=$LIB/psyche-helper remote" "$rendered" || die "could not set the unit's ExecStart"
-  put -m 0644 "$rendered" "$UNITDIR/$UNIT"
+  render_unit "$EXEC_PATH" >"$rendered"
+  grep -q "^ExecStart=$EXEC_PATH remote" "$rendered" || die "could not set the unit's ExecStart"
+  if [ "$DEDICATED" = 1 ]; then
+    # Root-owned program and service file, written by root into root-owned places only.
+    install -d -m 0755 -o root -g root "$ROOT_LIB" "$ROOT_UNITDIR" /usr/local/bin
+    install -o root -g root -m 0755 "$SELF_DIR/bin/psyche-helper" "$ROOT_LIB/.psyche-helper.install"
+    mv -f "$ROOT_LIB/.psyche-helper.install" "$ROOT_LIB/psyche-helper"
+    ln -sfn "$ROOT_LIB/psyche-helper" "$ROOT_BIN"
+    install -o root -g root -m 0644 "$rendered" "$ROOT_UNITDIR/$UNIT"
+    install -o root -g root -m 0644 "$SHARE/$SLICE" "$ROOT_UNITDIR/$SLICE"
+  else
+    # Our own account, our own files: nothing here runs with more rights than the owner has.
+    mkdir_private "$T_HOME/.local" "$T_HOME/.local/lib" "$LIB" "$BIN" \
+      "$T_HOME/.config" "$T_HOME/.config/systemd" "$UNITDIR"
+    install -m 0755 "$SELF_DIR/bin/psyche-helper" "$LIB/.psyche-helper.install"
+    mv -f "$LIB/.psyche-helper.install" "$LIB/psyche-helper"
+    ln -sfn "$LIB/psyche-helper" "$BIN/$NAME"
+    install -m 0644 "$rendered" "$UNITDIR/$UNIT"
+    install -m 0644 "$SHARE/$SLICE" "$UNITDIR/$SLICE"
+  fi
   rm -f "$rendered"
-  put -m 0644 "$SHARE/$SLICE" "$UNITDIR/$SLICE"
-  EXEC_PATH="$LIB/psyche-helper"
-else
-  EXEC_PATH="/usr/bin/psyche-helper"
 fi
 
 install_policy
@@ -279,8 +324,10 @@ Next, on your Mac: Settings > Devices > Computers Psyche can use > Add. Then her
   $CTL start $UNIT
   $CTL status $UNIT
 EOF
-if [ "$PAYLOAD" = tarball ]; then
-  say "Update later with: $RUN_AS $EXEC_PATH update"
-else
+if [ "$PAYLOAD" = package ]; then
   say "Update with your package manager (apt, dnf)."
+elif [ "$DEDICATED" = 1 ]; then
+  say "Update later by unpacking the new release and running: sudo ./install.sh --dedicated-user $T_USER"
+else
+  say "Update later with: $EXEC_PATH update"
 fi
