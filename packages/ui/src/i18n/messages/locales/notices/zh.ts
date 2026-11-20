@@ -82,4 +82,7 @@ export const notices: Partial<Catalogue> = {
   "notice.machine.removed.title": "{name} 已自行移除",
   "notice.machine.removed.body":
     "它曾是 Psyche 可以使用的电脑。除非你重新添加，否则 Psyche 不会再使用它。",
+  "notice.machine.offline.title": "{name} 已离线",
+  "notice.machine.offline.body":
+    "有一个任务正在等待使用它，{name} 恢复后会继续。你也可以取消这个任务。",
 };

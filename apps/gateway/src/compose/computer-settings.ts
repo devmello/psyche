@@ -1,6 +1,6 @@
 import { chmodSync, mkdirSync, renameSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
-import { getSetting, setSetting } from "@psyche/db";
+import { getSetting, listMachines, type PsycheDb, setSetting } from "@psyche/db";
 import {
   type AppTier,
   BROWSER_APPS,
@@ -101,6 +101,174 @@ export function computerUseFile(
     merged[id] = effectiveTier(id, tier as AppTier).tier ?? "off";
   }
   return { version: 1, default: "ask", apps: merged, caps };
+}
+
+/**
+ * Per-machine tiers (wave H4, design 8.3): `computerUse.machineApps` is
+ * `{ [machineId]: [{id, name, tier}] }`, written by Settings → Computer use's machine picker and
+ * filled with each app the agent first uses on a machine (`noteMachineApp`, tier `ask`). A
+ * machine never inherits the Host's tiers or `permissions.policy`'s apps: an app the owner did
+ * not choose for that machine asks there. Tiers are lowered to the fixed caps when written
+ * (`normalizeMachineSetting`) and again when read, and the box's own `policy.json` ceiling is
+ * enforced by its helper at dispatch whatever the Gateway sends.
+ */
+export const COMPUTER_USE_MACHINE_APPS = "computerUse.machineApps";
+/**
+ * Settings → Computer use → Default computer for background work (design 8.2): `""` (or absent)
+ * for this computer, else a paired machine's id. Tasks and automations that name no computer run
+ * there; a chat turn always means the Host unless it names a machine.
+ */
+export const COMPUTER_USE_DEFAULT_MACHINE = "computerUse.defaultMachine";
+
+/** A machine id as a settings key: a plain id, never a dotted path or `__proto__`. */
+const MACHINE_KEY = /^[A-Za-z0-9_-]{1,64}$/;
+const MACHINE_ROW_TIERS = ["off", "read", "click", "interact", "ask"] as const;
+type MachineRowTier = (typeof MACHINE_ROW_TIERS)[number];
+const MAX_MACHINE_APPS = 500;
+
+/** One machine's tiers from `computerUse.machineApps`, each capped by the fixed caps. */
+export function machineAppTiers(value: unknown, machineId: string): Record<string, AppTier> {
+  if (!MACHINE_KEY.test(machineId) || machineId === "__proto__") return {};
+  if (typeof value !== "object" || value === null || Array.isArray(value)) return {};
+  if (!Object.hasOwn(value, machineId)) return {};
+  const rows = (value as Record<string, unknown>)[machineId];
+  const out: Record<string, AppTier> = {};
+  for (const [id, tier] of Object.entries(appTiersFrom(rows))) {
+    out[id] = effectiveTier(id, tier).tier ?? "off";
+  }
+  return out;
+}
+
+/**
+ * The file a machine's helper keeps as its `computer-use.json`: the owner's tiers for that machine
+ * only (never the Host's), capped, plus the fixed caps. Off → `default: "off"`.
+ */
+export function machineComputerUseFile(
+  enabled: unknown,
+  value: unknown,
+  machineId: string,
+): ComputerUseFile {
+  const caps = fixedCaps();
+  if (enabled !== true) return { version: 1, default: "off", apps: {}, caps };
+  return { version: 1, default: "ask", apps: machineAppTiers(value, machineId), caps };
+}
+
+/** `computerUse.defaultMachine` as a machine reference, or `undefined` for the Host. */
+export function defaultMachineFrom(value: unknown): string | undefined {
+  if (typeof value !== "string") return undefined;
+  const v = value.trim();
+  if (v === "" || v.toLowerCase() === "host") return undefined;
+  return v.slice(0, 64);
+}
+
+/** The ids of the paired machines (a revoked device's machine is not one). */
+function pairedMachineIds(db: PsycheDb): Set<string> {
+  return new Set(listMachines(db).map((m) => m.id));
+}
+
+const badSetting = (key: string, why: string): PsycheError =>
+  new PsycheError("invalid_params", `${key}: ${why}`, { details: { reason: "invalid_setting" } });
+
+/**
+ * Validates a write of `computerUse.machineApps` or `computerUse.defaultMachine`
+ * (`settings.set`) and returns the value to store; any other key comes back unchanged. Unknown
+ * machine ids and malformed rows are refused. A tier above an app's fixed cap is stored at the
+ * cap, so no client can raise a tier above what the owner's caps allow; the box's ceiling then
+ * applies on the box.
+ */
+export function normalizeMachineSetting(db: PsycheDb, key: string, value: unknown): unknown {
+  if (key === COMPUTER_USE_DEFAULT_MACHINE) {
+    if (value === null || value === undefined) return "";
+    if (typeof value !== "string") throw badSetting(key, "must be a machine id or empty");
+    const id = value.trim();
+    if (id === "") return "";
+    if (!pairedMachineIds(db).has(id)) throw badSetting(key, `no paired machine has the id ${id}`);
+    return id;
+  }
+  if (key !== COMPUTER_USE_MACHINE_APPS) return value;
+  if (value === null || value === undefined) return {};
+  if (typeof value !== "object" || Array.isArray(value)) {
+    throw badSetting(key, "must map machine ids to app lists");
+  }
+  const paired = pairedMachineIds(db);
+  const out: Record<string, { id: string; name: string; tier: MachineRowTier }[]> = {};
+  for (const [machineId, rows] of Object.entries(value)) {
+    if (!MACHINE_KEY.test(machineId) || !paired.has(machineId)) {
+      throw badSetting(key, `no paired machine has the id ${machineId.slice(0, 64)}`);
+    }
+    if (!Array.isArray(rows) || rows.length > MAX_MACHINE_APPS) {
+      throw badSetting(
+        key,
+        `the apps of ${machineId} must be a list of at most ${MAX_MACHINE_APPS}`,
+      );
+    }
+    const seen = new Set<string>();
+    const list: { id: string; name: string; tier: MachineRowTier }[] = [];
+    for (const row of rows) {
+      const r = row as { id?: unknown; name?: unknown; tier?: unknown } | null;
+      if (typeof r?.id !== "string" || r.id.length > 200 || !BUNDLE_ID.test(r.id)) {
+        throw badSetting(key, "an app id is not valid");
+      }
+      if (!MACHINE_ROW_TIERS.includes(r.tier as MachineRowTier)) {
+        throw badSetting(key, `${r.id} has no valid tier`);
+      }
+      const lower = r.id.toLowerCase();
+      if (seen.has(lower)) continue;
+      seen.add(lower);
+      const asked = r.tier as MachineRowTier;
+      // Never above the fixed cap: a client cannot raise a browser to interact or a password
+      // manager above off, whatever it writes.
+      const tier: MachineRowTier =
+        asked === "ask"
+          ? effectiveTier(r.id, undefined).tier === "off"
+            ? "off"
+            : "ask"
+          : (effectiveTier(r.id, asked).tier ?? "off");
+      const name =
+        typeof r.name === "string" && r.name.trim() !== ""
+          ? r.name.trim().slice(0, 200)
+          : displayName(r.id);
+      list.push({ id: r.id, name, tier });
+    }
+    out[machineId] = list;
+  }
+  return out;
+}
+
+/**
+ * The agent used an app on a machine: list it under that machine in `computerUse.machineApps` as
+ * `ask` the first time, so the owner can choose its tier there. Widens nothing. Returns the new
+ * entry, or `undefined` when nothing changed.
+ */
+export function noteMachineApp(
+  db: PsycheDb,
+  machineId: string,
+  appId: string,
+  name?: string,
+): ReturnType<typeof setSetting> | undefined {
+  if (!MACHINE_KEY.test(machineId) || machineId === "__proto__") return undefined;
+  if (!BUNDLE_ID.test(appId) || appId.length > 200) return undefined;
+  if (!pairedMachineIds(db).has(machineId)) return undefined;
+  const raw = getSetting(db, COMPUTER_USE_MACHINE_APPS)?.value;
+  const all: Record<string, unknown> =
+    typeof raw === "object" && raw !== null && !Array.isArray(raw) ? { ...raw } : {};
+  const rows =
+    Object.hasOwn(all, machineId) && Array.isArray(all[machineId])
+      ? [...(all[machineId] as unknown[])]
+      : [];
+  const known = rows.some(
+    (r) =>
+      typeof (r as { id?: unknown })?.id === "string" &&
+      (r as { id: string }).id.toLowerCase() === appId.toLowerCase(),
+  );
+  if (known || rows.length >= MAX_MACHINE_APPS) return undefined;
+  rows.push({
+    id: appId,
+    name: name === undefined || name.trim() === "" ? displayName(appId) : name.trim().slice(0, 200),
+    tier: effectiveTier(appId, undefined).tier === "off" ? "off" : "ask",
+  });
+  all[machineId] = rows;
+  return setSetting(db, COMPUTER_USE_MACHINE_APPS, all);
 }
 
 export function computerUsePath(home: string): string {

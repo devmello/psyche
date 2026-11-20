@@ -35,7 +35,15 @@ import {
 } from "@psyche/protocol";
 import { venueOfHost } from "@psyche/protocol/financial-block";
 import { monotonicFactory } from "ulid";
-import { type Binding, bindingFor, bindingHash, grantKeyHash, readsCwdConfig } from "./binding.ts";
+import {
+  type Binding,
+  bindingFor,
+  bindingHash,
+  grantKeyHash,
+  MACHINE_CARD_KINDS,
+  machineRefOf,
+  readsCwdConfig,
+} from "./binding.ts";
 import { cardHeader, cardTaintSources, sanitizeDetails, sanitizeDisplay } from "./cards.ts";
 import {
   CHANNEL_PAIRING_WINDOW_MS,
@@ -1793,6 +1801,10 @@ export class PsychePermissionBroker implements PermissionBroker {
       grantId: null,
     };
     approval.sideEffect = se;
+    // The machine the card is about (wave H4): only on the kinds that can run on one, and only a
+    // well-formed reference, so a card never names a computer it is not for.
+    const machine = MACHINE_CARD_KINDS.has(input.kind) ? machineRefOf(input.machine) : undefined;
+    if (machine !== undefined) approval.machine = machine;
     // Keyed on the decision that asked (its rule), never on a label the ask path does not carry.
     approval.riskClass = riskClassFor({
       kind: input.kind,
