@@ -267,7 +267,10 @@ describe.skipIf(!REAL)("a real separate desktop", () => {
     // Apps keep their profile in the workspace: HOME is /workspace, not the host user's home.
     expect(exec("echo $HOME").out.trim()).toBe("/workspace");
     expect(exec("echo $XDG_DATA_DIRS:$XDG_CONFIG_DIRS").out.trim()).toBe("/usr/share:/etc/xdg");
-    expect(exec("grep CapEff /proc/self/status").out).toMatch(/CapEff:\s*0+$/m);
+    // Only CAP_SYS_CHROOT (bit 18, 0x40000) is left, for Firefox's content sandbox.
+    expect(exec("grep -E 'CapEff|CapBnd' /proc/self/status").out).toMatch(
+      /CapEff:\s*0*(40000)?\nCapBnd:\s*0*40000$/m,
+    );
     expect(exec("ls /sys/class/net").out.trim()).toBe("lo");
     expect(exec("test -e /home/dev && echo yes || echo no").out.trim()).toBe("no");
     expect(exec("touch /etc/psyche-test").code).not.toBe(0);
