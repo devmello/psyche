@@ -175,7 +175,7 @@ psyche-helper pair '<psyche-machine:v1:…>'           # pin the Gateway, pair w
 psyche-helper pair wss://studio-mac.tailnet.ts.net   # no link: show the Gateway's fingerprint and a code
 psyche-helper remote                                 # serve (what the unit runs)
 psyche-helper status                                 # Gateway, fingerprint, connection, display, policy, account
-psyche-helper unpair                                 # devices.revokeSelf if reachable, then wipe the key
+psyche-helper unpair                                 # node.unpair if reachable, then wipe the key
 psyche-helper update                                 # verified update (H7)
 ```
 

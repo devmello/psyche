@@ -518,12 +518,7 @@ fn unpair(dirs: &Dirs, env: &dyn Env) -> Result<(), String> {
                 attempt(&target, identity, &config.machine_name, caps, &pins, None)
             {
                 removed_on_gateway = session
-                    .request(
-                        "unpair",
-                        "devices.revokeSelf",
-                        &json!({}),
-                        Duration::from_secs(5),
-                    )
+                    .request("unpair", "node.unpair", &json!({}), Duration::from_secs(5))
                     .is_ok();
                 session.link.close();
             }
@@ -893,7 +888,12 @@ mod tests {
         assert!(gateway
             .frames()
             .iter()
-            .any(|f| f["method"] == "devices.revokeSelf"));
+            .any(|f| f["method"] == "node.unpair"));
+        // `devices.revokeSelf` needs a scope a machine does not have; it is never called.
+        assert!(gateway
+            .frames()
+            .iter()
+            .all(|f| f["method"] != "devices.revokeSelf"));
         assert!(config::load(&fx.dirs().config).unwrap().is_none());
         assert!(!fx.dirs().state.join(REMOTE_IDENTITY_FILE).exists());
 
