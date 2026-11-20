@@ -397,9 +397,25 @@ impl Policy {
     /// engine names it. Both sides go through `app_id::normalize` first (trim, Unicode lowercase,
     /// no `.desktop`), so the gate and the engine agree on which app is meant.
     pub fn app_permitted(&self, id: &str) -> bool {
+        !self.deny_listed(id) && self.allow_listed(id)
+    }
+
+    /// Whether `apps.deny` names this id (normalised on both sides).
+    pub fn deny_listed(&self, id: &str) -> bool {
         let id = normalize(id);
-        let hit = |p: &String| glob_match(&normalize(p), &id);
-        !self.apps.deny.iter().any(hit) && self.apps.allow.iter().any(hit)
+        self.apps
+            .deny
+            .iter()
+            .any(|p| glob_match(&normalize(p), &id))
+    }
+
+    /// Whether `apps.allow` names this id (normalised on both sides).
+    pub fn allow_listed(&self, id: &str) -> bool {
+        let id = normalize(id);
+        self.apps
+            .allow
+            .iter()
+            .any(|p| glob_match(&normalize(p), &id))
     }
 
     /// The same for a call that names no app: it is as permitted as the empty id, so `*` and

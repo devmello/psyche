@@ -29,6 +29,24 @@ pub fn normalize(id: &str) -> String {
     lower.strip_suffix(".desktop").unwrap_or(&lower).to_string()
 }
 
+/// The app id in a Flatpak's `/.flatpak-info` (`[Application]` group, `name=`): what a process
+/// inside a Flatpak sandbox is, whatever scope launched it.
+pub fn flatpak_app_name(info: &str) -> Option<String> {
+    let mut in_app = false;
+    for line in info.lines() {
+        let line = line.trim();
+        if line.starts_with('[') {
+            in_app = line == "[Application]";
+        } else if in_app {
+            if let Some(name) = line.strip_prefix("name=") {
+                let name = name.trim();
+                return is_app_id(name).then(|| normalize(name));
+            }
+        }
+    }
+    None
+}
+
 /// Whether `query` looks like an app id (as opposed to a free-form display name or a path).
 pub fn is_app_id(query: &str) -> bool {
     let q = query.trim();
@@ -947,5 +965,23 @@ mod tests {
         assert!(!is_app_id("Text Editor"));
         assert!(!is_app_id(""));
         assert!(!is_app_id("-rf"));
+    }
+}
+
+#[cfg(test)]
+mod flatpak_tests {
+    use super::*;
+
+    #[test]
+    fn the_flatpak_name_is_read_from_the_application_group_only() {
+        let info =
+            "[Application]\nname=org.keepassxc.KeePassXC\nruntime=x\n\n[Instance]\nname=other\n";
+        assert_eq!(
+            flatpak_app_name(info).as_deref(),
+            Some("org.keepassxc.keepassxc")
+        );
+        assert_eq!(flatpak_app_name("[Instance]\nname=a.b\n"), None);
+        assert_eq!(flatpak_app_name("[Application]\nname=../x y\n"), None);
+        assert_eq!(flatpak_app_name(""), None);
     }
 }

@@ -802,8 +802,8 @@ impl<B: Backend> Engine<B> {
                     code::POLICY_DENIED,
                     "app_mismatch",
                     format!(
-                        "The point is in {}, not {named}: {} covers {named} there. Bring {named} forward with apps.focus first, then click again",
-                        app.name, app.name
+                        "The point is in {}, not {named}. If {named} is behind it, bring {named} forward with apps.focus first.",
+                        app.name
                     ),
                 )
                 .detail("app", named)
