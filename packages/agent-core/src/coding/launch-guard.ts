@@ -12,11 +12,18 @@ import {
   realpath,
   rename,
   rm,
+  stat,
   symlink,
   writeFile,
 } from "node:fs/promises";
 import { dirname, isAbsolute, join, relative, sep } from "node:path";
-import { findLaunchConfig, type LaunchConfigScan } from "@psyche/hostfs";
+import {
+  findLaunchConfig,
+  type LaunchConfigScan,
+  type PinRetry,
+  SWAP_TRIES,
+  withPinned,
+} from "@psyche/hostfs";
 import { PsycheError, type SandboxMount } from "@psyche/protocol";
 
 /**
@@ -55,6 +62,8 @@ const GIT_RUNS_FROM = ["config", "hooks", "info", "commondir", "gitdir"];
 const QUARANTINE_ID = /^[0-9]{13}-[0-9a-f]{8}$/;
 /** Claude Code's folder: mounted read-only whole, so its worktrees' settings are covered too. */
 const CLAUDE_DIR = ".claude";
+/** Walks again after the run, at most, while a folder in it is still swapped. */
+const SWAP_RESCANS = 2;
 /** Rounds of making unlistable folders listable again (each one level deeper) at most. */
 const MAX_UNHIDE_ROUNDS = 16;
 /** Folders and files inside one entry given back their owner's bits at most, for a copy. */
@@ -96,7 +105,44 @@ export interface LaunchConfigReport {
   relinked: string[];
   /** The repository was too large to walk: only its top levels were checked. */
   partial: boolean;
+  /**
+   * Folders that changed every time the guard read them after the run (swapped for a link, or
+   * made again, #1469 review r4): nothing in them was checked, and nothing in them is listed
+   * above as changed or gone.
+   */
+  unchecked?: string[];
+  /**
+   * Entries in `unmoved` that were moved into the quarantine but whose record could not be
+   * written, with where they are held (#1469 review r1: a field, never part of the path).
+   */
+  heldIn?: Record<string, string>;
+  /**
+   * What the agent may be told (#1469 review r1): the same lists, with every name the guard
+   * could not tell was the repository's (read through a folder swapped for a link) replaced by
+   * the deepest folder above it that it could. The owner's notices use the raw lists above.
+   */
+  agent?: AgentLaunchConfigView;
 }
+
+export interface AgentLaunchConfigView {
+  quarantined: string[];
+  changed: string[];
+  unmoved: string[];
+  /** Always empty: a move that brought in something else is said as not moved (#1469 r3). */
+  incidents: string[];
+  /** Whether any name was replaced by a folder above it (never how many: #1469 review r2). */
+  withheld: boolean;
+  /**
+   * The top-most folders that changed while the guard read them, even once (#1469 reviews r3 and
+   * r4): nothing at or below them is in the lists above, whatever was there.
+   */
+  swapped: string[];
+  /** Whether only the top levels were checked; unset once a folder was swapped. */
+  partial?: boolean;
+}
+
+/** Fixed names the guard itself appends below a folder (never names read from disk). */
+const GUARD_NAMES = new Set([...GIT_RUNS_FROM, ...GIT_WATCHED, ".git"]);
 
 export interface LaunchConfigGuard {
   /** Read-only mounts for the existing launch-config folders, `.claude` and nested `.git`s. */
@@ -127,6 +173,56 @@ export async function guardLaunchConfig(
   mountRoot: string,
   options: LaunchGuardOptions,
 ): Promise<LaunchConfigGuard> {
+  // A folder that changed while the snapshot read it, even read again, refuses the run; the
+  // snapshot is taken once more first (#1469 review r4, finding 3), so a build that makes `dist`
+  // again in that moment does not cost the owner a run.
+  let snap = await snapshot(root, options);
+  if (snap.moved > 0) snap = await snapshot(root, options);
+  const { scan, partial, limits, claude, readOnly, beforePins, before, moved } = snap;
+  if (moved > 0) {
+    throw new PsycheError(
+      "forbidden",
+      `${moved} folder${moved === 1 ? "" : "s"} in ${root} changed while code.run checked them, so nothing ran. Run it again.`,
+      { details: { reason: "launch_config_moved", count: moved } },
+    );
+  }
+  // Who each read-only folder is (#1438 reviews r1 and r2): a read-only mount moves with its
+  // folder when the run renames the folder above it, so the same path can hold something new
+  // afterwards, and the owner's original can turn up under another name. Only these folders,
+  // whose contents the run cannot change, exempt a new path: a file the run moved or linked
+  // elsewhere can carry new content, so it is held like anything new.
+  const ids: Identities = {
+    mounted: new Map(),
+    originals: new Set(),
+    hidden: new Map(),
+    beforePins,
+  };
+  // Folders already unlistable before the run are left as they are, but watched.
+  for (const { rel } of scan.unreadable ?? []) {
+    const st = await lstat(join(root, rel), { bigint: true }).catch(() => undefined);
+    if (st !== undefined) ids.hidden.set(rel, stamp(st));
+  }
+  for (const rel of readOnly) {
+    const st = await lstat(join(root, rel), { bigint: true }).catch(() => undefined);
+    if (st === undefined) continue;
+    const git = rel === ".git" || rel.endsWith("/.git");
+    // Who the snapshot pinned, where it pinned the folder: the identity taken while it was read.
+    const id = beforePins[rel] ?? idOf(st);
+    ids.mounted.set(rel, { id, git });
+    ids.originals.add(id);
+  }
+  return {
+    mounts: readOnly.map((rel) => ({
+      source: join(root, rel),
+      target: `${mountRoot}/${rel}`,
+      readOnly: true,
+    })),
+    settle: () => settle(root, scan, claude, ids, before, limits, partial, options),
+  };
+}
+
+/** What the launch config under `root` is before the run, and how many folders changed meanwhile. */
+async function snapshot(root: string, options: LaunchGuardOptions) {
   const full: Limits = { ...FULL, maxDirs: options.maxDirs ?? FULL.maxDirs };
   let scan = await findLaunchConfig(root, full);
   const partial = !scan.complete;
@@ -147,33 +243,26 @@ export async function guardLaunchConfig(
       { details: { reason: "launch_config_too_many", count: readOnly.length } },
     );
   }
-  const before = await prints(root, scan, claude.kind === "link");
-  // Who each read-only folder is (#1438 reviews r1 and r2): a read-only mount moves with its
-  // folder when the run renames the folder above it, so the same path can hold something new
-  // afterwards, and the owner's original can turn up under another name. Only these folders,
-  // whose contents the run cannot change, exempt a new path: a file the run moved or linked
-  // elsewhere can carry new content, so it is held like anything new.
-  const ids: Identities = { mounted: new Map(), originals: new Set(), hidden: new Map() };
-  // Folders already unlistable before the run are left as they are, but watched.
-  for (const { rel } of scan.unreadable ?? []) {
-    const st = await lstat(join(root, rel), { bigint: true }).catch(() => undefined);
-    if (st !== undefined) ids.hidden.set(rel, stamp(st));
-  }
-  for (const rel of readOnly) {
-    const st = await lstat(join(root, rel), { bigint: true }).catch(() => undefined);
-    if (st === undefined) continue;
-    const git = rel === ".git" || rel.endsWith("/.git");
-    ids.mounted.set(rel, { id: idOf(st), git });
-    ids.originals.add(idOf(st));
-  }
-  return {
-    mounts: readOnly.map((rel) => ({
-      source: join(root, rel),
-      target: `${mountRoot}/${rel}`,
-      readOnly: true,
-    })),
-    settle: () => settle(root, scan, claude, ids, before, limits, partial, options),
-  };
+  // Who each folder the snapshot listed was (#1469 review r1, finding 2): a process left from an
+  // earlier run can swap a folder for a link while it is taken.
+  const beforePins: Record<string, string> = { ...(scan.folders ?? {}) };
+  const retry: PinRetry = { tries: SWAP_TRIES, seen: new Set() };
+  const before = await prints(root, scan, claudeTarget(claude), beforePins, retry);
+  // Every read-only mount source must be named through listings that were the repository's:
+  // one read through a folder swapped for a link may be a name from elsewhere, and the sandbox
+  // names a mount source it refuses. Refused here instead, saying how many, never which. (One
+  // whose folder is a link now is refused by the sandbox, by its name, which is the root's.)
+  const named = agentNames([beforePins], () => false);
+  // And each must be the folder the snapshot pinned (#1469 review r2): one swapped while it was
+  // read would leave the guard holding the wrong identity for it. Nothing in a folder still
+  // swapped after it was read again was walked (#1469 review r3), so what is in it is neither
+  // mounted read-only nor known: refused too, whatever it is.
+  const swappedBefore = topOf(swappedIn(beforePins), claude);
+  const moved = new Set([
+    ...readOnly.filter((rel) => !named.valid(rel) || below(rel, swappedBefore)),
+    ...swappedBefore,
+  ]).size;
+  return { scan, partial, limits, claude, readOnly, beforePins, before, moved };
 }
 
 interface Identities {
@@ -183,6 +272,8 @@ interface Identities {
   originals: Set<string>;
   /** Folders the walk could not list before the run, with their `stamp`. */
   hidden: Map<string, string>;
+  /** Who each folder the before-run snapshot listed was (`""`: swapped meanwhile). */
+  beforePins: Record<string, string>;
 }
 
 const idOf = (st: BigIntStats) => `${st.dev}:${st.ino}`;
@@ -210,6 +301,8 @@ interface ClaudeFolder {
   /** Where a link resolved before the run, and what was there (dev:ino); unset when dangling. */
   real?: string;
   targetId?: string;
+  /** A link that led to a folder before the run. */
+  toDir?: true;
 }
 
 async function claudeFolder(root: string): Promise<ClaudeFolder> {
@@ -231,8 +324,8 @@ async function claudeFolder(root: string): Promise<ClaudeFolder> {
   const rel = relative(root, real);
   const inside = rel !== "" && !rel.startsWith("..") && !isAbsolute(rel);
   return inside
-    ? { kind: "link", mount: rel.split(sep).join("/"), linkText, ...resolved }
-    : { kind: "link", linkText, ...resolved };
+    ? { kind: "link", mount: rel.split(sep).join("/"), linkText, ...resolved, toDir: true }
+    : { kind: "link", linkText, ...resolved, toDir: true };
 }
 
 /** Where `path` resolves and who is there (dev:ino); both unset when nothing is. */
@@ -272,8 +365,18 @@ async function settle(
     partial,
   };
   let now: LaunchConfigScan;
+  // Who each folder the last walk after the run read was, which every later look is pinned to.
+  let listed: Record<string, string> = {};
+  // Every folder any walk or look after the run found changed while it read it, even once: the
+  // agent is told nothing at or below one (#1469 reviews r3 and r4).
+  const retry: PinRetry = { tries: SWAP_TRIES, seen: new Set() };
+  const note = (scan: LaunchConfigScan) => {
+    listed = { ...(scan.folders ?? {}) };
+    for (const rel of scan.swapped ?? []) retry.seen.add(rel);
+  };
   try {
     now = await findLaunchConfig(root, limits);
+    note(now);
   } catch {
     report.unmoved.push(".");
     return report;
@@ -289,7 +392,10 @@ async function settle(
     const hidden = (now.unreadable ?? []).filter(
       (u) => !hiddenBefore.has(u.rel) && !tried.has(u.rel),
     );
-    if (hidden.length === 0) break;
+    // A folder still swapped after it was read again is walked again, a few times at most
+    // (#1469 review r4): a swap out and back must not leave what the run made in it unseen.
+    const swappedNow = round < SWAP_RESCANS && swappedIn(listed).length > 0;
+    if (hidden.length === 0 && !swappedNow) break;
     for (const { rel, id } of hidden) {
       tried.add(rel);
       try {
@@ -304,11 +410,14 @@ async function settle(
     }
     try {
       now = await findLaunchConfig(root, limits);
+      note(now);
     } catch {
       report.unmoved.push(".");
       return report;
     }
   }
+  // Still swapped after every walk: nothing in them was walked, so nothing in them is known.
+  const unwalked = swappedIn(listed);
   for (const { rel } of now.unreadable ?? []) if (!hiddenBefore.has(rel)) failed.add(rel);
   // One unlistable before the run that changed during it may hold what the run made there.
   for (const [rel, was] of ids.hidden) {
@@ -326,16 +435,27 @@ async function settle(
   const claudeBefore = claude.kind !== "none";
   const claudeNow = !claudeBefore && (await lstat(join(root, CLAUDE_DIR)).catch(() => undefined));
   const fresh: string[] = claudeNow ? [CLAUDE_DIR] : [];
+  // Each look whose answer can reach the agent is taken inside a pin of its folder (#1469 review
+  // r3): one through a folder swapped for a link meanwhile is dropped, and the folder is noted.
+  const within = <T>(dir: string, inner: () => Promise<T>) =>
+    withPinned(dir === "." ? root : join(root, dir), dir, listed, root, inner, retry).catch(
+      () => undefined,
+    );
   const gitRunsFrom = async (rel: string) => {
-    for (const name of GIT_RUNS_FROM) {
-      if (await lstat(join(root, rel, name)).catch(() => undefined)) fresh.push(`${rel}/${name}`);
-    }
+    const there = await within(rel, async () => {
+      const out: string[] = [];
+      for (const name of GIT_RUNS_FROM) {
+        if (await lstat(join(root, rel, name)).catch(() => undefined)) out.push(`${rel}/${name}`);
+      }
+      return out;
+    });
+    fresh.push(...(there ?? []));
   };
   // A read-only folder whose path now holds something else: its folder was renamed during the
   // run and this was made in its place. It counts as new.
   const replacedMounts = new Set<string>();
   for (const [rel, m] of ids.mounted) {
-    const id = await identity(join(root, rel));
+    const id = await within(parentOf(rel), () => identity(join(root, rel)));
     if (id === undefined || id === m.id) continue;
     replacedMounts.add(rel);
     if (m.git) await gitRunsFrom(rel);
@@ -434,7 +554,8 @@ async function settle(
         await writeRecord(held, { root, entries: report.quarantined, incidents, links });
       } catch {
         // Without its record Keep it cannot find them: say so rather than hold them silently.
-        report.unmoved.push(...report.quarantined.map((rel) => `${rel} (held in ${held})`));
+        report.unmoved.push(...report.quarantined);
+        report.heldIn = Object.fromEntries(report.quarantined.map((rel) => [rel, held]));
       }
     }
   }
@@ -456,17 +577,133 @@ async function settle(
   const after = await prints(
     root,
     { found: now.found.filter((f) => known.has(f.rel) || f.git === true), complete: true },
-    claude.kind === "link",
+    claudeTarget(claude),
+    listed,
+    retry,
   );
+  // Folders the guard never read cleanly after the run, even read again (#1469 review r4): the
+  // owner is told so, in their own field, and nothing in them is said to be changed or gone.
+  const unchecked = topOf([...unwalked, ...swappedIn(listed)], claude);
+  if (unchecked.length > 0) report.unchecked = unchecked;
   const keys = new Set([...before.keys(), ...after.keys()]);
   for (const key of [...keys].sort()) {
+    if (below(key, unchecked)) continue;
     const was = before.get(key);
     const is = after.get(key);
     if (was === is || noise(key, was, is)) continue;
     report.changed.push(key);
     report.fingerprints[key] = is?.split("\0in:")[0] ?? "gone";
   }
+  // The agent hears only that a folder changed while the guard read it, even when it was read
+  // again cleanly: what was read of it before may have been a folder outside.
+  const swapped = topOf(
+    [...retry.seen, ...unwalked, ...swappedIn(listed), ...swappedIn(ids.beforePins)],
+    claude,
+  );
+  report.agent = agentLists(report, [ids.beforePins, listed], swapped);
   return report;
+}
+
+/**
+ * What the agent is told (#1457 and #1469 reviews r1 to r4). The owner's lists stay raw.
+ * - Only names read through listings that were the repository's, in every snapshot that read
+ *   them (`agentNames`).
+ * - Nothing at or below a folder swapped for a link while a snapshot read it: what the guard
+ *   found there, or found missing, locked or a repository, would tell the agent about a folder
+ *   outside. Those folders are said as `swapped` instead, which depends on the swap alone.
+ * - A move that brought in something else (an incident) is said as not moved: whether there was
+ *   anything to bring in is outside too.
+ * - Whether the walk was partial is not said once a swap was seen.
+ */
+function agentLists(
+  report: LaunchConfigReport,
+  pins: readonly Record<string, string>[],
+  swapped: readonly string[],
+): AgentLaunchConfigView {
+  const names = agentNames(pins, () => false);
+  const keep = (list: readonly string[]) => list.filter((p) => !below(p, swapped));
+  const incidents = new Set(report.incidents);
+  const view: AgentLaunchConfigView = {
+    quarantined: names.list(keep(report.quarantined.filter((p) => !incidents.has(p)))),
+    changed: names.list(keep(report.changed)),
+    unmoved: names.list(keep([...report.unmoved, ...report.incidents])),
+    incidents: [],
+    withheld: names.withheld() > 0,
+    swapped: [...new Set(swapped.map(names.deepest))],
+  };
+  if (swapped.length === 0) view.partial = report.partial;
+  return view;
+}
+
+const parentOf = (p: string) => (p.includes("/") ? p.slice(0, p.lastIndexOf("/")) : ".");
+
+/** Whether `p` is one of `folders` or inside one. */
+function below(p: string, folders: readonly string[]): boolean {
+  return folders.some((f) => f === "." || p === f || p.startsWith(`${f}/`));
+}
+
+/** The folders a map notes `""`: still swapped when last read. */
+function swappedIn(pins: Record<string, string>): string[] {
+  return Object.entries(pins)
+    .filter(([, id]) => id === "")
+    .map(([rel]) => rel);
+}
+
+/**
+ * `folders` without those inside another. A `.claude` link is never one: its pin is `""` whenever
+ * it no longer leads to the folder it led to (its target made again, or gone), which its own
+ * checks judge (held, linked again or kept); only the names behind it are dropped then
+ * (`agentNames`).
+ */
+function topOf(folders: Iterable<string>, claude: ClaudeFolder): string[] {
+  const each = [...new Set(folders)].filter(
+    (rel) => !(rel === CLAUDE_DIR && claude.kind === "link"),
+  );
+  return each.filter((rel) => rel === "." || !below(parentOf(rel), each)).sort();
+}
+
+/**
+ * Which names the agent may be told (#1457 and #1469 reviews r1). A folder above a path swapped
+ * for a link while a snapshot listed it makes it read a folder outside the repository, whose
+ * names would reach the agent's tool result. A name is the repository's when every snapshot
+ * that listed its folder noted that folder as the one it listed (`listPinned`), or, in a folder
+ * none listed, when it is a name the guard itself appends (a `.git`'s `config`, `hooks`...);
+ * and so is the folder's own name, up to the root. `trusted` names are the repository's as they
+ * are. Any other is replaced by the deepest folder above it that is.
+ */
+function agentNames(pins: readonly Record<string, string>[], trusted: (path: string) => boolean) {
+  const memo = new Map<string, boolean>();
+  let withheld = 0;
+  const valid = (p: string): boolean => {
+    if (p === "." || trusted(p)) return true;
+    const known = memo.get(p);
+    if (known !== undefined) return known;
+    const parent = parentOf(p);
+    const listed = pins.filter((m) => m[parent] !== undefined);
+    const ok =
+      (listed.length > 0
+        ? listed.every((m) => m[parent] !== "")
+        : GUARD_NAMES.has(p.slice(parent === "." ? 0 : parent.length + 1))) && valid(parent);
+    memo.set(p, ok);
+    return ok;
+  };
+  /** `p`, or the deepest folder above it whose name is the repository's. */
+  const deepest = (p: string): string => {
+    let at = p;
+    while (at !== "." && !valid(at)) at = parentOf(at);
+    return at;
+  };
+  const name = (p: string): string => {
+    if (valid(p)) return p;
+    withheld++;
+    return deepest(p);
+  };
+  return {
+    valid,
+    deepest,
+    list: (paths: readonly string[]) => [...new Set(paths.map(name))],
+    withheld: () => withheld,
+  };
 }
 
 /**
@@ -490,44 +727,71 @@ function noise(key: string, ...prints: (string | undefined)[]): boolean {
 async function prints(
   root: string,
   scan: LaunchConfigScan,
-  claudeLink = false,
+  claudeLink: string | undefined,
+  pins: Record<string, string>,
+  retry: PinRetry,
 ): Promise<Map<string, string>> {
   const out = new Map<string, string>();
-  const one = async (rel: string, folder?: string) => {
+  // Every look is taken inside a pin of the folder it looks in (#1469 reviews r1 and r3): one
+  // through a folder swapped for a link meanwhile is dropped, and the folder is noted `""`.
+  const within = <T>(dir: string, inner: () => Promise<T>) =>
+    withPinned(dir === "." ? root : join(root, dir), dir, pins, root, inner, retry).catch(
+      () => undefined,
+    );
+  const read = async (rel: string) => {
     const st = await lstat(join(root, rel), { bigint: true }).catch(() => undefined);
-    if (st === undefined) return undefined;
-    const p = await print(join(root, rel), st);
+    return st === undefined ? undefined : { st, p: await print(join(root, rel), st) };
+  };
+  const set = (rel: string, p: string, folder?: string) =>
     out.set(rel, folder === undefined ? p : `${p}\0in:${folder}`);
-    return st;
+  const one = async (rel: string) => {
+    const got = await within(parentOf(rel), () => read(rel));
+    if (got !== undefined) set(rel, got.p);
   };
   const walk = async (rel: string, folder?: string) => {
     let budget = MAX_PRINTS_PER_FOLDER;
     const queue = [rel];
     while (queue.length > 0 && budget > 0) {
       const dir = queue.shift() as string;
-      let entries: Dirent[];
-      try {
-        entries = await readdir(join(root, dir), { withFileTypes: true });
-      } catch {
-        continue;
-      }
-      for (const d of entries) {
-        if (--budget < 0) break;
-        const child = `${dir}/${d.name}`;
-        if (d.isDirectory()) queue.push(child);
-        else await one(child, folder);
-      }
+      // Kept only when the folder was the repository's throughout, so a folder outside never
+      // spends the budget either.
+      const got = await within(dir, async () => {
+        const files: [string, string][] = [];
+        const dirs: string[] = [];
+        let seen = 0;
+        for (const d of await readdir(join(root, dir), { withFileTypes: true })) {
+          if (seen++ >= budget) break;
+          const child = `${dir}/${d.name}`;
+          if (d.isDirectory()) {
+            dirs.push(child);
+            continue;
+          }
+          const r = await read(child);
+          if (r !== undefined) files.push([child, r.p]);
+        }
+        return { files, dirs, seen };
+      });
+      if (got === undefined) continue;
+      budget -= got.seen;
+      for (const [child, p] of got.files) set(child, p, folder);
+      queue.push(...got.dirs);
     }
   };
   const gitFolder = async (git: string) => {
-    for (const name of GIT_WATCHED) {
-      const rel = `${git}/${name}`;
-      const st = await one(rel);
-      if (st?.isDirectory() === true) {
-        out.delete(rel);
-        await walk(rel);
+    const got = await within(git, async () => {
+      const files: [string, string][] = [];
+      const dirs: string[] = [];
+      for (const name of GIT_WATCHED) {
+        const rel = `${git}/${name}`;
+        const r = await read(rel);
+        if (r?.st.isDirectory() === true) dirs.push(rel);
+        else if (r !== undefined) files.push([rel, r.p]);
       }
-    }
+      return { files, dirs };
+    });
+    if (got === undefined) return;
+    for (const [rel, p] of got.files) set(rel, p);
+    for (const rel of got.dirs) await walk(rel);
   };
   for (const f of scan.found) {
     if (f.git === true) {
@@ -541,13 +805,32 @@ async function prints(
     }
   }
   if (await isRealDir(join(root, ".git"))) await gitFolder(".git");
-  if (claudeLink) {
-    // The walk never follows the link: the link itself, and the settings files behind it.
+  if (claudeLink !== undefined) {
+    // The walk never follows the link: the link itself, and the settings files behind it. The
+    // listing behind it, and the looks at the files it names, are pinned to the folder the link
+    // led to before the run (#1469 reviews r2 and r3): one through a folder swapped for a link
+    // names nothing the agent is told.
     await one(CLAUDE_DIR);
-    const names = await readdir(join(root, CLAUDE_DIR)).catch(() => [] as string[]);
-    for (const name of names) {
-      if (/^settings.*\.json$/i.test(name)) await one(`${CLAUDE_DIR}/${name}`);
+    const target = async () => {
+      const st = await stat(join(root, CLAUDE_DIR), { bigint: true }).catch(() => undefined);
+      return st?.isDirectory() === true ? idOf(st) : "";
+    };
+    const was = await target();
+    const names = await readdir(join(root, CLAUDE_DIR)).catch(() => undefined);
+    const settings: [string, string][] = [];
+    for (const name of names ?? []) {
+      if (!/^settings.*\.json$/i.test(name)) continue;
+      const r = await read(`${CLAUDE_DIR}/${name}`);
+      if (r !== undefined) settings.push([`${CLAUDE_DIR}/${name}`, r.p]);
     }
+    const is = await target();
+    // A link that led to no folder before and still leads to none listed nothing: unnoted.
+    const none = names === undefined && was === "" && is === "" && claudeLink === "";
+    if (!none) {
+      pins[CLAUDE_DIR] =
+        names !== undefined && was !== "" && was === is && was === claudeLink ? was : "";
+    }
+    if (pins[CLAUDE_DIR] !== "") for (const [rel, p] of settings) set(rel, p);
   }
   return out;
 }
@@ -941,8 +1224,34 @@ export async function keepQuarantined(
   return result;
 }
 
+/**
+ * What the agent may be told of a report: its own view, or, for a report without one, the root
+ * for every list that has something (the root's name is always the repository's), so the notice
+ * and the owner's report still follow.
+ */
+export function agentView(r: LaunchConfigReport): AgentLaunchConfigView {
+  if (r.agent !== undefined) return r.agent;
+  const root = (list: readonly string[]) => (list.length > 0 ? ["."] : []);
+  return {
+    quarantined: root(r.quarantined.filter((p) => !r.incidents.includes(p))),
+    changed: root(r.changed),
+    unmoved: root([...r.unmoved, ...r.incidents]),
+    incidents: [],
+    withheld: true,
+    swapped: [],
+    partial: r.partial,
+  };
+}
+
+/** The identity a `.claude` link led to before the run, for its pinned listing; unset if none. */
+function claudeTarget(claude: ClaudeFolder): string | undefined {
+  if (claude.kind !== "link") return undefined;
+  return claude.toDir === true ? (claude.targetId ?? "") : "";
+}
+
 /** What the tool result tells the model, when the run touched launch config. */
-export function launchConfigNotice(r: LaunchConfigReport): string | undefined {
+export function launchConfigNotice(report: LaunchConfigReport): string | undefined {
+  const r = agentView(report);
   const parts: string[] = [];
   if (r.quarantined.length > 0) {
     parts.push(
@@ -954,12 +1263,17 @@ export function launchConfigNotice(r: LaunchConfigReport): string | undefined {
       `could not move ${r.unmoved.join(", ")}, which is still in place and not held, and told the owner`,
     );
   }
-  if (r.relinked.length > 0) {
-    parts.push(`linked ${r.relinked.join(", ")} again as it was before the run`);
+  if (report.relinked.length > 0) {
+    parts.push(`linked ${report.relinked.join(", ")} again as it was before the run`);
   }
   if (r.changed.length > 0) {
     parts.push(
       `noticed changes to existing launch config (${r.changed.join(", ")}) and told the owner`,
+    );
+  }
+  if (r.swapped.length > 0) {
+    parts.push(
+      `found ${r.swapped.join(", ")} changed while it read them (a folder swapped for a link, or made again), so it says nothing about what is in them`,
     );
   }
   if (parts.length === 0) return undefined;

@@ -3,7 +3,7 @@ import { chmodSync, mkdirSync, writeFileSync } from "node:fs";
 import { chmod, mkdir, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { basename, join } from "node:path";
-import { deleteSettings, getLibraryItem, getSetting, type PsycheDb } from "@psyche/db";
+import { deleteSettings, getLibraryItem, getSetting, getThread, type PsycheDb } from "@psyche/db";
 import { defaultDenyRead } from "@psyche/mcp-host";
 import type { LibraryItem, MethodResult, NodeClient } from "@psyche/protocol";
 import { PsycheError } from "@psyche/protocol";
@@ -33,6 +33,7 @@ import {
 import { ulid } from "ulid";
 import type { Call, HandlerDef } from "../context.ts";
 import type { Gateway } from "../server.ts";
+import { assertWritableThread } from "../session/imported-threads.ts";
 import { surfaceOf } from "./handlers.ts";
 import { indexSavedAudio } from "./library.ts";
 import type { ComposedPart, ComposeServices } from "./services.ts";
@@ -373,8 +374,15 @@ export function composeSpeech(setup: SpeechSetup = {}) {
         ctx: { deviceId: string; caller: SpeechCaller },
       ) => Promise<unknown>;
       handlers[method] = {
-        run: (call: Call, params: never) =>
-          fn(params, { deviceId: call.identity.deviceId, caller: caller(call) }),
+        run: (call: Call, params: never) => {
+          // A memo saved into an imported conversation would attach to somebody's export file.
+          const into = (params as { threadId?: string | null }).threadId;
+          if (method === "voice.memo.save" && into != null) {
+            const host = getThread(db, into);
+            if (host !== undefined) assertWritableThread(host, "attached to");
+          }
+          return fn(params, { deviceId: call.identity.deviceId, caller: caller(call) });
+        },
       };
     }
     handlers["speech.engine.status"] = {
