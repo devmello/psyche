@@ -822,12 +822,14 @@ fn the_sweep_leaves_a_running_screens_fallback_dir_alone() {
     let (m, _idle) = manager(c);
     m.start(None).expect("start without a runtime dir");
     let xauth = m.xauthority().expect("the auth file");
-    let fallback = xauth.parent().unwrap().to_path_buf();
-    assert!(fallback
-        .file_name()
-        .unwrap()
-        .to_string_lossy()
-        .starts_with("psyche-vscreen-"));
+    let fallback = xauth
+        .ancestors()
+        .find(|p| {
+            p.file_name()
+                .is_some_and(|n| n.to_string_lossy().starts_with("psyche-vscreen-"))
+        })
+        .expect("the auth file sits in the fallback dir")
+        .to_path_buf();
     m.sweep_leftovers();
     assert!(fallback.is_dir(), "the running screen's fallback dir stays");
     assert!(xauth.is_file());

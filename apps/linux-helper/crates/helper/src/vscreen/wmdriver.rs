@@ -1,13 +1,15 @@
 //! The X side of the window manager: takes `SubstructureRedirect` on the root, turns X events
 //! into `WmEvent`s for the state machine in `wm.rs`, and applies the `WmAction`s that come back.
-//! It also keeps a table of the windows (title, pid) for the rest of the helper, and lets a
+//! It also keeps a table of the windows (title, pid as the X server reports it) for the rest of
+//! the helper, and lets a
 //! caller wait for the next window to be mapped.
 
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::{Arc, Condvar, Mutex};
 use std::time::{Duration, Instant};
 
-use x11rb::connection::Connection;
+use x11rb::connection::{Connection, RequestConnection as _};
+use x11rb::protocol::res::{ClientIdMask, ClientIdSpec, ConnectionExt as _};
 use x11rb::protocol::xproto::{
     self, AtomEnum, ChangeWindowAttributesAux, ClientMessageEvent, ConfigWindow,
     ConfigureNotifyEvent, ConfigureWindowAux, ConnectionExt, EventMask, InputFocus, PropMode,
@@ -80,6 +82,8 @@ pub struct WmDriver {
     table: Mutex<Table>,
     changed: Condvar,
     alive: AtomicBool,
+    /// The server has X-Resource, so window pids come from it rather than from the client.
+    has_res: bool,
 }
 
 fn utf8_or_latin1(bytes: &[u8]) -> String {
@@ -111,6 +115,11 @@ impl WmDriver {
         .map_err(|e| e.to_string())?
         .check()
         .map_err(|e| format!("another window manager is running: {e}"))?;
+        let has_res = conn
+            .extension_information(x11rb::protocol::res::X11_EXTENSION_NAME)
+            .ok()
+            .flatten()
+            .is_some();
         let driver = Arc::new(WmDriver {
             conn,
             root,
@@ -119,6 +128,7 @@ impl WmDriver {
             table: Mutex::new(Table::default()),
             changed: Condvar::new(),
             alive: AtomicBool::new(true),
+            has_res,
         });
         driver.advertise(w, h).map_err(|e| e.to_string())?;
         let thread_driver = Arc::clone(&driver);
@@ -307,6 +317,23 @@ impl WmDriver {
             .unwrap_or_default()
     }
 
+    /// The pid of the client that created `win`, as the X server knows it from the socket peer
+    /// (X-Resource `LocalClientPID`). Unlike `_NET_WM_PID` a client cannot set it, so it can be
+    /// trusted for "whose window is this". `None` for a remote client.
+    fn server_pid(&self, win: Window) -> Option<u32> {
+        let spec = ClientIdSpec {
+            client: win,
+            mask: ClientIdMask::LOCAL_CLIENT_PID,
+        };
+        let reply = self.conn.res_query_client_ids(&[spec]).ok()?.reply().ok()?;
+        reply
+            .ids
+            .iter()
+            .find(|id| id.spec.mask == ClientIdMask::LOCAL_CLIENT_PID)
+            .and_then(|id| id.value.first().copied())
+            .filter(|&pid| pid > 0)
+    }
+
     fn read_title(&self, win: Window) -> Option<String> {
         let a = &self.atoms;
         for (prop, ty) in [
@@ -378,10 +405,13 @@ impl WmDriver {
         info.supports_take_focus = protocols.contains(&a.WM_TAKE_FOCUS);
         info.supports_delete = protocols.contains(&a.WM_DELETE_WINDOW);
         info.title = self.read_title(win);
-        info.pid = self
-            .get_u32s(win, a._NET_WM_PID, AtomEnum::CARDINAL, 1)
-            .first()
-            .copied();
+        info.pid = if self.has_res {
+            self.server_pid(win)
+        } else {
+            self.get_u32s(win, a._NET_WM_PID, AtomEnum::CARDINAL, 1)
+                .first()
+                .copied()
+        };
         Some(info)
     }
 
