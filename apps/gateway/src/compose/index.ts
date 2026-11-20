@@ -228,6 +228,7 @@ import { requestPermissionTool } from "./request-permission.ts";
 import { researchTools } from "./research.ts";
 import { withRunSnapshot } from "./run-snapshot.ts";
 import type { ComposedSandbox } from "./sandbox.ts";
+import { scrubSavedRecall } from "./saved-recall.ts";
 import {
   createScheduledHandlers,
   pausedRoutines,
@@ -2480,7 +2481,11 @@ export async function composeGateway(options: ComposeOptions): Promise<ComposedG
         undefined,
   );
   // A forget or a retract cuts the words it supported out of the answers kept in chats.
-  gateway.context.messageScrub.heal = () => everything.healTranscripts();
+  gateway.context.messageScrub.heal = () => {
+    everything.healTranscripts();
+    // Recall saved in a thread for its turn goes too (the agent drops it at its next run anyway).
+    scrubSavedRecall(db, (threadId) => loop.isActive(threadId));
+  };
   gateway.context.chatContext.resolve = (ref, caller) =>
     ref.kind === "life_answer"
       ? everything.lifeChat.resolve(ref, caller)

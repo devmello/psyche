@@ -40,7 +40,8 @@ function scripted(steps: ModelEvent[][]): ModelProvider & { requests: ModelReque
     requests: [] as ModelRequest[],
     capabilities: async () => ({ contextWindow: 64_000, toolCalling: true }) as never,
     async *stream(req: ModelRequest) {
-      p.requests.push(req);
+      // A copy: the loop stubs a run's recall in the shared messages when the run ends.
+      p.requests.push(structuredClone(req));
       yield* steps[Math.min(p.requests.length - 1, steps.length - 1)] ?? say("ok");
     },
   };
