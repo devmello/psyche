@@ -1,0 +1,365 @@
+import {
+  existsSync,
+  lstatSync,
+  mkdirSync,
+  readFileSync,
+  readlinkSync,
+  symlinkSync,
+  writeFileSync,
+} from "node:fs";
+import { join, resolve } from "node:path";
+import { afterEach, describe, expect, it } from "vitest";
+import { parseGatewayUnit } from "../src/systemd-unit.ts";
+import { cleanupTempDirs, tempDir } from "./helpers.ts";
+
+/**
+ * The psyche-server packaging (deploy/linux-server; linux-helper-only design §3.2, wave B1): the
+ * units it ships, the tarball's release layout, and the manifest names. The packages themselves
+ * are built and installed on Linux (the PR lists those runs).
+ */
+
+const deploy = resolve(import.meta.dirname, "../../../deploy");
+type Mod = Record<string, unknown>;
+const build = (await import(join(deploy, "linux-server/build.mjs"))) as Mod;
+const inst = (await import(join(deploy, "linux-server/install.mjs"))) as Mod;
+const manifest = (await import(join(deploy, "scripts/update-manifest.mjs"))) as Mod;
+const bp = (await import(join(deploy, "scripts/build-psyched.mjs"))) as Mod;
+
+const call = <T>(m: Mod, name: string, ...args: unknown[]): T =>
+  (m[name] as unknown as (...a: unknown[]) => T)(...args);
+
+afterEach(cleanupTempDirs);
+
+const B0_UNIT = `# psyche-helper-headless.service (B0)
+[Unit]
+Description=Psyche helper on a computer without a screen
+
+[Service]
+Type=simple
+ExecStart="/usr/lib/psyche/resources/linux-helper/psyche-helper" --display headless
+Restart=no
+`;
+
+describe("the headless helper unit is B0's, run from the server package's helper", () => {
+  const helper = '"/usr/lib/psyche-server/psyche-helper"';
+  const execOf = (text: string) => /^ExecStart=(.*)$/m.exec(text)?.[1];
+
+  const mustAccept: [string, string, string][] = [
+    ["a quoted desktop path with arguments", B0_UNIT, `${helper} --display headless`],
+    [
+      "a bare path",
+      "[Service]\nExecStart=/usr/bin/psyche-helper --display headless --idle-exit 300\n",
+      `${helper} --display headless --idle-exit 300`,
+    ],
+    ["no arguments", '[Service]\nExecStart="/opt/x/psyche-helper"\n', helper],
+  ];
+  it.each(mustAccept)("must accept: %s", (_n, text, want) => {
+    expect(execOf(call<string>(build, "headlessUnitFor", text, helper))).toBe(want);
+  });
+
+  const mustRefuse: [string, string][] = [
+    ["no ExecStart", "[Service]\nType=simple\n"],
+    ["two ExecStart lines", `${B0_UNIT}ExecStart=/usr/bin/psyche-helper\n`],
+    ["another program", '[Service]\nExecStart="/usr/bin/psyche-helperx" --display headless\n'],
+    ["a shell wrapper", "[Service]\nExecStart=/bin/sh -c psyche-helper\n"],
+    [
+      "a helper inside a quoted shell line",
+      '[Service]\nExecStart="/bin/sh" "-c" "psyche-helper"\n',
+    ],
+  ];
+  it.each(mustRefuse)("must refuse: %s", (_n, text) => {
+    expect(() => call(build, "headlessUnitFor", text, helper)).toThrow();
+  });
+
+  it("renders the Gateway's unit with the shared renderer, pointing into the package", async () => {
+    const units = await call<Promise<Record<string, string>>>(build, "renderUnits", {
+      psyched: "/usr/lib/psyche-server/psyched/psyched",
+      helper: "/usr/lib/psyche-server/psyche-helper",
+      headlessTemplate: B0_UNIT,
+    });
+    const gateway = parseGatewayUnit(units["psyche-gateway.service"] as string);
+    expect(gateway?.program).toBe("/usr/lib/psyche-server/psyched/psyched");
+    // No PSYCHE_HOME: psyched uses each user's own ~/.psyche.
+    expect(gateway?.env).toEqual({});
+    expect(units["psyche-gateway.service"]).toMatch(/^WantedBy=default.target$/m);
+    expect(execOf(units["psyche-helper-headless.service"] as string)).toBe(
+      '"/usr/lib/psyche-server/psyche-helper" --display headless',
+    );
+  });
+});
+
+describe("package metadata", () => {
+  it("conflicts with the desktop package and sorts pre-releases first", () => {
+    expect(build.DESKTOP_PACKAGE).toBe("psyche");
+    expect(build.SERVER_HELPER).toBe("/usr/lib/psyche-server/psyche-helper");
+    expect(call(build, "packageVersion", "1.2.0")).toBe("1.2.0");
+    expect(call(build, "packageVersion", "1.2.0-alpha.3")).toBe("1.2.0~alpha.3");
+    for (const bad of ["1.2", "v1.2.0", "1.2.0 ", "../1.2.0"])
+      expect(() => call(build, "packageVersion", bad)).toThrow();
+  });
+
+  it("the maintainer scripts never remove ~/.psyche and turn on linger only for the sudo user", () => {
+    for (const s of [build.POSTINST, build.PRERM, build.POSTRM] as unknown as string[]) {
+      expect(s).not.toMatch(/rm\s+-[a-z]*r/);
+      expect(s).toMatch(/^exit 0$/m);
+    }
+    expect(build.POSTINST).toContain('loginctl enable-linger "$u"');
+    expect(build.POSTINST).toContain('u="${SUDO_USER:-}"');
+  });
+
+  it("release keys come as a checked list", async () => {
+    const dir = tempDir();
+    const good = join(dir, "keys.json");
+    writeFileSync(
+      good,
+      JSON.stringify([
+        { keyId: "37312dba0e2eddad", publicKey: "hbM9GyfYsfhRfSZX6E6QimBS7GqkV2CMlDpVdxolxNk=" },
+      ]),
+    );
+    expect(await call<Promise<unknown[]>>(build, "releaseKeys", good)).toHaveLength(1);
+    const bads: unknown[] = [
+      [{ keyId: "0000000000000000", publicKey: "hbM9GyfYsfhRfSZX6E6QimBS7GqkV2CMlDpVdxolxNk=" }],
+      [
+        {
+          keyId: "37312dba0e2eddad",
+          publicKey: "hbM9GyfYsfhRfSZX6E6QimBS7GqkV2CMlDpVdxolxNk=",
+          x: 1,
+        },
+      ],
+      { keyId: "37312dba0e2eddad" },
+    ];
+    for (const bad of bads) {
+      const f = join(dir, `bad-${Math.random()}.json`);
+      writeFileSync(f, JSON.stringify(bad));
+      await expect(call<Promise<unknown>>(build, "releaseKeys", f)).rejects.toThrow();
+    }
+  });
+});
+
+describe("the Linux psyched bundle (build-psyched.mjs)", () => {
+  it("its launchers keep the hardening and cache under XDG, outside the root-owned tree", () => {
+    for (const name of ["PSYCHED_LAUNCHER_LINUX", "PSYCHE_LAUNCHER_LINUX"]) {
+      const text = bp[name] as string;
+      expect(text).toMatch(/^unset NODE_OPTIONS NODE_PATH NODE_REPL_EXTERNAL_MODULE$/m);
+      expect(text).toContain('--require "$here/psyched-harden.cjs"');
+      expect(text).toContain('"$XDG_CACHE_HOME/psyche/node-compile-cache"');
+      expect(text).toContain('"$HOME/.cache/psyche/node-compile-cache"');
+      expect(text).not.toContain("Library/Caches");
+    }
+  });
+  it("an addon must be an ELF of the bundle's arch", () => {
+    const ok = (out: string, arch: string) => call<boolean>(bp, "addonMatches", out, arch, "linux");
+    const arm = "ELF 64-bit LSB shared object, ARM aarch64, version 1 (SYSV), dynamically linked";
+    const x86 = "ELF 64-bit LSB shared object, x86-64, version 1 (SYSV), dynamically linked";
+    expect(ok(arm, "arm64")).toBe(true);
+    expect(ok(x86, "x64")).toBe(true);
+    expect(ok(arm, "x64")).toBe(false);
+    expect(ok(x86, "arm64")).toBe(false);
+    expect(ok("Mach-O 64-bit bundle arm64", "arm64")).toBe(false);
+    expect(ok("ELF 32-bit LSB shared object, ARM, EABI5", "arm64")).toBe(false);
+    expect(call<boolean>(bp, "addonMatches", "Mach-O 64-bit bundle arm64", "arm64")).toBe(true);
+  });
+});
+
+describe("manifest names (update-manifest.mjs, server section)", () => {
+  it("names what classifyArtifact files as the server kinds", () => {
+    for (const [format, kind] of Object.entries(
+      manifest.SERVER_FORMATS as Record<string, string>,
+    )) {
+      const name = call<string>(manifest, "serverArtifactName", "1.4.0", "x64", format);
+      expect(call(manifest, "classifyArtifact", name)).toEqual({
+        platform: "linux",
+        kind,
+        arch: "x64",
+      });
+    }
+    for (const args of [
+      ["1.4", "x64", "deb"],
+      ["1.4.0", "amd64", "deb"],
+      ["1.4.0", "x64", "zip"],
+      ["1.4.0", "x64", "constructor"],
+    ])
+      expect(() => call(manifest, "serverArtifactName", ...args)).toThrow();
+  });
+
+  it("server-check wants every format once per arch, all of this release", () => {
+    const entry = (name: string, kind: string) => ({
+      name,
+      kind,
+      sha256: "0".repeat(64),
+      bytes: 1,
+    });
+    const all = (v: string, arch: string) => [
+      entry(`psyche-server-${v}-linux-${arch}.deb`, "server-deb"),
+      entry(`psyche-server-${v}-linux-${arch}.rpm`, "server-rpm"),
+      entry(`psyche-server-${v}-linux-${arch}.tar.zst`, "server-tar-zst"),
+    ];
+    const text = (platforms: Record<string, unknown[]>) =>
+      JSON.stringify({ release: "1.4.0", platforms });
+    const ok = call<Record<string, unknown>>(
+      manifest,
+      "serverEntriesOf",
+      text({ "linux-x64": all("1.4.0", "x64"), "linux-arm64": [] }),
+    );
+    expect(Object.keys(ok)).toEqual(["x64"]);
+    // A helper-only file under the same key does not count either way.
+    expect(() =>
+      call(
+        manifest,
+        "serverEntriesOf",
+        text({
+          "linux-x64": [
+            ...all("1.4.0", "x64"),
+            entry("psyche-helper-1.4.0-linux-x64.deb", "helper-deb"),
+          ],
+        }),
+      ),
+    ).not.toThrow();
+    const bads: Record<string, unknown[]>[] = [
+      { "linux-x64": all("1.4.0", "x64").slice(0, 2) },
+      { "linux-x64": [...all("1.4.0", "x64"), all("1.4.0", "x64")[0]] },
+      { "linux-x64": all("1.3.9", "x64") },
+      { "linux-arm64": all("1.4.0", "x64") },
+    ];
+    for (const bad of bads) expect(() => call(manifest, "serverEntriesOf", text(bad))).toThrow();
+  });
+});
+
+/** An unpacked tarball release (what install.mjs installs). */
+function release(
+  dir: string,
+  version: string,
+  unitBody = 'ExecStart="@PSYCHE_SERVER_ROOT@/current/psyched/psyched"\n',
+) {
+  const r = join(dir, `psyche-server-${version}-linux-x64`);
+  mkdirSync(join(r, "psyched"), { recursive: true });
+  mkdirSync(join(r, "units"));
+  writeFileSync(join(r, "psyched", "psyche"), "#!/bin/sh\n");
+  writeFileSync(join(r, "psyched", "psyched"), "#!/bin/sh\n");
+  writeFileSync(
+    join(r, "psyche-server.json"),
+    JSON.stringify({ format: "psyche-server-install", kind: "tarball", version, arch: "x64" }),
+  );
+  for (const u of ["psyche-gateway.service", "psyche-helper-headless.service"])
+    writeFileSync(join(r, "units", `${u}.in`), `[Service]\n${unitBody}`);
+  return r;
+}
+
+describe("the tarball's release layout (install.mjs)", () => {
+  const layout = () => {
+    const d = tempDir();
+    return {
+      d,
+      root: join(d, "home", ".local", "lib", "psyche-server"),
+      unitDir: join(d, "home", ".config", "systemd", "user"),
+      binDir: join(d, "home", ".local", "bin"),
+    };
+  };
+  const target = (p: string) => readlinkSync(p);
+
+  it("escapes a release root for a quoted ExecStart, and refuses control characters", () => {
+    const rows: [string, string][] = [
+      ["/home/a/.local/lib/psyche-server", "/home/a/.local/lib/psyche-server"],
+      ["/home/my user/x", "/home/my user/x"],
+      ['/home/a"b/x', '/home/a\\"b/x'],
+      ["/home/a\\b/x", "/home/a\\\\b/x"],
+      ["/home/100%/x", "/home/100%%/x"],
+      ["/home/$USER/x", "/home/$$USER/x"],
+    ];
+    for (const [given, want] of rows) expect(call(inst, "sdEscape", given)).toBe(want);
+    for (const bad of ["/home/a\nExecStartPre=/bin/evil", "/home/a\tb", "/home/\u0000"])
+      expect(() => call(inst, "sdEscape", bad)).toThrow();
+  });
+
+  it("installs, then activate keeps exactly current and previous, by renaming links", () => {
+    const l = layout();
+    const r1 = release(l.d, "1.4.0");
+    const first = call<Record<string, unknown>>(inst, "install", {
+      ...l,
+      from: r1,
+      exists: () => false,
+    });
+    expect(first).toMatchObject({ current: "1.4.0" });
+    expect(target(join(l.root, "current"))).toBe(join("releases", "1.4.0"));
+    expect(existsSync(join(l.root, "previous"))).toBe(false);
+    expect(target(join(l.binDir, "psyched"))).toBe(join(l.root, "current", "psyched", "psyched"));
+    const unit = readFileSync(join(l.unitDir, "psyche-gateway.service"), "utf8");
+    expect(unit.startsWith(inst.UNIT_MARKER as string)).toBe(true);
+    expect(unit).toContain(`ExecStart="${l.root}/current/psyched/psyched"`);
+
+    for (const v of ["1.5.0", "1.6.0"]) {
+      const r = release(l.d, v);
+      const dest = join(l.root, "releases", v);
+      call(inst, "install", { ...l, from: r, exists: () => false });
+      expect(existsSync(dest)).toBe(true);
+    }
+    expect(call(inst, "status", l.root)).toEqual({
+      current: "1.6.0",
+      previous: "1.5.0",
+      releases: ["1.5.0", "1.6.0"],
+    });
+    expect(call(inst, "rollback", l)).toEqual({ current: "1.5.0", previous: "1.6.0" });
+    expect(target(join(l.root, "current"))).toBe(join("releases", "1.5.0"));
+    expect(lstatSync(join(l.root, "current")).isSymbolicLink()).toBe(true);
+    // No temporary links left behind.
+    expect(
+      (call<{ releases: string[] }>(inst, "status", l.root).releases ?? []).every((n) =>
+        /^\d/.test(n),
+      ),
+    ).toBe(true);
+  });
+
+  it("refuses next to the deb/rpm or the desktop package (two Gateways on one ~/.psyche)", () => {
+    const l = layout();
+    const r1 = release(l.d, "1.4.0");
+    for (const present of ["/usr/lib/psyche-server", "/usr/lib/psyche"]) {
+      expect(() =>
+        call(inst, "install", { ...l, from: r1, exists: (p: string) => p === present }),
+      ).toThrow(/cannot share ~\/\.psyche/);
+    }
+    expect(existsSync(l.root)).toBe(false);
+  });
+
+  it("never overwrites a unit or a command it did not write", () => {
+    const l = layout();
+    mkdirSync(l.unitDir, { recursive: true });
+    writeFileSync(join(l.unitDir, "psyche-gateway.service"), "# written by psyche start\n");
+    expect(() =>
+      call(inst, "install", { ...l, from: release(l.d, "1.4.0"), exists: () => false }),
+    ).toThrow(/not written by the psyche-server installer/);
+    expect(readFileSync(join(l.unitDir, "psyche-gateway.service"), "utf8")).toBe(
+      "# written by psyche start\n",
+    );
+
+    const m = layout();
+    mkdirSync(m.binDir, { recursive: true });
+    symlinkSync("/home/u/checkout/psyche", join(m.binDir, "psyche"));
+    const done = call<{ skipped: string[] }>(inst, "install", {
+      ...m,
+      from: release(m.d, "1.4.0"),
+      exists: () => false,
+    });
+    expect(done.skipped).toEqual([join(m.binDir, "psyche")]);
+    expect(target(join(m.binDir, "psyche"))).toBe("/home/u/checkout/psyche");
+  });
+
+  it("activate refuses a folder that is not that version's tarball, and a missing previous", () => {
+    const l = layout();
+    call(inst, "install", { ...l, from: release(l.d, "1.4.0"), exists: () => false });
+    expect(() => call(inst, "rollback", l)).toThrow(/no previous release/);
+    const odd = join(l.root, "releases", "1.5.0");
+    mkdirSync(odd, { recursive: true });
+    writeFileSync(
+      join(odd, "psyche-server.json"),
+      JSON.stringify({
+        format: "psyche-server-install",
+        kind: "deb",
+        version: "1.5.0",
+        arch: "x64",
+      }),
+    );
+    expect(() => call(inst, "activate", { ...l, version: "1.5.0" })).toThrow();
+    expect(() => call(inst, "activate", { ...l, version: "../1.4.0" })).toThrow();
+    expect(target(join(l.root, "current"))).toBe(join("releases", "1.4.0"));
+  });
+});

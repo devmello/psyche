@@ -1,6 +1,10 @@
 import { getSetting } from "@psyche/db";
 import type { PeerCheck } from "@psyche/protocol";
-import { LINUX_PACKAGED_HELPER_PATH } from "@psyche/protocol/platform";
+import {
+  LINUX_MACHINE_HELPER_PATH,
+  LINUX_PACKAGED_HELPER_PATH,
+  LINUX_PACKAGED_HELPER_PATHS,
+} from "@psyche/protocol/platform";
 import { afterEach, describe, expect, it } from "vitest";
 import { HOST_HELPER_STATUS_SETTING } from "../src/nodes/registry.ts";
 import type { Gateway } from "../src/server.ts";
@@ -10,11 +14,15 @@ import {
   HELPER_READY_COMM,
   linuxPeerChecker,
   PACKAGED_HELPER,
+  PACKAGED_HELPERS,
   PACKAGED_ROOT,
   type PeerCheckDeps,
   type PeerResult,
+  packagedHelperAt,
   packagedHelperInstalled,
+  packagedHelpersOf,
   parseMaps,
+  SERVER_PACKAGED_ROOT,
   setsLoaderEnv,
   socketInodeOf,
   startTimeOf,
@@ -930,5 +938,200 @@ describe("the Gateway acts on the peer check", () => {
     const n = await helper(g);
     expect(g.context.nodes.isHostHelper(n.nodeId)).toBe(true);
     expect(statusOf(g)?.peerCheck).toBeUndefined();
+  });
+});
+
+/**
+ * Two packaged Host helper paths (linux-helper-only design §7.2, §9, wave B1): the desktop
+ * package's and the headless `psyche-server` package's, each walked up to its own package root.
+ * Must-accept rows pass as `root_owned`. Must-refuse rows share a word, a prefix or a directory
+ * with an accepted path, and none of them may be `root_owned`.
+ */
+describe("the packaged helper paths (desktop and psyche-server)", () => {
+  const SERVER_HELPER = `${SERVER_PACKAGED_ROOT}/psyche-helper`;
+  const rootDir = { uid: 0, mode: 0o040755 };
+  const desktopDirs: Dirs = {
+    [PACKAGED_ROOT]: rootDir,
+    [`${PACKAGED_ROOT}/resources`]: rootDir,
+    [`${PACKAGED_ROOT}/resources/linux-helper`]: rootDir,
+  };
+  const serverDirs: Dirs = { [SERVER_PACKAGED_ROOT]: rootDir };
+  const bothDirs: Dirs = { ...desktopDirs, ...serverDirs };
+  const at = (exe: string, extra: Partial<Proc> = {}): Proc => ({ ...packaged, exe, ...extra });
+  const judge = (p: Proc, dirs: Dirs = bothDirs) => check(system(only(p), { dirs }));
+
+  it("the protocol lists both paths, and never the helper-only machine's", () => {
+    expect([...LINUX_PACKAGED_HELPER_PATHS]).toEqual([PACKAGED_HELPER, SERVER_HELPER]);
+    expect(PACKAGED_HELPERS).toEqual([
+      { path: PACKAGED_HELPER, root: PACKAGED_ROOT },
+      { path: SERVER_HELPER, root: SERVER_PACKAGED_ROOT },
+    ]);
+    expect(LINUX_PACKAGED_HELPER_PATHS).not.toContain(LINUX_MACHINE_HELPER_PATH);
+    expect(packagedHelperAt(LINUX_MACHINE_HELPER_PATH)).toBeUndefined();
+  });
+
+  const mustAccept: [string, Proc, Dirs][] = [
+    ["the desktop package's helper", at(PACKAGED_HELPER), desktopDirs],
+    ["the server package's helper", at(SERVER_HELPER), serverDirs],
+    ["the server package's helper, with the desktop tree present too", at(SERVER_HELPER), bothDirs],
+  ];
+  it.each(mustAccept)("must accept: %s", async (_name, proc, dirs) => {
+    expect(await judge(proc, dirs)).toEqual({ check: "root_owned", reason: "packaged" });
+  });
+
+  const outside = { check: "unverified", reason: "root_owned_outside_package" } as const;
+  const mustRefuse: [string, Proc, Dirs, PeerResult][] = [
+    [
+      "the helper-only machine's root-owned path (a machine is never the Host helper)",
+      at(LINUX_MACHINE_HELPER_PATH),
+      { ...bothDirs, "/usr/lib/psyche-helper": rootDir },
+      outside,
+    ],
+    [
+      "a look-alike package (psyche-server-evil)",
+      at("/usr/lib/psyche-server-evil/psyche-helper"),
+      bothDirs,
+      outside,
+    ],
+    [
+      "a look-alike package (psyche-serverx)",
+      at("/usr/lib/psyche-serverx/psyche-helper"),
+      bothDirs,
+      outside,
+    ],
+    [
+      "another file in the server package named psyche-helper",
+      at(`${SERVER_PACKAGED_ROOT}/psyched/psyche-helper`),
+      bothDirs,
+      outside,
+    ],
+    [
+      "the desktop helper's place under the server root",
+      at(`${SERVER_PACKAGED_ROOT}/resources/linux-helper/psyche-helper`),
+      bothDirs,
+      outside,
+    ],
+    [
+      "the server path with a doubled slash",
+      at("/usr/lib/psyche-server//psyche-helper"),
+      bothDirs,
+      outside,
+    ],
+    [
+      "the server path through ..",
+      at("/usr/lib/psyche/../psyche-server/psyche-helper"),
+      bothDirs,
+      outside,
+    ],
+    ["the server path through .", at("/usr/lib/./psyche-server/psyche-helper"), bothDirs, outside],
+    [
+      "the server root owned by the user",
+      at(SERVER_HELPER),
+      { [SERVER_PACKAGED_ROOT]: { uid: 1000, mode: 0o040755 } },
+      { check: "unverified", reason: "dir_writable" },
+    ],
+    [
+      "the server root group-writable",
+      at(SERVER_HELPER),
+      { [SERVER_PACKAGED_ROOT]: { uid: 0, mode: 0o040775 } },
+      { check: "unverified", reason: "dir_writable" },
+    ],
+    [
+      "the server root world-writable",
+      at(SERVER_HELPER),
+      { [SERVER_PACKAGED_ROOT]: { uid: 0, mode: 0o040757 } },
+      { check: "unverified", reason: "dir_writable" },
+    ],
+    [
+      "the server root is a file, not a directory",
+      at(SERVER_HELPER),
+      { [SERVER_PACKAGED_ROOT]: { uid: 0, mode: 0o100755 } },
+      { check: "unverified", reason: "dir_writable" },
+    ],
+    [
+      "the server helper group-writable",
+      at(SERVER_HELPER, { mode: 0o100775 }),
+      serverDirs,
+      { check: "unverified", reason: "helper_writable" },
+    ],
+    [
+      "a mount over the server path (the path names another file)",
+      at(SERVER_HELPER, { pathIno: 11 }),
+      serverDirs,
+      { check: "unverified", reason: "path_remounted" },
+    ],
+    [
+      "the server helper replaced while running",
+      at(`${SERVER_HELPER} (deleted)`),
+      serverDirs,
+      { check: "unverified", reason: "binary_replaced" },
+    ],
+    [
+      "the server helper started with a loader variable",
+      at(SERVER_HELPER, { environ: "LD_PRELOAD=/tmp/x.so\0" }),
+      serverDirs,
+      { check: "mismatch", reason: "loader_env" },
+    ],
+    [
+      "the server helper before its start-up hardening",
+      at(SERVER_HELPER, { comm: "psyche-helper" }),
+      serverDirs,
+      { check: "unverified", reason: "not_ready" },
+    ],
+    [
+      "the server helper in another mount namespace",
+      at(SERVER_HELPER, { ns: { mnt: "mnt:[4026532000]" } }),
+      serverDirs,
+      { check: "unverified", reason: "other_namespace" },
+    ],
+    [
+      "a user-owned copy of the server helper elsewhere (only recorded; refused when strict)",
+      at("/home/u/psyche-helper", { uid: 1000 }),
+      bothDirs,
+      { check: "user_owned", reason: "user_binary" },
+    ],
+    [
+      "a user-owned file at the server path itself",
+      at(SERVER_HELPER, { uid: 1000 }),
+      serverDirs,
+      { check: "user_owned", reason: "user_binary" },
+    ],
+  ];
+  it.each(mustRefuse)("must refuse: %s", async (_name, proc, dirs, want) => {
+    expect(await judge(proc, dirs)).toEqual(want);
+  });
+
+  it("each path is walked to its own root, never the other package's", async () => {
+    expect((await judge(at(PACKAGED_HELPER), serverDirs)).check).toBe("unverified");
+    expect((await judge(at(SERVER_HELPER), desktopDirs)).check).toBe("unverified");
+  });
+
+  it("strict mode starts when either packaged helper is installed, and only then", () => {
+    expect(packagedHelperInstalled((p) => p === SERVER_HELPER)).toBe(true);
+    expect(packagedHelperInstalled((p) => p === PACKAGED_HELPER)).toBe(true);
+    expect(packagedHelperInstalled((p) => p === LINUX_MACHINE_HELPER_PATH)).toBe(false);
+    expect(packagedHelperInstalled((p) => p === `${SERVER_PACKAGED_ROOT}/psyched/psyched`)).toBe(
+      false,
+    );
+  });
+
+  it("a path with no package root, or a root that is not its ancestor, refuses to load", () => {
+    const roots = { [SERVER_HELPER]: SERVER_PACKAGED_ROOT };
+    expect(packagedHelpersOf([SERVER_HELPER], roots)).toEqual([
+      { path: SERVER_HELPER, root: SERVER_PACKAGED_ROOT },
+    ]);
+    const dotted = "/usr/lib/psyche-server/../psyche-server/psyche-helper";
+    const refused: [string[], Record<string, string>][] = [
+      [["/usr/lib/psyche-new/psyche-helper"], roots],
+      [[SERVER_HELPER], { [SERVER_HELPER]: PACKAGED_ROOT }],
+      [[SERVER_HELPER], { [SERVER_HELPER]: "/usr/lib/psyche-serv" }],
+      [[SERVER_HELPER], { [SERVER_HELPER]: "/" }],
+      [[SERVER_HELPER], { [SERVER_HELPER]: `${SERVER_PACKAGED_ROOT}/` }],
+      [[SERVER_HELPER], { [SERVER_HELPER]: "/usr/lib/../lib/psyche-server" }],
+      [[dotted], { [dotted]: SERVER_PACKAGED_ROOT }],
+      [["relative/psyche-helper"], { "relative/psyche-helper": "relative" }],
+      [["constructor"], {}],
+    ];
+    for (const [paths, r] of refused) expect(() => packagedHelpersOf(paths, r)).toThrow();
   });
 });
