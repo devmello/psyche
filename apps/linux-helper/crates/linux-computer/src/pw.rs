@@ -68,7 +68,7 @@ pub fn to_rgba(
     let mut out = Vec::with_capacity(width as usize * height as usize * 4);
     for y in 0..height as usize {
         let row = &data[y * stride..y * stride + width as usize * 4];
-        for px in row.chunks_exact(4) {
+        for px in row.as_chunks::<4>().0 {
             if bgr {
                 out.extend_from_slice(&[px[2], px[1], px[0], 255]);
             } else {

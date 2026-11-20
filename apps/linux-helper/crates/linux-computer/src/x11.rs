@@ -195,8 +195,10 @@ impl X11 {
 
     fn u32s(bytes: &[u8]) -> Vec<u32> {
         bytes
-            .chunks_exact(4)
-            .map(|c| u32::from_ne_bytes([c[0], c[1], c[2], c[3]]))
+            .as_chunks::<4>()
+            .0
+            .iter()
+            .map(|c| u32::from_ne_bytes(*c))
             .collect()
     }
 
@@ -769,7 +771,7 @@ impl X11 {
             .get_image_shm(w, h)
             .or_else(|_| self.get_image_core(w, h))?;
         let mut rgba = Vec::with_capacity(bytes.len());
-        for px in bytes.chunks_exact(4) {
+        for px in bytes.as_chunks::<4>().0 {
             rgba.extend_from_slice(&[px[2], px[1], px[0], 255]);
         }
         Ok(Frame {
