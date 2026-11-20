@@ -1,9 +1,12 @@
 import { randomBytes } from "node:crypto";
-import type { BigIntStats, Dirent } from "node:fs";
+import { type BigIntStats, constants, type Dirent } from "node:fs";
 import {
+  chmod,
   cp,
+  type FileHandle,
   lstat,
   mkdir,
+  open,
   readdir,
   readFile,
   readlink,
@@ -34,6 +37,9 @@ import { PsycheError, type SandboxMount } from "@psyche/protocol";
  * Moves check the identity of what they moved: a folder swapped for a link meanwhile (a process
  * the run left running) cannot make one take something of the owner's from elsewhere. A writer
  * left running after the check is not seen (a residual: the copy-out design is the fix).
+ * Mode bits the run set through the share (#1438 review r3) neither pin an entry in place nor
+ * hide it from the walk: on a folder the Gateway's own user owns, the bits a move or the walk
+ * needs are added back (`lift`).
  */
 
 /** Read-only folder mounts at most (each is one bind mount); over it `code.run` is refused. */
@@ -50,6 +56,10 @@ const GIT_RUNS_FROM = ["config", "hooks", "info", "commondir", "gitdir"];
 const QUARANTINE_ID = /^[0-9]{13}-[0-9a-f]{8}$/;
 /** Claude Code's folder: mounted read-only whole, so its worktrees' settings are covered too. */
 const CLAUDE_DIR = ".claude";
+/** Rounds of making unlistable folders listable again (each one level deeper) at most. */
+const MAX_UNHIDE_ROUNDS = 16;
+/** Folders and files inside one entry given back their owner's bits at most, for a copy. */
+const MAX_LIFTED = 10_000;
 
 /**
  * Files apps rewrite all the time inside their own folder, left out of "changed" (only inside a
@@ -71,7 +81,10 @@ export interface LaunchConfigReport {
   changed: string[];
   /** What each changed path is now (its fingerprint, `gone` when it went). */
   fingerprints: Record<string, string>;
-  /** New entries that could not be moved. */
+  /**
+   * New entries that could not be moved, still in place and not held, and folders the run made
+   * unlistable that stay so: nothing in them was checked.
+   */
   unmoved: string[];
   /**
    * Entries whose move brought in something other than what was checked (a folder on the way
@@ -256,6 +269,31 @@ async function settle(
     report.unmoved.push(".");
     return report;
   }
+  // A folder the run made unlistable (no read or search permission) hides what is in it from
+  // the walk, though an app can still open a file in it by name: listable again, as it was
+  // before the run, when the Gateway's user owns it; each round can show one more level.
+  const hiddenBefore = new Set(was.unreadable ?? []);
+  const tried = new Set<string>();
+  for (let round = 0; round < MAX_UNHIDE_ROUNDS; round++) {
+    const hidden = (now.unreadable ?? []).filter((r) => !hiddenBefore.has(r) && !tried.has(r));
+    if (hidden.length === 0) break;
+    for (const rel of hidden) {
+      tried.add(rel);
+      try {
+        await assertInside(root, `${rel}/-`);
+        await lift(join(root, rel), 0o500);
+      } catch {
+        // Not the Gateway's, or swapped meanwhile: said below.
+      }
+    }
+    try {
+      now = await findLaunchConfig(root, limits);
+    } catch {
+      report.unmoved.push(".");
+      return report;
+    }
+  }
+  report.unmoved.push(...(now.unreadable ?? []).filter((r) => !hiddenBefore.has(r)));
   if (!now.complete) report.partial = true;
   const known = new Set(was.found.map((f) => f.rel));
   // New: launch config the run created, and a `.claude` that was not there (its worktrees are
@@ -284,6 +322,9 @@ async function settle(
   // `.claude` was a link: one the run replaced, retargeted or removed is put back as it was (what
   // replaced it is held); one that no longer resolves to the folder that was mounted is held.
   let relink = false;
+  // `.claude` still leads to its mounted target, which was made again in place: the link is the
+  // owner's and stays, unless that target cannot be moved (then the link is held too).
+  let claudeIfTargetStays = false;
   if (claude.kind === "link" && claude.linkText !== undefined) {
     const path = join(root, CLAUDE_DIR);
     const st = await lstat(path).catch(() => undefined);
@@ -300,7 +341,9 @@ async function settle(
       // Its mounted target made again in place is held above; the link itself is the owner's.
       const targetHeld =
         claude.mount !== undefined && replacedMounts.has(claude.mount) && now.real === claude.real;
-      if (!targetHeld && (now.real !== claude.real || now.id !== claude.targetId)) {
+      if (targetHeld) {
+        claudeIfTargetStays = true;
+      } else if (now.real !== claude.real || now.id !== claude.targetId) {
         fresh.push(CLAUDE_DIR);
       }
     }
@@ -321,7 +364,7 @@ async function settle(
     const held = join(options.quarantineDir, id);
     const incidents: Incident[] = [];
     const links: Record<string, HeldLink> = {};
-    for (const rel of fresh) {
+    const hold = async (rel: string) => {
       try {
         // A link is kept with where it led: the owner's `.claude` with where it led before the
         // run, any other with where it leads now. Keep it refuses one that would lead elsewhere.
@@ -349,8 +392,19 @@ async function settle(
           incidents.push({ rel, ...moved, at: (options.now?.() ?? new Date()).toISOString() });
         }
       } catch {
+        delete links[rel];
         report.unmoved.push(rel);
       }
+    };
+    for (const rel of fresh) await hold(rel);
+    // Decided only now that the moves are done: a target left in place would be live through
+    // the owner's link, so the link is held as well.
+    if (
+      claudeIfTargetStays &&
+      claude.mount !== undefined &&
+      !report.quarantined.includes(claude.mount)
+    ) {
+      await hold(CLAUDE_DIR);
     }
     if (report.quarantined.length > 0) {
       report.quarantineId = id;
@@ -532,6 +586,129 @@ async function moveChecked(
   to: string,
   at: { root: string; rel: string; beforeMove?: (from: string) => Promise<void> | void },
 ): Promise<Arrived | undefined> {
+  try {
+    return await moveOnce(from, to, at);
+  } catch (err) {
+    if (!denied(err)) throw err;
+  }
+  // Refused for its mode bits (#1438 review r3): a run can make a folder read-only through the
+  // share, and a folder without write permission can neither lose an entry nor gain one, nor be
+  // moved under another folder itself. When the Gateway's user owns them, the folder `from` is
+  // in and the one `to` goes into get write and search permission, and `from` itself write
+  // permission, each checked to be the folder that was checked; then one more try. The two
+  // folders get their modes back after; what moved keeps its write permission, so the owner
+  // can look at it and Keep it can move it again.
+  await assertInside(at.root, at.rel);
+  const restore: (() => Promise<void>)[] = [];
+  try {
+    const parent = await lstat(dirname(from), { bigint: true });
+    // Not there yet when the first try stopped before making it.
+    const into = await lstat(dirname(to), { bigint: true }).catch(() => undefined);
+    const lifted = await lift(dirname(from), 0o300, parent);
+    if (lifted !== undefined) restore.push(lifted);
+    if (into !== undefined && !same(parent, into)) {
+      const liftedInto = await lift(dirname(to), 0o300, into);
+      if (liftedInto !== undefined) restore.push(liftedInto);
+    }
+    await lift(from, 0o200);
+    return await moveOnce(from, to, at);
+  } finally {
+    for (const r of restore.reverse()) await r();
+  }
+}
+
+const denied = (err: unknown) => {
+  const code = (err as NodeJS.ErrnoException).code;
+  return code === "EACCES" || code === "EPERM";
+};
+
+const GATEWAY_UID = process.getuid?.();
+
+/**
+ * Adds `bits` to the mode of `path` when it is a real folder (or, with `files`, a regular file)
+ * that the Gateway's own user owns and that lacks them, as a folder a run made through the share
+ * can; anything else is left alone. `expect` pins who it must be. A folder is changed through a
+ * handle opened without following links and checked to be the one that was checked; a folder
+ * that cannot be opened, and a file, by path between two identity checks. The answer restores
+ * the mode it had, while it is still the same entry, when anything changed.
+ */
+async function lift(
+  path: string,
+  bits: number,
+  expect?: BigIntStats,
+  files = false,
+): Promise<(() => Promise<void>) | undefined> {
+  const st = await lstat(path, { bigint: true });
+  if (expect !== undefined && !same(st, expect)) {
+    throw new PsycheError("forbidden", `${path} moved during the check`);
+  }
+  if (!(st.isDirectory() || (files && st.isFile()))) return undefined;
+  if (GATEWAY_UID === undefined || st.uid !== BigInt(GATEWAY_UID)) return undefined;
+  const mode = Number(st.mode & 0o7777n);
+  if ((mode & bits) === bits) return undefined;
+  await setMode(path, st, mode | bits);
+  return () => setMode(path, st, mode).catch(() => undefined);
+}
+
+async function setMode(path: string, st: BigIntStats, mode: number): Promise<void> {
+  let handle: FileHandle | undefined;
+  if (st.isDirectory()) {
+    handle = await open(
+      path,
+      constants.O_RDONLY | constants.O_DIRECTORY | constants.O_NOFOLLOW | constants.O_NONBLOCK,
+    ).catch((err: unknown) => {
+      if (denied(err)) return undefined;
+      throw err;
+    });
+  }
+  if (handle !== undefined) {
+    try {
+      if (!same(await handle.stat({ bigint: true }), st)) {
+        throw new PsycheError("forbidden", `${path} moved during the check`);
+      }
+      await handle.chmod(mode);
+    } finally {
+      await handle.close();
+    }
+    return;
+  }
+  if (!same(await lstat(path, { bigint: true }).catch(() => undefined), st)) {
+    throw new PsycheError("forbidden", `${path} moved during the check`);
+  }
+  await chmod(path, mode);
+  if (!same(await lstat(path, { bigint: true }).catch(() => undefined), st)) {
+    throw new PsycheError("forbidden", `${path} was swapped while its mode was set`);
+  }
+}
+
+/**
+ * Gives read and write permission back to the folders and files inside `from` (never through a
+ * link), for a copy across volumes and the removal after it; at most `MAX_LIFTED` of them.
+ */
+async function liftInside(from: string): Promise<void> {
+  const queue = [from];
+  let count = 0;
+  while (queue.length > 0 && count < MAX_LIFTED) {
+    const dir = queue.shift() as string;
+    const st = await lstat(dir).catch(() => undefined);
+    if (st?.isDirectory() !== true) continue;
+    count++;
+    await lift(dir, 0o700).catch(() => undefined);
+    const entries = await readdir(dir, { withFileTypes: true }).catch(() => [] as Dirent[]);
+    for (const d of entries) {
+      if (d.isDirectory()) queue.push(join(dir, d.name));
+      else if (d.isFile() && count++ < MAX_LIFTED) {
+        await lift(join(dir, d.name), 0o600, undefined, true).catch(() => undefined);
+      }
+    }
+  }
+}
+
+async function moveOnce(
+  from: string,
+  to: string,
+  at: { root: string; rel: string; beforeMove?: (from: string) => Promise<void> | void },
+): Promise<Arrived | undefined> {
   await assertInside(at.root, at.rel);
   const entry = await lstat(from, { bigint: true });
   const parent = await lstat(dirname(from), { bigint: true });
@@ -550,6 +727,8 @@ async function moveChecked(
   } catch (err) {
     if ((err as NodeJS.ErrnoException).code !== "EXDEV") throw err;
     // Another volume: copied whole (links as links), and removed only when still the same entry.
+    // A folder or file inside it the run made unreadable or read-only would stop either half way.
+    await liftInside(from);
     await cp(from, to, {
       recursive: true,
       verbatimSymlinks: true,
@@ -704,7 +883,11 @@ export function launchConfigNotice(r: LaunchConfigReport): string | undefined {
       `moved what the run created into a quarantine (${r.quarantined.join(", ")}); the owner can keep it`,
     );
   }
-  if (r.unmoved.length > 0) parts.push(`could not move ${r.unmoved.join(", ")}`);
+  if (r.unmoved.length > 0) {
+    parts.push(
+      `could not move ${r.unmoved.join(", ")}, which is still in place and not held, and told the owner`,
+    );
+  }
   if (r.relinked.length > 0) {
     parts.push(`linked ${r.relinked.join(", ")} again as it was before the run`);
   }
