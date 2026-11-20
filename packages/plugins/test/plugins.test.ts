@@ -1,4 +1,12 @@
-import { cpSync, existsSync, mkdtempSync, realpathSync, rmSync, writeFileSync } from "node:fs";
+import {
+  cpSync,
+  existsSync,
+  mkdtempSync,
+  readFileSync,
+  realpathSync,
+  rmSync,
+  writeFileSync,
+} from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { fileURLToPath } from "node:url";
@@ -155,6 +163,28 @@ describe("plugin install and switches", () => {
       kind: "skill_install",
       externalRefs: { plugin: "office-hours" },
     });
+  });
+
+  it("reports what the manifest says the plugin adds as counts, and none when it says nothing", async () => {
+    const plain = await setup();
+    plain.clock.advance(500);
+    await approve(plain.broker, plain.approval.id);
+    const first = await plain.manager.install(plain.proposal.id, plain.approval.id);
+    expect(first.adds).toEqual({ skills: 0, commands: 0, mcpServers: 0, hooks: 0 });
+
+    const source = join(dir, "src-with-adds");
+    cpSync(join(FIXTURES, "office-hours"), source, { recursive: true });
+    const manifestPath = join(source, "psyche-plugin.json");
+    const m = JSON.parse(readFileSync(manifestPath, "utf8"));
+    m.name = "adds-demo";
+    m.adds = { skills: ["a", "b", "a"], commands: ["c"], mcpServers: ["m", "n"] };
+    writeFileSync(manifestPath, JSON.stringify(m));
+    const { proposal, approval } = await plain.manager.proposeInstall(source);
+    plain.clock.advance(500);
+    await approve(plain.broker, approval.id);
+    const plugin = await plain.manager.install(proposal.id, approval.id);
+    expect(plugin.adds).toEqual({ skills: 2, commands: 1, mcpServers: 2, hooks: 0 });
+    expect(plain.manager.list().find((x) => x.name === "adds-demo")?.adds).toEqual(plugin.adds);
   });
 
   it("runs only with the setting and its switch on, and never with changed files", async () => {

@@ -15,6 +15,7 @@ import type { AgentPluginRegistry } from "@psyche/agent-core";
 import type {
   ApprovalRequest,
   PermissionBroker,
+  PluginAddsSchema,
   PluginCapability,
   PluginProposalSchema,
   PluginStatus,
@@ -48,6 +49,16 @@ import { MANIFEST_FILE, type PluginManifest, parseManifest } from "./manifest.ts
 export const LOCK_FILE = "plugins.lock.json";
 const PROPOSAL_TTL_MS = 30 * 60_000;
 
+function addsOf(m: PluginManifest): PluginAddsSchema {
+  const n = (a?: string[]) => new Set(a ?? []).size;
+  return {
+    skills: n(m.adds?.skills),
+    commands: n(m.adds?.commands),
+    mcpServers: n(m.adds?.mcpServers),
+    hooks: n(m.adds?.hooks),
+  };
+}
+
 interface LockEntry {
   version: string;
   description: string;
@@ -58,6 +69,8 @@ interface LockEntry {
   enabled: boolean;
   installedAt: string;
   approvalId: string;
+  /** Counts from the manifest's `adds` at install. */
+  adds?: PluginAddsSchema;
   /** High-severity scan findings at install: the plugin cannot be switched on. */
   blocked: boolean;
 }
@@ -222,6 +235,7 @@ export class PluginManager {
       hash: p.hash,
       enabled: false,
       installedAt: new Date(this.#now()).toISOString(),
+      adds: addsOf(p.manifest),
       approvalId,
       blocked,
     };
@@ -364,6 +378,7 @@ export class PluginManager {
       enabled: e.enabled,
       status: this.#status(name, e),
       installedAt: e.installedAt,
+      ...(e.adds === undefined ? {} : { adds: e.adds }),
       ...(error === undefined ? {} : { error }),
     };
   }

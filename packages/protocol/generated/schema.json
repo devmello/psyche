@@ -35250,6 +35250,74 @@
       ],
       "type": "string"
     },
+    "PluginAdds": {
+      "properties": {
+        "skills": {
+          "minimum": 0,
+          "type": "integer"
+        },
+        "commands": {
+          "minimum": 0,
+          "type": "integer"
+        },
+        "mcpServers": {
+          "minimum": 0,
+          "type": "integer"
+        },
+        "hooks": {
+          "minimum": 0,
+          "type": "integer"
+        }
+      },
+      "required": [
+        "skills",
+        "commands",
+        "mcpServers",
+        "hooks"
+      ],
+      "type": "object"
+    },
+    "PluginAddsDeclared": {
+      "properties": {
+        "skills": {
+          "items": {
+            "maxLength": 128,
+            "minLength": 1,
+            "type": "string"
+          },
+          "maxItems": 100,
+          "type": "array"
+        },
+        "commands": {
+          "items": {
+            "maxLength": 128,
+            "minLength": 1,
+            "type": "string"
+          },
+          "maxItems": 100,
+          "type": "array"
+        },
+        "mcpServers": {
+          "items": {
+            "maxLength": 128,
+            "minLength": 1,
+            "type": "string"
+          },
+          "maxItems": 100,
+          "type": "array"
+        },
+        "hooks": {
+          "items": {
+            "maxLength": 128,
+            "minLength": 1,
+            "type": "string"
+          },
+          "maxItems": 100,
+          "type": "array"
+        }
+      },
+      "type": "object"
+    },
     "PluginCapability": {
       "enum": [
         "context",
@@ -35290,6 +35358,9 @@
           "maxItems": 5,
           "minItems": 1,
           "type": "array"
+        },
+        "adds": {
+          "$ref": "#/$defs/PluginAddsDeclared"
         }
       },
       "required": [
@@ -35410,6 +35481,9 @@
         },
         "installedAt": {
           "type": "string"
+        },
+        "adds": {
+          "$ref": "#/$defs/PluginAdds"
         },
         "error": {
           "type": "string"

@@ -18,6 +18,10 @@ CI fails when the generated files are stale (`pnpm protocol:check`).
 
 ## Log
 
+### v1 additive — 2026-11-19 (what a plugin adds)
+
+- `PluginManifest` gains an optional `adds` (`PluginAddsDeclared`: names of `skills`, `commands`, `mcpServers`, `hooks`). `PluginSummary` gains an optional `adds` (`PluginAdds`: the four counts), filled by the Gateway from the manifest at install; plugins installed earlier omit it. Settings → Plugins shows the counts.
+
 ### v1 additive — 2026-11-19 (whose call a description is for)
 
 - `ToolRegistration.describeCall` takes an optional second argument `call?: ToolCallScope` (`{runId, taskId?}`, new type). The agent loop's approval gate passes the run and Task making the call. A description that depends on it (the separate desktop's file-local words, which relax only for the Task that owns the desktop) must be at least as strict without it. Existing implementations ignore it.
