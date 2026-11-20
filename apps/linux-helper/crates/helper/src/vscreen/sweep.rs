@@ -65,20 +65,44 @@ pub fn ns_inode(link: &str) -> Option<u64> {
     link.strip_prefix("pid:[")?.strip_suffix(']')?.parse().ok()
 }
 
-fn read_tag(pid: &str) -> Option<HelperTag> {
-    let stat = std::fs::read_to_string(format!("/proc/{pid}/stat")).ok()?;
-    let ns = std::fs::read_link(format!("/proc/{pid}/ns/pid")).ok()?;
+/// The tag from what `/proc` says about this process, but only when that `/proc` is ours: the
+/// pid `/proc/self` names must be our own pid. A `/proc` mounted for another pid namespace (a
+/// container's, say) would give pids and start times from there, and judging leftovers by them
+/// could take a live helper for a dead one.
+pub fn tag_from_proc(
+    self_link: Option<&str>,
+    our_pid: u32,
+    ns_link: Option<&str>,
+    stat: Option<&str>,
+) -> Option<HelperTag> {
+    let proc_pid: u32 = self_link?.parse().ok()?;
+    if proc_pid != our_pid {
+        return None;
+    }
     Some(HelperTag {
-        pid_ns: ns_inode(&ns.to_string_lossy())?,
-        pid: std::process::id(),
-        start: start_time_from_stat(&stat)?,
+        pid_ns: ns_inode(ns_link?)?,
+        pid: our_pid,
+        start: start_time_from_stat(stat?)?,
     })
 }
 
-/// This helper's tag, `None` without `/proc`.
+fn read_tag() -> Option<HelperTag> {
+    let link = std::fs::read_link("/proc/self").ok()?;
+    let stat = std::fs::read_to_string("/proc/self/stat").ok()?;
+    let ns = std::fs::read_link("/proc/self/ns/pid").ok()?;
+    tag_from_proc(
+        Some(&link.to_string_lossy()),
+        std::process::id(),
+        Some(&ns.to_string_lossy()),
+        Some(&stat),
+    )
+}
+
+/// This helper's tag. `None` without `/proc`, or when `/proc` is not this process's own: then
+/// nothing is swept.
 pub fn own_tag() -> Option<HelperTag> {
     static TAG: OnceLock<Option<HelperTag>> = OnceLock::new();
-    *TAG.get_or_init(|| read_tag("self"))
+    *TAG.get_or_init(read_tag)
 }
 
 /// The tag text this helper puts in its names: its own, or `0.<pid>.0` when it has none (such
@@ -286,6 +310,40 @@ mod tests {
             );
         }
         assert!(outside.path().join("keep").is_file());
+    }
+
+    #[test]
+    fn a_proc_that_is_not_ours_gives_no_tag() {
+        let stat = "77 (psyche-helper) S 1 1 1 0 -1 4194560 100 0 0 0 5 3 0 0 20 0 1 0 4242 1 2";
+        let ns = "pid:[4026531836]";
+        // Our /proc: /proc/self names our pid.
+        assert_eq!(
+            tag_from_proc(Some("77"), 77, Some(ns), Some(stat)),
+            Some(HelperTag {
+                pid_ns: 4_026_531_836,
+                pid: 77,
+                start: 4242,
+            })
+        );
+        // A /proc from another pid namespace names another pid: no tag, so no sweep.
+        assert_eq!(tag_from_proc(Some("1"), 77, Some(ns), Some(stat)), None);
+        assert_eq!(tag_from_proc(Some("78"), 77, Some(ns), Some(stat)), None);
+        // Unreadable or odd /proc/self, ns link or stat: no tag either.
+        for (link, ns_link, st) in [
+            (None, Some(ns), Some(stat)),
+            (Some("self"), Some(ns), Some(stat)),
+            (Some(""), Some(ns), Some(stat)),
+            (Some("77"), None, Some(stat)),
+            (Some("77"), Some("net:[1]"), Some(stat)),
+            (Some("77"), Some(ns), None),
+            (Some("77"), Some(ns), Some("77 (x) S")),
+        ] {
+            assert_eq!(
+                tag_from_proc(link, 77, ns_link, st),
+                None,
+                "{link:?} {ns_link:?}"
+            );
+        }
     }
 
     #[test]
