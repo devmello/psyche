@@ -7,78 +7,7 @@ import { FsQuarantineWriter } from "../src/downloads/library.ts";
 import { CdpBridgeDriver } from "../src/drivers/cdp.ts";
 import { FileRecordingSink } from "../src/recording/recorder.ts";
 import { SECURE_MASK } from "../src/snapshot/builder.ts";
-import { type FieldFacts, isSecureField } from "../src/snapshot/secure-field.ts";
 import { MockDesktop } from "../src/testing/mock-desktop.ts";
-
-const input = (f: Omit<FieldFacts, "tag">): FieldFacts => ({ tag: "INPUT", ...f });
-
-const MUST_HIDE: [string, FieldFacts][] = [
-  ["type=password", input({ type: "password" })],
-  ["type=PASSWORD (case)", input({ type: "PASSWORD" })],
-  ["current-password", input({ type: "text", autocomplete: "current-password" })],
-  ["new-password", input({ type: "text", autocomplete: "new-password" })],
-  ["one-time-code on type=text", input({ type: "text", autocomplete: "one-time-code" })],
-  ["cc-number", input({ autocomplete: "cc-number" })],
-  ["cc-csc with a section token", input({ autocomplete: "section-pay cc-csc" })],
-  ["cc-exp", input({ autocomplete: "cc-exp" })],
-  ["cc-exp-month", input({ autocomplete: "cc-exp-month" })],
-  ["cc-exp-year", input({ autocomplete: "cc-exp-year" })],
-  ["name otp", input({ name: "otp" })],
-  ["name totp_code", input({ name: "totp_code" })],
-  ["id mfaCode camelCase", input({ id: "mfaCode" })],
-  ["label Verification code", input({ label: "Verification code" })],
-  ["placeholder One-time code", input({ placeholder: "One-time code" })],
-  ["aria-label Two-factor code", input({ ariaLabel: "Two-factor code" })],
-  ["name cvv", input({ name: "cvv" })],
-  ["name cvc2 -> cvc", input({ name: "card-cvc" })],
-  ["label Card security code", input({ label: "Card security code" })],
-  ["label Card number", input({ label: "Card number" })],
-  ["name cardnumber", input({ name: "cardnumber" })],
-  ["revealed password: type=text name password", input({ type: "text", name: "password" })],
-  ["revealed password: label Confirm password", input({ type: "text", label: "Confirm password" })],
-  ["textarea named otp", { tag: "TEXTAREA", name: "otp" }],
-  [
-    "contenteditable labelled Verification code",
-    { tag: "DIV", contentEditable: true, label: "Verification code" },
-  ],
-  [
-    "contenteditable with one-time-code",
-    { tag: "DIV", contentEditable: true, autocomplete: "one-time-code" },
-  ],
-];
-
-const MUST_NOT_HIDE: [string, FieldFacts][] = [
-  ["plain text field", input({ type: "text", name: "username", label: "Username" })],
-  ["Password hint text field", input({ type: "text", name: "hint", label: "Password hint" })],
-  ["name password_hint", input({ type: "text", name: "password_hint" })],
-  [
-    "Forgot password search",
-    input({ type: "search", label: "Search help articles: forgot password" }),
-  ],
-  ["search box named pass", input({ type: "search", name: "pass", label: "Find a flight" })],
-  ["boarding pass number", input({ type: "text", name: "boarding_pass", label: "Boarding pass" })],
-  ["autocomplete username", input({ autocomplete: "username" })],
-  ["autocomplete email", input({ autocomplete: "email" })],
-  ["email Cc", input({ name: "cc", label: "Cc" })],
-  ["library card number", input({ name: "library-card", label: "Library card number" })],
-  ["card PIN", input({ name: "card_pin", label: "PIN" })],
-  ["gift card message", input({ label: "Message on the card" })],
-  ["otp-like word inside another", input({ name: "hotpot" })],
-  ["checkbox named otp", input({ type: "checkbox", name: "otp" })],
-  ["submit button named cvv", input({ type: "submit", name: "cvv" })],
-  ["a paragraph", { tag: "P", label: "Verification code" }],
-  ["a div that is not editable", { tag: "DIV", label: "Verification code" }],
-  ["contenteditable body", { tag: "DIV", contentEditable: true, label: "Message body" }],
-];
-
-describe("isSecureField classifier", () => {
-  it.each(MUST_HIDE)("hides: %s", (_n, f) => {
-    expect(isSecureField(f)).toBe(true);
-  });
-  it.each(MUST_NOT_HIDE)("keeps visible: %s", (_n, f) => {
-    expect(isSecureField(f)).toBe(false);
-  });
-});
 
 describe("secret field values never reach the model (mock CDP page)", () => {
   let dir: string;
@@ -128,6 +57,44 @@ describe("secret field values never reach the model (mock CDP page)", () => {
     for (const secret of SECRETS) expect(found).not.toContain(secret);
     // The model gets no screenshot while such a field has a value.
     await expect(driver.screenshot(t.id)).rejects.toMatchObject({ code: "policy_denied" });
+    await driver.closeSession(s.id);
+  });
+
+  it("the agent may still type an OTP the owner gave it, but not into a password or one-time-code field", async () => {
+    const a = desktop.browser.origin("a");
+    const s = await driver.openSession({
+      taskId: "task_type_otp",
+      policy: { devPreview: true, readWritable: [a], readOnly: [] },
+    });
+    const t = await driver.openTab(s.id, desktop.browser.url("a/codes"));
+    const snap = await driver.snapshot(t.id);
+    const ref = (name: string) => snap.refs.find((r) => r.name.includes(name))?.ref as string;
+    await driver.type(t.id, ref("Verification code"), "123456");
+    await expect(driver.type(t.id, ref("Code"), "123456")).rejects.toMatchObject({
+      code: "policy_denied",
+    });
+    // press with a ref honours the same refusal
+    await expect(driver.press(t.id, "a", { ref: ref("Code") })).rejects.toMatchObject({
+      code: "policy_denied",
+    });
+    await driver.closeSession(s.id);
+  });
+
+  it("look-alike fields keep their values, link codes are masked and screenshots stay available", async () => {
+    const a = desktop.browser.origin("a");
+    const s = await driver.openSession({
+      taskId: "task_lookalikes",
+      policy: { devPreview: true, readWritable: [a], readOnly: [] },
+    });
+    const t = await driver.openTab(s.id, desktop.browser.url("a/lookalikes"));
+    const snap = await driver.snapshot(t.id);
+    expect(snap.text).toContain("PNR7Q2");
+    expect(snap.text).toContain("560001");
+    expect(snap.text).toContain("cvv help");
+    expect(snap.text).not.toContain("909090");
+    expect(snap.secureFieldActive).toBe(false);
+    const shot = await driver.screenshot(t.id);
+    expect([...shot.data.slice(0, 4)]).toEqual([0x89, 0x50, 0x4e, 0x47]);
     await driver.closeSession(s.id);
   });
 

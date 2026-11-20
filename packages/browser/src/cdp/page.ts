@@ -10,7 +10,12 @@ import {
 } from "@psyche/protocol";
 import { canonicalizeUrl, tryOrigin } from "../origin/canonical.ts";
 import type { Hop, OriginPolicy } from "../origin/policy.ts";
-import { buildSnapshot, extractText, type FrameAx } from "../snapshot/builder.ts";
+import {
+  buildSnapshot,
+  extractText,
+  type FrameAx,
+  hasFieldCandidates,
+} from "../snapshot/builder.ts";
 import { DomIndex, isPaymentField } from "../snapshot/dom.ts";
 import { type RefEntry, RefRegistry } from "../snapshot/refs.ts";
 import type {
@@ -1032,13 +1037,19 @@ export class PageController {
   ): Promise<{ text: string; truncated: boolean }> {
     this.#assertReadable();
     this.#assertNoDialog();
-    const [ax, frames, domSnap] = await Promise.all([
+    const [ax, frames] = await Promise.all([
       this.#t.send<{ nodes: AXNode[] }>("Accessibility.getFullAXTree", {}),
       this.#frames(),
-      this.#t.send<CaptureSnapshotResult>("DOMSnapshot.captureSnapshot", { computedStyles: [] }),
     ]);
     // Secret fields (password, OTP, card) are skipped by their DOM facts, whatever their AX role.
-    const opts: Parameters<typeof extractText>[1] = { frames, dom: new DomIndex(domSnap, 1) };
+    // The DOM is fetched only when the page has something that can hold a value.
+    const opts: Parameters<typeof extractText>[1] = { frames };
+    if (hasFieldCandidates([ax.nodes, ...frames.map((f) => f.ax)])) {
+      const domSnap = await this.#t.send<CaptureSnapshotResult>("DOMSnapshot.captureSnapshot", {
+        computedStyles: [],
+      });
+      opts.dom = new DomIndex(domSnap, 1);
+    }
     if (options.maxChars !== undefined) opts.maxChars = options.maxChars;
     if (this.#o.redact !== undefined) opts.redact = this.#o.redact;
     return extractText(ax.nodes, opts);
@@ -1067,14 +1078,19 @@ export class PageController {
     // Re-check: a secure field focused or holding a value suppresses screenshots (§4.7), and so
     // does any vault fill on this page, secure field or not (review finding 6b).
     const snap = await this.snapshot({ maxChars: 1000, maxRefs: 1 });
-    if (this.#secureActive || this.#filledSinceNav) {
-      throw new PsycheError(
+    const suppressed = () =>
+      new PsycheError(
         "policy_denied",
         "a password or other secure field is active; screenshots are suppressed",
         { details: { reason: "secure_field" } },
       );
-    }
+    if (this.#secureActive || this.#filledSinceNav) throw suppressed();
     const r = await this.#t.send<{ data: string }>("Page.captureScreenshot", { format: "png" });
+    // A value set after the check (autofill, page script, the owner) discards the capture.
+    const after = await this.#t.send<CaptureSnapshotResult>("DOMSnapshot.captureSnapshot", {
+      computedStyles: [],
+    });
+    if (new DomIndex(after, 1).anySecureValue()) throw suppressed();
     const png = new Uint8Array(Buffer.from(r.data, "base64"));
     const boxes = snap.hiddenFrameBoxes ?? [];
     if (boxes.length === 0) return { mime: "image/png", data: png };
@@ -1213,6 +1229,13 @@ export class PageController {
     this.#assertActionable();
     if (options.ref !== undefined) {
       const e = this.#resolveRef(options.ref);
+      if (e.meta.secure) {
+        throw new PsycheError(
+          "policy_denied",
+          `${options.ref} is a secure field: fill it from the vault with approval, or let the owner type`,
+          { details: { reason: "secure_field" } },
+        );
+      }
       await this.#t.send("DOM.focus", { backendNodeId: e.backendNodeId });
     }
     for (const chord of keys.split(/\s+/).filter((k) => k !== "")) {

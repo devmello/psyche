@@ -1,7 +1,14 @@
 import { isPaymentField as isMoneyPaymentField } from "@psyche/protocol/money-intent";
-import type { CaptureSnapshotResult, DocumentSnapshot } from "../cdp/types.ts";
+import type { CaptureSnapshotResult, DocumentSnapshot, NodeTreeSnapshot } from "../cdp/types.ts";
 import { tryOrigin } from "../origin/canonical.ts";
-import { isSecureField } from "./secure-field.ts";
+import {
+  type FieldFacts,
+  isCardNumberValue,
+  isLegacySecure,
+  isSecureField,
+  isStrongSecureField,
+  makeScrubber,
+} from "./secure-field.ts";
 
 /**
  * Index over `DOMSnapshot.captureSnapshot`: per `backendNodeId`, the tag, attributes, layout
@@ -23,6 +30,8 @@ export interface DomNodeInfo {
   /** Layout box in CSS pixels, document coordinates. */
   box?: DomBox;
   inputValue?: string;
+  /** Text of a label, an aria-labelledby target or a contenteditable (secret checks only). */
+  text?: string;
   checked?: boolean;
   clickable: boolean;
   docIndex: number;
@@ -42,6 +51,8 @@ export interface DomDocumentInfo {
 export class DomIndex {
   readonly documents: DomDocumentInfo[] = [];
   readonly #byBackend = new Map<number, DomNodeInfo>();
+  /** Nodes by `docIndex:id`, for aria-labelledby. */
+  readonly #byId = new Map<string, DomNodeInfo>();
   readonly #snap: CaptureSnapshotResult;
   /** Large opaque surfaces (canvas, embed, object, video) by area, for sparse-tree detection. */
   readonly opaqueAreas: number[] = [];
@@ -67,6 +78,7 @@ export class DomIndex {
         if (b !== undefined && !boxes.has(ni)) boxes.set(ni, b);
       });
       const inputValues = rareStrings(n.inputValue, s);
+      const infos: (DomNodeInfo | undefined)[] = [];
       const checked = new Set(n.inputChecked?.index ?? []);
       const clickable = new Set(n.isClickable?.index ?? []);
       const contentDocs = new Map<number, number>();
@@ -108,8 +120,53 @@ export class DomIndex {
         const cd = contentDocs.get(i);
         if (cd !== undefined) info.contentDocIndex = cd;
         this.#byBackend.set(backendNodeId, info);
+        infos[i] = info;
+        const idAttr = attrs.id;
+        if (idAttr !== undefined && idAttr !== "") this.#byId.set(`${d}:${idAttr}`, info);
       }
+      this.#collectText(n, infos, s);
     });
+  }
+
+  /**
+   * Text under labels, aria-labelledby targets and contenteditables, onto `info.text`: what the
+   * secret checks need where the AX tree is not at hand.
+   */
+  #collectText(n: NodeTreeSnapshot, infos: (DomNodeInfo | undefined)[], strings: string[]): void {
+    const parents = n.parentIndex;
+    const types = n.nodeType;
+    const values = n.nodeValue;
+    if (parents === undefined || types === undefined || values === undefined) return;
+    const referenced = new Set<string>();
+    for (const info of infos) {
+      for (const id of (info?.attrs["aria-labelledby"] ?? "").split(/\s+/)) {
+        if (id !== "") referenced.add(id);
+      }
+    }
+    const wants = (info: DomNodeInfo | undefined): boolean =>
+      info !== undefined &&
+      (info.tag === "LABEL" ||
+        (info.attrs.contenteditable !== undefined && info.attrs.contenteditable !== "false") ||
+        (info.attrs.id !== undefined && referenced.has(info.attrs.id)));
+    const want = new Set<number>();
+    infos.forEach((info, i) => {
+      if (wants(info)) want.add(i);
+    });
+    if (want.size === 0) return;
+    for (let i = 0; i < types.length; i++) {
+      if (types[i] !== 3) continue;
+      const v = values[i];
+      const text = v === undefined || v < 0 ? "" : (strings[v] ?? "").trim();
+      if (text === "") continue;
+      let j = parents[i] ?? -1;
+      for (let guard = 0; j >= 0 && guard < 64; guard++) {
+        if (want.has(j)) {
+          const info = infos[j];
+          if (info !== undefined) info.text = `${info.text ?? ""} ${text}`.trim();
+        }
+        j = parents[j] ?? -1;
+      }
+    }
   }
 
   get(backendNodeId: number | undefined): DomNodeInfo | undefined {
@@ -191,13 +248,11 @@ export class DomIndex {
     return found;
   }
 
-  /**
-   * The element holds a secret (password, one-time code, card detail): see `isSecureField`.
-   * `label` is the accessible name from the AX tree, when the caller has it.
-   */
-  isSecure(info: DomNodeInfo, label?: string): boolean {
+  #facts(info: DomNodeInfo, label?: string): FieldFacts {
     const a = info.attrs;
-    return isSecureField({
+    const max =
+      a.maxlength !== undefined && /^\d+$/.test(a.maxlength) ? Number(a.maxlength) : undefined;
+    return {
       tag: info.tag,
       type: a.type,
       autocomplete: a.autocomplete,
@@ -207,15 +262,98 @@ export class DomIndex {
       ariaLabel: a["aria-label"],
       label,
       contentEditable: a.contenteditable !== undefined && a.contenteditable !== "false",
-    });
+      maxLength: max,
+      search: (a.type ?? "").toLowerCase() === "search" || a.role === "searchbox",
+    };
   }
 
-  /** Some secure field in any document holds a value (screenshot guard; ignores the AX tree). */
+  /**
+   * The control's label from the DOM: `aria-label`, `aria-labelledby`, `<label for>` or a wrapping
+   * `<label>`. For callers that have no AX name (the screenshot guard).
+   */
+  labelOf(info: DomNodeInfo): string | undefined {
+    const al = info.attrs["aria-label"];
+    if (al !== undefined && al !== "") return al;
+    const parts: string[] = [];
+    for (const id of (info.attrs["aria-labelledby"] ?? "").split(/\s+/)) {
+      const t = id === "" ? undefined : this.#byId.get(`${info.docIndex}:${id}`)?.text;
+      if (t !== undefined) parts.push(t);
+    }
+    const own = info.attrs.id;
+    if (own !== undefined && own !== "") {
+      for (const n of this.#byBackend.values()) {
+        if (n.docIndex === info.docIndex && n.tag === "LABEL" && n.attrs.for === own && n.text) {
+          parts.push(n.text);
+        }
+      }
+    }
+    const wrap = this.ancestor(info, "LABEL");
+    if (wrap?.text) parts.push(wrap.text);
+    return parts.length > 0 ? parts.join(" ") : undefined;
+  }
+
+  /** Typing is refused on it: `type=password` or a secure `autocomplete` (the old criteria). */
+  isSecure(info: DomNodeInfo): boolean {
+    return isLegacySecure(this.#facts(info));
+  }
+
+  /** The control holds a secret by the wide classifier or by its value (a Luhn-valid number). */
+  isMasked(info: DomNodeInfo, label?: string): boolean {
+    if (!this.#isField(info)) return false;
+    if (isSecureField(this.#facts(info, label ?? this.labelOf(info)))) return true;
+    return isCardNumberValue(info.inputValue ?? "");
+  }
+
+  /** The high-confidence subset: its value refuses screenshots and drops recording frames. */
+  isStrong(info: DomNodeInfo, label?: string): boolean {
+    if (!this.#isField(info)) return false;
+    if (isStrongSecureField(this.#facts(info, label ?? this.labelOf(info)))) return true;
+    return isCardNumberValue(info.inputValue ?? "");
+  }
+
+  #isField(info: DomNodeInfo): boolean {
+    return (
+      info.tag === "INPUT" ||
+      info.tag === "TEXTAREA" ||
+      (info.attrs.contenteditable !== undefined && info.attrs.contenteditable !== "false")
+    );
+  }
+
+  /** The control's current value or editable text. */
+  valueOf(info: DomNodeInfo): string {
+    return info.inputValue ?? info.text ?? "";
+  }
+
+  /** Some strong secret field in any document holds a value (screenshot guard; no AX tree). */
   anySecureValue(): boolean {
     for (const n of this.#byBackend.values()) {
-      if ((n.inputValue ?? "") !== "" && this.isSecure(n)) return true;
+      if (!this.#isField(n) || this.valueOf(n).trim() === "") continue;
+      if (this.isStrong(n)) return true;
     }
     return false;
+  }
+
+  #secrets: string[] | undefined;
+  #scrubber: ((s: string) => string) | undefined;
+
+  /** Current values of every masked field in the page (the backstop for `scrub`). */
+  secretValues(): string[] {
+    if (this.#secrets === undefined) {
+      const out: string[] = [];
+      for (const n of this.#byBackend.values()) {
+        if (!this.#isField(n)) continue;
+        const v = this.valueOf(n).trim();
+        if (v !== "" && this.isMasked(n)) out.push(v);
+      }
+      this.#secrets = out;
+    }
+    return this.#secrets;
+  }
+
+  /** Replace secret values (also split across text runs) and card numbers in output text. */
+  scrub(s: string): string {
+    this.#scrubber ??= makeScrubber(this.secretValues(), "•••");
+    return this.#scrubber(s);
   }
 
   /** Activating the element submits its form. */

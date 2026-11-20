@@ -450,6 +450,36 @@ export const FIXTURE_SITE: FxSite = {
         },
       ],
     },
+    // Fields that look like secrets and are not: nothing hides, screenshots stay available.
+    "a/lookalikes": {
+      title: "Booking",
+      body: [
+        { kind: "heading", level: 1, text: "Booking" },
+        { kind: "link", text: "Verify by link", href: "/a/lookalikes?code=909090" },
+        {
+          kind: "form",
+          action: "/submit/booking",
+          method: "post",
+          children: [
+            {
+              kind: "input",
+              label: "Confirmation code",
+              name: "confirmationCode",
+              value: "PNR7Q2",
+            },
+            { kind: "input", label: "PIN code", name: "pincode", value: "560001" },
+            {
+              kind: "input",
+              label: "Search: where is my CVV",
+              name: "q",
+              type: "search",
+              value: "cvv help",
+            },
+            { kind: "button", text: "Look up", type: "submit" },
+          ],
+        },
+      ],
+    },
     "a/cart": {
       title: "Cart",
       body: [

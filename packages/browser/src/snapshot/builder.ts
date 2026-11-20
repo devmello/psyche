@@ -195,6 +195,8 @@ export interface SnapshotInput {
 interface Line {
   text: string;
   kind: "node" | "text" | "header";
+  /** The text of a `text` line, before clipping and quoting. */
+  raw?: string;
 }
 
 function axString(v: { value?: unknown } | undefined): string {
@@ -223,8 +225,15 @@ function roleOf(node: AXNode): string {
 export function buildSnapshot(input: SnapshotInput): BrowserSnapshot {
   const t0 = performance.now();
   const opts = { ...DEFAULT_SNAPSHOT_LIMITS, ...stripUndefined(input.options ?? {}) };
-  const redact = input.redact ?? ((s: string) => s);
   const dom = new DomIndex(input.dom, input.dpr);
+  // The vault's redaction, then the page's own secret field values (and card numbers) wherever
+  // they appear in what is emitted.
+  const redact0 = input.redact ?? ((s: string) => s);
+  const redact = (s: string): string => dom.scrub(redact0(s));
+  const secretNorms = dom
+    .secretValues()
+    .map((v) => v.replace(/\s+/g, ""))
+    .filter((v) => v.length >= 4);
   const vp = input.viewport;
   const topOrigin = tryOrigin(input.url) ?? "null";
   const frameAx = new Map((input.frames ?? []).map((f) => [f.frameId, f]));
@@ -239,6 +248,31 @@ export function buildSnapshot(input: SnapshotInput): BrowserSnapshot {
   let secureFieldActive = false;
   let captcha = false;
   const hiddenFrameBoxes: RefBox[] = [];
+
+  /**
+   * A secret field's value that the page also draws as one text node per character (the slot
+   * pattern of OTP inputs): the trailing run of short text lines is masked when it adds up to it.
+   */
+  const maskSplitSecrets = (): void => {
+    if (secretNorms.length === 0) return;
+    for (const secret of secretNorms) {
+      let cat = "";
+      for (let j = lines.length - 1; j >= 0 && lines.length - j <= 64; j--) {
+        const l = lines[j];
+        if (l === undefined || l.kind !== "text") break;
+        cat = (l.raw ?? "").replace(/\s+/g, "") + cat;
+        if (cat.length > secret.length) break;
+        if (cat === secret) {
+          const indent = /^\s*/.exec(l.text)?.[0] ?? "";
+          lines.splice(j, lines.length - j, {
+            kind: "text",
+            text: `${indent}- text "${SECURE_MASK}"`,
+          });
+          return;
+        }
+      }
+    }
+  };
 
   const boxOf = (info: DomNodeInfo | undefined): { box?: RefBox; offscreen: boolean } => {
     if (info?.box === undefined) return { offscreen: false };
@@ -273,7 +307,8 @@ export function buildSnapshot(input: SnapshotInput): BrowserSnapshot {
       tag: info?.tag ?? "",
       inForm: form !== undefined,
       submits: info === undefined ? false : dom.submits(info),
-      secure: info === undefined ? false : dom.isSecure(info, name),
+      // The old criteria (password, secure autocomplete): `type()` refuses on these alone.
+      secure: info === undefined ? false : dom.isSecure(info),
       frameOrigin: doc?.origin ?? topOrigin,
       opensPopup: target === "_blank" || target === "_new",
       pageUrl: doc?.url ?? input.url,
@@ -336,7 +371,12 @@ export function buildSnapshot(input: SnapshotInput): BrowserSnapshot {
       const text = redact(norm(axString(node.name)));
       if (text === "" || suppressText || parentName.includes(text)) return;
       textChars += text.length;
-      lines.push({ kind: "text", text: `${indent}- text "${clip(text, opts.textMax)}"` });
+      lines.push({
+        kind: "text",
+        text: `${indent}- text "${clip(text, opts.textMax)}"`,
+        raw: text,
+      });
+      maskSplitSecrets();
       return;
     }
     const info = dom.get(node.backendDOMNodeId);
@@ -379,10 +419,12 @@ export function buildSnapshot(input: SnapshotInput): BrowserSnapshot {
     }
     if (isInteractive && CAPTCHA_NAME.test(name)) captcha = true;
     const keep = isInteractive || STRUCTURAL_ROLES.has(role) || role === "rootwebarea";
-    if (!keep && info !== undefined && dom.isSecure(info, name)) {
+    if (!keep && info !== undefined && dom.isMasked(info, name)) {
       // A secret field under a role the walker does not keep (a contenteditable, a role override):
       // nothing of it, or of its text, reaches the output.
-      if ((info.inputValue ?? "") !== "" || axString(node.value) !== "") secureFieldActive = true;
+      const filled =
+        (info.inputValue ?? "") !== "" || axString(node.value) !== "" || (info.text ?? "") !== "";
+      if (filled && dom.isStrong(info, name)) secureFieldActive = true;
       return;
     }
     if (!keep) {
@@ -427,15 +469,18 @@ export function buildSnapshot(input: SnapshotInput): BrowserSnapshot {
         VALUE_ROLES.has(role) &&
         info?.tag.toLowerCase() === "input" &&
         info.attrs.contenteditable === undefined);
-    const secure =
-      typedInto || (meta?.secure ?? (info === undefined ? false : dom.isSecure(info, name)));
+    // `legacy`: password / secure autocomplete / typed-into. `secure`: everything masked (wide
+    // classifier). `strong`: what also refuses screenshots.
+    const legacy = typedInto || (meta?.secure ?? (info === undefined ? false : dom.isSecure(info)));
+    const secure = legacy || (info !== undefined && dom.isMasked(info, name));
+    const strong = legacy || (info !== undefined && dom.isStrong(info, name));
     if (secure) states.push("secure");
     for (const s of states) line += ` [${s}]`;
     const rawValue = axString(node.value);
     if (secure) {
       const hasValue = rawValue !== "" || (info?.inputValue ?? "") !== "";
       if (hasValue) line += ` value="${SECURE_MASK}"`;
-      if (hasValue || states.includes("focused")) secureFieldActive = true;
+      if (strong && (hasValue || states.includes("focused"))) secureFieldActive = true;
       if (ref !== undefined && hasValue) ref.value = SECURE_MASK;
     } else if (rawValue !== "" && rawValue !== name) {
       const value = redact(norm(rawValue));
@@ -443,7 +488,7 @@ export function buildSnapshot(input: SnapshotInput): BrowserSnapshot {
       if (ref !== undefined) ref.value = value;
     }
     if (role === "link" && meta?.href !== undefined) {
-      line += ` -> ${clip(shortHref(meta.href, topOrigin), opts.nameMax)}`;
+      line += ` -> ${clip(shortHref(redactUrl(meta.href), topOrigin).replace(/%E2%80%A2/g, "•"), opts.nameMax)}`;
     }
     if (box !== undefined && ref !== undefined) {
       line += ` @${box.x},${box.y} ${box.width}x${box.height}${offscreen ? " offscreen" : ""}`;
@@ -595,6 +640,21 @@ function stripUndefined<T extends object>(o: T): Partial<T> {
 }
 
 /**
+ * Whether the AX trees hold anything that can carry a secret value (a text-entry role, or an
+ * `editable` node such as a contenteditable). `read_text` fetches the DOM snapshot only then.
+ */
+export function hasFieldCandidates(trees: AXNode[][]): boolean {
+  for (const nodes of trees) {
+    for (const n of nodes) {
+      if (n.ignored) continue;
+      if (VALUE_ROLES.has(roleOf(n))) return true;
+      if (n.properties?.some((p) => p.name === "editable") === true) return true;
+    }
+  }
+  return false;
+}
+
+/**
  * Visible text of the page from the AX tree (no page JavaScript): StaticText in document order,
  * one line per block. Secure fields contribute nothing.
  */
@@ -623,7 +683,7 @@ export function extractText(
       const role = roleOf(node);
       if (options.dom !== undefined) {
         const info = options.dom.get(node.backendDOMNodeId);
-        if (info !== undefined && options.dom.isSecure(info, axString(node.name))) return;
+        if (info !== undefined && options.dom.isMasked(info, axString(node.name))) return;
       }
       if (role === "statictext") {
         cur += ` ${axString(node.name)}`;
@@ -641,7 +701,9 @@ export function extractText(
   };
   visitTree(ax);
   for (const f of options.frames ?? []) visitTree(f.ax);
-  const text = redact(out.join("\n"));
+  // The page's own secret values (also split over runs) and card numbers, after the vault's.
+  const joined = redact(out.join("\n"));
+  const text = options.dom !== undefined ? options.dom.scrub(joined) : joined;
   const max = options.maxChars ?? 20_000;
   return text.length > max
     ? { text: text.slice(0, max), truncated: true }
