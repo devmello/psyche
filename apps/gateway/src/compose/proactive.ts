@@ -164,6 +164,8 @@ export interface ProactiveSetup {
   comingUp?: () => { text: string; link?: string }[];
   /** Relationship nudges' "Keep in touch" lines for the morning brief (at most three). */
   keepInTouch?: () => { text: string; link?: string }[];
+  /** Quiet email threads' lines for the morning brief (`compose/mail-followups.ts`). */
+  quietThreads?: () => Promise<{ text: string; link?: string }[]>;
   /** The people graph while it is on: prep reads people and loops, notes add loops. */
   graph?: () => GraphStore | undefined;
   /**
@@ -597,6 +599,7 @@ export function composeProactive(setup: ProactiveSetup): ComposedProactive {
     followups,
     timezone: dailyTz,
     ...(setup.learned === undefined ? {} : { learned: setup.learned }),
+    ...(setup.quietThreads === undefined ? {} : { quietThreads: setup.quietThreads }),
     // Every memory line in the brief goes through `surfaceFilter` (birthdays, life events, people).
     ...briefLines(setup, catchup),
     ...(catchup === undefined ? {} : { catchUp: catchup.daily }),

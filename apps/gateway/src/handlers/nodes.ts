@@ -11,6 +11,7 @@ import {
 } from "@psyche/protocol";
 import type { Call, HandlerDef } from "../context.ts";
 import { paramsHash } from "../idempotency.ts";
+import { isMachineInvokeReachable } from "../nodes/machines.ts";
 
 /**
  * Capability namespaces a client can never reach through `nodes.invoke`: the helper's vault and
@@ -112,6 +113,20 @@ export const nodesHandlers: Record<string, HandlerDef> = {
         throw new PsycheError(
           "forbidden",
           `${params.capability} is not reachable through nodes.invoke on the Host's ${node.kind === "win-helper" ? "Windows" : node.kind === "host-helper" ? "Linux" : "Mac"} helper`,
+        );
+      }
+      // A machine (a paired Linux computer) is reached through the agent's tools only. The one
+      // client path is its health and its own status report: `computer.*`, `apps.*`, `vscreen.*`,
+      // `exec.*`, `fs.*` and anything it adds later are refused here, by an allowlist, however the
+      // name is spelled. The kind is the stored decision (or a live machine of this device), never
+      // what the node declared.
+      if (
+        (node.kind === "machine" || ctx.nodes.machine(node.deviceId) !== undefined) &&
+        !isMachineInvokeReachable(params.capability)
+      ) {
+        throw new PsycheError(
+          "forbidden",
+          `${params.capability} is not reachable through nodes.invoke on a machine`,
         );
       }
       if (isUnreachableCapability(params.capability)) {

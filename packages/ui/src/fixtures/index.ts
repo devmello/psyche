@@ -48,6 +48,7 @@ import type {
   Widget,
 } from "@psyche/protocol";
 import type { ReviewWorld } from "../data/mock-review.ts";
+import type { SpacesWorld } from "../data/mock-spaces.ts";
 import { answerTokens, approvals, grants } from "./approvals.ts";
 import { messages, runs, threads, toolCalls } from "./chat.ts";
 import { fileTree, type MockFileNode } from "./files.ts";
@@ -180,6 +181,8 @@ export interface FixtureWorld {
   graph: GraphWorld;
   /** Everything memory's review queue, quarantine and runs (absent = empty). */
   review?: ReviewWorld;
+  /** Spaces (absent = none); `withSpaces` fills it. */
+  spaces?: SpacesWorld;
   /** Settings → Skills (T2). */
   skills: SkillDetails[];
   /** What reviewing a folder finds: a proposal to stage, or policy violations. */

@@ -1832,6 +1832,7 @@ export interface Automation {
      * main | isolated | named:<id>
      */
     sessionTarget: string;
+    spaceId?:      null | string;
     specialist?:   AutomationSpecialist;
     timezone:      string;
     title:         string;
@@ -2031,6 +2032,7 @@ export interface AutomationsCreateParams {
      * main | isolated | named:<id>
      */
     sessionTarget?: string;
+    spaceId?:       string;
     specialist?:    AutomationSpecialist;
     /**
      * IANA zone; defaults to the Gateway's
@@ -2115,6 +2117,7 @@ export interface AutomationsUpdateParams {
      * main | isolated | named:<id>
      */
     sessionTarget?: string;
+    spaceId?:       null | string;
     specialist?:    AutomationSpecialist | null;
     /**
      * IANA zone; defaults to the Gateway's
@@ -2992,7 +2995,7 @@ export type WorkNoteAttribute = "status" | "deadline" | "progress" | "stopped_at
 
 export type ChecklistItemStatus = "pending" | "in_progress" | "completed";
 
-export type BlockKind = "feed_item" | "search_hit" | "memory_entity" | "life_answer";
+export type BlockKind = "feed_item" | "search_hit" | "memory_entity" | "life_answer" | "mail_followup";
 
 /**
  * The kind of model that made the answer
@@ -4797,7 +4800,7 @@ export interface DailySection {
     unavailable?: boolean;
 }
 
-export type DailySectionID = "calendar" | "mail" | "due" | "followups" | "weather" | "done" | "open" | "tomorrow" | "learned" | "coming_up" | "keep_in_touch" | "catching_up" | "worked_on";
+export type DailySectionID = "calendar" | "mail" | "due" | "followups" | "weather" | "done" | "open" | "tomorrow" | "learned" | "coming_up" | "keep_in_touch" | "quiet_threads" | "catching_up" | "worked_on";
 
 export interface InboxDigest {
     accounts: string[];
@@ -6378,6 +6381,40 @@ export interface MachinesRenameParams {
 export interface MachinesRenameResult {
     machine: MachineInfo;
 }
+
+export interface MailFollowupsActParams {
+    action: MailFollowupAction;
+    id:     string;
+}
+
+export type MailFollowupAction = "snooze" | "dismiss";
+
+export interface MailFollowupsActResult {
+    ok: boolean;
+}
+
+export interface MailFollowupsListResult {
+    /**
+     * `mail.followups.enabled` is on
+     */
+    enabled: boolean;
+    items:   MailFollowupItem[];
+}
+
+export interface MailFollowupItem {
+    daysQuiet: number;
+    id:        string;
+    kind:      MailFollowupKind;
+    link?:     string;
+    source:    MailFollowupItemSource;
+    subject:   string;
+    untrusted: boolean;
+    who:       string;
+}
+
+export type MailFollowupKind = "no_reply" | "unanswered_question";
+
+export type MailFollowupItemSource = "apple" | "gmail" | "imap";
 
 export interface MCPAddParams {
     approvalId: string;
@@ -8715,6 +8752,10 @@ export type ExternalRef = number | string;
 
 export type ReceiptOutcome = "ok" | "failed" | "uncertain";
 
+export interface NodeUnpairResult {
+    device: Device;
+}
+
 export interface NodeUpdatedPayload {
     node: NodeInfo;
 }
@@ -9223,6 +9264,7 @@ export interface PluginsInstallResult {
 }
 
 export interface PluginSummary {
+    adds?:        PluginAdds;
     capabilities: PluginCapability[];
     description:  string;
     /**
@@ -9242,6 +9284,13 @@ export interface PluginSummary {
     source:  string;
     status:  PluginStatus;
     version: string;
+}
+
+export interface PluginAdds {
+    commands:   number;
+    hooks:      number;
+    mcpServers: number;
+    skills:     number;
 }
 
 /**
@@ -11601,6 +11650,333 @@ export interface AnswerSource {
 
 export type SourcesBlockType = "sources";
 
+export interface SpaceDetail {
+    automationIds:   string[];
+    counts:          SpaceCounts;
+    folders:         SpaceFolder[];
+    goalIds:         string[];
+    lastActivityAt?: null | string;
+    links:           SpaceLink[];
+    space:           Space;
+    trackers:        SpaceTracker[];
+}
+
+export interface SpaceCounts {
+    chats:    number;
+    due:      number;
+    trackers: number;
+}
+
+export interface SpaceFolder {
+    addedAt:        string;
+    addedByDevice?: null | string;
+    /**
+     * Unattended runs (automations) may write here (SP8); default false
+     */
+    automationsWrite: boolean;
+    mode:             FolderModeEnum;
+    path:             string;
+    /**
+     * The real path recorded when the folder was added
+     */
+    real: string;
+}
+
+export interface SpaceLink {
+    addedBy:         Drafted;
+    createdAt:       string;
+    id:              string;
+    kind:            SpaceLinkKind;
+    label:           string;
+    labelProvenance: SpaceLinkProvenance;
+    ref:             string;
+}
+
+export type SpaceLinkKind = "url" | "library_item" | "note" | "mail_thread" | "file";
+
+export type SpaceLinkProvenance = "owner" | "agent" | "untrusted";
+
+export interface Space {
+    archivedAt?:            null | string;
+    connectorScope?:        string[] | null;
+    createdAt:              string;
+    createdFrom:            SpaceCreatedFrom;
+    defaultPermissionMode?: PermissionMode | null;
+    description?:           null | string;
+    entityId?:              null | string;
+    icon?:                  null | string;
+    id:                     string;
+    instructions:           string;
+    instructionsRev:        number;
+    name:                   string;
+    private:                boolean;
+    sort:                   number;
+    updatedAt:              string;
+}
+
+export type SpaceCreatedFrom = "owner" | "proposal" | "project" | "migration";
+
+export type PermissionMode = "plan" | "manual" | "balanced" | "auto";
+
+export interface SpaceTracker {
+    addedBy:      AddedBy;
+    createdAt:    string;
+    kind:         SpaceTrackerKind;
+    position:     number;
+    refreshedAt?: null | string;
+    staleAfterS?: number | null;
+    taint?:       TaintSource[];
+    widgetId:     string;
+}
+
+export type AddedBy = "owner" | "agent" | "template";
+
+export type SpaceTrackerKind = "bound" | "query" | "agent";
+
+export interface SpaceProposalCreatedPayload {
+    proposal: SpaceProposal;
+}
+
+export interface SpaceProposal {
+    createdAt:  string;
+    decidedAt?: null | string;
+    entityId?:  null | string;
+    id:         string;
+    name:       string;
+    reason:     string;
+    status:     SpaceProposalStatus;
+    taint:      TaintSource[];
+    threadIds:  string[];
+}
+
+export type SpaceProposalStatus = "open" | "accepted" | "dismissed";
+
+export interface SpaceResult {
+    space: Space;
+}
+
+export interface SpaceTrackerRefreshedPayload {
+    refreshedAt: string;
+    spaceId:     string;
+    widgetId:    string;
+}
+
+export interface SpaceUpdatedPayload {
+    changed: string[];
+    spaceId: string;
+}
+
+export interface SpacesArchiveParams {
+    spaceId: string;
+}
+
+export interface SpacesAutomationsMoveParams {
+    automationIds: string[];
+    spaceId?:      null | string;
+}
+
+export interface SpacesAutomationsMoveResult {
+    moved: number;
+}
+
+export interface SpacesContextPreviewParams {
+    spaceId:   string;
+    threadId?: string;
+}
+
+export interface SpacesContextPreviewResult {
+    sections: SpaceContextSection[];
+}
+
+export interface SpaceContextSection {
+    cap:   number;
+    chars: number;
+    kind:  SpaceContextSectionKind;
+    text:  string;
+}
+
+export type SpaceContextSectionKind = "instructions" | "card" | "work" | "trackers";
+
+export interface SpacesCreateParams {
+    description?:  string;
+    entityId?:     string;
+    icon?:         string;
+    instructions?: string;
+    name:          string;
+}
+
+export interface SpacesDeleteParams {
+    spaceId: string;
+}
+
+export interface SpacesFoldersAddParams {
+    mode?: FolderModeEnum;
+    /**
+     * Omit on the Host to open the native picker
+     */
+    path?:   string;
+    spaceId: string;
+}
+
+export interface SpacesFoldersRemoveParams {
+    path:    string;
+    spaceId: string;
+}
+
+export interface SpacesFoldersSetModeParams {
+    mode:    FolderModeEnum;
+    path:    string;
+    spaceId: string;
+}
+
+export interface SpacesGetParams {
+    spaceId: string;
+}
+
+export interface SpacesLinksAddParams {
+    kind:    SpaceLinkKind;
+    label:   string;
+    ref:     string;
+    spaceId: string;
+}
+
+export interface SpacesLinksAddResult {
+    link: SpaceLink;
+}
+
+export interface SpacesLinksRemoveParams {
+    linkId:  string;
+    spaceId: string;
+}
+
+export interface SpacesListParams {
+    archived?: boolean;
+}
+
+export interface SpacesListResult {
+    spaces: SpaceSummary[];
+}
+
+export interface SpaceSummary {
+    archivedAt?:     null | string;
+    counts:          SpaceCounts;
+    description?:    null | string;
+    entityId?:       null | string;
+    icon?:           null | string;
+    id:              string;
+    lastActivityAt?: null | string;
+    name:            string;
+    private:         boolean;
+    sort:            number;
+}
+
+export interface SpacesOpenParams {
+    spaceId: string;
+}
+
+export interface SpacesOpenResult {
+    trackers: SpaceTrackerValue[];
+}
+
+export interface SpaceTrackerValue {
+    refreshedAt: string;
+    /**
+     * e.g. "mail", for "Updated 2h ago · from mail"
+     */
+    source?: string;
+    stale:   boolean;
+    /**
+     * The source is gone
+     */
+    unavailable?: boolean;
+    widgetId:     string;
+}
+
+export interface SpacesProposalsAcceptParams {
+    name?:      string;
+    proposalId: string;
+}
+
+export interface SpacesProposalsDismissParams {
+    proposalId: string;
+}
+
+export interface SpacesProposalsListParams {
+    status?: SpacesProposalsListParamsStatus;
+}
+
+export type SpacesProposalsListParamsStatus = "open";
+
+export interface SpacesProposalsListResult {
+    proposals: SpaceProposal[];
+}
+
+export interface SpacesRestoreParams {
+    spaceId: string;
+}
+
+export interface SpacesSettingsSetParams {
+    /**
+     * Per folder: unattended runs may write here (SP8)
+     */
+    automationsWrite?:      AutomationsWrite[];
+    connectorScope?:        string[] | null;
+    defaultPermissionMode?: PermissionMode | null;
+    spaceId:                string;
+}
+
+export interface AutomationsWrite {
+    allow: boolean;
+    path:  string;
+}
+
+export interface SpacesThreadsMoveParams {
+    spaceId?:  null | string;
+    threadIds: string[];
+}
+
+export interface SpacesThreadsMoveResult {
+    moved: number;
+}
+
+export interface SpacesTrackersAddParams {
+    spaceId:   string;
+    template?: SpaceTrackerTemplate;
+    widgetId?: string;
+}
+
+export type SpaceTrackerTemplate = "work_due" | "next_events" | "recent_files" | "mail_on_this" | "checklist" | "automation_status";
+
+export interface SpacesTrackersRefreshParams {
+    spaceId:  string;
+    widgetId: string;
+}
+
+export interface SpacesTrackersRefreshResult {
+    tracker: SpaceTrackerValue;
+}
+
+export interface SpacesTrackersRemoveParams {
+    spaceId:  string;
+    widgetId: string;
+}
+
+export interface SpacesTrackersReorderParams {
+    spaceId:   string;
+    widgetIds: string[];
+}
+
+export interface SpacesUpdateParams {
+    description?:  null | string;
+    entityId?:     null | string;
+    icon?:         null | string;
+    instructions?: string;
+    name?:         string;
+    private?:      boolean;
+    sort?:         number;
+    spaceId:       string;
+}
+
 export interface SpecialistProgressPayload {
     budget: RunBudget;
     runId:  string;
@@ -11752,8 +12128,6 @@ export interface Caps {
     minutes?: number;
     tokens?:  number;
 }
-
-export type PermissionMode = "plan" | "manual" | "balanced" | "auto";
 
 export type ModelClassEnum = "utility" | "primary" | "harness" | "vision";
 
@@ -12561,6 +12935,7 @@ export interface Thread {
      * e.g. "owner:main", "telegram:peer:12345"
      */
     sessionKey:   string;
+    spaceId?:     null | string;
     title:        string;
     titleSource:  TitleSource;
     updatedAt:    string;
@@ -12620,6 +12995,7 @@ export interface ThreadsCreateParams {
     modelRef?:       string;
     parentThreadId?: string;
     permissionMode?: PermissionMode;
+    spaceId?:        string;
     title?:          string;
 }
 
@@ -12653,7 +13029,8 @@ export interface ThreadsListParams {
     /**
      * Case-insensitive substring match on the title
      */
-    query?: string;
+    query?:   string;
+    spaceId?: string;
 }
 
 export interface ThreadsListResult {
@@ -12699,6 +13076,7 @@ export type ThreadPreviewRole = "user" | "agent";
 export interface ThreadsNewChatParams {
     kind:            ThreadsNewChatParamsKind;
     preferThreadId?: string;
+    spaceId?:        string;
 }
 
 export type ThreadsNewChatParamsKind = "side" | "incognito";
@@ -12732,8 +13110,8 @@ export interface ThreadsSetContextLimitsResult {
 }
 
 export interface ThreadsSummaryPinsRemoveParams {
-    instruction: string;
-    threadId:    string;
+    pinId:    string;
+    threadId: string;
 }
 
 export interface ThreadsSummaryPinsRemoveResult {
@@ -13679,7 +14057,7 @@ export interface WidgetBind {
     source: WidgetBindingSource;
 }
 
-export type WidgetBindingSource = "task" | "automation" | "research" | "tool_call" | "job";
+export type WidgetBindingSource = "task" | "automation" | "research" | "tool_call" | "job" | "entity" | "work_due" | "calendar" | "reminders" | "mail" | "files";
 
 export interface WidgetDraftPayload {
     callId: string;
@@ -13790,6 +14168,7 @@ export interface Widget {
     owner:     WidgetOwner;
     pinned:    boolean;
     rev:       number;
+    spaceId?:  null | string;
     spec:      WidgetSpec;
     state:     WidgetState;
     taint:     TaintSource[];

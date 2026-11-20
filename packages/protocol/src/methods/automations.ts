@@ -52,6 +52,8 @@ export const AutomationsMethods = {
       lightContext: Type.Optional(Type.Boolean()),
       /** Run each occurrence as a background specialist job (specialists §4.10). */
       specialist: Type.Optional(AutomationSpecialist),
+      /** Run in a Space (spaces §4.2). */
+      spaceId: Type.Optional(Id),
     }),
     result: AutomationResult,
     scope: "operator.write",
@@ -73,6 +75,8 @@ export const AutomationsMethods = {
       scratch: Type.Optional(Nullable(Type.String({ maxLength: 20_000 }))),
       /** null runs it as a plain automation again. */
       specialist: Type.Optional(Nullable(AutomationSpecialist)),
+      /** Move into a Space, or null to move out (spaces §4.2). */
+      spaceId: Type.Optional(Nullable(Id)),
     }),
     result: AutomationResult,
     scope: "operator.write",

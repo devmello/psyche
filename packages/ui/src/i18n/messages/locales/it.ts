@@ -23,6 +23,7 @@ import { homeRest } from "./home-rest/it.ts";
 import { keepAwake } from "./keep-awake/it.ts";
 import { links } from "./links/it.ts";
 import { linuxAccess } from "./linux-access/it.ts";
+import { mailFollowups } from "./mail-followups/it.ts";
 import { mailMeetings } from "./mail-meetings/it.ts";
 import { meetingRecordRest } from "./meeting-record-rest/it.ts";
 import { memoryAdvancedRest } from "./memory-advanced-rest/it.ts";
@@ -50,6 +51,7 @@ import { securityState } from "./security-state/it.ts";
 import { separateDesktop } from "./separate-desktop/it.ts";
 import { settingsRest } from "./settings-rest/it.ts";
 import { shellRest } from "./shell-rest/it.ts";
+import { spaces } from "./spaces/it.ts";
 import { specialistsRest } from "./specialists-rest/it.ts";
 import { webRest } from "./web-rest/it.ts";
 import { widgetsRest } from "./widgets-rest/it.ts";
@@ -1028,6 +1030,8 @@ export const it: Partial<Catalogue> = {
   "settings.key.browser.botAuth": "Web Bot Auth",
   "settings.key.computerUse.enabled": "Consenti l’uso del computer",
   "settings.key.computerUse.apps": "Accesso alle app",
+  "settings.key.feed.sources": "Fonti del feed",
+  "settings.key.computerUse.linuxRevoke": "Dimentica il computer Linux",
   "settings.key.context.maxTokens": "Limite del contesto",
   "settings.key.search.web.provider": "Fornitore di ricerca web",
   "settings.key.search.web.searxngUrl": "URL di SearXNG",
@@ -2411,6 +2415,16 @@ export const it: Partial<Catalogue> = {
   "settings.plugins.switchOn": "{name} attivo",
   "settings.plugins.version": " · v{version}",
   "settings.plugins.adds": "Aggiunge: {list}",
+  "settings.plugins.install": "Installa da una cartella…",
+  "settings.plugins.pickFailed":
+    "Psyche non è riuscito ad aprire il selettore di cartelle ({reason}).",
+  "settings.plugins.installFailed": "L'installazione non è partita. {reason}",
+  "settings.plugins.proposed": "Controlla l'installazione sulla scheda di approvazione.",
+  "settings.plugins.includes": "Include: {list}",
+  "settings.plugins.count.skills": "{n, plural, one {# skill} other {# skill}}",
+  "settings.plugins.count.commands": "{n, plural, one {# comando} other {# comandi}}",
+  "settings.plugins.count.mcpServers": "{n, plural, one {# server MCP} other {# server MCP}}",
+  "settings.plugins.count.hooks": "{n, plural, one {# hook} other {# hook}}",
   "settings.plugins.from": "Da {source}",
   "settings.plugins.state.active": "In esecuzione",
   "settings.plugins.state.disabled": "Disattivato",
@@ -3778,5 +3792,7 @@ export const it: Partial<Catalogue> = {
   ...separateDesktop,
   // Windows variants of the sandbox PC, voice keys and platform terms
   ...windowsPlatform202611,
+  ...mailFollowups,
   ...keepAwake,
+  ...spaces,
 };

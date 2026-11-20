@@ -1,6 +1,8 @@
+import { createHash } from "node:crypto";
 import type { CompactionInfo, PsycheAgentLoop } from "@psyche/agent-core";
 import {
   appendMessage,
+  getMessage,
   getSetting,
   getThread,
   listMessagesPage,
@@ -18,7 +20,9 @@ import {
   type MethodResult,
   type PermissionBroker,
   PsycheError,
+  pinId,
 } from "@psyche/protocol";
+import type { Call, HandlerDef } from "../context.ts";
 
 /**
  * Context usage per chat, owner-set limits and compaction (owner priority; features B7, C2).
@@ -56,7 +60,6 @@ export interface ContextDeps {
   isRunning(threadId: string): boolean;
 }
 
-const pinKey = (s: string) => s.replace(/\s+/g, " ").trim().toLowerCase();
 const num = (v: unknown) => (typeof v === "number" && Number.isFinite(v) ? v : undefined);
 
 function settingsLimits(db: PsycheDb): ContextLimits {
@@ -194,44 +197,6 @@ export function createContext(deps: ContextDeps) {
       setSetting(db, threadKey(p.threadId), p.limits ?? {});
       return { limits: await window(p.threadId), threadLimits: threadLimits(db, p.threadId) };
     },
-    "threads.summary.pins.remove": async (
-      p: MethodParams<"threads.summary.pins.remove">,
-    ): Promise<MethodResult<"threads.summary.pins.remove">> => {
-      if (getThread(db, p.threadId) === undefined)
-        throw new PsycheError("not_found", "no such thread");
-      if (deps.isRunning(p.threadId)) {
-        throw new PsycheError("conflict", "the thread is running; try again when the turn ends");
-      }
-      const pinnedInstructions = await loop().removePinnedInstruction(p.threadId, p.instruction);
-      // The compaction blocks that show it stop showing it (the transcript otherwise stays).
-      const key = pinKey(p.instruction);
-      const rows = db.sqlite
-        .prepare("SELECT id, blocks FROM messages WHERE thread_id = ? AND blocks LIKE ?")
-        .all(p.threadId, '%"compaction"%') as { id: string; blocks: string }[];
-      const put = db.sqlite.prepare("UPDATE messages SET blocks = ? WHERE id = ?");
-      for (const row of rows) {
-        const blocks = JSON.parse(row.blocks) as Block[];
-        let changed = false;
-        for (const b of blocks) {
-          if (b.type !== "compaction") continue;
-          const kept = b.summary.pinnedInstructions.filter((i) => pinKey(i) !== key);
-          if (kept.length !== b.summary.pinnedInstructions.length) {
-            b.summary.pinnedInstructions = kept;
-            changed = true;
-          }
-        }
-        if (changed) put.run(JSON.stringify(blocks), row.id);
-      }
-      await deps.audit
-        .append({
-          kind: "thread.summary_pin_removed",
-          actor: { type: "user" },
-          subject: { threadId: p.threadId },
-          data: { remaining: pinnedInstructions.length },
-        })
-        .catch(() => undefined);
-      return { pinnedInstructions };
-    },
     "threads.compact": async (
       p: MethodParams<"threads.compact">,
     ): Promise<MethodResult<"threads.compact">> => {
@@ -260,5 +225,70 @@ export function createContext(deps: ContextDeps) {
     },
   });
 
-  return { contextLimits, onContextUsage, onCompaction, handlers };
+  /**
+   * `threads.summary.pins.remove`: the owner's own control over a thread's standing instructions.
+   * It needs the call's identity for the audit entry, so it is mounted with the whole call.
+   */
+  const pinHandlers = (loop: () => PsycheAgentLoop): Record<string, HandlerDef> => ({
+    "threads.summary.pins.remove": {
+      async run(call: Call, p: MethodParams<"threads.summary.pins.remove">) {
+        if (getThread(db, p.threadId) === undefined)
+          throw new PsycheError("not_found", "no such thread");
+        if (deps.isRunning(p.threadId)) {
+          throw new PsycheError("conflict", "the thread is running; try again when the turn ends");
+        }
+        // Holds the thread's run slot while it edits the saved summary.
+        const { pinnedInstructions, removed } = await loop().removePinnedInstruction(
+          p.threadId,
+          p.pinId,
+        );
+        // The compaction blocks that show it stop showing it (the transcript otherwise stays).
+        const rows = db.sqlite
+          .prepare("SELECT id, blocks FROM messages WHERE thread_id = ? AND blocks LIKE ?")
+          .all(p.threadId, '%"compaction"%') as { id: string; blocks: string }[];
+        const put = db.sqlite.prepare("UPDATE messages SET blocks = ? WHERE id = ?");
+        const changed: string[] = [];
+        for (const row of rows) {
+          const blocks = JSON.parse(row.blocks) as Block[];
+          let touched = false;
+          for (const b of blocks) {
+            if (b.type !== "compaction") continue;
+            const kept = b.summary.pinnedInstructions.filter((i) => pinId(i) !== p.pinId);
+            if (kept.length !== b.summary.pinnedInstructions.length) {
+              b.summary.pinnedInstructions = kept;
+              touched = true;
+            }
+          }
+          if (touched) {
+            put.run(JSON.stringify(blocks), row.id);
+            changed.push(row.id);
+          }
+        }
+        // Other windows and devices show the rewritten blocks too.
+        for (const id of changed) {
+          const message = getMessage(db, id);
+          if (message !== undefined) deps.publish("chat.message", { message }, p.threadId);
+        }
+        const text = removed[0] ?? "";
+        await deps.audit
+          .append({
+            kind: "thread.summary_pin_removed",
+            actor: { type: "user", deviceId: call.identity.deviceId },
+            subject: { threadId: p.threadId },
+            data: {
+              pinId: p.pinId,
+              // A short prefix, enough to recognise it; the pin may be long or injected text.
+              prefix: text.slice(0, 40),
+              sha256: createHash("sha256").update(text).digest("hex"),
+              remaining: pinnedInstructions.length,
+              blocksRewritten: changed.length,
+            },
+          })
+          .catch(() => undefined);
+        return { pinnedInstructions };
+      },
+    },
+  });
+
+  return { contextLimits, onContextUsage, onCompaction, handlers, pinHandlers };
 }

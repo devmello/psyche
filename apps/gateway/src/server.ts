@@ -64,6 +64,7 @@ import { type LanContext, type LanLimits, LanListener, peerLimitKey } from "./la
 import { LAN_SETTING, readLanSettings } from "./lan/settings.ts";
 import { createLogger, type Logger } from "./log.ts";
 import { allowedMapOrigins } from "./map-proxy.ts";
+import type { MachineChange } from "./nodes/machines.ts";
 import { NodeRegistry } from "./nodes/registry.ts";
 import { openGatewayDb, releaseGatewayLock } from "./pre-update.ts";
 import { presenceStateFor } from "./presence-gate.ts";
@@ -163,6 +164,8 @@ export interface GatewayOptions {
   onDeviceSelfRevoked?: (revoked: { deviceId: string; name: string }) => void;
   /** A computer paired itself with a setup token (composition root: audit it). */
   onSetupTokenUsed?: (used: { tokenId: string; deviceId: string; scopes: DeviceScope[] }) => void;
+  /** A machine was added or removed (composition root: audit it, tell every device). */
+  onMachineChange?: (change: MachineChange) => void;
   /**
    * The broker publishes its own `receipt.created` events (the composition root forwards them),
    * so `nodes.invoke` must not publish the same receipt again (issue #50).
@@ -338,6 +341,7 @@ export async function startGateway(options: GatewayOptions = {}): Promise<Gatewa
     onDeviceRevoked: options.onDeviceRevoked ?? null,
     onDeviceSelfRevoked: options.onDeviceSelfRevoked ?? null,
     onSetupTokenUsed: options.onSetupTokenUsed ?? null,
+    onMachineChange: options.onMachineChange ?? null,
     onSettingChanged: options.onSettingChanged ?? null,
     brokerPublishesReceipts: options.brokerPublishesReceipts ?? false,
     presenceState,
@@ -756,11 +760,18 @@ export async function startGateway(options: GatewayOptions = {}): Promise<Gatewa
         resolveListen();
       });
     });
-  // The secret first: a helper that reconnects the moment a socket opens (a Gateway restart)
+  // The address this Gateway is really bound to (not the configured name: `localhost` binds
+  // `127.0.0.1`, or `::1` on macOS), for the CLI's "is this my Gateway" check and its default URL
+  // (a Gateway on `gateway.host: localhost` is reached at that address). Written BEFORE the secret:
+  // the CLI reads the secret first and `listen.json` second, so any secret it holds was written
+  // after the `listen.json` it compares against, and a new secret never pairs with a stale origin.
+  const bound = http.address() as AddressInfo;
+  const listenPath = writeListenFile(config.home, [
+    `http://${bound.address.includes(":") ? `[${bound.address}]` : bound.address}:${bound.port}`,
+  ]);
+  // The secret next: a helper that reconnects the moment a socket opens (a Gateway restart)
   // must find this launch's secret, never the previous one or none.
   const { path: secretPath } = writeHandshakeSecret(config.home, handshakeSecret);
-  // And the address it is bound to, for the CLI's "is this my Gateway" check (`writeListenFile`).
-  const listenPath = writeListenFile(config.home, [origin]);
   const nodeServer = serveNodes("unix");
   try {
     await listenOn(nodeServer, config.nodeSocketPath);

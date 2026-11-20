@@ -76,6 +76,8 @@ export const ThreadsMethods = {
       permissionMode: Type.Optional(PermissionMode),
       modelRef: Type.Optional(ModelRef),
       parentThreadId: Type.Optional(Id),
+      /** Start the thread in a Space (spaces §4.2). */
+      spaceId: Type.Optional(Id),
     }),
     result: ThreadResult,
     scope: "operator.write",
@@ -87,6 +89,8 @@ export const ThreadsMethods = {
     params: Type.Object({
       kind: Type.Union([Type.Literal("side"), Type.Literal("incognito")]),
       preferThreadId: Type.Optional(Id),
+      /** Start the chat in a Space (spaces §4.2). */
+      spaceId: Type.Optional(Id),
     }),
     result: Type.Object({
       thread: Thread,
@@ -108,6 +112,8 @@ export const ThreadsMethods = {
       kind: Type.Optional(ThreadKind),
       includeArchived: Type.Optional(Type.Boolean()),
       pinnedOnly: Type.Optional(Type.Boolean()),
+      /** Only threads in this Space (spaces §4.2). */
+      spaceId: Type.Optional(Id),
       query: Type.Optional(
         Type.String({
           minLength: 1,
@@ -236,8 +242,8 @@ export const ThreadsMethods = {
   "threads.summary.pins.remove": defineMethod({
     params: Type.Object({
       threadId: Id,
-      /** The standing instruction to remove, as the compaction block shows it. */
-      instruction: Type.String({ minLength: 1, maxLength: 500 }),
+      /** The pin's id (`pinId(text)` in @psyche/protocol): the text itself never travels. */
+      pinId: Type.String({ pattern: "^[0-9a-f]{16}$" }),
     }),
     result: Type.Object({
       /** The standing instructions the thread's summary keeps. */
@@ -246,6 +252,6 @@ export const ThreadsMethods = {
     scope: "operator.write",
     sideEffecting: true,
     description:
-      "Side-effecting: the owner removes one standing instruction from a thread's compaction summary, and from the compaction blocks that show it. A plain tap on a paired device, no presence; the agent and channels cannot reach it. conflict while the thread runs.",
+      "Side-effecting: the owner removes one standing instruction (by pin id) from a thread's compaction summary, and from the compaction blocks that show it. A plain tap on a paired device, no presence; the agent and channels cannot reach it. conflict while the thread runs.",
   }),
 } as const;

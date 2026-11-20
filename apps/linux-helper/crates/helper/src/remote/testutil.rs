@@ -472,10 +472,17 @@ fn gateway_loop(
                     return;
                 }
             }
-            Some("devices.revokeSelf") => {
+            Some("node.unpair") => {
                 send(
                     ws,
                     json!({"type":"res","id":id,"ok":true,"payload":{"device":{}}}),
+                );
+            }
+            // A machine holds only the `node` scope.
+            Some("devices.revokeSelf") => {
+                send(
+                    ws,
+                    json!({"type":"res","id":id,"ok":false,"error":{"code":"forbidden","message":"scope"}}),
                 );
             }
             _ => {}

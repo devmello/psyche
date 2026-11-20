@@ -27,6 +27,7 @@ import { t } from "../i18n/core.ts";
 import { describeError } from "../i18n/errors.ts";
 import { LayoutMotion, Presence } from "../motion/index.ts";
 import { usePersona, useSlots } from "../slots.tsx";
+import { SpaceComposerChip } from "../spaces/SpaceSwitcher.tsx";
 import { SpecialistSpawns } from "../specialists/SpawnLine.tsx";
 import { VoiceComposer } from "../voice/composer-voice.tsx";
 import { WidgetDrafts } from "../widgets/WidgetBlock.tsx";
@@ -938,6 +939,7 @@ export function ChatThread({
                     }
                   />
                 ) : null}
+                <SpaceComposerChip threadId={threadId} />
                 <VoiceComposer
                   threadId={threadId}
                   persona={persona.name}

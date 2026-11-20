@@ -185,6 +185,7 @@ export {
   CLASSIFY_BATCH,
   type Classified,
   classifyBatch,
+  cleanHeader,
   sanitizeMailText,
 } from "./mail/classify.ts";
 export {
@@ -237,6 +238,7 @@ export {
   type Slot,
   type TimesProposal,
 } from "./mail/scheduling.ts";
+export { readTool } from "./mail/tools.ts";
 export {
   buildProfile,
   commonSignature,

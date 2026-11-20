@@ -85,4 +85,10 @@ export const notices = {
   "notice.codeRun.unmoved.title": "Launch config from a code run in {repo} is still in place",
   "notice.codeRun.unmoved.body":
     "A command in the sandbox created {paths}, and Psyche could not move it aside, so it is not held. Apps or your next command could run code from it. Delete it before you open the folder or run anything there. Don't change its permissions to look inside first, since that can let it run.",
+  "notice.machine.added.title": "{name} was added as a computer Psyche can use",
+  "notice.machine.added.body":
+    "Psyche can use its screen, apps, shell and files, and each action there asks you first. If you didn't add it, remove it in Settings → Devices.",
+  "notice.machine.removed.title": "{name} removed itself",
+  "notice.machine.removed.body":
+    "It was a computer Psyche could use. Psyche won't use it again unless you add it again.",
 } as const;

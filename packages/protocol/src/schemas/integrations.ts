@@ -489,6 +489,8 @@ export const Automation = Type.Object(
     delivery: Delivery,
     prompt: Type.String(),
     scratch: Nullable(Type.String()),
+    /** The Space this automation runs in (docs/design/spaces-2026.md §4.1). */
+    spaceId: Nullable(Id),
     enabled: Type.Boolean(),
     nextRunAt: Nullable(IsoDateTime),
     lastRunAt: Nullable(IsoDateTime),
