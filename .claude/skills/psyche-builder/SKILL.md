@@ -58,6 +58,7 @@ Run `tsc` only through `verify.sh`, or alone, never in parallel with your own ve
 
 **How to run `verify.sh` (#1375, #1396, #1397, #1398, #1404, #1407, #1394):**
 - Commit first and merge `origin/main`: it checks the committed diff against the merge base, so uncommitted files or a stale base mean it checks the wrong set.
+- The harness moves a command that runs past ~180 s to the background. That is expected: wait for its completion notice and read the log. Never start a second run.
 - Run it in the foreground, niced, with a long timeout, and write the output to a file with a PR-specific name: `nice bash .claude/scripts/verify.sh > "$SCRATCH/verify-<pr or branch>.log" 2>&1` with the Bash timeout at 600000. A backgrounded `| tail` loses the result, and the Stop hook starts a second full verify if you end your turn while one runs in the background (load 26).
 - Full checks share 3 slots on machines with 10+ cores (1 otherwise); a run waits for a free one, sometimes tens of minutes. Don't start another and don't poll with `pgrep -f "verify.sh"`, it matches itself.
 - Shared scratch dirs belong to every session: name files after your PR or branch (`pr-1404-body.md`, `verify-1404.log`). Another session overwrote `verify2.log` (#1404) and `pr-body.md`.
@@ -89,6 +90,7 @@ If the brief says not to push or not to open a PR (a dry run, an investigation, 
 End your turn with:
 - one line on the outcome, with the PR link;
 - the cause, the fix, and the verification result;
+- the head sha and `git diff --stat origin/main...HEAD`. Not `git show --stat HEAD`: when HEAD is a merge commit it shows main's incoming changes (#1293, #1432);
 - "Not verified", "Noticed" and any question for the orchestrator.
 
 Send the report once. Don't re-send it while waiting on background work. No praise or filler. If something failed, say it failed.

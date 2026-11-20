@@ -3,7 +3,8 @@ import { homedir } from "node:os";
 import { join } from "node:path";
 import { defaultDenyRead } from "@psyche/mcp-host";
 import { CLI_HOME_DIRS } from "@psyche/model-router";
-import type { FolderAccessEnv } from "@psyche/permissions";
+import { type FolderAccessEnv, persistenceRoots } from "@psyche/permissions";
+import { DESKTOP_APP_NAME } from "./desktop-launch.ts";
 
 /**
  * Paths no file tool or Files-pane method reads or writes, whatever folder the owner granted
@@ -20,6 +21,29 @@ export function protectedRoots(psycheHome: string): string[] {
   // run `npx` from `~/.npm-global`.
   const cliDirs = CLI_HOME_DIRS.map((segments) => join(homedir(), ...segments));
   for (const p of [...defaultDenyRead(psycheHome), ...cliDirs]) {
+    out.add(p);
+    try {
+      out.add(realpathSync(p));
+    } catch {
+      // Not there (yet): the written path is enough.
+    }
+  }
+  return [...out];
+}
+
+/**
+ * Paths no agent write reaches, whatever folder is granted (an older home-root share included),
+ * on top of `protectedRoots`: the persistence locations under the owner's home (`~/Applications`,
+ * LaunchAgents, Preferences, shell rc files, `.gitconfig`...) and Psyche.app wherever it is
+ * installed. Reads there follow the grants as before. Each entry as written and as its real path.
+ */
+export function writeProtectedRoots(userHome: string = homedir()): string[] {
+  const out = new Set<string>();
+  for (const p of [
+    ...persistenceRoots(userHome),
+    `/Applications/${DESKTOP_APP_NAME}.app`,
+    join(userHome, "Applications", `${DESKTOP_APP_NAME}.app`),
+  ]) {
     out.add(p);
     try {
       out.add(realpathSync(p));

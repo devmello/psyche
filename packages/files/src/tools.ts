@@ -117,6 +117,12 @@ export interface FileToolsOptions {
    * working directories): a granted one is reachable, with its dotfiles still protected.
    */
   ownDirs?: () => readonly string[];
+  /**
+   * Locations refused for every write whatever is granted, an older home-root share included:
+   * where code runs at login, in a shell or at an app launch (`~/Applications`, LaunchAgents,
+   * shell rc files...). Reads there follow the grants.
+   */
+  writeProtectedRoots?: () => readonly string[];
   /** Write records for read provenance; defaults to an in-memory index. */
   provenance?: FileProvenanceIndex;
   /**
@@ -258,7 +264,12 @@ export function fileTools(options: FileToolsOptions = {}): AgentToolRegistration
   const isProtected = (path: string) =>
     isProtectedPath(path, options.protectedRoots?.(), options.ownDirs?.());
   const granted = (path: string, access: "read" | "write", ctx: ToolRunContext) => {
-    assertNotProtected(path, options.protectedRoots?.(), options.ownDirs?.());
+    assertNotProtected(
+      path,
+      options.protectedRoots?.(),
+      options.ownDirs?.(),
+      access === "write" ? (options.writeProtectedRoots?.() ?? []) : undefined,
+    );
     // The conversation's own roots (`request_permission`, "Allow once") count too.
     assertGranted(path, options.folders?.({ threadId: ctx.threadId }), access);
   };

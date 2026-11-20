@@ -184,11 +184,56 @@ const HOME_SENSITIVE = [
   ".netrc",
   ".psyche",
   ".Trash",
+  // An install location the Mac helper launches apps from (`apps.open`): a bundle written there
+  // would run unsandboxed behind a plain "Open" card.
+  "Applications",
+  // Shell and git configuration that runs code in the next shell or git command.
+  ".config/fish",
+  ".config/git",
   // Binaries Psyche runs unsandboxed (the subscription CLIs, `op`): a read-write grant on one
   // would let `write_file` replace them, as `/opt/homebrew` would. The same list the CLI
   // resolver searches, so a new installer directory is refused as soon as it is searched.
   ...CLI_HOME_DIRS.map((segments) => segments.join("/")),
 ];
+
+/**
+ * Under the home directory (macOS and Linux): places where a write runs code later, at login, in
+ * the next shell, at an app launch or a git command. No agent write reaches them, whatever folder
+ * is granted, so an older home-root share cannot plant a LaunchAgent, an rc file or an app bundle
+ * (`persistenceRoots`). Reads are not affected.
+ */
+export const PERSISTENCE_HOME_PATHS: readonly string[] = [
+  "Applications",
+  "Library/LaunchAgents",
+  "Library/LaunchDaemons",
+  "Library/Services",
+  "Library/Preferences",
+  "Library/Scripts",
+  "Library/Application Support/com.apple.backgroundtaskmanagementagent",
+  ".zshrc",
+  ".zprofile",
+  ".zshenv",
+  ".zlogin",
+  ".zlogout",
+  ".bashrc",
+  ".bash_profile",
+  ".bash_login",
+  ".profile",
+  ".config/fish",
+  ".gitconfig",
+  ".config/git",
+  ".ssh",
+  // Linux: autostart entries, user services and launcher entries.
+  ".config/autostart",
+  ".config/systemd",
+  ".local/share/applications",
+];
+
+/** The persistence locations under `home` (`PERSISTENCE_HOME_PATHS`); none on Windows. */
+export function persistenceRoots(home: string = homedir()): string[] {
+  if (process.platform === "win32") return [];
+  return PERSISTENCE_HOME_PATHS.map((rel) => posix.join(resolve(home), rel));
+}
 
 /**
  * Windows: the real long path of the owner's temp folder when it lies under `~\AppData` (the one
@@ -203,6 +248,15 @@ function windowsTempDir(env: FolderAccessEnv, home: string): string | undefined 
   } catch {
     return undefined;
   }
+}
+
+/**
+ * A POSIX path as APFS compares names by default: compatibility-normalized (`ſ` is `s`, `ﬁ` is
+ * `fi`, the Kelvin sign is `K`, NFD is NFC) and case-folded. Over-folding only refuses more.
+ * The same fold as `@psyche/files`' `foldPathName`.
+ */
+function foldName(p: string): string {
+  return p.normalize("NFKC").toLowerCase().toUpperCase().toLowerCase().normalize("NFKC");
 }
 
 function under(child: string, root: string): boolean {
@@ -238,7 +292,7 @@ export function inSystemRoot(given: string, env: FolderAccessEnv = {}): boolean 
   }
   if (isMacMagicPath(real, env.platform)) return true;
   const ci = env.caseInsensitive ?? process.platform === "darwin";
-  const fold = (p: string): string => (ci && !isWin32HostPath(p) ? p.toLowerCase() : p);
+  const fold = (p: string): string => (ci && !isWin32HostPath(p) ? foldName(p) : p);
   const roots = process.platform === "win32" ? windowsSubtreeRoots() : SUBTREE_ROOTS;
   if (roots.some((r) => under(fold(real), fold(r)))) return true;
   // The CLI binary folders in home (`~/.local/bin`...), and a folder around one (`~/.local`), but
@@ -409,7 +463,7 @@ export function refuseFolder(given: string, env: FolderAccessEnv = {}): FolderRe
   const roots = sensitiveRoots(env);
   // macOS: `/OPT/Homebrew` names `/opt/homebrew`, so a POSIX path is compared lower-cased.
   const ci = env.caseInsensitive ?? process.platform === "darwin";
-  const fold = (p: string): string => (ci && !isWin32HostPath(p) ? p.toLowerCase() : p);
+  const fold = (p: string): string => (ci && !isWin32HostPath(p) ? foldName(p) : p);
   real = fold(real);
   const exact = roots.exact.map(fold);
   const subtree = roots.subtree.map(fold);
