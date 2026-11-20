@@ -115,7 +115,7 @@ const firefoxFetchesPayload = async (): Promise<boolean> => {
   put("/workspace/ff-proxy.py", FF_PROXY);
   exec("nohup /usr/bin/python3 -I /workspace/ff-proxy.py > /tmp/ff-proxy.log 2>&1 &");
   exec(
-    "DISPLAY=:1 nohup /usr/bin/firefox-esr --no-remote http://payload.invalid/x > /tmp/ff-probe.log 2>&1 &",
+    "nohup /usr/bin/firefox-esr --headless --no-remote http://payload.invalid/x > /tmp/ff-probe.log 2>&1 &",
   );
   await sleep(20_000);
   const ran = exec("test -e /workspace/ff-handler-ran && echo ran || echo clean").out.trim();
