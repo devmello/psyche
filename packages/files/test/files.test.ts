@@ -14,6 +14,7 @@ import {
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import type { AgentToolRegistration, ToolRunContext } from "@psyche/agent-core";
+import { launchConfigLinkTargets } from "@psyche/hostfs";
 import type { ToolResult } from "@psyche/protocol";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import {
@@ -146,6 +147,50 @@ describe("writes into an app's launch config (#1427 review r1, finding 4)", () =
   ])("%s stays a plain write", (rel) => {
     const d = tools.write_file?.describeCall?.({ path: join(granted, rel), content: "x" });
     expect(d?.sideEffect).toBeUndefined();
+  });
+
+  it.each([
+    ".devcontainer/devcontainer.json",
+    "app.code-workspace",
+    ".claude/settings.local.json",
+    ".mcp.json",
+    ".cursor/mcp.json",
+    ".pre-commit-config.yaml",
+    ".npmrc",
+    ".cargo/config.toml",
+  ])("%s is destructive too (#1434 review r1, finding 2)", (rel) => {
+    const d = tools.write_file?.describeCall?.({ path: join(granted, rel), content: "x" });
+    expect(d?.sideEffect).toBe("destructive");
+  });
+
+  // #1434 review r1, finding 3: a vault's `.obsidian` linked into a dotfiles folder.
+  it("judges a symlinked config folder by where it really is", () => {
+    const vault = join(granted, "Vault");
+    const dotfiles = join(granted, "dotfiles", "obsidian");
+    mkdirSync(vault, { recursive: true });
+    mkdirSync(join(dotfiles, "plugins"), { recursive: true });
+    symlinkSync(dotfiles, join(vault, ".obsidian"));
+    const linked = toolset({ launchConfigLinks: () => launchConfigLinkTargets([granted]) }).tools;
+    const describe = (path: string) =>
+      linked.write_file?.describeCall?.({ path, content: "x" })?.sideEffect;
+    // Through the link's own name, and straight into the folder it points at.
+    expect(describe(join(vault, ".obsidian", "plugins", "x", "main.js"))).toBe("destructive");
+    expect(describe(join(dotfiles, "plugins", "x", "main.js"))).toBe("destructive");
+    expect(describe(join(dotfiles, "community-plugins.json"))).toBe("destructive");
+    // The rest of the dotfiles folder, and the vault's notes, stay plain writes.
+    expect(describe(join(granted, "dotfiles", "zshrc.md"))).toBeUndefined();
+    expect(describe(join(vault, "Daily.md"))).toBeUndefined();
+  });
+
+  it("judges a folder linked into a config folder by its real path", () => {
+    const repo = join(granted, "repo");
+    mkdirSync(join(repo, ".vscode"), { recursive: true });
+    symlinkSync(join(repo, ".vscode"), join(granted, "editor-settings"));
+    const d = tools.write_file?.describeCall?.({
+      path: join(granted, "editor-settings", "tasks.json"),
+      content: "x",
+    });
+    expect(d?.sideEffect).toBe("destructive");
   });
 });
 

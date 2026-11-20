@@ -25,6 +25,12 @@ describe.skipIf(WIN)("writes whose content runs later", () => {
     ["/Users/o/Vault/.zed/tasks.json", "floor:launch_config"],
     ["/Users/o/Vault/.envrc", "floor:launch_config"],
     ["/Users/o/Vault/.husky/pre-commit", "floor:launch_config"],
+    // #1434 review r1, finding 2.
+    ["/Users/o/Vault/.devcontainer/devcontainer.json", "floor:launch_config"],
+    ["/Users/o/Vault/app.code-workspace", "floor:launch_config"],
+    ["/Users/o/Vault/.cursor/mcp.json", "floor:launch_config"],
+    ["/Users/o/Vault/.npmrc", "floor:launch_config"],
+    ["/Users/o/Vault/.cargo/config.toml", "floor:launch_config"],
     ["/Users/o/Vault/.git/hooks/pre-commit", "floor:git_internals"],
   ])("%s is floored destructive (%s)", async (p, floor) => {
     const d = await broker().decide(call("write_file", "write", path(p)), ctx as never);
@@ -38,6 +44,9 @@ describe.skipIf(WIN)("writes whose content runs later", () => {
     "/Users/o/Vault/.obsidian-backup.md",
     "/Users/o/Vault/.vscodeignore",
     "/Users/o/Vault/.envrc.example",
+    "/Users/o/Vault/.npmrc.example",
+    "/Users/o/Vault/docs/.mcp.json.md",
+    "/Users/o/Vault/my.code-workspace.md",
   ])("%s stays a plain write", async (p) => {
     const d = await broker().decide(call("write_file", "write", path(p)), ctx as never);
     expect(d.sideEffect).toBe("write");

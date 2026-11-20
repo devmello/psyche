@@ -207,6 +207,7 @@ import { composePlugins } from "./plugins.ts";
 import { type ComposedProactive, composeProactive } from "./proactive.ts";
 import {
   folderAccessEnv,
+  launchConfigLinks,
   ownWorkdirs,
   protectedRoots,
   writeProtection,
@@ -1093,6 +1094,7 @@ export async function composeGateway(options: ComposeOptions): Promise<ComposedG
     protectedRoots: () => protectedRoots(config.home),
     ownDirs: () => ownWorkdirs(config.home),
     writeProtectedRoots: () => writeProtection(),
+    launchConfigLinks: launchConfigLinks(() => rawBroker.grantedFolders()),
     onChange: (c) => void changes.record(fileChange(c)),
   }))
     registry.register(tool);

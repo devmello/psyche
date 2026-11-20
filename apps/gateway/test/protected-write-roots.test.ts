@@ -1,7 +1,10 @@
+import { mkdirSync, mkdtempSync, realpathSync, rmSync, symlinkSync } from "node:fs";
+import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { assertNotProtected } from "@psyche/files";
 import { describe, expect, it } from "vitest";
 import {
+  launchConfigLinks,
   protectedRoots,
   writeProtectedRoots,
   writeProtection,
@@ -104,3 +107,33 @@ describe.skipIf(process.platform !== "darwin")(
     });
   },
 );
+
+/** #1434 review r1, finding 3: where symlinked launch config in the shared folders really is. */
+describe.skipIf(process.platform === "win32")("launch-config link targets", () => {
+  it("walks the shared folders again when they change or the cache is old", () => {
+    const base = realpathSync(mkdtempSync(join(tmpdir(), "psyche-links-")));
+    try {
+      const vault = join(base, "Vault");
+      const dotfiles = join(base, "dotfiles", "obsidian");
+      mkdirSync(vault, { recursive: true });
+      mkdirSync(dotfiles, { recursive: true });
+      let folders = [{ path: join(base, "elsewhere"), mode: "rw" as const }];
+      let t = 0;
+      const links = launchConfigLinks(
+        () => folders,
+        1_000,
+        () => t,
+      );
+      expect(links()).toEqual([]);
+      symlinkSync(dotfiles, join(vault, ".obsidian"));
+      folders = [{ path: vault, mode: "rw" as const }];
+      expect(links()).toEqual([dotfiles]);
+      rmSync(join(vault, ".obsidian"));
+      expect(links()).toEqual([dotfiles]);
+      t = 1_000;
+      expect(links()).toEqual([]);
+    } finally {
+      rmSync(base, { recursive: true, force: true });
+    }
+  });
+});

@@ -1897,6 +1897,33 @@ describe("program-grant runs: folder-confined reads, folded git names", () => {
       expect(fs.denyWrite).not.toContain("/Users/me");
     },
   );
+  // #1434 review r1, finding 4: the file tools' write protection, dot-home rule included.
+  it.skipIf(!posixHost)("denies what the file tools refuse under a home share", () => {
+    const denyWrite = (writable: string[]) =>
+      (
+        execHostSrtSettings({
+          ...base,
+          writable,
+          homeDotEntries: [".newrc", ".tool", ".zshrc"],
+        }) as { filesystem: { denyWrite: string[] } }
+      ).filesystem.denyWrite;
+    const home = denyWrite(["/Users/me"]);
+    expect(home).toEqual(
+      expect.arrayContaining([
+        "/Users/me/.newrc",
+        "/Users/me/.tool",
+        "/Users/me/.aws",
+        ...(process.platform === "darwin"
+          ? ["/Users/me/Library", "/Users/me/bin", "/Users/me/.hammerspoon"]
+          : []),
+      ]),
+    );
+    expect(home).not.toContain("/Users/me/Projects");
+    // A project folder: the dot entries in home are not writable anyway, so none are listed.
+    const project = denyWrite(["/Users/me/Projects/app"]);
+    expect(project).not.toContain("/Users/me/.newrc");
+    expect(project).toContain("/Users/me/.zshrc");
+  });
   it("leaves an ordinary run's profile alone (control)", () => {
     const fs = (
       execHostSrtSettings(base) as { filesystem: { denyRead: string[]; allowRead: string[] } }

@@ -1,9 +1,9 @@
 import { createHash, randomUUID } from "node:crypto";
-import { constants, existsSync } from "node:fs";
+import { constants, existsSync, realpathSync } from "node:fs";
 import { type FileHandle, lstat, mkdir, open, readdir, rename, rm } from "node:fs/promises";
 import { basename, dirname, join } from "node:path";
 import { type AgentToolRegistration, defineTool, type ToolRunContext } from "@psyche/agent-core";
-import { absoluteHostPathPattern, launchConfigEntry } from "@psyche/hostfs";
+import { absoluteHostPathPattern, isUnderHostPath, launchConfigEntry } from "@psyche/hostfs";
 import { type ProvenanceOut, PsycheError } from "@psyche/protocol";
 import { routineWritePath } from "@psyche/protocol/routine-path";
 import { Type } from "@sinclair/typebox";
@@ -57,6 +57,36 @@ const GIT_DIR_ENTRIES = new Set(["head", "objects", "refs", "config"]);
  */
 export function runsLater(path: string): boolean {
   return gitInternal(path) || launchConfigEntry(path) !== undefined;
+}
+
+/**
+ * `runsLater` for a write as the disk has it (#1434 review r1, finding 3): judged by the path as
+ * given, by its real path (a folder linked into a launch-config folder), and by
+ * `launchConfigLinks`, the real folders symlinked launch-config entries point at
+ * (`Vault/.obsidian -> ~/dotfiles/obsidian` makes `~/dotfiles/obsidian/plugins/x/main.js` a
+ * write into the vault's Obsidian config).
+ */
+export function runsLaterOnDisk(path: string, launchConfigLinks: readonly string[] = []): boolean {
+  if (runsLater(path)) return true;
+  const real = realPathOf(path);
+  if (real !== path && runsLater(real)) return true;
+  return launchConfigLinks.some((target) => isUnderHostPath(real, target));
+}
+
+/** The real path of `path`, or of its deepest existing folder followed by the rest. */
+function realPathOf(path: string): string {
+  let head = path;
+  const rest: string[] = [];
+  for (;;) {
+    try {
+      return join(realpathSync.native(head), ...rest.reverse());
+    } catch {
+      const up = dirname(head);
+      if (up === head) return path;
+      rest.push(basename(head));
+      head = up;
+    }
+  }
 }
 
 export function gitInternal(path: string): boolean {
@@ -135,6 +165,11 @@ export interface FileToolsOptions {
    * the whole home folder may not reach a dot entry directly in it either.
    */
   writeProtectedRoots?: () => readonly string[] | WriteProtection;
+  /**
+   * The real folders symlinked launch-config entries in the granted folders point at
+   * (`launchConfigLinkTargets`): a write under one is destructive, like one into `.vscode`.
+   */
+  launchConfigLinks?: () => readonly string[];
   /** Write records for read provenance; defaults to an in-memory index. */
   provenance?: FileProvenanceIndex;
   /**
@@ -488,7 +523,9 @@ export function fileTools(options: FileToolsOptions = {}): AgentToolRegistration
       const realPath = canonicalTarget(p.path);
       return {
         kind: "file_write",
-        ...(runsLater(realPath) ? { sideEffect: "destructive" as const } : {}),
+        ...(runsLaterOnDisk(realPath, options.launchConfigLinks?.())
+          ? { sideEffect: "destructive" as const }
+          : {}),
         target: { kind: "path", value: realPath },
         // One operation for create and overwrite keeps the binding independent of disk state.
         bindingFields: { operation: "overwrite", realPath, contentSha256: sha256(p.content) },
@@ -552,7 +589,9 @@ export function fileTools(options: FileToolsOptions = {}): AgentToolRegistration
       );
       return {
         kind: "file_write",
-        ...(runsLater(realPath) ? { sideEffect: "destructive" as const } : {}),
+        ...(runsLaterOnDisk(realPath, options.launchConfigLinks?.())
+          ? { sideEffect: "destructive" as const }
+          : {}),
         target: { kind: "path", value: realPath },
         bindingFields: { operation: "edit", realPath, contentSha256: editSha },
         summary: `Edit ${basename(realPath)}`,
@@ -818,7 +857,9 @@ export function fileTools(options: FileToolsOptions = {}): AgentToolRegistration
       const ext = basename(realPath).split(".").pop() ?? "";
       return {
         kind: "file_write",
-        ...(runsLater(realPath) ? { sideEffect: "destructive" as const } : {}),
+        ...(runsLaterOnDisk(realPath, options.launchConfigLinks?.())
+          ? { sideEffect: "destructive" as const }
+          : {}),
         target: { kind: "path", value: realPath },
         bindingFields: {
           operation: "overwrite",

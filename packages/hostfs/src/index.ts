@@ -14,7 +14,16 @@ export {
   shimTarget,
   windowsLaunchable,
 } from "./launch.ts";
-export { LAUNCH_CONFIG_DIRS, LAUNCH_CONFIG_FILES, launchConfigEntry } from "./launch-config.ts";
+export {
+  findLaunchConfig,
+  LAUNCH_CONFIG_DIRS,
+  LAUNCH_CONFIG_FILES,
+  type LaunchConfigFound,
+  type LaunchConfigScan,
+  type LaunchConfigScanLimits,
+  launchConfigEntry,
+  launchConfigLinkTargets,
+} from "./launch-config.ts";
 export {
   absoluteHostPathPattern,
   canonicalHostPath,
