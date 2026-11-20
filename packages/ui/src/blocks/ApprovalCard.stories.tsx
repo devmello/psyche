@@ -59,6 +59,16 @@ export const Denied: Story = { args: { approval: byId(IDS.approvals.denied) } };
 export const Expired: Story = { args: { approval: byId(IDS.approvals.expired) } };
 export const Voided: Story = { args: { approval: byId(IDS.approvals.invalidated) } };
 
+const LAB = { deviceId: "dev_lab", name: "lab-box" } as const;
+/** A command for a paired Linux computer: "On lab-box · Linux · command". */
+export const ExecOnMachine: Story = {
+  args: { approval: { ...byId(IDS.approvals.exec), machine: LAB } },
+};
+/** Folder access on a paired computer: "On lab-box · Linux · files". */
+export const FolderOnMachine: Story = {
+  args: { approval: { ...byId(IDS.approvals.fileWrite), machine: LAB, kind: "folder_access" } },
+};
+
 const folder = (details: Record<string, unknown>, over: Record<string, unknown> = {}) => ({
   ...byId(IDS.approvals.sendEmail),
   kind: "folder_access" as const,

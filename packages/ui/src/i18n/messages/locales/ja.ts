@@ -23,6 +23,7 @@ import { homeRest } from "./home-rest/ja.ts";
 import { keepAwake } from "./keep-awake/ja.ts";
 import { links } from "./links/ja.ts";
 import { linuxAccess } from "./linux-access/ja.ts";
+import { machines } from "./machines/ja.ts";
 import { mailFollowups } from "./mail-followups/ja.ts";
 import { mailMeetings } from "./mail-meetings/ja.ts";
 import { meetingRecordRest } from "./meetingRecord-rest/ja.ts";
@@ -3801,4 +3802,5 @@ export const ja: Partial<Catalogue> = {
   ...mailFollowups,
   ...keepAwake,
   ...spaces,
+  ...machines,
 };
