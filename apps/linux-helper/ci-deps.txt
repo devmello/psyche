@@ -1,3 +1,14 @@
 build-essential
 pkg-config
 iproute2
+# Direct computer use (L5): the PipeWire client builds against these, and the end-to-end
+# test runs a GTK 4 app under Xvfb with a window manager and the real accessibility bus.
+libpipewire-0.3-dev
+libspa-0.2-dev
+libclang-dev
+dbus
+xvfb
+x11-utils
+openbox
+at-spi2-core
+gnome-text-editor

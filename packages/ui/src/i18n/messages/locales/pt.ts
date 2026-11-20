@@ -12,6 +12,7 @@ import { helperCheck } from "./helper-check/pt.ts";
 import { helperOffline } from "./helper-offline/pt.ts";
 import { homeA } from "./home-a/pt.ts";
 import { links } from "./links/pt.ts";
+import { linuxAccess } from "./linux-access/pt.ts";
 import { mailFollowups } from "./mail-followups/pt.ts";
 import { mailMeetings } from "./mail-meetings/pt.ts";
 import { memoryA } from "./memory-a/pt.ts";
@@ -3033,6 +3034,7 @@ export const pt: Partial<Catalogue> = {
   "screens.library.recording.empty": "Esta gravação não tem passos.",
   "screens.library.recording.noFrame": "Não há imagem para este passo.",
   "screens.library.recording.frameAlt": "O navegador no passo {n}",
+  "screens.library.recording.reviewPermissions": "Revisar em Permissões",
   "screens.library.recording.loading": "Carregando a gravação",
   "screens.library.recording.loadFailed":
     "O Psyche não conseguiu carregar esta gravação ({reason}).",
@@ -3672,6 +3674,8 @@ export const pt: Partial<Catalogue> = {
   ...helperOffline,
   // the security-records banner (docs/design/security-state-integrity-2026.md §7.3)
   ...securityState,
+  // Settings → Computer use on Linux: screen and input access
+  ...linuxAccess,
   // the Virtual screen watch pane (docs/design/linux-desktop-2026.md §7.5)
   ...computerWatch,
   // Gateway-authored notices (inbox notifications, security alerts)

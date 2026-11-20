@@ -21,6 +21,7 @@ import { helperCheck } from "./helper-check/ja.ts";
 import { helperOffline } from "./helper-offline/ja.ts";
 import { homeRest } from "./home-rest/ja.ts";
 import { links } from "./links/ja.ts";
+import { linuxAccess } from "./linux-access/ja.ts";
 import { mailFollowups } from "./mail-followups/ja.ts";
 import { mailMeetings } from "./mail-meetings/ja.ts";
 import { meetingRecordRest } from "./meetingRecord-rest/ja.ts";
@@ -3057,6 +3058,7 @@ export const ja: Partial<Catalogue> = {
   "screens.library.recording.empty": "この録画にはステップがありません。",
   "screens.library.recording.noFrame": "このステップの画像はありません。",
   "screens.library.recording.frameAlt": "ステップ {n} のブラウザ",
+  "screens.library.recording.reviewPermissions": "権限で確認",
   "screens.library.recording.loading": "録画を読み込み中",
   "screens.library.recording.loadFailed": "Psyche はこの録画を読み込めませんでした（{reason}）。",
   "screens.library.recording.notFound": "この録画はもう利用できません。",
@@ -3692,6 +3694,8 @@ export const ja: Partial<Catalogue> = {
   ...helperOffline,
   // the security-records banner (docs/design/security-state-integrity-2026.md §7.3)
   ...securityState,
+  // Settings → Computer use on Linux: screen and input access
+  ...linuxAccess,
   // the Virtual screen watch pane (docs/design/linux-desktop-2026.md §7.5)
   ...computerWatch,
   // Gateway-authored notices (inbox notifications, security alerts)

@@ -21,6 +21,7 @@ import { helperCheck } from "./helper-check/ar.ts";
 import { helperOffline } from "./helper-offline/ar.ts";
 import { home } from "./home/ar.ts";
 import { links } from "./links/ar.ts";
+import { linuxAccess } from "./linux-access/ar.ts";
 import { mailFollowups } from "./mail-followups/ar.ts";
 import { mailMeetings } from "./mail-meetings/ar.ts";
 import { meetingRecord } from "./meeting-record/ar.ts";
@@ -3085,6 +3086,7 @@ export const ar: Partial<Catalogue> = {
   "screens.library.recording.empty": "لا تحتوي هذه اللقطة على خطوات.",
   "screens.library.recording.noFrame": "لا توجد صورة لهذه الخطوة.",
   "screens.library.recording.frameAlt": "المتصفح عند الخطوة {n}",
+  "screens.library.recording.reviewPermissions": "المراجعة في الأذونات",
   "screens.library.recording.loading": "جارٍ تحميل التسجيل",
   "screens.library.recording.loadFailed": "تعذّر على Psyche تحميل هذا التسجيل ({reason}).",
   "screens.library.recording.notFound": "لم يعد هذا التسجيل متاحًا.",
@@ -3723,6 +3725,8 @@ export const ar: Partial<Catalogue> = {
   ...helperOffline,
   // the security-records banner (docs/design/security-state-integrity-2026.md §7.3)
   ...securityState,
+  // Settings → Computer use on Linux: screen and input access
+  ...linuxAccess,
   // the Virtual screen watch pane (docs/design/linux-desktop-2026.md §7.5)
   ...computerWatch,
   // Gateway-authored notices (inbox notifications, security alerts)

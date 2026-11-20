@@ -254,3 +254,59 @@ describe("script and document pre-checks (#354)", () => {
     ).toMatchObject({ kind: "apple_script" });
   });
 });
+
+/** Review of #1294, finding 10: Linux launchers, images, installers and Wine programs. */
+describe("apps.open on Linux", () => {
+  it.each([
+    "file:///home/me/Downloads/invoice.desktop",
+    "file:///home/me/Downloads/Tool-x86_64.AppImage",
+    "file:///home/me/Downloads/setup.run",
+    "file:///home/me/Downloads/firmware.bin",
+    "file:///home/me/Downloads/app_1.0_amd64.deb",
+    "file:///home/me/Downloads/app-1.0.x86_64.rpm",
+    "file:///home/me/Downloads/app.flatpakref",
+    "file:///home/me/Downloads/repo.flatpakrepo",
+    "file:///home/me/Downloads/app.snap",
+    "file:///home/me/Downloads/invoice.exe",
+    "file:///home/me/Downloads/invoice.pdf.exe",
+    "file:///home/me/Downloads/setup.msi",
+    "file:///home/me/Downloads/run.bat",
+    "file:///home/me/Downloads/run.cmd",
+    "file:///home/me/Downloads/run.ps1",
+    "file:///home/me/Downloads/run.vbs",
+    "file:///home/me/Downloads/Shortcut.lnk",
+    "file:///home/me/Downloads/run.fish",
+  ])("refuses %s as a document", (url) => {
+    expect(reasonOf(() => assertOpenAllowed("org.gnome.TextEditor", url))).toBe(
+      "executable_document",
+    );
+  });
+
+  it.each([
+    "file:///home/me/Documents/report.pdf",
+    "file:///home/me/Documents/notes.txt",
+    "file:///home/me/Documents/desktop-notes.md",
+    "file:///home/me/Documents/run-log.csv",
+    "file:///home/me/Pictures/binary-tree.png",
+    "file:///home/me/Documents/exe-summary.odt",
+  ])("still opens the ordinary document %s", (url) => {
+    expect(reasonOf(() => assertOpenAllowed("org.gnome.TextEditor", url))).toBeUndefined();
+  });
+
+  it.each([
+    "wine",
+    "wine64",
+    "org.winehq.Wine",
+    "com.usebottles.bottles",
+    "net.lutris.Lutris",
+    "java",
+    "openjdk-17-java",
+    "mono",
+    "python3",
+    "python3.12",
+  ])("never opens anything with the launcher %s", (app) => {
+    expect(reasonOf(() => assertOpenAllowed(app, "file:///home/me/Downloads/notes.txt"))).toBe(
+      "tier_off",
+    );
+  });
+});

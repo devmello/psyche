@@ -23,6 +23,7 @@ import { helperCheck } from "./helper-check.ts";
 import { helperOffline } from "./helper-offline.ts";
 import { home } from "./home.ts";
 import { links } from "./links.ts";
+import { linuxAccess } from "./linux-access.ts";
 import { mailFollowups } from "./mail-followups.ts";
 import { mailMeetings } from "./mail-meetings.ts";
 import { meetingRecord } from "./meeting-record.ts";
@@ -129,6 +130,7 @@ export const en = {
   ...helperCheck,
   ...helperOffline,
   ...securityState,
+  ...linuxAccess,
   ...computerWatch,
   ...notices,
   ...separateDesktop,

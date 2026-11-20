@@ -17,6 +17,7 @@ import { helperCheck } from "./helper-check/de.ts";
 import { helperOffline } from "./helper-offline/de.ts";
 import { homeRest } from "./home-rest/de.ts";
 import { links } from "./links/de.ts";
+import { linuxAccess } from "./linux-access/de.ts";
 import { mailFollowups } from "./mail-followups/de.ts";
 import { mailMeetings } from "./mail-meetings/de.ts";
 import { memoryMap } from "./memory-map/de.ts";
@@ -3153,6 +3154,7 @@ export const de: Partial<Catalogue> = {
   "screens.library.recording.empty": "Diese Aufnahme enthält keine Schritte.",
   "screens.library.recording.noFrame": "Für diesen Schritt gibt es kein Bild.",
   "screens.library.recording.frameAlt": "Der Browser bei Schritt {n}",
+  "screens.library.recording.reviewPermissions": "In Berechtigungen prüfen",
   "screens.library.recording.loading": "Aufnahme wird geladen",
   "screens.library.recording.loadFailed": "Psyche konnte diese Aufnahme nicht laden ({reason}).",
   "screens.library.recording.notFound": "Diese Aufnahme ist nicht mehr verfügbar.",
@@ -3812,6 +3814,8 @@ export const de: Partial<Catalogue> = {
   ...helperOffline,
   // the security-records banner (docs/design/security-state-integrity-2026.md §7.3)
   ...securityState,
+  // Settings → Computer use on Linux: screen and input access
+  ...linuxAccess,
   // the Virtual screen watch pane (docs/design/linux-desktop-2026.md §7.5)
   ...computerWatch,
   // Gateway-authored notices (inbox notifications, security alerts)

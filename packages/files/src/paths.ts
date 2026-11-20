@@ -130,14 +130,19 @@ export function isProtectedPath(
   path: string,
   roots: readonly string[] | undefined,
   ownDirs: readonly string[] = [],
+  carveOuts: readonly string[] = [],
 ): boolean {
   // `/.nofollow/<abs>` opens `<abs>` past every root below: never a usable path on macOS.
   if (isMacMagicPath(path)) return true;
   if (roots === undefined) return false;
   const own = ownDirs.map(canonicalTarget).find((d) => isUnder(path, d));
+  // The owner's own places inside a protected root (Linux: drives and network mounts under
+  // `/run`): only the roots that contain one are lifted for what lies in it.
+  const carve = carveOuts.map(canonicalTarget).find((d) => isUnder(path, d));
   for (const raw of roots) {
     const root = canonicalTarget(raw);
     if (!isUnder(path, root)) continue;
+    if (carve !== undefined && isUnder(carve, root) && carve !== root) continue;
     if (own === undefined || !isUnder(own, root)) return true;
     const first = relativeHostPath(own, path).split("/")[0] ?? "";
     const name = process.platform === "win32" ? first.toUpperCase() : first;
@@ -155,6 +160,7 @@ export function assertNotProtected(
   roots: readonly string[] | undefined,
   ownDirs: readonly string[] = [],
   writeRoots?: readonly string[] | WriteProtection,
+  carveOuts: readonly string[] = [],
 ): void {
   // Psyche's own working folders (inside a protected root) keep their rules below.
   const own = ownDirs.some((d) => isUnder(path, canonicalTarget(d)));
@@ -171,7 +177,8 @@ export function assertNotProtected(
       );
     }
   }
-  if (!isProtectedPath(path, roots, ownDirs)) return;
+  // A carve-out lifts only the never-read roots: the write rules above applied to it as well.
+  if (!isProtectedPath(path, roots, ownDirs, carveOuts)) return;
   const root = (roots ?? []).map(canonicalTarget).find((r) => isUnder(path, r));
   throw new PsycheError("forbidden", `${path} is a protected location`, {
     details: { reason: "protected_path", root },

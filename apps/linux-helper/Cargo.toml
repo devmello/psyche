@@ -1,6 +1,6 @@
 [workspace]
 resolver = "2"
-members = ["crates/protocol", "crates/helper", "xtask"]
+members = ["crates/protocol", "crates/helper", "crates/linux-computer", "xtask"]
 
 [workspace.package]
 version = "0.1.0"

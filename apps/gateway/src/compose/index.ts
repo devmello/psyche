@@ -213,6 +213,7 @@ import {
   launchConfigLinks,
   ownWorkdirs,
   protectedRoots,
+  runCarveOuts,
   writeProtection,
 } from "./protected-paths.ts";
 import { createPurchaseTool, LINK_PAYMENT_SOURCE, PURCHASE_TOOL } from "./purchase-tool.ts";
@@ -1133,6 +1134,7 @@ export async function composeGateway(options: ComposeOptions): Promise<ComposedG
     ],
     protectedRoots: () => protectedRoots(config.home),
     ownDirs: () => ownWorkdirs(config.home),
+    carveOuts: () => runCarveOuts(),
     writeProtectedRoots: () => writeProtection(),
     launchConfigLinks: launchConfigLinks(() => rawBroker.grantedFolders()),
     onChange: (c) => void changes.record(fileChange(c)),

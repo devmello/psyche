@@ -14,7 +14,7 @@ The vault is created during onboarding, when you save your model provider's API 
 
 On builds that are not signed with the project's keys, the vault key lives in a key file on disk. Settings → Credentials says what protects the vault ("Vault protected by: …"). See [Key storage](/security/key-storage).
 
-If you skipped onboarding's model step, or run the Gateway with `PSYCHE_MODEL` set, the vault may not exist yet: there is no setup button in Settings and no `psyche vault setup` command.
+If you skipped onboarding's model step, or run the Gateway with `PSYCHE_MODEL` set, the vault may not exist yet. Settings → Credentials then shows a setup panel that creates it and shows the recovery key once. Setting up the vault asks for neither Touch ID nor a password.
 
 ## What it can do
 
@@ -98,7 +98,6 @@ The design covers finding a cheaper flight, holding it behind one purchase card,
 - **Touch ID approvals on the Mac use Psyche Helper's own key,** which is registered automatically when the helper pairs. In the web client over https, a passkey added in Settings → Devices & nodes works too (see [Server mode](/guides/server-mode)).
 - **Holds, captures and refunds through Link are exercised only by the test scenarios,** in Link's test mode. Settings shows your Link wallet read only.
 - **Travel booking is not available.** The hold, ticket and cancel tools exist only in the test scenarios, against made-up airlines.
-- There is no button to set up the vault outside onboarding, and confirming that you saved the recovery key later is not possible.
 - "Move to Keychain" is disabled on unsigned builds.
 - Bitwarden and the system keychain as credential stores are not available.
 

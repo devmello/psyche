@@ -83,7 +83,7 @@ Each thread has a permission mode. The broker supports four:
 | --- | --- | --- | --- | --- |
 | Plan | Only tools with no side effect run | Denied | Denied | Denied |
 | Manual | The first read of each new source in a task asks | Ask every time; standing grants are not used | Ask, once only | Ask, once only, on your device |
-| Balanced | The first read of each new source in a task asks; sensitive sites always ask | Standing grants run; otherwise ask | Ask, once, for this task or always (you confirm Always allow) | Ask, once or always (you confirm Always allow), on your device |
+| Balanced | The first read of each new source in a task asks, unless it is a trusted site; sensitive sites always ask | Standing grants run; otherwise ask | Ask, once, for this task or always (you confirm Always allow) | Ask, once or always (you confirm Always allow), on your device |
 | Auto | New ordinary sites are read without asking, unless the turn is tainted or the site is sensitive | Inside your grants, a classifier decides: routine runs, sensitive asks, prohibited is denied | As Balanced | As Balanced |
 
 Sends, destructive and financial actions ask by default. You can let one run without asking: choose Allow for that action in Settings → Connectors, or Always allow on its card, and confirm. Psyche still asks after it has read untrusted content in the turn, and every time in Manual mode. Credential entry, purchases, commands on this Mac and other device-only approvals always ask.
@@ -104,9 +104,11 @@ Some approvals can only be answered on a paired device (the desktop app or the w
 
 In a chat app such a card shows only its header and "Answer this on your Mac."
 
-A subset also needs proof that you are present: purchases and other financial actions, credential fills, commands on the Mac, pairing and permission changes. Their card says "Needs Touch ID or a passkey to approve."
+Approving a device-only card is a plain tap. Touch ID or your Mac password is used only for payments: purchases and other financial actions. Their card says "Needs Touch ID or a passkey to approve." Credential fills, commands on the Mac, pairing and permission changes are a tap, with no proof of presence.
 
-In the web client at the server's https address, approve them with a passkey: add one in Settings → Devices & nodes → Passkeys ([server mode](server-mode.md#passkeys)), and approving asks for it. Elsewhere approving those is refused. The Mac helper's Touch ID signature cannot be registered with the Gateway yet, and the Gateway refuses rather than accept an unverified approval. Deny always works. Running commands directly on the Mac is also off by default.
+Changing a security setting (permissions, exec, vault, devices, gateway and similar) also asks for presence once a verifier is registered (the Settings reference lists the keys).
+
+Touch ID on the Mac uses Psyche Helper's own device key, which is registered when the helper pairs, so there is nothing to set up. In the web client at the server's https address, a passkey works too: add one in Settings → Devices & nodes → Passkeys ([server mode](server-mode.md#passkeys)). Without a working helper or a passkey, a payment is refused rather than approved unverified. Deny always works. Running commands directly on the Mac is also off by default.
 
 ### Approvals as macOS notifications
 
