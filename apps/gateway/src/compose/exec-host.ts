@@ -5,6 +5,7 @@ import {
   constants,
   existsSync,
   lstatSync,
+  readdirSync,
   readFileSync,
   realpathSync,
   type Stats,
@@ -29,11 +30,11 @@ import {
   hostProgramCoverage,
   lookupRootFacts,
   operandsInside,
-  persistenceRoots,
   programName,
   READ_ONLY_RULE,
   type RootFacts,
   SYSTEM_BIN_DIRS,
+  writeProtectedHomeRoots,
 } from "@psyche/permissions";
 import {
   type AuditLog,
@@ -545,6 +546,17 @@ const CONFINED_DENY_READ = [
   "/Users/Shared",
 ];
 
+/** The dot entries directly in `home`, by name (none when it cannot be listed). */
+function homeDotEntries(home: string): string[] {
+  try {
+    return readdirSync(home).filter(
+      (name) => name.startsWith(".") && name !== "." && name !== "..",
+    );
+  } catch {
+    return [];
+  }
+}
+
 /**
  * The srt profile of one host command (security §5.3): Psyche's deny-read list, writes only to
  * the scratch directory and a read-write granted folder, network only to `allowedDomains`
@@ -558,6 +570,12 @@ export function execHostSrtSettings(input: {
   allowedDomains: readonly string[];
   /** A program-grant run reads nothing of the owner's home or `/Volumes` but this folder. */
   confineRead?: string;
+  /**
+   * The names of the dot entries directly in the owner's home (`.zshrc`, `.config`...): with a
+   * writable folder that holds the whole home folder, none of them is writable (the file tools'
+   * dot-home rule, #1434 review r1, finding 4).
+   */
+  homeDotEntries?: readonly string[];
 }): Record<string, unknown> {
   const h = (...p: string[]) => join(input.userHome, ...p);
   const scratch = scratchReadRules(input.psycheHome, input.scratch);
@@ -591,9 +609,12 @@ export function execHostSrtSettings(input: {
           h(".ssh"),
           h("Library", "Keychains"),
           h("Library", "Application Support", "Psyche"),
-          // Where a write runs code later (LaunchAgents, rc files, ~/Applications...), even
-          // inside a granted home-root folder.
-          ...persistenceRoots(input.userHome),
+          // Where a write runs code later (LaunchAgents, rc files, ~/Applications, on macOS all
+          // of ~/Library...), even inside a granted home-root folder: the file tools' list.
+          ...writeProtectedHomeRoots(input.userHome),
+          ...(input.writable.some((w) => within(input.userHome, w))
+            ? (input.homeDotEntries ?? []).map((name) => h(name))
+            : []),
         ]),
       ],
     },
@@ -1228,6 +1249,7 @@ export function execHostTool(deps: ExecHostDeps): AgentToolRegistration {
         writable: folder.mode === "rw" && !readOnly && program === undefined ? [folder.path] : [],
         ...(confineRead === undefined ? {} : { confineRead }),
         allowedDomains: readOnly ? [] : domains,
+        homeDotEntries: homeDotEntries(userHome),
       });
       await writeFile(settings, JSON.stringify(profile), { mode: 0o600 });
       file = srt.path;

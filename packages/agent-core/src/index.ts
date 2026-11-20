@@ -13,6 +13,7 @@ export * from "./context.ts";
 export * from "./deferred.ts";
 export * from "./evaluator.ts";
 export * from "./evidence.ts";
+export * from "./fence.ts";
 export * from "./hooks.ts";
 export * from "./image-tokens.ts";
 export * from "./loop.ts";

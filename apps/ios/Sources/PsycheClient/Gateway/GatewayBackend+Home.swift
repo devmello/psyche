@@ -69,8 +69,16 @@ extension GatewayBackend {
             return InboxItem(
                 id: id, title: n["title"]?.string ?? "", body: n["body"]?.string ?? "",
                 kindLabel: Self.inboxLabel(kind), time: WireFormat.time(n["createdAt"]?.string),
-                needsYou: waiting, read: n["readAt"]?.string != nil, route: n["route"]?.string)
+                needsYou: waiting, read: n["readAt"]?.string != nil, route: n["route"]?.string,
+                message: Self.noticeKeys(n["message"]), actions: Self.noticeActions(n, kind: kind))
         }
+    }
+
+    public func resolveNotice(id: String, actionID: String) async throws {
+        // The same call the web inbox makes for a notice's own button. Repeated taps reuse one key.
+        _ = try await call(
+            "notifications.resolve", .obj(["notificationId": .string(id), "actionId": .string(actionID)]),
+            key: "resolve-\(id)-\(actionID)")
     }
 
     public func markRead(ids: [String]) async throws {
@@ -161,6 +169,29 @@ extension GatewayBackend {
             stepCount: checklist.count, detail: current ?? t["goal"]?.string ?? "",
             elapsed: WireFormat.elapsed(since: t["createdAt"]?.string),
             startedAt: WireFormat.date(t["startedAt"]?.string) ?? WireFormat.date(t["createdAt"]?.string))
+    }
+
+    /// The message ids of a notice, when the Gateway sent both. Values are plain text: numbers become their digits.
+    static func noticeKeys(_ message: JSONValue?) -> InboxNoticeKeys? {
+        guard let titleKey = message?["titleKey"]?.string, let bodyKey = message?["bodyKey"]?.string else { return nil }
+        var params: [String: String] = [:]
+        for (name, value) in message?["params"]?.object ?? [:] {
+            if let text = value.string ?? value.double.map({ $0.rounded() == $0 ? String(Int($0)) : String($0) }) {
+                params[name] = text
+            }
+        }
+        return InboxNoticeKeys(titleKey: titleKey, bodyKey: bodyKey, params: params)
+    }
+
+    /// A notice's own buttons, as the web inbox shows them. Approval and question buttons answer through their
+    /// own calls, and a resolved notice has nothing left to tap.
+    static func noticeActions(_ n: JSONValue, kind: String) -> [InboxAction] {
+        guard kind != "approval", kind != "input_needed", n["resolvedAt"]?.string == nil else { return [] }
+        return (n["actions"]?.array ?? []).compactMap { a in
+            guard let id = a["id"]?.string, let label = a["label"]?.string else { return nil }
+            return InboxAction(
+                id: id, label: label, labelKey: a["labelKey"]?.string, destructive: a["destructive"]?.bool == true)
+        }
     }
 
     static func inboxLabel(_ kind: String) -> String {

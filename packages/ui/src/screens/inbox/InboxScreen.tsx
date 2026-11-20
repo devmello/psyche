@@ -19,7 +19,7 @@ import { StatusGlyph, type StatusKind } from "../../components/status.tsx";
 import { Button } from "../../components/ui/button.tsx";
 import { Skeleton } from "../../components/ui/skeleton.tsx";
 import { useApproval, useCall, useNotifications, useTask } from "../../data/hooks.ts";
-import { t } from "../../i18n/core.ts";
+import { isMessageId, t } from "../../i18n/core.ts";
 import { describeError } from "../../i18n/errors.ts";
 import { noticeText } from "../../i18n/notice.ts";
 import { formatCountdown, formatRelative } from "../../lib/format.ts";
@@ -358,7 +358,9 @@ export function InboxRow({
         </Button>
       </>
     );
-  } else if (n.kind === "reminder" && n.actions.length > 0) {
+  } else if ((n.kind === "reminder" || n.kind === "system") && n.actions.length > 0) {
+    // A Gateway notice's own buttons (a reminder's Done, a held entry's Keep it), worded from
+    // `labelKey` when this client knows it.
     actions = n.actions.map((a, i) => (
       <Button
         key={a.id}
@@ -368,7 +370,7 @@ export function InboxRow({
         disabled={busy}
         onClick={() => onAction?.(n, a.id)}
       >
-        {a.label}
+        {a.labelKey !== undefined && isMessageId(a.labelKey) ? t(a.labelKey) : a.label}
       </Button>
     ));
   } else if (notificationHasTarget(n)) {

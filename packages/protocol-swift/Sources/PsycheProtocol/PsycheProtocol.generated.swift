@@ -25684,19 +25684,24 @@ public struct NotificationAction: Codable, Sendable {
     public let destructive: Bool?
     public let id: String
     public let label: String
+    /// Message id of the label (e.g. notice.action.keepIt), so each client words it in its own
+    /// language; `label` stays the English text for old clients and the OS
+    public let labelKey: String?
 
     public enum CodingKeys: String, CodingKey {
         case authenticationRequired = "authenticationRequired"
         case destructive = "destructive"
         case id = "id"
         case label = "label"
+        case labelKey = "labelKey"
     }
 
-    public init(authenticationRequired: Bool? = nil, destructive: Bool? = nil, id: String, label: String) {
+    public init(authenticationRequired: Bool? = nil, destructive: Bool? = nil, id: String, label: String, labelKey: String? = nil) {
         self.authenticationRequired = authenticationRequired
         self.destructive = destructive
         self.id = id
         self.label = label
+        self.labelKey = labelKey
     }
 }
 

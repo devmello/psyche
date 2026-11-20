@@ -18,7 +18,7 @@
   "dependencies": {
     "@psyche/hostfs": "workspace:*",
     "@psyche/protocol": "workspace:*",
-    "better-sqlite3-multiple-ciphers": "13.0.3"
+    "better-sqlite3-multiple-ciphers": "13.1.1"
   },
   "devDependencies": {
     "@psyche/db": "workspace:*",

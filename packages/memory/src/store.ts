@@ -44,7 +44,7 @@ import { monotonicFactory } from "ulid";
 import { chunkId, chunkText, estimateTokens, stripComments } from "./chunker.ts";
 import { applyDailyWrite, formatEntry, newDailyNote, oneLine, parseDailyNote } from "./daily.ts";
 import { blockingKinds } from "./filters.ts";
-import { type FlushConfig, flushMemory } from "./flush.ts";
+import { type FlushConfig, flushFacts, flushMemory } from "./flush.ts";
 import { type ChunkInput, MemoryIndex } from "./index-db.ts";
 import {
   BOOTSTRAP_FILE,
@@ -1390,6 +1390,18 @@ export class SqliteMemoryStore implements MemoryStore {
       return { appended: 0 };
     }
     return flushMemory(this, this.#flush, threadId, privateCopy, options);
+  }
+
+  /**
+   * `MemoryStore.flushLines`: the compaction's summarizer already listed the durable facts, so
+   * they go through the flush's own filters and write path with no model call of their own.
+   */
+  async flushLines(
+    threadId: string,
+    lines: readonly string[],
+    options: { taint?: boolean; incognito?: boolean } = {},
+  ): Promise<MemoryFlushResult> {
+    return flushFacts(this, this.#flush, threadId, lines, options);
   }
 
   /**

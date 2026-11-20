@@ -738,7 +738,8 @@ export function ApprovalCard({
     (!isFolder || folder !== "") &&
     (compose === null || (recipientId !== "" && messageText.trim() !== "")) &&
     (!isExecHost || sandboxReady || unsandboxed);
-  const limitNow = useNow(1000);
+  // The countdown runs only while the Gateway has the owner rate-limited.
+  const limitNow = useNow(1000, undefined, limitedUntil !== null);
   const limitSecondsLeft =
     limitedUntil === null ? 0 : Math.max(0, Math.ceil((limitedUntil - limitNow) / 1000));
   const limited = limitSecondsLeft > 0;

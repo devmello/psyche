@@ -64,7 +64,7 @@ import { fetchLimit, taskOrigins } from "./fetch-origins.ts";
 import { googleClientStore } from "./google-client.ts";
 import { indexedConnectorLibrary } from "./library.ts";
 import { type MailCredentials, mailCredentials } from "./mail-credentials.ts";
-import { protectedRoots, writeProtectedRoots } from "./protected-paths.ts";
+import { protectedRoots, writeProtectionFor } from "./protected-paths.ts";
 import type { ComposedPart, ComposeServices } from "./services.ts";
 
 /**
@@ -225,7 +225,9 @@ function defaultFactories(
           path,
           protectedRoots(services.home),
           [],
-          mode === "write" ? writeProtectedRoots() : undefined,
+          mode === "write"
+            ? writeProtectionFor(path, services.rawBroker.grantedFolders())
+            : undefined,
         );
         assertGranted(path, services.rawBroker.grantedFolders(), mode);
         await assertNoSymlinks(path);

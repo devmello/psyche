@@ -430,6 +430,35 @@ describe("InboxScreen", () => {
     expect(await within(reminder).findByText("Resolved")).toBeTruthy();
   });
 
+  // #1434 r2: a held launch-config entry's notice has its own one-tap button.
+  it("shows a system notice's own action, worded from its labelKey", async () => {
+    const { callsTo, user } = setup(<InboxScreen now={STORY_NOW} />, {
+      edit: (w) => {
+        const n = w.notifications.find((x) => x.id === IDS.notifications.proactive);
+        if (n) {
+          n.kind = "system";
+          n.title = "Psyche held back launch config from a code run in app";
+          n.message = {
+            titleKey: "notice.codeRun.held.title",
+            bodyKey: "notice.codeRun.held.body",
+            params: { repo: "app", paths: ".vscode" },
+          };
+          n.actions = [
+            { id: "launch_config.keep:1", label: "Old label", labelKey: "notice.action.keepIt" },
+          ];
+        }
+      },
+    });
+    const row = await rowFor("Psyche held back launch config from a code run in app");
+    await user.click(within(row).getByRole("button", { name: "Keep it" }));
+    await waitFor(() =>
+      expect(callsTo("notifications.resolve").at(-1)?.params).toEqual({
+        notificationId: IDS.notifications.proactive,
+        actionId: "launch_config.keep:1",
+      }),
+    );
+  });
+
   it("marks unread rows read and marks stale rows", async () => {
     const { callsTo, user } = setup(<InboxScreen now={STORY_NOW} />, {
       edit: (w) => {

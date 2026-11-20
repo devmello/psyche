@@ -37,6 +37,8 @@ The orchestrator gave you a brief and usually a `/goal`. Your job is one focused
 - **Redact, then truncate.** Any text of the owner's that goes to a model (learner, titles, compaction, search cards) is redacted first and cut second. A cut value no longer matches the redactor: #1407 r1 sent 10 of 16 secret characters to the utility model. Test with the real `SecretRedactor` and a secret that straddles the cut. See `psyche-permissions` §3f.
 - **Caches and fingerprints:** a key on `max(updated_at)`, a count or a rowid misses same-millisecond writes, clock steps and rowid reuse, so a hidden or retracted item can be served for hours (#1396 r2, a privacy regression). Key on content or on a version bumped by every write path, and freeze the clock in tests with fake timers.
 - **Idle timers and wake paths:** a timer that checks only the last acquire drops a safety tap or a connection mid-action. Count in-flight work (#1402 r1, Esc tap). A lazy restart or wake runs every pre-start check a normal start runs (hash, `madeBy`, bundle staleness: #1401 r1).
+- **Moving a call to a new site carries its error handling.** #1436 moved the heal out of `connection.ts`, where a try/catch meant a failed sweep never fails the call, into a hook without it, and Forget then failed after it had committed. List the old try/catch, `.catch` and fallbacks and re-create each.
+- **Carry-forward lists** (pinned, remembered, carried instructions) need a revoke path and per-item trust, and untrusted items must never evict trusted ones: #1437 `carryPinned` was append-only and a flood could evict.
 - **Frames over 1 MiB** (`MAX_FRAME_BYTES`) close the socket and fail every call in flight: cap text-carrying methods well below it (#1381).
 - **Decoder, normaliser or redaction changes:** fuzz three ways (before, main, head) and report how many inputs got quieter or louder (#1342, #1345). Redaction helpers need two-way tests for every URL form (#1343).
 - **Guard the file list.** An empty `$files` makes `vitest run` or `vitest related` run the whole suite (the whole ui suite ran once by accident). Check `[ -n "$files" ]` first, and never run a whole package suite (`packages/permissions`) to be safe.
@@ -45,10 +47,12 @@ The orchestrator gave you a brief and usually a `/goal`. Your job is one focused
 
 ## 3. Verify (the loop)
 
+Linux tests: the owner approved the OrbStack VM `psyche-linux` (`orb -m psyche-linux <cmd>`). Never touch `/mnt/mac` owner files from it, and nothing else VM-like without the owner.
+
 The owner's rule (2026-11-18): don't overheat the Mac. Size checks to the change.
 1. While you work, run only the test files you touched: `pnpm exec vitest run <files> --maxWorkers=1`. Don't run `verify.sh` after every small fix.
 2. When the change is done, run `pnpm exec biome check --write <touched dirs>`, then `bash .claude/scripts/verify.sh` once (add `--swift` if you touched Swift). It typechecks the touched packages and runs the touched tests. Fix failures by re-running just the failing files, then run `verify.sh` once more before you push.
-3. If you changed widely imported code (a shared hook, store, protocol type or permission rule), also run `verify.sh --related` once before the PR. It runs every existing test that imports what you changed, which is where builders most often break things unnoticed (#1299, #1300). Otherwise the merge gate runs it.
+3. `--related` runs `vitest related` inside each touched package only, so apps that import a package's exports would never run. It now also runs the app test files that import a touched `packages/<pkg>/src` package (`git grep` for `@psyche/<pkg>` under `apps/*/test`, capped at `PSYCHE_VERIFY_DEP_CAP`, default 60; `--no-related` skips it). You don't run those by hand. The #1437 break in `apps/gateway/test/context.test.ts` is the case it covers. If you changed widely imported code (a shared hook, store, protocol type or permission rule), also run `verify.sh --related` once before the PR. It runs every existing test that imports what you changed, which is where builders most often break things unnoticed (#1299, #1300). Otherwise the merge gate runs it.
 
 **Sibling tests (#1361):** `verify.sh` also runs the same-named test of each touched source file, not differently named tests that import it. Before the PR, `git grep -l "<module name>" -- '*.test.*'` for each changed module and run those too (#1361 hid 9 `exec-host.test.ts` failures).
 
@@ -64,6 +68,7 @@ Run `tsc` only through `verify.sh`, or alone, never in parallel with your own ve
 - Shared scratch dirs belong to every session: name files after your PR or branch (`pr-1404-body.md`, `verify-1404.log`). Another session overwrote `verify2.log` (#1404) and `pr-body.md`.
 - Run git only in your own worktree. A builder switched another worktree's branch.
 - **Fresh worktree (#1369, #1371–#1373):** there is no `node_modules`, so `pnpm exec` and `verify.sh` try a full install and better-sqlite3's node-gyp fails, making every step FAIL. Run `pnpm install --frozen-lockfile --prefer-offline --ignore-scripts` once; if pnpm still reinstalls, set `pnpm_config_verify_deps_before_run=false`. The Gateway bundle build wants `PNPM_CONFIG_IGNORE_SCRIPTS=true` (the `PNPM_CONFIG_` form; `npm_config_*` is ignored).
+- If the better-sqlite3 rebuild says node-gyp is missing (pnpm 12.4.1 under corepack), set `npm_config_node_gyp=<node dir>/lib/node_modules/npm/node_modules/node-gyp/bin/node-gyp.js` (path of the Node on your PATH).
 - If `pnpm: command not found` (the session's Node has none), run `export PATH=$HOME/.nvm/versions/node/v24.22.3/bin:$PATH`. `verify.sh` itself falls back to nvm's default since #1390.
 
 The Stop hook runs `verify.sh --quick` (lint, secrets, protocol, i18n; seconds) when you try to finish with changes it hasn't seen pass. If it blocks you, fix what it reports. Never skip, weaken, `.skip` or delete a test to get it passing. If you truly cannot fix a failure after 3 attempts, stop and report it plainly.

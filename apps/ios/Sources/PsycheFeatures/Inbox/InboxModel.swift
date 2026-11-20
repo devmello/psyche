@@ -5,6 +5,7 @@ import PsycheStore
 final class InboxModel {
     private(set) var phase: LoadPhase<[InboxItem]> = .idle
     private(set) var needsYou: [NeedsYouItem] = []
+    private(set) var actionError: String?
     private let store: any PsycheBackend
 
     init(store: any PsycheBackend) {
@@ -37,6 +38,18 @@ final class InboxModel {
         items[index].read = true
         phase = .loaded(items)
         try? await store.markRead(ids: [item.id])
+    }
+
+    /// Taps one of a notice's own buttons. The Gateway's answer decides what the row shows next, so it reloads
+    /// rather than editing the row. A failure is kept for the list to show.
+    func act(_ item: InboxItem, _ action: InboxAction) async {
+        actionError = nil
+        do {
+            try await store.resolveNotice(id: item.id, actionID: action.id)
+        } catch {
+            actionError = error.localizedDescription
+        }
+        await load()
     }
 
     /// The Needs-you item an entry is about, while it is still waiting.

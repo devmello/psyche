@@ -195,6 +195,7 @@ import {
   restoreModelSettings,
   settingsKeyValue,
 } from "./model-settings.ts";
+import { NotificationActions } from "./notification-actions.ts";
 import { composeNudges } from "./nudges.ts";
 import { composeOnePasswordSetup, type OnePasswordSetupOptions } from "./onepassword-setup.ts";
 import { createOtherChats, type OtherChats } from "./other-chats.ts";
@@ -207,9 +208,10 @@ import { composePlugins } from "./plugins.ts";
 import { type ComposedProactive, composeProactive } from "./proactive.ts";
 import {
   folderAccessEnv,
+  launchConfigLinks,
   ownWorkdirs,
   protectedRoots,
-  writeProtectedRoots,
+  writeProtection,
 } from "./protected-paths.ts";
 import { createPurchaseTool, LINK_PAYMENT_SOURCE, PURCHASE_TOOL } from "./purchase-tool.ts";
 import { notifierRouting } from "./quiet-hours.ts";
@@ -226,6 +228,7 @@ import { requestPermissionTool } from "./request-permission.ts";
 import { researchTools } from "./research.ts";
 import { withRunSnapshot } from "./run-snapshot.ts";
 import type { ComposedSandbox } from "./sandbox.ts";
+import { scrubSavedRecall } from "./saved-recall.ts";
 import {
   createScheduledHandlers,
   pausedRoutines,
@@ -666,7 +669,10 @@ export async function composeGateway(options: ComposeOptions): Promise<ComposedG
   // Remote desktop clients' own OS notifications (`device:<deviceId>`, remote Gateway R2).
   const deviceNotes = new DeviceNotifications();
   const ownerRouting = notifierRouting(db);
+  // A notice's own buttons ("Keep it" on held launch config): parts register their actions.
+  const notificationActions = new NotificationActions();
   const notifier = new PsycheNotifier({
+    onAction: (n, actionId) => notificationActions.run(n, actionId),
     // Tables come from @psyche/db's migration ledger (202610190200_notifications_init).
     store: new SqliteNotificationStore(db.sqlite),
     clock,
@@ -1093,7 +1099,8 @@ export async function composeGateway(options: ComposeOptions): Promise<ComposedG
     ],
     protectedRoots: () => protectedRoots(config.home),
     ownDirs: () => ownWorkdirs(config.home),
-    writeProtectedRoots: () => writeProtectedRoots(),
+    writeProtectedRoots: () => writeProtection(),
+    launchConfigLinks: launchConfigLinks(() => rawBroker.grantedFolders()),
     onChange: (c) => void changes.record(fileChange(c)),
   }))
     registry.register(tool);
@@ -1267,6 +1274,7 @@ export async function composeGateway(options: ComposeOptions): Promise<ComposedG
     approvalTokens: tokens,
     broker: executorBroker,
     rawBroker,
+    notificationActions,
     channelConversations,
     attention,
     audit,
@@ -2476,7 +2484,11 @@ export async function composeGateway(options: ComposeOptions): Promise<ComposedG
         undefined,
   );
   // A forget or a retract cuts the words it supported out of the answers kept in chats.
-  gateway.context.messageScrub.heal = () => everything.healTranscripts();
+  gateway.context.messageScrub.heal = () => {
+    everything.healTranscripts();
+    // Recall saved in a thread for its turn goes too (the agent drops it at its next run anyway).
+    scrubSavedRecall(db, (threadId) => loop.isActive(threadId));
+  };
   gateway.context.chatContext.resolve = (ref, caller) =>
     ref.kind === "life_answer"
       ? everything.lifeChat.resolve(ref, caller)

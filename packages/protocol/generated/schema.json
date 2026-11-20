@@ -33941,6 +33941,10 @@
         "label": {
           "type": "string"
         },
+        "labelKey": {
+          "description": "Message id of the label (e.g. notice.action.keepIt), so each client words it in its own language; `label` stays the English text for old clients and the OS",
+          "type": "string"
+        },
         "destructive": {
           "type": "boolean"
         },

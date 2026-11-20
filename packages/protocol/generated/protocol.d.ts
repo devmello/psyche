@@ -8796,6 +8796,11 @@ export interface NotificationAction {
     destructive?:            boolean;
     id:                      string;
     label:                   string;
+    /**
+     * Message id of the label (e.g. notice.action.keepIt), so each client words it in its own
+     * language; `label` stays the English text for old clients and the OS
+     */
+    labelKey?: string;
 }
 
 export type NotificationKind = "approval" | "input_needed" | "task_done" | "task_failed" | "proactive" | "briefing" | "reminder" | "system" | "specialist_result";
