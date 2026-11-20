@@ -1,7 +1,7 @@
 import { render, screen, waitFor, within } from "@testing-library/react";
 import { userEvent } from "@testing-library/user-event";
 import type { ComponentProps } from "react";
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 import type { MockGateway } from "../src/data/mock-gateway.ts";
 import { PluginsSection } from "../src/screens/settings/PluginsSection.tsx";
 import { StoryWorld } from "../src/stories/harness.tsx";
@@ -10,11 +10,11 @@ import { StoryWorld } from "../src/stories/harness.tsx";
 
 type Edit = ComponentProps<typeof StoryWorld>["edit"];
 
-function setup(edit?: Edit): () => MockGateway {
+function setup(edit?: Edit, onPickFolder?: () => Promise<string | null>): () => MockGateway {
   let gw: MockGateway | null = null;
   render(
     <StoryWorld edit={edit} onGateway={(g) => (gw = g)}>
-      <PluginsSection />
+      <PluginsSection {...(onPickFolder ? { onPickFolder } : {})} />
     </StoryWorld>,
   );
   return () => {
@@ -129,5 +129,35 @@ describe("Settings → Plugins", () => {
     expect(
       await screen.findByText("Plugins are switched off on this Gateway, so none of them run."),
     ).toBeTruthy();
+  });
+
+  it("shows how many skills, commands, MCP servers and hooks a plugin adds", async () => {
+    setup();
+    const notes = await screen.findByTestId("plugin-meeting-notes");
+    expect(within(notes).getByText("Includes: 2 skills, 1 command, and 1 hook")).toBeTruthy();
+    expect(within(screen.getByTestId("plugin-tone-guard")).queryByText(/Includes:/)).toBeNull();
+  });
+
+  it("starts an install from the picked folder through plugins.proposeInstall", async () => {
+    const pick = vi.fn(async () => "/Users/me/plugins/neat");
+    const gateway = setup(undefined, pick);
+    await userEvent.click(await screen.findByRole("button", { name: "Install from folder…" }));
+    await waitFor(() => {
+      const c = gateway().calls.filter((x) => x.method === "plugins.proposeInstall");
+      expect(c.map((x) => x.params)).toEqual([{ path: "/Users/me/plugins/neat" }]);
+    });
+  });
+
+  it("does not call proposeInstall when the folder chooser is cancelled", async () => {
+    const gateway = setup(undefined, async () => null);
+    await userEvent.click(await screen.findByRole("button", { name: "Install from folder…" }));
+    await screen.findByTestId("plugin-meeting-notes");
+    expect(gateway().calls.some((x) => x.method === "plugins.proposeInstall")).toBe(false);
+  });
+
+  it("hides the install button when there is no folder chooser (web)", async () => {
+    setup();
+    await screen.findByTestId("plugin-meeting-notes");
+    expect(screen.queryByRole("button", { name: "Install from folder…" })).toBeNull();
   });
 });

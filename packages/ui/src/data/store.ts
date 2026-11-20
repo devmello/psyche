@@ -963,6 +963,9 @@ export class GatewayStore {
       case "vault.payment.updated":
       case "payments.link.changed":
         return invalidate(s, ["vault.payments"]);
+      case "space.updated":
+      case "space.tracker.refreshed":
+        return invalidate(s, ["spaces."]);
       case "skills.changed":
       case "skills.updated":
       case "skills.draft.updated":

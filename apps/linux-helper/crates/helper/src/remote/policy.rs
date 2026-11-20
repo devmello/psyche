@@ -20,6 +20,7 @@
 use std::os::unix::fs::{MetadataExt, PermissionsExt};
 use std::path::{Component, Path, PathBuf};
 
+use psyche_linux_computer::app_id::{is_app_id, normalize};
 use psyche_protocol::ErrorCode;
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
@@ -380,17 +381,19 @@ pub fn glob_match(pattern: &str, text: &str) -> bool {
 const APP_KEYS: [&str; 5] = ["app", "appId", "bundleId", "desktopId", "application"];
 
 impl Policy {
-    fn app_allowed(&self, id: Option<&str>) -> bool {
-        match id {
-            Some(id) => {
-                !self.apps.deny.iter().any(|p| glob_match(p, id))
-                    && self.apps.allow.iter().any(|p| glob_match(p, id))
-            }
-            // The call names no app: it is allowed only where every app is.
-            None => {
-                self.apps.allow.iter().any(|p| p == "*") && !self.apps.deny.iter().any(|p| p == "*")
-            }
-        }
+    /// Whether an app is permitted by `apps.allow` and `apps.deny`, for an id as the call or the
+    /// engine names it. Both sides go through `app_id::normalize` first (trim, Unicode lowercase,
+    /// no `.desktop`), so the gate and the engine agree on which app is meant.
+    pub fn app_permitted(&self, id: &str) -> bool {
+        let id = normalize(id);
+        let hit = |p: &String| glob_match(&normalize(p), &id);
+        !self.apps.deny.iter().any(hit) && self.apps.allow.iter().any(hit)
+    }
+
+    /// The same for a call that names no app: it is as permitted as the empty id, so `*` and
+    /// `**` mean the same here as for a named app.
+    fn nameless_permitted(&self) -> bool {
+        self.app_permitted("")
     }
 
     /// Whether `path` is below `root` by components that are all real files or directories.
@@ -479,15 +482,25 @@ impl Policy {
             if !on_surface(surface) {
                 return denied(&format!("the {surface} screen"));
             }
-            let id = APP_KEYS.iter().find_map(|k| string(k));
-            if params.as_object().is_some_and(|o| {
-                APP_KEYS
-                    .iter()
-                    .any(|k| o.get(*k).is_some_and(|v| !v.is_string()))
-            }) {
-                return denied("that app");
+            // Every app key the call carries is judged, not the first: the engine reads them in
+            // its own order (`bundleId` before `app`), and an id the engine would read must be
+            // an id of the shape it accepts.
+            let mut named: Vec<&str> = Vec::new();
+            for key in APP_KEYS {
+                match params.get(key) {
+                    None => {}
+                    Some(Value::String(s)) => named.push(s),
+                    Some(_) => return denied("that app"),
+                }
             }
-            if !self.app_allowed(id) {
+            if named.is_empty() {
+                if !self.nameless_permitted() {
+                    return denied("that app");
+                }
+            } else if named
+                .iter()
+                .any(|id| !is_app_id(id) || !self.app_permitted(id))
+            {
                 return denied("that app");
             }
             return Ok(());
@@ -774,6 +787,107 @@ mod tests {
         ));
         assert!(!call(&policy, "exec.host", json!({"cwd":"/tmp"}), &home));
         assert!(!call(&policy, "exec.host", json!({"cwd": 5}), &home));
+    }
+
+    /// The gate and the engine must mean the same app: each way the engine would read a call as
+    /// KeePassXC is refused here, under `allow:["*"]`, `deny:["org.keepassxc.KeePassXC"]`.
+    #[test]
+    fn every_spelling_the_engine_would_read_as_a_denied_app_is_refused() {
+        let home = PathBuf::from("/h");
+        let mut policy = Policy::default();
+        policy.apps = Apps {
+            allow: vec!["*".into()],
+            deny: vec!["org.keepassxc.KeePassXC".into()],
+        };
+        let vs = |extra: Value| {
+            let mut v = extra;
+            v["surface"] = json!("virtual_screen");
+            v
+        };
+        // The control: the exact id is refused, another app is not.
+        assert!(!call(
+            &policy,
+            "apps.open",
+            vs(json!({"app": "org.keepassxc.KeePassXC"})),
+            &home
+        ));
+        assert!(call(
+            &policy,
+            "apps.open",
+            vs(json!({"app": "org.gnome.TextEditor"})),
+            &home
+        ));
+        for (cap, params) in [
+            // 1. two keys: the engine opens `bundleId`, the old gate read `app`.
+            (
+                "apps.open",
+                json!({"app": "gedit", "bundleId": "org.keepassxc.KeePassXC"}),
+            ),
+            (
+                "apps.open",
+                json!({"bundleId": "gedit", "app": "org.keepassxc.KeePassXC"}),
+            ),
+            // 2. the `.desktop` spelling.
+            (
+                "apps.open",
+                json!({"app": "org.keepassxc.KeePassXC.desktop"}),
+            ),
+            // 3. a leading space.
+            ("apps.open", json!({"app": " org.keepassxc.KeePassXC"})),
+            // 4. the KELVIN SIGN spelling: not the shape of an app id.
+            (
+                "apps.focus",
+                json!({"app": "org.\u{212A}eepassxc.\u{212A}eePassXC"}),
+            ),
+        ] {
+            assert!(!call(&policy, cap, vs(params.clone()), &home), "{params}");
+        }
+        // The pattern is normalised too.
+        policy.apps.deny = vec![" ORG.KeePassXC.KeePassXC.desktop ".into()];
+        assert!(!call(
+            &policy,
+            "apps.open",
+            vs(json!({"app": "org.keepassxc.keepassxc"})),
+            &home
+        ));
+        // 5. and 6. (a display name, a pid) name no id the gate can judge: the engine judges the
+        // app it resolves them to; see `app_gate_judges_the_resolved_app`.
+    }
+
+    #[test]
+    fn a_pattern_of_only_stars_means_every_app_with_or_without_a_name() {
+        let home = PathBuf::from("/h");
+        let mut policy = Policy::default();
+        policy.apps = Apps {
+            allow: vec!["*".into()],
+            deny: vec!["**".into()],
+        };
+        let nameless = json!({"surface": "virtual_screen", "pid": 4242});
+        let named = json!({"surface": "virtual_screen", "app": "org.gnome.TextEditor"});
+        assert!(!call(&policy, "computer.click", named, &home));
+        assert!(!call(&policy, "computer.click", nameless.clone(), &home));
+        // And the plain `*` deny: the same.
+        policy.apps.deny = vec!["*".into()];
+        assert!(!call(&policy, "computer.click", nameless, &home));
+    }
+
+    #[test]
+    fn app_gate_judges_the_resolved_app() {
+        let mut policy = Policy::default();
+        policy.apps = Apps {
+            allow: vec!["*".into()],
+            deny: vec!["org.keepassxc.KeePassXC".into()],
+        };
+        for id in [
+            "org.keepassxc.keepassxc",
+            "org.keepassxc.KeePassXC",
+            "org.keepassxc.keepassxc.desktop",
+            " org.keepassxc.keepassxc",
+        ] {
+            assert!(!policy.app_permitted(id), "{id}");
+        }
+        assert!(policy.app_permitted("org.gnome.texteditor"));
+        assert!(policy.app_permitted("keepassxc-helper"));
     }
 
     #[test]

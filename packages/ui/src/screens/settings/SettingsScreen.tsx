@@ -253,7 +253,7 @@ export function SettingsSectionView({
       return (
         <>
           <SkillsSection {...opt("now", s.now)} {...opt("onPickFolder", s.onPickSkillFolder)} />
-          <PluginsSection />
+          <PluginsSection {...opt("onPickFolder", s.onPickSkillFolder)} />
         </>
       );
     case "specialists":

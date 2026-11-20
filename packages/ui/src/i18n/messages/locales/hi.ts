@@ -20,6 +20,7 @@ import { galleryRest } from "./gallery-rest/hi.ts";
 import { helperCheck } from "./helper-check/hi.ts";
 import { helperOffline } from "./helper-offline/hi.ts";
 import { homeRest } from "./home-rest/hi.ts";
+import { keepAwake } from "./keep-awake/hi.ts";
 import { links } from "./links/hi.ts";
 import { linuxAccess } from "./linux-access/hi.ts";
 import { mailMeetings } from "./mail-meetings/hi.ts";
@@ -49,6 +50,7 @@ import { securityState } from "./security-state/hi.ts";
 import { separateDesktop } from "./separate-desktop/hi.ts";
 import { settingsRest } from "./settings-rest/hi.ts";
 import { shellRest } from "./shell-rest/hi.ts";
+import { spaces } from "./spaces/hi.ts";
 import { specialistsRest } from "./specialists-rest/hi.ts";
 import { webRest } from "./web-rest/hi.ts";
 import { widgetsRest } from "./widgets-rest/hi.ts";
@@ -2384,6 +2386,15 @@ export const hi: Partial<Catalogue> = {
   "settings.plugins.switchOn": "{name} चालू",
   "settings.plugins.version": " · v{version}",
   "settings.plugins.adds": "जोड़ता है: {list}",
+  "settings.plugins.install": "फ़ोल्डर से इंस्टॉल करें…",
+  "settings.plugins.pickFailed": "Psyche फ़ोल्डर चयनकर्ता नहीं खोल सका ({reason})।",
+  "settings.plugins.installFailed": "इंस्टॉल शुरू नहीं हुआ। {reason}",
+  "settings.plugins.proposed": "अनुमोदन कार्ड पर इंस्टॉल की समीक्षा करें।",
+  "settings.plugins.includes": "इसमें शामिल: {list}",
+  "settings.plugins.count.skills": "{n, plural, one {# स्किल} other {# स्किल}}",
+  "settings.plugins.count.commands": "{n, plural, one {# कमांड} other {# कमांड}}",
+  "settings.plugins.count.mcpServers": "{n, plural, one {# MCP सर्वर} other {# MCP सर्वर}}",
+  "settings.plugins.count.hooks": "{n, plural, one {# हुक} other {# हुक}}",
   "settings.plugins.from": "स्रोत: {source}",
   "settings.plugins.state.active": "चल रहा है",
   "settings.plugins.state.disabled": "बंद",
@@ -3713,4 +3724,6 @@ export const hi: Partial<Catalogue> = {
   ...separateDesktop,
   // Windows variants of the sandbox PC, voice keys and platform terms
   ...windowsPlatform202611,
+  ...keepAwake,
+  ...spaces,
 };

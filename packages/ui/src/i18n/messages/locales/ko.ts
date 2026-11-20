@@ -20,6 +20,7 @@ import { galleryRest } from "./gallery-rest/ko.ts";
 import { helperCheck } from "./helper-check/ko.ts";
 import { helperOffline } from "./helper-offline/ko.ts";
 import { homeRest } from "./home-rest/ko.ts";
+import { keepAwake } from "./keep-awake/ko.ts";
 import { links } from "./links/ko.ts";
 import { linuxAccess } from "./linux-access/ko.ts";
 import { mailMeetings } from "./mail-meetings/ko.ts";
@@ -49,6 +50,7 @@ import { securityState } from "./security-state/ko.ts";
 import { separateDesktop } from "./separate-desktop/ko.ts";
 import { settingsRest } from "./settings-rest/ko.ts";
 import { shellRest } from "./shell-rest/ko.ts";
+import { spaces } from "./spaces/ko.ts";
 import { specialistsRest } from "./specialists-rest/ko.ts";
 import { webRest } from "./web-rest/ko.ts";
 import { widgetsRest } from "./widgets-rest/ko.ts";
@@ -2367,6 +2369,15 @@ export const ko: Partial<Catalogue> = {
   "settings.plugins.switchOn": "{name} 켜기",
   "settings.plugins.version": " · v{version}",
   "settings.plugins.adds": "추가 기능: {list}",
+  "settings.plugins.install": "폴더에서 설치…",
+  "settings.plugins.pickFailed": "Psyche가 폴더 선택기를 열 수 없습니다({reason}).",
+  "settings.plugins.installFailed": "설치를 시작하지 못했습니다. {reason}",
+  "settings.plugins.proposed": "승인 카드에서 설치 내용을 확인하세요.",
+  "settings.plugins.includes": "포함: {list}",
+  "settings.plugins.count.skills": "{n, plural, other {스킬 #개}}",
+  "settings.plugins.count.commands": "{n, plural, other {명령 #개}}",
+  "settings.plugins.count.mcpServers": "{n, plural, other {MCP 서버 #개}}",
+  "settings.plugins.count.hooks": "{n, plural, other {훅 #개}}",
   "settings.plugins.from": "출처: {source}",
   "settings.plugins.state.active": "실행 중",
   "settings.plugins.state.disabled": "꺼짐",
@@ -3707,4 +3718,6 @@ export const ko: Partial<Catalogue> = {
   ...separateDesktop,
   // Windows variants of the sandbox PC, voice keys and platform terms
   ...windowsPlatform202611,
+  ...keepAwake,
+  ...spaces,
 };

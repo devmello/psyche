@@ -16,6 +16,7 @@ import { galleryRest } from "./gallery-rest/de.ts";
 import { helperCheck } from "./helper-check/de.ts";
 import { helperOffline } from "./helper-offline/de.ts";
 import { homeRest } from "./home-rest/de.ts";
+import { keepAwake } from "./keep-awake/de.ts";
 import { links } from "./links/de.ts";
 import { linuxAccess } from "./linux-access/de.ts";
 import { mailMeetings } from "./mail-meetings/de.ts";
@@ -41,6 +42,7 @@ import { securityState } from "./security-state/de.ts";
 import { separateDesktop } from "./separate-desktop/de.ts";
 import { settingsRest } from "./settings-rest/de.ts";
 import { shellRest } from "./shell-rest/de.ts";
+import { spaces } from "./spaces/de.ts";
 import { specialistsRest } from "./specialists-rest/de.ts";
 import { webRest } from "./web-rest/de.ts";
 import { widgetsRest } from "./widgets-rest/de.ts";
@@ -2461,6 +2463,15 @@ export const de: Partial<Catalogue> = {
   "settings.plugins.switchOn": "{name} ein",
   "settings.plugins.version": " · v{version}",
   "settings.plugins.adds": "Ergänzt: {list}",
+  "settings.plugins.install": "Aus Ordner installieren …",
+  "settings.plugins.pickFailed": "Psyche konnte die Ordnerauswahl nicht öffnen ({reason}).",
+  "settings.plugins.installFailed": "Die Installation wurde nicht gestartet. {reason}",
+  "settings.plugins.proposed": "Prüfe die Installation auf der Genehmigungskarte.",
+  "settings.plugins.includes": "Enthält: {list}",
+  "settings.plugins.count.skills": "{n, plural, one {# Skill} other {# Skills}}",
+  "settings.plugins.count.commands": "{n, plural, one {# Befehl} other {# Befehle}}",
+  "settings.plugins.count.mcpServers": "{n, plural, one {# MCP-Server} other {# MCP-Server}}",
+  "settings.plugins.count.hooks": "{n, plural, one {# Hook} other {# Hooks}}",
   "settings.plugins.from": "Aus {source}",
   "settings.plugins.state.active": "Läuft",
   "settings.plugins.state.disabled": "Ausgeschaltet",
@@ -3850,4 +3861,6 @@ export const de: Partial<Catalogue> = {
   ...separateDesktop,
   // Windows variants of the sandbox PC, voice keys and platform terms
   ...windowsPlatform202611,
+  ...keepAwake,
+  ...spaces,
 };

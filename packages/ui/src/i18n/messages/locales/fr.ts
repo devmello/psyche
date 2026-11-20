@@ -16,6 +16,7 @@ import { galleryRest } from "./gallery-rest/fr.ts";
 import { helperCheck } from "./helper-check/fr.ts";
 import { helperOffline } from "./helper-offline/fr.ts";
 import { homeRest } from "./home-rest/fr.ts";
+import { keepAwake } from "./keep-awake/fr.ts";
 import { links } from "./links/fr.ts";
 import { linuxAccess } from "./linux-access/fr.ts";
 import { mailMeetings } from "./mail-meetings/fr.ts";
@@ -41,6 +42,7 @@ import { securityState } from "./security-state/fr.ts";
 import { separateDesktop } from "./separate-desktop/fr.ts";
 import { settingsRest } from "./settings-rest/fr.ts";
 import { shellRest } from "./shell-rest/fr.ts";
+import { spaces } from "./spaces/fr.ts";
 import { specialistsRest } from "./specialists-rest/fr.ts";
 import { webRest } from "./web-rest/fr.ts";
 import { widgetsRest } from "./widgets-rest/fr.ts";
@@ -2408,6 +2410,15 @@ export const fr: Partial<Catalogue> = {
   "settings.plugins.switchOn": "{name} activé",
   "settings.plugins.version": " · v{version}",
   "settings.plugins.adds": "Ajoute : {list}",
+  "settings.plugins.install": "Installer depuis un dossier…",
+  "settings.plugins.pickFailed": "Psyche n'a pas pu ouvrir le sélecteur de dossier ({reason}).",
+  "settings.plugins.installFailed": "L'installation n'a pas démarré. {reason}",
+  "settings.plugins.proposed": "Vérifiez l'installation sur la carte d'approbation.",
+  "settings.plugins.includes": "Comprend : {list}",
+  "settings.plugins.count.skills": "{n, plural, one {# skill} other {# skills}}",
+  "settings.plugins.count.commands": "{n, plural, one {# commande} other {# commandes}}",
+  "settings.plugins.count.mcpServers": "{n, plural, one {# serveur MCP} other {# serveurs MCP}}",
+  "settings.plugins.count.hooks": "{n, plural, one {# hook} other {# hooks}}",
   "settings.plugins.from": "Depuis {source}",
   "settings.plugins.state.active": "En cours d'exécution",
   "settings.plugins.state.disabled": "Désactivé",
@@ -3775,4 +3786,6 @@ export const fr: Partial<Catalogue> = {
   ...separateDesktop,
   // Windows variants of the sandbox PC, voice keys and platform terms
   ...windowsPlatform202611,
+  ...keepAwake,
+  ...spaces,
 };

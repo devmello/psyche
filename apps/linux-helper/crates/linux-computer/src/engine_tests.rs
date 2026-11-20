@@ -245,6 +245,126 @@ fn focus_leaving_the_app_stops_typing_before_a_single_key() {
 }
 
 #[test]
+fn a_surface_that_refuses_the_focus_stops_typing_and_keys_before_anything_is_sent() {
+    // The virtual screen: the focused window's server-recorded process is another app's, or an
+    // app on the deny list. The pid the fake reports for the focus would have passed.
+    for (code, reason) in [("conflict", "focus_moved"), ("policy_denied", "app_denied")] {
+        let r = rig(all_interact());
+        editor(&r);
+        r.fake.s.lock().unwrap().input_target = Some((code, reason));
+        let typed = call(
+            &r,
+            "computer.type",
+            json!({"text": "hi", "app": "org.gnome.TextEditor", "session": "s1"}),
+            &inv(),
+        )
+        .unwrap_err();
+        assert_eq!((typed.0.as_str(), typed.1.as_str()), (code, reason));
+        let key = call(
+            &r,
+            "computer.key",
+            json!({"keys": "a", "app": "org.gnome.TextEditor", "session": "s1"}),
+            &inv(),
+        )
+        .unwrap_err();
+        assert_eq!(key.1, reason);
+        assert!(r.fake.s.lock().unwrap().typed.is_empty());
+        assert!(r.fake.log().iter().all(|l| !l.starts_with("key ")));
+    }
+}
+
+/// The machine ceiling's gate sees the app the engine resolved, however the call named it.
+fn deny_keepass(r: &Rig) {
+    r.engine.policy.set_app_gate(std::sync::Arc::new(|id| {
+        if crate::app_id::normalize(id) == "keepassxc" {
+            Err(crate::error::CapError::new(
+                "policy_denied",
+                "app_denied",
+                "out of reach",
+            ))
+        } else {
+            Ok(())
+        }
+    }));
+}
+
+#[test]
+fn a_denied_app_is_refused_whether_the_call_names_its_id_its_display_name_or_its_pid() {
+    let r = rig(all_interact());
+    editor(&r);
+    deny_keepass(&r);
+    for params in [
+        // An id.
+        json!({"app": "keepassxc", "x": 10, "y": 10, "session": "s1"}),
+        json!({"app": " KeePassXC.desktop", "x": 10, "y": 10, "session": "s1"}),
+        // The display name.
+        json!({"app": "KeePassXC", "x": 10, "y": 10, "session": "s1"}),
+        // A pid, no app key at all.
+        json!({"pid": KEEPASS_PID, "x": 10, "y": 10, "session": "s1"}),
+    ] {
+        for cap in ["computer.click", "computer.screenshot", "computer.ax_tree"] {
+            let mut p = params.clone();
+            // Only the tree takes a pid; the other calls name their app.
+            if p.get("pid").is_some() && cap != "computer.ax_tree" {
+                continue;
+            }
+            if cap != "computer.click" {
+                p.as_object_mut()
+                    .unwrap()
+                    .retain(|k, _| matches!(k.as_str(), "app" | "pid"));
+            }
+            let err = call(&r, cap, p.clone(), &inv()).unwrap_err();
+            // A point click can also be refused for landing in a different app than it
+            // named; either way it is a policy refusal and nothing is sent.
+            let reason_ok =
+                err.1 == "app_denied" || (cap == "computer.click" && err.1 == "app_mismatch");
+            assert!(err.0 == "policy_denied" && reason_ok, "{cap} {p}: {err:?}");
+        }
+    }
+    assert!(r.fake.log().iter().all(|l| !l.starts_with("click")));
+    // Another app still works.
+    call(
+        &r,
+        "computer.ax_tree",
+        json!({"app": "org.gnome.TextEditor"}),
+        &inv(),
+    )
+    .unwrap();
+}
+
+#[test]
+fn a_surface_that_allows_the_focus_does_not_replace_the_pid_comparison() {
+    // A child process the app started sits in the app's scope and has the focus: the surface's
+    // scope check passes, and the focused process still is not the app's own.
+    let r = rig(all_interact());
+    editor(&r);
+    {
+        let mut s = r.fake.s.lock().unwrap();
+        s.focus_pid = Some(TERMINAL_PID);
+        s.focus_denied = true;
+        s.input_target = None;
+    }
+    let typed = call(
+        &r,
+        "computer.type",
+        json!({"text": "no", "app": "org.gnome.TextEditor", "session": "s1"}),
+        &inv(),
+    )
+    .unwrap_err();
+    assert_eq!(typed.1, "focus_moved");
+    assert!(r.fake.s.lock().unwrap().typed.is_empty());
+    // resolve_target reads the same focus: it refuses too.
+    let target = call(
+        &r,
+        "computer.resolve_target",
+        json!({"app": "org.gnome.TextEditor", "focused": true, "session": "s1"}),
+        &inv(),
+    )
+    .unwrap_err();
+    assert_eq!(target.1, "focus_moved");
+}
+
+#[test]
 fn a_click_presses_by_the_action_without_coordinates() {
     let r = rig(all_interact());
     let e = editor(&r);
@@ -726,6 +846,73 @@ fn screenshots_black_out_protected_windows_and_refuse_when_that_is_impossible() 
         &inv(),
     )
     .unwrap();
+}
+
+#[test]
+fn an_older_denied_window_raised_over_the_target_is_blacked_out_by_pixels() {
+    use crate::hygiene::{redactions, WindowRef};
+    use std::collections::HashSet;
+    // Front to back: the denied app's window (older, just raised) over the editor's.
+    let windows = vec![
+        WindowRef {
+            id: 2,
+            pid: MAIL_PID,
+            layer: 0,
+            bounds: Rect::new(100.0, 0.0, 300.0, 200.0),
+            alpha: 1.0,
+        },
+        WindowRef {
+            id: 1,
+            pid: EDITOR_PID,
+            layer: 0,
+            bounds: Rect::new(0.0, 0.0, 1000.0, 200.0),
+            alpha: 1.0,
+        },
+    ];
+    let excluded = HashSet::from([MAIL_PID]);
+    let mut f = crate::backend::Frame {
+        width: 1000,
+        height: 200,
+        rgba: vec![255; 1000 * 200 * 4],
+        screen: Rect::new(0.0, 0.0, 1000.0, 200.0),
+        scale: 1.0,
+    };
+    for r in redactions(&windows, &excluded, f.screen) {
+        f.fill_black(r);
+    }
+    assert!(!f.any_lit(Rect::new(100.0, 0.0, 300.0, 200.0)));
+    assert!(f.any_lit(Rect::new(0.0, 0.0, 100.0, 200.0)));
+    assert!(f.any_lit(Rect::new(400.0, 0.0, 600.0, 200.0)));
+}
+
+#[test]
+fn a_screenshot_counts_the_windows_the_surface_excludes() {
+    let r = rig(all_interact());
+    editor(&r);
+    let n = |r: &Rig| {
+        call(
+            r,
+            "computer.screenshot",
+            json!({"app": "org.gnome.TextEditor"}),
+            &inv(),
+        )
+        .unwrap()["excludedApps"]
+            .as_u64()
+            .unwrap()
+    };
+    let before = n(&r);
+    r.fake.s.lock().unwrap().extra_excluded = vec![MAIL_PID];
+    assert_eq!(n(&r), before + 1);
+    // The target itself being excluded refuses the capture.
+    r.fake.s.lock().unwrap().extra_excluded = vec![EDITOR_PID];
+    let err = call(
+        &r,
+        "computer.screenshot",
+        json!({"app": "org.gnome.TextEditor"}),
+        &inv(),
+    )
+    .unwrap_err();
+    assert_eq!(err.1, "app_excluded");
 }
 
 #[test]

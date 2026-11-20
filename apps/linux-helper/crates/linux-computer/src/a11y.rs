@@ -96,6 +96,9 @@ pub struct A11y {
     focus_started: AtomicBool,
 }
 
+/// Judges the accessibility bus address and the pid of the client that owns `org.a11y.Bus`.
+pub type BusJudge<'a> = dyn Fn(&str, Option<u32>) -> bool + 'a;
+
 impl A11y {
     /// Connects through the session bus's `org.a11y.Bus`. Refuses with
     /// `unavailable/no_a11y_bus` when there is no session bus or no accessibility bus.
@@ -106,9 +109,84 @@ impl A11y {
                 format!("Needs a graphical session on this computer (no session bus: {e})"),
             )
         })?;
+        Self::connect_via(&session, None)
+    }
+
+    /// Like [`A11y::connect`], on the session bus at `address` (the headless mode's private bus)
+    /// instead of the one the environment names.
+    ///
+    /// `accept(address, owner_pid)` judges the accessibility bus address that whichever client
+    /// owns `org.a11y.Bus` on that bus returned, and the pid of that client (from the bus
+    /// daemon): on a bus where apps run, any of them could take the name and point the engine
+    /// at the owner's own accessibility bus.
+    pub fn connect_session_address(
+        address: &str,
+        accept: &dyn Fn(&str, Option<u32>) -> bool,
+    ) -> CapResult<A11y> {
+        let session = zbus::blocking::connection::Builder::address(address)
+            .map_err(|e| CapError::unavailable("no_a11y_bus", e.to_string()))?
+            .method_timeout(CALL_TIMEOUT)
+            .build()
+            .map_err(|e| {
+                CapError::unavailable(
+                    "no_a11y_bus",
+                    format!("Cannot connect to the session bus: {e}"),
+                )
+            })?;
+        Self::connect_via(&session, Some(accept))
+    }
+
+    fn connect_via(
+        session: &zbus::blocking::Connection,
+        accept: Option<&BusJudge<'_>>,
+    ) -> CapResult<A11y> {
+        let dbus = |method: &str, body: &str| {
+            session.call_method(
+                Some("org.freedesktop.DBus"),
+                "/org/freedesktop/DBus",
+                Some("org.freedesktop.DBus"),
+                method,
+                &body,
+            )
+        };
+        // The desktop path asks the well-known name, which D-Bus starts if it is not running (a
+        // desktop that does not autostart at-spi); only the headless validator pins the owner.
+        let Some(accept) = accept else {
+            let reply = session
+                .call_method(
+                    Some("org.a11y.Bus"),
+                    "/org/a11y/bus",
+                    Some("org.a11y.Bus"),
+                    "GetAddress",
+                    &(),
+                )
+                .map_err(|e| {
+                    CapError::unavailable(
+                        "no_a11y_bus",
+                        format!("The accessibility bus is not running: {e}"),
+                    )
+                })?;
+            let address: String = reply
+                .body()
+                .deserialize()
+                .map_err(|e| CapError::unavailable("no_a11y_bus", e.to_string()))?;
+            return Self::connect_address(&address);
+        };
+        // The name's owner first, then everything is asked of that unique name: the owner whose
+        // process id is judged is the one that answers `GetAddress`, even if the well-known name
+        // changes hands in between.
+        let owner: String = dbus("GetNameOwner", "org.a11y.Bus")
+            .ok()
+            .and_then(|r| r.body().deserialize().ok())
+            .ok_or_else(|| {
+                CapError::unavailable("no_a11y_bus", "The accessibility bus is not running")
+            })?;
+        let owner_pid = dbus("GetConnectionUnixProcessID", &owner)
+            .ok()
+            .and_then(|r| r.body().deserialize::<u32>().ok());
         let reply = session
             .call_method(
-                Some("org.a11y.Bus"),
+                Some(owner.as_str()),
                 "/org/a11y/bus",
                 Some("org.a11y.Bus"),
                 "GetAddress",
@@ -124,6 +202,12 @@ impl A11y {
             .body()
             .deserialize()
             .map_err(|e| CapError::unavailable("no_a11y_bus", e.to_string()))?;
+        if !accept(&address, owner_pid) {
+            return Err(CapError::unavailable(
+                "no_a11y_bus",
+                "The accessibility bus address did not come from the screen's own launcher",
+            ));
+        }
         Self::connect_address(&address)
     }
 

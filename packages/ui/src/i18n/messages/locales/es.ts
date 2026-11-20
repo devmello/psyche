@@ -11,6 +11,7 @@ import { galleryA } from "./gallery-a/es.ts";
 import { helperCheck } from "./helper-check/es.ts";
 import { helperOffline } from "./helper-offline/es.ts";
 import { homeA } from "./home-a/es.ts";
+import { keepAwake } from "./keep-awake/es.ts";
 import { links } from "./links/es.ts";
 import { linuxAccess } from "./linux-access/es.ts";
 import { mailMeetings } from "./mail-meetings/es.ts";
@@ -31,6 +32,7 @@ import { settingsB } from "./settings-b/es.ts";
 import { settingsC } from "./settings-c/es.ts";
 import { settingsD } from "./settings-d/es.ts";
 import { settingsE } from "./settings-e/es.ts";
+import { spaces } from "./spaces/es.ts";
 import { specialistsA } from "./specialists-a/es.ts";
 import { teachA } from "./teach-a/es.ts";
 import { windowsPlatform202611 } from "./windows-platform-2026-11/es.ts";
@@ -2433,6 +2435,15 @@ export const es: Partial<Catalogue> = {
   "settings.plugins.switchOn": "{name} activado",
   "settings.plugins.version": " · v{version}",
   "settings.plugins.adds": "Añade: {list}",
+  "settings.plugins.install": "Instalar desde una carpeta…",
+  "settings.plugins.pickFailed": "Psyche no pudo abrir el selector de carpetas ({reason}).",
+  "settings.plugins.installFailed": "La instalación no se inició. {reason}",
+  "settings.plugins.proposed": "Revisa la instalación en la tarjeta de aprobación.",
+  "settings.plugins.includes": "Incluye: {list}",
+  "settings.plugins.count.skills": "{n, plural, one {# skill} other {# skills}}",
+  "settings.plugins.count.commands": "{n, plural, one {# comando} other {# comandos}}",
+  "settings.plugins.count.mcpServers": "{n, plural, one {# servidor MCP} other {# servidores MCP}}",
+  "settings.plugins.count.hooks": "{n, plural, one {# hook} other {# hooks}}",
   "settings.plugins.from": "Desde {source}",
   "settings.plugins.state.active": "En marcha",
   "settings.plugins.state.disabled": "Desactivado",
@@ -3808,4 +3819,6 @@ export const es: Partial<Catalogue> = {
   ...separateDesktop,
   // Windows variants of the sandbox PC, voice keys and platform terms
   ...windowsPlatform202611,
+  ...keepAwake,
+  ...spaces,
 };

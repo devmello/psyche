@@ -13,6 +13,7 @@ import { LIBRARY_SECTIONS } from "../screens/library/library-items.ts";
 import { SearchSurface, useMinWidth, useSearchSurface } from "../screens/search/SearchSurface.tsx";
 import { SETTINGS_SECTIONS } from "../screens/settings/SettingsScreen.tsx";
 import { usePersona } from "../slots.tsx";
+import { useSpacePaletteActions } from "../spaces/use-space-palette.ts";
 
 export { paletteMatches } from "./palette-match.ts";
 
@@ -305,7 +306,9 @@ export function CommandPalette({
     (s) => Object.values(s.threads).find((e) => e.thread.kind === "main")?.thread.id ?? null,
   );
   const mainBusy = useStoreState((s) => mainId !== null && selectChatBusy(s, mainId));
+  const spaceActions = useSpacePaletteActions(open, onNavigate);
   const kitActions: PaletteAction[] = [
+    ...spaceActions,
     ...(prefill
       ? [
           {
