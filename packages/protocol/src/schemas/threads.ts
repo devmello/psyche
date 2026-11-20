@@ -46,6 +46,8 @@ export const Thread = Type.Object(
      * from the thread list until they have a message, and deleted when left empty.
      */
     userCreated: Type.Optional(Type.Boolean()),
+    /** The Space this chat is in, at most one (docs/design/spaces-2026.md §4.1). */
+    spaceId: Nullable(Id),
   },
   { $id: "Thread" },
 );
