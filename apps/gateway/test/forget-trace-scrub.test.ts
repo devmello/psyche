@@ -1,4 +1,4 @@
-import { mkdtempSync, rmSync } from "node:fs";
+import { existsSync, mkdtempSync, readFileSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import {
@@ -41,7 +41,7 @@ const SECRET = 'Sam has "condition X"';
 
 async function compose(): Promise<ComposedGateway> {
   home = mkdtempSync(join(tmpdir(), "psyche-forget-trace-"));
-  return composeGateway({
+  const gw = await composeGateway({
     env: {},
     logger: silentLogger,
     retentionIntervalMs: 0,
@@ -49,6 +49,10 @@ async function compose(): Promise<ComposedGateway> {
     config: { home, port: 0, dbPath: join(home, "psyche.db"), webRoot: null },
     model: { provider: new FakeModelProvider(), model: "fake/model" },
   });
+  // The Gateway's own worker resumes its (empty) queue on its first tick; let that tick pass so it
+  // does not take a phrase that a test's own worker was given.
+  await new Promise((r) => setTimeout(r, 10));
+  return gw;
 }
 
 /** Runs a phrase's whole pass synchronously (the worker runs the same batches in the background). */
@@ -326,7 +330,7 @@ describe("Forget scrubs the forgotten words from every stored copy", () => {
       runId: "r",
       stepId: "s2",
       kind: "input",
-      text: `{"role":"user","name":"apple_notes_search","text":"Apple pie"} [cut]`,
+      text: `{"type":"tool_use","name":"apple_notes_search","input":{"q":"x"},"role":"user","text":"Apple pie"} [cut]`,
       truncated: true,
     });
     scrubNow(db, "user");
@@ -401,7 +405,9 @@ describe("Forget scrubs the forgotten words from every stored copy", () => {
     const batch = runTraceScrubBatch(db, row as NonNullable<typeof row>, 400);
     expect(batch.finished).toBe(false);
     const saved = db.sqlite
-      .prepare("SELECT phase, cursor FROM trace_scrub_queue WHERE subject = ?")
+      .prepare(
+        "SELECT s.phase, s.cursor FROM trace_scrub_queue q JOIN trace_scrub_state s ON s.queue_id = q.id WHERE q.subject = ?",
+      )
       .get(SECRET) as { phase: number; cursor: number };
     expect(saved.phase > 0 || saved.cursor > 0).toBe(true);
     expect(JSON.stringify(stepPayloads(db, "bulk_199"))).toContain("condition X");
@@ -451,7 +457,6 @@ describe("Forget scrubs the forgotten words from every stored copy", () => {
       db,
       activeRuns: () => active,
       log: () => undefined,
-      retryMs: 20,
     });
     // The composed Gateway's own worker resumes its (empty) queue on its first tick; let that tick
     // pass so it does not take this phrase before the test's worker does.
@@ -460,7 +465,9 @@ describe("Forget scrubs the forgotten words from every stored copy", () => {
     // The pass has finished and is waiting for the run.
     await vi.waitFor(() => {
       const q = db.sqlite
-        .prepare("SELECT final FROM trace_scrub_queue WHERE subject = ?")
+        .prepare(
+          "SELECT s.final FROM trace_scrub_queue q JOIN trace_scrub_state s ON s.queue_id = q.id WHERE q.subject = ?",
+        )
         .get(SECRET) as { final: number } | undefined;
       expect(q?.final).toBe(1);
     });
@@ -475,6 +482,7 @@ describe("Forget scrubs the forgotten words from every stored copy", () => {
     await sleep(80);
     expect(JSON.stringify(stepPayloads(db, "live"))).toContain("condition X");
     active = [];
+    worker.wake(); // the run ended
     await vi.waitFor(() =>
       expect(JSON.stringify(stepPayloads(db, "live"))).not.toContain("condition X"),
     );
@@ -508,10 +516,11 @@ describe("Forget scrubs the forgotten words from every stored copy", () => {
       setImmediate(pump);
     };
     setImmediate(pump);
+    const logs: string[] = [];
     const worker = new TraceScrubWorker({
       db,
       activeRuns: () => [],
-      log: () => undefined,
+      log: (_l, m) => logs.push(m),
       budgetBytes: 2000,
     });
     worker.enqueue(SECRET);
@@ -522,9 +531,320 @@ describe("Forget scrubs the forgotten words from every stored copy", () => {
     );
     done = true;
     expect(ticks).toBeGreaterThan(5);
+    expect(logs).toContain("forget rewrote 300 run-trace row(s)");
+    // A second pass finds nothing left to rewrite.
+    expect(scrubNow(db, SECRET)).toEqual({ rewritten: 0, skipped: 0 });
     for (let i = 0; i < 300; i += 97) {
       expect(JSON.stringify(stepPayloads(db, `step_${i}`))).toContain(`${i}: [forgotten]`);
     }
     worker.stop();
+  });
+
+  it("name and status values are scrubbed; only tool-shaped names and real ids are kept (R2)", async () => {
+    composed = await compose();
+    const db = composed.db;
+    const P = "Sam has condition X";
+    putStepPayload(db, {
+      runId: "r",
+      stepId: "k1",
+      kind: "input",
+      text: JSON.stringify({
+        contact: { name: P, status: P, paid: P, kid: P, android: P, chatId: P, id: P },
+        tools: [
+          { type: "tool_use", name: "Sam_lookup", input: { q: "x" } },
+          { name: "Sam_lookup", arguments: "{}" },
+          { type: "function", name: "Sam_lookup" },
+        ],
+      }),
+      truncated: false,
+    });
+    putStepPayload(db, {
+      runId: "r",
+      stepId: "k2",
+      kind: "input",
+      text: `{"name":"${P}","status":"${P}","paid":"${P}","kid":"${P}","chatId":"${P}","text":"${P}"} [cut]`,
+      truncated: true,
+    });
+    putStepPayload(db, {
+      runId: "r",
+      stepId: "k3",
+      kind: "input",
+      text: `{"type":"tool_use","name":"Sam_lookup","input":{"q":"${P}"}} {"name":"Sam_lookup","arguments":"{}"} [cut]`,
+      truncated: true,
+    });
+    scrubNow(db, P);
+    const k1 = (stepPayloads(db, "k1") as { input: Record<string, Record<string, unknown>> }).input;
+    expect(k1.contact).toEqual({
+      name: "[forgotten]",
+      status: "[forgotten]",
+      paid: "[forgotten]",
+      kid: "[forgotten]",
+      android: "[forgotten]",
+      chatId: P,
+      id: P,
+    });
+    expect(JSON.stringify(k1.tools)).toBe(
+      JSON.stringify([
+        { type: "tool_use", name: "Sam_lookup", input: { q: "x" } },
+        { name: "Sam_lookup", arguments: "{}" },
+        { type: "function", name: "Sam_lookup" },
+      ]),
+    );
+    // Text mode agrees with JSON mode on every key.
+    const k2 = (stepPayloads(db, "k2") as { input: string }).input;
+    expect(k2).toBe(
+      `{"name":"[forgotten]","status":"[forgotten]","paid":"[forgotten]","kid":"[forgotten]","chatId":"${P}","text":"[forgotten]"} [cut]`,
+    );
+    const k3 = (stepPayloads(db, "k3") as { input: string }).input;
+    expect(k3).toBe(
+      `{"type":"tool_use","name":"Sam_lookup","input":{"q":"[forgotten]"}} {"name":"Sam_lookup","arguments":"{}"} [cut]`,
+    );
+  });
+
+  it("nested JSON text keeps every byte outside the match (R3)", async () => {
+    composed = await compose();
+    const db = composed.db;
+    const inner =
+      '{\n  "chat_id": 1234567890123456789,\n  "price": 1.50,\n  "text": "Sam has condition X"\n}';
+    putStepPayload(db, {
+      runId: "r",
+      stepId: "j1",
+      kind: "input",
+      text: JSON.stringify({ result: inner }),
+      truncated: false,
+    });
+    scrubNow(db, "Sam has condition X");
+    const out = (stepPayloads(db, "j1") as { input: { result: string } }).input.result;
+    expect(out).toBe(inner.replace("Sam has condition X", "[forgotten]"));
+    expect(out).toContain("1234567890123456789");
+    expect(out).toContain("1.50");
+  });
+
+  it("forgetting the marker word does not wrap the marker again, in one pass or two (R4)", async () => {
+    composed = await compose();
+    const db = composed.db;
+    putStepPayload(db, {
+      runId: "r",
+      stepId: "m1",
+      kind: "input",
+      text: JSON.stringify({ text: "I forgotten it, and [forgotten] too" }),
+      truncated: false,
+    });
+    scrubNow(db, "forgotten");
+    scrubNow(db, "forgotten");
+    expect((stepPayloads(db, "m1") as { input: { text: string } }).input.text).toBe(
+      "I [forgotten] it, and [forgotten] too",
+    );
+  });
+
+  it("an underscore is not a word character, as on the memory side", async () => {
+    composed = await compose();
+    const db = composed.db;
+    putStepPayload(db, {
+      runId: "r",
+      stepId: "u1",
+      kind: "input",
+      text: JSON.stringify({ text: "see Sam_notes and Samuel" }),
+      truncated: false,
+    });
+    scrubNow(db, "Sam");
+    expect((stepPayloads(db, "u1") as { input: { text: string } }).input.text).toBe(
+      "see [forgotten]_notes and Samuel",
+    );
+  });
+
+  it("the phrase's queue row is written once; batches only move the cursor", async () => {
+    composed = await compose();
+    const db = composed.db;
+    for (let i = 0; i < 30; i++) {
+      putStepPayload(db, {
+        runId: "r",
+        stepId: `q_${i}`,
+        kind: "input",
+        text: JSON.stringify({ text: `${i}: ${SECRET}` }),
+        truncated: false,
+      });
+    }
+    enqueueTraceScrub(db, SECRET, new Date().toISOString());
+    db.sqlite.exec(
+      "CREATE TEMP TRIGGER no_queue_rewrite BEFORE UPDATE ON trace_scrub_queue BEGIN SELECT RAISE(ABORT, 'queue row rewritten'); END",
+    );
+    let batches = 0;
+    for (let row = nextTraceScrub(db); row !== undefined; row = nextTraceScrub(db)) {
+      batches += 1;
+      if (runTraceScrubBatch(db, row, 300).finished) break;
+    }
+    db.sqlite.exec("DROP TRIGGER no_queue_rewrite");
+    expect(batches).toBeGreaterThan(3);
+    expect(JSON.stringify(stepPayloads(db, "q_29"))).toContain("29: [forgotten]");
+  });
+
+  it("a batch stops at the byte budget instead of reading ahead", async () => {
+    composed = await compose();
+    const db = composed.db;
+    for (let i = 0; i < 40; i++) {
+      putStepPayload(db, {
+        runId: "r",
+        stepId: `b_${i}`,
+        kind: "input",
+        text: JSON.stringify({ text: `${i}: ${SECRET}` }),
+        truncated: false,
+      });
+    }
+    enqueueTraceScrub(db, SECRET, new Date().toISOString());
+    const row = nextTraceScrub(db) as NonNullable<ReturnType<typeof nextTraceScrub>>;
+    const batch = runTraceScrubBatch(db, row, 1);
+    expect(batch).toMatchObject({ finished: false, rewritten: 1 });
+    expect(JSON.stringify(stepPayloads(db, "b_1"))).toContain("condition X");
+  });
+
+  it("after a pass the database file no longer holds the phrase (R6)", async () => {
+    composed = await compose();
+    const db = composed.db;
+    const dbFile = join(home, "psyche.db");
+    const phrase = "Zebulon quartz ledger";
+    const disk = () =>
+      [dbFile, `${dbFile}-wal`]
+        .filter((f) => existsSync(f))
+        .map((f) => readFileSync(f).toString("latin1"))
+        .join("");
+    const now = new Date().toISOString();
+    db.sqlite.pragma("foreign_keys = OFF");
+    for (let i = 0; i < 20; i++) {
+      db.sqlite
+        .prepare(
+          "INSERT INTO tool_payloads (id, tool_call_id, kind, mime, data, created_at, step_id, truncated) VALUES (?, ?, 'result', 'application/json', ?, ?, 's', 0)",
+        )
+        .run(
+          `tp_${i}`,
+          `call_${i}`,
+          Buffer.from(JSON.stringify({ hits: [`${phrase} ${i}`] })),
+          now,
+        );
+      db.sqlite
+        .prepare(
+          "INSERT INTO run_steps (run_id, id, seq, kind, status, data, text_full, started_at, updated_at) VALUES ('r', ?, ?, 'model', 'ok', ?, ?, ?, ?)",
+        )
+        .run(
+          `rs_${i}`,
+          i + 1,
+          JSON.stringify({ id: `rs_${i}`, t: phrase }),
+          `think ${phrase}`,
+          now,
+          now,
+        );
+    }
+    db.sqlite.pragma("foreign_keys = ON");
+    db.sqlite.pragma("wal_checkpoint(TRUNCATE)");
+    expect(disk()).toContain(phrase);
+    const before = db.sqlite.pragma("secure_delete", { simple: true });
+    scrubNow(db, phrase);
+    expect(db.sqlite.pragma("secure_delete", { simple: true })).toBe(before);
+    expect(disk()).not.toContain(phrase);
+  });
+
+  it("a waiting final pass does not hold up later phrases, and nothing polls (R5)", async () => {
+    composed = await compose();
+    const db = composed.db;
+    for (const [step, text] of [
+      ["alpha", "alpha secret"],
+      ["beta", "beta secret"],
+    ] as const) {
+      putStepPayload(db, {
+        runId: "r",
+        stepId: step,
+        kind: "input",
+        text: JSON.stringify({ text }),
+        truncated: false,
+      });
+    }
+    let active = ["run_live"];
+    let calls = 0;
+    const worker = new TraceScrubWorker({
+      db,
+      activeRuns: () => {
+        calls += 1;
+        return active;
+      },
+      log: () => undefined,
+    });
+    await sleep(10);
+    const final = (subject: string) =>
+      db.sqlite
+        .prepare(
+          "SELECT s.final FROM trace_scrub_queue q JOIN trace_scrub_state s ON s.queue_id = q.id WHERE q.subject = ?",
+        )
+        .get(subject) as { final: number } | undefined;
+    worker.enqueue("alpha secret");
+    await vi.waitFor(() => expect(final("alpha secret")?.final).toBe(1));
+    worker.enqueue("beta secret");
+    await vi.waitFor(() => expect(final("beta secret")?.final).toBe(1));
+    expect(JSON.stringify(stepPayloads(db, "beta"))).not.toContain("beta secret");
+    // Nothing polls while nothing can progress.
+    await sleep(20);
+    const settled = calls;
+    await sleep(150);
+    expect(calls).toBe(settled);
+    // The run ends: both clear.
+    active = [];
+    worker.wake();
+    await vi.waitFor(() =>
+      expect(db.sqlite.prepare("SELECT count(*) AS n FROM trace_scrub_queue").get()).toEqual({
+        n: 0,
+      }),
+    );
+    worker.stop();
+  });
+
+  it("a final pass waits only for runs active when its pass began, and only for a day", async () => {
+    composed = await compose();
+    const db = composed.db;
+    putStepPayload(db, {
+      runId: "r",
+      stepId: "w1",
+      kind: "input",
+      text: JSON.stringify({ text: "gamma secret" }),
+      truncated: false,
+    });
+    let active = ["run_old"];
+    const worker = new TraceScrubWorker({ db, activeRuns: () => active, log: () => undefined });
+    await sleep(10);
+    worker.enqueue("gamma secret");
+    await vi.waitFor(() =>
+      expect(db.sqlite.prepare("SELECT final FROM trace_scrub_state").get()).toEqual({ final: 1 }),
+    );
+    // The watched run ended; a run that started later does not hold the pass.
+    active = ["run_new"];
+    worker.wake();
+    await vi.waitFor(() =>
+      expect(db.sqlite.prepare("SELECT count(*) AS n FROM trace_scrub_queue").get()).toEqual({
+        n: 0,
+      }),
+    );
+    worker.stop();
+
+    // A watched run that never ends: the wait expires and the pass runs anyway.
+    putStepPayload(db, {
+      runId: "r",
+      stepId: "w2",
+      kind: "input",
+      text: JSON.stringify({ text: "delta secret" }),
+      truncated: false,
+    });
+    active = ["run_stuck"];
+    const patient = new TraceScrubWorker({
+      db,
+      activeRuns: () => active,
+      log: () => undefined,
+      finalWaitMs: 60,
+    });
+    patient.enqueue("delta secret");
+    await vi.waitFor(() =>
+      expect(db.sqlite.prepare("SELECT count(*) AS n FROM trace_scrub_queue").get()).toEqual({
+        n: 0,
+      }),
+    );
+    expect(JSON.stringify(stepPayloads(db, "w2"))).not.toContain("delta secret");
+    patient.stop();
   });
 });

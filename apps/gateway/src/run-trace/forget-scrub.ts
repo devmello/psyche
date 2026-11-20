@@ -1,22 +1,28 @@
 import {
+  beginTraceScrub,
   deleteTraceScrub,
   enqueueTraceScrub,
-  markTraceScrubWatch,
-  nextTraceScrub,
+  listTraceScrub,
   type PsycheDb,
   restartTraceScrubFinal,
   runTraceScrubBatch,
   TRACE_SCRUB_BUDGET_BYTES,
+  type TraceScrubRow,
 } from "@psyche/db";
 
 /**
  * Runs Forget's trace scrub in the background: one phrase at a time, in byte-budgeted batches
  * that yield to the event loop. The queue lives in the database, so a phrase still pending at a
  * shutdown is resumed by `start()`. A run that was active when a pass began may write the text
- * back after the pass has passed its rows, so a final pass follows once no run is active.
+ * back after the pass has passed its rows, so a final pass follows once those runs have ended
+ * (or after a day). A phrase waiting for its final pass never holds up the phrases behind it, and
+ * nothing polls: the worker wakes when a run ends (`wake()`) or when a wait expires.
  */
 
 type Outcome = "idle" | "more" | "wait";
+
+/** How long a final pass waits for the runs it watches before it runs anyway. */
+export const FINAL_WAIT_MS = 24 * 60 * 60 * 1000;
 
 export interface TraceScrubWorkerOptions {
   readonly db: PsycheDb;
@@ -25,8 +31,8 @@ export interface TraceScrubWorkerOptions {
   readonly log: (level: "info" | "warn", message: string) => void;
   readonly now?: () => string;
   readonly budgetBytes?: number;
-  /** How long to wait before checking again while a run is active. */
-  readonly retryMs?: number;
+  /** How long a final pass waits for its runs; default a day. */
+  readonly finalWaitMs?: number;
 }
 
 export class TraceScrubWorker {
@@ -34,6 +40,8 @@ export class TraceScrubWorker {
   #timer: ReturnType<typeof setTimeout> | undefined;
   #busy = false;
   #stopped = false;
+  /** Set while waiting: the earliest time a waiting final pass gives up waiting. */
+  #nextExpiry: number | undefined;
 
   constructor(options: TraceScrubWorkerOptions) {
     this.#o = options;
@@ -53,8 +61,20 @@ export class TraceScrubWorker {
 
   /** Queues a forgotten phrase; a phrase already queued starts its pass over, once. */
   enqueue(subject: string): void {
-    enqueueTraceScrub(this.#o.db, subject, this.#o.now?.() ?? new Date().toISOString());
+    enqueueTraceScrub(this.#o.db, subject, this.#nowIso());
+    this.wake();
+  }
+
+  /** A run ended (or anything else that may let a waiting pass go on): look at the queue again. */
+  wake(): void {
+    if (this.#stopped) return;
+    if (this.#timer !== undefined) clearTimeout(this.#timer);
+    this.#timer = undefined;
     this.#kick(0);
+  }
+
+  #nowIso(): string {
+    return this.#o.now?.() ?? new Date().toISOString();
   }
 
   #kick(ms: number): void {
@@ -63,6 +83,8 @@ export class TraceScrubWorker {
       this.#timer = undefined;
       void this.#drain();
     }, ms);
+    // A day-long wait never keeps the process alive.
+    this.#timer.unref?.();
   }
 
   async #drain(): Promise<void> {
@@ -80,7 +102,10 @@ export class TraceScrubWorker {
         }
         if (outcome === "idle") return;
         if (outcome === "wait") {
-          this.#kick(this.#o.retryMs ?? 1000);
+          // Nothing can progress until a run ends (wake) or the oldest wait expires.
+          if (this.#nextExpiry !== undefined) {
+            this.#kick(Math.max(0, this.#nextExpiry - Date.parse(this.#nowIso())));
+          }
           return;
         }
         // Between batches the Gateway keeps serving.
@@ -91,25 +116,45 @@ export class TraceScrubWorker {
     }
   }
 
-  /** One batch of the oldest queued phrase, or the step that ends its pass. */
+  /** The time a waiting row's final pass gives up waiting. */
+  #expiresAt(row: TraceScrubRow): number {
+    const since = row.finalSince === undefined ? Number.NaN : Date.parse(row.finalSince);
+    return (Number.isNaN(since) ? Date.parse(this.#nowIso()) : since) + this.#waitMs();
+  }
+
+  #waitMs(): number {
+    return this.#o.finalWaitMs ?? FINAL_WAIT_MS;
+  }
+
+  /** One batch of the oldest runnable phrase, or the step that ends its pass. */
   #step(): Outcome {
     const db = this.#o.db;
-    const row = nextTraceScrub(db);
-    if (row === undefined) return "idle";
-    const active = this.#o.activeRuns();
-    if (row.final && active.length > 0) return "wait";
-    if (!row.final && row.phase === 0 && row.cursor === 0 && !row.watch && active.length > 0) {
-      markTraceScrubWatch(db, row.subject);
-    }
+    const rows = listTraceScrub(db);
+    if (rows.length === 0) return "idle";
+    const active = new Set(this.#o.activeRuns());
+    const now = Date.parse(this.#nowIso());
+    // A final pass waits only for the runs that were active when its pass began, and only so long.
+    this.#nextExpiry = undefined;
+    const waiting = (r: TraceScrubRow): boolean => {
+      if (!r.final || !r.watchRuns.some((id) => active.has(id))) return false;
+      const expiry = this.#expiresAt(r);
+      if (now >= expiry) return false;
+      this.#nextExpiry = Math.min(this.#nextExpiry ?? expiry, expiry);
+      return true;
+    };
+    const row = rows.find((r) => !waiting(r));
+    if (row === undefined) return "wait";
+    if (!row.final && !row.started) beginTraceScrub(db, row.id, [...active]);
+
     const batch = runTraceScrubBatch(db, row, this.#o.budgetBytes ?? TRACE_SCRUB_BUDGET_BYTES);
     if (!batch.finished) return "more";
 
-    // The pass covered every table. Its counts and watch flag are read again after the save.
-    const done = nextTraceScrub(db);
-    if (done === undefined) return "idle";
-    if (!done.final && (done.watch || this.#o.activeRuns().length > 0)) {
-      restartTraceScrubFinal(db, done.subject);
-      return "wait";
+    // The pass covered every table. Its counts and watch list are read again after the save.
+    const done = listTraceScrub(db).find((r) => r.id === row.id);
+    if (done === undefined) return "more";
+    if (!done.final && done.watchRuns.length > 0) {
+      restartTraceScrubFinal(db, done.id, this.#nowIso());
+      return "more";
     }
     this.#o.log("info", `forget rewrote ${done.rewritten} run-trace row(s)`);
     if (done.skipped > 0) {

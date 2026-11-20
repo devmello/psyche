@@ -2453,6 +2453,19 @@ export async function composeGateway(options: ComposeOptions): Promise<ComposedG
   const unsubscribeHelperChange = gateway.context.nodes.onHostHelperChange(syncHelperAvailability);
   syncHelperAvailability();
   // The owner's folder grants and rules apply without a restart (settings.set → broker policy).
+  // A run that ends lets a waiting Forget trace pass go on (no polling).
+  const unsubscribeTraceScrub = gateway.bus.subscribe(["operator.read"], (frame) => {
+    if (!frame.includes('"run.updated"')) return;
+    try {
+      const f = JSON.parse(frame) as { event?: string; payload?: { run?: { status?: string } } };
+      const status = f.payload?.run?.status;
+      if (f.event === "run.updated" && status !== "running" && !status?.startsWith("awaiting")) {
+        traceScrub.wake();
+      }
+    } catch {
+      // A frame that is not JSON is not a run ending.
+    }
+  });
   const unsubscribePolicy = gateway.bus.subscribe(["operator.read"], (frame) => {
     const f = JSON.parse(frame) as {
       event?: string;
@@ -2597,6 +2610,7 @@ export async function composeGateway(options: ComposeOptions): Promise<ComposedG
       scheduler.stop();
       memory.unwatch();
       unsubscribePolicy();
+      unsubscribeTraceScrub();
       unsubscribeHelperChange();
       unsubscribeAttention();
       // Suspended subscription-CLI runs end with the Gateway.
