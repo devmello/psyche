@@ -3,14 +3,17 @@ import { type PsycheDb, putAgentThreadState } from "@psyche/db";
 import type { ModelMessage } from "@psyche/protocol";
 
 /**
- * Forget and retract: the Gateway cuts the context recalled for a turn out of every saved thread
- * that is not running. The agent replaces it at the start of its next run anyway; this keeps a
- * forgotten line from sitting in the database (and any backup of it) until then. A running
- * thread is left to its run, which saves its own state when it ends.
+ * Rows saved before a run's recall was stubbed at the run's end (the agent now saves none): the
+ * Gateway cuts the context recalled for a turn out of every saved thread that is not running, on
+ * Forget and retract. Only rows that carry the flag are read. A running thread is left to its run.
  */
 export function scrubSavedRecall(db: PsycheDb, isActive: (threadId: string) => boolean): number {
   let changed = 0;
-  const rows = db.sqlite.prepare("SELECT thread_id AS id, state FROM agent_thread_state").all() as {
+  const rows = db.sqlite
+    .prepare(
+      `SELECT thread_id AS id, state FROM agent_thread_state WHERE state LIKE '%"turnContext"%'`,
+    )
+    .all() as {
     id: string;
     state: string;
   }[];

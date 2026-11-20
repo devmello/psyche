@@ -1022,6 +1022,9 @@ export class PsycheAgentLoop implements AgentLoop {
       if (run.taint) run.thread.taint = { sources: dedupeSources(run.taintSources) };
       else delete run.thread.taint;
       run.thread.messages = keepRecentToolImages(run.thread.messages);
+      // Recall is for this run: nothing of it is at rest once the run ends (the next run would
+      // send the stub at that position either way, so the cached bytes are the same).
+      stubTurnContext(run.thread.messages);
       try {
         if (threadLoaded) await this.#state.save(threadId, run.thread);
       } catch (err) {
@@ -1915,7 +1918,12 @@ export class PsycheAgentLoop implements AgentLoop {
     trigger: "auto" | "manual",
   ): Promise<boolean> {
     const keep = run.limits?.keepRecentTurns ?? this.#policy.keepRecentTurns;
-    const { older, recent } = splitForCompaction(run.thread.messages, keep);
+    const split = splitForCompaction(run.thread.messages, keep);
+    const recent = split.recent;
+    // The summarizer, the taint check and the flush see the turns without this run's recall: it
+    // can be fetched again, and must not become summary content, permanent taint or a note line.
+    const older = structuredClone(split.older);
+    stubTurnContext(older);
     if (older.length === 0) return false;
     // Never fold a call whose result has not come back (an approval still pending).
     if (hasUnansweredToolCalls(older)) return false;
@@ -1924,7 +1932,9 @@ export class PsycheAgentLoop implements AgentLoop {
     const memory = this.#o.memory;
     if (memory?.flush !== undefined && this.#o.isIncognito?.(run.threadId) !== true) {
       try {
-        await memory.flush(run.threadId, structuredClone(run.thread.messages), {
+        const copy = structuredClone(run.thread.messages);
+        stubTurnContext(copy);
+        await memory.flush(run.threadId, copy, {
           taint: run.taint || untrusted,
           signal,
         });
@@ -2040,6 +2050,8 @@ export class PsycheAgentLoop implements AgentLoop {
       throw new PsycheError("conflict", "the thread is running; compact it when the turn ends");
     }
     const thread = (await this.#state.load(threadId)) ?? emptyThreadState();
+    // Rows saved before recall was stubbed at the end of a run.
+    stubTurnContext(thread.messages);
     let info: CompactionInfo | undefined;
     const model = this.#o.model;
     const limits = await this.#limitsFor(threadId, model);

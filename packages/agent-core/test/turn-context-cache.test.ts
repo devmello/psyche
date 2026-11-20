@@ -10,6 +10,7 @@ import {
   estimateBreakdown,
   renderTranscript,
   renderUserContext,
+  STRUCTURED_SUMMARIZER_SYSTEM,
   stubTurnContext,
   TURN_CONTEXT_STUB,
   type TurnContextProvider,
@@ -200,13 +201,10 @@ describe("untrusted context in the user turn", () => {
       sourceKind: "other_chats",
       origin: "thr_other",
     });
-    // Saved flagged for the run, so the next run can find and replace it.
+    // Nothing of it is at rest once the run ends: the saved turn holds the stub.
     const state = await h.loop.threadState("thr_1");
-    expect(state.messages[0]?.parts[0]).toMatchObject({
-      type: "text",
-      provenance: "untrusted",
-      turnContext: true,
-    });
+    expect(state.messages[0]?.parts[0]).toEqual({ type: "text", text: TURN_CONTEXT_STUB });
+    expect(JSON.stringify(state.messages)).not.toContain("Asked about");
     await runTurn(h, "second question");
     // The untrusted text is gone from the window, so it no longer taints.
     expect(h.broker.decisions[1]?.ctx.taint).toBe(false);
@@ -527,5 +525,86 @@ describe("the daily-note snapshot across runs", () => {
     h.clock.advance(4 * 60_000);
     await runTurn(h, "three");
     expect(h.provider.requests[2]?.system).toContain("agent wrote this");
+  });
+});
+
+describe("feed feedback lines (written as the agent) show by the five-minute cap", () => {
+  it("are kept for up to five minutes from the snapshot, then shown", async () => {
+    const h = harness({ script: [say("a"), say("b"), say("c")] });
+    await runTurn(h, "one");
+    // The real writer: feed/service.ts appends feedback with provenance "agent".
+    await h.memory.appendDailyNote({
+      text: 'Feed feedback liked on "A post"',
+      provenance: "agent",
+    });
+    h.clock.advance(60_000);
+    await runTurn(h, "two");
+    expect(h.provider.requests[1]?.system).not.toContain("Feed feedback liked");
+    h.clock.advance(5 * 60_000);
+    await runTurn(h, "three");
+    expect(h.provider.requests[2]?.system).toContain("Feed feedback liked");
+  });
+});
+
+describe("nothing at rest", () => {
+  it("saves only stubs when a run ends, and the next run sends the same bytes", async () => {
+    const h = harness({
+      script: [say("a"), say("b")],
+      loop: { contextProviders: [untrustedRecall, trustedRecall] },
+    });
+    await runTurn(h, "first question");
+    const saved = (await h.loop.threadState("thr_1")).messages;
+    expect(JSON.stringify(saved)).not.toContain("Asked about");
+    expect(JSON.stringify(saved)).not.toContain("Ana (re:");
+    expect(JSON.stringify(saved)).not.toContain("turnContext");
+    await runTurn(h, "second question");
+    // The second request starts with exactly what was saved (stub, owner words, reply).
+    expect(h.provider.requests[1]?.messages.slice(0, saved.length)).toEqual(saved);
+  });
+});
+
+describe("compaction never folds the run's own recall", () => {
+  const SUMMARY = '{"facts":["f"],"decisions":[],"openTasks":[],"pinnedInstructions":[]}';
+  const recalls = [untrustedRecall, trustedRecall];
+
+  it("manual compaction after a run with follow-ups", async () => {
+    const h = harness({
+      script: [say("a"), say("b"), say("c"), say(SUMMARY)],
+      loop: { contextProviders: recalls, compaction: { keepRecentTurns: 2 } as never },
+    });
+    await h.loop.followUp("thr_c", "f1");
+    await h.loop.followUp("thr_c", "f2");
+    await runTurn(h, "first q", { threadId: "thr_c" });
+    const info = await h.loop.compactThread("thr_c");
+    expect(info).toBeDefined();
+    const summarizer = h.provider.requests.at(-1);
+    expect(messagesText(summarizer)).not.toContain("Ana (re:");
+    expect(messagesText(summarizer)).not.toContain("Asked about");
+    expect(JSON.stringify(h.memory.flushes)).not.toContain("Ana (re:");
+    const st = await h.loop.threadState("thr_c");
+    expect(st.summary?.untrusted).toBe(false);
+  });
+
+  it("automatic compaction inside the run", async () => {
+    const h = harness({
+      script: Array.from({ length: 12 }, () => say(SUMMARY)),
+      loop: {
+        contextProviders: recalls,
+        compaction: { thresholdRatio: 0.000_001, keepRecentTurns: 1 },
+      },
+    });
+    await h.loop.followUp("thr_c", "f1");
+    await h.loop.followUp("thr_c", "f2");
+    await runTurn(h, "first q", { threadId: "thr_c" });
+    const summarizers = h.provider.requests.filter(
+      (r) => r.system === STRUCTURED_SUMMARIZER_SYSTEM,
+    );
+    expect(summarizers.length).toBeGreaterThan(0);
+    for (const r of summarizers) {
+      expect(messagesText(r)).not.toContain("Ana (re:");
+      expect(messagesText(r)).not.toContain("Asked about");
+    }
+    expect(JSON.stringify(h.memory.flushes)).not.toContain("Ana (re:");
+    expect((await h.loop.threadState("thr_c")).summary?.untrusted ?? false).toBe(false);
   });
 });
