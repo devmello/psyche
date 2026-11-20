@@ -328,6 +328,10 @@ describe("psyche update on a deb or rpm install", () => {
     expect(command).toContain(
       "apt install /var/cache/psyche-server/psyche-server-1.5.0-linux-x64.deb",
     );
+    // The root copy is removed however the command ends (a swapped file, apt refused).
+    expect(command).toContain(
+      'trap "rm -f /var/cache/psyche-server/psyche-server-1.5.0-linux-x64.deb" EXIT',
+    );
     expect(command.endsWith(` sh ${shQuote(file)}`)).toBe(true);
     expect(r.human).toContain(command);
     expect(r.human).toContain("systemctl --user restart psyche-gateway.service");

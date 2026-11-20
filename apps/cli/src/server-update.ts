@@ -493,11 +493,12 @@ export function verifiedInstallCommand(
       : `dnf ${downgrade ? "downgrade" : "install"} ${dest}`;
   const script = [
     "set -e",
+    // The root copy goes however this ends: a hash that does not match, or apt refused.
+    `trap "rm -f ${dest}" EXIT`,
     `install -d -m 0700 -o root -g root ${ROOT_UPDATE_DIR}`,
     `install -m 0600 -o root -g root "$1" ${dest}`,
     `echo "${artifact.sha256}  ${dest}" | sha256sum -c -`,
     tool,
-    `rm -f ${dest}`,
   ].join("; ");
   return `sudo sh -c ${shQuote(script)} sh ${shQuote(file)}`;
 }
