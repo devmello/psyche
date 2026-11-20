@@ -28,8 +28,6 @@ export const notices: Partial<Catalogue> = {
   "notice.browser.takeover.title": "ブラウザで Psyche の手助けが必要です",
   "notice.browser.takeover.body":
     "{host} でエージェントが尋ねています: {reason}。ブラウザのペインで操作を引き継ぎ、終わったら戻してください。",
-  "notice.browser.takeoverScreen.body":
-    "{host} でエージェントが尋ねています：{reason}。監視ペインで操作を引き継ぎ、終わったら戻してください。",
   "notice.connector.consent.title": "Google の接続を完了してください",
   "notice.connector.consent.body":
     "アクセスを許可するには、Psyche が動いているコンピュータでこのリンクを開いてください: {url}",

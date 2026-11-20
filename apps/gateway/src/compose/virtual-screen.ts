@@ -156,6 +156,13 @@ export interface VirtualScreen {
   isTakenOver(): boolean;
   /** Resolves when the agent may act; rejects (retryable) if the owner holds control too long. */
   agentGate(signal?: AbortSignal): Promise<void>;
+  /** Throws unless the agent may act now: not taken over, nothing parked, `signal` live. */
+  assertAgentMayAct(signal?: AbortSignal): void;
+  /**
+   * Runs one agent call: gated, checked, and aborted (rejecting with `user_in_control`) when the
+   * owner takes over while it runs.
+   */
+  agentCall<T>(signal: AbortSignal, run: (signal: AbortSignal) => Promise<T>): Promise<T>;
   setPaneVisible(visible: boolean): void;
 }
 
@@ -185,6 +192,20 @@ function resultOf<T extends TSchema>(schema: T, value: unknown, what: string): S
   return value as Static<T>;
 }
 
+const takenOverError = (): PsycheError =>
+  new PsycheError("user_in_control", "You are using the virtual screen; try again shortly.", {
+    retryable: true,
+    details: { reason: "taken_over" },
+  });
+
+/** The unsaved-changes card waits for the owner: the agent must not answer the app's dialog. */
+const awaitingOwnerError = (): PsycheError =>
+  new PsycheError(
+    "conflict",
+    "An app on the virtual screen has unsaved changes and the owner decides what happens to them. Wait for them, or ask in chat.",
+    { retryable: true, details: { reason: "awaiting_owner" } },
+  );
+
 export function createVirtualScreen(deps: VirtualScreenDeps): VirtualScreen {
   const waitMs = deps.takeOverWaitMs ?? DEFAULT_TAKE_OVER_WAIT_MS;
   const maxFps = deps.maxFramesPerSecond ?? DEFAULT_FRAMES_PER_SECOND;
@@ -192,6 +213,8 @@ export function createVirtualScreen(deps: VirtualScreenDeps): VirtualScreen {
   let paneVisible = false;
   let card: UnsavedChangesCard | null = null;
   let waiters: Array<() => void> = [];
+  /** The agent calls running on the screen now: the owner's take-over aborts each. */
+  const inflight = new Set<AbortController>();
   const framePulls = new Map<string, number[]>();
   const proof = deps.ownerProof ?? newProof();
   const isOwner = (opts: CallOptions | undefined): boolean => opts?.owner === proof;
@@ -227,18 +250,53 @@ export function createVirtualScreen(deps: VirtualScreenDeps): VirtualScreen {
       };
       const timer = setTimeout(() => {
         done();
-        reject(
-          new PsycheError(
-            "user_in_control",
-            "You are using the virtual screen; try again shortly.",
-            { retryable: true, details: { reason: "taken_over" } },
-          ),
-        );
+        reject(takenOverError());
       }, waitMs);
       waiters.push(release);
       if (signal?.aborted) onAbort();
       else signal?.addEventListener("abort", onAbort, { once: true });
     });
+  }
+
+  function assertAgentMayAct(signal?: AbortSignal): void {
+    if (signal?.aborted === true) {
+      throw signal.reason instanceof PsycheError
+        ? signal.reason
+        : new PsycheError("cancelled", "the call was cancelled");
+    }
+    if (takenOver) throw takenOverError();
+    if (card !== null) throw awaitingOwnerError();
+  }
+
+  async function agentCall<T>(
+    signal: AbortSignal,
+    run: (signal: AbortSignal) => Promise<T>,
+  ): Promise<T> {
+    await agentGate(signal);
+    assertAgentMayAct(signal);
+    const ctrl = new AbortController();
+    const onAbort = (): void => ctrl.abort(signal.reason);
+    signal.addEventListener("abort", onAbort, { once: true });
+    inflight.add(ctrl);
+    // The call's result is dropped the moment it is aborted, even if the helper answers later.
+    let off: () => void = () => undefined;
+    const aborted = new Promise<never>((_, reject) => {
+      const fail = (): void =>
+        reject(
+          ctrl.signal.reason instanceof PsycheError
+            ? ctrl.signal.reason
+            : new PsycheError("cancelled", "the call was cancelled"),
+        );
+      ctrl.signal.addEventListener("abort", fail, { once: true });
+      off = () => ctrl.signal.removeEventListener("abort", fail);
+    });
+    try {
+      return await Promise.race([run(ctrl.signal), aborted]);
+    } finally {
+      off();
+      inflight.delete(ctrl);
+      signal.removeEventListener("abort", onAbort);
+    }
   }
 
   const gated = async (opts: CallOptions | undefined): Promise<void> => {
@@ -371,6 +429,8 @@ export function createVirtualScreen(deps: VirtualScreenDeps): VirtualScreen {
 
     setTakenOver(on) {
       takenOver = on;
+      // The owner's tap stops what the agent is doing right now, not only what it does next.
+      if (on) for (const ctrl of [...inflight]) ctrl.abort(takenOverError());
       if (!on) {
         const release = waiters;
         waiters = [];
@@ -379,6 +439,8 @@ export function createVirtualScreen(deps: VirtualScreenDeps): VirtualScreen {
     },
     isTakenOver: () => takenOver,
     agentGate,
+    assertAgentMayAct,
+    agentCall,
 
     setPaneVisible(visible) {
       paneVisible = visible;
@@ -413,15 +475,26 @@ export function refuseUnlessOwner(options: VscreenInvokeOptions): void {
   if (options.actor !== "owner") throw fromPayload(AGENT_UNBROKERED);
 }
 
-/** The `computerWatch.*` methods that drive the screen: the owner's clicks and keys. */
-const TAKE_OVER_METHODS = new Set(["computerWatch.takeOver", "computerWatch.input"]);
+/**
+ * The `computerWatch.*` methods that act for the owner: their clicks and keys, stopping the screen
+ * (with `force` it discards unsaved work) and answering the unsaved-changes card.
+ */
+const OWNER_ACTION_METHODS = new Set([
+  "computerWatch.takeOver",
+  "computerWatch.input",
+  "computerWatch.stop",
+  "computerWatch.resolveParked",
+]);
 
 /**
  * Who may use the watch pane (linux-helper-only design §7.4, B3; remote-gateway §4.1 rule 2):
  * - the desktop shell on the Host itself (loopback plus the per-launch secret), as before;
  * - a paired desktop app on another computer (`desktopApp`): a client device the owner approved
- *   with `deviceFamily: desktop`, holding `operator.write`. Take over (`takeOver`, `input`) also
- *   needs `operator.approvals`, because the owner's input is never gated or brokered.
+ *   with `deviceFamily: desktop`, holding `operator.write`. Take over (`takeOver`, `input`),
+ *   stopping the screen (`stop`, whose `force` discards unsaved work) and answering the
+ *   unsaved-changes card (`resolveParked`) also need `operator.approvals`: the owner's input is
+ *   never gated or brokered, and those are answers a device the owner did not let approve must
+ *   not give.
  * Never a node, a machine, a browser page, a phone or the CLI, and nothing in `params` counts.
  * The private screen runs on the Host, so computer use stays Host-only (G5); a Client only
  * watches it and takes over.
@@ -446,25 +519,21 @@ export function watchAccess(call: Pick<Call, "ctx" | "identity" | "method">): vo
       { details: { reason: "scope_missing", scope: "operator.write" } },
     );
   }
-  if (TAKE_OVER_METHODS.has(call.method) && !hasScope(call.identity, "operator.approvals")) {
+  if (OWNER_ACTION_METHODS.has(call.method) && !hasScope(call.identity, "operator.approvals")) {
     throw new PsycheError(
       "forbidden",
-      "Taking over the private screen needs a computer allowed to approve (operator.approvals)",
+      "Taking over, stopping or answering for the private screen needs a computer allowed to approve (operator.approvals)",
       { details: { reason: "scope_missing", scope: "operator.approvals" } },
     );
   }
 }
 
-/** The virtual-screen part, plus what the other users of the same screen need (B3). */
+/** The virtual-screen part, plus the screen's rules for headless computer use (B3). */
 export interface ComposedVirtualScreen extends ComposedPart {
-  /** For the agent browser on the screen: it waits while the owner has taken over. */
-  readonly takeOver: {
-    isTakenOver(): boolean;
-    agentGate(signal?: AbortSignal): Promise<void>;
-    /** Runs `listener` whenever the screen stopped (its apps, the browser among them, are gone). */
-    onStopped(listener: () => void): () => void;
-  };
-  /** For headless computer use (`gateHeadlessRouter`): the take-over gate and Task end. */
+  /**
+   * For `gateHeadlessRouter`: take-over, parked and Task end. Only computer use is on this
+   * screen; the agent browser runs headless Chromium with no display (B3 r1).
+   */
   readonly screen: HeadlessScreen;
 }
 
@@ -479,7 +548,6 @@ export function composeVirtualScreen(services: ComposeServices): ComposedVirtual
   let gateway: Gateway | undefined;
   // The owner's proof never leaves this closure: only the handlers below put it on a call.
   const proof = newProof();
-  const stopped = new Set<() => void>();
   const vs = createVirtualScreen({
     ownerProof: proof,
     async invoke(capability, params, options) {
@@ -496,9 +564,6 @@ export function composeVirtualScreen(services: ComposeServices): ComposedVirtual
       if (capability === "vscreen.start") {
         // The owner can watch from the first moment: open the watch pane in the desktop.
         services.publish("view.command", { command: "open", args: { pane: "computer-watch" } });
-      }
-      if (capability === "vscreen.stop" && (res.result as { ok?: unknown } | null)?.ok === true) {
-        for (const listener of [...stopped]) listener();
       }
       return res.result;
     },
@@ -524,17 +589,11 @@ export function composeVirtualScreen(services: ComposeServices): ComposedVirtual
   });
 
   return {
-    takeOver: {
-      isTakenOver: () => vs.isTakenOver(),
-      agentGate: (signal) => vs.agentGate(signal),
-      onStopped(listener) {
-        stopped.add(listener);
-        return () => void stopped.delete(listener);
-      },
-    },
     screen: {
       isTakenOver: () => vs.isTakenOver(),
       agentGate: (signal) => vs.agentGate(signal),
+      assertAgentMayAct: (signal) => vs.assertAgentMayAct(signal),
+      agentCall: (signal, run) => vs.agentCall(signal, run),
       // The Gateway's own housekeeping at Task end (§7.4), not an agent action: it closes apps
       // the polite way (never `force`), so an app with unsaved changes parks the Task with the
       // card and the owner decides. The proof stays in this closure.

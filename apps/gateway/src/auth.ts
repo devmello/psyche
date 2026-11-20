@@ -586,7 +586,13 @@ export function verifyChallenge(
     // A device row the seal cannot vouch for is never written over (H1: the write would make it
     // look like the Gateway's own); it stays read-only and unpinned until a re-seal.
     if (pinned === null) {
-      if (stateSealFor(db)?.genuine("devices", existing.id) ?? true) {
+      // Except `desktop` (owner decision on B3 r1): that family opens the watch pane of a remote
+      // Host's private screen, so only a device paired as one is one. A legacy row that now
+      // declares it stays unrecorded, which every check reads as not a desktop.
+      if (
+        params.deviceFamily !== "desktop" &&
+        (stateSealFor(db)?.genuine("devices", existing.id) ?? true)
+      ) {
         updateDevice(db, existing.id, { deviceFamily: params.deviceFamily });
       }
     } else if (pinned !== params.deviceFamily) return denied("device family mismatch");

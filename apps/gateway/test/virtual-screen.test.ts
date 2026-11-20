@@ -487,21 +487,12 @@ describe("composeVirtualScreen (the watch pane's methods)", () => {
       publish: () => undefined,
       clock: { now: () => 0 },
     } as never) as unknown as Record<string, unknown>;
-    expect(Object.keys(composed).sort()).toEqual([
-      "handlers",
-      "screen",
-      "start",
-      "stop",
-      "takeOver",
-    ]);
-    expect(Object.keys(composed.takeOver as object).sort()).toEqual([
-      "agentGate",
-      "isTakenOver",
-      "onStopped",
-    ]);
+    expect(Object.keys(composed).sort()).toEqual(["handlers", "screen", "start", "stop"]);
     // Task end closes apps politely with the proof kept inside: no proof, no force, no input.
     expect(Object.keys(composed.screen as object).sort()).toEqual([
+      "agentCall",
       "agentGate",
+      "assertAgentMayAct",
       "isTakenOver",
       "taskEnded",
     ]);

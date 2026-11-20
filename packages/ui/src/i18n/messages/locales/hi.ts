@@ -170,6 +170,12 @@ export const hi: Partial<Catalogue> = {
   "errors.reason.updating":
     "Psyche अपडेट इंस्टॉल करने के लिए अभी रीस्टार्ट होने वाला है। थोड़ी देर में फिर से कोशिश करें।",
   "errors.reason.passkey_required": "इस Psyche पर भुगतान स्वीकृत करने के लिए पासकी सेट करें।",
+  "errors.reason.awaiting_owner":
+    "किसी ऐप में बिना सहेजे बदलाव हैं। Psyche आपके तय करने का इंतज़ार करता है कि उनका क्या करना है।",
+  "errors.reason.checkout_needs_desktop":
+    "Psyche के ब्राउज़र में भुगतान करने के लिए Psyche डेस्कटॉप ऐप का इस होस्ट से जुड़ा होना ज़रूरी है।",
+  "errors.reason.no_chromium":
+    "Psyche के ब्राउज़र को इस होस्ट पर Chromium चाहिए। इसे इंस्टॉल करें या PSYCHE_CHROMIUM सेट करें।",
   "errors.unavailable": "Psyche अभी ऐसा नहीं कर सकता।",
   "errors.approval_required": "इसके लिए पहले आपकी स्वीकृति चाहिए।",
   "errors.approval_expired": "स्वीकृति की अवधि समाप्त हो गई; फिर से पूछें।",

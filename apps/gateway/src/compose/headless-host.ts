@@ -1,17 +1,30 @@
+import { cachedGraphicalSession, type GraphicalSessionCheck } from "./computer-linux.ts";
+
 /**
- * A headless Linux Host (linux-helper-only design track B): psyched runs under the owner's
- * `systemd --user` manager (it sets `XDG_RUNTIME_DIR`) with no graphical session in its
- * environment (no `DISPLAY`, no `WAYLAND_DISPLAY`). Then no desktop window can serve the browser
- * bridge and polkit can't ask for the password, so the agent browser runs on the helper's private
- * screen and payments need a passkey (B3). A run with an empty environment (tests, a bare
- * `env -i`) is not one: nothing about it says a user session exists.
+ * A headless Linux Host (linux-helper-only design track B): logind reports no graphical session
+ * for this user (B0's `hasGraphicalSession`, owner decision on B3 r1: never psyched's own
+ * environment). Then no desktop window can serve the browser bridge and polkit can't ask for the
+ * password, so the agent browser runs headless Chromium and payments need a passkey (B3).
+ *
+ * One shared answer per few seconds (`cachedGraphicalSession`'s TTL) for the browser and the
+ * payment rule. Off Linux it is always "graphical": nothing here is headless.
  */
-export function headlessLinuxHost(
+let shared: GraphicalSessionCheck | undefined;
+
+export function hostGraphicalSession(
   platform: NodeJS.Platform = process.platform,
-  env: NodeJS.ProcessEnv = process.env,
-): boolean {
-  if (platform !== "linux") return false;
-  return set(env.XDG_RUNTIME_DIR) && !set(env.DISPLAY) && !set(env.WAYLAND_DISPLAY);
+): GraphicalSessionCheck {
+  if (platform !== "linux") return async () => true;
+  shared ??= cachedGraphicalSession();
+  return shared;
 }
 
-const set = (v: string | undefined): boolean => v !== undefined && v.trim() !== "";
+/** Whether this is a headless Linux Host now (see above). */
+export async function headlessLinuxHost(
+  platform: NodeJS.Platform = process.platform,
+  graphical: GraphicalSessionCheck = hostGraphicalSession(platform),
+  signal?: AbortSignal,
+): Promise<boolean> {
+  if (platform !== "linux") return false;
+  return !(await graphical(signal));
+}

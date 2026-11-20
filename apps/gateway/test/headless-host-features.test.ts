@@ -1,24 +1,28 @@
-import { mkdtempSync, rmSync, writeFileSync } from "node:fs";
+import { chmodSync, mkdirSync, mkdtempSync, rmSync, statSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { CdpBridgeDriver, type PlaywrightDriverOptions } from "@psyche/browser";
 import { MockDesktop } from "@psyche/browser/testing";
 import { insertDevice, openDb, type PsycheDb } from "@psyche/db";
-import type { DeviceScope, ToolResult } from "@psyche/protocol";
+import type { DeviceScope, PermissionBroker, ToolResult } from "@psyche/protocol";
 import { FakeModelProvider } from "@psyche/testing";
 import { afterEach, describe, expect, it } from "vitest";
 import {
   CHROMIUM_PATHS,
   findChromium,
-  findXauthority,
+  preparePrivateDirs,
+  type ServerBrowserSetup,
   type ServerDriver,
+  serverBrowserDirs,
   serverBrowserEnv,
-  serverBrowserWanted,
+  serverBrowserSetupFor,
   serverDriverOptions,
-  startServerScreen,
-  type XauthFs,
 } from "../src/compose/browser-server.ts";
-import { execHostSrtSettings, linuxPsycheDenyRead } from "../src/compose/exec-host.ts";
+import {
+  execHostSrtSettings,
+  type LinuxDenyFs,
+  linuxPsycheDenyRead,
+} from "../src/compose/exec-host.ts";
 import { headlessLinuxHost } from "../src/compose/headless-host.ts";
 import {
   type ComposedBrowser,
@@ -27,50 +31,71 @@ import {
   composeBrowser,
   composeGateway,
 } from "../src/compose/index.ts";
-import { checkPaymentPresence, passkeyOnlyPayments } from "../src/compose/payment-presence.ts";
+import {
+  checkPaymentPresence,
+  passkeyPresenceForced,
+  withPaymentPresence,
+} from "../src/compose/payment-presence.ts";
+import { checkoutNeedsDesktop, createPurchaseTool } from "../src/compose/purchase-tool.ts";
 import { watchAccess } from "../src/compose/virtual-screen.ts";
 import { silentLogger } from "../src/log.ts";
 
 /**
- * B3, headless Host features (linux-helper-only design §7.4): the agent browser on the Host
- * helper's private screen through the Playwright driver, the watch pane for a paired desktop
- * Client, and passkey-only payment presence. Gateway side with mocks; the real Chromium on Xvfb
- * is checked in the Linux VM.
+ * B3, headless Host features (linux-helper-only design §7.4), after review r1: the agent browser
+ * as headless Chromium through the Playwright driver (no display, never on the helper's private
+ * screen), the watch pane for a paired desktop Client, and passkey-only payment presence. The
+ * Gateway side with mocks; a real Chromium is checked on a Linux box.
  */
 
-const HEADLESS = { XDG_RUNTIME_DIR: "/run/user/1000", HOME: "/home/o", PATH: "/usr/bin" };
+const graphical = (on: boolean) => async () => on;
 
-describe("headlessLinuxHost", () => {
+describe("headlessLinuxHost (B0's logind answer, never psyched's env)", () => {
   it.each([
-    ["linux", HEADLESS, true],
-    ["linux", { ...HEADLESS, DISPLAY: ":0" }, false],
-    ["linux", { ...HEADLESS, WAYLAND_DISPLAY: "wayland-0" }, false],
-    ["linux", { ...HEADLESS, DISPLAY: "  " }, true],
-    // No user manager in the environment (tests, `env -i`): not a Host session at all.
-    ["linux", {}, false],
-    ["darwin", HEADLESS, false],
-    ["win32", HEADLESS, false],
-  ] as const)("%s %j -> %s", (platform, env, want) => {
-    expect(headlessLinuxHost(platform, env as NodeJS.ProcessEnv)).toBe(want);
+    ["linux", false, true],
+    ["linux", true, false],
+    ["darwin", false, false],
+    ["win32", false, false],
+  ] as const)("%s, graphical session %s -> %s", async (platform, session, want) => {
+    expect(await headlessLinuxHost(platform, graphical(session))).toBe(want);
   });
 });
 
-describe("serverBrowserWanted", () => {
-  it.each([
-    ["linux", HEADLESS, true],
-    ["linux", { ...HEADLESS, PSYCHE_BROWSER_DRIVER: "bridge" }, false],
-    ["linux", { ...HEADLESS, DISPLAY: ":0" }, false],
-    ["linux", { DISPLAY: ":0", PSYCHE_BROWSER_DRIVER: "server" }, true],
-    // Only Linux has the helper's private screen.
-    ["darwin", { PSYCHE_BROWSER_DRIVER: "server" }, false],
-    ["win32", HEADLESS, false],
-  ] as const)("%s %j -> %s", (platform, env, want) => {
-    expect(serverBrowserWanted(platform, env as NodeJS.ProcessEnv)).toBe(want);
+describe("serverBrowserSetupFor (the service env, then logind)", () => {
+  it("is off off Linux, whatever the env says", () => {
+    expect(
+      serverBrowserSetupFor("darwin", { PSYCHE_BROWSER_DRIVER: "server" }, graphical(false)),
+    ).toBe(false);
+    expect(serverBrowserSetupFor("win32", {}, graphical(false))).toBe(false);
+  });
+
+  it("is off with PSYCHE_BROWSER_DRIVER=bridge", () => {
+    expect(
+      serverBrowserSetupFor("linux", { PSYCHE_BROWSER_DRIVER: "bridge" }, graphical(false)),
+    ).toBe(false);
+  });
+
+  it("serves exactly while logind reports no graphical session", async () => {
+    let session = false;
+    const s = serverBrowserSetupFor("linux", { PSYCHE_CHROMIUM: "/opt/c" }, async () => session);
+    if (s === false) throw new Error("off");
+    expect(await s.wanted?.()).toBe(true);
+    session = true;
+    expect(await s.wanted?.()).toBe(false);
+    expect(s.executablePath).toBe("/opt/c");
+  });
+
+  it("PSYCHE_BROWSER_DRIVER=server forces it on Linux, and the env is a snapshot", async () => {
+    const env: NodeJS.ProcessEnv = { PSYCHE_BROWSER_DRIVER: "server", PATH: "/usr/bin" };
+    const s = serverBrowserSetupFor("linux", env, graphical(true));
+    if (s === false) throw new Error("off");
+    expect(await s.wanted?.()).toBe(true);
+    env.PATH = "/evil";
+    expect(s.env?.PATH).toBe("/usr/bin");
   });
 });
 
 describe("findChromium", () => {
-  it("prefers PSYCHE_CHROMIUM, then the first installed path, else Playwright's own", () => {
+  it("prefers PSYCHE_CHROMIUM, then the first installed path, else none", () => {
     expect(findChromium({ PSYCHE_CHROMIUM: "/opt/c/chrome" }, () => true)).toBe("/opt/c/chrome");
     expect(findChromium({}, (p) => p === "/usr/bin/chromium-browser")).toBe(
       "/usr/bin/chromium-browser",
@@ -80,179 +105,65 @@ describe("findChromium", () => {
   });
 });
 
-describe("findXauthority", () => {
-  const UID = 1000;
-  type Entry = { dir?: boolean; mode: number; uid: number; mtimeMs: number };
-  const fsOf = (entries: Record<string, Entry>): XauthFs => ({
-    readdir: (dir) =>
-      Object.keys(entries)
-        .filter((p) => p.startsWith(`${dir}/`))
-        .map((p) => p.slice(dir.length + 1)),
-    lstat: (path) => {
-      const e = entries[path];
-      if (e === undefined) throw new Error("ENOENT");
-      return {
-        isDirectory: () => e.dir === true,
-        isFile: () => e.dir !== true,
-        mode: e.mode,
-        uid: e.uid,
-        mtimeMs: e.mtimeMs,
-      };
-    },
-  });
-  const DIR = "/run/user/1000/psyche";
-  const dir: Entry = { dir: true, mode: 0o40700, uid: UID, mtimeMs: 0 };
-  const file = (mtimeMs: number, more: Partial<Entry> = {}): Entry => ({
-    mode: 0o100600,
-    uid: UID,
-    mtimeMs,
-    ...more,
-  });
+describe("the server browser's process (review r1, finding 6 / probe P3)", () => {
+  const OWNER = {
+    PATH: "/usr/bin",
+    HOME: "/home/o",
+    LANG: "de_DE.UTF-8",
+    TZ: "Europe/Berlin",
+    XDG_RUNTIME_DIR: "/run/user/1000",
+    XDG_CONFIG_HOME: "/home/o/.config",
+    DISPLAY: ":0",
+    WAYLAND_DISPLAY: "wayland-0",
+    XAUTHORITY: "/home/o/.Xauthority",
+    DBUS_SESSION_BUS_ADDRESS: "unix:path=/run/user/1000/bus",
+    SSH_AUTH_SOCK: "/tmp/ssh-agent",
+    ANTHROPIC_API_KEY: "sk-test",
+  };
 
-  it("finds the newest authority file the helper wrote for the display", () => {
-    const fs = fsOf({
-      [DIR]: dir,
-      [`${DIR}/xauth-ab12-90-0123456789ab`]: file(10),
-      [`${DIR}/xauth-ab12-90-ba9876543210`]: file(20),
-      [`${DIR}/xauth-ab12-91-ffffffffffff`]: file(30),
-      [`${DIR}/vs-ab12-0011`]: { dir: true, mode: 0o40700, uid: UID, mtimeMs: 40 },
-    });
-    expect(findXauthority(":90", "/run/user/1000", UID, fs)).toBe(
-      `${DIR}/xauth-ab12-90-ba9876543210`,
-    );
-    expect(findXauthority(":91", "/run/user/1000", UID, fs)).toBe(
-      `${DIR}/xauth-ab12-91-ffffffffffff`,
-    );
-  });
-
-  it.each([
-    ["another account's directory", { [DIR]: { ...dir, uid: 1001 } }],
-    ["a directory others can enter", { [DIR]: { ...dir, mode: 0o40750 } }],
-    ["a link for the directory", { [DIR]: { ...dir, dir: false } }],
-  ])("refuses %s", (_what, override) => {
-    const fs = fsOf({ [`${DIR}/xauth-ab12-90-0123456789ab`]: file(1), ...override });
-    expect(findXauthority(":90", "/run/user/1000", UID, fs)).toBeNull();
-  });
-
-  it.each([
-    ["another account's file", file(1, { uid: 1001 })],
-    ["a file others can read", file(1, { mode: 0o100644 })],
-    ["a directory in its place", file(1, { dir: true })],
-  ])("skips %s", (_what, entry) => {
-    const fs = fsOf({ [DIR]: dir, [`${DIR}/xauth-ab12-90-0123456789ab`]: entry });
-    expect(findXauthority(":90", "/run/user/1000", UID, fs)).toBeNull();
-  });
-
-  it.each([
-    ["a remote display", "host:90"],
-    ["a screen suffix", ":90.0"],
-    ["no display", ""],
-  ])("refuses %s", (_what, display) => {
-    const fs = fsOf({ [DIR]: dir, [`${DIR}/xauth-ab12-90-0123456789ab`]: file(1) });
-    expect(findXauthority(display, "/run/user/1000", UID, fs)).toBeNull();
-  });
-
-  it("needs a runtime directory, never a guess in /tmp", () => {
-    expect(findXauthority(":90", undefined, UID, fsOf({}))).toBeNull();
-  });
-});
-
-describe("the server browser's process", () => {
-  it("gets the private screen and none of the owner's display or session bus", () => {
-    const env = serverBrowserEnv(
-      { display: ":90", xauthority: "/run/user/1000/psyche/xauth-a-90-0123456789ab" },
-      {
-        ...HEADLESS,
-        DISPLAY: ":0",
-        WAYLAND_DISPLAY: "wayland-0",
-        DBUS_SESSION_BUS_ADDRESS: "unix:path=/run/user/1000/bus",
-        SSH_AUTH_SOCK: "/tmp/ssh-agent",
-        ANTHROPIC_API_KEY: "sk-test",
-      },
-    );
-    expect(env).toEqual({
+  it("gets exactly a private home, private XDG and runtime dirs, and no bus or display", () => {
+    expect(serverBrowserEnv(serverBrowserDirs("/srv/ph"), OWNER)).toEqual({
       PATH: "/usr/bin",
-      HOME: "/home/o",
-      XDG_RUNTIME_DIR: "/run/user/1000",
-      DISPLAY: ":90",
-      XAUTHORITY: "/run/user/1000/psyche/xauth-a-90-0123456789ab",
+      LANG: "de_DE.UTF-8",
+      TZ: "Europe/Berlin",
+      HOME: "/srv/ph/browser/home",
+      XDG_CONFIG_HOME: "/srv/ph/browser/home/.config",
+      XDG_CACHE_HOME: "/srv/ph/browser/home/.cache",
+      XDG_DATA_HOME: "/srv/ph/browser/home/.local/share",
+      XDG_RUNTIME_DIR: "/srv/ph/browser/run",
+      DBUS_SESSION_BUS_ADDRESS: "disabled:",
     });
   });
 
-  it("is headful Chromium with profiles under the Host's PSYCHE_HOME", () => {
-    const o = serverDriverOptions(
-      { display: ":90", xauthority: null },
-      { library: {} as never },
-      "/srv/psyche-home",
-      "/usr/bin/chromium",
-      HEADLESS,
+  it("keeps a PATH even when the service has none", () => {
+    expect(serverBrowserEnv(serverBrowserDirs("/srv/ph"), {}).PATH).toBe(
+      "/usr/local/bin:/usr/bin:/bin",
     );
+  });
+
+  it("is headless Chromium with profiles under the Host's PSYCHE_HOME", () => {
+    const o = serverDriverOptions({ library: {} as never }, "/srv/ph", "/usr/bin/chromium", OWNER);
     expect(o).toMatchObject({
       mode: "launch",
-      headless: false,
-      psycheHome: "/srv/psyche-home",
+      headless: true,
+      psycheHome: "/srv/ph",
       executablePath: "/usr/bin/chromium",
-      env: { DISPLAY: ":90" },
     });
+    expect(o.env).not.toHaveProperty("DISPLAY");
     expect(o.env).not.toHaveProperty("XAUTHORITY");
   });
-});
 
-describe("startServerScreen", () => {
-  const STATUS = {
-    state: "running",
-    display: ":90",
-    width: 1280,
-    height: 800,
-    apps: [],
-    takenOver: false,
-    frameSeq: 0,
-    startedAt: null,
-  };
-  it("starts the helper's private screen and finds its authority file", async () => {
-    const asked: string[] = [];
-    const screen = await startServerScreen(
-      {
-        async invoke(capability) {
-          asked.push(capability);
-          return { ok: true, result: STATUS };
-        },
-      },
-      HEADLESS,
-      (display, rt) => `${rt}/psyche/xauth-x-${display.slice(1)}-0123456789ab`,
-    );
-    expect(asked).toEqual(["vscreen.start"]);
-    expect(screen).toEqual({
-      display: ":90",
-      xauthority: "/run/user/1000/psyche/xauth-x-90-0123456789ab",
-    });
-  });
-
-  it("fails unavailable without the Linux helper, and keeps the helper's own error", async () => {
-    await expect(startServerScreen(undefined, HEADLESS)).rejects.toMatchObject({
-      code: "unavailable",
-      details: { reason: "no_linux_helper" },
-    });
-    await expect(
-      startServerScreen(
-        {
-          invoke: async () => ({
-            ok: false,
-            error: { code: "unavailable", message: "no Xvfb", details: { reason: "no_xvfb" } },
-          }),
-        },
-        HEADLESS,
-      ),
-    ).rejects.toMatchObject({ code: "unavailable", details: { reason: "no_xvfb" } });
-  });
-
-  it("refuses a status without a display", async () => {
-    await expect(
-      startServerScreen(
-        { invoke: async () => ({ ok: true, result: { ...STATUS, display: null } }) },
-        HEADLESS,
-      ),
-    ).rejects.toMatchObject({ code: "internal" });
+  it("makes its private dirs 0700, narrowing a looser one", () => {
+    const root = mkdtempSync(join(tmpdir(), "psyche-b3-dirs-"));
+    try {
+      const dirs = serverBrowserDirs(root);
+      mkdirSync(dirs.home, { recursive: true, mode: 0o755 });
+      chmodSync(dirs.home, 0o755);
+      preparePrivateDirs(dirs);
+      for (const d of Object.values(dirs)) expect(statSync(d).mode & 0o777).toBe(0o700);
+    } finally {
+      rmSync(root, { recursive: true, force: true });
+    }
   });
 });
 
@@ -336,20 +247,20 @@ async function fakeServerDriver() {
   return { createDriver, made, drivers, disposed: () => disposed };
 }
 
-describe("the agent browser on a headless Host (server driver)", () => {
-  it("offers the tools with no desktop, and starts Chromium on the private screen on first use", async () => {
+const serverSetup = (
+  fake: Awaited<ReturnType<typeof fakeServerDriver>>,
+  more: Partial<ServerBrowserSetup> = {},
+): ServerBrowserSetup => ({
+  createDriver: fake.createDriver,
+  executablePath: "/usr/bin/chromium",
+  env: { PATH: "/usr/bin", HOME: "/home/o", DISPLAY: ":0" },
+  ...more,
+});
+
+describe("the agent browser on a headless Host (headless Chromium)", () => {
+  it("offers the tools with no desktop and no helper, and starts Chromium once on first use", async () => {
     const fake = await fakeServerDriver();
-    const screens: string[] = [];
-    const { services, browser } = await composeServer({
-      server: {
-        screen: async () => {
-          screens.push("start");
-          return { display: ":90", xauthority: "/run/user/1000/psyche/xauth-a-90-0123456789ab" };
-        },
-        createDriver: fake.createDriver,
-        executablePath: "/usr/bin/chromium",
-      },
-    });
+    const { services, browser } = await composeServer({ server: serverSetup(fake) });
     expect(services.tools.list().map((t) => t.name)).toEqual(
       expect.arrayContaining(["browser.open_tab", "browser.navigate", "browser.request_control"]),
     );
@@ -359,17 +270,23 @@ describe("the agent browser on a headless Host (server driver)", () => {
       runTool(services, "browser.open_tab", "call_a", { url: "https://example.com/" }),
       runTool(services, "browser.open_tab", "call_b", { url: "https://example.com/" }),
     ]);
-    // One screen, one Chromium, however many calls race for it.
-    expect(screens).toEqual(["start"]);
+    // One Chromium, however many calls race for it; headless, private env, no display.
     expect(fake.made).toHaveLength(1);
     expect(fake.made[0]).toMatchObject({
       mode: "launch",
-      headless: false,
+      headless: true,
       psycheHome: home,
       executablePath: "/usr/bin/chromium",
-      env: { DISPLAY: ":90", XAUTHORITY: "/run/user/1000/psyche/xauth-a-90-0123456789ab" },
+      env: {
+        HOME: join(home, "browser", "home"),
+        XDG_RUNTIME_DIR: join(home, "browser", "run"),
+        DBUS_SESSION_BUS_ADDRESS: "disabled:",
+      },
     });
+    expect(fake.made[0]?.env).not.toHaveProperty("DISPLAY");
+    expect(statSync(join(home, "browser", "home")).mode & 0o777).toBe(0o700);
     expect(browser.driverKind).toBe("server");
+    expect(browser.serverOnly).toBe(true);
     // Past the start the call met Psyche's own rules, as with the desktop's bridge: an
     // unattended run opening a new site waits for the owner's approval.
     for (const r of [a, b]) {
@@ -377,14 +294,40 @@ describe("the agent browser on a headless Host (server driver)", () => {
     }
   });
 
-  it("routes the owner's tabs to the server driver and opens pages there", async () => {
+  it("says honestly that there is no Chromium, in the pre-flight and on the call", async () => {
+    const fake = await fakeServerDriver();
+    const setup = serverSetup(fake);
+    delete setup.executablePath;
+    const { services } = await composeServer({ server: setup });
+    expect(services.browserAvailability.check?.()).toMatchObject({
+      ok: false,
+      reason: expect.stringContaining("needs Chromium"),
+    });
+    const r = await runTool(services, "browser.open_tab", "call_c", {
+      url: "https://example.com/",
+    });
+    expect(r.output).toMatchObject({
+      error: { code: "unavailable", details: { reason: "no_chromium" } },
+    });
+    expect(fake.made).toHaveLength(0);
+  });
+
+  it("stays off while logind reports a graphical session (a desktop can serve the bridge)", async () => {
     const fake = await fakeServerDriver();
     const { services, browser } = await composeServer({
-      server: {
-        screen: async () => ({ display: ":90", xauthority: null }),
-        createDriver: fake.createDriver,
-      },
+      server: serverSetup(fake, { wanted: async () => false }),
     });
+    const r = await runTool(services, "browser.open_tab", "call_g", {
+      url: "https://example.com/",
+    });
+    expect(r.output).toMatchObject({ error: { code: "unavailable" } });
+    expect(fake.made).toHaveLength(0);
+    expect(browser.serverOnly).toBe(false);
+  });
+
+  it("routes the owner's tabs to the server driver and opens pages there", async () => {
+    const fake = await fakeServerDriver();
+    const { services, browser } = await composeServer({ server: serverSetup(fake) });
     // The first agent call starts the driver.
     await runTool(services, "browser.open_tab", "call_s", { url: "https://example.com/" });
     const url = desktop?.browser.url("a/") ?? "";
@@ -406,107 +349,48 @@ describe("the agent browser on a headless Host (server driver)", () => {
     expect(fake.made).toHaveLength(1);
   });
 
-  it("says why when the private screen can't start", async () => {
-    const { services } = await composeServer({
-      server: {
-        screen: async () => {
-          throw new Error("Xvfb is not installed");
-        },
-        createDriver: () => {
-          throw new Error("never made");
-        },
-      },
+  it("refuses the driver's own take-over in flight: the owner's control stops the agent's actions", async () => {
+    const fake = await fakeServerDriver();
+    await composeServer({ server: serverSetup(fake) });
+    const driver = fake.drivers[0];
+    expect(driver).toBeUndefined();
+    // The CDP take-over (`controlState: "user"`) is the driver's, per session, and every agent
+    // action checks it (`assertAgent`), on the server driver as on the bridge.
+    const { createDriver } = fake;
+    const d = createDriver({} as PlaywrightDriverOptions);
+    const url = desktop?.browser.url("a/") ?? "";
+    const port = Number(new URL(url).port);
+    const s = await d.openSession({
+      policy: { devPreview: true, loopbackPorts: [port], readWritable: [new URL(url).origin] },
     });
-    const r = await runTool(services, "browser.open_tab", "call_x", {
-      url: "https://example.com/",
+    const tab = await d.openTab(s.id, url);
+    await d.setControlState(s.id, "user");
+    await expect(d.navigate(tab.id, url)).rejects.toMatchObject({
+      details: { reason: "user_in_control" },
     });
-    expect(r.output).toMatchObject({
-      error: { code: "unavailable", details: { reason: "browser_unavailable" } },
-    });
-    expect(JSON.stringify(r.output)).toContain("Xvfb is not installed");
   });
 
-  it("waits while the owner has taken the private screen over", async () => {
+  it("has no pane to hand control in yet: browser.request_control says so (no_pane)", async () => {
     const fake = await fakeServerDriver();
-    const { services, browser } = await composeServer({
-      server: {
-        screen: async () => ({ display: ":90", xauthority: null }),
-        createDriver: fake.createDriver,
-      },
+    const { services } = await composeServer({ server: serverSetup(fake) });
+    await runTool(services, "browser.open_tab", "call_r0", { url: "https://example.com/" });
+    const r = await runTool(services, "browser.request_control", "call_r", {
+      tabId: "t_missing",
+      reason: "sign in",
     });
-    await runTool(services, "browser.open_tab", "call_1", { url: "https://example.com/" });
-    let release: (() => void) | undefined;
-    let held = true;
-    browser.useTakeOver({
-      isTakenOver: () => held,
-      agentGate: () =>
-        held
-          ? new Promise<void>((r) => {
-              release = () => {
-                held = false;
-                r();
-              };
-            })
-          : Promise.resolve(),
-    });
-    let done = false;
-    const pending = runTool(services, "browser.open_tab", "call_2", {
-      url: "https://example.com/",
-    }).then((r) => {
-      done = true;
-      return r;
-    });
-    await new Promise((r) => setTimeout(r, 30));
-    expect(done).toBe(false);
-    release?.();
-    expect((await pending).output).toMatchObject({ error: { code: "approval_required" } });
-  });
-
-  it("starts Chromium again after the private screen stopped (Task end, the owner's stop)", async () => {
-    const fake = await fakeServerDriver();
-    const { services, browser } = await composeServer({
-      server: {
-        screen: async () => ({ display: ":90", xauthority: null }),
-        createDriver: fake.createDriver,
-      },
-    });
-    let stopped: (() => void) | undefined;
-    browser.useTakeOver({
-      isTakenOver: () => false,
-      agentGate: async () => undefined,
-      onStopped(listener) {
-        stopped = listener;
-        return () => {
-          stopped = undefined;
-        };
-      },
-    });
-    await runTool(services, "browser.open_tab", "call_a", { url: "https://example.com/" });
-    expect(browser.driverKind).toBe("server");
-    stopped?.();
-    expect(browser.driverKind).toBeNull();
-    expect(fake.disposed()).toBe(1);
-    await runTool(services, "browser.open_tab", "call_b", { url: "https://example.com/" });
-    expect(browser.driverKind).toBe("server");
-    expect(fake.made).toHaveLength(2);
-    // A new take-over source drops the old subscription.
-    browser.useTakeOver(undefined);
-    expect(stopped).toBeUndefined();
+    expect(JSON.stringify(r.output)).not.toContain("computer-watch");
+    expect(r.output).toMatchObject({ error: {} });
   });
 
   it("hands over to a desktop's bridge when one connects", async () => {
     const fake = await fakeServerDriver();
-    const { services, browser } = await composeServer({
-      server: {
-        screen: async () => ({ display: ":90", xauthority: null }),
-        createDriver: fake.createDriver,
-      },
-    });
+    const { services, browser } = await composeServer({ server: serverSetup(fake) });
     await runTool(services, "browser.open_tab", "call_h", { url: "https://example.com/" });
     expect(browser.driverKind).toBe("server");
     const other = new MockDesktop({ quarantineDir: "" });
     browser.attach(await other.connect());
     expect(browser.driverKind).toBe("bridge");
+    expect(browser.serverOnly).toBe(false);
     expect(fake.disposed()).toBe(1);
     other.disconnect();
   });
@@ -515,6 +399,34 @@ describe("the agent browser on a headless Host (server driver)", () => {
     const { services, browser } = await composeServer({ server: false });
     expect(services.tools.list().filter((t) => t.name.startsWith("browser."))).toEqual([]);
     expect(browser.driverKind).toBeNull();
+    expect(browser.serverOnly).toBe(false);
+  });
+});
+
+describe("checkout on a headless Host (review r1, finding 9)", () => {
+  it("refuses before any card while only the server driver could serve, and says why", () => {
+    let serverOnly = true;
+    const tool = createPurchaseTool({
+      payments: {} as never,
+      driver: () => undefined,
+      unavailable: () => (serverOnly ? checkoutNeedsDesktop() : undefined),
+      ownsTab: async () => undefined,
+      calls: {} as never,
+      approvals: { get: async () => undefined },
+      redactor: {} as never,
+    });
+    const describe = (tool as { describeCall?: (p: unknown) => unknown }).describeCall;
+    expect(() => describe?.({ tabId: "t1" })).toThrow(
+      expect.objectContaining({
+        code: "unavailable",
+        details: { reason: "checkout_needs_desktop" },
+      }),
+    );
+    serverOnly = false;
+    expect(describe?.({ tabId: "t1" })).toMatchObject({
+      kind: "purchase",
+      sideEffect: "financial",
+    });
   });
 });
 
@@ -545,19 +457,46 @@ describe("watchAccess (computerWatch.* from a remote desktop Client)", () => {
   const WRITE: DeviceScope[] = ["operator.read", "operator.write"];
   const ALL: DeviceScope[] = ["operator.read", "operator.write", "operator.approvals"];
 
-  it("lets a paired desktop app watch with operator.write, and take over with approvals too", () => {
+  it("lets a paired desktop app watch with operator.write, and act for the owner with approvals too", () => {
     db = openDb(":memory:");
     const mac = device("desktop");
-    for (const m of ["computerWatch.status", "computerWatch.frame", "computerWatch.stop"]) {
+    for (const m of ["computerWatch.status", "computerWatch.frame"]) {
       expect(() => watchAccess(call(mac, WRITE, m))).not.toThrow();
     }
-    for (const m of ["computerWatch.takeOver", "computerWatch.input"]) {
+    for (const m of [
+      "computerWatch.takeOver",
+      "computerWatch.input",
+      "computerWatch.stop",
+      "computerWatch.resolveParked",
+    ]) {
       expect(() => watchAccess(call(mac, WRITE, m))).toThrow(/operator\.approvals/);
       expect(() => watchAccess(call(mac, ALL, m))).not.toThrow();
     }
     expect(() => watchAccess(call(mac, ["operator.read"], "computerWatch.status"))).toThrow(
       /operator\.write/,
     );
+  });
+
+  it("P5: force-stop and Discard need operator.approvals", () => {
+    db = openDb(":memory:");
+    const id = insertDevice(db, {
+      name: "d",
+      platform: "macos",
+      role: "client",
+      publicKey: Buffer.alloc(32, 7),
+      scopes: WRITE,
+      pairedAt: new Date().toISOString(),
+      deviceFamily: "desktop",
+    }).id;
+    for (const m of ["computerWatch.resolveParked", "computerWatch.stop"]) {
+      expect(() =>
+        watchAccess({
+          ctx: { db } as never,
+          identity: { deviceId: id, scopes: WRITE, role: "client" } as never,
+          method: m,
+        }),
+      ).toThrow(/operator\.approvals/);
+    }
   });
 
   it.each([
@@ -595,13 +534,12 @@ describe("watchAccess (computerWatch.* from a remote desktop Client)", () => {
 
 describe("passkey-only payment presence", () => {
   it.each([
-    ["linux", HEADLESS, true],
-    ["linux", { ...HEADLESS, DISPLAY: ":0" }, false],
-    ["darwin", HEADLESS, false],
-    ["darwin", { PSYCHE_PAYMENT_PRESENCE: "passkey" }, true],
-    ["linux", {}, false],
-  ] as const)("passkeyOnlyPayments(%s, %j) -> %s", (platform, env, want) => {
-    expect(passkeyOnlyPayments(platform, env as NodeJS.ProcessEnv)).toBe(want);
+    [{ PSYCHE_PAYMENT_PRESENCE: "passkey" }, true],
+    [{ PSYCHE_PAYMENT_PRESENCE: " Passkey " }, true],
+    [{ PSYCHE_PAYMENT_PRESENCE: "touchid" }, false],
+    [{}, false],
+  ] as const)("passkeyPresenceForced(%j) -> %s", (env, want) => {
+    expect(passkeyPresenceForced(env as NodeJS.ProcessEnv)).toBe(want);
   });
 
   const PAYMENTS = [
@@ -618,30 +556,55 @@ describe("passkey-only payment presence", () => {
     { kind: "exec_host", sideEffect: "destructive" },
   ] as const;
   const rule = (passkeyOnly: boolean, hasPasskey: boolean) => ({
-    passkeyOnly: () => passkeyOnly,
+    passkeyOnly: async () => passkeyOnly,
     hasPasskey: () => hasPasskey,
   });
 
-  it.each(PAYMENTS)("a payment (%j) with no passkey fails presence_required", (input) => {
-    expect(() => checkPaymentPresence(input as never, rule(true, false))).toThrow(
-      expect.objectContaining({
-        code: "presence_required",
-        details: { reason: "passkey_required" },
-        message: expect.stringContaining("Set up a passkey to approve payments on this Psyche"),
+  it.each(PAYMENTS)("a payment (%j) with no passkey fails presence_required", async (input) => {
+    await expect(checkPaymentPresence(input as never, rule(true, false))).rejects.toMatchObject({
+      code: "presence_required",
+      details: { reason: "passkey_required" },
+      message: expect.stringContaining("Set up a passkey to approve payments on this Psyche"),
+    });
+  });
+
+  it.each(PAYMENTS)("a payment (%j) with a passkey raises its card", async (input) => {
+    await expect(checkPaymentPresence(input as never, rule(true, true))).resolves.toBeUndefined();
+  });
+
+  it.each(ORDINARY)("an ordinary approval (%j) stays a tap, passkey or not", async (input) => {
+    await expect(checkPaymentPresence(input as never, rule(true, false))).resolves.toBeUndefined();
+  });
+
+  it.each(PAYMENTS)("a Host with someone at it is unchanged (%j)", async (input) => {
+    await expect(checkPaymentPresence(input as never, rule(false, false))).resolves.toBeUndefined();
+  });
+
+  it("judges the class the broker decided, not the one the request declares", async () => {
+    const raised: unknown[] = [];
+    const inner = {
+      decide: async () => ({
+        decision: "ask",
+        rule: "mode:balanced/financial",
+        bindingHash: "b-floored",
+        sideEffect: "financial",
       }),
-    );
-  });
-
-  it.each(PAYMENTS)("a payment (%j) with a passkey raises its card", (input) => {
-    expect(() => checkPaymentPresence(input as never, rule(true, true))).not.toThrow();
-  });
-
-  it.each(ORDINARY)("an ordinary approval (%j) stays a tap, passkey or not", (input) => {
-    expect(() => checkPaymentPresence(input as never, rule(true, false))).not.toThrow();
-  });
-
-  it.each(PAYMENTS)("a Host with someone at it is unchanged (%j)", (input) => {
-    expect(() => checkPaymentPresence(input as never, rule(false, false))).not.toThrow();
+      requestApproval: async (input: unknown) => {
+        raised.push(input);
+        return { approval: {} };
+      },
+    } as unknown as PermissionBroker;
+    const b = withPaymentPresence(inner, rule(true, false));
+    await b.decide({} as never, {} as never);
+    const req = (bindingHash: string) =>
+      ({ kind: "tool_call", sideEffect: "write", bindingHash }) as never;
+    await expect(b.requestApproval(req("b-floored"))).rejects.toMatchObject({
+      code: "presence_required",
+    });
+    expect(raised).toEqual([]);
+    // Another binding the broker did not floor stays a tap.
+    await b.requestApproval(req("b-other"));
+    expect(raised).toHaveLength(1);
   });
 });
 
@@ -680,13 +643,15 @@ describe("exec_host's srt profile on a Linux Host (B3: the deny paths, checked)"
     }
   });
 
-  it("denies Psyche's own Linux files: its home, browser profiles, helper state, screen cookies", () => {
+  it("denies Psyche's own Linux files: its home, browser dirs, helper state, screen cookies", () => {
     const fs = profile("linux");
     expect(fs.denyRead).toEqual(
       expect.arrayContaining([
         "/home/o/.psyche",
         "/home/o/.psyche/vault",
         "/home/o/.psyche/browser/profiles",
+        "/home/o/.psyche/browser/home",
+        "/home/o/.psyche/browser/run",
         "/home/o/.local/state/psyche-helper",
         "/home/o/.xdg-state/psyche-helper",
         "/run/user/1000/psyche",
@@ -697,13 +662,68 @@ describe("exec_host's srt profile on a Linux Host (B3: the deny paths, checked)"
   });
 
   it("ignores a relative XDG base, and adds none of it on macOS", () => {
-    expect(linuxPsycheDenyRead("/home/o", { XDG_RUNTIME_DIR: "run", XDG_STATE_HOME: "" })).toEqual([
-      "/home/o/.local/state/psyche-helper",
-      "/home/o/.config/Psyche",
-    ]);
+    const none: LinuxDenyFs = {
+      lstat: () => {
+        throw new Error("ENOENT");
+      },
+      mkdir: () => undefined,
+      readdir: () => [],
+    };
+    expect(
+      linuxPsycheDenyRead("/home/o", { XDG_RUNTIME_DIR: "run", XDG_STATE_HOME: "" }, { fs: none }),
+    ).toEqual(["/home/o/.local/state/psyche-helper", "/home/o/.config/Psyche"]);
     const mac = profile("darwin").denyRead;
     expect(mac).not.toContain("/run/user/1000/psyche");
     expect(mac).not.toContain(join("/home/o", ".config", "chromium"));
+  });
+
+  it("makes $XDG_RUNTIME_DIR/psyche before the helper does, so srt masks it from the start", () => {
+    const made: [string, number][] = [];
+    const fsWith = (parent: { uid: number; mode: number; dir?: boolean }): LinuxDenyFs => ({
+      lstat: () => ({ isDirectory: () => parent.dir !== false, ...parent }),
+      mkdir: (p, mode) => void made.push([p, mode]),
+      readdir: () => [],
+    });
+    const env = { XDG_RUNTIME_DIR: "/run/user/1000" };
+    expect(
+      linuxPsycheDenyRead("/home/o", env, { fs: fsWith({ uid: 1000, mode: 0o40700 }), uid: 1000 }),
+    ).toContain("/run/user/1000/psyche");
+    expect(made).toEqual([["/run/user/1000/psyche", 0o700]]);
+    // Never in another account's runtime dir, one others can write, or through a link.
+    for (const parent of [
+      { uid: 1001, mode: 0o40700 },
+      { uid: 1000, mode: 0o40777 },
+      { uid: 1000, mode: 0o120777, dir: false },
+    ]) {
+      made.length = 0;
+      const deny = linuxPsycheDenyRead("/home/o", env, { fs: fsWith(parent), uid: 1000 });
+      expect(made).toEqual([]);
+      // Still listed: masked whenever it exists.
+      expect(deny).toContain("/run/user/1000/psyche");
+    }
+  });
+
+  it("lists the helper's temp-dir fallback screens (srt has no globs)", () => {
+    const fs: LinuxDenyFs = {
+      lstat: () => {
+        throw new Error("ENOENT");
+      },
+      mkdir: () => undefined,
+      readdir: (dir) =>
+        dir === "/tmp"
+          ? ["psyche-vscreen-f0000098.3e8.1a2b3c-Ab12Cd", "other", "psyche-vscreenX"]
+          : dir === "/var/tmp/me"
+            ? ["psyche-vscreen-1.2.3-XyZ987"]
+            : [],
+    };
+    const deny = linuxPsycheDenyRead("/home/o", { TMPDIR: "/var/tmp/me" }, { fs });
+    expect(deny).toEqual(
+      expect.arrayContaining([
+        "/tmp/psyche-vscreen-f0000098.3e8.1a2b3c-Ab12Cd",
+        "/var/tmp/me/psyche-vscreen-1.2.3-XyZ987",
+      ]),
+    );
+    expect(deny).not.toContain("/tmp/other");
   });
 });
 

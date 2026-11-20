@@ -1,65 +1,81 @@
-import { lstatSync, readdirSync } from "node:fs";
+import { chmodSync, lstatSync, mkdirSync } from "node:fs";
 import { join } from "node:path";
 import {
   type BrowserDriverEx,
   PlaywrightDriver,
   type PlaywrightDriverOptions,
 } from "@psyche/browser";
-import { type ErrorPayload, PsycheError, VscreenStatus } from "@psyche/protocol";
-import { Value } from "@sinclair/typebox/value";
-import { headlessLinuxHost } from "./headless-host.ts";
+import { PsycheError } from "@psyche/protocol";
 
 /**
  * The agent browser on a headless Linux Host (linux-helper-only design §7.4, B3). There is no
  * desktop window to serve the CDP bridge, so the Gateway runs the existing Playwright driver
- * against a headful Chromium on the Host helper's private screen (its Xvfb, L6). The owner watches
- * that screen in the watch pane (`computerWatch.*`, also from a paired desktop Client) and takes
- * over there to sign in. Persistent profiles live under the Host's `$PSYCHE_HOME/browser/profiles`,
- * which the exec deny profile already protects. G4 holds: the browser runs on the Host.
+ * against **headless** Chromium (Chromium's own headless mode: no display at all). It never
+ * shares a display with computer use, which keeps the helper's private screen, so a
+ * `virtual_screen` screenshot can never show the agent browser's pages or fields, and XTest input
+ * can never reach them (B3 review r1, findings 2 and 3). The browser needs nothing of the helper.
+ *
+ * Chromium gets a private home and runtime dir under `$PSYCHE_HOME/browser/` (0700), its own NSS
+ * store with none of the owner's client certificates or CAs, and no session bus. Persistent
+ * profiles live under `$PSYCHE_HOME/browser/profiles`, which the exec deny profile protects, as it
+ * does the private home. G4 holds: the browser runs on the Host.
  */
-
-/** The display Chromium opens on: the X display and its private authority file. */
-export interface ServerScreen {
-  display: string;
-  /** `XAUTHORITY` for the display; null when the server needs no cookie. */
-  xauthority: string | null;
-}
 
 /** A started server driver: what `composeBrowser` routes calls to. */
 export type ServerDriver = BrowserDriverEx & { dispose(): Promise<void> };
 
-/** While the owner holds the private screen (watch pane take-over), the agent's calls wait. */
-export interface ScreenTakeOver {
-  isTakenOver(): boolean;
-  /** Resolves when the agent may act; rejects (retryable `user_in_control`) after a bound. */
-  agentGate(signal?: AbortSignal): Promise<void>;
-  /** Runs `listener` whenever the screen stopped; returns the unsubscribe. */
-  onStopped?(listener: () => void): () => void;
-}
-
 export interface ServerBrowserSetup {
-  /** Starts the private screen (or finds the running one). */
-  screen(): Promise<ServerScreen>;
-  /** The Chromium to launch; default `findChromium()`, else Playwright's own build. */
+  /**
+   * Whether the server driver serves the agent's tabs now: a headless Host. Default for the
+   * composed Gateway: `serverBrowserChoice` (the service env's `PSYCHE_BROWSER_DRIVER`, else
+   * B0's logind answer `cachedGraphicalSession`); a setup passed in without it always serves.
+   */
+  wanted?: (signal?: AbortSignal) => Promise<boolean>;
+  /** The Chromium to launch; default `findChromium()`. Without one the browser is unavailable. */
   executablePath?: string;
   /** Test seam: makes the driver (default `PlaywrightDriver`). */
   createDriver?: (options: PlaywrightDriverOptions) => ServerDriver;
+  /** Test seam: makes the private dirs (default `preparePrivateDirs`). */
+  prepareDirs?: (dirs: ServerBrowserDirs) => void;
+  /** The service environment Chromium's PATH and locale come from (default this process's). */
+  env?: NodeJS.ProcessEnv;
 }
 
 /**
- * The server driver is wanted on a headless Linux Host (`headlessLinuxHost`): no desktop app can
- * serve the bridge there. `PSYCHE_BROWSER_DRIVER=bridge` keeps the bridge only, `=server` forces
- * the server driver on Linux even with a session. Only Linux has the helper's private screen.
+ * The server driver as the Gateway composes it on Linux, from the service environment (read
+ * once here; nothing the agent does can change it) and B0's shared logind answer: `bridge` turns
+ * it off, `server` forces it, otherwise it serves exactly while logind reports no graphical
+ * session for this user. Off on every other platform.
  */
-export function serverBrowserWanted(
-  platform: NodeJS.Platform = process.platform,
-  env: NodeJS.ProcessEnv = process.env,
-): boolean {
-  if (platform !== "linux") return false;
-  const choice = env.PSYCHE_BROWSER_DRIVER?.trim().toLowerCase();
+export function serverBrowserSetupFor(
+  platform: NodeJS.Platform,
+  serviceEnv: NodeJS.ProcessEnv,
+  graphicalSession: (signal?: AbortSignal) => Promise<boolean>,
+): ServerBrowserSetup | false {
+  const choice = serverBrowserChoice(platform, serviceEnv);
   if (choice === "bridge") return false;
-  if (choice === "server") return true;
-  return headlessLinuxHost(platform, env);
+  const env = { ...serviceEnv };
+  const executablePath = findChromium(env);
+  return {
+    wanted:
+      choice === "server" ? async () => true : async (signal) => !(await graphicalSession(signal)),
+    ...(executablePath === undefined ? {} : { executablePath }),
+    env,
+  };
+}
+
+/**
+ * `PSYCHE_BROWSER_DRIVER` from the **service** environment (read once, when the Gateway is
+ * composed; the agent cannot set it): `bridge` keeps the desktop's bridge only, `server` forces the
+ * server driver on Linux. Anything else: undefined, and logind decides. Only Linux has it.
+ */
+export function serverBrowserChoice(
+  platform: NodeJS.Platform,
+  serviceEnv: NodeJS.ProcessEnv,
+): "bridge" | "server" | undefined {
+  if (platform !== "linux") return "bridge";
+  const choice = serviceEnv.PSYCHE_BROWSER_DRIVER?.trim().toLowerCase();
+  return choice === "bridge" || choice === "server" ? choice : undefined;
 }
 
 /** Common Chromium-family paths on Linux distributions, first found wins. */
@@ -71,7 +87,7 @@ export const CHROMIUM_PATHS = [
   "/usr/bin/google-chrome",
 ] as const;
 
-/** `PSYCHE_CHROMIUM` when set, else the first installed path, else Playwright's own build. */
+/** `PSYCHE_CHROMIUM` (service env) when set, else the first installed path, else undefined. */
 export function findChromium(
   env: NodeJS.ProcessEnv = process.env,
   exists: (path: string) => boolean = isFile,
@@ -89,156 +105,87 @@ function isFile(path: string): boolean {
   }
 }
 
-/** What `findXauthority` reads of the file system (a test seam). */
-export interface XauthFs {
-  readdir(dir: string): string[];
-  lstat(path: string): {
-    isDirectory(): boolean;
-    isFile(): boolean;
-    mode: number;
-    uid: number;
-    mtimeMs: number;
-  };
-}
+export const NO_CHROMIUM_MESSAGE =
+  "Psyche's browser on this computer needs Chromium. Install it (for example `apt install chromium`) or set PSYCHE_CHROMIUM in the service's environment.";
 
-const realFs: XauthFs = {
-  readdir: (dir) => readdirSync(dir),
-  lstat: (path) => lstatSync(path),
-};
-
-/**
- * The authority file the helper wrote for `display` (`Xvfb -auth`): `xauth-<tag>-<n>-<hex>` in
- * `$XDG_RUNTIME_DIR/psyche` (apps/linux-helper `vscreen/xauth.rs`). The directory must be a real
- * directory of this user that nobody else can reach (0700), and the file a regular file of this
- * user, not a link; a newer server on the same display wins. Anything else: null, and Chromium
- * cannot open the display (fail closed, never another account's cookie).
- */
-export function findXauthority(
-  display: string,
-  runtimeDir: string | undefined,
-  uid: number = process.getuid?.() ?? -1,
-  fs: XauthFs = realFs,
-): string | null {
-  const n = /^:(\d{1,4})$/.exec(display)?.[1];
-  if (n === undefined || runtimeDir === undefined || runtimeDir === "") return null;
-  const dir = join(runtimeDir, "psyche");
-  try {
-    const st = fs.lstat(dir);
-    if (!st.isDirectory() || st.uid !== uid || (st.mode & 0o077) !== 0) return null;
-  } catch {
-    return null;
-  }
-  const pattern = new RegExp(`^xauth-[A-Za-z0-9]+-${n}-[0-9a-f]{12}$`);
-  let best: { path: string; at: number } | null = null;
-  let names: string[];
-  try {
-    names = fs.readdir(dir);
-  } catch {
-    return null;
-  }
-  for (const name of names) {
-    if (!pattern.test(name)) continue;
-    const path = join(dir, name);
-    try {
-      const st = fs.lstat(path);
-      if (!st.isFile() || st.uid !== uid || (st.mode & 0o077) !== 0) continue;
-      if (best === null || st.mtimeMs > best.at) best = { path, at: st.mtimeMs };
-    } catch {
-      // Removed meanwhile: an older server's late cleanup.
-    }
-  }
-  return best?.path ?? null;
-}
-
-/** The minimum the screen needs of the Host helper (`NodeRegistry.hostHelper`). */
-export interface ScreenHelper {
-  invoke(
-    capability: string,
-    params: Record<string, unknown>,
-    options: { timeoutMs: number },
-  ): Promise<{ ok: boolean; result?: unknown; error?: ErrorPayload }>;
-}
-
-const NO_SCREEN: ErrorPayload = {
-  code: "unavailable",
-  message:
-    "Psyche's browser on this computer needs the Linux helper's private screen, and the helper is not connected.",
-  details: { reason: "no_linux_helper" },
-};
-
-/**
- * Starts the private screen on the Host helper (`vscreen.start`, idempotent while it runs) and
- * finds its authority file. The Gateway's own internal start: the agent never gets `vscreen.*`
- * from here (input stays the owner's, through the watch pane); the browser's own calls are
- * brokered by the browser tools' gate.
- */
-export async function startServerScreen(
-  helper: ScreenHelper | undefined,
-  env: NodeJS.ProcessEnv = process.env,
-  find: typeof findXauthority = findXauthority,
-): Promise<ServerScreen> {
-  if (helper === undefined) throw fromPayload(NO_SCREEN);
-  const res = await helper.invoke("vscreen.start", {}, { timeoutMs: 20_000 });
-  if (!res.ok) throw fromPayload(res.error ?? { code: "internal", message: "the helper failed" });
-  const status: unknown = res.result;
-  if (!Value.Check(VscreenStatus, status) || typeof status.display !== "string") {
-    throw new PsycheError(
-      "internal",
-      "vscreen.start: the helper answered with an unexpected shape",
-    );
-  }
-  const display = status.display;
-  return { display, xauthority: find(display, env.XDG_RUNTIME_DIR) };
-}
-
-function fromPayload(e: ErrorPayload): PsycheError {
-  return new PsycheError(e.code, e.message, {
-    ...(e.details === undefined ? {} : { details: e.details }),
-    ...(e.retryable === undefined ? {} : { retryable: e.retryable }),
+export function noChromium(): PsycheError {
+  return new PsycheError("unavailable", NO_CHROMIUM_MESSAGE, {
+    details: { reason: "no_chromium" },
   });
 }
 
+/** Chromium's private dirs, all under `$PSYCHE_HOME/browser/`. */
+export interface ServerBrowserDirs {
+  home: string;
+  config: string;
+  cache: string;
+  data: string;
+  runtime: string;
+}
+
+export function serverBrowserDirs(psycheHome: string): ServerBrowserDirs {
+  const home = join(psycheHome, "browser", "home");
+  return {
+    home,
+    config: join(home, ".config"),
+    cache: join(home, ".cache"),
+    data: join(home, ".local", "share"),
+    runtime: join(psycheHome, "browser", "run"),
+  };
+}
+
+/** Makes the dirs 0700 (narrowing an existing one), refusing a link in their place. */
+export function preparePrivateDirs(dirs: ServerBrowserDirs): void {
+  for (const dir of [dirs.home, dirs.config, dirs.cache, dirs.data, dirs.runtime]) {
+    mkdirSync(dir, { recursive: true, mode: 0o700 });
+    const st = lstatSync(dir);
+    if (!st.isDirectory()) {
+      throw new PsycheError("internal", `${dir} is not a directory`);
+    }
+    if ((st.mode & 0o077) !== 0) chmodSync(dir, 0o700);
+  }
+}
+
 /**
- * The environment Chromium gets: the private screen and nothing of the owner's own display or
- * session bus, so a page can never open on, or talk to, a screen the owner is using.
+ * The exact environment Chromium gets (B3 review r1, finding 6). Kept from the service env: PATH,
+ * the locale, TZ and FONTCONFIG_PATH. Set: a private HOME and XDG dirs (its own `~/.pki/nssdb`, so
+ * none of the owner's certificates or CAs), a private 0700 runtime dir, and no session bus
+ * (`disabled:`), so neither Chromium nor anything it spawns reaches the owner's user bus. No
+ * DISPLAY, WAYLAND_DISPLAY or XAUTHORITY: headless Chromium has no display.
  */
 export function serverBrowserEnv(
-  screen: ServerScreen,
+  dirs: ServerBrowserDirs,
   base: NodeJS.ProcessEnv,
 ): Record<string, string> {
   const env: Record<string, string> = {};
-  for (const key of [
-    "PATH",
-    "HOME",
-    "LANG",
-    "LC_ALL",
-    "TZ",
-    "XDG_RUNTIME_DIR",
-    "FONTCONFIG_PATH",
-  ]) {
+  for (const key of ["PATH", "LANG", "LC_ALL", "TZ", "FONTCONFIG_PATH"]) {
     const v = base[key];
-    if (v !== undefined) env[key] = v;
+    if (v !== undefined && v !== "") env[key] = v;
   }
-  env.DISPLAY = screen.display;
-  if (screen.xauthority !== null) env.XAUTHORITY = screen.xauthority;
+  env.PATH ??= "/usr/local/bin:/usr/bin:/bin";
+  env.HOME = dirs.home;
+  env.XDG_CONFIG_HOME = dirs.config;
+  env.XDG_CACHE_HOME = dirs.cache;
+  env.XDG_DATA_HOME = dirs.data;
+  env.XDG_RUNTIME_DIR = dirs.runtime;
+  env.DBUS_SESSION_BUS_ADDRESS = "disabled:";
   return env;
 }
 
-/** Driver options for the server mode: headful, on the screen, profiles under the Host's home. */
+/** Driver options for the server mode: headless, private env, profiles under the Host's home. */
 export function serverDriverOptions(
-  screen: ServerScreen,
   base: Pick<PlaywrightDriverOptions, "library" | "broker" | "redact" | "botAuth">,
   home: string,
-  executablePath: string | undefined,
+  executablePath: string,
   env: NodeJS.ProcessEnv = process.env,
 ): PlaywrightDriverOptions {
   return {
     ...base,
     mode: "launch",
-    headless: false,
+    headless: true,
     psycheHome: home,
-    env: serverBrowserEnv(screen, env),
-    ...(executablePath === undefined ? {} : { executablePath }),
+    env: serverBrowserEnv(serverBrowserDirs(home), env),
+    executablePath,
   };
 }
 

@@ -32,8 +32,6 @@ export const notices = {
   "notice.browser.takeover.title": "Psyche needs you in the browser",
   "notice.browser.takeover.body":
     "On {host}, the agent asks: {reason}. Take control in the browser pane, then hand it back.",
-  "notice.browser.takeoverScreen.body":
-    "On {host}, the agent asks: {reason}. Take over in the watch pane, then give control back.",
   "notice.connector.consent.title": "Finish connecting Google",
   "notice.connector.consent.body":
     "Open this link on the computer running Psyche to grant access: {url}",

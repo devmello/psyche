@@ -42,9 +42,9 @@ export interface PlaywrightDriverOptions extends DriverDeps {
   channel?: string;
   viewport?: { width: number; height: number };
   /**
-   * The browser process's environment (launch mode). A headless Linux Host sets `DISPLAY` and
-   * `XAUTHORITY` to the helper's private screen, so a headful Chromium opens there and the owner
-   * can watch it. Unset: Playwright's default, this process's environment.
+   * The browser process's whole environment (launch mode). A headless Linux Host gives headless
+   * Chromium a private HOME, XDG and runtime dirs and no session bus. Unset: Playwright's default,
+   * this process's environment.
    */
   env?: Record<string, string>;
 }

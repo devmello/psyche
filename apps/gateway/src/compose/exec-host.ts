@@ -5,6 +5,7 @@ import {
   constants,
   existsSync,
   lstatSync,
+  mkdirSync,
   readdirSync,
   readFileSync,
   realpathSync,
@@ -533,29 +534,80 @@ function browserProfiles(home: string): string[] {
   ];
 }
 
+/** What `linuxPsycheDenyRead` reads and makes on disk (a test seam). */
+export interface LinuxDenyFs {
+  lstat(path: string): { isDirectory(): boolean; uid: number; mode: number };
+  mkdir(path: string, mode: number): void;
+  readdir(path: string): string[];
+}
+
+const realLinuxDenyFs: LinuxDenyFs = {
+  lstat: (path) => lstatSync(path),
+  mkdir: (path, mode) => mkdirSync(path, { mode }),
+  readdir: (path) => readdirSync(path),
+};
+
+/** The helper's fallback screen dirs without a runtime dir (`vscreen/xauth.rs`). */
+const VSCREEN_TEMP_PREFIX = "psyche-vscreen-";
+
 /**
  * Psyche's own files on a Linux Host outside `$PSYCHE_HOME` (linux-helper-only design §7.2, B3):
  * a host command reads none of them.
  * - The helper's state (`$XDG_STATE_HOME/psyche-helper`, default `~/.local/state/psyche-helper`):
  *   its device key and the Gateways it is paired with.
  * - The private screen's authority cookies and session buses (`$XDG_RUNTIME_DIR/psyche`): with
- *   a cookie a command could watch, or type into, the screen the agent's browser runs on.
+ *   a cookie a command could watch, or type into, the private screen. srt rules are paths that
+ *   must exist to be masked, and the on-demand helper makes this one only when it starts a screen,
+ *   possibly while a long command already runs: so it is made here first, 0700 and the way the
+ *   helper itself makes it (`mkdir`, never through a link, only in a runtime dir of this user
+ *   that nobody else can write), and the helper finds it ready (B3 review r1, finding 10).
+ * - Without a runtime dir the helper uses `mkdtemp` dirs `psyche-vscreen-<tag>-XXXXXX` in the temp
+ *   dir. srt has no globs, so every such dir that exists when the command starts is listed. (A
+ *   psyched under systemd always has a runtime dir, so the helper it starts never falls back.)
  * - The desktop app's user data on Linux (`~/.config/Psyche`): its device key.
  */
 export function linuxPsycheDenyRead(
   userHome: string,
-  env: { XDG_RUNTIME_DIR?: string; XDG_STATE_HOME?: string },
+  env: { XDG_RUNTIME_DIR?: string; XDG_STATE_HOME?: string; TMPDIR?: string },
+  opts: { fs?: LinuxDenyFs; uid?: number } = {},
 ): string[] {
+  const fs = opts.fs ?? realLinuxDenyFs;
+  const uid = opts.uid ?? process.getuid?.() ?? -1;
   const absolute = (v: string | undefined) =>
     v !== undefined && v.startsWith("/") ? v : undefined;
   const state = absolute(env.XDG_STATE_HOME);
   const runtime = absolute(env.XDG_RUNTIME_DIR);
+  if (runtime !== undefined) ensurePrivateDir(runtime, join(runtime, "psyche"), fs, uid);
+  const temps = [...new Set([absolute(env.TMPDIR), "/tmp"].filter((d) => d !== undefined))];
+  const screenTemps = temps.flatMap((dir) => {
+    try {
+      return fs
+        .readdir(dir)
+        .filter((name) => name.startsWith(VSCREEN_TEMP_PREFIX))
+        .map((name) => join(dir, name));
+    } catch {
+      return [];
+    }
+  });
   return [
     join(userHome, ".local", "state", "psyche-helper"),
     ...(state === undefined ? [] : [join(state, "psyche-helper")]),
     ...(runtime === undefined ? [] : [join(runtime, "psyche")]),
+    ...screenTemps,
     join(userHome, ".config", "Psyche"),
   ];
+}
+
+/** Makes `dir` (0700) inside `parent` when `parent` is this user's and nobody else can write it. */
+function ensurePrivateDir(parent: string, dir: string, fs: LinuxDenyFs, uid: number): void {
+  try {
+    const st = fs.lstat(parent);
+    if (!st.isDirectory() || st.uid !== uid || (st.mode & 0o022) !== 0) return;
+    fs.mkdir(dir, 0o700);
+  } catch {
+    // Already there (the helper made it, or an earlier command), or no runtime dir at all: the
+    // path is still listed, and an existing one is masked.
+  }
 }
 
 /**
@@ -604,7 +656,7 @@ export function execHostSrtSettings(input: {
   /** The Host's OS (default this process's): Linux adds its own credential and Psyche paths. */
   platform?: NodeJS.Platform;
   /** The Host's `XDG_RUNTIME_DIR` and `XDG_STATE_HOME` (Linux; default this process's). */
-  linuxEnv?: { XDG_RUNTIME_DIR?: string; XDG_STATE_HOME?: string };
+  linuxEnv?: { XDG_RUNTIME_DIR?: string; XDG_STATE_HOME?: string; TMPDIR?: string };
 }): Record<string, unknown> {
   const h = (...p: string[]) => join(input.userHome, ...p);
   const scratch = scratchReadRules(input.psycheHome, input.scratch);
@@ -621,6 +673,9 @@ export function execHostSrtSettings(input: {
           join(input.psycheHome, "state"),
           join(input.psycheHome, "audit"),
           join(input.psycheHome, "browser", "profiles"),
+          // Headless Chromium's private home (its NSS store) and runtime dir (B3).
+          join(input.psycheHome, "browser", "home"),
+          join(input.psycheHome, "browser", "run"),
           h(".ssh"),
           h("Library", "Keychains"),
           ...browserProfiles(input.userHome),

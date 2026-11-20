@@ -1,5 +1,9 @@
-import { type ApprovalRequestInput, type PermissionBroker, PsycheError } from "@psyche/protocol";
-import { headlessLinuxHost } from "./headless-host.ts";
+import {
+  type ApprovalRequestInput,
+  type DecisionResult,
+  type PermissionBroker,
+  PsycheError,
+} from "@psyche/protocol";
 
 /**
  * Payment presence on a headless Linux Host (linux-helper-only design §7.4, R2; B3). The Mac's
@@ -19,16 +23,11 @@ export function isPaymentRequest(
 }
 
 /**
- * Whether payments need a passkey here: a headless Linux Host (`headlessLinuxHost`), or
- * `PSYCHE_PAYMENT_PRESENCE=passkey` anywhere. Misjudging a desktop as headless only asks for a
- * passkey (stricter), never less: the other verifiers still need someone at the Host.
+ * `PSYCHE_PAYMENT_PRESENCE=passkey` from the **service** environment, read once when the Gateway
+ * is composed (the agent cannot set it): payments need a passkey on any Host.
  */
-export function passkeyOnlyPayments(
-  platform: NodeJS.Platform = process.platform,
-  env: NodeJS.ProcessEnv = process.env,
-): boolean {
-  if (env.PSYCHE_PAYMENT_PRESENCE?.trim().toLowerCase() === "passkey") return true;
-  return headlessLinuxHost(platform, env);
+export function passkeyPresenceForced(serviceEnv: NodeJS.ProcessEnv): boolean {
+  return serviceEnv.PSYCHE_PAYMENT_PRESENCE?.trim().toLowerCase() === "passkey";
 }
 
 export function passkeyRequiredError(): PsycheError {
@@ -40,32 +39,66 @@ export function passkeyRequiredError(): PsycheError {
 }
 
 export interface PaymentPresenceRule {
-  /** This Host approves payments with a passkey only. Read on every request. */
-  passkeyOnly(): boolean;
+  /**
+   * This Host approves payments with a passkey only: a headless Linux Host (B0's logind answer),
+   * or the service env's switch. Asked on every payment request.
+   */
+  passkeyOnly(): Promise<boolean>;
   /** At least one active passkey (or a caller-supplied verifier in the passkey role). */
   hasPasskey(): boolean;
 }
 
 /** Refuses a payment's card before it is raised when this Host can't verify it (see above). */
-export function checkPaymentPresence(
+export async function checkPaymentPresence(
   input: Pick<ApprovalRequestInput, "kind" | "sideEffect">,
   rule: PaymentPresenceRule,
-): void {
-  if (isPaymentRequest(input) && rule.passkeyOnly() && !rule.hasPasskey()) {
+): Promise<void> {
+  if (isPaymentRequest(input) && !rule.hasPasskey() && (await rule.passkeyOnly())) {
     throw passkeyRequiredError();
   }
 }
 
-/** A broker handle whose `requestApproval` applies `checkPaymentPresence` first. */
+/** How many decided bindings are remembered for their final side-effect class. */
+const MAX_DECIDED = 5_000;
+
+/**
+ * A broker handle whose `requestApproval` applies `checkPaymentPresence` first, on the class the
+ * broker will put on the card: the request's own, raised to the one `decide` gave the same
+ * binding (the broker floors a request to its decision's class, so a call the agent declared
+ * `write` that the broker decided `financial` is a payment here too; B3 review r1, finding 9).
+ */
 export function withPaymentPresence<B extends PermissionBroker>(
   broker: B,
   rule: PaymentPresenceRule,
 ): B {
+  const decidedFinancial = new Set<string>();
+  const remember = (result: DecisionResult): void => {
+    const se = (result as DecisionResult & { sideEffect?: unknown }).sideEffect;
+    if (result.bindingHash === undefined) return;
+    if (se !== "financial" && result.approvalKind !== "purchase") return;
+    decidedFinancial.delete(result.bindingHash);
+    decidedFinancial.add(result.bindingHash);
+    if (decidedFinancial.size > MAX_DECIDED) {
+      const oldest = decidedFinancial.values().next().value;
+      if (oldest !== undefined) decidedFinancial.delete(oldest);
+    }
+  };
   return new Proxy(broker, {
     get(target, prop, receiver) {
+      if (prop === "decide") {
+        return async (...args: Parameters<PermissionBroker["decide"]>) => {
+          const result = await target.decide(...args);
+          remember(result);
+          return result;
+        };
+      }
       if (prop === "requestApproval") {
         return async (input: ApprovalRequestInput) => {
-          checkPaymentPresence(input, rule);
+          const floored = decidedFinancial.has(input.bindingHash);
+          await checkPaymentPresence(
+            floored ? { kind: input.kind, sideEffect: "financial" } : input,
+            rule,
+          );
           return target.requestApproval(input);
         };
       }

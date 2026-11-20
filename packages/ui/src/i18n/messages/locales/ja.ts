@@ -174,6 +174,12 @@ export const ja: Partial<Catalogue> = {
     "Psycheはアップデートをインストールするため、まもなく再起動します。しばらくしてからもう一度お試しください。",
   "errors.reason.passkey_required":
     "この Psyche で支払いを承認するには、パスキーを設定してください。",
+  "errors.reason.awaiting_owner":
+    "アプリに未保存の変更があります。どうするかをあなたが決めるまで Psyche は待ちます。",
+  "errors.reason.checkout_needs_desktop":
+    "Psyche のブラウザで支払うには、Psyche デスクトップアプリをこのホストに接続する必要があります。",
+  "errors.reason.no_chromium":
+    "Psyche のブラウザにはこのホストの Chromium が必要です。インストールするか、PSYCHE_CHROMIUM を設定してください。",
   "errors.unavailable": "Psycheは現在その操作を実行できません。",
   "errors.approval_required": "先にあなたの承認が必要です。",
   "errors.approval_expired": "承認の期限が切れました。もう一度依頼してください。",
