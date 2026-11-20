@@ -1,7 +1,12 @@
 import { join } from "node:path";
 import { assertNotProtected } from "@psyche/files";
 import { describe, expect, it } from "vitest";
-import { protectedRoots, writeProtectedRoots } from "../src/compose/protected-paths.ts";
+import {
+  protectedRoots,
+  writeProtectedRoots,
+  writeProtection,
+  writeProtectionFor,
+} from "../src/compose/protected-paths.ts";
 
 /**
  * Write-only protected roots (apps.open review, findings 1 and 2): the launch location the Mac
@@ -52,3 +57,50 @@ describe.skipIf(process.platform === "win32")("write-protected roots", () => {
     expect(protectedRoots("/tmp/psyche-home")).not.toContain(join(home, "Applications"));
   });
 });
+
+/** #1427 review r1, finding 5: the wider macOS list and the dot-entry rule under a home share. */
+describe.skipIf(process.platform !== "darwin")(
+  "write protection under a home share (macOS)",
+  () => {
+    const home = "/Users/owner";
+    const homeShare = [{ path: home, mode: "rw" as const }];
+    const refused = (rel: string, folders = homeShare) => {
+      const path = join(home, rel);
+      try {
+        assertNotProtected(path, [], [], writeProtectionFor(path, folders, home));
+        return false;
+      } catch (err) {
+        return (err as { code?: string }).code === "forbidden";
+      }
+    };
+
+    it.each([
+      "Library/Python/3.12/lib/python/site-packages/x.pth",
+      "Library/Spotlight/x.mdimporter/Contents/Info.plist",
+      "bin/tool",
+      "BIN/tool",
+      ".vscode/extensions/x/package.json",
+      ".hammerspoon/init.lua",
+      ".config/ghostty/config",
+      ".config/zed/settings.json",
+      ".newrc",
+      ".cursor/mcp.json",
+    ])("refuses ~/%s", (rel) => {
+      expect(refused(rel)).toBe(true);
+    });
+
+    it.each(["notes.md", "Projects/app/.env", "binaries/readme.md", "Documents/.hidden-note.md"])(
+      "allows ~/%s",
+      (rel) => {
+        expect(refused(rel)).toBe(false);
+      },
+    );
+
+    it("leaves a dot folder shared by itself to its grant, and keeps the roots there", () => {
+      const own = [...homeShare, { path: join(home, ".dotfiles"), mode: "rw" as const }];
+      expect(refused(".dotfiles/zshrc", own)).toBe(false);
+      expect(refused(".dotfiles/zshrc")).toBe(true);
+      expect(writeProtection(home).dotHome).toBe(home);
+    });
+  },
+);

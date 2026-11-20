@@ -30,7 +30,7 @@ import {
 import { mimeFromName } from "@psyche/viewers/core/detect";
 import type { Call, HandlerDef } from "../context.ts";
 import { type FolderAccessToolDeps, requestFolderShare } from "./folder-access.ts";
-import { folderAccessEnv, protectedRoots, writeProtectedRoots } from "./protected-paths.ts";
+import { folderAccessEnv, protectedRoots, writeProtectionFor } from "./protected-paths.ts";
 
 /**
  * `files.list` and `files.read` (feature P4; UI design §3.7): read-only access for the Files pane
@@ -263,14 +263,10 @@ async function saveFile(
   }
   const roots = protectedRoots(setup.home);
   // Policy folders only; the longest root decides. Run again right before the swap.
-  const writeRoots = writeProtectedRoots();
   const checkGrant = (path: string) => {
-    assertNotProtected(path, roots, [], writeRoots);
-    assertGranted(
-      path,
-      setup.folders().filter((f) => f.file !== true),
-      "write",
-    );
+    const folders = setup.folders().filter((f) => f.file !== true);
+    assertNotProtected(path, roots, [], writeProtectionFor(path, folders));
+    assertGranted(path, folders, "write");
   };
   checkGrant(target);
   await assertNoSymlinks(target);

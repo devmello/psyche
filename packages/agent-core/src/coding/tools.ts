@@ -1,7 +1,7 @@
 import { createHash } from "node:crypto";
 import { lstat, realpath, stat } from "node:fs/promises";
 import { basename, isAbsolute, resolve } from "node:path";
-import { absoluteHostPathPattern } from "@psyche/hostfs";
+import { absoluteHostPathPattern, launchConfigEntry } from "@psyche/hostfs";
 import {
   type DecisionContext,
   EXEC_DEFAULT_TIMEOUT_MS,
@@ -390,8 +390,13 @@ export function codingTools(deps: CodingToolsDeps): AgentToolRegistration[] {
       // `validate` refuses invalid patches and paths outside the workspace before the broker;
       // this keeps describeCall total.
     }
+    // An edit into an app's launch config (`.vscode/tasks.json`, `.husky/pre-commit`, `.envrc`)
+    // is code that runs when the app next opens the folder: destructive, so the card listing
+    // every file always shows (`.git` itself is refused by `patchFiles`).
+    const runsLater = files.some((f) => launchConfigEntry(f) !== undefined);
     return {
       kind: "file_write",
+      ...(runsLater ? { sideEffect: "destructive" as const } : {}),
       target: { kind: "path", value: root },
       bindingFields: {
         operation: "patch",

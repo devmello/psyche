@@ -1,6 +1,6 @@
 import { lstatSync, statSync } from "node:fs";
 import { lstat, realpath } from "node:fs/promises";
-import { dirname, resolve } from "node:path";
+import { basename, dirname, join, resolve } from "node:path";
 import {
   canonicalHostPath,
   HostPathError,
@@ -154,10 +154,15 @@ export function assertNotProtected(
   path: string,
   roots: readonly string[] | undefined,
   ownDirs: readonly string[] = [],
-  writeRoots?: readonly string[],
+  writeRoots?: readonly string[] | WriteProtection,
 ): void {
-  if (writeRoots !== undefined) {
-    const root = writeProtectedRoot(path, writeRoots);
+  // Psyche's own working folders (inside a protected root) keep their rules below.
+  const own = ownDirs.some((d) => isUnder(path, canonicalTarget(d)));
+  const wp = writeRoots === undefined || own ? undefined : asWriteProtection(writeRoots);
+  if (wp !== undefined) {
+    const root =
+      writeProtectedRoot(path, wp.roots) ??
+      (wp.dotHome === undefined ? undefined : dotHomeEntry(path, wp.dotHome));
     if (root !== undefined) {
       throw new PsycheError(
         "forbidden",
@@ -171,6 +176,78 @@ export function assertNotProtected(
   throw new PsycheError("forbidden", `${path} is a protected location`, {
     details: { reason: "protected_path", root },
   });
+}
+
+/**
+ * What an agent write may not reach: the write-protected roots, and, when the write falls under
+ * a share of the whole home folder (`dotHome` is that home), any dot entry directly in it
+ * (`~/.newrc`, `~/.tool/config`): the owner's configuration, never the agent's to write.
+ */
+export interface WriteProtection {
+  roots: readonly string[];
+  dotHome?: string;
+}
+
+function asWriteProtection(w: readonly string[] | WriteProtection): WriteProtection {
+  return Array.isArray(w) ? { roots: w } : (w as WriteProtection);
+}
+
+/**
+ * Whether a write to `path` falls under a share of the whole home folder: the longest granted
+ * folder holding it is `home` itself or a folder around it (an older home-root share). A folder
+ * the owner shared inside home (`~/.dotfiles`, `~/Projects`) decides for itself. With no folder
+ * list the broker alone decides, and the rule applies.
+ */
+export function homeShareGoverns(
+  path: string,
+  home: string,
+  folders: readonly GrantedFolder[] | undefined,
+): boolean {
+  if (folders === undefined) return true;
+  let best: string | undefined;
+  for (const f of folders) {
+    if (f.file === true) continue;
+    let root: string;
+    try {
+      root = canonicalTarget(f.path);
+    } catch {
+      continue;
+    }
+    if (isUnder(path, root) && (best === undefined || root.length > best.length)) best = root;
+  }
+  if (best === undefined) return false;
+  try {
+    return isUnder(canonicalTarget(home), best);
+  } catch {
+    return false;
+  }
+}
+
+/**
+ * The dot entry directly in `home` that `path` is or lies in (`~/.newrc`, `~/.tool`), else
+ * undefined. By name, folded as the disk folds it, and by identity: an existing folder above the
+ * path whose parent is `home` itself, however either is spelled.
+ */
+export function dotHomeEntry(path: string, home: string): string | undefined {
+  let h: string;
+  try {
+    h = canonicalTarget(home);
+  } catch {
+    return undefined;
+  }
+  const fold = process.platform === "linux" ? (p: string) => p : foldPathName;
+  const target = fold(path);
+  const folded = fold(h);
+  if (isUnder(target, folded) && target !== folded) {
+    const first = relativeHostPath(folded, target).split(/[\\/]/)[0] ?? "";
+    if (first.startsWith(".")) return join(h, first);
+  }
+  const homeId = fileIdentity(h);
+  if (homeId === undefined) return undefined;
+  for (let p = path; dirname(p) !== p; p = dirname(p)) {
+    if (basename(p).startsWith(".") && fileIdentity(dirname(p)) === homeId) return p;
+  }
+  return undefined;
 }
 
 /**

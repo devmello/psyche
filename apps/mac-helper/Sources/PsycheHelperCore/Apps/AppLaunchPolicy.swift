@@ -19,13 +19,18 @@ public enum AppLaunchPolicy {
         "/System/Cryptexes/App/System/Applications", "/System/Volumes/Preboot/Cryptexes/App/System/Applications",
     ]
 
-    /// Why a bundle is resolved: `open` for `apps.open` (an app the owner sees), `scriptTarget`
-    /// for a background launch or an Apple Event target (`ensureRunning`, script targets, the
-    /// Automation request), which may also be an Apple agent in `coreServicesFolder`.
+    /// Why a bundle is resolved: `open` for `apps.open` and for the target of an agent's own
+    /// AppleScript or JXA; `scriptTarget` for the helper's own background launches and Apple
+    /// Events (`ensureRunning` from the app backends, Messages, the Automation request), which
+    /// may also be one of `coreServicesScriptIds` in `coreServicesFolder`.
     public enum Purpose: Sendable { case open, scriptTarget }
 
     /// Apple's background agents on the sealed system volume (Shortcuts Events lives only here).
     public static let coreServicesFolder = "/System/Library/CoreServices"
+
+    /// The CoreServices agents the helper's own backends script (#1427 review r4): only these
+    /// may come from `coreServicesFolder`, never another agent there (Image Events, VoiceOver…).
+    public static let coreServicesScriptIds: Set<String> = ["com.apple.shortcuts.events"]
 
     /// `path` is `<folder>/<name>.app`, directly inside it.
     static func isDirectChild(_ path: String, of folder: String) -> Bool {
@@ -156,7 +161,7 @@ public enum AppLaunchPolicy {
         // A background script target may also be one of Apple's own agents in CoreServices
         // (Shortcuts Events), judged by its real path, so a link cannot lead there; the Apple
         // signature check below still applies. `apps.open` never launches from there.
-        let coreService = purpose == .scriptTarget && id?.lowercased().hasPrefix("com.apple.") == true
+        let coreService = purpose == .scriptTarget && id.map { coreServicesScriptIds.contains($0.lowercased()) } == true
             && isDirectChild(path, of: coreServicesFolder)
         guard coreService || appFolders(home: home).contains(where: { path.hasPrefix($0 + "/") }) else {
             throw CapabilityError(.policyDenied, reason: "app_outside_applications", "Only apps installed in an Applications folder can be opened")

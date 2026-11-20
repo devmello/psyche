@@ -136,6 +136,52 @@ describe("script and document pre-checks (#354)", () => {
   });
 
   // Review r1, finding 9: the Mac helper's cap from the app's Info.plist reaches script targets.
+  // #1427 review r4: scriptable system agents with effects outside the tier model.
+  it.each([
+    "com.apple.databaseevents",
+    "com.apple.imageevents",
+    "com.apple.VoiceOver",
+    "com.apple.FolderActionsDispatcher",
+    "com.apple.AppleScriptUtility",
+    "com.apple.UniversalAccessControl",
+    "com.apple.systemuiserver",
+    "com.apple.controlcenter",
+    "COM.APPLE.IMAGEEVENTS",
+    "Image Events",
+    "Database Events",
+    "VoiceOver",
+    "Control Center",
+  ])("never scripts %s", (target) => {
+    expect(reasonOf(() => assertScriptAllowed(target, "beep", "applescript"))).toBe(
+      "script_target_capped",
+    );
+  });
+
+  it("still scripts ordinary apps next to them", () => {
+    for (const target of ["com.apple.Notes", "com.apple.iCal", "com.apple.mail"]) {
+      expect(
+        reasonOf(() => assertScriptAllowed(target, "beep", "applescript")),
+        target,
+      ).toBe(undefined);
+    }
+  });
+
+  it("keeps the never-targets in step with the Mac helper's", () => {
+    const swift = readFileSync(
+      new URL("../../mac-helper/Sources/PsycheHelperCore/Apps/ScriptGuard.swift", import.meta.url),
+      "utf8",
+    );
+    const block = /static let neverTargets = \[([\s\S]*?)\]/.exec(swift)?.[1] ?? "";
+    const helper = [...block.matchAll(/"([^"]+)"/g)].map((m) => m[1] ?? "");
+    expect(helper.length).toBeGreaterThan(15);
+    for (const id of helper) {
+      expect(
+        reasonOf(() => assertScriptAllowed(id, "beep", "applescript")),
+        id,
+      ).toMatch(/^(script_target_capped|system_events)$/);
+    }
+  });
+
   it("refuses a script target the helper reports capped, and only that one", () => {
     const caps: Record<string, "click" | "interact"> = {
       "app.example.term": "click",

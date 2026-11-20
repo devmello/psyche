@@ -109,6 +109,17 @@ const NEVER_TARGETS = [
   "com.apple.Terminal",
   "com.googlecode.iterm2",
   "com.apple.osascript",
+  // Scriptable system agents with effects outside the tier model (#1427 review r4): files at
+  // any path, actions in other apps, Folder Actions, script settings, accessibility, the menu
+  // bar and Control Center. The same list as the helper's `ScriptGuard.neverTargets`.
+  "com.apple.databaseevents",
+  "com.apple.imageevents",
+  "com.apple.VoiceOver",
+  "com.apple.FolderActionsDispatcher",
+  "com.apple.AppleScriptUtility",
+  "com.apple.UniversalAccessControl",
+  "com.apple.systemuiserver",
+  "com.apple.controlcenter",
 ].map((s) => s.toLowerCase());
 
 /** Names the Gateway can map without the helper (the never-targets a script names most). */
@@ -122,6 +133,16 @@ const KNOWN_NAMES: Record<string, string> = {
   automator: "com.apple.automator",
   shortcuts: "com.apple.shortcuts",
   "shortcuts events": "com.apple.shortcuts.events",
+  "database events": "com.apple.databaseevents",
+  "image events": "com.apple.imageevents",
+  voiceover: "com.apple.voiceover",
+  folderactionsdispatcher: "com.apple.folderactionsdispatcher",
+  "folder actions dispatcher": "com.apple.folderactionsdispatcher",
+  "applescript utility": "com.apple.applescriptutility",
+  universalaccesscontrol: "com.apple.universalaccesscontrol",
+  systemuiserver: "com.apple.systemuiserver",
+  controlcenter: "com.apple.controlcenter",
+  "control center": "com.apple.controlcenter",
 };
 
 /** Opening one of these as a document runs it (the helper's `executableExtensions`). */

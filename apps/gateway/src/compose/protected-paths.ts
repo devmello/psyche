@@ -1,9 +1,10 @@
 import { type Dirent, readdirSync, realpathSync } from "node:fs";
 import { homedir } from "node:os";
 import { join } from "node:path";
+import { type GrantedFolder, homeShareGoverns, type WriteProtection } from "@psyche/files";
 import { defaultDenyRead } from "@psyche/mcp-host";
 import { CLI_HOME_DIRS } from "@psyche/model-router";
-import { type FolderAccessEnv, persistenceRoots } from "@psyche/permissions";
+import { type FolderAccessEnv, writeProtectedHomeRoots } from "@psyche/permissions";
 import { DESKTOP_APP_NAME } from "./desktop-launch.ts";
 
 /**
@@ -40,7 +41,7 @@ export function protectedRoots(psycheHome: string): string[] {
 export function writeProtectedRoots(userHome: string = homedir()): string[] {
   const out = new Set<string>();
   for (const p of [
-    ...persistenceRoots(userHome),
+    ...writeProtectedHomeRoots(userHome),
     `/Applications/${DESKTOP_APP_NAME}.app`,
     join(userHome, "Applications", `${DESKTOP_APP_NAME}.app`),
   ]) {
@@ -52,6 +53,27 @@ export function writeProtectedRoots(userHome: string = homedir()): string[] {
     }
   }
   return [...out];
+}
+
+/**
+ * `writeProtectedRoots` plus the owner's home for the dot-entry rule: under a share of the whole
+ * home folder, no agent write reaches `~/.anything` (#1427 review r1, finding 5).
+ */
+export function writeProtection(userHome: string = homedir()): WriteProtection {
+  return { roots: writeProtectedRoots(userHome), dotHome: userHome };
+}
+
+/**
+ * The same, for one write: the dot-entry rule only when the longest granted folder holding
+ * `path` is the home folder or one around it (`homeShareGoverns`).
+ */
+export function writeProtectionFor(
+  path: string,
+  folders: readonly GrantedFolder[] | undefined,
+  userHome: string = homedir(),
+): WriteProtection {
+  const w = writeProtection(userHome);
+  return homeShareGoverns(path, userHome, folders) ? w : { roots: w.roots };
 }
 
 /**

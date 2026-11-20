@@ -209,7 +209,7 @@ import {
   folderAccessEnv,
   ownWorkdirs,
   protectedRoots,
-  writeProtectedRoots,
+  writeProtection,
 } from "./protected-paths.ts";
 import { createPurchaseTool, LINK_PAYMENT_SOURCE, PURCHASE_TOOL } from "./purchase-tool.ts";
 import { notifierRouting } from "./quiet-hours.ts";
@@ -1092,7 +1092,7 @@ export async function composeGateway(options: ComposeOptions): Promise<ComposedG
     ],
     protectedRoots: () => protectedRoots(config.home),
     ownDirs: () => ownWorkdirs(config.home),
-    writeProtectedRoots: () => writeProtectedRoots(),
+    writeProtectedRoots: () => writeProtection(),
     onChange: (c) => void changes.record(fileChange(c)),
   }))
     registry.register(tool);
