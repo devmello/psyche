@@ -28,6 +28,10 @@ import {
 // biome-ignore lint/suspicious/noExplicitAny: loose JSON payloads read by the assertions
 type Json = Record<string, any>;
 
+/** A request whose error the assertions read. */
+const ask = (c: TestClient, method: string, params?: unknown, key?: string): Promise<Json> =>
+  c.request(method, params, key) as Promise<Json>;
+
 let home = "";
 let work = "";
 let composed: ComposedGateway | null = null;
@@ -123,12 +127,12 @@ describe("spaces.folders.*", () => {
     const { owner } = await setup();
     const id = await space(owner, "Kitchen remodel");
     for (const bad of [home, "/", homedir(), join(homedir(), ".ssh"), "relative/path"]) {
-      const res = await owner.request("spaces.folders.add", { spaceId: id, path: bad }, ik());
+      const res = await ask(owner, "spaces.folders.add", { spaceId: id, path: bad }, ik());
       expect(res.ok, bad).toBe(false);
       expect(["forbidden", "invalid_params", "not_found"]).toContain(res.error.code);
     }
     // No pick: the owner must pick on the Mac.
-    const none = await owner.request("spaces.folders.add", { spaceId: id }, ik());
+    const none = await ask(owner, "spaces.folders.add", { spaceId: id }, ik());
     expect(none.error.code).toBe("invalid_params");
     // A link to the folder is stored as the folder itself.
     const link = join(work, "kitchen-link");
@@ -150,13 +154,14 @@ describe("spaces.folders.*", () => {
     const kitchen = join(work, "kitchen");
     await owner.call("spaces.folders.add", { spaceId: id, path: kitchen, mode: "rw" }, ik());
     const phone = await remoteAdmin((composed as ComposedGateway).gateway);
-    const add = await phone.request(
+    const add = await ask(
+      phone,
       "spaces.folders.add",
       { spaceId: id, path: join(work, "jobs") },
       ik(),
     );
     expect(add.error).toMatchObject({ code: "forbidden", details: { reason: "host_only" } });
-    const widen = await phone.request("spaces.settings.set", {
+    const widen = await ask(phone, "spaces.settings.set", {
       spaceId: id,
       automationsWrite: [{ path: kitchen, allow: true }],
     });
@@ -168,7 +173,7 @@ describe("spaces.folders.*", () => {
       mode: "ro",
     });
     expect(ro.folders[0].mode).toBe("ro");
-    const rw = await phone.request("spaces.folders.setMode", {
+    const rw = await ask(phone, "spaces.folders.setMode", {
       spaceId: id,
       path: kitchen,
       mode: "rw",
@@ -176,7 +181,7 @@ describe("spaces.folders.*", () => {
     expect(rw.error?.code).toBe("forbidden");
     const gone = await phone.call<Json>("spaces.folders.remove", { spaceId: id, path: kitchen });
     expect(gone.folders).toEqual([]);
-    const again = await phone.request("spaces.folders.remove", { spaceId: id, path: kitchen });
+    const again = await ask(phone, "spaces.folders.remove", { spaceId: id, path: kitchen });
     expect(again.error?.code).toBe("not_found");
   });
 });
@@ -245,7 +250,7 @@ describe("a Space folder works only in its own Space's runs", () => {
     expect(detail.folders[0].automationsWrite).toBe(true);
     expect(passes(await decide(s, "write_file", file, run(1)))).toBe(true);
     // A folder the Space does not hold is refused, and nothing changes.
-    const bad = await owner.request("spaces.settings.set", {
+    const bad = await ask(owner, "spaces.settings.set", {
       spaceId: id,
       automationsWrite: [{ path: join(work, "jobs"), allow: true }],
     });
@@ -266,7 +271,8 @@ describe("a Space folder works only in its own Space's runs", () => {
     expect((await decide(s, "read_file", file, c)).rule).toBe("folder:not_granted");
     const listed = (await owner.call<Json>("access.list", {})).entries as Json[];
     expect(listed.some((e) => e.scope === "space")).toBe(false);
-    const add = await owner.request(
+    const add = await ask(
+      owner,
       "spaces.folders.add",
       { spaceId: id, path: join(work, "jobs") },
       ik(),
@@ -331,7 +337,7 @@ describe("access.list and access.revoke", () => {
     const detail = await owner.call<Json>("spaces.get", { spaceId: id });
     expect(detail.folders).toEqual([]);
     await owner.waitForEvent(
-      (e) => e.event === "space.updated" && e.payload?.changed?.includes("folders"),
+      (e) => e.event === "space.updated" && (e as Json).payload?.changed?.includes("folders"),
     );
   });
 
