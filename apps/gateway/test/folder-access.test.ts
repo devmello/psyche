@@ -9,6 +9,8 @@ import {
   requestFolderAccessTool,
   withFolder,
   withRecordedReal,
+  withRecordedRef,
+  withRepointed,
 } from "../src/compose/folder-access.ts";
 
 /**
@@ -319,3 +321,38 @@ async function answerPending(id: string, scope: "once" | "always" | "deny", fold
     decidedBy: DEVICE,
   });
 }
+
+describe("withRecordedRef and withRepointed (folder reconnect)", () => {
+  const ref = { dev: "1", ino: "2" };
+  it("records the identity once and never replaces it", () => {
+    const policy = { folders: [{ path: "/a", mode: "ro" as const }] };
+    const next = withRecordedRef(policy, "/a", ref);
+    expect(next?.folders?.[0]?.ref).toEqual(ref);
+    expect(withRecordedRef(next as typeof policy, "/a", { dev: "9", ino: "9" })).toBeUndefined();
+    expect(withRecordedRef(policy, "/missing", ref)).toBeUndefined();
+  });
+
+  it("re-points one entry in place, keeping mode and identity", () => {
+    const policy = {
+      folders: [
+        { path: "/a", mode: "rw" as const, real: "/a", ref },
+        { path: "/b", mode: "ro" as const },
+      ],
+    };
+    expect(withRepointed(policy, "/a", "/c")?.folders).toEqual([
+      { path: "/c", mode: "rw", real: "/c", ref },
+      { path: "/b", mode: "ro" },
+    ]);
+  });
+
+  it("refuses to re-point onto another entry or from a missing one", () => {
+    const policy = {
+      folders: [
+        { path: "/a", mode: "rw" as const },
+        { path: "/b", mode: "ro" as const },
+      ],
+    };
+    expect(withRepointed(policy, "/a", "/b")).toBeUndefined();
+    expect(withRepointed(policy, "/zzz", "/c")).toBeUndefined();
+  });
+});

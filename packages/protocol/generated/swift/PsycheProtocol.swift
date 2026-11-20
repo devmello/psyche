@@ -9,6 +9,8 @@
 //   let accessEntry = try? JSONDecoder().decode(AccessEntry.self, from: jsonData)
 //   let accessListParams = try? JSONDecoder().decode(AccessListParams.self, from: jsonData)
 //   let accessListResult = try? JSONDecoder().decode(AccessListResult.self, from: jsonData)
+//   let accessReconnectFolderParams = try? JSONDecoder().decode(AccessReconnectFolderParams.self, from: jsonData)
+//   let accessReconnectFolderResult = try? JSONDecoder().decode(AccessReconnectFolderResult.self, from: jsonData)
 //   let accessRevokeParams = try? JSONDecoder().decode(AccessRevokeParams.self, from: jsonData)
 //   let accessRevokeResult = try? JSONDecoder().decode(AccessRevokeResult.self, from: jsonData)
 //   let actionCall = try? JSONDecoder().decode(ActionCall.self, from: jsonData)
@@ -1801,6 +1803,7 @@ public struct AccessEntry: Codable, Sendable {
     public let moved: Bool?
     public let movedTo: String?
     public let path: String?
+    public let reconnectTo: String?
     public let refused: Bool?
     public let scope: AccessEntryScope
     public let since: String?
@@ -1818,6 +1821,7 @@ public struct AccessEntry: Codable, Sendable {
         case moved = "moved"
         case movedTo = "movedTo"
         case path = "path"
+        case reconnectTo = "reconnectTo"
         case refused = "refused"
         case scope = "scope"
         case since = "since"
@@ -1825,7 +1829,7 @@ public struct AccessEntry: Codable, Sendable {
         case type = "type"
     }
 
-    public init(file: Bool? = nil, grantID: String? = nil, id: String, kind: ApprovalKind? = nil, label: String, lastUsedAt: String? = nil, mode: FolderModeEnum? = nil, moved: Bool? = nil, movedTo: String? = nil, path: String? = nil, refused: Bool? = nil, scope: AccessEntryScope, since: String? = nil, threadID: String? = nil, type: AccessEntryType) {
+    public init(file: Bool? = nil, grantID: String? = nil, id: String, kind: ApprovalKind? = nil, label: String, lastUsedAt: String? = nil, mode: FolderModeEnum? = nil, moved: Bool? = nil, movedTo: String? = nil, path: String? = nil, reconnectTo: String? = nil, refused: Bool? = nil, scope: AccessEntryScope, since: String? = nil, threadID: String? = nil, type: AccessEntryType) {
         self.file = file
         self.grantID = grantID
         self.id = id
@@ -1836,6 +1840,7 @@ public struct AccessEntry: Codable, Sendable {
         self.moved = moved
         self.movedTo = movedTo
         self.path = path
+        self.reconnectTo = reconnectTo
         self.refused = refused
         self.scope = scope
         self.since = since
@@ -1889,6 +1894,35 @@ public enum AccessEntryScope: String, Codable, Sendable {
 public enum AccessEntryType: String, Codable, Sendable {
     case folder = "folder"
     case grant = "grant"
+}
+
+// MARK: - AccessReconnectFolderParams
+public struct AccessReconnectFolderParams: Codable, Sendable {
+    public let entryID: String
+    public let to: String
+
+    public enum CodingKeys: String, CodingKey {
+        case entryID = "entryId"
+        case to = "to"
+    }
+
+    public init(entryID: String, to: String) {
+        self.entryID = entryID
+        self.to = to
+    }
+}
+
+// MARK: - AccessReconnectFolderResult
+public struct AccessReconnectFolderResult: Codable, Sendable {
+    public let reconnected: Bool
+
+    public enum CodingKeys: String, CodingKey {
+        case reconnected = "reconnected"
+    }
+
+    public init(reconnected: Bool) {
+        self.reconnected = reconnected
+    }
 }
 
 // MARK: - AccessRevokeParams

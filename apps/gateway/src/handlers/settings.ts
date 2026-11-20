@@ -109,10 +109,13 @@ export function recordPolicyFolderReals(
   if (!Array.isArray(folders)) return value;
   const storedFolders = (stored as { folders?: unknown } | null | undefined)?.folders;
   const known = new Map<string, string | undefined>();
+  // The identity recorded for a folder is the Gateway's too: a client never sets or drops it.
+  const refs = new Map<string, unknown>();
   if (Array.isArray(storedFolders)) {
-    for (const f of storedFolders as { path?: unknown; real?: unknown }[]) {
+    for (const f of storedFolders as { path?: unknown; real?: unknown; ref?: unknown }[]) {
       if (typeof f?.path !== "string") continue;
       known.set(f.path, typeof f.real === "string" ? f.real : undefined);
+      if (f.ref !== undefined) refs.set(f.path, f.ref);
     }
   }
   const out: unknown[] = [];
@@ -121,11 +124,24 @@ export function recordPolicyFolderReals(
       out.push(f);
       continue;
     }
-    const { real: _client, ...rest } = f as { path: string; real?: unknown };
+    const {
+      real: _client,
+      ref: _clientRef,
+      ...rest
+    } = f as {
+      path: string;
+      real?: unknown;
+      ref?: unknown;
+    };
     let real: string | undefined;
     if (known.has(rest.path)) real = known.get(rest.path);
     else real = judged.get(rest.path);
-    out.push(real === undefined ? rest : { ...rest, real });
+    const ref = refs.get(rest.path);
+    out.push({
+      ...rest,
+      ...(real === undefined ? {} : { real }),
+      ...(ref === undefined ? {} : { ref }),
+    });
   }
   return { ...value, folders: out };
 }
@@ -141,17 +157,22 @@ export function mergeStoredFolderReals(value: unknown, stored: unknown): unknown
   const storedFolders = (stored as { folders?: unknown } | null | undefined)?.folders;
   if (!Array.isArray(folders) || !Array.isArray(storedFolders)) return value;
   const reals = new Map<string, string>();
-  for (const f of storedFolders as { path?: unknown; real?: unknown }[]) {
+  const refs = new Map<string, unknown>();
+  for (const f of storedFolders as { path?: unknown; real?: unknown; ref?: unknown }[]) {
     if (typeof f?.path === "string" && typeof f.real === "string") reals.set(f.path, f.real);
+    if (typeof f?.path === "string" && f.ref !== undefined) refs.set(f.path, f.ref);
   }
   return {
     ...value,
     folders: folders.map((f: unknown) => {
       if (typeof f !== "object" || f === null) return f;
-      const e = f as { path?: unknown; real?: unknown };
-      if (typeof e.path !== "string" || e.real !== undefined) return f;
+      const e = f as { path?: unknown; real?: unknown; ref?: unknown };
+      if (typeof e.path !== "string") return f;
+      const ref = refs.get(e.path);
+      const withRef = e.ref !== undefined || ref === undefined ? e : { ...e, ref };
+      if (withRef.real !== undefined) return withRef;
       const real = reals.get(e.path);
-      return real === undefined ? f : { ...e, real };
+      return real === undefined ? withRef : { ...withRef, real };
     }),
   };
 }

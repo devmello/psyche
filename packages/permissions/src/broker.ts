@@ -74,6 +74,14 @@ import {
   sameRootSpelling,
 } from "./folder-access.ts";
 import {
+  checkReconnect,
+  type FolderRef,
+  folderRefOf,
+  locateFolder,
+  pathIsGone,
+  ReconnectRefused,
+} from "./folder-reconnect.ts";
+import {
   HOST_PROGRAM_ROOTS,
   type HostProgramFacts,
   type HostProgramGrant,
@@ -305,6 +313,14 @@ export interface PermissionBrokerOptions {
      * store reports it as that device's security setting change, as a policy write would.
      */
     recordReal?: (path: string, real: string, by?: { deviceId: string }) => void | Promise<void>;
+    /** Stores the identity of a Settings folder first seen at its recorded place (`ref`). */
+    recordRef?: (path: string, ref: FolderRef) => void | Promise<void>;
+    /**
+     * Re-points a Settings folder to `to` (a real path that passed `checkReconnect`), keeping its
+     * mode, `ref` and place in the list. With `by`, reported as that device's security setting
+     * change. False when the entry is gone.
+     */
+    repoint?: (path: string, to: string, by: { deviceId: string }) => boolean | Promise<boolean>;
   };
 }
 
@@ -431,6 +447,8 @@ export class PsychePermissionBroker implements PermissionBroker {
   readonly #channelConversations: ChannelConversationLookup | undefined;
   readonly #replyTimes = new Map<string, number[]>();
   readonly #folderAccess: PermissionBrokerOptions["folderAccess"];
+  /** The last place found for a vanished Settings folder (`folderReconnectOffer`). */
+  readonly #reconnectOffers = new Map<string, { to: string | undefined; at: number }>();
   readonly #hostProgram: NonNullable<PermissionBrokerOptions["hostProgram"]>;
   readonly #psycheHome: string | undefined;
   /** thread → folders allowed for that conversation only; gone at `/new` and at a restart. */
@@ -800,6 +818,7 @@ export class PsychePermissionBroker implements PermissionBroker {
   #looked(path: string, facts: RootFacts | "error"): void {
     this.#rootLooks.set(path, { facts, checkedAt: this.clock.now() });
     this.#rootVerdicts.delete(path);
+    if (facts !== "error") this.#recordRefOnce(path, facts);
     // An older grant with nothing recorded counts only while its real path is the stored path
     // itself (up to spelling). That real path is then what later looks compare with (a parent
     // swapped afterwards is caught), and it is stored. Anything else waits for the owner.
@@ -818,6 +837,83 @@ export class PsychePermissionBroker implements PermissionBroker {
         .then(() => this.#folderAccess?.recordReal?.(path, real))
         .catch(() => {});
     }
+  }
+
+  /**
+   * Records the identity of a Settings folder that is where it was granted, a plain folder
+   * reached through no link, once (never replaced: it is what a reconnect is judged by).
+   */
+  #recordRefOnce(path: string, facts: RootFacts): void {
+    const entry = (this.#policy.config.folders ?? []).find((f) => f.path === path);
+    if (
+      entry === undefined ||
+      entry.ref !== undefined ||
+      this.#folderAccess?.recordRef === undefined
+    )
+      return;
+    if (facts.real === undefined || facts.link) return;
+    const recorded = this.recordedReal(path);
+    const env = this.#refuseEnv();
+    if (!sameRootSpelling(facts.real, path, env)) return;
+    if (recorded !== undefined && !sameRootSpelling(facts.real, recorded, env)) return;
+    const real = facts.real;
+    void folderRefOf(real)
+      .then((ref) => (ref === undefined ? undefined : this.#folderAccess?.recordRef?.(path, ref)))
+      .catch(() => {});
+  }
+
+  /**
+   * A Settings folder the owner renamed or moved: its path is gone, its identity was recorded,
+   * and the same folder is somewhere else now. Settings offers "Reconnect <name>?" with `to`.
+   * Never re-points by itself (`reconnectFolder` is the owner's tap).
+   */
+  async folderReconnectOffer(path: string): Promise<string | undefined> {
+    const entry = (this.#policy.config.folders ?? []).find((f) => f.path === path);
+    if (entry?.ref === undefined || !(await pathIsGone(path))) return undefined;
+    const cached = this.#reconnectOffers.get(path);
+    if (cached !== undefined && Date.now() - cached.at < 30_000) return cached.to;
+    const env = this.#confirmEnv();
+    const found = await locateFolder(path, entry.ref, env);
+    let to: string | undefined;
+    if (found !== undefined) {
+      try {
+        to = await checkReconnect(path, found, entry.ref, env);
+      } catch {
+        to = undefined;
+      }
+    }
+    this.#reconnectOffers.set(path, { to, at: Date.now() });
+    return to;
+  }
+
+  /**
+   * The owner's tap on "Reconnect <name>?" (admin device). `to` is the place Settings showed; it
+   * goes through every check of a fresh grant again (`checkReconnect`) and is refused when the
+   * old path came back, when `to` is a link or reached through one, or when it is not the same
+   * folder. Returns false when there is nothing to reconnect; throws what a fresh grant would
+   * throw for a sensitive place.
+   */
+  async reconnectFolder(
+    path: string,
+    to: string,
+    by: { deviceId: string; surface?: Surface },
+  ): Promise<boolean> {
+    const entry = (this.#policy.config.folders ?? []).find((f) => f.path === path);
+    if (entry === undefined || this.#folderAccess?.repoint === undefined) return false;
+    let real: string;
+    try {
+      real = await checkReconnect(path, to, entry.ref, this.#confirmEnv());
+    } catch (err) {
+      if (err instanceof ReconnectRefused) return false;
+      throw err;
+    }
+    const done = await this.#folderAccess.repoint(path, real, { deviceId: by.deviceId });
+    if (!done) return false;
+    this.#reconnectOffers.delete(path);
+    this.#observedReal.delete(path);
+    this.#pruneRoots();
+    await this.#log("folder.reconnected", actorOf(by), {}, { path, to: real });
+    return true;
   }
 
   /** A root the owner just picked: its real path is known now, so no first look is needed. */

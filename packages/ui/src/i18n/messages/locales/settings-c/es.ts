@@ -149,6 +149,9 @@ export const settingsC: Partial<Catalogue> = {
   "settings.access.moved": "Ahora apunta a {path}: confírmala solo si la moviste tú",
   "settings.access.confirm": "Confirmar",
   "settings.access.confirmNamed": "Confirmar de nuevo {name} en {path}",
+  "settings.access.reconnectPrompt": "¿Reconectar {name}? Ahora está en {path}",
+  "settings.access.reconnect": "Reconectar",
+  "settings.access.reconnectNamed": "Reconectar {name} con {path}",
   "settings.model.advancedHint": "Límites de contexto, modelos locales",
   "settings.permissions.subject.prepNotes": "Notas tituladas «Prep:» (preparación de reuniones)",
   "settings.permissions.specificConnectors":

@@ -224,3 +224,16 @@ describe("policy writes keep the folders' real paths", () => {
     expect(mergeStoredFolderReals(value, undefined)).toEqual(value);
   });
 });
+
+describe("folder identity (ref) is the Gateway's, never the client's", () => {
+  const ref = { dev: "1", ino: "2" };
+  it("keeps the stored identity and drops one the client sends", () => {
+    const stored = { folders: [{ path: "/a", mode: "ro", real: "/a", ref }] };
+    const client = { folders: [{ path: "/a", mode: "ro", ref: { dev: "9", ino: "9" } }] };
+    const out = recordPolicyFolderReals(client, stored, new Map()) as typeof stored;
+    expect(out.folders[0]?.ref).toEqual(ref);
+    const fresh = { folders: [{ path: "/n", mode: "ro", ref }] };
+    const out2 = recordPolicyFolderReals(fresh, stored, new Map()) as typeof stored;
+    expect(out2.folders[0]?.ref).toBeUndefined();
+  });
+});

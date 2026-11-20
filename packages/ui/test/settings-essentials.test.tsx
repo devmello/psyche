@@ -173,6 +173,39 @@ describe("Access list", () => {
     );
   });
 
+  it("offers Reconnect <name>? for a renamed folder, and only taps re-point it", async () => {
+    const user = userEvent.setup();
+    const onReconnect = vi.fn();
+    render(
+      <AccessListView
+        persona="Wren"
+        onRevoke={vi.fn()}
+        onReconnect={onReconnect}
+        entries={[
+          {
+            id: "folder:always:/Users/o/Projects/app",
+            type: "folder",
+            scope: "always",
+            label: "/Users/o/Projects/app",
+            path: "/Users/o/Projects/app",
+            mode: "rw",
+            reconnectTo: "/Users/o/Projects/app-v2",
+          },
+        ]}
+      />,
+    );
+    expect(
+      screen.getByText(/Reconnect app\? It is now at \/Users\/o\/Projects\/app-v2/),
+    ).toBeTruthy();
+    expect(onReconnect).not.toHaveBeenCalled();
+    await user.click(
+      screen.getByRole("button", { name: "Reconnect app to /Users/o/Projects/app-v2" }),
+    );
+    expect(onReconnect).toHaveBeenCalledWith(
+      expect.objectContaining({ reconnectTo: "/Users/o/Projects/app-v2" }),
+    );
+  });
+
   it("shows a folder that is a system folder today as refused, with Revoke", () => {
     render(
       <AccessListView

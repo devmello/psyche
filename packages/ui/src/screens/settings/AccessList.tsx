@@ -28,8 +28,14 @@ export interface AccessListViewProps {
   confirming?: ReadonlySet<string>;
   /** Confirms again a folder that moved since it was shared (`access.confirmFolder`). */
   onConfirm?: (entry: AccessEntry) => void;
+  /** Re-points a folder that was renamed or moved, after the owner's tap (`access.reconnectFolder`). */
+  onReconnect?: (entry: AccessEntry) => void;
   /** Read only / read and change for a folder kept until revoked (the policy). */
   onFolderMode?: (path: string, access: FolderGrant["access"]) => void;
+}
+
+function baseName(path: string): string {
+  return path.split(/[\\/]/).filter(Boolean).pop() ?? path;
 }
 
 function scopeWord(e: AccessEntry): string {
@@ -44,6 +50,7 @@ export function AccessListView({
   onRevoke,
   confirming,
   onConfirm,
+  onReconnect,
   onFolderMode,
 }: AccessListViewProps): ReactElement {
   const id = useId();
@@ -57,8 +64,16 @@ export function AccessListView({
         const moved = refused && e.moved === true && e.movedTo !== undefined;
         const editable =
           folder && !refused && e.scope === "always" && e.path !== undefined && onFolderMode;
+        // Renamed or moved in Finder: the same folder is somewhere else; one tap re-points it.
+        const reconnect = folder && e.reconnectTo !== undefined && !refused;
         const meta = [
           scopeWord(e),
+          reconnect
+            ? t("settings.access.reconnectPrompt", {
+                name: baseName(e.path ?? e.label),
+                path: e.reconnectTo ?? "",
+              })
+            : null,
           // A folder that is a sensitive root today (granted before the rule): it covers nothing.
           moved
             ? t("settings.access.moved", { path: e.movedTo ?? "" })
@@ -122,6 +137,21 @@ export function AccessListView({
                 })}
               >
                 {t("settings.access.confirm")}
+              </Button>
+            ) : null}
+            {reconnect && onReconnect ? (
+              <Button
+                type="button"
+                variant="secondary"
+                size="xs"
+                disabled={confirming?.has(e.id) ?? false}
+                onClick={() => onReconnect(e)}
+                aria-label={t("settings.access.reconnectNamed", {
+                  name: baseName(e.path ?? e.label),
+                  path: e.reconnectTo ?? "",
+                })}
+              >
+                {t("settings.access.reconnect")}
               </Button>
             ) : null}
             {onRevoke ? (
@@ -201,6 +231,21 @@ export function ConnectedAccessList({
         }),
       );
   };
+  const reconnect = (e: AccessEntry) => {
+    setFailed(null);
+    setConfirming((s) => new Set([...s, e.id]));
+    // What the owner saw: the Gateway re-checks the place like a fresh grant before it re-points.
+    call("access.reconnectFolder", { entryId: e.id, to: e.reconnectTo ?? "" })
+      .then(() => list.reload())
+      .catch((err: unknown) => setFailed(messageOf(err)))
+      .finally(() =>
+        setConfirming((s) => {
+          const next = new Set(s);
+          next.delete(e.id);
+          return next;
+        }),
+      );
+  };
   return (
     <div className="flex flex-col gap-2">
       <AccessListView
@@ -210,6 +255,7 @@ export function ConnectedAccessList({
         onRevoke={revoke}
         confirming={confirming}
         onConfirm={confirm}
+        onReconnect={reconnect}
         {...(now === undefined ? {} : { now })}
         {...(onFolderMode ? { onFolderMode } : {})}
       />

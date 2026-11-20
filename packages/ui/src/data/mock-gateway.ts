@@ -1936,6 +1936,7 @@ export class MockGateway implements GatewayClient {
     },
     // The mock never marks a folder moved, so there is nothing to confirm.
     "access.confirmFolder": () => ({ confirmed: false }),
+    "access.reconnectFolder": () => ({ reconnected: false }),
     "grants.list": (p) => ({
       grants: this.world.grants.filter((g) => p.includeRevoked === true || g.revokedAt == null),
     }),

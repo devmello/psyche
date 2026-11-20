@@ -294,6 +294,42 @@ export function withRecordedReal<
   return { ...policy, folders: folders.map((f, i) => (i === at ? { ...f, real } : f)) };
 }
 
+/** `permissions.policy.folders` with the identity `ref` recorded for the entry at `path` that has none. */
+export function withRecordedRef<
+  P extends {
+    folders?: { path: string; mode: "ro" | "rw"; ref?: { dev: string; ino: string } }[];
+  },
+>(policy: P, path: string, ref: { dev: string; ino: string }): P | undefined {
+  const folders = policy.folders ?? [];
+  const at = folders.findIndex((f) => f.path === path && f.ref === undefined);
+  if (at === -1) return undefined;
+  return { ...policy, folders: folders.map((f, i) => (i === at ? { ...f, ref } : f)) };
+}
+
+/**
+ * `permissions.policy.folders` with the entry at `path` re-pointed to `to` (its real path, judged
+ * by `checkReconnect`): same mode, same identity, same place in the list. Undefined when there is
+ * no such entry or `to` is already another entry (a duplicate row would shadow it).
+ */
+export function withRepointed<
+  P extends {
+    folders?: {
+      path: string;
+      mode: "ro" | "rw";
+      real?: string;
+      ref?: { dev: string; ino: string };
+    }[];
+  },
+>(policy: P, path: string, to: string): P | undefined {
+  const folders = policy.folders ?? [];
+  const at = folders.findIndex((f) => f.path === path);
+  if (at === -1 || folders.some((f, i) => i !== at && f.path === to)) return undefined;
+  return {
+    ...policy,
+    folders: folders.map((f, i) => (i === at ? { ...f, path: to, real: to } : f)),
+  };
+}
+
 /** `permissions.policy.folders` with `entry` added (a wider mode replaces a narrower one). */
 export function withFolder<P extends { folders?: { path: string; mode: "ro" | "rw" }[] }>(
   policy: P,

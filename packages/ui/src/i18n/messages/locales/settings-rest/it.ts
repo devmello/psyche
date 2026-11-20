@@ -690,6 +690,9 @@ export const settingsRest: Partial<Catalogue> = {
   "settings.access.moved": "Ora punta a {path}: conferma solo se l’hai spostata tu",
   "settings.access.confirm": "Conferma",
   "settings.access.confirmNamed": "Conferma di nuovo {name} in {path}",
+  "settings.access.reconnectPrompt": "Ricollegare {name}? Ora si trova in {path}",
+  "settings.access.reconnect": "Ricollega",
+  "settings.access.reconnectNamed": "Ricollega {name} a {path}",
   "settings.model.advancedHint": "Limiti di contesto, modelli locali",
   "settings.permissions.subject.prepNotes": "Note intitolate “Prep:” (preparazione riunioni)",
   "settings.permissions.specificConnectors":
