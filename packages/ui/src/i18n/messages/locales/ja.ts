@@ -827,6 +827,8 @@ export const ja: Partial<Catalogue> = {
     "完了前に停止しました：{reason}。{total} 件中 {done} 件のバッチを読み込みました。もう一度読み込むと続きから進み、読み込み済みの会話はスキップされます。",
   "agent.memory.importConv.retry": "もう一度読み込む",
   "agent.memory.exported": "{file}を書き出しました。",
+  "agent.memory.importConv.memoriesFailed":
+    "メモリを読み込めませんでした：{reason}。もう一度読み込むと再試行します。",
   "agent.memory.export": "すべてを書き出す",
   "agent.memory.resetDone":
     "{files, plural, other {#個のファイル}}と{claims, plural, other {#件の事実}}をリセットしました。",

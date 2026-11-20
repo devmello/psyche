@@ -793,6 +793,8 @@ export const pt: Partial<Catalogue> = {
     "Parou antes de terminar: {reason}. {done} de {total} lotes foram importados. Importe de novo para continuar; as conversas já importadas são ignoradas.",
   "agent.memory.importConv.retry": "Importar de novo",
   "agent.memory.exported": "{file} exportado.",
+  "agent.memory.importConv.memoriesFailed":
+    "Não foi possível importar as memórias: {reason}. Importe de novo para tentar outra vez.",
   "agent.memory.export": "Exportar tudo",
   "agent.memory.resetDone":
     "Redefinição concluída: {files, plural, one {# arquivo} other {# arquivos}}, {claims, plural, one {# afirmação} other {# afirmações}}.",

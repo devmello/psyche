@@ -890,6 +890,8 @@ export const ar: Partial<Catalogue> = {
     "توقف قبل الاكتمال: {reason}. تم استيراد {done} من {total} دفعات. أعد الاستيراد للمتابعة؛ تُتخطى المحادثات المستوردة سابقًا.",
   "agent.memory.importConv.retry": "إعادة الاستيراد",
   "agent.memory.exported": "تم تصدير {file}.",
+  "agent.memory.importConv.memoriesFailed":
+    "تعذّر استيراد الذكريات: {reason}. أعد الاستيراد للمحاولة مرة أخرى.",
   "agent.memory.export": "تصدير كل شيء",
   "agent.memory.resetDone":
     "تمت إعادة تعيين {files, plural, one {ملف واحد} two {ملفين} few {# ملفات} many {# ملفًا} other {# ملف} zero {# ملف}} و{claims, plural, one {ادعاء واحد} two {ادعاءين} few {# ادعاءات} many {# ادعاءً} other {# ادعاء} zero {# ادعاء}}.",
