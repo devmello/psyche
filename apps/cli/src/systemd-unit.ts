@@ -190,7 +190,7 @@ ${env === "" ? "" : `${env}\n`}Restart=no
  * no graphical session, so it has no `[Install]` section and, unlike {@link renderHelperUnit}, no
  * `graphical-session.target` (which never starts there). `--display headless` makes the helper's
  * own virtual screen its only screen; the helper exits when idle. `NoNewPrivileges` is inherited
- * by every app and command it starts. It pairs as the Host helper like the graphical one: same
+ * by the apps and commands it forks itself (not by the user manager, until bwrap containment). It pairs as the Host helper like the graphical one: same
  * socket, same handshake secret, same peer check.
  */
 export function renderHeadlessHelperUnit(input: HelperUnitInput): string {
@@ -207,8 +207,11 @@ After=default.target
 Type=simple
 ExecStart=${execLine(input.program, args)}
 ${env === "" ? "" : `${env}\n`}Restart=no
-# Nothing the helper starts (apps, commands) can gain privileges: no sudo, pkexec or setuid.
+# No app or command the helper forks directly can gain privileges (no sudo, pkexec or setuid).
+# This does not hold against the user manager (systemd-run --user) until bwrap containment lands.
 NoNewPrivileges=yes
+# The private screen's apps and Xvfb get a memory ceiling next to psyched (design section 3.3).
+Slice=psyche-vscreen.slice
 `;
 }
 

@@ -9,5 +9,8 @@ After=default.target
 Type=simple
 ExecStart="/usr/lib/psyche/resources/linux-helper/psyche-helper" "--display" "headless"
 Restart=no
-# Nothing the helper starts (apps, commands) can gain privileges: no sudo, pkexec or setuid.
+# No app or command the helper forks directly can gain privileges (no sudo, pkexec or setuid).
+# This does not hold against the user manager (systemd-run --user) until bwrap containment lands.
 NoNewPrivileges=yes
+# The private screen's apps and Xvfb get a memory ceiling next to psyched (design section 3.3).
+Slice=psyche-vscreen.slice

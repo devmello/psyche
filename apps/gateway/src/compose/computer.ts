@@ -565,6 +565,19 @@ export interface HelperNode {
 /** A surface other than the Host's own desktop. */
 export type RoutedSurface = Exclude<ComputerSurface, "direct">;
 
+/**
+ * The surface node ids whose sessions end when a node of this kind goes offline. The separate
+ * desktop's helper (kind `guest`, only ever that desktop's) ends its desktop's sessions through
+ * the router, which releases the desktop for their Task. The Host helper's private screen (B0)
+ * carries the `virtual_screen` id, so a headless helper that exits on idle or crashes does not
+ * leave the one-Task lock held.
+ */
+export function surfaceNodesOnOffline(kind: string | undefined): string[] {
+  if (kind === "guest") return [surfaceNodeId("separate_desktop")];
+  if (isHostHelperKind(kind)) return [surfaceNodeId("virtual_screen")];
+  return [];
+}
+
 /** The node id a routed surface's sessions carry (`ComputerUse.nodeGone` takes it). */
 export const surfaceNodeId = (surface: RoutedSurface): string => `surface:${surface}`;
 
@@ -1135,8 +1148,13 @@ export function createComputerUse(deps: ComputerDeps): ComputerUse {
       });
       try {
         await starting;
-      } catch {
-        throw notStarted("Needs a graphical session on this computer");
+      } catch (err) {
+        const unit = (err as { unit?: unknown } | undefined)?.unit;
+        throw notStarted(
+          typeof unit === "string"
+            ? `Could not start the Psyche helper (${unit}). Check that the unit is installed.`
+            : "Needs a graphical session on this computer",
+        );
       }
       const wait = deps.helperWait ?? { timeoutMs: 5_000, pollMs: 100 };
       const deadline = Date.now() + wait.timeoutMs;
@@ -1186,14 +1204,33 @@ export function createComputerUse(deps: ComputerDeps): ComputerUse {
         nodeId: node.nodeId,
         ...(node.kind === undefined ? {} : { kind: node.kind }),
         send: (inv, params, options) =>
-          node.client.invoke(inv.capability, params, {
-            signal: options.signal,
-            timeoutMs: inv.timeoutMs ?? INVOKE_TIMEOUT_MS,
-            ...(options.approvalId === undefined ? {} : { approvalId: options.approvalId }),
-          }),
+          node.client.invoke(
+            inv.capability,
+            // On Linux the surface is named, so a headless helper that is still connected after a
+            // session appeared refuses the call instead of serving it on its private screen.
+            deps.graphicalSession === undefined ? params : { ...params, surface: "direct" },
+            {
+              signal: options.signal,
+              timeoutMs: inv.timeoutMs ?? INVOKE_TIMEOUT_MS,
+              ...(options.approvalId === undefined ? {} : { approvalId: options.approvalId }),
+            },
+          ),
       };
     }
     const router = routerFor(surface);
+    // The Host's own private screen exists only without a graphical session. Decide that before
+    // a session is acquired, so a refusal leaves no phantom session holding the surface.
+    if (
+      router !== undefined &&
+      router === headlessHostRouter &&
+      (await deps.graphicalSession?.()) === true
+    ) {
+      throw new PsycheError(
+        "unavailable",
+        `The virtual screen is not set up on ${hostWords().thisDevice}, so computer use cannot run there.`,
+        { details: { reason: "surface_unavailable", surface } },
+      );
+    }
     if (router === undefined) {
       throw new PsycheError(
         "unavailable",
@@ -1989,7 +2026,8 @@ export function createComputerUse(deps: ComputerDeps): ComputerUse {
     // The helper's contract (docs/archive/status/s14.md, #266 / #267): `approval: {app, tier}` with every
     // approved `computer.*` / `apps.focus` call; without it the helper treats the call as
     // unapproved.
-    const approvable = inv.session || inv.capability === "apps.focus";
+    const approvable =
+      inv.session || inv.capability === "apps.focus" || inv.capability === "apps.open";
     const scoped = (approved: string | undefined): Record<string, unknown> => ({
       ...inv.params,
       ...(inv.session && inv.approval.app !== "*" ? { app: inv.approval.app } : {}),
@@ -3200,9 +3238,7 @@ export function composeComputer(services: ComposeServices): ComposedComputer {
             const node = p.node as NodeInfo | undefined;
             if (node !== undefined && node.status !== "online") {
               cu.nodeGone(node.id);
-              // The separate desktop's helper (kind `guest`, only ever that desktop's): its
-              // sessions end through the router, which releases the desktop for their Task.
-              if (node.kind === "guest") cu.nodeGone(surfaceNodeId("separate_desktop"));
+              for (const id of surfaceNodesOnOffline(node.kind)) cu.nodeGone(id);
             }
             if (node !== undefined && isHostHelperKind(node.kind)) {
               syncTools();

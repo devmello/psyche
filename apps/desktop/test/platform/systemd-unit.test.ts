@@ -119,6 +119,8 @@ describe("headless helper unit", () => {
     expect(unit).toMatch(/^After=default\.target$/m);
     expect(unit).toMatch(/^Restart=no$/m);
     expect(unit).toMatch(/^NoNewPrivileges=yes$/m);
+    expect(unit).toMatch(/^Slice=psyche-vscreen\.slice$/m);
+    expect(unit).not.toContain("Nothing the helper starts");
     expect(unit).toContain('ExecStart="/h/psyche-helper" "--display" "headless"');
     expect(unit).toContain('Environment="PSYCHE_HOME=/home/me/.psyche"');
   });

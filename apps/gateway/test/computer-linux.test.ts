@@ -24,6 +24,8 @@ import {
   registerSurfaceRouter,
   type SurfaceCall,
   type SurfaceRouter,
+  surfaceNodeId,
+  surfaceNodesOnOffline,
 } from "../src/compose/computer.ts";
 import {
   COMPUTER_USE_LINUX,
@@ -32,6 +34,7 @@ import {
   hasGraphicalSession,
   helperUnitFor,
   startHelperWithSystemd,
+  systemBin,
 } from "../src/compose/computer-linux.ts";
 import { appTiersFrom, COMPUTER_USE_ENABLED } from "../src/compose/computer-settings.ts";
 
@@ -768,7 +771,7 @@ describe("the headless Host helper (B0)", () => {
     (r.output as { error: { code: string; details?: { reason?: string; surface?: string } } })
       .error;
 
-  it("picks the unit from logind: graphical keeps psyche-helper.service", async () => {
+  it("picks the unit from the session: graphical keeps psyche-helper.service", async () => {
     expect(helperUnitFor(true)).toBe("psyche-helper.service");
     expect(helperUnitFor(false)).toBe("psyche-helper-headless.service");
     const ran: string[][] = [];
@@ -778,25 +781,105 @@ describe("the headless Host helper (B0)", () => {
     };
     await startHelperWithSystemd(undefined, run, async () => true);
     await startHelperWithSystemd(undefined, run, async () => false);
+    const systemctl = systemBin("systemctl");
+    expect(systemctl).toMatch(/^\/(usr\/)?bin\/systemctl$/);
     expect(ran).toEqual([
-      ["systemctl", "--user", "start", "psyche-helper.service"],
-      ["systemctl", "--user", "start", "psyche-helper-headless.service"],
+      [systemctl, "--user", "start", "psyche-helper.service"],
+      [systemctl, "--user", "start", "psyche-helper-headless.service"],
     ]);
   });
 
-  it.each([
-    ["a graphical session", "2\n", true],
-    ["a session id with spaces around it", "  c4 \n", true],
-    ["no session (linger only)", "\n", false],
-    ["nothing at all", "", false],
-  ])("hasGraphicalSession: %s", async (_name, stdout, want) => {
+  it("systemBin prefers /usr/bin, falls back to /bin, never uses PATH", () => {
+    expect(systemBin("loginctl", () => true)).toBe("/usr/bin/loginctl");
+    expect(systemBin("loginctl", (p) => p === "/bin/loginctl")).toBe("/bin/loginctl");
+    expect(systemBin("loginctl", () => false)).toBe("/usr/bin/loginctl");
+  });
+
+  it("a failed start names the unit", async () => {
+    const run = async () => {
+      throw new Error("Unit not found");
+    };
+    await expect(startHelperWithSystemd(undefined, run, async () => false)).rejects.toMatchObject({
+      unit: "psyche-helper-headless.service",
+    });
+  });
+
+  /** logind and the user manager as a table: sessions of uid 1000, plus the user environment. */
+  const logind = (
+    sessions: { id: string; uid?: string; type: string; state?: string }[],
+    env = "PATH=/usr/bin\n",
+  ) => {
     const calls: string[][] = [];
     const run = async (file: string, args: string[]) => {
-      calls.push([file, ...args]);
-      return stdout;
+      calls.push([file.split("/").pop() ?? file, ...args]);
+      if (args[0] === "list-sessions") {
+        return sessions.map((s) => `${s.id} ${s.uid ?? "1000"} devmello seat0 -`).join("\n");
+      }
+      if (args[0] === "show-session") {
+        const s = sessions.find((x) => x.id === args[1]);
+        return `Type=${s?.type}\nState=${s?.state ?? "active"}\nUser=${s?.uid ?? "1000"}\n`;
+      }
+      if (args[0] === "--user" && args[1] === "show-environment") return env;
+      throw new Error("unexpected");
     };
+    return { run, calls };
+  };
+
+  it.each([
+    ["x11", [{ id: "2", type: "x11" }], undefined, true],
+    ["wayland", [{ id: "c1", type: "wayland" }], undefined, true],
+    ["mir", [{ id: "c1", type: "mir" }], undefined, true],
+    [
+      "a wayland session among an ssh one",
+      [
+        { id: "4", type: "tty" },
+        { id: "5", type: "wayland" },
+      ],
+      undefined,
+      true,
+    ],
+    ["an ssh (tty) session alone", [{ id: "4", type: "tty" }], undefined, false],
+    ["an unspecified or manager session", [{ id: "4", type: "unspecified" }], undefined, false],
+    ["a closing x11 session", [{ id: "2", type: "x11", state: "closing" }], undefined, false],
+    [
+      "another user's wayland session",
+      [{ id: "3", uid: "1001", type: "wayland" }],
+      undefined,
+      false,
+    ],
+    ["no session (linger only)", [], undefined, false],
+    [
+      "a tty session with DISPLAY in the user env (startx)",
+      [{ id: "1", type: "tty" }],
+      "PATH=/x\nDISPLAY=:0\n",
+      true,
+    ],
+    [
+      "a tty session with WAYLAND_DISPLAY (sway on a console)",
+      [{ id: "1", type: "tty" }],
+      "WAYLAND_DISPLAY=wayland-1\n",
+      true,
+    ],
+    ["a tty session with an empty DISPLAY", [{ id: "1", type: "tty" }], "DISPLAY=\n", false],
+    ["DISPLAY in the env but no session at all", [], "DISPLAY=:0\n", false],
+    [
+      "DISPLAY in the env but only a closing tty session",
+      [{ id: "1", type: "tty", state: "closing" }],
+      "DISPLAY=:0\n",
+      false,
+    ],
+  ])("hasGraphicalSession: %s", async (_name, sessions, env, want) => {
+    const { run } = logind(sessions, env);
     expect(await hasGraphicalSession(run, 1000)).toBe(want);
-    expect(calls).toEqual([["loginctl", "show-user", "1000", "--property=Display", "--value"]]);
+  });
+
+  it("hasGraphicalSession asks logind with fixed arguments, not for Display=", async () => {
+    const { run, calls } = logind([{ id: "2", type: "x11" }]);
+    await hasGraphicalSession(run, 1000);
+    expect(calls).toEqual([
+      ["loginctl", "list-sessions", "--no-legend"],
+      ["loginctl", "show-session", "2", "-p", "Type", "-p", "State", "-p", "User"],
+    ]);
   });
 
   it("hasGraphicalSession: no loginctl or no logind record means no session", async () => {
@@ -828,7 +911,7 @@ describe("the headless Host helper (B0)", () => {
     make({ startHelper: async () => undefined, graphicalSession: async () => true });
     const r = await call("computer.snapshot", { app: editor });
     expect(r.isError, JSON.stringify(r.output)).toBeUndefined();
-    expect(helper.calls.every((c) => !("surface" in c.params))).toBe(true);
+    expect(helper.calls.every((c) => c.params.surface === "direct")).toBe(true);
   });
 
   it("virtual_screen starts the headless helper and sends it surface: virtual_screen", async () => {
@@ -859,5 +942,153 @@ describe("the headless Host helper (B0)", () => {
       details: { reason: "surface_unavailable", surface: "virtual_screen" },
     });
     expect(helper.calls).toHaveLength(0);
+  });
+
+  /** A Linux-shaped helper: apps.open at the Ask tier needs `params.approval`, as the real one. */
+  class StrictLinuxHelper extends FakeLinuxHelper {
+    headless = false;
+    override async invoke(capability: string, params: unknown): Promise<NodeInvokeResult> {
+      const p = (params ?? {}) as Record<string, unknown>;
+      const surface = p.surface;
+      if (surface !== undefined && surface !== (this.headless ? "virtual_screen" : "direct")) {
+        return {
+          ok: false,
+          error: { code: "invalid_params", message: "no", details: { reason: "surface_mismatch" } },
+        };
+      }
+      if (this.headless && surface === undefined && capability.startsWith("apps.")) {
+        // A headless helper serves a call that names no surface on its private screen.
+        this.calls.push({ capability, params: p });
+        return { ok: true, result: { status: "served_headless" } };
+      }
+      if (capability === "apps.open" && p.approval === undefined) {
+        this.calls.push({ capability, params: p });
+        return {
+          ok: false,
+          error: {
+            code: "approval_required",
+            message: "needs your permission",
+            details: { app: p.app, reason: "tier_ask", tierRequired: "click" },
+          },
+        };
+      }
+      if (capability === "apps.resolve") {
+        return { ok: false, error: { code: "not_implemented", message: "no" } };
+      }
+      if (capability === "apps.open") {
+        this.calls.push({ capability, params: p });
+        return { ok: true, result: { bundleId: p.app, name: "Editor", pid: 42 } };
+      }
+      return super.invoke(capability, params);
+    }
+  }
+
+  const approveAll = () => {
+    const request = broker.requestApproval.bind(broker);
+    broker.requestApproval = async (input) => {
+      const i = await request(input);
+      queueMicrotask(() => {
+        void broker.answer({
+          approvalId: i.approval.id,
+          answerToken: i.answerTokens.desktop ?? "",
+          decision: "approve",
+          scope: "once",
+          decidedBy: { deviceId: "dev-owner", surface: "desktop" },
+        });
+      });
+      return i;
+    };
+  };
+
+  it.each([
+    ["direct", undefined, true],
+    ["virtual_screen", "virtual_screen", false],
+  ] as const)(
+    "apps.open at the Ask tier carries params.approval after the owner approves (%s)",
+    async (_name, surface, graphical) => {
+      const strict = new StrictLinuxHelper();
+      strict.headless = !graphical;
+      helper = strict;
+      approveAll();
+      make({
+        startHelper: async () => undefined,
+        graphicalSession: async () => graphical,
+      });
+      const r = await call("apps.open", {
+        app: editor,
+        ...(surface === undefined ? {} : { surface }),
+      });
+      expect(r.isError, JSON.stringify(r.output)).toBeUndefined();
+      const sent = strict.calls.filter((c) => c.capability === "apps.open");
+      expect(sent.length).toBeGreaterThanOrEqual(2);
+      expect(sent[0]?.params.approval).toBeUndefined();
+      expect(sent[sent.length - 1]?.params.approval).toMatchObject({ app: editor });
+    },
+  );
+
+  it("sends surface: direct on the Linux direct path", async () => {
+    make({ startHelper: async () => undefined, graphicalSession: async () => true });
+    await call("computer.snapshot", { app: editor });
+    expect(helper.calls.length).toBeGreaterThan(0);
+    for (const c of helper.calls) expect(c.params.surface).toBe("direct");
+  });
+
+  it("refuses direct on a still-connected headless helper once a session exists", async () => {
+    const strict = new StrictLinuxHelper();
+    strict.headless = true;
+    helper = strict;
+    make({ startHelper: async () => undefined, graphicalSession: async () => true });
+    const r = await call("apps.list", {});
+    expect(r.isError).toBe(true);
+    expect(strict.calls.some((c) => (c.params as { surface?: string }).surface === undefined)).toBe(
+      false,
+    );
+    expect(JSON.stringify(r.output)).not.toContain("served_headless");
+  });
+
+  it("a refused virtual_screen call on a graphical Host leaves no session behind", async () => {
+    make({ startHelper: async () => undefined, graphicalSession: async () => true });
+    const first = await call(
+      "computer.snapshot",
+      { app: editor, surface: "virtual_screen" },
+      { threadId: "t1", runId: "r1" },
+    );
+    expect(out(first).details?.reason).toBe("surface_unavailable");
+    expect(cu.sessions()).toEqual([]);
+    const second = await call(
+      "computer.snapshot",
+      { app: editor, surface: "virtual_screen" },
+      { threadId: "t2", runId: "r2" },
+    );
+    expect(out(second).details?.reason).toBe("surface_unavailable");
+    expect(out(second).code).not.toBe("conflict");
+  });
+
+  it("a Host helper going offline ends the virtual_screen sessions", async () => {
+    expect(surfaceNodesOnOffline("host-helper")).toEqual([surfaceNodeId("virtual_screen")]);
+    expect(surfaceNodesOnOffline("mac-helper")).toEqual([surfaceNodeId("virtual_screen")]);
+    expect(surfaceNodesOnOffline("guest")).toEqual([surfaceNodeId("separate_desktop")]);
+    expect(surfaceNodesOnOffline("linux-helper")).toEqual([]);
+    expect(surfaceNodesOnOffline(undefined)).toEqual([]);
+    make({ startHelper: async () => undefined, graphicalSession: async () => false });
+    await call("computer.snapshot", { app: editor, surface: "virtual_screen" });
+    expect(cu.sessions().map((s) => s.nodeId)).toEqual([surfaceNodeId("virtual_screen")]);
+    for (const id of surfaceNodesOnOffline("host-helper")) cu.nodeGone(id);
+    await new Promise((r) => setTimeout(r, 20));
+    expect(cu.sessions()).toEqual([]);
+  });
+
+  it("a start failure names the unit that could not be started", async () => {
+    connected = false;
+    make({
+      startHelper: async () => {
+        throw Object.assign(new Error("x"), { unit: "psyche-helper-headless.service" });
+      },
+      graphicalSession: async () => false,
+    });
+    const r = await call("computer.snapshot", { app: editor, surface: "virtual_screen" });
+    const e = out(r) as unknown as { message: string; details: { reason: string } };
+    expect(e.details.reason).toBe("helper_not_started");
+    expect(e.message).toContain("psyche-helper-headless.service");
   });
 });

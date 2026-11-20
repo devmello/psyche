@@ -1,4 +1,5 @@
 import { execFile } from "node:child_process";
+import { existsSync } from "node:fs";
 import { getSetting, type PsycheDb, setSetting } from "@psyche/db";
 import { PsycheError } from "@psyche/protocol";
 import type { Logger } from "../log.ts";
@@ -27,13 +28,24 @@ import { COMPUTER_USE_ENABLED } from "./computer-settings.ts";
 export const GRAPHICAL_HELPER_UNIT = "psyche-helper.service";
 export const HEADLESS_HELPER_UNIT = "psyche-helper-headless.service";
 
-/** Which helper unit to start: the graphical one only when logind reports a graphical session. */
+/** Which helper unit to start: the graphical one only when this user has a graphical session. */
 export function helperUnitFor(graphicalSession: boolean): string {
   return graphicalSession ? GRAPHICAL_HELPER_UNIT : HEADLESS_HELPER_UNIT;
 }
 
 /** Runs a command with fixed arguments (no shell) and returns stdout; rejects on failure. */
 export type RunCommand = (file: string, args: string[], signal?: AbortSignal) => Promise<string>;
+
+/**
+ * The absolute path of a system tool: `/usr/bin` first, then `/bin`. Never resolved through
+ * `PATH`, which the user manager lets `environment.d` extend.
+ */
+export function systemBin(name: string, exists: (p: string) => boolean = existsSync): string {
+  for (const dir of ["/usr/bin", "/bin"]) {
+    if (exists(`${dir}/${name}`)) return `${dir}/${name}`;
+  }
+  return `/usr/bin/${name}`;
+}
 
 const runFile: RunCommand = (file, args, signal) =>
   new Promise((resolve, reject) => {
@@ -45,10 +57,23 @@ const runFile: RunCommand = (file, args, signal) =>
     );
   });
 
+const GRAPHICAL_TYPES = new Set(["x11", "wayland", "mir"]);
+
+function props(text: string): Record<string, string> {
+  const out: Record<string, string> = {};
+  for (const line of text.split("\n")) {
+    const eq = line.indexOf("=");
+    if (eq > 0) out[line.slice(0, eq)] = line.slice(eq + 1).trim();
+  }
+  return out;
+}
+
 /**
- * Whether this user has a graphical session, by logind: `Display=` of the user is the primary
- * x11/wayland/mir session and is empty for SSH, console and linger-only users. Any failure
- * (no loginctl, no logind record) counts as no graphical session.
+ * Whether this user has a graphical session, as the helper would see one. A session of this uid
+ * counts when logind says its `Type` is x11, wayland or mir and its `State` is not `closing`.
+ * logind's own `Display=` is not used: it names the user's primary session, which an SSH or
+ * console login also is. A `tty` session (startx, sway from a console) counts only when the user
+ * manager's environment has `DISPLAY` or `WAYLAND_DISPLAY`. Any failure counts as no session.
  */
 export async function hasGraphicalSession(
   run: RunCommand = runFile,
@@ -57,12 +82,27 @@ export async function hasGraphicalSession(
 ): Promise<boolean> {
   if (uid === undefined) return false;
   try {
-    const out = await run(
-      "loginctl",
-      ["show-user", String(uid), "--property=Display", "--value"],
-      signal,
-    );
-    return out.trim() !== "";
+    const loginctl = systemBin("loginctl");
+    const listed = await run(loginctl, ["list-sessions", "--no-legend"], signal);
+    let tty = false;
+    for (const line of listed.split("\n")) {
+      const [id, sessionUid] = line.trim().split(/\s+/);
+      if (id === undefined || id === "" || sessionUid !== String(uid)) continue;
+      const p = props(
+        await run(
+          loginctl,
+          ["show-session", id, "-p", "Type", "-p", "State", "-p", "User"],
+          signal,
+        ),
+      );
+      if (p.User !== undefined && p.User !== String(uid)) continue;
+      if (p.State === "closing") continue;
+      if (GRAPHICAL_TYPES.has(p.Type ?? "")) return true;
+      if (p.Type === "tty") tty = true;
+    }
+    if (!tty) return false;
+    const env = await run(systemBin("systemctl"), ["--user", "show-environment"], signal);
+    return env.split("\n").some((l) => /^(DISPLAY|WAYLAND_DISPLAY)=\S/.test(l));
   } catch {
     return false;
   }
@@ -71,14 +111,19 @@ export async function hasGraphicalSession(
 /**
  * Linux only: starts the Host helper (`systemctl --user start <unit>`, no shell, fixed arguments).
  * With a graphical session it is `psyche-helper.service` as always; without one it is the
- * headless unit (B0). Rejects when systemd cannot start it.
+ * headless unit (B0). Rejects when systemd cannot start it; the error carries `unit`.
  */
 export async function startHelperWithSystemd(
   signal?: AbortSignal,
   run: RunCommand = runFile,
   graphical: () => Promise<boolean> = () => hasGraphicalSession(run, undefined, signal),
 ): Promise<void> {
-  await run("systemctl", ["--user", "start", helperUnitFor(await graphical())], signal);
+  const unit = helperUnitFor(await graphical());
+  try {
+    await run(systemBin("systemctl"), ["--user", "start", unit], signal);
+  } catch (err) {
+    throw Object.assign(new Error(`could not start ${unit}`, { cause: err }), { unit });
+  }
 }
 
 export const COMPUTER_USE_LINUX = "computerUse.linux";
