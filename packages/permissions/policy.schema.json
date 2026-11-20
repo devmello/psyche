@@ -210,13 +210,17 @@
           "ref": {
             "additionalProperties": false,
             "type": "object",
-            "required": ["dev", "ino"],
+            "required": ["dev", "ino", "birth"],
             "properties": {
               "dev": {
                 "minLength": 1,
                 "type": "string"
               },
               "ino": {
+                "minLength": 1,
+                "type": "string"
+              },
+              "birth": {
                 "minLength": 1,
                 "type": "string"
               }

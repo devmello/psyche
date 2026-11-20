@@ -98,7 +98,11 @@ export const PolicyConfig = Type.Object(
              */
             ref: Type.Optional(
               Type.Object(
-                { dev: Type.String({ minLength: 1 }), ino: Type.String({ minLength: 1 }) },
+                {
+                  dev: Type.String({ minLength: 1 }),
+                  ino: Type.String({ minLength: 1 }),
+                  birth: Type.String({ minLength: 1 }),
+                },
                 { additionalProperties: false },
               ),
             ),

@@ -159,7 +159,7 @@ import { type ExecHostDeps, execHostTool } from "./exec-host.ts";
 import { feedContextResolver } from "./feed-context.ts";
 import { filesHandlers } from "./files.ts";
 import { migrateFilesConnector } from "./files-migration.ts";
-import { withFolder, withRecordedReal, withRecordedRef, withRepointed } from "./folder-access.ts";
+import { repointFolders, withFolder, withRecordedReal, withRecordedRef } from "./folder-access.ts";
 import { usesSandboxPc } from "./guest-sandbox.ts";
 import {
   mountParamsOnly,
@@ -782,7 +782,7 @@ export async function composeGateway(options: ComposeOptions): Promise<ComposedG
   };
   // The identity (volume and inode) of a Settings folder, stored once so a rename can be offered
   // back to the owner as "Reconnect <name>?" (never re-pointed silently).
-  const recordFolderRef = (path: string, ref: { dev: string; ino: string }) => {
+  const recordFolderRef = (path: string, ref: { dev: string; ino: string; birth: string }) => {
     const current = validPolicy(getSetting(db, "permissions.policy")?.value, gwOptions.logger);
     const next = current === undefined ? undefined : withRecordedRef(current, path, ref);
     if (next === undefined) return;
@@ -790,27 +790,33 @@ export async function composeGateway(options: ComposeOptions): Promise<ComposedG
     rawBroker.setPolicy(hostPolicy(next, db));
     publish("settings.changed", { entries: [saved] });
   };
-  // The owner's tap on "Reconnect <name>?": the broker has already run every grant check on `to`.
-  const repointFolder = (path: string, to: string, by: { deviceId: string }): boolean => {
-    const current = validPolicy(getSetting(db, "permissions.policy")?.value, gwOptions.logger);
-    const next = current === undefined ? undefined : withRepointed(current, path, to);
-    if (next === undefined) return false;
-    const before = getSetting(db, "permissions.policy")?.value;
-    const saved = setSetting(db, "permissions.policy", next);
-    rawBroker.setPolicy(hostPolicy(next, db));
-    publish("settings.changed", { entries: [saved] });
-    try {
-      gwOptions.onSettingChanged?.({
-        key: "permissions.policy",
-        before,
-        after: next,
-        deviceId: by.deviceId,
-      });
-    } catch {
-      // Reporting never fails the change.
-    }
-    return true;
-  };
+  // The owner's tap on "Reconnect <name>?": the broker has already run every grant check.
+  const repointFolder = (
+    moves: readonly { from: string; to: string }[],
+    by: { deviceId: string },
+  ) =>
+    repointFolders(
+      {
+        read: () => ({
+          value: getSetting(db, "permissions.policy")?.value,
+          policy: validPolicy(getSetting(db, "permissions.policy")?.value, gwOptions.logger),
+        }),
+        write: (next) => setSetting(db, "permissions.policy", next),
+        applied: (next, saved) => {
+          rawBroker.setPolicy(hostPolicy(next, db));
+          publish("settings.changed", { entries: [saved as never] });
+        },
+        report: (change) =>
+          gwOptions.onSettingChanged?.({
+            key: change.key,
+            before: change.before as never,
+            after: change.after,
+            deviceId: change.deviceId,
+          }),
+      },
+      moves,
+      by,
+    );
   let deferredResumeRef: DeferredResume | undefined;
   const rawBroker = new PsychePermissionBroker({
     folderAccess: {

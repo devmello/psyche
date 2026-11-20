@@ -236,7 +236,12 @@ export function ConnectedAccessList({
     setConfirming((s) => new Set([...s, e.id]));
     // What the owner saw: the Gateway re-checks the place like a fresh grant before it re-points.
     call("access.reconnectFolder", { entryId: e.id, to: e.reconnectTo ?? "" })
-      .then(() => list.reload())
+      .then((r) => {
+        // False: the folder moved again, the old path came back or the place no longer qualifies.
+        if (!r.reconnected)
+          setFailed(t("settings.access.reconnectFailed", { name: baseName(e.path ?? e.label) }));
+        list.reload();
+      })
       .catch((err: unknown) => setFailed(messageOf(err)))
       .finally(() =>
         setConfirming((s) => {

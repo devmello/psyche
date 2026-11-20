@@ -595,6 +595,7 @@ export const settings: Partial<Catalogue> = {
   "settings.access.reconnectPrompt": "重新连接 {name}？它现在位于 {path}",
   "settings.access.reconnect": "重新连接",
   "settings.access.reconnectNamed": "将 {name} 重新连接到 {path}",
+  "settings.access.reconnectFailed": "{name} 又被移动了，或无法重新连接。列表已刷新。",
   "settings.model.advancedHint": "上下文上限、本地模型",
   "settings.permissions.subject.prepNotes": "标题为“Prep:”的备忘录（会议准备）",
   "settings.permissions.specificConnectors": "特定连接器的权限在“连接器”中它自己的页面上设置。",

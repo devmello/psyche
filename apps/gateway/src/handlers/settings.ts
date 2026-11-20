@@ -99,6 +99,19 @@ async function checkNewFolders(call: Call, value: unknown): Promise<Map<string, 
  * that is the path itself). A granted root whose real path later differs from this one covers
  * nothing (`grantedRootRefused`), so a parent swapped for a link is caught as well as the root.
  */
+/** The paths of the folders in a stored `permissions.policy`, sorted. */
+function storedFolderPaths(policy: unknown): string[] {
+  const folders = (policy as { folders?: unknown } | null | undefined)?.folders;
+  if (!Array.isArray(folders)) return [];
+  return folders
+    .map((f) => (f as { path?: unknown } | null)?.path)
+    .filter((p): p is string => typeof p === "string")
+    .sort();
+}
+
+const sameStrings = (a: readonly string[], b: readonly string[]): boolean =>
+  a.length === b.length && a.every((x, i) => x === b[i]);
+
 export function recordPolicyFolderReals(
   value: unknown,
   stored: unknown,
@@ -259,8 +272,10 @@ export const settingsHandlers: Record<string, HandlerDef> = {
       if (isAdminSettingKey(key) && !call.identity.scopes.includes("operator.admin")) {
         throw new PsycheError("forbidden", `Changing ${key} requires operator.admin`);
       }
+      let foldersAtStart: string[] | undefined;
       if (key === "permissions.policy") {
         value = expandPolicyFolders(value, getSetting(call.ctx.db, key)?.value);
+        foldersAtStart = storedFolderPaths(getSetting(call.ctx.db, key)?.value);
         const judged = await checkNewFolders(call, value);
         value = recordPolicyFolderReals(value, getSetting(call.ctx.db, key)?.value, judged);
       }
@@ -288,7 +303,20 @@ export const settingsHandlers: Record<string, HandlerDef> = {
       }
       const before = getSettings(call.ctx.db, [key])[key];
       // Nothing is awaited between this read and the write.
-      if (key === "permissions.policy") value = mergeStoredFolderReals(value, before);
+      if (key === "permissions.policy") {
+        // The folder list above was built before the card was answered. A folder re-pointed
+        // meanwhile (Reconnect) would come back under its old path: ask for a fresh edit instead.
+        if (
+          foldersAtStart !== undefined &&
+          !sameStrings(foldersAtStart, storedFolderPaths(before))
+        ) {
+          throw new PsycheError(
+            "conflict",
+            "The shared folders changed while you were confirming. Read the list again and retry.",
+          );
+        }
+        value = mergeStoredFolderReals(value, before);
+      }
       const entry = setSetting(call.ctx.db, key, value);
       try {
         call.ctx.onSettingChanged?.({

@@ -630,6 +630,7 @@ export const settings: Partial<Catalogue> = {
   "settings.access.reconnectPrompt": "إعادة ربط {name}؟ أصبح الآن في {path}",
   "settings.access.reconnect": "إعادة الربط",
   "settings.access.reconnectNamed": "إعادة ربط {name} بـ {path}",
+  "settings.access.reconnectFailed": "تم نقل {name} مرة أخرى أو تعذّرت إعادة ربطه. جرى تحديث القائمة.",
   "settings.model.advancedHint": "حدود السياق، النماذج المحلية",
   "settings.permissions.subject.prepNotes": "ملاحظات عنوانها «Prep:» (التحضير للاجتماعات)",
   "settings.permissions.specificConnectors": "تُضبط أذونات موصّل محدد في صفحته ضمن الموصّلات.",

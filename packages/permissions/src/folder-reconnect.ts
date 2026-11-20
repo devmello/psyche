@@ -2,6 +2,7 @@ import type { Dirent } from "node:fs";
 import { lstat, readdir, realpath } from "node:fs/promises";
 import { homedir } from "node:os";
 import { basename, dirname, join, resolve } from "node:path";
+import { isUnderHostPath } from "@psyche/hostfs";
 import { assertFolderGrantable, type FolderAccessEnv, sameRootSpelling } from "./folder-access.ts";
 
 /**
@@ -17,20 +18,30 @@ import { assertFolderGrantable, type FolderAccessEnv, sameRootSpelling } from ".
 export interface FolderRef {
   dev: string;
   ino: string;
+  /** Birth time in ns: inode numbers are reused (ext4, FAT, SMB), the birth time is not. */
+  birth: string;
 }
 
-/** The identity of a plain folder at `path` (never a link); undefined for anything else. */
+/**
+ * The identity of a plain folder at `path` (never a link); undefined for anything else, and for a
+ * file system that reports no birth time (its inode alone would not tell folders apart).
+ */
 export async function folderRefOf(path: string): Promise<FolderRef | undefined> {
   try {
     const info = await lstat(path, { bigint: true });
-    if (!info.isDirectory() || info.isSymbolicLink()) return undefined;
-    return { dev: info.dev.toString(), ino: info.ino.toString() };
+    if (!info.isDirectory() || info.isSymbolicLink() || info.birthtimeNs <= 0n) return undefined;
+    return {
+      dev: info.dev.toString(),
+      ino: info.ino.toString(),
+      birth: info.birthtimeNs.toString(),
+    };
   } catch {
     return undefined;
   }
 }
 
-export const sameRef = (a: FolderRef, b: FolderRef): boolean => a.dev === b.dev && a.ino === b.ino;
+export const sameRef = (a: FolderRef, b: FolderRef): boolean =>
+  a.dev === b.dev && a.ino === b.ino && a.birth === b.birth;
 
 /** Whether nothing is at `path` (ENOENT; a link, even a dangling one, is something). */
 export async function pathIsGone(path: string): Promise<boolean> {
@@ -43,18 +54,22 @@ export async function pathIsGone(path: string): Promise<boolean> {
 }
 
 export interface LocateBudget {
-  /** Most folders looked at. */
-  maxDirs?: number;
+  /** Most entries looked at. */
+  maxEntries?: number;
   /** Longest search, in ms. */
   maxMs?: number;
-  /** How far under each search root. */
-  maxDepth?: number;
+  /** The clock the deadline is read from (default `Date.now`). */
+  now?: () => number;
+  /** Granted folders to search inside (their subtrees, a few levels deep). */
+  grantedRoots?: readonly string[];
 }
 
 /**
- * Looks for the folder with identity `ref`: the old parent first (a rename), then the owner's
- * home, a few levels deep. Links are never followed, dot folders and `~/Library` are skipped, and
- * the search stops at the budget. Only a suggestion: `checkReconnect` judges the answer.
+ * Looks for the folder with identity `ref` in the few places a rename or move lands: the old
+ * parent (two levels), each ancestor of it up to home (their direct children only, which are
+ * looked at but never opened, so no privacy prompt for Desktop or Documents), and the subtrees of
+ * folders already granted. Links are never followed, dot folders and `~/Library` are skipped, and
+ * the deadline is checked for every entry. Only a suggestion: `checkReconnect` judges the answer.
  */
 export async function locateFolder(
   stored: string,
@@ -62,20 +77,21 @@ export async function locateFolder(
   env: FolderAccessEnv = {},
   budget: LocateBudget = {},
 ): Promise<string | undefined> {
-  const maxDirs = budget.maxDirs ?? 3000;
-  const deadline = Date.now() + (budget.maxMs ?? 800);
-  const maxDepth = budget.maxDepth ?? 3;
+  const maxEntries = budget.maxEntries ?? 2000;
+  const now = budget.now ?? Date.now;
+  const deadline = now() + (budget.maxMs ?? 800);
+  const home = resolve(env.home ?? homedir());
   let seen = 0;
-  const roots = [dirname(resolve(stored)), resolve(env.home ?? homedir())];
   const visited = new Set<string>();
-  for (const root of roots) {
+  const exhausted = (): boolean => seen++ >= maxEntries || now() > deadline;
+
+  const scan = async (root: string, maxDepth: number): Promise<string | undefined> => {
     let level = [root];
     for (let depth = 0; depth <= maxDepth && level.length > 0; depth++) {
       const next: string[] = [];
       for (const dir of level) {
         if (visited.has(dir)) continue;
         visited.add(dir);
-        if (seen++ >= maxDirs || Date.now() > deadline) return undefined;
         let names: Dirent[];
         try {
           names = await readdir(dir, { withFileTypes: true });
@@ -83,6 +99,7 @@ export async function locateFolder(
           continue;
         }
         for (const d of names) {
+          if (exhausted()) return undefined;
           // A symlink is not a directory here: links are never followed.
           if (!d.isDirectory() || d.name.startsWith(".") || d.name === "Library") continue;
           const full = join(dir, d.name);
@@ -93,6 +110,24 @@ export async function locateFolder(
       }
       level = next;
     }
+    return undefined;
+  };
+
+  const parent = dirname(resolve(stored));
+  const hit = await scan(parent, 1);
+  if (hit !== undefined) return hit;
+  // Ancestors up to home: their direct children only.
+  if (isUnderHostPath(parent, home) || parent === home) {
+    for (let dir = dirname(parent); ; dir = dirname(dir)) {
+      if (!isUnderHostPath(dir, home) && dir !== home) break;
+      const found = await scan(dir, 0);
+      if (found !== undefined) return found;
+      if (dir === home) break;
+    }
+  }
+  for (const root of budget.grantedRoots ?? []) {
+    const found = await scan(root, 3);
+    if (found !== undefined) return found;
   }
   return undefined;
 }
