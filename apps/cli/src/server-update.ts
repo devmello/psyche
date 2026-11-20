@@ -1,8 +1,7 @@
+import { spawn } from "node:child_process";
 import { createHash, createPublicKey, verify } from "node:crypto";
 import {
   chmodSync,
-  createReadStream,
-  createWriteStream,
   existsSync,
   mkdirSync,
   readdirSync,
@@ -14,10 +13,11 @@ import {
 } from "node:fs";
 import { homedir } from "node:os";
 import { basename, dirname, join, resolve } from "node:path";
+import { Readable } from "node:stream";
 import { pipeline } from "node:stream/promises";
 import { createZstdDecompress } from "node:zlib";
 import { CliError } from "./errors.ts";
-import type { Exec } from "./exec.ts";
+import type { Exec, ExecResult } from "./exec.ts";
 
 /**
  * `psyche update` for a psyche-server install (docs/design/linux-helper-only-2026.md §3.2; wave
@@ -31,9 +31,19 @@ import type { Exec } from "./exec.ts";
  * refused, so an old signed manifest cannot walk an install back.
  *
  * deb and rpm are root's: the update is downloaded and verified, the pre-update snapshot is taken,
- * and the `apt`/`dnf` command to run is printed. The tarball (an install under the owner's own
- * account, deploy/linux-server/install.mjs) is replaced in place: unpacked into `releases/<v>`,
- * switched to by renaming a symlink, started, and switched back if it does not come up healthy.
+ * and one `sudo` command is printed for the owner to run (an owner decision: nothing here holds
+ * root). That command copies the package into a root-owned folder and checks its signed SHA-256
+ * as root before apt or dnf reads it, so a process of the account cannot swap the file in between.
+ * The package's postinst restarts the Gateway and the headless helper on the new files.
+ *
+ * The tarball (an install under the owner's own account, deploy/linux-server/install.mjs) is
+ * replaced in place: unpacked from the verified bytes in memory into `releases/<v>`, switched to
+ * by renaming a symlink, started with the helper, and switched back if it does not come up
+ * healthy. While the new Gateway says it is copying or migrating the data
+ * (`run/update-progress.json`), the wait goes on, up to a ceiling; and the old build is only put
+ * back when its own `migrate --check` says it can open the data as it is.
+ *
+ * Never as root: the tarball tree is the account's, and a root update would run code from it.
  *
  * The data folder is never written here except through `psyched snapshot`, which copies it into
  * `backups/pre-update` (apps/gateway/src/pre-update.ts, the Gateway's own snapshot code).
@@ -44,6 +54,17 @@ export const DEFAULT_MANIFEST_URL =
   "https://github.com/devmello/psyche/releases/latest/download/update-manifest.json";
 export const INSTALL_FILE = "psyche-server.json";
 export const KEYS_FILE = "release-keys.json";
+export const GATEWAY_UNIT = "psyche-gateway.service";
+/** The headless helper's user unit (deploy/systemd, wave B0). */
+export const HEADLESS_UNIT = "psyche-helper-headless.service";
+/** Where the printed `sudo` command puts a package before apt or dnf reads it: root's, 0700. */
+export const ROOT_UPDATE_DIR = "/var/cache/psyche-server";
+/** How long the Gateway's update progress note counts as fresh (the desktop's own value). */
+export const UPDATE_PROGRESS_FRESH_MS = 5 * 60_000;
+/** However long the snapshot and the migrations take, the wait for a new Gateway ends here. */
+export const UPDATE_WAIT_CEILING_MS = 15 * 60_000;
+/** `psyched snapshot`'s exit status when there is no data folder yet (gateway CLI_EXIT.noData). */
+export const SNAPSHOT_NO_DATA = 5;
 const SEMVER = /^(\d+)\.(\d+)\.(\d+)(?:-([0-9A-Za-z.-]+))?$/;
 
 export type InstallKind = "deb" | "rpm" | "tarball";
@@ -193,6 +214,34 @@ export function findServerInstall(bundle: string): ServerInstall {
   };
 }
 
+/** What `psyche status` says about a psyche-server install: its kind, version, and helper. */
+export interface ServerInstallStatus {
+  kind: InstallKind;
+  version: string;
+  /** The tarball's helper is the account's own file, so the Gateway cannot verify it. */
+  helper?: "not_verified_tarball";
+}
+
+/** The psyche-server install this CLI belongs to, for `psyche status`; undefined for any other. */
+export function serverInstallStatus(bundle: string | undefined): ServerInstallStatus | undefined {
+  if (bundle === undefined) return undefined;
+  try {
+    const i = findServerInstall(bundle);
+    return {
+      kind: i.kind,
+      version: i.version,
+      ...(i.kind === "tarball" ? { helper: "not_verified_tarball" as const } : {}),
+    };
+  } catch {
+    return undefined;
+  }
+}
+
+/** The status line: `psyche-server tarball 1.5.0; helper not verified (tarball install)`. */
+export function serverInstallText(s: ServerInstallStatus): string {
+  return `psyche-server ${s.kind} ${s.version}${s.helper === "not_verified_tarball" ? "; helper not verified (tarball install)" : ""}`;
+}
+
 /** The signature, against the install's keys, then the shape of what `psyche update` reads. */
 export function verifyServerManifest(
   bytes: Uint8Array,
@@ -336,7 +385,11 @@ export function planServerUpdate(
 
 /** The size and SHA-256 the signed manifest gives, or this throws. */
 export function verifyArtifactFile(file: string, artifact: ServerArtifact): void {
-  const bytes = readFileSync(file);
+  verifyArtifactBytes(readFileSync(file), artifact);
+}
+
+/** The same, for bytes in memory: what was checked is what is used. */
+export function verifyArtifactBytes(bytes: Buffer, artifact: ServerArtifact): void {
   const hash = createHash("sha256").update(bytes).digest("hex");
   if (bytes.length !== artifact.bytes || hash !== artifact.sha256) {
     throw fail(
@@ -359,90 +412,168 @@ export function ensurePrivateDir(dir: string): void {
   chmodSync(dir, 0o700);
 }
 
+/** Runs `tar` with the decompressed bytes of a verified `.tar.zst` on its stdin. */
+function tarFromBytes(args: string[], zst: Buffer, timeoutMs: number): Promise<ExecResult> {
+  return new Promise((done) => {
+    const child = spawn("tar", args, { stdio: ["pipe", "pipe", "pipe"], timeout: timeoutMs });
+    let stdout = "";
+    let stderr = "";
+    child.stdout.on("data", (d) => {
+      stdout += String(d);
+    });
+    child.stderr.on("data", (d) => {
+      stderr += String(d);
+    });
+    // A decompression error fails the run even when tar has already exited.
+    const fed = pipeline(Readable.from([zst]), createZstdDecompress(), child.stdin).then(
+      () => undefined,
+      (err: Error) => err.message,
+    );
+    child.on("error", (err) => done({ code: 127, stdout, stderr: stderr + err.message }));
+    child.on("close", (code) => {
+      void fed.then((why) =>
+        done({ code: why === undefined ? (code ?? 1) : 1, stdout, stderr: why ?? stderr }),
+      );
+    });
+  });
+}
+
 /**
- * Unpacks a verified `.tar.zst` into `dest` (which must not exist). Node decompresses (no zstd
- * binary needed); tar unpacks. Every entry must sit under `<top>/` with no `..` and no absolute
- * path, even though the bytes are the signed ones.
+ * Unpacks a verified `.tar.zst`, from the very bytes that were verified (in memory, through
+ * tar's stdin: nothing is read back from disk), into `dest` (which must not exist). Node
+ * decompresses (no zstd binary needed); tar unpacks. Every entry must sit under `<top>/` with no
+ * `..` and no absolute path, even though the bytes are the signed ones.
  */
 export async function unpackTarZst(
-  file: string,
+  zst: Buffer,
   dest: string,
   top: string,
-  exec: Exec,
+  name = `${top}.tar.zst`,
 ): Promise<string> {
-  const tar = `${dest}.tar`;
-  rmSync(tar, { force: true });
-  await pipeline(
-    createReadStream(file),
-    createZstdDecompress(),
-    createWriteStream(tar, { mode: 0o600 }),
-  );
-  try {
-    const listed = await exec("tar", ["-tf", tar], { timeoutMs: 120_000 });
-    if (listed.code !== 0)
-      throw fail(`tar could not read ${basename(file)}: ${listed.stderr.trim()}`);
-    for (const entry of listed.stdout.split("\n").filter(Boolean)) {
-      if (
-        entry.startsWith("/") ||
-        entry.split("/").includes("..") ||
-        (entry !== `${top}/` && !entry.startsWith(`${top}/`))
-      )
-        throw fail(`${basename(file)} holds ${entry}, outside ${top}/: refused.`);
-    }
-    mkdirSync(dest, { mode: 0o755 });
-    const out = await exec("tar", ["-xf", tar, "-C", dest, "--no-same-owner"], {
-      timeoutMs: 300_000,
-    });
-    if (out.code !== 0) throw fail(`tar could not unpack ${basename(file)}: ${out.stderr.trim()}`);
-  } finally {
-    rmSync(tar, { force: true });
+  const listed = await tarFromBytes(["-tf", "-"], zst, 120_000);
+  if (listed.code !== 0) throw fail(`tar could not read ${name}: ${listed.stderr.trim()}`);
+  for (const entry of listed.stdout.split("\n").filter(Boolean)) {
+    if (
+      entry.startsWith("/") ||
+      entry.split("/").includes("..") ||
+      (entry !== `${top}/` && !entry.startsWith(`${top}/`))
+    )
+      throw fail(`${name} holds ${entry}, outside ${top}/: refused.`);
   }
+  mkdirSync(dest, { mode: 0o755 });
+  const out = await tarFromBytes(["-xf", "-", "-C", dest, "--no-same-owner"], zst, 300_000);
+  if (out.code !== 0) throw fail(`tar could not unpack ${name}: ${out.stderr.trim()}`);
   return join(dest, top);
 }
 
-/** Keeps the signed manifest beside a downloaded package, so a later rollback can verify it again. */
-export function keepManifest(file: string, bytes: Uint8Array, sig: string): void {
-  writeFileSync(`${file}.manifest.json`, bytes, { mode: 0o600 });
-  writeFileSync(`${file}.manifest.json.sig`, sig, { mode: 0o600 });
+/** A word for a POSIX shell, single-quoted unless it is plainly safe. */
+export function shQuote(word: string): string {
+  return /^[A-Za-z0-9_@%+=:,./-]+$/.test(word) ? word : `'${word.replace(/'/g, "'\\''")}'`;
 }
 
 /**
- * The newest kept package older than `current` whose kept manifest still verifies against the
- * install's keys and whose bytes still match it. Nothing on disk is believed without that.
+ * The one command the owner runs to install a verified deb or rpm. As root it copies the package
+ * out of the account's cache into `ROOT_UPDATE_DIR` (root's, 0700), checks the SHA-256 the signed
+ * manifest gives on that copy, and only then lets apt or dnf read it, so the file the account
+ * owns cannot be swapped between the check and the install. The cache path is shell-quoted.
+ */
+export function verifiedInstallCommand(
+  kind: Exclude<InstallKind, "tarball">,
+  file: string,
+  artifact: Pick<ServerArtifact, "name" | "sha256">,
+  downgrade = false,
+): string {
+  if (!/^psyche-server-[0-9A-Za-z.+-]+\.(deb|rpm)$/.test(artifact.name))
+    throw fail(`not a psyche-server package name: ${artifact.name}`);
+  if (!/^[0-9a-f]{64}$/.test(artifact.sha256)) throw fail("not a SHA-256");
+  const dest = `${ROOT_UPDATE_DIR}/${artifact.name}`;
+  const tool =
+    kind === "deb"
+      ? `apt install ${downgrade ? "--allow-downgrades " : ""}${dest}`
+      : `dnf ${downgrade ? "downgrade" : "install"} ${dest}`;
+  const script = [
+    "set -e",
+    `install -d -m 0700 -o root -g root ${ROOT_UPDATE_DIR}`,
+    `install -m 0600 -o root -g root "$1" ${dest}`,
+    `echo "${artifact.sha256}  ${dest}" | sha256sum -c -`,
+    tool,
+    `rm -f ${dest}`,
+  ].join("; ");
+  return `sudo sh -c ${shQuote(script)} sh ${shQuote(file)}`;
+}
+
+/**
+ * Keeps the signed manifest beside a downloaded package, so a later rollback can verify it again,
+ * and the release that ran when it was downloaded (`from`): a rollback from it offers only that.
+ */
+export function keepManifest(file: string, bytes: Uint8Array, sig: string, from?: string): void {
+  writeFileSync(`${file}.manifest.json`, bytes, { mode: 0o600 });
+  writeFileSync(`${file}.manifest.json.sig`, sig, { mode: 0o600 });
+  if (from !== undefined) writeFileSync(`${file}.from`, `${from}\n`, { mode: 0o600 });
+}
+
+const KEPT_SIDECARS = [".manifest.json", ".manifest.json.sig", ".from"];
+
+/** Deletes kept packages of this kind and arch except the releases in `keep` (the last two). */
+export function pruneKeptPackages(
+  cacheDir: string,
+  install: Pick<ServerInstall, "kind" | "arch">,
+  keep: readonly string[],
+): void {
+  if (!existsSync(cacheDir)) return;
+  const names = new Set(keep.map((r) => artifactName(r, install.arch, install.kind)));
+  const ext = EXTENSION[install.kind].replace(".", "\\.");
+  const own = new RegExp(`^psyche-server-.+-linux-${install.arch}\\.${ext}$`);
+  for (const name of readdirSync(cacheDir)) {
+    if (!own.test(name) || names.has(name)) continue;
+    for (const suffix of ["", ...KEPT_SIDECARS])
+      rmSync(join(cacheDir, `${name}${suffix}`), { force: true });
+  }
+}
+
+export interface KeptPackage {
+  file: string;
+  release: string;
+  artifact: ServerArtifact;
+}
+
+/**
+ * The kept package of the release that ran before this one: the one the running release's own
+ * kept package names as `from` when it was downloaded. Offered only when its kept manifest still
+ * verifies against the install's keys and its bytes still match it; nothing else is offered, so a
+ * planted older release is not a rollback target.
  */
 export function findKeptPackage(
   cacheDir: string,
   install: Pick<ServerInstall, "kind" | "arch" | "version" | "keys">,
-): { file: string; release: string } | undefined {
-  if (!existsSync(cacheDir)) return undefined;
-  const ext = EXTENSION[install.kind];
-  const found: { file: string; release: string }[] = [];
-  for (const name of readdirSync(cacheDir)) {
-    const m = new RegExp(
-      `^psyche-server-(.+)-linux-${install.arch}\\.${ext.replace(".", "\\.")}$`,
-    ).exec(name);
-    const release = m?.[1];
-    if (release === undefined || !SEMVER.test(release)) continue;
-    if (compareVersions(release, install.version) >= 0) continue;
-    const file = join(cacheDir, name);
-    try {
-      const manifest = verifyServerManifest(
-        readFileSync(`${file}.manifest.json`),
-        readFileSync(`${file}.manifest.json.sig`, "utf8"),
-        install.keys,
-      );
-      if (manifest.release !== release) continue;
-      const entry = (manifest.platforms[`linux-${install.arch}`] ?? []).find(
-        (a) => a.kind === KIND[install.kind] && a.name === name,
-      );
-      if (entry === undefined) continue;
-      verifyArtifactFile(file, entry);
-      found.push({ file, release });
-    } catch {
-      // A kept file that no longer verifies is not offered.
-    }
+): KeptPackage | undefined {
+  let release: string;
+  try {
+    const mine = join(cacheDir, artifactName(install.version, install.arch, install.kind));
+    release = readFileSync(`${mine}.from`, "utf8").trim();
+  } catch {
+    return undefined;
   }
-  return found.sort((a, b) => compareVersions(b.release, a.release))[0];
+  if (!SEMVER.test(release) || compareVersions(release, install.version) >= 0) return undefined;
+  const name = artifactName(release, install.arch, install.kind);
+  const file = join(cacheDir, name);
+  try {
+    const manifest = verifyServerManifest(
+      readFileSync(`${file}.manifest.json`),
+      readFileSync(`${file}.manifest.json.sig`, "utf8"),
+      install.keys,
+    );
+    if (manifest.release !== release) return undefined;
+    const artifact = (manifest.platforms[`linux-${install.arch}`] ?? []).find(
+      (a) => a.kind === KIND[install.kind] && a.name === name,
+    );
+    if (artifact === undefined) return undefined;
+    verifyArtifactFile(file, artifact);
+    return { file, release, artifact };
+  } catch {
+    // A kept file that no longer verifies is not offered.
+    return undefined;
+  }
 }
 
 /** The pre-update snapshot folder for `from` → `to`, newest first, if the Gateway made one. */
@@ -460,6 +591,15 @@ export function snapshotFor(home: string, to: string): string | undefined {
     .sort((a, b) => timeOf(a).localeCompare(timeOf(b)));
   const last = names.at(-1);
   return last === undefined ? undefined : join(dir, last);
+}
+
+/** The release `<root>/current` names, or undefined. */
+function currentRelease(root: string): string | undefined {
+  try {
+    return basename(realpathSync(join(root, "current")));
+  } catch {
+    return undefined;
+  }
 }
 
 /** The release folder an unpacked tarball goes to, after checking what it says it is. */
@@ -492,7 +632,10 @@ export interface ServerUpdateOptions {
   /** A folder holding update-manifest.json, its .sig and the package (offline, or a test). */
   from?: string;
   manifestUrl?: string;
-  /** How long the new Gateway gets to answer /healthz before a tarball update is undone. */
+  /**
+   * How long the new Gateway gets to answer /healthz before a tarball update is undone, while it
+   * reports no snapshot or migration in progress (then the wait goes on, to the ceiling).
+   */
   healthyWithinMs?: number;
 }
 
@@ -509,6 +652,11 @@ export interface UpdateDeps {
   /** `$PSYCHE_HOME`. */
   home: string;
   log(line: string): void;
+  /** This process's uid (`process.getuid()`), so root is refused. */
+  uid?: number;
+  now?: () => number;
+  /** Tests: the longest wait for a new Gateway that reports progress (UPDATE_WAIT_CEILING_MS). */
+  ceilingMs?: number;
 }
 
 export interface UpdateResult {
@@ -544,13 +692,21 @@ async function loadManifest(
   return { bytes, sig, offline: false };
 }
 
-/** `psyched snapshot <to>` of the running build, with the Gateway stopped. */
-async function takeSnapshot(install: ServerInstall, to: string, d: UpdateDeps): Promise<string> {
+/**
+ * `psyched snapshot <to>` of the running build, with the Gateway stopped: the folder, or
+ * undefined when there is no data yet (nothing to copy).
+ */
+async function takeSnapshot(
+  install: ServerInstall,
+  to: string,
+  d: UpdateDeps,
+): Promise<string | undefined> {
   const r = await d.exec(join(install.bundle, "psyched"), ["snapshot", to], {
     env: { ...d.env, PSYCHE_HOME: d.home },
     timeoutMs: 30 * 60_000,
   });
   const lines = r.stdout.split("\n").filter(Boolean);
+  if (r.code === SNAPSHOT_NO_DATA) return undefined;
   if (r.code !== 0) {
     throw fail(
       `The pre-update snapshot failed, so nothing was updated: ${(lines.at(-1) ?? r.stderr).trim()}`,
@@ -574,6 +730,58 @@ async function releaseScript(
   if (r.code !== 0) throw fail(`install.mjs ${args[0]} failed: ${(r.stderr || r.stdout).trim()}`);
 }
 
+/**
+ * Restarts the headless helper when it runs, so it runs from the release now current (a helper
+ * left on the replaced files is refused by the Gateway's peer check, or runs a deleted release).
+ */
+async function restartHelper(d: UpdateDeps): Promise<void> {
+  await d.exec("systemctl", ["--user", "try-restart", HEADLESS_UNIT], { env: d.env });
+}
+
+/** True while the Gateway says it is copying or migrating the data (`run/update-progress.json`). */
+export function updateInProgress(home: string, now: number = Date.now()): boolean {
+  try {
+    const note = JSON.parse(readFileSync(join(home, "run", "update-progress.json"), "utf8")) as {
+      phase?: unknown;
+      at?: unknown;
+    };
+    const at = typeof note.at === "string" ? Date.parse(note.at) : Number.NaN;
+    return (
+      (note.phase === "snapshot" || note.phase === "migrating") &&
+      Number.isFinite(at) &&
+      now - at < UPDATE_PROGRESS_FRESH_MS
+    );
+  } catch {
+    return false;
+  }
+}
+
+/**
+ * Waits for /healthz: `ms`, and longer while the Gateway reports a snapshot or migrations in
+ * progress, up to the ceiling (a big database can take minutes; the desktop waits the same way).
+ */
+export async function waitHealthyThroughUpdate(d: UpdateDeps, ms: number): Promise<boolean> {
+  const now = d.now ?? Date.now;
+  const started = now();
+  const ceiling = d.ceilingMs ?? UPDATE_WAIT_CEILING_MS;
+  let slice = ms;
+  for (;;) {
+    if (await d.healthy(slice)) return true;
+    const spent = now() - started;
+    if (spent >= ceiling || !updateInProgress(d.home, now())) return false;
+    slice = Math.min(10_000, ceiling - spent);
+  }
+}
+
+/** The build in `releaseDir` can open the data as it is now (its own `psyche migrate --check`). */
+async function opensData(releaseDir: string, d: UpdateDeps): Promise<{ ok: boolean; why: string }> {
+  const check = await d.exec(join(releaseDir, "psyched", "psyche"), ["migrate", "--check"], {
+    env: { ...d.env, PSYCHE_HOME: d.home },
+    timeoutMs: 120_000,
+  });
+  return { ok: check.code === 0, why: (check.stdout || check.stderr).trim() };
+}
+
 async function rollbackTarball(
   install: ServerInstall,
   d: UpdateDeps,
@@ -589,24 +797,28 @@ async function rollbackTarball(
   const prevDir = join(root, "releases", previous);
   // The older build must be able to open the data as it is now (a newer build may have migrated
   // it). Its own CLI says so; if it cannot, nothing changes and the snapshot from before is named.
-  const check = await d.exec(join(prevDir, "psyched", "psyche"), ["migrate", "--check"], {
-    env: { ...d.env, PSYCHE_HOME: d.home },
-    timeoutMs: 120_000,
-  });
-  if (check.code !== 0) {
+  const check = await opensData(prevDir, d);
+  if (!check.ok) {
     const snap = snapshotFor(d.home, install.version);
     return {
       data: { rollback: false, refused: "data_newer", previous, snapshot: snap ?? null },
-      human: `${previous} cannot open your data as it is now:\n${check.stdout.trim()}\nNothing was changed.${snap ? ` Your data from before the update to ${install.version} is in ${snap}.` : ""}`,
+      human: `${previous} cannot open your data as it is now:\n${check.why}\nNothing was changed.${snap ? ` Your data from before the update to ${install.version} is in ${snap}.` : ""}`,
       exitCode: 1,
     };
   }
   const wasRunning = await d.running();
   if (wasRunning) await d.stop();
-  await releaseScript(prevDir, root, ["rollback"], d);
+  try {
+    await releaseScript(prevDir, root, ["rollback"], d);
+  } catch (err) {
+    // install.mjs changed nothing (its links go back on any error): the release that ran, again.
+    if (wasRunning) await d.start();
+    throw err;
+  }
   await d.exec("systemctl", ["--user", "daemon-reload"], { env: d.env });
   await d.start();
-  const healthy = await d.healthy(o.healthyWithinMs ?? 90_000);
+  await restartHelper(d);
+  const healthy = await waitHealthyThroughUpdate(d, o.healthyWithinMs ?? 90_000);
   return {
     data: { rollback: true, from: install.version, to: previous, healthy },
     human: healthy
@@ -616,25 +828,37 @@ async function rollbackTarball(
   };
 }
 
+/** The restart a deb or rpm owner runs if the package could not restart Psyche itself. */
+const RESTART_STEP = `  systemctl --user restart ${GATEWAY_UNIT} && systemctl --user try-restart ${HEADLESS_UNIT}`;
+
 function rollbackPackage(install: ServerInstall, d: UpdateDeps): UpdateResult {
+  const kind = install.kind as Exclude<InstallKind, "tarball">;
   const cache = updateCacheDir(d.env);
   const kept = findKeptPackage(cache, install);
-  const tool = (f: string) =>
-    install.kind === "deb" ? `sudo apt install --allow-downgrades ${f}` : `sudo dnf downgrade ${f}`;
   if (kept === undefined) {
+    const tool =
+      kind === "deb" ? "sudo apt install --allow-downgrades <file>" : "sudo dnf downgrade <file>";
     return {
       data: { rollback: false, refused: "no_kept_package" },
-      human: `No verified older psyche-server package is kept in ${cache}. Download the release you want from ${PINNED_BASE}, check it against that release's SHA256SUMS, and install it with: ${tool("<file>")}`,
+      human: `The package of the release that ran before ${install.version} is not kept in ${cache} (only one psyche update downloaded is kept, with the one before it). Download the release you want from ${PINNED_BASE}, check it against that release's SHA256SUMS, and install it with: ${tool}`,
       exitCode: 1,
     };
   }
   const snap = snapshotFor(d.home, install.version);
+  const command = verifiedInstallCommand(kind, kept.file, kept.artifact, true);
   return {
-    data: { rollback: "command", release: kept.release, file: kept.file, snapshot: snap ?? null },
+    data: {
+      rollback: "command",
+      release: kept.release,
+      file: kept.file,
+      command,
+      snapshot: snap ?? null,
+    },
     human: [
-      `Verified ${basename(kept.file)} again against its signed manifest. To go back to ${kept.release}:`,
-      `  ${tool(kept.file)}`,
-      "  systemctl --user restart psyche-gateway.service",
+      `Verified ${basename(kept.file)}, the release that ran before ${install.version}, again against its signed manifest. To go back to ${kept.release}, run this (it checks the file again as root first):`,
+      `  ${command}`,
+      `The package restarts Psyche; if it says it could not:`,
+      RESTART_STEP,
       `If ${kept.release} says your data is from a newer version, ${snap ? `your data from before the update is in ${snap}` : "restore it from backups/pre-update"}.`,
     ].join("\n"),
   };
@@ -664,6 +888,11 @@ export async function serverUpdate(
       "This psyche does not run from a psyche-server install, so it cannot update itself. Update the desktop app from its menu, the Docker image with docker compose pull, or a checkout with git pull.",
     );
   }
+  if (d.uid === 0) {
+    throw fail(
+      "Do not run psyche update as root (sudo). Run it as the account Psyche runs for: it prints the one command that needs root.",
+    );
+  }
   const install = findServerInstall(bundle);
   if (o.rollback) {
     return install.kind === "tarball"
@@ -688,46 +917,65 @@ export async function serverUpdate(
     };
   }
 
-  // The file, verified against the signed manifest before anything else happens.
-  const cache = updateCacheDir(d.env);
-  ensurePrivateDir(cache);
-  const file = join(cache, plan.artifact.name);
-  const part = `${file}.part-${process.pid}`;
-  try {
-    const got = offline
-      ? readFileSync(join(o.from as string, plan.artifact.name))
-      : await fetchBytes(d.fetch, plan.url);
-    writeFileSync(part, got, { mode: 0o600 });
-    verifyArtifactFile(part, plan.artifact);
-    renameSync(part, file);
-  } finally {
-    rmSync(part, { force: true });
+  // The file, verified against the signed manifest before anything else happens. The bytes that
+  // were verified are the ones used: the tarball is unpacked from them, and a deb or rpm is
+  // checked again as root by the printed command before apt or dnf reads it.
+  const got = offline
+    ? readFileSync(join(o.from as string, plan.artifact.name))
+    : await fetchBytes(d.fetch, plan.url);
+  verifyArtifactBytes(got, plan.artifact);
+  let file: string | undefined;
+  if (install.kind !== "tarball") {
+    const cache = updateCacheDir(d.env);
+    ensurePrivateDir(cache);
+    file = join(cache, plan.artifact.name);
+    const part = `${file}.part-${process.pid}`;
+    try {
+      writeFileSync(part, got, { mode: 0o600 });
+      renameSync(part, file);
+    } finally {
+      rmSync(part, { force: true });
+    }
+    keepManifest(file, bytes, sig, install.version);
+    pruneKeptPackages(cache, install, [plan.release, install.version]);
   }
-  keepManifest(file, bytes, sig);
   d.log(`verified ${plan.artifact.name} (sha256 ${plan.artifact.sha256})`);
 
   // The pre-update snapshot needs the Gateway stopped (it copies encrypted stores as bytes).
   const wasRunning = await d.running();
   if (wasRunning) await d.stop();
-  let snapshot: string;
+  let snapshot: string | undefined;
   try {
     snapshot = await takeSnapshot(install, plan.release, d);
   } catch (err) {
     if (wasRunning) await d.start();
     throw err;
   }
-  d.log(`pre-update snapshot: ${snapshot}`);
+  d.log(
+    snapshot === undefined ? "no data yet, nothing to copy" : `pre-update snapshot: ${snapshot}`,
+  );
+  const copied =
+    snapshot === undefined
+      ? "there is no data yet, so nothing needed copying"
+      : `your data is copied to ${snapshot}`;
 
   if (install.kind !== "tarball") {
     if (wasRunning) await d.start();
-    const cmd = install.kind === "deb" ? `sudo apt install ${file}` : `sudo dnf install ${file}`;
+    const cmd = verifiedInstallCommand(install.kind, file as string, plan.artifact);
     return {
-      data: { current: install.version, release: plan.release, file, snapshot, command: cmd },
+      data: {
+        current: install.version,
+        release: plan.release,
+        file,
+        snapshot: snapshot ?? null,
+        command: cmd,
+      },
       human: [
-        `psyche-server ${plan.release} is downloaded and verified, and your data is copied to ${snapshot}.`,
-        "Install it, then restart the Gateway:",
+        `psyche-server ${plan.release} is downloaded and verified, and ${copied}.`,
+        "Install it with this command (it checks the file again as root before the package manager reads it):",
         `  ${cmd}`,
-        "  systemctl --user restart psyche-gateway.service",
+        "The package restarts the Gateway and the helper; if it says it could not:",
+        RESTART_STEP,
       ].join("\n"),
     };
   }
@@ -739,10 +987,18 @@ export async function serverUpdate(
   let releaseDir: string;
   try {
     const top = plan.artifact.name.replace(/\.tar\.zst$/, "");
-    const unpacked = await unpackTarZst(file, incoming, top, d.exec);
+    const unpacked = await unpackTarZst(got, incoming, top, plan.artifact.name);
     releaseDir = placeRelease(unpacked, root, plan.release, install.arch);
+    // install.mjs switches `current` last and puts it back on any error, so a refused activate
+    // leaves the release that ran current; only that one is started again.
     await releaseScript(releaseDir, root, ["activate", plan.release], d);
   } catch (err) {
+    if (currentRelease(root) !== install.version) {
+      // Never start what a failed switch left behind.
+      throw fail(
+        `${(err as Error).message}\nThe switch to ${plan.release} did not finish and ${root}/current no longer names ${install.version}, so nothing was started. Run psyche update --rollback, or the old release's install.mjs rollback.`,
+      );
+    }
     if (wasRunning) await d.start();
     throw err;
   } finally {
@@ -750,29 +1006,53 @@ export async function serverUpdate(
   }
   await d.exec("systemctl", ["--user", "daemon-reload"], { env: d.env });
   await d.start();
-  if (await d.healthy(o.healthyWithinMs ?? 90_000)) {
+  await restartHelper(d);
+  const ms = o.healthyWithinMs ?? 90_000;
+  if (await waitHealthyThroughUpdate(d, ms)) {
     return {
-      data: { from: install.version, to: plan.release, snapshot, healthy: true },
-      human: `Updated psyche-server ${install.version} → ${plan.release}. Your data was copied first to ${snapshot}. psyche update --rollback goes back.`,
+      data: { from: install.version, to: plan.release, snapshot: snapshot ?? null, healthy: true },
+      human: `Updated psyche-server ${install.version} → ${plan.release}. ${snapshot === undefined ? "There was no data to copy first." : `Your data was copied first to ${snapshot}.`} psyche update --rollback goes back.`,
     };
   }
-  // Not healthy: back to the release that ran. A migration that failed was already undone by the
+  // Not healthy: back to the release that ran, but only when that build can open the data as it
+  // is now (the new one may have migrated it). A migration that failed was already undone by the
   // new Gateway itself (pre-update.ts); the data is not touched here.
   await d.stop();
-  await releaseScript(join(root, "releases", install.version), root, ["rollback"], d);
+  const oldDir = join(root, "releases", install.version);
+  const check = await opensData(oldDir, d);
+  const saved = snapshot === undefined ? "" : ` Your data from before is in ${snapshot}.`;
+  if (!check.ok) {
+    // Going back would leave both down: the new release stays, and gets another start.
+    await d.start();
+    await restartHelper(d);
+    return {
+      data: {
+        from: install.version,
+        to: plan.release,
+        snapshot: snapshot ?? null,
+        healthy: false,
+        rolledBack: false,
+        refused: "data_newer",
+      },
+      human: `psyche-server ${plan.release} did not come up healthy, and ${install.version} cannot open your data as it is now (${check.why || "migrate --check refused"}), so ${plan.release} stays and was started again. Check psyche logs.${saved}`,
+      exitCode: 1,
+    };
+  }
+  await releaseScript(oldDir, root, ["rollback"], d);
   await d.exec("systemctl", ["--user", "daemon-reload"], { env: d.env });
   await d.start();
-  const back = await d.healthy(o.healthyWithinMs ?? 90_000);
+  await restartHelper(d);
+  const back = await waitHealthyThroughUpdate(d, ms);
   return {
     data: {
       from: install.version,
       to: plan.release,
-      snapshot,
+      snapshot: snapshot ?? null,
       healthy: false,
       rolledBack: true,
       backHealthy: back,
     },
-    human: `psyche-server ${plan.release} did not come up healthy, so ${install.version} is back${back ? " and running" : ", but not answering yet (psyche logs)"}. Your data from before is in ${snapshot}.`,
+    human: `psyche-server ${plan.release} did not come up healthy, so ${install.version} is back${back ? " and running" : ", but not answering yet (psyche logs)"}.${saved}`,
     exitCode: 1,
   };
 }

@@ -14,6 +14,9 @@ export const helperCheck: Partial<Catalogue> = {
     "यह आपकी अपनी फ़ाइलों से चलता है, जैसे AppImage या आपके होम फ़ोल्डर में बना बिल्ड। Psyche इसे स्वीकार करता है, लेकिन यह नकार नहीं सकता कि आपके किसी और प्रोग्राम ने इसे बदल दिया हो।",
   "settings.devices.helperCheck.detail.unverified":
     "फ़िलहाल Psyche इसे स्वीकार करता है, लेकिन यह पता नहीं लगा सका कि यह कौन-सा प्रोग्राम है।",
+  "settings.devices.helperCheck.state.tarball": "हेल्पर सत्यापित नहीं (tarball इंस्टॉल)",
+  "settings.devices.helperCheck.detail.tarball":
+    "यह psyche-server आपके अपने खाते में tarball से इंस्टॉल हुआ है, इसलिए इसका हेल्पर आपकी अपनी फ़ाइल है। Psyche इसे स्वीकार करता है, लेकिन यह नकार नहीं सकता कि आपके किसी और प्रोग्राम ने इसे बदल दिया हो। deb या rpm पैकेज ऐसा हेल्पर इंस्टॉल करता है जिसे Psyche सत्यापित कर सकता है।",
   "settings.devices.helperCheck.refused": "अस्वीकृत: {reason}",
   "settings.devices.helperCheck.reason.unclear": "Psyche हेल्पर को सत्यापित नहीं कर सका",
   "settings.devices.helperCheck.reason.notHelper": "यह प्रोग्राम Psyche का हेल्पर नहीं है",

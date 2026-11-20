@@ -1,4 +1,5 @@
 import {
+  cpSync,
   existsSync,
   lstatSync,
   mkdirSync,
@@ -362,4 +363,157 @@ describe("the tarball's release layout (install.mjs)", () => {
     expect(() => call(inst, "activate", { ...l, version: "../1.4.0" })).toThrow();
     expect(target(join(l.root, "current"))).toBe(join("releases", "1.4.0"));
   });
+
+  it("activate removes only releases and leftovers it made: the owner's files under --root stay", () => {
+    const l = layout();
+    call(inst, "install", { ...l, from: release(l.d, "1.4.0"), exists: () => false });
+    const rel = join(l.root, "releases");
+    // The owner's own things, and look-alikes that are not a tarball release.
+    mkdirSync(join(rel, "my-thesis-drafts"), { recursive: true });
+    writeFileSync(join(rel, "my-thesis-drafts", "chapter1.md"), "# One\n");
+    writeFileSync(join(rel, "notes.txt"), "keep me\n");
+    mkdirSync(join(rel, "1.0.0"));
+    writeFileSync(join(rel, "1.0.0", "photo.jpg"), "jpg");
+    mkdirSync(join(rel, "1.1.0"));
+    writeFileSync(
+      join(rel, "1.1.0", "psyche-server.json"),
+      JSON.stringify({
+        format: "psyche-server-install",
+        kind: "deb",
+        version: "1.1.0",
+        arch: "x64",
+      }),
+    );
+    writeFileSync(join(rel, "1.2.0"), "a file named like a release");
+    // This installer's own: an older tarball release and a dead staging folder.
+    cpSyncDir(release(l.d, "1.3.0"), join(rel, "1.3.0"));
+    mkdirSync(join(rel, ".incoming-1.9.0-999999999"));
+    mkdirSync(join(rel, "1.3.0.old-999999999"));
+    for (const v of ["1.5.0", "1.6.0"])
+      call(inst, "install", { ...l, from: release(l.d, v), exists: () => false });
+    expect(readFileSync(join(rel, "my-thesis-drafts", "chapter1.md"), "utf8")).toBe("# One\n");
+    expect(readFileSync(join(rel, "notes.txt"), "utf8")).toBe("keep me\n");
+    for (const kept of ["1.0.0/photo.jpg", "1.1.0/psyche-server.json", "1.2.0", "1.5.0", "1.6.0"])
+      expect(existsSync(join(rel, kept)), kept).toBe(true);
+    for (const gone of ["1.3.0", "1.4.0", ".incoming-1.9.0-999999999", "1.3.0.old-999999999"])
+      expect(existsSync(join(rel, gone)), gone).toBe(false);
+  });
+
+  it("install refuses a non-empty --root it did not make; activate and rollback need the marker", () => {
+    const l = layout();
+    mkdirSync(join(l.root, "releases"), { recursive: true });
+    writeFileSync(join(l.root, "releases", "notes.txt"), "mine\n");
+    expect(() =>
+      call(inst, "install", { ...l, from: release(l.d, "1.4.0"), exists: () => false }),
+    ).toThrow(/not a psyche-server install folder/);
+    expect(readFileSync(join(l.root, "releases", "notes.txt"), "utf8")).toBe("mine\n");
+    expect(existsSync(join(l.root, inst.ROOT_MARKER as string))).toBe(false);
+    expect(() => call(inst, "activate", { ...l, version: "1.4.0" })).toThrow(/not a psyche-server/);
+    expect(() => call(inst, "rollback", l)).toThrow(/not a psyche-server/);
+    // An empty folder is fine.
+    const e = layout();
+    mkdirSync(e.root, { recursive: true });
+    call(inst, "install", { ...e, from: release(e.d, "1.4.0"), exists: () => false });
+    expect(existsSync(join(e.root, inst.ROOT_MARKER as string))).toBe(true);
+  });
+
+  it("a refused activate or rollback leaves current and previous as they were", () => {
+    const l = layout();
+    for (const v of ["1.4.0", "1.5.0"])
+      call(inst, "install", { ...l, from: release(l.d, v), exists: () => false });
+    cpSyncDir(release(l.d, "1.6.0"), join(l.root, "releases", "1.6.0"));
+    // `psyche start` wrote its own unit since: activate must refuse before switching anything.
+    writeFileSync(join(l.unitDir, "psyche-gateway.service"), "# written by psyche start\n");
+    expect(() => call(inst, "activate", { ...l, version: "1.6.0" })).toThrow(
+      /not written by the psyche-server installer/,
+    );
+    expect(target(join(l.root, "current"))).toBe(join("releases", "1.5.0"));
+    expect(target(join(l.root, "previous"))).toBe(join("releases", "1.4.0"));
+    expect(() => call(inst, "rollback", l)).toThrow(/not written by the psyche-server installer/);
+    expect(target(join(l.root, "current"))).toBe(join("releases", "1.5.0"));
+    expect(target(join(l.root, "previous"))).toBe(join("releases", "1.4.0"));
+    expect(readFileSync(join(l.unitDir, "psyche-gateway.service"), "utf8")).toBe(
+      "# written by psyche start\n",
+    );
+  });
+
+  it("refuses to run as root", () => {
+    expect(() => call(inst, "refuseRoot", 0)).toThrow(/not run this as root/);
+    expect(() => call(inst, "refuseRoot", 1000)).not.toThrow();
+  });
 });
+
+describe("the maintainer scripts on upgrade and removal", () => {
+  /** Runs a scriptlet with fake loginctl and systemctl on PATH; returns what they were asked. */
+  async function runScript(script: string, args: string[], env: Record<string, string> = {}) {
+    const { nodeExec } = await import("../src/exec.ts");
+    const dir = tempDir();
+    const log = join(dir, "calls.log");
+    writeFileSync(
+      join(dir, "loginctl"),
+      `#!/bin/sh\necho "loginctl $*" >> "${log}"\nif [ "$1" = list-users ]; then printf '0 root no active\\n1000 ann yes active\\n1001 bob no active\\n'; fi\nexit 0\n`,
+      { mode: 0o755 },
+    );
+    writeFileSync(join(dir, "systemctl"), `#!/bin/sh\necho "systemctl $*" >> "${log}"\nexit 0\n`, {
+      mode: 0o755,
+    });
+    writeFileSync(
+      join(dir, "getent"),
+      "#!/bin/sh\necho 'ann:x:1000:1000::/nonexistent:/bin/sh'\n",
+      {
+        mode: 0o755,
+      },
+    );
+    const file = join(dir, "script.sh");
+    writeFileSync(file, script, { mode: 0o755 });
+    const r = await nodeExec("/bin/sh", [file, ...args], {
+      env: { PATH: `${dir}:/usr/bin:/bin`, ...env },
+    });
+    const calls = existsSync(log) ? readFileSync(log, "utf8").trim().split("\n") : [];
+    return { ...r, calls };
+  }
+  const POSTINST = build.POSTINST as string;
+  const PRERM = build.PRERM as string;
+
+  it.skipIf(process.platform === "win32")(
+    "linger only on the first install, for the sudo user; an upgrade restarts Psyche and its helper",
+    async () => {
+      for (const first of [["configure", ""], ["configure"], ["1"]]) {
+        const r = await runScript(POSTINST, first, { SUDO_USER: "ann" });
+        expect(r.code).toBe(0);
+        expect(r.calls).toContain("loginctl enable-linger ann");
+        expect(r.calls.some((c) => c.includes("try-restart"))).toBe(false);
+      }
+      for (const upgrade of [["configure", "1.4.0"], ["2"]]) {
+        const r = await runScript(POSTINST, upgrade, { SUDO_USER: "ann" });
+        expect(r.code).toBe(0);
+        expect(r.calls.some((c) => c.includes("enable-linger"))).toBe(false);
+        for (const u of ["ann", "bob"])
+          expect(r.calls).toContain(
+            `systemctl --machine ${u}@ --user try-restart psyche-gateway.service psyche-helper-headless.service`,
+          );
+        expect(r.calls.some((c) => c.includes("--machine root@"))).toBe(false);
+      }
+      // Other dpkg actions do nothing.
+      expect((await runScript(POSTINST, ["abort-upgrade", "1.5.0"])).calls).toEqual([]);
+    },
+  );
+
+  it.skipIf(process.platform === "win32")(
+    "removal stops the units of every user whose manager runs, not just the sudo user",
+    async () => {
+      const r = await runScript(PRERM, ["remove"], { SUDO_USER: "ann" });
+      expect(r.code).toBe(0);
+      for (const u of ["ann", "bob"])
+        expect(r.calls).toContain(
+          `systemctl --machine ${u}@ --user disable --now psyche-gateway.service psyche-helper-headless.service`,
+        );
+      expect((await runScript(PRERM, ["upgrade", "1.5.0"])).calls).toEqual([]);
+      expect((await runScript(PRERM, ["1"])).calls).toEqual([]);
+    },
+  );
+});
+
+function cpSyncDir(from: string, to: string) {
+  cpSync(from, to, { recursive: true });
+}

@@ -5,9 +5,11 @@ import {
   createWriteStream,
   existsSync,
   mkdirSync,
+  readdirSync,
   readFileSync,
   readlinkSync,
   realpathSync,
+  rmSync,
   writeFileSync,
 } from "node:fs";
 import { join, resolve } from "node:path";
@@ -22,12 +24,18 @@ import {
   keyIdOf,
   PINNED_BASE,
   planServerUpdate,
+  pruneKeptPackages,
   type ReleaseKey,
   type ServerInstall,
+  serverInstallStatus,
+  serverInstallText,
   serverUpdate,
+  shQuote,
   type UpdateDeps,
+  verifiedInstallCommand,
   verifyArtifactFile,
   verifyServerManifest,
+  waitHealthyThroughUpdate,
 } from "../src/server-update.ts";
 import { cleanupTempDirs, tempDir } from "./helpers.ts";
 
@@ -309,8 +317,23 @@ describe("psyche update on a deb or rpm install", () => {
     const r = await serverUpdate(i.bundle, { from: dir }, deps);
     expect(r.exitCode ?? 0).toBe(0);
     const file = join(home, ".cache", "psyche", "updates", "psyche-server-1.5.0-linux-x64.deb");
-    expect(r.data).toMatchObject({ release: "1.5.0", file, command: `sudo apt install ${file}` });
+    expect(r.data).toMatchObject({ release: "1.5.0", file });
+    const command = r.data.command as string;
+    // Copied out of the account's cache and checked as root before apt reads it.
+    expect(command).toMatch(/^sudo sh -c '/);
+    expect(command).toContain('install -m 0600 -o root -g root "$1" /var/cache/psyche-server/');
+    expect(command).toMatch(
+      /echo "[0-9a-f]{64} {2}\/var\/cache\/psyche-server\/psyche-server-1\.5\.0-linux-x64\.deb" \| sha256sum -c -/,
+    );
+    expect(command).toContain(
+      "apt install /var/cache/psyche-server/psyche-server-1.5.0-linux-x64.deb",
+    );
+    expect(command.endsWith(` sh ${shQuote(file)}`)).toBe(true);
+    expect(r.human).toContain(command);
     expect(r.human).toContain("systemctl --user restart psyche-gateway.service");
+    expect(r.human).toContain("systemctl --user try-restart psyche-helper-headless.service");
+    // The release that ran is recorded, so a rollback offers only it.
+    expect(readFileSync(`${file}.from`, "utf8").trim()).toBe("1.4.0");
     expect(events.filter((e) => !e.startsWith("log"))).toEqual([
       "stop",
       "exec psyched/psyched snapshot 1.5.0",
@@ -365,17 +388,26 @@ describe("psyche update on a deb or rpm install", () => {
     expect(events).toEqual([]);
   });
 
-  it("--rollback offers a kept older package only after verifying it again", async () => {
+  it("--rollback offers only the kept release that ran before, after verifying it again", async () => {
     const home = tempDir();
     const env = { HOME: home, XDG_CACHE_HOME: join(home, ".cache") };
     const cache = join(home, ".cache", "psyche", "updates");
     mkdirSync(cache, { recursive: true });
-    const old = releaseDir("1.4.0", { "psyche-server-1.4.0-linux-x64.deb": "old deb" });
-    const file = join(cache, "psyche-server-1.4.0-linux-x64.deb");
-    cpSync(join(old, "psyche-server-1.4.0-linux-x64.deb"), file);
-    keepManifest(file, bytes(old), sig(old));
+    const keep = (release: string, from?: string) => {
+      const dir = releaseDir(release, {
+        [`psyche-server-${release}-linux-x64.deb`]: `deb ${release}`,
+      });
+      const file = join(cache, `psyche-server-${release}-linux-x64.deb`);
+      cpSync(join(dir, `psyche-server-${release}-linux-x64.deb`), file);
+      keepManifest(file, bytes(dir), sig(dir), from);
+      return { dir, file };
+    };
+    const old = keep("1.4.0", "1.3.0");
+    keep("1.5.0", "1.4.0");
+    // A planted older signed release is never the target: only what 1.5.0 was updated from.
+    keep("1.2.0");
     const now = install("deb", "1.5.0");
-    expect(findKeptPackage(cache, now)).toEqual({ file, release: "1.4.0" });
+    expect(findKeptPackage(cache, now)).toMatchObject({ file: old.file, release: "1.4.0" });
     // The Gateway names its snapshot after its own version, which need not be the package's.
     const snaps = join(home, ".psyche", "backups", "pre-update");
     for (const name of [
@@ -389,14 +421,186 @@ describe("psyche update on a deb or rpm install", () => {
     mkdirSync(join(snaps, ".partial-x-to-1.5.0-2026-11-22T00-00-00-000Z"), { recursive: true });
     const { deps } = fakeDeps(home, { env });
     const r = await serverUpdate(installed("deb", "1.5.0").bundle, { rollback: true }, deps);
-    expect(r.human).toContain(`sudo apt install --allow-downgrades ${file}`);
+    expect(r.data.command as string).toContain(
+      "apt install --allow-downgrades /var/cache/psyche-server/psyche-server-1.4.0-linux-x64.deb",
+    );
+    expect(r.data.command as string).toContain("sha256sum -c -");
+    expect(r.human).toContain("try-restart psyche-helper-headless.service");
     expect(r.data.snapshot).toBe(join(snaps, "0.3.0-alpha.0-to-1.5.0-2026-11-20T10-00-00-000Z"));
     // The kept file changed on disk, or its kept manifest did: not offered.
-    writeFileSync(file, "old deb, edited");
+    writeFileSync(old.file, "old deb, edited");
     expect(findKeptPackage(cache, now)).toBeUndefined();
-    cpSync(join(old, "psyche-server-1.4.0-linux-x64.deb"), file);
-    writeFileSync(`${file}.manifest.json`, `${readFileSync(`${file}.manifest.json`, "utf8")} `);
+    cpSync(join(old.dir, "psyche-server-1.4.0-linux-x64.deb"), old.file);
+    expect(findKeptPackage(cache, now)).toBeDefined();
+    writeFileSync(
+      `${old.file}.manifest.json`,
+      `${readFileSync(`${old.file}.manifest.json`, "utf8")} `,
+    );
     expect(findKeptPackage(cache, now)).toBeUndefined();
+    // No record of what ran before: nothing is offered.
+    expect(findKeptPackage(cache, install("deb", "1.6.0"))).toBeUndefined();
+  });
+
+  it("keeps only the last two packages", () => {
+    const cache = tempDir();
+    for (const v of ["1.2.0", "1.3.0", "1.4.0", "1.5.0"])
+      for (const suffix of ["", ".manifest.json", ".manifest.json.sig", ".from"])
+        writeFileSync(join(cache, `psyche-server-${v}-linux-x64.deb${suffix}`), "x");
+    writeFileSync(join(cache, "psyche-server-1.2.0-linux-x64.rpm"), "another kind");
+    writeFileSync(join(cache, "notes.txt"), "not ours");
+    pruneKeptPackages(cache, { kind: "deb", arch: "x64" }, ["1.5.0", "1.4.0"]);
+    const left = readdirSync(cache).sort();
+    expect(left.filter((n) => n.endsWith(".deb"))).toEqual([
+      "psyche-server-1.4.0-linux-x64.deb",
+      "psyche-server-1.5.0-linux-x64.deb",
+    ]);
+    expect(left).toContain("psyche-server-1.2.0-linux-x64.rpm");
+    expect(left).toContain("notes.txt");
+    expect(left.some((n) => n.startsWith("psyche-server-1.3.0"))).toBe(false);
+  });
+
+  it("the printed command quotes the cache path, and refuses names and hashes it cannot trust", async () => {
+    const sha = "a".repeat(64);
+    for (const path of [
+      "/home/ann/.cache/psyche/updates/psyche-server-1.5.0-linux-x64.deb",
+      "/home/my user/.cache/x.deb",
+      "/home/o'brien/$(touch pwned)/`id`;rm -rf ~/x.deb",
+    ]) {
+      const cmd = verifiedInstallCommand("deb", path, {
+        name: "psyche-server-1.5.0-linux-x64.deb",
+        sha256: sha,
+      });
+      // What the shell hands sh -c as $1 is exactly the path.
+      const echoed = await nodeExec("/bin/sh", [
+        "-c",
+        `printf %s ${cmd.slice(cmd.lastIndexOf(" sh ") + 4)}`,
+      ]);
+      expect(echoed.stdout).toBe(path);
+    }
+    expect(
+      verifiedInstallCommand("rpm", "/x.rpm", {
+        name: "psyche-server-1.5.0-linux-x64.rpm",
+        sha256: sha,
+      }),
+    ).toContain("dnf install /var/cache/psyche-server/psyche-server-1.5.0-linux-x64.rpm");
+    expect(() =>
+      verifiedInstallCommand("deb", "/x", { name: "psyche-server-1.5.0;id.deb", sha256: sha }),
+    ).toThrow();
+    expect(() =>
+      verifiedInstallCommand("deb", "/x", {
+        name: "psyche-server-1.5.0-linux-x64.deb",
+        sha256: "zz",
+      }),
+    ).toThrow();
+  });
+
+  it("refuses to run as root, before reading anything", async () => {
+    const i = installed("deb");
+    const dir = releaseDir("1.5.0", { "psyche-server-1.5.0-linux-x64.deb": "deb bytes" });
+    const { deps, events } = fakeDeps(tempDir(), { uid: 0 });
+    await expect(serverUpdate(i.bundle, { from: dir }, deps)).rejects.toThrow(
+      /not run psyche update as root/,
+    );
+    await expect(serverUpdate(i.bundle, { rollback: true }, deps)).rejects.toThrow(/as root/);
+    expect(events).toEqual([]);
+  });
+
+  it("no data folder yet: the update goes on and says nothing was copied", async () => {
+    const i = installed("deb");
+    const dir = releaseDir("1.5.0", { "psyche-server-1.5.0-linux-x64.deb": "deb bytes" });
+    const { deps } = fakeDeps(tempDir(), {
+      exec: async () => ({
+        code: 5,
+        stdout: "no data folder at /x: nothing to copy\n",
+        stderr: "",
+      }),
+    });
+    const r = await serverUpdate(i.bundle, { from: dir }, deps);
+    expect(r.data.snapshot).toBeNull();
+    expect(r.human).toContain("there is no data yet");
+    expect(r.human).not.toContain("copied to no data folder");
+  });
+
+  it("psyche status names the install, and a tarball's helper as not verified", () => {
+    const tar = serverInstallStatus(installed("tarball").bundle);
+    expect(tar).toEqual({ kind: "tarball", version: "1.4.0", helper: "not_verified_tarball" });
+    expect(serverInstallText(tar as never)).toBe(
+      "psyche-server tarball 1.4.0; helper not verified (tarball install)",
+    );
+    expect(serverInstallStatus(installed("deb").bundle)).toEqual({ kind: "deb", version: "1.4.0" });
+    expect(serverInstallStatus(tempDir())).toBeUndefined();
+    expect(serverInstallStatus(undefined)).toBeUndefined();
+  });
+});
+
+describe("waiting for a new Gateway that is copying or migrating the data", () => {
+  it("keeps waiting while run/update-progress.json is fresh, up to the ceiling", async () => {
+    const home = tempDir();
+    mkdirSync(join(home, "run"));
+    let t = 0;
+    let calls = 0;
+    const progress = (phase: string) =>
+      writeFileSync(
+        join(home, "run", "update-progress.json"),
+        JSON.stringify({ phase, build: "b", at: new Date(t).toISOString() }),
+      );
+    const base = fakeDeps(home).deps;
+    const deps: UpdateDeps = {
+      ...base,
+      home,
+      now: () => t,
+      healthy: async (ms) => {
+        calls++;
+        t += ms;
+        progress(calls < 3 ? "snapshot" : "migrating");
+        return calls >= 5;
+      },
+    };
+    expect(await waitHealthyThroughUpdate(deps, 90_000)).toBe(true);
+    expect(calls).toBe(5);
+    // No progress note: the first deadline is the answer.
+    calls = 0;
+    rmSync(join(home, "run", "update-progress.json"));
+    const quiet: UpdateDeps = {
+      ...deps,
+      healthy: async (ms) => {
+        t += ms;
+        calls++;
+        return false;
+      },
+    };
+    expect(await waitHealthyThroughUpdate(quiet, 90_000)).toBe(false);
+    expect(calls).toBe(1);
+    // Progress that never ends stops at the ceiling.
+    calls = 0;
+    const forever: UpdateDeps = {
+      ...deps,
+      ceilingMs: 60_000,
+      healthy: async (ms) => {
+        calls++;
+        t += ms;
+        progress("migrating");
+        return false;
+      },
+    };
+    expect(await waitHealthyThroughUpdate(forever, 10_000)).toBe(false);
+    expect(calls).toBeLessThanOrEqual(7);
+    // A stale note does not count.
+    calls = 0;
+    const stale: UpdateDeps = {
+      ...deps,
+      healthy: async (ms) => {
+        calls++;
+        writeFileSync(
+          join(home, "run", "update-progress.json"),
+          JSON.stringify({ phase: "migrating", at: new Date(t - 10 * 60_000).toISOString() }),
+        );
+        t += ms;
+        return false;
+      },
+    };
+    expect(await waitHealthyThroughUpdate(stale, 1_000)).toBe(false);
+    expect(calls).toBe(1);
   });
 });
 
@@ -444,10 +648,9 @@ describe("psyche update on a tarball install", () => {
     // Unpacked with Node's zstd (no zstd binary needed on the test machine).
     const { unpackTarZst } = await import("../src/server-update.ts");
     const src = await unpackTarZst(
-      first,
+      readFileSync(first),
       join(work, "u"),
       "psyche-server-1.4.0-linux-x64",
-      nodeExec,
     );
     const inst = (await import(join(deploy, "linux-server/install.mjs"))) as Mod;
     (inst.install as unknown as (o: Record<string, unknown>) => unknown)({
@@ -486,8 +689,62 @@ describe("psyche update on a tarball install", () => {
     const order = events.filter((e) => !e.startsWith("log") && !e.startsWith("exec tar"));
     expect(order[0]).toBe("stop");
     expect(order[1]).toBe("exec psyched/psyched snapshot 1.5.0");
-    expect(order.at(-1)).toBe("start");
+    // The helper restarts too, so it runs from the new release.
+    expect(order.slice(-2)).toEqual([
+      "start",
+      "exec systemctl --user try-restart psyche-helper-headless.service",
+    ]);
     expect(order.some((e) => e.includes("install.mjs activate 1.5.0"))).toBe(true);
+    // The tarball is unpacked from the verified bytes; nothing is kept in the cache.
+    expect(existsSync(join(s.home, ".cache", "psyche", "updates"))).toBe(false);
+  });
+
+  it("a refused activate leaves the release that ran current, and starts only that", async () => {
+    const s = await setup();
+    // `psyche start` wrote its own unit since the install: activate refuses.
+    writeFileSync(
+      join(s.home, ".config", "systemd", "user", "psyche-gateway.service"),
+      "# written by psyche start\n",
+    );
+    const { deps, events } = fakeDeps(s.home, { env: s.env });
+    const fake = deps.exec;
+    deps.exec = async (cmd, args, opts) =>
+      cmd === "tar" || cmd.endsWith("/runtime/node")
+        ? s.nodeAsRuntime(cmd, args, opts)
+        : fake(cmd, args, opts);
+    await expect(
+      serverUpdate(join(s.root, "current", "psyched"), { from: s.rel }, deps),
+    ).rejects.toThrow(/not written by the psyche-server installer/);
+    expect(readlinkSync(join(s.root, "current"))).toBe(join("releases", "1.4.0"));
+    expect(existsSync(join(s.root, "previous"))).toBe(false);
+    expect(events.filter((e) => !e.startsWith("log"))).toEqual([
+      "stop",
+      "exec psyched/psyched snapshot 1.5.0",
+      "start",
+    ]);
+  });
+
+  it("does not go back when the old build cannot open the data: the new one is started again", async () => {
+    const s = await setup();
+    const { deps, events } = fakeDeps(s.home, { env: s.env, healthy: async () => false });
+    const fake = deps.exec;
+    deps.exec = async (cmd, args, opts) =>
+      cmd.endsWith("/psyche") && args[0] === "migrate"
+        ? { code: 1, stdout: "database: the data is from a newer Psyche", stderr: "" }
+        : cmd === "tar" || cmd.endsWith("/runtime/node")
+          ? s.nodeAsRuntime(cmd, args, opts)
+          : fake(cmd, args, opts);
+    const r = await serverUpdate(join(s.root, "current", "psyched"), { from: s.rel }, deps);
+    expect(r).toMatchObject({ exitCode: 1, data: { rolledBack: false, refused: "data_newer" } });
+    expect(r.human).toContain("1.5.0 stays");
+    expect(r.human).toContain("backups/pre-update/1.4.0-to-1.5.0-");
+    expect(readlinkSync(join(s.root, "current"))).toBe(join("releases", "1.5.0"));
+    const order = events.filter((e) => !e.startsWith("log"));
+    expect(order.slice(-3)).toEqual([
+      "stop",
+      "start",
+      "exec systemctl --user try-restart psyche-helper-headless.service",
+    ]);
   });
 
   it("goes back to the old release when the new one does not come up healthy", async () => {
@@ -539,14 +796,16 @@ describe("psyche update on a tarball install", () => {
     expect(readlinkSync(join(s.root, "current"))).toBe(join("releases", "1.5.0"));
 
     const ok = fakeDeps(s.home, { env: s.env });
+    const okFake = ok.deps.exec;
     ok.deps.exec = async (cmd, args, opts) =>
       cmd.endsWith("/psyche") && args[0] === "migrate"
         ? { code: 0, stdout: "", stderr: "" }
         : cmd.endsWith("/runtime/node")
           ? s.nodeAsRuntime(cmd, args, opts)
-          : { code: 0, stdout: "", stderr: "" };
+          : okFake(cmd, args, opts);
     const yes = await serverUpdate(join(s.root, "current", "psyched"), { rollback: true }, ok.deps);
     expect(yes).toMatchObject({ data: { rollback: true, from: "1.5.0", to: "1.4.0" } });
+    expect(ok.events).toContain("exec systemctl --user try-restart psyche-helper-headless.service");
     expect(readlinkSync(join(s.root, "current"))).toBe(join("releases", "1.4.0"));
     expect(readlinkSync(join(s.root, "previous"))).toBe(join("releases", "1.5.0"));
   });
@@ -562,7 +821,9 @@ describe("psyche update on a tarball install", () => {
     const out = join(dir, "t.tar.zst");
     await pipeline(createReadStream(tar), createZstdCompress(), createWriteStream(out));
     const { unpackTarZst } = await import("../src/server-update.ts");
-    await expect(unpackTarZst(out, join(dir, "dest"), top, nodeExec)).rejects.toThrow(/outside/);
+    await expect(unpackTarZst(readFileSync(out), join(dir, "dest"), top)).rejects.toThrow(
+      /outside/,
+    );
     expect(existsSync(join(dir, "dest"))).toBe(false);
   });
 });

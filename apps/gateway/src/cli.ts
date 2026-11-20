@@ -74,7 +74,15 @@ exit codes: 0 applied, 1 refused or failed, 2 usage, 3 waiting (applies later), 
 answer (nothing changed)`;
 
 /** Exit codes of the commands that go through the running Gateway. */
-export const CLI_EXIT = { applied: 0, refused: 1, usage: 2, waiting: 3, noAnswer: 4 } as const;
+export const CLI_EXIT = {
+  applied: 0,
+  refused: 1,
+  usage: 2,
+  waiting: 3,
+  noAnswer: 4,
+  /** `psyched snapshot`: there is no data folder yet, so there was nothing to copy. */
+  noData: 5,
+} as const;
 
 export interface CliOptions {
   /** How long to wait for the running Gateway to take a request (default 15 s). */
@@ -149,7 +157,8 @@ const RELEASE_VERSION = /^\d+\.\d+\.\d+(-[0-9A-Za-z.-]+)?$/;
  * migrations (`pre-update.ts`), made on demand by this build before `psyche update` replaces it.
  * It holds the Gateway lock for the copy, so it refuses while psyched runs (copying a live
  * encrypted store or its log as bytes is not safe), and it never opens the database for writing.
- * Prints the snapshot folder on success.
+ * Prints the snapshot folder on success; exits `CLI_EXIT.noData` (5), printing no folder, when
+ * there is no data folder yet.
  */
 async function snapshotCommand(
   to: string | undefined,
@@ -162,7 +171,7 @@ async function snapshotCommand(
   const config = resolveConfig();
   if (!existsSync(config.home)) {
     out(`no data folder at ${config.home}: nothing to copy`);
-    return CLI_EXIT.applied;
+    return CLI_EXIT.noData;
   }
   mkdirSync(join(config.home, "run"), { recursive: true, mode: 0o700 });
   const lock = takeExclusiveFileLock(join(config.home, GATEWAY_LOCK_FILE));

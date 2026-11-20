@@ -5,7 +5,12 @@ import type { Ctx } from "../context.ts";
 import { CliError } from "../errors.ts";
 import { identityPath } from "../identity.ts";
 import { kv } from "../output.ts";
-import { bundleOfThisCli, serverUpdate } from "../server-update.ts";
+import {
+  bundleOfThisCli,
+  serverInstallStatus,
+  serverInstallText,
+  serverUpdate,
+} from "../server-update.ts";
 import {
   resolvePsyched,
   restartService,
@@ -119,10 +124,13 @@ export const serviceCommands: CommandSpec[] = [
           ? { paired: true, scopes: client.scopes, deviceId: client.deviceId }
           : { paired: false, detail: error instanceof Error ? error.message : String(error) };
       }
+      const install =
+        ctx.deps.platform === "linux" ? serverInstallStatus(bundleOfThisCli()) : undefined;
       const data = {
         gateway: { url: url.origin, ...probe },
         service,
         cli,
+        ...(install === undefined ? {} : { install }),
       };
       const v = probe.version;
       return {
@@ -136,6 +144,7 @@ export const serviceCommands: CommandSpec[] = [
           version: v ? `${v.version ?? "?"} (protocol ${v.protocolVersion ?? "?"})` : "-",
           service: `${service.kind}${service.kind === "none" ? "" : `: ${service.running ? "running" : "not running"}${"pid" in service && service.pid ? ` (pid ${service.pid})` : ""}${service.installed ? "" : ", not installed"}`}`,
           cli: cli.paired ? `paired (${cli.scopes?.join(", ")})` : `not paired: ${cli.detail}`,
+          ...(install === undefined ? {} : { install: serverInstallText(install) }),
         }),
         exitCode: probe.healthy ? 0 : 1,
       };
@@ -191,6 +200,7 @@ export const serviceCommands: CommandSpec[] = [
           fetch: ctx.deps.fetch,
           env: ctx.env,
           home: ctx.home,
+          uid: ctx.deps.uid,
           log: (line) => {
             if (!ctx.json) ctx.deps.io.err(line);
           },

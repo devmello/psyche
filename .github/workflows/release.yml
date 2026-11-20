@@ -40,7 +40,8 @@
 #   Server         psyche-server-<version>-linux-{x64,arm64}.{deb,rpm,tar.zst}: the headless Linux Host
 #                  (psyched, the CLI and the helper, no Electron; deploy/linux-server/build.mjs),
 #                  unsigned like the Linux job and covered by the update manifest's server-* entries.
-#                  A no-op until the headless helper unit (wave B0) is on the branch
+#                  A no-op until the headless helper unit and the Gateway code that starts it
+#                  (wave B0) are on the branch
 #   Release        GitHub release with SHA256SUMS and notes from the changesets CHANGELOGs
 #   Homebrew       Casks/psyche.rb and Formula/psyche-cli.rb pushed to <owner>/homebrew-psyche
 #   Version PR     manual run with version_pr: changesets opens the "Version Packages" PR
@@ -1326,11 +1327,13 @@ jobs:
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
-      - name: Headless helper unit present (wave B0)
+      - name: Headless helper unit and its starter present (wave B0)
         id: unit
+        # Both halves of B0: the unit file, and the Gateway code that starts it. A unit alone would
+        # ship packages whose Gateway never starts its helper.
         run: |
-          if [ -f deploy/systemd/psyche-helper-headless.service ]; then echo "present=true" >> "$GITHUB_OUTPUT"; else
-            echo "::notice title=no psyche-server packages::deploy/systemd/psyche-helper-headless.service is not on this branch yet (B0): this release has no psyche-server packages."
+          if [ -f deploy/systemd/psyche-helper-headless.service ] && grep -q 'psyche-helper-headless\.service' apps/gateway/src/compose/computer.ts; then echo "present=true" >> "$GITHUB_OUTPUT"; else
+            echo "::notice title=no psyche-server packages::deploy/systemd/psyche-helper-headless.service, or the Gateway code that starts it (apps/gateway/src/compose/computer.ts), is not on this branch yet (B0): this release has no psyche-server packages."
             echo "present=false" >> "$GITHUB_OUTPUT"; fi
       - name: Set up pnpm
         if: steps.unit.outputs.present == 'true'

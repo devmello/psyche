@@ -15,6 +15,9 @@ export const helperCheck = {
     "It runs from files you own, such as an AppImage or a build in your home folder. Psyche accepts it, but can't rule out that another program of yours replaced it.",
   "settings.devices.helperCheck.detail.unverified":
     "Psyche accepts it for now, but couldn't tell which program it is.",
+  "settings.devices.helperCheck.state.tarball": "Helper not verified (tarball install)",
+  "settings.devices.helperCheck.detail.tarball":
+    "This psyche-server was installed from the tarball under your own account, so its helper is a file you own. Psyche accepts it, but can't rule out that another program of yours replaced it. The deb or rpm package installs a helper Psyche can verify.",
   "settings.devices.helperCheck.refused": "Refused: {reason}",
   "settings.devices.helperCheck.reason.unclear": "Psyche couldn't verify the helper",
   "settings.devices.helperCheck.reason.notHelper": "this program is not the Psyche helper",

@@ -161,44 +161,70 @@ export async function renderUnits({ psyched, helper, headlessTemplate, quote = s
   };
 }
 
+/**
+ * The users whose systemd user manager runs (logged in, or lingering), uid 0 left out: a postinst
+ * or prerm reaches their units with `systemctl --machine <user>@ --user`. A user whose manager is
+ * not running has no Psyche unit running either.
+ */
+const USERS_WITH_MANAGER = `loginctl list-users --no-legend 2>/dev/null | awk '$1 != 0 { print $2 }'`;
+
 export const POSTINST = `#!/bin/sh
 # psyche-server postinst (deploy/linux-server/build.mjs). Never fails the install: a step that does
 # not work prints what to run instead.
 set -e
+first=no
 case "\${1:-configure}" in
-  configure|1|2)
-    u="\${SUDO_USER:-}"
-    if [ -n "$u" ] && [ "$u" != root ] && command -v loginctl >/dev/null 2>&1; then
-      # Linger (design §3.3): the user manager starts at boot, so Psyche runs with nobody logged in.
-      if loginctl enable-linger "$u" 2>/dev/null; then
-        echo "psyche-server: turned on linger for $u, so Psyche keeps running while nobody is logged in"
-      else
-        echo "psyche-server: could not turn on linger; run: sudo loginctl enable-linger $u" >&2
-      fi
-      h=$(getent passwd "$u" | cut -d: -f6)
-      if [ -n "$h" ] && [ -e "$h/.config/systemd/user/${GATEWAY_UNIT}" ]; then
-        echo "psyche-server: $h/.config/systemd/user/${GATEWAY_UNIT} overrides this package's unit (psyche start or a tarball install wrote it); remove it to use the package's" >&2
-      fi
-      systemctl --machine "$u@" --user daemon-reload >/dev/null 2>&1 || true
-    else
-      echo "psyche-server: so Psyche keeps running while nobody is logged in, run: sudo loginctl enable-linger <user>"
-    fi
-    echo "psyche-server: as the user Psyche runs for: systemctl --user enable --now ${GATEWAY_UNIT}"
-    echo "psyche-server: after an upgrade: systemctl --user restart ${GATEWAY_UNIT}"
-    ;;
+  configure) [ -z "\${2:-}" ] && first=yes ;;
+  1) first=yes ;;
+  2) ;;
+  *) exit 0 ;;
 esac
+if [ "$first" = yes ]; then
+  u="\${SUDO_USER:-}"
+  if [ -n "$u" ] && [ "$u" != root ] && command -v loginctl >/dev/null 2>&1; then
+    # Linger (design §3.3), on the first install only: the user manager starts at boot, so Psyche
+    # runs with nobody logged in. An upgrade never turns it on for whoever runs apt upgrade.
+    if loginctl enable-linger "$u" 2>/dev/null; then
+      echo "psyche-server: turned on linger for $u, so Psyche keeps running while nobody is logged in"
+    else
+      echo "psyche-server: could not turn on linger; run: sudo loginctl enable-linger $u" >&2
+    fi
+    h=$(getent passwd "$u" | cut -d: -f6)
+    if [ -n "$h" ] && [ -e "$h/.config/systemd/user/${GATEWAY_UNIT}" ]; then
+      echo "psyche-server: $h/.config/systemd/user/${GATEWAY_UNIT} overrides this package's unit (psyche start or a tarball install wrote it); remove it to use the package's" >&2
+    fi
+    systemctl --machine "$u@" --user daemon-reload >/dev/null 2>&1 || true
+  else
+    echo "psyche-server: so Psyche keeps running while nobody is logged in, run: sudo loginctl enable-linger <user>"
+  fi
+  echo "psyche-server: as the user Psyche runs for: systemctl --user enable --now ${GATEWAY_UNIT}"
+  exit 0
+fi
+# An upgrade: every running Gateway and headless helper restarts on the new files. A helper left
+# running from the replaced file fails the Gateway's peer check (binary_replaced) until it does.
+command -v systemctl >/dev/null 2>&1 || exit 0
+for u in $(${USERS_WITH_MANAGER}); do
+  systemctl --machine "$u@" --user daemon-reload >/dev/null 2>&1 || true
+  if systemctl --machine "$u@" --user -q is-active ${GATEWAY_UNIT} ${HEADLESS_UNIT} 2>/dev/null; then
+    systemctl --machine "$u@" --user try-restart ${GATEWAY_UNIT} ${HEADLESS_UNIT} >/dev/null 2>&1 ||
+      echo "psyche-server: could not restart Psyche for $u; as $u: systemctl --user try-restart ${GATEWAY_UNIT} ${HEADLESS_UNIT}" >&2
+    echo "psyche-server: restarted Psyche for $u on the new files"
+  fi
+done
 exit 0
 `;
 
 export const PRERM = `#!/bin/sh
-# psyche-server prerm: on removal, stop the user's Gateway and helper if sudo says who that is.
+# psyche-server prerm: on removal, stop and disable the Gateway and helper of every user whose user
+# manager runs (logged in, or lingering). A user whose manager is not running has nothing running;
+# their enable links stay in ~/.config/systemd/user and point at nothing once the package is gone.
 set -e
 case "\${1:-remove}" in
   remove|0)
-    u="\${SUDO_USER:-}"
-    if [ -n "$u" ] && [ "$u" != root ]; then
+    command -v systemctl >/dev/null 2>&1 || exit 0
+    for u in $(${USERS_WITH_MANAGER}); do
       systemctl --machine "$u@" --user disable --now ${GATEWAY_UNIT} ${HEADLESS_UNIT} >/dev/null 2>&1 || true
-    fi
+    done
     ;;
 esac
 exit 0
@@ -400,6 +426,10 @@ async function buildTarball(work, out, input) {
 # Installs psyche-server under your own account (deploy/linux-server/install.mjs): no root needed,
 # except for linger, which it asks for when it has to.
 set -eu
+if [ "$(id -u)" = 0 ]; then
+  echo "psyche-server: do not run this as root (sudo): run it as the user Psyche runs for" >&2
+  exit 1
+fi
 here=$(CDPATH= cd -- "$(dirname -- "$0")" && pwd)
 exec "$here/psyched/runtime/node" "$here/install.mjs" install "$@"
 `,

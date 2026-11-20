@@ -84,7 +84,7 @@ describe("psyched snapshot", () => {
     expect(existsSync(join(h, "backups"))).toBe(false);
     const gone = join(h, "nowhere");
     const { code, lines } = await run(gone, ["snapshot", "1.2.3"]);
-    expect(code).toBe(0);
+    expect(code).toBe(5);
     expect(lines.join("\n")).toContain("nothing to copy");
     expect(existsSync(gone)).toBe(false);
   });

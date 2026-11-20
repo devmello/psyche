@@ -732,6 +732,20 @@ export function packagedHelperInstalled(exists: (path: string) => boolean = exis
   return PACKAGED_HELPERS.some((h) => exists(h.path));
 }
 
+/** The headless helper's systemd user unit (deploy/systemd, wave B0), which a psyche-server runs. */
+export const HEADLESS_HELPER_UNIT = "psyche-helper-headless.service";
+
+/**
+ * How the owner restarts the Host helper, for a refusal's text. A psyche-server Host has no app:
+ * there the helper is the headless unit (after a package upgrade the running helper's file is
+ * gone, which the check refuses until it restarts).
+ */
+export function helperRestartHint(exists: (path: string) => boolean = existsSync): string {
+  return exists(`${SERVER_PACKAGED_ROOT}/psyche-helper`)
+    ? `restart it: systemctl --user restart ${HEADLESS_HELPER_UNIT}`
+    : "restart it from the Psyche app";
+}
+
 /**
  * The checker the real Gateway process installs: the Linux one on Linux, none elsewhere (the Mac
  * and Windows helpers are not checked this way). Library users and tests that start a Gateway in

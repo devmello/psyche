@@ -12,6 +12,7 @@ import {
   checkPeerOfFd,
   findSsPair,
   HELPER_READY_COMM,
+  helperRestartHint,
   linuxPeerChecker,
   PACKAGED_HELPER,
   PACKAGED_HELPERS,
@@ -301,6 +302,13 @@ describe("parsing ss, /proc and maps", () => {
     expect(packagedHelperInstalled((p) => p === PACKAGED_HELPER)).toBe(true);
     expect(packagedHelperInstalled(() => false)).toBe(false);
     expect(PACKAGED_HELPER).toBe(LINUX_PACKAGED_HELPER_PATH);
+  });
+  it("a refusal names the command on a psyche-server Host, which has no app", () => {
+    expect(helperRestartHint((p) => p === `${SERVER_PACKAGED_ROOT}/psyche-helper`)).toBe(
+      "restart it: systemctl --user restart psyche-helper-headless.service",
+    );
+    expect(helperRestartHint((p) => p === PACKAGED_HELPER)).toBe("restart it from the Psyche app");
+    expect(helperRestartHint(() => false)).toBe("restart it from the Psyche app");
   });
 });
 

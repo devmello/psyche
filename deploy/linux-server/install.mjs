@@ -16,8 +16,15 @@
 //                                                    point at current/, so a switch is one rename
 //
 // `current` and `previous` change by renaming a new symlink over the old one, which is atomic: a
-// crash leaves either release in place, never a half-written one. Only the current and previous
-// releases are kept. `psyche update` (apps/cli/src/server-update.ts) unpacks a verified tarball
+// crash leaves either release in place, never a half-written one. They change last, after every
+// check, and go back if writing the units or links fails. Only the current and previous releases
+// are kept; only folders this installer made are ever removed (a release folder holding its
+// tarball `psyche-server.json`, and its own `.incoming-*` / `*.old-*` leftovers), so anything
+// else under a `--root` stays. The root carries a marker file (`ROOT_MARKER`), and `install`
+// refuses a non-empty folder without it.
+//
+// Nothing here runs as root: a root Gateway would run the agent's tools as root, and a root
+// `psyche update` would run code from a tree the account can write. `psyche update` (apps/cli/src/server-update.ts) unpacks a verified tarball
 // into releases/, then runs the NEW release's `activate`; a failed start runs `rollback`.
 //
 // The data folder (~/.psyche) is never touched here: it is not part of a release.
@@ -57,6 +64,20 @@ export const CONFLICTS = [
   { path: "/usr/lib/psyche", what: "the Psyche desktop package" },
 ];
 const VERSION = /^\d+\.\d+\.\d+(-[0-9A-Za-z.-]+)?$/;
+/** In the install root: this installer made the folder, so it may manage `releases/` there. */
+export const ROOT_MARKER = ".psyche-server-root";
+const VERSION_SRC = "\\d+\\.\\d+\\.\\d+(?:-[0-9A-Za-z.-]+)?";
+/** `install`'s and `psyche update`'s staging folders, and `install`'s replaced copy. */
+const LEFTOVER = new RegExp(`^(?:\\.incoming-${VERSION_SRC}-(\\d+)|${VERSION_SRC}\\.old-(\\d+))$`);
+
+/** Throws when run as root (uid 0): psyche-server runs under the owner's own account. */
+export function refuseRoot(uid = typeof process.getuid === "function" ? process.getuid() : -1) {
+  if (uid === 0) {
+    throw new Error(
+      "do not run this as root (sudo): psyche-server installs and updates under the account Psyche runs for, and a root Gateway would run the agent's tools as root. Run it again as that user.",
+    );
+  }
+}
 
 /** Where things go for this account, from the XDG variables (their defaults otherwise). */
 export function defaultLayout(env = process.env, home = homedir()) {
@@ -144,8 +165,9 @@ export function status(root) {
   };
 }
 
-function writeUnits(releaseDir, root, unitDir) {
-  mkdirSync(unitDir, { recursive: true });
+/** The units to write for a release, after checking that none would replace a unit not ours. */
+function planUnits(releaseDir, root, unitDir) {
+  const out = [];
   for (const [unit, text] of Object.entries(renderUnits(releaseDir, root))) {
     const file = join(unitDir, unit);
     if (existsSync(file) && !readFileSync(file, "utf8").startsWith(UNIT_MARKER)) {
@@ -153,14 +175,23 @@ function writeUnits(releaseDir, root, unitDir) {
         `${file} exists and was not written by the psyche-server installer (psyche start, or the desktop app?): move it away first`,
       );
     }
+    out.push([file, text]);
+  }
+  return out;
+}
+
+function writeUnits(planned, unitDir) {
+  mkdirSync(unitDir, { recursive: true });
+  for (const [file, text] of planned) {
     const tmp = `${file}.new-${process.pid}`;
     writeFileSync(tmp, text, { mode: 0o644 });
     renameSync(tmp, file);
   }
 }
 
-function writeBinLinks(root, binDir) {
-  mkdirSync(binDir, { recursive: true });
+/** The command links to set, and the ones left alone because they are not ours. */
+function planBinLinks(root, binDir) {
+  const set = [];
   const skipped = [];
   for (const name of ["psyche", "psyched"]) {
     const link = join(binDir, name);
@@ -173,9 +204,74 @@ function writeBinLinks(root, binDir) {
         continue;
       }
     }
-    swapLink(link, want);
+    set.push([link, want]);
   }
-  return skipped;
+  return { set, skipped };
+}
+
+function writeBinLinks(planned, binDir) {
+  mkdirSync(binDir, { recursive: true });
+  for (const [link, want] of planned.set) swapLink(link, want);
+}
+
+/**
+ * Points `current` (and `previous`) at their new releases, then writes the units and the command
+ * links; if that fails, both links go back to what they were. Everything that can refuse has been
+ * checked by then.
+ */
+function switchTo(root, links, planned, unitDir, binDir) {
+  const was = {};
+  for (const name of Object.keys(links)) was[name] = linkTarget(join(root, name));
+  try {
+    for (const [name, target] of Object.entries(links)) swapLink(join(root, name), target);
+    writeUnits(planned.units, unitDir);
+    writeBinLinks(planned.bin, binDir);
+  } catch (err) {
+    for (const [name, target] of Object.entries(was)) {
+      try {
+        if (target === undefined) rmSync(join(root, name), { force: true });
+        else swapLink(join(root, name), target);
+      } catch {
+        // The error below is what the caller acts on.
+      }
+    }
+    throw err;
+  }
+}
+
+function pidAlive(pid) {
+  try {
+    process.kill(pid, 0);
+    return true;
+  } catch (err) {
+    return err?.code === "EPERM";
+  }
+}
+
+/** True for a folder `activate` may delete: a tarball release of that version, or a leftover. */
+function ownReleaseEntry(dir, name) {
+  try {
+    if (!lstatSync(join(dir, name)).isDirectory()) return false;
+    const left = LEFTOVER.exec(name);
+    if (left) {
+      const pid = Number(left[1] ?? left[2]);
+      // Another install or update that is still running keeps its staging folder.
+      return pid === process.pid || !pidAlive(pid);
+    }
+    if (!VERSION.test(name)) return false;
+    const info = readInstallInfo(join(dir, name));
+    return info.kind === "tarball" && info.version === name;
+  } catch {
+    return false;
+  }
+}
+
+/** Throws unless `root` was made by this installer (its marker is there). */
+function assertOwnRoot(root) {
+  if (!existsSync(join(root, ROOT_MARKER)))
+    throw new Error(
+      `${root} is not a psyche-server install folder (no ${ROOT_MARKER}): refused, nothing changed`,
+    );
 }
 
 /**
@@ -185,32 +281,38 @@ function writeBinLinks(root, binDir) {
  */
 export function activate({ root, version, unitDir, binDir }) {
   if (!VERSION.test(version)) throw new Error(`not a release version: ${version}`);
+  assertOwnRoot(root);
   const dir = join(root, "releases", version);
   const info = readInstallInfo(dir);
   if (info.version !== version || info.kind !== "tarball")
     throw new Error(`${dir} holds ${info.kind} ${info.version}, not the tarball of ${version}`);
+  const planned = { units: planUnits(dir, root, unitDir), bin: planBinLinks(root, binDir) };
   const before = status(root).current;
-  if (before !== undefined && before !== version)
-    swapLink(join(root, "previous"), join("releases", before));
-  swapLink(join(root, "current"), join("releases", version));
-  writeUnits(dir, root, unitDir);
-  const skipped = writeBinLinks(root, binDir);
+  const links = {};
+  if (before !== undefined && before !== version) links.previous = join("releases", before);
+  links.current = join("releases", version);
+  switchTo(root, links, planned, unitDir, binDir);
   const keep = new Set([version, status(root).previous].filter(Boolean));
-  for (const name of readdirSync(join(root, "releases"))) {
-    if (!keep.has(name)) rmSync(join(root, "releases", name), { recursive: true, force: true });
+  const releases = join(root, "releases");
+  for (const name of readdirSync(releases)) {
+    if (!keep.has(name) && ownReleaseEntry(releases, name))
+      rmSync(join(releases, name), { recursive: true, force: true });
   }
-  return { current: version, previous: status(root).previous, skipped };
+  return { current: version, previous: status(root).previous, skipped: planned.bin.skipped };
 }
 
 /** Swaps `current` and `previous`. The data folder is not touched. */
 export function rollback({ root, unitDir, binDir }) {
+  assertOwnRoot(root);
   const { current, previous } = status(root);
   if (previous === undefined || !existsSync(join(root, "releases", previous)))
     throw new Error("no previous release to go back to");
-  if (current !== undefined) swapLink(join(root, "previous"), join("releases", current));
-  swapLink(join(root, "current"), join("releases", previous));
-  writeUnits(join(root, "releases", previous), root, unitDir);
-  writeBinLinks(root, binDir);
+  const dir = join(root, "releases", previous);
+  const planned = { units: planUnits(dir, root, unitDir), bin: planBinLinks(root, binDir) };
+  const links = {};
+  if (current !== undefined) links.previous = join("releases", current);
+  links.current = join("releases", previous);
+  switchTo(root, links, planned, unitDir, binDir);
   return { current: previous, previous: current };
 }
 
@@ -233,7 +335,19 @@ export function install({ from, root, unitDir, binDir, exists = existsSync }) {
   const info = readInstallInfo(from);
   if (info.kind !== "tarball")
     throw new Error(`${from} is a ${info.kind} release, not the tarball`);
+  // Only into a new or empty folder, or one this installer made: activate manages releases/.
+  if (existsSync(root) && !existsSync(join(root, ROOT_MARKER))) {
+    if (!lstatSync(root).isDirectory() || readdirSync(root).length > 0)
+      throw new Error(
+        `${root} already holds other files and is not a psyche-server install folder: choose a new or empty folder with --root (the default is ~/.local/lib/psyche-server)`,
+      );
+  }
   mkdirSync(join(root, "releases"), { recursive: true, mode: 0o755 });
+  writeFileSync(
+    join(root, ROOT_MARKER),
+    "psyche-server tarball install (deploy/linux-server/install.mjs). Do not put other files in releases/.\n",
+    { mode: 0o644 },
+  );
   const dest = join(root, "releases", info.version);
   if (resolve(from) !== resolve(dest)) {
     const incoming = join(root, "releases", `.incoming-${info.version}-${process.pid}`);
@@ -258,6 +372,7 @@ function option(argv, name) {
 }
 
 async function main(argv) {
+  refuseRoot();
   const [cmd, ...rest] = argv;
   const layout = defaultLayout();
   const root = resolve(option(rest, "--root") ?? layout.root);
