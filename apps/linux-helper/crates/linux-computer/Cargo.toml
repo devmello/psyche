@@ -1,0 +1,32 @@
+[package]
+name = "psyche-linux-computer"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+publish.workspace = true
+rust-version.workspace = true
+description = "Psyche Linux helper: direct computer use (AT-SPI snapshots and actions, X11 and Wayland input and capture)"
+
+[lib]
+name = "psyche_linux_computer"
+path = "src/lib.rs"
+
+[dependencies]
+base64 = "0.23.1"
+serde = { version = "1.0.229", features = ["derive"] }
+serde_json = "1.0.154"
+# Grapheme counts, so truncation (`...(+N)`) and typing chunks match Swift's `String.count`.
+unicode-segmentation = "1"
+jpeg-encoder = "0.6"
+
+[features]
+fake = []
+
+[dev-dependencies]
+tempfile = "3.27.0"
+
+[target.'cfg(target_os = "linux")'.dependencies]
+libc = "0.2.191"
+pipewire = "0.10.1"
+x11rb = { version = "0.14.0", features = ["xtest", "shm", "randr", "xfixes", "xkb", "allow-unsafe-code"] }
+zbus = "5.12.0"

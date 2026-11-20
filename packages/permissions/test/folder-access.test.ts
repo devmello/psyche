@@ -70,10 +70,31 @@ describe("sensitive roots", () => {
           code: "forbidden",
         });
       }
-      // Near misses stay shareable: other `.config` folders, a folder named like it elsewhere.
+      // Near misses stay shareable on the Mac: other `.config` folders, a folder named like it
+      // elsewhere. On Linux `~/.config` is refused wholesale (autostart, systemd user units,
+      // environment.d all live there), so the same `.config/nvim` is a sensitive root.
+      const mac = { ...env, platform: "darwin" as const };
+      const linux = { ...env, platform: "linux" as const };
       for (const rel of [".config/nvim", "Projects/Applications", "ApplicationsBackup"]) {
         await mkdir(join(home, rel), { recursive: true });
-        expect(refuseFolder(join(home, rel), env), rel).toBeUndefined();
+        expect(refuseFolder(join(home, rel), mac), rel).toBeUndefined();
+      }
+      expect(refuseFolder(join(home, ".config/nvim"), linux)).toBe("sensitive_root");
+      // Developer CLI tokens (review of #1294, round 7), wherever gh and gcloud are refused.
+      for (const rel of [
+        ".config/glab-cli",
+        ".config/op",
+        ".op",
+        ".azure",
+        ".config/doctl",
+        ".config/hub",
+      ]) {
+        expect(refuseFolder(join(home, rel), mac), rel).toBe("sensitive_root");
+        expect(refuseFolder(join(home, rel), linux), rel).toBe("sensitive_root");
+      }
+      expect(refuseFolder(join(home, ".config/hubris"), mac)).toBeUndefined();
+      for (const rel of ["Projects/Applications", "ApplicationsBackup"]) {
+        expect(refuseFolder(join(home, rel), linux), rel).toBeUndefined();
       }
     },
   );

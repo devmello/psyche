@@ -21,6 +21,7 @@ import { helperCheck } from "./helper-check/ko.ts";
 import { helperOffline } from "./helper-offline/ko.ts";
 import { homeRest } from "./home-rest/ko.ts";
 import { links } from "./links/ko.ts";
+import { linuxAccess } from "./linux-access/ko.ts";
 import { mailMeetings } from "./mail-meetings/ko.ts";
 import { meetingRecordRest } from "./meetingRecord-rest/ko.ts";
 import { memoryMap } from "./memory-map/ko.ts";
@@ -3034,6 +3035,7 @@ export const ko: Partial<Catalogue> = {
   "screens.library.recording.empty": "이 녹화에는 단계가 없습니다.",
   "screens.library.recording.noFrame": "이 단계에는 화면이 없습니다.",
   "screens.library.recording.frameAlt": "{n}단계의 브라우저",
+  "screens.library.recording.reviewPermissions": "권한에서 검토",
   "screens.library.recording.loading": "녹화를 불러오는 중",
   "screens.library.recording.loadFailed": "Psyche가 이 녹화를 불러오지 못했습니다({reason}).",
   "screens.library.recording.notFound": "이 녹화는 더 이상 사용할 수 없습니다.",
@@ -3668,6 +3670,8 @@ export const ko: Partial<Catalogue> = {
   ...helperOffline,
   // the security-records banner (docs/design/security-state-integrity-2026.md §7.3)
   ...securityState,
+  // Settings → Computer use on Linux: screen and input access
+  ...linuxAccess,
   // the Virtual screen watch pane (docs/design/linux-desktop-2026.md §7.5)
   ...computerWatch,
   // Gateway-authored notices (inbox notifications, security alerts)

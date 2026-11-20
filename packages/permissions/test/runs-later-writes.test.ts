@@ -93,8 +93,14 @@ describe.skipIf(WIN)("write-protected home roots", () => {
     const linux = writeProtectedHomeRoots(home, "linux");
     expect(linux).toContain(join(home, ".ssh"));
     expect(linux).toContain(join(home, ".zshrc"));
-    expect(linux).not.toContain(join(home, "bin"));
+    // `~/bin` is on PATH on every platform, and Linux's config, data and cache folders are
+    // protected wholesale (review of #1294, rounds 4 to 6).
+    expect(linux).toContain(join(home, "bin"));
+    expect(linux).toContain(join(home, ".config"));
     expect(linux).not.toContain(join(home, ".hammerspoon"));
-    expect(writeProtectedHomeRoots(home, "win32")).toEqual([]);
+    // Windows: only git's configuration and `~/bin`, none of the macOS or Linux entries.
+    expect(writeProtectedHomeRoots("C:\\Users\\o", "win32").sort()).toEqual(
+      ["C:\\Users\\o\\.config\\git", "C:\\Users\\o\\.gitconfig", "C:\\Users\\o\\bin"].sort(),
+    );
   });
 });
