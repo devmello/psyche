@@ -184,7 +184,9 @@ async function readAt(fh: FileHandle, position: number, length: number): Promise
 async function openFile(path: string): Promise<FileHandle> {
   try {
     // O_NOFOLLOW: a link swapped in after the symlink check fails the open instead of being followed.
-    return await open(path, constants.O_RDONLY | constants.O_NOFOLLOW);
+    // O_NONBLOCK: opening a FIFO returns at once instead of holding a thread of the pool until a
+    // writer appears; the caller's fstat then refuses anything that is not a regular file.
+    return await open(path, constants.O_RDONLY | constants.O_NOFOLLOW | constants.O_NONBLOCK);
   } catch (err) {
     throw fsError(err, path);
   }

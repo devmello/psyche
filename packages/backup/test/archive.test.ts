@@ -44,6 +44,7 @@ const EXCLUDED: Record<string, string> = {
   "cli/device.json": '{"privateKey":"never-in-a-backup"}',
   "run/gateway.sock": "not a real socket",
   "logs/gateway.err.log": "log line\n",
+  "logs/gateway.log": "log line\n",
   // Kept recordings of the owner's demonstrations never travel (teach by showing).
   "state/teach/teach_abcdef123456.json": '{"v":1}',
   // Link's plaintext refresh token (written by the Link CLI) never travels: sign in again after a restore.

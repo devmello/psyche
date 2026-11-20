@@ -1,3 +1,5 @@
+import { homedir } from "node:os";
+import { join, resolve } from "node:path";
 import { PsycheError } from "@psyche/protocol";
 import { runCli } from "./cli.ts";
 import {
@@ -7,6 +9,7 @@ import {
   vaultModelSetup,
 } from "./compose/index.ts";
 import { createLogger } from "./log.ts";
+import { rotatingFileSink } from "./log-rotation.ts";
 import { defaultPeerChecker, packagedHelperInstalled } from "./transports/peer-check.ts";
 
 const args = process.argv.slice(2);
@@ -17,7 +20,10 @@ if (args[0] === "--bundle-check") {
 }
 if (args.length > 0) process.exit(await runCli(args));
 
-const log = createLogger();
+// Logs go to a file the Gateway rotates itself (10 MB, three files), so they stay bounded without
+// a newsyslog rule. launchd's StandardErrorPath still catches crashes.
+const home = resolve(process.env.PSYCHE_HOME ?? join(homedir(), ".psyche"));
+const log = createLogger(rotatingFileSink(join(home, "logs", "gateway.log")));
 const peerChecker = defaultPeerChecker();
 
 try {
