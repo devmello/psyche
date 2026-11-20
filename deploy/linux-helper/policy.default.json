@@ -1,0 +1,8 @@
+{
+  "surfaces": { "virtualScreen": true, "direct": false },
+  "apps": { "allow": ["*"], "deny": ["org.keepassxc.KeePassXC"] },
+  "exec": { "enabled": true, "contain": true, "network": true, "cwdRoots": ["~"] },
+  "files": { "roots": [{ "path": "~", "mode": "rw" }] },
+  "memoryHigh": "3G",
+  "watch": true
+}

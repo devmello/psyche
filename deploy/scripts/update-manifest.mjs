@@ -6,7 +6,9 @@
 //        [--image gateway=ghcr.io/…@sha256:…] [--win-arch x64] [--delta-base 1.2.2]
 //        <artifacts…>                                      prints update-manifest.json
 //        (macOS zips/DMGs, and the Windows RELEASES, nupkgs, Setup.exe and zip; --delta-base names
-//        the release a delta nupkg was made from, without it clients use the full package)
+//        the release a delta nupkg was made from, without it clients use the full package;
+//        psyche-helper-<v>-linux-<arch>.{tar.zst,deb,rpm} are the helper-only packages, whose
+//        version must be --release, and --helper-complete requires all three per architecture)
 //   node update-manifest.mjs sign <update-manifest.json>   writes <file>.sig with the key in
 //                                                            PSYCHE_RELEASE_SIGNING_KEY (PEM)
 //   node update-manifest.mjs verify <update-manifest.json> <publicKey-base64>
@@ -76,6 +78,36 @@ export function classifyArtifact(name, winArch = "x64") {
   return null;
 }
 
+// --- Linux helper-only artifacts (docs/design/linux-helper-only-2026.md section 9; H7) ----------
+// `psyche-helper update` plans from `platforms["linux-<arch>"]` and unpacks
+// `psyche-helper-<release>-linux-<arch>/bin/psyche-helper` from the `helper-tar-zst` entry, so the
+// file's version must be the manifest's release. The server artifacts (B1) have their own checks.
+
+const HELPER_NAME = /^psyche-helper-(.+)-linux-(arm64|x64)\.(tar\.zst|deb|rpm)$/;
+
+/**
+ * Throws unless every `psyche-helper-*` file carries `release` in its name. With `complete`, every
+ * architecture that has a helper file must have all three packages (tarball, deb, rpm): the release
+ * job passes it, so a release cannot ship a half set that `psyche-helper update` would not find.
+ */
+export function checkHelperArtifacts(names, release, { complete = false } = {}) {
+  const arches = new Map();
+  for (const name of names) {
+    const m = HELPER_NAME.exec(name);
+    if (!m) continue;
+    if (m[1] !== release)
+      throw new Error(`${name}: the helper package version is ${m[1]}, the release is ${release}`);
+    arches.set(m[2], [...(arches.get(m[2]) ?? []), m[3]]);
+  }
+  if (!complete) return;
+  for (const [arch, exts] of arches) {
+    for (const want of ["tar.zst", "deb", "rpm"]) {
+      if (!exts.includes(want))
+        throw new Error(`the helper packages for ${arch} lack the ${want} (--helper-complete)`);
+    }
+  }
+}
+
 export function artifactOf(path, { winArch = "x64", deltaBase } = {}) {
   const name = basename(path);
   const what = classifyArtifact(name, winArch);
@@ -108,6 +140,7 @@ export function buildManifest({
   deltaBase,
   linuxOnly = false,
   noMac = false,
+  helperComplete = false,
   now = new Date(),
 }) {
   if (!VERSION.test(release) || !VERSION.test(minimum))
@@ -125,6 +158,11 @@ export function buildManifest({
     if (!a) throw new Error(`cannot classify ${basename(f)}: not a known release file`);
     all.push(a);
   }
+  checkHelperArtifacts(
+    all.map((a) => a.name),
+    release,
+    { complete: helperComplete },
+  );
   const mac = all.filter((a) => a.platform === "darwin");
   const win = all.filter((a) => a.platform === "win32");
   const linux = all.filter((a) => a.platform === "linux");
@@ -261,6 +299,7 @@ async function main(argv) {
       else if (a === "--delta-base") opts.deltaBase = rest[++i];
       else if (a === "--linux-only") opts.linuxOnly = true;
       else if (a === "--no-mac") opts.noMac = true;
+      else if (a === "--helper-complete") opts.helperComplete = true;
       else if (a === "--image") {
         const [k, v] = String(rest[++i]).split("=");
         opts.images[k] = v;

@@ -31,7 +31,7 @@ impl BuildInfo {
     pub fn current() -> Self {
         Self {
             name: "psyche-helper",
-            version: env!("CARGO_PKG_VERSION"),
+            version: crate::update::RELEASE_VERSION,
             build: match option_env!("PSYCHE_BUILD") {
                 Some(build) if !build.is_empty() => build,
                 _ => "dev",
