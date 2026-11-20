@@ -133,6 +133,8 @@ export interface ResolvedChatContext {
   /** Carried by the user message instead of `block` when set (a life answer's own block). */
   blocks?: Block[];
   taintSources: TaintSource[];
+  /** The taint stays on the chat for its later turns (a mail follow-up draft). */
+  stickyTaint?: boolean;
 }
 
 /** Who is sending and where: a context that depends on the connection or the chat's model reads it. */
@@ -184,6 +186,10 @@ export interface GatewayContext {
   readonly agent: AgentLoop;
   readonly broker: PermissionBroker;
   readonly memory: MemoryStore | null;
+  /** Reports a conversation import to the audit trail (counts only, never text). */
+  readonly onThreadsImported:
+    | ((e: { source: string; imported: number; duplicates: number; deviceId: string }) => void)
+    | null;
   /** Reports `settings.set` to the audit trail. */
   readonly onSettingChanged:
     | ((change: {

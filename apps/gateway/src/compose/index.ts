@@ -611,6 +611,15 @@ export async function composeGateway(options: ComposeOptions): Promise<ComposedG
       })
       .catch(() => undefined);
   };
+  gwOptions.onThreadsImported = (e) => {
+    void audit
+      .append({
+        kind: "threads.import",
+        actor: { type: "device", deviceId: e.deviceId },
+        data: { source: e.source, imported: e.imported, duplicates: e.duplicates },
+      })
+      .catch(() => undefined);
+  };
   gwOptions.onSettingChanged = (c) => {
     void changes.record(settingChange(c));
     if (c.narrowing === true) noticeTightened(c.deviceId);

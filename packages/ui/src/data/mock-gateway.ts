@@ -2556,6 +2556,7 @@ export class MockGateway implements GatewayClient {
       this.emit("goal.updated", { goal });
       return { goal };
     },
+    "goals.suggest": () => ({ ideaId: null }),
     "goals.milestone": (p) => {
       const list = this.goalMilestones(p.goalId);
       if (p.milestoneId === undefined) {
@@ -2745,6 +2746,39 @@ export class MockGateway implements GatewayClient {
         .slice(0, p.limit ?? 200),
     }),
     "automations.run": () => ({ runId: this.id("run"), taskId: this.id("task") }),
+    "automations.cancelRetry": (p) => {
+      const found = (this.world.automationRuns ?? []).find((r) => r.id === p.runId);
+      if (!found) return fail("not_found", `run ${p.runId} not found`);
+      const run = {
+        ...found,
+        status: "cancelled" as const,
+        endedAt: new Date().toISOString(),
+        retryAt: null,
+      };
+      return { run };
+    },
+    "storage.usage": () => ({
+      categories: [
+        { id: "database" as const, bytes: 48_000_000, clearable: false },
+        { id: "memoryIndex" as const, bytes: 12_000_000, clearable: false },
+        { id: "library" as const, bytes: 220_000_000, clearable: false },
+        { id: "browserProfiles" as const, bytes: 90_000_000, clearable: false },
+        {
+          id: "recordings" as const,
+          bytes: 30_000_000,
+          clearable: true,
+          reclaimableBytes: 12_000_000,
+        },
+        { id: "logs" as const, bytes: 4_000_000, clearable: false },
+        { id: "caches" as const, bytes: 16_000_000, clearable: true, reclaimableBytes: 16_000_000 },
+        { id: "other" as const, bytes: 2_000_000, clearable: false },
+      ],
+      totalBytes: 422_000_000,
+    }),
+    "storage.clearCache": () => ({
+      cleared: ["caches" as const, "recordings" as const],
+      freedBytes: 46_000_000,
+    }),
     "automations.runs": (p) => {
       const all = (this.world.automationRuns ?? [])
         .filter((r) => r.automationId === p.automationId)

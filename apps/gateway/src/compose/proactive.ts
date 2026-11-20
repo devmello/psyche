@@ -14,6 +14,7 @@ import {
   createFeedHandlers,
   createGoalHandlers,
   createIdeaHandlers,
+  createNextStepProposer,
   createProposalHandlers,
   DailyService,
   DigestService,
@@ -282,7 +283,7 @@ export function composeProactive(setup: ProactiveSetup): ComposedProactive {
           ...setup.catchup,
           timeZone: () => timeZone ?? Intl.DateTimeFormat().resolvedOptions().timeZone,
         });
-  const goals = new GoalsService({
+  const goals: GoalsService = new GoalsService({
     db: db.sqlite,
     clock,
     scheduler,
@@ -290,6 +291,16 @@ export function composeProactive(setup: ProactiveSetup): ComposedProactive {
     tasks,
     ...(timeZone === undefined ? {} : { timezone: timeZone }),
     onEvent: (e) => publish(e.event, e.payload),
+    // The next-step model call runs only when the owner taps "Suggest next step" (`goals.suggest`),
+    // never from a schedule. The card is an idea: Start creates a task under the normal approvals.
+    nextStep: createNextStepProposer({
+      provider,
+      model,
+      offer: (candidate, supersedes): Promise<{ id: string } | undefined> =>
+        ideas.offer(candidate, supersedes),
+    }),
+    onError: (err) =>
+      logger?.log("warn", "goal next-step suggestion failed", { code: PsycheError.from(err).code }),
   });
   const feed = new FeedService({
     db: db.sqlite,
@@ -306,7 +317,7 @@ export function composeProactive(setup: ProactiveSetup): ComposedProactive {
     ...(catchup === undefined ? {} : { agentView: catchup.agentView }),
   });
   const sessions = createDbSessionResolver(db);
-  const ideas = new IdeasService({
+  const ideas: IdeasService = new IdeasService({
     db: db.sqlite,
     clock,
     scheduler,

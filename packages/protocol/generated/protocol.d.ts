@@ -2018,6 +2018,14 @@ export type DailyWorkflowRunKind = "cron" | "interval";
 
 export type AutomationWorkflowBlockType = "automation_workflow";
 
+export interface AutomationsCancelRetryParams {
+    runId: string;
+}
+
+export interface AutomationsCancelRetryResult {
+    run: AutomationRun;
+}
+
 export interface AutomationsCreateParams {
     delivery?:     Delivery;
     enabled?:      boolean;
@@ -5580,6 +5588,14 @@ export interface GoalsMilestoneResult {
     taskIds:    string[];
 }
 
+export interface GoalsSuggestParams {
+    goalId: string;
+}
+
+export interface GoalsSuggestResult {
+    ideaId?: null | string;
+}
+
 export interface GoalsUpdateParams {
     cadence?:  null | string;
     category?: GoalCategory;
@@ -6402,14 +6418,15 @@ export interface MailFollowupsListResult {
 }
 
 export interface MailFollowupItem {
-    daysQuiet: number;
-    id:        string;
-    kind:      MailFollowupKind;
-    link?:     string;
-    source:    MailFollowupItemSource;
-    subject:   string;
-    untrusted: boolean;
-    who:       string;
+    daysQuiet:      number;
+    gmailThreadId?: string;
+    id:             string;
+    kind:           MailFollowupKind;
+    link?:          string;
+    source:         MailFollowupItemSource;
+    subject:        string;
+    untrusted:      boolean;
+    who:            string;
 }
 
 export type MailFollowupKind = "no_reply" | "unanswered_question";
@@ -10538,6 +10555,7 @@ export interface SearchHit {
     entityType?:        SearchEntityType;
     group?:             SearchGroup;
     id:                 string;
+    imported?:          ThreadImportSource;
     kind?:              SearchIndexDocKind;
     match?:             SearchMatch;
     provenance?:        Provenance;
@@ -10560,6 +10578,8 @@ export interface SearchHitCard {
     span:    string;
     summary: string;
 }
+
+export type ThreadImportSource = "claude" | "chatgpt";
 
 export type SearchIndexDocKind = "thread" | "message" | "task" | "memory" | "library" | "feed" | "idea" | "goal" | "connector" | "person" | "project";
 
@@ -12296,6 +12316,32 @@ export interface TranscriptSegment {
 
 export type SpeechTranscribePreset = "long" | "short";
 
+export interface StorageClearCacheParams {
+    targets?: StorageClearTarget[];
+}
+
+export type StorageClearTarget = "caches" | "recordings";
+
+export interface StorageCleared {
+    cleared:    StorageClearTarget[];
+    freedBytes: number;
+}
+
+export interface StorageUsage {
+    categories: StorageCategory[];
+    partial?:   boolean;
+    totalBytes: number;
+}
+
+export interface StorageCategory {
+    bytes:             number;
+    clearable:         boolean;
+    id:                StorageCategoryID;
+    reclaimableBytes?: number;
+}
+
+export type StorageCategoryID = "database" | "memoryIndex" | "library" | "browserProfiles" | "recordings" | "logs" | "caches" | "other";
+
 export interface TaskActionPayload {
     action: TaskAction;
 }
@@ -12918,6 +12964,20 @@ export interface ThreadIDParams {
     threadId: string;
 }
 
+export interface ThreadImportResult {
+    duplicates:  number;
+    imported:    number;
+    skipped:     ThreadImportResultSkipped[];
+    skippedMore: number;
+}
+
+export interface ThreadImportResultSkipped {
+    reason: SkippedReason;
+    title:  string;
+}
+
+export type SkippedReason = "too_many" | "too_large" | "empty" | "invalid";
+
 export interface ThreadResult {
     thread: Thread;
 }
@@ -12929,6 +12989,7 @@ export interface Thread {
     expiresAt?:           null | string;
     forkedFromMessageId?: null | string;
     id:                   string;
+    imported?:            ThreadImportSource;
     kind:                 ThreadKind;
     lastMessageAt?:       null | string;
     modelRef?:            null | string;
@@ -13020,6 +13081,12 @@ export interface ThreadsForkParams {
     messageId: string;
     threadId:  string;
     title?:    string;
+}
+
+export interface ThreadsImportParams {
+    content: string;
+    dryRun?: boolean;
+    format:  ThreadImportSource;
 }
 
 export interface ThreadsListParams {
@@ -13328,10 +13395,10 @@ export type VaultImportParamsFormat = "auto" | "1password" | "bitwarden" | "chro
 
 export interface VaultImportResult {
     imported: CredentialMeta[];
-    skipped:  Skipped[];
+    skipped:  VaultImportResultSkipped[];
 }
 
-export interface Skipped {
+export interface VaultImportResultSkipped {
     reason: string;
     row:    number;
 }

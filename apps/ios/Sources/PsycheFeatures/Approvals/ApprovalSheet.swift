@@ -26,6 +26,16 @@ struct ApprovalSheet: View {
             VStack(alignment: .leading, spacing: 18) {
                 VStack(alignment: .leading, spacing: 6) {
                     StatusDot(.needsYou, "Needs your OK · \(detail.kindLabel)", font: .footnote.weight(.semibold))
+                    if let machine = detail.machineName {
+                        Label {
+                            Text("On \(machine)", bundle: .module)
+                        } icon: {
+                            Image(systemName: "desktopcomputer")
+                        }
+                        .font(.subheadline.weight(.medium))
+                        .foregroundStyle(PsycheColor.text)
+                        .accessibilityIdentifier("approvalMachineLine")
+                    }
                     Text(detail.title).psycheTitle(.title).foregroundStyle(PsycheColor.text)
                     Text(detail.summary).font(.subheadline).foregroundStyle(PsycheColor.muted)
                 }

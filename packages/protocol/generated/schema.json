@@ -733,6 +733,14 @@
         "sideEffecting": false
       },
       {
+        "description": "Cancels a scheduled run that is waiting to retry after a transient model error: the run ends as cancelled (its last error kept in the summary), the automation shows as failed, and Run now is free again. Side-effecting. `conflict` when the run is not waiting to retry (it already started its next attempt, or finished).",
+        "name": "automations.cancelRetry",
+        "params": "#/$defs/AutomationsCancelRetryParams",
+        "result": "#/$defs/AutomationsCancelRetryResult",
+        "scope": "operator.write",
+        "sideEffecting": true
+      },
+      {
         "description": "Creates an automation (enabled by default). Side-effecting.",
         "name": "automations.create",
         "params": "#/$defs/AutomationsCreateParams",
@@ -1705,6 +1713,14 @@
         "name": "goals.milestone",
         "params": "#/$defs/GoalsMilestoneParams",
         "result": "#/$defs/GoalsMilestoneResult",
+        "scope": "operator.write",
+        "sideEffecting": true
+      },
+      {
+        "description": "Asks the model for one next step for a goal and offers it as a Home card (Start, Snooze, Dismiss). Uses the model, and runs only when the owner asks. Nothing starts. Side-effecting.",
+        "name": "goals.suggest",
+        "params": "#/$defs/GoalsSuggestParams",
+        "result": "#/$defs/GoalsSuggestResult",
         "scope": "operator.write",
         "sideEffecting": true
       },
@@ -3733,6 +3749,22 @@
         "sideEffecting": false
       },
       {
+        "description": "Side-effecting. Empties the rebuildable caches (converted documents and thumbnails) and deletes finished browser recordings older than 7 days together with their Library entries. Recordings still in progress, and every other category, are untouched.",
+        "name": "storage.clearCache",
+        "params": "#/$defs/StorageClearCacheParams",
+        "result": "#/$defs/StorageCleared",
+        "scope": "operator.admin",
+        "sideEffecting": true
+      },
+      {
+        "description": "Disk use under the Gateway's data folder by category (database, memory index, attachments and Library, browser profiles, recordings, logs, caches, other). Sizes only; symbolic links are not followed.",
+        "name": "storage.usage",
+        "params": "#/$defs/StorageUsageParams",
+        "result": "#/$defs/StorageUsage",
+        "scope": "operator.admin",
+        "sideEffecting": false
+      },
+      {
         "description": "Pages a task's Activity lines (level 1 and 2; level 3 is fetched by ref).",
         "name": "tasks.actions",
         "params": "#/$defs/TasksActionsParams",
@@ -3955,6 +3987,14 @@
         "result": "#/$defs/ThreadListEntry",
         "scope": "operator.read",
         "sideEffecting": false
+      },
+      {
+        "description": "Imports conversations from a claude.ai or ChatGPT export as archived, read-only threads (imported flag). Turns are untrusted data. Capped; the same export again adds nothing. Side-effecting.",
+        "name": "threads.import",
+        "params": "#/$defs/ThreadsImportParams",
+        "result": "#/$defs/ThreadImportResult",
+        "scope": "operator.write",
+        "sideEffecting": true
       },
       {
         "description": "Lists threads, most recent first, each with derived activity counts (running / awaiting input / awaiting approval).",
@@ -11326,6 +11366,31 @@
       "required": [
         "type",
         "proposal"
+      ],
+      "type": "object"
+    },
+    "AutomationsCancelRetryParams": {
+      "properties": {
+        "runId": {
+          "description": "ULID in production",
+          "maxLength": 64,
+          "minLength": 1,
+          "type": "string"
+        }
+      },
+      "required": [
+        "runId"
+      ],
+      "type": "object"
+    },
+    "AutomationsCancelRetryResult": {
+      "properties": {
+        "run": {
+          "$ref": "#/$defs/AutomationRun"
+        }
+      },
+      "required": [
+        "run"
       ],
       "type": "object"
     },
@@ -22162,6 +22227,38 @@
       ],
       "type": "object"
     },
+    "GoalsSuggestParams": {
+      "properties": {
+        "goalId": {
+          "description": "ULID in production",
+          "maxLength": 64,
+          "minLength": 1,
+          "type": "string"
+        }
+      },
+      "required": [
+        "goalId"
+      ],
+      "type": "object"
+    },
+    "GoalsSuggestResult": {
+      "properties": {
+        "ideaId": {
+          "anyOf": [
+            {
+              "description": "ULID in production",
+              "maxLength": 64,
+              "minLength": 1,
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        }
+      },
+      "type": "object"
+    },
     "GoalsUpdateParams": {
       "properties": {
         "goalId": {
@@ -27103,6 +27200,11 @@
         },
         "link": {
           "maxLength": 1000,
+          "type": "string"
+        },
+        "gmailThreadId": {
+          "maxLength": 64,
+          "pattern": "^[A-Za-z0-9_-]{1,64}$",
           "type": "string"
         },
         "untrusted": {
@@ -40421,6 +40523,13 @@
         },
         "card": {
           "$ref": "#/$defs/SearchHitCard"
+        },
+        "imported": {
+          "enum": [
+            "claude",
+            "chatgpt"
+          ],
+          "type": "string"
         }
       },
       "required": [
@@ -46632,6 +46741,108 @@
       ],
       "type": "string"
     },
+    "StorageCategory": {
+      "properties": {
+        "id": {
+          "$ref": "#/$defs/StorageCategoryId"
+        },
+        "bytes": {
+          "minimum": 0,
+          "type": "integer"
+        },
+        "clearable": {
+          "type": "boolean"
+        },
+        "reclaimableBytes": {
+          "minimum": 0,
+          "type": "integer"
+        }
+      },
+      "required": [
+        "id",
+        "bytes",
+        "clearable"
+      ],
+      "type": "object"
+    },
+    "StorageCategoryId": {
+      "enum": [
+        "database",
+        "memoryIndex",
+        "library",
+        "browserProfiles",
+        "recordings",
+        "logs",
+        "caches",
+        "other"
+      ],
+      "type": "string"
+    },
+    "StorageClearCacheParams": {
+      "properties": {
+        "targets": {
+          "items": {
+            "$ref": "#/$defs/StorageClearTarget"
+          },
+          "maxItems": 2,
+          "minItems": 1,
+          "type": "array"
+        }
+      },
+      "type": "object"
+    },
+    "StorageClearTarget": {
+      "enum": [
+        "caches",
+        "recordings"
+      ],
+      "type": "string"
+    },
+    "StorageCleared": {
+      "properties": {
+        "cleared": {
+          "items": {
+            "$ref": "#/$defs/StorageClearTarget"
+          },
+          "type": "array"
+        },
+        "freedBytes": {
+          "minimum": 0,
+          "type": "integer"
+        }
+      },
+      "required": [
+        "cleared",
+        "freedBytes"
+      ],
+      "type": "object"
+    },
+    "StorageUsage": {
+      "properties": {
+        "categories": {
+          "items": {
+            "$ref": "#/$defs/StorageCategory"
+          },
+          "type": "array"
+        },
+        "totalBytes": {
+          "minimum": 0,
+          "type": "integer"
+        },
+        "partial": {
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "categories",
+        "totalBytes"
+      ],
+      "type": "object"
+    },
+    "StorageUsageParams": {
+      "properties": {},
+      "type": "object"
+    },
     "SurfaceAnswerToken": {
       "minLength": 1,
       "type": "string"
@@ -48578,6 +48789,9 @@
         "userCreated": {
           "type": "boolean"
         },
+        "imported": {
+          "$ref": "#/$defs/ThreadImportSource"
+        },
         "spaceId": {
           "anyOf": [
             {
@@ -48746,6 +48960,68 @@
         "threadId"
       ],
       "type": "object"
+    },
+    "ThreadImportFormat": {
+      "enum": [
+        "claude",
+        "chatgpt"
+      ],
+      "type": "string"
+    },
+    "ThreadImportResult": {
+      "properties": {
+        "imported": {
+          "minimum": 0,
+          "type": "integer"
+        },
+        "duplicates": {
+          "minimum": 0,
+          "type": "integer"
+        },
+        "skipped": {
+          "items": {
+            "properties": {
+              "title": {
+                "type": "string"
+              },
+              "reason": {
+                "enum": [
+                  "too_many",
+                  "too_large",
+                  "empty",
+                  "invalid"
+                ],
+                "type": "string"
+              }
+            },
+            "required": [
+              "title",
+              "reason"
+            ],
+            "type": "object"
+          },
+          "maxItems": 500,
+          "type": "array"
+        },
+        "skippedMore": {
+          "minimum": 0,
+          "type": "integer"
+        }
+      },
+      "required": [
+        "imported",
+        "duplicates",
+        "skipped",
+        "skippedMore"
+      ],
+      "type": "object"
+    },
+    "ThreadImportSource": {
+      "enum": [
+        "claude",
+        "chatgpt"
+      ],
+      "type": "string"
     },
     "ThreadKind": {
       "enum": [
@@ -49000,6 +49276,26 @@
       "required": [
         "threadId",
         "messageId"
+      ],
+      "type": "object"
+    },
+    "ThreadsImportParams": {
+      "properties": {
+        "format": {
+          "$ref": "#/$defs/ThreadImportFormat"
+        },
+        "content": {
+          "maxLength": 330000,
+          "minLength": 2,
+          "type": "string"
+        },
+        "dryRun": {
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "format",
+        "content"
       ],
       "type": "object"
     },
