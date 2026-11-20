@@ -44,12 +44,7 @@ pub struct IdFacts {
 /// Builds [`IdFacts`] from one read of the evidence and one index.
 pub fn id_facts(ev: &Evidence, index: &DesktopIndex, flatpak: Option<String>) -> IdFacts {
     let mut cands = candidates(ev, index);
-    let own = choose(&cands).or_else(|| {
-        ev.comm
-            .as_deref()
-            .map(normalize)
-            .filter(|c| is_app_id(c))
-    });
+    let own = choose(&cands).or_else(|| ev.comm.as_deref().map(normalize).filter(|c| is_app_id(c)));
     let resolved: Vec<String> = cands
         .iter()
         .filter(|c| aliases(c).iter().any(|a| index.get(a).is_some()))

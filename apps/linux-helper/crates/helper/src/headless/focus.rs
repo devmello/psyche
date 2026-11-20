@@ -264,13 +264,24 @@ mod tests {
         // after it, and refuses the xterm (engine test
         // `a_surface_that_allows_the_focus_does_not_replace_the_pid_comparison`).
         let n = policy(&["*"], &[]);
-        assert_eq!(decide("org.gnome.TextEditor", Some(100), &scopes(), &n), Ok(()));
-        assert_eq!(decide("org.gnome.TextEditor", Some(101), &scopes(), &n), Ok(()));
+        assert_eq!(
+            decide("org.gnome.TextEditor", Some(100), &scopes(), &n),
+            Ok(())
+        );
+        assert_eq!(
+            decide("org.gnome.TextEditor", Some(101), &scopes(), &n),
+            Ok(())
+        );
     }
 
     #[test]
     fn typing_is_refused_when_the_focus_is_another_apps_window() {
-        let r = decide("org.gnome.TextEditor", Some(200), &scopes(), &policy(&["*"], &[]));
+        let r = decide(
+            "org.gnome.TextEditor",
+            Some(200),
+            &scopes(),
+            &policy(&["*"], &[]),
+        );
         assert_eq!(
             r,
             Err(Refusal::Moved {
@@ -284,21 +295,36 @@ mod tests {
 
     #[test]
     fn typing_is_refused_for_a_window_that_belongs_to_no_launched_app() {
-        let r = decide("org.gnome.TextEditor", Some(4242), &scopes(), &policy(&["*"], &[]));
+        let r = decide(
+            "org.gnome.TextEditor",
+            Some(4242),
+            &scopes(),
+            &policy(&["*"], &[]),
+        );
         assert_eq!(r, Err(Refusal::Moved { other: None }));
     }
 
     #[test]
     fn typing_is_refused_when_the_focus_cannot_be_read() {
         assert_eq!(
-            decide("org.gnome.TextEditor", None, &scopes(), &policy(&["*"], &[])),
+            decide(
+                "org.gnome.TextEditor",
+                None,
+                &scopes(),
+                &policy(&["*"], &[])
+            ),
             Err(Refusal::Unknown)
         );
     }
 
     #[test]
     fn a_denied_app_with_the_focus_gets_no_input_and_the_error_names_what_it_is() {
-        let r = decide("org.gnome.TextEditor", Some(300), &scopes(), &keepass_denied());
+        let r = decide(
+            "org.gnome.TextEditor",
+            Some(300),
+            &scopes(),
+            &keepass_denied(),
+        );
         assert_eq!(
             r,
             Err(Refusal::Denied {
@@ -306,7 +332,12 @@ mod tests {
                 matched: "org.keepassxc.KeePassXC".into()
             })
         );
-        let r = decide("org.keepassxc.KeePassXC", Some(300), &scopes(), &keepass_denied());
+        let r = decide(
+            "org.keepassxc.KeePassXC",
+            Some(300),
+            &scopes(),
+            &keepass_denied(),
+        );
         let e = to_error(&r.unwrap_err(), &info("org.keepassxc.keepassxc", 300));
         assert_eq!((e.code, e.reason.as_str()), ("policy_denied", "app_denied"));
         assert!(!e.retryable);
@@ -314,7 +345,12 @@ mod tests {
 
     #[test]
     fn a_denied_program_started_by_an_allowed_app_gets_no_input() {
-        let r = decide("org.gnome.TextEditor", Some(301), &scopes(), &keepass_denied());
+        let r = decide(
+            "org.gnome.TextEditor",
+            Some(301),
+            &scopes(),
+            &keepass_denied(),
+        );
         assert!(matches!(r, Err(Refusal::Denied { .. })));
     }
 
@@ -338,7 +374,12 @@ mod tests {
                 }
             }
         }
-        let r = decide("org.gnome.TextEditor", Some(1), &Comm, &policy(&["*"], &["gnome-text-edit"]));
+        let r = decide(
+            "org.gnome.TextEditor",
+            Some(1),
+            &Comm,
+            &policy(&["*"], &["gnome-text-edit"]),
+        );
         assert_eq!(
             r,
             Err(Refusal::Denied {
@@ -360,7 +401,9 @@ mod tests {
 
     impl Scopes for Real {
         fn in_scope(&self, app_id: &str, pid: u32) -> bool {
-            self.procs[&pid].0.is_some_and(|h| h.eq_ignore_ascii_case(app_id))
+            self.procs[&pid]
+                .0
+                .is_some_and(|h| h.eq_ignore_ascii_case(app_id))
         }
         fn identity(&self, pid: u32) -> Identity {
             let (holder, ev) = &self.procs[&pid];
@@ -378,7 +421,10 @@ mod tests {
         for (file, exec) in [
             ("org.gnome.TextEditor.desktop", "gnome-text-editor %U"),
             ("libreoffice-writer.desktop", "libreoffice --writer %U"),
-            ("firefox_firefox.desktop", "env BAMF_DESKTOP_FILE_HINT=x /snap/bin/firefox %u"),
+            (
+                "firefox_firefox.desktop",
+                "env BAMF_DESKTOP_FILE_HINT=x /snap/bin/firefox %u",
+            ),
             ("debian-xterm.desktop", "xterm"),
         ] {
             std::fs::write(
@@ -394,7 +440,13 @@ mod tests {
             ..Default::default()
         };
         let procs = HashMap::from([
-            (1, (Some("org.gnome.TextEditor"), ev("/usr/bin/gnome-text-editor", "gnome-text-edit"))),
+            (
+                1,
+                (
+                    Some("org.gnome.TextEditor"),
+                    ev("/usr/bin/gnome-text-editor", "gnome-text-edit"),
+                ),
+            ),
             (
                 2,
                 (
@@ -413,10 +465,19 @@ mod tests {
                 ),
             ),
             // (a) an xterm the editor started: the editor's scope, its own executable.
-            (4, (Some("org.gnome.TextEditor"), ev("/usr/bin/xterm", "xterm"))),
+            (
+                4,
+                (Some("org.gnome.TextEditor"), ev("/usr/bin/xterm", "xterm")),
+            ),
             // (b) a process that left every scope.
             (5, (None, ev("/usr/bin/xterm", "xterm"))),
-            (6, (None, ev("/usr/lib/libreoffice/program/soffice.bin", "soffice.bin"))),
+            (
+                6,
+                (
+                    None,
+                    ev("/usr/lib/libreoffice/program/soffice.bin", "soffice.bin"),
+                ),
+            ),
             // (c) a program with no desktop entry in an allowed scope: the documented gap.
             (7, (Some("org.gnome.TextEditor"), ev("/usr/bin/foo", "foo"))),
         ]);
@@ -434,7 +495,12 @@ mod tests {
             (3, "firefox"),
         ] {
             let p = policy(&[allow], &[]);
-            assert_eq!(blocked_by(&p, &real, pid), None, "{allow} {:?}", real.identity(pid));
+            assert_eq!(
+                blocked_by(&p, &real, pid),
+                None,
+                "{allow} {:?}",
+                real.identity(pid)
+            );
         }
         // And the same apps under an allow list that names something else are out of reach.
         for pid in [1, 2, 3] {
@@ -444,7 +510,8 @@ mod tests {
 
     /// (a) and (b) of the r2 review: what main hid stays hidden.
     #[test]
-    fn under_a_narrow_allow_list_a_program_started_by_an_allowed_app_or_with_no_scope_is_out_of_reach() {
+    fn under_a_narrow_allow_list_a_program_started_by_an_allowed_app_or_with_no_scope_is_out_of_reach(
+    ) {
         let (_keep, real) = real();
         let p = policy(&["org.gnome.TextEditor"], &[]);
         // (a) The xterm in the editor's scope resolves to its own entry, `debian-xterm`.
@@ -511,7 +578,10 @@ mod tests {
             let p = policy(&["*"], &[entry]);
             assert!(blocked_by(&p, &real, pid).is_some(), "{entry} for {pid}");
         }
-        assert_eq!(blocked_by(&policy(&["*"], &["gnome-calculator"]), &real, 1), None);
+        assert_eq!(
+            blocked_by(&policy(&["*"], &["gnome-calculator"]), &real, 1),
+            None
+        );
     }
 
     /// Snap aliases agree everywhere: the gate's matcher and this one are the same.
@@ -528,11 +598,21 @@ mod tests {
     #[test]
     fn the_deny_list_does_not_touch_other_apps() {
         assert_eq!(
-            decide("org.gnome.TextEditor", Some(100), &scopes(), &keepass_denied()),
+            decide(
+                "org.gnome.TextEditor",
+                Some(100),
+                &scopes(),
+                &keepass_denied()
+            ),
             Ok(())
         );
         assert!(matches!(
-            decide("org.gnome.TextEditor", Some(100), &scopes(), &policy(&[], &[])),
+            decide(
+                "org.gnome.TextEditor",
+                Some(100),
+                &scopes(),
+                &policy(&[], &[])
+            ),
             Err(Refusal::Denied { .. })
         ));
     }
