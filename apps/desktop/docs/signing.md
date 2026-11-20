@@ -301,7 +301,7 @@ The Gateway task `\Psyche\Gateway-<user SID>` (at logon; Task Scheduler names ar
 the name carries the account's SID: `packages/hostfs/src/gateway-task.ts` and `gateway-task.json`,
 which the desktop, the CLI, the uninstall hook and `deploy/windows/install-local.ps1` share) runs
 `conhost.exe --headless <node.exe> <service-host.mjs> --home <PSYCHE_HOME> -- <psyched>`: the
-service host sets `PSYCHE_HOME`, appends to `$PSYCHE_HOME\logs\gateway.out.log` and `gateway.err.log`,
+service host sets `PSYCHE_HOME`, appends to `$PSYCHE_HOME\logs\gateway.out.log` and `gateway.err.log`; the Gateway's own rotated log is `gateway.log`,
 restarts the Gateway when it exits and records `$PSYCHE_HOME\run\gateway-service.pid` and
 `gateway.pid`. `schtasks /End` ends only conhost, so stopping also ends that process tree.
 `apps/cli/src/supervisor.ts` renders the task; the bundle's `psyche-gateway.task.xml.template`

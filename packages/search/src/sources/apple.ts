@@ -63,6 +63,11 @@ export interface AppleSourceDeps {
    */
   helperOnline?: () => boolean;
   /**
+   * Called when the Host's helper connects again, after a read was refused with "needs the Psyche
+   * helper" (paired but not serving). Clears that block so the reads resume.
+   */
+  resumeHelper?: () => void;
+  /**
    * The Host's Mac helper offering `contacts.list` and `contacts.read`, for the Contacts source;
    * undefined while none is live. Absent = Contacts is unavailable on this host.
    */

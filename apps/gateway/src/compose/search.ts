@@ -46,6 +46,7 @@ import {
   tzOffsetMinutesAt,
 } from "@psyche/search";
 import type { HandlerDef } from "../context.ts";
+import { failureRuns } from "../failure-runs.ts";
 import type { Logger } from "../log.ts";
 import type { Gateway } from "../server.ts";
 import { DeferredOpen } from "./deferred-open.ts";
@@ -53,6 +54,7 @@ import type { PageReadHub } from "./page-reads.ts";
 import { openSearchDatabase } from "./search-db.ts";
 import { APPLE_RERANK_TOP_N } from "./search-engine.ts";
 import { watchFolders } from "./search-files.ts";
+import { helperResumeHandler, PAIRING_APPROVED_EVENT } from "./search-helper-resume.ts";
 import type { Recognize } from "./search-ocr.ts";
 import { searchOpenHandlers } from "./search-open.ts";
 import {
@@ -510,8 +512,17 @@ function buildSearch(deps: SearchDeps, sqlite: PsycheDb["sqlite"]): ComposedSear
         runOnBattery,
         ...(deps.backfillPauseMs === undefined ? {} : { pauseMs: deps.backfillPauseMs }),
         onChange: () => publishSources(),
-        onError: (source, err) =>
-          deps.logger?.log("warn", "search: a source failed", { source, err: String(err) }),
+        // Repeats of one failure are logged once, then counted hourly (`failureRuns`).
+        onError: (source, err) => {
+          const v = sourceFailures.fail(source, String(err));
+          if (v.log)
+            deps.logger?.log("warn", "search: a source failed", {
+              source,
+              err: String(err),
+              repeats: v.repeats,
+            });
+        },
+        onRecover: (source) => sourceFailures.ok(source),
       },
     );
   }
@@ -620,6 +631,8 @@ function buildSearch(deps: SearchDeps, sqlite: PsycheDb["sqlite"]): ComposedSear
   // Events are indexed one at a time in publish order (a thread before its messages).
   let queue: Promise<void> = Promise.resolve();
   let unsubscribe: (() => void) | undefined;
+  let unsubscribeHelper: (() => void) | undefined;
+  const sourceFailures = failureRuns({ now: () => deps.now() });
   const handlers: Record<string, HandlerDef> = {
     "search.query": {
       run: (_call, params: never) => api["search.query"](params, { viewer: OWNER }),
@@ -709,10 +722,19 @@ function buildSearch(deps: SearchDeps, sqlite: PsycheDb["sqlite"]): ComposedSear
     ...(sourceIndexer === undefined ? {} : { sources: sourceIndexer }),
     start(gw: Gateway) {
       gateway = gw;
+      // The Host's helper connected, or a pairing was approved: Apple reads resume and a source
+      // pass runs now (`search-helper-resume.ts`).
+      const resume = helperResumeHandler({
+        helperConnected: () => gw.context.nodes.hostHelper() !== undefined,
+        resumeHelper: () => deps.sources?.apple?.resumeHelper?.(),
+        tick: () => sourceTick(),
+      });
+      unsubscribeHelper = gw.context.nodes.onHostHelperChange(() => resume("connect"));
       unsubscribe = gw.bus.subscribe(ALL_SCOPES, (frame) => {
         const f = JSON.parse(frame) as { event?: string; payload?: unknown };
         const event = f.event;
         if (event === undefined) return;
+        if (event === PAIRING_APPROVED_EVENT) resume("approval");
         if (event === "settings.changed") {
           const entries = (f.payload as { entries?: { key: string }[] }).entries ?? [];
           const keys: string[] = Object.values(SEMANTIC_SETTINGS);
@@ -756,6 +778,8 @@ function buildSearch(deps: SearchDeps, sqlite: PsycheDb["sqlite"]): ComposedSear
     },
     async stop() {
       unsubscribe?.();
+      unsubscribeHelper?.();
+      unsubscribeHelper = undefined;
       if (memoryKick !== undefined) clearTimeout(memoryKick);
       stopPageReads?.();
       unsubscribe = undefined;

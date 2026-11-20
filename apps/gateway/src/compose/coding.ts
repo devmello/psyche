@@ -6,7 +6,7 @@ import {
   codingTools,
   type GitRunner,
 } from "@psyche/agent-core";
-import type { SandboxRunner } from "@psyche/protocol";
+import { PsycheError, type SandboxRunner } from "@psyche/protocol";
 import { protectedRoots } from "./protected-paths.ts";
 import type { ComposedPart, ComposeServices } from "./services.ts";
 
@@ -39,6 +39,14 @@ const GIT_MAX_BUFFER = 8 * 1024 * 1024;
 const GIT_TIMEOUT_MS = 120_000;
 
 /**
+ * The only variables a caller may set per command (`GitRunner` `options.env`). Anything else,
+ * `PATH`, `GIT_CONFIG_PARAMETERS`, `GIT_CONFIG_COUNT`/`KEY_n`/`VALUE_n`, `GIT_EXEC_PATH`,
+ * `DYLD_*`, `LD_*` or one of the fixed keys below, is refused: they would change which program
+ * runs or undo the hardening.
+ */
+export const HOST_GIT_COMMAND_ENV: ReadonlySet<string> = new Set(["GIT_PROXY_COMMAND"]);
+
+/**
  * `git` on the host as a child process with an argv (no shell). Prompts are off, so a push that
  * needs credentials the owner's helpers cannot supply fails instead of waiting on a terminal;
  * `GIT_DIR` / `GIT_WORK_TREE` from the Gateway's own environment never redirect it.
@@ -46,13 +54,22 @@ const GIT_TIMEOUT_MS = 120_000;
 export function hostGit(binary = "git"): GitRunner {
   return {
     run(cwd, args, options = {}) {
+      const extra = Object.keys(options.env ?? {}).filter((k) => !HOST_GIT_COMMAND_ENV.has(k));
+      if (extra.length > 0) {
+        return Promise.reject(
+          new PsycheError(
+            "internal",
+            `git may not be given ${extra.join(", ")}; only ${[...HOST_GIT_COMMAND_ENV].join(", ")} can be set per command`,
+          ),
+        );
+      }
       const env: NodeJS.ProcessEnv = {
         ...process.env,
         GIT_TERMINAL_PROMPT: "0",
         LC_ALL: "C",
         // Discovery never climbs above the workspace into a repository around it.
         GIT_CEILING_DIRECTORIES: dirname(cwd),
-        // What agent-core asks for this command (a push: GIT_PROXY_COMMAND="").
+        // What agent-core asks for this command, allowlisted above (a push: GIT_PROXY_COMMAND="").
         ...options.env,
       };
       for (const k of [

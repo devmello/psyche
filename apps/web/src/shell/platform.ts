@@ -26,7 +26,7 @@ export interface GatewayPort {
   /** Desktop only: the Gateway process the app starts (LaunchAgent or dev child). */
   getRun?(): Promise<GatewayRunView>;
   onRun?(cb: (run: GatewayRunView) => void): Unsubscribe;
-  /** Desktop only: opens `$PSYCHE_HOME/logs` (gateway.out.log, gateway.err.log). */
+  /** Desktop only: opens `$PSYCHE_HOME/logs` (gateway.log, gateway.err.log, gateway.out.log). */
   showLogs?(): Promise<void>;
   /** Desktop only: starts the Gateway again after a failed start (the splash's Retry). */
   retry?(): Promise<void>;
