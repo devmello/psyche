@@ -2557,6 +2557,7 @@ export class MockGateway implements GatewayClient {
       this.emit("goal.updated", { goal });
       return { goal };
     },
+    "goals.suggest": () => ({ ideaId: null }),
     "goals.milestone": (p) => {
       const list = this.goalMilestones(p.goalId);
       if (p.milestoneId === undefined) {
