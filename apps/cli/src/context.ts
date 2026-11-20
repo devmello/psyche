@@ -1,4 +1,4 @@
-import { readFileSync } from "node:fs";
+import { closeSync, constants, fstatSync, lstatSync, openSync, readFileSync } from "node:fs";
 import { join } from "node:path";
 import { GatewayClient, type HttpProbe, probeGateway, type WebSocketFactory } from "./client.ts";
 import { CliError } from "./errors.ts";
@@ -35,24 +35,62 @@ export interface GlobalOptions {
 }
 
 /**
- * Whether `url` is exactly an address this home's own `psyched` is bound to. The Gateway writes the
- * origin(s) it really listens on to `$PSYCHE_HOME/run/listen.json` (after it binds, with the
- * handshake secret next to it); scheme, host and port must all equal a listed origin. `localhost`
- * never matches (it can resolve to an address another account holds), `[::1]` is `::1`, and with no
- * readable file nothing matches, so a Gateway that is down or an old one gets no secret.
+ * Reads a file under `run/` the way a secret deserves: not through a symlink (`O_NOFOLLOW`), owned
+ * by this user and with no group/other access (checked on the open descriptor, so nothing can be
+ * swapped between check and read). Anything else reads as absent. Windows has no such modes; its
+ * `run/` is locked by ACL (`ensureHome`), so only the plain read applies there.
  */
-export function isOwnGatewayUrl(url: URL, home: string): boolean {
+function readPrivateFile(path: string): string | undefined {
+  try {
+    if (process.platform === "win32") return readFileSync(path, "utf8");
+    const fd = openSync(path, constants.O_RDONLY | constants.O_NOFOLLOW);
+    try {
+      const st = fstatSync(fd);
+      if (!st.isFile() || st.uid !== process.getuid?.() || (st.mode & 0o077) !== 0)
+        return undefined;
+      return readFileSync(fd, "utf8");
+    } finally {
+      closeSync(fd);
+    }
+  } catch {
+    return undefined;
+  }
+}
+
+/** `run/` itself must be a real directory of ours that others cannot enter. */
+function runDirIsPrivate(home: string): boolean {
+  if (process.platform === "win32") return true;
+  try {
+    const st = lstatSync(join(home, "run"));
+    return st.isDirectory() && st.uid === process.getuid?.() && (st.mode & 0o077) === 0;
+  } catch {
+    return false;
+  }
+}
+
+/**
+ * Whether `url` is exactly an address this home's own `psyched` is bound to. The Gateway writes the
+ * origin(s) it really listens on (the address it bound, not the configured name) to
+ * `$PSYCHE_HOME/run/listen.json` before it writes the handshake secret; scheme, host and port must
+ * all equal a listed origin. `localhost` never matches (it can resolve to an address another
+ * account holds), `[::1]` is `::1`, and with no readable, private file nothing matches, so a
+ * Gateway that is down or an old one gets no secret.
+ */
+export function isOwnGatewayUrl(
+  url: URL,
+  home: string,
+  read: (path: string) => string | undefined = readPrivateFile,
+): boolean {
   const key = (u: URL) => `${u.protocol}//${u.hostname.replace(/^\[|\]$/g, "")}:${u.port || "80"}`;
   if (url.protocol !== "http:") return false;
   const host = url.hostname.replace(/^\[|\]$/g, "");
   if (host.toLowerCase() === "localhost" || !isLoopbackHost(host)) return false;
+  if (!runDirIsPrivate(home)) return false;
   let listed: unknown;
   try {
-    listed = (
-      JSON.parse(readFileSync(join(home, "run", "listen.json"), "utf8")) as {
-        origins?: unknown;
-      }
-    ).origins;
+    const text = read(join(home, "run", "listen.json"));
+    if (text === undefined) return false;
+    listed = (JSON.parse(text) as { origins?: unknown }).origins;
   } catch {
     return false;
   }
@@ -64,6 +102,22 @@ export function isOwnGatewayUrl(url: URL, home: string): boolean {
       return false;
     }
   });
+}
+
+/**
+ * The Host proof for `url`, or `undefined`. The secret is read FIRST and `listen.json` second (the
+ * Gateway writes them in the other order), so a secret read here was written after the
+ * `listen.json` compared against: a restart cannot pair a new secret with a stale origin.
+ */
+export function readHostSecret(
+  url: URL,
+  home: string,
+  read: (path: string) => string | undefined = readPrivateFile,
+): string | undefined {
+  if (!runDirIsPrivate(home)) return undefined;
+  const secret = read(join(home, "run", "handshake.secret"))?.trim();
+  if (!secret) return undefined;
+  return isOwnGatewayUrl(url, home, read) ? secret : undefined;
 }
 
 export class Ctx {
@@ -105,15 +159,7 @@ export class Ctx {
     // The Host proof (`isLocalHostCli` on the Gateway): the launch secret, read from this
     // computer's own `$PSYCHE_HOME/run`, and sent only to the exact address that Gateway says it is
     // bound to (`run/listen.json`). Any other URL, loopback or not, gets nothing.
-    let handshakeSecret: string | undefined;
-    if (isOwnGatewayUrl(this.gatewayUrl(), this.home)) {
-      try {
-        handshakeSecret =
-          readFileSync(join(this.home, "run", "handshake.secret"), "utf8").trim() || undefined;
-      } catch {
-        // No Gateway has run here: the CLI connects as before, without Host privileges.
-      }
-    }
+    const handshakeSecret = readHostSecret(this.gatewayUrl(), this.home);
     this.client = await GatewayClient.connect({
       wsUrl: wsUrl(this.gatewayUrl()),
       ...(handshakeSecret ? { handshakeSecret } : {}),

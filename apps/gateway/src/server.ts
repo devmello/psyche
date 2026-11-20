@@ -756,11 +756,17 @@ export async function startGateway(options: GatewayOptions = {}): Promise<Gatewa
         resolveListen();
       });
     });
-  // The secret first: a helper that reconnects the moment a socket opens (a Gateway restart)
+  // The address this Gateway is really bound to (not the configured name: `localhost` binds
+  // `127.0.0.1` or `::1`), for the CLI's "is this my Gateway" check. Written BEFORE the secret:
+  // the CLI reads the secret first and `listen.json` second, so any secret it holds was written
+  // after the `listen.json` it compares against, and a new secret never pairs with a stale origin.
+  const bound = http.address() as AddressInfo;
+  const listenPath = writeListenFile(config.home, [
+    `http://${bound.address.includes(":") ? `[${bound.address}]` : bound.address}:${bound.port}`,
+  ]);
+  // The secret next: a helper that reconnects the moment a socket opens (a Gateway restart)
   // must find this launch's secret, never the previous one or none.
   const { path: secretPath } = writeHandshakeSecret(config.home, handshakeSecret);
-  // And the address it is bound to, for the CLI's "is this my Gateway" check (`writeListenFile`).
-  const listenPath = writeListenFile(config.home, [origin]);
   const nodeServer = serveNodes("unix");
   try {
     await listenOn(nodeServer, config.nodeSocketPath);

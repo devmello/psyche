@@ -40,6 +40,23 @@ describe("run/listen.json", () => {
     }
   });
 
+  it("is written before the secret (the CLI reads the secret first, listen.json second)", async () => {
+    t = await startTestGateway({});
+    const at = (name: string) => statSync(join(t?.home ?? "", "run", name), { bigint: true });
+    expect(at("listen.json").mtimeNs <= at("handshake.secret").mtimeNs).toBe(true);
+    expect(at("listen.json").birthtimeNs <= at("handshake.secret").birthtimeNs).toBe(true);
+  });
+
+  it("lists the address actually bound, so gateway.host: localhost works", async () => {
+    t = await startTestGateway({ config: { host: "localhost" } });
+    const file = JSON.parse(readFileSync(listenPath(t.home), "utf8")) as { origins: string[] };
+    const url = new URL(file.origins[0] as string);
+    // `localhost` resolves to one concrete loopback address; that address is what is listed.
+    expect(["127.0.0.1", "[::1]"]).toContain(url.hostname);
+    expect(url.port).toBe(String(t.gateway.port));
+    expect(file.origins).toHaveLength(1);
+  });
+
   it("is removed with the secret on a clean stop", async () => {
     t = await startTestGateway({});
     const dir = t.home;

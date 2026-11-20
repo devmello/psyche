@@ -1,4 +1,13 @@
-import { mkdirSync, readFileSync, writeFileSync } from "node:fs";
+import {
+  chmodSync,
+  mkdirSync,
+  readFileSync,
+  renameSync,
+  rmSync,
+  symlinkSync,
+  writeFileSync,
+} from "node:fs";
+import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { PsycheError } from "@psyche/protocol";
 import { MockGateway } from "@psyche/web/testing";
@@ -6,7 +15,7 @@ import { afterEach, describe, expect, it } from "vitest";
 import { run } from "../src/cli.ts";
 import { diskEncryptionOf } from "../src/commands/onboard.ts";
 import { approvalWait, callWithApproval } from "../src/commands/util.ts";
-import { Ctx, isOwnGatewayUrl } from "../src/context.ts";
+import { Ctx, isOwnGatewayUrl, readHostSecret } from "../src/context.ts";
 import { HANDLERS } from "./fixtures.ts";
 import { cleanupTempDirs, err, makeDeps, out, runJson, type TestDeps } from "./helpers.ts";
 
@@ -324,15 +333,20 @@ describe("presence_required explains the matching recovery command", () => {
   });
 });
 
+const renameRun = (home: string, to: string) => renameSync(join(home, "run"), to);
+
 describe("the Host secret", () => {
   const SECRET = "launch-secret";
   /** A home as a running Gateway leaves it: the secret and, unless `listen` is null, listen.json. */
   const homeWith = (listen: string[] | null) => {
     const deps = makeDeps();
-    mkdirSync(join(deps.home, "run"), { recursive: true });
-    writeFileSync(join(deps.home, "run", "handshake.secret"), `${SECRET}\n`);
+    mkdirSync(join(deps.home, "run"), { recursive: true, mode: 0o700 });
+    chmodSync(join(deps.home, "run"), 0o700);
+    writeFileSync(join(deps.home, "run", "handshake.secret"), `${SECRET}\n`, { mode: 0o600 });
     if (listen !== null) {
-      writeFileSync(join(deps.home, "run", "listen.json"), JSON.stringify({ origins: listen }));
+      writeFileSync(join(deps.home, "run", "listen.json"), JSON.stringify({ origins: listen }), {
+        mode: 0o600,
+      });
     }
     return deps;
   };
@@ -387,6 +401,65 @@ describe("the Host secret", () => {
       expect(await listDevices(deps)).toBe(0);
       expect(sent()).toBeUndefined();
     }
+  });
+
+  it("reads the secret first and listen.json second (the Gateway writes the other way round)", () => {
+    const deps = homeWith(["http://127.0.0.1:7979"]);
+    const reads: string[] = [];
+    const secret = readHostSecret(new URL("http://127.0.0.1:7979"), deps.home, (path) => {
+      reads.push(path.split("/").at(-1) ?? "");
+      return readFileSync(path, "utf8");
+    });
+    expect(secret).toBe(SECRET);
+    expect(reads).toEqual(["handshake.secret", "listen.json"]);
+  });
+
+  describe("only private files owned by this user are believed", () => {
+    const url = new URL("http://127.0.0.1:7979");
+    const ok = () => homeWith([url.origin]);
+
+    it("accepts the 0700 run/ with 0600 files (control)", () => {
+      expect(readHostSecret(url, ok().home)).toBe(SECRET);
+    });
+
+    it.skipIf(process.platform === "win32")("refuses a group/other-readable secret", () => {
+      const deps = ok();
+      chmodSync(join(deps.home, "run", "handshake.secret"), 0o644);
+      expect(readHostSecret(url, deps.home)).toBeUndefined();
+    });
+
+    it.skipIf(process.platform === "win32")("refuses a group/other-readable listen.json", () => {
+      const deps = ok();
+      chmodSync(join(deps.home, "run", "listen.json"), 0o644);
+      expect(readHostSecret(url, deps.home)).toBeUndefined();
+    });
+
+    it.skipIf(process.platform === "win32")("refuses a run/ others can enter", () => {
+      const deps = ok();
+      chmodSync(join(deps.home, "run"), 0o755);
+      expect(readHostSecret(url, deps.home)).toBeUndefined();
+    });
+
+    it.skipIf(process.platform === "win32")("refuses a symlinked secret or listen.json", () => {
+      for (const name of ["handshake.secret", "listen.json"]) {
+        const deps = ok();
+        const elsewhere = join(tmpdir(), `psyche-b2-elsewhere-${process.pid}-${name}`);
+        writeFileSync(elsewhere, readFileSync(join(deps.home, "run", name)), { mode: 0o600 });
+        rmSync(join(deps.home, "run", name));
+        symlinkSync(elsewhere, join(deps.home, "run", name));
+        expect(readHostSecret(url, deps.home)).toBeUndefined();
+        rmSync(elsewhere, { force: true });
+      }
+    });
+
+    it.skipIf(process.platform === "win32")("refuses a symlinked run/", () => {
+      const deps = ok();
+      const real = join(deps.home, "real-run");
+      rmSync(real, { recursive: true, force: true });
+      renameRun(deps.home, real);
+      symlinkSync(real, join(deps.home, "run"));
+      expect(readHostSecret(url, deps.home)).toBeUndefined();
+    });
   });
 
   it("isOwnGatewayUrl: scheme, host and port must equal a listed origin exactly", () => {
