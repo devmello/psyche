@@ -319,6 +319,7 @@ export const blocks = {
   "blocks.artifact.bytes": "{size} B",
   "blocks.artifact.kilobytes": "{size} KB",
   "blocks.artifact.megabytes": "{size} MB",
+  "blocks.artifact.gigabytes": "{size} GB",
 
   "blocks.task.status.queued": "queued",
   "blocks.task.status.running": "running",

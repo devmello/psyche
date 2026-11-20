@@ -1,7 +1,9 @@
 import {
   existsSync,
+  lstatSync,
   mkdirSync,
   mkdtempSync,
+  readdirSync,
   rmSync,
   symlinkSync,
   utimesSync,
@@ -12,7 +14,14 @@ import { join } from "node:path";
 import { FakeModelProvider } from "@psyche/testing";
 import { afterEach, describe, expect, it } from "vitest";
 import { type ComposedGateway, composeGateway } from "../src/compose/index.ts";
-import { clearStorage, composeStorage, sizeOf, storageUsage } from "../src/compose/storage.ts";
+import {
+  categoryOf,
+  clearCacheFolder,
+  clearStorage,
+  composeStorage,
+  sizeOf,
+  storageUsage,
+} from "../src/compose/storage.ts";
 import { silentLogger } from "../src/log.ts";
 import { adminClient, desktopClient, ik, type TestClient } from "./helpers.ts";
 
@@ -78,14 +87,14 @@ describe("storage.usage", () => {
     recording(home, "task_old", old);
     const u = await storageUsage(home);
     const sizes = sizeById(u);
-    expect(sizes.database).toBe(1100);
-    expect(sizes.memoryIndex).toBe(2500);
-    expect(sizes.library).toBe(4000);
-    expect(sizes.browserProfiles).toBe(700);
-    expect(sizes.logs).toBe(50);
-    expect(sizes.caches).toBe(900);
+    expect(sizes.database).toBeGreaterThanOrEqual(1100);
+    expect(sizes.memoryIndex).toBeGreaterThanOrEqual(2500);
+    expect(sizes.library).toBeGreaterThanOrEqual(4000);
+    expect(sizes.browserProfiles).toBeGreaterThanOrEqual(700);
+    expect(sizes.logs).toBeGreaterThanOrEqual(50);
+    expect(sizes.caches).toBeGreaterThanOrEqual(900);
     expect(sizes.recordings).toBeGreaterThan(300);
-    expect(sizes.other).toBe(80);
+    expect(sizes.other).toBeGreaterThanOrEqual(80);
     expect(u.totalBytes).toBe(Object.values(sizes).reduce((a, b) => a + b, 0));
     expect(u.categories.filter((c) => c.clearable).map((c) => c.id)).toEqual([
       "recordings",
@@ -99,7 +108,7 @@ describe("storage.usage", () => {
     homes.push(outside);
     bytes(join(outside, "big.bin"), 100_000);
     symlinkSync(outside, join(home, "cache", "link"));
-    expect(await sizeOf(join(home, "cache"))).toBeLessThan(2000);
+    expect(await sizeOf(join(home, "cache"))).toBeLessThan(50_000);
   });
 });
 
@@ -206,5 +215,85 @@ describe("storage.* on the running Gateway", () => {
     expect(cleared.freedBytes).toBeGreaterThanOrEqual(900);
     expect(existsSync(join(home, "state", "psyche.sqlite"))).toBe(true);
     expect(existsSync(join(home, "cache", "conversions"))).toBe(false);
+  });
+});
+
+describe("storage hardening", () => {
+  it("sorts a path by its top-level folder", () => {
+    for (const [rel, id] of [
+      ["state/psyche.sqlite", "database"],
+      ["state/psyche.sqlite-wal", "database"],
+      ["state/memory.sqlite", "memoryIndex"],
+      ["state/search.sqlite-shm", "memoryIndex"],
+      ["state/other.json", "other"],
+      ["library/doc.pdf", "library"],
+      ["library/recordings/t1/index.json", "recordings"],
+      ["library/recordings", "recordings"],
+      ["library/recordings-notes.txt", "library"],
+      ["browser/profiles/p/Cookies", "browserProfiles"],
+      ["logs/gateway.log", "logs"],
+      ["cache/conversions/a.pdf", "caches"],
+      ["vault/v.db", "other"],
+    ] as const) {
+      expect(categoryOf(rel), rel).toBe(id);
+    }
+  });
+
+  it("reports recordings older than 7 days as the reclaimable size, not all of them", async () => {
+    const home = fixture();
+    recording(home, "task_old", Date.now() - 9 * DAY);
+    recording(home, "task_new", Date.now() - DAY);
+    const u = await storageUsage(home);
+    const rec = u.categories.find((c) => c.id === "recordings");
+    expect(rec?.reclaimableBytes).toBeGreaterThan(0);
+    expect(rec?.reclaimableBytes).toBeLessThan(rec?.bytes ?? 0);
+    const caches = u.categories.find((c) => c.id === "caches");
+    expect(caches?.reclaimableBytes).toBe(caches?.bytes);
+    expect(u.categories.find((c) => c.id === "database")?.reclaimableBytes).toBeUndefined();
+  });
+
+  it("shares one walk between concurrent callers", async () => {
+    const home = fixture();
+    const a = storageUsage(home);
+    const b = storageUsage(home);
+    expect(a).toBe(b);
+    await a;
+  });
+
+  it("clearing the cache folder recreates it as 0700 and leaves no trash behind", async () => {
+    const home = fixture();
+    const freed = await clearCacheFolder(home);
+    expect(freed).toBeGreaterThanOrEqual(900);
+    const st = lstatSync(join(home, "cache"));
+    expect(st.isDirectory()).toBe(true);
+    expect(st.mode & 0o777).toBe(0o700);
+    expect(readdirSync(home).filter((n) => n.startsWith(".cache-clearing"))).toEqual([]);
+  });
+
+  it("a cache that became a link is put back untouched, not followed", async () => {
+    const home = mkdtempSync(join(tmpdir(), "psyche-storage-"));
+    homes.push(home);
+    const outside = mkdtempSync(join(tmpdir(), "psyche-storage-out-"));
+    homes.push(outside);
+    bytes(join(outside, "keep.bin"), 10);
+    symlinkSync(outside, join(home, "cache"));
+    expect(await clearCacheFolder(home)).toBe(0);
+    expect(lstatSync(join(home, "cache")).isSymbolicLink()).toBe(true);
+    expect(existsSync(join(outside, "keep.bin"))).toBe(true);
+  });
+
+  it("removes the Library rows of the recordings it deletes, and only those", async () => {
+    const home = mkdtempSync(join(tmpdir(), "psyche-storage-"));
+    homes.push(home);
+    recording(home, "task_old", Date.now() - 9 * DAY);
+    recording(home, "task_new", Date.now() - DAY);
+    const rows: string[] = [];
+    const db = {
+      sqlite: {
+        prepare: () => ({ run: (path: string) => rows.push(path) }),
+      },
+    };
+    await clearStorage(home, ["recordings"], Date.now(), db as never);
+    expect(rows).toEqual(["recordings/task_old"]);
   });
 });

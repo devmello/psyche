@@ -22,7 +22,14 @@ export interface ThreadState {
    * summary (security §3.6: taint survives compaction, and here a kill/restart): the next turn
    * starts tainted with these sources, so its approval cards still name the original origins.
    */
-  taint?: { sources: TaintSource[] };
+  taint?: {
+    sources: TaintSource[];
+    /**
+     * The thread was opened about untrusted content (a mail follow-up draft): every later turn
+     * starts tainted with `sources`, even when the content is no longer in `messages`.
+     */
+    sticky?: boolean;
+  };
   /**
    * Deferred tools this thread loaded (`load_tools`, an approved install), in load order. Append
    * only: a loaded tool stays for the thread, so the tool list only ever grows at its end.

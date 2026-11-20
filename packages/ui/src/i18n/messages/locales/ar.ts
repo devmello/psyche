@@ -557,6 +557,7 @@ export const ar: Partial<Catalogue> = {
   "blocks.artifact.bytes": "{size} بايت",
   "blocks.artifact.kilobytes": "{size} ك.ب",
   "blocks.artifact.megabytes": "{size} م.ب",
+  "blocks.artifact.gigabytes": "{size} غ.ب",
 
   "blocks.task.status.queued": "في قائمة الانتظار",
   "blocks.task.status.running": "قيد التشغيل",

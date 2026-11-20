@@ -311,7 +311,7 @@ The owner wants shell commands and file reads and writes on a machine from v1, w
 
 ```json
 {
-  "surfaces": { "virtual_screen": true, "direct": false },
+  "surfaces": { "virtualScreen": true, "direct": false },
   "apps": { "allow": ["*"], "deny": ["org.keepassxc.KeePassXC"] },
   "exec": { "enabled": true, "contain": true, "network": true, "cwdRoots": ["~"] },
   "files": { "roots": [{ "path": "~", "mode": "rw" }] },
@@ -320,6 +320,7 @@ The owner wants shell commands and file reads and writes on a machine from v1, w
 }
 ```
 
+- **What `apps.deny` and `apps.allow` match.** `deny` catches a process under any identity it has: its launch scope's app, its desktop entry, its executable's name, its `comm`, a Flatpak's `name=`. `allow` must cover the launch scope's app and every desktop entry the process's executable resolves to (an xterm started by an allowed app resolves to `debian-xterm` and is hidden), and the process's own id when its cap is stricter than the scope app's or it has no scope. A program an allowed app starts with no desktop entry of its own is shown in screenshots, never driven. A binary renamed to another name is out of scope (the list judges names, not contents); wrapper resolution and refusing an unresolved id under a narrow `allow` are a follow-up.
 - **The Gateway can only narrow it.** Per-machine settings in Psyche (tiers, enabled tools) clamp to it, and the helper enforces it at dispatch whatever the Gateway sends. It's the same rule as `apps/node`'s `node.json`: file roots and host exec can only be turned on by the box's owner, on the box.
 - **The owner sets the defaults** shown above at install. `psyche-helper status` and the machine's Settings row show the effective ceiling.
 - **Root-owned in deb/rpm,** under `/etc`, so neither the owner's account nor anything the helper runs can change it. `NoNewPrivileges` closes the sudo route even where the owner has passwordless sudo (§6.5).

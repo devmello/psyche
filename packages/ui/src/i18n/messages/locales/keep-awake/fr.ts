@@ -20,7 +20,6 @@ export const keepAwake: Partial<Catalogue> = {
   "settings.updates.channel.stable": "Stable",
   "settings.updates.channel.note":
     "Stable est le seul canal pour l'instant. Bêta apparaîtra ici quand des versions bêta seront publiées. Chaque mise à jour est vérifiée avec la clé de publication de Psyche dans tous les cas.",
-  "settings.updates.saveFailed": "Impossible d'enregistrer le canal de versions ({reason}).",
   "settings.storage.title": "Stockage",
   "settings.storage.hint":
     "Espace disque utilisé par Psyche dans son dossier de données sur cet ordinateur.",
@@ -31,7 +30,7 @@ export const keepAwake: Partial<Catalogue> = {
   "settings.storage.failed": "Impossible de lire l'utilisation du stockage ({reason}).",
   "settings.storage.confirm.title": "Vider les caches et les anciens enregistrements ?",
   "settings.storage.confirm.body":
-    "Cela supprime jusqu'à {size} de caches et d'enregistrements du navigateur de plus de 7 jours. Psyche reconstruit les caches quand il en a besoin. Vos discussions, votre mémoire, la Bibliothèque, le coffre et les réglages ne sont pas touchés.",
+    "Cela supprime {size} de caches et d'enregistrements du navigateur de plus de 7 jours, avec leurs entrées dans la Bibliothèque. Psyche reconstruit les caches quand il en a besoin. Vos discussions, votre mémoire, les autres fichiers de la Bibliothèque, le coffre et les réglages ne sont pas touchés.",
   "settings.storage.confirm.clear": "Vider",
   "settings.storage.cat.database": "Base de données",
   "settings.storage.cat.memoryIndex": "Index de mémoire",

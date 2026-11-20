@@ -83,7 +83,11 @@ describe("Storage", () => {
     expect(screen.getByText("Browser profiles")).toBeTruthy();
     await userEvent.click(screen.getByRole("button", { name: "Clear…" }));
     // The confirm names what is deleted and what is not; nothing has been called yet.
-    expect(screen.getByRole("alertdialog").textContent).toMatch(/aren't touched/);
+    const confirm = screen.getByRole("alertdialog").textContent ?? "";
+    expect(confirm).toMatch(/aren't touched/);
+    // The size is what Clear frees now (caches 16 MB + recordings older than 7 days 12 MB).
+    expect(confirm).toContain("26.7 MB");
+    expect(confirm).toMatch(/entries in the Library/);
     expect(gateway?.calls.filter((c) => c.method === "storage.clearCache")).toHaveLength(0);
     await userEvent.click(screen.getByRole("button", { name: "Clear" }));
     await waitFor(() =>
@@ -134,14 +138,16 @@ describe("Storage", () => {
 });
 
 describe("Release channel", () => {
-  it("offers Stable only, with the note, and only on the desktop", () => {
+  it("shows Stable as the only channel, with the note, and only on the desktop", () => {
     const { unmount } = render(
       <StoryWorld>
         <AboutPanel info={null} showUpdates />
       </StoryWorld>,
     );
-    const select = screen.getByRole("combobox", { name: "Release channel" }) as HTMLSelectElement;
-    expect([...select.options].map((o) => o.textContent)).toEqual(["Stable"]);
+    expect(screen.getByText("Release channel")).toBeTruthy();
+    expect(screen.getByText("Stable")).toBeTruthy();
+    // Nothing to pick or save yet.
+    expect(screen.queryByRole("combobox")).toBeNull();
     expect(screen.getByText(/Stable is the only channel for now/)).toBeTruthy();
     unmount();
     render(
@@ -149,6 +155,6 @@ describe("Release channel", () => {
         <AboutPanel info={null} />
       </StoryWorld>,
     );
-    expect(screen.queryByRole("combobox", { name: "Release channel" })).toBeNull();
+    expect(screen.queryByText("Release channel")).toBeNull();
   });
 });
