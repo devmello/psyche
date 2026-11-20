@@ -7,7 +7,7 @@
 #   Docker image   ghcr.io/<owner>/psyche-gateway:<version>, linux/amd64 + linux/arm64, SBOM and
 #                  provenance, signed keyless with cosign (GitHub OIDC; signer identity
 #                  .github/workflows/release.yml@refs/tags/v*)
-#   Sandbox image  ghcr.io/devmello/psyche-sandbox core/base/full (deploy/sandbox-image/publish.sh),
+#   Sandbox image  ghcr.io/devmello/psyche-sandbox core/base/full/desktop (deploy/sandbox-image/publish.sh),
 #                  same platforms, SBOM and provenance, signed keyless and verified against
 #                  versions.json .signing; the updated versions.json is a release asset
 #                  (sandbox-image-versions.json) and comes back to main as a PR
@@ -368,13 +368,71 @@ jobs:
         run: cosign sign --yes "${IMAGE}@${DIGEST}"
 
   # K8: the sandbox image (owner S21). Each architecture builds natively (no QEMU) on its own
-  # runner, core -> base -> full in order so each target reuses the previous one's layers, and
-  # pushes them by digest (publish.sh --platform). sandbox-image-manifest then tags, signs and
-  # records all three in versions.json (publish.sh --merge). It only publishes on a v* tag (a
+  # runner, core -> base -> full -> desktop in order so each target reuses the previous one's
+  # layers, and pushes them by digest (publish.sh --platform). `desktop` is the Linux separate
+  # desktop's image: it carries the Linux helper, built by sandbox-helper (below) for the
+  # runner's architecture. That job has no registry credential; this one downloads its binary and
+  # checks it against the sha256 the helper job reported before building (PSYCHE_HELPER_SHA256;
+  # publish.sh refuses to build the image without it).
+  # sandbox-image-manifest then tags, signs and records all four in versions.json
+  # (publish.sh --merge). It only publishes on a v* tag (a
   # manual run on a tag with dry_run unticked counts); otherwise publish.sh --dry-run.
+  # The Linux helper that the `desktop` sandbox image carries. It is built apart from the image
+  # job, with read-only permissions and no registry login, so no build script of a crate in
+  # Cargo.lock can reach a push credential or rewrite what the image job builds. The image job
+  # downloads the binary and compares its sha256 with this job's output. Only on a publish (a v*
+  # tag); the toolchain is pinned, not "stable".
+  sandbox-helper:
+    name: sandbox helper ${{ matrix.arch }}
+    needs: version
+    if: inputs.version_pr != true
+    runs-on: ${{ matrix.runner }}
+    timeout-minutes: 30
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - arch: amd64
+            runner: ubuntu-latest
+          - arch: arm64
+            runner: ubuntu-24.04-arm
+    permissions:
+      contents: read
+    outputs:
+      sha_amd64: ${{ steps.build.outputs.sha_amd64 }}
+      sha_arm64: ${{ steps.build.outputs.sha_arm64 }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - name: Build the Linux helper (linux/${{ matrix.arch }})
+        id: build
+        if: env.PUBLISH == 'true' && startsWith(github.ref, 'refs/tags/v')
+        env:
+          ARCH: ${{ matrix.arch }}
+          # What `psyche-helper --build-info` and `health` report: this release's tag and commit.
+          PSYCHE_BUILD: ${{ github.ref_name }}-${{ github.sha }}
+          PSYCHE_COMMIT: ${{ github.sha }}
+        run: |
+          rustup toolchain install 1.91.0 --profile minimal
+          rustup default 1.91.0
+          cargo build --release --locked --manifest-path apps/linux-helper/Cargo.toml
+          mkdir -p "$RUNNER_TEMP/helper"
+          install -m 0755 apps/linux-helper/target/release/psyche-helper "$RUNNER_TEMP/helper/psyche-helper"
+          echo "sha_${ARCH}=$(sha256sum "$RUNNER_TEMP/helper/psyche-helper" | cut -d' ' -f1)" >> "$GITHUB_OUTPUT"
+      - name: Upload the helper
+        if: steps.build.outcome == 'success'
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: sandbox-helper-${{ matrix.arch }}
+          path: ${{ runner.temp }}/helper/psyche-helper
+          if-no-files-found: error
+          retention-days: 1
+
   sandbox-image:
     name: sandbox image ${{ matrix.arch }}
-    needs: version
+    needs: [version, sandbox-helper]
     if: inputs.version_pr != true
     runs-on: ${{ matrix.runner }}
     timeout-minutes: 120
@@ -436,7 +494,23 @@ jobs:
           registry: ghcr.io
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
-      - name: Build and push core, base, full for linux/${{ matrix.arch }} by digest
+      - name: Download the Linux helper built by sandbox-helper
+        if: steps.mode.outputs.publish == 'true'
+        uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
+        with:
+          name: sandbox-helper-${{ matrix.arch }}
+          path: ${{ runner.temp }}/helper
+      - name: Stage the helper after checking it against the helper job's checksum
+        if: steps.mode.outputs.publish == 'true'
+        env:
+          WANT: ${{ matrix.arch == 'amd64' && needs.sandbox-helper.outputs.sha_amd64 || needs.sandbox-helper.outputs.sha_arm64 }}
+        run: |
+          have="$(sha256sum "$RUNNER_TEMP/helper/psyche-helper" | cut -d' ' -f1)"
+          [[ "$WANT" =~ ^[0-9a-f]{64}$ && "$have" = "$WANT" ]] \
+            || { echo "::error::the downloaded helper ($have) is not the one sandbox-helper built ($WANT)"; exit 1; }
+          install -m 0755 "$RUNNER_TEMP/helper/psyche-helper" deploy/sandbox-image/desktop/psyche-helper
+          echo "PSYCHE_HELPER_SHA256=$WANT" >> "$GITHUB_ENV"
+      - name: Build and push core, base, full, desktop for linux/${{ matrix.arch }} by digest
         env:
           VERSION: ${{ needs.version.outputs.version }}
           PUBLISH_SANDBOX: ${{ steps.mode.outputs.publish }}
@@ -445,7 +519,7 @@ jobs:
           flags=()
           if [ "$PUBLISH_SANDBOX" != "true" ]; then flags+=(--dry-run); fi
           deploy/sandbox-image/publish.sh "${flags[@]}" --version "$VERSION" \
-            --platform "linux/$ARCH" --digests-dir "$RUNNER_TEMP/sandbox-digests" core base full
+            --platform "linux/$ARCH" --digests-dir "$RUNNER_TEMP/sandbox-digests" core base full desktop
       - name: Upload the digests
         if: steps.mode.outputs.publish == 'true'
         uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
@@ -502,7 +576,7 @@ jobs:
       - name: Install cosign
         if: steps.mode.outputs.publish == 'true'
         uses: sigstore/cosign-installer@756fe2d284c7292c4e9b62c8a28f1e5629c59532 # v4.1.3
-      - name: Tag, sign and record core, base, full (manifest lists)
+      - name: Tag, sign and record core, base, full, desktop (manifest lists)
         env:
           VERSION: ${{ needs.version.outputs.version }}
           PUBLISH_SANDBOX: ${{ steps.mode.outputs.publish }}
@@ -510,7 +584,7 @@ jobs:
           flags=()
           if [ "$PUBLISH_SANDBOX" != "true" ]; then flags+=(--dry-run); fi
           deploy/sandbox-image/publish.sh "${flags[@]}" --version "$VERSION" \
-            --merge "$RUNNER_TEMP/sandbox-digests" core base full
+            --merge "$RUNNER_TEMP/sandbox-digests" core base full desktop
       - name: Verify the signatures against versions.json
         if: steps.mode.outputs.publish == 'true'
         working-directory: deploy/sandbox-image
@@ -518,7 +592,7 @@ jobs:
           repo="$(jq -er .repository versions.json)"
           re="$(jq -er .signing.certificateIdentityRegexp versions.json)"
           issuer="$(jq -er .signing.certificateOidcIssuer versions.json)"
-          for v in core base full; do
+          for v in core base full desktop; do
             digest="$(jq -er --arg v "$v" '.variants[$v].digest' versions.json)"
             cosign verify "${repo}@${digest}" \
               --certificate-identity-regexp "$re" --certificate-oidc-issuer "$issuer" > /dev/null
