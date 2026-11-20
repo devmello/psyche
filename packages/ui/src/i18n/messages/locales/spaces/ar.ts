@@ -108,7 +108,7 @@ export const spaces: Partial<Catalogue> = {
   "spaces.files.ro": "للقراءة فقط",
   "spaces.files.rw": "قراءة وكتابة",
   "spaces.files.automationsRo": "الأتمتة للقراءة فقط",
-  "spaces.files.addOnMac": "أضف المجلدات من جهاز Mac",
+  "spaces.files.addOnMac": "أضف المجلدات من الحاسوب الذي يعمل عليه Psyche",
   "spaces.goals": "الأهداف",
 
   "spaces.switcher.label": "المساحة: {name}",

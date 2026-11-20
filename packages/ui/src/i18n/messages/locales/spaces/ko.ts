@@ -103,7 +103,7 @@ export const spaces: Partial<Catalogue> = {
   "spaces.files.ro": "읽기 전용",
   "spaces.files.rw": "읽기 및 쓰기",
   "spaces.files.automationsRo": "자동화는 읽기만 가능",
-  "spaces.files.addOnMac": "폴더는 Mac에서 추가하세요",
+  "spaces.files.addOnMac": "폴더는 Psyche가 실행되는 컴퓨터에서 추가하세요",
   "spaces.goals": "목표",
 
   "spaces.switcher.label": "스페이스: {name}",

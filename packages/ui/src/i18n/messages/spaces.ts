@@ -104,7 +104,7 @@ export const spaces = {
   "spaces.files.ro": "read only",
   "spaces.files.rw": "read and write",
   "spaces.files.automationsRo": "automations read only",
-  "spaces.files.addOnMac": "Add folders on your Mac",
+  "spaces.files.addOnMac": "Add folders on the computer where Psyche runs",
   "spaces.goals": "Goals",
 
   "spaces.switcher.label": "Space: {name}",

@@ -101,7 +101,7 @@ export const spaces: Partial<Catalogue> = {
   "spaces.files.ro": "只读",
   "spaces.files.rw": "可读写",
   "spaces.files.automationsRo": "自动化只读",
-  "spaces.files.addOnMac": "请在你的 Mac 上添加文件夹",
+  "spaces.files.addOnMac": "请在运行 Psyche 的电脑上添加文件夹",
   "spaces.goals": "目标",
 
   "spaces.switcher.label": "空间：{name}",

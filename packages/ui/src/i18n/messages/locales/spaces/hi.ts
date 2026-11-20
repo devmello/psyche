@@ -101,7 +101,7 @@ export const spaces: Partial<Catalogue> = {
   "spaces.files.ro": "केवल पढ़ने के लिए",
   "spaces.files.rw": "पढ़ना और लिखना",
   "spaces.files.automationsRo": "ऑटोमेशन केवल पढ़ सकते हैं",
-  "spaces.files.addOnMac": "फ़ोल्डर अपने Mac पर जोड़ें",
+  "spaces.files.addOnMac": "फ़ोल्डर उस कंप्यूटर पर जोड़ें जहाँ Psyche चलता है",
   "spaces.goals": "लक्ष्य",
 
   "spaces.switcher.label": "स्पेस: {name}",

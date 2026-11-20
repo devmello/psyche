@@ -106,7 +106,7 @@ export const spaces: Partial<Catalogue> = {
   "spaces.files.ro": "somente leitura",
   "spaces.files.rw": "leitura e escrita",
   "spaces.files.automationsRo": "automações somente leem",
-  "spaces.files.addOnMac": "Adicione pastas no seu Mac",
+  "spaces.files.addOnMac": "Adicione pastas no computador em que a Psyche é executada",
   "spaces.goals": "Metas",
 
   "spaces.switcher.label": "Espaço: {name}",

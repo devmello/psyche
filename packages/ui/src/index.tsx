@@ -343,7 +343,6 @@ export * from "./screens/library/index.ts";
 export * from "./screens/onboarding/model.ts";
 export * from "./screens/scheduled/index.ts";
 export * from "./screens/search/index.ts";
-export * from "./spaces/index.ts";
 export { CONTEXT_KEYS, ContextSettingsGroup } from "./screens/settings/ContextSettings.tsx";
 export {
   AddGatewayForm,
@@ -456,6 +455,7 @@ export {
   usePersona,
   useSlots,
 } from "./slots.tsx";
+export * from "./spaces/index.ts";
 // The teaching loop (docs/agent/teaching-loop-2026.md §5).
 export * from "./teaching/index.ts";
 // Theme and data layer.
