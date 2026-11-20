@@ -301,9 +301,7 @@ describe("Linux: credential stores are neither read nor written", () => {
       h("Library", "Application Support", "doctl", "config.yaml"),
     ])("refuses reading %s", (path) => {
       expect(
-        defaultDenyRead(PSYCHE_HOME, platform).some(
-          (r) => path === r || path.startsWith(`${r}/`),
-        ),
+        defaultDenyRead(PSYCHE_HOME, platform).some((r) => path === r || path.startsWith(`${r}/`)),
       ).toBe(true);
       if (platform !== "win32") expect(readRefused(path, platform)).toBe(true);
     });
