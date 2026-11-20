@@ -174,6 +174,8 @@ import { type HostTerminalOptions, hostTerminalPart } from "./host-terminal.ts";
 import { insightsHandlers } from "./insights.ts";
 import { libraryHandlers } from "./library.ts";
 import { composeGuidedPayments, type LinkSetupOptions } from "./link-setup.ts";
+import { machineChangeHook } from "./machine-notices.ts";
+import { composeMailFollowups } from "./mail-followups.ts";
 import type { ComposedMcp } from "./mcp.ts";
 import { memoryStoreStatus, resolveMemoryStore, setMemoryEncrypted } from "./memory-db.ts";
 import { withMemoryEntityContext } from "./memory-item-context.ts";
@@ -1291,6 +1293,14 @@ export async function composeGateway(options: ComposeOptions): Promise<ComposedG
     ...(background ? {} : { refreshMs: 0 }),
     ...(gwOptions.logger === undefined ? {} : { logger: gwOptions.logger }),
   });
+  // Quiet email threads: read through the connected mail tools; nothing is sent.
+  const mailFollowups = composeMailFollowups({
+    db,
+    clock,
+    tools: () => connectorToolLookup(registry),
+    timeZone: () => timeZone ?? Intl.DateTimeFormat().resolvedOptions().timeZone,
+    ...(gwOptions.logger === undefined ? {} : { logger: gwOptions.logger }),
+  });
   const calls = new CallContexts();
   const ownPorts = createOwnPorts();
   // `gateway.prepareUpdate` closes this door to new chat turns and tasks; the task pools and the
@@ -1867,6 +1877,7 @@ export async function composeGateway(options: ComposeOptions): Promise<ComposedG
       nudges.refresh();
       return nudges.keepInTouch();
     },
+    quietThreads: () => mailFollowups.briefLines(),
     // Catching up and `memory.catchup.*` (MW4): the graph, and what the agent may read of it.
     catchup: { graph: people.graph, em: everything.store, access: people.agentAccess },
     // Ideas proposes folding a skill's lessons into it once it has three (teaching loop §6).
@@ -2213,6 +2224,7 @@ export async function composeGateway(options: ComposeOptions): Promise<ComposedG
       tools: connectorToolLookup(registry),
     }),
   );
+  parts.push(mailFollowups.part());
   parts.push(
     composeWork({
       db,
@@ -2276,6 +2288,7 @@ export async function composeGateway(options: ComposeOptions): Promise<ComposedG
     ...teaching.handlers,
     // The owner's Clear chat: empties a thread in place (the main chat cannot be deleted).
     ...createThreadClear({ db, audit, broker, isRunning: (threadId) => loop.isBusy(threadId) }),
+    ...context.pinHandlers(() => loop),
     ...mountParamsOnly(
       context.handlers(
         () => loop,
@@ -2431,6 +2444,7 @@ export async function composeGateway(options: ComposeOptions): Promise<ComposedG
     webhooks,
     publicRoutes,
     onSetupTokenUsed: setupTokenUsedHook({ db, audit, log: gwOptions.logger }),
+    onMachineChange: machineChangeHook({ audit, notifier, log: gwOptions.logger }),
     onDeviceSelfRevoked: (revoked) => {
       void audit
         .append({
@@ -2576,7 +2590,9 @@ export async function composeGateway(options: ComposeOptions): Promise<ComposedG
   gateway.context.chatContext.resolve = (ref, caller) =>
     ref.kind === "life_answer"
       ? everything.lifeChat.resolve(ref, caller)
-      : baseChatContext(ref, caller);
+      : ref.kind === "mail_followup"
+        ? mailFollowups.resolveContext(ref)
+        : baseChatContext(ref, caller);
   gateway.context.chatFiles.attach = (threadId, paths, by) =>
     rawBroker.attachFiles(threadId, paths, by);
   gateway.context.chatFiles.attached = (threadId) => rawBroker.attachedFiles(threadId);

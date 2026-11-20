@@ -141,11 +141,11 @@ fi
 
 run secret-grep bash scripts/ci/secret-grep.sh
 
-if echo "$changed" | grep -q '^packages/protocol/'; then
+if grep -q '^packages/protocol/' <<<"$changed"; then
   run protocol-check pnpm run protocol:check
 fi
 
-if echo "$changed" | grep -qE '\.(ts|tsx)$|\.xcstrings$'; then
+if grep -qE '\.(ts|tsx)$|\.xcstrings$' <<<"$changed"; then
   run i18n-check pnpm run i18n:check
 fi
 
@@ -342,7 +342,7 @@ done
 fi
 # Message files that name Mac or Touch ID need Linux/Windows variants; `vitest related` misses
 # the platform tests (#1338 broke main), so always run them when the messages change.
-if echo "$changed" | grep -q '^packages/ui/src/i18n/messages/'; then
+if grep -q '^packages/ui/src/i18n/messages/' <<<"$changed"; then
   run vitest:ui-platform bash -c "cd packages/ui && pnpm exec vitest run --maxWorkers=1 test/platform-linux.test.tsx test/platform-windows.test.tsx"
 fi
 # Tests outside apps/ and packages/ (tests/acceptance, tests/integration): run what was touched.
@@ -358,17 +358,17 @@ wait_for_swift_builds() {
 
 if [ "$swift" = 1 ]; then
   for pkg in apps/mac-helper packages/protocol-swift; do
-    echo "$changed" | grep -q "^$pkg/" || continue
+    grep -q "^$pkg/" <<<"$changed" || continue
     wait_for_swift_builds
     run "swift-test:$pkg" bash -c "cd '$pkg' && swift build && swift test"
   done
   # The iOS package's test targets (host macOS, no simulator, no UI tests). It also depends on
   # packages/protocol-swift, so a protocol change runs it too.
-  if echo "$changed" | grep -qE '^(apps/ios|packages/protocol-swift)/'; then
+  if grep -qE '^(apps/ios|packages/protocol-swift)/' <<<"$changed"; then
     wait_for_swift_builds
     run "swift-test:apps/ios" bash -c "cd 'apps/ios' && swift test"
   fi
-elif echo "$changed" | grep -qE '\.swift$'; then
+elif grep -qE '\.swift$' <<<"$changed"; then
   echo "verify: Swift files changed; run again with --swift to build and test them."
 fi
 fi  # quick

@@ -23,6 +23,7 @@ import { home } from "./home/ar.ts";
 import { keepAwake } from "./keep-awake/ar.ts";
 import { links } from "./links/ar.ts";
 import { linuxAccess } from "./linux-access/ar.ts";
+import { mailFollowups } from "./mail-followups/ar.ts";
 import { mailMeetings } from "./mail-meetings/ar.ts";
 import { meetingRecord } from "./meeting-record/ar.ts";
 import { memoryMap } from "./memory-map/ar.ts";
@@ -49,6 +50,7 @@ import { settingsLanguage } from "./settings-language/ar.ts";
 import { settingsSections } from "./settings-sections/ar.ts";
 import { shell } from "./shell/ar.ts";
 import { skillAuthor } from "./skill-author/ar.ts";
+import { spaces } from "./spaces/ar.ts";
 import { specialists } from "./specialists/ar.ts";
 import { teach } from "./teach/ar.ts";
 import { web } from "./web/ar.ts";
@@ -1086,6 +1088,8 @@ export const ar: Partial<Catalogue> = {
   "settings.key.browser.botAuth": "Web Bot Auth",
   "settings.key.computerUse.enabled": "السماح باستخدام الكمبيوتر",
   "settings.key.computerUse.apps": "الوصول إلى التطبيقات",
+  "settings.key.feed.sources": "مصادر الخلاصة",
+  "settings.key.computerUse.linuxRevoke": "نسيان حاسوب Linux",
   "settings.key.context.maxTokens": "حدّ السياق",
   "settings.key.search.web.provider": "مزوّد البحث على الويب",
   "settings.key.search.web.searxngUrl": "عنوان URL لـ SearXNG",
@@ -2436,6 +2440,19 @@ export const ar: Partial<Catalogue> = {
   "settings.plugins.switchOn": "تشغيل {name}",
   "settings.plugins.version": " · الإصدار {version}",
   "settings.plugins.adds": "تضيف: {list}",
+  "settings.plugins.install": "التثبيت من مجلد…",
+  "settings.plugins.pickFailed": "تعذّر على Psyche فتح أداة اختيار المجلد ({reason}).",
+  "settings.plugins.installFailed": "لم يبدأ التثبيت. {reason}",
+  "settings.plugins.proposed": "راجع التثبيت على بطاقة الموافقة.",
+  "settings.plugins.includes": "تتضمن: {list}",
+  "settings.plugins.count.skills":
+    "{n, plural, one {مهارة واحدة} two {مهارتان} few {# مهارات} many {# مهارة} other {# مهارة}}",
+  "settings.plugins.count.commands":
+    "{n, plural, one {أمر واحد} two {أمران} few {# أوامر} many {# أمرًا} other {# أمر}}",
+  "settings.plugins.count.mcpServers":
+    "{n, plural, one {خادم MCP واحد} two {خادما MCP} few {# خوادم MCP} many {# خادم MCP} other {# خادم MCP}}",
+  "settings.plugins.count.hooks":
+    "{n, plural, one {خطاف واحد} two {خطافان} few {# خطافات} many {# خطافًا} other {# خطاف}}",
   "settings.plugins.from": "من {source}",
   "settings.plugins.state.active": "تعمل",
   "settings.plugins.state.disabled": "متوقفة",
@@ -3762,5 +3779,7 @@ export const ar: Partial<Catalogue> = {
   ...separateDesktop,
   // Windows variants of the sandbox PC, voice keys and platform terms
   ...windowsPlatform202611,
+  ...mailFollowups,
   ...keepAwake,
+  ...spaces,
 };

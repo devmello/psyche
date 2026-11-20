@@ -227,7 +227,7 @@ export const SpacesMethods = {
   "spaces.proposals.list": defineMethod({
     params: Type.Object({ status: Type.Optional(Type.Literal("open")) }),
     result: Type.Object({ proposals: Type.Array(SpaceProposal) }),
-    scope: "operator.write",
+    scope: "operator.read",
     description: "Space proposals the agent made.",
   }),
   "spaces.proposals.accept": defineMethod({

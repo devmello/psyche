@@ -108,12 +108,14 @@ public struct ChatThreadSummary: Sendable, Equatable, Identifiable {
     public var updated: String
     /// Pinned side chats sort above the rest. The main thread is pinned by definition.
     public var isPinned: Bool
+    /// The Space the chat is in, nil when it is in none.
+    public var spaceID: String?
 
     public enum Status: Sendable { case neutral, needsYou, running }
 
     public init(
         id: String, title: String, status: String, statusKind: Status, isMain: Bool, updated: String,
-        isPinned: Bool = false
+        isPinned: Bool = false, spaceID: String? = nil
     ) {
         self.id = id
         self.title = title
@@ -122,6 +124,7 @@ public struct ChatThreadSummary: Sendable, Equatable, Identifiable {
         self.isMain = isMain
         self.updated = updated
         self.isPinned = isPinned
+        self.spaceID = spaceID
     }
 }
 

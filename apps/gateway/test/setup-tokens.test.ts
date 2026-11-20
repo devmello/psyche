@@ -143,25 +143,26 @@ describe("making a pairing link", () => {
     });
   });
 
-  it("fails closed on purpose machine and on missing scopes until the machine registry lands", async () => {
+  it("makes a machine token only for scopes [node], and still needs scopes for a device token", async () => {
     await start();
     const admin = await adminClient(t.gateway);
     open.push(admin);
-    // Wave H0 only added the schema: a machine token must never come out as a device token.
-    for (const params of [
-      { purpose: "machine" },
-      { purpose: "machine", scopes: ["operator.admin"] },
-    ]) {
-      expect(await admin.request("devices.setupToken.create", params)).toMatchObject({
-        ok: false,
-        error: { code: "unavailable" },
-      });
-    }
+    // A machine link takes no scopes of its own: the purpose decides, so a caller cannot widen it.
+    expect(
+      await admin.request("devices.setupToken.create", {
+        purpose: "machine",
+        scopes: ["operator.admin"],
+      }),
+    ).toMatchObject({ ok: false, error: { code: "invalid_params" } });
+    expect(await admin.request("devices.setupToken.create", { purpose: "machine" })).toMatchObject({
+      ok: true,
+      payload: { setupToken: { scopes: ["node"], purpose: "machine" } },
+    });
     expect(await admin.request("devices.setupToken.create", {})).toMatchObject({
       ok: false,
       error: { code: "invalid_params" },
     });
-    expect(audited.filter((e) => e.kind === "device.setup_token.created")).toEqual([]);
+    expect(audited.filter((e) => e.kind === "device.setup_token.created")).toHaveLength(1);
   });
 
   it("audits making and revoking a token without the token", async () => {

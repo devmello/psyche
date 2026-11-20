@@ -17,6 +17,7 @@ export function plugins(): PluginSummarySchema[] {
       enabled: true,
       status: "active",
       installedAt: ago(60 * 24 * 3),
+      adds: { skills: 2, commands: 1, mcpServers: 0, hooks: 1 },
     },
     {
       name: "citation-check",

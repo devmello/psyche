@@ -12,6 +12,10 @@
 
 CI fails when the generated files are stale (`pnpm protocol:check`).
 
+## Quiet email threads (follow-ups on mail)
+
+- New methods `mailFollowups.list` and `mailFollowups.act` (`snooze` | `dismiss`); new types `MailFollowupItem`, `MailFollowupKind`, `MailFollowupAction`. `DailySectionId` gains `quiet_threads`; `DailyBrief.sections` allows 10 sections (was 8). Setting keys: the existing `mail.followups.enabled` and `mail.followups.waitDays`.
+
 ## Versioning
 
 `PROTOCOL_VERSION` (in `src/version.ts`) is negotiated at `connect`: clients send a `{min, max}` range and the Gateway answers with the version it will speak or `protocol_version_mismatch`. It changes only for breaking changes.
@@ -22,6 +26,12 @@ CI fails when the generated files are stale (`pnpm protocol:check`).
 
 - `WIDGET_BINDINGS` gains the bindable fields of the six Space query sources: `entity` (status, nextStep, stoppedAt, due), `work_due` (count, next), `calendar` (next, countWeek), `reminders` (open, done, nextDue), `mail` (unread, latest), `files` (recent, count). For `entity` the bind `id` is the linked project or one of its children; for the others it is the Space's id. New exports `SPACE_QUERY_SOURCES` and `isSpaceQuerySource`. No wire change, so no generated Swift change.
 
+### v1 additive — 2026-11-19 (machine registry, H3)
+
+- New method `node.unpair` (scope `node`, `{}` to `{ device }`): a connection paired as a machine removes itself; any other node gets `forbidden`. `MACHINE_TOKENS_ENABLED` is now true. Design: docs/design/linux-helper-only-2026.md §6.6, §9.
+### v1 additive — 2026-11-19 (what a plugin adds)
+
+- `PluginSummary` gains an optional `adds` (`PluginAdds`: counts of skills, commands, MCP servers and hooks). The Gateway counts them from the plugin's own files, never from its manifest; plugins installed earlier are counted from their installed folder. Settings → Plugins shows them.
 ### v1 additive — 2026-11-20 (Spaces, wave S0)
 
 - New methods `spaces.*` (24, no handlers yet): `list`, `get`, `create`, `update`, `archive`, `restore`, `delete`, `folders.add|remove|setMode`, `settings.set`, `links.add|remove`, `threads.move`, `automations.move`, `trackers.add|remove|reorder|refresh`, `open`, `context.preview`, `proposals.list|accept|dismiss`. Folders, settings and delete are `operator.admin`. New schemas in `schemas/spaces.ts` (`Space`, `SpaceDetail`, `SpaceSummary`, `SpaceFolder`, `SpaceLink`, `SpaceTracker`, `SpaceProposal`, ...).
