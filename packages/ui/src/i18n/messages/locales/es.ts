@@ -825,6 +825,8 @@ export const es: Partial<Catalogue> = {
     "Se detuvo antes de terminar: {reason}. Se importaron {done} de {total} lotes. Importa de nuevo para continuar; las conversaciones ya importadas se omiten.",
   "agent.memory.importConv.retry": "Importar de nuevo",
   "agent.memory.exported": "Se exportó {file}.",
+  "agent.memory.importConv.memoriesFailed":
+    "No se pudieron importar los recuerdos: {reason}. Importa de nuevo para reintentarlo.",
   "agent.memory.export": "Exportar todo",
   "agent.memory.resetDone":
     "Se {files, plural, one {restableció # archivo} other {restablecieron # archivos}} y {claims, plural, one {# afirmación} other {# afirmaciones}}.",

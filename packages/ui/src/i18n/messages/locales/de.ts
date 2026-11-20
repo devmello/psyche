@@ -851,6 +851,8 @@ export const de: Partial<Catalogue> = {
     "Vor dem Ende gestoppt: {reason}. {done} von {total} Paketen wurden importiert. Importiere erneut, um fortzufahren; bereits importierte Unterhaltungen werden übersprungen.",
   "agent.memory.importConv.retry": "Erneut importieren",
   "agent.memory.exported": "{file} exportiert.",
+  "agent.memory.importConv.memoriesFailed":
+    "Die Erinnerungen konnten nicht importiert werden: {reason}. Importiere erneut, um es noch einmal zu versuchen.",
   "agent.memory.export": "Alles exportieren",
   "agent.memory.resetDone":
     "{files, plural, one {# Datei} other {# Dateien}}, {claims, plural, one {# Aussage} other {# Aussagen}} zurückgesetzt.",

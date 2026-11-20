@@ -404,6 +404,8 @@ export const agent = {
     "Stopped before finishing: {reason}. {done} of {total} batches were imported. Import again to continue; conversations already imported are skipped.",
   "agent.memory.importConv.retry": "Import again",
   "agent.memory.exported": "Exported {file}.",
+  "agent.memory.importConv.memoriesFailed":
+    "The memories could not be imported: {reason}. Import again to retry them.",
   "agent.memory.export": "Export everything",
   "agent.memory.resetDone":
     "Reset {files, plural, one {# file} other {# files}}, {claims, plural, one {# claim} other {# claims}}.",

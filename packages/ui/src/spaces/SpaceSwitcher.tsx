@@ -43,7 +43,7 @@ export function SpaceSwitcher({
   if (entry === undefined || entry.thread.kind === "incognito") return null;
   if (live.length === 0 && currentId === null) return null;
   // The main chat can start chats in a Space but is never moved into one.
-  const movable = entry.thread.kind === "side";
+  const movable = entry.thread.kind === "side" && entry.thread.imported === undefined;
   const fail = (err: unknown) =>
     toast.error(t("spaces.switcher.moveFailed", { reason: describeError(err) }));
   const startIn = (spaceId: string) =>

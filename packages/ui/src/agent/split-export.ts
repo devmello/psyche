@@ -25,18 +25,29 @@ const TEXT_CAP = 20_000;
 
 const isRec = (v: unknown): v is Record<string, unknown> =>
   v !== null && typeof v === "object" && !Array.isArray(v);
-const cap = (s: string): string =>
-  s.length <= TEXT_CAP ? s : `${s.slice(0, TEXT_CAP - 20)}\n[truncated]`;
+/** The Gateway's cut and marker (`capText`), leaving room so the marker stays within the cap. */
+const cap = (s: string): string => {
+  if (s.length <= TEXT_CAP) return s;
+  let end = TEXT_CAP - 45;
+  const c = s.charCodeAt(end - 1);
+  if (c >= 0xd800 && c <= 0xdbff) end -= 1; // never split a surrogate pair
+  return `${s.slice(0, end)}\n[truncated: ${s.length - end} more characters]`;
+};
+
+/** Longest id the Gateway keeps whole; a longer one is refused rather than cut. */
+const MAX_ID = 400;
 
 /**
  * Keeps only what the Gateway's parser reads, so abandoned branches, tool nodes and metadata do
- * not make a long conversation look too big for a batch.
+ * not make a long conversation look too big for a batch. Message text is cut at 20,000
+ * characters with the Gateway's own marker; ids are never altered.
  */
 export function trimEntry(el: unknown): unknown {
   if (!isRec(el)) return el;
   const out: Record<string, unknown> = {};
   for (const k of ["uuid", "id", "conversation_id", "name", "title"]) {
-    if (typeof el[k] === "string") out[k] = (el[k] as string).slice(0, 400);
+    if (typeof el[k] === "string")
+      out[k] = k === "name" || k === "title" ? (el[k] as string).slice(0, 400) : el[k];
   }
   for (const k of ["created_at", "updated_at", "create_time", "update_time"]) {
     if (typeof el[k] === "string" || typeof el[k] === "number") out[k] = el[k];
@@ -118,6 +129,13 @@ export function splitExport(text: string): SplitResult {
   for (const el of parsed) {
     if (count >= MAX_EXPORT_CONVERSATIONS) {
       skipped.push({ title: titleOf(el), reason: "too_many" });
+      continue;
+    }
+    if (
+      isRec(el) &&
+      ["uuid", "id", "conversation_id"].some((k) => String(el[k] ?? "").length > MAX_ID)
+    ) {
+      skipped.push({ title: titleOf(el), reason: "invalid" });
       continue;
     }
     const json = JSON.stringify(trimEntry(el));
