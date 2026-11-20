@@ -2741,6 +2741,14 @@
         "sideEffecting": false
       },
       {
+        "description": "Machine → Gateway: the machine removes itself (`psyche-helper unpair`). Runs the same cascade as devices.revoke on the caller's own device (the stored machine decision, the node, the audit entry machine.revoked, the owner's notice) and the connection closes right after the reply. Takes no device id, so it can never name another device. Only a connection paired as a machine may call it; any other node gets `forbidden`.",
+        "name": "node.unpair",
+        "params": "#/$defs/NodeUnpairParams",
+        "result": "#/$defs/NodeUnpairResult",
+        "scope": "node",
+        "sideEffecting": false
+      },
+      {
         "description": "Returns a node's declared capabilities.",
         "name": "nodes.capabilities",
         "params": "#/$defs/NodesCapabilitiesParams",
@@ -33912,6 +33920,21 @@
         "degraded"
       ],
       "type": "string"
+    },
+    "NodeUnpairParams": {
+      "properties": {},
+      "type": "object"
+    },
+    "NodeUnpairResult": {
+      "properties": {
+        "device": {
+          "$ref": "#/$defs/Device"
+        }
+      },
+      "required": [
+        "device"
+      ],
+      "type": "object"
     },
     "NodeUpdatedPayload": {
       "properties": {

@@ -1053,6 +1053,8 @@
 //   let nodeKind = try? JSONDecoder().decode(NodeKind.self, from: jsonData)
 //   let nodeResultParams = try? JSONDecoder().decode(NodeResultParams.self, from: jsonData)
 //   let nodeStatus = try? JSONDecoder().decode(NodeStatus.self, from: jsonData)
+//   let nodeUnpairParams = try? JSONDecoder().decode(NodeUnpairParams.self, from: jsonData)
+//   let nodeUnpairResult = try? JSONDecoder().decode(NodeUnpairResult.self, from: jsonData)
 //   let nodeUpdatedPayload = try? JSONDecoder().decode(NodeUpdatedPayload.self, from: jsonData)
 //   let nodesCapabilitiesParams = try? JSONDecoder().decode(NodesCapabilitiesParams.self, from: jsonData)
 //   let nodesCapabilitiesResult = try? JSONDecoder().decode(NodesCapabilitiesResult.self, from: jsonData)
@@ -25532,6 +25534,19 @@ public enum ReceiptOutcome: String, Codable, Sendable {
     case uncertain = "uncertain"
 }
 
+// MARK: - NodeUnpairResult
+public struct NodeUnpairResult: Codable, Sendable {
+    public let device: Device
+
+    public enum CodingKeys: String, CodingKey {
+        case device = "device"
+    }
+
+    public init(device: Device) {
+        self.device = device
+    }
+}
+
 // MARK: - NodeUpdatedPayload
 public struct NodeUpdatedPayload: Codable, Sendable {
     public let node: NodeInfo
@@ -40369,6 +40384,7 @@ public typealias MemoryStatusParams = [String: JSONAny]
 public typealias MemoryWorkListsParams = [String: JSONAny]
 public typealias ModelsAppleStatusParams = [String: JSONAny]
 public typealias ModelsListParams = [String: JSONAny]
+public typealias NodeUnpairParams = [String: JSONAny]
 public typealias NodesListParams = [String: JSONAny]
 public typealias PasskeysListParams = [String: JSONAny]
 public typealias PasskeysReauthBeginParams = [String: JSONAny]
