@@ -21,6 +21,12 @@ export type ModelPart =
        */
       provenance?: ProvenanceOut;
       /**
+       * `owner` on the words the owner typed themselves in a user turn, set by the loop and never
+       * on attachment text, quoted context or a non-owner's message. Older stored messages lack
+       * it: absent means "not marked", not "not the owner's". Providers ignore it.
+       */
+      author?: "owner";
+      /**
        * Context the loop added to a user turn for that run only (turn context providers). The next
        * run replaces it with a fixed stub; a run that is not the owner's own never sees it.
        */

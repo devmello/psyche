@@ -142,6 +142,12 @@ describe("durable agent thread state (issue #52)", () => {
     expect(sent).toContain("Want a revised version?");
     // The new message is in the request once, not twice.
     expect(sent.split("yes write a revised one").length - 1).toBe(1);
+    // The rebuilt attachment text is its own untrusted part, apart from the owner's words.
+    const first = provider.requests.at(0)?.messages[0]?.parts ?? [];
+    expect(first[0]).toMatchObject({ type: "text", text: "review my resume", author: "owner" });
+    expect(first[1]).toMatchObject({ type: "text", provenance: "untrusted" });
+    expect(JSON.stringify(first[1])).toContain("Ada Lovelace");
+    expect(JSON.stringify(first[0])).not.toContain("Ada Lovelace");
   });
 
   it("keeps an attached image as an image when the history is rebuilt", async () => {

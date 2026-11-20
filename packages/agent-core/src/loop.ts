@@ -98,6 +98,7 @@ import {
   type DailyNotes,
   DEFAULT_BASE_PROMPT,
   DEFAULT_CONTEXT_BUDGETS,
+  fenceUntrustedText,
   onlyAppended,
   readDailyNotes,
   renderSystemParts,
@@ -1077,15 +1078,39 @@ export class PsycheAgentLoop implements AgentLoop {
       const turnImages = input.input.images ?? [];
       // A model that cannot read images gets a note, never the picture (or its bytes as text).
       const blind = turnImages.length > 0 && !(await this.#canSeeImages(run.model));
+      const fence = randomUUID().replaceAll("-", "").slice(0, 16);
+      const { typed, attached, note } = userTextParts(input);
+      const notes = [
+        ...(note === undefined ? [] : [note]),
+        ...(blind
+          ? [
+              `[${turnImages.length} attached image${turnImages.length === 1 ? "" : "s"} not shown: ${run.model} cannot read images. Tell the owner, and suggest switching to a model that can see images.]`,
+            ]
+          : []),
+      ];
+      // Attachment text is a third party's: its own part, tagged and fenced, never joined to the
+      // owner's typed words. A non-owner's message is third-party text too, and never owner-marked.
+      if (attached !== undefined) this.#taint(run, { sourceKind: "attachment" });
       run.thread.messages.push({
         role: "user",
         parts: [
-          {
-            type: "text",
-            text: blind
-              ? `${userText(input)}\n\n[${turnImages.length} attached image${turnImages.length === 1 ? "" : "s"} not shown: ${run.model} cannot read images. Tell the owner, and suggest switching to a model that can see images.]`
-              : userText(input),
-          },
+          ownerSent
+            ? { type: "text", text: typed, author: "owner" }
+            : {
+                type: "text",
+                text: fenceUntrustedText("Message from a non-owner", typed, fence),
+                provenance: "untrusted",
+              },
+          ...(attached === undefined
+            ? []
+            : [
+                {
+                  type: "text" as const,
+                  text: fenceUntrustedText("Attached file text", attached, fence),
+                  provenance: "untrusted" as const,
+                },
+              ]),
+          ...(notes.length === 0 ? [] : [{ type: "text" as const, text: notes.join("\n\n") }]),
           // Images the model sees with the message (a pinned screen capture).
           ...(blind
             ? []
@@ -4267,13 +4292,24 @@ function worst(a: ProvenanceOut, b: ProvenanceOut | undefined): ProvenanceOut {
   return a === "untrusted" || b === "untrusted" ? "untrusted" : "trusted";
 }
 
-function userText(input: StartTurnInput): string {
+/**
+ * The owner's typed words and, apart from them, the attachments' extracted text. Attachment text
+ * is never merged into `typed`. With no extracted text the ids alone go in `note` (harness text).
+ */
+function userTextParts(input: StartTurnInput): {
+  typed: string;
+  attached?: string;
+  note?: string;
+} {
   const files = input.input.attachments ?? [];
-  if (files.length === 0) return input.input.text;
+  if (files.length === 0) return { typed: input.input.text };
   // Extracted text, when the Gateway made it, says more than the ids do.
   const attached = input.input.attachmentText;
-  if (attached !== undefined && attached !== "") return `${input.input.text}\n\n${attached}`;
-  return `${input.input.text}\n\n[attached library items: ${files.map((f) => f.libraryItemId).join(", ")}]`;
+  if (attached !== undefined && attached !== "") return { typed: input.input.text, attached };
+  return {
+    typed: input.input.text,
+    note: `[attached library items: ${files.map((f) => f.libraryItemId).join(", ")}]`,
+  };
 }
 
 /** The transcript up to the last message whose tool calls all have results. */
