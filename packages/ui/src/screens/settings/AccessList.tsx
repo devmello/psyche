@@ -68,6 +68,9 @@ export function AccessListView({
         const reconnect = folder && e.reconnectTo !== undefined && !refused;
         const meta = [
           scopeWord(e),
+          folder && e.reconnectBlocked === true
+            ? t("settings.access.reconnectBlocked", { name: baseName(e.path ?? e.label) })
+            : null,
           reconnect
             ? t("settings.access.reconnectPrompt", {
                 name: baseName(e.path ?? e.label),

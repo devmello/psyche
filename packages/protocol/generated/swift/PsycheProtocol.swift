@@ -1876,6 +1876,7 @@ public struct AccessEntry: Codable, Sendable {
     public let moved: Bool?
     public let movedTo: String?
     public let path: String?
+    public let reconnectBlocked: Bool?
     public let reconnectTo: String?
     public let refused: Bool?
     public let scope: AccessEntryScope
@@ -1894,6 +1895,7 @@ public struct AccessEntry: Codable, Sendable {
         case moved = "moved"
         case movedTo = "movedTo"
         case path = "path"
+        case reconnectBlocked = "reconnectBlocked"
         case reconnectTo = "reconnectTo"
         case refused = "refused"
         case scope = "scope"
@@ -1902,7 +1904,7 @@ public struct AccessEntry: Codable, Sendable {
         case type = "type"
     }
 
-    public init(file: Bool? = nil, grantID: String? = nil, id: String, kind: ApprovalKind? = nil, label: String, lastUsedAt: String? = nil, mode: FolderModeEnum? = nil, moved: Bool? = nil, movedTo: String? = nil, path: String? = nil, reconnectTo: String? = nil, refused: Bool? = nil, scope: AccessEntryScope, since: String? = nil, threadID: String? = nil, type: AccessEntryType) {
+    public init(file: Bool? = nil, grantID: String? = nil, id: String, kind: ApprovalKind? = nil, label: String, lastUsedAt: String? = nil, mode: FolderModeEnum? = nil, moved: Bool? = nil, movedTo: String? = nil, path: String? = nil, reconnectBlocked: Bool? = nil, reconnectTo: String? = nil, refused: Bool? = nil, scope: AccessEntryScope, since: String? = nil, threadID: String? = nil, type: AccessEntryType) {
         self.file = file
         self.grantID = grantID
         self.id = id
@@ -1913,6 +1915,7 @@ public struct AccessEntry: Codable, Sendable {
         self.moved = moved
         self.movedTo = movedTo
         self.path = path
+        self.reconnectBlocked = reconnectBlocked
         self.reconnectTo = reconnectTo
         self.refused = refused
         self.scope = scope

@@ -1,8 +1,8 @@
 import type { Dirent } from "node:fs";
 import { lstat, readdir, realpath } from "node:fs/promises";
 import { homedir } from "node:os";
-import { basename, dirname, join, resolve } from "node:path";
-import { isUnderHostPath } from "@psyche/hostfs";
+import { basename, dirname, join, relative, resolve, sep } from "node:path";
+import { isUnderHostPath, sameHostPath } from "@psyche/hostfs";
 import { assertFolderGrantable, type FolderAccessEnv, sameRootSpelling } from "./folder-access.ts";
 
 /**
@@ -62,13 +62,39 @@ export interface LocateBudget {
   now?: () => number;
   /** Granted folders to search inside (their subtrees, a few levels deep). */
   grantedRoots?: readonly string[];
+  /** Folders never to open (a granted root whose look hung or failed, and what is under it). */
+  skip?: (dir: string) => boolean;
+}
+
+/** The folders under home that macOS guards with a privacy prompt (plus the media libraries). */
+const PRIVACY_FOLDERS = new Set([
+  "desktop",
+  "documents",
+  "downloads",
+  "pictures",
+  "movies",
+  "music",
+]);
+
+/** `~/Documents` for `~/Documents/x/y`, when that is one of the guarded folders; else undefined. */
+function privacyRoot(dir: string, home: string): string | undefined {
+  if (!isUnderHostPath(dir, home)) return undefined;
+  const first = relative(home, dir).split(sep)[0] ?? "";
+  return PRIVACY_FOLDERS.has(first.toLowerCase()) ? join(home, first) : undefined;
 }
 
 /**
- * Looks for the folder with identity `ref` in the few places a rename or move lands: the old
- * parent (two levels), each ancestor of it up to home (their direct children only, which are
- * looked at but never opened, so no privacy prompt for Desktop or Documents), and the subtrees of
- * folders already granted. Links are never followed, dot folders and `~/Library` are skipped, and
+ * Looks for the folder with identity `ref` in the few places a rename or move lands, without
+ * opening anything the owner has not already opened to Psyche:
+ * - the old parent: its children are looked at, and opened one level more only when the parent is
+ *   an ordinary folder under home (never home itself, never a folder outside home, never
+ *   `/Volumes`: those have children that are other volumes or guarded folders);
+ * - each ancestor of it up to home: its direct children are looked at (an `lstat`, which raises no
+ *   privacy prompt), never opened;
+ * - the subtrees of folders already granted.
+ * A guarded folder (Desktop, Documents, Downloads, Pictures, Movies, Music) is opened only when it
+ * or an ancestor is granted, or it holds the old parent (a grant lives there, so the owner has
+ * been through its prompt). Links are never followed, dot folders and `~/Library` are skipped, and
  * the deadline is checked for every entry. Only a suggestion: `checkReconnect` judges the answer.
  */
 export async function locateFolder(
@@ -81,16 +107,26 @@ export async function locateFolder(
   const now = budget.now ?? Date.now;
   const deadline = now() + (budget.maxMs ?? 800);
   const home = resolve(env.home ?? homedir());
+  const granted = (budget.grantedRoots ?? []).map((g) => resolve(g));
+  const parent = dirname(resolve(stored));
+  const ownGuard = privacyRoot(parent, home);
   let seen = 0;
   const visited = new Set<string>();
   const exhausted = (): boolean => seen++ >= maxEntries || now() > deadline;
+  const mayOpen = (dir: string): boolean => {
+    if (budget.skip?.(dir) === true) return false;
+    const guard = privacyRoot(dir, home);
+    if (guard === undefined) return true;
+    if (guard === ownGuard) return true;
+    return granted.some((g) => sameHostPath(g, dir) || isUnderHostPath(dir, g));
+  };
 
   const scan = async (root: string, maxDepth: number): Promise<string | undefined> => {
     let level = [root];
     for (let depth = 0; depth <= maxDepth && level.length > 0; depth++) {
       const next: string[] = [];
       for (const dir of level) {
-        if (visited.has(dir)) continue;
+        if (visited.has(dir) || !mayOpen(dir)) continue;
         visited.add(dir);
         let names: Dirent[];
         try {
@@ -113,23 +149,74 @@ export async function locateFolder(
     return undefined;
   };
 
-  const parent = dirname(resolve(stored));
-  const hit = await scan(parent, 1);
+  // Home, a folder outside home and `/Volumes` hold other volumes and the guarded folders as
+  // children: look at those children, do not open them.
+  const ordinary = isUnderHostPath(parent, home) && !sameHostPath(parent, home);
+  const hit = await scan(parent, ordinary ? 1 : 0);
   if (hit !== undefined) return hit;
   // Ancestors up to home: their direct children only.
-  if (isUnderHostPath(parent, home) || parent === home) {
+  if (ordinary) {
     for (let dir = dirname(parent); ; dir = dirname(dir)) {
-      if (!isUnderHostPath(dir, home) && dir !== home) break;
       const found = await scan(dir, 0);
       if (found !== undefined) return found;
-      if (dir === home) break;
+      if (sameHostPath(dir, home) || !isUnderHostPath(dir, home)) break;
     }
   }
-  for (const root of budget.grantedRoots ?? []) {
+  for (const root of granted) {
     const found = await scan(root, 3);
     if (found !== undefined) return found;
   }
   return undefined;
+}
+
+const GLOB_CHARS = /[*?[\]{}]/;
+
+/** One glob path segment as an anchored, case-folded regular expression. */
+function segmentPattern(seg: string): RegExp {
+  const body = seg
+    .split("")
+    .map((c) => (c === "*" ? "[^/]*" : c === "?" ? "[^/]" : c.replace(/[.+^${}()|[\]\\]/g, "\\$&")))
+    .join("");
+  return new RegExp(`^${body}$`, "i");
+}
+
+/**
+ * Whether a deny or ask rule names the place `old` or something under it, so that moving the
+ * folder would leave the rule matching nothing (it would stop narrowing what it narrowed). The
+ * rule's path is matched segment by segment against the old path, `**` standing for any number
+ * of segments; a rule whose segments are all `**` or that only match by what comes after the old
+ * folder (`**` then `*.env`) is not about it. Case is folded, `~` is the owner's home, and a
+ * sibling that merely starts with the same letters (`AB` for `A`) is another folder.
+ */
+export function ruleNamesOldPath(rule: string, old: string, home: string): boolean {
+  const open = rule.indexOf("(");
+  const close = rule.lastIndexOf(")");
+  let arg = open >= 0 && close > open ? rule.slice(open + 1, close) : rule;
+  if (arg === "~" || arg.startsWith("~/")) arg = `${home}${arg.slice(1)}`;
+  const segs = arg.split("/").filter((x) => x.length > 0);
+  const oldSegs = old.split("/").filter((x) => x.length > 0);
+  const fold = (x: string): string => x.toLowerCase();
+  const patterns = segs.map((g) => (GLOB_CHARS.test(g) ? segmentPattern(g) : undefined));
+  const memo = new Map<string, boolean>();
+  const walk = (i: number, j: number, used: boolean): boolean => {
+    const key = `${i}:${j}:${used}`;
+    const hit = memo.get(key);
+    if (hit !== undefined) return hit;
+    let out: boolean;
+    // The old path is used up: the rest of the rule can only match what is under it.
+    if (j === oldSegs.length) out = used;
+    else if (i === segs.length) out = false;
+    else if (segs[i] === "**") out = walk(i + 1, j, used) || walk(i, j + 1, used);
+    else {
+      const g = patterns[i];
+      const seg = oldSegs[j] ?? "";
+      const same = g !== undefined ? g.test(seg) : fold(segs[i] ?? "") === fold(seg);
+      out = same && walk(i + 1, j + 1, true);
+    }
+    memo.set(key, out);
+    return out;
+  };
+  return walk(0, 0, false);
 }
 
 export type ReconnectRefusal =

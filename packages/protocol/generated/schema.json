@@ -4484,6 +4484,9 @@
           "maxLength": 4096,
           "type": "string"
         },
+        "reconnectBlocked": {
+          "type": "boolean"
+        },
         "threadId": {
           "description": "ULID in production",
           "maxLength": 64,

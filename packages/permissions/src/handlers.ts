@@ -257,11 +257,12 @@ export async function accessEntries(broker: PsychePermissionBroker): Promise<Acc
   const out: AccessEntry[] = [];
   const offers = await Promise.all(
     (broker.policy.folders ?? []).map((f) =>
-      broker.folderReconnectOffer(f.path).catch(() => undefined),
+      broker.folderReconnect(f.path).catch(() => ({}) as { to?: string; blocked?: true }),
     ),
   );
   for (const [i, f] of (broker.policy.folders ?? []).entries()) {
-    const reconnectTo = offers[i];
+    const reconnectTo = offers[i]?.to;
+    const blocked = offers[i]?.blocked === true;
     out.push({
       id: `${FOLDER_ALWAYS}${f.path}`,
       type: "folder",
@@ -272,6 +273,7 @@ export async function accessEntries(broker: PsychePermissionBroker): Promise<Acc
       ...(broker.folderRefused(f.path) ? { refused: true } : {}),
       ...movedFields(broker, f.path),
       ...(reconnectTo === undefined ? {} : { reconnectTo }),
+      ...(blocked ? { reconnectBlocked: true } : {}),
     });
   }
   for (const { threadId, entry } of broker.allSessionFolders()) {

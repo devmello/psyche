@@ -41,6 +41,12 @@ export const AccessEntry = Type.Object(
      * one tap sends `access.reconnectFolder`. Never applied without that tap.
      */
     reconnectTo: Type.Optional(Type.String({ maxLength: 4096 })),
+    /**
+     * With no `reconnectTo`: the same folder was found elsewhere but cannot be reconnected safely
+     * (a deny or ask rule names its old place, or a wider folder inside it cannot be verified).
+     * Settings says so instead of offering a button that can only fail.
+     */
+    reconnectBlocked: Type.Optional(Type.Boolean()),
     threadId: Type.Optional(Id),
     grantId: Type.Optional(Id),
     kind: Type.Optional(ApprovalKind),

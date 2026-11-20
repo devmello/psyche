@@ -1,4 +1,4 @@
-import { mkdir, mkdtemp, realpath, rm } from "node:fs/promises";
+import { mkdir, mkdtemp, realpath, rename, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { afterEach, describe, expect, it, vi } from "vitest";
@@ -14,6 +14,9 @@ const hang = vi.hoisted(() => ({
   armed: false,
   lstats: 0,
   readdirs: [] as string[],
+  /** A directory whose readdir never returns (a hung share), and how often it was called. */
+  readdirHang: "",
+  readdirHangs: 0,
 }));
 
 vi.mock("node:fs/promises", async (orig) => {
@@ -29,6 +32,10 @@ vi.mock("node:fs/promises", async (orig) => {
     }) as typeof real.lstat,
     readdir: ((p: string, ...rest: unknown[]) => {
       hang.readdirs.push(String(p));
+      if (hang.readdirHang !== "" && p === hang.readdirHang) {
+        hang.readdirHangs++;
+        return new Promise(() => {});
+      }
       return (real.readdir as (...a: unknown[]) => unknown)(p, ...rest);
     }) as typeof real.readdir,
   };
@@ -36,6 +43,7 @@ vi.mock("node:fs/promises", async (orig) => {
 
 const { accessEntries } = await import("../src/handlers.ts");
 const { makeBroker } = await import("./helpers.ts");
+const { folderRefOf } = await import("../src/index.ts");
 
 const dirs: string[] = [];
 afterEach(async () => {
@@ -94,5 +102,116 @@ describe("a hung mount does not stall access.list", () => {
     await h.broker.folderReconnectOffer(gone);
     expect(hang.readdirs).not.toContain(join(home, "Documents"));
     expect(hang.readdirs).toContain(join(home, "Projects"));
+  });
+});
+
+describe("the search stays inside what the owner opened (#1483 r2)", () => {
+  const settle = async (h: ReturnType<typeof makeBroker>) => {
+    await h.broker.foldersSettled();
+  };
+
+  function brokerFor(home: string, folders: { path: string; ref?: unknown }[]) {
+    return makeBroker({
+      policy: {
+        folders: folders.map((f) => ({
+          path: f.path,
+          mode: "rw" as const,
+          real: f.path,
+          ...(f.ref ? { ref: f.ref as typeof REF } : {}),
+        })),
+      },
+      hostProgram: { home },
+      folderAccess: {
+        env: () => ({ home }),
+        persist: async () => {},
+        repoint: async () => true,
+        recordRef: () => {},
+      },
+    });
+  }
+
+  it("P16: a hung granted root gets one blocked call, however often the policy is written", async () => {
+    const home = await realpath(await mkdtemp(join(tmpdir(), "psyche-hang-")));
+    dirs.push(home);
+    const nas = join(home, "nas");
+    const gone = join(home, "Projects", "app");
+    await mkdir(nas, { recursive: true });
+    await mkdir(join(home, "Projects"), { recursive: true });
+    hang.armed = false;
+    hang.readdirs = [];
+    hang.readdirHang = nas;
+    hang.readdirHangs = 0;
+    const h = brokerFor(home, [{ path: gone, ref: REF }, { path: nas }]);
+    await settle(h);
+    for (let i = 0; i < 4; i++) {
+      const t = Date.now();
+      await accessEntries(h.broker);
+      expect(Date.now() - t).toBeLessThan(2000);
+      h.broker.setPolicy(h.broker.policy);
+    }
+    expect(hang.readdirHangs).toBeLessThanOrEqual(1);
+    hang.readdirHang = "";
+  });
+
+  it("P15b: a grant directly in home never opens Desktop, Documents or Downloads", async () => {
+    const home = await realpath(await mkdtemp(join(tmpdir(), "psyche-hang-")));
+    dirs.push(home);
+    for (const d of ["Desktop", "Documents", "Downloads", "Pictures", "Movies", "Music"]) {
+      await mkdir(join(home, d), { recursive: true });
+    }
+    const stored = join(home, "proj");
+    await mkdir(stored);
+    const ref = await folderRefOf(stored);
+    const renamed = join(home, "proj2");
+    await rename(stored, renamed);
+    hang.armed = false;
+    hang.readdirHang = "";
+    hang.readdirs = [];
+    const h = brokerFor(home, [{ path: stored, ref }]);
+    await settle(h);
+    // Still found: the children of home are looked at, not opened.
+    expect(await h.broker.folderReconnectOffer(stored)).toBe(renamed);
+    const opened = hang.readdirs.map((d) => d.slice(home.length));
+    for (const d of ["Desktop", "Documents", "Downloads", "Pictures", "Movies", "Music"]) {
+      expect(opened).not.toContain(`/${d}`);
+    }
+    expect(opened.filter((d) => d !== "")).toEqual([]);
+  });
+
+  it("P15b: a guarded folder is opened when it is granted", async () => {
+    const home = await realpath(await mkdtemp(join(tmpdir(), "psyche-hang-")));
+    dirs.push(home);
+    const docs = join(home, "Documents");
+    await mkdir(join(docs, "work"), { recursive: true });
+    const stored = join(home, "proj");
+    await mkdir(stored);
+    const ref = await folderRefOf(stored);
+    const moved = join(docs, "work", "proj");
+    await rename(stored, moved);
+    hang.armed = false;
+    hang.readdirHang = "";
+    hang.readdirs = [];
+    const h = brokerFor(home, [{ path: stored, ref }, { path: docs }]);
+    await settle(h);
+    expect(await h.broker.folderReconnectOffer(stored)).toBe(moved);
+  });
+
+  it("P15c: a parent outside home (a volumes-like root) has its children looked at, never opened", async () => {
+    const vol = await realpath(await mkdtemp(join(tmpdir(), "psyche-vol-")));
+    const home = await realpath(await mkdtemp(join(tmpdir(), "psyche-home-")));
+    dirs.push(vol, home);
+    for (const d of ["Macintosh", "Backup", "Share"]) await mkdir(join(vol, d));
+    const stored = join(vol, "proj");
+    await mkdir(stored);
+    const ref = await folderRefOf(stored);
+    const renamed = join(vol, "proj2");
+    await rename(stored, renamed);
+    hang.armed = false;
+    hang.readdirHang = "";
+    hang.readdirs = [];
+    const h = brokerFor(home, [{ path: stored, ref }]);
+    await settle(h);
+    expect(await h.broker.folderReconnectOffer(stored)).toBe(renamed);
+    expect(hang.readdirs.filter((d) => d.startsWith(vol) && d !== vol)).toEqual([]);
   });
 });

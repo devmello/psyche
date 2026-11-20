@@ -271,34 +271,90 @@ describe("a nested override moves with its parent, or nothing moves (#1483 r1, P
     );
   });
 
-  it("moves nothing when the sub-folder's identity is not recorded, or no longer matches", async () => {
+  it("carries a narrowing by path: a read-only child with no identity, or one deleted (P12, P12b)", async () => {
     const n = await nested();
     await rename(n.parent, n.renamed);
+    const build = join(n.parent, "build"); // an override for a folder that never existed
     const noRef = setupWith(n.home, [
       { path: n.parent, mode: "rw", ref: n.pRef },
-      { path: n.secret, mode: "ro" },
+      { path: build, mode: "ro" },
     ]);
-    expect(await noRef.broker.reconnectFolder(n.parent, n.renamed, BY)).toBe(false);
-    expect(noRef.repoint).not.toHaveBeenCalled();
-    const other = setupWith(n.home, [
+    expect(await noRef.broker.reconnectFolder(n.parent, n.renamed, BY)).toBe(true);
+    expect(noRef.repoint).toHaveBeenCalledWith(
+      [
+        { from: n.parent, to: n.renamed },
+        { from: build, to: join(n.renamed, "build") },
+      ],
+      BY,
+    );
+    // The child had an identity, but was deleted before the rename (gone at both places).
+    const deleted = setupWith(n.home, [
       { path: n.parent, mode: "rw", ref: n.pRef },
       { path: n.secret, mode: "ro", ref: { ...n.sRef, ino: "1" } },
     ]);
-    expect(await other.broker.reconnectFolder(n.parent, n.renamed, BY)).toBe(false);
-    expect(other.repoint).not.toHaveBeenCalled();
+    expect(await deleted.broker.reconnectFolder(n.parent, n.renamed, BY)).toBe(true);
+    expect(deleted.repoint).toHaveBeenCalledTimes(1);
   });
 
-  it("moves nothing when a deny or ask rule names the old subtree", async () => {
+  it("moves nothing for a child that would be wider than its folder unless it is verified (P18)", async () => {
     const n = await nested();
     await rename(n.parent, n.renamed);
-    for (const rule of ["deny", "ask"] as const) {
-      const h = setupWith(n.home, [{ path: n.parent, mode: "rw", ref: n.pRef }], {
-        [rule]: [`read_file(${n.parent}/private/**)`],
-      });
-      expect(await h.broker.reconnectFolder(n.parent, n.renamed, BY)).toBe(false);
-      expect(h.repoint).not.toHaveBeenCalled();
-    }
+    // A read-write child under a read-only parent: moving it by path could widen what is shared.
+    const unverified = setupWith(n.home, [
+      { path: n.parent, mode: "ro", ref: n.pRef },
+      { path: n.secret, mode: "rw" },
+    ]);
+    expect(await unverified.broker.reconnectFolder(n.parent, n.renamed, BY)).toBe(false);
+    expect(unverified.repoint).not.toHaveBeenCalled();
+    const impostor = setupWith(n.home, [
+      { path: n.parent, mode: "ro", ref: n.pRef },
+      { path: n.secret, mode: "rw", ref: { ...n.sRef, ino: "1" } },
+    ]);
+    expect(await impostor.broker.reconnectFolder(n.parent, n.renamed, BY)).toBe(false);
+    expect(impostor.repoint).not.toHaveBeenCalled();
+    // Verified like the folder: it moves with it.
+    const verified = setupWith(n.home, [
+      { path: n.parent, mode: "ro", ref: n.pRef },
+      { path: n.secret, mode: "rw", ref: n.sRef },
+    ]);
+    expect(await verified.broker.reconnectFolder(n.parent, n.renamed, BY)).toBe(true);
   });
+
+  // [label, rule, moves nothing?]. P13: a sibling that starts with the same letters is another
+  // folder. P14: glob rules narrowing the old subtree stop matching at the new place.
+  const RULES: [string, (old: string) => string, boolean][] = [
+    ["literal rule under the folder", (o) => `read_file(${o}/private/**)`, true],
+    ["literal rule on the folder", (o) => `read_file(${o})`, true],
+    ["P13 sibling with a longer name", (o) => `read_file(${o}B/**)`, false],
+    ["P14 leading ** glob", () => "read_file(**/Work/A/private/**)", true],
+    [
+      "P14 wildcard in a parent segment",
+      (o) => `write_file(${o.replace("Work", "W*rk")}/private/**)`,
+      true,
+    ],
+    ["a rule about every .env file", () => "read_file(**/*.env)", false],
+    ["a rule about another folder", (o) => `read_file(${o.replace("/A", "/C")}/**)`, false],
+    ["case-folded", (o) => `read_file(${o.toUpperCase()}/x/**)`, true],
+  ];
+  for (const [label, rule, refused] of RULES) {
+    for (const kind of ["deny", "ask"] as const) {
+      it(`${kind} rule, ${label}: ${refused ? "refuses" : "allows"} the reconnect`, async () => {
+        const n = await nested();
+        await rename(n.parent, n.renamed);
+        const h = setupWith(n.home, [{ path: n.parent, mode: "rw", ref: n.pRef }], {
+          [kind]: [rule(n.parent)],
+        });
+        // The list says why instead of offering a button that can only fail.
+        const entry = (await accessEntries(h.broker)).find((e) => e.path === n.parent);
+        if (refused) {
+          expect(entry?.reconnectTo).toBeUndefined();
+          expect(entry?.reconnectBlocked).toBe(true);
+        } else expect(entry?.reconnectTo).toBe(n.renamed);
+        expect(await h.broker.reconnectFolder(n.parent, n.renamed, BY)).toBe(!refused);
+        expect(h.repoint).toHaveBeenCalledTimes(refused ? 0 : 1);
+      });
+    }
+  }
 });
 
 describe("who may tap Reconnect", () => {

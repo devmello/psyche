@@ -206,6 +206,29 @@ describe("Access list", () => {
     );
   });
 
+  it("says why a moved folder cannot be reconnected, with no dead button", () => {
+    render(
+      <AccessListView
+        persona="Wren"
+        onRevoke={vi.fn()}
+        onReconnect={vi.fn()}
+        entries={[
+          {
+            id: "folder:always:/Users/o/Projects/app",
+            type: "folder",
+            scope: "always",
+            label: "/Users/o/Projects/app",
+            path: "/Users/o/Projects/app",
+            mode: "rw",
+            reconnectBlocked: true,
+          },
+        ]}
+      />,
+    );
+    expect(screen.getByText(/app moved, but it can't be reconnected safely/)).toBeTruthy();
+    expect(screen.queryByRole("button", { name: /Reconnect/ })).toBeNull();
+  });
+
   it("shows a folder that is a system folder today as refused, with Revoke", () => {
     render(
       <AccessListView

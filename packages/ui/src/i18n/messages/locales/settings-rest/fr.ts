@@ -693,6 +693,8 @@ export const settingsRest: Partial<Catalogue> = {
   "settings.access.reconnectNamed": "Reconnecter {name} à {path}",
   "settings.access.reconnectFailed":
     "{name} a de nouveau été déplacé ou ne peut pas être reconnecté. La liste a été actualisée.",
+  "settings.access.reconnectBlocked":
+    "{name} a été déplacé, mais ne peut pas être reconnecté en toute sécurité : une règle ou un dossier qu'il contient pointe vers l'ancien emplacement. Révoquez-le et partagez-le à nouveau.",
   "settings.model.advancedHint": "Limites de contexte, modèles locaux",
   "settings.permissions.subject.prepNotes": "Notes intitulées « Prep: » (préparation de réunion)",
   "settings.permissions.specificConnectors":
