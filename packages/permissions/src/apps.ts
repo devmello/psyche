@@ -154,7 +154,14 @@ export const TERMINAL_IDE_APPS = [
   "rider64.exe",
   "goland64.exe",
   "clion64.exe",
-  // Linux terminals, editors and IDEs (desktop-file ids).
+];
+
+/**
+ * Linux terminals, editors and IDEs (desktop-file ids, compared without case): click-only, as the
+ * Linux helper's `TERMINALS_AND_IDES` caps them. Kept apart from `TERMINAL_IDE_APPS`, which
+ * the Mac and Windows helpers' lists mirror (`terminal-caps-sync.test.ts`).
+ */
+export const LINUX_TERMINAL_IDE_APPS = [
   "gnome-terminal",
   "org.gnome.terminal",
   "ptyxis",
@@ -426,7 +433,7 @@ function capOf(bundleId: string): { cap: AppTier; reason: string } {
   if (matchesAny(bundleId, BROWSER_APPS) && !isBrowserWebApp(bundleId)) {
     return { cap: "read", reason: "browsers are read-only; the agent browser acts on the web" };
   }
-  if (matchesAny(bundleId, TERMINAL_IDE_APPS)) {
+  if (matchesAny(bundleId, TERMINAL_IDE_APPS) || matchesAny(bundleId, LINUX_TERMINAL_IDE_APPS)) {
     return { cap: "click", reason: "terminals and IDEs are click-only" };
   }
   return { cap: "interact", reason: "" };
