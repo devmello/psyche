@@ -1,14 +1,18 @@
+import { execFileSync } from "node:child_process";
 import { cpSync, existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { createRequire } from "node:module";
 import { tmpdir } from "node:os";
 import { dirname, join } from "node:path";
 import { fileURLToPath, pathToFileURL } from "node:url";
 import { FuseV1Options, FuseVersion } from "@electron/fuses";
+import { MakerDeb } from "@electron-forge/maker-deb";
+import { MakerRpm } from "@electron-forge/maker-rpm";
 import { MakerSquirrel } from "@electron-forge/maker-squirrel";
 import { MakerZIP } from "@electron-forge/maker-zip";
 import { FusesPlugin } from "@electron-forge/plugin-fuses";
 import { VitePlugin } from "@electron-forge/plugin-vite";
 import type { ForgeConfig } from "@electron-forge/shared-types";
+import { MakerAppImage } from "@reforged/maker-appimage";
 import { parsePinnedRequirement } from "./src/main/update-gate.ts";
 import {
   allowPartial,
@@ -22,6 +26,14 @@ import {
   skipOuterSigning,
   verifyNestedHelper,
 } from "./src/packaging/bundle-resources.ts";
+import {
+  bundleSourcesLinux,
+  copyBundleResourcesLinux,
+  crossBuildNodePty,
+  linuxIconSet,
+  renameLinuxArtifacts,
+  wrongArchAddons,
+} from "./src/packaging/linux-bundle.ts";
 import { pruneLocales, pruneWin32Locales } from "./src/packaging/locales.ts";
 import {
   describeSigning,
@@ -54,11 +66,23 @@ import { dropGatewayWebCopy } from "./src/packaging/web-copy.ts";
  * Authenticode signing
  * switches on with WINDOWS_CERTIFICATE_FILE / WINDOWS_CERTIFICATE_PASSWORD or the
  * AZURE_TRUSTED_SIGNING_* variables (signing-config.ts `windowsSigning`); unsigned otherwise.
+ *
+ * On Linux `make` builds a deb and an rpm (installed under /usr/lib/psyche, /usr/bin/psyche; the
+ * makers fix those paths) and an AppImage, and renames them to Psyche-<version>-linux-<x64|arm64>.<ext>
+ * (postMake). The package carries resources/psyched/ (with its own Node), the root-run installer
+ * resources/psyche-system-setup with its payload resources/system/, and psyche-apprun, the
+ * AppImage's launcher (src/packaging/linux-bundle.ts). Maintainer scripts are in
+ * deploy/linux/scripts/. The Electron binary is `psyche`.
  */
 
 const root = dirname(fileURLToPath(import.meta.url));
 const repoRoot = join(root, "..", "..");
 const isMacHost = process.platform === "darwin";
+const hostArch = process.arch;
+const isLinuxHost = process.platform === "linux";
+const linuxDeploy = join(repoRoot, "deploy", "linux");
+const linuxIcons = linuxIconSet(join(linuxDeploy, "root", "usr", "share", "icons", "hicolor"));
+const linuxDescription = "Psyche, your personal AI agent";
 const resolveFromHere = createRequire(import.meta.url);
 const version = (
   JSON.parse(readFileSync(join(root, "package.json"), "utf8")) as { version: string }
@@ -108,7 +132,16 @@ function copyNodePty(buildPath: string, platform: string, arch: string): void {
   // Linux has no prebuild: the install step compiles into build/Release. On Windows that folder
   // holds only a copy of conpty; the prebuilds have everything.
   const compiled = join("build", "Release");
-  if (platform !== "win32" && existsSync(join(src, compiled))) {
+  if (platform === "linux" && arch !== hostArch) {
+    // Another architecture than the host's: compile it with the cross toolchain.
+    crossBuildNodePty(
+      src,
+      join(dest, compiled),
+      arch as "x64" | "arm64",
+      (file, args, opts) => void execFileSync(file, args, { stdio: "inherit", ...opts }),
+      execFileSync("npm", ["root", "-g"], { encoding: "utf8" }).trim(),
+    );
+  } else if (platform !== "win32" && existsSync(join(src, compiled))) {
     cpSync(join(src, compiled), join(dest, compiled), { recursive: true });
   }
 }
@@ -116,7 +149,8 @@ function copyNodePty(buildPath: string, platform: string, arch: string): void {
 const config: ForgeConfig = {
   packagerConfig: {
     name: "Psyche",
-    executableName: "Psyche",
+    // Linux packages start `psyche` (/usr/bin/psyche); macOS and Windows keep Psyche.
+    executableName: isLinuxHost ? "psyche" : "Psyche",
     // apps/desktop/assets/icon.icns (and .png for the dev dock), from deploy/macos/make-icon.mjs;
     // icon.ico on Windows, from deploy/windows/make-icon.mjs.
     icon: join(root, "assets", "icon"),
@@ -184,6 +218,98 @@ const config: ForgeConfig = {
   // security §11). ZIP only until then.
   makers: [
     new MakerZIP({}, ["darwin", "linux", "win32"]),
+    // Linux. electron-installer-debian/-redhat fix the install dir (/usr/lib/psyche) and the
+    // launcher link (/usr/bin/psyche); the maintainer scripts call psyche-system-setup
+    // (deploy/linux/psyche-system-setup) for the policy, unit and AppArmor profile, and tolerate failure.
+    new MakerDeb(
+      {
+        options: {
+          name: "psyche",
+          productName: "Psyche",
+          genericName: "AI assistant",
+          description: linuxDescription,
+          productDescription:
+            "Psyche is a private AI assistant that runs on your computer, with its Gateway as a background service.",
+          bin: "psyche",
+          maintainer: "Psyche <devmello@users.noreply.github.com>",
+          homepage: "https://github.com/devmello/psyche",
+          section: "utils",
+          categories: ["Office", "Utility"],
+          mimeType: ["x-scheme-handler/psyche", "x-scheme-handler/psyche-pair"],
+          icon: linuxIcons as never,
+          recommends: ["pkexec | policykit-1", "libnotify-bin"],
+          desktopTemplate: join(
+            linuxDeploy,
+            "root",
+            "usr",
+            "share",
+            "applications",
+            "psyche.desktop",
+          ),
+          scripts: {
+            postinst: join(linuxDeploy, "scripts", "postinst"),
+            prerm: join(linuxDeploy, "scripts", "prerm"),
+          },
+        },
+      },
+      ["linux"],
+    ),
+    new MakerRpm(
+      {
+        options: {
+          name: "psyche",
+          productName: "Psyche",
+          genericName: "AI assistant",
+          description: linuxDescription,
+          productDescription:
+            "Psyche is a private AI assistant that runs on your computer, with its Gateway as a background service.",
+          bin: "psyche",
+          license: "Apache-2.0",
+          // rpm sorts 0.3.0.alpha.0 above 0.3.0; with a tilde the release wins (rpm >= 4.10).
+          version: version.replace("-", "~"),
+          homepage: "https://github.com/devmello/psyche",
+          categories: ["Office", "Utility"],
+          mimeType: ["x-scheme-handler/psyche", "x-scheme-handler/psyche-pair"],
+          icon: linuxIcons as never,
+          // Options electron-installer-redhat reads that the maker's types leave out.
+          ...({
+            specTemplate: join(linuxDeploy, "psyche.spec.ejs"),
+            desktopTemplate: join(
+              linuxDeploy,
+              "root",
+              "usr",
+              "share",
+              "applications",
+              "psyche.desktop",
+            ),
+            scripts: {
+              post: join(linuxDeploy, "scripts", "post"),
+              preun: join(linuxDeploy, "scripts", "preun"),
+            },
+          } as object),
+        },
+      },
+      ["linux"],
+    ),
+    // The AppImage maker's own AppRun is a symlink to `bin`, so `bin` is Psyche's AppRun script
+    // (psyche-apprun, copied in by copyBundleResourcesLinux); it starts the `psyche` binary itself.
+    new MakerAppImage(
+      {
+        options: {
+          name: "psyche",
+          productName: "Psyche",
+          bin: "psyche-apprun",
+          genericName: "AI assistant",
+          categories: ["Office", "Utility"],
+          mimeType: ["x-scheme-handler/psyche", "x-scheme-handler/psyche-pair"],
+          desktopFile: join(linuxDeploy, "psyche-appimage.desktop"),
+          icon: { ...linuxIcons, default: "256x256" } as never,
+          // The type2 runtime reads zstd and zlib squashfs, not xz.
+          compressor: "zstd",
+        },
+      },
+      ["linux"],
+    ),
     // Squirrel.Windows (cross-platform-2026.md §6 decision 5): per user, no admin, behind the signed
     // update manifest (src/main/updater.ts). Install events: src/main/squirrel-events.ts.
     new MakerSquirrel(
@@ -211,8 +337,29 @@ const config: ForgeConfig = {
     ),
   ],
   hooks: {
+    // Psyche-<version>-linux-<x64|arm64>.<deb|rpm|AppImage>: the names update-manifest.mjs reads.
+    postMake: async (_config, results) => {
+      if (process.platform === "linux") renameLinuxArtifacts(results, version, console.log);
+      return results;
+    },
     packageAfterPrune: async (_config, buildPath, _electronVersion, platform, arch) => {
       copyNodePty(buildPath, platform, arch);
+      if (platform === "linux") {
+        // buildPath is <out>/Psyche-linux-<arch>/resources/app.
+        const resourcesDir = dirname(buildPath);
+        copyBundleResourcesLinux(
+          bundleSourcesLinux(process.env, repoRoot, arch),
+          dirname(resourcesDir),
+          { allowPartial: allowPartial(process.env), warn: (m) => console.warn(m) },
+        );
+        const wrong = wrongArchAddons(join(buildPath, "node_modules", "node-pty"), arch);
+        if (wrong.length)
+          throw new Error(`node-pty addons not built for ${arch}: ${wrong.join(", ")}`);
+        // The Gateway keeps its own web client on Linux: serving it from app.asar checks the
+        // asar's hash in an Info.plist, which only macOS has (web-asar.ts), so dropping it would
+        // leave `GET /` answering 500.
+        return;
+      }
       if (platform === "win32") {
         // buildPath is <out>\Psyche-win32-<arch>\resources\app; the packager signs after this.
         const resourcesDir = dirname(buildPath);

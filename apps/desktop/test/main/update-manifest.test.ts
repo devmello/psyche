@@ -508,31 +508,31 @@ describe("per-platform manifests (Linux helper and server packages)", () => {
     expect(build(["--no-mac", file("Psyche-1.4.0-Setup.exe")]).status).not.toBe(0);
   });
 
-  it("release.yml's Linux gate reads the constant, not the text: it is off while the constant is false", () => {
+  it("release.yml's Linux gate reads the constant, not the text: it is on while the constant is true", () => {
     const yml = readFileSync(
       join(import.meta.dirname, "../../../../.github/workflows/release.yml"),
       "utf8",
     );
     const gate = /if (node -e '[^']*DESKTOP_LINUX_SUPPORT[^']*'); then/.exec(yml)?.[1];
     expect(gate, "the gate expression is in release.yml").toBeDefined();
-    expect(readFileSync(SCRIPT, "utf8")).toMatch(/^export const DESKTOP_LINUX_SUPPORT = false;$/m);
+    expect(readFileSync(SCRIPT, "utf8")).toMatch(/^export const DESKTOP_LINUX_SUPPORT = true;$/m);
     // The word and the assignment appear in the script's comments, as they did when a grep was fooled.
     expect(readFileSync(SCRIPT, "utf8")).toContain("DESKTOP_LINUX_SUPPORT");
     const root = resolve(import.meta.dirname, "../../../..");
     const r = spawnSync("sh", ["-c", gate as string], { cwd: root, encoding: "utf8" });
-    expect(r.status).toBe(1);
+    expect(r.status).toBe(0);
 
-    // On a copy with the constant flipped the same expression exits 0 ...
+    // On a copy with the constant flipped the same expression exits 1 ...
     const src = readFileSync(SCRIPT, "utf8");
     const flipped = src.replace(
-      /^export const DESKTOP_LINUX_SUPPORT = false;$/m,
-      "export const DESKTOP_LINUX_SUPPORT = true;",
+      /^export const DESKTOP_LINUX_SUPPORT = true;$/m,
+      "export const DESKTOP_LINUX_SUPPORT = false;",
     );
     expect(flipped).not.toBe(src);
     const tmp = temp();
     mkdirSync(join(tmp, "deploy/scripts"), { recursive: true });
     writeFileSync(join(tmp, "deploy/scripts/update-manifest.mjs"), flipped);
-    expect(spawnSync("sh", ["-c", gate as string], { cwd: tmp, encoding: "utf8" }).status).toBe(0);
+    expect(spawnSync("sh", ["-c", gate as string], { cwd: tmp, encoding: "utf8" }).status).toBe(1);
     // ... and where the script cannot be imported at all it exits 2, which the job treats as a
     // failure rather than as "no Linux support".
     const empty = temp();
@@ -555,12 +555,11 @@ describe("per-platform manifests (Linux helper and server packages)", () => {
     ]);
   });
 
-  it("never drops a file it was given: unclassified names (desktop Linux packages, look-alikes) fail", () => {
+  it("never drops a file it was given: unclassified names (look-alikes) fail", () => {
     const zip = file("Psyche-1.4.0-darwin-arm64.zip");
     for (const name of [
-      "Psyche-1.4.0-linux-x64.deb",
-      "Psyche-1.4.0-linux-x64.rpm",
-      "Psyche-1.4.0-linux-x64.AppImage",
+      "Psyche-1.4.0-linux-x86_64.deb",
+      "Psyche-1.4.0-linux-x64.tar.gz",
       "psyche-helper-1.4.0-linux-x86_64.deb",
     ]) {
       const r = build([zip, file(name)]);
@@ -663,7 +662,7 @@ describe("per-platform manifests (Windows)", () => {
     const m = signed({
       ...base,
       platforms: {
-        "linux-x64": [{ anything: true }],
+        "freebsd-x64": [{ anything: true }],
         "win32-x64": [art, { ...art, name: "x.msix", kind: "msix" }],
       },
     })();
