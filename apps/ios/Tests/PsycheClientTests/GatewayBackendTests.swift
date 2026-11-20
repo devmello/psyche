@@ -220,7 +220,7 @@ struct GatewayBackendTests {
     }
 
     @Test func aCardNotSentToThisPhoneShowsNeitherAllowNorDeny() async throws {
-        let card: (String) -> JSONValue = { id in .object([
+        let card: @Sendable (String) -> JSONValue = { id in .object([
             "id": .string(id), "kind": "skill_install", "summary": "Run a script", "status": "pending",
             "details": .object(["purpose": "Tidy files"]), "deviceOnly": .bool(true), "requiresAuthentication": .bool(false),
         ]) }
