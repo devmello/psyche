@@ -39,6 +39,16 @@ pub trait Procs: Send + Sync {
     fn comm(&self, _pid: u32) -> String {
         String::new()
     }
+    /// The parent pid (`/proc/<pid>/stat` field 4), `None` when the process is gone.
+    fn parent(&self, _pid: u32) -> Option<u32> {
+        None
+    }
+}
+
+/// The parent pid in a `/proc/<pid>/stat` line (field 4, counted after the last `)`).
+pub fn parent_from_stat(stat: &str) -> Option<u32> {
+    let after = &stat[stat.rfind(')')? + 1..];
+    after.split_whitespace().nth(1)?.parse().ok()
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -288,6 +298,10 @@ impl Procs for ProcFs {
             .map(|c| c.trim_end().to_string())
             .unwrap_or_default()
     }
+
+    fn parent(&self, pid: u32) -> Option<u32> {
+        parent_from_stat(&std::fs::read_to_string(format!("/proc/{pid}/stat")).ok()?)
+    }
 }
 
 #[cfg(test)]
@@ -492,6 +506,17 @@ mod tests {
             &procs
         )
         .is_err());
+    }
+
+    #[test]
+    fn the_parent_pid_is_read_after_the_command_name() {
+        assert_eq!(
+            parent_from_stat("1234 (soffice.bin) S 77 1234 1234 0 -1"),
+            Some(77)
+        );
+        assert_eq!(parent_from_stat("1234 (a) b (c)) R 9 1 1"), Some(9));
+        assert_eq!(parent_from_stat("1234 (x) S"), None);
+        assert_eq!(parent_from_stat("garbage"), None);
     }
 
     #[test]

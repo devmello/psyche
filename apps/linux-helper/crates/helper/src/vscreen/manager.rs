@@ -662,20 +662,59 @@ impl VscreenManager {
                 unsaved: false,
             });
         }
-        let procs = &self.deps.procs;
-        match display.wait_for_window(serial, self.config.launch_wait, |w| {
-            is_main_window(w, &w.pid.map(|p| procs.comm(p)).unwrap_or_default())
-        }) {
-            Some(win) => Ok(Opened {
+        // Only a window whose process sits in this launch's own scope counts. Another app's new
+        // window (a popup an injected page opens, say) is never taken for this one, and a
+        // launcher that moved itself out of the scope (snap, Flatpak, anything self-relocating)
+        // never counts as opened.
+        let procs = &*self.deps.procs;
+        let found = display.wait_for_window(serial, self.config.launch_wait, |w| {
+            launched_window(w, &unit, procs)
+        });
+        if let Some(win) = found {
+            return Ok(Opened {
                 app_id: entry.id,
                 pid: win.pid.unwrap_or(root_pid),
                 unit,
                 window_title: win.title,
-            }),
+            });
+        }
+        // No window from the scope. Did the launch put one up from outside it?
+        let since: Vec<WindowRecord> = display
+            .windows()
+            .into_iter()
+            .filter(|w| w.map_serial > serial)
+            .collect();
+        let escaped = escaped_window(&since, &unit, root_pid, procs);
+        self.drop_app(&unit);
+        match escaped {
+            Some(esc) => {
+                // Ours by descent, outside the caps and our stop: end it too.
+                // SAFETY: signalling a process that descends from the one we just started.
+                unsafe { libc::kill(esc.pid as libc::pid_t, libc::SIGTERM) };
+                let (reason, message) = if esc.snap {
+                    (
+                        "snap_unsupported",
+                        "Snap apps can't run on the virtual screen yet; install the deb or Flatpak version.".to_string(),
+                    )
+                } else {
+                    (
+                        "opened_elsewhere",
+                        format!(
+                            "{} left the virtual screen's control when it started, so it was stopped.",
+                            entry.name
+                        ),
+                    )
+                };
+                Err(VsError::new(reason, message).with_detail(&format!(
+                    "{} escaped its scope {unit}: pid {} in {}",
+                    entry.id,
+                    esc.pid,
+                    esc.cgroup.trim()
+                )))
+            }
             None => {
                 // No window on our display: the app handed its work to an instance somewhere
                 // else, or it never opened one. Undo the launch so nothing is left behind.
-                self.drop_app(&unit);
                 Err(VsError::new(
                     "opened_elsewhere",
                     format!(
@@ -1024,6 +1063,9 @@ impl VscreenManager {
         let Some(me) = super::sweep::own_tag() else {
             return;
         };
+        // Under the manager's lock, like every start and teardown: the fallback dir must not be
+        // released while a start that got its path is still writing into it.
+        let inner = lock(&self.inner);
         let me = &me;
         let alive = super::sweep::tag_alive;
         let scopes = self.deps.runner.list_scopes();
@@ -1041,12 +1083,13 @@ impl VscreenManager {
             super::sweep::sweep_files(&base, "xauth-", me, &alive);
         }
         if self.config.xdg_runtime_dir.is_none() {
-            // The sweep made a fallback dir to look in; nothing runs, so it goes again.
-            super::xauth::release_private_temp_dir();
-        }
-        if self.config.xdg_runtime_dir.is_none() {
+            if inner.display.is_none() {
+                // The sweep made a fallback dir to look in; nothing runs, so it goes again.
+                super::xauth::release_private_temp_dir();
+            }
             super::sweep::sweep_dirs(&std::env::temp_dir(), "psyche-vscreen-", me, &alive);
         }
+        drop(inner);
     }
 
     /// Stops everything now (the helper is exiting).
@@ -1068,15 +1111,87 @@ pub fn is_main_window(w: &WindowRecord, comm: &str) -> bool {
 }
 
 /// The first 4 KiB of a launcher, to see whether a script hands off to `snap`.
-fn script_head(exe: &std::path::Path) -> Option<Vec<u8>> {
+/// Never blocks: a FIFO, device or symlink under the path gives `None`.
+pub fn script_head(exe: &std::path::Path) -> Option<Vec<u8>> {
     use std::io::Read;
-    let mut head = Vec::with_capacity(4096);
-    std::fs::File::open(exe)
-        .ok()?
-        .take(4096)
-        .read_to_end(&mut head)
+    use std::os::unix::fs::OpenOptionsExt;
+    let file = std::fs::OpenOptions::new()
+        .read(true)
+        .custom_flags(libc::O_NONBLOCK | libc::O_NOFOLLOW | libc::O_CLOEXEC)
+        .open(exe)
         .ok()?;
+    if !file.metadata().ok()?.is_file() {
+        return None;
+    }
+    let mut head = Vec::with_capacity(4096);
+    file.take(4096).read_to_end(&mut head).ok()?;
     Some(head)
+}
+
+/// Whether a `/proc/<pid>/cgroup` text puts the process in `<unit>.scope`.
+pub fn in_unit_scope(cgroup: &str, unit: &str) -> bool {
+    let leaf = format!("/{unit}.scope");
+    cgroup.lines().any(|l| l.trim_end().ends_with(&leaf))
+}
+
+/// Whether a cgroup is snapd's (`.../snap.<name>.<app>-<uuid>.scope`).
+pub fn snap_cgroup(cgroup: &str) -> bool {
+    cgroup.lines().any(|l| {
+        l.rsplit('/')
+            .next()
+            .is_some_and(|leaf| leaf.starts_with("snap.") && leaf.ends_with(".scope"))
+    })
+}
+
+/// The launched app's own window: a main window (`is_main_window`) whose process is in the
+/// launch's scope.
+pub fn launched_window(w: &WindowRecord, unit: &str, procs: &dyn Procs) -> bool {
+    let Some(pid) = w.pid else {
+        return false;
+    };
+    is_main_window(w, &procs.comm(pid)) && in_unit_scope(&procs.cgroup_text(pid), unit)
+}
+
+/// A window the launch put up from outside its scope.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct Escaped {
+    pub pid: u32,
+    pub cgroup: String,
+    pub snap: bool,
+}
+
+/// Whether `pid` is `ancestor` or descends from it (at most 64 steps up).
+fn descends_from(pid: u32, ancestor: u32, procs: &dyn Procs) -> bool {
+    let mut p = pid;
+    for _ in 0..64 {
+        if p == ancestor {
+            return true;
+        }
+        match procs.parent(p) {
+            Some(up) if up > 1 && up != p => p = up,
+            _ => return false,
+        }
+    }
+    false
+}
+
+/// Among the windows mapped since the launch, one whose process is the launched process or its
+/// descendant but is no longer in the launch's scope: the launch escaped.
+pub fn escaped_window(
+    since: &[WindowRecord],
+    unit: &str,
+    root_pid: u32,
+    procs: &dyn Procs,
+) -> Option<Escaped> {
+    since.iter().find_map(|w| {
+        let pid = w.pid?;
+        let cgroup = procs.cgroup_text(pid);
+        (!in_unit_scope(&cgroup, unit) && descends_from(pid, root_pid, procs)).then(|| Escaped {
+            pid,
+            snap: snap_cgroup(&cgroup),
+            cgroup,
+        })
+    })
 }
 
 /// Runs one input batch. An ordinary batch stops at the first event that fails. A release batch
@@ -1281,5 +1396,152 @@ mod tests {
         ] {
             assert!(!is_main_window(&win(kind), "soffice.bin"), "{kind:?}");
         }
+    }
+
+    /// Processes by pid: (comm, cgroup, parent).
+    struct FakeProcs(std::collections::HashMap<u32, (&'static str, String, u32)>);
+    impl Procs for FakeProcs {
+        fn find(&self, _: Option<&std::path::Path>, _: &[&str]) -> Vec<u32> {
+            Vec::new()
+        }
+        fn in_vscreen_slice(&self, pid: u32) -> bool {
+            self.cgroup_text(pid).contains("psyche-vscreen.slice")
+        }
+        fn cgroup_text(&self, pid: u32) -> String {
+            self.0.get(&pid).map(|p| p.1.clone()).unwrap_or_default()
+        }
+        fn comm(&self, pid: u32) -> String {
+            self.0
+                .get(&pid)
+                .map(|p| p.0.to_string())
+                .unwrap_or_default()
+        }
+        fn parent(&self, pid: u32) -> Option<u32> {
+            self.0.get(&pid).map(|p| p.2)
+        }
+    }
+
+    const UNIT: &str = "psyche-vs-1.2.3-libreoffice-writer-4";
+    const SLICE: &str = "0::/user.slice/user-1000.slice/user@1000.service/psyche-vscreen.slice";
+
+    fn procs() -> FakeProcs {
+        let ours = format!("{SLICE}/{UNIT}.scope\n");
+        FakeProcs(std::collections::HashMap::from([
+            // The launched process and its child, in the launch's scope.
+            (100, ("oosplash", ours.clone(), 50)),
+            (101, ("soffice.bin", ours, 100)),
+            // The agent's Firefox, in the slice but in another app's scope.
+            (200, ("firefox", format!("{SLICE}/psyche-vs-1.2.3-firefox-1.scope\n"), 50)),
+            // A snap the launch started, moved by snapd into its own scope.
+            (
+                300,
+                (
+                    "firefox",
+                    "0::/user.slice/user-1000.slice/user@1000.service/app.slice/snap.firefox.firefox-0f3a.scope\n".to_string(),
+                    100,
+                ),
+            ),
+            // A Flatpak-style escape: our descendant in some other scope.
+            (
+                400,
+                (
+                    "app",
+                    "0::/user.slice/user-1000.slice/user@1000.service/app.slice/app-flatpak-x-9.scope\n".to_string(),
+                    101,
+                ),
+            ),
+            // The owner's own app, unrelated to the launch.
+            (
+                500,
+                (
+                    "gedit",
+                    "0::/user.slice/user-1000.slice/user@1000.service/app.slice/app-gedit.scope\n".to_string(),
+                    1,
+                ),
+            ),
+        ]))
+    }
+
+    fn win_of(pid: u32) -> WindowRecord {
+        WindowRecord {
+            pid: Some(pid),
+            ..win(WindowKind::Normal)
+        }
+    }
+
+    #[test]
+    fn only_a_window_from_the_launchs_own_scope_counts() {
+        let p = procs();
+        assert!(
+            launched_window(&win_of(101), UNIT, &p),
+            "soffice.bin in our scope"
+        );
+        assert!(
+            !launched_window(&win_of(100), UNIT, &p),
+            "the splash process"
+        );
+        assert!(
+            !launched_window(&win_of(200), UNIT, &p),
+            "another app's popup"
+        );
+        assert!(!launched_window(&win_of(300), UNIT, &p), "an escaped snap");
+        assert!(!launched_window(&win_of(500), UNIT, &p), "the owner's app");
+        assert!(!launched_window(
+            &WindowRecord {
+                pid: None,
+                ..win_of(101)
+            },
+            UNIT,
+            &p
+        ));
+        // A unit name that is a prefix of ours is not ours.
+        assert!(!in_unit_scope(&format!("{SLICE}/{UNIT}0.scope"), UNIT));
+    }
+
+    #[test]
+    fn a_launch_whose_window_owner_left_the_scope_is_caught() {
+        let p = procs();
+        // The snap: our own process, now in snapd's scope.
+        assert_eq!(
+            escaped_window(&[win_of(200), win_of(300)], UNIT, 100, &p),
+            Some(Escaped {
+                pid: 300,
+                cgroup: p.cgroup_text(300),
+                snap: true,
+            })
+        );
+        // A grandchild that moved into some other scope: escaped, not a snap.
+        let e = escaped_window(&[win_of(400)], UNIT, 100, &p).unwrap();
+        assert_eq!((e.pid, e.snap), (400, false));
+        // Other apps' windows are not the launch's escape, whatever their scope.
+        assert_eq!(
+            escaped_window(&[win_of(200), win_of(500)], UNIT, 100, &p),
+            None
+        );
+        // Our own in-scope windows are not an escape either.
+        assert_eq!(escaped_window(&[win_of(101)], UNIT, 100, &p), None);
+        assert!(snap_cgroup(&p.cgroup_text(300)));
+        assert!(!snap_cgroup(&p.cgroup_text(400)));
+    }
+
+    #[test]
+    fn the_launcher_head_never_blocks_on_a_fifo() {
+        let dir = tempfile::tempdir().unwrap();
+        let fifo = dir.path().join("app");
+        let c = std::ffi::CString::new(fifo.to_str().unwrap()).unwrap();
+        // SAFETY: a valid NUL-terminated path.
+        assert_eq!(unsafe { libc::mkfifo(c.as_ptr(), 0o600) }, 0);
+        // Would block for good with a plain open: nobody writes to the FIFO.
+        assert_eq!(script_head(&fifo), None);
+        let script = dir.path().join("script");
+        std::fs::write(&script, "#!/bin/sh\nexec /snap/bin/x\n").unwrap();
+        assert_eq!(
+            script_head(&script).unwrap(),
+            b"#!/bin/sh\nexec /snap/bin/x\n"
+        );
+        let link = dir.path().join("link");
+        std::os::unix::fs::symlink(&script, &link).unwrap();
+        assert_eq!(script_head(&link), None, "a symlink is not followed");
+        assert_eq!(script_head(dir.path()), None, "a directory");
     }
 }
