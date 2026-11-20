@@ -29,8 +29,8 @@ import {
   REMOTE_PATTERN,
 } from "./git.ts";
 import {
+  agentView,
   guardLaunchConfig,
-  inShare,
   type LaunchConfigReport,
   launchConfigNotice,
 } from "./launch-guard.ts";
@@ -930,22 +930,23 @@ function readOnlyHintFor(
 
 /** What the receipt and the model see of a guard's report (no file ids). */
 /**
- * What the agent sees: counts, and paths in the repository only (#1457 review r1). Never where
- * the quarantine is, and never a name the guard could not tell was the repository's.
+ * What the agent sees (#1457 and #1469 reviews r1): how many, and only names the guard could tell
+ * were the repository's; never where the quarantine is. The owner's notices get the raw report.
  */
 function launchConfigOutput(r: LaunchConfigReport) {
-  const unmoved = inShare(r.unmoved);
+  const a = agentView(r);
   return {
-    quarantined: r.quarantined,
-    changed: r.changed,
-    unmoved,
-    incidents: r.incidents,
+    quarantined: a.quarantined,
+    changed: a.changed,
+    unmoved: a.unmoved,
+    incidents: a.incidents,
     counts: {
       quarantined: r.quarantined.length,
       changed: r.changed.length,
-      unmoved: unmoved.length,
+      unmoved: r.unmoved.length,
       incidents: r.incidents.length,
     },
+    ...(a.withheld > 0 ? { withheld: a.withheld } : {}),
     partial: r.partial,
   };
 }

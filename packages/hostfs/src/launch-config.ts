@@ -268,35 +268,62 @@ function unlistedPinner(root: string, into: LaunchConfigUnlisted[]) {
 }
 
 /**
- * Lists `path` (`rel`), noting who it was: the same folder before and after the listing, and its
- * folder (listed before it, top down) still the one that was listed, at the same path. Else it
- * is noted as `""`: a folder on the way was swapped for a link, the listing may be of a folder
- * outside the root, and nothing it named is reported as the root's.
+ * Lists `path` (`rel`), noting who it was in `folders` (#1457 review r1, #1469 review r1): the
+ * same folder before and after the listing, and its folder (`rel`'s parent, pinned before it,
+ * top down) still the one that was pinned, at the same path, both before and after. Else it is
+ * noted as `""`: a folder on the way was swapped for a link, the listing may be of a folder
+ * outside the root, and nothing it named is the root's. Without `openat`, a folder swapped out
+ * before the first look and back before the last one is not seen (a residual).
  */
-async function listPinned(
+export async function listPinned(
   path: string,
   rel: string,
   folders: Record<string, string>,
   root?: string,
 ): Promise<Dirent[]> {
+  return pinned(path, rel, folders, root, () => readdir(path, { withFileTypes: true }));
+}
+
+/** `listPinned` without the listing: notes who a folder is, for the names below it. */
+export async function pinFolder(
+  path: string,
+  rel: string,
+  folders: Record<string, string>,
+  root?: string,
+): Promise<void> {
+  await pinned(path, rel, folders, root, async () => undefined);
+}
+
+async function pinned<T>(
+  path: string,
+  rel: string,
+  folders: Record<string, string>,
+  root: string | undefined,
+  inner: () => Promise<T>,
+): Promise<T> {
   const id = async (at: string) => {
     const st = await lstat(at, { bigint: true }).catch(() => undefined);
     return st?.isDirectory() === true ? `${st.dev}:${st.ino}` : "";
   };
-  const was = await id(path);
-  const entries = await readdir(path, { withFileTypes: true });
-  const is = await id(path);
-  let above = true;
-  if (rel !== "." && root !== undefined) {
+  const above = async () => {
+    if (rel === "." || root === undefined) return true;
     const parent = rel.includes("/") ? rel.slice(0, rel.lastIndexOf("/")) : ".";
     const pin = folders[parent];
-    above =
+    return (
       pin !== undefined &&
       pin !== "" &&
-      (await id(parent === "." ? root : join(root, parent))) === pin;
-  }
-  folders[rel] = was !== "" && was === is && above ? was : "";
-  return entries;
+      (await id(parent === "." ? root : join(root, parent))) === pin
+    );
+  };
+  const aboveBefore = await above();
+  const was = await id(path);
+  const out = await inner();
+  const is = await id(path);
+  const aboveAfter = await above();
+  const ok = was !== "" && was === is && aboveBefore && aboveAfter;
+  // Once noted as swapped, a folder stays so for this map.
+  folders[rel] = ok && folders[rel] !== "" ? was : "";
+  return out;
 }
 
 /** Folders below an unwalked one checked for their own `.git` at most. */

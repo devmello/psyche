@@ -153,6 +153,40 @@ describe("code.run launch-config notices", () => {
     expect(loud[0]?.body).toContain("not held");
   });
 
+  // #1469 review r1, finding 3 (the reviewer's probe): a change whose print cannot tell it from
+  // the last one alerts every time, never only once.
+  it("alerts for each change it cannot tell apart from the last", async () => {
+    const sent: NotifyInput[] = [];
+    let n = 0;
+    const notices = codingNotices(
+      (i) => {
+        sent.push(i);
+        return { id: `n${++n}` };
+      },
+      { resolve: () => undefined },
+    );
+    const collapsed = report({
+      changed: ["a/sub"],
+      fingerprints: { "a/sub": "changed during the check" },
+    });
+    await notices.report(collapsed, "/Users/o/app");
+    await notices.report(collapsed, "/Users/o/app");
+    await notices.report(collapsed, "/Users/o/app");
+    expect(sent.length).toBeGreaterThan(1);
+  });
+
+  // #1469 review r1, finding 4: where entries without a record are held is a field.
+  it("names where entries without a record are held, from its own field", async () => {
+    const sent: NotifyInput[] = [];
+    const n = codingNotices((i) => sent.push(i));
+    await n.report(
+      report({ unmoved: [".vscode"], heldIn: { ".vscode": "/p/quarantine/code-run/1-ab" } }),
+      "/Users/o/app",
+    );
+    const loud = sent.find((s) => s.message?.titleKey === "notice.codeRun.unmoved.title");
+    expect(loud?.message?.params?.paths).toBe(".vscode (held in /p/quarantine/code-run/1-ab)");
+  });
+
   it("says when only the top levels were checked, and when the sandbox was made again", () => {
     const sent: NotifyInput[] = [];
     const n = codingNotices((i) => sent.push(i), { limiter: new CodingNoticeLimiter(() => 0) });

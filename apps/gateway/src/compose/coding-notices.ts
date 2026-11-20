@@ -46,6 +46,11 @@ export class CodingNoticeLimiter {
   }
 }
 
+/** A fingerprint that tells what a path holds (see `print` in agent-core's launch guard). */
+function specific(print: string): boolean {
+  return print === "unmoved" || /^(file|other|link):/.test(print);
+}
+
 /** `a, b, c (+2)` in the English fallback; clients get the list as one value. */
 function listed(paths: readonly string[]): string {
   const shown = paths.slice(0, MAX_LISTED).join(", ");
@@ -167,21 +172,29 @@ export function codingNotices(notify: Notify, options: CodingNoticeOptions = {})
           },
         );
       }
+      // What could not be moved, with where it is held when it was moved without its record.
+      const unmoved = report.unmoved.map((p) => {
+        const place = report.heldIn?.[p];
+        return place === undefined ? p : `${p} (held in ${place})`;
+      });
       // Every changed path with what it holds now, and what could not be moved.
       const now = new Map<string, string>([
         ...report.changed.map((p) => [p, report.fingerprints[p] ?? "changed"] as const),
-        ...report.unmoved.map((p) => [p, "unmoved"] as const),
+        ...unmoved.map((p) => [p, "unmoved"] as const),
       ]);
       if (now.size > 0) {
         queue = queue.then(() => {
           const seen = changes.get(root)?.seen;
-          const fresh = new Map([...now].filter(([p, print]) => seen?.get(p) !== print));
+          // A print that cannot tell one change from the next (#1469 review r1) is new each time.
+          const fresh = new Map(
+            [...now].filter(([p, print]) => !specific(print) || seen?.get(p) !== print),
+          );
           return fresh.size > 0 ? changedNotice(root, fresh) : undefined;
         });
       }
       // Launch config still in place, not held: its own notice, new every run, so it alerts.
-      if (report.unmoved.length > 0) {
-        const paths = listed(report.unmoved);
+      if (unmoved.length > 0) {
+        const paths = listed(unmoved);
         send(
           "unmoved",
           { repo, paths },

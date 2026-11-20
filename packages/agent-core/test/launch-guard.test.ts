@@ -967,11 +967,12 @@ describe("code.run and launch config", () => {
       await use("code.open", { path: repo });
       const r = await use("code.run", { root: repo, argv: ["swap"] });
       const report = reports[0] as LaunchConfigReport;
-      const said = JSON.stringify([report, r.output.launchConfig]);
+      // What the agent is told names nothing from there (#1469 review r1: only the agent's view
+      // is filtered; the owner is told the raw paths).
+      const said = JSON.stringify([report.agent, r.output.launchConfig]);
       expect(said).not.toMatch(/Secret|registry|Elsewhere/);
-      expect(report.unmoved.some((p) => p.includes(".npmrc"))).toBe(false);
       // Said by the folder the swap was in.
-      expect(report.unmoved).toContain("a/sub");
+      expect(report.agent?.unmoved).toContain("a/sub");
       expect((r.output.launchConfig as { counts: { unmoved: number } }).counts.unmoved).toBe(
         report.unmoved.length,
       );
@@ -1019,6 +1020,142 @@ describe("code.run and launch config", () => {
       expect(existsSync(join(repo, ".vscode"))).toBe(false);
       const held = join(quarantine, report.quarantineId as string, "entries");
       expect(readFileSync(join(held, ".vscode/sub/tasks.json"), "utf8")).toBe("{}");
+    });
+  });
+
+  const leaks = (x: unknown) => JSON.stringify(x).match(/Secret[^"\\]*/g) ?? [];
+
+  // #1469 review r1: the reviewer's probes, as given (debug output left out). A folder swapped
+  // for a link while the guard reads names through it: no outside name reaches the agent, and the
+  // owner still hears of every change.
+  describe("#1469 review r1 probes", () => {
+    // A: the after-run fingerprint walk of an existing nested launch-config folder is not pinned.
+    it("A: after-prints swap of a rw parent, swapped back before the report", async () => {
+      const home = join(dir, "Elsewhere-Home");
+      mkdirSync(join(home, "Secret-Project-X"), { recursive: true });
+      writeFileSync(join(home, "Secret-Project-X", "plan-Secret.txt"), "x");
+      writeFileSync(join(home, "Secret-taxes.pdf"), "x");
+      put("web/.vscode/settings.json", "{}");
+      const { use, runner, reports } = setup();
+      let armed = false;
+      let swapped = false;
+      acts(runner, "noop", () => {
+        armed = true;
+      });
+      hooks.readdir = (path) => {
+        if (!armed || swapped || path !== join(repo, "web/.vscode")) return;
+        swapped = true;
+        mkdirSync(join(repo, "evil"));
+        symlinkSync(home, join(repo, "evil", ".vscode"));
+        renameSync(join(repo, "web"), join(repo, "web.real"));
+        symlinkSync(join(repo, "evil"), join(repo, "web"));
+      };
+      hooks.lstat = (path) => {
+        if (!swapped || path !== join(repo, ".git")) return;
+        swapped = false;
+        armed = false;
+        rmSync(join(repo, "web"));
+        renameSync(join(repo, "web.real"), join(repo, "web"));
+        rmSync(join(repo, "evil"), { recursive: true });
+      };
+      await use("code.open", { path: repo });
+      const r = await use("code.run", { root: repo, argv: ["noop"] });
+      const report = reports[0] as LaunchConfigReport;
+      expect(leaks(r.output.launchConfig)).toEqual([]);
+      // The owner is still told of every change, by its raw path; the agent by the folder.
+      expect(report.changed).toContain("web/.vscode/settings.json");
+      expect(report.agent?.changed).toEqual(["web/.vscode"]);
+    });
+
+    // B: the before-run fingerprint walk (a process left from an earlier run) is not pinned either.
+    it("B: before-prints swap, swapped back during the run", async () => {
+      const home = join(dir, "Elsewhere-Home");
+      mkdirSync(join(home, "Secret-Project-X"), { recursive: true });
+      writeFileSync(join(home, "Secret-Project-X", "plan-Secret.txt"), "x");
+      put("web/.vscode/settings.json", "{}");
+      const { use, runner, reports } = setup();
+      let swapped = false;
+      let done = false;
+      hooks.readdir = (path) => {
+        if (done || swapped || path !== join(repo, "web/.vscode")) return;
+        swapped = true;
+        mkdirSync(join(repo, "evil"));
+        symlinkSync(home, join(repo, "evil", ".vscode"));
+        renameSync(join(repo, "web"), join(repo, "web.real"));
+        symlinkSync(join(repo, "evil"), join(repo, "web"));
+      };
+      acts(runner, "noop", () => {
+        done = true;
+        swapped = false;
+        rmSync(join(repo, "web"));
+        renameSync(join(repo, "web.real"), join(repo, "web"));
+        rmSync(join(repo, "evil"), { recursive: true });
+      });
+      await use("code.open", { path: repo });
+      const r = await use("code.run", { root: repo, argv: ["noop"] });
+      const report = reports[0] as LaunchConfigReport;
+      expect(leaks(r.output.launchConfig)).toEqual([]);
+      expect(report.agent?.changed).toEqual(["web/.vscode"]);
+    });
+
+    // C: before-walk swap (W1 shape, but in guardLaunchConfig's scan): an unlistable outside folder.
+    it("C: before-walk swap leaks an unlistable outside name via ids.hidden", async () => {
+      const outside = join(dir, "Elsewhere-Home", "sub");
+      mkdirSync(join(outside, "Secret-Project-X"), { recursive: true });
+      mkdirSync(join(outside, "Secret-Repo", ".git", "hooks"), { recursive: true });
+      writeFileSync(join(outside, "Secret-Repo", ".git", "config"), "[core]\n");
+      chmodSync(join(outside, "Secret-Project-X"), 0o000);
+      put("a/sub/readme.md");
+      const { use, runner, reports } = setup();
+      let done = false;
+      hooks.readdir = (path) => {
+        if (done || path !== join(repo, "a/sub")) return;
+        done = true;
+        renameSync(join(repo, "a"), join(repo, "a.moved"));
+        symlinkSync(join(dir, "Elsewhere-Home"), join(repo, "a"));
+      };
+      acts(runner, "noop", () => {
+        rmSync(join(repo, "a"));
+        renameSync(join(repo, "a.moved"), join(repo, "a"));
+      });
+      await use("code.open", { path: repo });
+      let r: { output: Record<string, unknown> } | undefined;
+      let err: unknown;
+      try {
+        r = await use("code.run", { root: repo, argv: ["noop"] });
+      } catch (e) {
+        err = e;
+      }
+      expect(leaks([reports[0], r?.output.launchConfig, String(err)])).toEqual([]);
+    });
+
+    // D: a collapsed change has a constant fingerprint.
+    it("D: a known .npmrc changed while its folder's listing is forced to '' is named by the folder with a constant print", async () => {
+      put("a/sub/.npmrc", "save-exact=true\n");
+      const { use, runner, reports } = setup();
+      for (let i = 0; i < 2; i++) {
+        let armed = false;
+        let done = false;
+        acts(runner, `edit${i}`, () => {
+          put("a/sub/.npmrc", `node-options=--require /tmp/x${i}.js\n`);
+          armed = true;
+        });
+        hooks.readdir = (path) => {
+          if (!armed || done || path !== join(repo, "a/sub")) return;
+          done = true;
+          renameSync(join(repo, "a"), join(repo, "a.moved"));
+          symlinkSync(join(repo, "a.moved"), join(repo, "a"));
+        };
+        hooks.lstat = (path) => {
+          if (!done || path !== join(repo, ".git")) return;
+          hooks.lstat = undefined;
+          rmSync(join(repo, "a"));
+          renameSync(join(repo, "a.moved"), join(repo, "a"));
+        };
+        await use("code.open", { path: repo });
+        await use("code.run", { root: repo, argv: [`edit${i}`] });
+      }
+      expect(reports[0]?.fingerprints).not.toEqual(reports[1]?.fingerprints);
     });
   });
 
