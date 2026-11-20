@@ -13,6 +13,7 @@ import {
   machineNameOk,
   type NodeCapability,
 } from "@psyche/protocol";
+import { defaultHostLabel } from "../lan/names.ts";
 
 /**
  * Machines on the Gateway (docs/design/linux-helper-only-2026.md sections 6.1, 6.2, 9; wave H3):
@@ -145,20 +146,86 @@ const CONFUSABLES: Readonly<Record<string, string>> = {
 };
 
 /**
- * Names compare by what they look like: NFKC (so `\u217c` is `l`), case-folded, invisible
- * characters removed, Cyrillic and Greek look-alikes mapped to Latin, and everything that is not
- * a letter or a digit dropped (so `This Mac.`, `ThisMac` and `This-Mac` are one name). Design 8.2:
- * a lookalike must not sit next to a real machine, or the Host's label, under a name that reads
- * the same.
+ * Uppercase Greek and Cyrillic letters that read as a Latin one. Mapped before lowercasing: the
+ * lowercase form of U+039C is U+03BC, which reads as `u`, while the capital reads as `M`.
  */
-export function machineNameKey(name: string): string {
-  const folded = name.normalize("NFKC").replace(IGNORABLE, "").toUpperCase().toLowerCase();
+const UPPER_CONFUSABLES: Readonly<Record<string, string>> = {
+  "\u0391": "a",
+  "\u0392": "b",
+  "\u0395": "e",
+  "\u0396": "z",
+  "\u0397": "h",
+  "\u0399": "i",
+  "\u039a": "k",
+  "\u039c": "m",
+  "\u039d": "n",
+  "\u039f": "o",
+  "\u03a1": "p",
+  "\u03a4": "t",
+  "\u03a5": "y",
+  "\u03a7": "x",
+  "\u0410": "a",
+  "\u0412": "b",
+  "\u0415": "e",
+  "\u041a": "k",
+  "\u041c": "m",
+  "\u041d": "h",
+  "\u041e": "o",
+  "\u0420": "p",
+  "\u0421": "c",
+  "\u0422": "t",
+  "\u0423": "y",
+  "\u0425": "x",
+  "\u0406": "i",
+  "\u0408": "j",
+  "\u0405": "s",
+  "\u04c0": "l",
+};
+
+/** Latin-block and Cyrillic letters that read as another letter. */
+const EXTRA_CONFUSABLES: Readonly<Record<string, string>> = {
+  "\u0251": "a",
+  "\u029f": "l",
+  "\u04cf": "l",
+  "\u044c": "b",
+  "\u0131": "i",
+};
+
+/** Letters, digits and spacing vowel signs (`\p{Mc}`, so Devanagari words that differ by a vowel sign stay different). */
+const KEPT = /[\p{L}\p{N}\p{Mc}]/u;
+
+function skeleton(text: string): string {
   let out = "";
-  for (const ch of folded) {
-    const c = CONFUSABLES[ch] ?? ch;
-    if (/[\p{L}\p{N}]/u.test(c)) out += c;
+  for (const ch of text.normalize("NFKC").replace(IGNORABLE, "")) {
+    let c = UPPER_CONFUSABLES[ch];
+    if (c === undefined) {
+      const lower = ch.toUpperCase().toLowerCase();
+      c = EXTRA_CONFUSABLES[lower] ?? CONFUSABLES[lower] ?? lower;
+    }
+    if (!KEPT.test(c)) continue;
+    // `i`, `l`, `1` (and capital `I`) share a shape in most UI fonts, as do `0` and `o`.
+    if (c === "i" || c === "1") c = "l";
+    else if (c === "0") c = "o";
+    out += c;
   }
   return out;
+}
+
+/**
+ * Names compare by what they look like: NFKC (so U+217C is `l`), invisible characters removed,
+ * Cyrillic and Greek look-alikes mapped to Latin (capitals directly), `i`/`l`/`1` and `0`/`o`
+ * folded, and everything that is not a letter, digit or spacing vowel sign dropped (so `This Mac.`,
+ * `ThisMac` and `This-Mac` are one name). Design 8.2: a lookalike must not sit next to a real
+ * machine, or the Host's label, under a name that reads the same.
+ */
+export function machineNameKey(name: string): string {
+  return skeleton(name);
+}
+
+/** The key without trailing digits and separators: `This Mac 2` reads as `This Mac`. */
+function machineNameStemKey(name: string): string {
+  const cleaned = name.normalize("NFKC").replace(IGNORABLE, "");
+  return skeleton(cleaned.replace(/[\p{N}\s._-]+$/u, ""));
 }
 
 /** A name that mixes Latin letters with Cyrillic or Greek ones is a lookalike attempt. */
@@ -169,13 +236,14 @@ export function isMixedScriptName(name: string): boolean {
 /** Labels the interface uses for the Host itself: never a machine's name. */
 function reservedNameKeys(): Set<string> {
   const keys = new Set([machineNameKey("This Mac"), machineNameKey("This computer")]);
-  const host = hostname().trim();
-  if (host !== "") {
+  for (const host of [hostname().trim(), defaultHostLabel()]) {
+    if (host === "") continue;
     keys.add(machineNameKey(host));
     // `studio.local` and `studio` are both what the Mac calls itself.
     keys.add(machineNameKey(host.replace(/\.local$/iu, "")));
     keys.add(machineNameKey(host.split(".")[0] ?? host));
   }
+  keys.delete("");
   return keys;
 }
 
@@ -191,7 +259,12 @@ export function machineNameRefusal(
   exceptDeviceId?: string,
 ): "reserved" | "taken" | "mixed" | undefined {
   const key = machineNameKey(name);
-  if (key === "" || reservedNameKeys().has(key)) return "reserved";
+  if (key === "") return "reserved";
+  const reserved = reservedNameKeys();
+  if (reserved.has(key)) return "reserved";
+  // A reserved name followed by digits ("This Mac 2") is still the Host's.
+  const stem = machineNameStemKey(name);
+  if (stem !== "" && reserved.has(stem)) return "reserved";
   if (isMixedScriptName(name)) return "mixed";
   const taken = listDevices(db).some(
     (d) =>

@@ -2,7 +2,7 @@ import { sign } from "node:crypto";
 import { mkdtempSync } from "node:fs";
 import { hostname, tmpdir } from "node:os";
 import { join } from "node:path";
-import { getDevice, getMachineByDevice, insertDevice, openDb } from "@psyche/db";
+import { getDevice, getMachineByDevice, insertDevice, insertMachine, openDb } from "@psyche/db";
 import { connectSigningPayload, PROTOCOL_VERSION, parseMachineLink } from "@psyche/protocol";
 import { afterEach, describe, expect, it } from "vitest";
 import { runCli } from "../src/cli.ts";
@@ -11,6 +11,7 @@ import {
   forceMachinePairingCardsForTests,
   isMixedScriptName,
   machineNameKey,
+  machineNameRefusal,
 } from "../src/nodes/machines.ts";
 import { StateSeal } from "../src/security/state-seal.ts";
 import {
@@ -377,6 +378,7 @@ describe("a live machine socket never picks up operator scopes (r2 finding 1)", 
       gatewayKey: gw.gateway.context.identity.publicKey,
     });
     const code = (pending.verifyRes?.payload as { code: string } | undefined)?.code ?? "";
+    expect(code).not.toBe("");
     await cli(["devices", "approve", code]);
     // The same key pairs as a machine.
     const m = await connect({
@@ -405,6 +407,30 @@ describe("a live machine socket never picks up operator scopes (r2 finding 1)", 
     offsetMs = DAY + 1000;
     gw.gateway.context.securityRecoveries?.applyDue();
     expect(getDevice(gw.gateway.context.db, m.deviceId)?.scopes).toEqual(["node"]);
+  });
+
+  it("a grant queued while the device was a client is refused at apply once it is a machine", async () => {
+    const gw = await boot();
+    // An admin exists, so the grant queues instead of taking the first-admin shortcut.
+    const admin = await adminClient(gw.gateway);
+    open.push(admin);
+    const db = gw.gateway.context.db;
+    insertDevice(db, {
+      id: "late",
+      name: "late-box",
+      platform: "linux",
+      role: "client",
+      publicKey: newDeviceKey().publicKey,
+      scopes: ["operator.read"],
+      pairedAt: new Date().toISOString(),
+    });
+    const r = await cli(["devices", "grant", "late", "operator.read,operator.admin"]);
+    expect(r.code).toBe(3); // waiting: queued, not applied
+    // The device becomes a machine while the grant waits.
+    insertMachine(db, { deviceId: "late", approvedByDeviceId: null, via: "setup_token" });
+    offsetMs = DAY + 1000;
+    gw.gateway.context.securityRecoveries?.applyDue();
+    expect(getDevice(db, "late")?.scopes).toEqual(["operator.read"]);
   });
 
   it("a machine socket whose row holds more than [node] is closed on its next call", async () => {
@@ -517,5 +543,88 @@ describe("node.unpair tells the owner", () => {
     expect(notes).toHaveLength(1);
     expect(notes[0]?.message?.titleKey).toBe("notice.machine.removed.title");
     expect(notes[0]?.title).toBe("lab-box removed itself");
+  });
+});
+
+describe("machine names: two-way table (lookalikes, reserved, scripts)", () => {
+  // Must collide with the first name, or be refused next to it.
+  const COLLIDE: [string, string][] = [
+    ["lab-box", "Iab-box"],
+    ["lab-box", "1ab-box"],
+    ["lab-box", "lab-b0x"],
+    ["lab-box", "\u029fab-box"],
+    ["lab-box", "l\u0251b-box"],
+    ["lab-box", "\u04cf\u0430\u044c-\u0432\u043e\u0445"],
+    ["MINI", "\u039c\u0399\u039d\u0399"],
+    ["mini", "M1N1"],
+    ["BOX", "\u0392\u039f\u03a7"],
+    ["This Mac", "Th1s Mac"],
+  ];
+  it.each(COLLIDE)("%s and %s are one name", (a, b) => {
+    expect(machineNameKey(a)).toBe(machineNameKey(b));
+  });
+
+  // Near misses that must stay different.
+  const DIFFERENT: [string, string][] = [
+    ["lab-box", "lab-bax"],
+    ["lab-box", "lab-box 2"],
+    ["build", "builds"],
+    ["cafe", "caf\u00e9"],
+    ["\u5b9e\u9a8c\u673a", "\u5b9e\u9a8c\u5ba4"],
+    ["\u0915\u093f\u0924\u093e\u092c", "\u0915\u0924\u093e\u092c"],
+    ["\u0995\u09bf\u09a4\u09be\u09ac", "\u0995\u09a4\u09be\u09ac"],
+    ["\u0b95\u0bbf\u0b9f\u0bc1", "\u0b95\u0b9f\u0bc1"],
+    ["\u30e9\u30dc", "\u30ea\u30dc"],
+    ["\u043c\u0438\u043d\u0438", "\u043c\u0438\u043d\u044b"],
+    ["\u03bc\u03b9\u03bd\u03b9", "\u03bc\u03b9\u03bd\u03b1"],
+  ];
+  it.each(DIFFERENT)("%s and %s stay different", (a, b) => {
+    expect(machineNameKey(a)).not.toBe(machineNameKey(b));
+  });
+
+  it("reserved names, with digits, lookalikes and the mDNS label, are refused; others are allowed", async () => {
+    const gw = await boot();
+    const db = gw.gateway.context.db;
+    const { defaultHostLabel } = await import("../src/lan/names.ts");
+    for (const name of [
+      "This Mac",
+      "This Mac 2",
+      "Thismac2",
+      "this-mac 10",
+      "This computer 3",
+      "Th1s Mac",
+      defaultHostLabel(),
+      `${defaultHostLabel()} 2`,
+      hostname(),
+    ]) {
+      expect(machineNameRefusal(db, name), name).toBe("reserved");
+    }
+    for (const name of [
+      "lab-box",
+      "lab-box 2",
+      "Linux computer",
+      "\u5b9e\u9a8c\u673a",
+      "caf\u00e9",
+    ]) {
+      expect(machineNameRefusal(db, name), name).toBeUndefined();
+    }
+  });
+
+  it("lookalikes of a paired machine are taken", async () => {
+    const gw = await boot();
+    const db = gw.gateway.context.db;
+    insertDevice(db, {
+      id: "lab",
+      name: "lab-box",
+      platform: "linux",
+      role: "node",
+      publicKey: newDeviceKey().publicKey,
+      scopes: ["node"],
+      pairedAt: new Date().toISOString(),
+    });
+    for (const name of ["Iab-box", "1ab-box", "lab-b0x", "\u029fab-box", "l\u0251b-box"]) {
+      expect(machineNameRefusal(db, name), name).toBe("taken");
+    }
+    expect(machineNameRefusal(db, "lab-bay")).toBeUndefined();
   });
 });
