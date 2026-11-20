@@ -215,6 +215,45 @@ struct GatewayBackendTests {
         #expect(approval.needsMac)
         #expect(!approval.needsPresence(for: .allow))
         #expect(!AlertPolicy.answersInline(item))
+        // Deny can't work from the phone either (no phone token for a payment): it is off, not a live button.
+        #expect(!approval.canDeny)
+    }
+
+    @Test func aCardNotSentToThisPhoneShowsNeitherAllowNorDeny() async throws {
+        let card: (String) -> JSONValue = { id in .object([
+            "id": .string(id), "kind": "skill_install", "summary": "Run a script", "status": "pending",
+            "details": .object(["purpose": "Tidy files"]), "deviceOnly": .bool(true), "requiresAuthentication": .bool(false),
+        ]) }
+        let (backend, _) = try await live { g in
+            // The Gateway lists this phone's own tokens: one for the routine card, none for the desktop-only one.
+            g.on("approvals.list") { _ in .success(.object([
+                "approvals": .array([card("mine"), card("macOnly")]),
+                "answerTokens": .object(["mine": "tok"]),
+            ])) }
+        }
+        let items = try await backend.needsYouApprovals()
+        let mine = try #require(items.first { $0.id == "mine" }?.approval)
+        let macOnly = try #require(items.first { $0.id == "macOnly" }?.approval)
+        #expect(!mine.needsMac && mine.canDeny)
+        #expect(macOnly.needsMac && !macOnly.canDeny)
+        #expect(!macOnly.needsPresence(for: .allow))
+        // A too-long card the phone does hold an answer for keeps Deny.
+        let huge = String(repeating: "x", count: GatewayBackend.nestedLimit + 1)
+        let long = try #require(GatewayBackend.needsYou(approval: .object([
+            "id": "ap8", "kind": "skill_install", "summary": "Run", "status": "pending",
+            "details": .object(["files": .array([.string(huge)])]),
+        ]), holdsAnswer: true)?.approval)
+        #expect(long.needsMac && long.canDeny)
+    }
+
+    @Test func anOlderGatewayWithoutTokensInTheListLeavesTheButtonsOn() async throws {
+        let (backend, _) = try await live { g in
+            g.on("approvals.list") { _ in .success(.object(["approvals": .array([.object([
+                "id": "ap9", "kind": "calendar_write", "summary": "Add", "status": "pending", "details": .object([:]),
+            ])])])) }
+        }
+        let item = try #require(try await backend.needsYouApprovals().first?.approval)
+        #expect(!item.needsMac && item.canDeny)
     }
 
     @Test func aLongOrMultiLineScalarDetailIsReadInTheAppFirst() throws {

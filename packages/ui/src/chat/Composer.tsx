@@ -7,6 +7,7 @@ import {
   FileText,
   Image as ImageIcon,
   Loader2,
+  Mail,
   Mic,
   Newspaper,
   Plus,
@@ -87,7 +88,7 @@ function useCommandMenu() {
 /** The item the next message is about (Feed "Ask about this"): a removable chip. */
 export interface ComposerContextChip {
   /** A search result gets its own icon and prompt; the default is a Feed item. */
-  kind?: "feed_item" | "search_hit" | "memory_entity" | "life_answer";
+  kind?: "feed_item" | "search_hit" | "memory_entity" | "life_answer" | "mail_followup";
   title: string;
   /** Source name or host. */
   source: string | null;
@@ -271,6 +272,8 @@ export function Composer({
                   <Brain className="size-3.5 shrink-0 text-label-secondary" aria-hidden="true" />
                 ) : context.kind === "life_answer" ? (
                   <Quote className="size-3.5 shrink-0 text-label-secondary" aria-hidden="true" />
+                ) : context.kind === "mail_followup" ? (
+                  <Mail className="size-3.5 shrink-0 text-label-secondary" aria-hidden="true" />
                 ) : (
                   <Newspaper
                     className="size-3.5 shrink-0 text-label-secondary"
@@ -404,7 +407,9 @@ export function Composer({
                             ? "chat.composer.placeholderMemory"
                             : context.kind === "life_answer"
                               ? "chat.composer.placeholderAnswer"
-                              : "chat.composer.placeholderArticle",
+                              : context.kind === "mail_followup"
+                                ? "chat.composer.placeholderMail"
+                                : "chat.composer.placeholderArticle",
                       )
                     : t("chat.composer.placeholder", { persona })
               }

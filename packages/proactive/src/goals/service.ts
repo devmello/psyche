@@ -23,6 +23,7 @@ import {
   type SchedulerLike,
 } from "../jobs.ts";
 import { type SqliteDatabase, toIso } from "../sqlite.ts";
+import type { CheckinInput, NextStepProposer } from "./checkin.ts";
 import { GoalStore } from "./store.ts";
 
 /**
@@ -120,6 +121,63 @@ export interface GoalsServiceOptions {
   timezone?: string;
   onEvent?: (event: GoalEvent) => void;
   maxOpenCandidates?: number;
+  /**
+   * Proposes one next step as a Home card (`createNextStepProposer`). It runs only when the owner
+   * asks (`suggestNextStep`), never from a schedule: a check-in is the free reminder alone.
+   */
+  nextStep?: NextStepProposer;
+  onError?: (error: unknown) => void;
+}
+
+/** "Check in …": the cadences the owner picks for a goal (cron, in the goal's timezone). */
+export const CHECKIN_CADENCES = {
+  daily: "0 9 * * *",
+  weekly: "0 9 * * 1",
+  monthly: "0 9 1 * *",
+} as const;
+export type CheckinFrequency = keyof typeof CHECKIN_CADENCES;
+
+/** A linked task with no progress for a while (a free signal: no model call). */
+export interface StalledTask {
+  goal: Goal;
+  task: Task;
+  idleDays: number;
+}
+
+/**
+ * Tasks that are not stalled: finished ones, and ones waiting on the owner (an approval, an
+ * answer, a pause), where a second task would run the work twice.
+ */
+const NOT_STALLED: ReadonlySet<string> = new Set([
+  "done",
+  "failed",
+  "cancelled",
+  "awaiting_approval",
+  "awaiting_input",
+  "paused",
+]);
+
+const DAY_MS = 86_400_000;
+
+/** At most once a day: a daily time of day in cron, or a duration of 24 hours or more. */
+function assertCheckinCadence(cadence: string): void {
+  const value = cadence.trim();
+  if ((Object.values(CHECKIN_CADENCES) as string[]).includes(value)) return;
+  if (cadenceKind(value) === "interval") {
+    const m = /^P(?:(\d+)W)?(?:(\d+)D)?(?:T(?:(\d+)H)?(?:(\d+)M)?(?:(\d+)S)?)?$/.exec(value);
+    const ms =
+      m === null
+        ? 0
+        : (Number(m[1] ?? 0) * 7 + Number(m[2] ?? 0)) * DAY_MS +
+          Number(m[3] ?? 0) * 3_600_000 +
+          Number(m[4] ?? 0) * 60_000 +
+          Number(m[5] ?? 0) * 1000;
+    if (ms >= DAY_MS) return;
+  } else {
+    const f = value.split(/\s+/);
+    if (f.length === 5 && /^\d+$/.test(f[0] ?? "") && /^\d+$/.test(f[1] ?? "")) return;
+  }
+  bad("check-ins run at most once a day: use a daily time (like 0 9 * * 1) or P1D or longer");
 }
 
 const DEFER_DAYS = 7;
@@ -175,6 +233,7 @@ export class GoalsService {
   /** A stated goal (chat, Goals screen): active at once; a cadence schedules check-ins. */
   async create(input: GoalCreateInput): Promise<GoalDetail> {
     if (input.title.trim() === "") bad("title is required");
+    if (input.cadence != null) assertCheckinCadence(input.cadence);
     const now = this.#now();
     const goal: Goal = {
       id: this.#id(),
@@ -349,6 +408,84 @@ export class GoalsService {
     };
   }
 
+  /**
+   * The owner's "Check in weekly" switch: `null` turns check-ins off (the default). A check-in
+   * is the free progress reminder; it never calls a model (`suggestNextStep` does, on request).
+   */
+  async setCheckin(
+    goalId: string,
+    frequency: CheckinFrequency | null,
+    timezone?: string,
+  ): Promise<GoalDetail> {
+    return this.update(goalId, {
+      cadence: frequency === null ? null : CHECKIN_CADENCES[frequency],
+      ...(timezone === undefined ? {} : { timezone }),
+    });
+  }
+
+  /**
+   * Linked tasks of active goals that have made no progress for `days` (a free signal: reads
+   * state only, never a model). Finished tasks and tasks waiting on the owner are not stalled.
+   */
+  async stalledTasks(days = PROACTIVITY_BUDGET.goals.stalledAfterDays): Promise<StalledTask[]> {
+    const cutoff = this.#o.clock.now() - days * DAY_MS;
+    const out: StalledTask[] = [];
+    for (const goal of this.store.list({ status: ["active"] })) {
+      for (const link of this.store.links(goal.id)) {
+        if (link.taskId == null) continue;
+        const task = await this.#o.tasks?.get(link.taskId);
+        if (task === undefined || NOT_STALLED.has(task.status)) continue;
+        const idle = this.#o.clock.now() - Date.parse(task.updatedAt);
+        if (Date.parse(task.updatedAt) > cutoff) continue;
+        out.push({ goal, task, idleDays: Math.floor(idle / DAY_MS) });
+      }
+    }
+    return out;
+  }
+
+  /**
+   * "Suggest next step" (the owner's tap): one model call, one Home card. Everything the owner
+   * did not write (outside evidence, tainted tasks and milestones, an inferred title) goes to the
+   * model fenced, and taints the card and the task it starts. Nothing starts here.
+   */
+  async suggestNextStep(goalId: string): Promise<{ ideaId: string | null }> {
+    const goal = this.#confirmed(this.#goal(goalId));
+    if (goal.status !== "active") throw new PsycheError("conflict", "the goal is not active");
+    const propose = this.#o.nextStep;
+    if (propose === undefined) throw new PsycheError("unavailable", "no model is configured");
+    const detail = await this.get(goalId);
+    const taintedMilestones = new Set(
+      Array.isArray(goal.plan?.taintedMilestones) ? goal.plan.taintedMilestones : [],
+    );
+    const tasks: CheckinInput["tasks"] = [];
+    for (const id of detail.taskIds) {
+      const t = await this.#o.tasks?.get(id);
+      if (t === undefined) continue;
+      tasks.push({
+        title: t.title,
+        status: t.status,
+        idleDays: Math.max(0, Math.floor((this.#o.clock.now() - Date.parse(t.updatedAt)) / DAY_MS)),
+        tainted: t.taint === true || (t.taintSources?.length ?? 0) > 0,
+      });
+    }
+    const evidence = Array.isArray(goal.plan?.evidence)
+      ? (goal.plan.evidence as unknown[]).filter(
+          (e): e is JsonObject => typeof e === "object" && e !== null && !Array.isArray(e),
+        )
+      : [];
+    const ideaId = await propose({
+      goal,
+      milestones: detail.milestones.map((m) => ({
+        title: m.title,
+        done: m.doneAt != null,
+        tainted: taintedMilestones.has(m.id),
+      })),
+      tasks,
+      evidence,
+    });
+    return { ideaId: ideaId ?? null };
+  }
+
   // --- watches (O3) ----------------------------------------------------------------------------
 
   /**
@@ -422,6 +559,7 @@ export class GoalsService {
   async update(goalId: string, patch: GoalPatch): Promise<GoalDetail> {
     const goal = this.#confirmed(this.#goal(goalId));
     if (patch.title !== undefined && patch.title.trim() === "") bad("title is required");
+    if (patch.cadence != null) assertCheckinCadence(patch.cadence);
     const next: Goal = {
       ...goal,
       ...(patch.title === undefined ? {} : { title: patch.title.trim() }),
@@ -463,26 +601,39 @@ export class GoalsService {
     dueAt?: string | null;
     done?: boolean;
     remove?: boolean;
+    /** The writing turn's taint sources: a tainted title is fenced and taints what it feeds. */
+    taintSources?: unknown[];
   }): Promise<GoalDetail> {
     const goal = this.#confirmed(this.#goal(params.goalId));
+    const tainted = (params.taintSources?.length ?? 0) > 0;
+    const taintedIds = new Set<string>(
+      Array.isArray(goal.plan?.taintedMilestones) ? (goal.plan.taintedMilestones as string[]) : [],
+    );
     if (params.milestoneId === undefined) {
       if (params.remove === true) bad("milestoneId is required to remove a milestone");
       if (params.title === undefined || params.title.trim() === "") {
         bad("a new milestone needs a title");
       }
+      const id = this.#id();
       this.store.insertMilestone({
-        id: this.#id(),
+        id,
         goalId: goal.id,
         title: params.title.trim(),
         dueAt: params.dueAt ?? null,
         doneAt: params.done === true ? this.#now() : null,
       });
+      if (tainted) taintedIds.add(id);
     } else {
       const m = this.store.milestone(goal.id, params.milestoneId);
       if (m === undefined) throw new PsycheError("not_found", "milestone not found");
       if (params.remove === true) {
         this.store.removeMilestone(goal.id, m.id);
+        taintedIds.delete(m.id);
       } else {
+        if (params.title !== undefined) {
+          if (tainted) taintedIds.add(m.id);
+          else taintedIds.delete(m.id);
+        }
         if (params.title !== undefined && params.title.trim() === "") bad("title is required");
         this.store.updateMilestone({
           ...m,
@@ -494,7 +645,14 @@ export class GoalsService {
         });
       }
     }
-    const touched: Goal = { ...goal, updatedAt: this.#now() };
+    const plan: JsonObject = { ...(goal.plan ?? {}) };
+    if (taintedIds.size > 0) plan.taintedMilestones = [...taintedIds];
+    else delete plan.taintedMilestones;
+    const touched: Goal = {
+      ...goal,
+      plan: Object.keys(plan).length === 0 && goal.plan == null ? null : plan,
+      updatedAt: this.#now(),
+    };
     this.store.update(touched);
     this.#emit(touched);
     return this.get(goal.id);

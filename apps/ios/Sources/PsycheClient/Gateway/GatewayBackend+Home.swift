@@ -97,7 +97,13 @@ extension GatewayBackend {
 
     func needsYouApprovals() async throws -> [NeedsYouItem] {
         let result = try await call("approvals.list", .obj(["status": .array(["pending"]), "limit": .number(30)]))
-        return (result["approvals"]?.array ?? []).compactMap(Self.needsYou(approval:))
+        // The Gateway lists this phone's own tokens by approval id. An older one that sends none is trusted to
+        // refuse at answer time instead.
+        let tokens = result["answerTokens"]?.object
+        return (result["approvals"]?.array ?? []).compactMap { a in
+            let holds = tokens.map { t in a["id"]?.string.flatMap { t[$0]?.string } != nil } ?? true
+            return Self.needsYou(approval: a, holdsAnswer: holds)
+        }
     }
 
     func needsYouQuestions() async throws -> [NeedsYouItem] {
@@ -136,7 +142,9 @@ extension GatewayBackend {
 
     // MARK: - Mapping
 
-    static func needsYou(approval a: JSONValue) -> NeedsYouItem? {
+    /// `holdsAnswer`: whether the Gateway gave this phone an answer token for the card (`approvals.list`'s
+    /// `answerTokens`). A card without one (its caller kept it on the Mac, a payment) can't be answered here.
+    static func needsYou(approval a: JSONValue, holdsAnswer: Bool = true) -> NeedsYouItem? {
         guard let id = a["id"]?.string, a["status"]?.string == "pending" || a["status"] == nil else { return nil }
         let kind = a["kind"]?.string ?? "approval"
         let summary = a["summary"]?.string ?? Self.humanized(kind)
@@ -159,15 +167,21 @@ extension GatewayBackend {
         var evidence: [String] = []
         if let because = a.at("fromLesson", "because")?.string { evidence.append("Because you said: \(because)") }
         if a["taint"]?.bool == true { evidence.append("Based on content from outside Psyche") }
-        // The phone has no presence key (companion §5), so it never asks for Face ID on a Gateway card: a payment
-        // or a card it can't show in full is answered on the Mac.
-        let needsMac = a["requiresAuthentication"]?.bool == true || Self.detailsNeedMac(a["details"])
+        // The phone has no presence key (companion §5), so it never asks for Face ID on a Gateway card: a payment,
+        // a card it can't show in full, or one not sent to this phone (no answer token for it) is answered on the Mac.
+        let payment = a["requiresAuthentication"]?.bool == true
+        let needsMac = payment || !holdsAnswer || Self.detailsNeedMac(a["details"])
+        // Deny needs the phone's own answer token too, and a payment is never answered from the phone.
+        let canDeny = holdsAnswer && !payment
+        // The lock screen shows only the title and source: it can't say which computer the action is for.
+        let machineName = Self.machineName(a["machine"])
         let detail = ApprovalDetail(
             kindLabel: Self.humanized(kind), title: summary,
             summary: agent.map { "Requested by \($0)." } ?? "Psyche is asking before it goes ahead.",
             fields: fields, evidence: evidence, alsoSentTo: "Also sent to your Mac",
             presenceNote: nil, allowLabel: "Allow once",
-            reviewInApp: reviewInApp, needsMac: needsMac)
+            reviewInApp: reviewInApp || machineName != nil, needsMac: needsMac, canDeny: canDeny,
+            machineName: machineName)
         return NeedsYouItem(
             id: id, kind: .approval, title: summary, source: agent ?? Self.humanized(kind),
             time: WireFormat.time(a["requestedAt"]?.string), approval: detail,
@@ -212,6 +226,12 @@ extension GatewayBackend {
             }
         }
         return false
+    }
+
+    /// The computer an approval is for: `machine.name`, trimmed. nil when absent or blank (the action is on this Mac).
+    static func machineName(_ machine: JSONValue?) -> String? {
+        guard let name = machine?["name"]?.string?.trimmingCharacters(in: .whitespacesAndNewlines), !name.isEmpty else { return nil }
+        return name
     }
 
     static func running(task t: JSONValue) -> RunningTask? {

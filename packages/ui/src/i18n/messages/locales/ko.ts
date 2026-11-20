@@ -23,6 +23,7 @@ import { homeRest } from "./home-rest/ko.ts";
 import { keepAwake } from "./keep-awake/ko.ts";
 import { links } from "./links/ko.ts";
 import { linuxAccess } from "./linux-access/ko.ts";
+import { mailFollowups } from "./mail-followups/ko.ts";
 import { mailMeetings } from "./mail-meetings/ko.ts";
 import { meetingRecordRest } from "./meetingRecord-rest/ko.ts";
 import { memoryMap } from "./memory-map/ko.ts";
@@ -50,6 +51,7 @@ import { securityState } from "./security-state/ko.ts";
 import { separateDesktop } from "./separate-desktop/ko.ts";
 import { settingsRest } from "./settings-rest/ko.ts";
 import { shellRest } from "./shell-rest/ko.ts";
+import { spaces } from "./spaces/ko.ts";
 import { specialistsRest } from "./specialists-rest/ko.ts";
 import { webRest } from "./web-rest/ko.ts";
 import { widgetsRest } from "./widgets-rest/ko.ts";
@@ -506,6 +508,7 @@ export const ko: Partial<Catalogue> = {
   "blocks.artifact.bytes": "{size}B",
   "blocks.artifact.kilobytes": "{size}KB",
   "blocks.artifact.megabytes": "{size}MB",
+  "blocks.artifact.gigabytes": "{size}GB",
   "blocks.task.status.queued": "대기열에 있음",
   "blocks.task.status.running": "실행 중",
   "blocks.task.status.awaiting_input": "답변 필요",
@@ -1027,6 +1030,8 @@ export const ko: Partial<Catalogue> = {
   "settings.key.browser.botAuth": "Web Bot Auth",
   "settings.key.computerUse.enabled": "컴퓨터 사용 허용",
   "settings.key.computerUse.apps": "앱 접근",
+  "settings.key.feed.sources": "피드 소스",
+  "settings.key.computerUse.linuxRevoke": "Linux 컴퓨터 잊기",
   "settings.key.context.maxTokens": "컨텍스트 한도",
   "settings.key.search.web.provider": "웹 검색 제공업체",
   "settings.key.search.web.searxngUrl": "SearXNG URL",
@@ -2368,6 +2373,15 @@ export const ko: Partial<Catalogue> = {
   "settings.plugins.switchOn": "{name} 켜기",
   "settings.plugins.version": " · v{version}",
   "settings.plugins.adds": "추가 기능: {list}",
+  "settings.plugins.install": "폴더에서 설치…",
+  "settings.plugins.pickFailed": "Psyche가 폴더 선택기를 열 수 없습니다({reason}).",
+  "settings.plugins.installFailed": "설치를 시작하지 못했습니다. {reason}",
+  "settings.plugins.proposed": "승인 카드에서 설치 내용을 확인하세요.",
+  "settings.plugins.includes": "포함: {list}",
+  "settings.plugins.count.skills": "{n, plural, other {스킬 #개}}",
+  "settings.plugins.count.commands": "{n, plural, other {명령 #개}}",
+  "settings.plugins.count.mcpServers": "{n, plural, other {MCP 서버 #개}}",
+  "settings.plugins.count.hooks": "{n, plural, other {훅 #개}}",
   "settings.plugins.from": "출처: {source}",
   "settings.plugins.state.active": "실행 중",
   "settings.plugins.state.disabled": "꺼짐",
@@ -3145,6 +3159,20 @@ export const ko: Partial<Catalogue> = {
   "screens.goals.checkinLine":
     "{cadence}{hasNext, select, true { · 다음 {next}} other {}}{hasLast, select, true { · 마지막: {last}} other {}}",
   "screens.goals.noSchedule": "일정 없음",
+  "screens.goals.suggest": "다음 단계 제안",
+  "screens.goals.suggest.hint":
+    "탭할 때만 모델을 사용합니다. 카드에서 시작을 탭하기 전에는 아무것도 시작되지 않습니다.",
+  "screens.goals.suggest.done": "제안을 홈에 추가했습니다.",
+  "screens.goals.suggest.none": "이번에는 제안이 없습니다. 나중에 다시 시도해 주세요.",
+  "screens.ideas.start": "시작",
+  "screens.ideas.snooze": "다시 알림",
+  "screens.ideas.badge.checkin": "체크인",
+  "screens.ideas.badge.resume": "다시 시작할까요?",
+  "screens.goals.checkinFrequency": "체크인",
+  "screens.goals.checkinFrequency.off": "끔",
+  "screens.goals.checkinFrequency.daily": "매일",
+  "screens.goals.checkinFrequency.weekly": "매주",
+  "screens.goals.checkinFrequency.monthly": "매월",
   "screens.goals.watches": "감시 항목",
   "screens.goals.nothingWatched": "감시 중인 항목이 없습니다.",
   "screens.goals.last": "마지막: {value}",
@@ -3708,5 +3736,7 @@ export const ko: Partial<Catalogue> = {
   ...separateDesktop,
   // Windows variants of the sandbox PC, voice keys and platform terms
   ...windowsPlatform202611,
+  ...mailFollowups,
   ...keepAwake,
+  ...spaces,
 };

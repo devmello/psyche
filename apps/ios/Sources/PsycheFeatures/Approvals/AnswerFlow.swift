@@ -67,7 +67,7 @@ final class AnswerFlow {
         _ operation: @escaping @Sendable () async throws -> Void
     ) async {
         guard !isBusy else { return }
-        if decision == .allow && detail.needsMac {
+        if (decision == .allow && detail.needsMac) || (decision == .deny && !detail.canDeny) {
             stage = .failed(Self.needsMacMessage)
             return
         }

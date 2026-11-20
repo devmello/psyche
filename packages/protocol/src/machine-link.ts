@@ -36,12 +36,12 @@ import {
 } from "./pairing-link.ts";
 
 /**
- * Whether the Gateway may mint `purpose: "machine"` setup tokens. False until the machine registry
- * (wave H3) lands. The handler's refusal and the presence gate both read this one constant, so
+ * Whether the Gateway may mint `purpose: "machine"` setup tokens. On since the machine registry
+ * (wave H3) landed. The handler's refusal and the presence gate both read this one constant, so
  * turning minting on cannot leave it ungated: with it true the presence gate raises a card
  * worded for a machine (see `presence-gate.ts`).
  */
-export const MACHINE_TOKENS_ENABLED = false as boolean;
+export const MACHINE_TOKENS_ENABLED = true as boolean;
 
 export const MACHINE_LINK_PREFIX = "psyche-machine:v1:";
 

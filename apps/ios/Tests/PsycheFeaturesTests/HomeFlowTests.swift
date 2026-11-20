@@ -95,6 +95,22 @@ struct HomeFlowTests {
         #expect(await sent.value == 2)
     }
 
+    @Test func aCardThePhoneHoldsNoAnswerForSendsNoDeny() async {
+        let presence = RecordingPresence()
+        let sent = Counter()
+        let card = ApprovalDetail(
+            kindLabel: "Purchase", title: "Pay $5", summary: "", fields: [], evidence: [],
+            alsoSentTo: "Also sent to your Mac", presenceNote: nil, allowLabel: "Allow once",
+            needsMac: true, canDeny: false)
+        for decision in [ApprovalDecision.allow, .deny] {
+            let flow = AnswerFlow()
+            await flow.answer(decision, on: card, presence: presence, confirmation: "x") { await sent.bump() }
+            #expect(flow.stage == .failed(AnswerFlow.needsMacMessage))
+        }
+        #expect(presence.asked == 0)
+        #expect(await sent.value == 0)
+    }
+
     @Test func onlyAPaymentThePhoneAnswersAsksForPresence() async {
         let presence = RecordingPresence()
         let tap = AnswerFlow()

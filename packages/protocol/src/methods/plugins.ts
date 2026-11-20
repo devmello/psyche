@@ -31,6 +31,18 @@ export const PluginCapability = StringEnum(
 );
 export type PluginCapability = Static<typeof PluginCapability>;
 
+/** How many of each kind a plugin really adds: counted from its files, never from its manifest. */
+export const PluginAddsSchema = Type.Object(
+  {
+    skills: Type.Integer({ minimum: 0 }),
+    commands: Type.Integer({ minimum: 0 }),
+    mcpServers: Type.Integer({ minimum: 0 }),
+    hooks: Type.Integer({ minimum: 0 }),
+  },
+  { $id: "PluginAdds" },
+);
+export type PluginAddsSchema = Static<typeof PluginAddsSchema>;
+
 export const PluginManifestSchema = Type.Object(
   {
     name: PluginName,
@@ -64,6 +76,7 @@ export const PluginSummarySchema = Type.Object(
     enabled: Type.Boolean({ description: "The owner's switch for this plugin" }),
     status: PluginStatus,
     installedAt: Type.String(),
+    adds: Type.Optional(PluginAddsSchema),
     error: Type.Optional(Type.String()),
   },
   { $id: "PluginSummary" },

@@ -19,6 +19,7 @@ import { homeRest } from "./home-rest/fr.ts";
 import { keepAwake } from "./keep-awake/fr.ts";
 import { links } from "./links/fr.ts";
 import { linuxAccess } from "./linux-access/fr.ts";
+import { mailFollowups } from "./mail-followups/fr.ts";
 import { mailMeetings } from "./mail-meetings/fr.ts";
 import { memoryMap } from "./memory-map/fr.ts";
 import { memoryRest } from "./memory-rest/fr.ts";
@@ -42,6 +43,7 @@ import { securityState } from "./security-state/fr.ts";
 import { separateDesktop } from "./separate-desktop/fr.ts";
 import { settingsRest } from "./settings-rest/fr.ts";
 import { shellRest } from "./shell-rest/fr.ts";
+import { spaces } from "./spaces/fr.ts";
 import { specialistsRest } from "./specialists-rest/fr.ts";
 import { webRest } from "./web-rest/fr.ts";
 import { widgetsRest } from "./widgets-rest/fr.ts";
@@ -492,6 +494,7 @@ export const fr: Partial<Catalogue> = {
   "blocks.artifact.bytes": "{size} o",
   "blocks.artifact.kilobytes": "{size} Ko",
   "blocks.artifact.megabytes": "{size} Mo",
+  "blocks.artifact.gigabytes": "{size} Go",
   "blocks.task.status.queued": "en file d’attente",
   "blocks.task.status.running": "en cours",
   "blocks.task.status.awaiting_input": "attend votre réponse",
@@ -1019,6 +1022,8 @@ export const fr: Partial<Catalogue> = {
   "settings.key.browser.botAuth": "Web Bot Auth",
   "settings.key.computerUse.enabled": "Autoriser l’utilisation de l’ordinateur",
   "settings.key.computerUse.apps": "Accès aux apps",
+  "settings.key.feed.sources": "Sources du flux",
+  "settings.key.computerUse.linuxRevoke": "Oublier l'ordinateur Linux",
   "settings.key.context.maxTokens": "Limite de contexte",
   "settings.key.search.web.provider": "Fournisseur de recherche web",
   "settings.key.search.web.searxngUrl": "URL SearXNG",
@@ -2409,6 +2414,15 @@ export const fr: Partial<Catalogue> = {
   "settings.plugins.switchOn": "{name} activé",
   "settings.plugins.version": " · v{version}",
   "settings.plugins.adds": "Ajoute : {list}",
+  "settings.plugins.install": "Installer depuis un dossier…",
+  "settings.plugins.pickFailed": "Psyche n'a pas pu ouvrir le sélecteur de dossier ({reason}).",
+  "settings.plugins.installFailed": "L'installation n'a pas démarré. {reason}",
+  "settings.plugins.proposed": "Vérifiez l'installation sur la carte d'approbation.",
+  "settings.plugins.includes": "Comprend : {list}",
+  "settings.plugins.count.skills": "{n, plural, one {# skill} other {# skills}}",
+  "settings.plugins.count.commands": "{n, plural, one {# commande} other {# commandes}}",
+  "settings.plugins.count.mcpServers": "{n, plural, one {# serveur MCP} other {# serveurs MCP}}",
+  "settings.plugins.count.hooks": "{n, plural, one {# hook} other {# hooks}}",
   "settings.plugins.from": "Depuis {source}",
   "settings.plugins.state.active": "En cours d'exécution",
   "settings.plugins.state.disabled": "Désactivé",
@@ -3201,6 +3215,20 @@ export const fr: Partial<Catalogue> = {
   "screens.goals.checkinLine":
     "{cadence}{hasNext, select, true { · prochain {next}} other {}}{hasLast, select, true { · dernier : {last}} other {}}",
   "screens.goals.noSchedule": "Aucune planification",
+  "screens.goals.suggest": "Suggérer la prochaine étape",
+  "screens.goals.suggest.hint":
+    "Utilise le modèle, uniquement quand vous appuyez. Rien ne démarre avant que vous appuyiez sur Démarrer sur la carte.",
+  "screens.goals.suggest.done": "Suggestion ajoutée à l’accueil.",
+  "screens.goals.suggest.none": "Aucune suggestion cette fois. Réessayez plus tard.",
+  "screens.ideas.start": "Démarrer",
+  "screens.ideas.snooze": "Reporter",
+  "screens.ideas.badge.checkin": "Point d'étape",
+  "screens.ideas.badge.resume": "Reprendre ?",
+  "screens.goals.checkinFrequency": "Point d'étape",
+  "screens.goals.checkinFrequency.off": "Désactivé",
+  "screens.goals.checkinFrequency.daily": "Chaque jour",
+  "screens.goals.checkinFrequency.weekly": "Chaque semaine",
+  "screens.goals.checkinFrequency.monthly": "Chaque mois",
   "screens.goals.watches": "Surveillances",
   "screens.goals.nothingWatched": "Rien n’est surveillé.",
   "screens.goals.last": "dernier : {value}",
@@ -3776,5 +3804,7 @@ export const fr: Partial<Catalogue> = {
   ...separateDesktop,
   // Windows variants of the sandbox PC, voice keys and platform terms
   ...windowsPlatform202611,
+  ...mailFollowups,
   ...keepAwake,
+  ...spaces,
 };

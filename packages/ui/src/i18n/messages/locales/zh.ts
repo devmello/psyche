@@ -23,6 +23,7 @@ import { home } from "./home/zh.ts";
 import { keepAwake } from "./keep-awake/zh.ts";
 import { links } from "./links/zh.ts";
 import { linuxAccess } from "./linux-access/zh.ts";
+import { mailFollowups } from "./mail-followups/zh.ts";
 import { mailMeetings } from "./mail-meetings/zh.ts";
 import { meetingRecord } from "./meeting-record/zh.ts";
 import { memoryMap } from "./memory-map/zh.ts";
@@ -49,6 +50,7 @@ import { settingsLanguage } from "./settings-language/zh.ts";
 import { settingsSections } from "./settings-sections/zh.ts";
 import { shell } from "./shell/zh.ts";
 import { skillAuthor } from "./skill-author/zh.ts";
+import { spaces } from "./spaces/zh.ts";
 import { specialists } from "./specialists/zh.ts";
 import { teach } from "./teach/zh.ts";
 import { web } from "./web/zh.ts";
@@ -544,6 +546,7 @@ export const zh: Partial<Catalogue> = {
   "blocks.artifact.bytes": "{size} B",
   "blocks.artifact.kilobytes": "{size} KB",
   "blocks.artifact.megabytes": "{size} MB",
+  "blocks.artifact.gigabytes": "{size} GB",
 
   "blocks.task.status.queued": "已排队",
   "blocks.task.status.running": "运行中",
@@ -1066,6 +1069,8 @@ export const zh: Partial<Catalogue> = {
   "settings.key.browser.botAuth": "Web Bot Auth",
   "settings.key.computerUse.enabled": "允许电脑使用",
   "settings.key.computerUse.apps": "App 访问",
+  "settings.key.feed.sources": "信息流来源",
+  "settings.key.computerUse.linuxRevoke": "忘记 Linux 电脑",
   "settings.key.context.maxTokens": "上下文限制",
   "settings.key.search.web.provider": "网页搜索提供商",
   "settings.key.search.web.searxngUrl": "SearXNG URL",
@@ -2355,6 +2360,15 @@ export const zh: Partial<Catalogue> = {
   "settings.plugins.switchOn": "{name} 开启",
   "settings.plugins.version": " · v{version}",
   "settings.plugins.adds": "包括：{list}",
+  "settings.plugins.install": "从文件夹安装…",
+  "settings.plugins.pickFailed": "Psyche 无法打开文件夹选择器（{reason}）。",
+  "settings.plugins.installFailed": "安装未能开始。{reason}",
+  "settings.plugins.proposed": "请在批准卡片上查看此次安装。",
+  "settings.plugins.includes": "包含：{list}",
+  "settings.plugins.count.skills": "{n, plural, other {# 个技能}}",
+  "settings.plugins.count.commands": "{n, plural, other {# 个命令}}",
+  "settings.plugins.count.mcpServers": "{n, plural, other {# 个 MCP 服务器}}",
+  "settings.plugins.count.hooks": "{n, plural, other {# 个钩子}}",
   "settings.plugins.from": "来源：{source}",
   "settings.plugins.state.active": "运行中",
   "settings.plugins.state.disabled": "已关闭",
@@ -3100,6 +3114,19 @@ export const zh: Partial<Catalogue> = {
   "screens.goals.checkinLine":
     "{cadence}{hasNext, select, true { · 下次 {next}} other {}}{hasLast, select, true { · 上次：{last}} other {}}",
   "screens.goals.noSchedule": "无计划",
+  "screens.goals.suggest": "建议下一步",
+  "screens.goals.suggest.hint": "仅在你点按时使用模型。在卡片上点按“开始”之前不会开始任何操作。",
+  "screens.goals.suggest.done": "建议已添加到主页。",
+  "screens.goals.suggest.none": "这次没有建议。请稍后再试。",
+  "screens.ideas.start": "开始",
+  "screens.ideas.snooze": "稍后提醒",
+  "screens.ideas.badge.checkin": "例行检查",
+  "screens.ideas.badge.resume": "要继续吗？",
+  "screens.goals.checkinFrequency": "例行检查",
+  "screens.goals.checkinFrequency.off": "关闭",
+  "screens.goals.checkinFrequency.daily": "每天",
+  "screens.goals.checkinFrequency.weekly": "每周",
+  "screens.goals.checkinFrequency.monthly": "每月",
   "screens.goals.watches": "监视",
   "screens.goals.nothingWatched": "没有监视的内容。",
   "screens.goals.last": "上次：{value}",
@@ -3656,5 +3683,7 @@ export const zh: Partial<Catalogue> = {
   ...separateDesktop,
   // Windows variants of the sandbox PC, voice keys and platform terms
   ...windowsPlatform202611,
+  ...mailFollowups,
   ...keepAwake,
+  ...spaces,
 };

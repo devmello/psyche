@@ -26,6 +26,16 @@ struct ApprovalSheet: View {
             VStack(alignment: .leading, spacing: 18) {
                 VStack(alignment: .leading, spacing: 6) {
                     StatusDot(.needsYou, "Needs your OK · \(detail.kindLabel)", font: .footnote.weight(.semibold))
+                    if let machine = detail.machineName {
+                        Label {
+                            Text("On \(machine)", bundle: .module)
+                        } icon: {
+                            Image(systemName: "desktopcomputer")
+                        }
+                        .font(.subheadline.weight(.medium))
+                        .foregroundStyle(PsycheColor.text)
+                        .accessibilityIdentifier("approvalMachineLine")
+                    }
                     Text(detail.title).psycheTitle(.title).foregroundStyle(PsycheColor.text)
                     Text(detail.summary).font(.subheadline).foregroundStyle(PsycheColor.muted)
                 }
@@ -92,12 +102,14 @@ struct ApprovalSheet: View {
                     Text("Reconnect to answer").font(.footnote).foregroundStyle(PsycheColor.muted)
                 }
                 HStack(spacing: 10) {
+                    // Deny stays on a card the phone holds an answer for (refusing shows nothing the card doesn't); off
+                    // when it holds none (a payment, a card kept on the Mac), where it could only fail.
                     GlassTextButton(title: "Deny") { answer(.deny) }
+                        .disabled(!detail.canDeny)
                     ArmingInkButton(
                         title: flow.stage == .checking ? "Checking…" : detail.allowLabel,
                         progress: arming, isBusy: flow.stage == .sending
                     ) { answer(.allow) }
-                    // Deny stays: refusing on the phone shows nothing the card doesn't.
                     .disabled(detail.needsMac)
                 }
                 .disabled(!session.state.canAnswer || flow.isBusy)

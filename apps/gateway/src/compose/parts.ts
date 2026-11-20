@@ -14,6 +14,7 @@ import { composePasswordPresence } from "./password-presence.ts";
 import { type ComposedSandbox, composeSandboxIfAvailable, type SandboxSetup } from "./sandbox.ts";
 import type { ComposedPart, ComposeServices } from "./services.ts";
 import { createSrtResolver, type SrtResolver } from "./srt.ts";
+import { composeStorage } from "./storage.ts";
 import { type ComposedVm, composeVm } from "./vm.ts";
 
 type PartFactory = (services: ComposeServices) => Promise<ComposedPart> | ComposedPart;
@@ -220,6 +221,7 @@ export function partsFromEnv(
       ...(env.PSYCHE_BACKUP_IDENTITY_FILE ? { identityFile: env.PSYCHE_BACKUP_IDENTITY_FILE } : {}),
     }),
   );
+  parts.push((s) => composeStorage(s));
   if (env.PSYCHE_MCP !== "off") {
     parts.push((s) => {
       const runner = sandbox?.runner;

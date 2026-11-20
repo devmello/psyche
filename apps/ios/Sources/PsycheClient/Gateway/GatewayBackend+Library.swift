@@ -193,6 +193,16 @@ extension GatewayBackend {
 struct LibraryDownloads {
     let directory: URL
 
+    /// Files are protected "complete" on the phone. The macOS test host (`swift test`) makes a directory
+    /// with that class unwritable (createFile fails, so there is no .part), so it only applies on iOS.
+    static var protectedAttributes: [FileAttributeKey: Any]? {
+        #if os(iOS)
+        [.protectionKey: FileProtectionType.complete]
+        #else
+        nil
+        #endif
+    }
+
     func folder(id: String) -> URL {
         directory.appendingPathComponent(Self.sanitized(id), isDirectory: true)
     }
@@ -211,13 +221,13 @@ struct LibraryDownloads {
         try? FileManager.default.removeItem(at: folder.deletingLastPathComponent())
         try FileManager.default.createDirectory(
             at: folder, withIntermediateDirectories: true,
-            attributes: [.protectionKey: FileProtectionType.complete])
+            attributes: Self.protectedAttributes)
         var root = directory
         var values = URLResourceValues()
         values.isExcludedFromBackup = true
         try? root.setResourceValues(values)
         let part = folder.appendingPathComponent(".part")
-        FileManager.default.createFile(atPath: part.path, contents: nil, attributes: [.protectionKey: FileProtectionType.complete])
+        FileManager.default.createFile(atPath: part.path, contents: nil, attributes: Self.protectedAttributes)
         return part
     }
 

@@ -14,6 +14,7 @@ import {
   createFeedHandlers,
   createGoalHandlers,
   createIdeaHandlers,
+  createNextStepProposer,
   createProposalHandlers,
   DailyService,
   DigestService,
@@ -163,6 +164,8 @@ export interface ProactiveSetup {
   comingUp?: () => { text: string; link?: string }[];
   /** Relationship nudges' "Keep in touch" lines for the morning brief (at most three). */
   keepInTouch?: () => { text: string; link?: string }[];
+  /** Quiet email threads' lines for the morning brief (`compose/mail-followups.ts`). */
+  quietThreads?: () => Promise<{ text: string; link?: string }[]>;
   /** The people graph while it is on: prep reads people and loops, notes add loops. */
   graph?: () => GraphStore | undefined;
   /**
@@ -275,7 +278,7 @@ export function composeProactive(setup: ProactiveSetup): ComposedProactive {
           ...setup.catchup,
           timeZone: () => timeZone ?? Intl.DateTimeFormat().resolvedOptions().timeZone,
         });
-  const goals = new GoalsService({
+  const goals: GoalsService = new GoalsService({
     db: db.sqlite,
     clock,
     scheduler,
@@ -283,6 +286,16 @@ export function composeProactive(setup: ProactiveSetup): ComposedProactive {
     tasks,
     ...(timeZone === undefined ? {} : { timezone: timeZone }),
     onEvent: (e) => publish(e.event, e.payload),
+    // The next-step model call runs only when the owner taps "Suggest next step" (`goals.suggest`),
+    // never from a schedule. The card is an idea: Start creates a task under the normal approvals.
+    nextStep: createNextStepProposer({
+      provider,
+      model,
+      offer: (candidate, supersedes): Promise<{ id: string } | undefined> =>
+        ideas.offer(candidate, supersedes),
+    }),
+    onError: (err) =>
+      logger?.log("warn", "goal next-step suggestion failed", { code: PsycheError.from(err).code }),
   });
   const feed = new FeedService({
     db: db.sqlite,
@@ -299,7 +312,7 @@ export function composeProactive(setup: ProactiveSetup): ComposedProactive {
     ...(catchup === undefined ? {} : { agentView: catchup.agentView }),
   });
   const sessions = createDbSessionResolver(db);
-  const ideas = new IdeasService({
+  const ideas: IdeasService = new IdeasService({
     db: db.sqlite,
     clock,
     scheduler,
@@ -587,6 +600,7 @@ export function composeProactive(setup: ProactiveSetup): ComposedProactive {
     followups,
     timezone: dailyTz,
     ...(setup.learned === undefined ? {} : { learned: setup.learned }),
+    ...(setup.quietThreads === undefined ? {} : { quietThreads: setup.quietThreads }),
     // Every memory line in the brief goes through `surfaceFilter` (birthdays, life events, people).
     ...briefLines(setup, catchup),
     ...(catchup === undefined ? {} : { catchUp: catchup.daily }),

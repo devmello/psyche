@@ -1,5 +1,6 @@
 import {
   getDevice,
+  getMachineByDevice,
   getPairingRequest,
   listPairingRequests,
   type PsycheDb,
@@ -15,7 +16,7 @@ import {
 } from "@psyche/protocol";
 import { keyFingerprint } from "../auth.ts";
 import { activeAdminCount } from "../compose/bootstrap-admin.ts";
-import { approvePairing } from "../handlers/devices.ts";
+import { applyPairingDecision, approvePairing } from "../handlers/devices.ts";
 import type { Logger } from "../log.ts";
 import { type PresenceState, resetPresenceEnrollment } from "../presence-gate.ts";
 import { cleanLabel, cleanText } from "./alerts.ts";
@@ -72,6 +73,8 @@ interface RecoveryRow {
 }
 
 interface RecoveryParams {
+  /** Recorded at intake from the request: `machine` pairs a machine and nothing else. */
+  purpose?: "device" | "machine";
   deviceId?: string;
   deviceName?: string;
   scopes?: string[];
@@ -373,7 +376,7 @@ export class SecurityRecoveries {
   #intakeApprove(params: Record<string, unknown>): Intake {
     const { db } = this.#d;
     const code = String(params.code ?? "").toUpperCase();
-    const scopes = parseScopes(params.scopes);
+    const requested = parseScopes(params.scopes);
     const request = listPairingRequests(db, { status: "pending" }).find(
       (p) => p.kind === "device" && p.code === code,
     );
@@ -392,8 +395,12 @@ export class SecurityRecoveries {
         "that pairing request does not name this device's key; ask the device to connect again",
       );
     }
+    // A machine request is only ever a node with `["node"]`: whatever scopes were typed are
+    // dropped here, and it never takes the first-admin shortcut.
+    const machine = request.purpose === "machine";
+    const scopes = machine ? ["node"] : requested;
     // M-E: only the request that makes the first admin applies at once; anything else waits.
-    if (scopes.includes("operator.admin") && this.#firstAdmin()) {
+    if (!machine && scopes.includes("operator.admin") && this.#firstAdmin()) {
       const { device: approved } = db.sqlite.transaction(() =>
         approvePairing(db, {
           pairingRequestId: request.id,
@@ -415,6 +422,7 @@ export class SecurityRecoveries {
       fingerprint,
       scopes,
       code,
+      ...(machine ? { purpose: "machine" as const } : {}),
     });
   }
 
@@ -425,6 +433,10 @@ export class SecurityRecoveries {
     const device = getDevice(db, deviceId);
     if (!device?.pairedAt || device.revokedAt) {
       throw new PsycheError("not_found", `no paired device ${deviceId}`);
+    }
+    // A machine is `["node"]` and nothing else: no grant, wider or narrower, applies to it.
+    if (getMachineByDevice(db, device.id) !== undefined) {
+      throw new PsycheError("conflict", `${deviceId} is a machine and takes no scopes`);
     }
     const widens = scopes.some((s) => !device.scopes.includes(s as DeviceScope));
     // Only the first admin applies at once. Narrowing waits too: taking admin away from the
@@ -593,6 +605,8 @@ export class SecurityRecoveries {
           typeof p.pairingRequestId === "string"
             ? getPairingRequest(db, p.pairingRequestId)
             : undefined;
+        // Machine if either the intake or the request itself (still stored when expired) says so.
+        const machine = p.purpose === "machine" || request?.purpose === "machine";
         // The request itself has usually expired by now (5 minutes): pair the device directly.
         const live =
           request?.status === "pending" && Date.parse(request.expiresAt) > this.#d.now().getTime();
@@ -606,7 +620,16 @@ export class SecurityRecoveries {
                     decidedByDeviceId: null,
                   }).device,
               )()
-            : updateDevice(db, device.id, { scopes, pairedAt: device.pairedAt ?? this.#iso() });
+            : db.sqlite.transaction(
+                () =>
+                  applyPairingDecision(db, {
+                    device,
+                    machine,
+                    scopes,
+                    pairedAt: device.pairedAt ?? this.#iso(),
+                    decidedByDeviceId: null,
+                  }).device,
+              )();
         if (approved === undefined) throw new PsycheError("not_found", "the device is gone");
         this.#d.onDeviceChanged?.(approved);
         return `approved ${approved.name} with ${approved.scopes.join(",")}`;
@@ -616,6 +639,9 @@ export class SecurityRecoveries {
         const device = getDevice(db, String(p.deviceId ?? ""));
         if (!device?.pairedAt || device.revokedAt) {
           throw new PsycheError("not_found", "the device is no longer paired");
+        }
+        if (getMachineByDevice(db, device.id) !== undefined) {
+          throw new PsycheError("conflict", "the device is a machine and takes no scopes");
         }
         const updated = updateDevice(db, device.id, { scopes });
         if (updated === undefined) throw new PsycheError("not_found", "the device is gone");

@@ -260,6 +260,16 @@ export class SqliteScheduler implements Scheduler {
     return schedule;
   }
 
+  /** A Space an automation joins must exist and not be archived. */
+  #checkSpace(spaceId: string | null | undefined): void {
+    if (spaceId == null) return;
+    const row = this.#db.sqlite
+      .prepare("SELECT archived_at FROM spaces WHERE id = ?")
+      .get(spaceId) as { archived_at: string | null } | undefined;
+    if (row === undefined) throw new PsycheError("not_found", `space ${spaceId} not found`);
+    if (row.archived_at !== null) throw new PsycheError("conflict", "that Space is archived");
+  }
+
   #nextIso(schedule: Schedule, enabled: boolean, after: number): string | null {
     if (!enabled) return null;
     const t = schedule.next(after);
@@ -312,6 +322,7 @@ export class SqliteScheduler implements Scheduler {
     };
     if (a.title.trim() === "") bad("title is required");
     const schedule = this.#validate(a);
+    this.#checkSpace(a.spaceId);
     const id = this.#newId();
     const now = this.clock.now();
     if (a.enabled && a.kind !== "event" && schedule.next(now) === undefined) {
@@ -322,10 +333,10 @@ export class SqliteScheduler implements Scheduler {
         .prepare(
           `INSERT INTO automations (id, kind, title, schedule, timezone, session_target, delivery,
              prompt, scratch, enabled, light_context, system, next_run_at, created_at, updated_at,
-             trigger, specialist, recorded_skill)
+             trigger, specialist, recorded_skill, space_id)
            VALUES (@id, @kind, @title, @schedule, @timezone, @session_target, @delivery, @prompt,
              @scratch, @enabled, @light_context, @system, @next_run_at, @now, @now, @trigger,
-             @specialist, @recorded_skill)`,
+             @specialist, @recorded_skill, @space_id)`,
         )
         .run({
           id,
@@ -345,6 +356,7 @@ export class SqliteScheduler implements Scheduler {
           trigger: a.trigger === undefined ? null : JSON.stringify(a.trigger),
           specialist: a.specialist === undefined ? null : JSON.stringify(a.specialist),
           recorded_skill: a.recordedSkill === undefined ? null : JSON.stringify(a.recordedSkill),
+          space_id: a.spaceId ?? null,
         });
       if (a.watch !== undefined) this.#upsertWatch(id, a.watch, false);
       return this.#updatedEvent(id);
@@ -389,6 +401,8 @@ export class SqliteScheduler implements Scheduler {
       )
         bad("a scheduled recording can only be paused or resumed");
       const next = { ...current, ...patch };
+      if (patch.spaceId != null && patch.spaceId !== current.spaceId)
+        this.#checkSpace(patch.spaceId);
       if (patch.kind !== undefined && patch.kind !== current.kind) bad("kind cannot change");
       const schedule = this.#validate(next);
       // Only a real change reschedules: re-sending the same values (UI round trips, the heartbeat
@@ -412,7 +426,7 @@ export class SqliteScheduler implements Scheduler {
              session_target = @session_target, delivery = @delivery, prompt = @prompt,
              scratch = @scratch, enabled = @enabled, light_context = @light_context,
              next_run_at = @next_run_at, trigger = @trigger, specialist = @specialist,
-             updated_at = @now WHERE id = @id`,
+             space_id = @space_id, updated_at = @now WHERE id = @id`,
         )
         .run({
           id,
@@ -433,6 +447,7 @@ export class SqliteScheduler implements Scheduler {
           now: this.#iso(now),
           trigger: next.trigger === undefined ? null : JSON.stringify(next.trigger),
           specialist: next.specialist == null ? null : JSON.stringify(next.specialist),
+          space_id: next.spaceId ?? null,
         });
       if (patch.watch !== undefined) {
         const w = current.watch;
@@ -777,6 +792,34 @@ export class SqliteScheduler implements Scheduler {
       return;
     }
     await this.#dispatch(runId);
+  }
+
+  /**
+   * Cancel retry (`automations.cancelRetry`): a run waiting for its next attempt after a transient
+   * model error ends as cancelled with its last error kept, the automation shows as failed, and
+   * Run now is free again. `conflict` once the run is not waiting (the attempt already started).
+   */
+  async cancelRetry(runId: string): Promise<AutomationRun> {
+    const row = this.#runRow(runId);
+    if (row.status !== "running" || row.retry_at == null) {
+      throw new PsycheError("conflict", "this run is not waiting to retry");
+    }
+    // Synchronously, before any await: the timer cannot fire and `#retryRun` finds no retry_at.
+    const handle = this.#retryTimers.get(runId);
+    if (handle !== undefined) this.#timers.clearTimeout(handle);
+    this.#retryTimers.delete(runId);
+    this.#db.sqlite.prepare("UPDATE automation_runs SET retry_at = NULL WHERE id = ?").run(runId);
+    const last = (row.summary ?? "").trim();
+    await this.#finish(runId, {
+      status: "cancelled",
+      summary: last === "" ? "Retry cancelled" : `Retry cancelled. Last error: ${last}`,
+    });
+    // The run did fail; only its retries were called off.
+    this.#db.sqlite
+      .prepare("UPDATE automations SET last_status = 'failed' WHERE id = ?")
+      .run(row.automation_id);
+    this.#emit([this.#updatedEvent(row.automation_id)]);
+    return runFromRow(this.#runRow(runId));
   }
 
   /** Runs in progress, retries waiting included: what keeps the Mac awake. */

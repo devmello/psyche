@@ -76,6 +76,14 @@ function check(db: PsycheDb, bind: WidgetBind, threadId: string): TaintSource[] 
       if (row === undefined) throw notVisible(bind);
       return [];
     }
+    // The Space query sources arrive with wave S4 (spaces-2026 §6.2); until then none is bindable.
+    case "entity":
+    case "work_due":
+    case "calendar":
+    case "reminders":
+    case "mail":
+    case "files":
+      throw notVisible(bind);
   }
 }
 
