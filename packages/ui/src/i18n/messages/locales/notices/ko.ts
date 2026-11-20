@@ -60,4 +60,21 @@ export const notices: Partial<Catalogue> = {
     "{device, select, none {어떤 기기} other {{device}}}에서 보안 설정이 강화되었습니다",
   "notice.security.tightened.body":
     "Psyche가 할 수 있는 일을 줄이기만 했으므로 승인이 필요하지 않았습니다. 본인이 아니라면 설정 → 기기에서 해당 기기를 해제하세요.",
+  "notice.codeRun.held.title": "Psyche가 {repo}에서 코드 실행이 만든 실행 구성을 보류했습니다",
+  "notice.codeRun.held.body":
+    "샌드박스의 명령이 {paths}을(를) 만들었습니다. 앱이나 다음 명령이 여기서 코드를 실행할 수 있어 Psyche가 삭제하지 않고 따로 옮겨 두었습니다. 직접 또는 사용하는 도구가 만든 것이라면 유지를 탭하세요.",
+  "notice.codeRun.changed.title": "{repo}에서 코드 실행 중 실행 구성이 바뀌었습니다",
+  "notice.codeRun.changed.body":
+    "샌드박스에서 명령이 실행되는 동안 {paths}이(가) 바뀌었습니다. 직접 또는 편집기가 바꾼 것이 아니라면 폴더를 열기 전에 확인하세요.",
+  "notice.codeRun.partial.title": "{repo}이(가) 너무 커서 전부 확인할 수 없습니다",
+  "notice.codeRun.partial.body":
+    "Psyche는 코드 실행이 만드는 실행 구성을 상위 폴더에서만 확인했습니다.",
+  "notice.codeRun.recreated.title": "{repo}의 샌드박스를 다시 만들었습니다",
+  "notice.codeRun.recreated.body":
+    "읽기 전용 폴더가 바뀌어 실행 중인 서버와 저장소 밖에 설치한 항목이 사라졌습니다. 필요한 것을 다시 시작하세요.",
+  "notice.action.keepIt": "유지",
+  "notice.codeRun.incident.title":
+    "Psyche가 {repo}의 코드 실행에서 나온 것이 아닐 수도 있는 항목을 보류했습니다",
+  "notice.codeRun.incident.body":
+    "{paths}을(를) 옮기는 동안 경로의 폴더가 바뀌어, 옮긴 항목이 다른 곳의 것일 수 있습니다. {place}에 보관되어 있습니다. 유지를 탭하기 전에 확인하세요. 유지를 누르면 {repo}의 {paths}에 다시 놓입니다.",
 };

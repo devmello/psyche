@@ -377,7 +377,7 @@ const fmt = (n: number) => n.toLocaleString("en-US");
 const isHigh = (c: number) => c >= 0xd800 && c <= 0xdbff;
 const isLow = (c: number) => c >= 0xdc00 && c <= 0xdfff;
 /** A slice end that does not split a surrogate pair. */
-const safeEnd = (s: string, i: number) =>
+export const safeEnd = (s: string, i: number) =>
   i > 0 && i < s.length && isHigh(s.charCodeAt(i - 1)) ? i - 1 : i;
 /** A slice start that does not split a surrogate pair. */
 const safeStart = (s: string, i: number) => (i < s.length && isLow(s.charCodeAt(i)) ? i + 1 : i);

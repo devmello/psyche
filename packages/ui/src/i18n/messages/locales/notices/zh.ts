@@ -58,4 +58,19 @@ export const notices: Partial<Catalogue> = {
     "安全设置已从{device, select, none {某台设备} other {{device}}}收紧",
   "notice.security.tightened.body":
     "这只减少了 Psyche 可以做的事，因此无需批准。如果不是你本人操作，请在“设置 → 设备”中撤销该设备。",
+  "notice.codeRun.held.title": "Psyche 扣下了 {repo} 中一次代码运行创建的启动配置",
+  "notice.codeRun.held.body":
+    "沙盒中的命令创建了 {paths}。应用或你的下一条命令可能会从中运行代码，所以 Psyche 把它移到一旁，没有删除。如果是你或你的工具创建的，请轻点“保留”。",
+  "notice.codeRun.changed.title": "{repo} 中的启动配置在代码运行期间发生了变化",
+  "notice.codeRun.changed.body":
+    "沙盒中运行命令时 {paths} 发生了变化。如果不是你或你的编辑器所为，请在打开该文件夹前检查一下。",
+  "notice.codeRun.partial.title": "{repo} 太大，无法完整检查",
+  "notice.codeRun.partial.body": "Psyche 只检查了顶层文件夹中由代码运行创建的启动配置。",
+  "notice.codeRun.recreated.title": "{repo} 的沙盒已重新创建",
+  "notice.codeRun.recreated.body":
+    "它的只读文件夹发生了变化，因此正在运行的服务器以及仓库外安装的内容都已丢失。请重新启动你需要的内容。",
+  "notice.action.keepIt": "保留",
+  "notice.codeRun.incident.title": "Psyche 扣下了一些可能并非来自 {repo} 中代码运行的内容",
+  "notice.codeRun.incident.body":
+    "在移开 {paths} 时，途经的一个文件夹发生了变化，因此被移走的内容可能来自别处。它保存在 {place}。轻点“保留”之前请先检查，“保留”会把它放回 {repo} 中的 {paths}。",
 };

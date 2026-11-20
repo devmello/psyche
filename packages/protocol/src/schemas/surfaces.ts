@@ -132,6 +132,12 @@ export const NotificationAction = Type.Object(
   {
     id: Type.String(),
     label: Type.String(),
+    labelKey: Type.Optional(
+      Type.String({
+        description:
+          "Message id of the label (e.g. notice.action.keepIt), so each client words it in its own language; `label` stays the English text for old clients and the OS",
+      }),
+    ),
     destructive: Type.Optional(Type.Boolean()),
     authenticationRequired: Type.Optional(
       Type.Boolean({

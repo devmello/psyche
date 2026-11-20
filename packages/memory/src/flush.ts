@@ -6,7 +6,7 @@ import type {
   ModelRef,
 } from "@psyche/protocol";
 import { oneLine, parseDailyNote } from "./daily.ts";
-import { blockingKinds } from "./filters.ts";
+import { blockingKinds, looksLikeFlushedInstruction } from "./filters.ts";
 import { dailyNotePath } from "./layout.ts";
 import type { SqliteMemoryStore } from "./store.ts";
 
@@ -118,21 +118,50 @@ export async function flushMemory(
     return { appended: 0 };
   }
 
-  // Skip facts today's note already has (a flush may run more than once per thread).
-  const today = await store.readFile(dailyNotePath(store.now().date));
-  const known = new Set(
-    (today === undefined ? [] : parseDailyNote(today.content)).map((e) => e.text.toLowerCase()),
-  );
-  // Taint covers the whole copy: any untrusted tool result in it taints every fact.
   const tainted =
     options.taint === true ||
     privateCopy.some((m) =>
       m.parts.some((p) => p.type === "tool_result" && p.provenance === "untrusted"),
     );
-  const provenance = tainted ? "untrusted" : "agent";
+  const { appended, refused } = await appendFacts(
+    store,
+    config,
+    threadId,
+    parseFacts(reply, config.maxFacts ?? 12),
+    tainted,
+  );
+  store.finishJob(job, "ok", `appended ${appended}, refused ${refused}`);
+  return { appended };
+}
+
+/**
+ * Writes facts to today's daily note: skips what the note already has, refuses what looks like a
+ * credential or (unless allowed) a sensitive identifier, and tags every line `untrusted` when the
+ * conversation they came from was tainted. The only write a flush can cause.
+ */
+async function appendFacts(
+  store: SqliteMemoryStore,
+  config: Pick<FlushConfig, "allowSensitive">,
+  threadId: string,
+  facts: readonly string[],
+  tainted: boolean,
+): Promise<{ appended: number; refused: number }> {
+  // Skip facts today's note already has (a flush may run more than once per thread).
+  const today = await store.readFile(dailyNotePath(store.now().date));
+  const known = new Set(
+    (today === undefined ? [] : parseDailyNote(today.content)).map((e) => e.text.toLowerCase()),
+  );
   let appended = 0;
   let refused = 0;
-  for (const fact of parseFacts(reply, config.maxFacts ?? 12)) {
+  for (const fact of facts) {
+    // An untainted line that reads as an instruction is dropped (counted as refused): a plain
+    // agent note is read back into later prompts as trusted context, and tagging it untrusted
+    // would taint every thread that loads the note.
+    if (!tainted && looksLikeFlushedInstruction(fact)) {
+      refused++;
+      continue;
+    }
+    const provenance = tainted ? "untrusted" : "agent";
     if (known.has(fact.toLowerCase())) continue;
     if (blockingKinds(fact, config.allowSensitive === true).length > 0) {
       refused++;
@@ -146,6 +175,43 @@ export async function flushMemory(
     known.add(fact.toLowerCase());
     appended++;
   }
+  return { appended, refused };
+}
+
+/**
+ * The flush when the summarizer already listed the facts (`dailyNoteLines` in its one reply): no
+ * model call here, the same filters and the same single write path as `flushMemory`.
+ */
+export async function flushFacts(
+  store: SqliteMemoryStore,
+  config: Pick<FlushConfig, "allowSensitive" | "maxFacts"> | undefined,
+  threadId: string,
+  lines: readonly string[],
+  options: { taint?: boolean; incognito?: boolean } = {},
+): Promise<MemoryFlushResult> {
+  const job = store.startJob("flush");
+  if (options.incognito === true || store.paused) {
+    store.finishJob(
+      job,
+      "skipped",
+      options.incognito === true ? "incognito thread" : "memory paused",
+    );
+    return { appended: 0 };
+  }
+  const facts = [...new Set(lines.map(oneLine))]
+    .filter((f) => f.length > 0 && f.length <= MAX_FACT_CHARS)
+    .slice(0, config?.maxFacts ?? 12);
+  if (facts.length === 0) {
+    store.finishJob(job, "skipped", "nothing to flush");
+    return { appended: 0 };
+  }
+  const { appended, refused } = await appendFacts(
+    store,
+    config ?? {},
+    threadId,
+    facts,
+    options.taint === true,
+  );
   store.finishJob(job, "ok", `appended ${appended}, refused ${refused}`);
   return { appended };
 }

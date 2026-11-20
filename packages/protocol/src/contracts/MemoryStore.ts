@@ -109,4 +109,14 @@ export interface MemoryStore {
     privateCopy: readonly ModelMessage[],
     options?: MemoryFlushOptions,
   ): Promise<MemoryFlushResult>;
+  /**
+   * The same flush when the compaction summarizer already listed the facts in its one reply
+   * (`dailyNoteLines`): no model call, the same filters, `untrusted` tagging and write path.
+   * Preferred over `flush` when present, so the history is read once, not twice.
+   */
+  flushLines?(
+    threadId: string,
+    lines: readonly string[],
+    options?: { taint?: boolean },
+  ): Promise<MemoryFlushResult>;
 }

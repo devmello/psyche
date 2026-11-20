@@ -10,6 +10,8 @@ export interface ThreadState {
     untrusted: boolean;
     /** The structured form the text renders (owner-set limits); absent for older summaries. */
     structured?: CompactionSummary;
+    /** Standing instructions in `structured` that a summary which read untrusted text added. */
+    untrustedPins?: string[];
   };
   /** Compactions of this thread so far (the context meter). */
   compactions?: number;
