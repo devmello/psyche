@@ -97,7 +97,7 @@ pub fn check(nodes: &[SnapshotNode], q: &Query) -> Outcome {
     let any_role = q
         .role
         .as_deref()
-        .map_or(true, |r| r.is_empty() || r == "generic");
+        .is_none_or(|r| r.is_empty() || r == "generic");
     let hits: Vec<&SnapshotNode> = nodes
         .iter()
         .filter(|n| {
@@ -115,7 +115,7 @@ pub fn check(nodes: &[SnapshotNode], q: &Query) -> Outcome {
             }
             want_id
                 .as_ref()
-                .map_or(true, |id| n.id.as_deref() == Some(id.as_str()))
+                .is_none_or(|id| n.id.as_deref() == Some(id.as_str()))
         })
         .collect();
     outcome(&hits)

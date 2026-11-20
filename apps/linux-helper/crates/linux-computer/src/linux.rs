@@ -139,14 +139,18 @@ impl LinuxBackend {
     /// and for a `DBusActivatable` entry so must the session bus service that would start it
     /// (`policy_denied/untrusted_dbus_activation`, [`crate::trust::check_dbus_activation`]).
     /// Notes `Terminal=true` from that very file, so the cap applies even when the index parsed
-    /// another one. For a terminal entry also returns the `XDG_DATA_DIRS` it gets, which must
-    /// hold no terminal entry Psyche cannot vouch for
-    /// (`policy_denied/untrusted_terminal_choice`, [`crate::trust::terminal_data_dirs`]); with
+    /// another one. For a terminal entry also returns the `XDG_DATA_DIRS` and `XDG_CONFIG_DIRS`
+    /// it gets, which must hold no terminal entry or list Psyche cannot vouch for
+    /// (`policy_denied/untrusted_terminal_choice`, [`crate::trust::terminal_dirs`]); with
     /// the private dirs they make up its environment ([`crate::trust::launch_env`]).
     fn trusted_desktop_file(
         &self,
         id: &str,
-    ) -> CapResult<(app_id::DesktopEntry, std::path::PathBuf, Option<String>)> {
+    ) -> CapResult<(
+        app_id::DesktopEntry,
+        std::path::PathBuf,
+        Option<crate::trust::TerminalDirs>,
+    )> {
         let index = self.desktop_index();
         let entry = index.get(id).cloned().ok_or_else(|| {
             CapError::new(
@@ -179,8 +183,8 @@ impl LinuxBackend {
             own_uid,
         )?;
         let terminal = terminal || app_id::runs_in_terminal(&entry.id);
-        let data_dirs = if terminal {
-            Some(crate::trust::terminal_data_dirs(
+        let terminal_dirs = if terminal {
+            Some(crate::trust::terminal_dirs(
                 &fs,
                 &|k| (self.env)(k),
                 &entry.id,
@@ -189,7 +193,7 @@ impl LinuxBackend {
         } else {
             None
         };
-        Ok((entry, file, data_dirs))
+        Ok((entry, file, terminal_dirs))
     }
 
     /// A fresh, empty, private dir for one terminal launch (`config`, `cache` and `data` inside), under
@@ -419,7 +423,7 @@ impl Backend for LinuxBackend {
 
     fn launch(&self, id: &str, url: Option<&str>) -> CapResult<Value> {
         // Checked again here: the agent may have written a shadowing entry while a card waited.
-        let (entry, file, terminal_data_dirs) = self.trusted_desktop_file(id)?;
+        let (entry, file, terminal_dirs) = self.trusted_desktop_file(id)?;
         // Launch through GLib, which implements the Desktop Entry rules (field codes, DBus
         // activation, Terminal=true) and puts the app in its own scope. The accessibility
         // switches (`launch_env`) make Qt, GTK and Firefox export their trees (design §6.1).
@@ -438,8 +442,8 @@ impl Backend for LinuxBackend {
         })?;
         // A terminal entry gets an empty private XDG_CONFIG_HOME, XDG_CACHE_HOME and
         // XDG_DATA_HOME, made and vetted right before gio runs, and only the trusted
-        // XDG_DATA_DIRS (xdg-terminal-exec, see `launch_env`).
-        let private = match &terminal_data_dirs {
+        // XDG_DATA_DIRS and XDG_CONFIG_DIRS (xdg-terminal-exec, see `launch_env`).
+        let private = match &terminal_dirs {
             Some(_) => Some(self.private_launch_dir(&fs, own_uid)?),
             None => None,
         };
@@ -450,7 +454,7 @@ impl Backend for LinuxBackend {
         }
         for (k, v) in crate::trust::launch_env(
             &crate::trust::trusted_search_path(&fs, own_uid),
-            private.as_deref().zip(terminal_data_dirs.as_deref()),
+            private.as_deref().zip(terminal_dirs.as_ref()),
         ) {
             cmd.env(k, v);
         }

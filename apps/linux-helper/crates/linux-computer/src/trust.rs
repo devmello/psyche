@@ -15,7 +15,7 @@
 //! - `apps.open` of a `DBusActivatable` entry: the session bus service (and systemd user unit)
 //!   that would start it must be trusted too ([`check_dbus_activation`]);
 //! - `apps.open` of a `Terminal=true` entry: an empty private config, cache and data dir and
-//!   the trusted data dirs only ([`launch_env`], [`terminal_data_dirs`]), so
+//!   the trusted data and config dirs only ([`launch_env`], [`terminal_dirs`]), so
 //!   `xdg-terminal-exec` reads nothing the agent wrote;
 //! - the separate desktop guest's `computer-use.json` ([`SettingsSource`]), which apps inside the
 //!   guest (same uid) must not be able to loosen.
@@ -277,20 +277,21 @@ pub fn trusted_program(fs: &dyn FsView, name: &str, own_uid: u32) -> Option<Path
 /// export their accessibility trees.
 ///
 /// For a `Terminal=true` entry (`terminal` is a fresh dir from [`private_launch_dir_ok`] and the
-/// data dirs from [`terminal_data_dirs`]) also an empty `XDG_CONFIG_HOME`, `XDG_CACHE_HOME` and
-/// `XDG_DATA_HOME`, and `XDG_DATA_DIRS` cut down to the trusted entries (round-4 review,
-/// finding 2; Linux run, failure 1294-2). GLib 2.80 and later start such entries through
-/// `xdg-terminal-exec`, which reads `$XDG_CONFIG_HOME/<desktop>-xdg-terminals.list`, replays a
+/// dirs from [`terminal_dirs`]) also an empty `XDG_CONFIG_HOME`, `XDG_CACHE_HOME` and
+/// `XDG_DATA_HOME`, and `XDG_DATA_DIRS` and `XDG_CONFIG_DIRS` cut down to the trusted entries
+/// (round-4 review, finding 2; Linux run, failure 1294-2; round 8, findings 1 and 2). GLib 2.80
+/// and later start such entries through `xdg-terminal-exec`, which reads
+/// `<desktop>-xdg-terminals.list` from `$XDG_CONFIG_HOME` and `$XDG_CONFIG_DIRS`, replays a
 /// command cached under `$XDG_CACHE_HOME/xdg-terminal-exec`, and with no list runs the first
-/// terminal entry it finds under `xdg-terminals/` in `$XDG_DATA_HOME` and then `$XDG_DATA_DIRS`.
-/// The agent could write all of these in the real home. The terminal and the program in it
-/// inherit the empty dirs, so they start with fresh config, cache and data (dconf-backed
-/// settings read their defaults); terminal entries are capped at click anyway. Other launches
-/// keep the owner's dirs: the app would inherit them too, and an app that keeps its settings
-/// under `~/.config` would start as if newly installed.
+/// terminal entry it finds in `$XDG_DATA_HOME` and then `$XDG_DATA_DIRS`. The agent could write
+/// all of these in the real home. The terminal and the program in it inherit the empty dirs, so
+/// they start with fresh config, cache and data (dconf-backed settings read their defaults);
+/// terminal entries are capped at click anyway. Other launches keep the owner's dirs: the app
+/// would inherit them too, and an app that keeps its settings under `~/.config` would start as
+/// if newly installed.
 pub fn launch_env(
     search_path: &str,
-    terminal: Option<(&Path, &str)>,
+    terminal: Option<(&Path, &TerminalDirs)>,
 ) -> Vec<(&'static str, OsString)> {
     let mut env: Vec<(&'static str, OsString)> = vec![
         ("PATH", search_path.into()),
@@ -298,63 +299,155 @@ pub fn launch_env(
         ("QT_LINUX_ACCESSIBILITY_ALWAYS_ON", "1".into()),
         ("GNOME_ACCESSIBILITY", "1".into()),
     ];
-    if let Some((dir, data_dirs)) = terminal {
+    if let Some((dir, dirs)) = terminal {
         env.push(("XDG_CONFIG_HOME", dir.join("config").into_os_string()));
         env.push(("XDG_CACHE_HOME", dir.join("cache").into_os_string()));
         env.push(("XDG_DATA_HOME", dir.join("data").into_os_string()));
-        env.push(("XDG_DATA_DIRS", data_dirs.into()));
+        env.push(("XDG_DATA_DIRS", dirs.data_dirs.as_str().into()));
+        env.push(("XDG_CONFIG_DIRS", dirs.config_dirs.as_str().into()));
     }
     env
 }
 
-/// The `XDG_DATA_DIRS` a `Terminal=true` launch gets ([`launch_env`]): the session's entries
-/// (else the spec's `/usr/local/share:/usr/share`) that pass [`check`], in order. An entry
-/// this account could write is dropped rather than vetted, because the agent could add an
-/// `xdg-terminals` dir to it after the check. The launch is refused
-/// (`policy_denied/untrusted_terminal_choice`) when a kept entry holds an `xdg-terminals` dir
-/// that fails [`check`], or a file in it that does: `xdg-terminal-exec` would run it as the
-/// terminal. Also refused when no entry is left.
-pub fn terminal_data_dirs(
+/// The shared dirs a `Terminal=true` launch reads ([`terminal_dirs`]), `:`-joined.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct TerminalDirs {
+    pub data_dirs: String,
+    pub config_dirs: String,
+}
+
+/// The fallback lists newer `xdg-terminal-exec` reads whatever `$XDG_DATA_DIRS` says.
+const XDG_TERMINAL_EXEC_SYSTEM_DIRS: &[&str] = &[
+    "/usr/local/share/xdg-terminal-exec",
+    "/usr/share/xdg-terminal-exec",
+];
+
+/// The `XDG_DATA_DIRS` and `XDG_CONFIG_DIRS` a `Terminal=true` launch gets ([`launch_env`]):
+/// the session's entries (else the spec's `/usr/local/share:/usr/share` and `/etc/xdg`) that pass
+/// [`check`], in order. An entry this account could write is dropped rather than vetted, because
+/// the agent could add a terminal entry to it after the check.
+///
+/// `xdg-terminal-exec` reads terminal entries from different places by version: Ubuntu 24.04's
+/// (2023) from `<data dir>/xdg-terminals/`, upstream's from `<data dir>/applications/` (entries
+/// in the `TerminalEmulator` category) with fallback lists in `<data dir>/xdg-terminal-exec/`
+/// and `/usr/{local/,}share/xdg-terminal-exec/`. So the launch is refused
+/// (`policy_denied/untrusted_terminal_choice`) when any of these fails [`check`]:
+/// - a kept data dir's `xdg-terminals/` or `xdg-terminal-exec/`, or a file in it;
+/// - `/usr/local/share/xdg-terminal-exec/` or `/usr/share/xdg-terminal-exec/`, or a file in it;
+/// - a subdir or `.desktop` entry of a kept data dir's `applications/`, whatever its category:
+///   a file this account owns could gain `TerminalEmulator` after the check;
+/// - an `*xdg-terminals.list` in a kept config dir.
+///
+/// A data dir whose `applications/` itself fails [`check`] is dropped. Also refused when no data
+/// dir or no config dir is left.
+pub fn terminal_dirs(
     fs: &dyn FsView,
     env: &dyn Fn(&str) -> Option<String>,
     id: &str,
     own_uid: u32,
-) -> CapResult<String> {
-    let session = env("XDG_DATA_DIRS")
-        .filter(|v| !v.is_empty())
-        .unwrap_or_else(|| "/usr/local/share:/usr/share".into());
-    let mut keep: Vec<PathBuf> = Vec::new();
-    for dir in session
-        .split(':')
-        .filter(|d| !d.is_empty())
-        .map(PathBuf::from)
-    {
-        if keep.contains(&dir) || check(fs, &dir, own_uid).is_err() {
+) -> CapResult<TerminalDirs> {
+    let trusted = |p: &Path| check(fs, p, own_uid).is_ok();
+    let refuse = |at: &Path| Err(untrusted_terminal(id, Some(at)));
+    let kept = |var: &str, default: &str| -> Vec<PathBuf> {
+        let session = env(var)
+            .filter(|v| !v.is_empty())
+            .unwrap_or_else(|| default.into());
+        let mut keep: Vec<PathBuf> = Vec::new();
+        for dir in session
+            .split(':')
+            .filter(|d| !d.is_empty())
+            .map(PathBuf::from)
+        {
+            if !keep.contains(&dir) && trusted(&dir) {
+                keep.push(dir);
+            }
+        }
+        keep
+    };
+    let joined = |dirs: &[PathBuf]| {
+        dirs.iter()
+            .map(|d| d.to_string_lossy().into_owned())
+            .collect::<Vec<_>>()
+            .join(":")
+    };
+
+    let mut data: Vec<PathBuf> = Vec::new();
+    for dir in kept("XDG_DATA_DIRS", "/usr/local/share:/usr/share") {
+        for list in ["xdg-terminals", "xdg-terminal-exec"] {
+            if let Err(bad) = vet_dir(fs, &dir.join(list), own_uid, 0, &|_| true) {
+                return refuse(&bad);
+            }
+        }
+        let apps = dir.join("applications");
+        if fs.lstat(&apps).is_some() && !trusted(&apps) {
             continue;
         }
-        let terminals = dir.join("xdg-terminals");
-        if fs.lstat(&terminals).is_some() {
-            if check(fs, &terminals, own_uid).is_err() {
-                return Err(untrusted_terminal(id, Some(&terminals)));
-            }
-            if let Some(bad) = fs
-                .list(&terminals)
-                .into_iter()
-                .find(|e| check(fs, e, own_uid).is_err())
-            {
-                return Err(untrusted_terminal(id, Some(&bad)));
-            }
+        let entry = |p: &Path| {
+            p.extension().is_some_and(|e| e == "desktop")
+                || fs
+                    .lstat(p)
+                    .is_some_and(|m| m.mode & 0o170000 == 0o040000 || m.is_symlink)
+        };
+        if let Err(bad) = vet_dir(fs, &apps, own_uid, 3, &entry) {
+            return refuse(&bad);
         }
-        keep.push(dir);
+        data.push(dir);
     }
-    if keep.is_empty() {
+    for dir in XDG_TERMINAL_EXEC_SYSTEM_DIRS {
+        if let Err(bad) = vet_dir(fs, Path::new(dir), own_uid, 0, &|_| true) {
+            return refuse(&bad);
+        }
+    }
+    let config = kept("XDG_CONFIG_DIRS", "/etc/xdg");
+    for dir in &config {
+        if let Some(bad) = fs.list(dir).into_iter().find(|f| {
+            f.file_name()
+                .and_then(|n| n.to_str())
+                .is_some_and(|n| n.ends_with("xdg-terminals.list"))
+                && !trusted(f)
+        }) {
+            return refuse(&bad);
+        }
+    }
+    if data.is_empty() || config.is_empty() {
         return Err(untrusted_terminal(id, None));
     }
-    Ok(keep
-        .iter()
-        .map(|d| d.to_string_lossy().into_owned())
-        .collect::<Vec<_>>()
-        .join(":"))
+    Ok(TerminalDirs {
+        data_dirs: joined(&data),
+        config_dirs: joined(&config),
+    })
+}
+
+/// Whether `dir` (when it exists) and every entry `relevant` picks in it, `depth` levels of
+/// subdirs down, pass [`check`]; the first that fails otherwise.
+fn vet_dir(
+    fs: &dyn FsView,
+    dir: &Path,
+    own_uid: u32,
+    depth: usize,
+    relevant: &dyn Fn(&Path) -> bool,
+) -> Result<(), PathBuf> {
+    if fs.lstat(dir).is_none() {
+        return Ok(());
+    }
+    if check(fs, dir, own_uid).is_err() {
+        return Err(dir.to_path_buf());
+    }
+    for e in fs.list(dir) {
+        if !relevant(&e) {
+            continue;
+        }
+        if check(fs, &e, own_uid).is_err() {
+            return Err(e);
+        }
+        let is_dir = fs
+            .lstat(&e)
+            .is_some_and(|m| !m.is_symlink && m.mode & 0o170000 == 0o040000);
+        if depth > 0 && is_dir {
+            vet_dir(fs, &e, own_uid, depth - 1, relevant)?;
+        }
+    }
+    Ok(())
 }
 
 /// `policy_denied/untrusted_terminal_choice`.
@@ -1387,7 +1480,11 @@ mod tests {
         );
         assert_eq!(plain[0].1, OsString::from("/usr/bin:/bin"));
         let dir = Path::new("/run/user/1000/psyche-helper/terminal-1");
-        let term = launch_env("/usr/bin", Some((dir, "/usr/share")));
+        let dirs = TerminalDirs {
+            data_dirs: "/usr/share".into(),
+            config_dirs: "/etc/xdg".into(),
+        };
+        let term = launch_env("/usr/bin", Some((dir, &dirs)));
         let get = |k: &str| term.iter().find(|(n, _)| *n == k).map(|(_, v)| v.clone());
         assert_eq!(
             get("XDG_CONFIG_HOME"),
@@ -1408,6 +1505,7 @@ mod tests {
             ))
         );
         assert_eq!(get("XDG_DATA_DIRS"), Some(OsString::from("/usr/share")));
+        assert_eq!(get("XDG_CONFIG_DIRS"), Some(OsString::from("/etc/xdg")));
         assert_eq!(get("PATH"), Some(OsString::from("/usr/bin")));
         // Other launches keep the owner's config, cache and data dirs.
         let plain_get = |k: &str| plain.iter().any(|(n, _)| *n == k);
@@ -1415,22 +1513,27 @@ mod tests {
             "XDG_CONFIG_HOME",
             "XDG_CACHE_HOME",
             "XDG_DATA_HOME",
-            "XDG_DATA_DIRS"
+            "XDG_DATA_DIRS",
+            "XDG_CONFIG_DIRS"
         ]
         .iter()
         .any(|k| plain_get(k)));
     }
 
-    /// Linux run, failure 1294-2: `xdg-terminal-exec` with no list runs the first entry under
-    /// `xdg-terminals/` in the data hierarchy, so a terminal launch reads only trusted data dirs
-    /// (its data home is private) and refuses an untrusted terminal entry in them.
+    /// Linux run, failure 1294-2, and round 8, findings 1 and 2: a terminal launch reads only
+    /// trusted data and config dirs (its own homes are private) and refuses an untrusted terminal
+    /// entry or list in them, wherever an `xdg-terminal-exec` version looks.
     #[test]
-    fn terminal_data_dirs_table() {
+    fn terminal_dirs_table() {
         let base = || {
             let mut fs = MapFs::default();
             fs.dirs("/usr/share/applications");
+            fs.file("/usr/share/applications/xterm.desktop", ROOT, 0o644, "x");
             fs.dirs("/usr/local/share");
+            fs.dirs("/etc/xdg");
             fs.set("/home/me", ME, 0o40700);
+            fs.set("/home/me/.config", ME, 0o40700);
+            fs.set("/home/me/.config/kdedefaults", ME, 0o40700);
             fs.set("/home/me/.local", ME, 0o40700);
             fs.set("/home/me/.local/share", ME, 0o40700);
             fs.set("/home/me/.local/share/flatpak", ME, 0o40755);
@@ -1439,37 +1542,46 @@ mod tests {
             fs.set("/srv/shared", ROOT, 0o40777);
             fs
         };
-        let run = |fs: &MapFs, dirs: Option<&'static str>| {
+        let run = |fs: &MapFs, data: Option<&'static str>, config: Option<&'static str>| {
             let env = move |k: &str| match k {
                 "HOME" => Some("/home/me".to_string()),
                 "XDG_DATA_HOME" => Some("/home/me/.local/share".to_string()),
-                "XDG_DATA_DIRS" => dirs.map(String::from),
+                "XDG_DATA_DIRS" => data.map(String::from),
+                "XDG_CONFIG_DIRS" => config.map(String::from),
                 _ => None,
             };
-            terminal_data_dirs(fs, &env, "psyche.test.Term", ME)
+            match terminal_dirs(fs, &env, "psyche.test.Term", ME) {
+                Ok(d) => format!("ok {} | {}", d.data_dirs, d.config_dirs),
+                Err(e) => format!("{} {}", e.code, e.reason),
+            }
         };
-        let why = |r: CapResult<String>| match r {
-            Ok(v) => format!("ok {v}"),
-            Err(e) => format!("{} {}", e.code, e.reason),
-        };
+        const OK: &str = "ok /usr/local/share:/usr/share | /etc/xdg";
+        const REFUSED: &str = "policy_denied untrusted_terminal_choice";
         let session = Some(
             "/home/me/.local/share/flatpak/exports/share:/srv/shared:/usr/local/share:/usr/share:/usr/share",
         );
         // Untrusted entries are dropped (never vetted, so nothing planted later is read),
         // duplicates once, order kept; unset or empty means the spec's defaults.
-        assert_eq!(why(run(&base(), session)), "ok /usr/local/share:/usr/share");
-        assert_eq!(why(run(&base(), None)), "ok /usr/local/share:/usr/share");
+        assert_eq!(run(&base(), session, None), OK);
+        assert_eq!(run(&base(), None, None), OK);
+        assert_eq!(run(&base(), Some(""), Some("")), OK);
         assert_eq!(
-            why(run(&base(), Some(""))),
-            "ok /usr/local/share:/usr/share"
+            run(&base(), Some("relative/share:/usr/share"), None),
+            "ok /usr/share | /etc/xdg"
         );
+        // KDE's ~/.config/kdedefaults first in XDG_CONFIG_DIRS (round 8, finding 2): dropped.
         assert_eq!(
-            why(run(&base(), Some("relative/share:/usr/share"))),
-            "ok /usr/share"
+            run(
+                &base(),
+                session,
+                Some("/home/me/.config/kdedefaults:/etc/xdg:/etc/xdg")
+            ),
+            OK
         );
 
         // The planted file from the Linux run: in the owner's data home and in a dropped dir,
-        // nothing is read, so nothing is refused.
+        // nothing is read, so nothing is refused. Likewise a list in a dropped config dir and
+        // an entry in a dropped dir's applications/.
         let mut fs = base();
         fs.file(
             "/home/me/.local/share/xdg-terminals/aaa-evil.desktop",
@@ -1484,15 +1596,51 @@ mod tests {
             0o644,
             "x",
         );
-        assert_eq!(why(run(&fs, session)), "ok /usr/local/share:/usr/share");
+        fs.file(
+            "/home/me/.local/share/flatpak/exports/share/applications/evil.desktop",
+            ME,
+            0o644,
+            "[Desktop Entry]\nCategories=System;TerminalEmulator;\n",
+        );
+        fs.file(
+            "/home/me/.config/kdedefaults/kde-xdg-terminals.list",
+            ME,
+            0o644,
+            "evil.desktop",
+        );
+        assert_eq!(
+            run(&fs, session, Some("/home/me/.config/kdedefaults:/etc/xdg")),
+            OK
+        );
 
-        // A root-owned terminal list in a trusted dir is fine.
+        // Root-owned terminal entries and lists in trusted dirs are fine.
         let mut fs = base();
         fs.file("/usr/share/xdg-terminals/xterm.desktop", ROOT, 0o644, "x");
-        assert_eq!(why(run(&fs, session)), "ok /usr/local/share:/usr/share");
+        fs.file(
+            "/usr/share/xdg-terminal-exec/xdg-terminals.list",
+            ROOT,
+            0o644,
+            "x",
+        );
+        fs.file(
+            "/usr/share/applications/kde4/konsole.desktop",
+            ROOT,
+            0o644,
+            "x",
+        );
+        fs.file("/etc/xdg/xdg-terminals.list", ROOT, 0o644, "xterm.desktop");
+        assert_eq!(run(&fs, session, None), OK);
 
-        // In a trusted dir: an xdg-terminals dir or a file in it this account owns, a
-        // writable one, or a symlink to the owner's home is refused.
+        // A trusted data dir whose applications/ this account owns is dropped (newer
+        // xdg-terminal-exec reads terminal entries there).
+        let mut fs = base();
+        fs.set("/usr/local/share/applications", ME, 0o40755);
+        assert_eq!(run(&fs, session, None), "ok /usr/share | /etc/xdg");
+
+        // Refused, in a trusted dir: an xdg-terminals or xdg-terminal-exec dir or a file in it
+        // this account owns or anyone may write, a symlink to the owner's home; any applications/
+        // entry or subdir that fails the check; the system fallback lists; an untrusted
+        // *xdg-terminals.list in a kept config dir.
         type Case = (&'static str, fn(&mut MapFs));
         let cases: Vec<Case> = vec![
             ("own dir", |fs| {
@@ -1517,21 +1665,73 @@ mod tests {
                 );
                 fs.set("/home/me/.local/share/xdg-terminals", ME, 0o40755);
             }),
+            ("own terminal app entry", |fs| {
+                fs.file(
+                    "/usr/share/applications/evil.desktop",
+                    ME,
+                    0o644,
+                    "[Desktop Entry]\nCategories=System;TerminalEmulator;\n",
+                );
+            }),
+            ("own entry, any category", |fs| {
+                fs.file("/usr/share/applications/notes.desktop", ME, 0o644, "x");
+            }),
+            ("own subdir of applications", |fs| {
+                fs.set("/usr/share/applications/kde4", ME, 0o40755);
+            }),
+            ("own entry in a subdir", |fs| {
+                fs.file("/usr/share/applications/kde4/evil.desktop", ME, 0o644, "x");
+            }),
+            ("entry linked to the home", |fs| {
+                fs.link(
+                    "/usr/share/applications/evil.desktop",
+                    ROOT,
+                    "/home/me/.local/share/evil.desktop",
+                );
+                fs.file("/home/me/.local/share/evil.desktop", ME, 0o644, "x");
+            }),
+            ("own xdg-terminal-exec list in a data dir", |fs| {
+                fs.dirs("/usr/local/share/xdg-terminal-exec");
+                fs.file(
+                    "/usr/local/share/xdg-terminal-exec/xdg-terminals.list",
+                    ME,
+                    0o644,
+                    "evil.desktop",
+                );
+            }),
+            ("own config list", |fs| {
+                fs.file("/etc/xdg/kde-xdg-terminals.list", ME, 0o644, "evil.desktop");
+            }),
         ];
         for (name, case) in cases {
             let mut fs = base();
             case(&mut fs);
-            assert_eq!(
-                why(run(&fs, session)),
-                "policy_denied untrusted_terminal_choice",
-                "{name}"
-            );
+            assert_eq!(run(&fs, session, None), REFUSED, "{name}");
         }
+        // The system fallback lists are read whatever XDG_DATA_DIRS says, so they are vetted
+        // even when /usr/local/share is dropped from it.
+        let mut fs = base();
+        fs.dirs("/usr/local/share/xdg-terminal-exec");
+        fs.file(
+            "/usr/local/share/xdg-terminal-exec/xdg-terminals.list",
+            ME,
+            0o644,
+            "evil.desktop",
+        );
+        assert_eq!(run(&fs, Some("/usr/share"), None), REFUSED);
+        // A non-desktop file this account owns in applications/ is not a terminal entry.
+        let mut fs = base();
+        fs.file("/usr/share/applications/notes.txt", ME, 0o644, "x");
+        assert_eq!(run(&fs, session, None), OK);
 
         // Nothing trusted left: refused.
         assert_eq!(
-            why(run(&base(), Some("/srv/shared:/home/me/.local/share"))),
-            "policy_denied untrusted_terminal_choice"
+            run(&base(), Some("/srv/shared:/home/me/.local/share"), None),
+            REFUSED
+        );
+        assert_eq!(
+            run(&base(), session, Some("/home/me/.config/kdedefaults")),
+            REFUSED
         );
     }
 

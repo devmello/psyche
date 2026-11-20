@@ -936,7 +936,7 @@ impl A11y {
             let alive =
                 !state::has(&self.states_of(&a), state::DEFUNCT) && self.role_of(&a).is_some();
             if alive && self.in_active_window(&a) {
-                if pid.map_or(true, |p| self.pid_of_bus(&a.bus) == Some(p)) {
+                if pid.is_none_or(|p| self.pid_of_bus(&a.bus) == Some(p)) {
                     return Some(a);
                 }
             } else {
