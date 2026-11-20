@@ -793,7 +793,7 @@ export class GoalsService {
     } else {
       automation = await this.#o.scheduler.update(existing.id, fields);
     }
-    this.#patchNextCheckin(goal.id, automation.nextRunAt);
+    this.#patchNextCheckin(goal.id, automation.nextRunAt ?? null);
   }
 
   /** Writes only `nextCheckinAt` onto the current row: a write that landed meanwhile survives. */
