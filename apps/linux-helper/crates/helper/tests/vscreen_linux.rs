@@ -760,3 +760,19 @@ fn a_late_drop_of_an_old_display_leaves_the_new_one_alone() {
     );
     new.stop();
 }
+
+#[test]
+fn a_snap_app_is_refused_with_a_clear_reason_and_nothing_starts() {
+    let _guard = serial();
+    let snap_dir = PathBuf::from("/var/lib/snapd/desktop/applications");
+    if !snap_dir.join("firefox_firefox.desktop").is_file() {
+        eprintln!("skipping: no snap Firefox here");
+        return;
+    }
+    let dir = tempfile::tempdir().unwrap();
+    let (m, _idle) = manager(config(dir.path(), vec![snap_dir]));
+    let err = m.open_app("firefox_firefox").expect_err("refused");
+    assert_eq!(err.reason, "snap_unsupported");
+    assert!(err.message.contains("deb or Flatpak"), "{}", err.message);
+    assert!(!m.status().running, "no display was started for a snap");
+}
