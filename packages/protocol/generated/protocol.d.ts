@@ -12322,13 +12322,15 @@ export interface StorageCleared {
 
 export interface StorageUsage {
     categories: StorageCategory[];
+    partial?:   boolean;
     totalBytes: number;
 }
 
 export interface StorageCategory {
-    bytes:     number;
-    clearable: boolean;
-    id:        StorageCategoryID;
+    bytes:             number;
+    clearable:         boolean;
+    id:                StorageCategoryID;
+    reclaimableBytes?: number;
 }
 
 export type StorageCategoryID = "database" | "memoryIndex" | "library" | "browserProfiles" | "recordings" | "logs" | "caches" | "other";

@@ -19,7 +19,6 @@ export const keepAwake: Partial<Catalogue> = {
   "settings.updates.channel.stable": "Estável",
   "settings.updates.channel.note":
     "Estável é o único canal por enquanto. O Beta aparecerá aqui quando houver builds beta publicados. Toda atualização é verificada com a chave de versões do Psyche de qualquer forma.",
-  "settings.updates.saveFailed": "Não foi possível salvar o canal de versões ({reason}).",
   "settings.storage.title": "Armazenamento",
   "settings.storage.hint":
     "Espaço em disco que o Psyche usa na sua pasta de dados neste computador.",
@@ -30,7 +29,7 @@ export const keepAwake: Partial<Catalogue> = {
   "settings.storage.failed": "Não foi possível ler o uso do armazenamento ({reason}).",
   "settings.storage.confirm.title": "Limpar caches e gravações antigas?",
   "settings.storage.confirm.body":
-    "Isso apaga até {size} de caches e gravações do navegador com mais de 7 dias. O Psyche recria os caches quando precisa deles. Suas conversas, memória, Biblioteca, cofre e ajustes não são afetados.",
+    "Isso apaga {size} de caches e gravações do navegador com mais de 7 dias, junto com as entradas delas na Biblioteca. O Psyche recria os caches quando precisa deles. Suas conversas, memória, outros arquivos da Biblioteca, cofre e ajustes não são afetados.",
   "settings.storage.confirm.clear": "Limpar",
   "settings.storage.cat.database": "Banco de dados",
   "settings.storage.cat.memoryIndex": "Índice de memória",

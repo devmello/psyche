@@ -10,7 +10,6 @@ import {
   feedForChannel,
   serveVerifiedUpdate,
   switchToFullPackage,
-  UPDATE_CHANNEL_KEY,
   type UpdateCheck,
   type UpdaterStateFile,
   writeUpdaterState,
@@ -60,20 +59,6 @@ export interface UpdaterOptions {
   log?: (message: string) => void;
   /** `$PSYCHE_HOME/run/updater.json`: the result, for `psyche security audit`. */
   stateFile?: string;
-}
-
-/** Reads `updates.channel` through a Gateway call; any failure means the default channel. */
-export async function readUpdateChannel(
-  call: (method: string, params: unknown) => Promise<unknown>,
-): Promise<unknown> {
-  try {
-    const res = (await call("settings.get", { keys: [UPDATE_CHANNEL_KEY] })) as {
-      settings?: Record<string, unknown>;
-    };
-    return res.settings?.[UPDATE_CHANNEL_KEY];
-  } catch {
-    return undefined;
-  }
 }
 
 function stderrLog(message: string): void {
