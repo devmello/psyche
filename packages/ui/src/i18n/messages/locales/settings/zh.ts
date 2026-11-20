@@ -188,10 +188,10 @@ export const settings: Partial<Catalogue> = {
   "settings.browser.import.profile": "配置文件",
   "settings.browser.import.read": "读取登录",
   "settings.browser.import.reading": "正在读取…",
-  "settings.browser.import.noProfiles": "在这台 Mac 上没有找到带登录的 {browser} 配置文件。",
+  "settings.browser.import.noProfiles": "在这台电脑上没有找到带登录的 {browser} 配置文件。",
   "settings.browser.import.keychainHint":
     "macOS 会要求你输入密码，让 Psyche 解锁 {browser} 的登录。它们留在这台 Mac 上，绝不会进入聊天、日志或审计记录。",
-  "settings.browser.import.noneInstalled": "这台 Mac 上没有这些浏览器。",
+  "settings.browser.import.noneInstalled": "这台电脑上没有这些浏览器。",
   "settings.browser.import.unsupportedFda":
     "不支持 {browser}：读取它的登录需要“完全磁盘访问权限”，而 Psyche 不会申请。",
   "settings.browser.import.unsupportedPlatform":

@@ -192,10 +192,10 @@ export const settingsA: Partial<Catalogue> = {
   "settings.browser.import.read": "Ler sessões",
   "settings.browser.import.reading": "Lendo…",
   "settings.browser.import.noProfiles":
-    "Nenhum perfil do {browser} com sessões foi encontrado neste Mac.",
+    "Nenhum perfil do {browser} com sessões foi encontrado neste computador.",
   "settings.browser.import.keychainHint":
     "O macOS pede sua senha para que o Psyche desbloqueie as sessões do {browser}. Elas ficam neste Mac e nunca chegam ao chat, aos logs ou à auditoria.",
-  "settings.browser.import.noneInstalled": "Nenhum desses navegadores está neste Mac.",
+  "settings.browser.import.noneInstalled": "Nenhum desses navegadores está neste computador.",
   "settings.browser.import.unsupportedFda":
     "O {browser} não é compatível: ler as sessões dele exige acesso total ao disco, que o Psyche não pede.",
   "settings.browser.import.unsupportedPlatform":

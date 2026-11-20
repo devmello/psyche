@@ -242,10 +242,10 @@ export const settingsRest: Partial<Catalogue> = {
   "settings.browser.import.read": "Leggi gli accessi",
   "settings.browser.import.reading": "Lettura…",
   "settings.browser.import.noProfiles":
-    "Su questo Mac non è stato trovato alcun profilo di {browser} con accessi.",
+    "Su questo computer non è stato trovato alcun profilo di {browser} con accessi.",
   "settings.browser.import.keychainHint":
     "macOS ti chiede la password per permettere a Psyche di sbloccare gli accessi di {browser}. Restano su questo Mac e non arrivano mai alla chat, ai log o all’audit.",
-  "settings.browser.import.noneInstalled": "Nessuno di questi browser è su questo Mac.",
+  "settings.browser.import.noneInstalled": "Nessuno di questi browser è su questo computer.",
   "settings.browser.import.unsupportedFda":
     "{browser} non è supportato: leggere i suoi accessi richiede l’accesso completo al disco, che Psyche non chiede.",
   "settings.browser.import.unsupportedPlatform":

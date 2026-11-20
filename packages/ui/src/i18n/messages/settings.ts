@@ -841,10 +841,11 @@ export const settings = {
   "settings.browser.import.profile": "Profile",
   "settings.browser.import.read": "Read sign-ins",
   "settings.browser.import.reading": "Reading…",
-  "settings.browser.import.noProfiles": "No {browser} profile with sign-ins was found on this Mac.",
+  "settings.browser.import.noProfiles":
+    "No {browser} profile with sign-ins was found on this computer.",
   "settings.browser.import.keychainHint":
     "macOS asks for your password to let Psyche unlock {browser}'s sign-ins. They stay on this Mac and never reach the chat, the logs or the audit.",
-  "settings.browser.import.noneInstalled": "None of these browsers is on this Mac.",
+  "settings.browser.import.noneInstalled": "None of these browsers is on this computer.",
   "settings.browser.import.unsupportedFda":
     "{browser} isn't supported: reading its sign-ins needs Full Disk Access, which Psyche doesn't ask for.",
   "settings.browser.import.unsupportedPlatform":

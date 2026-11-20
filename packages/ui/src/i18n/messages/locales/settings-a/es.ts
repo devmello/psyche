@@ -189,10 +189,10 @@ export const settingsA: Partial<Catalogue> = {
   "settings.browser.import.read": "Leer inicios de sesión",
   "settings.browser.import.reading": "Leyendo…",
   "settings.browser.import.noProfiles":
-    "No se encontró ningún perfil de {browser} con inicios de sesión en este Mac.",
+    "No se encontró ningún perfil de {browser} con inicios de sesión en este ordenador.",
   "settings.browser.import.keychainHint":
     "macOS te pide tu contraseña para que Psyche desbloquee los inicios de sesión de {browser}. Se quedan en este Mac y nunca llegan al chat, los registros ni la auditoría.",
-  "settings.browser.import.noneInstalled": "Ninguno de estos navegadores está en este Mac.",
+  "settings.browser.import.noneInstalled": "Ninguno de estos navegadores está en este ordenador.",
   "settings.browser.import.unsupportedFda":
     "{browser} no es compatible: leer sus inicios de sesión requiere acceso total al disco, y Psyche no lo pide.",
   "settings.browser.import.unsupportedPlatform":

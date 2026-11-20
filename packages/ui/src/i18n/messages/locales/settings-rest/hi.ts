@@ -230,10 +230,10 @@ export const settingsRest: Partial<Catalogue> = {
   "settings.browser.import.profile": "प्रोफ़ाइल",
   "settings.browser.import.read": "साइन-इन पढ़ें",
   "settings.browser.import.reading": "पढ़ा जा रहा है…",
-  "settings.browser.import.noProfiles": "इस Mac पर साइन-इन वाली कोई {browser} प्रोफ़ाइल नहीं मिली।",
+  "settings.browser.import.noProfiles": "इस कंप्यूटर पर साइन-इन वाली कोई {browser} प्रोफ़ाइल नहीं मिली।",
   "settings.browser.import.keychainHint":
     "macOS आपका पासवर्ड माँगता है ताकि Psyche {browser} के साइन-इन खोल सके। वे इसी Mac पर रहते हैं और चैट, लॉग या ऑडिट तक कभी नहीं पहुँचते।",
-  "settings.browser.import.noneInstalled": "इनमें से कोई ब्राउज़र इस Mac पर नहीं है।",
+  "settings.browser.import.noneInstalled": "इनमें से कोई ब्राउज़र इस कंप्यूटर पर नहीं है।",
   "settings.browser.import.unsupportedFda":
     "{browser} समर्थित नहीं है: इसके साइन-इन पढ़ने के लिए फ़ुल डिस्क एक्सेस चाहिए, जो Psyche नहीं माँगता।",
   "settings.browser.import.unsupportedPlatform":

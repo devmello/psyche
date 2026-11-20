@@ -242,10 +242,11 @@ export const settingsRest: Partial<Catalogue> = {
   "settings.browser.import.read": "Lire les connexions",
   "settings.browser.import.reading": "Lecture…",
   "settings.browser.import.noProfiles":
-    "Aucun profil {browser} avec des connexions n’a été trouvé sur ce Mac.",
+    "Aucun profil {browser} avec des connexions n’a été trouvé sur cet ordinateur.",
   "settings.browser.import.keychainHint":
     "macOS vous demande votre mot de passe pour que Psyche déverrouille les connexions de {browser}. Elles restent sur ce Mac et n’atteignent jamais le chat, les journaux ni l’audit.",
-  "settings.browser.import.noneInstalled": "Aucun de ces navigateurs n’est installé sur ce Mac.",
+  "settings.browser.import.noneInstalled":
+    "Aucun de ces navigateurs n’est installé sur cet ordinateur.",
   "settings.browser.import.unsupportedFda":
     "{browser} n’est pas pris en charge : lire ses connexions exige l’accès complet au disque, que Psyche ne demande pas.",
   "settings.browser.import.unsupportedPlatform":

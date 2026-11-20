@@ -240,10 +240,11 @@ export const settingsRest: Partial<Catalogue> = {
   "settings.browser.import.read": "Anmeldungen lesen",
   "settings.browser.import.reading": "Wird gelesen…",
   "settings.browser.import.noProfiles":
-    "Auf diesem Mac wurde kein {browser}-Profil mit Anmeldungen gefunden.",
+    "Auf diesem Computer wurde kein {browser}-Profil mit Anmeldungen gefunden.",
   "settings.browser.import.keychainHint":
     "macOS fragt nach deinem Passwort, damit Psyche die Anmeldungen von {browser} entsperren kann. Sie bleiben auf diesem Mac und gelangen nie in den Chat, die Protokolle oder das Audit.",
-  "settings.browser.import.noneInstalled": "Keiner dieser Browser ist auf diesem Mac installiert.",
+  "settings.browser.import.noneInstalled":
+    "Keiner dieser Browser ist auf diesem Computer installiert.",
   "settings.browser.import.unsupportedFda":
     "{browser} wird nicht unterstützt: Zum Lesen der Anmeldungen ist der Festplattenvollzugriff nötig, und den fordert Psyche nicht an.",
   "settings.browser.import.unsupportedPlatform":

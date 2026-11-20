@@ -235,10 +235,10 @@ export const settingsRest: Partial<Catalogue> = {
   "settings.browser.import.read": "로그인 읽기",
   "settings.browser.import.reading": "읽는 중…",
   "settings.browser.import.noProfiles":
-    "이 Mac에서 로그인이 있는 {browser} 프로필을 찾지 못했습니다.",
+    "이 컴퓨터에서 로그인이 있는 {browser} 프로필을 찾지 못했습니다.",
   "settings.browser.import.keychainHint":
     "Psyche가 {browser}의 로그인을 열 수 있도록 macOS가 암호를 묻습니다. 로그인은 이 Mac에만 남고 채팅, 로그, 감사 기록에는 절대 전달되지 않습니다.",
-  "settings.browser.import.noneInstalled": "이 Mac에는 이 브라우저들이 없습니다.",
+  "settings.browser.import.noneInstalled": "이 컴퓨터에는 이 브라우저들이 없습니다.",
   "settings.browser.import.unsupportedFda":
     "{browser}은(는) 지원되지 않습니다. 로그인을 읽으려면 전체 디스크 접근 권한이 필요한데, Psyche는 이를 요청하지 않습니다.",
   "settings.browser.import.unsupportedPlatform":

@@ -200,10 +200,10 @@ export const settings: Partial<Catalogue> = {
   "settings.browser.import.read": "قراءة تسجيلات الدخول",
   "settings.browser.import.reading": "جارٍ القراءة…",
   "settings.browser.import.noProfiles":
-    "لم يُعثر على ملف شخصي في {browser} فيه تسجيلات دخول على هذا الـMac.",
+    "لم يُعثر على ملف شخصي في {browser} فيه تسجيلات دخول على هذا الكمبيوتر.",
   "settings.browser.import.keychainHint":
     "يطلب macOS كلمة السر ليتمكن Psyche من فتح تسجيلات الدخول في {browser}. تبقى على هذا الـMac ولا تصل أبدًا إلى الدردشة أو السجلات أو التدقيق.",
-  "settings.browser.import.noneInstalled": "لا يوجد أي من هذه المتصفحات على هذا الـMac.",
+  "settings.browser.import.noneInstalled": "لا يوجد أي من هذه المتصفحات على هذا الكمبيوتر.",
   "settings.browser.import.unsupportedFda":
     "{browser} غير مدعوم: قراءة تسجيلات الدخول فيه تتطلب الوصول الكامل إلى القرص، ولا يطلبه Psyche.",
   "settings.browser.import.unsupportedPlatform":

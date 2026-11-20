@@ -239,10 +239,10 @@ export const settingsRest: Partial<Catalogue> = {
   "settings.browser.import.read": "サインインを読み取る",
   "settings.browser.import.reading": "読み取り中…",
   "settings.browser.import.noProfiles":
-    "この Mac にはサインインのある {browser} のプロファイルが見つかりませんでした。",
+    "このコンピュータにはサインインのある {browser} のプロファイルが見つかりませんでした。",
   "settings.browser.import.keychainHint":
     "Psyche が {browser} のサインインを解除できるよう、macOS がパスワードを求めます。サインインはこの Mac に残り、チャット、ログ、監査には届きません。",
-  "settings.browser.import.noneInstalled": "この Mac にはこれらのブラウザがありません。",
+  "settings.browser.import.noneInstalled": "このコンピュータにはこれらのブラウザがありません。",
   "settings.browser.import.unsupportedFda":
     "{browser} には対応していません。サインインを読み取るにはフルディスクアクセスが必要ですが、Psyche はそれを求めません。",
   "settings.browser.import.unsupportedPlatform":
