@@ -173,17 +173,38 @@ fn write_private(path: &Path, bytes: &[u8]) -> Result<(), ConfigError> {
 }
 
 fn read_private(path: &Path) -> Result<Option<Vec<u8>>, ConfigError> {
-    let meta = match fs::symlink_metadata(path) {
-        Ok(m) => m,
+    // Opened without following a link, and judged on the open file: what is read is what was
+    // checked (as `identity::load_file`). A missing file is "not paired"; the directory is
+    // checked only once there is a file.
+    let mut handle = match fs::OpenOptions::new()
+        .read(true)
+        .custom_flags(libc::O_NOFOLLOW)
+        .open(path)
+    {
+        Ok(f) => f,
         Err(e) if e.kind() == std::io::ErrorKind::NotFound => return Ok(None),
+        Err(e) if e.raw_os_error() == Some(libc::ELOOP) => {
+            return Err(ConfigError::Unsafe(format!(
+                "{} must be a regular file, not a link",
+                path.display()
+            )))
+        }
         Err(e) => return Err(e.into()),
     };
     if let Some(dir) = path.parent() {
         check_dir(dir)?;
     }
+    let meta = handle.metadata()?;
     if !meta.file_type().is_file() {
         return Err(ConfigError::Unsafe(format!(
             "{} must be a regular file, not a link",
+            path.display()
+        )));
+    }
+    // SAFETY: geteuid has no preconditions and cannot fail.
+    if meta.uid() != unsafe { libc::geteuid() } {
+        return Err(ConfigError::Unsafe(format!(
+            "{} is not owned by this account",
             path.display()
         )));
     }
@@ -195,7 +216,9 @@ fn read_private(path: &Path) -> Result<Option<Vec<u8>>, ConfigError> {
             path.display()
         )));
     }
-    Ok(Some(fs::read(path)?))
+    let mut bytes = Vec::new();
+    std::io::Read::read_to_end(&mut handle, &mut bytes)?;
+    Ok(Some(bytes))
 }
 
 pub fn remote_path(config_dir: &Path) -> PathBuf {

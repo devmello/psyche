@@ -213,11 +213,26 @@ fn remote(dirs: &Dirs, env: &dyn Env) -> ExitCode {
         }
     };
 
+    // The same mode and NoNewPrivileges step as `serve`, before anything is registered.
+    #[cfg(target_os = "linux")]
+    let headless = match crate::headless::setup(true, env) {
+        Ok(h) => h,
+        Err((message, code)) => {
+            crate::log(&message);
+            return ExitCode::from(code);
+        }
+    };
     let idle = Arc::new(IdleTimer::new(None));
     #[allow(unused_mut)]
     let mut full = Registry::standard(BuildInfo::current());
+    // Direct computer use: offered if the remote allowlist and the ceiling let it through.
+    crate::direct::register(&mut full);
     #[cfg(target_os = "linux")]
     let vscreen = crate::vscreen::register(&mut full, env, Arc::clone(&idle));
+    #[cfg(target_os = "linux")]
+    if headless {
+        crate::headless::install(Arc::clone(&vscreen));
+    }
     #[cfg(not(target_os = "linux"))]
     let _ = &idle;
     let (registry, dropped) = machine_registry(&full, dirs, env);
