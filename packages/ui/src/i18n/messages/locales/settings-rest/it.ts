@@ -693,7 +693,8 @@ export const settingsRest: Partial<Catalogue> = {
   "settings.access.reconnectPrompt": "Ricollegare {name}? Ora si trova in {path}",
   "settings.access.reconnect": "Ricollega",
   "settings.access.reconnectNamed": "Ricollega {name} a {path}",
-  "settings.access.reconnectFailed": "{name} è stato spostato di nuovo o non si può ricollegare. L'elenco è stato aggiornato.",
+  "settings.access.reconnectFailed":
+    "{name} è stato spostato di nuovo o non si può ricollegare. L'elenco è stato aggiornato.",
   "settings.model.advancedHint": "Limiti di contesto, modelli locali",
   "settings.permissions.subject.prepNotes": "Note intitolate “Prep:” (preparazione riunioni)",
   "settings.permissions.specificConnectors":

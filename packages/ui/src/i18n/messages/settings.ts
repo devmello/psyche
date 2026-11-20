@@ -1790,7 +1790,8 @@ export const settings = {
   "settings.access.reconnectPrompt": "Reconnect {name}? It is now at {path}",
   "settings.access.reconnect": "Reconnect",
   "settings.access.reconnectNamed": "Reconnect {name} to {path}",
-  "settings.access.reconnectFailed": "{name} moved again or can't be reconnected. The list was refreshed.",
+  "settings.access.reconnectFailed":
+    "{name} moved again or can't be reconnected. The list was refreshed.",
   "settings.files.sharedFolders": "Shared folders",
   "settings.files.noFolders": "No folders shared. {persona} works only in its own workspace.",
   "settings.files.shareFolder": "Share a folder",

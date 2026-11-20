@@ -679,7 +679,8 @@ export const settingsRest: Partial<Catalogue> = {
   "settings.access.reconnectPrompt": "{name} を再接続しますか？現在は {path} にあります",
   "settings.access.reconnect": "再接続",
   "settings.access.reconnectNamed": "{name} を {path} に再接続",
-  "settings.access.reconnectFailed": "{name} が再び移動されたか、再接続できません。リストを更新しました。",
+  "settings.access.reconnectFailed":
+    "{name} が再び移動されたか、再接続できません。リストを更新しました。",
   "settings.model.advancedHint": "コンテキストの上限、ローカルモデル",
   "settings.permissions.subject.prepNotes": "「Prep:」で始まるタイトルのメモ（会議の準備）",
   "settings.permissions.specificConnectors":

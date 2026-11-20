@@ -660,7 +660,8 @@ export const settingsRest: Partial<Catalogue> = {
   "settings.access.reconnectPrompt": "{name} को फिर से जोड़ें? यह अब {path} पर है",
   "settings.access.reconnect": "फिर से जोड़ें",
   "settings.access.reconnectNamed": "{name} को {path} से फिर से जोड़ें",
-  "settings.access.reconnectFailed": "{name} फिर से हटा दिया गया या दोबारा नहीं जोड़ा जा सकता। सूची ताज़ा की गई।",
+  "settings.access.reconnectFailed":
+    "{name} फिर से हटा दिया गया या दोबारा नहीं जोड़ा जा सकता। सूची ताज़ा की गई।",
   "settings.model.advancedHint": "संदर्भ की सीमाएँ, लोकल मॉडल",
   "settings.permissions.subject.prepNotes": "“Prep:” शीर्षक वाले नोट्स (मीटिंग की तैयारी)",
   "settings.permissions.specificConnectors":
