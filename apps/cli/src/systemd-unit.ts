@@ -15,6 +15,8 @@ import { join } from "node:path";
 
 export const GATEWAY_UNIT = "psyche-gateway.service";
 export const HELPER_UNIT = "psyche-helper.service";
+/** The Host helper for a box with no graphical session (helper-only design §3.3, §7.2, B0). */
+export const HEADLESS_HELPER_UNIT = "psyche-helper-headless.service";
 
 /** Set in the desktop profile's header so a reader can tell who owns the file. */
 export const DESKTOP_UNIT_MARKER = "# Managed by the Psyche desktop app";
@@ -179,6 +181,34 @@ After=graphical-session.target
 Type=simple
 ExecStart=${execLine(input.program, input.args)}
 ${env === "" ? "" : `${env}\n`}Restart=no
+`;
+}
+
+/**
+ * `psyche-helper-headless.service` (helper-only design §3.3, §7.2): the Host helper on a box with
+ * no graphical session. psyched starts it on demand (`systemctl --user start`) when logind reports
+ * no graphical session, so it has no `[Install]` section and, unlike {@link renderHelperUnit}, no
+ * `graphical-session.target` (which never starts there). `--display headless` makes the helper's
+ * own virtual screen its only screen; the helper exits when idle. `NoNewPrivileges` is inherited
+ * by every app and command it starts. It pairs as the Host helper like the graphical one: same
+ * socket, same handshake secret, same peer check.
+ */
+export function renderHeadlessHelperUnit(input: HelperUnitInput): string {
+  const env = envLines([["PSYCHE_HOME", input.psycheHome]]);
+  const args = ["--display", "headless", ...(input.args ?? [])];
+  return `${DESKTOP_UNIT_MARKER}, or packaged next to the Gateway's unit.
+# Started on demand by psyched (systemctl --user start ${HEADLESS_HELPER_UNIT}) when no graphical
+# session exists; no [Install] section. Needs linger: loginctl enable-linger "$USER"
+[Unit]
+Description=Psyche Helper (headless Host, on demand)
+After=default.target
+
+[Service]
+Type=simple
+ExecStart=${execLine(input.program, args)}
+${env === "" ? "" : `${env}\n`}Restart=no
+# Nothing the helper starts (apps, commands) can gain privileges: no sudo, pkexec or setuid.
+NoNewPrivileges=yes
 `;
 }
 

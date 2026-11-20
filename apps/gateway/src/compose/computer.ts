@@ -1,4 +1,3 @@
-import { execFile } from "node:child_process";
 import { hashCanonical } from "@psyche/audit";
 import type { CallContext } from "@psyche/browser";
 import { getSetting, listNodes } from "@psyche/db";
@@ -35,7 +34,14 @@ import { type Static, type TSchema, Type } from "@sinclair/typebox";
 import type { Logger } from "../log.ts";
 import type { Gateway } from "../server.ts";
 import { ATTENTION_WINDOW_MS } from "./attention.ts";
-import { createLinuxComputerState } from "./computer-linux.ts";
+import {
+  createLinuxComputerState,
+  hasGraphicalSession,
+  startHelperWithSystemd,
+} from "./computer-linux.ts";
+
+export { startHelperWithSystemd };
+
 import { APP_ID_PATTERN, COMPUTER_USE_ENABLED, computerUseSettings } from "./computer-settings.ts";
 import { assertOpenAllowed, assertScriptAllowed } from "./script-guard.ts";
 import type { ComposedPart, ComposeServices } from "./services.ts";
@@ -638,6 +644,12 @@ export interface ComputerDeps {
    * macOS and Windows, which never start it from here. A rejection means "no graphical session".
    */
   startHelper?(signal: AbortSignal): Promise<void>;
+  /**
+   * Linux: whether logind reports a graphical session. Without one the Host helper runs headless
+   * (B0): `direct` answers `unavailable` with `details.reason: "no_graphical_session"`, and
+   * `virtual_screen` is served by the headless helper's private screen.
+   */
+  graphicalSession?(): Promise<boolean>;
   /** How long to wait for the started helper to connect (default 5 s, polling every 100 ms). */
   helperWait?: { timeoutMs: number; pollMs: number };
   /** A direct computer-use session ended (run or Task end, Esc): Linux refreshes its state. */
@@ -1003,8 +1015,50 @@ export function createComputerUse(deps: ComputerDeps): ComputerUse {
     return s;
   }
 
+  /**
+   * The Host's own private screen (B0): with no graphical session the headless helper, started on
+   * demand, serves `virtual_screen` calls itself. A graphical Host never uses it.
+   */
+  const headlessHostRouter: SurfaceRouter | undefined =
+    deps.startHelper === undefined || deps.graphicalSession === undefined
+      ? undefined
+      : {
+          async invoke(call) {
+            if (await deps.graphicalSession?.()) {
+              throw new PsycheError(
+                "unavailable",
+                `The virtual screen is not set up on ${hostWords().thisDevice}, so computer use cannot run there.`,
+                { details: { reason: "surface_unavailable", surface: call.surface } },
+              );
+            }
+            const node = await requireHelper(call.signal);
+            return node.client.invoke(
+              call.capability,
+              { ...call.params, surface: "virtual_screen" },
+              {
+                signal: call.signal,
+                timeoutMs: call.timeoutMs,
+                ...(call.approvalId === undefined ? {} : { approvalId: call.approvalId }),
+              },
+            );
+          },
+          async endSession(session) {
+            const node = deps.helper();
+            if (node === undefined) return;
+            await node.client
+              .invoke(
+                "computer.end_session",
+                { session, surface: "virtual_screen" },
+                { timeoutMs: 5_000 },
+              )
+              .catch(() => undefined);
+          },
+        };
+
   const routerFor = (surface: RoutedSurface): SurfaceRouter | undefined =>
-    deps.surfaces?.[surface] ?? surfaceRouters.get(surface);
+    deps.surfaces?.[surface] ??
+    surfaceRouters.get(surface) ??
+    (surface === "virtual_screen" ? headlessHostRouter : undefined);
 
   /**
    * Drops a session the helper already ended or abandoned (idle yield, Esc, helper gone). The
@@ -1099,6 +1153,13 @@ export function createComputerUse(deps: ComputerDeps): ComputerUse {
     signal: AbortSignal,
   ): Promise<Target> {
     if (surface === "direct") {
+      if (deps.graphicalSession !== undefined && !(await deps.graphicalSession())) {
+        throw new PsycheError(
+          "unavailable",
+          "Needs a graphical session on this computer. Use the virtual screen instead.",
+          { details: { reason: "no_graphical_session" } },
+        );
+      }
       const node = await requireHelper(signal);
       return {
         nodeId: node.nodeId,
@@ -2990,21 +3051,6 @@ export function computerHelper(gateway: () => Gateway | undefined): () => Helper
 }
 
 /**
- * Linux only: starts the Host helper (`systemctl --user start psyche-helper.service`, no shell,
- * fixed arguments). Rejects when systemd cannot start it, e.g. without a graphical session.
- */
-export function startHelperWithSystemd(signal?: AbortSignal): Promise<void> {
-  return new Promise((resolve, reject) => {
-    execFile(
-      "systemctl",
-      ["--user", "start", "psyche-helper.service"],
-      { timeout: 10_000, windowsHide: true, ...(signal === undefined ? {} : { signal }) },
-      (err) => (err === null ? resolve() : reject(err)),
-    );
-  });
-}
-
-/**
  * Which Apple-only tools to register for a Host helper: `undefined` means all of them (macOS and
  * Windows keep registering every tool). On Linux there are none unless the helper's manifest
  * lists the capability; with no information about the helper yet, none.
@@ -3058,7 +3104,12 @@ export function composeComputer(services: ComposeServices): ComposedPart {
       const runId = services.calls.get(callId)?.runId;
       if (runId !== undefined) gateway?.context.runTrace.addFrame(runId, callId, frame);
     },
-    ...(onLinux ? { startHelper: startHelperWithSystemd } : {}),
+    ...(onLinux
+      ? {
+          startHelper: (signal: AbortSignal) => startHelperWithSystemd(signal),
+          graphicalSession: () => hasGraphicalSession(),
+        }
+      : {}),
     ...(linux === undefined ? {} : { sessionEnded: () => void linux.refresh() }),
   });
 
