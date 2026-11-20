@@ -507,6 +507,122 @@ fn unit_entry_affects(unit: &str, entry: &str) -> bool {
         .any(|(i, c)| c == '-' && entry == format!("{}.{kind}.d", &stem[..=i]))
 }
 
+/// `Alias=` names from a unit file's `[Install]` group (space-separated, an empty assignment
+/// clears the list, as systemd reads it).
+fn install_aliases(text: &str) -> Vec<String> {
+    let mut out: Vec<String> = Vec::new();
+    let mut in_install = false;
+    for line in text.lines() {
+        let line = line.trim();
+        if line.starts_with('[') {
+            in_install = line == "[Install]";
+            continue;
+        }
+        if !in_install || line.starts_with('#') || line.starts_with(';') {
+            continue;
+        }
+        if let Some((k, v)) = line.split_once('=') {
+            if k.trim() == "Alias" {
+                if v.trim().is_empty() {
+                    out.clear();
+                }
+                out.extend(v.split_whitespace().map(String::from));
+            }
+        }
+    }
+    out
+}
+
+/// `path` with `.` and `..` folded away, without touching the file system.
+fn lexical(path: &Path) -> PathBuf {
+    let mut out = PathBuf::new();
+    for c in path.components() {
+        match c {
+            Component::ParentDir => {
+                out.pop();
+            }
+            Component::CurDir => {}
+            other => out.push(other),
+        }
+    }
+    out
+}
+
+/// How many alias symlinks [`systemd_unit_names`] follows.
+const MAX_ALIAS_HOPS: usize = 8;
+
+/// Every name systemd knows `unit` by, for the drop-in scan (round-5 review, finding 5.2): the
+/// name itself, the target name of each alias symlink followed from the first trusted unit dir
+/// that holds it, and the `[Install] Alias=` names of the real unit file. `trusted[i]` says
+/// whether `dirs[i]` passes [`check`]. A unit in no trusted dir is left to the scan of the
+/// untrusted ones. Refused: an alias that points outside the trusted unit dirs (into a user dir,
+/// at `/dev/null`, at a linked unit elsewhere), is this account's, or does not end within
+/// [`MAX_ALIAS_HOPS`]; and a real unit file in a trusted dir that fails [`check`].
+fn systemd_unit_names(
+    fs: &dyn FsView,
+    dirs: &[PathBuf],
+    trusted: &[bool],
+    unit: &str,
+    own_uid: u32,
+) -> Result<Vec<String>, (PathBuf, &'static str)> {
+    let mut names = vec![unit.to_string()];
+    let trusted_dirs: Vec<PathBuf> = dirs
+        .iter()
+        .zip(trusted)
+        .filter(|(_, t)| **t)
+        .map(|(d, _)| lexical(d))
+        .collect();
+    let Some(mut entry) = trusted_dirs
+        .iter()
+        .map(|d| d.join(unit))
+        .find(|e| fs.lstat(e).is_some())
+    else {
+        return Ok(names);
+    };
+    for _ in 0..=MAX_ALIAS_HOPS {
+        let Some(meta) = fs.lstat(&entry) else {
+            // A dangling alias: nothing to load from the trusted dirs, and the target's name is
+            // in `names` for the scan of the untrusted ones.
+            return Ok(names);
+        };
+        if !meta.is_symlink {
+            if check(fs, &entry, own_uid).is_err() {
+                return Err((entry, "untrusted_systemd_unit"));
+            }
+            let aliases = fs
+                .read(&entry)
+                .map(|b| install_aliases(&String::from_utf8_lossy(&b)))
+                .unwrap_or_default();
+            for a in aliases {
+                if !names.contains(&a) {
+                    names.push(a);
+                }
+            }
+            return Ok(names);
+        }
+        let parent = entry.parent().map(Path::to_path_buf).unwrap_or_default();
+        let target = (meta.uid != own_uid)
+            .then(|| fs.read_link(&entry))
+            .flatten()
+            .map(|t| lexical(&parent.join(t)));
+        let next = target.as_ref().and_then(|t| {
+            let in_trusted = t
+                .parent()
+                .is_some_and(|p| trusted_dirs.iter().any(|d| d == p));
+            let name = t.file_name()?.to_str()?.to_string();
+            in_trusted.then_some(name)
+        });
+        let (Some(target), Some(next)) = (target, next) else {
+            return Err((entry, "untrusted_systemd_alias"));
+        };
+        if !names.contains(&next) {
+            names.push(next);
+        }
+        entry = target;
+    }
+    Err((entry, "untrusted_systemd_alias"))
+}
+
 /// `policy_denied/untrusted_dbus_activation`.
 fn untrusted_dbus(id: &str, name: &str, at: Option<&Path>, why: &'static str) -> CapError {
     let message = if at.is_none() {
@@ -528,18 +644,23 @@ fn untrusted_dbus(id: &str, name: &str, at: Option<&Path>, why: &'static str) ->
     e
 }
 
-/// The D-Bus side of `apps.open` (round-4 review, finding 3). For a `DBusActivatable=true`
-/// entry GLib skips `Exec=` and activates the bus name `file`'s basename gives; the session bus
-/// then runs the first service file that names it, and with `SystemdService=` a systemd user
-/// unit. `file` and `contents` are the trusted desktop file [`launchable_desktop_file`] picked.
-/// The launch is allowed only when:
-/// - a `<name>.service` with `Name=<name>` passes [`check`] in a service dir that passes it;
+/// The D-Bus side of `apps.open` (round-4 review, finding 3; round 5, finding 5). For a
+/// `DBusActivatable=true` entry GLib skips `Exec=` and activates the bus name `file`'s basename
+/// gives; the session bus then runs the first service file, in its dir order, whose `Name=` is
+/// that name (whatever the file is called), and with `SystemdService=` a systemd user unit.
+/// `file` and `contents` are the trusted desktop file [`launchable_desktop_file`] picked. The
+/// launch is allowed only when:
+/// - the first service dir that passes [`check`] and holds a `.service` file with
+///   `Name=<name>` holds exactly one (several are `ambiguous_service_files`: the bus takes
+///   whichever it reads first), and that file passes [`check`];
 /// - no service dir that fails [`check`] (`$XDG_RUNTIME_DIR`, `$XDG_DATA_HOME`, an untrusted
 ///   `$XDG_DATA_DIRS` entry, user Flatpak exports) holds a `<name>.service` or any `.service`
-///   file whose `Name=` is `<name>` (the session bus does not insist on the file name there);
-///   nor does a trusted dir hold a `<name>.service` that fails [`check`];
-/// - with `SystemdService=<unit>`, no unit dir that fails [`check`] holds that unit, its
-///   template, or a drop-in or dependency dir for it ([`unit_entry_affects`]).
+///   file whose `Name=` is `<name>`; nor does a trusted dir hold such a file that fails
+///   [`check`];
+/// - with `SystemdService=<unit>` on the winning file, the unit's aliases resolve within the
+///   trusted unit dirs ([`systemd_unit_names`]), and no unit dir that fails [`check`] holds,
+///   for the unit or any of its names, the unit, its template, or a drop-in or dependency dir
+///   for it ([`unit_entry_affects`]), nor a symlink that makes another name an alias of it.
 ///
 /// Not checked: entries that are not `DBusActivatable`, and basenames that are not bus names
 /// (GLib runs `Exec=` for both).
@@ -563,12 +684,18 @@ pub fn check_dbus_activation(
         return Ok(());
     };
     let want = format!("{name}.service");
-    // The trusted service file the bus would use, and its `SystemdService=`.
+    let keys = |f: &Path| {
+        fs.read(f)
+            .map(|b| dbus_service_keys(&String::from_utf8_lossy(&b)))
+            .unwrap_or_default()
+    };
+    // The `SystemdService=` of the trusted service file the bus would use.
     let mut provider: Option<Option<String>> = None;
     for dir in dbus_service_dirs(env, own_uid) {
         let dir_trusted = check(fs, &dir, own_uid).is_ok();
         let mut files = fs.list(&dir);
         files.sort();
+        let mut claims: Vec<(PathBuf, Option<String>)> = Vec::new();
         for f in files {
             let Some(fname) = f.file_name().and_then(|x| x.to_str()) else {
                 continue;
@@ -577,44 +704,53 @@ pub fn check_dbus_activation(
                 continue;
             }
             let by_file_name = fname == want;
-            if dir_trusted {
-                if !by_file_name {
-                    continue;
-                }
-                if check(fs, &f, own_uid).is_err() {
-                    return Err(untrusted_dbus(id, name, Some(&f), "untrusted_service_file"));
-                }
-                let (svc_name, unit) = fs
-                    .read(&f)
-                    .map(|b| dbus_service_keys(&String::from_utf8_lossy(&b)))
-                    .unwrap_or_default();
-                if provider.is_none() && svc_name.as_deref() == Some(name) {
-                    provider = Some(unit);
-                }
-            } else {
-                let names_it = by_file_name
-                    || fs.read(&f).is_some_and(|b| {
-                        dbus_service_keys(&String::from_utf8_lossy(&b)).0.as_deref() == Some(name)
-                    });
-                if names_it {
+            if !dir_trusted {
+                if by_file_name || keys(&f).0.as_deref() == Some(name) {
                     return Err(untrusted_dbus(id, name, Some(&f), "user_service_file"));
                 }
+                continue;
             }
+            let (svc_name, unit) = keys(&f);
+            let claims_it = svc_name.as_deref() == Some(name);
+            if (by_file_name || claims_it) && check(fs, &f, own_uid).is_err() {
+                return Err(untrusted_dbus(id, name, Some(&f), "untrusted_service_file"));
+            }
+            if claims_it {
+                claims.push((f, unit));
+            }
+        }
+        if provider.is_none() {
+            if let Some((second, _)) = claims.get(1) {
+                return Err(untrusted_dbus(
+                    id,
+                    name,
+                    Some(second),
+                    "ambiguous_service_files",
+                ));
+            }
+            provider = claims.pop().map(|(_, unit)| unit);
         }
     }
     let Some(unit) = provider else {
         return Err(untrusted_dbus(id, name, None, "no_system_service"));
     };
     if let Some(unit) = unit {
-        for dir in systemd_user_unit_dirs(env, own_uid) {
-            if check(fs, &dir, own_uid).is_ok() {
-                continue;
-            }
-            for e in fs.list(&dir) {
-                if e.file_name()
-                    .and_then(|f| f.to_str())
-                    .is_some_and(|f| unit_entry_affects(&unit, f))
-                {
+        let dirs = systemd_user_unit_dirs(env, own_uid);
+        let trusted: Vec<bool> = dirs.iter().map(|d| check(fs, d, own_uid).is_ok()).collect();
+        let names = systemd_unit_names(fs, &dirs, &trusted, &unit, own_uid)
+            .map_err(|(at, why)| untrusted_dbus(id, name, Some(&at), why))?;
+        for (dir, _) in dirs.iter().zip(&trusted).filter(|(_, t)| !**t) {
+            for e in fs.list(dir) {
+                let Some(f) = e.file_name().and_then(|f| f.to_str()) else {
+                    continue;
+                };
+                // A user symlink naming one of the unit's names makes its own name an alias.
+                let aliases_it = fs.lstat(&e).is_some_and(|m| m.is_symlink)
+                    && fs
+                        .read_link(&e)
+                        .and_then(|t| t.file_name().and_then(|x| x.to_str()).map(String::from))
+                        .is_some_and(|t| names.contains(&t));
+                if aliases_it || names.iter().any(|n| unit_entry_affects(n, f)) {
                     return Err(untrusted_dbus(id, name, Some(&e), "user_systemd_unit"));
                 }
             }
@@ -1587,6 +1723,215 @@ mod tests {
             "",
         );
         assert!(dbus_check(&fs, DBUS_ENTRY).is_ok());
+    }
+
+    fn service_body(systemd: &str) -> String {
+        format!("[D-BUS Service]\nName=org.gnome.TextEditor\nExec=/usr/bin/gnome-text-editor --gapplication-service\nSystemdService={systemd}\n")
+    }
+
+    #[test]
+    fn the_provider_is_the_first_file_that_names_the_bus_name() {
+        let unit = "app-gnome-text-editor.service";
+        let base = || {
+            let mut fs = MapFs::default();
+            dbus_home(&mut fs);
+            fs.file(
+                &format!("/usr/lib/systemd/user/{unit}"),
+                ROOT,
+                0o644,
+                "[Service]\nExecStart=/usr/bin/gnome-text-editor\n",
+            );
+            fs
+        };
+        // The provider under another file name is found, and its SystemdService= is the unit
+        // that is checked.
+        let mut fs = base();
+        fs.file(
+            "/usr/share/dbus-1/services/gnome-text-editor.service",
+            ROOT,
+            0o644,
+            &service_body(unit),
+        );
+        assert!(dbus_check(&fs, DBUS_ENTRY).is_ok());
+        fs.file(
+            &format!("/home/me/.config/systemd/user/{unit}.d/evil.conf"),
+            ME,
+            0o644,
+            "[Service]\nExecStartPre=/bin/sh -c evil\n",
+        );
+        assert_eq!(dbus_why(dbus_check(&fs, DBUS_ENTRY)), "user_systemd_unit");
+        // Such a provider that fails the trust rule is refused.
+        let mut fs = base();
+        fs.file(
+            "/usr/share/dbus-1/services/gnome-text-editor.service",
+            ME,
+            0o644,
+            &service_body(unit),
+        );
+        assert_eq!(
+            dbus_why(dbus_check(&fs, DBUS_ENTRY)),
+            "untrusted_service_file"
+        );
+        // Two files claiming the name in the winning dir: whichever the bus reads first wins.
+        let mut fs = base();
+        system_service(&mut fs, None);
+        fs.file(
+            "/usr/share/dbus-1/services/gnome-text-editor.service",
+            ROOT,
+            0o644,
+            &service_body(unit),
+        );
+        assert_eq!(
+            dbus_why(dbus_check(&fs, DBUS_ENTRY)),
+            "ambiguous_service_files"
+        );
+        // An earlier trusted dir's provider wins over a later one: only its unit is checked.
+        let other = "org.gnome.TextEditor-old.service";
+        let mut fs = base();
+        fs.file(
+            "/usr/local/share/dbus-1/services/local-editor.service",
+            ROOT,
+            0o644,
+            &service_body(unit),
+        );
+        fs.file(
+            "/usr/share/dbus-1/services/org.gnome.TextEditor.service",
+            ROOT,
+            0o644,
+            &service_body(other),
+        );
+        // Two claims in the later dir do not count either: it does not win.
+        fs.file(
+            "/usr/share/dbus-1/services/zz-editor.service",
+            ROOT,
+            0o644,
+            &service_body(other),
+        );
+        fs.file(
+            &format!("/home/me/.config/systemd/user/{other}"),
+            ME,
+            0o644,
+            "",
+        );
+        assert!(dbus_check(&fs, DBUS_ENTRY).is_ok());
+        fs.file(
+            &format!("/home/me/.config/systemd/user/{unit}"),
+            ME,
+            0o644,
+            "",
+        );
+        assert_eq!(dbus_why(dbus_check(&fs, DBUS_ENTRY)), "user_systemd_unit");
+    }
+
+    #[test]
+    fn systemd_aliases_resolve_to_real_units_before_the_drop_in_scan() {
+        let alias = "dbus-org.gnome.TextEditor.service";
+        let real = "org.gnome.TextEditor.service";
+        let with_link = |target: &str| {
+            let mut fs = MapFs::default();
+            dbus_home(&mut fs);
+            system_service(&mut fs, Some(alias));
+            fs.file(
+                &format!("/usr/lib/systemd/user/{real}"),
+                ROOT,
+                0o644,
+                "[Service]\nExecStart=/usr/bin/gnome-text-editor\n[Install]\nAlias=org.gnome.Editor.service\n",
+            );
+            fs.link(&format!("/usr/lib/systemd/user/{alias}"), ROOT, target);
+            fs
+        };
+        // The alias resolves within trusted dirs (relative or absolute) and no user unit
+        // touches any of its names: launched. A same-name link from /etc to /usr/lib too.
+        assert!(dbus_check(&with_link(real), DBUS_ENTRY).is_ok());
+        assert!(dbus_check(
+            &with_link(&format!("/usr/lib/systemd/user/{real}")),
+            DBUS_ENTRY
+        )
+        .is_ok());
+        let mut fs = with_link(real);
+        fs.link(
+            &format!("/etc/systemd/user/{alias}"),
+            ROOT,
+            &format!("/usr/lib/systemd/user/{alias}"),
+        );
+        assert!(dbus_check(&fs, DBUS_ENTRY).is_ok());
+        // A user drop-in, unit or template for the real name, or for an [Install] Alias= name.
+        for path in [
+            format!("/home/me/.config/systemd/user/{real}.d/override.conf"),
+            format!("/home/me/.config/systemd/user/{real}"),
+            "/home/me/.local/share/systemd/user/org.gnome.Editor.service.d/x.conf".to_string(),
+            format!("/run/user/1000/systemd/user/{real}.wants/evil.service"),
+            "/home/me/.config/systemd/user/dbus-.service.d/x.conf".to_string(),
+        ] {
+            let mut fs = with_link(real);
+            fs.file(
+                &path,
+                ME,
+                0o644,
+                "[Service]\nExecStartPre=/bin/sh -c evil\n",
+            );
+            assert_eq!(
+                dbus_why(dbus_check(&fs, DBUS_ENTRY)),
+                "user_systemd_unit",
+                "{path}"
+            );
+        }
+        // A user symlink that makes another name an alias of the real unit.
+        let mut fs = with_link(real);
+        fs.link(
+            "/home/me/.config/systemd/user/innocent.service",
+            ME,
+            &format!("/usr/lib/systemd/user/{real}"),
+        );
+        assert_eq!(dbus_why(dbus_check(&fs, DBUS_ENTRY)), "user_systemd_unit");
+        // The alias points into a user dir, outside every unit dir, or at /dev/null.
+        for target in [
+            format!("/home/me/.config/systemd/user/{real}"),
+            format!("/opt/units/{real}"),
+            "/dev/null".to_string(),
+        ] {
+            let mut fs = with_link(&target);
+            fs.file(&format!("/opt/units/{real}"), ROOT, 0o644, "");
+            assert_eq!(
+                dbus_why(dbus_check(&fs, DBUS_ENTRY)),
+                "untrusted_systemd_alias",
+                "{target}"
+            );
+        }
+        // An alias loop, and an alias link this account owns.
+        let mut fs = with_link("b.service");
+        fs.link("/usr/lib/systemd/user/b.service", ROOT, alias);
+        assert_eq!(
+            dbus_why(dbus_check(&fs, DBUS_ENTRY)),
+            "untrusted_systemd_alias"
+        );
+        let mut fs = with_link(real);
+        fs.link(&format!("/usr/lib/systemd/user/{alias}"), ME, real);
+        assert_eq!(
+            dbus_why(dbus_check(&fs, DBUS_ENTRY)),
+            "untrusted_systemd_alias"
+        );
+        // The real unit file in a trusted dir is this account's.
+        let mut fs = with_link(real);
+        fs.file(&format!("/usr/lib/systemd/user/{real}"), ME, 0o644, "");
+        assert_eq!(
+            dbus_why(dbus_check(&fs, DBUS_ENTRY)),
+            "untrusted_systemd_unit"
+        );
+    }
+
+    #[test]
+    fn install_aliases_follow_systemd() {
+        assert_eq!(
+            install_aliases(
+                "[Unit]\nAlias=no.service\n[Install]\nAlias=a.service b.service\n# Alias=c.service\nAlias=d.service\n"
+            ),
+            vec!["a.service", "b.service", "d.service"]
+        );
+        assert_eq!(
+            install_aliases("[Install]\nAlias=a.service\nAlias=\nAlias=e.service\n"),
+            vec!["e.service"]
+        );
     }
 
     #[test]
