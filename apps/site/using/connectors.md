@@ -92,7 +92,7 @@ There is no shopping connector in the Gateway. The agent compares prices and bui
 - **Web search: only Brave can be set from Settings.** Settings can save a Brave Search key. Exa, Tavily and SearXNG are implemented but cannot be set there. The agent opens pages in its browser instead.
 - **Custom HTTP headers and a working directory cannot be set from Settings yet.** Use `psyche config set mcp.servers` for those. OAuth sign-in for remote MCP servers has not been confirmed to work end to end.
 - Settings → Permissions has a Connector actions group (Allow, Ask or Deny per action). The Gateway reads these rules. The group is empty until a connector is connected.
-- A vault placeholder in a server's environment needs a credential-fill approval, which needs Touch ID or a passkey. Touch ID approvals cannot be approved in the desktop app yet (see [Credentials and payments](/using/credentials-and-payments)).
+- A vault placeholder in a server's environment needs a credential-fill approval. It is a tap on a paired device, with no Touch ID (only payments ask for Touch ID or a password; see [Credentials and payments](/using/credentials-and-payments)).
 - Drafting your own API connector from a description is not built.
 
 ## Learn more
