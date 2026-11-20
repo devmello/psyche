@@ -24,11 +24,18 @@ import {
   registerSurfaceRouter,
   type SurfaceCall,
   type SurfaceRouter,
+  surfaceNodeId,
+  surfaceNodesOnOffline,
 } from "../src/compose/computer.ts";
 import {
   COMPUTER_USE_LINUX,
   COMPUTER_USE_LINUX_REVOKE,
+  cachedGraphicalSession,
   createLinuxComputerState,
+  hasGraphicalSession,
+  helperUnitFor,
+  startHelperWithSystemd,
+  systemBin,
 } from "../src/compose/computer-linux.ts";
 import { appTiersFrom, COMPUTER_USE_ENABLED } from "../src/compose/computer-settings.ts";
 
@@ -556,7 +563,7 @@ describe("computerUse.linux and the account state", () => {
   let db: PsycheDb;
   const published: unknown[] = [];
 
-  function state(extra: { start?: () => Promise<void>; online?: boolean } = {}) {
+  function state(extra: { online?: boolean } = {}) {
     return createLinuxComputerState({
       db,
       publishEntry: (e) => published.push(e),
@@ -564,14 +571,6 @@ describe("computerUse.linux and the account state", () => {
         extra.online === false || !connected
           ? undefined
           : { nodeId: helper.nodeId, client: helper, kind: "host-helper" },
-      ...(extra.start === undefined
-        ? {}
-        : {
-            startHelper: async () => {
-              await extra.start?.();
-            },
-          }),
-      helperWait: { timeoutMs: 200, pollMs: 10 },
       now: () => new Date("2026-11-05T12:00:00.000Z"),
     });
   }
@@ -602,8 +601,12 @@ describe("computerUse.linux and the account state", () => {
       checkedAt: "2026-11-05T12:00:00.000Z",
     });
     expect(published).toHaveLength(1);
-    // Computer use is off: nothing asked the helper to expose app structure.
-    expect(helper.calls.map((c) => c.capability)).toEqual(["portal.status", "a11y.status"]);
+    // Computer use is off: the helper is told to put app structure back, never to expose it.
+    expect(helper.calls.map((c) => [c.capability, c.params.enabled])).toEqual([
+      ["a11y.enable", false],
+      ["portal.status", undefined],
+      ["a11y.status", undefined],
+    ]);
   });
 
   // Review of #1294 round 2, finding 7: Settings can say computer use is refused for want of a Stop.
@@ -657,20 +660,14 @@ describe("computerUse.linux and the account state", () => {
     });
   });
 
-  it("does not start the helper just to refresh, and writes nothing without one", async () => {
-    let started = 0;
-    const s = state({
-      online: false,
-      start: async () => {
-        started++;
-      },
-    });
+  it("writes nothing on a refresh without a helper", async () => {
+    const s = state({ online: false });
     await s.refresh();
-    expect(started).toBe(0);
     expect(stored()).toBeUndefined();
+    expect(helper.calls).toHaveLength(0);
   });
 
-  it("turns app structure on and off with Settings, starting the helper for off", async () => {
+  it("turns app structure on and off with Settings on a running helper", async () => {
     const s = state();
     s.onChanged([{ key: COMPUTER_USE_ENABLED, value: true }]);
     await s.settled();
@@ -685,24 +682,21 @@ describe("computerUse.linux and the account state", () => {
     await s.settled();
     expect(helper.calls).toHaveLength(0);
 
+    s.onChanged([{ key: COMPUTER_USE_ENABLED, value: false }]);
+    await s.settled();
+    expect(helper.calls[0]).toEqual({ capability: "a11y.enable", params: { enabled: false } });
+  });
+
+  // PR #1498 r2, finding 1: off with no helper running starts nothing; the next helper is told.
+  it("turning it off with no helper running waits for the next helper to connect", async () => {
     connected = false;
-    let started = 0;
     setSetting(db, COMPUTER_USE_ENABLED, true);
-    const stopper = createLinuxComputerState({
-      db,
-      publishEntry: () => undefined,
-      helper: () =>
-        connected ? { nodeId: helper.nodeId, client: helper, kind: "host-helper" } : undefined,
-      startHelper: async () => {
-        started++;
-        connected = true;
-      },
-      helperWait: { timeoutMs: 200, pollMs: 10 },
-    });
-    helper.calls.length = 0;
-    stopper.onChanged([{ key: COMPUTER_USE_ENABLED, value: false }]);
-    await stopper.settled();
-    expect(started).toBe(1);
+    const s = state();
+    s.onChanged([{ key: COMPUTER_USE_ENABLED, value: false }]);
+    await s.settled();
+    expect(helper.calls).toHaveLength(0);
+    connected = true;
+    await s.helperOnline();
     expect(helper.calls[0]).toEqual({ capability: "a11y.enable", params: { enabled: false } });
   });
 
@@ -731,16 +725,20 @@ describe("computerUse.linux and the account state", () => {
     expect(helper.calls).toHaveLength(0);
   });
 
-  it("starts the helper for a revoke and survives a helper that fails", async () => {
+  // PR #1498 r2, finding 1: Revoke with no helper running starts nothing and is kept pending.
+  it("keeps a Revoke for the next helper, once, and survives a helper that fails", async () => {
     connected = false;
-    const s = state({
-      start: async () => {
-        connected = true;
-      },
-    });
+    const s = state();
     s.onChanged([{ key: COMPUTER_USE_LINUX_REVOKE, value: "2026-11-05T11:00:00.000Z" }]);
     await s.settled();
+    expect(helper.calls).toHaveLength(0);
+    connected = true;
+    await s.helperOnline();
     expect(helper.calls[0]?.capability).toBe("portal.revoke");
+    // Applied once: the next connect does not revoke again.
+    helper.calls.length = 0;
+    await s.helperOnline();
+    expect(helper.calls.map((c) => c.capability)).not.toContain("portal.revoke");
 
     helper.fail.add("portal.status");
     helper.calls.length = 0;
@@ -757,5 +755,567 @@ describe("computerUse.linux and the account state", () => {
     expect(ended).toBe(0);
     await cu.runEnded("run_1");
     expect(ended).toBe(1);
+  });
+});
+
+describe("the headless Host helper (B0)", () => {
+  const out = (r: { output: unknown }) =>
+    (r.output as { error: { code: string; details?: { reason?: string; surface?: string } } })
+      .error;
+
+  it("picks the unit from the session: graphical keeps psyche-helper.service", async () => {
+    expect(helperUnitFor(true)).toBe("psyche-helper.service");
+    expect(helperUnitFor(false)).toBe("psyche-helper-headless.service");
+    const ran: string[][] = [];
+    const run = async (file: string, args: string[]) => {
+      ran.push([file, ...args]);
+      return "";
+    };
+    await startHelperWithSystemd(undefined, run, async () => true);
+    await startHelperWithSystemd(undefined, run, async () => false);
+    const systemctl = systemBin("systemctl");
+    expect(systemctl).toMatch(/^\/(usr\/)?bin\/systemctl$/);
+    expect(ran).toEqual([
+      [systemctl, "--user", "start", "psyche-helper.service"],
+      [systemctl, "--user", "start", "psyche-helper-headless.service"],
+    ]);
+  });
+
+  it("systemBin prefers /usr/bin, falls back to /bin, never uses PATH", () => {
+    expect(systemBin("loginctl", () => true)).toBe("/usr/bin/loginctl");
+    expect(systemBin("loginctl", (p) => p === "/bin/loginctl")).toBe("/bin/loginctl");
+    expect(systemBin("loginctl", () => false)).toBe("/usr/bin/loginctl");
+  });
+
+  it("a failed start names the unit", async () => {
+    const run = async () => {
+      throw new Error("Unit not found");
+    };
+    await expect(startHelperWithSystemd(undefined, run, async () => false)).rejects.toMatchObject({
+      unit: "psyche-helper-headless.service",
+    });
+  });
+
+  interface FakeSession {
+    id: string;
+    uid?: string;
+    type: string;
+    state?: string;
+    /** `Remote=`; default `no`. Undefined in the output when `null`. */
+    remote?: string | null;
+    /** `Seat=`; default `seat0`. SSH and pty sessions have none (`""`). */
+    seat?: string;
+    /** Gone between `list-sessions` and `show-session` (`No session '<id>' known`). */
+    gone?: boolean;
+  }
+
+  /** Sockets that exist on the fake box: X display :0 and wayland-1 in the runtime dir. */
+  const SOCKETS = new Set(["/tmp/.X11-unix/X0", "/run/user/1000/wayland-1", "/xdg/wayland-2"]);
+  const sockets = (p: string) => SOCKETS.has(p);
+
+  /** logind and the user manager as a table: sessions of uid 1000, plus the user environment. */
+  const logind = (sessions: FakeSession[], env = "PATH=/usr/bin\n") => {
+    const calls: string[][] = [];
+    const run = async (file: string, args: string[]) => {
+      calls.push([file.split("/").pop() ?? file, ...args]);
+      if (args[0] === "list-sessions") {
+        return sessions.map((s) => `${s.id} ${s.uid ?? "1000"} devmello seat0 -`).join("\n");
+      }
+      if (args[0] === "show-session") {
+        const s = sessions.find((x) => x.id === args[1]);
+        if (s === undefined || s.gone === true) throw new Error(`No session '${args[1]}' known`);
+        const remote =
+          s.remote === undefined ? "Remote=no\n" : s.remote === null ? "" : `Remote=${s.remote}\n`;
+        // logind prints in its own order, not the requested one.
+        return `User=${s.uid ?? "1000"}\nSeat=${s.seat ?? "seat0"}\nType=${s.type}\n${remote}State=${s.state ?? "active"}\n`;
+      }
+      if (args[0] === "--user" && args[1] === "show-environment") return env;
+      throw new Error("unexpected");
+    };
+    return { run, calls };
+  };
+
+  const ssh = (id: string): FakeSession => ({ id, type: "tty", remote: "yes", seat: "" });
+
+  it.each<[string, FakeSession[], string | undefined, boolean]>([
+    ["x11", [{ id: "2", type: "x11" }], undefined, true],
+    ["wayland", [{ id: "c1", type: "wayland" }], undefined, true],
+    ["mir", [{ id: "c1", type: "mir" }], undefined, true],
+    [
+      "a wayland session among an ssh one",
+      [
+        { id: "4", type: "tty" },
+        { id: "5", type: "wayland" },
+      ],
+      undefined,
+      true,
+    ],
+    ["an ssh (tty) session alone", [ssh("4")], undefined, false],
+    ["a local console tty session with no display", [{ id: "4", type: "tty" }], undefined, false],
+    ["an unspecified or manager session", [{ id: "4", type: "unspecified" }], undefined, false],
+    ["a closing x11 session", [{ id: "2", type: "x11", state: "closing" }], undefined, false],
+    [
+      "another user's wayland session",
+      [{ id: "3", uid: "1001", type: "wayland" }],
+      undefined,
+      false,
+    ],
+    ["no session (linger only)", [], undefined, false],
+    [
+      "a tty session with DISPLAY in the user env (startx)",
+      [{ id: "1", type: "tty" }],
+      "PATH=/x\nDISPLAY=:0\n",
+      true,
+    ],
+    [
+      "a tty session with WAYLAND_DISPLAY (sway on a console)",
+      [{ id: "1", type: "tty" }],
+      "WAYLAND_DISPLAY=wayland-1\n",
+      true,
+    ],
+    ["a tty session with an empty DISPLAY", [{ id: "1", type: "tty" }], "DISPLAY=\n", false],
+    ["DISPLAY in the env but no session at all", [], "DISPLAY=:0\n", false],
+    [
+      "DISPLAY in the env but only a closing tty session",
+      [{ id: "1", type: "tty", state: "closing" }],
+      "DISPLAY=:0\n",
+      false,
+    ],
+    // PR #1498 r2, finding 3: a DISPLAY left in the lingering user manager by a stopped desktop.
+    [
+      "an ssh session with a stale DISPLAY (probe P6)",
+      [ssh("c18")],
+      "PATH=/usr/bin\nDISPLAY=:0\n",
+      false,
+    ],
+    [
+      "an ssh session with a live WAYLAND_DISPLAY",
+      [ssh("c18")],
+      "WAYLAND_DISPLAY=wayland-1\n",
+      false,
+    ],
+    [
+      "a pty session (script + su -l: Remote=no, no seat) with DISPLAY",
+      [{ id: "c2", type: "tty", seat: "" }],
+      "DISPLAY=:0\n",
+      false,
+    ],
+    [
+      "a console tty session whose Remote= is not reported",
+      [{ id: "1", type: "tty", remote: null }],
+      "DISPLAY=:0\n",
+      false,
+    ],
+    [
+      "a console tty session with DISPLAY but no X socket",
+      [{ id: "1", type: "tty" }],
+      "DISPLAY=:7\n",
+      false,
+    ],
+    [
+      "a console tty session with WAYLAND_DISPLAY but no socket",
+      [{ id: "1", type: "tty" }],
+      "WAYLAND_DISPLAY=wayland-9\n",
+      false,
+    ],
+    ["a screen number on the display", [{ id: "1", type: "tty" }], "DISPLAY=:0.0\n", true],
+    ["a remote X display name", [{ id: "1", type: "tty" }], "DISPLAY=box:0\n", false],
+    [
+      "WAYLAND_DISPLAY in XDG_RUNTIME_DIR",
+      [{ id: "1", type: "tty" }],
+      "XDG_RUNTIME_DIR=/xdg\nWAYLAND_DISPLAY=wayland-2\n",
+      true,
+    ],
+    [
+      "a WAYLAND_DISPLAY that climbs out of the runtime dir",
+      [{ id: "1", type: "tty" }],
+      "WAYLAND_DISPLAY=../1000/wayland-1\n",
+      false,
+    ],
+    // PR #1498 r2, finding 4: one session gone between list and show hides nothing else.
+    [
+      "a vanished session before a live wayland one (probe P5)",
+      [
+        { id: "c9", type: "tty", gone: true },
+        { id: "c1", type: "wayland" },
+      ],
+      undefined,
+      true,
+    ],
+    ["only a vanished session", [{ id: "c9", type: "wayland", gone: true }], undefined, false],
+  ])("hasGraphicalSession: %s", async (_name, sessions, env, want) => {
+    const { run } = logind(sessions, env);
+    expect(await hasGraphicalSession(run, 1000, undefined, sockets)).toBe(want);
+  });
+
+  it("hasGraphicalSession asks logind with fixed arguments, not for Display=", async () => {
+    const { run, calls } = logind([{ id: "2", type: "x11" }]);
+    await hasGraphicalSession(run, 1000, undefined, sockets);
+    expect(calls).toEqual([
+      ["loginctl", "list-sessions", "--no-legend"],
+      [
+        "loginctl",
+        "show-session",
+        "2",
+        ...["-p", "Type", "-p", "State", "-p", "User", "-p", "Remote", "-p", "Seat"],
+      ],
+    ]);
+  });
+
+  it("hasGraphicalSession: no loginctl or no logind record means no session", async () => {
+    const run = async () => {
+      throw new Error("ENOENT");
+    };
+    expect(await hasGraphicalSession(run, 1000)).toBe(false);
+    expect(await hasGraphicalSession(run, undefined)).toBe(false);
+  });
+
+  // PR #1498 r2, finding 4: only a failed list-sessions fails closed.
+  it("hasGraphicalSession fails closed when list-sessions itself fails", async () => {
+    const shown: string[] = [];
+    const run = async (_file: string, args: string[]) => {
+      if (args[0] === "list-sessions") throw new Error("Failed to connect to bus");
+      shown.push(args[1] ?? "");
+      return "Type=wayland\nState=active\nUser=1000\n";
+    };
+    expect(await hasGraphicalSession(run, 1000, undefined, sockets)).toBe(false);
+    expect(shown).toEqual([]);
+  });
+
+  it("hasGraphicalSession passes the signal to every spawn", async () => {
+    const signals: (AbortSignal | undefined)[] = [];
+    const ctrl = new AbortController();
+    const { run } = logind([{ id: "1", type: "tty" }], "DISPLAY=:0\n");
+    const spy = async (file: string, args: string[], signal?: AbortSignal) => {
+      signals.push(signal);
+      return run(file, args);
+    };
+    expect(await hasGraphicalSession(spy, 1000, ctrl.signal, sockets)).toBe(true);
+    expect(signals).toHaveLength(3);
+    for (const s of signals) expect(s).toBe(ctrl.signal);
+  });
+
+  // PR #1498 r2, finding 5: one lookup per few seconds for every call site.
+  describe("cachedGraphicalSession", () => {
+    it("makes one lookup for a burst of three calls, and a new one after the TTL", async () => {
+      let lookups = 0;
+      let t = 0;
+      const check = cachedGraphicalSession(
+        async () => {
+          lookups++;
+          await new Promise((r) => setTimeout(r, 5));
+          return true;
+        },
+        { ttlMs: 3_000, now: () => t },
+      );
+      expect(await Promise.all([check(), check(), check()])).toEqual([true, true, true]);
+      expect(lookups).toBe(1);
+      t = 2_999;
+      await check();
+      expect(lookups).toBe(1);
+      t = 3_000;
+      await check();
+      expect(lookups).toBe(2);
+    });
+
+    it("a cancelled caller stops waiting, kills the lookup, and nothing is cached", async () => {
+      let lookups = 0;
+      const seen: AbortSignal[] = [];
+      const check = cachedGraphicalSession(
+        (signal) => {
+          lookups++;
+          seen.push(signal);
+          // The first lookup hangs until killed (a stalled logind); later ones answer.
+          if (lookups > 1) return Promise.resolve(true);
+          return new Promise<boolean>((resolve) => {
+            signal.addEventListener("abort", () => resolve(false));
+          });
+        },
+        { now: () => 0 },
+      );
+      const ctrl = new AbortController();
+      const p = check(ctrl.signal);
+      ctrl.abort();
+      await expect(p).rejects.toMatchObject({ code: "cancelled" });
+      expect(seen[0]?.aborted).toBe(true);
+      // An already-cancelled caller does not start a lookup.
+      await expect(check(ctrl.signal)).rejects.toMatchObject({ code: "cancelled" });
+      expect(lookups).toBe(1);
+      // The killed lookup's false was not cached: the next caller asks again and gets true.
+      expect(await check()).toBe(true);
+      expect(lookups).toBe(2);
+    });
+
+    it("keeps the lookup running while another caller still waits on it", async () => {
+      let resolve: (v: boolean) => void = () => undefined;
+      let signal: AbortSignal | undefined;
+      const check = cachedGraphicalSession(
+        (s) => {
+          signal = s;
+          return new Promise<boolean>((r) => {
+            resolve = r;
+          });
+        },
+        { now: () => 0 },
+      );
+      const a = new AbortController();
+      const first = check(a.signal);
+      const second = check(new AbortController().signal);
+      a.abort();
+      await expect(first).rejects.toMatchObject({ code: "cancelled" });
+      expect(signal?.aborted).toBe(false);
+      resolve(true);
+      expect(await second).toBe(true);
+    });
+  });
+
+  it("direct answers no_graphical_session and starts nothing", async () => {
+    connected = false;
+    let started = 0;
+    make({
+      startHelper: async () => {
+        started++;
+      },
+      graphicalSession: async () => false,
+    });
+    const r = await call("computer.snapshot", { app: editor });
+    expect(out(r)).toMatchObject({
+      code: "unavailable",
+      details: { reason: "no_graphical_session" },
+    });
+    expect(started).toBe(0);
+  });
+
+  it("with a graphical session, direct goes to the helper as before", async () => {
+    make({ startHelper: async () => undefined, graphicalSession: async () => true });
+    const r = await call("computer.snapshot", { app: editor });
+    expect(r.isError, JSON.stringify(r.output)).toBeUndefined();
+    expect(helper.calls.every((c) => c.params.surface === "direct")).toBe(true);
+  });
+
+  it("virtual_screen starts the headless helper and sends it surface: virtual_screen", async () => {
+    connected = false;
+    let started = 0;
+    make({
+      startHelper: async () => {
+        started++;
+        setTimeout(() => {
+          connected = true;
+        }, 20);
+      },
+      graphicalSession: async () => false,
+      helperWait: { timeoutMs: 2_000, pollMs: 10 },
+    });
+    const r = await call("computer.snapshot", { app: editor, surface: "virtual_screen" });
+    expect(r.isError, JSON.stringify(r.output)).toBeUndefined();
+    expect(started).toBe(1);
+    expect(helper.calls.length).toBeGreaterThan(0);
+    for (const c of helper.calls) expect(c.params).toMatchObject({ surface: "virtual_screen" });
+  });
+
+  it("virtual_screen on a Host with a graphical session stays surface_unavailable", async () => {
+    make({ startHelper: async () => undefined, graphicalSession: async () => true });
+    const r = await call("computer.snapshot", { app: editor, surface: "virtual_screen" });
+    expect(out(r)).toMatchObject({
+      code: "unavailable",
+      details: { reason: "surface_unavailable", surface: "virtual_screen" },
+    });
+    expect(helper.calls).toHaveLength(0);
+  });
+
+  // PR #1498 r2, finding 4: the router uses resolveTarget's decision; it never asks again.
+  it("virtual_screen asks once per call and starts the unit that decision picked", async () => {
+    connected = false;
+    const answers = [false, true, true, true];
+    let asked = 0;
+    const starts: (boolean | undefined)[] = [];
+    const signals: (AbortSignal | undefined)[] = [];
+    make({
+      startHelper: async (_signal, graphical) => {
+        starts.push(graphical);
+        connected = true;
+      },
+      graphicalSession: async (signal) => {
+        signals.push(signal);
+        return answers[asked++] ?? true;
+      },
+      helperWait: { timeoutMs: 500, pollMs: 5 },
+    });
+    // The answer flips after resolveTarget asked: the call that holds a session still goes on.
+    const r = await call(
+      "computer.snapshot",
+      { app: editor, surface: "virtual_screen" },
+      { threadId: "t1", runId: "r1" },
+    );
+    expect(r.isError, JSON.stringify(r.output)).toBeUndefined();
+    expect(starts).toEqual([false]);
+    // Asked once, by resolveTarget, with the call's signal; the router did not ask again.
+    expect(asked).toBe(1);
+    expect(signals[0]).toBeInstanceOf(AbortSignal);
+    expect(cu.sessions().map((s) => s.surface)).toEqual(["virtual_screen"]);
+  });
+
+  it("direct starts the graphical unit it decided on", async () => {
+    connected = false;
+    const starts: (boolean | undefined)[] = [];
+    make({
+      startHelper: async (_signal, graphical) => {
+        starts.push(graphical);
+        connected = true;
+      },
+      graphicalSession: async () => true,
+      helperWait: { timeoutMs: 500, pollMs: 5 },
+    });
+    const r = await call("computer.snapshot", { app: editor });
+    expect(r.isError, JSON.stringify(r.output)).toBeUndefined();
+    expect(starts).toEqual([true]);
+  });
+
+  /** A Linux-shaped helper: apps.open at the Ask tier needs `params.approval`, as the real one. */
+  class StrictLinuxHelper extends FakeLinuxHelper {
+    headless = false;
+    override async invoke(capability: string, params: unknown): Promise<NodeInvokeResult> {
+      const p = (params ?? {}) as Record<string, unknown>;
+      const surface = p.surface;
+      if (surface !== undefined && surface !== (this.headless ? "virtual_screen" : "direct")) {
+        return {
+          ok: false,
+          error: { code: "invalid_params", message: "no", details: { reason: "surface_mismatch" } },
+        };
+      }
+      if (this.headless && surface === undefined && capability.startsWith("apps.")) {
+        // A headless helper serves a call that names no surface on its private screen.
+        this.calls.push({ capability, params: p });
+        return { ok: true, result: { status: "served_headless" } };
+      }
+      if (capability === "apps.open" && p.approval === undefined) {
+        this.calls.push({ capability, params: p });
+        return {
+          ok: false,
+          error: {
+            code: "approval_required",
+            message: "needs your permission",
+            details: { app: p.app, reason: "tier_ask", tierRequired: "click" },
+          },
+        };
+      }
+      if (capability === "apps.resolve") {
+        return { ok: false, error: { code: "not_implemented", message: "no" } };
+      }
+      if (capability === "apps.open") {
+        this.calls.push({ capability, params: p });
+        return { ok: true, result: { bundleId: p.app, name: "Editor", pid: 42 } };
+      }
+      return super.invoke(capability, params);
+    }
+  }
+
+  const approveAll = () => {
+    const request = broker.requestApproval.bind(broker);
+    broker.requestApproval = async (input) => {
+      const i = await request(input);
+      queueMicrotask(() => {
+        void broker.answer({
+          approvalId: i.approval.id,
+          answerToken: i.answerTokens.desktop ?? "",
+          decision: "approve",
+          scope: "once",
+          decidedBy: { deviceId: "dev-owner", surface: "desktop" },
+        });
+      });
+      return i;
+    };
+  };
+
+  it.each([
+    ["direct", undefined, true],
+    ["virtual_screen", "virtual_screen", false],
+  ] as const)(
+    "apps.open at the Ask tier carries params.approval after the owner approves (%s)",
+    async (_name, surface, graphical) => {
+      const strict = new StrictLinuxHelper();
+      strict.headless = !graphical;
+      helper = strict;
+      approveAll();
+      make({
+        startHelper: async () => undefined,
+        graphicalSession: async () => graphical,
+      });
+      const r = await call("apps.open", {
+        app: editor,
+        ...(surface === undefined ? {} : { surface }),
+      });
+      expect(r.isError, JSON.stringify(r.output)).toBeUndefined();
+      const sent = strict.calls.filter((c) => c.capability === "apps.open");
+      expect(sent.length).toBeGreaterThanOrEqual(2);
+      expect(sent[0]?.params.approval).toBeUndefined();
+      expect(sent[sent.length - 1]?.params.approval).toMatchObject({ app: editor });
+    },
+  );
+
+  it("sends surface: direct on the Linux direct path", async () => {
+    make({ startHelper: async () => undefined, graphicalSession: async () => true });
+    await call("computer.snapshot", { app: editor });
+    expect(helper.calls.length).toBeGreaterThan(0);
+    for (const c of helper.calls) expect(c.params.surface).toBe("direct");
+  });
+
+  it("refuses direct on a still-connected headless helper once a session exists", async () => {
+    const strict = new StrictLinuxHelper();
+    strict.headless = true;
+    helper = strict;
+    make({ startHelper: async () => undefined, graphicalSession: async () => true });
+    const r = await call("apps.list", {});
+    expect(r.isError).toBe(true);
+    expect(strict.calls.some((c) => (c.params as { surface?: string }).surface === undefined)).toBe(
+      false,
+    );
+    expect(JSON.stringify(r.output)).not.toContain("served_headless");
+  });
+
+  it("a refused virtual_screen call on a graphical Host leaves no session behind", async () => {
+    make({ startHelper: async () => undefined, graphicalSession: async () => true });
+    const first = await call(
+      "computer.snapshot",
+      { app: editor, surface: "virtual_screen" },
+      { threadId: "t1", runId: "r1" },
+    );
+    expect(out(first).details?.reason).toBe("surface_unavailable");
+    expect(cu.sessions()).toEqual([]);
+    const second = await call(
+      "computer.snapshot",
+      { app: editor, surface: "virtual_screen" },
+      { threadId: "t2", runId: "r2" },
+    );
+    expect(out(second).details?.reason).toBe("surface_unavailable");
+    expect(out(second).code).not.toBe("conflict");
+  });
+
+  it("a Host helper going offline ends the virtual_screen sessions", async () => {
+    expect(surfaceNodesOnOffline("host-helper")).toEqual([surfaceNodeId("virtual_screen")]);
+    expect(surfaceNodesOnOffline("mac-helper")).toEqual([surfaceNodeId("virtual_screen")]);
+    expect(surfaceNodesOnOffline("guest")).toEqual([surfaceNodeId("separate_desktop")]);
+    expect(surfaceNodesOnOffline("linux-helper")).toEqual([]);
+    expect(surfaceNodesOnOffline(undefined)).toEqual([]);
+    make({ startHelper: async () => undefined, graphicalSession: async () => false });
+    await call("computer.snapshot", { app: editor, surface: "virtual_screen" });
+    expect(cu.sessions().map((s) => s.nodeId)).toEqual([surfaceNodeId("virtual_screen")]);
+    for (const id of surfaceNodesOnOffline("host-helper")) cu.nodeGone(id);
+    await new Promise((r) => setTimeout(r, 20));
+    expect(cu.sessions()).toEqual([]);
+  });
+
+  it("a start failure names the unit that could not be started", async () => {
+    connected = false;
+    make({
+      startHelper: async () => {
+        throw Object.assign(new Error("x"), { unit: "psyche-helper-headless.service" });
+      },
+      graphicalSession: async () => false,
+    });
+    const r = await call("computer.snapshot", { app: editor, surface: "virtual_screen" });
+    const e = out(r) as unknown as { message: string; details: { reason: string } };
+    expect(e.details.reason).toBe("helper_not_started");
+    expect(e.message).toContain("psyche-helper-headless.service");
   });
 });

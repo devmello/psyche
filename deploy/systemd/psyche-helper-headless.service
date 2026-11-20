@@ -1,0 +1,19 @@
+# Managed by the Psyche desktop app, or packaged next to the Gateway's unit.
+# Started on demand by psyched (systemctl --user start psyche-helper-headless.service) when no graphical
+# session exists; no [Install] section. Needs linger: loginctl enable-linger "$USER"
+[Unit]
+Description=Psyche Helper (headless Host, on demand)
+After=default.target
+
+[Service]
+Type=simple
+ExecStart="/usr/lib/psyche/resources/linux-helper/psyche-helper" "--display" "headless"
+Restart=no
+# No app or command the helper forks directly can gain privileges (no sudo, pkexec or setuid).
+# This does not hold against the user manager (systemd-run --user) until bwrap containment lands.
+NoNewPrivileges=yes
+# The helper and its Xvfb get their own ceiling next to psyched (design section 3.3), on this
+# service and not in the private screen's app slice: the helper sets that slice's caps for its
+# apps, and a runaway app there must not stop the helper from forking the Stop that ends it.
+MemoryHigh=1G
+TasksMax=512

@@ -5,10 +5,12 @@ import { SupervisorBase, type SupervisorOptions } from "../main/supervisor-base.
 import {
   DEFAULT_MEMORY_HIGH,
   GATEWAY_UNIT,
+  HEADLESS_HELPER_UNIT,
   HELPER_UNIT,
   parseGatewayUnit,
   renderGatewayDropIn,
   renderGatewayUnit,
+  renderHeadlessHelperUnit,
   renderHelperUnit,
   userUnitDir,
 } from "./systemd-unit.ts";
@@ -342,12 +344,22 @@ export class SystemdUserSupervisor extends SupervisorBase {
    * file changed (psyched then asks for a `daemon-reload` before the next start).
    */
   async ensureHelperUnit(helper: { program: string; args?: string[] }): Promise<boolean> {
-    const content = renderHelperUnit({ ...helper, psycheHome: this.opts.psycheHome });
-    const file = join(this.dir(), HELPER_UNIT);
-    if (existsSync(file) && readFileSync(file, "utf8") === content) return false;
-    mkdirSync(dirname(file), { recursive: true });
-    writeFileSync(file, content, { mode: 0o644 });
-    await this.systemctl(systemctlUser.daemonReload());
-    return true;
+    // The graphical unit, and the headless one psyched starts when there is no graphical session.
+    let changed = false;
+    for (const [name, content] of [
+      [HELPER_UNIT, renderHelperUnit({ ...helper, psycheHome: this.opts.psycheHome })],
+      [
+        HEADLESS_HELPER_UNIT,
+        renderHeadlessHelperUnit({ ...helper, psycheHome: this.opts.psycheHome }),
+      ],
+    ] as const) {
+      const file = join(this.dir(), name);
+      if (existsSync(file) && readFileSync(file, "utf8") === content) continue;
+      mkdirSync(dirname(file), { recursive: true });
+      writeFileSync(file, content, { mode: 0o644 });
+      changed = true;
+    }
+    if (changed) await this.systemctl(systemctlUser.daemonReload());
+    return changed;
   }
 }
