@@ -38,6 +38,10 @@ pub trait Scopes {
     /// The app the process itself is (its own executable and desktop entry), whichever scope it
     /// sits in.
     fn own_id(&self, pid: u32) -> Option<String>;
+    /// Every id the process could be; a deny list is judged on all of them.
+    fn own_ids(&self, pid: u32) -> Vec<String> {
+        self.own_id(pid).into_iter().collect()
+    }
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -74,19 +78,15 @@ pub fn decide(
         return Err(Refusal::Unknown);
     };
     let holder = scopes.app_of(pid);
-    let own = scopes.own_id(pid);
-    if let Some(app) = [&holder, &own]
-        .into_iter()
-        .flatten()
-        .find(|a| deny.is_denied(a))
-    {
+    let mut own = scopes.own_ids(pid);
+    if let Some(app) = holder.iter().chain(own.iter()).find(|a| deny.is_denied(a)) {
         return Err(Refusal::Denied { app: app.clone() });
     }
     if scopes.in_scope(target, pid) {
         Ok(())
     } else {
         Err(Refusal::Moved {
-            other: holder.or(own),
+            other: holder.or_else(|| own.pop()),
         })
     }
 }

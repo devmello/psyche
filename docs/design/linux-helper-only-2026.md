@@ -311,7 +311,7 @@ The owner wants shell commands and file reads and writes on a machine from v1, w
 
 ```json
 {
-  "surfaces": { "virtual_screen": true, "direct": false },
+  "surfaces": { "virtualScreen": true, "direct": false },
   "apps": { "allow": ["*"], "deny": ["org.keepassxc.KeePassXC"] },
   "exec": { "enabled": true, "contain": true, "network": true, "cwdRoots": ["~"] },
   "files": { "roots": [{ "path": "~", "mode": "rw" }] },

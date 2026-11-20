@@ -45,9 +45,10 @@ pub fn policy_source() -> Arc<PolicySource> {
 /// Whether the process is an app the ceiling does not permit, by its own identity or its
 /// launch scope's.
 pub fn pid_denied(policy: &crate::remote::policy::Policy, scopes: &dyn Scopes, pid: u32) -> bool {
-    [scopes.own_id(pid), scopes.app_of(pid)]
+    scopes
+        .own_ids(pid)
         .into_iter()
-        .flatten()
+        .chain(scopes.app_of(pid))
         .any(|a| !policy.app_permitted(&a))
 }
 
@@ -83,6 +84,12 @@ impl Scopes for ManagerScopes {
     }
     fn own_id(&self, pid: u32) -> Option<String> {
         self.a11y.as_ref().and_then(|a| a.app_id_for_pid(pid))
+    }
+    fn own_ids(&self, pid: u32) -> Vec<String> {
+        self.a11y
+            .as_ref()
+            .map(|a| a.all_ids_for_pid(pid))
+            .unwrap_or_default()
     }
 }
 
@@ -337,6 +344,36 @@ mod tests {
         fn own_id(&self, pid: u32) -> Option<String> {
             self.0.get(&pid).map(|(_, o)| o.to_string())
         }
+    }
+
+    /// A process that is several things (its `Exec` names one id, its process name another) is
+    /// denied when any of them is.
+    struct Many;
+    impl Scopes for Many {
+        fn in_scope(&self, _: &str, _: u32) -> bool {
+            false
+        }
+        fn app_of(&self, _: u32) -> Option<String> {
+            Some("org.gnome.TextEditor".into())
+        }
+        fn own_id(&self, _: u32) -> Option<String> {
+            Some("soffice.bin".into())
+        }
+        fn own_ids(&self, _: u32) -> Vec<String> {
+            vec!["soffice.bin".into(), "libreoffice-writer".into()]
+        }
+    }
+
+    #[test]
+    fn a_candidate_id_on_the_deny_list_is_enough() {
+        let mut policy = Policy::default();
+        policy.apps = Apps {
+            allow: vec!["*".into()],
+            deny: vec!["libreoffice-*".into()],
+        };
+        assert!(pid_denied(&policy, &Many, 1));
+        policy.apps.deny = vec!["libreofficeish".into()];
+        assert!(!pid_denied(&policy, &Many, 1));
     }
 
     #[test]

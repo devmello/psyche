@@ -30,23 +30,31 @@ use crate::capability::CapabilityError;
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields, rename_all = "camelCase")]
 pub struct Surfaces {
+    #[serde(default = "yes")]
     pub virtual_screen: bool,
+    #[serde(default)]
     pub direct: bool,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct Apps {
+    #[serde(default = "star")]
     pub allow: Vec<String>,
+    #[serde(default)]
     pub deny: Vec<String>,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields, rename_all = "camelCase")]
 pub struct Exec {
+    #[serde(default)]
     pub enabled: bool,
+    #[serde(default = "yes")]
     pub contain: bool,
+    #[serde(default = "yes")]
     pub network: bool,
+    #[serde(default)]
     pub cwd_roots: Vec<String>,
 }
 
@@ -67,6 +75,7 @@ pub struct Root {
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct Files {
+    #[serde(default)]
     pub roots: Vec<Root>,
 }
 
@@ -89,6 +98,9 @@ pub struct Policy {
 
 fn yes() -> bool {
     true
+}
+fn star() -> Vec<String> {
+    vec!["*".into()]
 }
 fn default_surfaces() -> Surfaces {
     Surfaces {
@@ -654,6 +666,94 @@ mod tests {
         let _ = std::fs::remove_file(f.path("user-policy.json"));
         f.write("user-policy.json", good, 0o600);
         assert!(matches!(f.source().load().source, Source::File(_)));
+    }
+
+    /// A partial sub-object is the owner narrowing one thing, not a broken file: every field
+    /// defaults to what no file at all means.
+    #[test]
+    fn a_policy_that_names_only_what_it_changes_loads_with_the_defaults_for_the_rest() {
+        let defaults = Policy::default();
+        for (text, check) in [
+            (
+                r#"{"apps":{"deny":["org.keepassxc.KeePassXC"]}}"#,
+                (|p: &Policy| p.apps.allow == ["*"] && p.apps.deny == ["org.keepassxc.KeePassXC"])
+                    as fn(&Policy) -> bool,
+            ),
+            (r#"{"apps":{"allow":["org.gnome.*"]}}"#, |p| {
+                p.apps.allow == ["org.gnome.*"] && p.apps.deny.is_empty()
+            }),
+            (r#"{"surfaces":{"virtualScreen":false}}"#, |p| {
+                !p.surfaces.virtual_screen && !p.surfaces.direct
+            }),
+            (r#"{"surfaces":{"direct":true}}"#, |p| {
+                p.surfaces.virtual_screen && p.surfaces.direct
+            }),
+            (r#"{"exec":{"enabled":true}}"#, |p| {
+                p.exec.enabled && p.exec.contain && p.exec.network && p.exec.cwd_roots.is_empty()
+            }),
+            (r#"{"exec":{"contain":false}}"#, |p| {
+                !p.exec.enabled && !p.exec.contain && p.exec.network
+            }),
+            (r#"{"files":{}}"#, |p| p.files.roots.is_empty()),
+            (r#"{"apps":{},"surfaces":{},"exec":{}}"#, |p| {
+                *p == Policy::default()
+            }),
+        ] {
+            let f = Fixture::new();
+            f.write("user-policy.json", text, 0o600);
+            let loaded = f.source().load();
+            assert!(
+                matches!(loaded.source, Source::File(_)),
+                "{text}: {:?}",
+                loaded.source
+            );
+            assert!(check(&loaded.policy), "{text}");
+            // Whatever it did not name is what no file means.
+            if text.contains("\"surfaces\":{}") {
+                assert_eq!(loaded.policy.surfaces, defaults.surfaces);
+            }
+        }
+        // Unknown keys are still refused, and a deny-only file denies that app and no other.
+        let f = Fixture::new();
+        f.write(
+            "user-policy.json",
+            r#"{"apps":{"deny":["a.b"],"bogus":1}}"#,
+            0o600,
+        );
+        assert!(matches!(f.source().load().source, Source::Invalid(_)));
+        let _ = std::fs::remove_file(f.path("user-policy.json"));
+        f.write(
+            "user-policy.json",
+            r#"{"apps":{"deny":["org.keepassxc.KeePassXC"]}}"#,
+            0o600,
+        );
+        let p = f.source().load().policy;
+        assert!(!p.app_permitted("org.keepassxc.keepassxc"));
+        assert!(p.app_permitted("org.gnome.TextEditor"));
+    }
+
+    /// The ceiling printed in the design (§5.3) must load as written.
+    #[test]
+    fn the_design_documents_example_policy_loads() {
+        let doc = include_str!("../../../../../../docs/design/linux-helper-only-2026.md");
+        let start = doc.find("### 5.3 The ceiling").expect("section 5.3");
+        let rest = &doc[start..];
+        let open = rest.find("```json\n").expect("the example") + "```json\n".len();
+        let close = rest[open..].find("```").expect("end of the example");
+        let example = &rest[open..open + close];
+        let f = Fixture::new();
+        f.write("user-policy.json", example, 0o600);
+        let loaded = f.source().load();
+        assert!(
+            matches!(loaded.source, Source::File(_)),
+            "{:?}",
+            loaded.source
+        );
+        assert!(loaded.policy.surfaces.virtual_screen && !loaded.policy.surfaces.direct);
+        assert!(!loaded.policy.app_permitted("org.keepassxc.KeePassXC"));
+        assert!(loaded.policy.app_permitted("org.gnome.TextEditor"));
+        assert!(loaded.policy.exec.enabled);
+        assert_eq!(loaded.policy.files.roots.len(), 1);
     }
 
     #[test]

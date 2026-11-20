@@ -387,6 +387,25 @@ impl A11y {
         }
     }
 
+    /// **Every** id the process could be (cgroup, each desktop entry its executable belongs to,
+    /// the launched file, the executable's name, its `comm`), not only the strictest: a deny
+    /// list must catch it under any of them.
+    pub fn all_ids_for_pid(&self, pid: u32) -> Vec<String> {
+        let ev = Self::evidence(pid);
+        let mut out = app_id::candidates(&ev, &self.desktop_index());
+        if let Some(c) = ev
+            .comm
+            .as_deref()
+            .map(app_id::normalize)
+            .filter(|c| app_id::is_app_id(c))
+        {
+            if !out.contains(&c) {
+                out.push(c);
+            }
+        }
+        out
+    }
+
     /// The desktop-file id of a process (strictest candidate wins, see [`app_id::choose`]).
     pub fn app_id_for_pid(&self, pid: u32) -> Option<String> {
         let ev = Self::evidence(pid);
