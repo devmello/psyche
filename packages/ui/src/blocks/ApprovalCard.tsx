@@ -390,7 +390,7 @@ export function ApprovalCard({
   createdFrom,
   parentThreadTitle,
   mode,
-  otherSurfaces = [],
+  otherSurfaces: allOtherSurfaces = [],
   onAnswer,
   now: fixedNow,
   autoFocus = false,
@@ -400,6 +400,11 @@ export function ApprovalCard({
   layoutId,
 }: ApprovalCardProps): ReactElement {
   const approval = useMemo(() => sanitizeApproval(raw), [raw]);
+  // A paired phone's own `device:<deviceId>` surface is not a place to name: hide it.
+  const otherSurfaces = useMemo(
+    () => allOtherSurfaces.filter((s) => !s.startsWith("device:")),
+    [allOtherSurfaces],
+  );
   // First line of the per-surface template: kind · side effect · taint (never attacker text).
   const header = useMemo(() => renderForSurface("desktop", raw).text.split("\n")[0] ?? "", [raw]);
   const now = useNow(1000, fixedNow);

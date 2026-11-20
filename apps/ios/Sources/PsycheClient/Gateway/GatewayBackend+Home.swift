@@ -26,7 +26,7 @@ extension GatewayBackend {
         // Only presence-gated approvals (payments, adding a verifier) need a presence assertion from a registered
         // Secure Enclave key (companion §5); the phone has none yet, so these stay on the Mac rather than failing
         // late. Device-only just means "never in chat": the paired phone answers it with a plain tap.
-        if approval["requiresAuthentication"]?.bool == true {
+        if approval["requiresAuthentication"]?.bool == true || Self.detailsNeedMac(approval["details"]) {
             throw BackendError.refused("This one needs your Mac. Answer it there.")
         }
         guard let token = current["answerToken"]?.string else {
@@ -140,26 +140,64 @@ extension GatewayBackend {
         let summary = a["summary"]?.string ?? Self.humanized(kind)
         let agent = a.at("requestedBy", "agent")?.string
         var fields: [ApprovalDetail.Field] = []
+        var nested = false
         for (key, value) in (a["details"]?.object ?? [:]).sorted(by: { $0.key < $1.key }) {
             if let text = value.string ?? value.double.map({ String($0) }) ?? value.bool.map({ String($0) }) {
                 fields.append(.init(key: Self.humanized(key), value: text))
+            } else if let text = Self.nestedText(value) {
+                // The arguments being approved (a command's params, a script's lines) are shown in full,
+                // never summarised: the tap approves exactly this.
+                nested = true
+                fields.append(.init(key: Self.humanized(key), value: text))
             }
         }
+        let needsMacForDetails = Self.detailsNeedMac(a["details"])
         var evidence: [String] = []
         if let because = a.at("fromLesson", "because")?.string { evidence.append("Because you said: \(because)") }
         if a["taint"]?.bool == true { evidence.append("Based on content from outside Psyche") }
-        let needsMac = a["requiresAuthentication"]?.bool == true
+        let needsMac = a["requiresAuthentication"]?.bool == true || needsMacForDetails
         let deviceOnly = a["deviceOnly"]?.bool == true
         let detail = ApprovalDetail(
             kindLabel: Self.humanized(kind), title: summary,
             summary: agent.map { "Requested by \($0)." } ?? "Psyche is asking before it goes ahead.",
             fields: fields, evidence: evidence, alsoSentTo: "Also sent to your Mac",
             presenceNote: needsMac ? "This one needs your Mac." : nil, allowLabel: "Allow once",
-            reviewInApp: deviceOnly)
+            reviewInApp: deviceOnly || nested)
         return NeedsYouItem(
             id: id, kind: .approval, title: summary, source: agent ?? Self.humanized(kind),
             time: WireFormat.time(a["requestedAt"]?.string), approval: detail,
             threadID: a.at("requestedBy", "threadId")?.string, taskID: a.at("requestedBy", "taskId")?.string)
+    }
+
+    /// The longest nested value the card shows in full. Past it the card is answered on the Mac, where the
+    /// whole thing can be read: the phone never approves what it cannot show.
+    static let nestedLimit = 20_000
+
+    /// An array or object detail as pretty, sorted JSON, or nil when it is empty or null.
+    static func nestedText(_ value: JSONValue) -> String? {
+        switch value {
+        case .array, .object:
+            let encoder = JSONEncoder()
+            encoder.outputFormatting = [.prettyPrinted, .sortedKeys, .withoutEscapingSlashes]
+            guard let data = try? encoder.encode(value), let text = String(data: data, encoding: .utf8) else {
+                return nil
+            }
+            return text
+        default: return nil
+        }
+    }
+
+    /// True when a detail can't be shown in full on the phone: a nested value that won't encode, or one
+    /// longer than `nestedLimit`. Such a card stays on the Mac.
+    static func detailsNeedMac(_ details: JSONValue?) -> Bool {
+        for (_, value) in details?.object ?? [:] {
+            switch value {
+            case .array, .object:
+                guard let text = nestedText(value), text.count <= nestedLimit else { return true }
+            default: continue
+            }
+        }
+        return false
     }
 
     static func running(task t: JSONValue) -> RunningTask? {

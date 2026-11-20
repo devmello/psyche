@@ -267,3 +267,69 @@ describe("a tap on the desktop approves the card without presence", () => {
     });
   });
 });
+
+describe("which cards a phone gets a token for", () => {
+  const card = (
+    c: ComposedGateway,
+    over: {
+      kind: "script_run" | "send_message";
+      surfaces: string[];
+      sideEffect: "write" | "destructive";
+    },
+    n: string,
+  ) =>
+    c.gateway.context.broker.requestApproval({
+      kind: over.kind,
+      summary: "x",
+      details: {},
+      requestedBy,
+      surfaces: over.surfaces,
+      taint: false,
+      bindingHash: `sha256:${n.repeat(64)}`,
+      grantKey: n,
+      sideEffect: over.sideEffect,
+    });
+
+  it("a card its caller kept on the desktop (a script) gets no phone surface or token", async () => {
+    const { c } = await boot();
+    const p1 = await phone(c, "phone-1", false);
+    const issued = await card(
+      c,
+      { kind: "script_run", surfaces: ["desktop"], sideEffect: "destructive" },
+      "e",
+    );
+    const mine = await get(p1, issued.approval.id);
+    expect(mine.approval.surfaces).toEqual(["desktop"]);
+    expect(mine.answerToken).toBeUndefined();
+  });
+
+  it("a routine write card offered to the notification surface is answerable once from the phone", async () => {
+    const { c } = await boot();
+    const p1 = await phone(c, "phone-1", false);
+    const issued = await card(
+      c,
+      { kind: "send_message", surfaces: ["desktop", "notification"], sideEffect: "write" },
+      "f",
+    );
+    const id = issued.approval.id;
+    const mine = await get(p1, id);
+    expect(mine.approval.deviceOnly).toBe(false);
+    expect(mine.approval.surfaces).toContain("device:phone-1");
+    expect(mine.answerToken).toBeDefined();
+    await armed();
+    expect(await answer(p1, id, mine.answerToken ?? "")).toMatchObject({ ok: true });
+    expect(await answer(p1, id, mine.answerToken ?? "")).toMatchObject({ ok: false });
+  });
+
+  it("a phone paired after the card was raised gets no token for it", async () => {
+    const { c } = await boot();
+    const issued = await card(
+      c,
+      { kind: "send_message", surfaces: ["desktop", "notification"], sideEffect: "write" },
+      "9",
+    );
+    const late = await phone(c, "phone-late", false);
+    const mine = await get(late, issued.approval.id);
+    expect(mine.answerToken).toBeUndefined();
+  });
+});

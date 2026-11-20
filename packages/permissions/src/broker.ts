@@ -251,8 +251,9 @@ export interface PermissionBrokerOptions {
   presenceFor?: "authentication" | "device_only";
   /**
    * The `device:<deviceId>` surfaces of the paired operator devices that answer with a plain tap
-   * (a phone, a tablet): added to every device-only card that needs no presence assertion, each
-   * with its own token. Never a shared per-platform surface, never a chat surface.
+   * (a phone, a tablet): added to every card that needs no presence assertion and whose caller
+   * offered `notification` or `web`, each with its own token. Never a shared per-platform
+   * surface, never a chat surface.
    */
   deviceSurfaces?: () => readonly Surface[];
   ttlMs?: number;
@@ -1720,10 +1721,17 @@ export class PsychePermissionBroker implements PermissionBroker {
       ),
     ];
     if (surfaces.length === 0) surfaces = ["desktop"];
-    // A device-only card that needs no presence is a plain tap on any paired operator device
-    // (owner's decision, 2026-11-09): each gets its own surface and token. A card that needs a
-    // presence assertion (a payment, enrolling a verifier) stays on the Mac surfaces.
-    if (deviceOnly && !requiresAuthentication && this.#deviceSurfaces !== undefined) {
+    // A card that needs no presence is a plain tap on any paired operator device (owner's decision,
+    // 2026-11-09): each gets its own surface and token. Only when the caller itself offered the
+    // off-Host surfaces (`notification` or `web`): a card its caller kept on `["desktop"]` shows
+    // arguments only the Mac renders in full and stays there. A card that needs a presence
+    // assertion (a payment, enrolling a verifier) stays on the Mac surfaces. A phone paired after
+    // the card was raised gets no token for it.
+    if (
+      !requiresAuthentication &&
+      this.#deviceSurfaces !== undefined &&
+      input.surfaces.some((s) => s === "notification" || s === "web")
+    ) {
       surfaces = [
         ...new Set([
           ...surfaces,

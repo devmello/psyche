@@ -623,7 +623,11 @@ public final class AlertCenter {
     private func send(_ id: String, _ decision: ApprovalDecision, onlyIf allowed: ((NeedsYouItem) -> Bool)?) async {
         if let allowed {
             let item = (try? await store.home())?.needsYou.first { $0.id == id }
-            guard let item, allowed(item) else { return }
+            guard let item, allowed(item) else {
+                // Not answerable from here any more (or the check could not run): say so, don't go quiet.
+                await notifier.post(AlertPolicy.couldNotAnswer(id, message: "Open Psyche to answer this one."))
+                return
+            }
         }
         do {
             try await store.answerApproval(id: id, decision: decision)
