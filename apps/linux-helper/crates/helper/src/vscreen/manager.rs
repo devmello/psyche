@@ -30,12 +30,14 @@ use super::guard::{
 use super::input::Button;
 use super::recipes::{
     app_environment, application_dirs, find_desktop_entry, firefox_profile_from_ini,
-    fresh_profile_copy, launch_spec, recipe_for, Family, LaunchContext, LaunchSpec, APP_ENV_ALLOW,
+    fresh_profile_copy, launch_spec, launches_snap, recipe_for, Family, LaunchContext, LaunchSpec,
+    APP_ENV_ALLOW,
 };
 use super::scope::{
     parse_cpu_quota, parse_memory, parse_tasks_max, unit_name, ScopeRunner, SliceLimits,
     SystemdRunner,
 };
+use super::wm::WindowKind;
 use super::wmdriver::WindowRecord;
 use super::xauth;
 use crate::idle::{IdleHold, IdleTimer};
@@ -542,6 +544,11 @@ impl VscreenManager {
             }
             runner.stop(&s.display_unit);
             super::rmtree::remove_tree_logged(&s.dir, "session dir");
+            if self.config.xdg_runtime_dir.is_none() {
+                // The display's auth file and the session dir are gone: the fallback dir is
+                // empty now, and goes too.
+                super::xauth::release_private_temp_dir();
+            }
         } else if let Some(d) = inner.display.take() {
             d.stop();
         }
@@ -569,6 +576,13 @@ impl VscreenManager {
             )
         })?;
         let exe = resolve_exe(&entry, &self.config.path_var);
+        let head = exe.as_deref().and_then(script_head);
+        if launches_snap(&entry, exe.as_deref(), head.as_deref()) {
+            return Err(VsError::new(
+                "snap_unsupported",
+                "Snap apps can't run on the virtual screen yet; install the deb or Flatpak version.",
+            ));
+        }
         // Before anything starts: is it already open on the owner's screen?
         check_before_launch(&entry, exe.as_deref(), &*self.deps.bus, &*self.deps.procs).map_err(
             |r| match r {
@@ -648,7 +662,10 @@ impl VscreenManager {
                 unsaved: false,
             });
         }
-        match display.wait_for_window(serial, self.config.launch_wait, |_| true) {
+        let procs = &self.deps.procs;
+        match display.wait_for_window(serial, self.config.launch_wait, |w| {
+            is_main_window(w, &w.pid.map(|p| procs.comm(p)).unwrap_or_default())
+        }) {
             Some(win) => Ok(Opened {
                 app_id: entry.id,
                 pid: win.pid.unwrap_or(root_pid),
@@ -1021,6 +1038,11 @@ impl VscreenManager {
         }
         if let Ok(base) = super::xauth::runtime_dir(self.config.xdg_runtime_dir.as_deref()) {
             super::sweep::sweep_dirs(&base, "vs-", me, &alive);
+            super::sweep::sweep_files(&base, "xauth-", me, &alive);
+        }
+        if self.config.xdg_runtime_dir.is_none() {
+            // The sweep made a fallback dir to look in; nothing runs, so it goes again.
+            super::xauth::release_private_temp_dir();
         }
         if self.config.xdg_runtime_dir.is_none() {
             super::sweep::sweep_dirs(&std::env::temp_dir(), "psyche-vscreen-", me, &alive);
@@ -1032,6 +1054,29 @@ impl VscreenManager {
         let mut inner = lock(&self.inner);
         self.teardown_locked(&mut inner);
     }
+}
+
+/// Processes that put up a splash or start window before the app's real one.
+pub const SPLASH_PROCESSES: &[&str] = &["oosplash"];
+
+/// Whether a newly mapped window is the app's own: an ordinary window or a dialog, not a splash
+/// screen, a popup, a dock or a desktop, and not one shown by a splash process (LibreOffice's
+/// `oosplash` maps its window before `soffice.bin` opens the document).
+pub fn is_main_window(w: &WindowRecord, comm: &str) -> bool {
+    matches!(w.kind, WindowKind::Normal | WindowKind::Dialog)
+        && !SPLASH_PROCESSES.contains(&comm.trim())
+}
+
+/// The first 4 KiB of a launcher, to see whether a script hands off to `snap`.
+fn script_head(exe: &std::path::Path) -> Option<Vec<u8>> {
+    use std::io::Read;
+    let mut head = Vec::with_capacity(4096);
+    std::fs::File::open(exe)
+        .ok()?
+        .take(4096)
+        .read_to_end(&mut head)
+        .ok()?;
+    Some(head)
 }
 
 /// Runs one input batch. An ordinary batch stops at the first event that fails. A release batch
@@ -1200,5 +1245,41 @@ mod tests {
             run_input_batch(&[], true, apply_log(&mut log), || Err("x gone".into())),
             Err("x gone".to_string())
         );
+    }
+
+    fn win(kind: WindowKind) -> WindowRecord {
+        WindowRecord {
+            id: 1,
+            title: Some("LibreOffice".into()),
+            pid: Some(7),
+            kind,
+            transient_for: None,
+            rect: super::super::wm::Rect {
+                x: 0,
+                y: 0,
+                w: 100,
+                h: 100,
+            },
+            map_serial: 1,
+        }
+    }
+
+    #[test]
+    fn launches_wait_past_splash_windows() {
+        // The app's own windows.
+        assert!(is_main_window(&win(WindowKind::Normal), "soffice.bin"));
+        assert!(is_main_window(&win(WindowKind::Normal), ""));
+        assert!(is_main_window(&win(WindowKind::Dialog), "gnome-text-edit"));
+        // Splash and start windows, and things that are not windows of the app.
+        assert!(!is_main_window(&win(WindowKind::Normal), "oosplash"));
+        assert!(!is_main_window(&win(WindowKind::Normal), "oosplash\n"));
+        for kind in [
+            WindowKind::Splash,
+            WindowKind::Popup,
+            WindowKind::Dock,
+            WindowKind::Desktop,
+        ] {
+            assert!(!is_main_window(&win(kind), "soffice.bin"), "{kind:?}");
+        }
     }
 }

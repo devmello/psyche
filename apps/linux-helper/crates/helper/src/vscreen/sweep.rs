@@ -188,6 +188,43 @@ pub fn sweep_dirs(
     removed
 }
 
+/// Removes `<base>/<prefix><tag>-*` regular files of dead helpers (their `xauth-*` cookie
+/// files), ours only, never through a symlink. Returns what it removed.
+pub fn sweep_files(
+    base: &Path,
+    prefix: &str,
+    me: &HelperTag,
+    alive: &dyn Fn(&HelperTag) -> bool,
+) -> Vec<PathBuf> {
+    let Ok(entries) = std::fs::read_dir(base) else {
+        return Vec::new();
+    };
+    let names: Vec<String> = entries
+        .filter_map(|e| e.ok()?.file_name().into_string().ok())
+        .collect();
+    // SAFETY: geteuid has no preconditions.
+    let euid = unsafe { libc::geteuid() };
+    let mut removed = Vec::new();
+    for name in stale(
+        names.iter().map(String::as_str),
+        |n| tag_of(n, prefix),
+        me,
+        alive,
+    ) {
+        let path = base.join(name);
+        let Ok(st) = std::fs::symlink_metadata(&path) else {
+            continue;
+        };
+        if !st.is_file() || st.uid() != euid {
+            continue;
+        }
+        if std::fs::remove_file(&path).is_ok() {
+            removed.push(path);
+        }
+    }
+    removed
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -361,5 +398,33 @@ mod tests {
             start: 1,
         }));
         assert!(!own_tag_text().is_empty());
+    }
+
+    #[test]
+    fn a_dead_helpers_xauth_files_are_removed_and_nothing_else() {
+        let base = tempfile::tempdir().unwrap();
+        let outside = tempfile::tempdir().unwrap();
+        std::fs::write(outside.path().join("cookie"), "owner's").unwrap();
+        let dead = format!("xauth-{}-90-aaaa", tag(100, 7));
+        let live = format!("xauth-{}-91-bbbb", tag(500, 7));
+        let mine = format!("xauth-{}-92-cccc", ME.text());
+        let untagged = "xauth-93-dddd".to_string();
+        for f in [&dead, &live, &mine, &untagged] {
+            std::fs::write(base.path().join(f), "cookie").unwrap();
+        }
+        // A dead helper's name on a symlink and on a directory: left alone.
+        let link = format!("xauth-{}-94-eeee", tag(101, 7));
+        std::os::unix::fs::symlink(outside.path().join("cookie"), base.path().join(&link)).unwrap();
+        let dir = format!("xauth-{}-95-ffff", tag(102, 7));
+        std::fs::create_dir(base.path().join(&dir)).unwrap();
+        let removed = sweep_files(base.path(), "xauth-", &ME, &|t| t.pid == 500);
+        assert_eq!(removed, [base.path().join(&dead)]);
+        for kept in [&live, &mine, &untagged, &link, &dir] {
+            assert!(
+                std::fs::symlink_metadata(base.path().join(kept)).is_ok(),
+                "{kept}"
+            );
+        }
+        assert!(outside.path().join("cookie").is_file());
     }
 }

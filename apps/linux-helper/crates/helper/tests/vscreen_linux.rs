@@ -236,27 +236,37 @@ fn environ_of(pid: u32) -> HashMap<String, String> {
         .collect()
 }
 
+/// The `fake_app` example's executable. Cargo itself says where it put it (the
+/// `compiler-artifact` message's `executable`), so this works with any build-dir layout: the old
+/// `target/debug/deps` one (1.91) and the newer one where test binaries live elsewhere (1.100).
+/// Building again is quick when it is current.
 fn fake_app() -> PathBuf {
-    // target/debug/deps/<test> -> target/debug/examples/fake_app
-    let exe = std::env::current_exe().unwrap();
-    let app = exe
-        .parent()
-        .unwrap()
-        .parent()
-        .unwrap()
-        .join("examples/fake_app");
-    {
-        // `cargo test --test ...` does not build examples; a full `cargo test` does. Building
-        // again is quick when it is current.
+    static APP: std::sync::OnceLock<PathBuf> = std::sync::OnceLock::new();
+    APP.get_or_init(|| {
         let cargo = std::env::var("CARGO").unwrap_or_else(|_| "cargo".into());
-        let ok = Command::new(cargo)
-            .args(["build", "-p", "psyche-helper", "--example", "fake_app"])
-            .status()
-            .map(|s| s.success())
-            .unwrap_or(false);
-        assert!(ok, "building the fake_app example");
-    }
-    app
+        let out = Command::new(cargo)
+            .args([
+                "build",
+                "-p",
+                "psyche-helper",
+                "--example",
+                "fake_app",
+                "--message-format=json",
+            ])
+            .stderr(Stdio::inherit())
+            .output()
+            .expect("running cargo build for the fake_app example");
+        assert!(out.status.success(), "building the fake_app example");
+        let path = String::from_utf8_lossy(&out.stdout)
+            .lines()
+            .filter_map(|l| serde_json::from_str::<serde_json::Value>(l).ok())
+            .filter(|m| m["reason"] == "compiler-artifact" && m["target"]["name"] == "fake_app")
+            .find_map(|m| m["executable"].as_str().map(PathBuf::from))
+            .expect("cargo named the fake_app executable");
+        assert!(path.is_file(), "{} exists", path.display());
+        path
+    })
+    .clone()
 }
 
 fn desktop_file(dir: &Path, id: &str, exec: &str) {

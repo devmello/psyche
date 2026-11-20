@@ -13,7 +13,7 @@
 use std::io::Write;
 use std::os::unix::fs::{DirBuilderExt, MetadataExt, OpenOptionsExt, PermissionsExt};
 use std::path::{Path, PathBuf};
-use std::sync::OnceLock;
+use std::sync::Mutex;
 
 pub const AUTH_NAME: &[u8] = b"MIT-MAGIC-COOKIE-1";
 /// Matches any address (Xauth.h `FamilyWild`).
@@ -101,12 +101,34 @@ pub fn runtime_dir(xdg_runtime_dir: Option<&str>) -> std::io::Result<PathBuf> {
     Ok(dir)
 }
 
-/// `mkdtemp(<temp dir>/psyche-vscreen-<helper tag>-XXXXXX)`, checked, made once per process.
+/// The fallback dir while one exists (`private_temp_dir`).
+static TEMP_DIR: Mutex<Option<PathBuf>> = Mutex::new(None);
+
+/// `mkdtemp(<temp dir>/psyche-vscreen-<helper tag>-XXXXXX)`, checked. One at a time: the same dir
+/// until `release_private_temp_dir` removes it, then a new one.
 fn private_temp_dir() -> std::io::Result<PathBuf> {
-    static DIR: OnceLock<Result<PathBuf, String>> = OnceLock::new();
-    DIR.get_or_init(|| make_temp_dir(&std::env::temp_dir()).map_err(|e| e.to_string()))
-        .clone()
-        .map_err(std::io::Error::other)
+    let mut held = TEMP_DIR.lock().unwrap_or_else(|p| p.into_inner());
+    if let Some(dir) = held.as_ref() {
+        if check_owned_dir(dir, true).is_ok() {
+            return Ok(dir.clone());
+        }
+    }
+    let dir = make_temp_dir(&std::env::temp_dir())?;
+    *held = Some(dir.clone());
+    Ok(dir)
+}
+
+/// Removes the fallback dir when it is empty (the screen stopped), so none pile up in `/tmp`.
+/// Returns whether one was removed. A dir with anything left in it stays.
+pub fn release_private_temp_dir() -> bool {
+    let mut held = TEMP_DIR.lock().unwrap_or_else(|p| p.into_inner());
+    match held.as_ref() {
+        Some(dir) if std::fs::remove_dir(dir).is_ok() => {
+            *held = None;
+            true
+        }
+        _ => false,
+    }
 }
 
 pub fn make_temp_dir(parent: &Path) -> std::io::Result<PathBuf> {
@@ -129,12 +151,16 @@ pub fn make_temp_dir(parent: &Path) -> std::io::Result<PathBuf> {
     Ok(dir)
 }
 
-/// `xauth-<n>-<12 hex digits>`: a fresh name for every start.
+/// `xauth-<helper tag>-<n>-<12 hex digits>`: a fresh name for every start, tagged so the next
+/// helper can remove a crashed one's (`sweep.rs`).
 pub fn file_name(display_number: u32) -> std::io::Result<String> {
     let mut tag = [0u8; 6];
     getrandom::fill(&mut tag).map_err(|e| std::io::Error::other(e.to_string()))?;
     let hex: String = tag.iter().map(|b| format!("{b:02x}")).collect();
-    Ok(format!("xauth-{display_number}-{hex}"))
+    Ok(format!(
+        "xauth-{}-{display_number}-{hex}",
+        super::sweep::own_tag_text()
+    ))
 }
 
 /// Writes the authority file (0600, replacing any older one).
@@ -202,12 +228,24 @@ mod tests {
         assert!(st.is_dir() && !st.file_type().is_symlink());
         assert_eq!(st.mode() & 0o777, 0o700);
         assert_eq!(st.uid(), unsafe { libc::geteuid() });
-        assert_eq!(runtime_dir(None).unwrap(), a, "one per process");
+        assert_eq!(runtime_dir(None).unwrap(), a, "the same while it is held");
         assert_eq!(
             runtime_dir(Some("")).unwrap(),
             a,
             "an empty variable counts as none"
         );
+        // A dir with something in it is not released; an empty one is, and the next start gets
+        // a new one.
+        std::fs::write(a.join("x"), "x").unwrap();
+        assert!(!release_private_temp_dir());
+        assert!(a.is_dir());
+        std::fs::remove_file(a.join("x")).unwrap();
+        assert!(release_private_temp_dir());
+        assert!(!a.exists(), "the empty dir is gone");
+        assert!(!release_private_temp_dir(), "nothing left to release");
+        let b = runtime_dir(None).unwrap();
+        assert!(b.is_dir());
+        assert!(release_private_temp_dir());
         // Each mkdtemp is new.
         let parent = tempfile::tempdir().unwrap();
         assert_ne!(
@@ -267,10 +305,13 @@ mod tests {
         let a = file_name(90).unwrap();
         let b = file_name(90).unwrap();
         assert_ne!(a, b);
+        let prefix = format!("xauth-{}-90-", super::super::sweep::own_tag_text());
         assert!(
-            a.starts_with("xauth-90-") && a.len() == "xauth-90-".len() + 12,
+            a.starts_with(&prefix) && a.len() == prefix.len() + 12,
             "{a}"
         );
+        // The sweep reads the helper's tag back from it.
+        assert!(super::super::sweep::tag_of(&a, "xauth-").is_some());
     }
 
     #[test]

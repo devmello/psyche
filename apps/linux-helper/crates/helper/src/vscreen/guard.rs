@@ -35,6 +35,10 @@ pub trait Procs: Send + Sync {
     fn cgroup_text(&self, _pid: u32) -> String {
         String::new()
     }
+    /// `/proc/<pid>/comm` without its newline, empty when the process is gone.
+    fn comm(&self, _pid: u32) -> String {
+        String::new()
+    }
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -277,6 +281,12 @@ impl Procs for ProcFs {
 
     fn cgroup_text(&self, pid: u32) -> String {
         std::fs::read_to_string(format!("/proc/{pid}/cgroup")).unwrap_or_default()
+    }
+
+    fn comm(&self, pid: u32) -> String {
+        std::fs::read_to_string(format!("/proc/{pid}/comm"))
+            .map(|c| c.trim_end().to_string())
+            .unwrap_or_default()
     }
 }
 

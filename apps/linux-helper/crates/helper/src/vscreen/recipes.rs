@@ -168,6 +168,30 @@ pub fn find_desktop_entry(id: &str, dirs: &[PathBuf]) -> Option<DesktopEntry> {
     None
 }
 
+/// Whether launching `entry` goes through `snap run`. Snap apps (Ubuntu's default Firefox among
+/// them) cannot run on the virtual screen yet: `snap run` asks the session bus for
+/// `org.freedesktop.systemd1`, which the private bus does not have, and without the private bus
+/// snapd would move the app into its own `snap.*.scope`, out of the slice, its caps, stop and the
+/// sweep. Detected from any of:
+/// - an `Exec=` word under `/snap/` or a `snap` launcher (`snap run firefox`);
+/// - the resolved executable: `/snap/bin/<app>` is a symlink to `/usr/bin/snap`;
+/// - a launcher script (`#!`) whose start names `/snap/bin/` or `snap run` (Ubuntu's
+///   `/usr/bin/firefox` transitional wrapper).
+pub fn launches_snap(
+    entry: &DesktopEntry,
+    resolved_exe: Option<&Path>,
+    exe_head: Option<&[u8]>,
+) -> bool {
+    let snap_word = |w: &str| w.starts_with("/snap/") || w == "snap" || w.ends_with("/snap");
+    let contains = |hay: &[u8], needle: &[u8]| hay.windows(needle.len()).any(|w| w == needle);
+    entry.exec.iter().any(|w| snap_word(w))
+        || resolved_exe
+            .is_some_and(|p| p.starts_with("/snap/") || p.file_name().is_some_and(|n| n == "snap"))
+        || exe_head.is_some_and(|h| {
+            h.starts_with(b"#!") && (contains(h, b"/snap/bin/") || contains(h, b"snap run"))
+        })
+}
+
 /// How a family of apps gets its own instance.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum Family {
@@ -1147,5 +1171,46 @@ mod tests {
         // A name on the next line: two non-canonical lines.
         let split = "user_pref(\n\"services.sync.username\", \"o\");\n";
         assert_eq!(firefox_prefs_without_sync(split), "");
+    }
+
+    #[test]
+    fn snap_launches_are_recognised() {
+        // (Exec words, resolved executable, script head, snap?)
+        let script_snap: &[u8] =
+            b"#!/bin/sh\n# transitional package\nexec /snap/bin/firefox \"$@\"\n";
+        let script_run: &[u8] = b"#!/bin/sh\nexec snap run thunderbird \"$@\"\n";
+        let script_plain: &[u8] = b"#!/bin/sh\nexec /usr/lib/firefox/firefox \"$@\"\n";
+        let elf: &[u8] = b"\x7fELF\x02\x01/snap/bin/";
+        type Row<'a> = (&'a [&'a str], Option<&'a str>, Option<&'a [u8]>, bool);
+        let table: &[Row] = &[
+            // The snap's own desktop file.
+            (
+                &["env", "BAMF_DESKTOP_FILE_HINT=/var/lib/snapd/desktop/applications/firefox_firefox.desktop", "/snap/bin/firefox"],
+                Some("/usr/bin/snap"),
+                None,
+                true,
+            ),
+            (&["snap", "run", "firefox"], Some("/usr/bin/snap"), None, true),
+            (&["/usr/bin/snap", "run", "firefox"], None, None, true),
+            // `firefox` on PATH resolving to the snap launcher.
+            (&["firefox"], Some("/usr/bin/snap"), None, true),
+            (&["firefox"], Some("/snap/firefox/9227/usr/lib/firefox/firefox"), None, true),
+            // Ubuntu's transitional wrapper scripts.
+            (&["firefox"], Some("/usr/bin/firefox"), Some(script_snap), true),
+            (&["thunderbird"], Some("/usr/bin/thunderbird"), Some(script_run), true),
+            // Not snaps: a deb Firefox, a plain script, a binary that merely contains the bytes,
+            // an argument that only looks like a word, a Flatpak.
+            (&["firefox"], Some("/usr/lib/firefox/firefox"), None, false),
+            (&["firefox"], Some("/usr/bin/firefox"), Some(script_plain), false),
+            (&["app"], Some("/usr/bin/app"), Some(elf), false),
+            (&["gimp", "--snapshot"], Some("/usr/bin/gimp"), None, false),
+            (&["snapshot"], Some("/usr/bin/snapshot"), None, false),
+            (&["flatpak", "run", "org.mozilla.firefox"], Some("/usr/bin/flatpak"), None, false),
+        ];
+        for (exec, exe, head, want) in table {
+            let e = entry("x", exec);
+            let got = launches_snap(&e, exe.map(Path::new), *head);
+            assert_eq!(got, *want, "{exec:?} {exe:?}");
+        }
     }
 }

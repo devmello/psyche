@@ -194,7 +194,15 @@ fn remove_tree_with(root: &Path, foreign: &dyn Fn(&Path) -> bool) -> io::Result<
         )
     };
     if pfd < 0 {
-        return Err(io::Error::last_os_error());
+        let e = io::Error::last_os_error();
+        if e.raw_os_error() == Some(libc::ENOENT) {
+            // No parent, so no tree: nothing to remove.
+            return Ok(Removal {
+                root_removed: true,
+                ..Removal::default()
+            });
+        }
+        return Err(e);
     }
     // SAFETY: open just returned it.
     let pfd = unsafe { OwnedFd::from_raw_fd(pfd) };
@@ -255,6 +263,7 @@ pub fn remove_tree_logged(root: &Path, what: &str) {
             r.other_devices, r.failed
         )),
         Ok(_) => {}
+        Err(e) if e.kind() == io::ErrorKind::NotFound => {}
         Err(e) => crate::log(&format!("vscreen: {what}: {e}")),
     }
 }
@@ -281,6 +290,9 @@ mod tests {
         assert!(!root.exists());
         // Gone already: nothing to do, no error.
         assert!(remove_tree(&root).unwrap().root_removed);
+        // Not even the parent exists (a Firefox copy that was never made): no error either.
+        let deep = base.path().join("never/made/profile");
+        assert!(remove_tree(&deep).unwrap().root_removed);
     }
 
     #[test]
