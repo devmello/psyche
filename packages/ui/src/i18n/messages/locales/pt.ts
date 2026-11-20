@@ -994,6 +994,8 @@ export const pt: Partial<Catalogue> = {
   "settings.key.browser.botAuth": "Web Bot Auth",
   "settings.key.computerUse.enabled": "Permitir uso do computador",
   "settings.key.computerUse.apps": "Acesso a apps",
+  "settings.key.feed.sources": "Fontes do feed",
+  "settings.key.computerUse.linuxRevoke": "Esquecer o computador Linux",
   "settings.key.context.maxTokens": "Limite de contexto",
   "settings.key.search.web.provider": "Provedor de busca na web",
   "settings.key.search.web.searxngUrl": "URL do SearXNG",

@@ -1045,6 +1045,8 @@ export const hi: Partial<Catalogue> = {
   "settings.key.browser.botAuth": "Web Bot Auth",
   "settings.key.computerUse.enabled": "कंप्यूटर उपयोग की अनुमति दें",
   "settings.key.computerUse.apps": "ऐप ऐक्सेस",
+  "settings.key.feed.sources": "फ़ीड स्रोत",
+  "settings.key.computerUse.linuxRevoke": "Linux कंप्यूटर भुलाएँ",
   "settings.key.context.maxTokens": "संदर्भ सीमा",
   "settings.key.search.web.provider": "वेब खोज प्रदाता",
   "settings.key.search.web.searxngUrl": "SearXNG URL",

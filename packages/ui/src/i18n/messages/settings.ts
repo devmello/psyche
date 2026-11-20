@@ -176,6 +176,8 @@ export const settings = {
   "settings.key.devices.helper.availability": "Psyche Helper connection",
   "settings.key.devices.hostHelperDeviceId": "Which Psyche Helper to use",
   "settings.key.computerUse.apps": "App access",
+  "settings.key.feed.sources": "Feed sources",
+  "settings.key.computerUse.linuxRevoke": "Forget the Linux computer",
   "settings.key.context.maxTokens": "Context limit",
   "settings.key.search.model.engine": "Model for search",
   "settings.key.search.web.provider": "Web search provider",

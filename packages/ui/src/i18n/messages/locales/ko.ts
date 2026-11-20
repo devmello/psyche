@@ -1029,6 +1029,8 @@ export const ko: Partial<Catalogue> = {
   "settings.key.browser.botAuth": "Web Bot Auth",
   "settings.key.computerUse.enabled": "컴퓨터 사용 허용",
   "settings.key.computerUse.apps": "앱 접근",
+  "settings.key.feed.sources": "피드 소스",
+  "settings.key.computerUse.linuxRevoke": "Linux 컴퓨터 잊기",
   "settings.key.context.maxTokens": "컨텍스트 한도",
   "settings.key.search.web.provider": "웹 검색 제공업체",
   "settings.key.search.web.searxngUrl": "SearXNG URL",
