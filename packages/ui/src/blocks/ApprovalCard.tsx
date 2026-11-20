@@ -40,6 +40,7 @@ import {
 } from "./answer-error.ts";
 import { ApprovalDetails, ApprovalIds } from "./approval-details.tsx";
 import { floorClassOf, useLiftFloorConfirm } from "./LiftFloorDialog.tsx";
+import { approvalMachineLine } from "./machine-line.ts";
 import { taintSentence } from "./taint-text.ts";
 
 /** The approve chord on the button: the compact ⌘↩ on macOS, "Ctrl+Enter" elsewhere. */
@@ -402,6 +403,7 @@ export function ApprovalCard({
   const approval = useMemo(() => sanitizeApproval(raw), [raw]);
   // First line of the per-surface template: kind · side effect · taint (never attacker text).
   const header = useMemo(() => renderForSurface("desktop", raw).text.split("\n")[0] ?? "", [raw]);
+  const machineLine = approvalMachineLine(approval);
   const now = useNow(1000, fixedNow);
   const headingId = useId();
   const headingRef = useRef<HTMLHeadingElement>(null);
@@ -830,6 +832,11 @@ export function ApprovalCard({
       <p className="mt-0.5 text-callout text-label-secondary" data-card-header>
         {header}
       </p>
+      {machineLine ? (
+        <p className="mt-0.5 text-callout font-medium text-label-primary" data-card-machine>
+          {machineLine}
+        </p>
+      ) : null}
       <h3
         id={headingId}
         ref={headingRef}

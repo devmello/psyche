@@ -357,12 +357,15 @@
 //   let compactionSummary = try? JSONDecoder().decode(CompactionSummary.self, from: jsonData)
 //   let computerMachineRef = try? JSONDecoder().decode(ComputerMachineRef.self, from: jsonData)
 //   let computerSurface = try? JSONDecoder().decode(ComputerSurface.self, from: jsonData)
+//   let computerWatchFrameParams = try? JSONDecoder().decode(ComputerWatchFrameParams.self, from: jsonData)
+//   let computerWatchInputParams = try? JSONDecoder().decode(ComputerWatchInputParams.self, from: jsonData)
 //   let computerWatchParkAction = try? JSONDecoder().decode(ComputerWatchParkAction.self, from: jsonData)
 //   let computerWatchParkedPayload = try? JSONDecoder().decode(ComputerWatchParkedPayload.self, from: jsonData)
 //   let computerWatchResolveParkedParams = try? JSONDecoder().decode(ComputerWatchResolveParkedParams.self, from: jsonData)
 //   let computerWatchResolveParkedResult = try? JSONDecoder().decode(ComputerWatchResolveParkedResult.self, from: jsonData)
 //   let computerWatchState = try? JSONDecoder().decode(ComputerWatchState.self, from: jsonData)
 //   let computerWatchStatusParams = try? JSONDecoder().decode(ComputerWatchStatusParams.self, from: jsonData)
+//   let computerWatchStopParams = try? JSONDecoder().decode(ComputerWatchStopParams.self, from: jsonData)
 //   let computerWatchTakeOverParams = try? JSONDecoder().decode(ComputerWatchTakeOverParams.self, from: jsonData)
 //   let computerWatchTakeOverResult = try? JSONDecoder().decode(ComputerWatchTakeOverResult.self, from: jsonData)
 //   let connectChallenge = try? JSONDecoder().decode(ConnectChallenge.self, from: jsonData)
@@ -10814,6 +10817,91 @@ public enum CompactionBlockType: String, Codable, Sendable {
     case compaction = "compaction"
 }
 
+// MARK: - ComputerWatchFrameParams
+public struct ComputerWatchFrameParams: Codable, Sendable {
+    public let machine: String?
+    public let maxWidth: Int?
+    public let since: Int?
+
+    public enum CodingKeys: String, CodingKey {
+        case machine = "machine"
+        case maxWidth = "maxWidth"
+        case since = "since"
+    }
+
+    public init(machine: String? = nil, maxWidth: Int? = nil, since: Int? = nil) {
+        self.machine = machine
+        self.maxWidth = maxWidth
+        self.since = since
+    }
+}
+
+// MARK: - ComputerWatchInputParams
+public struct ComputerWatchInputParams: Codable, Sendable {
+    public let events: [VscreenInputEvent]
+    public let machine: String?
+
+    public enum CodingKeys: String, CodingKey {
+        case events = "events"
+        case machine = "machine"
+    }
+
+    public init(events: [VscreenInputEvent], machine: String? = nil) {
+        self.events = events
+        self.machine = machine
+    }
+}
+
+// MARK: - VscreenInputEvent
+public struct VscreenInputEvent: Codable, Sendable {
+    public let button: Button?
+    public let type: VscreenInputEventType
+    public let x: Double?
+    public let y: Double?
+    public let dx: Double?
+    public let dy: Double?
+    public let key: String?
+    public let text: String?
+
+    public enum CodingKeys: String, CodingKey {
+        case button = "button"
+        case type = "type"
+        case x = "x"
+        case y = "y"
+        case dx = "dx"
+        case dy = "dy"
+        case key = "key"
+        case text = "text"
+    }
+
+    public init(button: Button? = nil, type: VscreenInputEventType, x: Double? = nil, y: Double? = nil, dx: Double? = nil, dy: Double? = nil, key: String? = nil, text: String? = nil) {
+        self.button = button
+        self.type = type
+        self.x = x
+        self.y = y
+        self.dx = dx
+        self.dy = dy
+        self.key = key
+        self.text = text
+    }
+}
+
+public enum Button: String, Codable, Sendable {
+    case buttonLeft = "left"
+    case buttonRight = "right"
+    case middle = "middle"
+}
+
+public enum VscreenInputEventType: String, Codable, Sendable {
+    case down = "down"
+    case keyDown = "key_down"
+    case keyUp = "key_up"
+    case move = "move"
+    case scroll = "scroll"
+    case text = "text"
+    case up = "up"
+}
+
 // MARK: - ComputerWatchParkedPayload
 public struct ComputerWatchParkedPayload: Codable, Sendable {
     public let apps: [VscreenApp]
@@ -10852,13 +10940,16 @@ public struct VscreenApp: Codable, Sendable {
 // MARK: - ComputerWatchResolveParkedParams
 public struct ComputerWatchResolveParkedParams: Codable, Sendable {
     public let action: ComputerWatchParkAction
+    public let machine: String?
 
     public enum CodingKeys: String, CodingKey {
         case action = "action"
+        case machine = "machine"
     }
 
-    public init(action: ComputerWatchParkAction) {
+    public init(action: ComputerWatchParkAction, machine: String? = nil) {
         self.action = action
+        self.machine = machine
     }
 }
 
@@ -10945,15 +11036,50 @@ public enum VscreenState: String, Codable, Sendable {
     case stopping = "stopping"
 }
 
+// MARK: - ComputerWatchStatusParams
+public struct ComputerWatchStatusParams: Codable, Sendable {
+    public let machine: String?
+
+    public enum CodingKeys: String, CodingKey {
+        case machine = "machine"
+    }
+
+    public init(machine: String? = nil) {
+        self.machine = machine
+    }
+}
+
+// MARK: - ComputerWatchStopParams
+public struct ComputerWatchStopParams: Codable, Sendable {
+    public let closeApps: Bool?
+    public let force: Bool?
+    public let machine: String?
+
+    public enum CodingKeys: String, CodingKey {
+        case closeApps = "closeApps"
+        case force = "force"
+        case machine = "machine"
+    }
+
+    public init(closeApps: Bool? = nil, force: Bool? = nil, machine: String? = nil) {
+        self.closeApps = closeApps
+        self.force = force
+        self.machine = machine
+    }
+}
+
 // MARK: - ComputerWatchTakeOverParams
 public struct ComputerWatchTakeOverParams: Codable, Sendable {
+    public let machine: String?
     public let on: Bool
 
     public enum CodingKeys: String, CodingKey {
+        case machine = "machine"
         case on = "on"
     }
 
-    public init(on: Bool) {
+    public init(machine: String? = nil, on: Bool) {
+        self.machine = machine
         self.on = on
     }
 }
@@ -39846,56 +39972,6 @@ public struct VscreenInputParams: Codable, Sendable {
     }
 }
 
-// MARK: - VscreenInputEvent
-public struct VscreenInputEvent: Codable, Sendable {
-    public let button: Button?
-    public let type: VscreenInputEventType
-    public let x: Double?
-    public let y: Double?
-    public let dx: Double?
-    public let dy: Double?
-    public let key: String?
-    public let text: String?
-
-    public enum CodingKeys: String, CodingKey {
-        case button = "button"
-        case type = "type"
-        case x = "x"
-        case y = "y"
-        case dx = "dx"
-        case dy = "dy"
-        case key = "key"
-        case text = "text"
-    }
-
-    public init(button: Button? = nil, type: VscreenInputEventType, x: Double? = nil, y: Double? = nil, dx: Double? = nil, dy: Double? = nil, key: String? = nil, text: String? = nil) {
-        self.button = button
-        self.type = type
-        self.x = x
-        self.y = y
-        self.dx = dx
-        self.dy = dy
-        self.key = key
-        self.text = text
-    }
-}
-
-public enum Button: String, Codable, Sendable {
-    case buttonLeft = "left"
-    case buttonRight = "right"
-    case middle = "middle"
-}
-
-public enum VscreenInputEventType: String, Codable, Sendable {
-    case down = "down"
-    case keyDown = "key_down"
-    case keyUp = "key_up"
-    case move = "move"
-    case scroll = "scroll"
-    case text = "text"
-    case up = "up"
-}
-
 // MARK: - VscreenStartParams
 public struct VscreenStartParams: Codable, Sendable {
     public let height: Int?
@@ -40572,7 +40648,6 @@ public typealias BrowserBotAuthStatusParams = [String: JSONAny]
 public typealias BrowserRealChromeStatusParams = [String: JSONAny]
 public typealias ChannelsIdentitiesListParams = [String: JSONAny]
 public typealias ChannelsListParams = [String: JSONAny]
-public typealias ComputerWatchStatusParams = [String: JSONAny]
 public typealias ConnectorsCatalogueParams = [String: JSONAny]
 public typealias ConnectorsGoogleClientParams = [String: JSONAny]
 public typealias ConnectorsListParams = [String: JSONAny]

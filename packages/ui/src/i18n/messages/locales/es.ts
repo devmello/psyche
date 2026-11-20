@@ -14,6 +14,7 @@ import { homeA } from "./home-a/es.ts";
 import { keepAwake } from "./keep-awake/es.ts";
 import { links } from "./links/es.ts";
 import { linuxAccess } from "./linux-access/es.ts";
+import { machines } from "./machines/es.ts";
 import { mailFollowups } from "./mail-followups/es.ts";
 import { mailMeetings } from "./mail-meetings/es.ts";
 import { memoryA } from "./memory-a/es.ts";
@@ -3825,4 +3826,5 @@ export const es: Partial<Catalogue> = {
   ...mailFollowups,
   ...keepAwake,
   ...spaces,
+  ...machines,
 };
