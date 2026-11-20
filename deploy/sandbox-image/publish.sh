@@ -101,11 +101,15 @@ for v in "${variants[@]}"; do
       echo "the desktop variant is built per platform: use --platform P --digests-dir D, then --merge D" >&2
       exit 2
     fi
-    if [ "$dry_run" = 1 ] && [ -z "$helper_sha" ]; then helper_sha=dry-run; fi
-    [[ "$helper_sha" =~ ^[0-9a-f]{64}$ || "$helper_sha" = dry-run ]] || {
-      echo "the desktop variant needs PSYCHE_HELPER_SHA256 (the staged helper's sha256)" >&2
-      exit 2
-    }
+    # --merge builds nothing (it tags and signs digests another job pushed), and that job's
+    # environment is not this one's: the checksum is required only where an image is built.
+    if [ -z "$merge_dir" ]; then
+      if [ "$dry_run" = 1 ] && [ -z "$helper_sha" ]; then helper_sha=dry-run; fi
+      [[ "$helper_sha" =~ ^[0-9a-f]{64}$ || "$helper_sha" = dry-run ]] || {
+        echo "the desktop variant needs PSYCHE_HELPER_SHA256 (the staged helper's sha256)" >&2
+        exit 2
+      }
+    fi
   fi
 done
 extra_args() { # extra_args <variant>: build flags only some variants need

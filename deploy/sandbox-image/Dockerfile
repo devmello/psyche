@@ -93,6 +93,12 @@ COPY --chown=0:0 --chmod=0755 desktop/entrypoint.sh /usr/local/lib/psyche/deskto
 COPY --chown=0:0 --chmod=0644 desktop/firefox-policies.json /etc/firefox/policies/policies.json
 COPY --chown=0:0 --chmod=0644 desktop/dbus-session.conf /etc/psyche/dbus-session.conf
 COPY --chown=0:0 --chmod=0644 desktop/libreoffice-lockdown.xcd /usr/lib/libreoffice/share/registry/zz-psyche-lockdown.xcd
+# The LibreOffice user profile lives on the tmpfs, fresh at every container start, for every launch
+# path (soffice, libreoffice, the .desktop files, the helper): the profile can bind application
+# events to `macro:///` URLs, which the registry lock does not stop, so nothing a task leaves in
+# /workspace may be read back as LibreOffice settings or Basic libraries.
+RUN sed -i 's|^UserInstallation=.*|UserInstallation=file:///tmp/lo-user|' /usr/lib/libreoffice/program/bootstraprc \
+ && grep -qx 'UserInstallation=file:///tmp/lo-user' /usr/lib/libreoffice/program/bootstraprc
 RUN if [ -n "$HELPER_SHA256" ]; then \
       echo "$HELPER_SHA256  /usr/local/bin/psyche-helper" | sha256sum -c - ; \
     elif [ "$ALLOW_UNVERIFIED_HELPER" = "1" ]; then \

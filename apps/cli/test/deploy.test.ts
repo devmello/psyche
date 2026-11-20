@@ -224,6 +224,64 @@ describe("deploy/sandbox-image/publish.sh split build (native per-arch runners, 
       },
     );
 
+    // The release workflow builds in one job and merges in another, and an environment variable
+    // does not cross jobs: a real (non-dry) --merge runs with no PSYCHE_HELPER_SHA256 at all.
+    it.skipIf(!has("jq"))(
+      "a real --merge needs no helper checksum (the merge job has none) and records desktop",
+      () => {
+        const work = mkdtempSync(join(tmpdir(), "psyche-merge-"));
+        try {
+          const dir = join(work, "sandbox-image");
+          mkdirSync(dir);
+          for (const f of ["publish.sh", "versions.json", "Dockerfile"]) {
+            writeFileSync(join(dir, f), readFileSync(resolve(deploy, "sandbox-image", f)));
+          }
+          const bin = join(work, "bin");
+          mkdirSync(bin);
+          const digest = `sha256:${"a".repeat(64)}`;
+          // Stubs: docker answers `imagetools inspect` with a manifest digest; cosign signs nothing.
+          writeFileSync(
+            join(bin, "docker"),
+            `#!/bin/sh\ncase "$*" in *inspect*) echo '{"digest":"${digest}"}' ;; esac\nexit 0\n`,
+            { mode: 0o755 },
+          );
+          writeFileSync(join(bin, "cosign"), "#!/bin/sh\nexit 0\n", { mode: 0o755 });
+          const digests = join(work, "digests");
+          for (const v of ["core", "base", "full", "desktop"]) {
+            mkdirSync(join(digests, v), { recursive: true });
+            for (const p of ["linux-arm64", "linux-amd64"]) {
+              writeFileSync(join(digests, v, p), `sha256:${"b".repeat(64)}\n`);
+            }
+          }
+          const env: NodeJS.ProcessEnv = {
+            ...process.env,
+            PATH: `${bin}:${process.env.PATH ?? ""}`,
+          };
+          env.PSYCHE_HELPER_SHA256 = undefined;
+          const r = spawnSync(
+            "bash",
+            [
+              join(dir, "publish.sh"),
+              "--version",
+              "1.2.3",
+              "--merge",
+              digests,
+              "core",
+              "base",
+              "full",
+              "desktop",
+            ],
+            { encoding: "utf8", env },
+          );
+          expect(r.status, r.stderr).toBe(0);
+          const versions = JSON.parse(readFileSync(join(dir, "versions.json"), "utf8"));
+          expect(versions.variants.desktop).toMatchObject({ tag: "1.2.3-desktop", digest });
+        } finally {
+          rmSync(work, { recursive: true, force: true });
+        }
+      },
+    );
+
     it.skipIf(!has("jq"))("is merged, signed and recorded with the others", () => {
       const r = withSha(
         "--dry-run",

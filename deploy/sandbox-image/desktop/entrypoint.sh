@@ -64,6 +64,32 @@ trusted() {
     XDG_CACHE_HOME="$TRUSTED_HOME/cache" "$@"
 }
 
+# App state that can run code is not kept between tasks. /workspace persists, and a task may have
+# planted files that make a later start run a program: a Firefox handler that opens downloads with
+# an interpreter (handlers.json), prefs and user.js that turn off signature checks, extensions,
+# userChrome, a PKCS#11 module, native-messaging manifests, desktop entries and default-app lists.
+# They are deleted here, before the helper or any app runs. Logins and cookies (logins.json,
+# key4.db, cookies.sqlite) stay. LibreOffice keeps no profile at all (the Dockerfile points it at
+# /tmp/lo-user); an old one is removed too. `find -P` never follows a symlink, and `rm` removes a
+# link, not what it points at, so a planted link cannot reach the owner's shares.
+/usr/bin/rm -rf "$HOME/.config/libreoffice" "$HOME/.local/share/applications" "$HOME/.config/mimeapps.list" "$HOME/.config/autostart"
+# Firefox keeps its profiles under ~/.mozilla (older) or ~/.config/mozilla (Firefox 147 and later).
+for root in "$HOME/.mozilla" "$HOME/.config/mozilla"; do
+  [ -d "$root" ] && [ ! -L "$root" ] || continue
+  # A profile outside the root (an absolute or ../ path in profiles.ini) would escape the sweep
+  # below: drop the index and Firefox makes a new profile.
+  for ini in "$root/firefox/profiles.ini" "$root/firefox/installs.ini"; do
+    if [ -f "$ini" ] && /usr/bin/grep -Eq '^IsRelative=0|^(Path|Default)=(/|.*\.\.)' "$ini"; then
+      /usr/bin/rm -f "$ini"
+    fi
+  done
+  /usr/bin/find -P "$root" \( -name handlers.json -o -name mimeTypes.rdf -o -name user.js \
+    -o -name prefs.js -o -name 'extension*' -o -name addonStartup.json.lz4 \
+    -o -name browser-extension-data -o -name chrome -o -name pkcs11.txt \
+    -o -name native-messaging-hosts -o -name distribution \) -prune -exec /usr/bin/rm -rf {} + \
+    2> /dev/null || true
+done
+
 /usr/bin/mkdir -p /tmp/.X11-unix
 /usr/bin/chmod 1777 /tmp/.X11-unix 2> /dev/null || true
 
