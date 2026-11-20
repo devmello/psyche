@@ -75,6 +75,13 @@ export const APP_TOP_LEVEL_ROUTES = [
   "onboarding",
 ] as const;
 
+/**
+ * `/spaces` and `/spaces/<id>` (docs/design/spaces-2026.md section 4.2). Not in
+ * `APP_TOP_LEVEL_ROUTES` until the screen exists (S5); the id is a plain token, never a query.
+ */
+export const APP_SPACES_ROUTE = "spaces";
+const SPACE_ID = /^[A-Za-z0-9_-]{1,64}$/;
+
 const SIMPLE = new Set<string>([
   "chat",
   "home",
@@ -106,6 +113,11 @@ export function resolveAppRoute(route: string): string | null {
   if (first === "memory") {
     if (third !== undefined) return null;
     return second === undefined ? "/memory" : second === "review" ? "/memory/review" : null;
+  }
+  if (first === APP_SPACES_ROUTE) {
+    if (third !== undefined) return null;
+    if (second === undefined) return "/spaces";
+    return SPACE_ID.test(second) ? `/spaces/${second}` : null;
   }
   if (SIMPLE.has(first)) return second === undefined ? `/${first}` : null;
   if (first === "library") {

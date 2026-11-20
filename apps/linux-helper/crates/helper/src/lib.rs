@@ -18,6 +18,7 @@ pub mod identity;
 pub mod idle;
 pub mod paths;
 pub mod receipt;
+pub mod remote;
 pub mod session;
 #[cfg(target_os = "linux")]
 pub mod vscreen;

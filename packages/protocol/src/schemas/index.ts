@@ -21,6 +21,7 @@ export * from "./permissions.ts";
 export * from "./relationship-nudges.ts";
 export * from "./research.ts";
 export * from "./runs.ts";
+export * from "./spaces.ts";
 export * from "./specialists.ts";
 export * from "./speech.ts";
 export * from "./speech-conversation.ts";

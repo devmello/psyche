@@ -6,7 +6,7 @@
 
 use std::fs;
 use std::io::Write;
-use std::os::unix::fs::{DirBuilderExt, OpenOptionsExt, PermissionsExt};
+use std::os::unix::fs::{DirBuilderExt, MetadataExt, OpenOptionsExt, PermissionsExt};
 use std::path::{Path, PathBuf};
 
 use base64::engine::general_purpose::URL_SAFE_NO_PAD;
@@ -129,18 +129,37 @@ pub fn identity_path(state_dir: &Path) -> PathBuf {
 /// Reads the identity without ever writing: `None` when there is none yet. This is what
 /// `--print-identity` uses.
 pub fn load(state_dir: &Path) -> Result<Option<DeviceIdentity>, IdentityError> {
-    let path = identity_path(state_dir);
-    let meta = match fs::metadata(&path) {
-        Ok(m) => m,
+    load_file(state_dir, "identity.json")
+}
+
+/// The device key for a remote Gateway: one key per Gateway, apart from the Host helper's
+/// identity (`identity.json`).
+pub const REMOTE_IDENTITY_FILE: &str = "remote-identity.json";
+
+/// [`load`] for a named identity file in the state directory.
+pub fn load_file(state_dir: &Path, file: &str) -> Result<Option<DeviceIdentity>, IdentityError> {
+    let path = state_dir.join(file);
+    // Opened without following a link, and checked on the open file: what is read is what was
+    // checked.
+    let mut handle = match fs::OpenOptions::new()
+        .read(true)
+        .custom_flags(libc::O_NOFOLLOW)
+        .open(&path)
+    {
+        Ok(f) => f,
         Err(e) if e.kind() == std::io::ErrorKind::NotFound => return Ok(None),
         Err(e) => return Err(e.into()),
     };
+    let meta = handle.metadata()?;
     let mode = meta.permissions().mode() & 0o777;
-    if mode & 0o077 != 0 {
+    // SAFETY: geteuid has no preconditions and cannot fail.
+    if mode & 0o077 != 0 || !meta.is_file() || meta.uid() != unsafe { libc::geteuid() } {
         return Err(IdentityError::Permissions { path, mode });
     }
-    let stored: Stored = serde_json::from_slice(&fs::read(&path)?)
-        .map_err(|_| IdentityError::Malformed(path.clone()))?;
+    let mut bytes = Vec::new();
+    std::io::Read::read_to_end(&mut handle, &mut bytes)?;
+    let stored: Stored =
+        serde_json::from_slice(&bytes).map_err(|_| IdentityError::Malformed(path.clone()))?;
     let mut decoded = URL_SAFE_NO_PAD
         .decode(&stored.seed)
         .map_err(|_| IdentityError::Malformed(path.clone()))?;
@@ -162,7 +181,12 @@ pub fn load(state_dir: &Path) -> Result<Option<DeviceIdentity>, IdentityError> {
 /// Loads the identity, creating it (0600, atomically) on first run. Only the running helper
 /// calls this, never `--print-identity`.
 pub fn load_or_create(state_dir: &Path) -> Result<DeviceIdentity, IdentityError> {
-    if let Some(identity) = load(state_dir)? {
+    load_or_create_file(state_dir, "identity.json")
+}
+
+/// [`load_or_create`] for a named identity file in the state directory.
+pub fn load_or_create_file(state_dir: &Path, file: &str) -> Result<DeviceIdentity, IdentityError> {
+    if let Some(identity) = load_file(state_dir, file)? {
         return Ok(identity);
     }
     fs::DirBuilder::new()
@@ -170,8 +194,8 @@ pub fn load_or_create(state_dir: &Path) -> Result<DeviceIdentity, IdentityError>
         .mode(0o700)
         .create(state_dir)?;
     let identity = DeviceIdentity::generate()?;
-    let path = identity_path(state_dir);
-    let tmp = state_dir.join(format!("identity.json.{}.tmp", std::process::id()));
+    let path = state_dir.join(file);
+    let tmp = state_dir.join(format!("{file}.{}.tmp", std::process::id()));
     let mut file = fs::OpenOptions::new()
         .write(true)
         .create_new(true)

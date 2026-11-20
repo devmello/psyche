@@ -17,6 +17,7 @@ export const OFFICIAL_NPM_PACKAGES: readonly string[] = [
   "@brave/brave-search-mcp-server",
   "@playwright/mcp",
   "@stripe/mcp",
+  "@shopify/dev-mcp",
 ];
 
 /** Exact PyPI packages of the MCP project's reference servers, run as `uvx <package> …`. */
@@ -39,6 +40,10 @@ export const OFFICIAL_REMOTE_ENDPOINTS: readonly { host: string; path?: string }
   { host: "mcp.notion.com" },
   { host: "ai.todoist.net", path: "/mcp" },
   { host: "mcp.firecrawl.dev" },
+  { host: "mcp.dropbox.com", path: "/mcp" },
+  { host: "mcp.figma.com", path: "/mcp" },
+  { host: "mcp.asana.com", path: "/v2/mcp" },
+  { host: "zoom.us", path: "/mcp/meeting/streamable" },
 ];
 
 /** The package in `name@version` (a leading `@` is the scope, not a version). */

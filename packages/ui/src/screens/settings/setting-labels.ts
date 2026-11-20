@@ -35,6 +35,7 @@ const LABELLED_KEYS = [
   "daily.messages",
   "daily.followups.enabled",
   "daily.followups.sensitivity",
+  "scheduled.keepAwake",
   "nudges.enabled",
   "nudges.consentedAt",
   "nudges.sensitivity",
