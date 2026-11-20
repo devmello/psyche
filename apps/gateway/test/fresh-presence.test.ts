@@ -159,24 +159,25 @@ describe("fresh presence on admin methods", () => {
     });
   });
 
-  it("a machine token request fails at once, with no card for a request that cannot succeed (until H3)", async () => {
+  it("a machine token request raises a card worded for a machine, and mints nothing without it", async () => {
     const { admin } = await boot(touchId, undefined, {
       publicOrigin: "https://studio-mac.tail1234.ts.net",
       allowedOrigins: ["https://studio-mac.tail1234.ts.net"],
     });
-    expect(await admin.request("devices.setupToken.create", { purpose: "machine" })).toMatchObject({
-      ok: false,
-      error: { code: "unavailable" },
+    expect(MACHINE_TOKENS_ENABLED).toBe(true);
+    // The gate raises the card before the handler runs: no token exists until it is approved.
+    const first = await admin.request("devices.setupToken.create", { purpose: "machine" });
+    expect(first).toMatchObject({ ok: false, error: { code: "approval_required" } });
+    expect(PRESENCE_METHODS["devices.setupToken.create"]?.({ purpose: "machine" })).toMatch(
+      /Linux computer/,
+    );
+    const { approvalId } = await approveWithTap(admin, first);
+    const made = await admin.request("devices.setupToken.create", {
+      purpose: "machine",
+      approvalId,
     });
-    // The refusal and the (absent) card are one decision: both read MACHINE_TOKENS_ENABLED. When
-    // it is turned on the gate must raise a card worded for a machine, so minting is never ungated.
-    const summary = PRESENCE_METHODS["devices.setupToken.create"]?.({ purpose: "machine" });
-    if (MACHINE_TOKENS_ENABLED) {
-      expect(summary).toMatch(/Linux computer/);
-    } else {
-      expect(summary).toBeUndefined();
-    }
-    // A device token still raises its card as before.
+    expect(made).toMatchObject({ ok: true, payload: { setupToken: { scopes: ["node"] } } });
+    // A device token still raises its own card.
     expect(
       await admin.request("devices.setupToken.create", { scopes: ["operator.read"] }),
     ).toMatchObject({ ok: false, error: { code: "approval_required" } });

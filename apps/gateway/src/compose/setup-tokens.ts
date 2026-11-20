@@ -11,9 +11,11 @@ import {
   type DeviceScope,
   encodePairingLink,
   encodePairingLinkV2,
+  formatMachineLink,
   MACHINE_TOKENS_ENABLED,
   type MethodResult,
   PsycheError,
+  setupTokenScopesFor,
 } from "@psyche/protocol";
 import { hostWords } from "@psyche/protocol/host-words";
 import type { Call, HandlerDef } from "../context.ts";
@@ -87,18 +89,27 @@ export function setupTokenHandlers(deps: {
         },
       ): Promise<MethodResult<"devices.setupToken.create">> {
         const { config, identity } = call.ctx;
-        // `purpose: machine` is protocol groundwork (wave H0). Until the machine registry lands
-        // (H3) nothing here may turn it into a device token, so it fails closed.
-        if (params.purpose === "machine" && !MACHINE_TOKENS_ENABLED) {
+        const machine = params.purpose === "machine";
+        if (machine && !MACHINE_TOKENS_ENABLED) {
           throw new PsycheError(
             "unavailable",
             "Pairing a computer for Psyche to use is not available yet",
           );
         }
-        if (params.scopes === undefined || params.scopes.length === 0) {
-          throw new PsycheError("invalid_params", "scopes is required");
+        // The scopes a token carries come from its purpose, never from the caller alone: a
+        // machine token is exactly `["node"]` and takes none; a device token takes operator scopes
+        // and never `node` (so a device token cannot make a machine, nor a machine token a client).
+        const granted = setupTokenScopesFor(params.purpose, params.scopes);
+        if (!granted.ok) {
+          throw new PsycheError(
+            "invalid_params",
+            granted.reason === "scopes_required"
+              ? "scopes is required"
+              : granted.reason === "scopes_not_allowed"
+                ? "A link for a computer Psyche uses takes no scopes"
+                : "A pairing link never grants the node scope",
+          );
         }
-        const scopes = params.scopes;
         // The link is a secret that pairs a new device. Only the Host's own desktop shell may make
         // one (loopback, no Origin, the per-launch handshake secret): a remote device must never
         // mint a way in, even with admin and presence. With presence off the same rule holds.
@@ -142,13 +153,21 @@ export function setupTokenHandlers(deps: {
           const pin = status.certSpki;
           certPin = pin;
           makeLink = (token) =>
-            encodePairingLinkV2({
-              gatewayUrl,
-              gatewayKey: identity.publicKey,
-              certPin: pin,
-              setupToken: token,
-              hostName,
-            });
+            machine
+              ? formatMachineLink({
+                  gatewayUrl,
+                  gatewayKey: identity.publicKey,
+                  certPin: pin,
+                  setupToken: token,
+                  hostName,
+                })
+              : encodePairingLinkV2({
+                  gatewayUrl,
+                  gatewayKey: identity.publicKey,
+                  certPin: pin,
+                  setupToken: token,
+                  hostName,
+                });
         } else {
           // The link carries the address other computers reach this Gateway at. Without one
           // there is nothing to put in it, and guessing (a loopback address) would hand out a
@@ -162,12 +181,19 @@ export function setupTokenHandlers(deps: {
           }
           gatewayUrl = new URL(origin).origin;
           makeLink = (token) =>
-            encodePairingLink({
-              gatewayUrl,
-              gatewayFingerprint: identity.fingerprint,
-              setupToken: token,
-              hostName,
-            });
+            machine
+              ? formatMachineLink({
+                  gatewayUrl,
+                  gatewayKey: identity.publicKey,
+                  setupToken: token,
+                  hostName,
+                })
+              : encodePairingLink({
+                  gatewayUrl,
+                  gatewayFingerprint: identity.fingerprint,
+                  setupToken: token,
+                  hostName,
+                });
         }
         // Everything the link needs is checked before a token row exists, so a failure leaves
         // no live token behind.
@@ -182,7 +208,8 @@ export function setupTokenHandlers(deps: {
           );
         }
         const { token, record } = createSetupToken(db, {
-          scopes,
+          purpose: machine ? "machine" : "device",
+          ...(machine ? {} : { scopes: granted.scopes as DeviceScope[] }),
           createdByDeviceId: call.identity.deviceId,
           certPin,
         });
@@ -194,8 +221,9 @@ export function setupTokenHandlers(deps: {
             data: {
               tokenId: record.id,
               scopes: record.scopes,
+              purpose: record.purpose,
               expiresAt: record.expiresAt,
-              linkVersion: lan ? 2 : 1,
+              linkVersion: machine ? 1 : lan ? 2 : 1,
             },
           });
         } catch (err) {
@@ -211,7 +239,8 @@ export function setupTokenHandlers(deps: {
         return {
           setupToken: record,
           link,
-          version: lan ? 2 : 1,
+          // A machine link is always `psyche-machine:v1`, on an address or on this network.
+          version: machine ? 1 : lan ? 2 : 1,
           gatewayUrl,
           gatewayFingerprint: identity.fingerprint,
           hostName,

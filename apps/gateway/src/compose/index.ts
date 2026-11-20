@@ -172,6 +172,7 @@ import { type HostTerminalOptions, hostTerminalPart } from "./host-terminal.ts";
 import { insightsHandlers } from "./insights.ts";
 import { libraryHandlers } from "./library.ts";
 import { composeGuidedPayments, type LinkSetupOptions } from "./link-setup.ts";
+import { machineChangeHook } from "./machine-notices.ts";
 import type { ComposedMcp } from "./mcp.ts";
 import { memoryStoreStatus, resolveMemoryStore, setMemoryEncrypted } from "./memory-db.ts";
 import { withMemoryEntityContext } from "./memory-item-context.ts";
@@ -2395,6 +2396,7 @@ export async function composeGateway(options: ComposeOptions): Promise<ComposedG
     webhooks,
     publicRoutes,
     onSetupTokenUsed: setupTokenUsedHook({ db, audit, log: gwOptions.logger }),
+    onMachineChange: machineChangeHook({ audit, notifier, log: gwOptions.logger }),
     onDeviceSelfRevoked: (revoked) => {
       void audit
         .append({

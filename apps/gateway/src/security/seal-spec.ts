@@ -116,6 +116,17 @@ export const SEALED_TABLES: readonly SealedTable[] = [
     label: "name",
   },
   {
+    // The owner's decision that a device is a machine (wave H3). A row that appeared outside
+    // Psyche is deleted: the device stays what it was, never a machine.
+    table: "machines",
+    pk: "id",
+    columns: ["id", "device_id", "approved_at", "approved_by_device_id", "via"],
+    ignored: ["announced_at"],
+    unique: ["device_id"],
+    added: "delete",
+    label: "device_id",
+  },
+  {
     table: "passkeys",
     pk: "id",
     columns: [

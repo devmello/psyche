@@ -22,6 +22,7 @@ export * from "./repos/chat-queue.ts";
 export * from "./repos/devices.ts";
 export * from "./repos/idempotency.ts";
 export * from "./repos/library.ts";
+export * from "./repos/machines.ts";
 export * from "./repos/messages.ts";
 export * from "./repos/nodes.ts";
 export * from "./repos/pairing.ts";

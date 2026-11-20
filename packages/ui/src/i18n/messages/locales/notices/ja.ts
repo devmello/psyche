@@ -81,4 +81,7 @@ export const notices: Partial<Catalogue> = {
   "notice.codeRun.unmoved.title": "{repo} でのコード実行が作った起動設定がそのまま残っています",
   "notice.codeRun.unmoved.body":
     "サンドボックス内のコマンドが {paths} を作成しましたが、Psyche は別の場所へ移せなかったため、保留されていません。アプリや次のコマンドがここからコードを実行する可能性があります。フォルダを開いたり、そこで何かを実行したりする前に、確認するか削除してください。",
+  "notice.machine.added.title": "{name}を Psyche が使えるコンピュータとして追加しました",
+  "notice.machine.added.body":
+    "Psyche はその画面、アプリ、シェル、ファイルを使えますが、そこでの操作はそのつど先に確認します。心当たりがない場合は、設定 → デバイスから削除してください。",
 };

@@ -63,6 +63,7 @@ import { type LanContext, type LanLimits, LanListener, peerLimitKey } from "./la
 import { LAN_SETTING, readLanSettings } from "./lan/settings.ts";
 import { createLogger, type Logger } from "./log.ts";
 import { allowedMapOrigins } from "./map-proxy.ts";
+import type { MachineChange } from "./nodes/machines.ts";
 import { NodeRegistry } from "./nodes/registry.ts";
 import { openGatewayDb, releaseGatewayLock } from "./pre-update.ts";
 import { presenceStateFor } from "./presence-gate.ts";
@@ -162,6 +163,8 @@ export interface GatewayOptions {
   onDeviceSelfRevoked?: (revoked: { deviceId: string; name: string }) => void;
   /** A computer paired itself with a setup token (composition root: audit it). */
   onSetupTokenUsed?: (used: { tokenId: string; deviceId: string; scopes: DeviceScope[] }) => void;
+  /** A machine was added or removed (composition root: audit it, tell every device). */
+  onMachineChange?: (change: MachineChange) => void;
   /**
    * The broker publishes its own `receipt.created` events (the composition root forwards them),
    * so `nodes.invoke` must not publish the same receipt again (issue #50).
@@ -337,6 +340,7 @@ export async function startGateway(options: GatewayOptions = {}): Promise<Gatewa
     onDeviceRevoked: options.onDeviceRevoked ?? null,
     onDeviceSelfRevoked: options.onDeviceSelfRevoked ?? null,
     onSetupTokenUsed: options.onSetupTokenUsed ?? null,
+    onMachineChange: options.onMachineChange ?? null,
     onSettingChanged: options.onSettingChanged ?? null,
     brokerPublishesReceipts: options.brokerPublishesReceipts ?? false,
     presenceState,
