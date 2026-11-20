@@ -620,6 +620,8 @@
 //   let goalsListResult = try? JSONDecoder().decode(GoalsListResult.self, from: jsonData)
 //   let goalsMilestoneParams = try? JSONDecoder().decode(GoalsMilestoneParams.self, from: jsonData)
 //   let goalsMilestoneResult = try? JSONDecoder().decode(GoalsMilestoneResult.self, from: jsonData)
+//   let goalsSuggestParams = try? JSONDecoder().decode(GoalsSuggestParams.self, from: jsonData)
+//   let goalsSuggestResult = try? JSONDecoder().decode(GoalsSuggestResult.self, from: jsonData)
 //   let goalsUpdateParams = try? JSONDecoder().decode(GoalsUpdateParams.self, from: jsonData)
 //   let goalsUpdateResult = try? JSONDecoder().decode(GoalsUpdateResult.self, from: jsonData)
 //   let googleClientStatus = try? JSONDecoder().decode(GoogleClientStatus.self, from: jsonData)
@@ -17084,6 +17086,32 @@ public struct GoalsMilestoneResult: Codable, Sendable {
         self.links = links
         self.milestones = milestones
         self.taskIDS = taskIDS
+    }
+}
+
+// MARK: - GoalsSuggestParams
+public struct GoalsSuggestParams: Codable, Sendable {
+    public let goalID: String
+
+    public enum CodingKeys: String, CodingKey {
+        case goalID = "goalId"
+    }
+
+    public init(goalID: String) {
+        self.goalID = goalID
+    }
+}
+
+// MARK: - GoalsSuggestResult
+public struct GoalsSuggestResult: Codable, Sendable {
+    public let ideaID: String?
+
+    public enum CodingKeys: String, CodingKey {
+        case ideaID = "ideaId"
+    }
+
+    public init(ideaID: String? = nil) {
+        self.ideaID = ideaID
     }
 }
 
