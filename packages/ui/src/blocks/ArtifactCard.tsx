@@ -245,7 +245,10 @@ export function formatBytes(n: number): string {
   if (n < 1024) return t("blocks.artifact.bytes", { size: number(n) });
   if (n < 1024 * 1024)
     return t("blocks.artifact.kilobytes", { size: number(n / 1024, oneDecimal) });
-  return t("blocks.artifact.megabytes", { size: number(n / 1024 / 1024, oneDecimal) });
+  if (n < 1024 * 1024 * 1024) {
+    return t("blocks.artifact.megabytes", { size: number(n / 1024 / 1024, oneDecimal) });
+  }
+  return t("blocks.artifact.gigabytes", { size: number(n / 1024 / 1024 / 1024, oneDecimal) });
 }
 
 /** A Library file in the transcript (file block). Downloads stay quarantined until opened. */

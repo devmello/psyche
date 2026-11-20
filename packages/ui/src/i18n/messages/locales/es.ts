@@ -11,7 +11,10 @@ import { galleryA } from "./gallery-a/es.ts";
 import { helperCheck } from "./helper-check/es.ts";
 import { helperOffline } from "./helper-offline/es.ts";
 import { homeA } from "./home-a/es.ts";
+import { keepAwake } from "./keep-awake/es.ts";
 import { links } from "./links/es.ts";
+import { linuxAccess } from "./linux-access/es.ts";
+import { mailFollowups } from "./mail-followups/es.ts";
 import { mailMeetings } from "./mail-meetings/es.ts";
 import { memoryA } from "./memory-a/es.ts";
 import { memoryB } from "./memory-b/es.ts";
@@ -30,6 +33,7 @@ import { settingsB } from "./settings-b/es.ts";
 import { settingsC } from "./settings-c/es.ts";
 import { settingsD } from "./settings-d/es.ts";
 import { settingsE } from "./settings-e/es.ts";
+import { spaces } from "./spaces/es.ts";
 import { specialistsA } from "./specialists-a/es.ts";
 import { teachA } from "./teach-a/es.ts";
 import { windowsPlatform202611 } from "./windows-platform-2026-11/es.ts";
@@ -484,6 +488,7 @@ export const es: Partial<Catalogue> = {
   "blocks.artifact.bytes": "{size} B",
   "blocks.artifact.kilobytes": "{size} KB",
   "blocks.artifact.megabytes": "{size} MB",
+  "blocks.artifact.gigabytes": "{size} GB",
 
   "blocks.task.status.queued": "en cola",
   "blocks.task.status.running": "en ejecución",
@@ -1030,6 +1035,8 @@ export const es: Partial<Catalogue> = {
   "settings.key.browser.botAuth": "Web Bot Auth",
   "settings.key.computerUse.enabled": "Permitir el uso del ordenador",
   "settings.key.computerUse.apps": "Acceso a apps",
+  "settings.key.feed.sources": "Fuentes del feed",
+  "settings.key.computerUse.linuxRevoke": "Olvidar el equipo Linux",
   "settings.key.context.maxTokens": "Límite de contexto",
   "settings.key.search.web.provider": "Proveedor de búsqueda web",
   "settings.key.search.web.searxngUrl": "URL de SearXNG",
@@ -2419,6 +2426,45 @@ export const es: Partial<Catalogue> = {
   "settings.skills.removeDescription":
     "Sus archivos se eliminan de este Gateway. Volver a instalarla pasa por la tarjeta de confianza.",
   "settings.skills.switchOn": "{name} activada",
+  "settings.plugins.title": "Plugins",
+  "settings.plugins.description":
+    "Código que añade contexto, revisa llamadas a herramientas o ejecuta evaluaciones. Cada plugin se ejecuta en su propio proceso. Los plugins nunca conceden permisos.",
+  "settings.plugins.off":
+    "Los plugins están desactivados en este Gateway, así que ninguno se ejecuta.",
+  "settings.plugins.loading": "Cargando plugins…",
+  "settings.plugins.error": "No se pudieron cargar los plugins. {reason}",
+  "settings.plugins.empty": "No hay plugins instalados.",
+  "settings.plugins.failed": "El cambio no se guardó. {reason}",
+  "settings.plugins.waitingApproval": "Esperando tu aprobación en este dispositivo.",
+  "settings.plugins.switchOn": "{name} activado",
+  "settings.plugins.version": " · v{version}",
+  "settings.plugins.adds": "Añade: {list}",
+  "settings.plugins.install": "Instalar desde una carpeta…",
+  "settings.plugins.pickFailed": "Psyche no pudo abrir el selector de carpetas ({reason}).",
+  "settings.plugins.installFailed": "La instalación no se inició. {reason}",
+  "settings.plugins.proposed": "Revisa la instalación en la tarjeta de aprobación.",
+  "settings.plugins.includes": "Incluye: {list}",
+  "settings.plugins.count.skills": "{n, plural, one {# skill} other {# skills}}",
+  "settings.plugins.count.commands": "{n, plural, one {# comando} other {# comandos}}",
+  "settings.plugins.count.mcpServers": "{n, plural, one {# servidor MCP} other {# servidores MCP}}",
+  "settings.plugins.count.hooks": "{n, plural, one {# hook} other {# hooks}}",
+  "settings.plugins.from": "Desde {source}",
+  "settings.plugins.state.active": "En marcha",
+  "settings.plugins.state.disabled": "Desactivado",
+  "settings.plugins.state.off": "Esperando a que se activen los plugins",
+  "settings.plugins.state.hash_mismatch": "Cambió desde la instalación, no se ejecuta",
+  "settings.plugins.state.invalid": "Manifiesto no válido, no se ejecuta",
+  "settings.plugins.state.failed": "Detenido por un error",
+  "settings.plugins.capability.context": "contexto",
+  "settings.plugins.capability.before_tool_call":
+    "una revisión antes de las llamadas a herramientas",
+  "settings.plugins.capability.after_tool_call":
+    "una revisión después de las llamadas a herramientas",
+  "settings.plugins.capability.agent_end": "un paso al final de cada ejecución",
+  "settings.plugins.capability.evaluate": "evaluaciones",
+  "settings.plugins.removeTitle": "¿Quitar {name}?",
+  "settings.plugins.removeDescription":
+    "Sus archivos se borran de este Gateway. Volver a instalarlo pasa por la tarjeta de confianza.",
   "settings.skills.asksFor": "Pide:",
   "settings.skills.toolsLabel": "Herramientas:",
   "settings.skills.title": "Habilidades",
@@ -3111,6 +3157,7 @@ export const es: Partial<Catalogue> = {
   "screens.library.recording.empty": "Esta grabación no tiene pasos.",
   "screens.library.recording.noFrame": "No hay imagen para este paso.",
   "screens.library.recording.frameAlt": "El navegador en el paso {n}",
+  "screens.library.recording.reviewPermissions": "Revisar en Permisos",
   "screens.library.recording.loading": "Cargando la grabación",
   "screens.library.recording.loadFailed": "Psyche no pudo cargar esta grabación ({reason}).",
   "screens.library.recording.notFound": "Esta grabación ya no está disponible.",
@@ -3766,6 +3813,8 @@ export const es: Partial<Catalogue> = {
   ...helperOffline,
   // the security-records banner (docs/design/security-state-integrity-2026.md §7.3)
   ...securityState,
+  // Settings → Computer use on Linux: screen and input access
+  ...linuxAccess,
   // the Virtual screen watch pane (docs/design/linux-desktop-2026.md §7.5)
   ...computerWatch,
   // Gateway-authored notices (inbox notifications, security alerts)
@@ -3774,4 +3823,7 @@ export const es: Partial<Catalogue> = {
   ...separateDesktop,
   // Windows variants of the sandbox PC, voice keys and platform terms
   ...windowsPlatform202611,
+  ...mailFollowups,
+  ...keepAwake,
+  ...spaces,
 };

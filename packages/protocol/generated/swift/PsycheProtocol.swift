@@ -189,6 +189,8 @@
 //   let automationTrigger = try? JSONDecoder().decode(AutomationTrigger.self, from: jsonData)
 //   let automationUpdatedPayload = try? JSONDecoder().decode(AutomationUpdatedPayload.self, from: jsonData)
 //   let automationWorkflowBlock = try? JSONDecoder().decode(AutomationWorkflowBlock.self, from: jsonData)
+//   let automationsCancelRetryParams = try? JSONDecoder().decode(AutomationsCancelRetryParams.self, from: jsonData)
+//   let automationsCancelRetryResult = try? JSONDecoder().decode(AutomationsCancelRetryResult.self, from: jsonData)
 //   let automationsCreateParams = try? JSONDecoder().decode(AutomationsCreateParams.self, from: jsonData)
 //   let automationsDeleteParams = try? JSONDecoder().decode(AutomationsDeleteParams.self, from: jsonData)
 //   let automationsListParams = try? JSONDecoder().decode(AutomationsListParams.self, from: jsonData)
@@ -757,6 +759,13 @@
 //   let machinesListResult = try? JSONDecoder().decode(MachinesListResult.self, from: jsonData)
 //   let machinesRenameParams = try? JSONDecoder().decode(MachinesRenameParams.self, from: jsonData)
 //   let machinesRenameResult = try? JSONDecoder().decode(MachinesRenameResult.self, from: jsonData)
+//   let mailFollowupAction = try? JSONDecoder().decode(MailFollowupAction.self, from: jsonData)
+//   let mailFollowupItem = try? JSONDecoder().decode(MailFollowupItem.self, from: jsonData)
+//   let mailFollowupKind = try? JSONDecoder().decode(MailFollowupKind.self, from: jsonData)
+//   let mailFollowupsActParams = try? JSONDecoder().decode(MailFollowupsActParams.self, from: jsonData)
+//   let mailFollowupsActResult = try? JSONDecoder().decode(MailFollowupsActResult.self, from: jsonData)
+//   let mailFollowupsListParams = try? JSONDecoder().decode(MailFollowupsListParams.self, from: jsonData)
+//   let mailFollowupsListResult = try? JSONDecoder().decode(MailFollowupsListResult.self, from: jsonData)
 //   let mailThreadRef = try? JSONDecoder().decode(MailThreadRef.self, from: jsonData)
 //   let mCPAddParams = try? JSONDecoder().decode(MCPAddParams.self, from: jsonData)
 //   let mCPAddResult = try? JSONDecoder().decode(MCPAddResult.self, from: jsonData)
@@ -1053,6 +1062,8 @@
 //   let nodeKind = try? JSONDecoder().decode(NodeKind.self, from: jsonData)
 //   let nodeResultParams = try? JSONDecoder().decode(NodeResultParams.self, from: jsonData)
 //   let nodeStatus = try? JSONDecoder().decode(NodeStatus.self, from: jsonData)
+//   let nodeUnpairParams = try? JSONDecoder().decode(NodeUnpairParams.self, from: jsonData)
+//   let nodeUnpairResult = try? JSONDecoder().decode(NodeUnpairResult.self, from: jsonData)
 //   let nodeUpdatedPayload = try? JSONDecoder().decode(NodeUpdatedPayload.self, from: jsonData)
 //   let nodesCapabilitiesParams = try? JSONDecoder().decode(NodesCapabilitiesParams.self, from: jsonData)
 //   let nodesCapabilitiesResult = try? JSONDecoder().decode(NodesCapabilitiesResult.self, from: jsonData)
@@ -1125,6 +1136,7 @@
 //   let planBlock = try? JSONDecoder().decode(PlanBlock.self, from: jsonData)
 //   let planStep = try? JSONDecoder().decode(PlanStep.self, from: jsonData)
 //   let planStepStatus = try? JSONDecoder().decode(PlanStepStatus.self, from: jsonData)
+//   let pluginAdds = try? JSONDecoder().decode(PluginAdds.self, from: jsonData)
 //   let pluginCapability = try? JSONDecoder().decode(PluginCapability.self, from: jsonData)
 //   let pluginManifest = try? JSONDecoder().decode(PluginManifest.self, from: jsonData)
 //   let pluginProposal = try? JSONDecoder().decode(PluginProposal.self, from: jsonData)
@@ -1429,6 +1441,58 @@
 //   let skillsSetEnabledResult = try? JSONDecoder().decode(SkillsSetEnabledResult.self, from: jsonData)
 //   let sourcedLine = try? JSONDecoder().decode(SourcedLine.self, from: jsonData)
 //   let sourcesBlock = try? JSONDecoder().decode(SourcesBlock.self, from: jsonData)
+//   let space = try? JSONDecoder().decode(Space.self, from: jsonData)
+//   let spaceContextSection = try? JSONDecoder().decode(SpaceContextSection.self, from: jsonData)
+//   let spaceCounts = try? JSONDecoder().decode(SpaceCounts.self, from: jsonData)
+//   let spaceCreatedFrom = try? JSONDecoder().decode(SpaceCreatedFrom.self, from: jsonData)
+//   let spaceDetail = try? JSONDecoder().decode(SpaceDetail.self, from: jsonData)
+//   let spaceFolder = try? JSONDecoder().decode(SpaceFolder.self, from: jsonData)
+//   let spaceLink = try? JSONDecoder().decode(SpaceLink.self, from: jsonData)
+//   let spaceLinkKind = try? JSONDecoder().decode(SpaceLinkKind.self, from: jsonData)
+//   let spaceLinkProvenance = try? JSONDecoder().decode(SpaceLinkProvenance.self, from: jsonData)
+//   let spaceProposal = try? JSONDecoder().decode(SpaceProposal.self, from: jsonData)
+//   let spaceProposalCreatedPayload = try? JSONDecoder().decode(SpaceProposalCreatedPayload.self, from: jsonData)
+//   let spaceProposalStatus = try? JSONDecoder().decode(SpaceProposalStatus.self, from: jsonData)
+//   let spaceResult = try? JSONDecoder().decode(SpaceResult.self, from: jsonData)
+//   let spaceSummary = try? JSONDecoder().decode(SpaceSummary.self, from: jsonData)
+//   let spaceTracker = try? JSONDecoder().decode(SpaceTracker.self, from: jsonData)
+//   let spaceTrackerKind = try? JSONDecoder().decode(SpaceTrackerKind.self, from: jsonData)
+//   let spaceTrackerRefreshedPayload = try? JSONDecoder().decode(SpaceTrackerRefreshedPayload.self, from: jsonData)
+//   let spaceTrackerTemplate = try? JSONDecoder().decode(SpaceTrackerTemplate.self, from: jsonData)
+//   let spaceTrackerValue = try? JSONDecoder().decode(SpaceTrackerValue.self, from: jsonData)
+//   let spaceUpdatedPayload = try? JSONDecoder().decode(SpaceUpdatedPayload.self, from: jsonData)
+//   let spacesArchiveParams = try? JSONDecoder().decode(SpacesArchiveParams.self, from: jsonData)
+//   let spacesAutomationsMoveParams = try? JSONDecoder().decode(SpacesAutomationsMoveParams.self, from: jsonData)
+//   let spacesAutomationsMoveResult = try? JSONDecoder().decode(SpacesAutomationsMoveResult.self, from: jsonData)
+//   let spacesContextPreviewParams = try? JSONDecoder().decode(SpacesContextPreviewParams.self, from: jsonData)
+//   let spacesContextPreviewResult = try? JSONDecoder().decode(SpacesContextPreviewResult.self, from: jsonData)
+//   let spacesCreateParams = try? JSONDecoder().decode(SpacesCreateParams.self, from: jsonData)
+//   let spacesDeleteParams = try? JSONDecoder().decode(SpacesDeleteParams.self, from: jsonData)
+//   let spacesFoldersAddParams = try? JSONDecoder().decode(SpacesFoldersAddParams.self, from: jsonData)
+//   let spacesFoldersRemoveParams = try? JSONDecoder().decode(SpacesFoldersRemoveParams.self, from: jsonData)
+//   let spacesFoldersSetModeParams = try? JSONDecoder().decode(SpacesFoldersSetModeParams.self, from: jsonData)
+//   let spacesGetParams = try? JSONDecoder().decode(SpacesGetParams.self, from: jsonData)
+//   let spacesLinksAddParams = try? JSONDecoder().decode(SpacesLinksAddParams.self, from: jsonData)
+//   let spacesLinksAddResult = try? JSONDecoder().decode(SpacesLinksAddResult.self, from: jsonData)
+//   let spacesLinksRemoveParams = try? JSONDecoder().decode(SpacesLinksRemoveParams.self, from: jsonData)
+//   let spacesListParams = try? JSONDecoder().decode(SpacesListParams.self, from: jsonData)
+//   let spacesListResult = try? JSONDecoder().decode(SpacesListResult.self, from: jsonData)
+//   let spacesOpenParams = try? JSONDecoder().decode(SpacesOpenParams.self, from: jsonData)
+//   let spacesOpenResult = try? JSONDecoder().decode(SpacesOpenResult.self, from: jsonData)
+//   let spacesProposalsAcceptParams = try? JSONDecoder().decode(SpacesProposalsAcceptParams.self, from: jsonData)
+//   let spacesProposalsDismissParams = try? JSONDecoder().decode(SpacesProposalsDismissParams.self, from: jsonData)
+//   let spacesProposalsListParams = try? JSONDecoder().decode(SpacesProposalsListParams.self, from: jsonData)
+//   let spacesProposalsListResult = try? JSONDecoder().decode(SpacesProposalsListResult.self, from: jsonData)
+//   let spacesRestoreParams = try? JSONDecoder().decode(SpacesRestoreParams.self, from: jsonData)
+//   let spacesSettingsSetParams = try? JSONDecoder().decode(SpacesSettingsSetParams.self, from: jsonData)
+//   let spacesThreadsMoveParams = try? JSONDecoder().decode(SpacesThreadsMoveParams.self, from: jsonData)
+//   let spacesThreadsMoveResult = try? JSONDecoder().decode(SpacesThreadsMoveResult.self, from: jsonData)
+//   let spacesTrackersAddParams = try? JSONDecoder().decode(SpacesTrackersAddParams.self, from: jsonData)
+//   let spacesTrackersRefreshParams = try? JSONDecoder().decode(SpacesTrackersRefreshParams.self, from: jsonData)
+//   let spacesTrackersRefreshResult = try? JSONDecoder().decode(SpacesTrackersRefreshResult.self, from: jsonData)
+//   let spacesTrackersRemoveParams = try? JSONDecoder().decode(SpacesTrackersRemoveParams.self, from: jsonData)
+//   let spacesTrackersReorderParams = try? JSONDecoder().decode(SpacesTrackersReorderParams.self, from: jsonData)
+//   let spacesUpdateParams = try? JSONDecoder().decode(SpacesUpdateParams.self, from: jsonData)
 //   let specialistAutomation = try? JSONDecoder().decode(SpecialistAutomation.self, from: jsonData)
 //   let specialistBudgetSetting = try? JSONDecoder().decode(SpecialistBudgetSetting.self, from: jsonData)
 //   let specialistFinding = try? JSONDecoder().decode(SpecialistFinding.self, from: jsonData)
@@ -1465,6 +1529,13 @@
 //   let speechWhisperSetup = try? JSONDecoder().decode(SpeechWhisperSetup.self, from: jsonData)
 //   let speechWhisperSetupState = try? JSONDecoder().decode(SpeechWhisperSetupState.self, from: jsonData)
 //   let starterFolderID = try? JSONDecoder().decode(StarterFolderID.self, from: jsonData)
+//   let storageCategory = try? JSONDecoder().decode(StorageCategory.self, from: jsonData)
+//   let storageCategoryID = try? JSONDecoder().decode(StorageCategoryID.self, from: jsonData)
+//   let storageClearCacheParams = try? JSONDecoder().decode(StorageClearCacheParams.self, from: jsonData)
+//   let storageClearTarget = try? JSONDecoder().decode(StorageClearTarget.self, from: jsonData)
+//   let storageCleared = try? JSONDecoder().decode(StorageCleared.self, from: jsonData)
+//   let storageUsage = try? JSONDecoder().decode(StorageUsage.self, from: jsonData)
+//   let storageUsageParams = try? JSONDecoder().decode(StorageUsageParams.self, from: jsonData)
 //   let taintSource = try? JSONDecoder().decode(TaintSource.self, from: jsonData)
 //   let target = try? JSONDecoder().decode(Target.self, from: jsonData)
 //   let targetKind = try? JSONDecoder().decode(TargetKind.self, from: jsonData)
@@ -6618,6 +6689,7 @@ public struct Automation: Codable, Sendable {
     public let scratch: String?
     /// main | isolated | named:<id>
     public let sessionTarget: String
+    public let spaceID: String?
     public let specialist: AutomationSpecialist?
     public let timezone: String
     public let title: String
@@ -6640,6 +6712,7 @@ public struct Automation: Codable, Sendable {
         case schedule = "schedule"
         case scratch = "scratch"
         case sessionTarget = "sessionTarget"
+        case spaceID = "spaceId"
         case specialist = "specialist"
         case timezone = "timezone"
         case title = "title"
@@ -6648,7 +6721,7 @@ public struct Automation: Codable, Sendable {
         case watch = "watch"
     }
 
-    public init(createdAt: String, delivery: Delivery, enabled: Bool, id: String, kind: AutomationKind, lastRunAt: String? = nil, lastStatus: String? = nil, lightContext: Bool? = nil, nextRunAt: String? = nil, prompt: String, recordedSkill: RecordedSkill? = nil, schedule: String, scratch: String? = nil, sessionTarget: String, specialist: AutomationSpecialist? = nil, timezone: String, title: String, trigger: AutomationTrigger? = nil, updatedAt: String, watch: WatchConfig? = nil) {
+    public init(createdAt: String, delivery: Delivery, enabled: Bool, id: String, kind: AutomationKind, lastRunAt: String? = nil, lastStatus: String? = nil, lightContext: Bool? = nil, nextRunAt: String? = nil, prompt: String, recordedSkill: RecordedSkill? = nil, schedule: String, scratch: String? = nil, sessionTarget: String, spaceID: String? = nil, specialist: AutomationSpecialist? = nil, timezone: String, title: String, trigger: AutomationTrigger? = nil, updatedAt: String, watch: WatchConfig? = nil) {
         self.createdAt = createdAt
         self.delivery = delivery
         self.enabled = enabled
@@ -6663,6 +6736,7 @@ public struct Automation: Codable, Sendable {
         self.schedule = schedule
         self.scratch = scratch
         self.sessionTarget = sessionTarget
+        self.spaceID = spaceID
         self.specialist = specialist
         self.timezone = timezone
         self.title = title
@@ -6882,6 +6956,7 @@ public struct AutomationRunFinishedPayload: Codable, Sendable {
 
 // MARK: - AutomationRun
 public struct AutomationRun: Codable, Sendable {
+    public let attempt: Int?
     public let automationID: String
     /// Missed ticks folded into this run
     public let coalesced: Int
@@ -6889,6 +6964,7 @@ public struct AutomationRun: Codable, Sendable {
     public let events: [WorkflowEvent]?
     public let id: String
     public let notificationID: String?
+    public let retryAt: String?
     public let runID: String?
     public let scheduledFor: String
     public let startedAt: String
@@ -6900,12 +6976,14 @@ public struct AutomationRun: Codable, Sendable {
     public let usage: Usage?
 
     public enum CodingKeys: String, CodingKey {
+        case attempt = "attempt"
         case automationID = "automationId"
         case coalesced = "coalesced"
         case endedAt = "endedAt"
         case events = "events"
         case id = "id"
         case notificationID = "notificationId"
+        case retryAt = "retryAt"
         case runID = "runId"
         case scheduledFor = "scheduledFor"
         case startedAt = "startedAt"
@@ -6917,13 +6995,15 @@ public struct AutomationRun: Codable, Sendable {
         case usage = "usage"
     }
 
-    public init(automationID: String, coalesced: Int, endedAt: String? = nil, events: [WorkflowEvent]? = nil, id: String, notificationID: String? = nil, runID: String? = nil, scheduledFor: String, startedAt: String, status: AutomationRunStatus, summary: String? = nil, taskID: String? = nil, threadID: String? = nil, trigger: AutomationRunTrigger, usage: Usage? = nil) {
+    public init(attempt: Int? = nil, automationID: String, coalesced: Int, endedAt: String? = nil, events: [WorkflowEvent]? = nil, id: String, notificationID: String? = nil, retryAt: String? = nil, runID: String? = nil, scheduledFor: String, startedAt: String, status: AutomationRunStatus, summary: String? = nil, taskID: String? = nil, threadID: String? = nil, trigger: AutomationRunTrigger, usage: Usage? = nil) {
+        self.attempt = attempt
         self.automationID = automationID
         self.coalesced = coalesced
         self.endedAt = endedAt
         self.events = events
         self.id = id
         self.notificationID = notificationID
+        self.retryAt = retryAt
         self.runID = runID
         self.scheduledFor = scheduledFor
         self.startedAt = startedAt
@@ -7142,6 +7222,32 @@ public enum AutomationWorkflowBlockType: String, Codable, Sendable {
     case automationWorkflow = "automation_workflow"
 }
 
+// MARK: - AutomationsCancelRetryParams
+public struct AutomationsCancelRetryParams: Codable, Sendable {
+    public let runID: String
+
+    public enum CodingKeys: String, CodingKey {
+        case runID = "runId"
+    }
+
+    public init(runID: String) {
+        self.runID = runID
+    }
+}
+
+// MARK: - AutomationsCancelRetryResult
+public struct AutomationsCancelRetryResult: Codable, Sendable {
+    public let run: AutomationRun
+
+    public enum CodingKeys: String, CodingKey {
+        case run = "run"
+    }
+
+    public init(run: AutomationRun) {
+        self.run = run
+    }
+}
+
 // MARK: - AutomationsCreateParams
 public struct AutomationsCreateParams: Codable, Sendable {
     public let delivery: Delivery?
@@ -7153,6 +7259,7 @@ public struct AutomationsCreateParams: Codable, Sendable {
     public let schedule: String
     /// main | isolated | named:<id>
     public let sessionTarget: String?
+    public let spaceID: String?
     public let specialist: AutomationSpecialist?
     /// IANA zone; defaults to the Gateway's
     public let timezone: String?
@@ -7167,13 +7274,14 @@ public struct AutomationsCreateParams: Codable, Sendable {
         case prompt = "prompt"
         case schedule = "schedule"
         case sessionTarget = "sessionTarget"
+        case spaceID = "spaceId"
         case specialist = "specialist"
         case timezone = "timezone"
         case title = "title"
         case watch = "watch"
     }
 
-    public init(delivery: Delivery? = nil, enabled: Bool? = nil, kind: AutomationKind, lightContext: Bool? = nil, prompt: String, schedule: String, sessionTarget: String? = nil, specialist: AutomationSpecialist? = nil, timezone: String? = nil, title: String, watch: WatchConfig? = nil) {
+    public init(delivery: Delivery? = nil, enabled: Bool? = nil, kind: AutomationKind, lightContext: Bool? = nil, prompt: String, schedule: String, sessionTarget: String? = nil, spaceID: String? = nil, specialist: AutomationSpecialist? = nil, timezone: String? = nil, title: String, watch: WatchConfig? = nil) {
         self.delivery = delivery
         self.enabled = enabled
         self.kind = kind
@@ -7181,6 +7289,7 @@ public struct AutomationsCreateParams: Codable, Sendable {
         self.prompt = prompt
         self.schedule = schedule
         self.sessionTarget = sessionTarget
+        self.spaceID = spaceID
         self.specialist = specialist
         self.timezone = timezone
         self.title = title
@@ -7385,6 +7494,7 @@ public struct AutomationsUpdateParams: Codable, Sendable {
     public let scratch: String?
     /// main | isolated | named:<id>
     public let sessionTarget: String?
+    public let spaceID: String?
     public let specialist: AutomationSpecialist?
     /// IANA zone; defaults to the Gateway's
     public let timezone: String?
@@ -7400,13 +7510,14 @@ public struct AutomationsUpdateParams: Codable, Sendable {
         case schedule = "schedule"
         case scratch = "scratch"
         case sessionTarget = "sessionTarget"
+        case spaceID = "spaceId"
         case specialist = "specialist"
         case timezone = "timezone"
         case title = "title"
         case watch = "watch"
     }
 
-    public init(automationID: String, delivery: Delivery? = nil, enabled: Bool? = nil, lightContext: Bool? = nil, prompt: String? = nil, schedule: String? = nil, scratch: String? = nil, sessionTarget: String? = nil, specialist: AutomationSpecialist? = nil, timezone: String? = nil, title: String? = nil, watch: WatchConfig? = nil) {
+    public init(automationID: String, delivery: Delivery? = nil, enabled: Bool? = nil, lightContext: Bool? = nil, prompt: String? = nil, schedule: String? = nil, scratch: String? = nil, sessionTarget: String? = nil, spaceID: String? = nil, specialist: AutomationSpecialist? = nil, timezone: String? = nil, title: String? = nil, watch: WatchConfig? = nil) {
         self.automationID = automationID
         self.delivery = delivery
         self.enabled = enabled
@@ -7415,6 +7526,7 @@ public struct AutomationsUpdateParams: Codable, Sendable {
         self.schedule = schedule
         self.scratch = scratch
         self.sessionTarget = sessionTarget
+        self.spaceID = spaceID
         self.specialist = specialist
         self.timezone = timezone
         self.title = title
@@ -9925,6 +10037,7 @@ public enum ChecklistItemStatus: String, Codable, Sendable {
 public enum BlockKind: String, Codable, Sendable {
     case feedItem = "feed_item"
     case lifeAnswer = "life_answer"
+    case mailFollowup = "mail_followup"
     case memoryEntity = "memory_entity"
     case searchHit = "search_hit"
 }
@@ -14719,6 +14832,7 @@ public enum DailySectionID: String, Codable, Sendable {
     case keepInTouch = "keep_in_touch"
     case learned = "learned"
     case mail = "mail"
+    case quietThreads = "quiet_threads"
     case tomorrow = "tomorrow"
     case weather = "weather"
     case workedOn = "worked_on"
@@ -19217,6 +19331,105 @@ public struct MachinesRenameResult: Codable, Sendable {
     public init(machine: MachineInfo) {
         self.machine = machine
     }
+}
+
+// MARK: - MailFollowupsActParams
+public struct MailFollowupsActParams: Codable, Sendable {
+    public let action: MailFollowupAction
+    public let id: String
+
+    public enum CodingKeys: String, CodingKey {
+        case action = "action"
+        case id = "id"
+    }
+
+    public init(action: MailFollowupAction, id: String) {
+        self.action = action
+        self.id = id
+    }
+}
+
+public enum MailFollowupAction: String, Codable, Sendable {
+    case dismiss = "dismiss"
+    case snooze = "snooze"
+}
+
+// MARK: - MailFollowupsActResult
+public struct MailFollowupsActResult: Codable, Sendable {
+    public let ok: Bool
+
+    public enum CodingKeys: String, CodingKey {
+        case ok = "ok"
+    }
+
+    public init(ok: Bool) {
+        self.ok = ok
+    }
+}
+
+// MARK: - MailFollowupsListResult
+public struct MailFollowupsListResult: Codable, Sendable {
+    /// `mail.followups.enabled` is on
+    public let enabled: Bool
+    public let items: [MailFollowupItem]
+
+    public enum CodingKeys: String, CodingKey {
+        case enabled = "enabled"
+        case items = "items"
+    }
+
+    public init(enabled: Bool, items: [MailFollowupItem]) {
+        self.enabled = enabled
+        self.items = items
+    }
+}
+
+// MARK: - MailFollowupItem
+public struct MailFollowupItem: Codable, Sendable {
+    public let daysQuiet: Int
+    public let gmailThreadID: String?
+    public let id: String
+    public let kind: MailFollowupKind
+    public let link: String?
+    public let source: MailFollowupItemSource
+    public let subject: String
+    public let untrusted: Bool
+    public let who: String
+
+    public enum CodingKeys: String, CodingKey {
+        case daysQuiet = "daysQuiet"
+        case gmailThreadID = "gmailThreadId"
+        case id = "id"
+        case kind = "kind"
+        case link = "link"
+        case source = "source"
+        case subject = "subject"
+        case untrusted = "untrusted"
+        case who = "who"
+    }
+
+    public init(daysQuiet: Int, gmailThreadID: String? = nil, id: String, kind: MailFollowupKind, link: String? = nil, source: MailFollowupItemSource, subject: String, untrusted: Bool, who: String) {
+        self.daysQuiet = daysQuiet
+        self.gmailThreadID = gmailThreadID
+        self.id = id
+        self.kind = kind
+        self.link = link
+        self.source = source
+        self.subject = subject
+        self.untrusted = untrusted
+        self.who = who
+    }
+}
+
+public enum MailFollowupKind: String, Codable, Sendable {
+    case noReply = "no_reply"
+    case unansweredQuestion = "unanswered_question"
+}
+
+public enum MailFollowupItemSource: String, Codable, Sendable {
+    case apple = "apple"
+    case gmail = "gmail"
+    case imap = "imap"
 }
 
 // MARK: - MCPAddParams
@@ -25464,6 +25677,19 @@ public enum ReceiptOutcome: String, Codable, Sendable {
     case uncertain = "uncertain"
 }
 
+// MARK: - NodeUnpairResult
+public struct NodeUnpairResult: Codable, Sendable {
+    public let device: Device
+
+    public enum CodingKeys: String, CodingKey {
+        case device = "device"
+    }
+
+    public init(device: Device) {
+        self.device = device
+    }
+}
+
 // MARK: - NodeUpdatedPayload
 public struct NodeUpdatedPayload: Codable, Sendable {
     public let node: NodeInfo
@@ -26849,6 +27075,7 @@ public struct PluginsInstallResult: Codable, Sendable {
 
 // MARK: - PluginSummary
 public struct PluginSummary: Codable, Sendable {
+    public let adds: PluginAdds?
     public let capabilities: [PluginCapability]
     public let description: String
     /// The owner's switch for this plugin
@@ -26864,6 +27091,7 @@ public struct PluginSummary: Codable, Sendable {
     public let version: String
 
     public enum CodingKeys: String, CodingKey {
+        case adds = "adds"
         case capabilities = "capabilities"
         case description = "description"
         case enabled = "enabled"
@@ -26876,7 +27104,8 @@ public struct PluginSummary: Codable, Sendable {
         case version = "version"
     }
 
-    public init(capabilities: [PluginCapability], description: String, enabled: Bool, error: String? = nil, hash: String, installedAt: String, name: String, source: String, status: PluginStatus, version: String) {
+    public init(adds: PluginAdds? = nil, capabilities: [PluginCapability], description: String, enabled: Bool, error: String? = nil, hash: String, installedAt: String, name: String, source: String, status: PluginStatus, version: String) {
+        self.adds = adds
         self.capabilities = capabilities
         self.description = description
         self.enabled = enabled
@@ -26887,6 +27116,28 @@ public struct PluginSummary: Codable, Sendable {
         self.source = source
         self.status = status
         self.version = version
+    }
+}
+
+// MARK: - PluginAdds
+public struct PluginAdds: Codable, Sendable {
+    public let commands: Int
+    public let hooks: Int
+    public let mcpServers: Int
+    public let skills: Int
+
+    public enum CodingKeys: String, CodingKey {
+        case commands = "commands"
+        case hooks = "hooks"
+        case mcpServers = "mcpServers"
+        case skills = "skills"
+    }
+
+    public init(commands: Int, hooks: Int, mcpServers: Int, skills: Int) {
+        self.commands = commands
+        self.hooks = hooks
+        self.mcpServers = mcpServers
+        self.skills = skills
     }
 }
 
@@ -32967,6 +33218,992 @@ public enum SourcesBlockType: String, Codable, Sendable {
     case sources = "sources"
 }
 
+// MARK: - SpaceDetail
+public struct SpaceDetail: Codable, Sendable {
+    public let automationIDS: [String]
+    public let counts: SpaceCounts
+    public let folders: [SpaceFolder]
+    public let goalIDS: [String]
+    public let lastActivityAt: String?
+    public let links: [SpaceLink]
+    public let space: Space
+    public let trackers: [SpaceTracker]
+
+    public enum CodingKeys: String, CodingKey {
+        case automationIDS = "automationIds"
+        case counts = "counts"
+        case folders = "folders"
+        case goalIDS = "goalIds"
+        case lastActivityAt = "lastActivityAt"
+        case links = "links"
+        case space = "space"
+        case trackers = "trackers"
+    }
+
+    public init(automationIDS: [String], counts: SpaceCounts, folders: [SpaceFolder], goalIDS: [String], lastActivityAt: String? = nil, links: [SpaceLink], space: Space, trackers: [SpaceTracker]) {
+        self.automationIDS = automationIDS
+        self.counts = counts
+        self.folders = folders
+        self.goalIDS = goalIDS
+        self.lastActivityAt = lastActivityAt
+        self.links = links
+        self.space = space
+        self.trackers = trackers
+    }
+}
+
+// MARK: - SpaceCounts
+public struct SpaceCounts: Codable, Sendable {
+    public let chats: Int
+    public let due: Int
+    public let trackers: Int
+
+    public enum CodingKeys: String, CodingKey {
+        case chats = "chats"
+        case due = "due"
+        case trackers = "trackers"
+    }
+
+    public init(chats: Int, due: Int, trackers: Int) {
+        self.chats = chats
+        self.due = due
+        self.trackers = trackers
+    }
+}
+
+// MARK: - SpaceFolder
+public struct SpaceFolder: Codable, Sendable {
+    public let addedAt: String
+    public let addedByDevice: String?
+    /// Unattended runs (automations) may write here (SP8); default false
+    public let automationsWrite: Bool
+    public let mode: FolderModeEnum
+    public let path: String
+    /// The real path recorded when the folder was added
+    public let real: String
+
+    public enum CodingKeys: String, CodingKey {
+        case addedAt = "addedAt"
+        case addedByDevice = "addedByDevice"
+        case automationsWrite = "automationsWrite"
+        case mode = "mode"
+        case path = "path"
+        case real = "real"
+    }
+
+    public init(addedAt: String, addedByDevice: String? = nil, automationsWrite: Bool, mode: FolderModeEnum, path: String, real: String) {
+        self.addedAt = addedAt
+        self.addedByDevice = addedByDevice
+        self.automationsWrite = automationsWrite
+        self.mode = mode
+        self.path = path
+        self.real = real
+    }
+}
+
+// MARK: - SpaceLink
+public struct SpaceLink: Codable, Sendable {
+    public let addedBy: Drafted
+    public let createdAt: String
+    public let id: String
+    public let kind: SpaceLinkKind
+    public let label: String
+    public let labelProvenance: SpaceLinkProvenance
+    public let ref: String
+
+    public enum CodingKeys: String, CodingKey {
+        case addedBy = "addedBy"
+        case createdAt = "createdAt"
+        case id = "id"
+        case kind = "kind"
+        case label = "label"
+        case labelProvenance = "labelProvenance"
+        case ref = "ref"
+    }
+
+    public init(addedBy: Drafted, createdAt: String, id: String, kind: SpaceLinkKind, label: String, labelProvenance: SpaceLinkProvenance, ref: String) {
+        self.addedBy = addedBy
+        self.createdAt = createdAt
+        self.id = id
+        self.kind = kind
+        self.label = label
+        self.labelProvenance = labelProvenance
+        self.ref = ref
+    }
+}
+
+public enum SpaceLinkKind: String, Codable, Sendable {
+    case file = "file"
+    case libraryItem = "library_item"
+    case mailThread = "mail_thread"
+    case note = "note"
+    case url = "url"
+}
+
+public enum SpaceLinkProvenance: String, Codable, Sendable {
+    case agent = "agent"
+    case owner = "owner"
+    case untrusted = "untrusted"
+}
+
+// MARK: - Space
+public struct Space: Codable, Sendable {
+    public let archivedAt: String?
+    public let connectorScope: [String]?
+    public let createdAt: String
+    public let createdFrom: SpaceCreatedFrom
+    public let defaultPermissionMode: PermissionMode?
+    public let description: String?
+    public let entityID: String?
+    public let icon: String?
+    public let id: String
+    public let instructions: String
+    public let instructionsRev: Int
+    public let name: String
+    public let spacePrivate: Bool
+    public let sort: Int
+    public let updatedAt: String
+
+    public enum CodingKeys: String, CodingKey {
+        case archivedAt = "archivedAt"
+        case connectorScope = "connectorScope"
+        case createdAt = "createdAt"
+        case createdFrom = "createdFrom"
+        case defaultPermissionMode = "defaultPermissionMode"
+        case description = "description"
+        case entityID = "entityId"
+        case icon = "icon"
+        case id = "id"
+        case instructions = "instructions"
+        case instructionsRev = "instructionsRev"
+        case name = "name"
+        case spacePrivate = "private"
+        case sort = "sort"
+        case updatedAt = "updatedAt"
+    }
+
+    public init(archivedAt: String? = nil, connectorScope: [String]? = nil, createdAt: String, createdFrom: SpaceCreatedFrom, defaultPermissionMode: PermissionMode? = nil, description: String? = nil, entityID: String? = nil, icon: String? = nil, id: String, instructions: String, instructionsRev: Int, name: String, spacePrivate: Bool, sort: Int, updatedAt: String) {
+        self.archivedAt = archivedAt
+        self.connectorScope = connectorScope
+        self.createdAt = createdAt
+        self.createdFrom = createdFrom
+        self.defaultPermissionMode = defaultPermissionMode
+        self.description = description
+        self.entityID = entityID
+        self.icon = icon
+        self.id = id
+        self.instructions = instructions
+        self.instructionsRev = instructionsRev
+        self.name = name
+        self.spacePrivate = spacePrivate
+        self.sort = sort
+        self.updatedAt = updatedAt
+    }
+}
+
+public enum SpaceCreatedFrom: String, Codable, Sendable {
+    case migration = "migration"
+    case owner = "owner"
+    case project = "project"
+    case proposal = "proposal"
+}
+
+public enum PermissionMode: String, Codable, Sendable {
+    case auto = "auto"
+    case balanced = "balanced"
+    case manual = "manual"
+    case plan = "plan"
+}
+
+// MARK: - SpaceTracker
+public struct SpaceTracker: Codable, Sendable {
+    public let addedBy: AddedBy
+    public let createdAt: String
+    public let kind: SpaceTrackerKind
+    public let position: Int
+    public let refreshedAt: String?
+    public let staleAfterS: Int?
+    public let taint: [TaintSource]?
+    public let widgetID: String
+
+    public enum CodingKeys: String, CodingKey {
+        case addedBy = "addedBy"
+        case createdAt = "createdAt"
+        case kind = "kind"
+        case position = "position"
+        case refreshedAt = "refreshedAt"
+        case staleAfterS = "staleAfterS"
+        case taint = "taint"
+        case widgetID = "widgetId"
+    }
+
+    public init(addedBy: AddedBy, createdAt: String, kind: SpaceTrackerKind, position: Int, refreshedAt: String? = nil, staleAfterS: Int? = nil, taint: [TaintSource]? = nil, widgetID: String) {
+        self.addedBy = addedBy
+        self.createdAt = createdAt
+        self.kind = kind
+        self.position = position
+        self.refreshedAt = refreshedAt
+        self.staleAfterS = staleAfterS
+        self.taint = taint
+        self.widgetID = widgetID
+    }
+}
+
+public enum AddedBy: String, Codable, Sendable {
+    case agent = "agent"
+    case owner = "owner"
+    case template = "template"
+}
+
+public enum SpaceTrackerKind: String, Codable, Sendable {
+    case agent = "agent"
+    case bound = "bound"
+    case query = "query"
+}
+
+// MARK: - SpaceProposalCreatedPayload
+public struct SpaceProposalCreatedPayload: Codable, Sendable {
+    public let proposal: SpaceProposal
+
+    public enum CodingKeys: String, CodingKey {
+        case proposal = "proposal"
+    }
+
+    public init(proposal: SpaceProposal) {
+        self.proposal = proposal
+    }
+}
+
+// MARK: - SpaceProposal
+public struct SpaceProposal: Codable, Sendable {
+    public let createdAt: String
+    public let decidedAt: String?
+    public let entityID: String?
+    public let id: String
+    public let name: String
+    public let reason: String
+    public let status: SpaceProposalStatus
+    public let taint: [TaintSource]
+    public let threadIDS: [String]
+
+    public enum CodingKeys: String, CodingKey {
+        case createdAt = "createdAt"
+        case decidedAt = "decidedAt"
+        case entityID = "entityId"
+        case id = "id"
+        case name = "name"
+        case reason = "reason"
+        case status = "status"
+        case taint = "taint"
+        case threadIDS = "threadIds"
+    }
+
+    public init(createdAt: String, decidedAt: String? = nil, entityID: String? = nil, id: String, name: String, reason: String, status: SpaceProposalStatus, taint: [TaintSource], threadIDS: [String]) {
+        self.createdAt = createdAt
+        self.decidedAt = decidedAt
+        self.entityID = entityID
+        self.id = id
+        self.name = name
+        self.reason = reason
+        self.status = status
+        self.taint = taint
+        self.threadIDS = threadIDS
+    }
+}
+
+public enum SpaceProposalStatus: String, Codable, Sendable {
+    case accepted = "accepted"
+    case dismissed = "dismissed"
+    case spaceProposalStatusOpen = "open"
+}
+
+// MARK: - SpaceResult
+public struct SpaceResult: Codable, Sendable {
+    public let space: Space
+
+    public enum CodingKeys: String, CodingKey {
+        case space = "space"
+    }
+
+    public init(space: Space) {
+        self.space = space
+    }
+}
+
+// MARK: - SpaceTrackerRefreshedPayload
+public struct SpaceTrackerRefreshedPayload: Codable, Sendable {
+    public let refreshedAt: String
+    public let spaceID: String
+    public let widgetID: String
+
+    public enum CodingKeys: String, CodingKey {
+        case refreshedAt = "refreshedAt"
+        case spaceID = "spaceId"
+        case widgetID = "widgetId"
+    }
+
+    public init(refreshedAt: String, spaceID: String, widgetID: String) {
+        self.refreshedAt = refreshedAt
+        self.spaceID = spaceID
+        self.widgetID = widgetID
+    }
+}
+
+// MARK: - SpaceUpdatedPayload
+public struct SpaceUpdatedPayload: Codable, Sendable {
+    public let changed: [String]
+    public let spaceID: String
+
+    public enum CodingKeys: String, CodingKey {
+        case changed = "changed"
+        case spaceID = "spaceId"
+    }
+
+    public init(changed: [String], spaceID: String) {
+        self.changed = changed
+        self.spaceID = spaceID
+    }
+}
+
+// MARK: - SpacesArchiveParams
+public struct SpacesArchiveParams: Codable, Sendable {
+    public let spaceID: String
+
+    public enum CodingKeys: String, CodingKey {
+        case spaceID = "spaceId"
+    }
+
+    public init(spaceID: String) {
+        self.spaceID = spaceID
+    }
+}
+
+// MARK: - SpacesAutomationsMoveParams
+public struct SpacesAutomationsMoveParams: Codable, Sendable {
+    public let automationIDS: [String]
+    public let spaceID: String?
+
+    public enum CodingKeys: String, CodingKey {
+        case automationIDS = "automationIds"
+        case spaceID = "spaceId"
+    }
+
+    public init(automationIDS: [String], spaceID: String? = nil) {
+        self.automationIDS = automationIDS
+        self.spaceID = spaceID
+    }
+}
+
+// MARK: - SpacesAutomationsMoveResult
+public struct SpacesAutomationsMoveResult: Codable, Sendable {
+    public let moved: Int
+
+    public enum CodingKeys: String, CodingKey {
+        case moved = "moved"
+    }
+
+    public init(moved: Int) {
+        self.moved = moved
+    }
+}
+
+// MARK: - SpacesContextPreviewParams
+public struct SpacesContextPreviewParams: Codable, Sendable {
+    public let spaceID: String
+    public let threadID: String?
+
+    public enum CodingKeys: String, CodingKey {
+        case spaceID = "spaceId"
+        case threadID = "threadId"
+    }
+
+    public init(spaceID: String, threadID: String? = nil) {
+        self.spaceID = spaceID
+        self.threadID = threadID
+    }
+}
+
+// MARK: - SpacesContextPreviewResult
+public struct SpacesContextPreviewResult: Codable, Sendable {
+    public let sections: [SpaceContextSection]
+
+    public enum CodingKeys: String, CodingKey {
+        case sections = "sections"
+    }
+
+    public init(sections: [SpaceContextSection]) {
+        self.sections = sections
+    }
+}
+
+// MARK: - SpaceContextSection
+public struct SpaceContextSection: Codable, Sendable {
+    public let cap: Int
+    public let chars: Int
+    public let kind: SpaceContextSectionKind
+    public let text: String
+
+    public enum CodingKeys: String, CodingKey {
+        case cap = "cap"
+        case chars = "chars"
+        case kind = "kind"
+        case text = "text"
+    }
+
+    public init(cap: Int, chars: Int, kind: SpaceContextSectionKind, text: String) {
+        self.cap = cap
+        self.chars = chars
+        self.kind = kind
+        self.text = text
+    }
+}
+
+public enum SpaceContextSectionKind: String, Codable, Sendable {
+    case card = "card"
+    case instructions = "instructions"
+    case trackers = "trackers"
+    case work = "work"
+}
+
+// MARK: - SpacesCreateParams
+public struct SpacesCreateParams: Codable, Sendable {
+    public let description: String?
+    public let entityID: String?
+    public let icon: String?
+    public let instructions: String?
+    public let name: String
+
+    public enum CodingKeys: String, CodingKey {
+        case description = "description"
+        case entityID = "entityId"
+        case icon = "icon"
+        case instructions = "instructions"
+        case name = "name"
+    }
+
+    public init(description: String? = nil, entityID: String? = nil, icon: String? = nil, instructions: String? = nil, name: String) {
+        self.description = description
+        self.entityID = entityID
+        self.icon = icon
+        self.instructions = instructions
+        self.name = name
+    }
+}
+
+// MARK: - SpacesDeleteParams
+public struct SpacesDeleteParams: Codable, Sendable {
+    public let spaceID: String
+
+    public enum CodingKeys: String, CodingKey {
+        case spaceID = "spaceId"
+    }
+
+    public init(spaceID: String) {
+        self.spaceID = spaceID
+    }
+}
+
+// MARK: - SpacesFoldersAddParams
+public struct SpacesFoldersAddParams: Codable, Sendable {
+    public let mode: FolderModeEnum?
+    /// Omit on the Host to open the native picker
+    public let path: String?
+    public let spaceID: String
+
+    public enum CodingKeys: String, CodingKey {
+        case mode = "mode"
+        case path = "path"
+        case spaceID = "spaceId"
+    }
+
+    public init(mode: FolderModeEnum? = nil, path: String? = nil, spaceID: String) {
+        self.mode = mode
+        self.path = path
+        self.spaceID = spaceID
+    }
+}
+
+// MARK: - SpacesFoldersRemoveParams
+public struct SpacesFoldersRemoveParams: Codable, Sendable {
+    public let path: String
+    public let spaceID: String
+
+    public enum CodingKeys: String, CodingKey {
+        case path = "path"
+        case spaceID = "spaceId"
+    }
+
+    public init(path: String, spaceID: String) {
+        self.path = path
+        self.spaceID = spaceID
+    }
+}
+
+// MARK: - SpacesFoldersSetModeParams
+public struct SpacesFoldersSetModeParams: Codable, Sendable {
+    public let mode: FolderModeEnum
+    public let path: String
+    public let spaceID: String
+
+    public enum CodingKeys: String, CodingKey {
+        case mode = "mode"
+        case path = "path"
+        case spaceID = "spaceId"
+    }
+
+    public init(mode: FolderModeEnum, path: String, spaceID: String) {
+        self.mode = mode
+        self.path = path
+        self.spaceID = spaceID
+    }
+}
+
+// MARK: - SpacesGetParams
+public struct SpacesGetParams: Codable, Sendable {
+    public let spaceID: String
+
+    public enum CodingKeys: String, CodingKey {
+        case spaceID = "spaceId"
+    }
+
+    public init(spaceID: String) {
+        self.spaceID = spaceID
+    }
+}
+
+// MARK: - SpacesLinksAddParams
+public struct SpacesLinksAddParams: Codable, Sendable {
+    public let kind: SpaceLinkKind
+    public let label: String
+    public let ref: String
+    public let spaceID: String
+
+    public enum CodingKeys: String, CodingKey {
+        case kind = "kind"
+        case label = "label"
+        case ref = "ref"
+        case spaceID = "spaceId"
+    }
+
+    public init(kind: SpaceLinkKind, label: String, ref: String, spaceID: String) {
+        self.kind = kind
+        self.label = label
+        self.ref = ref
+        self.spaceID = spaceID
+    }
+}
+
+// MARK: - SpacesLinksAddResult
+public struct SpacesLinksAddResult: Codable, Sendable {
+    public let link: SpaceLink
+
+    public enum CodingKeys: String, CodingKey {
+        case link = "link"
+    }
+
+    public init(link: SpaceLink) {
+        self.link = link
+    }
+}
+
+// MARK: - SpacesLinksRemoveParams
+public struct SpacesLinksRemoveParams: Codable, Sendable {
+    public let linkID: String
+    public let spaceID: String
+
+    public enum CodingKeys: String, CodingKey {
+        case linkID = "linkId"
+        case spaceID = "spaceId"
+    }
+
+    public init(linkID: String, spaceID: String) {
+        self.linkID = linkID
+        self.spaceID = spaceID
+    }
+}
+
+// MARK: - SpacesListParams
+public struct SpacesListParams: Codable, Sendable {
+    public let archived: Bool?
+
+    public enum CodingKeys: String, CodingKey {
+        case archived = "archived"
+    }
+
+    public init(archived: Bool? = nil) {
+        self.archived = archived
+    }
+}
+
+// MARK: - SpacesListResult
+public struct SpacesListResult: Codable, Sendable {
+    public let spaces: [SpaceSummary]
+
+    public enum CodingKeys: String, CodingKey {
+        case spaces = "spaces"
+    }
+
+    public init(spaces: [SpaceSummary]) {
+        self.spaces = spaces
+    }
+}
+
+// MARK: - SpaceSummary
+public struct SpaceSummary: Codable, Sendable {
+    public let archivedAt: String?
+    public let counts: SpaceCounts
+    public let description: String?
+    public let entityID: String?
+    public let icon: String?
+    public let id: String
+    public let lastActivityAt: String?
+    public let name: String
+    public let spaceSummaryPrivate: Bool
+    public let sort: Int
+
+    public enum CodingKeys: String, CodingKey {
+        case archivedAt = "archivedAt"
+        case counts = "counts"
+        case description = "description"
+        case entityID = "entityId"
+        case icon = "icon"
+        case id = "id"
+        case lastActivityAt = "lastActivityAt"
+        case name = "name"
+        case spaceSummaryPrivate = "private"
+        case sort = "sort"
+    }
+
+    public init(archivedAt: String? = nil, counts: SpaceCounts, description: String? = nil, entityID: String? = nil, icon: String? = nil, id: String, lastActivityAt: String? = nil, name: String, spaceSummaryPrivate: Bool, sort: Int) {
+        self.archivedAt = archivedAt
+        self.counts = counts
+        self.description = description
+        self.entityID = entityID
+        self.icon = icon
+        self.id = id
+        self.lastActivityAt = lastActivityAt
+        self.name = name
+        self.spaceSummaryPrivate = spaceSummaryPrivate
+        self.sort = sort
+    }
+}
+
+// MARK: - SpacesOpenParams
+public struct SpacesOpenParams: Codable, Sendable {
+    public let spaceID: String
+
+    public enum CodingKeys: String, CodingKey {
+        case spaceID = "spaceId"
+    }
+
+    public init(spaceID: String) {
+        self.spaceID = spaceID
+    }
+}
+
+// MARK: - SpacesOpenResult
+public struct SpacesOpenResult: Codable, Sendable {
+    public let trackers: [SpaceTrackerValue]
+
+    public enum CodingKeys: String, CodingKey {
+        case trackers = "trackers"
+    }
+
+    public init(trackers: [SpaceTrackerValue]) {
+        self.trackers = trackers
+    }
+}
+
+// MARK: - SpaceTrackerValue
+public struct SpaceTrackerValue: Codable, Sendable {
+    public let refreshedAt: String
+    /// e.g. "mail", for "Updated 2h ago · from mail"
+    public let source: String?
+    public let stale: Bool
+    /// The source is gone
+    public let unavailable: Bool?
+    public let widgetID: String
+
+    public enum CodingKeys: String, CodingKey {
+        case refreshedAt = "refreshedAt"
+        case source = "source"
+        case stale = "stale"
+        case unavailable = "unavailable"
+        case widgetID = "widgetId"
+    }
+
+    public init(refreshedAt: String, source: String? = nil, stale: Bool, unavailable: Bool? = nil, widgetID: String) {
+        self.refreshedAt = refreshedAt
+        self.source = source
+        self.stale = stale
+        self.unavailable = unavailable
+        self.widgetID = widgetID
+    }
+}
+
+// MARK: - SpacesProposalsAcceptParams
+public struct SpacesProposalsAcceptParams: Codable, Sendable {
+    public let name: String?
+    public let proposalID: String
+
+    public enum CodingKeys: String, CodingKey {
+        case name = "name"
+        case proposalID = "proposalId"
+    }
+
+    public init(name: String? = nil, proposalID: String) {
+        self.name = name
+        self.proposalID = proposalID
+    }
+}
+
+// MARK: - SpacesProposalsDismissParams
+public struct SpacesProposalsDismissParams: Codable, Sendable {
+    public let proposalID: String
+
+    public enum CodingKeys: String, CodingKey {
+        case proposalID = "proposalId"
+    }
+
+    public init(proposalID: String) {
+        self.proposalID = proposalID
+    }
+}
+
+// MARK: - SpacesProposalsListParams
+public struct SpacesProposalsListParams: Codable, Sendable {
+    public let status: SpacesProposalsListParamsStatus?
+
+    public enum CodingKeys: String, CodingKey {
+        case status = "status"
+    }
+
+    public init(status: SpacesProposalsListParamsStatus? = nil) {
+        self.status = status
+    }
+}
+
+public enum SpacesProposalsListParamsStatus: String, Codable, Sendable {
+    case statusOpen = "open"
+}
+
+// MARK: - SpacesProposalsListResult
+public struct SpacesProposalsListResult: Codable, Sendable {
+    public let proposals: [SpaceProposal]
+
+    public enum CodingKeys: String, CodingKey {
+        case proposals = "proposals"
+    }
+
+    public init(proposals: [SpaceProposal]) {
+        self.proposals = proposals
+    }
+}
+
+// MARK: - SpacesRestoreParams
+public struct SpacesRestoreParams: Codable, Sendable {
+    public let spaceID: String
+
+    public enum CodingKeys: String, CodingKey {
+        case spaceID = "spaceId"
+    }
+
+    public init(spaceID: String) {
+        self.spaceID = spaceID
+    }
+}
+
+// MARK: - SpacesSettingsSetParams
+public struct SpacesSettingsSetParams: Codable, Sendable {
+    /// Per folder: unattended runs may write here (SP8)
+    public let automationsWrite: [AutomationsWrite]?
+    public let connectorScope: [String]?
+    public let defaultPermissionMode: PermissionMode?
+    public let spaceID: String
+
+    public enum CodingKeys: String, CodingKey {
+        case automationsWrite = "automationsWrite"
+        case connectorScope = "connectorScope"
+        case defaultPermissionMode = "defaultPermissionMode"
+        case spaceID = "spaceId"
+    }
+
+    public init(automationsWrite: [AutomationsWrite]? = nil, connectorScope: [String]? = nil, defaultPermissionMode: PermissionMode? = nil, spaceID: String) {
+        self.automationsWrite = automationsWrite
+        self.connectorScope = connectorScope
+        self.defaultPermissionMode = defaultPermissionMode
+        self.spaceID = spaceID
+    }
+}
+
+// MARK: - AutomationsWrite
+public struct AutomationsWrite: Codable, Sendable {
+    public let allow: Bool
+    public let path: String
+
+    public enum CodingKeys: String, CodingKey {
+        case allow = "allow"
+        case path = "path"
+    }
+
+    public init(allow: Bool, path: String) {
+        self.allow = allow
+        self.path = path
+    }
+}
+
+// MARK: - SpacesThreadsMoveParams
+public struct SpacesThreadsMoveParams: Codable, Sendable {
+    public let spaceID: String?
+    public let threadIDS: [String]
+
+    public enum CodingKeys: String, CodingKey {
+        case spaceID = "spaceId"
+        case threadIDS = "threadIds"
+    }
+
+    public init(spaceID: String? = nil, threadIDS: [String]) {
+        self.spaceID = spaceID
+        self.threadIDS = threadIDS
+    }
+}
+
+// MARK: - SpacesThreadsMoveResult
+public struct SpacesThreadsMoveResult: Codable, Sendable {
+    public let moved: Int
+
+    public enum CodingKeys: String, CodingKey {
+        case moved = "moved"
+    }
+
+    public init(moved: Int) {
+        self.moved = moved
+    }
+}
+
+// MARK: - SpacesTrackersAddParams
+public struct SpacesTrackersAddParams: Codable, Sendable {
+    public let spaceID: String
+    public let template: SpaceTrackerTemplate?
+    public let widgetID: String?
+
+    public enum CodingKeys: String, CodingKey {
+        case spaceID = "spaceId"
+        case template = "template"
+        case widgetID = "widgetId"
+    }
+
+    public init(spaceID: String, template: SpaceTrackerTemplate? = nil, widgetID: String? = nil) {
+        self.spaceID = spaceID
+        self.template = template
+        self.widgetID = widgetID
+    }
+}
+
+public enum SpaceTrackerTemplate: String, Codable, Sendable {
+    case automationStatus = "automation_status"
+    case checklist = "checklist"
+    case mailOnThis = "mail_on_this"
+    case nextEvents = "next_events"
+    case recentFiles = "recent_files"
+    case workDue = "work_due"
+}
+
+// MARK: - SpacesTrackersRefreshParams
+public struct SpacesTrackersRefreshParams: Codable, Sendable {
+    public let spaceID: String
+    public let widgetID: String
+
+    public enum CodingKeys: String, CodingKey {
+        case spaceID = "spaceId"
+        case widgetID = "widgetId"
+    }
+
+    public init(spaceID: String, widgetID: String) {
+        self.spaceID = spaceID
+        self.widgetID = widgetID
+    }
+}
+
+// MARK: - SpacesTrackersRefreshResult
+public struct SpacesTrackersRefreshResult: Codable, Sendable {
+    public let tracker: SpaceTrackerValue
+
+    public enum CodingKeys: String, CodingKey {
+        case tracker = "tracker"
+    }
+
+    public init(tracker: SpaceTrackerValue) {
+        self.tracker = tracker
+    }
+}
+
+// MARK: - SpacesTrackersRemoveParams
+public struct SpacesTrackersRemoveParams: Codable, Sendable {
+    public let spaceID: String
+    public let widgetID: String
+
+    public enum CodingKeys: String, CodingKey {
+        case spaceID = "spaceId"
+        case widgetID = "widgetId"
+    }
+
+    public init(spaceID: String, widgetID: String) {
+        self.spaceID = spaceID
+        self.widgetID = widgetID
+    }
+}
+
+// MARK: - SpacesTrackersReorderParams
+public struct SpacesTrackersReorderParams: Codable, Sendable {
+    public let spaceID: String
+    public let widgetIDS: [String]
+
+    public enum CodingKeys: String, CodingKey {
+        case spaceID = "spaceId"
+        case widgetIDS = "widgetIds"
+    }
+
+    public init(spaceID: String, widgetIDS: [String]) {
+        self.spaceID = spaceID
+        self.widgetIDS = widgetIDS
+    }
+}
+
+// MARK: - SpacesUpdateParams
+public struct SpacesUpdateParams: Codable, Sendable {
+    public let description: String?
+    public let entityID: String?
+    public let icon: String?
+    public let instructions: String?
+    public let name: String?
+    public let spacesUpdateParamsPrivate: Bool?
+    public let sort: Int?
+    public let spaceID: String
+
+    public enum CodingKeys: String, CodingKey {
+        case description = "description"
+        case entityID = "entityId"
+        case icon = "icon"
+        case instructions = "instructions"
+        case name = "name"
+        case spacesUpdateParamsPrivate = "private"
+        case sort = "sort"
+        case spaceID = "spaceId"
+    }
+
+    public init(description: String? = nil, entityID: String? = nil, icon: String? = nil, instructions: String? = nil, name: String? = nil, spacesUpdateParamsPrivate: Bool? = nil, sort: Int? = nil, spaceID: String) {
+        self.description = description
+        self.entityID = entityID
+        self.icon = icon
+        self.instructions = instructions
+        self.name = name
+        self.spacesUpdateParamsPrivate = spacesUpdateParamsPrivate
+        self.sort = sort
+        self.spaceID = spaceID
+    }
+}
+
 // MARK: - SpecialistProgressPayload
 public struct SpecialistProgressPayload: Codable, Sendable {
     public let budget: RunBudget
@@ -33411,13 +34648,6 @@ public struct Caps: Codable, Sendable {
     }
 }
 
-public enum PermissionMode: String, Codable, Sendable {
-    case auto = "auto"
-    case balanced = "balanced"
-    case manual = "manual"
-    case plan = "plan"
-}
-
 public enum ModelClassEnum: String, Codable, Sendable {
     case harness = "harness"
     case primary = "primary"
@@ -33765,6 +34995,92 @@ public struct TranscriptSegment: Codable, Sendable {
 public enum SpeechTranscribePreset: String, Codable, Sendable {
     case long = "long"
     case short = "short"
+}
+
+// MARK: - StorageClearCacheParams
+public struct StorageClearCacheParams: Codable, Sendable {
+    public let targets: [StorageClearTarget]?
+
+    public enum CodingKeys: String, CodingKey {
+        case targets = "targets"
+    }
+
+    public init(targets: [StorageClearTarget]? = nil) {
+        self.targets = targets
+    }
+}
+
+public enum StorageClearTarget: String, Codable, Sendable {
+    case caches = "caches"
+    case recordings = "recordings"
+}
+
+// MARK: - StorageCleared
+public struct StorageCleared: Codable, Sendable {
+    public let cleared: [StorageClearTarget]
+    public let freedBytes: Int
+
+    public enum CodingKeys: String, CodingKey {
+        case cleared = "cleared"
+        case freedBytes = "freedBytes"
+    }
+
+    public init(cleared: [StorageClearTarget], freedBytes: Int) {
+        self.cleared = cleared
+        self.freedBytes = freedBytes
+    }
+}
+
+// MARK: - StorageUsage
+public struct StorageUsage: Codable, Sendable {
+    public let categories: [StorageCategory]
+    public let partial: Bool?
+    public let totalBytes: Int
+
+    public enum CodingKeys: String, CodingKey {
+        case categories = "categories"
+        case partial = "partial"
+        case totalBytes = "totalBytes"
+    }
+
+    public init(categories: [StorageCategory], partial: Bool? = nil, totalBytes: Int) {
+        self.categories = categories
+        self.partial = partial
+        self.totalBytes = totalBytes
+    }
+}
+
+// MARK: - StorageCategory
+public struct StorageCategory: Codable, Sendable {
+    public let bytes: Int
+    public let clearable: Bool
+    public let id: StorageCategoryID
+    public let reclaimableBytes: Int?
+
+    public enum CodingKeys: String, CodingKey {
+        case bytes = "bytes"
+        case clearable = "clearable"
+        case id = "id"
+        case reclaimableBytes = "reclaimableBytes"
+    }
+
+    public init(bytes: Int, clearable: Bool, id: StorageCategoryID, reclaimableBytes: Int? = nil) {
+        self.bytes = bytes
+        self.clearable = clearable
+        self.id = id
+        self.reclaimableBytes = reclaimableBytes
+    }
+}
+
+public enum StorageCategoryID: String, Codable, Sendable {
+    case browserProfiles = "browserProfiles"
+    case caches = "caches"
+    case database = "database"
+    case library = "library"
+    case logs = "logs"
+    case memoryIndex = "memoryIndex"
+    case other = "other"
+    case recordings = "recordings"
 }
 
 // MARK: - TaskActionPayload
@@ -35424,6 +36740,7 @@ public struct Thread: Codable, Sendable {
     public let pinned: Bool
     /// e.g. "owner:main", "telegram:peer:12345"
     public let sessionKey: String
+    public let spaceID: String?
     public let title: String
     public let titleSource: TitleSource
     public let updatedAt: String
@@ -35444,13 +36761,14 @@ public struct Thread: Codable, Sendable {
         case personaOverlay = "personaOverlay"
         case pinned = "pinned"
         case sessionKey = "sessionKey"
+        case spaceID = "spaceId"
         case title = "title"
         case titleSource = "titleSource"
         case updatedAt = "updatedAt"
         case userCreated = "userCreated"
     }
 
-    public init(activeWriterRunID: String? = nil, archivedAt: String? = nil, createdAt: String, expiresAt: String? = nil, forkedFromMessageID: String? = nil, id: String, kind: ThreadKind, lastMessageAt: String? = nil, modelRef: String? = nil, parentThreadID: String? = nil, permissionMode: PermissionMode, personaOverlay: String? = nil, pinned: Bool, sessionKey: String, title: String, titleSource: TitleSource, updatedAt: String, userCreated: Bool? = nil) {
+    public init(activeWriterRunID: String? = nil, archivedAt: String? = nil, createdAt: String, expiresAt: String? = nil, forkedFromMessageID: String? = nil, id: String, kind: ThreadKind, lastMessageAt: String? = nil, modelRef: String? = nil, parentThreadID: String? = nil, permissionMode: PermissionMode, personaOverlay: String? = nil, pinned: Bool, sessionKey: String, spaceID: String? = nil, title: String, titleSource: TitleSource, updatedAt: String, userCreated: Bool? = nil) {
         self.activeWriterRunID = activeWriterRunID
         self.archivedAt = archivedAt
         self.createdAt = createdAt
@@ -35465,6 +36783,7 @@ public struct Thread: Codable, Sendable {
         self.personaOverlay = personaOverlay
         self.pinned = pinned
         self.sessionKey = sessionKey
+        self.spaceID = spaceID
         self.title = title
         self.titleSource = titleSource
         self.updatedAt = updatedAt
@@ -35624,6 +36943,7 @@ public struct ThreadsCreateParams: Codable, Sendable {
     public let modelRef: String?
     public let parentThreadID: String?
     public let permissionMode: PermissionMode?
+    public let spaceID: String?
     public let title: String?
 
     public enum CodingKeys: String, CodingKey {
@@ -35631,14 +36951,16 @@ public struct ThreadsCreateParams: Codable, Sendable {
         case modelRef = "modelRef"
         case parentThreadID = "parentThreadId"
         case permissionMode = "permissionMode"
+        case spaceID = "spaceId"
         case title = "title"
     }
 
-    public init(kind: ThreadKind? = nil, modelRef: String? = nil, parentThreadID: String? = nil, permissionMode: PermissionMode? = nil, title: String? = nil) {
+    public init(kind: ThreadKind? = nil, modelRef: String? = nil, parentThreadID: String? = nil, permissionMode: PermissionMode? = nil, spaceID: String? = nil, title: String? = nil) {
         self.kind = kind
         self.modelRef = modelRef
         self.parentThreadID = parentThreadID
         self.permissionMode = permissionMode
+        self.spaceID = spaceID
         self.title = title
     }
 }
@@ -35702,6 +37024,7 @@ public struct ThreadsListParams: Codable, Sendable {
     public let pinnedOnly: Bool?
     /// Case-insensitive substring match on the title
     public let query: String?
+    public let spaceID: String?
 
     public enum CodingKeys: String, CodingKey {
         case cursor = "cursor"
@@ -35710,15 +37033,17 @@ public struct ThreadsListParams: Codable, Sendable {
         case limit = "limit"
         case pinnedOnly = "pinnedOnly"
         case query = "query"
+        case spaceID = "spaceId"
     }
 
-    public init(cursor: String? = nil, includeArchived: Bool? = nil, kind: ThreadKind? = nil, limit: Int? = nil, pinnedOnly: Bool? = nil, query: String? = nil) {
+    public init(cursor: String? = nil, includeArchived: Bool? = nil, kind: ThreadKind? = nil, limit: Int? = nil, pinnedOnly: Bool? = nil, query: String? = nil, spaceID: String? = nil) {
         self.cursor = cursor
         self.includeArchived = includeArchived
         self.kind = kind
         self.limit = limit
         self.pinnedOnly = pinnedOnly
         self.query = query
+        self.spaceID = spaceID
     }
 }
 
@@ -35851,15 +37176,18 @@ public enum ThreadPreviewRole: String, Codable, Sendable {
 public struct ThreadsNewChatParams: Codable, Sendable {
     public let kind: ThreadsNewChatParamsKind
     public let preferThreadID: String?
+    public let spaceID: String?
 
     public enum CodingKeys: String, CodingKey {
         case kind = "kind"
         case preferThreadID = "preferThreadId"
+        case spaceID = "spaceId"
     }
 
-    public init(kind: ThreadsNewChatParamsKind, preferThreadID: String? = nil) {
+    public init(kind: ThreadsNewChatParamsKind, preferThreadID: String? = nil, spaceID: String? = nil) {
         self.kind = kind
         self.preferThreadID = preferThreadID
+        self.spaceID = spaceID
     }
 }
 
@@ -35951,16 +37279,16 @@ public struct ThreadsSetContextLimitsResult: Codable, Sendable {
 
 // MARK: - ThreadsSummaryPinsRemoveParams
 public struct ThreadsSummaryPinsRemoveParams: Codable, Sendable {
-    public let instruction: String
+    public let pinID: String
     public let threadID: String
 
     public enum CodingKeys: String, CodingKey {
-        case instruction = "instruction"
+        case pinID = "pinId"
         case threadID = "threadId"
     }
 
-    public init(instruction: String, threadID: String) {
-        self.instruction = instruction
+    public init(pinID: String, threadID: String) {
+        self.pinID = pinID
         self.threadID = threadID
     }
 }
@@ -38677,10 +40005,16 @@ public struct WidgetBind: Codable, Sendable {
 
 public enum WidgetBindingSource: String, Codable, Sendable {
     case automation = "automation"
+    case calendar = "calendar"
+    case entity = "entity"
+    case files = "files"
     case job = "job"
+    case mail = "mail"
+    case reminders = "reminders"
     case research = "research"
     case task = "task"
     case toolCall = "tool_call"
+    case workDue = "work_due"
 }
 
 // MARK: - WidgetDraftPayload
@@ -38947,6 +40281,7 @@ public struct Widget: Codable, Sendable {
     public let owner: WidgetOwner
     public let pinned: Bool
     public let rev: Int
+    public let spaceID: String?
     public let spec: WidgetSpec
     public let state: WidgetState
     public let taint: [TaintSource]
@@ -38960,6 +40295,7 @@ public struct Widget: Codable, Sendable {
         case owner = "owner"
         case pinned = "pinned"
         case rev = "rev"
+        case spaceID = "spaceId"
         case spec = "spec"
         case state = "state"
         case taint = "taint"
@@ -38967,13 +40303,14 @@ public struct Widget: Codable, Sendable {
         case updatedAt = "updatedAt"
     }
 
-    public init(createdAt: String, id: String, messageID: String, owner: WidgetOwner, pinned: Bool, rev: Int, spec: WidgetSpec, state: WidgetState, taint: [TaintSource], threadID: String, updatedAt: String) {
+    public init(createdAt: String, id: String, messageID: String, owner: WidgetOwner, pinned: Bool, rev: Int, spaceID: String? = nil, spec: WidgetSpec, state: WidgetState, taint: [TaintSource], threadID: String, updatedAt: String) {
         self.createdAt = createdAt
         self.id = id
         self.messageID = messageID
         self.owner = owner
         self.pinned = pinned
         self.rev = rev
+        self.spaceID = spaceID
         self.spec = spec
         self.state = state
         self.taint = taint
@@ -39261,6 +40598,7 @@ public typealias GatewayInfoParams = [String: JSONAny]
 public typealias GrowthUpdatedPayload = [String: JSONAny]
 public typealias KeysStatusParams = [String: JSONAny]
 public typealias MachinesListParams = [String: JSONAny]
+public typealias MailFollowupsListParams = [String: JSONAny]
 public typealias MCPStatusParams = [String: JSONAny]
 public typealias MeetingsRecordPushResult = [String: JSONAny]
 public typealias MeetingsRecordStatusParams = [String: JSONAny]
@@ -39276,6 +40614,7 @@ public typealias MemoryStatusParams = [String: JSONAny]
 public typealias MemoryWorkListsParams = [String: JSONAny]
 public typealias ModelsAppleStatusParams = [String: JSONAny]
 public typealias ModelsListParams = [String: JSONAny]
+public typealias NodeUnpairParams = [String: JSONAny]
 public typealias NodesListParams = [String: JSONAny]
 public typealias PasskeysListParams = [String: JSONAny]
 public typealias PasskeysReauthBeginParams = [String: JSONAny]
@@ -39293,6 +40632,7 @@ public typealias Settings = [String: JSONAny]
 public typealias SpecialistsListParams = [String: JSONAny]
 public typealias SpeechEngineDownloadParams = [String: JSONAny]
 public typealias SpeechEngineStatusParams = [String: JSONAny]
+public typealias StorageUsageParams = [String: JSONAny]
 public typealias TeachAppAppsParams = [String: JSONAny]
 public typealias TeachAppCancelParams = [String: JSONAny]
 public typealias TeachAppStatusParams = [String: JSONAny]

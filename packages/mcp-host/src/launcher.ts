@@ -117,11 +117,84 @@ export interface SrtLauncherOptions {
   runtime?: RuntimeDeps;
 }
 
+/**
+ * Linux: the browser, mail, chat and password stores that sit in `~/.config`, `~/.local` and the
+ * Flatpak and snap app folders (cookies, saved logins, session tokens, the keyrings). The rest of
+ * `~/.config` stays readable under a grant (review of #1294, round 6). Exact paths: srt deny
+ * rules are paths, not globs.
+ */
+export const LINUX_DENY_READ_HOME: readonly (readonly string[])[] = [
+  // Chromium-family profiles (cookies are decryptable without a keyring) and Firefox-family ones.
+  [".config", "google-chrome"],
+  [".config", "google-chrome-beta"],
+  [".config", "google-chrome-unstable"],
+  [".config", "chromium"],
+  [".config", "BraveSoftware"],
+  [".config", "microsoft-edge"],
+  [".config", "microsoft-edge-beta"],
+  [".config", "microsoft-edge-dev"],
+  [".config", "vivaldi"],
+  [".config", "opera"],
+  [".mozilla"],
+  [".librewolf"],
+  [".waterfox"],
+  [".floorp"],
+  [".thunderbird"],
+  // Chat apps' session tokens and database keys.
+  [".config", "Signal"],
+  [".config", "Slack"],
+  [".config", "discord"],
+  [".config", "Element"],
+  [".config", "teams-for-linux"],
+  // Telegram's tdata logs in as the owner when copied (round 7).
+  [".local", "share", "TelegramDesktop", "tdata"],
+  // Evolution's mail, its accounts and their tokens (round 7).
+  [".config", "evolution"],
+  [".local", "share", "evolution"],
+  // Cloud and password stores.
+  [".config", "rclone"],
+  [".config", "Bitwarden"],
+  [".config", "1Password"],
+  [".local", "share", "keyrings"],
+  [".local", "share", "kwalletd"],
+  [".password-store"],
+  // Flatpak browsers, mail and chat (their whole app folder holds the profile).
+  [".var", "app", "org.mozilla.firefox"],
+  [".var", "app", "org.mozilla.Thunderbird"],
+  [".var", "app", "com.google.Chrome"],
+  [".var", "app", "org.chromium.Chromium"],
+  [".var", "app", "com.brave.Browser"],
+  [".var", "app", "com.microsoft.Edge"],
+  [".var", "app", "com.vivaldi.Vivaldi"],
+  [".var", "app", "io.github.ungoogled_software.ungoogled_chromium"],
+  [".var", "app", "io.gitlab.librewolf-community"],
+  [".var", "app", "one.ablaze.floorp"],
+  [".var", "app", "org.signal.Signal"],
+  [".var", "app", "com.slack.Slack"],
+  [".var", "app", "com.discordapp.Discord"],
+  [".var", "app", "im.riot.Riot"],
+  [".var", "app", "com.bitwarden.desktop"],
+  [".var", "app", "org.telegram.desktop"],
+  [".var", "app", "org.gnome.Evolution"],
+  [".var", "app", "com.github.IsmaelMartinez.teams_for_linux"],
+  // Snap browsers, mail and chat.
+  ["snap", "firefox", "common", ".mozilla"],
+  ["snap", "chromium"],
+  ["snap", "brave"],
+  ["snap", "thunderbird", "common", ".thunderbird"],
+  ["snap", "telegram-desktop"],
+  ["snap", "teams-for-linux"],
+];
+
 /** Read-denied for every MCP server regardless of its policy (security §5.3, plus common token files). */
-export function defaultDenyRead(psycheHome: string): string[] {
+export function defaultDenyRead(
+  psycheHome: string,
+  platform: NodeJS.Platform = process.platform,
+): string[] {
   const home = homedir();
   const h = (...p: string[]) => join(home, ...p);
   return [
+    ...(platform === "linux" ? LINUX_DENY_READ_HOME.map((segments) => h(...segments)) : []),
     psycheHome,
     h(".ssh"),
     h(".aws"),
@@ -133,6 +206,16 @@ export function defaultDenyRead(psycheHome: string): string[] {
     h(".kube"),
     h(".config", "gh"),
     h(".config", "gcloud"),
+    // More developer CLI tokens (round 7): GitLab, 1Password, Azure, DigitalOcean, hub; with the
+    // macOS spellings of the ones that keep them in Application Support.
+    h(".config", "glab-cli"),
+    h(".config", "op"),
+    h(".op"),
+    h(".azure"),
+    h(".config", "doctl"),
+    h(".config", "hub"),
+    h("Library", "Application Support", "glab-cli"),
+    h("Library", "Application Support", "doctl"),
     // The owner's release signing key (security §11), until it is moved to a password manager and
     // the file deleted; and the folder a local-signing setup would keep it in. Exact paths: srt
     // deny rules are paths, and a broad home-wide glob for *.pem could not be checked here.

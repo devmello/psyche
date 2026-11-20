@@ -455,6 +455,7 @@ export {
   usePersona,
   useSlots,
 } from "./slots.tsx";
+export * from "./spaces/index.ts";
 // The teaching loop (docs/agent/teaching-loop-2026.md §5).
 export * from "./teaching/index.ts";
 // Theme and data layer.

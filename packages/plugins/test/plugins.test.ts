@@ -1,4 +1,13 @@
-import { cpSync, existsSync, mkdtempSync, realpathSync, rmSync, writeFileSync } from "node:fs";
+import {
+  cpSync,
+  existsSync,
+  mkdirSync,
+  mkdtempSync,
+  readFileSync,
+  realpathSync,
+  rmSync,
+  writeFileSync,
+} from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { fileURLToPath } from "node:url";
@@ -155,6 +164,42 @@ describe("plugin install and switches", () => {
       kind: "skill_install",
       externalRefs: { plugin: "office-hours" },
     });
+  });
+
+  it("counts what the folder really adds, whatever the manifest declares", async () => {
+    const s0 = await setup();
+    s0.clock.advance(500);
+    await approve(s0.broker, s0.approval.id);
+    const first = await s0.manager.install(s0.proposal.id, s0.approval.id);
+    // office-hours declares a before_tool_call hook and ships nothing else.
+    expect(first.adds).toEqual({ skills: 0, commands: 0, mcpServers: 0, hooks: 1 });
+
+    const source = join(dir, "src-with-adds");
+    cpSync(join(FIXTURES, "office-hours"), source, { recursive: true });
+    const manifestPath = join(source, "psyche-plugin.json");
+    const m = JSON.parse(readFileSync(manifestPath, "utf8"));
+    m.name = "adds-demo";
+    // An understating manifest: it claims nothing, the folder holds more.
+    m.adds = { skills: [], commands: [], mcpServers: [], hooks: [] };
+    writeFileSync(manifestPath, JSON.stringify(m));
+    mkdirSync(join(source, "skills/a"), { recursive: true });
+    mkdirSync(join(source, "skills/b"), { recursive: true });
+    mkdirSync(join(source, "commands"), { recursive: true });
+    writeFileSync(join(source, "skills/a/SKILL.md"), "---\nname: a\n---\n");
+    writeFileSync(join(source, "skills/b/SKILL.md"), "---\nname: b\n---\n");
+    writeFileSync(join(source, "commands/c.md"), "c\n");
+    writeFileSync(
+      join(source, ".mcp.json"),
+      JSON.stringify({ mcpServers: { m: { command: "x" }, n: { command: "y" } } }),
+    );
+    mkdirSync(join(source, "hooks"), { recursive: true });
+    writeFileSync(join(source, "hooks/hooks.json"), JSON.stringify({ hooks: { PreToolUse: [] } }));
+    const { proposal, approval } = await s0.manager.proposeInstall(source);
+    s0.clock.advance(500);
+    await approve(s0.broker, approval.id);
+    const plugin = await s0.manager.install(proposal.id, approval.id);
+    expect(plugin.adds).toEqual({ skills: 2, commands: 1, mcpServers: 2, hooks: 2 });
+    expect(s0.manager.list().find((x) => x.name === "adds-demo")?.adds).toEqual(plugin.adds);
   });
 
   it("runs only with the setting and its switch on, and never with changed files", async () => {

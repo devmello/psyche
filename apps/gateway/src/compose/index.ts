@@ -95,6 +95,8 @@ import {
   createDeliverer,
   createTaskLauncher,
   groupAutomationRunThreads,
+  KEEP_AWAKE_SETTING,
+  KeepAwake,
   type RunLauncher,
   SqliteScheduler,
 } from "@psyche/scheduler";
@@ -172,6 +174,8 @@ import { type HostTerminalOptions, hostTerminalPart } from "./host-terminal.ts";
 import { insightsHandlers } from "./insights.ts";
 import { libraryHandlers } from "./library.ts";
 import { composeGuidedPayments, type LinkSetupOptions } from "./link-setup.ts";
+import { machineChangeHook } from "./machine-notices.ts";
+import { composeMailFollowups } from "./mail-followups.ts";
 import type { ComposedMcp } from "./mcp.ts";
 import { memoryStoreStatus, resolveMemoryStore, setMemoryEncrypted } from "./memory-db.ts";
 import { withMemoryEntityContext } from "./memory-item-context.ts";
@@ -206,12 +210,13 @@ import { type ComposedPayments, type PaymentsSetup, paymentsSetupFromEnv } from 
 import { composePeople, type People } from "./people.ts";
 import { graphSourceAdapters } from "./people-sources.ts";
 import { composePlugins } from "./plugins.ts";
-import { type ComposedProactive, composeProactive } from "./proactive.ts";
+import { type ComposedProactive, composeProactive, connectorToolLookup } from "./proactive.ts";
 import {
   folderAccessEnv,
   launchConfigLinks,
   ownWorkdirs,
   protectedRoots,
+  runCarveOuts,
   writeProtection,
 } from "./protected-paths.ts";
 import { createPurchaseTool, LINK_PAYMENT_SOURCE, PURCHASE_TOOL } from "./purchase-tool.ts";
@@ -260,6 +265,7 @@ import {
 } from "./services.ts";
 import { setupTokenHandlers, setupTokenUsedHook } from "./setup-tokens.ts";
 import { composeSkills } from "./skills.ts";
+import { composeSpaces } from "./spaces.ts";
 import { withSpecialistContext } from "./specialist-approvals.ts";
 import {
   createSpecialistHost,
@@ -1132,6 +1138,7 @@ export async function composeGateway(options: ComposeOptions): Promise<ComposedG
     ],
     protectedRoots: () => protectedRoots(config.home),
     ownDirs: () => ownWorkdirs(config.home),
+    carveOuts: () => runCarveOuts(),
     writeProtectedRoots: () => writeProtection(),
     launchConfigLinks: launchConfigLinks(() => rawBroker.grantedFolders()),
     onChange: (c) => void changes.record(fileChange(c)),
@@ -1284,6 +1291,14 @@ export async function composeGateway(options: ComposeOptions): Promise<ComposedG
         refs: { nudgeId: card.nudgeId },
       }),
     ...(background ? {} : { refreshMs: 0 }),
+    ...(gwOptions.logger === undefined ? {} : { logger: gwOptions.logger }),
+  });
+  // Quiet email threads: read through the connected mail tools; nothing is sent.
+  const mailFollowups = composeMailFollowups({
+    db,
+    clock,
+    tools: () => connectorToolLookup(registry),
+    timeZone: () => timeZone ?? Intl.DateTimeFormat().resolvedOptions().timeZone,
     ...(gwOptions.logger === undefined ? {} : { logger: gwOptions.logger }),
   });
   const calls = new CallContexts();
@@ -1513,6 +1528,20 @@ export async function composeGateway(options: ComposeOptions): Promise<ComposedG
     // Watches (O3) read public pages through the guarded fetch until S09 exports its own.
     watchFetch: publicFetch(),
     ...(timeZone === undefined ? {} : { defaultTimezone: timeZone }),
+  });
+  // Keeps the Mac awake while a scheduled run (or its retry) is active, when the owner turned it on.
+  // Re-checked on every scheduler event and settings change; caffeinate exits with this process.
+  const keepAwake = new KeepAwake({
+    enabled: () => getSetting(db, KEEP_AWAKE_SETTING)?.value === true,
+    activeRuns: () => scheduler.activeRunCount(),
+    onError: (error) =>
+      gwOptions.logger?.log("warn", "keep-awake hold failed", {
+        error: error instanceof Error ? error.message : String(error),
+      }),
+  });
+  scheduler.subscribe(() => keepAwake.sync());
+  settingListeners.push((c) => {
+    if (c.key === KEEP_AWAKE_SETTING) keepAwake.sync();
   });
   // Approve on a set-aside automation card starts a resume run that may do it once (deferred-resume.ts).
   const deferredResume = new DeferredResume({
@@ -1844,6 +1873,7 @@ export async function composeGateway(options: ComposeOptions): Promise<ComposedG
       nudges.refresh();
       return nudges.keepInTouch();
     },
+    quietThreads: () => mailFollowups.briefLines(),
     // Catching up and `memory.catchup.*` (MW4): the graph, and what the agent may read of it.
     catchup: { graph: people.graph, em: everything.store, access: people.agentAccess },
     // Ideas proposes folding a skill's lessons into it once it has three (teaching loop §6).
@@ -2177,6 +2207,8 @@ export async function composeGateway(options: ComposeOptions): Promise<ComposedG
     everything.part(scheduler, timeZone ?? Intl.DateTimeFormat().resolvedOptions().timeZone),
   );
   parts.push(nudges.part());
+  parts.push(mailFollowups.part());
+  parts.push(composeSpaces({ scheduler }));
   parts.push(
     composeWork({
       db,
@@ -2240,6 +2272,7 @@ export async function composeGateway(options: ComposeOptions): Promise<ComposedG
     ...teaching.handlers,
     // The owner's Clear chat: empties a thread in place (the main chat cannot be deleted).
     ...createThreadClear({ db, audit, broker, isRunning: (threadId) => loop.isBusy(threadId) }),
+    ...context.pinHandlers(() => loop),
     ...mountParamsOnly(
       context.handlers(
         () => loop,
@@ -2395,6 +2428,7 @@ export async function composeGateway(options: ComposeOptions): Promise<ComposedG
     webhooks,
     publicRoutes,
     onSetupTokenUsed: setupTokenUsedHook({ db, audit, log: gwOptions.logger }),
+    onMachineChange: machineChangeHook({ audit, notifier, log: gwOptions.logger }),
     onDeviceSelfRevoked: (revoked) => {
       void audit
         .append({
@@ -2456,7 +2490,9 @@ export async function composeGateway(options: ComposeOptions): Promise<ComposedG
   const unsubscribeHelperChange = gateway.context.nodes.onHostHelperChange(syncHelperAvailability);
   syncHelperAvailability();
   // The owner's folder grants and rules apply without a restart (settings.set → broker policy).
-  // A run that ends lets a waiting Forget trace pass go on (no polling).
+  // A run that ends lets a waiting Forget trace pass go on (no polling). This relies on the
+  // `run.updated` frame; a run that ends without one is picked up at the next wake or at the
+  // pass's 24 h expiry.
   const unsubscribeTraceScrub = gateway.bus.subscribe(["operator.read"], (frame) => {
     if (!frame.includes('"run.updated"')) return;
     try {
@@ -2538,7 +2574,9 @@ export async function composeGateway(options: ComposeOptions): Promise<ComposedG
   gateway.context.chatContext.resolve = (ref, caller) =>
     ref.kind === "life_answer"
       ? everything.lifeChat.resolve(ref, caller)
-      : baseChatContext(ref, caller);
+      : ref.kind === "mail_followup"
+        ? mailFollowups.resolveContext(ref)
+        : baseChatContext(ref, caller);
   gateway.context.chatFiles.attach = (threadId, paths, by) =>
     rawBroker.attachFiles(threadId, paths, by);
   gateway.context.chatFiles.attached = (threadId) => rawBroker.attachedFiles(threadId);
@@ -2576,6 +2614,7 @@ export async function composeGateway(options: ComposeOptions): Promise<ComposedG
       });
     }
     await scheduler.start();
+    keepAwake.sync();
   }
 
   return {
@@ -2611,6 +2650,7 @@ export async function composeGateway(options: ComposeOptions): Promise<ComposedG
       await pool.stop();
       await specialistPool.stop();
       scheduler.stop();
+      keepAwake.stop();
       memory.unwatch();
       unsubscribePolicy();
       unsubscribeTraceScrub();

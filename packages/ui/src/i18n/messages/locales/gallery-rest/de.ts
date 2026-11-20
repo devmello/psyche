@@ -65,6 +65,24 @@ export const galleryRest: Partial<Catalogue> = {
   "gallery.preset.todoist.desc":
     "Deine Todoist-Aufgaben und -Projekte ansehen und verwalten. Du meldest dich an, wenn es sich verbindet.",
   "gallery.preset.todoist.example": "Was ist heute in Todoist fällig?",
+  "gallery.preset.dropbox.desc":
+    "Dateien in deiner Dropbox durchsuchen und lesen. Du meldest dich an, wenn die Verbindung aufgebaut wird.",
+  "gallery.preset.dropbox.example":
+    "Finde den Vertrags-PDF, den ich letzten Monat in Dropbox gespeichert habe.",
+  "gallery.preset.figma.desc":
+    "Lies deine Figma-Designs und -Dateien. Du meldest dich an, wenn die Verbindung aufgebaut wird.",
+  "gallery.preset.figma.example":
+    "Fasse die letzten Änderungen in der Design-Datei meines Teams zusammen.",
+  "gallery.preset.asana.desc":
+    "Asana-Aufgaben und -Projekte ansehen und aktualisieren. Du meldest dich an, wenn die Verbindung aufgebaut wird.",
+  "gallery.preset.asana.example": "Welche Asana-Aufgaben sind diese Woche fällig?",
+  "gallery.preset.zoom.desc":
+    "Deine Zoom-Meetings finden und verwalten. Du meldest dich an, wenn die Verbindung aufgebaut wird.",
+  "gallery.preset.zoom.example": "Welche Zoom-Meetings habe ich morgen?",
+  "gallery.preset.shopifyDev.desc":
+    "Durchsuche die Entwicklerdokumentation und API-Schemas von Shopify. Kein Konto nötig.",
+  "gallery.preset.shopifyDev.example":
+    "Wie frage ich Produktvarianten mit der Admin-GraphQL-API ab?",
   "gallery.preset.airtable.desc":
     "Die Datensätze in deinen Airtable-Bases lesen und aktualisieren.",
   "gallery.preset.airtable.example":

@@ -174,6 +174,8 @@ describe("paneForKey", () => {
       "ui.onboarding.completedAt",
       "ui.onboarding.progress",
       "ui.transcriptMode",
+      // Edited from the Feed screen's sources sheet, not a Settings pane.
+      "feed.sources",
     ]);
     const missing = Object.keys(SETTING_LABELS).filter(
       (k) => !elsewhere.has(k) && paneForKey(k) === null,

@@ -20,7 +20,10 @@ import { final202611 } from "./final-2026-11/ar.ts";
 import { helperCheck } from "./helper-check/ar.ts";
 import { helperOffline } from "./helper-offline/ar.ts";
 import { home } from "./home/ar.ts";
+import { keepAwake } from "./keep-awake/ar.ts";
 import { links } from "./links/ar.ts";
+import { linuxAccess } from "./linux-access/ar.ts";
+import { mailFollowups } from "./mail-followups/ar.ts";
 import { mailMeetings } from "./mail-meetings/ar.ts";
 import { meetingRecord } from "./meeting-record/ar.ts";
 import { memoryMap } from "./memory-map/ar.ts";
@@ -47,6 +50,7 @@ import { settingsLanguage } from "./settings-language/ar.ts";
 import { settingsSections } from "./settings-sections/ar.ts";
 import { shell } from "./shell/ar.ts";
 import { skillAuthor } from "./skill-author/ar.ts";
+import { spaces } from "./spaces/ar.ts";
 import { specialists } from "./specialists/ar.ts";
 import { teach } from "./teach/ar.ts";
 import { web } from "./web/ar.ts";
@@ -553,6 +557,7 @@ export const ar: Partial<Catalogue> = {
   "blocks.artifact.bytes": "{size} بايت",
   "blocks.artifact.kilobytes": "{size} ك.ب",
   "blocks.artifact.megabytes": "{size} م.ب",
+  "blocks.artifact.gigabytes": "{size} غ.ب",
 
   "blocks.task.status.queued": "في قائمة الانتظار",
   "blocks.task.status.running": "قيد التشغيل",
@@ -1084,6 +1089,8 @@ export const ar: Partial<Catalogue> = {
   "settings.key.browser.botAuth": "Web Bot Auth",
   "settings.key.computerUse.enabled": "السماح باستخدام الكمبيوتر",
   "settings.key.computerUse.apps": "الوصول إلى التطبيقات",
+  "settings.key.feed.sources": "مصادر الخلاصة",
+  "settings.key.computerUse.linuxRevoke": "نسيان حاسوب Linux",
   "settings.key.context.maxTokens": "حدّ السياق",
   "settings.key.search.web.provider": "مزوّد البحث على الويب",
   "settings.key.search.web.searxngUrl": "عنوان URL لـ SearXNG",
@@ -2422,6 +2429,46 @@ export const ar: Partial<Catalogue> = {
   "settings.skills.removeDescription":
     "تُحذف ملفاتها من Gateway هذا. تثبيتها مرة أخرى يمر عبر بطاقة الثقة.",
   "settings.skills.switchOn": "تشغيل {name}",
+  "settings.plugins.title": "الإضافات",
+  "settings.plugins.description":
+    "شيفرة تضيف سياقاً أو تفحص استدعاءات الأدوات أو تجري تقييمات. تعمل كل إضافة في عمليتها الخاصة. لا تمنح الإضافات أي أذونات أبداً.",
+  "settings.plugins.off": "الإضافات متوقفة على هذه البوابة، لذلك لا تعمل أي منها.",
+  "settings.plugins.loading": "جارٍ تحميل الإضافات…",
+  "settings.plugins.error": "تعذر تحميل الإضافات. {reason}",
+  "settings.plugins.empty": "لا توجد إضافات مثبتة.",
+  "settings.plugins.failed": "لم يُحفظ التغيير. {reason}",
+  "settings.plugins.waitingApproval": "بانتظار موافقتك على هذا الجهاز.",
+  "settings.plugins.switchOn": "تشغيل {name}",
+  "settings.plugins.version": " · الإصدار {version}",
+  "settings.plugins.adds": "تضيف: {list}",
+  "settings.plugins.install": "التثبيت من مجلد…",
+  "settings.plugins.pickFailed": "تعذّر على Psyche فتح أداة اختيار المجلد ({reason}).",
+  "settings.plugins.installFailed": "لم يبدأ التثبيت. {reason}",
+  "settings.plugins.proposed": "راجع التثبيت على بطاقة الموافقة.",
+  "settings.plugins.includes": "تتضمن: {list}",
+  "settings.plugins.count.skills":
+    "{n, plural, one {مهارة واحدة} two {مهارتان} few {# مهارات} many {# مهارة} other {# مهارة}}",
+  "settings.plugins.count.commands":
+    "{n, plural, one {أمر واحد} two {أمران} few {# أوامر} many {# أمرًا} other {# أمر}}",
+  "settings.plugins.count.mcpServers":
+    "{n, plural, one {خادم MCP واحد} two {خادما MCP} few {# خوادم MCP} many {# خادم MCP} other {# خادم MCP}}",
+  "settings.plugins.count.hooks":
+    "{n, plural, one {خطاف واحد} two {خطافان} few {# خطافات} many {# خطافًا} other {# خطاف}}",
+  "settings.plugins.from": "من {source}",
+  "settings.plugins.state.active": "تعمل",
+  "settings.plugins.state.disabled": "متوقفة",
+  "settings.plugins.state.off": "بانتظار تشغيل الإضافات",
+  "settings.plugins.state.hash_mismatch": "تغيّرت منذ التثبيت، لا تعمل",
+  "settings.plugins.state.invalid": "البيان غير صالح، لا تعمل",
+  "settings.plugins.state.failed": "توقفت بسبب خطأ",
+  "settings.plugins.capability.context": "السياق",
+  "settings.plugins.capability.before_tool_call": "فحص قبل استدعاءات الأدوات",
+  "settings.plugins.capability.after_tool_call": "فحص بعد استدعاءات الأدوات",
+  "settings.plugins.capability.agent_end": "خطوة عند نهاية كل تشغيل",
+  "settings.plugins.capability.evaluate": "التقييمات",
+  "settings.plugins.removeTitle": "إزالة {name}؟",
+  "settings.plugins.removeDescription":
+    "تُحذف ملفاته من هذه البوابة. إعادة تثبيتها تمر ببطاقة الثقة.",
   "settings.skills.asksFor": "تطلب:",
   "settings.skills.toolsLabel": "الأدوات:",
   "settings.skills.title": "المهارات",
@@ -3084,6 +3131,7 @@ export const ar: Partial<Catalogue> = {
   "screens.library.recording.empty": "لا تحتوي هذه اللقطة على خطوات.",
   "screens.library.recording.noFrame": "لا توجد صورة لهذه الخطوة.",
   "screens.library.recording.frameAlt": "المتصفح عند الخطوة {n}",
+  "screens.library.recording.reviewPermissions": "المراجعة في الأذونات",
   "screens.library.recording.loading": "جارٍ تحميل التسجيل",
   "screens.library.recording.loadFailed": "تعذّر على Psyche تحميل هذا التسجيل ({reason}).",
   "screens.library.recording.notFound": "لم يعد هذا التسجيل متاحًا.",
@@ -3722,6 +3770,8 @@ export const ar: Partial<Catalogue> = {
   ...helperOffline,
   // the security-records banner (docs/design/security-state-integrity-2026.md §7.3)
   ...securityState,
+  // Settings → Computer use on Linux: screen and input access
+  ...linuxAccess,
   // the Virtual screen watch pane (docs/design/linux-desktop-2026.md §7.5)
   ...computerWatch,
   // Gateway-authored notices (inbox notifications, security alerts)
@@ -3730,4 +3780,7 @@ export const ar: Partial<Catalogue> = {
   ...separateDesktop,
   // Windows variants of the sandbox PC, voice keys and platform terms
   ...windowsPlatform202611,
+  ...mailFollowups,
+  ...keepAwake,
+  ...spaces,
 };

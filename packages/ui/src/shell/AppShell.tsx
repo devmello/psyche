@@ -12,6 +12,7 @@ import {
 import { useClearChatHeader } from "../chat/ClearChatDialog.tsx";
 import { ChatThread } from "../chat/Thread.tsx";
 import { useThread, useThreads } from "../data/index.ts";
+import { SpaceSwitcher } from "../spaces/SpaceSwitcher.tsx";
 import { CommandPalette, type PaletteAction } from "./CommandPalette.tsx";
 import { CompactTopBar } from "./CompactTopBar.tsx";
 import {
@@ -181,6 +182,7 @@ export function AppShell({
       {...(thread.thread?.thread.modelRef ? { model: thread.thread.thread.modelRef } : {})}
       onOpenInbox={() => onNavigate("/inbox")}
       incognito={thread.thread?.thread.kind === "incognito"}
+      spaceSwitcher={<SpaceSwitcher threadId={threadId} onNavigate={onNavigate} />}
       {...clearChat}
     />
   );

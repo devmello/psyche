@@ -27,6 +27,7 @@ import { FeedbackMethods, GrowthMethods, LessonsMethods } from "./learning.ts";
 import { LibraryMethods } from "./library.ts";
 import { LogsMethods } from "./logs.ts";
 import { MachinesMethods } from "./machines.ts";
+import { MailFollowupMethods } from "./mail-followups.ts";
 import { McpMethods } from "./mcp.ts";
 import { MemoryMethods } from "./memory.ts";
 import { ModelsMethods } from "./models.ts";
@@ -47,7 +48,9 @@ import { SearchMethods } from "./search.ts";
 import { SecurityMethods } from "./security.ts";
 import { SettingsMethods } from "./settings.ts";
 import { SkillsMethods } from "./skills.ts";
+import { SpacesMethods } from "./spaces.ts";
 import { SpecialistsMethods } from "./specialists.ts";
+import { StorageMethods } from "./storage.ts";
 import { TasksMethods } from "./tasks.ts";
 import { TeachAppMethods } from "./teach.ts";
 import { TerminalMethods } from "./terminal.ts";
@@ -87,6 +90,7 @@ export * from "./learning.ts";
 export * from "./library.ts";
 export * from "./logs.ts";
 export * from "./machines.ts";
+export * from "./mail-followups.ts";
 export * from "./mcp.ts";
 export * from "./memory.ts";
 export * from "./models.ts";
@@ -107,7 +111,9 @@ export * from "./search.ts";
 export * from "./security.ts";
 export * from "./settings.ts";
 export * from "./skills.ts";
+export * from "./spaces.ts";
 export * from "./specialists.ts";
+export * from "./storage.ts";
 export * from "./tasks.ts";
 export * from "./teach.ts";
 export * from "./terminal.ts";
@@ -128,6 +134,7 @@ export const Methods = {
   ...ConnectMethods,
   ...ThreadsMethods,
   ...ChatMethods,
+  ...SpacesMethods,
   ...SpecialistsMethods,
   ...TasksMethods,
   ...ApprovalsMethods,
@@ -175,11 +182,13 @@ export const Methods = {
   ...PluginsMethods,
   ...BackupMethods,
   ...LogsMethods,
+  ...StorageMethods,
   ...ModelsMethods,
   ...KeysMethods,
   ...UsageMethods,
   ...InsightsMethods,
   ...DailyMethods,
+  ...MailFollowupMethods,
   ...NudgeMethods,
   ...ProposalsMethods,
   ...MeetingsMethods,

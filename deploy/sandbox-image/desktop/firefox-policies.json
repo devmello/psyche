@@ -11,6 +11,9 @@
     "NoDefaultBookmarks": true,
     "PasswordManagerEnabled": false,
     "OfferToSaveLogins": false,
+    "ExtensionSettings": {
+      "*": { "installation_mode": "blocked" }
+    },
     "Proxy": {
       "Mode": "manual",
       "HTTPProxy": "127.0.0.1:3128",

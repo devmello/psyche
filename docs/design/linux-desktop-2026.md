@@ -1,6 +1,6 @@
 # Linux desktop app (2026)
 
-Status: accepted 2026-11-05 (#1271). **Being built on a Windows machine (WSL2 plus QEMU test VMs); see §0 for where each PR stands.** The design itself changes no code. It reverses the "No Linux desktop support" scope line in [cross-platform-2026.md](cross-platform-2026.md), which is updated in the same PR, and replaces the Linux bullet in §5 of [updates-and-install-2026.md](updates-and-install-2026.md).
+Status: accepted 2026-11-05 (#1271). **Parked 2026-11-19: the Linux desktop app is not planned for now. The owner chose a helper-only plan instead ([linux-helper-only-2026.md](linux-helper-only-2026.md)). The PR states in §0 are as of 2026-11-05.** The design itself changes no code. It reverses the "No Linux desktop support" scope line in [cross-platform-2026.md](cross-platform-2026.md), which is updated in the same PR, and replaces the Linux bullet in §5 of [updates-and-install-2026.md](updates-and-install-2026.md).
 
 The owner decided on 2026-11-05 to ship a **full Linux desktop app**. This doc decides how: packaging, updates, a Linux helper, three computer-use modes, presence by password, and the other platform services. It ends with a numbered PR plan that builders can run in parallel, a test plan for a real Linux machine, and the decisions left to the owner.
 
@@ -338,6 +338,7 @@ The helper has no always-on job on Linux. There's no hold-to-talk key tap, prese
 - **Fixed caps get a Linux list** in `computer-settings.ts`:
   - **Browsers, read only:** firefox, chromium, google-chrome, brave, vivaldi, epiphany.
   - **Terminals and IDEs, click only:** gnome-terminal, ptyxis, konsole, kitty, alacritty, wezterm, foot, xterm, code, codium, jetbrains-*.
+    - A `Terminal=true` app opened with `apps.open` runs in a terminal picked from system-wide entries only. Its data and config dirs are cut down to the ones this account cannot write, so a user-installed Flatpak or Linuxbrew terminal is never used for it. When that is the only terminal installed, the app may not open, or may open in another terminal.
   - **Off and not overridable from chat:** password managers (keepassxc, bitwarden, 1password, seahorse, kwalletmanager5/6), banking and trading apps.
 - **Secure fields:** AT-SPI role `PASSWORD_TEXT` (`ATSPI_ROLE_PASSWORD_TEXT`) is refused at the helper's dispatch layer and redacted from snapshots and screenshots, like `AXSecureTextField`.
 - **Risky labels and chords** are the same list (`RISKY_WORDS` and the helper's copy), so they still ask on "Read and interact". One exception, in the separate desktop only: file-local words (delete, trash, remove, erase, clear, empty, discard) don't ask there, because the container can only touch its own files and the shares the owner chose. Words that reach the outside world (send, submit, purchase, buy, pay, transfer) still ask everywhere.
@@ -439,7 +440,7 @@ When `XDG_SESSION_TYPE=x11`: XTest for input (`XTestFakeKeyEvent`, `XTestFakeBut
 
 XShm capture of the root window, XTest input on `:n`, AT-SPI screen coordinates and actions. All of it stays inside the helper's own X server: nothing reaches the owner's display, and no portal dialog appears.
 
-**Follow-up for the agent-input PR** (review of #1452, finding 3): the window manager still raises and focuses every new top-level, so a page's `window.open` in the agent's Firefox can take focus while the agent types into Writer. Before each typed batch, check that the focused window's server-reported pid (X-Resource, as `open_app` uses) is in the scope of the app the agent is acting on, and refuse or refocus otherwise. Not built yet.
+**Follow-up for the agent-input PR** (review of #1452, finding 3): the window manager still raises and focuses every new top-level, so a page's `window.open` in the agent's Firefox can take focus while the agent types into Writer. Before each typed batch, check that the focused window's server-reported pid (X-Resource, as `open_app` uses) is in the scope of the app the agent is acting on, and refuse or refocus otherwise. Built in H1 (`helper/src/headless/focus.rs`): the check reads the X input focus (not `_NET_ACTIVE_WINDOW`) and the pid the X server recorded (X-Resource, not `_NET_WM_PID`), and runs before each typed batch and each chunk; a window outside the target app's scope refuses with `focus_moved`, one that cannot be read with `focus_unknown`, and an app on the deny list with `app_denied`.
 
 ### 7.4 Lifecycle and RAM
 
@@ -492,7 +493,7 @@ XShm capture of the root window, XTest input on `:n`, AT-SPI screen coordinates 
 
 ### 8.5 Lifecycle and cost
 
-- **Created** on first use: `podman run -d --rm=false --userns=keep-id --read-only --tmpfs /tmp --cap-drop=all --security-opt=no-new-privileges --network=none --label com.psyche.owner=1 --memory=<setting, default 2g> …`. That's the sandbox runner's flags plus the socket mount ([podman-run](https://docs.podman.io/en/latest/markdown/podman-run.1.html)). Backend detection reuses `packages/sandbox/src/detect.ts` (`podman`, then `docker`). Rootless Docker works the same; rootful Docker gets the same warning the sandbox already gives.
+- **Created** on first use: `podman run -d --rm=false --userns=keep-id --read-only --tmpfs /tmp --cap-drop=all --cap-add=SYS_CHROOT --security-opt=no-new-privileges --network=none --label com.psyche.owner=1 --memory=<setting, default 2g> …`. That's the sandbox runner's flags plus the socket mount ([podman-run](https://docs.podman.io/en/latest/markdown/podman-run.1.html)). Backend detection reuses `packages/sandbox/src/detect.ts` (`podman`, then `docker`). Rootless Docker works the same; rootful Docker gets the same warning the sandbox already gives.
 - **Stopped** when the Task ends and no watch view is open, after the same unsaved-changes check as §7.4. **Removed** only on "Reset separate desktop". **Zero resident cost**: there's no daemon and nothing running between tasks (Podman is daemonless).
 - **Watch view:** the §7.5 pane, with frames from the guest helper's `vscreen.frame`. No VNC or noVNC server is needed, so there's no extra listener and no password.
 

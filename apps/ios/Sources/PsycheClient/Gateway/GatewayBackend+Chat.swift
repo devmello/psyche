@@ -105,6 +105,7 @@ extension GatewayBackend {
             : (entry.at("lastMessage", "text")?.string ?? updated, .neutral)
         return ChatThreadSummary(
             id: id, title: title, status: status, statusKind: kind,
-            isMain: thread["kind"]?.string == "main", updated: updated)
+            isMain: thread["kind"]?.string == "main", updated: updated,
+            spaceID: thread["spaceId"]?.string)
     }
 }

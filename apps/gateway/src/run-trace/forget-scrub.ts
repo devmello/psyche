@@ -17,11 +17,22 @@ import {
  * back after the pass has passed its rows, so a final pass follows once those runs have ended
  * (or after a day). A phrase waiting for its final pass never holds up the phrases behind it, and
  * nothing polls: the worker wakes when a run ends (`wake()`) or when a wait expires.
+ *
+ * Known limits:
+ * - A run still active after the wait (a day) does not hold the pass: the final pass runs anyway
+ *   and the queue row is deleted. That run's later trace writes keep the forgotten text, and
+ *   nothing scrubs them when it ends.
+ * - Waking relies on the `run.updated` frame that the compose layer forwards to `wake()`. A
+ *   watched run that ends without one waits until another run ends, a phrase is queued, the
+ *   Gateway restarts, or the wait expires. Waking early is harmless.
  */
 
 type Outcome = "idle" | "more" | "wait";
 
-/** How long a final pass waits for the runs it watches before it runs anyway. */
+/**
+ * How long a final pass waits for the runs it watches before it runs anyway. A run that is still
+ * active after this can write the forgotten text back unscrubbed.
+ */
 export const FINAL_WAIT_MS = 24 * 60 * 60 * 1000;
 
 export interface TraceScrubWorkerOptions {

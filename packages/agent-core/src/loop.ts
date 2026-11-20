@@ -32,6 +32,7 @@ import {
   type PermissionMode,
   type ProvenanceOut,
   PsycheError,
+  pinId,
   type Question,
   type Receipt,
   type Requester,
@@ -80,6 +81,7 @@ import {
 import {
   type CompactionPolicy,
   type CompactionReply,
+  capItem,
   containsUntrusted,
   DEFAULT_COMPACTION_POLICY,
   estimateBreakdown,
@@ -269,11 +271,13 @@ export function carryPinned(
   );
   const kept: { text: string; untrusted: boolean }[] = [];
   const seen = new Set<string>();
-  for (const item of previous) {
+  for (const raw of previous) {
+    // A pin saved at 501 characters by an older compaction is cut to the cap now.
+    const item = capItem(raw);
     const key = pinKey(item);
     if (key === "" || seen.has(key) || retired.has(key)) continue;
     seen.add(key);
-    kept.push({ text: item, untrusted: bad.has(key) });
+    kept.push({ text: item, untrusted: bad.has(key) || bad.has(pinKey(raw)) });
   }
   let fresh = 0;
   for (const item of added) {
@@ -1004,6 +1008,7 @@ export class PsycheAgentLoop implements AgentLoop {
     // `run.thread` starts empty: it is saved only once the stored thread was read into it, so a
     // turn cancelled first (or one whose read failed) never overwrites the owner's history.
     let threadLoaded = false;
+    let stickyTaint = input.stickyTaint === true;
     try {
       if (input.signal?.aborted === true) throw new RunEnd("cancelled", "signal");
       emit({ type: "run.status", runId, status: "running" });
@@ -1031,6 +1036,12 @@ export class PsycheAgentLoop implements AgentLoop {
       if (containsUntrusted(run.thread.messages) || run.thread.summary?.untrusted === true) {
         this.#taint(run, { sourceKind: "transcript" });
         for (const s of run.thread.taint?.sources ?? []) this.#taint(run, { ...s });
+      }
+      // A chat opened about untrusted content (a mail follow-up draft) stays tainted for every
+      // later turn, whether or not the content is still in the transcript.
+      if (run.thread.taint?.sticky === true) {
+        stickyTaint = true;
+        for (const s of run.thread.taint.sources) this.#taint(run, { ...s });
       }
       if (input.taskId !== undefined && this.#o.tasks !== undefined) {
         const task = await this.#o.tasks.get(input.taskId);
@@ -1113,7 +1124,11 @@ export class PsycheAgentLoop implements AgentLoop {
       closeDanglingCalls(run.thread.messages, outcome === "cancelled" ? "cancelled" : "not run");
       for (const q of run.questions.values()) q.reject(new RunEnd("cancelled"));
       // The sources outlive the turn with the untrusted content that caused them.
-      if (run.taint) run.thread.taint = { sources: dedupeSources(run.taintSources) };
+      if (run.taint)
+        run.thread.taint = {
+          sources: dedupeSources(run.taintSources),
+          ...(stickyTaint ? { sticky: true } : {}),
+        };
       else delete run.thread.taint;
       run.thread.messages = keepRecentToolImages(run.thread.messages);
       // Recall is for this run: nothing of it is at rest once the run ends (the next run would
@@ -2209,31 +2224,48 @@ export class PsycheAgentLoop implements AgentLoop {
   }
 
   /**
-   * The owner removes one standing instruction from a thread's summary (`threads.summary.pins.remove`):
-   * out of the stored structured summary (and its untrusted list) and the text the model reads.
-   * Returns the instructions left; `conflict` while the thread has a run.
+   * The owner removes one standing instruction from a thread's summary (`threads.summary.pins.remove`),
+   * named by its pin id: out of the stored structured summary (and its untrusted list) and the text
+   * the model reads. The thread's run slot is held while it works, so a run that starts meanwhile is
+   * refused instead of saving the old summary back. `conflict` while the thread has a run;
+   * `not_found` when the thread has no structured summary to edit.
    */
-  async removePinnedInstruction(threadId: string, instruction: string): Promise<string[]> {
-    if (this.#threads.get(threadId)?.activeRunId !== undefined) {
+  async removePinnedInstruction(
+    threadId: string,
+    id: string,
+  ): Promise<{ pinnedInstructions: string[]; removed: string[] }> {
+    const slot = this.#thread(threadId);
+    if (slot.activeRunId !== undefined) {
       throw new PsycheError("conflict", "the thread is running; try again when the turn ends");
     }
-    const thread = await this.#state.load(threadId);
-    const summary = thread?.summary;
-    if (thread === undefined || summary?.structured === undefined) return [];
-    const key = pinKey(instruction);
-    const structured = {
-      ...summary.structured,
-      pinnedInstructions: summary.structured.pinnedInstructions.filter((p) => pinKey(p) !== key),
-    };
-    const untrustedPins = (summary.untrustedPins ?? []).filter((p) => pinKey(p) !== key);
-    thread.summary = {
-      ...summary,
-      structured,
-      text: renderCompactionSummary(structured, untrustedPins),
-      ...(summary.untrustedPins === undefined ? {} : { untrustedPins }),
-    };
-    await this.#state.save(threadId, thread);
-    return structured.pinnedInstructions;
+    slot.activeRunId = `pin-remove:${id}`;
+    try {
+      const thread = await this.#state.load(threadId);
+      const summary = thread?.summary;
+      if (thread === undefined || summary?.structured === undefined) {
+        throw new PsycheError("not_found", "this chat has no standing instructions to edit");
+      }
+      const pins = summary.structured.pinnedInstructions;
+      const removed = pins.filter((p) => pinId(p) === id);
+      const structured = {
+        ...summary.structured,
+        pinnedInstructions: pins.filter((p) => pinId(p) !== id),
+      };
+      // A summary from before pins were tracked: the same default the compaction uses.
+      const untrustedPins = (summary.untrustedPins ?? (summary.untrusted ? pins : [])).filter(
+        (p) => pinId(p) !== id,
+      );
+      thread.summary = {
+        ...summary,
+        structured,
+        text: renderCompactionSummary(structured, untrustedPins),
+        ...(summary.untrustedPins === undefined ? {} : { untrustedPins }),
+      };
+      if (removed.length > 0) await this.#state.save(threadId, thread);
+      return { pinnedInstructions: structured.pinnedInstructions, removed };
+    } finally {
+      slot.activeRunId = undefined;
+    }
   }
 
   /**
@@ -2810,7 +2842,11 @@ export class PsycheAgentLoop implements AgentLoop {
       );
     let desc: ToolCallDescription = {};
     try {
-      desc = reg.describeCall?.(call.input) ?? {};
+      desc =
+        reg.describeCall?.(call.input, {
+          runId: run.runId,
+          ...(run.taskId === undefined ? {} : { taskId: run.taskId }),
+        }) ?? {};
     } catch (err) {
       return this.#blocked(run, call, `invalid params: ${errorMessage(err)}`, "failed");
     }

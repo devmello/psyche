@@ -41,6 +41,9 @@ import {
   recentHref,
   ScheduledScreen,
   SearchScreen,
+  SpacePage,
+  SpaceSwitcher,
+  SpacesScreen,
   sheetTab,
   ThreadContextDialog,
   ThreadContextMeter,
@@ -145,6 +148,7 @@ function KitChat({ threadId, ctx }: { threadId: string; ctx: ChatSlotContext }):
           onOpenSheet={() => ctx.navigate(agentSheetHref(defaultTab))}
           onOpenTask={() => ctx.navigate("/overview#now")}
           incognito={incognito}
+          spaceSwitcher={<SpaceSwitcher threadId={threadId} onNavigate={ctx.navigate} />}
           onOpenInbox={() => ctx.navigate("/inbox")}
           {...(ctx.thread
             ? { mode: ctx.thread.permissionMode, onModeChange: ctx.setPermissionMode }
@@ -308,6 +312,24 @@ export function screenRoute(route: string, navigate: (to: string) => void): Reac
           onOpenGoal={(goal) => navigate(`/goals/${goal.id}`)}
         />,
       );
+    case "spaces": {
+      // `/spaces` is the list (`?new=1` opens New Space, `#archived` scrolls to the archived
+      // ones); `/spaces/<id>` is a Space's page. Off the sidebar, like `/goals/<id>`.
+      const hash = route.split("#")[1];
+      return page(
+        "Spaces",
+        parts[1] === undefined ? (
+          <SpacesScreen
+            key={new URLSearchParams(query).get("new") === "1" ? "new" : "list"}
+            onNavigate={navigate}
+            startAdding={new URLSearchParams(query).get("new") === "1"}
+            {...(hash ? { anchor: hash } : {})}
+          />
+        ) : (
+          <SpacePage key={parts[1]} spaceId={decodeURIComponent(parts[1])} onNavigate={navigate} />
+        ),
+      );
+    }
     case "scheduled":
       return page(
         "Scheduled",

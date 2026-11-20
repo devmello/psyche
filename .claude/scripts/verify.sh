@@ -76,12 +76,17 @@ fi
 # A few full checks at a time on this Mac, never more. Each slot is a lock dir in the shared git
 # dir, so every worktree sees them; a slot whose owner process is gone is taken over. The owner's
 # rule (2026-11-18) was one at a time on the old Mac; on the M4 Pro (2026-11-19, "do what you will
-# with that") machines with 10+ cores get 3 slots. PSYCHE_VERIFY_SLOTS overrides.
+# with that") machines with 10+ cores get 3 slots. 2026-11-19 evening, the owner had more compute
+# to spare: with 18 runs queued the load sat near 6 on 12 cores, so 12+ cores with 24+ GB get 5.
+# PSYCHE_VERIFY_SLOTS overrides.
 if [ "$quick" = 0 ]; then
   slots="${PSYCHE_VERIFY_SLOTS:-}"
   if [ -z "$slots" ]; then
     cores="$(sysctl -n hw.ncpu 2>/dev/null || nproc 2>/dev/null || echo 1)"
-    if [ "$cores" -ge 10 ] 2>/dev/null; then slots=3; else slots=1; fi
+    mem_gb=$(( $(sysctl -n hw.memsize 2>/dev/null || echo 0) / 1073741824 ))
+    if [ "$cores" -ge 12 ] 2>/dev/null && [ "$mem_gb" -ge 24 ] 2>/dev/null; then slots=8
+    elif [ "$cores" -ge 10 ] 2>/dev/null; then slots=3
+    else slots=1; fi
   fi
   lockdir="$(cd "$(git rev-parse --git-common-dir)" && pwd)/agent-verify"
   mkdir -p "$lockdir"
@@ -136,11 +141,11 @@ fi
 
 run secret-grep bash scripts/ci/secret-grep.sh
 
-if echo "$changed" | grep -q '^packages/protocol/'; then
+if grep -q '^packages/protocol/' <<<"$changed"; then
   run protocol-check pnpm run protocol:check
 fi
 
-if echo "$changed" | grep -qE '\.(ts|tsx)$|\.xcstrings$'; then
+if grep -qE '\.(ts|tsx)$|\.xcstrings$' <<<"$changed"; then
   run i18n-check pnpm run i18n:check
 fi
 
@@ -337,7 +342,7 @@ done
 fi
 # Message files that name Mac or Touch ID need Linux/Windows variants; `vitest related` misses
 # the platform tests (#1338 broke main), so always run them when the messages change.
-if echo "$changed" | grep -q '^packages/ui/src/i18n/messages/'; then
+if grep -q '^packages/ui/src/i18n/messages/' <<<"$changed"; then
   run vitest:ui-platform bash -c "cd packages/ui && pnpm exec vitest run --maxWorkers=1 test/platform-linux.test.tsx test/platform-windows.test.tsx"
 fi
 # Tests outside apps/ and packages/ (tests/acceptance, tests/integration): run what was touched.
@@ -345,19 +350,25 @@ other="$(echo "$changed" | grep -E '^tests/.*\.(test|spec)\.(ts|tsx|mts)$' || tr
 # shellcheck disable=SC2086
 [ -n "$other" ] && run vitest:tests pnpm exec vitest run --maxWorkers=1 $other
 
+# One Swift build at a time on this Mac. Match the build processes by exact name: `pgrep -f` also
+# matched any shell whose command line mentions them (other sessions' wrappers) and waited forever.
+wait_for_swift_builds() {
+  while pgrep -x swift-build >/dev/null || pgrep -x xcodebuild >/dev/null; do sleep 15; done
+}
+
 if [ "$swift" = 1 ]; then
   for pkg in apps/mac-helper packages/protocol-swift; do
-    echo "$changed" | grep -q "^$pkg/" || continue
-    while pgrep -f 'swift-build|xcodebuild' >/dev/null; do sleep 15; done  # one Swift build at a time
+    grep -q "^$pkg/" <<<"$changed" || continue
+    wait_for_swift_builds
     run "swift-test:$pkg" bash -c "cd '$pkg' && swift build && swift test"
   done
   # The iOS package's test targets (host macOS, no simulator, no UI tests). It also depends on
   # packages/protocol-swift, so a protocol change runs it too.
-  if echo "$changed" | grep -qE '^(apps/ios|packages/protocol-swift)/'; then
-    while pgrep -f 'swift-build|xcodebuild' >/dev/null; do sleep 15; done  # one Swift build at a time
+  if grep -qE '^(apps/ios|packages/protocol-swift)/' <<<"$changed"; then
+    wait_for_swift_builds
     run "swift-test:apps/ios" bash -c "cd 'apps/ios' && swift test"
   fi
-elif echo "$changed" | grep -qE '\.swift$'; then
+elif grep -qE '\.swift$' <<<"$changed"; then
   echo "verify: Swift files changed; run again with --swift to build and test them."
 fi
 fi  # quick
