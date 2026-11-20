@@ -20,6 +20,7 @@ import { galleryRest } from "./gallery-rest/ko.ts";
 import { helperCheck } from "./helper-check/ko.ts";
 import { helperOffline } from "./helper-offline/ko.ts";
 import { homeRest } from "./home-rest/ko.ts";
+import { keepAwake } from "./keep-awake/ko.ts";
 import { links } from "./links/ko.ts";
 import { linuxAccess } from "./linux-access/ko.ts";
 import { mailFollowups } from "./mail-followups/ko.ts";
@@ -50,6 +51,7 @@ import { securityState } from "./security-state/ko.ts";
 import { separateDesktop } from "./separate-desktop/ko.ts";
 import { settingsRest } from "./settings-rest/ko.ts";
 import { shellRest } from "./shell-rest/ko.ts";
+import { spaces } from "./spaces/ko.ts";
 import { specialistsRest } from "./specialists-rest/ko.ts";
 import { webRest } from "./web-rest/ko.ts";
 import { widgetsRest } from "./widgets-rest/ko.ts";
@@ -2356,6 +2358,42 @@ export const ko: Partial<Catalogue> = {
   "settings.skills.removeDescription":
     "이 Gateway에서 파일이 삭제됩니다. 다시 설치하려면 신뢰 카드를 거쳐야 합니다.",
   "settings.skills.switchOn": "{name} 켬",
+  "settings.plugins.title": "플러그인",
+  "settings.plugins.description":
+    "문맥을 더하거나, 도구 호출을 확인하거나, 평가를 실행하는 코드입니다. 각 플러그인은 자체 프로세스에서 실행됩니다. 플러그인은 권한을 주지 않습니다.",
+  "settings.plugins.off": "이 Gateway에서 플러그인이 꺼져 있어 실행 중인 플러그인이 없습니다.",
+  "settings.plugins.loading": "플러그인을 불러오는 중…",
+  "settings.plugins.error": "플러그인을 불러올 수 없습니다. {reason}",
+  "settings.plugins.empty": "설치된 플러그인이 없습니다.",
+  "settings.plugins.failed": "변경 사항을 저장하지 못했습니다. {reason}",
+  "settings.plugins.waitingApproval": "이 기기에서 승인을 기다리는 중입니다.",
+  "settings.plugins.switchOn": "{name} 켜기",
+  "settings.plugins.version": " · v{version}",
+  "settings.plugins.adds": "추가 기능: {list}",
+  "settings.plugins.install": "폴더에서 설치…",
+  "settings.plugins.pickFailed": "Psyche가 폴더 선택기를 열 수 없습니다({reason}).",
+  "settings.plugins.installFailed": "설치를 시작하지 못했습니다. {reason}",
+  "settings.plugins.proposed": "승인 카드에서 설치 내용을 확인하세요.",
+  "settings.plugins.includes": "포함: {list}",
+  "settings.plugins.count.skills": "{n, plural, other {스킬 #개}}",
+  "settings.plugins.count.commands": "{n, plural, other {명령 #개}}",
+  "settings.plugins.count.mcpServers": "{n, plural, other {MCP 서버 #개}}",
+  "settings.plugins.count.hooks": "{n, plural, other {훅 #개}}",
+  "settings.plugins.from": "출처: {source}",
+  "settings.plugins.state.active": "실행 중",
+  "settings.plugins.state.disabled": "꺼짐",
+  "settings.plugins.state.off": "플러그인 켜기 대기 중",
+  "settings.plugins.state.hash_mismatch": "설치 후 변경되어 실행되지 않음",
+  "settings.plugins.state.invalid": "매니페스트가 잘못되어 실행되지 않음",
+  "settings.plugins.state.failed": "오류로 중지됨",
+  "settings.plugins.capability.context": "문맥",
+  "settings.plugins.capability.before_tool_call": "도구 호출 전 확인",
+  "settings.plugins.capability.after_tool_call": "도구 호출 후 확인",
+  "settings.plugins.capability.agent_end": "실행이 끝날 때마다 하는 작업",
+  "settings.plugins.capability.evaluate": "평가",
+  "settings.plugins.removeTitle": "{name}을(를) 제거할까요?",
+  "settings.plugins.removeDescription":
+    "이 Gateway에서 파일이 삭제됩니다. 다시 설치하려면 신뢰 카드를 거쳐야 합니다.",
   "settings.skills.asksFor": "요청 권한:",
   "settings.skills.toolsLabel": "도구:",
   "settings.skills.title": "스킬",
@@ -3682,4 +3720,6 @@ export const ko: Partial<Catalogue> = {
   // Windows variants of the sandbox PC, voice keys and platform terms
   ...windowsPlatform202611,
   ...mailFollowups,
+  ...keepAwake,
+  ...spaces,
 };

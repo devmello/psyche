@@ -20,6 +20,7 @@ import { final202611 } from "./final-2026-11/zh.ts";
 import { helperCheck } from "./helper-check/zh.ts";
 import { helperOffline } from "./helper-offline/zh.ts";
 import { home } from "./home/zh.ts";
+import { keepAwake } from "./keep-awake/zh.ts";
 import { links } from "./links/zh.ts";
 import { linuxAccess } from "./linux-access/zh.ts";
 import { mailFollowups } from "./mail-followups/zh.ts";
@@ -49,6 +50,7 @@ import { settingsLanguage } from "./settings-language/zh.ts";
 import { settingsSections } from "./settings-sections/zh.ts";
 import { shell } from "./shell/zh.ts";
 import { skillAuthor } from "./skill-author/zh.ts";
+import { spaces } from "./spaces/zh.ts";
 import { specialists } from "./specialists/zh.ts";
 import { teach } from "./teach/zh.ts";
 import { web } from "./web/zh.ts";
@@ -2343,6 +2345,41 @@ export const zh: Partial<Catalogue> = {
   "settings.skills.removeDescription":
     "其文件会从此 Gateway 中删除。再次安装时需重新经过信任卡片。",
   "settings.skills.switchOn": "{name} 开",
+  "settings.plugins.title": "插件",
+  "settings.plugins.description":
+    "可补充上下文、检查工具调用或运行评估的代码。每个插件在自己的进程中运行。插件从不授予权限。",
+  "settings.plugins.off": "此 Gateway 已关闭插件，因此没有任何插件在运行。",
+  "settings.plugins.loading": "正在加载插件…",
+  "settings.plugins.error": "无法加载插件。{reason}",
+  "settings.plugins.empty": "没有安装任何插件。",
+  "settings.plugins.failed": "更改未保存。{reason}",
+  "settings.plugins.waitingApproval": "正在等待你在此设备上批准。",
+  "settings.plugins.switchOn": "{name} 开启",
+  "settings.plugins.version": " · v{version}",
+  "settings.plugins.adds": "包括：{list}",
+  "settings.plugins.install": "从文件夹安装…",
+  "settings.plugins.pickFailed": "Psyche 无法打开文件夹选择器（{reason}）。",
+  "settings.plugins.installFailed": "安装未能开始。{reason}",
+  "settings.plugins.proposed": "请在批准卡片上查看此次安装。",
+  "settings.plugins.includes": "包含：{list}",
+  "settings.plugins.count.skills": "{n, plural, other {# 个技能}}",
+  "settings.plugins.count.commands": "{n, plural, other {# 个命令}}",
+  "settings.plugins.count.mcpServers": "{n, plural, other {# 个 MCP 服务器}}",
+  "settings.plugins.count.hooks": "{n, plural, other {# 个钩子}}",
+  "settings.plugins.from": "来源：{source}",
+  "settings.plugins.state.active": "运行中",
+  "settings.plugins.state.disabled": "已关闭",
+  "settings.plugins.state.off": "等待开启插件",
+  "settings.plugins.state.hash_mismatch": "安装后已更改，未运行",
+  "settings.plugins.state.invalid": "清单无效，未运行",
+  "settings.plugins.state.failed": "因错误而停止",
+  "settings.plugins.capability.context": "上下文",
+  "settings.plugins.capability.before_tool_call": "工具调用前的检查",
+  "settings.plugins.capability.after_tool_call": "工具调用后的检查",
+  "settings.plugins.capability.agent_end": "每次运行结束时的一步",
+  "settings.plugins.capability.evaluate": "评估",
+  "settings.plugins.removeTitle": "移除 {name}？",
+  "settings.plugins.removeDescription": "它的文件将从此 Gateway 删除。重新安装需要经过信任卡片。",
   "settings.skills.asksFor": "请求：",
   "settings.skills.toolsLabel": "工具：",
   "settings.skills.title": "技能",
@@ -3631,4 +3668,6 @@ export const zh: Partial<Catalogue> = {
   // Windows variants of the sandbox PC, voice keys and platform terms
   ...windowsPlatform202611,
   ...mailFollowups,
+  ...keepAwake,
+  ...spaces,
 };

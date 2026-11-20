@@ -20,6 +20,7 @@ import { galleryRest } from "./gallery-rest/ja.ts";
 import { helperCheck } from "./helper-check/ja.ts";
 import { helperOffline } from "./helper-offline/ja.ts";
 import { homeRest } from "./home-rest/ja.ts";
+import { keepAwake } from "./keep-awake/ja.ts";
 import { links } from "./links/ja.ts";
 import { linuxAccess } from "./linux-access/ja.ts";
 import { mailFollowups } from "./mail-followups/ja.ts";
@@ -50,6 +51,7 @@ import { securityState } from "./security-state/ja.ts";
 import { separateDesktop } from "./separate-desktop/ja.ts";
 import { settingsRest } from "./settings-rest/ja.ts";
 import { shellRest } from "./shell-rest/ja.ts";
+import { spaces } from "./spaces/ja.ts";
 import { specialistsRest } from "./specialists-rest/ja.ts";
 import { webRest } from "./web-rest/ja.ts";
 import { widgetsRest } from "./widgets-rest/ja.ts";
@@ -2371,6 +2373,43 @@ export const ja: Partial<Catalogue> = {
   "settings.skills.removeDescription":
     "ファイルはこのGatewayから削除されます。再インストールには信頼カードの確認が必要です。",
   "settings.skills.switchOn": "{name}をオン",
+  "settings.plugins.title": "プラグイン",
+  "settings.plugins.description":
+    "文脈を追加したり、ツール呼び出しを確認したり、評価を実行したりするコードです。各プラグインは独自のプロセスで動作します。プラグインが権限を与えることはありません。",
+  "settings.plugins.off":
+    "この Gateway ではプラグインがオフになっているため、動作しているものはありません。",
+  "settings.plugins.loading": "プラグインを読み込んでいます…",
+  "settings.plugins.error": "プラグインを読み込めませんでした。{reason}",
+  "settings.plugins.empty": "インストールされたプラグインはありません。",
+  "settings.plugins.failed": "変更を保存できませんでした。{reason}",
+  "settings.plugins.waitingApproval": "この端末での承認を待っています。",
+  "settings.plugins.switchOn": "{name} をオン",
+  "settings.plugins.version": " · v{version}",
+  "settings.plugins.adds": "追加内容: {list}",
+  "settings.plugins.install": "フォルダからインストール…",
+  "settings.plugins.pickFailed": "Psycheがフォルダ選択を開けませんでした（{reason}）。",
+  "settings.plugins.installFailed": "インストールを開始できませんでした。{reason}",
+  "settings.plugins.proposed": "承認カードでインストール内容を確認してください。",
+  "settings.plugins.includes": "含まれるもの: {list}",
+  "settings.plugins.count.skills": "{n, plural, other {スキル#件}}",
+  "settings.plugins.count.commands": "{n, plural, other {コマンド#件}}",
+  "settings.plugins.count.mcpServers": "{n, plural, other {MCPサーバー#件}}",
+  "settings.plugins.count.hooks": "{n, plural, other {フック#件}}",
+  "settings.plugins.from": "取得元: {source}",
+  "settings.plugins.state.active": "動作中",
+  "settings.plugins.state.disabled": "オフ",
+  "settings.plugins.state.off": "プラグインのオン待ち",
+  "settings.plugins.state.hash_mismatch": "インストール後に変更され、動作していません",
+  "settings.plugins.state.invalid": "マニフェストが無効で、動作していません",
+  "settings.plugins.state.failed": "エラーで停止しました",
+  "settings.plugins.capability.context": "文脈",
+  "settings.plugins.capability.before_tool_call": "ツール呼び出し前のチェック",
+  "settings.plugins.capability.after_tool_call": "ツール呼び出し後のチェック",
+  "settings.plugins.capability.agent_end": "実行終了ごとの処理",
+  "settings.plugins.capability.evaluate": "評価",
+  "settings.plugins.removeTitle": "{name} を削除しますか？",
+  "settings.plugins.removeDescription":
+    "ファイルはこの Gateway から削除されます。再インストールには信頼カードの確認が必要です。",
   "settings.skills.asksFor": "求めるもの：",
   "settings.skills.toolsLabel": "ツール：",
   "settings.skills.title": "スキル",
@@ -3705,4 +3744,6 @@ export const ja: Partial<Catalogue> = {
   // Windows variants of the sandbox PC, voice keys and platform terms
   ...windowsPlatform202611,
   ...mailFollowups,
+  ...keepAwake,
+  ...spaces,
 };

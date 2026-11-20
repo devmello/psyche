@@ -664,7 +664,8 @@ describe("forget, retention, status, export (§4.9)", () => {
     ).toBe("policy_denied");
     expect(g.interactions(pat.id)).toHaveLength(1);
     expect(g.search("ortiz")).toEqual([]);
-    expect(db.sqlite.pragma("secure_delete", { simple: true })).toBe(0);
+    // openDb's FAST survives the forget (restored by keyword, not read back as ON or OFF).
+    expect(db.sqlite.pragma("secure_delete", { simple: true })).toBe(2);
   });
 
   it("deletes old interactions and archives entities with nothing left", () => {

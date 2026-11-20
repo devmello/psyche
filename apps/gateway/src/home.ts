@@ -68,3 +68,24 @@ export function writeHandshakeSecret(
 export function removeHandshakeSecret(path: string): void {
   rmSync(path, { force: true });
 }
+
+/**
+ * Where this Gateway really listens, for the CLI on this computer: `run/listen.json`, written next
+ * to the handshake secret (0600, temp file then rename) once the HTTP listener is bound, removed on
+ * a clean stop. The CLI sends the secret only to an origin listed here, exactly, so another
+ * account that binds an address the Gateway does not hold (`[::1]:7979`, a free port) gets nothing.
+ * A file left by a crash is harmless: the secret is new on every launch.
+ */
+export function writeListenFile(home: string, origins: string[]): string {
+  const path = join(home, "run", "listen.json");
+  const tmp = `${path}.${process.pid}.tmp`;
+  try {
+    writeFileSync(tmp, `${JSON.stringify({ origins })}\n`, { mode: 0o600 });
+    chmodSync(tmp, 0o600);
+    renameOverSync(tmp, path);
+  } catch (err) {
+    rmSync(tmp, { force: true });
+    throw err;
+  }
+  return path;
+}

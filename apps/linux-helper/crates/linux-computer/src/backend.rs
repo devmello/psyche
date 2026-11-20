@@ -179,6 +179,26 @@ pub trait Backend: TreeSource<Element: Send + 'static> + Send + Sync + 'static {
     fn keyboard_free(&self) -> CapResult<bool> {
         Ok(true)
     }
+    /// A surface with rules of its own about who may receive keys (the helper's virtual screen:
+    /// the focused window must belong to the app's launch scope, and not to an app on the deny
+    /// list) checks them here, before the pid comparison. It can only refuse: the comparison of
+    /// the focused process with the app's own still runs after it passes, so a process the app
+    /// started (a child in its scope) never counts as the app.
+    fn check_input_target(&self, _app: &AppInfo) -> CapResult<()> {
+        Ok(())
+    }
+    /// Pids of windows the surface keeps out of every capture beyond the fixed caps and tier Off:
+    /// the helper's machine ceiling (`apps.deny`, or not in `apps.allow`). Blacked out of other
+    /// apps' screenshots like a password manager is.
+    fn extra_excluded_pids(&self) -> Vec<u32> {
+        Vec::new()
+    }
+    /// Whether a point click at `(x, y)` would reach `app` and nothing else: the surface checks
+    /// every window on the chain under the point, not only the top-level (a window another
+    /// client embedded in the app's own would otherwise get the click).
+    fn point_clients_ok(&self, _x: f64, _y: f64, _app: &AppInfo) -> CapResult<()> {
+        Ok(())
+    }
     /// Brings the app (or one of its windows) forward. `Ok(true)` when focus moved, `Ok(false)`
     /// when it was only requested (GNOME on Wayland), an error for `focus_denied`.
     fn activate(&self, app: &AppInfo, window: Option<usize>, stop: &StopSignal) -> CapResult<bool>;

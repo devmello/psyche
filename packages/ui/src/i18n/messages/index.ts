@@ -22,6 +22,7 @@ import { glass } from "./glass.ts";
 import { helperCheck } from "./helper-check.ts";
 import { helperOffline } from "./helper-offline.ts";
 import { home } from "./home.ts";
+import { keepAwake } from "./keep-awake.ts";
 import { links } from "./links.ts";
 import { linuxAccess } from "./linux-access.ts";
 import { mailFollowups } from "./mail-followups.ts";
@@ -53,6 +54,7 @@ import { settingsLanguage } from "./settings-language.ts";
 import { settingsSections } from "./settings-sections.ts";
 import { shell } from "./shell.ts";
 import { skillAuthor } from "./skill-author.ts";
+import { spaces } from "./spaces.ts";
 import { specialists } from "./specialists.ts";
 import { teach } from "./teach.ts";
 import { time } from "./time.ts";
@@ -134,6 +136,8 @@ export const en = {
   ...computerWatch,
   ...notices,
   ...separateDesktop,
+  ...keepAwake,
+  ...spaces,
 } as const;
 
 export type MessageId = keyof typeof en;

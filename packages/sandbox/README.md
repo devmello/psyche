@@ -13,12 +13,25 @@ import { createSandboxRunner } from "@psyche/sandbox";
 
 const runner = createSandboxRunner(); // detects the backend
 const sbx = await runner.ensureSandbox({ kind: "thread", id: threadId }); // network "none"
-const r = await runner.exec({ sandboxId: sbx.id, argv: ["python3", "-c", "print(1)"], cwd: "/workspace", timeoutMs: 60_000 });
+const r = await runner.exec({
+  sandboxId: sbx.id,
+  argv: ["python3", "-c", "print(1)"],
+  cwd: "/workspace",
+  timeoutMs: 60_000,
+});
 // r: { exitCode, stdout, stderr, durationMs, truncated, filesChanged, timedOut, outcome, provenance }
 
 // Every write carries the calling turn's provenance (design-07); absent means untrusted.
-await runner.files.writeText(sbx.id, "notes.md", "hello\n", { provenance: ctx.taint ? "untrusted" : "trusted", sources: ctx.taintSources });
-await runner.files.edit(sbx.id, "notes.md", { oldText: "hello", newText: "hi" }, { provenance: "trusted" });
+await runner.files.writeText(sbx.id, "notes.md", "hello\n", {
+  provenance: ctx.taint ? "untrusted" : "trusted",
+  sources: ctx.taintSources,
+});
+await runner.files.edit(
+  sbx.id,
+  "notes.md",
+  { oldText: "hello", newText: "hi" },
+  { provenance: "trusted" },
+);
 const { text, provenance, sources } = await runner.files.readText(sbx.id, "notes.md");
 const { bytes } = await runner.files.exportFile(sbx.id, "out/report.pdf");
 
@@ -26,42 +39,42 @@ const pty = await runner.openPty(sbx.id, { cols: 120, rows: 40 });
 for await (const chunk of pty.output) term.write(chunk); // pty.write(), pty.resize(), pty.close()
 ```
 
-| member | what it does |
-|---|---|
-| `backends()` | Available backends, in preference order. Empty means every call fails. |
-| `ensureSandbox(scope, {network})` | Idempotent per scope. It adopts a matching container left by an earlier process and restarts a stopped one. A different `network` for a live scope rejects with `conflict`. |
-| `exec(request)` | Runs a bounded command (contract semantics, below). |
-| `stop(id)` / `destroy(id)` | Stop the container (it restarts on next use), or remove it. The volume stays in both cases. |
-| `deleteWorkspace(scope)` | Removes the container **and** the workspace volume. |
-| `files` | `list`, `stat`, `readText` / `writeText` (256 KB), `edit` (exact replace), `importFile` / `exportFile` (10 MB, byte-exact). Writes take `{ provenance, sources }`; reads, stats and listings return the file's provenance (see "File provenance"). |
+| member                              | what it does                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                            |
+| ----------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `backends()`                        | Available backends, in preference order. Empty means every call fails.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                  |
+| `ensureSandbox(scope, {network})`   | Idempotent per scope. It adopts a matching container left by an earlier process and restarts a stopped one. A different `network` for a live scope rejects with `conflict`.                                                                                                                                                                                                                                                                                                                                                                                                                                                                             |
+| `exec(request)`                     | Runs a bounded command (contract semantics, below).                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                     |
+| `stop(id)` / `destroy(id)`          | Stop the container (it restarts on next use), or remove it. The volume stays in both cases.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                             |
+| `deleteWorkspace(scope)`            | Removes the container **and** the workspace volume.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                     |
+| `files`                             | `list`, `stat`, `readText` / `writeText` (256 KB), `edit` (exact replace), `importFile` / `exportFile` (10 MB, byte-exact). Writes take `{ provenance, sources }`; reads, stats and listings return the file's provenance (see "File provenance").                                                                                                                                                                                                                                                                                                                                                                                                      |
 | `openStdio(id, { argv, cwd, env })` | A long-lived process with raw stdin / stdout / stderr pipes (no PTY, no CRLF translation), for stdio MCP servers (#143). Same user, network and no-fallback rules as `exec`; env goes to an in-container relay on stdin (a length-prefixed header), never into argv or the CLI's environment. Keeps the container busy until it exits, at most `maxStdioProcesses` (8) per scope. `kill()` signals the process group (TERM, then KILL); `destroy`, `deleteWorkspace` and `dispose` TERM every group first. `provenance` is `untrusted` and the scope's workspace counts as untrusted from then on. `receipt()` after exit names env keys, never values. |
-| `openPty(id, opts)` | Interactive terminal; `output` is an async iterator of raw bytes, and `transcript()` keeps the last 128 KB. |
-| `dispose({remove})` | Stops (or removes) every container this runner started. |
-| `receiptOf(request, result)` | The receipt shape for Activity and the audit log. It never includes env. |
+| `openPty(id, opts)`                 | Interactive terminal; `output` is an async iterator of raw bytes, and `transcript()` keeps the last 128 KB.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                             |
+| `dispose({remove})`                 | Stops (or removes) every container this runner started.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                 |
+| `receiptOf(request, result)`        | The receipt shape for Activity and the audit log. It never includes env.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                |
 
 ### Options (`ContainerSandboxRunnerOptions`)
 
-| option | default | |
-|---|---|---|
-| `backend` | detected | `apple-container`, `docker` or `podman`; also read from `PSYCHE_SANDBOX_BACKEND`. An override restricts detection to that one backend and never falls back to another. |
-| `cliPaths` | from `PATH` plus the usual install dirs | Per-backend CLI path. |
-| `image` | see below | Image reference; also read from `PSYCHE_SANDBOX_IMAGE`. |
-| `variant` | `base` | `core`, `base` or `full`. |
-| `limits` | 512 MB, 1 CPU, 128 pids, 64 MB `/tmp` | Per-container caps. |
-| `maxTimeoutMs` | 30 min | Largest accepted `timeoutMs`. |
-| `maxConcurrentExecs` | 4 | Per scope; extra calls queue, and an aborted waiter rejects with `cancelled`. |
-| `maxStdioProcesses` | 8 | Per scope; more `openStdio` rejects with `rate_limited`. |
-| `maxPtys` | 4 | Per scope; more rejects with `rate_limited`. |
-| `maxRunningSandboxes` | 3 on Apple, 8 elsewhere | Across scopes; the least recently used idle container is stopped first. |
-| `idleTimeoutMs` | 10 min | An idle container is stopped (warm reuse until then). 0 disables. |
-| `egressTunnel` | none | The egress proxy for `network: "proxy"` (K4); see "Egress proxy". |
-| `egressProxy` | none | An external proxy on a backend network (Docker / Podman only); superseded by `egressTunnel`. |
-| `namePrefix` | `psyche` | Container `<prefix>-sbx-<hash>`, volume `<prefix>-ws-<hash>`; the hash is over the scope. |
-| `reapBackground` | `secrets` | `always` kills what any exec leaves running when it returns; the default does so only after an exec that was given a vault secret. |
-| `appleVolumeSize` | `8G` | Apple volumes are fixed-size ext4 images. |
-| `onDevServer` | unset | Dev-server forwarding (I12): `started` / `stopped` events for servers an exec leaves listening; see "Dev servers". Unset means no probe and no forward. |
-| `devServers` | re-probe at 0.5, 1, 2, 4, 8 s; poll 5 s; 32 connections | Timing and the per-server connection cap for dev-server forwarding. |
-| `provenanceStore` | in memory | Where each scope's file provenance index lives. `new FileProvenanceStore(dir)` keeps it across restarts (one JSON file per scope under `dir`, for example `$PSYCHE_HOME/sandbox/provenance`). |
+| option                | default                                                 |                                                                                                                                                                                               |
+| --------------------- | ------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `backend`             | detected                                                | `apple-container`, `docker` or `podman`; also read from `PSYCHE_SANDBOX_BACKEND`. An override restricts detection to that one backend and never falls back to another.                        |
+| `cliPaths`            | from `PATH` plus the usual install dirs                 | Per-backend CLI path.                                                                                                                                                                         |
+| `image`               | see below                                               | Image reference; also read from `PSYCHE_SANDBOX_IMAGE`.                                                                                                                                       |
+| `variant`             | `base`                                                  | `core`, `base` or `full`.                                                                                                                                                                     |
+| `limits`              | 512 MB, 1 CPU, 128 pids, 64 MB `/tmp`                   | Per-container caps.                                                                                                                                                                           |
+| `maxTimeoutMs`        | 30 min                                                  | Largest accepted `timeoutMs`.                                                                                                                                                                 |
+| `maxConcurrentExecs`  | 4                                                       | Per scope; extra calls queue, and an aborted waiter rejects with `cancelled`.                                                                                                                 |
+| `maxStdioProcesses`   | 8                                                       | Per scope; more `openStdio` rejects with `rate_limited`.                                                                                                                                      |
+| `maxPtys`             | 4                                                       | Per scope; more rejects with `rate_limited`.                                                                                                                                                  |
+| `maxRunningSandboxes` | 3 on Apple, 8 elsewhere                                 | Across scopes; the least recently used idle container is stopped first.                                                                                                                       |
+| `idleTimeoutMs`       | 10 min                                                  | An idle container is stopped (warm reuse until then). 0 disables.                                                                                                                             |
+| `egressTunnel`        | none                                                    | The egress proxy for `network: "proxy"` (K4); see "Egress proxy".                                                                                                                             |
+| `egressProxy`         | none                                                    | An external proxy on a backend network (Docker / Podman only); superseded by `egressTunnel`.                                                                                                  |
+| `namePrefix`          | `psyche`                                                | Container `<prefix>-sbx-<hash>`, volume `<prefix>-ws-<hash>`; the hash is over the scope.                                                                                                     |
+| `reapBackground`      | `secrets`                                               | `always` kills what any exec leaves running when it returns; the default does so only after an exec that was given a vault secret.                                                            |
+| `appleVolumeSize`     | `8G`                                                    | Apple volumes are fixed-size ext4 images.                                                                                                                                                     |
+| `onDevServer`         | unset                                                   | Dev-server forwarding (I12): `started` / `stopped` events for servers an exec leaves listening; see "Dev servers". Unset means no probe and no forward.                                       |
+| `devServers`          | re-probe at 0.5, 1, 2, 4, 8 s; poll 5 s; 32 connections | Timing and the per-server connection cap for dev-server forwarding.                                                                                                                           |
+| `provenanceStore`     | in memory                                               | Where each scope's file provenance index lives. `new FileProvenanceStore(dir)` keeps it across restarts (one JSON file per scope under `dir`, for example `$PSYCHE_HOME/sandbox/provenance`). |
 
 ## Backends
 
@@ -75,19 +88,19 @@ On Linux the order is Docker, then Podman.
 
 The contract flags per backend (`src/backends.ts`; unit-tested in `test/backends.test.ts`):
 
-| contract | Docker / Podman | Apple `container` |
-|---|---|---|
-| UID/GID 1000 | `--user 1000:1000` | `--uid 1000 --gid 1000` |
-| read-only rootfs | `--read-only` | `--read-only` |
-| no capabilities | `--cap-drop ALL` | `--cap-drop ALL` |
-| no new privileges | `--security-opt no-new-privileges` | no flag exists; the image has no setuid/setgid binaries (`harden.sh`) |
-| 512 MB, no swap | `--memory 512m --memory-swap 512m` | `--memory 512M` (VM, no swap) |
-| 1 CPU | `--cpus 1` | `--cpus 1` |
-| 128 pids | `--pids-limit 128` | `--ulimit nproc=128:128` (only UID 1000 runs in the VM) |
-| 64 MB tmp | `--tmpfs /tmp:rw,nosuid,nodev,size=64m` | `--tmpfs /tmp:size=64m` |
-| network none | `--network none` | `--network none` |
-| workspace | named volume (Docker copies the image's ownership into it) | `volume create -s 8G`, then a one-shot root `chown` (the volume root comes up root:root) |
-| fast stop | `--init` | `--init` |
+| contract          | Docker / Podman                                            | Apple `container`                                                                        |
+| ----------------- | ---------------------------------------------------------- | ---------------------------------------------------------------------------------------- |
+| UID/GID 1000      | `--user 1000:1000`                                         | `--uid 1000 --gid 1000`                                                                  |
+| read-only rootfs  | `--read-only`                                              | `--read-only`                                                                            |
+| no capabilities   | `--cap-drop ALL`                                           | `--cap-drop ALL`                                                                         |
+| no new privileges | `--security-opt no-new-privileges`                         | no flag exists; the image has no setuid/setgid binaries (`harden.sh`)                    |
+| 512 MB, no swap   | `--memory 512m --memory-swap 512m`                         | `--memory 512M` (VM, no swap)                                                            |
+| 1 CPU             | `--cpus 1`                                                 | `--cpus 1`                                                                               |
+| 128 pids          | `--pids-limit 128`                                         | `--ulimit nproc=128:128` (only UID 1000 runs in the VM)                                  |
+| 64 MB tmp         | `--tmpfs /tmp:rw,nosuid,nodev,size=64m`                    | `--tmpfs /tmp:size=64m`                                                                  |
+| network none      | `--network none`                                           | `--network none`                                                                         |
+| workspace         | named volume (Docker copies the image's ownership into it) | `volume create -s 8G`, then a one-shot root `chown` (the volume root comes up root:root) |
+| fast stop         | `--init`                                                   | `--init`                                                                                 |
 
 The runner only ever runs the fixed CLI with argument arrays (`shell: false`). There are no host bind mounts.
 
@@ -149,7 +162,7 @@ Security §5.2: a sandbox that opts into network gets a host-side, domain-allowl
 const egress = createSandboxEgress({ broker, context: (scope) => contextForScope(scope), logger });
 composeSandbox(services, { runner: { egressTunnel: egress.egressTunnel } });
 containerLauncher({ sandbox: runner, egressAllowlist: egress.egressAllowlist }); // MCP servers
-egress.egressAllowlist({ kind: "task", id: taskId }, task.egressHosts);       // a task's declared hosts
+egress.egressAllowlist({ kind: "task", id: taskId }, task.egressHosts); // a task's declared hosts
 ```
 
 The older `egressProxy: { network, url, noProxy }` option still attaches the container to an external proxy's internal network on Docker and Podman. `egressTunnel` takes precedence.

@@ -22,6 +22,20 @@ CI fails when the generated files are stale (`pnpm protocol:check`).
 
 ## Log
 
+### v1 additive — 2026-11-19 (machine registry, H3)
+
+- New method `node.unpair` (scope `node`, `{}` to `{ device }`): a connection paired as a machine removes itself; any other node gets `forbidden`. `MACHINE_TOKENS_ENABLED` is now true. Design: docs/design/linux-helper-only-2026.md §6.6, §9.
+### v1 additive — 2026-11-19 (what a plugin adds)
+
+- `PluginSummary` gains an optional `adds` (`PluginAdds`: counts of skills, commands, MCP servers and hooks). The Gateway counts them from the plugin's own files, never from its manifest; plugins installed earlier are counted from their installed folder. Settings → Plugins shows them.
+### v1 additive — 2026-11-20 (Spaces, wave S0)
+
+- New methods `spaces.*` (24, no handlers yet): `list`, `get`, `create`, `update`, `archive`, `restore`, `delete`, `folders.add|remove|setMode`, `settings.set`, `links.add|remove`, `threads.move`, `automations.move`, `trackers.add|remove|reorder|refresh`, `open`, `context.preview`, `proposals.list|accept|dismiss`. Folders, settings and delete are `operator.admin`. New schemas in `schemas/spaces.ts` (`Space`, `SpaceDetail`, `SpaceSummary`, `SpaceFolder`, `SpaceLink`, `SpaceTracker`, `SpaceProposal`, ...).
+- New optional `spaceId` on `Thread`, `Automation` and `Widget`; optional `spaceId` on `threads.create`, `threads.newChat`, `threads.list`, `automations.create` and `automations.update`.
+- `WidgetBindingSource` gains `entity`, `work_due`, `calendar`, `reminders`, `mail`, `files`. `WIDGET_BINDINGS` has an empty entry for each: no field is bindable until S4. The generated Swift enum gains the six cases; no Swift file switches on it.
+- New events `space.updated`, `space.tracker.refreshed`, `space.proposal.created`.
+- `resolveAppRoute` opens `/spaces` and `/spaces/<id>` (`APP_SPACES_ROUTE`); they join `APP_TOP_LEVEL_ROUTES` with the screen in S5. Design: docs/design/spaces-2026.md.
+
 ### v1 additive — 2026-11-19 (whose call a description is for)
 
 - `ToolRegistration.describeCall` takes an optional second argument `call?: ToolCallScope` (`{runId, taskId?}`, new type). The agent loop's approval gate passes the run and Task making the call. A description that depends on it (the separate desktop's file-local words, which relax only for the Task that owns the desktop) must be at least as strict without it. Existing implementations ignore it.

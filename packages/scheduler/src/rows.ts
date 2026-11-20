@@ -31,6 +31,8 @@ export interface AutomationRow {
   specialist?: string | null;
   /** 202611041600_scheduler_recorded_skill: the {skill} of a recording skill's schedule. */
   recorded_skill?: string | null;
+  /** 202611201000_gateway_spaces: the Space the automation runs in. */
+  space_id?: string | null;
 }
 
 export interface RunRow {
@@ -52,6 +54,9 @@ export interface RunRow {
   /** Run trace: the agent run that did the work, and its usage (JSON). */
   run_id?: string | null;
   usage?: string | null;
+  /** Transient-error retries made so far, and when the waiting run's next attempt is due. */
+  attempt?: number | null;
+  retry_at?: string | null;
 }
 
 export interface WatchRow {
@@ -92,6 +97,7 @@ export function automationFromRow(r: AutomationRow, w?: WatchRow): Automation {
     delivery: JSON.parse(r.delivery) as Automation["delivery"],
     prompt: r.prompt,
     scratch: r.scratch,
+    spaceId: r.space_id ?? null,
     enabled: r.enabled === 1,
     nextRunAt: r.next_run_at,
     lastRunAt: r.last_run_at,
@@ -148,5 +154,7 @@ export function runFromRow(r: RunRow): AutomationRun {
   if (r.events != null) run.events = JSON.parse(r.events) as WorkflowEvent[];
   if (r.run_id != null) run.runId = r.run_id;
   if (r.usage != null) run.usage = JSON.parse(r.usage) as NonNullable<AutomationRun["usage"]>;
+  if (r.attempt != null && r.attempt > 0) run.attempt = r.attempt;
+  if (r.retry_at != null) run.retryAt = r.retry_at;
   return run;
 }

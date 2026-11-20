@@ -16,6 +16,7 @@ import { galleryRest } from "./gallery-rest/fr.ts";
 import { helperCheck } from "./helper-check/fr.ts";
 import { helperOffline } from "./helper-offline/fr.ts";
 import { homeRest } from "./home-rest/fr.ts";
+import { keepAwake } from "./keep-awake/fr.ts";
 import { links } from "./links/fr.ts";
 import { linuxAccess } from "./linux-access/fr.ts";
 import { mailFollowups } from "./mail-followups/fr.ts";
@@ -42,6 +43,7 @@ import { securityState } from "./security-state/fr.ts";
 import { separateDesktop } from "./separate-desktop/fr.ts";
 import { settingsRest } from "./settings-rest/fr.ts";
 import { shellRest } from "./shell-rest/fr.ts";
+import { spaces } from "./spaces/fr.ts";
 import { specialistsRest } from "./specialists-rest/fr.ts";
 import { webRest } from "./web-rest/fr.ts";
 import { widgetsRest } from "./widgets-rest/fr.ts";
@@ -2397,6 +2399,42 @@ export const fr: Partial<Catalogue> = {
   "settings.skills.removeDescription":
     "Ses fichiers sont supprimés de cette Gateway. La réinstaller passe par la carte de confiance.",
   "settings.skills.switchOn": "{name} activée",
+  "settings.plugins.title": "Plugins",
+  "settings.plugins.description":
+    "Du code qui ajoute du contexte, vérifie les appels d'outils ou lance des évaluations. Chaque plugin tourne dans son propre processus. Les plugins n'accordent jamais de permissions.",
+  "settings.plugins.off": "Les plugins sont désactivés sur cette Gateway, donc aucun ne tourne.",
+  "settings.plugins.loading": "Chargement des plugins…",
+  "settings.plugins.error": "Les plugins n'ont pas pu être chargés. {reason}",
+  "settings.plugins.empty": "Aucun plugin installé.",
+  "settings.plugins.failed": "La modification n'a pas été enregistrée. {reason}",
+  "settings.plugins.waitingApproval": "En attente de ton approbation sur cet appareil.",
+  "settings.plugins.switchOn": "{name} activé",
+  "settings.plugins.version": " · v{version}",
+  "settings.plugins.adds": "Ajoute : {list}",
+  "settings.plugins.install": "Installer depuis un dossier…",
+  "settings.plugins.pickFailed": "Psyche n'a pas pu ouvrir le sélecteur de dossier ({reason}).",
+  "settings.plugins.installFailed": "L'installation n'a pas démarré. {reason}",
+  "settings.plugins.proposed": "Vérifiez l'installation sur la carte d'approbation.",
+  "settings.plugins.includes": "Comprend : {list}",
+  "settings.plugins.count.skills": "{n, plural, one {# skill} other {# skills}}",
+  "settings.plugins.count.commands": "{n, plural, one {# commande} other {# commandes}}",
+  "settings.plugins.count.mcpServers": "{n, plural, one {# serveur MCP} other {# serveurs MCP}}",
+  "settings.plugins.count.hooks": "{n, plural, one {# hook} other {# hooks}}",
+  "settings.plugins.from": "Depuis {source}",
+  "settings.plugins.state.active": "En cours d'exécution",
+  "settings.plugins.state.disabled": "Désactivé",
+  "settings.plugins.state.off": "En attente de l'activation des plugins",
+  "settings.plugins.state.hash_mismatch": "Modifié depuis l'installation, ne tourne pas",
+  "settings.plugins.state.invalid": "Manifeste invalide, ne tourne pas",
+  "settings.plugins.state.failed": "Arrêté après une erreur",
+  "settings.plugins.capability.context": "du contexte",
+  "settings.plugins.capability.before_tool_call": "une vérification avant les appels d'outils",
+  "settings.plugins.capability.after_tool_call": "une vérification après les appels d'outils",
+  "settings.plugins.capability.agent_end": "une étape à la fin de chaque exécution",
+  "settings.plugins.capability.evaluate": "des évaluations",
+  "settings.plugins.removeTitle": "Supprimer {name} ?",
+  "settings.plugins.removeDescription":
+    "Ses fichiers sont supprimés de cette Gateway. Le réinstaller passe par la carte de confiance.",
   "settings.skills.asksFor": "Demande :",
   "settings.skills.toolsLabel": "Outils :",
   "settings.skills.title": "Compétences",
@@ -3750,4 +3788,6 @@ export const fr: Partial<Catalogue> = {
   // Windows variants of the sandbox PC, voice keys and platform terms
   ...windowsPlatform202611,
   ...mailFollowups,
+  ...keepAwake,
+  ...spaces,
 };

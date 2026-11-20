@@ -58,6 +58,18 @@ export const galleryRest: Partial<Catalogue> = {
   "gallery.preset.todoist.desc":
     "अपने Todoist टास्क और प्रोजेक्ट देखें और प्रबंधित करें। कनेक्ट होते समय आप साइन इन करते हैं।",
   "gallery.preset.todoist.example": "Todoist में आज क्या देय है?",
+  "gallery.preset.dropbox.desc":
+    "अपने Dropbox की फ़ाइलें ब्राउज़ करें, खोजें और पढ़ें। कनेक्ट होने पर आप साइन इन करते हैं।",
+  "gallery.preset.dropbox.example": "पिछले महीने Dropbox में सेव किया हुआ अनुबंध का PDF ढूँढो।",
+  "gallery.preset.figma.desc": "अपने Figma डिज़ाइन और फ़ाइलें पढ़ें। कनेक्ट होने पर आप साइन इन करते हैं।",
+  "gallery.preset.figma.example": "मेरी टीम की डिज़ाइन फ़ाइल के हाल के बदलावों का सार बताओ।",
+  "gallery.preset.asana.desc":
+    "Asana के कार्य और प्रोजेक्ट देखें और अपडेट करें। कनेक्ट होने पर आप साइन इन करते हैं।",
+  "gallery.preset.asana.example": "इस हफ़्ते कौन-से Asana कार्य देय हैं?",
+  "gallery.preset.zoom.desc": "अपनी Zoom मीटिंग खोजें और प्रबंधित करें। कनेक्ट होने पर आप साइन इन करते हैं।",
+  "gallery.preset.zoom.example": "कल मेरी कौन-सी Zoom मीटिंग हैं?",
+  "gallery.preset.shopifyDev.desc": "Shopify के डेवलपर दस्तावेज़ और API स्कीमा खोजें। खाते की ज़रूरत नहीं।",
+  "gallery.preset.shopifyDev.example": "Admin GraphQL API से प्रोडक्ट वेरिएंट कैसे क्वेरी करूँ?",
   "gallery.preset.airtable.desc": "अपने Airtable बेस के रिकॉर्ड पढ़ें और अपडेट करें।",
   "gallery.preset.airtable.example": "मेरे Projects बेस के वे रिकॉर्ड सूचीबद्ध करो जो ब्लॉक्ड चिह्नित हैं।",
   "gallery.preset.airtable.field.key.label": "पर्सनल एक्सेस टोकन",

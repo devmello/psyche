@@ -1,9 +1,11 @@
+import { Type } from "@sinclair/typebox";
 import {
   NodeEventParams,
   NodeInvokeAccepted,
   NodeInvokeParams,
   NodeResultParams,
 } from "../node.ts";
+import { Device } from "../schemas/identity.ts";
 import { defineMethod, OkResult } from "./define.ts";
 
 /**
@@ -31,5 +33,12 @@ export const NodeMethods = {
     scope: "node",
     description:
       "Node → Gateway: the final outcome of an invocation, with a receipt for side effects.",
+  }),
+  "node.unpair": defineMethod({
+    params: Type.Object({}),
+    result: Type.Object({ device: Device }),
+    scope: "node",
+    description:
+      "Machine → Gateway: the machine removes itself (`psyche-helper unpair`). Runs the same cascade as devices.revoke on the caller's own device (the stored machine decision, the node, the audit entry machine.revoked, the owner's notice) and the connection closes right after the reply. Takes no device id, so it can never name another device. Only a connection paired as a machine may call it; any other node gets `forbidden`.",
   }),
 } as const;

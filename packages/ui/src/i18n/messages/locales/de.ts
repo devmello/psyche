@@ -16,6 +16,7 @@ import { galleryRest } from "./gallery-rest/de.ts";
 import { helperCheck } from "./helper-check/de.ts";
 import { helperOffline } from "./helper-offline/de.ts";
 import { homeRest } from "./home-rest/de.ts";
+import { keepAwake } from "./keep-awake/de.ts";
 import { links } from "./links/de.ts";
 import { linuxAccess } from "./linux-access/de.ts";
 import { mailFollowups } from "./mail-followups/de.ts";
@@ -42,6 +43,7 @@ import { securityState } from "./security-state/de.ts";
 import { separateDesktop } from "./separate-desktop/de.ts";
 import { settingsRest } from "./settings-rest/de.ts";
 import { shellRest } from "./shell-rest/de.ts";
+import { spaces } from "./spaces/de.ts";
 import { specialistsRest } from "./specialists-rest/de.ts";
 import { webRest } from "./web-rest/de.ts";
 import { widgetsRest } from "./widgets-rest/de.ts";
@@ -2450,6 +2452,42 @@ export const de: Partial<Catalogue> = {
   "settings.skills.removeDescription":
     "Seine Dateien werden von diesem Gateway gelöscht. Eine erneute Installation geht wieder über die Vertrauenskarte.",
   "settings.skills.switchOn": "{name} ein",
+  "settings.plugins.title": "Plugins",
+  "settings.plugins.description":
+    "Code, der Kontext ergänzt, Werkzeugaufrufe prüft oder Auswertungen ausführt. Jedes Plugin läuft in seinem eigenen Prozess. Plugins erteilen nie Berechtigungen.",
+  "settings.plugins.off": "Plugins sind auf diesem Gateway ausgeschaltet, deshalb läuft keines.",
+  "settings.plugins.loading": "Plugins werden geladen…",
+  "settings.plugins.error": "Plugins konnten nicht geladen werden. {reason}",
+  "settings.plugins.empty": "Keine Plugins installiert.",
+  "settings.plugins.failed": "Die Änderung wurde nicht gespeichert. {reason}",
+  "settings.plugins.waitingApproval": "Wartet auf deine Freigabe auf diesem Gerät.",
+  "settings.plugins.switchOn": "{name} ein",
+  "settings.plugins.version": " · v{version}",
+  "settings.plugins.adds": "Ergänzt: {list}",
+  "settings.plugins.install": "Aus Ordner installieren …",
+  "settings.plugins.pickFailed": "Psyche konnte die Ordnerauswahl nicht öffnen ({reason}).",
+  "settings.plugins.installFailed": "Die Installation wurde nicht gestartet. {reason}",
+  "settings.plugins.proposed": "Prüfe die Installation auf der Genehmigungskarte.",
+  "settings.plugins.includes": "Enthält: {list}",
+  "settings.plugins.count.skills": "{n, plural, one {# Skill} other {# Skills}}",
+  "settings.plugins.count.commands": "{n, plural, one {# Befehl} other {# Befehle}}",
+  "settings.plugins.count.mcpServers": "{n, plural, one {# MCP-Server} other {# MCP-Server}}",
+  "settings.plugins.count.hooks": "{n, plural, one {# Hook} other {# Hooks}}",
+  "settings.plugins.from": "Aus {source}",
+  "settings.plugins.state.active": "Läuft",
+  "settings.plugins.state.disabled": "Ausgeschaltet",
+  "settings.plugins.state.off": "Wartet, bis Plugins eingeschaltet werden",
+  "settings.plugins.state.hash_mismatch": "Seit der Installation geändert, läuft nicht",
+  "settings.plugins.state.invalid": "Ungültiges Manifest, läuft nicht",
+  "settings.plugins.state.failed": "Mit einem Fehler beendet",
+  "settings.plugins.capability.context": "Kontext",
+  "settings.plugins.capability.before_tool_call": "eine Prüfung vor Werkzeugaufrufen",
+  "settings.plugins.capability.after_tool_call": "eine Prüfung nach Werkzeugaufrufen",
+  "settings.plugins.capability.agent_end": "einen Schritt am Ende jedes Laufs",
+  "settings.plugins.capability.evaluate": "Auswertungen",
+  "settings.plugins.removeTitle": "{name} entfernen?",
+  "settings.plugins.removeDescription":
+    "Die Dateien werden von diesem Gateway gelöscht. Eine erneute Installation läuft über die Vertrauenskarte.",
   "settings.skills.asksFor": "Fordert an:",
   "settings.skills.toolsLabel": "Werkzeuge:",
   "settings.skills.title": "Skills",
@@ -3825,4 +3863,6 @@ export const de: Partial<Catalogue> = {
   // Windows variants of the sandbox PC, voice keys and platform terms
   ...windowsPlatform202611,
   ...mailFollowups,
+  ...keepAwake,
+  ...spaces,
 };

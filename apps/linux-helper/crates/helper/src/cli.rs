@@ -14,6 +14,8 @@ use crate::paths::{state_dir, Env};
 
 pub const USAGE: &str =
     "usage: psyche-helper [--idle-timeout <seconds>] [--manifest] [--build-info] [--print-identity]
+       psyche-helper pair - | wss://<gateway> [--name N] [--replace]
+       psyche-helper remote | status [--json] | unpair
 
   (no flags)        connect to the Gateway's node socket and serve (exits after 5 minutes idle)
   --idle-timeout N  exit after N seconds with no work; 0 never exits (default 300)
@@ -22,18 +24,93 @@ pub const USAGE: &str =
   --print-identity  print {deviceId, publicKey, deviceFamily, platform} as JSON and exit: what the
                     Gateway will see (read-only; deviceId and publicKey are null until the helper
                     has run once)
+
+A computer Psyche uses (it dials your Gateway; nothing listens here):
+  pair -            read a psyche-machine: link (paste it, nothing is echoed, or pipe it in) and
+                    pair with its one-time token; a link given as an argument works but shows
+                    in `ps` and your shell history, and the helper warns
+  pair wss://HOST   no link: shows the Gateway's fingerprint and a code; approve on the Mac
+  remote            serve (what the service runs); exits 78 when it must not be restarted
+  status [--json]   Gateway, fingerprint, connection, limits, account (read-only)
+  unpair            remove this computer from the Gateway if reachable, then wipe its key
 ";
+
+/// What `pair` was given.
+#[derive(Debug, PartialEq, Eq)]
+pub enum PairTarget {
+    /// A `psyche-machine:` link or a `wss://` address, as typed.
+    Text(String),
+    /// `-`: read the link from standard input.
+    Stdin,
+}
 
 #[derive(Debug, PartialEq, Eq)]
 pub enum Command {
-    Serve { idle: Option<Duration> },
+    Serve {
+        idle: Option<Duration>,
+    },
+    Pair {
+        target: PairTarget,
+        replace: bool,
+        name: Option<String>,
+    },
+    Remote,
+    Status {
+        json: bool,
+    },
+    Unpair,
     PrintIdentity,
     BuildInfo,
     Manifest,
     Help,
 }
 
+fn parse_remote_command(verb: &str, rest: &[String]) -> Result<Command, String> {
+    match verb {
+        "remote" | "unpair" if !rest.is_empty() => {
+            Err(format!("{verb} takes no arguments\n{USAGE}"))
+        }
+        "remote" => Ok(Command::Remote),
+        "unpair" => Ok(Command::Unpair),
+        "status" => match rest {
+            [] => Ok(Command::Status { json: false }),
+            [flag] if flag == "--json" => Ok(Command::Status { json: true }),
+            _ => Err(format!("status takes only --json\n{USAGE}")),
+        },
+        "pair" => {
+            let mut target = None;
+            let mut replace = false;
+            let mut name = None;
+            let mut iter = rest.iter();
+            while let Some(arg) = iter.next() {
+                match arg.as_str() {
+                    "--replace" => replace = true,
+                    "--name" => {
+                        name = Some(iter.next().ok_or("--name needs a name")?.clone());
+                    }
+                    "-" if target.is_none() => target = Some(PairTarget::Stdin),
+                    other if !other.starts_with('-') && target.is_none() => {
+                        target = Some(PairTarget::Text(other.to_string()));
+                    }
+                    other => return Err(format!("unexpected argument {other}\n{USAGE}")),
+                }
+            }
+            Ok(Command::Pair {
+                target: target.ok_or("pair needs a psyche-machine: link or a wss:// address")?,
+                replace,
+                name,
+            })
+        }
+        other => Err(format!("unknown command {other}\n{USAGE}")),
+    }
+}
+
 pub fn parse_args(args: &[String], env: &dyn Env) -> Result<Command, String> {
+    if let Some(first) = args.first() {
+        if matches!(first.as_str(), "pair" | "remote" | "status" | "unpair") {
+            return parse_remote_command(first, &args[1..]);
+        }
+    }
     let mut idle = match env.get("PSYCHE_HELPER_IDLE_SECS") {
         Some(text) => parse_idle_seconds(&text)
             .ok_or_else(|| "PSYCHE_HELPER_IDLE_SECS must be whole seconds".to_string())?,
@@ -81,7 +158,11 @@ pub fn run_info(command: &Command, env: &dyn Env) -> Result<String, String> {
             });
             serde_json::to_string(&value).map_err(|e| e.to_string())
         }
-        Command::Serve { .. } => Err("not a one-shot command".into()),
+        Command::Serve { .. }
+        | Command::Pair { .. }
+        | Command::Remote
+        | Command::Status { .. }
+        | Command::Unpair => Err("not a one-shot command".into()),
     }
 }
 
@@ -130,6 +211,61 @@ mod tests {
         assert!(parse_args(&args(&["--nope"]), &e).is_err());
         assert!(parse_args(&args(&["--idle-timeout"]), &e).is_err());
         assert!(parse_args(&args(&["--idle-timeout", "x"]), &e).is_err());
+    }
+
+    #[test]
+    fn parses_the_remote_commands() {
+        let e = env(&[]);
+        assert_eq!(parse_args(&args(&["remote"]), &e), Ok(Command::Remote));
+        assert_eq!(parse_args(&args(&["unpair"]), &e), Ok(Command::Unpair));
+        assert_eq!(
+            parse_args(&args(&["status"]), &e),
+            Ok(Command::Status { json: false })
+        );
+        assert_eq!(
+            parse_args(&args(&["status", "--json"]), &e),
+            Ok(Command::Status { json: true })
+        );
+        assert_eq!(
+            parse_args(&args(&["pair", "psyche-machine:v1:abc"]), &e),
+            Ok(Command::Pair {
+                target: PairTarget::Text("psyche-machine:v1:abc".into()),
+                replace: false,
+                name: None
+            })
+        );
+        assert_eq!(
+            parse_args(
+                &args(&["pair", "wss://a.ts.net", "--replace", "--name", "lab"]),
+                &e
+            ),
+            Ok(Command::Pair {
+                target: PairTarget::Text("wss://a.ts.net".into()),
+                replace: true,
+                name: Some("lab".into())
+            })
+        );
+        assert_eq!(
+            parse_args(&args(&["pair", "-"]), &e),
+            Ok(Command::Pair {
+                target: PairTarget::Stdin,
+                replace: false,
+                name: None
+            })
+        );
+        for bad in [
+            &["pair"][..],
+            &["pair", "a", "b"],
+            &["pair", "--name"],
+            &["pair", "--nope", "x"],
+            &["remote", "x"],
+            &["unpair", "x"],
+            &["status", "x"],
+        ] {
+            assert!(parse_args(&args(bad), &e).is_err(), "{bad:?}");
+        }
+        // The old flags still work, and a remote verb is only a verb in first position.
+        assert!(parse_args(&args(&["--idle-timeout", "5", "remote"]), &e).is_err());
     }
 
     #[test]

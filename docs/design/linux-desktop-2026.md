@@ -440,7 +440,7 @@ When `XDG_SESSION_TYPE=x11`: XTest for input (`XTestFakeKeyEvent`, `XTestFakeBut
 
 XShm capture of the root window, XTest input on `:n`, AT-SPI screen coordinates and actions. All of it stays inside the helper's own X server: nothing reaches the owner's display, and no portal dialog appears.
 
-**Follow-up for the agent-input PR** (review of #1452, finding 3): the window manager still raises and focuses every new top-level, so a page's `window.open` in the agent's Firefox can take focus while the agent types into Writer. Before each typed batch, check that the focused window's server-reported pid (X-Resource, as `open_app` uses) is in the scope of the app the agent is acting on, and refuse or refocus otherwise. Not built yet.
+**Follow-up for the agent-input PR** (review of #1452, finding 3): the window manager still raises and focuses every new top-level, so a page's `window.open` in the agent's Firefox can take focus while the agent types into Writer. Before each typed batch, check that the focused window's server-reported pid (X-Resource, as `open_app` uses) is in the scope of the app the agent is acting on, and refuse or refocus otherwise. Built in H1 (`helper/src/headless/focus.rs`): the check reads the X input focus (not `_NET_ACTIVE_WINDOW`) and the pid the X server recorded (X-Resource, not `_NET_WM_PID`), and runs before each typed batch and each chunk; a window outside the target app's scope refuses with `focus_moved`, one that cannot be read with `focus_unknown`, and an app on the deny list with `app_denied`.
 
 ### 7.4 Lifecycle and RAM
 
@@ -493,7 +493,7 @@ XShm capture of the root window, XTest input on `:n`, AT-SPI screen coordinates 
 
 ### 8.5 Lifecycle and cost
 
-- **Created** on first use: `podman run -d --rm=false --userns=keep-id --read-only --tmpfs /tmp --cap-drop=all --security-opt=no-new-privileges --network=none --label com.psyche.owner=1 --memory=<setting, default 2g> …`. That's the sandbox runner's flags plus the socket mount ([podman-run](https://docs.podman.io/en/latest/markdown/podman-run.1.html)). Backend detection reuses `packages/sandbox/src/detect.ts` (`podman`, then `docker`). Rootless Docker works the same; rootful Docker gets the same warning the sandbox already gives.
+- **Created** on first use: `podman run -d --rm=false --userns=keep-id --read-only --tmpfs /tmp --cap-drop=all --cap-add=SYS_CHROOT --security-opt=no-new-privileges --network=none --label com.psyche.owner=1 --memory=<setting, default 2g> …`. That's the sandbox runner's flags plus the socket mount ([podman-run](https://docs.podman.io/en/latest/markdown/podman-run.1.html)). Backend detection reuses `packages/sandbox/src/detect.ts` (`podman`, then `docker`). Rootless Docker works the same; rootful Docker gets the same warning the sandbox already gives.
 - **Stopped** when the Task ends and no watch view is open, after the same unsaved-changes check as §7.4. **Removed** only on "Reset separate desktop". **Zero resident cost**: there's no daemon and nothing running between tasks (Podman is daemonless).
 - **Watch view:** the §7.5 pane, with frames from the guest helper's `vscreen.frame`. No VNC or noVNC server is needed, so there's no extra listener and no password.
 

@@ -489,6 +489,8 @@ export const Automation = Type.Object(
     delivery: Delivery,
     prompt: Type.String(),
     scratch: Nullable(Type.String()),
+    /** The Space this automation runs in (docs/design/spaces-2026.md §4.1). */
+    spaceId: Nullable(Id),
     enabled: Type.Boolean(),
     nextRunAt: Nullable(IsoDateTime),
     lastRunAt: Nullable(IsoDateTime),
@@ -548,6 +550,10 @@ export const AutomationRun = Type.Object(
     /** The agent run that did the work (its trace: `runs.get`). */
     runId: Nullable(Id),
     usage: Type.Optional(Usage),
+    /** Retries of a transient model error made so far (0 to 3). */
+    attempt: Type.Optional(Type.Integer({ minimum: 0, maximum: 3 })),
+    /** `running` and waiting for its next attempt: when that attempt is due. */
+    retryAt: Type.Optional(Nullable(IsoDateTime)),
   },
   { $id: "AutomationRun" },
 );

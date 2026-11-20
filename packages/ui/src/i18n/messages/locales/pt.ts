@@ -11,6 +11,7 @@ import { galleryA } from "./gallery-a/pt.ts";
 import { helperCheck } from "./helper-check/pt.ts";
 import { helperOffline } from "./helper-offline/pt.ts";
 import { homeA } from "./home-a/pt.ts";
+import { keepAwake } from "./keep-awake/pt.ts";
 import { links } from "./links/pt.ts";
 import { linuxAccess } from "./linux-access/pt.ts";
 import { mailFollowups } from "./mail-followups/pt.ts";
@@ -32,6 +33,7 @@ import { settingsB } from "./settings-b/pt.ts";
 import { settingsC } from "./settings-c/pt.ts";
 import { settingsD } from "./settings-d/pt.ts";
 import { settingsE } from "./settings-e/pt.ts";
+import { spaces } from "./spaces/pt.ts";
 import { specialistsA } from "./specialists-a/pt.ts";
 import { teachA } from "./teach-a/pt.ts";
 import { windowsPlatform202611 } from "./windows-platform-2026-11/pt.ts";
@@ -2351,6 +2353,44 @@ export const pt: Partial<Catalogue> = {
   "settings.skills.removeDescription":
     "Os arquivos dela são apagados deste Gateway. Instalá-la de novo passa pelo cartão de confiança.",
   "settings.skills.switchOn": "{name} ativada",
+  "settings.plugins.title": "Plugins",
+  "settings.plugins.description":
+    "Código que acrescenta contexto, verifica chamadas de ferramentas ou roda avaliações. Cada plugin roda no próprio processo. Plugins nunca concedem permissões.",
+  "settings.plugins.off": "Os plugins estão desligados neste Gateway, então nenhum roda.",
+  "settings.plugins.loading": "Carregando plugins…",
+  "settings.plugins.error": "Não foi possível carregar os plugins. {reason}",
+  "settings.plugins.empty": "Nenhum plugin instalado.",
+  "settings.plugins.failed": "A alteração não foi salva. {reason}",
+  "settings.plugins.waitingApproval": "Aguardando sua aprovação neste dispositivo.",
+  "settings.plugins.switchOn": "{name} ligado",
+  "settings.plugins.version": " · v{version}",
+  "settings.plugins.adds": "Acrescenta: {list}",
+  "settings.plugins.install": "Instalar de uma pasta…",
+  "settings.plugins.pickFailed": "O Psyche não conseguiu abrir o seletor de pastas ({reason}).",
+  "settings.plugins.installFailed": "A instalação não começou. {reason}",
+  "settings.plugins.proposed": "Revise a instalação no cartão de aprovação.",
+  "settings.plugins.includes": "Inclui: {list}",
+  "settings.plugins.count.skills": "{n, plural, one {# skill} other {# skills}}",
+  "settings.plugins.count.commands": "{n, plural, one {# comando} other {# comandos}}",
+  "settings.plugins.count.mcpServers": "{n, plural, one {# servidor MCP} other {# servidores MCP}}",
+  "settings.plugins.count.hooks": "{n, plural, one {# hook} other {# hooks}}",
+  "settings.plugins.from": "De {source}",
+  "settings.plugins.state.active": "Em execução",
+  "settings.plugins.state.disabled": "Desligado",
+  "settings.plugins.state.off": "Aguardando os plugins serem ligados",
+  "settings.plugins.state.hash_mismatch": "Mudou desde a instalação, não roda",
+  "settings.plugins.state.invalid": "Manifesto inválido, não roda",
+  "settings.plugins.state.failed": "Parado por um erro",
+  "settings.plugins.capability.context": "contexto",
+  "settings.plugins.capability.before_tool_call":
+    "uma verificação antes das chamadas de ferramentas",
+  "settings.plugins.capability.after_tool_call":
+    "uma verificação depois das chamadas de ferramentas",
+  "settings.plugins.capability.agent_end": "uma etapa no fim de cada execução",
+  "settings.plugins.capability.evaluate": "avaliações",
+  "settings.plugins.removeTitle": "Remover {name}?",
+  "settings.plugins.removeDescription":
+    "Os arquivos dele são apagados deste Gateway. Instalá-lo de novo passa pelo cartão de confiança.",
   "settings.skills.asksFor": "Pede:",
   "settings.skills.toolsLabel": "Ferramentas:",
   "settings.skills.title": "Habilidades",
@@ -3685,4 +3725,6 @@ export const pt: Partial<Catalogue> = {
   // Windows variants of the sandbox PC, voice keys and platform terms
   ...windowsPlatform202611,
   ...mailFollowups,
+  ...keepAwake,
+  ...spaces,
 };

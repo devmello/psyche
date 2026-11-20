@@ -22,6 +22,7 @@ export * from "./repos/chat-queue.ts";
 export * from "./repos/devices.ts";
 export * from "./repos/idempotency.ts";
 export * from "./repos/library.ts";
+export * from "./repos/machines.ts";
 export * from "./repos/messages.ts";
 export * from "./repos/nodes.ts";
 export * from "./repos/pairing.ts";
@@ -36,6 +37,7 @@ export * from "./repos/tool-calls.ts";
 export * from "./repos/trace-scrub.ts";
 export * from "./repos/widgets.ts";
 export * from "./schema.ts";
+export * from "./secure-delete.ts";
 export {
   backupDatabaseFile,
   checkpointDatabaseFile,
