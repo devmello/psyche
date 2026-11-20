@@ -225,7 +225,7 @@ export function goalTools(goals: GoalsService, clock: Clock): AgentToolRegistrat
         p.milestoneId === undefined
           ? `Add the milestone "${cap(p.title ?? "", 60)}" to a goal`
           : `Mark a milestone ${p.done === false ? "not done" : "done"}`,
-      async run(p) {
+      async run(p, ctx) {
         if (p.milestoneId === undefined && p.title === undefined) {
           throw new PsycheError("invalid_params", "give milestoneId or a new milestone's title");
         }
@@ -235,6 +235,8 @@ export function goalTools(goals: GoalsService, clock: Clock): AgentToolRegistrat
           ...(p.title === undefined ? {} : { title: p.title }),
           ...(p.dueAt === undefined ? {} : { dueAt: p.dueAt }),
           ...(p.milestoneId === undefined ? {} : { done: p.done ?? true }),
+          // A title written in a tainted turn is recorded as tainted (fenced in later prompts).
+          taintSources: taintOf(ctx),
         });
         return ok({ progress: (await goals.progress(p.goalId)).milestones });
       },
@@ -242,7 +244,7 @@ export function goalTools(goals: GoalsService, clock: Clock): AgentToolRegistrat
     writeTool({
       name: "goals.add_checkin",
       description:
-        'Schedule check-ins for a confirmed goal: `cadence` is a 5-field cron expression ("0 9 * * 1" = Mondays 9:00) or an ISO-8601 duration ("P1D"). Each check-in is one reminder with the goal\'s progress.',
+        'Schedule check-ins for a confirmed goal: `cadence` is a 5-field cron expression ("0 9 * * 1" = Mondays 9:00) or an ISO-8601 duration ("P1D"). Each check-in is one reminder with the goal\'s progress, at most once a day.',
       input: Type.Object({
         goalId: Id,
         cadence: Type.String({ minLength: 3, maxLength: 64 }),

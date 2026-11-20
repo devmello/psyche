@@ -101,8 +101,18 @@ export {
   type SourceReport,
 } from "./feed/sources.ts";
 export { FeedStore, type StoredPost } from "./feed/store.ts";
+export {
+  type CheckinInput,
+  createNextStepProposer,
+  GOAL_CHECKIN_SOURCE,
+  GOAL_STALLED_SOURCE,
+  isUntrustedEvidence,
+  type NextStepProposer,
+} from "./goals/checkin.ts";
 export { createGoalHandlers, type GoalHandlers } from "./goals/handlers.ts";
 export {
+  CHECKIN_CADENCES,
+  type CheckinFrequency,
   DEFAULT_WATCH_EVERY,
   GOAL_CHECKIN_JOB,
   GOAL_WATCH_JOB,
@@ -116,6 +126,7 @@ export {
   type GoalsServiceOptions,
   type GoalWatchInput,
   type GoalWatchStatus,
+  type StalledTask,
 } from "./goals/service.ts";
 export { GoalStore, normalizeTitle } from "./goals/store.ts";
 export {

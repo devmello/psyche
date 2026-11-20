@@ -9,6 +9,7 @@ import {
 } from "@psyche/protocol";
 import { ulid } from "ulid";
 import { PROACTIVITY_BUDGET } from "../budget.ts";
+import { GOAL_CHECKIN_SOURCE, GOAL_STALLED_SOURCE, goalInputsTainted } from "../goals/checkin.ts";
 import type { GoalsService } from "../goals/service.ts";
 import {
   cadenceKind,
@@ -256,6 +257,11 @@ export class IdeasService {
         candidates.push(...mineGoals(states));
       });
     }
+    if (this.#o.goals !== undefined) {
+      await attempt("stalled", async () => {
+        await this.offerStalled();
+      });
+    }
     if (this.#o.skillUpdates !== undefined) {
       const updates = this.#o.skillUpdates;
       await attempt("skills", async () => {
@@ -294,6 +300,97 @@ export class IdeasService {
       queued.push(idea);
     }
     return { queued, suppressed, goalCandidates, errors };
+  }
+
+  /**
+   * Puts a card on Home now, outside the nightly batch (a goal's suggested next step, a stalled
+   * task's "Resume?"). The owner's tap or a free signal triggered it, so the acceptance threshold
+   * does not hold it back, but suppression still applies (open, accepted, dismissed and snoozed
+   * patterns), except for a next step the owner just asked for, which ignores old dismissals.
+   * Goal cards share the delivery budget: at most `perWindow` are open at once.
+   * `supersedes` expires older open cards the new one replaces.
+   * Nothing runs until the owner taps Start (`accept`). No model call.
+   */
+  async offer(
+    c: Candidate,
+    supersedes?: (idea: StoredIdea) => boolean,
+  ): Promise<StoredIdea | undefined> {
+    const now = this.#o.clock.now();
+    const history = this.store.all();
+    const asked = c.source === GOAL_CHECKIN_SOURCE;
+    if (!asked && this.#suppressed(c, history, now) !== undefined) return undefined;
+    const replaced = new Set(
+      supersedes === undefined
+        ? []
+        : history.filter((i) => i.status === "proposed" && supersedes(i)).map((i) => i.id),
+    );
+    const open = history.filter(
+      (i) =>
+        i.status === "proposed" &&
+        (i.source === GOAL_CHECKIN_SOURCE || i.source === GOAL_STALLED_SOURCE) &&
+        !replaced.has(i.id),
+    ).length;
+    if (open >= PROACTIVITY_BUDGET.ideas.perWindow) return undefined;
+    for (const old of history) {
+      if (!replaced.has(old.id)) continue;
+      const expired: StoredIdea = { ...old, status: "expired", decidedAt: toIso(now) };
+      this.store.update(expired);
+      if (old.deliveredAt !== null) this.#emit(expired);
+    }
+    const idea: StoredIdea = {
+      ...c,
+      id: this.#id(),
+      acceptanceProb: this.model().predict(featuresOf(c)),
+      status: "proposed",
+      resultRef: null,
+      createdAt: toIso(now),
+      decidedAt: null,
+      deliveredAt: toIso(now),
+      dismissReason: null,
+    };
+    this.store.insert(idea);
+    this.#emit(idea);
+    return idea;
+  }
+
+  /** Free "Resume?" cards for goal tasks that stalled; no model call. Returns how many. */
+  async offerStalled(): Promise<number> {
+    if (this.#o.goals === undefined) return 0;
+    let offered = 0;
+    const history = this.store.all();
+    for (const { goal, task, idleDays } of await this.#o.goals.stalledTasks()) {
+      const patternKey = `goal:${goal.id}:resume:${task.id}`;
+      // An unanswered card expires and may come back once; after that the owner has said enough.
+      if (history.filter((i) => i.patternKey === patternKey).length >= 2) continue;
+      const idea = await this.offer({
+        kind: "task",
+        title: `Resume: ${task.title.slice(0, 80)}`,
+        bodyMd: `"${task.title.slice(0, 120)}" for "${goal.title.slice(0, 80)}" has made no progress for ${idleDays} days. Want to pick it up again?`,
+        evidence: [
+          {
+            type: "goal_stalled",
+            source: "goal",
+            text: `No progress for ${idleDays} days`,
+            route: `/goals/${goal.id}`,
+            goalId: goal.id,
+            taskId: task.id,
+          },
+        ],
+        effort: "~15 min",
+        source: GOAL_STALLED_SOURCE,
+        patternKey,
+        untrusted:
+          task.taint === true || (task.taintSources?.length ?? 0) > 0 || goalInputsTainted(goal),
+        action: {
+          type: "task",
+          title: `Resume: ${task.title.slice(0, 60)}`,
+          goal: `Pick up the stalled task "${task.title.slice(0, 120)}" for the goal "${goal.title.slice(0, 120)}": check where it stopped, say what is blocking it, and continue with the parts that need no approval.`,
+          goalId: goal.id,
+        },
+      });
+      if (idea !== undefined) offered += 1;
+    }
+    return offered;
   }
 
   // --- delivery windows ------------------------------------------------------------------------
