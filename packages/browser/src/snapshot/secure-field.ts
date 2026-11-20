@@ -34,6 +34,8 @@ export interface FieldFacts {
   search?: boolean | undefined;
   /** One of four or more sibling one-character inputs: a split OTP. */
   splitBox?: boolean | undefined;
+  /** The field was `type=password` earlier in this document (a reveal toggle made it text). */
+  wasPassword?: boolean | undefined;
 }
 
 export type SecureLevel = "legacy" | "strong" | "weak";
@@ -189,42 +191,73 @@ const PASSWORD_OTHER = new Terms([
   "كلمة المرور",
   "كلمة السر",
 ]);
-/** A text that mentions a password without being one. */
-const PASSWORD_EXCLUDE = new Terms([
-  "hint",
-  "hints",
-  "forgot",
-  "forgotten",
-  "reset",
-  "resets",
-  "resetting",
-  "changing",
-  "why",
-  "reason",
-  "strength",
-  "manager",
-  "link",
-  "requirements",
-  "policy",
-  "help",
-  "tips",
+/**
+ * Phrases that mention a password without being one ("Password hint", "Forgot your password?").
+ * They are cut out of the text, and the field is a password only if a password word remains:
+ * "Password Forgot your password?" (a label wrapping its own help link) still is one.
+ */
+const PW = ["password", "passwords", "passwort", "kennwort", "passcode", "senha", "contrasena"];
+const PASSWORD_NOT: string[] = [
   "passwordless",
-  "search",
-  "esqueci",
-  "vergessen",
-  "oublie",
-  "olvide",
-  "dimenticata",
-  "indice",
-  "pista",
-  "dica",
-  "hinweis",
-  "提示",
-  "ヒント",
-  "힌트",
-  "忘记",
-  "忘記",
-]);
+  ...PW.flatMap((w) => [
+    `${w} hint`,
+    `${w} hints`,
+    `forgot ${w}`,
+    `forgot your ${w}`,
+    `forgot my ${w}`,
+    `forgotten ${w}`,
+    `forgotten your ${w}`,
+    `reset ${w}`,
+    `reset your ${w}`,
+    `resetting your ${w}`,
+    `${w} reset`,
+    `${w} resets`,
+    `${w} resetting`,
+    `changing ${w}`,
+    `changing your ${w}`,
+    `${w} strength`,
+    `${w} requirements`,
+    `${w} policy`,
+    `${w} rules`,
+    `${w} tips`,
+    `${w} manager`,
+  ]),
+  "mot de passe oublie",
+  "indice de mot de passe",
+  "esqueci minha senha",
+  "esqueci a senha",
+  "esqueceu sua senha",
+  "dica de senha",
+  "passwort vergessen",
+  "kennwort vergessen",
+  "passwort hinweis",
+  "olvide mi contrasena",
+  "olvidaste tu contrasena",
+  "pista de contrasena",
+  "password dimenticata",
+  "hai dimenticato la password",
+  "忘记密码",
+  "忘記密碼",
+  "密码提示",
+  "密碼提示",
+  "パスワードを忘れ",
+  "パスワードのヒント",
+  "비밀번호 찾기",
+  "비밀번호를 잊",
+  "비밀번호 힌트",
+].map(norm);
+
+function stripPasswordMentions(t: Txt): Txt {
+  let padded = t.padded;
+  for (const p of PASSWORD_NOT) {
+    if (SPACED.test(p)) {
+      const q = ` ${p} `;
+      while (padded.includes(q)) padded = padded.split(q).join("  ");
+    } else if (padded.includes(p)) padded = padded.split(p).join(" ");
+  }
+  const out = padded.replace(/ +/g, " ").trim();
+  return out === t.t ? t : txt(out);
+}
 
 function mentionsPassword(t: Txt): boolean {
   for (const tok of t.toks) {
@@ -249,6 +282,12 @@ const CLAVE_EXCLUDE = new Terms([
   "catastral",
   "search",
   "buscar",
+  "instrument",
+  "instrumento",
+  "music",
+  "musica",
+  "ritmo",
+  "percussion",
 ]);
 
 /** One-time, verification, security and recovery codes; CVC and friends. */
@@ -344,6 +383,57 @@ const CODE_PHRASES = new Terms([
 /** "Two-factor" and "two-step" are a code only beside a code word ("Two-factor phone" is not). */
 const SECOND_FACTOR = new Terms(["two factor", "2 factor", "second factor", "two step", "2 step"]);
 const CODE_WORDS = new Terms(["code", "codes", "token", "pin", "otp", "passcode", "key"]);
+/** A code word, and words that say the code was sent to the owner. */
+const CODE_WORD = new Terms(["code", "codes", "codigo", "codice", "kode", "passcode", "pin"]);
+const SENT = new Terms([
+  "sent",
+  "texted",
+  "emailed",
+  "text message",
+  "sms",
+  "enviado",
+  "enviamos",
+  "envoye",
+  "gesendet",
+  "inviato",
+  "enviamos",
+  "发送",
+  "送信",
+  "전송",
+  "भेजा",
+  "أرسلنا",
+]);
+/** Codes that are never an OTP, even "sent": promo, referral, invite, gift, captcha… */
+const CODE_NOT_OTP = new Terms([
+  "promo",
+  "promotion",
+  "promotional",
+  "coupon",
+  "cupon",
+  "discount",
+  "descuento",
+  "voucher",
+  "gift",
+  "referral",
+  "invite",
+  "invitation",
+  "postal",
+  "zip",
+  "product",
+  "sku",
+  "tracking",
+  "track",
+  "shipment",
+  "parcel",
+  "captcha",
+  "image",
+  "picture",
+  "shown",
+  "displayed",
+  "tv",
+  "class",
+  "game",
+]);
 /** "6-digit code", "código de 6 dígitos". */
 const N_DIGIT_CODE =
   /\b\d{1,2} (digit|digits|stellig|stelligen|chiffres?|digitos?|cifre) (\p{L}+ )?(code|codigo|codice|pin|passcode|otp)\b|\b(code|codigo|codice) (de |di |a )?\d{1,2} (digitos?|chiffres?|cifre|stellen)\b/u;
@@ -493,6 +583,12 @@ const BARE_CODE_EXCLUDE = new Terms([
   "sort",
   "swift",
   "routing",
+  "captcha",
+  "image",
+  "picture",
+  "shown",
+  "displayed",
+  "tv",
 ]);
 /** Pins on a map or a board, not a PIN. */
 const PIN_EXCLUDE = new Terms([
@@ -509,6 +605,9 @@ const PIN_EXCLUDE = new Terms([
   "description",
   "post",
   "message",
+  "game",
+  "repository",
+  "repo",
 ]);
 
 const EXPIRY_WORDS = ["expiry", "expiration", "expdate", "expirydate", "expirationdate"];
@@ -567,6 +666,8 @@ export function classifyField(f: FieldFacts): SecureClass | undefined {
   // A search box asks about passwords and codes; it does not hold one.
   if (f.search === true || type === "search") return undefined;
   if (f.splitBox === true && isInput) return STRONG;
+  // A reveal toggle turned this password field into text: it is still the password.
+  if (f.wasPassword === true) return LEGACY;
 
   // Django ids are `id_<name>`: the "id" is not an ID card.
   const id = f.id?.replace(/^id[_-]/i, "");
@@ -589,7 +690,7 @@ export function classifyField(f: FieldFacts): SecureClass | undefined {
 
   // Passwords, including one revealed by a toggle (`type=text`).
   for (const t of texts) {
-    if (mentionsPassword(t) && !PASSWORD_EXCLUDE.in(t)) return STRONG;
+    if (mentionsPassword(t) && mentionsPassword(stripPasswordMentions(t))) return STRONG;
     if (t.toks.includes("clave") && !CLAVE_EXCLUDE.in(t)) return STRONG;
   }
   // One-time, verification, security and recovery codes; CVC.
@@ -597,7 +698,10 @@ export function classifyField(f: FieldFacts): SecureClass | undefined {
     const u = unCompound(t);
     if (CODE_PHRASES.in(u)) return STRONG;
     if (SECOND_FACTOR.in(t) && CODE_WORDS.in(t)) return STRONG;
-    if (N_DIGIT_CODE.test(t.t) && !BARE_CODE_EXCLUDE.in(t)) return STRONG;
+    // "6-digit code", "the code we sent": an OTP, even beside "bank", "order" or "access".
+    if ((N_DIGIT_CODE.test(t.t) || (CODE_WORD.in(t) && SENT.in(t))) && !CODE_NOT_OTP.in(all)) {
+      return STRONG;
+    }
   }
   // CID is a card code only beside a card word (else it is a customer or campaign ID).
   if (allWords.includes("cid") && (CARD_CONTEXT.in(all) || allWords.includes("security"))) {
@@ -646,7 +750,15 @@ export function classifyField(f: FieldFacts): SecureClass | undefined {
 
   // Weaker signals: masked in snapshots and text; screenshots only for a secret-shaped value.
   const idWords = [...tokensOf(n(f.name)), ...tokensOf(n(id))];
-  if (hasAny(idWords, ["pan"])) return weak("any");
+  // `pan` alone or beside a card or number word (not `pan_size`, `pan_x`).
+  if (
+    hasAny(idWords, ["pan"]) &&
+    (idWords.every((w) => w === "pan") ||
+      CARD_CONTEXT.in(all) ||
+      hasAny(allWords, ["number", "num", "no", "nr"]))
+  ) {
+    return weak("any");
+  }
   if (/\d{4}[ -]\d{4}[ -]\d{4}/.test(f.placeholder ?? "")) return weak("any");
   // Expiry: an expiry word or phrase, an MM/YY placeholder, or `exp` beside a card word.
   if (
@@ -717,9 +829,10 @@ export function valueHasShape(shape: SecretShape | undefined, value: string): bo
     case "any":
       return true;
     case "digits":
-      return /^\d{1,8}$/.test(v.replace(/[\s.\-/]/g, ""));
+      // Any decimal digit script (Arabic-Indic, Bengali…) counts, separators ignored.
+      return /^\d{1,8}$/.test(foldedSecret(v));
     case "expiry":
-      return /^(0?[1-9]|1[0-2])\s*[/\-.]?\s*(\d{2}|\d{4})$/.test(v);
+      return /^(0?[1-9]|1[0-2])(\d{2}|\d{4})$/.test(foldedSecret(v));
     default:
       return false;
   }
@@ -749,140 +862,326 @@ function luhn(digits: string): boolean {
 
 /** The whole value is a payment card number (13-19 digits, Luhn-valid, separators allowed). */
 export function isCardNumberValue(v: string): boolean {
-  const f = foldValue(v);
-  if (f.length > 40 || !/^[\d\s.\-/]+$/.test(f)) return false;
-  const digits = f.replace(/\D/g, "");
-  return digits.length >= 13 && digits.length <= 19 && luhn(digits);
+  if (v.length > 64) return false;
+  const digits = foldedSecret(v);
+  return /^\d{13,19}$/.test(digits) && luhn(digits);
 }
 
 // --- the scrubber ------------------------------------------------------------------------------
 
 /**
- * Separators a page may put inside a number or code: whitespace, `.`, `-`, `/`, dashes, middle
- * dots, their fullwidth forms, and zero-width / format characters (`\p{Cf}`).
+ * Text folded once into a canonical form for matching: NFKC, every decimal digit (`\p{Nd}`:
+ * fullwidth, mathematical, Arabic-Indic, Bengali, Devanagari…) as ASCII, zero-width and format
+ * characters (`\p{Cf}`) dropped, separators dropped. Separators are whitespace, `.`, `-`, `/`,
+ * `|`, `_`, `,`, dashes and middle dots (and their fullwidth forms). `at[i]`/`end[i]` map folded
+ * character `i` back to the original text; `seps[i]` counts the separators just before it.
+ * No pattern is ever built from page values: matching is Aho-Corasick over this string.
  */
-const SEP = "[\\s.\\-/\\u2010-\\u2015\\u2212\\u00b7\\u30fb\\uff0d\\uff0e\\uff0f\\p{Cf}]";
-const SEP_ONE = new RegExp(`^${SEP}$`, "u");
-const CF = /^\p{Cf}$/u;
-/** ASCII digits, fullwidth, Arabic-Indic, extended Arabic-Indic and Devanagari digits. */
-const DIGIT = "[0-9\\uff10-\\uff19\\u0660-\\u0669\\u06f0-\\u06f9\\u0966-\\u096f]";
-/** 13 or more digits, at most six separator characters between two of them. */
-const CARD_RUN = new RegExp(`${DIGIT}(?:${SEP}{0,6}${DIGIT}){12,}`, "gu");
-
-function asciiDigit(cp: number): number {
-  if (cp >= 48 && cp <= 57) return cp - 48;
-  if (cp >= 0xff10 && cp <= 0xff19) return cp - 0xff10;
-  if (cp >= 0x660 && cp <= 0x669) return cp - 0x660;
-  if (cp >= 0x6f0 && cp <= 0x6f9) return cp - 0x6f0;
-  if (cp >= 0x966 && cp <= 0x96f) return cp - 0x966;
-  return -1;
+interface Folded {
+  s: string;
+  at: Int32Array;
+  end: Int32Array;
+  seps: Uint16Array;
 }
 
-/**
- * Card numbers inside one candidate run: the run is split into digit groups at separators, and
- * the longest Luhn-valid window of 13-19 digits from each group on is masked. A window is one
- * block, or groups of 3+ digits ("4242 4242 …", "3782 822463 10005"), so a row of small numbers
- * is not read as a card.
- */
-function cardSpansIn(text: string, from: number, to: number, out: [number, number][]): void {
-  const groups: { a: number; b: number; d: string }[] = [];
-  let cur: { a: number; b: number; d: string } | undefined;
-  let sep = false;
-  for (let i = from; i < to; ) {
-    const cp = text.codePointAt(i) ?? 0;
+const SEP_ASCII = new Uint8Array(128);
+for (const c of "\t\n\v\f\r .-/|_,") SEP_ASCII[c.charCodeAt(0)] = 1;
+const SEP_OTHER = /^[\s‐-―−·・，－．／＿｜]$/u;
+const CF = /^\p{Cf}$/u;
+const ND = /^\p{Nd}$/u;
+
+/** Folded form of one non-ASCII code point: "" dropped, "\u0000" a separator, else the text. */
+const FOLD_CACHE = new Map<number, string>();
+function foldCodePoint(cp: number): string {
+  const hit = FOLD_CACHE.get(cp);
+  if (hit !== undefined) return hit;
+  const ch = String.fromCodePoint(cp);
+  let out: string;
+  if (CF.test(ch)) out = "";
+  else if (SEP_OTHER.test(ch)) out = "\u0000";
+  else if (ND.test(ch)) out = String(digitValue(cp));
+  else {
+    out = "";
+    for (const f of ch.normalize("NFKC")) {
+      const c = f.charCodeAt(0);
+      if (c < 128 ? SEP_ASCII[c] === 1 : SEP_OTHER.test(f)) out += "\u0000";
+      else out += f;
+    }
+  }
+  if (FOLD_CACHE.size > 8192) FOLD_CACHE.clear();
+  FOLD_CACHE.set(cp, out);
+  return out;
+}
+
+/** The value of a `\p{Nd}` digit: NFKC where it folds, else its place in its run of ten. */
+function digitValue(cp: number): number {
+  const n = String.fromCodePoint(cp).normalize("NFKC");
+  if (n.length === 1 && n >= "0" && n <= "9") return n.charCodeAt(0) - 48;
+  let k = 0;
+  while (k < 9 && ND.test(String.fromCodePoint(cp - k - 1))) k++;
+  return k % 10;
+}
+
+/** Scratch buffers shared by every `fold` call (synchronous, so never in use twice at once). */
+let BUF = {
+  cap: 0,
+  codes: new Uint16Array(0),
+  at: new Int32Array(0),
+  end: new Int32Array(0),
+  seps: new Uint16Array(0),
+};
+function ensure(cap: number): void {
+  if (BUF.cap >= cap) return;
+  const c = Math.max(cap, BUF.cap * 2, 1024);
+  const next = {
+    cap: c,
+    codes: new Uint16Array(c),
+    at: new Int32Array(c),
+    end: new Int32Array(c),
+    seps: new Uint16Array(c),
+  };
+  next.codes.set(BUF.codes);
+  next.at.set(BUF.at);
+  next.end.set(BUF.end);
+  next.seps.set(BUF.seps);
+  BUF = next;
+}
+
+/** The fold of `text`; its arrays are views of the shared buffers, valid until the next call. */
+function fold(text: string): Folded {
+  const n = text.length;
+  ensure(n + 8);
+  let len = 0;
+  let sep = 0;
+  const push = (code: number, from: number, to: number) => {
+    if (len >= BUF.cap) ensure(len + 1);
+    BUF.codes[len] = code;
+    BUF.at[len] = from;
+    BUF.end[len] = to;
+    BUF.seps[len] = sep > 65535 ? 65535 : sep;
+    sep = 0;
+    len++;
+  };
+  for (let i = 0; i < n; ) {
+    const c = text.charCodeAt(i);
+    if (c < 128) {
+      if (SEP_ASCII[c] === 1) sep++;
+      else push(c, i, i + 1);
+      i++;
+      continue;
+    }
+    const cp = text.codePointAt(i) ?? c;
     const w = cp > 0xffff ? 2 : 1;
-    const d = asciiDigit(cp);
-    if (d >= 0) {
-      if (cur === undefined || sep) {
-        cur = { a: i, b: i + w, d: "" };
-        groups.push(cur);
-      }
-      cur.d += String(d);
-      cur.b = i + w;
-      sep = false;
-    } else if (!CF.test(text.slice(i, i + w))) sep = true;
+    const f = foldCodePoint(cp);
+    for (let k = 0; k < f.length; k++) {
+      const fc = f.charCodeAt(k);
+      if (fc === 0) sep++;
+      else push(fc, i, i + w);
+    }
     i += w;
   }
-  for (let a = 0; a < groups.length; ) {
-    let found = -1;
-    let digits = "";
-    for (let b = a; b < groups.length; b++) {
-      const g = groups[b] as { a: number; b: number; d: string };
-      if (b > a && (g.d.length < 3 || (groups[a] as { d: string }).d.length < 3)) break;
-      digits += g.d;
-      if (digits.length > 19) break;
-      if (digits.length >= 13 && luhn(digits)) found = b;
+  let s = "";
+  for (let i = 0; i < len; i += 8192) {
+    s += String.fromCharCode(...BUF.codes.subarray(i, Math.min(len, i + 8192)));
+  }
+  return {
+    s,
+    at: BUF.at.subarray(0, len),
+    end: BUF.end.subarray(0, len),
+    seps: BUF.seps.subarray(0, len),
+  };
+}
+
+/** A pure-ASCII text with fewer than 13 digits holds no card number and needs no fold. */
+function asciiFewDigits(text: string): boolean {
+  let digits = 0;
+  for (let i = 0; i < text.length; i++) {
+    const c = text.charCodeAt(i);
+    if (c >= 128) return false;
+    if (c >= 48 && c <= 57 && ++digits >= 13) return false;
+  }
+  return true;
+}
+
+/** A value in folded form, separators removed (what the scrubber looks for). */
+export function foldedSecret(value: string): string {
+  return fold(value).s;
+}
+
+/** Aho-Corasick over UTF-16 units; reports, per end position, the longest pattern ending there. */
+class Matcher {
+  readonly #next: Map<number, number>[] = [new Map()];
+  readonly #fail: number[] = [0];
+  readonly #out: number[] = [0];
+  readonly size: number;
+  constructor(patterns: readonly string[]) {
+    for (const p of patterns) {
+      let node = 0;
+      for (let i = 0; i < p.length; i++) {
+        const c = p.charCodeAt(i);
+        let nx = this.#next[node]?.get(c);
+        if (nx === undefined) {
+          nx = this.#next.length;
+          this.#next.push(new Map());
+          this.#fail.push(0);
+          this.#out.push(0);
+          this.#next[node]?.set(c, nx);
+        }
+        node = nx;
+      }
+      this.#out[node] = Math.max(this.#out[node] ?? 0, p.length);
     }
-    if (found >= 0) {
-      out.push([(groups[a] as { a: number }).a, (groups[found] as { b: number }).b]);
-      a = found + 1;
-    } else a++;
+    this.size = patterns.length;
+    const queue: number[] = [];
+    for (const nx of this.#next[0]?.values() ?? []) queue.push(nx);
+    for (let qi = 0; qi < queue.length; qi++) {
+      const node = queue[qi] as number;
+      for (const [c, nx] of this.#next[node] ?? []) {
+        let f = this.#fail[node] ?? 0;
+        while (f !== 0 && !this.#next[f]?.has(c)) f = this.#fail[f] ?? 0;
+        const g = this.#next[f]?.get(c);
+        const fl = g !== undefined && g !== nx ? g : 0;
+        this.#fail[nx] = fl;
+        this.#out[nx] = Math.max(this.#out[nx] ?? 0, this.#out[fl] ?? 0);
+        queue.push(nx);
+      }
+    }
+  }
+  /** `onMatch(endInclusive, length)` for the longest pattern ending at each position. */
+  search(s: string, onMatch: (end: number, len: number) => void): void {
+    let node = 0;
+    for (let i = 0; i < s.length; i++) {
+      const c = s.charCodeAt(i);
+      while (node !== 0 && !this.#next[node]?.has(c)) node = this.#fail[node] ?? 0;
+      node = this.#next[node]?.get(c) ?? 0;
+      const len = this.#out[node] ?? 0;
+      if (len > 0) onMatch(i, len);
+    }
   }
 }
 
-/** A cap on tracked secret values: above it the page is treated as all-secret (fail closed). */
-export const MAX_SECRETS = 64;
+const isDigitCode = (c: number): boolean => c >= 48 && c <= 57;
+
+/** Card numbers: digit groups split at separators, at most six separator characters apart. */
+function cardSpans(f: Folded, out: [number, number][]): void {
+  const s = f.s;
+  let i = 0;
+  while (i < s.length) {
+    if (!isDigitCode(s.charCodeAt(i))) {
+      i++;
+      continue;
+    }
+    const groups: [number, number][] = [];
+    let g = i;
+    let j = i + 1;
+    for (; j < s.length && isDigitCode(s.charCodeAt(j)) && (f.seps[j] ?? 0) <= 6; j++) {
+      if ((f.seps[j] ?? 0) > 0) {
+        groups.push([g, j - 1]);
+        g = j;
+      }
+    }
+    groups.push([g, j - 1]);
+    if (j - i >= 13) {
+      for (let a = 0; a < groups.length; ) {
+        const [ga, gaEnd] = groups[a] as [number, number];
+        let found = -1;
+        let total = 0;
+        for (let b = a; b < groups.length; b++) {
+          const [gb, gbEnd] = groups[b] as [number, number];
+          // One block, or groups of 3+ digits ("4242 4242 …", "3782 822463 10005").
+          if (b > a && (gbEnd - gb < 2 || gaEnd - ga < 2)) break;
+          total += gbEnd - gb + 1;
+          if (total > 19) break;
+          if (total >= 13 && luhn(s.slice(ga, gbEnd + 1))) found = b;
+        }
+        if (found >= 0) {
+          out.push([ga, (groups[found] as [number, number])[1]]);
+          a = found + 1;
+        } else a++;
+      }
+    }
+    i = j;
+  }
+}
+
+/** Fail closed: every run of 4+ digits (separators allowed, as for cards). */
+function digitRunSpans(f: Folded, out: [number, number][]): void {
+  const s = f.s;
+  let i = 0;
+  while (i < s.length) {
+    if (!isDigitCode(s.charCodeAt(i))) {
+      i++;
+      continue;
+    }
+    let j = i + 1;
+    while (j < s.length && isDigitCode(s.charCodeAt(j)) && (f.seps[j] ?? 0) <= 6) j++;
+    if (j - i >= 4) out.push([i, j - 1]);
+    i = j;
+  }
+}
+
+/** Tracked secret values: at most this many, each at most `MAX_SECRET_CHARS` folded. */
+export const MAX_SECRETS = 256;
+export const MAX_SECRET_CHARS = 256;
 
 export interface Scrubber {
-  /** Mask secret values (separators, zero-width and fullwidth forms ignored) and card numbers. */
+  /** Mask secret values (separators, zero-width and other digit forms ignored) and card numbers. */
   scrub(text: string): string;
-  /** Text spans `[start, end)` that `scrub` masks. */
+  /** Text spans `[start, end)` that `scrub` masks, sorted and merged. */
   spans(text: string): [number, number][];
 }
 
-const hex = (cp: number): string => `\\u{${cp.toString(16)}}`;
-
-/** One character of a secret as a class: itself, its fullwidth form, other digit scripts. */
-function charClass(c: string): string {
-  const cp = c.codePointAt(0) ?? 0;
-  const alts = [cp];
-  if (cp >= 0x21 && cp <= 0x7e) alts.push(cp + 0xfee0);
-  if (cp >= 48 && cp <= 57) alts.push(0x660 + cp - 48, 0x6f0 + cp - 48, 0x966 + cp - 48);
-  return alts.length === 1 ? hex(cp) : `[${alts.map(hex).join("")}]`;
-}
+const MAY_HOLD_DIGITS = /\p{Nd}/u;
 
 /**
- * A secret as a pattern: its folded characters with up to four separators between any two, and
- * no digit glued on at a digit end ("1234" is not masked inside "12345").
+ * Masks known secret values and card numbers in one pass over the folded text. `failClosed`
+ * (more secrets than are tracked) masks every run of four or more digits instead of the values.
  */
-function secretPattern(value: string): string | undefined {
-  const chars = [...foldValue(value)].filter((c) => !SEP_ONE.test(c));
-  if (chars.length < 4) return undefined;
-  const head = asciiDigit(chars[0]?.codePointAt(0) ?? 0) >= 0 ? `(?<!${DIGIT})` : "";
-  const tail = asciiDigit(chars[chars.length - 1]?.codePointAt(0) ?? 0) >= 0 ? `(?!${DIGIT})` : "";
-  return `${head}${chars.map(charClass).join(`${SEP}{0,4}`)}${tail}`;
-}
-
-/**
- * Secret values (4+ characters once folded) become one combined pattern, matched in a single
- * pass over the text; card numbers are found by one candidate scan and checked with Luhn.
- */
-export function makeScrubber(values: Iterable<string>, mask: string): Scrubber {
-  const pats = [...new Set(values)]
-    .map(secretPattern)
-    .filter((p): p is string => p !== undefined)
-    .sort((a, b) => b.length - a.length);
-  const re = pats.length === 0 ? undefined : new RegExp(pats.join("|"), "gu");
+export function makeScrubber(
+  values: Iterable<string>,
+  mask: string,
+  options: { failClosed?: boolean } = {},
+): Scrubber {
+  const keys = [...new Set([...values].map(foldedSecret))].filter(
+    (k) => k.length >= 4 && k.length <= MAX_SECRET_CHARS,
+  );
+  const matcher = keys.length === 0 ? undefined : new Matcher(keys);
+  const failClosed = options.failClosed === true;
   const spans = (text: string): [number, number][] => {
+    if (
+      matcher === undefined &&
+      (failClosed
+        ? !MAY_HOLD_DIGITS.test(text)
+        : asciiFewDigits(text) || !MAY_HOLD_DIGITS.test(text))
+    )
+      return [];
+    const f = fold(text);
     const found: [number, number][] = [];
-    if (re !== undefined) {
-      re.lastIndex = 0;
-      for (let m = re.exec(text); m !== null; m = re.exec(text)) {
-        if (m[0] === "") re.lastIndex++;
-        else found.push([m.index, m.index + m[0].length]);
-      }
-    }
-    CARD_RUN.lastIndex = 0;
-    for (let m = CARD_RUN.exec(text); m !== null; m = CARD_RUN.exec(text)) {
-      cardSpansIn(text, m.index, m.index + m[0].length, found);
-    }
-    if (found.length === 0) return found;
+    matcher?.search(f.s, (b, len) => {
+      const a = b - len + 1;
+      // Not inside a longer number: "1234" is not masked in "12345".
+      const glued =
+        (a > 0 &&
+          f.seps[a] === 0 &&
+          isDigitCode(f.s.charCodeAt(a)) &&
+          isDigitCode(f.s.charCodeAt(a - 1))) ||
+        (b + 1 < f.s.length &&
+          f.seps[b + 1] === 0 &&
+          isDigitCode(f.s.charCodeAt(b)) &&
+          isDigitCode(f.s.charCodeAt(b + 1)));
+      if (!glued) found.push([a, b]);
+    });
+    cardSpans(f, found);
+    if (failClosed) digitRunSpans(f, found);
+    if (found.length === 0) return [];
     found.sort((x, y) => x[0] - y[0]);
     const out: [number, number][] = [];
     for (const [a, b] of found) {
+      const from = f.at[a] ?? 0;
+      const to = f.end[b] ?? from;
       const last = out[out.length - 1];
-      if (last !== undefined && a <= last[1]) last[1] = Math.max(last[1], b);
-      else out.push([a, b]);
+      if (last !== undefined && from <= last[1]) last[1] = Math.max(last[1], to);
+      else out.push([from, to]);
     }
     return out;
   };

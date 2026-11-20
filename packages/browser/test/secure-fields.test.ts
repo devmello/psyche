@@ -3,10 +3,13 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { ResolvedSecret } from "@psyche/protocol";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
+import { contained, PageController } from "../src/cdp/page.ts";
 import { FsQuarantineWriter } from "../src/downloads/library.ts";
 import { CdpBridgeDriver } from "../src/drivers/cdp.ts";
+import { OriginPolicy } from "../src/origin/policy.ts";
 import { FileRecordingSink } from "../src/recording/recorder.ts";
 import { SECURE_MASK } from "../src/snapshot/builder.ts";
+import { MockBrowser } from "../src/testing/mock-browser.ts";
 import { MockDesktop } from "../src/testing/mock-desktop.ts";
 
 describe("secret field values never reach the model (mock CDP page)", () => {
@@ -183,5 +186,54 @@ describe("secret field values never reach the model (mock CDP page)", () => {
     for (const f of await readdir(sink.dir)) {
       expect(await readFile(join(sink.dir, f), "latin1")).not.toContain(SECRETS[3] as string);
     }
+  });
+});
+
+describe("an internal error on page data never echoes page values", () => {
+  it("contained() replaces the message of a non-Psyche error", () => {
+    expect(() =>
+      contained(() => {
+        throw new SyntaxError("Invalid regular expression: /hunter2|482913/: Stack overflow");
+      }),
+    ).toThrow(
+      expect.objectContaining({ code: "internal", message: "the page could not be read safely" }),
+    );
+  });
+
+  it("snapshot, read_text and screenshot fail with a fixed message", async () => {
+    const browser = new MockBrowser();
+    const tab = browser.openTab();
+    const policy = new OriginPolicy({ devPreview: true, readWritable: [browser.origin("a")] });
+    const page = new PageController({
+      tabId: tab.id,
+      target: tab,
+      policy: () => policy,
+      assertAgent: () => {},
+      userInControl: () => false,
+      emit: () => {},
+    });
+    await page.init();
+    await page.navigate(browser.url("a/login"));
+    // A DOM snapshot that makes the builder throw an error quoting page values.
+    const send = tab.send.bind(tab);
+    tab.send = (async (method: string, params?: Record<string, unknown>) => {
+      const r = await send(method, params);
+      if (method !== "DOMSnapshot.captureSnapshot") return r;
+      return {
+        ...(r as object),
+        get documents(): never {
+          throw new Error("field value hunter2-secret, code 482913");
+        },
+      };
+    }) as typeof tab.send;
+    for (const call of [() => page.snapshot(), () => page.readText(), () => page.screenshot()]) {
+      const err = await call().then(
+        () => undefined,
+        (e: unknown) => e as { code: string; message: string; details?: unknown },
+      );
+      expect(err?.code).toBe("internal");
+      expect(JSON.stringify({ m: err?.message, d: err?.details })).not.toMatch(/hunter2|482913/);
+    }
+    tab.send = send;
   });
 });

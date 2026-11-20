@@ -5,9 +5,10 @@ import {
   blocksScreenshot,
   classifyField,
   type FieldFacts,
-  foldValue,
+  foldedSecret,
   isCardNumberValue,
   isLegacySecure,
+  MAX_SECRET_CHARS,
   MAX_SECRETS,
   makeScrubber,
   type Scrubber,
@@ -71,8 +72,16 @@ export class DomIndex {
   /** Large opaque surfaces (canvas, embed, object, video) by area, for sparse-tree detection. */
   readonly opaqueAreas: number[] = [];
 
-  constructor(snap: CaptureSnapshotResult, dpr: number) {
+  /** Fields seen as `type=password` earlier in this document (a reveal toggle made them text). */
+  readonly #wasPassword: ReadonlySet<number>;
+
+  constructor(
+    snap: CaptureSnapshotResult,
+    dpr: number,
+    options: { wasPassword?: ReadonlySet<number> } = {},
+  ) {
     this.#snap = snap;
+    this.#wasPassword = options.wasPassword ?? new Set();
     const s = snap.strings;
     const str = (i: number | undefined): string => (i === undefined || i < 0 ? "" : (s[i] ?? ""));
     const scale = dpr > 0 ? dpr : 1;
@@ -177,10 +186,14 @@ export class DomIndex {
         if (gp >= 0) bump(-gp - 2);
       }
     });
+    // An OTP is 4-8 boxes; a page with more one-character inputs is a puzzle grid (a crossword,
+    // a Wordle clone), not a code.
+    if (oneChar.length > 16) return;
+    const otpGroup = (k: number | undefined) => k !== undefined && k >= 4 && k <= 8;
     for (const i of oneChar) {
       const p = parents[i] ?? -1;
       const gp = p >= 0 ? (parents[p] ?? -1) : -1;
-      if ((counts.get(p) ?? 0) >= 4 || (gp >= 0 && (counts.get(-gp - 2) ?? 0) >= 4)) {
+      if (otpGroup(counts.get(p)) || (gp >= 0 && otpGroup(counts.get(-gp - 2)))) {
         const info = infos[i];
         if (info !== undefined) this.#splitBoxes.add(info.backendNodeId);
       }
@@ -212,6 +225,9 @@ export class DomIndex {
       if (wants(info)) want.add(i);
     });
     if (want.size === 0) return;
+    // Parts per node, joined once; each node keeps at most TEXT_CAP characters (a label or a
+    // secret value is short; a long editor document is not either).
+    const parts = new Map<number, { list: string[]; size: number }>();
     for (let i = 0; i < types.length; i++) {
       if (types[i] !== 3) continue;
       const v = values[i];
@@ -220,11 +236,24 @@ export class DomIndex {
       let j = parents[i] ?? -1;
       for (let guard = 0; j >= 0 && guard < 64; guard++) {
         if (want.has(j)) {
-          const info = infos[j];
-          if (info !== undefined) info.text = `${info.text ?? ""} ${text}`.trim();
+          let acc = parts.get(j);
+          if (acc === undefined) {
+            acc = { list: [], size: 0 };
+            parts.set(j, acc);
+          }
+          if (acc.size < TEXT_CAP) {
+            const piece =
+              text.length > TEXT_CAP - acc.size ? text.slice(0, TEXT_CAP - acc.size) : text;
+            acc.list.push(piece);
+            acc.size += piece.length + 1;
+          }
         }
         j = parents[j] ?? -1;
       }
+    }
+    for (const [j, acc] of parts) {
+      const info = infos[j];
+      if (info !== undefined) info.text = acc.list.join(" ");
     }
   }
 
@@ -324,6 +353,7 @@ export class DomIndex {
       inputMode: a.inputmode,
       search: (a.type ?? "").toLowerCase() === "search" || a.role === "searchbox",
       splitBox: this.#splitBoxes.has(info.backendNodeId),
+      wasPassword: this.#wasPassword.has(info.backendNodeId),
     };
   }
 
@@ -347,6 +377,17 @@ export class DomIndex {
     const wrap = this.ancestor(info, "LABEL");
     if (wrap?.text) parts.push(wrap.text);
     return parts.length > 0 ? parts.join(" ") : undefined;
+  }
+
+  /** Backend ids of the `type=password` inputs now in the page (to remember across reveals). */
+  passwordFields(): number[] {
+    const out: number[] = [];
+    for (const n of this.#fields) {
+      if (n.tag === "INPUT" && (n.attrs.type ?? "").toLowerCase() === "password") {
+        out.push(n.backendNodeId);
+      }
+    }
+    return out;
   }
 
   /** Typing is refused on it: `type=password` or a secure `autocomplete` (the old criteria). */
@@ -411,25 +452,37 @@ export class DomIndex {
   #scrubber: Scrubber | undefined;
 
   /**
-   * Current values of the page's masked fields (the backstop for `scrub`). Short values
-   * (one-character split boxes) count joined, per container. Above `MAX_SECRETS` distinct values
-   * nothing is tracked and `overCap` is set instead.
+   * Current values of the page's masked fields that look like secrets (the backstop for
+   * `scrub`): legacy and strong values, and weak ones of the secret's shape. Short values
+   * (one-character split boxes) count joined, per container. More than `MAX_SECRETS` distinct
+   * values, or one longer than `MAX_SECRET_CHARS` folded, sets `overCap`: the page fails closed.
    */
   #secretState(): { values: string[]; overCap: boolean } {
     if (this.#secrets !== undefined) return this.#secrets;
     const values = new Set<string>();
     const perParent = new Map<string, number>();
     const shortFields: [DomNodeInfo, string][] = [];
+    let overCap = false;
     for (const n of this.#fields) {
-      const v = foldValue(this.valueOf(n));
-      if (v === "" || this.#classifyRaw(n) === undefined) continue;
-      if (v.replace(/[\s.\-/]/g, "").length >= 4) values.add(v);
-      else {
+      const raw = this.valueOf(n);
+      if (raw.trim() === "") continue;
+      const c = this.#classifyRaw(n);
+      if (c === undefined || (c.level === "weak" && !blocksScreenshot(c, raw))) continue;
+      const v = foldedSecret(raw);
+      if (v.length > MAX_SECRET_CHARS) {
+        overCap = true;
+        break;
+      }
+      if (v.length >= 4) values.add(v);
+      else if (v.length > 0) {
         shortFields.push([n, v]);
         const p = `${n.docIndex}:${this.#fieldParents.get(n.backendNodeId)?.[0] ?? -1}`;
         perParent.set(p, (perParent.get(p) ?? 0) + 1);
       }
-      if (values.size > MAX_SECRETS) break;
+      if (values.size > MAX_SECRETS) {
+        overCap = true;
+        break;
+      }
     }
     const joined = new Map<string, string>();
     for (const [n, v] of shortFields) {
@@ -438,10 +491,11 @@ export class DomIndex {
         (perParent.get(`${n.docIndex}:${p}`) ?? 0) >= 2
           ? `${n.docIndex}:${p}`
           : `${n.docIndex}:g${gp}`;
-      joined.set(key, (joined.get(key) ?? "") + v);
+      const prev = joined.get(key) ?? "";
+      if (prev.length < MAX_SECRET_CHARS) joined.set(key, prev + v);
     }
     for (const j of joined.values()) if (j.length >= 4) values.add(j);
-    const overCap = values.size > MAX_SECRETS;
+    if (values.size > MAX_SECRETS) overCap = true;
     this.#secrets = { values: overCap ? [] : [...values], overCap };
     return this.#secrets;
   }
@@ -463,7 +517,7 @@ export class DomIndex {
   }
 
   get scrubber(): Scrubber {
-    this.#scrubber ??= makeScrubber(this.secretValues(), "•••");
+    this.#scrubber ??= makeScrubber(this.secretValues(), "•••", { failClosed: this.overCap });
     return this.#scrubber;
   }
 
@@ -484,6 +538,8 @@ export class DomIndex {
 }
 
 const STRONG: SecureClass = { level: "strong" };
+/** Characters of text kept per label, labelled-by target or contenteditable. */
+const TEXT_CAP = 4096;
 
 function isField(info: DomNodeInfo): boolean {
   return (

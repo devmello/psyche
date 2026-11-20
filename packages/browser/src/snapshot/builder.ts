@@ -186,6 +186,11 @@ export interface SnapshotInput {
   /** Nodes a secret was typed into: their values are masked like a password until navigation. */
   maskNodes?: ReadonlySet<number>;
   /**
+   * Inputs seen as `type=password` earlier in this document: still the password after a reveal
+   * toggle made them text. The builder adds the password inputs it sees now.
+   */
+  wasPassword?: Set<number>;
+  /**
    * A payment card was typed into this document: every `<input>` value is masked, so a form the
    * page re-renders (a SPA remount, a route change) cannot show it on a new node.
    */
@@ -204,46 +209,52 @@ interface Line {
 
 /** Text lines this short may be one slot of a split secret ("4", "82", "4242"). */
 const SLOT_MAX = 4;
+/** A digits-only line ("4242 4242") may be part of a card number drawn in pieces. */
+const DIGIT_LINE = /^[\p{Nd}\s.\-/|_,]{1,19}$/u;
+
+const isSlot = (l: Line): boolean => {
+  const raw = l.raw ?? "";
+  return raw.replace(/\s+/g, "").length <= SLOT_MAX || DIGIT_LINE.test(raw);
+};
 
 /**
  * Secret values and card numbers the page draws over several short text nodes (the slot pattern
  * of OTP inputs, a card number in four spans): each run of short text lines, read across bare
  * structural lines (`- group`), is matched as one string, and every line that contributes to a
- * match is masked. Linear in the number of lines.
+ * match is masked. Linear in the number of lines: spans and lines are walked together.
  */
 function maskSplitRuns(lines: Line[], dom: DomIndex): Line[] {
   const out: Line[] = [];
   let run: Line[] = [];
+  const keep = () => {
+    for (const l of run) out.push(l);
+    run = [];
+  };
   const flush = () => {
-    const texts = run.filter((l) => l.kind === "text");
-    if (texts.length < 2) {
-      out.push(...run);
-      run = [];
-      return;
-    }
     let joined = "";
-    const starts: number[] = [];
-    for (const l of texts) {
-      starts.push(joined.length);
+    const starts = new Map<Line, number>();
+    for (const l of run) {
+      if (l.kind !== "text") continue;
+      starts.set(l, joined.length);
       joined += `${l.raw ?? ""} `;
     }
+    if (starts.size < 2) return keep();
     const spans = dom.scrubber.spans(joined);
-    if (spans.length === 0) {
-      out.push(...run);
-      run = [];
-      return;
-    }
-    const masked = new Set<Line>();
-    texts.forEach((l, k) => {
-      const a = starts[k] ?? 0;
-      const b = a + (l.raw ?? "").length;
-      if (spans.some(([s, e]) => s < b && e > a)) masked.add(l);
-    });
+    if (spans.length === 0) return keep();
+    let si = 0;
     let prevMasked = false;
     for (const l of run) {
-      if (!masked.has(l)) {
+      const a = starts.get(l);
+      if (a === undefined) {
+        out.push(l); // a bare structural line
+        continue;
+      }
+      const b = a + (l.raw ?? "").length;
+      while (si < spans.length && (spans[si] as [number, number])[1] <= a) si++;
+      const span = spans[si];
+      if (span === undefined || span[0] >= b) {
         out.push(l);
-        if (l.kind === "text") prevMasked = false;
+        prevMasked = false;
         continue;
       }
       if (prevMasked) continue; // one mask per contiguous masked stretch
@@ -254,14 +265,14 @@ function maskSplitRuns(lines: Line[], dom: DomIndex): Line[] {
     run = [];
   };
   for (const l of lines) {
-    if (l.kind === "text" && (l.raw ?? "").replace(/\s+/g, "").length <= SLOT_MAX) run.push(l);
+    if (l.kind === "text" && isSlot(l)) run.push(l);
     else if (l.kind === "node" && l.bare === true && run.length > 0) run.push(l);
     else {
-      flush();
+      if (run.length > 0) flush();
       out.push(l);
     }
   }
-  flush();
+  if (run.length > 0) flush();
   return out;
 }
 
@@ -291,7 +302,11 @@ function roleOf(node: AXNode): string {
 export function buildSnapshot(input: SnapshotInput): BrowserSnapshot {
   const t0 = performance.now();
   const opts = { ...DEFAULT_SNAPSHOT_LIMITS, ...stripUndefined(input.options ?? {}) };
-  const dom = new DomIndex(input.dom, input.dpr);
+  const dom =
+    input.wasPassword === undefined
+      ? new DomIndex(input.dom, input.dpr)
+      : new DomIndex(input.dom, input.dpr, { wasPassword: input.wasPassword });
+  for (const id of dom.passwordFields()) input.wasPassword?.add(id);
   // The vault's redaction, then the page's own secret field values (and card numbers) wherever
   // they appear in what is emitted.
   const redact0 = input.redact ?? ((s: string) => s);
@@ -572,7 +587,9 @@ export function buildSnapshot(input: SnapshotInput): BrowserSnapshot {
   const page = Math.min(Math.max(1, Math.floor(opts.page ?? 1)), pageCount);
   const pageLines = pages[page - 1] ?? [];
 
-  const largestOpaque = Math.max(0, ...dom.opaqueAreas);
+  // A loop, not a spread: a page with 100k+ canvases must not overflow the call stack.
+  let largestOpaque = 0;
+  for (const a of dom.opaqueAreas) if (a > largestOpaque) largestOpaque = a;
   const viewportArea = Math.max(1, vp.clientWidth * vp.clientHeight);
   const sparse =
     (kept < 3 && textChars < 100) ||
