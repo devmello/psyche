@@ -23,6 +23,8 @@ export interface CompactionMarkerProps {
   loadingReplaced?: boolean;
   /** The replaced turns once loaded, rendered under the summary. */
   replaced?: ReactNode;
+  /** Removes one standing instruction (the owner's own control); absent hides the action. */
+  onRemovePin?: (instruction: string) => void;
   /** Stories: start expanded. */
   defaultOpen?: boolean;
 }
@@ -38,6 +40,7 @@ export function CompactionMarker({
   onShowReplaced,
   loadingReplaced = false,
   replaced,
+  onRemovePin,
   defaultOpen = false,
 }: CompactionMarkerProps): ReactElement {
   const [open, setOpen] = useState(defaultOpen);
@@ -89,6 +92,18 @@ export function CompactionMarker({
                     {withUniqueKeys(c.summary[k]).map(([key, item]) => (
                       <li key={key} className="whitespace-pre-wrap">
                         {item}
+                        {k === "pinnedInstructions" && onRemovePin ? (
+                          <Button
+                            type="button"
+                            variant="ghost"
+                            size="sm"
+                            className="ms-2 h-6 px-2"
+                            aria-label={t("context.marker.removePinLabel", { text: item })}
+                            onClick={() => onRemovePin(item)}
+                          >
+                            {t("context.marker.removePin")}
+                          </Button>
+                        ) : null}
                       </li>
                     ))}
                   </ul>
@@ -96,6 +111,11 @@ export function CompactionMarker({
               ))
             )}
           </div>
+          {c.droppedPins && c.droppedPins.length > 0 ? (
+            <p className="text-xs text-muted-foreground">
+              {t("context.marker.droppedPins", { count: c.droppedPins.length })}
+            </p>
+          ) : null}
           {replaced ??
             (onShowReplaced ? (
               <div>

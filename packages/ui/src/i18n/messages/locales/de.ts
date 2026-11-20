@@ -595,6 +595,12 @@ export const de: Partial<Catalogue> = {
   "context.marker.readsInstead": "Die Zusammenfassung, die der Agent stattdessen liest:",
   "context.marker.empty": "Nichts Erhaltenswertes gefunden.",
   "context.marker.showReplaced": "Ersetztes anzeigen",
+  "context.marker.removePin": "Entfernen",
+  "context.marker.removePinLabel": "Diese ständige Anweisung entfernen: {text}",
+  "context.marker.pinRemoved": "Ständige Anweisung entfernt.",
+  "context.marker.pinRemoveFailed": "Konnte nicht entfernt werden: {reason}",
+  "context.marker.droppedPins":
+    "{count, plural, one {Eine ältere ständige Anweisung wurde} other {# ältere ständige Anweisungen wurden}} entfernt, um Platz für neue zu schaffen.",
   "context.marker.replacedList": "Ersetzte Züge",
   "context.marker.notLoaded": "Die ersetzten Züge sind hier nicht geladen.",
   "context.marker.speaker": "{name}:",

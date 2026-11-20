@@ -636,6 +636,12 @@ export const ar: Partial<Catalogue> = {
   "context.marker.readsInstead": "الملخص الذي يقرؤه الوكيل بدلًا منها:",
   "context.marker.empty": "لم يُعثر على شيء يستحق الاحتفاظ به.",
   "context.marker.showReplaced": "عرض ما تم استبداله",
+  "context.marker.removePin": "إزالة",
+  "context.marker.removePinLabel": "إزالة هذا التوجيه الدائم: {text}",
+  "context.marker.pinRemoved": "تمت إزالة التوجيه الدائم.",
+  "context.marker.pinRemoveFailed": "تعذّرت الإزالة: {reason}",
+  "context.marker.droppedPins":
+    "{count, plural, one {تم تجاهل توجيه دائم أقدم} two {تم تجاهل توجيهين دائمين أقدم} few {تم تجاهل # توجيهات دائمة أقدم} many {تم تجاهل # توجيهًا دائمًا أقدم} other {تم تجاهل # توجيه دائم أقدم}} لإفساح المجال للتوجيهات الجديدة.",
   "context.marker.replacedList": "الأدوار المستبدلة",
   "context.marker.notLoaded": "الأدوار المستبدلة غير محمّلة هنا.",
   "context.marker.speaker": "{name}:",

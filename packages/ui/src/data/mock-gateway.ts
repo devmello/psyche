@@ -1450,6 +1450,22 @@ export class MockGateway implements GatewayClient {
         threadLimits: this.world.contextLimits[p.threadId] ?? {},
       };
     },
+    "threads.summary.pins.remove": (p) => {
+      this.thread(p.threadId);
+      const key = (s: string) => s.replace(/\s+/g, " ").trim().toLowerCase();
+      let left: string[] = [];
+      for (const m of this.world.messages) {
+        if (m.threadId !== p.threadId) continue;
+        for (const b of m.blocks) {
+          if (b.type !== "compaction") continue;
+          b.summary.pinnedInstructions = b.summary.pinnedInstructions.filter(
+            (i) => key(i) !== key(p.instruction),
+          );
+          left = b.summary.pinnedInstructions;
+        }
+      }
+      return { pinnedInstructions: left };
+    },
     "threads.compact": (p) => {
       this.thread(p.threadId);
       if (this.world.runs.some((r) => r.threadId === p.threadId && r.status === "running"))

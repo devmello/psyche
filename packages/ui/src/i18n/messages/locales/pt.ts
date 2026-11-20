@@ -542,6 +542,12 @@ export const pt: Partial<Catalogue> = {
   "context.marker.readsInstead": "O resumo que o agente lê no lugar:",
   "context.marker.empty": "Nada que valesse a pena guardar foi encontrado.",
   "context.marker.showReplaced": "Mostrar o que foi substituído",
+  "context.marker.removePin": "Remover",
+  "context.marker.removePinLabel": "Remover esta instrução permanente: {text}",
+  "context.marker.pinRemoved": "Instrução permanente removida.",
+  "context.marker.pinRemoveFailed": "Não foi possível remover: {reason}",
+  "context.marker.droppedPins":
+    "{count, plural, one {Uma instrução permanente antiga foi descartada} other {# instruções permanentes antigas foram descartadas}} para dar lugar às novas.",
   "context.marker.replacedList": "Turnos substituídos",
   "context.marker.notLoaded": "Os turnos substituídos não estão carregados aqui.",
   "context.marker.speaker": "{name}:",

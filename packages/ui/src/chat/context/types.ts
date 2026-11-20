@@ -42,6 +42,8 @@ export interface CompactionView {
   replacedTurns: number;
   /** The utility model's plain-text summary, never Markdown. */
   summary: CompactionSummary;
+  /** Older standing instructions dropped to make room for new ones. */
+  droppedPins?: readonly string[];
   createdAt: string;
 }
 
@@ -76,6 +78,7 @@ export function compactionView(block: CompactionBlock, createdAt: string): Compa
     tokensAfter: block.tokensAfter,
     replacedTurns: block.replaced.turns,
     summary: block.summary,
+    droppedPins: block.droppedPins ?? [],
     createdAt,
   };
 }

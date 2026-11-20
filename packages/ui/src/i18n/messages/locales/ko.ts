@@ -579,6 +579,12 @@ export const ko: Partial<Catalogue> = {
   "context.marker.readsInstead": "에이전트가 대신 읽는 요약:",
   "context.marker.empty": "보존할 만한 내용이 없었습니다.",
   "context.marker.showReplaced": "대체된 내용 보기",
+  "context.marker.removePin": "삭제",
+  "context.marker.removePinLabel": "이 상시 지침 삭제: {text}",
+  "context.marker.pinRemoved": "상시 지침을 삭제했습니다.",
+  "context.marker.pinRemoveFailed": "삭제하지 못했습니다: {reason}",
+  "context.marker.droppedPins":
+    "{count, plural, other {이전 상시 지침 #개를 새 지침을 위한 공간을 만들기 위해 삭제했습니다.}}",
   "context.marker.replacedList": "대체된 턴",
   "context.marker.notLoaded": "대체된 턴은 여기에 로드되지 않았습니다.",
   "context.marker.speaker": "{name}:",

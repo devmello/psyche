@@ -595,6 +595,12 @@ export const hi: Partial<Catalogue> = {
   "context.marker.readsInstead": "इसके बदले एजेंट जो सारांश पढ़ता है:",
   "context.marker.empty": "रखने लायक कुछ नहीं मिला।",
   "context.marker.showReplaced": "दिखाएँ कि क्या बदला गया",
+  "context.marker.removePin": "हटाएँ",
+  "context.marker.removePinLabel": "यह स्थायी निर्देश हटाएँ: {text}",
+  "context.marker.pinRemoved": "स्थायी निर्देश हटा दिया गया।",
+  "context.marker.pinRemoveFailed": "हटाया नहीं जा सका: {reason}",
+  "context.marker.droppedPins":
+    "{count, plural, one {नए निर्देशों के लिए जगह बनाने हेतु एक पुराना स्थायी निर्देश हटाया गया।} other {नए निर्देशों के लिए जगह बनाने हेतु # पुराने स्थायी निर्देश हटाए गए।}}",
   "context.marker.replacedList": "बदले गए टर्न",
   "context.marker.notLoaded": "बदले गए टर्न यहाँ लोड नहीं हैं।",
   "context.marker.speaker": "{name}:",
