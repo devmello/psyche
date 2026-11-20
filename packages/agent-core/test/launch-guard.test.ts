@@ -1665,6 +1665,64 @@ describe("code.run and launch config", () => {
     });
   });
 
+  describe("#1469 review r5 probes", () => {
+    // T1: the run swaps `web` (the read-write parent of the owner's read-only web/.vscode) for a
+    // link to `evil/`, whose `.vscode` links outside, and leaves it there. The work the guard does
+    // through it, counted in fs calls under web/, must not depend on what the link leads to, and
+    // the folder behind it is listed only by the read the swap landed in: a try that already sees
+    // the swap reads nothing (#1469 review r5).
+    async function through(target: string) {
+      put("web/.vscode/settings.json", "{}");
+      const { use, runner, reports } = setup();
+      let armed = false;
+      let swapped = false;
+      let calls = 0;
+      let lists = 0;
+      acts(runner, "noop", () => {
+        armed = true;
+      });
+      const count = (path: string) => {
+        if (swapped && path.startsWith(join(repo, "web/"))) calls++;
+      };
+      hooks.readdir = (path) => {
+        count(path);
+        if (swapped && path === join(repo, "web/.vscode")) lists++;
+        if (!armed || swapped || path !== join(repo, "web/.vscode")) return;
+        swapped = true;
+        mkdirSync(join(repo, "evil"));
+        symlinkSync(target, join(repo, "evil", ".vscode"));
+        renameSync(join(repo, "web"), join(repo, "web.real"));
+        symlinkSync(join(repo, "evil"), join(repo, "web"));
+      };
+      hooks.lstat = count;
+      await use("code.open", { path: repo });
+      const r = await use("code.run", { root: repo, argv: ["noop"] });
+      hooks.readdir = undefined;
+      hooks.lstat = undefined;
+      expect(swapped).toBe(true);
+      return {
+        out: JSON.stringify(r.output.launchConfig),
+        calls,
+        lists,
+        unchecked: reports[0]?.unchecked,
+      };
+    }
+
+    it("T1: a swap that stays costs the same whatever the outside target holds", async () => {
+      const big = join(dir, "Big");
+      mkdirSync(big, { recursive: true });
+      for (let i = 0; i < 2000; i++) writeFileSync(join(big, `f${i}`), "");
+      const full = await through(big);
+      rmSync(repo, { recursive: true, force: true });
+      mkdirSync(join(repo, "src"), { recursive: true });
+      const none = await through(join(dir, "Nothing-Here"));
+      expect(full.calls).toBe(none.calls);
+      expect(full.lists).toBe(0);
+      expect(full.out).toBe(none.out);
+      expect(full.unchecked).toEqual(none.unchecked);
+    });
+  });
+
   // #1435 review r3, item 1: a symlinked `.claude`.
   it("treats a .claude linked outside the repository as known, and watches its settings", async () => {
     const elsewhere = join(dir, "dotfiles", "claude");

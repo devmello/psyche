@@ -754,27 +754,30 @@ async function prints(
     while (queue.length > 0 && budget > 0) {
       const dir = queue.shift() as string;
       // Kept only when the folder was the repository's throughout, so a folder outside never
-      // spends the budget either.
-      const got = await within(dir, async () => {
-        const files: [string, string][] = [];
-        const dirs: string[] = [];
-        let seen = 0;
-        for (const d of await readdir(join(root, dir), { withFileTypes: true })) {
-          if (seen++ >= budget) break;
-          const child = `${dir}/${d.name}`;
-          if (d.isDirectory()) {
-            dirs.push(child);
-            continue;
-          }
-          const r = await read(child);
-          if (r !== undefined) files.push([child, r.p]);
-        }
-        return { files, dirs, seen };
+      // spends the budget either. The listing and the reads are two windows (#1469 review r5):
+      // a folder swapped while it was listed reads none of its entries, and one swapped after is
+      // seen by the reads' pre-check, so a swap costs the same whatever the folder now leads to.
+      const listed = await within(dir, async () => {
+        const entries = (await readdir(join(root, dir), { withFileTypes: true })).slice(0, budget);
+        return entries.map((d) => ({ child: `${dir}/${d.name}`, isDir: d.isDirectory() }));
       });
-      if (got === undefined) continue;
-      budget -= got.seen;
-      for (const [child, p] of got.files) set(child, p, folder);
-      queue.push(...got.dirs);
+      if (listed === undefined) continue;
+      const names = listed.filter((e) => !e.isDir).map((e) => e.child);
+      const files =
+        names.length === 0
+          ? []
+          : await within(dir, async () => {
+              const got: [string, string][] = [];
+              for (const child of names) {
+                const r = await read(child);
+                if (r !== undefined) got.push([child, r.p]);
+              }
+              return got;
+            });
+      if (files === undefined) continue;
+      budget -= listed.length;
+      for (const [child, p] of files) set(child, p, folder);
+      queue.push(...listed.filter((e) => e.isDir).map((e) => e.child));
     }
   };
   const gitFolder = async (git: string) => {
