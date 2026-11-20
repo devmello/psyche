@@ -340,9 +340,9 @@ impl VscreenManager {
         let mut cfg = DisplayConfig::new(w, h);
         cfg.first_display = self.config.first_display;
         cfg.xvfb_path = self.config.xvfb_path.clone();
-        if let Some(rt) = &self.config.xdg_runtime_dir {
-            cfg.runtime_dir = Some(rt.clone());
-        }
+        // The manager's runtime dir, set or not: the auth file, the session and the sweep must all
+        // agree on where the screen's files are.
+        cfg.runtime_dir = self.config.xdg_runtime_dir.clone();
         let display = VirtualDisplay::start(&cfg).map_err(|e| {
             let missing = e.contains("could not start");
             VsError::new(
