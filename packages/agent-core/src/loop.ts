@@ -79,6 +79,7 @@ import {
 } from "./builtins/turn.ts";
 import {
   type CompactionPolicy,
+  type CompactionReply,
   containsUntrusted,
   DEFAULT_COMPACTION_POLICY,
   estimateBreakdown,
@@ -229,16 +230,23 @@ export const DEFAULT_COMPACT_AT = 0.8;
 export const DEFAULT_COMPACT_MAX_TOKENS = 160_000;
 export const DEFAULT_KEEP_RECENT_TURNS = 4;
 
-/** The start of the first message that stays after a compaction (names the cut for the summarizer). */
-function keptFromText(recent: readonly ModelMessage[]): string | undefined {
-  const first = recent[0];
-  if (first === undefined) return undefined;
-  for (const p of first.parts) {
-    if (p.type !== "text" || p.turnContext === true || p.text === TURN_CONTEXT_STUB) continue;
-    const text = p.text.replace(/\s+/g, " ").replace(/"/g, "'").trim();
-    if (text !== "") return text.slice(0, safeEnd(text, 120));
+/** Previous standing instructions first, then new ones, without repeats; the oldest go past the cap. */
+export function carryPinned(previous: readonly string[], added: readonly string[]): string[] {
+  const seen = new Set<string>();
+  const out: string[] = [];
+  for (const item of [...previous, ...added]) {
+    const key = item.replace(/\s+/g, " ").trim().toLowerCase();
+    if (key === "" || seen.has(key)) continue;
+    seen.add(key);
+    out.push(item);
   }
-  return undefined;
+  return out.slice(-PINNED_CAP);
+}
+const PINNED_CAP = 40;
+
+/** How many user messages stay after a compaction (the summarizer is told the cut by count). */
+function keptUserMessages(recent: readonly ModelMessage[]): number {
+  return recent.filter((m) => m.role === "user" && m.parts.some((p) => p.type === "text")).length;
 }
 
 /** What a compaction did, for the Gateway's `compaction` block and audit entry. */
@@ -495,6 +503,8 @@ interface RunState {
   turnContext?: string;
   /** The sections behind `turnContext`, for "what the model saw" (`explainContext`). */
   turnSections?: ContextSection[];
+  /** The in-place summarizer failed this run: later compactions of it use the standalone request. */
+  inPlaceFailed?: boolean;
   /** The compaction summary, sent as the first retained message and not in `system`. */
   summarySection?: ContextSection;
   /**
@@ -1956,7 +1966,8 @@ export class PsycheAgentLoop implements AgentLoop {
     if (older.length === 0) return false;
     // Never fold a call whose result has not come back (an approval still pending).
     if (hasUnansweredToolCalls(older)) return false;
-    const untrusted = containsUntrusted(older) || run.thread.summary?.untrusted === true;
+    const priorUntrusted = run.thread.summary?.untrusted === true;
+    let untrusted = containsUntrusted(older) || priorUntrusted;
     const signal = run.abort.signal;
     const memory = this.#o.memory;
     const incognito = this.#o.isIncognito?.(run.threadId) === true;
@@ -1984,32 +1995,42 @@ export class PsycheAgentLoop implements AgentLoop {
     }
     let structured: CompactionSummary;
     let notes: string[] = [];
+    const utility = this.#o.utilityModel ?? run.model;
+    const standalone = () =>
+      summarizeWithNotes(
+        this.#o.provider,
+        utility,
+        run.thread.summary?.structured,
+        run.thread.summary?.structured === undefined ? run.thread.summary?.text : undefined,
+        older,
+        this.#policy,
+        { signal },
+      );
     try {
-      const utility = this.#o.utilityModel ?? run.model;
+      let reply: CompactionReply | undefined;
       // On the run's own model the summarizer is a fork of the loop's request, so the provider
       // serves the history from its cache. A different (cheaper) utility model has no such cache:
       // it gets the standalone request, which costs less than cached reads on the primary model.
-      const reply =
-        prefix !== undefined && utility === run.model
-          ? await (async () => {
-              const messages = structuredClone(this.#requestMessages(run));
-              stubTurnContext(messages);
-              return summarizeInPlace(
-                this.#o.provider,
-                { ...prefix, model: run.model, messages },
-                keptFromText(recent),
-                { signal },
-              );
-            })()
-          : await summarizeWithNotes(
-              this.#o.provider,
-              utility,
-              run.thread.summary?.structured,
-              run.thread.summary?.structured === undefined ? run.thread.summary?.text : undefined,
-              older,
-              this.#policy,
-              { signal },
-            );
+      if (prefix !== undefined && utility === run.model && run.inPlaceFailed !== true) {
+        const messages = structuredClone(this.#requestMessages(run));
+        stubTurnContext(messages);
+        try {
+          reply = await summarizeInPlace(
+            this.#o.provider,
+            { ...prefix, model: run.model, messages },
+            keptUserMessages(recent),
+            { signal },
+          );
+          // It read every message sent, the turns that stay included: the summary is as
+          // untrusted as anything in them (and in the previous summary).
+          untrusted = containsUntrusted(messages) || untrusted;
+        } catch {
+          this.#checkAbort(run);
+          // Once per run: fall back to the standalone request now, and do not fork again.
+          run.inPlaceFailed = true;
+        }
+      }
+      reply ??= await standalone();
       structured = reply.summary;
       notes = reply.dailyNoteLines;
     } catch {
@@ -2017,6 +2038,14 @@ export class PsycheAgentLoop implements AgentLoop {
       this.#checkAbort(run);
       return false;
     }
+    // Standing instructions are carried over mechanically, never left to the model to copy.
+    structured = {
+      ...structured,
+      pinnedInstructions: carryPinned(
+        run.thread.summary?.structured?.pinnedInstructions ?? [],
+        structured.pinnedInstructions,
+      ),
+    };
     if (merged && !incognito && notes.length > 0) {
       try {
         // The summarizer read the same stubbed turns; the lines are tainted like the flush's were.
