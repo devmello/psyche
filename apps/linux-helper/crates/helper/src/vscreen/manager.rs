@@ -685,12 +685,31 @@ impl VscreenManager {
             .filter(|w| w.map_serial > serial)
             .collect();
         let escaped = escaped_window(&since, &unit, root_pid, procs);
+        // Ours by descent, outside the caps and our stop: end it too. Pin it with a pidfd before
+        // the stop below (which can take a while and reaps the root process), so the signal can
+        // only reach the process we judged, never a later one that got its pid.
+        let mut pinned = None;
+        let mut signal_note = String::new();
+        if let Some(esc) = &escaped {
+            let fd = (esc.pid != root_pid)
+                .then(|| PidFd::open(esc.pid))
+                .flatten();
+            let now = fd.as_ref().and_then(|_| procs.start_time(esc.pid));
+            match escape_action(esc, root_pid, fd.is_some(), now) {
+                EscapeAction::Signal => pinned = fd,
+                EscapeAction::Skip(why) => signal_note = format!("; not signalled: {why}"),
+            }
+        }
         self.drop_app(&unit);
+        if let Some(fd) = pinned {
+            if let Err(e) = fd.signal(libc::SIGTERM) {
+                signal_note = format!("; signal failed: {e}");
+            } else {
+                signal_note = "; sent SIGTERM".to_string();
+            }
+        }
         match escaped {
             Some(esc) => {
-                // Ours by descent, outside the caps and our stop: end it too.
-                // SAFETY: signalling a process that descends from the one we just started.
-                unsafe { libc::kill(esc.pid as libc::pid_t, libc::SIGTERM) };
                 let (reason, message) = if esc.snap {
                     (
                         "snap_unsupported",
@@ -706,7 +725,7 @@ impl VscreenManager {
                     )
                 };
                 Err(VsError::new(reason, message).with_detail(&format!(
-                    "{} escaped its scope {unit}: pid {} in {}",
+                    "{} escaped its scope {unit}: pid {} in {}{signal_note}",
                     entry.id,
                     esc.pid,
                     esc.cgroup.trim()
@@ -1158,6 +1177,73 @@ pub struct Escaped {
     pub pid: u32,
     pub cgroup: String,
     pub snap: bool,
+    /// Its start time when it was judged ours, to tell it from a later process with its pid.
+    pub start_time: Option<u64>,
+}
+
+/// What to do with an escaped process before the launch is undone.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum EscapeAction {
+    /// Send it SIGTERM through the pidfd.
+    Signal,
+    /// Leave it, for the reason given (it goes into the error detail).
+    Skip(&'static str),
+}
+
+/// Whether to signal the escaped process: only when it isn't the launched process itself (the
+/// stop ends and reaps that one, after which its pid is free), a pidfd pins it, and the pinned
+/// process started when the judged one did.
+pub fn escape_action(
+    esc: &Escaped,
+    root_pid: u32,
+    pinned: bool,
+    start_now: Option<u64>,
+) -> EscapeAction {
+    if esc.pid == root_pid {
+        return EscapeAction::Skip("it is the launched process, which the stop ends");
+    }
+    if !pinned {
+        return EscapeAction::Skip("pidfd_open failed, so it could not be pinned");
+    }
+    match (esc.start_time, start_now) {
+        (Some(then), Some(now)) if then == now => EscapeAction::Signal,
+        (Some(_), Some(_)) => EscapeAction::Skip("its start time changed, so the pid was reused"),
+        _ => EscapeAction::Skip("its start time could not be read"),
+    }
+}
+
+/// A pidfd: a handle on one process that a later process with the same pid can't take over.
+struct PidFd(std::os::fd::OwnedFd);
+
+impl PidFd {
+    fn open(pid: u32) -> Option<PidFd> {
+        use std::os::fd::FromRawFd;
+        let pid = libc::pid_t::try_from(pid).ok()?;
+        // SAFETY: pidfd_open takes a pid and flags and returns a new fd or -1.
+        let fd = unsafe { libc::syscall(libc::SYS_pidfd_open, pid, 0) };
+        let fd = i32::try_from(fd).ok().filter(|&fd| fd >= 0)?;
+        // SAFETY: `fd` is a fresh descriptor that nothing else owns.
+        Some(PidFd(unsafe { std::os::fd::OwnedFd::from_raw_fd(fd) }))
+    }
+
+    fn signal(&self, sig: libc::c_int) -> std::io::Result<()> {
+        use std::os::fd::AsRawFd;
+        // SAFETY: a valid pidfd, a signal number, no siginfo, no flags.
+        let r = unsafe {
+            libc::syscall(
+                libc::SYS_pidfd_send_signal,
+                self.0.as_raw_fd(),
+                sig,
+                std::ptr::null::<libc::siginfo_t>(),
+                0,
+            )
+        };
+        if r == 0 {
+            Ok(())
+        } else {
+            Err(std::io::Error::last_os_error())
+        }
+    }
 }
 
 /// Whether `pid` is `ancestor` or descends from it (at most 64 steps up).
@@ -1190,6 +1276,7 @@ pub fn escaped_window(
             pid,
             snap: snap_cgroup(&cgroup),
             cgroup,
+            start_time: procs.start_time(pid),
         })
     })
 }
@@ -1419,6 +1506,9 @@ mod tests {
         fn parent(&self, pid: u32) -> Option<u32> {
             self.0.get(&pid).map(|p| p.2)
         }
+        fn start_time(&self, pid: u32) -> Option<u64> {
+            self.0.contains_key(&pid).then_some(9000 + u64::from(pid))
+        }
     }
 
     const UNIT: &str = "psyche-vs-1.2.3-libreoffice-writer-4";
@@ -1508,6 +1598,7 @@ mod tests {
                 pid: 300,
                 cgroup: p.cgroup_text(300),
                 snap: true,
+                start_time: Some(9300),
             })
         );
         // A grandchild that moved into some other scope: escaped, not a snap.
@@ -1543,5 +1634,65 @@ mod tests {
         std::os::unix::fs::symlink(&script, &link).unwrap();
         assert_eq!(script_head(&link), None, "a symlink is not followed");
         assert_eq!(script_head(dir.path()), None, "a directory");
+    }
+
+    #[test]
+    fn an_escaped_process_is_signalled_only_when_pinned_and_unchanged() {
+        let p = procs();
+        let esc = escaped_window(&[win_of(300)], UNIT, 100, &p).unwrap();
+        assert_eq!(esc.start_time, Some(9300));
+        // Pinned, same start time: signal.
+        assert_eq!(
+            escape_action(&esc, 100, true, Some(9300)),
+            EscapeAction::Signal
+        );
+        // The pid now names a later process.
+        assert!(matches!(
+            escape_action(&esc, 100, true, Some(9301)),
+            EscapeAction::Skip(why) if why.contains("reused")
+        ));
+        // Gone before the re-check, or never pinned.
+        assert!(matches!(
+            escape_action(&esc, 100, true, None),
+            EscapeAction::Skip(_)
+        ));
+        assert!(matches!(
+            escape_action(&esc, 100, false, Some(9300)),
+            EscapeAction::Skip(why) if why.contains("pidfd_open")
+        ));
+        // The launched process itself: the stop ends and reaps it, so never signalled here.
+        let root = Escaped {
+            pid: 100,
+            ..esc.clone()
+        };
+        assert!(matches!(
+            escape_action(&root, 100, true, Some(9300)),
+            EscapeAction::Skip(why) if why.contains("launched process")
+        ));
+        // No start time when judged: nothing to compare, so no signal.
+        let unknown = Escaped {
+            start_time: None,
+            ..esc
+        };
+        assert!(matches!(
+            escape_action(&unknown, 100, true, Some(9300)),
+            EscapeAction::Skip(_)
+        ));
+    }
+
+    #[test]
+    fn a_pidfd_pins_and_signals_its_own_process() {
+        let mut child = std::process::Command::new("sleep")
+            .arg("30")
+            .spawn()
+            .unwrap();
+        let fd = PidFd::open(child.id()).expect("pidfd_open on our child");
+        fd.signal(libc::SIGTERM).unwrap();
+        let status = child.wait().unwrap();
+        use std::os::unix::process::ExitStatusExt;
+        assert_eq!(status.signal(), Some(libc::SIGTERM));
+        // Reaped: the pidfd still names that process, so a signal can't reach a newcomer.
+        assert!(fd.signal(libc::SIGTERM).is_err());
+        assert!(PidFd::open(u32::MAX).is_none());
     }
 }

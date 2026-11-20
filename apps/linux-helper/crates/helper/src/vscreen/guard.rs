@@ -43,6 +43,11 @@ pub trait Procs: Send + Sync {
     fn parent(&self, _pid: u32) -> Option<u32> {
         None
     }
+    /// The start time (`/proc/<pid>/stat` field 22, clock ticks since boot), `None` when the
+    /// process is gone. With the pid it names one process for good: a reused pid starts later.
+    fn start_time(&self, _pid: u32) -> Option<u64> {
+        None
+    }
 }
 
 /// The parent pid in a `/proc/<pid>/stat` line (field 4, counted after the last `)`).
@@ -301,6 +306,12 @@ impl Procs for ProcFs {
 
     fn parent(&self, pid: u32) -> Option<u32> {
         parent_from_stat(&std::fs::read_to_string(format!("/proc/{pid}/stat")).ok()?)
+    }
+
+    fn start_time(&self, pid: u32) -> Option<u64> {
+        super::sweep::start_time_from_stat(
+            &std::fs::read_to_string(format!("/proc/{pid}/stat")).ok()?,
+        )
     }
 }
 
