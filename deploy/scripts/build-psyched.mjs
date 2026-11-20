@@ -650,20 +650,34 @@ async function smoke(bundle) {
       env: smokeEnv({ PSYCHE_HOME: home, PSYCHE_PORT: "0", PSYCHE_BROWSER: "off" }),
       stdio: ["ignore", "ignore", "pipe"],
     });
+    const LISTENING = /"msg":"gateway listening","origin":"(http:\/\/127\.0\.0\.1:\d+)"/;
+    // The Gateway logs to $PSYCHE_HOME/logs/gateway.log (it rotates its own file); stderr only
+    // carries what could not reach the file. Read both.
     const origin = await new Promise((ok, fail) => {
       let buf = "";
-      const t = setTimeout(() => fail(new Error(`psyched did not start:\n${buf}`)), 30_000);
+      const logFile = join(home, "logs", "gateway.log");
+      const done = (fn, v) => {
+        clearTimeout(t);
+        clearInterval(poll);
+        fn(v);
+      };
+      const look = () => {
+        let text = buf;
+        try {
+          text += readFileSync(logFile, "utf8");
+        } catch {}
+        const m = LISTENING.exec(text);
+        if (m) done(ok, m[1]);
+      };
+      const t = setTimeout(() => done(fail, new Error(`psyched did not start:\n${buf}`)), 30_000);
+      const poll = setInterval(look, 100);
       child.stderr.on("data", (d) => {
         buf += String(d);
-        const m = /"msg":"gateway listening","origin":"(http:\/\/127\.0\.0\.1:\d+)"/.exec(buf);
-        if (m) {
-          clearTimeout(t);
-          ok(m[1]);
-        }
+        look();
       });
       child.on("exit", (code) => {
-        clearTimeout(t);
-        fail(new Error(`psyched exited ${code}:\n${buf}`));
+        look();
+        done(fail, new Error(`psyched exited ${code}:\n${buf}`));
       });
     });
     const health = await (await fetch(`${origin}/healthz`)).json();
