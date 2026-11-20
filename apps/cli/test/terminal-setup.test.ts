@@ -326,60 +326,83 @@ describe("presence_required explains the matching recovery command", () => {
 
 describe("the Host secret", () => {
   const SECRET = "launch-secret";
-  const homeWithSecret = (extra: Record<string, unknown> = {}) => {
-    const deps = makeDeps({ extraEnv: extra as never });
+  /** A home as a running Gateway leaves it: the secret and, unless `listen` is null, listen.json. */
+  const homeWith = (listen: string[] | null) => {
+    const deps = makeDeps();
     mkdirSync(join(deps.home, "run"), { recursive: true });
     writeFileSync(join(deps.home, "run", "handshake.secret"), `${SECRET}\n`);
+    if (listen !== null) {
+      writeFileSync(join(deps.home, "run", "listen.json"), JSON.stringify({ origins: listen }));
+    }
     return deps;
   };
   const listDevices = (deps: TestDeps) => run(["devices", "list", ...urlArgs(deps)], deps);
+  const sent = () => gw.connects.at(-1)?.handshakeSecret;
 
-  it("is sent to this machine's own Gateway (the port in this home's config.json)", async () => {
+  it("is sent when the URL is exactly an origin the Gateway says it is bound to", async () => {
     await start();
-    const deps = homeWithSecret();
-    const port = Number(new URL(gw.origin).port);
-    writeFileSync(join(deps.home, "config.json"), JSON.stringify({ gateway: { port } }));
-    expect(await listDevices(deps)).toBe(0);
+    expect(await listDevices(homeWith([gw.origin]))).toBe(0);
     expect(gw.connects.at(-1)).toMatchObject({ deviceFamily: "cli", handshakeSecret: SECRET });
   });
 
-  it("is sent to the default local URL (PSYCHE_PORT)", async () => {
+  it("is not sent to a port the Gateway is not bound to (even a loopback one)", async () => {
     await start();
     const port = new URL(gw.origin).port;
-    const deps = homeWithSecret({ PSYCHE_PORT: port });
-    expect(await listDevices(deps)).toBe(0);
-    expect(gw.connects.at(-1)?.handshakeSecret).toBe(SECRET);
+    const other = `http://127.0.0.1:${Number(port) + 1}`;
+    expect(await listDevices(homeWith([other]))).toBe(0);
+    expect(sent()).toBeUndefined();
   });
 
-  it("is not sent to a loopback --url on a different port (an ssh -L to another Host)", async () => {
+  it("is not sent when listen.json is missing (no Gateway running here, or an old one)", async () => {
     await start();
-    const deps = homeWithSecret();
-    writeFileSync(join(deps.home, "config.json"), JSON.stringify({ gateway: { port: 7001 } }));
-    expect(await listDevices(deps)).toBe(0);
-    expect(gw.connects.at(-1)).toMatchObject({ deviceFamily: "cli" });
-    expect(gw.connects.at(-1)?.handshakeSecret).toBeUndefined();
+    expect(await listDevices(homeWith(null))).toBe(0);
+    expect(sent()).toBeUndefined();
   });
 
-  it("is not sent when there is no secret file", async () => {
+  it("is not sent for localhost, even when the Gateway is on 127.0.0.1 at that port", async () => {
     await start();
-    const deps = makeDeps({ extraEnv: { PSYCHE_PORT: new URL(gw.origin).port } });
-    expect(await listDevices(deps)).toBe(0);
-    expect(gw.connects.at(-1)?.handshakeSecret).toBeUndefined();
+    const url = new URL(gw.origin);
+    const deps = homeWith([gw.origin]);
+    expect(
+      await run(
+        ["devices", "list", "--url", `http://localhost:${url.port}`, "--home", deps.home],
+        deps,
+      ),
+    ).toBe(0);
+    expect(sent()).toBeUndefined();
   });
 
-  it("isOwnGatewayUrl: loopback http on a known port only", () => {
-    const home = makeDeps().home;
-    const env = { PSYCHE_PORT: "7777" };
+  it("is not sent when the file lists a different host than the URL", async () => {
+    await start();
+    const deps = homeWith([`http://[::1]:${new URL(gw.origin).port}`]);
+    expect(await listDevices(deps)).toBe(0);
+    expect(sent()).toBeUndefined();
+  });
+
+  it("is not sent when listen.json is unreadable or malformed", async () => {
+    await start();
+    for (const bad of ["not json", JSON.stringify({ origins: "x" }), JSON.stringify({})]) {
+      const deps = homeWith(null);
+      writeFileSync(join(deps.home, "run", "listen.json"), bad);
+      expect(await listDevices(deps)).toBe(0);
+      expect(sent()).toBeUndefined();
+    }
+  });
+
+  it("isOwnGatewayUrl: scheme, host and port must equal a listed origin exactly", () => {
+    const deps = homeWith(["http://127.0.0.1:7979", "http://[::1]:8000"]);
     for (const [url, want] of [
-      ["http://127.0.0.1:7777", true],
-      ["http://localhost:7777", true],
-      ["http://[::1]:7777", true],
-      ["http://127.0.0.1:7778", false],
-      ["https://127.0.0.1:7777", false],
-      ["http://gateway.example:7777", false],
-      ["http://100.64.0.9:7777", false],
+      ["http://127.0.0.1:7979", true],
+      ["http://[::1]:8000", true],
+      ["http://[::1]:7979", false],
+      ["http://127.0.0.1:8000", false],
+      ["http://127.0.0.1:7980", false],
+      ["http://localhost:7979", false],
+      ["https://127.0.0.1:7979", false],
+      ["http://gateway.example:7979", false],
+      ["http://100.64.0.9:7979", false],
     ] as const) {
-      expect([url, isOwnGatewayUrl(new URL(url), env, home)]).toEqual([url, want]);
+      expect([url, isOwnGatewayUrl(new URL(url), deps.home)]).toEqual([url, want]);
     }
   });
 });
