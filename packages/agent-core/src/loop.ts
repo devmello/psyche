@@ -218,6 +218,14 @@ export interface FinishTurnContext {
 
 const NOTIFY_TOOL = "notify";
 export const DEFAULT_NOTIFY_BUDGET = 3;
+
+/** The broker refused the approval card because its details nest deeper than a card shows. */
+const cardTooDeep = (err: unknown): boolean =>
+  err instanceof PsycheError &&
+  err.code === "invalid_params" &&
+  (err.details as { reason?: unknown } | undefined)?.reason === "details_too_deep";
+const CARD_TOO_DEEP_MESSAGE =
+  "not run: the arguments are nested too deeply to show on an approval card. Call the tool again with flatter arguments (fewer nested objects or lists).";
 /** One budget per Task (an automation's run is one), else per run. */
 const notifyKey = (run: { taskId?: string; runId: string }) =>
   run.taskId === undefined ? `run:${run.runId}` : `task:${run.taskId}`;
@@ -3079,42 +3087,52 @@ export class PsycheAgentLoop implements AgentLoop {
       const approval =
         adopted ??
         (
-          await this.#o.broker.requestApproval({
-            context,
-            kind: approvalKind,
-            summary: desc.summary ?? `${call.name}`,
-            details: {
-              ...desc.details,
-              tool: call.name,
-              params: structuredClone(args) as unknown,
+          await this.#o.broker
+            .requestApproval({
+              context,
+              kind: approvalKind,
+              summary: desc.summary ?? `${call.name}`,
+              details: {
+                ...desc.details,
+                tool: call.name,
+                params: structuredClone(args) as unknown,
+                ...(target === undefined ? {} : { target }),
+              },
+              bindingHash: binding,
+              grantKey: decision.grantKey ?? grantKey ?? `${call.name}|${target?.value ?? "*"}`,
+              requestedBy: {
+                runId: run.runId,
+                taskId: run.taskId ?? null,
+                threadId: run.threadId,
+                toolCallId: call.id,
+              },
+              sideEffect,
+              ...((target?.kind ?? reg.spec.targetKind)
+                ? { targetKind: target?.kind ?? reg.spec.targetKind }
+                : {}),
               ...(target === undefined ? {} : { target }),
-            },
-            bindingHash: binding,
-            grantKey: decision.grantKey ?? grantKey ?? `${call.name}|${target?.value ?? "*"}`,
-            requestedBy: {
-              runId: run.runId,
-              taskId: run.taskId ?? null,
-              threadId: run.threadId,
-              toolCallId: call.id,
-            },
-            sideEffect,
-            ...((target?.kind ?? reg.spec.targetKind)
-              ? { targetKind: target?.kind ?? reg.spec.targetKind }
-              : {}),
-            ...(target === undefined ? {} : { target }),
-            surfaces: this.#o.approvalSurfaces ?? ["desktop"],
-            // Protected memory "always asks" (security §8): no standing grant may cover it.
-            ...(approvalKind === "memory_protected_write"
-              ? { scopesOffered: ["once" as const] }
-              : decision.scopesOffered === undefined
-                ? {}
-                : { scopesOffered: decision.scopesOffered }),
-            // Taint sources travel on `context`, where the Gateway can add what it knows (#71).
-            taint: run.taint,
-            // Unattended: the run goes on without it; approving starts a resume run (Gateway).
-            ...(run.mode === "unattended" ? { setAside: true as const } : {}),
-          })
-        ).approval;
+              surfaces: this.#o.approvalSurfaces ?? ["desktop"],
+              // Protected memory "always asks" (security §8): no standing grant may cover it.
+              ...(approvalKind === "memory_protected_write"
+                ? { scopesOffered: ["once" as const] }
+                : decision.scopesOffered === undefined
+                  ? {}
+                  : { scopesOffered: decision.scopesOffered }),
+              // Taint sources travel on `context`, where the Gateway can add what it knows (#71).
+              taint: run.taint,
+              // Unattended: the run goes on without it; approving starts a resume run (Gateway).
+              ...(run.mode === "unattended" ? { setAside: true as const } : {}),
+            })
+            .catch((err: unknown) => {
+              // A card that can't show its details in full is never raised (the broker refuses it).
+              // That is the call's error, not the run's: the model can call again with flatter arguments.
+              if (cardTooDeep(err)) return undefined;
+              throw err;
+            })
+        )?.approval;
+      if (approval === undefined) {
+        return this.#blocked(run, call, CARD_TOO_DEEP_MESSAGE, "failed", gated, "details_too_deep");
+      }
       const approvalId = approval.id;
       gated.approvalId = approvalId;
       if (decision.rule === "notify:budget") {

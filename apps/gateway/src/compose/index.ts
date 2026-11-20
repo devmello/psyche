@@ -15,7 +15,14 @@ import {
 } from "@psyche/audit";
 import { redactUrl } from "@psyche/browser";
 import type { ConnectorRegistry } from "@psyche/connectors";
-import { getDevice, getSetting, getThread, type PsycheDb, setSetting } from "@psyche/db";
+import {
+  getDevice,
+  getSetting,
+  getThread,
+  listDevices,
+  type PsycheDb,
+  setSetting,
+} from "@psyche/db";
 import { fileTools } from "@psyche/files";
 import {
   brokerApprovalCheck,
@@ -55,6 +62,7 @@ import {
   DENY_ALL_LOOPBACK,
   type FolderGrantEntry,
   type LocalProjectVerifier,
+  type PolicyApprovalInput,
   type PolicyConfig,
   type PresenceVerifier,
   PsychePermissionBroker,
@@ -822,6 +830,20 @@ export async function composeGateway(options: ComposeOptions): Promise<ComposedG
         }
         return false;
       },
+    },
+    // A phone or tablet taps a device-only card on its own `device:<deviceId>` surface (a plain tap,
+    // owner's decision 2026-11-09). Only paired, unrevoked operator devices the seal still trusts
+    // with `operator.approvals`; the desktop and web have their own surfaces, nodes never answer.
+    deviceSurfaces: () => {
+      seal.ensure();
+      return listDevices(db)
+        .filter((d) => d.pairedAt !== null && !d.revokedAt && d.role !== "node")
+        .filter((d) => surfaceOf(db, d.id).startsWith("device:"))
+        .filter((d) => {
+          const authz = seal.authorizeDevice(d);
+          return authz.ok && authz.scopes.includes("operator.approvals");
+        })
+        .map((d) => surfaceOf(db, d.id));
     },
     store: sealedPermissionStore(new SqlitePermissionStore(db.sqlite), seal),
     audit,
@@ -2826,11 +2848,16 @@ function withRelay<B extends PermissionBroker>(
       if (prop === "requestApproval") {
         return async (input: ApprovalRequestInput) => {
           const extra = relays.flatMap((r) => r.surfaces());
-          const issued = await target.requestApproval(
-            extra.length === 0
-              ? input
-              : { ...input, surfaces: [...new Set([...input.surfaces, ...extra])] },
-          );
+          // Decided on the caller's own surfaces, before the relays add theirs: the Mac helper's
+          // `notification` must not put a `["desktop"]` card on the phone (broker `offMac`).
+          const offMac = input.surfaces.some((s) => s === "notification" || s === "web");
+          const withOffMac: PolicyApprovalInput = {
+            ...input,
+            offMac,
+            surfaces:
+              extra.length === 0 ? input.surfaces : [...new Set([...input.surfaces, ...extra])],
+          };
+          const issued = await target.requestApproval(withOffMac);
           deliver(issued);
           return issued;
         };
