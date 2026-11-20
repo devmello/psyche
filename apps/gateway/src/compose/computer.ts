@@ -1052,6 +1052,9 @@ export function createComputerUse(deps: ComputerDeps): ComputerUse {
               );
             }
             const node = await requireHelper(call.signal);
+            // B3: after every wait above, and with nothing awaited before the send, the owner's
+            // take-over and a parked unsaved-changes card still stop the call (headless-screen.ts).
+            deps.headlessScreen?.()?.assertAgentMayAct(call.signal);
             return node.client.invoke(
               call.capability,
               { ...call.params, surface: "virtual_screen" },
@@ -1222,7 +1225,7 @@ export function createComputerUse(deps: ComputerDeps): ComputerUse {
     // a session is acquired, so a refusal leaves no phantom session holding the surface.
     if (
       router !== undefined &&
-      router === headlessHostRouter &&
+      router === gatedHeadlessRouter &&
       (await deps.graphicalSession?.()) === true
     ) {
       throw new PsycheError(
