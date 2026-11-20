@@ -51,6 +51,8 @@ export const Thread = Type.Object(
      * read-only: no new message, no restore, no fork, and their turns are untrusted data.
      */
     imported: Type.Optional(StringEnum(["claude", "chatgpt"], { $id: "ThreadImportSource" })),
+    /** The Space this chat is in, at most one (docs/design/spaces-2026.md §4.1). */
+    spaceId: Nullable(Id),
   },
   { $id: "Thread" },
 );
