@@ -314,7 +314,7 @@ async function connectMacHelper(c: ComposedGateway) {
 
 describe("which cards a phone gets a token for", () => {
   type Over = {
-    kind: "skill_install" | "send_message";
+    kind: "skill_install" | "calendar_write";
     surfaces: readonly string[];
     sideEffect: "write" | "destructive";
   };
@@ -333,7 +333,7 @@ describe("which cards a phone gets a token for", () => {
   // A script or install card (scripts.ts, skills.ts, capabilities.ts): its caller keeps it on the Mac.
   const script: Over = { kind: "skill_install", surfaces: ["desktop"], sideEffect: "destructive" };
   const routine: Over = {
-    kind: "send_message",
+    kind: "calendar_write",
     surfaces: ["desktop", "notification"],
     sideEffect: "write",
   };
