@@ -1,6 +1,6 @@
 ---
-title: Tasks and automations
----
+
+## title: Tasks and automations
 
 # Tasks and automations
 
@@ -79,6 +79,16 @@ An automation runs with nobody watching. The agent is told so, and:
 - Any action that needs approval is **not attempted**. It is set aside, the run carries on without it, and one notice covers every waiting action: "N actions are waiting from your automations".
 - If there is nothing worth telling you, the run ends silently.
 - Notifying you of the result needs no approval.
+
+### Keeping the computer awake and retries
+
+Settings → Daily → "Keep this computer awake" is off by default. When it is on and a scheduled or automation run is in progress, the computer will not sleep until the run finishes. The display can still turn off. The hold is released as soon as no run is active, and it cannot outlive Psyche: the sleep block ends when the Gateway process exits. It works only on macOS; on other systems the setting does nothing.
+
+If a scheduled run fails with a temporary model error (the provider is overloaded, rate limiting, or a server error such as 429, 500, 502, 503, 504 or 529), Psyche tries again up to three times, after about 1, 5 and 15 minutes (a little random extra time is added). Scheduled shows "Retrying at" with the time of the next try, and "Failed after N retries" when it gives up. Psyche does not retry:
+
+- an auth or request error (for example 401 or 400);
+- a run that already took an action (a tool call, such as a message sent or a file changed), because running it again could repeat that action;
+- a run you started yourself with "Run now".
 
 ## What it asks you
 

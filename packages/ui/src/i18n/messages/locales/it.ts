@@ -20,6 +20,7 @@ import { galleryRest } from "./gallery-rest/it.ts";
 import { helperCheck } from "./helper-check/it.ts";
 import { helperOffline } from "./helper-offline/it.ts";
 import { homeRest } from "./home-rest/it.ts";
+import { keepAwake } from "./keep-awake/it.ts";
 import { links } from "./links/it.ts";
 import { linuxAccess } from "./linux-access/it.ts";
 import { mailMeetings } from "./mail-meetings/it.ts";
@@ -3740,4 +3741,5 @@ export const it: Partial<Catalogue> = {
   ...separateDesktop,
   // Windows variants of the sandbox PC, voice keys and platform terms
   ...windowsPlatform202611,
+  ...keepAwake,
 };

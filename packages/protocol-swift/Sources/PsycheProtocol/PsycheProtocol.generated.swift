@@ -6882,6 +6882,7 @@ public struct AutomationRunFinishedPayload: Codable, Sendable {
 
 // MARK: - AutomationRun
 public struct AutomationRun: Codable, Sendable {
+    public let attempt: Int?
     public let automationID: String
     /// Missed ticks folded into this run
     public let coalesced: Int
@@ -6889,6 +6890,7 @@ public struct AutomationRun: Codable, Sendable {
     public let events: [WorkflowEvent]?
     public let id: String
     public let notificationID: String?
+    public let retryAt: String?
     public let runID: String?
     public let scheduledFor: String
     public let startedAt: String
@@ -6900,12 +6902,14 @@ public struct AutomationRun: Codable, Sendable {
     public let usage: Usage?
 
     public enum CodingKeys: String, CodingKey {
+        case attempt = "attempt"
         case automationID = "automationId"
         case coalesced = "coalesced"
         case endedAt = "endedAt"
         case events = "events"
         case id = "id"
         case notificationID = "notificationId"
+        case retryAt = "retryAt"
         case runID = "runId"
         case scheduledFor = "scheduledFor"
         case startedAt = "startedAt"
@@ -6917,13 +6921,15 @@ public struct AutomationRun: Codable, Sendable {
         case usage = "usage"
     }
 
-    public init(automationID: String, coalesced: Int, endedAt: String? = nil, events: [WorkflowEvent]? = nil, id: String, notificationID: String? = nil, runID: String? = nil, scheduledFor: String, startedAt: String, status: AutomationRunStatus, summary: String? = nil, taskID: String? = nil, threadID: String? = nil, trigger: AutomationRunTrigger, usage: Usage? = nil) {
+    public init(attempt: Int? = nil, automationID: String, coalesced: Int, endedAt: String? = nil, events: [WorkflowEvent]? = nil, id: String, notificationID: String? = nil, retryAt: String? = nil, runID: String? = nil, scheduledFor: String, startedAt: String, status: AutomationRunStatus, summary: String? = nil, taskID: String? = nil, threadID: String? = nil, trigger: AutomationRunTrigger, usage: Usage? = nil) {
+        self.attempt = attempt
         self.automationID = automationID
         self.coalesced = coalesced
         self.endedAt = endedAt
         self.events = events
         self.id = id
         self.notificationID = notificationID
+        self.retryAt = retryAt
         self.runID = runID
         self.scheduledFor = scheduledFor
         self.startedAt = startedAt
