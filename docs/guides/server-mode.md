@@ -126,6 +126,22 @@ Until that changes, use Docker Compose on Linux. On a Mac without a screen, run 
 PSYCHE_MODEL=anthropic/claude-sonnet-5-5 ANTHROPIC_API_KEY=<your key> pnpm --filter @psyche/gateway start
 ```
 
+### A headless Linux Host
+
+A Linux Host is headless when logind reports no graphical session for its user (an SSH-only box, or linger without a login). The Gateway asks logind every few seconds. Its own environment doesn't count. On a headless Host:
+
+- The agent's browser is headless Chromium. It has no screen, so it never shares one with computer use. It gets a private home and runtime dir under `$PSYCHE_HOME/browser/` (0700), its own certificate store and no session bus. Install Chromium (`apt install chromium`), or name the binary with `PSYCHE_CHROMIUM`. You can't take over its tabs yet, so `browser.request_control` answers that there is no pane and the agent asks in chat. Checkout in the browser needs the desktop app connected.
+- Computer use runs on the helper's private screen. Watch it and take over from a paired desktop. Stopping that screen, and answering its unsaved-changes card, need a device allowed to approve.
+- A payment needs a passkey. Without one it fails before any card is shown.
+
+These variables change that. Set them only in the service's environment (`systemctl --user edit psyche-gateway`, then `Environment=` under `[Service]`), never in a file the agent can write. The Gateway reads them once at start.
+
+| Variable | Values | Effect |
+| --- | --- | --- |
+| `PSYCHE_BROWSER_DRIVER` | `bridge`, `server` | `bridge`: only a desktop app's browser, never headless Chromium. `server`: headless Chromium on Linux even with a graphical session. Unset: logind decides. |
+| `PSYCHE_PAYMENT_PRESENCE` | `passkey` | Payments need a passkey on any Host, not only a headless one. |
+| `PSYCHE_CHROMIUM` | a path | The Chromium binary for the headless browser. Unset: the first of `/usr/bin/chromium`, `/usr/bin/chromium-browser`, `/snap/bin/chromium`, `/usr/bin/google-chrome-stable` and `/usr/bin/google-chrome` that exists. |
+
 ## Reaching the Gateway
 
 ### SSH tunnel

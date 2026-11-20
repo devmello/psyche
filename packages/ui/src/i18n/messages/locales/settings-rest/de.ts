@@ -703,8 +703,11 @@ export const settingsRest: Partial<Catalogue> = {
     "Zeigt die Überlegungen von {persona} während der Arbeit. Wird nie gesichert.",
   "settings.connectors.page.onHost": "Auf {host}",
   "settings.connectors.page.row.onHost": "Auf {host}",
+  "settings.connectors.page.row.macOnly": "Nur auf einem Mac-Host",
   "settings.computerUse.remote":
     "Die Computer-Nutzung funktioniert bei {host}. Frag von dort aus oder nutze den Browser.",
+  "settings.computerUse.remoteLinux":
+    "Computerbedienung läuft auf dem privaten Bildschirm von {host}. Im Beobachtungsbereich kannst du zusehen und übernehmen.",
   "settings.gateways.title": "Gateways auf diesem Computer",
   "settings.gateways.description":
     "Nutze Psyche von diesem Computer aus mit dem Gateway auf einem anderen, etwa deinem Mac zu Hause. Es ist immer ein Gateway aktiv, und das Wechseln startet Psyche neu.",

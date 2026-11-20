@@ -21424,6 +21424,15 @@
           "description": "The Host machine's name",
           "type": "string"
         },
+        "hostOs": {
+          "description": "The Host's operating system, so a Client names it and its features in the Host's words (a Linux Host has no Apple connectors and offers computer use only on its private screen). Absent from older Gateways",
+          "enum": [
+            "macos",
+            "windows",
+            "linux"
+          ],
+          "type": "string"
+        },
         "publicOrigin": {
           "anyOf": [
             {

@@ -135,6 +135,14 @@ export const pt: Partial<Catalogue> = {
   "errors.reason.secret_required": "Um cliente diferente precisa do próprio segredo do cliente.",
   "errors.reason.updating":
     "O Psyche vai reiniciar para instalar uma atualização. Tente novamente em instantes.",
+  "errors.reason.passkey_required":
+    "Configure uma chave de acesso para aprovar pagamentos neste Psyche.",
+  "errors.reason.awaiting_owner":
+    "Um app tem alterações não salvas. O Psyche espera você decidir o que fazer com elas.",
+  "errors.reason.checkout_needs_desktop":
+    "Para pagar no navegador do Psyche, o app de desktop do Psyche precisa estar conectado a este host.",
+  "errors.reason.no_chromium":
+    "O navegador do Psyche precisa do Chromium neste host. Instale-o ou defina PSYCHE_CHROMIUM.",
   "errors.unavailable": "O Psyche não consegue fazer isso agora.",
   "errors.approval_required": "Isso precisa da sua aprovação primeiro.",
   "errors.approval_expired": "A aprovação expirou; peça novamente.",

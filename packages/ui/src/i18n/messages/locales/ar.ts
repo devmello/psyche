@@ -208,6 +208,13 @@ export const ar: Partial<Catalogue> = {
     "Google متصل بعميل آخر. افصل Google أولًا ثم غيّر العميل.",
   "errors.reason.secret_required": "يحتاج العميل المختلف إلى سر عميل خاص به.",
   "errors.reason.updating": "سيعيد Psyche التشغيل الآن لتثبيت تحديث. حاول مرة أخرى بعد لحظة.",
+  "errors.reason.passkey_required": "أعدّ مفتاح مرور للموافقة على المدفوعات في Psyche هذا.",
+  "errors.reason.awaiting_owner":
+    "يحتوي تطبيق على تغييرات غير محفوظة. ينتظر Psyche أن تقرر ما يحدث لها.",
+  "errors.reason.checkout_needs_desktop":
+    "يتطلب الدفع في متصفح Psyche أن يكون تطبيق Psyche لسطح المكتب متصلاً بهذا المضيف.",
+  "errors.reason.no_chromium":
+    "يحتاج متصفح Psyche إلى Chromium على هذا المضيف. ثبّته أو اضبط PSYCHE_CHROMIUM.",
   "errors.unavailable": "لا يستطيع Psyche القيام بذلك الآن.",
   "errors.approval_required": "يحتاج هذا إلى موافقتك أولًا.",
   "errors.approval_expired": "انتهت صلاحية الموافقة؛ اطلب مرة أخرى.",

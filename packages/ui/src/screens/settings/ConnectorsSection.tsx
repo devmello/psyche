@@ -5,6 +5,7 @@ import { usePrefillComposer } from "../../chat/prefill.ts";
 import { EmptyState } from "../../components/page.tsx";
 import { Button } from "../../components/ui/button.tsx";
 import { useCall, useGatewayQuery } from "../../data/hooks.ts";
+import { appleConnectorsUnavailable, useHostOs } from "../../data/host-os.ts";
 import { t } from "../../i18n/core.ts";
 import { describeError } from "../../i18n/errors.ts";
 import { formatRelative } from "../../lib/format.ts";
@@ -198,6 +199,7 @@ export function ConnectorsPanel({
 }: ConnectorsPanelProps): ReactElement {
   const clock = useNow(30_000, now);
   const { remoteHost } = useSlots();
+  const hostOs = useHostOs();
   const [view, setView] = useState<View>(
     defaultAdding || defaultAddType !== undefined
       ? { kind: "add", type: defaultAddType }
@@ -293,9 +295,12 @@ export function ConnectorsPanel({
           : null,
         // The Apple apps are the Host Mac's, read through its helper; this computer's own are
         // never used (remote-gateway design §4.2).
-        remoteHost !== undefined && c.type.startsWith("apple")
-          ? t("settings.connectors.page.row.onHost", { host: remoteHost })
-          : null,
+        // A Linux or Windows Host has no Apple apps to read (linux-helper-only design §7.4).
+        c.type.startsWith("apple") && appleConnectorsUnavailable(hostOs)
+          ? t("settings.connectors.page.row.macOnly")
+          : remoteHost !== undefined && c.type.startsWith("apple")
+            ? t("settings.connectors.page.row.onHost", { host: remoteHost })
+            : null,
       ];
       return {
         key: `c:${c.id}`,

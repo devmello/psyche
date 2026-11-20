@@ -1,3 +1,4 @@
+import { getDeviceFamily } from "@psyche/db";
 import {
   type ErrorPayload,
   PsycheError,
@@ -12,8 +13,9 @@ import {
 } from "@psyche/protocol";
 import { type Static, type TSchema, Type } from "@sinclair/typebox";
 import { Value } from "@sinclair/typebox/value";
-import type { Call, HandlerDef } from "../context.ts";
+import { type Call, type HandlerDef, hasScope } from "../context.ts";
 import type { Gateway } from "../server.ts";
+import type { HeadlessScreen } from "./headless-screen.ts";
 import type { ComposedPart, ComposeServices } from "./services.ts";
 
 /**
@@ -154,6 +156,13 @@ export interface VirtualScreen {
   isTakenOver(): boolean;
   /** Resolves when the agent may act; rejects (retryable) if the owner holds control too long. */
   agentGate(signal?: AbortSignal): Promise<void>;
+  /** Throws unless the agent may act now: not taken over, nothing parked, `signal` live. */
+  assertAgentMayAct(signal?: AbortSignal): void;
+  /**
+   * Runs one agent call: gated, checked, and aborted (rejecting with `user_in_control`) when the
+   * owner takes over while it runs.
+   */
+  agentCall<T>(signal: AbortSignal, run: (signal: AbortSignal) => Promise<T>): Promise<T>;
   setPaneVisible(visible: boolean): void;
 }
 
@@ -183,6 +192,20 @@ function resultOf<T extends TSchema>(schema: T, value: unknown, what: string): S
   return value as Static<T>;
 }
 
+const takenOverError = (): PsycheError =>
+  new PsycheError("user_in_control", "You are using the virtual screen; try again shortly.", {
+    retryable: true,
+    details: { reason: "taken_over" },
+  });
+
+/** The unsaved-changes card waits for the owner: the agent must not answer the app's dialog. */
+const awaitingOwnerError = (): PsycheError =>
+  new PsycheError(
+    "conflict",
+    "An app on the virtual screen has unsaved changes and the owner decides what happens to them. Wait for them, or ask in chat.",
+    { retryable: true, details: { reason: "awaiting_owner" } },
+  );
+
 export function createVirtualScreen(deps: VirtualScreenDeps): VirtualScreen {
   const waitMs = deps.takeOverWaitMs ?? DEFAULT_TAKE_OVER_WAIT_MS;
   const maxFps = deps.maxFramesPerSecond ?? DEFAULT_FRAMES_PER_SECOND;
@@ -190,6 +213,8 @@ export function createVirtualScreen(deps: VirtualScreenDeps): VirtualScreen {
   let paneVisible = false;
   let card: UnsavedChangesCard | null = null;
   let waiters: Array<() => void> = [];
+  /** The agent calls running on the screen now: the owner's take-over aborts each. */
+  const inflight = new Set<AbortController>();
   const framePulls = new Map<string, number[]>();
   const proof = deps.ownerProof ?? newProof();
   const isOwner = (opts: CallOptions | undefined): boolean => opts?.owner === proof;
@@ -225,18 +250,53 @@ export function createVirtualScreen(deps: VirtualScreenDeps): VirtualScreen {
       };
       const timer = setTimeout(() => {
         done();
-        reject(
-          new PsycheError(
-            "user_in_control",
-            "You are using the virtual screen; try again shortly.",
-            { retryable: true, details: { reason: "taken_over" } },
-          ),
-        );
+        reject(takenOverError());
       }, waitMs);
       waiters.push(release);
       if (signal?.aborted) onAbort();
       else signal?.addEventListener("abort", onAbort, { once: true });
     });
+  }
+
+  function assertAgentMayAct(signal?: AbortSignal): void {
+    if (signal?.aborted === true) {
+      throw signal.reason instanceof PsycheError
+        ? signal.reason
+        : new PsycheError("cancelled", "the call was cancelled");
+    }
+    if (takenOver) throw takenOverError();
+    if (card !== null) throw awaitingOwnerError();
+  }
+
+  async function agentCall<T>(
+    signal: AbortSignal,
+    run: (signal: AbortSignal) => Promise<T>,
+  ): Promise<T> {
+    await agentGate(signal);
+    assertAgentMayAct(signal);
+    const ctrl = new AbortController();
+    const onAbort = (): void => ctrl.abort(signal.reason);
+    signal.addEventListener("abort", onAbort, { once: true });
+    inflight.add(ctrl);
+    // The call's result is dropped the moment it is aborted, even if the helper answers later.
+    let off: () => void = () => undefined;
+    const aborted = new Promise<never>((_, reject) => {
+      const fail = (): void =>
+        reject(
+          ctrl.signal.reason instanceof PsycheError
+            ? ctrl.signal.reason
+            : new PsycheError("cancelled", "the call was cancelled"),
+        );
+      ctrl.signal.addEventListener("abort", fail, { once: true });
+      off = () => ctrl.signal.removeEventListener("abort", fail);
+    });
+    try {
+      return await Promise.race([run(ctrl.signal), aborted]);
+    } finally {
+      off();
+      inflight.delete(ctrl);
+      signal.removeEventListener("abort", onAbort);
+    }
   }
 
   const gated = async (opts: CallOptions | undefined): Promise<void> => {
@@ -369,6 +429,8 @@ export function createVirtualScreen(deps: VirtualScreenDeps): VirtualScreen {
 
     setTakenOver(on) {
       takenOver = on;
+      // The owner's tap stops what the agent is doing right now, not only what it does next.
+      if (on) for (const ctrl of [...inflight]) ctrl.abort(takenOverError());
       if (!on) {
         const release = waiters;
         waiters = [];
@@ -377,6 +439,8 @@ export function createVirtualScreen(deps: VirtualScreenDeps): VirtualScreen {
     },
     isTakenOver: () => takenOver,
     agentGate,
+    assertAgentMayAct,
+    agentCall,
 
     setPaneVisible(visible) {
       paneVisible = visible;
@@ -412,13 +476,75 @@ export function refuseUnlessOwner(options: VscreenInvokeOptions): void {
 }
 
 /**
+ * The `computerWatch.*` methods that act for the owner: their clicks and keys, stopping the screen
+ * (with `force` it discards unsaved work) and answering the unsaved-changes card.
+ */
+const OWNER_ACTION_METHODS = new Set([
+  "computerWatch.takeOver",
+  "computerWatch.input",
+  "computerWatch.stop",
+  "computerWatch.resolveParked",
+]);
+
+/**
+ * Who may use the watch pane (linux-helper-only design §7.4, B3; remote-gateway §4.1 rule 2):
+ * - the desktop shell on the Host itself (loopback plus the per-launch secret), as before;
+ * - a paired desktop app on another computer (`desktopApp`): a client device the owner approved
+ *   with `deviceFamily: desktop`, holding `operator.write`. Take over (`takeOver`, `input`),
+ *   stopping the screen (`stop`, whose `force` discards unsaved work) and answering the
+ *   unsaved-changes card (`resolveParked`) also need `operator.approvals`: the owner's input is
+ *   never gated or brokered, and those are answers a device the owner did not let approve must
+ *   not give.
+ * Never a node, a machine, a browser page, a phone or the CLI, and nothing in `params` counts.
+ * The private screen runs on the Host, so computer use stays Host-only (G5); a Client only
+ * watches it and takes over.
+ */
+export function watchAccess(call: Pick<Call, "ctx" | "identity" | "method">): void {
+  if (!call.method.startsWith("computerWatch.")) {
+    throw new PsycheError("forbidden", "only the Psyche desktop app shows the virtual screen");
+  }
+  if (call.identity.desktopShell === true) return;
+  const desktopApp =
+    call.identity.role === "client" &&
+    call.identity.hostHelper !== true &&
+    call.identity.machine !== true &&
+    getDeviceFamily(call.ctx.db, call.identity.deviceId) === "desktop";
+  if (!desktopApp) {
+    throw new PsycheError("forbidden", "only the Psyche desktop app shows the virtual screen");
+  }
+  if (!hasScope(call.identity, "operator.write")) {
+    throw new PsycheError(
+      "forbidden",
+      "Watching the private screen needs a computer allowed to act (operator.write)",
+      { details: { reason: "scope_missing", scope: "operator.write" } },
+    );
+  }
+  if (OWNER_ACTION_METHODS.has(call.method) && !hasScope(call.identity, "operator.approvals")) {
+    throw new PsycheError(
+      "forbidden",
+      "Taking over, stopping or answering for the private screen needs a computer allowed to approve (operator.approvals)",
+      { details: { reason: "scope_missing", scope: "operator.approvals" } },
+    );
+  }
+}
+
+/** The virtual-screen part, plus the screen's rules for headless computer use (B3). */
+export interface ComposedVirtualScreen extends ComposedPart {
+  /**
+   * For `gateHeadlessRouter`: take-over, parked and Task end. Only computer use is on this
+   * screen; the agent browser runs headless Chromium with no display (B3 r1).
+   */
+  readonly screen: HeadlessScreen;
+}
+
+/**
  * The Gateway's virtual-screen part. The watch pane (desktop shell only) reaches the helper only
  * through it; the owner's own pane actions need no approval. The agent's use of the screen
  * (`apps.open` with `surface: "virtual_screen"`, later) must go through the Permission Broker
  * like every other computer-use tool: until that is wired, every `agent` call is refused here
  * instead of being sent to the helper unbrokered, and the screen is not handed to any other code.
  */
-export function composeVirtualScreen(services: ComposeServices): ComposedPart {
+export function composeVirtualScreen(services: ComposeServices): ComposedVirtualScreen {
   let gateway: Gateway | undefined;
   // The owner's proof never leaves this closure: only the handlers below put it on a call.
   const proof = newProof();
@@ -448,20 +574,33 @@ export function composeVirtualScreen(services: ComposeServices): ComposedPart {
   });
 
   // The owner's proof goes only on a `computerWatch.*` request from the desktop shell's own
-  // connection. A desktop-chat agent run carries `desktopShell` too, but never this method; and
-  // nothing in `params` is read for it.
+  // connection or a paired desktop app's (`watchAccess`). A desktop-chat agent run carries
+  // `desktopShell` too, but never this method; and nothing in `params` is read for it.
   const handler = (
     run: (params: Record<string, unknown>, owner: CallOptions) => unknown,
   ): HandlerDef => ({
     run(call: Call, params: unknown) {
-      if (call.identity.desktopShell !== true || !call.method.startsWith("computerWatch.")) {
-        throw new PsycheError("forbidden", "only the Psyche desktop app shows the virtual screen");
-      }
-      return run((params ?? {}) as Record<string, unknown>, { owner: proof });
+      watchAccess(call);
+      // Each device's frame pulls are limited on their own.
+      const caller =
+        call.identity.desktopShell === true ? "watch" : `watch:${call.identity.deviceId}`;
+      return run((params ?? {}) as Record<string, unknown>, { owner: proof, caller });
     },
   });
 
   return {
+    screen: {
+      isTakenOver: () => vs.isTakenOver(),
+      agentGate: (signal) => vs.agentGate(signal),
+      assertAgentMayAct: (signal) => vs.assertAgentMayAct(signal),
+      agentCall: (signal, run) => vs.agentCall(signal, run),
+      // The Gateway's own housekeeping at Task end (§7.4), not an agent action: it closes apps
+      // the polite way (never `force`), so an app with unsaved changes parks the Task with the
+      // card and the owner decides. The proof stays in this closure.
+      async taskEnded() {
+        await vs.endTask({ closeApps: true }, { owner: proof });
+      },
+    },
     start(gw) {
       gateway = gw;
     },
