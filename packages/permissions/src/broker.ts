@@ -1457,7 +1457,9 @@ export class PsychePermissionBroker implements PermissionBroker {
       fail("invalid_params", `a batch holds 1 to ${MAX_BATCH_CALLS} calls`);
     }
     if (detailsTooDeep(input.details)) {
-      fail("invalid_params", "the approval's details are nested too deeply to show in full");
+      fail("invalid_params", "the approval's details are nested too deeply to show in full", {
+        reason: "details_too_deep",
+      });
     }
     const children: BatchChild[] = [];
     // Per child: the live prep-note standing grant that covers it (security §3.4), and whether
@@ -1685,7 +1687,9 @@ export class PsychePermissionBroker implements PermissionBroker {
     // A card shows its details in full or is not raised: past the display depth, part of what the
     // binding covers would show as "…" on every surface (desktop, web, phone).
     if (detailsTooDeep(input.details)) {
-      fail("invalid_params", "the approval's details are nested too deeply to show in full");
+      fail("invalid_params", "the approval's details are nested too deeply to show in full", {
+        reason: "details_too_deep",
+      });
     }
     const issued = this.#issue(input);
     await this.#afterIssue(issued.approval);
@@ -3212,6 +3216,9 @@ export class PsychePermissionBroker implements PermissionBroker {
     for (const rec of pending) {
       const input = structuredClone(rec.input);
       input.taint = input.taint || rec.approval.taint;
+      // A row stored without the flag (before it existed, or from a caller the relay wrapper never saw) holds the
+      // relay-merged surfaces: never take the phones from those. Every card the Gateway raises now carries it.
+      input.offMac ??= false;
       if (input.call !== undefined && input.context !== undefined) {
         const ctx = { ...input.context, taint: input.context.taint || rec.approval.taint };
         const { decision } = await this.engine.evaluate(input.call, ctx);

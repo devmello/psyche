@@ -1,8 +1,8 @@
-import { sha256 } from "@psyche/testing";
+import { FakeClock, sha256 } from "@psyche/testing";
 import { describe, expect, it } from "vitest";
 import { detailsTooDeep, MAX_DETAILS_DEPTH, sanitizeDetails } from "../src/cards.ts";
-import type { PolicyApprovalInput } from "../src/index.ts";
-import { makeBroker } from "./helpers.ts";
+import { type PolicyApprovalInput, SqlitePermissionStore } from "../src/index.ts";
+import { makeBroker, memoryDb, sqliteBroker } from "./helpers.ts";
 
 /**
  * Paired phones get their own `device:<deviceId>` surface on a card that needs no presence, but
@@ -84,6 +84,25 @@ describe("which cards get the phones' surfaces", () => {
     expect(again).toBeDefined();
     expect(phones(again?.approval.surfaces ?? [])).toEqual([]);
   });
+
+  it("a row stored before the flag existed never gets the phones on the first restart after upgrade", async () => {
+    const db = memoryDb();
+    const clock = new FakeClock();
+    // As main's relay wrapper stored it: the helper's `notification` merged in, no `offMac`.
+    const before = sqliteBroker(db, clock);
+    const legacy = card({ surfaces: ["desktop", "notification"] });
+    await before.requestApproval(legacy);
+    const stored = new SqlitePermissionStore(db.sqlite).listApprovals({ status: "pending" });
+    expect(stored.map((r) => r.input.offMac)).toEqual([undefined]);
+    const after = sqliteBroker(db, clock, { deviceSurfaces: () => PHONES });
+    const again = (await after.reissue()).find(
+      (i) => i.approval.bindingHash === legacy.bindingHash,
+    );
+    expect(again).toBeDefined();
+    expect(phones(again?.approval.surfaces ?? [])).toEqual([]);
+    expect(Object.keys(again?.answerTokens ?? {}).some((s) => s.startsWith("device:"))).toBe(false);
+    db.close();
+  });
 });
 
 describe("details deeper than a card shows are refused", () => {
@@ -113,6 +132,9 @@ describe("details deeper than a card shows are refused", () => {
       h.broker.requestApproval(
         card({ details: nest(MAX_DETAILS_DEPTH + 1) as PolicyApprovalInput["details"] }),
       ),
-    ).rejects.toMatchObject({ code: "invalid_params" });
+    ).rejects.toMatchObject({
+      code: "invalid_params",
+      details: { reason: "details_too_deep" },
+    });
   });
 });
