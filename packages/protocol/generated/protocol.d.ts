@@ -11741,6 +11741,31 @@ export type AddedBy = "owner" | "agent" | "template";
 
 export type SpaceTrackerKind = "bound" | "query" | "agent";
 
+export interface SpaceOffers {
+    rules:   SpaceOfferRule[];
+    widgets: SpaceOfferWidget[];
+}
+
+export interface SpaceOfferRule {
+    fromThreadId:    string;
+    fromThreadTitle: string;
+    /**
+     * The pin id, also the dismiss key
+     */
+    id:   string;
+    text: string;
+}
+
+export interface SpaceOfferWidget {
+    fromThreadId: string;
+    /**
+     * Dismiss key
+     */
+    id:       string;
+    title:    string;
+    widgetId: string;
+}
+
 export interface SpaceProposalCreatedPayload {
     proposal: SpaceProposal;
 }
@@ -11876,6 +11901,42 @@ export interface SpaceSummary {
     name:            string;
     private:         boolean;
     sort:            number;
+}
+
+export interface SpacesMigrationApplyParams {
+    entityIds: string[];
+}
+
+export interface SpacesMigrationApplyResult {
+    spaces: Space[];
+}
+
+export interface SpacesMigrationOfferResult {
+    offer?: SpaceMigrationOffer | null;
+}
+
+export interface SpaceMigrationOffer {
+    projects: SpaceMigrationProject[];
+}
+
+export interface SpaceMigrationProject {
+    anchors:  number;
+    entityId: string;
+    /**
+     * Listed in the Space as "shared everywhere"
+     */
+    folders: number;
+    name:    string;
+    threads: number;
+}
+
+export interface SpacesOffersDismissParams {
+    offerId: string;
+    spaceId: string;
+}
+
+export interface SpacesOffersListParams {
+    spaceId: string;
 }
 
 export interface SpacesOpenParams {

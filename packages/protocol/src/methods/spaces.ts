@@ -8,6 +8,8 @@ import {
   SpaceFolderMode,
   SpaceLink,
   SpaceLinkKind,
+  SpaceMigrationOffer,
+  SpaceOffers,
   SpaceProposal,
   SpaceSummary,
   SpaceTrackerTemplate,
@@ -243,5 +245,39 @@ export const SpacesMethods = {
     result: OkResult,
     scope: "operator.write",
     description: "Dismisses a proposal.",
+  }),
+  "spaces.migration.offer": defineMethod({
+    params: Type.Object({}),
+    result: Type.Object({ offer: Nullable(SpaceMigrationOffer) }),
+    scope: "operator.read",
+    description:
+      "The one-time offer to make Spaces for up to 5 active, non-private projects with at least two owner or rule anchors. null once decided or when nothing qualifies.",
+  }),
+  "spaces.migration.apply": defineMethod({
+    params: Type.Object({ entityIds: Type.Array(Id, { minItems: 1, maxItems: 5 }) }),
+    result: Type.Object({ spaces: Type.Array(Space) }),
+    scope: "operator.write",
+    sideEffecting: true,
+    description:
+      "The owner's Create on the migration offer: one Space per checked project (createdFrom migration), linked, with the project's anchored chats moved in. Closes the offer.",
+  }),
+  "spaces.migration.dismiss": defineMethod({
+    params: Type.Object({}),
+    result: OkResult,
+    scope: "operator.write",
+    description: "Closes the migration offer without creating anything.",
+  }),
+  "spaces.offers.list": defineMethod({
+    params: SpaceIdParams,
+    result: SpaceOffers,
+    scope: "operator.read",
+    description:
+      "Offers for a Space after chats moved in: pinned widgets of those chats for the shelf, and the owner-provenance standing instructions of those chats. Untrusted pins are never offered.",
+  }),
+  "spaces.offers.dismiss": defineMethod({
+    params: Type.Object({ spaceId: Id, offerId: Type.String({ minLength: 1, maxLength: 80 }) }),
+    result: OkResult,
+    scope: "operator.write",
+    description: "Dismisses one offer so it does not come back.",
   }),
 } as const;

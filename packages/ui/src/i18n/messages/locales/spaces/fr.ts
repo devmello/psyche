@@ -132,4 +132,23 @@ export const spaces: Partial<Catalogue> = {
   "spaces.palette.archived": "Espaces archivés",
   "spaces.palette.chatIn": "Nouvelle conversation dans {name}",
   "spaces.palette.keywords": "espace projet travail suivis",
+  "spaces.proposal.kicker": "Space suggéré",
+  "spaces.proposal.title": "Créer un Space pour {name} ?",
+  "spaces.proposal.untrusted":
+    "Suggéré pendant la lecture d'un contenu non fiable ({source}). Le texte ci-dessous est cité, pas des mots de Psyche.",
+  "spaces.proposal.create": "Créer",
+  "spaces.proposal.notNow": "Pas maintenant",
+  "spaces.proposal.created": "Space {name} créé",
+  "spaces.proposal.open": "Ouvrir",
+  "spaces.proposal.failed": "Cela n'a pas fonctionné : {reason}",
+  "spaces.migration.title": "Créer des Spaces pour vos projets ?",
+  "spaces.migration.hint":
+    "Chacun est lié à son projet et reprend ses discussions. Les widgets épinglés restent sur l'accueil.",
+  "spaces.migration.line":
+    "{threads, plural, one {# discussion} other {# discussions}} · {folders, plural, one {# dossier, partagé partout} other {# dossiers, partagés partout}}",
+  "spaces.migration.create": "{n, plural, one {Créer # Space} other {Créer # Spaces}}",
+  "spaces.migration.created": "{n, plural, one {# Space créé} other {# Spaces créés}}",
+  "spaces.make": "Créer un Space",
+  "spaces.make.failed": "Le Space n'a pas été créé : {reason}",
+  "spaces.openLinked": "Ouvrir le Space",
 };

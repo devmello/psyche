@@ -1450,6 +1450,11 @@
 //   let spaceLink = try? JSONDecoder().decode(SpaceLink.self, from: jsonData)
 //   let spaceLinkKind = try? JSONDecoder().decode(SpaceLinkKind.self, from: jsonData)
 //   let spaceLinkProvenance = try? JSONDecoder().decode(SpaceLinkProvenance.self, from: jsonData)
+//   let spaceMigrationOffer = try? JSONDecoder().decode(SpaceMigrationOffer.self, from: jsonData)
+//   let spaceMigrationProject = try? JSONDecoder().decode(SpaceMigrationProject.self, from: jsonData)
+//   let spaceOfferRule = try? JSONDecoder().decode(SpaceOfferRule.self, from: jsonData)
+//   let spaceOfferWidget = try? JSONDecoder().decode(SpaceOfferWidget.self, from: jsonData)
+//   let spaceOffers = try? JSONDecoder().decode(SpaceOffers.self, from: jsonData)
 //   let spaceProposal = try? JSONDecoder().decode(SpaceProposal.self, from: jsonData)
 //   let spaceProposalCreatedPayload = try? JSONDecoder().decode(SpaceProposalCreatedPayload.self, from: jsonData)
 //   let spaceProposalStatus = try? JSONDecoder().decode(SpaceProposalStatus.self, from: jsonData)
@@ -1477,6 +1482,13 @@
 //   let spacesLinksRemoveParams = try? JSONDecoder().decode(SpacesLinksRemoveParams.self, from: jsonData)
 //   let spacesListParams = try? JSONDecoder().decode(SpacesListParams.self, from: jsonData)
 //   let spacesListResult = try? JSONDecoder().decode(SpacesListResult.self, from: jsonData)
+//   let spacesMigrationApplyParams = try? JSONDecoder().decode(SpacesMigrationApplyParams.self, from: jsonData)
+//   let spacesMigrationApplyResult = try? JSONDecoder().decode(SpacesMigrationApplyResult.self, from: jsonData)
+//   let spacesMigrationDismissParams = try? JSONDecoder().decode(SpacesMigrationDismissParams.self, from: jsonData)
+//   let spacesMigrationOfferParams = try? JSONDecoder().decode(SpacesMigrationOfferParams.self, from: jsonData)
+//   let spacesMigrationOfferResult = try? JSONDecoder().decode(SpacesMigrationOfferResult.self, from: jsonData)
+//   let spacesOffersDismissParams = try? JSONDecoder().decode(SpacesOffersDismissParams.self, from: jsonData)
+//   let spacesOffersListParams = try? JSONDecoder().decode(SpacesOffersListParams.self, from: jsonData)
 //   let spacesOpenParams = try? JSONDecoder().decode(SpacesOpenParams.self, from: jsonData)
 //   let spacesOpenResult = try? JSONDecoder().decode(SpacesOpenResult.self, from: jsonData)
 //   let spacesProposalsAcceptParams = try? JSONDecoder().decode(SpacesProposalsAcceptParams.self, from: jsonData)
@@ -33458,6 +33470,68 @@ public enum SpaceTrackerKind: String, Codable, Sendable {
     case query = "query"
 }
 
+// MARK: - SpaceOffers
+public struct SpaceOffers: Codable, Sendable {
+    public let rules: [SpaceOfferRule]
+    public let widgets: [SpaceOfferWidget]
+
+    public enum CodingKeys: String, CodingKey {
+        case rules = "rules"
+        case widgets = "widgets"
+    }
+
+    public init(rules: [SpaceOfferRule], widgets: [SpaceOfferWidget]) {
+        self.rules = rules
+        self.widgets = widgets
+    }
+}
+
+// MARK: - SpaceOfferRule
+public struct SpaceOfferRule: Codable, Sendable {
+    public let fromThreadID: String
+    public let fromThreadTitle: String
+    /// The pin id, also the dismiss key
+    public let id: String
+    public let text: String
+
+    public enum CodingKeys: String, CodingKey {
+        case fromThreadID = "fromThreadId"
+        case fromThreadTitle = "fromThreadTitle"
+        case id = "id"
+        case text = "text"
+    }
+
+    public init(fromThreadID: String, fromThreadTitle: String, id: String, text: String) {
+        self.fromThreadID = fromThreadID
+        self.fromThreadTitle = fromThreadTitle
+        self.id = id
+        self.text = text
+    }
+}
+
+// MARK: - SpaceOfferWidget
+public struct SpaceOfferWidget: Codable, Sendable {
+    public let fromThreadID: String
+    /// Dismiss key
+    public let id: String
+    public let title: String
+    public let widgetID: String
+
+    public enum CodingKeys: String, CodingKey {
+        case fromThreadID = "fromThreadId"
+        case id = "id"
+        case title = "title"
+        case widgetID = "widgetId"
+    }
+
+    public init(fromThreadID: String, id: String, title: String, widgetID: String) {
+        self.fromThreadID = fromThreadID
+        self.id = id
+        self.title = title
+        self.widgetID = widgetID
+    }
+}
+
 // MARK: - SpaceProposalCreatedPayload
 public struct SpaceProposalCreatedPayload: Codable, Sendable {
     public let proposal: SpaceProposal
@@ -33882,6 +33956,113 @@ public struct SpaceSummary: Codable, Sendable {
         self.name = name
         self.spaceSummaryPrivate = spaceSummaryPrivate
         self.sort = sort
+    }
+}
+
+// MARK: - SpacesMigrationApplyParams
+public struct SpacesMigrationApplyParams: Codable, Sendable {
+    public let entityIDS: [String]
+
+    public enum CodingKeys: String, CodingKey {
+        case entityIDS = "entityIds"
+    }
+
+    public init(entityIDS: [String]) {
+        self.entityIDS = entityIDS
+    }
+}
+
+// MARK: - SpacesMigrationApplyResult
+public struct SpacesMigrationApplyResult: Codable, Sendable {
+    public let spaces: [Space]
+
+    public enum CodingKeys: String, CodingKey {
+        case spaces = "spaces"
+    }
+
+    public init(spaces: [Space]) {
+        self.spaces = spaces
+    }
+}
+
+// MARK: - SpacesMigrationOfferResult
+public struct SpacesMigrationOfferResult: Codable, Sendable {
+    public let offer: SpaceMigrationOffer?
+
+    public enum CodingKeys: String, CodingKey {
+        case offer = "offer"
+    }
+
+    public init(offer: SpaceMigrationOffer? = nil) {
+        self.offer = offer
+    }
+}
+
+// MARK: - SpaceMigrationOffer
+public struct SpaceMigrationOffer: Codable, Sendable {
+    public let projects: [SpaceMigrationProject]
+
+    public enum CodingKeys: String, CodingKey {
+        case projects = "projects"
+    }
+
+    public init(projects: [SpaceMigrationProject]) {
+        self.projects = projects
+    }
+}
+
+// MARK: - SpaceMigrationProject
+public struct SpaceMigrationProject: Codable, Sendable {
+    public let anchors: Int
+    public let entityID: String
+    /// Listed in the Space as "shared everywhere"
+    public let folders: Int
+    public let name: String
+    public let threads: Int
+
+    public enum CodingKeys: String, CodingKey {
+        case anchors = "anchors"
+        case entityID = "entityId"
+        case folders = "folders"
+        case name = "name"
+        case threads = "threads"
+    }
+
+    public init(anchors: Int, entityID: String, folders: Int, name: String, threads: Int) {
+        self.anchors = anchors
+        self.entityID = entityID
+        self.folders = folders
+        self.name = name
+        self.threads = threads
+    }
+}
+
+// MARK: - SpacesOffersDismissParams
+public struct SpacesOffersDismissParams: Codable, Sendable {
+    public let offerID: String
+    public let spaceID: String
+
+    public enum CodingKeys: String, CodingKey {
+        case offerID = "offerId"
+        case spaceID = "spaceId"
+    }
+
+    public init(offerID: String, spaceID: String) {
+        self.offerID = offerID
+        self.spaceID = spaceID
+    }
+}
+
+// MARK: - SpacesOffersListParams
+public struct SpacesOffersListParams: Codable, Sendable {
+    public let spaceID: String
+
+    public enum CodingKeys: String, CodingKey {
+        case spaceID = "spaceId"
+    }
+
+    public init(spaceID: String) {
+        self.spaceID = spaceID
     }
 }
 
@@ -40620,6 +40801,8 @@ public typealias SearchSourcesParams = [String: JSONAny]
 public typealias SearchStatusParams = [String: JSONAny]
 public typealias SecurityStateGetParams = [String: JSONAny]
 public typealias Settings = [String: JSONAny]
+public typealias SpacesMigrationDismissParams = [String: JSONAny]
+public typealias SpacesMigrationOfferParams = [String: JSONAny]
 public typealias SpecialistsListParams = [String: JSONAny]
 public typealias SpeechEngineDownloadParams = [String: JSONAny]
 public typealias SpeechEngineStatusParams = [String: JSONAny]

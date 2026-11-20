@@ -134,4 +134,25 @@ export const spaces: Partial<Catalogue> = {
   "spaces.palette.archived": "المساحات المؤرشفة",
   "spaces.palette.chatIn": "محادثة جديدة في {name}",
   "spaces.palette.keywords": "مساحة مشروع مساحة عمل متتبعات",
+  "spaces.proposal.kicker": "مساحة مقترحة",
+  "spaces.proposal.title": "هل تريد إنشاء مساحة لـ {name}؟",
+  "spaces.proposal.untrusted":
+    "اقتُرحت أثناء قراءة محتوى غير موثوق ({source}). النص أدناه مقتبس وليس من كلام Psyche.",
+  "spaces.proposal.create": "إنشاء",
+  "spaces.proposal.notNow": "ليس الآن",
+  "spaces.proposal.created": "تم إنشاء المساحة {name}",
+  "spaces.proposal.open": "فتح",
+  "spaces.proposal.failed": "لم تنجح العملية: {reason}",
+  "spaces.migration.title": "هل تريد إنشاء مساحات لمشاريعك؟",
+  "spaces.migration.hint":
+    "ترتبط كل مساحة بمشروعها وتنقل محادثاته معها. تبقى الأدوات المثبّتة في الرئيسية.",
+  "spaces.migration.line":
+    "{threads, plural, zero {# محادثات} one {محادثة #} two {محادثتان} few {# محادثات} many {# محادثة} other {# محادثة}} · {folders, plural, zero {# مجلدات، مشتركة في كل مكان} one {مجلد #، مشترك في كل مكان} two {مجلدان، مشتركان في كل مكان} few {# مجلدات، مشتركة في كل مكان} many {# مجلدًا، مشتركة في كل مكان} other {# مجلد، مشتركة في كل مكان}}",
+  "spaces.migration.create":
+    "{n, plural, zero {إنشاء # مساحات} one {إنشاء مساحة #} two {إنشاء مساحتين} few {إنشاء # مساحات} many {إنشاء # مساحة} other {إنشاء # مساحة}}",
+  "spaces.migration.created":
+    "{n, plural, zero {تم إنشاء # مساحات} one {تم إنشاء مساحة #} two {تم إنشاء مساحتين} few {تم إنشاء # مساحات} many {تم إنشاء # مساحة} other {تم إنشاء # مساحة}}",
+  "spaces.make": "إنشاء مساحة",
+  "spaces.make.failed": "لم يتم إنشاء المساحة: {reason}",
+  "spaces.openLinked": "فتح المساحة",
 };

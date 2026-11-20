@@ -265,6 +265,7 @@ import {
 } from "./services.ts";
 import { setupTokenHandlers, setupTokenUsedHook } from "./setup-tokens.ts";
 import { composeSkills } from "./skills.ts";
+import { composeSpaceOffers } from "./space-propose-tool.ts";
 import { composeSpaces } from "./spaces.ts";
 import { withSpecialistContext } from "./specialist-approvals.ts";
 import {
@@ -2209,6 +2210,16 @@ export async function composeGateway(options: ComposeOptions): Promise<ComposedG
   parts.push(nudges.part());
   parts.push(mailFollowups.part());
   parts.push(composeSpaces({ scheduler }));
+  // Proposals and migration offers (Spaces S7): the agent only proposes, the owner taps Create.
+  parts.push(
+    composeSpaceOffers({
+      db,
+      register: (tool) => registry.register(tool),
+      publish,
+      memory: () => people.graph,
+      states: new SqliteThreadStateStore(db),
+    }),
+  );
   parts.push(
     composeWork({
       db,

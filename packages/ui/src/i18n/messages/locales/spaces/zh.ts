@@ -127,4 +127,22 @@ export const spaces: Partial<Catalogue> = {
   "spaces.palette.archived": "已归档的空间",
   "spaces.palette.chatIn": "在 {name} 中新建对话",
   "spaces.palette.keywords": "空间 项目 工作区 跟踪器",
+  "spaces.proposal.kicker": "建议的 Space",
+  "spaces.proposal.title": "为{name}创建一个 Space？",
+  "spaces.proposal.untrusted":
+    "这是在读取不可信内容（{source}）时提出的建议。下面的文字是引用，不是 Psyche 的原话。",
+  "spaces.proposal.create": "创建",
+  "spaces.proposal.notNow": "暂不",
+  "spaces.proposal.created": "已创建 Space {name}",
+  "spaces.proposal.open": "打开",
+  "spaces.proposal.failed": "没有成功：{reason}",
+  "spaces.migration.title": "为你的项目创建 Space？",
+  "spaces.migration.hint": "每个 Space 都会关联对应项目并带上它的聊天。已固定的小组件仍留在首页。",
+  "spaces.migration.line":
+    "{threads, plural, other {# 个聊天}} · {folders, plural, other {# 个文件夹，各处共享}}",
+  "spaces.migration.create": "{n, plural, other {创建 # 个 Space}}",
+  "spaces.migration.created": "{n, plural, other {已创建 # 个 Space}}",
+  "spaces.make": "创建 Space",
+  "spaces.make.failed": "没有创建 Space：{reason}",
+  "spaces.openLinked": "打开 Space",
 };

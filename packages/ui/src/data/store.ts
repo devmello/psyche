@@ -965,6 +965,7 @@ export class GatewayStore {
         return invalidate(s, ["vault.payments"]);
       case "space.updated":
       case "space.tracker.refreshed":
+      case "space.proposal.created":
         return invalidate(s, ["spaces."]);
       case "skills.changed":
       case "skills.updated":
