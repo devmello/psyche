@@ -1087,6 +1087,8 @@ export const ar: Partial<Catalogue> = {
   "settings.key.browser.botAuth": "Web Bot Auth",
   "settings.key.computerUse.enabled": "السماح باستخدام الكمبيوتر",
   "settings.key.computerUse.apps": "الوصول إلى التطبيقات",
+  "settings.key.feed.sources": "مصادر الخلاصة",
+  "settings.key.computerUse.linuxRevoke": "نسيان حاسوب Linux",
   "settings.key.context.maxTokens": "حدّ السياق",
   "settings.key.search.web.provider": "مزوّد البحث على الويب",
   "settings.key.search.web.searxngUrl": "عنوان URL لـ SearXNG",

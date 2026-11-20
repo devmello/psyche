@@ -1025,6 +1025,8 @@ export const ja: Partial<Catalogue> = {
   "settings.key.browser.botAuth": "Web Bot Auth",
   "settings.key.computerUse.enabled": "コンピュータ操作を許可",
   "settings.key.computerUse.apps": "アプリへのアクセス",
+  "settings.key.feed.sources": "フィードのソース",
+  "settings.key.computerUse.linuxRevoke": "Linux コンピュータを忘れる",
   "settings.key.context.maxTokens": "コンテキスト上限",
   "settings.key.search.web.provider": "Web検索プロバイダ",
   "settings.key.search.web.searxngUrl": "SearXNGのURL",

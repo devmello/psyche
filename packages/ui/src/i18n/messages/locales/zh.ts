@@ -1067,6 +1067,8 @@ export const zh: Partial<Catalogue> = {
   "settings.key.browser.botAuth": "Web Bot Auth",
   "settings.key.computerUse.enabled": "允许电脑使用",
   "settings.key.computerUse.apps": "App 访问",
+  "settings.key.feed.sources": "信息流来源",
+  "settings.key.computerUse.linuxRevoke": "忘记 Linux 电脑",
   "settings.key.context.maxTokens": "上下文限制",
   "settings.key.search.web.provider": "网页搜索提供商",
   "settings.key.search.web.searxngUrl": "SearXNG URL",

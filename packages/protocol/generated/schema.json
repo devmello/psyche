@@ -3617,7 +3617,7 @@
         "name": "spaces.proposals.list",
         "params": "#/$defs/SpacesProposalsListParams",
         "result": "#/$defs/SpacesProposalsListResult",
-        "scope": "operator.write",
+        "scope": "operator.read",
         "sideEffecting": false
       },
       {
