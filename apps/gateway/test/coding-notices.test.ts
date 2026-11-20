@@ -12,6 +12,7 @@ const report = (over: Partial<LaunchConfigReport> = {}): LaunchConfigReport => (
   fingerprints: {},
   unmoved: [],
   incidents: [],
+  relinked: [],
   partial: false,
   ...over,
 });

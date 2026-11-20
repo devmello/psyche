@@ -10,6 +10,7 @@ import {
   realpath,
   rename,
   rm,
+  symlink,
   writeFile,
 } from "node:fs/promises";
 import { dirname, isAbsolute, join, relative, sep } from "node:path";
@@ -78,6 +79,8 @@ export interface LaunchConfigReport {
    * owner can look before Keep it puts them at their path.
    */
   incidents: string[];
+  /** Links the run replaced or removed, linked again as they were (`.claude`). */
+  relinked: string[];
   /** The repository was too large to walk: only its top levels were checked. */
   partial: boolean;
 }
@@ -132,14 +135,43 @@ export async function guardLaunchConfig(
     );
   }
   const before = await prints(root, scan, claude.kind === "link");
+  // Who each read-only folder and each existing entry is (#1438 review r1): a read-only mount
+  // moves with its folder when the run renames the folder above it, so the same path can hold
+  // something new afterwards, and the owner's original can turn up under another name.
+  const ids: Identities = { mounted: new Map(), originals: new Set() };
+  for (const rel of readOnly) {
+    const st = await lstat(join(root, rel), { bigint: true }).catch(() => undefined);
+    if (st === undefined) continue;
+    const git = rel === ".git" || rel.endsWith("/.git");
+    ids.mounted.set(rel, { id: idOf(st), git });
+    ids.originals.add(idOf(st));
+  }
+  for (const f of scan.found) {
+    const st = await lstat(join(root, f.rel), { bigint: true }).catch(() => undefined);
+    if (st !== undefined) ids.originals.add(idOf(st));
+  }
   return {
     mounts: readOnly.map((rel) => ({
       source: join(root, rel),
       target: `${mountRoot}/${rel}`,
       readOnly: true,
     })),
-    settle: () => settle(root, scan, claude, before, limits, partial, options),
+    settle: () => settle(root, scan, claude, ids, before, limits, partial, options),
   };
+}
+
+interface Identities {
+  /** Each read-only-mounted folder: its identity, and whether it is a git folder. */
+  mounted: Map<string, { id: string; git: boolean }>;
+  /** Every mounted folder and existing entry, by identity: the owner's, wherever it is now. */
+  originals: Set<string>;
+}
+
+const idOf = (st: BigIntStats) => `${st.dev}:${st.ino}`;
+
+async function identity(path: string): Promise<string | undefined> {
+  const st = await lstat(path, { bigint: true }).catch(() => undefined);
+  return st === undefined ? undefined : idOf(st);
 }
 
 /**
@@ -153,6 +185,8 @@ interface ClaudeFolder {
   kind: "none" | "dir" | "link" | "other";
   /** The repository-relative folder to mount read-only, if any. */
   mount?: string;
+  /** A link's own text, to link it again as it was. */
+  linkText?: string;
 }
 
 async function claudeFolder(root: string): Promise<ClaudeFolder> {
@@ -161,12 +195,15 @@ async function claudeFolder(root: string): Promise<ClaudeFolder> {
   if (st === undefined) return { kind: "none" };
   if (st.isDirectory()) return { kind: "dir", mount: CLAUDE_DIR };
   if (!st.isSymbolicLink()) return { kind: "other" };
+  const linkText = await readlink(path);
   const real = await realpath(path).catch(() => undefined);
   const target = real === undefined ? undefined : await lstat(real).catch(() => undefined);
-  if (real === undefined || target?.isDirectory() !== true) return { kind: "link" };
+  if (real === undefined || target?.isDirectory() !== true) return { kind: "link", linkText };
   const rel = relative(root, real);
   const inside = rel !== "" && !rel.startsWith("..") && !isAbsolute(rel);
-  return inside ? { kind: "link", mount: rel.split(sep).join("/") } : { kind: "link" };
+  return inside
+    ? { kind: "link", mount: rel.split(sep).join("/"), linkText }
+    : { kind: "link", linkText };
 }
 
 const depth = (rel: string) => rel.split("/").length;
@@ -182,6 +219,7 @@ async function settle(
   root: string,
   was: LaunchConfigScan,
   claude: ClaudeFolder,
+  ids: Identities,
   before: Map<string, string>,
   limits: Limits,
   partial: boolean,
@@ -193,6 +231,7 @@ async function settle(
     fingerprints: {},
     unmoved: [],
     incidents: [],
+    relinked: [],
     partial,
   };
   let now: LaunchConfigScan;
@@ -212,16 +251,49 @@ async function settle(
   const claudeBefore = claude.kind !== "none";
   const claudeNow = !claudeBefore && (await lstat(join(root, CLAUDE_DIR)).catch(() => undefined));
   const fresh: string[] = claudeNow ? [CLAUDE_DIR] : [];
+  const gitRunsFrom = async (rel: string) => {
+    for (const name of GIT_RUNS_FROM) {
+      if (await lstat(join(root, rel, name)).catch(() => undefined)) fresh.push(`${rel}/${name}`);
+    }
+  };
+  // A read-only folder whose path now holds something else: its folder was renamed during the
+  // run and this was made in its place. It counts as new.
+  for (const [rel, m] of ids.mounted) {
+    const id = await identity(join(root, rel));
+    if (id === undefined || id === m.id) continue;
+    if (m.git) await gitRunsFrom(rel);
+    else fresh.push(rel);
+  }
+  // `.claude` was a link: one the run replaced, retargeted or removed is put back as it was (what
+  // replaced it is held); one that no longer resolves to the folder that was mounted is held.
+  let relink = false;
+  if (claude.kind === "link" && claude.linkText !== undefined) {
+    const path = join(root, CLAUDE_DIR);
+    const st = await lstat(path).catch(() => undefined);
+    const text = st?.isSymbolicLink() === true ? await readlink(path).catch(() => "") : undefined;
+    if (st === undefined) {
+      relink = true;
+    } else if (text !== claude.linkText) {
+      fresh.push(CLAUDE_DIR);
+      relink = true;
+    } else if (
+      claude.mount !== undefined &&
+      (await realpath(path).catch(() => undefined)) !== join(root, claude.mount)
+    ) {
+      // A folder on its way was swapped: the link now leads elsewhere.
+      fresh.push(CLAUDE_DIR);
+    }
+  }
   for (const f of now.found) {
     if (known.has(f.rel) || f.rel === CLAUDE_DIR || f.rel.startsWith(`${CLAUDE_DIR}/`)) continue;
+    // The owner's own entry under the name its renamed folder has now: never held.
+    const id = await identity(join(root, f.rel));
+    if (id !== undefined && ids.originals.has(id)) continue;
     if (f.git !== true || f.kind !== "dir") {
       fresh.push(f.rel);
       continue;
     }
-    for (const name of GIT_RUNS_FROM) {
-      if (await lstat(join(root, f.rel, name)).catch(() => undefined))
-        fresh.push(`${f.rel}/${name}`);
-    }
+    await gitRunsFrom(f.rel);
   }
   if (fresh.length > 0) {
     const id = `${(options.now?.() ?? new Date()).getTime()}-${randomBytes(4).toString("hex")}`;
@@ -250,6 +322,20 @@ async function settle(
       } catch {
         // Without its record Keep it cannot find them: say so rather than hold them silently.
         report.unmoved.push(...report.quarantined.map((rel) => `${rel} (held in ${held})`));
+      }
+    }
+  }
+  if (relink && claude.linkText !== undefined) {
+    const path = join(root, CLAUDE_DIR);
+    if ((await lstat(path).catch(() => undefined)) !== undefined) {
+      // Something is at the path again: nothing is linked over it.
+      report.unmoved.push(CLAUDE_DIR);
+    } else {
+      try {
+        await symlink(claude.linkText, path);
+        report.relinked.push(CLAUDE_DIR);
+      } catch {
+        report.unmoved.push(CLAUDE_DIR);
       }
     }
   }
@@ -558,6 +644,9 @@ export function launchConfigNotice(r: LaunchConfigReport): string | undefined {
     );
   }
   if (r.unmoved.length > 0) parts.push(`could not move ${r.unmoved.join(", ")}`);
+  if (r.relinked.length > 0) {
+    parts.push(`linked ${r.relinked.join(", ")} again as it was before the run`);
+  }
   if (r.changed.length > 0) {
     parts.push(
       `noticed changes to existing launch config (${r.changed.join(", ")}) and told the owner`,

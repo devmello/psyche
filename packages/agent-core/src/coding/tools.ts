@@ -111,6 +111,8 @@ export interface CodingSandbox {
  * With `file`, the scopes are kept across Gateway restarts (#1435 review r3): a container the
  * runner adopts after a restart is still found by its scope.
  */
+const SCOPE_KINDS: ReadonlySet<string> = new Set(["thread", "project", "task"]);
+
 export class CodingSandboxes {
   readonly #byRoot = new Map<string, Map<string, CodingSandbox>>();
   readonly #file: string | undefined;
@@ -123,7 +125,14 @@ export class CodingSandboxes {
       for (const [root, list] of Object.entries(saved)) {
         const byKey = new Map<string, CodingSandbox>();
         for (const sb of Array.isArray(list) ? list : []) {
-          if (typeof sb?.sandboxId !== "string" || typeof sb.scope?.id !== "string") continue;
+          if (
+            typeof sb?.sandboxId !== "string" ||
+            typeof sb.scope?.id !== "string" ||
+            sb.scope.id === "" ||
+            !SCOPE_KINDS.has(sb.scope.kind)
+          ) {
+            continue;
+          }
           byKey.set(`${sb.scope.kind}:${sb.scope.id}`, {
             sandboxId: sb.sandboxId,
             scope: sb.scope,
@@ -145,11 +154,19 @@ export class CodingSandboxes {
     this.#save();
   }
 
-  /** The sandboxes made for `root`, forgotten here (the caller destroys them). */
-  take(root: string): CodingSandbox[] {
-    const list = [...(this.#byRoot.get(root)?.values() ?? [])];
-    if (this.#byRoot.delete(root)) this.#save();
-    return list;
+  /** The sandboxes made for `root`; each stays listed until `forget` (after its destroy). */
+  list(root: string): CodingSandbox[] {
+    return [...(this.#byRoot.get(root)?.values() ?? [])].map((sb) => ({
+      sandboxId: sb.sandboxId,
+      scope: { ...sb.scope },
+    }));
+  }
+
+  forget(root: string, sandbox: CodingSandbox): void {
+    const byKey = this.#byRoot.get(root);
+    if (byKey?.delete(`${sandbox.scope.kind}:${sandbox.scope.id}`) !== true) return;
+    if (byKey.size === 0) this.#byRoot.delete(root);
+    this.#save();
   }
 
   #save(): void {
