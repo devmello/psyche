@@ -816,7 +816,8 @@ export const es: Partial<Catalogue> = {
   "agent.memory.importConv.skipInvalid": "no se pudo leer",
   "agent.memory.importConv.untitled": "Sin título",
   "agent.memory.importConv.progressCount": "Importando conversaciones… {done} de {total}",
-  "agent.memory.importConv.tooBig": "Este archivo supera los {mb} MB y es demasiado grande para leerlo aquí. Vuelve a exportar con un rango menor.",
+  "agent.memory.importConv.tooBig":
+    "Este archivo supera los {mb} MB y es demasiado grande para leerlo aquí. Vuelve a exportar con un rango menor.",
   "agent.memory.exported": "Se exportó {file}.",
   "agent.memory.export": "Exportar todo",
   "agent.memory.resetDone":

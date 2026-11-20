@@ -210,7 +210,7 @@ describe("an imported thread is closed at every layer", () => {
 
   it("taints a rebuilt model state that holds untrusted rows", async () => {
     const { c, id } = await importOne();
-    const store = new SqliteThreadStateStore(c.db, {});
+    const store = new SqliteThreadStateStore(c.db, { redact: (t: string) => t });
     const state = await store.load(id);
     expect(state?.taint?.sources.map((s) => s.sourceKind)).toContain("thread_untrusted");
   });
