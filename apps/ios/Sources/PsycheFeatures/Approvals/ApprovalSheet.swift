@@ -75,8 +75,14 @@ struct ApprovalSheet: View {
             case .failed(let message):
                 AnswerError(message: message, retry: { Task { await flow.retry() } }, cancel: flow.dismissError)
             case .review, .checking, .sending:
-                // Right above Allow, as in the mockup: the note explains the Face ID that Allow asks for.
-                if let note = detail.presenceNote {
+                // Right above Allow, as in the mockup. A card the phone can't allow says so (no Face ID: Allow is
+                // off); otherwise the note explains the Face ID that Allow asks for (a payment).
+                if detail.needsMac {
+                    Label(notice("This one needs your Mac."), systemImage: "laptopcomputer")
+                        .font(.footnote)
+                        .foregroundStyle(PsycheColor.muted)
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                } else if let note = detail.presenceNote {
                     Label(notice(note), systemImage: "faceid")
                         .font(.footnote)
                         .foregroundStyle(PsycheColor.muted)
@@ -91,6 +97,8 @@ struct ApprovalSheet: View {
                         title: flow.stage == .checking ? "Checking…" : detail.allowLabel,
                         progress: arming, isBusy: flow.stage == .sending
                     ) { answer(.allow) }
+                    // Deny stays: refusing on the phone shows nothing the card doesn't.
+                    .disabled(detail.needsMac)
                 }
                 .disabled(!session.state.canAnswer || flow.isBusy)
             }
@@ -108,11 +116,11 @@ struct ApprovalSheet: View {
         let id = item.id
         let store = store
         self.decision = decision
-        let needsPresence = decision == .allow && detail.presenceNote != nil
+        let detail = detail
+        let presence = presence
         Task {
-            await flow.run(
-                presence: needsPresence ? presence : nil,
-                reason: needsPresence ? "Allow: \(detail.title)" : nil,
+            await flow.answer(
+                decision, on: detail, presence: presence,
                 confirmation: decision == .allow ? "Allowed. Your Mac has your answer." : "Denied. Your Mac has your answer."
             ) {
                 try await store.answerApproval(id: id, decision: decision)

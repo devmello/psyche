@@ -36,7 +36,13 @@ import {
 import { venueOfHost } from "@psyche/protocol/financial-block";
 import { monotonicFactory } from "ulid";
 import { type Binding, bindingFor, bindingHash, grantKeyHash, readsCwdConfig } from "./binding.ts";
-import { cardHeader, cardTaintSources, sanitizeDetails, sanitizeDisplay } from "./cards.ts";
+import {
+  cardHeader,
+  cardTaintSources,
+  detailsTooDeep,
+  sanitizeDetails,
+  sanitizeDisplay,
+} from "./cards.ts";
 import {
   CHANNEL_PAIRING_WINDOW_MS,
   CHANNEL_REPLIES_PER_MINUTE,
@@ -1450,6 +1456,9 @@ export class PsychePermissionBroker implements PermissionBroker {
     if (input.children.length === 0 || input.children.length > MAX_BATCH_CALLS) {
       fail("invalid_params", `a batch holds 1 to ${MAX_BATCH_CALLS} calls`);
     }
+    if (detailsTooDeep(input.details)) {
+      fail("invalid_params", "the approval's details are nested too deeply to show in full");
+    }
     const children: BatchChild[] = [];
     // Per child: the live prep-note standing grant that covers it (security §3.4), and whether
     // the decision already used it. Taint is never exempted: a tainted call asks and is not covered.
@@ -1673,6 +1682,11 @@ export class PsychePermissionBroker implements PermissionBroker {
 
   async requestApproval(input: PolicyApprovalInput): Promise<IssuedApproval> {
     this.#sweep();
+    // A card shows its details in full or is not raised: past the display depth, part of what the
+    // binding covers would show as "…" on every surface (desktop, web, phone).
+    if (detailsTooDeep(input.details)) {
+      fail("invalid_params", "the approval's details are nested too deeply to show in full");
+    }
     const issued = this.#issue(input);
     await this.#afterIssue(issued.approval);
     return issued;
@@ -1723,15 +1737,13 @@ export class PsychePermissionBroker implements PermissionBroker {
     if (surfaces.length === 0) surfaces = ["desktop"];
     // A card that needs no presence is a plain tap on any paired operator device (owner's decision,
     // 2026-11-09): each gets its own surface and token. Only when the caller itself offered the
-    // off-Host surfaces (`notification` or `web`): a card its caller kept on `["desktop"]` shows
-    // arguments only the Mac renders in full and stays there. A card that needs a presence
-    // assertion (a payment, enrolling a verifier) stays on the Mac surfaces. A phone paired after
-    // the card was raised gets no token for it.
-    if (
-      !requiresAuthentication &&
-      this.#deviceSurfaces !== undefined &&
-      input.surfaces.some((s) => s === "notification" || s === "web")
-    ) {
+    // off-Mac surfaces (`notification` or `web`), never a relay (the Mac helper adds
+    // `notification` to every card): a card its caller kept on `["desktop"]` shows arguments only
+    // the Mac renders in full and stays there. A card that needs a presence assertion (a payment,
+    // enrolling a verifier) stays on the Mac surfaces. A phone paired after the card was raised
+    // gets no token for it.
+    const offMac = input.offMac ?? input.surfaces.some((s) => s === "notification" || s === "web");
+    if (!requiresAuthentication && this.#deviceSurfaces !== undefined && offMac) {
       surfaces = [
         ...new Set([
           ...surfaces,

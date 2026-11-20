@@ -175,22 +175,69 @@ struct GatewayBackendTests {
         #expect(approval.reviewInApp)
         #expect(!AlertPolicy.answersInline(item))
         #expect(approval.presenceNote == nil)
+        #expect(!approval.needsMac)
     }
 
-    @Test func aCardWithDetailsTooLongToShowStaysOnTheMac() async throws {
+    @Test func aCardWithDetailsTooLongToShowStaysOnTheMacWithoutFaceID() async throws {
         let huge = String(repeating: "x", count: GatewayBackend.nestedLimit + 1)
         let details: JSONValue = .object(["files": .array([.object(["lines": .string(huge)])])])
         let item = try #require(GatewayBackend.needsYou(approval: .object([
-            "id": "ap5", "kind": "script_run", "summary": "Run a script", "status": "pending", "details": details,
+            "id": "ap5", "kind": "skill_install", "summary": "Run a script", "status": "pending", "details": details,
         ])))
-        #expect(item.approval?.presenceNote == "This one needs your Mac.")
-        let (backend, h) = try await live { g in
+        let approval = try #require(item.approval)
+        // Needs the Mac, and never a presence (Face ID) card: presence is for payments only.
+        #expect(approval.needsMac)
+        #expect(approval.presenceNote == nil)
+        #expect(!approval.needsPresence(for: .allow))
+        #expect(!AlertPolicy.answersInline(item))
+        let answered = OutboxTests.Sent()
+        let (backend, _) = try await live { g in
             g.on("approvals.get") { _ in .success(.object(["approval": .object(["id": "ap5", "status": "pending", "details": details]), "answerToken": "tok"])) }
+            g.on("approvals.answer") { req in
+                answered.add(req.params?["decision"]?.stringValue ?? "")
+                return .success(.object([:]))
+            }
         }
         await #expect(throws: BackendError.refused("This one needs your Mac. Answer it there.")) {
             try await backend.answerApproval(id: "ap5", decision: .allow)
         }
-        #expect(h.gateway.received.allSatisfy { $0.method != "approvals.answer" })
+        // Deny stays on the phone.
+        try await backend.answerApproval(id: "ap5", decision: .deny)
+        #expect(answered.all == ["deny"])
+    }
+
+    @Test func aPaymentCardNeedsTheMacAndNeverAsksForFaceIDOnThePhone() throws {
+        let item = try #require(GatewayBackend.needsYou(approval: .object([
+            "id": "ap6", "kind": "purchase", "summary": "Pay $5", "status": "pending",
+            "details": .object([:]), "requiresAuthentication": .bool(true),
+        ])))
+        let approval = try #require(item.approval)
+        #expect(approval.needsMac)
+        #expect(!approval.needsPresence(for: .allow))
+        #expect(!AlertPolicy.answersInline(item))
+    }
+
+    @Test func aLongOrMultiLineScalarDetailIsReadInTheAppFirst() throws {
+        func card(_ details: [String: JSONValue]) throws -> NeedsYouItem {
+            try #require(GatewayBackend.needsYou(approval: .object([
+                "id": "ap7", "kind": "plan_exit", "summary": "Start the plan", "status": "pending",
+                "details": .object(details), "deviceOnly": .bool(false), "requiresAuthentication": .bool(false),
+            ])))
+        }
+        let short = try card(["title": "Tidy the inbox"])
+        #expect(short.approval?.reviewInApp == false)
+        #expect(AlertPolicy.answersInline(short))
+        let atLimit = try card(["plan": .string(String(repeating: "a", count: GatewayBackend.inlineScalarLimit))])
+        #expect(AlertPolicy.answersInline(atLimit))
+        let long = try card(["plan": .string(String(repeating: "a", count: GatewayBackend.inlineScalarLimit + 1))])
+        #expect(long.approval?.reviewInApp == true)
+        #expect(!AlertPolicy.answersInline(long))
+        let lines = try card(["plan": "1. Archive old mail⏎2. Delete the drafts"])
+        #expect(lines.approval?.reviewInApp == true)
+        #expect(!AlertPolicy.answersInline(lines))
+        // Read in the app, but still a plain tap there: no Face ID, not a Mac-only card.
+        #expect(lines.approval?.needsMac == false)
+        #expect(lines.approval?.needsPresence(for: .allow) == false)
     }
 
     @Test func presenceGatedApprovalsStayOnTheMacAndAreNeverQueued() async throws {

@@ -62,6 +62,7 @@ import {
   DENY_ALL_LOOPBACK,
   type FolderGrantEntry,
   type LocalProjectVerifier,
+  type PolicyApprovalInput,
   type PolicyConfig,
   type PresenceVerifier,
   PsychePermissionBroker,
@@ -2820,11 +2821,16 @@ function withRelay<B extends PermissionBroker>(
       if (prop === "requestApproval") {
         return async (input: ApprovalRequestInput) => {
           const extra = relays.flatMap((r) => r.surfaces());
-          const issued = await target.requestApproval(
-            extra.length === 0
-              ? input
-              : { ...input, surfaces: [...new Set([...input.surfaces, ...extra])] },
-          );
+          // Decided on the caller's own surfaces, before the relays add theirs: the Mac helper's
+          // `notification` must not put a `["desktop"]` card on the phone (broker `offMac`).
+          const offMac = input.surfaces.some((s) => s === "notification" || s === "web");
+          const withOffMac: PolicyApprovalInput = {
+            ...input,
+            offMac,
+            surfaces:
+              extra.length === 0 ? input.surfaces : [...new Set([...input.surfaces, ...extra])],
+          };
+          const issued = await target.requestApproval(withOffMac);
           deliver(issued);
           return issued;
         };

@@ -4,10 +4,11 @@ import { join } from "node:path";
 import { updateDevice } from "@psyche/db";
 import type { ApprovalRequest } from "@psyche/protocol";
 import { FakeModelProvider } from "@psyche/testing";
-import { afterEach, describe, expect, it } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 import { composeHelper } from "../src/compose/helper.ts";
 import { type ComposedGateway, composeGateway } from "../src/compose/index.ts";
 import { silentLogger } from "../src/log.ts";
+import { FakeNode } from "./fake-node.ts";
 import { desktopClient, handshake, ik, newDeviceKey, TestClient, wsUrlOf } from "./helpers.ts";
 
 /**
@@ -19,10 +20,12 @@ import { desktopClient, handshake, ik, newDeviceKey, TestClient, wsUrlOf } from 
  */
 
 const clients: TestClient[] = [];
+const nodes: FakeNode[] = [];
 let composed: ComposedGateway | null = null;
 let home = "";
 
 afterEach(async () => {
+  for (const n of nodes.splice(0)) n.close();
   for (const c of clients.splice(0)) c.close();
   await composed?.stop("test");
   composed?.gateway.context.db.close();
@@ -268,49 +271,154 @@ describe("a tap on the desktop approves the card without presence", () => {
   });
 });
 
+/**
+ * The Mac helper, connected the way it is on a default Mac: it relays every card to the
+ * `notification` surface (compose/helper.ts), which must not count as the caller's own choice.
+ */
+async function connectMacHelper(c: ComposedGateway) {
+  const key = newDeviceKey();
+  const node = await FakeNode.connect(c.gateway.config.nodeSocketPath, {
+    origin: c.gateway.origin,
+    secret: c.gateway.handshakeSecret,
+    deviceId: "audit-helper",
+    key,
+    handlers: [
+      {
+        capability: { name: "presence.public_key", sideEffect: "read", streaming: false },
+        run: () => ({
+          publicKey: key.publicKey,
+          keyId: "k",
+          kind: "device_identity",
+          algorithm: "ed25519",
+        }),
+      },
+      {
+        capability: { name: "notify.show", sideEffect: "write", streaming: false },
+        run: () => ({ shown: true }),
+      },
+      {
+        capability: { name: "notify.withdraw", sideEffect: "write", streaming: false },
+        run: () => ({ withdrawn: true }),
+      },
+      {
+        capability: { name: "notify.subscribe", sideEffect: "read", streaming: true },
+        run: () => new Promise(() => undefined),
+      },
+    ],
+  });
+  nodes.push(node);
+  await vi.waitFor(() =>
+    expect(node.invocations.map((i) => i.capability)).toContain("notify.subscribe"),
+  );
+}
+
 describe("which cards a phone gets a token for", () => {
-  const card = (
-    c: ComposedGateway,
-    over: {
-      kind: "script_run" | "send_message";
-      surfaces: string[];
-      sideEffect: "write" | "destructive";
-    },
-    n: string,
-  ) =>
+  type Over = {
+    kind: "skill_install" | "send_message";
+    surfaces: readonly string[];
+    sideEffect: "write" | "destructive";
+  };
+  const card = (c: ComposedGateway, over: Over, n: string) =>
     c.gateway.context.broker.requestApproval({
       kind: over.kind,
       summary: "x",
       details: {},
       requestedBy,
-      surfaces: over.surfaces,
+      surfaces: [...over.surfaces],
       taint: false,
       bindingHash: `sha256:${n.repeat(64)}`,
       grantKey: n,
       sideEffect: over.sideEffect,
     });
+  // A script or install card (scripts.ts, skills.ts, capabilities.ts): its caller keeps it on the Mac.
+  const script: Over = { kind: "skill_install", surfaces: ["desktop"], sideEffect: "destructive" };
+  const routine: Over = {
+    kind: "send_message",
+    surfaces: ["desktop", "notification"],
+    sideEffect: "write",
+  };
+  const noDevice = (surfaces: readonly string[]) =>
+    expect(surfaces.some((s) => s.startsWith("device:"))).toBe(false);
 
   it("a card its caller kept on the desktop (a script) gets no phone surface or token", async () => {
     const { c } = await boot();
     const p1 = await phone(c, "phone-1", false);
-    const issued = await card(
-      c,
-      { kind: "script_run", surfaces: ["desktop"], sideEffect: "destructive" },
-      "e",
-    );
+    const issued = await card(c, script, "e");
     const mine = await get(p1, issued.approval.id);
     expect(mine.approval.surfaces).toEqual(["desktop"]);
+    expect(mine.answerToken).toBeUndefined();
+  });
+
+  it("with the Mac helper connected, a desktop-only script card stays off the phone and the phone's answer is refused", async () => {
+    const { c, admin } = await boot();
+    const p1 = await phone(c, "phone-1", false);
+    await connectMacHelper(c);
+    const issued = await card(c, script, "a");
+    const id = issued.approval.id;
+    const mine = await get(p1, id);
+    // The helper relay added its own surface; the phone still gets none.
+    expect(mine.approval.surfaces).toContain("notification");
+    noDevice(mine.approval.surfaces);
+    expect(mine.answerToken).toBeUndefined();
+    await armed();
+    // Neither a made-up token nor the desktop's own token answers it from the phone.
+    const deskToken = (await get(admin, id)).answerToken;
+    expect(deskToken).toBeDefined();
+    for (const token of ["at_made_up", deskToken ?? ""]) {
+      expect(await answer(p1, id, token)).toMatchObject({ ok: false });
+    }
+    expect((await get(admin, id)).approval.status).toBe("pending");
+    // A restart re-issues it from the stored input: still decided on the caller's own surfaces.
+    const again = (await c.gateway.context.broker.reissue()).find(
+      (i) => i.approval.bindingHash === issued.approval.bindingHash,
+    );
+    expect(again).toBeDefined();
+    noDevice(again?.approval.surfaces ?? []);
+  });
+
+  it("with the Mac helper connected, a routine card offered to the notification surface still gets a phone token", async () => {
+    const { c } = await boot();
+    const p1 = await phone(c, "phone-1", false);
+    await connectMacHelper(c);
+    const issued = await card(c, routine, "b");
+    const id = issued.approval.id;
+    const mine = await get(p1, id);
+    expect(mine.approval.surfaces).toContain("device:phone-1");
+    expect(mine.answerToken).toBeDefined();
+    await armed();
+    expect(await answer(p1, id, mine.answerToken ?? "")).toMatchObject({ ok: true });
+    // Re-issued after a restart, a routine card still reaches the phone.
+    const next = await card(c, routine, "8");
+    const again = (await c.gateway.context.broker.reissue()).find(
+      (i) => i.approval.bindingHash === next.approval.bindingHash,
+    );
+    expect(again?.approval.surfaces).toContain("device:phone-1");
+  });
+
+  it("with the Mac helper connected, a payment offered everywhere gets no phone surface", async () => {
+    const { c } = await boot();
+    const p1 = await phone(c, "phone-1", true);
+    await connectMacHelper(c);
+    const issued = await c.gateway.context.broker.requestApproval({
+      kind: "purchase",
+      summary: "pay",
+      details: {},
+      requestedBy,
+      surfaces: ["desktop", "notification", "web"],
+      taint: false,
+      bindingHash: `sha256:${"7".repeat(64)}`,
+      grantKey: "pay",
+      sideEffect: "financial",
+    });
+    const mine = await get(p1, issued.approval.id);
+    noDevice(mine.approval.surfaces);
     expect(mine.answerToken).toBeUndefined();
   });
 
   it("a routine write card offered to the notification surface is answerable once from the phone", async () => {
     const { c } = await boot();
     const p1 = await phone(c, "phone-1", false);
-    const issued = await card(
-      c,
-      { kind: "send_message", surfaces: ["desktop", "notification"], sideEffect: "write" },
-      "f",
-    );
+    const issued = await card(c, routine, "f");
     const id = issued.approval.id;
     const mine = await get(p1, id);
     expect(mine.approval.deviceOnly).toBe(false);
@@ -323,11 +431,7 @@ describe("which cards a phone gets a token for", () => {
 
   it("a phone paired after the card was raised gets no token for it", async () => {
     const { c } = await boot();
-    const issued = await card(
-      c,
-      { kind: "send_message", surfaces: ["desktop", "notification"], sideEffect: "write" },
-      "9",
-    );
+    const issued = await card(c, routine, "9");
     const late = await phone(c, "phone-late", false);
     const mine = await get(late, issued.approval.id);
     expect(mine.answerToken).toBeUndefined();

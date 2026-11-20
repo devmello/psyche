@@ -199,16 +199,22 @@ public struct ApprovalDetail: Sendable, Equatable {
     public var fields: [Field]
     public var evidence: [String]
     public var alsoSentTo: String
-    /// "Payments need Face ID on this phone." nil when no presence check applies.
+    /// "Payments need Face ID on this phone." nil when no presence check applies. Only a payment the phone itself
+    /// answers sets it: it is what makes Allow ask for Face ID.
     public var presenceNote: String?
     public var allowLabel: String
-    /// A device-only card (a security change, a destructive action): a plain tap on the phone, but read in the
-    /// app first, so no Approve button on the lock screen or the Dynamic Island.
+    /// A device-only card (a security change, a destructive action), or one whose details are long or span lines:
+    /// a plain tap on the phone, but read in the app first, so no Approve button on the lock screen or the Dynamic
+    /// Island.
     public var reviewInApp: Bool
+    /// The phone can't answer Allow on this card (a payment it has no presence key for, details too long to show in
+    /// full): Allow is off and the card says "This one needs your Mac." Never a reason to ask for Face ID.
+    public var needsMac: Bool
 
     public init(
         kindLabel: String, title: String, summary: String, fields: [Field], evidence: [String],
-        alsoSentTo: String, presenceNote: String?, allowLabel: String, reviewInApp: Bool = false
+        alsoSentTo: String, presenceNote: String?, allowLabel: String, reviewInApp: Bool = false,
+        needsMac: Bool = false
     ) {
         self.kindLabel = kindLabel
         self.title = title
@@ -219,6 +225,13 @@ public struct ApprovalDetail: Sendable, Equatable {
         self.presenceNote = presenceNote
         self.allowLabel = allowLabel
         self.reviewInApp = reviewInApp
+        self.needsMac = needsMac
+    }
+
+    /// Whether Allow asks for Face ID first: a card with a presence note (a payment) that the phone answers itself.
+    /// A needs-Mac card never does, and Deny never does.
+    public func needsPresence(for decision: ApprovalDecision) -> Bool {
+        decision == .allow && presenceNote != nil && !needsMac
     }
 }
 

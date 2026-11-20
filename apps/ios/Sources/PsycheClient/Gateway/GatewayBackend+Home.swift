@@ -25,8 +25,10 @@ extension GatewayBackend {
         if approval["status"]?.string != "pending" { throw BackendError.refused("That approval is no longer waiting.") }
         // Only presence-gated approvals (payments, adding a verifier) need a presence assertion from a registered
         // Secure Enclave key (companion §5); the phone has none yet, so these stay on the Mac rather than failing
-        // late. Device-only just means "never in chat": the paired phone answers it with a plain tap.
-        if approval["requiresAuthentication"]?.bool == true || Self.detailsNeedMac(approval["details"]) {
+        // late. Device-only just means "never in chat": the paired phone answers it with a plain tap. A card whose
+        // details the phone can't show in full is never allowed from here; Deny stays (refusing shows nothing new).
+        if approval["requiresAuthentication"]?.bool == true
+            || (decision == .allow && Self.detailsNeedMac(approval["details"])) {
             throw BackendError.refused("This one needs your Mac. Answer it there.")
         }
         guard let token = current["answerToken"]?.string else {
@@ -140,29 +142,32 @@ extension GatewayBackend {
         let summary = a["summary"]?.string ?? Self.humanized(kind)
         let agent = a.at("requestedBy", "agent")?.string
         var fields: [ApprovalDetail.Field] = []
-        var nested = false
+        // Read in the app before Allow: a lock-screen banner or the Dynamic Island shows only the title.
+        var reviewInApp = a["deviceOnly"]?.bool == true
         for (key, value) in (a["details"]?.object ?? [:]).sorted(by: { $0.key < $1.key }) {
             if let text = value.string ?? value.double.map({ String($0) }) ?? value.bool.map({ String($0) }) {
+                // A long value or one that spans lines (the server shows a newline as ⏎), such as a plan's text.
+                if Self.scalarNeedsReview(text) { reviewInApp = true }
                 fields.append(.init(key: Self.humanized(key), value: text))
             } else if let text = Self.nestedText(value) {
                 // The arguments being approved (a command's params, a script's lines) are shown in full,
                 // never summarised: the tap approves exactly this.
-                nested = true
+                reviewInApp = true
                 fields.append(.init(key: Self.humanized(key), value: text))
             }
         }
-        let needsMacForDetails = Self.detailsNeedMac(a["details"])
         var evidence: [String] = []
         if let because = a.at("fromLesson", "because")?.string { evidence.append("Because you said: \(because)") }
         if a["taint"]?.bool == true { evidence.append("Based on content from outside Psyche") }
-        let needsMac = a["requiresAuthentication"]?.bool == true || needsMacForDetails
-        let deviceOnly = a["deviceOnly"]?.bool == true
+        // The phone has no presence key (companion §5), so it never asks for Face ID on a Gateway card: a payment
+        // or a card it can't show in full is answered on the Mac.
+        let needsMac = a["requiresAuthentication"]?.bool == true || Self.detailsNeedMac(a["details"])
         let detail = ApprovalDetail(
             kindLabel: Self.humanized(kind), title: summary,
             summary: agent.map { "Requested by \($0)." } ?? "Psyche is asking before it goes ahead.",
             fields: fields, evidence: evidence, alsoSentTo: "Also sent to your Mac",
-            presenceNote: needsMac ? "This one needs your Mac." : nil, allowLabel: "Allow once",
-            reviewInApp: deviceOnly || nested)
+            presenceNote: nil, allowLabel: "Allow once",
+            reviewInApp: reviewInApp, needsMac: needsMac)
         return NeedsYouItem(
             id: id, kind: .approval, title: summary, source: agent ?? Self.humanized(kind),
             time: WireFormat.time(a["requestedAt"]?.string), approval: detail,
@@ -172,6 +177,15 @@ extension GatewayBackend {
     /// The longest nested value the card shows in full. Past it the card is answered on the Mac, where the
     /// whole thing can be read: the phone never approves what it cannot show.
     static let nestedLimit = 20_000
+
+    /// The longest scalar detail a lock-screen Approve may stand for unread.
+    static let inlineScalarLimit = 200
+
+    /// True when a scalar detail must be read in the app first: longer than `inlineScalarLimit`, or spanning
+    /// lines (the Gateway's sanitizer turns every newline into ⏎).
+    static func scalarNeedsReview(_ text: String) -> Bool {
+        text.count > inlineScalarLimit || text.contains("⏎") || text.contains(where: \.isNewline)
+    }
 
     /// An array or object detail as pretty, sorted JSON, or nil when it is empty or null.
     static func nestedText(_ value: JSONValue) -> String? {
