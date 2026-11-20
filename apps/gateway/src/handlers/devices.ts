@@ -3,6 +3,7 @@ import {
   decidePairingRequest,
   expirePairingRequests,
   getDevice,
+  getDeviceFamily,
   getNodeByDevice,
   getPairingRequest,
   listDevices,
@@ -17,6 +18,37 @@ import { type Device, type DeviceScope, type PairingRequest, PsycheError } from 
 import { keyFingerprint } from "../auth.ts";
 import { configWarnings } from "../config.ts";
 import type { Call, GatewayContext, HandlerDef, LiveConnection } from "../context.ts";
+
+// --- B2: the local admin CLI (linux-helper-only design §7.3, security §10) ------------------------
+
+/**
+ * Whether this connection is an admin CLI device on the Host's own loopback, the one non-desktop
+ * caller allowed to make a pairing link (`devices.setupToken.create`). Every part is set by the
+ * server from the connection, never from the request:
+ * - `operator.admin` on the paired device (a stolen read-only CLI key is not enough);
+ * - the device declared the `cli` family when it paired;
+ * - a plain WebSocket that `resolvePeer` called loopback, which already means the TCP peer is
+ *   127.0.0.1/::1 and carried no `Forwarded`/`X-Forwarded-*`/`X-Real-IP` header (a Tailscale
+ *   Serve or cloudflared hop is never loopback);
+ * - not the LAN listener, not a guest or relayed socket;
+ * - no `Origin`: a browser page (a DNS-rebinding one too) always sends one.
+ */
+export function isLocalAdminCli(
+  db: PsycheDb,
+  identity: Call["identity"],
+  peer: Call["conn"]["peer"],
+): boolean {
+  return (
+    identity.scopes.includes("operator.admin") &&
+    identity.role === "client" &&
+    peer.transport === "ws" &&
+    peer.remoteLoopback === true &&
+    peer.origin === null &&
+    peer.lan !== true &&
+    peer.guest === undefined &&
+    getDeviceFamily(db, identity.deviceId) === "cli"
+  );
+}
 
 /**
  * Approves a pending device pairing with owner-chosen scopes. The device's key must still be the

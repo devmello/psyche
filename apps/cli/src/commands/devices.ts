@@ -1,6 +1,7 @@
-import type { DeviceScope } from "@psyche/protocol";
+import { type DeviceScope, PsycheError } from "@psyche/protocol";
+import type { GatewayClient } from "../client.ts";
 import { bool, type CommandSpec, str } from "../command.ts";
-import { CliError } from "../errors.ts";
+import { CliError, isUnavailable } from "../errors.ts";
 import { table } from "../output.ts";
 import { callOrUnavailable, splitList } from "./util.ts";
 
@@ -49,6 +50,59 @@ async function findRequest(
   const hit = res.pairingRequests.find((r) => r.code.toUpperCase() === want || r.id === codeOrId);
   if (!hit) throw new CliError("failure", `No pending pairing request with code or id ${codeOrId}`);
   return hit;
+}
+
+interface LanStatus {
+  enabled?: boolean;
+  origin?: string | null;
+  listening?: unknown[];
+  candidates?: { name: string; address: string }[];
+}
+
+/**
+ * Turns LAN listening on for one interface through the existing `gateway.lan` setting (an admin
+ * setting: the Gateway enforces the scope and, once a verifier exists, fresh presence). Keeps the
+ * stored port and IPv6 choice. It never names "every interface"; none given means the primary one.
+ */
+export async function enableLan(
+  client: GatewayClient,
+  iface: string | undefined,
+): Promise<{ origin: string | null; interfaces: string[] }> {
+  const got = (await callOrUnavailable(client, "settings.get", { keys: ["gateway.lan"] })) as {
+    settings: Record<string, unknown>;
+  };
+  const stored = got.settings["gateway.lan"];
+  const current =
+    stored !== null && typeof stored === "object" && !Array.isArray(stored)
+      ? (stored as Record<string, unknown>)
+      : {};
+  const interfaces = iface
+    ? [iface]
+    : Array.isArray(current.interfaces)
+      ? (current.interfaces as string[])
+      : [];
+  try {
+    await callOrUnavailable(client, "settings.set", {
+      key: "gateway.lan",
+      value: { ...current, enabled: true, interfaces },
+    });
+  } catch (err) {
+    throw explain(err, "turn LAN on");
+  }
+  const info = (await callOrUnavailable(client, "gateway.info", {})) as { lan?: LanStatus };
+  return { origin: info.lan?.origin ?? null, interfaces };
+}
+
+/** Turns a refusal into the sentence a person at a terminal needs. */
+function explain(err: unknown, what: string): unknown {
+  if (err instanceof CliError) return err;
+  if (err instanceof PsycheError && err.code === "presence_required") {
+    return new CliError(
+      "failure",
+      `To ${what}, approve it on a device with Touch ID or a passkey first (${err.message})`,
+    );
+  }
+  return err;
 }
 
 export const devicesCommands: CommandSpec[] = [
@@ -171,6 +225,83 @@ export const devicesCommands: CommandSpec[] = [
       const client = await ctx.gateway();
       const res = await callOrUnavailable(client, "devices.revoke", { deviceId });
       return { data: res, human: `Revoked ${deviceId}` };
+    },
+  },
+  {
+    path: ["devices", "link"],
+    summary: "Make a single-use pairing link for another computer (admin CLI on this Host only)",
+    description:
+      "Prints a psyche-pair link, valid for 10 minutes and usable once; at most three are live at a time. Without --lan it is a v1 link for gateway.publicOrigin; --lan makes a v2 link for this network (turn LAN on first: `psyche lan on`). Scopes default to operator.read,operator.write,operator.approvals; --admin adds operator.admin. Only an admin CLI connected from this computer, directly and not through a proxy, may make one.",
+    options: {
+      admin: {
+        type: "boolean",
+        description: "Also grant operator.admin to the computer that pairs",
+      },
+      lan: { type: "boolean", description: "A link for this network (v2), not the public address" },
+      scopes: { type: "string", description: "Comma-separated scopes" },
+    },
+    async run(ctx, { opts }) {
+      const scopes = parseScopes(str(opts, "scopes"), bool(opts, "admin"));
+      const client = await ctx.gateway();
+      let made: {
+        link: string;
+        version: number;
+        gatewayUrl: string;
+        setupToken: { id: string; expiresAt: string; scopes: string[] };
+      };
+      try {
+        made = (await client.call("devices.setupToken.create", {
+          scopes,
+          ...(bool(opts, "lan") ? { via: "lan" } : {}),
+        })) as typeof made;
+      } catch (err) {
+        if (err instanceof PsycheError && err.code === "forbidden") {
+          throw new CliError(
+            "failure",
+            "Only an admin CLI connected from this Host itself can make a pairing link. Run it on the Host, directly (not through Tailscale Serve or another proxy), as a device with operator.admin: `psyched devices grant <deviceId> operator.read,operator.write,operator.approvals,operator.admin` on the Host.",
+          );
+        }
+        if (isUnavailable(err)) {
+          throw new CliError(
+            "unavailable",
+            "devices.setupToken.create is not available on this Gateway yet",
+            {
+              available: false,
+              method: "devices.setupToken.create",
+            },
+          );
+        }
+        throw explain(err, "make a pairing link");
+      }
+      return {
+        data: made,
+        human: [
+          made.link,
+          "",
+          `Open this on the other computer in Psyche (v${made.version} link for ${made.gatewayUrl}).`,
+          `Single use; expires ${made.setupToken.expiresAt}. Grants ${made.setupToken.scopes.join(", ")}.`,
+          "Anyone holding it can pair until then: do not paste it anywhere shared.",
+        ].join("\n"),
+      };
+    },
+  },
+  {
+    path: ["lan", "on"],
+    summary: "Allow computers on this network to connect (gateway.lan), on one interface",
+    description:
+      "Admin only. Names one interface or address (never every interface); with none given, the primary interface. Then make a link for this network with `psyche devices link --lan`.",
+    options: {
+      interface: { type: "string", description: "Interface name or address (en0, eth0)" },
+    },
+    async run(ctx, { opts }) {
+      const client = await ctx.gateway();
+      const res = await enableLan(client, str(opts, "interface"));
+      return {
+        data: { enabled: true, ...res },
+        human: res.origin
+          ? `LAN is on at ${res.origin}`
+          : "LAN is on, but nothing is listening yet; check `psyche doctor`",
+      };
     },
   },
 ];
