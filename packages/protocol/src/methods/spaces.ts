@@ -182,6 +182,14 @@ export const SpacesMethods = {
       spaceId: Id,
       widgetId: Type.Optional(Id),
       template: Type.Optional(SpaceTrackerTemplate),
+      automationId: Type.Optional(
+        Type.String({
+          minLength: 1,
+          maxLength: 64,
+          description:
+            "With widgetId: the automation of this Space that Refresh runs for an agent tracker (the owner's link)",
+        }),
+      ),
     }),
     result: SpaceDetail,
     scope: "operator.write",

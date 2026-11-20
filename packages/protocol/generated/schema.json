@@ -45379,6 +45379,12 @@
         },
         "template": {
           "$ref": "#/$defs/SpaceTrackerTemplate"
+        },
+        "automationId": {
+          "description": "With widgetId: the automation of this Space that Refresh runs for an agent tracker (the owner's link)",
+          "maxLength": 64,
+          "minLength": 1,
+          "type": "string"
         }
       },
       "required": [

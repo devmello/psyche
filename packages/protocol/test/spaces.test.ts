@@ -63,13 +63,19 @@ describe("spaces protocol (S0)", () => {
       expect(names, e).toContain(e);
   });
 
-  it("adds the six binding sources, each with a table entry and no bindable field yet", () => {
+  it("adds the six binding sources, each with a table entry and the S4 fields", () => {
     for (const s of ["entity", "work_due", "calendar", "reminders", "mail", "files"]) {
       expect(Value.Check(WidgetBindingSource, s), s).toBe(true);
       expect(Object.keys(WIDGET_BINDINGS), s).toContain(s);
     }
     expect(Value.Check(WidgetBindingSource, "nope")).toBe(false);
-    expect(bindingProblem({ source: "mail", id: "x", field: "unread" } as never, "text")).toContain(
+    expect(
+      bindingProblem({ source: "mail", id: "x", field: "unread" } as never, "stat"),
+    ).toBeNull();
+    expect(
+      bindingProblem({ source: "mail", id: "x", field: "unread" } as never, "progress"),
+    ).toContain("can only bind");
+    expect(bindingProblem({ source: "mail", id: "x", field: "body" } as never, "text")).toContain(
       "not a bindable field",
     );
   });

@@ -34255,17 +34255,22 @@ public struct SpacesThreadsMoveResult: Codable, Sendable {
 
 // MARK: - SpacesTrackersAddParams
 public struct SpacesTrackersAddParams: Codable, Sendable {
+    /// With widgetId: the automation of this Space that Refresh runs for an agent tracker (the
+    /// owner's link)
+    public let automationID: String?
     public let spaceID: String
     public let template: SpaceTrackerTemplate?
     public let widgetID: String?
 
     public enum CodingKeys: String, CodingKey {
+        case automationID = "automationId"
         case spaceID = "spaceId"
         case template = "template"
         case widgetID = "widgetId"
     }
 
-    public init(spaceID: String, template: SpaceTrackerTemplate? = nil, widgetID: String? = nil) {
+    public init(automationID: String? = nil, spaceID: String, template: SpaceTrackerTemplate? = nil, widgetID: String? = nil) {
+        self.automationID = automationID
         self.spaceID = spaceID
         self.template = template
         self.widgetID = widgetID

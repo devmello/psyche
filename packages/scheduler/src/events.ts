@@ -114,3 +114,56 @@ export function eventsBlock(events: readonly WorkflowEvent[]): string {
     FENCE_END,
   ].join("\n");
 }
+
+// --- anchors (docs/design/spaces-2026.md section 6.3) -----------------------------------------
+
+/** What a Space's project anchors: the graph's `graph_anchors` rows, reduced to what matching needs. */
+export interface EventAnchor {
+  readonly kind: string;
+  readonly ref: string;
+}
+
+const under = (path: string, folder: string): boolean => {
+  const f = folder.endsWith("/") ? folder : `${folder}/`;
+  return path === folder || path.startsWith(f);
+};
+
+/**
+ * Whether an event belongs to something a Space's project anchors (section 6.3). Ids only, never
+ * text: a sender or subject cannot make an event match. An event that carries no id at all (the
+ * helper's `calendar.changed` push says only "something changed") matches when the Space anchors
+ * any calendar, because the query re-reads and filters by the anchors itself.
+ */
+export function anchorMatches(event: WorkflowEvent, anchors: readonly EventAnchor[]): boolean {
+  if (event.source === "mail.received") {
+    const ids = [event.threadId, event.messageId].filter((x): x is string => x !== undefined);
+    return anchors.some(
+      (a) =>
+        a.kind === "mail_thread" &&
+        ids.some(
+          (id) =>
+            a.ref === id || (event.account !== undefined && a.ref === `${event.account}:${id}`),
+        ),
+    );
+  }
+  if (event.source === "calendar.changed") {
+    const calendarId = (event as WorkflowEvent & { calendarId?: string }).calendarId;
+    const mine = anchors.filter((a) => a.kind === "calendar" || a.kind === "calendar_series");
+    if (mine.length === 0) return false;
+    if (calendarId === undefined && event.calendarEventId === undefined) return true;
+    return mine.some(
+      (a) =>
+        (a.kind === "calendar" && calendarId !== undefined && a.ref === calendarId) ||
+        (a.kind === "calendar_series" &&
+          event.calendarEventId !== undefined &&
+          a.ref === event.calendarEventId),
+    );
+  }
+  if (event.path !== undefined) {
+    const path = event.path;
+    return anchors.some(
+      (a) => (a.kind === "folder" && under(path, a.ref)) || (a.kind === "file" && a.ref === path),
+    );
+  }
+  return false;
+}

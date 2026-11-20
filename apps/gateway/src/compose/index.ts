@@ -265,7 +265,7 @@ import {
 } from "./services.ts";
 import { setupTokenHandlers, setupTokenUsedHook } from "./setup-tokens.ts";
 import { composeSkills } from "./skills.ts";
-import { composeSpaces } from "./spaces.ts";
+import { composeSpaces, type SpaceTrackersRef } from "./spaces.ts";
 import { withSpecialistContext } from "./specialist-approvals.ts";
 import {
   createSpecialistHost,
@@ -1857,9 +1857,13 @@ export async function composeGateway(options: ComposeOptions): Promise<ComposedG
   // A status left by the previous run (two helpers connected when it stopped) must not outlive
   // it: no helper is connected yet. Quiet write; later changes publish through `onChange`.
   setSetting(db, HELPER_AVAILABILITY_SETTING, helperAvailability.status());
+  // The Space trackers are composed last; the mail poll, calendar watch and folder watcher ask
+  // them through this ref whether anything listens (spaces-2026 §6.2).
+  const spaceTrackers: SpaceTrackersRef = {};
   const proactive = composeProactive({
     db,
     clock,
+    spaceListens: (source) => spaceTrackers.current?.listensTo(source) === true,
     helper: { state: helperAvailability, connected: helperConnected },
     scheduler,
     notifier,
@@ -2134,6 +2138,11 @@ export async function composeGateway(options: ComposeOptions): Promise<ComposedG
       power,
       watch: background,
       pageReads,
+      // Folders added only to a Space are watched too, for its files tracker (spaces-2026 §6.2).
+      spaceFolders: {
+        roots: () => spaceTrackers.current?.watchedFolders() ?? [],
+        changed: (root) => spaceTrackers.current?.signal({ kind: "folder", root }),
+      },
     },
     db,
     home: config.home,
@@ -2216,8 +2225,16 @@ export async function composeGateway(options: ComposeOptions): Promise<ComposedG
     everything.part(scheduler, timeZone ?? Intl.DateTimeFormat().resolvedOptions().timeZone),
   );
   parts.push(nudges.part());
+  parts.push(
+    composeSpaces({
+      scheduler,
+      services,
+      trackers: spaceTrackers,
+      tools: connectorToolLookup(registry),
+      folderEnv: () => folderAccessEnv(config.home),
+    }),
+  );
   parts.push(mailFollowups.part());
-  parts.push(composeSpaces({ scheduler }));
   parts.push(
     composeWork({
       db,

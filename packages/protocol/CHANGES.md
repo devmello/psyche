@@ -22,6 +22,10 @@ CI fails when the generated files are stale (`pnpm protocol:check`).
 
 ## Log
 
+### v1 additive — 2026-11-20 (Spaces, wave S4)
+
+- `WIDGET_BINDINGS` gains the bindable fields of the six Space query sources: `entity` (status, nextStep, stoppedAt, due), `work_due` (count, next), `calendar` (next, countWeek), `reminders` (open, done, nextDue), `mail` (unread, latest), `files` (recent, count). For `entity` the bind `id` is the linked project or one of its children; for the others it is the Space's id. New exports `SPACE_QUERY_SOURCES` and `isSpaceQuerySource`. `spaces.trackers.add` gains an optional `automationId` (with `widgetId`): the owner's link from an agent tracker to an automation of the Space, which is the only thing its Refresh runs. The generated Swift params gain the optional field.
+
 ### v1 additive — 2026-11-19 (machine registry, H3)
 
 - New method `node.unpair` (scope `node`, `{}` to `{ device }`): a connection paired as a machine removes itself; any other node gets `forbidden`. `MACHINE_TOKENS_ENABLED` is now true. Design: docs/design/linux-helper-only-2026.md §6.6, §9.

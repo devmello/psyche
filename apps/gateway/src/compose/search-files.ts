@@ -58,17 +58,32 @@ export function filesSourceDeps(o: {
  * `onChange` fires once, 2 s after the last event. Roots that cannot be watched are skipped (the
  * nightly sweep still catches their changes).
  */
-export function watchFolders(roots: readonly string[], onChange: () => void): () => void {
+export function watchFolders(
+  roots: readonly string[],
+  onChange: () => void,
+  /** Called once per root, 2 s after that root's last event: a Space's files tracker (spaces §6.2). */
+  onRoot?: (root: string) => void,
+): () => void {
   const watchers: FSWatcher[] = [];
+  const rootTimers = new Map<string, ReturnType<typeof setTimeout>>();
   let timer: ReturnType<typeof setTimeout> | undefined;
   const fire = () => {
     if (timer !== undefined) clearTimeout(timer);
     timer = setTimeout(onChange, 2000);
     timer.unref?.();
   };
+  const fireRoot = (root: string) => {
+    fire();
+    if (onRoot === undefined) return;
+    const prev = rootTimers.get(root);
+    if (prev !== undefined) clearTimeout(prev);
+    const t = setTimeout(() => onRoot(root), 2000);
+    t.unref?.();
+    rootTimers.set(root, t);
+  };
   for (const root of roots) {
     try {
-      const w = watch(root, { recursive: true, persistent: false }, fire);
+      const w = watch(root, { recursive: true, persistent: false }, () => fireRoot(root));
       w.on("error", () => undefined);
       watchers.push(w);
     } catch {
@@ -77,6 +92,7 @@ export function watchFolders(roots: readonly string[], onChange: () => void): ()
   }
   return () => {
     if (timer !== undefined) clearTimeout(timer);
+    for (const t of rootTimers.values()) clearTimeout(t);
     for (const w of watchers) w.close();
   };
 }

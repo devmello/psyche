@@ -38,16 +38,52 @@ export const WIDGET_BINDINGS = {
     lastStep: ["text"],
   },
   /**
-   * Spaces query sources (spaces-2026 section 6.2). Declared in S0 so the source enum and this
-   * table agree; the fields arrive with their resolvers in S4. Until then no field is bindable.
+   * Spaces query sources (spaces-2026 section 6.2). The Gateway re-runs a typed, closed query on
+   * free signals and writes the result into the node (no model call). `id` is the Space's id,
+   * except for `entity`, where it is the linked project or one of its children.
    */
-  entity: {},
-  work_due: {},
-  calendar: {},
-  reminders: {},
-  mail: {},
-  files: {},
+  entity: {
+    status: ["status", "text"],
+    nextStep: ["text"],
+    stoppedAt: ["text"],
+    due: ["text", "stat"],
+  },
+  work_due: {
+    count: ["stat", "text"],
+    next: ["checklist"],
+  },
+  calendar: {
+    next: ["checklist"],
+    countWeek: ["stat", "text"],
+  },
+  reminders: {
+    open: ["stat", "text"],
+    done: ["stat", "text"],
+    nextDue: ["text"],
+  },
+  mail: {
+    unread: ["stat", "text"],
+    latest: ["checklist"],
+  },
+  files: {
+    recent: ["checklist"],
+    count: ["stat", "text"],
+  },
 } as const satisfies Record<WidgetBind["source"], Record<string, readonly string[]>>;
+
+/** The sources whose values the Gateway computes from a Space's own data (spaces-2026 section 6.2). */
+export const SPACE_QUERY_SOURCES = [
+  "entity",
+  "work_due",
+  "calendar",
+  "reminders",
+  "mail",
+  "files",
+] as const;
+export type SpaceQuerySource = (typeof SPACE_QUERY_SOURCES)[number];
+
+export const isSpaceQuerySource = (s: string): s is SpaceQuerySource =>
+  (SPACE_QUERY_SOURCES as readonly string[]).includes(s);
 
 /** `null` when `bind` may sit on a node of `nodeType`, else why not (for the model). */
 export function bindingProblem(bind: WidgetBind, nodeType: string): string | null {

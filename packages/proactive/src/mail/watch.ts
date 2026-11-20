@@ -164,6 +164,11 @@ export interface MailWatcherOptions {
    * Nothing listening, nothing is read.
    */
   wanted?: () => Promise<boolean>;
+  /**
+   * Other listeners for `mail.received` besides event automations: a Space that tracks mail
+   * (spaces-2026 section 6.2). Checked after `wanted`, so it only adds a reason to poll.
+   */
+  listeners?: () => boolean | Promise<boolean>;
   onError?: (error: unknown) => void;
 }
 
@@ -221,7 +226,11 @@ export class MailWatcher {
         (await this.#o.scheduler.list()).some(
           (a) => a.kind === "event" && a.enabled && a.trigger?.source === "mail.received",
         ));
-    if (!(await wanted())) return { published: 0, skipped: "nothing listens for new mail" };
+    // A Space with a mail tracker listens too (spaces-2026 section 6.2): the poll runs, still with
+    // no model call. With no listener of either kind it stops, as before.
+    const listened = async () => (await this.#o.listeners?.()) === true;
+    if (!(await wanted()) && !(await listened()))
+      return { published: 0, skipped: "nothing listens for new mail" };
     const now = this.#o.clock.now();
     const tz = this.#o.timezone ?? "UTC";
     const { start, end } = this.#o.activeHours ?? { start: 8, end: 22 };

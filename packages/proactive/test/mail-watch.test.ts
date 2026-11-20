@@ -138,6 +138,21 @@ describe("mail watch", () => {
     expect(r.queries).toHaveLength(2);
   });
 
+  it("a Space with a mail tracker is a listener: the poll runs with no event automation and no model call", async () => {
+    let space = false;
+    const r = rig(NOON, { listeners: () => space });
+    expect((await r.watcher.poll()).skipped).toBe("nothing listens for new mail");
+    space = true;
+    expect((await r.watcher.poll()).skipped).toBeUndefined();
+    expect(r.queries).toHaveLength(1);
+    expect(r.agent.requests).toEqual([]);
+    // The Space went away (archived, tracker removed): the poll stops again.
+    space = false;
+    r.clock.advance(10 * 60_000);
+    expect((await r.watcher.poll()).skipped).toBe("nothing listens for new mail");
+    expect(r.queries).toHaveLength(1);
+  });
+
   it("runs as a system interval automation in-process; nothing reaches the agent", async () => {
     const r = rig();
     const a = await r.watcher.ensureSchedule({ timezone: "UTC" });

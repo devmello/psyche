@@ -135,6 +135,11 @@ export interface ProactiveSetup {
    */
   calendarHelper?: () => AppleHelper | undefined;
   /**
+   * Whether a Space with a query tracker listens to `mail` or `calendar` (spaces-2026 §6.2). It
+   * only adds a reason to poll or watch; the poll still makes no model call.
+   */
+  spaceListens?: (source: "mail" | "calendar") => boolean;
+  /**
    * The Host helper's shared availability (`HelperAvailability`). Helper-backed jobs skip while it
    * is offline and back off between attempts; absent = every job runs as before.
    */
@@ -380,6 +385,8 @@ export function composeProactive(setup: ProactiveSetup): ComposedProactive {
       return idle === undefined ? OFF_HOURS_POLL_MS : idle * 60_000;
     },
     sources: () => (lookup === undefined ? [] : [appleMailSource(lookup), gmailSource(lookup)]),
+    // A Space that tracks mail keeps the poll going, as an event automation does.
+    listeners: () => setup.spaceListens?.("mail") === true,
     ...(timeZone === undefined ? {} : { timezone: timeZone }),
     onError: (err) => logger?.log("warn", "mail poll failed", { code: PsycheError.from(err).code }),
   });
@@ -391,6 +398,7 @@ export function composeProactive(setup: ProactiveSetup): ComposedProactive {
       : new CalendarWatch({
           helper: setup.calendarHelper,
           wanted: async () =>
+            setup.spaceListens?.("calendar") === true ||
             (await scheduler.list()).some(
               (a) => a.kind === "event" && a.enabled && a.trigger?.source === "calendar.changed",
             ),
