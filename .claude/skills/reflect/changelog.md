@@ -2,6 +2,13 @@
 
 Newest first. The `reflect` skill reads the top entry to know where the last pass stopped.
 
+## 2026-11-19 (c): reflect pass over #1427-#1431 (wave 6)
+Evidence: coordinator notes and the PR Learnings of #1427, #1428, #1430, #1431; #1427 took 3 rounds of regressions (Spotify, Safari, Shortcuts Events).
+- **`psyche-builder`:** report asks for the head sha and `git diff --stat origin/main...HEAD` (merge-commit stat, #1293, #1432); the harness backgrounding verify at ~180 s is expected, wait (coordinator).
+- **`orchestrate`:** briefs from research notes say "check each item against main first" (#1430); re-review briefs also ask for `scratchpad/review-<pr>-r<n>.md` since a second handback is refused.
+- **`psyche-permissions`:** APFS fold formula with `dev:ino` (§3d); learning on probing installed bundle ids when narrowing app paths (#1427). **`psyche-apple`:** the same learning.
+- **Not changed:** #1428 git `core.gitProxy`/`.gitmodules` notes and #1431's helper-refusal gate are code facts, not skill rules (once each).
+
 ## 2026-11-19 (b): reflect pass over #1375-#1407 (wave 5)
 Merged: #1375, #1377, #1380, #1381, #1384-#1391, #1394-#1402, #1404, #1406, #1407 (last pass: #1374). Evidence: `review-1375`, `-1380`, `-1381`, `-1384`, `-1387`, `-1388`, `-1391`, `-1395`, `-1396` r1-r2, `-1397`, `-1400`, `-1401`, `-1402`, `-1407`, the PR Learnings, and the orchestrator's 11 lessons of the day. Rounds: #1384 HIGH then #1387/#1388/#1389/#1395 follow-ups (#1395 HIGH regression), #1396 2 rounds (cache privacy regression), #1407 blocking.
 - **`psyche-builder`:** "check main first" (2 stale dispatches, #1392); verify.sh recipe in one list: commit and merge main first (#1397, #1398), foreground niced with a file log (#1396, #1407), 3 slots (#1394), PR-specific names in shared scratch (#1404), git only in your own worktree, nvm PATH (#1390). New §2 bullets: redact before truncate (#1407 r1), cache/fingerprint keys and frozen clocks (#1396 r2), idle timers and wake paths (#1401 r1, #1402 r1), 1 MiB frame cap (#1381).
