@@ -19,7 +19,7 @@ import { tmpdir } from "node:os";
 import { dirname, join } from "node:path";
 import { FakeSandboxRunner } from "@psyche/testing";
 import { Type } from "@sinclair/typebox";
-import { afterEach, beforeEach, describe, expect, it } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import {
   type AgentToolRegistration,
   CodingSandboxes,
@@ -39,6 +39,34 @@ let dir: string;
 let repo: string;
 let quarantine: string;
 
+/**
+ * #1450 review r1: what a process the run left running does at the moment the guard opens or
+ * changes the mode of a path, or moves it (a move across volumes, simulated).
+ */
+const hooks = vi.hoisted(() => ({
+  open: undefined as ((path: string) => void) | undefined,
+  chmod: undefined as ((path: string) => void) | undefined,
+  rename: undefined as ((from: string) => void) | undefined,
+}));
+vi.mock("node:fs/promises", async (importOriginal) => {
+  const real = await importOriginal<typeof import("node:fs/promises")>();
+  return {
+    ...real,
+    open: ((path: Parameters<typeof real.open>[0], ...rest: unknown[]) => {
+      hooks.open?.(String(path));
+      return (real.open as (...a: unknown[]) => ReturnType<typeof real.open>)(path, ...rest);
+    }) as typeof real.open,
+    chmod: ((path: Parameters<typeof real.chmod>[0], mode: Parameters<typeof real.chmod>[1]) => {
+      hooks.chmod?.(String(path));
+      return real.chmod(path, mode);
+    }) as typeof real.chmod,
+    rename: ((from: Parameters<typeof real.rename>[0], to: Parameters<typeof real.rename>[1]) => {
+      hooks.rename?.(String(from));
+      return real.rename(from, to);
+    }) as typeof real.rename,
+  };
+});
+
 beforeEach(() => {
   dir = realpathSync(mkdtempSync(join(tmpdir(), "psyche-guard-")));
   repo = join(dir, "repo");
@@ -47,6 +75,9 @@ beforeEach(() => {
   writeFileSync(join(repo, "src", "a.js"), "export const a = 1;\n");
 });
 afterEach(() => {
+  hooks.open = undefined;
+  hooks.chmod = undefined;
+  hooks.rename = undefined;
   writable(dir);
   rmSync(dir, { recursive: true, force: true });
 });
@@ -715,10 +746,40 @@ describe("code.run and launch config", () => {
       await use("code.open", { path: repo });
       await use("code.run", { root: repo, argv: ["plant"] });
       const report = reports[0] as LaunchConfigReport;
+      if (process.platform !== "darwin") {
+        // Without a search-only handle there is no safe way to set their mode: said, not held.
+        expect(report.unmoved).toEqual(["a", "pkg"]);
+        return;
+      }
       expect([...report.quarantined].sort()).toEqual(["a/b/.npmrc", "pkg/.npmrc"]);
       expect(report.unmoved).toEqual([]);
       expect(existsSync(join(repo, "pkg/.npmrc"))).toBe(false);
       expect(existsSync(join(repo, "a/b/.npmrc"))).toBe(false);
+    });
+
+    it("says a folder it cannot open safely (no search permission) is not held", async () => {
+      put("pkg/index.js");
+      const { use, runner, reports } = setup();
+      acts(runner, "plant", () => {
+        put("pkg/.npmrc", "node-options=--require ./x.js");
+        chmodSync(join(repo, "pkg"), 0o077);
+      });
+      await use("code.open", { path: repo });
+      const r = await use("code.run", { root: repo, argv: ["plant"] });
+      expect(reports[0]?.unmoved).toEqual(["pkg"]);
+      expect(modeOf("pkg")).toBe(0o077);
+      expect((r.output.launchConfig as { notice: string }).notice).toMatch(/not held/);
+    });
+
+    it("says what changed in a folder that was unlistable before the run", async () => {
+      put("private/notes.txt");
+      chmodSync(join(repo, "private"), 0o300);
+      const { use, runner, reports } = setup();
+      acts(runner, "plant", () => writeFileSync(join(repo, "private/.npmrc"), "x"));
+      await use("code.open", { path: repo });
+      await use("code.run", { root: repo, argv: ["plant"] });
+      expect(reports[0]?.unmoved).toEqual(["private"]);
+      expect(modeOf("private")).toBe(0o300);
     });
 
     it("leaves a folder that was unlistable before the run as it was", async () => {
@@ -729,6 +790,118 @@ describe("code.run and launch config", () => {
       await use("code.run", { root: repo, argv: ["true"] });
       expect(reports[0]?.unmoved ?? []).toEqual([]);
       expect(modeOf("private")).toBe(0o000);
+    });
+  });
+
+  // #1450 review r1, finding 1: a link swapped in while a mode is set never takes the mode
+  // outside the share; the swap is said.
+  describe("a link swapped in while a mode is set", () => {
+    const owner = () => {
+      const at = join(dir, "owner");
+      mkdirSync(at, { mode: 0o700 });
+      chmodSync(at, 0o700);
+      writeFileSync(join(at, "id_ed25519"), "KEY", { mode: 0o600 });
+      return at;
+    };
+    /**
+     * Swaps `rel` for a link to `target` right after the guard's first look at it: at its second
+     * open (the first, for reading, is refused for the mode the run set), or at a `chmod` by path.
+     */
+    const swap = (rel: string, target: string) => {
+      let done = false;
+      let opens = 0;
+      const go = () => {
+        if (done) return;
+        done = true;
+        renameSync(join(repo, rel), join(repo, `${rel}.moved`));
+        symlinkSync(target, join(repo, rel));
+      };
+      hooks.open = (path) => {
+        if (path === join(repo, rel) && ++opens === 2) go();
+      };
+      hooks.chmod = (path) => {
+        if (path === join(repo, rel)) go();
+      };
+    };
+
+    it.runIf(process.platform === "darwin")(
+      "R1: making a folder listable again, and never writes a sticky bit",
+      async () => {
+        const outside = owner();
+        put("pkg/index.js");
+        const { use, runner, reports } = setup();
+        acts(runner, "plant", () => {
+          put("pkg/.npmrc", "node-options=--require ./x.js");
+          chmodSync(join(repo, "pkg"), 0o1177);
+          swap("pkg", outside);
+        });
+        await use("code.open", { path: repo });
+        await use("code.run", { root: repo, argv: ["plant"] });
+        const report = reports[0] as LaunchConfigReport;
+        expect(lstatSync(outside).mode & 0o7777).toBe(0o700);
+        expect(report.unmoved).toEqual(["pkg"]);
+        // The real folder, found under its new name, is listable again and what it hid is held.
+        expect(report.quarantined).toEqual(["pkg.moved/.npmrc"]);
+        expect(lstatSync(join(repo, "pkg.moved")).mode & 0o7777).toBe(0o577);
+      },
+    );
+
+    it("R2: giving a search-only folder write permission to move it", async () => {
+      const outside = owner();
+      const { use, runner, reports } = setup();
+      acts(runner, "plant", () => {
+        put(".vscode/tasks.json", "{}");
+        chmodSync(join(repo, ".vscode"), 0o1177);
+        swap(".vscode", outside);
+      });
+      await use("code.open", { path: repo });
+      const r = await use("code.run", { root: repo, argv: ["plant"] });
+      const report = reports[0] as LaunchConfigReport;
+      expect(lstatSync(outside).mode & 0o7777).toBe(0o700);
+      expect(readdirSync(outside)).toEqual(["id_ed25519"]);
+      expect(report.unmoved).toEqual([".vscode"]);
+      expect((r.output.launchConfig as { notice: string }).notice).toMatch(/not held/);
+    });
+
+    it("R3: a file inside an entry moved across volumes", async () => {
+      const outside = owner();
+      const { use, runner, reports } = setup();
+      hooks.rename = (from) => {
+        if (from === join(repo, ".vscode")) {
+          throw Object.assign(new Error("cross-device link"), { code: "EXDEV" });
+        }
+      };
+      acts(runner, "plant", () => {
+        put(".vscode/tasks.json", "{}");
+        chmodSync(join(repo, ".vscode/tasks.json"), 0o277);
+        swap(".vscode/tasks.json", join(outside, "id_ed25519"));
+      });
+      await use("code.open", { path: repo });
+      await use("code.run", { root: repo, argv: ["plant"] });
+      const report = reports[0] as LaunchConfigReport;
+      expect(lstatSync(join(outside, "id_ed25519")).mode & 0o7777).toBe(0o600);
+      expect(report.unmoved).toEqual([".vscode"]);
+    });
+
+    it("moves an entry with read-only folders and unreadable files across volumes", async () => {
+      const { use, runner, reports } = setup();
+      hooks.rename = (from) => {
+        if (from === join(repo, ".vscode")) {
+          throw Object.assign(new Error("cross-device link"), { code: "EXDEV" });
+        }
+      };
+      acts(runner, "plant", () => {
+        put(".vscode/sub/tasks.json", "{}");
+        chmodSync(join(repo, ".vscode/sub/tasks.json"), 0o200);
+        chmodSync(join(repo, ".vscode/sub"), 0o555);
+      });
+      await use("code.open", { path: repo });
+      await use("code.run", { root: repo, argv: ["plant"] });
+      const report = reports[0] as LaunchConfigReport;
+      expect(report.quarantined).toEqual([".vscode"]);
+      expect(existsSync(join(repo, ".vscode"))).toBe(false);
+      const held = join(quarantine, report.quarantineId as string, "entries");
+      expect(readFileSync(join(held, ".vscode/sub/tasks.json"), "utf8")).toBe("{}");
     });
   });
 

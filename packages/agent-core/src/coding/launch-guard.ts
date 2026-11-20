@@ -1,7 +1,6 @@
 import { randomBytes } from "node:crypto";
 import { type BigIntStats, constants, type Dirent } from "node:fs";
 import {
-  chmod,
   cp,
   type FileHandle,
   lstat,
@@ -39,7 +38,7 @@ import { PsycheError, type SandboxMount } from "@psyche/protocol";
  * left running after the check is not seen (a residual: the copy-out design is the fix).
  * Mode bits the run set through the share (#1438 review r3) neither pin an entry in place nor
  * hide it from the walk: on a folder the Gateway's own user owns, the bits a move or the walk
- * needs are added back (`lift`).
+ * needs are added back (`lift`), only through a handle checked to be that folder.
  */
 
 /** Read-only folder mounts at most (each is one bind mount); over it `code.run` is refused. */
@@ -82,8 +81,9 @@ export interface LaunchConfigReport {
   /** What each changed path is now (its fingerprint, `gone` when it went). */
   fingerprints: Record<string, string>;
   /**
-   * New entries that could not be moved, still in place and not held, and folders the run made
-   * unlistable that stay so: nothing in them was checked.
+   * New entries that could not be moved, still in place and not held; folders the run made
+   * unlistable that stay so, or that were swapped while they were made listable; and folders
+   * unlistable before the run that changed during it: nothing in them was checked.
    */
   unmoved: string[];
   /**
@@ -153,7 +153,12 @@ export async function guardLaunchConfig(
   // afterwards, and the owner's original can turn up under another name. Only these folders,
   // whose contents the run cannot change, exempt a new path: a file the run moved or linked
   // elsewhere can carry new content, so it is held like anything new.
-  const ids: Identities = { mounted: new Map(), originals: new Set() };
+  const ids: Identities = { mounted: new Map(), originals: new Set(), hidden: new Map() };
+  // Folders already unlistable before the run are left as they are, but watched.
+  for (const rel of scan.unreadable ?? []) {
+    const st = await lstat(join(root, rel), { bigint: true }).catch(() => undefined);
+    if (st !== undefined) ids.hidden.set(rel, stamp(st));
+  }
   for (const rel of readOnly) {
     const st = await lstat(join(root, rel), { bigint: true }).catch(() => undefined);
     if (st === undefined) continue;
@@ -176,9 +181,13 @@ interface Identities {
   mounted: Map<string, { id: string; git: boolean }>;
   /** Every read-only-mounted folder, by identity: the owner's, wherever it is now. */
   originals: Set<string>;
+  /** Folders the walk could not list before the run, with their `stamp`. */
+  hidden: Map<string, string>;
 }
 
 const idOf = (st: BigIntStats) => `${st.dev}:${st.ino}`;
+/** Who a folder is and when it or its entries last changed. */
+const stamp = (st: BigIntStats) => `${idOf(st)}:${st.mtimeNs}:${st.ctimeNs}`;
 
 async function identity(path: string): Promise<string | undefined> {
   const st = await lstat(path, { bigint: true }).catch(() => undefined);
@@ -272,8 +281,10 @@ async function settle(
   // A folder the run made unlistable (no read or search permission) hides what is in it from
   // the walk, though an app can still open a file in it by name: listable again, as it was
   // before the run, when the Gateway's user owns it; each round can show one more level.
-  const hiddenBefore = new Set(was.unreadable ?? []);
+  const hiddenBefore = new Set(ids.hidden.keys());
   const tried = new Set<string>();
+  // Refused, or swapped for something else meanwhile: said, whatever is at the path now.
+  const failed = new Set<string>();
   for (let round = 0; round < MAX_UNHIDE_ROUNDS; round++) {
     const hidden = (now.unreadable ?? []).filter((r) => !hiddenBefore.has(r) && !tried.has(r));
     if (hidden.length === 0) break;
@@ -283,7 +294,7 @@ async function settle(
         await assertInside(root, `${rel}/-`);
         await lift(join(root, rel), 0o500);
       } catch {
-        // Not the Gateway's, or swapped meanwhile: said below.
+        failed.add(rel);
       }
     }
     try {
@@ -293,7 +304,13 @@ async function settle(
       return report;
     }
   }
-  report.unmoved.push(...(now.unreadable ?? []).filter((r) => !hiddenBefore.has(r)));
+  for (const rel of now.unreadable ?? []) if (!hiddenBefore.has(rel)) failed.add(rel);
+  // One unlistable before the run that changed during it may hold what the run made there.
+  for (const [rel, was] of ids.hidden) {
+    const st = await lstat(join(root, rel), { bigint: true }).catch(() => undefined);
+    if (st === undefined || stamp(st) !== was) failed.add(rel);
+  }
+  report.unmoved.push(...[...failed].sort());
   if (!now.complete) report.partial = true;
   const known = new Set(was.found.map((f) => f.rel));
   // New: launch config the run created, and a `.claude` that was not there (its worktrees are
@@ -595,7 +612,8 @@ async function moveChecked(
   // share, and a folder without write permission can neither lose an entry nor gain one, nor be
   // moved under another folder itself. When the Gateway's user owns them, the folder `from` is
   // in and the one `to` goes into get write and search permission, and `from` itself write
-  // permission, each checked to be the folder that was checked; then one more try. The two
+  // permission, each through a handle checked to be the folder that was checked (never by
+  // path: a link swapped in would take the mode outside the share); then one more try. The two
   // folders get their modes back after; what moved keeps its write permission, so the owner
   // can look at it and Keep it can move it again.
   await assertInside(at.root, at.rel);
@@ -623,14 +641,15 @@ const denied = (err: unknown) => {
 };
 
 const GATEWAY_UID = process.getuid?.();
+/** darwin's `O_EXEC`: with `O_DIRECTORY`, a folder opened to search it, without read permission. */
+const DARWIN_O_EXEC = 0x40000000;
 
 /**
- * Adds `bits` to the mode of `path` when it is a real folder (or, with `files`, a regular file)
- * that the Gateway's own user owns and that lacks them, as a folder a run made through the share
- * can; anything else is left alone. `expect` pins who it must be. A folder is changed through a
- * handle opened without following links and checked to be the one that was checked; a folder
- * that cannot be opened, and a file, by path between two identity checks. The answer restores
- * the mode it had, while it is still the same entry, when anything changed.
+ * Adds `bits` (user bits only) to the mode of `path` when it is a real folder (or, with `files`,
+ * a regular file) that the Gateway's own user owns and that lacks them, as a folder a run made
+ * through the share can; anything else is left alone. `expect` pins who it must be. The answer
+ * restores the mode it had, while it is still the same entry, when anything changed. Only the
+ * permission bits are ever written: setuid, setgid and sticky bits are dropped, never set.
  */
 async function lift(
   path: string,
@@ -644,46 +663,55 @@ async function lift(
   }
   if (!(st.isDirectory() || (files && st.isFile()))) return undefined;
   if (GATEWAY_UID === undefined || st.uid !== BigInt(GATEWAY_UID)) return undefined;
-  const mode = Number(st.mode & 0o7777n);
+  const mode = Number(st.mode & 0o777n);
   if ((mode & bits) === bits) return undefined;
-  await setMode(path, st, mode | bits);
+  await setMode(path, st, mode | (bits & 0o700));
   return () => setMode(path, st, mode).catch(() => undefined);
 }
 
+/**
+ * Sets the mode of the entry `st` is, never by path (#1450 review r1): `chmod` follows a link
+ * swapped in meanwhile, which would give a mode the run picked to something of the owner's
+ * outside the share. Only through a handle opened without following a link and checked to be
+ * `st`: a folder for reading, or on macOS for search only; a file for reading or writing. What
+ * cannot be opened so is refused, and its entry stays where it is (said as not held).
+ */
 async function setMode(path: string, st: BigIntStats, mode: number): Promise<void> {
+  const base = constants.O_NOFOLLOW | constants.O_NONBLOCK;
+  const tries = st.isDirectory()
+    ? [
+        base | constants.O_DIRECTORY | constants.O_RDONLY,
+        ...(process.platform === "darwin" ? [base | constants.O_DIRECTORY | DARWIN_O_EXEC] : []),
+      ]
+    : [base | constants.O_RDONLY, base | constants.O_WRONLY];
   let handle: FileHandle | undefined;
-  if (st.isDirectory()) {
-    handle = await open(
-      path,
-      constants.O_RDONLY | constants.O_DIRECTORY | constants.O_NOFOLLOW | constants.O_NONBLOCK,
-    ).catch((err: unknown) => {
-      if (denied(err)) return undefined;
-      throw err;
-    });
-  }
-  if (handle !== undefined) {
+  for (const flags of tries) {
     try {
-      if (!same(await handle.stat({ bigint: true }), st)) {
+      handle = await open(path, flags);
+      break;
+    } catch (err) {
+      if (!denied(err)) {
         throw new PsycheError("forbidden", `${path} moved during the check`);
       }
-      await handle.chmod(mode);
-    } finally {
-      await handle.close();
     }
-    return;
   }
-  if (!same(await lstat(path, { bigint: true }).catch(() => undefined), st)) {
-    throw new PsycheError("forbidden", `${path} moved during the check`);
+  if (handle === undefined) {
+    throw new PsycheError("forbidden", `${path} cannot be opened to give its mode back`);
   }
-  await chmod(path, mode);
-  if (!same(await lstat(path, { bigint: true }).catch(() => undefined), st)) {
-    throw new PsycheError("forbidden", `${path} was swapped while its mode was set`);
+  try {
+    if (!same(await handle.stat({ bigint: true }), st)) {
+      throw new PsycheError("forbidden", `${path} moved during the check`);
+    }
+    await handle.chmod(mode & 0o777);
+  } finally {
+    await handle.close();
   }
 }
 
 /**
  * Gives read and write permission back to the folders and files inside `from` (never through a
- * link), for a copy across volumes and the removal after it; at most `MAX_LIFTED` of them.
+ * link), for a copy across volumes and the removal after it; at most `MAX_LIFTED` of them. One
+ * it cannot give them back to, or one swapped meanwhile, stops the move: the entry stays.
  */
 async function liftInside(from: string): Promise<void> {
   const queue = [from];
@@ -693,12 +721,12 @@ async function liftInside(from: string): Promise<void> {
     const st = await lstat(dir).catch(() => undefined);
     if (st?.isDirectory() !== true) continue;
     count++;
-    await lift(dir, 0o700).catch(() => undefined);
+    await lift(dir, 0o700);
     const entries = await readdir(dir, { withFileTypes: true }).catch(() => [] as Dirent[]);
     for (const d of entries) {
       if (d.isDirectory()) queue.push(join(dir, d.name));
       else if (d.isFile() && count++ < MAX_LIFTED) {
-        await lift(join(dir, d.name), 0o600, undefined, true).catch(() => undefined);
+        await lift(join(dir, d.name), 0o600, undefined, true);
       }
     }
   }
