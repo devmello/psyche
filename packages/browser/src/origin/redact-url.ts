@@ -41,6 +41,7 @@ const CODE_QUALIFIERS = new Set([
   "authentication",
   "otp",
   "sms",
+  "email",
   "security",
   "login",
   "recovery",

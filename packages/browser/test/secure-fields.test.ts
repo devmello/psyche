@@ -98,6 +98,53 @@ describe("secret field values never reach the model (mock CDP page)", () => {
     await driver.closeSession(s.id);
   });
 
+  it("a value that appears between the check and the capture discards the screenshot", async () => {
+    const a = desktop.browser.origin("a");
+    const s = await driver.openSession({
+      taskId: "task_toctou",
+      policy: { devPreview: true, readWritable: [a], readOnly: [] },
+    });
+    const url = desktop.browser.url("a/login");
+    const t = await driver.openTab(s.id, url);
+    // The empty password field does not block the screenshot.
+    const ok = await driver.screenshot(t.id);
+    expect([...ok.data.slice(0, 4)]).toEqual([0x89, 0x50, 0x4e, 0x47]);
+    // Autofill (or the owner) fills it while the PNG is being captured.
+    const tab = [...desktop.browser.tabs.values()].find((x) => x.url === url);
+    if (tab === undefined) throw new Error("mock tab not found");
+    const send = tab.send.bind(tab);
+    tab.send = (async (method: string, params?: Record<string, unknown>) => {
+      if (method === "Page.captureScreenshot") tab.setFieldValue("password", SECRETS[3] as string);
+      return send(method, params);
+    }) as typeof tab.send;
+    await expect(driver.screenshot(t.id)).rejects.toMatchObject({
+      code: "policy_denied",
+      details: { reason: "secure_field" },
+    });
+    tab.send = send;
+    await driver.closeSession(s.id);
+  });
+
+  it("read_text skips a secret only the DOM can see, and masks card text on a page with no field", async () => {
+    const a = desktop.browser.origin("a");
+    const s = await driver.openSession({
+      taskId: "task_read_dom",
+      policy: { devPreview: true, readWritable: [a], readOnly: [] },
+    });
+    const t = await driver.openTab(s.id, desktop.browser.url("a/editable-code"));
+    const text = (await driver.readText(t.id)).text;
+    // A contenteditable is AX `generic`: only its DOM facts say it holds a code.
+    expect(text).not.toContain("731");
+    expect(text).toContain("bring 2 forms");
+    const snap = await driver.snapshot(t.id);
+    expect(snap.text).not.toContain("731");
+    const t2 = await driver.openTab(s.id, desktop.browser.url("a/card-text"));
+    const receipt = (await driver.readText(t2.id)).text;
+    expect(receipt).not.toContain("4242");
+    expect(receipt).toContain(`Paid with ${SECURE_MASK} on 12 May`);
+    await driver.closeSession(s.id);
+  });
+
   it("a filled password is absent from snapshot, text, screenshot error and the recording", async () => {
     const a = desktop.browser.origin("a");
     const sink = new FileRecordingSink(join(dir, "recordings"), "task_pw", {

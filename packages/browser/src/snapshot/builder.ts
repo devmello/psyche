@@ -5,6 +5,7 @@ import { redactUrl } from "../origin/redact-url.ts";
 import type { BrowserSnapshot, ElementMeta, SnapshotOptions, SnapshotRefEx } from "../types.ts";
 import { DomIndex, type DomNodeInfo } from "./dom.ts";
 import type { RefRegistry } from "./refs.ts";
+import { blocksScreenshot, maskCardNumbers } from "./secure-field.ts";
 
 /**
  * Accessibility snapshot builder (architecture §8; spike 01 "Snapshot latency"; spike 04 pruning
@@ -197,6 +198,71 @@ interface Line {
   kind: "node" | "text" | "header";
   /** The text of a `text` line, before clipping and quoting. */
   raw?: string;
+  /** A structural line with no name, ref or state (`- group`): it does not break a text run. */
+  bare?: boolean;
+}
+
+/** Text lines this short may be one slot of a split secret ("4", "82", "4242"). */
+const SLOT_MAX = 4;
+
+/**
+ * Secret values and card numbers the page draws over several short text nodes (the slot pattern
+ * of OTP inputs, a card number in four spans): each run of short text lines, read across bare
+ * structural lines (`- group`), is matched as one string, and every line that contributes to a
+ * match is masked. Linear in the number of lines.
+ */
+function maskSplitRuns(lines: Line[], dom: DomIndex): Line[] {
+  const out: Line[] = [];
+  let run: Line[] = [];
+  const flush = () => {
+    const texts = run.filter((l) => l.kind === "text");
+    if (texts.length < 2) {
+      out.push(...run);
+      run = [];
+      return;
+    }
+    let joined = "";
+    const starts: number[] = [];
+    for (const l of texts) {
+      starts.push(joined.length);
+      joined += `${l.raw ?? ""} `;
+    }
+    const spans = dom.scrubber.spans(joined);
+    if (spans.length === 0) {
+      out.push(...run);
+      run = [];
+      return;
+    }
+    const masked = new Set<Line>();
+    texts.forEach((l, k) => {
+      const a = starts[k] ?? 0;
+      const b = a + (l.raw ?? "").length;
+      if (spans.some(([s, e]) => s < b && e > a)) masked.add(l);
+    });
+    let prevMasked = false;
+    for (const l of run) {
+      if (!masked.has(l)) {
+        out.push(l);
+        if (l.kind === "text") prevMasked = false;
+        continue;
+      }
+      if (prevMasked) continue; // one mask per contiguous masked stretch
+      const indent = /^\s*/.exec(l.text)?.[0] ?? "";
+      out.push({ kind: "text", text: `${indent}- text "${SECURE_MASK}"` });
+      prevMasked = true;
+    }
+    run = [];
+  };
+  for (const l of lines) {
+    if (l.kind === "text" && (l.raw ?? "").replace(/\s+/g, "").length <= SLOT_MAX) run.push(l);
+    else if (l.kind === "node" && l.bare === true && run.length > 0) run.push(l);
+    else {
+      flush();
+      out.push(l);
+    }
+  }
+  flush();
+  return out;
 }
 
 function axString(v: { value?: unknown } | undefined): string {
@@ -230,10 +296,7 @@ export function buildSnapshot(input: SnapshotInput): BrowserSnapshot {
   // they appear in what is emitted.
   const redact0 = input.redact ?? ((s: string) => s);
   const redact = (s: string): string => dom.scrub(redact0(s));
-  const secretNorms = dom
-    .secretValues()
-    .map((v) => v.replace(/\s+/g, ""))
-    .filter((v) => v.length >= 4);
+  const hasSecrets = dom.hasSecrets;
   const vp = input.viewport;
   const topOrigin = tryOrigin(input.url) ?? "null";
   const frameAx = new Map((input.frames ?? []).map((f) => [f.frameId, f]));
@@ -248,31 +311,6 @@ export function buildSnapshot(input: SnapshotInput): BrowserSnapshot {
   let secureFieldActive = false;
   let captcha = false;
   const hiddenFrameBoxes: RefBox[] = [];
-
-  /**
-   * A secret field's value that the page also draws as one text node per character (the slot
-   * pattern of OTP inputs): the trailing run of short text lines is masked when it adds up to it.
-   */
-  const maskSplitSecrets = (): void => {
-    if (secretNorms.length === 0) return;
-    for (const secret of secretNorms) {
-      let cat = "";
-      for (let j = lines.length - 1; j >= 0 && lines.length - j <= 64; j--) {
-        const l = lines[j];
-        if (l === undefined || l.kind !== "text") break;
-        cat = (l.raw ?? "").replace(/\s+/g, "") + cat;
-        if (cat.length > secret.length) break;
-        if (cat === secret) {
-          const indent = /^\s*/.exec(l.text)?.[0] ?? "";
-          lines.splice(j, lines.length - j, {
-            kind: "text",
-            text: `${indent}- text "${SECURE_MASK}"`,
-          });
-          return;
-        }
-      }
-    }
-  };
 
   const boxOf = (info: DomNodeInfo | undefined): { box?: RefBox; offscreen: boolean } => {
     if (info?.box === undefined) return { offscreen: false };
@@ -369,14 +407,16 @@ export function buildSnapshot(input: SnapshotInput): BrowserSnapshot {
     const indent = "  ".repeat(depth);
     if (role === "statictext") {
       const text = redact(norm(axString(node.name)));
-      if (text === "" || suppressText || parentName.includes(text)) return;
+      if (text === "" || suppressText) return;
+      // A one- or two-character slot ("6" under "Enter the 6-digit code") is kept while the page
+      // holds secrets, so the split-run pass below sees every digit.
+      if (parentName.includes(text) && !(hasSecrets && text.length <= 2)) return;
       textChars += text.length;
       lines.push({
         kind: "text",
         text: `${indent}- text "${clip(text, opts.textMax)}"`,
         raw: text,
       });
-      maskSplitSecrets();
       return;
     }
     const info = dom.get(node.backendDOMNodeId);
@@ -419,12 +459,12 @@ export function buildSnapshot(input: SnapshotInput): BrowserSnapshot {
     }
     if (isInteractive && CAPTCHA_NAME.test(name)) captcha = true;
     const keep = isInteractive || STRUCTURAL_ROLES.has(role) || role === "rootwebarea";
-    if (!keep && info !== undefined && dom.isMasked(info, name)) {
+    const cls = info === undefined ? undefined : dom.classify(info, name);
+    if (!keep && cls !== undefined) {
       // A secret field under a role the walker does not keep (a contenteditable, a role override):
       // nothing of it, or of its text, reaches the output.
-      const filled =
-        (info.inputValue ?? "") !== "" || axString(node.value) !== "" || (info.text ?? "") !== "";
-      if (filled && dom.isStrong(info, name)) secureFieldActive = true;
+      const value = info?.inputValue || axString(node.value) || info?.text || "";
+      if (value !== "" && blocksScreenshot(cls, value)) secureFieldActive = true;
       return;
     }
     if (!keep) {
@@ -469,18 +509,21 @@ export function buildSnapshot(input: SnapshotInput): BrowserSnapshot {
         VALUE_ROLES.has(role) &&
         info?.tag.toLowerCase() === "input" &&
         info.attrs.contenteditable === undefined);
-    // `legacy`: password / secure autocomplete / typed-into. `secure`: everything masked (wide
-    // classifier). `strong`: what also refuses screenshots.
+    // `legacy`: password / secure autocomplete / typed-into. `secure`: masked (all three levels).
+    // Legacy and strong fields refuse screenshots once filled or focused; weak ones only when the
+    // value has the secret's shape (a 6-digit code, an MM/YY expiry).
     const legacy = typedInto || (meta?.secure ?? (info === undefined ? false : dom.isSecure(info)));
-    const secure = legacy || (info !== undefined && dom.isMasked(info, name));
-    const strong = legacy || (info !== undefined && dom.isStrong(info, name));
+    const secure = legacy || cls !== undefined;
+    const strong = legacy || (cls !== undefined && cls.level !== "weak");
     if (secure) states.push("secure");
     for (const s of states) line += ` [${s}]`;
     const rawValue = axString(node.value);
     if (secure) {
-      const hasValue = rawValue !== "" || (info?.inputValue ?? "") !== "";
+      const value = info?.inputValue || rawValue;
+      const hasValue = value !== "";
       if (hasValue) line += ` value="${SECURE_MASK}"`;
       if (strong && (hasValue || states.includes("focused"))) secureFieldActive = true;
+      if (!strong && hasValue && blocksScreenshot(cls, value)) secureFieldActive = true;
       if (ref !== undefined && hasValue) ref.value = SECURE_MASK;
     } else if (rawValue !== "" && rawValue !== name) {
       const value = redact(norm(rawValue));
@@ -500,7 +543,8 @@ export function buildSnapshot(input: SnapshotInput): BrowserSnapshot {
       refs.push(ref);
     }
     if (isInteractive) interactive++;
-    lines.push({ kind: "node", text: line });
+    const bare = name === "" && ref === undefined && states.length === 0;
+    lines.push(bare ? { kind: "node", text: line, bare } : { kind: "node", text: line });
     if (secure) return; // never descend into secure fields (spike 04 rule 8)
     walkKids(
       depth + 1,
@@ -517,7 +561,7 @@ export function buildSnapshot(input: SnapshotInput): BrowserSnapshot {
   // not fit, static text goes before any interactive or structural line does.
   const ordered = [...refs.filter((r) => r.interactive), ...refs.filter((r) => !r.interactive)];
   const refsOut = ordered.slice(0, opts.maxRefs);
-  let body = lines;
+  let body = maskSplitRuns(lines, dom);
   let omittedText: number | undefined;
   if (charCount(body) > opts.maxChars) {
     omittedText = body.filter((l) => l.kind === "text").length;
@@ -646,7 +690,7 @@ function stripUndefined<T extends object>(o: T): Partial<T> {
 export function hasFieldCandidates(trees: AXNode[][]): boolean {
   for (const nodes of trees) {
     for (const n of nodes) {
-      if (n.ignored) continue;
+      // Ignored nodes count: `extractText` walks through them.
       if (VALUE_ROLES.has(roleOf(n))) return true;
       if (n.properties?.some((p) => p.name === "editable") === true) return true;
     }
@@ -702,8 +746,10 @@ export function extractText(
   visitTree(ax);
   for (const f of options.frames ?? []) visitTree(f.ax);
   // The page's own secret values (also split over runs) and card numbers, after the vault's.
+  // Card numbers are masked on every page, with or without a DOM index.
   const joined = redact(out.join("\n"));
-  const text = options.dom !== undefined ? options.dom.scrub(joined) : joined;
+  const text =
+    options.dom !== undefined ? options.dom.scrub(joined) : maskCardNumbers(joined, SECURE_MASK);
   const max = options.maxChars ?? 20_000;
   return text.length > max
     ? { text: text.slice(0, max), truncated: true }

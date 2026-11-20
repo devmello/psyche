@@ -2,12 +2,16 @@ import { isPaymentField as isMoneyPaymentField } from "@psyche/protocol/money-in
 import type { CaptureSnapshotResult, DocumentSnapshot, NodeTreeSnapshot } from "../cdp/types.ts";
 import { tryOrigin } from "../origin/canonical.ts";
 import {
+  blocksScreenshot,
+  classifyField,
   type FieldFacts,
+  foldValue,
   isCardNumberValue,
   isLegacySecure,
-  isSecureField,
-  isStrongSecureField,
+  MAX_SECRETS,
   makeScrubber,
+  type Scrubber,
+  type SecureClass,
 } from "./secure-field.ts";
 
 /**
@@ -53,6 +57,16 @@ export class DomIndex {
   readonly #byBackend = new Map<number, DomNodeInfo>();
   /** Nodes by `docIndex:id`, for aria-labelledby. */
   readonly #byId = new Map<string, DomNodeInfo>();
+  /** `<label for>` text by `docIndex:id` (built once, so a label lookup is O(1)). */
+  readonly #labelFor = new Map<string, string>();
+  /** `<form id>` by `docIndex:id`, for the `form=` attribute. */
+  readonly #formById = new Map<string, DomNodeInfo>();
+  /** One of four or more sibling (or cousin) one-character text inputs: a split OTP. */
+  readonly #splitBoxes = new Set<number>();
+  /** Every field (input, textarea, contenteditable), in document order. */
+  readonly #fields: DomNodeInfo[] = [];
+  /** Parent and grandparent node index of each field, for grouping split boxes. */
+  readonly #fieldParents = new Map<number, [number, number]>();
   readonly #snap: CaptureSnapshotResult;
   /** Large opaque surfaces (canvas, embed, object, video) by area, for sparse-tree detection. */
   readonly opaqueAreas: number[] = [];
@@ -122,10 +136,55 @@ export class DomIndex {
         this.#byBackend.set(backendNodeId, info);
         infos[i] = info;
         const idAttr = attrs.id;
-        if (idAttr !== undefined && idAttr !== "") this.#byId.set(`${d}:${idAttr}`, info);
+        if (idAttr !== undefined && idAttr !== "") {
+          this.#byId.set(`${d}:${idAttr}`, info);
+          if (info.tag === "FORM" && !this.#formById.has(`${d}:${idAttr}`)) {
+            this.#formById.set(`${d}:${idAttr}`, info);
+          }
+        }
       }
       this.#collectText(n, infos, s);
+      this.#indexFields(d, n, infos);
     });
+  }
+
+  /** Label texts, the field list and split-OTP groups, once per document. */
+  #indexFields(d: number, n: NodeTreeSnapshot, infos: (DomNodeInfo | undefined)[]): void {
+    const parents = n.parentIndex ?? [];
+    const oneChar: number[] = [];
+    const counts = new Map<number, number>();
+    const bump = (k: number) => counts.set(k, (counts.get(k) ?? 0) + 1);
+    infos.forEach((info, i) => {
+      if (info === undefined) return;
+      if (info.tag === "LABEL" && info.text && info.attrs.for) {
+        const k = `${d}:${info.attrs.for}`;
+        const prev = this.#labelFor.get(k);
+        this.#labelFor.set(k, prev === undefined ? info.text : `${prev} ${info.text}`);
+      }
+      if (!isField(info)) return;
+      this.#fields.push(info);
+      const p = parents[i] ?? -1;
+      const gp = p >= 0 ? (parents[p] ?? -1) : -1;
+      this.#fieldParents.set(info.backendNodeId, [p, gp]);
+      const type = (info.attrs.type ?? "text").toLowerCase();
+      if (
+        info.tag === "INPUT" &&
+        info.attrs.maxlength === "1" &&
+        ["text", "tel", "number", "password", ""].includes(type)
+      ) {
+        oneChar.push(i);
+        if (p >= 0) bump(p);
+        if (gp >= 0) bump(-gp - 2);
+      }
+    });
+    for (const i of oneChar) {
+      const p = parents[i] ?? -1;
+      const gp = p >= 0 ? (parents[p] ?? -1) : -1;
+      if ((counts.get(p) ?? 0) >= 4 || (gp >= 0 && (counts.get(-gp - 2) ?? 0) >= 4)) {
+        const info = infos[i];
+        if (info !== undefined) this.#splitBoxes.add(info.backendNodeId);
+      }
+    }
   }
 
   /**
@@ -197,9 +256,8 @@ export class DomIndex {
   formOf(info: DomNodeInfo): DomNodeInfo | undefined {
     const formId = info.attrs.form;
     if (formId !== undefined && formId !== "") {
-      for (const n of this.#byBackend.values()) {
-        if (n.docIndex === info.docIndex && n.tag === "FORM" && n.attrs.id === formId) return n;
-      }
+      const f = this.#formById.get(`${info.docIndex}:${formId}`);
+      if (f !== undefined) return f;
     }
     return this.ancestor(info, "FORM");
   }
@@ -263,7 +321,9 @@ export class DomIndex {
       label,
       contentEditable: a.contenteditable !== undefined && a.contenteditable !== "false",
       maxLength: max,
+      inputMode: a.inputmode,
       search: (a.type ?? "").toLowerCase() === "search" || a.role === "searchbox",
+      splitBox: this.#splitBoxes.has(info.backendNodeId),
     };
   }
 
@@ -281,11 +341,8 @@ export class DomIndex {
     }
     const own = info.attrs.id;
     if (own !== undefined && own !== "") {
-      for (const n of this.#byBackend.values()) {
-        if (n.docIndex === info.docIndex && n.tag === "LABEL" && n.attrs.for === own && n.text) {
-          parts.push(n.text);
-        }
-      }
+      const t = this.#labelFor.get(`${info.docIndex}:${own}`);
+      if (t !== undefined) parts.push(t);
     }
     const wrap = this.ancestor(info, "LABEL");
     if (wrap?.text) parts.push(wrap.text);
@@ -297,26 +354,41 @@ export class DomIndex {
     return isLegacySecure(this.#facts(info));
   }
 
-  /** The control holds a secret by the wide classifier or by its value (a Luhn-valid number). */
+  readonly #domClass = new Map<number, SecureClass | null>();
+
+  /** The classifier's verdict, or `strong` for a Luhn-valid card number in any field. */
+  #classifyRaw(info: DomNodeInfo, label?: string): SecureClass | undefined {
+    if (!isField(info)) return undefined;
+    const viaDom = label === undefined;
+    if (viaDom) {
+      const hit = this.#domClass.get(info.backendNodeId);
+      if (hit !== undefined) return hit ?? undefined;
+    }
+    const c =
+      classifyField(this.#facts(info, label ?? this.labelOf(info))) ??
+      (isCardNumberValue(info.inputValue ?? "") ? STRONG : undefined);
+    if (viaDom) this.#domClass.set(info.backendNodeId, c ?? null);
+    return c;
+  }
+
+  /**
+   * The field's secret class (`label`: the AX name when the caller has it). Above `MAX_SECRETS`
+   * filled secret fields every field counts as a strong secret (fail closed).
+   */
+  classify(info: DomNodeInfo, label?: string): SecureClass | undefined {
+    if (!isField(info)) return undefined;
+    if (this.#secretState().overCap) return STRONG;
+    return this.#classifyRaw(info, label);
+  }
+
+  /** The control holds a secret: any level, or a Luhn-valid value. */
   isMasked(info: DomNodeInfo, label?: string): boolean {
-    if (!this.#isField(info)) return false;
-    if (isSecureField(this.#facts(info, label ?? this.labelOf(info)))) return true;
-    return isCardNumberValue(info.inputValue ?? "");
+    return this.classify(info, label) !== undefined;
   }
 
-  /** The high-confidence subset: its value refuses screenshots and drops recording frames. */
-  isStrong(info: DomNodeInfo, label?: string): boolean {
-    if (!this.#isField(info)) return false;
-    if (isStrongSecureField(this.#facts(info, label ?? this.labelOf(info)))) return true;
-    return isCardNumberValue(info.inputValue ?? "");
-  }
-
-  #isField(info: DomNodeInfo): boolean {
-    return (
-      info.tag === "INPUT" ||
-      info.tag === "TEXTAREA" ||
-      (info.attrs.contenteditable !== undefined && info.attrs.contenteditable !== "false")
-    );
+  /** A filled field like this refuses screenshots (legacy and strong; weak by its value). */
+  blocksScreenshot(info: DomNodeInfo, label?: string, value?: string): boolean {
+    return blocksScreenshot(this.classify(info, label), value ?? this.valueOf(info));
   }
 
   /** The control's current value or editable text. */
@@ -324,36 +396,80 @@ export class DomIndex {
     return info.inputValue ?? info.text ?? "";
   }
 
-  /** Some strong secret field in any document holds a value (screenshot guard; no AX tree). */
+  /** Some filled field in any document refuses screenshots (the guard that needs no AX tree). */
   anySecureValue(): boolean {
-    for (const n of this.#byBackend.values()) {
-      if (!this.#isField(n) || this.valueOf(n).trim() === "") continue;
-      if (this.isStrong(n)) return true;
+    if (this.#secretState().overCap) return true;
+    for (const n of this.#fields) {
+      const v = this.valueOf(n);
+      if (v.trim() === "") continue;
+      if (blocksScreenshot(this.#classifyRaw(n), v)) return true;
     }
     return false;
   }
 
-  #secrets: string[] | undefined;
-  #scrubber: ((s: string) => string) | undefined;
+  #secrets: { values: string[]; overCap: boolean } | undefined;
+  #scrubber: Scrubber | undefined;
 
-  /** Current values of every masked field in the page (the backstop for `scrub`). */
-  secretValues(): string[] {
-    if (this.#secrets === undefined) {
-      const out: string[] = [];
-      for (const n of this.#byBackend.values()) {
-        if (!this.#isField(n)) continue;
-        const v = this.valueOf(n).trim();
-        if (v !== "" && this.isMasked(n)) out.push(v);
+  /**
+   * Current values of the page's masked fields (the backstop for `scrub`). Short values
+   * (one-character split boxes) count joined, per container. Above `MAX_SECRETS` distinct values
+   * nothing is tracked and `overCap` is set instead.
+   */
+  #secretState(): { values: string[]; overCap: boolean } {
+    if (this.#secrets !== undefined) return this.#secrets;
+    const values = new Set<string>();
+    const perParent = new Map<string, number>();
+    const shortFields: [DomNodeInfo, string][] = [];
+    for (const n of this.#fields) {
+      const v = foldValue(this.valueOf(n));
+      if (v === "" || this.#classifyRaw(n) === undefined) continue;
+      if (v.replace(/[\s.\-/]/g, "").length >= 4) values.add(v);
+      else {
+        shortFields.push([n, v]);
+        const p = `${n.docIndex}:${this.#fieldParents.get(n.backendNodeId)?.[0] ?? -1}`;
+        perParent.set(p, (perParent.get(p) ?? 0) + 1);
       }
-      this.#secrets = out;
+      if (values.size > MAX_SECRETS) break;
     }
+    const joined = new Map<string, string>();
+    for (const [n, v] of shortFields) {
+      const [p, gp] = this.#fieldParents.get(n.backendNodeId) ?? [-1, -1];
+      const key =
+        (perParent.get(`${n.docIndex}:${p}`) ?? 0) >= 2
+          ? `${n.docIndex}:${p}`
+          : `${n.docIndex}:g${gp}`;
+      joined.set(key, (joined.get(key) ?? "") + v);
+    }
+    for (const j of joined.values()) if (j.length >= 4) values.add(j);
+    const overCap = values.size > MAX_SECRETS;
+    this.#secrets = { values: overCap ? [] : [...values], overCap };
     return this.#secrets;
   }
 
-  /** Replace secret values (also split across text runs) and card numbers in output text. */
-  scrub(s: string): string {
+  /** Current values of every masked field in the page. */
+  secretValues(): string[] {
+    return this.#secretState().values;
+  }
+
+  /** More secret values than are tracked: every field is masked and screenshots are refused. */
+  get overCap(): boolean {
+    return this.#secretState().overCap;
+  }
+
+  /** The page holds secret values the scrubber looks for. */
+  get hasSecrets(): boolean {
+    const st = this.#secretState();
+    return st.overCap || st.values.length > 0;
+  }
+
+  get scrubber(): Scrubber {
     this.#scrubber ??= makeScrubber(this.secretValues(), "•••");
-    return this.#scrubber(s);
+    return this.#scrubber;
+  }
+
+  /** Replace secret values (also split or disguised) and card numbers in output text. */
+  scrub(s: string): string {
+    return this.scrubber.scrub(s);
   }
 
   /** Activating the element submits its form. */
@@ -365,6 +481,16 @@ export class DomIndex {
     if (info.tag === "INPUT") return type === "submit" || type === "image";
     return false;
   }
+}
+
+const STRONG: SecureClass = { level: "strong" };
+
+function isField(info: DomNodeInfo): boolean {
+  return (
+    info.tag === "INPUT" ||
+    info.tag === "TEXTAREA" ||
+    (info.attrs.contenteditable !== undefined && info.attrs.contenteditable !== "false")
+  );
 }
 
 function rareStrings(

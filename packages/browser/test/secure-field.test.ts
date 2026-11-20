@@ -1,14 +1,24 @@
 import { describe, expect, it } from "vitest";
 import type { AXNode, CaptureSnapshotResult } from "../src/cdp/types.ts";
 import { redactUrl } from "../src/origin/redact-url.ts";
-import { buildSnapshot, extractText, SECURE_MASK } from "../src/snapshot/builder.ts";
+import {
+  buildSnapshot,
+  extractText,
+  hasFieldCandidates,
+  SECURE_MASK,
+} from "../src/snapshot/builder.ts";
 import { DomIndex } from "../src/snapshot/dom.ts";
 import { RefRegistry } from "../src/snapshot/refs.ts";
 import {
+  blocksScreenshot,
+  classifyField,
   type FieldFacts,
   isLegacySecure,
   isSecureField,
   isStrongSecureField,
+  MAX_SECRETS,
+  makeScrubber,
+  maskCardNumbers,
   secureLevel,
 } from "../src/snapshot/secure-field.ts";
 
@@ -118,6 +128,43 @@ const MUST_HIDE: [string, FieldFacts][] = [
   ["Enter your password", input({ type: "text", label: "Enter your password" })],
   ["Your password", input({ type: "text", label: "Your password" })],
   ["Password (required)", input({ type: "text", label: "Password (required)" })],
+  ["Wi-Fi password (revealed)", input({ type: "text", label: "Wi-Fi password" })],
+  // Review round 2: split boxes named with a digit, no aria-label
+  ["otp1 maxlength 1", input({ name: "otp1", maxLength: 1 })],
+  ["code1 maxlength 1", input({ name: "code1", maxLength: 1 })],
+  ["digit1 maxlength 1", input({ name: "digit1", maxLength: 1 })],
+  ["pin1 maxlength 1", input({ name: "pin1", maxLength: 1 })],
+  ["OTPCode (acronym camelCase)", input({ name: "OTPCode" })],
+  ["2FA in capitals", input({ label: "2FA" })],
+  ["zero-width inside the name", input({ name: "o​tp" })],
+  // Review round 2: card exclusion per text
+  ["Django id_card_number", input({ name: "card_number", id: "id_card_number" })],
+  ["Business card number", input({ label: "Business card number" })],
+  ["Card number as on the statement", input({ label: "Card number as shown on your statement" })],
+  ["cardNumber beside a title-ish id", input({ name: "cardNumber", id: "card-title-number" })],
+  // Review round 2: lexicon gaps
+  ["emailCode", input({ name: "emailCode", label: "Email code" })],
+  ["de Prüfnummer", input({ label: "Prüfnummer" })],
+  ["de Kartenprüfnummer", input({ label: "Kartenprüfnummer" })],
+  ["de Gültig bis", input({ label: "Gültig bis", name: "gueltig_bis" })],
+  ["es Fecha de vencimiento", input({ label: "Fecha de vencimiento", name: "vencimiento" })],
+  ["fr Date d'expiration", input({ label: "Date d'expiration", name: "date_exp" })],
+  ["de Geheimzahl", input({ label: "Geheimzahl" })],
+  ["es Clave (type=text)", input({ type: "text", label: "Clave", name: "clave" })],
+  ["es Clave de acceso", input({ type: "text", label: "Clave de acceso" })],
+  ["ja ワンタイムパスワード", input({ label: "ワンタイムパスワード" })],
+  ["hi ओटीपी", input({ label: "ओटीपी दर्ज करें" })],
+  ["es CVV in brackets", input({ label: "Código de seguridad (CVV)" })],
+  ["fr Code de sécurité", input({ label: "Code de sécurité" })],
+  ["zh 支付密码", input({ type: "text", label: "支付密码" })],
+  ["ko 비밀번호를 입력하세요 (particle)", input({ type: "text", label: "비밀번호를 입력하세요" })],
+  // Promoted to strong (owner decision)
+  ["authenticator app", input({ label: "Enter the code from your authenticator app" })],
+  ["6-digit code", input({ label: "6-digit code" })],
+  ["es código de 6 dígitos", input({ label: "Introduce el código de 6 dígitos" })],
+  ["Code + placeholder 123456", input({ label: "Code", placeholder: "123456" })],
+  // PAN: also an Indian tax id, which is sensitive too (owner decision: any value)
+  ["PAN number (Indian tax id)", input({ name: "pan", label: "PAN number" })],
 ];
 
 const MUST_NOT_HIDE: [string, FieldFacts][] = [
@@ -176,6 +223,49 @@ const MUST_NOT_HIDE: [string, FieldFacts][] = [
   // The autocomplete rule is for fields, not for a <form> or a <div>
   ["form autocomplete=new-password", { tag: "FORM", autocomplete: "new-password" }],
   ["div autocomplete=one-time-code", { tag: "DIV", autocomplete: "one-time-code" }],
+  // Review round 2: were strong
+  ["pt resenha (a review)", { tag: "TEXTAREA", label: "Escreva sua resenha" }],
+  ["ko 암호화폐 지갑 주소 (crypto address)", input({ label: "암호화폐 지갑 주소" })],
+  ["ko 일회용품 이름 (disposable goods)", input({ label: "일회용품 이름" })],
+  ["zh 密码学 (cryptography)", input({ label: "密码学课程" })],
+  ["Two-factor phone number", input({ label: "Two-factor phone number" })],
+  [
+    "Why are you changing your password?",
+    { tag: "TEXTAREA", label: "Why are you changing your password?" },
+  ],
+  ["Email for password resets", input({ label: "Email for password resets" })],
+  ["passport number (pass prefix)", input({ label: "Passport number", name: "passport" })],
+  // Review round 2: were weak
+  ["code editor textarea name=code", { tag: "TEXTAREA", name: "code" }],
+  ["paste site: Enter your code here", { tag: "TEXTAREA", placeholder: "Enter your code here" }],
+  ["Enter access code", input({ label: "Enter access code" })],
+  ["Enter tracking code", input({ label: "Enter tracking code" })],
+  ["Enter gift card code", input({ label: "Enter gift card code" })],
+  ["Enter ZIP code", input({ label: "Enter ZIP code" })],
+  ["exp: Years of experience", input({ name: "exp", label: "Years of experience" })],
+  ["exp_points", input({ name: "exp_points" })],
+  ["Pin title", input({ label: "Pin title" })],
+  ["Drop a pin: address", input({ label: "Drop a pin: address" })],
+  ["pin_board", input({ name: "pin_board" })],
+  ["Security question", input({ label: "Security question" })],
+  ["Employee number", input({ label: "Employee number" })],
+  ["Discount: Enter code", input({ label: "Enter code", name: "discount" })],
+  [
+    "Referral code we sent",
+    input({ label: "Enter the code your friend sent you", name: "referral" }),
+  ],
+  ["Invite code we sent", input({ label: "Enter the invite code we sent" })],
+  ["Area code", input({ label: "Area code" })],
+  ["Country code", input({ label: "Country code" })],
+  ["8-digit product code", input({ label: "Enter the 8-digit product code" })],
+  ["Class code", input({ label: "Class code" })],
+  ["ZIP code with a sample placeholder", input({ label: "ZIP code", placeholder: "94105" })],
+  [
+    "postal PIN code with a sample placeholder",
+    input({ label: "PIN code", name: "pincode", placeholder: "560001" }),
+  ],
+  ["es Palabra clave (keyword)", input({ label: "Palabra clave" })],
+  ["three one-character inputs are not a split OTP", input({ name: "initial", maxLength: 1 })],
 ];
 
 describe("secret field classifier (masking)", () => {
@@ -198,10 +288,28 @@ describe("secret field levels", () => {
     ["PIN", input({ name: "pin" }), "weak"],
     ["pan", input({ name: "pan" }), "weak"],
     ["split digit", input({ ariaLabel: "Digit 1" }), "weak"],
+    ["code1 box", input({ name: "code1", maxLength: 1 }), "weak"],
     ["Confirmation code", input({ label: "Confirmation code" }), undefined],
+    // Promoted to strong (owner decision)
+    ["authenticator", input({ label: "Enter the code from your authenticator app" }), "strong"],
+    ["6-digit code", input({ label: "6-digit code" }), "strong"],
+    [
+      "Enter the 6-digit code we sent",
+      input({ name: "code", label: "Enter the 6-digit code we sent" }),
+      "strong",
+    ],
+    ["placeholder 123456", input({ label: "Code", placeholder: "123456" }), "strong"],
+    ["split box (DOM group)", input({ name: "x1", maxLength: 1, splitBox: true }), "strong"],
+    ["otp1", input({ name: "otp1", maxLength: 1 }), "strong"],
   ];
   it.each(LEVELS)("%s", (_n, f, level) => {
     expect(secureLevel(f)).toBe(level);
+  });
+  it("weak fields carry the shape their value must have to refuse screenshots", () => {
+    expect(classifyField(input({ name: "pin" }))?.shape).toBe("digits");
+    expect(classifyField(input({ ariaLabel: "Digit 1" }))?.shape).toBe("digits");
+    expect(classifyField(input({ label: "Expiration date", name: "exp" }))?.shape).toBe("expiry");
+    expect(classifyField(input({ name: "pan" }))?.shape).toBe("any");
   });
   it("typing is refused only on the old criteria", () => {
     expect(isLegacySecure(input({ type: "password" }))).toBe(true);
@@ -209,10 +317,84 @@ describe("secret field levels", () => {
     expect(isLegacySecure(input({ name: "otp" }))).toBe(false);
     expect(isLegacySecure(input({ label: "Card security code" }))).toBe(false);
   });
-  it("screenshots are refused only for the high-confidence subset", () => {
+  it("legacy and strong refuse screenshots whatever the value", () => {
     expect(isStrongSecureField(input({ name: "otp" }))).toBe(true);
     expect(isStrongSecureField(input({ name: "code", label: "Enter code" }))).toBe(false);
     expect(isStrongSecureField(input({ name: "pin" }))).toBe(false);
+    expect(blocksScreenshot(classifyField(input({ name: "otp" })), "anything")).toBe(true);
+    expect(blocksScreenshot(classifyField(input({ type: "password" })), "x")).toBe(true);
+  });
+  const SHAPES: [string, FieldFacts, string, boolean][] = [
+    ["code: 6 digits", input({ name: "code", label: "Enter code" }), "482913", true],
+    ["code: spaced digits", input({ name: "code", label: "Enter code" }), "482 913", true],
+    ["code: fullwidth digits", input({ name: "code", label: "Enter code" }), "４８２９１３", true],
+    ["code: a word", input({ name: "code", label: "Enter code" }), "SUMMER-SALE", false],
+    ["code: 9 digits", input({ name: "code", label: "Enter code" }), "123456789", false],
+    ["digit box: one digit", input({ ariaLabel: "Digit 1" }), "4", true],
+    ["digit box: a letter", input({ ariaLabel: "Digit 1" }), "x", false],
+    ["PIN: 4 digits", input({ name: "pin" }), "1234", true],
+    ["expiry: 12/29", input({ label: "Expiration date", name: "exp" }), "12/29", true],
+    ["expiry: 12 / 2029", input({ label: "Expiration date", name: "exp" }), "12 / 2029", true],
+    ["expiry: 1229", input({ label: "Expiration date", name: "exp" }), "1229", true],
+    ["expiry: a full date", input({ label: "Expiration date", name: "exp" }), "2029-12-01", false],
+    ["expiry: 13/29", input({ label: "Expiration date", name: "exp" }), "13/29", false],
+    ["pan: anything", input({ name: "pan" }), "ABCDE1234F", true],
+    ["no value", input({ name: "pin" }), "", false],
+  ];
+  it.each(SHAPES)("weak screenshot gate: %s", (_n, f, value, blocks) => {
+    expect(blocksScreenshot(classifyField(f), value)).toBe(blocks);
+  });
+});
+
+describe("value backstop: disguised secrets and card numbers", () => {
+  const s = makeScrubber(["482913", "hunter2-secret"], SECURE_MASK);
+  const HIDDEN: [string, string][] = [
+    ["plain", "code 482913"],
+    ["spaced", "code 4 8 2 9 1 3"],
+    ["zero-width joined", "code 4​8​2​9​1​3"],
+    ["dashes", "code 48-29-13"],
+    ["dots", "code 4.8.2.9.1.3"],
+    ["newlines (slots in read_text)", "4\n8\n2\n9\n1\n3"],
+    ["fullwidth", "code ４８２９１３"],
+    ["Arabic-Indic digits", "رمز ٤٨٢٩١٣"],
+    ["password with a dash dropped", "pw hunter2secret"],
+  ];
+  it.each(HIDDEN)("masks a secret: %s", (_n, text) => {
+    expect(s.scrub(text)).toContain(SECURE_MASK);
+    expect(s.scrub(text).replace(/\D/g, "")).not.toContain("482913");
+  });
+  it("leaves other numbers alone", () => {
+    expect(s.scrub("code 319284")).toBe("code 319284");
+    // Not inside a longer number.
+    expect(s.scrub("order 14829135")).toBe("order 14829135");
+  });
+  const CARDS: [string, string][] = [
+    ["spaces", "4242 4242 4242 4242"],
+    ["double spaces", "4242  4242  4242  4242"],
+    ["thin spaces", "4242 4242 4242 4242"],
+    ["dots", "4242.4242.4242.4242"],
+    ["zero-width", "4242​4242​4242​4242"],
+    ["slashes", "4242/4242/4242/4242"],
+    ["dashes", "4242-4242-4242-4242"],
+    ["fullwidth", "４２４２ ４２４２ ４２４２ ４２４２"],
+    ["one block after a hash", "Order #4242424242424242"],
+    ["Amex 4-6-5", "3782 822463 10005"],
+    ["after a short number", "row 5 4242 4242 4242 4242"],
+  ];
+  it.each(CARDS)("masks a Luhn-valid card number: %s", (_n, text) => {
+    const out = maskCardNumbers(text, SECURE_MASK);
+    expect(out).toContain(SECURE_MASK);
+    expect(out).not.toMatch(/4242|３７８２|822463/);
+  });
+  it("keeps numbers that are not cards", () => {
+    for (const t of [
+      "4242 4242 4242 4241",
+      "Call 555 123 4567",
+      "1 2 3 4 5 6 7 8 9 10 11 12 13 14",
+      "12345678901234567890123",
+    ]) {
+      expect(maskCardNumbers(t, SECURE_MASK)).toBe(t);
+    }
   });
 });
 
@@ -230,6 +412,7 @@ describe("URL redaction of secret keys", () => {
     "cvc2",
     "user[password]",
     "sms_code",
+    "emailCode",
   ];
   it.each(KEYS)("masks %s", (k) => {
     const out = redactUrl(`https://a.example/x?${encodeURIComponent(k)}=909090&page=2`);
@@ -465,6 +648,9 @@ describe("value backstop", () => {
     ];
     const s = snap(t, d);
     expect(s.text).not.toContain("4242");
+    // The Luhn branch of the classification: the field itself is marked secure.
+    expect(s.text).toMatch(/textbox "Memo" \[ref=ref_\d+\] \[secure\] value="•••"/);
+    expect(s.refs.find((r) => r.name === "Memo")?.states).toContain("secure");
     expect(s.secureFieldActive).toBe(true);
     expect(extractText(t, { dom: new DomIndex(d, 1) }).text).not.toContain("4242");
   });
@@ -484,4 +670,307 @@ describe("value backstop", () => {
     expect(s.text).toContain("first pet");
     expect(s.secureFieldActive).toBe(false);
   });
+});
+
+// --- review round 2: slot widgets, split boxes, weak screenshots, fail closed, perf ----------------
+
+/** The input-otp pattern: one input holding `value`, and the digits drawn under two groups. */
+function slotPage(value: string, groupName = "") {
+  const digits = [...value];
+  const nodes: N[] = [
+    { tag: "HTML" },
+    { tag: "BODY", parent: 0 },
+    {
+      tag: "INPUT",
+      parent: 1,
+      attrs: { name: "x", autocomplete: "one-time-code" },
+      value,
+    },
+    { tag: "DIV", parent: 1, attrs: { role: "group", "aria-label": groupName } },
+    { tag: "DIV", parent: 1, attrs: { role: "group" } },
+  ];
+  const domIds: number[] = [];
+  for (const [i, d] of digits.entries()) {
+    nodes.push({ tag: "DIV", parent: i < 3 ? 3 : 4 });
+    nodes.push({ text: d, tag: "#text", parent: nodes.length - 1 });
+    domIds.push(nodes.length);
+  }
+  const tree: AXNode[] = [
+    ax(1, "RootWebArea", "Shop", [2, 20, 21], 1),
+    ax(2, "textbox", "Code", [], 3, 1, value),
+    ax(20, "group", groupName, [10, 11, 12], 4, 1),
+    ax(21, "group", "", [13, 14, 15], 5, 1),
+    ...digits.map((d, i) => ax(10 + i, "StaticText", d, [], domIds[i], i < 3 ? 20 : 21)),
+  ];
+  return { dom: mkDom(nodes), tree };
+}
+
+describe("slot-rendered secrets in the snapshot", () => {
+  it("masks digits split over two unnamed groups", () => {
+    const { dom, tree } = slotPage("482913");
+    const s = snap(tree, dom);
+    expect(s.text).not.toMatch(/text "[0-9]"/);
+    expect(s.text).toContain(`- text "${SECURE_MASK}"`);
+    expect(extractText(tree, { dom: new DomIndex(dom, 1) }).text).not.toMatch(/\d/);
+  });
+  it("keeps a slot digit that the group's name also contains", () => {
+    // "6" is in "Enter the 6-digit code": the name dedupe used to drop it and break the run.
+    // The "6" slot sits in the group named "Enter the 6-digit code".
+    const { dom, tree } = slotPage("648291", "Enter the 6-digit code");
+    const s = snap(tree, dom);
+    expect(s.text).not.toMatch(/text "[0-9]"/);
+  });
+  it("masks a card number drawn in four spans", () => {
+    const parts = ["4242", "4242", "4242", "4242"];
+    const nodes: N[] = [{ tag: "HTML" }, { tag: "BODY", parent: 0 }, { tag: "P", parent: 1 }];
+    for (const p of parts) {
+      nodes.push({ tag: "SPAN", parent: 2 });
+      nodes.push({ text: p, tag: "#text", parent: nodes.length - 1 });
+    }
+    const tree: AXNode[] = [
+      ax(1, "RootWebArea", "Card", [20], 1),
+      ax(20, "paragraph", "", [10, 11, 12, 13], 3, 1),
+      ...parts.map((p, i) => ax(10 + i, "StaticText", p, [], 5 + i * 2, 20)),
+    ];
+    expect(snap(tree, mkDom(nodes)).text).not.toContain("4242");
+  });
+  it("keeps short text runs that are not a secret", () => {
+    const { dom, tree } = slotPage("482913");
+    (tree[3] as AXNode).name = { type: "computedString", value: "7" };
+    const nodes = [ax(1, "RootWebArea", "Shop", [2, 3, 4], 1)];
+    const t2 = [
+      ...nodes,
+      ax(2, "StaticText", "1", [], 6, 1),
+      ax(3, "StaticText", "of", [], 8, 1),
+      ax(4, "StaticText", "3", [], 10, 1),
+    ];
+    const s = snap(t2, dom);
+    expect(s.text).toContain('text "of"');
+    expect(s.text).toContain('text "3"');
+  });
+});
+
+describe("split OTP boxes: four or more one-character inputs", () => {
+  const boxes = (count: number, names: (i: number) => string, values: string[]) => {
+    const nodes: N[] = [{ tag: "HTML" }, { tag: "BODY", parent: 0 }, { tag: "DIV", parent: 1 }];
+    const tree: AXNode[] = [ax(1, "RootWebArea", "Verify", [], 1)];
+    for (let i = 0; i < count; i++) {
+      // Each box in its own wrapper div, as most widgets draw them.
+      nodes.push({ tag: "DIV", parent: 2 });
+      nodes.push({
+        tag: "INPUT",
+        parent: nodes.length - 1,
+        attrs: { name: names(i), maxlength: "1", type: "text" },
+        value: values[i] ?? "",
+      });
+      tree.push(ax(10 + i, "textbox", "", [], nodes.length, 1, values[i] ?? ""));
+      (tree[0] as AXNode).childIds?.push(String(10 + i));
+    }
+    tree.push(ax(99, "StaticText", "We sent 482913 to you", [], 1, 1));
+    (tree[0] as AXNode).childIds?.push("99");
+    return { dom: mkDom(nodes), tree };
+  };
+  it("masks every box and the joined code, and refuses screenshots", () => {
+    const { dom, tree } = boxes(6, (i) => `f${i}`, [..."482913"]);
+    const s = snap(tree, dom);
+    expect(s.text).not.toMatch(/value="[0-9]"/);
+    expect(s.text).not.toContain("482913");
+    expect(s.secureFieldActive).toBe(true);
+    expect(new DomIndex(dom, 1).anySecureValue()).toBe(true);
+  });
+  it("otp1..otp6 boxes are secret by name too", () => {
+    const { dom, tree } = boxes(2, (i) => `otp${i + 1}`, ["4", "8"]);
+    expect(snap(tree, dom).text).not.toMatch(/value="[0-9]"/);
+  });
+  it("three one-character inputs are not a split OTP", () => {
+    const { dom, tree } = boxes(3, (i) => `initial${i}`, ["A", "B", "C"]);
+    const s = snap(tree, dom);
+    expect(s.text).toContain('value="A"');
+    expect(s.secureFieldActive).toBe(false);
+  });
+});
+
+describe("weak fields refuse screenshots only for a secret-shaped value", () => {
+  const one = (label: string, name: string, value: string) => {
+    const dom = mkDom([
+      { tag: "HTML" },
+      { tag: "BODY", parent: 0 },
+      { tag: "INPUT", parent: 1, attrs: { name, type: "text", "aria-label": label }, value },
+    ]);
+    const tree = [ax(1, "RootWebArea", "Shop", [2], 1), ax(2, "textbox", label, [], 3, 1, value)];
+    return { s: snap(tree, dom), guard: new DomIndex(dom, 1).anySecureValue() };
+  };
+  const ROWS: [string, string, string, boolean][] = [
+    ["Enter the code we sent", "code", "482913", true],
+    ["Digit 1", "d1", "4", true],
+    ["PIN", "pin", "1234", true],
+    ["Expiration date", "exp", "12/29", true],
+    ["PAN", "pan", "ABCDE1234F", true],
+    ["Enter the code we sent", "code", "SPRING-SALE", false],
+    ["Expiration date", "exp", "2029-12-01", false],
+  ];
+  it.each(ROWS)("%s = %s", (label, name, value, blocks) => {
+    const { s, guard } = one(label, name, value);
+    expect(s.text).not.toContain(`value="${value}"`);
+    expect(s.text).toContain(`value="${SECURE_MASK}"`);
+    expect(s.secureFieldActive).toBe(blocks);
+    // The DOM-only guard (after the capture, beyond the depth cap) agrees.
+    expect(guard).toBe(blocks);
+  });
+  const AX_ONLY: [string, string, boolean][] = [
+    ["Enter the code we sent", "482913", true],
+    ["Digit 1", "4", true],
+    ["Expiration date", "12/29", true],
+    ["Enter the code we sent", "SPRING-SALE", false],
+  ];
+  it.each(AX_ONLY)("label only in the AX tree: %s = %s", (label, value, blocks) => {
+    // The DOM has no label at all, so only the AX walk can judge the field.
+    const dom = mkDom([
+      { tag: "HTML" },
+      { tag: "BODY", parent: 0 },
+      { tag: "INPUT", parent: 1, attrs: { name: "f1", type: "text" }, value },
+    ]);
+    const tree = [ax(1, "RootWebArea", "Shop", [2], 1), ax(2, "textbox", label, [], 3, 1, value)];
+    expect(new DomIndex(dom, 1).anySecureValue()).toBe(false);
+    const s = snap(tree, dom);
+    expect(s.text).toContain(`value="${SECURE_MASK}"`);
+    expect(s.secureFieldActive).toBe(blocks);
+  });
+});
+
+describe(`more than ${MAX_SECRETS} secret values: fail closed`, () => {
+  const page = (count: number) => {
+    const nodes: N[] = [{ tag: "HTML" }, { tag: "BODY", parent: 0 }];
+    const tree: AXNode[] = [ax(1, "RootWebArea", "Bulk", [], 1)];
+    for (let i = 0; i < count; i++) {
+      nodes.push({
+        tag: "INPUT",
+        parent: 1,
+        attrs: { name: `pin_${i}`, type: "text" },
+        value: String(100000 + i),
+      });
+      tree.push(ax(10 + i, "textbox", "PIN", [], nodes.length, 1, String(100000 + i)));
+    }
+    nodes.push({
+      tag: "INPUT",
+      parent: 1,
+      attrs: { name: "title", type: "text" },
+      value: "Q3 plan",
+    });
+    tree.push(ax(5000, "textbox", "Title", [], nodes.length, 1, "Q3 plan"));
+    (tree[0] as AXNode).childIds = tree.slice(1).map((n) => n.nodeId);
+    return { dom: mkDom(nodes), tree };
+  };
+  it("under the cap, ordinary fields keep their values", () => {
+    const { dom, tree } = page(MAX_SECRETS);
+    const d = new DomIndex(dom, 1);
+    expect(d.overCap).toBe(false);
+    expect(snap(tree, dom).text).toContain("Q3 plan");
+  });
+  it("over the cap, every field value is masked and screenshots are refused", () => {
+    const { dom, tree } = page(MAX_SECRETS + 1);
+    const d = new DomIndex(dom, 1);
+    expect(d.overCap).toBe(true);
+    expect(d.anySecureValue()).toBe(true);
+    const s = snap(tree, dom);
+    expect(s.text).not.toContain("Q3 plan");
+    expect(s.text).not.toMatch(/1000\d\d/);
+    expect(s.secureFieldActive).toBe(true);
+  });
+});
+
+describe("read_text without a DOM index", () => {
+  it("still masks card numbers", () => {
+    const tree = [
+      ax(1, "RootWebArea", "Card", [2], 1),
+      ax(2, "StaticText", "Your card 4242 4242 4242 4242", [], 4, 1),
+    ];
+    expect(extractText(tree, {}).text).toBe(`Your card ${SECURE_MASK}`);
+  });
+  it("counts ignored nodes as field candidates (the walk passes through them)", () => {
+    const n = ax(2, "textbox", "Verification code", [], 3, 1, "482913");
+    n.ignored = true;
+    expect(hasFieldCandidates([[ax(1, "RootWebArea", "x", [2], 1), n]])).toBe(true);
+    expect(
+      hasFieldCandidates([
+        [ax(1, "RootWebArea", "x", [3], 1), ax(3, "StaticText", "hi", [], 4, 1)],
+      ]),
+    ).toBe(false);
+  });
+});
+
+describe("perf: a big page stays linear (a hostile page must not freeze the Gateway)", () => {
+  /** N nodes; F filled inputs, each with an id and a `<label for>`; text rows with digits. */
+  const bigPage = (N: number, F: number, fieldName: (i: number) => string | undefined) => {
+    const nodes: N[] = [{ tag: "HTML" }, { tag: "BODY", parent: 0 }];
+    const tree: AXNode[] = [ax(1, "RootWebArea", "Big", [], 1)];
+    const kids: number[] = [];
+    for (let i = 0; i < F; i++) {
+      const name = fieldName(i);
+      if (name === undefined) {
+        nodes.push({ tag: "DIV", parent: 1 });
+        nodes.push({ tag: "DIV", parent: 1 });
+        nodes.push({ text: `Title ${i}`, tag: "#text", parent: nodes.length - 1 });
+        tree.push(ax(nodes.length + 10, "StaticText", `Title ${i}`, [], nodes.length, 1));
+      } else {
+        nodes.push({
+          tag: "INPUT",
+          parent: 1,
+          attrs: { id: `f${i}`, name, type: "text" },
+          value: `${100000 + i}`,
+        });
+        tree.push(ax(nodes.length + 10, "textbox", "Title", [], nodes.length, 1, `${100000 + i}`));
+        nodes.push({ tag: "LABEL", parent: 1, attrs: { for: `f${i}` } });
+        nodes.push({ text: `Title ${i}`, tag: "#text", parent: nodes.length - 1 });
+      }
+      kids.push(nodes.length + 10 - (name === undefined ? 0 : 2));
+    }
+    while (nodes.length < N) {
+      nodes.push({ tag: "DIV", parent: 1 });
+      nodes.push({ text: `row ${nodes.length} 4242 4242`, tag: "#text", parent: nodes.length - 1 });
+      tree.push(
+        ax(nodes.length + 10, "StaticText", `row ${nodes.length} 4242 4242`, [], nodes.length, 1),
+      );
+    }
+    (tree[0] as AXNode).childIds = tree.slice(1).map((n) => n.nodeId);
+    return { dom: mkDom(nodes), tree };
+  };
+  /** Best of five, round-robin, so a load spike from other work hits every variant alike. */
+  const bestOf = (fs: (() => void)[]): number[] => {
+    const ms = fs.map(() => Number.POSITIVE_INFINITY);
+    for (let k = 0; k < 5; k++) {
+      fs.forEach((f, i) => {
+        const t = performance.now();
+        f();
+        ms[i] = Math.min(ms[i] as number, performance.now() - t);
+      });
+    }
+    return ms;
+  };
+  const run = (p: { dom: CaptureSnapshotResult; tree: AXNode[] }) => () => {
+    snap(p.tree, p.dom);
+    extractText(p.tree, { dom: new DomIndex(p.dom, 1), maxChars: 200_000 });
+    new DomIndex(p.dom, 1).anySecureValue();
+  };
+  it("100k nodes with 4,000 filled inputs: within 3x of the same page without fields", () => {
+    const N = 100_000;
+    const F = 4000;
+    const [base, fields, masked, allMasked] = bestOf([
+      // The same node count and text, the inputs replaced by plain text: the per-node cost alone.
+      run(bigPage(N, F, () => undefined)),
+      run(bigPage(N, F, (i) => `title_${i}`)),
+      // Secret values just under the cap: the combined scrubber runs over every string.
+      run(bigPage(N, F, (i) => (i < MAX_SECRETS ? `pin_${i}` : `title_${i}`))),
+      // Every field a secret: over the cap, so nothing is tracked and the page fails closed.
+      run(bigPage(N, F, (i) => `pin_${i}`)),
+    ]) as [number, number, number, number];
+    const budget = Math.max(3 * base, 150);
+    const seen = `base ${base.toFixed(0)} ms, fields ${fields.toFixed(0)} ms, masked ${masked.toFixed(0)} ms, all masked ${allMasked.toFixed(0)} ms`;
+    if (process.env.PSYCHE_PERF_LOG === "1") console.log(seen);
+    expect(fields, seen).toBeLessThan(budget);
+    expect(masked, seen).toBeLessThan(budget);
+    expect(allMasked, seen).toBeLessThan(budget);
+    // Before the fix this page took 5.8 s (fields) and 36 s (masked) per snapshot.
+    expect(Math.max(fields, masked, allMasked)).toBeLessThan(3000);
+  }, 120_000);
 });

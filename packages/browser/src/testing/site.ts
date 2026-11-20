@@ -47,6 +47,8 @@ export type FxNode =
   | { kind: "canvas"; width: number; height: number }
   | { kind: "image"; alt: string }
   | { kind: "clickable"; text: string; onClick: FxAction }
+  /** A `contenteditable` div with an `aria-label` (AX role `generic`, `editable` property). */
+  | { kind: "editable"; label: string; text: string }
   | { kind: "spacer"; height: number }
   /** A full-viewport `position: fixed` layer (clickjacking fixture). */
   | { kind: "overlay"; text: string; onClick: FxAction }
@@ -448,6 +450,24 @@ export const FIXTURE_SITE: FxSite = {
             { kind: "button", text: "Verify", type: "submit" },
           ],
         },
+      ],
+    },
+    // A secret only the DOM path can see: a contenteditable (AX `generic`, not a text field)
+    // labelled as a code, with a 3-character value the value scrubber ignores; and card text on
+    // a page with no form field.
+    "a/editable-code": {
+      title: "Verify",
+      body: [
+        { kind: "heading", level: 1, text: "Verify" },
+        { kind: "editable", label: "Verification code", text: "731" },
+        { kind: "editable", label: "Notes", text: "bring 2 forms" },
+      ],
+    },
+    "a/card-text": {
+      title: "Receipt",
+      body: [
+        { kind: "heading", level: 1, text: "Receipt" },
+        { kind: "text", text: "Paid with 4242 4242 4242 4242 on 12 May" },
       ],
     },
     // Fields that look like secrets and are not: nothing hides, screenshots stay available.
