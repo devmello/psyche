@@ -28,6 +28,7 @@ import {
   type ModelRequest,
   type Notifier,
   namespacedGrantKey,
+  type OwnerWordsOption,
   type PermissionBroker,
   type PermissionMode,
   type ProvenanceOut,
@@ -89,6 +90,7 @@ import {
   fileOnlyItems,
   hasUnansweredToolCalls,
   type LoopPrefix,
+  ownerRetires,
   readsOwnerFile,
   renderCompactionSummary,
   scaleBreakdown,
@@ -266,14 +268,26 @@ export function carryPinned(
      * content grants no one anything.
      */
     canRetireTrusted?: boolean;
+    /**
+     * When `canRetireTrusted` is false: whether the owner's own words support retiring this
+     * earlier item anyway (a file in the window must not cost the owner their own revoke).
+     */
+    ownerRetires?: (item: string) => boolean;
   } = {},
-): { items: string[]; untrusted: string[]; dropped: string[] } {
+): { items: string[]; untrusted: string[]; dropped: string[]; refused: string[] } {
   const bad = new Set((options.untrustedPrevious ?? []).map(pinKey));
-  const retired = new Set(
-    (options.retired ?? [])
-      .map(pinKey)
-      .filter((k) => options.canRetireTrusted !== false || bad.has(k)),
-  );
+  const named = new Map((options.retired ?? []).map((r) => [pinKey(r), r] as const));
+  const retired = new Set<string>();
+  // Trusted items the summary named but may not retire: they stay, and the owner is told.
+  const refusedKeys = new Set<string>();
+  for (const [k, raw] of named) {
+    if (options.canRetireTrusted !== false || bad.has(k) || options.ownerRetires?.(raw) === true) {
+      retired.add(k);
+    } else {
+      refusedKeys.add(k);
+    }
+  }
+  const refused: string[] = [];
   const kept: { text: string; untrusted: boolean }[] = [];
   const seen = new Set<string>();
   for (const raw of previous) {
@@ -282,6 +296,7 @@ export function carryPinned(
     const key = pinKey(item);
     if (key === "" || seen.has(key) || retired.has(key)) continue;
     seen.add(key);
+    if (refusedKeys.has(key)) refused.push(item);
     kept.push({ text: item, untrusted: bad.has(key) || bad.has(pinKey(raw)) });
   }
   const fileOnly = new Set((options.untrustedAdded ?? []).map(pinKey));
@@ -312,6 +327,7 @@ export function carryPinned(
     items: kept.map((k) => k.text),
     untrusted: kept.filter((k) => k.untrusted).map((k) => k.text),
     dropped,
+    refused,
   };
 }
 
@@ -335,6 +351,12 @@ export interface CompactionInfo {
   tokensAfter: number;
   /** Older standing instructions dropped to make room for new ones (the list was full). */
   droppedPins?: string[];
+  /**
+   * Standing instructions the summary said to retire but that stay: what the summarizer read
+   * (a file, third-party content) may not revoke the owner's rules, and the owner's own words
+   * did not.
+   */
+  keptPins?: string[];
 }
 
 const estimateTokensOf = (text: string) => estimateContextTokens(text, [], []);
@@ -601,7 +623,12 @@ interface RunState {
   /** Who asked for the turn (security §9); absent means the owner. */
   requester?: Requester;
   abort: AbortController;
-  steer: string[];
+  steer: { text: string; ownerWords: boolean }[];
+  /**
+   * The owner's own run: no requester or an owner one, no parent run, no task. Only these mark
+   * text `author: "owner"` (the first message, and steers or follow-ups the owner typed).
+   */
+  ownerRun: boolean;
   taint: boolean;
   taintSources: TaintSource[];
   /** Targets the owner's request or an earlier approval in this run covers. */
@@ -617,6 +644,10 @@ interface RunState {
   waits: number;
   /** The owner's last typed reply that ended a wait (`supersedeWaits`). */
   chatReply?: string;
+  /** How many chat replies closed waits in this run (to tie one to the tool results it closed). */
+  chatReplies: number;
+  /** The last chat reply is the owner's own typed words (no quote ahead of it). */
+  chatReplyOwner?: boolean;
   /** A reply in the chat ended a wait this step: the calls still to run are skipped. */
   replied: boolean;
   active: Map<string, AgentToolRegistration>;
@@ -766,7 +797,10 @@ export class PsycheAgentLoop implements AgentLoop {
   #bootedAt = 0;
   /** Every run this process started: only another process's cards are ever re-used (#64). */
   #ranHere = new Set(["request_permission", "request_folder_access"]);
-  #threads = new Map<string, { activeRunId?: string; followUps: string[] }>();
+  #threads = new Map<
+    string,
+    { activeRunId?: string; followUps: { text: string; ownerWords: boolean }[] }
+  >();
   #explanations = new Map<string, ContextExplanation>();
   #plans = new Map<string, { threadId: string; title: string; plan: string }>();
   #capabilities = new Map<string, Promise<ModelCapabilities>>();
@@ -835,14 +869,14 @@ export class PsycheAgentLoop implements AgentLoop {
     }
   }
 
-  async steer(runId: string, text: string): Promise<void> {
+  async steer(runId: string, text: string, options: OwnerWordsOption = {}): Promise<void> {
     const run = this.#runs.get(runId);
     if (run === undefined) throw new PsycheError("not_found", `run ${runId} is not active`);
-    run.steer.push(text);
+    run.steer.push({ text, ownerWords: options.ownerWords === true });
   }
 
-  async followUp(threadId: string, text: string): Promise<void> {
-    this.#thread(threadId).followUps.push(text);
+  async followUp(threadId: string, text: string, options: OwnerWordsOption = {}): Promise<void> {
+    this.#thread(threadId).followUps.push({ text, ownerWords: options.ownerWords === true });
   }
 
   async cancel(runId: string, reason = "cancelled"): Promise<void> {
@@ -896,11 +930,14 @@ export class PsycheAgentLoop implements AgentLoop {
   async supersedeWaits(
     runId: string,
     text: string,
+    options: OwnerWordsOption = {},
   ): Promise<{ questions: InputRequest[]; approvals: ApprovalRequest[] }> {
     const none = { questions: [], approvals: [] };
     const run = this.#runs.get(runId);
     if (run === undefined) return none;
     run.chatReply = text;
+    run.chatReplyOwner = options.ownerWords === true;
+    run.chatReplies += 1;
     run.replied = true;
     run.ownerText += `\n${text}`;
     const questions: InputRequest[] = [];
@@ -982,6 +1019,8 @@ export class PsycheAgentLoop implements AgentLoop {
       ...(input.beforeDispatch === undefined ? {} : { beforeDispatch: input.beforeDispatch }),
       abort,
       steer: [],
+      ownerRun: ownerSent && child === undefined && input.taskId === undefined,
+      chatReplies: 0,
       taint: false,
       taintSources: [],
       targets: new Set(),
@@ -1088,7 +1127,7 @@ export class PsycheAgentLoop implements AgentLoop {
       // A model that cannot read images gets a note, never the picture (or its bytes as text).
       const blind = turnImages.length > 0 && !(await this.#canSeeImages(run.model));
       const fence = randomUUID().replaceAll("-", "").slice(0, 16);
-      const { typed, attached, notes: fileNotes } = userTextParts(input);
+      const { typed, context, attached, notes: fileNotes } = userTextParts(input);
       const notes = [
         ...fileNotes,
         ...(blind
@@ -1100,17 +1139,18 @@ export class PsycheAgentLoop implements AgentLoop {
       // The owner's words only: no requester or an owner, not text the harness wrote for them
       // (`ownerWords: false`: widget acts, agent messages, the greeting), not a subagent's brief
       // or a task's goal.
-      const ownerTyped =
-        ownerSent &&
-        input.ownerWords !== false &&
-        child === undefined &&
-        input.taskId === undefined;
+      const ownerTyped = run.ownerRun && input.ownerWords !== false && context !== false;
       // File text is the file's, in its own part ahead of the owner's words, so the owner's
       // request is the last thing the model reads. Someone else's file is untrusted and taints;
       // the owner's own upload is fenced and quoted apart but does not (`ownerFile`). A non-owner
       // sender's attachments are always someone else's.
       const thirdParty = !ownerSent || input.input.attachmentThirdParty !== false;
       if (attached !== undefined && thirdParty) this.#taint(run, { sourceKind: "attachment" });
+      // Third-party content that came in as the turn's input taint and not as a tagged part (a
+      // screen capture or another third party's image, Ask about this, a widget, forwarded text):
+      // the whole turn is untrusted for compaction and replay, and so are its images.
+      const inputTainted =
+        (input.taintSources?.length ?? 0) > 0 || (attached !== undefined && thirdParty);
       const attachedPart: ModelPart[] =
         attached === undefined
           ? []
@@ -1130,6 +1170,17 @@ export class PsycheAgentLoop implements AgentLoop {
             ];
       const noteParts: ModelPart[] =
         notes.length === 0 ? [] : [{ type: "text", text: notes.join("\n\n") }];
+      // The Gateway's context ahead of the words (it carries its own fences): never the owner's.
+      const contextPart: ModelPart[] =
+        typeof context !== "string" || context.trim() === ""
+          ? []
+          : [
+              {
+                type: "text",
+                text: context,
+                ...(inputTainted ? { provenance: "untrusted" as const } : {}),
+              },
+            ];
       const typedPart: ModelPart[] = !ownerSent
         ? [
             {
@@ -1138,7 +1189,7 @@ export class PsycheAgentLoop implements AgentLoop {
               provenance: "untrusted",
             },
           ]
-        : typed.trim() === "" && attachedPart.length + noteParts.length > 0
+        : typed.trim() === "" && attachedPart.length + noteParts.length + contextPart.length > 0
           ? []
           : [
               ownerTyped
@@ -1150,6 +1201,7 @@ export class PsycheAgentLoop implements AgentLoop {
         parts: [
           ...attachedPart,
           ...noteParts,
+          ...contextPart,
           ...typedPart,
           // Images the model sees with the message (a pinned screen capture).
           ...(blind
@@ -1158,8 +1210,10 @@ export class PsycheAgentLoop implements AgentLoop {
                 type: "image" as const,
                 mime: i.mime,
                 data: i.data,
+                ...(inputTainted ? { provenance: "untrusted" as const } : {}),
               }))),
         ],
+        ...(inputTainted ? { untrusted: true as const } : {}),
       });
       await this.#addTurnContext(run);
       outcome = await this.#loop(run);
@@ -1307,8 +1361,17 @@ export class PsycheAgentLoop implements AgentLoop {
       }
 
       if (step.calls.length > 0) {
+        const replied = run.chatReplies;
         const results = await this.#runTools(run, step.calls);
-        run.thread.messages.push({ role: "tool", parts: results });
+        // The owner typed a reply that closed these waits: their words, kept with the results.
+        const reply = run.chatReplies > replied ? run.chatReply : undefined;
+        run.thread.messages.push({
+          role: "tool",
+          parts: results,
+          ...(reply === undefined || reply === "" || !run.ownerRun || run.chatReplyOwner !== true
+            ? {}
+            : { ownerReply: reply }),
+        });
         if (run.parked !== undefined) return "awaiting_input";
         if (run.specialistJob?.stop !== undefined) return "final";
         this.#checkAbort(run);
@@ -1333,8 +1396,8 @@ export class PsycheAgentLoop implements AgentLoop {
       if (followUp !== undefined) {
         this.#flushUnattended(run, pendingText);
         pendingText = "";
-        run.ownerText += `\n${followUp}`;
-        run.thread.messages.push({ role: "user", parts: [{ type: "text", text: followUp }] });
+        run.ownerText += `\n${followUp.text}`;
+        run.thread.messages.push({ role: "user", parts: [ownerPart(run, followUp)] });
         continue;
       }
       if (run.mode === "unattended") {
@@ -1568,8 +1631,7 @@ export class PsycheAgentLoop implements AgentLoop {
       ...(r.untrusted ? { provenance: "untrusted" as const } : {}),
     }));
     const [first, ...rest] = messages;
-    if (first?.role === "user")
-      return [{ role: "user", parts: [...parts, ...first.parts] }, ...rest];
+    if (first?.role === "user") return [{ ...first, parts: [...parts, ...first.parts] }, ...rest];
     return [{ role: "user", parts }, ...messages];
   }
 
@@ -1714,9 +1776,9 @@ export class PsycheAgentLoop implements AgentLoop {
   #drainSteer(run: RunState): boolean {
     run.replied = false;
     if (run.steer.length === 0) return false;
-    for (const text of run.steer.splice(0)) {
-      run.ownerText += `\n${text}`;
-      run.thread.messages.push({ role: "user", parts: [{ type: "text", text }] });
+    for (const s of run.steer.splice(0)) {
+      run.ownerText += `\n${s.text}`;
+      run.thread.messages.push({ role: "user", parts: [ownerPart(run, s)] });
     }
     return true;
   }
@@ -2156,7 +2218,7 @@ export class PsycheAgentLoop implements AgentLoop {
           );
           // It read every message sent, the turns that stay included: the summary is as
           // untrusted as anything in them (and in the previous summary).
-          untrusted = containsUntrusted(messages) || untrusted;
+          untrusted = containsUntrusted(messages) || containsUntrusted(recent) || untrusted;
           read = messages;
         } catch {
           this.#checkAbort(run);
@@ -2182,6 +2244,8 @@ export class PsycheAgentLoop implements AgentLoop {
       // A summary that read untrusted text, or a file the owner attached, cannot revoke the
       // owner's rules (only untrusted items): no file's words retire a standing instruction.
       canRetireTrusted: !untrusted && !readsOwnerFile(read),
+      // With only the owner's own file in the window, the owner's own revoke still counts.
+      ...(untrusted ? {} : { ownerRetires: (pin: string) => ownerRetires(read, pin) }),
       untrusted,
       // A pin file text may have put there (the owner's upload included) is never trusted.
       untrustedAdded: fileOnlyItems(read, structured.pinnedInstructions),
@@ -2225,6 +2289,7 @@ export class PsycheAgentLoop implements AgentLoop {
         tokensBefore: estimate,
         tokensAfter: after,
         ...(carried.dropped.length === 0 ? {} : { droppedPins: carried.dropped }),
+        ...(carried.refused.length === 0 ? {} : { keptPins: carried.refused }),
       }),
     ).catch(() => undefined);
     return true;
@@ -4366,6 +4431,16 @@ function worst(a: ProvenanceOut, b: ProvenanceOut | undefined): ProvenanceOut {
 }
 
 /**
+ * A steer or follow-up as a text part: `author: "owner"` only when the owner typed it and the run
+ * is the owner's own (same rule as the turn's first message).
+ */
+function ownerPart(run: RunState, s: { text: string; ownerWords: boolean }): ModelPart {
+  return s.ownerWords && run.ownerRun
+    ? { type: "text", text: s.text, author: "owner" }
+    : { type: "text", text: s.text };
+}
+
+/**
  * Replaces the text of the owner's own uploads with a stub, in place (a private copy). The
  * pre-compaction flush lists facts from what it reads, and a file's words never become trusted
  * memory. Someone else's file stays: it is `untrusted`, so the flush's lines are tagged so.
@@ -4388,15 +4463,27 @@ function stubOwnerFiles(messages: ModelMessage[]): void {
  */
 function userTextParts(input: StartTurnInput): {
   typed: string;
+  /** The Gateway's context ahead of the words; `false` when `text` does not start with it. */
+  context?: string | false;
   attached?: string;
   notes: string[];
 } {
   const files = input.input.attachments ?? [];
-  if (files.length === 0) return { typed: input.input.text, notes: [] };
+  const text = input.input.text;
+  const given = input.input.context;
+  // `text` is the context, a blank line, then the typed words. A caller that broke that contract
+  // gets no owner mark at all, rather than the context marked as the owner's.
+  const split =
+    given === undefined || given === ""
+      ? { typed: text }
+      : text.startsWith(given)
+        ? { typed: text.slice(given.length).replace(/^\n\n/, ""), context: given }
+        : { typed: text, context: false as const };
+  if (files.length === 0) return { ...split, notes: [] };
   const attached = input.input.attachmentText;
   const notes = input.input.attachmentNotes;
-  const out: { typed: string; attached?: string; notes: string[] } = {
-    typed: input.input.text,
+  const out: { typed: string; context?: string | false; attached?: string; notes: string[] } = {
+    ...split,
     notes: notes === undefined || notes === "" ? [] : [notes],
   };
   if (attached !== undefined && attached !== "") out.attached = attached;

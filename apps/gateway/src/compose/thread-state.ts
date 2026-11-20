@@ -188,10 +188,19 @@ export class SqliteThreadStateStore implements ThreadStateStore {
             ]),
         ...(notesText === "" ? [] : [{ type: "text" as const, text: notesText }]),
         ...typedPart,
-        ...images.map((i) => ({ type: "image" as const, mime: i.mime, data: i.data })),
+        // A third party's images are untrusted, as they were live (the turn's input taint).
+        ...images.map((i) => ({
+          type: "image" as const,
+          mime: i.mime,
+          data: i.data,
+          ...(thirdParty || nonOwner ? { provenance: "untrusted" as const } : {}),
+        })),
       ];
-      if (prev?.role === role) prev.parts.push(...parts);
-      else out.push({ role, parts });
+      const untrusted = role === "user" && (thirdParty || nonOwner);
+      if (prev?.role === role) {
+        prev.parts.push(...parts);
+        if (untrusted) prev.untrusted = true;
+      } else out.push({ role, parts, ...(untrusted ? { untrusted: true as const } : {}) });
     }
     if (out.length === 0) return undefined;
     // Third-party files re-read into the context keep the thread tainted, as they did live.

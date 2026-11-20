@@ -55,6 +55,13 @@ export type RunOutcome =
 
 export interface TurnInput {
   text: string;
+  /**
+   * Text the Gateway put ahead of the owner's words (Ask about this, a screen ask, a quoted
+   * message, the names of attached files). When set, `text` starts with it and a blank line, and
+   * the rest of `text` is what the sender typed. The model reads it as its own part: never
+   * `author: "owner"`, and `provenance: "untrusted"` when the turn carries input taint.
+   */
+  context?: string;
   attachments?: { libraryItemId: string }[];
   /**
    * The attachments' extracted text (documents, capped), which the model reads after `text`. Kept
@@ -212,11 +219,19 @@ export interface ToolCallDetails {
   receiptId?: string | null;
 }
 
+/**
+ * `ownerWords: true`: the owner typed this text themselves (not an agent, a widget, a quote or a
+ * non-owner). The loop marks it `author: "owner"` only then, and only in the owner's own runs.
+ */
+export interface OwnerWordsOption {
+  ownerWords?: boolean;
+}
+
 export interface AgentLoop {
   /** Runs one turn; the iterable ends after exactly one `end` event. */
   startTurn(input: StartTurnInput): AsyncIterable<AgentEvent>;
   /** Interrupt the current tool loop of `runId` with new guidance. */
-  steer(runId: string, text: string): Promise<void>;
+  steer(runId: string, text: string, options?: OwnerWordsOption): Promise<void>;
   /** Whether the run's turn is parked on a question or card the owner has not answered. */
   isWaiting?(runId: string): boolean;
   /**
@@ -227,9 +242,10 @@ export interface AgentLoop {
   supersedeWaits?(
     runId: string,
     text: string,
+    options?: OwnerWordsOption,
   ): Promise<{ questions: InputRequest[]; approvals: ApprovalRequest[] }>;
   /** Queue a message to run after the thread's current turn settles. */
-  followUp(threadId: string, text: string): Promise<void>;
+  followUp(threadId: string, text: string, options?: OwnerWordsOption): Promise<void>;
   /** Cancel a run; its tool and approval authority is revoked immediately (§4.5). */
   cancel(runId: string, reason?: string): Promise<void>;
   /**

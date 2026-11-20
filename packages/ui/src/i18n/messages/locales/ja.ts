@@ -589,6 +589,8 @@ export const ja: Partial<Catalogue> = {
   "context.marker.pinRemoveFailed": "削除できませんでした: {reason}",
   "context.marker.droppedPins":
     "{count, plural, other {古い常設の指示 # 件を、新しい指示の余地を作るために破棄しました。}}",
+  "context.marker.keptPins":
+    "{count, plural, other {常設の指示 # 件をそのまま残しました}}。このチャットのファイルや他の人の内容では削除できません。削除したい場合は「削除」を使ってください。",
   "context.marker.replacedList": "置き換えられたターン",
   "context.marker.notLoaded": "置き換えられたターンはここには読み込まれていません。",
   "context.marker.speaker": "{name}：",

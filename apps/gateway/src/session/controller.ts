@@ -178,14 +178,20 @@ export function quoteText(message: Pick<Message, "blocks">): string {
  * agent sees"). The quoted text is data the user chose to point at, labelled as such.
  */
 export function withQuote(quote: Quote | undefined, content: string): string {
-  if (quote === undefined) return content;
+  const context = quoteContext(quote);
+  return context === undefined ? content : `${context}\n\n${content}`;
+}
+
+/** The quoted message as the context line ahead of a reply (never the sender's own words). */
+function quoteContext(quote: Quote | undefined): string | undefined {
+  if (quote === undefined) return undefined;
   const whose =
     quote.role === "user"
       ? "the user's earlier message"
       : quote.role === "agent"
         ? "your earlier message"
         : `an earlier ${quote.role} message`;
-  return `[Replying to ${whose} ${quote.messageId}]\n> ${quote.text}\n\n${content}`;
+  return `[Replying to ${whose} ${quote.messageId}]\n> ${quote.text}`;
 }
 
 function hasQuestionBlock(blocks: readonly Block[], inputRequestId: string): boolean {
@@ -341,8 +347,13 @@ export class SessionController {
       this.#bump();
       hooks.emit("chat.message", { message }, thread.id);
       hooks.afterCommit(() => {
+        // The owner's own typed words (not an agent's, a non-owner's or a quote) are owner-marked.
+        const ownerWords =
+          input.provenance !== "agent" &&
+          messageProvenance(input.requester) === "owner" &&
+          quote === undefined;
         this.#ctx.agent
-          .steer(active, withQuote(quote, input.content))
+          .steer(active, withQuote(quote, input.content), { ownerWords })
           .catch((err) => this.#warn("steer failed", err));
       });
       return { messageId: message.id, runId: active, queued: true };
@@ -409,7 +420,12 @@ export class SessionController {
     this.#bump();
     hooks.emit("chat.message", { message }, thread.id);
     hooks.afterCommit(() => {
-      Promise.resolve(this.#ctx.agent.supersedeWaits?.(active, withQuote(quote, input.content)))
+      Promise.resolve(
+        // The owner's own reply; a quoted message ahead of it is not their words.
+        this.#ctx.agent.supersedeWaits?.(active, withQuote(quote, input.content), {
+          ownerWords: quote === undefined,
+        }),
+      )
         .then((closed) => {
           for (const inputRequest of closed?.questions ?? []) {
             this.#ctx.bus.publish("question.updated", { inputRequest }, thread.id);
@@ -466,8 +482,12 @@ export class SessionController {
     extra?: TurnExtra,
   ): { messageId: string; run: Run } {
     const { db } = this.#ctx;
-    const quoted = withQuote(quote, content);
-    const agentContent = extra?.preamble === undefined ? quoted : `${extra.preamble}\n\n${quoted}`;
+    // What the Gateway puts ahead of the typed words (Ask about this, a screen ask, a quote): the
+    // model reads it as its own part, never as the sender's words.
+    const context = [extra?.preamble, quoteContext(quote)]
+      .filter((c): c is string => c !== undefined && c !== "")
+      .join("\n\n");
+    const agentContent = context === "" ? content : `${context}\n\n${content}`;
     if (supersedes === null) {
       // The user message goes in before the run owns the transcript.
       const message = appendMessage(
@@ -495,7 +515,15 @@ export class SessionController {
       this.#bump();
       hooks.emit("run.updated", { run }, thread.id);
       hooks.afterCommit(() =>
-        this.#startTurn(thread, run.id, agentContent, attachments, requester, extra?.images),
+        this.#startTurn(
+          thread,
+          run.id,
+          agentContent,
+          attachments,
+          requester,
+          extra?.images,
+          context,
+        ),
       );
       return { messageId: message.id, run };
     }
@@ -524,7 +552,7 @@ export class SessionController {
     hooks.emit("chat.message", { message }, thread.id);
     hooks.emit("run.updated", { run }, thread.id);
     hooks.afterCommit(() =>
-      this.#startTurn(thread, run.id, agentContent, attachments, requester, extra?.images),
+      this.#startTurn(thread, run.id, agentContent, attachments, requester, extra?.images, context),
     );
     return { messageId: message.id, run };
   }
@@ -719,12 +747,14 @@ export class SessionController {
     attachments: readonly string[],
     requester?: Requester,
     images?: TurnImages,
+    /** The start of `content` the Gateway wrote (preamble, quote), if any. */
+    context?: string,
   ): void {
     if (this.#stopping || this.#closing.has(thread.id)) return;
     const abort = new AbortController();
     const turn: ActiveTurn = { runId, abort, detached: false, done: Promise.resolve() };
     this.#active.set(thread.id, turn);
-    turn.done = this.#runTurn(thread, turn, content, attachments, requester, images)
+    turn.done = this.#runTurn(thread, turn, content, attachments, requester, images, context)
       .catch((err) => this.#warn("turn crashed", err))
       .finally(() => {
         if (this.#active.get(thread.id) === turn) this.#active.delete(thread.id);
@@ -739,6 +769,7 @@ export class SessionController {
     attachments: readonly string[],
     requester?: Requester,
     images?: TurnImages,
+    context?: string,
   ): Promise<void> {
     const { db, bus, agent } = this.#ctx;
     const { runId } = turn;
@@ -832,6 +863,7 @@ export class SessionController {
         runId,
         input: {
           text: content,
+          ...(context === undefined || context === "" ? {} : { context }),
           ...(attachments.length > 0
             ? { attachments: attachments.map((libraryItemId) => ({ libraryItemId })) }
             : {}),

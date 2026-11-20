@@ -43,7 +43,18 @@ export type ModelPart =
        */
       turnContext?: true;
     }
-  | { type: "image"; mime: string; data?: string; url?: string }
+  | {
+      type: "image";
+      mime: string;
+      data?: string;
+      url?: string;
+      /**
+       * `untrusted` on an image a third party made or that shows a third party's content (a
+       * released download, a screen capture, an agent-written picture): what is written in it is
+       * data. A run that replays it is tainted. Providers ignore it.
+       */
+      provenance?: ProvenanceOut;
+    }
   | { type: "tool_call"; id: string; name: string; input: unknown }
   | {
       type: "tool_result";
@@ -62,6 +73,18 @@ export type ModelMessageRole = "user" | "assistant" | "tool";
 export interface ModelMessage {
   role: ModelMessageRole;
   parts: ModelPart[];
+  /**
+   * A user turn that brought third-party content in beyond its tagged parts (the run's input
+   * taint: a screen capture, Ask about this, a widget, forwarded text). Compaction and replay treat
+   * the whole turn as untrusted. Set only by the loop and the thread rebuild. Providers ignore it.
+   */
+  untrusted?: true;
+  /**
+   * On a tool message: the owner's own words, typed in the chat, that closed the waits these
+   * results answer (a question answered in the chat, a card declined by typing). Set only by the
+   * loop, with the text the owner sent. Providers ignore it.
+   */
+  ownerReply?: string;
 }
 
 export interface ModelRequest {

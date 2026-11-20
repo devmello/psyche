@@ -15367,6 +15367,14 @@
           },
           "maxItems": 40,
           "type": "array"
+        },
+        "keptPins": {
+          "items": {
+            "maxLength": 500,
+            "type": "string"
+          },
+          "maxItems": 40,
+          "type": "array"
         }
       },
       "required": [

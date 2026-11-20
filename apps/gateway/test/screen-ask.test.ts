@@ -2,7 +2,7 @@ import { existsSync, mkdtempSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { createCanvas } from "@napi-rs/canvas";
-import { getAgentThreadState, updateDevice } from "@psyche/db";
+import { getAgentThreadState, insertWidget, updateDevice } from "@psyche/db";
 import type { ModelEvent, ModelRequest } from "@psyche/protocol";
 import { FakeModelProvider } from "@psyche/testing";
 import { afterEach, describe, expect, it, vi } from "vitest";
@@ -194,13 +194,26 @@ describe("screen ask (Gateway)", () => {
     );
     await c.gateway.context.sessions.idle();
     const parts = userParts(model.requests[0]);
-    // The Gateway's image note comes first, then the owner's part (preamble and words).
-    const text = parts.find(
-      (p) => p.type === "text" && p.text.includes("What does this error mean?"),
-    ) as { text: string };
-    expect(text.text).toContain('<screen_context untrusted="true">');
-    expect(text.text).toContain("What does this error mean?");
-    expect(parts).toContainEqual({ type: "image", mime: "image/jpeg", data: FRAME });
+    // The Gateway's image note comes first, then the screen context in its own untrusted part
+    // (never the owner's words, #1462 r3), then the owner's own words.
+    const screenPart = parts.find(
+      (p) => p.type === "text" && p.text.includes('<screen_context untrusted="true">'),
+    );
+    expect(screenPart).toMatchObject({ provenance: "untrusted" });
+    expect(screenPart).not.toHaveProperty("author");
+    expect((screenPart as { text: string }).text).not.toContain("What does this error mean?");
+    expect(parts).toContainEqual({
+      type: "text",
+      text: "What does this error mean?",
+      author: "owner",
+    });
+    // The capture shows another app: an untrusted image.
+    expect(parts).toContainEqual({
+      type: "image",
+      mime: "image/jpeg",
+      data: FRAME,
+      provenance: "untrusted",
+    });
     expect(item(c, cap.libraryItemId)?.thread_id).toBe(threadId);
     // The transcript keeps the owner's words and the frame, not the context block.
     const history = (await desk.call("chat.history", { threadId })) as {
@@ -220,6 +233,38 @@ describe("screen ask (Gateway)", () => {
     // Sent: no longer discardable.
     expect(await desk.call("screen.discard", { captureId: cap.captureId })).toEqual({
       discarded: false,
+    });
+  });
+
+  it("a widget reply with a screen keeps both taints (#1462 r3)", async () => {
+    const { c, desk } = await setup([say("ok")]);
+    const threadId = await newThread(desk);
+    const cap = (await desk.call("screen.capture", { mode: "window" })) as { captureId: string };
+    const widget = insertWidget(c.db, {
+      threadId,
+      messageId: "m",
+      spec: { v: 1, title: "W", fallbackText: "w", root: { id: "root", type: "text", text: "hi" } },
+      taint: [{ sourceKind: "web", origin: "https://evil.example" }],
+      owner: { kind: "run", runId: "r" },
+    });
+    await desk.call(
+      "chat.send",
+      {
+        threadId,
+        content: "yes, do it",
+        fromWidget: { widgetId: widget.id },
+        screen: { captureId: cap.captureId, image: "pinned" },
+      },
+      ik(),
+    );
+    await c.gateway.context.sessions.idle();
+    await vi.waitFor(() => {
+      const taint = getAgentThreadState(c.db, threadId)?.taint as {
+        sources?: { sourceKind: string }[];
+      };
+      const kinds = taint?.sources?.map((s) => s.sourceKind) ?? [];
+      expect(kinds).toContain("screen");
+      expect(kinds).toContain("web");
     });
   });
 

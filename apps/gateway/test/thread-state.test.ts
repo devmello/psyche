@@ -1,8 +1,13 @@
-import { mkdtempSync, rmSync } from "node:fs";
+import { copyFileSync, mkdtempSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { appendMessage, deleteAgentThreadState, getAgentThreadState } from "@psyche/db";
-import type { Thread } from "@psyche/protocol";
+import {
+  appendMessage,
+  deleteAgentThreadState,
+  getAgentThreadState,
+  insertLibraryItem,
+} from "@psyche/db";
+import type { LibraryItem, Thread } from "@psyche/protocol";
 import { FakeModelProvider } from "@psyche/testing";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import {
@@ -194,6 +199,61 @@ describe("durable agent thread state (issue #52)", () => {
     expect(parts.filter((p) => p.type === "image")).toHaveLength(1);
     const text = parts.flatMap((p) => (p.type === "text" ? [p.text] : [])).join("\n");
     expect(text.length).toBeLessThan(5_000);
+    // The owner's own image stays trusted when rebuilt.
+    expect(parts.find((p) => p.type === "image")).not.toHaveProperty("provenance");
+  });
+
+  it("rebuilds a third party's image as untrusted, its turn too (#1462 r3)", async () => {
+    home = mkdtempSync(join(tmpdir(), "psyche-state-"));
+    composed = await compose();
+    const desk = await desktopClient(composed.gateway);
+    clients.push(desk);
+    const { thread } = await desk.call<{ thread: Thread }>(
+      "threads.create",
+      { kind: "side" },
+      ik(),
+    );
+    const png = Buffer.alloc(2_000, 7);
+    Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]).copy(png, 0);
+    png.writeUInt32BE(13, 8);
+    png.write("IHDR", 12, "ascii");
+    png.writeUInt32BE(20, 16);
+    png.writeUInt32BE(20, 20);
+    const up = await desk.call<{ item: LibraryItem }>(
+      "library.upload",
+      { name: "cap.png", bytes: png.toString("base64"), final: true },
+      ik(),
+    );
+    // The same picture as a screen capture: another app's content.
+    const path = "uploads/capture-copy.png";
+    copyFileSync(join(home, "library", up.item.path), join(home, "library", path));
+    const capture = insertLibraryItem(composed.db, {
+      ...up.item,
+      id: "lib_capture",
+      path,
+      tags: [],
+      source: { kind: "screen", provenance: "untrusted" },
+    });
+    provider.enqueue([
+      { type: "text_delta", text: "It shows a mail." },
+      { type: "finish", reason: "stop" },
+    ]);
+    await desk.call(
+      "chat.send",
+      { threadId: thread.id, content: "what is this", attachments: [capture.id] },
+      ik(),
+    );
+    await composed.gateway.context.sessions.idle();
+    deleteAgentThreadState(composed.db, thread.id);
+    provider.requests.length = 0;
+    await desk.call("chat.send", { threadId: thread.id, content: "and now?" }, ik());
+    await composed.gateway.context.sessions.idle();
+    const messages = provider.requests.at(0)?.messages ?? [];
+    const withImage = messages.find((m) => m.parts.some((p) => p.type === "image"));
+    expect(withImage?.untrusted).toBe(true);
+    expect(withImage?.parts.find((p) => p.type === "image")).toMatchObject({
+      provenance: "untrusted",
+    });
   });
 
   it("rebuilds `author: owner` only on the owner's own typed rows", async () => {

@@ -320,7 +320,10 @@ describe("queue modes", () => {
     await agent.started(1);
     await c.call("chat.steer", { threadId: thread.id, content: "use the cheaper one" }, ik());
     await new Promise((r) => setTimeout(r, 10));
-    expect(agent.steers).toEqual([{ runId: first.runId, text: "use the cheaper one" }]);
+    // The owner typed it: owner-marked in the loop (#1462 r3).
+    expect(agent.steers).toEqual([
+      { runId: first.runId, text: "use the cheaper one", ownerWords: true },
+    ]);
     agent.open("g");
     await t.gateway.context.sessions.idle();
     expect(texts(thread.id)).toEqual(["go", "use the cheaper one", "done"]);
@@ -842,6 +845,8 @@ describe("quote-reply (E5)", () => {
     expect(agent.steers[0]?.text).toBe(
       `[Replying to the user's earlier message ${user.id}]\n> go\n\nfaster`,
     );
+    // A quote ahead of the words is not the owner's: the steer is not owner-marked.
+    expect(agent.steers[0]?.ownerWords).toBe(false);
     expect(transcript(thread.id)[1]?.replyToMessageId).toBe(user.id);
     agent.open("g");
     await t.gateway.context.sessions.idle();

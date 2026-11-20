@@ -137,6 +137,9 @@ describe("chat.send with a feed item context", () => {
     const turn = agent.turns[0];
     expect(turn?.input.text.startsWith("<feed_item_context")).toBe(true);
     expect(turn?.input.text.endsWith("What changed?")).toBe(true);
+    // The preamble goes to the loop as `context`, so it is its own part, not the owner's words.
+    expect(turn?.input.context?.startsWith("<feed_item_context")).toBe(true);
+    expect(turn?.input.text).toBe(`${turn?.input.context}\n\nWhat changed?`);
     expect(turn?.taintSources).toEqual([
       { sourceKind: "feed", origin: "https://www.rust-lang.org/blog/2-0" },
     ]);
