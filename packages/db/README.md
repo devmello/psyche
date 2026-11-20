@@ -14,7 +14,7 @@ The single relational store (ADR-004): `$PSYCHE_HOME/state/psyche.sqlite`, opene
 
 ## Connection settings
 
-`journal_mode=WAL` (skipped for `:memory:`), `foreign_keys=ON`, `busy_timeout=5000`, `synchronous=NORMAL` (safe with WAL; a power loss may drop the last commits but never corrupts). For a real path the parent directories are created with mode 0700 and the file is created with mode 0600 _before_ SQLite opens it, so `-wal`/`-shm` inherit 0600 (architecture §14). Read-only opens (`readonly: true`) skip pragmas that write and do not migrate.
+`journal_mode=WAL` (skipped for `:memory:`), `foreign_keys=ON`, `busy_timeout=5000`, `synchronous=NORMAL` (safe with WAL; a power loss may drop the last commits but never corrupts). For a real path the parent directories are created with mode 0700 and the file is created with mode 0600 *before* SQLite opens it, so `-wal`/`-shm` inherit 0600 (architecture §14). Read-only opens (`readonly: true`) skip pragmas that write and do not migrate.
 
 ## Public API (`src/index.ts`)
 
