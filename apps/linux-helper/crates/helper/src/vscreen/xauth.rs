@@ -101,7 +101,7 @@ pub fn runtime_dir(xdg_runtime_dir: Option<&str>) -> std::io::Result<PathBuf> {
     Ok(dir)
 }
 
-/// `mkdtemp(<temp dir>/psyche-vscreen-XXXXXX)`, checked, made once per process.
+/// `mkdtemp(<temp dir>/psyche-vscreen-<pid>-XXXXXX)`, checked, made once per process.
 fn private_temp_dir() -> std::io::Result<PathBuf> {
     static DIR: OnceLock<Result<PathBuf, String>> = OnceLock::new();
     DIR.get_or_init(|| make_temp_dir(&std::env::temp_dir()).map_err(|e| e.to_string()))
@@ -111,7 +111,7 @@ fn private_temp_dir() -> std::io::Result<PathBuf> {
 
 pub fn make_temp_dir(parent: &Path) -> std::io::Result<PathBuf> {
     use std::os::unix::ffi::OsStrExt;
-    let template = parent.join("psyche-vscreen-XXXXXX");
+    let template = parent.join(format!("psyche-vscreen-{}-XXXXXX", std::process::id()));
     let mut bytes = template.as_os_str().as_bytes().to_vec();
     bytes.push(0);
     // SAFETY: `bytes` is a writable NUL-terminated template; mkdtemp fills in the X's and makes

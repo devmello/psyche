@@ -13,6 +13,7 @@
 //! | `bus.rs` | the session's private runtime dir and D-Bus session bus | mostly |
 //! | `spawn.rs` | children forked from a process-lifetime thread, peer checks | no |
 //! | `rmtree.rs` | removing a tree without following symlinks or crossing mounts | no |
+//! | `sweep.rs` | what a crashed helper left behind, cleared at start | mostly |
 //! | `xauth.rs`, `xvfb.rs` | the private X server | no |
 //! | `wmdriver.rs`, `capture.rs`, `input.rs` | X11: window manager, XShm, XTest | no |
 //! | `display.rs` | **`VirtualDisplay`**: Xvfb + window manager + capture + input in one value | no |
@@ -34,6 +35,7 @@ pub mod recipes;
 pub mod rmtree;
 pub mod scope;
 pub mod spawn;
+pub mod sweep;
 pub mod wm;
 pub mod wmdriver;
 pub mod xauth;
@@ -57,5 +59,11 @@ pub fn register(
     for capability in capabilities::all(&manager) {
         registry.register(capability);
     }
+    // A helper that crashed left its bus, accessibility launcher, app scopes and session dirs.
+    let sweeper = Arc::clone(&manager);
+    std::thread::Builder::new()
+        .name("vscreen-sweep".into())
+        .spawn(move || sweeper.sweep_leftovers())
+        .ok();
     manager
 }

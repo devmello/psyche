@@ -71,6 +71,15 @@ pub trait ScopeRunner: Send + Sync {
     /// Starts `spec` in the scope `unit`. The child is the program itself (`systemd-run --scope`
     /// and `env` both replace themselves with the next command).
     fn spawn(&self, unit: &str, description: &str, spec: &LaunchSpec) -> Result<Child, String>;
+    /// `spawn`, but the program dies with the helper (`PR_SET_PDEATHSIG` through
+    /// `spawn::spawn_tied`, kept across both execs): for the session's own services, the private
+    /// bus and the accessibility launcher.
+    fn spawn_tied(&self, unit: &str, description: &str, spec: &LaunchSpec)
+        -> Result<Child, String>;
+    /// The user manager's `psyche-vs-*` scopes, loaded or running (for the startup sweep).
+    fn list_scopes(&self) -> Vec<String> {
+        Vec::new()
+    }
     /// Moves a process this helper already started (the X server) into its own scope `unit` in
     /// the slice.
     fn adopt(&self, unit: &str, description: &str, pid: u32) -> Result<(), String>;
@@ -80,8 +89,9 @@ pub trait ScopeRunner: Send + Sync {
     fn limit_slice(&self, limits: &SliceLimits) -> Result<(), String>;
 }
 
-/// `psyche-vs-<app>-<n>` with the app id reduced to what a unit name allows.
-pub fn unit_name(app_id: &str, n: u32) -> String {
+/// `psyche-vs-<helper pid>-<app>-<n>` with the app id reduced to what a unit name allows. The
+/// helper's pid lets the next helper tell its predecessor's leftovers from a live helper's.
+pub fn unit_name(helper_pid: u32, app_id: &str, n: u32) -> String {
     let clean: String = app_id
         .chars()
         .map(|c| if c.is_ascii_alphanumeric() { c } else { '-' })
@@ -89,7 +99,17 @@ pub fn unit_name(app_id: &str, n: u32) -> String {
     let clean = clean.trim_matches('-');
     let clean = if clean.is_empty() { "app" } else { clean };
     let short: String = clean.chars().take(40).collect();
-    format!("psyche-vs-{short}-{n}")
+    format!("psyche-vs-{helper_pid}-{short}-{n}")
+}
+
+/// The helper pid in a `psyche-vs-<pid>-...` unit name (with or without `.scope`).
+pub fn unit_owner_pid(unit: &str) -> Option<u32> {
+    let rest = unit.strip_prefix("psyche-vs-")?;
+    let (pid, tail) = rest.split_once('-')?;
+    if tail.is_empty() || pid.is_empty() || !pid.bytes().all(|b| b.is_ascii_digit()) {
+        return None;
+    }
+    pid.parse().ok()
 }
 
 /// The `systemd-run` argument list (without the program name).
@@ -252,21 +272,69 @@ fn run_checked(cmd: &mut Command, what: &str) -> Result<(), String> {
     }
 }
 
+fn systemd_run_command(
+    unit: &str,
+    description: &str,
+    spec: &LaunchSpec,
+) -> Result<Command, String> {
+    let argv = env_wrapped_argv(env_program(), &spec.env, &spec.argv)?;
+    let mut cmd = Command::new("systemd-run");
+    cmd.env_clear();
+    for name in SYSTEMD_RUN_ENV {
+        if let Ok(v) = std::env::var(name) {
+            cmd.env(name, v);
+        }
+    }
+    cmd.args(systemd_run_args(unit, description, &argv))
+        .stdin(Stdio::null())
+        .stdout(Stdio::null())
+        .stderr(Stdio::null());
+    Ok(cmd)
+}
+
+/// Unit names from `systemctl list-units --plain --no-legend` output (the first column).
+pub fn parse_unit_list(text: &str) -> Vec<String> {
+    text.lines()
+        .filter_map(|l| l.split_whitespace().next())
+        .filter(|u| u.starts_with("psyche-vs-") && u.ends_with(".scope"))
+        .map(|u| u.to_string())
+        .collect()
+}
+
 impl ScopeRunner for SystemdRunner {
     fn spawn(&self, unit: &str, description: &str, spec: &LaunchSpec) -> Result<Child, String> {
-        let argv = env_wrapped_argv(env_program(), &spec.env, &spec.argv)?;
-        let mut cmd = Command::new("systemd-run");
-        cmd.env_clear();
-        for name in SYSTEMD_RUN_ENV {
-            if let Ok(v) = std::env::var(name) {
-                cmd.env(name, v);
-            }
-        }
-        cmd.args(systemd_run_args(unit, description, &argv))
+        systemd_run_command(unit, description, spec)?
+            .spawn()
+            .map_err(|e| format!("systemd-run: {e}"))
+    }
+
+    fn spawn_tied(
+        &self,
+        unit: &str,
+        description: &str,
+        spec: &LaunchSpec,
+    ) -> Result<Child, String> {
+        super::spawn::spawn_tied(systemd_run_command(unit, description, spec)?)
+            .map_err(|e| format!("systemd-run: {e}"))
+    }
+
+    fn list_scopes(&self) -> Vec<String> {
+        Command::new("systemctl")
+            .args([
+                "--user",
+                "list-units",
+                "--type=scope",
+                "--all",
+                "--plain",
+                "--no-legend",
+                "--no-pager",
+                "psyche-vs-*",
+            ])
             .stdin(Stdio::null())
-            .stdout(Stdio::null())
-            .stderr(Stdio::null());
-        cmd.spawn().map_err(|e| format!("systemd-run: {e}"))
+            .stderr(Stdio::null())
+            .output()
+            .map(|o| parse_unit_list(&String::from_utf8_lossy(&o.stdout)))
+            .unwrap_or_default()
     }
 
     fn adopt(&self, unit: &str, description: &str, pid: u32) -> Result<(), String> {
@@ -302,12 +370,38 @@ mod tests {
     #[test]
     fn unit_names_are_safe_and_short() {
         assert_eq!(
-            unit_name("org.gnome.TextEditor", 3),
-            "psyche-vs-org-gnome-TextEditor-3"
+            unit_name(77, "org.gnome.TextEditor", 3),
+            "psyche-vs-77-org-gnome-TextEditor-3"
         );
-        assert_eq!(unit_name("../../etc", 1), "psyche-vs-etc-1");
-        assert_eq!(unit_name("", 2), "psyche-vs-app-2");
-        assert!(unit_name(&"a".repeat(200), 1).len() < 60);
+        assert_eq!(unit_name(77, "../../etc", 1), "psyche-vs-77-etc-1");
+        assert_eq!(unit_name(77, "", 2), "psyche-vs-77-app-2");
+        assert!(unit_name(4_194_304, &"a".repeat(200), 1).len() < 70);
+    }
+
+    #[test]
+    fn the_helper_pid_is_read_back_from_unit_names() {
+        assert_eq!(
+            unit_owner_pid("psyche-vs-77-org-gnome-TextEditor-3"),
+            Some(77)
+        );
+        assert_eq!(unit_owner_pid("psyche-vs-1234-bus-90-55.scope"), Some(1234));
+        for bad in [
+            "psyche-vs-display-90-55",
+            "psyche-vs-77",
+            "psyche-vs--x",
+            "psyche-vs-7a-x",
+            "other-77-x",
+        ] {
+            assert_eq!(unit_owner_pid(bad), None, "{bad}");
+        }
+        let listed = "psyche-vs-77-bus-90-5.scope loaded active running Psyche bus\nfoo.scope loaded active running x\npsyche-vs-8-display-91-9.scope loaded inactive dead d\n";
+        assert_eq!(
+            parse_unit_list(listed),
+            [
+                "psyche-vs-77-bus-90-5.scope",
+                "psyche-vs-8-display-91-9.scope"
+            ]
+        );
     }
 
     #[test]

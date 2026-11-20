@@ -216,8 +216,25 @@ fn remove_tree_with(root: &Path, foreign: &dyn Fn(&Path) -> bool) -> io::Result<
             ..Removal::default()
         });
     }
+    // The root must be on its parent's device: a mount on the session dir or the profile dir
+    // itself would otherwise become the device the walk trusts.
+    let parent_st = fstat(pfd.as_raw_fd())?;
+    if dev_of(&st) != dev_of(&parent_st) || foreign(root) {
+        return Err(io::Error::other(format!(
+            "{} is on another device than its parent (a mount point); not removing it",
+            root.display()
+        )));
+    }
     let dev = dev_of(&st);
     let rfd = open_dir_at(pfd.as_raw_fd(), &name)?;
+    // What was opened must be what was checked.
+    let opened = fstat(rfd.as_raw_fd())?;
+    if dev_of(&opened) != dev || opened.st_ino != st.st_ino || !is_dir(&opened) {
+        return Err(io::Error::other(format!(
+            "{} changed while it was being opened; not removing it",
+            root.display()
+        )));
+    }
     let mut out = Removal::default();
     empty(&rfd, dev, root, foreign, &mut out);
     drop(rfd);
@@ -310,6 +327,20 @@ mod tests {
         assert!(
             !root.join("tmp").exists(),
             "everything on our own device went"
+        );
+    }
+
+    #[test]
+    fn a_root_that_is_itself_a_mount_point_is_refused_untouched() {
+        let base = tempfile::tempdir().unwrap();
+        let root = base.path().join("vs-5");
+        std::fs::create_dir_all(root.join("owners")).unwrap();
+        std::fs::write(root.join("owners/file"), "owner's").unwrap();
+        let r = remove_tree_with(&root, &|p| p == root);
+        assert!(r.is_err(), "refused");
+        assert!(
+            root.join("owners/file").is_file(),
+            "nothing under it was removed"
         );
     }
 }

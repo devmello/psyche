@@ -382,7 +382,8 @@ impl VscreenManager {
     /// The X server into its scope in the slice, then the private runtime dir and bus.
     fn start_session(&self, display: &VirtualDisplay) -> Result<Session, VsError> {
         let display_unit = format!(
-            "psyche-vs-display-{}-{}",
+            "psyche-vs-{}-display-{}-{}",
+            std::process::id(),
             display.display.trim_start_matches(':'),
             display.xvfb_pid()
         );
@@ -420,14 +421,15 @@ impl VscreenManager {
             env: app_environment(&self.launch_context(display, &session.dir, &address, None)),
         };
         let unit = format!(
-            "psyche-vs-bus-{}-{}",
+            "psyche-vs-{}-bus-{}-{}",
+            std::process::id(),
             display.display.trim_start_matches(':'),
             display.xvfb_pid()
         );
         match self
             .deps
             .runner
-            .spawn(&unit, "Psyche virtual screen session bus", &spec)
+            .spawn_tied(&unit, "Psyche virtual screen session bus", &spec)
         {
             Ok(mut child) => {
                 match bus::wait_for_bus(&session.dir, &mut child, Duration::from_secs(5)) {
@@ -463,14 +465,15 @@ impl VscreenManager {
             env: app_environment(&self.launch_context(display, session_dir, address, None)),
         };
         let unit = format!(
-            "psyche-vs-a11y-{}-{}",
+            "psyche-vs-{}-a11y-{}-{}",
+            std::process::id(),
             display.display.trim_start_matches(':'),
             display.xvfb_pid()
         );
         match self
             .deps
             .runner
-            .spawn(&unit, "Psyche virtual screen accessibility bus", &spec)
+            .spawn_tied(&unit, "Psyche virtual screen accessibility bus", &spec)
         {
             Ok(child) => Some((unit, child)),
             Err(e) => {
@@ -618,7 +621,10 @@ impl VscreenManager {
             let mut inner = lock(&self.inner);
             let n = inner.next_unit;
             inner.next_unit += 1;
-            (unit_name(&entry.id, n), display.window_serial())
+            (
+                unit_name(std::process::id(), &entry.id, n),
+                display.window_serial(),
+            )
         };
         let child = self
             .deps
@@ -989,6 +995,30 @@ impl VscreenManager {
             stopped: true,
             unsaved: Vec::new(),
         })
+    }
+
+    /// Clears what a crashed helper left: its `psyche-vs-<pid>-*` scopes and `vs-<pid>-*` session
+    /// dirs (and, without a runtime dir, its `psyche-vscreen-<pid>-*` temp dir), for every pid
+    /// that is no longer running. A live helper's are left alone.
+    pub fn sweep_leftovers(&self) {
+        let me = std::process::id();
+        let alive = super::sweep::pid_alive;
+        let scopes = self.deps.runner.list_scopes();
+        for unit in super::sweep::stale(
+            scopes.iter().map(String::as_str),
+            super::scope::unit_owner_pid,
+            me,
+            &alive,
+        ) {
+            crate::log(&format!("vscreen: stopping leftover {unit}"));
+            self.deps.runner.stop(unit.trim_end_matches(".scope"));
+        }
+        if let Ok(base) = super::xauth::runtime_dir(self.config.xdg_runtime_dir.as_deref()) {
+            super::sweep::sweep_dirs(&base, "vs-", me, &alive);
+        }
+        if self.config.xdg_runtime_dir.is_none() {
+            super::sweep::sweep_dirs(&std::env::temp_dir(), "psyche-vscreen-", me, &alive);
+        }
     }
 
     /// Stops everything now (the helper is exiting).

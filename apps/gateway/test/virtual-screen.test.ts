@@ -1,9 +1,11 @@
+import { readFileSync } from "node:fs";
 import { PsycheError, type VscreenCapability } from "@psyche/protocol";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import * as virtualScreenModule from "../src/compose/virtual-screen.ts";
 import {
   composeVirtualScreen,
   createVirtualScreen,
-  ownerProof,
+  type OwnerProof,
   refuseUnlessOwner,
   type UnsavedChangesCard,
   type VirtualScreenDeps,
@@ -12,8 +14,9 @@ import {
 } from "../src/compose/virtual-screen.ts";
 import { isUnreachableCapability } from "../src/handlers/nodes.ts";
 
-/** What the desktop shell's connection gets. */
-const OWNER = { owner: ownerProof({ identity: { desktopShell: true } } as never) };
+/** The test's own proof, handed to `createVirtualScreen` (the composed part keeps its own). */
+const PROOF = Object.freeze(Object.create(null)) as OwnerProof;
+const OWNER = { owner: PROOF };
 
 interface Call {
   capability: VscreenCapability;
@@ -56,6 +59,7 @@ function setup(handler?: (c: Call) => unknown, extra: Partial<VirtualScreenDeps>
     park: (card) => void parked.push(card),
     now: () => t,
     takeOverWaitMs: 1000,
+    ownerProof: PROOF,
     ...extra,
   });
   return { vs, calls, parked, clock };
@@ -343,10 +347,15 @@ describe("composeVirtualScreen (the watch pane's methods)", () => {
         },
       },
     } as never);
-    const run = async (method: string, params: unknown, shell = true): Promise<unknown> =>
+    const run = async (
+      method: string,
+      params: unknown,
+      shell = true,
+      callMethod = method,
+    ): Promise<unknown> =>
       (composed.handlers as Record<string, { run: (c: unknown, p: unknown) => unknown }>)[
         method
-      ]?.run({ identity: { desktopShell: shell } }, params);
+      ]?.run({ identity: { desktopShell: shell }, method: callMethod }, params);
     return { run, invoked, published, composed };
   }
 
@@ -442,7 +451,42 @@ describe("composeVirtualScreen (the watch pane's methods)", () => {
     await expect(run("computerWatch.input", forged, false)).rejects.toMatchObject({
       code: "forbidden",
     });
-    expect(() => ownerProof({ identity: {} } as never)).toThrow();
+  });
+
+  it("gives the owner's proof only to a computerWatch request, not to any desktop-shell caller", async () => {
+    const { run, invoked } = part(true);
+    // A desktop-chat agent run carries desktopShell too; wiring its caller into a handler must
+    // not make it the owner.
+    for (const method of ["chat.send", "tools.invoke", "apps.open", "computerWatchX.status"]) {
+      await expect(run("computerWatch.input", { events: [] }, true, method)).rejects.toMatchObject({
+        code: "forbidden",
+      });
+    }
+    expect(invoked).toEqual([]);
+  });
+
+  it("exports no way to make or fetch an owner proof", () => {
+    // Nothing callable is named for a proof.
+    for (const [name, value] of Object.entries(virtualScreenModule)) {
+      if (typeof value === "function") expect(name.toLowerCase(), name).not.toContain("proof");
+    }
+    // And no exported declaration hands one out (a return type, a field of a returned object).
+    const source = readFileSync(
+      new URL("../src/compose/virtual-screen.ts", import.meta.url),
+      "utf8",
+    );
+    const exported = source
+      .split("\n")
+      .filter((l) => /^export (async )?(function|const|let|class)/.test(l));
+    for (const line of exported) expect(line, line).not.toMatch(/OwnerProof|newProof/);
+    expect(source).not.toMatch(/export \{[^}]*\b(newProof|proof)\b/);
+    // The composed part returns handlers, never the screen or its proof.
+    const composed = composeVirtualScreen({
+      attention: { paneHidden: () => false },
+      publish: () => undefined,
+      clock: { now: () => 0 },
+    } as never) as unknown as Record<string, unknown>;
+    expect(Object.keys(composed).sort()).toEqual(["handlers", "start", "stop"]);
   });
 
   it("a stop that the helper refuses parks the Task and publishes the card; discard forces it", async () => {

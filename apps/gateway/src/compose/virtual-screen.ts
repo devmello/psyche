@@ -29,10 +29,12 @@ import type { ComposedPart, ComposeServices } from "./services.ts";
  * - The watch pane's frame pulls are limited to 4 a second per caller and only while the pane has
  *   reported itself visible (fed by `attention.report`). Frames are never wider than
  *   `VSCREEN_MAX_FRAME_WIDTH`, so one always fits a helper message.
- * - Only the owner reaches the helper. A call is the owner's only when it carries the
- *   `OwnerProof` that `ownerProof(call)` hands out for a desktop-shell connection; the proof is a
- *   module-private object, so no string, flag or parsed JSON (an agent tool's arguments, a
- *   client's params) can stand in for it. Everything else is the agent's, and the composed part
+ * - Only the owner reaches the helper. A call is the owner's only when it carries this screen's
+ *   `OwnerProof`: an object the composed part makes privately and hands out only inside its own
+ *   `computerWatch.*` handlers, for a desktop-shell connection calling a `computerWatch.*`
+ *   method. Nothing in the module exports a way to make or fetch one, and it is compared by
+ *   identity, so no string, flag, parsed JSON or caller identity (a desktop-chat agent run also
+ *   carries `desktopShell`) can stand in for it. Everything else is the agent's, and the composed part
  *   refuses an agent call (`agent_unbrokered`) until the agent's path (`apps.open` with
  *   `surface: "virtual_screen"`) goes through the Permission Broker.
  * - Giving control back (`computerWatch.takeOver { on: false }`) also lets go of every key and
@@ -63,23 +65,14 @@ export const VSCREEN_MAX_FRAME_WIDTH = 1920;
 export type VscreenActor = "agent" | "owner";
 
 declare const OWNER_BRAND: unique symbol;
-/** Proof that a call comes from the owner's watch pane. Only `ownerProof` makes one. */
-export type OwnerProof = { readonly [OWNER_BRAND]: true };
-/** The one proof object. Compared by identity: a copy, a lookalike or JSON never matches. */
-const OWNER_PROOF = Object.freeze(Object.create(null)) as OwnerProof;
-
 /**
- * The owner's proof for a call from the desktop shell (the handshake secret set
- * `identity.desktopShell`, never the client's params). Any other connection is refused.
+ * Proof that a call comes from the owner's watch pane. A screen accepts exactly one object as its
+ * proof (`VirtualScreenDeps.ownerProof`), compared by identity: a copy, a lookalike or JSON never
+ * matches.
  */
-export function ownerProof(call: Pick<Call, "identity">): OwnerProof {
-  if (call.identity.desktopShell !== true) {
-    throw new PsycheError("forbidden", "only the Psyche desktop app shows the virtual screen");
-  }
-  return OWNER_PROOF;
-}
+export type OwnerProof = { readonly [OWNER_BRAND]: true };
 
-const isOwner = (opts: CallOptions | undefined): boolean => opts?.owner === OWNER_PROOF;
+const newProof = (): OwnerProof => Object.freeze(Object.create(null)) as OwnerProof;
 
 export type VscreenParkAction = "look" | "discard" | "keep_open";
 export const PARK_ACTIONS: readonly VscreenParkAction[] = ["look", "discard", "keep_open"];
@@ -127,6 +120,11 @@ export interface VirtualScreenDeps {
   takeOverWaitMs?: number;
   /** Frame pulls allowed per caller per second. Default 4. */
   maxFramesPerSecond?: number;
+  /**
+   * The object this screen takes as the owner's proof. The composed part passes one it keeps to
+   * itself; tests pass their own. Without it, no call is the owner's.
+   */
+  ownerProof?: OwnerProof;
 }
 
 export interface CallOptions {
@@ -193,6 +191,8 @@ export function createVirtualScreen(deps: VirtualScreenDeps): VirtualScreen {
   let card: UnsavedChangesCard | null = null;
   let waiters: Array<() => void> = [];
   const framePulls = new Map<string, number[]>();
+  const proof = deps.ownerProof ?? newProof();
+  const isOwner = (opts: CallOptions | undefined): boolean => opts?.owner === proof;
 
   const call = (
     capability: VscreenCapability,
@@ -420,7 +420,10 @@ export function refuseUnlessOwner(options: VscreenInvokeOptions): void {
  */
 export function composeVirtualScreen(services: ComposeServices): ComposedPart {
   let gateway: Gateway | undefined;
+  // The owner's proof never leaves this closure: only the handlers below put it on a call.
+  const proof = newProof();
   const vs = createVirtualScreen({
+    ownerProof: proof,
     async invoke(capability, params, options) {
       refuseUnlessOwner(options);
       const helper = gateway?.context.nodes.hostHelper(capability);
@@ -444,13 +447,17 @@ export function composeVirtualScreen(services: ComposeServices): ComposedPart {
     now: () => services.clock.now(),
   });
 
-  // Every handler takes the owner's proof from the connection; nothing in `params` is read for it.
+  // The owner's proof goes only on a `computerWatch.*` request from the desktop shell's own
+  // connection. A desktop-chat agent run carries `desktopShell` too, but never this method; and
+  // nothing in `params` is read for it.
   const handler = (
     run: (params: Record<string, unknown>, owner: CallOptions) => unknown,
   ): HandlerDef => ({
     run(call: Call, params: unknown) {
-      const owner = { owner: ownerProof(call) };
-      return run((params ?? {}) as Record<string, unknown>, owner);
+      if (call.identity.desktopShell !== true || !call.method.startsWith("computerWatch.")) {
+        throw new PsycheError("forbidden", "only the Psyche desktop app shows the virtual screen");
+      }
+      return run((params ?? {}) as Record<string, unknown>, { owner: proof });
     },
   });
 

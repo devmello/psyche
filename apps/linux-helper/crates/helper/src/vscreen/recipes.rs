@@ -203,7 +203,7 @@ pub const RECIPES: &[RecipeEntry] = &[
         family: Family::Firefox,
         ids: &["firefox", "firefox-esr", "org.mozilla.firefox", "firefox_firefox"],
         process_names: &["firefox", "firefox-bin", "firefox-esr", "MainThread"],
-        tradeoff: "Runs on a fresh copy of the owner's settings, bookmarks and history each session, without the Firefox Account and Sync, saved passwords, certificates, cookies, open tabs, form history or add-ons, so it starts logged out. Refused while Firefox is open on the owner's screen.",
+        tradeoff: "Runs on a fresh copy of the owner's settings, toolbar and search engines each session, without history, bookmarks, site permissions, the Firefox Account and Sync, saved passwords, certificates, cookies, open tabs, form history or add-ons, so it starts logged out. Refused while Firefox is open on the owner's screen.",
         refuse_while_open: true,
     },
     RecipeEntry {
@@ -492,9 +492,13 @@ pub fn firefox_profile_from_ini(ini: &str, base: &Path) -> Option<PathBuf> {
     })
 }
 
-/// The only files copied from the owner's Firefox profile: settings (with Sync and Firefox
-/// Account prefs taken out), bookmarks and history, site permissions, the toolbar layout, search
+/// The only files copied from the owner's Firefox profile: settings (only canonical
+/// `user_pref` lines, without Sync and Firefox Account prefs), the toolbar layout, search
 /// engines, download handlers and containers. Everything else stays behind, above all:
+/// - `places.sqlite`, `favicons.sqlite`, `content-prefs.sqlite` (history, bookmarks, and the
+///   sites behind icons and per-site settings: they would show in the address bar, and so in
+///   frames the agent reads);
+/// - `permissions.sqlite` (per-site grants, camera and microphone "always allow" among them);
 /// - `signedInUser.json` (the Firefox Account session and the Sync keys: with it, Sync would put
 ///   the passwords right back) and `weave/` (Sync state);
 /// - `logins*.json`, `key3.db`, `key4.db`, `signons.sqlite` (saved passwords and their key);
@@ -506,10 +510,6 @@ pub fn firefox_profile_from_ini(ini: &str, base: &Path) -> Option<PathBuf> {
 /// - caches, locks and crash data.
 pub const FIREFOX_COPY: &[&str] = &[
     "prefs.js",
-    "places.sqlite",
-    "favicons.sqlite",
-    "permissions.sqlite",
-    "content-prefs.sqlite",
     "xulstore.json",
     "search.json.mozlz4",
     "handlers.json",
@@ -524,25 +524,79 @@ const FIREFOX_PREFS_DROPPED: &[&str] = &[
     "identity.sync.",
 ];
 
-/// `prefs.js` without the Sync and Firefox Account prefs.
+fn pref_name_char(b: u8) -> bool {
+    b.is_ascii_alphanumeric() || matches!(b, b'.' | b'_' | b'-' | b'[' | b']')
+}
+
+/// A quoted pref string: `"` then characters other than `"` and `\`, or `\` and any one
+/// character, then `"`, and nothing after it.
+fn is_pref_string(value: &str) -> bool {
+    let Some(inner) = value.strip_prefix('"') else {
+        return false;
+    };
+    let mut chars = inner.chars();
+    while let Some(c) = chars.next() {
+        match c {
+            '\\' => {
+                if chars.next().is_none() {
+                    return false;
+                }
+            }
+            '"' => return chars.next().is_none(),
+            _ => {}
+        }
+    }
+    false
+}
+
+/// The pref name when `line` is exactly the canonical form Firefox writes,
+/// `user_pref("<name>", <true|false|integer|"string">);` with a name of `[A-Za-z0-9._-[]]`.
+/// Anything else (`pref(`, `sticky_pref(`, other spacing, single quotes, escapes in the name,
+/// comments, two statements, a statement split over lines) is not a canonical line.
+pub fn canonical_user_pref(line: &str) -> Option<&str> {
+    let rest = line.strip_prefix("user_pref(\"")?;
+    let end = rest.find('"')?;
+    let (name, rest) = rest.split_at(end);
+    if name.is_empty() || !name.bytes().all(pref_name_char) {
+        return None;
+    }
+    let value = rest.strip_prefix("\", ")?.strip_suffix(");")?;
+    let integer = {
+        let digits = value.strip_prefix('-').unwrap_or(value);
+        !digits.is_empty() && digits.bytes().all(|b| b.is_ascii_digit())
+    };
+    (value == "true" || value == "false" || integer || is_pref_string(value)).then_some(name)
+}
+
+/// `prefs.js` reduced to its canonical `user_pref` lines, without Sync and Firefox Account
+/// prefs. Every other line is dropped: losing an odd pref is harmless, keeping a disguised Sync
+/// pref is not.
 pub fn firefox_prefs_without_sync(text: &str) -> String {
     text.lines()
         .filter(|line| {
-            let pref = line
-                .trim_start()
-                .strip_prefix("user_pref(")
-                .map(|rest| rest.trim_start().trim_start_matches('"'));
-            !pref.is_some_and(|name| FIREFOX_PREFS_DROPPED.iter().any(|p| name.starts_with(p)))
+            canonical_user_pref(line)
+                .is_some_and(|name| !FIREFOX_PREFS_DROPPED.iter().any(|p| name.starts_with(p)))
         })
         .map(|l| format!("{l}\n"))
         .collect()
+}
+
+/// Opens `path` for reading without following a symlink; `None` unless it is a regular file.
+fn open_regular(path: &Path) -> Option<std::fs::File> {
+    use std::os::unix::fs::OpenOptionsExt;
+    let file = std::fs::OpenOptions::new()
+        .read(true)
+        .custom_flags(libc::O_NOFOLLOW | libc::O_CLOEXEC | libc::O_NONBLOCK)
+        .open(path)
+        .ok()?;
+    file.metadata().ok()?.is_file().then_some(file)
 }
 
 /// Makes `dest` a fresh copy of the allowlisted files of `src` (`FIREFOX_COPY`), replacing any
 /// older copy: the manager calls it once per display session, so nothing the agent's browsing
 /// left in the last copy carries over. Only regular files are copied, never a symlink.
 pub fn fresh_profile_copy(src: &Path, dest: &Path) -> std::io::Result<()> {
-    use std::os::unix::fs::DirBuilderExt;
+    use std::os::unix::fs::{DirBuilderExt, OpenOptionsExt};
     super::rmtree::remove_tree_logged(dest, "old Firefox profile copy");
     let partial = dest.with_extension("partial");
     super::rmtree::remove_tree_logged(&partial, "partial Firefox profile copy");
@@ -551,16 +605,21 @@ pub fn fresh_profile_copy(src: &Path, dest: &Path) -> std::io::Result<()> {
         .mode(0o700)
         .create(&partial)?;
     for name in FIREFOX_COPY {
-        let from = src.join(name);
-        match std::fs::symlink_metadata(&from) {
-            Ok(m) if m.is_file() => {}
-            _ => continue,
-        }
+        // One descriptor from open to copy: a symlink, or a swap after a check, is never read.
+        let Some(mut from) = open_regular(&src.join(name)) else {
+            continue;
+        };
+        let mut to = std::fs::OpenOptions::new()
+            .write(true)
+            .create_new(true)
+            .mode(0o600)
+            .open(partial.join(name))?;
         if *name == "prefs.js" {
-            let text = std::fs::read_to_string(&from)?;
-            std::fs::write(partial.join(name), firefox_prefs_without_sync(&text))?;
+            let mut text = String::new();
+            std::io::Read::read_to_string(&mut from, &mut text)?;
+            std::io::Write::write_all(&mut to, firefox_prefs_without_sync(&text).as_bytes())?;
         } else {
-            std::fs::copy(&from, partial.join(name))?;
+            std::io::copy(&mut from, &mut to)?;
         }
     }
     std::fs::rename(&partial, dest)
@@ -924,18 +983,18 @@ mod tests {
             ),
         )
         .unwrap();
-        for f in [
-            "places.sqlite",
-            "favicons.sqlite",
-            "permissions.sqlite",
-            "xulstore.json",
-        ] {
+        for f in ["xulstore.json", "handlers.json", "containers.json"] {
             std::fs::write(src.join(f), "x").unwrap();
         }
         // A symlink under an allowlisted name is not followed.
-        std::os::unix::fs::symlink(&outside, src.join("content-prefs.sqlite")).unwrap();
+        std::os::unix::fs::symlink(&outside, src.join("search.json.mozlz4")).unwrap();
         // Must never be copied.
         let never = [
+            "places.sqlite",
+            "places.sqlite-wal",
+            "favicons.sqlite",
+            "permissions.sqlite",
+            "content-prefs.sqlite",
             "signedInUser.json",
             "weave/bookmarks.json",
             "logins.json",
@@ -974,9 +1033,8 @@ mod tests {
         assert_eq!(
             got,
             [
-                "favicons.sqlite",
-                "permissions.sqlite",
-                "places.sqlite",
+                "containers.json",
+                "handlers.json",
                 "prefs.js",
                 "xulstore.json"
             ]
@@ -998,7 +1056,9 @@ mod tests {
                     "logins.json",
                     "key4.db",
                     "cert9.db",
-                    "cookies.sqlite"
+                    "cookies.sqlite",
+                    "places.sqlite",
+                    "permissions.sqlite"
                 ]
                 .contains(name),
                 "{name}"
@@ -1010,6 +1070,64 @@ mod tests {
         fresh_profile_copy(&src, &dest).unwrap();
         assert!(!dest.join("cookies.sqlite").exists());
         assert!(!dest.join("signedInUser.json").exists());
-        assert!(dest.join("places.sqlite").is_file());
+        assert!(dest.join("xulstore.json").is_file());
+    }
+
+    #[test]
+    fn only_canonical_user_pref_lines_survive() {
+        // Kept: exactly what Firefox writes, for every value type.
+        let kept = [
+            r#"user_pref("browser.startup.homepage", "about:home");"#,
+            r#"user_pref("browser.tabs.warnOnClose", false);"#,
+            r#"user_pref("browser.download.folderList", 2);"#,
+            r#"user_pref("layout.css.devPixelsPerPx", -1);"#,
+            r#"user_pref("a.b_c-d[0]", true);"#,
+            r#"user_pref("x.quoted", "say \"hi\" \\ ok");"#,
+        ];
+        // Dropped: Sync and Firefox Account prefs in canonical form, and every other form a pref
+        // parser would still read.
+        let dropped = [
+            r#"user_pref("services.sync.username", "owner@example.com");"#,
+            r#"user_pref("identity.fxaccounts.enabled", true);"#,
+            r#"user_pref("services.fxaccounts.x", 1);"#,
+            r#"user_pref("identity.sync.tokenserver.uri", "x");"#,
+            r#"pref("services.sync.username", "o");"#,
+            r#"sticky_pref("services.sync.username", "o");"#,
+            r#"user_pref ("services.sync.username", "o");"#,
+            r#"user_pref( "services.sync.username", "o");"#,
+            r#"user_pref('services.sync.username', 'o');"#,
+            r#"user_pref("services\x2esync.username", "o");"#,
+            r#"user_pref("services.sync.username", "o");"#,
+            r#"user_pref("a", 1); user_pref("services.sync.x", 1);"#,
+            r#"user_pref("a", "x"); user_pref("services.sync.x", "y");"#,
+            r#"/*x*/ user_pref("services.sync.username", "o");"#,
+            r#"user_pref("services.sync.username", "o"); // note"#,
+            r#"user_pref("browser.x", "unterminated);"#,
+            r#"user_pref("browser.x", "ends in a backslash\");"#,
+            r#"user_pref("browser.x", 1.5);"#,
+            r#"user_pref("browser.x", TRUE);"#,
+            r#"user_pref("browser.x",true);"#,
+            r#"user_pref("browser.x", true) ;"#,
+            r#" user_pref("browser.x", true);"#,
+            r#"user_pref("", true);"#,
+            "user_pref(",
+            r#""services.sync.username", "o");"#,
+            "// Mozilla User Preferences",
+            "",
+        ];
+        for line in kept {
+            assert!(canonical_user_pref(line).is_some(), "should keep: {line}");
+            assert_eq!(
+                firefox_prefs_without_sync(line),
+                format!("{line}\n"),
+                "{line}"
+            );
+        }
+        for line in dropped {
+            assert_eq!(firefox_prefs_without_sync(line), "", "should drop: {line}");
+        }
+        // A name on the next line: two non-canonical lines.
+        let split = "user_pref(\n\"services.sync.username\", \"o\");\n";
+        assert_eq!(firefox_prefs_without_sync(split), "");
     }
 }
