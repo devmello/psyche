@@ -28,7 +28,9 @@ import {
   createComputerUse,
   type MachineTarget,
   machineNodeId,
+  registerSurfaceRouter,
   type SurfaceCall,
+  type SurfaceRouter,
 } from "../src/compose/computer.ts";
 import {
   COMPUTER_USE_DEFAULT_MACHINE,
@@ -140,7 +142,7 @@ function pairMachine(name: string): MachineTarget & { id: string } {
   return { id: record.id, deviceId: device.id, name };
 }
 
-function make(): void {
+function make(extra: { surfaces?: { virtual_screen: SurfaceRouter } } = {}): void {
   router = createMachineRouter({
     db,
     machine(deviceId) {
@@ -172,6 +174,7 @@ function make(): void {
     },
     authority: (callId) => authorities.get(callId),
     cancelRun: () => undefined,
+    ...extra,
   });
   tools = new Map(cu.registrations().map((r) => [r.spec.name, r]));
 }
@@ -991,6 +994,128 @@ describe("the default computer for background work", () => {
     ["mach_1", "mach_1"],
   ])("reads the setting %j as %j", (value, want) => {
     expect(defaultMachineFrom(value)).toBe(want);
+  });
+});
+
+/**
+ * The Host's own private screen (B0's fallback `virtual_screen` router on a headless Linux Host,
+ * or any router registered for the surface). The machine router never takes it over: a call with
+ * no `machine` goes to the Host's screen, never to the default computer or another machine.
+ */
+describe("the Host's own virtual screen next to the machine router", () => {
+  /** A fake Host screen router: Ask tier, so a typed call asks first and retries with the card. */
+  function hostScreen(): SurfaceRouter & { calls: SurfaceCall[] } {
+    const calls: SurfaceCall[] = [];
+    return {
+      calls,
+      async invoke(c) {
+        calls.push(c);
+        const app = c.params.app as string | undefined;
+        if (c.capability === "computer.ax_tree") {
+          return { ok: true, result: { text: `window "W"\n  [e1] button "Save"`, app } };
+        }
+        if (c.capability === "computer.type" && c.approvalId === undefined) {
+          return {
+            ok: false,
+            error: {
+              code: "approval_required",
+              message: "ask",
+              details: { reason: "tier_ask", app, tierRequired: "interact" },
+            },
+          };
+        }
+        return { ok: true, result: { status: "ok", app }, receipt: { outcome: "ok", summary: "ok" } };
+      },
+    };
+  }
+
+  const typed = { app: editor, action: "type", text: "hello", surface: "virtual_screen" };
+  let screen: ReturnType<typeof hostScreen>;
+  let offs: (() => void)[] = [];
+
+  beforeEach(() => {
+    setSetting(db, COMPUTER_USE_DEFAULT_MACHINE, A.id);
+    setSetting(db, COMPUTER_USE_MACHINE_APPS, {
+      [A.id]: [{ id: editor, name: editor, tier: "interact" }],
+      [B.id]: [{ id: editor, name: editor, tier: "interact" }],
+    });
+    screen = hostScreen();
+  });
+  afterEach(() => {
+    for (const off of offs) off();
+    offs = [];
+  });
+
+  const routes: [string, () => void][] = [
+    ["a router passed to computer use", () => make({ surfaces: { virtual_screen: screen } })],
+    [
+      "a router registered for the surface",
+      () => {
+        offs.push(registerSurfaceRouter("virtual_screen", screen));
+        make();
+      },
+    ],
+  ];
+  const ctxs: [string, Partial<CallContext>][] = [
+    ["a chat turn", {}],
+    ["a Task, with a default computer set", { taskId: "task_1" }],
+  ];
+
+  describe.each(routes)("with %s", (_route, setup) => {
+    beforeEach(() => setup());
+
+    it.each(ctxs)("must allow: %s with no machine reaches the Host's screen only", async (_l, ctx) => {
+      const r = await call("computer.snapshot", { app: editor, surface: "virtual_screen" }, ctx);
+      expect(r.isError, JSON.stringify(r.output)).toBeUndefined();
+      expect(screen.calls.map((c) => c.capability)).toEqual(["computer.ax_tree"]);
+      expect(screen.calls[0]?.machine).toBeUndefined();
+      expect(screen.calls[0]?.params).not.toHaveProperty("machine");
+      expect(callsOf(nodes.get(A.deviceId))).toHaveLength(0);
+      expect(callsOf(nodes.get(B.deviceId))).toHaveLength(0);
+      expect(callsOf(host)).toHaveLength(0);
+      expect(cu.sessions().every((s) => s.machine === undefined)).toBe(true);
+    });
+
+    it.each(ctxs)("must allow: %s asks with a card that names the Host, not a machine", async (_l, ctx) => {
+      const desc = tools.get("computer.act")?.describeCall?.(typed, {
+        runId: "run_1",
+        ...(ctx.taskId === undefined ? {} : { taskId: ctx.taskId }),
+      });
+      expect(desc?.bindingFields).toMatchObject({ surface: "virtual_screen" });
+      expect(desc?.bindingFields).not.toHaveProperty("machine");
+      const r = await call("computer.act", typed, ctx);
+      expect(r.isError, JSON.stringify(r.output)).toBeUndefined();
+      expect(requested).toHaveLength(1);
+      expect(requested[0]?.machine).toBeUndefined();
+      expect(requested[0]?.details).not.toHaveProperty("machine");
+      expect(requested[0]?.summary).toMatch(/^On the virtual screen: /);
+      expect(requested[0]?.summary).not.toMatch(/lab-box|build-box/);
+      expect(issued[0]?.approval.machine).toBeUndefined();
+      expect(screen.calls.filter((c) => c.capability === "computer.type")).toHaveLength(2);
+      expect(callsOf(nodes.get(A.deviceId))).toHaveLength(0);
+      expect(callsOf(nodes.get(B.deviceId))).toHaveLength(0);
+    });
+
+    it("must allow: naming a machine still goes to that machine, never the Host's screen", async () => {
+      const r = await call("computer.snapshot", { app: editor, machine: "build-box" });
+      expect(r.isError, JSON.stringify(r.output)).toBeUndefined();
+      expect(callsOf(nodes.get(B.deviceId), "computer.ax_tree")).toHaveLength(1);
+      expect(screen.calls).toHaveLength(0);
+    });
+
+    it("must refuse: a card approved for the Host's screen, on machine A", async () => {
+      const id = await approvedCard("computer.act", typed);
+      const out = await viaLoop("computer.act", { ...typed, machine: "lab-box" }, id);
+      expect(out.refused).toBe("binding_mismatch");
+      expect(callsOf(nodes.get(A.deviceId))).toHaveLength(0);
+    });
+
+    it("must refuse: a card approved for machine A, on the Host's screen", async () => {
+      const id = await approvedCard("computer.act", { ...typed, machine: "lab-box" });
+      const out = await viaLoop("computer.act", typed, id);
+      expect(out.refused).toBe("binding_mismatch");
+      expect(screen.calls).toHaveLength(0);
+    });
   });
 });
 
