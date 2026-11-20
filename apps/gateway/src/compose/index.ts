@@ -205,7 +205,12 @@ import { composePeople, type People } from "./people.ts";
 import { graphSourceAdapters } from "./people-sources.ts";
 import { composePlugins } from "./plugins.ts";
 import { type ComposedProactive, composeProactive } from "./proactive.ts";
-import { folderAccessEnv, ownWorkdirs, protectedRoots } from "./protected-paths.ts";
+import {
+  folderAccessEnv,
+  ownWorkdirs,
+  protectedRoots,
+  writeProtectedRoots,
+} from "./protected-paths.ts";
 import { createPurchaseTool, LINK_PAYMENT_SOURCE, PURCHASE_TOOL } from "./purchase-tool.ts";
 import { notifierRouting } from "./quiet-hours.ts";
 import { createRateLimits } from "./rate-limits.ts";
@@ -1087,6 +1092,7 @@ export async function composeGateway(options: ComposeOptions): Promise<ComposedG
     ],
     protectedRoots: () => protectedRoots(config.home),
     ownDirs: () => ownWorkdirs(config.home),
+    writeProtectedRoots: () => writeProtectedRoots(),
     onChange: (c) => void changes.record(fileChange(c)),
   }))
     registry.register(tool);

@@ -1873,6 +1873,30 @@ describe("program-grant runs: folder-confined reads, folded git names", () => {
     expect(fs.denyRead).toEqual(expect.arrayContaining(["/Users/me", "/Volumes"]));
     expect(fs.allowRead).toContain("/Users/me/project");
   });
+  it.skipIf(!posixHost)(
+    "never writes persistence locations, even inside a granted home folder",
+    () => {
+      const fs = (
+        execHostSrtSettings({ ...base, writable: ["/Users/me"] }) as {
+          filesystem: { denyWrite: string[]; allowWrite: string[] };
+        }
+      ).filesystem;
+      expect(fs.allowWrite).toContain("/Users/me");
+      expect(fs.denyWrite).toEqual(
+        expect.arrayContaining([
+          "/Users/me/Applications",
+          "/Users/me/Library/LaunchAgents",
+          "/Users/me/Library/Preferences",
+          "/Users/me/.zshrc",
+          "/Users/me/.bash_profile",
+          "/Users/me/.config/fish",
+          "/Users/me/.gitconfig",
+          "/Users/me/.ssh",
+        ]),
+      );
+      expect(fs.denyWrite).not.toContain("/Users/me");
+    },
+  );
   it("leaves an ordinary run's profile alone (control)", () => {
     const fs = (
       execHostSrtSettings(base) as { filesystem: { denyRead: string[]; allowRead: string[] } }

@@ -64,7 +64,7 @@ import { fetchLimit, taskOrigins } from "./fetch-origins.ts";
 import { googleClientStore } from "./google-client.ts";
 import { indexedConnectorLibrary } from "./library.ts";
 import { type MailCredentials, mailCredentials } from "./mail-credentials.ts";
-import { protectedRoots } from "./protected-paths.ts";
+import { protectedRoots, writeProtectedRoots } from "./protected-paths.ts";
 import type { ComposedPart, ComposeServices } from "./services.ts";
 
 /**
@@ -221,7 +221,12 @@ function defaultFactories(
     // file tools (granted folder and its mode, protected roots, no symlinks).
     obsidianFactory({
       access: async (path, mode) => {
-        assertNotProtected(path, protectedRoots(services.home));
+        assertNotProtected(
+          path,
+          protectedRoots(services.home),
+          [],
+          mode === "write" ? writeProtectedRoots() : undefined,
+        );
         assertGranted(path, services.rawBroker.grantedFolders(), mode);
         await assertNoSymlinks(path);
       },

@@ -903,17 +903,26 @@ function gitTool(
           await assertContained(root, full, { finalLink: "allow" });
           paths.push(relativeTo(root, full));
         }
+        // `add --all` would stage a nested repository as a gitlink, and a repository with one
+        // gets no code.git: refused before anything is staged, so the index stays as it was.
+        // `ls-files --others` lists a nested repository as one entry ending in "/".
+        const untracked = await gitOk(
+          runner,
+          root,
+          ["ls-files", "-z", "--others", "--exclude-standard", "--", ...paths],
+          sig,
+        );
+        const nestedRepos = untracked
+          .split("\0")
+          .filter((e) => e.endsWith("/"))
+          .map((e) => e.slice(0, -1));
+        if (nestedRepos.length > 0) throw nestedRefusal(nestedRepos);
         await gitOk(runner, root, ["add", "--all", "--", ...paths], sig);
-        // `add` stages a nested repository as a gitlink; a repository with one gets no code.git
-        // afterwards, so it is taken out of the index again and the commit is refused.
+        // Backstop: a gitlink `add` staged anyway is taken out of the index again.
         const nested = await gitlinks(runner, root, sig);
         if (nested.length > 0) {
           await gitOk(runner, root, ["update-index", "--force-remove", "--", ...nested], sig);
-          throw new PsycheError(
-            "forbidden",
-            `${nested.slice(0, 3).join(", ")} ${nested.length === 1 ? "is a" : "are"} nested repositor${nested.length === 1 ? "y" : "ies"}; repositories with submodules aren't supported by code.git yet, so nothing was committed (leave it out of paths, or add it to .gitignore)`,
-            { details: { reason: "submodules", paths: nested } },
-          );
+          throw nestedRefusal(nested);
         }
         const staged = await git(runner, root, ["diff", "--cached", "--quiet"], sig);
         if (staged.exitCode === 0) throw new PsycheError("conflict", "nothing to commit");
@@ -1014,11 +1023,9 @@ function gitTool(
         runner,
         root,
         [
-          // The pushed remote's programs: git's own receive-pack, no proxy command.
+          // The pushed remote's receive-pack is git's own.
           "-c",
           `remote.${p.remote}.receivepack=git-receive-pack`,
-          "-c",
-          "core.gitProxy=",
           "push",
           "--porcelain",
           "--no-verify",
@@ -1026,6 +1033,9 @@ function gitTool(
           `${p.commit}:refs/heads/${p.branch}`,
         ],
         sig,
+        // No proxy command for git:// remotes. `core.gitProxy` is first-match, so a `-c` value
+        // cannot override an earlier entry; a set (even empty) GIT_PROXY_COMMAND skips them all.
+        { GIT_PROXY_COMMAND: "" },
       );
       const failed = pushed.exitCode !== 0;
       const receiptId = await receipt(
@@ -1061,6 +1071,16 @@ function gitTool(
       };
     },
   });
+}
+
+/** A commit refused for nested repositories (`add --all` would stage them as gitlinks). */
+function nestedRefusal(paths: readonly string[]): PsycheError {
+  const one = paths.length === 1;
+  return new PsycheError(
+    "forbidden",
+    `${paths.slice(0, 3).join(", ")} ${one ? "is a" : "are"} nested repositor${one ? "y" : "ies"}; repositories with submodules aren't supported by code.git yet, so nothing was committed (leave it out of paths, or add it to .gitignore)`,
+    { details: { reason: "submodules", paths: [...paths] } },
+  );
 }
 
 /** The standing grant that let this call through, for the sandbox runner's own receipt. */

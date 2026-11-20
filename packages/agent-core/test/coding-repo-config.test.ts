@@ -378,14 +378,37 @@ describe("code.git and the repository's own config", () => {
     expect(() => readFileSync(pwned())).toThrow();
   });
 
+  it("runs the driver and pin queries first: the config re-check is the last call before the command", async () => {
+    const calls: string[][] = [];
+    const recording: GitRunner = {
+      run: (cwd, args, o) => {
+        calls.push([...args]);
+        return hostGit.run(cwd, args, o);
+      },
+    };
+    await git(recording, repo, ["log", "--oneline"]);
+    const at = (pred: (c: string[]) => boolean) => calls.findIndex(pred);
+    const drivers = at((c) => c.includes("^(filter|diff|merge)\\."));
+    const pins = at((c) => c.includes("--show-scope"));
+    const recheck = at((c) => c.includes("--file") && c.includes("--list"));
+    const command = at((c) => c.at(-1) === "--oneline");
+    expect(command).toBe(calls.length - 1);
+    expect(recheck).toBe(command - 1);
+    expect(drivers).toBeGreaterThanOrEqual(0);
+    expect(pins).toBeGreaterThan(drivers);
+    expect(recheck).toBeGreaterThan(pins);
+  });
+
   it("a push names git's own receive-pack and no proxy command for the pushed remote", async () => {
     const remote = join(dir, "remote.git");
     await sh(dir, "init", "--quiet", "--bare", remote);
     await sh(repo, "remote", "set-url", "origin", remote);
     const calls: string[][] = [];
+    const envs: (Readonly<Record<string, string>> | undefined)[] = [];
     const recording: GitRunner = {
       run: (cwd, args, o) => {
         calls.push([...args]);
+        envs.push(o?.env);
         return hostGit.run(cwd, args, o);
       },
     };
@@ -409,14 +432,14 @@ describe("code.git and the repository's own config", () => {
       ctx(),
     );
     expect(r?.isError).toBeUndefined();
-    const push = calls.find((c) => c.includes("push")) as string[];
+    const n = calls.findIndex((c) => c.includes("push"));
+    const push = calls[n] as string[];
     const i = push.indexOf("push");
-    expect(push.slice(i - 4, i)).toEqual([
-      "-c",
-      "remote.origin.receivepack=git-receive-pack",
-      "-c",
-      "core.gitProxy=",
-    ]);
+    expect(push.slice(i - 2, i)).toEqual(["-c", "remote.origin.receivepack=git-receive-pack"]);
+    expect(push).not.toContain("core.gitProxy=");
+    expect(envs[n]).toEqual({ GIT_PROXY_COMMAND: "" });
+    // Only the push gets it.
+    expect(envs.filter((e) => e !== undefined)).toHaveLength(1);
     expect(await sh(remote, "rev-parse", "refs/heads/main")).toBe(head);
   });
 });
@@ -484,6 +507,32 @@ describe("submodules (review of #1425 r2)", () => {
     // Leaving it out of the paths commits the rest.
     const c = await use("code.git", { root: repo, op: "commit", message: "b", paths: ["b.txt"] });
     expect(c.output.commit).toMatch(/^[0-9a-f]{40}$/);
+    expect(marked(mark())).toBe(false);
+  });
+
+  it("a refused commit leaves the index exactly as it was (review of #1425 r3)", async () => {
+    // The owner's own staged change, an unstaged new file, and a nested repository one folder
+    // down inside an untracked folder.
+    writeFileSync(join(repo, "a.txt"), "a, staged by the owner\n");
+    await sh(repo, "add", "a.txt");
+    writeFileSync(join(repo, "a.txt"), "a, staged by the owner, then edited\n");
+    writeFileSync(join(repo, "b.txt"), "b\n");
+    mkdirSync(join(repo, "deep"));
+    writeFileSync(join(repo, "deep", "c.txt"), "c\n");
+    await nestedRepo("deep/nested", mark());
+    const index = async () => await sh(repo, "ls-files", "--stage");
+    const cached = async () => await sh(repo, "diff", "--cached", "--name-only");
+    const before = { index: await index(), cached: await cached() };
+    const use = setup();
+    await use("code.open", { path: repo });
+    for (const paths of [undefined, ["."], ["deep"], ["b.txt", "deep/nested"]]) {
+      await expect(
+        use("code.git", { root: repo, op: "commit", message: "x", ...(paths ? { paths } : {}) }),
+        JSON.stringify(paths),
+      ).rejects.toThrow(/deep\/nested is a nested repository/);
+      expect({ index: await index(), cached: await cached() }).toEqual(before);
+    }
+    expect(before.cached).toBe("a.txt");
     expect(marked(mark())).toBe(false);
   });
 

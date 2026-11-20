@@ -85,7 +85,7 @@ public enum FixedCaps {
         "org.alacritty", "com.mitchellh.ghostty", "com.github.wez.wezterm", "co.zeit.hyper", "com.microsoft.VSCode",
         "com.microsoft.VSCodeInsiders", "com.vscodium", "com.todesktop.230313mzl4w4u92", "com.exafunction.windsurf",
         "com.apple.dt.Xcode", "com.jetbrains.", "com.google.android.studio", "com.sublimetext.", "dev.zed.Zed",
-        "com.panic.Nova", "com.barebones.bbedit", "com.apple.ScriptEditor2", "com.apple.Automator",
+        "com.panic.Nova", "com.barebones.bbedit", "com.apple.ScriptEditor2", "com.apple.Automator", "app.crynta.terax",
     ]
 
     static let passwordManagers = [
@@ -242,12 +242,23 @@ public final class TierPolicy: @unchecked Sendable {
     /// When the owner last used the keyboard, mouse or trackpad (not the helper's own events).
     /// nil turns the attention check off (unit tests of other rules); the helper always sets it.
     private let ownerInput: (@Sendable () -> Date?)?
+    /// A cap read from the app's own Info.plist (`FixedCaps.isShellLike`: a terminal or developer
+    /// tool that no id list names gets `click`). nil: the id lists alone decide (unit tests).
+    private let infoCap: (@Sendable (String) -> ComputerTier)?
 
     public init(settings: TierSettings = TierSettings(), now: @escaping @Sendable () -> Date = { Date() },
-                ownerInput: (@Sendable () -> Date?)? = nil) {
+                ownerInput: (@Sendable () -> Date?)? = nil, infoCap: (@Sendable (String) -> ComputerTier)? = nil) {
         self.settings = settings
         self.now = now
         self.ownerInput = ownerInput
+        self.infoCap = infoCap
+    }
+
+    /// The fixed cap for an app: the id lists, lowered by its Info.plist (looked up outside the lock).
+    public func fixedCap(for bundleId: String?) -> ComputerTier {
+        let listed = FixedCaps.cap(for: bundleId)
+        guard let id = bundleId, let infoCap, listed > .click else { return listed }
+        return min(listed, infoCap(id))
     }
 
     public func update(_ settings: TierSettings) {
@@ -258,13 +269,13 @@ public final class TierPolicy: @unchecked Sendable {
 
     /// The tier in effect now, without considering an approval on the current call.
     public func effectiveTier(for bundleId: String?) -> ComputerTier {
+        let cap = fixedCap(for: bundleId)
         lock.lock()
         defer { lock.unlock() }
-        return effectiveLocked(bundleId)
+        return effectiveLocked(bundleId, cap: cap)
     }
 
-    private func effectiveLocked(_ bundleId: String?) -> ComputerTier {
-        let cap = FixedCaps.cap(for: bundleId)
+    private func effectiveLocked(_ bundleId: String?, cap: ComputerTier) -> ComputerTier {
         let user: ComputerTier
         switch settings.value(for: bundleId) {
         case .off: user = .off
@@ -285,12 +296,13 @@ public final class TierPolicy: @unchecked Sendable {
     /// app (#267) and for at least the tier needed; when the user setting is `ask`, it records an
     /// "Allow for this session" allowance for the approved tier only (never more).
     public func authorize(_ intent: ComputerIntent, bundleId: String?, appName: String, approval: ApprovalBinding?) throws {
+        let cap = fixedCap(for: bundleId)
+        let shellLike = cap == .click && FixedCaps.cap(for: bundleId) > .click
         lock.lock()
         defer { lock.unlock() }
         let needed = intent.requiredTier
-        let cap = FixedCaps.cap(for: bundleId)
         if cap < needed {
-            throw Self.refusal(needed: needed, have: cap, appName: appName, bundleId: bundleId, fixed: true)
+            throw Self.refusal(needed: needed, have: cap, appName: appName, bundleId: bundleId, fixed: true, shellLike: shellLike)
         }
         if let approval {
             guard let id = bundleId, approval.app.lowercased() == id.lowercased() else {
@@ -299,13 +311,13 @@ public final class TierPolicy: @unchecked Sendable {
                                       details: ["approvedApp": .string(approval.app), "app": .string(bundleId ?? appName)])
             }
         }
-        var have = effectiveLocked(bundleId)
+        var have = effectiveLocked(bundleId, cap: cap)
         let asks = settings.value(for: bundleId) == .ask
         if have < needed, !asks {
             throw Self.refusal(needed: needed, have: have, appName: appName, bundleId: bundleId, fixed: false)
         }
         // Before any card: an approval from a phone is not someone watching this Mac.
-        try checkAttention(intent, bundleId: bundleId, appName: appName)
+        try checkAttention(intent, bundleId: bundleId, appName: appName, shellLike: shellLike)
         if have < needed, asks, let approval, approval.tier >= needed, let key = bundleId?.lowercased() {
             // The Gateway asked the user ("Allow for this session") for this app and tier.
             let granted = min(cap, approval.tier)
@@ -321,8 +333,8 @@ public final class TierPolicy: @unchecked Sendable {
         }
     }
 
-    private func checkAttention(_ intent: ComputerIntent, bundleId: String?, appName: String) throws {
-        guard let ownerInput, Attention.applies(to: intent), Attention.isSensitive(bundleId, settings: settings) else { return }
+    private func checkAttention(_ intent: ComputerIntent, bundleId: String?, appName: String, shellLike: Bool) throws {
+        guard let ownerInput, Attention.applies(to: intent), shellLike || Attention.isSensitive(bundleId, settings: settings) else { return }
         let idle = ownerInput().map { max(0, now().timeIntervalSince($0)) }
         if let idle, idle <= Attention.window { return }
         var details: [String: JSONValue] = ["app": .string(bundleId ?? appName), "windowSeconds": .number(Attention.window)]
@@ -340,9 +352,10 @@ public final class TierPolicy: @unchecked Sendable {
         lock.unlock()
     }
 
-    static func refusal(needed: ComputerTier, have: ComputerTier, appName: String, bundleId: String?, fixed: Bool) -> CapabilityError {
+    static func refusal(needed: ComputerTier, have: ComputerTier, appName: String, bundleId: String?, fixed: Bool,
+                        shellLike: Bool = false) -> CapabilityError {
         let why: String
-        switch (have, FixedCaps.category(of: bundleId)) {
+        switch (have, shellLike ? Optional(FixedCaps.Category.terminalOrIDE) : FixedCaps.category(of: bundleId)) {
         case (.off, .psyche?): why = "Psyche never drives its own windows."
         case (.off, .passwordManager?): why = "Password managers are off limits for computer use."
         case (.off, .finance?): why = "Banking, trading and crypto apps are off limits for computer use."

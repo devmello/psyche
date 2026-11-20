@@ -1,6 +1,6 @@
 import { realpathSync } from "node:fs";
 import { lstat, realpath, stat } from "node:fs/promises";
-import { homedir, tmpdir } from "node:os";
+import { homedir, tmpdir, userInfo } from "node:os";
 import { dirname, posix, resolve, win32 } from "node:path";
 import {
   canonicalHostPath,
@@ -188,10 +188,15 @@ const HOME_SENSITIVE = [
   ".netrc",
   ".psyche",
   ".Trash",
-  // What git runs on its own (`core.hooksPath`, `core.fsmonitor`, aliases), and `~/bin`, which
-  // shells put on PATH (review of #1294, round 4).
+  // An install location the Mac helper launches apps from (`apps.open`): a bundle written there
+  // would run unsandboxed behind a plain "Open" card.
+  "Applications",
+  // Shell and git configuration that runs code in the next shell or git command.
+  ".config/fish",
+  // `~/bin`, which shells put on PATH (review of #1294, round 4). Compared by name: a `~/bin`
+  // that links elsewhere leaves the folders around its target pickable, and the target itself
+  // is write-protected by its real path (`writeProtectedRoots`).
   "bin",
-  ".gitconfig",
   ".config/git",
   // Binaries Psyche runs unsandboxed (the subscription CLIs, `op`): a read-write grant on one
   // would let `write_file` replace them, as `/opt/homebrew` would. The same list the CLI
@@ -211,6 +216,74 @@ const LINUX_HOME_SENSITIVE = [".config", ".local", ".cache"];
 const LINUX_SUBTREE_ROOTS = ["/run", "/proc", "/sys"];
 
 /**
+ * Linux: the places under `/run` that hold the owner's own files, lifted out of `/run`: removable
+ * drives (udisks2 mounts them at `/run/media/<user>` on Fedora, Arch and openSUSE) and network
+ * and phone mounts (GVFS, `/run/user/<uid>/gvfs`). The rest of `/run/user/<uid>` (D-Bus
+ * services, user units, sockets) stays refused (review of #1294, round 5).
+ */
+export function linuxRunCarveOuts(): string[] {
+  const out: string[] = [];
+  try {
+    const user = userInfo().username;
+    if (/^[A-Za-z0-9._-]+$/.test(user) && !user.startsWith(".")) {
+      out.push(posix.join("/run/media", user));
+    }
+  } catch {
+    // No user name: no drive folder is lifted.
+  }
+  const uid = process.getuid?.();
+  if (uid !== undefined) out.push(`/run/user/${uid}/gvfs`);
+  return out;
+}
+
+/**
+ * Under the home directory (macOS and Linux): places where a write runs code later, at login, in
+ * the next shell, at an app launch or a git command. No agent write reaches them, whatever folder
+ * is granted, so an older home-root share cannot plant a LaunchAgent, an rc file or an app bundle
+ * (`persistenceRoots`). Reads are not affected.
+ */
+export const PERSISTENCE_HOME_PATHS: readonly string[] = [
+  "Applications",
+  "Library/LaunchAgents",
+  "Library/LaunchDaemons",
+  "Library/Services",
+  "Library/Preferences",
+  "Library/Scripts",
+  "Library/Application Support/com.apple.backgroundtaskmanagementagent",
+  ".zshrc",
+  ".zprofile",
+  ".zshenv",
+  ".zlogin",
+  ".zlogout",
+  ".bashrc",
+  ".bash_profile",
+  ".bash_login",
+  ".profile",
+  ".config/fish",
+  ".gitconfig",
+  ".config/git",
+  "bin",
+  ".ssh",
+  // Linux: autostart entries, user services and launcher entries.
+  ".config/autostart",
+  ".config/systemd",
+  ".local/share/applications",
+  // Linux: the other shell and session start-up files.
+  ".zlogout",
+  ".bash_logout",
+  ".xprofile",
+  ".xsessionrc",
+  ".xinitrc",
+  ".pam_environment",
+];
+
+/** The persistence locations under `home` (`PERSISTENCE_HOME_PATHS`); none on Windows. */
+export function persistenceRoots(home: string = homedir()): string[] {
+  if (process.platform === "win32") return [];
+  return PERSISTENCE_HOME_PATHS.map((rel) => posix.join(resolve(home), rel));
+}
+
+/**
  * Windows: the real long path of the owner's temp folder when it lies under `~\AppData` (the one
  * subtree root it opens), else undefined. Resolved by the OS, so a `PRANAV~1`-style short name in
  * `%TEMP%` becomes the long one, and compared without case like every Windows path here.
@@ -223,6 +296,15 @@ function windowsTempDir(env: FolderAccessEnv, home: string): string | undefined 
   } catch {
     return undefined;
   }
+}
+
+/**
+ * A POSIX path as APFS compares names by default: compatibility-normalized (`ſ` is `s`, `ﬁ` is
+ * `fi`, the Kelvin sign is `K`, NFD is NFC) and case-folded. Over-folding only refuses more.
+ * The same fold as `@psyche/files`' `foldPathName`.
+ */
+function foldName(p: string): string {
+  return p.normalize("NFKC").toLowerCase().toUpperCase().toLowerCase().normalize("NFKC");
 }
 
 function under(child: string, root: string): boolean {
@@ -261,14 +343,14 @@ export function inSystemRoot(given: string, env: FolderAccessEnv = {}): boolean 
   }
   if (isMacMagicPath(real, env.platform)) return true;
   const ci = env.caseInsensitive ?? process.platform === "darwin";
-  const fold = (p: string): string => (ci && !isWin32HostPath(p) ? p.toLowerCase() : p);
+  const fold = (p: string): string => (ci && !isWin32HostPath(p) ? foldName(p) : p);
   const win = process.platform === "win32";
-  const roots = win
-    ? windowsSubtreeRoots()
-    : (env.platform ?? process.platform) === "linux"
-      ? [...SUBTREE_ROOTS, ...LINUX_SUBTREE_ROOTS]
-      : SUBTREE_ROOTS;
+  const linux = !win && (env.platform ?? process.platform) === "linux";
+  const roots = win ? windowsSubtreeRoots() : SUBTREE_ROOTS;
   if (roots.some((r) => under(fold(real), fold(r)))) return true;
+  if (linux && LINUX_SUBTREE_ROOTS.some((r) => under(real, r))) {
+    if (!linuxRunCarveOuts().some((c) => under(real, c))) return true;
+  }
   // The CLI binary folders in home (`~/.local/bin`...), and a folder around one (`~/.local`), but
   // not home itself or above: an older home grant keeps its meaning (see above).
   const home = fold(resolve(env.home ?? homedir()));
@@ -437,14 +519,17 @@ export function refuseFolder(given: string, env: FolderAccessEnv = {}): FolderRe
   const roots = sensitiveRoots(env);
   // macOS: `/OPT/Homebrew` names `/opt/homebrew`, so a POSIX path is compared lower-cased.
   const ci = env.caseInsensitive ?? process.platform === "darwin";
-  const fold = (p: string): string => (ci && !isWin32HostPath(p) ? p.toLowerCase() : p);
+  const fold = (p: string): string => (ci && !isWin32HostPath(p) ? foldName(p) : p);
   real = fold(real);
   const exact = roots.exact.map(fold);
   const subtree = roots.subtree.map(fold);
   if (exact.some((r) => sameHostPath(r, real))) return "sensitive_root";
   // Only the roots that contain the exempt folder are lifted for it: a CLI workdir is never an
   // opening into `~/.ssh` or `~/Library` (those do not contain it).
-  const own = (env.ownDirs ?? []).map((d) => fold(resolve(d))).find((d) => under(real, d));
+  // Linux: the owner's drives and network mounts under `/run` are lifted the same way.
+  const linux = process.platform !== "win32" && (env.platform ?? process.platform) === "linux";
+  const exempt = [...(env.ownDirs ?? []), ...(linux ? linuxRunCarveOuts() : [])];
+  const own = exempt.map((d) => fold(resolve(d))).find((d) => under(real, d));
   // Its dot-folders hold the CLI's settings and tool token: never shared, even inside the exempt one.
   if (own !== undefined && real.slice(own.length + 1).startsWith(".")) return "sensitive_root";
   // Windows' temp folder lifts only `~\AppData`, and only for itself and what is inside it: the

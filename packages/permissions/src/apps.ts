@@ -102,6 +102,11 @@ export const BROWSER_APPS = [
   "tor-browser",
 ];
 
+/**
+ * Terminals, IDEs and script runners: click-only. The same list as the Mac helper's
+ * `FixedCaps.terminalsAndIDEs` (Tiers.swift; a test keeps the two in step), which also caps any
+ * other app whose Info.plist says it is a developer tool or a shell.
+ */
 export const TERMINAL_IDE_APPS = [
   "com.apple.Terminal",
   "com.googlecode.iterm2",
@@ -109,13 +114,24 @@ export const TERMINAL_IDE_APPS = [
   "com.mitchellh.ghostty",
   "net.kovidgoyal.kitty",
   "io.alacritty",
+  "org.alacritty",
+  "com.github.wez.wezterm",
+  "co.zeit.hyper",
+  "app.crynta.terax",
   "com.microsoft.VSCode",
   "com.microsoft.VSCodeInsiders",
+  "com.vscodium",
   "com.todesktop.230313mzl4w4u92",
+  "com.exafunction.windsurf",
   "dev.zed.Zed",
   "com.apple.dt.Xcode",
-  "com.sublimetext.4",
+  "com.sublimetext.*",
   "com.jetbrains.*",
+  "com.google.android.studio",
+  "com.panic.Nova",
+  "com.barebones.bbedit",
+  "com.apple.ScriptEditor2",
+  "com.apple.Automator",
   // Windows terminals, shells and IDEs.
   "windowsterminal.exe",
   "wt.exe",

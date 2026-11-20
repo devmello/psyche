@@ -39,4 +39,5 @@ Don't guess from "no sheet showed". Read the system log around the approval time
 
 ## Learnings
 
+- 2026-11-19: when a Swift app-path rule narrows, probe all installed bundle ids read-only (LaunchServices queries, never launch or `lsregister`) and test cryptex (Safari) and CoreServices (Shortcuts Events) paths; put such lookups behind injected `AppLaunchPolicy.Lookups` (#1427 rounds 1-3).
 - 2026-11-10: a Live Activity request from the background fails silently apart from a log line (#1305); a CRLF pointer file read with `split(separator: "\n")` kept its `\r` (#1308).

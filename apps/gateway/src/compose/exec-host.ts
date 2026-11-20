@@ -29,6 +29,7 @@ import {
   hostProgramCoverage,
   lookupRootFacts,
   operandsInside,
+  persistenceRoots,
   programName,
   READ_ONLY_RULE,
   type RootFacts,
@@ -585,10 +586,15 @@ export function execHostSrtSettings(input: {
       ],
       allowWrite: [input.scratch, ...input.writable],
       denyWrite: [
-        input.psycheHome,
-        h(".ssh"),
-        h("Library", "Keychains"),
-        h("Library", "Application Support", "Psyche"),
+        ...new Set([
+          input.psycheHome,
+          h(".ssh"),
+          h("Library", "Keychains"),
+          h("Library", "Application Support", "Psyche"),
+          // Where a write runs code later (LaunchAgents, rc files, ~/Applications...), even
+          // inside a granted home-root folder.
+          ...persistenceRoots(input.userHome),
+        ]),
       ],
     },
     network: {
