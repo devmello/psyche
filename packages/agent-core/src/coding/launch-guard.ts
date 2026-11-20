@@ -155,7 +155,7 @@ export async function guardLaunchConfig(
   // elsewhere can carry new content, so it is held like anything new.
   const ids: Identities = { mounted: new Map(), originals: new Set(), hidden: new Map() };
   // Folders already unlistable before the run are left as they are, but watched.
-  for (const rel of scan.unreadable ?? []) {
+  for (const { rel } of scan.unreadable ?? []) {
     const st = await lstat(join(root, rel), { bigint: true }).catch(() => undefined);
     if (st !== undefined) ids.hidden.set(rel, stamp(st));
   }
@@ -286,13 +286,18 @@ async function settle(
   // Refused, or swapped for something else meanwhile: said, whatever is at the path now.
   const failed = new Set<string>();
   for (let round = 0; round < MAX_UNHIDE_ROUNDS; round++) {
-    const hidden = (now.unreadable ?? []).filter((r) => !hiddenBefore.has(r) && !tried.has(r));
+    const hidden = (now.unreadable ?? []).filter(
+      (u) => !hiddenBefore.has(u.rel) && !tried.has(u.rel),
+    );
     if (hidden.length === 0) break;
-    for (const rel of hidden) {
+    for (const { rel, id } of hidden) {
       tried.add(rel);
       try {
+        // Pinned to who the walk found inside the share (#1450 review r2): a folder above it
+        // swapped for a link since cannot aim this at a folder of the owner's elsewhere.
+        if (id === undefined) throw new PsycheError("forbidden", `${rel} moved during the walk`);
         await assertInside(root, `${rel}/-`);
-        await lift(join(root, rel), 0o500);
+        await lift(join(root, rel), 0o500, id);
       } catch {
         failed.add(rel);
       }
@@ -304,7 +309,7 @@ async function settle(
       return report;
     }
   }
-  for (const rel of now.unreadable ?? []) if (!hiddenBefore.has(rel)) failed.add(rel);
+  for (const { rel } of now.unreadable ?? []) if (!hiddenBefore.has(rel)) failed.add(rel);
   // One unlistable before the run that changed during it may hold what the run made there.
   for (const [rel, was] of ids.hidden) {
     const st = await lstat(join(root, rel), { bigint: true }).catch(() => undefined);
@@ -603,8 +608,17 @@ async function moveChecked(
   to: string,
   at: { root: string; rel: string; beforeMove?: (from: string) => Promise<void> | void },
 ): Promise<Arrived | undefined> {
+  // Who the folder and the entry are, taken before the check that the folders above are real
+  // (#1450 review r2): the retry, its mode changes and the move itself are pinned to them, so a
+  // folder above swapped for a link at any point after leads to something else, and is refused.
+  const parent = await lstat(dirname(from), { bigint: true });
+  const entry = await lstat(from, { bigint: true }).catch((err: unknown) => {
+    // Its folder has no search permission: the entry is pinned once the folder has it.
+    if (denied(err)) return undefined;
+    throw err;
+  });
   try {
-    return await moveOnce(from, to, at);
+    return await moveOnce(from, to, at, { parent, entry });
   } catch (err) {
     if (!denied(err)) throw err;
   }
@@ -616,20 +630,21 @@ async function moveChecked(
   // path: a link swapped in would take the mode outside the share); then one more try. The two
   // folders get their modes back after; what moved keeps its write permission, so the owner
   // can look at it and Keep it can move it again.
-  await assertInside(at.root, at.rel);
   const restore: (() => Promise<void>)[] = [];
   try {
-    const parent = await lstat(dirname(from), { bigint: true });
     // Not there yet when the first try stopped before making it.
     const into = await lstat(dirname(to), { bigint: true }).catch(() => undefined);
-    const lifted = await lift(dirname(from), 0o300, parent);
+    await assertInside(at.root, at.rel);
+    const lifted = await lift(dirname(from), 0o300, idOf(parent));
     if (lifted !== undefined) restore.push(lifted);
     if (into !== undefined && !same(parent, into)) {
-      const liftedInto = await lift(dirname(to), 0o300, into);
+      const liftedInto = await lift(dirname(to), 0o300, idOf(into));
       if (liftedInto !== undefined) restore.push(liftedInto);
     }
-    await lift(from, 0o200);
-    return await moveOnce(from, to, at);
+    const pinned = entry ?? (await lstat(from, { bigint: true }));
+    await assertInside(at.root, at.rel);
+    await lift(from, 0o200, idOf(pinned));
+    return await moveOnce(from, to, at, { parent, entry: pinned });
   } finally {
     for (const r of restore.reverse()) await r();
   }
@@ -647,18 +662,19 @@ const DARWIN_O_EXEC = 0x40000000;
 /**
  * Adds `bits` (user bits only) to the mode of `path` when it is a real folder (or, with `files`,
  * a regular file) that the Gateway's own user owns and that lacks them, as a folder a run made
- * through the share can; anything else is left alone. `expect` pins who it must be. The answer
+ * through the share can; anything else is left alone. `expect` pins who it must be (dev:ino,
+ * taken inside the share before the path was checked). The answer
  * restores the mode it had, while it is still the same entry, when anything changed. Only the
  * permission bits are ever written: setuid, setgid and sticky bits are dropped, never set.
  */
 async function lift(
   path: string,
   bits: number,
-  expect?: BigIntStats,
+  expect?: string,
   files = false,
 ): Promise<(() => Promise<void>) | undefined> {
   const st = await lstat(path, { bigint: true });
-  if (expect !== undefined && !same(st, expect)) {
+  if (expect !== undefined && idOf(st) !== expect) {
     throw new PsycheError("forbidden", `${path} moved during the check`);
   }
   if (!(st.isDirectory() || (files && st.isFile()))) return undefined;
@@ -677,7 +693,7 @@ async function lift(
  * cannot be opened so is refused, and its entry stays where it is (said as not held).
  */
 async function setMode(path: string, st: BigIntStats, mode: number): Promise<void> {
-  const base = constants.O_NOFOLLOW | constants.O_NONBLOCK;
+  const base = constants.O_NOFOLLOW | constants.O_NONBLOCK | constants.O_NOCTTY;
   const tries = st.isDirectory()
     ? [
         base | constants.O_DIRECTORY | constants.O_RDONLY,
@@ -710,23 +726,41 @@ async function setMode(path: string, st: BigIntStats, mode: number): Promise<voi
 
 /**
  * Gives read and write permission back to the folders and files inside `from` (never through a
- * link), for a copy across volumes and the removal after it; at most `MAX_LIFTED` of them. One
- * it cannot give them back to, or one swapped meanwhile, stops the move: the entry stays.
+ * link), for a copy across volumes and the removal after it; at most `MAX_LIFTED` of them. Each
+ * is pinned by its identity before its folder's real path is checked, and changed only while it
+ * is still that one. One it cannot give them back to, or one swapped meanwhile, stops the move:
+ * the entry stays.
  */
-async function liftInside(from: string): Promise<void> {
-  const queue = [from];
+async function liftInside(from: string, id: string): Promise<void> {
+  const queue: { dir: string; id: string }[] = [{ dir: from, id }];
   let count = 0;
+  const pin = async (path: string): Promise<BigIntStats | undefined> => {
+    const st = await lstat(path, { bigint: true }).catch(() => undefined);
+    if (
+      st !== undefined &&
+      (await realpath(dirname(path)).catch(() => undefined)) !== dirname(path)
+    ) {
+      throw new PsycheError("forbidden", `${dirname(path)} moved during the check`);
+    }
+    return st;
+  };
   while (queue.length > 0 && count < MAX_LIFTED) {
-    const dir = queue.shift() as string;
-    const st = await lstat(dir).catch(() => undefined);
+    const next = queue.shift() as { dir: string; id: string };
+    const st = await lstat(next.dir, { bigint: true }).catch(() => undefined);
     if (st?.isDirectory() !== true) continue;
+    if (idOf(st) !== next.id)
+      throw new PsycheError("forbidden", `${next.dir} moved during the check`);
     count++;
-    await lift(dir, 0o700);
-    const entries = await readdir(dir, { withFileTypes: true }).catch(() => [] as Dirent[]);
+    await lift(next.dir, 0o700, next.id);
+    const entries = await readdir(next.dir, { withFileTypes: true }).catch(() => [] as Dirent[]);
     for (const d of entries) {
-      if (d.isDirectory()) queue.push(join(dir, d.name));
-      else if (d.isFile() && count++ < MAX_LIFTED) {
-        await lift(join(dir, d.name), 0o600, undefined, true);
+      if (!d.isDirectory() && !d.isFile()) continue;
+      const path = join(next.dir, d.name);
+      const st = await pin(path);
+      if (st === undefined) continue;
+      if (st.isDirectory()) queue.push({ dir: path, id: idOf(st) });
+      else if (st.isFile() && count++ < MAX_LIFTED) {
+        await lift(path, 0o600, idOf(st), true);
       }
     }
   }
@@ -736,10 +770,14 @@ async function moveOnce(
   from: string,
   to: string,
   at: { root: string; rel: string; beforeMove?: (from: string) => Promise<void> | void },
+  pins: { parent: BigIntStats; entry: BigIntStats | undefined },
 ): Promise<Arrived | undefined> {
   await assertInside(at.root, at.rel);
   const entry = await lstat(from, { bigint: true });
   const parent = await lstat(dirname(from), { bigint: true });
+  if (!same(parent, pins.parent) || (pins.entry !== undefined && !same(entry, pins.entry))) {
+    throw new PsycheError("forbidden", `${from} moved during the check`);
+  }
   if (
     await lstat(to).then(
       () => true,
@@ -756,7 +794,7 @@ async function moveOnce(
     if ((err as NodeJS.ErrnoException).code !== "EXDEV") throw err;
     // Another volume: copied whole (links as links), and removed only when still the same entry.
     // A folder or file inside it the run made unreadable or read-only would stop either half way.
-    await liftInside(from);
+    await liftInside(from, idOf(entry));
     await cp(from, to, {
       recursive: true,
       verbatimSymlinks: true,

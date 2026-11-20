@@ -1,4 +1,12 @@
-import { chmodSync, mkdirSync, mkdtempSync, rmSync, symlinkSync, writeFileSync } from "node:fs";
+import {
+  chmodSync,
+  lstatSync,
+  mkdirSync,
+  mkdtempSync,
+  rmSync,
+  symlinkSync,
+  writeFileSync,
+} from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { afterEach, describe, expect, it } from "vitest";
@@ -155,7 +163,10 @@ describe("finding launch config in a folder tree", () => {
     try {
       const scan = await findLaunchConfig(root);
       expect(scan.found.map((f) => f.rel)).toEqual(["ok/.npmrc"]);
-      expect(scan.unreadable?.sort()).toEqual(["a/b", "pkg"]);
+      expect(scan.unreadable?.map((u) => u.rel).sort()).toEqual(["a/b", "pkg"]);
+      // Each with who it was, so a folder found at its path later can be told apart.
+      const pkg = lstatSync(join(root, "pkg"), { bigint: true });
+      expect(scan.unreadable?.find((u) => u.rel === "pkg")?.id).toBe(`${pkg.dev}:${pkg.ino}`);
     } finally {
       chmodSync(join(root, "pkg"), 0o755);
       chmodSync(join(root, "a/b"), 0o755);

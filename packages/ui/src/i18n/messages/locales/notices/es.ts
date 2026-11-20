@@ -86,5 +86,5 @@ export const notices: Partial<Catalogue> = {
   "notice.codeRun.unmoved.title":
     "La configuración de inicio de una ejecución de código en {repo} sigue en su sitio",
   "notice.codeRun.unmoved.body":
-    "Un comando en el sandbox creó {paths} y Psyche no pudo apartarlo, así que no está retenido. Las apps o tu próximo comando podrían ejecutar código desde ahí. Revísalo o bórralo antes de abrir la carpeta o ejecutar algo en ella.",
+    "Un comando en el sandbox creó {paths} y Psyche no pudo apartarlo, así que no está retenido. Las apps o tu próximo comando podrían ejecutar código desde ahí. Bórralo antes de abrir la carpeta o ejecutar algo en ella. No cambies antes sus permisos para mirar dentro, porque eso puede dejar que se ejecute.",
 };
