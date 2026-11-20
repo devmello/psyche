@@ -45,6 +45,7 @@ import { machinePairingCardsEnabled, uniqueMachineName } from "./nodes/machines.
 import { recordPeerRefusal } from "./nodes/registry.ts";
 import type { RateLimiter } from "./rate-limit.ts";
 import { stateSealFor } from "./security/state-seal.ts";
+import { helperRestartHint } from "./transports/peer-check.ts";
 
 export const CHALLENGE_TTL_MS = 60_000;
 
@@ -232,7 +233,7 @@ export function hostHelperRefusal(params: ConnectParams, peer: PeerInfo): string
     return "this process is not the Linux helper of this computer";
   }
   if (peer.peerCheckRequired === true && peer.peerCheck !== "root_owned") {
-    return `the installed Linux helper could not be verified (${peer.peerCheck}: ${peer.peerCheckReason ?? "unknown"}); restart it from the Psyche app`;
+    return `the installed Linux helper could not be verified (${peer.peerCheck}: ${peer.peerCheckReason ?? "unknown"}); ${helperRestartHint()}`;
   }
   return undefined;
 }
