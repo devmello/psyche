@@ -1,3 +1,4 @@
+import { execFile } from "node:child_process";
 import { getSetting, type PsycheDb, setSetting } from "@psyche/db";
 import { PsycheError } from "@psyche/protocol";
 import type { Logger } from "../log.ts";
@@ -21,6 +22,64 @@ import { COMPUTER_USE_ENABLED } from "./computer-settings.ts";
  * starting the helper if needed). All of it is best effort: a failure is logged, never thrown.
  * Only created on a Linux Gateway; no other platform calls these capabilities.
  */
+
+/** The helper units psyched starts on demand (`apps/cli/src/systemd-unit.ts` renders both). */
+export const GRAPHICAL_HELPER_UNIT = "psyche-helper.service";
+export const HEADLESS_HELPER_UNIT = "psyche-helper-headless.service";
+
+/** Which helper unit to start: the graphical one only when logind reports a graphical session. */
+export function helperUnitFor(graphicalSession: boolean): string {
+  return graphicalSession ? GRAPHICAL_HELPER_UNIT : HEADLESS_HELPER_UNIT;
+}
+
+/** Runs a command with fixed arguments (no shell) and returns stdout; rejects on failure. */
+export type RunCommand = (file: string, args: string[], signal?: AbortSignal) => Promise<string>;
+
+const runFile: RunCommand = (file, args, signal) =>
+  new Promise((resolve, reject) => {
+    execFile(
+      file,
+      args,
+      { timeout: 10_000, windowsHide: true, ...(signal === undefined ? {} : { signal }) },
+      (err, stdout) => (err === null ? resolve(String(stdout)) : reject(err)),
+    );
+  });
+
+/**
+ * Whether this user has a graphical session, by logind: `Display=` of the user is the primary
+ * x11/wayland/mir session and is empty for SSH, console and linger-only users. Any failure
+ * (no loginctl, no logind record) counts as no graphical session.
+ */
+export async function hasGraphicalSession(
+  run: RunCommand = runFile,
+  uid: number | undefined = process.getuid?.(),
+  signal?: AbortSignal,
+): Promise<boolean> {
+  if (uid === undefined) return false;
+  try {
+    const out = await run(
+      "loginctl",
+      ["show-user", String(uid), "--property=Display", "--value"],
+      signal,
+    );
+    return out.trim() !== "";
+  } catch {
+    return false;
+  }
+}
+
+/**
+ * Linux only: starts the Host helper (`systemctl --user start <unit>`, no shell, fixed arguments).
+ * With a graphical session it is `psyche-helper.service` as always; without one it is the
+ * headless unit (B0). Rejects when systemd cannot start it.
+ */
+export async function startHelperWithSystemd(
+  signal?: AbortSignal,
+  run: RunCommand = runFile,
+  graphical: () => Promise<boolean> = () => hasGraphicalSession(run, undefined, signal),
+): Promise<void> {
+  await run("systemctl", ["--user", "start", helperUnitFor(await graphical())], signal);
+}
 
 export const COMPUTER_USE_LINUX = "computerUse.linux";
 export const COMPUTER_USE_LINUX_REVOKE = "computerUse.linuxRevoke";

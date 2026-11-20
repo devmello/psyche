@@ -29,6 +29,9 @@ import {
   COMPUTER_USE_LINUX,
   COMPUTER_USE_LINUX_REVOKE,
   createLinuxComputerState,
+  hasGraphicalSession,
+  helperUnitFor,
+  startHelperWithSystemd,
 } from "../src/compose/computer-linux.ts";
 import { appTiersFrom, COMPUTER_USE_ENABLED } from "../src/compose/computer-settings.ts";
 
@@ -757,5 +760,104 @@ describe("computerUse.linux and the account state", () => {
     expect(ended).toBe(0);
     await cu.runEnded("run_1");
     expect(ended).toBe(1);
+  });
+});
+
+describe("the headless Host helper (B0)", () => {
+  const out = (r: { output: unknown }) =>
+    (r.output as { error: { code: string; details?: { reason?: string; surface?: string } } })
+      .error;
+
+  it("picks the unit from logind: graphical keeps psyche-helper.service", async () => {
+    expect(helperUnitFor(true)).toBe("psyche-helper.service");
+    expect(helperUnitFor(false)).toBe("psyche-helper-headless.service");
+    const ran: string[][] = [];
+    const run = async (file: string, args: string[]) => {
+      ran.push([file, ...args]);
+      return "";
+    };
+    await startHelperWithSystemd(undefined, run, async () => true);
+    await startHelperWithSystemd(undefined, run, async () => false);
+    expect(ran).toEqual([
+      ["systemctl", "--user", "start", "psyche-helper.service"],
+      ["systemctl", "--user", "start", "psyche-helper-headless.service"],
+    ]);
+  });
+
+  it.each([
+    ["a graphical session", "2\n", true],
+    ["a session id with spaces around it", "  c4 \n", true],
+    ["no session (linger only)", "\n", false],
+    ["nothing at all", "", false],
+  ])("hasGraphicalSession: %s", async (_name, stdout, want) => {
+    const calls: string[][] = [];
+    const run = async (file: string, args: string[]) => {
+      calls.push([file, ...args]);
+      return stdout;
+    };
+    expect(await hasGraphicalSession(run, 1000)).toBe(want);
+    expect(calls).toEqual([["loginctl", "show-user", "1000", "--property=Display", "--value"]]);
+  });
+
+  it("hasGraphicalSession: no loginctl or no logind record means no session", async () => {
+    const run = async () => {
+      throw new Error("ENOENT");
+    };
+    expect(await hasGraphicalSession(run, 1000)).toBe(false);
+    expect(await hasGraphicalSession(run, undefined)).toBe(false);
+  });
+
+  it("direct answers no_graphical_session and starts nothing", async () => {
+    connected = false;
+    let started = 0;
+    make({
+      startHelper: async () => {
+        started++;
+      },
+      graphicalSession: async () => false,
+    });
+    const r = await call("computer.snapshot", { app: editor });
+    expect(out(r)).toMatchObject({
+      code: "unavailable",
+      details: { reason: "no_graphical_session" },
+    });
+    expect(started).toBe(0);
+  });
+
+  it("with a graphical session, direct goes to the helper as before", async () => {
+    make({ startHelper: async () => undefined, graphicalSession: async () => true });
+    const r = await call("computer.snapshot", { app: editor });
+    expect(r.isError, JSON.stringify(r.output)).toBeUndefined();
+    expect(helper.calls.every((c) => !("surface" in c.params))).toBe(true);
+  });
+
+  it("virtual_screen starts the headless helper and sends it surface: virtual_screen", async () => {
+    connected = false;
+    let started = 0;
+    make({
+      startHelper: async () => {
+        started++;
+        setTimeout(() => {
+          connected = true;
+        }, 20);
+      },
+      graphicalSession: async () => false,
+      helperWait: { timeoutMs: 2_000, pollMs: 10 },
+    });
+    const r = await call("computer.snapshot", { app: editor, surface: "virtual_screen" });
+    expect(r.isError, JSON.stringify(r.output)).toBeUndefined();
+    expect(started).toBe(1);
+    expect(helper.calls.length).toBeGreaterThan(0);
+    for (const c of helper.calls) expect(c.params).toMatchObject({ surface: "virtual_screen" });
+  });
+
+  it("virtual_screen on a Host with a graphical session stays surface_unavailable", async () => {
+    make({ startHelper: async () => undefined, graphicalSession: async () => true });
+    const r = await call("computer.snapshot", { app: editor, surface: "virtual_screen" });
+    expect(out(r)).toMatchObject({
+      code: "unavailable",
+      details: { reason: "surface_unavailable", surface: "virtual_screen" },
+    });
+    expect(helper.calls).toHaveLength(0);
   });
 });

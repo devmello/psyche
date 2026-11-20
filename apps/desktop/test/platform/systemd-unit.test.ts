@@ -9,6 +9,7 @@ import {
   parseGatewayUnit,
   renderGatewayDropIn,
   renderGatewayUnit,
+  renderHeadlessHelperUnit,
   renderHelperUnit,
   sdQuote,
   userUnitDir,
@@ -107,6 +108,27 @@ describe("helper unit", () => {
   });
 });
 
+describe("headless helper unit", () => {
+  const unit = renderHeadlessHelperUnit({
+    program: "/h/psyche-helper",
+    psycheHome: "/home/me/.psyche",
+  });
+  it("runs --display headless, on demand, with no graphical-session.target", () => {
+    expect(unit).not.toContain("graphical-session.target");
+    expect(unit).not.toMatch(/^\[Install\]$/m);
+    expect(unit).toMatch(/^After=default\.target$/m);
+    expect(unit).toMatch(/^Restart=no$/m);
+    expect(unit).toMatch(/^NoNewPrivileges=yes$/m);
+    expect(unit).toContain('ExecStart="/h/psyche-helper" "--display" "headless"');
+    expect(unit).toContain('Environment="PSYCHE_HOME=/home/me/.psyche"');
+  });
+  it("appends extra args after the display flag and quotes like the others", () => {
+    const u = renderHeadlessHelperUnit({ program: "/a b/h", args: ["--idle-timeout", "60"] });
+    expect(u).toContain('ExecStart="/a b/h" "--display" "headless" "--idle-timeout" "60"');
+    expect(u).not.toContain("Environment=");
+  });
+});
+
 describe("deploy/systemd/ is pinned to the renderer", () => {
   it("psyche-gateway.service is the server profile for its example input", () => {
     expect(read("psyche-gateway.service")).toBe(
@@ -134,6 +156,14 @@ describe("deploy/systemd/ is pinned to the renderer", () => {
   it("psyche-helper.service is the on-demand helper unit", () => {
     expect(read("psyche-helper.service")).toBe(
       renderHelperUnit({ program: "/usr/lib/psyche/resources/linux-helper/psyche-helper" }),
+    );
+  });
+
+  it("psyche-helper-headless.service is the headless helper unit", () => {
+    expect(read("psyche-helper-headless.service")).toBe(
+      renderHeadlessHelperUnit({
+        program: "/usr/lib/psyche/resources/linux-helper/psyche-helper",
+      }),
     );
   });
 
