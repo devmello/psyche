@@ -27,12 +27,12 @@ This package holds automations, the heartbeat and watches, and catches up after 
 
 ## Schedules
 
-| Kind                            | `schedule`                                                                 | Notes                                                                                                                                        |
-| ------------------------------- | -------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------- |
+| Kind | `schedule` | Notes |
+| --- | --- | --- |
 | `cron`, `briefing`, `heartbeat` | A 5-field cron expression evaluated in `timezone`, or an ISO-8601 duration | Uses cron-parser 5. Across DST: a wall time that does not exist fires once at the next valid time; a wall time that occurs twice fires once. |
-| `interval`                      | An ISO-8601 duration (`PT30M`, `P1D`; at least one minute)                 | Anchored on the previous fire time, so the phase holds after sleep.                                                                          |
-| `watch`                         | An ISO-8601 duration                                                       | Takes a `watch` config (see below).                                                                                                          |
-| `reminder`                      | An ISO-8601 instant with an offset                                         | A one-shot. `nextRunAt` becomes `null` after it fires.                                                                                       |
+| `interval` | An ISO-8601 duration (`PT30M`, `P1D`; at least one minute) | Anchored on the previous fire time, so the phase holds after sleep. |
+| `watch` | An ISO-8601 duration | Takes a `watch` config (see below). |
+| `reminder` | An ISO-8601 instant with an offset | A one-shot. `nextRunAt` becomes `null` after it fires. |
 
 **Catch-up:** `tick(now)` folds each due automation's fire times up to `now`. Intervals fold arithmetically; cron uses one iterator, capped at 10,000 ticks. Every missed tick folds into one run: `coalesced = n`, `scheduledFor` is the latest missed time, and the prompt says the run covers n missed runs. `next_run_at` moves to the first fire time after `now`. If the previous run of the same automation is still going, the new one is recorded as `skipped`, and a manual run is refused with `conflict`. Re-sending unchanged schedule fields does not reschedule. A reminder whose time has passed is rejected. Deleting an automation cancels its running task. A failing tick re-arms the timer 30 s later.
 
@@ -75,7 +75,6 @@ The job's scratch note follows the contract.
 `selector` is a literal marker (1–200 characters), and the check looks at the 2,000 characters after its first occurrence. It is not a regular expression: page text is untrusted, and a pathological regex could block the Gateway's event loop. If the marker is missing (for example, a consent or error page), the check records no observation.
 
 Checks:
-
 - `change`: the first check records a baseline. Each later check alerts when the content differs from the previous observation.
 - `text_present`: alerts when the text appears. It does not alert again while the text stays, and it re-arms once the text is gone.
 - `price_below` / `price_above`: alert once when the price crosses the threshold, and re-arm after it crosses back.
@@ -85,7 +84,6 @@ On failure, the next check waits `interval × 2^failures`, capped at 24 h. A suc
 ## Event automations (S15, #670 W3; docs/workflows/mail-and-meetings-2026.md §4.7)
 
 `kind: "event"` automations have no schedule and run on their `trigger: {type: "event", source, filter?, debounceMs?, maxRunsPerDay?}`. Sources are `mail.received`, `calendar.changed`, `recording.added` and `followup.due`.
-
 - `publishEvent(event)`: every enabled event automation whose trigger matches queues the event once. A source id (`event.id`) starts at most one run per automation, and ids are remembered for 30 days in `automation_event_seen`.
 - `flushEvents(now?)`: one run per automation whose oldest queued event is past its debounce window (default 2 min). It folds every queued event in, sets `trigger: "event"` and `coalesced = n`, and stores the events on the run.
   - An automation still running keeps its events queued.

@@ -1,6 +1,6 @@
 ---
-
-## title: Tasks and automations
+title: Tasks and automations
+---
 
 # Tasks and automations
 
