@@ -134,6 +134,17 @@ export interface SqliteMemoryStoreOptions {
   onChange?: (change: MemoryFileChange) => void;
   /** Utility model for the pre-compaction flush; without it `flush` appends nothing. */
   flush?: FlushConfig;
+  /**
+   * Called after every forget that is not a dry run, with the phrase and the pattern it matched.
+   * The Gateway cuts the same words out of stored run-trace payloads.
+   */
+  onForget?: (forgotten: ForgottenPhrase) => void;
+}
+
+/** A forgotten phrase: `pattern` matches it (case-insensitive, whole words, no `g` flag). */
+export interface ForgottenPhrase {
+  readonly subject: string;
+  readonly pattern: RegExp;
 }
 
 /** Who and what a write belongs to, for the owner-data audit (change records). */
@@ -247,6 +258,7 @@ export class SqliteMemoryStore implements MemoryStore {
   readonly #audit: Pick<AuditLog, "append"> | undefined;
   readonly #onChange: ((change: MemoryFileChange) => void) | undefined;
   readonly #flush: FlushConfig | undefined;
+  readonly #onForget: ((forgotten: ForgottenPhrase) => void) | undefined;
   #embedQueue: Promise<unknown> = Promise.resolve();
   #watcher: FSWatcher | undefined;
   #syncTimer: ReturnType<typeof setTimeout> | undefined;
@@ -268,6 +280,7 @@ export class SqliteMemoryStore implements MemoryStore {
     this.#audit = options.audit;
     this.#onChange = options.onChange;
     this.#flush = options.flush;
+    this.#onForget = options.onForget;
     ensureDir(options.workspaceDir);
     this.root = options.workspaceDir;
     this.#sqliteVec = options.sqliteVec !== false;
@@ -1372,6 +1385,13 @@ export class SqliteMemoryStore implements MemoryStore {
           data: { claims: claims.length, chunks: chunks.length, files: edits.size },
         })
         .catch(() => undefined);
+    }
+    // The forget has committed: a failing hook must not fail it (the owner would see an error
+    // for a change that happened, and a retry would repeat the work).
+    try {
+      this.#onForget?.({ subject: phrase, pattern });
+    } catch {
+      // The hook logs its own failures.
     }
     return result;
   }
