@@ -5,6 +5,7 @@ import {
   type TaintSource,
   type WidgetBind,
 } from "@psyche/protocol";
+import { isProjectOrChild } from "../compose/space-queries.ts";
 
 /**
  * Checks a widget's bindings when the spec is drawn or patched (generative-ui-2026 §5.4, §7.3).
@@ -42,7 +43,12 @@ function notVisible(bind: WidgetBind): PsycheError {
   );
 }
 
-function check(db: PsycheDb, bind: WidgetBind, threadId: string): TaintSource[] {
+function check(
+  db: PsycheDb,
+  bind: WidgetBind,
+  threadId: string,
+  spaceId?: string | null,
+): TaintSource[] {
   switch (bind.source) {
     case "task":
     case "job": {
@@ -76,20 +82,68 @@ function check(db: PsycheDb, bind: WidgetBind, threadId: string): TaintSource[] 
       if (row === undefined) throw notVisible(bind);
       return [];
     }
-    // The Space query sources arrive with wave S4 (spaces-2026 §6.2); until then none is bindable.
+    // The Space query sources (spaces-2026 §6.2): only inside a Space, and only on that Space's
+    // own data. The Space is the chat's, or the shelf's when the Gateway draws a template.
     case "entity":
     case "work_due":
     case "calendar":
     case "reminders":
     case "mail":
-    case "files":
-      throw notVisible(bind);
+    case "files": {
+      const space = spaceRow(db, spaceId ?? threadSpace(db, threadId));
+      if (space === undefined || space.archived_at !== null) throw notInSpace(bind);
+      if (bind.source === "entity") {
+        if (space.entity_id === null || !isProjectOrChild(db, space.entity_id, bind.id))
+          throw notInSpace(bind);
+      } else if (bind.id !== space.id) {
+        throw notInSpace(bind);
+      }
+      // The sources whose values are always someone else's text taint the widget at bind time;
+      // the rest add theirs when a value is written (the resolver says which).
+      return bind.source === "mail"
+        ? [{ sourceKind: "email" }]
+        : bind.source === "files"
+          ? [{ sourceKind: "file_names" }]
+          : [];
+    }
   }
 }
 
-/** The taint every binding in `root` adds; throws an error the model can read for a bad one. */
-export function checkWidgetBindings(db: PsycheDb, root: unknown, threadId: string): TaintSource[] {
+function threadSpace(db: PsycheDb, threadId: string): string | null {
+  const row = db.sqlite.prepare("SELECT space_id FROM threads WHERE id = ?").get(threadId) as
+    | { space_id: string | null }
+    | undefined;
+  return row?.space_id ?? null;
+}
+
+function spaceRow(
+  db: PsycheDb,
+  id: string | null,
+): { id: string; entity_id: string | null; archived_at: string | null } | undefined {
+  if (id === null) return undefined;
+  return db.sqlite.prepare("SELECT id, entity_id, archived_at FROM spaces WHERE id = ?").get(id) as
+    | { id: string; entity_id: string | null; archived_at: string | null }
+    | undefined;
+}
+
+function notInSpace(bind: WidgetBind): PsycheError {
+  return new PsycheError(
+    "invalid_params",
+    `The binding ${bind.source}:${bind.id} was rejected: ${bind.source} reads a Space's own data, so it works only in a chat inside a Space, with ${bind.source === "entity" ? "the Space's linked project (or one of its parts)" : "the Space's own id"} as id. Drop the bind or use update_ui.`,
+  );
+}
+
+/**
+ * The taint every binding in `root` adds; throws an error the model can read for a bad one.
+ * `spaceId` is the Space a tracker is drawn for when the caller is the Gateway itself (a template).
+ */
+export function checkWidgetBindings(
+  db: PsycheDb,
+  root: unknown,
+  threadId: string,
+  spaceId?: string | null,
+): TaintSource[] {
   const out: TaintSource[] = [];
-  for (const { bind } of collectWidgetBinds(root)) out.push(...check(db, bind, threadId));
+  for (const { bind } of collectWidgetBinds(root)) out.push(...check(db, bind, threadId, spaceId));
   return out;
 }

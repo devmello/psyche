@@ -11,6 +11,7 @@ import {
   type SpaceProposal,
   type SpaceSummary,
   type SpaceTracker,
+  type TaintSource,
 } from "@psyche/protocol";
 
 /**
@@ -65,6 +66,7 @@ interface TrackerRow {
   refreshed_at: string | null;
   added_by: string;
   created_at: string;
+  taint: string;
 }
 
 interface ProposalRow {
@@ -236,7 +238,10 @@ export class SpaceStore {
     );
     const trackers = (
       this.#db.sqlite
-        .prepare("SELECT * FROM space_trackers WHERE space_id = ? ORDER BY position, created_at")
+        .prepare(
+          `SELECT t.*, w.taint AS taint FROM space_trackers t JOIN widgets w ON w.id = t.widget_id
+            WHERE t.space_id = ? ORDER BY t.position, t.created_at`,
+        )
         .all(id) as TrackerRow[]
     ).map(
       (t): SpaceTracker => ({
@@ -247,6 +252,8 @@ export class SpaceStore {
         refreshedAt: t.refreshed_at,
         addedBy: t.added_by as SpaceTracker["addedBy"],
         createdAt: t.created_at,
+        // The widget's taint (section 5.5): a tainted tracker enters a run's context as a count.
+        taint: JSON.parse(t.taint) as TaintSource[],
       }),
     );
     const automationIds = (

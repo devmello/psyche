@@ -18,6 +18,10 @@ CI fails when the generated files are stale (`pnpm protocol:check`).
 
 ## Log
 
+### v1 additive — 2026-11-20 (Spaces, wave S4)
+
+- `WIDGET_BINDINGS` gains the bindable fields of the six Space query sources: `entity` (status, nextStep, stoppedAt, due), `work_due` (count, next), `calendar` (next, countWeek), `reminders` (open, done, nextDue), `mail` (unread, latest), `files` (recent, count). For `entity` the bind `id` is the linked project or one of its children; for the others it is the Space's id. New exports `SPACE_QUERY_SOURCES` and `isSpaceQuerySource`. No wire change, so no generated Swift change.
+
 ### v1 additive — 2026-11-20 (Spaces, wave S0)
 
 - New methods `spaces.*` (24, no handlers yet): `list`, `get`, `create`, `update`, `archive`, `restore`, `delete`, `folders.add|remove|setMode`, `settings.set`, `links.add|remove`, `threads.move`, `automations.move`, `trackers.add|remove|reorder|refresh`, `open`, `context.preview`, `proposals.list|accept|dismiss`. Folders, settings and delete are `operator.admin`. New schemas in `schemas/spaces.ts` (`Space`, `SpaceDetail`, `SpaceSummary`, `SpaceFolder`, `SpaceLink`, `SpaceTracker`, `SpaceProposal`, ...).

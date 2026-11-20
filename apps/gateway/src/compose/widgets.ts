@@ -43,16 +43,32 @@ export function specImageUrls(root: unknown): string[] {
   return out;
 }
 
+const stores = new WeakMap<ComposeServices, WidgetStore>();
+
+/**
+ * The one widget store of a Gateway. The Space trackers write through it too, so every patch of a
+ * widget is coalesced and numbered by the same queue.
+ */
+export function widgetStoreFor(services: ComposeServices): WidgetStore {
+  let store = stores.get(services);
+  if (store === undefined) {
+    store = new WidgetStore({
+      db: services.db,
+      bindings: (root, threadId, spaceId) =>
+        checkWidgetBindings(services.db, root, threadId, spaceId),
+      publish: (event, payload, threadId) => services.publish(event, payload, threadId),
+    });
+    stores.set(services, store);
+  }
+  return store;
+}
+
 /**
  * Generative-UI widgets (docs/design/generative-ui-2026.md). Snapshots by id, and the agent's `render_ui`, `update_ui` and
  * `list_ui` tools (deferred by default: not in `ALWAYS_ON`).
  */
 export function composeWidgets(services: ComposeServices): ComposedPart {
-  const store = new WidgetStore({
-    db: services.db,
-    bindings: (root, threadId) => checkWidgetBindings(services.db, root, threadId),
-    publish: (event, payload, threadId) => services.publish(event, payload, threadId),
-  });
+  const store = widgetStoreFor(services);
   const unregister = widgetTools(store).map((t) => services.tools.register(t));
   const research = new ResearchTracker();
   let unsubscribe: (() => void) | undefined;
