@@ -89,9 +89,10 @@ pub trait ScopeRunner: Send + Sync {
     fn limit_slice(&self, limits: &SliceLimits) -> Result<(), String>;
 }
 
-/// `psyche-vs-<helper pid>-<app>-<n>` with the app id reduced to what a unit name allows. The
-/// helper's pid lets the next helper tell its predecessor's leftovers from a live helper's.
-pub fn unit_name(helper_pid: u32, app_id: &str, n: u32) -> String {
+/// `psyche-vs-<helper tag>-<app>-<n>` with the app id reduced to what a unit name allows. The tag
+/// (`sweep::HelperTag`) lets the next helper tell its predecessor's leftovers from a live
+/// helper's.
+pub fn unit_name(helper_tag: &str, app_id: &str, n: u32) -> String {
     let clean: String = app_id
         .chars()
         .map(|c| if c.is_ascii_alphanumeric() { c } else { '-' })
@@ -99,17 +100,7 @@ pub fn unit_name(helper_pid: u32, app_id: &str, n: u32) -> String {
     let clean = clean.trim_matches('-');
     let clean = if clean.is_empty() { "app" } else { clean };
     let short: String = clean.chars().take(40).collect();
-    format!("psyche-vs-{helper_pid}-{short}-{n}")
-}
-
-/// The helper pid in a `psyche-vs-<pid>-...` unit name (with or without `.scope`).
-pub fn unit_owner_pid(unit: &str) -> Option<u32> {
-    let rest = unit.strip_prefix("psyche-vs-")?;
-    let (pid, tail) = rest.split_once('-')?;
-    if tail.is_empty() || pid.is_empty() || !pid.bytes().all(|b| b.is_ascii_digit()) {
-        return None;
-    }
-    pid.parse().ok()
+    format!("psyche-vs-{helper_tag}-{short}-{n}")
 }
 
 /// The `systemd-run` argument list (without the program name).
@@ -370,30 +361,27 @@ mod tests {
     #[test]
     fn unit_names_are_safe_and_short() {
         assert_eq!(
-            unit_name(77, "org.gnome.TextEditor", 3),
-            "psyche-vs-77-org-gnome-TextEditor-3"
+            unit_name("effffffc.2a.3e8", "org.gnome.TextEditor", 3),
+            "psyche-vs-effffffc.2a.3e8-org-gnome-TextEditor-3"
         );
-        assert_eq!(unit_name(77, "../../etc", 1), "psyche-vs-77-etc-1");
-        assert_eq!(unit_name(77, "", 2), "psyche-vs-77-app-2");
-        assert!(unit_name(4_194_304, &"a".repeat(200), 1).len() < 70);
+        assert_eq!(unit_name("1.2.3", "../../etc", 1), "psyche-vs-1.2.3-etc-1");
+        assert_eq!(unit_name("1.2.3", "", 2), "psyche-vs-1.2.3-app-2");
+        let long_tag = "ffffffffffffffff.ffffffff.ffffffffffffffff";
+        assert!(unit_name(long_tag, &"a".repeat(200), 1).len() < 120);
+        // The tag the sweep reads back is the one that went in.
+        let tag = super::super::sweep::HelperTag {
+            pid_ns: 0xeffffffc,
+            pid: 42,
+            start: 1000,
+        };
+        assert_eq!(
+            super::super::sweep::tag_of(&unit_name(&tag.text(), "org.x.Y", 1), "psyche-vs-"),
+            Some(tag)
+        );
     }
 
     #[test]
-    fn the_helper_pid_is_read_back_from_unit_names() {
-        assert_eq!(
-            unit_owner_pid("psyche-vs-77-org-gnome-TextEditor-3"),
-            Some(77)
-        );
-        assert_eq!(unit_owner_pid("psyche-vs-1234-bus-90-55.scope"), Some(1234));
-        for bad in [
-            "psyche-vs-display-90-55",
-            "psyche-vs-77",
-            "psyche-vs--x",
-            "psyche-vs-7a-x",
-            "other-77-x",
-        ] {
-            assert_eq!(unit_owner_pid(bad), None, "{bad}");
-        }
+    fn listed_units_are_read_from_the_first_column() {
         let listed = "psyche-vs-77-bus-90-5.scope loaded active running Psyche bus\nfoo.scope loaded active running x\npsyche-vs-8-display-91-9.scope loaded inactive dead d\n";
         assert_eq!(
             parse_unit_list(listed),

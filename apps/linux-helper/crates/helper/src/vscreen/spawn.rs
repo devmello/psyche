@@ -26,8 +26,10 @@ fn spawner() -> io::Result<&'static mpsc::Sender<Job>> {
             std::thread::Builder::new()
                 .name("vscreen-spawner".into())
                 .spawn(move || {
+                    // A panicking job must not end this thread: its exit would SIGKILL every
+                    // tied child.
                     for job in rx {
-                        job();
+                        let _ = std::panic::catch_unwind(std::panic::AssertUnwindSafe(job));
                     }
                 })
                 .map(|_| tx)

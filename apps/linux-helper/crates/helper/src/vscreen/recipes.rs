@@ -528,8 +528,10 @@ fn pref_name_char(b: u8) -> bool {
     b.is_ascii_alphanumeric() || matches!(b, b'.' | b'_' | b'-' | b'[' | b']')
 }
 
-/// A quoted pref string: `"` then characters other than `"` and `\`, or `\` and any one
-/// character, then `"`, and nothing after it.
+/// A quoted pref string: `"`, then characters other than `"` and `\`, or the escapes `\\` and
+/// `\"` only, then `"` and nothing after it. Firefox's parser reports any other escape (`\q`) as
+/// an error and resumes after the next `;`, so accepting one would let a second statement hide
+/// inside what looks like one string.
 fn is_pref_string(value: &str) -> bool {
     let Some(inner) = value.strip_prefix('"') else {
         return false;
@@ -538,7 +540,7 @@ fn is_pref_string(value: &str) -> bool {
     while let Some(c) = chars.next() {
         match c {
             '\\' => {
-                if chars.next().is_none() {
+                if !matches!(chars.next(), Some('\\' | '"')) {
                     return false;
                 }
             }
@@ -554,6 +556,11 @@ fn is_pref_string(value: &str) -> bool {
 /// Anything else (`pref(`, `sticky_pref(`, other spacing, single quotes, escapes in the name,
 /// comments, two statements, a statement split over lines) is not a canonical line.
 pub fn canonical_user_pref(line: &str) -> Option<&str> {
+    // No control character anywhere: `str::lines` keeps a lone CR inside a line, and Firefox
+    // ends a line there.
+    if line.chars().any(char::is_control) {
+        return None;
+    }
     let rest = line.strip_prefix("user_pref(\"")?;
     let end = rest.find('"')?;
     let (name, rest) = rest.split_at(end);
@@ -1104,6 +1111,17 @@ mod tests {
             r#"user_pref("services.sync.username", "o"); // note"#,
             r#"user_pref("browser.x", "unterminated);"#,
             r#"user_pref("browser.x", "ends in a backslash\");"#,
+            // An escape Firefox rejects, then panic-mode recovery to the next `;`.
+            r#"user_pref("a", "\q ; user_pref('services.sync.username', 'evil'); //");"#,
+            r#"user_pref("a", "\n");"#,
+            r#"user_pref("a", "\x41");"#,
+            r#"user_pref("a", "\u0041");"#,
+            r#"user_pref("a", "\'");"#,
+            // Control characters: a lone CR (Firefox's end of line), a tab, a NUL.
+            "user_pref(\"a\", \"x\ruser_pref('services.sync.username', 'evil');\");",
+            "user_pref(\"a\", true);\r",
+            "user_pref(\"a\", \"x\ty\");",
+            "user_pref(\"a\", \"x\0y\");",
             r#"user_pref("browser.x", 1.5);"#,
             r#"user_pref("browser.x", TRUE);"#,
             r#"user_pref("browser.x",true);"#,

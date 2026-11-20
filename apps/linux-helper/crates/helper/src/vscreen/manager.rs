@@ -383,7 +383,7 @@ impl VscreenManager {
     fn start_session(&self, display: &VirtualDisplay) -> Result<Session, VsError> {
         let display_unit = format!(
             "psyche-vs-{}-display-{}-{}",
-            std::process::id(),
+            super::sweep::own_tag_text(),
             display.display.trim_start_matches(':'),
             display.xvfb_pid()
         );
@@ -422,7 +422,7 @@ impl VscreenManager {
         };
         let unit = format!(
             "psyche-vs-{}-bus-{}-{}",
-            std::process::id(),
+            super::sweep::own_tag_text(),
             display.display.trim_start_matches(':'),
             display.xvfb_pid()
         );
@@ -466,7 +466,7 @@ impl VscreenManager {
         };
         let unit = format!(
             "psyche-vs-{}-a11y-{}-{}",
-            std::process::id(),
+            super::sweep::own_tag_text(),
             display.display.trim_start_matches(':'),
             display.xvfb_pid()
         );
@@ -622,7 +622,7 @@ impl VscreenManager {
             let n = inner.next_unit;
             inner.next_unit += 1;
             (
-                unit_name(std::process::id(), &entry.id, n),
+                unit_name(&super::sweep::own_tag_text(), &entry.id, n),
                 display.window_serial(),
             )
         };
@@ -867,32 +867,34 @@ impl VscreenManager {
         let fail = |e: String| {
             VsError::new("input_failed", "The input could not be sent.").with_detail(&e)
         };
-        for event in events {
+        let apply = |event: &InputEvent| -> Result<(), String> {
             match event {
                 InputEvent::Move { x, y } => {
                     let (x, y) = at(*x, *y);
-                    display.with_input(|i| i.move_to(x, y)).map_err(fail)?;
+                    display.with_input(|i| i.move_to(x, y))
                 }
                 InputEvent::Down { x, y, button } | InputEvent::Up { x, y, button } => {
                     let (x, y) = at(*x, *y);
                     let down = matches!(event, InputEvent::Down { .. });
-                    display
-                        .with_input(|i| i.move_to(x, y).and_then(|_| i.button(*button, down)))
-                        .map_err(fail)?;
+                    display.with_input(|i| i.move_to(x, y).and_then(|_| i.button(*button, down)))
                 }
                 InputEvent::Scroll { x, y, dx, dy } => {
                     let (x, y) = at(*x, *y);
-                    display
-                        .with_input(|i| i.scroll(x, y, *dx, *dy))
-                        .map_err(fail)?;
+                    display.with_input(|i| i.scroll(x, y, *dx, *dy))
                 }
-                InputEvent::KeyDown(k) => display.with_input(|i| i.key(k, true)).map_err(fail)?,
-                InputEvent::KeyUp(k) => display.with_input(|i| i.key(k, false)).map_err(fail)?,
-                InputEvent::Text(t) => display.with_input(|i| i.type_text(t)).map_err(fail)?,
+                InputEvent::KeyDown(k) => display.with_input(|i| i.key(k, true)),
+                InputEvent::KeyUp(k) => display.with_input(|i| i.key(k, false)),
+                InputEvent::Text(t) => display.with_input(|i| i.type_text(t)),
             }
+        };
+        let skipped =
+            run_input_batch(events, release, apply, || display.release_input()).map_err(fail)?;
+        if skipped > 0 {
+            crate::log(&format!(
+                "vscreen: release batch skipped {skipped} event(s)"
+            ));
         }
         if release {
-            display.release_input().map_err(fail)?;
             lock(&self.inner).owner_input_at = None;
         }
         Ok(())
@@ -1001,12 +1003,16 @@ impl VscreenManager {
     /// dirs (and, without a runtime dir, its `psyche-vscreen-<pid>-*` temp dir), for every pid
     /// that is no longer running. A live helper's are left alone.
     pub fn sweep_leftovers(&self) {
-        let me = std::process::id();
-        let alive = super::sweep::pid_alive;
+        // Without our own tag (no /proc) nothing can be judged safely.
+        let Some(me) = super::sweep::own_tag() else {
+            return;
+        };
+        let me = &me;
+        let alive = super::sweep::tag_alive;
         let scopes = self.deps.runner.list_scopes();
         for unit in super::sweep::stale(
             scopes.iter().map(String::as_str),
-            super::scope::unit_owner_pid,
+            |n| super::sweep::tag_of(n, "psyche-vs-"),
             me,
             &alive,
         ) {
@@ -1026,6 +1032,31 @@ impl VscreenManager {
         let mut inner = lock(&self.inner);
         self.teardown_locked(&mut inner);
     }
+}
+
+/// Runs one input batch. An ordinary batch stops at the first event that fails. A release batch
+/// (the take-over ended or the pane lost focus) skips the events that fail, an unmappable key
+/// such as `Unidentified`, `Dead` or `Process` among them, and always ends with `release`: one bad
+/// key must not leave Ctrl held for the agent. Returns how many events were skipped.
+pub fn run_input_batch(
+    events: &[InputEvent],
+    release_after: bool,
+    mut apply: impl FnMut(&InputEvent) -> Result<(), String>,
+    release: impl FnOnce() -> Result<(), String>,
+) -> Result<usize, String> {
+    let mut skipped = 0;
+    for event in events {
+        if let Err(e) = apply(event) {
+            if !release_after {
+                return Err(e);
+            }
+            skipped += 1;
+        }
+    }
+    if release_after {
+        release()?;
+    }
+    Ok(skipped)
 }
 
 /// Housekeeping while a display exists: forget apps that ended, notice a dead server, and stop
@@ -1083,5 +1114,91 @@ impl VsError {
     fn with_detail(self, detail: &str) -> Self {
         crate::log(&format!("vscreen: {}: {detail}", self.reason));
         self
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn key(k: &str) -> InputEvent {
+        InputEvent::KeyUp(k.into())
+    }
+
+    /// Fails for keys the helper cannot map, like `Input::key` does.
+    fn apply_log(log: &mut Vec<String>) -> impl FnMut(&InputEvent) -> Result<(), String> + '_ {
+        move |e| match e {
+            InputEvent::KeyUp(k) if matches!(k.as_str(), "Unidentified" | "Dead" | "Process") => {
+                Err(format!("unknown key {k}"))
+            }
+            InputEvent::KeyUp(k) => {
+                log.push(format!("up {k}"));
+                Ok(())
+            }
+            _ => Ok(()),
+        }
+    }
+
+    #[test]
+    fn a_release_batch_skips_unmappable_keys_and_always_releases() {
+        let mut log = Vec::new();
+        let mut released = false;
+        let events = [
+            key("Shift"),
+            key("Unidentified"),
+            key("Dead"),
+            key("Control"),
+            key("Process"),
+        ];
+        let skipped = run_input_batch(&events, true, apply_log(&mut log), || {
+            released = true;
+            Ok(())
+        })
+        .unwrap();
+        assert_eq!(skipped, 3);
+        assert!(released, "release ran despite the bad keys");
+        assert_eq!(
+            log,
+            ["up Shift", "up Control"],
+            "the good keys still went through"
+        );
+        // A release batch made only of bad keys still releases.
+        let mut released = false;
+        let mut log = Vec::new();
+        assert_eq!(
+            run_input_batch(&[key("Unidentified")], true, apply_log(&mut log), || {
+                released = true;
+                Ok(())
+            }),
+            Ok(1)
+        );
+        assert!(released);
+    }
+
+    #[test]
+    fn an_ordinary_batch_stops_at_the_first_failure_and_releases_nothing() {
+        let mut log = Vec::new();
+        let mut released = false;
+        let r = run_input_batch(
+            &[key("a"), key("Dead"), key("b")],
+            false,
+            apply_log(&mut log),
+            || {
+                released = true;
+                Ok(())
+            },
+        );
+        assert_eq!(r, Err("unknown key Dead".to_string()));
+        assert_eq!(log, ["up a"]);
+        assert!(!released);
+    }
+
+    #[test]
+    fn a_failing_release_is_reported() {
+        let mut log = Vec::new();
+        assert_eq!(
+            run_input_batch(&[], true, apply_log(&mut log), || Err("x gone".into())),
+            Err("x gone".to_string())
+        );
     }
 }

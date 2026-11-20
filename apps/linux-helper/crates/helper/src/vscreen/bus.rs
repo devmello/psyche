@@ -47,13 +47,13 @@ use super::guard::bus_names;
 use super::recipes::DesktopEntry;
 use super::spawn::check_peer;
 
-/// Makes `<base>/psyche/vs-<helper pid>-<12 hex>`, mode 0700, new (never an existing directory).
-/// The pid lets the next helper sweep a crashed one's dirs (`sweep.rs`).
+/// Makes `<base>/psyche/vs-<helper tag>-<12 hex>`, mode 0700, new (never an existing directory).
+/// The tag lets the next helper sweep a crashed one's dirs (`sweep.rs`).
 pub fn make_session_dir(psyche_runtime_dir: &Path) -> std::io::Result<PathBuf> {
     let mut tag = [0u8; 6];
     getrandom::fill(&mut tag).map_err(|e| std::io::Error::other(e.to_string()))?;
     let hex: String = tag.iter().map(|b| format!("{b:02x}")).collect();
-    let dir = psyche_runtime_dir.join(format!("vs-{}-{hex}", std::process::id()));
+    let dir = psyche_runtime_dir.join(format!("vs-{}-{hex}", super::sweep::own_tag_text()));
     std::fs::DirBuilder::new().mode(0o700).create(&dir)?;
     Ok(dir)
 }
