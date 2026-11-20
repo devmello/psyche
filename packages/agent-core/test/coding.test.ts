@@ -1,11 +1,9 @@
 import { execFile } from "node:child_process";
 import { createHash } from "node:crypto";
 import {
-  existsSync,
   mkdirSync,
   mkdtempSync,
   readFileSync,
-  readlinkSync,
   realpathSync,
   renameSync,
   rmSync,
@@ -14,7 +12,7 @@ import {
 } from "node:fs";
 import { readFile, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
-import { dirname, join } from "node:path";
+import { join } from "node:path";
 import { promisify } from "node:util";
 import { FakeSandboxRunner } from "@psyche/testing";
 import { Type } from "@sinclair/typebox";
@@ -350,112 +348,6 @@ describe("code.* tools (V10)", () => {
       },
     );
     expect(sbx.id).toBe(exec?.sandboxId);
-  });
-
-  // #1434 review r1, finding 1: a run never leaves app launch config behind on the host.
-  describe("launch config", () => {
-    /** A scripted command that writes on the host, as the real mount would. */
-    const writes = (runner: FakeSandboxRunner, argv0: string, files: Record<string, string>) =>
-      runner.script(
-        (r) => {
-          if (r.argv[0] !== argv0) return false;
-          for (const [rel, text] of Object.entries(files)) {
-            mkdirSync(dirname(join(repo, rel)), { recursive: true });
-            writeFileSync(join(repo, rel), text);
-          }
-          return true;
-        },
-        { stdout: "done\n" },
-      );
-
-    it("removes launch config a run created and says so", async () => {
-      const { use, runner } = setup();
-      writes(runner, "plant", {
-        ".vscode/tasks.json": '{"tasks":[{"runOptions":{"runOn":"folderOpen"}}]}',
-        ".obsidian/plugins/x/main.js": "require('child_process')",
-        "packages/web/.npmrc": "node-options=--require ./x.js",
-        "src/ok.js": "export const ok = 1;\n",
-      });
-      await use("code.open", { path: repo });
-      const r = await use("code.run", { root: repo, argv: ["plant"] });
-      expect(existsSync(join(repo, ".vscode"))).toBe(false);
-      expect(existsSync(join(repo, ".obsidian"))).toBe(false);
-      expect(existsSync(join(repo, "packages/web/.npmrc"))).toBe(false);
-      // Ordinary files stay.
-      expect(readFileSync(join(repo, "src/ok.js"), "utf8")).toContain("ok");
-      const launch = r.output.launchConfig as { removed: string[]; notice: string };
-      expect([...launch.removed].sort()).toEqual([".obsidian", ".vscode", "packages/web/.npmrc"]);
-      expect(launch.notice).toMatch(/code\.edit/);
-      expect(r.output.exitCode).toBe(0);
-    });
-
-    it("mounts existing launch-config folders read-only and keeps files as they were", async () => {
-      mkdirSync(join(repo, ".vscode"));
-      writeFileSync(join(repo, ".vscode/settings.json"), "{}\n");
-      writeFileSync(join(repo, ".npmrc"), "save-exact=true\n");
-      writeFileSync(join(repo, ".envrc"), "use node\n");
-      const { use, runner } = setup();
-      runner.script((r) => {
-        if (r.argv[0] !== "tamper") return false;
-        writeFileSync(join(repo, ".npmrc"), "node-options=--require ./x.js\n");
-        rmSync(join(repo, ".envrc"));
-        return true;
-      }, {});
-      await use("code.open", { path: repo });
-      const r = await use("code.run", { root: repo, argv: ["tamper"] });
-      const exec = runner.execs[0];
-      const sbx = (await runner.ensureSandbox(
-        {
-          kind: "project",
-          id: (await use("code.open", { path: repo })).output.workspace as string,
-        },
-        {
-          mounts: [
-            { source: repo, target: "/workspace/repo", readOnly: false },
-            { source: join(repo, ".git"), target: "/workspace/repo/.git", readOnly: true },
-            { source: join(repo, ".vscode"), target: "/workspace/repo/.vscode", readOnly: true },
-          ],
-        },
-      )) as { id: string };
-      expect(sbx.id).toBe(exec?.sandboxId);
-      expect(readFileSync(join(repo, ".npmrc"), "utf8")).toBe("save-exact=true\n");
-      expect(readFileSync(join(repo, ".envrc"), "utf8")).toBe("use node\n");
-      expect((r.output.launchConfig as { restored: string[] }).restored.sort()).toEqual([
-        ".envrc",
-        ".npmrc",
-      ]);
-    });
-
-    it("links a symlinked config folder again when a run replaced it", async () => {
-      const dotfiles = join(dir, "dotfiles", "obsidian");
-      mkdirSync(dotfiles, { recursive: true });
-      symlinkSync(dotfiles, join(repo, ".obsidian"));
-      const { use, runner } = setup();
-      runner.script((r) => {
-        if (r.argv[0] !== "swap") return false;
-        rmSync(join(repo, ".obsidian"));
-        mkdirSync(join(repo, ".obsidian/plugins/x"), { recursive: true });
-        writeFileSync(join(repo, ".obsidian/plugins/x/main.js"), "x");
-        return true;
-      }, {});
-      await use("code.open", { path: repo });
-      const r = await use("code.run", { root: repo, argv: ["swap"] });
-      expect(readlinkSync(join(repo, ".obsidian"))).toBe(dotfiles);
-      expect(existsSync(join(dotfiles, "plugins"))).toBe(false);
-      expect((r.output.launchConfig as { restored: string[] }).restored).toEqual([".obsidian"]);
-    });
-
-    it("makes the sandbox again when the launch-config folders changed between runs", async () => {
-      const { use, runner } = setup();
-      await use("code.open", { path: repo });
-      await use("code.run", { root: repo, argv: ["true"] });
-      // The owner opens the repository in an IDE, which adds its folder.
-      mkdirSync(join(repo, ".idea"));
-      const r = await use("code.run", { root: repo, argv: ["true"] });
-      expect(r.output.exitCode).toBe(0);
-      expect(existsSync(join(repo, ".idea"))).toBe(true);
-      expect(runner.execs[1]?.sandboxId).not.toBe(runner.execs[0]?.sandboxId);
-    });
   });
 
   it("refuses a command whose cwd is outside the workspace, before the sandbox", async () => {

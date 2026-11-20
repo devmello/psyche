@@ -15,11 +15,8 @@ export {
   windowsLaunchable,
 } from "./launch.ts";
 export {
-  findLaunchConfig,
   LAUNCH_CONFIG_DIRS,
   LAUNCH_CONFIG_FILES,
-  type LaunchConfigFound,
-  type LaunchConfigScan,
   type LaunchConfigScanLimits,
   launchConfigEntry,
   launchConfigLinkTargets,

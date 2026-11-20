@@ -27,7 +27,6 @@ import {
   parseStatus,
   REMOTE_PATTERN,
 } from "./git.ts";
-import { guardLaunchConfig, type LaunchConfigReport, launchConfigNotice } from "./launch-guard.ts";
 import { applyFilePatch, PATCH_LIMITS, parsePatch, patchStats } from "./patch.ts";
 import { CODE_SEARCH_LIMITS, searchCode } from "./search.ts";
 import {
@@ -594,32 +593,9 @@ function runTool(
   workspace: WorkspaceOf,
   receipt: ReceiptFn,
 ): AgentToolRegistration {
-  /** The sandbox each scope runs in, so one whose mounts changed can be made again. */
-  const sandboxIds = new Map<string, string>();
-  const ensure = async (
-    scope: SandboxScope,
-    options: Parameters<SandboxRunner["ensureSandbox"]>[1],
-  ) => {
-    const key = `${scope.kind}:${scope.id}`;
-    let sandbox: Awaited<ReturnType<SandboxRunner["ensureSandbox"]>>;
-    try {
-      sandbox = await runner.ensureSandbox(scope, options);
-    } catch (err) {
-      // The repository's `.git` or launch-config folders changed since the sandbox was made:
-      // its mounts are fixed, so it is made again (the workspace volume stays).
-      const known = sandboxIds.get(key);
-      if (!(err instanceof PsycheError) || err.code !== "conflict" || known === undefined) {
-        throw err;
-      }
-      await runner.destroy(known);
-      sandbox = await runner.ensureSandbox(scope, options);
-    }
-    sandboxIds.set(key, sandbox.id);
-    return sandbox;
-  };
   return defineTool({
     name: "code.run",
-    description: `Run one command (an argv array, no shell string) in the sandbox with the coding workspace mounted at ${REPO_MOUNT} (cwd is relative to the repository root). Network is off; \`network: "proxy"\` allows the sites the owner approves through the egress proxy. Never runs on the owner's machine. Use it for tests, builds and linters. App launch config (.vscode, .idea, .husky, .npmrc and the like) stays as it was: a run cannot change it, so edit it with code.edit.`,
+    description: `Run one command (an argv array, no shell string) in the sandbox with the coding workspace mounted at ${REPO_MOUNT} (cwd is relative to the repository root). Network is off; \`network: "proxy"\` allows the sites the owner approves through the egress proxy. Never runs on the owner's machine. Use it for tests, builds and linters.`,
     input: Type.Object({
       root: AbsolutePath,
       argv: Type.Array(Type.String({ maxLength: 8192 }), { minItems: 1, maxItems: 256 }),
@@ -678,11 +654,9 @@ function runTool(
         },
         () => false,
       );
-      // App launch config stays as it was (#1434 review r1, finding 1).
-      const guard = ws.mode === "rw" ? await guardLaunchConfig(ws.root, REPO_MOUNT) : undefined;
-      const sandbox = await ensure(scope, {
+      const sandbox = await runner.ensureSandbox(scope, {
         network,
-        mounts: [...repoMounts(ws, gitDir), ...(guard?.mounts ?? [])],
+        mounts: repoMounts(ws, gitDir),
       });
       const rel = relativeTo(ws.root, hostCwd);
       const release =
@@ -699,7 +673,6 @@ function runTool(
             })
           : undefined;
       let result: Awaited<ReturnType<SandboxRunner["exec"]>>;
-      let launch: LaunchConfigReport | undefined;
       try {
         result = await runner.exec({
           sandboxId: sandbox.id,
@@ -713,13 +686,7 @@ function runTool(
         });
       } finally {
         release?.();
-        launch = await guard?.settle().catch(() => ({
-          removed: [],
-          restored: [],
-          unchecked: ["."],
-        }));
       }
-      const notice = launch === undefined ? undefined : launchConfigNotice(launch);
       const failed = result.outcome === "failed";
       const command = p.argv.join(" ");
       const receiptId = await receipt(
@@ -737,7 +704,6 @@ function runTool(
           timedOut: result.timedOut,
           filesChanged: result.filesChanged,
           outcome: result.outcome,
-          ...(notice === undefined ? {} : { launchConfig: launch }),
         },
         { exitCode: result.exitCode ?? -1 },
       );
@@ -751,7 +717,6 @@ function runTool(
           timedOut: result.timedOut,
           filesChanged: result.filesChanged,
           outcome: result.outcome,
-          ...(notice === undefined ? {} : { launchConfig: { ...launch, notice } }),
         },
         // Command output is data (design-07: the workspace's provenance decides the rest).
         provenance: "untrusted",

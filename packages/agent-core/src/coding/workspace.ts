@@ -171,8 +171,7 @@ export function sandboxScopeOf(ws: CodingWorkspace, network: "none" | "proxy"): 
 /**
  * The repository read-write at `/workspace/repo`, with its `.git` read-only on top: a command
  * in the sandbox can change the working tree but never plant hooks or config that the owner's
- * own git would run on the host (security §5.1; the SharedRoot lesson in §13). `code.run` adds
- * the repository's launch-config folders read-only too (`guardLaunchConfig`).
+ * own git would run on the host (security §5.1; the SharedRoot lesson in §13).
  */
 export function repoMounts(ws: CodingWorkspace, gitDir: boolean): SandboxMount[] {
   return [

@@ -2,7 +2,7 @@ import { mkdirSync, mkdtempSync, rmSync, symlinkSync, writeFileSync } from "node
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { afterEach, describe, expect, it } from "vitest";
-import { findLaunchConfig, launchConfigEntry, launchConfigLinkTargets } from "../src/index.ts";
+import { launchConfigEntry, launchConfigLinkTargets } from "../src/index.ts";
 
 /** App settings in a shared folder that the next app launch runs (#1427 review r1, finding 4). */
 describe("launchConfigEntry", () => {
@@ -94,7 +94,7 @@ describe("launchConfigEntry", () => {
   });
 });
 
-describe("finding launch config in a folder tree", () => {
+describe("symlinked launch config in a folder tree", () => {
   const dirs: string[] = [];
   afterEach(() => {
     for (const d of dirs.splice(0)) rmSync(d, { recursive: true, force: true });
@@ -108,38 +108,6 @@ describe("finding launch config in a folder tree", () => {
     }
     return root;
   };
-
-  it("reports each entry once, without walking into it, .git or node_modules", async () => {
-    const root = tree([
-      ".vscode/settings.json",
-      ".vscode/nested/.idea/x.xml",
-      "packages/web/.npmrc",
-      ".claude/settings.json",
-      ".claude/commands/x.md",
-      ".git/hooks/pre-commit",
-      ".git/.vscode/x",
-      "node_modules/pkg/.npmrc",
-      "src/index.ts",
-    ]);
-    const scan = await findLaunchConfig(root);
-    expect(scan.complete).toBe(true);
-    expect(scan.found.map((f) => [f.rel, f.kind]).sort()).toEqual([
-      [".claude/settings.json", "file"],
-      [".vscode", "dir"],
-      ["packages/web/.npmrc", "file"],
-    ]);
-  });
-
-  it("reports a link as a link, and says when a limit stopped the walk", async () => {
-    const root = tree(["a/b/c/d/x.txt"]);
-    const target = tree(["obsidian/app.json"]);
-    symlinkSync(join(target, "obsidian"), join(root, ".obsidian"));
-    const scan = await findLaunchConfig(root);
-    expect(scan.found).toEqual([
-      { rel: ".obsidian", kind: "link", linkTarget: join(target, "obsidian") },
-    ]);
-    expect((await findLaunchConfig(root, { maxDirs: 2 })).complete).toBe(false);
-  });
 
   it("finds where a symlinked config folder really is (a dotfiles repo)", () => {
     const vault = tree(["Notes/a.md"]);
