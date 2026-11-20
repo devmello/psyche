@@ -6410,14 +6410,15 @@ export interface MailFollowupsListResult {
 }
 
 export interface MailFollowupItem {
-    daysQuiet: number;
-    id:        string;
-    kind:      MailFollowupKind;
-    link?:     string;
-    source:    MailFollowupItemSource;
-    subject:   string;
-    untrusted: boolean;
-    who:       string;
+    daysQuiet:      number;
+    gmailThreadId?: string;
+    id:             string;
+    kind:           MailFollowupKind;
+    link?:          string;
+    source:         MailFollowupItemSource;
+    subject:        string;
+    untrusted:      boolean;
+    who:            string;
 }
 
 export type MailFollowupKind = "no_reply" | "unanswered_question";
@@ -12312,13 +12313,15 @@ export interface StorageCleared {
 
 export interface StorageUsage {
     categories: StorageCategory[];
+    partial?:   boolean;
     totalBytes: number;
 }
 
 export interface StorageCategory {
-    bytes:     number;
-    clearable: boolean;
-    id:        StorageCategoryID;
+    bytes:             number;
+    clearable:         boolean;
+    id:                StorageCategoryID;
+    reclaimableBytes?: number;
 }
 
 export type StorageCategoryID = "database" | "memoryIndex" | "library" | "browserProfiles" | "recordings" | "logs" | "caches" | "other";

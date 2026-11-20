@@ -96,6 +96,8 @@ export interface SendInput {
    * follow-ups; channels send only to an idle thread.
    */
   taintSources?: TaintSource[];
+  /** `taintSources` hold for the whole chat, not this turn only (a mail follow-up draft). */
+  stickyTaint?: boolean;
   /**
    * Context the agent reads ahead of the message but the transcript doesn't show (Ask about my
    * screen: the untrusted text of what was on screen, docs/design/screen-ask-2026.md §3.3). Only
@@ -230,7 +232,7 @@ export class SessionController {
   /** Widget turns (generative-ui-2026 §6.2, §7.3): the proposed call and "not the owner's words". */
   readonly #turnOptions = new Map<
     string,
-    { proposedCall?: SendInput["proposedCall"]; ownerWords?: boolean }
+    { proposedCall?: SendInput["proposedCall"]; ownerWords?: boolean; stickyTaint?: boolean }
   >();
   #stopping = false;
   /** Threads being deleted: no new turns, no queue drain. */
@@ -426,10 +428,16 @@ export class SessionController {
   }
 
   #noteTurnOptions(runId: string, input: SendInput): void {
-    if (input.proposedCall === undefined && input.ownerWords === undefined) return;
+    if (
+      input.proposedCall === undefined &&
+      input.ownerWords === undefined &&
+      input.stickyTaint !== true
+    )
+      return;
     this.#turnOptions.set(runId, {
       ...(input.proposedCall === undefined ? {} : { proposedCall: input.proposedCall }),
       ...(input.ownerWords === undefined ? {} : { ownerWords: input.ownerWords }),
+      ...(input.stickyTaint === true ? { stickyTaint: true } : {}),
     });
   }
 
@@ -839,6 +847,7 @@ export class SessionController {
           ? {}
           : { proposedCall: turnOptions.proposedCall }),
         ...(turnOptions?.ownerWords === undefined ? {} : { ownerWords: turnOptions.ownerWords }),
+        ...(turnOptions?.stickyTaint === true ? { stickyTaint: true } : {}),
       });
       for await (const event of stream) {
         if (turn.detached || this.activeRunId(threadId) !== runId) {

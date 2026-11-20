@@ -801,7 +801,10 @@ impl<B: Backend> Engine<B> {
                 return Err(CapError::new(
                     code::POLICY_DENIED,
                     "app_mismatch",
-                    format!("The point is in {}, not {named}", app.name),
+                    format!(
+                        "The point is in {}, not {named}. If {named} is behind it, bring {named} forward with apps.focus first.",
+                        app.name
+                    ),
                 )
                 .detail("app", named)
                 .detail("appAtPoint", app.id.as_str()));

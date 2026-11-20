@@ -152,11 +152,18 @@ extension GatewayBackend {
             kindLabel: Self.humanized(kind), title: summary,
             summary: agent.map { "Requested by \($0)." } ?? "Psyche is asking before it goes ahead.",
             fields: fields, evidence: evidence, alsoSentTo: "Also sent to your Mac",
-            presenceNote: needsMac ? "This one needs your Mac." : nil, allowLabel: "Allow once")
+            presenceNote: needsMac ? "This one needs your Mac." : nil, allowLabel: "Allow once",
+            machineName: Self.machineName(a["machine"]))
         return NeedsYouItem(
             id: id, kind: .approval, title: summary, source: agent ?? Self.humanized(kind),
             time: WireFormat.time(a["requestedAt"]?.string), approval: detail,
             threadID: a.at("requestedBy", "threadId")?.string, taskID: a.at("requestedBy", "taskId")?.string)
+    }
+
+    /// The computer an approval is for: `machine.name`, trimmed. nil when absent or blank (the action is on this Mac).
+    static func machineName(_ machine: JSONValue?) -> String? {
+        guard let name = machine?["name"]?.string?.trimmingCharacters(in: .whitespacesAndNewlines), !name.isEmpty else { return nil }
+        return name
     }
 
     static func running(task t: JSONValue) -> RunningTask? {
