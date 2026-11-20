@@ -51,10 +51,20 @@ pub fn id_facts(ev: &Evidence, index: &DesktopIndex, flatpak: Option<String>) ->
         .cloned()
         .collect();
     let comm = ev.comm.as_deref().map(normalize).filter(|c| is_app_id(c));
-    for extra in comm.into_iter().chain(flatpak) {
+    for extra in comm.into_iter().chain(flatpak.clone()) {
         if !cands.contains(&extra) {
             cands.push(extra);
         }
+    }
+    // A process in a Flatpak sandbox is the app the sandbox says it is. Its `/app/...`
+    // executable is no host path, so host entries that happen to share a file name (the host's
+    // own `firefox`) say nothing about it.
+    if let Some(name) = flatpak {
+        return IdFacts {
+            own: Some(name.clone()),
+            resolved: vec![name],
+            candidates: cands,
+        };
     }
     IdFacts {
         own,
@@ -424,6 +434,10 @@ fn split_exec(s: &str) -> Vec<String> {
 #[derive(Debug, Default, Clone)]
 pub struct DesktopIndex {
     pub entries: Vec<DesktopEntry>,
+    /// For each entry id: the file names of the programs its `Exec=` really runs, found by
+    /// following the program through symlinks and the `exec` lines of launcher scripts
+    /// ([`wrapper_targets`]). `libreoffice --writer` is a script that runs `soffice.bin`.
+    pub targets: HashMap<String, Vec<String>>,
 }
 
 impl DesktopIndex {
@@ -465,7 +479,13 @@ impl DesktopIndex {
                 }
             }
         }
-        DesktopIndex { entries }
+        let targets = entries
+            .iter()
+            .filter(|e| !e.exec.starts_with("flatpak:"))
+            .map(|e| (e.id.clone(), wrapper_targets(&e.exec)))
+            .filter(|(_, t)| !t.is_empty())
+            .collect();
+        DesktopIndex { entries, targets }
     }
 
     /// The default search path: `$XDG_DATA_HOME`, `$XDG_DATA_DIRS`, flatpak exports.
@@ -499,7 +519,12 @@ impl DesktopIndex {
             .iter()
             .filter(|e| {
                 !e.exec.starts_with("flatpak:")
-                    && (e.exec == exe || e.exec.rsplit('/').next() == Some(base))
+                    && (e.exec == exe
+                        || e.exec.rsplit('/').next() == Some(base)
+                        || self
+                            .targets
+                            .get(&e.id)
+                            .is_some_and(|t| t.iter().any(|b| b == base)))
             })
             .map(|e| e.id.clone())
             .collect()
@@ -508,6 +533,92 @@ impl DesktopIndex {
     pub fn get(&self, id: &str) -> Option<&DesktopEntry> {
         let id = normalize(id);
         self.entries.iter().find(|e| e.id == id)
+    }
+}
+
+/// The system directories a bare `Exec=` program is looked up in when its launcher is followed.
+/// Never the account's own `PATH`.
+const WRAPPER_DIRS: &[&str] = &["/usr/local/bin", "/usr/bin", "/bin", "/snap/bin"];
+
+fn plain_file_name(word: &str) -> Option<String> {
+    let w = word.trim_matches(|c| c == '"' || c == '\'' || c == ';');
+    let base = w.rsplit('/').next()?;
+    (!base.is_empty()
+        && base.len() <= 64
+        && !base.starts_with('-')
+        && base
+            .chars()
+            .all(|c| c.is_ascii_alphanumeric() || matches!(c, '.' | '_' | '+' | '-')))
+    .then(|| base.to_string())
+}
+
+/// The file names of the programs `program` (an `Exec=` first token) really runs: its own
+/// resolved name, then, if it is a launcher script (`#!`), the programs on its `exec` lines
+/// (`exec "$sd_prog/soffice.bin" "$@"` gives `soffice.bin`), following absolute paths up to
+/// three scripts deep. Only reads files; never runs anything.
+pub fn wrapper_targets(program: &str) -> Vec<String> {
+    let start: Option<PathBuf> = if program.starts_with('/') {
+        Some(PathBuf::from(program))
+    } else if program.contains('/') {
+        None
+    } else {
+        WRAPPER_DIRS
+            .iter()
+            .map(|d| Path::new(d).join(program))
+            .find(|p| p.is_file())
+    };
+    let mut out = Vec::new();
+    if let Some(start) = start {
+        walk_launcher(&start, 0, &mut out);
+    }
+    out
+}
+
+fn walk_launcher(path: &Path, depth: usize, out: &mut Vec<String>) {
+    use std::io::Read;
+    let Ok(real) = std::fs::canonicalize(path) else {
+        return;
+    };
+    if let Some(name) = real.file_name().and_then(|f| f.to_str()) {
+        if !out.iter().any(|o| o == name) {
+            out.push(name.to_string());
+        }
+    }
+    if depth >= 3 {
+        return;
+    }
+    let Ok(file) = std::fs::File::open(&real) else {
+        return;
+    };
+    let mut head = Vec::new();
+    if file.take(16 * 1024).read_to_end(&mut head).is_err() || !head.starts_with(b"#!") {
+        return;
+    }
+    let text = String::from_utf8_lossy(&head);
+    for line in text.lines() {
+        let line = line.trim();
+        if line.starts_with('#') {
+            continue;
+        }
+        let Some(at) = line.find("exec ") else {
+            continue;
+        };
+        for word in line[at + 5..].split_whitespace() {
+            // A variable on its own (`$GDBTRACECHECK`, `"$0"`) names no program; one with a
+            // path (`"$sd_prog/soffice.bin"`) names its file.
+            let w = word.trim_matches(|c| c == '"' || c == '\'');
+            if w.starts_with('-') || w.contains('=') || (w.starts_with('$') && !w.contains('/')) {
+                continue;
+            }
+            if let Some(name) = plain_file_name(w) {
+                if !out.contains(&name) {
+                    out.push(name);
+                }
+            }
+            if w.starts_with('/') && Path::new(w).is_file() {
+                walk_launcher(Path::new(w), depth + 1, out);
+            }
+        }
     }
 }
 
@@ -1017,5 +1128,96 @@ mod flatpak_tests {
         assert_eq!(flatpak_app_name("[Instance]\nname=a.b\n"), None);
         assert_eq!(flatpak_app_name("[Application]\nname=../x y\n"), None);
         assert_eq!(flatpak_app_name(""), None);
+    }
+}
+
+#[cfg(test)]
+mod wrapper_tests {
+    use super::*;
+
+    fn script(path: &Path, body: &str) {
+        use std::os::unix::fs::PermissionsExt;
+        std::fs::write(path, body).unwrap();
+        std::fs::set_permissions(path, std::fs::Permissions::from_mode(0o755)).unwrap();
+    }
+
+    #[test]
+    fn a_launcher_script_gives_the_program_it_runs() {
+        let dir = tempfile::tempdir().unwrap();
+        let w = dir.path().join("libreoffice");
+        script(
+            &w,
+            "#!/bin/sh\n# exec nothing here\nexec $GDB \"$sd_prog/soffice.bin\" \"$@\"\n",
+        );
+        let t = wrapper_targets(w.to_str().unwrap());
+        assert!(t.contains(&"libreoffice".to_string()));
+        assert!(t.contains(&"soffice.bin".to_string()), "{t:?}");
+        // A variable alone, an option and an assignment name no program.
+        assert!(!t.iter().any(|n| n.contains("GDB") || n == "-a"));
+    }
+
+    #[test]
+    fn a_chain_of_launchers_is_followed_through_absolute_paths_and_symlinks() {
+        let dir = tempfile::tempdir().unwrap();
+        let inner = dir.path().join("google-chrome");
+        let outer = dir.path().join("google-chrome-stable");
+        script(
+            &inner,
+            &format!(
+                "#!/bin/sh\nexec -a \"$0\" {}/chrome \"$@\"\n",
+                dir.path().display()
+            ),
+        );
+        std::os::unix::fs::symlink(&inner, &outer).unwrap();
+        let t = wrapper_targets(outer.to_str().unwrap());
+        assert!(t.contains(&"google-chrome".to_string()), "{t:?}");
+        assert!(t.contains(&"chrome".to_string()), "{t:?}");
+    }
+
+    /// On a box with LibreOffice installed, the real launcher script gives `soffice.bin`.
+    #[test]
+    fn the_installed_libreoffice_launcher_resolves_to_its_executable() {
+        if !Path::new("/usr/bin/libreoffice").exists() {
+            return;
+        }
+        let t = wrapper_targets("libreoffice");
+        assert!(t.iter().any(|n| n == "soffice.bin"), "{t:?}");
+    }
+
+    #[test]
+    fn a_binary_or_a_missing_program_gives_only_its_own_name() {
+        assert!(wrapper_targets("definitely-not-a-program-xyz").is_empty());
+        assert!(wrapper_targets("relative/dir/prog").is_empty());
+        let t = wrapper_targets("/bin/sh");
+        assert!(!t.is_empty());
+    }
+
+    #[test]
+    fn the_index_matches_a_process_to_the_entry_whose_launcher_runs_it() {
+        let dir = tempfile::tempdir().unwrap();
+        let bin = dir.path().join("bin");
+        std::fs::create_dir_all(&bin).unwrap();
+        script(
+            &bin.join("libreoffice"),
+            "#!/bin/sh\nexec \"$sd/soffice.bin\" \"$@\"\n",
+        );
+        let apps = dir.path().join("applications");
+        std::fs::create_dir_all(&apps).unwrap();
+        std::fs::write(
+            apps.join("libreoffice-writer.desktop"),
+            format!(
+                "[Desktop Entry]\nType=Application\nName=W\nExec={}/libreoffice --writer %U\n",
+                bin.display()
+            ),
+        )
+        .unwrap();
+        let index = DesktopIndex::load(&[dir.path().to_path_buf()]);
+        assert_eq!(
+            index.ids_for_exe("/usr/lib/libreoffice/program/soffice.bin"),
+            vec!["libreoffice-writer".to_string()]
+        );
+        assert!(index
+            .ids_for_exe("/usr/lib/libreoffice/program/other")
+            .is_empty());
     }
 }

@@ -412,9 +412,40 @@ impl Policy {
     }
 
     fn listed(list: &[String], id: &str) -> bool {
-        psyche_linux_computer::app_id::aliases(id)
-            .iter()
-            .any(|a| list.iter().any(|p| glob_match(&normalize(p), a)))
+        let ids = Self::forms(id);
+        list.iter().any(|p| {
+            let p = normalize(p);
+            // A pattern with a `*` is matched as written; a plain one may name either form.
+            let patterns = if p.contains('*') {
+                vec![p]
+            } else {
+                Self::forms(&p)
+            };
+            patterns
+                .iter()
+                .any(|pat| ids.iter().any(|id| glob_match(pat, id)))
+        })
+    }
+
+    /// The ids an id can be written as. A snap's desktop id is `<snap>_<app>`; when the two
+    /// are the same name (`firefox_firefox`) it is also just `firefox`, the id `apps.list`
+    /// reports. Nothing wider: `evil_firefox` and `firefox_evil` are not `firefox`, and
+    /// `code_insiders` is not `code`.
+    fn forms(id: &str) -> Vec<String> {
+        let id = normalize(id);
+        let mut out = vec![id.clone()];
+        if !id.contains('.') {
+            if let Some((a, b)) = id.split_once('_') {
+                if a == b && !a.is_empty() && !b.contains('_') {
+                    out.push(a.to_string());
+                }
+            }
+            // The short name also stands for the snap's id.
+            if !id.contains('_') && !id.is_empty() && !id.contains('*') {
+                out.push(format!("{id}_{id}"));
+            }
+        }
+        out
     }
 
     /// The same for a call that names no app: it is as permitted as the empty id, so `*` and
