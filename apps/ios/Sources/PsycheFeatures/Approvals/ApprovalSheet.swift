@@ -77,7 +77,7 @@ struct ApprovalSheet: View {
             case .review, .checking, .sending:
                 // Right above Allow, as in the mockup: the note explains the Face ID that Allow asks for.
                 if let note = detail.presenceNote {
-                    Label(note, systemImage: "faceid")
+                    Label(notice(note), systemImage: "faceid")
                         .font(.footnote)
                         .foregroundStyle(PsycheColor.muted)
                         .frame(maxWidth: .infinity, alignment: .leading)

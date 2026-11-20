@@ -620,12 +620,19 @@ public final class AlertCenter {
         await connection.release(appActive: appActive)
     }
 
+    /// The "couldn't answer" notification, in the app's language.
+    private func couldNotAnswer(_ id: String, _ message: String) -> AlertPayload {
+        var payload = AlertPolicy.couldNotAnswer(id, message: notice(message))
+        payload.title = notice(payload.title)
+        return payload
+    }
+
     private func send(_ id: String, _ decision: ApprovalDecision, onlyIf allowed: ((NeedsYouItem) -> Bool)?) async {
         if let allowed {
             let item = (try? await store.home())?.needsYou.first { $0.id == id }
             guard let item, allowed(item) else {
                 // Not answerable from here any more (or the check could not run): say so, don't go quiet.
-                await notifier.post(AlertPolicy.couldNotAnswer(id, message: "Open Psyche to answer this one."))
+                await notifier.post(couldNotAnswer(id, "Open Psyche to answer this one."))
                 return
             }
         }
@@ -637,7 +644,7 @@ public final class AlertCenter {
         } catch BackendError.notFound {
             await notifier.removeDelivered(ids: [id])
         } catch {
-            await notifier.post(AlertPolicy.couldNotAnswer(id, message: error.localizedDescription))
+            await notifier.post(couldNotAnswer(id, error.localizedDescription))
         }
     }
 
