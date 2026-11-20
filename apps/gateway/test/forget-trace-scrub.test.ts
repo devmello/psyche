@@ -847,4 +847,95 @@ describe("Forget scrubs the forgotten words from every stored copy", () => {
     expect(JSON.stringify(stepPayloads(db, "w2"))).not.toContain("delta secret");
     patient.stop();
   });
+
+  it("matches \\uXXXX letters, \\/ and a \\u escape before the phrase (Q1)", async () => {
+    composed = await compose();
+    const db = composed.db;
+    // What Python's json.dumps (ensure_ascii) writes for non-ASCII text.
+    const py = (s: string) =>
+      s.replace(/[\u0080-￿]/g, (c) => `\\u${c.charCodeAt(0).toString(16).padStart(4, "0")}`);
+    const rows: [string, string, string][] = [
+      // phrase, step id, nested JSON text that holds it
+      ["José García", "q1", py('{"a": "José García", "b": "JOSÉ GARCÍA"}')],
+      ["AC/DC", "q2", '{"band": "AC\\/DC rocks"}'],
+      ["Sam Quillon", "q3", py('{"d": "xéSam Quillon"}')],
+      ["😀 smile", "q4", '{"f": "\\ud83d\\ude00 smile"}'],
+    ];
+    for (const [, id, inner] of rows) {
+      putStepPayload(db, {
+        runId: "r",
+        stepId: id,
+        kind: "input",
+        text: JSON.stringify({ result: inner }),
+        truncated: false,
+      });
+      // The same text in a truncated (text-mode) row.
+      putStepPayload(db, {
+        runId: "r",
+        stepId: `${id}t`,
+        kind: "input",
+        text: `${inner} [cut]`,
+        truncated: true,
+      });
+    }
+    const text = (id: string) => JSON.stringify(stepPayloads(db, id));
+    for (const [phrase, id] of rows) {
+      scrubNow(db, phrase);
+      for (const step of [id, `${id}t`]) {
+        expect(text(step), `${phrase} in ${step}`).toContain("[forgotten]");
+      }
+    }
+    expect(text("q1")).not.toMatch(/jos|gar/i);
+    expect(text("q1t")).not.toMatch(/jos|gar/i);
+    expect(text("q2")).not.toContain("DC");
+    expect(text("q3")).not.toContain("Quillon");
+    expect(text("q3")).toContain("u00e9"); // the escape before the phrase stays
+    expect(text("q4")).not.toContain("smile");
+    expect(text("q4t")).not.toContain("smile");
+  });
+
+  it("keeps tool names intact in both modes when the phrase is part of one (Q2)", async () => {
+    composed = await compose();
+    const db = composed.db;
+    putStepPayload(db, {
+      runId: "r",
+      stepId: "t1",
+      kind: "input",
+      text: JSON.stringify({
+        tools: [{ name: "apple_notes_search", description: "Search Apple Notes" }],
+        messages: [
+          {
+            role: "tool",
+            parts: [
+              {
+                type: "tool_result",
+                callId: "c1",
+                name: "apple_notes_search",
+                output: "Apple pie",
+              },
+            ],
+          },
+        ],
+        contact: { name: "Apple", description: "A person" },
+      }),
+      truncated: false,
+    });
+    putStepPayload(db, {
+      runId: "r",
+      stepId: "t2",
+      kind: "input",
+      text: '{"tools":[{"name":"apple_notes_search","description":"Search Apple Notes"}],"p":{"type":"tool_result","callId":"c1","name":"apple_notes_search","output":"Apple pie"}} [cut]',
+      truncated: true,
+    });
+    scrubNow(db, "Apple");
+    const t1 = JSON.stringify(stepPayloads(db, "t1"));
+    expect(t1.match(/apple_notes_search/g)).toHaveLength(2);
+    expect(t1).toContain("Search [forgotten] Notes");
+    expect(t1).toContain('"output":"[forgotten] pie"');
+    expect(t1).toContain('"name":"[forgotten]"');
+    const t2 = (stepPayloads(db, "t2") as { input: string }).input;
+    expect(t2.match(/apple_notes_search/g)).toHaveLength(2);
+    expect(t2).toContain("Search [forgotten] Notes");
+    expect(t2).toContain('"output":"[forgotten] pie"');
+  });
 });

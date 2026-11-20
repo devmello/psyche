@@ -44,6 +44,8 @@ const isStructuralKey = (k: string): boolean =>
 const TOOL_TYPES = ["tool_use", "tool_result", "function"];
 const isToolShaped = (o: Record<string, unknown>): boolean =>
   (typeof o.type === "string" && TOOL_TYPES.includes(o.type)) || "input" in o || "arguments" in o;
+/** Keys whose array entries are tool definitions or calls (`tools: [{name, description}]`). */
+const TOOL_LIST_KEYS = ["tools", "toolCalls"];
 
 const JSON_STRING = String.raw`"(?:[^"\\]|\\.)*"`;
 /**
@@ -53,22 +55,38 @@ const JSON_STRING = String.raw`"(?:[^"\\]|\\.)*"`;
  */
 const KEEP_SRC = [
   String.raw`(?-i:"(?:${STRUCTURAL_KEYS.join("|")}|${ID_KEY})"\s*:\s*${JSON_STRING})`,
-  String.raw`(?-i:(?="name")(?<="type"\s*:\s*"(?:${TOOL_TYPES.join("|")})"\s*,\s*)"name"\s*:\s*${JSON_STRING})`,
+  // A tool call or result: its `type` comes first; a few scalar keys (`callId`) may sit between.
+  String.raw`(?-i:(?="name")(?<="type"\s*:\s*"(?:${TOOL_TYPES.join("|")})"\s*,\s*(?:"[A-Za-z0-9_-]{1,32}"\s*:\s*(?:"[^"\\]{0,128}"|[0-9.]{1,20}|true|false|null)\s*,\s*){0,4})"name"\s*:\s*${JSON_STRING})`,
   String.raw`(?-i:"name"\s*:\s*${JSON_STRING}(?=\s*,\s*"(?:input|arguments)"\s*:))`,
+  // A tool definition (`{name, description}`): a name that is an identifier, not a person's name.
+  String.raw`(?-i:"name"\s*:\s*"[A-Za-z0-9]+[_.:-][A-Za-z0-9_.:-]*"(?=\s*,\s*"description"\s*:))`,
   String.raw`\[forgotten\]`,
 ].join("|");
 
 // Same word characters as the memory side (`_` is not one there), so both forget the same lines.
 const WORD_CHAR = String.raw`[\p{L}\p{N}]`;
 /** Left and right boundaries; a JSON escape before the phrase (`\n`, `\t`, ...) counts as a boundary. */
-const LEFT = String.raw`(?:(?<!${WORD_CHAR})|(?<=\\[nrtbf]))`;
+const LEFT = String.raw`(?:(?<!${WORD_CHAR})|(?<=\\[nrtbf])|(?<=\\u[0-9a-fA-F]{4}))`;
 const RIGHT = `(?!${WORD_CHAR})`;
 /** Whitespace in the phrase matches whitespace or the JSON escapes of it. */
 const SPACE = String.raw`(?:\s|\\[nrt]|\\u[0-9a-fA-F]{4})+`;
 
+/** `\uXXXX` for each UTF-16 unit of `c` (a surrogate pair for an astral character). */
+const unicodeEscape = (c: string): string =>
+  Array.from({ length: c.length }, (_, i) => c.charCodeAt(i))
+    .map((u) => String.raw`\\u${u.toString(16).padStart(4, "0")}`)
+    .join("");
+
 function escapeToken(c: string): string {
   if (c === '"') return String.raw`(?:"|\\")`;
   if (c === "\\") return String.raw`(?:\\\\|\\)`;
+  if (c === "/") return String.raw`(?:/|\\/)`;
+  if (c.charCodeAt(0) > 127) {
+    // A non-ASCII character may be stored as its `\uXXXX` escape (Python's `json.dumps` does,
+    // for the letter in either case). The pattern is case-insensitive, so hex digits match too.
+    const forms = [...new Set([c, c.toLowerCase(), c.toUpperCase()])];
+    return `(?:${[c, ...forms.map(unicodeEscape)].join("|")})`;
+  }
   return /[.*+?^${}()|[\]/]/.test(c) ? `\\${c}` : c;
 }
 
@@ -101,16 +119,19 @@ function makeScrubber(phrase: string): {
   // A string value is text; nested JSON text (MCP results, connector payloads) is scrubbed as
   // text too, in its escaped form, so every byte outside a match stays as it was (ids above 2^53,
   // formatting, number spelling).
-  const walk = (value: unknown): unknown => {
+  // `inToolList`: the value is an entry of a `tools` list, so its `name` is a tool's.
+  const walk = (value: unknown, inToolList = false): unknown => {
     if (typeof value === "string") return replace(value);
-    if (Array.isArray(value)) return value.map(walk);
+    if (Array.isArray(value)) return value.map((v) => walk(v, inToolList));
     if (value !== null && typeof value === "object") {
       const o = value as Record<string, unknown>;
-      const tool = isToolShaped(o);
+      const tool = inToolList || isToolShaped(o);
       return Object.fromEntries(
         Object.entries(o).map(([k, v]) => [
           k,
-          isStructuralKey(k) || (k === "name" && tool) ? v : walk(v),
+          isStructuralKey(k) || (k === "name" && tool)
+            ? v
+            : walk(v, TOOL_LIST_KEYS.includes(k) && Array.isArray(v)),
         ]),
       );
     }
@@ -145,7 +166,7 @@ export function withSecureDelete<T>(db: PsycheDb, fn: () => T): T {
   try {
     return fn();
   } finally {
-    db.sqlite.pragma(`secure_delete = ${Number.isInteger(previous) ? previous : 0}`);
+    db.sqlite.pragma(`secure_delete = ${previous === 2 ? "FAST" : previous === 1 ? "ON" : "OFF"}`);
   }
 }
 

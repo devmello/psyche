@@ -75,6 +75,10 @@ export function openDb(path: string, opts: OpenDbOptions = {}): PsycheDb {
     if (!readonly) {
       if (!memory) sqlite.pragma("journal_mode = WAL");
       sqlite.pragma("synchronous = NORMAL");
+      // Deleted cells are zeroed on the page they were on (FAST: no extra I/O for pages that
+      // are freed whole), so a Forget does not leave the text behind in space that was freed
+      // earlier. The scrub itself switches to ON around its own writes.
+      sqlite.pragma("secure_delete = FAST");
     }
     sqlite.pragma("foreign_keys = ON");
     sqlite.pragma("busy_timeout = 5000");

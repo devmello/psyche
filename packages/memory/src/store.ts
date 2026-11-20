@@ -1386,6 +1386,8 @@ export class SqliteMemoryStore implements MemoryStore {
         })
         .catch(() => undefined);
     }
+    // Full-text segments keep the tokens of deleted chunks until they are merged: merge them now.
+    this.#index.optimizeFts();
     // The forget has committed: a failing hook must not fail it (the owner would see an error
     // for a change that happened, and a retry would repeat the work).
     try {

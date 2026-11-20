@@ -1,8 +1,9 @@
 import { existsSync, readFileSync, statSync, symlinkSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { PsycheError } from "@psyche/protocol";
-import { afterEach, describe, expect, it } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 import { bootstrapContext, missingMarker } from "../src/context.ts";
+import { MemoryIndex } from "../src/index-db.ts";
 import type { MemoryEvent } from "../src/support.ts";
 import { APPROVED, makeEnv, type TestEnv, vocabularyEmbedder } from "./helpers.ts";
 
@@ -369,6 +370,20 @@ describe("forget (H7: a deleted fact never comes back)", () => {
     expect(r.removedChunkIds).toHaveLength(1);
     expect((await env.store.search("pottery")).length).toBe(1);
     expect(await code(env.store.forget("a"))).toBe("invalid_params");
+  });
+
+  it("merges the full-text segments after a forget, and not after a dry run", async () => {
+    env = await makeEnv();
+    await env.store.appendDailyNote({ text: "Pottery class on Tuesdays", provenance: "owner" });
+    const optimize = vi.spyOn(MemoryIndex.prototype, "optimizeFts");
+    try {
+      await env.store.forget("pottery", { dryRun: true });
+      expect(optimize).not.toHaveBeenCalled();
+      await env.store.forget("pottery");
+      expect(optimize).toHaveBeenCalledTimes(1);
+    } finally {
+      optimize.mockRestore();
+    }
   });
 });
 
