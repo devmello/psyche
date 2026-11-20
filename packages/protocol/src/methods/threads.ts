@@ -76,6 +76,8 @@ export const ThreadsMethods = {
       permissionMode: Type.Optional(PermissionMode),
       modelRef: Type.Optional(ModelRef),
       parentThreadId: Type.Optional(Id),
+      /** Start the thread in a Space (spaces §4.2). */
+      spaceId: Type.Optional(Id),
     }),
     result: ThreadResult,
     scope: "operator.write",
@@ -87,6 +89,8 @@ export const ThreadsMethods = {
     params: Type.Object({
       kind: Type.Union([Type.Literal("side"), Type.Literal("incognito")]),
       preferThreadId: Type.Optional(Id),
+      /** Start the chat in a Space (spaces §4.2). */
+      spaceId: Type.Optional(Id),
     }),
     result: Type.Object({
       thread: Thread,
@@ -108,6 +112,8 @@ export const ThreadsMethods = {
       kind: Type.Optional(ThreadKind),
       includeArchived: Type.Optional(Type.Boolean()),
       pinnedOnly: Type.Optional(Type.Boolean()),
+      /** Only threads in this Space (spaces §4.2). */
+      spaceId: Type.Optional(Id),
       query: Type.Optional(
         Type.String({
           minLength: 1,

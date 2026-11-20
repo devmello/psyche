@@ -19,6 +19,7 @@ public actor FixtureBackend {
     var agentState = AgentState()
     var settingsState = SettingsState()
     var widgetState = WidgetState()
+    var proactiveState = ProactiveState()
     /// The scripted run of the watched task (`startRunningDemo`).
     var demoTask: Task<Void, Never>?
 

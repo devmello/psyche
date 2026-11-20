@@ -271,7 +271,7 @@ export const devicesCommands: CommandSpec[] = [
         if (err instanceof PsycheError && err.code === "forbidden") {
           throw new CliError(
             "failure",
-            "Only the admin CLI on the Host's own computer can make a pairing link: run it on the Host itself, as a device with operator.admin (`psyched devices grant <deviceId> operator.read,operator.write,operator.approvals,operator.admin` on the Host), and make sure this CLI can read $PSYCHE_HOME/run/handshake.secret.",
+            "Only the admin CLI on the Host's own computer can make a pairing link: run it on the Host itself, as a device with operator.admin (`psyched devices grant <deviceId> operator.read,operator.write,operator.approvals,operator.admin` on the Host), and make sure it can read $PSYCHE_HOME/run/handshake.secret and listen.json: owned by you (not root, so no sudo), no group or other access, not symlinks, on a volume with POSIX ownership. If gateway.host is localhost, pass --url with the address in run/listen.json.",
           );
         }
         throw explain(err);
