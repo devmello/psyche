@@ -80,8 +80,8 @@ const soffice = (profile: string | null, doc: string) =>
   );
 const LO_MARKERS = "/workspace/lo-app-start-ran /workspace/lo-shell-ran";
 
-const FF_PAYLOAD = "open('/workspace/ff-handler-ran','w').write('x')\n";
-const FF_PROXY = `import socket
+const FF_PAYLOAD = "open('/workspace/ff-handler-ran','w').write('x')\\n";
+const FF_PROXY = String.raw`import socket
 s = socket.socket(); s.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
 s.bind(("127.0.0.1", 3128)); s.listen(50)
 body = b"${FF_PAYLOAD}"
@@ -113,12 +113,16 @@ const FF_HANDLERS = JSON.stringify({
 /** Opens the probe URL in Firefox's default profile, with a stand-in proxy that serves the type. */
 const firefoxFetchesPayload = async (): Promise<boolean> => {
   put("/workspace/ff-proxy.py", FF_PROXY);
-  exec("nohup /usr/bin/python3 -I /workspace/ff-proxy.py > /dev/null 2>&1 &");
+  exec("nohup /usr/bin/python3 -I /workspace/ff-proxy.py > /tmp/ff-proxy.log 2>&1 &");
   exec(
     "DISPLAY=:1 nohup /usr/bin/firefox-esr --no-remote http://payload.invalid/x > /tmp/ff-probe.log 2>&1 &",
   );
   await sleep(20_000);
   const ran = exec("test -e /workspace/ff-handler-ran && echo ran || echo clean").out.trim();
+  if (ran !== "ran") {
+    const why = exec("/usr/bin/tail -n 3 /tmp/ff-proxy.log /tmp/ff-probe.log").out;
+    process.stdout.write(`[real] firefox probe did not run the handler: ${why}\n`);
+  }
   exec("/usr/bin/pkill -x 'firefox.*'; /usr/bin/pkill -x python3; rm -f /workspace/ff-handler-ran");
   await sleep(2000);
   return ran === "ran";
