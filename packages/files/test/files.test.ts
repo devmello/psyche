@@ -14,6 +14,7 @@ import {
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import type { AgentToolRegistration, ToolRunContext } from "@psyche/agent-core";
+import { launchConfigLinkTargets } from "@psyche/hostfs";
 import type { ToolResult } from "@psyche/protocol";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import {
@@ -114,6 +115,82 @@ describe("ported from the Gateway stand-in", () => {
     expect(d).toMatchObject({ kind: "file_write", bindingFields: { operation: "overwrite" } });
     expect(readdirSync(granted)).not.toContain("n.md");
     expect(tools.read_file?.validate?.({ path: "relative.md" })).toBeTruthy();
+  });
+});
+
+describe("writes into an app's launch config (#1427 review r1, finding 4)", () => {
+  it.each([
+    ".obsidian/plugins/evil/main.js",
+    ".obsidian/community-plugins.json",
+    ".vscode/tasks.json",
+    ".idea/runConfigurations/run.xml",
+    ".zed/tasks.json",
+    ".envrc",
+    ".husky/pre-commit",
+  ])("%s is destructive, and the card names the path", (rel) => {
+    const path = join(granted, "Vault", rel);
+    for (const d of [
+      tools.write_file?.describeCall?.({ path, content: "x" }),
+      tools.edit_file?.describeCall?.({ path, old_string: "a", new_string: "b" } as never),
+    ]) {
+      expect(d?.sideEffect).toBe("destructive");
+      expect(d?.details).toMatchObject({ path });
+    }
+  });
+
+  it.each([
+    "notes/vscode.md",
+    ".obsidian-backup.md",
+    ".vscodeignore",
+    ".envrc.example",
+    "docs/idea.md",
+  ])("%s stays a plain write", (rel) => {
+    const d = tools.write_file?.describeCall?.({ path: join(granted, rel), content: "x" });
+    expect(d?.sideEffect).toBeUndefined();
+  });
+
+  it.each([
+    ".devcontainer/devcontainer.json",
+    "app.code-workspace",
+    ".claude/settings.local.json",
+    ".mcp.json",
+    ".cursor/mcp.json",
+    ".pre-commit-config.yaml",
+    ".npmrc",
+    ".cargo/config.toml",
+  ])("%s is destructive too (#1434 review r1, finding 2)", (rel) => {
+    const d = tools.write_file?.describeCall?.({ path: join(granted, rel), content: "x" });
+    expect(d?.sideEffect).toBe("destructive");
+  });
+
+  // #1434 review r1, finding 3: a vault's `.obsidian` linked into a dotfiles folder.
+  it("judges a symlinked config folder by where it really is", () => {
+    const vault = join(granted, "Vault");
+    const dotfiles = join(granted, "dotfiles", "obsidian");
+    mkdirSync(vault, { recursive: true });
+    mkdirSync(join(dotfiles, "plugins"), { recursive: true });
+    symlinkSync(dotfiles, join(vault, ".obsidian"));
+    const linked = toolset({ launchConfigLinks: () => launchConfigLinkTargets([granted]) }).tools;
+    const describe = (path: string) =>
+      linked.write_file?.describeCall?.({ path, content: "x" })?.sideEffect;
+    // Through the link's own name, and straight into the folder it points at.
+    expect(describe(join(vault, ".obsidian", "plugins", "x", "main.js"))).toBe("destructive");
+    expect(describe(join(dotfiles, "plugins", "x", "main.js"))).toBe("destructive");
+    expect(describe(join(dotfiles, "community-plugins.json"))).toBe("destructive");
+    // The rest of the dotfiles folder, and the vault's notes, stay plain writes.
+    expect(describe(join(granted, "dotfiles", "zshrc.md"))).toBeUndefined();
+    expect(describe(join(vault, "Daily.md"))).toBeUndefined();
+  });
+
+  it("judges a folder linked into a config folder by its real path", () => {
+    const repo = join(granted, "repo");
+    mkdirSync(join(repo, ".vscode"), { recursive: true });
+    symlinkSync(join(repo, ".vscode"), join(granted, "editor-settings"));
+    const d = tools.write_file?.describeCall?.({
+      path: join(granted, "editor-settings", "tasks.json"),
+      content: "x",
+    });
+    expect(d?.sideEffect).toBe("destructive");
   });
 });
 
@@ -402,6 +479,68 @@ describe("write-protected persistence locations (apps.open review, finding 2)", 
       const done = await run("write_file", { path, content: "ok" });
       expect(done.isError).toBeUndefined();
     }
+  });
+});
+
+describe("a share of the whole home folder (#1427 review r1, finding 5)", () => {
+  // `granted` stands in for the owner's home, shared read-write by an older grant.
+  const protection = () => ({
+    roots: ["Library", ".vscode/extensions", ".hammerspoon", ".config/nvim"].map((rel) =>
+      join(granted, rel),
+    ),
+    dotHome: granted,
+  });
+  const write = (rel: string) =>
+    run("write_file", { path: join(granted, rel), content: "x" }).then(
+      (r) => r.isError ?? false,
+      (e: { code?: string }) => e.code ?? "error",
+    );
+
+  beforeEach(() => {
+    ({ run } = toolset({ folders: () => folders, writeProtectedRoots: protection }));
+  });
+
+  it.each([
+    "Library/Python/3.12/lib/python/site-packages/evil.pth",
+    "Library/QuickLook/x.qlgenerator/Contents/Info.plist",
+    "Library/Application Support/Code/User/settings.json",
+    "library/mail/bundles/x.plist",
+    ".vscode/extensions/evil/package.json",
+    ".hammerspoon/init.lua",
+    ".config/nvim/init.lua",
+    // Any dot entry directly in home, existing or not.
+    ".newrc",
+    ".tool/config.json",
+    ".vimrc",
+    ".tmux.conf",
+    ".ipython/profile_default/startup/x.py",
+    ".ſsh/config",
+  ])("refuses writing ~/%s", async (rel) => {
+    if (rel.startsWith("library/") && process.platform === "linux") return;
+    mkdirSync(join(granted, rel, ".."), { recursive: true });
+    expect(await write(rel)).toBe("forbidden");
+  });
+
+  it.each([
+    "notes.md",
+    "Documents/plan.txt",
+    "Projects/app/.env",
+    "Projects/app/.gitignore",
+    "Projects/app/src/.eslintrc.json",
+    "Libraryish/notes.md",
+  ])("still writes ~/%s", async (rel) => {
+    mkdirSync(join(granted, rel, ".."), { recursive: true });
+    expect(await write(rel)).toBe(false);
+  });
+
+  it("leaves a dot folder the owner shared by itself to its own grant", async () => {
+    const dotfiles = join(granted, ".dotfiles");
+    mkdirSync(dotfiles);
+    folders.push({ path: dotfiles, mode: "rw" });
+    expect(await write(".dotfiles/zshrc")).toBe(false);
+    // Without that share, the home share's rule applies.
+    folders.pop();
+    expect(await write(".dotfiles/zshrc")).toBe("forbidden");
   });
 });
 

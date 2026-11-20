@@ -220,6 +220,38 @@ describe("files.write", () => {
     expect(await readFile(join(home, "notes.md"), "utf8")).toBe("mine");
   });
 
+  // #1434 review r1, finding 5: the agent's write rules are not the owner's.
+  it("saves the owner's own files in ~/Library and dot folders under a home share", async () => {
+    const userHome = join(base, "owner");
+    const files = [
+      join(userHome, "Library", "Mobile Documents", "com~apple~CloudDocs", "plan.md"),
+      join(userHome, ".notes", "todo.md"),
+      join(userHome, ".config", "nvim", "notes.txt"),
+    ];
+    for (const f of files) {
+      await mkdir(join(f, ".."), { recursive: true });
+      await writeFile(f, "old");
+    }
+    folders = [{ path: userHome, mode: "rw" }];
+    const handlers = filesHandlers({ folders: () => folders, home, userHome, audit });
+    const h = handlers["files.write"];
+    for (const path of files) {
+      const etag = (await run("files.read", { path, length: 1 })).etag as string;
+      await h?.run(call(), { path, content: "new", ifMatch: etag } as never);
+      expect(await readFile(path, "utf8"), path).toBe("new");
+    }
+    // Psyche's own home stays out of reach (the old refusal).
+    folders = [{ path: base, mode: "rw" }];
+    await writeFile(join(home, "notes.md"), "mine");
+    expect(
+      await codeOf(
+        Promise.resolve(
+          h?.run(call(), { path: join(home, "notes.md"), content: "x", ifMatch: "1" } as never),
+        ),
+      ),
+    ).toBe("forbidden");
+  });
+
   it("allows only the listed extensions", async () => {
     for (const name of ["b.markdown", "c.txt", "d.csv", "E.MD"]) {
       await writeFile(join(rw, name), "old");

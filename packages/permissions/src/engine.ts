@@ -1,3 +1,4 @@
+import { launchConfigEntry } from "@psyche/hostfs";
 import type { ApprovalKind, GrantScope, JsonObject, SideEffect } from "@psyche/protocol";
 import { hostWords } from "@psyche/protocol/host-words";
 import { appleAppAction, appleAppConnector, appleAppEffect } from "./apple-apps.ts";
@@ -415,13 +416,19 @@ export class PolicyEngine {
     // floor, when the Gateway's description says so and this classifier agrees on the argv.
     const hostReadOnly = kind === "exec_host" && readOnlyHostCall(call);
     const declared = hostReadOnly ? "read" : effectiveSideEffect(call.tool, call.sideEffect);
-    // A write inside a repository's `.git/` (config, hooks, info/attributes) is code the next git
-    // command runs: never a plain write, so never without a card (security §5.4).
-    const gitInternals =
-      FILE_TOOLS.has(call.tool) && SEVERITY[declared] >= SEVERITY.write && writesGitInternals(call);
+    // A write inside a repository's `.git/` (config, hooks, info/attributes), which the next git
+    // command runs, or into an app's launch config in a shared folder (`.vscode`, `.obsidian`,
+    // `.envrc`...), which the app runs when it next opens the folder: never a plain write, so
+    // never without a card (security §5.4).
+    const runsLater =
+      FILE_TOOLS.has(call.tool) && SEVERITY[declared] >= SEVERITY.write
+        ? writesRunLater(call)
+        : undefined;
     const se: typeof declared =
-      gitInternals && SEVERITY[declared] < SEVERITY.destructive ? "destructive" : declared;
-    if (gitInternals) trace.push("floor:git_internals");
+      runsLater !== undefined && SEVERITY[declared] < SEVERITY.destructive
+        ? "destructive"
+        : declared;
+    if (runsLater !== undefined) trace.push(`floor:${runsLater}`);
     if (se !== call.sideEffect) trace.push(`floor:${call.sideEffect}->${se}`);
     const tainted = ctx.taint || ctx.initiator === "mcp_app";
     const state = dry === undefined ? d.task(ctx) : dryTask(dry, d, ctx);
@@ -1034,14 +1041,19 @@ export function isGitInternalPath(path: string): boolean {
   return path.split("/").some((s) => s.toLowerCase() === ".git");
 }
 
-/** The file call writes under some `.git/` (its target, or a move or copy destination). */
-function writesGitInternals(call: PolicyCall): boolean {
+/**
+ * Where the file call writes code that runs later (its target, or a move or copy destination):
+ * under some `.git/` (`git_internals`), or into an app's launch config (`launch_config`).
+ */
+function writesRunLater(call: PolicyCall): "git_internals" | "launch_config" | undefined {
   const p = (call.params ?? {}) as Record<string, unknown>;
   const paths = [
     call.target?.kind === "path" ? call.target.value : undefined,
     p.path,
     p.to,
     p.destination,
-  ];
-  return paths.some((v) => typeof v === "string" && isGitInternalPath(v));
+  ].filter((v): v is string => typeof v === "string");
+  if (paths.some(isGitInternalPath)) return "git_internals";
+  if (paths.some((v) => launchConfigEntry(v) !== undefined)) return "launch_config";
+  return undefined;
 }

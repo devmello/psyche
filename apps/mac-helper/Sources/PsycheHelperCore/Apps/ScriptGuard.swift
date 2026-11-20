@@ -38,6 +38,11 @@ public enum ScriptGuard {
     static let neverTargets = [
         "com.apple.finder", "com.apple.systemevents", "com.apple.ScriptEditor2", "com.apple.Automator", "com.apple.shortcuts",
         "com.apple.shortcuts.events", "com.apple.Terminal", "com.googlecode.iterm2", "com.apple.osascript",
+        // Scriptable system agents with effects outside the tier model (#1427 review r4): files at
+        // any path, actions in other apps, Folder Actions, script settings, accessibility, the
+        // menu bar and Control Center. The same list as the Gateway's `NEVER_TARGETS`.
+        "com.apple.databaseevents", "com.apple.imageevents", "com.apple.VoiceOver", "com.apple.FolderActionsDispatcher",
+        "com.apple.AppleScriptUtility", "com.apple.UniversalAccessControl", "com.apple.systemuiserver", "com.apple.controlcenter",
     ]
 
     /// Lowercased, without whitespace, line continuations or invisible format characters.

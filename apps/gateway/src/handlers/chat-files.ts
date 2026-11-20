@@ -3,7 +3,7 @@ import { basename, extname } from "node:path";
 import { isProtectedPath } from "@psyche/files";
 import { canonicalHostPath, sameHostPath } from "@psyche/hostfs";
 import { type ChatAttachedFile, PsycheError } from "@psyche/protocol";
-import { ownWorkdirs, protectedRoots } from "../compose/protected-paths.ts";
+import { protectedRoots, runCarveOuts } from "../compose/protected-paths.ts";
 import type { Call } from "../context.ts";
 
 /**
@@ -77,15 +77,15 @@ export async function prepareAttachedFiles(
   if (attached === null) throw new PsycheError("unavailable", "Attaching files is not set up here");
   const live = attached(params.threadId);
   const roots = protectedRoots(call.ctx.config.home);
-  // The places inside a protected root a file tool reaches too (the owner's drives under `/run`).
-  const own = ownWorkdirs(call.ctx.config.home);
+  // The owner's own places inside a protected root (Linux: drives and network mounts under `/run`).
+  const carve = runCarveOuts();
   const out: AttachedFileInfo[] = [];
   for (const f of files) {
     const path = canon(f.path);
     if (path === undefined || !live.some((g) => sameHostPath(canon(g.path) ?? "", path))) {
       throw new PsycheError("forbidden", STALE);
     }
-    if (isProtectedPath(path, roots, own)) {
+    if (isProtectedPath(path, roots, [], carve)) {
       throw new PsycheError(
         "forbidden",
         `${basename(path)} is in a protected folder, so Psyche cannot read it. Copy it somewhere else and attach the copy.`,

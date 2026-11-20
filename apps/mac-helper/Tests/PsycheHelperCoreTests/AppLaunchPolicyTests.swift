@@ -151,6 +151,36 @@ struct AppLaunchPolicyTests {
 
     /// Review r3: Shortcuts Events lives only in CoreServices. A background script target may be
     /// Apple's own agent there; `apps.open` never launches from there, and nothing else does.
+    /// #1427 review r4: only the helper's own backend agents come from CoreServices, and agents
+    /// with effects outside the tier model are never script targets.
+    @Test func coreServicesAllowanceIsTheBackendsOnly() throws {
+        #expect(AppLaunchPolicy.coreServicesScriptIds == ["com.apple.shortcuts.events"])
+        for (name, id) in [("Image Events", "com.apple.imageevents"), ("Database Events", "com.apple.databaseevents"),
+                           ("VoiceOver", "com.apple.VoiceOver"), ("SystemUIServer", "com.apple.systemuiserver")] {
+            let b = FakeBundle(path: "/System/Library/CoreServices/\(name).app", id: id, appleSigned: true)
+            for purpose: AppLaunchPolicy.Purpose in [.open, .scriptTarget] {
+                #expect(throws: CapabilityError.self, "\(name)") {
+                    try AppLaunchPolicy.resolve(bundleId: id, home: home, lookups: lookups([b]), purpose: purpose)
+                }
+            }
+        }
+        let resolve: (String) -> String? = { $0 }
+        for id in ["com.apple.databaseevents", "com.apple.imageevents", "com.apple.VoiceOver", "com.apple.FolderActionsDispatcher",
+                   "com.apple.AppleScriptUtility", "com.apple.UniversalAccessControl", "com.apple.systemuiserver",
+                   "com.apple.controlcenter", "COM.APPLE.IMAGEEVENTS"] {
+            do {
+                _ = try ScriptGuard.checkTarget(id, resolve: resolve, cap: { _ in .interact })
+                Issue.record("\(id) must never be a script target")
+            } catch let e as CapabilityError {
+                #expect(e.reason == "script_target_capped", "\(id)")
+            }
+        }
+        // Near misses stay scriptable.
+        for id in ["com.apple.Notes", "com.apple.iCal", "com.apple.mail"] {
+            #expect((try? ScriptGuard.checkTarget(id, resolve: resolve, cap: { _ in .interact })) == id)
+        }
+    }
+
     @Test func appleAgentsInCoreServicesAreScriptTargetsOnly() throws {
         let events = "/System/Library/CoreServices/Shortcuts Events.app"
         var agent = FakeBundle(path: events, id: "com.apple.shortcuts.events", appleSigned: true)

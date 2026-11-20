@@ -1,9 +1,9 @@
 import { createHash, randomUUID } from "node:crypto";
-import { constants, existsSync } from "node:fs";
+import { constants, existsSync, realpathSync } from "node:fs";
 import { type FileHandle, lstat, mkdir, open, readdir, rename, rm } from "node:fs/promises";
 import { basename, dirname, join } from "node:path";
 import { type AgentToolRegistration, defineTool, type ToolRunContext } from "@psyche/agent-core";
-import { absoluteHostPathPattern } from "@psyche/hostfs";
+import { absoluteHostPathPattern, isUnderHostPath, launchConfigEntry } from "@psyche/hostfs";
 import { type ProvenanceOut, PsycheError } from "@psyche/protocol";
 import { routineWritePath } from "@psyche/protocol/routine-path";
 import { Type } from "@sinclair/typebox";
@@ -22,7 +22,9 @@ import {
   canonicalTarget,
   fsError,
   type GrantedFolder,
+  homeShareGoverns,
   isProtectedPath,
+  type WriteProtection,
 } from "./paths.ts";
 import { type FileProvenanceIndex, MemoryFileProvenance, readProvenance } from "./provenance.ts";
 
@@ -48,6 +50,45 @@ const GIT_DIR_ENTRIES = new Set(["head", "objects", "refs", "config"]);
  * that would complete a git directory elsewhere (a bare repository or `--separate-git-dir`): an
  * entry `HEAD`, `objects`, `refs` or `config` into a folder that already has one of the first three.
  */
+/**
+ * A write whose content runs later: inside a repository's metadata (`gitInternal`) or an app's
+ * launch config in a shared folder (`.obsidian`, `.vscode`, `.idea`, `.zed`, `.husky`, `.envrc`;
+ * `launchConfigEntry`). Such writes are destructive, so the card naming the path always shows.
+ */
+export function runsLater(path: string): boolean {
+  return gitInternal(path) || launchConfigEntry(path) !== undefined;
+}
+
+/**
+ * `runsLater` for a write as the disk has it (#1434 review r1, finding 3): judged by the path as
+ * given, by its real path (a folder linked into a launch-config folder), and by
+ * `launchConfigLinks`, the real folders symlinked launch-config entries point at
+ * (`Vault/.obsidian -> ~/dotfiles/obsidian` makes `~/dotfiles/obsidian/plugins/x/main.js` a
+ * write into the vault's Obsidian config).
+ */
+export function runsLaterOnDisk(path: string, launchConfigLinks: readonly string[] = []): boolean {
+  if (runsLater(path)) return true;
+  const real = realPathOf(path);
+  if (real !== path && runsLater(real)) return true;
+  return launchConfigLinks.some((target) => isUnderHostPath(real, target));
+}
+
+/** The real path of `path`, or of its deepest existing folder followed by the rest. */
+function realPathOf(path: string): string {
+  let head = path;
+  const rest: string[] = [];
+  for (;;) {
+    try {
+      return join(realpathSync.native(head), ...rest.reverse());
+    } catch {
+      const up = dirname(head);
+      if (up === head) return path;
+      rest.push(basename(head));
+      head = up;
+    }
+  }
+}
+
 export function gitInternal(path: string): boolean {
   const win = process.platform === "win32";
   const segments = path.split(win ? /[\\/]/ : "/");
@@ -118,11 +159,22 @@ export interface FileToolsOptions {
    */
   ownDirs?: () => readonly string[];
   /**
+   * The owner's own places inside a protected root (Linux: drives and network mounts under
+   * `/run`): readable and writable there, with every write rule still applied.
+   */
+  carveOuts?: () => readonly string[];
+  /**
    * Locations refused for every write whatever is granted, an older home-root share included:
    * where code runs at login, in a shell or at an app launch (`~/Applications`, LaunchAgents,
-   * shell rc files...). Reads there follow the grants.
+   * shell rc files...). Reads there follow the grants. With `dotHome`, a write under a share of
+   * the whole home folder may not reach a dot entry directly in it either.
    */
-  writeProtectedRoots?: () => readonly string[];
+  writeProtectedRoots?: () => readonly string[] | WriteProtection;
+  /**
+   * The real folders symlinked launch-config entries in the granted folders point at
+   * (`launchConfigLinkTargets`): a write under one is destructive, like one into `.vscode`.
+   */
+  launchConfigLinks?: () => readonly string[];
   /** Write records for read provenance; defaults to an in-memory index. */
   provenance?: FileProvenanceIndex;
   /**
@@ -262,16 +314,28 @@ export function fileTools(options: FileToolsOptions = {}): AgentToolRegistration
   const readOut: ProvenanceOut = trustedRoots.length > 0 ? "trusted" : "untrusted";
   /** Inside a protected root: never read, searched or listed, even under a granted folder. */
   const isProtected = (path: string) =>
-    isProtectedPath(path, options.protectedRoots?.(), options.ownDirs?.());
+    isProtectedPath(path, options.protectedRoots?.(), options.ownDirs?.(), options.carveOuts?.());
   const granted = (path: string, access: "read" | "write", ctx: ToolRunContext) => {
+    // The conversation's own roots (`request_permission`, "Allow once") count too.
+    const folders = options.folders?.({ threadId: ctx.threadId });
+    let wp: WriteProtection | undefined;
+    if (access === "write") {
+      const raw = options.writeProtectedRoots?.() ?? [];
+      const w: WriteProtection = Array.isArray(raw) ? { roots: raw } : (raw as WriteProtection);
+      // Dot entries directly in home are refused only under a share of the whole home folder.
+      wp =
+        w.dotHome !== undefined && homeShareGoverns(path, w.dotHome, folders)
+          ? w
+          : { roots: w.roots };
+    }
     assertNotProtected(
       path,
       options.protectedRoots?.(),
       options.ownDirs?.(),
-      access === "write" ? (options.writeProtectedRoots?.() ?? []) : undefined,
+      wp,
+      options.carveOuts?.(),
     );
-    // The conversation's own roots (`request_permission`, "Allow once") count too.
-    assertGranted(path, options.folders?.({ threadId: ctx.threadId }), access);
+    assertGranted(path, folders, access);
   };
   /**
    * Records what a write leaves behind. `inherits` is the file's content before an edit: an edit
@@ -470,7 +534,9 @@ export function fileTools(options: FileToolsOptions = {}): AgentToolRegistration
       const realPath = canonicalTarget(p.path);
       return {
         kind: "file_write",
-        ...(gitInternal(realPath) ? { sideEffect: "destructive" as const } : {}),
+        ...(runsLaterOnDisk(realPath, options.launchConfigLinks?.())
+          ? { sideEffect: "destructive" as const }
+          : {}),
         target: { kind: "path", value: realPath },
         // One operation for create and overwrite keeps the binding independent of disk state.
         bindingFields: { operation: "overwrite", realPath, contentSha256: sha256(p.content) },
@@ -534,7 +600,9 @@ export function fileTools(options: FileToolsOptions = {}): AgentToolRegistration
       );
       return {
         kind: "file_write",
-        ...(gitInternal(realPath) ? { sideEffect: "destructive" as const } : {}),
+        ...(runsLaterOnDisk(realPath, options.launchConfigLinks?.())
+          ? { sideEffect: "destructive" as const }
+          : {}),
         target: { kind: "path", value: realPath },
         bindingFields: { operation: "edit", realPath, contentSha256: editSha },
         summary: `Edit ${basename(realPath)}`,
@@ -800,7 +868,9 @@ export function fileTools(options: FileToolsOptions = {}): AgentToolRegistration
       const ext = basename(realPath).split(".").pop() ?? "";
       return {
         kind: "file_write",
-        ...(gitInternal(realPath) ? { sideEffect: "destructive" as const } : {}),
+        ...(runsLaterOnDisk(realPath, options.launchConfigLinks?.())
+          ? { sideEffect: "destructive" as const }
+          : {}),
         target: { kind: "path", value: realPath },
         bindingFields: {
           operation: "overwrite",

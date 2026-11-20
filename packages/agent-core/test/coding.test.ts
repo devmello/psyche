@@ -272,6 +272,23 @@ describe("code.* tools (V10)", () => {
     });
   });
 
+  // #1427 review r1, finding 4: an edit into an app's launch config always shows its card.
+  it("describes an edit into .vscode, .husky or .envrc as destructive, and others as plain", () => {
+    const { byName } = setup();
+    const describe = (file: string) =>
+      byName.get("code.edit")?.describeCall?.({
+        root: repo,
+        patch: `--- /dev/null\n+++ b/${file}\n@@ -0,0 +1 @@\n+x\n`,
+      });
+    for (const file of [".vscode/tasks.json", ".husky/pre-commit", ".envrc", "web/.idea/x.xml"]) {
+      expect(describe(file)?.sideEffect, file).toBe("destructive");
+      expect(describe(file)?.details).toMatchObject({ files: [file] });
+    }
+    for (const file of ["src/vscode.ts", ".vscodeignore", "docs/.envrc.example"]) {
+      expect(describe(file)?.sideEffect, file).toBeUndefined();
+    }
+  });
+
   it("applies a patch through write_file, and refuses .git and mismatched hunks before writing", async () => {
     const { use, writes, byName } = setup();
     await use("code.open", { path: repo });

@@ -30,7 +30,12 @@ import {
 import { mimeFromName } from "@psyche/viewers/core/detect";
 import type { Call, HandlerDef } from "../context.ts";
 import { type FolderAccessToolDeps, requestFolderShare } from "./folder-access.ts";
-import { folderAccessEnv, protectedRoots, writeProtectedRoots } from "./protected-paths.ts";
+import {
+  folderAccessEnv,
+  ownerSaveProtectedRoots,
+  protectedRoots,
+  runCarveOuts,
+} from "./protected-paths.ts";
 
 /**
  * `files.list` and `files.read` (feature P4; UI design §3.7): read-only access for the Files pane
@@ -73,7 +78,7 @@ export async function resolveFileSource(
   }
   if (path !== undefined) {
     const target = canonicalTarget(path);
-    assertNotProtected(target, protectedRoots(setup.home));
+    assertNotProtected(target, protectedRoots(setup.home), [], undefined, runCarveOuts());
     assertGranted(target, setup.folders(), "read");
     await assertNoSymlinks(target);
     return { path: target, name: basename(target) };
@@ -153,7 +158,7 @@ async function listFolder(
 ): Promise<MethodResult<"files.list">> {
   const dir = canonicalTarget(params.path);
   const roots = protectedRoots(setup.home);
-  assertNotProtected(dir, roots);
+  assertNotProtected(dir, roots, [], undefined, runCarveOuts());
   assertGranted(dir, setup.folders(), "read");
   await assertNoSymlinks(dir);
   let names: import("node:fs").Dirent[];
@@ -262,15 +267,14 @@ async function saveFile(
     );
   }
   const roots = protectedRoots(setup.home);
+  // The owner's own save: Psyche's home and the credential stores stay out of reach, the agent's
+  // `~/Library` and dot-entry rules do not apply (#1434 review r1, finding 5).
+  const own = ownerSaveProtectedRoots(setup.userHome);
   // Policy folders only; the longest root decides. Run again right before the swap.
-  const writeRoots = writeProtectedRoots();
   const checkGrant = (path: string) => {
-    assertNotProtected(path, roots, [], writeRoots);
-    assertGranted(
-      path,
-      setup.folders().filter((f) => f.file !== true),
-      "write",
-    );
+    const folders = setup.folders().filter((f) => f.file !== true);
+    assertNotProtected(path, roots, [], own, runCarveOuts());
+    assertGranted(path, folders, "write");
   };
   checkGrant(target);
   await assertNoSymlinks(target);

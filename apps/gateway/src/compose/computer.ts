@@ -2052,6 +2052,27 @@ export function createComputerUse(deps: ComputerDeps): ComputerUse {
     ) => Promise<{ output: unknown; receiptId?: string }>;
   }
 
+  /**
+   * The schema takes Linux desktop-file ids (`firefox`, no dot). Anywhere else the app id must be
+   * a bundle id or an executable name with a dot: the Mac helper also finds an app by its display
+   * name, and the Gateway's app-keyed checks (caps, send apps, web apps, tiers, grants) would
+   * then judge "Chase" or "Messages" instead of the bundle (review of #1294, round 6, finding 2).
+   */
+  function assertAppIdShape(params: unknown): void {
+    const p = params as { app?: unknown; surface?: unknown };
+    if (typeof p.app !== "string") return;
+    if (p.surface !== undefined && p.surface !== "direct") return;
+    // `host-helper` is only ever the Linux helper (`hostHelperKindOf`).
+    const kind = deps.helper()?.kind;
+    if (kind === "host-helper" || hostOs(kind) === "linux") return;
+    if (BUNDLE_ID_SHAPE.test(p.app)) return;
+    throw new PsycheError(
+      "policy_denied",
+      `${p.app} is not an app id. Use the bundle id apps.list shows (com.apple.Notes), not the app's name.`,
+      { details: { reason: "app_id_shape" } },
+    );
+  }
+
   function def<S extends TSchema>(t: Def<S>): ToolRegistration {
     const validator = createValidator(t.schema);
     const registration: ToolRegistration = {
@@ -2068,6 +2089,7 @@ export function createComputerUse(deps: ComputerDeps): ComputerUse {
           if (!validator.check(params)) {
             throw new PsycheError("invalid_params", validator.errors(params).join("; "));
           }
+          assertAppIdShape(params);
           const out = await t.run(params as Static<S>, callId, signal);
           return {
             output: out.output,
@@ -2088,6 +2110,7 @@ export function createComputerUse(deps: ComputerDeps): ComputerUse {
       registration.describeCall = (params, call) => {
         if (!validator.check(params)) return {};
         try {
+          assertAppIdShape(params);
           return describe(params as Static<S>, call);
         } catch (err) {
           // An action the executor or the helper always refuses is refused here, before the

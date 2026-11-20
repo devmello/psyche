@@ -1854,3 +1854,45 @@ describe("computer-use agent tools (J1–J5)", () => {
     ).toEqual([expect.objectContaining({ ref: "e1" }), { ref: "e2", role: "button", label: "OK" }]);
   });
 });
+
+/** Review of #1294, round 6, finding 2: a display name is not an app id on a Mac Host. */
+describe("app ids by Host", () => {
+  const shapeError = (r: { output: unknown }) =>
+    (r.output as { error?: { code: string; details?: { reason?: string } } }).error;
+
+  it.each(["Chase", "Messages", "Terminal", "notes"])(
+    "refuses the name %s on a Mac Host before any card or helper call",
+    async (app) => {
+      helperKind = "mac-helper";
+      const r = await call("computer.snapshot", { app });
+      expect(shapeError(r)).toMatchObject({
+        code: "policy_denied",
+        details: { reason: "app_id_shape" },
+      });
+      expect(() =>
+        tools.get("computer.act")?.describeCall?.({ app, action: "click", x: 1, y: 2 }),
+      ).toThrow(/not an app id/);
+      expect(helper.calls).toEqual([]);
+    },
+  );
+
+  it("takes bundle ids on a Mac Host", async () => {
+    helperKind = "mac-helper";
+    const r = await call("computer.snapshot", { app: notes });
+    expect(r.isError).toBeUndefined();
+  });
+
+  it("takes Linux desktop-file ids on a Linux Host", async () => {
+    helperKind = "host-helper";
+    const r = await call("computer.snapshot", { app: "firefox" });
+    expect(shapeError(r)?.details?.reason).not.toBe("app_id_shape");
+    expect(helper.calls.map((c) => c.capability)).toContain("computer.ax_tree");
+  });
+
+  it("leaves a routed surface's ids to its own helper", async () => {
+    helperKind = "mac-helper";
+    const r = await call("computer.snapshot", { app: "firefox", surface: "separate_desktop" });
+    // No router here: the surface is unavailable, but the id shape is not what refused it.
+    expect(shapeError(r)?.details?.reason).toBe("surface_unavailable");
+  });
+});

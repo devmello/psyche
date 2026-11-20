@@ -1,40 +1,21 @@
 import { type Dirent, readdirSync, realpathSync } from "node:fs";
 import { homedir } from "node:os";
 import { join } from "node:path";
+import { type GrantedFolder, homeShareGoverns, type WriteProtection } from "@psyche/files";
+import { launchConfigLinkTargets } from "@psyche/hostfs";
 import { defaultDenyRead } from "@psyche/mcp-host";
 import { CLI_HOME_DIRS } from "@psyche/model-router";
-import { type FolderAccessEnv, linuxRunCarveOuts, persistenceRoots } from "@psyche/permissions";
+import {
+  type FolderAccessEnv,
+  linuxRunCarveOuts,
+  writeProtectedHomeRoots,
+} from "@psyche/permissions";
 import { DESKTOP_APP_NAME } from "./desktop-launch.ts";
-
-/**
- * Linux: the config, data and cache folders, where a written file runs code as the owner later
- * (desktop entries, autostart, user services, D-Bus activation, Flatpak overrides, Python `.pth`
- * files, app plug-ins and start-up scripts, shell extensions, the terminal lists and caches).
- * Write-protected wholesale, as `~/Library`'s persistence folders are on macOS; reads follow the
- * grants (review of #1294, rounds 3 to 5). The shell and session start-up files are in
- * `PERSISTENCE_HOME_PATHS`.
- */
-export const LINUX_EXEC_PATHS: readonly (readonly string[])[] = [
-  [".config"],
-  [".local"],
-  [".cache"],
-];
-
-/**
- * Every platform: what git runs on its own (`core.hooksPath`, `core.fsmonitor`, aliases) and
- * `~/bin`, which shells put on PATH. Write-protected; `persistenceRoots` names them on macOS and
- * Linux, and this adds them on Windows.
- */
-export const RUNS_CODE_PATHS: readonly (readonly string[])[] = [
-  ["bin"],
-  [".gitconfig"],
-  [".config", "git"],
-];
 
 /**
  * Linux: the runtime and kernel file systems: `/run/user/<uid>` holds D-Bus services, user units
  * and the agents' sockets, `/proc` every process's environment. Neither read nor written, apart
- * from the owner's drives and network mounts (`linuxRunCarveOuts`, through `ownWorkdirs`).
+ * from the owner's drives and network mounts (`runCarveOuts`).
  */
 export const LINUX_SYSTEM_ROOTS: readonly string[] = ["/run", "/proc", "/sys"];
 
@@ -57,7 +38,7 @@ export function protectedRoots(
   // run `npx` from `~/.npm-global`.
   const cliDirs = CLI_HOME_DIRS.map((segments) => join(userHome, ...segments));
   const linux = platform === "linux" ? LINUX_SYSTEM_ROOTS : [];
-  for (const p of [...defaultDenyRead(psycheHome), ...cliDirs, ...linux]) {
+  for (const p of [...defaultDenyRead(psycheHome, platform), ...cliDirs, ...linux]) {
     out.add(p);
     try {
       out.add(realpathSync(p));
@@ -78,15 +59,32 @@ export function writeProtectedRoots(
   userHome: string = homedir(),
   platform: NodeJS.Platform = process.platform,
 ): string[] {
-  const out = new Set<string>();
-  const home = (segments: readonly string[]) => join(userHome, ...segments);
-  for (const p of [
-    ...persistenceRoots(userHome),
-    ...RUNS_CODE_PATHS.map(home),
-    ...(platform === "linux" ? LINUX_EXEC_PATHS.map(home) : []),
+  return withRealPaths([
+    ...writeProtectedHomeRoots(userHome, platform),
+    ...psycheAppPaths(userHome),
+  ]);
+}
+
+/**
+ * What the owner's own Files-pane save may not reach on top of `protectedRoots` (#1434 review r1,
+ * finding 5): only Psyche.app itself. The owner's own device gets no added friction, so the
+ * agent's `~/Library` and dot-entry rules do not apply to it.
+ */
+export function ownerSaveProtectedRoots(userHome: string = homedir()): string[] {
+  return withRealPaths(psycheAppPaths(userHome));
+}
+
+function psycheAppPaths(userHome: string): string[] {
+  return [
     `/Applications/${DESKTOP_APP_NAME}.app`,
     join(userHome, "Applications", `${DESKTOP_APP_NAME}.app`),
-  ]) {
+  ];
+}
+
+/** Each path as written and as its real path. */
+function withRealPaths(paths: readonly string[]): string[] {
+  const out = new Set<string>();
+  for (const p of paths) {
     out.add(p);
     try {
       out.add(realpathSync(p));
@@ -98,20 +96,74 @@ export function writeProtectedRoots(
 }
 
 /**
+ * `writeProtectedRoots` plus the owner's home for the dot-entry rule: under a share of the whole
+ * home folder, no agent write reaches `~/.anything` (#1427 review r1, finding 5).
+ */
+export function writeProtection(userHome: string = homedir()): WriteProtection {
+  return { roots: writeProtectedRoots(userHome), dotHome: userHome };
+}
+
+/**
+ * The same, for one write: the dot-entry rule only when the longest granted folder holding
+ * `path` is the home folder or one around it (`homeShareGoverns`).
+ */
+export function writeProtectionFor(
+  path: string,
+  folders: readonly GrantedFolder[] | undefined,
+  userHome: string = homedir(),
+): WriteProtection {
+  const w = writeProtection(userHome);
+  return homeShareGoverns(path, userHome, folders) ? w : { roots: w.roots };
+}
+
+/**
+ * The real folders that symlinked launch-config entries in `folders` point at
+ * (`launchConfigLinkTargets`, #1434 review r1, finding 3), walked at most every `ttlMs` (the walk
+ * is bounded and synchronous: it runs while a write is described).
+ */
+export function launchConfigLinks(
+  folders: () => readonly GrantedFolder[],
+  ttlMs = 30_000,
+  now: () => number = Date.now,
+): () => readonly string[] {
+  let cached: { key: string; at: number; targets: readonly string[] } | undefined;
+  return () => {
+    const roots = [
+      ...new Set(
+        folders()
+          .filter((f) => f.file !== true)
+          .map((f) => f.path),
+      ),
+    ].sort();
+    const key = roots.join("\0");
+    const t = now();
+    if (cached === undefined || cached.key !== key || t - cached.at >= ttlMs) {
+      cached = { key, at: t, targets: launchConfigLinkTargets(roots) };
+    }
+    return cached.targets;
+  };
+}
+
+/**
+ * Linux: the owner's drives and network mounts under `/run` (`linuxRunCarveOuts`), the places a
+ * file tool reaches inside `/run`. Only the never-read roots are lifted there: every write rule
+ * (write-protected roots, identity, dot entries) still applies. Not Psyche's own folders
+ * (`ownWorkdirs`), which skip those rules (review of #1294, round 6).
+ */
+export function runCarveOuts(platform: NodeJS.Platform = process.platform): string[] {
+  return platform === "linux" ? linuxRunCarveOuts() : [];
+}
+
+/**
  * The working directories Psyche gives the subscription CLI providers (`<home>/cli/<id>`, see
  * `resolveRouter`), as written and as real paths. They are the one place inside `$PSYCHE_HOME`
  * a granted folder may reach: the models in those CLIs run with it as their cwd, so asking the
  * owner to share it is asking for what Psyche made for them. Only real, direct sub-folders of
  * `<home>/cli` count (a link is never followed out of it), and nothing else under the home does.
  */
-export function ownWorkdirs(
-  psycheHome: string,
-  platform: NodeJS.Platform = process.platform,
-): string[] {
+export function ownWorkdirs(psycheHome: string): string[] {
   const root = join(psycheHome, "cli");
   const out = new Set<string>();
-  // Linux: the owner's drives and network mounts are the places under `/run` a file tool reaches.
-  if (platform === "linux") for (const dir of linuxRunCarveOuts()) out.add(dir);
   let names: Dirent[];
   try {
     names = readdirSync(root, { withFileTypes: true });

@@ -284,6 +284,51 @@ export function persistenceRoots(home: string = homedir()): string[] {
 }
 
 /**
+ * macOS, under the home directory: more places an agent write would run code later or change
+ * how the owner's tools behave (#1427 review r1, finding 5). All of `~/Library` (Python `.pth`
+ * files, plug-ins, QuickLook and Spotlight importers, Mail bundles, editor settings...), editor
+ * extensions and the config of the owner's terminal, keyboard and editor apps.
+ */
+export const MAC_WRITE_PROTECTED_HOME_PATHS: readonly string[] = [
+  "Library",
+  // The owner's own programs on PATH (`~/bin/tool` would run as the owner from any shell).
+  "bin",
+  ".vscode/extensions",
+  ".hammerspoon",
+  ".config/karabiner",
+  ".config/ghostty",
+  ".config/nvim",
+  ".config/zed",
+];
+
+/** Windows: what git runs on its own (`core.hooksPath`, `core.fsmonitor`, aliases) and `~/bin`. */
+const WINDOWS_WRITE_PROTECTED_HOME_PATHS = ["bin", ".gitconfig", ".config/git"];
+
+/**
+ * Every place under `home` no agent write reaches, whatever folder is granted (an older home
+ * share included): the persistence locations, everything refused as a share
+ * (`HOME_SENSITIVE`), on macOS `MAC_WRITE_PROTECTED_HOME_PATHS`, on Linux `~/.config`,
+ * `~/.local` and `~/.cache` wholesale, and on Windows only git's configuration and `~/bin`.
+ * Writes to a dot entry directly in home are refused too (`assertNotProtected`'s `dotHome`).
+ */
+export function writeProtectedHomeRoots(
+  home: string = homedir(),
+  platform: NodeJS.Platform = process.platform,
+): string[] {
+  // Windows: what git runs on its own and `~/bin` (review of #1294, rounds 4 to 6).
+  if (platform === "win32")
+    return WINDOWS_WRITE_PROTECTED_HOME_PATHS.map((rel) => win32.join(home, rel));
+  const rels = new Set([
+    ...PERSISTENCE_HOME_PATHS,
+    ...HOME_SENSITIVE,
+    ...(platform === "darwin" ? MAC_WRITE_PROTECTED_HOME_PATHS : []),
+    // Linux: the config, data and cache folders wholesale, where a written file runs code later.
+    ...(platform === "linux" ? LINUX_HOME_SENSITIVE : []),
+  ]);
+  return [...rels].map((rel) => posix.join(resolve(home), rel));
+}
+
+/**
  * Windows: the real long path of the owner's temp folder when it lies under `~\AppData` (the one
  * subtree root it opens), else undefined. Resolved by the OS, so a `PRANAV~1`-style short name in
  * `%TEMP%` becomes the long one, and compared without case like every Windows path here.

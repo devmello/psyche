@@ -1,12 +1,19 @@
 import { mkdirSync, mkdtempSync, realpathSync, rmSync, symlinkSync, writeFileSync } from "node:fs";
 import { homedir, tmpdir, userInfo } from "node:os";
 import { join } from "node:path";
-import { isProtectedPath, writeProtectedRoot } from "@psyche/files";
-import { inSystemRoot, linuxRunCarveOuts, refuseFolder } from "@psyche/permissions";
+import { assertNotProtected, isProtectedPath, writeProtectedRoot } from "@psyche/files";
+import { defaultDenyRead } from "@psyche/mcp-host";
+import {
+  inSystemRoot,
+  linuxRunCarveOuts,
+  refuseFolder,
+  writeProtectedHomeRoots,
+} from "@psyche/permissions";
 import { afterAll, describe, expect, it } from "vitest";
 import {
   ownWorkdirs,
   protectedRoots,
+  runCarveOuts,
   writeProtectedRoots,
 } from "../src/compose/protected-paths.ts";
 
@@ -20,7 +27,7 @@ const PSYCHE_HOME = "/h/.psyche";
 const writeRefused = (path: string, platform: NodeJS.Platform, home = homedir()): boolean =>
   writeProtectedRoot(path, writeProtectedRoots(home, platform)) !== undefined;
 const readRefused = (path: string, platform: NodeJS.Platform): boolean =>
-  isProtectedPath(path, protectedRoots(PSYCHE_HOME, platform), ownWorkdirs(PSYCHE_HOME, platform));
+  isProtectedPath(path, protectedRoots(PSYCHE_HOME, platform), [], runCarveOuts(platform));
 
 /** Linux paths no agent write may reach, whatever folder was granted earlier. */
 const LINUX_WRITE_REFUSED = [
@@ -162,7 +169,8 @@ describe("Linux: /run, /proc and /sys", () => {
 });
 
 describe("every platform: git's config and ~/bin are write-protected", () => {
-  it.each(["darwin", "linux", "win32"] as const)("on %s", (platform) => {
+  // Windows, with a Windows home path: "writeProtectedHomeRoots carries this PR's entries".
+  it.each(["darwin", "linux"] as const)("on %s", (platform) => {
     for (const p of [h(".gitconfig"), h(".config", "git", "config"), h("bin", "tool")]) {
       expect(writeRefused(p, platform)).toBe(true);
       expect(readRefused(p, platform)).toBe(false);
@@ -221,4 +229,117 @@ describe("symlinked dotfiles", () => {
       expect(writeRefused(join(home, "code", "app", "main.ts"), platform, home)).toBe(false);
     },
   );
+});
+
+/** Review of #1294, round 6, finding 1: the Linux browser, chat and password stores. */
+describe("Linux: credential stores are neither read nor written", () => {
+  it.each([
+    h(".config", "google-chrome", "Default", "Cookies"),
+    h(".config", "chromium", "Default", "Login Data"),
+    h(".config", "BraveSoftware", "Brave-Browser", "Default", "Cookies"),
+    h(".config", "microsoft-edge", "Default", "Cookies"),
+    h(".config", "vivaldi", "Default", "Cookies"),
+    h(".local", "share", "keyrings", "login.keyring"),
+    h(".config", "Signal", "config.json"),
+    h(".config", "Slack", "Cookies"),
+    h(".config", "discord", "Local Storage", "leveldb", "000003.log"),
+    h(".config", "rclone", "rclone.conf"),
+    h(".mozilla", "firefox", "abc.default-release", "cookies.sqlite"),
+    h(".mozilla", "firefox", "abc.default-release", "logins.json"),
+    h(".thunderbird", "abc.default", "key4.db"),
+    h(".var", "app", "org.mozilla.firefox", ".mozilla", "firefox", "x", "cookies.sqlite"),
+    h(".var", "app", "com.google.Chrome", "config", "google-chrome", "Default", "Cookies"),
+    h(".var", "app", "org.chromium.Chromium", "config", "chromium", "Default", "Cookies"),
+    h(".var", "app", "com.brave.Browser", "config", "BraveSoftware", "Default", "Cookies"),
+    h("snap", "firefox", "common", ".mozilla", "firefox", "x", "cookies.sqlite"),
+    h("snap", "chromium", "common", "chromium", "Default", "Cookies"),
+    h(".password-store", "bank.gpg"),
+  ])("refuses reading %s", (path) => {
+    expect(readRefused(path, "linux")).toBe(true);
+    // And MCP servers and host commands never read it either.
+    expect(
+      defaultDenyRead(PSYCHE_HOME, "linux").some((r) => path === r || path.startsWith(`${r}/`)),
+    ).toBe(true);
+  });
+
+  it.each([
+    h(".config", "nvim", "init.lua"),
+    h(".config", "foo", "settings.ini"),
+    h(".var", "app", "org.gnome.TextEditor", "config", "settings.ini"),
+    h("snap", "code", "current", "notes.md"),
+    h(".config", "Signals-notes.txt"),
+  ])("still reads %s (writes stay refused under ~/.config)", (path) => {
+    expect(readRefused(path, "linux")).toBe(false);
+  });
+
+  it("keeps ~/.config/nvim write-protected while readable", () => {
+    expect(writeRefused(h(".config", "nvim", "init.lua"), "linux")).toBe(true);
+  });
+
+  it("leaves the macOS deny list as it was", () => {
+    const mac = defaultDenyRead(PSYCHE_HOME, "darwin");
+    expect(mac).not.toContain(h(".mozilla"));
+    expect(mac).toContain(h("Library", "Cookies"));
+  });
+});
+
+/** Review of #1294, round 6, finding 3: one write-protected list, #1434's. */
+describe("writeProtectedHomeRoots carries this PR's entries", () => {
+  it("holds ~/.config, ~/.local and ~/.cache on Linux", () => {
+    const roots = writeProtectedHomeRoots("/home/owner", "linux");
+    for (const rel of [".config", ".local", ".cache", "bin", ".gitconfig", ".config/git"]) {
+      expect(roots).toContain(`/home/owner/${rel}`);
+    }
+    expect(writeProtectedRoots(homedir(), "linux")).toContain(h(".config"));
+  });
+
+  it("holds ~/bin and git's config on Windows", () => {
+    const roots = writeProtectedHomeRoots("C:\\Users\\owner", "win32");
+    expect(roots).toContain("C:\\Users\\owner\\bin");
+    expect(roots).toContain("C:\\Users\\owner\\.gitconfig");
+    expect(roots).toContain("C:\\Users\\owner\\.config\\git");
+  });
+
+  it("does not hold ~/.config wholesale on macOS", () => {
+    expect(writeProtectedHomeRoots("/Users/owner", "darwin")).not.toContain("/Users/owner/.config");
+  });
+});
+
+/** Review of #1294, round 6, finding 3: carve-outs lift the never-read roots, not the write rules. */
+describe("carve-outs are not Psyche's own folders", () => {
+  const base = realpathSync(mkdtempSync(join(tmpdir(), "psyche-carve-")));
+  afterAll(() => rmSync(base, { recursive: true, force: true }));
+  const run = join(base, "run");
+  const drive = join(run, "media", "owner");
+  mkdirSync(join(drive, "USB"), { recursive: true });
+  const planted = join(drive, "USB", "autorun.sh");
+  const refused = (fn: () => void): boolean => {
+    try {
+      fn();
+      return false;
+    } catch {
+      return true;
+    }
+  };
+
+  it("reads and writes on the drive, and the rest of the root stays refused", () => {
+    expect(isProtectedPath(join(drive, "USB", "a.jpg"), [run], [], [drive])).toBe(false);
+    expect(isProtectedPath(join(run, "user", "1000", "bus"), [run], [], [drive])).toBe(true);
+    expect(
+      refused(() => assertNotProtected(join(drive, "USB", "a.jpg"), [run], [], [], [drive])),
+    ).toBe(false);
+  });
+
+  it("keeps every write rule on the drive", () => {
+    // A write-protected root inside a carve-out is still refused (it would be skipped for a
+    // Psyche-own folder, `ownDirs`).
+    expect(refused(() => assertNotProtected(planted, [run], [], [planted], [drive]))).toBe(true);
+    expect(refused(() => assertNotProtected(planted, [run], [drive], [planted]))).toBe(false);
+  });
+
+  it("is not part of ownWorkdirs", () => {
+    expect(ownWorkdirs(join(base, "nowhere"))).toEqual([]);
+    expect(runCarveOuts("linux")).toEqual(linuxRunCarveOuts());
+    expect(runCarveOuts("darwin")).toEqual([]);
+  });
 });
