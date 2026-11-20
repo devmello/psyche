@@ -757,7 +757,8 @@ export async function startGateway(options: GatewayOptions = {}): Promise<Gatewa
       });
     });
   // The address this Gateway is really bound to (not the configured name: `localhost` binds
-  // `127.0.0.1` or `::1`), for the CLI's "is this my Gateway" check. Written BEFORE the secret:
+  // `127.0.0.1`, or `::1` on macOS), for the CLI's "is this my Gateway" check and its default URL
+  // (a Gateway on `gateway.host: localhost` is reached at that address). Written BEFORE the secret:
   // the CLI reads the secret first and `listen.json` second, so any secret it holds was written
   // after the `listen.json` it compares against, and a new secret never pairs with a stale origin.
   const bound = http.address() as AddressInfo;

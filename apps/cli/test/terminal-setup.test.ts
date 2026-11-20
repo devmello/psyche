@@ -359,6 +359,13 @@ describe("the Host secret", () => {
     expect(gw.connects.at(-1)).toMatchObject({ deviceFamily: "cli", handshakeSecret: SECRET });
   });
 
+  it("the default URL is the address in a private listen.json (no --url needed)", async () => {
+    await start();
+    const deps = homeWith([gw.origin]);
+    expect(await run(["devices", "list", "--home", deps.home], deps)).toBe(0);
+    expect(gw.connects.at(-1)).toMatchObject({ handshakeSecret: SECRET });
+  });
+
   it("is not sent to a port the Gateway is not bound to (even a loopback one)", async () => {
     await start();
     const port = new URL(gw.origin).port;
@@ -432,6 +439,22 @@ describe("the Host secret", () => {
       const deps = ok();
       chmodSync(join(deps.home, "run", "listen.json"), 0o644);
       expect(readHostSecret(url, deps.home)).toBeUndefined();
+    });
+
+    it.skipIf(process.platform === "win32")("refuses a group-writable PSYCHE_HOME", () => {
+      const deps = ok();
+      chmodSync(deps.home, 0o770);
+      expect(readHostSecret(url, deps.home)).toBeUndefined();
+      chmodSync(deps.home, 0o700);
+      expect(readHostSecret(url, deps.home)).toBe(SECRET);
+    });
+
+    it.skipIf(process.platform === "win32")("refuses a symlinked PSYCHE_HOME", () => {
+      const deps = ok();
+      const link = `${deps.home}-link`;
+      symlinkSync(deps.home, link);
+      expect(readHostSecret(url, link)).toBeUndefined();
+      rmSync(link);
     });
 
     it.skipIf(process.platform === "win32")("refuses a run/ others can enter", () => {

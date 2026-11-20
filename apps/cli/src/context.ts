@@ -57,14 +57,37 @@ function readPrivateFile(path: string): string | undefined {
   }
 }
 
-/** `run/` itself must be a real directory of ours that others cannot enter. */
+/**
+ * `$PSYCHE_HOME` and `run/` must be real directories of ours: not symlinks, owned by this user, the
+ * home not writable by group or other, `run/` closed to them entirely.
+ */
 function runDirIsPrivate(home: string): boolean {
   if (process.platform === "win32") return true;
   try {
-    const st = lstatSync(join(home, "run"));
-    return st.isDirectory() && st.uid === process.getuid?.() && (st.mode & 0o077) === 0;
+    const uid = process.getuid?.();
+    const h = lstatSync(home);
+    if (!h.isDirectory() || h.uid !== uid || (h.mode & 0o022) !== 0) return false;
+    const r = lstatSync(join(home, "run"));
+    return r.isDirectory() && r.uid === uid && (r.mode & 0o077) === 0;
   } catch {
     return false;
+  }
+}
+
+/**
+ * The address the local Gateway says it is bound to, when `listen.json` is present and private:
+ * the CLI's default URL. It matters when the Gateway binds a name that resolves to one concrete
+ * address (`gateway.host: localhost` lists `127.0.0.1` or `::1`), which the built-in default
+ * `127.0.0.1` would miss.
+ */
+function listenedUrl(home: string): string | undefined {
+  if (!runDirIsPrivate(home)) return undefined;
+  try {
+    const text = readPrivateFile(join(home, "run", "listen.json"));
+    const first = (JSON.parse(text ?? "{}") as { origins?: unknown[] }).origins?.[0];
+    return typeof first === "string" && first.startsWith("http://") ? first : undefined;
+  } catch {
+    return undefined;
   }
 }
 
@@ -141,7 +164,11 @@ export class Ctx {
   }
 
   gatewayUrl(): URL {
-    return resolveGatewayUrl(this.deps.env, this.opts.url, { insecure: this.opts.insecure });
+    // No --url, PSYCHE_URL or PSYCHE_PORT: the address the local Gateway says it is bound to.
+    const { env } = this.deps;
+    const chosen =
+      this.opts.url ?? (env.PSYCHE_URL || env.PSYCHE_PORT ? undefined : listenedUrl(this.home));
+    return resolveGatewayUrl(env, chosen, { insecure: this.opts.insecure });
   }
 
   probe(): Promise<HttpProbe> {

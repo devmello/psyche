@@ -47,7 +47,7 @@ describe("run/listen.json", () => {
     expect(at("listen.json").birthtimeNs <= at("handshake.secret").birthtimeNs).toBe(true);
   });
 
-  it("lists the address actually bound, so gateway.host: localhost works", async () => {
+  it("lists the address actually bound (127.0.0.1 or ::1 for gateway.host: localhost), which the CLI then uses as its default URL", async () => {
     t = await startTestGateway({ config: { host: "localhost" } });
     const file = JSON.parse(readFileSync(listenPath(t.home), "utf8")) as { origins: string[] };
     const url = new URL(file.origins[0] as string);
