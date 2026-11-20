@@ -76,12 +76,20 @@ describe("From your other chats (E12)", () => {
     // 2. Without the grant, a side chat gets nothing from it.
     const side = await thread("side", "Errands");
     await turn(owner, side, "When is the launch again?");
-    expect((model.requests[1] as ModelRequest).system).not.toContain("From your other chats");
+    expect(JSON.stringify((model.requests[1] as ModelRequest).messages)).not.toContain(
+      "From your other chats",
+    );
 
     // 3. With the grant: untrusted context, a block in the reply, an audit entry.
     await owner.call("settings.set", { key: OTHER_CHATS_SETTING, value: true }, ik());
     await turn(owner, side, "When is the launch again?");
-    const system = (model.requests[2] as ModelRequest).system ?? "";
+    // In the owner's user message after their words, never in `system`.
+    const sent = model.requests[2] as ModelRequest;
+    expect(sent.system ?? "").not.toContain("From your other chats");
+    const system = JSON.stringify(sent.messages.filter((m) => m.role === "user").at(-1)).replaceAll(
+      '\\"',
+      '"',
+    );
     expect(system).toContain('source="context:other-chats" provenance="untrusted"');
     expect(system).toContain(`"Launch plan"`);
     expect(system).toContain("November 3");

@@ -450,6 +450,8 @@ interface RunState {
    * start of the run (undefined when none): only for the context meter.
    */
   turnContext?: string;
+  /** The sections behind `turnContext`, for "what the model saw" (`explainContext`). */
+  turnSections?: ContextSection[];
   /** The compaction summary, sent as the first retained message and not in `system`. */
   summarySection?: ContextSection;
   /**
@@ -1336,6 +1338,7 @@ export class PsycheAgentLoop implements AgentLoop {
       });
     }
     run.turnContext = rendered.map((r) => r.text).join("\n\n");
+    run.turnSections = provided;
   }
 
   /**
@@ -1569,7 +1572,12 @@ export class PsycheAgentLoop implements AgentLoop {
       model: run.model,
       permissionMode: run.permissionMode,
       system: built.system,
-      sections: built.sections,
+      // What the model saw, wherever it sat: the summary and the turn's context ride in messages.
+      sections: [
+        ...built.sections,
+        ...(run.summarySection === undefined ? [] : [run.summarySection]),
+        ...(run.turnSections ?? []),
+      ],
       tools: built.tools,
       messageCount: run.thread.messages.length,
       assembledAt: toIso(this.#clock.now()),
