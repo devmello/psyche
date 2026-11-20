@@ -181,14 +181,15 @@ describe("refusals", () => {
 
   it("refuses an admin CLI that arrived through any forwarding header", async () => {
     await start();
-    for (const headers of [
+    const variants: Record<string, string>[] = [
       { "x-forwarded-for": "100.64.0.9" },
       { forwarded: "for=100.64.0.9" },
       { "x-real-ip": "100.64.0.9" },
       // Not on the old list: a proxy that sets only these still is a proxy.
       { "x-forwarded-host": "lab-box.tail1234.ts.net" },
       { "x-forwarded-proto": "https" },
-    ]) {
+    ];
+    for (const headers of variants) {
       await refusedWith(await cli(ADMIN, headers));
     }
   });

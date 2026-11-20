@@ -22,12 +22,12 @@ async function start(extra: Record<string, (params: unknown) => unknown> = {}) {
       "settings.get": () => ({
         settings: lanSetting === undefined ? {} : { "gateway.lan": lanSetting },
       }),
-      "settings.set": (p) => {
+      "settings.set": (p: unknown) => {
         lanSetting = (p as { value: unknown }).value;
         return { entry: { key: "gateway.lan", value: lanSetting } };
       },
       "gateway.info": () => ({ lan: { enabled: true, origin: "https://lab-box.local:7777" } }),
-      "devices.setupToken.create": (p) => ({
+      "devices.setupToken.create": (p: unknown) => ({
         link: "psyche-pair:v1:TESTLINK",
         version: (p as { via?: string }).via === "lan" ? 2 : 1,
         gatewayUrl: "https://lab-box.tail1234.ts.net",
