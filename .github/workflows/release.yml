@@ -1353,11 +1353,12 @@ jobs:
           fi
       - name: The helper trusts exactly the app's release keys
         run: |
-          # The binary lists the key ids it will accept for updates. They must equal the ids in the
-          # app's release-keys.ts: a test key compiled in by any route (the environment, a cargo
-          # config [env]) shows up as an extra id, a drifted list as a missing one.
-          have="$(apps/linux-helper/target/release/psyche-helper --build-info | node -p 'JSON.parse(require("fs").readFileSync(0, "utf8")).updateKeys.sort().join(",")')"
-          want="$(node --input-type=module -e 'import { loadTrustedKeys } from "./deploy/scripts/update-manifest.mjs"; const k = await loadTrustedKeys("apps/desktop/src/main/release-keys.ts"); console.log(k.map((x) => x.keyId).sort().join(","));')"
+          # The binary lists the {keyId, publicKey} pairs it will accept for updates. They must equal
+          # the app's release-keys.ts: a test key compiled in by any route (the environment, a cargo
+          # config [env]) is an extra pair, a drifted list a missing one, and a changed key under an
+          # unchanged id a different pair.
+          have="$(apps/linux-helper/target/release/psyche-helper --build-info | node -p 'JSON.parse(require("fs").readFileSync(0, "utf8")).updateKeys.map((k) => k.keyId + ":" + k.publicKey).sort().join(",")')"
+          want="$(node --input-type=module -e 'import { loadTrustedKeys } from "./deploy/scripts/update-manifest.mjs"; const k = await loadTrustedKeys("apps/desktop/src/main/release-keys.ts"); console.log(k.map((x) => x.keyId + ":" + x.publicKey).sort().join(","));')"
           echo "helper: $have"
           echo "app:    $want"
           if [ -z "$want" ] || [ "$have" != "$want" ]; then

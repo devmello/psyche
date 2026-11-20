@@ -132,6 +132,21 @@ create_dedicated() {
   say "created the account $T_USER (no password, no login shell)"
 }
 
+# One helper account per machine for the tarball (the root-owned service file names it), and never a
+# tarball dedicated install next to a deb or rpm one (the /etc service file would shadow the packaged one).
+ETC_UNIT="$ROOT_UNITDIR/$UNIT"
+etc_unit_user() { sed -n 's/^ConditionUser=//p' "$ETC_UNIT" 2>/dev/null | head -n 1; }
+if [ "$UNINSTALL" = 0 ]; then
+  if [ "$DEDICATED" = 1 ] && [ "$PAYLOAD" = tarball ] && [ -x "$PKG_LIB/psyche-helper" ]; then
+    die "the deb or rpm is installed: use psyche-helper-setup --dedicated-user, not this tarball"
+  fi
+  if [ "$DEDICATED" = 1 ] && [ -e "$ETC_UNIT" ] && [ "$(etc_unit_user)" != "$T_USER" ]; then
+    die "another account ($(etc_unit_user)) already runs the helper through $ETC_UNIT: remove it first"
+  fi
+  if [ "$PAYLOAD" = package ] && [ -e "$ETC_UNIT" ]; then
+    die "a tarball dedicated install ($ETC_UNIT) is here and would shadow the package's service file: remove it first (install.sh --dedicated-user NAME --uninstall)"
+  fi
+fi
 if [ "$UNINSTALL" = 0 ] && [ "$DEDICATED" = 1 ]; then create_dedicated; fi
 getent passwd "$T_USER" >/dev/null || die "no account $T_USER"
 T_UID="$(id -u "$T_USER")"
@@ -145,8 +160,15 @@ as_target() {
   if [ "$(id -un)" = "$T_USER" ]; then
     XDG_RUNTIME_DIR="$RUNDIR" DBUS_SESSION_BUS_ADDRESS="unix:path=$RUNDIR/bus" "$@"
   else
-    runuser -u "$T_USER" -- env HOME="$T_HOME" XDG_RUNTIME_DIR="$RUNDIR" \
-      DBUS_SESSION_BUS_ADDRESS="unix:path=$RUNDIR/bus" "$@"
+    # Never on the administrator's own terminal: a process of that account could otherwise push
+    # keystrokes into the admin's shell. A pseudo-terminal of its own, or no terminal at all.
+    if runuser --help 2>&1 | grep -q -- '--pty'; then
+      runuser -u "$T_USER" --pty -- env HOME="$T_HOME" XDG_RUNTIME_DIR="$RUNDIR" \
+        DBUS_SESSION_BUS_ADDRESS="unix:path=$RUNDIR/bus" "$@"
+    else
+      setsid -w runuser -u "$T_USER" -- env HOME="$T_HOME" XDG_RUNTIME_DIR="$RUNDIR" \
+        DBUS_SESSION_BUS_ADDRESS="unix:path=$RUNDIR/bus" "$@" </dev/null
+    fi
   fi
 }
 
@@ -193,7 +215,7 @@ if [ "$UNINSTALL" = 1 ]; then
     as_target systemctl --user disable --now "$UNIT" 2>/dev/null || true
   fi
   # Root's own files (a dedicated account's program and service file) ...
-  if [ "$DEDICATED" = 1 ]; then
+  if [ "$DEDICATED" = 1 ] && [ "$(etc_unit_user)" = "$T_USER" ]; then
     rm -f "$ROOT_UNITDIR/$UNIT" "$ROOT_UNITDIR/$SLICE" "$ROOT_BIN"
     rm -rf "$ROOT_LIB"
   fi
@@ -266,7 +288,12 @@ if [ "$DEDICATED" = 1 ]; then
 fi
 
 render_unit() { # render_unit EXEC_PATH -> stdout
-  sed "s#^ExecStart=/usr/bin/psyche-helper #ExecStart=$1 #" "$SHARE/$UNIT"
+  if [ "$DEDICATED" = 1 ]; then
+    # The file is in /etc, which every account's manager reads: only this account's runs it.
+    sed -e "s#^ExecStart=/usr/bin/psyche-helper #ExecStart=$1 #" -e "s#^\[Unit\]\$#[Unit]\nConditionUser=$T_USER#" "$SHARE/$UNIT"
+  else
+    sed "s#^ExecStart=/usr/bin/psyche-helper #ExecStart=$1 #" "$SHARE/$UNIT"
+  fi
 }
 
 if [ "$PAYLOAD" = tarball ]; then
@@ -278,7 +305,9 @@ if [ "$PAYLOAD" = tarball ]; then
   grep -q "^ExecStart=$EXEC_PATH remote" "$rendered" || die "could not set the unit's ExecStart"
   if [ "$DEDICATED" = 1 ]; then
     # Root-owned program and service file, written by root into root-owned places only.
-    install -d -m 0755 -o root -g root "$ROOT_LIB" "$ROOT_UNITDIR" /usr/local/bin
+    for d in "$ROOT_LIB" "$ROOT_UNITDIR" /usr/local/bin; do
+      [ -d "$d" ] || install -d -m 0755 -o root -g root "$d"
+    done
     install -o root -g root -m 0755 "$SELF_DIR/bin/psyche-helper" "$ROOT_LIB/.psyche-helper.install"
     mv -f "$ROOT_LIB/.psyche-helper.install" "$ROOT_LIB/psyche-helper"
     ln -sfn "$ROOT_LIB/psyche-helper" "$ROOT_BIN"
@@ -303,6 +332,10 @@ if [ "$DEDICATED" = 0 ]; then linger_on; fi
 wait_manager
 as_target systemctl --user daemon-reload
 as_target systemctl --user enable "$UNIT" >/dev/null
+# A running helper is still the old program (and would report it as deleted): start it again.
+if [ "$DEDICATED" = 1 ] && [ "$PAYLOAD" = tarball ]; then
+  as_target systemctl --user try-restart "$UNIT" || warn "could not restart the running helper; as $T_USER run: systemctl --user restart $UNIT"
+fi
 
 if [ "$DEDICATED" = 1 ]; then
   RUN_AS="sudo -u $T_USER -H env XDG_RUNTIME_DIR=$RUNDIR"

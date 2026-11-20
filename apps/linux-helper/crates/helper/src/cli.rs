@@ -22,6 +22,7 @@ pub const USAGE: &str =
   --idle-timeout N  exit after N seconds with no work; 0 never exits (default 300)
   --manifest        print the capability manifest as JSON and exit
   --build-info      print {name, version, build, commit?, platform, arch, protocolVersion} and exit
+  --ceiling-owner   print who the limits count as owned by when this runs as the service (JSON)
   --print-identity  print {deviceId, publicKey, deviceFamily, platform} as JSON and exit: what the
                     Gateway will see (read-only; deviceId and publicKey are null until the helper
                     has run once)
@@ -70,6 +71,7 @@ pub enum Command {
     },
     PrintIdentity,
     BuildInfo,
+    CeilingOwner,
     Manifest,
     Help,
 }
@@ -158,6 +160,7 @@ pub fn parse_args(args: &[String], env: &dyn Env) -> Result<Command, String> {
         match arg.as_str() {
             "--print-identity" => info = Some(Command::PrintIdentity),
             "--build-info" => info = Some(Command::BuildInfo),
+            "--ceiling-owner" => info = Some(Command::CeilingOwner),
             "--manifest" => info = Some(Command::Manifest),
             "--help" | "-h" => info = Some(Command::Help),
             "--idle-timeout" => {
@@ -177,6 +180,7 @@ pub fn parse_args(args: &[String], env: &dyn Env) -> Result<Command, String> {
 pub fn run_info(command: &Command, env: &dyn Env) -> Result<String, String> {
     match command {
         Command::Help => Ok(USAGE.to_string()),
+        Command::CeilingOwner => Ok(crate::update::ceiling_owner_json()),
         Command::BuildInfo => {
             serde_json::to_string(&BuildInfo::current()).map_err(|e| e.to_string())
         }

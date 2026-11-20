@@ -114,6 +114,13 @@ done
 TAR="psyche-helper-0.1.0-linux-$ARCH.tar.zst"
 DEB="$W/pk-real1/psyche-helper-0.1.0-linux-$ARCH.deb"
 RPM="$W/pk-real1/psyche-helper-0.1.0-linux-$ARCH.rpm"
+mkfeed() { # mkfeed DIR PACKAGEDIR VERSION KEYFILE
+  rm -rf "$1"; mkdir -p "$1"; cp "$2"/psyche-helper-"$3"-linux-"$ARCH".* "$1/"
+  "$NODE" "$REPO/deploy/scripts/update-manifest.mjs" build --release "$3" --base "https://github.com/devmello/psyche/releases/download/v$3/" --linux-only --helper-complete "$1"/psyche-helper-"$3"-linux-"$ARCH".* >"$1/update-manifest.json"
+  PSYCHE_RELEASE_SIGNING_KEY="$(cat "$4")" "$NODE" "$REPO/deploy/scripts/update-manifest.mjs" sign "$1/update-manifest.json"
+  chmod -R a+rX "$1"
+}
+mkfeed "$W/feed2" "$W/pk-real2" 0.2.0 "$KEY"
 
 # --- package contents -------------------------------------------------------------------------
 check "deb: control names the runtime dependencies" bash -c "dpkg-deb -f '$DEB' Depends | grep -q bubblewrap && dpkg-deb -f '$DEB' Depends | grep -q dbus-user-session && dpkg-deb -f '$DEB' Depends | grep -q xvfb"
@@ -198,6 +205,10 @@ sudo rm -rf /etc/psyche-helper
 # --- dedicated account ------------------------------------------------------------------------
 DED=psyche-h7-ded
 refuse "dedicated: a name that is not ours is refused" sudo bash "$INST" --dedicated-user root
+sudo dpkg -i --force-depends "$DEB" >/dev/null 2>&1
+refuse "dedicated: the tarball install is refused while the deb is installed" sudo bash "$INST" --dedicated-user $DED
+check "dedicated: ... and it made no account" bash -c "! id $DED"
+sudo dpkg -P psyche-helper >/dev/null 2>&1; sudo rm -rf /etc/psyche-helper
 sudo bash "$INST" --dedicated-user $DED --ceiling narrow >"$W/ded.log" 2>&1 && ok "dedicated: installer" || { bad "dedicated: installer"; cat "$W/ded.log"; }
 DED_UID="$(uid_of $DED 2>/dev/null || echo 0)"
 check "dedicated: the account has no login shell and a Psyche marker" bash -c "getent passwd $DED | grep -q 'nologin' && getent passwd $DED | grep -q 'Psyche helper'"
@@ -205,15 +216,80 @@ check "dedicated: the policy is root-owned, 0644, narrow" bash -c "[ \"\$(stat -
 check "dedicated: the account cannot write the policy" bash -c "! sudo -u $DED sh -c 'echo x >> /etc/psyche-helper/policy.json'"
 check "dedicated: the program is root's, in root's folders, and the account has no copy" bash -c "[ \"\$(stat -c %U:%a /usr/local/lib/psyche-helper/psyche-helper)\" = root:755 ] && [ \"\$(stat -c %U:%a /usr/local/lib/psyche-helper)\" = root:755 ] && sudo test ! -e /home/$DED/.local/lib/psyche-helper"
 check "dedicated: the service file is root's too (/etc/systemd/user) and verifies" bash -c "[ \"\$(stat -c %U:%a /etc/systemd/user/psyche-helper-remote.service)\" = root:644 ] && grep -q '^ExecStart=/usr/local/lib/psyche-helper/psyche-helper remote' /etc/systemd/user/psyche-helper-remote.service && systemd-analyze verify --user /etc/systemd/user/psyche-helper-remote.service /etc/systemd/user/psyche-machine.slice"
+check "dedicated: the service file runs only for this account (ConditionUser)" grep -q "^ConditionUser=$DED\$" /etc/systemd/user/psyche-helper-remote.service
+check "dedicated: a second helper account is refused, and not created" bash -c "! sudo bash $INST --dedicated-user psyche-h7-d2 >/dev/null 2>&1 && ! id psyche-h7-d2"
+sudo rm -rf "$W-etcbak"; sudo cp -a /etc/psyche-helper "$W-etcbak"
+sudo dpkg -i --force-depends --force-confold "$DEB" >/dev/null 2>&1
+refuse "package setup is refused while a dedicated tarball unit is in /etc" as psyche-h7-pkg /usr/bin/psyche-helper-setup
+sudo dpkg -P psyche-helper >/dev/null 2>&1; sudo rm -rf /etc/psyche-helper; sudo cp -a "$W-etcbak" /etc/psyche-helper; sudo rm -rf "$W-etcbak"
 check "dedicated: the account cannot replace the program or the service file" bash -c "! sudo -u $DED sh -c 'echo x > /usr/local/lib/psyche-helper/psyche-helper' && ! sudo -u $DED sh -c 'echo x > /etc/systemd/user/psyche-helper-remote.service'"
 ctl $DED start psyche-helper-remote.service
 check "dedicated: the helper runs as the dedicated account" bash -c "wait_for 10 ctl $DED is-active --quiet psyche-helper-remote.service && [ \"\$(ps -o user= -p \$(ctl $DED show -p MainPID --value psyche-helper-remote.service))\" = $DED ]"
+PIDR="$(ctl $DED show -p MainPID --value psyche-helper-remote.service)"
 check "dedicated: a second run reuses the account and keeps the root-owned policy" bash -c "sudo bash $INST --dedicated-user $DED 2>&1 | grep -q 'kept as it is'"
+check "dedicated: re-installing restarts the running helper onto the new program" bash -c "wait_for 15 ctl $DED is-active --quiet psyche-helper-remote.service && [ \"\$(ctl $DED show -p MainPID --value psyche-helper-remote.service)\" != $PIDR ]"
 check "dedicated: it does not take over an account it did not create" bash -c "sudo useradd -m psyche-h7-upd && ! sudo bash $INST --dedicated-user psyche-h7-upd"
 sudo userdel -r psyche-h7-upd >/dev/null 2>&1
 PIDD="$(ctl $DED show -p MainPID --value psyche-helper-remote.service)"
 sudo systemctl stop "user@$DED_UID.service"; sudo systemctl start "user@$DED_UID.service"
 check "reboot (simulated): the dedicated helper is back" bash -c "wait_for 20 ctl $DED is-active --quiet psyche-helper-remote.service && [ \"\$(ctl $DED show -p MainPID --value psyche-helper-remote.service)\" != $PIDD ]"
+# --- who the helper says owns the limits (best effort, and honest: root only when nothing the
+# account owns is in the way). The real binary replaces the stand-in, root's copy, and is asked
+# from inside the service manager with INVOCATION_ID set the way a service has it.
+CO=/usr/local/lib/psyche-helper/psyche-helper
+sudo install -o root -g root -m 0755 "$W/bin1/psyche-helper" $CO
+DH="/home/$DED"
+expect_owner() { # expect_owner NAME OWNER REASON(null|"x") [systemd-run options / command prefix]
+  local name="$1" want="$2" reason="$3"; shift 3
+  local out
+  out="$(as $DED systemd-run --user --wait --pipe --collect -q "$@" $CO --ceiling-owner 2>&1)"
+  if grep -q "\"policyOwner\":\"$want\"" <<<"$out" && grep -q "\"reason\":$reason" <<<"$out"; then ok "$name"; else bad "$name: $out"; fi
+}
+reload() { ctl $DED daemon-reload; }
+expect_owner "ceiling owner: a clean dedicated install reports root" root null
+expect_owner "ceiling owner: run outside a service (no INVOCATION_ID) reports user" user '"not_a_service"' /usr/bin/env -u INVOCATION_ID
+expect_owner "ceiling owner: GLIBC_TUNABLES in the environment reports user" user '"environment"' -E GLIBC_TUNABLES=glibc.malloc.check=0
+expect_owner "ceiling owner: LD_PRELOAD in the environment reports user" user '"environment"' -E LD_PRELOAD=/nonexistent/evil.so
+# (a unit of the account's own, in its home)
+as $DED mkdir -p "$DH/.config/systemd/user"
+printf '[Service]\nExecStart=/bin/true\n' | as $DED tee "$DH/.config/systemd/user/psyche-helper-remote.service" >/dev/null
+reload
+expect_owner "ceiling owner: a service file in the account's home reports user" user '"unit_overridden"'
+as $DED rm -f "$DH/.config/systemd/user/psyche-helper-remote.service"; reload
+expect_owner "ceiling owner: back to root once the override is gone" root null
+# (a drop-in, with a fake systemctl first on the manager's PATH)
+as $DED mkdir -p "$DH/.config/systemd/user/psyche-helper-remote.service.d" "$DH/fake"
+printf '[Service]\nEnvironment=X=1\n' | as $DED tee "$DH/.config/systemd/user/psyche-helper-remote.service.d/x.conf" >/dev/null
+printf '#!/bin/sh\necho FragmentPath=/etc/systemd/user/psyche-helper-remote.service\necho DropInPaths=\n' | as $DED tee "$DH/fake/systemctl" >/dev/null
+as $DED chmod 755 "$DH/fake/systemctl"
+ctl $DED set-environment "PATH=$DH/fake:/usr/bin:/bin"
+reload
+expect_owner "ceiling owner: a drop-in reports user even with a fake systemctl first on PATH" user '"unit_overridden"'
+ctl $DED unset-environment PATH
+as $DED rm -rf "$DH/.config/systemd/user/psyche-helper-remote.service.d" "$DH/fake"; reload
+# (a ".." in SYSTEMD_UNIT_PATH makes a home file look like /usr/lib/systemd/user/...)
+as $DED mkdir -p "$DH/u"
+printf '[Service]\nExecStart=/bin/true\n' | as $DED tee "$DH/u/psyche-helper-remote.service" >/dev/null
+printf '[Manager]\nManagerEnvironment=SYSTEMD_UNIT_PATH=/usr/lib/systemd/user/../../../..%s/u:\n' "$DH" | as $DED tee "$DH/.config/systemd/user.conf" >/dev/null
+ctl $DED daemon-reexec; sleep 1
+expect_owner "ceiling owner: a unit reached through a .. prefix reports user" user '"unit_overridden"'
+as $DED rm -rf "$DH/.config/systemd/user.conf" "$DH/u"; ctl $DED daemon-reexec; sleep 1
+expect_owner "ceiling owner: back to root once the .. override is gone" root null
+# (environment.d reaching the service's environment)
+as $DED mkdir -p "$DH/.config/environment.d"
+printf 'GLIBC_TUNABLES=glibc.malloc.check=0\n' | as $DED tee "$DH/.config/environment.d/50-x.conf" >/dev/null
+reload
+check "environment.d reaches the manager's environment (the test's premise)" bash -c "ctl $DED show-environment | grep -q GLIBC_TUNABLES"
+expect_owner "ceiling owner: an environment.d LD_*/GLIBC variable reports user" user '"environment"'
+as $DED rm -rf "$DH/.config/environment.d"; reload
+expect_owner "ceiling owner: root again at the end" root null
+
+# update in a root-owned install points at the installer, and --check still looks
+as $DED $CO update >"$W/ded-update.log" 2>&1
+check "dedicated update: points at install.sh, not at apt" bash -c "grep -q 'install.sh --dedicated-user' $W/ded-update.log && ! grep -q 'apt' $W/ded-update.log"
+as $DED $CO update --check --from "$W/feed2" >"$W/ded-check.log" 2>&1
+check "dedicated update --check: works without a writable folder and says how to update" bash -c "grep -q '0.2.0 is available' $W/ded-check.log && grep -q 'install.sh --dedicated-user' $W/ded-check.log"
+
 # Links the account plants in its own home must lead nowhere with root's rights: re-run the installer,
 # --uninstall and --uninstall --purge as root and see that what the links point at is untouched.
 V1=/var/tmp/psyche-h7-victim1; V2=/var/tmp/psyche-h7-victim2
@@ -250,12 +326,6 @@ check "--build-info lists the update key ids (the release job compares them with
 ver() { as $UPD "$HB" --build-info | sed -n 's/.*"version":"\([^"]*\)".*/\1/p'; }
 [ "$(ver)" = 0.1.0 ] && ok "update: the installed helper reports 0.1.0" || bad "update: installed version is $(ver)"
 
-mkfeed() { # mkfeed DIR PACKAGEDIR VERSION KEYFILE
-  rm -rf "$1"; mkdir -p "$1"; cp "$2"/psyche-helper-"$3"-linux-"$ARCH".* "$1/"
-  "$NODE" "$REPO/deploy/scripts/update-manifest.mjs" build --release "$3" --base "https://github.com/devmello/psyche/releases/download/v$3/" --linux-only --helper-complete "$1"/psyche-helper-"$3"-linux-"$ARCH".* >"$1/update-manifest.json"
-  PSYCHE_RELEASE_SIGNING_KEY="$(cat "$4")" "$NODE" "$REPO/deploy/scripts/update-manifest.mjs" sign "$1/update-manifest.json"
-  chmod -R a+rX "$1"
-}
 mkfeed "$W/feed2" "$W/pk-real2" 0.2.0 "$KEY"
 HELPER="as $UPD $HB"
 $HELPER update --check --from "$W/feed2" >"$W/u-check.log" 2>&1

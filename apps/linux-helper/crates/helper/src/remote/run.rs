@@ -575,11 +575,17 @@ fn status(dirs: &Dirs, env: &dyn Env, as_json: bool) -> Result<String, String> {
         Source::Invalid(why) => format!("INVALID, everything is denied ({why})"),
     };
     let owner = match crate::update::ceiling_owner(matches!(loaded.owner, Owner::Root)) {
-        ("root", _) => "root",
-        (_, Some(_)) if matches!(loaded.owner, Owner::Root) => {
-            "root (but the program or its service file can be changed by your account)"
-        }
-        _ => "your account",
+        ("root", _) => "root".to_string(),
+        (_, Some(why)) if matches!(loaded.owner, Owner::Root) => format!(
+            "root's file, shown as your account's here ({})",
+            match why {
+                "program_writable" => "the program can be changed by your account",
+                "environment" => "the service's environment can inject code",
+                "not_a_service" => "this was not run by the service, so it cannot tell",
+                _ => "the service file can be changed by your account",
+            }
+        ),
+        _ => "your account".to_string(),
     };
     let account = if env.get("PSYCHE_HELPER_ACCOUNT").as_deref() == Some("dedicated") {
         "dedicated"

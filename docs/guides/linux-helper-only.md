@@ -54,7 +54,7 @@ psyche-helper-setup                                            # as the account 
 # or:  sudo psyche-helper-setup --dedicated-user
 ```
 
-The package installs the program under `/usr/lib/psyche-helper`, the service under `/usr/lib/systemd/user`, and the limits at `/etc/psyche-helper/policy.json`, owned by root. A package install is the stronger setup: neither your account nor anything the helper runs can change the limits, the program or the service file. (An account can still put a service file of its own in its own home; the helper notices that it is not running from the packaged file and Settings then shows the limits as changeable.) `psyche-helper-setup` only turns the service on for one account and sets up linger.
+The package installs the program under `/usr/lib/psyche-helper`, the service under `/usr/lib/systemd/user`, and the limits at `/etc/psyche-helper/policy.json`, owned by root. A package install is the stronger setup: neither your account nor anything the helper runs can change the limits, the program or the service file. (An account can still put a service file, a drop-in or an `environment.d` file in its own home. A user service manager cannot be stopped from reading those, so the helper checks at start and, when it finds one, reports the limits as changeable by the account, and Settings shows the warning. Treat "root-owned" as a best-effort report, not a guarantee against code already running as that account.) `psyche-helper-setup` only turns the service on for one account and sets up linger.
 
 ### Linger: the one step that needs an administrator
 
@@ -97,7 +97,7 @@ Anything else is refused and nothing changes. The old program stays next to the 
 
 For a machine with no route to GitHub: download `update-manifest.json`, `update-manifest.json.sig` and the tarball of one release into a folder and run `psyche-helper update --from <folder>`. The same checks apply.
 
-A deb or rpm install is updated with the package manager (`apt`, `dnf`); a separate account's root-owned program is updated by unpacking the new tarball and running `sudo ./install.sh --dedicated-user` again. `psyche-helper update` says so and does nothing. The installer's service file is not changed by `update`: after a release that changes it, run the new tarball's `install.sh` again.
+A deb or rpm install is updated with the package manager (`apt`, `dnf`); a separate account's root-owned program is updated by unpacking the new tarball and running `sudo ./install.sh --dedicated-user` again. `psyche-helper update` says so and does nothing; `psyche-helper update --check` still tells you whether a newer release exists. Only one separate account can use the tarball install on a machine, and it cannot be combined with the deb or rpm (the installer refuses). The installer's service file is not changed by `update`: after a release that changes it, run the new tarball's `install.sh` again.
 
 ## Remove
 

@@ -665,12 +665,14 @@ pub trait Service {
 }
 
 pub const UNIT: &str = "psyche-helper-remote.service";
+/// By absolute path: a `systemctl` found on a PATH the account controls could answer anything.
+pub const SYSTEMCTL: &str = "/usr/bin/systemctl";
 
 pub struct Systemd;
 
 impl Systemd {
     fn ctl(args: &[&str]) -> Option<std::process::Output> {
-        Process::new("systemctl")
+        Process::new(SYSTEMCTL)
             .arg("--user")
             .args(args)
             .output()
@@ -698,15 +700,49 @@ impl Service for Systemd {
     }
 }
 
-/// Where this binary lives and may be replaced. `None` when it is a package's (root-owned) copy.
-pub fn tarball_binary(exe: &Path) -> Result<PathBuf, UpdateError> {
-    let exe = fs::canonicalize(exe).map_err(|e| UpdateError::Install(e.to_string()))?;
-    if exe.starts_with("/usr/") || exe.starts_with("/opt/") {
-        return Err(UpdateError::Install(
+/// How this copy of the helper was installed.
+#[derive(Debug, PartialEq, Eq, Clone, Copy)]
+pub enum InstallKind {
+    /// A deb or rpm (or anything else under `/usr` or `/opt`): updated by the package manager.
+    Package,
+    /// `install.sh --dedicated-user`: root's copy in `/usr/local/lib/psyche-helper`, updated by
+    /// running the new release's installer as root.
+    RootTarball,
+    /// The own-account tarball install: the account's own copy, which updates itself.
+    Own,
+}
+
+pub fn install_kind(exe: &Path) -> InstallKind {
+    if exe.starts_with("/usr/local/lib/psyche-helper/") {
+        InstallKind::RootTarball
+    } else if exe.starts_with("/usr/") || exe.starts_with("/opt/") {
+        InstallKind::Package
+    } else {
+        InstallKind::Own
+    }
+}
+
+/// What to do instead, for an install that does not update itself.
+pub fn update_advice(kind: InstallKind) -> &'static str {
+    match kind {
+        InstallKind::Package => {
             "this helper was installed by your package manager (apt, dnf): update it with that, \
              for example `sudo apt install --only-upgrade psyche-helper`"
-                .into(),
-        ));
+        }
+        InstallKind::RootTarball => {
+            "this helper is a separate account's root-owned copy: unpack the new release and run \
+             `sudo ./install.sh --dedicated-user NAME` again"
+        }
+        InstallKind::Own => "",
+    }
+}
+
+/// Where this binary lives and may be replaced: only the own-account tarball install.
+pub fn tarball_binary(exe: &Path) -> Result<PathBuf, UpdateError> {
+    let exe = fs::canonicalize(exe).map_err(|e| UpdateError::Install(e.to_string()))?;
+    let kind = install_kind(&exe);
+    if kind != InstallKind::Own {
+        return Err(UpdateError::Install(update_advice(kind).into()));
     }
     let dir = exe
         .parent()
@@ -948,7 +984,13 @@ pub fn run(check: bool, do_rollback: bool, from: Option<&Path>) -> Result<String
         );
     }
     let exe = std::env::current_exe().map_err(|e| e.to_string())?;
-    let bin = tarball_binary(&exe).map_err(|e| e.to_string())?;
+    let kind = install_kind(&fs::canonicalize(&exe).unwrap_or_else(|_| exe.clone()));
+    // Looking never needs a writable folder: --check works for every kind of install.
+    let bin = match tarball_binary(&exe) {
+        Ok(bin) => bin,
+        Err(_) if check && !do_rollback => exe.clone(),
+        Err(e) => return Err(e.to_string()),
+    };
     if do_rollback {
         rollback(&bin).map_err(|e| e.to_string())?;
         if Systemd.running() {
@@ -974,9 +1016,11 @@ pub fn run(check: bool, do_rollback: bool, from: Option<&Path>) -> Result<String
     .map_err(|e| e.to_string())?;
     match outcome {
         Outcome::UpToDate(v) => Ok(format!("psyche-helper {v} is the newest release")),
-        Outcome::Available(v) => Ok(format!(
-            "psyche-helper {v} is available (run `psyche-helper update`)"
-        )),
+        Outcome::Available(v) => Ok(if kind == InstallKind::Own {
+            format!("psyche-helper {v} is available (run `psyche-helper update`)")
+        } else {
+            format!("psyche-helper {v} is available: {}", update_advice(kind))
+        }),
         Outcome::Updated { from, to } => Ok(format!(
             "updated psyche-helper {from} -> {to} (`psyche-helper update --rollback` goes back)"
         )),
@@ -986,12 +1030,28 @@ pub fn run(check: bool, do_rollback: bool, from: Option<&Path>) -> Result<String
     }
 }
 
-/// The key ids this binary trusts for updates, sorted. `--build-info` prints them and the release
-/// job compares them with the app's `release-keys.ts` (a test key or a drifted list fails there).
-pub fn trusted_key_ids() -> Vec<String> {
-    let mut ids: Vec<String> = trusted_keys().into_iter().map(|k| k.key_id).collect();
-    ids.sort();
-    ids
+/// A key this binary trusts for updates, as `--build-info` prints it.
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize)]
+pub struct UpdateKey {
+    #[serde(rename = "keyId")]
+    pub key_id: String,
+    #[serde(rename = "publicKey")]
+    pub public_key: String,
+}
+
+/// The keys this binary trusts for updates, sorted by id. `--build-info` prints the pairs and the
+/// release job compares them with the app's `release-keys.ts` (a test key, a drifted list or a
+/// changed key under an unchanged id all fail there).
+pub fn trusted_key_pairs() -> Vec<UpdateKey> {
+    let mut keys: Vec<UpdateKey> = trusted_keys()
+        .into_iter()
+        .map(|k| UpdateKey {
+            key_id: k.key_id,
+            public_key: k.public_key,
+        })
+        .collect();
+    keys.sort_by(|a, b| a.key_id.cmp(&b.key_id));
+    keys
 }
 
 // ---------------------------------------------------------------------------------------------
@@ -1009,26 +1069,19 @@ pub fn root_controlled(path: &Path) -> bool {
         .all(|p| fs::symlink_metadata(p).is_ok_and(|m| m.uid() == 0 && m.mode() & 0o022 == 0))
 }
 
-/// Whether `systemctl --user show -p FragmentPath -p DropInPaths` output names only unit files in
-/// root-owned directories.
-pub fn unit_files_packaged(show_output: &str) -> bool {
-    const OK: [&str; 4] = [
-        "/usr/lib/systemd/user/",
-        "/lib/systemd/user/",
-        "/etc/systemd/user/",
-        "/usr/local/lib/systemd/user/",
-    ];
+/// Whether `systemctl --user show -p FragmentPath -p DropInPaths` output names unit files that all
+/// pass `ok` (in the real check: resolved through links, root-owned, in root-owned folders). An
+/// empty fragment path is a no.
+pub fn unit_files_root_controlled(show_output: &str, ok: &dyn Fn(&Path) -> bool) -> bool {
     let mut fragment = false;
     for line in show_output.lines() {
         if let Some(v) = line.strip_prefix("FragmentPath=") {
-            fragment = OK.iter().any(|p| v.starts_with(p));
-            if !fragment {
+            if v.is_empty() || !ok(Path::new(v)) {
                 return false;
             }
+            fragment = true;
         } else if let Some(v) = line.strip_prefix("DropInPaths=") {
-            if v.split_whitespace()
-                .any(|d| !OK.iter().any(|p| d.starts_with(p)))
-            {
+            if v.split_whitespace().any(|d| !ok(Path::new(d))) {
                 return false;
             }
         }
@@ -1036,14 +1089,10 @@ pub fn unit_files_packaged(show_output: &str) -> bool {
     fragment
 }
 
-fn unit_is_packaged() -> bool {
+fn unit_is_root_controlled() -> bool {
     static CACHE: std::sync::OnceLock<bool> = std::sync::OnceLock::new();
     *CACHE.get_or_init(|| {
-        // Run by hand (`psyche-helper remote` in a terminal): there is no unit to check.
-        if std::env::var_os("INVOCATION_ID").is_none() {
-            return true;
-        }
-        Process::new("systemctl")
+        Process::new(SYSTEMCTL)
             .args([
                 "--user",
                 "show",
@@ -1056,37 +1105,75 @@ fn unit_is_packaged() -> bool {
             .output()
             .ok()
             .filter(|o| o.status.success())
-            .is_some_and(|o| unit_files_packaged(&String::from_utf8_lossy(&o.stdout)))
+            .is_some_and(|o| {
+                unit_files_root_controlled(&String::from_utf8_lossy(&o.stdout), &root_controlled)
+            })
     })
 }
 
-/// `("root" | "user", reason)` for what Settings should say about the ceiling. A root-owned
-/// `policy.json` counts as root's only when nothing the account owns can stand between the
-/// file and the program that enforces it: the program and its folders are root's, and the
-/// service's unit files are in root-owned places.
+/// Variables that put the account's code inside this process.
+pub const INJECTION_VARIABLES: [&str; 4] = [
+    "LD_PRELOAD",
+    "LD_LIBRARY_PATH",
+    "LD_AUDIT",
+    "GLIBC_TUNABLES",
+];
+
+/// What `ceiling_owner` looks at, so it can be tested without a service manager.
+pub struct Facts {
+    pub program_root_controlled: bool,
+    pub environment_clean: bool,
+    pub in_service: bool,
+}
+
+impl Facts {
+    pub fn current() -> Self {
+        Self {
+            program_root_controlled: std::env::current_exe().is_ok_and(|e| root_controlled(&e)),
+            environment_clean: INJECTION_VARIABLES
+                .iter()
+                .all(|v| std::env::var_os(v).is_none()),
+            in_service: std::env::var_os("INVOCATION_ID").is_some(),
+        }
+    }
+}
+
+/// `("root" | "user", reason)` for what Settings should say about the ceiling. A best-effort,
+/// honest report from inside the account's own process: `root` only when a root-owned
+/// `policy.json` is read by a program and a service file that are root's, run by a service
+/// manager with a clean environment. Anything the account could have changed reports `user`.
 pub fn ceiling_owner(policy_is_root: bool) -> (&'static str, Option<&'static str>) {
-    ceiling_owner_with(
-        policy_is_root,
-        std::env::current_exe().is_ok_and(|e| root_controlled(&e)),
-        unit_is_packaged,
-    )
+    ceiling_owner_with(policy_is_root, Facts::current(), unit_is_root_controlled)
 }
 
 pub fn ceiling_owner_with(
     policy_is_root: bool,
-    program_root_controlled: bool,
-    unit_packaged: impl FnOnce() -> bool,
+    facts: Facts,
+    unit_root_controlled: impl FnOnce() -> bool,
 ) -> (&'static str, Option<&'static str>) {
     if !policy_is_root {
         return ("user", None);
     }
-    if !program_root_controlled {
+    if !facts.program_root_controlled {
         return ("user", Some("program_writable"));
     }
-    if !unit_packaged() {
+    if !facts.environment_clean {
+        return ("user", Some("environment"));
+    }
+    // Run by hand there is no service whose files could be checked: not a claim to make.
+    if !facts.in_service {
+        return ("user", Some("not_a_service"));
+    }
+    if !unit_root_controlled() {
         return ("user", Some("unit_overridden"));
     }
     ("root", None)
+}
+
+/// `psyche-helper --ceiling-owner`: what the service would report for a root-owned policy, as JSON.
+pub fn ceiling_owner_json() -> String {
+    let (owner, reason) = ceiling_owner(true);
+    serde_json::json!({ "policyOwner": owner, "reason": reason }).to_string()
 }
 
 #[cfg(test)]
@@ -1632,44 +1719,110 @@ mod tests {
         assert!(decode_chunked(b"fffffffffffffffe\r\nxx", usize::MAX).is_err());
     }
 
+    fn facts(program: bool, env: bool, service: bool) -> Facts {
+        Facts {
+            program_root_controlled: program,
+            environment_clean: env,
+            in_service: service,
+        }
+    }
+
     #[test]
     fn the_ceiling_is_root_owned_only_when_nothing_the_account_owns_is_in_the_way() {
-        assert_eq!(ceiling_owner_with(false, true, || true), ("user", None));
+        let t = || true;
         assert_eq!(
-            ceiling_owner_with(true, false, || true),
+            ceiling_owner_with(false, facts(true, true, true), t),
+            ("user", None)
+        );
+        assert_eq!(
+            ceiling_owner_with(true, facts(false, true, true), t),
             ("user", Some("program_writable"))
         );
         assert_eq!(
-            ceiling_owner_with(true, true, || false),
+            ceiling_owner_with(true, facts(true, false, true), t),
+            ("user", Some("environment"))
+        );
+        assert_eq!(
+            ceiling_owner_with(true, facts(true, true, false), t),
+            ("user", Some("not_a_service"))
+        );
+        assert_eq!(
+            ceiling_owner_with(true, facts(true, true, true), || false),
             ("user", Some("unit_overridden"))
         );
-        assert_eq!(ceiling_owner_with(true, true, || true), ("root", None));
-        // The unit is not even asked when the program already settles it.
         assert_eq!(
-            ceiling_owner_with(true, false, || panic!("not needed")),
-            ("user", Some("program_writable"))
+            ceiling_owner_with(true, facts(true, true, true), t),
+            ("root", None)
+        );
+        // The unit is not even asked when something else already settles it.
+        assert_eq!(
+            ceiling_owner_with(true, facts(true, true, false), || panic!("not needed")),
+            ("user", Some("not_a_service"))
         );
     }
 
     #[test]
-    fn unit_files_must_be_in_root_owned_places() {
-        let ok = "FragmentPath=/usr/lib/systemd/user/psyche-helper-remote.service\nDropInPaths=\n";
-        assert!(unit_files_packaged(ok));
-        assert!(unit_files_packaged(
-            "FragmentPath=/etc/systemd/user/psyche-helper-remote.service\nDropInPaths=/etc/systemd/user/psyche-helper-remote.service.d/a.conf\n"
+    fn unit_files_are_judged_by_what_they_resolve_to_not_by_their_names() {
+        let ok = |p: &Path| p.starts_with("/etc/systemd/");
+        let good = "FragmentPath=/etc/systemd/user/psyche-helper-remote.service\nDropInPaths=\n";
+        assert!(unit_files_root_controlled(good, &ok));
+        assert!(unit_files_root_controlled(
+            "FragmentPath=/etc/systemd/user/a.service\nDropInPaths=/etc/systemd/user/a.service.d/x.conf\n",
+            &ok
         ));
         for bad in [
-            "FragmentPath=/home/a/.config/systemd/user/psyche-helper-remote.service\nDropInPaths=\n",
-            "FragmentPath=/home/a/.local/share/systemd/user/psyche-helper-remote.service\nDropInPaths=\n",
-            "FragmentPath=/run/user/1000/systemd/user/psyche-helper-remote.service\nDropInPaths=\n",
-            "FragmentPath=/usr/lib/systemd/user/psyche-helper-remote.service\nDropInPaths=/home/a/.config/systemd/user/psyche-helper-remote.service.d/x.conf\n",
-            "FragmentPath=/usr/lib/systemd/user/psyche-helper-remote.service\nDropInPaths=/usr/lib/systemd/user/x.d/a.conf /home/a/x.conf\n",
-            "FragmentPath=/usr/lib/systemd/user-evil/x.service\nDropInPaths=\n",
+            "FragmentPath=/home/a/.config/systemd/user/a.service\nDropInPaths=\n",
+            "FragmentPath=/etc/systemd/user/a.service\nDropInPaths=/etc/systemd/user/a.d/x.conf /home/a/x.conf\n",
             "FragmentPath=\nDropInPaths=\n",
+            "DropInPaths=\n",
             "",
         ] {
-            assert!(!unit_files_packaged(bad), "{bad}");
+            assert!(!unit_files_root_controlled(bad, &ok), "{bad}");
         }
+    }
+
+    #[test]
+    fn a_dot_dot_prefix_does_not_make_a_home_file_root_controlled() {
+        // `root_controlled` resolves the path before it looks at any owner.
+        let dir = tempfile::tempdir().unwrap();
+        let f = dir.path().join("u.service");
+        fs::write(&f, "x").unwrap();
+        let tricky = format!("/usr/lib/systemd/user/../../../..{}", f.display());
+        // SAFETY: geteuid has no preconditions.
+        if unsafe { libc::geteuid() } != 0 {
+            assert!(!root_controlled(Path::new(&tricky)));
+            assert!(!unit_files_root_controlled(
+                &format!("FragmentPath={tricky}\nDropInPaths=\n"),
+                &root_controlled
+            ));
+        }
+    }
+
+    #[test]
+    fn install_kinds_get_their_own_advice() {
+        assert_eq!(
+            install_kind(Path::new("/usr/lib/psyche-helper/psyche-helper")),
+            InstallKind::Package
+        );
+        assert_eq!(
+            install_kind(Path::new("/opt/x/psyche-helper")),
+            InstallKind::Package
+        );
+        assert_eq!(
+            install_kind(Path::new("/usr/local/lib/psyche-helper/psyche-helper")),
+            InstallKind::RootTarball
+        );
+        assert_eq!(
+            install_kind(Path::new("/usr/local/lib/psyche-helper-x/psyche-helper")),
+            InstallKind::Package
+        );
+        assert_eq!(
+            install_kind(Path::new("/home/a/.local/lib/psyche-helper/psyche-helper")),
+            InstallKind::Own
+        );
+        assert!(update_advice(InstallKind::Package).contains("package manager"));
+        assert!(update_advice(InstallKind::RootTarball).contains("install.sh --dedicated-user"));
+        assert!(!update_advice(InstallKind::RootTarball).contains("apt"));
     }
 
     #[test]
@@ -1687,8 +1840,17 @@ mod tests {
     }
 
     #[test]
-    fn the_trusted_key_ids_are_listed() {
-        assert!(trusted_key_ids().contains(&"37312dba0e2eddad".to_string()));
+    fn the_trusted_keys_are_listed_as_id_and_key_pairs() {
+        let keys = trusted_key_pairs();
+        let release = keys
+            .iter()
+            .find(|k| k.key_id == "37312dba0e2eddad")
+            .unwrap();
+        assert_eq!(release.public_key, TRUSTED_RELEASE_KEYS[0].1);
+        assert_eq!(
+            serde_json::to_value(release).unwrap()["publicKey"],
+            TRUSTED_RELEASE_KEYS[0].1
+        );
     }
 
     #[test]
