@@ -10,8 +10,13 @@ import {
 } from "@psyche/protocol";
 import { canonicalizeUrl, tryOrigin } from "../origin/canonical.ts";
 import type { Hop, OriginPolicy } from "../origin/policy.ts";
-import { buildSnapshot, extractText, type FrameAx } from "../snapshot/builder.ts";
-import { isPaymentField } from "../snapshot/dom.ts";
+import {
+  buildSnapshot,
+  extractText,
+  type FrameAx,
+  hasFieldCandidates,
+} from "../snapshot/builder.ts";
+import { DomIndex, isPaymentField } from "../snapshot/dom.ts";
 import { type RefEntry, RefRegistry } from "../snapshot/refs.ts";
 import type {
   ActionTarget,
@@ -329,6 +334,22 @@ export function looksLikeCardNumber(text: string): boolean {
   return false;
 }
 
+/**
+ * Run page-derived work (classifying, scrubbing, building text). Its input is the page's, so an
+ * unexpected error's message can quote page values (field values, text): it never leaves as
+ * is. A `PsycheError` is ours and keeps its fixed message.
+ */
+export function contained<T>(work: () => T): T {
+  try {
+    return work();
+  } catch (err) {
+    if (err instanceof PsycheError) throw err;
+    throw new PsycheError("internal", "the page could not be read safely", {
+      details: { reason: "page_read_failed" },
+    });
+  }
+}
+
 export class PageController {
   readonly tabId: string;
   readonly refs = new RefRegistry();
@@ -369,6 +390,8 @@ export class PageController {
   #filledDocs = new Set<string>();
   /** Nodes a vault secret was typed into: masked in snapshots until the document changes. */
   readonly #typedNodes = new Set<number>();
+  /** Inputs seen as `type=password` in this document (a reveal toggle keeps them secret). */
+  readonly #wasPassword = new Set<number>();
   /**
    * Documents (by loader id, which a pushState route change keeps) a payment card was typed into:
    * every input value there is masked in snapshots while that document lives, at most
@@ -486,6 +509,7 @@ export class PageController {
         this.#dialog = undefined;
         this.#setSecure(false);
         this.#typedNodes.clear();
+        this.#wasPassword.clear();
         this.#filledSinceNav = this.#filledDocs.has(documentKey(frame.url));
         this.refs.setDocument(`${this.#loaderId}|${this.#url}`);
         this.#docHops = 0;
@@ -1017,9 +1041,10 @@ export class PageController {
     };
     if (this.#o.redact !== undefined) input.redact = this.#o.redact;
     input.maskNodes = this.#typedNodes;
+    input.wasPassword = this.#wasPassword;
     const maskedAt = this.#maskedLoaders.get(this.#loaderId);
     if (maskedAt !== undefined && Date.now() - maskedAt < DOCUMENT_MASK_MS) input.maskInputs = true;
-    const snap = buildSnapshot(input);
+    const snap = contained(() => buildSnapshot(input));
     this.#needsSnapshot = false;
     this.#lastSnapshot = { text: snap.text, url: snap.url, loader: this.#loaderId };
     this.#setSecure(snap.secureFieldActive);
@@ -1036,10 +1061,22 @@ export class PageController {
       this.#t.send<{ nodes: AXNode[] }>("Accessibility.getFullAXTree", {}),
       this.#frames(),
     ]);
+    // Secret fields (password, OTP, card) are skipped by their DOM facts, whatever their AX role.
+    // The DOM is fetched only when the page has something that can hold a value.
     const opts: Parameters<typeof extractText>[1] = { frames };
+    if (hasFieldCandidates([ax.nodes, ...frames.map((f) => f.ax)])) {
+      const domSnap = await this.#t.send<CaptureSnapshotResult>("DOMSnapshot.captureSnapshot", {
+        computedStyles: [],
+      });
+      opts.dom = contained(() => {
+        const d = new DomIndex(domSnap, 1, { wasPassword: this.#wasPassword });
+        for (const id of d.passwordFields()) this.#wasPassword.add(id);
+        return d;
+      });
+    }
     if (options.maxChars !== undefined) opts.maxChars = options.maxChars;
     if (this.#o.redact !== undefined) opts.redact = this.#o.redact;
-    return extractText(ax.nodes, opts);
+    return contained(() => extractText(ax.nodes, opts));
   }
 
   /** Synchronous element facts for per-call classification; undefined for unknown refs. */
@@ -1065,14 +1102,27 @@ export class PageController {
     // Re-check: a secure field focused or holding a value suppresses screenshots (§4.7), and so
     // does any vault fill on this page, secure field or not (review finding 6b).
     const snap = await this.snapshot({ maxChars: 1000, maxRefs: 1 });
-    if (this.#secureActive || this.#filledSinceNav) {
-      throw new PsycheError(
+    const suppressed = () =>
+      new PsycheError(
         "policy_denied",
         "a password or other secure field is active; screenshots are suppressed",
         { details: { reason: "secure_field" } },
       );
-    }
+    if (this.#secureActive || this.#filledSinceNav) throw suppressed();
     const r = await this.#t.send<{ data: string }>("Page.captureScreenshot", { format: "png" });
+    // A value set after the check (autofill, page script, the owner) discards the capture.
+    const after = await this.#t.send<CaptureSnapshotResult>("DOMSnapshot.captureSnapshot", {
+      computedStyles: [],
+    });
+    // A guard that cannot run refuses the screenshot too (fail closed).
+    const blocked = (() => {
+      try {
+        return new DomIndex(after, 1, { wasPassword: this.#wasPassword }).anySecureValue();
+      } catch {
+        return true;
+      }
+    })();
+    if (blocked) throw suppressed();
     const png = new Uint8Array(Buffer.from(r.data, "base64"));
     const boxes = snap.hiddenFrameBoxes ?? [];
     if (boxes.length === 0) return { mime: "image/png", data: png };
@@ -1211,6 +1261,13 @@ export class PageController {
     this.#assertActionable();
     if (options.ref !== undefined) {
       const e = this.#resolveRef(options.ref);
+      if (e.meta.secure) {
+        throw new PsycheError(
+          "policy_denied",
+          `${options.ref} is a secure field: fill it from the vault with approval, or let the owner type`,
+          { details: { reason: "secure_field" } },
+        );
+      }
       await this.#t.send("DOM.focus", { backendNodeId: e.backendNodeId });
     }
     for (const chord of keys.split(/\s+/).filter((k) => k !== "")) {
