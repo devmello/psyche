@@ -72,7 +72,16 @@ function linuxRelease(
   }
   const manifest = execFileSync(
     process.execPath,
-    [SCRIPT, "build", "--release", version, "--base", `${PINNED}v${version}/`, ...files],
+    [
+      SCRIPT,
+      "build",
+      "--release",
+      version,
+      "--base",
+      `${PINNED}v${version}/`,
+      ...(opts.mac ? [] : ["--linux-only"]),
+      ...files,
+    ],
     { encoding: "utf8" },
   );
   const file = join(dir, "update-manifest.json");

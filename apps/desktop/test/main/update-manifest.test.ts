@@ -555,12 +555,11 @@ describe("per-platform manifests (Linux helper and server packages)", () => {
     ]);
   });
 
-  it("never drops a file it was given: unclassified names (desktop Linux packages, look-alikes) fail", () => {
+  it("never drops a file it was given: unclassified names (look-alikes) fail", () => {
     const zip = file("Psyche-1.4.0-darwin-arm64.zip");
     for (const name of [
-      "Psyche-1.4.0-linux-x64.deb",
-      "Psyche-1.4.0-linux-x64.rpm",
-      "Psyche-1.4.0-linux-x64.AppImage",
+      "Psyche-1.4.0-linux-x86_64.deb",
+      "Psyche-1.4.0-linux-x64.tar.gz",
       "psyche-helper-1.4.0-linux-x86_64.deb",
     ]) {
       const r = build([zip, file(name)]);
