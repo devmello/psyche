@@ -376,7 +376,7 @@ describe("a live machine socket never picks up operator scopes (r2 finding 1)", 
       deviceFamily: "desktop",
       gatewayKey: gw.gateway.context.identity.publicKey,
     });
-    const code = (pending.verifyRes?.payload as { code: string }).code;
+    const code = (pending.verifyRes?.payload as { code: string } | undefined)?.code ?? "";
     await cli(["devices", "approve", code]);
     // The same key pairs as a machine.
     const m = await connect({
