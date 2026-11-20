@@ -37009,16 +37009,16 @@ public struct ThreadsSetContextLimitsResult: Codable, Sendable {
 
 // MARK: - ThreadsSummaryPinsRemoveParams
 public struct ThreadsSummaryPinsRemoveParams: Codable, Sendable {
-    public let instruction: String
+    public let pinID: String
     public let threadID: String
 
     public enum CodingKeys: String, CodingKey {
-        case instruction = "instruction"
+        case pinID = "pinId"
         case threadID = "threadId"
     }
 
-    public init(instruction: String, threadID: String) {
-        self.instruction = instruction
+    public init(pinID: String, threadID: String) {
+        self.pinID = pinID
         self.threadID = threadID
     }
 }

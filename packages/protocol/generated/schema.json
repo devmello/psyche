@@ -3981,7 +3981,7 @@
         "sideEffecting": false
       },
       {
-        "description": "Side-effecting: the owner removes one standing instruction from a thread's compaction summary, and from the compaction blocks that show it. A plain tap on a paired device, no presence; the agent and channels cannot reach it. conflict while the thread runs.",
+        "description": "Side-effecting: the owner removes one standing instruction (by pin id) from a thread's compaction summary, and from the compaction blocks that show it. A plain tap on a paired device, no presence; the agent and channels cannot reach it. conflict while the thread runs.",
         "name": "threads.summary.pins.remove",
         "params": "#/$defs/ThreadsSummaryPinsRemoveParams",
         "result": "#/$defs/ThreadsSummaryPinsRemoveResult",
@@ -49005,15 +49005,14 @@
           "minLength": 1,
           "type": "string"
         },
-        "instruction": {
-          "maxLength": 500,
-          "minLength": 1,
+        "pinId": {
+          "pattern": "^[0-9a-f]{16}$",
           "type": "string"
         }
       },
       "required": [
         "threadId",
-        "instruction"
+        "pinId"
       ],
       "type": "object"
     },

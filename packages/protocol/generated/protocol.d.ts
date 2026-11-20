@@ -13064,8 +13064,8 @@ export interface ThreadsSetContextLimitsResult {
 }
 
 export interface ThreadsSummaryPinsRemoveParams {
-    instruction: string;
-    threadId:    string;
+    pinId:    string;
+    threadId: string;
 }
 
 export interface ThreadsSummaryPinsRemoveResult {
