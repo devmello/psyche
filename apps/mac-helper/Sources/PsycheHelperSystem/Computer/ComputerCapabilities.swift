@@ -37,7 +37,9 @@ public final class ComputerUse: @unchecked Sendable {
 
     public init(environment: [String: String] = ProcessInfo.processInfo.environment, log: HelperLog) {
         self.settingsPath = TierSettings.path(environment: environment)
-        self.policy = TierPolicy(settings: TierSettings.load(path: settingsPath), ownerInput: { [attention] in attention.lastOwnerInput })
+        // A terminal or developer tool no id list names is capped at click from its Info.plist.
+        self.policy = TierPolicy(settings: TierSettings.load(path: settingsPath), ownerInput: { [attention] in attention.lastOwnerInput },
+                                 infoCap: { LiveAppLookups.infoCap($0) })
         self.sessions = ComputerSessionLock()
         self.log = log
         if Input.underTestRunner { log.info("computer use: real input is disabled (test runner detected)") }

@@ -185,17 +185,18 @@ public enum MessagesCapabilities {
     /// Runs the script in-process (the helper holds the Automation grant), launching Messages
     /// hidden first if it is not running.
     @Sendable public static func liveSend(_ source: String) async throws {
+        // The script's `tell application "Messages"` reaches the running instance, or launches
+        // whatever LaunchServices prefers: launch (or check) the checked Messages bundle first.
+        try await CheckedLaunch.ensureRunning(MessagesCore.messagesBundleId, hidden: true)
         _ = try await MainThreadScript.run(source: source, language: "AppleScript")
     }
 
     @Sendable public static func liveAutomation(_ ask: Bool) async throws -> MessagesAutomationStatus {
         let id = MessagesCore.messagesBundleId
         var state = await offMainState(id, ask: ask)
-        if state == .notRunning, ask, let url = NSWorkspace.shared.urlForApplication(withBundleIdentifier: id) {
-            let config = NSWorkspace.OpenConfiguration()
-            config.activates = false
-            config.hides = true
-            _ = try? await NSWorkspace.shared.openApplication(at: url, configuration: config)
+        if state == .notRunning, ask {
+            // Only the checked Messages bundle is launched (`CheckedLaunch`).
+            _ = try? await CheckedLaunch.ensureRunning(id, hidden: true)
             state = await offMainState(id, ask: ask)
         }
         switch state {

@@ -7,6 +7,7 @@ import {
   type FolderGrantEntry,
   folderScopesOffered,
   type PolicyContext,
+  persistenceRoots,
   refuseFolder,
   resolveFolderPick,
   resolveRequestedFolder,
@@ -57,6 +58,67 @@ describe("sensitive roots", () => {
     expect(refuseFolder(home, env)).toBe("sensitive_root");
     expect(refuseFolder(WIN ? "C:\\Users" : "/Users", env)).toBe("sensitive_root");
     expect(refuseFolder(WIN ? "C:\\" : "/", env)).toBe("sensitive_root");
+  });
+
+  it.skipIf(WIN)(
+    "refuses ~/Applications and shell config folders as a share (apps.open review)",
+    async () => {
+      for (const rel of ["Applications", "Applications/Tools", ".config/fish", ".config/git"]) {
+        await mkdir(join(home, rel), { recursive: true });
+        expect(refuseFolder(join(home, rel), env), rel).toBe("sensitive_root");
+        await expect(resolveFolderPick(join(home, rel), env)).rejects.toMatchObject({
+          code: "forbidden",
+        });
+      }
+      // Near misses stay shareable: other `.config` folders, a folder named like it elsewhere.
+      for (const rel of [".config/nvim", "Projects/Applications", "ApplicationsBackup"]) {
+        await mkdir(join(home, rel), { recursive: true });
+        expect(refuseFolder(join(home, rel), env), rel).toBeUndefined();
+      }
+    },
+  );
+
+  it.skipIf(WIN)("refuses other spellings APFS folds to a sensitive root (review r1)", () => {
+    const ci = { ...env, caseInsensitive: true };
+    for (const rel of [
+      "Applicationſ",
+      ".config/ﬁsh",
+      ".ſsh",
+      ".ẞh",
+      ".SSH",
+      "LIBRARY",
+      "Library/Keychains",
+    ]) {
+      expect(refuseFolder(join(home, rel), ci), rel).toBe("sensitive_root");
+    }
+    for (const rel of ["Projects/ſcratch", "Documents/ﬁnance", "Projects/app"]) {
+      expect(refuseFolder(join(home, rel), ci), rel).toBeUndefined();
+    }
+  });
+
+  it.skipIf(WIN)("lists the persistence locations under the owner's home", () => {
+    const roots = persistenceRoots(home);
+    for (const rel of [
+      "Applications",
+      "Library/LaunchAgents",
+      "Library/Services",
+      "Library/Preferences",
+      "Library/Application Support/com.apple.backgroundtaskmanagementagent",
+      ".zshrc",
+      ".zprofile",
+      ".zshenv",
+      ".zlogin",
+      ".bashrc",
+      ".bash_profile",
+      ".profile",
+      ".config/fish",
+      ".gitconfig",
+      ".ssh",
+    ]) {
+      expect(roots, rel).toContain(join(home, rel));
+    }
+    expect(roots).not.toContain(home);
+    expect(roots).not.toContain(join(home, "Library"));
   });
 
   it("allows an ordinary folder inside home and returns its real path", async () => {

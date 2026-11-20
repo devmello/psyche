@@ -18,7 +18,7 @@ public final class LiveShortcutsBackend: ShortcutsBackend, @unchecked Sendable {
         on psyche_list()
           set fs to character id 31
           set out to {}
-          tell application "Shortcuts Events"
+          tell application id "com.apple.shortcuts.events"
             repeat with s in shortcuts
               set f to ""
               try
@@ -39,19 +39,55 @@ public final class LiveShortcutsBackend: ShortcutsBackend, @unchecked Sendable {
         end psyche_list
         """
 
-    public init() {}
+    private let log: HelperLog
+    private let events: @Sendable () async throws -> String
+    private let cli: @Sendable () async throws -> [ShortcutRecord]
+
+    /// Tests pass fakes for the Shortcuts Events script and the CLI.
+    public init(
+        log: HelperLog = HelperLog(),
+        events: (@Sendable () async throws -> String)? = nil,
+        cli: (@Sendable () async throws -> [ShortcutRecord])? = nil
+    ) {
+        self.log = log
+        self.events = events ?? Self.liveEvents
+        self.cli = cli ?? Self.liveCLI
+    }
+
+    @Sendable static func liveEvents() async throws -> String {
+        guard let out = try await ScriptHandler.call(source, handler: "psyche_list", [], app: eventsApp) else {
+            throw CapabilityError(.unavailable, reason: "shortcuts_events_no_result", "Shortcuts Events returned nothing")
+        }
+        return out
+    }
+
+    @Sendable static func liveCLI() async throws -> [ShortcutRecord] {
+        let r = try await DisclaimedProcess.run("/usr/bin/shortcuts", ["list", "--show-identifiers"], timeout: 30)
+        guard r.status == 0 else { throw CapabilityError(.unavailable, reason: "shortcuts_list_failed", "Could not list Shortcuts") }
+        return ShortcutsWave1.parseList(r.stdout)
+    }
 
     public func list() async throws -> [ShortcutRecord] {
-        if let out = try? await ScriptHandler.call(Self.source, handler: "psyche_list", [], app: Self.eventsApp) {
+        do {
+            let out = try await events()
             let rows = ScriptRecords.parse(out, fields: 5).compactMap { f -> ShortcutRecord? in
                 guard ShortcutsWave1.isId(f[0]) else { return nil }
                 return ShortcutRecord(id: f[0], name: f[1], folder: f[2].isEmpty ? nil : f[2], acceptsInput: f[3] == "true", actionCount: Int(f[4]))
             }
             return rows.sorted { $0.name.localizedCaseInsensitiveCompare($1.name) == .orderedAscending }
+        } catch is CancellationError {
+            throw CapabilityError.cancelled
+        } catch {
+            // The CLI lists names and ids only (no folder, input or action count): say why.
+            log.info("shortcuts.list: Shortcuts Events unavailable (\(Self.reason(error))); listing through the shortcuts CLI")
         }
-        let r = try await DisclaimedProcess.run("/usr/bin/shortcuts", ["list", "--show-identifiers"], timeout: 30)
-        guard r.status == 0 else { throw CapabilityError(.unavailable, reason: "shortcuts_list_failed", "Could not list Shortcuts") }
-        return ShortcutsWave1.parseList(r.stdout)
+        return try await cli()
+    }
+
+    /// A content-free reason for the log: the helper's reason code, else the error's type.
+    static func reason(_ error: any Error) -> String {
+        if let e = error as? CapabilityError { return e.reason }
+        return String(describing: type(of: error))
     }
 
     public func run(_ nameOrId: String, input: String?, timeout: TimeInterval) async throws -> String {

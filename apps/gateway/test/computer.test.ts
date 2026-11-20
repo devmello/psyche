@@ -1,5 +1,6 @@
+import { hashCanonical } from "@psyche/audit";
 import type { CallContext } from "@psyche/browser";
-import { createPermissionBroker } from "@psyche/permissions";
+import { bindingHash, createPermissionBroker } from "@psyche/permissions";
 import type {
   ErrorPayload,
   IssuedApproval,
@@ -24,7 +25,9 @@ import {
   isRiskyLabel,
   isSendChord,
   MAX_LABEL_CHARS,
+  openBindingFields,
   sanitizeSnapshot,
+  systemAppPath,
 } from "../src/compose/computer.ts";
 
 /**
@@ -64,6 +67,13 @@ class FakeHelper implements NodeClient {
   noResolve = false;
   /** A Mac helper from before `focused` (it answers a target-less call with invalid_params). */
   noFocus = false;
+  /** Where `apps.resolve` says an app id is installed (default: `/System/Applications/<Name>.app`). */
+  installed = new Map<
+    string,
+    { path: string; name?: string; bundleId?: string; fixedCap?: string }
+  >();
+  /** An older Mac helper without `apps.resolve`. */
+  noAppsResolve = false;
 
   async info(): Promise<NodeInfo> {
     throw new Error("unused");
@@ -103,7 +113,12 @@ class FakeHelper implements NodeClient {
       }
     }
     const app = (p.app ?? p.bundleId ?? p.target) as string | undefined;
-    if (app !== undefined && this.ask.has(app) && !this.allowed.has(app)) {
+    if (
+      capability !== "apps.resolve" &&
+      app !== undefined &&
+      this.ask.has(app) &&
+      !this.allowed.has(app)
+    ) {
       if (options.approvalId === undefined) {
         return err({
           code: "approval_required",
@@ -151,6 +166,23 @@ class FakeHelper implements NodeClient {
           result: { status: "ok", method: "cgevent", app: this.pointApp ?? app },
           receipt: { outcome: "ok", summary: "computer.type ok" },
         };
+      case "apps.resolve": {
+        if (this.noAppsResolve) {
+          return err({ code: "not_found", message: "unknown capability apps.resolve" });
+        }
+        const id = String(p.bundleId);
+        const name = id.split(".").at(-1) ?? id;
+        const at = this.installed.get(id) ?? { path: `/System/Applications/${name}.app` };
+        return {
+          ok: true,
+          result: {
+            bundleId: at.bundleId ?? id,
+            name: at.name ?? name,
+            path: at.path,
+            fixedCap: at.fixedCap ?? "interact",
+          },
+        };
+      }
       case "apps.shortcut_run":
         return {
           ok: true,
@@ -725,7 +757,285 @@ describe("computer-use agent tools (J1–J5)", () => {
     expect(helper.calls).toEqual([]);
     const ok = await call("apps.open", { app: notes });
     expect(ok.isError).toBeUndefined();
-    expect(helper.calls[0]).toMatchObject({ capability: "apps.open", params: { bundleId: notes } });
+    expect(helper.calls.map((c) => c.capability)).toEqual(["apps.resolve", "apps.open"]);
+    expect(helper.calls[1]).toMatchObject({
+      capability: "apps.open",
+      params: { bundleId: notes, expectPath: "/System/Applications/Notes.app" },
+    });
+  });
+
+  describe("apps.open names the bundle it launches (apps.open review, finding 1 and 3)", () => {
+    const opens = () => helper.calls.filter((c) => c.capability === "apps.open");
+    const zephium = "app.zephium";
+    const userBundle = "/Users/owner/Applications/Zephium.app";
+    /** The binding the agent loop gives an `apps.open` call whose card named `path`. */
+    const loopBinding = (params: { app: string; url?: string }, path: string | undefined) =>
+      bindingHash("computer_action", {
+        tool: "apps.open",
+        paramsHash: hashCanonical(params),
+        fields: openBindingFields(params, path),
+      });
+
+    it("shows the resolved app name and path on the card once the helper has resolved it", async () => {
+      const first = tools.get("apps.open")?.describeCall?.({ app: notes });
+      expect(first?.summary).toBe(`Open ${notes}`);
+      await call("apps.open", { app: notes });
+      const next = tools.get("apps.open")?.describeCall?.({ app: notes });
+      expect(next?.summary).toBe("Open Notes");
+      expect(next?.details).toMatchObject({
+        app: notes,
+        name: "Notes",
+        path: "/System/Applications/Notes.app",
+      });
+      expect(next?.bindingFields).toMatchObject({ path: "/System/Applications/Notes.app" });
+    });
+
+    it("binds a document into the grant key, so one grant never covers another file", () => {
+      const d = (url?: string) =>
+        tools.get("apps.open")?.describeCall?.({
+          app: "com.apple.Preview",
+          ...(url === undefined ? {} : { url }),
+        })?.grantKey;
+      const bare = d();
+      const a = d("file:///tmp/a.pdf");
+      const b = d("file:///tmp/b.pdf");
+      expect(bare).toBe("com.apple.Preview|click");
+      expect(a).toMatch(/^com\.apple\.Preview\|click\|url:sha256:/);
+      expect(new Set([bare, a, b]).size).toBe(3);
+    });
+
+    it("asks once, naming the path, before launching a bundle from ~/Applications", async () => {
+      helper.installed.set(zephium, { path: userBundle, name: "Zephium" });
+      const r = await call("apps.open", { app: zephium });
+      expect(r.isError).toBeUndefined();
+      expect(issued).toHaveLength(1);
+      expect(issued[0]?.approval).toMatchObject({
+        kind: "computer_action",
+        summary: `Open Zephium from ${userBundle}`,
+        details: { app: zephium, name: "Zephium", path: userBundle },
+        scopesOffered: ["once"],
+      });
+      expect(opens()[0]?.params).toMatchObject({ bundleId: zephium, expectPath: userBundle });
+      // The owner saw this bundle: the next open of it does not ask again.
+      await call("apps.open", { app: zephium });
+      expect(issued).toHaveLength(1);
+      expect(opens()).toHaveLength(2);
+    });
+
+    // Review r2, finding 3: an approved path card covers its own conversation (and Task) only,
+    // and a tainted turn only when it was approved in a tainted turn.
+    it("keeps a path-card approval to its conversation, Task and taint", async () => {
+      helper.installed.set(zephium, { path: userBundle, name: "Zephium" });
+      await call("apps.open", { app: zephium }); // th_1, clean: card 1
+      expect(issued).toHaveLength(1);
+      await call("apps.open", { app: zephium }, { runId: "run_2" }); // same thread: no card
+      expect(issued).toHaveLength(1);
+      await call("apps.open", { app: zephium }, { threadId: "th_2" }); // another conversation
+      expect(issued).toHaveLength(2);
+      await call("apps.open", { app: zephium }, { taskId: "task_1" }); // a Task in th_1
+      expect(issued).toHaveLength(3);
+      await call("apps.open", { app: zephium }, { taint: true }); // a tainted turn in th_1
+      expect(issued).toHaveLength(4);
+      // Approved in a tainted turn: later tainted and clean turns there are covered.
+      await call("apps.open", { app: zephium }, { taint: true, runId: "run_3" });
+      await call("apps.open", { app: zephium }, { runId: "run_4" });
+      expect(issued).toHaveLength(4);
+      expect(opens()).toHaveLength(7);
+    });
+
+    it("does not launch when the owner declines, and queues the card in unattended runs", async () => {
+      helper.installed.set(zephium, { path: userBundle });
+      answer = "deny";
+      const denied = await call("apps.open", { app: zephium });
+      expect(denied.output).toMatchObject({ error: { code: "policy_denied" } });
+      answer = "none";
+      const queued = await call("apps.open", { app: zephium }, { unattended: true });
+      expect(queued.output).toMatchObject({ error: { code: "approval_required" } });
+      expect(opens()).toEqual([]);
+    });
+
+    it("needs no second card when the loop's card already named that path", async () => {
+      helper.installed.set(zephium, { path: userBundle, name: "Zephium" });
+      // An earlier resolve (apps.resolve during another call) filled the card's path.
+      answer = "deny";
+      await call("apps.open", { app: zephium });
+      issued.length = 0;
+      answer = "approve";
+      expect(tools.get("apps.open")?.describeCall?.({ app: zephium })?.details).toMatchObject({
+        path: userBundle,
+      });
+      const r = await call(
+        "apps.open",
+        { app: zephium },
+        {},
+        {
+          rule: "approval:ap_1",
+          bindingHash: loopBinding({ app: zephium }, userBundle),
+          approvalId: "ap_1",
+        },
+      );
+      expect(r.isError).toBeUndefined();
+      expect(issued).toEqual([]);
+    });
+
+    // Review r1, finding 7: the cache can change between the gate and the run; only the
+    // approval's own binding says whether its card named the path.
+    it("asks when the approved card bound no path, whatever the cache says now", async () => {
+      helper.installed.set(zephium, { path: userBundle, name: "Zephium" });
+      answer = "deny";
+      await call("apps.open", { app: zephium }); // fills the cache with the path
+      issued.length = 0;
+      answer = "approve";
+      const r = await call(
+        "apps.open",
+        { app: zephium },
+        {},
+        {
+          rule: "approval:ap_3",
+          bindingHash: loopBinding({ app: zephium }, undefined),
+          approvalId: "ap_3",
+        },
+      );
+      expect(r.isError).toBeUndefined();
+      expect(issued).toHaveLength(1);
+      expect(issued[0]?.approval.summary).toContain(userBundle);
+    });
+
+    // Review r1, finding 6: an unattended Task resumes after the owner approves the path card.
+    it("lets a later unattended run use the card the owner approved for that bundle", async () => {
+      helper.installed.set(zephium, { path: userBundle, name: "Zephium" });
+      answer = "none";
+      const task = { unattended: true, taskId: "task_z" };
+      const first = await call("apps.open", { app: zephium }, { ...task, runId: "run_a" });
+      expect(first.output).toMatchObject({ error: { code: "approval_required" } });
+      expect(issued).toHaveLength(1);
+      // Another run before the owner answers keeps the same card queued.
+      const again = await call("apps.open", { app: zephium }, { ...task, runId: "run_b" });
+      expect(again.output).toMatchObject({ error: { code: "approval_required" } });
+      expect(issued).toHaveLength(1);
+      await broker.answer({
+        approvalId: issued[0]?.approval.id ?? "",
+        answerToken: issued[0]?.answerTokens.desktop ?? "",
+        decision: "approve",
+        scope: "once",
+        decidedBy: { deviceId: "dev-owner", surface: "desktop" },
+      });
+      const resumed = await call("apps.open", { app: zephium }, { ...task, runId: "run_c" });
+      expect(resumed.isError).toBeUndefined();
+      expect(issued).toHaveLength(1);
+      expect(opens()).toHaveLength(1);
+    });
+
+    it("does not let another conversation's approved card stand for this one after a restart", async () => {
+      helper.installed.set(zephium, { path: userBundle, name: "Zephium" });
+      answer = "none";
+      await call("apps.open", { app: zephium }, { unattended: true, taskId: "task_z" });
+      await broker.answer({
+        approvalId: issued[0]?.approval.id ?? "",
+        answerToken: issued[0]?.answerTokens.desktop ?? "",
+        decision: "approve",
+        scope: "once",
+        decidedBy: { deviceId: "dev-owner", surface: "desktop" },
+      });
+      // A fresh Gateway process (nothing confirmed in memory) and another thread's Task.
+      const fresh = createComputerUse({
+        broker,
+        helper: () => ({ nodeId: helper.nodeId, client: helper, kind: "mac-helper" }),
+        context: (id) => contexts.get(id) as CallContext,
+        cancelRun: () => undefined,
+      });
+      const reg = fresh.registrations().find((t) => t.spec.name === "apps.open");
+      contexts.set("call_other", {
+        toolCallId: "call_other",
+        threadId: "th_other",
+        runId: "run_x",
+        taskId: "task_other",
+        permissionMode: "balanced",
+        taint: false,
+        unattended: true,
+      });
+      const r = await reg?.execute(
+        "call_other",
+        { app: zephium },
+        new AbortController().signal,
+        () => undefined,
+      );
+      expect(r?.output).toMatchObject({ error: { code: "approval_required" } });
+      expect(issued).toHaveLength(2);
+    });
+
+    // Review r1, finding 9: the helper's Info.plist cap reaches script targets.
+    it("refuses scripts against an app the helper caps from its Info.plist", async () => {
+      const term = "app.example.term";
+      helper.installed.set(term, { path: "/Applications/Term.app", fixedCap: "click" });
+      const source = "beep";
+      const r = await call("apps.applescript", { target: term, source });
+      expect(r.output).toMatchObject({
+        error: { code: "policy_denied", details: { reason: "script_target_capped" } },
+      });
+      expect(helper.calls.map((c) => c.capability)).toEqual(["apps.resolve"]);
+      // Once known, the card is never shown: describe refuses it.
+      expect(() => tools.get("apps.applescript")?.describeCall?.({ target: term, source })).toThrow(
+        expect.objectContaining({ code: "policy_denied" }),
+      );
+    });
+
+    it("asks again when the id now opens another bundle than the card named", async () => {
+      await call("apps.open", { app: zephium }); // resolves to /System/Applications/zephium.app
+      expect(issued).toEqual([]);
+      helper.installed.set(zephium, { path: userBundle });
+      await call(
+        "apps.open",
+        { app: zephium },
+        {},
+        {
+          rule: "approval:ap_2",
+          bindingHash: loopBinding({ app: zephium }, "/System/Applications/zephium.app"),
+          approvalId: "ap_2",
+        },
+      );
+      expect(issued).toHaveLength(1);
+      expect(issued[0]?.approval.summary).toContain(userBundle);
+    });
+
+    it("refuses when the helper resolves another id, and fails closed on an old Mac helper", async () => {
+      helper.installed.set(zephium, { path: "/Applications/Other.app", bundleId: "com.other" });
+      const other = await call("apps.open", { app: zephium });
+      expect(other.output).toMatchObject({
+        error: { code: "policy_denied", details: { reason: "app_mismatch" } },
+      });
+      helper.noAppsResolve = true;
+      const old = await call("apps.open", { app: notes });
+      expect(old.output).toMatchObject({
+        error: { code: "policy_denied", details: { reason: "app_unresolved" } },
+      });
+      expect(opens()).toEqual([]);
+      // The Windows and Linux helpers do not resolve yet: they open as before.
+      helperKind = "win-helper";
+      const win = await call("apps.open", { app: "notepad.exe" });
+      expect(win.isError).toBeUndefined();
+      expect(opens()[0]?.params).toEqual({ bundleId: "notepad.exe" });
+    });
+
+    it.each([
+      ["/System/Applications/Notes.app", true],
+      ["/System/Applications/Utilities/Terminal.app", true],
+      ["/Applications/Zephium.app", true],
+      ["/Applications/Utilities/Tool.app", true],
+      ["/Users/owner/Applications/Zephium.app", false],
+      ["/Applications/Adobe/Photoshop.app", false],
+      ["/Applications/Outer.app/Contents/Inner.app", false],
+      ["/Applications/../tmp/X.app", false],
+      ["/tmp/Applications/X.app", false],
+      ["/Applications/Notes", false],
+      // Review r2: Safari's real place, a sealed cryptex.
+      ["/System/Volumes/Preboot/Cryptexes/App/System/Applications/Safari.app", true],
+      ["/System/Cryptexes/App/System/Applications/Safari.app", true],
+      ["/System/Volumes/Preboot/Cryptexes/App/usr/X.app", false],
+      ["/System/Volumes/Preboot/Applications/X.app", false],
+    ])("systemAppPath(%s) is %s", (path, expected) => {
+      expect(systemAppPath(path)).toBe(expected);
+    });
   });
 
   it("runs Shortcuts with the loop's approval and no session", async () => {
