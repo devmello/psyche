@@ -60,6 +60,19 @@ export const galleryRest: Partial<Catalogue> = {
   "gallery.preset.todoist.desc":
     "Todoist의 작업과 프로젝트를 확인하고 관리합니다. 연결할 때 로그인합니다.",
   "gallery.preset.todoist.example": "Todoist에서 오늘 기한인 항목은 무엇인가요?",
+  "gallery.preset.dropbox.desc":
+    "Dropbox의 파일을 탐색, 검색하고 읽습니다. 연결할 때 로그인합니다.",
+  "gallery.preset.dropbox.example": "지난달 Dropbox에 저장한 계약서 PDF를 찾아 줘.",
+  "gallery.preset.figma.desc": "Figma 디자인과 파일을 읽습니다. 연결할 때 로그인합니다.",
+  "gallery.preset.figma.example": "우리 팀 디자인 파일의 최근 변경 사항을 요약해 줘.",
+  "gallery.preset.asana.desc":
+    "Asana 작업과 프로젝트를 보고 업데이트합니다. 연결할 때 로그인합니다.",
+  "gallery.preset.asana.example": "이번 주 기한인 Asana 작업은 무엇인가요?",
+  "gallery.preset.zoom.desc": "Zoom 회의를 찾고 관리합니다. 연결할 때 로그인합니다.",
+  "gallery.preset.zoom.example": "내일 Zoom 회의가 무엇인가요?",
+  "gallery.preset.shopifyDev.desc":
+    "Shopify 개발자 문서와 API 스키마를 검색합니다. 계정이 필요 없습니다.",
+  "gallery.preset.shopifyDev.example": "Admin GraphQL API로 상품 옵션을 조회하려면 어떻게 하나요?",
   "gallery.preset.airtable.desc": "Airtable 베이스의 레코드를 읽고 업데이트합니다.",
   "gallery.preset.airtable.example": "Projects 베이스에서 차단됨으로 표시된 레코드를 나열해 줘.",
   "gallery.preset.airtable.field.key.label": "개인 액세스 토큰",
