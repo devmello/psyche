@@ -288,50 +288,84 @@ export function putStepPayload(
 /** What a forgotten phrase becomes in stored run-trace payloads. */
 export const FORGOTTEN_MARKER = "[forgotten]";
 
+/** Rows read per batch by `scrubTracePayloads`; the event loop runs between batches. */
+const SCRUB_BATCH_ROWS = 50;
+
 /**
- * Cuts a forgotten phrase out of the stored run-trace payloads (model-call input and output, and
- * the tool payloads of a step). Intact JSON payloads are scrubbed string by string, so the JSON
- * escaping never hides a match; truncated ones are plain text. A payload is rewritten only when
- * it changed. Returns how many payloads changed.
+ * Cuts a forgotten phrase out of every stored run-trace text: model-call input and output
+ * (`step_payloads`, gzip), the step's tool payloads, and each step's preview (`run_steps.data`)
+ * and retained thinking text (`run_steps.text_full`). Intact JSON is scrubbed string by string,
+ * so JSON escaping never hides a match; truncated payloads and thinking text are plain text. A
+ * row is rewritten only when it changed.
  *
- * Step payloads are gzip, so SQL cannot search them: every row is read once, one at a time (ids
- * first, so no statement walks the table while it is being written). Forget is an owner action,
- * so the cost is one pass over the trace store per forget.
+ * SQL cannot search gzip, so each table is read in keyset batches by rowid. Every batch is one
+ * short synchronous read, and each write is its own statement (no long transaction). The loop
+ * yields to the event loop between batches, so the Gateway keeps serving while it runs. Returns
+ * how many rows were rewritten.
  */
-export function scrubStepPayloads(db: PsycheDb, pattern: RegExp): number {
+export async function scrubTracePayloads(
+  db: PsycheDb,
+  pattern: RegExp,
+  batchRows: number = SCRUB_BATCH_ROWS,
+): Promise<number> {
   const find = new RegExp(
     pattern.source,
     pattern.flags.includes("g") ? pattern.flags : `${pattern.flags}g`,
   );
   let changed = 0;
-  const stepIds = db.sqlite.prepare("SELECT id FROM step_payloads").all() as { id: string }[];
-  const readStep = db.sqlite.prepare("SELECT data, truncated FROM step_payloads WHERE id = ?");
-  const writeStep = db.sqlite.prepare("UPDATE step_payloads SET data = ? WHERE id = ?");
-  for (const { id } of stepIds) {
-    const row = readStep.get(id) as { data: Buffer; truncated: number } | undefined;
-    if (row === undefined) continue;
-    const text = gunzipSync(Buffer.from(row.data)).toString("utf8");
+
+  const sweep = async (
+    select: string,
+    handle: (row: Record<string, unknown>) => boolean,
+  ): Promise<void> => {
+    const stmt = db.sqlite.prepare(`${select} WHERE rowid > ? ORDER BY rowid LIMIT ?`);
+    let after = 0;
+    for (;;) {
+      const rows = stmt.all(after, batchRows) as { rid: number }[];
+      for (const row of rows) {
+        if (handle(row as Record<string, unknown>)) changed += 1;
+      }
+      const last = rows.at(-1);
+      if (last === undefined || rows.length < batchRows) return;
+      after = last.rid;
+      await new Promise<void>((resolve) => setImmediate(resolve));
+    }
+  };
+
+  const writeStep = db.sqlite.prepare("UPDATE step_payloads SET data = ? WHERE rowid = ?");
+  await sweep("SELECT rowid AS rid, data, truncated FROM step_payloads", (row) => {
+    const text = gunzipSync(Buffer.from(row.data as Buffer)).toString("utf8");
     const next = scrubBody(text, row.truncated !== 1, find);
-    if (next === undefined) continue;
-    writeStep.run(gzipSync(Buffer.from(next, "utf8")), id);
-    changed += 1;
-  }
-  const toolIds = db.sqlite
-    .prepare("SELECT id FROM tool_payloads WHERE step_id IS NOT NULL")
-    .all() as { id: string }[];
-  const readTool = db.sqlite.prepare(
-    "SELECT data, mime, truncated FROM tool_payloads WHERE id = ?",
+    if (next === undefined) return false;
+    writeStep.run(gzipSync(Buffer.from(next, "utf8")), row.rid);
+    return true;
+  });
+
+  const writeTool = db.sqlite.prepare("UPDATE tool_payloads SET data = ? WHERE rowid = ?");
+  await sweep("SELECT rowid AS rid, data, mime, truncated, step_id FROM tool_payloads", (row) => {
+    // Only a step's own payloads: other tool payloads belong to no trace step.
+    if (row.step_id === null) return false;
+    const text = Buffer.from(row.data as Buffer).toString("utf8");
+    const json = row.mime === "application/json" && row.truncated !== 1;
+    const next = scrubBody(text, json, find);
+    if (next === undefined) return false;
+    writeTool.run(Buffer.from(next, "utf8"), row.rid);
+    return true;
+  });
+
+  const writeRunStep = db.sqlite.prepare(
+    "UPDATE run_steps SET data = ?, text_full = ? WHERE rowid = ?",
   );
-  const writeTool = db.sqlite.prepare("UPDATE tool_payloads SET data = ? WHERE id = ?");
-  for (const { id } of toolIds) {
-    const row = readTool.get(id) as { data: Buffer; mime: string; truncated: number } | undefined;
-    if (row === undefined) continue;
-    const text = Buffer.from(row.data).toString("utf8");
-    const next = scrubBody(text, row.mime === "application/json" && row.truncated !== 1, find);
-    if (next === undefined) continue;
-    writeTool.run(Buffer.from(next, "utf8"), id);
-    changed += 1;
-  }
+  await sweep("SELECT rowid AS rid, data, text_full FROM run_steps", (row) => {
+    const data = row.data as string;
+    const full = row.text_full as string | null;
+    const nextData = scrubBody(data, true, find);
+    const nextFull = full === null ? undefined : scrubBody(full, false, find);
+    if (nextData === undefined && nextFull === undefined) return false;
+    writeRunStep.run(nextData ?? data, nextFull ?? full, row.rid);
+    return true;
+  });
+
   return changed;
 }
 

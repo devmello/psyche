@@ -20,7 +20,7 @@ import {
   getSetting,
   getThread,
   type PsycheDb,
-  scrubStepPayloads,
+  scrubTracePayloads,
   setSetting,
 } from "@psyche/db";
 import { fileTools } from "@psyche/files";
@@ -1049,13 +1049,15 @@ export async function composeGateway(options: ComposeOptions): Promise<ComposedG
     approvals: brokerApprovalCheck(broker),
     audit,
     onChange: (c) => void changes.record(memoryChange(c)),
-    // A forget (the RPC or the agent's tool) also cuts the forgotten words out of run traces.
+    // Every forget (the RPC and the agent's tool both come here) cuts the forgotten words out of
+    // the saved chats and the run traces. The transcript pass is synchronous and short; the trace
+    // pass runs in the background, in batches that yield, so Forget returns at once.
     onForget: ({ pattern }) => {
-      try {
-        scrubStepPayloads(db, pattern);
-      } catch {
-        gwOptions.logger?.log("warn", "forget could not scrub run-trace payloads");
-      }
+      gatewayRef?.context.messageScrub.heal?.();
+      scrubTracePayloads(db, pattern).then(
+        (n) => gwOptions.logger?.log("info", `forget rewrote ${n} run-trace row(s)`),
+        () => gwOptions.logger?.log("warn", "forget could not scrub run-trace rows"),
+      );
     },
     flush: { provider, model: utility ?? modelRef },
     onEvent: (e) => {
