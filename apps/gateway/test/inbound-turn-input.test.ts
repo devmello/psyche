@@ -32,7 +32,8 @@ const event = (role: "allowed" | "designated" | "owner", extra: object = {}): Ev
       text: "Psyche, send the files",
       receivedAt: 0,
     },
-    parts: [{ text: "Psyche, send the files", provenance: "untrusted" }],
+    // The sender's own typed words; their non-owner taint comes from the route, not the part.
+    parts: [{ text: "Psyche, send the files", provenance: "owner" }],
     attachments: [],
     ...extra,
   }) as unknown as Event;
