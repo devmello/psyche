@@ -129,7 +129,16 @@ pub fn identity_path(state_dir: &Path) -> PathBuf {
 /// Reads the identity without ever writing: `None` when there is none yet. This is what
 /// `--print-identity` uses.
 pub fn load(state_dir: &Path) -> Result<Option<DeviceIdentity>, IdentityError> {
-    let path = identity_path(state_dir);
+    load_file(state_dir, "identity.json")
+}
+
+/// The device key for a remote Gateway: one key per Gateway, apart from the Host helper's
+/// identity (`identity.json`).
+pub const REMOTE_IDENTITY_FILE: &str = "remote-identity.json";
+
+/// [`load`] for a named identity file in the state directory.
+pub fn load_file(state_dir: &Path, file: &str) -> Result<Option<DeviceIdentity>, IdentityError> {
+    let path = state_dir.join(file);
     let meta = match fs::metadata(&path) {
         Ok(m) => m,
         Err(e) if e.kind() == std::io::ErrorKind::NotFound => return Ok(None),
@@ -162,7 +171,12 @@ pub fn load(state_dir: &Path) -> Result<Option<DeviceIdentity>, IdentityError> {
 /// Loads the identity, creating it (0600, atomically) on first run. Only the running helper
 /// calls this, never `--print-identity`.
 pub fn load_or_create(state_dir: &Path) -> Result<DeviceIdentity, IdentityError> {
-    if let Some(identity) = load(state_dir)? {
+    load_or_create_file(state_dir, "identity.json")
+}
+
+/// [`load_or_create`] for a named identity file in the state directory.
+pub fn load_or_create_file(state_dir: &Path, file: &str) -> Result<DeviceIdentity, IdentityError> {
+    if let Some(identity) = load_file(state_dir, file)? {
         return Ok(identity);
     }
     fs::DirBuilder::new()
@@ -170,8 +184,8 @@ pub fn load_or_create(state_dir: &Path) -> Result<DeviceIdentity, IdentityError>
         .mode(0o700)
         .create(state_dir)?;
     let identity = DeviceIdentity::generate()?;
-    let path = identity_path(state_dir);
-    let tmp = state_dir.join(format!("identity.json.{}.tmp", std::process::id()));
+    let path = state_dir.join(file);
+    let tmp = state_dir.join(format!("{file}.{}.tmp", std::process::id()));
     let mut file = fs::OpenOptions::new()
         .write(true)
         .create_new(true)
