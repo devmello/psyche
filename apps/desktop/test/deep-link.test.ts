@@ -54,4 +54,28 @@ describe("psyche:// deep links", () => {
     ])
       expect(isAppRoute(bad), bad).toBe(false);
   });
+
+  it("accepts /spaces and /spaces/<id> only", () => {
+    expect(parseDeepLink("psyche://spaces")).toBe("/spaces");
+    expect(parseDeepLink("psyche://spaces/")).toBe("/spaces");
+    expect(parseDeepLink("psyche://spaces/sp_01-A")).toBe("/spaces/sp_01-A");
+    for (const bad of [
+      "psyche://spaces/..",
+      "psyche://spaces/../settings/permissions",
+      "psyche://spaces/%2e%2e",
+      "psyche://spaces/a%2Fb",
+      "psyche://spaces/a%2fb",
+      "psyche://spaces/a/b",
+      "psyche://spaces/a/pane/b",
+      "psyche://spaces/a b",
+      "psyche://spaces/<script>",
+      `psyche://spaces/${"x".repeat(65)}`,
+      "psyche://spaces?gatewayUrl=ws://evil.example",
+      "psyche://spaces/sp_1?token=abc",
+      "psyche://spaces/sp_1?q=x",
+      "psyche://spaces/sp_1#frag",
+      "psyche://spacesx",
+    ])
+      expect(parseDeepLink(bad), bad).toBeNull();
+  });
 });
