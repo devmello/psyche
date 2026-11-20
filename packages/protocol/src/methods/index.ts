@@ -87,6 +87,7 @@ export * from "./insights.ts";
 export * from "./learning.ts";
 export * from "./library.ts";
 export * from "./logs.ts";
+export * from "./storage.ts";
 export * from "./machines.ts";
 export * from "./mcp.ts";
 export * from "./memory.ts";
