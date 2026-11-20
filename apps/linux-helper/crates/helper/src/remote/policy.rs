@@ -343,13 +343,22 @@ fn resolve_existing(path: &Path) -> Option<PathBuf> {
     }
 }
 
-fn glob(pattern: &str, text: &str) -> bool {
-    // `*` matches any run of characters; everything else is literal.
+/// The one matcher for app ids and for `apps.allow` / `apps.deny` entries (H1 reuses it).
+///
+/// - `*` matches any run of characters, including none, and may appear anywhere, any number of
+///   times. Nothing else is special: no `?`, no classes, no escapes.
+/// - The whole text must match, not a part of it.
+/// - Matching ignores ASCII case on both sides, because an app id has no case (`apps.list` returns
+///   lowercase ids, an entry may be written `org.keepassxc.KeePassXC`). Non-ASCII letters are
+///   compared exactly.
+pub fn glob_match(pattern: &str, text: &str) -> bool {
+    let pattern = pattern.to_ascii_lowercase();
+    let text = text.to_ascii_lowercase();
     let parts: Vec<&str> = pattern.split('*').collect();
     if parts.len() == 1 {
         return pattern == text;
     }
-    let mut rest = text;
+    let mut rest = text.as_str();
     for (i, part) in parts.iter().enumerate() {
         if i == 0 {
             match rest.strip_prefix(part) {
@@ -357,7 +366,7 @@ fn glob(pattern: &str, text: &str) -> bool {
                 None => return false,
             }
         } else if i == parts.len() - 1 {
-            return rest.ends_with(part) && rest.len() >= part.len();
+            return rest.ends_with(part);
         } else {
             match rest.find(part) {
                 Some(at) => rest = &rest[at + part.len()..],
@@ -374,8 +383,8 @@ impl Policy {
     fn app_allowed(&self, id: Option<&str>) -> bool {
         match id {
             Some(id) => {
-                !self.apps.deny.iter().any(|p| glob(p, id))
-                    && self.apps.allow.iter().any(|p| glob(p, id))
+                !self.apps.deny.iter().any(|p| glob_match(p, id))
+                    && self.apps.allow.iter().any(|p| glob_match(p, id))
             }
             // The call names no app: it is allowed only where every app is.
             None => {
@@ -956,13 +965,66 @@ mod tests {
     }
 
     #[test]
-    fn globs_match_whole_strings() {
-        assert!(glob("*", "anything"));
-        assert!(glob("a*", "abc") && !glob("a*", "ba"));
-        assert!(glob("*c", "abc") && !glob("*c", "cb"));
-        assert!(glob("a*c", "abc") && glob("a*c", "ac") && !glob("a*c", "a"));
-        assert!(glob("a*b*c", "axxbyyc") && !glob("a*b*c", "axxcyyb"));
-        assert!(glob("exact", "exact") && !glob("exact", "exactly"));
-        assert!(!glob("", "x") && glob("", ""));
+    fn globs_match_whole_strings_ignoring_ascii_case() {
+        // (pattern, text, matches)
+        let table: [(&str, &str, bool); 24] = [
+            ("*", "anything", true),
+            ("a*", "abc", true),
+            ("a*", "ba", false),
+            ("*c", "abc", true),
+            ("*c", "cb", false),
+            ("a*c", "abc", true),
+            ("a*c", "ac", true),
+            ("a*c", "a", false),
+            ("a*b*c", "axxbyyc", true),
+            ("a*b*c", "axxcyyb", false),
+            ("exact", "exact", true),
+            ("exact", "exactly", false),
+            ("", "x", false),
+            ("", "", true),
+            // Mixed case, either side.
+            ("org.keepassxc.KeePassXC", "org.keepassxc.keepassxc", true),
+            ("org.keepassxc.keepassxc", "org.keepassxc.KeePassXC", true),
+            ("ORG.KEEPASSXC.*", "org.keepassxc.keepassxc", true),
+            ("org.*.KeePassXC", "ORG.keepassxc.keepassxc", true),
+            ("*PASS*", "org.keepassxc.keepassxc", true),
+            ("Firefox", "firefox-esr", false),
+            ("org.keepassxc.KeePassXC", "org.keepassxc.keepassxc.extra", false),
+            // Only ASCII is folded.
+            ("\u{c9}cole", "\u{e9}cole", false),
+            ("\u{c9}cole", "\u{c9}COLE", true),
+            ("a?c", "abc", false),
+        ];
+        for (pattern, text, want) in table {
+            assert_eq!(glob_match(pattern, text), want, "{pattern:?} vs {text:?}");
+        }
+    }
+
+    #[test]
+    fn the_deny_list_matches_ids_in_any_case() {
+        let home = PathBuf::from("/h");
+        let mut policy = Policy::default();
+        policy.apps = Apps {
+            allow: vec!["*".into()],
+            deny: vec!["org.keepassxc.KeePassXC".into(), "Firefox*".into()],
+        };
+        for id in [
+            "org.keepassxc.keepassxc",
+            "ORG.KEEPASSXC.KEEPASSXC",
+            "org.keepassxc.KeePassXC",
+            "firefox",
+            "FIREFOX-esr",
+        ] {
+            for cap in ["apps.open", "apps.focus", "computer.click"] {
+                assert!(
+                    !call(&policy, cap, json!({"surface": "virtual_screen", "app": id}), &home),
+                    "{cap} {id}"
+                );
+            }
+        }
+        assert!(call(&policy, "apps.open", json!({"surface": "virtual_screen", "app": "gedit"}), &home));
+        // An allow list is case-insensitive too.
+        policy.apps = Apps { allow: vec!["Org.Gnome.*".into()], deny: vec![] };
+        assert!(call(&policy, "apps.open", json!({"surface": "virtual_screen", "app": "org.gnome.texteditor"}), &home));
     }
 }
