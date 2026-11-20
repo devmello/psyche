@@ -5592,6 +5592,14 @@ export interface GoalsMilestoneResult {
     taskIds:    string[];
 }
 
+export interface GoalsSuggestParams {
+    goalId: string;
+}
+
+export interface GoalsSuggestResult {
+    ideaId?: null | string;
+}
+
 export interface GoalsUpdateParams {
     cadence?:  null | string;
     category?: GoalCategory;

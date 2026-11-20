@@ -80,6 +80,9 @@ export const notices: Partial<Catalogue> = {
   "notice.codeRun.unmoved.title": "{repo}에서 코드 실행이 만든 실행 구성이 그대로 남아 있습니다",
   "notice.codeRun.unmoved.body":
     "샌드박스의 명령이 {paths}을(를) 만들었지만 Psyche가 따로 옮기지 못해 보류되지 않았습니다. 앱이나 다음 명령이 여기서 코드를 실행할 수 있습니다. 폴더를 열거나 그곳에서 무엇이든 실행하기 전에 삭제하세요. 안을 보려고 먼저 권한을 바꾸지 마세요. 그러면 실행될 수 있습니다.",
+  "notice.codeRun.unchecked.title": "코드 실행 후 Psyche가 {repo}의 일부를 확인하지 못했습니다",
+  "notice.codeRun.unchecked.body":
+    "샌드박스에서 명령을 실행한 뒤 Psyche가 {paths}을(를) 확인하는 동안 바뀌어서, 그 안의 실행 구성은 아무것도 확인하지 못했습니다. 본인이나 사용 중인 도구가 바꾼 것이 아니라면 폴더를 열거나 그곳에서 무엇이든 실행하기 전에 살펴보세요.",
   "notice.machine.added.title": "{name}이(가) Psyche가 사용할 수 있는 컴퓨터로 추가되었습니다",
   "notice.machine.added.body":
     "Psyche는 이 컴퓨터의 화면, 앱, 셸, 파일을 사용할 수 있으며, 그곳에서의 모든 동작은 먼저 사용자에게 확인을 요청합니다. 직접 추가한 것이 아니라면 설정 → 기기에서 삭제하세요.",

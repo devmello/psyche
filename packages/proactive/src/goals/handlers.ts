@@ -9,7 +9,8 @@ type GoalMethod =
   | "goals.update"
   | "goals.archive"
   | "goals.milestone"
-  | "goals.link";
+  | "goals.link"
+  | "goals.suggest";
 
 export type GoalHandlers = {
   [M in GoalMethod]: (params: MethodParams<M>) => Promise<MethodResult<M>>;
@@ -28,6 +29,7 @@ export function createGoalHandlers(goals: GoalsService): GoalHandlers {
     "goals.update": ({ goalId, ...patch }) => goals.update(goalId, strip(patch)),
     "goals.archive": async (p) => ({ goal: await goals.archive(p.goalId) }),
     "goals.milestone": (p) => goals.milestone(strip(p)),
+    "goals.suggest": (p) => goals.suggestNextStep(p.goalId),
     "goals.link": async (p) => {
       await goals.link(strip(p));
       return { ok: true as const };

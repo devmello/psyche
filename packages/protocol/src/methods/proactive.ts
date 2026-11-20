@@ -209,4 +209,12 @@ export const GoalsMethods = {
     sideEffecting: true,
     description: "Links (or unlinks) one task, automation or watch to a goal. Side-effecting.",
   }),
+  "goals.suggest": defineMethod({
+    params: Type.Object({ goalId: Id }),
+    result: Type.Object({ ideaId: Nullable(Id) }),
+    scope: "operator.write",
+    sideEffecting: true,
+    description:
+      "Asks the model for one next step for a goal and offers it as a Home card (Start, Snooze, Dismiss). Uses the model, and runs only when the owner asks. Nothing starts. Side-effecting.",
+  }),
 } as const;
