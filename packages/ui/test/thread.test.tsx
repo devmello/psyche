@@ -385,3 +385,23 @@ describe("a failed run (#539)", () => {
     expect([...anchors.keys()]).toEqual(["a"]);
   });
 });
+
+describe("ChatThread on an imported conversation", () => {
+  it("is read-only: no composer, a note instead, and no Imported chip on a normal chat", async () => {
+    const world = createFixtureWorld();
+    const entry = world.threads.find((e) => e.thread.id === IDS.threads.dentist);
+    if (entry) entry.thread.imported = "claude";
+    const gateway = new MockGateway(world, { now: () => FIXTURE_NOW });
+    const store = new GatewayStore(gateway, { now: () => FIXTURE_NOW });
+    render(
+      <GatewayProvider client={gateway} store={store}>
+        <UiSlotsProvider value={{ persona: { name: "Wren", creature: "moth" } }}>
+          <ChatThread threadId={IDS.threads.dentist} now={NOW} />
+        </UiSlotsProvider>
+      </GatewayProvider>,
+    );
+    expect(await screen.findByText("This imported conversation is read-only.")).toBeTruthy();
+    expect(screen.queryByRole("textbox", { name: "Message Wren" })).toBeNull();
+    expect(screen.queryByRole("button", { name: "Message actions" })).toBeNull();
+  });
+});

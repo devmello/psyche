@@ -153,6 +153,9 @@ export const threads = sqliteTable("threads", {
   lastMessageAt: text("last_message_at"),
   /** 1 for a chat the owner opened with "New chat" (migration 202610271300). */
   userCreated: integer("user_created").notNull().default(0),
+  /** "claude" or "chatgpt" for a thread imported from an export (migration 202611191600). */
+  imported: text("imported"),
+  importKey: text("import_key"),
   /** The Space this chat is in (migration 202611201000); NULL for none. */
   spaceId: text("space_id"),
 });
