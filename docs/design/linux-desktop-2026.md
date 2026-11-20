@@ -338,6 +338,7 @@ The helper has no always-on job on Linux. There's no hold-to-talk key tap, prese
 - **Fixed caps get a Linux list** in `computer-settings.ts`:
   - **Browsers, read only:** firefox, chromium, google-chrome, brave, vivaldi, epiphany.
   - **Terminals and IDEs, click only:** gnome-terminal, ptyxis, konsole, kitty, alacritty, wezterm, foot, xterm, code, codium, jetbrains-*.
+    - A `Terminal=true` app opened with `apps.open` runs in a terminal picked from system-wide entries only. Its data and config dirs are cut down to the ones this account cannot write, so a user-installed Flatpak or Linuxbrew terminal is never used for it. When that is the only terminal installed, the app may not open, or may open in another terminal.
   - **Off and not overridable from chat:** password managers (keepassxc, bitwarden, 1password, seahorse, kwalletmanager5/6), banking and trading apps.
 - **Secure fields:** AT-SPI role `PASSWORD_TEXT` (`ATSPI_ROLE_PASSWORD_TEXT`) is refused at the helper's dispatch layer and redacted from snapshots and screenshots, like `AXSecureTextField`.
 - **Risky labels and chords** are the same list (`RISKY_WORDS` and the helper's copy), so they still ask on "Read and interact". One exception, in the separate desktop only: file-local words (delete, trash, remove, erase, clear, empty, discard) don't ask there, because the container can only touch its own files and the shares the owner chose. Words that reach the outside world (send, submit, purchase, buy, pay, transfer) still ask everywhere.

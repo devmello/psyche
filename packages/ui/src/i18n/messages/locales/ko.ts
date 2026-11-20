@@ -21,6 +21,7 @@ import { helperCheck } from "./helper-check/ko.ts";
 import { helperOffline } from "./helper-offline/ko.ts";
 import { homeRest } from "./home-rest/ko.ts";
 import { links } from "./links/ko.ts";
+import { linuxAccess } from "./linux-access/ko.ts";
 import { mailMeetings } from "./mail-meetings/ko.ts";
 import { meetingRecordRest } from "./meetingRecord-rest/ko.ts";
 import { memoryMap } from "./memory-map/ko.ts";
@@ -3669,6 +3670,8 @@ export const ko: Partial<Catalogue> = {
   ...helperOffline,
   // the security-records banner (docs/design/security-state-integrity-2026.md §7.3)
   ...securityState,
+  // Settings → Computer use on Linux: screen and input access
+  ...linuxAccess,
   // the Virtual screen watch pane (docs/design/linux-desktop-2026.md §7.5)
   ...computerWatch,
   // Gateway-authored notices (inbox notifications, security alerts)

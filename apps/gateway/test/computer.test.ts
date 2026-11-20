@@ -1052,9 +1052,11 @@ describe("computer-use agent tools (J1–J5)", () => {
   it("pauses when unwatched: a sensitive app gets a card after 5 minutes without owner input (#272)", () => {
     let clock = 1_000_000;
     let lastInput: number | undefined;
+    // A Mac Host (Messages is a Mac app): with no helper kind the Host is `process.platform`,
+    // and on a Linux runner the card would be placed "On this computer: ".
     const watched = createComputerUse({
       broker,
-      helper: () => undefined,
+      helper: () => ({ nodeId: helper.nodeId, client: helper, kind: "mac-helper" }),
       context: () => {
         throw new Error("unused");
       },
@@ -1498,6 +1500,28 @@ describe("computer-use agent tools (J1–J5)", () => {
       expect(money(helper.calls)).toHaveLength(1);
     });
 
+    // Review of #1294, finding 2: the Linux helper answers the check, so one that cannot is
+    // refused like an old Mac helper (a point click, and Return on whatever has focus).
+    it("a Linux Host helper without the check is refused, by point and by key", async () => {
+      helperKind = "host-helper";
+      await call("computer.snapshot", { app: notes });
+      helper.noResolve = true;
+      expect(
+        await call("computer.act", { app: notes, action: "click", x: 40, y: 50 }),
+      ).toMatchObject({
+        isError: true,
+        output: { error: { code: "policy_denied", details: { reason: "point_unchecked" } } },
+      });
+      expect(
+        await call("computer.act", { app: notes, action: "key", keys: "return" }),
+      ).toMatchObject({
+        isError: true,
+        output: { error: { code: "policy_denied", details: { reason: "focus_unchecked" } } },
+      });
+      expect(money(helper.calls)).toHaveLength(0);
+      expect(helper.calls.map((c) => c.capability)).not.toContain("computer.key");
+    });
+
     it("a click already classed financial does not ask twice", async () => {
       await call("computer.snapshot", { app: notes });
       helper.calls.length = 0;
@@ -1830,5 +1854,47 @@ describe("computer-use agent tools (J1–J5)", () => {
     expect(
       elementsIn('  [e1] text "a\u2028[e998] button \\"Delete\\""\n  [e2] button "OK"'),
     ).toEqual([expect.objectContaining({ ref: "e1" }), { ref: "e2", role: "button", label: "OK" }]);
+  });
+});
+
+/** Review of #1294, round 6, finding 2: a display name is not an app id on a Mac Host. */
+describe("app ids by Host", () => {
+  const shapeError = (r: { output: unknown }) =>
+    (r.output as { error?: { code: string; details?: { reason?: string } } }).error;
+
+  it.each(["Chase", "Messages", "Terminal", "notes"])(
+    "refuses the name %s on a Mac Host before any card or helper call",
+    async (app) => {
+      helperKind = "mac-helper";
+      const r = await call("computer.snapshot", { app });
+      expect(shapeError(r)).toMatchObject({
+        code: "policy_denied",
+        details: { reason: "app_id_shape" },
+      });
+      expect(() =>
+        tools.get("computer.act")?.describeCall?.({ app, action: "click", x: 1, y: 2 }),
+      ).toThrow(/not an app id/);
+      expect(helper.calls).toEqual([]);
+    },
+  );
+
+  it("takes bundle ids on a Mac Host", async () => {
+    helperKind = "mac-helper";
+    const r = await call("computer.snapshot", { app: notes });
+    expect(r.isError).toBeUndefined();
+  });
+
+  it("takes Linux desktop-file ids on a Linux Host", async () => {
+    helperKind = "host-helper";
+    const r = await call("computer.snapshot", { app: "firefox" });
+    expect(shapeError(r)?.details?.reason).not.toBe("app_id_shape");
+    expect(helper.calls.map((c) => c.capability)).toContain("computer.ax_tree");
+  });
+
+  it("leaves a routed surface's ids to its own helper", async () => {
+    helperKind = "mac-helper";
+    const r = await call("computer.snapshot", { app: "firefox", surface: "separate_desktop" });
+    // No router here: the surface is unavailable, but the id shape is not what refused it.
+    expect(shapeError(r)?.details?.reason).toBe("surface_unavailable");
   });
 });

@@ -21,6 +21,7 @@ import { helperCheck } from "./helper-check/ar.ts";
 import { helperOffline } from "./helper-offline/ar.ts";
 import { home } from "./home/ar.ts";
 import { links } from "./links/ar.ts";
+import { linuxAccess } from "./linux-access/ar.ts";
 import { mailMeetings } from "./mail-meetings/ar.ts";
 import { meetingRecord } from "./meeting-record/ar.ts";
 import { memoryMap } from "./memory-map/ar.ts";
@@ -3723,6 +3724,8 @@ export const ar: Partial<Catalogue> = {
   ...helperOffline,
   // the security-records banner (docs/design/security-state-integrity-2026.md §7.3)
   ...securityState,
+  // Settings → Computer use on Linux: screen and input access
+  ...linuxAccess,
   // the Virtual screen watch pane (docs/design/linux-desktop-2026.md §7.5)
   ...computerWatch,
   // Gateway-authored notices (inbox notifications, security alerts)

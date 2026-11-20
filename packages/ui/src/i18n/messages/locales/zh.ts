@@ -21,6 +21,7 @@ import { helperCheck } from "./helper-check/zh.ts";
 import { helperOffline } from "./helper-offline/zh.ts";
 import { home } from "./home/zh.ts";
 import { links } from "./links/zh.ts";
+import { linuxAccess } from "./linux-access/zh.ts";
 import { mailMeetings } from "./mail-meetings/zh.ts";
 import { meetingRecord } from "./meeting-record/zh.ts";
 import { memoryMap } from "./memory-map/zh.ts";
@@ -3618,6 +3619,8 @@ export const zh: Partial<Catalogue> = {
   ...helperOffline,
   // the security-records banner (docs/design/security-state-integrity-2026.md §7.3)
   ...securityState,
+  // Settings → Computer use on Linux: screen and input access
+  ...linuxAccess,
   // the Virtual screen watch pane (docs/design/linux-desktop-2026.md §7.5)
   ...computerWatch,
   // Gateway-authored notices (inbox notifications, security alerts)

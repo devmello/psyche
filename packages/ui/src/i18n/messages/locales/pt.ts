@@ -12,6 +12,7 @@ import { helperCheck } from "./helper-check/pt.ts";
 import { helperOffline } from "./helper-offline/pt.ts";
 import { homeA } from "./home-a/pt.ts";
 import { links } from "./links/pt.ts";
+import { linuxAccess } from "./linux-access/pt.ts";
 import { mailMeetings } from "./mail-meetings/pt.ts";
 import { memoryA } from "./memory-a/pt.ts";
 import { memoryB } from "./memory-b/pt.ts";
@@ -3672,6 +3673,8 @@ export const pt: Partial<Catalogue> = {
   ...helperOffline,
   // the security-records banner (docs/design/security-state-integrity-2026.md §7.3)
   ...securityState,
+  // Settings → Computer use on Linux: screen and input access
+  ...linuxAccess,
   // the Virtual screen watch pane (docs/design/linux-desktop-2026.md §7.5)
   ...computerWatch,
   // Gateway-authored notices (inbox notifications, security alerts)

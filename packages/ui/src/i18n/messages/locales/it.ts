@@ -21,6 +21,7 @@ import { helperCheck } from "./helper-check/it.ts";
 import { helperOffline } from "./helper-offline/it.ts";
 import { homeRest } from "./home-rest/it.ts";
 import { links } from "./links/it.ts";
+import { linuxAccess } from "./linux-access/it.ts";
 import { mailMeetings } from "./mail-meetings/it.ts";
 import { meetingRecordRest } from "./meeting-record-rest/it.ts";
 import { memoryAdvancedRest } from "./memory-advanced-rest/it.ts";
@@ -3729,6 +3730,8 @@ export const it: Partial<Catalogue> = {
   ...helperOffline,
   // the security-records banner (docs/design/security-state-integrity-2026.md §7.3)
   ...securityState,
+  // Settings → Computer use on Linux: screen and input access
+  ...linuxAccess,
   // the Virtual screen watch pane (docs/design/linux-desktop-2026.md §7.5)
   ...computerWatch,
   // Gateway-authored notices (inbox notifications, security alerts)

@@ -911,6 +911,7 @@ describe("a document write never leaves a runnable file (#1333 routine writes)",
 });
 
 describe("read_file paging", () => {
+  // About 15 pages of real reads: 5.2 s on the Linux VM, so the 5 s default is too tight.
   it("reading a 600 KB file page by page covers every byte exactly once", async () => {
     // Quotes, backslashes and multi-byte text grow when JSON-escaped: the worst case.
     const line = 'say "héllo" \\ wörld ✓\n';
@@ -930,7 +931,7 @@ describe("read_file paging", () => {
       offset = r.output.nextOffset as number;
     }
     expect(chunks.join("")).toBe(body);
-  });
+  }, 30_000);
 });
 
 describe("read_file budget", () => {
