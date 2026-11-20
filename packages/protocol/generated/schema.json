@@ -27154,6 +27154,11 @@
           "maxLength": 1000,
           "type": "string"
         },
+        "gmailThreadId": {
+          "maxLength": 64,
+          "pattern": "^[A-Za-z0-9_-]{1,64}$",
+          "type": "string"
+        },
         "untrusted": {
           "const": true,
           "type": "boolean"

@@ -6410,14 +6410,15 @@ export interface MailFollowupsListResult {
 }
 
 export interface MailFollowupItem {
-    daysQuiet: number;
-    id:        string;
-    kind:      MailFollowupKind;
-    link?:     string;
-    source:    MailFollowupItemSource;
-    subject:   string;
-    untrusted: boolean;
-    who:       string;
+    daysQuiet:      number;
+    gmailThreadId?: string;
+    id:             string;
+    kind:           MailFollowupKind;
+    link?:          string;
+    source:         MailFollowupItemSource;
+    subject:        string;
+    untrusted:      boolean;
+    who:            string;
 }
 
 export type MailFollowupKind = "no_reply" | "unanswered_question";
