@@ -14,6 +14,7 @@ import {
   createFeedHandlers,
   createGoalHandlers,
   createIdeaHandlers,
+  createNextStepProposer,
   createProposalHandlers,
   DailyService,
   DigestService,
@@ -283,6 +284,15 @@ export function composeProactive(setup: ProactiveSetup): ComposedProactive {
     tasks,
     ...(timeZone === undefined ? {} : { timezone: timeZone }),
     onEvent: (e) => publish(e.event, e.payload),
+    // A check-in's next-step model call happens only on a goal the owner gave a cadence. The
+    // card is an idea: Start creates a task under the normal approval rules.
+    nextStep: createNextStepProposer({
+      provider,
+      model,
+      offer: (candidate, supersedes) => ideas.offer(candidate, supersedes),
+    }),
+    onError: (err) =>
+      logger?.log("warn", "goal check-in step failed", { code: PsycheError.from(err).code }),
   });
   const feed = new FeedService({
     db: db.sqlite,

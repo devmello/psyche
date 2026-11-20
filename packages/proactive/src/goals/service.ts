@@ -23,6 +23,7 @@ import {
   type SchedulerLike,
 } from "../jobs.ts";
 import { type SqliteDatabase, toIso } from "../sqlite.ts";
+import type { NextStepProposer } from "./checkin.ts";
 import { GoalStore } from "./store.ts";
 
 /**
@@ -120,7 +121,30 @@ export interface GoalsServiceOptions {
   timezone?: string;
   onEvent?: (event: GoalEvent) => void;
   maxOpenCandidates?: number;
+  /**
+   * Proposes one next step as a Home card when a check-in runs (the check-in's only model call;
+   * `createNextStepProposer`). Absent: a check-in is the free progress reminder alone.
+   */
+  nextStep?: NextStepProposer;
+  onError?: (error: unknown) => void;
 }
+
+/** "Check in …": the cadences the owner picks for a goal (cron, in the goal's timezone). */
+export const CHECKIN_CADENCES = {
+  daily: "0 9 * * *",
+  weekly: "0 9 * * 1",
+  monthly: "0 9 1 * *",
+} as const;
+export type CheckinFrequency = keyof typeof CHECKIN_CADENCES;
+
+/** A linked task with no progress for a while (a free signal: no model call). */
+export interface StalledTask {
+  goal: Goal;
+  task: Task;
+  idleDays: number;
+}
+
+const TERMINAL_TASK: ReadonlySet<string> = new Set(["done", "failed", "cancelled"]);
 
 const DEFER_DAYS = 7;
 
@@ -347,6 +371,41 @@ export class GoalsService {
       },
       watches,
     };
+  }
+
+  /**
+   * The owner's "Check in weekly" switch: `null` turns check-ins off (the default). The
+   * cadence is what lets a check-in call a model, so nothing else sets it.
+   */
+  async setCheckin(
+    goalId: string,
+    frequency: CheckinFrequency | null,
+    timezone?: string,
+  ): Promise<GoalDetail> {
+    return this.update(goalId, {
+      cadence: frequency === null ? null : CHECKIN_CADENCES[frequency],
+      ...(timezone === undefined ? {} : { timezone }),
+    });
+  }
+
+  /**
+   * Linked tasks of active goals that have made no progress for `days` (a free signal: reads
+   * state only, never a model). Finished, failed and cancelled tasks are not stalled.
+   */
+  async stalledTasks(days = PROACTIVITY_BUDGET.goals.stalledAfterDays): Promise<StalledTask[]> {
+    const cutoff = this.#o.clock.now() - days * 86_400_000;
+    const out: StalledTask[] = [];
+    for (const goal of this.store.list({ status: ["active"] })) {
+      for (const link of this.store.links(goal.id)) {
+        if (link.taskId == null) continue;
+        const task = await this.#o.tasks?.get(link.taskId);
+        if (task === undefined || TERMINAL_TASK.has(task.status)) continue;
+        const idle = this.#o.clock.now() - Date.parse(task.updatedAt);
+        if (Date.parse(task.updatedAt) > cutoff) continue;
+        out.push({ goal, task, idleDays: Math.floor(idle / 86_400_000) });
+      }
+    }
+    return out;
   }
 
   // --- watches (O3) ----------------------------------------------------------------------------
@@ -621,6 +680,34 @@ export class GoalsService {
       route: `/goals/${goal.id}`,
       dedupeKey: `goal:${goal.id}:checkin`,
     });
+    // The one model call, and only because the owner set this schedule. A failure leaves the
+    // reminder in place and never fails the run.
+    if (this.#o.nextStep !== undefined) {
+      try {
+        const detail = await this.get(goalId);
+        const tasks: { title: string; status: string; idleDays: number }[] = [];
+        for (const id of detail.taskIds) {
+          const t = await this.#o.tasks?.get(id);
+          if (t === undefined) continue;
+          tasks.push({
+            title: t.title,
+            status: t.status,
+            idleDays: Math.max(
+              0,
+              Math.floor((this.#o.clock.now() - Date.parse(t.updatedAt)) / 86_400_000),
+            ),
+          });
+        }
+        const evidence = Array.isArray(goal.plan?.evidence)
+          ? (goal.plan.evidence as JsonObject[]).filter(
+              (e) => typeof e === "object" && e !== null && !Array.isArray(e),
+            )
+          : [];
+        await this.#o.nextStep({ goal, milestones: detail.milestones, tasks, evidence });
+      } catch (e) {
+        this.#o.onError?.(e);
+      }
+    }
     const automation = await this.#o.scheduler.get(request.automation.id);
     const next: Goal = {
       ...goal,

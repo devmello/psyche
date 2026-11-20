@@ -27,6 +27,7 @@ import {
 } from "../../components/ui/dropdown-menu.tsx";
 import { Input } from "../../components/ui/input.tsx";
 import { Label } from "../../components/ui/label.tsx";
+import { NativeSelect } from "../../components/ui/native-select.tsx";
 import { Skeleton } from "../../components/ui/skeleton.tsx";
 import { useArtifact, useCall, useGoal, useTask } from "../../data/hooks.ts";
 import { activeI18n, t } from "../../i18n/core.ts";
@@ -235,7 +236,37 @@ export interface GoalPageViewProps {
   onOpenArtifact?: (artifact: Artifact) => void;
   onOpenTask?: (taskId: string) => void;
   onDelete?: (goal: Goal) => void;
+  /**
+   * The owner's "Check in" switch (`goals.update` cadence; `null` is off, the default). A check-in
+   * may use a model, so it only ever runs at the time chosen here. Absent: the row is not drawn.
+   */
+  onCheckinChange?: (cadence: string | null) => void;
 }
+
+/** Goal check-in choices: the schedule each one sets (the Gateway's `CHECKIN_CADENCES`). */
+export const CHECKIN_CHOICES = [
+  {
+    id: "daily",
+    cadence: "0 9 * * *",
+    get label() {
+      return t("screens.goals.checkinFrequency.daily");
+    },
+  },
+  {
+    id: "weekly",
+    cadence: "0 9 * * 1",
+    get label() {
+      return t("screens.goals.checkinFrequency.weekly");
+    },
+  },
+  {
+    id: "monthly",
+    cadence: "0 9 1 * *",
+    get label() {
+      return t("screens.goals.checkinFrequency.monthly");
+    },
+  },
+] as const;
 
 /** Goal page (UI design §3.11, a Psyche decision): milestones, plan, tasks, check-ins, watches, notes. */
 export function GoalPageView({
@@ -251,8 +282,10 @@ export function GoalPageView({
   onOpenArtifact,
   onOpenTask,
   onDelete,
+  onCheckinChange,
 }: GoalPageViewProps): ReactElement {
   const titleId = useId();
+  const frequencyId = useId();
   const [confirming, setConfirming] = useState(false);
   const showSkeleton = useDelayedFlag(loading && goal === null, loadingDelayMs);
 
@@ -371,6 +404,31 @@ export function GoalPageView({
             hasLast: Boolean(lastCheckin),
           })}
         </Line>
+        {onCheckinChange ? (
+          <GroupedRow
+            label={<label htmlFor={frequencyId}>{t("screens.goals.checkinFrequency")}</label>}
+            control={
+              <NativeSelect
+                id={frequencyId}
+                size="sm"
+                value={goal.cadence ?? ""}
+                disabled={goal.status === "candidate" || goal.status === "archived"}
+                onChange={(e) => onCheckinChange(e.target.value === "" ? null : e.target.value)}
+              >
+                <option value="">{t("screens.goals.checkinFrequency.off")}</option>
+                {goal.cadence != null &&
+                !CHECKIN_CHOICES.some((c) => c.cadence === goal.cadence) ? (
+                  <option value={goal.cadence}>{goal.cadence}</option>
+                ) : null}
+                {CHECKIN_CHOICES.map((c) => (
+                  <option key={c.id} value={c.cadence}>
+                    {c.label}
+                  </option>
+                ))}
+              </NativeSelect>
+            }
+          />
+        ) : null}
         {plan.checkins.map((c) => (
           <GroupedRow
             key={c.at}
@@ -484,6 +542,12 @@ export function GoalPage({ goalId, onDelete, onDeleted }: GoalPageProps): ReactE
       onRetry={g.reload}
       onOpenTask={(id) => navigate?.(`/agent/activity/${id}`)}
       onDelete={remove}
+      onCheckinChange={(cadence) => {
+        call("goals.update", { goalId, cadence }).then(
+          () => g.reload(),
+          (err: unknown) => toast.error(describeError(err)),
+        );
+      }}
       {...(openArtifact ? { onOpenArtifact: openArtifact } : {})}
     />
   );
