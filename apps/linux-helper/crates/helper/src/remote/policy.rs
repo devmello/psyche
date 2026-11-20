@@ -404,7 +404,12 @@ impl Policy {
     /// `<app>` and `<snap>`, with a parallel-install `+key` stripped), or by the short name's
     /// `x_x` form. Wide on purpose: the deny list protects, and a miss lets an app through.
     pub fn deny_listed(&self, id: &str) -> bool {
-        let ids = psyche_linux_computer::app_id::aliases(id);
+        let mut ids = psyche_linux_computer::app_id::aliases(id);
+        for form in Self::forms(id) {
+            if !ids.contains(&form) {
+                ids.push(form);
+            }
+        }
         self.apps.deny.iter().any(|p| {
             let p = normalize(p);
             let patterns = if p.contains('*') {

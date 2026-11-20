@@ -90,10 +90,12 @@ pub fn blocked_by(deny: &dyn Denies, scopes: &dyn Scopes, pid: u32) -> Option<(S
     }
     // A launcher shared by several entries (`libreoffice` starts Writer, Calc and the Start
     // Center from one `soffice.bin`) resolves to all of them. When the scope's own app is one of
-    // them, the others are the same program and the scope's app is the answer.
+    // them (and its desktop file is trusted: one in the account's own directories cannot make
+    // one app pass for another), the others are the same program and the scope's app is the
+    // answer.
     let holder_resolved = id.holder.as_deref().is_some_and(|h| {
         let h = normalize(h);
-        id.facts.resolved.iter().any(|r| normalize(r) == h)
+        id.facts.trusted.iter().any(|r| normalize(r) == h)
     });
     let mut judged: Vec<&String> = if holder_resolved {
         id.holder.iter().collect()
@@ -101,12 +103,13 @@ pub fn blocked_by(deny: &dyn Denies, scopes: &dyn Scopes, pid: u32) -> Option<(S
         id.holder.iter().chain(id.facts.resolved.iter()).collect()
     };
     if let Some(own) = &id.facts.own {
-        let judge_own = match &id.holder {
-            None => id.facts.resolved.is_empty(),
-            // Nothing resolved: an id that names no installed app is not on the list.
-            Some(_) if id.facts.resolved.is_empty() => true,
-            Some(h) => fixed_caps::cap(Some(own)) < fixed_caps::cap(Some(h)),
-        };
+        let judge_own = id.facts.flatpak.is_none()
+            && match &id.holder {
+                None => id.facts.resolved.is_empty(),
+                // Nothing resolved: an id that names no installed app is not on the list.
+                Some(_) if id.facts.resolved.is_empty() => true,
+                Some(h) => fixed_caps::cap(Some(own)) < fixed_caps::cap(Some(h)),
+            };
         if judge_own {
             judged.push(own);
         }
@@ -234,7 +237,9 @@ mod tests {
                     facts: IdFacts {
                         own: Some(own.to_string()),
                         resolved: vec![own.to_string()],
+                        trusted: vec![own.to_string()],
                         candidates: vec![own.to_string()],
+                        ..Default::default()
                     },
                 },
                 None => Identity::default(),
@@ -381,7 +386,9 @@ mod tests {
                     facts: IdFacts {
                         own: Some("org.gnome.texteditor".into()),
                         resolved: vec!["org.gnome.texteditor".into()],
+                        trusted: vec!["org.gnome.texteditor".into()],
                         candidates: vec!["org.gnome.texteditor".into(), "gnome-text-edit".into()],
+                        ..Default::default()
                     },
                 }
             }
@@ -593,6 +600,7 @@ mod tests {
                         own: Some("xterm".into()),
                         resolved: vec![],
                         candidates: vec!["xterm".into()],
+                        ..Default::default()
                     },
                 }
             }
@@ -657,6 +665,7 @@ mod tests {
             ("firefox", "firefox-esr", false, false),
             ("org.mozilla.firefox", "firefox", false, false),
             // A snap whose app is not its name, and a parallel install: denied by the snap name.
+            ("*_firefox", "firefox", true, true),
             ("libreoffice", "libreoffice_writer", false, true),
             ("firefox", "firefox+beta_firefox", false, true),
         ] {
@@ -727,6 +736,67 @@ mod tests {
             None
         );
         assert!(blocked_by(&policy(&["firefox"], &[]), &Fp(identity), 1).is_some());
+    }
+
+    /// Launching goes through the same policy: `deny:["*_firefox"]` refuses `firefox` too.
+    #[test]
+    fn a_deny_pattern_on_the_snap_form_refuses_the_short_launch_id() {
+        let p = policy(&["*"], &["*_firefox"]);
+        assert!(!p.app_permitted("firefox"));
+        assert!(!p.app_permitted("firefox_firefox"));
+        assert!(p.app_permitted("thunderbird"));
+        assert!(Denies::is_denied(&p, "firefox"));
+    }
+
+    /// A desktop entry in the account's own directory that shadows the system's cannot make one
+    /// app pass for another: Calculator in TextEditor's scope stays out of reach under an allow
+    /// list that names the editor only.
+    #[test]
+    fn a_user_directory_entry_cannot_collapse_one_app_into_another() {
+        let sys = tempfile::tempdir().unwrap();
+        let user = tempfile::tempdir().unwrap();
+        let calc = sys.path().join("gnome-calculator");
+        std::fs::write(&calc, "#!/bin/sh\n").unwrap();
+        let exec = calc.display().to_string();
+        for (dir, file) in [
+            (user.path(), "org.gnome.TextEditor.desktop"),
+            (sys.path(), "org.gnome.Calculator.desktop"),
+        ] {
+            let apps = dir.join("applications");
+            std::fs::create_dir_all(&apps).unwrap();
+            std::fs::write(
+                apps.join(file),
+                format!("[Desktop Entry]\nType=Application\nName=x\nExec={exec}\n"),
+            )
+            .unwrap();
+        }
+        let sys_path = sys.path().to_path_buf();
+        let index = DesktopIndex::load_with(
+            &[user.path().to_path_buf(), sys.path().to_path_buf()],
+            &move |p: &std::path::Path| p.starts_with(&sys_path),
+        );
+        let ev = Evidence {
+            exe: Some(exec.clone()),
+            comm: Some("gnome-calculator".into()),
+            ..Default::default()
+        };
+        let real = Real {
+            index,
+            procs: HashMap::from([(1, (Some("org.gnome.TextEditor"), ev))]),
+        };
+        let editor_only = policy(&["org.gnome.TextEditor"], &[]);
+        let (_, matched) =
+            blocked_by(&editor_only, &real, 1).expect("calculator is not the editor");
+        assert_eq!(matched, "org.gnome.calculator");
+        // The same two entries, both trusted: the scope's app names the process.
+        let trusted_all = Real {
+            index: DesktopIndex::load_with(
+                &[user.path().to_path_buf(), sys.path().to_path_buf()],
+                &|_| true,
+            ),
+            procs: real.procs.clone(),
+        };
+        assert_eq!(blocked_by(&editor_only, &trusted_all, 1), None);
     }
 
     #[test]

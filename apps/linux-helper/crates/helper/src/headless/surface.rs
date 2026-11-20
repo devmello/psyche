@@ -76,14 +76,14 @@ impl Scopes for ManagerScopes {
     }
     /// Read once per question: `/proc` and the desktop index are touched here and nowhere else.
     fn identity(&self, pid: u32) -> Identity {
-        Identity {
-            holder: self.manager.app_of_pid(pid),
-            facts: self
-                .a11y
-                .as_ref()
-                .map(|a| a.id_facts_for_pid(pid))
-                .unwrap_or_default(),
-        }
+        // The scope is read once and handed down: the holder and the facts agree.
+        let holder = self.manager.app_of_pid(pid);
+        let facts = self
+            .a11y
+            .as_ref()
+            .map(|a| a.id_facts_for_pid(pid, holder.as_deref()))
+            .unwrap_or_default();
+        Identity { holder, facts }
     }
 }
 

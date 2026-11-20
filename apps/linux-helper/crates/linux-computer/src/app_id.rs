@@ -32,26 +32,36 @@ pub fn normalize(id: &str) -> String {
 /// What is known about who a process is, computed once from its evidence.
 #[derive(Debug, Default, Clone, PartialEq, Eq)]
 pub struct IdFacts {
-    /// The strictest candidate (what [`choose`] reports), `comm` as the last resort.
+    /// What the process is called: the strictest candidate (what [`choose`] reports, `comm` as
+    /// the last resort), or a more specific name that is **no looser** than it (see [`id_facts`]).
+    /// Caps, tiers and capture exclusion key on this, so it is never looser than `choose`.
     pub own: Option<String>,
     /// The candidates that name an installed desktop entry (or a snap alias of one): the
     /// executable's own entries, the launched file, the cgroup id when it is one.
     pub resolved: Vec<String>,
+    /// The part of `resolved` whose desktop files are trusted (root-owned, not writable by the
+    /// account). Only these may stand for a scope's app.
+    pub trusted: Vec<String>,
     /// Every candidate, `comm` and a Flatpak's name included: what a deny list is matched on.
     pub candidates: Vec<String>,
+    /// The Flatpak app id, when the sandbox was shown to be that installed Flatpak.
+    pub flatpak: Option<String>,
 }
 
 /// Builds [`IdFacts`] from one read of the evidence and one index.
 ///
-/// - `prefer` is the app whose launch scope holds the process. When it is one of the
-///   candidates and its cap is no looser than the strictest candidate's, it is what the process
-///   is called: a launcher shared by several entries (`libreoffice` runs Writer, Calc and the
-///   Start Center from one `soffice.bin`) is not told apart by the executable, but the scope
-///   knows which was launched.
-/// - `flatpak` is the name the process's `.flatpak-info` gives, and `flatpak_verified` says the
-///   sandbox's `/app` is that Flatpak's installed files. Only then is it the process's
-///   identity; a name that cannot be shown to be real only adds a candidate (a deny entry can
-///   match it, an allow list never relies on it).
+/// - `prefer` is the app whose launch scope holds the process. When it is one of the candidates,
+///   its desktop file is trusted, and it is **no looser** than the strictest candidate (the
+///   same ranking [`choose`] uses: fixed cap, then messaging), it is what the process is called:
+///   a launcher shared by several entries (`libreoffice` runs Writer, Calc and the Start Center
+///   from one `soffice.bin`) is not told apart by the executable, but the scope knows which was
+///   launched.
+/// - `flatpak` is the raw `name=` of the process's `.flatpak-info`, and `flatpak_verified` says
+///   the sandbox was shown to be that installed Flatpak ([`flatpak_app_is_installed`]). Only
+///   then is the name the process's identity for an allow list, and the reported name only when
+///   it is no looser than the strictest candidate: a Flatpak whose id is in no cap table but
+///   whose executable is `sublime_text` stays a capped editor. A name that cannot be shown to
+///   be real only adds a candidate (a deny entry can match it).
 pub fn id_facts(
     ev: &Evidence,
     index: &DesktopIndex,
@@ -61,12 +71,14 @@ pub fn id_facts(
 ) -> IdFacts {
     let flatpak = flatpak.map(|f| normalize(&f));
     let mut cands = candidates(ev, index);
-    let mut own =
+    let picked =
         choose(&cands).or_else(|| ev.comm.as_deref().map(normalize).filter(|c| is_app_id(c)));
-    if let (Some(pref), Some(picked)) = (prefer.map(normalize), own.as_deref()) {
+    let mut own = picked.clone();
+    if let (Some(pref), Some(pk)) = (prefer.map(normalize), picked.as_deref()) {
         if cands.contains(&pref)
-            && pref != picked
-            && fixed_caps::cap(Some(&pref)) <= fixed_caps::cap(Some(picked))
+            && index.trusted.contains(&pref)
+            && pref != pk
+            && strictness(&pref) <= strictness(pk)
         {
             own = Some(pref);
         }
@@ -76,6 +88,11 @@ pub fn id_facts(
         .filter(|c| aliases(c).iter().any(|a| index.get(a).is_some()))
         .cloned()
         .collect();
+    let trusted: Vec<String> = resolved
+        .iter()
+        .filter(|r| index.trusted.contains(*r))
+        .cloned()
+        .collect();
     let comm = ev.comm.as_deref().map(normalize).filter(|c| is_app_id(c));
     for extra in comm.into_iter().chain(flatpak.clone()) {
         if !cands.contains(&extra) {
@@ -83,21 +100,28 @@ pub fn id_facts(
         }
     }
     if let (Some(name), true) = (flatpak, flatpak_verified) {
+        let as_strict = picked
+            .as_deref()
+            .is_none_or(|pk| strictness(&name) <= strictness(pk));
         return IdFacts {
-            own: Some(name.clone()),
-            resolved: vec![name],
+            own: if as_strict { Some(name.clone()) } else { own },
+            resolved: vec![name.clone()],
+            trusted: Vec::new(),
             candidates: cands,
+            flatpak: Some(name),
         };
     }
     IdFacts {
         own,
         resolved,
+        trusted,
         candidates: cands,
+        flatpak: None,
     }
 }
 
-/// The app id in a Flatpak's `/.flatpak-info` (`[Application]` group, `name=`): what a process
-/// inside a Flatpak sandbox is, whatever scope launched it.
+/// The app id in a Flatpak's `/.flatpak-info` (`[Application]` group, `name=`), as written
+/// (it is a path component of the deploy directory, which is case-sensitive).
 pub fn flatpak_app_name(info: &str) -> Option<String> {
     let mut in_app = false;
     for line in info.lines() {
@@ -107,11 +131,63 @@ pub fn flatpak_app_name(info: &str) -> Option<String> {
         } else if in_app {
             if let Some(name) = line.strip_prefix("name=") {
                 let name = name.trim();
-                return is_app_id(name).then(|| normalize(name));
+                return is_app_id(name).then(|| name.to_string());
             }
         }
     }
     None
+}
+
+/// Whether process directory `proc_dir` (`/proc/<pid>`) is a sandbox of the Flatpak `name`
+/// installed under one of the **system** deploy roots (`/var/lib/flatpak`):
+///
+/// - its `/app` is that Flatpak's installed files (same device and inode as
+///   `<root>/app/<name>/current/active/files`), and
+/// - its executable is under `app_prefix` (`/app`) and is the same file (device and inode) as the
+///   one installed at that place, so a bind mount of the files over a host program does not pass.
+///
+/// `name` is the raw `name=` (the directory name is case-sensitive). User installs live in a
+/// directory the account can write, so they are never verified: their name is a deny candidate
+/// only. What remains is code that already runs as the user and can mount the installed files
+/// and run an installed program under a forged `.flatpak-info`; it can only be that program.
+/// `trusted` judges the deploy directory (root-owned, not writable by the account).
+pub fn flatpak_app_is_installed(
+    proc_dir: &Path,
+    app_prefix: &str,
+    name: &str,
+    roots: &[PathBuf],
+    trusted: &dyn Fn(&Path) -> bool,
+) -> bool {
+    use std::os::unix::fs::MetadataExt;
+    if !is_app_id(name) {
+        return false;
+    }
+    let Ok(app) = std::fs::metadata(proc_dir.join("root/app")) else {
+        return false;
+    };
+    let Ok(exe_link) = std::fs::read_link(proc_dir.join("exe")) else {
+        return false;
+    };
+    let Ok(rel) = exe_link.strip_prefix(app_prefix) else {
+        return false;
+    };
+    let Ok(exe) = std::fs::metadata(proc_dir.join("exe")) else {
+        return false;
+    };
+    roots.iter().any(|root| {
+        let files = root.join("app").join(name).join("current/active/files");
+        let (Ok(deploy), Ok(file)) = (
+            std::fs::metadata(&files),
+            std::fs::metadata(files.join(rel)),
+        ) else {
+            return false;
+        };
+        trusted(&files)
+            && deploy.dev() == app.dev()
+            && deploy.ino() == app.ino()
+            && file.dev() == exe.dev()
+            && file.ino() == exe.ino()
+    })
 }
 
 /// Whether `query` looks like an app id (as opposed to a free-form display name or a path).
@@ -461,6 +537,9 @@ pub struct DesktopIndex {
     /// following the program through symlinks and the `exec` lines of launcher scripts
     /// ([`wrapper_targets`]). `libreoffice --writer` is a script that runs `soffice.bin`.
     pub targets: HashMap<String, Vec<String>>,
+    /// The ids whose desktop file is trusted (see [`DesktopIndex::load_with`]); a file in the
+    /// account's own directories is not.
+    pub trusted: std::collections::HashSet<String>,
 }
 
 impl DesktopIndex {
@@ -472,6 +551,7 @@ impl DesktopIndex {
     /// [`DesktopIndex::load`] with the notion of a trusted launcher given.
     pub fn load_with(dirs: &[PathBuf], trusted: &dyn Fn(&Path) -> bool) -> DesktopIndex {
         let mut entries: Vec<DesktopEntry> = Vec::new();
+        let mut trusted_ids: std::collections::HashSet<String> = std::collections::HashSet::new();
         let mut seen: HashMap<String, ()> = HashMap::new();
         for dir in dirs {
             let apps = dir.join("applications");
@@ -499,6 +579,9 @@ impl DesktopIndex {
                 }
                 let text = String::from_utf8_lossy(&bytes);
                 if let Some(e) = parse_desktop(id, &text) {
+                    if trusted(&path) {
+                        trusted_ids.insert(e.id.clone());
+                    }
                     if e.terminal {
                         note_runs_in_terminal(&e.id);
                     }
@@ -507,7 +590,7 @@ impl DesktopIndex {
                 }
             }
         }
-        let services = service_targets();
+        let services = service_targets(trusted);
         let targets = entries
             .iter()
             .filter(|e| !e.exec.starts_with("flatpak:"))
@@ -523,7 +606,11 @@ impl DesktopIndex {
             })
             .filter(|(_, t)| !t.is_empty())
             .collect();
-        DesktopIndex { entries, targets }
+        DesktopIndex {
+            entries,
+            targets,
+            trusted: trusted_ids,
+        }
     }
 
     /// The default search path: `$XDG_DATA_HOME`, `$XDG_DATA_DIRS`, flatpak exports.
@@ -757,7 +844,8 @@ fn service_target(text: &str) -> Option<String> {
 }
 
 /// `<desktop id>.service` files of the system's D-Bus services: id (lower case) -> program.
-fn service_targets() -> HashMap<String, String> {
+/// Only trusted files count, as for launchers.
+fn service_targets(trusted: &dyn Fn(&Path) -> bool) -> HashMap<String, String> {
     let mut out = HashMap::new();
     for dir in SERVICE_DIRS {
         let Ok(rd) = std::fs::read_dir(dir) else {
@@ -772,6 +860,9 @@ fn service_targets() -> HashMap<String, String> {
             else {
                 continue;
             };
+            if !trusted(&path) {
+                continue;
+            }
             let Ok(text) = std::fs::read_to_string(&path) else {
                 continue;
             };
@@ -1287,7 +1378,7 @@ mod flatpak_tests {
             "[Application]\nname=org.keepassxc.KeePassXC\nruntime=x\n\n[Instance]\nname=other\n";
         assert_eq!(
             flatpak_app_name(info).as_deref(),
-            Some("org.keepassxc.keepassxc")
+            Some("org.keepassxc.KeePassXC")
         );
         assert_eq!(flatpak_app_name("[Instance]\nname=a.b\n"), None);
         assert_eq!(flatpak_app_name("[Application]\nname=../x y\n"), None);
@@ -1468,5 +1559,244 @@ mod wrapper_tests {
         assert!(index
             .ids_for_exe("/usr/lib/libreoffice/program/other")
             .is_empty());
+    }
+}
+
+#[cfg(test)]
+mod identity_tests {
+    use super::*;
+
+    fn index_with(
+        dir: &Path,
+        entries: &[(&str, &str)],
+        trusted: &dyn Fn(&Path) -> bool,
+    ) -> DesktopIndex {
+        let apps = dir.join("applications");
+        std::fs::create_dir_all(&apps).unwrap();
+        for (file, exec) in entries {
+            std::fs::write(
+                apps.join(file),
+                format!("[Desktop Entry]\nType=Application\nName=x\nExec={exec}\n"),
+            )
+            .unwrap();
+        }
+        DesktopIndex::load_with(&[dir.to_path_buf()], trusted)
+    }
+
+    fn ev(exe: &str, comm: &str) -> Evidence {
+        Evidence {
+            exe: Some(exe.into()),
+            comm: Some(comm.into()),
+            ..Default::default()
+        }
+    }
+
+    /// A verified Flatpak never loosens what the host candidates say: the id keeps its cap, and
+    /// so its tier and its capture exclusion.
+    #[test]
+    fn a_verified_flatpak_is_never_looser_than_the_strictest_candidate() {
+        use crate::tiers::Tier;
+        let dir = tempfile::tempdir().unwrap();
+        let index = index_with(dir.path(), &[], &|_| true);
+        for (flatpak, exe, comm, cap) in [
+            // Sublime Text: an editor that runs code.
+            (
+                "com.sublimetext.three",
+                "/app/extra/sublime_text",
+                "sublime_text",
+                Tier::Click,
+            ),
+            // A terminal under its old id.
+            (
+                "app.devsuite.ptyxis",
+                "/app/bin/ptyxis",
+                "ptyxis",
+                Tier::Click,
+            ),
+            // A browser.
+            (
+                "com.google.ChromeDev",
+                "/app/bin/google-chrome-unstable",
+                "chrome",
+                Tier::Read,
+            ),
+            // A password manager.
+            (
+                "com.onepassword.OnePassword",
+                "/app/bin/1password",
+                "1password",
+                Tier::Off,
+            ),
+            // An ordinary app: its own id.
+            (
+                "org.gnome.TextEditor",
+                "/app/bin/gnome-text-editor",
+                "gnome-text-edit",
+                Tier::Interact,
+            ),
+        ] {
+            let f = id_facts(&ev(exe, comm), &index, None, Some(flatpak.into()), true);
+            let own = f.own.clone().expect("an id");
+            assert_eq!(
+                fixed_caps::cap(Some(&own)),
+                cap,
+                "{flatpak} reported as {own}"
+            );
+            // The allow list still sees the Flatpak's own id.
+            assert_eq!(f.resolved, vec![normalize(flatpak)], "{flatpak}");
+            assert_eq!(f.flatpak.as_deref(), Some(normalize(flatpak).as_str()));
+            // And it is the capped host id that capture exclusion keys on.
+            if cap != Tier::Interact {
+                assert_ne!(own, normalize(flatpak), "{flatpak}");
+            } else {
+                assert_eq!(own, normalize(flatpak));
+            }
+        }
+    }
+
+    /// The scope's app names a process only at the same strictness `choose` uses: a messaging
+    /// app is never displaced by a plain one at an equal cap.
+    #[test]
+    fn the_scopes_app_does_not_displace_a_messaging_app() {
+        let dir = tempfile::tempdir().unwrap();
+        let bin = dir.path().join("shared-launcher");
+        std::fs::write(&bin, "#!/bin/sh\n").unwrap();
+        let exec = bin.display().to_string();
+        let index = index_with(
+            dir.path(),
+            &[
+                ("org.gnome.Polari.desktop", &exec),
+                ("org.example.Notes.desktop", &exec),
+            ],
+            &|_| true,
+        );
+        let e = ev(&exec, "shared-launcher");
+        let polari = id_facts(&e, &index, None, None, false);
+        assert_eq!(polari.own.as_deref(), Some("org.gnome.polari"));
+        // The scope launched Notes: Polari (messaging) stays Polari, so the send rule holds.
+        let held = id_facts(&e, &index, Some("org.example.Notes"), None, false);
+        assert_eq!(held.own.as_deref(), Some("org.gnome.polari"));
+        // A plain pair is told apart by the scope.
+        let dir = tempfile::tempdir().unwrap();
+        let index = index_with(
+            dir.path(),
+            &[
+                ("org.example.Calc.desktop", &exec),
+                ("org.example.Notes.desktop", &exec),
+            ],
+            &|_| true,
+        );
+        let held = id_facts(&e, &index, Some("org.example.Notes"), None, false);
+        assert_eq!(held.own.as_deref(), Some("org.example.notes"));
+    }
+
+    /// Only trusted desktop files stand for a scope's app: a user-dir entry that shadows the
+    /// system's cannot make one app pass for another.
+    #[test]
+    fn an_entry_in_the_users_own_directory_is_not_trusted() {
+        let sys = tempfile::tempdir().unwrap();
+        let user = tempfile::tempdir().unwrap();
+        let bin = sys.path().join("gnome-calculator");
+        std::fs::write(&bin, "#!/bin/sh\n").unwrap();
+        let calc = bin.display().to_string();
+        let sys_path = sys.path().to_path_buf();
+        let trusted = move |p: &Path| p.starts_with(&sys_path);
+        // The user's TextEditor entry (first on the path) runs the calculator.
+        let apps = user.path().join("applications");
+        std::fs::create_dir_all(&apps).unwrap();
+        std::fs::write(
+            apps.join("org.gnome.TextEditor.desktop"),
+            format!("[Desktop Entry]\nType=Application\nName=x\nExec={calc}\n"),
+        )
+        .unwrap();
+        let sys_apps = sys.path().join("applications");
+        std::fs::create_dir_all(&sys_apps).unwrap();
+        std::fs::write(
+            sys_apps.join("org.gnome.Calculator.desktop"),
+            format!("[Desktop Entry]\nType=Application\nName=x\nExec={calc}\n"),
+        )
+        .unwrap();
+        let index = DesktopIndex::load_with(
+            &[user.path().to_path_buf(), sys.path().to_path_buf()],
+            &trusted,
+        );
+        let f = id_facts(
+            &ev(&calc, "gnome-calculator"),
+            &index,
+            Some("org.gnome.TextEditor"),
+            None,
+            false,
+        );
+        assert!(f.resolved.iter().any(|r| r == "org.gnome.texteditor"));
+        assert!(f.resolved.iter().any(|r| r == "org.gnome.calculator"));
+        assert_eq!(f.trusted, vec!["org.gnome.calculator".to_string()]);
+    }
+
+    /// The deploy directory is named by the raw `name=`, which is case-sensitive, and the process
+    /// must run the installed program.
+    #[test]
+    fn a_flatpak_is_verified_by_its_deploy_directory_and_its_installed_program() {
+        let dir = tempfile::tempdir().unwrap();
+        let root = dir.path().join("flatpak");
+        let files = root.join("app/org.gnome.TextEditor/current/active/files");
+        std::fs::create_dir_all(files.join("bin")).unwrap();
+        std::fs::write(files.join("bin/gnome-text-editor"), "x").unwrap();
+        let other = dir.path().join("other");
+        std::fs::create_dir_all(&other).unwrap();
+        std::fs::write(other.join("sleep"), "y").unwrap();
+        // A fake /proc/<pid>: root/app is the installed files, exe the program in /app.
+        let mount = dir.path().join("appmount");
+        std::os::unix::fs::symlink(&files, &mount).unwrap();
+        let mk = |exe_target: &Path| {
+            let proc = tempfile::tempdir_in(dir.path()).unwrap();
+            std::fs::create_dir_all(proc.path().join("root")).unwrap();
+            std::os::unix::fs::symlink(&files, proc.path().join("root/app")).unwrap();
+            std::os::unix::fs::symlink(exe_target, proc.path().join("exe")).unwrap();
+            proc
+        };
+        let prefix = mount.to_str().unwrap();
+        let roots = [root.clone()];
+        let yes = |_: &Path| true;
+        let good = mk(&mount.join("bin/gnome-text-editor"));
+        assert!(flatpak_app_is_installed(
+            good.path(),
+            prefix,
+            "org.gnome.TextEditor",
+            &roots,
+            &yes
+        ));
+        // The lowercased id names no directory.
+        assert!(!flatpak_app_is_installed(
+            good.path(),
+            prefix,
+            "org.gnome.texteditor",
+            &roots,
+            &yes
+        ));
+        // The installed files mounted over a host program: the program is not the installed one.
+        let forged = mk(&other.join("sleep"));
+        assert!(!flatpak_app_is_installed(
+            forged.path(),
+            prefix,
+            "org.gnome.TextEditor",
+            &roots,
+            &yes
+        ));
+        // A deploy directory that is not trusted (not root-owned) does not verify.
+        assert!(!flatpak_app_is_installed(
+            good.path(),
+            prefix,
+            "org.gnome.TextEditor",
+            &roots,
+            &|_| false
+        ));
+        // Another name's directory does not exist.
+        assert!(!flatpak_app_is_installed(
+            good.path(),
+            prefix,
+            "org.other.App",
+            &roots,
+            &yes
+        ));
     }
 }

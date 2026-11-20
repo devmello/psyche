@@ -12,6 +12,7 @@ use crate::error::{code, CapError, CapResult};
 use crate::roles::{self, role, AtspiFacts};
 use crate::snapshot::{ElementInfo, Rect, TreeSource};
 use std::collections::HashMap;
+use std::path::Path;
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::{Arc, Mutex};
 use std::time::{Duration, Instant};
@@ -401,35 +402,37 @@ impl A11y {
     }
 
     /// Who a process is, from one read of `/proc/<pid>` and one copy of the desktop index (see
-    /// [`app_id::IdFacts`]). A Flatpak's own name counts as its identity only when the
-    /// sandbox's `/app` is that Flatpak's installed files.
-    pub fn id_facts_for_pid(&self, pid: u32) -> app_id::IdFacts {
+    /// [`app_id::IdFacts`]). `holder` is the app whose launch scope holds the process, read by
+    /// the caller once (the helper's virtual screen knows; the owner's desktop does not). A
+    /// Flatpak's own name counts as its identity only when the sandbox is that installed
+    /// Flatpak ([`app_id::flatpak_app_is_installed`]).
+    pub fn id_facts_for_pid(&self, pid: u32, holder: Option<&str>) -> app_id::IdFacts {
         let ev = Self::evidence(pid);
         let flatpak = std::fs::read_to_string(format!("/proc/{pid}/root/.flatpak-info"))
             .ok()
             .and_then(|t| app_id::flatpak_app_name(&t));
-        let verified = flatpak
-            .as_deref()
-            .is_some_and(|name| flatpak_app_is_installed(pid, name, &(self.env)("HOME")));
-        let prefer = self
-            .holder_hint
-            .lock()
-            .unwrap_or_else(|e| e.into_inner())
-            .as_ref()
-            .and_then(|h| h(pid));
-        app_id::id_facts(
-            &ev,
-            &self.desktop_index(),
-            prefer.as_deref(),
-            flatpak,
-            verified,
-        )
+        let verified = flatpak.as_deref().is_some_and(|name| {
+            app_id::flatpak_app_is_installed(
+                Path::new(&format!("/proc/{pid}")),
+                "/app",
+                name,
+                &[std::path::PathBuf::from("/var/lib/flatpak")],
+                &app_id::system_trusted,
+            )
+        });
+        app_id::id_facts(&ev, &self.desktop_index(), holder, flatpak, verified)
     }
 
     /// The desktop-file id of a process (strictest candidate wins, see [`app_id::choose`]; the
     /// app whose scope holds the process when the candidates include it).
     pub fn app_id_for_pid(&self, pid: u32) -> Option<String> {
-        self.id_facts_for_pid(pid).own
+        let holder = self
+            .holder_hint
+            .lock()
+            .unwrap_or_else(|e| e.into_inner())
+            .as_ref()
+            .and_then(|h| h(pid));
+        self.id_facts_for_pid(pid, holder.as_deref()).own
     }
 
     fn display_name(&self, id: &str, accessible_name: Option<String>) -> String {
@@ -1325,26 +1328,4 @@ impl TreeSource for Tree<'_> {
 #[allow(dead_code)]
 fn _code_is_used() -> &'static str {
     code::INTERNAL
-}
-
-/// Whether the sandbox of `pid` has, as its `/app`, the files Flatpak installed for `name`
-/// (same device and inode as the deploy directory, system or user install). A process cannot
-/// fake that: it would need the installed directory itself.
-fn flatpak_app_is_installed(pid: u32, name: &str, home: &Option<String>) -> bool {
-    use std::os::unix::fs::MetadataExt;
-    let Ok(app) = std::fs::metadata(format!("/proc/{pid}/root/app")) else {
-        return false;
-    };
-    let mut deploys = vec![std::path::PathBuf::from(format!(
-        "/var/lib/flatpak/app/{name}/current/active/files"
-    ))];
-    if let Some(home) = home {
-        deploys.push(std::path::PathBuf::from(format!(
-            "{home}/.local/share/flatpak/app/{name}/current/active/files"
-        )));
-    }
-    deploys
-        .iter()
-        .filter_map(|d| std::fs::metadata(d).ok())
-        .any(|d| d.dev() == app.dev() && d.ino() == app.ino())
 }
