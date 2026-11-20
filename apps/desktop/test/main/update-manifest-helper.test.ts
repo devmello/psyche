@@ -63,15 +63,13 @@ describe("helper-only artifacts in the update manifest", () => {
 
   it("--helper-complete refuses a half set, in either architecture", () => {
     for (const drop of ["tar.zst", "deb", "rpm"]) {
-      const names = [...set("x64"), ...set("arm64")].filter(
-        (n) => !(n.endsWith(`arm64.${drop}`) && drop !== "none"),
-      );
+      const names = [...set("x64"), ...set("arm64")].filter((n) => !n.endsWith(`arm64.${drop}`));
       const r = build(names, ["--helper-complete"]);
       expect(r.status, drop).not.toBe(0);
       expect(r.stderr, drop).toMatch(new RegExp(`arm64 lack the ${drop.replace(".", "\\.")}`));
     }
     // Without the flag a half set is still accepted (the older callers and tests).
-    expect(build([set("x64")[1]]).status).toBe(0);
+    expect(build(["psyche-helper-1.4.0-linux-x64.deb"]).status).toBe(0);
   });
 
   it("a look-alike name is not a helper package", () => {
