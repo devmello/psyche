@@ -140,7 +140,7 @@ function ProposalMoves({ proposal }: { proposal: SpaceProposal }): ReactElement 
   const chats = proposal.chats ?? [];
   return (
     <div className="flex flex-col gap-0.5 text-callout text-label-secondary">
-      {proposal.entityId === null ? null : (
+      {proposal.entityId == null ? null : (
         <p>{t("spaces.proposal.project", { name: proposal.projectName ?? proposal.entityId })}</p>
       )}
       <p>{t("spaces.proposal.chats", { n: chats.length })}</p>

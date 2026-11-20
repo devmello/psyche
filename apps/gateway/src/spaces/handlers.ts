@@ -224,7 +224,7 @@ export function spacesHandlers(deps: SpaceHandlerDeps = {}): Record<string, Hand
             ...proposal,
             chats: proposalChats(call.ctx.db, proposal.threadIds),
             projectName:
-              proposal.entityId === null
+              proposal.entityId == null
                 ? null
                 : (project(proposal.entityId)?.name?.slice(0, 120) ?? null),
           })),
