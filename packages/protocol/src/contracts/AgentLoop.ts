@@ -89,6 +89,11 @@ export interface StartTurnInput {
    */
   taintSources?: TaintSource[];
   /**
+   * The turn's `taintSources` belong to the whole conversation (a chat opened about a mail
+   * thread): the thread keeps them, and every later turn starts tainted with them.
+   */
+  stickyTaint?: boolean;
+  /**
    * `false`: `input.text` is not the owner's own words (a widget composed it, generative-ui-2026
    * §7.3), so it never names targets for the broker's new-target rule. Default true.
    */

@@ -19387,6 +19387,7 @@ public struct MailFollowupsListResult: Codable, Sendable {
 // MARK: - MailFollowupItem
 public struct MailFollowupItem: Codable, Sendable {
     public let daysQuiet: Int
+    public let gmailThreadID: String?
     public let id: String
     public let kind: MailFollowupKind
     public let link: String?
@@ -19397,6 +19398,7 @@ public struct MailFollowupItem: Codable, Sendable {
 
     public enum CodingKeys: String, CodingKey {
         case daysQuiet = "daysQuiet"
+        case gmailThreadID = "gmailThreadId"
         case id = "id"
         case kind = "kind"
         case link = "link"
@@ -19406,8 +19408,9 @@ public struct MailFollowupItem: Codable, Sendable {
         case who = "who"
     }
 
-    public init(daysQuiet: Int, id: String, kind: MailFollowupKind, link: String? = nil, source: MailFollowupItemSource, subject: String, untrusted: Bool, who: String) {
+    public init(daysQuiet: Int, gmailThreadID: String? = nil, id: String, kind: MailFollowupKind, link: String? = nil, source: MailFollowupItemSource, subject: String, untrusted: Bool, who: String) {
         self.daysQuiet = daysQuiet
+        self.gmailThreadID = gmailThreadID
         self.id = id
         self.kind = kind
         self.link = link
