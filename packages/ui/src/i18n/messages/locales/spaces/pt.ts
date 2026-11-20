@@ -1,0 +1,135 @@
+import type { Catalogue } from "../../index.ts";
+
+/** Spaces strings (pt); merged into `../pt.ts`. */
+export const spaces: Partial<Catalogue> = {
+  "spaces.title": "Espaços",
+  "spaces.hint": "Os projetos aos quais você sempre volta",
+  "spaces.all": "Todos os espaços",
+  "spaces.new": "Novo espaço",
+  "spaces.open": "Abrir {name}",
+  "spaces.private": "Privado",
+  "spaces.line.due": "{n, plural, one {# item pendente} other {# itens pendentes}}",
+  "spaces.line.trackers": "{n, plural, one {# acompanhamento} other {# acompanhamentos}}",
+  "spaces.line.chats": "{n, plural, one {# conversa} other {# conversas}}",
+  "spaces.line.active": "Ativo {when}",
+  "spaces.line.empty": "Ainda não há nada aqui",
+
+  "spaces.list.title": "Espaços",
+  "spaces.list.label": "Seus espaços",
+  "spaces.list.empty":
+    "Ainda não há espaços. Um espaço reúne as conversas, os arquivos e os acompanhamentos de um projeto.",
+  "spaces.list.archived": "Arquivados",
+  "spaces.list.moveUp": "Subir {name}",
+  "spaces.list.moveDown": "Descer {name}",
+
+  "spaces.create.title": "Novo espaço",
+  "spaces.create.body":
+    "Um espaço reúne as conversas, os arquivos e os acompanhamentos de um projeto.",
+  "spaces.create.name": "Nome",
+  "spaces.create.namePlaceholder": "Reforma da cozinha",
+  "spaces.create.description": "Para que serve (opcional)",
+  "spaces.create.submit": "Criar espaço",
+  "spaces.create.failed": "O espaço não foi criado: {reason}",
+
+  "spaces.page.home": "Início",
+  "spaces.page.newChat": "Nova conversa aqui",
+  "spaces.page.more": "Mais sobre este espaço",
+  "spaces.page.notFound": "Este espaço não existe mais.",
+  "spaces.page.loadFailed": "Este espaço não carregou: {reason}",
+  "spaces.page.archivedNote":
+    "Arquivado. Suas automações estão em pausa e suas pastas desativadas.",
+  "spaces.summary.instructions": "Instruções",
+  "spaces.summary.folders": "{n, plural, one {# pasta} other {# pastas}}",
+  "spaces.summary.links": "{n, plural, one {# link} other {# links}}",
+
+  "spaces.menu.instructions": "Editar instruções",
+  "spaces.menu.preview": "O que a Psyche vê aqui",
+  "spaces.menu.keepPrivate": "Manter privado",
+  "spaces.menu.showOnHome": "Mostrar no Início",
+  "spaces.menu.archive": "Arquivar",
+  "spaces.menu.restore": "Restaurar",
+  "spaces.menu.delete": "Excluir",
+
+  "spaces.instructions.title": "Instruções",
+  "spaces.instructions.body": "A Psyche as segue em todas as conversas deste espaço.",
+  "spaces.instructions.label": "Instruções para {name}",
+  "spaces.instructions.count": "{n} de {max}",
+  "spaces.instructions.failed": "As instruções não foram salvas: {reason}",
+
+  "spaces.preview.title": "O que a Psyche vê aqui",
+  "spaces.preview.body":
+    "Isto é o que uma conversa deste espaço recebe antes da sua primeira mensagem.",
+  "spaces.preview.size": "{chars} de {cap} caracteres",
+  "spaces.preview.empty": "Ainda nada. Adicione instruções para dar contexto à Psyche.",
+  "spaces.preview.section.instructions": "Instruções",
+  "spaces.preview.section.card": "Ficha do espaço",
+  "spaces.preview.section.work": "Trabalho pendente",
+  "spaces.preview.section.trackers": "Acompanhamentos",
+
+  "spaces.delete.title": "Excluir {name}?",
+  "spaces.delete.body":
+    "Suas conversas e automações permanecem, sem espaço. As pastas deixam de funcionar aqui. O projeto da Memória não é alterado.",
+  "spaces.delete.confirm": "Excluir espaço",
+
+  "spaces.trackers": "Acompanhamentos",
+  "spaces.trackers.add": "Adicionar",
+  "spaces.trackers.addLabel": "Adicionar um acompanhamento",
+  "spaces.trackers.empty":
+    "Ainda não há acompanhamentos. Adicione um de um modelo ou escolha «Adicionar ao espaço» em um widget de uma conversa.",
+  "spaces.template.work_due": "Trabalho pendente",
+  "spaces.template.next_events": "Próximos eventos",
+  "spaces.template.recent_files": "Arquivos recentes",
+  "spaces.template.mail_on_this": "E-mails sobre isto",
+  "spaces.template.checklist": "Lista de verificação",
+  "spaces.template.automation_status": "Status das automações",
+  "spaces.tracker.refresh": "Atualizar",
+  "spaces.tracker.refreshLabel": "Atualizar {title}",
+  "spaces.tracker.remove": "Remover {title} deste espaço",
+  "spaces.tracker.updated": "Atualizado {when}",
+  "spaces.tracker.neverUpdated": "Ainda não atualizado",
+  "spaces.tracker.source": "de {source}",
+  "spaces.tracker.addedByPsyche": "Adicionado pela Psyche",
+  "spaces.tracker.unavailable": "A fonte não existe mais",
+
+  "spaces.chats": "Conversas",
+  "spaces.chats.empty": "Ainda não há conversas neste espaço.",
+  "spaces.chats.moveIn": "Mover uma conversa para cá",
+  "spaces.chats.moveNone": "Todas as conversas já estão aqui.",
+  "spaces.chats.moveOut": "Tirar {title} deste espaço",
+  "spaces.chats.open": "Abrir {title}",
+
+  "spaces.automations": "Automações",
+  "spaces.automations.empty": "Não há automações neste espaço.",
+
+  "spaces.files": "Arquivos e links",
+  "spaces.files.empty": "Ainda não há pastas nem links.",
+  "spaces.files.ro": "somente leitura",
+  "spaces.files.rw": "leitura e escrita",
+  "spaces.files.automationsRo": "automações somente leem",
+  "spaces.files.addOnMac": "Adicione pastas no seu Mac",
+  "spaces.goals": "Metas",
+
+  "spaces.switcher.label": "Espaço: {name}",
+  "spaces.switcher.none": "Sem espaço",
+  "spaces.switcher.noneMain": "Sem espaço (conversas principais)",
+  "spaces.switcher.new": "Novo espaço…",
+  "spaces.switcher.move": "Mover esta conversa para…",
+  "spaces.switcher.moved": "Movida para {name}",
+  "spaces.switcher.movedOut": "Tirada de {name}",
+  "spaces.switcher.moveFailed": "A conversa não foi movida: {reason}",
+
+  "spaces.composer.chip": "Em {name}",
+  "spaces.composer.label": "Esta conversa está no espaço {name}",
+
+  "spaces.add.label": "Adicionar ao espaço…",
+  "spaces.add.none": "Ainda não há espaços",
+  "spaces.add.new": "Novo espaço…",
+  "spaces.add.done": "Adicionado a {name}",
+  "spaces.add.failed": "Não foi adicionado: {reason}",
+
+  "spaces.palette.spaces": "Espaços",
+  "spaces.palette.new": "Novo espaço",
+  "spaces.palette.archived": "Espaços arquivados",
+  "spaces.palette.chatIn": "Nova conversa em {name}",
+  "spaces.palette.keywords": "espaço projeto trabalho acompanhamentos",
+};

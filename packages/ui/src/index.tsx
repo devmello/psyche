@@ -343,6 +343,7 @@ export * from "./screens/library/index.ts";
 export * from "./screens/onboarding/model.ts";
 export * from "./screens/scheduled/index.ts";
 export * from "./screens/search/index.ts";
+export * from "./spaces/index.ts";
 export { CONTEXT_KEYS, ContextSettingsGroup } from "./screens/settings/ContextSettings.tsx";
 export {
   AddGatewayForm,

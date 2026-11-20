@@ -102,6 +102,8 @@ export interface AgentHeaderProps {
   onDisclosureChange?: (level: DisclosureLevel) => void;
   /** Extra items for the ⋯ menu (rename, fork, …). */
   menu?: ReactNode;
+  /** The Space switcher, in the title area after the persona's name (docs/design/spaces-2026.md §7.1). */
+  spaceSwitcher?: ReactNode;
   /** The thread's context meter, before the pill group. */
   context?: ReactNode;
   /** ⋯ → Context limits… (this chat's own limits). */
@@ -136,6 +138,7 @@ export function AgentHeader({
   disclosure,
   onDisclosureChange,
   menu,
+  spaceSwitcher,
   context,
   onContextLimits,
   onCompact,
@@ -182,6 +185,7 @@ export function AgentHeader({
       </button>
       <div className="flex min-w-0 flex-1 items-baseline gap-2">
         <p className="min-w-0 truncate text-headline text-label-primary">{persona.name}</p>
+        {spaceSwitcher}
         <GatewayChip />
         {incognito ? (
           <span className="shrink-0 rounded-full border border-dashed border-separator-strong px-2 text-subheadline text-label-secondary">

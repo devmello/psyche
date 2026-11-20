@@ -5,6 +5,7 @@ import { FeedScreen } from "../screens/feed/FeedScreen.tsx";
 import { ScreenToolbar } from "../screens/feed/ScreenToolbar.tsx";
 import { needsYou } from "../screens/inbox/InboxScreen.tsx";
 import { useSlots } from "../slots.tsx";
+import { HomeSpacesSection } from "../spaces/HomeSpacesSection.tsx";
 import { PinnedWidgets } from "../widgets/PinnedWidgets.tsx";
 import { CatchUp } from "./CatchUp.tsx";
 import { useRouteRepeat } from "./route-repeat.ts";
@@ -88,6 +89,7 @@ export function HomeScreen({
         <div className="flex flex-col [&>*+*]:mt-10 [&>*+*]:border-t [&>*+*]:border-separator [&>*+*]:pt-10">
           <NeedsYouSection onNavigate={navigate} {...clock} />
           <PinnedWidgets />
+          <HomeSpacesSection onNavigate={navigate} {...clock} />
           <FeedScreen
             onCloseInstructions={() => navigate("/home")}
             collapseAfter={3}
