@@ -268,10 +268,12 @@ describe("settings.set permissions.policy while a folder is reconnected", () => 
     } as unknown as Call;
   }
 
-  const paths = (db: ReturnType<typeof openDb>) =>
-    (getSetting(db, "permissions.policy")?.value as { folders: { path: string }[] }).folders.map(
-      (f) => f.path,
-    );
+  const paths = (db: ReturnType<typeof openDb>): string[] => {
+    const policy = getSetting(db, "permissions.policy")?.value as
+      | { folders: { path: string }[] }
+      | undefined;
+    return (policy?.folders ?? []).map((f) => f.path);
+  };
 
   it("refuses the write with `conflict` when the folders changed during the card", async () => {
     const root = tmp();
