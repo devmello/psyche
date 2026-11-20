@@ -325,10 +325,11 @@ async function answerPending(id: string, scope: "once" | "always" | "deny", fold
 describe("withRecordedRef and withRepointed (folder reconnect)", () => {
   const ref = { dev: "1", ino: "2" };
   it("records the identity once and never replaces it", () => {
-    const policy = { folders: [{ path: "/a", mode: "ro" as const }] };
+    type P = { folders: { path: string; mode: "ro" | "rw"; ref?: typeof ref }[] };
+    const policy: P = { folders: [{ path: "/a", mode: "ro" }] };
     const next = withRecordedRef(policy, "/a", ref);
     expect(next?.folders?.[0]?.ref).toEqual(ref);
-    expect(withRecordedRef(next as typeof policy, "/a", { dev: "9", ino: "9" })).toBeUndefined();
+    expect(withRecordedRef(next as P, "/a", { dev: "9", ino: "9" })).toBeUndefined();
     expect(withRecordedRef(policy, "/missing", ref)).toBeUndefined();
   });
 
