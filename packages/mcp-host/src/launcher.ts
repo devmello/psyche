@@ -145,6 +145,12 @@ export const LINUX_DENY_READ_HOME: readonly (readonly string[])[] = [
   [".config", "Slack"],
   [".config", "discord"],
   [".config", "Element"],
+  [".config", "teams-for-linux"],
+  // Telegram's tdata logs in as the owner when copied (round 7).
+  [".local", "share", "TelegramDesktop", "tdata"],
+  // Evolution's mail, its accounts and their tokens (round 7).
+  [".config", "evolution"],
+  [".local", "share", "evolution"],
   // Cloud and password stores.
   [".config", "rclone"],
   [".config", "Bitwarden"],
@@ -168,11 +174,16 @@ export const LINUX_DENY_READ_HOME: readonly (readonly string[])[] = [
   [".var", "app", "com.discordapp.Discord"],
   [".var", "app", "im.riot.Riot"],
   [".var", "app", "com.bitwarden.desktop"],
-  // Snap browsers and mail.
+  [".var", "app", "org.telegram.desktop"],
+  [".var", "app", "org.gnome.Evolution"],
+  [".var", "app", "com.github.IsmaelMartinez.teams_for_linux"],
+  // Snap browsers, mail and chat.
   ["snap", "firefox", "common", ".mozilla"],
   ["snap", "chromium"],
   ["snap", "brave"],
   ["snap", "thunderbird", "common", ".thunderbird"],
+  ["snap", "telegram-desktop"],
+  ["snap", "teams-for-linux"],
 ];
 
 /** Read-denied for every MCP server regardless of its policy (security §5.3, plus common token files). */
@@ -195,6 +206,16 @@ export function defaultDenyRead(
     h(".kube"),
     h(".config", "gh"),
     h(".config", "gcloud"),
+    // More developer CLI tokens (round 7): GitLab, 1Password, Azure, DigitalOcean, hub; with the
+    // macOS spellings of the ones that keep them in Application Support.
+    h(".config", "glab-cli"),
+    h(".config", "op"),
+    h(".op"),
+    h(".azure"),
+    h(".config", "doctl"),
+    h(".config", "hub"),
+    h("Library", "Application Support", "glab-cli"),
+    h("Library", "Application Support", "doctl"),
     // The owner's release signing key (security §11), until it is moved to a password manager and
     // the file deleted; and the folder a local-signing setup would keep it in. Exact paths: srt
     // deny rules are paths, and a broad home-wide glob for *.pem could not be checked here.

@@ -80,6 +80,19 @@ describe("sensitive roots", () => {
         expect(refuseFolder(join(home, rel), mac), rel).toBeUndefined();
       }
       expect(refuseFolder(join(home, ".config/nvim"), linux)).toBe("sensitive_root");
+      // Developer CLI tokens (review of #1294, round 7), wherever gh and gcloud are refused.
+      for (const rel of [
+        ".config/glab-cli",
+        ".config/op",
+        ".op",
+        ".azure",
+        ".config/doctl",
+        ".config/hub",
+      ]) {
+        expect(refuseFolder(join(home, rel), mac), rel).toBe("sensitive_root");
+        expect(refuseFolder(join(home, rel), linux), rel).toBe("sensitive_root");
+      }
+      expect(refuseFolder(join(home, ".config/hubris"), mac)).toBeUndefined();
       for (const rel of ["Projects/Applications", "ApplicationsBackup"]) {
         expect(refuseFolder(join(home, rel), linux), rel).toBeUndefined();
       }

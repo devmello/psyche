@@ -254,6 +254,16 @@ describe("Linux: credential stores are neither read nor written", () => {
     h("snap", "firefox", "common", ".mozilla", "firefox", "x", "cookies.sqlite"),
     h("snap", "chromium", "common", "chromium", "Default", "Cookies"),
     h(".password-store", "bank.gpg"),
+    // Round 7: Telegram, Evolution, Teams.
+    h(".local", "share", "TelegramDesktop", "tdata", "key_datas"),
+    h(".config", "evolution", "sources", "abc.source"),
+    h(".local", "share", "evolution", "mail", "local", "folders.db"),
+    h(".config", "teams-for-linux", "Cookies"),
+    h(".var", "app", "org.telegram.desktop", "data", "TelegramDesktop", "tdata", "key_datas"),
+    h(".var", "app", "org.gnome.Evolution", "config", "evolution", "sources"),
+    h(".var", "app", "com.github.IsmaelMartinez.teams_for_linux", "config", "Cookies"),
+    h("snap", "telegram-desktop", "current", ".local", "share", "TelegramDesktop", "tdata"),
+    h("snap", "teams-for-linux", "current", ".config", "teams-for-linux", "Cookies"),
   ])("refuses reading %s", (path) => {
     expect(readRefused(path, "linux")).toBe(true);
     // And MCP servers and host commands never read it either.
@@ -268,12 +278,35 @@ describe("Linux: credential stores are neither read nor written", () => {
     h(".var", "app", "org.gnome.TextEditor", "config", "settings.ini"),
     h("snap", "code", "current", "notes.md"),
     h(".config", "Signals-notes.txt"),
+    h(".local", "share", "TelegramDesktop", "log.txt"),
+    h(".config", "evolution-notes.txt"),
   ])("still reads %s (writes stay refused under ~/.config)", (path) => {
     expect(readRefused(path, "linux")).toBe(false);
   });
 
   it("keeps ~/.config/nvim write-protected while readable", () => {
     expect(writeRefused(h(".config", "nvim", "init.lua"), "linux")).toBe(true);
+  });
+
+  // Round 7: developer CLI tokens, on every platform where gh and gcloud are listed.
+  describe.each(["linux", "darwin", "win32"] as const)("CLI tokens on %s", (platform) => {
+    it.each([
+      h(".config", "glab-cli", "config.yml"),
+      h(".config", "op", "config"),
+      h(".op", "config"),
+      h(".azure", "msal_token_cache.json"),
+      h(".config", "doctl", "config.yaml"),
+      h(".config", "hub"),
+      h("Library", "Application Support", "glab-cli", "config.yml"),
+      h("Library", "Application Support", "doctl", "config.yaml"),
+    ])("refuses reading %s", (path) => {
+      expect(
+        defaultDenyRead(PSYCHE_HOME, platform).some(
+          (r) => path === r || path.startsWith(`${r}/`),
+        ),
+      ).toBe(true);
+      if (platform !== "win32") expect(readRefused(path, platform)).toBe(true);
+    });
   });
 
   it("leaves the macOS deny list as it was", () => {
