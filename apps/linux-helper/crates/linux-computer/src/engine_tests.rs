@@ -251,7 +251,7 @@ fn a_surface_that_refuses_the_focus_stops_typing_and_keys_before_anything_is_sen
     for (code, reason) in [("conflict", "focus_moved"), ("policy_denied", "app_denied")] {
         let r = rig(all_interact());
         editor(&r);
-        r.fake.s.lock().unwrap().input_target = Some(Err((code, reason)));
+        r.fake.s.lock().unwrap().input_target = Some((code, reason));
         let typed = call(
             &r,
             "computer.type",
@@ -274,37 +274,35 @@ fn a_surface_that_refuses_the_focus_stops_typing_and_keys_before_anything_is_sen
 }
 
 #[test]
-fn a_surface_that_vouches_for_the_focus_decides_instead_of_the_pid_comparison() {
-    // A child process in the app's scope owns the focused window: the pid differs, the surface
-    // says it is the app's.
+fn a_surface_that_allows_the_focus_does_not_replace_the_pid_comparison() {
+    // A child process the app started sits in the app's scope and has the focus: the surface's
+    // scope check passes, and the focused process still is not the app's own.
     let r = rig(all_interact());
     editor(&r);
     {
         let mut s = r.fake.s.lock().unwrap();
         s.focus_pid = Some(TERMINAL_PID);
         s.focus_denied = true;
-        s.input_target = Some(Ok(true));
+        s.input_target = None;
     }
-    call(
+    let typed = call(
         &r,
         "computer.type",
-        json!({"text": "ok", "app": "org.gnome.TextEditor", "session": "s1"}),
+        json!({"text": "no", "app": "org.gnome.TextEditor", "session": "s1"}),
         &inv(),
     )
-    .unwrap();
-    // No opinion (every other surface): the comparison still refuses.
-    r.fake.s.lock().unwrap().input_target = None;
-    assert_eq!(
-        call(
-            &r,
-            "computer.type",
-            json!({"text": "no", "app": "org.gnome.TextEditor", "session": "s1"}),
-            &inv(),
-        )
-        .unwrap_err()
-        .1,
-        "focus_moved"
-    );
+    .unwrap_err();
+    assert_eq!(typed.1, "focus_moved");
+    assert!(r.fake.s.lock().unwrap().typed.is_empty());
+    // resolve_target reads the same focus: it refuses too.
+    let target = call(
+        &r,
+        "computer.resolve_target",
+        json!({"app": "org.gnome.TextEditor", "focused": true, "session": "s1"}),
+        &inv(),
+    )
+    .unwrap_err();
+    assert_eq!(target.1, "focus_moved");
 }
 
 #[test]

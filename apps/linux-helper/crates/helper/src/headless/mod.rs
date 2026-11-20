@@ -37,6 +37,11 @@ pub fn install(manager: Arc<VscreenManager>) {
     let _ = SURFACE.set(surface::HeadlessSurface::new(manager));
 }
 
+/// Whether this helper runs headless (the virtual screen is its only screen).
+pub fn active() -> bool {
+    SURFACE.get().is_some()
+}
+
 /// The engine on the virtual screen, or `None` when this helper is not headless (the direct
 /// path then uses the owner's desktop).
 pub fn engine() -> Option<CapResult<Arc<Engine<LinuxBackend>>>> {

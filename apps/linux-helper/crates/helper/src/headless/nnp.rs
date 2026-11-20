@@ -1,10 +1,13 @@
 //! `NoNewPrivileges` (helper-only design §3.3, §6.5): the flag is inherited across `fork` and
-//! `exec`, so once the helper has it, nothing it starts (an app in a scope, a command) can gain
-//! privileges through sudo, pkexec or a setuid file. The unit sets it; a helper started by hand
-//! sets it on itself in headless mode, so the guarantee does not depend on how it was started.
+//! `exec`, so once the helper has it, what it forks directly (an app in a `systemd-run --scope`,
+//! which runs the command as the caller's child) cannot gain privileges through sudo, pkexec or
+//! a setuid file. The unit sets it; a helper started by hand sets it on itself in headless mode.
 //!
-//! `systemd-run --user --scope` runs the command as the caller's child, so scopes inherit it too
-//! (checked on Ubuntu 24.04 in the PR).
+//! **What it does not cover:** a process that can reach the user manager (`/run/user/<uid>/bus`
+//! or `/run/user/<uid>/systemd`) can ask `systemd-run --user` to start something outside the
+//! helper's tree, without the flag; with passwordless sudo that is root. Apps are not contained
+//! from those sockets yet (a bwrap mount namespace is the follow-up), so this is the helper's
+//! guarantee, not the apps'.
 
 /// Reads `NoNewPrivs:` from the text of `/proc/<pid>/status`.
 pub fn parse_status(status: &str) -> Option<bool> {

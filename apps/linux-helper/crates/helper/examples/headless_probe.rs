@@ -108,6 +108,59 @@ fn main() {
         Ok(v) => println!("screenshot ok: {} bytes of result", v.to_string().len()),
         Err(e) => println!("screenshot failed: {e}"),
     }
+    // A foreign client takes the focus N ms into a long `computer.type`: nothing may reach it.
+    if let Some(ms) = std::env::var("PROBE_STEAL_MS")
+        .ok()
+        .and_then(|v| v.parse::<u64>().ok())
+    {
+        let display = manager.status().display.expect("display");
+        let auth = manager.xauthority().expect("xauthority");
+        let out = "/tmp/h1-xterm.out";
+        let _ = std::fs::remove_file(out);
+        let mut xterm = std::process::Command::new("xterm")
+            .args(["-e", "sh", "-c", &format!("stty raw -echo; cat > {out}")])
+            .env("DISPLAY", &display)
+            .env("XAUTHORITY", &auth)
+            .spawn()
+            .expect("xterm");
+        std::thread::sleep(Duration::from_secs(2));
+        let id = std::process::Command::new("xdotool")
+            .args(["search", "--class", "xterm"])
+            .env("DISPLAY", &display)
+            .env("XAUTHORITY", &auth)
+            .output()
+            .map(|o| {
+                String::from_utf8_lossy(&o.stdout)
+                    .trim()
+                    .lines()
+                    .last()
+                    .unwrap_or("")
+                    .to_string()
+            })
+            .unwrap();
+        println!("xterm window {id}");
+        let (d2, a2, id2) = (display.clone(), auth.clone(), id.clone());
+        let thief = std::thread::spawn(move || {
+            std::thread::sleep(Duration::from_millis(ms));
+            let _ = std::process::Command::new("xdotool")
+                .args(["windowfocus", &id2])
+                .env("DISPLAY", &d2)
+                .env("XAUTHORITY", &a2)
+                .status();
+        });
+        let long = format!("{}\n{}\n", "a".repeat(400), "b".repeat(400));
+        let r = call(
+            "computer.type",
+            json!({ "app": app, "text": long, "session": "probe" }),
+        );
+        println!("steal type: {r:?}");
+        thief.join().ok();
+        std::thread::sleep(Duration::from_secs(1));
+        let got = std::fs::read(out).unwrap_or_default();
+        println!("STEAL leaked {} bytes into the xterm", got.len());
+        let _ = xterm.kill();
+        let _ = xterm.wait();
+    }
     // The focus check, live: a second app takes the focus; typing into the first is refused.
     if let Some(other) = std::env::args().nth(3) {
         let o = engine

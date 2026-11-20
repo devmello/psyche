@@ -53,6 +53,10 @@ struct Keymap {
     unused: Option<u8>,
 }
 
+/// Judges the focus at the moment keys are sent: gets the pid of the one client that owns the
+/// focused window and all its ancestors (`None` when that is not one client), and refuses.
+pub type TapGuard = Arc<dyn Fn(Option<u32>) -> CapResult<()> + Send + Sync>;
+
 pub struct X11 {
     conn: RustConnection,
     root: u32,
@@ -70,6 +74,7 @@ pub struct X11 {
     watcher: AtomicBool,
     last_owner: Arc<AtomicU64>,
     display: String,
+    tap_guard: Mutex<Option<TapGuard>>,
 }
 
 fn xerr<E: std::fmt::Display>(e: E) -> CapError {
@@ -180,6 +185,7 @@ impl X11 {
             watcher: AtomicBool::new(false),
             last_owner: Arc::new(AtomicU64::new(0)),
             display,
+            tap_guard: Mutex::new(None),
         }))
     }
 
@@ -581,6 +587,67 @@ impl X11 {
         result
     }
 
+    /// Installs the guard that runs, with the server grabbed, right before keys are sent.
+    pub fn set_tap_guard(&self, guard: TapGuard) {
+        *self.tap_guard.lock().unwrap_or_else(|e| e.into_inner()) = Some(guard);
+    }
+
+    /// The pid of the client that owns the X input focus, from the server's own record
+    /// (X-Resource, not `_NET_WM_PID`). Asked of the focused window **and every ancestor**: a
+    /// window-manager frame belongs to this process and is skipped, but a window another client
+    /// made inside the app's top-level answers with its own pid and makes the answer `None`.
+    pub fn focused_client_pid(&self) -> Option<u32> {
+        use x11rb::protocol::res::{ClientIdMask, ClientIdSpec, ConnectionExt as _};
+        let mut w = self.conn.get_input_focus().ok()?.reply().ok()?.focus;
+        let own = std::process::id();
+        let mut found: Option<u32> = None;
+        for _ in 0..8 {
+            if w == 0 || w == 1 || w == self.root {
+                break;
+            }
+            let spec = ClientIdSpec {
+                client: w,
+                mask: ClientIdMask::LOCAL_CLIENT_PID,
+            };
+            let reply = self.conn.res_query_client_ids(&[spec]).ok()?.reply().ok()?;
+            let pid = reply
+                .ids
+                .iter()
+                .find(|id| id.spec.mask == ClientIdMask::LOCAL_CLIENT_PID)
+                .and_then(|id| id.value.first().copied())
+                .filter(|&p| p > 0)?;
+            if pid != own {
+                match found {
+                    None => found = Some(pid),
+                    Some(p) if p == pid => {}
+                    Some(_) => return None,
+                }
+            }
+            w = self.conn.query_tree(w).ok()?.reply().ok()?.parent;
+        }
+        found
+    }
+
+    /// Runs `send` so that the focus it was judged against cannot change before the keys are
+    /// delivered: with a guard installed, the server is grabbed (no other client's request,
+    /// the window manager's `SetInputFocus` included, is served), the guard looks at the focus,
+    /// and only then `send` runs. Without a guard it just runs.
+    fn guarded<R>(&self, send: impl FnOnce() -> CapResult<R>) -> CapResult<R> {
+        let guard = self
+            .tap_guard
+            .lock()
+            .unwrap_or_else(|e| e.into_inner())
+            .clone();
+        let Some(guard) = guard else {
+            return send();
+        };
+        self.conn.grab_server().map_err(xerr)?;
+        let result = guard(self.focused_client_pid()).and_then(|()| send());
+        let _ = self.conn.ungrab_server();
+        let _ = self.conn.flush();
+        result
+    }
+
     pub fn key(&self, chord: &KeyChord, stop: &StopSignal) -> CapResult<()> {
         stop.check()?;
         // Our own Escape must not fire our own kill switch.
@@ -589,7 +656,7 @@ impl X11 {
             self.inject_esc.store(true, Ordering::SeqCst);
             self.ungrab();
         }
-        let r = self.tap(chord.keysym, &chord.mods.keysyms());
+        let r = self.guarded(|| self.tap(chord.keysym, &chord.mods.keysyms()));
         if esc {
             std::thread::sleep(Duration::from_millis(30));
             self.inject_esc.store(false, Ordering::SeqCst);
@@ -607,17 +674,23 @@ impl X11 {
         for chunk in crate::keychord::typing_chunks(text, 16) {
             stop.check()?;
             before_chunk()?;
-            for ch in chunk.chars() {
-                stop.check()?;
-                let sym = match ch {
-                    '\n' | '\r' => keysym::RETURN,
-                    '\t' => keysym::TAB,
-                    c if (c as u32) < 0x100 => c as u32,
-                    c => 0x0100_0000 + c as u32,
-                };
-                self.tap(sym, &[])?;
-                std::thread::sleep(Duration::from_millis(3));
-            }
+            // One grab per chunk: the guard's verdict holds for every key of it, so a focus
+            // change between the check and the taps cannot send any of them (a `\n` included)
+            // to another window.
+            self.guarded(|| {
+                for ch in chunk.chars() {
+                    stop.check()?;
+                    let sym = match ch {
+                        '\n' | '\r' => keysym::RETURN,
+                        '\t' => keysym::TAB,
+                        c if (c as u32) < 0x100 => c as u32,
+                        c => 0x0100_0000 + c as u32,
+                    };
+                    self.tap(sym, &[])?;
+                    std::thread::sleep(Duration::from_millis(3));
+                }
+                Ok(())
+            })?;
         }
         Ok(())
     }

@@ -580,6 +580,15 @@ mod linux {
         }
 
         fn invoke(&self, ctx: &InvocationContext) -> Result<Value, CapabilityError> {
+            // Headless: these act on the session bus and portals of the environment, which under
+            // linger are the owner's, not the virtual screen's private ones.
+            if crate::headless::active() {
+                return Err(CapabilityError::new(
+                    ErrorCode::Unavailable,
+                    "headless",
+                    "Not available in headless mode: the virtual screen has its own private session",
+                ));
+            }
             match self.op {
                 Misc::A11yStatus => Ok(a11y_status()),
                 Misc::A11yEnable => {

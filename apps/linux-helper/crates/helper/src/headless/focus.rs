@@ -16,12 +16,17 @@ use psyche_linux_computer::error::{code, CapError};
 
 use super::deny::Deny;
 
-/// Where processes belong: which app's launch scope holds a pid.
+/// Where processes belong.
 pub trait Scopes {
     /// Whether `pid` runs in the scope of an app launched here as `app_id`.
     fn in_scope(&self, app_id: &str, pid: u32) -> bool;
-    /// The app (desktop id) whose scope holds `pid`.
+    /// The app whose **launch scope** holds `pid`. A program the app started (a link opened
+    /// through `xdg-open`, a helper run by `gio launch`) stays in that scope, so this names the
+    /// parent, not the program.
     fn app_of(&self, pid: u32) -> Option<String>;
+    /// The app the process itself is (its own executable and desktop entry), whichever scope it
+    /// sits in.
+    fn own_id(&self, pid: u32) -> Option<String>;
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -35,10 +40,14 @@ pub enum Refusal {
     Denied { app: String },
 }
 
-/// Whether input may go to `target` (a desktop id) when the focused window's client is
-/// `focus_pid`. The deny list is checked first and for both the target and the app that really
-/// holds the focus: a denied app never receives input, even when the agent named another app and
-/// the focus moved there.
+/// Whether input may go on to `target` (a desktop id) when the focused window's client is
+/// `focus_pid`. **It only refuses.** Passing means the focused process is in the target's scope
+/// and nothing denied is involved; the engine still requires that process to be the app's own
+/// (`app.owns(pid)`), because something an app launches does not count as that app.
+///
+/// The deny list is checked for the target and, for the focused process, both for the scope's
+/// app and for what the process itself is, so a denied program started by an allowed app gets no
+/// keys.
 pub fn decide(
     target: &str,
     focus_pid: Option<u32>,
@@ -54,15 +63,38 @@ pub fn decide(
         return Err(Refusal::Unknown);
     };
     let holder = scopes.app_of(pid);
-    if let Some(app) = holder.as_deref().filter(|a| deny.is_denied(a)) {
-        return Err(Refusal::Denied {
-            app: app.to_string(),
-        });
+    let own = scopes.own_id(pid);
+    if let Some(app) = [&holder, &own]
+        .into_iter()
+        .flatten()
+        .find(|a| deny.is_denied(a))
+    {
+        return Err(Refusal::Denied { app: app.clone() });
     }
     if scopes.in_scope(target, pid) {
         Ok(())
     } else {
-        Err(Refusal::Moved { other: holder })
+        Err(Refusal::Moved {
+            other: holder.or(own),
+        })
+    }
+}
+
+/// The last check, made as the keys are sent with the server held (so the focus cannot change
+/// between this and delivery): everything `decide` checks, and the focused client must be the
+/// app's own process, exactly.
+pub fn at_send(
+    app: &AppInfo,
+    focus_pid: Option<u32>,
+    scopes: &dyn Scopes,
+    deny: &Deny,
+) -> Result<(), Refusal> {
+    decide(&app.id, focus_pid, scopes, deny)?;
+    match focus_pid {
+        Some(p) if app.owns(p) => Ok(()),
+        _ => Err(Refusal::Moved {
+            other: focus_pid.and_then(|p| scopes.own_id(p)),
+        }),
     }
 }
 
@@ -105,26 +137,32 @@ mod tests {
     use super::*;
     use std::collections::HashMap;
 
-    /// pid → app id.
-    struct Fake(HashMap<u32, &'static str>);
+    /// pid -> (launch scope's app, the process's own app).
+    struct Fake(HashMap<u32, (&'static str, &'static str)>);
 
     impl Scopes for Fake {
         fn in_scope(&self, app_id: &str, pid: u32) -> bool {
             self.0
                 .get(&pid)
-                .is_some_and(|a| a.eq_ignore_ascii_case(app_id))
+                .is_some_and(|(scope, _)| scope.eq_ignore_ascii_case(app_id))
         }
         fn app_of(&self, pid: u32) -> Option<String> {
-            self.0.get(&pid).map(|a| a.to_string())
+            self.0.get(&pid).map(|(scope, _)| scope.to_string())
+        }
+        fn own_id(&self, pid: u32) -> Option<String> {
+            self.0.get(&pid).map(|(_, own)| own.to_string())
         }
     }
 
     fn scopes() -> Fake {
         Fake(HashMap::from([
-            (100, "org.gnome.TextEditor"),
-            (101, "org.gnome.TextEditor"), // a child process in the same scope
-            (200, "org.mozilla.firefox"),
-            (300, "org.keepassxc.KeePassXC"),
+            (100, ("org.gnome.TextEditor", "org.gnome.TextEditor")),
+            // A terminal the editor started: it sits in the editor's scope.
+            (101, ("org.gnome.TextEditor", "xterm")),
+            (200, ("org.mozilla.firefox", "org.mozilla.firefox")),
+            (300, ("org.keepassxc.KeePassXC", "org.keepassxc.KeePassXC")),
+            // KeePassXC started by the editor.
+            (301, ("org.gnome.TextEditor", "org.keepassxc.KeePassXC")),
         ]))
     }
 
@@ -132,12 +170,59 @@ mod tests {
         Deny::Some(vec!["org.keepassxc.keepassxc".into()])
     }
 
+    fn info(id: &str, pid: u32) -> AppInfo {
+        AppInfo {
+            id: id.into(),
+            name: id.into(),
+            pid,
+            electron: false,
+            frontmost: true,
+            windows: 1,
+        }
+    }
+
     #[test]
-    fn typing_goes_to_the_apps_own_window_and_its_scope_children() {
-        let s = scopes();
+    fn the_scope_check_only_refuses_and_a_scope_child_passes_it_unvouched() {
+        // The check passes for a process in the scope (the editor, and the xterm it started).
+        // That is not permission: the engine's own exact-pid comparison still runs after it,
+        // and refuses the xterm (see the engine test
+        // `a_surface_that_allows_the_focus_does_not_replace_the_pid_comparison`).
         let n = Deny::Nothing;
-        assert_eq!(decide("org.gnome.TextEditor", Some(100), &s, &n), Ok(()));
-        assert_eq!(decide("org.gnome.texteditor", Some(101), &s, &n), Ok(()));
+        assert_eq!(
+            decide("org.gnome.TextEditor", Some(100), &scopes(), &n),
+            Ok(())
+        );
+        assert_eq!(
+            decide("org.gnome.TextEditor", Some(101), &scopes(), &n),
+            Ok(())
+        );
+    }
+
+    #[test]
+    fn a_focus_change_between_the_check_and_the_send_leaks_nothing() {
+        let app = info("org.gnome.TextEditor", 100);
+        let n = Deny::Nothing;
+        // The check passed with the editor focused; at send time the focus is a window of
+        // another program (an xterm in the editor's scope, Firefox, an unknown client).
+        assert_eq!(at_send(&app, Some(100), &scopes(), &n), Ok(()));
+        assert!(matches!(
+            at_send(&app, Some(101), &scopes(), &n),
+            Err(Refusal::Moved { .. })
+        ));
+        assert!(matches!(
+            at_send(&app, Some(200), &scopes(), &n),
+            Err(Refusal::Moved { .. })
+        ));
+        assert!(matches!(
+            at_send(&app, Some(4242), &scopes(), &n),
+            Err(Refusal::Moved { .. })
+        ));
+        assert_eq!(at_send(&app, None, &scopes(), &n), Err(Refusal::Unknown));
+        // And a denied program is refused as denied, not as a focus change.
+        assert!(matches!(
+            at_send(&app, Some(301), &scopes(), &keepass_denied()),
+            Err(Refusal::Denied { .. })
+        ));
     }
 
     #[test]
@@ -150,24 +235,13 @@ mod tests {
                 other: Some("org.mozilla.firefox".into())
             })
         );
-        let e = to_error(
-            &r.unwrap_err(),
-            &AppInfo {
-                id: "org.gnome.texteditor".into(),
-                name: "Text Editor".into(),
-                pid: 100,
-                electron: false,
-                frontmost: true,
-                windows: 1,
-            },
-        );
+        let e = to_error(&r.unwrap_err(), &info("org.gnome.texteditor", 100));
         assert_eq!((e.code, e.reason.as_str()), ("conflict", "focus_moved"));
         assert!(e.retryable);
     }
 
     #[test]
     fn typing_is_refused_for_a_window_that_belongs_to_no_launched_app() {
-        // A client on the display we did not launch (or a process that left its scope).
         let r = decide(
             "org.gnome.TextEditor",
             Some(4242),
@@ -187,8 +261,6 @@ mod tests {
 
     #[test]
     fn a_denied_app_with_the_focus_gets_no_input() {
-        // The agent means the editor, the focus is in the denied app: refused as denied, not
-        // as an ordinary focus change that a retry might fix.
         let r = decide(
             "org.gnome.TextEditor",
             Some(300),
@@ -201,7 +273,6 @@ mod tests {
                 app: "org.keepassxc.KeePassXC".into()
             })
         );
-        // Even when the focus is right: the denied app itself.
         let r = decide(
             "org.keepassxc.KeePassXC",
             Some(300),
@@ -209,24 +280,30 @@ mod tests {
             &keepass_denied(),
         );
         assert!(matches!(r, Err(Refusal::Denied { .. })));
-        let e = to_error(
-            &r.unwrap_err(),
-            &AppInfo {
-                id: "org.keepassxc.keepassxc".into(),
-                name: "KeePassXC".into(),
-                pid: 300,
-                electron: false,
-                frontmost: true,
-                windows: 1,
-            },
-        );
+        let e = to_error(&r.unwrap_err(), &info("org.keepassxc.keepassxc", 300));
         assert_eq!((e.code, e.reason.as_str()), ("policy_denied", "app_denied"));
         assert!(!e.retryable);
     }
 
     #[test]
+    fn a_denied_program_started_by_an_allowed_app_gets_no_input() {
+        // Its scope is the editor's, so the scope says "allowed"; the process itself is KeePassXC.
+        let r = decide(
+            "org.gnome.TextEditor",
+            Some(301),
+            &scopes(),
+            &keepass_denied(),
+        );
+        assert_eq!(
+            r,
+            Err(Refusal::Denied {
+                app: "org.keepassxc.KeePassXC".into()
+            })
+        );
+    }
+
+    #[test]
     fn the_deny_list_does_not_touch_other_apps() {
-        // A near miss: same vendor prefix, not on the list.
         assert_eq!(
             decide(
                 "org.gnome.TextEditor",
@@ -236,7 +313,6 @@ mod tests {
             ),
             Ok(())
         );
-        // A policy file that could not be read denies everything.
         assert!(matches!(
             decide(
                 "org.gnome.TextEditor",

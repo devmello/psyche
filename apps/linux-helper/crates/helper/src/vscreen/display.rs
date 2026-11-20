@@ -87,11 +87,6 @@ impl VirtualDisplay {
         self.driver.windows()
     }
 
-    /// The top-level holding the X input focus (see [`WmDriver::input_focus_window`]).
-    pub fn focused_window(&self) -> Option<WindowRecord> {
-        self.driver.input_focus_window()
-    }
-
     /// A new client connection to this display, authenticated with its cookie in memory (the
     /// computer-use engine's own: input, structure and capture of the virtual screen).
     pub fn connect_client(&self) -> Result<(RustConnection, usize), String> {

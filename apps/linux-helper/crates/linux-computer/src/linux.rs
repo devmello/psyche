@@ -101,13 +101,19 @@ pub trait SurfaceHooks: Send + Sync {
     fn check_launch(&self, _id: &str) -> CapResult<()> {
         Ok(())
     }
-    /// Starts the app on this surface; replaces `gio launch`. The trust checks have passed.
-    /// `desktop_file_stem` is the trusted entry's file name without `.desktop`, in its own case.
-    fn launch(&self, desktop_file_stem: &str, url: Option<&str>) -> CapResult<()>;
+    /// Starts the app on this surface; replaces `gio launch`. The trust checks have passed, and
+    /// `desktop_file` is the very file they judged: the surface parses that one, it does not
+    /// look the entry up again.
+    fn launch(&self, desktop_file: &std::path::Path, url: Option<&str>) -> CapResult<()>;
     /// The pid that has keyboard focus, from the X server.
     fn focus_pid(&self) -> Option<u32>;
     /// See [`Backend::check_input_target`].
-    fn check_input_target(&self, app: &AppInfo) -> CapResult<bool>;
+    fn check_input_target(&self, app: &AppInfo) -> CapResult<()>;
+    /// The surface's own table of top-level windows, front to back, with pids the X server
+    /// recorded; replaces the EWMH list and `_NET_WM_PID`, which a client can write.
+    fn windows(&self) -> Option<Vec<WinInfo>> {
+        None
+    }
 }
 
 pub struct LinuxBackend {
@@ -158,6 +164,9 @@ impl LinuxBackend {
     }
 
     fn all_windows(&self) -> Vec<WinInfo> {
+        if let Some(w) = self.hooks.as_ref().and_then(|h| h.windows()) {
+            return w;
+        }
         match &self.path {
             Path::X11(x) => x.windows(),
             Path::Remote(r) => r.windows().unwrap_or_default(),
@@ -387,10 +396,10 @@ impl Backend for LinuxBackend {
         }
     }
 
-    fn check_input_target(&self, app: &AppInfo) -> CapResult<bool> {
+    fn check_input_target(&self, app: &AppInfo) -> CapResult<()> {
         match &self.hooks {
             Some(h) => h.check_input_target(app),
-            None => Ok(false),
+            None => Ok(()),
         }
     }
 
@@ -477,13 +486,7 @@ impl Backend for LinuxBackend {
         let (entry, file, terminal_dirs) = self.trusted_desktop_file(id)?;
         if let Some(h) = &self.hooks {
             h.check_launch(id)?;
-            // The surface finds the entry by its file name, which keeps the case the id lost.
-            let stem = file
-                .file_stem()
-                .and_then(|s| s.to_str())
-                .unwrap_or(&entry.id)
-                .to_string();
-            h.launch(&stem, url)?;
+            h.launch(&file, url)?;
             return Ok(self.wait_for_app(&entry.id, entry.name.as_deref()));
         }
         // Launch through GLib, which implements the Desktop Entry rules (field codes, DBus
