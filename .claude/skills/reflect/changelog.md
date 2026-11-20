@@ -2,6 +2,14 @@
 
 Newest first. The `reflect` skill reads the top entry to know where the last pass stopped.
 
+## 2026-11-19 (e): reflect pass over #1446, #1437, #1448, #1438, #1451, #1293, #1436, #1452, #1454 (wave 8)
+Last pass: #1445. #1274 parked unmerged (review-1274-r1: missing `install-package` root helper), not a pattern yet. Evidence: `review-1293` r3-r6, `-1294-r7`, `-1295-r1`, `-1436-r3`, `-1437-r3`, `-1438-r3`, `-1450-r1`, `-1452-r1`, the PR Learnings, and the coordinator's notes.
+- **`psyche-builder`:** no fd-to-path fallback (#1450 r1); server-recorded identity (#1293 r6, #1452); real-environment probes need a control that fires (#1295 r1); dry runs hide release breaks (#1295 r1); VM rules: no `/mnt/mac`, `git archive` + `orb push` because the worktree guard refuses `git` in the VM, clean up (coordinator); report once and stop background tasks first (coordinator, #1293/#1294). `learnings.md`: `git grep` pathspec (#1446), `--smoke-only` (#1448), migration checksum (#1436 r3, one occurrence, kept because it breaks local homes), gzip payloads and `toolChoice` (#1436, #1437).
+- **`psyche-permissions`:** two 3b bullets for the same fd rule and server identity.
+- **`orchestrate`:** brief wording for the new areas; VM line points at the builder rules; one-report instruction.
+- **Already covered:** pattern 1 (`--related` missing a dependent test) was fixed in `verify.sh` by #1446 and is documented in builder §3 item 3. No new check added. Residual in #1446: tests that reach a package only through another module are still not found.
+- **Not changed:** #1274 (single PR). Stale-advice sweep found nothing to delete; the builder `--related` text still matches #1446.
+
 ## 2026-11-19 (d): reflect pass over #1432, #1434, #1435, #1439, #1440, #1442, #1443, #1444 (wave 7)
 Evidence: coordinator notes (#1436, #1437, #1438, #1427, #1435).
 - **`psyche-builder`:** `--related` is per package (checked in verify.sh), so a rule to run dependent app tests for shared-package changes (#1437 `context.test.ts`); error handling travels with a moved call (#1436); carry-forward lists (#1437); node-gyp env for pnpm 12.4.1; the `psyche-linux` OrbStack VM.
