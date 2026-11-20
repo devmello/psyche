@@ -4,7 +4,7 @@ import { Button } from "../../components/ui/button.tsx";
 import { useChanges, useGatewayQuery } from "../../data/index.ts";
 import { t } from "../../i18n/core.ts";
 import { formatDuration, formatRelative } from "../../lib/format.ts";
-import { absoluteWhen, statusLabel } from "./format.ts";
+import { absoluteWhen, clockOf, statusLabel } from "./format.ts";
 
 export interface RunHistoryViewProps {
   runs: readonly AutomationRun[];
@@ -54,6 +54,17 @@ export function RunHistoryView({
               run.trigger === "manual" ? t("scheduled.history.manual") : null,
               run.trigger === "event" ? t("scheduled.history.event") : null,
               run.coalesced > 1 ? t("scheduled.history.coalesced", { n: run.coalesced }) : null,
+              // A transient model error: waiting for the next attempt, a retry in progress, or
+              // the final failure after the retries.
+              run.retryAt != null
+                ? t("scheduled.history.retryingAt", { time: clockOf(run.retryAt, timezone) })
+                : null,
+              (run.attempt ?? 0) > 0 && run.retryAt == null && run.status !== "failed"
+                ? t("scheduled.history.retry", { n: run.attempt ?? 0 })
+                : null,
+              run.status === "failed" && (run.attempt ?? 0) > 0
+                ? t("scheduled.history.failedAfterRetries", { n: run.attempt ?? 0 })
+                : null,
             ].filter((x): x is string => x !== null);
             return (
               <li key={run.id} className="flex flex-col gap-1 py-2">

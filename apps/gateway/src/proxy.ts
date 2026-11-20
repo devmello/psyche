@@ -97,7 +97,10 @@ export function resolvePeer(
   list: BlockList,
 ): ResolvedPeer {
   const direct = normalizePeerAddress(socketAddress ?? "unknown");
-  const forwarded = FORWARDING_HEADERS.some((h) => headerValue(headers, h) !== undefined);
+  // Any `X-Forwarded-*` header counts (`-Host` and `-Proto` too): a proxy hop is never loopback.
+  const forwarded =
+    FORWARDING_HEADERS.some((h) => headerValue(headers, h) !== undefined) ||
+    Object.keys(headers).some((h) => h.toLowerCase().startsWith("x-forwarded-"));
   const base: ResolvedPeer = {
     remoteAddress: direct,
     remoteLoopback: LOOPBACK.has(direct) && !forwarded,

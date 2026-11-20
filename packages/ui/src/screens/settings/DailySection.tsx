@@ -382,6 +382,15 @@ export function DailyPanel({
             onChange={(v) => onChange("daily.messages", v)}
           />
         </Group>
+        <Group title={t("settings.daily.group.keepAwake")}>
+          <SwitchField
+            label={t("settings.key.scheduled.keepAwake")}
+            description={t("settings.daily.keepAwake.hint")}
+            settingKey="scheduled.keepAwake"
+            checked={bool(values, "scheduled.keepAwake", false)}
+            onChange={(v) => onChange("scheduled.keepAwake", v)}
+          />
+        </Group>
         <Group title={t("settings.daily.group.followups")}>
           <SwitchField
             label={t("settings.key.daily.followups.enabled")}

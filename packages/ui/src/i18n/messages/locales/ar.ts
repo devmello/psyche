@@ -20,6 +20,7 @@ import { final202611 } from "./final-2026-11/ar.ts";
 import { helperCheck } from "./helper-check/ar.ts";
 import { helperOffline } from "./helper-offline/ar.ts";
 import { home } from "./home/ar.ts";
+import { keepAwake } from "./keep-awake/ar.ts";
 import { links } from "./links/ar.ts";
 import { linuxAccess } from "./linux-access/ar.ts";
 import { mailMeetings } from "./mail-meetings/ar.ts";
@@ -2423,6 +2424,33 @@ export const ar: Partial<Catalogue> = {
   "settings.skills.removeDescription":
     "تُحذف ملفاتها من Gateway هذا. تثبيتها مرة أخرى يمر عبر بطاقة الثقة.",
   "settings.skills.switchOn": "تشغيل {name}",
+  "settings.plugins.title": "الإضافات",
+  "settings.plugins.description":
+    "شيفرة تضيف سياقاً أو تفحص استدعاءات الأدوات أو تجري تقييمات. تعمل كل إضافة في عمليتها الخاصة. لا تمنح الإضافات أي أذونات أبداً.",
+  "settings.plugins.off": "الإضافات متوقفة على هذه البوابة، لذلك لا تعمل أي منها.",
+  "settings.plugins.loading": "جارٍ تحميل الإضافات…",
+  "settings.plugins.error": "تعذر تحميل الإضافات. {reason}",
+  "settings.plugins.empty": "لا توجد إضافات مثبتة.",
+  "settings.plugins.failed": "لم يُحفظ التغيير. {reason}",
+  "settings.plugins.waitingApproval": "بانتظار موافقتك على هذا الجهاز.",
+  "settings.plugins.switchOn": "تشغيل {name}",
+  "settings.plugins.version": " · الإصدار {version}",
+  "settings.plugins.adds": "تضيف: {list}",
+  "settings.plugins.from": "من {source}",
+  "settings.plugins.state.active": "تعمل",
+  "settings.plugins.state.disabled": "متوقفة",
+  "settings.plugins.state.off": "بانتظار تشغيل الإضافات",
+  "settings.plugins.state.hash_mismatch": "تغيّرت منذ التثبيت، لا تعمل",
+  "settings.plugins.state.invalid": "البيان غير صالح، لا تعمل",
+  "settings.plugins.state.failed": "توقفت بسبب خطأ",
+  "settings.plugins.capability.context": "السياق",
+  "settings.plugins.capability.before_tool_call": "فحص قبل استدعاءات الأدوات",
+  "settings.plugins.capability.after_tool_call": "فحص بعد استدعاءات الأدوات",
+  "settings.plugins.capability.agent_end": "خطوة عند نهاية كل تشغيل",
+  "settings.plugins.capability.evaluate": "التقييمات",
+  "settings.plugins.removeTitle": "إزالة {name}؟",
+  "settings.plugins.removeDescription":
+    "تُحذف ملفاته من هذه البوابة. إعادة تثبيتها تمر ببطاقة الثقة.",
   "settings.skills.asksFor": "تطلب:",
   "settings.skills.toolsLabel": "الأدوات:",
   "settings.skills.title": "المهارات",
@@ -3734,4 +3762,5 @@ export const ar: Partial<Catalogue> = {
   ...separateDesktop,
   // Windows variants of the sandbox PC, voice keys and platform terms
   ...windowsPlatform202611,
+  ...keepAwake,
 };

@@ -56,6 +56,11 @@ export function absoluteWhen(iso: string, timezone: string): string {
   });
 }
 
+/** "9:00 AM": the time alone, on the owner's clock (a retry's due time). */
+export function clockOf(iso: string, timezone: string): string {
+  return activeI18n().time(iso, { hour: "numeric", minute: "2-digit", timeZone: timezone });
+}
+
 /** "in 2 h · Thu, Oct 29 at 9:00 AM", or why there is no next run. */
 export function nextRunLine(item: ScheduledItem, now: number, timezone: string): string {
   if (item.state === "paused") return t("scheduled.row.nextPaused");

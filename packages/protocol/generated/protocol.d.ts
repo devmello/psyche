@@ -1926,6 +1926,7 @@ export interface AutomationRunFinishedPayload {
 }
 
 export interface AutomationRun {
+    attempt?:     number;
     automationId: string;
     /**
      * Missed ticks folded into this run
@@ -1935,6 +1936,7 @@ export interface AutomationRun {
     events?:         WorkflowEvent[];
     id:              string;
     notificationId?: null | string;
+    retryAt?:        null | string;
     runId?:          null | string;
     scheduledFor:    string;
     startedAt:       string;
