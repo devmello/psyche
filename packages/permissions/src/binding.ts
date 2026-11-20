@@ -40,10 +40,18 @@ export interface ExecBindingArgs {
   cwd: string;
   /** Environment explicitly passed to this command (not inherited). */
   env?: Record<string, string>;
-  /** Real path of the executable after PATH lookup. */
-  executable: string;
-  /** Binary SHA-256, required for `exec_host`. */
+  /**
+   * Real path of the executable after PATH lookup. Required, except for `exec_host` on a machine:
+   * the box resolves it at run time and reports it with its hash (a standing grant then pins it).
+   */
+  executable?: string;
+  /** Binary SHA-256, required for `exec_host` on the Host. */
   executableSha256?: string;
+  /**
+   * `exec_host` on a paired machine (linux-helper-only §5.1): its device id. A card or grant for
+   * one machine never covers the Host or another machine.
+   */
+  machine?: string;
   sandboxId?: string;
   /** SHA-256 of stdin, when the command reads stdin (design-14). */
   stdinSha256?: string;
@@ -370,9 +378,16 @@ function execBinding(kind: "exec" | "exec_host", raw: unknown): [JsonObject, Jso
       return `${k}=${str(kind, `env.${k}`, v, { empty: true })}`;
     })
     .sort();
-  const executable = canonicalPath(str(kind, "executable", a.executable));
+  const machine = optStr(kind, "machine", a.machine);
+  if (machine !== undefined && kind !== "exec_host") bad(kind, "only exec_host runs on a machine");
+  // On a machine the box resolves argv[0]; a Host binary and hash are never bound for it.
+  const onMachine = machine !== undefined;
+  if (onMachine && (a.executable !== undefined || a.executableSha256 !== undefined)) {
+    bad(kind, "a machine command binds the machine, not a Host executable");
+  }
+  const executable = onMachine ? undefined : canonicalPath(str(kind, "executable", a.executable));
   const executableSha256 = optSha(kind, "executableSha256", a.executableSha256);
-  if (kind === "exec_host" && executableSha256 === undefined) {
+  if (kind === "exec_host" && executableSha256 === undefined && !onMachine) {
     bad(kind, "exec_host binds the binary SHA-256 (executableSha256)");
   }
   const network = a.network === undefined ? "none" : a.network;
@@ -394,6 +409,7 @@ function execBinding(kind: "exec" | "exec_host", raw: unknown): [JsonObject, Jso
     stdinSha256: optSha(kind, "stdinSha256", a.stdinSha256),
     network,
     cwdConfigHashes: cwdConfig,
+    machine,
   });
   // Security §3.5: the grant key is "the same four fields" (plus the config hashes when bound).
   // The four fields of security §3.5, plus what changes what runs or where it can reach: stdin,
@@ -408,6 +424,7 @@ function execBinding(kind: "exec" | "exec_host", raw: unknown): [JsonObject, Jso
     stdinSha256: fields.stdinSha256,
     network,
     sandboxId: fields.sandboxId,
+    machine,
   });
   return [fields, key];
 }

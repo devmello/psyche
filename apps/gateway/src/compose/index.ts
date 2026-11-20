@@ -174,6 +174,13 @@ import { type HostTerminalOptions, hostTerminalPart } from "./host-terminal.ts";
 import { insightsHandlers } from "./insights.ts";
 import { libraryHandlers } from "./library.ts";
 import { composeGuidedPayments, type LinkSetupOptions } from "./link-setup.ts";
+import { machineExec } from "./machine-exec.ts";
+import {
+  MachineFolderGrants,
+  machineDirectory,
+  machineFilesTool,
+  machineLibrary,
+} from "./machine-files.ts";
 import { machineChangeHook } from "./machine-notices.ts";
 import { composeMailFollowups } from "./mail-followups.ts";
 import type { ComposedMcp } from "./mcp.ts";
@@ -1202,10 +1209,34 @@ export async function composeGateway(options: ComposeOptions): Promise<ComposedG
           : "path" in (await execHostSrt.resolve()),
     }),
   );
+  // Shell and files on a paired machine (linux-helper-only §5, H5): grants per machine and
+  // conversation, reached through H3's registry (`nodes.machine`), never `nodes.invoke`.
+  const machines = machineDirectory(
+    db,
+    (deviceId) => gatewayRef?.context.nodes.machine(deviceId)?.client,
+  );
+  const machineFolders = new MachineFolderGrants();
+  registry.register(
+    machineFilesTool({
+      directory: machines,
+      grants: machineFolders,
+      broker: executorBroker,
+      surfaces: ["desktop", "web"],
+      library: machineLibrary(db, config.home),
+      audit,
+    }),
+  );
   // "Run commands on this Mac" (security §5.4): registered always, so a call while it is off is
   // denied with a request the owner can answer; the broker keeps it off until they turn it on.
   registry.register(
     execHostTool({
+      machine: machineExec({
+        directory: machines,
+        grants: machineFolders,
+        broker: executorBroker,
+        vault: vault.vault,
+        audit,
+      }),
       broker: executorBroker,
       vault: vault.vault,
       folders: (threadId) => [
@@ -2428,7 +2459,11 @@ export async function composeGateway(options: ComposeOptions): Promise<ComposedG
     webhooks,
     publicRoutes,
     onSetupTokenUsed: setupTokenUsedHook({ db, audit, log: gwOptions.logger }),
-    onMachineChange: machineChangeHook({ audit, notifier, log: gwOptions.logger }),
+    onMachineChange: ((notice) => (change: Parameters<typeof notice>[0]) => {
+      // A removed machine keeps no folder grant (H5's revoke cascade on the Gateway side).
+      if (change.change === "removed") machineFolders.forgetMachine(change.deviceId);
+      notice(change);
+    })(machineChangeHook({ audit, notifier, log: gwOptions.logger })),
     onDeviceSelfRevoked: (revoked) => {
       void audit
         .append({

@@ -227,6 +227,14 @@ fn remote(dirs: &Dirs, env: &dyn Env) -> ExitCode {
     let mut full = Registry::standard(BuildInfo::current());
     // Direct computer use: offered if the remote allowlist and the ceiling let it through.
     crate::direct::register(&mut full);
+    // Shell and files (H5): behind the ceiling, read again on every call.
+    let ceiling = policy_source(dirs);
+    crate::exec::register(
+        &mut full,
+        Arc::clone(&ceiling),
+        crate::journal::Journal::system(),
+    );
+    crate::fs::register(&mut full, ceiling, crate::journal::Journal::system());
     #[cfg(target_os = "linux")]
     let vscreen = crate::vscreen::register(&mut full, env, Arc::clone(&idle));
     #[cfg(target_os = "linux")]

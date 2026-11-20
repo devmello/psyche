@@ -609,7 +609,18 @@ export class PolicyEngine {
       } catch {
         return done("deny", "folder:invalid_path", "exec_host needs an absolute cwd");
       }
-      if (this.folderFor(cwd, ctx.threadId) === undefined) {
+      // A command on a paired machine (its device id is in the binding) runs in a folder granted
+      // on that machine, never in one of the Host's: the machine tool checks that grant before
+      // the card and again at run time, and the box's ceiling checks it a third time. It is
+      // still never a read and never quiet: every machine command asks or uses its exact grant.
+      // `exec_host` with a `machine` parameter only ever runs there (compose/machine-exec.ts).
+      const onMachine =
+        typeof (call.params as { machine?: unknown } | undefined)?.machine === "string" ||
+        typeof (binding.fields as { machine?: unknown }).machine === "string";
+      if (onMachine && hostReadOnly) {
+        return done("deny", "exec_host:machine_read_only", "a machine command is never quiet");
+      }
+      if (!onMachine && this.folderFor(cwd, ctx.threadId) === undefined) {
         return done("deny", "folder:not_granted", `${cwd} is outside every granted folder`, {
           binding,
         });
