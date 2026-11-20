@@ -66,29 +66,100 @@ trusted() {
 
 # App state that can run code is not kept between tasks. /workspace persists, and a task may have
 # planted files that make a later start run a program: a Firefox handler that opens downloads with
-# an interpreter (handlers.json), prefs and user.js that turn off signature checks, extensions,
-# userChrome, a PKCS#11 module, native-messaging manifests, desktop entries and default-app lists.
-# They are deleted here, before the helper or any app runs. Logins and cookies (logins.json,
-# key4.db, cookies.sqlite) stay. LibreOffice keeps no profile at all (the Dockerfile points it at
-# /tmp/lo-user); an old one is removed too. `find -P` never follows a symlink, and `rm` removes a
-# link, not what it points at, so a planted link cannot reach the owner's shares.
-/usr/bin/rm -rf "$HOME/.config/libreoffice" "$HOME/.local/share/applications" "$HOME/.config/mimeapps.list" "$HOME/.config/autostart"
-# Firefox keeps its profiles under ~/.mozilla (older) or ~/.config/mozilla (Firefox 147 and later).
-for root in "$HOME/.mozilla" "$HOME/.config/mozilla"; do
-  [ -d "$root" ] && [ ! -L "$root" ] || continue
-  # A profile outside the root (an absolute or ../ path in profiles.ini) would escape the sweep
-  # below: drop the index and Firefox makes a new profile.
-  for ini in "$root/firefox/profiles.ini" "$root/firefox/installs.ini"; do
-    if [ -f "$ini" ] && /usr/bin/grep -Eq '^IsRelative=0|^(Path|Default)=(/|.*\.\.)' "$ini"; then
-      /usr/bin/rm -f "$ini"
+# an interpreter (handlers.json), prefs and user.js, extensions, userChrome, a PKCS#11 module,
+# native-messaging manifests, precompiled startup caches, desktop entries, default-app lists,
+# mailcap files, file-manager actions. No denylist: the Firefox profile is rebuilt from an
+# allowlist (logins.json, key4.db, cookies.sqlite, copied as plain files you own) and everything
+# else is removed, links included. LibreOffice keeps no profile at all (the Dockerfile points it
+# at /tmp/lo-user); an old one is removed too. This runs before the helper or any app, can never
+# stop the container from starting (one task must not block the desktop for the next), and never
+# follows a link: a link in the way is removed, not entered, so nothing reaches the owner's shares.
+
+# prep_parents <path>: every folder between $HOME and <path> must be a real, writable folder. A link
+# is removed (never entered) and the caller skips the path.
+prep_parents() {
+  _rel=${1#"$HOME"/}
+  case "$_rel" in */*) _rel=${_rel%/*} ;; *) return 0 ;; esac
+  _cur=$HOME
+  _ifs=$IFS
+  IFS=/
+  for _c in $_rel; do
+    IFS=$_ifs
+    _cur="$_cur/$_c"
+    if [ -L "$_cur" ]; then
+      /usr/bin/rm -f "$_cur" 2> /dev/null || true
+      return 1
     fi
+    if [ -d "$_cur" ]; then /usr/bin/chmod u+rwx "$_cur" 2> /dev/null || true; fi
+    IFS=/
   done
-  /usr/bin/find -P "$root" \( -name handlers.json -o -name mimeTypes.rdf -o -name user.js \
-    -o -name prefs.js -o -name 'extension*' -o -name addonStartup.json.lz4 \
-    -o -name browser-extension-data -o -name chrome -o -name pkcs11.txt \
-    -o -name native-messaging-hosts -o -name distribution \) -prune -exec /usr/bin/rm -rf {} + \
-    2> /dev/null || true
-done
+  IFS=$_ifs
+  return 0
+}
+
+# wipe <path>...: remove each path, whatever its mode; a link is removed, not followed. If a path
+# cannot be removed it is moved out of the way.
+wipe() {
+  for _t in "$@"; do
+    prep_parents "$_t" || continue
+    if [ -L "$_t" ]; then
+      /usr/bin/rm -f "$_t" 2> /dev/null || true
+      continue
+    fi
+    [ -e "$_t" ] || continue
+    /usr/bin/chmod -R u+rwX "$_t" 2> /dev/null || true
+    /usr/bin/rm -rf "$_t" 2> /dev/null || true
+    if [ -e "$_t" ]; then /usr/bin/mv "$_t" "$HOME/.psyche-removed-$$" 2> /dev/null || true; fi
+  done
+  return 0
+}
+
+# fresh_firefox <root>: ~/.mozilla (older) or ~/.config/mozilla (Firefox 147 and later).
+fresh_firefox() {
+  _root=$1
+  prep_parents "$_root" || return 0
+  if [ -L "$_root" ]; then
+    /usr/bin/rm -f "$_root" 2> /dev/null || true
+    return 0
+  fi
+  [ -e "$_root" ] || return 0
+  _keep=$(/usr/bin/mktemp -d /tmp/ffkeep.XXXXXX 2> /dev/null) || {
+    wipe "$_root"
+    return 0
+  }
+  /usr/bin/chmod -R u+rwX "$_root" 2> /dev/null || true
+  _got=0
+  if [ -d "$_root/firefox" ] && [ ! -L "$_root/firefox" ]; then
+    for _p in "$_root"/firefox/*; do
+      [ -d "$_p" ] && [ ! -L "$_p" ] || continue
+      for _f in logins.json key4.db cookies.sqlite; do
+        if [ -f "$_p/$_f" ] && [ ! -L "$_p/$_f" ] && [ -O "$_p/$_f" ]; then
+          /usr/bin/cp -P "$_p/$_f" "$_keep/$_f" 2> /dev/null && _got=1
+        fi
+      done
+      if [ "$_got" = 1 ]; then break; fi
+    done
+  fi
+  wipe "$_root"
+  if [ "$_got" = 1 ] && [ ! -e "$_root" ]; then
+    _new="$_root/firefox/psyche.default"
+    if /usr/bin/mkdir -p "$_new" 2> /dev/null && /usr/bin/chmod 0700 "$_new" 2> /dev/null \
+      && /usr/bin/cp -P "$_keep"/* "$_new/" 2> /dev/null; then
+      printf '[Profile0]\nName=default\nIsRelative=1\nPath=psyche.default\nDefault=1\n\n[General]\nStartWithLastProfile=1\nVersion=2\n' \
+        > "$_root/firefox/profiles.ini" 2> /dev/null || wipe "$_root"
+    else
+      wipe "$_root"
+    fi
+  fi
+  /usr/bin/rm -rf "$_keep" 2> /dev/null || true
+  return 0
+}
+
+wipe "$HOME/.config/libreoffice" "$HOME/.local/share/applications" "$HOME/.config/mimeapps.list" \
+  "$HOME/.config/autostart" "$HOME/.cache/mozilla" "$HOME/.mailcap" "$HOME/.mime.types" \
+  "$HOME/.local/share/file-manager/actions"
+fresh_firefox "$HOME/.mozilla"
+fresh_firefox "$HOME/.config/mozilla"
 
 /usr/bin/mkdir -p /tmp/.X11-unix
 /usr/bin/chmod 1777 /tmp/.X11-unix 2> /dev/null || true

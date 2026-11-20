@@ -446,6 +446,10 @@ export function desktopRunArgs(kind: DesktopBackendKind, spec: DesktopSpec): str
     "--shm-size",
     DESKTOP_SHM,
     "--cap-drop=all",
+    // Firefox's content sandbox chroots; without this it dies with "Sandbox: chroot: EPERM" and no
+    // page loads. Safe here: the user is not root, no-new-privileges is set and the image has no
+    // setuid binaries, so SYS_CHROOT is usable only inside a user namespace the process creates.
+    "--cap-add=SYS_CHROOT",
     "--security-opt=no-new-privileges",
     `--memory=${spec.memory}`,
     `--memory-swap=${spec.memory}`,

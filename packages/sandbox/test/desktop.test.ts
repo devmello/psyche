@@ -60,6 +60,7 @@ describe("the desktop container's flags", () => {
     has(
       "--read-only",
       "--cap-drop=all",
+      "--cap-add=SYS_CHROOT",
       "--security-opt=no-new-privileges",
       "--network=none",
       "--detach",

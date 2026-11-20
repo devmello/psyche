@@ -490,7 +490,7 @@ XShm capture of the root window, XTest input on `:n`, AT-SPI screen coordinates 
 
 ### 8.5 Lifecycle and cost
 
-- **Created** on first use: `podman run -d --rm=false --userns=keep-id --read-only --tmpfs /tmp --cap-drop=all --security-opt=no-new-privileges --network=none --label com.psyche.owner=1 --memory=<setting, default 2g> …`. That's the sandbox runner's flags plus the socket mount ([podman-run](https://docs.podman.io/en/latest/markdown/podman-run.1.html)). Backend detection reuses `packages/sandbox/src/detect.ts` (`podman`, then `docker`). Rootless Docker works the same; rootful Docker gets the same warning the sandbox already gives.
+- **Created** on first use: `podman run -d --rm=false --userns=keep-id --read-only --tmpfs /tmp --cap-drop=all --cap-add=SYS_CHROOT --security-opt=no-new-privileges --network=none --label com.psyche.owner=1 --memory=<setting, default 2g> …`. That's the sandbox runner's flags plus the socket mount ([podman-run](https://docs.podman.io/en/latest/markdown/podman-run.1.html)). Backend detection reuses `packages/sandbox/src/detect.ts` (`podman`, then `docker`). Rootless Docker works the same; rootful Docker gets the same warning the sandbox already gives.
 - **Stopped** when the Task ends and no watch view is open, after the same unsaved-changes check as §7.4. **Removed** only on "Reset separate desktop". **Zero resident cost**: there's no daemon and nothing running between tasks (Podman is daemonless).
 - **Watch view:** the §7.5 pane, with frames from the guest helper's `vscreen.frame`. No VNC or noVNC server is needed, so there's no extra listener and no password.
 

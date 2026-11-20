@@ -90,6 +90,8 @@ while True:
     try:
         d = c.recv(4096).split(b"\r\n")[0]
         if b"payload.invalid" in d:
+            open("/workspace/ff-page-requested", "w").write("x")
+        if b"payload.invalid" in d:
             c.sendall(b"HTTP/1.1 200 OK\r\nContent-Type: application/x-psyche-probe\r\nContent-Disposition: attachment; filename=payload.py\r\nContent-Length: %d\r\nConnection: close\r\n\r\n" % len(body) + body)
         else:
             c.sendall(b"HTTP/1.1 404 Not Found\r\nContent-Length: 0\r\nConnection: close\r\n\r\n")
@@ -110,24 +112,34 @@ const FF_HANDLERS = JSON.stringify({
   },
   schemes: {},
 });
-/** Opens the probe URL in Firefox's default profile, with a stand-in proxy that serves the type. */
-const firefoxFetchesPayload = async (): Promise<boolean> => {
+/**
+ * Opens the probe URL in Firefox's default profile, with a stand-in proxy that serves the type.
+ * `loaded`: Firefox requested the page (so it works at all in this container); `ran`: the planted
+ * handler ran python3 on the download.
+ */
+const firefoxFetchesPayload = async (): Promise<{ loaded: boolean; ran: boolean }> => {
   put("/workspace/ff-proxy.py", FF_PROXY);
+  exec("rm -f /workspace/ff-page-requested /workspace/ff-handler-ran");
   exec("nohup /usr/bin/python3 -I /workspace/ff-proxy.py > /tmp/ff-proxy.log 2>&1 &");
   exec(
     "GNOME_ACCESSIBILITY=0 NO_AT_BRIDGE=1 DISPLAY=:1 nohup /usr/bin/firefox-esr --no-remote http://payload.invalid/x > /tmp/ff-probe.log 2>&1 &",
   );
-  await sleep(40_000);
-  const ran = exec("test -e /workspace/ff-handler-ran && echo ran || echo clean").out.trim();
-  if (ran !== "ran") {
-    const why = exec(
-      "/usr/bin/ps -eo pid,args | /usr/bin/grep -E 'firefox|proxy|python' | /usr/bin/cut -c1-150 | /usr/bin/head -8; /usr/bin/head -n 8 /tmp/ff-proxy.log /tmp/ff-probe.log | /usr/bin/cut -c1-200; ls /workspace /workspace/Downloads; cat /workspace/ok 2>/dev/null",
-    ).out;
-    process.stdout.write(`[real] firefox probe did not run the handler: ${why}\n`);
+  const seen = (f: string) => exec(`test -e ${f} && echo y || echo n`).out.trim() === "y";
+  let loadedAt = 0;
+  for (let i = 0; i < 25; i++) {
+    await sleep(2000);
+    if (seen("/workspace/ff-handler-ran")) break;
+    if (!loadedAt && seen("/workspace/ff-page-requested")) loadedAt = i;
+    // A handler would run within seconds of the download: give it 12 s after the page loaded.
+    if (loadedAt && i - loadedAt >= 6) break;
   }
-  exec("/usr/bin/pkill -x 'firefox.*'; /usr/bin/pkill -x python3; rm -f /workspace/ff-handler-ran");
+  const out = {
+    loaded: seen("/workspace/ff-page-requested"),
+    ran: seen("/workspace/ff-handler-ran"),
+  };
+  exec("/usr/bin/pkill -x 'firefox.*'; /usr/bin/pkill -x python3");
   await sleep(2000);
-  return ran === "ran";
+  return out;
 };
 
 /** The broker's `get`, over cards this test approves as the owner would. */
@@ -357,12 +369,33 @@ describe.skipIf(!REAL)("a real separate desktop", () => {
         `mkdir -p ${profile}/extensions ${profile}/chrome && echo x > ${profile}/extensions/x.xpi && echo x > ${profile}/chrome/userChrome.css`,
       ).code,
     ).toBe(0);
-    const ffControlRan = await firefoxFetchesPayload();
-    process.stdout.write(
-      `[real] firefox control (planted handler runs python3 here): ${ffControlRan}\n`,
-    );
+    const ffControl = await firefoxFetchesPayload();
+    expect(
+      ffControl,
+      "control: Firefox loads the page and the planted handler runs python3",
+    ).toEqual({
+      loaded: true,
+      ran: true,
+    });
+    exec("rm -f /workspace/ff-handler-ran");
     // (the planted files must be back after the control run rewrote the profile)
     put(`${profile}/handlers.json`, FF_HANDLERS);
+    // Bypasses of a sweep that skips links and unreadable folders: the old root a link into the
+    // workspace (F2), a profile folder that is a link (F3), a profile folder with mode 0300 (F6),
+    // and a 0500 folder under the LibreOffice profile (it must not block the next start).
+    const profilesDir = dirname(profile);
+    expect(
+      exec(
+        "mkdir -p /workspace/ffdecoy/firefox/evil.default /workspace/ffdecoy3 " +
+          `${profilesDir}/evil6.default /workspace/.config/libreoffice/locked/sub && ` +
+          `echo '${FF_HANDLERS}' > /workspace/ffdecoy/firefox/evil.default/handlers.json && ` +
+          `echo '${FF_HANDLERS}' > /workspace/ffdecoy3/handlers.json && ` +
+          `echo '${FF_HANDLERS}' > ${profilesDir}/evil6.default/handlers.json && ` +
+          `ln -s /workspace/ffdecoy3 ${profilesDir}/evil3.default && ` +
+          "ln -s /workspace/ffdecoy /workspace/.mozilla && " +
+          `chmod 0300 ${profilesDir}/evil6.default && chmod 0500 /workspace/.config/libreoffice/locked`,
+      ).code,
+    ).toBe(0);
 
     await sd.release("real-A", { force: true });
     expect(podman("ps", "--all", "--format", "{{.Names}}").trim()).toBe("");
@@ -449,19 +482,31 @@ describe.skipIf(!REAL)("a real separate desktop", () => {
     expect(
       exec("test -e /workspace/.config/libreoffice && echo still || echo gone").out.trim(),
     ).toBe("gone");
-    const planted2 = exec(
-      "/usr/bin/find /workspace/.config/mozilla /workspace/.mozilla \\( -name handlers.json -o -name user.js -o -name 'extension*' -o -name chrome \\) 2>/dev/null",
-    ).out.trim();
-    expect(planted2, "planted Firefox handler/prefs/extension/userChrome files remain").toBe("");
+    // Nothing Firefox could reach holds a handler: not through the old root (a link), not through a
+    // linked or unreadable profile folder. The link targets were not entered, so they are untouched.
     expect(
-      exec("/usr/bin/find /workspace -name logins.json | head -1").out.trim(),
+      exec(
+        "/usr/bin/find -L /workspace/.mozilla /workspace/.config/mozilla -name handlers.json 2>/dev/null; " +
+          "test -e /workspace/.mozilla && echo old-root-still-there; " +
+          `test -e ${profile}/handlers.json && echo profile-handler-still-there; ` +
+          `test -e ${dirname(profile)}/evil6.default && echo f6-still-there; ` +
+          `test -e ${dirname(profile)}/evil3.default && echo f3-still-there; ` +
+          "test -e /workspace/.config/libreoffice && echo lo-profile-still-there; true",
+      ).out.trim(),
+      "planted Firefox/LibreOffice state is still reachable",
+    ).toBe("");
+    expect(exec("cat /workspace/ffdecoy3/handlers.json | /usr/bin/wc -c").out.trim()).not.toBe("0");
+    expect(
+      exec(
+        "/usr/bin/find /workspace -name logins.json -not -path '/workspace/ffdecoy*' | head -1",
+      ).out.trim(),
       "logins are kept",
     ).toMatch(/logins\.json$/);
-    // Only meaningful when the control ran here (pages may not load in this container); the
-    // deleted-files checks above hold either way.
-    if (ffControlRan) {
-      expect(await firefoxFetchesPayload(), "Firefox ran a planted handler").toBe(false);
-    }
+    const ffAfter = await firefoxFetchesPayload();
+    expect(ffAfter, "Firefox loads the page and no handler planted earlier runs").toEqual({
+      loaded: true,
+      ran: false,
+    });
 
     // A long-lived app opens on the display and keeps its profile in the workspace (Firefox ESR uses ~/.config/mozilla).
     exec("DISPLAY=:1 nohup /usr/bin/firefox-esr --no-remote about:blank > /tmp/firefox.log 2>&1 &");
