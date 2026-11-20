@@ -801,7 +801,10 @@ impl<B: Backend> Engine<B> {
                 return Err(CapError::new(
                     code::POLICY_DENIED,
                     "app_mismatch",
-                    format!("The point is in {}, not {named}", app.name),
+                    format!(
+                        "The point is in {}, not {named}. If {named} is behind it, bring {named} forward with apps.focus first.",
+                        app.name
+                    ),
                 )
                 .detail("app", named)
                 .detail("appAtPoint", app.id.as_str()));
@@ -832,6 +835,9 @@ impl<B: Backend> Engine<B> {
     /// Another client holding the keyboard (an X11 launcher such as dmenu) also fails closed: the
     /// focus still names the app, but every key would go to the grabbing client.
     fn ensure_keyboard_target(&self, app: &AppInfo) -> CapResult<()> {
+        // A surface's own rules (scope, deny list) first; then the focused process must be the
+        // app's own.
+        self.backend.check_input_target(app)?;
         match self.backend.keyboard_focus_pid() {
             Some(p) if app.owns(p) => {}
             Some(_) => return Err(focus_moved(app)),
@@ -875,6 +881,7 @@ impl<B: Backend> Engine<B> {
                 ),
             ));
         }
+        self.backend.point_clients_ok(x, y, app)?;
         if hit.secure {
             return Err(CapError::secure_refusal());
         }
@@ -1155,6 +1162,7 @@ impl<B: Backend> Engine<B> {
                 ..TargetReport::default()
             })))
         };
+        self.backend.check_input_target(&app)?;
         match self.backend.keyboard_focus_pid() {
             None => return unknown(),
             Some(p) if !app.owns(p) => return Err(focus_moved(&app)),
@@ -1852,6 +1860,7 @@ impl<B: Backend> Engine<B> {
             .collect();
         let mut excluded = hygiene::excluded_pids(&running, self.own_pid, &self.policy);
         excluded.extend(self.psyche_pids());
+        excluded.extend(self.backend.extra_excluded_pids());
         if excluded.contains(&app.pid) {
             return Err(CapError::new(
                 code::POLICY_DENIED,

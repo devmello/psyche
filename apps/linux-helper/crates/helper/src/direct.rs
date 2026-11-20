@@ -73,6 +73,10 @@ mod linux {
 
     impl Shared {
         fn engine(&self) -> Result<Arc<Engine<LinuxBackend>>, CapabilityError> {
+            // Headless (H1): the helper's own virtual screen is the only screen.
+            if let Some(engine) = crate::headless::engine() {
+                return engine.map_err(|e| cap_error(&e));
+            }
             let mut guard = self.engine.lock().unwrap_or_else(|e| e.into_inner());
             if let Some(e) = guard.as_ref() {
                 return Ok(e.clone());
@@ -139,6 +143,20 @@ mod linux {
         crate::paths::psyche_home(&ProcessEnv)
     }
 
+    /// A call that names a surface other than the one this helper serves is refused: the engine
+    /// behind it is the other surface's (the owner's real screen, or the private one).
+    fn surface_check(params: &Value) -> Result<(), CapabilityError> {
+        if crate::headless::surface_matches(params.get("surface"), crate::headless::active()) {
+            Ok(())
+        } else {
+            Err(CapabilityError::new(
+                ErrorCode::Forbidden,
+                "surface_mismatch",
+                "This computer does not serve that screen",
+            ))
+        }
+    }
+
     fn side_effect(s: &str) -> SideEffect {
         match s {
             "none" => SideEffect::None,
@@ -171,6 +189,7 @@ mod linux {
         }
 
         fn invoke(&self, ctx: &InvocationContext) -> Result<Value, CapabilityError> {
+            surface_check(&ctx.params)?;
             let engine = self.shared.engine()?;
             let inv = Invocation {
                 approval_id: ctx.approval_id.clone(),
@@ -308,6 +327,7 @@ mod linux {
         }
 
         fn invoke(&self, ctx: &InvocationContext) -> Result<Value, CapabilityError> {
+            surface_check(&ctx.params)?;
             let engine = self.shared.engine()?;
             engine.reload_settings();
             let binding = ApprovalBinding::from(ctx.approval_id.as_deref(), &ctx.params);
@@ -576,6 +596,15 @@ mod linux {
         }
 
         fn invoke(&self, ctx: &InvocationContext) -> Result<Value, CapabilityError> {
+            // Headless: these act on the session bus and portals of the environment, which under
+            // linger are the owner's, not the virtual screen's private ones.
+            if crate::headless::active() {
+                return Err(CapabilityError::new(
+                    ErrorCode::Unavailable,
+                    "headless",
+                    "Not available in headless mode: the virtual screen has its own private session",
+                ));
+            }
             match self.op {
                 Misc::A11yStatus => Ok(a11y_status()),
                 Misc::A11yEnable => {

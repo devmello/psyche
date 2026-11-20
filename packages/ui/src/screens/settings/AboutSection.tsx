@@ -28,6 +28,27 @@ export interface AboutPanelProps {
   onRevealHome?: () => void;
   /** Desktop on the Mac or PC running the Gateway only: the Uninstall Psyche sheet. */
   uninstall?: UninstallPort;
+  /** Desktop only: the release channel picker (the desktop app is the one that updates itself). */
+  showUpdates?: boolean;
+}
+
+/**
+ * Settings > About > Updates: the release channel. Stable is the only channel until the release
+ * pipeline publishes a beta manifest, so this shows it and says so; there is nothing to save.
+ */
+export function UpdateChannelGroup(): ReactElement {
+  return (
+    <Group title={t("settings.updates.group")} description={t("settings.updates.hint")}>
+      <div className="flex flex-col gap-2">
+        <Facts
+          items={[
+            { term: t("settings.updates.channel"), value: t("settings.updates.channel.stable") },
+          ]}
+        />
+        <p className="text-callout text-label-secondary">{t("settings.updates.channel.note")}</p>
+      </div>
+    </Group>
+  );
 }
 
 export function AboutPanel({
@@ -38,6 +59,7 @@ export function AboutPanel({
   onOpenLogs,
   onRevealHome,
   uninstall,
+  showUpdates = false,
 }: AboutPanelProps): ReactElement {
   const { navigate } = useSlots();
   return (
@@ -81,6 +103,7 @@ export function AboutPanel({
           ]}
         />
       </Group>
+      {showUpdates ? <UpdateChannelGroup /> : null}
       {navigate ? (
         <Group
           title={t("onboarding.rerun.title")}

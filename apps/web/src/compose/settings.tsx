@@ -11,6 +11,7 @@ import {
   policyWithFolderMode,
   SettingsScreen,
   type SettingsSectionId,
+  StorageSection,
   t,
   usePersona,
   useSettingsForm,
@@ -237,6 +238,7 @@ function AboutLive({ app }: { app: AppInfoPort | undefined }): ReactElement {
   return (
     <AboutSection
       info={info}
+      showUpdates={app?.revealHome !== undefined}
       {...(app?.revealHome
         ? { onRevealHome: () => void app.revealHome?.().catch(() => undefined) }
         : {})}
@@ -322,6 +324,7 @@ export function settingsRoute(
           data: (
             <div className="flex flex-col gap-4">
               <DataControlsSection />
+              <StorageSection />
               <BackupsPanel />
             </div>
           ),

@@ -96,6 +96,14 @@ export const AutomationsMethods = {
     description:
       "Runs an automation now, outside its schedule. Side-effecting: a duplicate would run it twice.",
   }),
+  "automations.cancelRetry": defineMethod({
+    params: Type.Object({ runId: Id }),
+    result: Type.Object({ run: AutomationRun }),
+    scope: "operator.write",
+    sideEffecting: true,
+    description:
+      "Cancels a scheduled run that is waiting to retry after a transient model error: the run ends as cancelled (its last error kept in the summary), the automation shows as failed, and Run now is free again. Side-effecting. `conflict` when the run is not waiting to retry (it already started its next attempt, or finished).",
+  }),
   "automations.runs": defineMethod({
     params: Type.Object({ automationId: Id, ...pageParams }),
     result: Type.Object({ runs: Type.Array(AutomationRun), ...nextCursor }),

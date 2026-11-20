@@ -1,5 +1,6 @@
 import { sanitizeDisplay } from "@psyche/permissions/cards";
 import type { PluginSummarySchema } from "@psyche/protocol";
+import { FolderOpen } from "lucide-react";
 import { type ReactElement, useState } from "react";
 import { GroupedList, GroupedRow } from "../../components/page.tsx";
 import { Button } from "../../components/ui/button.tsx";
@@ -11,8 +12,8 @@ import { approvalIdOf, messageOf } from "./shared.tsx";
 
 /**
  * Settings → Skills → Plugins (`plugins.*`): installed code plugins with their status, what they
- * add, an on/off switch and remove. Install is not here: it starts from a folder through the
- * proposal and its approval card. A switch that the Gateway holds for approval only waits.
+ * add, an on/off switch and remove. Install starts from a picked folder (desktop only) and goes
+ * through the proposal and its approval card. A switch that the Gateway holds for approval only waits.
  */
 
 const show = (s: string, max = 200) => sanitizeDisplay(s, max);
@@ -26,12 +27,18 @@ const CAPABILITY_IDS = [
   "evaluate",
 ] as const;
 
-export function PluginsSection(): ReactElement {
+export function PluginsSection({
+  onPickFolder,
+}: {
+  /** The desktop folder chooser; without it (web) there is no install button. */
+  onPickFolder?: () => Promise<string | null>;
+} = {}): ReactElement {
   const call = useCall();
   const q = useGatewayQuery("plugins.list", {});
   const [pending, setPending] = useState<string | null>(null);
   const [waiting, setWaiting] = useState(false);
   const [actionError, setActionError] = useState<string | null>(null);
+  const [proposed, setProposed] = useState(false);
 
   const setEnabled = (plugin: PluginSummarySchema, enabled: boolean) => {
     setPending(plugin.name);
@@ -59,6 +66,25 @@ export function PluginsSection(): ReactElement {
     );
   };
 
+  const install = () => {
+    if (onPickFolder === undefined) return;
+    setActionError(null);
+    setProposed(false);
+    onPickFolder().then(
+      (path) => {
+        if (path === null) return;
+        call("plugins.proposeInstall", { path }).then(
+          // The proposal and its approval card arrive through the usual approval flow.
+          () => setProposed(true),
+          (err: unknown) =>
+            setActionError(t("settings.plugins.installFailed", { reason: messageOf(err) })),
+        );
+      },
+      (err: unknown) =>
+        setActionError(t("settings.plugins.pickFailed", { reason: messageOf(err) })),
+    );
+  };
+
   const plugins = q.data?.plugins ?? [];
   const loading = q.loading && q.data === undefined;
 
@@ -67,6 +93,19 @@ export function PluginsSection(): ReactElement {
       {q.data !== undefined && !q.data.enabled ? (
         <p role="note" className="px-3 py-2 text-callout text-label-secondary">
           {t("settings.plugins.off")}
+        </p>
+      ) : null}
+      {onPickFolder !== undefined ? (
+        <div className="flex items-center gap-2 px-3 py-2">
+          <Button type="button" variant="outline" size="sm" onClick={install}>
+            <FolderOpen aria-hidden="true" />
+            {t("settings.plugins.install")}
+          </Button>
+        </div>
+      ) : null}
+      {proposed ? (
+        <p role="status" className="px-3 py-2 text-callout text-label-secondary">
+          {t("settings.plugins.proposed")}
         </p>
       ) : null}
       {actionError !== null ? (
@@ -149,10 +188,27 @@ function PluginDetails({ plugin }: { plugin: PluginSummarySchema }): ReactElemen
     style: "long",
     type: "conjunction",
   }).format(labels);
+  const a = plugin.adds;
+  const counts =
+    a === undefined
+      ? []
+      : (["skills", "commands", "mcpServers", "hooks"] as const)
+          .filter((k) => a[k] > 0)
+          .map((k) => t(`settings.plugins.count.${k}`, { n: a[k] }));
   return (
     <span className="flex flex-col gap-0.5">
       <span>{show(plugin.description, 300)}</span>
       <span>{t("settings.plugins.adds", { list: adds })}</span>
+      {counts.length > 0 ? (
+        <span>
+          {t("settings.plugins.includes", {
+            list: new Intl.ListFormat(activeI18n().locale, {
+              style: "long",
+              type: "conjunction",
+            }).format(counts),
+          })}
+        </span>
+      ) : null}
       <span>
         {t("settings.plugins.from", { source: show(plugin.source, 300) })}
         {" · "}

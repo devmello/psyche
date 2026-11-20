@@ -21,6 +21,8 @@ const ROUTES: readonly RegExp[] = [
   /^\/agent\/(activity|approvals|upcoming|soul)$/,
   new RegExp(`^/agent/activity/${ID}$`),
   /^\/settings\/[a-z-]{1,32}$/,
+  /^\/spaces$/,
+  new RegExp(`^/spaces/${ID}$`),
   /^\/inbox$/,
   /^\/quick$/,
 ];

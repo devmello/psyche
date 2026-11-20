@@ -2018,6 +2018,14 @@ export type DailyWorkflowRunKind = "cron" | "interval";
 
 export type AutomationWorkflowBlockType = "automation_workflow";
 
+export interface AutomationsCancelRetryParams {
+    runId: string;
+}
+
+export interface AutomationsCancelRetryResult {
+    run: AutomationRun;
+}
+
 export interface AutomationsCreateParams {
     delivery?:     Delivery;
     enabled?:      boolean;
@@ -2995,7 +3003,7 @@ export type WorkNoteAttribute = "status" | "deadline" | "progress" | "stopped_at
 
 export type ChecklistItemStatus = "pending" | "in_progress" | "completed";
 
-export type BlockKind = "feed_item" | "search_hit" | "memory_entity" | "life_answer";
+export type BlockKind = "feed_item" | "search_hit" | "memory_entity" | "life_answer" | "mail_followup";
 
 /**
  * The kind of model that made the answer
@@ -4800,7 +4808,7 @@ export interface DailySection {
     unavailable?: boolean;
 }
 
-export type DailySectionID = "calendar" | "mail" | "due" | "followups" | "weather" | "done" | "open" | "tomorrow" | "learned" | "coming_up" | "keep_in_touch" | "catching_up" | "worked_on";
+export type DailySectionID = "calendar" | "mail" | "due" | "followups" | "weather" | "done" | "open" | "tomorrow" | "learned" | "coming_up" | "keep_in_touch" | "quiet_threads" | "catching_up" | "worked_on";
 
 export interface InboxDigest {
     accounts: string[];
@@ -5578,6 +5586,14 @@ export interface GoalsMilestoneResult {
     links:      GoalLink[];
     milestones: GoalMilestone[];
     taskIds:    string[];
+}
+
+export interface GoalsSuggestParams {
+    goalId: string;
+}
+
+export interface GoalsSuggestResult {
+    ideaId?: null | string;
 }
 
 export interface GoalsUpdateParams {
@@ -6381,6 +6397,41 @@ export interface MachinesRenameParams {
 export interface MachinesRenameResult {
     machine: MachineInfo;
 }
+
+export interface MailFollowupsActParams {
+    action: MailFollowupAction;
+    id:     string;
+}
+
+export type MailFollowupAction = "snooze" | "dismiss";
+
+export interface MailFollowupsActResult {
+    ok: boolean;
+}
+
+export interface MailFollowupsListResult {
+    /**
+     * `mail.followups.enabled` is on
+     */
+    enabled: boolean;
+    items:   MailFollowupItem[];
+}
+
+export interface MailFollowupItem {
+    daysQuiet:      number;
+    gmailThreadId?: string;
+    id:             string;
+    kind:           MailFollowupKind;
+    link?:          string;
+    source:         MailFollowupItemSource;
+    subject:        string;
+    untrusted:      boolean;
+    who:            string;
+}
+
+export type MailFollowupKind = "no_reply" | "unanswered_question";
+
+export type MailFollowupItemSource = "apple" | "gmail" | "imap";
 
 export interface MCPAddParams {
     approvalId: string;
@@ -8718,6 +8769,10 @@ export type ExternalRef = number | string;
 
 export type ReceiptOutcome = "ok" | "failed" | "uncertain";
 
+export interface NodeUnpairResult {
+    device: Device;
+}
+
 export interface NodeUpdatedPayload {
     node: NodeInfo;
 }
@@ -9226,6 +9281,7 @@ export interface PluginsInstallResult {
 }
 
 export interface PluginSummary {
+    adds?:        PluginAdds;
     capabilities: PluginCapability[];
     description:  string;
     /**
@@ -9245,6 +9301,13 @@ export interface PluginSummary {
     source:  string;
     status:  PluginStatus;
     version: string;
+}
+
+export interface PluginAdds {
+    commands:   number;
+    hooks:      number;
+    mcpServers: number;
+    skills:     number;
 }
 
 /**
@@ -12245,6 +12308,32 @@ export interface TranscriptSegment {
 
 export type SpeechTranscribePreset = "long" | "short";
 
+export interface StorageClearCacheParams {
+    targets?: StorageClearTarget[];
+}
+
+export type StorageClearTarget = "caches" | "recordings";
+
+export interface StorageCleared {
+    cleared:    StorageClearTarget[];
+    freedBytes: number;
+}
+
+export interface StorageUsage {
+    categories: StorageCategory[];
+    partial?:   boolean;
+    totalBytes: number;
+}
+
+export interface StorageCategory {
+    bytes:             number;
+    clearable:         boolean;
+    id:                StorageCategoryID;
+    reclaimableBytes?: number;
+}
+
+export type StorageCategoryID = "database" | "memoryIndex" | "library" | "browserProfiles" | "recordings" | "logs" | "caches" | "other";
+
 export interface TaskActionPayload {
     action: TaskAction;
 }
@@ -13064,8 +13153,8 @@ export interface ThreadsSetContextLimitsResult {
 }
 
 export interface ThreadsSummaryPinsRemoveParams {
-    instruction: string;
-    threadId:    string;
+    pinId:    string;
+    threadId: string;
 }
 
 export interface ThreadsSummaryPinsRemoveResult {

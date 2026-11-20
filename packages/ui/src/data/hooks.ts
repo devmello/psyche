@@ -36,6 +36,7 @@ import type {
   VmUpdatedPayload,
   Widget,
 } from "@psyche/protocol";
+import { pinId } from "@psyche/protocol";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { t } from "../i18n/core.ts";
 import { errorCode as codeOf, describeError } from "../i18n/errors.ts";
@@ -703,8 +704,8 @@ export async function removeSummaryPin(
   threadId: string,
   instruction: string,
 ): Promise<void> {
-  await store.call("threads.summary.pins.remove", { threadId, instruction });
-  const key = (s: string) => s.replace(/\s+/g, " ").trim().toLowerCase();
+  const id = pinId(instruction);
+  await store.call("threads.summary.pins.remove", { threadId, pinId: id });
   store.update((s) => ({
     ...s,
     messages: {
@@ -717,9 +718,7 @@ export async function removeSummaryPin(
                 ...b,
                 summary: {
                   ...b.summary,
-                  pinnedInstructions: b.summary.pinnedInstructions.filter(
-                    (i) => key(i) !== key(instruction),
-                  ),
+                  pinnedInstructions: b.summary.pinnedInstructions.filter((i) => pinId(i) !== id),
                 },
               }
             : b,

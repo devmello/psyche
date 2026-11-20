@@ -633,7 +633,12 @@ type SessionState = (Option<(String, f64)>, Vec<String>);
 
 /// Decides whether a `computer.*` call may touch an app: fixed cap ∧ user tier ∧ "Allow for this
 /// session" allowances (30 minutes). Thread-safe.
+/// Judges an app by the id the engine **resolved** (after a pid, a display name or the focus
+/// became an app). The helper's machine ceiling (`apps.allow` / `apps.deny`) is one.
+pub type AppGate = std::sync::Arc<dyn Fn(&str) -> CapResult<()> + Send + Sync>;
+
 pub struct TierPolicy {
+    gate: Mutex<Option<AppGate>>,
     state: Mutex<PolicyState>,
     now: Clock,
     /// When the owner last used the keyboard or mouse (not the helper's own events). `None`
@@ -650,6 +655,7 @@ impl TierPolicy {
         owner_input: Option<OwnerInput>,
     ) -> TierPolicy {
         TierPolicy {
+            gate: Mutex::new(None),
             state: Mutex::new((settings, HashMap::new())),
             now: now.unwrap_or_else(|| Box::new(now_secs)),
             owner_input,
@@ -662,6 +668,11 @@ impl TierPolicy {
 
     pub fn settings(&self) -> TierSettings {
         self.state.lock().unwrap().0.clone()
+    }
+
+    /// Installs the gate every `authorize` asks first, whatever the intent.
+    pub fn set_app_gate(&self, gate: AppGate) {
+        *self.gate.lock().unwrap_or_else(|e| e.into_inner()) = Some(gate);
     }
 
     pub fn effective_tier(&self, bundle_id: Option<&str>) -> Tier {
@@ -702,6 +713,12 @@ impl TierPolicy {
         app_name: &str,
         approval: Option<&ApprovalBinding>,
     ) -> CapResult<()> {
+        if let Some(id) = bundle_id {
+            let gate = self.gate.lock().unwrap_or_else(|e| e.into_inner()).clone();
+            if let Some(gate) = gate {
+                gate(id)?;
+            }
+        }
         let mut guard = self.state.lock().unwrap();
         let (settings, allowances) = &mut *guard;
         let needed = intent.required_tier();

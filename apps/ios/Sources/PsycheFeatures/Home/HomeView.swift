@@ -126,6 +126,7 @@ struct HomeView: View {
         if !model.laterTodos.isEmpty { todos("To-do", model.laterTodos).transition(rise) }
         if !snapshot.keepInTouch.isEmpty { keepInTouch(snapshot.keepInTouch).transition(rise) }
         if !model.pinnedWidgets.isEmpty { pinned(model.pinnedWidgets).transition(rise) }
+        SpacesHomeSection(store: store)
         ProactiveHomeSections(store: store)
         more
     }

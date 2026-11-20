@@ -107,6 +107,7 @@ export function pairingRequestFromRow(row: PairingRequestRow): PairingRequest {
     decidedAt: row.decidedAt,
     decidedByDeviceId: row.decidedByDeviceId,
   };
+  if (row.purpose === "machine") out.purpose = "machine";
   if (row.publicKeyFingerprint !== null) out.publicKeyFingerprint = row.publicKeyFingerprint;
   if (row.transport !== null) out.transport = row.transport as "ws" | "unix";
   if (row.remoteAddress !== null) out.remoteAddress = row.remoteAddress;

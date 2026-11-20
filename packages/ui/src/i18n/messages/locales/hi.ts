@@ -23,6 +23,7 @@ import { homeRest } from "./home-rest/hi.ts";
 import { keepAwake } from "./keep-awake/hi.ts";
 import { links } from "./links/hi.ts";
 import { linuxAccess } from "./linux-access/hi.ts";
+import { mailFollowups } from "./mail-followups/hi.ts";
 import { mailMeetings } from "./mail-meetings/hi.ts";
 import { meetingRecordRest } from "./meeting-record-rest/hi.ts";
 import { memoryAdvancedRest } from "./memory-advanced-rest/hi.ts";
@@ -50,6 +51,7 @@ import { securityState } from "./security-state/hi.ts";
 import { separateDesktop } from "./separate-desktop/hi.ts";
 import { settingsRest } from "./settings-rest/hi.ts";
 import { shellRest } from "./shell-rest/hi.ts";
+import { spaces } from "./spaces/hi.ts";
 import { specialistsRest } from "./specialists-rest/hi.ts";
 import { webRest } from "./web-rest/hi.ts";
 import { widgetsRest } from "./widgets-rest/hi.ts";
@@ -514,6 +516,7 @@ export const hi: Partial<Catalogue> = {
   "blocks.artifact.bytes": "{size} B",
   "blocks.artifact.kilobytes": "{size} KB",
   "blocks.artifact.megabytes": "{size} MB",
+  "blocks.artifact.gigabytes": "{size} GB",
 
   "blocks.task.status.queued": "कतार में",
   "blocks.task.status.running": "चल रहा है",
@@ -1043,6 +1046,8 @@ export const hi: Partial<Catalogue> = {
   "settings.key.browser.botAuth": "Web Bot Auth",
   "settings.key.computerUse.enabled": "कंप्यूटर उपयोग की अनुमति दें",
   "settings.key.computerUse.apps": "ऐप ऐक्सेस",
+  "settings.key.feed.sources": "फ़ीड स्रोत",
+  "settings.key.computerUse.linuxRevoke": "Linux कंप्यूटर भुलाएँ",
   "settings.key.context.maxTokens": "संदर्भ सीमा",
   "settings.key.search.web.provider": "वेब खोज प्रदाता",
   "settings.key.search.web.searxngUrl": "SearXNG URL",
@@ -2385,6 +2390,15 @@ export const hi: Partial<Catalogue> = {
   "settings.plugins.switchOn": "{name} चालू",
   "settings.plugins.version": " · v{version}",
   "settings.plugins.adds": "जोड़ता है: {list}",
+  "settings.plugins.install": "फ़ोल्डर से इंस्टॉल करें…",
+  "settings.plugins.pickFailed": "Psyche फ़ोल्डर चयनकर्ता नहीं खोल सका ({reason})।",
+  "settings.plugins.installFailed": "इंस्टॉल शुरू नहीं हुआ। {reason}",
+  "settings.plugins.proposed": "अनुमोदन कार्ड पर इंस्टॉल की समीक्षा करें।",
+  "settings.plugins.includes": "इसमें शामिल: {list}",
+  "settings.plugins.count.skills": "{n, plural, one {# स्किल} other {# स्किल}}",
+  "settings.plugins.count.commands": "{n, plural, one {# कमांड} other {# कमांड}}",
+  "settings.plugins.count.mcpServers": "{n, plural, one {# MCP सर्वर} other {# MCP सर्वर}}",
+  "settings.plugins.count.hooks": "{n, plural, one {# हुक} other {# हुक}}",
   "settings.plugins.from": "स्रोत: {source}",
   "settings.plugins.state.active": "चल रहा है",
   "settings.plugins.state.disabled": "बंद",
@@ -3146,6 +3160,20 @@ export const hi: Partial<Catalogue> = {
   "screens.goals.checkinLine":
     "{cadence}{hasNext, select, true { · अगला {next}} other {}}{hasLast, select, true { · पिछला: {last}} other {}}",
   "screens.goals.noSchedule": "कोई शेड्यूल नहीं",
+  "screens.goals.suggest": "अगला कदम सुझाएँ",
+  "screens.goals.suggest.hint":
+    "मॉडल का उपयोग तभी होता है जब आप टैप करें। कार्ड पर शुरू करें दबाने तक कुछ शुरू नहीं होता।",
+  "screens.goals.suggest.done": "सुझाव होम में जोड़ा गया।",
+  "screens.goals.suggest.none": "इस बार कोई सुझाव नहीं। बाद में फिर कोशिश करें।",
+  "screens.ideas.start": "शुरू करें",
+  "screens.ideas.snooze": "बाद में याद दिलाएँ",
+  "screens.ideas.badge.checkin": "चेक-इन",
+  "screens.ideas.badge.resume": "फिर से शुरू करें?",
+  "screens.goals.checkinFrequency": "चेक-इन",
+  "screens.goals.checkinFrequency.off": "बंद",
+  "screens.goals.checkinFrequency.daily": "रोज़",
+  "screens.goals.checkinFrequency.weekly": "हर हफ़्ते",
+  "screens.goals.checkinFrequency.monthly": "हर महीने",
   "screens.goals.watches": "निगरानियाँ",
   "screens.goals.nothingWatched": "किसी चीज़ की निगरानी नहीं।",
   "screens.goals.last": "पिछला: {value}",
@@ -3714,5 +3742,7 @@ export const hi: Partial<Catalogue> = {
   ...separateDesktop,
   // Windows variants of the sandbox PC, voice keys and platform terms
   ...windowsPlatform202611,
+  ...mailFollowups,
   ...keepAwake,
+  ...spaces,
 };

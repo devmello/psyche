@@ -35,6 +35,15 @@ export const IDEA_KIND_LABEL: Record<Idea["kind"], string> = {
   },
 };
 
+/** Which goal card an idea is, read from its evidence (`goal_checkin`, `goal_stalled`). */
+export function goalCardKind(idea: Pick<Idea, "evidence">): "checkin" | "resume" | null {
+  for (const e of idea.evidence) {
+    if (e.type === "goal_checkin") return "checkin";
+    if (e.type === "goal_stalled") return "resume";
+  }
+  return null;
+}
+
 export const DISMISS_OPTIONS: readonly { reason: IdeaDismissReason; label: string }[] = [
   {
     reason: "not_now",
@@ -136,7 +145,9 @@ export function IdeaCard({
   const [cadence, setCadence] = useState<RecurringCadence>("monthly");
   const schedule = RECURRING_CADENCES.find((c) => c.id === cadence)?.schedule;
   const isSkill = idea.kind === "skill";
-  const canRecur = RECURRABLE.has(idea.kind);
+  // Goal cards (a check-in's next step, a stalled task's "Resume?"): Start, Snooze, Dismiss.
+  const goalCard = goalCardKind(idea);
+  const canRecur = RECURRABLE.has(idea.kind) && goalCard === null;
   const evidence = readEvidence(idea.evidence);
 
   return (
@@ -155,7 +166,11 @@ export function IdeaCard({
             {idea.title}
           </h2>
           <Badge variant={idea.kind === "skill" ? "accent" : "muted"}>
-            {IDEA_KIND_LABEL[idea.kind]}
+            {goalCard === "resume"
+              ? t("screens.ideas.badge.resume")
+              : goalCard === "checkin"
+                ? t("screens.ideas.badge.checkin")
+                : IDEA_KIND_LABEL[idea.kind]}
           </Badge>
         </div>
         {idea.bodyMd.trim() !== "" ? (
@@ -234,33 +249,57 @@ export function IdeaCard({
             )
           }
         >
-          {t("screens.ideas.accept")}
+          {goalCard === null ? t("screens.ideas.accept") : t("screens.ideas.start")}
         </Button>
+        {goalCard !== null ? (
+          <Button
+            type="button"
+            size="sm"
+            variant="ghost"
+            disabled={busy || onDismiss === undefined}
+            onClick={() => onDismiss?.(idea, "not_now")}
+          >
+            {t("screens.ideas.snooze")}
+          </Button>
+        ) : null}
         <Button
           type="button"
           size="sm"
           variant="ghost"
           disabled={busy || onEdit === undefined}
+          hidden={goalCard !== null}
           onClick={() => onEdit?.(idea)}
         >
           {t("common.edit")}
         </Button>
-        <DropdownMenu>
-          <DropdownMenuTrigger
+        {goalCard !== null ? (
+          <Button
+            type="button"
+            size="sm"
+            variant="ghost"
             disabled={busy || onDismiss === undefined}
-            render={<Button type="button" size="sm" variant="ghost" />}
+            onClick={() => onDismiss?.(idea, "not_interested")}
           >
             {t("common.dismiss")}
-            <ChevronDown aria-hidden="true" />
-          </DropdownMenuTrigger>
-          <DropdownMenuContent align="end" className="w-52">
-            {DISMISS_OPTIONS.map((o) => (
-              <DropdownMenuItem key={o.reason} onClick={() => onDismiss?.(idea, o.reason)}>
-                {o.label}
-              </DropdownMenuItem>
-            ))}
-          </DropdownMenuContent>
-        </DropdownMenu>
+          </Button>
+        ) : (
+          <DropdownMenu>
+            <DropdownMenuTrigger
+              disabled={busy || onDismiss === undefined}
+              render={<Button type="button" size="sm" variant="ghost" />}
+            >
+              {t("common.dismiss")}
+              <ChevronDown aria-hidden="true" />
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end" className="w-52">
+              {DISMISS_OPTIONS.map((o) => (
+                <DropdownMenuItem key={o.reason} onClick={() => onDismiss?.(idea, o.reason)}>
+                  {o.label}
+                </DropdownMenuItem>
+              ))}
+            </DropdownMenuContent>
+          </DropdownMenu>
+        )}
       </div>
     </article>
   );
