@@ -135,9 +135,11 @@ export async function guardLaunchConfig(
     );
   }
   const before = await prints(root, scan, claude.kind === "link");
-  // Who each read-only folder and each existing entry is (#1438 review r1): a read-only mount
-  // moves with its folder when the run renames the folder above it, so the same path can hold
-  // something new afterwards, and the owner's original can turn up under another name.
+  // Who each read-only folder is (#1438 reviews r1 and r2): a read-only mount moves with its
+  // folder when the run renames the folder above it, so the same path can hold something new
+  // afterwards, and the owner's original can turn up under another name. Only these folders,
+  // whose contents the run cannot change, exempt a new path: a file the run moved or linked
+  // elsewhere can carry new content, so it is held like anything new.
   const ids: Identities = { mounted: new Map(), originals: new Set() };
   for (const rel of readOnly) {
     const st = await lstat(join(root, rel), { bigint: true }).catch(() => undefined);
@@ -145,10 +147,6 @@ export async function guardLaunchConfig(
     const git = rel === ".git" || rel.endsWith("/.git");
     ids.mounted.set(rel, { id: idOf(st), git });
     ids.originals.add(idOf(st));
-  }
-  for (const f of scan.found) {
-    const st = await lstat(join(root, f.rel), { bigint: true }).catch(() => undefined);
-    if (st !== undefined) ids.originals.add(idOf(st));
   }
   return {
     mounts: readOnly.map((rel) => ({
@@ -163,7 +161,7 @@ export async function guardLaunchConfig(
 interface Identities {
   /** Each read-only-mounted folder: its identity, and whether it is a git folder. */
   mounted: Map<string, { id: string; git: boolean }>;
-  /** Every mounted folder and existing entry, by identity: the owner's, wherever it is now. */
+  /** Every read-only-mounted folder, by identity: the owner's, wherever it is now. */
   originals: Set<string>;
 }
 
@@ -187,6 +185,9 @@ interface ClaudeFolder {
   mount?: string;
   /** A link's own text, to link it again as it was. */
   linkText?: string;
+  /** Where a link resolved before the run, and what was there (dev:ino); unset when dangling. */
+  real?: string;
+  targetId?: string;
 }
 
 async function claudeFolder(root: string): Promise<ClaudeFolder> {
@@ -196,14 +197,28 @@ async function claudeFolder(root: string): Promise<ClaudeFolder> {
   if (st.isDirectory()) return { kind: "dir", mount: CLAUDE_DIR };
   if (!st.isSymbolicLink()) return { kind: "other" };
   const linkText = await readlink(path);
-  const real = await realpath(path).catch(() => undefined);
+  const { real, id: targetId } = await resolution(path);
+  const resolved = {
+    ...(real === undefined ? {} : { real }),
+    ...(targetId === undefined ? {} : { targetId }),
+  };
   const target = real === undefined ? undefined : await lstat(real).catch(() => undefined);
-  if (real === undefined || target?.isDirectory() !== true) return { kind: "link", linkText };
+  if (real === undefined || target?.isDirectory() !== true) {
+    return { kind: "link", linkText, ...resolved };
+  }
   const rel = relative(root, real);
   const inside = rel !== "" && !rel.startsWith("..") && !isAbsolute(rel);
   return inside
-    ? { kind: "link", mount: rel.split(sep).join("/"), linkText }
-    : { kind: "link", linkText };
+    ? { kind: "link", mount: rel.split(sep).join("/"), linkText, ...resolved }
+    : { kind: "link", linkText, ...resolved };
+}
+
+/** Where `path` resolves and who is there (dev:ino); both unset when nothing is. */
+async function resolution(path: string): Promise<{ real?: string; id?: string }> {
+  const real = await realpath(path).catch(() => undefined);
+  if (real === undefined) return {};
+  const id = await identity(real);
+  return id === undefined ? { real } : { real, id };
 }
 
 const depth = (rel: string) => rel.split("/").length;
@@ -258,9 +273,11 @@ async function settle(
   };
   // A read-only folder whose path now holds something else: its folder was renamed during the
   // run and this was made in its place. It counts as new.
+  const replacedMounts = new Set<string>();
   for (const [rel, m] of ids.mounted) {
     const id = await identity(join(root, rel));
     if (id === undefined || id === m.id) continue;
+    replacedMounts.add(rel);
     if (m.git) await gitRunsFrom(rel);
     else fresh.push(rel);
   }
@@ -276,17 +293,21 @@ async function settle(
     } else if (text !== claude.linkText) {
       fresh.push(CLAUDE_DIR);
       relink = true;
-    } else if (
-      claude.mount !== undefined &&
-      (await realpath(path).catch(() => undefined)) !== join(root, claude.mount)
-    ) {
-      // A folder on its way was swapped: the link now leads elsewhere.
-      fresh.push(CLAUDE_DIR);
+    } else {
+      // The same text can lead elsewhere when a folder on its way was swapped: held then, and
+      // not linked again (the same text would lead to the same place).
+      const now = await resolution(path);
+      // Its mounted target made again in place is held above; the link itself is the owner's.
+      const targetHeld =
+        claude.mount !== undefined && replacedMounts.has(claude.mount) && now.real === claude.real;
+      if (!targetHeld && (now.real !== claude.real || now.id !== claude.targetId)) {
+        fresh.push(CLAUDE_DIR);
+      }
     }
   }
   for (const f of now.found) {
     if (known.has(f.rel) || f.rel === CLAUDE_DIR || f.rel.startsWith(`${CLAUDE_DIR}/`)) continue;
-    // The owner's own entry under the name its renamed folder has now: never held.
+    // The owner's own read-only folder under the name its renamed parent has now: never held.
     const id = await identity(join(root, f.rel));
     if (id !== undefined && ids.originals.has(id)) continue;
     if (f.git !== true || f.kind !== "dir") {
@@ -299,8 +320,24 @@ async function settle(
     const id = `${(options.now?.() ?? new Date()).getTime()}-${randomBytes(4).toString("hex")}`;
     const held = join(options.quarantineDir, id);
     const incidents: Incident[] = [];
+    const links: Record<string, HeldLink> = {};
     for (const rel of fresh) {
       try {
+        // A link is kept with where it led: the owner's `.claude` with where it led before the
+        // run, any other with where it leads now. Keep it refuses one that would lead elsewhere.
+        const at = join(root, rel);
+        const lst = await lstat(at).catch(() => undefined);
+        if (lst?.isSymbolicLink() === true) {
+          const text = await readlink(at);
+          const was = rel === CLAUDE_DIR && text === claude.linkText;
+          const r = was
+            ? {
+                ...(claude.real === undefined ? {} : { real: claude.real }),
+                ...(claude.targetId === undefined ? {} : { id: claude.targetId }),
+              }
+            : await resolution(at);
+          links[rel] = { text, ...r };
+        }
         const moved = await moveChecked(join(root, rel), join(held, "entries", rel), {
           root,
           rel,
@@ -318,7 +355,7 @@ async function settle(
     if (report.quarantined.length > 0) {
       report.quarantineId = id;
       try {
-        await writeRecord(held, { root, entries: report.quarantined, incidents });
+        await writeRecord(held, { root, entries: report.quarantined, incidents, links });
       } catch {
         // Without its record Keep it cannot find them: say so rather than hold them silently.
         report.unmoved.push(...report.quarantined.map((rel) => `${rel} (held in ${held})`));
@@ -440,7 +477,11 @@ async function prints(
 }
 
 async function print(path: string, st: BigIntStats): Promise<string> {
-  if (st.isSymbolicLink()) return `link:${await readlink(path).catch(() => "?")}`;
+  if (st.isSymbolicLink()) {
+    // The text, and where it leads now (a folder on its way swapped changes that alone).
+    const r = await resolution(path);
+    return `link:${await readlink(path).catch(() => "?")}:${r.real ?? "-"}:${r.id ?? "-"}`;
+  }
   const kind = st.isFile() ? "file" : st.isDirectory() ? "dir" : "other";
   return `${kind}:${st.ino}:${st.size}:${st.mtimeNs}:${st.ctimeNs}`;
 }
@@ -531,9 +572,17 @@ async function moveChecked(
   return undefined;
 }
 
+/** A held link: its text, and where it led (dev:ino of what was there); unset when dangling. */
+interface HeldLink {
+  text: string;
+  real?: string;
+  id?: string;
+}
+
 interface QuarantineRecord {
   root: string;
   entries: string[];
+  links?: Record<string, HeldLink>;
   /** Moves that brought in something other than what was checked: identity and time. */
   incidents?: Incident[];
 }
@@ -588,6 +637,17 @@ export async function keepQuarantined(
     const to = join(root, rel);
     const from = join(dir, "entries", rel);
     try {
+      const link = record.links?.[rel];
+      if (link !== undefined) {
+        const would = await resolution(
+          isAbsolute(link.text) ? link.text : join(dirname(to), link.text),
+        );
+        if (would.real !== link.real || would.id !== link.id) {
+          throw new PsycheError("conflict", `${rel} would now lead somewhere else`, {
+            details: { reason: "link_resolves_elsewhere", path: rel },
+          });
+        }
+      }
       // Checked before any folder is made, then again by the move.
       await assertInside(root, rel);
       await mkdir(dirname(to), { recursive: true });
@@ -623,6 +683,7 @@ export async function keepQuarantined(
       root,
       entries: result.conflicts,
       ...(record.incidents === undefined ? {} : { incidents: record.incidents }),
+      ...(record.links === undefined ? {} : { links: record.links }),
     });
     throw new PsycheError(
       "conflict",

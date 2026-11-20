@@ -1,5 +1,6 @@
 import {
   existsSync,
+  linkSync,
   mkdirSync,
   mkdtempSync,
   readdirSync,
@@ -472,6 +473,101 @@ describe("code.run and launch config", () => {
       await use("code.run", { root: repo, argv: ["rename"] });
       expect(reports[0]?.quarantined).toEqual(["sub/.vscode"]);
       expect(existsSync(join(repo, "sub.old/.vscode/settings.json"))).toBe(true);
+    });
+  });
+
+  // #1438 review r2, item 1: a file original the run moved or linked elsewhere is not the owner's.
+  describe("an existing file carried to a new path", () => {
+    const evil = "node-options=--require ./evil.js\n";
+
+    it("F: a moved .npmrc with new content is held", async () => {
+      put(".npmrc", "save-exact=true\n");
+      put("pkg/package.json", "{}");
+      const { use, runner, reports } = setup();
+      acts(runner, "move", () => {
+        renameSync(join(repo, ".npmrc"), join(repo, "pkg/.npmrc"));
+        writeFileSync(join(repo, "pkg/.npmrc"), evil);
+      });
+      await use("code.open", { path: repo });
+      await use("code.run", { root: repo, argv: ["move"] });
+      expect(reports[0]?.quarantined).toEqual(["pkg/.npmrc"]);
+      expect(existsSync(join(repo, "pkg/.npmrc"))).toBe(false);
+      expect(reports[0]?.changed).toEqual([".npmrc"]);
+    });
+
+    it("G: a hard link made to .mcp.json is held", async () => {
+      put(".mcp.json", "{}");
+      put("pkg/package.json", "{}");
+      const { use, runner, reports } = setup();
+      acts(runner, "link", () => {
+        linkSync(join(repo, ".mcp.json"), join(repo, "pkg/.mcp.json"));
+        writeFileSync(join(repo, "pkg/.mcp.json"), '{"mcpServers":{"x":{"command":"sh"}}}');
+      });
+      await use("code.open", { path: repo });
+      await use("code.run", { root: repo, argv: ["link"] });
+      expect(reports[0]?.quarantined).toEqual(["pkg/.mcp.json"]);
+      expect(reports[0]?.changed).toEqual([".mcp.json"]);
+    });
+
+    it("G2: the hidden copy is named even when the original was put back clean", async () => {
+      put(".mcp.json", "{}");
+      put("pkg/package.json", "{}");
+      const { use, runner, reports } = setup();
+      acts(runner, "stealth", () => {
+        linkSync(join(repo, ".mcp.json"), join(repo, "pkg/.mcp.json"));
+        writeFileSync(join(repo, "pkg/.mcp.json"), '{"mcpServers":{"x":{"command":"sh"}}}');
+        rmSync(join(repo, ".mcp.json"));
+        writeFileSync(join(repo, ".mcp.json"), "{}");
+      });
+      await use("code.open", { path: repo });
+      await use("code.run", { root: repo, argv: ["stealth"] });
+      expect(reports[0]?.quarantined).toEqual(["pkg/.mcp.json"]);
+      expect(readFileSync(join(repo, ".mcp.json"), "utf8")).toBe("{}");
+    });
+  });
+
+  // #1438 review r2, items 2 and 3: links judged by where they lead, not only their text.
+  describe("a .claude link that leads somewhere else", () => {
+    it("C2: Keep it refuses to put the owner's link back while it would lead elsewhere", async () => {
+      put("config/claude/settings.json", "{}");
+      symlinkSync("config/claude", join(repo, ".claude"));
+      const { use, runner, reports } = setup();
+      acts(runner, "swap", () => {
+        renameSync(join(repo, "config"), join(repo, "config.old"));
+        put("evil/claude/settings.json", '{"hooks":{"SessionStart":[]}}');
+        symlinkSync("evil", join(repo, "config"));
+      });
+      await use("code.open", { path: repo });
+      await use("code.run", { root: repo, argv: ["swap"] });
+      expect(reports[0]?.quarantined).toEqual([".claude"]);
+      expect(existsSync(join(repo, ".claude"))).toBe(false);
+      const id = reports[0]?.quarantineId as string;
+      await expect(keepQuarantined(quarantine, id)).rejects.toMatchObject({ code: "conflict" });
+      expect(existsSync(join(repo, ".claude"))).toBe(false);
+      // Once the folder is back, the link leads where it did, and Keep it puts it back.
+      rmSync(join(repo, "config"));
+      renameSync(join(repo, "config.old"), join(repo, "config"));
+      await keepQuarantined(quarantine, id);
+      expect(readlinkSync(join(repo, ".claude"))).toBe("config/claude");
+    });
+
+    it("H: the same link text leading into the repository through a swapped folder is held", async () => {
+      // `.claude -> sub/../../dot` leads outside the repository, to `<dir>/dot`.
+      mkdirSync(join(dir, "dot"));
+      writeFileSync(join(dir, "dot", "settings.json"), "{}");
+      put("sub/readme.md");
+      symlinkSync("sub/../../dot", join(repo, ".claude"));
+      const { use, runner, reports } = setup();
+      acts(runner, "swap", () => {
+        put("dot/settings.json", '{"hooks":{"SessionStart":[]}}');
+        put("a/b/readme.md");
+        renameSync(join(repo, "sub"), join(repo, "sub.was"));
+        symlinkSync("a/b", join(repo, "sub"));
+      });
+      await use("code.open", { path: repo });
+      await use("code.run", { root: repo, argv: ["swap"] });
+      expect(reports[0]?.quarantined).toEqual([".claude"]);
+      expect(reports[0]?.relinked).toEqual([]);
     });
   });
 
