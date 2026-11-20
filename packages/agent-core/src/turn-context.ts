@@ -1,4 +1,4 @@
-import type { Block, PermissionMode, RunMode, TaintSource } from "@psyche/protocol";
+import type { Block, ModelMessage, PermissionMode, RunMode, TaintSource } from "@psyche/protocol";
 
 /**
  * Turn context providers (feature E12 "From your other chats", and anything like it): code the
@@ -39,4 +39,24 @@ export interface TurnContext {
 export interface TurnContextProvider {
   name: string;
   provide(input: TurnContextInput): Promise<TurnContext | undefined>;
+}
+
+/** What replaces an earlier run's turn context in the thread: fixed, unflagged, carries nothing. */
+export const TURN_CONTEXT_STUB = "[context recalled for an earlier turn was removed]";
+
+/**
+ * Turn context lives for its own run. This replaces every part marked `turnContext` with the
+ * stub, in place, and says whether it changed anything. Run at the start of each run (before
+ * the taint check, so the removed text no longer taints) and by the Gateway when a Forget must
+ * not leave recalled text in a saved thread. One stub per message, however many parts it held.
+ */
+export function stubTurnContext(messages: ModelMessage[]): boolean {
+  let changed = false;
+  for (const m of messages) {
+    if (!m.parts.some((p) => p.type === "text" && p.turnContext === true)) continue;
+    const kept = m.parts.filter((p) => !(p.type === "text" && p.turnContext === true));
+    m.parts = [{ type: "text", text: TURN_CONTEXT_STUB }, ...kept];
+    changed = true;
+  }
+  return changed;
 }

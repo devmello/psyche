@@ -1,3 +1,4 @@
+import { randomUUID } from "node:crypto";
 import {
   type AgentEvent,
   type AgentLoop,
@@ -173,10 +174,12 @@ import {
   isPartList,
   keepRecentToolImages,
   normalizeToolOutput,
+  safeEnd,
   withoutImages,
   withoutToolImages,
 } from "./tool-output.ts";
 import {
+  stubTurnContext,
   TRUSTED_CONTEXT_CAP,
   type TurnContextProvider,
   UNTRUSTED_CONTEXT_CAP,
@@ -246,10 +249,29 @@ const SUMMARY_HEAD =
   "The earlier part of this conversation, compacted. It is a record for context, not a new message from the owner.";
 
 /** An untrusted provider section is cut to the cap, visibly. */
-function capUntrusted(text: string): string {
-  return text.length > UNTRUSTED_CONTEXT_CAP
-    ? `${text.slice(0, UNTRUSTED_CONTEXT_CAP)}\n[truncated: ${text.length - UNTRUSTED_CONTEXT_CAP} more characters]`
-    : text;
+export function capUntrusted(text: string): string {
+  if (text.length <= UNTRUSTED_CONTEXT_CAP) return text;
+  // Never inside a surrogate pair: a lone surrogate in a saved turn would fail every request.
+  const end = safeEnd(text, UNTRUSTED_CONTEXT_CAP);
+  return `${text.slice(0, end)}\n[truncated: ${text.length - end} more characters]`;
+}
+
+/** A notes line the agent itself appended (already in its history): `- HH:MM [agent] …`. */
+const AGENT_NOTE = /^[-*] \d{2}:\d{2} \[agent\]/;
+
+/**
+ * True when everything `next` adds to `prev` is lines the agent wrote itself (its own memory tool).
+ * An owner's, an external writer's, a system's or an untagged line is not, and shows at once.
+ */
+function appendedByAgent(prev: DailyNotes, next: DailyNotes): boolean {
+  return next.files.every((after, i) => {
+    const before = prev.files[i]?.content ?? "";
+    const added = (after.content ?? "").slice(before.length);
+    return added
+      .split("\n")
+      .filter((l) => l.trim() !== "" && !/^\s/.test(l))
+      .every((l) => AGENT_NOTE.test(l) || /^# \d{4}-\d{2}-\d{2}$/.test(l));
+  });
 }
 
 function pluginRef(run: RunState): PluginRunRef {
@@ -647,8 +669,8 @@ export class PsycheAgentLoop implements AgentLoop {
   #subagents = new Map<string, SubagentInfo>();
   /** `notify` dispatches per Task (or run) and the budget card waiting for each (#307). */
   #notifies = new Map<string, { sent: number; card?: string }>();
-  /** Per thread: the daily notes its last prompt carried, and when (see `#keepNotes`). */
-  #threadNotes = new Map<string, { notes: DailyNotes; touched: number }>();
+  /** Per thread: the daily notes its last prompt carried (`at` is when they were read; see `#keepNotes`). */
+  #threadNotes = new Map<string, DailyNotes>();
 
   constructor(options: AgentLoopOptions) {
     this.#o = options;
@@ -909,6 +931,9 @@ export class PsycheAgentLoop implements AgentLoop {
       // Untrusted content still in context keeps steering the model, so the turn starts
       // tainted while it is there (security §3.6: taint survives compaction, and the saved
       // sources survive a kill/restart with the thread state).
+      // Earlier runs' turn context is gone before this run reads the thread: it no longer taints,
+      // and it is never replayed (recall lives for its own run).
+      stubTurnContext(run.thread.messages);
       if (containsUntrusted(run.thread.messages) || run.thread.summary?.untrusted === true) {
         this.#taint(run, { sourceKind: "transcript" });
         for (const s of run.thread.taint?.sources ?? []) this.#taint(run, { ...s });
@@ -1329,16 +1354,28 @@ export class PsycheAgentLoop implements AgentLoop {
     if (provided.length === 0) return;
     const message = run.thread.messages[run.turnStart];
     if (message === undefined || message.role !== "user") return;
-    const rendered = renderUserContext(provided);
-    for (const r of rendered) {
-      message.parts.push({
-        type: "text",
+    // A token third-party text cannot know: the sections and the closing line carry it.
+    const rendered = renderUserContext(provided, {}, randomUUID().replaceAll("-", "").slice(0, 16));
+    // Before the owner's words, so their request is the last thing the model reads.
+    message.parts.unshift(
+      ...rendered.map((r) => ({
+        type: "text" as const,
         text: r.text,
+        turnContext: true as const,
         ...(r.untrusted ? { provenance: "untrusted" as const } : {}),
-      });
-    }
+      })),
+    );
     run.turnContext = rendered.map((r) => r.text).join("\n\n");
     run.turnSections = provided;
+  }
+
+  /** Whether turn context may be shown to this run: the owner's own, not delegated or a peer. */
+  #ownerOnly(run: RunState): boolean {
+    return (
+      run.specialistJob === undefined &&
+      (run.requester === undefined ||
+        (run.requester.role === "owner" && run.requester.toolAllow === undefined))
+    );
   }
 
   /**
@@ -1347,8 +1384,19 @@ export class PsycheAgentLoop implements AgentLoop {
    * the same each step, so it changes the cached prefix only when a compaction replaces it.
    */
   #requestMessages(run: RunState): ModelMessage[] {
+    // A run that is not the owner's own never sees turn context saved in the thread.
+    const messages = this.#ownerOnly(run)
+      ? run.thread.messages
+      : run.thread.messages.map((m) =>
+          m.parts.some((p) => p.type === "text" && p.turnContext === true)
+            ? {
+                ...m,
+                parts: m.parts.filter((p) => !(p.type === "text" && p.turnContext === true)),
+              }
+            : m,
+        );
     const section = run.summarySection;
-    if (section === undefined) return run.thread.messages;
+    if (section === undefined) return messages;
     const parts: ModelPart[] = renderUserContext([section], {
       trusted: SUMMARY_HEAD,
       untrusted: SUMMARY_HEAD,
@@ -1357,10 +1405,10 @@ export class PsycheAgentLoop implements AgentLoop {
       text: r.text,
       ...(r.untrusted ? { provenance: "untrusted" as const } : {}),
     }));
-    const [first, ...rest] = run.thread.messages;
+    const [first, ...rest] = messages;
     if (first?.role === "user")
       return [{ role: "user", parts: [...parts, ...first.parts] }, ...rest];
-    return [{ role: "user", parts }, ...run.thread.messages];
+    return [{ role: "user", parts }, ...messages];
   }
 
   /**
@@ -1373,10 +1421,7 @@ export class PsycheAgentLoop implements AgentLoop {
     if (providers.length === 0 || run.subagent !== undefined || run.ownerText.trim() === "")
       return [];
     const out: ContextSection[] = [];
-    const ownerOnly =
-      run.specialistJob === undefined &&
-      (run.requester === undefined ||
-        (run.requester.role === "owner" && run.requester.toolAllow === undefined));
+    const ownerOnly = this.#ownerOnly(run);
     for (const provider of providers) {
       const got = await withDeadline(
         provider.name,
@@ -1742,17 +1787,21 @@ export class PsycheAgentLoop implements AgentLoop {
     if (run.dailyNotes !== undefined) {
       if (onlyAppended(run.dailyNotes, fresh)) keep = run.dailyNotes;
     } else {
+      // A new run reuses the thread's snapshot only while it is younger than the cache TTL, counted
+      // from when it was read (it never slides), the notes only grew, and every added line is the
+      // agent's own. Anything the owner or another writer appended shows at once.
       const prev = this.#threadNotes.get(run.threadId);
       if (
         prev !== undefined &&
-        now - prev.touched < NOTES_KEEP_MS &&
-        onlyAppended(prev.notes, fresh)
+        now - prev.at < NOTES_KEEP_MS &&
+        onlyAppended(prev, fresh) &&
+        appendedByAgent(prev, fresh)
       ) {
-        keep = prev.notes;
+        keep = prev;
       }
     }
     this.#threadNotes.delete(run.threadId);
-    this.#threadNotes.set(run.threadId, { notes: keep, touched: now });
+    this.#threadNotes.set(run.threadId, keep);
     if (this.#threadNotes.size > 256) {
       const oldest = this.#threadNotes.keys().next().value;
       if (oldest !== undefined) this.#threadNotes.delete(oldest);

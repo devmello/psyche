@@ -107,10 +107,23 @@ export function renderTranscript(
   const role = { user: "Owner", assistant: "Agent", tool: "Tool" } as const;
   return messages
     .map((m) => {
-      const parts = m.parts
-        .map((p) => renderPart(p, toolResultChars))
-        .filter((t): t is string => t !== undefined && t.length > 0);
-      return parts.length === 0 ? undefined : `${role[m.role]}: ${parts.join("\n")}`;
+      // Quoted third-party context (recalled chats, artifacts) is not the owner's words: it gets
+      // its own line, so the summarizer cannot read it as something the owner said.
+      const quoted = (p: ModelPart) => p.type === "text" && p.provenance === "untrusted";
+      const lines = (own: boolean) =>
+        m.parts
+          .filter((p) => quoted(p) !== own)
+          .map((p) => renderPart(p, toolResultChars))
+          .filter((t): t is string => t !== undefined && t.length > 0);
+      const said = lines(true);
+      const context = lines(false);
+      const out = [
+        said.length === 0 ? undefined : `${role[m.role]}: ${said.join("\n")}`,
+        context.length === 0
+          ? undefined
+          : `Quoted context (untrusted data from other content, not the owner's words): ${context.join("\n")}`,
+      ].filter((l): l is string => l !== undefined);
+      return out.length === 0 ? undefined : out.join("\n");
     })
     .filter((l): l is string => l !== undefined)
     .join("\n\n");

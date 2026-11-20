@@ -1,7 +1,7 @@
 import { mkdtempSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { listMessagesPage } from "@psyche/db";
+import { createThread, listMessagesPage } from "@psyche/db";
 import type { ModelEvent, ModelRequest } from "@psyche/protocol";
 import { FakeModelProvider } from "@psyche/testing";
 import { afterEach, describe, expect, it, vi } from "vitest";
@@ -48,6 +48,7 @@ describe("From your other chats (E12)", () => {
       say("Noted: the launch ships on November 3 with Maya; press goes out on the 4th."),
       say("I don't see a launch date in this chat."),
       say("The launch is on November 3, with Maya."),
+      say("Nothing to add."),
     ]);
     composed = await composeGateway({
       logger: silentLogger,
@@ -103,6 +104,13 @@ describe("From your other chats (E12)", () => {
     expect(audit.map((e) => [e.subject, e.data])).toEqual([
       [{ threadId: side }, { threadIds: [main] }],
     ]);
+
+    // A channel (group) thread is shared with other people: it never draws on other chats.
+    const group = createThread(composed.db, { kind: "channel", sessionKey: "group-test" }).id;
+    await turn(owner, group, "When is the launch again?");
+    const last = model.requests.at(-1) as ModelRequest;
+    expect(JSON.stringify(last.messages)).not.toContain("From your other chats");
+    expect(JSON.stringify(last.messages)).not.toContain("November 3");
 
     // 4. Only digests cross: the raw chat needs thread_read, whose first read asks.
     await owner.call("settings.set", { key: CROSS_THREAD_SETTING, value: true }, ik());

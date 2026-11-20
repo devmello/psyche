@@ -20,6 +20,11 @@ export type ModelPart =
        * Providers ignore it.
        */
       provenance?: ProvenanceOut;
+      /**
+       * Context the loop added to a user turn for that run only (turn context providers). The next
+       * run replaces it with a fixed stub; a run that is not the owner's own never sees it.
+       */
+      turnContext?: true;
     }
   | { type: "image"; mime: string; data?: string; url?: string }
   | { type: "tool_call"; id: string; name: string; input: unknown }
