@@ -114,6 +114,12 @@ function send(
     });
   }
   const attachments = [...(params.attachments ?? []), ...(screen?.attachments ?? [])];
+  // One list: an untrusted widget's taint and the screen's or context's both stay on the turn.
+  const taintSources = [
+    ...(fromWidget ?? []),
+    ...(screen?.taintSources ?? []),
+    ...(context?.taintSources ?? []),
+  ];
   const result = call.ctx.sessions.send(
     {
       threadId: params.threadId,
@@ -123,7 +129,9 @@ function send(
         ? {}
         : {
             via: "widget" as const,
-            ...(fromWidget.length === 0 ? {} : { taintSources: fromWidget }),
+            // The widget wrote the reply's text: it is not the owner's words and names no
+            // targets of theirs (never `author: "owner"`).
+            ownerWords: false,
           }),
       ...(screen === undefined && context === undefined && attachedFiles === undefined
         ? {}
@@ -135,13 +143,9 @@ function send(
             ]
               .filter((p): p is string => p !== undefined)
               .join("\n\n"),
-            // Attached files taint when read (read_file results are untrusted), not here.
-            ...(screen === undefined && context === undefined
-              ? {}
-              : {
-                  taintSources: [...(screen?.taintSources ?? []), ...(context?.taintSources ?? [])],
-                }),
           }),
+      // Attached files taint when read (read_file results are untrusted), not here.
+      ...(taintSources.length === 0 ? {} : { taintSources }),
       ...(screen === undefined ? {} : { images: screen.images }),
       ...(context === undefined ? {} : { contextBlocks: context.blocks ?? [context.block] }),
       ...(context?.stickyTaint === true ? { stickyTaint: true } : {}),

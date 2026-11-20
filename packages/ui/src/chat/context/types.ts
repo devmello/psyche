@@ -44,6 +44,8 @@ export interface CompactionView {
   summary: CompactionSummary;
   /** Older standing instructions dropped to make room for new ones. */
   droppedPins?: readonly string[];
+  /** Standing instructions the summary said to retire that stay (a file can't revoke them). */
+  keptPins?: readonly string[];
   createdAt: string;
 }
 
@@ -79,6 +81,7 @@ export function compactionView(block: CompactionBlock, createdAt: string): Compa
     replacedTurns: block.replaced.turns,
     summary: block.summary,
     droppedPins: block.droppedPins ?? [],
+    keptPins: block.keptPins ?? [],
     createdAt,
   };
 }

@@ -647,6 +647,8 @@ export const ar: Partial<Catalogue> = {
   "context.marker.pinRemoveFailed": "تعذّرت الإزالة: {reason}",
   "context.marker.droppedPins":
     "{count, plural, one {تم تجاهل توجيه دائم أقدم} two {تم تجاهل توجيهين دائمين أقدم} few {تم تجاهل # توجيهات دائمة أقدم} many {تم تجاهل # توجيهًا دائمًا أقدم} other {تم تجاهل # توجيه دائم أقدم}} لإفساح المجال للتوجيهات الجديدة.",
+  "context.marker.keptPins":
+    "{count, plural, one {تم الإبقاء على توجيه دائم} two {تم الإبقاء على توجيهين دائمين} few {تم الإبقاء على # توجيهات دائمة} many {تم الإبقاء على # توجيهًا دائمًا} other {تم الإبقاء على # توجيه دائم}}: لا يمكن لملف أو لمحتوى من شخص آخر في هذه المحادثة إزالتها. استخدم «إزالة» إن كنت تقصد ذلك.",
   "context.marker.replacedList": "الأدوار المستبدلة",
   "context.marker.notLoaded": "الأدوار المستبدلة غير محمّلة هنا.",
   "context.marker.speaker": "{name}:",

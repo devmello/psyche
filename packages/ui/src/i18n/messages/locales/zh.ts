@@ -635,6 +635,8 @@ export const zh: Partial<Catalogue> = {
   "context.marker.pinRemoveFailed": "无法删除：{reason}",
   "context.marker.droppedPins":
     "{count, plural, other {为给新指令腾出空间，已丢弃 # 条较早的长期指令。}}",
+  "context.marker.keptPins":
+    "{count, plural, other {已保留 # 条长期指令}}：此对话中的文件或他人的内容无法删除它们。如果你确实想删除，请使用“删除”。",
   "context.marker.replacedList": "被替换的轮次",
   "context.marker.notLoaded": "被替换的轮次未在此处载入。",
   "context.marker.speaker": "{name}：",

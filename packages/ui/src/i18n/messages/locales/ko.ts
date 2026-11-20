@@ -590,6 +590,8 @@ export const ko: Partial<Catalogue> = {
   "context.marker.pinRemoveFailed": "삭제하지 못했습니다: {reason}",
   "context.marker.droppedPins":
     "{count, plural, other {이전 상시 지침 #개를 새 지침을 위한 공간을 만들기 위해 삭제했습니다.}}",
+  "context.marker.keptPins":
+    "{count, plural, other {상시 지침 #개를 유지했습니다}}. 이 채팅의 파일이나 다른 사람의 내용으로는 삭제할 수 없습니다. 삭제하려면 삭제를 사용하세요.",
   "context.marker.replacedList": "대체된 턴",
   "context.marker.notLoaded": "대체된 턴은 여기에 로드되지 않았습니다.",
   "context.marker.speaker": "{name}:",

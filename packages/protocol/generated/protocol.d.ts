@@ -2893,6 +2893,7 @@ export interface Block {
     question?:     string;
     compactionId?: string;
     droppedPins?:  string[];
+    keptPins?:     string[];
     replaced?:     Replaced;
     summary?:      CompactionSummary;
     tokensAfter?:  number;
@@ -3267,6 +3268,7 @@ export type ChecklistBlockType = "checklist";
 export interface CompactionBlock {
     compactionId: string;
     droppedPins?: string[];
+    keptPins?:    string[];
     replaced:     Replaced;
     summary:      CompactionSummary;
     tokensAfter:  number;

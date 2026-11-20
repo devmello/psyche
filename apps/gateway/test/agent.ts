@@ -10,7 +10,7 @@ type Step = ScriptedAgentEvent | { type: "wait"; gate: string } | { type: "do"; 
  */
 export class GatedAgentLoop implements AgentLoop {
   readonly turns: StartTurnInput[] = [];
-  readonly steers: { runId: string; text: string }[] = [];
+  readonly steers: { runId: string; text: string; ownerWords?: boolean }[] = [];
   /** Runs parked on a card or question, and the chat replies that ended the wait. */
   readonly waiting = new Set<string>();
   readonly superseded: { runId: string; text: string }[] = [];
@@ -81,8 +81,12 @@ export class GatedAgentLoop implements AgentLoop {
     yield { type: "end", runId: input.runId, outcome: "final" };
   }
 
-  async steer(runId: string, text: string): Promise<void> {
-    this.steers.push({ runId, text });
+  async steer(runId: string, text: string, options?: { ownerWords?: boolean }): Promise<void> {
+    this.steers.push({
+      runId,
+      text,
+      ...(options?.ownerWords === undefined ? {} : { ownerWords: options.ownerWords }),
+    });
   }
 
   isWaiting(runId: string): boolean {

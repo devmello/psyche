@@ -116,6 +116,11 @@ export function CompactionMarker({
               {t("context.marker.droppedPins", { count: c.droppedPins.length })}
             </p>
           ) : null}
+          {c.keptPins && c.keptPins.length > 0 ? (
+            <p className="text-xs text-muted-foreground">
+              {t("context.marker.keptPins", { count: c.keptPins.length })}
+            </p>
+          ) : null}
           {replaced ??
             (onShowReplaced ? (
               <div>

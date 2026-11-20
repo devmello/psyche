@@ -207,6 +207,11 @@ export const CompactionBlock = Type.Object(
     tokensAfter: Type.Integer({ minimum: 0 }),
     /** Older standing instructions dropped to make room for new ones (the list was full). */
     droppedPins: Type.Optional(Type.Array(Type.String({ maxLength: 500 }), { maxItems: 40 })),
+    /**
+     * Standing instructions the summary said to retire but that stay: a file or third-party
+     * content in the conversation may not revoke them, and the owner's own words did not.
+     */
+    keptPins: Type.Optional(Type.Array(Type.String({ maxLength: 500 }), { maxItems: 40 })),
   },
   { $id: "CompactionBlock" },
 );

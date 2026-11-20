@@ -133,6 +133,7 @@ export function createContext(deps: ContextDeps) {
       ...(c.droppedPins === undefined || c.droppedPins.length === 0
         ? {}
         : { droppedPins: c.droppedPins }),
+      ...(c.keptPins === undefined || c.keptPins.length === 0 ? {} : { keptPins: c.keptPins }),
     };
     let message: Message | undefined;
     try {

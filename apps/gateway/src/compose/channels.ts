@@ -651,6 +651,35 @@ export function turnText(parts: readonly InboundPart[]): string {
     .join("\n\n");
 }
 
+/**
+ * What a channel message becomes as turn input. A non-owner sender (a group member, an allowed
+ * sender) is third-party content whatever the event's own taint list says: the turn starts
+ * tainted by `channel_message` for them, and the loop tags and fences their text as untrusted
+ * (`requester.role` is the signal there). Built for every route, so a later change that opens
+ * group turns gets this without remembering it.
+ */
+export function inboundTurnInput(event: ChannelInboundEvent): {
+  content: string;
+  requester: ReturnType<typeof requesterFromRoute>;
+  taintSources: TaintSource[];
+} {
+  const taintSources = inputTaintSources(event);
+  if (
+    event.route.role !== "owner" &&
+    !taintSources.some((t) => t.sourceKind === "channel_message")
+  ) {
+    taintSources.unshift({
+      sourceKind: "channel_message",
+      sender: `${event.route.channelType}:${event.route.senderId}`,
+    });
+  }
+  return {
+    content: turnText(event.parts),
+    requester: requesterFromRoute(event.route),
+    taintSources,
+  };
+}
+
 /** A channel-started run, kept until its last reply has been sent (the reply authority's turn). */
 interface TurnState {
   threadId: string;
@@ -1299,13 +1328,12 @@ export function composeChannels(
       await onCommand(event, thread, target);
       return;
     }
-    const content = turnText(event.parts);
+    const { content, requester, taintSources } = inboundTurnInput(event);
     if (content.trim() === "") return;
-    const taintSources = inputTaintSources(event);
     startTurn(thread.id, {
       target,
       content,
-      requester: requesterFromRoute(route),
+      requester,
       ...(taintSources.length === 0 ? {} : { taintSources }),
       inbound: message,
     });
