@@ -61,6 +61,8 @@ This covers any rule that sorts inputs into "asks" and "doesn't ask": money-inte
 - **Unexpressible input means ask or refuse, never `continue`.** #1329: a git driver name that couldn't be expressed was skipped, `(.+)` missed empty names, and `status.ignoreSubmodules` was a config key git doesn't have. Check a config key or flag against the tool itself (`git config --help`, run it), not memory.
 - **Validate what the tool will resolve, not what encloses it.** #1329 B2 checked the enclosing repo, not the repo git actually resolves (`-C`, `GIT_DIR`, alternates, submodules). Resolve first, then check that result.
 - **Every new action path gets checked against every existing prohibition.** #1315's purchase tool skipped #1321's hard block. When a PR adds a tool, route or channel that can act, list the prohibitions (money block, outbound check, read-only allowlist, presence) and add a test per prohibition through the new path.
+- **Mutations bind to the fd you checked.** If the checked handle can't be opened, refuse; a by-path `chmod`/`rename` fallback follows a swapped link out of the share (#1450 r1). Copied mode bits drop setuid, setgid and sticky.
+- **Identity comes from the server or kernel, not a client-set field.** Window ownership uses X-Resource `LocalClientPID` plus the cgroup scope, never `_NET_WM_PID`; a missing answer refuses (#1293 r6, #1452 r1).
 - **Presence stays payments-only.** #1327's agent search popped a vault unlock. Reads and searches never trigger Touch ID or a vault prompt.
 
 ## 3c. Redacted reads, "is this narrower?" checks, receipts
