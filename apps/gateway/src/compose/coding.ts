@@ -111,6 +111,33 @@ export function hostGit(binary = "git"): GitRunner {
   };
 }
 
+/**
+ * Stops every sandbox `code.run` made for `root` before "Keep it" (#1438 review r1): each one
+ * best-effort, logged when it fails, and forgotten only once it is gone, so a failed one is tried
+ * again by the next Keep it.
+ */
+export async function stopRepositorySandboxes(
+  sandboxes: CodingSandboxes,
+  runner: SandboxRunner | undefined,
+  root: string,
+  logger?: ComposeServices["logger"],
+): Promise<void> {
+  if (runner === undefined) return;
+  for (const sb of sandboxes.list(root)) {
+    try {
+      if (runner.destroyScope !== undefined) await runner.destroyScope(sb.scope);
+      else await runner.destroy(sb.sandboxId);
+      sandboxes.forget(root, sb);
+    } catch (err) {
+      logger?.log("warn", "coding: a sandbox could not be stopped before Keep it", {
+        root,
+        sandbox: sb.sandboxId,
+        error: err instanceof Error ? err.message : String(err),
+      });
+    }
+  }
+}
+
 export function composeCoding(services: ComposeServices, setup: CodingSetup = {}): ComposedPart {
   const read = services.tools.get("read_file") as AgentToolRegistration | undefined;
   const write = services.tools.get("write_file") as AgentToolRegistration | undefined;
@@ -126,15 +153,14 @@ export function composeCoding(services: ComposeServices, setup: CodingSetup = {}
     resolve: (id) => services.notifier.resolve(id),
     quarantineDir,
   });
-  const sandboxes = new CodingSandboxes();
+  // Kept across restarts: a container the runner adopts later is still stopped by Keep it.
+  const sandboxes = new CodingSandboxes(join(services.home, "coding", "sandboxes.json"));
   const runner = setup.runner;
   const unregisterKeep = services.notificationActions?.register(KEEP_ACTION, async (_n, id) => {
     const kept = await keepQuarantined(quarantineDir, id, {
       // Keep it is the owner's own tap: the repository's sandbox stops first, so nothing still
       // running in it can swap a folder while entries go back (dev servers in it end too).
-      beforeKeep: async (root) => {
-        for (const sandboxId of sandboxes.take(root)) await runner?.destroy(sandboxId);
-      },
+      beforeKeep: (root) => stopRepositorySandboxes(sandboxes, runner, root, services.logger),
     });
     services.logger?.log("info", "coding: the owner kept launch config a run made", {
       root: kept.root,
