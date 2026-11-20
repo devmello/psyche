@@ -42,13 +42,13 @@ On main, the Gateway reads its model from environment variables when it starts:
 - `PSYCHE_UTILITY_MODEL` is optional. It names a second model for background jobs such as the memory flush. It defaults to `PSYCHE_MODEL`.
 - Hosted providers read their key from the provider's usual variable.
 
-| Provider       | Example `PSYCHE_MODEL`        | Key variable                                                  |
-| -------------- | ----------------------------- | ------------------------------------------------------------- |
-| Anthropic      | `anthropic/claude-sonnet-5-5` | `ANTHROPIC_API_KEY`                                           |
-| OpenAI         | `openai/gpt-5.2`              | `OPENAI_API_KEY`                                              |
-| Google         | `google/gemini-pro-latest`    | `GOOGLE_GENERATIVE_AI_API_KEY`                                |
-| OpenRouter     | `openrouter/auto`             | `OPENROUTER_API_KEY`                                          |
-| Ollama (local) | `ollama/qwen3.5:9b`           | none; `PSYCHE_OLLAMA_URL` for a server other than the default |
+| Provider | Example `PSYCHE_MODEL` | Key variable |
+| --- | --- | --- |
+| Anthropic | `anthropic/claude-sonnet-5-5` | `ANTHROPIC_API_KEY` |
+| OpenAI | `openai/gpt-5.2` | `OPENAI_API_KEY` |
+| Google | `google/gemini-pro-latest` | `GOOGLE_GENERATIVE_AI_API_KEY` |
+| OpenRouter | `openrouter/auto` | `OPENROUTER_API_KEY` |
+| Ollama (local) | `ollama/qwen3.5:9b` | none; `PSYCHE_OLLAMA_URL` for a server other than the default |
 
 The model ids are examples: use any id your provider offers.
 
@@ -91,11 +91,11 @@ Run one local model at a time; two at once can exhaust a 16 GB Mac's memory.
 
 Local models need memory. A rough fit by the Mac's unified memory:
 
-| Memory       | Model size              | Examples                                                               |
-| ------------ | ----------------------- | ---------------------------------------------------------------------- |
-| 16 GB        | about 9B                | `qwen3.5:9b`, `gemma4:12b`; `gpt-oss:20b` loads but is too slow to use |
-| 32 GB        | 27 to 31B               | `qwen3.8:27b`, `gemma4:31b`, `gemma4:26b`                              |
-| 96 to 128 GB | 120B mixture of experts | `gpt-oss:120b`                                                         |
+| Memory | Model size | Examples |
+| --- | --- | --- |
+| 16 GB | about 9B | `qwen3.5:9b`, `gemma4:12b`; `gpt-oss:20b` loads but is too slow to use |
+| 32 GB | 27 to 31B | `qwen3.8:27b`, `gemma4:31b`, `gemma4:26b` |
+| 96 to 128 GB | 120B mixture of experts | `gpt-oss:120b` |
 
 #### The agent-capable check
 
@@ -155,14 +155,14 @@ The app pairs with the Gateway on its own, because both run on the same Mac. It 
 
 The first time, the app shows onboarding under a "Set up Psyche" title. It has six steps. On main only the first step changes anything:
 
-| Step               | What you see                                                                                                                                                                      | What it saves on main                                                                                                                                      |
-| ------------------ | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Meet your agent    | Name (suggestions Juno, Moss, Pip, or Keep "Psyche"), Creature (Pick one, or Describe it in your words), Vibe or tagline, and a preview                                           | The name, creature and tagline, written to `IDENTITY.md`                                                                                                   |
-| Permissions        | Accessibility, Screen Recording and Notifications, each with Allow or Skip                                                                                                        | Nothing. The app does not ask macOS from this step yet; Allow marks the item Skipped.                                                                      |
-| Connectors         | Account to connect, then Read only or Read and act, then Connect; or Skip for now                                                                                                 | Nothing. Use Skip for now. If you click Connect, the step lists the account as connected, but no account is connected. See [connectors.md](connectors.md). |
-| Model & provider   | How should the agent think? (Cloud API key, Subscription, OpenRouter, Local model), Provider, Model (a short list, or Another model with a Model id), API key, Tool-calling check | Nothing. The API key field is disabled. The Gateway uses `PSYCHE_MODEL`.                                                                                   |
-| Where {name} works | This Mac, or A Mac inside Psyche (VM mode)                                                                                                                                        | Nothing. VM mode is not available yet; the agent works on this Mac.                                                                                        |
-| Done               | A summary of your answers                                                                                                                                                         | "Open the main chat" finishes onboarding                                                                                                                   |
+| Step | What you see | What it saves on main |
+| --- | --- | --- |
+| Meet your agent | Name (suggestions Juno, Moss, Pip, or Keep "Psyche"), Creature (Pick one, or Describe it in your words), Vibe or tagline, and a preview | The name, creature and tagline, written to `IDENTITY.md` |
+| Permissions | Accessibility, Screen Recording and Notifications, each with Allow or Skip | Nothing. The app does not ask macOS from this step yet; Allow marks the item Skipped. |
+| Connectors | Account to connect, then Read only or Read and act, then Connect; or Skip for now | Nothing. Use Skip for now. If you click Connect, the step lists the account as connected, but no account is connected. See [connectors.md](connectors.md). |
+| Model & provider | How should the agent think? (Cloud API key, Subscription, OpenRouter, Local model), Provider, Model (a short list, or Another model with a Model id), API key, Tool-calling check | Nothing. The API key field is disabled. The Gateway uses `PSYCHE_MODEL`. |
+| Where {name} works | This Mac, or A Mac inside Psyche (VM mode) | Nothing. VM mode is not available yet; the agent works on this Mac. |
+| Done | A summary of your answers | "Open the main chat" finishes onboarding |
 
 Onboarding runs once per Gateway, not once per device. To change the name, creature or tagline later, edit `IDENTITY.md` (see [memory-and-persona.md](memory-and-persona.md)).
 
@@ -230,19 +230,19 @@ Settings are stored in the Gateway, in `~/.psyche/state/psyche.sqlite`, so every
 
 On main, many sections save values that the Gateway does not act on yet. This is what takes effect today:
 
-| Section           | On main                                                                                                                  |
-| ----------------- | ------------------------------------------------------------------------------------------------------------------------ |
-| File access       | Works (admin). The broker applies it at once.                                                                            |
-| Permissions       | The Grants ledger and Revoke work (admin). "Default mode for new threads" is saved but not applied yet.                  |
-| Devices & nodes   | Lists devices and nodes; approve, deny and revoke work (admin).                                                          |
-| Channels          | Manages channels that already exist (admin).                                                                             |
-| Appearance        | Works. On the desktop it also has the zoom control.                                                                      |
-| Data controls     | Pause memory, deleting archived threads, Reset and the Backups panel work. "Export everything" does not save a file yet. |
-| About             | The log viewer. It shows lines only when the Gateway writes log files, which a Gateway started in a terminal does not.   |
-| Model & providers | Saved, not used. The Gateway uses `PSYCHE_MODEL`.                                                                        |
-| Persona           | Saved, not used. Edit `IDENTITY.md` instead.                                                                             |
-| Connectors        | Lists connectors; nothing can be connected yet.                                                                          |
-| Credentials       | The Gateway runs the vault, but nothing can set it up yet, so it stays locked and nothing can be stored.                 |
+| Section | On main |
+| --- | --- |
+| File access | Works (admin). The broker applies it at once. |
+| Permissions | The Grants ledger and Revoke work (admin). "Default mode for new threads" is saved but not applied yet. |
+| Devices & nodes | Lists devices and nodes; approve, deny and revoke work (admin). |
+| Channels | Manages channels that already exist (admin). |
+| Appearance | Works. On the desktop it also has the zoom control. |
+| Data controls | Pause memory, deleting archived threads, Reset and the Backups panel work. "Export everything" does not save a file yet. |
+| About | The log viewer. It shows lines only when the Gateway writes log files, which a Gateway started in a terminal does not. |
+| Model & providers | Saved, not used. The Gateway uses `PSYCHE_MODEL`. |
+| Persona | Saved, not used. Edit `IDENTITY.md` instead. |
+| Connectors | Lists connectors; nothing can be connected yet. |
+| Credentials | The Gateway runs the vault, but nothing can set it up yet, so it stays locked and nothing can be stored. |
 
 ## On Windows
 
@@ -261,17 +261,17 @@ The steps above work on Windows 10 and 11 (x64) in PowerShell, with these differ
 
 Everything is under `~/.psyche`:
 
-| Path                  | What                                                            |
-| --------------------- | --------------------------------------------------------------- |
+| Path | What |
+| --- | --- |
 | `state/psyche.sqlite` | Threads, messages, tasks, approvals, grants, receipts, settings |
-| `workspace/`          | The agent's persona and memory as Markdown files                |
-| `audit/`              | The hash-chained audit log                                      |
-| `vault/`              | The encrypted credential vault, once it is set up               |
-| `library/`            | Downloads and attachments (in `library/quarantine/` for now)    |
-| `browser/profiles/`   | The agent browser's profiles                                    |
-| `backups/`            | Backups the Gateway makes                                       |
-| `run/`                | Sockets and the per-launch handshake secret                     |
-| `config.json`         | The Gateway's connection settings                               |
+| `workspace/` | The agent's persona and memory as Markdown files |
+| `audit/` | The hash-chained audit log |
+| `vault/` | The encrypted credential vault, once it is set up |
+| `library/` | Downloads and attachments (in `library/quarantine/` for now) |
+| `browser/profiles/` | The agent browser's profiles |
+| `backups/` | Backups the Gateway makes |
+| `run/` | Sockets and the per-launch handshake secret |
+| `config.json` | The Gateway's connection settings |
 
 ## Stopping and restarting
 

@@ -14,27 +14,27 @@ Widgets stay live. The agent, a tool, a background job or a scheduled task can p
 
 Audited on main at `6d163174`.
 
-| Piece                      | Where                                                                                                                                                                                                                                                                                                                                                      | What it means for this design                                                                                                                          |
-| -------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------ |
-| Typed block union          | `packages/protocol/src/schemas/blocks.ts` (`Block`, discriminator `type`), `Message.blocks` in `schemas/threads.ts`                                                                                                                                                                                                                                        | A new `ui` block slots in as one more member.                                                                                                          |
-| Reference blocks           | `approval` = `{approvalId}`, `question` = `{inputRequestId}`; cards read the entity from the store                                                                                                                                                                                                                                                         | The pattern to copy: the block holds a `widgetId`, the spec lives in its own entity so it can change without rewriting the message.                    |
-| Block registry             | `packages/ui/src/blocks/registry.tsx`, registrations in `blocks/MessageBlocks.tsx`; unknown types → `UnknownBlock`                                                                                                                                                                                                                                         | The widget renderer registers once and is lazy-loaded.                                                                                                 |
-| Approval card              | `blocks/ApprovalCard.tsx` (fixed template from `packages/permissions/src/cards.ts` `renderForSurface`), docked by `chat/ApprovalDock.tsx`; `ui/test/card-chrome-lint.test.ts`                                                                                                                                                                              | Already host-owned and outside the message stream (docs/05 §3.7). §7.4 builds on this.                                                                 |
-| Question card              | `blocks/QuestionCard.tsx`, answered with `questions.answer`                                                                                                                                                                                                                                                                                                | Widget choices reuse it (§6.2).                                                                                                                        |
-| Plan / checklist / wrap-up | `plan`, `checklist` (`blocks/Checklist.tsx`, fed by the `update_plan` tool in `packages/agent-core/src/context.ts`), `wrap_up` (`blocks/WrapUp.tsx`, buttons send a message)                                                                                                                                                                               | Fixed shapes for one job each. Generative UI generalises them; they stay as they are.                                                                  |
-| Research progress (#1001)  | No block: a tool call plus `research.progress` events (`schemas/research.ts`), `research/ResearchProgress.tsx`                                                                                                                                                                                                                                             | Live state today comes from bespoke per-entity events. Bindings (§5.4) let a widget reuse those streams.                                               |
-| Schedule card (#1002)      | `automation_workflow` block, `blocks/AutomationWorkflowCard.tsx`                                                                                                                                                                                                                                                                                           | Stays the typed proposal card; a widget can bind to an automation's run status.                                                                        |
-| Edit-audit chip (#985)     | Not a block: `chat/ChangeChip.tsx` from `audit.change.recorded`                                                                                                                                                                                                                                                                                            | Unaffected.                                                                                                                                            |
-| Source chips (#1012)       | `sources` block, `blocks/SourceChips.tsx`, untrusted border                                                                                                                                                                                                                                                                                                | Widgets reuse the untrusted border and label.                                                                                                          |
-| Artifacts                  | `packages/viewers/src/core/artifact.ts`: inner `<iframe sandbox="allow-scripts" srcdoc>`, CSP `default-src 'none'`, `connect-src 'none'`; hosted on a separate origin whose host page (`ArtifactFrame.tsx`, `allow-scripts allow-same-origin` by design, see the file header) builds the inner frame. React via self-hosted Sandpack (`react/sandpack.ts`) | The escape hatch (§6.5).                                                                                                                               |
-| Documents (#997)           | `docs/design/documents-2026.md`: doc/sheet/slides canvas artifacts with typed ops, versions, exports                                                                                                                                                                                                                                                       | Not a widget concern; a widget can link to a document.                                                                                                 |
-| MCP Apps                   | `packages/mcp-host/src/host.ts` serves declared `ui://` resources; no RPC or UI host yet                                                                                                                                                                                                                                                                   | Built (P9): `mcp.app` serves the `ui://` resource a tool declares; the UI draws it in the artifact frame behind "Run app", with no way back (§10, P9). |
-| Markdown                   | Streamdown in `blocks/Markdown.tsx`: `skipHtml`, `isSafeLink` (http(s), mailto, `#`, relative)                                                                                                                                                                                                                                                             | Widget `markdown` and text props reuse this component as is.                                                                                           |
-| Live events                | `frames.ts`: `seq` + `stateVersion`; gaps → refresh (`ui/src/data/store.ts`), no replay. `chat.block` is append-only; live state goes through per-entity events (`tool_call.updated`, `task.updated`, `research.progress`, `approval.updated`)                                                                                                             | A `widget.updated` event fits this model; reconnect = refetch snapshots.                                                                               |
-| Persistence                | `messages.blocks` JSON (`packages/db/migrations/202610182200_db_init.sql`, `packages/db/src/schema.ts`)                                                                                                                                                                                                                                                    | A new `widgets` table; the message keeps only the reference.                                                                                           |
-| Taint                      | docs/05 §3.6; `TaintSource` in `schemas/permissions.ts`; turn-scoped, per tool call and Task; display in `ToolRun.tsx`, `blocks/taint-text.ts`                                                                                                                                                                                                             | No per-block taint field exists. Widgets add one (§7.3).                                                                                               |
-| Feed / Overview            | `FeedPost.card` (`schemas/surfaces.ts`), `screens/feed/`; `packages/ui/src/overview/`. Only threads pin                                                                                                                                                                                                                                                    | Feed snapshot and Overview pinning are new (§8).                                                                                                       |
-| Channels                   | `apps/gateway/src/compose/channels.ts` forwards only `text` blocks; approvals go as text via `packages/channels/src/format/approval-card.ts`                                                                                                                                                                                                               | Widgets need a text fallback (§8).                                                                                                                     |
+| Piece | Where | What it means for this design |
+| --- | --- | --- |
+| Typed block union | `packages/protocol/src/schemas/blocks.ts` (`Block`, discriminator `type`), `Message.blocks` in `schemas/threads.ts` | A new `ui` block slots in as one more member. |
+| Reference blocks | `approval` = `{approvalId}`, `question` = `{inputRequestId}`; cards read the entity from the store | The pattern to copy: the block holds a `widgetId`, the spec lives in its own entity so it can change without rewriting the message. |
+| Block registry | `packages/ui/src/blocks/registry.tsx`, registrations in `blocks/MessageBlocks.tsx`; unknown types → `UnknownBlock` | The widget renderer registers once and is lazy-loaded. |
+| Approval card | `blocks/ApprovalCard.tsx` (fixed template from `packages/permissions/src/cards.ts` `renderForSurface`), docked by `chat/ApprovalDock.tsx`; `ui/test/card-chrome-lint.test.ts` | Already host-owned and outside the message stream (docs/05 §3.7). §7.4 builds on this. |
+| Question card | `blocks/QuestionCard.tsx`, answered with `questions.answer` | Widget choices reuse it (§6.2). |
+| Plan / checklist / wrap-up | `plan`, `checklist` (`blocks/Checklist.tsx`, fed by the `update_plan` tool in `packages/agent-core/src/context.ts`), `wrap_up` (`blocks/WrapUp.tsx`, buttons send a message) | Fixed shapes for one job each. Generative UI generalises them; they stay as they are. |
+| Research progress (#1001) | No block: a tool call plus `research.progress` events (`schemas/research.ts`), `research/ResearchProgress.tsx` | Live state today comes from bespoke per-entity events. Bindings (§5.4) let a widget reuse those streams. |
+| Schedule card (#1002) | `automation_workflow` block, `blocks/AutomationWorkflowCard.tsx` | Stays the typed proposal card; a widget can bind to an automation's run status. |
+| Edit-audit chip (#985) | Not a block: `chat/ChangeChip.tsx` from `audit.change.recorded` | Unaffected. |
+| Source chips (#1012) | `sources` block, `blocks/SourceChips.tsx`, untrusted border | Widgets reuse the untrusted border and label. |
+| Artifacts | `packages/viewers/src/core/artifact.ts`: inner `<iframe sandbox="allow-scripts" srcdoc>`, CSP `default-src 'none'`, `connect-src 'none'`; hosted on a separate origin whose host page (`ArtifactFrame.tsx`, `allow-scripts allow-same-origin` by design, see the file header) builds the inner frame. React via self-hosted Sandpack (`react/sandpack.ts`) | The escape hatch (§6.5). |
+| Documents (#997) | `docs/design/documents-2026.md`: doc/sheet/slides canvas artifacts with typed ops, versions, exports | Not a widget concern; a widget can link to a document. |
+| MCP Apps | `packages/mcp-host/src/host.ts` serves declared `ui://` resources; no RPC or UI host yet | Built (P9): `mcp.app` serves the `ui://` resource a tool declares; the UI draws it in the artifact frame behind "Run app", with no way back (§10, P9). |
+| Markdown | Streamdown in `blocks/Markdown.tsx`: `skipHtml`, `isSafeLink` (http(s), mailto, `#`, relative) | Widget `markdown` and text props reuse this component as is. |
+| Live events | `frames.ts`: `seq` + `stateVersion`; gaps → refresh (`ui/src/data/store.ts`), no replay. `chat.block` is append-only; live state goes through per-entity events (`tool_call.updated`, `task.updated`, `research.progress`, `approval.updated`) | A `widget.updated` event fits this model; reconnect = refetch snapshots. |
+| Persistence | `messages.blocks` JSON (`packages/db/migrations/202610182200_db_init.sql`, `packages/db/src/schema.ts`) | A new `widgets` table; the message keeps only the reference. |
+| Taint | docs/05 §3.6; `TaintSource` in `schemas/permissions.ts`; turn-scoped, per tool call and Task; display in `ToolRun.tsx`, `blocks/taint-text.ts` | No per-block taint field exists. Widgets add one (§7.3). |
+| Feed / Overview | `FeedPost.card` (`schemas/surfaces.ts`), `screens/feed/`; `packages/ui/src/overview/`. Only threads pin | Feed snapshot and Overview pinning are new (§8). |
+| Channels | `apps/gateway/src/compose/channels.ts` forwards only `text` blocks; approvals go as text via `packages/channels/src/format/approval-card.ts` | Widgets need a text fallback (§8). |
 
 ## 3. Goals and non-goals
 
@@ -49,28 +49,18 @@ Non-goals: arbitrary layout or styling, animation authoring, replacing the typed
 ```jsonc
 {
   "v": 1,
-  "title": "Inbox cleanup", // shown in host chrome, ≤ 80 chars
+  "title": "Inbox cleanup",            // shown in host chrome, ≤ 80 chars
   "fallbackText": "Inbox cleanup: 3 of 5 steps done (60%).", // channels, a11y summary, copy
   "root": {
-    "id": "root",
-    "type": "stack",
-    "children": [
+    "id": "root", "type": "stack", "children": [
       { "id": "p", "type": "progress", "label": "Cleanup", "value": 3, "max": 5 },
-      {
-        "id": "steps",
-        "type": "checklist",
-        "items": [
-          { "id": "s1", "label": "Archive newsletters", "state": "done" },
-          { "id": "s2", "label": "Draft replies", "state": "active" },
-          { "id": "s3", "label": "Unsubscribe", "state": "todo" }
-        ]
-      },
-      {
-        "id": "go",
-        "type": "button",
-        "label": "Draft the replies now",
-        "action": { "kind": "reply", "text": "Draft the replies now" }
-      }
+      { "id": "steps", "type": "checklist", "items": [
+        { "id": "s1", "label": "Archive newsletters", "state": "done" },
+        { "id": "s2", "label": "Draft replies", "state": "active" },
+        { "id": "s3", "label": "Unsubscribe", "state": "todo" }
+      ]},
+      { "id": "go", "type": "button", "label": "Draft the replies now",
+        "action": { "kind": "reply", "text": "Draft the replies now" } }
     ]
   }
 }
@@ -80,15 +70,15 @@ Every node has an `id` unique in the widget (`^[a-z0-9_-]{1,40}$`) and a `type`.
 
 ### 4.2 Catalogue
 
-| Group               | Node types                                                                                                                                                                                                        | Notes                                                               |
-| ------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------- |
-| Progress and status | `progress` (value/max or indeterminate, optional `steps[]`), `checklist` (items with `todo / active / done / skipped / failed`), `timeline` (entries with time, label, tone), `status` (one-line badge with tone) | The core of the request.                                            |
-| Numbers             | `stat` (label, value, unit, delta, tone), `kv` (label/value rows)                                                                                                                                                 |                                                                     |
-| Data                | `table` (columns with type `text / number / date / link`, rows; sortable by the host), `chart` (`bar / line / sparkline`, ≤ 4 series)                                                                             | Charts are a small in-house SVG renderer, not a chart library (§9). |
-| Content             | `text` (plain), `markdown` (via `Markdown.tsx`), `code` (Shiki via `blocks/highlighter.ts`), `image` (§7.2), `map` (§11 D4), `link` (host-routed)                                                                 |                                                                     |
-| Containers          | `card` (title, subtitle, children), `list` (items with title, meta, optional action)                                                                                                                              |                                                                     |
-| Interaction         | `button`, `choices` (single or multi), `form` (fields: `text / textarea / number / select / toggle / date`, one submit)                                                                                           | Every action is one of the kinds in §6.2.                           |
-| Layout              | `stack` (vertical/horizontal, gap from a fixed scale), `grid` (2–4 columns, collapses on narrow widths), `tabs`                                                                                                   | No absolute positioning, no sizes in pixels.                        |
+| Group | Node types | Notes |
+| --- | --- | --- |
+| Progress and status | `progress` (value/max or indeterminate, optional `steps[]`), `checklist` (items with `todo / active / done / skipped / failed`), `timeline` (entries with time, label, tone), `status` (one-line badge with tone) | The core of the request. |
+| Numbers | `stat` (label, value, unit, delta, tone), `kv` (label/value rows) | |
+| Data | `table` (columns with type `text / number / date / link`, rows; sortable by the host), `chart` (`bar / line / sparkline`, ≤ 4 series) | Charts are a small in-house SVG renderer, not a chart library (§9). |
+| Content | `text` (plain), `markdown` (via `Markdown.tsx`), `code` (Shiki via `blocks/highlighter.ts`), `image` (§7.2), `map` (§11 D4), `link` (host-routed) | |
+| Containers | `card` (title, subtitle, children), `list` (items with title, meta, optional action) | |
+| Interaction | `button`, `choices` (single or multi), `form` (fields: `text / textarea / number / select / toggle / date`, one submit) | Every action is one of the kinds in §6.2. |
+| Layout | `stack` (vertical/horizontal, gap from a fixed scale), `grid` (2–4 columns, collapses on narrow widths), `tabs` | No absolute positioning, no sizes in pixels. |
 
 Styling is semantic only: `tone` is one of `neutral / info / success / warning / danger`, `emphasis` is `normal / strong`, `density` is `compact / comfortable`. The renderer maps those to the existing tokens in light and dark. There are no colour values, fonts, CSS or class names in the spec, and the approval card's accent is not one of the tones (§7.4).
 
@@ -149,13 +139,13 @@ No auto-actions: nothing fires on render, on a timer, on hover or on focus. Ever
 
 ### 6.2 Action kinds
 
-| Kind                                                                   | What happens                                                                                                                                                                                                                                                                                                                                    | Permission path                                                      |
-| ---------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------- |
-| `reply {text}`                                                         | Sends `text` as an owner message in the thread, shown in the transcript with a small "from widget" chip so the owner sees exactly what was sent.                                                                                                                                                                                                | It is the owner's message; the run that answers it is a normal turn. |
-| `answer {inputRequestId, value}`                                       | Answers an open question (`questions.answer`). `choices` with `"ask": true` is rendered from a real `InputRequest` the Gateway creates, so it is the existing ask/answer flow with a richer layout.                                                                                                                                             | Existing.                                                            |
-| `form submit {as: "reply"}`                                            | Field values (typed by the owner) are composed into an owner message, visible in the transcript.                                                                                                                                                                                                                                                | As `reply`.                                                          |
-| `form submit {as: "tool", tool}` / `button {kind: "tool", tool, args}` | Proposes one tool call with the given args (form fields filled in). The Gateway hands it to the agent loop as if the model had called it in a new turn, so it meets the Permission Broker, the binding hash, grants and taint exactly as the equivalent model call would. If the policy says `ask`, the real approval card appears in the dock. | Broker; never weaker than the model calling the tool.                |
-| `open {route                                                           | artifactId                                                                                                                                                                                                                                                                                                                                      | fileId                                                               | url}` | Host navigation: an app route (like `app_link`), an artifact, a file viewer, or a link through the existing safe-link path. | Navigation rules (new origin in a tainted context asks, docs/05 §3.6). |
+| Kind | What happens | Permission path |
+| --- | --- | --- |
+| `reply {text}` | Sends `text` as an owner message in the thread, shown in the transcript with a small "from widget" chip so the owner sees exactly what was sent. | It is the owner's message; the run that answers it is a normal turn. |
+| `answer {inputRequestId, value}` | Answers an open question (`questions.answer`). `choices` with `"ask": true` is rendered from a real `InputRequest` the Gateway creates, so it is the existing ask/answer flow with a richer layout. | Existing. |
+| `form submit {as: "reply"}` | Field values (typed by the owner) are composed into an owner message, visible in the transcript. | As `reply`. |
+| `form submit {as: "tool", tool}` / `button {kind: "tool", tool, args}` | Proposes one tool call with the given args (form fields filled in). The Gateway hands it to the agent loop as if the model had called it in a new turn, so it meets the Permission Broker, the binding hash, grants and taint exactly as the equivalent model call would. If the policy says `ask`, the real approval card appears in the dock. | Broker; never weaker than the model calling the tool. |
+| `open {route | artifactId | fileId | url}` | Host navigation: an app route (like `app_link`), an artifact, a file viewer, or a link through the existing safe-link path. | Navigation rules (new origin in a tainted context asks, docs/05 §3.6). |
 
 A widget button with `kind: "tool"` carries a host-drawn marker ("asks first" when the Broker would ask) so the owner knows a click opens an approval, not performs the action. Tool actions are D2: recommended, but shipped after the read-only and reply/answer phases.
 
@@ -171,12 +161,12 @@ This guidance goes into the `render_ui` tool description and a short section of 
 
 ### 6.5 Declarative spec or artifact
 
-| Use a widget spec when                                                             | Use an artifact when                                                                         |
-| ---------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------- |
+| Use a widget spec when | Use an artifact when |
+| --- | --- |
 | It fits the catalogue: progress, lists, tables, stats, small charts, simple forms. | It needs custom layout, drawing, animation, game logic, or a chart type the catalogue lacks. |
-| It must update live from the agent, a job or a binding.                            | It is a self-contained thing the owner will open, keep or export.                            |
-| It needs buttons that act (reply, answer, tool via the Broker).                    | It only needs in-page interaction (artifacts have no network and no host actions).           |
-| It must work in Feed, Overview and channels (text fallback).                       | Desktop/web only is fine.                                                                    |
+| It must update live from the agent, a job or a binding. | It is a self-contained thing the owner will open, keep or export. |
+| It needs buttons that act (reply, answer, tool via the Broker). | It only needs in-page interaction (artifacts have no network and no host actions). |
+| It must work in Feed, Overview and channels (text fallback). | Desktop/web only is fine. |
 
 Artifacts keep their current sandbox unchanged. A widget can link to one with `open {artifactId}`; an artifact cannot embed or patch a widget.
 
@@ -197,7 +187,7 @@ Artifacts keep their current sandbox unchanged. A widget can link to one with `o
 
 - `Widget.taint` is a list of `TaintSource` (the type in `schemas/permissions.ts`). At `render_ui` and at every `update_ui`, the Gateway adds the current turn's taint sources (docs/05 §3.6), whether or not the model says the content came from them. Patches from a tainted turn taint the widget; taint is monotone and never removed by a later clean patch. A binding to an entity carries that entity's taint (a Task's `taintedSources[]`).
 - Display: a tainted widget gets the same untrusted border and label as `ToolRun` and `SourceChips`, in its host chrome, with the sources listed on hover/focus (`blocks/taint-text.ts` wording).
-- Actions from a tainted widget are tainted. A `tool` action carries the widget's taint into the proposed call as requester taint, so the Broker treats it as a tainted turn: `once` only, `taint:floor` applies, new targets ask. A `reply` from a tainted widget is an owner message whose text was chosen by tainted content, so the turn it starts inherits the widget's taint. The owner clicking does not launder it: the click proves the owner wanted _something_, not that the agent-authored args are what they wanted. Form fields the owner typed are owner content; the template and any prefilled values are not.
+- Actions from a tainted widget are tainted. A `tool` action carries the widget's taint into the proposed call as requester taint, so the Broker treats it as a tainted turn: `once` only, `taint:floor` applies, new targets ask. A `reply` from a tainted widget is an owner message whose text was chosen by tainted content, so the turn it starts inherits the widget's taint. The owner clicking does not launder it: the click proves the owner wanted *something*, not that the agent-authored args are what they wanted. Form fields the owner typed are owner content; the template and any prefilled values are not.
 - Pinned and Feed copies keep the taint.
 
 ### 7.4 No fake approval UI
@@ -234,17 +224,17 @@ Spec and patch size caps (§4.3), patch rate coalescing (§5.2), live cap per th
 
 Each phase is one PR unless noted. P1–P3 give a useful read-only feature; later phases are independent of each other except where noted.
 
-| Phase | PR                        | Contents                                                                                                                                                                                                                             | Done when                                                               |
-| ----- | ------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ | ----------------------------------------------------------------------- |
-| P1    | Protocol + storage        | `schemas/widgets.ts` (spec v1, patch, entity, actions), `UiBlock`, `widget.updated` event, `widgets.get` method, `widgets` table and migration, validator with limits and reserved-word check, codegen.                              | Schema tests, validator tests (limits, unknown props, reserved labels). |
-| P2    | Renderer (read-only)      | Lazy `ui` block in `packages/ui`: host chrome, progress, checklist, timeline, status, stat, kv, table, card, list, text, markdown, code, stack/grid/tabs; tones on tokens; taint border; Storybook stories light/dark; a11y (§10.1). | Storybook + unit tests; axe on stories.                                 |
-| P3    | Agent tools               | `render_ui`, `update_ui`, `list_ui` in agent-core; Gateway apply/coalesce/persist/publish; ownership; live cap and freezing; tool descriptions and system-prompt guidance; small eval set (UI vs text).                              | Gateway tests; evals pass.                                              |
-| P4    | Bindings                  | `bind` for task, automation, research, tool_call, job; renderer subscriptions; coordinate with the Scheduled tasks view for automation fields.                                                                                       | A background task's progress widget updates after its run ends.         |
-| P5    | Charts and images         | In-house SVG charts with data-table alternative; images from file ids and `data:`; remote images behind D3 with the Gateway proxy.                                                                                                   | Tests; bundle-size check on the lazy chunk.                             |
-| P6    | Interaction I             | `reply`, `answer` (choices via InputRequest), `open`, forms submitting as replies; "from widget" chip; tainted-reply inheritance.                                                                                                    | Tests incl. taint inheritance.                                          |
-| P7    | Interaction II + red team | `tool` actions through the Broker with taint carried; "asks first" marker; red-team suite for fake approvals (§7.4).                                                                                                                 | Red-team suite green; docs/05 gets a §3.x on widget actions.            |
-| P8    | Surfaces                  | Channel text fallback; Feed snapshot field; Overview pinning (`widgets.pin`, Overview section).                                                                                                                                      | Channel formatter tests; Overview story.                                |
-| P9    | Later                     | Progressive `widget.draft` rendering of streaming specs; MCP Apps `ui://` rendering through the artifact frame; optional map tiles (D4).                                                                                             | Separate design notes as needed.                                        |
+| Phase | PR | Contents | Done when |
+| --- | --- | --- | --- |
+| P1 | Protocol + storage | `schemas/widgets.ts` (spec v1, patch, entity, actions), `UiBlock`, `widget.updated` event, `widgets.get` method, `widgets` table and migration, validator with limits and reserved-word check, codegen. | Schema tests, validator tests (limits, unknown props, reserved labels). |
+| P2 | Renderer (read-only) | Lazy `ui` block in `packages/ui`: host chrome, progress, checklist, timeline, status, stat, kv, table, card, list, text, markdown, code, stack/grid/tabs; tones on tokens; taint border; Storybook stories light/dark; a11y (§10.1). | Storybook + unit tests; axe on stories. |
+| P3 | Agent tools | `render_ui`, `update_ui`, `list_ui` in agent-core; Gateway apply/coalesce/persist/publish; ownership; live cap and freezing; tool descriptions and system-prompt guidance; small eval set (UI vs text). | Gateway tests; evals pass. |
+| P4 | Bindings | `bind` for task, automation, research, tool_call, job; renderer subscriptions; coordinate with the Scheduled tasks view for automation fields. | A background task's progress widget updates after its run ends. |
+| P5 | Charts and images | In-house SVG charts with data-table alternative; images from file ids and `data:`; remote images behind D3 with the Gateway proxy. | Tests; bundle-size check on the lazy chunk. |
+| P6 | Interaction I | `reply`, `answer` (choices via InputRequest), `open`, forms submitting as replies; "from widget" chip; tainted-reply inheritance. | Tests incl. taint inheritance. |
+| P7 | Interaction II + red team | `tool` actions through the Broker with taint carried; "asks first" marker; red-team suite for fake approvals (§7.4). | Red-team suite green; docs/05 gets a §3.x on widget actions. |
+| P8 | Surfaces | Channel text fallback; Feed snapshot field; Overview pinning (`widgets.pin`, Overview section). | Channel formatter tests; Overview story. |
+| P9 | Later | Progressive `widget.draft` rendering of streaming specs; MCP Apps `ui://` rendering through the artifact frame; optional map tiles (D4). | Separate design notes as needed. |
 
 ### 10.1 Accessibility (built into P2, not a later pass)
 
@@ -259,18 +249,18 @@ Each phase is one PR unless noted. P1–P3 give a useful read-only feature; late
 
 **Accepted by the owner on 2026-10-29:** all ten recommendations below, as written. Implementation has not started; it begins with the first phase in §10 when the owner asks.
 
-| #   | Decision                                                                                                  | Recommendation                                                                                                                                       |
-| --- | --------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------- |
-| D1  | How the agent emits UI: tools (`render_ui`/`update_ui`) or a fenced block in its text (` ```psyche-ui `). | **Tools.** Typed input, validation errors the model can act on, taint attached at the call, no parser in the text stream.                            |
-| D2  | May widget buttons propose tool calls at all?                                                             | **Yes, from P7**, always through the Broker with taint carried, never weaker than the model calling the tool. Ship read-only and reply/answer first. |
-| D3  | Remote images in widgets.                                                                                 | **Off by default**; when on, through the Gateway proxy, and click-to-load in tainted widgets.                                                        |
-| D4  | Maps: tiles from a provider, or a place list with "Open in Maps".                                         | **Place list in v1.** Tiles mean a network dependency and a privacy leak; revisit as an opt-in later.                                                |
-| D5  | Pin widgets to Overview.                                                                                  | **Yes**, cap 6, keeps bindings live.                                                                                                                 |
-| D6  | Live widgets per thread.                                                                                  | **8**, least recently patched freezes first.                                                                                                         |
-| D7  | Keep patch history or only the latest snapshot.                                                           | **Latest snapshot only.** Less disk and RAM; the transcript already says what the agent did.                                                         |
-| D8  | Feed widgets live or static.                                                                              | **Static snapshot** with open/reply in v1.                                                                                                           |
-| D9  | Can the agent patch its widgets in later runs of the same thread?                                         | **Yes**, same thread only; other threads, MCP servers and channels never.                                                                            |
-| D10 | Should widget replies show in the transcript?                                                             | **Yes, always**, with a "from widget" chip. No hidden owner messages.                                                                                |
+| # | Decision | Recommendation |
+| --- | --- | --- |
+| D1 | How the agent emits UI: tools (`render_ui`/`update_ui`) or a fenced block in its text (` ```psyche-ui `). | **Tools.** Typed input, validation errors the model can act on, taint attached at the call, no parser in the text stream. |
+| D2 | May widget buttons propose tool calls at all? | **Yes, from P7**, always through the Broker with taint carried, never weaker than the model calling the tool. Ship read-only and reply/answer first. |
+| D3 | Remote images in widgets. | **Off by default**; when on, through the Gateway proxy, and click-to-load in tainted widgets. |
+| D4 | Maps: tiles from a provider, or a place list with "Open in Maps". | **Place list in v1.** Tiles mean a network dependency and a privacy leak; revisit as an opt-in later. |
+| D5 | Pin widgets to Overview. | **Yes**, cap 6, keeps bindings live. |
+| D6 | Live widgets per thread. | **8**, least recently patched freezes first. |
+| D7 | Keep patch history or only the latest snapshot. | **Latest snapshot only.** Less disk and RAM; the transcript already says what the agent did. |
+| D8 | Feed widgets live or static. | **Static snapshot** with open/reply in v1. |
+| D9 | Can the agent patch its widgets in later runs of the same thread? | **Yes**, same thread only; other threads, MCP servers and channels never. |
+| D10 | Should widget replies show in the transcript? | **Yes, always**, with a "from widget" chip. No hidden owner messages. |
 
 ### Live UI-vs-text eval (2026-11-02, Haiku 5.5)
 
@@ -278,14 +268,14 @@ Each phase is one PR unless noted. P1–P3 give a useful read-only feature; late
 
 **Pass rate: 7 of 11 (64%).** Text cases: 6 of 6 (including the approval case: it refused to draw a button and said approvals are drawn by the app only). `update_ui`: 1 of 1 (it called `list_ui` first). UI cases: **0 of 4**:
 
-| Prompt                                            | Expected | Got                  | Why                                                                         |
-| ------------------------------------------------- | -------- | -------------------- | --------------------------------------------------------------------------- |
-| Clean up my inbox…                                | ui       | text                 | "I can't reach your inbox from this chat": the harness offers no mail tools |
-| Compare these five laptops…                       | ui       | text                 | asked which laptops (none were given)                                       |
-| Show last month's spend by category               | ui       | text                 | "I don't have access to your spending data"                                 |
-| Track the progress of the migration while it runs | ui       | `list_ui`, then text | looked for an existing widget, found none, did not draw one                 |
+| Prompt | Expected | Got | Why |
+| --- | --- | --- | --- |
+| Clean up my inbox… | ui | text | "I can't reach your inbox from this chat": the harness offers no mail tools |
+| Compare these five laptops… | ui | text | asked which laptops (none were given) |
+| Show last month's spend by category | ui | text | "I don't have access to your spending data" |
+| Track the progress of the migration while it runs | ui | `list_ui`, then text | looked for an existing widget, found none, did not draw one |
 
-Reading: the guidance does its main job (text for explanations, opinions, drafts and actions it cannot do; no fake approval), but three of the four UI misses are a limit of the case set rather than of the guidance: a bare prompt gives the model no data and no tools, so a clarifying text reply is the better answer. The migration case is a real, small miss: with nothing to track yet the model should have drawn the progress widget. Follow-ups, not done here (the case set was not edited to fit the result): put the data in the prompts ("Compare these laptops: …", a table of spend), give the harness fake mail/task tools, and add a line to `UI_GUIDANCE` that a request to _track_ something starts with `render_ui` when no widget exists.
+Reading: the guidance does its main job (text for explanations, opinions, drafts and actions it cannot do; no fake approval), but three of the four UI misses are a limit of the case set rather than of the guidance: a bare prompt gives the model no data and no tools, so a clarifying text reply is the better answer. The migration case is a real, small miss: with nothing to track yet the model should have drawn the progress widget. Follow-ups, not done here (the case set was not edited to fit the result): put the data in the prompts ("Compare these laptops: …", a table of spend), give the harness fake mail/task tools, and add a line to `UI_GUIDANCE` that a request to *track* something starts with `render_ui` when no widget exists.
 
 ### UI-vs-text eval: data inline, guidance fixed (2026-11-02)
 
@@ -296,12 +286,12 @@ Two changes after the first live run (above):
 
 The live test now takes `PSYCHE_UI_EVAL_SAMPLES` (replies are sampled; Haiku 5.5 takes no temperature). Three samples per case, 11 cases:
 
-| Run                                | Pass               | Text cases | Approval case                        | Migration |
-| ---------------------------------- | ------------------ | ---------- | ------------------------------------ | --------- |
-| first run, bare prompts (1 sample) | 7 / 11             | 6 / 6      | refused                              | 0 / 1     |
-| data inline, old guidance          | 28 / 33 (85%)      | 15 / 15    | 2 / 3 text, 1 was a `list_ui` lookup | 0 / 3     |
-| data inline, fix, first wording    | 31 / 33 (94%)      | 15 / 15    | 2 / 3 text, 1 was a `list_ui` lookup | 3 / 3     |
-| data inline, fix, final wording    | **33 / 33 (100%)** | 15 / 15    | 3 / 3 text                           | 3 / 3     |
+| Run | Pass | Text cases | Approval case | Migration |
+| --- | --- | --- | --- | --- |
+| first run, bare prompts (1 sample) | 7 / 11 | 6 / 6 | refused | 0 / 1 |
+| data inline, old guidance | 28 / 33 (85%) | 15 / 15 | 2 / 3 text, 1 was a `list_ui` lookup | 0 / 3 |
+| data inline, fix, first wording | 31 / 33 (94%) | 15 / 15 | 2 / 3 text, 1 was a `list_ui` lookup | 3 / 3 |
+| data inline, fix, final wording | **33 / 33 (100%)** | 15 / 15 | 3 / 3 text | 3 / 3 |
 
 In no run of any wording did the approval prompt produce a `render_ui` call. One sample of the "update the progress widget" case drew a new widget instead of looking one up (the first fix wording), which is the guidance working as written when a chat has no widget. About 137k input and 14k output tokens per three-sample run. With 3 samples a case the rate carries a few points of noise; the claim is "no regression, the miss is gone", not 100%.
 

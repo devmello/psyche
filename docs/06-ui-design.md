@@ -2,7 +2,7 @@
 
 Status: draft v0.1 (2026-10-18), **amended 2026-10-25 by the 2026 redesign**: where this document disagrees with [design/redesign-2026.md](design/redesign-2026.md), [design/motion.md](design/motion.md) or [design/research/liquid-glass.md](design/research/liquid-glass.md) §6, those win. §2.1, §3.1 and §4 below are updated to match. Companion documents: [00-vision-and-principles.md](00-vision-and-principles.md), [02-architecture.md](02-architecture.md), [03-feature-spec.md](03-feature-spec.md), [04-data-model.md](04-data-model.md), [05-security-and-permissions.md](05-security-and-permissions.md), [07-tech-decisions.md](07-tech-decisions.md).
 
-References. _(muse notes, Qn)_ = `docs/archive/research-notes/.../meta_muse_app.md`; _(claude notes, Qn)_ = `claude_desktop_and_peers.md`; _(blocks notes, section)_ = `models_memory_mcp_ui_feed.md`; _(harness notes, KQn)_ = `opendots_openclaw_harnesses.md`; _(arch §n)_ = `02-architecture.md`. Where the notes are silent the text says so and labels the choice **Psyche decision**. Component names follow the architecture document.
+References. *(muse notes, Qn)* = `docs/archive/research-notes/.../meta_muse_app.md`; *(claude notes, Qn)* = `claude_desktop_and_peers.md`; *(blocks notes, section)* = `models_memory_mcp_ui_feed.md`; *(harness notes, KQn)* = `opendots_openclaw_harnesses.md`; *(arch §n)* = `02-architecture.md`. Where the notes are silent the text says so and labels the choice **Psyche decision**. Component names follow the architecture document.
 
 ---
 
@@ -10,21 +10,21 @@ References. _(muse notes, Qn)_ = `docs/archive/research-notes/.../meta_muse_app.
 
 ### 1.1 Purpose
 
-This document specifies the screens, components, states and design language of **psyche-desktop** (Electron shell) and **psyche-web** (the same React UI served by the Gateway) _(arch §3)_. The UI renders typed Gateway events deterministically _(arch §4.2)_, so Gateway field names are repeated wherever a screen depends on them.
+This document specifies the screens, components, states and design language of **psyche-desktop** (Electron shell) and **psyche-web** (the same React UI served by the Gateway) *(arch §3)*. The UI renders typed Gateway events deterministically *(arch §4.2)*, so Gateway field names are repeated wherever a screen depends on them.
 
 ### 1.2 Principles
 
-| #   | Principle                                           | In the UI                                                                                                                                                                                                                        |
-| --- | --------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| 1   | One messaging-like conversation                     | A persistent main chat plus side chats; light messages; no dashboard chrome. Muse asked "How would this work if you were talking to another human?" _(muse notes, Q5)_.                                                          |
-| 2   | Calm                                                | Interrupt only when a result is new or needs input; proactive output lands in Feed, Ideas and the inbox. Muse: messages must be "worth the interruption" _(muse notes, Q5)_.                                                     |
-| 3   | Progressive disclosure, three levels                | Status line → action list → raw tool I/O, cycled with one shortcut everywhere. Muse's emoji → task list → raw logs _(muse notes, Q4)_; Claude's Normal / Thinking / Verbose _(claude notes, Q1)_.                                |
-| 4   | Deterministic UI only for approvals and credentials | Approval cards and credential prompts are host-rendered, fixed in structure and button order, never inside a message. Muse: "fixed UI for structured approval cards … and for secure credential storage" _(muse notes, Q4)_.     |
-| 5   | Generative UI with fixed structure                  | Feed posts, Idea cards, Goal pages and artifact cards keep a fixed element order; the model fills the content _(muse notes, Q2)_.                                                                                                |
-| 6   | Proactivity is batched and confirmable              | Feed is a bounded batch with an end marker; Ideas and inferred Goals need a tap; no external write without an ApprovalRequest _(arch §4.11)_.                                                                                    |
-| 7   | Everything the agent knows is a file you can open   | `SOUL.md`, `IDENTITY.md`, `USER.md`, `MEMORY.md`, daily notes, `interests.md`, skills and the audit log open from the UI _(arch §4.8)_; Muse: "We want you to be able to see the markdown files Muse writes" _(muse notes, Q1)_. |
+| # | Principle | In the UI |
+| --- | --- | --- |
+| 1 | One messaging-like conversation | A persistent main chat plus side chats; light messages; no dashboard chrome. Muse asked "How would this work if you were talking to another human?" *(muse notes, Q5)*. |
+| 2 | Calm | Interrupt only when a result is new or needs input; proactive output lands in Feed, Ideas and the inbox. Muse: messages must be "worth the interruption" *(muse notes, Q5)*. |
+| 3 | Progressive disclosure, three levels | Status line → action list → raw tool I/O, cycled with one shortcut everywhere. Muse's emoji → task list → raw logs *(muse notes, Q4)*; Claude's Normal / Thinking / Verbose *(claude notes, Q1)*. |
+| 4 | Deterministic UI only for approvals and credentials | Approval cards and credential prompts are host-rendered, fixed in structure and button order, never inside a message. Muse: "fixed UI for structured approval cards … and for secure credential storage" *(muse notes, Q4)*. |
+| 5 | Generative UI with fixed structure | Feed posts, Idea cards, Goal pages and artifact cards keep a fixed element order; the model fills the content *(muse notes, Q2)*. |
+| 6 | Proactivity is batched and confirmable | Feed is a bounded batch with an end marker; Ideas and inferred Goals need a tap; no external write without an ApprovalRequest *(arch §4.11)*. |
+| 7 | Everything the agent knows is a file you can open | `SOUL.md`, `IDENTITY.md`, `USER.md`, `MEMORY.md`, daily notes, `interests.md`, skills and the audit log open from the UI *(arch §4.8)*; Muse: "We want you to be able to see the markdown files Muse writes" *(muse notes, Q1)*. |
 
-Two rules apply everywhere. **The client never decides**: the desktop renders ApprovalRequests and relays answers; it holds no secrets _(arch §5)_. **Two voices**: the agent speaks as its persona; the application speaks as Psyche (§4.12).
+Two rules apply everywhere. **The client never decides**: the desktop renders ApprovalRequests and relays answers; it holds no secrets *(arch §5)*. **Two voices**: the agent speaks as its persona; the application speaks as Psyche (§4.12).
 
 ---
 
@@ -32,20 +32,19 @@ Two rules apply everywhere. **The client never decides**: the desktop renders Ap
 
 ### 2.1 Left rail
 
-Muse's Mac app has a left rail with Chat, Search, Feed, Ideas, Goals and Library and a two-bar bottom menu whose only named entry is Settings _(muse notes, Q1)_.
+Muse's Mac app has a left rail with Chat, Search, Feed, Ideas, Goals and Library and a two-bar bottom menu whose only named entry is Settings *(muse notes, Q1)*.
 
-| Item        | Opens                                                 | Notes                                                                                 |
-| ----------- | ----------------------------------------------------- | ------------------------------------------------------------------------------------- |
-| Chat        | Thread list + main chat                               | Default                                                                               |
-| Search      | Unified search _(arch §4.12)_                         | Also ⌘K                                                                               |
-| Feed        | Daily brief and scheduled briefings                   | Unread badge                                                                          |
-| Ideas       | Candidate tasks and automations                       | New-candidate badge                                                                   |
-| Goals       | Goals by category                                     |                                                                                       |
-| Library     | Documents, images, artifacts, downloads, system files | Muse has a "System Files" section                                                     |
-| Bottom menu | Settings, Usage, Help                                 | **Psyche decision**; Usage shows the ledger and percent-remaining meter _(arch §4.4)_ |
+| Item | Opens | Notes |
+| --- | --- | --- |
+| Chat | Thread list + main chat | Default |
+| Search | Unified search *(arch §4.12)* | Also ⌘K |
+| Feed | Daily brief and scheduled briefings | Unread badge |
+| Ideas | Candidate tasks and automations | New-candidate badge |
+| Goals | Goals by category | |
+| Library | Documents, images, artifacts, downloads, system files | Muse has a "System Files" section |
+| Bottom menu | Settings, Usage, Help | **Psyche decision**; Usage shows the ledger and percent-remaining meter *(arch §4.4)* |
 
 **Amended (redesign 2026 §5.1):**
-
 - The rail and the thread list (§2.2) are now **one 248 px macOS-style sidebar**, resizable from 220 to 320 px and collapsed with ⌘B.
 - From top to bottom it holds:
   - the destinations above, each with a trailing count
@@ -55,46 +54,46 @@ Muse's Mac app has a left rail with Chat, Search, Feed, Ideas, Goals and Library
 
 ### 2.2 Thread list
 
-One persistent main chat plus side chats, as in Muse (pencil-and-note icon for a new side chat, three-dot menu per thread) _(muse notes, Q1)_ and OpenMuse (rename, archive, restore) _(harness notes, KQ1 1i)_.
+One persistent main chat plus side chats, as in Muse (pencil-and-note icon for a new side chat, three-dot menu per thread) *(muse notes, Q1)* and OpenMuse (rename, archive, restore) *(harness notes, KQ1 1i)*.
 
-| Action                                            | Behaviour                                                                                                                                                                               |
-| ------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| New side chat (pencil-and-note, ⌘N)               | `createdFrom: chat`; titled by the utility model until renamed                                                                                                                          |
-| Fork from a message (⋯ → Continue in a side chat) | Seeded with the transcript up to that message, as Claude's `hand_off_to_session` _(claude notes, Q1)_                                                                                   |
-| Rename, search                                    | Click the title; filter field above the list                                                                                                                                            |
-| Archive / restore                                 | "Archived (n)" group; the main chat cannot be archived; deletion lives under Data controls because it does not delete what was learned (as Muse's Help Center notes _(muse notes, Q4)_) |
-| Export (⋯ → Markdown / JSON / HTML)               | Tool calls collapsed, receipts included                                                                                                                                                 |
-| Incognito                                         | Memory-only, expires after 24 h _(arch §4.8)_; dashed avatar ring                                                                                                                       |
+| Action | Behaviour |
+| --- | --- |
+| New side chat (pencil-and-note, ⌘N) | `createdFrom: chat`; titled by the utility model until renamed |
+| Fork from a message (⋯ → Continue in a side chat) | Seeded with the transcript up to that message, as Claude's `hand_off_to_session` *(claude notes, Q1)* |
+| Rename, search | Click the title; filter field above the list |
+| Archive / restore | "Archived (n)" group; the main chat cannot be archived; deletion lives under Data controls because it does not delete what was learned (as Muse's Help Center notes *(muse notes, Q4)*) |
+| Export (⋯ → Markdown / JSON / HTML) | Tool calls collapsed, receipts included |
+| Incognito | Memory-only, expires after 24 h *(arch §4.8)*; dashed avatar ring |
 
 Rows show title, last line, time, a status dot for a running or waiting Task, and a channel icon.
 
 ### 2.3 Agent header and agent sheet
 
-The header holds the avatar and a one-line snippet of current work. Clicking the avatar opens the **agent sheet** with four tabs — **Activity** (§3.14), **Approvals** (§3.15), **Upcoming** (§3.16), **Soul & Memory** (§3.17) — matching Muse's four icons behind the avatar _(muse notes, Q1)_ and OpenMuse's "tap the avatar to see activity, reviews and receipts" _(harness notes, KQ1 1f)_. Side sheet on wide windows, bottom sheet on narrow ones.
+The header holds the avatar and a one-line snippet of current work. Clicking the avatar opens the **agent sheet** with four tabs — **Activity** (§3.14), **Approvals** (§3.15), **Upcoming** (§3.16), **Soul & Memory** (§3.17) — matching Muse's four icons behind the avatar *(muse notes, Q1)* and OpenMuse's "tap the avatar to see activity, reviews and receipts" *(harness notes, KQ1 1f)*. Side sheet on wide windows, bottom sheet on narrow ones.
 
 ### 2.4 Panes
 
-Panes sit beside the chat, per thread; they split, resize, pop out and close. The agent drives them through `view.*` RPC, mirroring Claude's `ccd_view` tools _(arch §5; claude notes, Q1)_. Panes: Browser (⌘⇧B; §3.5), Terminal (⌃`; §3.6), Files (§3.7), Editor and Diff (a file, or a "+12 −1" change indicator; §3.8), Plan (a Plan artifact; §3.2), Tasks / Activity (§3.14), Subagents (view-only transcripts *(arch §4.3)*), Artifact (§3.7), VM display (§3.23). As in Claude, headers drag to reposition, edges drag to resize, ⌘\ closes. Two panes side by side at ≥ 1440 px, otherwise one with a tab strip; closing a pane never stops a Task.
+Panes sit beside the chat, per thread; they split, resize, pop out and close. The agent drives them through `view.*` RPC, mirroring Claude's `ccd_view` tools *(arch §5; claude notes, Q1)*. Panes: Browser (⌘⇧B; §3.5), Terminal (⌃`; §3.6), Files (§3.7), Editor and Diff (a file, or a "+12 −1" change indicator; §3.8), Plan (a Plan artifact; §3.2), Tasks / Activity (§3.14), Subagents (view-only transcripts *(arch §4.3)*), Artifact (§3.7), VM display (§3.23). As in Claude, headers drag to reposition, edges drag to resize, ⌘\ closes. Two panes side by side at ≥ 1440 px, otherwise one with a tab strip; closing a pane never stops a Task.
 
 ### 2.5 Palette, quick entry, menu bar, inbox
 
-**⌘K** searches the unified index and lists actions (open a thread or pane, `/model`, `/schedule`, settings) _(arch §4.12)_. **Quick entry** is a floating window on a global hotkey (§3.21); the **menu-bar item** shows status, usage and pending approvals (§3.22) _(arch §5)_; the **notification inbox** is a bell over the durable typed inbox (§3.20).
+**⌘K** searches the unified index and lists actions (open a thread or pane, `/model`, `/schedule`, settings) *(arch §4.12)*. **Quick entry** is a floating window on a global hotkey (§3.21); the **menu-bar item** shows status, usage and pending approvals (§3.22) *(arch §5)*; the **notification inbox** is a bell over the durable typed inbox (§3.20).
 
 ### 2.6 Settings sections
 
-Model & providers, Persona, Connectors, Permissions, Computer use, File access, Devices & nodes, Channels, Credentials, Appearance, Voice & dictation, Data controls, Server & remote access, Usage, About. Muse documents Computer use, File system access, Permissions, Devices, Data controls, Connectors, Wallet and Secure store _(muse notes, Q1)_; the rest are Psyche additions.
+Model & providers, Persona, Connectors, Permissions, Computer use, File access, Devices & nodes, Channels, Credentials, Appearance, Voice & dictation, Data controls, Server & remote access, Usage, About. Muse documents Computer use, File system access, Permissions, Devices, Data controls, Connectors, Wallet and Secure store *(muse notes, Q1)*; the rest are Psyche additions.
 
 ### 2.7 Route and screen map
 
-Routes are shared by psyche-desktop and psyche-web and used for pop-out windows and notification deep links; each reads its own method family _(arch §11)_.
+Routes are shared by psyche-desktop and psyche-web and used for pop-out windows and notification deep links; each reads its own method family *(arch §11)*.
 
-| Route                                                                             | Screen                                                                |
-| --------------------------------------------------------------------------------- | --------------------------------------------------------------------- |
-| `/chat`, `/chat/:threadId`, `/chat/:threadId/pane/:paneId`                        | Main chat, a thread, a pop-out pane                                   |
-| `/search?q=`, `/feed`, `/feed/instructions`, `/ideas`                             | Search; Feed; "What should I write about"; Ideas                      |
-| `/goals`, `/goals/:goalId`, `/library/:section`                                   | Goals list; goal page; Library section                                |
-| `/agent/activity[/:taskId]`, `/agent/approvals`, `/agent/upcoming`, `/agent/soul` | Agent sheet tabs and task detail                                      |
-| `/settings/:section`, `/onboarding/:step`, `/inbox`, `/quick`, `/vm`              | Settings, onboarding, inbox; quick entry and VM window (desktop only) |
+| Route | Screen |
+| --- | --- |
+| `/chat`, `/chat/:threadId`, `/chat/:threadId/pane/:paneId` | Main chat, a thread, a pop-out pane |
+| `/search?q=`, `/feed`, `/feed/instructions`, `/ideas` | Search; Feed; "What should I write about"; Ideas |
+| `/goals`, `/goals/:goalId`, `/library/:section` | Goals list; goal page; Library section |
+| `/agent/activity[/:taskId]`, `/agent/approvals`, `/agent/upcoming`, `/agent/soul` | Agent sheet tabs and task detail |
+| `/settings/:section`, `/onboarding/:step`, `/inbox`, `/quick`, `/vm` | Settings, onboarding, inbox; quick entry and VM window (desktop only) |
 
 ---
 
@@ -102,13 +101,13 @@ Routes are shared by psyche-desktop and psyche-web and used for pop-out windows 
 
 ### 3.0 Shared states
 
-| State     | Rule                                                                                                                                                                                                                        |
-| --------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Empty     | One sentence in Psyche's voice plus one primary action.                                                                                                                                                                     |
-| Loading   | Skeletons in the shape of the content, after 150 ms.                                                                                                                                                                        |
-| Streaming | Text streams through the sanitizing renderer; plan, approval, question, artifact and receipt blocks arrive as typed events and are inserted whole _(arch §4.2)_.                                                            |
-| Error     | What failed, what Psyche did, one next step; a user-selected model fails visibly rather than falling back _(arch §4.4)_.                                                                                                    |
-| Offline   | Banner: "Psyche can't reach the Gateway. Tasks keep running; this window will reconnect." Composer disabled; on reconnect the client refreshes from `stateVersion` _(arch §11)_; approval cards stay stale until re-issued. |
+| State | Rule |
+| --- | --- |
+| Empty | One sentence in Psyche's voice plus one primary action. |
+| Loading | Skeletons in the shape of the content, after 150 ms. |
+| Streaming | Text streams through the sanitizing renderer; plan, approval, question, artifact and receipt blocks arrive as typed events and are inserted whole *(arch §4.2)*. |
+| Error | What failed, what Psyche did, one next step; a user-selected model fails visibly rather than falling back *(arch §4.4)*. |
+| Offline | Banner: "Psyche can't reach the Gateway. Tasks keep running; this window will reconnect." Composer disabled; on reconnect the client refreshes from `stateVersion` *(arch §11)*; approval cards stay stale until re-issued. |
 
 ### 3.1 Main window
 
@@ -126,10 +125,9 @@ Routes are shared by psyche-desktop and psyche-web and used for pop-out windows 
 +----+-----------+--------------------------------+-----------------+
 ```
 
-Inventory: rail (56 px), thread list (260 px; ⌘B toggles it as in Claude _(claude notes, Q1)_), chat column (min 480 px), pane area. Header: avatar with state ring, persona name, status snippet (opens the current Task at level 1), counters, permission-mode pill (manual / balanced / auto / plan _(arch §4.6)_), model pill, bell, ⋯.
+Inventory: rail (56 px), thread list (260 px; ⌘B toggles it as in Claude *(claude notes, Q1)*), chat column (min 480 px), pane area. Header: avatar with state ring, persona name, status snippet (opens the current Task at level 1), counters, permission-mode pill (manual / balanced / auto / plan *(arch §4.6)*), model pill, bell, ⋯.
 
 **Amended (redesign 2026 §4, §5.2):**
-
 - **Layout:** sidebar (248 px; it holds the traffic lights under a hidden title bar), then the content column with a **52 px unified toolbar** (`Toolbar` / `useToolbar`), then the panes.
 - **Toolbar:** it carries the avatar (28 px), the persona name and status, and the mode and model pills, bell and ⋯ as glass control groups.
   - The row itself is opaque, with a scroll-edge fade.
@@ -151,23 +149,23 @@ Inventory: rail (56 px), thread list (260 px; ⌘B toggles it as in Claude _(cla
   [> quoting: "Three slots work..."] [ + ] Message Wren...   [mic][send]
 ```
 
-| Element                               | Rendering                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                         |
-| ------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| User message                          | Right-aligned light bubble (gray-3). Muse removed heavy bubbles and puts the agent at the top _(muse notes, Q5)_.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                 |
-| Agent, system messages                | Agent: no bubble; 20 px avatar, name and time per run; out-of-turn thoughts from background Tasks get a divider "from task: <title>" (Muse keeps bubbles for the same reason). System: centered, small, gray-11, Psyche's voice.                                                                                                                                                                                                                                                                                                                                                                                                                  |
-| Steps (tool calls, thinking, helpers) | _Amended 2026-10-25 (run trace §3.2)._ While working, one row per step: status glyph, label (a status line that flips tense when done), target, live elapsed or final duration; parallel steps under "{n} at once", helpers nested one level, repeats folded, the last 5 visible. When the run ends the log condenses into one summary row ("Worked for 1 min 12 s · sent 1 email · 9 steps", or "✕ Stopped at step 7 · … failed") with "Timeline ›" into the agent sheet (§3.14). Level 0 hides rows; level 2 shows each step's redacted parameters; ⌃O cycles _(claude notes, Q1)_. Secrets show as `{{cred:name}}` placeholders _(arch §4.7)_. |
-| Plan checklist                        | Pinned under the latest agent message from `update_plan`, one item in progress, distinct from the approved Plan artifact _(arch §4.3)_; Claude pins its list the same way.                                                                                                                                                                                                                                                                                                                                                                                                                                                                        |
-| Approval, question, artifact cards    | Approval: never a message, a dock above the composer (§3.3). Question: from `ask_user` (§3.4). Artifact: title, type, thumbnail, Open, Save to Library; artifacts appear in chat and exist outside it _(muse notes, Q4)_.                                                                                                                                                                                                                                                                                                                                                                                                                         |
-| Receipt line                          | One compact line after every external write with the provider id; uncertain outcomes read "outcome unknown · not retried" _(arch §4.5)_.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                          |
-| Follow-up queue                       | Strip above the composer with mode (steer / followUp / interrupt) and remove _(arch §4.2)_; OpenMuse has "a visible follow-up queue" _(harness notes, KQ1 1c)_.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                   |
-| Reply-to quote                        | Hover → Reply; quote chip in the composer; the sent message carries a two-line quote with a jump link. **Psyche decision**.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                       |
-| Wrap-up box, export menu              | Recap ≤ 300 chars, one question, 1–2 buttons from `wrap_up` (limits from Claude's tool _(claude notes, Q5)_); ⋯ → Export: Markdown / JSON / HTML.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                 |
+| Element | Rendering |
+| --- | --- |
+| User message | Right-aligned light bubble (gray-3). Muse removed heavy bubbles and puts the agent at the top *(muse notes, Q5)*. |
+| Agent, system messages | Agent: no bubble; 20 px avatar, name and time per run; out-of-turn thoughts from background Tasks get a divider "from task: <title>" (Muse keeps bubbles for the same reason). System: centered, small, gray-11, Psyche's voice. |
+| Steps (tool calls, thinking, helpers) | *Amended 2026-10-25 (run trace §3.2).* While working, one row per step: status glyph, label (a status line that flips tense when done), target, live elapsed or final duration; parallel steps under "{n} at once", helpers nested one level, repeats folded, the last 5 visible. When the run ends the log condenses into one summary row ("Worked for 1 min 12 s · sent 1 email · 9 steps", or "✕ Stopped at step 7 · … failed") with "Timeline ›" into the agent sheet (§3.14). Level 0 hides rows; level 2 shows each step's redacted parameters; ⌃O cycles *(claude notes, Q1)*. Secrets show as `{{cred:name}}` placeholders *(arch §4.7)*. |
+| Plan checklist | Pinned under the latest agent message from `update_plan`, one item in progress, distinct from the approved Plan artifact *(arch §4.3)*; Claude pins its list the same way. |
+| Approval, question, artifact cards | Approval: never a message, a dock above the composer (§3.3). Question: from `ask_user` (§3.4). Artifact: title, type, thumbnail, Open, Save to Library; artifacts appear in chat and exist outside it *(muse notes, Q4)*. |
+| Receipt line | One compact line after every external write with the provider id; uncertain outcomes read "outcome unknown · not retried" *(arch §4.5)*. |
+| Follow-up queue | Strip above the composer with mode (steer / followUp / interrupt) and remove *(arch §4.2)*; OpenMuse has "a visible follow-up queue" *(harness notes, KQ1 1c)*. |
+| Reply-to quote | Hover → Reply; quote chip in the composer; the sent message carries a two-line quote with a jump link. **Psyche decision**. |
+| Wrap-up box, export menu | Recap ≤ 300 chars, one question, 1–2 buttons from `wrap_up` (limits from Claude's tool *(claude notes, Q5)*); ⋯ → Export: Markdown / JSON / HTML. |
 
 Composer: attachments, `/` commands (`/model`, `/schedule`, `/forget`, `/incognito`), dictation, one Send/Stop pill.
 
 ### 3.3 Approval card
 
-Renders an ApprovalRequest `{id, kind, summary, details, bindingHash, requestedAt, expiresAt, surfaces[]}` _(arch §4.6)_.
+Renders an ApprovalRequest `{id, kind, summary, details, bindingHash, requestedAt, expiresAt, surfaces[]}` *(arch §4.6)*.
 
 ```
 +----------------------------------------------------------------+
@@ -186,20 +184,20 @@ Renders an ApprovalRequest `{id, kind, summary, details, bindingHash, requestedA
 +----------------------------------------------------------------+
 ```
 
-| Part                | Spec                                                                                                                                                                                                                                                                                                                                                                                             |
-| ------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
-| Summary, details    | Verb + object from `summary`; key–value rows from `details`, kind-specific (below).                                                                                                                                                                                                                                                                                                              |
-| Scope radio         | Allow once / Allow for this task / Allow for this site / Always allow (with expiry) / Deny — Muse's exact options _(muse notes, Q4)_ — mapped to grant scopes `once`, `task`, `site`, `always`. **Psyche decision**: the `session` scope is an expiry choice under Always allow ("until this session ends", 1 h, 24 h, 30 days, until revoked); "this site" hides when the target has no origin. |
-| Default and keys    | Deny preselected. Return does nothing; ⌘Return approves with the selected scope; ⌘D denies. OpenClaw's Mac app: "Return alone does not approve" _(harness notes, KQ2 2h)_.                                                                                                                                                                                                                       |
-| Countdown, who, why | `expiresAt` − now, default 30 min then denied _(arch §4.5)_, danger color under 60 s; persona, Task title, `createdFrom`, channel sender; the Broker's reason (mode, side-effect class, taint).                                                                                                                                                                                                  |
-| Buttons             | Deny left, Allow right; disabled for 400 ms after the card appears; never move while visible (**Psyche decision**).                                                                                                                                                                                                                                                                              |
-| Surfaces, states    | "Also sent to: iPhone, Telegram"; first answer wins; purchases and credential fills need Touch ID. States: pending, answered elsewhere, expired, voided, stale after restart.                                                                                                                                                                                                                    |
+| Part | Spec |
+| --- | --- |
+| Summary, details | Verb + object from `summary`; key–value rows from `details`, kind-specific (below). |
+| Scope radio | Allow once / Allow for this task / Allow for this site / Always allow (with expiry) / Deny — Muse's exact options *(muse notes, Q4)* — mapped to grant scopes `once`, `task`, `site`, `always`. **Psyche decision**: the `session` scope is an expiry choice under Always allow ("until this session ends", 1 h, 24 h, 30 days, until revoked); "this site" hides when the target has no origin. |
+| Default and keys | Deny preselected. Return does nothing; ⌘Return approves with the selected scope; ⌘D denies. OpenClaw's Mac app: "Return alone does not approve" *(harness notes, KQ2 2h)*. |
+| Countdown, who, why | `expiresAt` − now, default 30 min then denied *(arch §4.5)*, danger color under 60 s; persona, Task title, `createdFrom`, channel sender; the Broker's reason (mode, side-effect class, taint). |
+| Buttons | Deny left, Allow right; disabled for 400 ms after the card appears; never move while visible (**Psyche decision**). |
+| Surfaces, states | "Also sent to: iPhone, Telegram"; first answer wins; purchases and credential fills need Touch ID. States: pending, answered elsewhere, expired, voided, stale after restart. |
 
-Binding details shown in full, by kind: `exec` — argv, cwd, env names (OpenClaw binds always-allow to argv and cwd _(harness notes, KQ2 2k)_); `email.send` — exact recipients, subject, body hash (OpenMuse review screens "retain the exact recipient" _(harness notes, KQ1 1f)_); `credential.fill` — item, bound and current origin, fields; `purchase` — merchant, amount, line items (Muse shows "the exact purchase details each time" _(muse notes, Q4)_); `write_file` — path and diff; `mcp__<server>__<tool>` — full argument preview, trust tier, `tools/list` hash _(arch §4.9)_; `node.invoke` — app, action, tier. The card lives in the thread's dock, the Approvals tab, the inbox, OS notifications and chat channels.
+Binding details shown in full, by kind: `exec` — argv, cwd, env names (OpenClaw binds always-allow to argv and cwd *(harness notes, KQ2 2k)*); `email.send` — exact recipients, subject, body hash (OpenMuse review screens "retain the exact recipient" *(harness notes, KQ1 1f)*); `credential.fill` — item, bound and current origin, fields; `purchase` — merchant, amount, line items (Muse shows "the exact purchase details each time" *(muse notes, Q4)*); `write_file` — path and diff; `mcp__<server>__<tool>` — full argument preview, trust tier, `tools/list` hash *(arch §4.9)*; `node.invoke` — app, action, tier. The card lives in the thread's dock, the Approvals tab, the inbox, OS notifications and chat channels.
 
 ### 3.4 Question card
 
-From `ask_user` _(arch §4.3)_, following Claude's `AskUserQuestion`: 1–4 questions, header ≤ 12 characters, 2–4 options with label, description and optional preview, optional multi-select, an "Other" free-text row _(claude notes, Q5)_. Muse's clarifications are documented only as free text _(muse notes, Q4)_, so chips are a **Psyche decision**.
+From `ask_user` *(arch §4.3)*, following Claude's `AskUserQuestion`: 1–4 questions, header ≤ 12 characters, 2–4 options with label, description and optional preview, optional multi-select, an "Other" free-text row *(claude notes, Q5)*. Muse's clarifications are documented only as free text *(muse notes, Q4)*, so chips are a **Psyche decision**.
 
 ```
 +----------------------------------------------------------+
@@ -214,16 +212,16 @@ From `ask_user` _(arch §4.3)_, following Claude's `AskUserQuestion`: 1–4 ques
 +----------------------------------------------------------+
 ```
 
-| Rule                 | Spec                                                                                                                                                                                                                                            |
-| -------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Chips vs list        | Chips when every label ≤ 24 chars and no option has a description or preview; otherwise a list with a preview disclosure (previews render in the artifact sandbox). Multi-select uses checkboxes with "pick any"; Other answers with free text. |
-| Recommended first    | At most one option per question, listed first with a reason; preselected only for single-select.                                                                                                                                                |
-| Timeout              | None; background input requests wait indefinitely and appear in Upcoming / Activity _(arch §4.5)_. Psyche never auto-submits, unlike Claude's optional idle timer.                                                                              |
-| Keys, answered state | 1–9 pick options (Claude uses 1–9 for menu items _(claude notes, Q1)_), Tab between questions, ⌘Return answers; the card collapses to one line per question with Change until the run consumes it.                                              |
+| Rule | Spec |
+| --- | --- |
+| Chips vs list | Chips when every label ≤ 24 chars and no option has a description or preview; otherwise a list with a preview disclosure (previews render in the artifact sandbox). Multi-select uses checkboxes with "pick any"; Other answers with free text. |
+| Recommended first | At most one option per question, listed first with a reason; preselected only for single-select. |
+| Timeout | None; background input requests wait indefinitely and appear in Upcoming / Activity *(arch §4.5)*. Psyche never auto-submits, unlike Claude's optional idle timer. |
+| Keys, answered state | 1–9 pick options (Claude uses 1–9 for menu items *(claude notes, Q1)*), Tab between questions, ⌘Return answers; the card collapses to one line per question with Change until the run consumes it. |
 
 ### 3.5 Browser pane
 
-Embedded WebContentsViews on the desktop, Playwright sidecar screencast in server mode _(arch §5, §8)_.
+Embedded WebContentsViews on the desktop, Playwright sidecar screencast in server mode *(arch §5, §8)*.
 
 ```
 +--------------------------------------------------------------+
@@ -236,16 +234,16 @@ Embedded WebContentsViews on the desktop, Playwright sidecar screencast in serve
 +--------------------------------------------------------------+
 ```
 
-| Element                            | Spec                                                                                                                                                                                                                                                                                                                    |
-| ---------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Tab strip, highlight               | One tab per agent tab; popups and OAuth open as agent tabs. Acted-on elements get a 2 px accent outline for 600 ms.                                                                                                                                                                                                     |
-| Status pill                        | Current action in present progressive; "Paused: you have control" during Take control. Muse: "A status pill at the top shows the current action" _(muse notes, Q1)_.                                                                                                                                                    |
-| Take control                       | Toggle. On: agent input paused, accent frame border; user interaction turns it on implicitly; release resumes. Muse: "Take control of the browser" to log in or type; the agent pauses when the user takes over _(muse notes, Q1, Q4)_.                                                                                 |
-| Stop the task                      | Cancels the owning Task; authority revoked at once; in-flight requests reconcile by receipt _(arch §4.5)_.                                                                                                                                                                                                              |
-| Close (x), Open in window, Full, ⋯ | Close hides the pane only, with the toast "Browser closed. 'Dentist booking' keeps running" (Muse: "The X closes the display, but the task keeps running"); pop out or fill the window; menu: Clear browsing data, Real Chrome mode, Show replay.                                                                       |
-| Site-permission prompt             | "Let Wren act on acme.com?" Allow once / Always allow / Deny (Claude's per-site labels _(claude notes, Q2)_); Always allow creates a `site` grant.                                                                                                                                                                      |
-| Credential-fill prompt             | On a login form or `credentials.request`: "I'll type it myself" (default; turns Take control on and focuses the field), "Fill from vault once", "Fill from vault for this site", "Deny". Vault options need Touch ID and show item, bound origin and current origin; the model sees only the placeholder _(arch §4.7)_. |
-| Download toast, CAPTCHA            | "Downloaded invoice.pdf to Library → Downloads (quarantined)". A CAPTCHA turns Take control on; it is never attempted.                                                                                                                                                                                                  |
+| Element | Spec |
+| --- | --- |
+| Tab strip, highlight | One tab per agent tab; popups and OAuth open as agent tabs. Acted-on elements get a 2 px accent outline for 600 ms. |
+| Status pill | Current action in present progressive; "Paused: you have control" during Take control. Muse: "A status pill at the top shows the current action" *(muse notes, Q1)*. |
+| Take control | Toggle. On: agent input paused, accent frame border; user interaction turns it on implicitly; release resumes. Muse: "Take control of the browser" to log in or type; the agent pauses when the user takes over *(muse notes, Q1, Q4)*. |
+| Stop the task | Cancels the owning Task; authority revoked at once; in-flight requests reconcile by receipt *(arch §4.5)*. |
+| Close (x), Open in window, Full, ⋯ | Close hides the pane only, with the toast "Browser closed. 'Dentist booking' keeps running" (Muse: "The X closes the display, but the task keeps running"); pop out or fill the window; menu: Clear browsing data, Real Chrome mode, Show replay. |
+| Site-permission prompt | "Let Wren act on acme.com?" Allow once / Always allow / Deny (Claude's per-site labels *(claude notes, Q2)*); Always allow creates a `site` grant. |
+| Credential-fill prompt | On a login form or `credentials.request`: "I'll type it myself" (default; turns Take control on and focuses the field), "Fill from vault once", "Fill from vault for this site", "Deny". Vault options need Touch ID and show item, bound origin and current origin; the model sees only the placeholder *(arch §4.7)*. |
+| Download toast, CAPTCHA | "Downloaded invoice.pdf to Library → Downloads (quarantined)". A CAPTCHA turns Take control on; it is never attempted. |
 
 States: no tabs, loading, acting, paused, blocked origin (the user may browse; the agent's tools stay off), offline. Secrets are masked after a fill.
 
@@ -259,7 +257,7 @@ States: no tabs, loading, acting, paused, blocked origin (the user may browse; t
 +----------------------------------------------------------+
 ```
 
-xterm over node-pty inside the per-task container, or the host shell only when `exec_host` is on _(arch §9)_. Agent-run commands carry the avatar glyph and a receipt link; an approved interactive PTY shows "Wren has the keyboard" and Esc returns it. Receipt strip: exit code, duration, files changed; interrupted commands are `uncertain`. ⌃` toggles the pane, as in Claude *(claude notes, Q1)*. No backend: "No sandbox backend is available. Psyche never falls back to the host shell."
+xterm over node-pty inside the per-task container, or the host shell only when `exec_host` is on *(arch §9)*. Agent-run commands carry the avatar glyph and a receipt link; an approved interactive PTY shows "Wren has the keyboard" and Esc returns it. Receipt strip: exit code, duration, files changed; interrupted commands are `uncertain`. ⌃` toggles the pane, as in Claude *(claude notes, Q1)*. No backend: "No sandbox backend is available. Psyche never falls back to the host shell."
 
 ### 3.7 Files pane and viewers
 
@@ -272,15 +270,15 @@ xterm over node-pty inside the per-task container, or the host shell only when `
 +---------------+------------------------------------------+
 ```
 
-Tree of granted folders (ro / rw), the thread's `/workspace` and the Library, with inline previews _(arch §5)_, as in Claude _(claude notes, Q1)_. An unshared folder shows a Share button that raises a folder-grant ApprovalRequest.
+Tree of granted folders (ro / rw), the thread's `/workspace` and the Library, with inline previews *(arch §5)*, as in Claude *(claude notes, Q1)*. An unshared folder shows a Share button that raises a folder-grant ApprovalRequest.
 
-| Viewer                          | Library                                                                                                                       | UI                                                                                                                                                                                                                                                                                                            |
-| ------------------------------- | ----------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| PDF                             | PDF.js 6, self-hosted worker _(blocks notes, PDF)_                                                                            | Thumbnails, search, selection. Form-field highlights: AcroForm fields the agent proposes to fill are outlined in accent with values in a side list; the user edits, then Apply writes a filled copy and a receipt (OpenMuse's form values → filled copy → reviewed reply pipeline _(harness notes, KQ1 1c)_). |
-| Spreadsheet, DOCX, PPTX, images | SheetJS CE + TanStack Table view, Univer edit; docx-preview / mammoth; LibreOffice or `qlmanage` thumbnails; native with zoom | Sheet tabs; Layout / Text toggle; thumbnail grid; masked regions hatched.                                                                                                                                                                                                                                     |
-| Code, CSV, JSON                 | CodeMirror 6 edit, Shiki 4 read                                                                                               | Line comments attach to the next message, as in Claude.                                                                                                                                                                                                                                                       |
-| Email preview                   | Sanitized HTML in the artifact sandbox                                                                                        | Remote images blocked until "Load remote images"; provenance `untrusted` _(blocks notes, artifacts)_.                                                                                                                                                                                                         |
-| Artifacts                       | `sandbox="allow-scripts"` srcdoc iframe on a separate origin, strict CSP _(arch §5)_                                          | Title, version history, Export, Open in window; private unless exported _(muse notes, Q4)_.                                                                                                                                                                                                                   |
+| Viewer | Library | UI |
+| --- | --- | --- |
+| PDF | PDF.js 6, self-hosted worker *(blocks notes, PDF)* | Thumbnails, search, selection. Form-field highlights: AcroForm fields the agent proposes to fill are outlined in accent with values in a side list; the user edits, then Apply writes a filled copy and a receipt (OpenMuse's form values → filled copy → reviewed reply pipeline *(harness notes, KQ1 1c)*). |
+| Spreadsheet, DOCX, PPTX, images | SheetJS CE + TanStack Table view, Univer edit; docx-preview / mammoth; LibreOffice or `qlmanage` thumbnails; native with zoom | Sheet tabs; Layout / Text toggle; thumbnail grid; masked regions hatched. |
+| Code, CSV, JSON | CodeMirror 6 edit, Shiki 4 read | Line comments attach to the next message, as in Claude. |
+| Email preview | Sanitized HTML in the artifact sandbox | Remote images blocked until "Load remote images"; provenance `untrusted` *(blocks notes, artifacts)*. |
+| Artifacts | `sandbox="allow-scripts"` srcdoc iframe on a separate origin, strict CSP *(arch §5)* | Title, version history, Export, Open in window; private unless exported *(muse notes, Q4)*. |
 
 ### 3.8 Markdown editor
 
@@ -290,11 +288,11 @@ Tree of granted folders (ro / rw), the thread's `/workspace` and the Library, wi
 | - I say what I do not know.                                   |
 ```
 
-Rich / Source / Diff in one toggle (MDXEditor ships it; CodeMirror 6 is the source editor _(blocks notes, Markdown editors)_). Raw Markdown is canonical; Rich never rewrites untouched lines. Diff compares against the last save, or against the agent's proposed edit when opened from an `edit_file` approval. Save / Discard are explicit, as in Claude's file editor _(claude notes, Q1)_; saving a workspace file posts a system message. Persona files show budget meters (20k per file, 4k for `USER.md`) _(arch §4.2)_; `MEMORY.md` notes that dreaming rewrites it nightly. Code files open in CodeMirror without Rich.
+Rich / Source / Diff in one toggle (MDXEditor ships it; CodeMirror 6 is the source editor *(blocks notes, Markdown editors)*). Raw Markdown is canonical; Rich never rewrites untouched lines. Diff compares against the last save, or against the agent's proposed edit when opened from an `edit_file` approval. Save / Discard are explicit, as in Claude's file editor *(claude notes, Q1)*; saving a workspace file posts a system message. Persona files show budget meters (20k per file, 4k for `USER.md`) *(arch §4.2)*; `MEMORY.md` notes that dreaming rewrites it nightly. Code files open in CodeMirror without Rich.
 
 ### 3.9 Feed
 
-Bounded daily brief of 5–10 posts plus scheduled briefings _(arch §4.11)_. Muse's Feed is short posts on a schedule with heart and comment; "You control what it writes about" _(muse notes, Q2)_.
+Bounded daily brief of 5–10 posts plus scheduled briefings *(arch §4.11)*. Muse's Feed is short posts on a schedule with heart and comment; "You control what it writes about" *(muse notes, Q2)*.
 
 ```
 +--------------------------------------------------------------+
@@ -310,19 +308,19 @@ Bounded daily brief of 5–10 posts plus scheduled briefings _(arch §4.11)_. Mu
 +--------------------------------------------------------------+
 ```
 
-| Element                       | Spec                                                                                                                                                                                              |
-| ----------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Post card                     | Kind label (briefing, reminder, suggestion, watch result, news cluster), title, body with citation markers, source cluster row with favicons and count, feedback row _(blocks notes, feeds)_.     |
-| Feedback                      | Follow topic, Not interested, Hide source, Like, Save (Discover-style vocabulary); written to the interest ledger at once with an undo toast.                                                     |
-| Exploration slot, end marker  | One or two labelled posts per batch; "That's it for today", a Pulse-style bound.                                                                                                                  |
+| Element | Spec |
+| --- | --- |
+| Post card | Kind label (briefing, reminder, suggestion, watch result, news cluster), title, body with citation markers, source cluster row with favicons and count, feedback row *(blocks notes, feeds)*. |
+| Feedback | Follow topic, Not interested, Hide source, Like, Save (Discover-style vocabulary); written to the interest ledger at once with an undo toast. |
+| Exploration slot, end marker | One or two labelled posts per batch; "That's it for today", a Pulse-style bound. |
 | Instructions editor, schedule | "What should I write about" opens `workspace/interests.md` in the Markdown editor (natural language, as Muse's configuration is conversational); briefings are automations edited as in Upcoming. |
-| Ask Wren                      | Opens a side chat seeded with the post; undocumented for Muse, **Psyche decision**.                                                                                                               |
+| Ask Wren | Opens a side chat seeded with the post; undocumented for Muse, **Psyche decision**. |
 
-States: first run ("No brief yet. Generate the first one, or wait until 07:00"; Muse's new accounts may need to generate a first feed _(muse notes, Q1)_), generating, per-source failure rows.
+States: first run ("No brief yet. Generate the first one, or wait until 07:00"; Muse's new accounts may need to generate a first feed *(muse notes, Q1)*), generating, per-source failure rows.
 
 ### 3.10 Ideas
 
-Cards with evidence, effort and Let's do it / Edit / Dismiss; accepted ideas become Tasks or automations _(arch §4.11)_. Muse: "Tap one and it builds it", with a recurring toggle in the "Let's do it" popup _(muse notes, Q3)_; OpenMuse ideas carry evidence _(harness notes, KQ1 1c)_.
+Cards with evidence, effort and Let's do it / Edit / Dismiss; accepted ideas become Tasks or automations *(arch §4.11)*. Muse: "Tap one and it builds it", with a recurring toggle in the "Let's do it" popup *(muse notes, Q3)*; OpenMuse ideas carry evidence *(harness notes, KQ1 1c)*.
 
 ```
 +----------------------------------------------------------+
@@ -337,11 +335,11 @@ Cards with evidence, effort and Let's do it / Edit / Dismiss; accepted ideas bec
 +----------------------------------------------------------+
 ```
 
-Evidence links to its source; effort shows minutes and the approvals needed; the recurring toggle creates an automation; Edit opens the brief in a side-chat composer; Dismiss offers Not now / Not interested / Never from this source, feeding the acceptance model. Skill drafts stay drafts until approved _(arch §13)_. Batches arrive in scheduled windows.
+Evidence links to its source; effort shows minutes and the approvals needed; the recurring toggle creates an automation; Edit opens the brief in a side-chat composer; Dismiss offers Not now / Not interested / Never from this source, feeding the acceptance model. Skill drafts stay drafts until approved *(arch §13)*. Batches arrive in scheduled windows.
 
 ### 3.11 Goals
 
-Category, milestones, plan, linked Tasks, check-in cadence, watches; inferred goals are candidates for one-tap confirmation _(arch §4.11)_. Muse's Goals tab shows everything tracked with plans per goal, in categories such as health, finance and career _(muse notes, Q3)_; its detail view is undocumented, so the page is a **Psyche decision**.
+Category, milestones, plan, linked Tasks, check-in cadence, watches; inferred goals are candidates for one-tap confirmation *(arch §4.11)*. Muse's Goals tab shows everything tracked with plans per goal, in categories such as health, finance and career *(muse notes, Q3)*; its detail view is undocumented, so the page is a **Psyche decision**.
 
 ```
 +------------------+-------------------------------------------+
@@ -363,11 +361,11 @@ List rows show title, next check-in and a milestone progress bar; the plan is an
 
 Tabs: Documents, Images, Artifacts, Downloads, System files; grid or list with type, source Task and date filters.
 
-| Section                      | Contents                                                                                                                      | Actions                                                                                         |
-| ---------------------------- | ----------------------------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------- |
-| Documents, Images, Artifacts | Files the agent made or received _(arch §12)_; artifacts with versions                                                        | Open, Reveal, Share, Quick Look (mac helper), Send to chat; Update by name, Export              |
-| Downloads                    | Quarantined until opened _(arch §5)_                                                                                          | Opening requires a click; "Trust this file" clears the badge                                    |
-| System files                 | `SOUL.md`, `IDENTITY.md`, `USER.md`, `AGENTS.md`, `MEMORY.md`, daily notes, `interests.md`, skills, `DREAMS.md`, audit months | Open in editor; audit read-only; Muse's Library has a "System Files" section _(muse notes, Q1)_ |
+| Section | Contents | Actions |
+| --- | --- | --- |
+| Documents, Images, Artifacts | Files the agent made or received *(arch §12)*; artifacts with versions | Open, Reveal, Share, Quick Look (mac helper), Send to chat; Update by name, Export |
+| Downloads | Quarantined until opened *(arch §5)* | Opening requires a click; "Trust this file" clears the badge |
+| System files | `SOUL.md`, `IDENTITY.md`, `USER.md`, `AGENTS.md`, `MEMORY.md`, daily notes, `interests.md`, skills, `DREAMS.md`, audit months | Open in editor; audit read-only; Muse's Library has a "System Files" section *(muse notes, Q1)* |
 
 Every item carries a Task chip linking to the action that produced it.
 
@@ -380,11 +378,11 @@ Every item carries a Task chip linking to the action that produced it.
 | LIBRARY (2)  permission-slip.pdf                             |
 ```
 
-A first-class rail item (Muse's Mac rail has Search _(muse notes, Q1)_) over one index spanning threads, tasks, memory, Library, Feed, Ideas, Goals and indexed connector caches, with typed filters _(arch §4.12)_. Results group by kind with a provenance chip for memory; opening a result lands in the pane it belongs to.
+A first-class rail item (Muse's Mac rail has Search *(muse notes, Q1)*) over one index spanning threads, tasks, memory, Library, Feed, Ideas, Goals and indexed connector caches, with typed filters *(arch §4.12)*. Results group by kind with a provenance chip for memory; opening a result lands in the pane it belongs to.
 
 ### 3.14 Activity
 
-_Amended 2026-10-25 by the run trace (docs/design/run-trace-2026.md §3.3–§3.6)._ Activity is mission control: every kind of run (chat tasks, Tasks, automations; helpers fold under their parent) in four sections, and every row opens that task's **Timeline**, which replaces the old action log.
+*Amended 2026-10-25 by the run trace (docs/design/run-trace-2026.md §3.3–§3.6).* Activity is mission control: every kind of run (chat tasks, Tasks, automations; helpers fold under their parent) in four sections, and every row opens that task's **Timeline**, which replaces the old action log.
 
 ```
 +--------------------------------------------------------------+
@@ -414,11 +412,11 @@ _Amended 2026-10-25 by the run trace (docs/design/run-trace-2026.md §3.3–§3.
 | STANDING GRANTS 14 - [Review in Permissions]                     |
 ```
 
-Deferred holds approvals that unattended runs could not ask for _(arch §4.3)_; Recent covers 7 days with who answered where; Standing grants link to the ledger of `site`, `session` and `always` grants with expiry and use counters _(arch §4.6)_, as OpenClaw's Control UI does _(harness notes, KQ2 2n)_.
+Deferred holds approvals that unattended runs could not ask for *(arch §4.3)*; Recent covers 7 days with who answered where; Standing grants link to the ledger of `site`, `session` and `always` grants with expiry and use counters *(arch §4.6)*, as OpenClaw's Control UI does *(harness notes, KQ2 2n)*.
 
 ### 3.16 Upcoming
 
-Muse's Upcoming holds reminders and scheduled tasks, where recurring tasks are edited _(muse notes, Q1, Q3)_.
+Muse's Upcoming holds reminders and scheduled tasks, where recurring tasks are edited *(muse notes, Q1, Q3)*.
 
 ```
 | Morning brief      weekdays 07:00  main      last: delivered  [Run now][Pause]|
@@ -427,11 +425,11 @@ Muse's Upcoming holds reminders and scheduled tasks, where recurring tasks are e
 | Reminder: call Sam Thu 17:00  [Snooze][Done]    Heartbeat  every 45 min       |
 ```
 
-Rows show the schedule as a sentence, session target (main / isolated / named), delivery target, last outcome including `NO_REPLY`, next run, and Run now / Pause / Edit / Delete _(arch §4.11)_; watches show condition, last observation and backoff; after sleep a banner reports coalesced runs. The editor offers presets and a natural-language field.
+Rows show the schedule as a sentence, session target (main / isolated / named), delivery target, last outcome including `NO_REPLY`, next run, and Run now / Pause / Edit / Delete *(arch §4.11)*; watches show condition, last observation and backoff; after sleep a banner reports coalesced runs. The editor offers presets and a natural-language field.
 
 ### 3.17 Soul & Memory
 
-The fingerprint tab _(muse notes, Q1)_: edit the files directly, browse daily notes, search, pause, incognito, import, export, reset _(arch §4.8)_.
+The fingerprint tab *(muse notes, Q1)*: edit the files directly, browse daily notes, search, pause, incognito, import, export, reset *(arch §4.8)*.
 
 ```
 +--------------------------------------------------------------+
@@ -444,16 +442,16 @@ The fingerprint tab _(muse notes, Q1)_: edit the files directly, browse daily no
 +--------------------------------------------------------------+
 ```
 
-| Element                | Spec                                                                                                                                                                                                                                                                               |
-| ---------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| File tabs, daily notes | Markdown editor with budget meters; `IDENTITY.md` fields (name, creature, vibe, tagline, emoji) also render as a form; Muse's Identity file "sets your Muse's name, creature, vibe or tag line". Daily notes in a calendar strip.                                                  |
-| Memory search          | Provenance chips; "Why is this believed?" calls `memory_explain`; "Forget…" stages a retraction through `forget` and lists what else will go.                                                                                                                                      |
-| Pause, incognito       | Pause stops flushes and dreaming writes and shows a "Memory paused" chip in every thread; incognito starts a memory-only side chat.                                                                                                                                                |
-| Import, export, reset  | Imported entries arrive as `untrusted` and are never promoted automatically (Muse has "Import memory" under Data controls _(muse notes, Q4)_); "Download your data" exports threads, files, memory and the audit log; Reset needs a typed confirmation and lists which folders go. |
+| Element | Spec |
+| --- | --- |
+| File tabs, daily notes | Markdown editor with budget meters; `IDENTITY.md` fields (name, creature, vibe, tagline, emoji) also render as a form; Muse's Identity file "sets your Muse's name, creature, vibe or tag line". Daily notes in a calendar strip. |
+| Memory search | Provenance chips; "Why is this believed?" calls `memory_explain`; "Forget…" stages a retraction through `forget` and lists what else will go. |
+| Pause, incognito | Pause stops flushes and dreaming writes and shows a "Memory paused" chip in every thread; incognito starts a memory-only side chat. |
+| Import, export, reset | Imported entries arrive as `untrusted` and are never promoted automatically (Muse has "Import memory" under Data controls *(muse notes, Q4)*); "Download your data" exports threads, files, memory and the audit log; Reset needs a typed confirmation and lists which folders go. |
 
 ### 3.18 Settings screens
 
-**Model & providers**: provider rows with key status (a vault reference, never the key), model roles, a "tool-calling check" badge, RAM guidance _(arch §4.4)_. **Persona**: name, creature, vibe / tagline, emoji, avatar preview with "Describe a change" in natural language (Muse's pencil-icon edit _(muse notes, Q5)_). **Connectors**: directory with trust tiers, status, scopes, last used _(arch §4.9)_; connect flows ask read-only vs read-and-act (Muse asks whether to read mail only or also send _(muse notes, Q4)_); Disconnect and Remove are separate, as in Claude _(claude notes, Q6)_.
+**Model & providers**: provider rows with key status (a vault reference, never the key), model roles, a "tool-calling check" badge, RAM guidance *(arch §4.4)*. **Persona**: name, creature, vibe / tagline, emoji, avatar preview with "Describe a change" in natural language (Muse's pencil-icon edit *(muse notes, Q5)*). **Connectors**: directory with trust tiers, status, scopes, last used *(arch §4.9)*; connect flows ask read-only vs read-and-act (Muse asks whether to read mail only or also send *(muse notes, Q4)*); Disconnect and Remove are separate, as in Claude *(claude notes, Q6)*.
 
 **Permissions**
 
@@ -471,7 +469,7 @@ The fingerprint tab _(muse notes, Q1)_: edit the files directly, browse daily no
 +--------------------------------------------------------------+
 ```
 
-Per-connector action matrices with Allow / Ask / Deny per action, as on Muse's Notion connector screen _(muse notes, Q1, Q4)_; MCP keys as `mcp__<server>__<tool>`; a changed `tools/list` hash shows "Grants revoked" _(arch §4.9)_; hard prohibitions listed read-only.
+Per-connector action matrices with Allow / Ask / Deny per action, as on Muse's Notion connector screen *(muse notes, Q1, Q4)*; MCP keys as `mcp__<server>__<tool>`; a changed `tools/list` hash shows "Grants revoked" *(arch §4.9)*; hard prohibitions listed read-only.
 
 **Computer use**
 
@@ -483,9 +481,9 @@ Per-connector action matrices with Allow / Ask / Deny per action, as on Muse's N
 | 1Password    Off (fixed)                  Esc stops computer use         |
 ```
 
-TCC rows with a denied badge; per-app tiers Off / Read only / Read and interact, prompted on first use _(arch §6)_, the same three values Muse's Mac apps use _(muse notes, Q1)_; fixed caps as locked rows (browsers read-only, terminals and IDEs click-only, password managers and banking Off).
+TCC rows with a denied badge; per-app tiers Off / Read only / Read and interact, prompted on first use *(arch §6)*, the same three values Muse's Mac apps use *(muse notes, Q1)*; fixed caps as locked rows (browsers read-only, terminals and IDEs click-only, password managers and banking Off).
 
-**File access**: folder grants ro / rw; VirtioFS shares in VM mode, read-only by default. **Devices & nodes**: paired devices with scopes, pending pairings with the challenge fingerprint, nodes with capabilities and last seen _(arch §7, §11)_.
+**File access**: folder grants ro / rw; VirtioFS shares in VM mode, read-only by default. **Devices & nodes**: paired devices with scopes, pending pairings with the challenge fingerprint, nodes with capabilities and last seen *(arch §7, §11)*.
 
 **Channels**
 
@@ -496,7 +494,7 @@ TCC rows with a denied badge; per-app tiers Off / Read only / Read and interact,
 | Identity links  Telegram @you = iMessage +1 555.. = owner   Designated: Partner|
 ```
 
-`dmPolicy: pairing | allowlist | open | disabled`, codes expiring in 1 h with at most 3 pending per channel, group allowlists with `requireMention`, identity links, designated people whose approvals route to the owner _(arch §4.10)_; mechanics from OpenClaw _(harness notes, KQ2 2f)_. Choosing `open` warns.
+`dmPolicy: pairing | allowlist | open | disabled`, codes expiring in 1 h with at most 3 pending per channel, group allowlists with `requireMention`, identity links, designated people whose approvals route to the owner *(arch §4.10)*; mechanics from OpenClaw *(harness notes, KQ2 2f)*. Choosing `open` warns.
 
 **Credentials**
 
@@ -508,9 +506,9 @@ TCC rows with a denied badge; per-app tiers Off / Read only / Read and interact,
 | [Add item] [Connect 1Password] [Connect Bitwarden]  fill default: once |
 ```
 
-Vault list with kind, origin binding, last used, use count; backend switch (Psyche vault / system keychain / external manager) _(arch §4.7)_; adding a payment item explains that raw card numbers are refused; values are never displayed. Muse has a Secure store and a Wallet _(muse notes, Q1)_.
+Vault list with kind, origin binding, last used, use count; backend switch (Psyche vault / system keychain / external manager) *(arch §4.7)*; adding a payment item explains that raw card numbers are refused; values are never displayed. Muse has a Secure store and a Wallet *(muse notes, Q1)*.
 
-**Appearance**: theme (auto / light / dark), gray family, density, accent picker with a live preview of the generated 12-step scales and the WCAG result for the text steps, reduce motion (§4.8–4.10); on the desktop, zoom (`appearance.zoom`, 67–200 %, default 100, "Actual size"): View → Zoom In / Out write the same setting and the app applies it on launch, so a stray ⌘+ never persists silently. **Voice & dictation**: push-to-talk key, toggle mode, system-wide hotkey, engine; Muse's Mac app dictates while the function key is held _(muse notes, Q1)_. **Voice mode** (feature Q5, off by default): hands-free or hold-to-talk turns, the reply voice (the persona's Gateway voice or the app's built-in one) and interrupt-by-talking; when on, the composer gains a Voice button and a state bar ("Listening", "Thinking", "Speaking", "Needs your approval on screen") with End. Approvals stay cards; voice never answers them. **Data controls**: pause memory, replay retention, transcript recall, export, delete threads, reset; no training toggle, unlike Muse's on-by-default "Help improve our AI models" _(muse notes, Q4)_, because there is no telemetry. **Server & remote access**: bind address, Tailscale / proxy status, passkeys, sandbox health, VM controls. **Usage**: tokens, cost, per-thread and per-automation breakdown, percent-remaining meter. **About**: versions, `psyche doctor`, logs.
+**Appearance**: theme (auto / light / dark), gray family, density, accent picker with a live preview of the generated 12-step scales and the WCAG result for the text steps, reduce motion (§4.8–4.10); on the desktop, zoom (`appearance.zoom`, 67–200 %, default 100, "Actual size"): View → Zoom In / Out write the same setting and the app applies it on launch, so a stray ⌘+ never persists silently. **Voice & dictation**: push-to-talk key, toggle mode, system-wide hotkey, engine; Muse's Mac app dictates while the function key is held *(muse notes, Q1)*. **Voice mode** (feature Q5, off by default): hands-free or hold-to-talk turns, the reply voice (the persona's Gateway voice or the app's built-in one) and interrupt-by-talking; when on, the composer gains a Voice button and a state bar ("Listening", "Thinking", "Speaking", "Needs your approval on screen") with End. Approvals stay cards; voice never answers them. **Data controls**: pause memory, replay retention, transcript recall, export, delete threads, reset; no training toggle, unlike Muse's on-by-default "Help improve our AI models" *(muse notes, Q4)*, because there is no telemetry. **Server & remote access**: bind address, Tailscale / proxy status, passkeys, sandbox health, VM controls. **Usage**: tokens, cost, per-thread and per-automation breakdown, percent-remaining meter. **About**: versions, `psyche doctor`, logs.
 
 ### 3.19 Onboarding
 
@@ -520,18 +518,18 @@ Vault list with kind, origin binding, last used, use count; backend switch (Psyc
 | Creature  [a small grey moth with lantern eyes          ]  (av preview)      |
 ```
 
-| Step               | Content                                                                                                                                                                                                                          |
-| ------------------ | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| 1 Meet your agent  | Name with suggestions or "Keep 'Psyche'"; creature in natural language or from the bundled set; vibe / tagline. Writes `IDENTITY.md`; `BOOTSTRAP.md` starts _(arch §4.8)_. Muse offers names or keeps "Muse" _(muse notes, Q5)_. |
-| 2 Permissions      | Accessibility ("lets Wren click, type and use apps"), Screen Recording, Notifications, each Allow / Skip; Muse's wizard asks for both, each skippable _(muse notes, Q1)_.                                                        |
-| 3 Connectors       | One at a time; read-only vs read-and-act; "decide now which accounts to connect" (Muse's Help Center advice _(muse notes, Q4)_).                                                                                                 |
-| 4 Model & provider | Cloud key or subscription, OpenRouter, or local with RAM guidance; runs the tool-calling check. Muse has no picker _(muse notes, Q0)_.                                                                                           |
-| 5 Where Wren works | Local Mac or VM mode with its defaults and what the guest can see _(arch §10)_.                                                                                                                                                  |
-| 6 Done             | Main chat opens with the agent's first message.                                                                                                                                                                                  |
+| Step | Content |
+| --- | --- |
+| 1 Meet your agent | Name with suggestions or "Keep 'Psyche'"; creature in natural language or from the bundled set; vibe / tagline. Writes `IDENTITY.md`; `BOOTSTRAP.md` starts *(arch §4.8)*. Muse offers names or keeps "Muse" *(muse notes, Q5)*. |
+| 2 Permissions | Accessibility ("lets Wren click, type and use apps"), Screen Recording, Notifications, each Allow / Skip; Muse's wizard asks for both, each skippable *(muse notes, Q1)*. |
+| 3 Connectors | One at a time; read-only vs read-and-act; "decide now which accounts to connect" (Muse's Help Center advice *(muse notes, Q4)*). |
+| 4 Model & provider | Cloud key or subscription, OpenRouter, or local with RAM guidance; runs the tool-calling check. Muse has no picker *(muse notes, Q0)*. |
+| 5 Where Wren works | Local Mac or VM mode with its defaults and what the guest can see *(arch §10)*. |
+| 6 Done | Main chat opens with the agent's first message. |
 
 ### 3.20 Notifications
 
-Kinds: `approval`, `input_needed`, `task_done`, `task_failed`, `proactive`, `briefing`, `reminder` _(arch §4.12)_; Muse's reduce to approval, task finished, suggestion, briefing or reminder _(muse notes, Q4)_.
+Kinds: `approval`, `input_needed`, `task_done`, `task_failed`, `proactive`, `briefing`, `reminder` *(arch §4.12)*; Muse's reduce to approval, task finished, suggestion, briefing or reminder *(muse notes, Q4)*.
 
 ```
 | Inbox (3)                                                        |
@@ -540,12 +538,12 @@ Kinds: `approval`, `input_needed`, `task_done`, `task_failed`, `proactive`, `bri
 | v Done      Subscription audit - 1 cancelled       [Open]        |
 ```
 
-| Kind                          | In-app row                                                                        | OS notification (mac helper, with actions)                                                     |
-| ----------------------------- | --------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------- |
-| approval                      | Summary, countdown, inline Approve / Deny; purchases and fills open the full card | Approve / Deny; `authenticationRequired` for purchases and fills _(arch §4.6)_; time-sensitive |
-| input_needed                  | Headers, Answer                                                                   | Answer; text reply for one free-text question                                                  |
-| task_done / task_failed       | Result or reason, Open / Retry                                                    | Open, Retry                                                                                    |
-| proactive, briefing, reminder | Title and evidence; "Brief ready"; Done / Snooze                                  | Passive and batched; reminders carry Done / Snooze 1 h                                         |
+| Kind | In-app row | OS notification (mac helper, with actions) |
+| --- | --- | --- |
+| approval | Summary, countdown, inline Approve / Deny; purchases and fills open the full card | Approve / Deny; `authenticationRequired` for purchases and fills *(arch §4.6)*; time-sensitive |
+| input_needed | Headers, Answer | Answer; text reply for one free-text question |
+| task_done / task_failed | Result or reason, Open / Retry | Open, Retry |
+| proactive, briefing, reminder | Title and evidence; "Brief ready"; Done / Snooze | Passive and batched; reminders carry Done / Snooze 1 h |
 
 One notification per Task per state change; stale ones are marked after a restart; every row deep-links to a route.
 
@@ -557,7 +555,7 @@ One notification per Task per state change; stale ones are marked after a restar
 | last: "Holding the 2:30 slot" - 1 approval waiting        |
 ```
 
-Frameless floating window on a global hotkey _(arch §5)_; **Psyche decision**: default ⌥Space, OpenClaw's Quick Chat key _(harness notes, KQ2 2h)_; Claude's key is undocumented _(claude notes, Q1)_. Target selector (main chat or a side chat); the reply streams into a collapsed strip; a pending approval is only a link to the full card.
+Frameless floating window on a global hotkey *(arch §5)*; **Psyche decision**: default ⌥Space, OpenClaw's Quick Chat key *(harness notes, KQ2 2h)*; Claude's key is undocumented *(claude notes, Q1)*. Target selector (main chat or a side chat); the reply streams into a collapsed strip; a pending approval is only a link to the full card.
 
 ### 3.22 Menu-bar item
 
@@ -570,7 +568,7 @@ Frameless floating window on a global hotkey _(arch §5)_; **Psyche decision**: 
 | Gateway: running (launchd)              |
 ```
 
-Template icon with the avatar state; the usage meter mirrors Muse's percent-remaining meter and adds estimated cost _(arch §4.4; muse notes, Q0)_; the Gateway row exists because the window can close while work continues.
+Template icon with the avatar state; the usage meter mirrors Muse's percent-remaining meter and adds estimated cost *(arch §4.4; muse notes, Q0)*; the Gateway row exists because the window can close while work continues.
 
 ### 3.23 VM window
 
@@ -581,11 +579,11 @@ Template icon with the avatar state; the usage meter mirrors Muse's percent-rema
 | +----------------------------------------+ Limits: 1 guest, NAT only       |
 ```
 
-Guest display streamed from the helper with the browser pane's Take control affordance _(arch §10)_; shared folders, clipboard toggle, snapshots with "Fresh Mac" reset; a limits strip (one guest, NAT only). States: creating, provisioning, running, saved, error.
+Guest display streamed from the helper with the browser pane's Take control affordance *(arch §10)*; shared folders, clipboard toggle, snapshots with "Fresh Mac" reset; a limits strip (one guest, NAT only). States: creating, provisioning, running, saved, error.
 
 ### 3.24 Web / server variant and narrow width
 
-psyche-web differs only by capability: the browser pane shows the sidecar's screencast with Take control over CDP; the terminal is a PTY in the sandbox; dictation runs on the Gateway or in the browser; Web Push carries no auth-required actions, so purchases and fills are answered in the UI or on a paired Mac; quick entry, menu bar and VM are absent; auth is a paired device or a passkey _(arch §11)_.
+psyche-web differs only by capability: the browser pane shows the sidecar's screencast with Take control over CDP; the terminal is a PTY in the sandbox; dictation runs on the Gateway or in the browser; Web Push carries no auth-required actions, so purchases and fills are answered in the UI or on a paired Mac; quick entry, menu bar and VM are absent; auth is a paired device or a passkey *(arch §11)*.
 
 ```
 | < Dentist booking   (av) Wren  [search] |
@@ -595,24 +593,24 @@ psyche-web differs only by capability: the browser pane shows the sidecar's scre
 | [Chat] [Feed] [Ideas] [Goals] [Library]  |
 ```
 
-Below 720 px the rail becomes a bottom tab bar with Chat, Feed, Ideas, Goals and Library, the five tabs Muse shows on phones _(muse notes, Q1)_; Search moves to the top bar; the thread list is a drawer; the agent sheet is a bottom sheet; panes open full screen one at a time; approval cards pin above the composer.
+Below 720 px the rail becomes a bottom tab bar with Chat, Feed, Ideas, Goals and Library, the five tabs Muse shows on phones *(muse notes, Q1)*; Search moves to the top bar; the thread list is a drawer; the agent sheet is a bottom sheet; panes open full screen one at a time; approval cards pin above the composer.
 
 ---
 
 ## 4. Design language
 
-The notes contain no colors, type, spacing, radii, dark-mode behaviour or motion for Muse _(muse notes, Q1, Q5)_; this section is **Psyche's own** except where cited.
+The notes contain no colors, type, spacing, radii, dark-mode behaviour or motion for Muse *(muse notes, Q1, Q5)*; this section is **Psyche's own** except where cited.
 
 ### 4.1 Layout grid and breakpoints
 
 Superseded by [redesign-2026.md](design/redesign-2026.md) §3.2 and §3.7. The base unit stays 4 px with an 8-point rhythm.
 
-| Region      | Size                 |
-| ----------- | -------------------- |
-| Sidebar     | 248 px (220–320)     |
-| Toolbar     | 52 px                |
+| Region | Size |
+| --- | --- |
+| Sidebar | 248 px (220–320) |
+| Toolbar | 52 px |
 | Chat column | 680 px reading width |
-| Pages       | 680 / 880 px         |
+| Pages | 680 / 880 px |
 
 The breakpoints are unchanged: compact < 720 px (§3.24, redesign §5.11), and the minimum window is 900 × 600.
 
@@ -620,19 +618,19 @@ The breakpoints are unchanged: compact < 720 px (§3.24, redesign §5.11), and t
 
 Superseded by redesign §3.2: the macOS text styles on the system font (`system-ui`, SF with optical sizing).
 
-| Role                                                           | Size / line height | Weight |
-| -------------------------------------------------------------- | ------------------ | ------ |
-| `text-large-title`                                             | 26/32              | 700    |
-| `text-title-1`                                                 | 22/28              | 700    |
-| `text-title-2`                                                 | 17/22              | 600    |
-| `text-title-3`                                                 | 15/20              | 600    |
-| `text-headline`                                                | 13/16              | 600    |
-| `text-body` (all chrome)                                       | **13/18**          |        |
-| `text-reading` (transcripts, posts, documents)                 | **15/23**          |        |
-| `text-callout`                                                 | 12/16              |        |
-| `text-subheadline`                                             | 11/14              |        |
-| `text-caption` (sentence case; the uppercase label is retired) | 11/14              | 500    |
-| `text-mono`                                                    | 12/18              |        |
+| Role | Size / line height | Weight |
+| --- | --- | --- |
+| `text-large-title` | 26/32 | 700 |
+| `text-title-1` | 22/28 | 700 |
+| `text-title-2` | 17/22 | 600 |
+| `text-title-3` | 15/20 | 600 |
+| `text-headline` | 13/16 | 600 |
+| `text-body` (all chrome) | **13/18** | |
+| `text-reading` (transcripts, posts, documents) | **15/23** | |
+| `text-callout` | 12/16 | |
+| `text-subheadline` | 11/14 | |
+| `text-caption` (sentence case; the uppercase label is retired) | 11/14 | 500 |
+| `text-mono` | 12/18 | |
 
 The minimum size is 11 px. Type carries hierarchy; colour does not.
 
@@ -642,14 +640,14 @@ Superseded by redesign §3.5. Spacing is 2, 4, 8, 12, 16, 20, 24, 32, 40, 48 and
 
 Radii are concentric (inner radius = outer − padding):
 
-| Radius | Used for                           |
-| ------ | ---------------------------------- |
-| xs 4   | checkboxes, chips in text          |
-| sm 6   | small controls, the selection pill |
-| md 8   | controls                           |
-| lg 12  | cards, grouped lists, popovers     |
-| xl 16  | sheets, dialogs, the composer      |
-| full   | capsules, avatars, badges          |
+| Radius | Used for |
+| --- | --- |
+| xs 4 | checkboxes, chips in text |
+| sm 6 | small controls, the selection pill |
+| md 8 | controls |
+| lg 12 | cards, grouped lists, popovers |
+| xl 16 | sheets, dialogs, the composer |
+| full | capsules, avatars, badges |
 
 Large controls are capsules. The window radius is drawn by the system; `--radius-window` is only the reference for concentric inner radii.
 
@@ -657,19 +655,18 @@ Large controls are capsules. The window radius is drawn by the system; `--radius
 
 Superseded by redesign §3.5 and §3.4. There are no borders.
 
-| Level | What                     | Surface                                                     |
-| ----- | ------------------------ | ----------------------------------------------------------- |
-| 0     | Canvas                   | `--canvas`                                                  |
-| 1     | Cards, grouped rows      | `--surface-raised` + `shadow-elevation-1` (0.5 px hairline) |
-| 2     | Popovers, menus, palette | `.material-glass` + `shadow-elevation-2`                    |
-| 3     | Sheets, dialogs          | Opaque `--surface-overlay` + `shadow-elevation-3` + scrim   |
+| Level | What | Surface |
+| --- | --- | --- |
+| 0 | Canvas | `--canvas` |
+| 1 | Cards, grouped rows | `--surface-raised` + `shadow-elevation-1` (0.5 px hairline) |
+| 2 | Popovers, menus, palette | `.material-glass` + `shadow-elevation-2` |
+| 3 | Sheets, dialogs | Opaque `--surface-overlay` + `shadow-elevation-3` + scrim |
 
 Dark mode steps surfaces up instead of deepening shadows. Glass is chrome-only, at most two surfaces at once, and never stacked. The materials table is in redesign §3.4 (an opaque sidebar, since native vibrancy flickered and was dropped in #597; refraction capsules for toolbar groups and the composer; CSS glass for popovers).
 
 ### 4.5 Motion
 
 Superseded by [design/motion.md](design/motion.md):
-
 - duration tokens: 0 / 100 / 150 / 220 / 320 ms
 - standard, enter and exit eases
 - six critically damped springs (micro, snappy, smooth, gentle, emphasis, interactive), with stiffness and damping in `packages/ui/src/motion/tokens.ts`
@@ -678,24 +675,25 @@ Superseded by [design/motion.md](design/motion.md):
 
 The avatar loops below are unchanged, except that they stop after 5 s idle (WCAG 2.2.2).
 
-| Element            | Spec                                                                                                                                                                                                                                                                                            |
-| ------------------ | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Durations          | 120 ms hover and toggles, 200 ms cards, 320 ms sheets and panes; `cubic-bezier(.2,.8,.2,1)`                                                                                                                                                                                                     |
-| Avatar loops       | Idle: breathing scale 1.00–1.02 over 4 s. Working: the creature types on a tiny laptop, two-frame loop at 1.5 Hz (as Muse's avatars do _(muse notes, Q5)_). Needs-you: still, pulsing accent ring 1.2 s, count badge. Error: still, desaturated, danger badge. Paused / incognito: dashed ring. |
-| Status pill, cards | 160 ms text crossfade at fixed width; cards enter with fade + 8 px rise 200 ms and exit with fade 120 ms; approval cards enter without rise and never shift layout; the in-progress checklist item has a moving 1 px underline                                                                  |
-| Reduced motion     | `prefers-reduced-motion` or the Appearance switch: loops become static frames, working is shown by pill text and a badge, transitions become 0 ms opacity changes                                                                                                                               |
+
+| Element | Spec |
+| --- | --- |
+| Durations | 120 ms hover and toggles, 200 ms cards, 320 ms sheets and panes; `cubic-bezier(.2,.8,.2,1)` |
+| Avatar loops | Idle: breathing scale 1.00–1.02 over 4 s. Working: the creature types on a tiny laptop, two-frame loop at 1.5 Hz (as Muse's avatars do *(muse notes, Q5)*). Needs-you: still, pulsing accent ring 1.2 s, count badge. Error: still, desaturated, danger badge. Paused / incognito: dashed ring. |
+| Status pill, cards | 160 ms text crossfade at fixed width; cards enter with fade + 8 px rise 200 ms and exit with fade 120 ms; approval cards enter without rise and never shift layout; the in-progress checklist item has a moving 1 px underline |
+| Reduced motion | `prefers-reduced-motion` or the Appearance switch: loops become static frames, working is shown by pill text and a badge, transitions become 0 ms opacity changes |
 
 ### 4.6 Iconography
 
-Lucide, 1.75 px stroke, 16 / 20 / 24. The icons Muse documents keep their meaning _(muse notes, Q1)_: `lightbulb` for Ideas (Muse's light-bulb), `circle-check` for Goals (check-mark), `fingerprint` for Soul & Memory, `pencil` to edit the persona, `square-pen` for a new side chat (pencil-and-note), `menu` for the bottom menu (two-bar hamburger), `ellipsis` for overflow (three dots). Psyche's own: `message-circle` / `search` / `newspaper` / `library` for the rail, `list-checks` / `shield-check` / `calendar-clock` for Activity / Approvals / Upcoming, `hand` for Take control, `square` for Stop, `receipt`, `shield-alert` for untrusted provenance, `eye-off` for incognito.
+Lucide, 1.75 px stroke, 16 / 20 / 24. The icons Muse documents keep their meaning *(muse notes, Q1)*: `lightbulb` for Ideas (Muse's light-bulb), `circle-check` for Goals (check-mark), `fingerprint` for Soul & Memory, `pencil` to edit the persona, `square-pen` for a new side chat (pencil-and-note), `menu` for the bottom menu (two-bar hamburger), `ellipsis` for overflow (three dots). Psyche's own: `message-circle` / `search` / `newspaper` / `library` for the rail, `list-checks` / `shield-check` / `calendar-clock` for Activity / Approvals / Upcoming, `hand` for Take control, `square` for Stop, `receipt`, `shield-alert` for untrusted provenance, `eye-off` for incognito.
 
 ### 4.7 The avatar system
 
-| Aspect                  | Spec                                                                                                                                                                                                                                                                                                                                                              |
-| ----------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Default creature        | An original pale moth with accent-colored wing spots (the mythological Psyche has wings); Muse's default "Jolly" is cream-colored with beady black eyes _(muse notes, Q5)_ and OpenMuse bundles a warm tan capybara _(harness notes, KQ1 1j)_.                                                                                                                    |
+| Aspect | Spec |
+| --- | --- |
+| Default creature | An original pale moth with accent-colored wing spots (the mythological Psyche has wings); Muse's default "Jolly" is cream-colored with beady black eyes *(muse notes, Q5)* and OpenMuse bundles a warm tan capybara *(harness notes, KQ1 1j)*. |
 | User-described creature | The onboarding sentence or a later "Describe a change" goes to the configured image model when one exists; otherwise the user picks from 12 bundled SVG creatures (whether Muse uses an image model is unconfirmed; **Psyche decision**). Prompt and render live in `IDENTITY.md` and `library/images/avatar/`; the emoji is the fallback on image-less channels. |
-| Sizes, states           | 20 inline, 28 phone header, 40 desktop header, 64 agent sheet, 160 onboarding. States idle, working, needs-you, error, paused / incognito, offline, derived from Tasks and the Gateway connection, never set by the model. A delegated persona gets a distinct ring and the label "delegated" _(arch §4.10)_.                                                     |
+| Sizes, states | 20 inline, 28 phone header, 40 desktop header, 64 agent sheet, 160 onboarding. States idle, working, needs-you, error, paused / incognito, offline, derived from Tasks and the Gateway connection, never set by the model. A delegated persona gets a distinct ring and the label "delegated" *(arch §4.10)*. |
 
 ### 4.8 Color system
 
@@ -703,12 +701,12 @@ The generator is unchanged: OKLCH 12-step accent and gray scales from the seed, 
 
 **Amended (redesign §3.3):** components use semantic roles, never raw steps:
 
-| Group               | Roles                                                            |
-| ------------------- | ---------------------------------------------------------------- |
-| Surfaces            | `canvas`, `surface-sidebar`, `surface-raised`, `surface-overlay` |
-| Labels              | `label-primary` … `label-quaternary`                             |
-| Fills               | `fill-primary` … `fill-quaternary`                               |
-| Lines and selection | `separator`, `selection` (gray when the window is inactive)      |
+| Group | Roles |
+| --- | --- |
+| Surfaces | `canvas`, `surface-sidebar`, `surface-raised`, `surface-overlay` |
+| Labels | `label-primary` … `label-quaternary` |
+| Fills | `fill-primary` … `fill-quaternary` |
+| Lines and selection | `separator`, `selection` (gray when the window is inactive) |
 
 - **Accent:** only for the one primary action per view, the key-window selection, links and focus.
 - **Status:** uses the semantic scales.
@@ -716,7 +714,7 @@ The generator is unchanged: OKLCH 12-step accent and gray scales from the seed, 
 
 ### 4.9 Component inventory
 
-shadcn/ui v4 on Base UI (the default base since July 2026) with Tailwind v4.3, plus assistant-ui primitives _(blocks notes, UI kits; arch §3.1)_. Thread, messages and composer come from assistant-ui's `Thread`, `ThreadList`, `Message` and `Composer` over an AG-UI / data-stream runtime bound to `chat.*` events. Tool rows, the plan checklist and receipt lines use `Collapsible`, `Badge`, `Checkbox` and `HoverCard`; the approval card uses `Card`, `RadioGroup`, `Select`, `Button` and `Progress`; the question card uses `ToggleGroup`, `RadioGroup` / `Checkbox` and `Input`. The agent sheet is `Sheet` / `Drawer` with `Tabs`; panes use `react-resizable-panels`; the palette is `Command`; toasts are `Sonner`; matrices are TanStack `Table`. The editor is MDXEditor over CodeMirror 6; viewers are PDF.js 6, SheetJS + TanStack Table, Univer, docx-preview, Shiki and the sandboxed iframe.
+shadcn/ui v4 on Base UI (the default base since July 2026) with Tailwind v4.3, plus assistant-ui primitives *(blocks notes, UI kits; arch §3.1)*. Thread, messages and composer come from assistant-ui's `Thread`, `ThreadList`, `Message` and `Composer` over an AG-UI / data-stream runtime bound to `chat.*` events. Tool rows, the plan checklist and receipt lines use `Collapsible`, `Badge`, `Checkbox` and `HoverCard`; the approval card uses `Card`, `RadioGroup`, `Select`, `Button` and `Progress`; the question card uses `ToggleGroup`, `RadioGroup` / `Checkbox` and `Input`. The agent sheet is `Sheet` / `Drawer` with `Tabs`; panes use `react-resizable-panels`; the palette is `Command`; toasts are `Sonner`; matrices are TanStack `Table`. The editor is MDXEditor over CodeMirror 6; viewers are PDF.js 6, SheetJS + TanStack Table, Univer, docx-preview, Shiki and the sandboxed iframe.
 
 ### 4.10 Theming API
 
@@ -731,43 +729,43 @@ settings.appearance { theme, accentSeed, gray, density, reduceMotion }
       </style>
 ```
 
-shadcn names are mapped once and never regenerated: `--primary: var(--accent-9)`, `--primary-foreground: var(--accent-contrast)`, `--ring: var(--accent-8)`, `--border: var(--gray-6)`, `--foreground: var(--gray-12)` _(blocks notes, theming)_. `@theme inline` exposes the scales as Tailwind utilities; `@property` registers the solid steps so an accent change animates in 200 ms; density sets `--spacing` to 3.5 or 4 px. The theme is per owner and identical in psyche-web.
+shadcn names are mapped once and never regenerated: `--primary: var(--accent-9)`, `--primary-foreground: var(--accent-contrast)`, `--ring: var(--accent-8)`, `--border: var(--gray-6)`, `--foreground: var(--gray-12)` *(blocks notes, theming)*. `@theme inline` exposes the scales as Tailwind utilities; `@property` registers the solid steps so an accent change animates in 200 ms; density sets `--spacing` to 3.5 or 4 px. The theme is per owner and identical in psyche-web.
 
 ### 4.11 Accessibility
 
-Keyboard map, modeled on the Claude desktop shortcuts _(claude notes, Q1)_; † marks Psyche additions.
+Keyboard map, modeled on the Claude desktop shortcuts *(claude notes, Q1)*; † marks Psyche additions.
 
-| Shortcut       | Action                                                                                                                  |
-| -------------- | ----------------------------------------------------------------------------------------------------------------------- |
-| ⌘K †           | Command palette                                                                                                         |
-| ⌘,             | Settings (its own window on the desktop; redesign §4)                                                                   |
-| ⌘N / ⌘W        | New side chat / close thread view or pop-out                                                                            |
-| ⌘B             | Toggle thread list                                                                                                      |
-| ⌃Tab           | Cycle threads                                                                                                           |
-| ⌘;             | Fork from selection into a side chat                                                                                    |
-| Esc            | Stop the run; release Take control; globally stop computer use (consumed so page content cannot dismiss it _(arch §6)_) |
-| ⌃O             | Cycle disclosure level: status → actions → raw                                                                          |
-| ⌘⇧B / ⌘⇧D / ⌃` | Browser / Diff / Terminal pane                                                                                          |
-| ⌘⇧M / ⌘⇧I      | Permission mode / model picker                                                                                          |
-| ⌘⇧A / ⌘⇧P †    | Agent sheet → Activity / Approvals                                                                                      |
-| ⌘\ / ⌘/        | Close focused pane / shortcut list                                                                                      |
-| 1–9            | Select a menu or question option                                                                                        |
-| ⌘Return        | Approve with selected scope; answer a question; submit a line comment                                                   |
-| ⌘D †           | Deny the focused approval                                                                                               |
-| ⌥Space †       | Quick entry (global)                                                                                                    |
-| Hold fn †      | Push-to-talk dictation; Muse dictates while the function key is held _(muse notes, Q1)_                                 |
+| Shortcut | Action |
+| --- | --- |
+| ⌘K † | Command palette |
+| ⌘, | Settings (its own window on the desktop; redesign §4) |
+| ⌘N / ⌘W | New side chat / close thread view or pop-out |
+| ⌘B | Toggle thread list |
+| ⌃Tab | Cycle threads |
+| ⌘; | Fork from selection into a side chat |
+| Esc | Stop the run; release Take control; globally stop computer use (consumed so page content cannot dismiss it *(arch §6)*) |
+| ⌃O | Cycle disclosure level: status → actions → raw |
+| ⌘⇧B / ⌘⇧D / ⌃` | Browser / Diff / Terminal pane |
+| ⌘⇧M / ⌘⇧I | Permission mode / model picker |
+| ⌘⇧A / ⌘⇧P † | Agent sheet → Activity / Approvals |
+| ⌘\ / ⌘/ | Close focused pane / shortcut list |
+| 1–9 | Select a menu or question option |
+| ⌘Return | Approve with selected scope; answer a question; submit a line comment |
+| ⌘D † | Deny the focused approval |
+| ⌥Space † | Quick entry (global) |
+| Hold fn † | Push-to-talk dictation; Muse dictates while the function key is held *(muse notes, Q1)* |
 
 Focus: a new approval card moves focus to its heading and announces through a polite live region unless the user is typing; closing a pane returns focus to its opener; sheets trap focus. Approval cards are `role="group"` labelled by the summary; the status pill is `aria-live="polite"`; avatar state is also text. High contrast: borders step 8, text step 12, 2 px solid focus rings.
 
 ### 4.12 Copywriting voice
 
-| Rule                                                                                                              | Example                                                                                                                                                              |
-| ----------------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Short, specific, second person                                                                                    | "Wren needs your login for acme.com", not "Credentials are required to proceed."                                                                                     |
-| The agent speaks as the persona; system UI speaks as Psyche                                                       | Agent messages use the persona's name and the Soul's tone; banners, settings and errors say "Psyche can't reach the Gateway" and name the persona only as a subject. |
-| Approval summaries name the exact target                                                                          | "Send an email to jane.ortiz@example.com"; "Run `npm install` in ~/Projects/psyche".                                                                                 |
-| Errors: what happened, what Psyche did, what you can do                                                           | "The model returned an error (rate limited). Psyche did not fall back because you chose this model. Try again or pick another."                                      |
-| No exclamation marks, no "Oops", no system apologies; receipts are facts; proactive items carry a "Because:" line |                                                                                                                                                                      |
+| Rule | Example |
+| --- | --- |
+| Short, specific, second person | "Wren needs your login for acme.com", not "Credentials are required to proceed." |
+| The agent speaks as the persona; system UI speaks as Psyche | Agent messages use the persona's name and the Soul's tone; banners, settings and errors say "Psyche can't reach the Gateway" and name the persona only as a subject. |
+| Approval summaries name the exact target | "Send an email to jane.ortiz@example.com"; "Run `npm install` in ~/Projects/psyche". |
+| Errors: what happened, what Psyche did, what you can do | "The model returned an error (rate limited). Psyche did not fall back because you chose this model. Try again or pick another." |
+| No exclamation marks, no "Oops", no system apologies; receipts are facts; proactive items carry a "Because:" line | |
 
 ### 4.13 Empty and error states
 
@@ -777,18 +775,18 @@ Every screen follows §3.0: an empty state is one sentence in Psyche's voice plu
 
 ## 5. Where Psyche deliberately differs
 
-| Topic                  | Muse                                                                                     | Claude desktop                                                                    | Psyche                                                                                    | Why                                                                         |
-| ---------------------- | ---------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------- | --------------------------------------------------------------------------- |
-| Where approvals appear | Sentinel delivers them in the client UI, "not via their conversation" _(muse notes, Q4)_ | Permission cards in the transcript area _(claude notes, Q5)_                      | Always outside the message stream: dock, Approvals tab, inbox, OS notifications, channels | A card that scrolls away is missed or mistaken for model text               |
-| Receipts               | An audit trail exists _(muse notes, Q4)_                                                 | No receipt line in chat                                                           | A visible receipt line after every external write                                         | _(arch §2)_; OpenMuse's review → receipt contract _(harness notes, KQ1 1g)_ |
-| Credential fill        | A client UI captures the password into secure storage _(muse notes, Q4)_                 | 1Password fills in Chrome; the agent refuses to type secrets _(claude notes, Q2)_ | "I'll type it myself" is the default; vault fill is opt-in per fill or per site           | "Log in yourself" before "fill from vault" _(arch §4.7)_                    |
-| Search                 | A Mac rail item _(muse notes, Q1)_                                                       | Transcript search and a palette _(claude notes, Q1)_                              | First-class rail item over one index                                                      | Makes "everything is a file" usable _(arch §4.12)_                          |
-| Side chats             | Persistent _(muse notes, Q1)_                                                            | Side chat "isn't saved to disk" _(claude notes, Q1)_                              | Persistent and forkable; incognito is the explicit ephemeral option                       | Privacy is a choice, not a default loss                                     |
-| Feed cadence           | Undocumented _(muse notes, Q2)_                                                          | No feed                                                                           | 5–10 posts, end marker, labelled exploration                                              | Anti-doomscroll default _(blocks notes, feeds)_                             |
-| Inferred goals         | Infers goals "not said out loud" _(muse notes, Q3)_                                      | None                                                                              | Candidates needing a tap                                                                  | _(arch §2)_                                                                 |
-| Training and telemetry | "Help improve our AI models" on by default _(muse notes, Q4)_                            | n/a                                                                               | No toggle, no telemetry unless enabled                                                    | Nothing to send                                                             |
-| Take control           | Explicit control _(muse notes, Q1)_                                                      | Implicit; none documented _(claude notes, Q2)_                                    | Implicit on interaction plus an explicit toggle with a visible paused state               | The user should see whose keyboard it is                                    |
-| Gateway lifetime       | Cloud VM continues when the app closes _(muse notes, Q4)_                                | Local sessions need the app open _(claude notes, Q4)_                             | Menu-bar item shows the Gateway running after the window closes                           | OpenClaw's Gateway pattern _(harness notes, KQ2 2h)_                        |
+| Topic | Muse | Claude desktop | Psyche | Why |
+| --- | --- | --- | --- | --- |
+| Where approvals appear | Sentinel delivers them in the client UI, "not via their conversation" *(muse notes, Q4)* | Permission cards in the transcript area *(claude notes, Q5)* | Always outside the message stream: dock, Approvals tab, inbox, OS notifications, channels | A card that scrolls away is missed or mistaken for model text |
+| Receipts | An audit trail exists *(muse notes, Q4)* | No receipt line in chat | A visible receipt line after every external write | *(arch §2)*; OpenMuse's review → receipt contract *(harness notes, KQ1 1g)* |
+| Credential fill | A client UI captures the password into secure storage *(muse notes, Q4)* | 1Password fills in Chrome; the agent refuses to type secrets *(claude notes, Q2)* | "I'll type it myself" is the default; vault fill is opt-in per fill or per site | "Log in yourself" before "fill from vault" *(arch §4.7)* |
+| Search | A Mac rail item *(muse notes, Q1)* | Transcript search and a palette *(claude notes, Q1)* | First-class rail item over one index | Makes "everything is a file" usable *(arch §4.12)* |
+| Side chats | Persistent *(muse notes, Q1)* | Side chat "isn't saved to disk" *(claude notes, Q1)* | Persistent and forkable; incognito is the explicit ephemeral option | Privacy is a choice, not a default loss |
+| Feed cadence | Undocumented *(muse notes, Q2)* | No feed | 5–10 posts, end marker, labelled exploration | Anti-doomscroll default *(blocks notes, feeds)* |
+| Inferred goals | Infers goals "not said out loud" *(muse notes, Q3)* | None | Candidates needing a tap | *(arch §2)* |
+| Training and telemetry | "Help improve our AI models" on by default *(muse notes, Q4)* | n/a | No toggle, no telemetry unless enabled | Nothing to send |
+| Take control | Explicit control *(muse notes, Q1)* | Implicit; none documented *(claude notes, Q2)* | Implicit on interaction plus an explicit toggle with a visible paused state | The user should see whose keyboard it is |
+| Gateway lifetime | Cloud VM continues when the app closes *(muse notes, Q4)* | Local sessions need the app open *(claude notes, Q4)* | Menu-bar item shows the Gateway running after the window closes | OpenClaw's Gateway pattern *(harness notes, KQ2 2h)* |
 
 ---
 
@@ -796,10 +794,10 @@ Every screen follows §3.0: an empty state is one sentence in Psyche's voice plu
 
 Undocumented in the sources, so Psyche defines its own:
 
-- Muse's exact colors, typography, spacing, radii, dark mode and motion are described nowhere; Meta's screenshots are uncaptioned _(muse notes, Q1, Q5)_. Section 4 is Psyche's.
-- Muse's clarifying questions appear only as free text; no source shows chips _(muse notes, Q4)_. §3.4 follows Claude's `AskUserQuestion` schema plus Psyche's chip rule.
-- Muse's approval card visuals, Goals detail view, check-in rendering, inferred-goal acceptance, Feed post schema and cadence, avatar creation flow, and iPad and WhatsApp layouts are undocumented _(muse notes, Q1–Q5)_.
-- Claude's chat conversation controls (branching, export, reply-to), plan pane rendering and quick-entry hotkey are undocumented or inferred _(claude notes, Q1, Q5)_.
+- Muse's exact colors, typography, spacing, radii, dark mode and motion are described nowhere; Meta's screenshots are uncaptioned *(muse notes, Q1, Q5)*. Section 4 is Psyche's.
+- Muse's clarifying questions appear only as free text; no source shows chips *(muse notes, Q4)*. §3.4 follows Claude's `AskUserQuestion` schema plus Psyche's chip rule.
+- Muse's approval card visuals, Goals detail view, check-in rendering, inferred-goal acceptance, Feed post schema and cadence, avatar creation flow, and iPad and WhatsApp layouts are undocumented *(muse notes, Q1–Q5)*.
+- Claude's chat conversation controls (branching, export, reply-to), plan pane rendering and quick-entry hotkey are undocumented or inferred *(claude notes, Q1, Q5)*.
 
 Decisions the architecture document should reflect or confirm:
 
@@ -812,4 +810,4 @@ Decisions the architecture document should reflect or confirm:
 7. The default quick-entry hotkey ⌥Space may conflict with other utilities; onboarding should offer ⌃⌥Space.
 8. The ranking job must mark which Feed posts came from exploration slots.
 
-Open for the design itself: how to show subagents in the chat column without noise; whether the terminal pane belongs in the narrow web layout; whether the delegated-persona ring is enough to tell an owner's and a designated person's threads apart; the bundled creature set's art direction; and whether to adopt the shadcn-hosted AI Elements components after November 2026 _(blocks notes, UI kits)_.
+Open for the design itself: how to show subagents in the chat column without noise; whether the terminal pane belongs in the narrow web layout; whether the delegated-persona ring is enough to tell an owner's and a designated person's threads apart; the bundled creature set's art direction; and whether to adopt the shadcn-hosted AI Elements components after November 2026 *(blocks notes, UI kits)*.

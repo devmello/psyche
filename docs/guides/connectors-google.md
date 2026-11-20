@@ -6,13 +6,13 @@ What the connector can do once it is connected, and the scopes each choice asks 
 
 ## What works on main
 
-| Step                                                                     | On main                                                                                              |
-| ------------------------------------------------------------------------ | ---------------------------------------------------------------------------------------------------- |
-| Configure your OAuth client on the Gateway                               | Works: `config.json` or environment variables (below)                                                |
+| Step | On main |
+| --- | --- |
+| Configure your OAuth client on the Gateway | Works: `config.json` or environment variables (below) |
 | Start the sign-in, finish it in your browser, see the account and scopes | Works for clients of the Gateway API (`connectors.connect`, `connectors.list`, `connectors.updated`) |
-| Paste your OAuth client and connect, in Settings → Connectors            | Works: Add connector → Google (section 2, first way)                                                 |
-| Stay connected across Gateway restarts                                   | Works: connections are kept in the Gateway's database, tokens in the vault                           |
-| Disconnect, which also revokes access at Google                          | Works (`connectors.disconnect`)                                                                      |
+| Paste your OAuth client and connect, in Settings → Connectors | Works: Add connector → Google (section 2, first way) |
+| Stay connected across Gateway restarts | Works: connections are kept in the Gateway's database, tokens in the vault |
+| Disconnect, which also revokes access at Google | Works (`connectors.disconnect`) |
 
 The vault must be set up and unlocked when you connect or disconnect, because that is where the sign-in is stored.
 
@@ -102,11 +102,11 @@ Disconnect revokes Psyche's access at Google, deletes the token item from the va
 
 ## Troubleshooting
 
-| What you see                                                              | What to do                                                                                                                         |
-| ------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------- |
-| "Google is not set up on this Gateway"                                    | Add the client id (step 2) and restart the Gateway.                                                                                |
+| What you see | What to do |
+| --- | --- |
+| "Google is not set up on this Gateway" | Add the client id (step 2) and restart the Gateway. |
 | The Gateway does not start: "must be a `{{cred:slug}}` vault placeholder" | `clientSecret` or `PSYCHE_GOOGLE_CLIENT_SECRET` holds the secret itself. Store it with `psyche vault add` and use the placeholder. |
-| Google says `redirect_uri_mismatch`                                       | The client is not a Desktop app client. Create one (step 1.6).                                                                     |
-| Google says `access_denied` or "app not verified" with no way to continue | The app is in Testing and your account is not a test user, or the audience is Internal. Publish the app (step 1.4).                |
-| Connected, then a week later Google asks you to sign in again             | The app is still in Testing. Publish it and connect again.                                                                         |
-| "the vault is locked"                                                     | Unlock it (`psyche vault unlock`) and try again.                                                                                   |
+| Google says `redirect_uri_mismatch` | The client is not a Desktop app client. Create one (step 1.6). |
+| Google says `access_denied` or "app not verified" with no way to continue | The app is in Testing and your account is not a test user, or the audience is Internal. Publish the app (step 1.4). |
+| Connected, then a week later Google asks you to sign in again | The app is still in Testing. Publish it and connect again. |
+| "the vault is locked" | Unlock it (`psyche vault unlock`) and try again. |

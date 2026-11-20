@@ -17,23 +17,23 @@ shipped got its own page, even when that page holds three cards.
 
 ## 2. Audit (what exists, 2026-11-02)
 
-| Destination         | Route                             | What it is                                                                                                                                           | Who uses it                                                                        | Verdict                                                                                                                                                              |
-| ------------------- | --------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Chat                | `/chat[/<id>]`                    | The main thread and side chats; the agent sheet opens over it                                                                                        | Everything                                                                         | **Keep, top level**                                                                                                                                                  |
-| Inbox               | `/inbox`                          | Notifications: needs-you first (approvals, questions), then today, earlier                                                                           | Gateway writes `Notification.route`; the bell in the chat header opens it          | Small. The needs-you part is what matters day to day. **Needs-you → Home; the full list stays as a page**                                                            |
-| Search              | `/search`                         | The ⌘K surface at full height                                                                                                                        | The palette is the same surface                                                    | Duplicate of ⌘K. **Sidebar row opens ⌘K; page stays for deep links**                                                                                                 |
-| Feed                | `/feed`, `/feed/instructions`     | The daily brief: a bounded list of posts with an end marker                                                                                          | `feed.list` / `feed.mark_read` / `feed.explain` agent tools, morning brief routine | Core content, but it is "today", not a place. **→ Home "Today" section**                                                                                             |
-| Ideas               | `/ideas`                          | Proposed things to do (usually 0–5 cards)                                                                                                            | `ideas.*` tools, ideas routine, notifications link `/ideas`                        | Thin page. **→ Home "Suggestions" section**                                                                                                                          |
-| Goals               | `/goals[/<id>]`                   | Tracked goals by category, inferred-goal cards, a goal page with milestones                                                                          | `goals.*` tools                                                                    | List is thin; the goal page is real. **List → Home "Goals" section; `/goals/<id>` page stays**                                                                       |
-| Scheduled           | `/scheduled[?tab=runs]`           | Automations and Psyche's routines; Runs tab                                                                                                          | `automations.*`, `scheduled.*`                                                     | Real management page. **Off the sidebar; reached from Home "Coming up", each automation, ⌘K**                                                                        |
-| Library             | `/library/<section>`              | Documents, images, artifacts, downloads, system                                                                                                      | Files tools                                                                        | **Keep, top level**                                                                                                                                                  |
-| Memory              | `/agent/soul` (agent sheet tab)   | Persona files, notes, people & projects, daily notes, memory controls                                                                                | Memory tools                                                                       | People were buried here. **People → own page; the rest stays in the sheet**                                                                                          |
-| Overview            | `/overview[/run/<id>]`            | "{persona} & you": summary ledger, Now & next, activity chart, growth, people map, built for you, specialists, Upcoming, Recent runs, pinned widgets | Run Timeline links, notification routes `/overview/run/<id>`                       | A good stats page, but it also held the actionable bits (Upcoming, pinned widgets). **Actionable bits → Home; the page stays as "{persona} & you", off the sidebar** |
-| What can you do?    | `/can-do`                         | Capabilities                                                                                                                                         | Gear menu, palette                                                                 | Keep where it is                                                                                                                                                     |
-| Settings            | `/settings/<section>`             | Owned by `settings-redesign`                                                                                                                         | —                                                                                  | Not touched here                                                                                                                                                     |
-| Agent sheet         | `/agent/approvals`, `/agent/soul` | Approvals and Soul & Memory beside the chat                                                                                                          | Avatar, ⌘⇧P                                                                        | Keep                                                                                                                                                                 |
-| Relationship nudges | (no page)                         | Feed cards and a row on the person page                                                                                                              | `nudges.*`                                                                         | **Also a Home "Keep in touch" card and a section on People**                                                                                                         |
-| Pinned widgets      | (top of Overview)                 | Up to 6 live widgets pinned from chats                                                                                                               | `widgets.pin`                                                                      | **→ top of Home**                                                                                                                                                    |
+| Destination | Route | What it is | Who uses it | Verdict |
+| --- | --- | --- | --- | --- |
+| Chat | `/chat[/<id>]` | The main thread and side chats; the agent sheet opens over it | Everything | **Keep, top level** |
+| Inbox | `/inbox` | Notifications: needs-you first (approvals, questions), then today, earlier | Gateway writes `Notification.route`; the bell in the chat header opens it | Small. The needs-you part is what matters day to day. **Needs-you → Home; the full list stays as a page** |
+| Search | `/search` | The ⌘K surface at full height | The palette is the same surface | Duplicate of ⌘K. **Sidebar row opens ⌘K; page stays for deep links** |
+| Feed | `/feed`, `/feed/instructions` | The daily brief: a bounded list of posts with an end marker | `feed.list` / `feed.mark_read` / `feed.explain` agent tools, morning brief routine | Core content, but it is "today", not a place. **→ Home "Today" section** |
+| Ideas | `/ideas` | Proposed things to do (usually 0–5 cards) | `ideas.*` tools, ideas routine, notifications link `/ideas` | Thin page. **→ Home "Suggestions" section** |
+| Goals | `/goals[/<id>]` | Tracked goals by category, inferred-goal cards, a goal page with milestones | `goals.*` tools | List is thin; the goal page is real. **List → Home "Goals" section; `/goals/<id>` page stays** |
+| Scheduled | `/scheduled[?tab=runs]` | Automations and Psyche's routines; Runs tab | `automations.*`, `scheduled.*` | Real management page. **Off the sidebar; reached from Home "Coming up", each automation, ⌘K** |
+| Library | `/library/<section>` | Documents, images, artifacts, downloads, system | Files tools | **Keep, top level** |
+| Memory | `/agent/soul` (agent sheet tab) | Persona files, notes, people & projects, daily notes, memory controls | Memory tools | People were buried here. **People → own page; the rest stays in the sheet** |
+| Overview | `/overview[/run/<id>]` | "{persona} & you": summary ledger, Now & next, activity chart, growth, people map, built for you, specialists, Upcoming, Recent runs, pinned widgets | Run Timeline links, notification routes `/overview/run/<id>` | A good stats page, but it also held the actionable bits (Upcoming, pinned widgets). **Actionable bits → Home; the page stays as "{persona} & you", off the sidebar** |
+| What can you do? | `/can-do` | Capabilities | Gear menu, palette | Keep where it is |
+| Settings | `/settings/<section>` | Owned by `settings-redesign` | — | Not touched here |
+| Agent sheet | `/agent/approvals`, `/agent/soul` | Approvals and Soul & Memory beside the chat | Avatar, ⌘⇧P | Keep |
+| Relationship nudges | (no page) | Feed cards and a row on the person page | `nudges.*` | **Also a Home "Keep in touch" card and a section on People** |
+| Pinned widgets | (top of Overview) | Up to 6 live widgets pinned from chats | `widgets.pin` | **→ top of Home** |
 
 Nothing the agent relies on loses data or a protocol method: every change below is in the UI.
 `feed.*`, `ideas.*`, `goals.*`, `nudges.*`, `notifications.*`, `scheduled.*` and `widgets.*`
@@ -74,12 +74,12 @@ nothing to say is not drawn, so a quiet day is a short page.
 
 Wide (≥ 960 px of content): two columns, a reading column and a 320 px side column.
 
-| Main column                                                                    | Side column                                                              |
-| ------------------------------------------------------------------------------ | ------------------------------------------------------------------------ |
-| **Needs you** (approvals and questions, amber; "All notifications" → `/inbox`) | **Coming up** (next runs; "Scheduled" → `/scheduled`)                    |
-| **Pinned** widgets                                                             | **Goals** (tracked goals as rows; "Add a goal", rows open `/goals/<id>`) |
-| **Today** (the daily brief's posts; Instructions, Schedule)                    | **Keep in touch** (up to three nudges)                                   |
-| **Suggestions** (ideas and inferred goals)                                     | **{persona} & you** (one line and a link to `/overview`)                 |
+| Main column | Side column |
+| --- | --- |
+| **Needs you** (approvals and questions, amber; "All notifications" → `/inbox`) | **Coming up** (next runs; "Scheduled" → `/scheduled`) |
+| **Pinned** widgets | **Goals** (tracked goals as rows; "Add a goal", rows open `/goals/<id>`) |
+| **Today** (the daily brief's posts; Instructions, Schedule) | **Keep in touch** (up to three nudges) |
+| **Suggestions** (ideas and inferred goals) | **{persona} & you** (one line and a link to `/overview`) |
 
 Narrow: one column in the order above, main column first.
 
@@ -103,14 +103,14 @@ old name ("feed", "ideas", "inbox", "overview") finds its new home through the k
 
 ### 3.4 Old links keep working
 
-| Old                                                                  | Goes to                                                              |
-| -------------------------------------------------------------------- | -------------------------------------------------------------------- |
-| `/feed`, `/feed/<id>`                                                | `/home#today` (shown in place)                                       |
-| `/feed/instructions`                                                 | `/home/instructions` (Home with the brief's instructions sheet open) |
-| `/ideas`                                                             | `/home#suggestions` (shown in place)                                 |
-| `/agent/upcoming` (already redirected)                               | `/home#coming-up`                                                    |
-| `/agent/soul?entity=<id>`                                            | `/people?entity=<id>`                                                |
-| `/inbox`, `/goals[/<id>]`, `/scheduled`, `/search`, `/overview[...]` | unchanged (pages, just off the sidebar)                              |
+| Old | Goes to |
+| --- | --- |
+| `/feed`, `/feed/<id>` | `/home#today` (shown in place) |
+| `/feed/instructions` | `/home/instructions` (Home with the brief's instructions sheet open) |
+| `/ideas` | `/home#suggestions` (shown in place) |
+| `/agent/upcoming` (already redirected) | `/home#coming-up` |
+| `/agent/soul?entity=<id>` | `/people?entity=<id>` |
+| `/inbox`, `/goals[/<id>]`, `/scheduled`, `/search`, `/overview[...]` | unchanged (pages, just off the sidebar) |
 
 `app_navigate` (`packages/protocol/src/app-routes.ts`) gains `/home` and `/people` and keeps
 every old route, so a model that learned the old names still opens the right thing.
@@ -200,3 +200,4 @@ This is the rule every surface follows from now on:
 6. **New features follow the same path.** A small feature becomes a Home section, a ⌘K action
    or a row under More. It does not get a sidebar row or its own page unless it is a place
    people go every day.
+

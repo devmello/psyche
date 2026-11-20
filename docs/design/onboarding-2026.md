@@ -1,12 +1,11 @@
 # Onboarding 2026: a shorter setup that covers the new features
 
 Status: decided 2026-11-03 (owner request: "Clean up the onboarding and create a smooth process
-
 > **Update 2026-11-09.** Safety no longer registers a Touch ID key on a Mac: the helper signs approvals with its own device key after the system's owner sheet, so the row reads "Set up" as soon as the helper is paired, and the development-key switch (`devices.presence.allowDevFileKey`) is gone. A Windows helper still registers its Windows Hello key.
-> which includes setting up all these new features"). Keeps the ink direction
-> (`docs/design/redesign-2026.md`): accent `#2c5aa0` through the existing tokens, paper grays, one
-> accent per view, amber only for "needs you". Follows "simple first, powerful one step away"
-> (`docs/design/consolidation-2026.md`).
+which includes setting up all these new features"). Keeps the ink direction
+(`docs/design/redesign-2026.md`): accent `#2c5aa0` through the existing tokens, paper grays, one
+accent per view, amber only for "needs you". Follows "simple first, powerful one step away"
+(`docs/design/consolidation-2026.md`).
 
 ## 1. The problem
 
@@ -29,14 +28,14 @@ Six steps. Each is one screen with one job; anything that is not needed to get g
 disclosure ("More about you", "Customize look", "Bring memory from ChatGPT or Claude", "Set up a
 sandbox").
 
-| #   | Step id  | Title                   | Skippable                     | What it holds                                                                                                                                                                                              |
-| --- | -------- | ----------------------- | ----------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| 1   | `you`    | You and your agent      | Skip for now                  | Language, your name, the agent's name with three suggestions. Disclosures: Customize look (creature, description, tagline) and More about you (time zone, work, city)                                      |
-| 2   | `stuff`  | Your stuff              | Skip for now                  | Connect accounts (the existing Connectors step, Mac apps first). Once a mail account is connected the mail and meetings switches appear below it, on the same screen                                       |
-| 3   | `model`  | Choose a model          | No (the agent needs one)      | The existing Model step, unchanged                                                                                                                                                                         |
-| 4   | `memory` | Memory and daily habits | Skip for now (writes nothing) | Morning brief, evening wrap-up, follow-ups. Track my work (consent card), and once it is on, "Remind me what is due tomorrow". Include people in my brief. Disclosure: bring memory from ChatGPT or Claude |
-| 5   | `safety` | Safety                  | Skip for now                  | Touch ID key (desktop), notifications for approvals (desktop), a line on what asks first, an optional sandbox                                                                                              |
-| 6   | `done`   | You're set              | n/a                           | What was set up, the setup checks, and things to try (Search ⌘K questions, Catching up on Home, What can you do?)                                                                                          |
+| # | Step id | Title | Skippable | What it holds |
+| --- | --- | --- | --- | --- |
+| 1 | `you` | You and your agent | Skip for now | Language, your name, the agent's name with three suggestions. Disclosures: Customize look (creature, description, tagline) and More about you (time zone, work, city) |
+| 2 | `stuff` | Your stuff | Skip for now | Connect accounts (the existing Connectors step, Mac apps first). Once a mail account is connected the mail and meetings switches appear below it, on the same screen |
+| 3 | `model` | Choose a model | No (the agent needs one) | The existing Model step, unchanged |
+| 4 | `memory` | Memory and daily habits | Skip for now (writes nothing) | Morning brief, evening wrap-up, follow-ups. Track my work (consent card), and once it is on, "Remind me what is due tomorrow". Include people in my brief. Disclosure: bring memory from ChatGPT or Claude |
+| 5 | `safety` | Safety | Skip for now | Touch ID key (desktop), notifications for approvals (desktop), a line on what asks first, an optional sandbox |
+| 6 | `done` | You're set | n/a | What was set up, the setup checks, and things to try (Search ⌘K questions, Catching up on Home, What can you do?) |
 
 Removed: **Permissions** (Accessibility and Screen Recording are asked for in chat, the first time
 the agent needs them; Notifications moved to Safety), **Where the agent works** (VM mode is set up
@@ -52,14 +51,14 @@ Nothing is written until Done, except two things that are actions in themselves 
 Touch ID key, asking macOS for Notifications). The host writes through the same Gateway calls
 Settings uses.
 
-| Step   | Writes                                                                                                                                                                                                                                                                                                                                      | Call                                                     |
-| ------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | -------------------------------------------------------- |
-| you    | `IDENTITY.md` name, creature, tagline (first run only); `USER.md` name, time zone, work, home city; `ui.language` at once                                                                                                                                                                                                                   | `memory.write`, `settings.set`                           |
-| stuff  | Connectors through the real sign-in; `mail.digest.enabled`, `mail.digest.time` (first run only), `meetings.prep.enabled`, `mail.followups.enabled`, `mail.voice.enabled`, `meetings.notes.enabled`                                                                                                                                          | `settings.set` per key                                   |
-| model  | Primary and utility model role, key in the vault, on the Done check; a re-run leaves the step out, and the role alone, when a ready primary model is set                                                                                                                                                                                    | `models.setRole`, `models.setKey`                        |
+| Step | Writes | Call |
+| --- | --- | --- |
+| you | `IDENTITY.md` name, creature, tagline (first run only); `USER.md` name, time zone, work, home city; `ui.language` at once | `memory.write`, `settings.set` |
+| stuff | Connectors through the real sign-in; `mail.digest.enabled`, `mail.digest.time` (first run only), `meetings.prep.enabled`, `mail.followups.enabled`, `mail.voice.enabled`, `meetings.notes.enabled` | `settings.set` per key |
+| model | Primary and utility model role, key in the vault, on the Done check; a re-run leaves the step out, and the role alone, when a ready primary model is set | `models.setRole`, `models.setKey` |
 | memory | `daily.brief.enabled`, `daily.wrapup.enabled`, `daily.followups.enabled`; `memory.work` (`enabled`, `consentedAt`, `remind.enabled`; other fields kept); `memory.surfaces` (`tiers.people.brief`; other fields kept). Only a setting that changed is written. Imported memories after review. "Skip for now" on this step writes none of it | `settings.set`, `memory.import`, `memory.claims.confirm` |
-| safety | The Touch ID key for the bundled helper; the development-key switch `devices.presence.allowDevFileKey` only on a build that needs it and only when the owner flips it; the Notifications grant                                                                                                                                              | `devices.presenceKey.register`, `settings.set`, macOS    |
-| done   | `ui.onboarding.completedAt`, then the agent's first message (first run only)                                                                                                                                                                                                                                                                | `settings.set`, `chat.greet`                             |
+| safety | The Touch ID key for the bundled helper; the development-key switch `devices.presence.allowDevFileKey` only on a build that needs it and only when the owner flips it; the Notifications grant | `devices.presenceKey.register`, `settings.set`, macOS |
+| done | `ui.onboarding.completedAt`, then the agent's first message (first run only) | `settings.set`, `chat.greet` |
 
 Progress is still saved on every step change (`ui.onboarding.progress`). Progress saved by the
 old twelve-step flow maps to the nearest new step, so an owner who quit midway resumes in the

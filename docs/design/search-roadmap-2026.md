@@ -12,27 +12,27 @@ Ingest-time **context cards and contextual chunks** landed in #1007 (grounded-in
 
 The baseline from the harness on current main, BM25 only (no embedder, no model), on a 425-doc synthetic life of one owner with 150 questions. "Production" coverage indexes only what the Gateway indexes today. "Full" indexes every source.
 
-| Coverage   | Mode     | zero results | R@5   | R@10  | hit@10 | MRR   | nDCG@10 | cite P@3 (mock) |
-| ---------- | -------- | ------------ | ----- | ----- | ------ | ----- | ------- | --------------- |
-| production | raw      | 0.967        | 0.009 | 0.009 | 0.020  | 0.020 | 0.011   | 0.020           |
-| production | keywords | 0.073        | 0.091 | 0.107 | 0.213  | 0.140 | 0.096   | 0.077           |
-| production | rules    | 0.073        | 0.089 | 0.101 | 0.207  | 0.142 | 0.097   | 0.086           |
-| full       | raw      | 0.893        | 0.096 | 0.099 | 0.107  | 0.100 | 0.096   | 0.097           |
-| full       | keywords | 0.013        | 0.447 | 0.583 | 0.760  | 0.510 | 0.474   | 0.317           |
-| full       | rules    | 0.013        | 0.491 | 0.600 | 0.787  | 0.587 | 0.518   | 0.381           |
+| Coverage | Mode | zero results | R@5 | R@10 | hit@10 | MRR | nDCG@10 | cite P@3 (mock) |
+| --- | --- | --- | --- | --- | --- | --- | --- | --- |
+| production | raw | 0.967 | 0.009 | 0.009 | 0.020 | 0.020 | 0.011 | 0.020 |
+| production | keywords | 0.073 | 0.091 | 0.107 | 0.213 | 0.140 | 0.096 | 0.077 |
+| production | rules | 0.073 | 0.089 | 0.101 | 0.207 | 0.142 | 0.097 | 0.086 |
+| full | raw | 0.893 | 0.096 | 0.099 | 0.107 | 0.100 | 0.096 | 0.097 |
+| full | keywords | 0.013 | 0.447 | 0.583 | 0.760 | 0.510 | 0.474 | 0.317 |
+| full | rules | 0.013 | 0.491 | 0.600 | 0.787 | 0.587 | 0.518 | 0.381 |
 
 R@10 by class, full coverage:
 
-| Class (n)        | raw   | keywords | rules |
-| ---------------- | ----- | -------- | ----- |
-| exact (25)       | 0.241 | 0.867    | 0.811 |
-| paraphrase (30)  | 0.000 | 0.430    | 0.430 |
-| temporal (25)    | 0.000 | 0.363    | 0.465 |
-| person (20)      | 0.000 | 0.739    | 0.800 |
-| list (20)        | 0.050 | 0.598    | 0.611 |
-| multihop (15)    | 0.000 | 0.500    | 0.500 |
-| crosslingual (5) | 0.000 | 0.300    | 0.300 |
-| filter (10)      | 0.780 | 0.800    | 0.800 |
+| Class (n) | raw | keywords | rules |
+| --- | --- | --- | --- |
+| exact (25) | 0.241 | 0.867 | 0.811 |
+| paraphrase (30) | 0.000 | 0.430 | 0.430 |
+| temporal (25) | 0.000 | 0.363 | 0.465 |
+| person (20) | 0.000 | 0.739 | 0.800 |
+| list (20) | 0.050 | 0.598 | 0.611 |
+| multihop (15) | 0.000 | 0.500 | 0.500 |
+| crosslingual (5) | 0.000 | 0.300 | 0.300 |
+| filter (10) | 0.780 | 0.800 | 0.800 |
 
 "Mock" citation means the top 3 hits are cited as they are. The `--llm` mode (Haiku answers) is implemented but has not been run yet.
 
@@ -49,40 +49,40 @@ There is also no agent-facing tool over the main index. The agent finds things w
 
 Status today: **in** = in `search.sqlite`; **live** = searchable only through a live tool or a side index; **none** = not searchable.
 
-| Source                                     | Today                                                             | Where today                               | How to add it                                                                                                                                                                                                       | Freshness                                       |
-| ------------------------------------------ | ----------------------------------------------------------------- | ----------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ----------------------------------------------- |
-| Chats, messages, tasks, feed, ideas, goals | in                                                                | `compose/search-sources.ts`, `indexer.ts` | done                                                                                                                                                                                                                | bus events                                      |
-| Library items                              | in                                                                | `libraryText` in `search-sources.ts`      | done; also re-index on content change (the 60 s reconcile only adds and removes ids, so an edited file keeps stale text)                                                                                            | bus + reconcile by `updatedAt`/hash             |
-| Meeting and voice transcripts              | in, via Library                                                   | `compose/speech.ts`                       | add speaker turns as chunks with timestamps, `kind: library`, `tags: ["transcript"]`, `from:` per speaker                                                                                                           | on save                                         |
-| Research reports                           | in, via Library (untrusted)                                       | `compose/research.ts`                     | also index the report's cited sources as child docs (`parentId` = report), so "where did I read that" works                                                                                                         | on save                                         |
-| Documents and artifacts                    | in, via Library mirror                                            | `artifacts/store.ts#mirror`               | index the latest version only; tag `artifact`; re-index on each version                                                                                                                                             | on version                                      |
-| Files in granted folders                   | live (`search_files`, substring scan)                             | `packages/files/src/tools.ts`             | new `files` source: walk granted roots, extract with the existing extractors (PDF, DOCX, XLSX, text, Markdown), `kind: library`, `source: "files"`, `scopeKey` owner, `sourcePath`                                  | FSEvents watcher + nightly sweep                |
-| PDFs and scans                             | text PDFs live on demand; scans **none** ("OCR is not available") | `files/src/extract/pdf.ts`                | mac-helper OCR method (Apple Vision `VNRecognizeTextRequest`, `.accurate`, on-device, no model download): `ocr.recognize({ path, pages? })` → text per page. Run only when a PDF page has < 30 chars of text layer. | with the file                                   |
-| Screenshots and images                     | names and tags only                                               | `compose/screen-ask.ts`                   | same Vision OCR for `image/*` Library items and granted-folder images; store recognised text as the body. Optional later: a one-line caption from the model the owner already uses, only when they opt in (cloud).  | on add                                          |
-| Chat attachments                           | `has:attachment` flag only                                        | `indexer.ts`                              | extract text like Library items, child doc with `parentId` = message                                                                                                                                                | on message                                      |
-| Browser pages read                         | none (live `web.fetch`, not stored)                               | `compose/web-tools.ts`                    | "pages I read" source: when the agent or the owner (built-in browser) reads a page, store URL, title, readable text (cap 20 kB), `provenance: untrusted`, 90-day retention by default, one setting to turn off      | on read                                         |
-| Mail                                       | live (`mail_search`)                                              | `connectors/src/apple/connector.ts`       | connector cache → index via the existing `connectorDoc` adapter (no callers today): subject, from, to, date, body (quoted replies stripped), attachments as children                                                | incremental by `ROWID`/date cursor, every 5 min |
-| Messages (iMessage)                        | people graph only                                                 | `compose/people.ts` (psyche.sqlite)       | index messages per conversation day as one doc (keeps the doc count sane), `from:` per sender                                                                                                                       | `chat.db` cursor                                |
-| Notes                                      | live (`notes_search`)                                             | Apple connector                           | index note title and body                                                                                                                                                                                           | modified-date cursor                            |
-| Calendar                                   | none                                                              | –                                         | EventKit via mac-helper: title, time, place, attendees, notes. Index the next 12 months and past 3 years. `createdAt` = start time, so dates filter by when it happens.                                             | EventKit change notification + hourly           |
-| Reminders                                  | none                                                              | –                                         | EventKit reminders: title, due date, list, done state                                                                                                                                                               | same                                            |
-| Contacts                                   | live                                                              | Apple connector                           | not indexed as docs; feeds the people graph (aliases, emails, phones) used by query understanding (§4.2)                                                                                                            | daily                                           |
-| People graph                               | side index in `psyche.sqlite`                                     | `compose/people.ts`, `graph.ts`           | move `entityDoc`s into `search.sqlite` as `kind: person`, so one query covers people and their docs                                                                                                                 | on graph change                                 |
-| Memory                                     | live through `MemoryStore`                                        | `search/src/memory.ts`                    | keep live (memory has its own index); fused by RRF as today                                                                                                                                                         | –                                               |
-| Follow-ups                                 | none                                                              | `proactive/src/daily/followups.ts`        | index each detected follow-up as a small doc linked (`parentId`) to its source message                                                                                                                              | on detection                                    |
-| Audit log                                  | none                                                              | `packages/audit`                          | index approvals and receipts as `kind: task`-group docs with `has:approval` / `has:receipt` ("what did Psyche send on my behalf last week?"). Owner-only, never in a delegated scope.                               | on append                                       |
+| Source | Today | Where today | How to add it | Freshness |
+| --- | --- | --- | --- | --- |
+| Chats, messages, tasks, feed, ideas, goals | in | `compose/search-sources.ts`, `indexer.ts` | done | bus events |
+| Library items | in | `libraryText` in `search-sources.ts` | done; also re-index on content change (the 60 s reconcile only adds and removes ids, so an edited file keeps stale text) | bus + reconcile by `updatedAt`/hash |
+| Meeting and voice transcripts | in, via Library | `compose/speech.ts` | add speaker turns as chunks with timestamps, `kind: library`, `tags: ["transcript"]`, `from:` per speaker | on save |
+| Research reports | in, via Library (untrusted) | `compose/research.ts` | also index the report's cited sources as child docs (`parentId` = report), so "where did I read that" works | on save |
+| Documents and artifacts | in, via Library mirror | `artifacts/store.ts#mirror` | index the latest version only; tag `artifact`; re-index on each version | on version |
+| Files in granted folders | live (`search_files`, substring scan) | `packages/files/src/tools.ts` | new `files` source: walk granted roots, extract with the existing extractors (PDF, DOCX, XLSX, text, Markdown), `kind: library`, `source: "files"`, `scopeKey` owner, `sourcePath` | FSEvents watcher + nightly sweep |
+| PDFs and scans | text PDFs live on demand; scans **none** ("OCR is not available") | `files/src/extract/pdf.ts` | mac-helper OCR method (Apple Vision `VNRecognizeTextRequest`, `.accurate`, on-device, no model download): `ocr.recognize({ path, pages? })` → text per page. Run only when a PDF page has < 30 chars of text layer. | with the file |
+| Screenshots and images | names and tags only | `compose/screen-ask.ts` | same Vision OCR for `image/*` Library items and granted-folder images; store recognised text as the body. Optional later: a one-line caption from the model the owner already uses, only when they opt in (cloud). | on add |
+| Chat attachments | `has:attachment` flag only | `indexer.ts` | extract text like Library items, child doc with `parentId` = message | on message |
+| Browser pages read | none (live `web.fetch`, not stored) | `compose/web-tools.ts` | "pages I read" source: when the agent or the owner (built-in browser) reads a page, store URL, title, readable text (cap 20 kB), `provenance: untrusted`, 90-day retention by default, one setting to turn off | on read |
+| Mail | live (`mail_search`) | `connectors/src/apple/connector.ts` | connector cache → index via the existing `connectorDoc` adapter (no callers today): subject, from, to, date, body (quoted replies stripped), attachments as children | incremental by `ROWID`/date cursor, every 5 min |
+| Messages (iMessage) | people graph only | `compose/people.ts` (psyche.sqlite) | index messages per conversation day as one doc (keeps the doc count sane), `from:` per sender | `chat.db` cursor |
+| Notes | live (`notes_search`) | Apple connector | index note title and body | modified-date cursor |
+| Calendar | none | – | EventKit via mac-helper: title, time, place, attendees, notes. Index the next 12 months and past 3 years. `createdAt` = start time, so dates filter by when it happens. | EventKit change notification + hourly |
+| Reminders | none | – | EventKit reminders: title, due date, list, done state | same |
+| Contacts | live | Apple connector | not indexed as docs; feeds the people graph (aliases, emails, phones) used by query understanding (§4.2) | daily |
+| People graph | side index in `psyche.sqlite` | `compose/people.ts`, `graph.ts` | move `entityDoc`s into `search.sqlite` as `kind: person`, so one query covers people and their docs | on graph change |
+| Memory | live through `MemoryStore` | `search/src/memory.ts` | keep live (memory has its own index); fused by RRF as today | – |
+| Follow-ups | none | `proactive/src/daily/followups.ts` | index each detected follow-up as a small doc linked (`parentId`) to its source message | on detection |
+| Audit log | none | `packages/audit` | index approvals and receipts as `kind: task`-group docs with `has:approval` / `has:receipt` ("what did Psyche send on my behalf last week?"). Owner-only, never in a delegated scope. | on append |
 
 Connector caches follow the open question in `search-2026.md` §8 (opt-in per connector). This doc recommends **on by default for local sources** (Mail, Messages, Notes, Calendar, Reminders, granted folders), because the index never leaves the Mac, with a per-source switch in Settings → Search and an "Exclude" list (folders, mail accounts, chats).
 
 ### 2.1 Watchers versus scheduled reindexing
 
-| Mechanism                                                      | Use for                                                                                                     | Cost                                                          |
-| -------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------- |
-| Bus events (today)                                             | everything Psyche writes itself                                                                             | free                                                          |
-| FSEvents on granted roots (one stream, coalesced, 2 s latency) | files                                                                                                       | one kernel stream, no polling; memory already uses `fs.watch` |
-| Cursor polling (5 min)                                         | Mail, Messages, Notes (their stores have no change feed Psyche can subscribe to without extra entitlements) | one small SQL query per source                                |
-| EventKit `EKEventStoreChanged`                                 | Calendar, Reminders                                                                                         | free                                                          |
-| Nightly sweep (on power, idle)                                 | every source: catch missed events, deletions, moved files                                                   | a few minutes of background IO                                |
+| Mechanism | Use for | Cost |
+| --- | --- | --- |
+| Bus events (today) | everything Psyche writes itself | free |
+| FSEvents on granted roots (one stream, coalesced, 2 s latency) | files | one kernel stream, no polling; memory already uses `fs.watch` |
+| Cursor polling (5 min) | Mail, Messages, Notes (their stores have no change feed Psyche can subscribe to without extra entitlements) | one small SQL query per source |
+| EventKit `EKEventStoreChanged` | Calendar, Reminders | free |
+| Nightly sweep (on power, idle) | every source: catch missed events, deletions, moved files | a few minutes of background IO |
 
 The nightly sweep is the safety net and also the deletion check (§2.3). Backfill stays resumable with a cursor per source (`backfill.<source>` in `search_meta`).
 
@@ -105,15 +105,15 @@ Vectors, cards and chunks follow through the existing delete trigger on `search_
 
 ### 2.4 Storage growth (estimates for a heavy user)
 
-| Source                                      | Docs      | Text indexed | FTS overhead | Vectors (e5-small, int8, ~1.5 chunks/doc) |
-| ------------------------------------------- | --------- | ------------ | ------------ | ----------------------------------------- |
-| Mail (10 years, quotes stripped)            | 60k       | ~150 MB      | ~150 MB      | ~35 MB                                    |
-| Messages (by conversation-day)              | 40k       | ~40 MB       | ~40 MB       | ~25 MB                                    |
-| Notes, Calendar, Reminders                  | 15k       | ~15 MB       | ~15 MB       | ~6 MB                                     |
-| Granted-folder files (cap 200 kB text each) | 20k       | ~300 MB      | ~300 MB      | ~60 MB (64-chunk cap)                     |
-| OCR text (scans, screenshots)               | 5k        | ~10 MB       | ~10 MB       | ~3 MB                                     |
-| Browser pages (90 days)                     | 5k        | ~50 MB       | ~50 MB       | ~10 MB                                    |
-| **Total**                                   | **~145k** | **~565 MB**  | **~565 MB**  | **~140 MB**                               |
+| Source | Docs | Text indexed | FTS overhead | Vectors (e5-small, int8, ~1.5 chunks/doc) |
+| --- | --- | --- | --- | --- |
+| Mail (10 years, quotes stripped) | 60k | ~150 MB | ~150 MB | ~35 MB |
+| Messages (by conversation-day) | 40k | ~40 MB | ~40 MB | ~25 MB |
+| Notes, Calendar, Reminders | 15k | ~15 MB | ~15 MB | ~6 MB |
+| Granted-folder files (cap 200 kB text each) | 20k | ~300 MB | ~300 MB | ~60 MB (64-chunk cap) |
+| OCR text (scans, screenshots) | 5k | ~10 MB | ~10 MB | ~3 MB |
+| Browser pages (90 days) | 5k | ~50 MB | ~50 MB | ~10 MB |
+| **Total** | **~145k** | **~565 MB** | **~565 MB** | **~140 MB** |
 
 So about 1.3 GB on disk for a very heavy home and 200–400 MB for a typical one. Disk is the cheaper resource for this owner; §8 keeps RAM flat as the index grows. Settings → Search shows the size per source with "Remove" per source.
 
@@ -189,11 +189,11 @@ Rules for: today, yesterday, this/last/next week, weekend, month, last N days, l
 
 ### 4.5 Intent
 
-| Intent | Example                       | Behaviour                                              |
-| ------ | ----------------------------- | ------------------------------------------------------ |
-| find   | "the lease pdf"               | ranked hits, open the best one                         |
-| answer | "when does my flight leave?"  | grounded answer with citations (§6) above the hits     |
-| list   | "all of Biscuit's vet visits" | larger k (50), sort by date, no diversity cut, a count |
+| Intent | Example | Behaviour |
+| --- | --- | --- |
+| find | "the lease pdf" | ranked hits, open the best one |
+| answer | "when does my flight leave?" | grounded answer with citations (§6) above the hits |
+| list | "all of Biscuit's vet visits" | larger k (50), sort by date, no diversity cut, a count |
 
 Rules: question words and "?" → answer; "all/every/list/how many" → list; otherwise find.
 
@@ -205,12 +205,12 @@ BM25 (title weight 3, body 1, extra 0.5) × recency boost (half-life 30 days), R
 
 ### 5.2 Boosts (cheap, all in SQL or on the fused list)
 
-| Signal       | How                                                                                                                                                                       | Why                                                                    |
-| ------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------- |
-| Recency      | keep, but per intent: none for list, half-life 30 d for find, 7 d for "latest"                                                                                            | old items should still win when they are the only match                |
-| Importance   | per-source priors: owner-written > agent > untrusted; starred mail, pinned notes, events with attendees; a learned click prior (a hit opened from search gets +1, decays) | promos and newsletters sink                                            |
-| Entity match | +x when the resolved person is sender/recipient/mentioned, +y when the project matches                                                                                    | "Maya" questions surface Maya's texts over mail that mentions her once |
-| Date match   | +z when an extracted date (§3.3) is inside the temporal filter                                                                                                            | finds the flight mail by flight date                                   |
+| Signal | How | Why |
+| --- | --- | --- |
+| Recency | keep, but per intent: none for list, half-life 30 d for find, 7 d for "latest" | old items should still win when they are the only match |
+| Importance | per-source priors: owner-written > agent > untrusted; starred mail, pinned notes, events with attendees; a learned click prior (a hit opened from search gets +1, decays) | promos and newsletters sink |
+| Entity match | +x when the resolved person is sender/recipient/mentioned, +y when the project matches | "Maya" questions surface Maya's texts over mail that mentions her once |
+| Date match | +z when an extracted date (§3.3) is inside the temporal filter | finds the flight mail by flight date |
 
 Weights are tuned on the harness, not by hand.
 
@@ -222,13 +222,13 @@ On the top 50 fused hits, maximal marginal relevance (λ = 0.7) with cosine betw
 
 A cross-encoder over the top 30–50 reorders by reading query and passage together. It is the single largest quality step in most benchmarks, but it is **memory-heavy and must not be turned on without telling the owner first.** It is off by default, behind Settings → Search → "Rerank results", with the RAM cost stated in the toggle.
 
-| Option                                                        | Size on disk | Resident RAM while loaded | Latency, 40 pairs × 256 tokens, M-series CPU | Languages      | Licence                                                                   |
-| ------------------------------------------------------------- | ------------ | ------------------------- | -------------------------------------------- | -------------- | ------------------------------------------------------------------------- |
-| `ms-marco-MiniLM-L-6-v2` int8                                 | ~25 MB       | ~150–250 MB               | ~80–150 ms                                   | English        | Apache-2.0                                                                |
-| `mxbai-rerank-xsmall-v1` int8                                 | ~75 MB       | ~300–400 MB               | ~150–300 ms                                  | mostly English | Apache-2.0                                                                |
-| `bge-reranker-v2-m3` int8                                     | ~570 MB      | ~1.0–1.5 GB               | ~1–3 s                                       | multilingual   | Apache-2.0                                                                |
-| Cloud rerank (Cohere Rerank 3.5, Voyage rerank-2.5-lite)      | –            | ~0                        | ~150–400 ms network                          | multilingual   | API; text leaves the Mac                                                  |
-| Listwise rerank by the owner's cheap chat model (Haiku-class) | –            | ~0                        | ~0.5–1 s                                     | multilingual   | uses the existing provider; text leaves the Mac unless the model is local |
+| Option | Size on disk | Resident RAM while loaded | Latency, 40 pairs × 256 tokens, M-series CPU | Languages | Licence |
+| --- | --- | --- | --- | --- | --- |
+| `ms-marco-MiniLM-L-6-v2` int8 | ~25 MB | ~150–250 MB | ~80–150 ms | English | Apache-2.0 |
+| `mxbai-rerank-xsmall-v1` int8 | ~75 MB | ~300–400 MB | ~150–300 ms | mostly English | Apache-2.0 |
+| `bge-reranker-v2-m3` int8 | ~570 MB | ~1.0–1.5 GB | ~1–3 s | multilingual | Apache-2.0 |
+| Cloud rerank (Cohere Rerank 3.5, Voyage rerank-2.5-lite) | – | ~0 | ~150–400 ms network | multilingual | API; text leaves the Mac |
+| Listwise rerank by the owner's cheap chat model (Haiku-class) | – | ~0 | ~0.5–1 s | multilingual | uses the existing provider; text leaves the Mac unless the model is local |
 
 (Estimates; to be measured before the toggle ships.) Rules:
 
@@ -271,16 +271,16 @@ The harness's `--llm` mode measures citation precision and answer correctness wi
 
 ## 8. Performance budgets
 
-| Budget                                      | Target                                   | Notes                                                                                                                             |
-| ------------------------------------------- | ---------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------- |
-| ⌘K keystroke (lexical, rules)               | p95 < 60 ms at 150k docs                 | no model in the path                                                                                                              |
-| Search screen Enter (hybrid + boosts + MMR) | p95 < 250 ms                             | query embedding ~10 ms; vector scan see below                                                                                     |
-| Ask (answer intent)                         | first token < 1.5 s, cloud cheap model   | retrieval ≤ 300 ms of that                                                                                                        |
-| With local rerank                           | + 150 ms (MiniLM) / + 1–3 s (bge-m3)     | only when enabled                                                                                                                 |
-| **Resident RAM, idle**                      | **≤ 30 MB over today**                   | SQLite page cache capped at 16 MB for `search.sqlite`; embedder and reranker unloaded when idle                                   |
-| Resident RAM, during query                  | + vectors                                | int8 in-memory scan: 150k chunks × 384 = ~58 MB. Above 200k chunks switch to sqlite-vec on disk (ADR-004) instead of growing RAM. |
-| Resident RAM, backfill                      | ≤ 150 MB peak                            | embedder ~120 MB loaded; OCR runs in mac-helper                                                                                   |
-| Index size                                  | ~1.3 GB heavy, 200–400 MB typical (§2.4) | disk is the cheaper resource for this owner                                                                                       |
+| Budget | Target | Notes |
+| --- | --- | --- |
+| ⌘K keystroke (lexical, rules) | p95 < 60 ms at 150k docs | no model in the path |
+| Search screen Enter (hybrid + boosts + MMR) | p95 < 250 ms | query embedding ~10 ms; vector scan see below |
+| Ask (answer intent) | first token < 1.5 s, cloud cheap model | retrieval ≤ 300 ms of that |
+| With local rerank | + 150 ms (MiniLM) / + 1–3 s (bge-m3) | only when enabled |
+| **Resident RAM, idle** | **≤ 30 MB over today** | SQLite page cache capped at 16 MB for `search.sqlite`; embedder and reranker unloaded when idle |
+| Resident RAM, during query | + vectors | int8 in-memory scan: 150k chunks × 384 = ~58 MB. Above 200k chunks switch to sqlite-vec on disk (ADR-004) instead of growing RAM. |
+| Resident RAM, backfill | ≤ 150 MB peak | embedder ~120 MB loaded; OCR runs in mac-helper |
+| Index size | ~1.3 GB heavy, 200–400 MB typical (§2.4) | disk is the cheaper resource for this owner |
 
 RAM rule: when an option trades disk for RAM (in-memory vector copy vs sqlite-vec), choose disk once the RAM cost would exceed ~60 MB.
 
@@ -299,21 +299,21 @@ Every phase below must report its numbers from this harness in its PR. Gates: no
 
 Each row is one PR-sized step. Expected gains are rough, from the baseline in §1 and the per-class numbers in the harness; each PR measures its own.
 
-| #   | Step                                                                                                                                                         | Size | Expected gain                                                            |
-| --- | ------------------------------------------------------------------------------------------------------------------------------------------------------------ | ---- | ------------------------------------------------------------------------ |
-| R1  | **Natural-language queries**: stop words + OR for free text when the input has ≥ 4 words or a "?", in `query-parser.ts`, ⌘K keeps prefix-AND for short input | S    | largest single jump on `raw` (R@10 from near zero to the `keywords` row) |
-| R2  | **`search_everything` agent tool** (§6.1)                                                                                                                    | S    | the agent can finally use the index; enables R9                          |
-| R3  | **Mail, Notes, Messages into the index** via `connectorDoc` + cursor sync + sweep deletes, Settings per source                                               | M    | production coverage approaches full: the production→full gap in §1       |
-| R4  | **Calendar and Reminders** through mac-helper EventKit                                                                                                       | M    | temporal and multihop questions about plans                              |
-| R5  | **Granted-folder files** with FSEvents + extractors + content hash dedupe                                                                                    | M    | file questions; dedupe keeps lists clean                                 |
-| R6  | **Rules query understanding** (temporal, source:, people via graph) with fallback                                                                            | S    | temporal and person classes (the `rules` row)                            |
-| R7  | **Vision OCR** in mac-helper for scans and screenshots                                                                                                       | M    | "find the receipt screenshot", scanned leases                            |
-| R8  | **Boosts + MMR** tuned on the harness                                                                                                                        | S    | MRR and nDCG, fewer newsletter runs                                      |
-| R9  | **Grounded answers** with citations, follow-ups, source chips; taint propagation                                                                             | M    | answer intent end to end; citation precision tracked                     |
-| R10 | **Turn on the semantic arm by default** (after the owner's OK on the ~120 MB download and ~150 MB backfill peak) , measured together with the #1007 cards    | S    | paraphrase and crosslingual classes                                      |
-| R11 | Browser pages, transcripts by speaker, attachments, follow-ups, audit docs                                                                                   | M    | long-tail "where did I see…"                                             |
-| R12 | **Optional rerank** (cloud/listwise first, MiniLM local), owner-approved                                                                                     | M    | top-1 precision; measured before shipping                                |
-| R13 | Cheap-model query parsing for Ask, cached                                                                                                                    | S    | the rules' misses on temporal/person                                     |
+| # | Step | Size | Expected gain |
+| --- | --- | --- | --- |
+| R1 | **Natural-language queries**: stop words + OR for free text when the input has ≥ 4 words or a "?", in `query-parser.ts`, ⌘K keeps prefix-AND for short input | S | largest single jump on `raw` (R@10 from near zero to the `keywords` row) |
+| R2 | **`search_everything` agent tool** (§6.1) | S | the agent can finally use the index; enables R9 |
+| R3 | **Mail, Notes, Messages into the index** via `connectorDoc` + cursor sync + sweep deletes, Settings per source | M | production coverage approaches full: the production→full gap in §1 |
+| R4 | **Calendar and Reminders** through mac-helper EventKit | M | temporal and multihop questions about plans |
+| R5 | **Granted-folder files** with FSEvents + extractors + content hash dedupe | M | file questions; dedupe keeps lists clean |
+| R6 | **Rules query understanding** (temporal, source:, people via graph) with fallback | S | temporal and person classes (the `rules` row) |
+| R7 | **Vision OCR** in mac-helper for scans and screenshots | M | "find the receipt screenshot", scanned leases |
+| R8 | **Boosts + MMR** tuned on the harness | S | MRR and nDCG, fewer newsletter runs |
+| R9 | **Grounded answers** with citations, follow-ups, source chips; taint propagation | M | answer intent end to end; citation precision tracked |
+| R10 | **Turn on the semantic arm by default** (after the owner's OK on the ~120 MB download and ~150 MB backfill peak) , measured together with the #1007 cards | S | paraphrase and crosslingual classes |
+| R11 | Browser pages, transcripts by speaker, attachments, follow-ups, audit docs | M | long-tail "where did I see…" |
+| R12 | **Optional rerank** (cloud/listwise first, MiniLM local), owner-approved | M | top-1 precision; measured before shipping |
+| R13 | Cheap-model query parsing for Ask, cached | S | the rules' misses on temporal/person |
 
 Order: R1, R2, R6 are small and need no new data; R3–R5 are the coverage work; R9 needs R2; R10 waits for the owner's OK ; R12 waits for an explicit owner OK on RAM or cloud.
 
@@ -334,51 +334,51 @@ Status: built, **opt-in** (`search.encrypt`, off by default).
 
 **macOS: a separate, non-biometric key slot (owner's decision, option a).** The vault's own key stays on the Touch ID keychain slot. Derived-data keys (the search index now, the memory store's encrypted file later) live in a second slot: a 32-byte random key held as a Psyche item in the data-protection keychain through the Mac helper's existing `keychain.store {requireAuth:false}` / `keychain.retrieve` (`kSecAttrAccessibleWhenUnlockedThisDeviceOnly`, no user-presence access control; `DerivedKeyStore` in `@psyche/vault`). No new helper capability was needed.
 
-_Threat model._ The key is never next to the file, so a copy of the file, a Time Machine or cloud backup of the folder, or a disk image taken without the keychain is unreadable. It does not protect against code running as the owner on an unlocked Mac, which can read the item as any app in the access group could. Key on a server: `PSYCHE_VAULT_KEY_FILE` as before.
+*Threat model.* The key is never next to the file, so a copy of the file, a Time Machine or cloud backup of the folder, or a disk image taken without the keychain is unreadable. It does not protect against code running as the owner on an unlocked Mac, which can read the item as any app in the access group could. Key on a server: `PSYCHE_VAULT_KEY_FILE` as before.
 
-_Start-up ordering._ The Mac helper connects after the Gateway has composed search, so the key is not there at boot. When the key comes from the helper, `composeSearch` builds the whole index graph behind a holder (`deferredSearch`) that opens it once `DeferredOpen` gets the key (retry 2 s, backing off to 30 s): until then `search.query` answers empty, `search.status` reports `encryption: pending`, nothing is written and no in-memory index is held (RAM stays flat). Events seen meanwhile are recovered by the backfill that runs after the open. With encryption off, or a key already in hand (key file), the original synchronous path is unchanged. `DeferredOpen` (key provider + open callback) is generic and is what the memory store's encrypted file (EM9b) should use.
+*Start-up ordering.* The Mac helper connects after the Gateway has composed search, so the key is not there at boot. When the key comes from the helper, `composeSearch` builds the whole index graph behind a holder (`deferredSearch`) that opens it once `DeferredOpen` gets the key (retry 2 s, backing off to 30 s): until then `search.query` answers empty, `search.status` reports `encryption: pending`, nothing is written and no in-memory index is held (RAM stays flat). Events seen meanwhile are recovered by the backfill that runs after the open. With encryption off, or a key already in hand (key file), the original synchronous path is unchanged. `DeferredOpen` (key provider + open callback) is generic and is what the memory store's encrypted file (EM9b) should use.
 
 ### Live results: query model and rerank with Haiku 5.5 (2026-11-02)
 
 The offline stand-ins (the oracle query model and the lexical-coverage reranker) are replaced for a day by the real thing: `pnpm --filter @psyche/search eval -- --live --mode model|rerank --coverage full --classes`. Everything goes to `claude-haiku-5-5` only; the key comes from the environment or the nearest `.env` and is never printed. BM25 only (no embedder), full coverage, 150 questions. Defaults are unchanged: rerank stays off, and the query model is only used where the rules are unsure.
 
-| Mode                               | R@1   | R@5   | R@10  | R@20  | hit@10 | MRR   | nDCG@10 | cite P@3 | cite ok |
-| ---------------------------------- | ----- | ----- | ----- | ----- | ------ | ----- | ------- | -------- | ------- |
-| prod (baseline, no model)          | 0.225 | 0.502 | 0.607 | 0.694 | 0.800  | 0.590 | 0.524   | 0.402    | 0.640   |
-| model (live Haiku reads the query) | 0.222 | 0.505 | 0.588 | 0.672 | 0.787  | 0.594 | 0.519   | 0.411    | 0.640   |
-| rerank (live Haiku, top 20)        | 0.348 | 0.640 | 0.681 | 0.694 | 0.853  | 0.783 | 0.676   | 0.549    | 0.800   |
+| Mode | R@1 | R@5 | R@10 | R@20 | hit@10 | MRR | nDCG@10 | cite P@3 | cite ok |
+| --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
+| prod (baseline, no model) | 0.225 | 0.502 | 0.607 | 0.694 | 0.800 | 0.590 | 0.524 | 0.402 | 0.640 |
+| model (live Haiku reads the query) | 0.222 | 0.505 | 0.588 | 0.672 | 0.787 | 0.594 | 0.519 | 0.411 | 0.640 |
+| rerank (live Haiku, top 20) | 0.348 | 0.640 | 0.681 | 0.694 | 0.853 | 0.783 | 0.676 | 0.549 | 0.800 |
 
 R@10 by class (the §9 gate is "no class drops more than 0.02"):
 
-| class            | prod  | model | Δ model    | rerank | Δ rerank   |
-| ---------------- | ----- | ----- | ---------- | ------ | ---------- |
-| crosslingual (5) | 0.300 | 0.300 | 0          | 0.500  | +0.200     |
-| exact (25)       | 0.795 | 0.795 | 0          | 0.855  | +0.060     |
-| filter (10)      | 0.780 | 0.780 | 0          | 0.780  | 0          |
-| list (20)        | 0.618 | 0.564 | **−0.054** | 0.627  | +0.009     |
-| multihop (15)    | 0.433 | 0.433 | 0          | 0.533  | **+0.100** |
-| paraphrase (30)  | 0.430 | 0.397 | **−0.033** | 0.620  | +0.190     |
-| person (20)      | 0.771 | 0.738 | **−0.033** | 0.833  | +0.062     |
-| temporal (25)    | 0.585 | 0.585 | 0          | 0.585  | 0          |
+| class | prod | model | Δ model | rerank | Δ rerank |
+| --- | --- | --- | --- | --- | --- |
+| crosslingual (5) | 0.300 | 0.300 | 0 | 0.500 | +0.200 |
+| exact (25) | 0.795 | 0.795 | 0 | 0.855 | +0.060 |
+| filter (10) | 0.780 | 0.780 | 0 | 0.780 | 0 |
+| list (20) | 0.618 | 0.564 | **−0.054** | 0.627 | +0.009 |
+| multihop (15) | 0.433 | 0.433 | 0 | 0.533 | **+0.100** |
+| paraphrase (30) | 0.430 | 0.397 | **−0.033** | 0.620 | +0.190 |
+| person (20) | 0.771 | 0.738 | **−0.033** | 0.833 | +0.062 |
+| temporal (25) | 0.585 | 0.585 | 0 | 0.585 | 0 |
 
 **Rerank passes the gate.** No class drops, multihop rises by 0.100 (the offline word-coverage stand-in had dropped it by 0.033; that only showed the plumbing, not what a model does), and every ranking metric improves: MRR 0.590 → 0.783, nDCG@10 0.524 → 0.676, R@1 0.225 → 0.348, hit@10 0.800 → 0.853, cite ok 0.640 → 0.800. R@20 is unchanged by construction (it reorders the top 20). 137 calls, about 178k input and 29k output tokens (about $0.32, about 1.3k input tokens a call); 14 of the 137 replies were empty or unusable and kept the original order. This is the numbers for the R12 decision only; the toggle stays off until the owner approves the cloud cost and the privacy rule of §5.4.
 
-**The live query model fails the gate** (list −0.054, paraphrase −0.033, person −0.033; overall R@10 0.607 → 0.588, 0.589 on a second run) and, unlike the oracle upper bound, it is not an improvement. It was called 53 times (about 17k input, 7k output tokens) and it lost four questions that the rules alone found (q045, q109, q120, q126) and gained one (q113). The cause, checked by reading the plans for four of them, is over-filtering, not bad dates: it adds a `people` filter for a name that is the subject of the item ("Did **Sam** settle up…", "**Daniel** approved my time off…") although the prompt says to do so only when the item is _from_ them; and it turns the word "chats" into `sources: [imessage]` and "documents" into `sources: [files]`, which drops the Psyche chats and Library documents that are also gold. Fix before R13 ships, in `QUERY_MODEL_PROMPT` (people only after "from/by/sent by"; sources only for the words mail, message, note, event, reminder, file as a _source name_, never "chat" or "document"), then re-measure with this harness. Until then the model path should not be turned on by default.
+**The live query model fails the gate** (list −0.054, paraphrase −0.033, person −0.033; overall R@10 0.607 → 0.588, 0.589 on a second run) and, unlike the oracle upper bound, it is not an improvement. It was called 53 times (about 17k input, 7k output tokens) and it lost four questions that the rules alone found (q045, q109, q120, q126) and gained one (q113). The cause, checked by reading the plans for four of them, is over-filtering, not bad dates: it adds a `people` filter for a name that is the subject of the item ("Did **Sam** settle up…", "**Daniel** approved my time off…") although the prompt says to do so only when the item is *from* them; and it turns the word "chats" into `sources: [imessage]` and "documents" into `sources: [files]`, which drops the Psyche chats and Library documents that are also gold. Fix before R13 ships, in `QUERY_MODEL_PROMPT` (people only after "from/by/sent by"; sources only for the words mail, message, note, event, reminder, file as a *source name*, never "chat" or "document"), then re-measure with this harness. Until then the model path should not be turned on by default.
 
 ### Query model fixed: gate passes, no measurable gain yet (2026-11-02)
 
 Two changes in `packages/search/src/understand-model.ts`, both aimed at the over-filtering found above:
 
-- **Prompt.** "A wrong filter hides the answer; no filter is safe." A person only when the question says the item is _from_ or sent _by_ them (a name that is only the topic, as in "did Sam pay me back", is not a filter). A source only when the question names the kind of item (mail/email, text/iMessage, note, calendar/event, reminder, file/folder/PDF); "chat", "document", "thread", "message", "trip" and "meeting" name no source.
+- **Prompt.** "A wrong filter hides the answer; no filter is safe." A person only when the question says the item is *from* or sent *by* them (a name that is only the topic, as in "did Sam pay me back", is not a filter). A source only when the question names the kind of item (mail/email, text/iMessage, note, calendar/event, reminder, file/folder/PDF); "chat", "document", "thread", "message", "trip" and "meeting" name no source.
 - **Guard (`guardPlan`).** The prompt is advice; the guard is the rule. After parsing, a person is kept only if the question has "from/by/sent by NAME", "NAME sent/wrote/emailed/texted/messaged" or "what NAME said/wrote", and a source only if the question contains one of its cue words. Dates and terms are kept. If nothing is left to filter by, the rules stand (the existing fallback).
 
 Live Haiku 5.5, full coverage, same harness (`--live --mode model`; 53 calls, about 31k input and 6k output tokens):
 
-| Mode                  | R@1   | R@5   | R@10  | R@20  | hit@10 | MRR   | nDCG@10 |
-| --------------------- | ----- | ----- | ----- | ----- | ------ | ----- | ------- |
-| prod (baseline)       | 0.225 | 0.502 | 0.607 | 0.694 | 0.800  | 0.590 | 0.524   |
-| model, before the fix | 0.222 | 0.505 | 0.588 | 0.672 | 0.787  | 0.594 | 0.519   |
-| model, after the fix  | 0.227 | 0.506 | 0.608 | 0.695 | 0.800  | 0.595 | 0.527   |
+| Mode | R@1 | R@5 | R@10 | R@20 | hit@10 | MRR | nDCG@10 |
+| --- | --- | --- | --- | --- | --- | --- | --- |
+| prod (baseline) | 0.225 | 0.502 | 0.607 | 0.694 | 0.800 | 0.590 | 0.524 |
+| model, before the fix | 0.222 | 0.505 | 0.588 | 0.672 | 0.787 | 0.594 | 0.519 |
+| model, after the fix | 0.227 | 0.506 | 0.608 | 0.695 | 0.800 | 0.595 | 0.527 |
 
 R@10 by class against the baseline: every class is equal except **list +0.012**; none drops. **The gate passes.** The model path now does what it cannot get wrong: it never loses a result the rules found. It also does not gain on this set (temporal stays 0.585): the rules already settle the dates here, and the questions the model was unsure about mostly carry no filter worth adding. Defaults are unchanged (the model path is only reached when a model is configured and the rules are unsure); turning it on is still the owner's call, and the case for it is cost and latency against a gain of about zero on this set. Unit tests: `test/understand-model.test.ts` (the guard keeps a person and a source only when the question asks for them).
 
@@ -390,13 +390,13 @@ Status: A1 built behind fakes 2026-11-03; A2 (the Settings control) and A4 (memo
 
 **How it is wired.**
 
-| Layer             | What                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                              | Where                                                                            |
-| ----------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------- |
-| Mac helper        | `llm.apple.availability` (reads whether it can run; never runs it) and `llm.apple.generate` (one prompt, text or JSON for a schema, one call at a time, fresh session each time, no tools, no history). Every failure is a `refusal` in the result, not an error: `unavailable` (with the reason: device not eligible, Apple Intelligence off, model not ready, macOS too old), `too_long`, `context_exceeded`, `guardrail`, `unsupported_language`, `unsupported_schema`, `rate_limited`, `timed_out`, `failed`. | `apps/mac-helper` `PsycheHelperSystem/LLM`, pure rules in `PsycheHelperCore/LLM` |
-| Guided generation | A JSON Schema subset (object, array, string, number, integer, boolean, string enum; at most 4 levels, 12 properties) becomes a `DynamicGenerationSchema`, so the query model's JSON and the rerank order can be forced to shape. Anything else is refused as `unsupported_schema`.                                                                                                                                                                                                                                | `AppleLLMPolicy.parseSchema`, `FoundationModelsBackend`                          |
-| Router            | Provider kind `apple`, ref `apple/on-device`, local (`isLocalKind`), no tools, 4,096-token window. A missing helper or any refusal is an ordinary `finish{error}` with a router error kind. The provider is always routable; it answers "needs the Mac helper" until one is live.                                                                                                                                                                                                                                 | `packages/model-router/src/apple`                                                |
-| Reach             | Only the router calls `llm.*`: `nodes.invoke` cannot reach it (`isUnreachableCapability`) and the broker denies `llm.apple.*` tool calls (`llm_router_only`).                                                                                                                                                                                                                                                                                                                                                     | `handlers/nodes.ts`, `permissions/prohibitions.ts`                               |
-| Settings hook     | `models.appleStatus` → `{ref, helperConnected, available, reason?, contextTokens}` for the picker, and the setting `search.model.engine` (`utility`, the default, or `apple`). Memory uses the existing `{kind: "local", ref: "apple/on-device"}`.                                                                                                                                                                                                                                                                | `models.appleStatus`, `SEARCH_MODEL_ENGINE_KEY`                                  |
+| Layer | What | Where |
+| --- | --- | --- |
+| Mac helper | `llm.apple.availability` (reads whether it can run; never runs it) and `llm.apple.generate` (one prompt, text or JSON for a schema, one call at a time, fresh session each time, no tools, no history). Every failure is a `refusal` in the result, not an error: `unavailable` (with the reason: device not eligible, Apple Intelligence off, model not ready, macOS too old), `too_long`, `context_exceeded`, `guardrail`, `unsupported_language`, `unsupported_schema`, `rate_limited`, `timed_out`, `failed`. | `apps/mac-helper` `PsycheHelperSystem/LLM`, pure rules in `PsycheHelperCore/LLM` |
+| Guided generation | A JSON Schema subset (object, array, string, number, integer, boolean, string enum; at most 4 levels, 12 properties) becomes a `DynamicGenerationSchema`, so the query model's JSON and the rerank order can be forced to shape. Anything else is refused as `unsupported_schema`. | `AppleLLMPolicy.parseSchema`, `FoundationModelsBackend` |
+| Router | Provider kind `apple`, ref `apple/on-device`, local (`isLocalKind`), no tools, 4,096-token window. A missing helper or any refusal is an ordinary `finish{error}` with a router error kind. The provider is always routable; it answers "needs the Mac helper" until one is live. | `packages/model-router/src/apple` |
+| Reach | Only the router calls `llm.*`: `nodes.invoke` cannot reach it (`isUnreachableCapability`) and the broker denies `llm.apple.*` tool calls (`llm_router_only`). | `handlers/nodes.ts`, `permissions/prohibitions.ts` |
+| Settings hook | `models.appleStatus` → `{ref, helperConnected, available, reason?, contextTokens}` for the picker, and the setting `search.model.engine` (`utility`, the default, or `apple`). Memory uses the existing `{kind: "local", ref: "apple/on-device"}`. | `models.appleStatus`, `SEARCH_MODEL_ENGINE_KEY` |
 
 **`search.model.engine: apple`** moves reading a question, cards and rerank together. It **fails closed**: when the on-device model cannot answer, the job does nothing and the existing fallback stands (rules for a question, no card, plain ranking); it never retries on the utility (cloud) model. Rerank is cut to the top 8 hits (512 characters each) to fit the window.
 
@@ -405,7 +405,6 @@ Status: A1 built behind fakes 2026-11-03; A2 (the Settings control) and A4 (memo
 **A2 and A4 (built behind fakes).** Settings → Search → Model for search offers the Apple choice with the plain statement and the `models.appleStatus` reason, disabled while unavailable and labelled as the Host's setting in a remote client window. Memory settings → Model for one source offers "Apple on-device model (experimental)" only where the model is available; `modelFor` returns it with a 4,096-token `window`, the pass sizes batches under `windowPlan` (items over the budget are skipped as `item_too_long_for_window`), and a refusal is recorded as `model_unavailable`, `model_guardrail`, `model_too_long` or `model_failed` in the run's drop counts: no retry, no cloud model. `model_unavailable` keeps the cursor so the next night reads the same items. Tests drive fake providers only.
 
 **What still needs a real run (A3), on a Mac the owner approves.**
-
 1. `llm.apple.availability` and one `llm.apple.generate` on a Mac with Apple Intelligence on, and on one with it off, to confirm the unavailable reasons and messages.
 2. The error-case mapping (`exceededContextWindowSize`, `guardrailViolation`, `unsupportedLanguageOrLocale`): the Swift mapping matches on the case names and is unit-tested only with names, not with real thrown errors.
 3. Guided generation with the query model's schema and the rerank schema (the schema is built in a test, never sent).

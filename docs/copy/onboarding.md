@@ -85,25 +85,25 @@ Global controls on every step: **Back**, **Skip** (where allowed), **Continue**.
 - Title: **Let {agent} use this Mac**
 - Lead: "Each of these is optional. Without them, {agent} still chats, browses in its own browser and uses connected accounts. You can grant them later in Settings → Computer use."
 
-| Permission       | Row text                                                                | Why (shown under the row)                                                                                                                                                                               | Buttons              |
-| ---------------- | ----------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | -------------------- |
-| Accessibility    | **Accessibility** · "Lets {agent} click, type and use apps."            | "macOS requires this for any app that controls other apps. {agent} reads an app's buttons and fields, then clicks or types only in apps you've set to Read and interact, and you can stop it with Esc." | **Allow** · **Skip** |
-| Screen Recording | **Screen Recording** · "Lets {agent} see app windows when it needs to." | "Used for screenshots of an app window when its buttons and text aren't readable another way. Psyche's own windows and password fields are hidden from screenshots."                                    | **Allow** · **Skip** |
-| Notifications    | **Notifications** · "Lets {agent} reach you when something needs you."  | "Approvals, questions, finished tasks and reminders. You can approve some actions right from the notification; purchases and password fills ask for Touch ID."                                          | **Allow** · **Skip** |
+| Permission | Row text | Why (shown under the row) | Buttons |
+| --- | --- | --- | --- |
+| Accessibility | **Accessibility** · "Lets {agent} click, type and use apps." | "macOS requires this for any app that controls other apps. {agent} reads an app's buttons and fields, then clicks or types only in apps you've set to Read and interact, and you can stop it with Esc." | **Allow** · **Skip** |
+| Screen Recording | **Screen Recording** · "Lets {agent} see app windows when it needs to." | "Used for screenshots of an app window when its buttons and text aren't readable another way. Psyche's own windows and password fields are hidden from screenshots." | **Allow** · **Skip** |
+| Notifications | **Notifications** · "Lets {agent} reach you when something needs you." | "Approvals, questions, finished tasks and reminders. You can approve some actions right from the notification; purchases and password fills ask for Touch ID." | **Allow** · **Skip** |
 
 - After **Allow** for Accessibility or Screen Recording: "macOS opens System Settings. Turn on Psyche, then come back here." Button: **Open System Settings**. Then: "Waiting for macOS…" → granted: "Granted" / still off after return: "Still off. You can skip this and turn it on later."
 - Footnote: "Psyche never reads Safari or Passwords app passwords. macOS doesn't allow it, and Psyche doesn't try."
 
 ### Permissions requested later (first use, not during onboarding)
 
-| Permission              | Prompt title                                          | Why                                                                                                                                                                       |
-| ----------------------- | ----------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Automation (per app)    | "Let {agent} control {app}?"                          | "Needed to run actions in {app}, such as creating a note or a Shortcut. macOS asks once per app."                                                                         |
-| Calendars and Reminders | "Let {agent} use Calendar and Reminders on this Mac?" | "To read and, with your approval, add events and reminders in your Mac's calendars. Not needed if you only use a Google or Microsoft calendar connector."                 |
-| Contacts                | "Let {agent} read your contacts?"                     | "To match names to email addresses and phone numbers when you ask it to message someone."                                                                                 |
-| Full Disk Access        | "Let {agent} read your Messages?"                     | "iMessage history lives in a protected file on this Mac. Full Disk Access lets Psyche read it so {agent} can answer and draft replies. Sending still asks you each time." |
-| Microphone              | "Let {agent} hear you?"                               | "For dictation and voice chat. Audio is transcribed on this Mac when your Mac supports it."                                                                               |
-| Folder access           | "Let {agent} open {folder}?"                          | "{agent} can only see folders you share with it. Choose read-only or read and write." Buttons: **Read only** · **Read and write** · **Don't share**                       |
+| Permission | Prompt title | Why |
+| --- | --- | --- |
+| Automation (per app) | "Let {agent} control {app}?" | "Needed to run actions in {app}, such as creating a note or a Shortcut. macOS asks once per app." |
+| Calendars and Reminders | "Let {agent} use Calendar and Reminders on this Mac?" | "To read and, with your approval, add events and reminders in your Mac's calendars. Not needed if you only use a Google or Microsoft calendar connector." |
+| Contacts | "Let {agent} read your contacts?" | "To match names to email addresses and phone numbers when you ask it to message someone." |
+| Full Disk Access | "Let {agent} read your Messages?" | "iMessage history lives in a protected file on this Mac. Full Disk Access lets Psyche read it so {agent} can answer and draft replies. Sending still asks you each time." |
+| Microphone | "Let {agent} hear you?" | "For dictation and voice chat. Audio is transcribed on this Mac when your Mac supports it." |
+| Folder access | "Let {agent} open {folder}?" | "{agent} can only see folders you share with it. Choose read-only or read and write." Buttons: **Read only** · **Read and write** · **Don't share** |
 
 ---
 
@@ -116,17 +116,17 @@ Global controls on every step: **Back**, **Skip** (where allowed), **Continue**.
   - **Read and act**: "{agent} can also draft, send, create and change things. Each action still follows your permission settings, and sends ask first by default."
 - Skip link: **I'll do this later**
 
-| Connector                       | Card text                                                                         | Notes shown on connect                                                                                                                                                                              |
-| ------------------------------- | --------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Google (Gmail, Calendar, Drive) | "Mail, calendar and the Drive files you pick."                                    | See "Setting up Google" below. · "Drive access is limited to files {agent} creates or you open with it."                                                                                            |
-| Microsoft (Outlook, OneDrive)   | "Outlook mail and calendar, OneDrive files."                                      | "Sign in with your Microsoft account in the window that opens."                                                                                                                                     |
-| Other mail (IMAP)               | "Any mail account with IMAP and SMTP."                                            | "Use an app password from your mail provider, not your main password. Psyche stores it in the vault; {agent} never sees it."                                                                        |
-| Fastmail                        | "Mail and calendar through Fastmail's API."                                       | "Create an API token in Fastmail → Settings → Privacy & Security, then paste it here. It goes straight into the vault."                                                                             |
-| Apple apps                      | "Mail, Calendar, Reminders, Notes and Contacts on this Mac."                      | "Uses the apps already set up on this Mac. macOS asks for each app the first time."                                                                                                                 |
-| Web search                      | "Lets {agent} search the web."                                                    | "Pick a provider: Brave, Exa, Tavily, or your own SearXNG. Paid providers need an API key, stored in the vault."                                                                                    |
-| Slack                           | "Read channels and DMs, draft and send messages."                                 | "You choose the workspace in Slack's own window."                                                                                                                                                   |
-| Notion · Linear · GitHub        | "Pages and databases" · "Issues and projects" · "Repos, issues and pull requests" | "Connects to the service's own MCP server. You can set each tool to Allow, Ask or Deny afterwards."                                                                                                 |
-| Stripe Link                     | "Lets {agent} pay with one-time cards you approve."                               | "Psyche never stores card numbers. When {agent} wants to buy something, you approve the exact items and total on this Mac with Touch ID, then again in Link. Each purchase gets a single-use card." |
+| Connector | Card text | Notes shown on connect |
+| --- | --- | --- |
+| Google (Gmail, Calendar, Drive) | "Mail, calendar and the Drive files you pick." | See "Setting up Google" below. · "Drive access is limited to files {agent} creates or you open with it." |
+| Microsoft (Outlook, OneDrive) | "Outlook mail and calendar, OneDrive files." | "Sign in with your Microsoft account in the window that opens." |
+| Other mail (IMAP) | "Any mail account with IMAP and SMTP." | "Use an app password from your mail provider, not your main password. Psyche stores it in the vault; {agent} never sees it." |
+| Fastmail | "Mail and calendar through Fastmail's API." | "Create an API token in Fastmail → Settings → Privacy & Security, then paste it here. It goes straight into the vault." |
+| Apple apps | "Mail, Calendar, Reminders, Notes and Contacts on this Mac." | "Uses the apps already set up on this Mac. macOS asks for each app the first time." |
+| Web search | "Lets {agent} search the web." | "Pick a provider: Brave, Exa, Tavily, or your own SearXNG. Paid providers need an API key, stored in the vault." |
+| Slack | "Read channels and DMs, draft and send messages." | "You choose the workspace in Slack's own window." |
+| Notion · Linear · GitHub | "Pages and databases" · "Issues and projects" · "Repos, issues and pull requests" | "Connects to the service's own MCP server. You can set each tool to Allow, Ask or Deny afterwards." |
+| Stripe Link | "Lets {agent} pay with one-time cards you approve." | "Psyche never stores card numbers. When {agent} wants to buy something, you approve the exact items and total on this Mac with Touch ID, then again in Link. Each purchase gets a single-use card." |
 
 ### Setting up Google
 
@@ -152,12 +152,12 @@ Google requires every app that reads Gmail to have its own sign-in client. Psych
 - Title: **Choose {agent}'s model**
 - Lead: "Psyche works with any model you can reach. Use a cloud provider with your own key or subscription, or run one on this Mac."
 
-| Option          | Text                                                                                                                                                           |
-| --------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Cloud provider  | **Anthropic · OpenAI · Google** · "Paste an API key or sign in with your subscription. The key goes into the vault, never into a config file."                 |
-| OpenRouter      | **OpenRouter** · "One key for many models. Billing is through OpenRouter."                                                                                     |
-| On this Mac     | **Local model** · "Runs on your Mac with Ollama, llama.cpp, LM Studio or MLX. Private and free to run; slower and less capable than the largest cloud models." |
-| Custom endpoint | **Other endpoint** · "Any OpenAI- or Anthropic-compatible server. Enter its URL."                                                                              |
+| Option | Text |
+| --- | --- |
+| Cloud provider | **Anthropic · OpenAI · Google** · "Paste an API key or sign in with your subscription. The key goes into the vault, never into a config file." |
+| OpenRouter | **OpenRouter** · "One key for many models. Billing is through OpenRouter." |
+| On this Mac | **Local model** · "Runs on your Mac with Ollama, llama.cpp, LM Studio or MLX. Private and free to run; slower and less capable than the largest cloud models." |
+| Custom endpoint | **Other endpoint** · "Any OpenAI- or Anthropic-compatible server. Enter its URL." |
 
 - Local RAM guidance (shown with the Mac's memory filled in): "This Mac has {ram} GB of memory. Good fits: {suggestions}." Using the bands: 16 GB → "small models around 9B parameters"; 32 GB → "models around 27–31B"; 96–128 GB → "large mixture-of-experts models around 120B".
 - Tool-calling check: running "Checking that {model} can use tools…"; pass "Ready. {model} can use tools."; fail "{model} can chat but failed the tool check, so it can't do tasks. Pick another model for tasks, or keep it for chat only."
@@ -170,10 +170,10 @@ Google requires every app that reads Gmail to have its own sign-in client. Psych
 
 - Title: **Where should {agent} work?**
 
-| Option             | Text                                                                                                                                                                                                                                                                                                                             |
-| ------------------ | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| This Mac (default) | **On this Mac** · "{agent} uses its own browser, a sandbox for commands, and the apps and folders you allow. Fastest to set up."                                                                                                                                                                                                 |
-| Mac inside Psyche  | **In a Mac inside Psyche** · "{agent} gets its own virtual Mac to use apps in, separate from your files and apps. Needs an Apple silicon Mac and about 80 GB of disk; setup downloads macOS and takes a while. On macOS 27 it sets itself up; on earlier versions you may need to click through the macOS setup assistant once." |
+| Option | Text |
+| --- | --- |
+| This Mac (default) | **On this Mac** · "{agent} uses its own browser, a sandbox for commands, and the apps and folders you allow. Fastest to set up." |
+| Mac inside Psyche | **In a Mac inside Psyche** · "{agent} gets its own virtual Mac to use apps in, separate from your files and apps. Needs an Apple silicon Mac and about 80 GB of disk; setup downloads macOS and takes a while. On macOS 27 it sets itself up; on earlier versions you may need to click through the macOS setup assistant once." |
 
 - VM defaults (shown when the VM option is selected): "4 CPU cores · 8 GB memory · 80 GB disk (adjustable) · One virtual Mac at a time · Shares your Mac's internet connection, including your local network · No folders shared until you add them, and those are read-only unless you change them · You can paste into it; nothing copies back out · Your passwords stay in this Mac's vault and are lent for one fill at a time."
 - VM caveats: "The virtual Mac needs you logged in to this Mac to run. Apple's license allows macOS virtual machines for personal and development use. The App Store doesn't work inside it."

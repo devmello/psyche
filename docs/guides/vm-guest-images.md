@@ -10,13 +10,13 @@ This is feature L7. Images are plain files you copy around, a folder or one `.aa
 
 ## What an image contains
 
-| File                      | What                                                                                                             |
-| ------------------------- | ---------------------------------------------------------------------------------------------------------------- |
-| `manifest.json`           | Format, macOS version, disk format and size, the guest's user name, and the size and SHA-256 of every other file |
-| `Disk.asif` or `Disk.img` | The guest's disk (macOS, the Psyche install)                                                                     |
-| `AuxiliaryStorage`        | The guest's NVRAM                                                                                                |
-| `HardwareModel`           | The virtual hardware model it was installed for                                                                  |
-| `bootstrap.json`          | The guest's user name and password at build time                                                                 |
+| File | What |
+| --- | --- |
+| `manifest.json` | Format, macOS version, disk format and size, the guest's user name, and the size and SHA-256 of every other file |
+| `Disk.asif` or `Disk.img` | The guest's disk (macOS, the Psyche install) |
+| `AuxiliaryStorage` | The guest's NVRAM |
+| `HardwareModel` | The virtual hardware model it was installed for |
+| `bootstrap.json` | The guest's user name and password at build time |
 
 An image never contains the guest's **machine identifier**. Each Mac that imports the image mints its own identifier and network (MAC) address, so two imports are two different Macs.
 
