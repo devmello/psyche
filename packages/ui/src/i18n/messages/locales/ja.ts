@@ -3056,6 +3056,7 @@ export const ja: Partial<Catalogue> = {
   "screens.library.recording.empty": "この録画にはステップがありません。",
   "screens.library.recording.noFrame": "このステップの画像はありません。",
   "screens.library.recording.frameAlt": "ステップ {n} のブラウザ",
+  "screens.library.recording.reviewPermissions": "権限で確認",
   "screens.library.recording.loading": "録画を読み込み中",
   "screens.library.recording.loadFailed": "Psyche はこの録画を読み込めませんでした（{reason}）。",
   "screens.library.recording.notFound": "この録画はもう利用できません。",

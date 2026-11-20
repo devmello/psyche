@@ -83,11 +83,15 @@ const RECORDING: MockBrowserRecording = {
   ],
 };
 
-function setup(recordings: MockBrowserRecording[] = [RECORDING]) {
+function setup(
+  recordings: MockBrowserRecording[] = [RECORDING],
+  slots?: { navigate?: (route: string) => void },
+) {
   let gw: MockGateway | null = null;
   const onClose = vi.fn();
   render(
     <StoryWorld
+      {...(slots === undefined ? {} : { slots })}
       onGateway={(g) => {
         gw = g;
         g.world.browserRecordings = recordings;
@@ -174,6 +178,46 @@ describe("Browser recording viewer", () => {
   it("says so when the recording is gone", async () => {
     setup([]);
     expect(await screen.findByText("This recording isn't available any more.")).toBeTruthy();
+  });
+
+  it("opens the task that made the recording, and closes the viewer", async () => {
+    const navigate = vi.fn();
+    const { onClose } = setup(
+      [{ ...RECORDING, recording: { ...RECORDING.recording, taskId: "task_7" } }],
+      {
+        navigate,
+      },
+    );
+    const dialog = await screen.findByRole("dialog");
+    await within(dialog).findByRole("img");
+    await userEvent.click(within(dialog).getByRole("button", { name: "Open task" }));
+    expect(navigate).toHaveBeenCalledWith("/agent/activity/task_7");
+    expect(onClose).toHaveBeenCalled();
+  });
+
+  it("hides Open task when the recording has no task, but keeps Review in Permissions", async () => {
+    setup([RECORDING], { navigate: vi.fn() });
+    const dialog = await screen.findByRole("dialog");
+    await within(dialog).findByRole("img");
+    expect(within(dialog).queryByRole("button", { name: "Open task" })).toBeNull();
+    expect(within(dialog).getByRole("button", { name: "Review in Permissions" })).toBeTruthy();
+  });
+
+  it("opens the Permissions screen from Review in Permissions", async () => {
+    const navigate = vi.fn();
+    const { onClose } = setup([RECORDING], { navigate });
+    const dialog = await screen.findByRole("dialog");
+    await within(dialog).findByRole("img");
+    await userEvent.click(within(dialog).getByRole("button", { name: "Review in Permissions" }));
+    expect(navigate).toHaveBeenCalledWith("/settings/permissions");
+    expect(onClose).toHaveBeenCalled();
+  });
+
+  it("offers neither link when the host has no navigation", async () => {
+    setup([RECORDING]);
+    const dialog = await screen.findByRole("dialog");
+    await within(dialog).findByRole("img");
+    expect(within(dialog).queryByRole("button", { name: "Review in Permissions" })).toBeNull();
   });
 });
 

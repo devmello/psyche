@@ -3111,6 +3111,7 @@ export const es: Partial<Catalogue> = {
   "screens.library.recording.empty": "Esta grabación no tiene pasos.",
   "screens.library.recording.noFrame": "No hay imagen para este paso.",
   "screens.library.recording.frameAlt": "El navegador en el paso {n}",
+  "screens.library.recording.reviewPermissions": "Revisar en Permisos",
   "screens.library.recording.loading": "Cargando la grabación",
   "screens.library.recording.loadFailed": "Psyche no pudo cargar esta grabación ({reason}).",
   "screens.library.recording.notFound": "Esta grabación ya no está disponible.",

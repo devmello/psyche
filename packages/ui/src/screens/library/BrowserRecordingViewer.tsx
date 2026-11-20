@@ -15,6 +15,7 @@ import { t } from "../../i18n/core.ts";
 import { describeError } from "../../i18n/errors.ts";
 import { formatTime } from "../../lib/format.ts";
 import { cn } from "../../lib/utils.ts";
+import { useSlots } from "../../slots.tsx";
 
 /**
  * Replays an agent browser session (feature I10; `browser.recordings.*`): the recorded screencast
@@ -50,6 +51,7 @@ export function BrowserRecordingViewer({
   onClose: () => void;
 }): ReactElement {
   const call = useCall();
+  const { navigate } = useSlots();
   const [loaded, setLoaded] = useState<Loaded | "missing" | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [index, setIndex] = useState(0);
@@ -95,6 +97,7 @@ export function BrowserRecordingViewer({
   const data = loaded !== null && loaded !== "missing" ? loaded : null;
   const total = data?.events.length ?? 0;
   const frameSeq = data === null ? null : frameFor(data.events, index);
+  const taskId = data?.recording.taskId ?? null;
 
   // Play steps forward and stops on the last step.
   useEffect(() => {
@@ -229,6 +232,35 @@ export function BrowserRecordingViewer({
             </ol>
           </div>
         )}
+        {data !== null && navigate ? (
+          <div className="flex flex-wrap gap-2">
+            {taskId !== null ? (
+              <Button
+                type="button"
+                size="sm"
+                variant="outline"
+                onClick={() => {
+                  onClose();
+                  navigate(`/agent/activity/${taskId}`);
+                }}
+              >
+                {t("agent.approvals.openTask")}
+              </Button>
+            ) : null}
+            <Button
+              type="button"
+              size="sm"
+              variant="outline"
+              onClick={() => {
+                onClose();
+                // The Permissions screen has no task or site filter yet, so this opens it whole.
+                navigate("/settings/permissions");
+              }}
+            >
+              {t("screens.library.recording.reviewPermissions")}
+            </Button>
+          </div>
+        ) : null}
       </DialogContent>
     </Dialog>
   );
