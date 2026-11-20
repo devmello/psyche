@@ -1,5 +1,5 @@
 import { type Dirent, readdirSync, readlinkSync, realpathSync } from "node:fs";
-import { lstat, readdir, readlink } from "node:fs/promises";
+import { lstat, readdir, readlink, realpath } from "node:fs/promises";
 import { join } from "node:path";
 
 /**
@@ -98,7 +98,17 @@ export interface LaunchConfigScan {
    * Folders the walk could not list (no read or search permission), when there are any. A
    * search-only folder still lets an app open a launch-config file in it by name.
    */
-  unreadable?: string[];
+  unreadable?: LaunchConfigUnlisted[];
+}
+
+/** A folder the walk could not list. */
+export interface LaunchConfigUnlisted {
+  rel: string;
+  /**
+   * Who it was (dev:ino), taken before a check that it was inside the root then: what is at its
+   * path later and is not this is something else (#1450 review r2). Unset when that check failed.
+   */
+  id?: string;
 }
 
 export interface LaunchConfigScanLimits {
@@ -170,7 +180,8 @@ export async function findLaunchConfig(
   const maxFound = limits.maxFound ?? 64;
   const maxDepth = limits.maxDepth ?? Number.POSITIVE_INFINITY;
   const found: LaunchConfigFound[] = [];
-  const unreadable: string[] = [];
+  const unreadable: LaunchConfigUnlisted[] = [];
+  const unlisted = unlistedPinner(root, unreadable);
   const done = (complete: boolean): LaunchConfigScan =>
     unreadable.length > 0 ? { found, complete, unreadable } : { found, complete };
   const queue: { rel: string; depth: number }[] = [{ rel: "", depth: 0 }];
@@ -184,7 +195,7 @@ export async function findLaunchConfig(
         withFileTypes: true,
       });
     } catch (err) {
-      if (denied(err)) unreadable.push(next.rel === "" ? "." : next.rel);
+      if (denied(err)) await unlisted(next.rel === "" ? "." : next.rel);
       continue;
     }
     for (const d of entries) {
@@ -208,7 +219,7 @@ export async function findLaunchConfig(
         // A folder not walked can still hold a repository an editor finds and runs git in
         // (VS Code looks one and two levels down, in build output too): looked for directly.
         if (limits.nestedGit === true && fold(d.name) !== "node_modules") {
-          for (const g of await nestedGits(root, rel, skip, unreadable)) {
+          for (const g of await nestedGits(root, rel, skip, unlisted)) {
             if (found.length >= maxFound) return done(false);
             found.push(g);
           }
@@ -226,6 +237,25 @@ const denied = (err: unknown) => {
   return code === "EACCES" || code === "EPERM";
 };
 
+/**
+ * Records an unlisted folder with its identity: taken first, then the folder's real path is
+ * checked to be its path under the root, so a folder above it swapped for a link before the
+ * identity was taken is caught by the check, and one swapped after by the identity.
+ */
+function unlistedPinner(root: string, into: LaunchConfigUnlisted[]) {
+  let realRoot: Promise<string | undefined> | undefined;
+  return async (rel: string): Promise<void> => {
+    const path = rel === "." ? root : join(root, rel);
+    const st = await lstat(path, { bigint: true }).catch(() => undefined);
+    realRoot ??= realpath(root).catch(() => undefined);
+    const base = await realRoot;
+    const real = await realpath(path).catch(() => undefined);
+    const inside =
+      base !== undefined && real === (rel === "." ? base : join(base, rel)) && st?.isDirectory();
+    into.push(inside === true && st !== undefined ? { rel, id: `${st.dev}:${st.ino}` } : { rel });
+  };
+}
+
 /** Folders below an unwalked one checked for their own `.git` at most. */
 const MAX_GIT_PROBES = 2_000;
 
@@ -237,7 +267,7 @@ async function nestedGits(
   root: string,
   rel: string,
   children: boolean,
-  unreadable: string[],
+  unlisted: (rel: string) => Promise<void>,
 ): Promise<LaunchConfigFound[]> {
   const out: LaunchConfigFound[] = [];
   const probe = async (dir: string) => {
@@ -258,7 +288,7 @@ async function nestedGits(
   try {
     entries = await readdir(join(root, rel), { withFileTypes: true });
   } catch (err) {
-    if (denied(err)) unreadable.push(rel);
+    if (denied(err)) await unlisted(rel);
     return out;
   }
   for (const d of entries.slice(0, MAX_GIT_PROBES)) {

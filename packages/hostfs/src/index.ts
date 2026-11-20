@@ -22,6 +22,7 @@ export {
   type LaunchConfigFound,
   type LaunchConfigScan,
   type LaunchConfigScanLimits,
+  type LaunchConfigUnlisted,
   launchConfigEntry,
   launchConfigLinkTargets,
 } from "./launch-config.ts";
