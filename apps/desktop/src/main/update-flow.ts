@@ -93,6 +93,25 @@ async function getBytes(f: typeof fetch, url: string): Promise<Uint8Array | null
   return new Uint8Array(await res.arrayBuffer());
 }
 
+/**
+ * The manifest and signature of one named release, from the pinned release host
+ * (`.../download/v<version>/`). Linux rollback uses it to learn what the running copy should hash
+ * to; the caller verifies it. Undefined when that release published none.
+ */
+export async function fetchReleaseManifest(
+  f: typeof fetch,
+  version: string,
+  pinnedBase: string = PINNED_RELEASE_BASE,
+): Promise<{ bytes: Uint8Array; sig: string } | undefined> {
+  if (!/^\d+\.\d+\.\d+(-[0-9A-Za-z.-]+)?$/.test(version)) return undefined;
+  const base = `${pinnedBase}v${version}/`;
+  if (!isUnderPin(base, pinnedBase)) return undefined;
+  const bytes = await getBytes(f, new URL(MANIFEST_FILE, base).toString());
+  const sig = await getBytes(f, new URL(SIGNATURE_FILE, base).toString());
+  if (!bytes || !sig) return undefined;
+  return { bytes, sig: Buffer.from(sig).toString("utf8") };
+}
+
 async function downloadVerified(
   f: typeof fetch,
   url: string,

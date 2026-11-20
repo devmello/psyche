@@ -57,8 +57,7 @@ export function trustedAppImage(env: NodeJS.ProcessEnv, probe: AppImageProbe): s
   if (probe.execPath === LINUX_PACKAGE_ROOT || probe.execPath.startsWith(`${LINUX_PACKAGE_ROOT}/`))
     return undefined;
   const name = basename(image);
-  for (const line of probe.mountInfo().split("
-")) {
+  for (const line of probe.mountInfo().split("\n")) {
     // 36 35 0:42 / /tmp/.mount_x rw,... - fuse.Psyche.AppImage /path/Psyche.AppImage rw,...
     const [pre, post] = line.split(" - ");
     if (pre === undefined || post === undefined) continue;

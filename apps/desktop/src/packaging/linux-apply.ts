@@ -14,7 +14,6 @@ import {
 } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { basename, dirname, join } from "node:path";
-import { LINUX_PACKAGE_ROOT } from "../platform/install-kind.ts";
 import {
   artifactsFor,
   compareVersions,
@@ -23,6 +22,7 @@ import {
   type ReleaseKey,
   verifyManifest,
 } from "../main/update-manifest.ts";
+import { LINUX_PACKAGE_ROOT } from "../platform/install-kind.ts";
 import type { UpdateGateway } from "./linux-gateway.ts";
 import type { LinuxUpdatePaths, RunCommand } from "./linux-install.ts";
 
@@ -138,7 +138,7 @@ export const nodeApplyFs: ApplyFs = {
           bytes += c.length;
         })
         .on("error", reject)
-        .on("end", () => resolve({ sha256: h.digest("hex"), bytes })),
+        .on("end", () => resolve({ sha256: h.digest("hex"), bytes }));
     }),
 };
 
@@ -204,11 +204,7 @@ async function exists(fs: ApplyFs, path: string): Promise<boolean> {
   }
 }
 
-async function writeAtomic(
-  fs: ApplyFs,
-  file: string,
-  data: string | Uint8Array,
-): Promise<void> {
+async function writeAtomic(fs: ApplyFs, file: string, data: string | Uint8Array): Promise<void> {
   const tmp = `${file}.${process.pid}.tmp`;
   await fs.writeFile(tmp, data, { mode: 0o600 });
   await fs.rename(tmp, file);
@@ -230,7 +226,10 @@ async function readManifest(
   name: string,
 ): Promise<SignedManifest | undefined> {
   try {
-    return { bytes: await fs.readBytes(join(dir, name)), sig: await fs.readFile(join(dir, `${name}.sig`)) };
+    return {
+      bytes: await fs.readBytes(join(dir, name)),
+      sig: await fs.readFile(join(dir, `${name}.sig`)),
+    };
   } catch {
     return undefined;
   }
@@ -314,7 +313,9 @@ export interface KeptArtifact {
   minimumVersion: string;
 }
 
-export type KeptResult = { ok: true; kept: KeptArtifact } | { ok: false; code: ApplyFailure; detail: string };
+export type KeptResult =
+  | { ok: true; kept: KeptArtifact }
+  | { ok: false; code: ApplyFailure; detail: string };
 
 /**
  * The kept artifact in `dir`, believed only as far as the signatures go: both manifests must
@@ -328,14 +329,19 @@ async function loadKept(
 ): Promise<KeptResult> {
   const kept = await readManifest(fs, dir, KEPT_MANIFEST);
   const leaving = await readManifest(fs, dir, LEAVING_MANIFEST);
-  if (!kept || !leaving) return { ok: false, code: "no_previous", detail: "no previous version is kept" };
+  if (!kept || !leaving)
+    return { ok: false, code: "no_previous", detail: "no previous version is kept" };
   let entry: ReturnType<typeof trustedEntry>;
   let minimumVersion: string;
   try {
     entry = trustedEntry(kept, trust.keys, kind, trust.arch);
     minimumVersion = verifyManifest(leaving.bytes, leaving.sig, trust.keys).minimumVersion;
   } catch (err) {
-    return { ok: false, code: "bad_manifest", detail: `the kept release is not vouched for: ${errorText(err)}` };
+    return {
+      ok: false,
+      code: "bad_manifest",
+      detail: `the kept release is not vouched for: ${errorText(err)}`,
+    };
   }
   const file = join(dir, kind === "appimage" ? PREVIOUS_IMAGE : entry.artifact.name);
   if (!(await exists(fs, file))) {
@@ -349,7 +355,10 @@ async function loadKept(
       detail: `the kept copy of ${entry.release} does not match its signed manifest`,
     };
   }
-  return { ok: true, kept: { version: entry.release, file, artifact: entry.artifact, minimumVersion } };
+  return {
+    ok: true,
+    kept: { version: entry.release, file, artifact: entry.artifact, minimumVersion },
+  };
 }
 
 function keptDir(paths: LinuxUpdatePaths, kind: InstallKind): string {
@@ -381,7 +390,11 @@ async function clearKept(fs: ApplyFs, dir: string, extra: string[] = []): Promis
  * that manifest verifies and the copy matches it byte for byte; otherwise nothing is kept and the
  * update goes on without a way back.
  */
-async function keepRunningImage(d: ApplyDeps, image: string, leaving: SignedManifest): Promise<boolean> {
+async function keepRunningImage(
+  d: ApplyDeps,
+  image: string,
+  leaving: SignedManifest,
+): Promise<boolean> {
   const { fs, paths } = d;
   await fs.mkdir(paths.previousImageDir, { recursive: true, mode: 0o700 });
   await clearKept(fs, paths.previousImageDir, [PREVIOUS_IMAGE]);
@@ -394,7 +407,9 @@ async function keepRunningImage(d: ApplyDeps, image: string, leaving: SignedMani
   try {
     entry = trustedEntry(running, d.keys, "appimage", d.arch);
   } catch (err) {
-    d.log(`the manifest of ${d.current.version} does not verify (${errorText(err)}): not keeping it`);
+    d.log(
+      `the manifest of ${d.current.version} does not verify (${errorText(err)}): not keeping it`,
+    );
     return false;
   }
   if (entry.release !== d.current.version) {
@@ -436,13 +451,17 @@ async function refreshSandbox(d: ApplyDeps, image: string): Promise<ApplyResult 
   if (!sb || !(await exists(d.fs, sb.systemCopy))) return undefined;
   const installed = (await d.fs.hash(sb.systemCopy)).sha256;
   const fresh = await sb.newImageSandbox(image);
-  if (!fresh) return fail("sandbox_setup", "could not read the new image's sandbox helper; not updating");
+  if (!fresh)
+    return fail("sandbox_setup", "could not read the new image's sandbox helper; not updating");
   if (fresh === installed) return undefined;
   d.log("the new image has a different sandbox helper: asking for the one-time setup first");
   const res = await sb.setup(image);
   if (res === "cancelled") return { state: "cancelled" };
   if (res === "failed") {
-    return fail("sandbox_setup", "the sandbox helper could not be updated; the update was not applied");
+    return fail(
+      "sandbox_setup",
+      "the sandbox helper could not be updated; the update was not applied",
+    );
   }
   return undefined;
 }
@@ -509,9 +528,7 @@ const PKEXEC_DISMISSED = 126;
 const SETUP_HASH_MISMATCH = 65;
 const SETUP_NO_PACKAGE_MANAGER = 69;
 
-type PackageRun =
-  | { ok: true }
-  | { ok: false; cancelled: boolean; code: number; detail: string };
+type PackageRun = { ok: true } | { ok: false; cancelled: boolean; code: number; detail: string };
 
 async function runPackageManager(d: ApplyDeps, cmd: string[]): Promise<PackageRun> {
   const [file, ...args] = cmd as [string, ...string[]];
@@ -544,7 +561,11 @@ function packageFailure(res: Extract<PackageRun, { ok: false }>, file: string): 
  * After a successful install: the package we installed before becomes `previous` (with the
  * signed manifest that vouched for it), and this one becomes `installed`.
  */
-async function rotatePackages(d: ApplyDeps, staged: StagedUpdate, kind: "deb" | "rpm"): Promise<void> {
+async function rotatePackages(
+  d: ApplyDeps,
+  staged: StagedUpdate,
+  kind: "deb" | "rpm",
+): Promise<void> {
   const { fs, paths } = d;
   await fs.mkdir(paths.packageDir, { recursive: true, mode: 0o700 });
   await fs.mkdir(paths.previousPackageDir, { recursive: true, mode: 0o700 });
@@ -685,7 +706,9 @@ export async function rollbackLinux(
       () => undefined,
     );
     if (keptManifest) {
-      await writeManifest(d.fs, d.paths.packageDir, KEPT_MANIFEST, keptManifest).catch(() => undefined);
+      await writeManifest(d.fs, d.paths.packageDir, KEPT_MANIFEST, keptManifest).catch(
+        () => undefined,
+      );
       await writeManifest(d.fs, d.paths.packageDir, LEAVING_MANIFEST, keptManifest).catch(
         () => undefined,
       );
@@ -737,8 +760,9 @@ export function createSandboxRefresh(run: RunCommand, systemCopy = SYSTEM_SANDBO
           "usr/lib/psyche/chrome-sandbox",
         ]);
         if (res.code !== 0) return undefined;
-        return (await nodeApplyFs.hash(join(work, "squashfs-root", "usr/lib/psyche/chrome-sandbox")))
-          .sha256;
+        return (
+          await nodeApplyFs.hash(join(work, "squashfs-root", "usr/lib/psyche/chrome-sandbox"))
+        ).sha256;
       } catch {
         return undefined;
       } finally {

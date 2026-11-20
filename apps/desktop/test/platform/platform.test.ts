@@ -82,8 +82,7 @@ describe("install kind", () => {
     const probe = {
       execPath: "/tmp/.mount_PsycheAbc/usr/lib/psyche/psyche",
       mountInfo: () =>
-        "36 35 0:42 / /tmp/.mount_PsycheAbc ro,nosuid - fuse.Psyche.AppImage /home/me/Psyche.AppImage ro
-",
+        "36 35 0:42 / /tmp/.mount_PsycheAbc ro,nosuid - fuse.Psyche.AppImage /home/me/Psyche.AppImage ro\n",
     };
     expect(linuxInstallKind(env, probe)).toBe("appimage");
     expect(linuxGatewayLaunch(env, probe)).toEqual({

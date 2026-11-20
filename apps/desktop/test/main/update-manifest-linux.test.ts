@@ -4,7 +4,7 @@ import { mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join, resolve } from "node:path";
 import { afterEach, describe, expect, it } from "vitest";
-import { checkForVerifiedUpdate } from "../../src/main/update-flow.ts";
+import { checkForVerifiedUpdate, fetchReleaseManifest } from "../../src/main/update-flow.ts";
 import {
   keyIdOf,
   ManifestError,
@@ -271,6 +271,9 @@ describe("checkForVerifiedUpdate on Linux", () => {
     expect(out.file).toBe(join(dir, "Psyche-1.3.0-linux-x64.deb"));
     expect(out.artifact).toMatchObject({ kind: "deb", arch: "x64" });
     expect(readFileSync(out.file)).toEqual(readFileSync(join(r.dir, "Psyche-1.3.0-linux-x64.deb")));
+    // The signed manifest travels with the file, byte for byte, so rollback can re-verify it.
+    expect(Buffer.from(out.manifest?.bytes ?? [])).toEqual(r.manifestBytes);
+    expect(out.manifest?.sig).toBe(r.sig);
     if (process.platform !== "win32") {
       const { statSync } = await import("node:fs");
       expect(statSync(dir).mode & 0o777).toBe(0o700);
@@ -301,5 +304,33 @@ describe("checkForVerifiedUpdate on Linux", () => {
       dir: join(temp(), "updates"),
     });
     expect(out).toMatchObject({ state: "refused", code: "no_artifact" });
+  });
+});
+
+describe("fetchReleaseManifest", () => {
+  const served = (seen: string[], status = 200) =>
+    (async (input: string | URL) => {
+      seen.push(String(input));
+      return status === 200 ? new Response("body") : new Response("no", { status });
+    }) as typeof fetch;
+
+  it("reads one release's manifest and signature from the pinned host only", async () => {
+    const seen: string[] = [];
+    const got = await fetchReleaseManifest(served(seen), "1.2.3");
+    expect(seen).toEqual([
+      `${PINNED}v1.2.3/update-manifest.json`,
+      `${PINNED}v1.2.3/update-manifest.json.sig`,
+    ]);
+    expect(Buffer.from(got?.bytes ?? []).toString()).toBe("body");
+    expect(got?.sig).toBe("body");
+  });
+
+  it("is undefined for a release with no manifest, and never builds a URL from a odd version", async () => {
+    expect(await fetchReleaseManifest(served([], 404), "1.2.3")).toBeUndefined();
+    for (const v of ["../x", "1.2", "1.2.3/../../evil", "1.2.3?x=1", ""]) {
+      const seen: string[] = [];
+      expect(await fetchReleaseManifest(served(seen), v), v).toBeUndefined();
+      expect(seen, v).toEqual([]);
+    }
   });
 });

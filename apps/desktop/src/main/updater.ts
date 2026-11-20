@@ -6,6 +6,7 @@ import { app, autoUpdater } from "electron";
 import {
   type ApplyResult,
   applyLinuxUpdate,
+  createSandboxRefresh,
   nodeApplyFs,
   previousArtifact,
   type RollbackHooks,
@@ -25,6 +26,7 @@ import { claimedRequirement } from "./bundle-integrity.ts";
 import { TRUSTED_RELEASE_KEYS } from "./release-keys.ts";
 import {
   checkForVerifiedUpdate,
+  fetchReleaseManifest,
   serveVerifiedUpdate,
   switchToFullPackage,
   type UpdateCheck,
@@ -208,6 +210,11 @@ function linuxApplyDeps(log: (m: string) => void) {
     install,
     hooks: linuxHost,
     deps: {
+      keys: TRUSTED_RELEASE_KEYS,
+      arch: process.arch,
+      uid: process.getuid?.() ?? -1,
+      fetchManifest: (version: string) => fetchReleaseManifest(fetch, version),
+      sandbox: createSandboxRefresh(nodeRun),
       fs: nodeApplyFs,
       run: nodeRun,
       gateway: linuxHost.gateway,
@@ -241,7 +248,12 @@ export async function applyPendingLinuxUpdate(
 /** The version "Go back to ..." restores, when a previous artifact is kept. */
 export async function linuxRollbackVersion(): Promise<string | undefined> {
   if (!linuxInstall) return undefined;
-  const rec = await previousArtifact(nodeApplyFs, linuxUpdatePaths(process.env), linuxInstall.kind);
+  const rec = await previousArtifact(
+    nodeApplyFs,
+    linuxUpdatePaths(process.env),
+    linuxInstall.kind,
+    { keys: TRUSTED_RELEASE_KEYS, arch: process.arch },
+  );
   return rec?.version;
 }
 
@@ -295,11 +307,12 @@ async function runLinuxUpdater(opts: UpdaterOptions, log: (m: string) => void): 
       log(`refused update (${result.code}): ${result.reason}`);
       return { state: "refused", code: result.code, reason: result.reason };
     case "ready":
-      if (stopped || !result.artifact) return { state: "disabled" };
+      if (stopped || !result.artifact || !result.manifest) return { state: "disabled" };
       linuxStaged = {
         release: result.release,
         file: result.file,
         artifact: result.artifact,
+        manifest: result.manifest,
         mandatory: result.mandatory,
       };
       log(`Psyche ${result.release} is ready${result.mandatory ? " (required)" : ""}`);

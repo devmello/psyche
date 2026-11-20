@@ -1,7 +1,11 @@
 import { homedir } from "node:os";
 import { isAbsolute, join } from "node:path";
 import type { InstallKind } from "../main/update-manifest.ts";
-import { LINUX_PACKAGE_ROOT, liveAppImageProbe, trustedAppImage } from "../platform/install-kind.ts";
+import {
+  LINUX_PACKAGE_ROOT,
+  liveAppImageProbe,
+  trustedAppImage,
+} from "../platform/install-kind.ts";
 
 /**
  * How this copy of Psyche is installed on Linux, and where its update files live
