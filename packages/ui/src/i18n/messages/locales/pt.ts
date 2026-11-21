@@ -14,6 +14,7 @@ import { homeA } from "./home-a/pt.ts";
 import { keepAwake } from "./keep-awake/pt.ts";
 import { links } from "./links/pt.ts";
 import { linuxAccess } from "./linux-access/pt.ts";
+import { machines } from "./machines/pt.ts";
 import { mailFollowups } from "./mail-followups/pt.ts";
 import { mailMeetings } from "./mail-meetings/pt.ts";
 import { memoryA } from "./memory-a/pt.ts";
@@ -471,6 +472,7 @@ export const pt: Partial<Catalogue> = {
   "blocks.artifact.bytes": "{size} B",
   "blocks.artifact.kilobytes": "{size} KB",
   "blocks.artifact.megabytes": "{size} MB",
+  "blocks.artifact.gigabytes": "{size} GB",
   "blocks.task.status.queued": "na fila",
   "blocks.task.status.running": "em execução",
   "blocks.task.status.awaiting_input": "precisa da sua resposta",
@@ -754,7 +756,45 @@ export const pt: Partial<Catalogue> = {
   "agent.memory.incognito": "Conversa paralela anônima",
   "agent.memory.importExport": "Importar, exportar e redefinir",
   "agent.memory.import": "Importar memória",
+  "agent.memory.importConv.title": "Importar do claude.ai ou do ChatGPT",
+  "agent.memory.importConv.note":
+    "As conversas importadas são somente leitura. O texto delas é tratado como dado não confiável e nunca vira um item fixado nem uma instrução.",
+  "agent.memory.importConv.source": "Exportado de",
+  "agent.memory.importConv.claude": "claude.ai",
+  "agent.memory.importConv.chatgpt": "ChatGPT",
+  "agent.memory.importConv.mode": "O que importar",
+  "agent.memory.importConv.memoriesOnly": "Somente memórias",
+  "agent.memory.importConv.both": "Memórias e conversas",
+  "agent.memory.importConv.memoriesFile": "Arquivo de memórias",
+  "agent.memory.importConv.conversationsFile": "Arquivo de conversas (conversations.json)",
+  "agent.memory.importConv.start": "Importar",
+  "agent.memory.importConv.working": "Importando…",
+  "agent.memory.importConv.cancel": "Cancelar",
+  "agent.memory.importConv.close": "Fechar",
+  "agent.memory.importConv.progressMemories": "Importando memórias…",
+  "agent.memory.importConv.progressConversations": "Importando conversas…",
+  "agent.memory.importConv.failed": "Não foi possível importar este arquivo: {reason}",
+  "agent.memory.importConv.done": "Importação concluída.",
+  "agent.memory.importConv.sumMemories": "Memórias para revisar: {n}",
+  "agent.memory.importConv.sumThreads": "Conversas importadas: {n}",
+  "agent.memory.importConv.sumDuplicates": "Já importadas antes: {n}",
+  "agent.memory.importConv.sumSkipped": "Conversas ignoradas: {n}",
+  "agent.memory.importConv.skipTooMany": "acima do limite de {n} conversas",
+  "agent.memory.importConv.skipTooLarge": "longa demais",
+  "agent.memory.importConv.skipEmpty": "sem mensagens",
+  "agent.memory.importConv.skipInvalid": "não foi possível ler",
+  "agent.memory.importConv.untitled": "Sem título",
+  "agent.memory.importConv.progressCount": "Importando conversas… {done} de {total}",
+  "agent.memory.importConv.tooBig":
+    "Este arquivo tem mais de {mb} MB e é grande demais para ser lido aqui. Exporte de novo com um período menor.",
+  "agent.memory.importConv.memoriesTooBig":
+    "Este arquivo de memórias tem mais de {kb} KB e é grande demais para importar de uma vez. Divida-o ou exporte menos memórias.",
+  "agent.memory.importConv.partial":
+    "Parou antes de terminar: {reason}. {done} de {total} lotes foram importados. Importe de novo para continuar; as conversas já importadas são ignoradas.",
+  "agent.memory.importConv.retry": "Importar de novo",
   "agent.memory.exported": "{file} exportado.",
+  "agent.memory.importConv.memoriesFailed":
+    "Não foi possível importar as memórias: {reason}. Importe de novo para tentar outra vez.",
   "agent.memory.export": "Exportar tudo",
   "agent.memory.resetDone":
     "Redefinição concluída: {files, plural, one {# arquivo} other {# arquivos}}, {claims, plural, one {# afirmação} other {# afirmações}}.",
@@ -863,6 +903,8 @@ export const pt: Partial<Catalogue> = {
   "shell.threads.unpin": "Desafixar",
   "shell.threads.pin": "Fixar",
   "shell.threads.archive": "Arquivar",
+  "shell.threads.imported": "Importada",
+  "shell.threads.importedReadOnly": "Esta conversa importada é somente leitura.",
   "shell.threads.restore": "Restaurar",
   "shell.threads.region": "Conversas",
   "shell.threads.filter": "Filtrar conversas",
@@ -3158,6 +3200,20 @@ export const pt: Partial<Catalogue> = {
   "screens.goals.checkinLine":
     "{cadence}{hasNext, select, true { · próximo {next}} other {}}{hasLast, select, true { · último: {last}} other {}}",
   "screens.goals.noSchedule": "Sem agendamento",
+  "screens.goals.suggest": "Sugerir o próximo passo",
+  "screens.goals.suggest.hint":
+    "Usa o modelo, só quando você toca. Nada começa até você tocar em Começar no cartão.",
+  "screens.goals.suggest.done": "Sugestão adicionada ao Início.",
+  "screens.goals.suggest.none": "Nenhuma sugestão desta vez. Tente de novo mais tarde.",
+  "screens.ideas.start": "Começar",
+  "screens.ideas.snooze": "Adiar",
+  "screens.ideas.badge.checkin": "Check-in",
+  "screens.ideas.badge.resume": "Retomar?",
+  "screens.goals.checkinFrequency": "Check-in",
+  "screens.goals.checkinFrequency.off": "Desligado",
+  "screens.goals.checkinFrequency.daily": "Todo dia",
+  "screens.goals.checkinFrequency.weekly": "Toda semana",
+  "screens.goals.checkinFrequency.monthly": "Todo mês",
   "screens.goals.watches": "Vigilâncias",
   "screens.goals.nothingWatched": "Nada vigiado.",
   "screens.goals.last": "último: {value}",
@@ -3729,4 +3785,5 @@ export const pt: Partial<Catalogue> = {
   ...mailFollowups,
   ...keepAwake,
   ...spaces,
+  ...machines,
 };

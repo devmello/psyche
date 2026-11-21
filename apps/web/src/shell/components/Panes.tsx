@@ -135,7 +135,7 @@ function PaneBody(props: {
     case "plan":
       return <TasksPane />;
     case "computer-watch":
-      return <ComputerWatchPane covered={props.covered} />;
+      return <ComputerWatchPane covered={props.covered} machine={props.pane.target} />;
     case "vm":
       return <p style={{ padding: 16, color: "var(--shell-muted)" }}>{t("web.panes.vmOff")}</p>;
     default:

@@ -9,6 +9,7 @@ import {
 import { type AuditLog, type PermissionBroker, PsycheError, type Thread } from "@psyche/protocol";
 import type { Call, HandlerDef } from "../context.ts";
 import { endConversation, requireThread } from "../handlers/threads.ts";
+import { assertWritableThread } from "../session/imported-threads.ts";
 import { usageKey } from "./context.ts";
 
 /**
@@ -61,6 +62,7 @@ export function createThreadClear(deps: ThreadClearDeps): Record<string, Handler
           throw new PsycheError("conflict", why);
         };
         const first = requireThread(call, params.threadId);
+        assertWritableThread(first, "cleared");
         const why = busyReason(deps, first);
         if (why !== undefined) refuse(why);
         const pending = (await deps.broker.list({ status: "pending" })).filter(

@@ -47,6 +47,7 @@ import {
 } from "@psyche/protocol";
 import type { Call, ChatRedo, HandlerDef } from "../context.ts";
 import type { Gateway } from "../server.ts";
+import { assertWritableThread } from "../session/imported-threads.ts";
 import { surfaceOf } from "./handlers.ts";
 import type { ComposedPart } from "./services.ts";
 import { userProfileConfig } from "./user-profile.ts";
@@ -253,6 +254,7 @@ export function composeTeaching(deps: TeachingComposeDeps): ComposedTeaching {
             ? getMessage(db, params.target.id)?.threadId
             : undefined) ?? params.target.threadId;
         const thread = threadId === undefined ? undefined : getThread(db, threadId);
+        if (thread !== undefined) assertWritableThread(thread, "taught");
         const result = await service.give(
           {
             target: params.target,

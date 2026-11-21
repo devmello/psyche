@@ -23,6 +23,7 @@ import { homeRest } from "./home-rest/hi.ts";
 import { keepAwake } from "./keep-awake/hi.ts";
 import { links } from "./links/hi.ts";
 import { linuxAccess } from "./linux-access/hi.ts";
+import { machines } from "./machines/hi.ts";
 import { mailFollowups } from "./mail-followups/hi.ts";
 import { mailMeetings } from "./mail-meetings/hi.ts";
 import { meetingRecordRest } from "./meeting-record-rest/hi.ts";
@@ -516,6 +517,7 @@ export const hi: Partial<Catalogue> = {
   "blocks.artifact.bytes": "{size} B",
   "blocks.artifact.kilobytes": "{size} KB",
   "blocks.artifact.megabytes": "{size} MB",
+  "blocks.artifact.gigabytes": "{size} GB",
 
   "blocks.task.status.queued": "कतार में",
   "blocks.task.status.running": "चल रहा है",
@@ -810,7 +812,45 @@ export const hi: Partial<Catalogue> = {
   "agent.memory.incognito": "इनकॉग्निटो साइड चैट",
   "agent.memory.importExport": "इंपोर्ट, एक्सपोर्ट और रीसेट",
   "agent.memory.import": "मेमोरी इंपोर्ट करें",
+  "agent.memory.importConv.title": "claude.ai या ChatGPT से इंपोर्ट करें",
+  "agent.memory.importConv.note":
+    "इंपोर्ट की गई बातचीत केवल पढ़ने के लिए है। उसके टेक्स्ट को अविश्वसनीय डेटा माना जाता है और वह कभी पिन या निर्देश नहीं बनता।",
+  "agent.memory.importConv.source": "यहाँ से एक्सपोर्ट किया गया",
+  "agent.memory.importConv.claude": "claude.ai",
+  "agent.memory.importConv.chatgpt": "ChatGPT",
+  "agent.memory.importConv.mode": "क्या इंपोर्ट करना है",
+  "agent.memory.importConv.memoriesOnly": "केवल मेमोरी",
+  "agent.memory.importConv.both": "मेमोरी और बातचीत",
+  "agent.memory.importConv.memoriesFile": "मेमोरी की फ़ाइल",
+  "agent.memory.importConv.conversationsFile": "बातचीत की फ़ाइल (conversations.json)",
+  "agent.memory.importConv.start": "इंपोर्ट करें",
+  "agent.memory.importConv.working": "इंपोर्ट हो रहा है…",
+  "agent.memory.importConv.cancel": "रद्द करें",
+  "agent.memory.importConv.close": "बंद करें",
+  "agent.memory.importConv.progressMemories": "मेमोरी इंपोर्ट हो रही है…",
+  "agent.memory.importConv.progressConversations": "बातचीत इंपोर्ट हो रही है…",
+  "agent.memory.importConv.failed": "यह फ़ाइल इंपोर्ट नहीं हो सकी: {reason}",
+  "agent.memory.importConv.done": "इंपोर्ट पूरा हुआ।",
+  "agent.memory.importConv.sumMemories": "समीक्षा के लिए मेमोरी: {n}",
+  "agent.memory.importConv.sumThreads": "इंपोर्ट की गई बातचीत: {n}",
+  "agent.memory.importConv.sumDuplicates": "पहले ही इंपोर्ट की जा चुकी: {n}",
+  "agent.memory.importConv.sumSkipped": "छोड़ी गई बातचीत: {n}",
+  "agent.memory.importConv.skipTooMany": "{n} बातचीत की सीमा से अधिक",
+  "agent.memory.importConv.skipTooLarge": "बहुत लंबी",
+  "agent.memory.importConv.skipEmpty": "कोई संदेश नहीं",
+  "agent.memory.importConv.skipInvalid": "पढ़ी नहीं जा सकी",
+  "agent.memory.importConv.untitled": "बिना शीर्षक",
+  "agent.memory.importConv.progressCount": "बातचीत इंपोर्ट हो रही है… {total} में से {done}",
+  "agent.memory.importConv.tooBig":
+    "यह फ़ाइल {mb} MB से बड़ी है और यहाँ पढ़ने के लिए बहुत बड़ी है। छोटी अवधि चुनकर दोबारा एक्सपोर्ट करें।",
+  "agent.memory.importConv.memoriesTooBig":
+    "यह मेमोरी फ़ाइल {kb} KB से बड़ी है और एक बार में इंपोर्ट नहीं हो सकती। इसे बाँटें या कम मेमोरी एक्सपोर्ट करें।",
+  "agent.memory.importConv.partial":
+    "पूरा होने से पहले रुक गया: {reason}। {total} में से {done} बैच इंपोर्ट हुए। जारी रखने के लिए फिर से इंपोर्ट करें; पहले से इंपोर्ट की गई बातचीत छोड़ दी जाती है।",
+  "agent.memory.importConv.retry": "फिर से इंपोर्ट करें",
   "agent.memory.exported": "{file} एक्सपोर्ट की गई।",
+  "agent.memory.importConv.memoriesFailed":
+    "मेमोरी इंपोर्ट नहीं हो सकी: {reason}। दोबारा कोशिश करने के लिए फिर से इंपोर्ट करें।",
   "agent.memory.export": "सब कुछ एक्सपोर्ट करें",
   "agent.memory.resetDone":
     "{files, plural, one {# फ़ाइल} other {# फ़ाइलें}}, {claims, plural, one {# दावा} other {# दावे}} रीसेट किए गए।",
@@ -912,6 +952,8 @@ export const hi: Partial<Catalogue> = {
   "shell.threads.unpin": "अनपिन करें",
   "shell.threads.pin": "पिन करें",
   "shell.threads.archive": "आर्काइव करें",
+  "shell.threads.imported": "इंपोर्ट की गई",
+  "shell.threads.importedReadOnly": "यह इंपोर्ट की गई बातचीत केवल पढ़ने के लिए है।",
   "shell.threads.restore": "रीस्टोर करें",
   "shell.threads.region": "थ्रेड",
   "shell.threads.filter": "थ्रेड फ़िल्टर करें",
@@ -3159,6 +3201,20 @@ export const hi: Partial<Catalogue> = {
   "screens.goals.checkinLine":
     "{cadence}{hasNext, select, true { · अगला {next}} other {}}{hasLast, select, true { · पिछला: {last}} other {}}",
   "screens.goals.noSchedule": "कोई शेड्यूल नहीं",
+  "screens.goals.suggest": "अगला कदम सुझाएँ",
+  "screens.goals.suggest.hint":
+    "मॉडल का उपयोग तभी होता है जब आप टैप करें। कार्ड पर शुरू करें दबाने तक कुछ शुरू नहीं होता।",
+  "screens.goals.suggest.done": "सुझाव होम में जोड़ा गया।",
+  "screens.goals.suggest.none": "इस बार कोई सुझाव नहीं। बाद में फिर कोशिश करें।",
+  "screens.ideas.start": "शुरू करें",
+  "screens.ideas.snooze": "बाद में याद दिलाएँ",
+  "screens.ideas.badge.checkin": "चेक-इन",
+  "screens.ideas.badge.resume": "फिर से शुरू करें?",
+  "screens.goals.checkinFrequency": "चेक-इन",
+  "screens.goals.checkinFrequency.off": "बंद",
+  "screens.goals.checkinFrequency.daily": "रोज़",
+  "screens.goals.checkinFrequency.weekly": "हर हफ़्ते",
+  "screens.goals.checkinFrequency.monthly": "हर महीने",
   "screens.goals.watches": "निगरानियाँ",
   "screens.goals.nothingWatched": "किसी चीज़ की निगरानी नहीं।",
   "screens.goals.last": "पिछला: {value}",
@@ -3730,4 +3786,5 @@ export const hi: Partial<Catalogue> = {
   ...mailFollowups,
   ...keepAwake,
   ...spaces,
+  ...machines,
 };

@@ -50,6 +50,7 @@ import { SettingsMethods } from "./settings.ts";
 import { SkillsMethods } from "./skills.ts";
 import { SpacesMethods } from "./spaces.ts";
 import { SpecialistsMethods } from "./specialists.ts";
+import { StorageMethods } from "./storage.ts";
 import { TasksMethods } from "./tasks.ts";
 import { TeachAppMethods } from "./teach.ts";
 import { TerminalMethods } from "./terminal.ts";
@@ -112,6 +113,7 @@ export * from "./settings.ts";
 export * from "./skills.ts";
 export * from "./spaces.ts";
 export * from "./specialists.ts";
+export * from "./storage.ts";
 export * from "./tasks.ts";
 export * from "./teach.ts";
 export * from "./terminal.ts";
@@ -180,6 +182,7 @@ export const Methods = {
   ...PluginsMethods,
   ...BackupMethods,
   ...LogsMethods,
+  ...StorageMethods,
   ...ModelsMethods,
   ...KeysMethods,
   ...UsageMethods,
