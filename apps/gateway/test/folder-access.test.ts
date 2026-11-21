@@ -3,7 +3,11 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import type { AgentToolRegistration, ToolRunContext } from "@psyche/agent-core";
 import { fileTools } from "@psyche/files";
-import { createPermissionBroker, type PsychePermissionBroker } from "@psyche/permissions";
+import {
+  createPermissionBroker,
+  type PsychePermissionBroker,
+  type SpaceFolderRecord,
+} from "@psyche/permissions";
 import { beforeEach, describe, expect, it } from "vitest";
 import {
   requestFolderAccessTool,
@@ -319,3 +323,68 @@ async function answerPending(id: string, scope: "once" | "always" | "deny", fold
     decidedBy: DEVICE,
   });
 }
+
+describe("Allow in this Space: what the tool tells the agent (spaces-2026 §5.3)", () => {
+  let addFails: boolean;
+  let rows: SpaceFolderRecord[];
+
+  beforeEach(() => {
+    addFails = false;
+    rows = [];
+    broker = createPermissionBroker({
+      armDelayMs: 0,
+      approvers: {
+        device: async () => ({ scopes: ["operator.read", "operator.approvals"] }),
+        isOwnerSender: async () => false,
+      },
+      folderAccess: {
+        env: () => ({ home, psycheHome: join(home, ".psyche") }),
+        persist: async () => {},
+      },
+      spaces: {
+        spaceOf: (t) =>
+          t === "thr_1" ? { spaceId: "spc_k", spaceName: "Kitchen remodel" } : undefined,
+        folders: (id) => rows.filter((r) => r.spaceId === id),
+        all: () => rows,
+        add: (spaceId, e) => {
+          if (addFails) throw new Error("that Space is archived or gone");
+          rows.push({ spaceId, spaceName: "Kitchen remodel", ...e, automationsWrite: false });
+          return "added";
+        },
+        remove: () => false,
+      },
+    });
+    // The agent loop binds the run at its start.
+    broker.bindRun({ threadId: "thr_1", runId: "run_1" });
+  });
+
+  async function inSpace() {
+    const pend = run(tool(), input, ctx());
+    const a = await pending();
+    expect(a.details.space).toMatchObject({ id: "spc_k", name: "Kitchen remodel" });
+    await broker.answer({
+      approvalId: a.id,
+      answerToken: tokens.get(a.id) ?? "",
+      decision: "approve",
+      scope: "once",
+      inSpace: true,
+      folderPath: project,
+      decidedBy: DEVICE,
+    });
+    return (await pend).output as { granted: boolean; until: string };
+  }
+
+  it("says the Space when the Space stored the folder", async () => {
+    expect(await inSpace()).toMatchObject({
+      granted: true,
+      until: "removed from this Space (it works in this Space's chats and automations only)",
+    });
+    expect(rows.map((r) => r.path)).toEqual([project]);
+  });
+
+  it("says this conversation when the Space could not store it", async () => {
+    addFails = true;
+    expect(await inSpace()).toMatchObject({ granted: true, until: "end of this conversation" });
+    expect(broker.sessionFolders("thr_1").map((f) => f.path)).toEqual([project]);
+  });
+});

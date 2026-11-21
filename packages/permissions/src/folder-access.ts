@@ -825,6 +825,74 @@ export function folderScopesOffered(taint: boolean): ("once" | "always")[] {
 }
 
 /**
+ * One folder of a Space (docs/design/spaces-2026.md §5.3), as the Gateway keeps it
+ * (`space_folders`): the path the owner picked, the real path recorded when it was added, its
+ * mode, and whether unattended runs may write there (`automations_write`, SP8).
+ */
+export interface SpaceFolderRecord {
+  spaceId: string;
+  spaceName: string;
+  path: string;
+  real: string;
+  mode: "ro" | "rw";
+  automationsWrite: boolean;
+}
+
+/** Where a thread's runs get their Space from (`PermissionBrokerOptions.spaces.spaceOf`). */
+export type ThreadSpace =
+  /** The thread is in this Space (a chat, or the automation it runs for). */
+  | { spaceId: string; spaceName: string }
+  /**
+   * A subagent thread: it works in its parent run's Space, which the loop names at the run's
+   * start (`bindRun`'s `parent`). Without that, the subagent's run gets no Space.
+   */
+  | { parentThreadId: string };
+
+/**
+ * What storing a card's pick did: `added` (the folder is in the Space at the pick's mode now), or
+ * `not_raised` (the Space holds it read-only and lets automations write there, so a card does not
+ * raise it to read & write: that is the Mac's own `spaces.folders.setMode`; nothing changed).
+ */
+export type SpaceFolderAdd = "added" | "not_raised";
+
+/**
+ * The third folder scope, "Allow in this Space", as the Gateway stores it. Reads are synchronous
+ * (the Gateway's SQLite) and answer the live state, so a folder removed, a Space archived or
+ * deleted stops counting on the next call. Any throw is taken as "no Space folders" (fail closed).
+ */
+export interface SpaceFolderSource {
+  /** The Space a run in this thread works in, read once at the run's start (`bindRun`). */
+  spaceOf(threadId: string): ThreadSpace | undefined;
+  /** The folders of a Space that is not archived; none for an archived or deleted one. */
+  folders(spaceId: string): readonly SpaceFolderRecord[];
+  /** Every folder of every Space that is not archived (Settings' access list, the root looks). */
+  all(): readonly SpaceFolderRecord[];
+  /**
+   * Stores an approved pick ("Allow in this Space"); throws when the Space is gone or archived.
+   * Only ever widens a folder, and never to read & write where automations may write (SP8).
+   */
+  add(
+    spaceId: string,
+    entry: { path: string; real: string; mode: "ro" | "rw" },
+    by: { deviceId?: string },
+  ): SpaceFolderAdd | Promise<SpaceFolderAdd>;
+  /** Removes one folder from a Space (the owner's revoke); true when it was there. */
+  remove(spaceId: string, path: string): boolean | Promise<boolean>;
+}
+
+/**
+ * The mode a Space folder has in one run: a chat uses the folder's own mode; an unattended run
+ * (an automation) writes only where the owner turned on "Automations may change files here"
+ * (SP8, SR4). Never wider than the folder's own mode.
+ */
+export function spaceFolderMode(
+  folder: Pick<SpaceFolderRecord, "mode" | "automationsWrite">,
+  unattended: boolean,
+): "ro" | "rw" {
+  return folder.mode === "rw" && (!unattended || folder.automationsWrite) ? "rw" : "ro";
+}
+
+/**
  * Settings path: throws `forbidden` when a folder the owner types or picks into
  * `permissions.policy.folders` is a sensitive root. A folder that does not exist yet is judged
  * by its normalised path. Returns the real path it judged, or undefined when the folder does not
