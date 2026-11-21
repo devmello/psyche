@@ -156,6 +156,16 @@ async function stageItems(
   if (items.length === 0) return { claims: [], flagged: [] };
   const path = `memory/imports/${format}-${store.now().date}.md`;
   if (dryRun) return { claims: [], flagged: [], file: path };
+  // Idempotent: a claim with the same normalized text from an earlier import of this format is
+  // not staged again (an import retried after a failure must add nothing).
+  const norm = (s: string) => s.toLowerCase().replace(/\s+/g, " ").trim();
+  const staged = new Set(
+    (await store.listClaims())
+      .filter((c) => c.sources.some((s) => s.startsWith(`memory/imports/${format}-`)))
+      .map((c) => norm(c.text)),
+  );
+  items = items.filter((i) => !staged.has(norm(i.text)));
+  if (items.length === 0) return { claims: [], flagged: [] };
   const existing = (await store.readFile(path))?.content;
   const header = existing ?? `# Imported from ${format} on ${store.now().date}\n\n`;
   const body = items.map((i) => `- ${i.flagged ? "[flagged] " : ""}${i.text}`).join("\n");

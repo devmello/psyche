@@ -385,3 +385,55 @@ describe("a failed run (#539)", () => {
     expect([...anchors.keys()]).toEqual(["a"]);
   });
 });
+
+describe("ChatThread on an imported conversation", () => {
+  it("is read-only: no composer, a note instead, no message actions", async () => {
+    const world = createFixtureWorld();
+    const entry = world.threads.find((e) => e.thread.id === IDS.threads.dentist);
+    if (entry) entry.thread.imported = "claude";
+    const gateway = new MockGateway(world, { now: () => FIXTURE_NOW });
+    const store = new GatewayStore(gateway, { now: () => FIXTURE_NOW });
+    render(
+      <GatewayProvider client={gateway} store={store}>
+        <UiSlotsProvider value={{ persona: { name: "Wren", creature: "moth" } }}>
+          <ChatThread threadId={IDS.threads.dentist} now={NOW} />
+        </UiSlotsProvider>
+      </GatewayProvider>,
+    );
+    expect(await screen.findByText("This imported conversation is read-only.")).toBeTruthy();
+    expect(screen.queryByRole("textbox", { name: "Message Wren" })).toBeNull();
+    expect(screen.queryByRole("button", { name: "Message actions" })).toBeNull();
+  });
+});
+
+describe("the Imported label", () => {
+  function renderWith(imported: boolean) {
+    const world = createFixtureWorld();
+    // An untrusted user turn, as a channel sender's message is stored.
+    for (const m of world.messages) {
+      if (m.threadId === IDS.threads.dentist && m.role === "user") m.provenance = "untrusted";
+    }
+    const entry = world.threads.find((e) => e.thread.id === IDS.threads.dentist);
+    if (entry && imported) entry.thread.imported = "claude";
+    const gateway = new MockGateway(world, { now: () => FIXTURE_NOW });
+    const store = new GatewayStore(gateway, { now: () => FIXTURE_NOW });
+    render(
+      <GatewayProvider client={gateway} store={store}>
+        <UiSlotsProvider value={{ persona: { name: "Wren", creature: "moth" } }}>
+          <ChatThread threadId={IDS.threads.dentist} now={NOW} />
+        </UiSlotsProvider>
+      </GatewayProvider>,
+    );
+  }
+
+  it("is not shown on an untrusted message in a normal chat", async () => {
+    renderWith(false);
+    await waitFor(() => expect(screen.getAllByRole("article").length).toBeGreaterThan(3));
+    expect(screen.queryByText("Imported")).toBeNull();
+  });
+
+  it("is shown on the exporter's turns in an imported conversation", async () => {
+    renderWith(true);
+    expect((await screen.findAllByText("Imported")).length).toBeGreaterThan(0);
+  });
+});

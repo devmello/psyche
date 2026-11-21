@@ -23,6 +23,7 @@ import { home } from "./home/ar.ts";
 import { keepAwake } from "./keep-awake/ar.ts";
 import { links } from "./links/ar.ts";
 import { linuxAccess } from "./linux-access/ar.ts";
+import { machines } from "./machines/ar.ts";
 import { mailFollowups } from "./mail-followups/ar.ts";
 import { mailMeetings } from "./mail-meetings/ar.ts";
 import { meetingRecord } from "./meeting-record/ar.ts";
@@ -854,7 +855,45 @@ export const ar: Partial<Catalogue> = {
   "agent.memory.incognito": "دردشة جانبية متخفية",
   "agent.memory.importExport": "الاستيراد والتصدير وإعادة التعيين",
   "agent.memory.import": "استيراد الذاكرة",
+  "agent.memory.importConv.title": "الاستيراد من claude.ai أو ChatGPT",
+  "agent.memory.importConv.note":
+    "المحادثات المستوردة للقراءة فقط. يُعامل نصها كبيانات غير موثوقة ولا يصبح أبدًا عنصرًا مثبتًا أو تعليمات.",
+  "agent.memory.importConv.source": "تم التصدير من",
+  "agent.memory.importConv.claude": "claude.ai",
+  "agent.memory.importConv.chatgpt": "ChatGPT",
+  "agent.memory.importConv.mode": "ما الذي تريد استيراده",
+  "agent.memory.importConv.memoriesOnly": "الذكريات فقط",
+  "agent.memory.importConv.both": "الذكريات والمحادثات",
+  "agent.memory.importConv.memoriesFile": "ملف الذكريات",
+  "agent.memory.importConv.conversationsFile": "ملف المحادثات (conversations.json)",
+  "agent.memory.importConv.start": "استيراد",
+  "agent.memory.importConv.working": "جارٍ الاستيراد…",
+  "agent.memory.importConv.cancel": "إلغاء",
+  "agent.memory.importConv.close": "إغلاق",
+  "agent.memory.importConv.progressMemories": "جارٍ استيراد الذكريات…",
+  "agent.memory.importConv.progressConversations": "جارٍ استيراد المحادثات…",
+  "agent.memory.importConv.failed": "تعذّر استيراد هذا الملف: {reason}",
+  "agent.memory.importConv.done": "اكتمل الاستيراد.",
+  "agent.memory.importConv.sumMemories": "ذكريات للمراجعة: {n}",
+  "agent.memory.importConv.sumThreads": "محادثات مستوردة: {n}",
+  "agent.memory.importConv.sumDuplicates": "مستوردة سابقًا: {n}",
+  "agent.memory.importConv.sumSkipped": "محادثات تم تخطيها: {n}",
+  "agent.memory.importConv.skipTooMany": "تجاوزت حد {n} محادثة",
+  "agent.memory.importConv.skipTooLarge": "طويلة جدًا",
+  "agent.memory.importConv.skipEmpty": "بلا رسائل",
+  "agent.memory.importConv.skipInvalid": "تعذّرت قراءتها",
+  "agent.memory.importConv.untitled": "بلا عنوان",
+  "agent.memory.importConv.progressCount": "جارٍ استيراد المحادثات… {done} من {total}",
+  "agent.memory.importConv.tooBig":
+    "حجم هذا الملف يتجاوز {mb} ميغابايت وهو كبير جدًا للقراءة هنا. أعد التصدير بنطاق أصغر.",
+  "agent.memory.importConv.memoriesTooBig":
+    "ملف الذكريات هذا يتجاوز {kb} كيلوبايت وهو كبير جدًا للاستيراد دفعة واحدة. قسّمه أو صدّر ذكريات أقل.",
+  "agent.memory.importConv.partial":
+    "توقف قبل الاكتمال: {reason}. تم استيراد {done} من {total} دفعات. أعد الاستيراد للمتابعة؛ تُتخطى المحادثات المستوردة سابقًا.",
+  "agent.memory.importConv.retry": "إعادة الاستيراد",
   "agent.memory.exported": "تم تصدير {file}.",
+  "agent.memory.importConv.memoriesFailed":
+    "تعذّر استيراد الذكريات: {reason}. أعد الاستيراد للمحاولة مرة أخرى.",
   "agent.memory.export": "تصدير كل شيء",
   "agent.memory.resetDone":
     "تمت إعادة تعيين {files, plural, one {ملف واحد} two {ملفين} few {# ملفات} many {# ملفًا} other {# ملف} zero {# ملف}} و{claims, plural, one {ادعاء واحد} two {ادعاءين} few {# ادعاءات} many {# ادعاءً} other {# ادعاء} zero {# ادعاء}}.",
@@ -955,6 +994,8 @@ export const ar: Partial<Catalogue> = {
   "shell.threads.unpin": "إلغاء التثبيت",
   "shell.threads.pin": "تثبيت",
   "shell.threads.archive": "أرشفة",
+  "shell.threads.imported": "مستوردة",
+  "shell.threads.importedReadOnly": "هذه المحادثة المستوردة للقراءة فقط.",
   "shell.threads.restore": "استعادة",
   "shell.threads.region": "المحادثات",
   "shell.threads.filter": "تصفية المحادثات",
@@ -3799,4 +3840,5 @@ export const ar: Partial<Catalogue> = {
   ...mailFollowups,
   ...keepAwake,
   ...spaces,
+  ...machines,
 };

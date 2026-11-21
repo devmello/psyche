@@ -1572,8 +1572,9 @@ export interface AttentionReportParams {
     /**
      * The owner gave input in the app just now (key, click)
      */
-    input?: boolean;
-    pane:   AttentionPane;
+    input?:   boolean;
+    machine?: string;
+    pane:     AttentionPane;
     /**
      * The pane is on screen in the desktop app
      */
@@ -3277,8 +3278,35 @@ export interface CompactionBlock {
 
 export type CompactionBlockType = "compaction";
 
+export interface ComputerWatchFrameParams {
+    machine?:  string;
+    maxWidth?: number;
+    since?:    number;
+}
+
+export interface ComputerWatchInputParams {
+    events:   VscreenInputEvent[];
+    machine?: string;
+}
+
+export interface VscreenInputEvent {
+    button?: Button;
+    type:    VscreenInputEventType;
+    x?:      number;
+    y?:      number;
+    dx?:     number;
+    dy?:     number;
+    key?:    string;
+    text?:   string;
+}
+
+export type Button = "left" | "middle" | "right";
+
+export type VscreenInputEventType = "move" | "down" | "up" | "scroll" | "key_down" | "key_up" | "text";
+
 export interface ComputerWatchParkedPayload {
-    apps: VscreenApp[];
+    apps:     VscreenApp[];
+    machine?: string;
 }
 
 export interface VscreenApp {
@@ -3289,7 +3317,8 @@ export interface VscreenApp {
 }
 
 export interface ComputerWatchResolveParkedParams {
-    action: ComputerWatchParkAction;
+    action:   ComputerWatchParkAction;
+    machine?: string;
 }
 
 export type ComputerWatchParkAction = "look" | "discard" | "keep_open";
@@ -3319,8 +3348,19 @@ export interface VscreenStatus {
 
 export type VscreenState = "stopped" | "starting" | "running" | "stopping";
 
+export interface ComputerWatchStatusParams {
+    machine?: string;
+}
+
+export interface ComputerWatchStopParams {
+    closeApps?: boolean;
+    force?:     boolean;
+    machine?:   string;
+}
+
 export interface ComputerWatchTakeOverParams {
-    on: boolean;
+    machine?: string;
+    on:       boolean;
 }
 
 export interface ComputerWatchTakeOverResult {
@@ -10555,6 +10595,7 @@ export interface SearchHit {
     entityType?:        SearchEntityType;
     group?:             SearchGroup;
     id:                 string;
+    imported?:          ThreadImportSource;
     kind?:              SearchIndexDocKind;
     match?:             SearchMatch;
     provenance?:        Provenance;
@@ -10577,6 +10618,8 @@ export interface SearchHitCard {
     span:    string;
     summary: string;
 }
+
+export type ThreadImportSource = "claude" | "chatgpt";
 
 export type SearchIndexDocKind = "thread" | "message" | "task" | "memory" | "library" | "feed" | "idea" | "goal" | "connector" | "person" | "project";
 
@@ -12957,6 +13000,20 @@ export interface ThreadIDParams {
     threadId: string;
 }
 
+export interface ThreadImportResult {
+    duplicates:  number;
+    imported:    number;
+    skipped:     ThreadImportResultSkipped[];
+    skippedMore: number;
+}
+
+export interface ThreadImportResultSkipped {
+    reason: SkippedReason;
+    title:  string;
+}
+
+export type SkippedReason = "too_many" | "too_large" | "empty" | "invalid";
+
 export interface ThreadResult {
     thread: Thread;
 }
@@ -12968,6 +13025,7 @@ export interface Thread {
     expiresAt?:           null | string;
     forkedFromMessageId?: null | string;
     id:                   string;
+    imported?:            ThreadImportSource;
     kind:                 ThreadKind;
     lastMessageAt?:       null | string;
     modelRef?:            null | string;
@@ -13059,6 +13117,12 @@ export interface ThreadsForkParams {
     messageId: string;
     threadId:  string;
     title?:    string;
+}
+
+export interface ThreadsImportParams {
+    content: string;
+    dryRun?: boolean;
+    format:  ThreadImportSource;
 }
 
 export interface ThreadsListParams {
@@ -13367,10 +13431,10 @@ export type VaultImportParamsFormat = "auto" | "1password" | "bitwarden" | "chro
 
 export interface VaultImportResult {
     imported: CredentialMeta[];
-    skipped:  Skipped[];
+    skipped:  VaultImportResultSkipped[];
 }
 
-export interface Skipped {
+export interface VaultImportResultSkipped {
     reason: string;
     row:    number;
 }
@@ -14054,21 +14118,6 @@ export interface VscreenFrameParams {
 export interface VscreenInputParams {
     events: VscreenInputEvent[];
 }
-
-export interface VscreenInputEvent {
-    button?: Button;
-    type:    VscreenInputEventType;
-    x?:      number;
-    y?:      number;
-    dx?:     number;
-    dy?:     number;
-    key?:    string;
-    text?:   string;
-}
-
-export type Button = "left" | "middle" | "right";
-
-export type VscreenInputEventType = "move" | "down" | "up" | "scroll" | "key_down" | "key_up" | "text";
 
 export interface VscreenStartParams {
     height?: number;
