@@ -676,8 +676,51 @@ impl TierPolicy {
     }
 
     pub fn effective_tier(&self, bundle_id: Option<&str>) -> Tier {
+        self.effective_tier_with(bundle_id, &[])
+    }
+
+    /// [`TierPolicy::effective_tier`] for a running app, with the other ids it carries.
+    pub fn effective_tier_app(&self, app: &crate::backend::AppInfo) -> Tier {
+        self.effective_tier_with(Some(&app.id), &app.also_ids)
+    }
+
+    /// The tier in effect for `bundle_id` when the same program also has the ids `also` (a
+    /// verified Flatpak's own id beside the host id that caps it): see [`TierPolicy::values`].
+    pub fn effective_tier_with(&self, bundle_id: Option<&str>, also: &[String]) -> Tier {
         let st = self.state.lock().unwrap();
-        self.effective_locked(&st.0, &st.1, bundle_id)
+        self.effective_locked(&st.0, &st.1, bundle_id, also)
+    }
+
+    /// The owner's settings that apply to one program: the value for `bundle_id` (its own, or
+    /// the default), and each value the owner **wrote** for an id in `also`. The strictest wins:
+    /// a tier set on a Flatpak's own id is not lost because the app is reported under its host
+    /// id. An id in `also` with no value of its own adds nothing (the default is `bundle_id`'s).
+    fn values(
+        settings: &TierSettings,
+        bundle_id: Option<&str>,
+        also: &[String],
+    ) -> Vec<SettingValue> {
+        let mut out = vec![settings.value(bundle_id)];
+        if bundle_id.is_some() {
+            out.extend(also.iter().filter_map(|a| settings.explicit(a)));
+        }
+        out
+    }
+
+    /// The strictest of the fixed values among `values` (`Ask` is not one): what no approval can
+    /// lift.
+    fn hard_limit(values: &[SettingValue]) -> Tier {
+        values
+            .iter()
+            .filter_map(|v| match v {
+                SettingValue::Off => Some(Tier::Off),
+                SettingValue::Read => Some(Tier::Read),
+                SettingValue::Click => Some(Tier::Click),
+                SettingValue::Interact => Some(Tier::Interact),
+                SettingValue::Ask => None,
+            })
+            .min()
+            .unwrap_or(Tier::Interact)
     }
 
     fn effective_locked(
@@ -685,21 +728,22 @@ impl TierPolicy {
         settings: &TierSettings,
         allowances: &HashMap<String, (Tier, f64)>,
         bundle_id: Option<&str>,
+        also: &[String],
     ) -> Tier {
         let cap = cap_for(bundle_id, settings);
-        let user = match settings.value(bundle_id) {
-            SettingValue::Off => Tier::Off,
-            SettingValue::Read => Tier::Read,
-            SettingValue::Click => Tier::Click,
-            SettingValue::Interact => Tier::Interact,
-            SettingValue::Ask => match bundle_id
+        let values = Self::values(settings, bundle_id, also);
+        let mut user = Self::hard_limit(&values);
+        if values.contains(&SettingValue::Ask) {
+            // An allowance is recorded under the reported id, the one approvals are bound to.
+            let allowed = match bundle_id
                 .map(str::to_lowercase)
                 .and_then(|k| allowances.get(&k).copied())
             {
                 Some((t, until)) if until > (self.now)() => t,
                 _ => Tier::Off,
-            },
-        };
+            };
+            user = user.min(allowed);
+        }
         cap.min(user)
     }
 
@@ -766,8 +810,12 @@ impl TierPolicy {
                 }
             }
         }
-        let mut have = self.effective_locked(settings, allowances, bundle_id);
-        let asks = settings.value(bundle_id) == SettingValue::Ask;
+        let mut have = self.effective_locked(settings, allowances, bundle_id, also);
+        let values = Self::values(settings, bundle_id, also);
+        let hard = Self::hard_limit(&values);
+        // A card is asked for only when an approval could lift the tier far enough: a value the
+        // owner wrote for another id of the program (`Read` on a Flatpak's own id) cannot be.
+        let asks = values.contains(&SettingValue::Ask) && hard >= needed;
         if have < needed && !asks {
             return Err(refusal(needed, have, app_name, bundle_id, false));
         }
@@ -776,7 +824,7 @@ impl TierPolicy {
         if have < needed && asks {
             if let (Some(a), Some(key)) = (approval, bundle_id.map(str::to_lowercase)) {
                 if a.tier >= needed {
-                    let granted = cap.min(a.tier);
+                    let granted = cap.min(a.tier).min(hard);
                     allowances.insert(key, (granted, (self.now)() + SESSION_ALLOWANCE_SECS));
                     have = granted;
                 }

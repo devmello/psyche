@@ -78,6 +78,9 @@ pub trait Scopes {
 ///   no installed app is not on a narrow list**. File-name candidates otherwise take no part:
 ///   they would deny the apps the list names (`soffice.bin` for Writer, which resolves to
 ///   `libreoffice-writer` through its launcher script).
+/// - A **verified Flatpak** is judged as the engine gate judges it ([`Denies::permits`] on its
+///   own id and the host id that caps it). The scope's app counts only when it is one of those
+///   ids; any other scope's app must be allowed as well, and never stands for the program.
 pub fn blocked_by(deny: &dyn Denies, scopes: &dyn Scopes, pid: u32) -> Option<(String, String)> {
     let id = scopes.identity(pid);
     let name = id
@@ -96,16 +99,27 @@ pub fn blocked_by(deny: &dyn Denies, scopes: &dyn Scopes, pid: u32) -> Option<(S
     {
         return Some((name, m.clone()));
     }
-    // A verified Flatpak is one program under several names (its own id, the scope's app, the
-    // host id that caps it): the allow list may name any of them.
-    if let Some(f) = &id.facts.flatpak {
-        let named = id
-            .holder
-            .iter()
-            .chain(std::iter::once(f))
-            .chain(id.facts.own.iter())
-            .any(|i| deny.allow_listed(i));
-        return (!named).then(|| (name, f.clone()));
+    // A verified Flatpak is one program under two ids (its own, and the host id that caps it):
+    // the program is judged as the engine gate judges it, with `permits`. The scope's app is
+    // **not** the program unless it is one of those ids: a Flatpak that an allowed app started
+    // in its own scope (a link opened from the editor) stays out of reach unless the program is
+    // allowed too, and the scope's app must be allowed as on every other path.
+    if let Some(f) = id.facts.flatpak.as_deref().map(normalize) {
+        let own = id
+            .facts
+            .own
+            .as_deref()
+            .map(normalize)
+            .unwrap_or_else(|| f.clone());
+        let also: Vec<String> = (f != own).then(|| f.clone()).into_iter().collect();
+        if !deny.permits(&own, &also) {
+            return Some((name, f));
+        }
+        let holder_out = id.holder.as_deref().is_some_and(|h| {
+            let h = normalize(h);
+            h != own && h != f && !deny.allow_listed(&h)
+        });
+        return holder_out.then(|| (name, id.holder.clone().unwrap_or_default()));
     }
     // A launcher shared by several entries (`libreoffice` starts Writer, Calc and the Start
     // Center from one `soffice.bin`) resolves to all of them. When the scope's own app is one of

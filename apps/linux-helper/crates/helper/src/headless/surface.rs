@@ -72,6 +72,38 @@ pub fn send_allowed(policy: &crate::remote::policy::Policy, app: &AppInfo) -> Ca
     }
 }
 
+/// Whether the desktop id `id` may be launched. A launch is judged on that id, as written in
+/// `apps.allow` (the program is not running yet, so it carries no other id). `apps.deny` is
+/// judged on it and on `host_names`, the names its program runs under on the host side (a
+/// system Flatpak's `command=` and what that launcher runs, see
+/// [`psyche_linux_computer::app_id::flatpak_launch_names`]): a deny on `sublime_text` refuses
+/// launching `com.sublimetext.Three`.
+pub fn launch_allowed(
+    policy: &crate::remote::policy::Policy,
+    id: &str,
+    host_names: &[String],
+) -> CapResult<()> {
+    if let Some(m) = std::iter::once(id)
+        .chain(host_names.iter().map(String::as_str))
+        .find(|n| policy.deny_listed(n))
+    {
+        return Err(app_denied(id).detail("matched", m));
+    }
+    if !policy.allow_listed(id) {
+        let id = psyche_linux_computer::app_id::normalize(id);
+        return Err(CapError::new(
+            code::POLICY_DENIED,
+            "app_not_allowed",
+            format!(
+                "This computer's limits do not allow opening {id}. An app is opened by the id it is named by: apps.allow must name {id}"
+            ),
+        )
+        .detail("app", id.as_str())
+        .detail("allow", id.as_str()));
+    }
+    Ok(())
+}
+
 pub fn app_denied(id: &str) -> CapError {
     CapError::new(
         code::POLICY_DENIED,
@@ -152,10 +184,13 @@ impl VirtualHooks {
 
 impl SurfaceHooks for VirtualHooks {
     fn check_launch(&self, id: &str) -> CapResult<()> {
-        if !self.policy.load().policy.app_permitted(id) {
-            return Err(app_denied(id));
-        }
-        Ok(())
+        let policy = self.policy.load().policy;
+        let names = psyche_linux_computer::app_id::flatpak_launch_names(
+            id,
+            &[std::path::PathBuf::from("/var/lib/flatpak")],
+            &psyche_linux_computer::app_id::system_trusted,
+        );
+        launch_allowed(&policy, id, &names)
     }
 
     fn launch(&self, desktop_file: &std::path::Path, url: Option<&str>) -> CapResult<()> {
@@ -251,6 +286,17 @@ impl HeadlessSurface {
         })
     }
 
+    /// The engine of the display that is up, if there is one and it has an engine: never starts
+    /// anything.
+    pub fn running_engine(&self) -> Option<Arc<Engine<LinuxBackend>>> {
+        let key = self.manager.display_handle()?.xvfb_pid();
+        let guard = self.engine.lock().unwrap_or_else(|e| e.into_inner());
+        guard
+            .as_ref()
+            .filter(|(k, _)| *k == key)
+            .map(|(_, e)| Arc::clone(e))
+    }
+
     /// The engine for the running display, starting the display (and its bus) when none is up.
     /// A new display (the old one stopped idle, or died) gets a new engine: the old one holds
     /// connections to a server that is gone.
@@ -312,6 +358,30 @@ impl HeadlessSurface {
         *guard = Some((key, Arc::clone(&engine)));
         Ok(engine)
     }
+}
+
+/// The other ids of every running app that `id` names, by its id or by one it carries: a
+/// verified Flatpak listed as `sublime_text` with `com.sublimetext.three` gives the one for the
+/// other. Only what `AppInfo` carries (filled from `/proc` and the system Flatpak install), never
+/// what an app says about itself.
+pub fn ids_carried(apps: &[AppInfo], id: &str) -> Vec<String> {
+    use psyche_linux_computer::app_id::normalize;
+    let id = normalize(id);
+    let mut out: Vec<String> = Vec::new();
+    for a in apps {
+        let ids: Vec<String> = std::iter::once(&a.id)
+            .chain(a.also_ids.iter())
+            .map(|i| normalize(i))
+            .collect();
+        if ids.contains(&id) {
+            for i in ids {
+                if i != id && !out.contains(&i) {
+                    out.push(i);
+                }
+            }
+        }
+    }
+    out
 }
 
 /// The accessibility bus starts a moment after the session bus does. The address its owner
@@ -479,6 +549,134 @@ mod tests {
                 );
             }
         }
+        // The scope's app is another app than the Flatpak (#1502 r4): a program an allowed app
+        // started in its own scope (a link opened from the editor). The scope's app never stands
+        // for the program. Firefox's Flatpak id is its only id; Sublime's is capped by its host
+        // id. (row, program is Sublime, holder, allow, shown, the engine gate's answer)
+        let fp = |sublime: bool, holder: &str| {
+            let (own, f) = if sublime {
+                (host, flatpak)
+            } else {
+                ("org.mozilla.firefox", "org.mozilla.firefox")
+            };
+            let also: Vec<String> = if sublime { vec![f.into()] } else { vec![] };
+            (
+                Identity {
+                    holder: Some(holder.into()),
+                    facts: IdFacts {
+                        own: Some(own.into()),
+                        resolved: vec![f.into()],
+                        candidates: vec![own.into(), f.into()],
+                        flatpak: Some(f.into()),
+                        ..Default::default()
+                    },
+                },
+                AppInfo {
+                    id: own.into(),
+                    name: "Flatpak".into(),
+                    pid: 9,
+                    electron: false,
+                    frontmost: true,
+                    windows: 1,
+                    also_ids: also,
+                },
+            )
+        };
+        let editor = "org.gnome.TextEditor";
+        let terminal = "org.gnome.Terminal";
+        type HolderRow<'a> = (&'a str, bool, &'a str, Vec<&'a str>, bool, bool);
+        let holder_rows: Vec<HolderRow> = vec![
+            ("H1", false, editor, vec![editor], false, false),
+            ("H2", true, editor, vec![editor], false, false),
+            ("H3", false, terminal, vec![terminal], false, false),
+            ("H3", true, terminal, vec![terminal], false, false),
+            (
+                "H4",
+                false,
+                "org.mozilla.firefox",
+                vec!["org.mozilla.firefox"],
+                true,
+                true,
+            ),
+            (
+                "H5",
+                true,
+                "com.sublimetext.Three",
+                vec!["com.sublimetext.Three"],
+                true,
+                true,
+            ),
+            // The holder is the program; the owner named the host id.
+            ("H5", true, "com.sublimetext.three", vec![host], true, true),
+            // The holder is the program, which is not allowed.
+            ("H6", true, flatpak, vec![editor], false, false),
+            (
+                "H6",
+                false,
+                "org.mozilla.firefox",
+                vec![editor],
+                false,
+                false,
+            ),
+            // The program is allowed, but the scope's app is not: hidden, as on every other
+            // path (the scope's app must be allowed). Stricter than the gate, never looser.
+            (
+                "H7",
+                false,
+                terminal,
+                vec!["org.mozilla.firefox"],
+                false,
+                true,
+            ),
+            ("H7", true, terminal, vec![flatpak], false, true),
+            // Both allowed.
+            (
+                "H8",
+                false,
+                editor,
+                vec![editor, "org.mozilla.firefox"],
+                true,
+                true,
+            ),
+            ("H8", true, editor, vec![editor, host], true, true),
+        ];
+        for (row, sublime, holder, allow, shown, gated) in holder_rows {
+            let mut policy = Policy::default();
+            policy.apps = Apps {
+                allow: allow.iter().map(|s| s.to_string()).collect(),
+                deny: vec![],
+            };
+            let (identity, app) = fp(sublime, holder);
+            let row = format!("{row} sublime={sublime} holder={holder} allow={allow:?}");
+            let scopes = Ident(identity);
+            assert_eq!(
+                blocked_by(&policy, &scopes, 1).is_none(),
+                shown,
+                "blocked_by {row}"
+            );
+            let gate = ceiling_gate({
+                let policy = policy.clone();
+                move || policy.clone()
+            });
+            assert_eq!(gate(&app.id, &app.also_ids).is_ok(), gated, "gate {row}");
+            assert_eq!(send_allowed(&policy, &app).is_ok(), gated, "send {row}");
+            // Where the holder is one of the program's ids, every gate agrees.
+            let holder_n = psyche_linux_computer::app_id::normalize(holder);
+            if holder_n == app.id || app.also_ids.contains(&holder_n) {
+                assert_eq!(shown, gated, "agree {row}");
+            }
+            // Keys meant for the allowed scope's app do not reach the hidden Flatpak.
+            if !shown && policy.permits(holder, &[]) {
+                assert!(
+                    matches!(
+                        decide_app(holder, &[], Some(1), &scopes, &policy),
+                        Err(super::super::focus::Refusal::Denied { .. })
+                    ),
+                    "decide {row}"
+                );
+            }
+        }
+
         // 5. Launching names a desktop id and carries no others: it is judged on that id.
         let mut policy = Policy::default();
         policy.apps = Apps {
@@ -487,6 +685,76 @@ mod tests {
         };
         assert!(policy.app_permitted(flatpak));
         assert!(!policy.app_permitted("org.gnome.TextEditor"));
+    }
+
+    /// The dispatch gate's resolver: what the running apps carry, either way round.
+    #[test]
+    fn the_ids_a_running_app_carries_are_found_from_either_id() {
+        let app = |id: &str, also: &[&str]| AppInfo {
+            id: id.into(),
+            name: id.into(),
+            pid: 1,
+            electron: false,
+            frontmost: false,
+            windows: 1,
+            also_ids: also.iter().map(|s| s.to_string()).collect(),
+        };
+        let apps = vec![
+            app("sublime_text", &["com.sublimetext.three"]),
+            app("org.gnome.texteditor", &[]),
+        ];
+        assert_eq!(
+            ids_carried(&apps, "sublime_text"),
+            vec!["com.sublimetext.three"]
+        );
+        assert_eq!(
+            ids_carried(&apps, " com.sublimetext.Three.desktop"),
+            vec!["sublime_text"]
+        );
+        assert!(ids_carried(&apps, "org.gnome.TextEditor").is_empty());
+        assert!(ids_carried(&apps, "com.sublimetext").is_empty());
+        assert!(ids_carried(&[], "sublime_text").is_empty());
+    }
+
+    /// Launching is judged on the entry's id for `allow`, and on it and its program's host-side
+    /// names for `deny` (#1502 r4, D6 and D7).
+    #[test]
+    fn a_launch_is_refused_by_a_deny_on_the_host_id_and_names_the_id_to_allow() {
+        let names = vec!["subl".to_string(), "sublime_text".to_string()];
+        let policy = |allow: &[&str], deny: &[&str]| {
+            let mut p = Policy::default();
+            p.apps = Apps {
+                allow: allow.iter().map(|s| s.to_string()).collect(),
+                deny: deny.iter().map(|s| s.to_string()).collect(),
+            };
+            p
+        };
+        let id = "com.sublimetext.three";
+        // D7: deny on the host id refuses launching the Flatpak by its own id.
+        let err = launch_allowed(&policy(&["*"], &["sublime_text"]), id, &names).unwrap_err();
+        assert_eq!(
+            (err.code, err.reason.as_str()),
+            ("policy_denied", "app_denied")
+        );
+        assert_eq!(err.details["matched"], "sublime_text");
+        launch_allowed(&policy(&["*"], &["sublime*"]), id, &names).unwrap_err();
+        launch_allowed(&policy(&["*"], &[id]), id, &names).unwrap_err();
+        launch_allowed(&policy(&["*"], &[]), id, &names).unwrap();
+        launch_allowed(&policy(&["*"], &["org.other.App"]), id, &names).unwrap();
+        // D6: the host id alone does not allow launching by the Flatpak id; the error says
+        // which id to allow.
+        let err = launch_allowed(&policy(&["sublime_text"], &[]), id, &names).unwrap_err();
+        assert_eq!(
+            (err.code, err.reason.as_str()),
+            ("policy_denied", "app_not_allowed")
+        );
+        assert_eq!(err.details["allow"], id);
+        assert!(err
+            .message
+            .contains("apps.allow must name com.sublimetext.three"));
+        launch_allowed(&policy(&["com.sublimetext.Three"], &[]), id, &names).unwrap();
+        // Host-side names never allow.
+        launch_allowed(&policy(&["subl"], &[]), id, &names).unwrap_err();
     }
 
     #[test]

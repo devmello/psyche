@@ -504,7 +504,8 @@ impl<B: Backend> Engine<B> {
 
     // --- Apps -------------------------------------------------------------------------------
 
-    /// The app a call names (id or display name), else the focused one.
+    /// The app a call names (its id, then an id it carries such as a verified Flatpak's own id,
+    /// then its display name), else the focused one.
     pub fn find_app(&self, named: Option<&str>, pid: Option<i64>) -> CapResult<AppInfo> {
         let apps = self.backend.apps();
         if let Some(pid) = pid {
@@ -524,6 +525,7 @@ impl<B: Backend> Engine<B> {
                 let id = crate::app_id::normalize(q);
                 apps.iter()
                     .find(|a| a.id == id)
+                    .or_else(|| apps.iter().find(|a| a.carries(&id)))
                     .or_else(|| apps.iter().find(|a| a.name.eq_ignore_ascii_case(q)))
                     .cloned()
                     .ok_or_else(|| {
@@ -941,7 +943,7 @@ impl<B: Backend> Engine<B> {
         result.insert("provenance".into(), json!("untrusted"));
         result.insert(
             "tier".into(),
-            json!(self.policy.effective_tier(Some(&app.id)).as_str()),
+            json!(self.policy.effective_tier_app(&app).as_str()),
         );
         if p.format.as_deref() == Some("json") {
             result.insert(
@@ -1816,6 +1818,7 @@ impl<B: Backend> Engine<B> {
             .map(|a| AppRef {
                 app_id: Some(a.id),
                 pid: a.pid,
+                also_ids: a.also_ids,
             })
             .collect();
         let mut excluded = hygiene::excluded_pids(&running, self.own_pid, &self.policy);

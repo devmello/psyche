@@ -329,6 +329,126 @@ fn the_app_gate_is_asked_with_the_ids_the_app_carries() {
     tree(&r).unwrap();
 }
 
+/// A call may name a running app by an id it carries (a verified Flatpak's own id): the engine
+/// finds it, and the gate is asked with all its ids (#1502 r4). Reads, typing and the tier all
+/// see the one program.
+#[test]
+fn a_call_may_name_the_app_by_an_id_it_carries() {
+    let r = rig(all_interact());
+    editor(&r);
+    // The gate allows the program only under the Flatpak's own id.
+    r.engine
+        .policy
+        .set_app_gate(std::sync::Arc::new(|id, also| {
+            if crate::app_id::normalize(id) == "com.example.flatpak"
+                || also.iter().any(|a| a == "com.example.flatpak")
+            {
+                Ok(())
+            } else {
+                Err(crate::error::CapError::new(
+                    "policy_denied",
+                    "app_denied",
+                    "out of reach",
+                ))
+            }
+        }));
+    let named = "com.example.Flatpak";
+    // Before the app carries the id, nothing running answers to it.
+    let err = call(&r, "computer.ax_tree", json!({"app": named}), &inv()).unwrap_err();
+    assert_eq!(err.1, "app_not_running");
+    {
+        let mut s = r.fake.s.lock().unwrap();
+        let editor = s
+            .apps
+            .iter_mut()
+            .find(|a| a.id == "org.gnome.texteditor")
+            .unwrap();
+        editor.also_ids = vec!["com.example.flatpak".into()];
+    }
+    let snap = call(
+        &r,
+        "computer.ax_tree",
+        json!({"app": named, "session": "s1"}),
+        &inv(),
+    )
+    .unwrap();
+    // The app is reported under its own (strictest) id.
+    assert_eq!(snap["header"]["bundleId"], "org.gnome.texteditor");
+    call(
+        &r,
+        "computer.screenshot",
+        json!({"app": named, "session": "s1"}),
+        &inv(),
+    )
+    .unwrap();
+    call(
+        &r,
+        "computer.type",
+        json!({"text": "hi", "app": named, "session": "s1"}),
+        &inv(),
+    )
+    .unwrap();
+    assert_eq!(r.fake.s.lock().unwrap().typed, "hi");
+    // Its host id still works, and the gate still refuses an app that carries no allowed id.
+    snapshot(&r, "org.gnome.TextEditor");
+    {
+        let mut s = r.fake.s.lock().unwrap();
+        s.apps
+            .iter_mut()
+            .find(|a| a.id == "org.gnome.texteditor")
+            .unwrap()
+            .also_ids
+            .clear();
+    }
+    let err = call(&r, "computer.ax_tree", json!({"app": named}), &inv()).unwrap_err();
+    assert_eq!(err.1, "app_not_running");
+    let err = call(
+        &r,
+        "computer.ax_tree",
+        json!({"app": "org.gnome.TextEditor"}),
+        &inv(),
+    )
+    .unwrap_err();
+    assert_eq!(err.1, "app_denied");
+}
+
+/// A tier the owner wrote for an id the app carries counts: the strictest wins (#1502 r4).
+#[test]
+fn the_strictest_tier_over_the_ids_an_app_carries_counts() {
+    for (written, want) in [
+        ("off", Some("tier_off")),
+        ("read", Some("tier_read")),
+        ("ask", Some("tier_ask")),
+        ("interact", None),
+    ] {
+        let r = rig(json!({"version": 1, "default": "interact", "apps": {
+            "org.gnome.TextEditor": "interact",
+            "com.example.Flatpak": written,
+        }}));
+        editor(&r);
+        {
+            let mut s = r.fake.s.lock().unwrap();
+            s.apps
+                .iter_mut()
+                .find(|a| a.id == "org.gnome.texteditor")
+                .unwrap()
+                .also_ids = vec!["com.example.flatpak".into()];
+        }
+        let got = call(
+            &r,
+            "computer.type",
+            json!({"text": "x", "app": "org.gnome.TextEditor", "session": "s1"}),
+            &inv(),
+        );
+        match want {
+            Some(reason) => assert_eq!(got.unwrap_err().1, reason, "{written}"),
+            None => {
+                got.unwrap();
+            }
+        }
+    }
+}
+
 #[test]
 fn a_denied_app_is_refused_whether_the_call_names_its_id_its_display_name_or_its_pid() {
     let r = rig(all_interact());

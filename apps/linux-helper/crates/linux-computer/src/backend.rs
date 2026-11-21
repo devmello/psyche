@@ -30,15 +30,23 @@ pub struct AppInfo {
     /// Number of top-level windows.
     pub windows: usize,
     /// Other ids the same program has that the machine ceiling counts for it: a verified
-    /// Flatpak's own id when `id` is the stricter host id it is capped by. Caps, tiers and
-    /// capture exclusion key on `id`; `apps.allow` and `apps.deny` are asked of `id` and these
-    /// together (one predicate, [`crate::tiers::AppGate`]).
+    /// Flatpak's own id when `id` is the stricter host id it is capped by. Caps and capture
+    /// categories key on `id`; `apps.allow` and `apps.deny` are asked of `id` and these
+    /// together (one predicate, [`crate::tiers::AppGate`]); a per-app tier is the strictest the
+    /// owner wrote for any of them. A call may name the app by any of them.
     pub also_ids: Vec<String>,
 }
 
 impl AppInfo {
     pub fn owns(&self, pid: u32) -> bool {
         self.pid == pid
+    }
+
+    /// Whether `id` (normalized) is one of the other ids this app carries.
+    pub fn carries(&self, id: &str) -> bool {
+        self.also_ids
+            .iter()
+            .any(|a| crate::app_id::normalize(a) == id)
     }
 }
 

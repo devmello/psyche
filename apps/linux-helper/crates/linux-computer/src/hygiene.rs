@@ -20,6 +20,9 @@ pub const JPEG_QUALITY_LADDER: [f32; 4] = [0.75, 0.6, 0.45, 0.3];
 pub struct AppRef {
     pub app_id: Option<String>,
     pub pid: u32,
+    /// The other ids the program carries ([`crate::backend::AppInfo::also_ids`]): a tier the
+    /// owner wrote for one of them counts too.
+    pub also_ids: Vec<String>,
 }
 
 /// Pids whose windows must be left out of a capture: Psyche, terminals/IDEs, password managers,
@@ -38,7 +41,7 @@ pub fn excluded_pids(
                 out.insert(app.pid);
             }
             _ => {
-                if policy.effective_tier(app.app_id.as_deref()) == Tier::Off
+                if policy.effective_tier_with(app.app_id.as_deref(), &app.also_ids) == Tier::Off
                     && !is_system_ui(app.app_id.as_deref())
                 {
                     out.insert(app.pid);
@@ -420,6 +423,32 @@ mod tests {
         assert_eq!(red, vec![Rect::new(100., 0., 50., 100.)]);
     }
 
+    /// A tier the owner wrote for a Flatpak's own id counts though the app is reported under its
+    /// host id (#1502 r4).
+    #[test]
+    fn a_tier_written_for_another_id_of_the_program_counts() {
+        let policy = TierPolicy::new(
+            TierSettings::from_json(&json!({"default": "interact", "apps": {
+                "org.example.notes": "interact",
+                "org.example.Flat": "off",
+            }})),
+            None,
+            None,
+        );
+        let app = |pid, also: &[&str]| AppRef {
+            app_id: Some("org.example.notes".into()),
+            pid,
+            also_ids: also.iter().map(|s| s.to_string()).collect(),
+        };
+        let running = vec![
+            app(10, &["org.example.flat"]),
+            app(11, &[]),
+            // An id with no value of its own adds nothing.
+            app(12, &["org.example.other"]),
+        ];
+        assert_eq!(excluded_pids(&running, 1, &policy), HashSet::from([1, 10]));
+    }
+
     #[test]
     fn excluded_pids_follow_caps_and_tiers() {
         let policy = TierPolicy::new(
@@ -433,26 +462,32 @@ mod tests {
             AppRef {
                 app_id: Some("org.gnome.TextEditor".into()),
                 pid: 10,
+                also_ids: vec![],
             },
             AppRef {
                 app_id: Some("gnome-terminal".into()),
                 pid: 11,
+                also_ids: vec![],
             },
             AppRef {
                 app_id: Some("unknown-app".into()),
                 pid: 12,
+                also_ids: vec![],
             },
             AppRef {
                 app_id: Some("gnome-shell".into()),
                 pid: 13,
+                also_ids: vec![],
             },
             AppRef {
                 app_id: Some("keepassxc".into()),
                 pid: 14,
+                also_ids: vec![],
             },
             AppRef {
                 app_id: Some("org.gnome.seahorse.Application".into()),
                 pid: 15,
+                also_ids: vec![],
             },
         ];
         let ex = excluded_pids(&running, 1, &policy);

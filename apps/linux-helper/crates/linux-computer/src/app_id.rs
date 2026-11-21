@@ -191,6 +191,82 @@ pub fn flatpak_app_is_installed(
     })
 }
 
+/// The names the program of the Flatpak `id`, installed under one of the **system** deploy
+/// roots, runs under on the host side (normalized, for a deny list): the `command=` of its
+/// deploy's `metadata` (`[Application]` group) by file name, and, when that is a launcher script
+/// in the deploy's files, the programs its `exec` lines run (`exec /app/extra/sublime_text "$@"`
+/// gives `sublime_text`). Before a launch the program is not running, so this is what tells the
+/// launch that a deny on the host id is meant for it.
+///
+/// `id` is matched to the deploy directory without case (desktop ids are normalized). Only a
+/// **trusted** `metadata` counts ([`system_trusted`]); a user install never does. Empty when `id`
+/// is no such Flatpak. Only reads files.
+pub fn flatpak_launch_names(
+    id: &str,
+    roots: &[PathBuf],
+    trusted: &dyn Fn(&Path) -> bool,
+) -> Vec<String> {
+    let want = normalize(id);
+    let mut out: Vec<String> = Vec::new();
+    for root in roots {
+        let Ok(dir) = std::fs::read_dir(root.join("app")) else {
+            continue;
+        };
+        for entry in dir.flatten() {
+            let name = entry.file_name().to_string_lossy().into_owned();
+            if !is_app_id(&name) || normalize(&name) != want {
+                continue;
+            }
+            let active = entry.path().join("current/active");
+            let metadata = active.join("metadata");
+            if !trusted(&metadata) {
+                continue;
+            }
+            let Ok(text) = std::fs::read_to_string(&metadata) else {
+                continue;
+            };
+            let Some(command) = flatpak_command(&text) else {
+                continue;
+            };
+            // `command=` is a path inside the sandbox: `/app/...`, or a name on its `/app/bin`.
+            let files = active.join("files");
+            let inside = match command.strip_prefix("/app/") {
+                Some(rest) => files.join(rest),
+                None if !command.contains('/') => files.join("bin").join(&command),
+                None => PathBuf::new(),
+            };
+            let mut names: Vec<String> = plain_file_name(&command).into_iter().collect();
+            if inside.is_absolute() {
+                names.extend(wrapper_targets_with(&inside.to_string_lossy(), trusted));
+            }
+            for n in names {
+                let n = normalize(&n);
+                if is_app_id(&n) && n != want && !out.contains(&n) {
+                    out.push(n);
+                }
+            }
+        }
+    }
+    out
+}
+
+/// The `command=` of a Flatpak `metadata` file's `[Application]` group.
+fn flatpak_command(text: &str) -> Option<String> {
+    let mut in_app = false;
+    for line in text.lines() {
+        let line = line.trim();
+        if line.starts_with('[') {
+            in_app = line == "[Application]";
+        } else if in_app {
+            if let Some(c) = line.strip_prefix("command=") {
+                let c = c.trim();
+                return (!c.is_empty()).then(|| c.to_string());
+            }
+        }
+    }
+    None
+}
+
 /// Whether `query` looks like an app id (as opposed to a free-form display name or a path).
 pub fn is_app_id(query: &str) -> bool {
     let q = query.trim();
@@ -1799,5 +1875,56 @@ mod identity_tests {
             &roots,
             &yes
         ));
+    }
+    /// Before a launch, a system Flatpak's host-side names come from its deploy's `metadata`
+    /// (`command=`) and the launcher script that names (#1502 r4).
+    #[test]
+    fn a_flatpaks_launch_names_come_from_its_trusted_metadata_and_launcher() {
+        let dir = tempfile::tempdir().unwrap();
+        let root = dir.path().join("flatpak");
+        let deploy = |name: &str, metadata: &str| {
+            let active = root.join("app").join(name).join("current/active");
+            std::fs::create_dir_all(active.join("files/bin")).unwrap();
+            std::fs::create_dir_all(active.join("files/extra")).unwrap();
+            std::fs::write(active.join("metadata"), metadata).unwrap();
+            active
+        };
+        let a = deploy(
+            "com.sublimetext.Three",
+            "[Application]\nname=com.sublimetext.Three\ncommand=subl\n\n[Context]\nshared=network;\n",
+        );
+        std::fs::write(
+            a.join("files/bin/subl"),
+            "#!/bin/sh\nexec /app/extra/sublime_text \"$@\"\n",
+        )
+        .unwrap();
+        deploy(
+            "org.mozilla.firefox",
+            "[Application]\nname=org.mozilla.firefox\ncommand=/app/bin/firefox\n",
+        );
+        deploy("org.example.Odd", "[Context]\ncommand=evil\n");
+        let roots = [root.clone()];
+        let yes = |_: &Path| true;
+        // The id is matched without case; the launcher script is followed.
+        assert_eq!(
+            flatpak_launch_names("com.sublimetext.three", &roots, &yes),
+            vec!["subl", "sublime_text"]
+        );
+        // An absolute `command=` inside the sandbox; a missing file still gives its name, and
+        // the Flatpak's own id is not repeated.
+        assert_eq!(
+            flatpak_launch_names("org.mozilla.Firefox.desktop", &roots, &yes),
+            vec!["firefox"]
+        );
+        // `command=` outside `[Application]` is not the command.
+        assert!(flatpak_launch_names("org.example.odd", &roots, &yes).is_empty());
+        // Untrusted metadata (a user install, or not root-owned) says nothing.
+        assert!(flatpak_launch_names("com.sublimetext.three", &roots, &|_| false).is_empty());
+        // Not a Flatpak, or no such root.
+        assert!(flatpak_launch_names("org.gnome.TextEditor", &roots, &yes).is_empty());
+        assert!(
+            flatpak_launch_names("com.sublimetext.three", &[dir.path().join("none")], &yes)
+                .is_empty()
+        );
     }
 }

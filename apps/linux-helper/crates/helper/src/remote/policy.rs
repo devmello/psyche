@@ -26,6 +26,7 @@ use serde::{Deserialize, Serialize};
 use serde_json::Value;
 
 use crate::capability::CapabilityError;
+use crate::headless::focus::Denies;
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields, rename_all = "camelCase")]
@@ -521,12 +522,30 @@ impl Policy {
     }
 
     /// Whether this call may run under the ceiling. `Ok` for a capability the policy does not
-    /// speak of (it is limited by the remote allowlist instead).
+    /// speak of (it is limited by the remote allowlist instead). An app is judged on the id the
+    /// call names only; see [`Policy::check_with`].
     pub fn check(
         &self,
         capability: &str,
         params: &Value,
         home: &Path,
+    ) -> Result<(), CapabilityError> {
+        self.check_with(capability, params, home, &|_| Vec::new())
+    }
+
+    /// [`Policy::check`], where `other_ids` gives the other ids the running app a call names
+    /// carries (a verified Flatpak's own id beside the host id that caps it, and the other way
+    /// round). The app is judged with [`Denies::permits`] on all of them, as the engine gate
+    /// judges it, so the owner may name either id and a call may name either.
+    ///
+    /// `apps.open` is not: a launch is judged on the desktop id it names (the program is not
+    /// running yet), and a refusal says which id `apps.allow` must name.
+    pub fn check_with(
+        &self,
+        capability: &str,
+        params: &Value,
+        home: &Path,
+        other_ids: &dyn Fn(&str) -> Vec<String>,
     ) -> Result<(), CapabilityError> {
         let string = |key: &str| params.get(key).and_then(Value::as_str);
         let denied = |what: &str| {
@@ -575,11 +594,29 @@ impl Policy {
                 if !self.nameless_permitted() {
                     return denied("that app");
                 }
-            } else if named
-                .iter()
-                .any(|id| !is_app_id(id) || !self.app_permitted(id))
-            {
-                return denied("that app");
+            } else {
+                for id in named {
+                    if !is_app_id(id) {
+                        return denied("that app");
+                    }
+                    if capability == "apps.open" {
+                        if self.deny_listed(id) {
+                            return denied("that app");
+                        }
+                        if !self.allow_listed(id) {
+                            // `is_app_id` held: the id is plain ASCII, safe to echo.
+                            let id = normalize(id);
+                            return Err(forbidden(
+                                "machine_policy",
+                                &format!(
+                                    "This computer's limits do not allow opening {id}. An app is opened by the id it is named by: apps.allow must name {id}"
+                                ),
+                            ));
+                        }
+                    } else if !self.permits(id, &other_ids(id)) {
+                        return denied("that app");
+                    }
+                }
             }
             return Ok(());
         }
@@ -1054,6 +1091,130 @@ mod tests {
         }
         assert!(policy.app_permitted("org.gnome.texteditor"));
         assert!(policy.app_permitted("keepassxc-helper"));
+    }
+
+    #[test]
+    fn dispatch_judges_a_running_app_on_every_id_it_carries() {
+        // A running verified Flatpak: reported as `sublime_text`, its own id
+        // `com.sublimetext.three`. The resolver answers as `headless::other_ids` would.
+        let ids = |id: &str| -> Vec<String> {
+            match normalize(id).as_str() {
+                "sublime_text" => vec!["com.sublimetext.three".into()],
+                "com.sublimetext.three" => vec!["sublime_text".into()],
+                _ => vec![],
+            }
+        };
+        let home = PathBuf::from("/h");
+        let check = |allow: &[&str], deny: &[&str], cap: &str, app: &str| {
+            let mut policy = Policy::default();
+            policy.apps = Apps {
+                allow: allow.iter().map(|s| s.to_string()).collect(),
+                deny: deny.iter().map(|s| s.to_string()).collect(),
+            };
+            policy
+                .check_with(
+                    cap,
+                    &json!({"surface": "virtual_screen", "app": app}),
+                    &home,
+                    &ids,
+                )
+                .is_ok()
+        };
+        let fp = "com.sublimetext.Three";
+        let host = "sublime_text";
+        // (allow, deny, the id the call names, passes)
+        let rows: Vec<(Vec<&str>, Vec<&str>, &str, bool)> = vec![
+            // D1, D2: the owner names the Flatpak id; the call names the reported id.
+            (vec![fp], vec![], host, true),
+            // D3: the call names the Flatpak id.
+            (vec![fp], vec![], fp, true),
+            // The owner names the host id; the call names either.
+            (vec![host], vec![], host, true),
+            (vec![host], vec![], fp, true),
+            // Deny on either id refuses, whichever the call names.
+            (vec!["*"], vec![host], fp, false),
+            (vec!["*"], vec![fp], host, false),
+            (vec![fp], vec![host], host, false),
+            (vec![fp], vec![host], fp, false),
+            // Neither id allowed.
+            (vec!["org.other.App"], vec![], host, false),
+            (vec!["org.other.App"], vec![], fp, false),
+            // An app that carries no other id is judged on its own.
+            (vec![fp], vec![], "org.gnome.TextEditor", false),
+            (
+                vec!["org.gnome.TextEditor"],
+                vec![],
+                "org.gnome.TextEditor",
+                true,
+            ),
+        ];
+        for cap in [
+            "computer.ax_tree",
+            "computer.screenshot",
+            "computer.type",
+            "apps.focus",
+        ] {
+            for (allow, deny, app, want) in &rows {
+                assert_eq!(
+                    check(allow, deny, cap, app),
+                    *want,
+                    "{cap} allow={allow:?} deny={deny:?} app={app}"
+                );
+            }
+        }
+        // Without the resolver (`check`), only the named id counts: the old single-id answer.
+        let mut policy = Policy::default();
+        policy.apps = Apps {
+            allow: vec![fp.into()],
+            deny: vec![],
+        };
+        assert!(!call(
+            &policy,
+            "computer.ax_tree",
+            json!({"surface": "virtual_screen", "app": host}),
+            &home
+        ));
+    }
+
+    /// A launch is judged on the id it names, as written in `apps.allow`; the refusal says which
+    /// id to allow. The other ids of a running program do not open it.
+    #[test]
+    fn a_launch_is_judged_on_the_id_it_names_and_the_refusal_names_it() {
+        let ids = |id: &str| -> Vec<String> {
+            match normalize(id).as_str() {
+                "sublime_text" => vec!["com.sublimetext.three".into()],
+                "com.sublimetext.three" => vec!["sublime_text".into()],
+                _ => vec![],
+            }
+        };
+        let home = PathBuf::from("/h");
+        let mut policy = Policy::default();
+        policy.apps = Apps {
+            allow: vec!["sublime_text".into()],
+            deny: vec![],
+        };
+        let open = |policy: &Policy, id: &str| {
+            policy.check_with(
+                "apps.open",
+                &json!({"surface": "virtual_screen", "bundleId": id}),
+                &home,
+                &ids,
+            )
+        };
+        let err = open(&policy, "com.sublimetext.Three").unwrap_err();
+        assert_eq!(err.reason, "machine_policy");
+        assert!(
+            err.message
+                .contains("apps.allow must name com.sublimetext.three"),
+            "{}",
+            err.message
+        );
+        policy.apps.allow = vec!["com.sublimetext.Three".into()];
+        open(&policy, "com.sublimetext.Three").unwrap();
+        // A deny gets the plain refusal.
+        policy.apps.deny = vec!["com.sublimetext.*".into()];
+        let err = open(&policy, "com.sublimetext.Three").unwrap_err();
+        assert!(!err.message.contains("apps.allow"), "{}", err.message);
     }
 
     #[test]
