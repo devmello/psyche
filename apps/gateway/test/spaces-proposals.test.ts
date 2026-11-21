@@ -1189,7 +1189,7 @@ describe("r2 finding 5: imported threads are never moved into a Space", () => {
     db.sqlite
       .prepare("UPDATE space_proposals SET thread_ids = ? WHERE id = ?")
       .run(JSON.stringify([c, i]), proposal.id);
-    const { space } = spacesHandlers()["spaces.proposals.accept"]?.run(handlerCall(), {
+    const { space } = spacesHandlers()["spaces.proposals.accept"]!.run(handlerCall(), {
       proposalId: proposal.id,
     } as never) as { space: { id: string } };
     expect(spaceOf(c)).toBe(space.id);
