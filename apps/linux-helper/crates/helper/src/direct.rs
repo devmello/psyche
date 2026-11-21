@@ -874,10 +874,16 @@ mod linux {
             let dir = tempfile::tempdir().unwrap();
             let path = dir.path().join("portal.json");
             write_private(&path, &json!({"restoreToken": "t"})).unwrap();
-            assert_eq!(forget_portal_token(&path).unwrap(), json!({"revoked": true}));
+            assert_eq!(
+                forget_portal_token(&path).unwrap(),
+                json!({"revoked": true})
+            );
             assert!(!path.exists());
             // Nothing stored: still a confirmed answer, with nothing revoked.
-            assert_eq!(forget_portal_token(&path).unwrap(), json!({"revoked": false}));
+            assert_eq!(
+                forget_portal_token(&path).unwrap(),
+                json!({"revoked": false})
+            );
             // A token that cannot be deleted is an error, so psyched keeps the Revoke pending.
             let stuck = dir.path().join("stuck");
             std::fs::create_dir_all(stuck.join("child")).unwrap();
@@ -898,7 +904,10 @@ mod linux {
             assert!(!token.exists());
             for op in [Misc::A11yStatus, Misc::A11yEnable, Misc::PortalStatus] {
                 let err = headless_misc(&op, &token).expect_err("refused in headless mode");
-                assert_eq!(serde_json::to_value(err.payload()).unwrap()["code"], "unavailable");
+                assert_eq!(
+                    serde_json::to_value(err.payload()).unwrap()["code"],
+                    "unavailable"
+                );
             }
         }
 
