@@ -1871,6 +1871,7 @@ public struct AccessListResult: Codable, Sendable {
 
 // MARK: - AccessEntry
 public struct AccessEntry: Codable, Sendable {
+    public let automationsWrite: Bool?
     public let file: Bool?
     public let grantID: String?
     public let id: String
@@ -1884,10 +1885,13 @@ public struct AccessEntry: Codable, Sendable {
     public let refused: Bool?
     public let scope: AccessEntryScope
     public let since: String?
+    public let spaceID: String?
+    public let spaceName: String?
     public let threadID: String?
     public let type: AccessEntryType
 
     public enum CodingKeys: String, CodingKey {
+        case automationsWrite = "automationsWrite"
         case file = "file"
         case grantID = "grantId"
         case id = "id"
@@ -1901,11 +1905,14 @@ public struct AccessEntry: Codable, Sendable {
         case refused = "refused"
         case scope = "scope"
         case since = "since"
+        case spaceID = "spaceId"
+        case spaceName = "spaceName"
         case threadID = "threadId"
         case type = "type"
     }
 
-    public init(file: Bool? = nil, grantID: String? = nil, id: String, kind: ApprovalKind? = nil, label: String, lastUsedAt: String? = nil, mode: FolderModeEnum? = nil, moved: Bool? = nil, movedTo: String? = nil, path: String? = nil, refused: Bool? = nil, scope: AccessEntryScope, since: String? = nil, threadID: String? = nil, type: AccessEntryType) {
+    public init(automationsWrite: Bool? = nil, file: Bool? = nil, grantID: String? = nil, id: String, kind: ApprovalKind? = nil, label: String, lastUsedAt: String? = nil, mode: FolderModeEnum? = nil, moved: Bool? = nil, movedTo: String? = nil, path: String? = nil, refused: Bool? = nil, scope: AccessEntryScope, since: String? = nil, spaceID: String? = nil, spaceName: String? = nil, threadID: String? = nil, type: AccessEntryType) {
+        self.automationsWrite = automationsWrite
         self.file = file
         self.grantID = grantID
         self.id = id
@@ -1919,6 +1926,8 @@ public struct AccessEntry: Codable, Sendable {
         self.refused = refused
         self.scope = scope
         self.since = since
+        self.spaceID = spaceID
+        self.spaceName = spaceName
         self.threadID = threadID
         self.type = type
     }
@@ -1964,6 +1973,7 @@ public enum AccessEntryScope: String, Codable, Sendable {
     case always = "always"
     case conversation = "conversation"
     case limited = "limited"
+    case space = "space"
 }
 
 public enum AccessEntryType: String, Codable, Sendable {
@@ -4217,6 +4227,7 @@ public struct ApprovalAnswer: Codable, Sendable {
     public let folderMode: FolderModeEnum?
     public let folderPath: String?
     public let hostProgram: Bool?
+    public let inSpace: Bool?
     public let presence: PresenceAssertion?
     public let recipientChoice: String?
     public let scope: GrantScope?
@@ -4233,6 +4244,7 @@ public struct ApprovalAnswer: Codable, Sendable {
         case folderMode = "folderMode"
         case folderPath = "folderPath"
         case hostProgram = "hostProgram"
+        case inSpace = "inSpace"
         case presence = "presence"
         case recipientChoice = "recipientChoice"
         case scope = "scope"
@@ -4241,7 +4253,7 @@ public struct ApprovalAnswer: Codable, Sendable {
         case via = "via"
     }
 
-    public init(answerToken: String, approvalID: String, bulk: Bool? = nil, decision: ApprovalAnswerDecision, editedText: String? = nil, folderMode: FolderModeEnum? = nil, folderPath: String? = nil, hostProgram: Bool? = nil, presence: PresenceAssertion? = nil, recipientChoice: String? = nil, scope: GrantScope? = nil, trustSite: TrustSite? = nil, unsandboxed: Unsandboxed? = nil, via: InputVia? = nil) {
+    public init(answerToken: String, approvalID: String, bulk: Bool? = nil, decision: ApprovalAnswerDecision, editedText: String? = nil, folderMode: FolderModeEnum? = nil, folderPath: String? = nil, hostProgram: Bool? = nil, inSpace: Bool? = nil, presence: PresenceAssertion? = nil, recipientChoice: String? = nil, scope: GrantScope? = nil, trustSite: TrustSite? = nil, unsandboxed: Unsandboxed? = nil, via: InputVia? = nil) {
         self.answerToken = answerToken
         self.approvalID = approvalID
         self.bulk = bulk
@@ -4250,6 +4262,7 @@ public struct ApprovalAnswer: Codable, Sendable {
         self.folderMode = folderMode
         self.folderPath = folderPath
         self.hostProgram = hostProgram
+        self.inSpace = inSpace
         self.presence = presence
         self.recipientChoice = recipientChoice
         self.scope = scope

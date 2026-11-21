@@ -541,7 +541,7 @@
         "sideEffecting": false
       },
       {
-        "description": "Lists what the owner has given the agent access to: shared folders (always or for one chat) and standing grants, in one list for Settings.",
+        "description": "Lists what the owner has given the agent access to: shared folders (always, for one chat or in one Space) and standing grants, in one list for Settings.",
         "name": "access.list",
         "params": "#/$defs/AccessListParams",
         "result": "#/$defs/AccessListResult",
@@ -4448,7 +4448,8 @@
           "enum": [
             "always",
             "conversation",
-            "limited"
+            "limited",
+            "space"
           ],
           "type": "string"
         },
@@ -4485,6 +4486,19 @@
           "maxLength": 64,
           "minLength": 1,
           "type": "string"
+        },
+        "spaceId": {
+          "description": "ULID in production",
+          "maxLength": 64,
+          "minLength": 1,
+          "type": "string"
+        },
+        "spaceName": {
+          "maxLength": 60,
+          "type": "string"
+        },
+        "automationsWrite": {
+          "type": "boolean"
         },
         "grantId": {
           "description": "ULID in production",
@@ -7659,6 +7673,10 @@
           "type": "string"
         },
         "hostProgram": {
+          "const": true,
+          "type": "boolean"
+        },
+        "inSpace": {
           "const": true,
           "type": "boolean"
         },

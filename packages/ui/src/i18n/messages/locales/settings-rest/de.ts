@@ -681,6 +681,7 @@ export const settingsRest: Partial<Catalogue> = {
     "Noch nichts. Braucht {persona} einen Ordner oder eine App, fragt es dich im Chat, und was du erlaubst, erscheint hier.",
   "settings.access.scope.always": "Immer",
   "settings.access.scope.conversation": "Dieser Chat",
+  "settings.access.scope.space": "In einem Space",
   "settings.access.scope.limited": "Vorerst",
   "settings.access.used": "verwendet {when}",
   "settings.access.fileOnly": "Eine Datei · nur Lesen",

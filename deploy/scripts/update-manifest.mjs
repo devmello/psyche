@@ -13,6 +13,9 @@
 //   node update-manifest.mjs verify-trusted <update-manifest.json> <release-keys.ts>
 //                                                          verifies against the key the .sig names,
 //                                                            which must be one the app trusts
+//   node update-manifest.mjs server-check <update-manifest.json>
+//                                                          every linux arch with psyche-server
+//                                                            files has its deb, rpm and tar.zst
 //
 // The signature covers the manifest file's exact bytes: `build` output is written once and never
 // reformatted after signing.
@@ -166,6 +169,55 @@ export function buildManifest({
   return `${JSON.stringify(manifest, null, 2)}\n`;
 }
 
+// ── psyche-server: the headless Linux Host package (docs/design/linux-helper-only-2026.md §3.2,
+// wave B1). Its files are classified above (`server-<deb|rpm|tar-zst>` under `linux-<arch>`); this
+// section names them for the packaging (deploy/linux-server/build.mjs) and checks a release has
+// every format for each arch it ships. The helper-only package (H7) has its own section.
+
+/** Every format the server package ships in, and its manifest kind. */
+export const SERVER_FORMATS = Object.freeze({
+  deb: "server-deb",
+  rpm: "server-rpm",
+  "tar.zst": "server-tar-zst",
+});
+const SERVER_ARCHES = ["arm64", "x64"];
+
+/** `psyche-server-<version>-linux-<arch>.<format>`: the name `classifyArtifact` knows. */
+export function serverArtifactName(version, arch, format) {
+  if (!VERSION.test(version)) throw new Error(`not a release version: ${version}`);
+  if (!SERVER_ARCHES.includes(arch)) throw new Error(`not a server arch: ${arch}`);
+  if (!Object.hasOwn(SERVER_FORMATS, format)) throw new Error(`not a server format: ${format}`);
+  return `psyche-server-${version}-linux-${arch}.${format}`;
+}
+
+/**
+ * The server entries of a built manifest, by arch: `{ x64: { deb, rpm, "tar.zst" }, … }`. Throws
+ * when an arch has some server files but not all three, or a file whose name is not this release's
+ * (a stale package left in the artifacts folder): `psyche update` on that arch would then find
+ * nothing for its install kind.
+ */
+export function serverEntriesOf(manifestText) {
+  const m = JSON.parse(manifestText);
+  const out = {};
+  for (const arch of SERVER_ARCHES) {
+    const list = (m.platforms?.[`linux-${arch}`] ?? []).filter((a) =>
+      String(a.kind).startsWith("server-"),
+    );
+    if (list.length === 0) continue;
+    const byFormat = {};
+    for (const [format, kind] of Object.entries(SERVER_FORMATS)) {
+      const found = list.filter((a) => a.kind === kind);
+      if (found.length !== 1)
+        throw new Error(`linux-${arch}: ${found.length} ${kind} entries, need exactly one`);
+      if (found[0].name !== serverArtifactName(m.release, arch, format))
+        throw new Error(`linux-${arch}: ${found[0].name} is not release ${m.release}'s ${format}`);
+      byFormat[format] = found[0];
+    }
+    out[arch] = byFormat;
+  }
+  return out;
+}
+
 export function signManifest(bytes, privatePem) {
   const key = createPrivateKey(privatePem);
   return `${JSON.stringify({
@@ -295,7 +347,19 @@ async function main(argv) {
     process.stdout.write(r.ok ? `ok (trusted key ${r.keyId})\n` : `UNTRUSTED: ${r.why}\n`);
     process.exit(r.ok ? 0 : 1);
   }
-  throw new Error("commands: keygen, build, sign, verify, verify-trusted");
+  if (cmd === "server-check") {
+    const [file] = rest;
+    if (!file) throw new Error("usage: server-check <update-manifest.json>");
+    const entries = serverEntriesOf(readFileSync(file, "utf8"));
+    const arches = Object.keys(entries);
+    process.stdout.write(
+      arches.length
+        ? `server packages for ${arches.map((a) => `linux-${a}`).join(", ")}\n`
+        : "no server packages\n",
+    );
+    return;
+  }
+  throw new Error("commands: keygen, build, sign, verify, verify-trusted, server-check");
 }
 
 if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) {
