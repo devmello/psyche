@@ -5,6 +5,7 @@ import { join } from "node:path";
 import { getSetting, type PsycheDb, setSetting } from "@psyche/db";
 import { PsycheError } from "@psyche/protocol";
 import type { Logger } from "../log.ts";
+import { HEADLESS_HELPER_UNIT } from "../transports/peer-check.ts";
 import type { HelperNode } from "./computer.ts";
 import { COMPUTER_USE_ENABLED } from "./computer-settings.ts";
 
@@ -37,7 +38,8 @@ import { COMPUTER_USE_ENABLED } from "./computer-settings.ts";
 
 /** The helper units psyched starts on demand (`apps/cli/src/systemd-unit.ts` renders both). */
 export const GRAPHICAL_HELPER_UNIT = "psyche-helper.service";
-export const HEADLESS_HELPER_UNIT = "psyche-helper-headless.service";
+/** One name for the headless unit in the Gateway: the peer check's restart hint uses it too. */
+export { HEADLESS_HELPER_UNIT };
 
 /** Which helper unit to start: the graphical one only when this user has a graphical session. */
 export function helperUnitFor(graphicalSession: boolean): string {
