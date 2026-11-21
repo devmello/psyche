@@ -3,7 +3,7 @@ import type { AXNode, CaptureSnapshotResult, LayoutViewport } from "../cdp/types
 import { tryOrigin } from "../origin/canonical.ts";
 import { redactUrl } from "../origin/redact-url.ts";
 import type { BrowserSnapshot, ElementMeta, SnapshotOptions, SnapshotRefEx } from "../types.ts";
-import { DomIndex, type DomNodeInfo, rememberPasswords } from "./dom.ts";
+import { DomIndex, type DomNodeInfo, type PasswordMemory, rememberPasswords } from "./dom.ts";
 import type { RefRegistry } from "./refs.ts";
 import { blocksScreenshot, maskCardNumbers } from "./secure-field.ts";
 
@@ -186,11 +186,11 @@ export interface SnapshotInput {
   /** Nodes a secret was typed into: their values are masked like a password until navigation. */
   maskNodes?: ReadonlySet<number>;
   /**
-   * Values (`passwordKey`) seen in a `type=password` input earlier in this document: a field
-   * holding one is still the password after a reveal toggle or a re-render made it text. The
-   * builder adds the password values it sees now.
+   * Values seen in a `type=password` input earlier, per document: a field holding one is still
+   * the password after a reveal toggle or a re-render made it text. The builder adds the
+   * password values it sees now.
    */
-  wasPassword?: Set<string>;
+  wasPassword?: PasswordMemory;
   /**
    * A payment card was typed into this document: every `<input>` value is masked, so a form the
    * page re-renders (a SPA remount, a route change) cannot show it on a new node.
@@ -208,21 +208,12 @@ interface Line {
   bare?: boolean;
 }
 
-/** Text lines this short may be one slot of a split secret ("4", "82", "4242"). */
-const SLOT_MAX = 4;
-/** A digits-only line ("4242 4242") may be part of a card number drawn in pieces. */
-const DIGIT_LINE = /^[\p{Nd}\s.\-/|_,]{1,19}$/u;
-
-const isSlot = (l: Line): boolean => {
-  const raw = l.raw ?? "";
-  return raw.replace(/\s+/g, "").length <= SLOT_MAX || DIGIT_LINE.test(raw);
-};
-
 /**
- * Secret values and card numbers the page draws over several short text nodes (the slot pattern
- * of OTP inputs, a card number in four spans): each run of short text lines, read across bare
- * structural lines (`- group`), is matched as one string, and every line that contributes to a
- * match is masked. Linear in the number of lines: spans and lines are walked together.
+ * Secret values and card numbers the page draws over several text nodes (the slot pattern of
+ * OTP inputs, a card number in four spans, a code wrapped by `<wbr>` or a highlight span): each
+ * run of adjacent text lines, read across bare structural lines (`- group`), is matched as one
+ * string, as `read_text` joins them, and every line that contributes to a match is masked.
+ * Linear in the text: spans and lines are walked together.
  */
 function maskSplitRuns(lines: Line[], dom: DomIndex): Line[] {
   const out: Line[] = [];
@@ -266,7 +257,7 @@ function maskSplitRuns(lines: Line[], dom: DomIndex): Line[] {
     run = [];
   };
   for (const l of lines) {
-    if (l.kind === "text" && isSlot(l)) run.push(l);
+    if (l.kind === "text") run.push(l);
     else if (l.kind === "node" && l.bare === true && run.length > 0) run.push(l);
     else {
       if (run.length > 0) flush();
@@ -307,11 +298,15 @@ export function buildSnapshot(input: SnapshotInput): BrowserSnapshot {
     input.wasPassword === undefined
       ? new DomIndex(input.dom, input.dpr)
       : new DomIndex(input.dom, input.dpr, { wasPassword: input.wasPassword });
-  if (input.wasPassword !== undefined) rememberPasswords(input.wasPassword, dom.passwordFields());
+  if (input.wasPassword !== undefined) rememberPasswords(input.wasPassword, dom);
   // The vault's redaction, then the page's own secret field values (and card numbers) wherever
   // they appear in what is emitted.
   const redact0 = input.redact ?? ((s: string) => s);
   const redact = (s: string): string => dom.scrub(redact0(s));
+  // Only what can be shown is normalised and scrubbed: the limit plus a margin, so a secret cut
+  // at the limit is still matched whole (a long AX name or value is not folded in full).
+  const pre = (s: string, max: number): string =>
+    norm(s.length > max + CLIP_MARGIN ? s.slice(0, max + CLIP_MARGIN) : s);
   const hasSecrets = dom.hasSecrets;
   const vp = input.viewport;
   const topOrigin = tryOrigin(input.url) ?? "null";
@@ -422,7 +417,7 @@ export function buildSnapshot(input: SnapshotInput): BrowserSnapshot {
     }
     const indent = "  ".repeat(depth);
     if (role === "statictext") {
-      const text = redact(norm(axString(node.name)));
+      const text = redact(pre(axString(node.name), opts.textMax));
       if (text === "" || suppressText) return;
       // A one- or two-character slot ("6" under "Enter the 6-digit code") is kept while the page
       // holds secrets, so the split-run pass below sees every digit.
@@ -436,7 +431,7 @@ export function buildSnapshot(input: SnapshotInput): BrowserSnapshot {
       return;
     }
     const info = dom.get(node.backendDOMNodeId);
-    let name = redact(norm(axString(node.name)));
+    let name = redact(pre(axString(node.name), opts.nameMax));
     // A `<div onclick>` is `generic` with no name in Chromium; name it from its text, unless it
     // wraps real controls or a whole page region (frameworks put listeners on root containers).
     let clickableGeneric = false;
@@ -542,7 +537,7 @@ export function buildSnapshot(input: SnapshotInput): BrowserSnapshot {
       if (!strong && hasValue && blocksScreenshot(cls, value)) secureFieldActive = true;
       if (ref !== undefined && hasValue) ref.value = SECURE_MASK;
     } else if (rawValue !== "" && rawValue !== name) {
-      const value = redact(norm(rawValue));
+      const value = redact(pre(rawValue, opts.valueMax));
       line += ` value="${clip(value, opts.valueMax)}"`;
       if (ref !== undefined) ref.value = value;
     }
@@ -603,7 +598,7 @@ export function buildSnapshot(input: SnapshotInput): BrowserSnapshot {
   if (depthTruncated) flags.push("TRUNCATED(maxDepth)");
   if (captcha) flags.push("CAPTCHA (never attempted: hand it to the owner)");
   if (sparse) flags.push("SPARSE (tree has little content; a screenshot is suggested)");
-  const header = `# ${clip(redactUrl(input.url), 200)} "${clip(redact(norm(input.title)), opts.nameMax)}" refs=${refs.length} interactive=${interactive}${flags.length > 0 ? ` ${flags.join(" ")}` : ""}`;
+  const header = `# ${clip(redactUrl(input.url), 200)} "${clip(redact(pre(input.title, opts.nameMax)), opts.nameMax)}" refs=${refs.length} interactive=${interactive}${flags.length > 0 ? ` ${flags.join(" ")}` : ""}`;
   const text = [header, ...pageLines.map((l) => l.text)].join("\n");
   const buildMs = performance.now() - t0;
 
@@ -779,3 +774,5 @@ export function extractText(
 
 /** Characters past `read_text`'s limit that are scrubbed too (a secret straddling the cut). */
 const SCRUB_MARGIN = 4096;
+/** Characters past a snapshot name, value or text limit that are scrubbed too. */
+const CLIP_MARGIN = 1024;

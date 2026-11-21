@@ -11,6 +11,7 @@ import {
   MAX_SECRETS,
   makeScrubber,
   type Scrubber,
+  SECRET_REACH,
   type SecureClass,
   secretKeys,
   TEXT_CAP,
@@ -45,6 +46,8 @@ export interface DomNodeInfo {
   index: number;
   /** Document the node's `contentDocumentIndex` points to (iframes). */
   contentDocIndex?: number;
+  /** String-table index of `inputValue` (equal values share one: a per-value memo key). */
+  valueId?: number;
 }
 
 export interface DomDocumentInfo {
@@ -74,18 +77,18 @@ export class DomIndex {
   readonly opaqueAreas: number[] = [];
 
   /**
-   * Keys (`passwordKey`) of values seen in a `type=password` field earlier in this document: a
-   * reveal toggle, or a page that re-creates the field as text, keeps that value a password.
+   * Values seen in a `type=password` field earlier, per document: a reveal toggle, or a page
+   * that re-creates the field as text, keeps that value a password in the same document.
    */
-  readonly #wasPassword: ReadonlySet<string>;
+  readonly #wasPassword: PasswordMemory | undefined;
 
   constructor(
     snap: CaptureSnapshotResult,
     dpr: number,
-    options: { wasPassword?: ReadonlySet<string> } = {},
+    options: { wasPassword?: PasswordMemory } = {},
   ) {
     this.#snap = snap;
-    this.#wasPassword = options.wasPassword ?? new Set();
+    this.#wasPassword = options.wasPassword;
     const s = snap.strings;
     const str = (i: number | undefined): string => (i === undefined || i < 0 ? "" : (s[i] ?? ""));
     const scale = dpr > 0 ? dpr : 1;
@@ -105,6 +108,11 @@ export class DomIndex {
         if (b !== undefined && !boxes.has(ni)) boxes.set(ni, b);
       });
       const inputValues = rareStrings(n.inputValue, s);
+      const valueIds = new Map<number, number>();
+      n.inputValue?.index.forEach((ni, k) => {
+        const v = n.inputValue?.value[k];
+        if (v !== undefined && v >= 0) valueIds.set(ni, v);
+      });
       const infos: (DomNodeInfo | undefined)[] = [];
       const checked = new Set(n.inputChecked?.index ?? []);
       const clickable = new Set(n.isClickable?.index ?? []);
@@ -142,7 +150,11 @@ export class DomIndex {
           }
         }
         const iv = inputValues.get(i);
-        if (iv !== undefined) info.inputValue = iv;
+        if (iv !== undefined) {
+          info.inputValue = iv;
+          const vid = valueIds.get(i);
+          if (vid !== undefined) info.valueId = vid;
+        }
         if (checked.has(i)) info.checked = true;
         const cd = contentDocs.get(i);
         if (cd !== undefined) info.contentDocIndex = cd;
@@ -366,11 +378,85 @@ export class DomIndex {
     };
   }
 
-  /** The field holds a value that sat in a `type=password` field earlier in this document. */
+  /** The memory key of a document: its frame and origin. */
+  docKey(d: number): string {
+    const doc = this.documents[d];
+    return doc === undefined ? `?${d}` : `${doc.frameId}|${doc.origin}`;
+  }
+
+  readonly #wasPw = new WeakMap<DomNodeInfo, boolean>();
+
+  /**
+   * The field holds a value that sat in a `type=password` field earlier in the same document.
+   * Once per field, and hashed only when the memory holds a value of the same length there.
+   */
   #wasPasswordValue(info: DomNodeInfo): boolean {
-    if (this.#wasPassword.size === 0) return false;
-    const key = passwordKey(this.valueOf(info));
-    return key !== undefined && this.#wasPassword.has(key);
+    const mem = this.#wasPassword;
+    if (mem === undefined || mem.size === 0) return false;
+    const hit = this.#wasPw.get(info);
+    if (hit !== undefined) return hit;
+    const doc = this.docKey(info.docIndex);
+    let out = false;
+    if (mem.hasLength(doc, this.valueOf(info).length)) {
+      const key = this.#passwordKeyOf(info);
+      out = key !== undefined && mem.has(doc, key);
+    }
+    this.#wasPw.set(info, out);
+    return out;
+  }
+
+  // --- the per-value memo and the fold budget ---
+
+  /** Scrubber keys per distinct value (its string-table index, or a short text itself). */
+  readonly #keysMemo = new Map<number | string, string[]>();
+  readonly #pwKeyMemo = new Map<number | string, string>();
+  /** Value characters folded so far; past `FOLD_BUDGET` the page fails closed. */
+  #folded = 0;
+  #foldOver = false;
+
+  /** The memo key of a field's value; undefined for a long value with no string-table index. */
+  #memoKey(info: DomNodeInfo): number | string | undefined {
+    if (info.inputValue !== undefined) {
+      if (info.valueId !== undefined) return info.valueId;
+      // V8 hashes a string over 16K characters by its length only: not a Map key.
+      return info.inputValue.length <= 16_384 ? `s${info.inputValue}` : undefined;
+    }
+    return `s${info.text ?? ""}`;
+  }
+
+  /** `secretKeys` of the field's value, once per distinct value, charged to the fold budget. */
+  #keysOf(info: DomNodeInfo): string[] | undefined {
+    const mk = this.#memoKey(info);
+    const hit = mk === undefined ? undefined : this.#keysMemo.get(mk);
+    if (hit !== undefined) return hit;
+    if (this.#foldOver) return undefined;
+    const v = this.valueOf(info);
+    this.#folded += Math.min(v.length, SECRET_REACH);
+    if (this.#folded > FOLD_BUDGET) {
+      this.#foldOver = true;
+      return undefined;
+    }
+    const keys = secretKeys(v);
+    if (mk !== undefined) this.#keysMemo.set(mk, keys);
+    return keys;
+  }
+
+  /** `passwordKey` of the field's value, once per distinct value. */
+  #passwordKeyOf(info: DomNodeInfo): string | undefined {
+    if (this.valueOf(info).trim() === "") return undefined;
+    const mk = this.#memoKey(info);
+    const hit = mk === undefined ? undefined : this.#pwKeyMemo.get(mk);
+    if (hit !== undefined) return hit;
+    const keys = this.#keysOf(info);
+    if (keys === undefined) return undefined;
+    const key = hashKeys(keys);
+    if (mk !== undefined) this.#pwKeyMemo.set(mk, key);
+    return key;
+  }
+
+  /** Past a cap (secret keys, or the fold budget): every field counts as a strong secret. */
+  #failClosed(): boolean {
+    return this.#secretState().overCap || this.#foldOver;
   }
 
   /**
@@ -408,12 +494,13 @@ export class DomIndex {
    * Keys of the values in the page's `type=password` inputs, to remember across a reveal toggle
    * or a re-created field (`rememberPasswords`).
    */
-  passwordFields(): string[] {
-    const out: string[] = [];
+  passwordFields(): PasswordEntry[] {
+    const out: PasswordEntry[] = [];
     for (const n of this.#fields) {
       if (n.tag === "INPUT" && (n.attrs.type ?? "").toLowerCase() === "password") {
-        const key = passwordKey(this.valueOf(n));
-        if (key !== undefined) out.push(key);
+        const key = this.#passwordKeyOf(n);
+        if (key === undefined) continue;
+        out.push({ doc: this.docKey(n.docIndex), key, length: this.valueOf(n).length });
       }
     }
     return out;
@@ -447,7 +534,7 @@ export class DomIndex {
    */
   classify(info: DomNodeInfo, label?: string): SecureClass | undefined {
     if (!isField(info)) return undefined;
-    if (this.#secretState().overCap) return STRONG;
+    if (this.#failClosed()) return STRONG;
     return this.#classifyRaw(info, label);
   }
 
@@ -468,13 +555,13 @@ export class DomIndex {
 
   /** Some filled field in any document refuses screenshots (the guard that needs no AX tree). */
   anySecureValue(): boolean {
-    if (this.#secretState().overCap) return true;
+    if (this.#failClosed()) return true;
     for (const n of this.#fields) {
       const v = this.valueOf(n);
       if (v.trim() === "") continue;
       if (blocksScreenshot(this.#classifyRaw(n), v)) return true;
     }
-    return false;
+    return this.#foldOver;
   }
 
   #secrets: { values: string[]; overCap: boolean } | undefined;
@@ -486,6 +573,8 @@ export class DomIndex {
    * A long value counts as its pieces (`secretKeys`). Short values (one-character split boxes)
    * count joined, per container. Past `MAX_SECRETS` keys the first ones are kept and `overCap`
    * is set: every field is masked, screenshots are refused and every 4+ digit run is masked too.
+   * Each distinct value is folded once; past `FOLD_BUDGET` folded characters the page is over
+   * the cap too.
    */
   #secretState(): { values: string[]; overCap: boolean } {
     if (this.#secrets !== undefined) return this.#secrets;
@@ -504,7 +593,11 @@ export class DomIndex {
       if (raw.trim() === "") continue;
       const c = this.#classifyRaw(n);
       if (c === undefined || (c.level === "weak" && !blocksScreenshot(c, raw))) continue;
-      const keys = secretKeys(raw);
+      const keys = this.#keysOf(n);
+      if (keys === undefined) {
+        overCap = true;
+        break;
+      }
       const v = keys[0] ?? "";
       if (keys.length > 1 || v.length >= 4) {
         for (const k of keys) add(k);
@@ -534,15 +627,17 @@ export class DomIndex {
     return this.#secretState().values;
   }
 
-  /** More secret keys than are tracked: every field is masked, screenshots are refused. */
+  /**
+   * More secret keys than are tracked, or more value text than the fold budget: every field is
+   * masked and screenshots are refused.
+   */
   get overCap(): boolean {
-    return this.#secretState().overCap;
+    return this.#failClosed();
   }
 
   /** The page holds secret values the scrubber looks for. */
   get hasSecrets(): boolean {
-    const st = this.#secretState();
-    return st.overCap || st.values.length > 0;
+    return this.#failClosed() || this.#secretState().values.length > 0;
   }
 
   get scrubber(): Scrubber {
@@ -577,28 +672,104 @@ function labelledByIds(refs: string): Set<string> {
   return ids;
 }
 
+/** Value characters a `DomIndex` folds (secret keys, password keys) before it fails closed. */
+export const FOLD_BUDGET = 2_000_000;
+
+const hashKeys = (keys: string[]): string =>
+  createHash("sha256").update(keys.join("\u0000")).digest("hex").slice(0, 32);
+
 /**
  * A remembered password value: a hash of its scrubber keys (so a long value is bounded and the
  * memory holds no plaintext). Undefined for an empty value.
  */
 export function passwordKey(value: string): string | undefined {
   if (value.trim() === "") return undefined;
-  return createHash("sha256").update(secretKeys(value).join("\u0000")).digest("hex").slice(0, 32);
+  return hashKeys(secretKeys(value));
+}
+
+/** A value in a `type=password` input: its document (`frameId|origin`), hash and length. */
+export interface PasswordEntry {
+  doc: string;
+  key: string;
+  length: number;
 }
 
 /** Password values remembered per document, at most this many (oldest dropped first). */
-const MAX_REMEMBERED = 256;
+export const MAX_REMEMBERED = 256;
+/** Documents remembered, at most this many (oldest dropped first, never the top one). */
+export const MAX_REMEMBERED_DOCS = 16;
 
-/** Add `keys` to a document's password memory, keeping it bounded. */
-export function rememberPasswords(memory: Set<string>, keys: Iterable<string>): void {
-  for (const k of keys) {
-    memory.delete(k);
-    memory.add(k);
+/**
+ * Values seen in `type=password` inputs, per document (`frameId|origin`), for one tab. A field
+ * is checked only against its own document's values, so one frame can neither test guesses
+ * against another's password nor evict it. Each document keeps its `MAX_REMEMBERED` newest.
+ */
+export class PasswordMemory {
+  readonly #docs = new Map<string, Map<string, number>>();
+  readonly #lengths = new Map<string, Set<number>>();
+  #top: string | undefined;
+
+  /** Remember a snapshot's password fields; `top` is the top document's key (never evicted). */
+  remember(entries: Iterable<PasswordEntry>, top?: string): void {
+    if (top !== undefined) this.#top = top;
+    for (const e of entries) {
+      let m = this.#docs.get(e.doc);
+      if (m === undefined) m = new Map();
+      // Most recently seen last.
+      this.#docs.delete(e.doc);
+      this.#docs.set(e.doc, m);
+      m.delete(e.key);
+      m.set(e.key, e.length);
+      for (const k of m.keys()) {
+        if (m.size <= MAX_REMEMBERED) break;
+        m.delete(k);
+      }
+      this.#lengths.delete(e.doc);
+      for (const d of this.#docs.keys()) {
+        if (this.#docs.size <= MAX_REMEMBERED_DOCS) break;
+        if (d === this.#top || d === e.doc) continue;
+        this.#docs.delete(d);
+        this.#lengths.delete(d);
+      }
+    }
   }
-  for (const k of memory) {
-    if (memory.size <= MAX_REMEMBERED) break;
-    memory.delete(k);
+
+  /** Some value of this length is remembered for the document (checked before hashing). */
+  hasLength(doc: string, length: number): boolean {
+    let set = this.#lengths.get(doc);
+    if (set === undefined) {
+      set = new Set(this.#docs.get(doc)?.values() ?? []);
+      this.#lengths.set(doc, set);
+    }
+    return set.has(length);
   }
+
+  has(doc: string, key: string): boolean {
+    return this.#docs.get(doc)?.has(key) === true;
+  }
+
+  /** Values remembered, in all documents. */
+  get size(): number {
+    let n = 0;
+    for (const m of this.#docs.values()) n += m.size;
+    return n;
+  }
+
+  /** Values remembered for one document. */
+  sizeOf(doc: string): number {
+    return this.#docs.get(doc)?.size ?? 0;
+  }
+
+  clear(): void {
+    this.#docs.clear();
+    this.#lengths.clear();
+    this.#top = undefined;
+  }
+}
+
+/** Remember the page's password fields in `memory` (the top document is never evicted). */
+export function rememberPasswords(memory: PasswordMemory, dom: DomIndex): void {
+  memory.remember(dom.passwordFields(), dom.docKey(0));
 }
 
 function isField(info: DomNodeInfo): boolean {

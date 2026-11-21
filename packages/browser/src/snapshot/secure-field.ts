@@ -346,8 +346,6 @@ const CODE_PHRASES = new Terms([
   "backupcode",
   "recovery code",
   "recovery codes",
-  "reset code",
-  "reset codes",
   "recoverycode",
   "cvc",
   "cvv",
@@ -480,6 +478,44 @@ const SHOWN_NOT_OTP = new Terms([
   "class",
   "game",
 ]);
+/** A password or account reset code, not a device's factory reset code. */
+const RESET_CODE = new Terms(["reset code", "reset codes"]);
+const RESET_NOT = new Terms(["factory", "device", "router", "modem"]);
+/**
+ * Words a veto window skips ("the code for your reservation", "the code from the booking
+ * email"): articles, possessives and prepositions.
+ */
+const FUNCTION_WORDS = new Set([
+  "a",
+  "an",
+  "the",
+  "this",
+  "that",
+  "your",
+  "my",
+  "our",
+  "for",
+  "from",
+  "of",
+  "with",
+  "in",
+  "on",
+  "at",
+  "to",
+  "by",
+  "de",
+  "del",
+  "la",
+  "el",
+  "le",
+  "du",
+  "des",
+  "di",
+  "da",
+  "do",
+  "su",
+  "tu",
+]);
 /** Words a veto modifies (the code word itself). */
 const VETOED_WORD = new Terms([
   "code",
@@ -494,8 +530,9 @@ const VETOED_WORD = new Terms([
 /**
  * A veto word modifies a code word: up to two words before it ("promo code", "gift card code",
  * "TV code"), or after it ("código de descuento"; `after` words further for "code shown on your
- * TV"), or a word of the field's name or id. A veto anywhere else in the label ("the code we
- * sent to the number shown below") is not.
+ * TV"), function words not counted ("the code for your reservation"), or a word of the field's
+ * name or id. A veto anywhere else in the label ("the code we sent to the number shown below")
+ * is not.
  */
 function vetoed(
   texts: readonly Txt[],
@@ -509,10 +546,16 @@ function vetoed(
     const toks = x.toks;
     for (let k = 0; k < toks.length; k++) {
       if (!VETOED_WORD.has(toks[k] as string)) continue;
-      const from = Math.max(0, k - 2);
-      const to = Math.min(toks.length - 1, k + after);
-      for (let j = from; j <= to; j++) {
-        if (j !== k && list.has(toks[j] as string)) return true;
+      // Each side stops at its word budget or after 8 tokens (a run of function words).
+      for (let j = k - 1, left = 2; j >= 0 && j >= k - 8 && left > 0; j--) {
+        const w = toks[j] as string;
+        if (list.has(w)) return true;
+        if (!FUNCTION_WORDS.has(w)) left--;
+      }
+      for (let j = k + 1, left = after; j < toks.length && j <= k + 8 && left > 0; j++) {
+        const w = toks[j] as string;
+        if (list.has(w)) return true;
+        if (!FUNCTION_WORDS.has(w)) left--;
       }
     }
   }
@@ -769,11 +812,16 @@ export function classifyField(f: FieldFacts): SecureClass | undefined {
     }
     return v;
   };
-  const texts = [name, id, f.ariaLabel, f.placeholder, f.label, f.title]
-    .filter((t): t is string => typeof t === "string" && t !== "")
-    .map(clip)
-    .map((t) => txt(n(t)))
-    .filter((t) => t.t !== "");
+  const texts: Txt[] = [];
+  // The texts other than the name and id (a label the page shows).
+  const shown: Txt[] = [];
+  [name, id, f.ariaLabel, f.placeholder, f.label, f.title].forEach((s, i) => {
+    if (typeof s !== "string" || s === "") return;
+    const t = txt(n(clip(s)));
+    if (t.t === "") return;
+    texts.push(t);
+    if (i >= 2) shown.push(t);
+  });
   if (texts.length === 0) return undefined;
   const all = txt(texts.map((t) => t.t).join(" "));
   const allWords = all.toks;
@@ -789,13 +837,17 @@ export function classifyField(f: FieldFacts): SecureClass | undefined {
   for (const t of texts) {
     const u = unCompound(t);
     if (CODE_PHRASES.in(u)) return STRONG;
+    if (RESET_CODE.in(u) && !RESET_NOT.in(u)) return STRONG;
     if (SECOND_FACTOR.in(t) && CODE_WORDS.in(t)) return STRONG;
     // "6-digit code", "the code we sent": an OTP, even beside "bank", "order" or "access".
     // Once a code was sent, only a sent non-secret code ("the promo code we emailed") vetoes;
-    // "shown", "TV" or "product" elsewhere in the label do not.
+    // "shown", "TV" or "product" elsewhere in the label do not. A label that says both ("the
+    // 6-digit code we emailed you") outranks the field's name and id (`confirmation_code`).
+    const nDigit = N_DIGIT_CODE.test(t.t);
+    const said = shown.includes(t) && nDigit && SENT.in(t);
     if (
-      (N_DIGIT_CODE.test(t.t) || (CODE_WORD.in(t) && SENT.in(t))) &&
-      !vetoed(texts, idWords, SENT_NOT_OTP, 2) &&
+      (nDigit || (CODE_WORD.in(t) && SENT.in(t))) &&
+      !(said ? vetoed(shown, [], SENT_NOT_OTP, 2) : vetoed(texts, idWords, SENT_NOT_OTP, 2)) &&
       (sent || !vetoed(texts, idWords, SHOWN_NOT_OTP, 4))
     ) {
       return STRONG;
@@ -1021,6 +1073,8 @@ const hard = (n: number | undefined): number => (n ?? 0) & 0x7fff;
  * invisible (soft) separator, else the text.
  */
 const FOLD_CACHE = new Map<number, string>();
+/** Folded characters one code point may expand to (NFKD `ﬃ` is 3, `㎑` 3, `ǆ` 2). */
+const MAX_EXPANSION = 4;
 function foldCodePoint(cp: number): string {
   const hit = FOLD_CACHE.get(cp);
   if (hit !== undefined) return hit;
@@ -1032,7 +1086,14 @@ function foldCodePoint(cp: number): string {
   else if (ND.test(ch)) out = String(digitValue(cp));
   else {
     out = "";
-    for (const f of ch.normalize("NFKD")) {
+    const nfkd = ch.normalize("NFKD");
+    // A ligature that decomposes to a phrase (U+FDFA is 18 characters) stays itself: one code
+    // point never folds to more than `MAX_EXPANSION`, so a page cannot inflate the fold.
+    if (nfkd.length > MAX_EXPANSION) {
+      FOLD_CACHE.set(cp, ch);
+      return ch;
+    }
+    for (const f of nfkd) {
       const c = f.charCodeAt(0);
       if (MARK.test(f)) continue;
       if (c < 128 ? SEP_ASCII[c] === 1 : SEP_OTHER.test(f)) out += "\u0000";
@@ -1158,6 +1219,8 @@ export function foldedSecret(value: string): string {
 export const MAX_WHOLE_SECRET = 8192;
 /** Of a longer value, its first and last this many folded characters are tracked. */
 const SECRET_EDGE = 4096;
+/** Characters of a value `secretKeys` folds at most (separators make the original longer). */
+export const SECRET_REACH = MAX_WHOLE_SECRET * 4;
 
 /**
  * `s` in pieces of at most `MAX_SECRET_CHARS`, each starting `PREFIX_KEY + 1` characters before
@@ -1186,7 +1249,7 @@ function pieces(s: string, out: string[]): void {
 export function secretKeys(value: string): string[] {
   const out: string[] = [];
   // Fold only what can hold the tracked keys (separators make the original longer).
-  const reach = MAX_WHOLE_SECRET * 4;
+  const reach = SECRET_REACH;
   if (value.length > reach) {
     const head = foldedSecret(value.slice(0, reach / 2));
     const tail = foldedSecret(value.slice(-reach / 2));
@@ -1208,9 +1271,11 @@ class Matcher {
   readonly #next: Map<number, number>[] = [new Map()];
   readonly #fail: number[] = [0];
   readonly #out: number[] = [0];
+  /** Index of the longest pattern ending at each node. */
+  readonly #id: number[] = [-1];
   readonly size: number;
   constructor(patterns: readonly string[]) {
-    for (const p of patterns) {
+    for (const [pi, p] of patterns.entries()) {
       let node = 0;
       for (let i = 0; i < p.length; i++) {
         const c = p.charCodeAt(i);
@@ -1220,11 +1285,15 @@ class Matcher {
           this.#next.push(new Map());
           this.#fail.push(0);
           this.#out.push(0);
+          this.#id.push(-1);
           this.#next[node]?.set(c, nx);
         }
         node = nx;
       }
-      this.#out[node] = Math.max(this.#out[node] ?? 0, p.length);
+      if (p.length > (this.#out[node] ?? 0)) {
+        this.#out[node] = p.length;
+        this.#id[node] = pi;
+      }
     }
     this.size = patterns.length;
     const queue: number[] = [];
@@ -1237,20 +1306,23 @@ class Matcher {
         const g = this.#next[f]?.get(c);
         const fl = g !== undefined && g !== nx ? g : 0;
         this.#fail[nx] = fl;
-        this.#out[nx] = Math.max(this.#out[nx] ?? 0, this.#out[fl] ?? 0);
+        if ((this.#out[fl] ?? 0) > (this.#out[nx] ?? 0)) {
+          this.#out[nx] = this.#out[fl] ?? 0;
+          this.#id[nx] = this.#id[fl] ?? -1;
+        }
         queue.push(nx);
       }
     }
   }
-  /** `onMatch(endInclusive, length)` for the longest pattern ending at each position. */
-  search(s: string, onMatch: (end: number, len: number) => void): void {
+  /** `onMatch(endInclusive, length, pattern)` for the longest pattern ending at each position. */
+  search(s: string, onMatch: (end: number, len: number, pattern: number) => void): void {
     let node = 0;
     for (let i = 0; i < s.length; i++) {
       const c = s.charCodeAt(i);
       while (node !== 0 && !this.#next[node]?.has(c)) node = this.#fail[node] ?? 0;
       node = this.#next[node]?.get(c) ?? 0;
       const len = this.#out[node] ?? 0;
-      if (len > 0) onMatch(i, len);
+      if (len > 0) onMatch(i, len, this.#id[node] ?? -1);
     }
   }
 }
@@ -1323,12 +1395,15 @@ const GLUE_MAX = 32;
 /**
  * A key longer than `PREFIX_KEY` folded characters is also found by its first `PREFIX_KEY`, and
  * that match is extended along the key as far as the text agrees: a truncated echo of a token
- * (`eyJhbGciOi…`) is masked too. At most `PREFIX_FANOUT` keys per prefix are tried, and one
- * extension per masked region (plus the one chained from its last `PREFIX_KEY` characters), so
- * the cost stays linear in the text.
+ * (`eyJhbGciOi…`) is masked too. At most `PREFIX_FANOUT` keys per prefix are tried, one extension
+ * per prefix per masked region (plus the one chained from its last `PREFIX_KEY` characters), and
+ * at most `EXTEND_WORK` compares per text character in all: past that a prefix match masks as
+ * far as its longest key without comparing (fail closed).
  */
 const PREFIX_KEY = 16;
 const PREFIX_FANOUT = 8;
+/** Prefix extension compares at most this many characters per folded text character. */
+const EXTEND_WORK = 16;
 
 export interface Scrubber {
   /** Mask secret values (separators, zero-width and other digit forms ignored) and card numbers. */
@@ -1359,6 +1434,8 @@ export function makeScrubber(
   }
   const patterns = [...new Set([...keys, ...byPrefix.keys()])];
   const matcher = patterns.length === 0 ? undefined : new Matcher(patterns);
+  // The keys a pattern is the prefix of, by pattern index.
+  const group = patterns.map((p) => byPrefix.get(p));
   const failClosed = options.failClosed === true;
   const spans = (text: string): [number, number][] => {
     if (
@@ -1370,16 +1447,25 @@ export function makeScrubber(
       return [];
     const f = fold(text);
     const found: [number, number][] = [];
-    // End of the last prefix extension. A match starting inside it is masked already; only one
-    // starting in its last PREFIX_KEY characters (the next piece of a long value) extends it.
-    let extended = -1 - PREFIX_KEY;
-    matcher?.search(f.s, (end, len) => {
+    // Per prefix, the end of its last extension. A match of the same prefix starting inside it
+    // is masked already; only one starting in its last PREFIX_KEY characters (the next piece of
+    // a long value) extends it. Another key's extension does not stop this one (a decoy key
+    // that agrees with the text before an echo).
+    const extended = new Int32Array(patterns.length).fill(-1 - PREFIX_KEY);
+    // Past this much comparing, a prefix match masks as far as its longest key, uncompared.
+    let work = EXTEND_WORK * f.s.length + MAX_SECRET_CHARS * PREFIX_FANOUT;
+    matcher?.search(f.s, (end, len, pi) => {
       const a = end - len + 1;
       let b = end;
-      if (len === PREFIX_KEY && a >= extended - PREFIX_KEY) {
-        const cands = byPrefix.get(f.s.slice(a, end + 1));
-        if (cands !== undefined) {
+      const cands = len === PREFIX_KEY ? group[pi] : undefined;
+      if (cands !== undefined) {
+        const last = extended[pi] ?? -1 - PREFIX_KEY;
+        if (a >= last - PREFIX_KEY) {
           for (const k of cands) {
+            if (work <= 0) {
+              b = Math.max(b, Math.min(f.s.length, a + k.length) - 1);
+              continue;
+            }
             let j = PREFIX_KEY;
             while (
               j < k.length &&
@@ -1388,10 +1474,11 @@ export function makeScrubber(
             ) {
               j++;
             }
+            work -= j - PREFIX_KEY + 1;
             b = Math.max(b, a + j - 1);
           }
           // The next extension must start in this one's tail, so each costs new text.
-          extended = Math.max(b, extended + PREFIX_KEY + 1);
+          extended[pi] = Math.max(b, last + PREFIX_KEY + 1);
         }
       }
       const n = b - a + 1;

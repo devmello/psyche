@@ -7,7 +7,16 @@ import {
   hasFieldCandidates,
   SECURE_MASK,
 } from "../src/snapshot/builder.ts";
-import { DomIndex, isPaymentField } from "../src/snapshot/dom.ts";
+import {
+  DomIndex,
+  type DomNodeInfo,
+  FOLD_BUDGET,
+  isPaymentField,
+  MAX_REMEMBERED,
+  PasswordMemory,
+  passwordKey,
+  rememberPasswords,
+} from "../src/snapshot/dom.ts";
 import { RefRegistry } from "../src/snapshot/refs.ts";
 import {
   blocksScreenshot,
@@ -437,6 +446,53 @@ describe("secret field levels", () => {
     ["placeholder 123456", input({ label: "Code", placeholder: "123456" }), "strong"],
     ["split box (DOM group)", input({ name: "x1", maxLength: 1, splitBox: true }), "strong"],
     ["otp1", input({ name: "otp1", maxLength: 1 }), "strong"],
+    // Review round 5: an N-digit code the page says it sent outranks the field's name.
+    [
+      "Cognito: name=confirmation_code, the 6-digit code we emailed",
+      input({ name: "confirmation_code", label: "Enter the 6-digit code we emailed you" }),
+      "strong",
+    ],
+    [
+      "Cognito camelCase id",
+      input({ id: "confirmationCode", ariaLabel: "Enter the 6-digit code we texted you" }),
+      "strong",
+    ],
+    // ...but not when the label itself says what the code is for.
+    [
+      "the 6-digit confirmation code we emailed",
+      input({ name: "confirmation_code", label: "Enter the 6-digit confirmation code we emailed" }),
+      undefined,
+    ],
+    [
+      "the 6-digit code we emailed, named promo",
+      input({ name: "promo", label: "Enter the 6-digit promo code we emailed" }),
+      undefined,
+    ],
+    // The veto window skips function words.
+    [
+      "the code from the booking confirmation email we sent",
+      input({ label: "Enter the code from the booking confirmation email we sent" }),
+      undefined,
+    ],
+    [
+      "the code for your reservation that we emailed",
+      input({ label: "Enter the code for your reservation that we emailed" }),
+      undefined,
+    ],
+    [
+      "the code we sent for your game account",
+      input({ label: "Enter the code we sent for your game account" }),
+      "strong",
+    ],
+    [
+      "the code we sent you (not a promo)",
+      input({ label: "Enter the code we sent you, not a promo" }),
+      "strong",
+    ],
+    ["the code shown on your TV", input({ label: "Enter the code shown on your TV" }), undefined],
+    ["Factory reset code", input({ label: "Factory reset code" }), undefined],
+    ["aria Password reset code", input({ ariaLabel: "Password reset code" }), "strong"],
+    ["Account reset code", input({ label: "Account reset code" }), "strong"],
   ];
   it.each(LEVELS)("%s", (_n, f, level) => {
     expect(secureLevel(f)).toBe(level);
@@ -1124,10 +1180,11 @@ describe("review round 3: fail closed, revealed passwords, hidden roles, errors"
       ax(1, "RootWebArea", "Shop", [2], 1),
       ax(2, "textbox", "Notes", [], 3, 1, "correct horse"),
     ];
-    const seen = new Set<string>();
+    const seen = new PasswordMemory();
     expect(snap(tree, pw("password"), { wasPassword: seen }).text).not.toContain("correct horse");
     expect(seen.size).toBe(1);
-    expect([...seen].join()).not.toContain("correct");
+    // Held as a hash, under the document's frame and origin.
+    expect(seen.has("main|https://shop.example", passwordKey("correct horse") ?? "")).toBe(true);
     // The page's reveal toggle sets type=text: the same node is still masked.
     const revealed = snap(tree, pw("text"), { wasPassword: seen });
     expect(revealed.text).not.toContain("correct horse");
@@ -1561,7 +1618,7 @@ describe("review round 4: label caps, long values, vetoes, memory, fold map", ()
       ax(2, "textbox", "Notes", [], 4, 1, "correct horse"),
       ax(3, "StaticText", "Saved: correct horse", [], 6, 1),
     ];
-    const seen = new Set<string>();
+    const seen = new PasswordMemory();
     snap(tree1, pwDom, { wasPassword: seen });
     const sn = snap(tree2, textDom, { wasPassword: seen });
     expect(sn.text).not.toContain("correct horse");
@@ -1744,5 +1801,356 @@ describe("review round 4: label caps, long values, vetoes, memory, fold map", ()
     const f = makeScrubber([], SECURE_MASK, { failClosed: true });
     expect(f.scrub("4:8:2:9:1:3")).toBe(SECURE_MASK);
     expect(f.scrub("48\u202229\u202213")).toBe(SECURE_MASK);
+  });
+});
+
+describe("review round 5: per-value memo, fold budget, clipping, per-document memory, split text", () => {
+  const ms = (f: () => void): number => {
+    const t = performance.now();
+    f();
+    return performance.now() - t;
+  };
+  /** Fields only in the DOM (a `display:none` container): no AX node, one shared value string. */
+  const hidden = (k: number, attrs: Record<string, string>, value: string, withPw: boolean) => {
+    const nodes: N[] = [
+      { tag: "HTML" },
+      { tag: "BODY", parent: 0 },
+      { tag: "DIV", parent: 1, attrs: { style: "display:none" } },
+    ];
+    if (withPw) {
+      nodes.push({
+        tag: "INPUT",
+        parent: 1,
+        attrs: { type: "password", id: "pw" },
+        value: "hunter2Secret!",
+      });
+    }
+    for (let i = 0; i < k; i++) nodes.push({ tag: "INPUT", parent: 2, attrs, value });
+    const tree: AXNode[] = [ax(1, "RootWebArea", "P", withPw ? [2] : [], 1)];
+    if (withPw) tree.push(ax(2, "textbox", "Password", [], 4, 1, "••••"));
+    return { dom: mkDom(nodes), tree };
+  };
+  /** Snapshot, the screenshot guard and read_text, with the tab's password memory. */
+  const all3 = (p: { dom: CaptureSnapshotResult; tree: AXNode[] }, mem: PasswordMemory) =>
+    ms(() => {
+      snap(p.tree, p.dom, { wasPassword: mem });
+      new DomIndex(p.dom, 1, { wasPassword: mem }).anySecureValue();
+      const d = new DomIndex(p.dom, 1, { wasPassword: mem });
+      rememberPasswords(mem, d);
+      extractText(p.tree, { dom: d });
+    });
+  const V = "a".repeat(32_768);
+
+  it.each([
+    ["4,000 hidden type=password, one 32K value", { type: "password", name: "x" }, false],
+    ["4,000 hidden one-time-code fields, one 32K value", { autocomplete: "one-time-code" }, false],
+    ["4,000 hidden plain fields, one 32K value, beside a filled password", { name: "x" }, true],
+  ] as const)("perf: %s", (_n, attrs, withPw) => {
+    const p = hidden(4000, attrs, V, withPw);
+    const mem = new PasswordMemory();
+    all3(p, mem); // fills the memory (non-empty for the plain-field page)
+    if (withPw) expect(mem.size).toBe(1);
+    const took = all3(p, mem);
+    expect(took, `${took.toFixed(0)} ms`).toBeLessThan(1500);
+    // Still right: the page refuses screenshots and is not failed closed.
+    const d = new DomIndex(p.dom, 1, { wasPassword: mem });
+    expect(d.anySecureValue()).toBe(true);
+    expect(d.overCap).toBe(false);
+  });
+  it("one value shared by many fields is folded once (not charged to the budget per field)", () => {
+    const p = hidden(4000, { type: "password" }, V, false);
+    const d = new DomIndex(p.dom, 1);
+    expect(d.overCap).toBe(false);
+    expect(d.secretValues().length).toBeGreaterThan(1);
+  });
+  it(`past ${FOLD_BUDGET} folded value characters the page fails closed`, () => {
+    const page = (k: number) => {
+      const nodes: N[] = [{ tag: "HTML" }, { tag: "BODY", parent: 0 }];
+      for (let i = 0; i < k; i++) {
+        nodes.push({ tag: "INPUT", parent: 1, attrs: { type: "password" }, value: `${i}${V}` });
+      }
+      nodes.push({ tag: "INPUT", parent: 1, attrs: { name: "q" }, value: "plain" });
+      return mkDom(nodes);
+    };
+    const under = new DomIndex(page(40), 1);
+    expect(under.overCap).toBe(false);
+    const over = new DomIndex(page(80), 1);
+    expect(over.overCap).toBe(true);
+    expect(over.anySecureValue()).toBe(true);
+    const q = over.get(83);
+    if (q === undefined) throw new Error("no field");
+    expect(q.attrs.name).toBe("q");
+    expect(over.isMasked(q)).toBe(true);
+    expect(ms(() => new DomIndex(page(4000), 1).anySecureValue())).toBeLessThan(1500);
+  });
+  it("a field is hashed against the memory only when a remembered value has its length", () => {
+    // 4,000 distinct 600-character plain values (2.4M characters): hashing them all would pass
+    // the fold budget and fail the page closed.
+    const nodes: N[] = [
+      { tag: "HTML" },
+      { tag: "BODY", parent: 0 },
+      { tag: "INPUT", parent: 1, attrs: { type: "password" }, value: "hunter2Secret!" },
+    ];
+    for (let i = 0; i < 4000; i++) {
+      nodes.push({
+        tag: "INPUT",
+        parent: 1,
+        attrs: { name: `n${i}` },
+        value: `${i}`.padEnd(600, "x"),
+      });
+    }
+    const dom = mkDom(nodes);
+    const mem = new PasswordMemory();
+    rememberPasswords(mem, new DomIndex(dom, 1, { wasPassword: mem }));
+    const d = new DomIndex(dom, 1, { wasPassword: mem });
+    const f = d.get(10);
+    if (f === undefined) throw new Error("no field");
+    expect(d.isMasked(f)).toBe(false);
+    expect(d.overCap).toBe(false);
+  });
+
+  it("perf: a 1M x U+FDFA text node is not folded in full", () => {
+    const text = "\ufdfa".repeat(1_000_000);
+    const p = hidden(0, {}, "", true);
+    const tree = [...p.tree, ax(3, "StaticText", text, [], undefined, 1)];
+    (tree[0] as AXNode).childIds = ["2", "3"];
+    snap(tree, p.dom);
+    const took = ms(() => snap(tree, p.dom));
+    expect(took, `${took.toFixed(0)} ms`).toBeLessThan(300);
+    const sc = makeScrubber(["hunter2Secret!"], SECURE_MASK);
+    const scrub = ms(() => sc.scrub(text));
+    expect(scrub, `${scrub.toFixed(0)} ms`).toBeLessThan(300);
+    // The ligature stays one character: text and value fold alike.
+    expect(makeScrubber(["\ufdfa1234"], SECURE_MASK).scrub("x \ufdfa1234 y")).toBe(
+      `x ${SECURE_MASK} y`,
+    );
+  });
+  it("perf: long AX values are clipped before they are scrubbed", () => {
+    const nodes: N[] = [
+      { tag: "HTML" },
+      { tag: "BODY", parent: 0 },
+      { tag: "INPUT", parent: 1, attrs: { type: "password" }, value: "hunter2Secret!" },
+    ];
+    const tree: AXNode[] = [ax(1, "RootWebArea", "P", [], 1)];
+    for (let i = 0; i < 4000; i++) {
+      nodes.push({ tag: "INPUT", parent: 1, attrs: { name: `n${i}` }, value: "v" });
+      tree.push(ax(10 + i, "textbox", "x", [], nodes.length, 1, `${i} ${V}`));
+    }
+    (tree[0] as AXNode).childIds = tree.slice(1).map((n) => n.nodeId);
+    const dom = mkDom(nodes);
+    snap(tree, dom);
+    const took = ms(() => snap(tree, dom));
+    expect(took, `${took.toFixed(0)} ms`).toBeLessThan(1500);
+  });
+  it("a secret that straddles a snapshot clip is still masked", () => {
+    const dom = mkDom([
+      { tag: "HTML" },
+      { tag: "BODY", parent: 0 },
+      { tag: "INPUT", parent: 1, attrs: { type: "password" }, value: "hunter2Secret!" },
+      { tag: "INPUT", parent: 1, attrs: { name: "notes" }, value: "v" },
+    ]);
+    const tail = "hunter2Secret! and more text after it";
+    const tree = [
+      ax(1, "RootWebArea", "P", [2, 3], 1),
+      ax(2, "textbox", "Notes", [], 4, 1, `${"x".repeat(50)} ${tail}`),
+      ax(3, "StaticText", `${"y".repeat(112)} ${tail}`, [], undefined, 1),
+    ];
+    const text = snap(tree, dom).text;
+    expect(text).not.toContain("hunter2");
+    expect(text).not.toContain("hunt");
+  });
+
+  /** Several documents: the top one and iframes of other origins. */
+  const docs = (list: { url: string; frame: string; fields: [string, string][] }[]) => {
+    const strings: string[] = [];
+    const index = new Map<string, number>();
+    const s = (v: string): number => {
+      const i = index.get(v);
+      if (i !== undefined) return i;
+      strings.push(v);
+      index.set(v, strings.length - 1);
+      return strings.length - 1;
+    };
+    let id = 1;
+    const documents = list.map((d) => {
+      const nodes = {
+        parentIndex: [-1, 0],
+        nodeType: [1, 1],
+        nodeName: [s("HTML"), s("BODY")],
+        nodeValue: [-1, -1],
+        backendNodeId: [id++, id++],
+        attributes: [[], []] as number[][],
+        inputValue: { index: [] as number[], value: [] as number[] },
+        inputChecked: { index: [] as number[] },
+        contentDocumentIndex: { index: [] as number[], value: [] as number[] },
+        isClickable: { index: [] as number[] },
+      };
+      const layout = {
+        nodeIndex: [0, 1],
+        bounds: [
+          [0, 0, 1, 1],
+          [0, 0, 1, 1],
+        ],
+      };
+      for (const [type, value] of d.fields) {
+        const i = nodes.parentIndex.length;
+        nodes.parentIndex.push(1);
+        nodes.nodeType.push(1);
+        nodes.nodeName.push(s("INPUT"));
+        nodes.nodeValue.push(-1);
+        nodes.backendNodeId.push(id++);
+        nodes.attributes.push([s("type"), s(type)]);
+        nodes.inputValue.index.push(i);
+        nodes.inputValue.value.push(s(value));
+        layout.nodeIndex.push(i);
+        layout.bounds.push([0, i * 20, 300, 18]);
+      }
+      return { documentURL: s(d.url), title: s("t"), frameId: s(d.frame), nodes, layout };
+    });
+    return { strings, documents } as CaptureSnapshotResult;
+  };
+  const TOP = { url: "https://bank.example/", frame: "top" };
+  const fieldsOf = (d: DomIndex, doc: number): DomNodeInfo[] => {
+    const out: DomNodeInfo[] = [];
+    for (let b = 1; b < 2000; b++) {
+      const f = d.get(b);
+      if (f?.tag === "INPUT" && f.docIndex === doc) out.push(f);
+    }
+    return out;
+  };
+
+  it("an iframe cannot test guesses against the top document's password", () => {
+    const mem = new PasswordMemory();
+    rememberPasswords(mem, new DomIndex(docs([{ ...TOP, fields: [["password", "tulip42"]] }]), 1));
+    // The field is gone; an ad iframe shows guesses, one of them right.
+    const guesses = Array.from({ length: 300 }, (_, i) => (i === 137 ? "tulip42" : `guess${i}`));
+    const page = docs([
+      { ...TOP, fields: [["text", ""]] },
+      {
+        url: "https://ads.example/",
+        frame: "ad",
+        fields: guesses.map((g): [string, string] => ["text", g]),
+      },
+    ]);
+    const d = new DomIndex(page, 1, { wasPassword: mem });
+    expect(fieldsOf(d, 1)).toHaveLength(300);
+    expect(fieldsOf(d, 1).filter((f) => d.isMasked(f))).toEqual([]);
+    expect(d.anySecureValue()).toBe(false);
+    // In its own document the value is still the password.
+    const same = new DomIndex(docs([{ ...TOP, fields: [["text", "tulip42"]] }]), 1, {
+      wasPassword: mem,
+    });
+    const f = fieldsOf(same, 0)[0];
+    if (f === undefined) throw new Error("no field");
+    expect(same.isSecure(f)).toBe(true);
+  });
+  it("an iframe full of passwords cannot evict the top document's", () => {
+    const mem = new PasswordMemory();
+    const junk = Array.from({ length: 300 }, (_, i): [string, string] => ["password", `junk${i}`]);
+    rememberPasswords(
+      mem,
+      new DomIndex(
+        docs([
+          { ...TOP, fields: [["password", "tulip42"]] },
+          { url: "https://ads.example/", frame: "ad", fields: junk },
+        ]),
+        1,
+      ),
+    );
+    const top = "top|https://bank.example";
+    expect(mem.has(top, passwordKey("tulip42") ?? "")).toBe(true);
+    // Each document keeps its newest MAX_REMEMBERED.
+    expect(mem.sizeOf("ad|https://ads.example")).toBe(MAX_REMEMBERED);
+    expect(mem.has("ad|https://ads.example", passwordKey("junk0") ?? "")).toBe(false);
+    expect(mem.has("ad|https://ads.example", passwordKey("junk299") ?? "")).toBe(true);
+    // The owner's "show password" re-creates the field as text: still the password.
+    const shown = new DomIndex(docs([{ ...TOP, fields: [["text", "tulip42"]] }]), 1, {
+      wasPassword: mem,
+    });
+    expect(shown.anySecureValue()).toBe(true);
+    // Many iframes: the oldest documents go, never the top one.
+    const many = Array.from({ length: 40 }, (_, i) => ({
+      url: `https://ads${i}.example/`,
+      frame: `f${i}`,
+      fields: [["password", `p${i}`]] as [string, string][],
+    }));
+    rememberPasswords(mem, new DomIndex(docs([{ ...TOP, fields: [] }, ...many]), 1));
+    expect(mem.has(top, passwordKey("tulip42") ?? "")).toBe(true);
+    expect(mem.sizeOf("f39|https://ads39.example")).toBe(1);
+    expect(mem.sizeOf("f0|https://ads0.example")).toBe(0);
+  });
+
+  it("a secret split over adjacent text nodes is masked in the snapshot, as in read_text", () => {
+    const dom = mkDom([
+      { tag: "HTML" },
+      { tag: "BODY", parent: 0 },
+      { tag: "INPUT", parent: 1, attrs: { autocomplete: "one-time-code" }, value: "48a913" },
+      { tag: "INPUT", parent: 1, attrs: { type: "password" }, value: "hunter2Secret!" },
+    ]);
+    const parts = [
+      ["Your code is 48", "a913"],
+      ["pw hunter2", "Secret!"],
+      ["x hun", "ter2Sec", "ret! y"],
+    ];
+    for (const texts of parts) {
+      const tree: AXNode[] = [
+        ax(1, "RootWebArea", "P", [], 1),
+        ax(2, "link", "Home", [], undefined, 1),
+        ...texts.map((t, i) => ax(10 + i, "StaticText", t, [], undefined, 1)),
+        ax(3, "link", "Help", [], undefined, 1),
+      ];
+      (tree[0] as AXNode).childIds = tree.slice(1).map((n) => n.nodeId);
+      const text = snap(tree, dom).text;
+      for (const t of texts) expect(text).not.toContain(t);
+      expect(text).toContain(SECURE_MASK);
+      const rt = extractText(tree, { dom: new DomIndex(dom, 1) }).text;
+      for (const t of texts) expect(rt).not.toContain(t);
+    }
+    // Adjacent text with no secret in it is kept.
+    const tree = [
+      ax(1, "RootWebArea", "P", [2, 3], 1),
+      ax(2, "StaticText", "Your order 48", [], undefined, 1),
+      ax(3, "StaticText", "ships today", [], undefined, 1),
+    ];
+    const text = snap(tree, dom).text;
+    expect(text).toContain("Your order 48");
+    expect(text).toContain("ships today");
+  });
+
+  it("a decoy key that agrees with the text before an echo does not stop its extension", () => {
+    let v = "";
+    for (let i = 0; v.length < 200; i++) v += String.fromCharCode(97 + ((i * 7 + i * i) % 26));
+    const decoy = `Q${v.slice(0, 60)}zzzz`;
+    const sc = makeScrubber([v, decoy], SECURE_MASK);
+    const out = sc.scrub(`start Q${v.slice(0, 150)} end`);
+    for (let i = 0; i + 8 <= 150; i += 4) expect(out).not.toContain(v.slice(i, i + 8));
+    expect(out).toContain("start");
+    expect(out).toContain("end");
+  });
+  it("perf: prefix extension has a work budget when many keys agree with the text", () => {
+    // 240 keys, each a 256-character window of one random text: every position starts a prefix
+    // match of a different key that agrees for 256 characters.
+    let r = 12345;
+    const rnd = () => {
+      r = (r * 1103515245 + 12345) % 2147483648;
+      return String.fromCharCode(97 + (r % 26));
+    };
+    let base = "";
+    while (base.length < 512) base += rnd();
+    const keys = Array.from({ length: 240 }, (_, i) => base.slice(i, i + 256));
+    const sc = makeScrubber(keys, SECURE_MASK);
+    const page = base.repeat(2000); // 1M characters
+    const other = makeScrubber(
+      keys.map((k) => k.toUpperCase()),
+      SECURE_MASK,
+    );
+    const t0 = performance.now();
+    other.scrub(page);
+    const plain = performance.now() - t0;
+    const took = ms(() => sc.scrub(page));
+    expect(took, `${took.toFixed(0)} ms vs ${plain.toFixed(0)} ms`).toBeLessThan(
+      Math.max(6 * plain, 400),
+    );
+    expect(sc.scrub(`x ${base.slice(0, 300)} y`)).not.toContain(base.slice(0, 20));
   });
 });
