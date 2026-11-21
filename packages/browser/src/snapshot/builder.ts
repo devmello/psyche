@@ -3,7 +3,7 @@ import type { AXNode, CaptureSnapshotResult, LayoutViewport } from "../cdp/types
 import { tryOrigin } from "../origin/canonical.ts";
 import { redactUrl } from "../origin/redact-url.ts";
 import type { BrowserSnapshot, ElementMeta, SnapshotOptions, SnapshotRefEx } from "../types.ts";
-import { DomIndex, type DomNodeInfo } from "./dom.ts";
+import { DomIndex, type DomNodeInfo, rememberPasswords } from "./dom.ts";
 import type { RefRegistry } from "./refs.ts";
 import { blocksScreenshot, maskCardNumbers } from "./secure-field.ts";
 
@@ -186,10 +186,11 @@ export interface SnapshotInput {
   /** Nodes a secret was typed into: their values are masked like a password until navigation. */
   maskNodes?: ReadonlySet<number>;
   /**
-   * Inputs seen as `type=password` earlier in this document: still the password after a reveal
-   * toggle made them text. The builder adds the password inputs it sees now.
+   * Values (`passwordKey`) seen in a `type=password` input earlier in this document: a field
+   * holding one is still the password after a reveal toggle or a re-render made it text. The
+   * builder adds the password values it sees now.
    */
-  wasPassword?: Set<number>;
+  wasPassword?: Set<string>;
   /**
    * A payment card was typed into this document: every `<input>` value is masked, so a form the
    * page re-renders (a SPA remount, a route change) cannot show it on a new node.
@@ -306,7 +307,7 @@ export function buildSnapshot(input: SnapshotInput): BrowserSnapshot {
     input.wasPassword === undefined
       ? new DomIndex(input.dom, input.dpr)
       : new DomIndex(input.dom, input.dpr, { wasPassword: input.wasPassword });
-  for (const id of dom.passwordFields()) input.wasPassword?.add(id);
+  if (input.wasPassword !== undefined) rememberPasswords(input.wasPassword, dom.passwordFields());
   // The vault's redaction, then the page's own secret field values (and card numbers) wherever
   // they appear in what is emitted.
   const redact0 = input.redact ?? ((s: string) => s);
@@ -765,10 +766,16 @@ export function extractText(
   // The page's own secret values (also split over runs) and card numbers, after the vault's.
   // Card numbers are masked on every page, with or without a DOM index.
   const joined = redact(out.join("\n"));
-  const text =
-    options.dom !== undefined ? options.dom.scrub(joined) : maskCardNumbers(joined, SECURE_MASK);
   const max = options.maxChars ?? 20_000;
-  return text.length > max
+  // Only what can be returned is scrubbed: the output limit plus a margin, so a secret cut at
+  // the limit is still matched whole (a long page is not folded in full).
+  const head = joined.length > max + SCRUB_MARGIN ? joined.slice(0, max + SCRUB_MARGIN) : joined;
+  const text =
+    options.dom !== undefined ? options.dom.scrub(head) : maskCardNumbers(head, SECURE_MASK);
+  return text.length > max || head.length < joined.length
     ? { text: text.slice(0, max), truncated: true }
     : { text, truncated: false };
 }
+
+/** Characters past `read_text`'s limit that are scrubbed too (a secret straddling the cut). */
+const SCRUB_MARGIN = 4096;

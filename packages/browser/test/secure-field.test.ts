@@ -1,4 +1,4 @@
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 import type { AXNode, CaptureSnapshotResult } from "../src/cdp/types.ts";
 import { redactUrl } from "../src/origin/redact-url.ts";
 import {
@@ -7,20 +7,24 @@ import {
   hasFieldCandidates,
   SECURE_MASK,
 } from "../src/snapshot/builder.ts";
-import { DomIndex } from "../src/snapshot/dom.ts";
+import { DomIndex, isPaymentField } from "../src/snapshot/dom.ts";
 import { RefRegistry } from "../src/snapshot/refs.ts";
 import {
   blocksScreenshot,
   classifyField,
   type FieldFacts,
+  foldBufferCapacity,
   isLegacySecure,
   isSecureField,
   isStrongSecureField,
   MAX_SECRET_CHARS,
   MAX_SECRETS,
+  MAX_WHOLE_SECRET,
   makeScrubber,
   maskCardNumbers,
+  secretKeys,
   secureLevel,
+  TEXT_CAP,
 } from "../src/snapshot/secure-field.ts";
 
 const input = (f: Omit<FieldFacts, "tag">): FieldFacts => ({ tag: "INPUT", ...f });
@@ -209,6 +213,37 @@ const MUST_HIDE: [string, FieldFacts][] = [
   ["Wallet passphrase", input({ type: "text", label: "Wallet passphrase" })],
   ["Online-Banking PIN", input({ label: "Online-Banking PIN" })],
   ["id card_id_3, label Card number", input({ label: "Card number", id: "card_id_3" })],
+  // Review round 4: a veto word elsewhere in a "sent" label does not unmask the OTP.
+  [
+    "the code we sent to the phone number shown below",
+    input({ label: "Enter the code we sent to the phone number shown below" }),
+  ],
+  [
+    "a code texted to the number displayed above",
+    input({ label: "We texted a code to the number displayed above" }),
+  ],
+  [
+    "the code your TV provider texted you",
+    input({ label: "Enter the code your TV provider texted you" }),
+  ],
+  [
+    "the code we sent to activate your product",
+    input({ label: "Enter the code we sent to activate your product" }),
+  ],
+  [
+    "the 6-digit code we sent to your game account email",
+    input({ label: "Enter the 6-digit code we sent to your game account email" }),
+  ],
+  [
+    "the code we sent, placeholder Product key format",
+    input({ label: "Enter the code we sent to your phone", placeholder: "Product key format" }),
+  ],
+  ["Password reset code", input({ label: "Password reset code" })],
+  [
+    "the code we sent to confirm your booking (booking does not modify code)",
+    input({ label: "Enter the code we sent to your email to confirm your booking" }),
+  ],
+  ["title only: Verification code", input({ name: "c", title: "Verification code" })],
 ];
 
 const MUST_NOT_HIDE: [string, FieldFacts][] = [
@@ -342,6 +377,31 @@ const MUST_NOT_HIDE: [string, FieldFacts][] = [
     "Referral code your friend sent",
     input({ label: "Enter the code your friend sent you", name: "referral" }),
   ],
+  // Review round 4 (owner: codes the agent needs for a task are not secrets, even sent).
+  ["confirmation code we emailed", input({ label: "Enter the confirmation code we emailed you" })],
+  [
+    "booking code sent in the confirmation email",
+    input({ label: "Booking code (sent in your confirmation email)" }),
+  ],
+  ["reservation code we emailed", input({ label: "Enter the reservation code we emailed you" })],
+  ["event code from the email we sent", input({ label: "Event code from the email we sent" })],
+  [
+    "area code of the number we sent the SMS to",
+    input({ label: "Area code of the number we sent the SMS to" }),
+  ],
+  ["room code your host sent", input({ label: "Enter the room code your host sent" })],
+  ["Hint for your password", input({ label: "Hint for your password" })],
+  ["password-protected link", input({ label: "Who can open this password-protected link" })],
+  ["Minimum password length", input({ label: "Minimum password length" })],
+  ["Email for password recovery", input({ label: "Email for password recovery" })],
+  ["Password expires after (days)", input({ label: "Password expires after (days)" })],
+  [
+    "the code displayed on your device",
+    input({ label: "Enter the code displayed on your device" }),
+  ],
+  ["promo code we sent", input({ label: "Enter the promo code we sent you" })],
+  ["discount code we emailed", input({ label: "Enter the discount code we emailed you" })],
+  ["tracking code we emailed", input({ label: "Tracking code we emailed you" })],
 ];
 
 describe("secret field classifier (masking)", () => {
@@ -482,9 +542,21 @@ describe("value backstop: disguised secrets and card numbers", () => {
   it.each(MORE_CARDS)("masks a card number: %s", (_n, text) => {
     expect(maskCardNumbers(text, SECURE_MASK)).toBe(SECURE_MASK);
   });
-  it("a value longer than the cap is not tracked (the page fails closed instead)", () => {
-    const long = "x".repeat(MAX_SECRET_CHARS + 1);
-    expect(makeScrubber([long], SECURE_MASK).scrub(long)).toBe(long);
+  it("a value longer than MAX_SECRET_CHARS is masked piece by piece", () => {
+    const long = Array.from({ length: MAX_SECRET_CHARS * 3 + 17 }, (_, i) =>
+      String.fromCharCode(97 + ((i * 7) % 26)),
+    ).join("");
+    expect(makeScrubber([long], SECURE_MASK).scrub(`echo ${long} end`)).toBe(
+      `echo ${SECURE_MASK} end`,
+    );
+    // Past MAX_WHOLE_SECRET only its edges are tracked, so the keys stay bounded.
+    const huge = Array.from({ length: MAX_WHOLE_SECRET * 5 }, (_, i) =>
+      String.fromCharCode(97 + ((i * 7) % 26)),
+    ).join("");
+    expect(secretKeys(huge).length).toBeLessThanOrEqual(36);
+    const out = makeScrubber([huge], SECURE_MASK).scrub(huge);
+    expect(out.startsWith(SECURE_MASK)).toBe(true);
+    expect(out.endsWith(SECURE_MASK)).toBe(true);
   });
   it("fail-closed mode masks every run of four or more digits", () => {
     const f = makeScrubber([], SECURE_MASK, { failClosed: true });
@@ -995,7 +1067,7 @@ describe("review round 3: fail closed, revealed passwords, hidden roles, errors"
     expect(d.overCap).toBe(false);
     expect(d.anySecureValue()).toBe(false);
   });
-  it("a 6,000-character secret neither throws nor leaks, and fails closed", () => {
+  it("a 6,000-character secret neither throws nor leaks, and its echo is masked", () => {
     const long = Array.from({ length: 6000 }, (_, i) =>
       String.fromCharCode(97 + ((i * 7) % 26)),
     ).join("");
@@ -1005,22 +1077,23 @@ describe("review round 3: fail closed, revealed passwords, hidden roles, errors"
       { tag: "INPUT", parent: 1, attrs: { type: "password", name: "p" }, value: "hunter2!Secret" },
       { tag: "TEXTAREA", parent: 1, attrs: { name: "recovery_codes" }, value: long },
       { tag: "P", parent: 1 },
-      { text: "echo 482913", tag: "#text", parent: 4 },
+      { text: `echo ${long} and hunter2!Secret`, tag: "#text", parent: 4 },
     ]);
     const tree = [
       ax(1, "RootWebArea", "Shop", [2, 3, 4], 1),
       ax(2, "textbox", "Password", [], 3, 1, "hunter2!Secret"),
       ax(3, "textbox", "Recovery codes", [], 4, 1, long),
-      ax(4, "StaticText", "echo 482913", [], 6, 1),
+      ax(4, "StaticText", `echo ${long} and hunter2!Secret`, [], 6, 1),
     ];
     const sn = snap(tree, dom);
-    expect(sn.text).not.toContain("hunter2");
-    // The value is masked as a field; past the cap, text fails closed on digit runs.
-    expect(sn.text).not.toContain(long.slice(0, 40));
-    expect(new DomIndex(dom, 1).overCap).toBe(true);
-    expect(sn.text).not.toContain("482913");
+    const text = extractText(tree, { dom: new DomIndex(dom, 1) }).text;
+    // The long value is tracked in pieces: its echo is masked whole, and so is the password.
+    for (const out of [sn.text, text]) {
+      expect(out).not.toContain("hunter2");
+      for (const at of [0, 2980, 5960]) expect(out).not.toContain(long.slice(at, at + 40));
+    }
+    expect(new DomIndex(dom, 1).overCap).toBe(false);
     expect(sn.secureFieldActive).toBe(true);
-    expect(extractText(tree, { dom: new DomIndex(dom, 1) }).text).not.toContain("hunter2");
   });
   it("a secret under a dropped role, labelled only in the AX tree, refuses screenshots", () => {
     // The contenteditable has no label in the DOM: only the walk's hidden-role branch sees it.
@@ -1051,9 +1124,10 @@ describe("review round 3: fail closed, revealed passwords, hidden roles, errors"
       ax(1, "RootWebArea", "Shop", [2], 1),
       ax(2, "textbox", "Notes", [], 3, 1, "correct horse"),
     ];
-    const seen = new Set<number>();
+    const seen = new Set<string>();
     expect(snap(tree, pw("password"), { wasPassword: seen }).text).not.toContain("correct horse");
-    expect([...seen]).toEqual([3]);
+    expect(seen.size).toBe(1);
+    expect([...seen].join()).not.toContain("correct");
     // The page's reveal toggle sets type=text: the same node is still masked.
     const revealed = snap(tree, pw("text"), { wasPassword: seen });
     expect(revealed.text).not.toContain("correct horse");
@@ -1272,7 +1346,10 @@ describe("perf: the review's worst-case pages (round 3)", () => {
       extractText(p.tree, { dom: new DomIndex(p.dom, 1), maxChars: 200_000 });
     });
   it("one 4k-character secret beside 80k characters of its prefix (was 1.6 s)", () => {
+    // A 4k value is tracked as 256-character pieces, so the matcher is built and run.
     expect(both(page([`${"a".repeat(4000)}b`], ["a".repeat(80_000)]))).toBeLessThan(1500);
+    // Under the piece size: one costly pattern over its own prefix.
+    expect(both(page([`${"a".repeat(249)}b`], ["a".repeat(80_000)]))).toBeLessThan(1500);
   });
   it("64 secrets of 200 characters sharing a prefix, beside 100k of it (was 46 s)", () => {
     const secrets = Array.from(
@@ -1308,5 +1385,364 @@ describe("perf: the review's worst-case pages (round 3)", () => {
       Array.from({ length: 160_000 }, () => "abcd"),
     );
     expect(() => snap(letters.tree, letters.dom)).not.toThrow();
+  });
+});
+
+describe("review round 4: label caps, long values, vetoes, memory, fold map", () => {
+  const ms = (f: () => void): number => {
+    const t = performance.now();
+    f();
+    return performance.now() - t;
+  };
+  /** Snapshot, the DOM-only screenshot guard and read_text over one page. */
+  const all3 = (tree: AXNode[], dom: CaptureSnapshotResult) =>
+    ms(() => {
+      snap(tree, dom);
+      new DomIndex(dom, 1).anySecureValue();
+      extractText(tree, { dom: new DomIndex(dom, 1) });
+    });
+  const fields = (nodes: N[], k: number, attrs: (i: number) => Record<string, string>) => {
+    const tree: AXNode[] = [ax(1, "RootWebArea", "P", [], 1)];
+    for (let i = 0; i < k; i++) {
+      nodes.push({ tag: "INPUT", parent: 1, attrs: { type: "text", ...attrs(i) }, value: `v${i}` });
+      tree.push(ax(10 + i, "textbox", "x", [], nodes.length, 1, `v${i}`));
+    }
+    (tree[0] as AXNode).childIds = tree.slice(1).map((n) => n.nodeId);
+    return tree;
+  };
+
+  it("perf: 400 inputs each labelled by one 4 KB div 400 times (was 43-51 s)", () => {
+    const nodes: N[] = [
+      { tag: "HTML" },
+      { tag: "BODY", parent: 0 },
+      { tag: "DIV", parent: 1, attrs: { id: "t" } },
+      { text: "lorem ipsum dolor sit amet ".repeat(160), tag: "#text", parent: 2 },
+    ];
+    const ref = Array(400).fill("t").join(" ");
+    const tree = fields(nodes, 400, (i) => ({ name: `f${i}`, "aria-labelledby": ref }));
+    const dom = mkDom(nodes);
+    expect(all3(tree, dom)).toBeLessThan(1500);
+    const d = new DomIndex(dom, 1);
+    const f = d.get(5);
+    if (f === undefined) throw new Error("no field");
+    expect(d.labelOf(f)?.length ?? 0).toBeLessThanOrEqual(TEXT_CAP + 1);
+  });
+  it("perf: 400 inputs each labelled by 400 distinct 4 KB divs", () => {
+    const nodes: N[] = [{ tag: "HTML" }, { tag: "BODY", parent: 0 }];
+    for (let i = 0; i < 400; i++) {
+      nodes.push({ tag: "DIV", parent: 1, attrs: { id: `t${i}` } });
+      nodes.push({
+        text: `lorem ipsum dolor sit amet ${i} `.repeat(140),
+        tag: "#text",
+        parent: nodes.length - 1,
+      });
+    }
+    const ref = Array.from({ length: 400 }, (_, i) => `t${i}`).join(" ");
+    const tree = fields(nodes, 400, (i) => ({ name: `f${i}`, "aria-labelledby": ref }));
+    const dom = mkDom(nodes);
+    expect(all3(tree, dom)).toBeLessThan(1500);
+    // The joined label stops at TEXT_CAP, however many targets it names.
+    const d = new DomIndex(dom, 1);
+    const f = d.get(nodes.length);
+    if (f === undefined) throw new Error("no field");
+    expect(d.labelOf(f)?.length ?? 0).toBeLessThanOrEqual(TEXT_CAP + 1);
+  });
+  it("perf: 400 <label for=x> of 4 KB and 400 inputs id=x (was 138-147 s)", () => {
+    const nodes: N[] = [{ tag: "HTML" }, { tag: "BODY", parent: 0 }];
+    for (let i = 0; i < 400; i++) {
+      nodes.push({ tag: "LABEL", parent: 1, attrs: { for: "x" } });
+      nodes.push({
+        text: `lorem ipsum dolor sit amet ${i} `.repeat(140),
+        tag: "#text",
+        parent: nodes.length - 1,
+      });
+    }
+    const tree = fields(nodes, 400, (i) => ({ id: "x", name: `f${i}` }));
+    expect(all3(tree, mkDom(nodes))).toBeLessThan(1500);
+  });
+  it("perf: a 1 MB name and title on 400 inputs are clipped before classification", () => {
+    const nodes: N[] = [{ tag: "HTML" }, { tag: "BODY", parent: 0 }];
+    const big = "code ".repeat(200_000);
+    const tree = fields(nodes, 400, () => ({ name: big, title: big }));
+    expect(all3(tree, mkDom(nodes))).toBeLessThan(1500);
+  });
+
+  it("one long token does not stop the scrubbing of the other secrets", () => {
+    const token = `eyJ${Array.from({ length: 320 }, (_, i) =>
+      "aBcDeFgHiJkLmNoPqRsTuVwXyZ0123456789".charAt((i * 11) % 36),
+    ).join("")}`;
+    expect(token.length).toBe(323);
+    const dom = mkDom([
+      { tag: "HTML" },
+      { tag: "BODY", parent: 0 },
+      { tag: "INPUT", parent: 1, attrs: { type: "password", name: "api_token" }, value: token },
+      { tag: "INPUT", parent: 1, attrs: { type: "password", name: "pw" }, value: "hunter2Secret!" },
+      {
+        tag: "INPUT",
+        parent: 1,
+        attrs: { autocomplete: "one-time-code", name: "otp" },
+        value: "48a913",
+      },
+      { tag: "P", parent: 1 },
+      { text: "Your new password is hunter2Secret!", tag: "#text", parent: 5 },
+      { tag: "P", parent: 1 },
+      { text: `Token: ${token}`, tag: "#text", parent: 7 },
+      { tag: "P", parent: 1 },
+      { text: "Code 48a913 Order 2024-11-20", tag: "#text", parent: 9 },
+    ]);
+    const tree = [
+      ax(1, "RootWebArea", "Shop", [2, 3, 4, 5, 6, 7], 1),
+      ax(2, "textbox", "API token", [], 3, 1, token),
+      ax(3, "textbox", "Password", [], 4, 1, "hunter2Secret!"),
+      ax(4, "textbox", "Code", [], 5, 1, "48a913"),
+      ax(5, "StaticText", "Your new password is hunter2Secret!", [], 7, 1),
+      ax(6, "StaticText", `Token: ${token}`, [], 9, 1),
+      ax(7, "StaticText", "Code 48a913 Order 2024-11-20", [], 11, 1),
+    ];
+    const d = new DomIndex(dom, 1);
+    expect(d.overCap).toBe(false);
+    const sn = snap(tree, dom);
+    const text = extractText(tree, { dom: new DomIndex(dom, 1) }).text;
+    for (const out of [sn.text, text]) {
+      expect(out).not.toContain("hunter2Secret!");
+      expect(out).not.toContain(token.slice(0, 24));
+      expect(out).not.toContain(token.slice(150, 174));
+      expect(out).not.toContain(token.slice(-24));
+      expect(out).not.toContain("48a913");
+      // Not fail closed: the date stays.
+      expect(out).toContain("2024-11-20");
+    }
+  });
+  it("past the key cap the first keys are still masked, and digit runs are masked on top", () => {
+    const nodes: N[] = [{ tag: "HTML" }, { tag: "BODY", parent: 0 }];
+    for (let i = 0; i < MAX_SECRETS + 20; i++) {
+      nodes.push({
+        tag: "INPUT",
+        parent: 1,
+        attrs: { type: "password", name: `p${i}` },
+        // Letters only, so digit-run masking cannot hide a dropped key.
+        value: `alpha-${String.fromCharCode(97 + (i % 26), 97 + (Math.floor(i / 26) % 26))}-key`,
+      });
+    }
+    nodes.push({ tag: "P", parent: 1 });
+    nodes.push({
+      text: "first alpha-aa-key, pin 7391 4402",
+      tag: "#text",
+      parent: nodes.length - 1,
+    });
+    const d = new DomIndex(mkDom(nodes), 1);
+    expect(d.overCap).toBe(true);
+    const out = d.scrub("first alpha-aa-key, pin 7391 4402");
+    expect(out).not.toContain("alpha");
+    expect(out).not.toContain("7391");
+  });
+
+  it("a revealed password re-created as a new text node stays masked, screenshots refused", () => {
+    const pwDom = mkDom([
+      { tag: "HTML" },
+      { tag: "BODY", parent: 0 },
+      { tag: "INPUT", parent: 1, attrs: { type: "password", name: "f1" }, value: "correct horse" },
+    ]);
+    // The framework renders a new <input type=text> (a new backend id) for the revealed value.
+    const textDom = mkDom([
+      { tag: "HTML" },
+      { tag: "BODY", parent: 0 },
+      { tag: "DIV", parent: 1 },
+      { tag: "INPUT", parent: 1, attrs: { type: "text", name: "f1" }, value: "correct horse" },
+      { tag: "P", parent: 1 },
+      { text: "Saved: correct horse", tag: "#text", parent: 4 },
+    ]);
+    const tree1 = [
+      ax(1, "RootWebArea", "Shop", [2], 1),
+      ax(2, "textbox", "Notes", [], 3, 1, "correct horse"),
+    ];
+    const tree2 = [
+      ax(1, "RootWebArea", "Shop", [2, 3], 1),
+      ax(2, "textbox", "Notes", [], 4, 1, "correct horse"),
+      ax(3, "StaticText", "Saved: correct horse", [], 6, 1),
+    ];
+    const seen = new Set<string>();
+    snap(tree1, pwDom, { wasPassword: seen });
+    const sn = snap(tree2, textDom, { wasPassword: seen });
+    expect(sn.text).not.toContain("correct horse");
+    expect(sn.secureFieldActive).toBe(true);
+    const d = new DomIndex(textDom, 1, { wasPassword: seen });
+    expect(d.anySecureValue()).toBe(true);
+    const f = d.get(4);
+    if (f === undefined) throw new Error("no field");
+    expect(d.isSecure(f)).toBe(true);
+    expect(snap(tree2, textDom).text).toContain("correct horse");
+  });
+
+  it("a field labelled only by its title has its echo masked, and the DOM guard sees it", () => {
+    const dom = mkDom([
+      { tag: "HTML" },
+      { tag: "BODY", parent: 0 },
+      {
+        tag: "INPUT",
+        parent: 1,
+        attrs: { name: "c", title: "Verification code" },
+        value: "482913",
+      },
+      { tag: "P", parent: 1 },
+      { text: "Your code 482913", tag: "#text", parent: 3 },
+    ]);
+    const tree = [
+      ax(1, "RootWebArea", "Shop", [2, 3], 1),
+      ax(2, "textbox", "Verification code", [], 3, 1, "482913"),
+      ax(3, "StaticText", "Your code 482913", [], 5, 1),
+    ];
+    expect(snap(tree, dom).text).not.toContain("482913");
+    expect(extractText(tree, { dom: new DomIndex(dom, 1) }).text).not.toContain("482913");
+    expect(new DomIndex(dom, 1).anySecureValue()).toBe(true);
+  });
+
+  it("read_text scrubs only what it can return, and a secret cut at the limit is masked", () => {
+    const secret = "hunter2Secret!";
+    const filler = "x".repeat(19_995);
+    const dom = mkDom([
+      { tag: "HTML" },
+      { tag: "BODY", parent: 0 },
+      { tag: "INPUT", parent: 1, attrs: { type: "password", name: "p" }, value: secret },
+      { tag: "P", parent: 1 },
+      { text: `${filler} ${secret} ${"y".repeat(500_000)}`, tag: "#text", parent: 3 },
+    ]);
+    const tree = [
+      ax(1, "RootWebArea", "Shop", [2, 3], 1),
+      ax(2, "textbox", "Password", [], 3, 1, secret),
+      ax(3, "StaticText", `${filler} ${secret} ${"y".repeat(500_000)}`, [], 5, 1),
+    ];
+    const spy = vi.spyOn(DomIndex.prototype, "scrub");
+    const r = extractText(tree, { dom: new DomIndex(dom, 1), maxChars: 20_000 });
+    const lens = spy.mock.calls.map((c) => (c[0] as string).length);
+    spy.mockRestore();
+    expect(Math.max(...lens)).toBeLessThanOrEqual(20_000 + 4096);
+    expect(r.truncated).toBe(true);
+    expect(r.text.endsWith("hunte")).toBe(false);
+    expect(r.text).not.toContain("hunt");
+  });
+
+  it("each labelled-by id counts once", () => {
+    const dom = mkDom([
+      { tag: "HTML" },
+      { tag: "BODY", parent: 0 },
+      { tag: "SPAN", parent: 1, attrs: { id: "t" } },
+      { text: "Code", tag: "#text", parent: 2 },
+      { tag: "INPUT", parent: 1, attrs: { name: "f", "aria-labelledby": "t t  t" }, value: "1" },
+    ]);
+    const d = new DomIndex(dom, 1);
+    const f = d.get(5);
+    if (f === undefined) throw new Error("no field");
+    expect(d.labelOf(f)).toBe("Code");
+  });
+  it("perf: the payment-field rule reads clipped attributes", () => {
+    const big = "card ".repeat(200_000);
+    expect(
+      ms(() => {
+        for (let i = 0; i < 400; i++) isPaymentField({ name: big, placeholder: big });
+      }),
+    ).toBeLessThan(1500);
+  });
+  it("perf: 400 weak code fields holding 1 MB each (the shape check reads no long value)", () => {
+    const nodes: N[] = [{ tag: "HTML" }, { tag: "BODY", parent: 0 }];
+    const big = "7".repeat(1_000_000);
+    for (let i = 0; i < 400; i++) {
+      nodes.push({ tag: "INPUT", parent: 1, attrs: { name: `pin_${i}` }, value: big });
+    }
+    const dom = mkDom(nodes);
+    expect(
+      ms(() => {
+        const d = new DomIndex(dom, 1);
+        d.anySecureValue();
+        d.scrub("pin 1234");
+      }),
+    ).toBeLessThan(1500);
+  });
+  it("a long all-digit value is masked across its pieces (no glue check on long keys)", () => {
+    const digits = Array.from({ length: 700 }, (_, i) => String((i * 7) % 10)).join("");
+    expect(makeScrubber([digits], SECURE_MASK).scrub(`codes ${digits} end`)).toBe(
+      `codes ${SECURE_MASK} end`,
+    );
+  });
+  it("an invisible character does not split a card into groups", () => {
+    expect(maskCardNumbers("Card 4\u200b242 4242 4242 4242", SECURE_MASK)).toBe(
+      `Card ${SECURE_MASK}`,
+    );
+  });
+  it("a truncated echo of a long secret is masked as far as it goes", () => {
+    const token = Array.from({ length: 900 }, (_, i) =>
+      "aBcDeFgHiJkLmNoPqRsTuVwXyZ0123456789".charAt((i * 11 + (i >> 3)) % 36),
+    ).join("");
+    const sc = makeScrubber([token], SECURE_MASK);
+    // The first 60 characters (a token shown truncated), and echoes that stop just past a
+    // piece boundary.
+    for (const n of [16, 60, 241, 250, 257, 500, 899]) {
+      const out = sc.scrub(`Token: ${token.slice(0, n)}… done`);
+      expect(out).toBe(`Token: ${SECURE_MASK}… done`);
+    }
+    // Under 16 characters is not an echo of the secret.
+    expect(sc.scrub(`x ${token.slice(0, 15)} y`)).toBe(`x ${token.slice(0, 15)} y`);
+  });
+  it("perf: prefix extension stays linear on a page that repeats the secret's prefix", () => {
+    const vals = Array.from({ length: 8 }, (_, i) => `${"a".repeat(300)}${i}${"a".repeat(7000)}`);
+    const sc = makeScrubber(vals, SECURE_MASK);
+    // A page of the same length the prefix never matches: the fold and the search alone.
+    const t0 = performance.now();
+    sc.scrub(`${"c".repeat(255)}b`.repeat(8000));
+    const base = performance.now() - t0;
+    const t = performance.now();
+    // Runs shorter than a piece: only the 16-character prefix matches, at every position.
+    const out = sc.scrub(`${"a".repeat(255)}b`.repeat(8000));
+    const took = performance.now() - t;
+    // One extension per run, not one per position (about 8x the baseline without the rule).
+    expect(took, `${took.toFixed(0)} ms vs ${base.toFixed(0)} ms`).toBeLessThan(
+      Math.max(4 * base, 250),
+    );
+    expect(out).not.toContain("aaaaaaaaaaaaaaaa");
+  });
+  it("a huge fold does not keep its buffers", () => {
+    const s = makeScrubber(["482913"], SECURE_MASK);
+    expect(s.scrub(`${"word 1 ".repeat(450_000)} 482913`)).toContain(SECURE_MASK);
+    s.scrub("small 482913");
+    expect(foldBufferCapacity()).toBeLessThanOrEqual(1 << 20);
+  });
+
+  it.each([
+    ["combining marks", "4\u03018\u03012\u03019\u03011\u03013\u0301"],
+    ["VS16", "4\ufe0f8\ufe0f2\ufe0f9\ufe0f1\ufe0f3\ufe0f"],
+    ["keycaps", "4\u20e38\u20e32\u20e39\u20e31\u20e33\u20e3"],
+    ["grapheme joiner", "4\u034f82913"],
+    ["Hangul filler", "4\u3164829 13"],
+    ["braille blank", "4\u28008\u28002913"],
+    ["colons", "4:8:2:9:1:3"],
+    ["bullets", "4\u20228\u20222\u20229\u20221\u20223"],
+    ["hyphenation points", "48\u202729\u202713"],
+    ["ZWSP before a digit", "1\u200b482913"],
+    ["soft hyphen before a digit", "1\u00ad482913"],
+    ["word joiner before a digit", "1\u2060482913"],
+  ])("masks a secret: %s", (_n, text) => {
+    const out = makeScrubber(["482913"], SECURE_MASK).scrub(`code ${text} end`);
+    expect(out).toContain(SECURE_MASK);
+    expect(out.replace(/^code /, "").replace(/ end$/, "")).not.toMatch(/[2-9]/);
+  });
+  it("an invisible character is not glue, a real digit still is", () => {
+    const s = makeScrubber(["482913"], SECURE_MASK);
+    expect(s.scrub("1482913")).toBe("1482913");
+    expect(s.scrub("1\u200b482913")).toBe(`1\u200b${SECURE_MASK}`);
+  });
+  it("NFD text matches an NFC value, and the reverse", () => {
+    const nfc = "Caf\u00e9#2024";
+    const nfd = "Cafe\u0301#2024";
+    expect(makeScrubber([nfc], SECURE_MASK).scrub(`pw ${nfd}`)).not.toContain("#2024");
+    expect(makeScrubber([nfd], SECURE_MASK).scrub(`pw ${nfc}`)).not.toContain("#2024");
+  });
+  it("card numbers with bullets or colons, and fail-closed runs with them", () => {
+    expect(maskCardNumbers("Card 4242\u20224242\u20224242\u20224242", SECURE_MASK)).toBe(
+      `Card ${SECURE_MASK}`,
+    );
+    expect(maskCardNumbers("Card 4242:4242:4242:4242", SECURE_MASK)).toBe(`Card ${SECURE_MASK}`);
+    const f = makeScrubber([], SECURE_MASK, { failClosed: true });
+    expect(f.scrub("4:8:2:9:1:3")).toBe(SECURE_MASK);
+    expect(f.scrub("48\u202229\u202213")).toBe(SECURE_MASK);
   });
 });

@@ -16,7 +16,7 @@ import {
   type FrameAx,
   hasFieldCandidates,
 } from "../snapshot/builder.ts";
-import { DomIndex, isPaymentField } from "../snapshot/dom.ts";
+import { DomIndex, isPaymentField, rememberPasswords } from "../snapshot/dom.ts";
 import { type RefEntry, RefRegistry } from "../snapshot/refs.ts";
 import type {
   ActionTarget,
@@ -390,8 +390,11 @@ export class PageController {
   #filledDocs = new Set<string>();
   /** Nodes a vault secret was typed into: masked in snapshots until the document changes. */
   readonly #typedNodes = new Set<number>();
-  /** Inputs seen as `type=password` in this document (a reveal toggle keeps them secret). */
-  readonly #wasPassword = new Set<number>();
+  /**
+   * Values seen in a `type=password` input in this document, as `passwordKey` hashes: a reveal
+   * toggle or a re-created text field keeps them secret. Forgotten on main-frame navigation.
+   */
+  readonly #wasPassword = new Set<string>();
   /**
    * Documents (by loader id, which a pushState route change keeps) a payment card was typed into:
    * every input value there is masked in snapshots while that document lives, at most
@@ -1070,7 +1073,7 @@ export class PageController {
       });
       opts.dom = contained(() => {
         const d = new DomIndex(domSnap, 1, { wasPassword: this.#wasPassword });
-        for (const id of d.passwordFields()) this.#wasPassword.add(id);
+        rememberPasswords(this.#wasPassword, d.passwordFields());
         return d;
       });
     }

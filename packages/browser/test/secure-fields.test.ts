@@ -11,6 +11,7 @@ import { FileRecordingSink } from "../src/recording/recorder.ts";
 import { SECURE_MASK } from "../src/snapshot/builder.ts";
 import { MockBrowser } from "../src/testing/mock-browser.ts";
 import { MockDesktop } from "../src/testing/mock-desktop.ts";
+import { FIXTURE_SITE } from "../src/testing/site.ts";
 
 describe("secret field values never reach the model (mock CDP page)", () => {
   let dir: string;
@@ -234,6 +235,115 @@ describe("an internal error on page data never echoes page values", () => {
       expect(err?.code).toBe("internal");
       expect(JSON.stringify({ m: err?.message, d: err?.details })).not.toMatch(/hunter2|482913/);
     }
+    tab.send = send;
+  });
+});
+
+describe("review round 4: the page controller's own guards (mock CDP)", () => {
+  const SITE = {
+    ...FIXTURE_SITE,
+    pages: {
+      ...FIXTURE_SITE.pages,
+      // A password field with no password word in its label, and an echo of its value.
+      "a/reveal": {
+        title: "Reveal",
+        body: [
+          {
+            kind: "input" as const,
+            label: "Notes",
+            name: "f1",
+            type: "password" as const,
+            value: "hunter2-reveal",
+          },
+          { kind: "text" as const, text: "Saved as hunter2-reveal" },
+        ],
+      },
+    },
+  };
+  const open = async (key: string) => {
+    const browser = new MockBrowser({ site: SITE });
+    const tab = browser.openTab();
+    const policy = new OriginPolicy({ devPreview: true, readWritable: [browser.origin("a")] });
+    const page = new PageController({
+      tabId: tab.id,
+      target: tab,
+      policy: () => policy,
+      assertAgent: () => {},
+      userInControl: () => false,
+      emit: () => {},
+    });
+    await page.init();
+    await page.navigate(browser.url(key));
+    return { tab, page };
+  };
+
+  it("read_text remembers a password value, so a reveal toggle does not show its echo", async () => {
+    const { tab, page } = await open("a/reveal");
+    expect((await page.readText()).text).not.toContain("hunter2-reveal");
+    // The page's reveal toggle: only read_text has seen the field as a password.
+    tab.setFieldType("f1", "text");
+    expect((await page.readText()).text).not.toContain("hunter2-reveal");
+    // A controller that never saw it as a password shows the echo.
+    const fresh = await open("a/reveal");
+    fresh.tab.setFieldType("f1", "text");
+    expect((await fresh.page.readText()).text).toContain("hunter2-reveal");
+  });
+
+  it("a post-capture guard that cannot run refuses the screenshot", async () => {
+    const { tab, page } = await open("a/landing");
+    await expect(page.screenshot()).resolves.toMatchObject({ mime: "image/png" });
+    const send = tab.send.bind(tab);
+    let captured = false;
+    tab.send = (async (method: string, params?: Record<string, unknown>) => {
+      const r = await send(method, params);
+      if (method === "Page.captureScreenshot") captured = true;
+      if (method !== "DOMSnapshot.captureSnapshot" || !captured) return r;
+      captured = false;
+      return {
+        ...(r as object),
+        get documents(): never {
+          throw new Error("guard broke");
+        },
+      };
+    }) as typeof tab.send;
+    await expect(page.screenshot()).rejects.toMatchObject({
+      code: "policy_denied",
+      details: { reason: "secure_field" },
+    });
+    tab.send = send;
+  });
+
+  it("read_text contains an error thrown while extracting text", async () => {
+    const { tab, page } = await open("a/landing");
+    const send = tab.send.bind(tab);
+    tab.send = (async (method: string, params?: Record<string, unknown>) => {
+      const r = await send(method, params);
+      if (method !== "Accessibility.getFullAXTree") return r;
+      const nodes = [...(r as { nodes: Record<string, unknown>[] }).nodes];
+      const root = nodes.find((n) => n.parentId === undefined) ?? nodes[0];
+      if (root === undefined) return r;
+      nodes.push({
+        nodeId: "zz-throws",
+        parentId: root.nodeId,
+        ignored: false,
+        role: { type: "role", value: "StaticText" },
+        get name(): never {
+          throw new Error("text hunter2-secret, code 482913");
+        },
+        childIds: [],
+      });
+      nodes[nodes.indexOf(root)] = {
+        ...root,
+        childIds: [...((root.childIds as string[] | undefined) ?? []), "zz-throws"],
+      };
+      return { ...(r as object), nodes };
+    }) as typeof tab.send;
+    const err = await page.readText().then(
+      () => undefined,
+      (e: unknown) => e as { code: string; message: string; details?: unknown },
+    );
+    expect(err?.code).toBe("internal");
+    expect(JSON.stringify({ m: err?.message, d: err?.details })).not.toMatch(/hunter2|482913/);
     tab.send = send;
   });
 });

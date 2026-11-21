@@ -25,6 +25,8 @@ export interface FieldFacts {
   id?: string | undefined;
   placeholder?: string | undefined;
   ariaLabel?: string | undefined;
+  /** The `title` attribute (a tooltip that is often the only label). */
+  title?: string | undefined;
   /** The accessible name (label) as the AX tree or the DOM gives it. */
   label?: string | undefined;
   contentEditable?: boolean | undefined;
@@ -117,8 +119,8 @@ const txt = (t: string): Txt => ({ t, padded: ` ${t} `, toks: tokensOf(t), ascii
  */
 class Terms {
   readonly #words = new Set<string>();
-  /** Spaced phrases (` one time code `) by their first word. */
-  readonly #phrases = new Map<string, string[]>();
+  /** Spaced phrases (`one time code`) as words, by their first word. */
+  readonly #phrases = new Map<string, string[][]>();
   readonly #other: string[] = [];
   constructor(terms: readonly string[]) {
     for (const raw of terms) {
@@ -126,18 +128,31 @@ class Terms {
       if (t === "") continue;
       if (!SPACED.test(t)) this.#other.push(t);
       else if (t.includes(" ")) {
-        const first = t.slice(0, t.indexOf(" "));
+        const words = t.split(" ");
+        const first = words[0] as string;
         const list = this.#phrases.get(first) ?? [];
-        list.push(` ${t} `);
+        list.push(words);
         this.#phrases.set(first, list);
       } else this.#words.add(t);
     }
   }
+  /** One normalised word is a one-word term. */
+  has(word: string): boolean {
+    return this.#words.has(word);
+  }
   in(x: Txt): boolean {
-    for (const w of x.toks) {
+    const toks = x.toks;
+    for (let i = 0; i < toks.length; i++) {
+      const w = toks[i] as string;
       if (this.#words.has(w)) return true;
       const ps = this.#phrases.get(w);
-      if (ps !== undefined) for (const t of ps) if (x.padded.includes(t)) return true;
+      if (ps === undefined) continue;
+      // Compared in place: a long label costs its length, not length x occurrences.
+      for (const p of ps) {
+        let k = 1;
+        while (k < p.length && toks[i + k] === p[k]) k++;
+        if (k === p.length) return true;
+      }
     }
     // Every non-spaced term holds a non-ASCII character.
     if (!x.ascii) for (const t of this.#other) if (x.t.includes(t)) return true;
@@ -221,6 +236,14 @@ const PASSWORD_NOT: string[] = [
     `${w} rules`,
     `${w} tips`,
     `${w} manager`,
+    `hint for ${w}`,
+    `hint for your ${w}`,
+    `${w} protected`,
+    `${w} length`,
+    `${w} recovery`,
+    `${w} expires`,
+    `${w} expiry`,
+    `${w} expiration`,
   ]),
   "mot de passe oublie",
   "indice de mot de passe",
@@ -323,6 +346,8 @@ const CODE_PHRASES = new Terms([
   "backupcode",
   "recovery code",
   "recovery codes",
+  "reset code",
+  "reset codes",
   "recoverycode",
   "cvc",
   "cvv",
@@ -403,11 +428,16 @@ const SENT = new Terms([
   "भेजा",
   "أرسلنا",
 ]);
-/** Codes that are never an OTP, even "sent": promo, referral, invite, gift, captcha… */
-const CODE_NOT_OTP = new Terms([
+/**
+ * Codes that are sent and still not secret: promo, gift, referral, invite, and the codes the
+ * agent needs for a task (confirmation, booking, reservation, event, room, area, tracking).
+ * They veto only where they modify the code word ("promo code", "código de descuento").
+ */
+const SENT_NOT_OTP = new Terms([
   "promo",
   "promotion",
   "promotional",
+  "promocional",
   "coupon",
   "cupon",
   "discount",
@@ -417,11 +447,26 @@ const CODE_NOT_OTP = new Terms([
   "referral",
   "invite",
   "invitation",
+  "confirmation",
+  "confirmacion",
+  "booking",
+  "reservation",
+  "reserva",
+  "event",
+  "evento",
+  "room",
+  "area",
+  "tracking",
   "postal",
   "zip",
+]);
+/**
+ * Codes that are not an OTP when nothing says the code was sent: product and class codes, a
+ * captcha, a code shown on a TV or in an image. Also only where they modify the code word.
+ */
+const SHOWN_NOT_OTP = new Terms([
   "product",
   "sku",
-  "tracking",
   "track",
   "shipment",
   "parcel",
@@ -431,9 +476,48 @@ const CODE_NOT_OTP = new Terms([
   "shown",
   "displayed",
   "tv",
+  "screen",
   "class",
   "game",
 ]);
+/** Words a veto modifies (the code word itself). */
+const VETOED_WORD = new Terms([
+  "code",
+  "codes",
+  "codigo",
+  "codice",
+  "kode",
+  "passcode",
+  "pin",
+  "key",
+]);
+/**
+ * A veto word modifies a code word: up to two words before it ("promo code", "gift card code",
+ * "TV code"), or after it ("código de descuento"; `after` words further for "code shown on your
+ * TV"), or a word of the field's name or id. A veto anywhere else in the label ("the code we
+ * sent to the number shown below") is not.
+ */
+function vetoed(
+  texts: readonly Txt[],
+  idWords: readonly string[],
+  list: Terms,
+  after: number,
+): boolean {
+  // The field's name or id says what it is (`name=referral`, `promoCode`).
+  for (const w of idWords) if (list.has(w)) return true;
+  for (const x of texts) {
+    const toks = x.toks;
+    for (let k = 0; k < toks.length; k++) {
+      if (!VETOED_WORD.has(toks[k] as string)) continue;
+      const from = Math.max(0, k - 2);
+      const to = Math.min(toks.length - 1, k + after);
+      for (let j = from; j <= to; j++) {
+        if (j !== k && list.has(toks[j] as string)) return true;
+      }
+    }
+  }
+  return false;
+}
 /** "6-digit code", "código de 6 dígitos". */
 const N_DIGIT_CODE =
   /\b\d{1,2} (digit|digits|stellig|stelligen|chiffres?|digitos?|cifre) (\p{L}+ )?(code|codigo|codice|pin|passcode|otp)\b|\b(code|codigo|codice) (de |di |a )?\d{1,2} (digitos?|chiffres?|cifre|stellen)\b/u;
@@ -584,11 +668,7 @@ const BARE_CODE_EXCLUDE = new Terms([
   "swift",
   "routing",
   "captcha",
-  "image",
-  "picture",
-  "shown",
-  "displayed",
-  "tv",
+  "room",
 ]);
 /** Pins on a map or a board, not a PIN. */
 const PIN_EXCLUDE = new Terms([
@@ -645,6 +725,14 @@ const hasAny = (words: readonly string[], list: readonly string[]): boolean =>
 
 const STRONG: SecureClass = { level: "strong" };
 const LEGACY: SecureClass = { level: "legacy" };
+/** Characters of DOM text kept per label, labelled-by target or contenteditable, and per joined label. */
+export const TEXT_CAP = 4096;
+/**
+ * Characters of any one text (name, id, title, placeholder, aria-label, label) the classifier
+ * reads: a real label is far shorter, and a hostile 1 MB one costs no more than this.
+ */
+export const CLASSIFY_CAP = 1024;
+const clip = (t: string): string => (t.length > CLASSIFY_CAP ? t.slice(0, CLASSIFY_CAP) : t);
 const weak = (shape: SecretShape): SecureClass => ({ level: "weak", shape });
 
 /** The field's level, or undefined for an ordinary field. */
@@ -670,7 +758,8 @@ export function classifyField(f: FieldFacts): SecureClass | undefined {
   if (f.wasPassword === true) return LEGACY;
 
   // Django ids are `id_<name>`: the "id" is not an ID card.
-  const id = f.id?.replace(/^id[_-]/i, "");
+  const id = f.id === undefined ? undefined : clip(f.id).replace(/^id[_-]/i, "");
+  const name = f.name === undefined ? undefined : clip(f.name);
   const normed = new Map<string | undefined, string>();
   const n = (t: string | undefined): string => {
     let v = normed.get(t);
@@ -680,13 +769,15 @@ export function classifyField(f: FieldFacts): SecureClass | undefined {
     }
     return v;
   };
-  const texts = [f.name, id, f.ariaLabel, f.placeholder, f.label]
+  const texts = [name, id, f.ariaLabel, f.placeholder, f.label, f.title]
     .filter((t): t is string => typeof t === "string" && t !== "")
+    .map(clip)
     .map((t) => txt(n(t)))
     .filter((t) => t.t !== "");
   if (texts.length === 0) return undefined;
   const all = txt(texts.map((t) => t.t).join(" "));
   const allWords = all.toks;
+  const idWords = [...tokensOf(n(name)), ...tokensOf(n(id))];
 
   // Passwords, including one revealed by a toggle (`type=text`).
   for (const t of texts) {
@@ -694,12 +785,19 @@ export function classifyField(f: FieldFacts): SecureClass | undefined {
     if (t.toks.includes("clave") && !CLAVE_EXCLUDE.in(t)) return STRONG;
   }
   // One-time, verification, security and recovery codes; CVC.
+  const sent = texts.some((t) => SENT.in(t));
   for (const t of texts) {
     const u = unCompound(t);
     if (CODE_PHRASES.in(u)) return STRONG;
     if (SECOND_FACTOR.in(t) && CODE_WORDS.in(t)) return STRONG;
     // "6-digit code", "the code we sent": an OTP, even beside "bank", "order" or "access".
-    if ((N_DIGIT_CODE.test(t.t) || (CODE_WORD.in(t) && SENT.in(t))) && !CODE_NOT_OTP.in(all)) {
+    // Once a code was sent, only a sent non-secret code ("the promo code we emailed") vetoes;
+    // "shown", "TV" or "product" elsewhere in the label do not.
+    if (
+      (N_DIGIT_CODE.test(t.t) || (CODE_WORD.in(t) && SENT.in(t))) &&
+      !vetoed(texts, idWords, SENT_NOT_OTP, 2) &&
+      (sent || !vetoed(texts, idWords, SHOWN_NOT_OTP, 4))
+    ) {
       return STRONG;
     }
   }
@@ -708,9 +806,10 @@ export function classifyField(f: FieldFacts): SecureClass | undefined {
     return STRONG;
   }
   // Card numbers: the shared rule and the lexicon, unless that text names some other card.
-  const raw = [f.name, id, f.label ?? f.ariaLabel, f.placeholder];
-  for (const [i, t] of raw.entries()) {
-    if (t === undefined || t === "") continue;
+  const raw = [name, id, f.label ?? f.ariaLabel, f.placeholder];
+  for (const [i, r] of raw.entries()) {
+    if (r === undefined || r === "") continue;
+    const t = clip(r);
     const x = txt(n(t));
     if (CARD_EXCLUDE.in(x)) continue;
     if (CARD_NUMBER_PHRASES.in(x)) return STRONG;
@@ -728,7 +827,7 @@ export function classifyField(f: FieldFacts): SecureClass | undefined {
     }
   }
   if (f.ariaLabel !== undefined && f.label !== undefined) {
-    const x = txt(n(f.ariaLabel));
+    const x = txt(n(clip(f.ariaLabel)));
     if (!CARD_EXCLUDE.in(x) && CARD_NUMBER_PHRASES.in(x)) return STRONG;
   }
 
@@ -743,13 +842,13 @@ export function classifyField(f: FieldFacts): SecureClass | undefined {
     codeish &&
     !postalPin &&
     /^\d{4,8}$/.test((f.placeholder ?? "").replace(/[\s-]/g, "")) &&
-    !BARE_CODE_EXCLUDE.in(all)
+    !BARE_CODE_EXCLUDE.in(all) &&
+    (sent || !vetoed(texts, idWords, SHOWN_NOT_OTP, 4))
   ) {
     return STRONG;
   }
 
   // Weaker signals: masked in snapshots and text; screenshots only for a secret-shaped value.
-  const idWords = [...tokensOf(n(f.name)), ...tokensOf(n(id))];
   // `pan` alone or beside a card or number word (not `pan_size`, `pan_x`).
   if (
     hasAny(idWords, ["pan"]) &&
@@ -784,7 +883,11 @@ export function classifyField(f: FieldFacts): SecureClass | undefined {
     if (!PIN_EXCLUDE.in(all)) return weak("digits");
   }
   // Bare "code": an OTP beside "enter" / "sent" / "digit", or a field named just code.
-  if (!BARE_CODE_EXCLUDE.in(all) && BARE_CODE.in(all)) {
+  if (
+    !BARE_CODE_EXCLUDE.in(all) &&
+    BARE_CODE.in(all) &&
+    (sent || !vetoed(texts, idWords, SHOWN_NOT_OTP, 4))
+  ) {
     const named = texts.some(
       (t) => t.t === "code" || t.t === "codigo" || t.t === "codice" || t.t === "kode",
     );
@@ -823,6 +926,8 @@ export function foldValue(v: string): string {
 
 /** The value looks like the secret a weak field of this shape holds. */
 export function valueHasShape(shape: SecretShape | undefined, value: string): boolean {
+  // A digit code or an expiry date is short; a long value is only `any` (and is not folded).
+  if (value.length > 256) return shape === "any" && value.trim() !== "";
   const v = foldValue(value);
   if (v === "") return false;
   switch (shape) {
@@ -870,12 +975,17 @@ export function isCardNumberValue(v: string): boolean {
 // --- the scrubber ------------------------------------------------------------------------------
 
 /**
- * Text folded once into a canonical form for matching: NFKC, every decimal digit (`\p{Nd}`:
- * fullwidth, mathematical, Arabic-Indic, Bengali, Devanagari…) as ASCII, zero-width and format
- * characters (`\p{Cf}`) dropped, separators dropped. Separators are whitespace, `.`, `-`, `/`,
- * `|`, `_`, `,`, dashes and middle dots (and their fullwidth forms). `at[i]`/`end[i]` map folded
- * character `i` back to the original text; `seps[i]` counts the separators just before it.
- * No pattern is ever built from page values: matching is Aho-Corasick over this string.
+ * Text folded once into a canonical form for matching, the same for page text and values:
+ * per code point NFKD with combining marks (`\p{M}`: accents, keycaps, variation selectors)
+ * dropped, so NFC, NFD and decorated text agree; every decimal digit (`\p{Nd}`: fullwidth,
+ * mathematical, Arabic-Indic, Bengali, Devanagari…) as ASCII; separators dropped. Separators are
+ * whitespace, `.`, `-`, `/`, `|`, `_`, `,`, `:`, dashes, middle dots and bullets (and their
+ * fullwidth forms). Invisible characters (`\p{Cf}` such as ZWSP, soft hyphen and word joiner, the
+ * grapheme joiner, Hangul fillers, the braille blank) are dropped as soft separators: they split
+ * digits for the glue check but not card groups. `at[i]`/`end[i]` map folded character `i` back
+ * to the original text; `seps[i]` counts the separators just before it (`SOFT` set when an
+ * invisible one was among them). No pattern is ever built from page values: matching is
+ * Aho-Corasick over this string.
  */
 interface Folded {
   s: string;
@@ -885,26 +995,38 @@ interface Folded {
 }
 
 const SEP_ASCII = new Uint8Array(128);
-for (const c of "\t\n\v\f\r .-/|_,") SEP_ASCII[c.charCodeAt(0)] = 1;
-const SEP_OTHER = /^[\s‐-―−·・，－．／＿｜]$/u;
-const CF = /^\p{Cf}$/u;
+for (const c of "\t\n\v\f\r .-/|_,:") SEP_ASCII[c.charCodeAt(0)] = 1;
+const SEP_OTHER = /^[\s‐-―−·・，－．／＿｜•‧∙⋅：]$/u;
+/** Invisible characters: format (`Cf`), grapheme joiner, Hangul fillers, braille blank. */
+const IGNORABLE = /^[\p{Cf}\u034f\u115f\u1160\u3164\uffa0\u2800\u180b-\u180f\ufe00-\ufe0f]$/u;
+const MARK = /^\p{M}$/u;
 const ND = /^\p{Nd}$/u;
+/** `seps` flag: an invisible character sat among the separators. */
+const SOFT = 0x8000;
+/** Separators before a folded character, invisible ones not counted. */
+const hard = (n: number | undefined): number => (n ?? 0) & 0x7fff;
 
-/** Folded form of one non-ASCII code point: "" dropped, "\u0000" a separator, else the text. */
+/**
+ * Folded form of one non-ASCII code point: "" dropped, "\u0000" a separator, "\u0001" an
+ * invisible (soft) separator, else the text.
+ */
 const FOLD_CACHE = new Map<number, string>();
 function foldCodePoint(cp: number): string {
   const hit = FOLD_CACHE.get(cp);
   if (hit !== undefined) return hit;
   const ch = String.fromCodePoint(cp);
   let out: string;
-  if (CF.test(ch)) out = "";
+  if (IGNORABLE.test(ch)) out = "\u0001";
+  else if (MARK.test(ch)) out = "";
   else if (SEP_OTHER.test(ch)) out = "\u0000";
   else if (ND.test(ch)) out = String(digitValue(cp));
   else {
     out = "";
-    for (const f of ch.normalize("NFKC")) {
+    for (const f of ch.normalize("NFKD")) {
       const c = f.charCodeAt(0);
+      if (MARK.test(f)) continue;
       if (c < 128 ? SEP_ASCII[c] === 1 : SEP_OTHER.test(f)) out += "\u0000";
+      else if (ND.test(f)) out += String(digitValue(f.codePointAt(0) ?? c));
       else out += f;
     }
   }
@@ -922,44 +1044,56 @@ function digitValue(cp: number): number {
   return k % 10;
 }
 
-/** Scratch buffers shared by every `fold` call (synchronous, so never in use twice at once). */
-let BUF = {
-  cap: 0,
-  codes: new Uint16Array(0),
-  at: new Int32Array(0),
-  end: new Int32Array(0),
-  seps: new Uint16Array(0),
-};
-function ensure(cap: number): void {
-  if (BUF.cap >= cap) return;
-  const c = Math.max(cap, BUF.cap * 2, 1024);
-  const next = {
-    cap: c,
-    codes: new Uint16Array(c),
-    at: new Int32Array(c),
-    end: new Int32Array(c),
-    seps: new Uint16Array(c),
-  };
-  next.codes.set(BUF.codes);
-  next.at.set(BUF.at);
-  next.end.set(BUF.end);
-  next.seps.set(BUF.seps);
-  BUF = next;
+interface FoldBuf {
+  cap: number;
+  codes: Uint16Array;
+  at: Int32Array;
+  end: Int32Array;
+  seps: Uint16Array;
+}
+const allocBuf = (cap: number): FoldBuf => ({
+  cap,
+  codes: new Uint16Array(cap),
+  at: new Int32Array(cap),
+  end: new Int32Array(cap),
+  seps: new Uint16Array(cap),
+});
+/** Folds up to this many characters reuse one shared buffer; larger ones get their own. */
+const SHARED_FOLD_CAP = 1 << 20;
+/**
+ * Scratch buffers shared by `fold` calls (synchronous, so never in use twice at once). They never
+ * grow past `SHARED_FOLD_CAP`, so one huge page does not pin hundreds of MB for the process life.
+ */
+let BUF = allocBuf(0);
+function grow(b: FoldBuf, need: number): FoldBuf {
+  let c = Math.max(need, b.cap * 2, 1024);
+  if (need <= SHARED_FOLD_CAP) c = Math.min(c, SHARED_FOLD_CAP);
+  const next = allocBuf(c);
+  next.codes.set(b.codes);
+  next.at.set(b.at);
+  next.end.set(b.end);
+  next.seps.set(b.seps);
+  return next;
 }
 
-/** The fold of `text`; its arrays are views of the shared buffers, valid until the next call. */
+/** Capacity of the shared fold buffers (tests). */
+export const foldBufferCapacity = (): number => BUF.cap;
+
+/** The fold of `text`; its arrays are views of scratch buffers, valid until the next call. */
 function fold(text: string): Folded {
   const n = text.length;
-  ensure(n + 8);
+  let b = n + 8 > SHARED_FOLD_CAP ? allocBuf(n + 8) : BUF.cap >= n + 8 ? BUF : grow(BUF, n + 8);
   let len = 0;
   let sep = 0;
+  let soft = false;
   const push = (code: number, from: number, to: number) => {
-    if (len >= BUF.cap) ensure(len + 1);
-    BUF.codes[len] = code;
-    BUF.at[len] = from;
-    BUF.end[len] = to;
-    BUF.seps[len] = sep > 65535 ? 65535 : sep;
+    if (len >= b.cap) b = grow(b, len + 1);
+    b.codes[len] = code;
+    b.at[len] = from;
+    b.end[len] = to;
+    b.seps[len] = (sep > 0x7fff ? 0x7fff : sep) | (soft ? SOFT : 0);
     sep = 0;
+    soft = false;
     len++;
   };
   for (let i = 0; i < n; ) {
@@ -976,19 +1110,21 @@ function fold(text: string): Folded {
     for (let k = 0; k < f.length; k++) {
       const fc = f.charCodeAt(k);
       if (fc === 0) sep++;
+      else if (fc === 1) soft = true;
       else push(fc, i, i + w);
     }
     i += w;
   }
+  if (b.cap <= SHARED_FOLD_CAP) BUF = b;
   let s = "";
   for (let i = 0; i < len; i += 8192) {
-    s += String.fromCharCode(...BUF.codes.subarray(i, Math.min(len, i + 8192)));
+    s += String.fromCharCode(...b.codes.subarray(i, Math.min(len, i + 8192)));
   }
   return {
     s,
-    at: BUF.at.subarray(0, len),
-    end: BUF.end.subarray(0, len),
-    seps: BUF.seps.subarray(0, len),
+    at: b.at.subarray(0, len),
+    end: b.end.subarray(0, len),
+    seps: b.seps.subarray(0, len),
   };
 }
 
@@ -1006,6 +1142,55 @@ function asciiFewDigits(text: string): boolean {
 /** A value in folded form, separators removed (what the scrubber looks for). */
 export function foldedSecret(value: string): string {
   return fold(value).s;
+}
+
+/** A value up to this many folded characters is tracked whole, in `MAX_SECRET_CHARS` pieces. */
+export const MAX_WHOLE_SECRET = 8192;
+/** Of a longer value, its first and last this many folded characters are tracked. */
+const SECRET_EDGE = 4096;
+
+/**
+ * `s` in pieces of at most `MAX_SECRET_CHARS`, each starting `PREFIX_KEY + 1` characters before
+ * the previous one ends. A truncated echo that runs past a piece's end so holds the next piece's
+ * prefix, ending where no earlier piece ends (the matcher reports only the longest key ending at
+ * a position), and the scrubber extends it (`makeScrubber`). The last piece is the rest (longer
+ * than `PREFIX_KEY`).
+ */
+function pieces(s: string, out: string[]): void {
+  const stride = MAX_SECRET_CHARS - PREFIX_KEY - 1;
+  for (let i = 0; ; i += stride) {
+    if (i + MAX_SECRET_CHARS >= s.length) {
+      out.push(s.slice(i));
+      return;
+    }
+    out.push(s.slice(i, i + MAX_SECRET_CHARS));
+  }
+}
+
+/**
+ * The scrubber's keys for one value: its fold, or for a value over `MAX_SECRET_CHARS` folded,
+ * overlapping pieces of that size (an echo of the value is masked piece by piece). A value over
+ * `MAX_WHOLE_SECRET` folded is tracked by its first and last `SECRET_EDGE` characters only.
+ * Never more than 2 * (SECRET_EDGE / (MAX_SECRET_CHARS - PREFIX_KEY - 1) + 1) keys.
+ */
+export function secretKeys(value: string): string[] {
+  const out: string[] = [];
+  // Fold only what can hold the tracked keys (separators make the original longer).
+  const reach = MAX_WHOLE_SECRET * 4;
+  if (value.length > reach) {
+    const head = foldedSecret(value.slice(0, reach / 2));
+    const tail = foldedSecret(value.slice(-reach / 2));
+    pieces(head.slice(0, SECRET_EDGE), out);
+    pieces(tail.slice(-SECRET_EDGE), out);
+    return out;
+  }
+  const v = foldedSecret(value);
+  if (v.length <= MAX_WHOLE_SECRET) pieces(v, out);
+  else {
+    pieces(v.slice(0, SECRET_EDGE), out);
+    pieces(v.slice(-SECRET_EDGE), out);
+  }
+  return out;
 }
 
 /** Aho-Corasick over UTF-16 units; reports, per end position, the longest pattern ending there. */
@@ -1074,8 +1259,8 @@ function cardSpans(f: Folded, out: [number, number][]): void {
     const groups: [number, number][] = [];
     let g = i;
     let j = i + 1;
-    for (; j < s.length && isDigitCode(s.charCodeAt(j)) && (f.seps[j] ?? 0) <= 6; j++) {
-      if ((f.seps[j] ?? 0) > 0) {
+    for (; j < s.length && isDigitCode(s.charCodeAt(j)) && hard(f.seps[j]) <= 6; j++) {
+      if (hard(f.seps[j]) > 0) {
         groups.push([g, j - 1]);
         g = j;
       }
@@ -1114,15 +1299,26 @@ function digitRunSpans(f: Folded, out: [number, number][]): void {
       continue;
     }
     let j = i + 1;
-    while (j < s.length && isDigitCode(s.charCodeAt(j)) && (f.seps[j] ?? 0) <= 6) j++;
+    while (j < s.length && isDigitCode(s.charCodeAt(j)) && hard(f.seps[j]) <= 6) j++;
     if (j - i >= 4) out.push([i, j - 1]);
     i = j;
   }
 }
 
-/** Tracked secret values: at most this many, each at most `MAX_SECRET_CHARS` folded. */
+/** Tracked secret keys: at most this many, each at most `MAX_SECRET_CHARS` folded. */
 export const MAX_SECRETS = 256;
 export const MAX_SECRET_CHARS = 256;
+/** A match this long is masked even inside a longer number (the glue check is for short PINs). */
+const GLUE_MAX = 32;
+/**
+ * A key longer than `PREFIX_KEY` folded characters is also found by its first `PREFIX_KEY`, and
+ * that match is extended along the key as far as the text agrees: a truncated echo of a token
+ * (`eyJhbGciOi…`) is masked too. At most `PREFIX_FANOUT` keys per prefix are tried, and one
+ * extension per masked region (plus the one chained from its last `PREFIX_KEY` characters), so
+ * the cost stays linear in the text.
+ */
+const PREFIX_KEY = 16;
+const PREFIX_FANOUT = 8;
 
 export interface Scrubber {
   /** Mask secret values (separators, zero-width and other digit forms ignored) and card numbers. */
@@ -1135,17 +1331,24 @@ const MAY_HOLD_DIGITS = /\p{Nd}/u;
 
 /**
  * Masks known secret values and card numbers in one pass over the folded text. `failClosed`
- * (more secrets than are tracked) masks every run of four or more digits instead of the values.
+ * (more secrets than are tracked) also masks every run of four or more digits.
  */
 export function makeScrubber(
   values: Iterable<string>,
   mask: string,
   options: { failClosed?: boolean } = {},
 ): Scrubber {
-  const keys = [...new Set([...values].map(foldedSecret))].filter(
-    (k) => k.length >= 4 && k.length <= MAX_SECRET_CHARS,
-  );
-  const matcher = keys.length === 0 ? undefined : new Matcher(keys);
+  const keys = [...new Set([...values].flatMap(secretKeys))].filter((k) => k.length >= 4);
+  const byPrefix = new Map<string, string[]>();
+  for (const k of keys) {
+    if (k.length <= PREFIX_KEY) continue;
+    const pre = k.slice(0, PREFIX_KEY);
+    const list = byPrefix.get(pre) ?? [];
+    if (list.length < PREFIX_FANOUT) list.push(k);
+    byPrefix.set(pre, list);
+  }
+  const patterns = [...new Set([...keys, ...byPrefix.keys()])];
+  const matcher = patterns.length === 0 ? undefined : new Matcher(patterns);
   const failClosed = options.failClosed === true;
   const spans = (text: string): [number, number][] => {
     if (
@@ -1157,18 +1360,43 @@ export function makeScrubber(
       return [];
     const f = fold(text);
     const found: [number, number][] = [];
-    matcher?.search(f.s, (b, len) => {
-      const a = b - len + 1;
-      // Not inside a longer number: "1234" is not masked in "12345".
+    // End of the last prefix extension. A match starting inside it is masked already; only one
+    // starting in its last PREFIX_KEY characters (the next piece of a long value) extends it.
+    let extended = -1 - PREFIX_KEY;
+    matcher?.search(f.s, (end, len) => {
+      const a = end - len + 1;
+      let b = end;
+      if (len === PREFIX_KEY && a >= extended - PREFIX_KEY) {
+        const cands = byPrefix.get(f.s.slice(a, end + 1));
+        if (cands !== undefined) {
+          for (const k of cands) {
+            let j = PREFIX_KEY;
+            while (
+              j < k.length &&
+              a + j < f.s.length &&
+              f.s.charCodeAt(a + j) === k.charCodeAt(j)
+            ) {
+              j++;
+            }
+            b = Math.max(b, a + j - 1);
+          }
+          // The next extension must start in this one's tail, so each costs new text.
+          extended = Math.max(b, extended + PREFIX_KEY + 1);
+        }
+      }
+      const n = b - a + 1;
+      // Not inside a longer number: "1234" is not masked in "12345" (an invisible character
+      // between the digits separates them).
       const glued =
-        (a > 0 &&
+        n < GLUE_MAX &&
+        ((a > 0 &&
           f.seps[a] === 0 &&
           isDigitCode(f.s.charCodeAt(a)) &&
           isDigitCode(f.s.charCodeAt(a - 1))) ||
-        (b + 1 < f.s.length &&
-          f.seps[b + 1] === 0 &&
-          isDigitCode(f.s.charCodeAt(b)) &&
-          isDigitCode(f.s.charCodeAt(b + 1)));
+          (b + 1 < f.s.length &&
+            f.seps[b + 1] === 0 &&
+            isDigitCode(f.s.charCodeAt(b)) &&
+            isDigitCode(f.s.charCodeAt(b + 1))));
       if (!glued) found.push([a, b]);
     });
     cardSpans(f, found);

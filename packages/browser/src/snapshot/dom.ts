@@ -1,3 +1,4 @@
+import { createHash } from "node:crypto";
 import { isPaymentField as isMoneyPaymentField } from "@psyche/protocol/money-intent";
 import type { CaptureSnapshotResult, DocumentSnapshot, NodeTreeSnapshot } from "../cdp/types.ts";
 import { tryOrigin } from "../origin/canonical.ts";
@@ -5,14 +6,14 @@ import {
   blocksScreenshot,
   classifyField,
   type FieldFacts,
-  foldedSecret,
   isCardNumberValue,
   isLegacySecure,
-  MAX_SECRET_CHARS,
   MAX_SECRETS,
   makeScrubber,
   type Scrubber,
   type SecureClass,
+  secretKeys,
+  TEXT_CAP,
 } from "./secure-field.ts";
 
 /**
@@ -72,13 +73,16 @@ export class DomIndex {
   /** Large opaque surfaces (canvas, embed, object, video) by area, for sparse-tree detection. */
   readonly opaqueAreas: number[] = [];
 
-  /** Fields seen as `type=password` earlier in this document (a reveal toggle made them text). */
-  readonly #wasPassword: ReadonlySet<number>;
+  /**
+   * Keys (`passwordKey`) of values seen in a `type=password` field earlier in this document: a
+   * reveal toggle, or a page that re-creates the field as text, keeps that value a password.
+   */
+  readonly #wasPassword: ReadonlySet<string>;
 
   constructor(
     snap: CaptureSnapshotResult,
     dpr: number,
-    options: { wasPassword?: ReadonlySet<number> } = {},
+    options: { wasPassword?: ReadonlySet<string> } = {},
   ) {
     this.#snap = snap;
     this.#wasPassword = options.wasPassword ?? new Set();
@@ -168,7 +172,9 @@ export class DomIndex {
       if (info.tag === "LABEL" && info.text && info.attrs.for) {
         const k = `${d}:${info.attrs.for}`;
         const prev = this.#labelFor.get(k);
-        this.#labelFor.set(k, prev === undefined ? info.text : `${prev} ${info.text}`);
+        // Many labels for one id are joined up to TEXT_CAP (a hostile page repeats them).
+        if (prev === undefined) this.#labelFor.set(k, clipText(info.text));
+        else if (prev.length < TEXT_CAP) this.#labelFor.set(k, clipText(`${prev} ${info.text}`));
       }
       if (!isField(info)) return;
       this.#fields.push(info);
@@ -210,10 +216,12 @@ export class DomIndex {
     const values = n.nodeValue;
     if (parents === undefined || types === undefined || values === undefined) return;
     const referenced = new Set<string>();
+    const seen = new Set<string>();
     for (const info of infos) {
-      for (const id of (info?.attrs["aria-labelledby"] ?? "").split(/\s+/)) {
-        if (id !== "") referenced.add(id);
-      }
+      const refs = info?.attrs["aria-labelledby"];
+      if (refs === undefined || refs === "" || seen.has(refs)) continue;
+      seen.add(refs);
+      for (const id of labelledByIds(refs)) referenced.add(id);
     }
     const wants = (info: DomNodeInfo | undefined): boolean =>
       info !== undefined &&
@@ -347,14 +355,22 @@ export class DomIndex {
       id: a.id,
       placeholder: a.placeholder,
       ariaLabel: a["aria-label"],
+      title: a.title,
       label,
       contentEditable: a.contenteditable !== undefined && a.contenteditable !== "false",
       maxLength: max,
       inputMode: a.inputmode,
       search: (a.type ?? "").toLowerCase() === "search" || a.role === "searchbox",
       splitBox: this.#splitBoxes.has(info.backendNodeId),
-      wasPassword: this.#wasPassword.has(info.backendNodeId),
+      wasPassword: this.#wasPasswordValue(info),
     };
+  }
+
+  /** The field holds a value that sat in a `type=password` field earlier in this document. */
+  #wasPasswordValue(info: DomNodeInfo): boolean {
+    if (this.#wasPassword.size === 0) return false;
+    const key = passwordKey(this.valueOf(info));
+    return key !== undefined && this.#wasPassword.has(key);
   }
 
   /**
@@ -363,28 +379,41 @@ export class DomIndex {
    */
   labelOf(info: DomNodeInfo): string | undefined {
     const al = info.attrs["aria-label"];
-    if (al !== undefined && al !== "") return al;
+    if (al !== undefined && al !== "") return clipText(al);
+    // Joined up to TEXT_CAP, each labelled-by id once: a hostile page that points every field
+    // at the same long text many times costs fields x TEXT_CAP, not fields x refs x text.
     const parts: string[] = [];
-    for (const id of (info.attrs["aria-labelledby"] ?? "").split(/\s+/)) {
-      const t = id === "" ? undefined : this.#byId.get(`${info.docIndex}:${id}`)?.text;
-      if (t !== undefined) parts.push(t);
+    let size = 0;
+    const take = (t: string | undefined): boolean => {
+      if (t === undefined || t === "") return size < TEXT_CAP;
+      parts.push(t.length > TEXT_CAP - size ? t.slice(0, TEXT_CAP - size) : t);
+      size += t.length + 1;
+      return size < TEXT_CAP;
+    };
+    const refs = info.attrs["aria-labelledby"];
+    if (refs !== undefined && refs !== "") {
+      for (const id of labelledByIds(refs)) {
+        if (!take(this.#byId.get(`${info.docIndex}:${id}`)?.text)) break;
+      }
     }
     const own = info.attrs.id;
-    if (own !== undefined && own !== "") {
-      const t = this.#labelFor.get(`${info.docIndex}:${own}`);
-      if (t !== undefined) parts.push(t);
+    if (size < TEXT_CAP && own !== undefined && own !== "") {
+      take(this.#labelFor.get(`${info.docIndex}:${own}`));
     }
-    const wrap = this.ancestor(info, "LABEL");
-    if (wrap?.text) parts.push(wrap.text);
+    if (size < TEXT_CAP) take(this.ancestor(info, "LABEL")?.text);
     return parts.length > 0 ? parts.join(" ") : undefined;
   }
 
-  /** Backend ids of the `type=password` inputs now in the page (to remember across reveals). */
-  passwordFields(): number[] {
-    const out: number[] = [];
+  /**
+   * Keys of the values in the page's `type=password` inputs, to remember across a reveal toggle
+   * or a re-created field (`rememberPasswords`).
+   */
+  passwordFields(): string[] {
+    const out: string[] = [];
     for (const n of this.#fields) {
       if (n.tag === "INPUT" && (n.attrs.type ?? "").toLowerCase() === "password") {
-        out.push(n.backendNodeId);
+        const key = passwordKey(this.valueOf(n));
+        if (key !== undefined) out.push(key);
       }
     }
     return out;
@@ -452,10 +481,11 @@ export class DomIndex {
   #scrubber: Scrubber | undefined;
 
   /**
-   * Current values of the page's masked fields that look like secrets (the backstop for
-   * `scrub`): legacy and strong values, and weak ones of the secret's shape. Short values
-   * (one-character split boxes) count joined, per container. More than `MAX_SECRETS` distinct
-   * values, or one longer than `MAX_SECRET_CHARS` folded, sets `overCap`: the page fails closed.
+   * Scrubber keys for the page's masked fields that look like secrets (the backstop for
+   * `scrub`): legacy and strong values whatever their shape, and weak ones of the secret's shape.
+   * A long value counts as its pieces (`secretKeys`). Short values (one-character split boxes)
+   * count joined, per container. Past `MAX_SECRETS` keys the first ones are kept and `overCap`
+   * is set: every field is masked, screenshots are refused and every 4+ digit run is masked too.
    */
   #secretState(): { values: string[]; overCap: boolean } {
     if (this.#secrets !== undefined) return this.#secrets;
@@ -463,25 +493,25 @@ export class DomIndex {
     const perParent = new Map<string, number>();
     const shortFields: [DomNodeInfo, string][] = [];
     let overCap = false;
+    const add = (k: string): void => {
+      if (values.has(k)) return;
+      if (values.size >= MAX_SECRETS) overCap = true;
+      else values.add(k);
+    };
     for (const n of this.#fields) {
+      if (overCap) break;
       const raw = this.valueOf(n);
       if (raw.trim() === "") continue;
       const c = this.#classifyRaw(n);
       if (c === undefined || (c.level === "weak" && !blocksScreenshot(c, raw))) continue;
-      const v = foldedSecret(raw);
-      if (v.length > MAX_SECRET_CHARS) {
-        overCap = true;
-        break;
-      }
-      if (v.length >= 4) values.add(v);
-      else if (v.length > 0) {
+      const keys = secretKeys(raw);
+      const v = keys[0] ?? "";
+      if (keys.length > 1 || v.length >= 4) {
+        for (const k of keys) add(k);
+      } else if (v.length > 0) {
         shortFields.push([n, v]);
         const p = `${n.docIndex}:${this.#fieldParents.get(n.backendNodeId)?.[0] ?? -1}`;
         perParent.set(p, (perParent.get(p) ?? 0) + 1);
-      }
-      if (values.size > MAX_SECRETS) {
-        overCap = true;
-        break;
       }
     }
     const joined = new Map<string, string>();
@@ -492,11 +522,10 @@ export class DomIndex {
           ? `${n.docIndex}:${p}`
           : `${n.docIndex}:g${gp}`;
       const prev = joined.get(key) ?? "";
-      if (prev.length < MAX_SECRET_CHARS) joined.set(key, prev + v);
+      if (prev.length < 256) joined.set(key, prev + v);
     }
-    for (const j of joined.values()) if (j.length >= 4) values.add(j);
-    if (values.size > MAX_SECRETS) overCap = true;
-    this.#secrets = { values: overCap ? [] : [...values], overCap };
+    if (!overCap) for (const j of joined.values()) if (j.length >= 4) add(j);
+    this.#secrets = { values: [...values], overCap };
     return this.#secrets;
   }
 
@@ -505,7 +534,7 @@ export class DomIndex {
     return this.#secretState().values;
   }
 
-  /** More secret values than are tracked: every field is masked and screenshots are refused. */
+  /** More secret keys than are tracked: every field is masked, screenshots are refused. */
   get overCap(): boolean {
     return this.#secretState().overCap;
   }
@@ -538,8 +567,39 @@ export class DomIndex {
 }
 
 const STRONG: SecureClass = { level: "strong" };
-/** Characters of text kept per label, labelled-by target or contenteditable. */
-const TEXT_CAP = 4096;
+
+const clipText = (t: string): string => (t.length > TEXT_CAP ? t.slice(0, TEXT_CAP) : t);
+
+/** Distinct ids of an `aria-labelledby` value, read from its first TEXT_CAP characters. */
+function labelledByIds(refs: string): Set<string> {
+  const ids = new Set<string>();
+  for (const id of clipText(refs).split(/\s+/)) if (id !== "") ids.add(id);
+  return ids;
+}
+
+/**
+ * A remembered password value: a hash of its scrubber keys (so a long value is bounded and the
+ * memory holds no plaintext). Undefined for an empty value.
+ */
+export function passwordKey(value: string): string | undefined {
+  if (value.trim() === "") return undefined;
+  return createHash("sha256").update(secretKeys(value).join("\u0000")).digest("hex").slice(0, 32);
+}
+
+/** Password values remembered per document, at most this many (oldest dropped first). */
+const MAX_REMEMBERED = 256;
+
+/** Add `keys` to a document's password memory, keeping it bounded. */
+export function rememberPasswords(memory: Set<string>, keys: Iterable<string>): void {
+  for (const k of keys) {
+    memory.delete(k);
+    memory.add(k);
+  }
+  for (const k of memory) {
+    if (memory.size <= MAX_REMEMBERED) break;
+    memory.delete(k);
+  }
+}
 
 function isField(info: DomNodeInfo): boolean {
   return (
@@ -573,11 +633,13 @@ export function isPaymentField(attrs: {
   placeholder?: string | undefined;
   "aria-label"?: string | undefined;
 }): boolean {
+  // Clipped like every label (a hostile page's 1 MB `name` must not cost 1 MB per rule).
+  const c = (t: string | undefined) => (t === undefined ? undefined : clipText(t));
   return isMoneyPaymentField({
-    autocomplete: attrs.autocomplete,
-    name: attrs.name,
-    id: attrs.id,
-    placeholder: attrs.placeholder,
-    label: attrs["aria-label"],
+    autocomplete: c(attrs.autocomplete),
+    name: c(attrs.name),
+    id: c(attrs.id),
+    placeholder: c(attrs.placeholder),
+    label: c(attrs["aria-label"]),
   });
 }
