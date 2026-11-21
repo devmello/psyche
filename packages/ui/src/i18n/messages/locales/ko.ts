@@ -182,6 +182,8 @@ export const ko: Partial<Catalogue> = {
     "Psyche 브라우저에서 결제하려면 Psyche 데스크톱 앱이 이 호스트에 연결되어 있어야 합니다.",
   "errors.reason.no_chromium":
     "Psyche 브라우저에는 이 호스트의 Chromium이 필요합니다. 설치하거나 PSYCHE_CHROMIUM을 설정하세요.",
+  "errors.reason.chromium_sandbox":
+    "이 호스트에서 Chromium 샌드박스를 시작할 수 없어 Psyche 브라우저가 꺼져 있습니다. Chromium이 사용자 네임스페이스를 쓰도록 허용하세요(AppArmor 프로파일).",
   "errors.unavailable": "Psyche가 지금은 해당 작업을 할 수 없습니다.",
   "errors.approval_required": "먼저 사용자의 승인이 필요합니다.",
   "errors.approval_expired": "승인이 만료되었습니다. 다시 요청하십시오.",

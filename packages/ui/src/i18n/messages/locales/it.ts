@@ -178,6 +178,8 @@ export const it: Partial<Catalogue> = {
     "Per pagare nel browser di Psyche, l’app desktop di Psyche deve essere collegata a questo host.",
   "errors.reason.no_chromium":
     "Il browser di Psyche ha bisogno di Chromium su questo host. Installalo o imposta PSYCHE_CHROMIUM.",
+  "errors.reason.chromium_sandbox":
+    "La sandbox di Chromium non è partita su questo host, quindi il browser di Psyche è disattivato. Consenti a Chromium i namespace utente (un profilo AppArmor).",
   "errors.unavailable": "Psyche non può farlo in questo momento.",
   "errors.approval_required": "Prima serve la tua approvazione.",
   "errors.approval_expired": "L’approvazione è scaduta; chiedi di nuovo.",

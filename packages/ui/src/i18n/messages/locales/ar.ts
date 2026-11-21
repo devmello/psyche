@@ -216,6 +216,8 @@ export const ar: Partial<Catalogue> = {
     "يتطلب الدفع في متصفح Psyche أن يكون تطبيق Psyche لسطح المكتب متصلاً بهذا المضيف.",
   "errors.reason.no_chromium":
     "يحتاج متصفح Psyche إلى Chromium على هذا المضيف. ثبّته أو اضبط PSYCHE_CHROMIUM.",
+  "errors.reason.chromium_sandbox":
+    "تعذّر تشغيل صندوق الحماية في Chromium على هذا المضيف، لذا فمتصفح Psyche متوقف. اسمح لـ Chromium باستخدام مساحات أسماء المستخدم (ملف تعريف AppArmor).",
   "errors.unavailable": "لا يستطيع Psyche القيام بذلك الآن.",
   "errors.approval_required": "يحتاج هذا إلى موافقتك أولًا.",
   "errors.approval_expired": "انتهت صلاحية الموافقة؛ اطلب مرة أخرى.",

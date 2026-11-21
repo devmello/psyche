@@ -181,6 +181,8 @@ export const ja: Partial<Catalogue> = {
     "Psyche のブラウザで支払うには、Psyche デスクトップアプリをこのホストに接続する必要があります。",
   "errors.reason.no_chromium":
     "Psyche のブラウザにはこのホストの Chromium が必要です。インストールするか、PSYCHE_CHROMIUM を設定してください。",
+  "errors.reason.chromium_sandbox":
+    "このホストでは Chromium のサンドボックスを起動できないため、Psyche のブラウザは無効です。Chromium にユーザー名前空間の使用を許可してください（AppArmor プロファイル）。",
   "errors.unavailable": "Psycheは現在その操作を実行できません。",
   "errors.approval_required": "先にあなたの承認が必要です。",
   "errors.approval_expired": "承認の期限が切れました。もう一度依頼してください。",

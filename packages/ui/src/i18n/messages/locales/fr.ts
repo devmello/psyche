@@ -164,6 +164,8 @@ export const fr: Partial<Catalogue> = {
     "Pour payer dans le navigateur de Psyche, l’app de bureau Psyche doit être connectée à cet hôte.",
   "errors.reason.no_chromium":
     "Le navigateur de Psyche a besoin de Chromium sur cet hôte. Installez-le ou définissez PSYCHE_CHROMIUM.",
+  "errors.reason.chromium_sandbox":
+    "Le bac à sable de Chromium n'a pas pu démarrer sur cet hôte, le navigateur de Psyche est donc désactivé. Autorisez Chromium à utiliser les espaces de noms utilisateur (un profil AppArmor).",
   "errors.unavailable": "Psyche ne peut pas faire cela pour le moment.",
   "errors.approval_required": "Votre approbation est d’abord nécessaire.",
   "errors.approval_expired": "L’approbation a expiré ; redemandez.",

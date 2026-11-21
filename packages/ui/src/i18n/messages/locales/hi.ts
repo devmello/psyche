@@ -177,6 +177,8 @@ export const hi: Partial<Catalogue> = {
     "Psyche के ब्राउज़र में भुगतान करने के लिए Psyche डेस्कटॉप ऐप का इस होस्ट से जुड़ा होना ज़रूरी है।",
   "errors.reason.no_chromium":
     "Psyche के ब्राउज़र को इस होस्ट पर Chromium चाहिए। इसे इंस्टॉल करें या PSYCHE_CHROMIUM सेट करें।",
+  "errors.reason.chromium_sandbox":
+    "इस होस्ट पर Chromium का सैंडबॉक्स शुरू नहीं हो सका, इसलिए Psyche का ब्राउज़र बंद है। Chromium को यूज़र नेमस्पेस इस्तेमाल करने दें (AppArmor प्रोफ़ाइल)।",
   "errors.unavailable": "Psyche अभी ऐसा नहीं कर सकता।",
   "errors.approval_required": "इसके लिए पहले आपकी स्वीकृति चाहिए।",
   "errors.approval_expired": "स्वीकृति की अवधि समाप्त हो गई; फिर से पूछें।",

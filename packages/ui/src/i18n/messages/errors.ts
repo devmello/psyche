@@ -56,4 +56,6 @@ export const errors = {
     "Paying in Psyche's browser needs the Psyche desktop app connected to this Host.",
   "errors.reason.no_chromium":
     "Psyche's browser needs Chromium on this Host. Install it, or set PSYCHE_CHROMIUM.",
+  "errors.reason.chromium_sandbox":
+    "Chromium's sandbox could not start on this Host, so Psyche's browser is off. Allow Chromium to use user namespaces (an AppArmor profile).",
 } as const;

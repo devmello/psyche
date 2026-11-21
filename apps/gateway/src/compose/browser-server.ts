@@ -183,6 +183,8 @@ export function serverDriverOptions(
     ...base,
     mode: "launch",
     headless: true,
+    // Playwright adds --no-sandbox unless this is true; page code must not run unsandboxed.
+    chromiumSandbox: true,
     psycheHome: home,
     env: serverBrowserEnv(serverBrowserDirs(home), env),
     executablePath,

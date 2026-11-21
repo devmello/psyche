@@ -167,6 +167,8 @@ export const de: Partial<Catalogue> = {
     "Zum Bezahlen in Psyches Browser muss die Psyche-Desktop-App mit diesem Host verbunden sein.",
   "errors.reason.no_chromium":
     "Psyches Browser braucht Chromium auf diesem Host. Installiere es oder setze PSYCHE_CHROMIUM.",
+  "errors.reason.chromium_sandbox":
+    "Die Sandbox von Chromium konnte auf diesem Host nicht starten, daher ist Psyches Browser aus. Erlaube Chromium Benutzer-Namespaces (ein AppArmor-Profil).",
   "errors.unavailable": "Psyche kann das gerade nicht.",
   "errors.approval_required": "Das braucht zuerst deine Genehmigung.",
   "errors.approval_expired": "Die Genehmigung ist abgelaufen; frage erneut.",

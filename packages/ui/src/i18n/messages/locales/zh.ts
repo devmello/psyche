@@ -213,6 +213,8 @@ export const zh: Partial<Catalogue> = {
     "要在 Psyche 的浏览器中付款，需要将 Psyche 桌面应用连接到此主机。",
   "errors.reason.no_chromium":
     "Psyche 的浏览器需要此主机上的 Chromium。请安装它，或设置 PSYCHE_CHROMIUM。",
+  "errors.reason.chromium_sandbox":
+    "此主机上 Chromium 的沙盒无法启动，因此 Psyche 的浏览器已关闭。请允许 Chromium 使用用户命名空间（AppArmor 配置文件）。",
   "errors.unavailable": "Psyche 目前无法执行该操作。",
   "errors.approval_required": "此操作需要先获得你的批准。",
   "errors.approval_expired": "批准已过期，请重新请求。",

@@ -148,6 +148,7 @@ describe("the server browser's process (review r1, finding 6 / probe P3)", () =>
       headless: true,
       psycheHome: "/srv/ph",
       executablePath: "/usr/bin/chromium",
+      chromiumSandbox: true,
     });
     expect(o.env).not.toHaveProperty("DISPLAY");
     expect(o.env).not.toHaveProperty("XAUTHORITY");
