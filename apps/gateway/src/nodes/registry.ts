@@ -26,6 +26,7 @@ import {
 } from "@psyche/protocol";
 import type { PairedIdentity, PeerInfo } from "../auth.ts";
 import type { GatewayContext, LiveConnection } from "../context.ts";
+import { isTarballInstall } from "../server-install.ts";
 import { announceMachine, filterMachineCapabilities, machineInfoOf } from "./machines.ts";
 
 /** Default end-to-end timeout of one invocation. */
@@ -82,7 +83,7 @@ export function nodeKindOf(identity: PairedIdentity, params: ConnectParams): Nod
  */
 export const HOST_HELPER_PIN_SETTING = "devices.hostHelperDeviceId";
 /**
- * Written by the Gateway: `{ ambiguous, helpers, candidates?, peerCheck?, peerCheckReason?, refused? }`, so the
+ * Written by the Gateway: `{ ambiguous, helpers, candidates?, peerCheck?, peerCheckReason?, refused?, install? }`, so the
  * app can say why Host features are off. `peerCheck` (Linux only, additive) is what the
  * accept-time peer check found
  * for the Host helper in use: absent when there is no single helper or no check ran.
@@ -435,6 +436,9 @@ export class NodeRegistry {
           }),
       ...(peerCheck === undefined ? {} : { peerCheck }),
       ...(peerCheckReason === undefined ? {} : { peerCheckReason }),
+      // A psyche-server tarball: the helper is the account's own file, so it is never verified
+      // (weak mode, an owner decision); Settings says why.
+      ...(isTarballInstall() ? { install: "tarball" } : {}),
     });
     this.#ctx.bus.bumpStateVersion();
     this.#ctx.bus.publish("settings.changed", { entries: [entry] });
