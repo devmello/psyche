@@ -38,11 +38,12 @@ export interface ProposeDeps {
 /**
  * One line, cut to `max`: no control characters or line breaks (they become a space), and no
  * format characters (bidi overrides and isolates U+202A-202E and U+2066-2069, the marks U+200E/F,
- * zero-width characters, U+FEFF), which are dropped so they cannot reorder what the owner reads.
+ * U+200B, U+2060, U+FEFF), which are dropped so they cannot reorder what the owner reads. U+200C and
+ * U+200D (ZWNJ, ZWJ) stay: emoji sequences and Persian or Indic words need them.
  */
 export function oneLine(text: string, max: number): string {
   const clean = text
-    .replace(/[\p{Cf}\u200e\u200f\u202a-\u202e\u2066-\u2069]+/gu, "")
+    .replace(/(?:(?![\u200c\u200d])[\p{Cf}\u200e\u200f\u202a-\u202e\u2066-\u2069])+/gu, "")
     .replace(/[\p{Cc}\p{Zl}\p{Zp}]+/gu, " ");
   return clean.replace(/\s+/g, " ").trim().slice(0, max).trim();
 }
@@ -65,9 +66,13 @@ export function proposalChats(
   const out: { id: string; title: string }[] = [];
   for (const id of ids) {
     const row = db.sqlite
-      .prepare("SELECT kind, title, space_id FROM threads WHERE id = ?")
-      .get(id) as { kind: string; title: string | null; space_id: string | null } | undefined;
-    if (row === undefined || row.space_id !== null || UNMOVABLE_KINDS.has(row.kind)) continue;
+      .prepare("SELECT kind, title, space_id, imported FROM threads WHERE id = ?")
+      .get(id) as
+      | { kind: string; title: string | null; space_id: string | null; imported: string | null }
+      | undefined;
+    // An imported conversation is somebody's export file: read-only, never put in a Space.
+    if (row === undefined || row.space_id !== null || row.imported !== null) continue;
+    if (UNMOVABLE_KINDS.has(row.kind)) continue;
     out.push({ id, title: (row.title ?? "").slice(0, 120) });
   }
   return out;
@@ -141,9 +146,9 @@ export function createProposal(
   // A clean proposal is never answered with a tainted one: it replaces it on Home.
   const open = all.find((p) => p.status === "open" && same(p) && (tainted || !isTainted(p)));
   if (open !== undefined) return { proposal: open, created: false };
-  // The owner's answer to a tainted proposal is about that proposal only: it does not stop a
-  // later proposal with the same name or project.
-  if (all.some((p) => p.status !== "open" && same(p) && !isTainted(p))) {
+  // The owner's answer to a tainted proposal stops later tainted ones with the same name or
+  // project (so mail cannot put the card back), but never a clean one.
+  if (all.some((p) => p.status !== "open" && same(p) && (tainted || !isTainted(p)))) {
     throw new PsycheError(
       "conflict",
       "The owner already decided on a Space like this. Do not propose it again.",

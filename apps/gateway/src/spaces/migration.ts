@@ -124,7 +124,12 @@ export class SpaceMigration {
         .map((a) => a.ref)
         .filter((id) => {
           const t = getThread(this.#db, id);
-          return t !== undefined && t.kind !== "main" && t.kind !== "incognito";
+          return (
+            t !== undefined &&
+            t.kind !== "main" &&
+            t.kind !== "incognito" &&
+            t.imported === undefined
+          );
         });
       out.push({
         entityId: e.id,
@@ -180,7 +185,10 @@ export class SpaceMigration {
     const movedThreadIds: string[] = [];
     for (const c of candidates) {
       const space = store.create({ name: c.name, entityId: c.entityId, createdFrom: "migration" });
-      const free = c.threadIds.filter((id) => getThread(this.#db, id)?.spaceId == null);
+      const free = c.threadIds.filter((id) => {
+        const t = getThread(this.#db, id);
+        return t?.spaceId == null && t?.imported === undefined;
+      });
       if (free.length > 0) movedThreadIds.push(...store.moveThreads(free, space.id).moved);
       spaces.push(space);
     }
@@ -214,6 +222,9 @@ export class SpaceMigration {
    * anyone else. A user-role row that is not `owner` provenance is someone else's words (a channel
    * peer, a forwarded or agent-sent request), and an `untrusted` row of any role is third-party
    * text. Read from the rows, not from the summary's taint, which a peer's plain text never sets.
+   * A user row with any block that is not plain `text` (context, file, image, screen frame) also
+   * excludes the chat: those carry third-party text under owner provenance. This is the fail-closed
+   * choice over a taint latch: an owner's own upload costs an offer, never a leak.
    */
   #ownerOnly(ids: readonly string[]): Set<string> {
     const marks = ids.map(() => "?").join(", ");
@@ -225,6 +236,11 @@ export class SpaceMigration {
              SELECT 1 FROM messages m
              WHERE m.thread_id = t.id
                AND (m.provenance = 'untrusted' OR (m.role = 'user' AND m.provenance <> 'owner'))
+           )
+           AND NOT EXISTS (
+             SELECT 1 FROM messages m2, json_each(m2.blocks) b
+             WHERE m2.thread_id = t.id AND m2.role = 'user'
+               AND json_extract(b.value, '$.type') IS NOT 'text'
            )`,
       )
       .all(...ids) as { id: string }[];
@@ -282,7 +298,10 @@ export class SpaceMigration {
     const states = this.#deps.states;
     if (states !== undefined) {
       for (const t of ownerThreads) {
-        const summary = (await states.load(t.id))?.summary;
+        const state = await states.load(t.id);
+        // A turn that read mail or the web left the thread sticky-tainted: no rule from it.
+        if (state?.taint?.sticky === true) continue;
+        const summary = state?.summary;
         const pins = summary?.structured?.pinnedInstructions ?? [];
         if (pins.length === 0) continue;
         // A summary from before pins were tracked, and untrusted, counts every pin as untrusted.

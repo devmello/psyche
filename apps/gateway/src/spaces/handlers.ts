@@ -225,6 +225,10 @@ export function spacesHandlers(deps: SpaceHandlerDeps = {}): Record<string, Hand
         // Each card shows exactly what its Create would move, and the project it would link.
         proposals: store(call)
           .proposals(p.status === "open")
+          // A project made Keep private since the proposal: no card, and no name on Home (SR10).
+          .filter(
+            (proposal) => proposal.entityId == null || project(proposal.entityId)?.private !== true,
+          )
           .map((proposal) => ({
             ...proposal,
             chats: proposalChats(call.ctx.db, proposal.threadIds),

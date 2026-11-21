@@ -460,9 +460,18 @@ export class SpaceStore {
     const rows: { id: string; kind: string; space_id: string | null }[] = [];
     for (const id of ids) {
       const row = this.#db.sqlite
-        .prepare("SELECT id, kind, space_id FROM threads WHERE id = ?")
-        .get(id) as { id: string; kind: string; space_id: string | null } | undefined;
+        .prepare("SELECT id, kind, space_id, imported FROM threads WHERE id = ?")
+        .get(id) as
+        | { id: string; kind: string; space_id: string | null; imported: string | null }
+        | undefined;
       if (row === undefined) throw new PsycheError("not_found", `thread ${id} not found`);
+      // Backstop for every caller: an imported conversation is somebody's file and stays out.
+      if (row.imported !== null) {
+        throw new PsycheError(
+          "forbidden",
+          "Imported conversations are read-only: they cannot be moved.",
+        );
+      }
       if (row.kind === "main") {
         throw new PsycheError("invalid_params", "the main chat cannot be put in a Space");
       }
