@@ -445,7 +445,44 @@ export function ApprovalDetails({
           </Row>
           <Row label={t("blocks.details.in")}>{str(d.cwd)}</Row>
           {env.length > 0 ? <Row label={t("blocks.details.envNames")}>{env.join(", ")}</Row> : null}
-          {approval.kind === "exec_host" ? (
+          {approval.kind === "exec_host" && d.onMachine === true ? (
+            // A paired machine's command (H5): the box resolved and hashed the program, and its
+            // own limits decide containment and the network; the machine line names the box.
+            <>
+              {d.executable !== undefined ? (
+                <Row label={t("blocks.details.executable")}>
+                  <Code>{str(d.executable)}</Code>
+                </Row>
+              ) : null}
+              {typeof d.folder === "string" ? (
+                <Row label={t("machines.card.folder")}>
+                  {d.folderMode === "rw" ? (
+                    t("machines.card.folderReadWrite", { path: d.folder })
+                  ) : d.contained === true ? (
+                    t("machines.card.folderReadOnly", { path: d.folder })
+                  ) : (
+                    <span className="text-danger-text">
+                      {t("machines.card.folderNotEnforced", { path: d.folder })}
+                    </span>
+                  )}
+                </Row>
+              ) : null}
+              <Row label={t("blocks.details.network")}>
+                {d.network === "on" ? (
+                  <span className="text-danger-text">{t("machines.card.networkOn")}</span>
+                ) : (
+                  t("machines.card.networkOff")
+                )}
+              </Row>
+              <Row label={t("blocks.details.runs")}>
+                {d.contained === true ? (
+                  t("machines.card.runsContained")
+                ) : (
+                  <span className="text-danger-text">{t("machines.card.runsFullAccount")}</span>
+                )}
+              </Row>
+            </>
+          ) : approval.kind === "exec_host" ? (
             <>
               {/* The program that runs, after PATH and symlinks (security §5.4); its hash binds. */}
               {d.executable !== undefined ? (
@@ -486,6 +523,13 @@ export function ApprovalDetails({
               "sandboxMissingReason",
               "unsandboxedWord",
               "unsandboxed",
+              "onMachine",
+              "machine",
+              "folder",
+              "folderMode",
+              "network",
+              "contained",
+              "executableSha256",
             ]}
           />
         </dl>

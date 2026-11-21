@@ -648,6 +648,23 @@ export class PolicyEngine {
       // A push publishes commits with the owner's credentials: never silent, never reusable (V10).
       floors.push({ rule: "git:push", reason: "pushes always ask", scopes: ["once"] });
     }
+    // A file change on a paired machine (H5, linux-helper-only §5.2): a write, a new folder or
+    // a remove asks every time and is never kept, whatever grants exist (a copy into the Library
+    // keeps its one grant per machine). The op is the tool's own: it acts on exactly that op.
+    const machineOp = (call.params as { op?: unknown } | undefined)?.op;
+    if (
+      call.tool === "machine_files" &&
+      (SEVERITY[se] >= SEVERITY.destructive ||
+        machineOp === "write" ||
+        machineOp === "mkdir" ||
+        machineOp === "remove")
+    ) {
+      floors.push({
+        rule: "machine_files:change",
+        reason: "file changes on a machine ask every time",
+        scopes: ["once"],
+      });
+    }
 
     const targetApp = call.target?.kind === "app" ? call.target.value : undefined;
     const app = call.meta?.app ?? targetApp;

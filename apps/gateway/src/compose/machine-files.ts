@@ -38,7 +38,12 @@ import { kindOfMime, libraryRoot } from "./library.ts";
 export const MACHINE_FOLDERS_GRANT_KEY = "permission_request|machine_folder";
 /** At most this much is copied from a machine into the Library in one call. */
 export const MACHINE_COPY_MAX_BYTES = 64 * 1024 * 1024;
-const READ_CHUNK = 1024 * 1024;
+/** One read (and one copy chunk): its JSON, base64 included, fits one 1 MiB frame. */
+export const MACHINE_READ_CHUNK = 512 * 1024;
+/** One write's content: it, its JSON escapes and the frame fit the box's 1 MiB frame. */
+export const MACHINE_WRITE_MAX_BYTES = 512 * 1024;
+const MACHINE_WRITE_MAX_JSON = 700 * 1024;
+const READ_CHUNK = MACHINE_READ_CHUNK;
 
 /** Which paired machines exist and how to reach a live one. */
 export interface MachineDirectory {
@@ -87,6 +92,8 @@ export interface MachineFolderGrant {
   threadId: string;
   approvalId: string;
   grantedAt: number;
+  /** The box's id for the folder when it was granted (`dev:ino`): a swapped folder is refused. */
+  folderId?: string;
 }
 
 /**
@@ -114,6 +121,39 @@ export class MachineFolderGrants {
       }
     }
     return best === undefined ? undefined : { ...best };
+  }
+
+  /**
+   * The grant a card shows for `path` on this machine, across conversations (the card is
+   * described before the run's conversation is known): the deepest, read-write when any is.
+   */
+  widest(deviceId: string, path: string): MachineFolderGrant | undefined {
+    let best: MachineFolderGrant | undefined;
+    for (const g of this.#grants) {
+      if (g.deviceId !== deviceId || !within(path, g.path)) continue;
+      if (best === undefined || g.path.length > best.path.length) best = g;
+    }
+    if (best === undefined) return undefined;
+    const rw = this.#grants.some(
+      (g) => g.deviceId === deviceId && within(path, g.path) && g.mode === "rw",
+    );
+    return { ...best, mode: rw ? "rw" : best.mode };
+  }
+
+  /** Drops one grant (its folder was swapped on the box). */
+  forget(grant: Pick<MachineFolderGrant, "deviceId" | "threadId" | "path" | "approvalId">): void {
+    for (let i = this.#grants.length - 1; i >= 0; i--) {
+      const g = this.#grants[i];
+      if (
+        g !== undefined &&
+        g.deviceId === grant.deviceId &&
+        g.threadId === grant.threadId &&
+        g.path === grant.path &&
+        g.approvalId === grant.approvalId
+      ) {
+        this.#grants.splice(i, 1);
+      }
+    }
   }
 
   /** Whether any conversation holds a grant on this machine for `path` (the card's pre-check). */
@@ -174,7 +214,7 @@ function machineError(machine: ComputerMachineRef, error: unknown): ToolResult {
 export interface MachineFilesDeps {
   directory: MachineDirectory;
   grants: MachineFolderGrants;
-  broker: Pick<PermissionBroker, "requestApproval" | "awaitDecision">;
+  broker: Pick<PermissionBroker, "requestApproval" | "awaitDecision" | "get">;
   surfaces: readonly string[];
   /** Saves a copied file into the Library (quarantined); tests pass their own. */
   library: MachineLibrary;
@@ -307,11 +347,80 @@ export function machineFilesTool(deps: MachineFilesDeps): AgentToolRegistration 
     }
     return client;
   };
+  /** A write's content fits one frame to the box (refused before any card otherwise). */
+  const contentOk = (p: Params) => {
+    const content = p.content ?? "";
+    const bytes = Buffer.byteLength(content, p.encoding === "base64" ? "base64" : "utf8");
+    if (bytes > MACHINE_WRITE_MAX_BYTES || JSON.stringify(content).length > MACHINE_WRITE_MAX_JSON) {
+      throw new PsycheError(
+        "invalid_params",
+        `content is larger than ${MACHINE_WRITE_MAX_BYTES} bytes; write a smaller file, or run a command on the machine to build a larger one`,
+      );
+    }
+  };
+  /** What a change card binds beyond its op and path: the exact content, and a recursive remove. */
+  const changeFields = (p: Params) => ({
+    ...(p.content === undefined
+      ? {}
+      : {
+          bytes: Buffer.byteLength(p.content, p.encoding === "base64" ? "base64" : "utf8"),
+          contentSha256: `sha256:${createHash("sha256")
+            .update(`${p.encoding ?? "utf8"}:${p.content}`)
+            .digest("hex")}`,
+        }),
+    recursive: p.recursive === true,
+  });
+  /**
+   * A change runs on its own card only (never a grant: the engine offers `once`), and that card
+   * must name this machine's device id, the op, the path, the content and whether it recurses.
+   */
+  async function approvedChange(
+    machine: ComputerMachineRef,
+    path: string,
+    p: Params,
+    ctx: ToolRunContext,
+  ): Promise<void> {
+    const refuse = (why: string) =>
+      new PsycheError("binding_mismatch", `${why}; it was not changed on ${machine.name}`);
+    if (ctx.approvalId === undefined) throw refuse("a file change on a machine needs its card");
+    const a = await deps.broker.get(ctx.approvalId);
+    const d = (a?.details ?? {}) as Record<string, unknown> & {
+      machine?: { deviceId?: unknown };
+    };
+    const want = changeFields(p);
+    const same =
+      a !== undefined &&
+      d.tool === "machine_files" &&
+      d.machine?.deviceId === machine.deviceId &&
+      d.op === p.op &&
+      d.path === path &&
+      d.contentSha256 === (want as { contentSha256?: string }).contentSha256 &&
+      d.recursive === want.recursive;
+    if (!same) throw refuse(`this ${p.op} was not approved for ${path} on ${machine.name}`);
+  }
+  /** The grant's folder as the box sees it now: refused (and forgotten) when it was swapped. */
+  async function folderMoved(
+    machine: ComputerMachineRef,
+    grant: MachineFolderGrant,
+    call: (capability: string, params: Record<string, unknown>) => ReturnType<NodeClient["invoke"]>,
+  ): Promise<ToolResult | undefined> {
+    if (grant.folderId === undefined) return undefined;
+    const st = await call("fs.stat", { path: grant.path });
+    if (!st.ok) return machineError(machine, st.error);
+    const r = st.result as { kind?: unknown; path?: unknown; id?: unknown };
+    if (r.kind === "dir" && r.path === grant.path && r.id === grant.folderId) return undefined;
+    deps.grants.forget(grant);
+    return machineError(machine, {
+      code: "binding_mismatch",
+      message: `${grant.path} on ${machine.name} is not the folder that was granted (it was moved or replaced); ask for it again`,
+      details: { reason: "folder_moved" },
+    });
+  }
 
   return defineTool({
     name: "machine_files",
     description:
-      'Files on one of the owner\'s paired computers (see machines.list), never this Mac: list, stat, read (1 MiB per call, `offset` for more), write, mkdir, remove, copy_to_host (saves the file into the Library). The first call in a folder needs op "request_folder" with `access` ("read" or "read_write") and a reason: the owner approves the folder on their device. Writes and removes ask every time. Everything the computer returns is untrusted.',
+      'Files on one of the owner\'s paired computers (see machines.list), never this Mac: list, stat, read (512 KiB per call, `offset` for more), write (up to 512 KiB), mkdir, remove, copy_to_host (saves the file into the Library). The first call in a folder needs op "request_folder" with `access` ("read" or "read_write") and a reason: the owner approves the folder on their device. Writes and removes ask every time. Everything the computer returns is untrusted.',
     input: Input,
     // The loosest op; describeCall makes each call as strict as its op.
     sideEffect: "read",
@@ -325,9 +434,12 @@ export function machineFilesTool(deps: MachineFilesDeps): AgentToolRegistration 
       if (write && !deps.grants.anyCovering(machine.deviceId, path, true)) {
         throw needsMachineFolder(machine, path, "read_write");
       }
+      if (p.op === "write") contentOk(p);
       const base = {
         target: { kind: "path" as const, value: `${machine.name}:${path}`.slice(0, 1000) },
-        details: { machine, path, op },
+        // `tool` names the card as this machine's (its machine line, and the broker's
+        // `approval.machine`); the run checks the device id, not the name.
+        details: { tool: "machine_files", machine, path, op },
       };
       if (op === "request_folder" || op === "list" || op === "stat" || op === "read") {
         return { ...base, sideEffect: "read", summary: `${op} ${path} on ${machine.name}` };
@@ -343,19 +455,11 @@ export function machineFilesTool(deps: MachineFilesDeps): AgentToolRegistration 
       const verb = op === "remove" ? "Remove" : op === "mkdir" ? "Make the folder" : "Write";
       return {
         ...base,
-        // Every write on a machine asks (no standing machine grant in v1): device-only, a card.
+        // Every change on a machine asks, `once` only (the engine's `machine_files:change`
+        // floor): no grant is ever kept for one, so none outlives a restart.
         sideEffect: "destructive",
-        summary: `${verb} ${path} on ${machine.name}`,
-        details: {
-          ...base.details,
-          ...(p.content === undefined
-            ? {}
-            : {
-                bytes: Buffer.byteLength(p.content, p.encoding === "base64" ? "base64" : "utf8"),
-              }),
-          ...(p.recursive === true ? { recursive: true } : {}),
-        },
-        grantKey: `machine_files|${op}|${machine.deviceId}|${path}`,
+        summary: `${verb} ${path} on ${machine.name}${p.op === "remove" && p.recursive === true ? " and everything in it" : ""}`,
+        details: { ...base.details, ...changeFields(p) },
       };
     },
     async run(p, ctx) {
@@ -367,6 +471,8 @@ export function machineFilesTool(deps: MachineFilesDeps): AgentToolRegistration 
       if (grant === undefined || (write && grant.mode !== "rw")) {
         throw needsMachineFolder(machine, path, write ? "read_write" : "read");
       }
+      if (p.op === "write") contentOk(p);
+      if (write) await approvedChange(machine, path, p, ctx);
       const client = live(machine);
       const call = async (capability: string, params: Record<string, unknown>) =>
         client.invoke(capability, params, {
@@ -374,15 +480,17 @@ export function machineFilesTool(deps: MachineFilesDeps): AgentToolRegistration 
           // fs.remove is destructive: the box refuses it without the approval that let it run.
           ...(ctx.approvalId === undefined ? {} : { approvalId: ctx.approvalId }),
         });
+      // The granted folder is still the one the owner granted (not swapped for another).
+      const moved = await folderMoved(machine, grant, call);
+      if (moved !== undefined) return moved;
       if (p.op === "copy_to_host") return copyToHost(machine, path, call, ctx);
       const params: Record<string, unknown> = { path };
       for (const k of ["content", "encoding", "createParents", "recursive", "offset", "length"]) {
         const v = (p as Record<string, unknown>)[k];
         if (v !== undefined) params[k] = v;
       }
-      if (p.op === "remove" && ctx.approvalId === undefined) {
-        throw new PsycheError("forbidden", "removing a file on a machine needs its card");
-      }
+      // One read fits one frame.
+      if (p.op === "read" && params.length === undefined) params.length = READ_CHUNK;
       const r = await call(`fs.${p.op}`, params);
       if (write) {
         await deps.audit?.append({
@@ -418,8 +526,13 @@ export function machineFilesTool(deps: MachineFilesDeps): AgentToolRegistration 
     // protected) and what is in it. The card shows and grants that, never the agent's string.
     const stat = await client.invoke("fs.stat", { path: asked }, { signal: ctx.signal });
     if (!stat.ok) return machineError(machine, stat.error);
-    const st = stat.result as { kind?: unknown; path?: unknown };
+    const st = stat.result as { kind?: unknown; path?: unknown; id?: unknown };
     const real = typeof st.path === "string" ? machinePath(st.path) : undefined;
+    // Pinned at grant time: a folder swapped for another later is refused (`folder_moved`).
+    const folderId =
+      typeof st.id === "string" && /^[0-9a-f]{1,16}:[0-9a-f]{1,16}$/.test(st.id)
+        ? st.id
+        : undefined;
     if (st.kind !== "dir" || real === undefined) {
       throw new PsycheError("invalid_params", `${asked} is not a folder on ${machine.name}`);
     }
@@ -441,6 +554,7 @@ export function machineFilesTool(deps: MachineFilesDeps): AgentToolRegistration 
           300,
         ),
       details: {
+        tool: "machine_files",
         need: { need: "machine_folder", machine, path: real, access },
         reason,
         machine,
@@ -473,24 +587,36 @@ export function machineFilesTool(deps: MachineFilesDeps): AgentToolRegistration 
         ? { taintSources: [...ctx.taintSources] }
         : {}),
     });
+    const grant = () =>
+      deps.grants.add({
+        deviceId: machine.deviceId,
+        path: real,
+        mode,
+        threadId: ctx.threadId,
+        approvalId: issued.approval.id,
+        grantedAt: Date.now(),
+        ...(folderId === undefined ? {} : { folderId }),
+      });
     if (ctx.mode === "unattended") {
+      // Nothing waits on the card in an unattended run; the owner's tap still grants the folder
+      // for this conversation (the next run in it finds the grant).
+      void deps.broker
+        .awaitDecision(issued.approval.id)
+        .then((d) => {
+          if (d.status === "approved") grant();
+        })
+        .catch(() => undefined);
       return { output: { granted: false, status: "queued", machine }, provenance: "trusted" };
     }
     const done = await deps.broker.awaitDecision(issued.approval.id, ctx.signal);
     if (done.status !== "approved") {
       return { output: { granted: false, status: done.status, machine }, provenance: "trusted" };
     }
-    deps.grants.add({
-      deviceId: machine.deviceId,
-      path: real,
-      mode,
-      threadId: ctx.threadId,
-      approvalId: issued.approval.id,
-      grantedAt: Date.now(),
-    });
+    grant();
+    // The path is the box's own answer: untrusted, like everything a machine returns.
     return {
       output: { granted: true, machine, path: real, access, next: "retry the file call" },
-      provenance: "trusted",
+      provenance: "untrusted",
     };
   }
 
@@ -504,10 +630,12 @@ export function machineFilesTool(deps: MachineFilesDeps): AgentToolRegistration 
     let total = 0;
     let etag: string | undefined;
     for (;;) {
+      // Chunks that each fit one frame, streamed up to the copy limit.
       const r = await call("fs.read", {
         path,
         encoding: "base64",
         offset: total,
+        length: READ_CHUNK,
         ...(etag === undefined ? {} : { etag }),
       });
       if (!r.ok) return machineError(machine, r.error);

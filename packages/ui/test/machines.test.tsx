@@ -382,6 +382,8 @@ describe("the machine line on cards and trace steps", () => {
     ["computer_action", { surface: "direct" }, "On “lab-box” · Linux · its desktop"],
     ["exec_host", {}, "On “lab-box” · Linux · command"],
     ["folder_access", {}, "On “lab-box” · Linux · files"],
+    ["connector_action", { tool: "machine_files" }, "On “lab-box” · Linux · files"],
+    ["permission_request", { tool: "machine_files" }, "On “lab-box” · Linux · files"],
   ])("%s %j reads %s", (kind, details, line) => {
     expect(approvalMachineLine(card(kind, details))?.replace(/[\u2068\u2069]/g, "")).toBe(line);
   });

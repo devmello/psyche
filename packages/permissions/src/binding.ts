@@ -380,18 +380,27 @@ function execBinding(kind: "exec" | "exec_host", raw: unknown): [JsonObject, Jso
     .sort();
   const machine = optStr(kind, "machine", a.machine);
   if (machine !== undefined && kind !== "exec_host") bad(kind, "only exec_host runs on a machine");
-  // On a machine the box resolves argv[0]; a Host binary and hash are never bound for it.
+  // On a machine the box resolves argv[0] and hashes the file it will run (`exec.resolve`): the
+  // card binds that hash, and the box refuses any other file. The path is the box's, optional.
   const onMachine = machine !== undefined;
-  if (onMachine && (a.executable !== undefined || a.executableSha256 !== undefined)) {
-    bad(kind, "a machine command binds the machine, not a Host executable");
-  }
-  const executable = onMachine ? undefined : canonicalPath(str(kind, "executable", a.executable));
+  const executable =
+    onMachine && a.executable === undefined
+      ? undefined
+      : canonicalPath(str(kind, "executable", a.executable));
   const executableSha256 = optSha(kind, "executableSha256", a.executableSha256);
-  if (kind === "exec_host" && executableSha256 === undefined && !onMachine) {
+  if (kind === "exec_host" && executableSha256 === undefined) {
     bad(kind, "exec_host binds the binary SHA-256 (executableSha256)");
   }
   const network = a.network === undefined ? "none" : a.network;
-  if (network !== "none" && network !== "proxy") bad(kind, "network must be none | proxy");
+  // A machine command's network is the box's own sandbox switch (off by default, D1): `on`.
+  if (network !== "none" && network !== (onMachine ? "on" : "proxy")) {
+    bad(kind, onMachine ? "network must be none | on" : "network must be none | proxy");
+  }
+  // Whether the box runs it contained or on the full account is part of what was approved.
+  if (a.contained !== undefined && (!onMachine || typeof a.contained !== "boolean")) {
+    bad(kind, "contained is a machine command's boolean");
+  }
+  const contained = onMachine ? (a.contained as boolean | undefined) : undefined;
   let cwdConfig: JsonObject | undefined;
   if (a.cwdConfigHashes !== undefined) {
     cwdConfig = {};
@@ -410,6 +419,7 @@ function execBinding(kind: "exec" | "exec_host", raw: unknown): [JsonObject, Jso
     network,
     cwdConfigHashes: cwdConfig,
     machine,
+    contained,
   });
   // Security §3.5: the grant key is "the same four fields" (plus the config hashes when bound).
   // The four fields of security §3.5, plus what changes what runs or where it can reach: stdin,
@@ -425,6 +435,7 @@ function execBinding(kind: "exec" | "exec_host", raw: unknown): [JsonObject, Jso
     network,
     sandboxId: fields.sandboxId,
     machine,
+    contained,
   });
   return [fields, key];
 }

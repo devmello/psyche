@@ -108,4 +108,12 @@ export const machines: Partial<Catalogue> = {
   "computerWatch.machineMissing": "该电脑不可用。",
   "settings.key.computerUse.defaultMachine": "后台工作的默认电脑",
   "settings.key.computerUse.machineApps": "Linux 电脑上的应用权限",
+  "machines.card.folder": "文件夹",
+  "machines.card.runsContained": "隔离运行，仅限授权的文件夹：无法访问密钥、浏览器配置文件或其他文件夹",
+  "machines.card.runsFullAccount": "以完整账户运行：该账户能做的事它都能做",
+  "machines.card.networkOff": "关闭",
+  "machines.card.networkOn": "开启",
+  "machines.card.folderReadOnly": "{path}，只读",
+  "machines.card.folderReadWrite": "{path}，读写",
+  "machines.card.folderNotEnforced": "{path}，以完整账户运行时不强制只读",
 };

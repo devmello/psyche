@@ -114,4 +114,12 @@ export const machines: Partial<Catalogue> = {
   "computerWatch.machineMissing": "वह कंप्यूटर उपलब्ध नहीं है।",
   "settings.key.computerUse.defaultMachine": "बैकग्राउंड काम के लिए डिफ़ॉल्ट कंप्यूटर",
   "settings.key.computerUse.machineApps": "Linux कंप्यूटर पर ऐप एक्सेस",
+  "machines.card.folder": "फ़ोल्डर",
+  "machines.card.runsContained": "अलग रखा गया, सिर्फ़ दिए गए फ़ोल्डर में: कोई कुंजी, ब्राउज़र प्रोफ़ाइल या दूसरा फ़ोल्डर नहीं",
+  "machines.card.runsFullAccount": "पूरे खाते पर: वह खाता जो कुछ कर सकता है, यह भी कर सकता है",
+  "machines.card.networkOff": "बंद",
+  "machines.card.networkOn": "चालू",
+  "machines.card.folderReadOnly": "{path}, सिर्फ़ पढ़ने के लिए",
+  "machines.card.folderReadWrite": "{path}, पढ़ने और लिखने के लिए",
+  "machines.card.folderNotEnforced": "{path}, पूरे खाते पर सिर्फ़-पढ़ना लागू नहीं होता",
 };

@@ -897,6 +897,12 @@ const Input = Type.Object({
         "Run it on one of the owner's paired computers instead (its name or id from machines.list); omit for this computer",
     }),
   ),
+  network: Type.Optional(
+    Type.Boolean({
+      description:
+        "With `machine`: let the contained command reach the network (off by default; that computer's limits decide)",
+    }),
+  ),
 });
 type HostParams = {
   argv: string[];
@@ -905,6 +911,7 @@ type HostParams = {
   allowedDomains?: string[];
   timeoutMs?: number;
   machine?: string;
+  network?: boolean;
 };
 
 /** The `machine` hook, or the refusal when this Gateway has none. */
@@ -925,6 +932,12 @@ function checkParams(p: HostParams, platform: NodeJS.Platform): void {
     }
   } else if (!isAbsolute(p.cwd)) {
     throw new PsycheError("invalid_params", "cwd must be an absolute path");
+  }
+  if (p.network !== undefined) {
+    throw new PsycheError(
+      "invalid_params",
+      "network is for a paired computer's sandbox; here, allowedDomains names the hosts",
+    );
   }
   for (const [k, v] of Object.entries(p.env ?? {})) {
     if (RESERVED_ENV.test(k) || (platform === "win32" && RESERVED_ENV_WINDOWS.test(k))) {

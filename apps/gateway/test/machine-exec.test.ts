@@ -10,6 +10,7 @@ import {
 import { createPermissionBroker, type PsychePermissionBroker } from "@psyche/permissions";
 import type {
   ComputerMachineRef,
+  GrantScope,
   NodeClient,
   NodeInvokeOptions,
   NodeInvokeResult,
@@ -18,8 +19,14 @@ import type {
 import { namespacedGrantKey } from "@psyche/protocol";
 import { beforeEach, describe, expect, it } from "vitest";
 import { execHostTool } from "../src/compose/exec-host.ts";
-import { machineExec, machineExecGrantKey } from "../src/compose/machine-exec.ts";
 import {
+  type MachineExecHook,
+  machineExec,
+  machineExecGrantKey,
+} from "../src/compose/machine-exec.ts";
+import {
+  MACHINE_READ_CHUNK,
+  MACHINE_WRITE_MAX_BYTES,
   type MachineDirectory,
   MachineFolderGrants,
   type MachineLibrary,
@@ -37,6 +44,7 @@ const A: ComputerMachineRef = { deviceId: "dev_machine_a", name: "lab-box" };
 const B: ComputerMachineRef = { deviceId: "dev_machine_b", name: "build-box" };
 const PROJ = "/home/dev/proj";
 const SHA = `sha256:${"a".repeat(64)}`;
+const SHA2 = `sha256:${"c".repeat(64)}`;
 
 interface Call {
   capability: string;
@@ -44,7 +52,12 @@ interface Call {
   options: NodeInvokeOptions | undefined;
 }
 
-/** A machine that answers exec.host and fs.* from a script, recording each call. */
+/** What the fake boxes are like now: the program's hash, containment and network limit. */
+let box: { sha: string; contained: boolean; networkAllowed: boolean };
+/** The box's folder ids (`dev:ino`) by path; a swapped folder gets another id. */
+let folderIds: Map<string, string>;
+
+/** A machine that answers exec.* and fs.* from a script, recording each call. */
 function fakeMachine(ref: ComputerMachineRef, calls: Call[]): NodeClient {
   return {
     nodeId: `node_${ref.deviceId}`,
@@ -53,9 +66,20 @@ function fakeMachine(ref: ComputerMachineRef, calls: Call[]): NodeClient {
     async invoke(capability, params, options): Promise<NodeInvokeResult> {
       calls.push({ capability, params: params as Record<string, unknown>, options });
       const p = params as Record<string, unknown>;
+      if (capability === "exec.resolve") {
+        return {
+          ok: true,
+          result: {
+            executable: "/usr/bin/echo",
+            executableSha256: box.sha,
+            contained: box.contained,
+            networkAllowed: box.networkAllowed,
+          },
+        };
+      }
       if (capability === "exec.host") {
         options?.onEvent?.({ seq: 0, data: { stream: "stdout", text: "hi\n" } });
-        if (p.expectSha256 !== undefined && p.expectSha256 !== SHA) {
+        if (p.expectSha256 !== box.sha) {
           return {
             ok: false,
             error: {
@@ -75,16 +99,27 @@ function fakeMachine(ref: ComputerMachineRef, calls: Call[]): NodeClient {
             timedOut: false,
             durationMs: 3,
             executable: "/usr/bin/echo",
-            executableSha256: SHA,
+            executableSha256: box.sha,
             cwd: p.cwd,
-            contained: true,
+            contained: box.contained,
+            network: p.network === true,
           },
         };
       }
       if (capability === "fs.stat") {
         // The box resolves the folder the agent named to its real path.
-        const path = p.path === "/home/dev/link" ? "/home/dev/real" : p.path;
-        return { ok: true, result: { path, kind: "dir", size: 0, mtimeMs: 0, etag: "e" } };
+        const path = p.path === "/home/dev/link" ? "/home/dev/real" : (p.path as string);
+        return {
+          ok: true,
+          result: {
+            path,
+            kind: "dir",
+            size: 0,
+            mtimeMs: 0,
+            etag: "e",
+            id: folderIds.get(path) ?? "fd:1",
+          },
+        };
       }
       if (capability === "fs.list") {
         return { ok: true, result: { path: p.path, entries: [{ name: "a.txt", kind: "file" }] } };
@@ -117,6 +152,8 @@ let online: Set<string>;
 let callsA: Call[];
 let callsB: Call[];
 let saved: Parameters<MachineLibrary["save"]>[0][];
+/** The Gateway's machine hook; a new one is a Gateway restart (nothing in memory). */
+let hook: MachineExecHook;
 const tokens = new Map<string, string>();
 
 const directory = (): MachineDirectory => ({
@@ -132,11 +169,18 @@ const directory = (): MachineDirectory => ({
   },
 });
 
+const vault = { redact: (t: string) => t.replaceAll("s3cret", "[masked]") };
+const restart = () => {
+  hook = machineExec({ directory: directory(), grants, broker: recording(), vault });
+};
+
 beforeEach(() => {
   tokens.clear();
   callsA = [];
   callsB = [];
   saved = [];
+  box = { sha: SHA, contained: true, networkAllowed: false };
+  folderIds = new Map();
   names = new Map([
     [A.deviceId, A.name],
     [B.deviceId, B.name],
@@ -165,6 +209,7 @@ beforeEach(() => {
     folders: [{ path: join(root, "host-only"), mode: "rw" }],
     exec: { execHostEnabled: true },
   });
+  restart();
 });
 
 const recording = () =>
@@ -185,21 +230,12 @@ const recording = () =>
 const execHost = (withMachine = true) =>
   execHostTool({
     broker: recording(),
-    vault: { redact: (t) => t.replaceAll("s3cret", "[masked]") },
+    vault,
     folders: () => [],
     srt: { resolve: async () => ({ path: "/opt/mock/srt" }) },
     home: join(root, "psyche"),
     userHome: join(root, "home"),
-    ...(withMachine
-      ? {
-          machine: machineExec({
-            directory: directory(),
-            grants,
-            broker: recording(),
-            vault: { redact: (t) => t.replaceAll("s3cret", "[masked]") },
-          }),
-        }
-      : {}),
+    ...(withMachine ? { machine: hook } : {}),
   });
 
 const files = () =>
@@ -233,11 +269,24 @@ function run(t: AgentToolRegistration, params: unknown, c: ToolRunContext) {
   return t.run(params, c);
 }
 
+const tick = () => new Promise((r) => setTimeout(r, 0));
+
+/** The first description asks the box what argv[0] is; the agent calls again (the loop's retry). */
+async function primed(t: AgentToolRegistration, params: unknown): Promise<ToolCallDescription> {
+  try {
+    return t.describeCall?.(params) as ToolCallDescription;
+  } catch (e) {
+    if (!/call exec_host again/.test(String(e))) throw e;
+  }
+  await tick();
+  return t.describeCall?.(params) as ToolCallDescription;
+}
+
 const SEVERITY = { none: 0, read: 1, write: 2, destructive: 3, financial: 4 } as const;
 
 /** What the loop sends the broker for a call (agent-core `#gate`). */
-function decide(t: AgentToolRegistration, params: unknown, taint = false) {
-  const desc = t.describeCall?.(params) as ToolCallDescription;
+async function decide(t: AgentToolRegistration, params: unknown, taint = false) {
+  const desc = await primed(t, params);
   const hash = paramsHash(params);
   const declared = desc.sideEffect ?? t.spec.sideEffect;
   return broker.decide(
@@ -263,12 +312,16 @@ function decide(t: AgentToolRegistration, params: unknown, taint = false) {
 }
 
 /** Raises and approves the loop's card for an `ask`; returns its id. */
-async function approve(t: AgentToolRegistration, params: unknown): Promise<string> {
+async function approve(
+  t: AgentToolRegistration,
+  params: unknown,
+  scope: GrantScope = "once",
+): Promise<string> {
   const d = await decide(t, params);
   expect(d.decision).toBe("ask");
   const desc = t.describeCall?.(params) as ToolCallDescription;
   const issued = await recording().requestApproval({
-    kind: d.approvalKind ?? "exec_host",
+    kind: d.approvalKind ?? desc.kind ?? "connector_action",
     summary: desc.summary ?? "",
     details: { ...desc.details },
     bindingHash: d.bindingHash as string,
@@ -282,7 +335,7 @@ async function approve(t: AgentToolRegistration, params: unknown): Promise<strin
     approvalId: issued.approval.id,
     answerToken: tokens.get(issued.approval.id) ?? "",
     decision: "approve",
-    scope: "once",
+    scope,
     decidedBy: { deviceId: "dev_mac" },
   });
   return issued.approval.id;
@@ -291,18 +344,38 @@ async function approve(t: AgentToolRegistration, params: unknown): Promise<strin
 const onA = { argv: ["echo", "hi"], cwd: PROJ, machine: A.name };
 const onB = { ...onA, machine: B.name };
 
-describe("exec_host on a machine: the card is bound to the machine", () => {
-  it("binds the machine's device id: A's and B's cards differ, and neither is a Host card", async () => {
+describe("exec_host on a machine: the card is bound to the machine and its program", () => {
+  it("binds the machine's device id and the box's hash: A's and B's cards differ", async () => {
     const t = execHost();
-    const a = t.describeCall?.(onA) as ToolCallDescription;
-    const b = t.describeCall?.(onB) as ToolCallDescription;
+    // The first call asks the box; it names no program it has not resolved.
+    expect(() => t.describeCall?.(onA)).toThrow(/checking echo on lab-box/);
+    expect(callsA).toMatchObject([{ capability: "exec.resolve", params: { argv0: "echo" } }]);
+    const a = await primed(t, onA);
+    const b = await primed(t, onB);
     expect(a).toMatchObject({
       kind: "exec_host",
       summary: "Run `echo hi` on lab-box",
-      details: { machine: A, argv: ["echo", "hi"], cwd: PROJ },
-      bindingFields: { machine: A.deviceId },
+      details: {
+        machine: A,
+        argv: ["echo", "hi"],
+        cwd: PROJ,
+        onMachine: true,
+        executable: "/usr/bin/echo",
+        executableSha256: SHA,
+        contained: true,
+        network: "off",
+        folder: PROJ,
+        folderMode: "rw",
+      },
+      bindingFields: {
+        machine: A.deviceId,
+        executableSha256: SHA,
+        contained: true,
+        network: "none",
+      },
     });
     expect(a.grantKey).toContain(A.deviceId);
+    expect(a.grantKey).toContain(SHA);
     expect(b.grantKey).toContain(B.deviceId);
     const [da, db] = [await decide(t, onA), await decide(t, onB)];
     expect(da.decision).toBe("ask");
@@ -312,22 +385,47 @@ describe("exec_host on a machine: the card is bound to the machine", () => {
     expect((await decide(t, { ...onA, machine: A.deviceId })).bindingHash).not.toBe(da.bindingHash);
   });
 
-  it("a card approved for A runs on A only, and is refused on B", async () => {
+  it("the card names its machine (approval.machine), and keeps it", async () => {
+    const t = execHost();
+    const id = await approve(t, onA);
+    expect((await broker.get(id))?.machine).toEqual(A);
+  });
+
+  it("a card approved for A runs on A only, with the hash it showed, and is refused on B", async () => {
     const t = execHost();
     const id = await approve(t, onA);
     const ok = await run(t, onA, ctx({ approvalId: id }));
     expect(ok.provenance).toBe("untrusted");
     expect(ok.output).toMatchObject({ machine: A, exitCode: 0, outcome: "ok", contained: true });
-    expect(callsA).toHaveLength(1);
-    expect(callsA[0]).toMatchObject({
-      capability: "exec.host",
-      params: { argv: ["echo", "hi"], cwd: PROJ, folder: PROJ, folderMode: "rw" },
-      options: { approvalId: id },
-    });
+    expect(callsA.filter((c) => c.capability === "exec.host")).toMatchObject([
+      {
+        params: {
+          argv: ["echo", "hi"],
+          cwd: PROJ,
+          folder: PROJ,
+          folderMode: "rw",
+          expectSha256: SHA,
+          expectContained: true,
+        },
+        options: { approvalId: id },
+      },
+    ]);
+    expect(callsA.find((c) => c.capability === "exec.host")?.params.network).toBeUndefined();
     await expect(run(t, onB, ctx({ approvalId: id }))).rejects.toMatchObject({
       code: "binding_mismatch",
     });
-    expect(callsB).toHaveLength(0);
+    expect(callsB.filter((c) => c.capability === "exec.host")).toHaveLength(0);
+  });
+
+  it("a binary changed after the card is not run, and the next call shows a fresh card", async () => {
+    const t = execHost();
+    const id = await approve(t, onA);
+    box.sha = SHA2;
+    const r = await run(t, onA, ctx({ approvalId: id }));
+    expect(r).toMatchObject({ isError: true, output: { error: { reason: "executable_changed" } } });
+    // The resolved program was forgotten: the box is asked again, and its card binds the new hash.
+    const fresh = await primed(t, onA);
+    expect(fresh.details).toMatchObject({ executableSha256: SHA2 });
   });
 
   it("a rename between the card and the run does not move the command to another machine", async () => {
@@ -339,8 +437,8 @@ describe("exec_host on a machine: the card is bound to the machine", () => {
     await expect(run(t, onA, ctx({ approvalId: id }))).rejects.toMatchObject({
       code: "binding_mismatch",
     });
-    expect(callsA).toHaveLength(0);
-    expect(callsB).toHaveLength(0);
+    expect(callsA.filter((c) => c.capability === "exec.host")).toHaveLength(0);
+    expect(callsB.filter((c) => c.capability === "exec.host")).toHaveLength(0);
   });
 
   it("a Host card never runs on a machine, and a machine card never runs on the Host", async () => {
@@ -356,17 +454,23 @@ describe("exec_host on a machine: the card is bound to the machine", () => {
       surfaces: ["desktop"],
       taint: false,
     });
+    expect(host.approval.machine).toBeUndefined();
     await expect(run(t, onA, ctx({ approvalId: host.approval.id }))).rejects.toMatchObject({
       code: "binding_mismatch",
     });
-    expect(callsA).toHaveLength(0);
+    expect(callsA.filter((c) => c.capability === "exec.host")).toHaveLength(0);
   });
 
-  it("a standing grant covers only its own machine and command, and pins the binary", async () => {
+  it("a standing grant covers only its own machine, command and program", async () => {
     const t = execHost();
+    await primed(t, onA);
     const key = namespacedGrantKey(
       "exec_host",
-      machineExecGrantKey(A.deviceId, onA.argv, PROJ, []),
+      machineExecGrantKey(A.deviceId, onA.argv, PROJ, [], {
+        sha256: SHA,
+        contained: true,
+        network: false,
+      }),
     );
     const always = {
       rule: "approval:apr_x",
@@ -375,27 +479,109 @@ describe("exec_host on a machine: the card is bound to the machine", () => {
       grantId: "grt_1",
       scope: "always" as const,
     };
-    // The run of the card that made the grant pins what ran.
-    const id = await approve(t, onA);
-    await run(t, onA, ctx({ approvalId: id, authority: { ...always, approvalId: id } }));
-    expect(callsA[0]?.params.expectSha256).toBeUndefined();
-    // Later runs under the grant send the pin back.
+    // Runs under the grant send its hash.
     await run(t, onA, ctx({ authority: always }));
-    expect(callsA[1]?.params.expectSha256).toBe(SHA);
+    expect(callsA.find((c) => c.capability === "exec.host")?.params.expectSha256).toBe(SHA);
     // A's grant does not run B's command, or a different command on A.
+    await primed(t, onB);
     await expect(run(t, onB, ctx({ authority: always }))).rejects.toMatchObject({
-      code: "forbidden",
+      code: "binding_mismatch",
     });
+    await primed(t, { ...onA, argv: ["echo", "other"] });
     await expect(
       run(t, { ...onA, argv: ["echo", "other"] }, ctx({ authority: always })),
-    ).rejects.toMatchObject({ code: "forbidden" });
-    // A grant that never pinned (a restart) asks again instead of trusting whatever runs.
-    await expect(
-      run(t, onA, ctx({ authority: { ...always, grantId: "grt_unpinned" } })),
-    ).rejects.toMatchObject({ code: "forbidden" });
+    ).rejects.toMatchObject({ code: "binding_mismatch" });
     // Neither approval nor grant: refused.
-    await expect(run(t, onA, ctx())).rejects.toMatchObject({ code: "forbidden" });
-    expect(callsB).toHaveLength(0);
+    await expect(run(t, onA, ctx())).rejects.toMatchObject({ code: "binding_mismatch" });
+    expect(callsB.filter((c) => c.capability === "exec.host")).toHaveLength(0);
+  });
+
+  it("after a restart a grant still covers its program, and a changed one gets a fresh card", async () => {
+    // Review r1 finding 4: no in-memory pin; a missing one never means "approve it again" with
+    // no card to approve.
+    let t = execHost();
+    await approve(t, onA, "always");
+    expect(await decide(t, onA)).toMatchObject({ decision: "allow" });
+    restart();
+    t = execHost();
+    // The new Gateway asks the box first, then the grant covers the same program.
+    expect(await decide(t, onA)).toMatchObject({ decision: "allow" });
+    const allowed = await decide(t, onA);
+    const r = await run(
+      t,
+      onA,
+      ctx({
+        authority: {
+          rule: allowed.rule ?? "grant",
+          bindingHash: allowed.bindingHash as string,
+          grantKey: allowed.grantKey as string,
+          grantId: "grt_restart",
+          scope: "always",
+        },
+      }),
+    );
+    expect(r.output).toMatchObject({ outcome: "ok" });
+    // The binary changed on the box: the grant does not cover it, the owner sees a card.
+    box.sha = SHA2;
+    restart();
+    t = execHost();
+    expect(await decide(t, onA)).toMatchObject({ decision: "ask" });
+  });
+});
+
+describe("exec_host on a machine: containment and the network (D1, D3)", () => {
+  it("the network is off unless asked, and refused before the card when the box forbids it", async () => {
+    const t = execHost();
+    await primed(t, onA);
+    expect(() => t.describeCall?.({ ...onA, network: true })).toThrow(/off the network/);
+    box.networkAllowed = true;
+    restart();
+    const t2 = execHost();
+    const d = await primed(t2, { ...onA, network: true });
+    expect(d).toMatchObject({
+      summary: "Run `echo hi` on lab-box with the network on",
+      details: { network: "on", contained: true },
+      bindingFields: { network: "on" },
+    });
+    expect(d.grantKey).not.toBe((await primed(t2, onA)).grantKey);
+    const id = await approve(t2, { ...onA, network: true });
+    await run(t2, { ...onA, network: true }, ctx({ approvalId: id }));
+    expect(callsA.find((c) => c.capability === "exec.host")?.params.network).toBe(true);
+    // The card said network on: the same call without it is another call, refused.
+    await expect(run(t2, onA, ctx({ approvalId: id }))).rejects.toMatchObject({
+      code: "binding_mismatch",
+    });
+  });
+
+  it("a full-account box says so on the card, and a read-only folder is shown as not enforced", async () => {
+    box.contained = false;
+    grants.forgetMachine(A.deviceId);
+    grants.add({
+      deviceId: A.deviceId,
+      path: PROJ,
+      mode: "ro",
+      threadId: "thr_1",
+      approvalId: "apr_ro",
+      grantedAt: 0,
+    });
+    const t = execHost();
+    const d = await primed(t, onA);
+    expect(d).toMatchObject({
+      summary: "Run `echo hi` on lab-box on the full account",
+      details: { contained: false, network: "on", folderMode: "ro" },
+      bindingFields: { contained: false, network: "on" },
+    });
+    const id = await approve(t, onA);
+    await run(t, onA, ctx({ approvalId: id }));
+    expect(callsA.find((c) => c.capability === "exec.host")?.params).toMatchObject({
+      expectContained: false,
+      folderMode: "ro",
+    });
+    // The box's limits changed to contained since the card: the box refuses it
+    // (`containment_changed`, checked in the helper), and the Gateway asks again next time.
+    box.contained = true;
+    restart();
+    expect((await primed(execHost(), onA)).grantKey).not.toBe(d.grantKey);
   });
 });
 
@@ -414,6 +600,7 @@ describe("exec_host on a machine: taint", () => {
     expect(t.spec.provenanceOut).toBe("untrusted");
     const id = await approve(t, onA);
     const updates: unknown[] = [];
+    await primed(t, { ...onA, argv: ["echo", "s3cret"] });
     const r = await run(
       t,
       { ...onA, argv: ["echo", "s3cret"] },
@@ -438,20 +625,28 @@ describe("exec_host on a machine: must-refuse rows before any card", () => {
     ["SSH_AUTH_SOCK", { ...onA, env: { SSH_AUTH_SOCK: "/x" } }, /fixed/],
     ["a vault placeholder", { ...onA, env: { TOKEN: "{{cred:x}}" } }, /vault/],
     ["allowedDomains", { ...onA, allowedDomains: ["npmjs.org"] }, /allowedDomains/],
+    ["the network when the box keeps it off", { ...onA, network: true }, /off the network/],
   ];
-  it.each(rows)("%s", (_label, params, why) => {
-    expect(() => execHost().describeCall?.(params)).toThrow(why);
+  it.each(rows)("%s", async (_label, params, why) => {
+    await expect(primed(execHost(), params)).rejects.toThrow(why);
   });
 
-  it("must-allow rows describe a card", () => {
+  it("must-allow rows describe a card", async () => {
     for (const params of [
       onA,
       { ...onA, cwd: `${PROJ}/sub/dir` },
       { ...onA, env: { FOO: "bar", RUST_LOG: "debug" } },
       { ...onA, machine: A.deviceId },
+      { ...onA, network: false },
     ]) {
-      expect(execHost().describeCall?.(params)).toMatchObject({ kind: "exec_host" });
+      expect(await primed(execHost(), params)).toMatchObject({ kind: "exec_host" });
     }
+  });
+
+  it("the Host's exec_host never takes the machine's network switch", () => {
+    expect(() => execHost().describeCall?.({ argv: ["ls"], cwd: root, network: true })).toThrow(
+      /network is for a paired computer/,
+    );
   });
 
   it("a Gateway without the hook refuses a machine command instead of running it here", async () => {
@@ -472,37 +667,71 @@ describe("exec_host on a machine: must-refuse rows before any card", () => {
       code: "unavailable",
       details: { reason: "machine_offline" },
     });
-    expect(callsA).toHaveLength(0);
+    restart();
+    expect(() => execHost().describeCall?.(onA)).toThrow(/offline/);
+    expect(callsA.filter((c) => c.capability === "exec.host")).toHaveLength(0);
   });
 
   it("the Host's exec_host switch still gates machine commands", async () => {
     broker.setPolicy({ exec: { execHostEnabled: false } });
     expect(await decide(execHost(), onA)).toMatchObject({ decision: "deny" });
   });
+
+  it("a granted folder carries its id to the box, and a swapped folder loses its grant", async () => {
+    grants.forgetMachine(A.deviceId);
+    const g = {
+      deviceId: A.deviceId,
+      path: PROJ,
+      mode: "rw" as const,
+      threadId: "thr_1",
+      approvalId: "apr_g",
+      grantedAt: 0,
+      folderId: "fd:1",
+    };
+    grants.add(g);
+    const t = execHost();
+    const id = await approve(t, onA);
+    await run(t, onA, ctx({ approvalId: id }));
+    expect(callsA.find((c) => c.capability === "exec.host")?.params.folderId).toBe("fd:1");
+    grants.forget(g);
+    expect(grants.covering(A.deviceId, "thr_1", PROJ)).toBeUndefined();
+  });
 });
 
 describe("machine_files", () => {
-  it("request_folder grants the folder the box reports, not the agent's string", async () => {
-    const t = files();
-    const pend = run(
-      t,
-      {
-        op: "request_folder",
-        machine: A.name,
-        path: "/home/dev/link",
-        access: "read",
-        reason: "notes",
-      },
-      ctx(),
-    );
+  async function pendingApproval() {
     let approval: Awaited<ReturnType<typeof broker.list>>[number] | undefined;
     for (let i = 0; i < 100 && approval === undefined; i++) {
       [approval] = await broker.list({ status: "pending" });
       if (approval === undefined) await new Promise((r) => setTimeout(r, 5));
     }
+    return approval;
+  }
+  const answer = (id: string) =>
+    broker.answer({
+      approvalId: id,
+      answerToken: tokens.get(id) ?? "",
+      decision: "approve",
+      scope: "once",
+      decidedBy: { deviceId: "dev_mac" },
+    });
+  const folderAsk = {
+    op: "request_folder",
+    machine: A.name,
+    path: "/home/dev/link",
+    access: "read",
+    reason: "notes",
+  };
+
+  it("request_folder grants the folder the box reports, pinned by its id, and says so untrusted", async () => {
+    folderIds.set("/home/dev/real", "fd:2a");
+    const t = files();
+    const pend = run(t, folderAsk, ctx());
+    const approval = await pendingApproval();
     expect(approval).toMatchObject({
       kind: "permission_request",
       scopesOffered: ["once"],
+      machine: A,
       details: {
         machine: A,
         path: "/home/dev/real",
@@ -510,24 +739,57 @@ describe("machine_files", () => {
         access: "ro",
       },
     });
-    await broker.answer({
-      approvalId: approval?.id as string,
-      answerToken: tokens.get(approval?.id as string) ?? "",
-      decision: "approve",
-      scope: "once",
-      decidedBy: { deviceId: "dev_mac" },
+    await answer(approval?.id as string);
+    const done = await pend;
+    expect(done.output).toMatchObject({ granted: true, path: "/home/dev/real" });
+    // Finding 13: the path is the box's answer.
+    expect(done.provenance).toBe("untrusted");
+    expect(grants.covering(A.deviceId, "thr_1", "/home/dev/real/x")).toMatchObject({
+      mode: "ro",
+      folderId: "fd:2a",
     });
-    expect((await pend).output).toMatchObject({ granted: true, path: "/home/dev/real" });
-    expect(grants.covering(A.deviceId, "thr_1", "/home/dev/real/x")?.mode).toBe("ro");
     expect(grants.covering(A.deviceId, "thr_1", "/home/dev/link/x")).toBeUndefined();
     expect(grants.covering(B.deviceId, "thr_1", "/home/dev/real/x")).toBeUndefined();
   });
 
-  it("reads need a grant on that machine and come back untrusted", async () => {
+  it("an unattended run's folder request is granted when the owner taps it later", async () => {
+    const t = files();
+    const r = await run(t, folderAsk, ctx({ mode: "unattended" }));
+    expect(r.output).toMatchObject({ granted: false, status: "queued" });
+    expect(grants.covering(A.deviceId, "thr_1", "/home/dev/real/x")).toBeUndefined();
+    const approval = await pendingApproval();
+    await answer(approval?.id as string);
+    await tick();
+    expect(grants.covering(A.deviceId, "thr_1", "/home/dev/real/x")?.mode).toBe("ro");
+  });
+
+  it("a folder swapped since its grant is refused, and the grant is gone", async () => {
+    grants.forgetMachine(A.deviceId);
+    grants.add({
+      deviceId: A.deviceId,
+      path: PROJ,
+      mode: "rw",
+      threadId: "thr_1",
+      approvalId: "apr_g",
+      grantedAt: 0,
+      folderId: "fd:1",
+    });
+    const t = files();
+    const read = { op: "read", machine: A.name, path: `${PROJ}/a.txt` };
+    expect((await run(t, read, ctx())).output).toMatchObject({ content: "file body" });
+    folderIds.set(PROJ, "fd:99");
+    const r = await run(t, read, ctx());
+    expect(r).toMatchObject({ isError: true, output: { error: { reason: "folder_moved" } } });
+    expect(grants.covering(A.deviceId, "thr_1", `${PROJ}/a.txt`)).toBeUndefined();
+    expect(callsA.filter((c) => c.capability === "fs.read")).toHaveLength(1);
+  });
+
+  it("reads need a grant on that machine, fit one frame and come back untrusted", async () => {
     const t = files();
     const r = await run(t, { op: "read", machine: A.name, path: `${PROJ}/a.txt` }, ctx());
     expect(r.provenance).toBe("untrusted");
     expect(r.output).toMatchObject({ machine: A, content: "file body" });
+    expect(callsA.at(-1)?.params.length).toBe(MACHINE_READ_CHUNK);
     await expect(
       run(t, { op: "read", machine: A.name, path: "/etc/passwd" }, ctx()),
     ).rejects.toMatchObject({
@@ -539,11 +801,18 @@ describe("machine_files", () => {
     ).rejects.toMatchObject({ code: "forbidden" });
   });
 
-  it("writes ask on every call and need a read-write grant; a remove needs its card", async () => {
+  it("writes ask on every call, once only, and need a read-write grant", async () => {
     const t = files();
     const write = { op: "write", machine: A.name, path: `${PROJ}/b.txt`, content: "x" };
-    expect(t.describeCall?.(write)).toMatchObject({ sideEffect: "destructive" });
-    expect((await decide(t, write)).decision).toBe("ask");
+    expect(t.describeCall?.(write)).toMatchObject({
+      sideEffect: "destructive",
+      details: { tool: "machine_files", machine: A, op: "write", recursive: false },
+    });
+    // Finding 5: never a standing grant for a change on a machine.
+    for (const op of [write, { ...write, op: "mkdir" }, { ...write, op: "remove" }]) {
+      const d = await decide(t, op);
+      expect(d).toMatchObject({ decision: "ask", scopesOffered: ["once"] });
+    }
     grants.forgetMachine(A.deviceId);
     grants.add({
       deviceId: A.deviceId,
@@ -565,10 +834,9 @@ describe("machine_files", () => {
       approvalId: "b",
       grantedAt: 0,
     });
-    await expect(
-      run(t, { op: "remove", machine: A.name, path: `${PROJ}/b.txt` }, ctx()),
-    ).rejects.toMatchObject({ code: "forbidden" });
-    const ok = await run(t, write, ctx({ approvalId: "apr_x" }));
+    const id = await approve(t, write);
+    expect((await broker.get(id))?.machine).toEqual(A);
+    const ok = await run(t, write, ctx({ approvalId: id }));
     expect(ok.provenance).toBe("untrusted");
     expect(callsA.at(-1)).toMatchObject({
       capability: "fs.write",
@@ -576,7 +844,49 @@ describe("machine_files", () => {
     });
   });
 
-  it("copy to the Host saves the file into the Library as a file from that machine", async () => {
+  it("a change runs on its own card only: same machine id, op, path, content and recursion", async () => {
+    const t = files();
+    const write = { op: "write", machine: A.name, path: `${PROJ}/b.txt`, content: "x" };
+    const remove = { op: "remove", machine: A.name, path: `${PROJ}/sub` };
+    // No card (a grant or nothing, e.g. after a restart): refused, never run.
+    await expect(run(t, remove, ctx())).rejects.toMatchObject({ code: "binding_mismatch" });
+    const wid = await approve(t, write);
+    const rid = await approve(t, remove);
+    const refused: [string, Record<string, unknown>, string][] = [
+      ["other content", { ...write, content: "y" }, wid],
+      ["another path", { ...write, path: `${PROJ}/c.txt` }, wid],
+      ["another op on the write's card", { ...write, op: "mkdir" }, wid],
+      ["a recursive remove on a plain remove's card", { ...remove, recursive: true }, rid],
+      ["the same name on another machine", { ...write, machine: B.name }, wid],
+    ];
+    for (const [label, params, id] of refused) {
+      await expect(run(t, params, ctx({ approvalId: id })), label).rejects.toMatchObject({
+        code: "binding_mismatch",
+      });
+    }
+    // A rename after the card: the name now reaches B, the card names A.
+    names.set(A.deviceId, "old-lab-box");
+    names.set(B.deviceId, A.name);
+    await expect(run(t, write, ctx({ approvalId: wid }))).rejects.toMatchObject({
+      code: "binding_mismatch",
+    });
+    expect([...callsA, ...callsB].filter((c) => c.capability.startsWith("fs.w"))).toHaveLength(0);
+  });
+
+  it("a write too large for one frame is refused before its card", () => {
+    const t = files();
+    const big = "x".repeat(MACHINE_WRITE_MAX_BYTES + 1);
+    expect(() =>
+      t.describeCall?.({ op: "write", machine: A.name, path: `${PROJ}/b.txt`, content: big }),
+    ).toThrow(/larger than/);
+    // Control characters grow sixfold in JSON: counted on the encoded size too.
+    const escapes = "\u0001".repeat(200 * 1024);
+    expect(() =>
+      t.describeCall?.({ op: "write", machine: A.name, path: `${PROJ}/b.txt`, content: escapes }),
+    ).toThrow(/larger than/);
+  });
+
+  it("copy to the Host saves the file into the Library in frame-sized chunks", async () => {
     const t = files();
     const r = await run(t, { op: "copy_to_host", machine: A.name, path: `${PROJ}/a.txt` }, ctx());
     expect(r.output).toMatchObject({
@@ -585,6 +895,7 @@ describe("machine_files", () => {
       libraryItemId: "lib_1",
       quarantined: true,
     });
+    expect(callsA.at(-1)?.params).toMatchObject({ encoding: "base64", length: MACHINE_READ_CHUNK });
     expect(saved).toHaveLength(1);
     expect(saved[0]).toMatchObject({ name: "a.txt", machine: A, path: `${PROJ}/a.txt` });
     expect(saved[0]?.data.toString()).toBe("file body");
