@@ -1045,17 +1045,6 @@ export class PsycheAgentLoop implements AgentLoop {
     };
     this.#runs.set(runId, run);
     this.#ranHere.add(runId);
-    // The run's Space is fixed here, before the prompt is built, for the whole run (spaces-2026
-    // SR3): nothing else on this thread (a preview, a widget, another run) can change it.
-    this.#o.broker.bindRun?.({
-      threadId,
-      runId,
-      unattended: run.mode === "unattended",
-      ...(requester === undefined ? {} : { requester: structuredClone(requester) }),
-      ...(child === undefined
-        ? {}
-        : { parent: { threadId: child.parent.threadId, runId: child.parent.runId } }),
-    });
     let outcome: RunOutcome = "final";
     let error: string | undefined;
     // `run.thread` starts empty: it is saved only once the stored thread was read into it, so a
@@ -1127,6 +1116,20 @@ export class PsycheAgentLoop implements AgentLoop {
           if (spec.planFirst && spec.planApproved !== true) run.permissionMode = "plan";
         }
       }
+      // The run's Space is fixed here, before the prompt is built, for the whole run (spaces-2026
+      // SR3): nothing else on this thread (a preview, a widget, another run) can change it. The
+      // broker cross-checks `space` against the thread, and a specialist's `run.space` is set
+      // above, so this first bind is the right one.
+      this.#o.broker.bindRun?.({
+        threadId,
+        runId,
+        unattended: run.mode === "unattended",
+        ...(requester === undefined ? {} : { requester: structuredClone(requester) }),
+        ...(child === undefined
+          ? {}
+          : { parent: { threadId: child.parent.threadId, runId: child.parent.runId } }),
+        ...(run.space === undefined ? {} : { space: { id: run.space.id, name: run.space.name } }),
+      });
       // Untrusted content inside the input itself: forwarded or quoted third-party text in an
       // owner's channel message (#275).
       for (const s of input.taintSources ?? []) this.#taint(run, { ...s });

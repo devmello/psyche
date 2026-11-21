@@ -2387,6 +2387,8 @@ export async function composeGateway(options: ComposeOptions): Promise<ComposedG
         grantedFolders: (threadId) => [
           ...rawBroker.grantedFolders(),
           ...rawBroker.liveSessionFolders(threadId),
+          // The thread's current Space folders count as already shared (a read, nothing stored).
+          ...rawBroker.spaceFoldersOfThread(threadId),
         ],
       },
     }),

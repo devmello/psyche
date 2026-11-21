@@ -439,17 +439,83 @@ describe("the Space is fixed at the run's start (SR3)", () => {
     expect((await read(join(jobs, "a.txt"), run1)).rule).toBe("folder:not_granted");
   });
 
-  it("takes the loop's own run-start Space when it names one", async () => {
-    const c = ctx("thr_side", { runId: "run_named" });
+  // r2 finding 1: the loop's Space is a hint the broker cross-checks against the thread.
+  it("takes the loop's run-start Space only when it is the thread's own", async () => {
+    const own = ctx("thr_kitchen", { runId: "run_own" });
     h.broker.bindRun({
-      threadId: c.threadId,
+      threadId: own.threadId,
+      runId: own.runId,
+      unattended: false,
+      space: { id: "spc_kitchen", name: "Kitchen remodel" },
+    });
+    expect(passesFolders(await read(join(kitchen, "a.txt"), own))).toBe(true);
+    const none = ctx("thr_kitchen", { runId: "run_none" });
+    h.broker.bindRun({
+      threadId: none.threadId,
+      runId: none.runId,
+      unattended: false,
+      space: null,
+    });
+    expect((await read(join(kitchen, "a.txt"), none)).rule).toBe("folder:not_granted");
+  });
+
+  it.each([
+    ["the main chat", "thr_main"],
+    ["a chat in no Space", "thr_side"],
+    ["a chat in another Space", "thr_jobs"],
+  ])("a caller's Space is ignored for %s", async (_label, threadId) => {
+    const c = ctx(threadId, { runId: `run_${threadId}` });
+    h.broker.bindRun({
+      threadId,
       runId: c.runId,
+      unattended: false,
+      space: { id: "spc_kitchen", name: "Kitchen remodel" },
+    });
+    expect((await read(join(kitchen, "a.txt"), c)).rule).toBe("folder:not_granted");
+    expect(h.broker.runSpace(threadId, c.runId)?.spaceId).not.toBe("spc_kitchen");
+  });
+
+  it("a caller's Space is ignored for an archived Space", async () => {
+    const c = ctx("thr_kitchen", { runId: "run_arch" });
+    const archived = spaces.spaces.get("spc_kitchen");
+    if (archived !== undefined) archived.archived = true;
+    h.broker.bindRun({
+      threadId: "thr_kitchen",
+      runId: c.runId,
+      unattended: false,
+      space: { id: "spc_kitchen", name: "Kitchen remodel" },
+    });
+    expect(h.broker.runSpace("thr_kitchen", c.runId)).toBeUndefined();
+  });
+
+  it("a specialist job (subagent thread) takes its parent thread's Space through the hint", async () => {
+    spaces.threads.set("thr_job", { parentThreadId: "thr_kitchen" });
+    const job = ctx("thr_job", { runId: "run_job" });
+    h.broker.bindRun({
+      threadId: "thr_job",
+      runId: job.runId,
+      unattended: false,
+      space: { id: "spc_kitchen", name: "Kitchen remodel" },
+    });
+    expect(passesFolders(await read(join(kitchen, "a.txt"), job))).toBe(true);
+    // Another Space's id is not the parent's: none.
+    const other = ctx("thr_job", { runId: "run_job2" });
+    h.broker.bindRun({
+      threadId: "thr_job",
+      runId: other.runId,
+      unattended: false,
       space: { id: "spc_jobs", name: "Job search" },
     });
-    expect(passesFolders(await read(join(jobs, "a.txt"), c))).toBe(true);
-    const none = ctx("thr_kitchen", { runId: "run_none" });
-    h.broker.bindRun({ threadId: none.threadId, runId: none.runId, space: null });
-    expect((await read(join(kitchen, "a.txt"), none)).rule).toBe("folder:not_granted");
+    expect(h.broker.runSpace("thr_job", other.runId)).toBeUndefined();
+    // A job whose parent is in no Space gets none, hint or not.
+    spaces.threads.set("thr_job_main", { parentThreadId: "thr_main" });
+    h.broker.bindRun({
+      threadId: "thr_job_main",
+      runId: "run_jm",
+      unattended: false,
+      space: { id: "spc_kitchen", name: "Kitchen remodel" },
+    });
+    expect(h.broker.runSpace("thr_job_main", "run_jm")).toBeUndefined();
   });
 
   it("P1: a widget preview between an automation's calls changes neither its folders nor its unattended flag", async () => {

@@ -1,5 +1,6 @@
 import { getThread, type PsycheDb } from "@psyche/db";
 import {
+  folderCovers,
   type PsychePermissionBroker,
   resolveFolderPick,
   type SpaceFolderRecord,
@@ -126,6 +127,14 @@ export function spaceFolderSource(
         if (entry.mode === "rw" && had?.mode === "ro" && had.automations_write === 1) {
           return "not_raised";
         }
+        // A pick a row of this Space already covers (a parent at the same or a higher mode) adds
+        // nothing: a narrower row would only shadow the parent's mode and automations setting.
+        const covering = (
+          db.sqlite
+            .prepare("SELECT path, real, mode FROM space_folders WHERE space_id = ? AND path != ?")
+            .all(spaceId, entry.path) as { path: string; real: string; mode: "ro" | "rw" }[]
+        ).filter((r) => folderCovers([r], entry.path, entry.mode) !== undefined);
+        if (had === undefined && covering.length > 0) return "added";
         // The same folder again keeps its automations setting; a read & write pick widens it.
         db.sqlite
           .prepare(
