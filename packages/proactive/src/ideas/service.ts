@@ -330,7 +330,19 @@ export class IdeasService {
         (i.source === GOAL_CHECKIN_SOURCE || i.source === GOAL_STALLED_SOURCE) &&
         !replaced.has(i.id),
     ).length;
-    if (open >= PROACTIVITY_BUDGET.ideas.perWindow) return undefined;
+    if (open >= PROACTIVITY_BUDGET.ideas.perWindow) {
+      // A card the owner asked for is never dropped (it already cost a model call): it takes the
+      // place of the oldest open Resume card, or of the oldest goal card when there is none.
+      if (!asked) return undefined;
+      const goalCards = history.filter(
+        (i) =>
+          i.status === "proposed" &&
+          (i.source === GOAL_CHECKIN_SOURCE || i.source === GOAL_STALLED_SOURCE) &&
+          !replaced.has(i.id),
+      );
+      const oldest = goalCards.find((i) => i.source === GOAL_STALLED_SOURCE) ?? goalCards[0];
+      if (oldest !== undefined) replaced.add(oldest.id);
+    }
     for (const old of history) {
       if (!replaced.has(old.id)) continue;
       const expired: StoredIdea = { ...old, status: "expired", decidedAt: toIso(now) };

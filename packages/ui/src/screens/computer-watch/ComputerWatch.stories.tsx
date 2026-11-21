@@ -33,3 +33,11 @@ export const Parked: Story = { args: { parked: true } };
 
 /** Nothing is running. */
 export const Stopped: Story = { args: { client: fakeClient(STOPPED) } };
+
+/** Watching a paired Linux computer: the title reads "lab-box · private screen". */
+export const OnMachine: Story = { args: { machine: { name: "lab-box" } } };
+
+/** A paired computer with no screen running. */
+export const OnMachineStopped: Story = {
+  args: { machine: { name: "lab-box" }, client: fakeClient(STOPPED) },
+};

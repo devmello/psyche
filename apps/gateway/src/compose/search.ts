@@ -49,6 +49,7 @@ import type { HandlerDef } from "../context.ts";
 import { failureRuns } from "../failure-runs.ts";
 import type { Logger } from "../log.ts";
 import type { Gateway } from "../server.ts";
+import { markImportedHits } from "../session/imported-threads.ts";
 import { DeferredOpen } from "./deferred-open.ts";
 import type { PageReadHub } from "./page-reads.ts";
 import { openSearchDatabase } from "./search-db.ts";
@@ -635,7 +636,8 @@ function buildSearch(deps: SearchDeps, sqlite: PsycheDb["sqlite"]): ComposedSear
   const sourceFailures = failureRuns({ now: () => deps.now() });
   const handlers: Record<string, HandlerDef> = {
     "search.query": {
-      run: (_call, params: never) => api["search.query"](params, { viewer: OWNER }),
+      run: async (call, params: never) =>
+        markImportedHits(call.ctx.db, await api["search.query"](params, { viewer: OWNER })),
     },
     ...searchOpenHandlers({
       indexer: () => sourceIndexer,

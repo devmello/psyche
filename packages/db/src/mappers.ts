@@ -135,6 +135,7 @@ export function threadFromRow(row: ThreadRow): Thread {
     lastMessageAt: row.lastMessageAt,
     spaceId: row.spaceId,
     ...(row.userCreated === 1 ? { userCreated: true } : {}),
+    ...(row.imported === "claude" || row.imported === "chatgpt" ? { imported: row.imported } : {}),
   };
 }
 
