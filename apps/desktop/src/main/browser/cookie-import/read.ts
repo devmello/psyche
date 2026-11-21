@@ -1,6 +1,6 @@
 import { execFile } from "node:child_process";
 import { createDecipheriv, createHash, pbkdf2Sync } from "node:crypto";
-import { chmodSync, copyFileSync, existsSync, mkdtempSync, rmSync } from "node:fs";
+import { chmodSync, copyFileSync, existsSync, mkdtempSync, readdirSync, rmSync } from "node:fs";
 import { join } from "node:path";
 import { PsycheError } from "@psyche/protocol";
 
@@ -81,13 +81,29 @@ export function copyDatabase(file: string, tmpRoot: string): { dir: string; copy
     copyFileSync(file, copy);
     chmodSync(copy, 0o600);
     for (const suffix of ["-wal", "-journal"]) {
-      if (existsSync(file + suffix)) copyFileSync(file + suffix, copy + suffix);
+      if (existsSync(file + suffix)) {
+        copyFileSync(file + suffix, copy + suffix);
+        // copyfile keeps the source's mode, and Firefox's files are often 0644.
+        chmodSync(copy + suffix, 0o600);
+      }
     }
   } catch {
     rmSync(dir, { recursive: true, force: true });
     throw new PsycheError("unavailable", "the browser's cookie file could not be copied");
   }
   return { dir, copy };
+}
+
+/** Removes private copies a crash or kill left in `tmpRoot`; no read is running when this is called. */
+export function sweepStaleCopies(tmpRoot: string): void {
+  try {
+    for (const name of readdirSync(tmpRoot)) {
+      if (!name.startsWith("psyche-cookie-import-")) continue;
+      rmSync(join(tmpRoot, name), { recursive: true, force: true });
+    }
+  } catch {
+    // An unreadable temp folder has nothing for us to sweep.
+  }
 }
 
 async function withCopy<T>(
@@ -290,11 +306,11 @@ export async function readFirefoxCookies(o: {
  * Reads "<Browser> Safe Storage" with `security`. macOS shows its own prompt for it; the
  * password is returned to the caller only and never logged.
  */
-export function readKeychainPassword(service: string): Promise<string> {
+export function readKeychainPassword(service: string, account: string): Promise<string> {
   return new Promise((resolve, reject) => {
     execFile(
       "/usr/bin/security",
-      ["find-generic-password", "-w", "-s", service],
+      ["find-generic-password", "-w", "-a", account, "-s", service],
       { timeout: 120_000 },
       (err, stdout) => {
         if (err) {

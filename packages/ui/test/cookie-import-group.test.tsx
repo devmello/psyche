@@ -124,9 +124,14 @@ describe("Settings → Browser: import sign-ins", () => {
     expect(screen.getByTestId("cookie-import-sensitive-chase.com").textContent).toMatch(/^Bank/);
     expect(screen.getByTestId("cookie-import-sensitive-google.com").textContent).toMatch(/^Email/);
     expect(screen.queryByTestId("cookie-import-sensitive-evil-google.com")).toBeNull();
+    // Each row lists the hosts inside it.
+    expect(screen.getByTestId("cookie-import-hosts-google.com").textContent).toMatch(
+      /^Hosts: .*mail\.google\.com/,
+    );
     await userEvent.click(screen.getByRole("button", { name: "Select all except sensitive" }));
     await userEvent.click(screen.getByRole("button", { name: "Import 2 sites" }));
-    expect(a.import).toHaveBeenCalledWith(SCAN.scanId, ["evil-google.com", "github.com"]);
+    // Nothing sensitive was ticked, so nothing sensitive is named.
+    expect(a.import).toHaveBeenCalledWith(SCAN.scanId, ["evil-google.com", "github.com"], []);
     expect((await screen.findByTestId("cookie-import-done")).textContent).toMatch(
       /Imported sign-ins for 2 sites/,
     );
@@ -140,7 +145,8 @@ describe("Settings → Browser: import sign-ins", () => {
     expect(within(list).getAllByRole("listitem")).toHaveLength(1);
     await userEvent.click(within(list).getByRole("checkbox"));
     await userEvent.click(screen.getByRole("button", { name: "Import 1 site" }));
-    expect(a.import).toHaveBeenCalledWith(SCAN.scanId, ["google.com"]);
+    // A site ticked by hand is named as sensitive, so main lets it through.
+    expect(a.import).toHaveBeenCalledWith(SCAN.scanId, ["google.com"], ["google.com"]);
   });
 
   it("Cancel drops the read list in main", async () => {

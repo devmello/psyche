@@ -224,10 +224,13 @@ export const settings: Partial<Catalogue> = {
   "settings.browser.import.sensitive.payment": "مدفوعات",
   "settings.browser.import.sensitive.passwords": "مدير كلمات السر",
   "settings.browser.import.sensitive.email": "بريد إلكتروني",
+  "settings.browser.import.sensitive.signin": "مزوّد تسجيل الدخول",
+  "settings.browser.import.hosts": "المضيفات: {hosts}",
+  "settings.browser.import.hostsMore": "المضيفات: {hosts}، و{count} أخرى",
   "settings.browser.import.sensitiveWarning":
     "{kind}: الجلسة هنا يمكنها نقل المال أو إعادة تعيين حساباتك الأخرى أو فتح كلمات السر. حدّده فقط إذا احتاجته المهام.",
   "settings.browser.import.noTrust":
-    "لا تحصل المواقع المستوردة على ثقة إضافية: ما زالت المشتريات والمدفوعات والرسائل تسألك أولًا.",
+    "لا تحصل المواقع المستوردة على ثقة إضافية: ما زالت المدفوعات تحتاج إلى تأكيدك الشخصي، وكل شيء آخر يتبع وضع الموافقة لديك.",
   "settings.browser.import.importN":
     "{count, plural, =0 {استيراد} one {استيراد موقع واحد} other {استيراد # مواقع}}",
   "settings.browser.import.cancel": "إلغاء",
@@ -240,6 +243,8 @@ export const settings: Partial<Catalogue> = {
   "settings.browser.import.importedFrom":
     "من {browser} في {date}، {count, plural, one {ملف تعريف ارتباط واحد} other {# ملفات تعريف ارتباط}}",
   "settings.browser.import.remove": "إزالة تسجيلات الدخول المستوردة",
+  "settings.browser.import.removeHint":
+    "يزيل ملفات تعريف الارتباط التي كتبها هذا الاستيراد. ليس تسجيل خروج: استخدم «نسيان» ضمن المواقع المسجّل الدخول إليها.",
   "settings.browser.import.removeFailed":
     "تعذّر على Psyche إزالة تسجيلات الدخول المستوردة لـ{site} ({reason}).",
   "settings.computerUse.appsHint": "إلى أي مدى يستطيع Psyche الذهاب في كل تطبيق.",

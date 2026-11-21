@@ -428,6 +428,19 @@ export function checkAudioChunk(v: unknown): string {
  * terminal pane is a session on the Host over the Gateway connection, so main never starts a
  * process from what a Gateway answers.)
  */
+/**
+ * Channels only the main window and the Settings window may call (`isApprovalContents`), never
+ * pop-outs, quick entry or the screen-ask window: importing sign-ins from another browser.
+ */
+export const APPROVAL_ONLY_CHANNELS: ReadonlySet<string> = new Set([
+  IPC.cookieImportSources,
+  IPC.cookieImportScan,
+  IPC.cookieImportImport,
+  IPC.cookieImportDiscard,
+  IPC.cookieImportList,
+  IPC.cookieImportRemove,
+]);
+
 export const REMOTE_REFUSED_CHANNELS: ReadonlySet<string> = new Set([
   IPC.browserOpenRealChromeProfile,
   // The owner's browsers are this computer's; their sign-ins go only into this Mac's profile.
@@ -524,12 +537,25 @@ export function checkSiteDomain(channel: string, v: unknown): string {
 }
 
 /** "Import N sites": the read list's id and the ticked registrable domains. */
-export function checkCookieImportPick(v: unknown): { scanId: string; domains: string[] } {
+export function checkCookieImportPick(v: unknown): {
+  scanId: string;
+  domains: string[];
+  sensitive: string[];
+} {
   const r = rec(IPC.cookieImportImport, v);
   if (!Array.isArray(r.domains) || r.domains.length === 0 || r.domains.length > 5000)
     throw new IpcPayloadError(IPC.cookieImportImport, "domains must be a non-empty list");
   return {
     scanId: checkScanId(IPC.cookieImportImport, r.scanId),
     domains: r.domains.map((d) => checkSiteDomain(IPC.cookieImportImport, d)),
+    // The picked sites the owner ticked one by one; main refuses a sensitive site not named here.
+    sensitive:
+      r.sensitive === undefined
+        ? []
+        : Array.isArray(r.sensitive) && r.sensitive.length <= 5000
+          ? r.sensitive.map((d) => checkSiteDomain(IPC.cookieImportImport, d))
+          : (() => {
+              throw new IpcPayloadError(IPC.cookieImportImport, "sensitive must be a list");
+            })(),
   };
 }

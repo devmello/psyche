@@ -287,7 +287,7 @@ export interface CookieImportScanView {
     domain: string;
     hosts: string[];
     cookies: number;
-    sensitive: "bank" | "payment" | "passwords" | "email" | null;
+    sensitive: "bank" | "payment" | "passwords" | "email" | "signin" | null;
   }[];
   expired: number;
   skipped: number;
@@ -299,6 +299,7 @@ export interface CookieImportPort {
   import(
     scanId: string,
     domains: string[],
+    sensitive?: string[],
   ): Promise<{ sites: { domain: string; cookies: number }[]; failed: number }>;
   discard(scanId: string): Promise<void>;
   imported(): Promise<

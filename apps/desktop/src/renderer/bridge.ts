@@ -207,8 +207,10 @@ function fullDesktopPlatform(b: PsycheBridge): ShellPlatform {
         sources: () => b.browser.cookieImportSources() as Promise<CookieImportSourceView[]>,
         scan: (browser, profileId) =>
           b.browser.cookieImportScan(browser, profileId) as Promise<CookieImportScanView>,
-        import: (scanId, domains) =>
-          b.browser.cookieImportImport(scanId, domains) as ReturnType<CookieImportPort["import"]>,
+        import: (scanId, domains, sensitive = []) =>
+          b.browser.cookieImportImport(scanId, domains, sensitive) as ReturnType<
+            CookieImportPort["import"]
+          >,
         discard: async (scanId) => void (await b.browser.cookieImportDiscard(scanId)),
         imported: () => b.browser.cookieImportList() as ReturnType<CookieImportPort["imported"]>,
         remove: async (domain) => void (await b.browser.cookieImportRemove(domain)),

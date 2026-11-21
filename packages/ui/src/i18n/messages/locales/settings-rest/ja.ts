@@ -263,10 +263,13 @@ export const settingsRest: Partial<Catalogue> = {
   "settings.browser.import.sensitive.payment": "決済",
   "settings.browser.import.sensitive.passwords": "パスワード管理",
   "settings.browser.import.sensitive.email": "メール",
+  "settings.browser.import.sensitive.signin": "サインインプロバイダ",
+  "settings.browser.import.hosts": "ホスト：{hosts}",
+  "settings.browser.import.hostsMore": "ホスト：{hosts}、ほか {count} 件",
   "settings.browser.import.sensitiveWarning":
     "{kind}：ここのセッションでは送金、他のアカウントのリセット、パスワードの閲覧ができてしまいます。タスクに必要な場合だけ選んでください。",
   "settings.browser.import.noTrust":
-    "読み込んだサイトが特別に信頼されることはありません。購入、支払い、送信は引き続き先に確認します。",
+    "インポートしたサイトに追加の信頼は与えられません。支払いは引き続きあなた自身の確認が必要で、それ以外は承認モードに従います。",
   "settings.browser.import.importN":
     "{count, plural, =0 {読み込む} other {# 件のサイトを読み込む}}",
   "settings.browser.import.cancel": "キャンセル",
@@ -279,6 +282,8 @@ export const settingsRest: Partial<Catalogue> = {
   "settings.browser.import.importedFrom":
     "{browser} から {date} に読み込み、{count, plural, other {Cookie # 件}}",
   "settings.browser.import.remove": "読み込んだサインインを削除",
+  "settings.browser.import.removeHint":
+    "このインポートが書き込んだ Cookie を削除します。サインアウトではありません。サインアウトは「サインイン済みのサイト」の「削除」で行ってください。",
   "settings.browser.import.removeFailed":
     "Psyche は {site} の読み込んだサインインを削除できませんでした（{reason}）。",
   "settings.computerUse.appsHint": "各アプリでPsycheが操作できる範囲。",

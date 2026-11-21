@@ -3,11 +3,13 @@ import { chmodSync, mkdirSync, readFileSync, renameSync, writeFileSync } from "n
 import { dirname, join } from "node:path";
 import { PsycheError } from "@psyche/protocol";
 import {
+  type CookieRecord,
   type CookieSession,
   type CookieSetDetails,
   SESSION_COOKIE_DAYS,
 } from "../promote-cookies.ts";
-import { groupByDomain, type ImportSite, sitesOf } from "./domains.ts";
+import { CookieAuditQueue } from "./audit-queue.ts";
+import { groupByDomain, hostsOf, type ImportSite, siteSensitivity, sitesOf } from "./domains.ts";
 import {
   deriveChromiumKey,
   type ImportCookie,
@@ -15,12 +17,14 @@ import {
   readChromiumCookies,
   readFirefoxCookies,
   type SqliteQuery,
+  sweepStaleCopies,
 } from "./read.ts";
 import {
   cookieFileOf,
   type ImportBrowser,
   type ImportSource,
   isChromium,
+  keychainAccountOf,
   keychainServiceOf,
   listSources,
 } from "./sources.ts";
@@ -51,8 +55,12 @@ export interface CookieImportDeps {
   /** Psyche's own logged-in profile. Nothing else is ever written. */
   profile: () => CookieSession;
   /** "<Browser> Safe Storage" from the Keychain; macOS asks the owner. */
-  readKeychain: (service: string) => Promise<string>;
-  /** Writes the audit entry (the Gateway's `browser.cookieImport.record`). */
+  readKeychain: (service: string, account: string) => Promise<string>;
+  /**
+   * Sends one audit entry to this Mac's own Gateway (`browser.cookieImport.record`). Entries
+   * are queued in `$PSYCHE_HOME/browser/` first and sent in order by `flushAudit`; the caller
+   * must not provide this for a remote Gateway.
+   */
   record?: (entry: CookieImportRecord) => Promise<void>;
   nowMs?: () => number;
   sqlite?: SqliteQuery;
@@ -111,6 +119,9 @@ export class CookieImporter {
   readonly #d: CookieImportDeps;
   readonly #now: () => number;
   readonly #ttl: number;
+  readonly #queue: CookieAuditQueue;
+  /** Import and Remove run one at a time: both rewrite the imported-sites list. */
+  #chain: Promise<unknown> = Promise.resolve();
   /** One read list at a time: a new Read replaces the old one. */
   #scan: { id: string; scan: Scan } | undefined;
   #timer: ReturnType<typeof setTimeout> | undefined;
@@ -119,6 +130,26 @@ export class CookieImporter {
     this.#d = deps;
     this.#now = deps.nowMs ?? Date.now;
     this.#ttl = deps.scanTtlMs ?? 10 * 60_000;
+    this.#queue = new CookieAuditQueue(deps.psycheHome, { now: this.#now });
+    // A crash can leave a private copy of a cookie file behind: it is never needed again.
+    sweepStaleCopies(deps.tmpRoot);
+  }
+
+  /** Sends the queued audit entries once the local Gateway is connected as admin. */
+  async flushAudit(): Promise<number> {
+    const send = this.#d.record;
+    if (send === undefined) return 0;
+    return this.#queue.flush(send);
+  }
+
+  pendingAudit(): number {
+    return this.#queue.pending();
+  }
+
+  #exclusive<T>(fn: () => Promise<T>): Promise<T> {
+    const run = this.#chain.then(fn, fn);
+    this.#chain = run.catch(() => undefined);
+    return run;
   }
 
   sources(): ImportSource[] {
@@ -141,7 +172,10 @@ export class CookieImporter {
     };
     let read: ReadResult;
     if (isChromium(browser)) {
-      const password = await this.#d.readKeychain(keychainServiceOf(browser));
+      const password = await this.#d.readKeychain(
+        keychainServiceOf(browser),
+        keychainAccountOf(browser),
+      );
       read = await readChromiumCookies({ ...common, key: deriveChromiumKey(password) });
       if (read.cookies.length === 0 && read.skipped > 0) {
         throw new PsycheError("forbidden", "the browser's sign-ins could not be decrypted");
@@ -171,8 +205,24 @@ export class CookieImporter {
     this.#scan = undefined;
   }
 
-  /** Writes the cookies of the ticked sites into Psyche's profile. */
-  async import(scanId: string, domains: readonly string[]): Promise<CookieImportResult> {
+  /**
+   * Writes the cookies of the ticked sites into Psyche's profile. A sensitive site (bank,
+   * payment, passwords, email, sign-in provider) is written only when `sensitive` names it: the
+   * window sends that list for rows the owner ticked one by one, and main refuses otherwise.
+   */
+  import(
+    scanId: string,
+    domains: readonly string[],
+    sensitive: readonly string[] = [],
+  ): Promise<CookieImportResult> {
+    return this.#exclusive(() => this.#import(scanId, domains, sensitive));
+  }
+
+  async #import(
+    scanId: string,
+    domains: readonly string[],
+    sensitive: readonly string[],
+  ): Promise<CookieImportResult> {
     const held = this.#scan;
     if (held === undefined || held.id !== scanId || held.scan.expiresAt <= this.#now()) {
       this.discard();
@@ -185,37 +235,52 @@ export class CookieImporter {
         throw new PsycheError("invalid_params", "a picked site is not in the list");
       }
     }
+    const named = new Set(sensitive.map((d) => d.toLowerCase()));
+    for (const d of wanted) {
+      const list = held.scan.groups.get(d) ?? [];
+      if (siteSensitivity(hostsOf(list)) !== null && !named.has(d)) {
+        throw new PsycheError("forbidden", "a sensitive site has to be picked on its own");
+      }
+    }
     const { browser, groups } = held.scan;
+    // The record is written before the first cookie is: a crash can't lose it.
+    const auditId = this.#queue.enqueue({
+      action: "imported",
+      browser,
+      sites: wanted.sort().map((domain) => ({ domain, cookies: groups.get(domain)?.length ?? 0 })),
+    });
     this.discard();
     const ses = this.#d.profile();
     const nowSeconds = Math.floor(this.#now() / 1000);
     const at = new Date(this.#now()).toISOString();
     const result: CookieImportResult = { sites: [], failed: 0 };
     const stored = this.#read();
-    for (const domain of wanted.sort()) {
-      const written: StoredCookie[] = [];
-      for (const c of groups.get(domain) ?? []) {
-        try {
-          await ses.cookies.set(setDetails(c, nowSeconds));
-          written.push({ host: c.host, path: c.path, name: c.name });
-        } catch {
-          result.failed += 1;
+    try {
+      for (const domain of wanted) {
+        const written: StoredCookie[] = [];
+        for (const c of groups.get(domain) ?? []) {
+          try {
+            await ses.cookies.set(setDetails(c, nowSeconds));
+            written.push({ host: c.host, path: c.path, name: c.name });
+          } catch {
+            result.failed += 1;
+          }
         }
+        if (written.length === 0) continue;
+        result.sites.push({ domain, cookies: written.length });
+        const prev = stored.find((s) => s.domain === domain);
+        const merged = new Map<string, StoredCookie>();
+        for (const c of [...(prev?.cookies ?? []), ...written]) merged.set(cookieKey(c), c);
+        const site: StoredSite = { domain, browser, importedAt: at, cookies: [...merged.values()] };
+        if (prev) stored.splice(stored.indexOf(prev), 1, site);
+        else stored.push(site);
       }
-      if (written.length === 0) continue;
-      result.sites.push({ domain, cookies: written.length });
-      const prev = stored.find((s) => s.domain === domain);
-      const merged = new Map<string, StoredCookie>();
-      for (const c of [...(prev?.cookies ?? []), ...written]) merged.set(cookieKey(c), c);
-      const site: StoredSite = { domain, browser, importedAt: at, cookies: [...merged.values()] };
-      if (prev) stored.splice(stored.indexOf(prev), 1, site);
-      else stored.push(site);
+      ses.flushStorageData();
+      this.#write(stored);
+    } finally {
+      this.#queue.settle(auditId, { action: "imported", browser, sites: result.sites });
     }
-    ses.flushStorageData();
-    this.#write(stored);
-    if (result.sites.length > 0) {
-      await this.#audit({ action: "imported", browser, sites: result.sites });
-    }
+    await this.#sendAudit();
     return result;
   }
 
@@ -230,29 +295,45 @@ export class CookieImporter {
       .sort((a, b) => a.domain.localeCompare(b.domain));
   }
 
-  /** "Remove imported sign-ins": deletes exactly the cookies the import wrote for a site. */
-  async remove(domain: string): Promise<number> {
+  /**
+   * "Remove imported sign-ins": deletes the cookies the import wrote for a site, matched by
+   * name, domain and path exactly, and counts only what was really there. It is not a sign-out:
+   * cookies the site issued since, under other names, stay (Signed-in sites → Forget does that).
+   */
+  remove(domain: string): Promise<number> {
+    return this.#exclusive(() => this.#remove(domain));
+  }
+
+  async #remove(domain: string): Promise<number> {
     const d = domain.toLowerCase();
     const stored = this.#read();
     const site = stored.find((s) => s.domain === d);
     if (site === undefined) return 0;
-    const ses = this.#d.profile();
-    let removed = 0;
-    for (const c of site.cookies) {
-      try {
-        await ses.cookies.remove(`https://${c.host.replace(/^\./, "")}${c.path}`, c.name);
-        removed += 1;
-      } catch {
-        // Already gone.
-      }
-    }
-    ses.flushStorageData();
-    this.#write(stored.filter((s) => s !== site));
-    await this.#audit({
+    const auditId = this.#queue.enqueue({
       action: "removed",
       browser: site.browser,
-      sites: [{ domain: d, cookies: removed }],
+      sites: [{ domain: d, cookies: site.cookies.length }],
     });
+    const ses = this.#d.profile();
+    let removed = 0;
+    try {
+      for (const c of site.cookies) {
+        try {
+          removed += await removeExact(ses, c);
+        } catch {
+          // Already gone.
+        }
+      }
+      ses.flushStorageData();
+      this.#write(stored.filter((s) => s !== site));
+    } finally {
+      this.#queue.settle(auditId, {
+        action: "removed",
+        browser: site.browser,
+        sites: [{ domain: d, cookies: removed }],
+      });
+    }
+    await this.#sendAudit();
     return removed;
   }
 
@@ -260,9 +341,9 @@ export class CookieImporter {
     this.discard();
   }
 
-  async #audit(entry: CookieImportRecord): Promise<void> {
-    // The import already happened; a Gateway that is down must not undo or fail it.
-    await this.#d.record?.(entry).catch(() => undefined);
+  async #sendAudit(): Promise<void> {
+    // The entry is already on disk; a Gateway that is down must not undo or fail the import.
+    await this.flushAudit().catch(() => undefined);
   }
 
   #read(): StoredSite[] {
@@ -305,4 +386,40 @@ export function setDetails(c: ImportCookie, nowSeconds: number): CookieSetDetail
     expirationDate: c.expires ?? nowSeconds + SESSION_COOKIE_DAYS * 86_400,
     ...(c.host.startsWith(".") ? { domain: c.host } : {}),
   };
+}
+
+/**
+ * Deletes one imported cookie and nothing else. `cookies.remove(url, name)` deletes every cookie
+ * that would be sent to the url under that name (a parent domain's, a shorter path's), so the
+ * cookies it would also take are put back. Returns 1 when the exact cookie was there.
+ */
+async function removeExact(ses: CookieSession, c: StoredCookie): Promise<number> {
+  const url = `https://${c.host.replace(/^\./, "")}${c.path}`;
+  const live = await ses.cookies.get({ url, name: c.name });
+  const exact = live.some((x) => sameCookie(x, c));
+  if (!exact) return 0;
+  const others = live.filter((x) => !sameCookie(x, c));
+  await ses.cookies.remove(url, c.name);
+  for (const o of others) {
+    const host = (o.domain ?? "").replace(/^\./, "");
+    const path = o.path ?? "/";
+    await ses.cookies
+      .set({
+        url: `https://${host}${path}`,
+        name: o.name,
+        value: o.value,
+        path,
+        ...(o.secure !== undefined ? { secure: o.secure } : {}),
+        ...(o.httpOnly !== undefined ? { httpOnly: o.httpOnly } : {}),
+        ...(o.sameSite !== undefined ? { sameSite: o.sameSite } : {}),
+        ...(o.expirationDate !== undefined ? { expirationDate: o.expirationDate } : {}),
+        ...((o.domain ?? "").startsWith(".") ? { domain: o.domain as string } : {}),
+      })
+      .catch(() => undefined);
+  }
+  return 1;
+}
+
+function sameCookie(x: CookieRecord, c: StoredCookie): boolean {
+  return x.name === c.name && (x.domain ?? "") === c.host && (x.path ?? "/") === c.path;
 }

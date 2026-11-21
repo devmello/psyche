@@ -216,10 +216,13 @@ export const settingsA: Partial<Catalogue> = {
   "settings.browser.import.sensitive.payment": "Pagamentos",
   "settings.browser.import.sensitive.passwords": "Gerenciador de senhas",
   "settings.browser.import.sensitive.email": "E-mail",
+  "settings.browser.import.sensitive.signin": "Provedor de login",
+  "settings.browser.import.hosts": "Hosts: {hosts}",
+  "settings.browser.import.hostsMore": "Hosts: {hosts} e mais {count}",
   "settings.browser.import.sensitiveWarning":
     "{kind}: uma sessão aqui pode movimentar dinheiro, redefinir suas outras contas ou abrir suas senhas. Marque só se as tarefas precisarem.",
   "settings.browser.import.noTrust":
-    "Sites importados não ganham confiança extra: compras, pagamentos e mensagens ainda perguntam a você primeiro.",
+    "Os sites importados não ganham confiança extra: pagamentos ainda precisam da sua confirmação e todo o resto segue o seu modo de aprovação.",
   "settings.browser.import.importN":
     "{count, plural, =0 {Importar} one {Importar # site} other {Importar # sites}}",
   "settings.browser.import.cancel": "Cancelar",
@@ -232,6 +235,8 @@ export const settingsA: Partial<Catalogue> = {
   "settings.browser.import.importedFrom":
     "Do {browser} em {date}, {count, plural, one {# cookie} other {# cookies}}",
   "settings.browser.import.remove": "Remover sessões importadas",
+  "settings.browser.import.removeHint":
+    "Remove os cookies que esta importação gravou. Não encerra a sessão: para isso use Esquecer em Sites com login.",
   "settings.browser.import.removeFailed":
     "O Psyche não conseguiu remover as sessões importadas de {site} ({reason}).",
   "settings.computerUse.appsHint": "Até onde o Psyche pode ir em cada app.",

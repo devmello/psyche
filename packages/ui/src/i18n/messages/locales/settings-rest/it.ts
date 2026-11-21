@@ -265,10 +265,13 @@ export const settingsRest: Partial<Catalogue> = {
   "settings.browser.import.sensitive.payment": "Pagamenti",
   "settings.browser.import.sensitive.passwords": "Gestore di password",
   "settings.browser.import.sensitive.email": "Email",
+  "settings.browser.import.sensitive.signin": "Provider di accesso",
+  "settings.browser.import.hosts": "Host: {hosts}",
+  "settings.browser.import.hostsMore": "Host: {hosts} e altri {count}",
   "settings.browser.import.sensitiveWarning":
     "{kind}: una sessione qui può spostare denaro, reimpostare i tuoi altri account o aprire le tue password. Selezionalo solo se le attività ne hanno bisogno.",
   "settings.browser.import.noTrust":
-    "I siti importati non ottengono fiducia aggiuntiva: acquisti, pagamenti e messaggi ti chiedono sempre prima.",
+    "I siti importati non ottengono fiducia aggiuntiva: i pagamenti richiedono ancora la tua conferma e tutto il resto segue la tua modalità di approvazione.",
   "settings.browser.import.importN":
     "{count, plural, =0 {Importa} one {Importa # sito} other {Importa # siti}}",
   "settings.browser.import.cancel": "Annulla",
@@ -282,6 +285,8 @@ export const settingsRest: Partial<Catalogue> = {
   "settings.browser.import.importedFrom":
     "Da {browser} il {date}, {count, plural, one {# cookie} other {# cookie}}",
   "settings.browser.import.remove": "Rimuovi gli accessi importati",
+  "settings.browser.import.removeHint":
+    "Rimuove i cookie scritti da questa importazione. Non è una disconnessione: per quella usa Dimentica in Siti con accesso.",
   "settings.browser.import.removeFailed":
     "Psyche non è riuscito a rimuovere gli accessi importati per {site} ({reason}).",
   "settings.computerUse.appsHint": "Fin dove può spingersi Psyche in ogni app.",

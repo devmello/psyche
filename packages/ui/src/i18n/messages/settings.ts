@@ -864,10 +864,13 @@ export const settings = {
   "settings.browser.import.sensitive.payment": "Payments",
   "settings.browser.import.sensitive.passwords": "Password manager",
   "settings.browser.import.sensitive.email": "Email",
+  "settings.browser.import.sensitive.signin": "Sign-in provider",
+  "settings.browser.import.hosts": "Hosts: {hosts}",
+  "settings.browser.import.hostsMore": "Hosts: {hosts}, and {count} more",
   "settings.browser.import.sensitiveWarning":
     "{kind}: a session here can move money, reset your other accounts or open your passwords. Tick it only if tasks need it.",
   "settings.browser.import.noTrust":
-    "Imported sites get no extra trust: purchases, payments and messages still ask you first.",
+    "Imported sites get no extra trust: payments still need your own confirmation, and everything else follows your approval mode.",
   "settings.browser.import.importN":
     "{count, plural, =0 {Import} one {Import # site} other {Import # sites}}",
   "settings.browser.import.cancel": "Cancel",
@@ -880,6 +883,8 @@ export const settings = {
   "settings.browser.import.importedFrom":
     "From {browser} on {date}, {count, plural, one {# cookie} other {# cookies}}",
   "settings.browser.import.remove": "Remove imported sign-ins",
+  "settings.browser.import.removeHint":
+    "Removes the cookies this import wrote. It isn't a sign-out: use Forget under Signed-in sites for that.",
   "settings.browser.import.removeFailed":
     "Psyche couldn't remove the imported sign-ins for {site} ({reason}).",
   "settings.browser.details": "Details",

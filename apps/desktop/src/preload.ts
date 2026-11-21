@@ -194,8 +194,8 @@ const bridge = {
     cookieImportSources: () => invoke(IPC.cookieImportSources),
     cookieImportScan: (browser: string, profileId: string) =>
       invoke(IPC.cookieImportScan, { browser, profileId }),
-    cookieImportImport: (scanId: string, domains: string[]) =>
-      invoke(IPC.cookieImportImport, { scanId, domains }),
+    cookieImportImport: (scanId: string, domains: string[], sensitive: string[] = []) =>
+      invoke(IPC.cookieImportImport, { scanId, domains, sensitive }),
     cookieImportDiscard: (scanId: string) => invoke(IPC.cookieImportDiscard, scanId),
     cookieImportList: () => invoke(IPC.cookieImportList),
     cookieImportRemove: (domain: string) => invoke(IPC.cookieImportRemove, domain),

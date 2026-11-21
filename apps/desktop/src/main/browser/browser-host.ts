@@ -1355,6 +1355,11 @@ export class BrowserHost implements BridgeTabHost {
     return this.importer;
   }
 
+  /** Sends the queued cookie-import audit entries (local Gateway, admin, in order). */
+  flushCookieImportAudit(): Promise<number> {
+    return this.cookieImport().flushAudit();
+  }
+
   answerPrompt(promptId: string, action: SignInPromptAnswer): Promise<void> {
     return this.prompts.answer(promptId, action);
   }

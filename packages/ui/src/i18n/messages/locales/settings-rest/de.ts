@@ -265,10 +265,13 @@ export const settingsRest: Partial<Catalogue> = {
   "settings.browser.import.sensitive.payment": "Zahlungen",
   "settings.browser.import.sensitive.passwords": "Passwortmanager",
   "settings.browser.import.sensitive.email": "E-Mail",
+  "settings.browser.import.sensitive.signin": "Anmeldedienst",
+  "settings.browser.import.hosts": "Hosts: {hosts}",
+  "settings.browser.import.hostsMore": "Hosts: {hosts} und {count} weitere",
   "settings.browser.import.sensitiveWarning":
     "{kind}: Eine Sitzung hier kann Geld bewegen, deine anderen Konten zurücksetzen oder deine Passwörter öffnen. Wähle sie nur, wenn Aufgaben sie brauchen.",
   "settings.browser.import.noTrust":
-    "Importierte Websites bekommen kein zusätzliches Vertrauen: Käufe, Zahlungen und Nachrichten fragen dich weiterhin zuerst.",
+    "Importierte Websites erhalten kein zusätzliches Vertrauen: Zahlungen brauchen weiterhin deine eigene Bestätigung, alles andere folgt deinem Freigabemodus.",
   "settings.browser.import.importN":
     "{count, plural, =0 {Importieren} one {# Website importieren} other {# Websites importieren}}",
   "settings.browser.import.cancel": "Abbrechen",
@@ -282,6 +285,8 @@ export const settingsRest: Partial<Catalogue> = {
   "settings.browser.import.importedFrom":
     "Aus {browser} am {date}, {count, plural, one {# Cookie} other {# Cookies}}",
   "settings.browser.import.remove": "Importierte Anmeldungen entfernen",
+  "settings.browser.import.removeHint":
+    "Entfernt die Cookies, die dieser Import geschrieben hat. Das ist kein Abmelden: Dafür gibt es „Vergessen“ unter Angemeldete Websites.",
   "settings.browser.import.removeFailed":
     "Psyche konnte die importierten Anmeldungen für {site} nicht entfernen ({reason}).",
   "settings.computerUse.appsHint": "Wie weit Psyche in jeder App gehen darf.",

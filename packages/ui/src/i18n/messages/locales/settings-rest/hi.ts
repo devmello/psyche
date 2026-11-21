@@ -252,10 +252,13 @@ export const settingsRest: Partial<Catalogue> = {
   "settings.browser.import.sensitive.payment": "भुगतान",
   "settings.browser.import.sensitive.passwords": "पासवर्ड मैनेजर",
   "settings.browser.import.sensitive.email": "ईमेल",
+  "settings.browser.import.sensitive.signin": "साइन-इन प्रदाता",
+  "settings.browser.import.hosts": "होस्ट: {hosts}",
+  "settings.browser.import.hostsMore": "होस्ट: {hosts} और {count} अन्य",
   "settings.browser.import.sensitiveWarning":
     "{kind}: यहाँ का सेशन पैसे भेज सकता है, आपके दूसरे खाते रीसेट कर सकता है या आपके पासवर्ड खोल सकता है। इसे तभी चुनें जब टास्क को इसकी ज़रूरत हो।",
   "settings.browser.import.noTrust":
-    "इंपोर्ट की गई साइटों को कोई अतिरिक्त भरोसा नहीं मिलता: खरीदारी, भुगतान और संदेश अब भी पहले आपसे पूछते हैं।",
+    "आयात की गई साइटों को कोई अतिरिक्त भरोसा नहीं मिलता: भुगतान के लिए अब भी आपकी अपनी पुष्टि चाहिए, और बाकी सब आपके अनुमोदन मोड के अनुसार चलता है।",
   "settings.browser.import.importN":
     "{count, plural, =0 {इंपोर्ट करें} one {# साइट इंपोर्ट करें} other {# साइटें इंपोर्ट करें}}",
   "settings.browser.import.cancel": "रद्द करें",
@@ -268,6 +271,8 @@ export const settingsRest: Partial<Catalogue> = {
   "settings.browser.import.importedFrom":
     "{browser} से {date} को, {count, plural, one {# कुकी} other {# कुकीज़}}",
   "settings.browser.import.remove": "इंपोर्ट किए गए साइन-इन हटाएँ",
+  "settings.browser.import.removeHint":
+    "इस आयात द्वारा लिखी गई कुकीज़ हटाता है। यह साइन-आउट नहीं है: इसके लिए साइन-इन की गई साइटें में “भूलें” का उपयोग करें।",
   "settings.browser.import.removeFailed":
     "Psyche {site} के इंपोर्ट किए गए साइन-इन नहीं हटा सका ({reason})।",
   "settings.computerUse.appsHint": "हर ऐप में Psyche कितनी दूर तक जा सकता है।",

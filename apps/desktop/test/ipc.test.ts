@@ -1,5 +1,7 @@
+import { readFileSync } from "node:fs";
 import { describe, expect, it } from "vitest";
 import {
+  APPROVAL_ONLY_CHANNELS,
   checkAudioChunk,
   checkCallable,
   checkClipboardText,
@@ -200,6 +202,23 @@ describe("cookie import IPC (owner only)", () => {
       expect(REMOTE_REFUSED_CHANNELS.has(ch), ch).toBe(true);
   });
 
+  it("only the main and Settings windows may call a channel: no pop-out, quick entry or screen-ask", () => {
+    for (const ch of [
+      IPC.cookieImportSources,
+      IPC.cookieImportScan,
+      IPC.cookieImportImport,
+      IPC.cookieImportDiscard,
+      IPC.cookieImportList,
+      IPC.cookieImportRemove,
+    ])
+      expect(APPROVAL_ONLY_CHANNELS.has(ch), ch).toBe(true);
+    // `handle` checks the set with isApprovalContents, not the wider trusted().
+    const main = readFileSync(new URL("../src/main.ts", import.meta.url), "utf8");
+    expect(main).toMatch(
+      /APPROVAL_ONLY_CHANNELS\.has\(channel\) && windows\?\.isApprovalContents\(event\.sender\) !== true/,
+    );
+  });
+
   it("the window cannot write the audit entry itself", () => {
     const known = (m: unknown) => m === "browser.cookieImport.record";
     expect(() => checkCallable("browser.cookieImport.record", known)).toThrow(/not callable/);
@@ -216,13 +235,19 @@ describe("cookie import IPC (owner only)", () => {
     expect(checkCookieImportPick({ scanId, domains: ["GitHub.com"] })).toEqual({
       scanId,
       domains: ["github.com"],
+      sensitive: [],
     });
+    expect(
+      checkCookieImportPick({ scanId, domains: ["a.com", "b.com"], sensitive: ["B.com"] }),
+    ).toEqual({ scanId, domains: ["a.com", "b.com"], sensitive: ["b.com"] });
     for (const bad of [
       { scanId, domains: [] },
       { scanId, domains: ["https://github.com"] },
       { scanId, domains: ["a b.com"] },
       { scanId: "nope", domains: ["github.com"] },
       { scanId, domains: "github.com" },
+      { scanId, domains: ["a.com"], sensitive: "a.com" },
+      { scanId, domains: ["a.com"], sensitive: ["https://a.com"] },
     ])
       expect(() => checkCookieImportPick(bad), JSON.stringify(bad)).toThrow();
     expect(() => checkScanId("c", "../x")).toThrow();

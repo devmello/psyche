@@ -1,8 +1,22 @@
 import { createHash } from "node:crypto";
-import { mkdirSync, mkdtempSync, readdirSync, readFileSync, rmSync, writeFileSync } from "node:fs";
+import {
+  chmodSync,
+  existsSync,
+  mkdirSync,
+  mkdtempSync,
+  readdirSync,
+  readFileSync,
+  rmSync,
+  statSync,
+  writeFileSync,
+} from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import {
+  auditQueueFile,
+  CookieAuditQueue,
+} from "../../src/main/browser/cookie-import/audit-queue.ts";
 import {
   CookieImporter,
   type CookieImportRecord,
@@ -112,24 +126,47 @@ function firefoxFixture(): void {
 }
 
 interface Profile extends CookieSession {
+  jar: CookieRecord[];
   set: CookieSetDetails[];
   removed: { url: string; name: string }[];
 }
 
+/** A jar like Electron's: `get` and `remove` by url and name match every cookie sent there. */
 function profile(existing: CookieRecord[] = []): Profile {
   const set: CookieSetDetails[] = [];
   const removed: { url: string; name: string }[] = [];
+  const jar: CookieRecord[] = [...existing];
+  const sentTo = (c: CookieRecord, url: string, name: string | undefined) => {
+    const u = new URL(url);
+    const d = (c.domain ?? "").replace(/^\./, "");
+    const hostOk = (c.domain ?? "").startsWith(".")
+      ? u.hostname === d || u.hostname.endsWith(`.${d}`)
+      : u.hostname === d;
+    const path = c.path ?? "/";
+    const pathOk =
+      u.pathname === path || u.pathname.startsWith(path.endsWith("/") ? path : `${path}/`);
+    return hostOk && pathOk && (name === undefined || c.name === name);
+  };
   return {
     set,
     removed,
+    jar,
     cookies: {
-      get: async () => [...existing],
+      get: async (f) => jar.filter((c) => (f.url ? sentTo(c, f.url, f.name) : true)),
       set: async (d) => {
         if (d.name.startsWith("__Host-") && d.domain !== undefined) throw new Error("refused");
         set.push(d);
+        const host = new URL(d.url).hostname;
+        const rec: CookieRecord = { ...d, domain: d.domain ?? host, path: d.path ?? "/" };
+        const i = jar.findIndex(
+          (c) => c.name === rec.name && c.domain === rec.domain && c.path === rec.path,
+        );
+        if (i >= 0) jar.splice(i, 1);
+        jar.push(rec);
       },
       remove: async (url, name) => {
         removed.push({ url, name });
+        for (const c of jar.filter((x) => sentTo(x, url, name))) jar.splice(jar.indexOf(c), 1);
       },
     },
     flushStorageData: () => {},
@@ -137,7 +174,9 @@ function profile(existing: CookieRecord[] = []): Profile {
 }
 
 function importer(p: Profile, extra: { records?: CookieImportRecord[]; key?: string } = {}) {
-  const readKeychain = vi.fn(async (_service: string) => extra.key ?? SAFE_STORAGE_PASSWORD);
+  const readKeychain = vi.fn(
+    async (_service: string, _account: string) => extra.key ?? SAFE_STORAGE_PASSWORD,
+  );
   const imp = new CookieImporter({
     homeDir: home,
     psycheHome: psyche,
@@ -222,12 +261,12 @@ describe("cookie import", () => {
     const before = createHash("sha256").update(readFileSync(src)).digest("hex");
     const { imp, readKeychain } = importer(profile());
     const scan = await imp.scan("chrome", "Default");
-    expect(readKeychain).toHaveBeenCalledWith("Chrome Safe Storage");
+    expect(readKeychain).toHaveBeenCalledWith("Chrome Safe Storage", "Chrome");
     expect(scan.sites.map((s) => [s.domain, s.cookies, s.sensitive])).toEqual([
       ["chase.com", 1, "bank"],
       ["evil-google.com", 1, null],
       ["example.net", 1, null],
-      ["github.com", 2, null],
+      ["github.com", 2, "signin"],
       ["google.com", 2, "email"],
     ]);
     expect(scan.sites.find((s) => s.domain === "google.com")?.hosts).toEqual([
@@ -248,7 +287,11 @@ describe("cookie import", () => {
     const records: CookieImportRecord[] = [];
     const { imp } = importer(p, { records });
     const scan = await imp.scan("chrome", "Default");
-    const r = await imp.import(scan.scanId, ["github.com", "google.com"]);
+    const r = await imp.import(
+      scan.scanId,
+      ["github.com", "google.com"],
+      ["github.com", "google.com"],
+    );
     expect(r).toEqual({
       sites: [
         { domain: "github.com", cookies: 2 },
@@ -319,14 +362,20 @@ describe("cookie import", () => {
       scanTtlMs: 60_000,
     });
     const a = await imp.scan("chrome", "Default");
-    await imp.import(a.scanId, ["github.com"]);
-    await expect(imp.import(a.scanId, ["google.com"])).rejects.toMatchObject({ code: "not_found" });
+    await imp.import(a.scanId, ["github.com"], ["github.com"]);
+    await expect(imp.import(a.scanId, ["google.com"], ["google.com"])).rejects.toMatchObject({
+      code: "not_found",
+    });
     const b = await imp.scan("chrome", "Default");
     imp.discard(b.scanId);
-    await expect(imp.import(b.scanId, ["github.com"])).rejects.toMatchObject({ code: "not_found" });
+    await expect(imp.import(b.scanId, ["github.com"], ["github.com"])).rejects.toMatchObject({
+      code: "not_found",
+    });
     const c = await imp.scan("chrome", "Default");
     const d = await imp.scan("chrome", "Profile 1");
-    await expect(imp.import(c.scanId, ["github.com"])).rejects.toMatchObject({ code: "not_found" });
+    await expect(imp.import(c.scanId, ["github.com"], ["github.com"])).rejects.toMatchObject({
+      code: "not_found",
+    });
     now += 61_000;
     await expect(imp.import(d.scanId, ["example.com"])).rejects.toMatchObject({
       code: "not_found",
@@ -377,7 +426,7 @@ describe("cookie import", () => {
     ]);
     expect(scan.expired).toBe(1);
     expect(scan.skipped).toBe(1);
-    await imp.import(scan.scanId, ["bitwarden.com", "example.com"]);
+    await imp.import(scan.scanId, ["bitwarden.com", "example.com"], ["bitwarden.com"]);
     expect(p.set.find((d) => d.name === "s")?.expirationDate).toBe(NOW + DAY);
     expect(p.set.find((d) => d.name === "l")?.sameSite).toBe("lax");
   });
@@ -395,7 +444,7 @@ describe("cookie import", () => {
     const records: CookieImportRecord[] = [];
     const { imp } = importer(p, { records });
     const scan = await imp.scan("chrome", "Default");
-    await imp.import(scan.scanId, ["github.com", "google.com"]);
+    await imp.import(scan.scanId, ["github.com", "google.com"], ["github.com", "google.com"]);
     expect(imp.imported().map((s) => [s.domain, s.browser, s.cookies])).toEqual([
       ["github.com", "chrome", 2],
       ["google.com", "chrome", 2],
@@ -433,7 +482,9 @@ describe("cookie import", () => {
       nowMs: () => NOW * 1000,
     });
     const scan = await imp.scan("chrome", "Default");
-    expect((await imp.import(scan.scanId, ["github.com"])).sites).toHaveLength(1);
+    expect((await imp.import(scan.scanId, ["github.com"], ["github.com"])).sites).toHaveLength(1);
+    // The record is not lost: it waits in the queue for the Gateway.
+    expect(imp.pendingAudit()).toBe(1);
   });
 
   it("no cookie value reaches a log, a result, the audit or the imported-sites file", async () => {
@@ -462,6 +513,7 @@ describe("cookie import", () => {
       await imp.import(
         chrome.scanId,
         chrome.sites.map((s) => s.domain),
+        chrome.sites.filter((s) => s.sensitive !== null).map((s) => s.domain),
       ),
     );
     const ff = await imp.scan("firefox", "Profiles/abc.default-release");
@@ -470,6 +522,7 @@ describe("cookie import", () => {
       await imp.import(
         ff.scanId,
         ff.sites.map((s) => s.domain),
+        ff.sites.filter((s) => s.sensitive !== null).map((s) => s.domain),
       ),
     );
     results.push(imp.imported());
@@ -506,7 +559,7 @@ describe("cookie import", () => {
     chromeFixture();
     const { imp } = importer(profile());
     const scan = await imp.scan("chrome", "Default");
-    await imp.import(scan.scanId, ["github.com"]);
+    await imp.import(scan.scanId, ["github.com"], ["github.com"]);
     const file = importedFile(psyche);
     const { statSync } = await import("node:fs");
     expect(statSync(file).mode & 0o077).toBe(0);
@@ -523,5 +576,287 @@ describe("cookie import", () => {
     writeFileSync(importedFile(psyche), "{not json");
     const { imp } = importer(profile());
     expect(imp.imported()).toEqual([]);
+  });
+});
+
+// ── Review r1 on #1508 ──────────────────────────────────────────────────────────────────
+
+describe("local audit queue", () => {
+  const queueFile = () => auditQueueFile(psyche);
+
+  it("writes the record before the first cookie, and keeps it when the Gateway is down", async () => {
+    chromeFixture();
+    const p = profile();
+    let queuedAtFirstWrite: string | undefined;
+    const set = p.cookies.set;
+    p.cookies.set = async (d) => {
+      queuedAtFirstWrite ??= existsSync(queueFile()) ? readFileSync(queueFile(), "utf8") : "";
+      return set(d);
+    };
+    const imp = new CookieImporter({
+      homeDir: home,
+      psycheHome: psyche,
+      tmpRoot,
+      platform: "darwin",
+      profile: () => p,
+      readKeychain: async () => SAFE_STORAGE_PASSWORD,
+      record: async () => {
+        throw new Error("gateway down");
+      },
+      nowMs: () => NOW * 1000,
+    });
+    const scan = await imp.scan("chrome", "Default");
+    const r = await imp.import(scan.scanId, ["github.com"], ["github.com"]);
+    expect(r.sites).toEqual([{ domain: "github.com", cookies: 2 }]);
+    expect(queuedAtFirstWrite).toContain('"github.com"');
+    expect(imp.pendingAudit()).toBe(1);
+    // The file is private, and holds no value, cookie name or path.
+    expect(statSync(queueFile()).mode & 0o077).toBe(0);
+    const text = readFileSync(queueFile(), "utf8");
+    expect(text).not.toMatch(/SECRETVALUE|user_session|__Host-gh/);
+    expect(text).not.toContain(SAFE_STORAGE_PASSWORD);
+    expect(readdirSync(join(psyche, "browser")).filter((n) => n.endsWith(".tmp"))).toEqual([]);
+  });
+
+  it("flushes once the Gateway answers, in order, and deletes an entry only after ok", async () => {
+    chromeFixture();
+    const p = profile();
+    const sent: CookieImportRecord[] = [];
+    let up = false;
+    const make = () =>
+      new CookieImporter({
+        homeDir: home,
+        psycheHome: psyche,
+        tmpRoot,
+        platform: "darwin",
+        profile: () => p,
+        readKeychain: async () => SAFE_STORAGE_PASSWORD,
+        record: async (e) => {
+          if (!up) throw new Error("gateway down");
+          sent.push(e);
+        },
+        nowMs: () => NOW * 1000,
+      });
+    const imp = make();
+    const a = await imp.scan("chrome", "Default");
+    await imp.import(a.scanId, ["github.com"], ["github.com"]);
+    await imp.remove("github.com");
+    expect(imp.pendingAudit()).toBe(2);
+    expect(sent).toEqual([]);
+
+    // A restart: a new importer finds the queue on disk, and the connect flushes it.
+    up = true;
+    const again = make();
+    expect(again.pendingAudit()).toBe(2);
+    expect(await again.flushAudit()).toBe(2);
+    expect(sent.map((e) => e.action)).toEqual(["imported", "removed"]);
+    expect(again.pendingAudit()).toBe(0);
+    // Sent once only.
+    expect(await again.flushAudit()).toBe(0);
+    expect(sent).toHaveLength(2);
+  });
+
+  it("stops at the first failure and keeps that entry and the rest", async () => {
+    const q = new CookieAuditQueue(psyche);
+    for (const domain of ["a.example", "b.example", "c.example"]) {
+      q.settle(q.enqueue({ action: "imported", browser: "chrome", sites: [] }), {
+        action: "imported",
+        browser: "chrome",
+        sites: [{ domain, cookies: 1 }],
+      });
+    }
+    const seen: string[] = [];
+    const n = await q.flush(async (e) => {
+      seen.push(e.sites[0]?.domain ?? "");
+      if (e.sites[0]?.domain === "b.example") throw new Error("down");
+    });
+    expect(n).toBe(1);
+    expect(seen).toEqual(["a.example", "b.example"]);
+    expect(q.pending()).toBe(2);
+    const rest: string[] = [];
+    await q.flush(async (e) => void rest.push(e.sites[0]?.domain ?? ""));
+    expect(rest).toEqual(["b.example", "c.example"]);
+  });
+
+  it("sends nothing without a record sender (a remote Gateway), and the import still goes ahead", async () => {
+    chromeFixture();
+    const p = profile();
+    const imp = new CookieImporter({
+      homeDir: home,
+      psycheHome: psyche,
+      tmpRoot,
+      platform: "darwin",
+      profile: () => p,
+      readKeychain: async () => SAFE_STORAGE_PASSWORD,
+      nowMs: () => NOW * 1000,
+    });
+    const scan = await imp.scan("chrome", "Default");
+    expect((await imp.import(scan.scanId, ["github.com"], ["github.com"])).sites).toHaveLength(1);
+    expect(await imp.flushAudit()).toBe(0);
+    expect(imp.pendingAudit()).toBe(1);
+  });
+
+  it("is bounded: a full queue refuses the record before any cookie is written", () => {
+    const q = new CookieAuditQueue(psyche, { max: 2 });
+    q.enqueue({ action: "imported", browser: "chrome", sites: [] });
+    q.enqueue({ action: "imported", browser: "chrome", sites: [] });
+    expect(() => q.enqueue({ action: "imported", browser: "chrome", sites: [] })).toThrow(
+      /waiting for the Gateway/,
+    );
+  });
+
+  it("keeps only domains and counts, and drops an entry that recorded nothing", () => {
+    const q = new CookieAuditQueue(psyche);
+    q.settle(
+      q.enqueue({
+        action: "imported",
+        browser: "chrome",
+        sites: [
+          { domain: "ok.example", cookies: 2 },
+          { domain: "bad domain/with spaces", cookies: 1 },
+        ],
+      }),
+      undefined,
+    );
+    expect(q.pending()).toBe(0);
+    q.enqueue({
+      action: "imported",
+      browser: "chrome",
+      sites: [
+        { domain: "ok.example", cookies: 2 },
+        { domain: "bad domain/with spaces", cookies: 1 },
+      ],
+    });
+    expect(readFileSync(auditQueueFile(psyche), "utf8")).not.toContain("with spaces");
+  });
+
+  it("keeps an unreadable queue file aside instead of throwing the record away", () => {
+    mkdirSync(join(psyche, "browser"), { recursive: true });
+    writeFileSync(auditQueueFile(psyche), "{not json");
+    const q = new CookieAuditQueue(psyche);
+    expect(q.pending()).toBe(0);
+    expect(readdirSync(join(psyche, "browser")).some((n) => n.includes(".corrupt-"))).toBe(true);
+  });
+});
+
+describe("sensitive sites are gated in main", () => {
+  it("refuses a sensitive site that the call doesn't name, and writes nothing, not even a record", async () => {
+    chromeFixture();
+    const p = profile();
+    const { imp } = importer(p);
+    const scan = await imp.scan("chrome", "Default");
+    await expect(imp.import(scan.scanId, ["chase.com"])).rejects.toMatchObject({
+      code: "forbidden",
+    });
+    // Naming a different site doesn't cover it; select-all style picks are refused too.
+    await expect(
+      imp.import(scan.scanId, ["chase.com", "example.net"], ["example.net"]),
+    ).rejects.toMatchObject({ code: "forbidden" });
+    await expect(
+      imp.import(
+        scan.scanId,
+        scan.sites.map((s) => s.domain),
+      ),
+    ).rejects.toMatchObject({ code: "forbidden" });
+    expect(p.set).toEqual([]);
+    expect(imp.pendingAudit()).toBe(0);
+    // The read list is still there for the owner to tick it one by one.
+    expect((await imp.import(scan.scanId, ["chase.com"], ["chase.com"])).sites).toEqual([
+      { domain: "chase.com", cookies: 1 },
+    ]);
+  });
+
+  it("an ordinary site needs no naming", async () => {
+    chromeFixture();
+    const { imp } = importer(profile());
+    const scan = await imp.scan("chrome", "Default");
+    expect((await imp.import(scan.scanId, ["example.net"])).sites).toHaveLength(1);
+  });
+});
+
+describe("Remove imported sign-ins", () => {
+  const seedList = (cookies: { host: string; path: string; name: string }[]) => {
+    mkdirSync(join(psyche, "browser"), { recursive: true });
+    writeFileSync(
+      importedFile(psyche),
+      JSON.stringify({
+        version: 1,
+        sites: [
+          { domain: "example.com", browser: "chrome", importedAt: "2026-11-01T00:00:00Z", cookies },
+        ],
+      }),
+    );
+  };
+
+  it("removes only the exact cookie and puts back the parent's cookie it would also take", async () => {
+    const p = profile([
+      { name: "sid", value: "mine", domain: "a.example.com", path: "/x" },
+      { name: "sid", value: "parent", domain: ".example.com", path: "/", secure: true },
+    ]);
+    seedList([{ host: "a.example.com", path: "/x", name: "sid" }]);
+    const { imp } = importer(p);
+    expect(await imp.remove("example.com")).toBe(1);
+    expect(p.jar.map((c) => [c.domain, c.path, c.value])).toEqual([
+      [".example.com", "/", "parent"],
+    ]);
+    expect(imp.imported()).toEqual([]);
+  });
+
+  it("counts only what was there, not every cookie it tried", async () => {
+    // One of the imported cookies was already gone; a parent's cookie of another name is not
+    // the imported one and is neither counted nor removed.
+    const p = profile([
+      { name: "kept", value: "v", domain: "a.example.com", path: "/" },
+      { name: "sid", value: "parent", domain: ".example.com", path: "/" },
+    ]);
+    seedList([
+      { host: "a.example.com", path: "/", name: "kept" },
+      { host: "a.example.com", path: "/", name: "gone" },
+      { host: "b.example.com", path: "/", name: "sid" },
+    ]);
+    const { imp } = importer(p);
+    expect(await imp.remove("example.com")).toBe(1);
+    expect(p.jar.map((c) => c.name)).toEqual(["sid"]);
+  });
+
+  it("runs after an import that is still writing, so the list never loses an update", async () => {
+    chromeFixture();
+    const p = profile();
+    const set = p.cookies.set;
+    p.cookies.set = async (d) => {
+      await new Promise((r) => setTimeout(r, 5));
+      return set(d);
+    };
+    const { imp } = importer(p);
+    const scan = await imp.scan("chrome", "Default");
+    const importing = imp.import(scan.scanId, ["github.com"], ["github.com"]);
+    // Remove starts while the import is still writing: it waits and then removes those cookies.
+    const removing = imp.remove("github.com");
+    await importing;
+    expect(await removing).toBe(2);
+    expect(imp.imported()).toEqual([]);
+    expect(p.jar).toEqual([]);
+  });
+});
+
+describe("temp copies", () => {
+  it("makes every copy private, sidecars too, and sweeps what a crash left behind", async () => {
+    const root = firefoxRoot(home);
+    writeProfilesIni(root, [{ name: "default-release", path: "Profiles/abc.default-release" }]);
+    const file = join(root, "Profiles", "abc.default-release", "cookies.sqlite");
+    writeFirefoxDb(file, [{ host: "x.example.net", name: "a", value: "v", expires: NOW + DAY }]);
+    writeFileSync(`${file}-wal`, "wal");
+    chmodSync(`${file}-wal`, 0o644);
+    const { copyDatabase } = await import("../../src/main/browser/cookie-import/read.ts");
+    const { dir, copy } = copyDatabase(file, tmpRoot);
+    for (const f of [copy, `${copy}-wal`]) expect(statSync(f).mode & 0o077, f).toBe(0);
+    rmSync(dir, { recursive: true, force: true });
+
+    // A copy left by a crashed run is swept when the importer is made; other folders stay.
+    mkdirSync(join(tmpRoot, "psyche-cookie-import-crashed"));
+    writeFileSync(join(tmpRoot, "psyche-cookie-import-crashed", "cookies.db"), "plaintext");
+    mkdirSync(join(tmpRoot, "unrelated"));
+    importer(profile());
+    expect(readdirSync(tmpRoot)).toEqual(["unrelated"]);
   });
 });

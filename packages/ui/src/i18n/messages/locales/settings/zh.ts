@@ -210,10 +210,13 @@ export const settings: Partial<Catalogue> = {
   "settings.browser.import.sensitive.payment": "支付",
   "settings.browser.import.sensitive.passwords": "密码管理器",
   "settings.browser.import.sensitive.email": "电子邮件",
+  "settings.browser.import.sensitive.signin": "登录服务商",
+  "settings.browser.import.hosts": "主机：{hosts}",
+  "settings.browser.import.hostsMore": "主机：{hosts}，另有 {count} 个",
   "settings.browser.import.sensitiveWarning":
     "{kind}：这里的会话可以转移资金、重置你的其他账户或打开你的密码。仅在任务需要时勾选。",
   "settings.browser.import.noTrust":
-    "导入的网站不会获得额外信任：购买、付款和发送消息仍会先征求你的同意。",
+    "导入的网站不会获得额外信任：付款仍需你亲自确认，其他操作遵循你的审批模式。",
   "settings.browser.import.importN": "{count, plural, =0 {导入} other {导入 # 个网站}}",
   "settings.browser.import.cancel": "取消",
   "settings.browser.import.done":
@@ -224,6 +227,8 @@ export const settings: Partial<Catalogue> = {
   "settings.browser.import.importedFrom":
     "{date} 从 {browser} 导入，{count, plural, other {# 个 Cookie}}",
   "settings.browser.import.remove": "移除导入的登录",
+  "settings.browser.import.removeHint":
+    "移除此次导入写入的 Cookie。这不等于退出登录：如需退出，请在“已登录的网站”下使用“忘记”。",
   "settings.browser.import.removeFailed": "Psyche 无法移除 {site} 的导入登录（{reason}）。",
   "settings.computerUse.appsHint": "Psyche 在每个 App 中可以做到什么程度。",
   "settings.connectors.catalog.appleShortcuts": "快捷指令",

@@ -17,7 +17,7 @@ import { ErrorNotice, Group, messageOf } from "./shared.tsx";
  */
 
 export type CookieImportBrowser = "chrome" | "brave" | "edge" | "arc" | "firefox" | "safari";
-export type CookieImportSensitive = "bank" | "payment" | "passwords" | "email";
+export type CookieImportSensitive = "bank" | "payment" | "passwords" | "email" | "signin";
 
 export interface CookieImportSource {
   browser: CookieImportBrowser;
@@ -57,7 +57,11 @@ export interface ImportedSignIn {
 export interface CookieImportApi {
   sources(): Promise<CookieImportSource[]>;
   scan(browser: CookieImportBrowser, profileId: string): Promise<CookieImportScan>;
-  import(scanId: string, domains: string[]): Promise<CookieImportResult>;
+  /**
+   * `sensitive` names the picked sensitive sites, ticked one by one: the desktop refuses a
+   * sensitive site that isn't named.
+   */
+  import(scanId: string, domains: string[], sensitive?: string[]): Promise<CookieImportResult>;
   discard(scanId: string): Promise<void>;
   imported(): Promise<ImportedSignIn[]>;
   /** Deletes the cookies the import wrote for one site. */
@@ -79,6 +83,16 @@ export function browserName(b: CookieImportBrowser): string {
   return BROWSER_NAMES[b];
 }
 
+const HOSTS_SHOWN = 4;
+
+/** The hosts inside a row, so a merged-looking row is never a mystery. */
+export function hostsLine(hosts: readonly string[]): string {
+  const shown = hosts.slice(0, HOSTS_SHOWN).join(", ");
+  return hosts.length > HOSTS_SHOWN
+    ? t("settings.browser.import.hostsMore", { hosts: shown, count: hosts.length - HOSTS_SHOWN })
+    : t("settings.browser.import.hosts", { hosts: shown });
+}
+
 function sensitiveLabel(kind: CookieImportSensitive): string {
   switch (kind) {
     case "bank":
@@ -89,6 +103,8 @@ function sensitiveLabel(kind: CookieImportSensitive): string {
       return t("settings.browser.import.sensitive.passwords");
     case "email":
       return t("settings.browser.import.sensitive.email");
+    case "signin":
+      return t("settings.browser.import.sensitive.signin");
   }
 }
 
@@ -179,7 +195,14 @@ export function CookieImportGroup({ api }: { api: CookieImportApi }): ReactEleme
     setError(null);
     setBusy(true);
     api
-      .import(scan.scanId, [...picked].sort())
+      .import(
+        scan.scanId,
+        [...picked].sort(),
+        scan.sites
+          .filter((s) => s.sensitive !== null && picked.has(s.domain))
+          .map((s) => s.domain)
+          .sort(),
+      )
       .then(
         (r) => {
           setScan(null);
@@ -360,6 +383,12 @@ export function CookieImportGroup({ api }: { api: CookieImportApi }): ReactEleme
                           {t("settings.browser.import.cookies", { count: s.cookies })}
                         </span>
                       </span>
+                      <span
+                        className="text-callout text-muted-foreground"
+                        data-testid={`cookie-import-hosts-${s.domain}`}
+                      >
+                        {hostsLine(s.hosts)}
+                      </span>
                       {s.sensitive ? (
                         <span
                           className="flex items-center gap-1 text-callout text-approval"
@@ -393,6 +422,9 @@ export function CookieImportGroup({ api }: { api: CookieImportApi }): ReactEleme
       {imported.length > 0 ? (
         <div className="flex flex-col gap-2">
           <h4 className="text-headline">{t("settings.browser.import.importedTitle")}</h4>
+          <p className="text-callout text-muted-foreground">
+            {t("settings.browser.import.removeHint")}
+          </p>
           <ul className="flex flex-col gap-2" data-testid="cookie-import-imported">
             {imported.map((s) => (
               <li key={s.domain} className="flex items-center justify-between gap-3">

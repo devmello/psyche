@@ -38,21 +38,35 @@ interface ChromiumSpec {
   dir: string[];
   /** The Keychain item macOS asks about ("<Browser> Safe Storage"). */
   keychainService: string;
+  /** The item's account (`-a`), so a look-alike item from another app is never read. */
+  keychainAccount: string;
 }
 
 const CHROMIUM: Record<"chrome" | "brave" | "edge" | "arc", ChromiumSpec> = {
-  chrome: { kind: "chromium", dir: ["Google", "Chrome"], keychainService: "Chrome Safe Storage" },
+  chrome: {
+    kind: "chromium",
+    dir: ["Google", "Chrome"],
+    keychainService: "Chrome Safe Storage",
+    keychainAccount: "Chrome",
+  },
   brave: {
     kind: "chromium",
     dir: ["BraveSoftware", "Brave-Browser"],
     keychainService: "Brave Safe Storage",
+    keychainAccount: "Brave",
   },
   edge: {
     kind: "chromium",
     dir: ["Microsoft Edge"],
     keychainService: "Microsoft Edge Safe Storage",
+    keychainAccount: "Microsoft Edge",
   },
-  arc: { kind: "chromium", dir: ["Arc", "User Data"], keychainService: "Arc Safe Storage" },
+  arc: {
+    kind: "chromium",
+    dir: ["Arc", "User Data"],
+    keychainService: "Arc Safe Storage",
+    keychainAccount: "Arc",
+  },
 };
 
 export function isChromium(b: ImportBrowser): b is keyof typeof CHROMIUM {
@@ -61,6 +75,10 @@ export function isChromium(b: ImportBrowser): b is keyof typeof CHROMIUM {
 
 export function keychainServiceOf(b: keyof typeof CHROMIUM): string {
   return CHROMIUM[b].keychainService;
+}
+
+export function keychainAccountOf(b: keyof typeof CHROMIUM): string {
+  return CHROMIUM[b].keychainAccount;
 }
 
 function appSupport(homeDir: string): string {

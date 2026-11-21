@@ -266,10 +266,13 @@ export const settingsRest: Partial<Catalogue> = {
   "settings.browser.import.sensitive.payment": "Paiements",
   "settings.browser.import.sensitive.passwords": "Gestionnaire de mots de passe",
   "settings.browser.import.sensitive.email": "E-mail",
+  "settings.browser.import.sensitive.signin": "Fournisseur de connexion",
+  "settings.browser.import.hosts": "Hôtes : {hosts}",
+  "settings.browser.import.hostsMore": "Hôtes : {hosts} et {count} autres",
   "settings.browser.import.sensitiveWarning":
     "{kind} : une session ici peut déplacer de l’argent, réinitialiser vos autres comptes ou ouvrir vos mots de passe. Ne le cochez que si des tâches en ont besoin.",
   "settings.browser.import.noTrust":
-    "Les sites importés n’obtiennent aucune confiance supplémentaire : achats, paiements et messages vous demandent toujours d’abord.",
+    "Les sites importés n’obtiennent aucune confiance supplémentaire : les paiements exigent toujours votre confirmation, et tout le reste suit votre mode d’approbation.",
   "settings.browser.import.importN":
     "{count, plural, =0 {Importer} one {Importer # site} other {Importer # sites}}",
   "settings.browser.import.cancel": "Annuler",
@@ -282,6 +285,8 @@ export const settingsRest: Partial<Catalogue> = {
   "settings.browser.import.importedFrom":
     "Depuis {browser} le {date}, {count, plural, one {# cookie} other {# cookies}}",
   "settings.browser.import.remove": "Supprimer les connexions importées",
+  "settings.browser.import.removeHint":
+    "Supprime les cookies écrits par cet import. Ce n’est pas une déconnexion : utilisez Oublier sous Sites connectés pour cela.",
   "settings.browser.import.removeFailed":
     "Psyche n’a pas pu supprimer les connexions importées de {site} ({reason}).",
   "settings.computerUse.appsHint": "Jusqu’où Psyche peut aller dans chaque app.",

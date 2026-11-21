@@ -258,10 +258,13 @@ export const settingsRest: Partial<Catalogue> = {
   "settings.browser.import.sensitive.payment": "결제",
   "settings.browser.import.sensitive.passwords": "비밀번호 관리자",
   "settings.browser.import.sensitive.email": "이메일",
+  "settings.browser.import.sensitive.signin": "로그인 제공업체",
+  "settings.browser.import.hosts": "호스트: {hosts}",
+  "settings.browser.import.hostsMore": "호스트: {hosts} 외 {count}개",
   "settings.browser.import.sensitiveWarning":
     "{kind}: 이곳의 세션으로 돈을 옮기거나, 다른 계정을 재설정하거나, 비밀번호를 열 수 있습니다. 작업에 필요할 때만 선택하세요.",
   "settings.browser.import.noTrust":
-    "가져온 사이트에는 추가 신뢰가 주어지지 않습니다. 구매, 결제, 메시지는 여전히 먼저 확인합니다.",
+    "가져온 사이트에 추가 신뢰는 주어지지 않습니다. 결제는 여전히 직접 확인이 필요하고, 나머지는 승인 모드를 따릅니다.",
   "settings.browser.import.importN": "{count, plural, =0 {가져오기} other {사이트 #개 가져오기}}",
   "settings.browser.import.cancel": "취소",
   "settings.browser.import.done":
@@ -273,6 +276,8 @@ export const settingsRest: Partial<Catalogue> = {
   "settings.browser.import.importedFrom":
     "{date}에 {browser}에서 가져옴, {count, plural, other {쿠키 #개}}",
   "settings.browser.import.remove": "가져온 로그인 삭제",
+  "settings.browser.import.removeHint":
+    "이 가져오기가 기록한 쿠키를 제거합니다. 로그아웃이 아닙니다. 로그아웃은 로그인된 사이트에서 ‘잊기’를 사용하세요.",
   "settings.browser.import.removeFailed":
     "Psyche가 {site}의 가져온 로그인을 삭제하지 못했습니다 ({reason}).",
   "settings.computerUse.appsHint": "각 앱에서 Psyche가 어디까지 조작할 수 있는지 설정합니다.",
