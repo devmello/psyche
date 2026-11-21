@@ -38,6 +38,8 @@ import { usePersona, useSlots } from "../slots.tsx";
 import { lessonsAt, useLessons } from "../teaching/hooks.ts";
 import { LessonMark, lessonMarkLabel } from "../teaching/LessonMark.tsx";
 import { AgentNotes } from "./AgentNotes.tsx";
+import { ImportDialog } from "./ImportDialog.tsx";
+import { runImport } from "./run-import.ts";
 
 /** Persona files and their budgets (architecture §4.2: 20k per file, 4k for USER.md). */
 export const PERSONA_FILES = [
@@ -356,6 +358,7 @@ export function SoulMemoryPanel({
   const status = useGatewayQuery("memory.status", {});
   const daily = useGatewayQuery("memory.daily.list", { limit: 7 });
   const [notice, setNotice] = useState<string | null>(null);
+  const [importing, setImporting] = useState(false);
   const [searching, setSearching] = useState(false);
   const paused = status.data?.paused ?? false;
   const fileBudget = PERSONA_FILES.find((f) => f.path === path)?.budget ?? 20_000;
@@ -486,17 +489,15 @@ export function SoulMemoryPanel({
 
       <fieldset aria-label={t("agent.memory.importExport")} className="m-0 min-w-0 border-0 p-0">
         <GroupedList>
-          {onImport ? (
-            <GroupedRow
-              label={t("agent.memory.import")}
-              leading={<Upload className="size-4" aria-hidden="true" />}
-              control={
-                <Button size="sm" variant="ghost" onClick={onImport}>
-                  {t("screens.soul.choose")}
-                </Button>
-              }
-            />
-          ) : null}
+          <GroupedRow
+            label={t("agent.memory.import")}
+            leading={<Upload className="size-4" aria-hidden="true" />}
+            control={
+              <Button size="sm" variant="ghost" onClick={onImport ?? (() => setImporting(true))}>
+                {t("screens.soul.choose")}
+              </Button>
+            }
+          />
           <GroupedRow
             label={t("agent.memory.export")}
             leading={<Download className="size-4" aria-hidden="true" />}
@@ -536,6 +537,12 @@ export function SoulMemoryPanel({
           {notice}
         </p>
       ) : null}
+
+      <ImportDialog
+        open={importing}
+        onOpenChange={setImporting}
+        run={(req, onStage, onProgress) => runImport(call, req, onStage, onProgress)}
+      />
 
       {/* The editor in a level-3 sheet (§5.7); Rich / Source / Diff come from the editor slot. */}
       <Dialog

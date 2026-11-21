@@ -1127,7 +1127,7 @@
       {
         "description": "Desktop only: the newest virtual-screen frame (JPEG) when it changed since `since`. Only while the pane is visible, at most 4 a second.",
         "name": "computerWatch.frame",
-        "params": "#/$defs/VscreenFrameParams",
+        "params": "#/$defs/ComputerWatchFrameParams",
         "result": "#/$defs/VscreenFrame",
         "scope": "operator.read",
         "sideEffecting": false
@@ -1135,7 +1135,7 @@
       {
         "description": "Desktop only: the owner's clicks and keys while taking over, sent through the helper's XTest.",
         "name": "computerWatch.input",
-        "params": "#/$defs/VscreenInputParams",
+        "params": "#/$defs/ComputerWatchInputParams",
         "result": "#/$defs/VscreenAck",
         "scope": "operator.write",
         "sideEffecting": false
@@ -1159,7 +1159,7 @@
       {
         "description": "Desktop only: Stop in the watch pane. Apps are asked to close; one with unsaved changes stays and the Task parks, unless `force` is set.",
         "name": "computerWatch.stop",
-        "params": "#/$defs/VscreenStopParams",
+        "params": "#/$defs/ComputerWatchStopParams",
         "result": "#/$defs/VscreenAck",
         "scope": "operator.write",
         "sideEffecting": false
@@ -3987,6 +3987,14 @@
         "result": "#/$defs/ThreadListEntry",
         "scope": "operator.read",
         "sideEffecting": false
+      },
+      {
+        "description": "Imports conversations from a claude.ai or ChatGPT export as archived, read-only threads (imported flag). Turns are untrusted data. Capped; the same export again adds nothing. Side-effecting.",
+        "name": "threads.import",
+        "params": "#/$defs/ThreadsImportParams",
+        "result": "#/$defs/ThreadImportResult",
+        "scope": "operator.write",
+        "sideEffecting": true
       },
       {
         "description": "Lists threads, most recent first, each with derived activity counts (running / awaiting input / awaiting approval).",
@@ -10021,6 +10029,12 @@
           "description": "The pane is on screen in the desktop app",
           "type": "boolean"
         },
+        "machine": {
+          "description": "ULID in production",
+          "maxLength": 64,
+          "minLength": 1,
+          "type": "string"
+        },
         "input": {
           "description": "The owner gave input in the app just now (key, click)",
           "type": "boolean"
@@ -15546,6 +15560,47 @@
       ],
       "type": "string"
     },
+    "ComputerWatchFrameParams": {
+      "properties": {
+        "since": {
+          "minimum": 0,
+          "type": "integer"
+        },
+        "maxWidth": {
+          "maximum": 3840,
+          "minimum": 160,
+          "type": "integer"
+        },
+        "machine": {
+          "description": "ULID in production",
+          "maxLength": 64,
+          "minLength": 1,
+          "type": "string"
+        }
+      },
+      "type": "object"
+    },
+    "ComputerWatchInputParams": {
+      "properties": {
+        "events": {
+          "items": {
+            "$ref": "#/$defs/VscreenInputEvent"
+          },
+          "maxItems": 100,
+          "type": "array"
+        },
+        "machine": {
+          "description": "ULID in production",
+          "maxLength": 64,
+          "minLength": 1,
+          "type": "string"
+        }
+      },
+      "required": [
+        "events"
+      ],
+      "type": "object"
+    },
     "ComputerWatchParkAction": {
       "enum": [
         "look",
@@ -15561,6 +15616,12 @@
             "$ref": "#/$defs/VscreenApp"
           },
           "type": "array"
+        },
+        "machine": {
+          "description": "ULID in production",
+          "maxLength": 64,
+          "minLength": 1,
+          "type": "string"
         }
       },
       "required": [
@@ -15572,6 +15633,12 @@
       "properties": {
         "action": {
           "$ref": "#/$defs/ComputerWatchParkAction"
+        },
+        "machine": {
+          "description": "ULID in production",
+          "maxLength": 64,
+          "minLength": 1,
+          "type": "string"
         }
       },
       "required": [
@@ -15610,13 +15677,43 @@
       "type": "object"
     },
     "ComputerWatchStatusParams": {
-      "properties": {},
+      "properties": {
+        "machine": {
+          "description": "ULID in production",
+          "maxLength": 64,
+          "minLength": 1,
+          "type": "string"
+        }
+      },
+      "type": "object"
+    },
+    "ComputerWatchStopParams": {
+      "properties": {
+        "closeApps": {
+          "type": "boolean"
+        },
+        "force": {
+          "type": "boolean"
+        },
+        "machine": {
+          "description": "ULID in production",
+          "maxLength": 64,
+          "minLength": 1,
+          "type": "string"
+        }
+      },
       "type": "object"
     },
     "ComputerWatchTakeOverParams": {
       "properties": {
         "on": {
           "type": "boolean"
+        },
+        "machine": {
+          "description": "ULID in production",
+          "maxLength": 64,
+          "minLength": 1,
+          "type": "string"
         }
       },
       "required": [
@@ -40515,6 +40612,13 @@
         },
         "card": {
           "$ref": "#/$defs/SearchHitCard"
+        },
+        "imported": {
+          "enum": [
+            "claude",
+            "chatgpt"
+          ],
+          "type": "string"
         }
       },
       "required": [
@@ -48768,6 +48872,9 @@
         "userCreated": {
           "type": "boolean"
         },
+        "imported": {
+          "$ref": "#/$defs/ThreadImportSource"
+        },
         "spaceId": {
           "anyOf": [
             {
@@ -48936,6 +49043,68 @@
         "threadId"
       ],
       "type": "object"
+    },
+    "ThreadImportFormat": {
+      "enum": [
+        "claude",
+        "chatgpt"
+      ],
+      "type": "string"
+    },
+    "ThreadImportResult": {
+      "properties": {
+        "imported": {
+          "minimum": 0,
+          "type": "integer"
+        },
+        "duplicates": {
+          "minimum": 0,
+          "type": "integer"
+        },
+        "skipped": {
+          "items": {
+            "properties": {
+              "title": {
+                "type": "string"
+              },
+              "reason": {
+                "enum": [
+                  "too_many",
+                  "too_large",
+                  "empty",
+                  "invalid"
+                ],
+                "type": "string"
+              }
+            },
+            "required": [
+              "title",
+              "reason"
+            ],
+            "type": "object"
+          },
+          "maxItems": 500,
+          "type": "array"
+        },
+        "skippedMore": {
+          "minimum": 0,
+          "type": "integer"
+        }
+      },
+      "required": [
+        "imported",
+        "duplicates",
+        "skipped",
+        "skippedMore"
+      ],
+      "type": "object"
+    },
+    "ThreadImportSource": {
+      "enum": [
+        "claude",
+        "chatgpt"
+      ],
+      "type": "string"
     },
     "ThreadKind": {
       "enum": [
@@ -49190,6 +49359,26 @@
       "required": [
         "threadId",
         "messageId"
+      ],
+      "type": "object"
+    },
+    "ThreadsImportParams": {
+      "properties": {
+        "format": {
+          "$ref": "#/$defs/ThreadImportFormat"
+        },
+        "content": {
+          "maxLength": 330000,
+          "minLength": 2,
+          "type": "string"
+        },
+        "dryRun": {
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "format",
+        "content"
       ],
       "type": "object"
     },
