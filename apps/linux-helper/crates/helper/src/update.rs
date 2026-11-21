@@ -1171,13 +1171,13 @@ mod tests {
         let (other, other_rk) = key(2);
         let bytes = manifest_json("1.2.0", BASE, b"tar");
         let good = sign(&sk, &rk, &bytes);
-        assert!(verify_manifest(&bytes, Some(&good), &[rk.clone()], "x64").is_ok());
+        assert!(verify_manifest(&bytes, Some(&good), std::slice::from_ref(&rk), "x64").is_ok());
         assert!(matches!(
-            verify_manifest(&bytes, None, &[rk.clone()], "x64"),
+            verify_manifest(&bytes, None, std::slice::from_ref(&rk), "x64"),
             Err(UpdateError::Unsigned(_))
         ));
         assert!(matches!(
-            verify_manifest(&bytes, Some("nope"), &[rk.clone()], "x64"),
+            verify_manifest(&bytes, Some("nope"), std::slice::from_ref(&rk), "x64"),
             Err(UpdateError::Unsigned(_))
         ));
         // Signed by a key we do not trust.
@@ -1185,7 +1185,7 @@ mod tests {
             verify_manifest(
                 &bytes,
                 Some(&sign(&other, &other_rk, &bytes)),
-                &[rk.clone()],
+                std::slice::from_ref(&rk),
                 "x64"
             ),
             Err(UpdateError::UnknownKey(_))
@@ -1193,7 +1193,7 @@ mod tests {
         // Right key id, wrong signature (a different key's signature under our id).
         let forged = sign(&other, &rk, &bytes);
         assert_eq!(
-            verify_manifest(&bytes, Some(&forged), &[rk.clone()], "x64"),
+            verify_manifest(&bytes, Some(&forged), std::slice::from_ref(&rk), "x64"),
             Err(UpdateError::BadSignature)
         );
         // A byte changed after signing.
