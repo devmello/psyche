@@ -14,6 +14,7 @@ import { homeA } from "./home-a/pt.ts";
 import { keepAwake } from "./keep-awake/pt.ts";
 import { links } from "./links/pt.ts";
 import { linuxAccess } from "./linux-access/pt.ts";
+import { machines } from "./machines/pt.ts";
 import { mailFollowups } from "./mail-followups/pt.ts";
 import { mailMeetings } from "./mail-meetings/pt.ts";
 import { memoryA } from "./memory-a/pt.ts";
@@ -792,6 +793,8 @@ export const pt: Partial<Catalogue> = {
     "Parou antes de terminar: {reason}. {done} de {total} lotes foram importados. Importe de novo para continuar; as conversas já importadas são ignoradas.",
   "agent.memory.importConv.retry": "Importar de novo",
   "agent.memory.exported": "{file} exportado.",
+  "agent.memory.importConv.memoriesFailed":
+    "Não foi possível importar as memórias: {reason}. Importe de novo para tentar outra vez.",
   "agent.memory.export": "Exportar tudo",
   "agent.memory.resetDone":
     "Redefinição concluída: {files, plural, one {# arquivo} other {# arquivos}}, {claims, plural, one {# afirmação} other {# afirmações}}.",
@@ -3782,4 +3785,5 @@ export const pt: Partial<Catalogue> = {
   ...mailFollowups,
   ...keepAwake,
   ...spaces,
+  ...machines,
 };

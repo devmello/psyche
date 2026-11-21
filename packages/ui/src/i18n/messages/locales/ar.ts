@@ -23,6 +23,7 @@ import { home } from "./home/ar.ts";
 import { keepAwake } from "./keep-awake/ar.ts";
 import { links } from "./links/ar.ts";
 import { linuxAccess } from "./linux-access/ar.ts";
+import { machines } from "./machines/ar.ts";
 import { mailFollowups } from "./mail-followups/ar.ts";
 import { mailMeetings } from "./mail-meetings/ar.ts";
 import { meetingRecord } from "./meeting-record/ar.ts";
@@ -889,6 +890,8 @@ export const ar: Partial<Catalogue> = {
     "توقف قبل الاكتمال: {reason}. تم استيراد {done} من {total} دفعات. أعد الاستيراد للمتابعة؛ تُتخطى المحادثات المستوردة سابقًا.",
   "agent.memory.importConv.retry": "إعادة الاستيراد",
   "agent.memory.exported": "تم تصدير {file}.",
+  "agent.memory.importConv.memoriesFailed":
+    "تعذّر استيراد الذكريات: {reason}. أعد الاستيراد للمحاولة مرة أخرى.",
   "agent.memory.export": "تصدير كل شيء",
   "agent.memory.resetDone":
     "تمت إعادة تعيين {files, plural, one {ملف واحد} two {ملفين} few {# ملفات} many {# ملفًا} other {# ملف} zero {# ملف}} و{claims, plural, one {ادعاء واحد} two {ادعاءين} few {# ادعاءات} many {# ادعاءً} other {# ادعاء} zero {# ادعاء}}.",
@@ -3835,4 +3838,5 @@ export const ar: Partial<Catalogue> = {
   ...mailFollowups,
   ...keepAwake,
   ...spaces,
+  ...machines,
 };

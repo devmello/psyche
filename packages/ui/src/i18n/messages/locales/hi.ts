@@ -23,6 +23,7 @@ import { homeRest } from "./home-rest/hi.ts";
 import { keepAwake } from "./keep-awake/hi.ts";
 import { links } from "./links/hi.ts";
 import { linuxAccess } from "./linux-access/hi.ts";
+import { machines } from "./machines/hi.ts";
 import { mailFollowups } from "./mail-followups/hi.ts";
 import { mailMeetings } from "./mail-meetings/hi.ts";
 import { meetingRecordRest } from "./meeting-record-rest/hi.ts";
@@ -848,6 +849,8 @@ export const hi: Partial<Catalogue> = {
     "पूरा होने से पहले रुक गया: {reason}। {total} में से {done} बैच इंपोर्ट हुए। जारी रखने के लिए फिर से इंपोर्ट करें; पहले से इंपोर्ट की गई बातचीत छोड़ दी जाती है।",
   "agent.memory.importConv.retry": "फिर से इंपोर्ट करें",
   "agent.memory.exported": "{file} एक्सपोर्ट की गई।",
+  "agent.memory.importConv.memoriesFailed":
+    "मेमोरी इंपोर्ट नहीं हो सकी: {reason}। दोबारा कोशिश करने के लिए फिर से इंपोर्ट करें।",
   "agent.memory.export": "सब कुछ एक्सपोर्ट करें",
   "agent.memory.resetDone":
     "{files, plural, one {# फ़ाइल} other {# फ़ाइलें}}, {claims, plural, one {# दावा} other {# दावे}} रीसेट किए गए।",
@@ -3783,4 +3786,5 @@ export const hi: Partial<Catalogue> = {
   ...mailFollowups,
   ...keepAwake,
   ...spaces,
+  ...machines,
 };

@@ -23,6 +23,7 @@ import { home } from "./home/zh.ts";
 import { keepAwake } from "./keep-awake/zh.ts";
 import { links } from "./links/zh.ts";
 import { linuxAccess } from "./linux-access/zh.ts";
+import { machines } from "./machines/zh.ts";
 import { mailFollowups } from "./mail-followups/zh.ts";
 import { mailMeetings } from "./mail-meetings/zh.ts";
 import { meetingRecord } from "./meeting-record/zh.ts";
@@ -874,6 +875,7 @@ export const zh: Partial<Catalogue> = {
     "在完成前停止：{reason}。已导入 {total} 批中的 {done} 批。再次导入即可继续；已导入的对话会被跳过。",
   "agent.memory.importConv.retry": "再次导入",
   "agent.memory.export": "导出全部",
+  "agent.memory.importConv.memoriesFailed": "无法导入记忆：{reason}。再次导入即可重试。",
   "agent.memory.resetDone":
     "已重置 {files, plural, other {# 个文件}}、{claims, plural, other {# 条断言}}。",
   "agent.creature.axolotl.name": "美西螈",
@@ -3723,4 +3725,5 @@ export const zh: Partial<Catalogue> = {
   ...mailFollowups,
   ...keepAwake,
   ...spaces,
+  ...machines,
 };

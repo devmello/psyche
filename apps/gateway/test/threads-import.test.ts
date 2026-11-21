@@ -321,6 +321,23 @@ describe("imported thread: further gaps", () => {
     ).rejects.toThrow(/read-only/);
   });
 
+  it("refuses compact, context limits and removing a summary pin", async () => {
+    const { owner, id } = await importOne();
+    await expect(owner.call("threads.compact", { threadId: id }, ik())).rejects.toThrow(
+      /read-only/,
+    );
+    await expect(
+      owner.call(
+        "threads.setContextLimits",
+        { threadId: id, limits: { keepRecentTurns: 1 } },
+        ik(),
+      ),
+    ).rejects.toThrow(/read-only/);
+    await expect(
+      owner.call("threads.summary.pins.remove", { threadId: id, pinId: "0123456789abcdef" }, ik()),
+    ).rejects.toThrow(/read-only/);
+  });
+
   it("keeps the taint through a real turn on a rebuilt thread", async () => {
     const { composed: c, owner } = await start();
     const id = c.db.newId();
