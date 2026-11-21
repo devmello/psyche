@@ -1,4 +1,5 @@
-import { mkdtempSync, rmSync } from "node:fs";
+import { existsSync, mkdtempSync, rmSync, symlinkSync, writeFileSync } from "node:fs";
+import { createServer } from "node:net";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import type { CallContext } from "@psyche/browser";
@@ -28,12 +29,18 @@ import {
   surfaceNodesOnOffline,
 } from "../src/compose/computer.ts";
 import {
+  A11Y_RESTORE_ARGS,
   COMPUTER_USE_LINUX,
   COMPUTER_USE_LINUX_REVOKE,
+  COMPUTER_USE_LINUX_REVOKE_APPLIED,
   cachedGraphicalSession,
   createLinuxComputerState,
   hasGraphicalSession,
+  helperStateDir,
   helperUnitFor,
+  liveDisplayIn,
+  lstatPath,
+  restoreA11yFlag,
   startHelperWithSystemd,
   systemBin,
 } from "../src/compose/computer-linux.ts";
@@ -562,22 +569,27 @@ describe("computerUse.linux and the account state", () => {
   let home = "";
   let db: PsycheDb;
   const published: unknown[] = [];
+  let restores = 0;
 
-  function state(extra: { online?: boolean } = {}) {
+  function state(extra: { online?: boolean; client?: NodeClient } = {}) {
     return createLinuxComputerState({
       db,
       publishEntry: (e) => published.push(e),
       helper: () =>
         extra.online === false || !connected
           ? undefined
-          : { nodeId: helper.nodeId, client: helper, kind: "host-helper" },
+          : { nodeId: helper.nodeId, client: extra.client ?? helper, kind: "host-helper" },
       now: () => new Date("2026-11-05T12:00:00.000Z"),
+      restoreA11y: async () => {
+        restores++;
+      },
     });
   }
   const stored = () => getSetting(db, COMPUTER_USE_LINUX)?.value;
 
   beforeEach(() => {
     published.length = 0;
+    restores = 0;
     home = mkdtempSync(join(tmpdir(), "psyche-cu-linux-"));
     db = openDb(join(home, "psyche.db"));
   });
@@ -700,10 +712,30 @@ describe("computerUse.linux and the account state", () => {
     expect(helper.calls[0]).toEqual({ capability: "a11y.enable", params: { enabled: false } });
   });
 
+  // PR #1498 r3, finding 2 (owner decision): with no helper running, psyched puts the
+  // accessibility flag back itself; a running helper is told instead.
+  it("turning it off with no helper running restores the accessibility flag from psyched", async () => {
+    connected = false;
+    setSetting(db, COMPUTER_USE_ENABLED, true);
+    const s = state();
+    s.onChanged([{ key: COMPUTER_USE_ENABLED, value: false }]);
+    await s.settled();
+    expect(restores).toBe(1);
+    // Turning it on never restores; off with a helper running goes to the helper.
+    s.onChanged([{ key: COMPUTER_USE_ENABLED, value: true }]);
+    await s.settled();
+    connected = true;
+    s.onChanged([{ key: COMPUTER_USE_ENABLED, value: false }]);
+    await s.settled();
+    expect(restores).toBe(1);
+    expect(helper.calls[0]).toEqual({ capability: "a11y.enable", params: { enabled: false } });
+  });
+
   it("revokes when the UI sets a new computerUse.linuxRevoke, then refreshes", async () => {
     setSetting(db, COMPUTER_USE_LINUX_REVOKE, "2026-11-05T10:00:00.000Z");
+    setSetting(db, COMPUTER_USE_LINUX_REVOKE_APPLIED, "2026-11-05T10:00:00.000Z");
     const s = state();
-    // The value that was already stored at boot is not a request.
+    // The value that was already stored, and applied, at boot is not a request.
     s.onChanged([{ key: COMPUTER_USE_LINUX_REVOKE, value: "2026-11-05T10:00:00.000Z" }]);
     await s.settled();
     expect(helper.calls).toHaveLength(0);
@@ -748,6 +780,130 @@ describe("computerUse.linux and the account state", () => {
     expect(stored()).toMatchObject({ session: "wayland" });
   });
 
+  // PR #1498 r3, finding 1, way A (probe R2): a Revoke pending across a psyched restart.
+  it("keeps a pending Revoke across a restart (two states on one DB)", async () => {
+    connected = false;
+    const s1 = state();
+    // The UI writes the setting through the Gateway; settings.changed tells the state.
+    setSetting(db, COMPUTER_USE_LINUX_REVOKE, "2026-11-20T00:00:00Z");
+    s1.onChanged([{ key: COMPUTER_USE_LINUX_REVOKE, value: "2026-11-20T00:00:00Z" }]);
+    await s1.settled();
+    expect(helper.calls).toHaveLength(0);
+    // psyched restarts; the graphical helper connects to the new one.
+    connected = true;
+    const s2 = state();
+    await s2.helperOnline();
+    expect(helper.calls[0]?.capability).toBe("portal.revoke");
+    expect(getSetting(db, COMPUTER_USE_LINUX_REVOKE_APPLIED)?.value).toBe("2026-11-20T00:00:00Z");
+    // Confirmed: a third start does not revoke again.
+    helper.calls.length = 0;
+    await state().helperOnline();
+    expect(helper.calls.map((c) => c.capability)).not.toContain("portal.revoke");
+  });
+
+  // PR #1498 r3, finding 1, way B (probe R1): an older headless helper that refuses the revoke.
+  it("keeps a pending Revoke when the headless helper refuses it, for the graphical one", async () => {
+    connected = false;
+    const headless = new FakeLinuxHelper();
+    for (const cap of ["portal.revoke", "portal.status", "a11y.status", "a11y.enable"]) {
+      headless.fail.add(cap);
+    }
+    let client: NodeClient = headless;
+    const s = createLinuxComputerState({
+      db,
+      publishEntry: (e) => published.push(e),
+      helper: () => (connected ? { nodeId: "node-linux", client, kind: "host-helper" } : undefined),
+      restoreA11y: async () => undefined,
+    });
+    s.onChanged([{ key: COMPUTER_USE_LINUX_REVOKE, value: "2026-11-20T00:00:00Z" }]);
+    await s.settled();
+    connected = true;
+    await s.helperOnline();
+    expect(headless.calls.map((c) => c.capability)).toContain("portal.revoke");
+    expect(getSetting(db, COMPUTER_USE_LINUX_REVOKE_APPLIED)).toBeUndefined();
+    // The owner logs in: the graphical helper connects and gets the revoke.
+    client = helper;
+    await s.helperOnline();
+    expect(helper.calls[0]?.capability).toBe("portal.revoke");
+    expect(getSetting(db, COMPUTER_USE_LINUX_REVOKE_APPLIED)?.value).toBe("2026-11-20T00:00:00Z");
+  });
+
+  it("clears a pending Revoke only on ok with a boolean revoked", async () => {
+    connected = false;
+    let answer: NodeInvokeResult = { ok: false, error: { code: "internal", message: "d-bus" } };
+    const flaky: NodeClient = {
+      info: () => helper.info(),
+      capabilities: () => helper.capabilities(),
+      invoke: async (capability, params) => {
+        if (capability !== "portal.revoke") return helper.invoke(capability, params);
+        helper.calls.push({ capability, params: {} });
+        return answer;
+      },
+    };
+    const s = state({ client: flaky });
+    s.onChanged([{ key: COMPUTER_USE_LINUX_REVOKE, value: "2026-11-20T00:00:00Z" }]);
+    await s.settled();
+    connected = true;
+    const revokes = () => helper.calls.filter((c) => c.capability === "portal.revoke").length;
+    // ok: false (a portal D-Bus error) keeps it pending.
+    await s.helperOnline();
+    expect(revokes()).toBe(1);
+    expect(await s.revokeSettled()).toBe(false);
+    expect(revokes()).toBe(2);
+    // ok with no `revoked` (not a confirmation) keeps it pending too.
+    answer = { ok: true, result: {} };
+    expect(await s.revokeSettled()).toBe(false);
+    expect(getSetting(db, COMPUTER_USE_LINUX_REVOKE_APPLIED)).toBeUndefined();
+    // A confirmed answer clears it, once.
+    answer = { ok: true, result: { revoked: false } };
+    expect(await s.revokeSettled()).toBe(true);
+    expect(getSetting(db, COMPUTER_USE_LINUX_REVOKE_APPLIED)?.value).toBe("2026-11-20T00:00:00Z");
+    const before = revokes();
+    expect(await s.revokeSettled()).toBe(true);
+    await s.helperOnline();
+    expect(revokes()).toBe(before);
+  });
+
+  it("a helper that throws on revoke keeps it pending", async () => {
+    connected = false;
+    const throwing: NodeClient = {
+      info: () => helper.info(),
+      capabilities: () => helper.capabilities(),
+      invoke: async (capability, params) => {
+        if (capability === "portal.revoke") throw new Error("socket closed");
+        return helper.invoke(capability, params);
+      },
+    };
+    const s = state({ client: throwing });
+    s.onChanged([{ key: COMPUTER_USE_LINUX_REVOKE, value: "2026-11-20T00:00:00Z" }]);
+    connected = true;
+    expect(await s.revokeSettled()).toBe(false);
+    expect(getSetting(db, COMPUTER_USE_LINUX_REVOKE_APPLIED)).toBeUndefined();
+  });
+
+  it("a Revoke tapped while one is being applied stays pending until it is confirmed", async () => {
+    let release: () => void = () => undefined;
+    const slow: NodeClient = {
+      info: () => helper.info(),
+      capabilities: () => helper.capabilities(),
+      invoke: async (capability, params) => {
+        if (capability === "portal.revoke") await new Promise<void>((r) => (release = r));
+        return helper.invoke(capability, params);
+      },
+    };
+    const s = state({ client: slow });
+    s.onChanged([{ key: COMPUTER_USE_LINUX_REVOKE, value: "2026-11-20T00:00:00Z" }]);
+    await new Promise((r) => setTimeout(r, 5));
+    s.onChanged([{ key: COMPUTER_USE_LINUX_REVOKE, value: "2026-11-20T00:05:00Z" }]);
+    release();
+    await new Promise((r) => setTimeout(r, 5));
+    expect(getSetting(db, COMPUTER_USE_LINUX_REVOKE_APPLIED)?.value).toBe("2026-11-20T00:00:00Z");
+    release();
+    await s.settled();
+    expect(getSetting(db, COMPUTER_USE_LINUX_REVOKE_APPLIED)?.value).toBe("2026-11-20T00:05:00Z");
+    expect(await s.revokeSettled()).toBe(true);
+  });
+
   it("refreshes after a direct computer-use session ends", async () => {
     let ended = 0;
     make({ sessionEnded: () => ended++ });
@@ -755,6 +911,84 @@ describe("computerUse.linux and the account state", () => {
     expect(ended).toBe(0);
     await cu.runEnded("run_1");
     expect(ended).toBe(1);
+  });
+});
+
+// PR #1498 r3, finding 2 (owner decision): psyched puts the accessibility flag back itself.
+describe("restoreA11yFlag", () => {
+  let dir = "";
+  beforeEach(() => {
+    dir = mkdtempSync(join(tmpdir(), "psyche-a11y-"));
+  });
+  afterEach(() => rmSync(dir, { recursive: true, force: true }));
+  const spawns = () => {
+    const calls: string[][] = [];
+    const run = async (file: string, args: string[]) => {
+      calls.push([file, ...args]);
+      return "";
+    };
+    return { calls, run };
+  };
+  const file = () => join(dir, "a11y.json");
+
+  it("turns IsEnabled off with an absolute busctl when Psyche turned it on", async () => {
+    writeFileSync(file(), JSON.stringify({ enabledByPsyche: true }));
+    const { calls, run } = spawns();
+    expect(await restoreA11yFlag({ run, stateDir: dir, screenReader: () => false })).toBe(true);
+    expect(calls).toEqual([[systemBin("busctl"), ...A11Y_RESTORE_ARGS]]);
+    expect(calls[0]?.[0]).toMatch(/^\/(usr\/)?bin\/busctl$/);
+    expect(A11Y_RESTORE_ARGS).toEqual([
+      "--user",
+      "set-property",
+      "org.a11y.Bus",
+      "/org/a11y/bus",
+      "org.a11y.Status",
+      "IsEnabled",
+      "b",
+      "false",
+    ]);
+    // Done: the flag is no longer Psyche's, so a later one the owner sets is left alone.
+    expect(existsSync(file())).toBe(false);
+  });
+
+  it.each<[string, string | undefined]>([
+    ["no a11y.json", undefined],
+    ["the flag was already on (the owner's or a screen reader's)", '{"enabledByPsyche":false}'],
+    ["a garbled file", "{nope"],
+    ["a JSON null", "null"],
+  ])("leaves the flag alone with %s", async (_name, body) => {
+    if (body !== undefined) writeFileSync(file(), body);
+    const { calls, run } = spawns();
+    expect(await restoreA11yFlag({ run, stateDir: dir, screenReader: () => false })).toBe(false);
+    expect(calls).toEqual([]);
+  });
+
+  it("leaves it on for a running screen reader and forgets it was Psyche's", async () => {
+    writeFileSync(file(), JSON.stringify({ enabledByPsyche: true }));
+    const { calls, run } = spawns();
+    await restoreA11yFlag({ run, stateDir: dir, screenReader: () => true });
+    expect(calls).toEqual([]);
+    expect(existsSync(file())).toBe(false);
+  });
+
+  it("a failed busctl keeps the file, so the next helper still restores it", async () => {
+    writeFileSync(file(), JSON.stringify({ enabledByPsyche: true }));
+    const run = async () => {
+      throw new Error("Failed to connect to bus");
+    };
+    await expect(
+      restoreA11yFlag({ run, stateDir: dir, screenReader: () => false }),
+    ).rejects.toThrow();
+    expect(existsSync(file())).toBe(true);
+  });
+
+  it("finds the state dir as the helper does", () => {
+    expect(helperStateDir({ PSYCHE_HELPER_STATE: "/s" }, "/home/u")).toBe("/s");
+    expect(helperStateDir({ XDG_STATE_HOME: "/x" }, "/home/u")).toBe("/x/psyche-helper");
+    expect(helperStateDir({ XDG_STATE_HOME: "rel" }, "/home/u")).toBe(
+      "/home/u/.local/state/psyche-helper",
+    );
+    expect(helperStateDir({}, "/home/u")).toBe("/home/u/.local/state/psyche-helper");
   });
 });
 
@@ -810,8 +1044,12 @@ describe("the headless Host helper (B0)", () => {
   }
 
   /** Sockets that exist on the fake box: X display :0 and wayland-1 in the runtime dir. */
-  const SOCKETS = new Set(["/tmp/.X11-unix/X0", "/run/user/1000/wayland-1", "/xdg/wayland-2"]);
-  const sockets = (p: string) => SOCKETS.has(p);
+  const SOCKETS = new Set([
+    "/tmp/.X11-unix/X0",
+    "/run/user/1000/wayland-1",
+    "/run/user/1000/sub/wayland-2",
+  ]);
+  const sockets = (p: string) => (SOCKETS.has(p) ? { socket: true, uid: 1000 } : undefined);
 
   /** logind and the user manager as a table: sessions of uid 1000, plus the user environment. */
   const logind = (sessions: FakeSession[], env = "PATH=/usr/bin\n") => {
@@ -923,7 +1161,7 @@ describe("the headless Host helper (B0)", () => {
     [
       "WAYLAND_DISPLAY in XDG_RUNTIME_DIR",
       [{ id: "1", type: "tty" }],
-      "XDG_RUNTIME_DIR=/xdg\nWAYLAND_DISPLAY=wayland-2\n",
+      "XDG_RUNTIME_DIR=/run/user/1000/sub/\nWAYLAND_DISPLAY=wayland-2\n",
       true,
     ],
     [
@@ -946,6 +1184,116 @@ describe("the headless Host helper (B0)", () => {
   ])("hasGraphicalSession: %s", async (_name, sessions, env, want) => {
     const { run } = logind(sessions, env);
     expect(await hasGraphicalSession(run, 1000, undefined, sockets)).toBe(want);
+  });
+
+  // PR #1498 r3, finding 3 (probe R3): only a socket of this user (or root) in its own runtime
+  // dir names a live display.
+  describe("liveDisplayIn", () => {
+    type Kind = "socket" | "file" | "dir";
+    const box = (paths: Record<string, [Kind, number]>) => (p: string) => {
+      const hit = paths[p];
+      return hit === undefined ? undefined : { socket: hit[0] === "socket", uid: hit[1] };
+    };
+    it.each<[string, string, Record<string, [Kind, number]>, boolean]>([
+      ["an X socket of this user", "DISPLAY=:0", { "/tmp/.X11-unix/X0": ["socket", 1000] }, true],
+      ["an X socket of root (Xorg)", "DISPLAY=:0", { "/tmp/.X11-unix/X0": ["socket", 0] }, true],
+      [
+        "an X socket another user planted in /tmp/.X11-unix",
+        "DISPLAY=:3",
+        { "/tmp/.X11-unix/X3": ["socket", 1001] },
+        false,
+      ],
+      ["a regular file named X0", "DISPLAY=:0", { "/tmp/.X11-unix/X0": ["file", 1000] }, false],
+      ["a directory named X0", "DISPLAY=:0", { "/tmp/.X11-unix/X0": ["dir", 1000] }, false],
+      [
+        "a wayland socket of this user",
+        "WAYLAND_DISPLAY=wayland-0",
+        { "/run/user/1000/wayland-0": ["socket", 1000] },
+        true,
+      ],
+      [
+        "a wayland socket owned by another uid",
+        "WAYLAND_DISPLAY=wayland-0",
+        { "/run/user/1000/wayland-0": ["socket", 1001] },
+        false,
+      ],
+      [
+        "an absolute WAYLAND_DISPLAY in the runtime dir",
+        "WAYLAND_DISPLAY=/run/user/1000/wayland-0",
+        { "/run/user/1000/wayland-0": ["socket", 1000] },
+        true,
+      ],
+      [
+        "WAYLAND_DISPLAY=/etc/passwd",
+        "WAYLAND_DISPLAY=/etc/passwd",
+        { "/etc/passwd": ["file", 0] },
+        false,
+      ],
+      [
+        "an absolute socket outside the runtime dir",
+        "WAYLAND_DISPLAY=/tmp/w/wayland-0",
+        { "/tmp/w/wayland-0": ["socket", 1000] },
+        false,
+      ],
+      [
+        "another user's runtime dir",
+        "WAYLAND_DISPLAY=/run/user/1001/wayland-0",
+        { "/run/user/1001/wayland-0": ["socket", 0] },
+        false,
+      ],
+      [
+        "an XDG_RUNTIME_DIR outside /run/user/<uid>",
+        "WAYLAND_DISPLAY=wayland-0\nXDG_RUNTIME_DIR=/tmp/evil",
+        { "/tmp/evil/wayland-0": ["socket", 1000] },
+        false,
+      ],
+      [
+        "WAYLAND_DISPLAY=. (the runtime dir itself)",
+        "WAYLAND_DISPLAY=.\nXDG_RUNTIME_DIR=/run/user/1000",
+        { "/run/user/1000/.": ["dir", 1000], "/run/user/1000": ["dir", 1000] },
+        false,
+      ],
+      [
+        "a WAYLAND_DISPLAY that is a regular file in the runtime dir",
+        "WAYLAND_DISPLAY=wayland-0",
+        { "/run/user/1000/wayland-0": ["file", 1000] },
+        false,
+      ],
+      [
+        "a WAYLAND_DISPLAY that is a directory in the runtime dir",
+        "WAYLAND_DISPLAY=wayland-0",
+        { "/run/user/1000/wayland-0": ["dir", 1000] },
+        false,
+      ],
+      [
+        "a WAYLAND_DISPLAY that climbs back into the runtime dir",
+        "WAYLAND_DISPLAY=/run/user/1000/x/../wayland-0",
+        { "/run/user/1000/x/../wayland-0": ["socket", 1000] },
+        false,
+      ],
+    ])("%s", (_name, env, paths, want) => {
+      expect(liveDisplayIn(env, 1000, box(paths))).toBe(want);
+    });
+
+    it("the default stat is lstat: a file, a directory and a symlink to a socket are not sockets", async () => {
+      const dir = mkdtempSync(join(tmpdir(), "psyche-live-display-"));
+      const sock = join(dir, "s");
+      const server = createServer();
+      try {
+        writeFileSync(join(dir, "file"), "");
+        await new Promise<void>((res) => server.listen(sock, res));
+        symlinkSync(sock, join(dir, "link"));
+        const uid = process.getuid?.() ?? 0;
+        expect(lstatPath(join(dir, "file"))).toEqual({ socket: false, uid });
+        expect(lstatPath(dir)).toEqual({ socket: false, uid });
+        expect(lstatPath(sock)).toEqual({ socket: true, uid });
+        expect(lstatPath(join(dir, "link"))?.socket).toBe(false);
+        expect(lstatPath(join(dir, "missing"))).toBeUndefined();
+      } finally {
+        await new Promise((res) => server.close(res));
+        rmSync(dir, { recursive: true, force: true });
+      }
+    });
   });
 
   it("hasGraphicalSession asks logind with fixed arguments, not for Display=", async () => {

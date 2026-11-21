@@ -191,8 +191,9 @@ ${env === "" ? "" : `${env}\n`}Restart=no
  * `graphical-session.target` (which never starts there). `--display headless` makes the helper's
  * own virtual screen its only screen; the helper exits when idle. `NoNewPrivileges` is inherited
  * by the apps and commands it forks itself (not by the user manager, until bwrap containment).
- * `MemoryHigh` and `TasksMax` sit on the service itself, never in `psyche-vscreen.slice`, whose
- * caps the helper sets for its apps. It pairs as the Host helper like the graphical one: same socket,
+ * `MemoryHigh` and `TasksMax` sit on the service and cover the helper itself, never
+ * `psyche-vscreen.slice`: Xvfb, the private bus and the apps run in scopes there, under the caps
+ * the helper sets for that slice. It pairs as the Host helper like the graphical one: same socket,
  * same handshake secret, same peer check.
  */
 export function renderHeadlessHelperUnit(input: HelperUnitInput): string {
@@ -212,9 +213,10 @@ ${env === "" ? "" : `${env}\n`}Restart=no
 # No app or command the helper forks directly can gain privileges (no sudo, pkexec or setuid).
 # This does not hold against the user manager (systemd-run --user) until bwrap containment lands.
 NoNewPrivileges=yes
-# The helper and its Xvfb get their own ceiling next to psyched (design section 3.3), on this
-# service and not in the private screen's app slice: the helper sets that slice's caps for its
-# apps, and a runaway app there must not stop the helper from forking the Stop that ends it.
+# The helper itself gets its own ceiling next to psyched (design section 3.3), on this service and
+# not in the private screen's slice. Xvfb, the private bus and the apps run in scopes in that
+# slice, under the caps the helper sets there, so they never count here; a runaway app in the
+# slice must not stop the helper from forking the Stop that ends it.
 MemoryHigh=1G
 TasksMax=512
 `;

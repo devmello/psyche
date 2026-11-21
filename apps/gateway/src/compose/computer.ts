@@ -666,6 +666,11 @@ export interface ComputerDeps {
    * helper's private screen. Asked once per call, in `resolveTarget`.
    */
   graphicalSession?(signal?: AbortSignal): Promise<boolean>;
+  /**
+   * Linux: settles a Revoke the owner made while no helper ran (`LinuxComputerState`) before a
+   * direct call uses the helper, so the stored portal grant is gone first. False: still pending.
+   */
+  revokeSettled?(): Promise<boolean>;
   /** How long to wait for the started helper to connect (default 5 s, polling every 100 ms). */
   helperWait?: { timeoutMs: number; pollMs: number };
   /** A direct computer-use session ended (run or Task end, Esc): Linux refreshes its state. */
@@ -1180,6 +1185,15 @@ export function createComputerUse(deps: ComputerDeps): ComputerUse {
         signal,
         deps.graphicalSession === undefined ? undefined : true,
       );
+      // A pending Revoke reaches the helper before any computer.* call does (PR #1498 r3).
+      if (deps.revokeSettled !== undefined && !(await deps.revokeSettled())) {
+        throw new PsycheError(
+          "unavailable",
+          "Psyche is still revoking screen and input access. Try again in a moment.",
+          { details: { reason: "revoke_pending" }, retryable: true },
+        );
+      }
+      if (signal.aborted) throw new PsycheError("cancelled", "The call was cancelled");
       return {
         nodeId: node.nodeId,
         ...(node.kind === undefined ? {} : { kind: node.kind }),
@@ -3155,7 +3169,9 @@ export function composeComputer(services: ComposeServices): ComposedPart {
             ),
           graphicalSession: (signal?: AbortSignal) => graphical(signal),
         }),
-    ...(linux === undefined ? {} : { sessionEnded: () => void linux.refresh() }),
+    ...(linux === undefined
+      ? {}
+      : { sessionEnded: () => void linux.refresh(), revokeSettled: () => linux.revokeSettled() }),
   });
 
   /** The Host helper as far as we know it: connected now, else the last one that paired. */
