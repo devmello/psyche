@@ -56,9 +56,13 @@ impl Capability for Gated {
 
     fn invoke(&self, ctx: &InvocationContext) -> Result<Value, CapabilityError> {
         let loaded = self.source.load();
-        loaded
-            .policy
-            .check(&ctx.capability, &ctx.params, &self.source.home)?;
+        loaded.policy.check_with(
+            &ctx.capability,
+            &ctx.params,
+            &self.source.home,
+            // The running apps' other ids, from the virtual screen (never started for this).
+            &crate::headless::other_ids,
+        )?;
         self.inner.invoke(ctx)
     }
 }

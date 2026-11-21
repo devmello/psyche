@@ -232,7 +232,7 @@ mod linux {
             match self.op {
                 AppsOp::List => CapabilitySpec {
                     name: "apps.list",
-                    description: "Running apps: bundleId (the desktop file id, the id computer.* uses), name, pid, frontmost, window count and the computer-use tier in effect.",
+                    description: "Running apps: bundleId (the desktop file id, the id computer.* uses), alsoIds (other ids the same program answers to, such as a system Flatpak's own id), name, pid, frontmost, window count and the computer-use tier in effect.",
                     side_effect: SideEffect::Read,
                     target_kind: None,
                     streaming: false,
@@ -345,8 +345,8 @@ mod linux {
                         .into_iter()
                         .map(|a| {
                             json!({
-                                "bundleId": a.id, "name": a.name, "pid": a.pid, "frontmost": a.frontmost,
-                                "windows": a.windows, "tier": engine.policy.effective_tier(Some(&a.id)).as_str(),
+                                "bundleId": a.id, "alsoIds": a.also_ids, "name": a.name, "pid": a.pid, "frontmost": a.frontmost,
+                                "windows": a.windows, "tier": engine.policy.effective_tier_app(&a).as_str(),
                             })
                         })
                         .collect();
@@ -366,7 +366,7 @@ mod linux {
                         .map_err(|e| cap_error(&e))?;
                     engine
                         .policy
-                        .authorize(Intent::Click, Some(&app.id), &app.name, binding.as_ref())
+                        .authorize_app(Intent::Click, &app, binding.as_ref())
                         .map_err(|e| cap_error(&e))?;
                     let window = ctx
                         .params
@@ -378,7 +378,7 @@ mod linux {
                         .activate(&app, window, &engine.stop)
                         .map_err(|e| cap_error(&e))?;
                     Ok(
-                        json!({"focused": moved, "focus": if moved { "moved" } else { "requested" }, "app": app.id}),
+                        json!({"focused": moved, "focus": if moved { "moved" } else { "requested" }, "app": app.id, "alsoIds": app.also_ids}),
                     )
                 }
             }
