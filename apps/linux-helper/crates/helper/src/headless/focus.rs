@@ -14,7 +14,7 @@
 use psyche_linux_computer::backend::AppInfo;
 use psyche_linux_computer::error::{code, CapError};
 
-use psyche_linux_computer::app_id::IdFacts;
+use psyche_linux_computer::app_id::{normalize, IdFacts};
 use psyche_linux_computer::tiers::fixed_caps;
 
 use crate::remote::policy::Policy;
@@ -27,7 +27,15 @@ pub trait Denies {
     fn allow_listed(&self, app_id: &str) -> bool;
     /// Out of reach for the app a call names: denied, or not allowed.
     fn is_denied(&self, app_id: &str) -> bool {
-        self.deny_listed(app_id) || !self.allow_listed(app_id)
+        !self.permits(app_id, &[])
+    }
+    /// **The** predicate every gate of the ceiling uses, for an app with its id and the other
+    /// ids it carries (a verified Flatpak's own id beside the stricter host id that caps it):
+    /// not denied under any of them, and allowed under at least one. They are one program, so
+    /// the owner may name either.
+    fn permits(&self, id: &str, also: &[String]) -> bool {
+        let ids = std::iter::once(id).chain(also.iter().map(String::as_str));
+        ids.clone().all(|i| !self.deny_listed(i)) && ids.clone().any(|i| self.allow_listed(i))
     }
 }
 
@@ -66,11 +74,13 @@ pub trait Scopes {
 ///   executable's own entries: an xterm in an allowed app's scope resolves to `debian-xterm`).
 ///   It also covers the strictest candidate when that has a stricter fixed cap than the scope's
 ///   app (a terminal or browser with no entry), and when there is no scope and nothing
-///   resolved. File-name candidates otherwise take no part: they would deny the apps the list
-///   names (`soffice.bin` for Writer, `gnome-text-edit` for the editor).
-/// - Gap, documented: a program an allowed app starts that has no desktop entry of its own, and
-///   no stricter cap, is not covered by the allow list. It is never driven (the engine's exact
-///   pid check), only shown.
+///   resolved. When nothing resolves the strictest candidate is judged too: **an id that names
+///   no installed app is not on a narrow list**. File-name candidates otherwise take no part:
+///   they would deny the apps the list names (`soffice.bin` for Writer, which resolves to
+///   `libreoffice-writer` through its launcher script).
+/// - A **verified Flatpak** is judged as the engine gate judges it ([`Denies::permits`] on its
+///   own id and the host id that caps it). The scope's app counts only when it is one of those
+///   ids; any other scope's app must be allowed as well, and never stands for the program.
 pub fn blocked_by(deny: &dyn Denies, scopes: &dyn Scopes, pid: u32) -> Option<(String, String)> {
     let id = scopes.identity(pid);
     let name = id
@@ -89,12 +99,51 @@ pub fn blocked_by(deny: &dyn Denies, scopes: &dyn Scopes, pid: u32) -> Option<(S
     {
         return Some((name, m.clone()));
     }
-    let mut judged: Vec<&String> = id.holder.iter().chain(id.facts.resolved.iter()).collect();
+    // A verified Flatpak is one program under two ids (its own, and the host id that caps it):
+    // the program is judged as the engine gate judges it, with `permits`. The scope's app is
+    // **not** the program unless it is one of those ids: a Flatpak that an allowed app started
+    // in its own scope (a link opened from the editor) stays out of reach unless the program is
+    // allowed too, and the scope's app must be allowed as on every other path.
+    if let Some(f) = id.facts.flatpak.as_deref().map(normalize) {
+        let own = id
+            .facts
+            .own
+            .as_deref()
+            .map(normalize)
+            .unwrap_or_else(|| f.clone());
+        // The same ids `A11y::apps` gives the app (`AppInfo::also_ids`).
+        let also = id.facts.also_ids(&own);
+        if !deny.permits(&own, &also) {
+            return Some((name, f));
+        }
+        let holder_out = id.holder.as_deref().is_some_and(|h| {
+            let h = normalize(h);
+            h != own && !also.contains(&h) && !deny.allow_listed(&h)
+        });
+        return holder_out.then(|| (name, id.holder.clone().unwrap_or_default()));
+    }
+    // A launcher shared by several entries (`libreoffice` starts Writer, Calc and the Start
+    // Center from one `soffice.bin`) resolves to all of them. When the scope's own app is one of
+    // them (and its desktop file is trusted: one in the account's own directories cannot make
+    // one app pass for another), the others are the same program and the scope's app is the
+    // answer.
+    let holder_resolved = id.holder.as_deref().is_some_and(|h| {
+        let h = normalize(h);
+        id.facts.trusted.iter().any(|r| normalize(r) == h)
+    });
+    let mut judged: Vec<&String> = if holder_resolved {
+        id.holder.iter().collect()
+    } else {
+        id.holder.iter().chain(id.facts.resolved.iter()).collect()
+    };
     if let Some(own) = &id.facts.own {
-        let judge_own = match &id.holder {
-            None => id.facts.resolved.is_empty(),
-            Some(h) => fixed_caps::cap(Some(own)) < fixed_caps::cap(Some(h)),
-        };
+        let judge_own = id.facts.flatpak.is_none()
+            && match &id.holder {
+                None => id.facts.resolved.is_empty(),
+                // Nothing resolved: an id that names no installed app is not on the list.
+                Some(_) if id.facts.resolved.is_empty() => true,
+                Some(h) => fixed_caps::cap(Some(own)) < fixed_caps::cap(Some(h)),
+            };
         if judge_own {
             judged.push(own);
         }
@@ -127,7 +176,18 @@ pub fn decide(
     scopes: &dyn Scopes,
     deny: &dyn Denies,
 ) -> Result<(), Refusal> {
-    if deny.is_denied(target) {
+    decide_app(target, &[], focus_pid, scopes, deny)
+}
+
+/// [`decide`] for a running app, with the other ids it carries.
+pub fn decide_app(
+    target: &str,
+    also: &[String],
+    focus_pid: Option<u32>,
+    scopes: &dyn Scopes,
+    deny: &dyn Denies,
+) -> Result<(), Refusal> {
+    if !deny.permits(target, also) {
         return Err(Refusal::Denied {
             app: target.to_string(),
             matched: target.to_string(),
@@ -222,7 +282,9 @@ mod tests {
                     facts: IdFacts {
                         own: Some(own.to_string()),
                         resolved: vec![own.to_string()],
+                        trusted: vec![own.to_string()],
                         candidates: vec![own.to_string()],
+                        ..Default::default()
                     },
                 },
                 None => Identity::default(),
@@ -250,6 +312,7 @@ mod tests {
             electron: false,
             frontmost: true,
             windows: 1,
+            also_ids: Vec::new(),
         }
     }
 
@@ -369,7 +432,9 @@ mod tests {
                     facts: IdFacts {
                         own: Some("org.gnome.texteditor".into()),
                         resolved: vec!["org.gnome.texteditor".into()],
+                        trusted: vec!["org.gnome.texteditor".into()],
                         candidates: vec!["org.gnome.texteditor".into(), "gnome-text-edit".into()],
+                        ..Default::default()
                     },
                 }
             }
@@ -409,7 +474,7 @@ mod tests {
             let (holder, ev) = &self.procs[&pid];
             Identity {
                 holder: holder.map(str::to_string),
-                facts: id_facts(ev, &self.index, None),
+                facts: id_facts(ev, &self.index, holder.as_deref(), None, false),
             }
         }
     }
@@ -418,9 +483,20 @@ mod tests {
         let dir = tempfile::tempdir().unwrap();
         let apps = dir.path().join("applications");
         std::fs::create_dir_all(&apps).unwrap();
+        // Writer's `Exec=` is a launcher script that runs `soffice.bin`, as on a real system.
+        let bin = dir.path().join("bin");
+        std::fs::create_dir_all(&bin).unwrap();
+        std::fs::write(
+            bin.join("libreoffice"),
+            "#!/bin/sh\nsd_prog=/usr/lib/libreoffice/program\nexec $CHECK \"$sd_prog/soffice.bin\" \"$@\"\n",
+        )
+        .unwrap();
+        let writer_exec = format!("{} --writer %U", bin.join("libreoffice").display());
         for (file, exec) in [
             ("org.gnome.TextEditor.desktop", "gnome-text-editor %U"),
-            ("libreoffice-writer.desktop", "libreoffice --writer %U"),
+            ("libreoffice-writer.desktop", writer_exec.as_str()),
+            ("libreoffice-startcenter.desktop", writer_exec.as_str()),
+            ("libreoffice-calc.desktop", writer_exec.as_str()),
             (
                 "firefox_firefox.desktop",
                 "env BAMF_DESKTOP_FILE_HINT=x /snap/bin/firefox %u",
@@ -433,7 +509,7 @@ mod tests {
             )
             .unwrap();
         }
-        let index = DesktopIndex::load(&[dir.path().to_path_buf()]);
+        let index = DesktopIndex::load_with(&[dir.path().to_path_buf()], &|_| true);
         let ev = |exe: &str, comm: &str| Evidence {
             exe: Some(exe.into()),
             comm: Some(comm.into()),
@@ -523,18 +599,35 @@ mod tests {
         assert!(blocked_by(&p, &real, 6).is_some());
         // ... and the same processes are fine when the list names them.
         assert_eq!(blocked_by(&policy(&["debian-xterm"], &[]), &real, 5), None);
-        assert_eq!(blocked_by(&policy(&["soffice.bin"], &[]), &real, 6), None);
+        // With no scope to say which LibreOffice app it is, the list must name them all.
+        assert!(blocked_by(&policy(&["libreoffice-writer"], &[]), &real, 6).is_some());
+        assert_eq!(blocked_by(&policy(&["libreoffice-*"], &[]), &real, 6), None);
     }
 
-    /// (c): no entry, no stricter cap, inside an allowed scope. Shown, never driven.
+    /// (c), closed: a program with no desktop entry inside an allowed app's scope is not on a
+    /// narrow list. Writer, whose executable only resolves through its launcher script, is.
     #[test]
-    fn an_unknown_program_in_an_allowed_scope_is_the_documented_gap() {
+    fn an_unknown_program_in_an_allowed_scope_is_out_of_reach_and_writer_through_its_wrapper_is_not(
+    ) {
         let (_keep, real) = real();
         let p = policy(&["org.gnome.TextEditor"], &[]);
-        assert_eq!(blocked_by(&p, &real, 7), None);
-        // It is never driven: the deny list catches it by name, and the engine's exact pid
-        // check refuses keys to anything that is not the app's own process.
-        assert!(blocked_by(&policy(&["*"], &["foo"]), &real, 7).is_some());
+        let (_, matched) = blocked_by(&p, &real, 7).expect("foo has no entry");
+        assert_eq!(matched, "foo");
+        // Under `*` nothing is judged.
+        assert_eq!(blocked_by(&policy(&["*"], &[]), &real, 7), None);
+        // Writer's executable is `soffice.bin`; its launcher script names it, so it resolves.
+        let facts = real.identity(2).facts;
+        // Every LibreOffice entry shares the launcher, so all of them resolve; the scope's app
+        // names the process, and the others collapse into it.
+        assert!(facts.resolved.iter().any(|r| r == "libreoffice-writer"));
+        assert!(facts.resolved.iter().any(|r| r == "libreoffice-calc"));
+        assert_eq!(facts.own.as_deref(), Some("libreoffice-writer"));
+        assert_eq!(
+            blocked_by(&policy(&["libreoffice-writer"], &[]), &real, 2),
+            None,
+            "Writer is shown under its own narrow list"
+        );
+        assert!(blocked_by(&policy(&["libreoffice-calc"], &[]), &real, 2).is_some());
     }
 
     /// A terminal with no desktop entry has a stricter fixed cap than the scope's app, so the
@@ -553,6 +646,7 @@ mod tests {
                         own: Some("xterm".into()),
                         resolved: vec![],
                         candidates: vec!["xterm".into()],
+                        ..Default::default()
                     },
                 }
             }
@@ -590,9 +684,179 @@ mod tests {
         let p = policy(&["firefox"], &[]);
         assert!(p.app_permitted("firefox_firefox"));
         assert!(!p.app_permitted("thunderbird_thunderbird"));
+        assert!(!p.app_permitted("evil_firefox"));
         let p = policy(&["*"], &["firefox"]);
         assert!(!p.app_permitted("firefox_firefox"));
         assert!(p.app_permitted("firefox-esr"));
+        let p = policy(&["firefox_firefox"], &[]);
+        assert!(p.app_permitted("firefox"));
+    }
+
+    /// The allow list's snap aliases are narrow: the snap's own id and its short name, nothing
+    /// wider. The deny list's are wide: every form an id can take.
+    #[test]
+    fn snap_aliases_are_narrow_on_allow_and_wide_on_deny() {
+        // (pattern, id, allow matches, deny matches)
+        for (pattern, id, allow, deny) in [
+            ("firefox", "firefox_firefox", true, true),
+            ("firefox_firefox", "firefox", true, true),
+            ("firefox_firefox", "firefox_firefox", true, true),
+            ("firefox", "firefox", true, true),
+            // Near misses that share a word: never allowed.
+            ("firefox", "evil_firefox", false, true),
+            ("firefox", "firefox_evil", false, true),
+            ("code", "code_insiders", false, true),
+            ("code_insiders", "code", false, false),
+            ("firefox_firefox", "evil_firefox", false, true),
+            ("firefox", "firefox-esr", false, false),
+            ("org.mozilla.firefox", "firefox", false, false),
+            // A snap whose app is not its name, and a parallel install: denied by the snap name.
+            ("*_firefox", "firefox", false, true),
+            // A wildcard allow is matched against the id as written: it reaches no plain id.
+            ("*_*", "xterm", false, true),
+            ("*_*", "gnome-calculator", false, true),
+            ("*_c*", "chromium", false, true),
+            ("*_*", "org.gnome.texteditor", false, false),
+            ("libreoffice", "libreoffice_writer", false, true),
+            ("firefox", "firefox+beta_firefox", false, true),
+        ] {
+            let p = policy(&[pattern], &[]);
+            assert_eq!(p.allow_listed(id), allow, "allow {pattern} vs {id}");
+            let p = policy(&["*"], &[pattern]);
+            assert_eq!(p.deny_listed(id), deny, "deny {pattern} vs {id}");
+        }
+    }
+
+    /// A Flatpak's app id is its identity; the host entries that share its executable's file
+    /// name are not.
+    #[test]
+    fn a_flatpak_is_the_app_its_sandbox_says_not_the_host_entry_with_the_same_file_name() {
+        let (_keep, real) = real();
+        let ev = Evidence {
+            exe: Some("/app/lib/firefox/firefox".into()),
+            comm: Some("firefox".into()),
+            ..Default::default()
+        };
+        let facts = id_facts(
+            &ev,
+            &real.index,
+            None,
+            Some("org.mozilla.firefox".into()),
+            true,
+        );
+        assert_eq!(facts.own.as_deref(), Some("org.mozilla.firefox"));
+        assert_eq!(facts.resolved, vec!["org.mozilla.firefox".to_string()]);
+        // Without the sandbox's name, the host's `firefox_firefox` entry would answer for it.
+        let host = id_facts(&ev, &real.index, None, None, false);
+        // A name that is not shown to be the installed Flatpak adds a deny candidate and nothing
+        // else: it gives no identity for an allow list to rely on.
+        let forged = id_facts(
+            &ev,
+            &real.index,
+            None,
+            Some("org.gnome.TextEditor".into()),
+            false,
+        );
+        assert_eq!(forged.own, host.own);
+        assert_eq!(forged.resolved, host.resolved);
+        assert!(forged
+            .candidates
+            .iter()
+            .any(|c| c == "org.gnome.texteditor"));
+        assert!(host.resolved.iter().any(|r| r == "firefox_firefox"));
+        // And so the allow list that names the Flatpak covers it.
+        let identity = Identity {
+            holder: Some("org.mozilla.firefox".into()),
+            facts,
+        };
+        struct Fp(Identity);
+        impl Scopes for Fp {
+            fn in_scope(&self, _: &str, _: u32) -> bool {
+                true
+            }
+            fn identity(&self, _: u32) -> Identity {
+                self.0.clone()
+            }
+        }
+        assert_eq!(
+            blocked_by(
+                &policy(&["org.mozilla.firefox"], &[]),
+                &Fp(identity.clone()),
+                1
+            ),
+            None
+        );
+        // The host id it would be reported as without the sandbox is the same program's other
+        // id (#1502 r5): the owner may allow it by either, and a deny on either refuses it.
+        assert!(identity.facts.host.is_some());
+        assert_eq!(
+            blocked_by(&policy(&["firefox"], &[]), &Fp(identity.clone()), 1),
+            None
+        );
+        assert!(blocked_by(&policy(&["*"], &["firefox"]), &Fp(identity.clone()), 1).is_some());
+        // Something else entirely is not allowed by the host's file name.
+        assert!(blocked_by(&policy(&["org.other.App"], &[]), &Fp(identity), 1).is_some());
+    }
+
+    /// Launching goes through the same policy: `deny:["*_firefox"]` refuses `firefox` too.
+    #[test]
+    fn a_deny_pattern_on_the_snap_form_refuses_the_short_launch_id() {
+        let p = policy(&["*"], &["*_firefox"]);
+        assert!(!p.app_permitted("firefox"));
+        assert!(!p.app_permitted("firefox_firefox"));
+        assert!(p.app_permitted("thunderbird"));
+        assert!(Denies::is_denied(&p, "firefox"));
+    }
+
+    /// A desktop entry in the account's own directory that shadows the system's cannot make one
+    /// app pass for another: Calculator in TextEditor's scope stays out of reach under an allow
+    /// list that names the editor only.
+    #[test]
+    fn a_user_directory_entry_cannot_collapse_one_app_into_another() {
+        let sys = tempfile::tempdir().unwrap();
+        let user = tempfile::tempdir().unwrap();
+        let calc = sys.path().join("gnome-calculator");
+        std::fs::write(&calc, "#!/bin/sh\n").unwrap();
+        let exec = calc.display().to_string();
+        for (dir, file) in [
+            (user.path(), "org.gnome.TextEditor.desktop"),
+            (sys.path(), "org.gnome.Calculator.desktop"),
+        ] {
+            let apps = dir.join("applications");
+            std::fs::create_dir_all(&apps).unwrap();
+            std::fs::write(
+                apps.join(file),
+                format!("[Desktop Entry]\nType=Application\nName=x\nExec={exec}\n"),
+            )
+            .unwrap();
+        }
+        let sys_path = sys.path().to_path_buf();
+        let index = DesktopIndex::load_with(
+            &[user.path().to_path_buf(), sys.path().to_path_buf()],
+            &move |p: &std::path::Path| p.starts_with(&sys_path),
+        );
+        let ev = Evidence {
+            exe: Some(exec.clone()),
+            comm: Some("gnome-calculator".into()),
+            ..Default::default()
+        };
+        let real = Real {
+            index,
+            procs: HashMap::from([(1, (Some("org.gnome.TextEditor"), ev))]),
+        };
+        let editor_only = policy(&["org.gnome.TextEditor"], &[]);
+        let (_, matched) =
+            blocked_by(&editor_only, &real, 1).expect("calculator is not the editor");
+        assert_eq!(matched, "org.gnome.calculator");
+        // The same two entries, both trusted: the scope's app names the process.
+        let trusted_all = Real {
+            index: DesktopIndex::load_with(
+                &[user.path().to_path_buf(), sys.path().to_path_buf()],
+                &|_| true,
+            ),
+            procs: real.procs.clone(),
+        };
+        assert_eq!(blocked_by(&editor_only, &trusted_all, 1), None);
     }
 
     #[test]
