@@ -1,13 +1,20 @@
 import { closeSync, existsSync, openSync, readdirSync, readSync, statSync, watch } from "node:fs";
-import { join } from "node:path";
+import { join, resolve } from "node:path";
 import { bool, type CommandSpec, str } from "../command.ts";
 import type { Ctx } from "../context.ts";
 import { CliError } from "../errors.ts";
 import { identityPath } from "../identity.ts";
 import { kv } from "../output.ts";
 import {
+  bundleOfThisCli,
+  serverInstallStatus,
+  serverInstallText,
+  serverUpdate,
+} from "../server-update.ts";
+import {
   resolvePsyched,
   restartService,
+  resumeService,
   type SupervisorEnv,
   SYSTEMD_UNIT,
   serviceState,
@@ -117,10 +124,13 @@ export const serviceCommands: CommandSpec[] = [
           ? { paired: true, scopes: client.scopes, deviceId: client.deviceId }
           : { paired: false, detail: error instanceof Error ? error.message : String(error) };
       }
+      const install =
+        ctx.deps.platform === "linux" ? serverInstallStatus(bundleOfThisCli()) : undefined;
       const data = {
         gateway: { url: url.origin, ...probe },
         service,
         cli,
+        ...(install === undefined ? {} : { install }),
       };
       const v = probe.version;
       return {
@@ -134,9 +144,69 @@ export const serviceCommands: CommandSpec[] = [
           version: v ? `${v.version ?? "?"} (protocol ${v.protocolVersion ?? "?"})` : "-",
           service: `${service.kind}${service.kind === "none" ? "" : `: ${service.running ? "running" : "not running"}${"pid" in service && service.pid ? ` (pid ${service.pid})` : ""}${service.installed ? "" : ", not installed"}`}`,
           cli: cli.paired ? `paired (${cli.scopes?.join(", ")})` : `not paired: ${cli.detail}`,
+          ...(install === undefined ? {} : { install: serverInstallText(install) }),
         }),
         exitCode: probe.healthy ? 0 : 1,
       };
+    },
+  },
+  {
+    path: ["update"],
+    summary: "Update a psyche-server install: verified, after a pre-update snapshot of your data",
+    description:
+      "Linux server installs only (the psyche-server deb, rpm or tarball). Checks the release's signed update manifest against the keys this install ships, downloads and verifies the package, stops the Gateway and copies your data to backups/pre-update (psyched snapshot), then installs the tarball in place, or prints the apt or dnf command for a deb or rpm. A tarball update that does not come up healthy is undone. --rollback goes back to the previous release.",
+    options: {
+      check: { type: "boolean", description: "Only say whether an update is available" },
+      rollback: {
+        type: "boolean",
+        description: "Go back to the previous release (tarball), or show how (deb, rpm)",
+      },
+      from: {
+        type: "string",
+        description:
+          "Read update-manifest.json, its .sig and the package from this folder instead of the release page (still verified)",
+      },
+      "manifest-url": {
+        type: "string",
+        description: "Another https address for update-manifest.json (still verified)",
+      },
+    },
+    async run(ctx, { opts }) {
+      if (ctx.deps.platform !== "linux")
+        throw new CliError(
+          "usage",
+          "psyche update is for psyche-server on Linux. The desktop app updates itself.",
+        );
+      const s = supervisorEnv(ctx);
+      const from = str(opts, "from");
+      const manifestUrl = str(opts, "manifest-url");
+      const result = await serverUpdate(
+        bundleOfThisCli(),
+        {
+          check: bool(opts, "check"),
+          rollback: bool(opts, "rollback"),
+          ...(from === undefined ? {} : { from: resolve(from) }),
+          ...(manifestUrl === undefined ? {} : { manifestUrl }),
+        },
+        {
+          stop: async () => {
+            await stopService(s);
+            await waitHealthy(ctx, false, ctx.opts.timeoutMs);
+          },
+          start: () => resumeService(s),
+          healthy: (ms) => waitHealthy(ctx, true, ms),
+          running: async () => (await ctx.probe().catch(() => ({ reachable: false }))).reachable,
+          exec: ctx.deps.exec,
+          fetch: ctx.deps.fetch,
+          env: ctx.env,
+          home: ctx.home,
+          uid: ctx.deps.uid,
+          log: (line) => {
+            if (!ctx.json) ctx.deps.io.err(line);
+          },
+        },
+      );
+      return result;
     },
   },
   {

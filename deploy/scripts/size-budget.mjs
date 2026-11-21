@@ -15,6 +15,7 @@ const BUDGET_FILE = resolve(fileURLToPath(new URL(".", import.meta.url)), "../si
 export const KINDS = {
   psychedMB: "Resources/psyched (the Gateway bundle)",
   psychedWin32MB: "resources/psyched (the Windows Gateway bundle)",
+  psychedLinuxMB: "psyched (the Linux Gateway bundle in psyche-server)",
   appMB: "Psyche.app, installed",
   dmgMB: "the DMG",
 };

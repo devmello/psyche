@@ -28,7 +28,12 @@ import {
   parseStatus,
   REMOTE_PATTERN,
 } from "./git.ts";
-import { guardLaunchConfig, type LaunchConfigReport, launchConfigNotice } from "./launch-guard.ts";
+import {
+  agentView,
+  guardLaunchConfig,
+  type LaunchConfigReport,
+  launchConfigNotice,
+} from "./launch-guard.ts";
 import { applyFilePatch, PATCH_LIMITS, parsePatch, patchStats } from "./patch.ts";
 import { CODE_SEARCH_LIMITS, searchCode } from "./search.ts";
 import {
@@ -924,13 +929,30 @@ function readOnlyHintFor(
 }
 
 /** What the receipt and the model see of a guard's report (no file ids). */
+/**
+ * What the agent sees (#1457 and #1469 reviews r1): how many, and only names the guard could tell
+ * were the repository's; never where the quarantine is. The owner's notices get the raw report.
+ */
 function launchConfigOutput(r: LaunchConfigReport) {
+  const a = agentView(r);
   return {
-    quarantined: r.quarantined,
-    changed: r.changed,
-    unmoved: r.unmoved,
-    incidents: r.incidents,
-    partial: r.partial,
+    quarantined: a.quarantined,
+    changed: a.changed,
+    unmoved: a.unmoved,
+    incidents: a.incidents,
+    // Of what the agent is told, never of the raw lists (#1469 review r2: how many files a
+    // folder outside holds, or whether it exists, would be told by them).
+    counts: {
+      quarantined: a.quarantined.length,
+      changed: a.changed.length,
+      unmoved: a.unmoved.length,
+      incidents: a.incidents.length,
+    },
+    ...(a.withheld ? { withheld: true } : {}),
+    // Folders swapped for a link while the guard read them (#1469 review r3): said in place of
+    // anything in them, and of whether the walk was partial.
+    ...(a.swapped.length > 0 ? { swapped: a.swapped } : {}),
+    ...(a.partial === undefined ? {} : { partial: a.partial }),
   };
 }
 

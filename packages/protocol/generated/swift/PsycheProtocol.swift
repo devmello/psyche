@@ -357,12 +357,15 @@
 //   let compactionSummary = try? JSONDecoder().decode(CompactionSummary.self, from: jsonData)
 //   let computerMachineRef = try? JSONDecoder().decode(ComputerMachineRef.self, from: jsonData)
 //   let computerSurface = try? JSONDecoder().decode(ComputerSurface.self, from: jsonData)
+//   let computerWatchFrameParams = try? JSONDecoder().decode(ComputerWatchFrameParams.self, from: jsonData)
+//   let computerWatchInputParams = try? JSONDecoder().decode(ComputerWatchInputParams.self, from: jsonData)
 //   let computerWatchParkAction = try? JSONDecoder().decode(ComputerWatchParkAction.self, from: jsonData)
 //   let computerWatchParkedPayload = try? JSONDecoder().decode(ComputerWatchParkedPayload.self, from: jsonData)
 //   let computerWatchResolveParkedParams = try? JSONDecoder().decode(ComputerWatchResolveParkedParams.self, from: jsonData)
 //   let computerWatchResolveParkedResult = try? JSONDecoder().decode(ComputerWatchResolveParkedResult.self, from: jsonData)
 //   let computerWatchState = try? JSONDecoder().decode(ComputerWatchState.self, from: jsonData)
 //   let computerWatchStatusParams = try? JSONDecoder().decode(ComputerWatchStatusParams.self, from: jsonData)
+//   let computerWatchStopParams = try? JSONDecoder().decode(ComputerWatchStopParams.self, from: jsonData)
 //   let computerWatchTakeOverParams = try? JSONDecoder().decode(ComputerWatchTakeOverParams.self, from: jsonData)
 //   let computerWatchTakeOverResult = try? JSONDecoder().decode(ComputerWatchTakeOverResult.self, from: jsonData)
 //   let connectChallenge = try? JSONDecoder().decode(ConnectChallenge.self, from: jsonData)
@@ -1622,6 +1625,9 @@
 //   let threadContextUpdatedPayload = try? JSONDecoder().decode(ThreadContextUpdatedPayload.self, from: jsonData)
 //   let threadDeletedPayload = try? JSONDecoder().decode(ThreadDeletedPayload.self, from: jsonData)
 //   let threadIDParams = try? JSONDecoder().decode(ThreadIDParams.self, from: jsonData)
+//   let threadImportFormat = try? JSONDecoder().decode(ThreadImportFormat.self, from: jsonData)
+//   let threadImportResult = try? JSONDecoder().decode(ThreadImportResult.self, from: jsonData)
+//   let threadImportSource = try? JSONDecoder().decode(ThreadImportSource.self, from: jsonData)
 //   let threadKind = try? JSONDecoder().decode(ThreadKind.self, from: jsonData)
 //   let threadListEntry = try? JSONDecoder().decode(ThreadListEntry.self, from: jsonData)
 //   let threadPreview = try? JSONDecoder().decode(ThreadPreview.self, from: jsonData)
@@ -1636,6 +1642,7 @@
 //   let threadsDeleteParams = try? JSONDecoder().decode(ThreadsDeleteParams.self, from: jsonData)
 //   let threadsDiscardEmptyResult = try? JSONDecoder().decode(ThreadsDiscardEmptyResult.self, from: jsonData)
 //   let threadsForkParams = try? JSONDecoder().decode(ThreadsForkParams.self, from: jsonData)
+//   let threadsImportParams = try? JSONDecoder().decode(ThreadsImportParams.self, from: jsonData)
 //   let threadsListParams = try? JSONDecoder().decode(ThreadsListParams.self, from: jsonData)
 //   let threadsListResult = try? JSONDecoder().decode(ThreadsListResult.self, from: jsonData)
 //   let threadsNewChatParams = try? JSONDecoder().decode(ThreadsNewChatParams.self, from: jsonData)
@@ -1876,6 +1883,7 @@ public struct AccessListResult: Codable, Sendable {
 
 // MARK: - AccessEntry
 public struct AccessEntry: Codable, Sendable {
+    public let automationsWrite: Bool?
     public let file: Bool?
     public let grantID: String?
     public let id: String
@@ -1889,10 +1897,13 @@ public struct AccessEntry: Codable, Sendable {
     public let refused: Bool?
     public let scope: AccessEntryScope
     public let since: String?
+    public let spaceID: String?
+    public let spaceName: String?
     public let threadID: String?
     public let type: AccessEntryType
 
     public enum CodingKeys: String, CodingKey {
+        case automationsWrite = "automationsWrite"
         case file = "file"
         case grantID = "grantId"
         case id = "id"
@@ -1906,11 +1917,14 @@ public struct AccessEntry: Codable, Sendable {
         case refused = "refused"
         case scope = "scope"
         case since = "since"
+        case spaceID = "spaceId"
+        case spaceName = "spaceName"
         case threadID = "threadId"
         case type = "type"
     }
 
-    public init(file: Bool? = nil, grantID: String? = nil, id: String, kind: ApprovalKind? = nil, label: String, lastUsedAt: String? = nil, mode: FolderModeEnum? = nil, moved: Bool? = nil, movedTo: String? = nil, path: String? = nil, refused: Bool? = nil, scope: AccessEntryScope, since: String? = nil, threadID: String? = nil, type: AccessEntryType) {
+    public init(automationsWrite: Bool? = nil, file: Bool? = nil, grantID: String? = nil, id: String, kind: ApprovalKind? = nil, label: String, lastUsedAt: String? = nil, mode: FolderModeEnum? = nil, moved: Bool? = nil, movedTo: String? = nil, path: String? = nil, refused: Bool? = nil, scope: AccessEntryScope, since: String? = nil, spaceID: String? = nil, spaceName: String? = nil, threadID: String? = nil, type: AccessEntryType) {
+        self.automationsWrite = automationsWrite
         self.file = file
         self.grantID = grantID
         self.id = id
@@ -1924,6 +1938,8 @@ public struct AccessEntry: Codable, Sendable {
         self.refused = refused
         self.scope = scope
         self.since = since
+        self.spaceID = spaceID
+        self.spaceName = spaceName
         self.threadID = threadID
         self.type = type
     }
@@ -1969,6 +1985,7 @@ public enum AccessEntryScope: String, Codable, Sendable {
     case always = "always"
     case conversation = "conversation"
     case limited = "limited"
+    case space = "space"
 }
 
 public enum AccessEntryType: String, Codable, Sendable {
@@ -4222,6 +4239,7 @@ public struct ApprovalAnswer: Codable, Sendable {
     public let folderMode: FolderModeEnum?
     public let folderPath: String?
     public let hostProgram: Bool?
+    public let inSpace: Bool?
     public let presence: PresenceAssertion?
     public let recipientChoice: String?
     public let scope: GrantScope?
@@ -4238,6 +4256,7 @@ public struct ApprovalAnswer: Codable, Sendable {
         case folderMode = "folderMode"
         case folderPath = "folderPath"
         case hostProgram = "hostProgram"
+        case inSpace = "inSpace"
         case presence = "presence"
         case recipientChoice = "recipientChoice"
         case scope = "scope"
@@ -4246,7 +4265,7 @@ public struct ApprovalAnswer: Codable, Sendable {
         case via = "via"
     }
 
-    public init(answerToken: String, approvalID: String, bulk: Bool? = nil, decision: ApprovalAnswerDecision, editedText: String? = nil, folderMode: FolderModeEnum? = nil, folderPath: String? = nil, hostProgram: Bool? = nil, presence: PresenceAssertion? = nil, recipientChoice: String? = nil, scope: GrantScope? = nil, trustSite: TrustSite? = nil, unsandboxed: Unsandboxed? = nil, via: InputVia? = nil) {
+    public init(answerToken: String, approvalID: String, bulk: Bool? = nil, decision: ApprovalAnswerDecision, editedText: String? = nil, folderMode: FolderModeEnum? = nil, folderPath: String? = nil, hostProgram: Bool? = nil, inSpace: Bool? = nil, presence: PresenceAssertion? = nil, recipientChoice: String? = nil, scope: GrantScope? = nil, trustSite: TrustSite? = nil, unsandboxed: Unsandboxed? = nil, via: InputVia? = nil) {
         self.answerToken = answerToken
         self.approvalID = approvalID
         self.bulk = bulk
@@ -4255,6 +4274,7 @@ public struct ApprovalAnswer: Codable, Sendable {
         self.folderMode = folderMode
         self.folderPath = folderPath
         self.hostProgram = hostProgram
+        self.inSpace = inSpace
         self.presence = presence
         self.recipientChoice = recipientChoice
         self.scope = scope
@@ -5974,18 +5994,21 @@ public struct ArtifactsVersionsResult: Codable, Sendable {
 public struct AttentionReportParams: Codable, Sendable {
     /// The owner gave input in the app just now (key, click)
     public let input: Bool?
+    public let machine: String?
     public let pane: AttentionPane
     /// The pane is on screen in the desktop app
     public let visible: Bool
 
     public enum CodingKeys: String, CodingKey {
         case input = "input"
+        case machine = "machine"
         case pane = "pane"
         case visible = "visible"
     }
 
-    public init(input: Bool? = nil, pane: AttentionPane, visible: Bool) {
+    public init(input: Bool? = nil, machine: String? = nil, pane: AttentionPane, visible: Bool) {
         self.input = input
+        self.machine = machine
         self.pane = pane
         self.visible = visible
     }
@@ -10828,16 +10851,104 @@ public enum CompactionBlockType: String, Codable, Sendable {
     case compaction = "compaction"
 }
 
+// MARK: - ComputerWatchFrameParams
+public struct ComputerWatchFrameParams: Codable, Sendable {
+    public let machine: String?
+    public let maxWidth: Int?
+    public let since: Int?
+
+    public enum CodingKeys: String, CodingKey {
+        case machine = "machine"
+        case maxWidth = "maxWidth"
+        case since = "since"
+    }
+
+    public init(machine: String? = nil, maxWidth: Int? = nil, since: Int? = nil) {
+        self.machine = machine
+        self.maxWidth = maxWidth
+        self.since = since
+    }
+}
+
+// MARK: - ComputerWatchInputParams
+public struct ComputerWatchInputParams: Codable, Sendable {
+    public let events: [VscreenInputEvent]
+    public let machine: String?
+
+    public enum CodingKeys: String, CodingKey {
+        case events = "events"
+        case machine = "machine"
+    }
+
+    public init(events: [VscreenInputEvent], machine: String? = nil) {
+        self.events = events
+        self.machine = machine
+    }
+}
+
+// MARK: - VscreenInputEvent
+public struct VscreenInputEvent: Codable, Sendable {
+    public let button: Button?
+    public let type: VscreenInputEventType
+    public let x: Double?
+    public let y: Double?
+    public let dx: Double?
+    public let dy: Double?
+    public let key: String?
+    public let text: String?
+
+    public enum CodingKeys: String, CodingKey {
+        case button = "button"
+        case type = "type"
+        case x = "x"
+        case y = "y"
+        case dx = "dx"
+        case dy = "dy"
+        case key = "key"
+        case text = "text"
+    }
+
+    public init(button: Button? = nil, type: VscreenInputEventType, x: Double? = nil, y: Double? = nil, dx: Double? = nil, dy: Double? = nil, key: String? = nil, text: String? = nil) {
+        self.button = button
+        self.type = type
+        self.x = x
+        self.y = y
+        self.dx = dx
+        self.dy = dy
+        self.key = key
+        self.text = text
+    }
+}
+
+public enum Button: String, Codable, Sendable {
+    case buttonLeft = "left"
+    case buttonRight = "right"
+    case middle = "middle"
+}
+
+public enum VscreenInputEventType: String, Codable, Sendable {
+    case down = "down"
+    case keyDown = "key_down"
+    case keyUp = "key_up"
+    case move = "move"
+    case scroll = "scroll"
+    case text = "text"
+    case up = "up"
+}
+
 // MARK: - ComputerWatchParkedPayload
 public struct ComputerWatchParkedPayload: Codable, Sendable {
     public let apps: [VscreenApp]
+    public let machine: String?
 
     public enum CodingKeys: String, CodingKey {
         case apps = "apps"
+        case machine = "machine"
     }
 
-    public init(apps: [VscreenApp]) {
+    public init(apps: [VscreenApp], machine: String? = nil) {
         self.apps = apps
+        self.machine = machine
     }
 }
 
@@ -10866,13 +10977,16 @@ public struct VscreenApp: Codable, Sendable {
 // MARK: - ComputerWatchResolveParkedParams
 public struct ComputerWatchResolveParkedParams: Codable, Sendable {
     public let action: ComputerWatchParkAction
+    public let machine: String?
 
     public enum CodingKeys: String, CodingKey {
         case action = "action"
+        case machine = "machine"
     }
 
-    public init(action: ComputerWatchParkAction) {
+    public init(action: ComputerWatchParkAction, machine: String? = nil) {
         self.action = action
+        self.machine = machine
     }
 }
 
@@ -10959,15 +11073,50 @@ public enum VscreenState: String, Codable, Sendable {
     case stopping = "stopping"
 }
 
+// MARK: - ComputerWatchStatusParams
+public struct ComputerWatchStatusParams: Codable, Sendable {
+    public let machine: String?
+
+    public enum CodingKeys: String, CodingKey {
+        case machine = "machine"
+    }
+
+    public init(machine: String? = nil) {
+        self.machine = machine
+    }
+}
+
+// MARK: - ComputerWatchStopParams
+public struct ComputerWatchStopParams: Codable, Sendable {
+    public let closeApps: Bool?
+    public let force: Bool?
+    public let machine: String?
+
+    public enum CodingKeys: String, CodingKey {
+        case closeApps = "closeApps"
+        case force = "force"
+        case machine = "machine"
+    }
+
+    public init(closeApps: Bool? = nil, force: Bool? = nil, machine: String? = nil) {
+        self.closeApps = closeApps
+        self.force = force
+        self.machine = machine
+    }
+}
+
 // MARK: - ComputerWatchTakeOverParams
 public struct ComputerWatchTakeOverParams: Codable, Sendable {
+    public let machine: String?
     public let on: Bool
 
     public enum CodingKeys: String, CodingKey {
+        case machine = "machine"
         case on = "on"
     }
 
-    public init(on: Bool) {
+    public init(machine: String? = nil, on: Bool) {
+        self.machine = machine
         self.on = on
     }
 }
@@ -30583,6 +30732,7 @@ public struct SearchHit: Codable, Sendable {
     public let entityType: SearchEntityType?
     public let group: SearchGroup?
     public let id: String
+    public let imported: ThreadImportSource?
     public let kind: SearchIndexDocKind?
     public let match: SearchMatch?
     public let provenance: Provenance?
@@ -30601,6 +30751,7 @@ public struct SearchHit: Codable, Sendable {
         case entityType = "entityType"
         case group = "group"
         case id = "id"
+        case imported = "imported"
         case kind = "kind"
         case match = "match"
         case provenance = "provenance"
@@ -30614,12 +30765,13 @@ public struct SearchHit: Codable, Sendable {
         case titleHighlights = "titleHighlights"
     }
 
-    public init(card: SearchHitCard? = nil, createdAt: Int? = nil, entityType: SearchEntityType? = nil, group: SearchGroup? = nil, id: String, kind: SearchIndexDocKind? = nil, match: SearchMatch? = nil, provenance: Provenance? = nil, route: String? = nil, scope: SearchScope, score: Double, snippet: String, snippetHighlights: [[Int]]? = nil, threadID: String? = nil, title: String, titleHighlights: [[Int]]? = nil) {
+    public init(card: SearchHitCard? = nil, createdAt: Int? = nil, entityType: SearchEntityType? = nil, group: SearchGroup? = nil, id: String, imported: ThreadImportSource? = nil, kind: SearchIndexDocKind? = nil, match: SearchMatch? = nil, provenance: Provenance? = nil, route: String? = nil, scope: SearchScope, score: Double, snippet: String, snippetHighlights: [[Int]]? = nil, threadID: String? = nil, title: String, titleHighlights: [[Int]]? = nil) {
         self.card = card
         self.createdAt = createdAt
         self.entityType = entityType
         self.group = group
         self.id = id
+        self.imported = imported
         self.kind = kind
         self.match = match
         self.provenance = provenance
@@ -30655,6 +30807,11 @@ public struct SearchHitCard: Codable, Sendable {
         self.span = span
         self.summary = summary
     }
+}
+
+public enum ThreadImportSource: String, Codable, Sendable {
+    case chatgpt = "chatgpt"
+    case claude = "claude"
 }
 
 public enum SearchIndexDocKind: String, Codable, Sendable {
@@ -36941,6 +37098,51 @@ public struct ThreadIDParams: Codable, Sendable {
     }
 }
 
+// MARK: - ThreadImportResult
+public struct ThreadImportResult: Codable, Sendable {
+    public let duplicates: Int
+    public let imported: Int
+    public let skipped: [ThreadImportResultSkipped]
+    public let skippedMore: Int
+
+    public enum CodingKeys: String, CodingKey {
+        case duplicates = "duplicates"
+        case imported = "imported"
+        case skipped = "skipped"
+        case skippedMore = "skippedMore"
+    }
+
+    public init(duplicates: Int, imported: Int, skipped: [ThreadImportResultSkipped], skippedMore: Int) {
+        self.duplicates = duplicates
+        self.imported = imported
+        self.skipped = skipped
+        self.skippedMore = skippedMore
+    }
+}
+
+// MARK: - ThreadImportResultSkipped
+public struct ThreadImportResultSkipped: Codable, Sendable {
+    public let reason: SkippedReason
+    public let title: String
+
+    public enum CodingKeys: String, CodingKey {
+        case reason = "reason"
+        case title = "title"
+    }
+
+    public init(reason: SkippedReason, title: String) {
+        self.reason = reason
+        self.title = title
+    }
+}
+
+public enum SkippedReason: String, Codable, Sendable {
+    case empty = "empty"
+    case invalid = "invalid"
+    case tooLarge = "too_large"
+    case tooMany = "too_many"
+}
+
 // MARK: - ThreadResult
 public struct ThreadResult: Codable, Sendable {
     public let thread: Thread
@@ -36962,6 +37164,7 @@ public struct Thread: Codable, Sendable {
     public let expiresAt: String?
     public let forkedFromMessageID: String?
     public let id: String
+    public let imported: ThreadImportSource?
     public let kind: ThreadKind
     public let lastMessageAt: String?
     public let modelRef: String?
@@ -36984,6 +37187,7 @@ public struct Thread: Codable, Sendable {
         case expiresAt = "expiresAt"
         case forkedFromMessageID = "forkedFromMessageId"
         case id = "id"
+        case imported = "imported"
         case kind = "kind"
         case lastMessageAt = "lastMessageAt"
         case modelRef = "modelRef"
@@ -36999,13 +37203,14 @@ public struct Thread: Codable, Sendable {
         case userCreated = "userCreated"
     }
 
-    public init(activeWriterRunID: String? = nil, archivedAt: String? = nil, createdAt: String, expiresAt: String? = nil, forkedFromMessageID: String? = nil, id: String, kind: ThreadKind, lastMessageAt: String? = nil, modelRef: String? = nil, parentThreadID: String? = nil, permissionMode: PermissionMode, personaOverlay: String? = nil, pinned: Bool, sessionKey: String, spaceID: String? = nil, title: String, titleSource: TitleSource, updatedAt: String, userCreated: Bool? = nil) {
+    public init(activeWriterRunID: String? = nil, archivedAt: String? = nil, createdAt: String, expiresAt: String? = nil, forkedFromMessageID: String? = nil, id: String, imported: ThreadImportSource? = nil, kind: ThreadKind, lastMessageAt: String? = nil, modelRef: String? = nil, parentThreadID: String? = nil, permissionMode: PermissionMode, personaOverlay: String? = nil, pinned: Bool, sessionKey: String, spaceID: String? = nil, title: String, titleSource: TitleSource, updatedAt: String, userCreated: Bool? = nil) {
         self.activeWriterRunID = activeWriterRunID
         self.archivedAt = archivedAt
         self.createdAt = createdAt
         self.expiresAt = expiresAt
         self.forkedFromMessageID = forkedFromMessageID
         self.id = id
+        self.imported = imported
         self.kind = kind
         self.lastMessageAt = lastMessageAt
         self.modelRef = modelRef
@@ -37242,6 +37447,25 @@ public struct ThreadsForkParams: Codable, Sendable {
         self.messageID = messageID
         self.threadID = threadID
         self.title = title
+    }
+}
+
+// MARK: - ThreadsImportParams
+public struct ThreadsImportParams: Codable, Sendable {
+    public let content: String
+    public let dryRun: Bool?
+    public let format: ThreadImportSource
+
+    public enum CodingKeys: String, CodingKey {
+        case content = "content"
+        case dryRun = "dryRun"
+        case format = "format"
+    }
+
+    public init(content: String, dryRun: Bool? = nil, format: ThreadImportSource) {
+        self.content = content
+        self.dryRun = dryRun
+        self.format = format
     }
 }
 
@@ -38156,21 +38380,21 @@ public enum VaultImportParamsFormat: String, Codable, Sendable {
 // MARK: - VaultImportResult
 public struct VaultImportResult: Codable, Sendable {
     public let imported: [CredentialMeta]
-    public let skipped: [Skipped]
+    public let skipped: [VaultImportResultSkipped]
 
     public enum CodingKeys: String, CodingKey {
         case imported = "imported"
         case skipped = "skipped"
     }
 
-    public init(imported: [CredentialMeta], skipped: [Skipped]) {
+    public init(imported: [CredentialMeta], skipped: [VaultImportResultSkipped]) {
         self.imported = imported
         self.skipped = skipped
     }
 }
 
-// MARK: - Skipped
-public struct Skipped: Codable, Sendable {
+// MARK: - VaultImportResultSkipped
+public struct VaultImportResultSkipped: Codable, Sendable {
     public let reason: String
     public let row: Int
 
@@ -40086,56 +40310,6 @@ public struct VscreenInputParams: Codable, Sendable {
     }
 }
 
-// MARK: - VscreenInputEvent
-public struct VscreenInputEvent: Codable, Sendable {
-    public let button: Button?
-    public let type: VscreenInputEventType
-    public let x: Double?
-    public let y: Double?
-    public let dx: Double?
-    public let dy: Double?
-    public let key: String?
-    public let text: String?
-
-    public enum CodingKeys: String, CodingKey {
-        case button = "button"
-        case type = "type"
-        case x = "x"
-        case y = "y"
-        case dx = "dx"
-        case dy = "dy"
-        case key = "key"
-        case text = "text"
-    }
-
-    public init(button: Button? = nil, type: VscreenInputEventType, x: Double? = nil, y: Double? = nil, dx: Double? = nil, dy: Double? = nil, key: String? = nil, text: String? = nil) {
-        self.button = button
-        self.type = type
-        self.x = x
-        self.y = y
-        self.dx = dx
-        self.dy = dy
-        self.key = key
-        self.text = text
-    }
-}
-
-public enum Button: String, Codable, Sendable {
-    case buttonLeft = "left"
-    case buttonRight = "right"
-    case middle = "middle"
-}
-
-public enum VscreenInputEventType: String, Codable, Sendable {
-    case down = "down"
-    case keyDown = "key_down"
-    case keyUp = "key_up"
-    case move = "move"
-    case scroll = "scroll"
-    case text = "text"
-    case up = "up"
-}
-
 // MARK: - VscreenStartParams
 public struct VscreenStartParams: Codable, Sendable {
     public let height: Int?
@@ -40812,7 +40986,6 @@ public typealias BrowserBotAuthStatusParams = [String: JSONAny]
 public typealias BrowserRealChromeStatusParams = [String: JSONAny]
 public typealias ChannelsIdentitiesListParams = [String: JSONAny]
 public typealias ChannelsListParams = [String: JSONAny]
-public typealias ComputerWatchStatusParams = [String: JSONAny]
 public typealias ConnectorsCatalogueParams = [String: JSONAny]
 public typealias ConnectorsGoogleClientParams = [String: JSONAny]
 public typealias ConnectorsListParams = [String: JSONAny]

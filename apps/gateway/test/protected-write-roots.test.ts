@@ -1,4 +1,4 @@
-import { mkdirSync, mkdtempSync, realpathSync, rmSync, symlinkSync } from "node:fs";
+import { mkdirSync, mkdtempSync, realpathSync, rmSync, symlinkSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { assertNotProtected } from "@psyche/files";
@@ -10,6 +10,7 @@ import {
   writeProtection,
   writeProtectionFor,
 } from "../src/compose/protected-paths.ts";
+import { isTarballInstall, psycheServerTarballRoot } from "../src/server-install.ts";
 
 /**
  * Write-only protected roots (apps.open review, findings 1 and 2): the launch location the Mac
@@ -135,5 +136,55 @@ describe.skipIf(process.platform === "win32")("launch-config link targets", () =
     } finally {
       rmSync(base, { recursive: true, force: true });
     }
+  });
+});
+
+describe.skipIf(process.platform === "win32")("a psyche-server tarball install's root", () => {
+  /** `<root>/releases/<v>/psyched/runtime/node` with the release's psyche-server.json. */
+  function layout(kind: string, version = "1.5.0", dirName = version) {
+    const top = realpathSync(mkdtempSync(join(tmpdir(), "psy-tarball-")));
+    const root = join(top, "my server");
+    const release = join(root, "releases", dirName);
+    mkdirSync(join(release, "psyched", "runtime"), { recursive: true });
+    writeFileSync(join(release, "psyched", "runtime", "node"), "");
+    writeFileSync(
+      join(release, "psyche-server.json"),
+      JSON.stringify({ format: "psyche-server-install", kind, version, arch: "x64" }),
+    );
+    symlinkSync(join("releases", dirName), join(root, "current"));
+    return { top, root, node: join(root, "current", "psyched", "runtime", "node") };
+  }
+
+  it("is found from this Gateway's own Node, wherever --root put it, and no grant reaches it", () => {
+    const l = layout("tarball");
+    try {
+      expect(psycheServerTarballRoot(l.node)).toEqual([l.root]);
+      expect(isTarballInstall(l.node)).toBe(true);
+      expect(() =>
+        assertNotProtected(join(l.root, "releases", "1.5.0", "psyched", "app", "x.js"), [
+          ...psycheServerTarballRoot(l.node),
+        ]),
+      ).toThrow();
+    } finally {
+      rmSync(l.top, { recursive: true, force: true });
+    }
+  });
+
+  it("must refuse: a deb or rpm, a folder not named as its version, or no description", () => {
+    for (const l of [layout("deb"), layout("rpm"), layout("tarball", "1.5.0", "other")]) {
+      try {
+        expect(psycheServerTarballRoot(l.node)).toEqual([]);
+      } finally {
+        rmSync(l.top, { recursive: true, force: true });
+      }
+    }
+    expect(psycheServerTarballRoot(process.execPath)).toEqual([]);
+    expect(psycheServerTarballRoot("/nonexistent/runtime/node")).toEqual([]);
+  });
+
+  it("is in the protected roots on Linux, where this Gateway runs from one", () => {
+    // This test process is not a tarball install: nothing is added.
+    const linux = protectedRoots("/h/.psyche", "linux", "/h");
+    expect(linux.some((p) => p.includes("psyche-server"))).toBe(false);
   });
 });

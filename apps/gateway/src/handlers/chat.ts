@@ -13,6 +13,7 @@ import {
 } from "@psyche/protocol";
 import type { Call, HandlerDef, ResolvedChatContext, ResolvedScreen } from "../context.ts";
 import { readerOf, scrubMessage } from "../message-scrub.ts";
+import { assertWritableThread, fenceImportedText } from "../session/imported-threads.ts";
 import { claimWidgetClick } from "../widgets/rate.ts";
 import {
   type AttachedFileInfo,
@@ -58,7 +59,7 @@ function send(
   },
   mode: QueueMode | undefined,
 ) {
-  requireThread(call, params.threadId);
+  assertWritableThread(requireThread(call, params.threadId), "written to");
   // Checked and described by `prepareAttachedFiles`, before the transaction opened.
   const attachedFiles = call.prepared as AttachedFileInfo[] | undefined;
   if (params.attachedFiles?.length && attachedFiles === undefined) {
@@ -228,8 +229,25 @@ export function transcriptMarkdown(thread: Thread, messages: readonly Message[])
   const lines = [`# ${thread.title || "Untitled thread"}`, ""];
   if (thread.forkedFromMessageId) lines.push(`_Forked from thread ${thread.parentThreadId}_`, "");
   for (const message of messages) {
-    lines.push(`**${ROLE_LABEL[message.role]}** · ${message.createdAt}`, "");
-    lines.push(message.blocks.map(blockToMarkdown).join("\n\n"), "");
+    const imported = thread.imported !== undefined && message.provenance === "untrusted";
+    const label = imported
+      ? message.role === "user"
+        ? "Imported (exporter)"
+        : "Imported (assistant)"
+      : ROLE_LABEL[message.role];
+    lines.push(`**${label}** · ${message.createdAt}`, "");
+    const body = message.blocks.map(blockToMarkdown).join("\n\n");
+    lines.push(
+      imported && thread.imported !== undefined
+        ? fenceImportedText(
+            thread.imported,
+            thread.title,
+            message.role === "user" ? "user" : "agent",
+            body,
+          )
+        : body,
+      "",
+    );
   }
   return `${lines.join("\n").trimEnd()}\n`;
 }
@@ -289,7 +307,7 @@ export const chatHandlers: Record<string, HandlerDef> = {
   "chat.greet": {
     transactional: true,
     run: (call: Call, params: { threadId: string }) => {
-      requireThread(call, params.threadId);
+      assertWritableThread(requireThread(call, params.threadId), "greeted");
       return call.ctx.sessions.greet(params.threadId, {
         emit: call.emit,
         afterCommit: call.afterCommit,

@@ -939,6 +939,9 @@ export class GatewayStore {
       case "device.updated":
       case "pairing.requested":
         return invalidate(s, ["devices."]);
+      case "machines.changed":
+        // Settings → Devices → Computers Psyche can use, and the machine picker in Computer use.
+        return invalidate(s, ["machines."]);
       case "memory.job.updated":
         return invalidate(s, ["memory.status"]);
       // The people and projects graph: every query that could show the change reloads.

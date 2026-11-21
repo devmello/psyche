@@ -147,7 +147,7 @@ export interface FileToolsOptions {
    * The owner's granted folders (`permissions.policy.folders`), read on every call. When set,
    * the executors refuse paths outside them (and writes outside `rw` ones) behind the broker.
    */
-  folders?: (scope?: { threadId: string }) => readonly GrantedFolder[] | undefined;
+  folders?: (scope?: { threadId: string; runId?: string }) => readonly GrantedFolder[] | undefined;
   /**
    * Locations refused for every read and write whatever is granted: Psyche's own home and the
    * owner's credential stores (security §5.3, #285).
@@ -317,7 +317,7 @@ export function fileTools(options: FileToolsOptions = {}): AgentToolRegistration
     isProtectedPath(path, options.protectedRoots?.(), options.ownDirs?.(), options.carveOuts?.());
   const granted = (path: string, access: "read" | "write", ctx: ToolRunContext) => {
     // The conversation's own roots (`request_permission`, "Allow once") count too.
-    const folders = options.folders?.({ threadId: ctx.threadId });
+    const folders = options.folders?.({ threadId: ctx.threadId, runId: ctx.runId });
     let wp: WriteProtection | undefined;
     if (access === "write") {
       const raw = options.writeProtectedRoots?.() ?? [];

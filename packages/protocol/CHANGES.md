@@ -26,6 +26,11 @@ CI fails when the generated files are stale (`pnpm protocol:check`).
 
 - New methods `spaces.migration.offer` (read), `spaces.migration.apply` (write, side-effecting), `spaces.migration.dismiss`, `spaces.offers.list` (read) and `spaces.offers.dismiss`. New schemas `SpaceMigrationOffer`, `SpaceMigrationProject`, `SpaceOffers`, `SpaceOfferWidget`, `SpaceOfferRule`. The agent tool `space_propose` is not a protocol method; it fills `spaces.proposals.*` and raises `space.proposal.created`. Design: docs/design/spaces-2026.md §4.3, §8.
 - `SpaceProposal` gains optional `chats` (`{ id, title }[]`, the chats Create would move now) and `projectName`, filled by `spaces.proposals.list` so the card shows what moves. A Keep-private project is refused by `spaces.create`, `spaces.update`, `spaces.proposals.accept` and `spaces.migration.apply` with `forbidden` and `details.reason: "project_private"`.
+### v1 additive — 2026-11-20 (Spaces, wave S2: folder scope)
+
+- `ApprovalAnswer` gains an optional `inSpace: true`: "Allow in this Space" on a `folder_access` card that offered it (`details.space`, set by the Gateway), sent with `scope: "once"`. The pick joins that Space's folders.
+- `AccessEntry.scope` gains `space` (a value at the end); new optional `spaceId`, `spaceName` and `automationsWrite` on a `space` row. `access.revoke` takes its id. Design: docs/design/spaces-2026.md §5.3.
+- The `PermissionBroker` contract gains optional `bindRun(RunBindingInput)` and `endRun(threadId, runId)`: the agent loop fixes a run's Space at its start, before the prompt, and drops it at its end (SR3). Bindings are keyed by (thread, run); `preview` never binds. `RunBindingInput.space` lets the loop pass its own run-start Space.
 
 ### v1 additive — 2026-11-19 (machine registry, H3)
 

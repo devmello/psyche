@@ -23,6 +23,7 @@ import { homeRest } from "./home-rest/ja.ts";
 import { keepAwake } from "./keep-awake/ja.ts";
 import { links } from "./links/ja.ts";
 import { linuxAccess } from "./linux-access/ja.ts";
+import { machines } from "./machines/ja.ts";
 import { mailFollowups } from "./mail-followups/ja.ts";
 import { mailMeetings } from "./mail-meetings/ja.ts";
 import { meetingRecordRest } from "./meetingRecord-rest/ja.ts";
@@ -791,7 +792,45 @@ export const ja: Partial<Catalogue> = {
   "agent.memory.incognito": "シークレットのサイドチャット",
   "agent.memory.importExport": "読み込み、書き出し、リセット",
   "agent.memory.import": "メモリを読み込む",
+  "agent.memory.importConv.title": "claude.ai または ChatGPT から読み込む",
+  "agent.memory.importConv.note":
+    "読み込んだ会話は読み取り専用です。テキストは信頼できないデータとして扱われ、ピン留めや指示になることはありません。",
+  "agent.memory.importConv.source": "書き出し元",
+  "agent.memory.importConv.claude": "claude.ai",
+  "agent.memory.importConv.chatgpt": "ChatGPT",
+  "agent.memory.importConv.mode": "読み込む内容",
+  "agent.memory.importConv.memoriesOnly": "メモリのみ",
+  "agent.memory.importConv.both": "メモリと会話",
+  "agent.memory.importConv.memoriesFile": "メモリのファイル",
+  "agent.memory.importConv.conversationsFile": "会話のファイル（conversations.json）",
+  "agent.memory.importConv.start": "読み込む",
+  "agent.memory.importConv.working": "読み込み中…",
+  "agent.memory.importConv.cancel": "キャンセル",
+  "agent.memory.importConv.close": "閉じる",
+  "agent.memory.importConv.progressMemories": "メモリを読み込み中…",
+  "agent.memory.importConv.progressConversations": "会話を読み込み中…",
+  "agent.memory.importConv.failed": "このファイルを読み込めませんでした：{reason}",
+  "agent.memory.importConv.done": "読み込みが完了しました。",
+  "agent.memory.importConv.sumMemories": "確認するメモリ：{n}",
+  "agent.memory.importConv.sumThreads": "読み込んだ会話：{n}",
+  "agent.memory.importConv.sumDuplicates": "以前に読み込み済み：{n}",
+  "agent.memory.importConv.sumSkipped": "スキップした会話：{n}",
+  "agent.memory.importConv.skipTooMany": "会話{n}件の上限を超えています",
+  "agent.memory.importConv.skipTooLarge": "長すぎます",
+  "agent.memory.importConv.skipEmpty": "メッセージがありません",
+  "agent.memory.importConv.skipInvalid": "読み取れませんでした",
+  "agent.memory.importConv.untitled": "無題",
+  "agent.memory.importConv.progressCount": "会話を読み込み中… {done} / {total}",
+  "agent.memory.importConv.tooBig":
+    "このファイルは {mb} MB を超えており、ここでは大きすぎて読めません。範囲を小さくして書き出し直してください。",
+  "agent.memory.importConv.memoriesTooBig":
+    "このメモリファイルは {kb} KB を超えており、一度に読み込めません。分割するか、書き出すメモリを減らしてください。",
+  "agent.memory.importConv.partial":
+    "完了前に停止しました：{reason}。{total} 件中 {done} 件のバッチを読み込みました。もう一度読み込むと続きから進み、読み込み済みの会話はスキップされます。",
+  "agent.memory.importConv.retry": "もう一度読み込む",
   "agent.memory.exported": "{file}を書き出しました。",
+  "agent.memory.importConv.memoriesFailed":
+    "メモリを読み込めませんでした：{reason}。もう一度読み込むと再試行します。",
   "agent.memory.export": "すべてを書き出す",
   "agent.memory.resetDone":
     "{files, plural, other {#個のファイル}}と{claims, plural, other {#件の事実}}をリセットしました。",
@@ -898,6 +937,8 @@ export const ja: Partial<Catalogue> = {
   "shell.threads.unpin": "ピン留めを解除",
   "shell.threads.pin": "ピン留め",
   "shell.threads.archive": "アーカイブ",
+  "shell.threads.imported": "読み込み済み",
+  "shell.threads.importedReadOnly": "この読み込んだ会話は読み取り専用です。",
   "shell.threads.restore": "復元",
   "shell.threads.region": "スレッド",
   "shell.threads.filter": "スレッドを絞り込む",
@@ -3765,4 +3806,5 @@ export const ja: Partial<Catalogue> = {
   ...mailFollowups,
   ...keepAwake,
   ...spaces,
+  ...machines,
 };
