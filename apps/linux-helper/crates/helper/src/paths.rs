@@ -143,7 +143,7 @@ mod tests {
     fn the_process_home_is_the_passwd_home_not_home() {
         // The child run: HOME=/ must not change what the helper takes as the account's home.
         if std::env::var_os("PSYCHE_TEST_HOME_CHILD").is_some() {
-            let want = passwd_home().expect("a passwd entry for this user");
+            let want = passwd_home().expect("checked by the parent run");
             assert_eq!(ProcessEnv.home().as_deref(), want.to_str());
             assert_ne!(ProcessEnv.home().as_deref(), Some("/"));
             assert_eq!(
@@ -151,6 +151,12 @@ mod tests {
                 want.join(".psyche"),
             );
             return;
+        }
+        // No passwd entry (a rootless container with an arbitrary UID) or a home of `/`: nothing to compare.
+        match passwd_home() {
+            None => return,
+            Some(h) if h == std::path::Path::new("/") => return,
+            Some(_) => {}
         }
         let out = std::process::Command::new(std::env::current_exe().unwrap())
             .args([

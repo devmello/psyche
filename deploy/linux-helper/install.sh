@@ -11,8 +11,10 @@
 #   sudo ./install.sh --dedicated-user [NAME]
 #                                      the helper runs as its own account (default psyche-helper).
 #                                        The program is root's (/usr/local/lib/psyche-helper), its
-#                                        service file is root's (/etc/systemd/user) and so are the
-#                                        limits: that account can change none of them
+#                                        service file is root's (/etc/systemd/user) and so is the
+#                                        limits file. Root's file limits what the agent reaches; it is
+#                                        not enforced against the account's own processes, so Psyche
+#                                        still shows the limits as user-owned
 #   --ceiling default|narrow           the limits written on first install (default: default)
 #                                        default: its own screen, contained commands, files under ~
 #                                        narrow:  apps only, no commands and no files
@@ -42,6 +44,10 @@ ROOT_LIB=/usr/local/lib/psyche-helper
 ROOT_BIN=/usr/local/bin/psyche-helper
 ROOT_UNITDIR=/etc/systemd/user
 ETC_POLICY=/etc/psyche-helper/policy.json
+# Written (root-owned) when this installer makes or adopts the dedicated account. --purge deletes an
+# account and its home only if this names it, so a wrong NAME can never remove somebody's home.
+STATE_DIR=/var/lib/psyche-helper
+MARKER="$STATE_DIR/dedicated-account"
 
 say() { printf '%s\n' "$*"; }
 warn() { printf 'warning: %s\n' "$*" >&2; }
@@ -119,16 +125,32 @@ fi
 
 as_root() { if [ "$(id -u)" = 0 ]; then "$@"; else sudo -- "$@"; fi; }
 
+# Does NAME look like the account this installer makes: a "Psyche helper" description and no login shell?
+is_helper_account() {
+  local entry
+  entry="$(getent passwd "$1")" || return 1
+  [ "$(printf '%s' "$entry" | cut -d: -f5 | cut -c1-13)" = "Psyche helper" ] || return 1
+  case "$(printf '%s' "$entry" | cut -d: -f7)" in */nologin | */false) return 0 ;; esac
+  return 1
+}
+write_marker() {
+  as_root install -d -m 0755 -o root -g root "$STATE_DIR"
+  printf '%s\n' "$T_USER" | as_root tee "$MARKER" >/dev/null
+  as_root chmod 0644 "$MARKER"
+}
+marked_account() { [ -f "$MARKER" ] && [ ! -L "$MARKER" ] && [ "$(head -n 1 "$MARKER")" = "$T_USER" ]; }
+
 create_dedicated() {
   if getent passwd "$T_USER" >/dev/null; then
     # Never take over an account we did not make.
-    getent passwd "$T_USER" | cut -d: -f5 | grep -q '^Psyche helper' ||
-      die "$T_USER already exists and is not a Psyche helper account"
+    is_helper_account "$T_USER" || die "$T_USER already exists and is not a Psyche helper account"
+    write_marker
     return
   fi
   command -v useradd >/dev/null || die "useradd not found"
   useradd --create-home --home-dir "/home/$T_USER" --shell /usr/sbin/nologin \
     --comment "Psyche helper (lets your Mac's Psyche use this computer)" "$T_USER"
+  write_marker
   say "created the account $T_USER (no password, no login shell)"
 }
 
@@ -152,9 +174,21 @@ if [ "$UNINSTALL" = 0 ] && [ "$DEDICATED" = 1 ]; then create_dedicated; fi
 # uninstalling for that name still removes them. Nothing of the account's is left to remove.
 if [ "$UNINSTALL" = 1 ] && [ "$DEDICATED" = 1 ] && ! getent passwd "$T_USER" >/dev/null &&
   [ "$(etc_unit_user)" = "$T_USER" ]; then
+  # A helper started before the account went is still running from memory under its old UID, kept
+  # alive by that UID's user manager. Stop the manager of any UID that runs it and has no account now.
+  for pid in $(pgrep -f "$ROOT_LIB/psyche-helper" 2>/dev/null || true); do
+    stale_uid="$(ps -o uid= -p "$pid" 2>/dev/null | tr -d ' ')"
+    [ -n "$stale_uid" ] && [ "$stale_uid" != 0 ] || continue
+    getent passwd "$stale_uid" >/dev/null && continue
+    as_root systemctl stop "user@$stale_uid.service" 2>/dev/null || true
+    as_root kill "$pid" 2>/dev/null || true
+  done
+  # Linger would otherwise start a manager for any future account of the same name.
+  as_root rm -f "/var/lib/systemd/linger/$T_USER"
   as_root rm -f "$ROOT_UNITDIR/$UNIT" "$ROOT_UNITDIR/$SLICE" "$ROOT_BIN"
   as_root rm -rf "$ROOT_LIB"
-  say "the account $T_USER is gone; removed its service file and program"
+  if marked_account; then as_root rm -f "$MARKER"; fi
+  say "the account $T_USER is gone; removed its service file, program and linger"
   exit 0
 fi
 getent passwd "$T_USER" >/dev/null || die "no account $T_USER"
@@ -220,6 +254,13 @@ wait_manager() {
 
 # --- uninstall --------------------------------------------------------------------------------
 if [ "$UNINSTALL" = 1 ]; then
+  # --purge deletes the account and its home: only for an account this installer made. Refuse before
+  # anything is touched.
+  if [ "$PURGE" = 1 ] && [ "$DEDICATED" = 1 ]; then
+    if ! marked_account || ! is_helper_account "$T_USER"; then
+      die "$T_USER is not a Psyche helper account that this installer created; not removing it (nothing was changed). Remove the account yourself if you mean to."
+    fi
+  fi
   if [ -S "$RUNDIR/bus" ]; then
     as_target systemctl --user disable --now "$UNIT" 2>/dev/null || true
   fi
@@ -239,7 +280,7 @@ if [ "$UNINSTALL" = 1 ]; then
       loginctl terminate-user "$T_USER" 2>/dev/null || true
       systemctl stop "user@$T_UID.service" 2>/dev/null || true
       for _ in $(seq 1 20); do pgrep -u "$T_USER" >/dev/null 2>&1 || break; sleep 0.5; done
-      userdel -r "$T_USER" 2>/dev/null || warn "could not remove the account $T_USER"
+      if userdel -r "$T_USER" 2>/dev/null; then as_root rm -f "$MARKER"; else warn "could not remove the account $T_USER"; fi
     fi
   fi
   say "removed the helper for $T_USER. $ETC_POLICY (if any) is yours to remove."
@@ -274,9 +315,9 @@ install_policy() {
     as_root install -d -m 0755 -o root -g root /etc/psyche-helper
     as_root install -o root -g root -m 0644 "$src" "$ETC_POLICY"
     if [ "$DEDICATED" = 1 ] || [ "$PAYLOAD" = package ]; then
-      POLICY_NOTE="limits: $ETC_POLICY, root-owned. The helper's account cannot change them, the program or its service file"
+      POLICY_NOTE="limits: $ETC_POLICY, root's file. It limits what the agent reaches but is not enforced against the account's own processes, so Psyche shows the limits as user-owned"
     else
-      POLICY_NOTE="limits: $ETC_POLICY, root-owned. The program runs from your home, which this account can change, so Psyche still shows the limits as changeable"
+      POLICY_NOTE="limits: $ETC_POLICY, root's file. The program runs from your home, which this account can change, so Psyche shows the limits as user-owned"
     fi
     return
   fi

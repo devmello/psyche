@@ -8,8 +8,9 @@
 //!   the wrong user, or can be written by others means *everything is denied*. A missing file
 //!   means the defaults: computer use on the helper's own virtual screen, no shell, no files.
 //! - **The user-owned file is advisory.** An agent with a shell or a GUI terminal on the box runs
-//!   as the same account and can edit it. Only the root-owned `/etc` ceiling (deb/rpm) is a limit
-//!   the account cannot change. The Gateway's own machine rules (H3, H4) apply either way.
+//!   as the same account and can edit it. A root-owned `/etc` file (deb/rpm, dedicated account) limits
+//!   what the agent reaches, but it is not enforced against the account's own processes, so
+//!   Psyche shows the limits as user-owned. The Gateway's own machine rules (H3, H4) apply either way.
 //! - `apps.deny` means "never launched": the call that opens or drives an app is refused. It does
 //!   not stop an allowed app from opening a denied one, or a denied window that is already on the
 //!   screen. H1 must also check the focused window's app against this list.

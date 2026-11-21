@@ -51,7 +51,9 @@ cleanup() {
     fi
   done
   sudo dpkg -P psyche-helper >/dev/null 2>&1
-  sudo rm -f /etc/sudoers.d/psyche-h7
+  sudo rm -f /etc/sudoers.d/psyche-h7 /var/lib/psyche-helper/dedicated-account
+  sudo rmdir /var/lib/psyche-helper >/dev/null 2>&1
+  sudo userdel -r psyche-h7-vic >/dev/null 2>&1
   [ "$CREATED_ETC" = 1 ] && sudo rm -rf /etc/psyche-helper
   sudo rm -rf "$W-root"
 }
@@ -269,15 +271,33 @@ check "dedicated: --uninstall --purge removes the account and root's files" bash
 sudo rm -rf $V1 $V2
 sudo rm -rf /etc/psyche-helper
 
+# --purge deletes an account and its home, so it must refuse one this installer did not make.
+VIC=psyche-h7-vic
+sudo useradd -m -c "Ordinary person" -s /bin/bash $VIC
+echo "keep me" | sudo tee /home/$VIC/thesis.txt >/dev/null
+sudo bash "$INST" --dedicated-user $VIC --uninstall --purge >"$W/vic-1.log" 2>&1; VIC_RC=$?
+check "purge refuses an ordinary account (non-zero, says so)" bash -c "[ $VIC_RC -ne 0 ] && grep -q 'not a Psyche helper account' $W/vic-1.log"
+check "purge on an ordinary account: the account and its home survive" bash -c "id $VIC && grep -q 'keep me' /home/$VIC/thesis.txt"
+# Even a forged description and shell do not do it without the installer's marker.
+sudo usermod -c "Psyche helper (forged)" -s /usr/sbin/nologin $VIC
+sudo bash "$INST" --dedicated-user $VIC --uninstall --purge >"$W/vic-2.log" 2>&1; VIC_RC=$?
+check "purge refuses an account that only looks like a helper (no marker): still there" bash -c "[ $VIC_RC -ne 0 ] && id $VIC && grep -q 'keep me' /home/$VIC/thesis.txt"
+sudo userdel -r $VIC >/dev/null 2>&1
+
 # The account deleted by hand: --uninstall still removes root's files, and a new dedicated install is
 # no longer refused because of them.
 sudo bash "$INST" --dedicated-user $DED --ceiling narrow >"$W/stale-1.log" 2>&1
 check "stale account: the dedicated install is back (premise)" bash -c "[ -e /etc/systemd/user/psyche-helper-remote.service ] && [ -e /usr/local/lib/psyche-helper ]"
-sudo loginctl disable-linger $DED; sudo loginctl terminate-user $DED 2>/dev/null; sleep 1
+# Deleted with its user manager still running and linger still on (nobody logs it out first).
+STALE_UID="$(uid_of $DED)"
+check "stale account: linger and a running user manager (premise)" bash -c "[ -e /var/lib/systemd/linger/$DED ] && systemctl is-active --quiet user@$STALE_UID.service"
 sudo userdel -r -f $DED 2>/dev/null
 check "stale account: the account is gone but root's files stay (premise)" bash -c "! id $DED && [ -e /etc/systemd/user/psyche-helper-remote.service ]"
 sudo bash "$INST" --dedicated-user $DED --uninstall >"$W/stale-2.log" 2>&1; STALE_RC=$?
 check "stale account: --uninstall removes root's files and exits 0" bash -c "[ $STALE_RC -eq 0 ] && [ ! -e /etc/systemd/user/psyche-helper-remote.service ] && [ ! -e /usr/local/lib/psyche-helper ] && [ ! -e /usr/local/bin/psyche-helper ]"
+check "stale account: the linger file is gone" bash -c "[ ! -e /var/lib/systemd/linger/$DED ]"
+check "stale account: no user manager is left for the deleted UID" bash -c "! systemctl is-active --quiet user@$STALE_UID.service && ! pgrep -u $STALE_UID >/dev/null"
+check "stale account: the marker is gone" bash -c "[ ! -e /var/lib/psyche-helper/dedicated-account ]"
 sudo rm -rf /etc/psyche-helper
 
 # --- update (real binaries) -------------------------------------------------------------------

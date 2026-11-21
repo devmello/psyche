@@ -52,7 +52,7 @@ fn dirs(env: &dyn Env) -> Result<Dirs, String> {
         .home()
         .map(PathBuf::from)
         .filter(|h| h.is_absolute())
-        .ok_or("HOME is not set")?;
+        .ok_or("no passwd entry with an absolute home for this account")?;
     Ok(Dirs {
         config: config::config_dir(env),
         state: state_dir(env),
