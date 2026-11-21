@@ -120,8 +120,10 @@ export const machines: Partial<Catalogue> = {
   "settings.key.computerUse.defaultMachine": "バックグラウンド作業の既定のコンピューター",
   "settings.key.computerUse.machineApps": "Linuxコンピューターのアプリのアクセス",
   "machines.card.folder": "フォルダー",
-  "machines.card.runsContained": "隔離して、許可したフォルダーだけで実行: 鍵、ブラウザーのプロファイル、他のフォルダーには触れません",
-  "machines.card.runsFullAccount": "アカウント全体の権限で実行: そのアカウントにできることは何でもできます",
+  "machines.card.runsContained":
+    "隔離して、許可したフォルダーだけで実行: 鍵、ブラウザーのプロファイル、他のフォルダーには触れません",
+  "machines.card.runsFullAccount":
+    "アカウント全体の権限で実行: そのアカウントにできることは何でもできます",
   "machines.card.networkOff": "オフ",
   "machines.card.networkOn": "オン",
   "machines.card.folderReadOnly": "{path}、読み取り専用",

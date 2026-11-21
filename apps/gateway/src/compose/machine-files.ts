@@ -351,7 +351,10 @@ export function machineFilesTool(deps: MachineFilesDeps): AgentToolRegistration 
   const contentOk = (p: Params) => {
     const content = p.content ?? "";
     const bytes = Buffer.byteLength(content, p.encoding === "base64" ? "base64" : "utf8");
-    if (bytes > MACHINE_WRITE_MAX_BYTES || JSON.stringify(content).length > MACHINE_WRITE_MAX_JSON) {
+    if (
+      bytes > MACHINE_WRITE_MAX_BYTES ||
+      JSON.stringify(content).length > MACHINE_WRITE_MAX_JSON
+    ) {
       throw new PsycheError(
         "invalid_params",
         `content is larger than ${MACHINE_WRITE_MAX_BYTES} bytes; write a smaller file, or run a command on the machine to build a larger one`,

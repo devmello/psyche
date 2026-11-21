@@ -115,7 +115,8 @@ export const machines: Partial<Catalogue> = {
   "settings.key.computerUse.defaultMachine": "बैकग्राउंड काम के लिए डिफ़ॉल्ट कंप्यूटर",
   "settings.key.computerUse.machineApps": "Linux कंप्यूटर पर ऐप एक्सेस",
   "machines.card.folder": "फ़ोल्डर",
-  "machines.card.runsContained": "अलग रखा गया, सिर्फ़ दिए गए फ़ोल्डर में: कोई कुंजी, ब्राउज़र प्रोफ़ाइल या दूसरा फ़ोल्डर नहीं",
+  "machines.card.runsContained":
+    "अलग रखा गया, सिर्फ़ दिए गए फ़ोल्डर में: कोई कुंजी, ब्राउज़र प्रोफ़ाइल या दूसरा फ़ोल्डर नहीं",
   "machines.card.runsFullAccount": "पूरे खाते पर: वह खाता जो कुछ कर सकता है, यह भी कर सकता है",
   "machines.card.networkOff": "बंद",
   "machines.card.networkOn": "चालू",

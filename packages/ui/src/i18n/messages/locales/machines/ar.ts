@@ -115,7 +115,8 @@ export const machines: Partial<Catalogue> = {
   "settings.key.computerUse.defaultMachine": "الحاسوب الافتراضي للعمل في الخلفية",
   "settings.key.computerUse.machineApps": "وصول التطبيقات على حاسوب Linux",
   "machines.card.folder": "المجلد",
-  "machines.card.runsContained": "معزول، في المجلد الممنوح فقط: لا مفاتيح ولا ملفات تعريف المتصفح ولا مجلدات أخرى",
+  "machines.card.runsContained":
+    "معزول، في المجلد الممنوح فقط: لا مفاتيح ولا ملفات تعريف المتصفح ولا مجلدات أخرى",
   "machines.card.runsFullAccount": "على الحساب الكامل: يمكنه فعل أي شيء يستطيعه ذلك الحساب",
   "machines.card.networkOff": "متوقفة",
   "machines.card.networkOn": "مفعّلة",

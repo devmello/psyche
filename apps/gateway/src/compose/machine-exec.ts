@@ -3,9 +3,9 @@ import type { ToolRunContext } from "@psyche/agent-core";
 import {
   type AuditLog,
   type ComputerMachineRef,
+  type ErrorCode,
   EXEC_DEFAULT_TIMEOUT_MS,
   EXEC_OUTPUT_CAP_BYTES,
-  type ErrorCode,
   type PermissionBroker,
   PsycheError,
   type ToolCallDescription,

@@ -117,7 +117,8 @@ export const machines = {
   "settings.key.computerUse.defaultMachine": "Default computer for background work",
   "settings.key.computerUse.machineApps": "App access on a Linux computer",
   "machines.card.folder": "Folder",
-  "machines.card.runsContained": "contained, in the granted folder only: no keys, browser profiles or other folders",
+  "machines.card.runsContained":
+    "contained, in the granted folder only: no keys, browser profiles or other folders",
   "machines.card.runsFullAccount": "on the full account: it can do anything that account can",
   "machines.card.networkOff": "off",
   "machines.card.networkOn": "on",

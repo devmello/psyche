@@ -123,11 +123,14 @@ export const machines: Partial<Catalogue> = {
     "Ordinateur par défaut pour le travail en arrière-plan",
   "settings.key.computerUse.machineApps": "Accès aux apps sur un ordinateur Linux",
   "machines.card.folder": "Dossier",
-  "machines.card.runsContained": "isolé, dans le dossier accordé seulement : ni clés, ni profils de navigateur, ni autres dossiers",
-  "machines.card.runsFullAccount": "avec le compte complet : il peut faire tout ce que ce compte peut faire",
+  "machines.card.runsContained":
+    "isolé, dans le dossier accordé seulement : ni clés, ni profils de navigateur, ni autres dossiers",
+  "machines.card.runsFullAccount":
+    "avec le compte complet : il peut faire tout ce que ce compte peut faire",
   "machines.card.networkOff": "désactivé",
   "machines.card.networkOn": "activé",
   "machines.card.folderReadOnly": "{path}, lecture seule",
   "machines.card.folderReadWrite": "{path}, lecture et écriture",
-  "machines.card.folderNotEnforced": "{path}, la lecture seule n'est pas appliquée avec le compte complet",
+  "machines.card.folderNotEnforced":
+    "{path}, la lecture seule n'est pas appliquée avec le compte complet",
 };

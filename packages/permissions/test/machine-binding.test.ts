@@ -2,13 +2,13 @@ import { FakeClock } from "@psyche/testing";
 import { describe, expect, it } from "vitest";
 import { bindingFor } from "../src/binding.ts";
 import { machineCardOf } from "../src/broker.ts";
-import { call, CTX, makeBroker, memoryDb, sqliteBroker } from "./helpers.ts";
 import {
   HOST_PROGRAM_ROOTS,
   type HostProgramFacts,
   hostProgramGrantCovers,
   hostProgramRefusal,
 } from "../src/host-program.ts";
+import { CTX, call, makeBroker, memoryDb, sqliteBroker } from "./helpers.ts";
 
 /**
  * H5 (linux-helper-only §5.1): a machine command's binding and program-grant key carry the

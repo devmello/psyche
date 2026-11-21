@@ -434,10 +434,7 @@ function approvalFromRow(r: ApprovalRow): StoredApproval {
   if (card.cardRiskClass === "routine" || card.cardRiskClass === "sensitive")
     approval.riskClass = card.cardRiskClass;
   if (card.cardSetAside === true) approval.setAside = true;
-  if (
-    typeof card.cardMachine?.deviceId === "string" &&
-    typeof card.cardMachine.name === "string"
-  ) {
+  if (typeof card.cardMachine?.deviceId === "string" && typeof card.cardMachine.name === "string") {
     approval.machine = { deviceId: card.cardMachine.deviceId, name: card.cardMachine.name };
   }
   return {
