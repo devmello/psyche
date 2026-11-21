@@ -832,6 +832,7 @@ describe("computerUse.linux and the account state", () => {
     connected = false;
     let answer: NodeInvokeResult = { ok: false, error: { code: "internal", message: "d-bus" } };
     const flaky: NodeClient = {
+      nodeId: helper.nodeId,
       info: () => helper.info(),
       capabilities: () => helper.capabilities(),
       invoke: async (capability, params) => {
@@ -867,6 +868,7 @@ describe("computerUse.linux and the account state", () => {
   it("a helper that throws on revoke keeps it pending", async () => {
     connected = false;
     const throwing: NodeClient = {
+      nodeId: helper.nodeId,
       info: () => helper.info(),
       capabilities: () => helper.capabilities(),
       invoke: async (capability, params) => {
@@ -884,6 +886,7 @@ describe("computerUse.linux and the account state", () => {
   it("a Revoke tapped while one is being applied stays pending until it is confirmed", async () => {
     let release: () => void = () => undefined;
     const slow: NodeClient = {
+      nodeId: helper.nodeId,
       info: () => helper.info(),
       capabilities: () => helper.capabilities(),
       invoke: async (capability, params) => {
