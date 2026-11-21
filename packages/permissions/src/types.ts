@@ -69,6 +69,8 @@ export interface CallMeta {
   connector?: { id: string; action: string };
   /** Bundle id for computer-use actions. */
   app?: string;
+  /** A paired machine's device id when the computer-use call is for that machine, not the Host. */
+  machine?: string;
   /** Computer-use or browser action name (`click`, `type`, …). */
   action?: string;
   /** The element being typed into or filled. */

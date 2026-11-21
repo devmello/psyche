@@ -273,7 +273,7 @@ describe("tool calls", () => {
         details: { machine: { deviceId: "DEVA", name: "lab-box" } },
       }),
     });
-    const asked: { machine?: unknown }[] = [];
+    const asked: unknown[] = [];
     const request = h.broker.requestApproval.bind(h.broker);
     h.broker.requestApproval = (input) => {
       asked.push(input);
@@ -281,7 +281,10 @@ describe("tool calls", () => {
     };
     const turn = start(h, "type it");
     await until(() => h.broker.issued.length === 1, "approval");
-    expect(asked[0]?.machine).toEqual({ deviceId: "DEVA", name: "lab-box" });
+    expect((asked[0] as { machine?: unknown }).machine).toEqual({
+      deviceId: "DEVA",
+      name: "lab-box",
+    });
     await h.broker.decideLatest("deny", h.clock);
     await turn.done;
   });
