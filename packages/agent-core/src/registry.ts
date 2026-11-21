@@ -9,6 +9,7 @@ import {
   type TargetKind,
   type ToolCallAuthority,
   type ToolCallDescription,
+  type ToolCallScope,
   type ToolExecutor,
   type ToolRegistration,
   type ToolRegistry,
@@ -76,7 +77,7 @@ export interface DefineToolInput<T extends TSchema> {
   sideEffect: SideEffect;
   targetKind?: TargetKind;
   provenanceOut?: ProvenanceOut;
-  describeCall?: (params: Static<T>) => ToolCallDescription;
+  describeCall?: (params: Static<T>, call?: ToolCallScope) => ToolCallDescription;
   run: (params: Static<T>, ctx: ToolRunContext) => Promise<ToolResult>;
 }
 
@@ -219,7 +220,7 @@ export function defineTool<T extends TSchema>(def: DefineToolInput<T>): AgentToo
       ),
   };
   if (describe !== undefined) {
-    registration.describeCall = (params) => describe(params as Static<T>);
+    registration.describeCall = (params, call) => describe(params as Static<T>, call);
   }
   return registration;
 }

@@ -2912,6 +2912,8 @@ export class PsycheAgentLoop implements AgentLoop {
         reg.describeCall?.(call.input, {
           runId: run.runId,
           ...(run.taskId === undefined ? {} : { taskId: run.taskId }),
+          threadId: run.threadId,
+          ...(run.space === undefined ? {} : { spaceId: run.space.id }),
         }) ?? {};
     } catch (err) {
       return this.#blocked(run, call, `invalid params: ${errorMessage(err)}`, "failed");

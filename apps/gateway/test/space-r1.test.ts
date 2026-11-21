@@ -263,6 +263,104 @@ describe("finding 2: the thread tools keep a private Space's chats out", () => {
   });
 });
 
+describe("r2 finding 1: a private Space's automation and job threads stay inside it", () => {
+  async function setupTaxes() {
+    const { db, c, gw } = await start();
+    const taxes = await newSpace(c, { name: "Taxes" });
+    await c.call("spaces.update", { spaceId: taxes.id, private: true }, ik());
+    const clock = new FakeClock(Date.parse("2026-11-20T12:00:00Z"));
+    const notifier = new FakeNotifier({ clock });
+    const resolver = createDbSessionResolver(db);
+    const s = new SqliteScheduler({
+      db,
+      clock,
+      timers: { setTimeout: () => 0, clearTimeout: () => undefined },
+      launcher: {
+        launch: () => ({ taskId: "t", result: Promise.resolve({ status: "done", summary: "ok" }) }),
+      } as unknown as RunLauncher,
+      sessions: resolver,
+      notifier,
+      deliverer: createDeliverer({ notifier }),
+    });
+    const base = {
+      kind: "interval",
+      schedule: "PT1H",
+      prompt: "Audit",
+      timezone: "UTC",
+      delivery: {},
+      scratch: null,
+      enabled: true,
+      spaceId: taxes.id,
+    } as const;
+    const iso = await s.create({ ...base, title: "Audit iso", sessionTarget: "isolated" });
+    const named = await s.create({ ...base, title: "Audit named", sessionTarget: "named:audit" });
+    const runThread = await resolver.resolve("isolated", { automation: iso, runId: "run_1" });
+    const namedThread = await resolver.resolve("named:audit", {
+      automation: named,
+      runId: "run_2",
+    });
+    const home = db.sqlite
+      .prepare("SELECT id FROM threads WHERE session_key = ?")
+      .get(`automation:${iso.id}`) as { id: string };
+    // A specialist job of a chat in the Space: a subagent thread whose task names the Space.
+    const job = db.sqlite
+      .prepare(
+        "INSERT INTO threads (id, kind, session_key, title, created_at, updated_at) VALUES ('thr_job', 'subagent', 'specialist:r:1', 'Job', ?, ?)",
+      )
+      .run(db.now(), db.now());
+    void job;
+    db.sqlite
+      .prepare(
+        "INSERT INTO tasks (id, thread_id, title, goal, status, created_from, specialist, created_at, updated_at) VALUES ('task_job', 'thr_job', 'Job', 'g', 'queued', 'subagent', ?, ?, ?)",
+      )
+      .run(JSON.stringify({ spaceId: taxes.id }), db.now(), db.now());
+    const hiddenIds = [runThread, namedThread, home.id, "thr_job"];
+    const inside = await newChat(c, taxes.id, "Receipts");
+    const outside = await newChat(c, undefined, "Lunch");
+    return { db, gw, taxes, hiddenIds, inside, outside };
+  }
+  const runTools = (db: PsycheDb, gw: TestGateway["gateway"]) => {
+    const tools: Record<string, AgentToolRegistration> = Object.fromEntries(
+      threadTools({ db, gateway: () => gw }).map((x) => [x.spec.name, x]),
+    );
+    return tools;
+  };
+
+  it("lists and reads none of them from outside; the Space's own chat still does", async () => {
+    const { db, gw, taxes, hiddenIds, inside, outside } = await setupTaxes();
+    const tools = runTools(db, gw);
+    const out = ctx({ threadId: outside });
+    const listed = (await tools.threads_list?.run?.({}, out)) as Json;
+    const ids = listed.output.threads.map((x: Json) => x.threadId);
+    for (const id of hiddenIds) {
+      expect(ids).not.toContain(id);
+      await expect(tools.thread_read?.run?.({ threadId: id }, out)).rejects.toMatchObject({
+        code: "not_found",
+      });
+      await expect(
+        tools.thread_message?.run?.({ threadId: id, content: "hi" }, out),
+      ).rejects.toMatchObject({ code: "not_found" });
+      // No approval card for a hidden id.
+      expect(() =>
+        tools.thread_read?.describeCall?.({ threadId: id }, { runId: "r", threadId: outside }),
+      ).toThrow(/not found/);
+      expect(() =>
+        tools.thread_archive?.describeCall?.({ threadId: id }, { runId: "r", threadId: outside }),
+      ).toThrow(/not found/);
+    }
+    const inCtx = ctx({ threadId: inside, spaceId: taxes.id });
+    for (const id of hiddenIds.filter((x) => x !== hiddenIds[0])) {
+      await expect(tools.thread_read?.run?.({ threadId: id }, inCtx)).resolves.toBeDefined();
+      expect(() =>
+        tools.thread_read?.describeCall?.(
+          { threadId: id },
+          { runId: "r", threadId: inside, spaceId: taxes.id },
+        ),
+      ).not.toThrow();
+    }
+  });
+});
+
 describe("finding 5: bindings at any depth the validator allows count", () => {
   const nest = (depth: number, source: string): Json => {
     let node: Json = { id: "leaf", type: "status", bind: { source, id: "x", field: "status" } };

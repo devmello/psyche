@@ -87,6 +87,19 @@ describe("an automation's Space", () => {
     }
   });
 
+  // r2 finding 2: the rule applies to a patch that moves the row, never to a pause.
+  it("pauses and resumes a legacy main-target row in a Space", async () => {
+    const { scheduler, db } = setup({ start: T0 });
+    addSpace(db, "sp_a");
+    const a = await scheduler.create({ ...hourly, sessionTarget: "main" });
+    db.sqlite.prepare("UPDATE automations SET space_id = 'sp_a' WHERE id = ?").run(a.id);
+    expect((await scheduler.update(a.id, { enabled: false })).enabled).toBe(false);
+    expect((await scheduler.update(a.id, { enabled: true })).enabled).toBe(true);
+    await expect(scheduler.update(a.id, { sessionTarget: "main" })).rejects.toMatchObject({
+      details: { reason: SPACE_MAIN_CHAT_REASON },
+    });
+  });
+
   it("stays when its Space is deleted, with no Space", async () => {
     const { scheduler, db } = setup({ start: T0 });
     addSpace(db, "sp_a");

@@ -8,11 +8,11 @@ import {
   threadActivity,
   updateThread,
 } from "@psyche/db";
-import { PsycheError, type Thread } from "@psyche/protocol";
+import { PsycheError, type Thread, type ToolCallScope } from "@psyche/protocol";
 import { Type } from "@sinclair/typebox";
 import { transcriptMarkdown } from "../handlers/chat.ts";
 import type { Gateway } from "../server.ts";
-import { hiddenByPrivateSpace } from "./space-context.ts";
+import { threadHiddenByPrivateSpace } from "./space-context.ts";
 
 /**
  * Cross-thread awareness (feature E12, opt-in with the admin setting
@@ -52,7 +52,7 @@ function visibleThread(
   if (
     !thread ||
     thread.kind === "incognito" ||
-    hiddenByPrivateSpace(db, thread.spaceId, caller.spaceId)
+    threadHiddenByPrivateSpace(db, thread, caller.spaceId)
   ) {
     throw new PsycheError("not_found", `thread ${threadId} not found`);
   }
@@ -71,6 +71,16 @@ function requireGateway(deps: ThreadToolDeps): Gateway {
 export function threadTools(deps: ThreadToolDeps): AgentToolRegistration[] {
   const { db } = deps;
 
+  // Before an approval card is raised: a hidden id is `not_found` with no card (the loop turns a
+  // throw here into a blocked call). Without a scope (previews) nothing is checked; `run` still is.
+  const precheck = (threadId: string, call: ToolCallScope | undefined) => {
+    if (call?.threadId === undefined) return;
+    visibleThread(db, threadId, {
+      threadId: call.threadId,
+      ...(call.spaceId === undefined ? {} : { spaceId: call.spaceId }),
+    });
+  };
+
   const list = defineTool({
     name: "threads_list",
     description:
@@ -84,6 +94,9 @@ export function threadTools(deps: ThreadToolDeps): AgentToolRegistration[] {
     async run(p, ctx) {
       const page = listThreadsPage(db, {
         limit: (p.limit ?? 20) + 1,
+        // Per-run work threads are noise next to the automation's own chat, and each is hidden
+        // by its automation's Space anyway.
+        hideRunThreads: true,
         ...(p.query === undefined ? {} : { query: p.query }),
       });
       const threads = page.threads
@@ -91,7 +104,7 @@ export function threadTools(deps: ThreadToolDeps): AgentToolRegistration[] {
           (t) =>
             t.kind !== "incognito" &&
             t.id !== ctx.threadId &&
-            !hiddenByPrivateSpace(db, t.spaceId, ctx.spaceId),
+            !threadHiddenByPrivateSpace(db, t, ctx.spaceId),
         )
         .slice(0, p.limit ?? 20);
       const activity = threadActivity(
@@ -124,12 +137,15 @@ export function threadTools(deps: ThreadToolDeps): AgentToolRegistration[] {
     provenanceOut: "untrusted",
     // Raw content of another chat is a new source: its first read asks the owner (E12;
     // docs/05 §3.2), who can allow it for the task.
-    describeCall: (p) => ({
-      kind: "connector_action",
-      target: { kind: "account", value: `thread:${p.threadId}` },
-      grantKey: `thread_read|${p.threadId}`,
-      summary: "Read another chat",
-    }),
+    describeCall: (p, call) => {
+      precheck(p.threadId, call);
+      return {
+        kind: "connector_action",
+        target: { kind: "account", value: `thread:${p.threadId}` },
+        grantKey: `thread_read|${p.threadId}`,
+        summary: "Read another chat",
+      };
+    },
     async run(p, ctx) {
       const thread = visibleThread(db, p.threadId, ctx);
       const { messages } = listMessagesPage(db, thread.id, { limit: p.limit ?? 20 });
@@ -156,11 +172,14 @@ export function threadTools(deps: ThreadToolDeps): AgentToolRegistration[] {
       content: Type.String({ minLength: 1, maxLength: MAX_MESSAGE_CHARS }),
     }),
     sideEffect: "write",
-    describeCall: (p) => ({
-      summary: `Message another thread`,
-      grantKey: `thread:${p.threadId}`,
-      bindingFields: { threadId: p.threadId, contentSha256: sha256(p.content) },
-    }),
+    describeCall: (p, call) => {
+      precheck(p.threadId, call);
+      return {
+        summary: `Message another thread`,
+        grantKey: `thread:${p.threadId}`,
+        bindingFields: { threadId: p.threadId, contentSha256: sha256(p.content) },
+      };
+    },
     async run(p, ctx) {
       if (ctx.taint) {
         throw new PsycheError(
@@ -187,12 +206,15 @@ export function threadTools(deps: ThreadToolDeps): AgentToolRegistration[] {
     input: Type.Object({ threadId: ThreadId }),
     // `destructive` so the broker always asks (feature E12: archiving another thread needs approval).
     sideEffect: "destructive",
-    describeCall: (p) => ({
-      kind: "archive_thread",
-      summary: "Archive another thread",
-      grantKey: `thread:${p.threadId}`,
-      bindingFields: { threadId: p.threadId },
-    }),
+    describeCall: (p, call) => {
+      precheck(p.threadId, call);
+      return {
+        kind: "archive_thread",
+        summary: "Archive another thread",
+        grantKey: `thread:${p.threadId}`,
+        bindingFields: { threadId: p.threadId },
+      };
+    },
     async run(p, ctx) {
       const thread = visibleThread(db, p.threadId, ctx);
       const gw = requireGateway(deps);

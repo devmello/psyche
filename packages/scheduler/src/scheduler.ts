@@ -421,7 +421,13 @@ export class SqliteScheduler implements Scheduler {
       const next = { ...current, ...patch };
       if (patch.spaceId != null && patch.spaceId !== current.spaceId)
         this.#checkSpace(patch.spaceId, next.sessionTarget);
-      else if (next.spaceId != null && next.sessionTarget === "main") throw spaceMainTargetError();
+      else if (
+        // Only a patch that moves the automation checks the rule: pausing a legacy row must work.
+        (patch.spaceId !== undefined || patch.sessionTarget !== undefined) &&
+        next.spaceId != null &&
+        next.sessionTarget === "main"
+      )
+        throw spaceMainTargetError();
       if (patch.kind !== undefined && patch.kind !== current.kind) bad("kind cannot change");
       const schedule = this.#validate(next);
       // Only a real change reschedules: re-sending the same values (UI round trips, the heartbeat

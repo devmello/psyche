@@ -294,6 +294,59 @@ export function hiddenByPrivateSpace(
   return new SpaceStore(db).get(threadSpaceId)?.private !== false;
 }
 
+/**
+ * The Spaces a thread's content belongs to, beyond its own `space_id`: an automation's chats
+ * (home `automation:<id>`, run `cron:<id>:<run>`, and any `named:` chat an automation targets)
+ * take their automation's Space, and a specialist job's thread takes `specialist.spaceId`. Read
+ * from the owner objects, so it holds whether or not the thread row carries a `space_id`.
+ */
+function ownerSpaceIds(db: PsycheDb, threadId: string): string[] {
+  const row = db.sqlite
+    .prepare("SELECT kind, session_key AS k FROM threads WHERE id = ?")
+    .get(threadId) as { kind: string; k: string | null } | undefined;
+  if (row === undefined) return [];
+  const out: string[] = [];
+  const key = row.k ?? "";
+  if (row.kind === "automation") {
+    const byId = /^(?:automation|cron):([^:]+)/.exec(key)?.[1];
+    const rows = (
+      byId !== undefined
+        ? db.sqlite.prepare("SELECT space_id AS s FROM automations WHERE id = ?").all(byId)
+        : key.startsWith("named:")
+          ? db.sqlite
+              .prepare("SELECT space_id AS s FROM automations WHERE session_target = ?")
+              .all(key)
+          : []
+    ) as { s: string | null }[];
+    for (const r of rows) if (r.s != null) out.push(r.s);
+  }
+  const task = db.sqlite
+    .prepare("SELECT specialist FROM tasks WHERE thread_id = ? AND specialist IS NOT NULL")
+    .all(threadId) as { specialist: string }[];
+  for (const t of task) {
+    try {
+      const id = (JSON.parse(t.specialist) as { spaceId?: unknown }).spaceId;
+      if (typeof id === "string") out.push(id);
+    } catch {
+      // A malformed row names no Space.
+    }
+  }
+  return out;
+}
+
+/**
+ * SP7, SR10 for a whole thread: its own Space plus the Space of its owner object (automation or
+ * specialist job). Hidden when any of them is a private Space other than the run's own.
+ */
+export function threadHiddenByPrivateSpace(
+  db: PsycheDb,
+  thread: { id: string; spaceId?: string | null | undefined },
+  runSpaceId: string | undefined,
+): boolean {
+  if (hiddenByPrivateSpace(db, thread.spaceId, runSpaceId)) return true;
+  return ownerSpaceIds(db, thread.id).some((s) => hiddenByPrivateSpace(db, s, runSpaceId));
+}
+
 export function previewHandler(): HandlerDef {
   return {
     run(call: Call, p: MethodParams<"spaces.context.preview">) {
