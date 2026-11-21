@@ -186,6 +186,10 @@ export interface GatewayContext {
   readonly agent: AgentLoop;
   readonly broker: PermissionBroker;
   readonly memory: MemoryStore | null;
+  /** Reports a conversation import to the audit trail (counts only, never text). */
+  readonly onThreadsImported:
+    | ((e: { source: string; imported: number; duplicates: number; deviceId: string }) => void)
+    | null;
   /** Reports `settings.set` to the audit trail. */
   readonly onSettingChanged:
     | ((change: {

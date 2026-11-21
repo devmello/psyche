@@ -55,6 +55,7 @@ const REQUIRED_METHODS: MethodName[] = [
   "threads.clear",
   "threads.pin",
   "threads.fork",
+  "threads.import",
   "chat.send",
   "chat.history",
   "chat.cancel",

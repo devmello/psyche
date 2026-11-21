@@ -14,6 +14,7 @@ import {
   type HostHelperStatus,
   parseHostHelperStatus,
 } from "./HostHelperCheckGroup.tsx";
+import { MachinesGroup } from "./MachinesGroup.tsx";
 import { PasswordPresenceGroup, type PasswordPresenceRow } from "./PasswordPresenceGroup.tsx";
 import { RowMoreMenu } from "./RowMoreMenu.tsx";
 import {
@@ -105,6 +106,8 @@ export interface DevicesPanelProps extends LoadProps {
   hostHelperStatus?: HostHelperStatus | undefined;
   now?: number;
   thisDeviceId?: string;
+  /** "Computers Psyche can use": the connected group (absent in the pure panel's stories). */
+  machines?: ReactElement | null;
   onApprove?: (request: PairingRequest, scopes: DeviceScope[]) => void;
   onDeny?: (request: PairingRequest) => void;
   onRevoke?: (device: Device) => void;
@@ -123,6 +126,7 @@ export function DevicesPanel({
   hostHelperStatus,
   now,
   thisDeviceId,
+  machines = null,
   onApprove,
   onDeny,
   onRevoke,
@@ -174,6 +178,8 @@ export function DevicesPanel({
 
         {passwordPresence ? <PasswordPresenceGroup row={passwordPresence} /> : null}
         {hostHelperStatus ? <HostHelperCheckGroup status={hostHelperStatus} /> : null}
+
+        {machines}
 
         <Group title={t("settings.devices.paired")}>
           {active.length === 0 ? (
@@ -565,6 +571,7 @@ export function DevicesSection({
           ),
         onRemove: (deviceId) => settled(call("devices.presenceKey.remove", { deviceId })),
       }}
+      machines={<MachinesGroup {...(now === undefined ? {} : { now })} />}
       loading={devicesQ.loading && devicesQ.data === undefined}
       error={devicesQ.error ?? nodesQ.error}
       onRetry={reloadAll}
