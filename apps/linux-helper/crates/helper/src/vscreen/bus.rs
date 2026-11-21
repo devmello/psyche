@@ -217,7 +217,7 @@ mod tests {
         assert_eq!(
             argv,
             [
-                super::tools::dbus_daemon().to_str().unwrap(),
+                crate::vscreen::tools::dbus_daemon().to_str().unwrap(),
                 "--config-file=/run/user/1000/psyche/vs-1/bus.conf",
                 "--nofork",
                 "--nopidfile"
