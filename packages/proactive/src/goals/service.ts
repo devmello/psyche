@@ -159,6 +159,36 @@ const NOT_STALLED: ReadonlySet<string> = new Set([
 
 const DAY_MS = 86_400_000;
 
+/**
+ * A plan patch replaces the plan but never drops where the goal came from: `evidence` is kept
+ * (the patch may add items) and `taintedMilestones` is the union of the old and the patch's ids,
+ * limited to milestones that still exist. A plan edit cannot launder taint.
+ */
+function mergePlan(
+  old: JsonObject | null,
+  patch: JsonObject | null,
+  milestoneIds: ReadonlySet<string>,
+): JsonObject | null {
+  const next: JsonObject = { ...(patch ?? {}) };
+  const evidence: unknown[] = [];
+  for (const item of [
+    ...(Array.isArray(old?.evidence) ? old.evidence : []),
+    ...(Array.isArray(patch?.evidence) ? patch.evidence : []),
+  ]) {
+    if (!evidence.some((e) => JSON.stringify(e) === JSON.stringify(item))) evidence.push(item);
+  }
+  if (evidence.length > 0) next.evidence = evidence as never;
+  const tainted = new Set<string>(
+    [
+      ...(Array.isArray(old?.taintedMilestones) ? old.taintedMilestones : []),
+      ...(Array.isArray(patch?.taintedMilestones) ? patch.taintedMilestones : []),
+    ].filter((id): id is string => typeof id === "string" && milestoneIds.has(id)),
+  );
+  if (tainted.size > 0) next.taintedMilestones = [...tainted];
+  else delete next.taintedMilestones;
+  return Object.keys(next).length === 0 && patch === null ? null : next;
+}
+
 /** At most once a day: a daily time of day in cron, or a duration of 24 hours or more. */
 function assertCheckinCadence(cadence: string): void {
   const value = cadence.trim();
@@ -565,7 +595,15 @@ export class GoalsService {
       ...(patch.title === undefined ? {} : { title: patch.title.trim() }),
       ...(patch.category === undefined ? {} : { category: patch.category }),
       ...(patch.status === undefined ? {} : { status: patch.status }),
-      ...(patch.plan === undefined ? {} : { plan: patch.plan }),
+      ...(patch.plan === undefined
+        ? {}
+        : {
+            plan: mergePlan(
+              goal.plan ?? null,
+              patch.plan,
+              new Set(this.store.milestones(goalId).map((m) => m.id)),
+            ),
+          }),
       ...(patch.cadence === undefined ? {} : { cadence: patch.cadence }),
       updatedAt: this.#now(),
     };

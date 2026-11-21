@@ -23,6 +23,7 @@ import { homeRest } from "./home-rest/it.ts";
 import { keepAwake } from "./keep-awake/it.ts";
 import { links } from "./links/it.ts";
 import { linuxAccess } from "./linux-access/it.ts";
+import { machines } from "./machines/it.ts";
 import { mailFollowups } from "./mail-followups/it.ts";
 import { mailMeetings } from "./mail-meetings/it.ts";
 import { meetingRecordRest } from "./meeting-record-rest/it.ts";
@@ -791,7 +792,45 @@ export const it: Partial<Catalogue> = {
   "agent.memory.incognito": "Chat secondaria in incognito",
   "agent.memory.importExport": "Importa, esporta e ripristina",
   "agent.memory.import": "Importa memoria",
+  "agent.memory.importConv.title": "Importa da claude.ai o ChatGPT",
+  "agent.memory.importConv.note":
+    "Le conversazioni importate sono in sola lettura. Il loro testo è trattato come dato non attendibile e non diventa mai un elemento fissato né un’istruzione.",
+  "agent.memory.importConv.source": "Esportato da",
+  "agent.memory.importConv.claude": "claude.ai",
+  "agent.memory.importConv.chatgpt": "ChatGPT",
+  "agent.memory.importConv.mode": "Cosa importare",
+  "agent.memory.importConv.memoriesOnly": "Solo ricordi",
+  "agent.memory.importConv.both": "Ricordi e conversazioni",
+  "agent.memory.importConv.memoriesFile": "File dei ricordi",
+  "agent.memory.importConv.conversationsFile": "File delle conversazioni (conversations.json)",
+  "agent.memory.importConv.start": "Importa",
+  "agent.memory.importConv.working": "Importazione…",
+  "agent.memory.importConv.cancel": "Annulla",
+  "agent.memory.importConv.close": "Chiudi",
+  "agent.memory.importConv.progressMemories": "Importazione dei ricordi…",
+  "agent.memory.importConv.progressConversations": "Importazione delle conversazioni…",
+  "agent.memory.importConv.failed": "Impossibile importare questo file: {reason}",
+  "agent.memory.importConv.done": "Importazione completata.",
+  "agent.memory.importConv.sumMemories": "Ricordi da rivedere: {n}",
+  "agent.memory.importConv.sumThreads": "Conversazioni importate: {n}",
+  "agent.memory.importConv.sumDuplicates": "Già importate in precedenza: {n}",
+  "agent.memory.importConv.sumSkipped": "Conversazioni saltate: {n}",
+  "agent.memory.importConv.skipTooMany": "oltre il limite di {n} conversazioni",
+  "agent.memory.importConv.skipTooLarge": "troppo lunga",
+  "agent.memory.importConv.skipEmpty": "nessun messaggio",
+  "agent.memory.importConv.skipInvalid": "non leggibile",
+  "agent.memory.importConv.untitled": "Senza titolo",
+  "agent.memory.importConv.progressCount": "Importazione delle conversazioni… {done} di {total}",
+  "agent.memory.importConv.tooBig":
+    "Questo file supera {mb} MB ed è troppo grande per essere letto qui. Esporta di nuovo un intervallo più piccolo.",
+  "agent.memory.importConv.memoriesTooBig":
+    "Questo file dei ricordi supera {kb} KB ed è troppo grande per essere importato in una volta. Dividilo o esporta meno ricordi.",
+  "agent.memory.importConv.partial":
+    "Interrotto prima della fine: {reason}. Sono stati importati {done} lotti su {total}. Importa di nuovo per continuare; le conversazioni già importate vengono saltate.",
+  "agent.memory.importConv.retry": "Importa di nuovo",
   "agent.memory.exported": "Esportato {file}.",
+  "agent.memory.importConv.memoriesFailed":
+    "Impossibile importare i ricordi: {reason}. Importa di nuovo per riprovare.",
   "agent.memory.export": "Esporta tutto",
   "agent.memory.resetDone":
     "Ripristinati {files, plural, one {# file} other {# file}}, {claims, plural, one {# affermazione} other {# affermazioni}}.",
@@ -900,6 +939,8 @@ export const it: Partial<Catalogue> = {
   "shell.threads.unpin": "Rimuovi dai fissati",
   "shell.threads.pin": "Fissa",
   "shell.threads.archive": "Archivia",
+  "shell.threads.imported": "Importata",
+  "shell.threads.importedReadOnly": "Questa conversazione importata è in sola lettura.",
   "shell.threads.restore": "Ripristina",
   "shell.threads.region": "Thread",
   "shell.threads.filter": "Filtra i thread",
@@ -3801,4 +3842,5 @@ export const it: Partial<Catalogue> = {
   ...mailFollowups,
   ...keepAwake,
   ...spaces,
+  ...machines,
 };

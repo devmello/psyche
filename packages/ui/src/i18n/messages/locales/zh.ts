@@ -23,6 +23,7 @@ import { home } from "./home/zh.ts";
 import { keepAwake } from "./keep-awake/zh.ts";
 import { links } from "./links/zh.ts";
 import { linuxAccess } from "./linux-access/zh.ts";
+import { machines } from "./machines/zh.ts";
 import { mailFollowups } from "./mail-followups/zh.ts";
 import { mailMeetings } from "./mail-meetings/zh.ts";
 import { meetingRecord } from "./meeting-record/zh.ts";
@@ -837,8 +838,44 @@ export const zh: Partial<Catalogue> = {
   "agent.memory.incognito": "无痕支线聊天",
   "agent.memory.importExport": "导入、导出和重置",
   "agent.memory.import": "导入记忆",
+  "agent.memory.importConv.title": "从 claude.ai 或 ChatGPT 导入",
+  "agent.memory.importConv.note":
+    "导入的对话为只读。其文本被视为不可信数据，绝不会成为置顶项或指令。",
+  "agent.memory.importConv.source": "导出自",
+  "agent.memory.importConv.claude": "claude.ai",
+  "agent.memory.importConv.chatgpt": "ChatGPT",
+  "agent.memory.importConv.mode": "导入内容",
+  "agent.memory.importConv.memoriesOnly": "仅记忆",
+  "agent.memory.importConv.both": "记忆和对话",
+  "agent.memory.importConv.memoriesFile": "记忆文件",
+  "agent.memory.importConv.conversationsFile": "对话文件（conversations.json）",
+  "agent.memory.importConv.start": "导入",
+  "agent.memory.importConv.working": "正在导入…",
+  "agent.memory.importConv.cancel": "取消",
+  "agent.memory.importConv.close": "关闭",
+  "agent.memory.importConv.progressMemories": "正在导入记忆…",
+  "agent.memory.importConv.progressConversations": "正在导入对话…",
+  "agent.memory.importConv.failed": "无法导入此文件：{reason}",
+  "agent.memory.importConv.done": "导入完成。",
+  "agent.memory.importConv.sumMemories": "待审阅的记忆：{n}",
+  "agent.memory.importConv.sumThreads": "已导入的对话：{n}",
+  "agent.memory.importConv.sumDuplicates": "此前已导入：{n}",
+  "agent.memory.importConv.sumSkipped": "已跳过的对话：{n}",
+  "agent.memory.importConv.skipTooMany": "超过 {n} 个对话的上限",
+  "agent.memory.importConv.skipTooLarge": "过长",
+  "agent.memory.importConv.skipEmpty": "没有消息",
+  "agent.memory.importConv.skipInvalid": "无法读取",
+  "agent.memory.importConv.untitled": "无标题",
+  "agent.memory.importConv.progressCount": "正在导入对话… {done} / {total}",
+  "agent.memory.importConv.tooBig": "此文件超过 {mb} MB，太大无法在此读取。请缩小范围后重新导出。",
   "agent.memory.exported": "已导出 {file}。",
+  "agent.memory.importConv.memoriesTooBig":
+    "此记忆文件超过 {kb} KB，无法一次性导入。请拆分文件或导出更少的记忆。",
+  "agent.memory.importConv.partial":
+    "在完成前停止：{reason}。已导入 {total} 批中的 {done} 批。再次导入即可继续；已导入的对话会被跳过。",
+  "agent.memory.importConv.retry": "再次导入",
   "agent.memory.export": "导出全部",
+  "agent.memory.importConv.memoriesFailed": "无法导入记忆：{reason}。再次导入即可重试。",
   "agent.memory.resetDone":
     "已重置 {files, plural, other {# 个文件}}、{claims, plural, other {# 条断言}}。",
   "agent.creature.axolotl.name": "美西螈",
@@ -937,6 +974,8 @@ export const zh: Partial<Catalogue> = {
   "shell.threads.unpin": "取消置顶",
   "shell.threads.pin": "置顶",
   "shell.threads.archive": "归档",
+  "shell.threads.imported": "已导入",
+  "shell.threads.importedReadOnly": "此导入的对话为只读。",
   "shell.threads.restore": "恢复",
   "shell.threads.region": "会话",
   "shell.threads.filter": "过滤会话",
@@ -3686,4 +3725,5 @@ export const zh: Partial<Catalogue> = {
   ...mailFollowups,
   ...keepAwake,
   ...spaces,
+  ...machines,
 };

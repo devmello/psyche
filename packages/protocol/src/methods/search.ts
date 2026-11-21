@@ -116,6 +116,8 @@ export const SearchHit = Type.Object(
     titleHighlights: Type.Optional(Type.Array(HighlightRange)),
     match: Type.Optional(SearchMatch),
     card: Type.Optional(SearchHitCard),
+    /** The hit is in a conversation imported from an export (shown with an "Imported" chip). */
+    imported: Type.Optional(StringEnum(["claude", "chatgpt"])),
   },
   { $id: "SearchHit" },
 );

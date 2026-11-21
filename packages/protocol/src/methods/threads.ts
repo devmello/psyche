@@ -100,6 +100,36 @@ export const ThreadsMethods = {
     description:
       "New chat: returns the empty chat of that kind the owner already has (preferring preferThreadId), else creates one marked as user-created.",
   }),
+  "threads.import": defineMethod({
+    params: Type.Object({
+      format: StringEnum(["claude", "chatgpt"], { $id: "ThreadImportFormat" }),
+      /** A batch of whole conversations from the export (a frame is 1 MiB; clients split the file). */
+      content: Type.String({ minLength: 2, maxLength: 330_000 }),
+      dryRun: Type.Optional(Type.Boolean()),
+    }),
+    result: Type.Object(
+      {
+        /** Threads created (or, in a dry run, that would be). */
+        imported: Type.Integer({ minimum: 0 }),
+        /** Conversations already imported earlier: left as they are. */
+        duplicates: Type.Integer({ minimum: 0 }),
+        skipped: Type.Array(
+          Type.Object({
+            title: Type.String(),
+            reason: StringEnum(["too_many", "too_large", "empty", "invalid"]),
+          }),
+          { maxItems: 500 },
+        ),
+        /** Skipped entries past the 500 listed above. */
+        skippedMore: Type.Integer({ minimum: 0 }),
+      },
+      { $id: "ThreadImportResult" },
+    ),
+    scope: "operator.write",
+    sideEffecting: true,
+    description:
+      "Imports conversations from a claude.ai or ChatGPT export as archived, read-only threads (imported flag). Turns are untrusted data. Capped; the same export again adds nothing. Side-effecting.",
+  }),
   "threads.discardEmpty": defineMethod({
     params: ThreadIdParams,
     result: Type.Object({ deleted: Type.Boolean() }),
