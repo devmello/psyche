@@ -277,11 +277,11 @@ sudo useradd -m -c "Ordinary person" -s /bin/bash $VIC
 echo "keep me" | sudo tee /home/$VIC/thesis.txt >/dev/null
 sudo bash "$INST" --dedicated-user $VIC --uninstall --purge >"$W/vic-1.log" 2>&1; VIC_RC=$?
 check "purge refuses an ordinary account (non-zero, says so)" bash -c "[ $VIC_RC -ne 0 ] && grep -q 'not a Psyche helper account' $W/vic-1.log"
-check "purge on an ordinary account: the account and its home survive" bash -c "id $VIC && grep -q 'keep me' /home/$VIC/thesis.txt"
+check "purge on an ordinary account: the account and its home survive" bash -c "id $VIC && sudo grep -q keep /home/$VIC/thesis.txt"
 # Even a forged description and shell do not do it without the installer's marker.
 sudo usermod -c "Psyche helper (forged)" -s /usr/sbin/nologin $VIC
 sudo bash "$INST" --dedicated-user $VIC --uninstall --purge >"$W/vic-2.log" 2>&1; VIC_RC=$?
-check "purge refuses an account that only looks like a helper (no marker): still there" bash -c "[ $VIC_RC -ne 0 ] && id $VIC && grep -q 'keep me' /home/$VIC/thesis.txt"
+check "purge refuses an account that only looks like a helper (no marker): still there" bash -c "[ $VIC_RC -ne 0 ] && id $VIC && sudo grep -q keep /home/$VIC/thesis.txt"
 sudo userdel -r $VIC >/dev/null 2>&1
 
 # The account deleted by hand: --uninstall still removes root's files, and a new dedicated install is

@@ -174,14 +174,15 @@ if [ "$UNINSTALL" = 0 ] && [ "$DEDICATED" = 1 ]; then create_dedicated; fi
 # uninstalling for that name still removes them. Nothing of the account's is left to remove.
 if [ "$UNINSTALL" = 1 ] && [ "$DEDICATED" = 1 ] && ! getent passwd "$T_USER" >/dev/null &&
   [ "$(etc_unit_user)" = "$T_USER" ]; then
-  # A helper started before the account went is still running from memory under its old UID, kept
-  # alive by that UID's user manager. Stop the manager of any UID that runs it and has no account now.
-  for pid in $(pgrep -f "$ROOT_LIB/psyche-helper" 2>/dev/null || true); do
-    stale_uid="$(ps -o uid= -p "$pid" 2>/dev/null | tr -d ' ')"
-    [ -n "$stale_uid" ] && [ "$stale_uid" != 0 ] || continue
+  # A helper started before the account went is still running from memory, kept alive by the user
+  # manager of its old UID. Stop the manager of every ordinary UID that has no account any more
+  # (the unit names only the account, not its UID, and an orphaned UID has nobody else to stop it).
+  for unit in $(systemctl list-units --plain --no-legend --state=active 'user@*.service' 2>/dev/null | awk '{print $1}'); do
+    stale_uid="${unit#user@}"; stale_uid="${stale_uid%.service}"
+    case "$stale_uid" in '' | *[!0-9]*) continue ;; esac
+    [ "$stale_uid" -ge 1000 ] || continue
     getent passwd "$stale_uid" >/dev/null && continue
-    as_root systemctl stop "user@$stale_uid.service" 2>/dev/null || true
-    as_root kill "$pid" 2>/dev/null || true
+    as_root systemctl stop "$unit" 2>/dev/null || true
   done
   # Linger would otherwise start a manager for any future account of the same name.
   as_root rm -f "/var/lib/systemd/linger/$T_USER"
