@@ -139,6 +139,7 @@ export const settingsC: Partial<Catalogue> = {
     "Todavía nada. Cuando {persona} necesita una carpeta o una app, te lo pregunta en el chat, y lo que permitas aparece aquí.",
   "settings.access.scope.always": "Siempre",
   "settings.access.scope.conversation": "Este chat",
+  "settings.access.scope.space": "En un espacio",
   "settings.access.scope.limited": "Por ahora",
   "settings.access.used": "usado {when}",
   "settings.access.fileOnly": "Un solo archivo · solo lectura",

@@ -14,6 +14,9 @@ export const helperCheck: Partial<Catalogue> = {
     "يعمل من ملفات تملكها، مثل AppImage أو إصدار مبني في مجلدك الشخصي. يقبله Psyche، لكنه لا يستطيع استبعاد أن يكون برنامج آخر لك قد استبدله.",
   "settings.devices.helperCheck.detail.unverified":
     "يقبله Psyche حاليًا، لكنه لم يتمكن من معرفة أي برنامج هو.",
+  "settings.devices.helperCheck.state.tarball": "المساعد غير مُتحقَّق منه (تثبيت من tarball)",
+  "settings.devices.helperCheck.detail.tarball":
+    "ثُبّت psyche-server هذا من ملف tarball ضمن حسابك، لذا فمساعده ملف تملكه. يقبله Psyche، لكنه لا يستطيع استبعاد أن يكون برنامج آخر لك قد استبدله. حزمة deb أو rpm تثبّت مساعدًا يستطيع Psyche التحقق منه.",
   "settings.devices.helperCheck.refused": "مرفوض: {reason}",
   "settings.devices.helperCheck.reason.unclear": "تعذّر على Psyche التحقق من المساعد",
   "settings.devices.helperCheck.reason.notHelper": "هذا البرنامج ليس مساعد Psyche",

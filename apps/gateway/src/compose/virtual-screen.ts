@@ -1,4 +1,4 @@
-import { getDeviceFamily } from "@psyche/db";
+import { getDevice, getDeviceFamily, getMachine } from "@psyche/db";
 import {
   type ErrorPayload,
   PsycheError,
@@ -548,30 +548,91 @@ export function composeVirtualScreen(services: ComposeServices): ComposedVirtual
   let gateway: Gateway | undefined;
   // The owner's proof never leaves this closure: only the handlers below put it on a call.
   const proof = newProof();
-  const vs = createVirtualScreen({
-    ownerProof: proof,
-    async invoke(capability, params, options) {
-      refuseUnlessOwner(options);
-      const helper = gateway?.context.nodes.hostHelper(capability);
-      if (helper === undefined) throw fromPayload(REQUIRE_HELPER);
-      const res = await helper.client.invoke(capability, params, {
-        ...(options.signal === undefined ? {} : { signal: options.signal }),
-        timeoutMs: 20_000,
-      });
-      if (!res.ok) {
-        throw fromPayload(res.error ?? { code: "internal", message: "the helper failed" });
+  /**
+   * The helper a call goes to: the Host's own Linux helper, or (with a machine id from
+   * `machines.list`) that paired machine. A machine that is gone or offline answers
+   * `unavailable` with `details.reason: "machine_offline"`; there is no fallback to the Host.
+   */
+  const helperFor = (machineId: string | undefined, capability: VscreenCapability) => {
+    if (machineId === undefined) return gateway?.context.nodes.hostHelper(capability);
+    const record = gateway === undefined ? undefined : getMachine(gateway.context.db, machineId);
+    if (record === undefined) throw new PsycheError("not_found", `machine ${machineId} not found`);
+    const live = gateway?.context.nodes.machine(record.deviceId);
+    if (live === undefined || !live.info.capabilities.some((c) => c.name === capability)) {
+      throw new PsycheError(
+        "unavailable",
+        live === undefined
+          ? "That computer is offline."
+          : "That computer is online but has no screen Psyche can use right now.",
+        {
+          details: {
+            reason: live === undefined ? "machine_offline" : "machine_surface_unavailable",
+          },
+        },
+      );
+    }
+    return live;
+  };
+  const makeScreen = (machineId?: string): VirtualScreen =>
+    createVirtualScreen({
+      ownerProof: proof,
+      async invoke(capability, params, options) {
+        refuseUnlessOwner(options);
+        const helper = helperFor(machineId, capability);
+        if (helper === undefined) throw fromPayload(REQUIRE_HELPER);
+        const res = await helper.client.invoke(capability, params, {
+          ...(options.signal === undefined ? {} : { signal: options.signal }),
+          timeoutMs: 20_000,
+        });
+        if (!res.ok) {
+          throw fromPayload(res.error ?? { code: "internal", message: "the helper failed" });
+        }
+        if (capability === "vscreen.start" && machineId === undefined) {
+          // The owner can watch from the first moment: open the watch pane in the desktop.
+          services.publish("view.command", { command: "open", args: { pane: "computer-watch" } });
+        }
+        return res.result;
+      },
+      park(card) {
+        services.publish("computerWatch.parked", {
+          apps: card.apps,
+          ...(machineId === undefined ? {} : { machine: machineId }),
+        });
+      },
+      now: () => services.clock.now(),
+    });
+  const vs = makeScreen();
+  // One screen (take-over flag, parked card, frame limiter) per machine, made on first use.
+  const machineScreens = new Map<string, VirtualScreen>();
+  const screenOf = (params: Record<string, unknown>): VirtualScreen => {
+    const id = params.machine;
+    if (id === undefined) return vs;
+    if (typeof id !== "string" || id === "") {
+      throw new PsycheError("invalid_params", "machine must be a machine id");
+    }
+    // Only a machine that is still paired gets a screen; one that was removed or revoked loses
+    // its cached state with it.
+    const db = gateway?.context.db;
+    for (const known of [...machineScreens.keys()]) {
+      const rec = db === undefined ? undefined : getMachine(db, known);
+      if (rec === undefined || getDevice(db as NonNullable<typeof db>, rec.deviceId)?.revokedAt) {
+        machineScreens.delete(known);
       }
-      if (capability === "vscreen.start") {
-        // The owner can watch from the first moment: open the watch pane in the desktop.
-        services.publish("view.command", { command: "open", args: { pane: "computer-watch" } });
-      }
-      return res.result;
-    },
-    park(card) {
-      services.publish("computerWatch.parked", { apps: card.apps });
-    },
-    now: () => services.clock.now(),
-  });
+    }
+    const record = db === undefined ? undefined : getMachine(db, id);
+    const device =
+      record === undefined || db === undefined ? undefined : getDevice(db, record.deviceId);
+    if (record === undefined || device === undefined || device.revokedAt) {
+      throw new PsycheError("not_found", `machine ${id} not found`);
+    }
+    let screen = machineScreens.get(id);
+    if (screen === undefined) {
+      screen = makeScreen(id);
+      machineScreens.set(id, screen);
+    }
+    return screen;
+  };
+  const withoutMachine = ({ machine: _machine, ...rest }: Record<string, unknown>) => rest;
 
   // The owner's proof goes only on a `computerWatch.*` request from the desktop shell's own
   // connection or a paired desktop app's (`watchAccess`). A desktop-chat agent run carries
@@ -608,40 +669,50 @@ export function composeVirtualScreen(services: ComposeServices): ComposedVirtual
       gateway = undefined;
     },
     handlers: {
-      "computerWatch.status": handler(async (_params, owner) => {
-        const status = await vs.status(owner);
+      "computerWatch.status": handler(async (params, owner) => {
+        const screen = screenOf(params);
+        const status = await screen.status(owner);
         return {
           status,
-          parked: vs.parkedCard() !== null || status.apps.some((a) => a.hasUnsavedChanges === true),
+          parked:
+            screen.parkedCard() !== null || status.apps.some((a) => a.hasUnsavedChanges === true),
         };
       }),
       "computerWatch.frame": handler(async (params, owner) => {
+        const screen = screenOf(params);
         // The pane reports itself visible or hidden through attention.report; a pane that never
         // reported is treated as visible.
-        vs.setPaneVisible(!services.attention.paneHidden("vscreen"));
-        return vs.frame(params, owner);
+        screen.setPaneVisible(
+          !services.attention.paneHidden(
+            "vscreen",
+            typeof params.machine === "string" ? params.machine : undefined,
+          ),
+        );
+        return screen.frame(withoutMachine(params), owner);
       }),
       "computerWatch.input": handler((params, owner) =>
-        vs.input((params as { events: unknown }).events, owner),
+        screenOf(params).input((params as { events: unknown }).events, owner),
       ),
       "computerWatch.takeOver": handler(async (params, owner) => {
+        const screen = screenOf(params);
         const on = (params as { on: boolean }).on;
-        vs.setTakenOver(on);
+        screen.setTakenOver(on);
         if (!on) {
           // Nothing the owner held stays pressed for the agent. A helper that is gone has
           // nothing pressed either, so giving control back never fails on it.
-          await vs.release(owner).catch(() => undefined);
+          await screen.release(owner).catch(() => undefined);
         }
-        return { takenOver: vs.isTakenOver() };
+        return { takenOver: screen.isTakenOver() };
       }),
       "computerWatch.stop": handler(async (params, owner) => {
+        const screen = screenOf(params);
         const p = params as { closeApps?: boolean; force?: boolean };
-        if (p.force === true) return vs.stop({ closeApps: true, force: true }, owner);
-        const end = await vs.endTask({ closeApps: p.closeApps ?? true }, owner);
+        if (p.force === true) return screen.stop({ closeApps: true, force: true }, owner);
+        const end = await screen.endTask({ closeApps: p.closeApps ?? true }, owner);
         return { ok: end.ok };
       }),
       "computerWatch.resolveParked": handler((params, owner) =>
-        vs.resolveParked((params as { action: VscreenParkAction }).action, owner),
+        screenOf(params).resolveParked((params as { action: VscreenParkAction }).action, owner),
       ),
     },
   };

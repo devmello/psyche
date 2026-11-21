@@ -1,8 +1,11 @@
 import { execFile } from "node:child_process";
-import { existsSync } from "node:fs";
+import { existsSync, lstatSync, readdirSync, readFileSync, rmSync } from "node:fs";
+import { homedir } from "node:os";
+import { join } from "node:path";
 import { getSetting, type PsycheDb, setSetting } from "@psyche/db";
 import { PsycheError } from "@psyche/protocol";
 import type { Logger } from "../log.ts";
+import { HEADLESS_HELPER_UNIT } from "../transports/peer-check.ts";
 import type { HelperNode } from "./computer.ts";
 import { COMPUTER_USE_ENABLED } from "./computer-settings.ts";
 
@@ -16,20 +19,27 @@ import { COMPUTER_USE_ENABLED } from "./computer-settings.ts";
  *   computer-use session ends, after a revoke, and when `computerUse.enabled` changes.
  * - `computerUse.linuxRevoke`, written by the UI: an ISO timestamp set when the owner clicks
  *   Revoke. A changed value makes the Gateway call `portal.revoke` on the running helper, then
- *   refresh `computerUse.linux`. With no helper running it is kept pending and applied when the
- *   helper next connects.
+ *   refresh `computerUse.linux`. With no helper running it is kept pending and applied when a
+ *   helper next connects, the headless one included (it deletes the shared `portal.json`).
+ * - `computerUse.linuxRevokeApplied`, written here only: the `linuxRevoke` value a helper last
+ *   confirmed (`portal.revoke` answered `ok` with a boolean `revoked`). A Revoke is pending while
+ *   the two differ, so it survives a psyched restart and a helper that refuses it. A direct call
+ *   waits for a pending Revoke before it uses the helper (`revokeSettled`).
  *
  * Turning computer use on asks the helper to expose app structure (`a11y.enable {enabled: true}`);
  * turning it off restores it (`{enabled: false}`). A helper that connects later gets the current
  * value. Owner rule: turning computer use off, and Revoke, never start a helper (neither the
- * graphical unit nor the headless one). All of it is best effort: a failure is logged, never
+ * graphical unit nor the headless one). With no helper running, turning it off puts the
+ * accessibility flag back from psyched itself (`restoreA11yFlag`, `busctl`) when the helper's
+ * `a11y.json` says Psyche turned it on. All of it is best effort: a failure is logged, never
  * thrown.
  * Only created on a Linux Gateway; no other platform calls these capabilities.
  */
 
 /** The helper units psyched starts on demand (`apps/cli/src/systemd-unit.ts` renders both). */
 export const GRAPHICAL_HELPER_UNIT = "psyche-helper.service";
-export const HEADLESS_HELPER_UNIT = "psyche-helper-headless.service";
+/** One name for the headless unit in the Gateway: the peer check's restart hint uses it too. */
+export { HEADLESS_HELPER_UNIT };
 
 /** Which helper unit to start: the graphical one only when this user has a graphical session. */
 export function helperUnitFor(graphicalSession: boolean): string {
@@ -71,26 +81,50 @@ function props(text: string): Record<string, string> {
   return out;
 }
 
+/** What `liveDisplayIn` needs to know about a path, from `lstat` (a symlink is not followed). */
+export interface PathInfo {
+  socket: boolean;
+  uid: number;
+}
+export type StatPath = (p: string) => PathInfo | undefined;
+
+/** The default `StatPath`: `lstat`, so a symlink to a socket is not a socket. */
+export const lstatPath: StatPath = (p) => {
+  try {
+    const st = lstatSync(p);
+    return { socket: st.isSocket(), uid: st.uid };
+  } catch {
+    return undefined;
+  }
+};
+
 /**
  * Whether the user manager's environment names a display that is really there: `DISPLAY=:<n>`
- * with `/tmp/.X11-unix/X<n>`, or `WAYLAND_DISPLAY` with its socket in `XDG_RUNTIME_DIR`. A value
- * left behind by a desktop that has since stopped (sway, i3 or startx with
- * `dbus-update-activation-environment --systemd`, under linger) has no socket and does not count.
+ * with `/tmp/.X11-unix/X<n>`, or `WAYLAND_DISPLAY` with its socket in this user's runtime dir
+ * (`/run/user/<uid>`, the only place a compositor of this user puts it). The path must be a
+ * socket (`lstat`) owned by this uid or by root: `/tmp/.X11-unix` is world-writable, so another
+ * user could plant `X<n>` there. A value left behind by a desktop that has since stopped (sway,
+ * i3 or startx with `dbus-update-activation-environment --systemd`, under linger) has no socket
+ * and does not count.
  */
-export function liveDisplayIn(
-  envText: string,
-  uid: number,
-  exists: (p: string) => boolean = existsSync,
-): boolean {
+export function liveDisplayIn(envText: string, uid: number, stat: StatPath = lstatPath): boolean {
   const env = props(envText);
+  const ours = (p: string): boolean => {
+    const st = stat(p);
+    return st?.socket === true && (st.uid === uid || st.uid === 0);
+  };
   const x = /^:(\d+)(\.\d+)?$/.exec(env.DISPLAY ?? "");
-  if (x !== null && exists(`/tmp/.X11-unix/X${x[1]}`)) return true;
+  if (x !== null && ours(`/tmp/.X11-unix/X${x[1]}`)) return true;
   const wl = env.WAYLAND_DISPLAY ?? "";
-  if (wl === "" || wl.includes("..")) return false;
-  if (wl.startsWith("/")) return exists(wl);
-  if (wl.includes("/")) return false;
-  const runtime = env.XDG_RUNTIME_DIR?.startsWith("/") ? env.XDG_RUNTIME_DIR : `/run/user/${uid}`;
-  return exists(`${runtime}/${wl}`);
+  if (wl === "") return false;
+  const runtime = `/run/user/${uid}`;
+  const dir = (env.XDG_RUNTIME_DIR ?? "").replace(/\/+$/, "") || runtime;
+  const path = wl.startsWith("/") ? wl : `${dir}/${wl}`;
+  // Under this user's runtime dir, with no empty, `.` or `..` step on the way.
+  if (!path.startsWith(`${runtime}/`)) return false;
+  const steps = path.slice(runtime.length + 1).split("/");
+  if (steps.some((step) => step === "" || step === "." || step === "..")) return false;
+  return ours(path);
 }
 
 /** The `show-session` properties `hasGraphicalSession` reads, as fixed arguments. */
@@ -113,7 +147,7 @@ export async function hasGraphicalSession(
   run: RunCommand = runFile,
   uid: number | undefined = process.getuid?.(),
   signal?: AbortSignal,
-  exists: (p: string) => boolean = existsSync,
+  stat: StatPath = lstatPath,
 ): Promise<boolean> {
   if (uid === undefined) return false;
   const loginctl = systemBin("loginctl");
@@ -143,7 +177,7 @@ export async function hasGraphicalSession(
   if (!tty) return false;
   try {
     const env = await run(systemBin("systemctl"), ["--user", "show-environment"], signal);
-    return liveDisplayIn(env, uid, exists);
+    return liveDisplayIn(env, uid, stat);
   } catch {
     return false;
   }
@@ -239,6 +273,79 @@ export async function startHelperWithSystemd(
 
 export const COMPUTER_USE_LINUX = "computerUse.linux";
 export const COMPUTER_USE_LINUX_REVOKE = "computerUse.linuxRevoke";
+/** Gateway-written: the `linuxRevoke` value a helper confirmed. Pending while they differ. */
+export const COMPUTER_USE_LINUX_REVOKE_APPLIED = "computerUse.linuxRevokeApplied";
+
+/**
+ * The helper's state dir, as the helper resolves it (`paths.rs` `state_dir`): both helpers, the
+ * graphical and the headless one, share it. `PSYCHE_HELPER_STATE`, else
+ * `$XDG_STATE_HOME/psyche-helper` (absolute only), else `~/.local/state/psyche-helper`.
+ */
+export function helperStateDir(env: NodeJS.ProcessEnv = process.env, home = homedir()): string {
+  const set = env.PSYCHE_HELPER_STATE;
+  if (set !== undefined) return set;
+  const xdg = env.XDG_STATE_HOME;
+  if (xdg?.startsWith("/") === true) return join(xdg, "psyche-helper");
+  return join(home, ".local", "state", "psyche-helper");
+}
+
+const SCREEN_READERS = new Set(["orca", "brltty", "espeakup"]);
+
+/** A screen reader is running (Orca): it relies on the accessibility flag, so it stays on. */
+export function screenReaderRunning(): boolean {
+  let pids: string[];
+  try {
+    pids = readdirSync("/proc").filter((name) => /^\d+$/.test(name));
+  } catch {
+    return false;
+  }
+  return pids.some((pid) => {
+    try {
+      return SCREEN_READERS.has(readFileSync(`/proc/${pid}/comm`, "utf8").trim());
+    } catch {
+      return false;
+    }
+  });
+}
+
+/** `busctl --user set-property` arguments that put `org.a11y.Status.IsEnabled` back to false. */
+export const A11Y_RESTORE_ARGS = [
+  "--user",
+  "set-property",
+  "org.a11y.Bus",
+  "/org/a11y/bus",
+  "org.a11y.Status",
+  "IsEnabled",
+  "b",
+  "false",
+];
+
+/**
+ * Puts the accessibility flag back from psyched, without a helper (owner decision, 2026-11-21):
+ * only when the helper's `a11y.json` says Psyche turned it on (`enabledByPsyche`), as the
+ * helper's own `a11y.enable {enabled: false}` does. A running screen reader keeps it on. The file
+ * is removed once the flag is back (or left to the screen reader), so a flag the owner turns on
+ * later is never Psyche's to turn off; a failed `busctl` keeps it for the next helper to retry.
+ * Resolves true when it handled Psyche's flag.
+ */
+export async function restoreA11yFlag(
+  opts: { run?: RunCommand; stateDir?: string; screenReader?: () => boolean } = {},
+): Promise<boolean> {
+  const path = join(opts.stateDir ?? helperStateDir(), "a11y.json");
+  let ours = false;
+  try {
+    const st = JSON.parse(readFileSync(path, "utf8")) as { enabledByPsyche?: unknown } | null;
+    ours = st?.enabledByPsyche === true;
+  } catch {
+    return false;
+  }
+  if (!ours) return false;
+  if (!(opts.screenReader ?? screenReaderRunning)()) {
+    await (opts.run ?? runFile)(systemBin("busctl"), A11Y_RESTORE_ARGS);
+  }
+  rmSync(path, { force: true });
+  return true;
+}
 
 const SESSIONS = ["wayland", "x11", "headless"] as const;
 const DESKTOPS = ["gnome", "kde", "wlroots", "other"] as const;
@@ -269,6 +376,11 @@ export interface LinuxComputerStateDeps {
   helper(): HelperNode | undefined;
   logger?: Logger;
   now?: () => Date;
+  /**
+   * Turning computer use off with no helper running: puts the accessibility flag back without
+   * one. Default `restoreA11yFlag()`.
+   */
+  restoreA11y?: () => Promise<unknown>;
 }
 
 export interface LinuxComputerState {
@@ -281,9 +393,17 @@ export interface LinuxComputerState {
   helperOnline(): Promise<void>;
   /** `settings.changed` entries: `computerUse.enabled` and `computerUse.linuxRevoke`. */
   onChanged(entries: readonly { key: string; value: unknown }[]): void;
+  /**
+   * Before a direct call uses the connected helper: applies a pending Revoke to it first.
+   * Resolves false while the Revoke is still pending (no helper, or it did not confirm).
+   */
+  revokeSettled(): Promise<boolean>;
   /** Resolves when the queued work is done (tests). */
   settled(): Promise<void>;
 }
+
+const text = (v: unknown): string | undefined =>
+  typeof v === "string" && v !== "" ? v : undefined;
 
 const pick = <T extends string>(list: readonly T[], v: unknown): T | undefined =>
   typeof v === "string" ? list.find((x) => x === v) : undefined;
@@ -291,7 +411,12 @@ const pick = <T extends string>(list: readonly T[], v: unknown): T | undefined =
 export function createLinuxComputerState(deps: LinuxComputerStateDeps): LinuxComputerState {
   const now = deps.now ?? (() => new Date());
   let enabled = getSetting(deps.db, COMPUTER_USE_ENABLED)?.value === true;
-  let lastRevoke = getSetting(deps.db, COMPUTER_USE_LINUX_REVOKE)?.value;
+  // The last Revoke the owner asked for, and the last one a helper confirmed (both survive a
+  // restart). A Revoke is pending while they differ.
+  let lastRevoke = text(getSetting(deps.db, COMPUTER_USE_LINUX_REVOKE)?.value);
+  let applied = text(getSetting(deps.db, COMPUTER_USE_LINUX_REVOKE_APPLIED)?.value);
+  const pendingRevoke = (): boolean => lastRevoke !== undefined && lastRevoke !== applied;
+  const restoreA11y = deps.restoreA11y ?? (() => restoreA11yFlag());
   let chain: Promise<void> = Promise.resolve();
 
   const warn = (msg: string, err: unknown) =>
@@ -301,9 +426,6 @@ export function createLinuxComputerState(deps: LinuxComputerStateDeps): LinuxCom
   function queue(task: () => Promise<void>): void {
     chain = chain.then(task).catch((err: unknown) => warn("linux computer-use sync failed", err));
   }
-
-  /** A Revoke that arrived while no helper was running: applied when one connects. */
-  let pendingRevoke = false;
 
   /** Calls the connected helper. Never starts one: off and Revoke start nothing (owner rule). */
   async function call(
@@ -345,20 +467,38 @@ export function createLinuxComputerState(deps: LinuxComputerStateDeps): LinuxCom
 
   async function enabledChanged(on: boolean): Promise<void> {
     // Only a running helper is told. One that connects later gets the current value from
-    // `helperOnline`, so turning it off never starts a helper just to put the setting back.
+    // `helperOnline`, so turning it off never starts a helper just to put the setting back:
+    // psyched puts the accessibility flag back itself instead.
+    if (!on && deps.helper() === undefined) {
+      try {
+        await restoreA11y();
+      } catch (err) {
+        warn("accessibility flag restore failed", err);
+      }
+      return;
+    }
     await call("a11y.enable", { enabled: on });
     await refreshNow();
   }
 
-  /** Revokes on the running helper, or records it for the next one that connects. */
+  /**
+   * Applies a pending Revoke to the running helper. Only a confirmed answer (`ok` with a boolean
+   * `revoked`) clears it; no helper, a refusal (an older headless helper's `unavailable`) or an
+   * error keeps it for the next try.
+   */
   async function revokeNow(): Promise<void> {
+    if (!pendingRevoke()) return;
     const node = deps.helper();
-    if (node === undefined) {
-      pendingRevoke = true;
+    if (node === undefined) return;
+    const asked = lastRevoke;
+    const res = await call("portal.revoke", {}, node);
+    if (res === undefined) return;
+    if (typeof res.revoked !== "boolean") {
+      deps.logger?.log("warn", "portal.revoke gave no answer", { code: "internal" });
       return;
     }
-    await call("portal.revoke", {}, node);
-    pendingRevoke = false;
+    applied = asked;
+    deps.publishEntry(setSetting(deps.db, COMPUTER_USE_LINUX_REVOKE_APPLIED, asked));
   }
 
   async function revoke(): Promise<void> {
@@ -373,7 +513,7 @@ export function createLinuxComputerState(deps: LinuxComputerStateDeps): LinuxCom
     },
     helperOnline: () => {
       queue(async () => {
-        if (pendingRevoke) await revokeNow();
+        await revokeNow();
         // Off: restore app structure in case Psyche turned it on (the helper keeps it otherwise).
         await call("a11y.enable", { enabled });
         await refreshNow();
@@ -393,6 +533,11 @@ export function createLinuxComputerState(deps: LinuxComputerStateDeps): LinuxCom
           queue(revoke);
         }
       }
+    },
+    revokeSettled: () => {
+      if (!pendingRevoke()) return Promise.resolve(true);
+      queue(revoke);
+      return chain.then(() => !pendingRevoke());
     },
     settled: () => chain,
   };

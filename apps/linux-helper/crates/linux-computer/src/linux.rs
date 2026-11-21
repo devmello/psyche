@@ -156,7 +156,13 @@ impl LinuxBackend {
     /// Waits briefly for the app to show up on the accessibility bus.
     fn wait_for_app(&self, id: &str, name: Option<&str>) -> Value {
         for _ in 0..40 {
-            if let Some(a) = self.apps().into_iter().find(|a| a.id == id) {
+            // A verified Flatpak opened by its own id runs under the host id that caps it.
+            let id = crate::app_id::normalize(id);
+            if let Some(a) = self
+                .apps()
+                .into_iter()
+                .find(|a| a.id == id || a.carries(&id))
+            {
                 return json!({"bundleId": a.id, "name": a.name, "pid": a.pid});
             }
             std::thread::sleep(Duration::from_millis(100));

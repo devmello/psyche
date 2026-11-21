@@ -541,7 +541,7 @@
         "sideEffecting": false
       },
       {
-        "description": "Lists what the owner has given the agent access to: shared folders (always or for one chat) and standing grants, in one list for Settings.",
+        "description": "Lists what the owner has given the agent access to: shared folders (always, for one chat or in one Space) and standing grants, in one list for Settings.",
         "name": "access.list",
         "params": "#/$defs/AccessListParams",
         "result": "#/$defs/AccessListResult",
@@ -1127,7 +1127,7 @@
       {
         "description": "Desktop only: the newest virtual-screen frame (JPEG) when it changed since `since`. Only while the pane is visible, at most 4 a second.",
         "name": "computerWatch.frame",
-        "params": "#/$defs/VscreenFrameParams",
+        "params": "#/$defs/ComputerWatchFrameParams",
         "result": "#/$defs/VscreenFrame",
         "scope": "operator.read",
         "sideEffecting": false
@@ -1135,7 +1135,7 @@
       {
         "description": "Desktop only: the owner's clicks and keys while taking over, sent through the helper's XTest.",
         "name": "computerWatch.input",
-        "params": "#/$defs/VscreenInputParams",
+        "params": "#/$defs/ComputerWatchInputParams",
         "result": "#/$defs/VscreenAck",
         "scope": "operator.write",
         "sideEffecting": false
@@ -1159,7 +1159,7 @@
       {
         "description": "Desktop only: Stop in the watch pane. Apps are asked to close; one with unsaved changes stays and the Task parks, unless `force` is set.",
         "name": "computerWatch.stop",
-        "params": "#/$defs/VscreenStopParams",
+        "params": "#/$defs/ComputerWatchStopParams",
         "result": "#/$defs/VscreenAck",
         "scope": "operator.write",
         "sideEffecting": false
@@ -4448,7 +4448,8 @@
           "enum": [
             "always",
             "conversation",
-            "limited"
+            "limited",
+            "space"
           ],
           "type": "string"
         },
@@ -4485,6 +4486,19 @@
           "maxLength": 64,
           "minLength": 1,
           "type": "string"
+        },
+        "spaceId": {
+          "description": "ULID in production",
+          "maxLength": 64,
+          "minLength": 1,
+          "type": "string"
+        },
+        "spaceName": {
+          "maxLength": 60,
+          "type": "string"
+        },
+        "automationsWrite": {
+          "type": "boolean"
         },
         "grantId": {
           "description": "ULID in production",
@@ -7662,6 +7676,10 @@
           "const": true,
           "type": "boolean"
         },
+        "inSpace": {
+          "const": true,
+          "type": "boolean"
+        },
         "folderPath": {
           "maxLength": 4096,
           "minLength": 1,
@@ -10028,6 +10046,12 @@
         "visible": {
           "description": "The pane is on screen in the desktop app",
           "type": "boolean"
+        },
+        "machine": {
+          "description": "ULID in production",
+          "maxLength": 64,
+          "minLength": 1,
+          "type": "string"
         },
         "input": {
           "description": "The owner gave input in the app just now (key, click)",
@@ -15554,6 +15578,47 @@
       ],
       "type": "string"
     },
+    "ComputerWatchFrameParams": {
+      "properties": {
+        "since": {
+          "minimum": 0,
+          "type": "integer"
+        },
+        "maxWidth": {
+          "maximum": 3840,
+          "minimum": 160,
+          "type": "integer"
+        },
+        "machine": {
+          "description": "ULID in production",
+          "maxLength": 64,
+          "minLength": 1,
+          "type": "string"
+        }
+      },
+      "type": "object"
+    },
+    "ComputerWatchInputParams": {
+      "properties": {
+        "events": {
+          "items": {
+            "$ref": "#/$defs/VscreenInputEvent"
+          },
+          "maxItems": 100,
+          "type": "array"
+        },
+        "machine": {
+          "description": "ULID in production",
+          "maxLength": 64,
+          "minLength": 1,
+          "type": "string"
+        }
+      },
+      "required": [
+        "events"
+      ],
+      "type": "object"
+    },
     "ComputerWatchParkAction": {
       "enum": [
         "look",
@@ -15569,6 +15634,12 @@
             "$ref": "#/$defs/VscreenApp"
           },
           "type": "array"
+        },
+        "machine": {
+          "description": "ULID in production",
+          "maxLength": 64,
+          "minLength": 1,
+          "type": "string"
         }
       },
       "required": [
@@ -15580,6 +15651,12 @@
       "properties": {
         "action": {
           "$ref": "#/$defs/ComputerWatchParkAction"
+        },
+        "machine": {
+          "description": "ULID in production",
+          "maxLength": 64,
+          "minLength": 1,
+          "type": "string"
         }
       },
       "required": [
@@ -15618,13 +15695,43 @@
       "type": "object"
     },
     "ComputerWatchStatusParams": {
-      "properties": {},
+      "properties": {
+        "machine": {
+          "description": "ULID in production",
+          "maxLength": 64,
+          "minLength": 1,
+          "type": "string"
+        }
+      },
+      "type": "object"
+    },
+    "ComputerWatchStopParams": {
+      "properties": {
+        "closeApps": {
+          "type": "boolean"
+        },
+        "force": {
+          "type": "boolean"
+        },
+        "machine": {
+          "description": "ULID in production",
+          "maxLength": 64,
+          "minLength": 1,
+          "type": "string"
+        }
+      },
       "type": "object"
     },
     "ComputerWatchTakeOverParams": {
       "properties": {
         "on": {
           "type": "boolean"
+        },
+        "machine": {
+          "description": "ULID in production",
+          "maxLength": 64,
+          "minLength": 1,
+          "type": "string"
         }
       },
       "required": [

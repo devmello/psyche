@@ -1777,6 +1777,7 @@ export const settings = {
     "Nothing yet. When {persona} needs a folder or an app, it asks you in the chat, and what you allow shows here.",
   "settings.access.scope.always": "Always",
   "settings.access.scope.conversation": "This chat",
+  "settings.access.scope.space": "In a Space",
   "settings.access.scope.limited": "For now",
   "settings.access.used": "used {when}",
   "settings.access.fileOnly": "One file · read only",

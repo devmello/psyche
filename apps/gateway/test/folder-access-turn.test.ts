@@ -3,7 +3,12 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { createAgentLoop } from "@psyche/agent-core";
 import { fileTools } from "@psyche/files";
-import { createPermissionBroker, type PsychePermissionBroker } from "@psyche/permissions";
+import {
+  createPermissionBroker,
+  type PsychePermissionBroker,
+  type SpaceFolderRecord,
+  type SpaceFolderSource,
+} from "@psyche/permissions";
 import type {
   AgentEvent,
   ApprovalRequestInput,
@@ -35,6 +40,29 @@ const home = join(root, "home");
 const downloads = join(home, "Downloads");
 mkdirSync(downloads, { recursive: true });
 writeFileSync(join(downloads, "invoice.pdf"), "x");
+const kitchen = join(home, "Kitchen");
+mkdirSync(kitchen, { recursive: true });
+writeFileSync(join(kitchen, "tile.pdf"), "x");
+
+/** One Space ("Kitchen remodel") holding the kitchen folder; only `thr_space` is in it. */
+const spaceRows: SpaceFolderRecord[] = [
+  {
+    spaceId: "spc_k",
+    spaceName: "Kitchen remodel",
+    path: kitchen,
+    real: kitchen,
+    mode: "ro",
+    automationsWrite: false,
+  },
+];
+const spaces: SpaceFolderSource = {
+  spaceOf: (threadId) =>
+    threadId === "thr_space" ? { spaceId: "spc_k", spaceName: "Kitchen remodel" } : undefined,
+  folders: (spaceId) => spaceRows.filter((r) => r.spaceId === spaceId),
+  all: () => spaceRows,
+  add: () => "added",
+  remove: () => false,
+};
 
 const call = (id: string, name: string, input: unknown): ModelEvent[] => [
   { type: "tool_call", id, name, input },
@@ -66,13 +94,17 @@ let issued: IssuedApproval[];
 let provider: FakeModelProvider;
 let loop: ReturnType<typeof createAgentLoop>;
 let listed: string[];
+/** The Space each list_dir call's run was bound to, as the executor sees it. */
+let seen: (string | undefined)[];
 
 beforeEach(() => {
   const clock = new FakeClock();
   const ids = createIdGenerator();
   issued = [];
   listed = [];
+  seen = [];
   broker = createPermissionBroker({
+    spaces,
     clock,
     armDelayMs: 0,
     approvers: {
@@ -115,7 +147,7 @@ beforeEach(() => {
   for (const t of fileTools({
     folders: (scope) => [
       ...(broker.policy.folders ?? []),
-      ...(scope ? broker.sessionFolders(scope.threadId) : []),
+      ...(scope ? broker.liveSessionFolders(scope.threadId, scope.runId) : []),
     ],
   })) {
     if (t.spec.name !== "list_dir") continue;
@@ -123,6 +155,7 @@ beforeEach(() => {
       ...t,
       run: async (p, ctx) => {
         listed.push((p as { path: string }).path);
+        seen.push(broker.runSpace(ctx.threadId, ctx.runId)?.spaceId);
         if (t.run === undefined) throw new Error("no run");
         return t.run(p, ctx);
       },
@@ -193,5 +226,38 @@ describe("request_folder_access inside a turn", () => {
     expect(broker.sessionFolders("thr_1")).toEqual([]);
     expect(events.find((e) => e.type === "end")).toMatchObject({ outcome: "final" });
     expect(JSON.stringify(events)).toContain("I won't look at Downloads");
+  });
+});
+
+describe("a Space's folders in a real turn (spaces-2026 §5.3, SR3)", () => {
+  async function drain(threadId: string, runId: string): Promise<AgentEvent[]> {
+    const events: AgentEvent[] = [];
+    for await (const e of loop.startTurn({
+      threadId,
+      runId,
+      input: { text: "what is in the kitchen folder?" },
+      mode: "attended",
+      permissionMode: "balanced",
+    })) {
+      events.push(e);
+    }
+    return events;
+  }
+
+  it("the loop binds the run at its start: the Space's chat lists the folder, the binding ends with the run", async () => {
+    provider.script([call("c1", "list_dir", { path: kitchen }), say("The kitchen has tile.pdf.")]);
+    const events = await drain("thr_space", "run_space");
+    expect(listed).toEqual([kitchen]);
+    expect(seen).toEqual(["spc_k"]);
+    expect(JSON.stringify(events)).toContain("tile.pdf");
+    expect(issued).toEqual([]);
+    expect(broker.runSpace("thr_space", "run_space")).toBeUndefined();
+  });
+
+  it("a chat in no Space cannot reach the Space's folder", async () => {
+    provider.script([call("c1", "list_dir", { path: kitchen }), say("I can't see it.")]);
+    const events = await drain("thr_1", "run_main");
+    expect(listed).toEqual([]);
+    expect(JSON.stringify(events)).not.toContain("tile.pdf");
   });
 });

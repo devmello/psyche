@@ -15,28 +15,31 @@ export interface AccessListResult {
 }
 
 export interface AccessEntry {
-    file?:       boolean;
-    grantId?:    string;
-    id:          string;
-    kind?:       ApprovalKind;
-    label:       string;
-    lastUsedAt?: string;
-    mode?:       FolderModeEnum;
-    moved?:      boolean;
-    movedTo?:    string;
-    path?:       string;
-    refused?:    boolean;
-    scope:       AccessEntryScope;
-    since?:      string;
-    threadId?:   string;
-    type:        AccessEntryType;
+    automationsWrite?: boolean;
+    file?:             boolean;
+    grantId?:          string;
+    id:                string;
+    kind?:             ApprovalKind;
+    label:             string;
+    lastUsedAt?:       string;
+    mode?:             FolderModeEnum;
+    moved?:            boolean;
+    movedTo?:          string;
+    path?:             string;
+    refused?:          boolean;
+    scope:             AccessEntryScope;
+    since?:            string;
+    spaceId?:          string;
+    spaceName?:        string;
+    threadId?:         string;
+    type:              AccessEntryType;
 }
 
 export type ApprovalKind = "exec" | "exec_host" | "send_email" | "calendar_write" | "message_send" | "browser_submit" | "credential_fill" | "purchase" | "file_write" | "connector_action" | "computer_action" | "new_origin" | "plan_exit" | "skill_install" | "mcp_tool" | "archive_thread" | "memory_protected_write" | "pairing" | "policy_change" | "task_start" | "apple_script" | "shortcut_run" | "git_write" | "git_push" | "folder_access" | "separate_desktop_share" | "batch" | "permission_request";
 
 export type FolderModeEnum = "ro" | "rw";
 
-export type AccessEntryScope = "always" | "conversation" | "limited";
+export type AccessEntryScope = "always" | "conversation" | "limited" | "space";
 
 export type AccessEntryType = "folder" | "grant";
 
@@ -1031,6 +1034,7 @@ export interface ApprovalAnswer {
     folderMode?:      FolderModeEnum;
     folderPath?:      string;
     hostProgram?:     boolean;
+    inSpace?:         boolean;
     presence?:        PresenceAssertion;
     recipientChoice?: string;
     scope?:           GrantScope;
@@ -1572,8 +1576,9 @@ export interface AttentionReportParams {
     /**
      * The owner gave input in the app just now (key, click)
      */
-    input?: boolean;
-    pane:   AttentionPane;
+    input?:   boolean;
+    machine?: string;
+    pane:     AttentionPane;
     /**
      * The pane is on screen in the desktop app
      */
@@ -3277,8 +3282,35 @@ export interface CompactionBlock {
 
 export type CompactionBlockType = "compaction";
 
+export interface ComputerWatchFrameParams {
+    machine?:  string;
+    maxWidth?: number;
+    since?:    number;
+}
+
+export interface ComputerWatchInputParams {
+    events:   VscreenInputEvent[];
+    machine?: string;
+}
+
+export interface VscreenInputEvent {
+    button?: Button;
+    type:    VscreenInputEventType;
+    x?:      number;
+    y?:      number;
+    dx?:     number;
+    dy?:     number;
+    key?:    string;
+    text?:   string;
+}
+
+export type Button = "left" | "middle" | "right";
+
+export type VscreenInputEventType = "move" | "down" | "up" | "scroll" | "key_down" | "key_up" | "text";
+
 export interface ComputerWatchParkedPayload {
-    apps: VscreenApp[];
+    apps:     VscreenApp[];
+    machine?: string;
 }
 
 export interface VscreenApp {
@@ -3289,7 +3321,8 @@ export interface VscreenApp {
 }
 
 export interface ComputerWatchResolveParkedParams {
-    action: ComputerWatchParkAction;
+    action:   ComputerWatchParkAction;
+    machine?: string;
 }
 
 export type ComputerWatchParkAction = "look" | "discard" | "keep_open";
@@ -3319,8 +3352,19 @@ export interface VscreenStatus {
 
 export type VscreenState = "stopped" | "starting" | "running" | "stopping";
 
+export interface ComputerWatchStatusParams {
+    machine?: string;
+}
+
+export interface ComputerWatchStopParams {
+    closeApps?: boolean;
+    force?:     boolean;
+    machine?:   string;
+}
+
 export interface ComputerWatchTakeOverParams {
-    on: boolean;
+    machine?: string;
+    on:       boolean;
 }
 
 export interface ComputerWatchTakeOverResult {
@@ -14090,21 +14134,6 @@ export interface VscreenFrameParams {
 export interface VscreenInputParams {
     events: VscreenInputEvent[];
 }
-
-export interface VscreenInputEvent {
-    button?: Button;
-    type:    VscreenInputEventType;
-    x?:      number;
-    y?:      number;
-    dx?:     number;
-    dy?:     number;
-    key?:    string;
-    text?:   string;
-}
-
-export type Button = "left" | "middle" | "right";
-
-export type VscreenInputEventType = "move" | "down" | "up" | "scroll" | "key_down" | "key_up" | "text";
 
 export interface VscreenStartParams {
     height?: number;

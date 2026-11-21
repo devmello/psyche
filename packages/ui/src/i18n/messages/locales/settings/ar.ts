@@ -617,6 +617,7 @@ export const settings: Partial<Catalogue> = {
     "لا شيء بعد. عندما يحتاج {persona} إلى مجلد أو تطبيق يسألك في الدردشة، وما تسمح به يظهر هنا.",
   "settings.access.scope.always": "دائمًا",
   "settings.access.scope.conversation": "هذه الدردشة",
+  "settings.access.scope.space": "في مساحة",
   "settings.access.scope.limited": "مؤقتًا",
   "settings.access.used": "استُخدم {when}",
   "settings.access.fileOnly": "ملف واحد · للقراءة فقط",

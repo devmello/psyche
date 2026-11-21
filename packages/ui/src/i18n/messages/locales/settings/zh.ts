@@ -582,6 +582,7 @@ export const settings: Partial<Catalogue> = {
     "目前没有。当{persona}需要某个文件夹或 App 时，会在聊天中询问你，你允许的内容会显示在这里。",
   "settings.access.scope.always": "始终",
   "settings.access.scope.conversation": "此聊天",
+  "settings.access.scope.space": "在空间中",
   "settings.access.scope.limited": "暂时",
   "settings.access.used": "{when}使用过",
   "settings.access.fileOnly": "单个文件 · 只读",

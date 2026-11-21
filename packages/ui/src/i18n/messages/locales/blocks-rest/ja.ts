@@ -29,6 +29,11 @@ export const blocksRest: Partial<Catalogue> = {
     "「このチャットのみ」は会話が終わるまで有効です。「常時」は、設定 → 権限 → アクセスで削除するまでフォルダを保持します。",
   "blocks.folder.scope.once": "このチャットのみ",
   "blocks.folder.scope.always": "常時（このフォルダとその配下）",
+  "blocks.folder.scope.space": "このスペースで許可",
+  "blocks.folder.scope.spaceNamed": "{space} で許可",
+  "blocks.folder.space.automationsRead": "{space} の Psyche の自動化もこのフォルダを読み取れます。",
+  "blocks.folder.space.automationsWrite":
+    "{space} の Psyche の自動化もこのフォルダの読み取りと書き込みができます。",
   "blocks.folder.explain.ro": "{persona}がフォルダ内のファイルを読み取ろうとしています。",
   "blocks.folder.explain.rw": "{persona}がフォルダ内のファイルを読み取り、変更しようとしています。",
   "blocks.folder.readOnly": "読み取りのみ許可し、何も変更させない",

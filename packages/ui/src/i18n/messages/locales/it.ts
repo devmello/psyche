@@ -23,6 +23,7 @@ import { homeRest } from "./home-rest/it.ts";
 import { keepAwake } from "./keep-awake/it.ts";
 import { links } from "./links/it.ts";
 import { linuxAccess } from "./linux-access/it.ts";
+import { machines } from "./machines/it.ts";
 import { mailFollowups } from "./mail-followups/it.ts";
 import { mailMeetings } from "./mail-meetings/it.ts";
 import { meetingRecordRest } from "./meeting-record-rest/it.ts";
@@ -836,6 +837,8 @@ export const it: Partial<Catalogue> = {
     "Interrotto prima della fine: {reason}. Sono stati importati {done} lotti su {total}. Importa di nuovo per continuare; le conversazioni già importate vengono saltate.",
   "agent.memory.importConv.retry": "Importa di nuovo",
   "agent.memory.exported": "Esportato {file}.",
+  "agent.memory.importConv.memoriesFailed":
+    "Impossibile importare i ricordi: {reason}. Importa di nuovo per riprovare.",
   "agent.memory.export": "Esporta tutto",
   "agent.memory.resetDone":
     "Ripristinati {files, plural, one {# file} other {# file}}, {claims, plural, one {# affermazione} other {# affermazioni}}.",
@@ -3847,4 +3850,5 @@ export const it: Partial<Catalogue> = {
   ...mailFollowups,
   ...keepAwake,
   ...spaces,
+  ...machines,
 };

@@ -10,6 +10,7 @@ import {
   linuxRunCarveOuts,
   writeProtectedHomeRoots,
 } from "@psyche/permissions";
+import { psycheServerTarballRoot } from "../server-install.ts";
 import { DESKTOP_APP_NAME } from "./desktop-launch.ts";
 
 /**
@@ -33,11 +34,13 @@ export function protectedRoots(
   userHome: string = homedir(),
 ): string[] {
   const out = new Set<string>();
+  // Linux: a psyche-server tarball install's root (the Gateway's own code, which the account can
+  // write), wherever its --root put it (B1 review r1, finding 11).
   // The CLI binaries Psyche runs unsandboxed (`~/.local/share/claude`, `~/.bun`...): not writable
   // through a wide grant such as an older home-root one. Not in `defaultDenyRead`: MCP servers
   // run `npx` from `~/.npm-global`.
   const cliDirs = CLI_HOME_DIRS.map((segments) => join(userHome, ...segments));
-  const linux = platform === "linux" ? LINUX_SYSTEM_ROOTS : [];
+  const linux = platform === "linux" ? [...LINUX_SYSTEM_ROOTS, ...psycheServerTarballRoot()] : [];
   for (const p of [...defaultDenyRead(psycheHome, platform), ...cliDirs, ...linux]) {
     out.add(p);
     try {

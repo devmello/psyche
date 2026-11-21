@@ -2,11 +2,11 @@
  * PR #1498 r2 probes, kept as tests: the real `composeComputer` on a Linux Gateway, with
  * `node:child_process` mocked so every `loginctl` and `systemctl` spawn is recorded.
  */
-import { mkdtempSync, rmSync } from "node:fs";
+import { existsSync, mkdirSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import type { CallContext } from "@psyche/browser";
-import { openDb, type PsycheDb, setSetting } from "@psyche/db";
+import { getSetting, openDb, type PsycheDb, setSetting } from "@psyche/db";
 import type {
   NodeCapability,
   NodeClient,
@@ -49,6 +49,7 @@ vi.mock("node:child_process", async (orig) => {
           exec.onStart(args[2] ?? "");
           return cb(null, "");
         }
+        if (name === "busctl" && args[1] === "set-property") return cb(null, "");
         cb(new Error(`unexpected ${file} ${args.join(" ")}`));
       });
       return {} as never;
@@ -58,9 +59,8 @@ vi.mock("node:child_process", async (orig) => {
 
 const { composeComputer } = await import("../src/compose/computer.ts");
 const { COMPUTER_USE_ENABLED } = await import("../src/compose/computer-settings.ts");
-const { COMPUTER_USE_LINUX_REVOKE, hasGraphicalSession } = await import(
-  "../src/compose/computer-linux.ts"
-);
+const { COMPUTER_USE_LINUX_REVOKE, COMPUTER_USE_LINUX_REVOKE_APPLIED, hasGraphicalSession } =
+  await import("../src/compose/computer-linux.ts");
 
 class Fake implements NodeClient {
   readonly nodeId = "node-linux";
@@ -78,6 +78,7 @@ class Fake implements NodeClient {
       return { ok: true, result: { session: "headless", backend: "none", allowed: false } };
     }
     if (capability === "a11y.status") return { ok: true, result: { available: false } };
+    if (capability === "portal.revoke") return { ok: true, result: { revoked: true } };
     if (capability === "computer.ax_tree") {
       return { ok: true, result: { text: `window "E"\n  [e1] textarea "B"`, tier: "interact" } };
     }
@@ -184,8 +185,12 @@ function session(kind: "none" | "graphical"): void {
   }
 }
 
+const realHelperState = process.env.PSYCHE_HELPER_STATE;
 beforeEach(() => {
   home = mkdtempSync(join(tmpdir(), "psyche-cu-compose-"));
+  // The helper's state dir (a11y.json), never the real ~/.local/state.
+  process.env.PSYCHE_HELPER_STATE = join(home, "helper-state");
+  mkdirSync(join(home, "helper-state"));
   db = openDb(join(home, "psyche.db"));
   Object.defineProperty(process, "platform", { value: "linux" });
   fake = new Fake();
@@ -201,6 +206,8 @@ beforeEach(() => {
 afterEach(async () => {
   for (const p of parts.splice(0)) await p.stop?.();
   Object.defineProperty(process, "platform", { value: realPlatform });
+  if (realHelperState === undefined) delete process.env.PSYCHE_HELPER_STATE;
+  else process.env.PSYCHE_HELPER_STATE = realHelperState;
   db.close();
   rmSync(home, { recursive: true, force: true });
 });
@@ -248,6 +255,40 @@ describe("off and Revoke start nothing", () => {
     },
   );
 
+  // PR #1498 r3, finding 2 (owner decision): psyched restores the flag itself, with busctl.
+  it("turning computer use off with no helper restores Psyche's accessibility flag", async () => {
+    const a11y = join(home, "helper-state", "a11y.json");
+    writeFileSync(a11y, JSON.stringify({ enabledByPsyche: true }));
+    setSetting(db, COMPUTER_USE_ENABLED, true);
+    compose();
+    emit("settings.changed", { entries: [{ key: COMPUTER_USE_ENABLED, value: false }] });
+    await settle();
+    const busctl = exec.log.filter((l) => l[0]?.endsWith("/busctl"));
+    expect(busctl).toHaveLength(1);
+    expect(busctl[0]?.[0]).toMatch(/^\/(usr\/)?bin\/busctl$/);
+    expect(busctl[0]?.slice(1)).toEqual([
+      "--user",
+      "set-property",
+      "org.a11y.Bus",
+      "/org/a11y/bus",
+      "org.a11y.Status",
+      "IsEnabled",
+      "b",
+      "false",
+    ]);
+    expect(existsSync(a11y)).toBe(false);
+    expect(starts()).toEqual([]);
+  });
+
+  it("turning it off with no helper and no Psyche flag runs no busctl", async () => {
+    writeFileSync(join(home, "helper-state", "a11y.json"), '{"enabledByPsyche":false}');
+    setSetting(db, COMPUTER_USE_ENABLED, true);
+    compose();
+    emit("settings.changed", { entries: [{ key: COMPUTER_USE_ENABLED, value: false }] });
+    await settle();
+    expect(exec.log.filter((l) => l[0]?.endsWith("/busctl"))).toEqual([]);
+  });
+
   it("with a helper already connected, off and Revoke go to it and start nothing", async () => {
     session("graphical");
     setSetting(db, COMPUTER_USE_ENABLED, true);
@@ -276,6 +317,47 @@ describe("off and Revoke start nothing", () => {
     });
     expect(r.isError, JSON.stringify(r.output)).toBeUndefined();
     expect(starts()).toEqual(["psyche-helper-headless.service"]);
+  });
+});
+
+// PR #1498 r3, finding 1: a Revoke pending from before a restart reaches the helper before the
+// first computer.* call, even when that call is what starts the helper.
+describe("a pending Revoke and the first direct call", () => {
+  it("revokes on the helper a direct call started before the call reaches it", async () => {
+    session("graphical");
+    setSetting(db, COMPUTER_USE_ENABLED, true);
+    // Tapped while no helper ran, then psyched restarted: pending only in the DB.
+    setSetting(db, COMPUTER_USE_LINUX_REVOKE, "2026-11-20T00:00:00Z");
+    compose();
+    const r = await call("computer.snapshot", { app: "org.gnome.TextEditor" });
+    expect(r.isError, JSON.stringify(r.output)).toBeUndefined();
+    expect(starts()).toEqual(["psyche-helper.service"]);
+    const sent = fake.calls.map((c) => c.capability);
+    const revoke = sent.indexOf("portal.revoke");
+    const first = sent.findIndex((c) => c.startsWith("computer."));
+    expect(revoke).toBeGreaterThanOrEqual(0);
+    expect(first).toBeGreaterThan(revoke);
+    expect(getSetting(db, COMPUTER_USE_LINUX_REVOKE_APPLIED)?.value).toBe("2026-11-20T00:00:00Z");
+  });
+
+  it("refuses the direct call while the helper does not confirm the revoke", async () => {
+    session("graphical");
+    setSetting(db, COMPUTER_USE_ENABLED, true);
+    setSetting(db, COMPUTER_USE_LINUX_REVOKE, "2026-11-20T00:00:00Z");
+    connected = true;
+    const invoke = fake.invoke.bind(fake);
+    fake.invoke = async (capability, params) => {
+      if (capability !== "portal.revoke") return invoke(capability, params);
+      fake.calls.push({ capability, params: {} });
+      return { ok: false, error: { code: "internal", message: "portal" } };
+    };
+    compose();
+    await settle();
+    const r = await call("computer.snapshot", { app: "org.gnome.TextEditor" });
+    expect(JSON.stringify(r.output)).toContain("revoke_pending");
+    const sent = fake.calls.map((c) => c.capability);
+    expect(sent.filter((c) => c.startsWith("computer."))).toEqual([]);
+    expect(sent.filter((c) => c === "portal.revoke").length).toBeGreaterThanOrEqual(2);
   });
 });
 
@@ -338,8 +420,9 @@ it("an SSH session with a stale DISPLAY in the user manager is not graphical (P6
   exec.sessions = "c18 1000 devmello - pts/1 active no -\n";
   exec.show = { c18: "User=1000\nType=tty\nState=active\nRemote=yes\nSeat=\n" };
   exec.env = "PATH=/usr/bin\nDISPLAY=:0\n";
-  expect(await hasGraphicalSession(undefined, 1000, undefined, () => true)).toBe(false);
+  const socket = () => ({ socket: true, uid: 1000 });
+  expect(await hasGraphicalSession(undefined, 1000, undefined, socket)).toBe(false);
   // A pty session (script + su -l) is local but has no seat: not graphical either.
   exec.show = { c18: "User=1000\nType=tty\nState=active\nRemote=no\nSeat=\n" };
-  expect(await hasGraphicalSession(undefined, 1000, undefined, () => true)).toBe(false);
+  expect(await hasGraphicalSession(undefined, 1000, undefined, socket)).toBe(false);
 });
