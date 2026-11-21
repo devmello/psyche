@@ -233,56 +233,13 @@ sudo userdel -r psyche-h7-upd >/dev/null 2>&1
 PIDD="$(ctl $DED show -p MainPID --value psyche-helper-remote.service)"
 sudo systemctl stop "user@$DED_UID.service"; sudo systemctl start "user@$DED_UID.service"
 check "reboot (simulated): the dedicated helper is back" bash -c "wait_for 20 ctl $DED is-active --quiet psyche-helper-remote.service && [ \"\$(ctl $DED show -p MainPID --value psyche-helper-remote.service)\" != $PIDD ]"
-# --- who the helper says owns the limits (best effort, and honest: root only when nothing the
-# account owns is in the way). The real binary replaces the stand-in, root's copy, and is asked
-# from inside the service manager with INVOCATION_ID set the way a service has it.
+# --- who owns the limits: the helper runs in the account's own user manager and cannot prove a root
+# ceiling, so there is no root answer and no flag to ask for one. The real binary replaces the
+# stand-in, as root's copy.
 CO=/usr/local/lib/psyche-helper/psyche-helper
 sudo install -o root -g root -m 0755 "$W/bin1/psyche-helper" $CO
-DH="/home/$DED"
-expect_owner() { # expect_owner NAME OWNER REASON(null|"x") [systemd-run options / command prefix]
-  local name="$1" want="$2" reason="$3"; shift 3
-  local out
-  out="$(as $DED systemd-run --user --wait --pipe --collect -q "$@" $CO --ceiling-owner 2>&1)"
-  if grep -q "\"policyOwner\":\"$want\"" <<<"$out" && grep -q "\"reason\":$reason" <<<"$out"; then ok "$name"; else bad "$name: $out"; fi
-}
-reload() { ctl $DED daemon-reload; }
-expect_owner "ceiling owner: a clean dedicated install reports root" root null
-expect_owner "ceiling owner: run outside a service (no INVOCATION_ID) reports user" user '"not_a_service"' /usr/bin/env -u INVOCATION_ID
-expect_owner "ceiling owner: GLIBC_TUNABLES in the environment reports user" user '"environment"' -E GLIBC_TUNABLES=glibc.malloc.check=0
-expect_owner "ceiling owner: LD_PRELOAD in the environment reports user" user '"environment"' -E LD_PRELOAD=/nonexistent/evil.so
-# (a unit of the account's own, in its home)
-as $DED mkdir -p "$DH/.config/systemd/user"
-printf '[Service]\nExecStart=/bin/true\n' | as $DED tee "$DH/.config/systemd/user/psyche-helper-remote.service" >/dev/null
-reload
-expect_owner "ceiling owner: a service file in the account's home reports user" user '"unit_overridden"'
-as $DED rm -f "$DH/.config/systemd/user/psyche-helper-remote.service"; reload
-expect_owner "ceiling owner: back to root once the override is gone" root null
-# (a drop-in, with a fake systemctl first on the manager's PATH)
-as $DED mkdir -p "$DH/.config/systemd/user/psyche-helper-remote.service.d" "$DH/fake"
-printf '[Service]\nEnvironment=X=1\n' | as $DED tee "$DH/.config/systemd/user/psyche-helper-remote.service.d/x.conf" >/dev/null
-printf '#!/bin/sh\necho FragmentPath=/etc/systemd/user/psyche-helper-remote.service\necho DropInPaths=\n' | as $DED tee "$DH/fake/systemctl" >/dev/null
-as $DED chmod 755 "$DH/fake/systemctl"
-ctl $DED set-environment "PATH=$DH/fake:/usr/bin:/bin"
-reload
-expect_owner "ceiling owner: a drop-in reports user even with a fake systemctl first on PATH" user '"unit_overridden"'
-ctl $DED unset-environment PATH
-as $DED rm -rf "$DH/.config/systemd/user/psyche-helper-remote.service.d" "$DH/fake"; reload
-# (a ".." in SYSTEMD_UNIT_PATH makes a home file look like /usr/lib/systemd/user/...)
-as $DED mkdir -p "$DH/u"
-printf '[Service]\nExecStart=/bin/true\n' | as $DED tee "$DH/u/psyche-helper-remote.service" >/dev/null
-printf '[Manager]\nManagerEnvironment=SYSTEMD_UNIT_PATH=/usr/lib/systemd/user/../../../..%s/u:\n' "$DH" | as $DED tee "$DH/.config/systemd/user.conf" >/dev/null
-ctl $DED daemon-reexec; sleep 1
-expect_owner "ceiling owner: a unit reached through a .. prefix reports user" user '"unit_overridden"'
-as $DED rm -rf "$DH/.config/systemd/user.conf" "$DH/u"; ctl $DED daemon-reexec; sleep 1
-expect_owner "ceiling owner: back to root once the .. override is gone" root null
-# (environment.d reaching the service's environment)
-as $DED mkdir -p "$DH/.config/environment.d"
-printf 'GLIBC_TUNABLES=glibc.malloc.check=0\n' | as $DED tee "$DH/.config/environment.d/50-x.conf" >/dev/null
-reload
-check "environment.d reaches the manager's environment (the test's premise)" bash -c "ctl $DED show-environment | grep -q GLIBC_TUNABLES"
-expect_owner "ceiling owner: an environment.d LD_*/GLIBC variable reports user" user '"environment"'
-as $DED rm -rf "$DH/.config/environment.d"; reload
-expect_owner "ceiling owner: root again at the end" root null
+as $DED $CO --ceiling-owner >"$W/co.log" 2>&1; CORC=$?
+check "no --ceiling-owner flag: the helper never claims a root ceiling" bash -c "[ $CORC -ne 0 ] && ! grep -q policyOwner $W/co.log"
 
 # update in a root-owned install points at the installer, and --check still looks
 as $DED $CO update >"$W/ded-update.log" 2>&1
@@ -310,6 +267,17 @@ snap >"$W/snap1b"
 check "planted links (.local/lib -> /etc, .config/psyche-helper -> /etc/psyche-helper): install, --uninstall --purge leave /etc alone" cmp "$W/snap1" "$W/snap1b"
 check "dedicated: --uninstall --purge removes the account and root's files" bash -c "! id $DED && [ ! -e /usr/local/lib/psyche-helper ] && [ ! -e /etc/systemd/user/psyche-helper-remote.service ]"
 sudo rm -rf $V1 $V2
+sudo rm -rf /etc/psyche-helper
+
+# The account deleted by hand: --uninstall still removes root's files, and a new dedicated install is
+# no longer refused because of them.
+sudo bash "$INST" --dedicated-user $DED --ceiling narrow >"$W/stale-1.log" 2>&1
+check "stale account: the dedicated install is back (premise)" bash -c "[ -e /etc/systemd/user/psyche-helper-remote.service ] && [ -e /usr/local/lib/psyche-helper ]"
+sudo loginctl disable-linger $DED; sudo loginctl terminate-user $DED 2>/dev/null; sleep 1
+sudo userdel -r -f $DED 2>/dev/null
+check "stale account: the account is gone but root's files stay (premise)" bash -c "! id $DED && [ -e /etc/systemd/user/psyche-helper-remote.service ]"
+sudo bash "$INST" --dedicated-user $DED --uninstall >"$W/stale-2.log" 2>&1; STALE_RC=$?
+check "stale account: --uninstall removes root's files and exits 0" bash -c "[ $STALE_RC -eq 0 ] && [ ! -e /etc/systemd/user/psyche-helper-remote.service ] && [ ! -e /usr/local/lib/psyche-helper ] && [ ! -e /usr/local/bin/psyche-helper ]"
 sudo rm -rf /etc/psyche-helper
 
 # --- update (real binaries) -------------------------------------------------------------------

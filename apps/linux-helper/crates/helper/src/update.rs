@@ -1055,125 +1055,17 @@ pub fn trusted_key_pairs() -> Vec<UpdateKey> {
 }
 
 // ---------------------------------------------------------------------------------------------
-// Who really owns the ceiling
+// Who owns the ceiling
 
-/// Whether `path` and every directory above it belong to root and cannot be written by group or
-/// others. A root-owned `policy.json` limits the account only if the program that reads it is out
-/// of the account's reach too.
-pub fn root_controlled(path: &Path) -> bool {
-    use std::os::unix::fs::MetadataExt;
-    let Ok(real) = fs::canonicalize(path) else {
-        return false;
-    };
-    real.ancestors()
-        .all(|p| fs::symlink_metadata(p).is_ok_and(|m| m.uid() == 0 && m.mode() & 0o022 == 0))
-}
+/// The helper runs inside the account's own user manager, so it cannot prove a root ceiling: the
+/// account's own processes can change the helper's environment (`systemctl --user set-environment`,
+/// `environment.d`, drop-ins), and nothing the helper reads about itself is out of their reach.
+/// The owner is therefore always `user`. For a root-owned `policy.json` the reason says so in plain
+/// words; the file limits what the account reaches but is not enforced against that account.
+pub const CEILING_OWNER: &str = "user";
 
-/// Whether `systemctl --user show -p FragmentPath -p DropInPaths` output names unit files that all
-/// pass `ok` (in the real check: resolved through links, root-owned, in root-owned folders). An
-/// empty fragment path is a no.
-pub fn unit_files_root_controlled(show_output: &str, ok: &dyn Fn(&Path) -> bool) -> bool {
-    let mut fragment = false;
-    for line in show_output.lines() {
-        if let Some(v) = line.strip_prefix("FragmentPath=") {
-            if v.is_empty() || !ok(Path::new(v)) {
-                return false;
-            }
-            fragment = true;
-        } else if let Some(v) = line.strip_prefix("DropInPaths=") {
-            if v.split_whitespace().any(|d| !ok(Path::new(d))) {
-                return false;
-            }
-        }
-    }
-    fragment
-}
-
-fn unit_is_root_controlled() -> bool {
-    static CACHE: std::sync::OnceLock<bool> = std::sync::OnceLock::new();
-    *CACHE.get_or_init(|| {
-        Process::new(SYSTEMCTL)
-            .args([
-                "--user",
-                "show",
-                "-p",
-                "FragmentPath",
-                "-p",
-                "DropInPaths",
-                UNIT,
-            ])
-            .output()
-            .ok()
-            .filter(|o| o.status.success())
-            .is_some_and(|o| {
-                unit_files_root_controlled(&String::from_utf8_lossy(&o.stdout), &root_controlled)
-            })
-    })
-}
-
-/// Variables that put the account's code inside this process.
-pub const INJECTION_VARIABLES: [&str; 4] = [
-    "LD_PRELOAD",
-    "LD_LIBRARY_PATH",
-    "LD_AUDIT",
-    "GLIBC_TUNABLES",
-];
-
-/// What `ceiling_owner` looks at, so it can be tested without a service manager.
-pub struct Facts {
-    pub program_root_controlled: bool,
-    pub environment_clean: bool,
-    pub in_service: bool,
-}
-
-impl Facts {
-    pub fn current() -> Self {
-        Self {
-            program_root_controlled: std::env::current_exe().is_ok_and(|e| root_controlled(&e)),
-            environment_clean: INJECTION_VARIABLES
-                .iter()
-                .all(|v| std::env::var_os(v).is_none()),
-            in_service: std::env::var_os("INVOCATION_ID").is_some(),
-        }
-    }
-}
-
-/// `("root" | "user", reason)` for what Settings should say about the ceiling. A best-effort,
-/// honest report from inside the account's own process: `root` only when a root-owned
-/// `policy.json` is read by a program and a service file that are root's, run by a service
-/// manager with a clean environment. Anything the account could have changed reports `user`.
-pub fn ceiling_owner(policy_is_root: bool) -> (&'static str, Option<&'static str>) {
-    ceiling_owner_with(policy_is_root, Facts::current(), unit_is_root_controlled)
-}
-
-pub fn ceiling_owner_with(
-    policy_is_root: bool,
-    facts: Facts,
-    unit_root_controlled: impl FnOnce() -> bool,
-) -> (&'static str, Option<&'static str>) {
-    if !policy_is_root {
-        return ("user", None);
-    }
-    if !facts.program_root_controlled {
-        return ("user", Some("program_writable"));
-    }
-    if !facts.environment_clean {
-        return ("user", Some("environment"));
-    }
-    // Run by hand there is no service whose files could be checked: not a claim to make.
-    if !facts.in_service {
-        return ("user", Some("not_a_service"));
-    }
-    if !unit_root_controlled() {
-        return ("user", Some("unit_overridden"));
-    }
-    ("root", None)
-}
-
-/// `psyche-helper --ceiling-owner`: what the service would report for a root-owned policy, as JSON.
-pub fn ceiling_owner_json() -> String {
-    let (owner, reason) = ceiling_owner(true);
-    serde_json::json!({ "policyOwner": owner, "reason": reason }).to_string()
+pub fn ceiling_owner_reason(policy_is_root: bool) -> Option<&'static str> {
+    policy_is_root.then_some("not_enforced_against_account")
 }
 
 #[cfg(test)]
@@ -1719,83 +1611,14 @@ mod tests {
         assert!(decode_chunked(b"fffffffffffffffe\r\nxx", usize::MAX).is_err());
     }
 
-    fn facts(program: bool, env: bool, service: bool) -> Facts {
-        Facts {
-            program_root_controlled: program,
-            environment_clean: env,
-            in_service: service,
-        }
-    }
-
-    #[test]
-    fn the_ceiling_is_root_owned_only_when_nothing_the_account_owns_is_in_the_way() {
-        let t = || true;
+#[test]
+    fn the_ceiling_owner_is_always_the_account() {
+        assert_eq!(CEILING_OWNER, "user");
+        assert_eq!(ceiling_owner_reason(false), None);
         assert_eq!(
-            ceiling_owner_with(false, facts(true, true, true), t),
-            ("user", None)
+            ceiling_owner_reason(true),
+            Some("not_enforced_against_account")
         );
-        assert_eq!(
-            ceiling_owner_with(true, facts(false, true, true), t),
-            ("user", Some("program_writable"))
-        );
-        assert_eq!(
-            ceiling_owner_with(true, facts(true, false, true), t),
-            ("user", Some("environment"))
-        );
-        assert_eq!(
-            ceiling_owner_with(true, facts(true, true, false), t),
-            ("user", Some("not_a_service"))
-        );
-        assert_eq!(
-            ceiling_owner_with(true, facts(true, true, true), || false),
-            ("user", Some("unit_overridden"))
-        );
-        assert_eq!(
-            ceiling_owner_with(true, facts(true, true, true), t),
-            ("root", None)
-        );
-        // The unit is not even asked when something else already settles it.
-        assert_eq!(
-            ceiling_owner_with(true, facts(true, true, false), || panic!("not needed")),
-            ("user", Some("not_a_service"))
-        );
-    }
-
-    #[test]
-    fn unit_files_are_judged_by_what_they_resolve_to_not_by_their_names() {
-        let ok = |p: &Path| p.starts_with("/etc/systemd/");
-        let good = "FragmentPath=/etc/systemd/user/psyche-helper-remote.service\nDropInPaths=\n";
-        assert!(unit_files_root_controlled(good, &ok));
-        assert!(unit_files_root_controlled(
-            "FragmentPath=/etc/systemd/user/a.service\nDropInPaths=/etc/systemd/user/a.service.d/x.conf\n",
-            &ok
-        ));
-        for bad in [
-            "FragmentPath=/home/a/.config/systemd/user/a.service\nDropInPaths=\n",
-            "FragmentPath=/etc/systemd/user/a.service\nDropInPaths=/etc/systemd/user/a.d/x.conf /home/a/x.conf\n",
-            "FragmentPath=\nDropInPaths=\n",
-            "DropInPaths=\n",
-            "",
-        ] {
-            assert!(!unit_files_root_controlled(bad, &ok), "{bad}");
-        }
-    }
-
-    #[test]
-    fn a_dot_dot_prefix_does_not_make_a_home_file_root_controlled() {
-        // `root_controlled` resolves the path before it looks at any owner.
-        let dir = tempfile::tempdir().unwrap();
-        let f = dir.path().join("u.service");
-        fs::write(&f, "x").unwrap();
-        let tricky = format!("/usr/lib/systemd/user/../../../..{}", f.display());
-        // SAFETY: geteuid has no preconditions.
-        if unsafe { libc::geteuid() } != 0 {
-            assert!(!root_controlled(Path::new(&tricky)));
-            assert!(!unit_files_root_controlled(
-                &format!("FragmentPath={tricky}\nDropInPaths=\n"),
-                &root_controlled
-            ));
-        }
     }
 
     #[test]
@@ -1823,20 +1646,6 @@ mod tests {
         assert!(update_advice(InstallKind::Package).contains("package manager"));
         assert!(update_advice(InstallKind::RootTarball).contains("install.sh --dedicated-user"));
         assert!(!update_advice(InstallKind::RootTarball).contains("apt"));
-    }
-
-    #[test]
-    fn a_program_is_root_controlled_only_in_root_owned_folders() {
-        // SAFETY: geteuid has no preconditions.
-        if unsafe { libc::geteuid() } != 0 {
-            let dir = tempfile::tempdir().unwrap();
-            let f = dir.path().join("p");
-            fs::write(&f, "x").unwrap();
-            assert!(!root_controlled(&f));
-        }
-        assert!(!root_controlled(Path::new("/nonexistent/psyche")));
-        #[cfg(target_os = "linux")]
-        assert!(root_controlled(Path::new("/usr/bin/env")));
     }
 
     #[test]

@@ -123,7 +123,7 @@ pub fn write_bus_config(session_dir: &Path) -> std::io::Result<PathBuf> {
 
 pub fn dbus_daemon_argv(session_dir: &Path) -> Vec<String> {
     vec![
-        "dbus-daemon".into(),
+        super::tools::dbus_daemon().to_string_lossy().into_owned(),
         format!("--config-file={}", bus_config_path(session_dir).display()),
         "--nofork".into(),
         "--nopidfile".into(),
@@ -217,7 +217,7 @@ mod tests {
         assert_eq!(
             argv,
             [
-                "dbus-daemon",
+                super::tools::dbus_daemon().to_str().unwrap(),
                 "--config-file=/run/user/1000/psyche/vs-1/bus.conf",
                 "--nofork",
                 "--nopidfile"

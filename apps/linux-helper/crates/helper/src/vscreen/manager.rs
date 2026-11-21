@@ -100,7 +100,7 @@ impl Config {
     }
 
     pub fn from_env(env: &dyn Env) -> Self {
-        let home = PathBuf::from(env.get("HOME").unwrap_or_else(|| "/".into()));
+        let home = PathBuf::from(env.home().unwrap_or_else(|| "/".into()));
         let state = state_dir(env);
         let limits = limits_from(env, &state);
         let base_env = APP_ENV_ALLOW
@@ -121,7 +121,7 @@ impl Config {
                 .get("PSYCHE_VSCREEN_FIRST_DISPLAY")
                 .and_then(|v| v.parse().ok())
                 .unwrap_or(90),
-            xvfb_path: env.get("PSYCHE_XVFB").unwrap_or_else(|| "Xvfb".into()),
+            xvfb_path: xvfb_program(env),
             width: 1280,
             height: 800,
             idle_stop: Duration::from_secs(600),
@@ -140,6 +140,17 @@ impl Config {
 /// The slice's caps: `PSYCHE_VSCREEN_*` first, then `<state>/vscreen.json` (`{"memoryHigh":"2G",
 /// "memoryMax":"3G","tasksMax":2048,"cpuQuota":"200%"}`, what the desktop writes), then the
 /// defaults. A value that does not parse (`infinity` among them) falls back to the default.
+/// The X server to start. `PSYCHE_XVFB` is a test hook: outside test builds the environment does
+/// not get to choose the program (the account can set it through its own manager).
+fn xvfb_program(env: &dyn Env) -> String {
+    #[cfg(test)]
+    if let Some(p) = env.get("PSYCHE_XVFB") {
+        return p;
+    }
+    let _ = env;
+    super::tools::xvfb().to_string_lossy().into_owned()
+}
+
 pub fn limits_from(env: &dyn Env, state: &std::path::Path) -> SliceLimits {
     let file: serde_json::Value = std::fs::read_to_string(state.join("vscreen.json"))
         .ok()

@@ -16,7 +16,7 @@ Design and decisions: [linux-helper-only-2026.md](../design/linux-helper-only-20
 | --- | --- | --- |
 | What Psyche can reach | Your files, apps and logins on that computer, as you can | Only that account's files and apps |
 | Program and service file | In your home (`~/.local/lib/psyche-helper`, `~/.config/systemd/user`) | Root's: `/usr/local/lib/psyche-helper` and `/etc/systemd/user` |
-| Limits (`policy.json`) | In your config folder. Your account can edit them, so Settings flags them as changeable. `--root-policy` moves the file to `/etc`, but the program still lives in your home, so Settings keeps the warning | In `/etc/psyche-helper/policy.json`, owned by root. The account can change none of the file, the program or the service file |
+| Limits (`policy.json`) | In your config folder. Your account can edit them, so Settings flags them as changeable. `--root-policy` moves the file to `/etc`, but the program still lives in your home, so Settings keeps the warning | In `/etc/psyche-helper/policy.json`, owned by root. The account cannot edit the file, the program or the service file, but its own processes can change the helper's environment, so Settings still flags the limits |
 | Set up with | `./install.sh` | `sudo ./install.sh --dedicated-user` |
 
 The helper never gets root either way: its service runs with `NoNewPrivileges`, so nothing it starts can use `sudo`, `pkexec` or a setuid program. If your account has passwordless `sudo`, other programs you run as that account still can, which is why the separate account exists.
@@ -39,7 +39,7 @@ At a terminal, `install.sh` asks once which account to use. Options:
 | --- | --- |
 | `--dedicated-user [NAME]` | Create a no-password, no-shell account and run the helper as it. Refuses an account that is not a Psyche helper account |
 | `--ceiling default\|narrow` | The limits written on first install. `default`: its own screen, contained commands, files under `~`. `narrow`: apps only, no commands and no files |
-| `--root-policy` | Keep the limits in `/etc/psyche-helper/policy.json` (one `sudo` write). On an own-account install the program stays in your home, which your account can change, so Settings still shows the limits as changeable; for a limit your account cannot change, use a separate account or the deb/rpm |
+| `--root-policy` | Keep the limits in `/etc/psyche-helper/policy.json` (one `sudo` write). On an own-account install the program stays in your home, which your account can change, so Settings still shows the limits as changeable; a separate account or the deb/rpm keeps the file, program and service file root's |
 | `--no-linger` | Do not turn on linger |
 | `--uninstall [--purge]` | Remove the helper. `--purge` also removes its settings, and a dedicated account |
 
@@ -54,7 +54,7 @@ psyche-helper-setup                                            # as the account 
 # or:  sudo psyche-helper-setup --dedicated-user
 ```
 
-The package installs the program under `/usr/lib/psyche-helper`, the service under `/usr/lib/systemd/user`, and the limits at `/etc/psyche-helper/policy.json`, owned by root. A package install is the stronger setup: neither your account nor anything the helper runs can change the limits, the program or the service file. (An account can still put a service file, a drop-in or an `environment.d` file in its own home. A user service manager cannot be stopped from reading those, so the helper checks at start and, when it finds one, reports the limits as changeable by the account, and Settings shows the warning. Treat "root-owned" as a best-effort report, not a guarantee against code already running as that account.) `psyche-helper-setup` only turns the service on for one account and sets up linger.
+The package installs the program under `/usr/lib/psyche-helper`, the service under `/usr/lib/systemd/user`, and the limits at `/etc/psyche-helper/policy.json`, owned by root. A separate account (the package, or the tarball with `--dedicated-user`) limits what the agent reaches: it does not see your files or apps, only its own home. It is not a wall against code already running as that account. The helper runs inside that account's own service manager, and the account's processes can change its environment (`systemctl --user set-environment`, `environment.d`, a service drop-in). So the limits file is root-owned but not enforced against the account, and Settings always shows the limits as user-owned. `psyche-helper-setup` only turns the service on for one account and sets up linger.
 
 ### Linger: the one step that needs an administrator
 

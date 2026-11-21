@@ -183,9 +183,10 @@ impl MachineStatus {
         if p.surfaces.direct {
             surfaces.push("direct");
         }
-        // A root-owned file counts as root's only when the program and unit that enforce it are out
-        // of the account's reach too (update.rs); otherwise Settings keeps the user-owned warning.
-        let (owner, reason) = crate::update::ceiling_owner(matches!(loaded.owner, Owner::Root));
+        // The helper runs in the account's own user manager and cannot prove a root ceiling, so the
+        // owner is always the account; a root-owned file only says why (update.rs).
+        let owner = crate::update::CEILING_OWNER;
+        let reason = crate::update::ceiling_owner_reason(matches!(loaded.owner, Owner::Root));
         json!({
             "account": self.account,
             "policyOwner": owner,

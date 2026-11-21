@@ -148,6 +148,15 @@ if [ "$UNINSTALL" = 0 ]; then
   fi
 fi
 if [ "$UNINSTALL" = 0 ] && [ "$DEDICATED" = 1 ]; then create_dedicated; fi
+# An account deleted by hand leaves root's files behind (and they refuse any new dedicated install):
+# uninstalling for that name still removes them. Nothing of the account's is left to remove.
+if [ "$UNINSTALL" = 1 ] && [ "$DEDICATED" = 1 ] && ! getent passwd "$T_USER" >/dev/null &&
+  [ "$(etc_unit_user)" = "$T_USER" ]; then
+  as_root rm -f "$ROOT_UNITDIR/$UNIT" "$ROOT_UNITDIR/$SLICE" "$ROOT_BIN"
+  as_root rm -rf "$ROOT_LIB"
+  say "the account $T_USER is gone; removed its service file and program"
+  exit 0
+fi
 getent passwd "$T_USER" >/dev/null || die "no account $T_USER"
 T_UID="$(id -u "$T_USER")"
 T_HOME="$(getent passwd "$T_USER" | cut -d: -f6)"
