@@ -84,6 +84,12 @@ export const DEB_DEPENDS = [
   "at-spi2-core",
   "bubblewrap",
 ];
+/**
+ * Not required, but wanted: a server has no mDNS responder by default, and the LAN pairing link
+ * names `https://<hostname>.local:7979`, which a Mac cannot resolve without one.
+ */
+export const DEB_RECOMMENDS = ["avahi-daemon"];
+export const RPM_RECOMMENDS = ["avahi"];
 export const RPM_REQUIRES = [
   "glibc >= 2.35",
   "libstdc++",
@@ -320,6 +326,7 @@ function buildDeb(work, out, input) {
       `Maintainer: ${MAINTAINER}`,
       `Installed-Size: ${size}`,
       `Depends: ${DEB_DEPENDS.join(", ")}`,
+      `Recommends: ${DEB_RECOMMENDS.join(", ")}`,
       `Conflicts: ${DESKTOP_PACKAGE}`,
       "Section: net",
       "Priority: optional",
@@ -364,6 +371,7 @@ License: Apache-2.0
 URL: ${HOMEPAGE}
 BuildArch: ${ARCHES[input.arch].rpm}
 Requires: ${RPM_REQUIRES.join(", ")}
+Recommends: ${RPM_RECOMMENDS.join(", ")}
 Conflicts: ${DESKTOP_PACKAGE}
 AutoReqProv: no
 
