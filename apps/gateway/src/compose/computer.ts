@@ -673,6 +673,7 @@ export interface ComputerDeps {
    * ends the helper's session.
    */
   headlessScreen?(): HeadlessScreen | undefined;
+  /**
    * Linux: settles a Revoke the owner made while no helper ran (`LinuxComputerState`) before a
    * direct call uses the helper, so the stored portal grant is gone first. False: still pending.
    */
