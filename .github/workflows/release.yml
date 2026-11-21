@@ -37,6 +37,11 @@
 #                  (the release job signs it with RELEASE_SIGNING_KEY like every other platform), not by
 #                  a signature of their own. A no-op until apps/desktop/forge.config.ts has the Linux
 #                  makers (L2); optional for every release for now (the notes say when it is missing)
+#   Server         psyche-server-<version>-linux-{x64,arm64}.{deb,rpm,tar.zst}: the headless Linux Host
+#                  (psyched, the CLI and the helper, no Electron; deploy/linux-server/build.mjs),
+#                  unsigned like the Linux job and covered by the update manifest's server-* entries.
+#                  A no-op until the headless helper unit and the Gateway code that starts it
+#                  (wave B0) are on the branch
 #   Release        GitHub release with SHA256SUMS and notes from the changesets CHANGELOGs
 #   Homebrew       Casks/psyche.rb and Formula/psyche-cli.rb pushed to <owner>/homebrew-psyche
 #   Version PR     manual run with version_pr: changesets opens the "Version Packages" PR
@@ -1295,6 +1300,93 @@ jobs:
           path: release/*
           if-no-files-found: error
 
+  # psyche-server (docs/design/linux-helper-only-2026.md §3.2, wave B1): the headless Linux Host,
+  # psyched + the CLI + the helper with no Electron, as psyche-server-<version>-linux-<arch>.
+  # {deb,rpm,tar.zst} (deploy/linux-server/build.mjs). Unsigned, no environment, no secrets: the
+  # Ed25519 update manifest the release job signs covers the files. Each arch builds natively.
+  server:
+    name: psyche-server ${{ matrix.arch }} packages
+    needs: version
+    if: inputs.version_pr != true
+    runs-on: ${{ matrix.runner }}
+    timeout-minutes: 60
+    # New: a pre-release ships without an arch that fails to build (the notes say so).
+    continue-on-error: ${{ needs.version.outputs.prerelease == 'true' }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - arch: x64
+            runner: ubuntu-24.04
+          - arch: arm64
+            runner: ubuntu-24.04-arm
+    permissions:
+      contents: read
+    steps:
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - name: Headless helper unit and its starter present (wave B0)
+        id: unit
+        # Both halves of B0: the unit file, and the Gateway code that starts it. A unit alone would
+        # ship packages whose Gateway never starts its helper.
+        run: |
+          if [ -f deploy/systemd/psyche-helper-headless.service ] && grep -q 'psyche-helper-headless\.service' apps/gateway/src/compose/computer.ts; then echo "present=true" >> "$GITHUB_OUTPUT"; else
+            echo "::notice title=no psyche-server packages::deploy/systemd/psyche-helper-headless.service, or the Gateway code that starts it (apps/gateway/src/compose/computer.ts), is not on this branch yet (B0): this release has no psyche-server packages."
+            echo "present=false" >> "$GITHUB_OUTPUT"; fi
+      - name: Set up pnpm
+        if: steps.unit.outputs.present == 'true'
+        uses: pnpm/action-setup@73e46992e05b19abd31f2f3c20e0e7370d762115 # v6.1.1
+      - name: Set up Node
+        if: steps.unit.outputs.present == 'true'
+        uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version-file: .nvmrc
+          cache: pnpm
+      - name: Install
+        if: steps.unit.outputs.present == 'true'
+        run: pnpm install --frozen-lockfile
+      - name: Packaging tools and the libraries the helper links against
+        if: steps.unit.outputs.present == 'true'
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends dpkg-dev rpm file
+          grep -vE '^\s*(#|$)' apps/linux-helper/ci-deps.txt | xargs -r sudo apt-get install -y --no-install-recommends
+      - name: Build the helper
+        if: steps.unit.outputs.present == 'true'
+        env:
+          PSYCHE_BUILD: ${{ github.ref_name }}-${{ github.sha }}
+          PSYCHE_COMMIT: ${{ github.sha }}
+        run: |
+          rustup toolchain install 1.91.0 --profile minimal
+          rustup default 1.91.0
+          cargo build --release --locked --manifest-path apps/linux-helper/Cargo.toml
+      - name: Build the bundled Gateway (psyched, Linux)
+        if: steps.unit.outputs.present == 'true'
+        env:
+          ARCH: ${{ matrix.arch }}
+          PSYCHE_VERSION: ${{ needs.version.outputs.version }}
+        run: node deploy/scripts/build-psyched.mjs --arch "$ARCH" --smoke
+      - name: Make the deb, the rpm and the tarball
+        if: steps.unit.outputs.present == 'true'
+        env:
+          ARCH: ${{ matrix.arch }}
+          VERSION: ${{ needs.version.outputs.version }}
+        run: |
+          node deploy/linux-server/build.mjs --bundle "apps/gateway/dist-bin/linux-${ARCH}/psyched" \
+            --helper apps/linux-helper/target/release/psyche-helper --version "$VERSION" --arch "$ARCH" --out release
+          dpkg-deb --info "release/psyche-server-${VERSION}-linux-${ARCH}.deb"
+          rpm -qpi --requires --conflicts "release/psyche-server-${VERSION}-linux-${ARCH}.rpm"
+          ls -la release
+      - name: Upload
+        if: steps.unit.outputs.present == 'true'
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: psyche-server-${{ matrix.arch }}
+          path: release/*
+          if-no-files-found: error
+
   # The helper-only Linux packages (docs/design/linux-helper-only-2026.md section 3.1, H7): a tar.zst,
   # a deb and an rpm of the same `psyche-helper` binary that sandbox-helper (above) and the desktop
   # carry, for a computer that only lets the owner's Mac use it. Self-contained: it builds on a
@@ -1396,9 +1488,10 @@ jobs:
           path: helper-release/psyche-helper-*
           if-no-files-found: error
 
+
   release:
     name: GitHub release
-    needs: [version, image-manifest, sandbox-image-manifest, cli, dmg, sign, windows, linux, helper-packages]
+    needs: [version, image-manifest, sandbox-image-manifest, cli, dmg, sign, windows, linux, server, helper-packages]
     # Every needed job must succeed, except in a pre-release the DMG matrix, whose Intel leg may
     # fail (continue-on-error above; the "Desktop DMGs that shipped" step then requires arm64), and
     # the Windows installer ("Windows installer that shipped") and an arch of the Linux packages ("Linux
@@ -1411,6 +1504,7 @@ jobs:
       && (needs.dmg.result == 'success' || needs.version.outputs.prerelease == 'true')
       && (needs.windows.result == 'success' || needs.version.outputs.prerelease == 'true')
       && (needs.linux.result == 'success' || needs.version.outputs.prerelease == 'true')
+      && (needs.server.result == 'success' || needs.version.outputs.prerelease == 'true')
       && (needs.helper-packages.result == 'success' || needs.version.outputs.prerelease == 'true') }}
     runs-on: ubuntu-latest
     timeout-minutes: 10
@@ -1481,6 +1575,14 @@ jobs:
             echo "::notice::No Linux packages in this release."
             echo "LINUX=false" >> "$GITHUB_ENV"
           fi
+      - name: psyche-server packages that shipped (optional while the server package is new)
+        run: |
+          if ls artifacts/psyche-server-*-linux-*.deb artifacts/psyche-server-*-linux-*.rpm artifacts/psyche-server-*-linux-*.tar.zst >/dev/null 2>&1; then
+            echo "SERVER=true" >> "$GITHUB_ENV"
+          else
+            echo "::notice::No psyche-server packages in this release."
+            echo "SERVER=false" >> "$GITHUB_ENV"
+          fi
       - name: Signed update manifest (needs RELEASE_SIGNING_KEY in the release environment)
         env:
           SIGNING_KEY: ${{ secrets.RELEASE_SIGNING_KEY }}
@@ -1531,10 +1633,18 @@ jobs:
           else
             echo "::warning::no helper packages in this release: no update-manifest entries for psyche-helper."
           fi
+          # psyche-server: platforms["linux-<arch>"] server-deb, server-rpm and server-tar-zst
+          # (`psyche update` on a headless Linux Host reads them; desktop builds skip the kinds).
+          server=()
+          if [ "$SERVER" = "true" ]; then
+            server=(artifacts/psyche-server-*-linux-*.deb artifacts/psyche-server-*-linux-*.rpm artifacts/psyche-server-*-linux-*.tar.zst)
+          fi
           node deploy/scripts/update-manifest.mjs build --release "$VERSION" --minimum "$minimum" \
             --base "https://github.com/${GITHUB_REPOSITORY}/releases/download/${TAG}/" \
             ${DIGEST:+--image "gateway=${IMAGE}@${DIGEST}"} \
-            artifacts/Psyche-*.zip artifacts/Psyche-*.dmg "${win[@]}" "${linux[@]}" "${helper[@]}" > artifacts/update-manifest.json
+            artifacts/Psyche-*.zip artifacts/Psyche-*.dmg "${win[@]}" "${linux[@]}" "${server[@]}" "${helper[@]}" > artifacts/update-manifest.json
+          # Every arch with server files has its deb, rpm and tarball, all of this release.
+          node deploy/scripts/update-manifest.mjs server-check artifacts/update-manifest.json
           PSYCHE_RELEASE_SIGNING_KEY="$SIGNING_KEY" node deploy/scripts/update-manifest.mjs sign artifacts/update-manifest.json
           # The signature must verify against a key the app trusts (apps/desktop/src/main/release-keys.ts),
           # not just against the secret's own public half: a secret that is not the shipped key
