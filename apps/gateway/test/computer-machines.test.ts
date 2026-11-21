@@ -1291,3 +1291,170 @@ describe("the machine settings (computerUse.machineApps and computerUse.defaultM
     expect(hostApps).toEqual(["com.apple.Notes"]);
   });
 });
+
+describe("review r1 of #1509: tiers, parks, apps.open, pins", () => {
+  const typeOn = (machine?: string) => ({
+    app: editor,
+    action: "type",
+    text: "hello",
+    ...(machine === undefined ? {} : { machine }),
+  });
+  const typed = () => callsOf(nodes.get(A.deviceId), "computer.type");
+
+  it("must refuse: an explicit read tier is not turned into a card (P1)", async () => {
+    allowTiers(A.id, [{ id: editor, tier: "read" }]);
+    const r = await call("computer.act", typeOn("lab-box"));
+    expect(errorOf(r)?.code).toBe("policy_denied");
+    expect(errorOf(r)?.details).toMatchObject({ reason: "app_tier:read" });
+    expect(issued).toHaveLength(0);
+    expect(typed()).toHaveLength(0);
+  });
+
+  it("must refuse: a loop approval never lifts an explicit read tier, now or later (P2)", async () => {
+    allowTiers(A.id, [{ id: editor, tier: "read" }]);
+    const id = await approvedCard("computer.act", typeOn("lab-box"));
+    const out = await viaLoop("computer.act", typeOn("lab-box"), id);
+    expect(errorOf(out.result ?? { output: {} })?.code).toBe("policy_denied");
+    const later = await call(
+      "computer.act",
+      { ...typeOn("lab-box"), text: "other" },
+      { taint: true },
+    );
+    expect(errorOf(later)?.details).toMatchObject({ reason: "app_tier:read" });
+    expect(issued).toHaveLength(0);
+    expect(typed()).toHaveLength(0);
+  });
+
+  it("must refuse: a click tier with an approved interact call", async () => {
+    allowTiers(A.id, [{ id: editor, tier: "click" }]);
+    const id = await approvedCard("computer.act", typeOn("lab-box"));
+    const out = await viaLoop("computer.act", typeOn("lab-box"), id);
+    expect(errorOf(out.result ?? { output: {} })?.details).toMatchObject({
+      reason: "app_tier:click",
+    });
+    expect(typed()).toHaveLength(0);
+  });
+
+  it("must allow: an unset tier with an approval, then the allowance for later calls", async () => {
+    const id = await approvedCard("computer.act", typeOn("lab-box"));
+    const out = await viaLoop("computer.act", typeOn("lab-box"), id);
+    expect(out.result?.isError, JSON.stringify(out.result?.output)).toBeUndefined();
+    const later = await call("computer.act", { ...typeOn("lab-box"), text: "again" });
+    expect(later.isError).toBeUndefined();
+    expect(issued).toHaveLength(0);
+    expect(typed()).toHaveLength(2);
+  });
+
+  it("must allow: apps.open on a machine, approved on its card, opens exactly once (P3)", async () => {
+    const r = await call("apps.open", { app: editor, machine: "lab-box" });
+    expect(r.isError, JSON.stringify(r.output)).toBeUndefined();
+    expect(issued).toHaveLength(1);
+    const opens = callsOf(nodes.get(A.deviceId), "apps.open");
+    expect(opens).toHaveLength(1);
+    expect(opens[0]?.approvalId).toBe(issued[0]?.approval.id);
+    expect(opens[0]?.params.approval).toEqual({ app: editor, tier: "click" });
+    expect(callsOf(nodes.get(B.deviceId), "apps.open")).toHaveLength(0);
+    expect(callsOf(host, "apps.open")).toHaveLength(0);
+  });
+
+  describe("a parked call is checked again when the machine is back (P4)", () => {
+    const parked = () =>
+      call(
+        "computer.snapshot",
+        { app: editor, machine: "build-box" },
+        { unattended: true, taskId: "task_9" },
+      );
+    const park = (during: () => void) => {
+      allowTiers(B.id, [{ id: editor, tier: "read" }]);
+      online.delete(B.deviceId);
+      setTimeout(during, 10);
+      setTimeout(() => online.add(B.deviceId), 40);
+    };
+
+    it.each([
+      [
+        "the app set to Off",
+        () => allowTiers(B.id, [{ id: editor, tier: "off" }]),
+        "policy_denied",
+      ],
+      [
+        "computer use turned off",
+        () => setSetting(db, COMPUTER_USE_ENABLED, false),
+        "policy_denied",
+      ],
+      ["the machine revoked", () => revokeDevice(db, B.deviceId), "unavailable"],
+    ])("must refuse: %s during the park", async (_label, during, code) => {
+      park(during);
+      const r = await parked();
+      expect(errorOf(r)?.code).toBe(code);
+      expect(callsOf(nodes.get(B.deviceId))).toHaveLength(0);
+    });
+  });
+
+  it("must refuse: a machine revoked after the router was told of it (M9)", async () => {
+    revokeDevice(db, A.deviceId);
+    const res = await router.invoke(A, {
+      surface: "virtual_screen",
+      machine: A,
+      tool: "computer.snapshot",
+      capability: "computer.ax_tree",
+      params: { app: editor },
+      timeoutMs: 1000,
+      signal: new AbortController().signal,
+      context: {
+        toolCallId: "c",
+        threadId: "t",
+        runId: "r",
+        permissionMode: "balanced",
+        taint: false,
+      },
+    });
+    expect(res.error?.details).toMatchObject({ reason: "machine_removed" });
+    expect(callsOf(nodes.get(A.deviceId))).toHaveLength(0);
+  });
+
+  it("must refuse: a described Task call whose pin was evicted, never the new default (P5)", async () => {
+    setSetting(db, COMPUTER_USE_DEFAULT_MACHINE, A.id);
+    allowTiers(A.id, [{ id: editor, tier: "read" }]);
+    const reg = tools.get("computer.snapshot");
+    const p = { app: editor };
+    reg?.describeCall?.(p, { runId: "run_1", taskId: "task_1" });
+    for (let i = 0; i < 2100; i++) {
+      reg?.describeCall?.({ app: `org.x.App${i}` }, { runId: "run_z", taskId: "task_z" });
+    }
+    setSetting(db, COMPUTER_USE_DEFAULT_MACHINE, B.id);
+    allowTiers(B.id, [{ id: editor, tier: "read" }]);
+    const r = await call("computer.snapshot", p, { taskId: "task_1" });
+    expect(errorOf(r)?.details).toMatchObject({ reason: "machine_changed" });
+    expect(callsOf(nodes.get(B.deviceId))).toHaveLength(0);
+    expect(callsOf(nodes.get(A.deviceId))).toHaveLength(0);
+  });
+
+  it("reads defaultMachine as a machine id only (R4)", () => {
+    for (const v of ["lab-box", A.deviceId]) {
+      setSetting(db, COMPUTER_USE_DEFAULT_MACHINE, v);
+      expect(() => router.backgroundDefault?.()).toThrow(/no longer paired/);
+    }
+    setSetting(db, COMPUTER_USE_DEFAULT_MACHINE, A.id);
+    expect(router.backgroundDefault?.()?.deviceId).toBe(A.deviceId);
+  });
+
+  it("describes a Task's call on the default machine", () => {
+    setSetting(db, COMPUTER_USE_DEFAULT_MACHINE, A.id);
+    const desc = tools
+      .get("computer.act")
+      ?.describeCall?.(typeOn(), { runId: "run_1", taskId: "task_1" });
+    expect(desc?.details?.machine).toEqual({ deviceId: A.deviceId, name: "lab-box" });
+  });
+
+  it("compares app ids exactly: another case is another app", async () => {
+    allowTiers(A.id, [{ id: editor, tier: "interact" }]);
+    answer = "none";
+    const r = await call(
+      "computer.act",
+      { ...typeOn("lab-box"), app: editor.toLowerCase() },
+      { unattended: true },
+    );
+    expect(errorOf(r)?.code).toBe("approval_required");
+  });
+});

@@ -170,6 +170,9 @@ export function createMachineRouter(deps: MachineRouterDeps): MachineRouterHandl
     const ref = defaultMachineFrom(getSetting(deps.db, COMPUTER_USE_DEFAULT_MACHINE)?.value);
     if (ref === undefined) return undefined;
     try {
+      // Only a paired machine's id counts: a name or a device id left in the setting never
+      // points at another computer later.
+      if (!listMachines(deps.db).some((x) => x.id === ref)) throw new Error("not a machine id");
       return resolve(ref);
     } catch {
       // The default names a computer that is gone: never a silent fallback to this one.
@@ -239,7 +242,7 @@ export function createMachineRouter(deps: MachineRouterDeps): MachineRouterHandl
       machineId === undefined
         ? {}
         : machineAppTiers(getSetting(deps.db, COMPUTER_USE_MACHINE_APPS)?.value, machineId);
-    const own = Object.entries(tiers).find(([k]) => k.toLowerCase() === app.toLowerCase())?.[1];
+    const own = Object.entries(tiers).find(([k]) => k === app)?.[1];
     return effectiveTier(app, own).tier;
   }
 
@@ -265,12 +268,21 @@ export function createMachineRouter(deps: MachineRouterDeps): MachineRouterHandl
         app,
       });
     }
-    const key = `${m.deviceId}|${app.toLowerCase()}`;
+    // An explicit tier is the owner's word: below what the call needs it refuses, with no card and
+    // no allowance (a helper's `have < needed && !asks`). Only an unset tier (Ask) may be approved.
+    if (tier !== undefined) {
+      if (TIER_RANK[tier] >= TIER_RANK[needed]) return undefined;
+      return err("policy_denied", `${app} is limited to ${tier} on ${m.name}`, {
+        reason: `app_tier:${tier}`,
+        app,
+      });
+    }
+    const key = `${m.deviceId}|${app}`;
     const approved = (call.params as { approval?: { app?: unknown; tier?: unknown } }).approval;
     if (
       call.approvalId !== undefined &&
       typeof approved?.app === "string" &&
-      approved.app.toLowerCase() === app.toLowerCase() &&
+      approved.app === app &&
       isTier(approved.tier) &&
       TIER_RANK[approved.tier] >= TIER_RANK[needed]
     ) {
@@ -285,11 +297,18 @@ export function createMachineRouter(deps: MachineRouterDeps): MachineRouterHandl
     ) {
       return undefined;
     }
-    if (tier !== undefined && TIER_RANK[tier] >= TIER_RANK[needed]) return undefined;
     return err("approval_required", `${app} on ${m.name} needs your permission for computer use.`, {
       reason: "tier_ask",
       app,
       tierRequired: needed,
+    });
+  }
+
+  function removed(m: MachineTarget): NodeInvokeResult | undefined {
+    if (paired().some((x) => x.ref.deviceId === m.deviceId)) return undefined;
+    return err("unavailable", `${m.name} is no longer a computer Psyche can use.`, {
+      reason: "machine_removed",
+      machine: { deviceId: m.deviceId, name: m.name },
     });
   }
 
@@ -310,18 +329,22 @@ export function createMachineRouter(deps: MachineRouterDeps): MachineRouterHandl
       );
     }
     // Paired and not revoked at this call, whatever the router was told before.
-    if (!paired().some((x) => x.ref.deviceId === m.deviceId)) {
-      return err("unavailable", `${m.name} is no longer a computer Psyche can use.`, {
-        reason: "machine_removed",
-        machine: { deviceId: m.deviceId, name: m.name },
-      });
-    }
+    const gone = removed(m);
+    if (gone !== undefined) return gone;
     // A refusal stands whatever the machine's state; a card is asked only for a machine that is
     // there to act once it is approved.
     const refused = gate(m, call);
     if (refused !== undefined && refused.error?.code !== "approval_required") return refused;
     const node = await connected(m, call);
     if (node === undefined || node.info.deviceId !== m.deviceId) return offline(m);
+    // A park can last 30 minutes: what was true before it is checked again before anything is sent.
+    if (getSetting(deps.db, COMPUTER_USE_ENABLED)?.value !== true) {
+      return err("policy_denied", "Computer use is off.", { reason: "computer_use_disabled" });
+    }
+    const gone2 = removed(m);
+    if (gone2 !== undefined) return gone2;
+    const again = gate(m, call);
+    if (again !== undefined) return again;
     if (refused !== undefined) return refused;
     // A machine's private screen only (design Q3): its helper refuses any other.
     const params = { ...call.params, surface: "virtual_screen" };

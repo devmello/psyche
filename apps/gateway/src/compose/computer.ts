@@ -1068,14 +1068,24 @@ export function createComputerUse(deps: ComputerDeps): ComputerUse {
       return `${runId}|unhashable`;
     }
   };
+  /** Keys of pins dropped to make room: a call that finds its pin here must not re-resolve. */
+  const evictedPins = new Set<string>();
   function pin(runId: string, params: unknown, value: string): void {
     const key = pinKey(runId, params);
     const was = pins.get(key);
     pins.delete(key);
+    evictedPins.delete(key);
     pins.set(key, was === undefined || was === value ? value : "conflict");
     if (pins.size > PINS_MAX) {
       const oldest = pins.keys().next().value;
-      if (oldest !== undefined) pins.delete(oldest);
+      if (oldest !== undefined) {
+        pins.delete(oldest);
+        evictedPins.add(oldest);
+        if (evictedPins.size > PINS_MAX * 4) {
+          const first = evictedPins.values().next().value;
+          if (first !== undefined) evictedPins.delete(first);
+        }
+      }
     }
   }
 
@@ -1662,7 +1672,11 @@ export function createComputerUse(deps: ComputerDeps): ComputerUse {
         kind: "computer_action",
         bindingHash: hash,
         grantKey: hash,
-        meta: { app: p.app, action: "open_app" },
+        meta: {
+          app: p.app,
+          action: "open_app",
+          ...(p.machine === undefined ? {} : { machine: p.machine }),
+        },
       },
       ctx,
     );
@@ -1896,7 +1910,12 @@ export function createComputerUse(deps: ComputerDeps): ComputerUse {
         params: fields,
         paramsHash: hashCanonical(fields),
         kind: "computer_action",
-        meta: { app: p.app, action: p.action, control },
+        meta: {
+          app: p.app,
+          action: p.action,
+          control,
+          ...(p.machine === undefined ? {} : { machine: p.machine }),
+        },
       },
       deps.context(callId),
     );
@@ -2173,7 +2192,11 @@ export function createComputerUse(deps: ComputerDeps): ComputerUse {
     // The helper's contract (docs/archive/status/s14.md, #266 / #267): `approval: {app, tier}` with every
     // approved `computer.*` / `apps.focus` call; without it the helper treats the call as
     // unapproved.
-    const approvable = inv.session || inv.capability === "apps.focus";
+    // `apps.open` on a machine carries it too: the machine router binds an approval to the app.
+    const approvable =
+      inv.session ||
+      inv.capability === "apps.focus" ||
+      (inv.capability === "apps.open" && inv.machine !== undefined);
     const scoped = (approved: string | undefined): Record<string, unknown> => ({
       ...inv.params,
       ...(inv.session && inv.approval.app !== "*" ? { app: inv.approval.app } : {}),
@@ -2389,7 +2412,16 @@ export function createComputerUse(deps: ComputerDeps): ComputerUse {
     const p = params as Placeable;
     const ctx = deps.context(callId);
     const router = machinesRouter();
-    const pinned = router === undefined ? undefined : pins.get(pinKey(ctx.runId, params));
+    const pinKeyNow = pinKey(ctx.runId, params);
+    const pinned = router === undefined ? undefined : pins.get(pinKeyNow);
+    if (router !== undefined && pinned === undefined && evictedPins.has(pinKeyNow)) {
+      // Decided, then forgotten: never settle it again against whatever the default is now.
+      throw new PsycheError(
+        "policy_denied",
+        "Which computer this call is for changed after it was decided. Ask again.",
+        { details: { reason: "machine_changed" } },
+      );
+    }
     if (pinned === "conflict") {
       throw new PsycheError(
         "policy_denied",
@@ -2725,6 +2757,7 @@ export function createComputerUse(deps: ComputerDeps): ComputerUse {
       // `interact`; a click that opens a menu is judged as `menu` (interact).
       meta: {
         app: p.app,
+        ...(p.machine === undefined ? {} : { machine: p.machine }),
         action: actTier(p) === "interact" && tierFor(p.action) === "click" ? "menu" : p.action,
         // What the hard block on trades and transfers reads: the labels this call names and
         // whether it activates something the Gateway has not seen (a point, a key, a newline).
@@ -3046,7 +3079,11 @@ export function createComputerUse(deps: ComputerDeps): ComputerUse {
           // A grant for opening the app never covers opening a document with it, and a grant
           // for one document never covers another; one surface's never covers another's.
           grantKey: `${p.app}|click${urlSha256 === undefined ? "" : `|url:${urlSha256}`}${placeSuffix(p)}`,
-          meta: { app: p.app, action: "open_app" },
+          meta: {
+            app: p.app,
+            action: "open_app",
+            ...(p.machine === undefined ? {} : { machine: p.machine }),
+          },
           summary: placed(p, `Open ${known?.name ?? p.app}`),
           details: {
             app: p.app,
@@ -3132,7 +3169,11 @@ export function createComputerUse(deps: ComputerDeps): ComputerUse {
           ...placeFields(p),
         },
         grantKey: `${p.app}|click${placeSuffix(p)}`,
-        meta: { app: p.app, action: "focus" },
+        meta: {
+          app: p.app,
+          action: "focus",
+          ...(p.machine === undefined ? {} : { machine: p.machine }),
+        },
         summary: placed(p, `Focus ${p.app}`),
         ...placeDetails(p),
       }),

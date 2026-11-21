@@ -650,11 +650,17 @@ export class PolicyEngine {
       return done("deny", "app_tier:mismatch", "the action's app does not match its target");
     }
     if (kind === "computer_action" && app !== undefined) {
+      // A call for a paired machine carries its device id: the Host's tiers say nothing about
+      // that computer, so only the fixed caps and Off apply here; the machine's own tiers are
+      // judged by the machine router, which compares app ids exactly.
+      const onMachine = typeof call.meta?.machine === "string" && call.meta.machine !== "";
       const { tier, capped, reason } = effectiveTier(
         app,
-        Object.entries(p.config.apps ?? {}).find(
-          ([k]) => k.toLowerCase() === app.toLowerCase(),
-        )?.[1],
+        onMachine
+          ? undefined
+          : Object.entries(p.config.apps ?? {}).find(
+              ([k]) => k.toLowerCase() === app.toLowerCase(),
+            )?.[1],
       );
       // The action the executor described (`computer.act` → `click` or `type`), else the tool.
       const needed = tierRequired(call.meta?.action ?? call.tool);

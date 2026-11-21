@@ -216,6 +216,18 @@ export interface FinishTurnContext {
   steps: number;
 }
 
+/** The machine a computer-action card is for, from the description's details (`{deviceId, name}`). */
+function machineOfDetails(
+  kind: ApprovalKind,
+  details: Record<string, unknown> | undefined,
+): { machine: { deviceId: string; name: string } } | undefined {
+  if (kind !== "computer_action" && kind !== "exec_host" && kind !== "folder_access")
+    return undefined;
+  const m = details?.machine as { deviceId?: unknown; name?: unknown } | undefined;
+  if (typeof m?.deviceId !== "string" || typeof m.name !== "string") return undefined;
+  return { machine: { deviceId: m.deviceId, name: m.name } };
+}
+
 const NOTIFY_TOOL = "notify";
 export const DEFAULT_NOTIFY_BUDGET = 3;
 /** One budget per Task (an automation's run is one), else per run. */
@@ -2695,7 +2707,10 @@ export class PsycheAgentLoop implements AgentLoop {
       return false;
     let described: SideEffect | undefined;
     try {
-      described = reg.describeCall?.(call.input)?.sideEffect;
+      described = reg.describeCall?.(call.input, {
+        runId: run.runId,
+        ...(run.taskId === undefined ? {} : { taskId: run.taskId }),
+      })?.sideEffect;
     } catch {
       return false;
     }
@@ -2780,7 +2795,7 @@ export class PsycheAgentLoop implements AgentLoop {
    * (security §3.5, #70); `undefined` when unchanged. Uses the loop's own recipe, which differs
    * from any approved hash whenever the params hash does.
    */
-  #changedBinding(g: Gated, kind: ApprovalKind | undefined): string | undefined {
+  #changedBinding(run: RunState, g: Gated, kind: ApprovalKind | undefined): string | undefined {
     let live: unknown;
     let now: string;
     try {
@@ -2792,7 +2807,10 @@ export class PsycheAgentLoop implements AgentLoop {
     if (now === g.hash) return undefined;
     let fields: unknown;
     try {
-      fields = g.reg.describeCall?.(live)?.bindingFields;
+      fields = g.reg.describeCall?.(live, {
+        runId: run.runId,
+        ...(run.taskId === undefined ? {} : { taskId: run.taskId }),
+      })?.bindingFields;
     } catch {
       fields = undefined;
     }
@@ -3102,6 +3120,7 @@ export class PsycheAgentLoop implements AgentLoop {
               ? { targetKind: target?.kind ?? reg.spec.targetKind }
               : {}),
             ...(target === undefined ? {} : { target }),
+            ...(machineOfDetails(approvalKind, desc.details) ?? {}),
             surfaces: this.#o.approvalSurfaces ?? ["desktop"],
             // Protected memory "always asks" (security §8): no standing grant may cover it.
             ...(approvalKind === "memory_protected_write"
@@ -3157,7 +3176,7 @@ export class PsycheAgentLoop implements AgentLoop {
         );
       // Recompute from the call's arguments as they are now (security §3.5): a change while the
       // card was open reaches the broker as a different hash, which denies and audits it.
-      const changed = this.#changedBinding(gated, approvalKind);
+      const changed = this.#changedBinding(run, gated, approvalKind);
       const verified = await this.#o.broker.verifyBinding(approvalId, changed ?? binding);
       this.#checkAbort(run);
       if (!verified.ok || changed !== undefined) {
@@ -3348,7 +3367,7 @@ export class PsycheAgentLoop implements AgentLoop {
   async #dispatch(run: RunState, g: Gated): Promise<ModelPart> {
     this.#checkAbort(run);
     const { call, reg } = g;
-    const changed = this.#changedBinding(g, g.approvalKind ?? g.desc.kind);
+    const changed = this.#changedBinding(run, g, g.approvalKind ?? g.desc.kind);
     if (changed !== undefined) {
       // Last check immediately before dispatch (security §3.5): audit through the broker.
       if (g.approvalId !== undefined)
