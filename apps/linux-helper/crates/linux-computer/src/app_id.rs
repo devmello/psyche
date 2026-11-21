@@ -46,6 +46,30 @@ pub struct IdFacts {
     pub candidates: Vec<String>,
     /// The Flatpak app id, when the sandbox was shown to be that installed Flatpak.
     pub flatpak: Option<String>,
+    /// For a verified Flatpak: the id the process would be reported as without its Flatpak id
+    /// (the host candidate, `firefox` for `/app/lib/firefox/firefox`). It stays one of the
+    /// program's ids when the Flatpak id is reported instead, so a deny, an allow or a tier the
+    /// owner wrote on it still applies.
+    pub host: Option<String>,
+}
+
+impl IdFacts {
+    /// The ids the same program has besides `id` (the one reported): a verified Flatpak's own id
+    /// and its host id, whichever is not `id`. Empty for anything else.
+    pub fn also_ids(&self, id: &str) -> Vec<String> {
+        if self.flatpak.is_none() {
+            return Vec::new();
+        }
+        let id = normalize(id);
+        let mut out: Vec<String> = Vec::new();
+        for i in self.flatpak.iter().chain(self.host.iter()) {
+            let i = normalize(i);
+            if i != id && !out.contains(&i) {
+                out.push(i);
+            }
+        }
+        out
+    }
 }
 
 /// Builds [`IdFacts`] from one read of the evidence and one index.
@@ -104,11 +128,16 @@ pub fn id_facts(
             .as_deref()
             .is_none_or(|pk| strictness(&name) <= strictness(pk));
         return IdFacts {
-            own: if as_strict { Some(name.clone()) } else { own },
+            own: if as_strict {
+                Some(name.clone())
+            } else {
+                own.clone()
+            },
             resolved: vec![name.clone()],
             trusted: Vec::new(),
             candidates: cands,
             flatpak: Some(name),
+            host: own,
         };
     }
     IdFacts {
@@ -117,6 +146,7 @@ pub fn id_facts(
         trusted,
         candidates: cands,
         flatpak: None,
+        host: None,
     }
 }
 
@@ -222,7 +252,7 @@ pub fn flatpak_launch_names(
             if !trusted(&metadata) {
                 continue;
             }
-            let Ok(text) = std::fs::read_to_string(&metadata) else {
+            let Some(text) = read_capped(&metadata, METADATA_BYTES) else {
                 continue;
             };
             let Some(command) = flatpak_command(&text) else {
@@ -250,7 +280,23 @@ pub fn flatpak_launch_names(
     out
 }
 
-/// The `command=` of a Flatpak `metadata` file's `[Application]` group.
+/// How much of a Flatpak `metadata` file is read (they are a few hundred bytes).
+const METADATA_BYTES: u64 = 64 * 1024;
+
+/// At most `limit` bytes of a file, as text.
+fn read_capped(path: &Path, limit: u64) -> Option<String> {
+    use std::io::Read;
+    let mut buf = Vec::new();
+    std::fs::File::open(path)
+        .ok()?
+        .take(limit)
+        .read_to_end(&mut buf)
+        .ok()?;
+    Some(String::from_utf8_lossy(&buf).into_owned())
+}
+
+/// The `command` key of a Flatpak `metadata` file's `[Application]` group (GKeyFile: spaces
+/// around `=` are allowed).
 fn flatpak_command(text: &str) -> Option<String> {
     let mut in_app = false;
     for line in text.lines() {
@@ -258,9 +304,11 @@ fn flatpak_command(text: &str) -> Option<String> {
         if line.starts_with('[') {
             in_app = line == "[Application]";
         } else if in_app {
-            if let Some(c) = line.strip_prefix("command=") {
-                let c = c.trim();
-                return (!c.is_empty()).then(|| c.to_string());
+            if let Some((k, v)) = line.split_once('=') {
+                if k.trim() == "command" {
+                    let c = v.trim();
+                    return (!c.is_empty()).then(|| c.to_string());
+                }
             }
         }
     }
@@ -1731,6 +1779,47 @@ mod identity_tests {
         }
     }
 
+    /// A verified Flatpak whose host id is as strict as its own id is reported by its own id,
+    /// and keeps the host id as another id of the program (#1502 r5): Flatpak Firefox, with the
+    /// distribution's `firefox.desktop` installed, is `org.mozilla.firefox` and also `firefox`.
+    #[test]
+    fn a_verified_flatpak_keeps_the_host_id_it_would_be_reported_as() {
+        let dir = tempfile::tempdir().unwrap();
+        let index = index_with(dir.path(), &[("firefox.desktop", "firefox %u")], &|_| true);
+        let e = ev("/app/lib/firefox/firefox", "firefox");
+        let f = id_facts(&e, &index, None, Some("org.mozilla.firefox".into()), true);
+        assert_eq!(f.own.as_deref(), Some("org.mozilla.firefox"));
+        assert_eq!(f.host.as_deref(), Some("firefox"));
+        assert_eq!(f.also_ids("org.mozilla.firefox"), vec!["firefox"]);
+        // Unverified: the host id, and nothing else.
+        let u = id_facts(&e, &index, None, Some("org.mozilla.firefox".into()), false);
+        assert_eq!(u.own.as_deref(), Some("firefox"));
+        assert!(u.also_ids("firefox").is_empty());
+        // A capped Flatpak is reported by its host id and carries its own.
+        let s = id_facts(
+            &ev("/app/extra/sublime_text", "sublime_text"),
+            &index,
+            None,
+            Some("com.sublimetext.Three".into()),
+            true,
+        );
+        assert_eq!(s.own.as_deref(), Some("sublime_text"));
+        assert_eq!(s.also_ids("sublime_text"), vec!["com.sublimetext.three"]);
+        // An ordinary Flatpak carries the name it would otherwise be reported as.
+        let t = id_facts(
+            &ev("/app/bin/gnome-text-editor", "gnome-text-edit"),
+            &index,
+            None,
+            Some("org.gnome.TextEditor".into()),
+            true,
+        );
+        assert_eq!(t.own.as_deref(), Some("org.gnome.texteditor"));
+        assert_eq!(
+            t.also_ids("org.gnome.texteditor"),
+            vec!["gnome-text-editor"]
+        );
+    }
+
     /// The scope's app names a process only at the same strictness `choose` uses: a messaging
     /// app is never displaced by a plain one at an equal cap.
     #[test]
@@ -1903,6 +1992,10 @@ mod identity_tests {
             "[Application]\nname=org.mozilla.firefox\ncommand=/app/bin/firefox\n",
         );
         deploy("org.example.Odd", "[Context]\ncommand=evil\n");
+        deploy(
+            "org.example.Spaced",
+            "[Application]\nname=org.example.Spaced\ncommand = spaced-bin\n",
+        );
         let roots = [root.clone()];
         let yes = |_: &Path| true;
         // The id is matched without case; the launcher script is followed.
@@ -1915,6 +2008,11 @@ mod identity_tests {
         assert_eq!(
             flatpak_launch_names("org.mozilla.Firefox.desktop", &roots, &yes),
             vec!["firefox"]
+        );
+        // GKeyFile allows spaces around `=`.
+        assert_eq!(
+            flatpak_launch_names("org.example.spaced", &roots, &yes),
+            vec!["spaced-bin"]
         );
         // `command=` outside `[Application]` is not the command.
         assert!(flatpak_launch_names("org.example.odd", &roots, &yes).is_empty());

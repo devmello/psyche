@@ -111,13 +111,14 @@ pub fn blocked_by(deny: &dyn Denies, scopes: &dyn Scopes, pid: u32) -> Option<(S
             .as_deref()
             .map(normalize)
             .unwrap_or_else(|| f.clone());
-        let also: Vec<String> = (f != own).then(|| f.clone()).into_iter().collect();
+        // The same ids `A11y::apps` gives the app (`AppInfo::also_ids`).
+        let also = id.facts.also_ids(&own);
         if !deny.permits(&own, &also) {
             return Some((name, f));
         }
         let holder_out = id.holder.as_deref().is_some_and(|h| {
             let h = normalize(h);
-            h != own && h != f && !deny.allow_listed(&h)
+            h != own && !also.contains(&h) && !deny.allow_listed(&h)
         });
         return holder_out.then(|| (name, id.holder.clone().unwrap_or_default()));
     }
@@ -785,7 +786,16 @@ mod tests {
             ),
             None
         );
-        assert!(blocked_by(&policy(&["firefox"], &[]), &Fp(identity), 1).is_some());
+        // The host id it would be reported as without the sandbox is the same program's other
+        // id (#1502 r5): the owner may allow it by either, and a deny on either refuses it.
+        assert!(identity.facts.host.is_some());
+        assert_eq!(
+            blocked_by(&policy(&["firefox"], &[]), &Fp(identity.clone()), 1),
+            None
+        );
+        assert!(blocked_by(&policy(&["*"], &["firefox"]), &Fp(identity.clone()), 1).is_some());
+        // Something else entirely is not allowed by the host's file name.
+        assert!(blocked_by(&policy(&["org.other.App"], &[]), &Fp(identity), 1).is_some());
     }
 
     /// Launching goes through the same policy: `deny:["*_firefox"]` refuses `firefox` too.

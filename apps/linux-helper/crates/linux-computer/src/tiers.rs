@@ -691,20 +691,27 @@ impl TierPolicy {
         self.effective_locked(&st.0, &st.1, bundle_id, also)
     }
 
-    /// The owner's settings that apply to one program: the value for `bundle_id` (its own, or
-    /// the default), and each value the owner **wrote** for an id in `also`. The strictest wins:
-    /// a tier set on a Flatpak's own id is not lost because the app is reported under its host
-    /// id. An id in `also` with no value of its own adds nothing (the default is `bundle_id`'s).
+    /// The owner's settings that apply to one program: each value the owner **wrote** for
+    /// `bundle_id` or an id in `also`, and the default only when none of them has one. The
+    /// strictest wins: a tier set on a Flatpak's own id is not lost because the app is reported
+    /// under its host id, and the default never overrides a value the owner wrote for the other.
     fn values(
         settings: &TierSettings,
         bundle_id: Option<&str>,
         also: &[String],
     ) -> Vec<SettingValue> {
-        let mut out = vec![settings.value(bundle_id)];
-        if bundle_id.is_some() {
-            out.extend(also.iter().filter_map(|a| settings.explicit(a)));
+        let Some(id) = bundle_id else {
+            return vec![settings.default_value];
+        };
+        let out: Vec<SettingValue> = std::iter::once(id)
+            .chain(also.iter().map(String::as_str))
+            .filter_map(|i| settings.explicit(i))
+            .collect();
+        if out.is_empty() {
+            vec![settings.value(bundle_id)]
+        } else {
+            out
         }
-        out
     }
 
     /// The strictest of the fixed values among `values` (`Ask` is not one): what no approval can
@@ -817,7 +824,8 @@ impl TierPolicy {
         // owner wrote for another id of the program (`Read` on a Flatpak's own id) cannot be.
         let asks = values.contains(&SettingValue::Ask) && hard >= needed;
         if have < needed && !asks {
-            return Err(refusal(needed, have, app_name, bundle_id, false));
+            // Name the limit that holds: a `read` the owner wrote beside an `ask` is Read, not Off.
+            return Err(refusal(needed, cap.min(hard), app_name, bundle_id, false));
         }
         // Before any card: an approval from a phone is not someone watching this PC.
         self.check_attention(intent, bundle_id, app_name, settings)?;

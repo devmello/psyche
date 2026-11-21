@@ -687,6 +687,107 @@ mod tests {
         assert!(!policy.app_permitted("org.gnome.TextEditor"));
     }
 
+    /// A system Flatpak Firefox is reported as `org.mozilla.firefox` and keeps `firefox`, the id
+    /// it is reported as without the Flatpak (#1502 r5): a deny, an allow and a tier on
+    /// `firefox` reach it at every gate.
+    #[test]
+    fn a_flatpak_keeps_its_host_id_at_every_gate() {
+        use super::super::focus::{decide_app, Refusal};
+        use psyche_linux_computer::tiers::{Tier, TierPolicy, TierSettings};
+        struct Ident(Identity);
+        impl Scopes for Ident {
+            fn in_scope(&self, _: &str, _: u32) -> bool {
+                true
+            }
+            fn identity(&self, _: u32) -> Identity {
+                self.0.clone()
+            }
+        }
+        // What `id_facts` gives for `/app/lib/firefox/firefox` with `firefox.desktop` installed
+        // (`a_verified_flatpak_keeps_the_host_id_it_would_be_reported_as`).
+        let facts = IdFacts {
+            own: Some("org.mozilla.firefox".into()),
+            resolved: vec!["org.mozilla.firefox".into()],
+            candidates: vec!["firefox".into(), "org.mozilla.firefox".into()],
+            flatpak: Some("org.mozilla.firefox".into()),
+            host: Some("firefox".into()),
+            ..Default::default()
+        };
+        let app = AppInfo {
+            id: "org.mozilla.firefox".into(),
+            name: "Firefox".into(),
+            pid: 9,
+            electron: false,
+            frontmost: true,
+            windows: 1,
+            also_ids: facts.also_ids("org.mozilla.firefox"),
+        };
+        assert_eq!(app.also_ids, vec!["firefox"]);
+        let scopes = Ident(Identity {
+            holder: Some("org.mozilla.firefox".into()),
+            facts,
+        });
+        let apps = vec![app.clone()];
+        let ids = |id: &str| ids_carried(&apps, id);
+        let home = std::path::PathBuf::from("/h");
+        for (allow, deny, want) in [
+            (vec!["*"], vec!["firefox"], false),
+            (vec!["*"], vec!["org.mozilla.firefox"], false),
+            (vec!["firefox"], vec![], true),
+            (vec!["org.mozilla.firefox"], vec![], true),
+            (vec!["*"], vec![], true),
+            (vec!["org.other.App"], vec![], false),
+        ] {
+            let mut policy = Policy::default();
+            policy.apps = Apps {
+                allow: allow.iter().map(|s| s.to_string()).collect(),
+                deny: deny.iter().map(|s| s.to_string()).collect(),
+            };
+            let row = format!("allow={allow:?} deny={deny:?}");
+            assert_eq!(
+                blocked_by(&policy, &scopes, 1).is_none(),
+                want,
+                "shown {row}"
+            );
+            assert_eq!(policy.permits(&app.id, &app.also_ids), want, "gate {row}");
+            assert_eq!(send_allowed(&policy, &app).is_ok(), want, "send {row}");
+            assert_eq!(
+                !matches!(
+                    decide_app(&app.id, &app.also_ids, Some(1), &scopes, &policy),
+                    Err(Refusal::Denied { .. })
+                ),
+                want,
+                "decide {row}"
+            );
+            for named in ["org.mozilla.firefox", "firefox"] {
+                let ok = policy
+                    .check_with(
+                        "computer.ax_tree",
+                        &serde_json::json!({"surface": "virtual_screen", "app": named}),
+                        &home,
+                        &ids,
+                    )
+                    .is_ok();
+                assert_eq!(ok, want, "dispatch {named} {row}");
+            }
+        }
+        // A tier the owner wrote on `firefox` applies.
+        let tiers = TierPolicy::new(
+            TierSettings::from_json(
+                &serde_json::json!({"default": "interact", "apps": {"firefox": "off"}}),
+            ),
+            None,
+            None,
+        );
+        assert_eq!(tiers.effective_tier_app(&app), Tier::Off);
+        let tiers = TierPolicy::new(
+            TierSettings::from_json(&serde_json::json!({"default": "interact"})),
+            None,
+            None,
+        );
+        assert_eq!(tiers.effective_tier_app(&app), Tier::Read);
+    }
+
     /// The dispatch gate's resolver: what the running apps carry, either way round.
     #[test]
     fn the_ids_a_running_app_carries_are_found_from_either_id() {

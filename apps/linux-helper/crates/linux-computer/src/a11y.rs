@@ -469,12 +469,7 @@ impl A11y {
             let Some(id) = facts.own.clone() else {
                 continue;
             };
-            let also_ids: Vec<String> = facts
-                .flatpak
-                .iter()
-                .filter(|f| **f != id)
-                .cloned()
-                .collect();
+            let also_ids = facts.also_ids(&id);
             let active = match active_pid {
                 Some(p) => p == pid,
                 None => wins

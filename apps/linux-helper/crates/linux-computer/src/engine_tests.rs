@@ -415,16 +415,28 @@ fn a_call_may_name_the_app_by_an_id_it_carries() {
 /// A tier the owner wrote for an id the app carries counts: the strictest wins (#1502 r4).
 #[test]
 fn the_strictest_tier_over_the_ids_an_app_carries_counts() {
-    for (written, want) in [
-        ("off", Some("tier_off")),
-        ("read", Some("tier_read")),
-        ("ask", Some("tier_ask")),
-        ("interact", None),
+    // (default, the value on the reported id, the value on the id it carries, typing refused as)
+    for (default, on_id, written, want) in [
+        ("interact", Some("interact"), "off", Some("tier_off")),
+        ("interact", Some("interact"), "read", Some("tier_read")),
+        ("interact", Some("interact"), "ask", Some("tier_ask")),
+        ("interact", Some("interact"), "interact", None),
+        // The default is not a value the owner wrote: it never overrides one (#1502 r5).
+        ("off", None, "interact", None),
+        ("ask", None, "interact", None),
+        ("interact", None, "read", Some("tier_read")),
+        // A fixed limit beside an `ask` is named as what it is, not as off (#1502 r5).
+        ("ask", Some("read"), "ask", Some("tier_read")),
+        ("ask", Some("ask"), "read", Some("tier_read")),
+        ("ask", Some("click"), "ask", Some("tier_click")),
     ] {
-        let r = rig(json!({"version": 1, "default": "interact", "apps": {
-            "org.gnome.TextEditor": "interact",
-            "com.example.Flatpak": written,
-        }}));
+        let mut apps = serde_json::Map::new();
+        if let Some(v) = on_id {
+            apps.insert("org.gnome.TextEditor".into(), json!(v));
+        }
+        apps.insert("com.example.Flatpak".into(), json!(written));
+        let r = rig(json!({"version": 1, "default": default, "apps": apps}));
+        let written = format!("default={default} id={on_id:?} other={written}");
         editor(&r);
         {
             let mut s = r.fake.s.lock().unwrap();
