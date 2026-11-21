@@ -998,7 +998,17 @@ const SEP_ASCII = new Uint8Array(128);
 for (const c of "\t\n\v\f\r .-/|_,:") SEP_ASCII[c.charCodeAt(0)] = 1;
 const SEP_OTHER = /^[\s‐-―−·・，－．／＿｜•‧∙⋅：]$/u;
 /** Invisible characters: format (`Cf`), grapheme joiner, Hangul fillers, braille blank. */
-const IGNORABLE = /^[\p{Cf}\u034f\u115f\u1160\u3164\uffa0\u2800\u180b-\u180f\ufe00-\ufe0f]$/u;
+const CF = /^\p{Cf}$/u;
+const isIgnorable = (cp: number, ch: string): boolean =>
+  cp === 0x034f ||
+  cp === 0x115f ||
+  cp === 0x1160 ||
+  cp === 0x3164 ||
+  cp === 0xffa0 ||
+  cp === 0x2800 ||
+  (cp >= 0x180b && cp <= 0x180f) ||
+  (cp >= 0xfe00 && cp <= 0xfe0f) ||
+  CF.test(ch);
 const MARK = /^\p{M}$/u;
 const ND = /^\p{Nd}$/u;
 /** `seps` flag: an invisible character sat among the separators. */
@@ -1016,7 +1026,7 @@ function foldCodePoint(cp: number): string {
   if (hit !== undefined) return hit;
   const ch = String.fromCodePoint(cp);
   let out: string;
-  if (IGNORABLE.test(ch)) out = "\u0001";
+  if (isIgnorable(cp, ch)) out = "\u0001";
   else if (MARK.test(ch)) out = "";
   else if (SEP_OTHER.test(ch)) out = "\u0000";
   else if (ND.test(ch)) out = String(digitValue(cp));
