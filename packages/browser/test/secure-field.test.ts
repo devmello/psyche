@@ -2118,8 +2118,13 @@ describe("review round 5: per-value memo, fold budget, clipping, per-document me
   });
 
   it("a decoy key that agrees with the text before an echo does not stop its extension", () => {
+    // Not periodic: no later prefix match restarts the echo's extension on its own.
+    let r = 987654;
     let v = "";
-    for (let i = 0; v.length < 200; i++) v += String.fromCharCode(97 + ((i * 7 + i * i) % 26));
+    while (v.length < 200) {
+      r = (r * 1103515245 + 12345) % 2147483648;
+      v += String.fromCharCode(97 + ((r >> 8) % 26));
+    }
     const decoy = `Q${v.slice(0, 60)}zzzz`;
     const sc = makeScrubber([v, decoy], SECURE_MASK);
     const out = sc.scrub(`start Q${v.slice(0, 150)} end`);
