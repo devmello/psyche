@@ -677,6 +677,7 @@ export const settingsRest: Partial<Catalogue> = {
     "Rien pour l’instant. Quand {persona} a besoin d’un dossier ou d’une app, il vous le demande dans la discussion, et ce que vous autorisez apparaît ici.",
   "settings.access.scope.always": "Toujours",
   "settings.access.scope.conversation": "Cette discussion",
+  "settings.access.scope.space": "Dans un espace",
   "settings.access.scope.limited": "Pour l’instant",
   "settings.access.used": "utilisé {when}",
   "settings.access.fileOnly": "Un seul fichier · lecture seule",

@@ -647,6 +647,7 @@ export const settingsRest: Partial<Catalogue> = {
     "अभी कुछ नहीं। जब {persona} को किसी फ़ोल्डर या ऐप की ज़रूरत होती है, तो वह चैट में आपसे पूछता है, और जो आप अनुमति देते हैं वह यहाँ दिखता है।",
   "settings.access.scope.always": "हमेशा",
   "settings.access.scope.conversation": "यह चैट",
+  "settings.access.scope.space": "एक स्पेस में",
   "settings.access.scope.limited": "फ़िलहाल",
   "settings.access.used": "{when} उपयोग हुआ",
   "settings.access.fileOnly": "एक फ़ाइल · केवल पढ़ने के लिए",

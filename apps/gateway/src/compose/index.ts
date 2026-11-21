@@ -117,6 +117,7 @@ import { sealedPermissionStore } from "../security/sealed-stores.ts";
 import { StateSeal } from "../security/state-seal.ts";
 import { type Gateway, type GatewayOptions, startGateway } from "../server.ts";
 import { reencodeToolImage } from "../session/image-resize.ts";
+import { composeSpaceFolders, spaceFolderSource } from "../spaces/folders.ts";
 import { BusySources, UpdateGate } from "../update-gate.ts";
 import {
   API_KEY_IDS,
@@ -807,6 +808,10 @@ export async function composeGateway(options: ComposeOptions): Promise<ComposedG
       recordReal: recordFolderReal,
     },
     channelConversations: (ref) => channelConversations.get(ref),
+    // Spaces S2: "Allow in this Space" and the Space folders a run in a Space may use.
+    spaces: spaceFolderSource(db, (spaceId) =>
+      publish("space.updated", { spaceId, changed: ["folders"] }),
+    ),
     approvers: {
       async device(deviceId) {
         seal.ensure();
@@ -1150,7 +1155,7 @@ export async function composeGateway(options: ComposeOptions): Promise<ComposedG
     // This conversation's "Allow once" folders count beside the owner's (request_folder_access).
     folders: (scope) => [
       ...rawBroker.grantedFolders(),
-      ...(scope === undefined ? [] : rawBroker.liveSessionFolders(scope.threadId)),
+      ...(scope === undefined ? [] : rawBroker.liveSessionFolders(scope.threadId, scope.runId)),
     ],
     protectedRoots: () => protectedRoots(config.home),
     ownDirs: () => ownWorkdirs(config.home),
@@ -1178,9 +1183,9 @@ export async function composeGateway(options: ComposeOptions): Promise<ComposedG
       broker: executorBroker,
       surfaces: ["desktop", "web"],
       folderEnv: () => folderAccessEnv(config.home),
-      grantedFolders: (threadId) => [
+      grantedFolders: (threadId, runId) => [
         ...rawBroker.grantedFolders(),
-        ...rawBroker.liveSessionFolders(threadId),
+        ...rawBroker.liveSessionFolders(threadId, runId),
       ],
       execHostEnabled: () => rawBroker.policy.exec?.execHostEnabled === true,
       enableExecHost: async () => {
@@ -1248,9 +1253,9 @@ export async function composeGateway(options: ComposeOptions): Promise<ComposedG
       }),
       broker: executorBroker,
       vault: vault.vault,
-      folders: (threadId) => [
+      folders: (threadId, runId) => [
         ...rawBroker.grantedFolders(),
-        ...rawBroker.liveSessionFolders(threadId),
+        ...rawBroker.liveSessionFolders(threadId, runId),
       ],
       // One live look per root at a time, bounded: a hung mount does not fill the libuv pool.
       lookRoot: (path) => rawBroker.lookRootNow(path),
@@ -2249,6 +2254,7 @@ export async function composeGateway(options: ComposeOptions): Promise<ComposedG
   parts.push(nudges.part());
   parts.push(mailFollowups.part());
   parts.push(composeSpaces({ scheduler }));
+  parts.push(composeSpaceFolders({ broker: () => rawBroker, home: config.home }));
   parts.push(
     composeWork({
       db,

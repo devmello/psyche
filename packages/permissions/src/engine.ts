@@ -104,8 +104,14 @@ export interface DryRun {
 
 export interface EngineDeps {
   policy(): CompiledPolicy;
-  /** Folders the owner allowed for one conversation only (`folder_access`, scope `once`). */
-  sessionFolders?(threadId: string): readonly { path: string; mode: "ro" | "rw"; file?: true }[];
+  /**
+   * Folders the owner allowed for one conversation only (`folder_access`, scope `once`), and with
+   * a run id, the folders of the Space that run was bound to at its start (spaces-2026 §5.3).
+   */
+  sessionFolders?(
+    threadId: string,
+    runId?: string,
+  ): readonly { path: string; mode: "ro" | "rw"; file?: true }[];
   /**
    * Whether a granted folder is one the owner could not grant today (inside `/opt`,
    * `/usr`, `/System`...). A folder granted before a root was refused stops covering anything, so
@@ -118,7 +124,7 @@ export interface EngineDeps {
    * Called before each evaluation: a promise to wait for (briefly) while the granted roots'
    * first looks at the disk are in flight, or undefined when there is nothing to wait for.
    */
-  settleFolders?(threadId: string | undefined): Promise<void> | undefined;
+  settleFolders?(threadId: string | undefined, runId?: string): Promise<void> | undefined;
   /** The Task's state, created on first use (`decide`). */
   task(ctx: PolicyContext): TaskState;
   /** The Task's state if the broker has one, without creating it (`preview`). */
@@ -247,6 +253,7 @@ export class PolicyEngine {
   folderFor(
     path: string,
     threadId?: string,
+    runId?: string,
   ): { path: string; mode: "ro" | "rw"; workspace: boolean } | undefined {
     const p = this.#d.policy();
     for (const root of p.workspaceRoots) {
@@ -256,7 +263,7 @@ export class PolicyEngine {
     // The longest root decides, whether Settings or this conversation granted it.
     const roots: { path: string; mode: "ro" | "rw"; file?: true }[] = [
       ...p.folders,
-      ...(threadId === undefined ? [] : (this.#d.sessionFolders?.(threadId) ?? [])),
+      ...(threadId === undefined ? [] : (this.#d.sessionFolders?.(threadId, runId) ?? [])),
     ]
       .filter((f) => this.#d.folderRefused?.(f.path) !== true)
       .sort((a, b) => b.path.length - a.path.length);
@@ -321,7 +328,7 @@ export class PolicyEngine {
    * consumes no grant, calls no classifier and changes no Task state: it only reads.
    */
   async evaluate(original: PolicyCall, ctx: PolicyContext, dry?: DryRun): Promise<Evaluation> {
-    const settling = this.#d.settleFolders?.(ctx.threadId ?? undefined);
+    const settling = this.#d.settleFolders?.(ctx.threadId ?? undefined, ctx.runId);
     if (settling !== undefined) await settling;
     const trace: string[] = [];
     let call = original;
@@ -589,7 +596,7 @@ export class PolicyEngine {
       } catch {
         return done("deny", "folder:invalid_path", "file targets must be absolute paths");
       }
-      const folder = this.folderFor(path, ctx.threadId);
+      const folder = this.folderFor(path, ctx.threadId, ctx.runId);
       if (folder === undefined)
         return done("deny", "folder:not_granted", `${path} is outside every granted folder`);
       if (folder.mode === "ro" && SEVERITY[se] >= SEVERITY.write) {
@@ -620,7 +627,7 @@ export class PolicyEngine {
       if (onMachine && hostReadOnly) {
         return done("deny", "exec_host:machine_read_only", "a machine command is never quiet");
       }
-      if (!onMachine && this.folderFor(cwd, ctx.threadId) === undefined) {
+      if (!onMachine && this.folderFor(cwd, ctx.threadId, ctx.runId) === undefined) {
         return done("deny", "folder:not_granted", `${cwd} is outside every granted folder`, {
           binding,
         });

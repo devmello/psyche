@@ -215,3 +215,64 @@ describe("folder-access card", () => {
     await waitFor(() => expect(onAnswer).toHaveBeenCalledWith("deny", undefined, undefined));
   });
 });
+
+describe('"Allow in this Space" (spaces-2026 §5.3)', () => {
+  const inSpace = (over: Partial<ApprovalRequest> = {}) =>
+    folderApproval({
+      details: {
+        ...folderApproval().details,
+        space: { id: "spc_kitchen", name: "Kitchen remodel" },
+      },
+      ...over,
+    });
+
+  it("is offered beside once and always, naming the Space, and sent as once plus inSpace", async () => {
+    const onAnswer = show(inSpace(), async () => null);
+    for (const name of [
+      "Just this chat",
+      "Allow in Kitchen remodel",
+      "Always, this folder and below",
+    ]) {
+      expect(screen.getByRole("option", { name })).toBeTruthy();
+    }
+    expect(screen.queryByTestId("space-automations")).toBeNull();
+    await userEvent.selectOptions(screen.getByRole("combobox", { name: "Allow for" }), "space");
+    // Who else gets the folder: the Space's automations, read-only here.
+    expect(screen.getByTestId("space-automations").textContent).toBe(
+      "Psyche's automations in Kitchen remodel can read this folder too.",
+    );
+    await userEvent.click(allow());
+    await waitFor(() =>
+      expect(onAnswer).toHaveBeenCalledWith("approve", "once", {
+        folderPath: "/Users/me/Projects/app",
+        inSpace: true,
+      }),
+    );
+  });
+
+  it("says so when the Space's automations already write in the folder", async () => {
+    show(
+      folderApproval({
+        details: {
+          ...folderApproval().details,
+          space: { id: "spc_kitchen", name: "Kitchen remodel", automationsWrite: true },
+        },
+      }),
+      async () => null,
+    );
+    await userEvent.selectOptions(screen.getByRole("combobox", { name: "Allow for" }), "space");
+    expect(screen.getByTestId("space-automations").textContent).toBe(
+      "Psyche's automations in Kitchen remodel can read and write in this folder too.",
+    );
+  });
+
+  it("is not offered on a card outside a Space", () => {
+    show(folderApproval(), async () => null);
+    expect(screen.queryByRole("option", { name: /^Allow in / })).toBeNull();
+  });
+
+  it("a tainted card never offers it, even when details name a Space", () => {
+    show(inSpace({ taint: true, scopesOffered: ["once"] }), async () => null);
+    expect(screen.queryByRole("option", { name: /^Allow in / })).toBeNull();
+  });
+});

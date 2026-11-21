@@ -347,7 +347,7 @@ export interface ExecHostDeps {
   broker: Pick<PermissionBroker, "get"> & Partial<Pick<PermissionBroker, "listGrants">>;
   vault: { redact(text: string): string };
   /** The live granted folders for a conversation (Settings plus this chat's Allow once). */
-  folders(threadId: string): readonly FolderGrantEntry[];
+  folders(threadId: string, runId?: string): readonly FolderGrantEntry[];
   /**
    * A live look at a granted root (the broker's `lookRootNow`): one lookup in flight per path
    * shared with the broker's cache, bounded by a timeout, so a hung mount holds one libuv thread
@@ -1128,7 +1128,7 @@ export function execHostTool(deps: ExecHostDeps): AgentToolRegistration {
     const limited = quietRun || program !== undefined;
     const { real, folder } = await grantedFolder(
       p.cwd,
-      deps.folders(ctx.threadId),
+      deps.folders(ctx.threadId, ctx.runId),
       platform,
       // Home-relative refusals (~/Library, ~/.ssh, the CLI dirs) judged against the exec user's home.
       { ...folderAccessEnv(deps.home), home: userHome },
