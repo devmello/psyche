@@ -224,3 +224,100 @@ describe("policy writes keep the folders' real paths", () => {
     expect(mergeStoredFolderReals(value, undefined)).toEqual(value);
   });
 });
+
+describe("folder identity (ref) is the Gateway's, never the client's", () => {
+  const ref = { dev: "1", ino: "2", birth: "3" };
+  it("keeps the stored identity and drops one the client sends", () => {
+    const stored = { folders: [{ path: "/a", mode: "ro", real: "/a", ref }] };
+    const client = {
+      folders: [{ path: "/a", mode: "ro", ref: { dev: "9", ino: "9", birth: "9" } }],
+    };
+    const out = recordPolicyFolderReals(client, stored, new Map()) as typeof stored;
+    expect(out.folders[0]?.ref).toEqual(ref);
+    const fresh = { folders: [{ path: "/n", mode: "ro", ref }] };
+    const out2 = recordPolicyFolderReals(fresh, stored, new Map()) as typeof stored;
+    expect(out2.folders[0]?.ref).toBeUndefined();
+  });
+});
+
+/**
+ * PR #1483 r2: a Reconnect that lands while a policy change waits for its card must not be undone
+ * by the older folder list in that change. The write is refused with `conflict` instead.
+ */
+describe("settings.set permissions.policy while a folder is reconnected", () => {
+  const tmp = () => realpathSync(mkdtempSync(join(tmpdir(), "psy-conflict-")));
+
+  function pending(db: ReturnType<typeof openDb>, duringCard?: () => void): Call {
+    return {
+      ctx: {
+        db,
+        config: { home: `${homedir()}/.psyche` },
+        bus: { bumpStateVersion: () => 1 },
+        presenceState: () => "on",
+        broker: {
+          get: async () => {
+            // The owner answers the card; meanwhile a Reconnect re-points the folder.
+            duringCard?.();
+            return { kind: "policy_change" };
+          },
+          verifyBinding: async () => ({ ok: true }),
+        },
+      },
+      identity: { scopes: ["operator.admin"], deviceId: "dev_admin" },
+      emit: () => undefined,
+    } as unknown as Call;
+  }
+
+  const paths = (db: ReturnType<typeof openDb>): string[] => {
+    const policy = getSetting(db, "permissions.policy")?.value as
+      | { folders: { path: string }[] }
+      | undefined;
+    return (policy?.folders ?? []).map((f) => f.path);
+  };
+
+  it("refuses the write with `conflict` when the folders changed during the card", async () => {
+    const root = tmp();
+    const old = join(root, "app");
+    const renamed = join(root, "app2");
+    const extra = join(root, "extra");
+    for (const d of [old, renamed, extra]) mkdirSync(d);
+    const db = openDb(":memory:");
+    setSetting(db, "permissions.policy", { folders: [{ path: old, mode: "rw", real: old }] });
+    // The change adds `extra` (it widens, so it needs the card) and still names the old path.
+    const value = {
+      folders: [
+        { path: old, mode: "rw" },
+        { path: extra, mode: "rw" },
+      ],
+    };
+    const reconnect = () =>
+      setSetting(db, "permissions.policy", {
+        folders: [{ path: renamed, mode: "rw", real: renamed }],
+      });
+    await expect(
+      setRun(pending(db, reconnect), { key: "permissions.policy", value, approvalId: "ap1" }),
+    ).rejects.toMatchObject({ code: "conflict" });
+    // The reconnect stands: the old path did not come back.
+    expect(paths(db)).toEqual([renamed]);
+  });
+
+  it("writes normally when nothing changed during the card", async () => {
+    const root = tmp();
+    const old = join(root, "app");
+    const extra = join(root, "extra");
+    for (const d of [old, extra]) mkdirSync(d);
+    const db = openDb(":memory:");
+    setSetting(db, "permissions.policy", { folders: [{ path: old, mode: "rw", real: old }] });
+    await setRun(pending(db), {
+      key: "permissions.policy",
+      value: {
+        folders: [
+          { path: old, mode: "rw" },
+          { path: extra, mode: "rw" },
+        ],
+      },
+      approvalId: "ap1",
+    });
+    expect(paths(db)).toEqual([old, extra]);
+  });
+});

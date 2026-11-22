@@ -287,6 +287,32 @@ export const BrowserMethods = {
     scope: "operator.read",
     description: "Web Bot Auth (I14): whether signing is on, the key's fingerprint and directory.",
   }),
+  "browser.cookieImport.record": defineMethod({
+    params: Type.Object(
+      {
+        action: StringEnum(["imported", "removed"], { $id: "CookieImportAction" }),
+        browser: StringEnum(["chrome", "brave", "edge", "arc", "firefox", "safari"], {
+          $id: "CookieImportBrowser",
+        }),
+        sites: Type.Array(
+          Type.Object(
+            {
+              domain: Type.String({ minLength: 1, maxLength: 253, pattern: "^[a-z0-9.-]+$" }),
+              cookies: Type.Integer({ minimum: 0, maximum: 100_000 }),
+            },
+            { additionalProperties: false, $id: "CookieImportSite" },
+          ),
+          { maxItems: 5000 },
+        ),
+      },
+      { additionalProperties: false },
+    ),
+    result: OkResult,
+    scope: "operator.admin",
+    sideEffecting: true,
+    description:
+      "Side-effecting. The desktop records an owner's cookie import or removal in the audit log: domains and counts only. Only the desktop shell's own connection may call it; it imports nothing.",
+  }),
   "browser.botAuth.rotate": defineMethod({
     params: Type.Object({}),
     result: Type.Object({ status: BotAuthStatus }),

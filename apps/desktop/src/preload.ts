@@ -192,6 +192,15 @@ const bridge = {
       invoke(IPC.browserPromptAnswer, { promptId, action }),
     listSignedInSites: () => invoke(IPC.browserSignedInList),
     forgetSignedInSite: (origin: string) => invoke(IPC.browserSignedInForget, origin),
+    // Import sign-ins from another browser: owner-only, from Settings → Browser.
+    cookieImportSources: () => invoke(IPC.cookieImportSources),
+    cookieImportScan: (browser: string, profileId: string) =>
+      invoke(IPC.cookieImportScan, { browser, profileId }),
+    cookieImportImport: (scanId: string, domains: string[], sensitive: string[] = []) =>
+      invoke(IPC.cookieImportImport, { scanId, domains, sensitive }),
+    cookieImportDiscard: (scanId: string) => invoke(IPC.cookieImportDiscard, scanId),
+    cookieImportList: () => invoke(IPC.cookieImportList),
+    cookieImportRemove: (domain: string) => invoke(IPC.cookieImportRemove, domain),
     openRealChromeProfile: (profile?: string) =>
       invoke(IPC.browserOpenRealChromeProfile, profile ?? "default"),
     // Teach by showing: owner-only, from the pane's own buttons.

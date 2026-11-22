@@ -9,6 +9,9 @@ final class ProjectModel {
     private(set) var overrides: [String: Bool] = [:]
     private(set) var completions = 0
     var notice: String?
+    /// The Space linked to this project, if there is one.
+    private(set) var spaceID: String?
+    private(set) var makingSpace = false
     private var pending: Set<String> = []
     private let id: String
     private let store: any PsycheBackend
@@ -23,6 +26,8 @@ final class ProjectModel {
         do {
             phase = .loaded(try await store.project(id: id))
             overrides = overrides.filter { pending.contains($0.key) }
+            // A failed lookup only hides the link: the page itself loaded.
+            if let linked = try? await store.spaceID(forProject: id) { spaceID = linked }
         } catch {
             if phase.value == nil { phase = .failed(error.localizedDescription) }
         }
@@ -34,6 +39,21 @@ final class ProjectModel {
             case .changed(.memory), .resynced: await load()
             default: break
             }
+        }
+    }
+
+    /// "Make a Space": the owner's tap. Returns the new Space's id so the page can open it.
+    func makeSpace(named name: String) async -> String? {
+        guard spaceID == nil, !makingSpace else { return spaceID }
+        makingSpace = true
+        defer { makingSpace = false }
+        do {
+            let made = try await store.makeSpace(forProject: id, named: name)
+            spaceID = made
+            return made
+        } catch {
+            notice = error.localizedDescription
+            return nil
         }
     }
 
@@ -60,6 +80,7 @@ final class ProjectModel {
 /// page comes from. Read-mostly: bigger edits say "Edit on your Mac".
 struct ProjectPage: View {
     @State private var model: ProjectModel
+    @State private var openedSpace: Route?
 
     init(id: String, store: any PsycheBackend) {
         _model = State(initialValue: ProjectModel(id: id, store: store))
@@ -94,6 +115,7 @@ struct ProjectPage: View {
             await model.load()
             await model.observe()
         }
+        .navigationDestination(item: $openedSpace) { route in RouteView(route: route) }
         .sensoryFeedback(.success, trigger: model.completions)
         .alert("Couldn't update that", isPresented: Binding(get: { model.notice != nil }, set: { if !$0 { model.notice = nil } })) {
             Button("OK", role: .cancel) {}
@@ -110,6 +132,8 @@ struct ProjectPage: View {
             EvidenceLine([detail.project.detail])
         }
         .accessibilityElement(children: .combine)
+
+        spaceButton(detail)
 
         VStack(alignment: .leading, spacing: 8) {
             SectionHeader("To-do")
@@ -146,6 +170,28 @@ struct ProjectPage: View {
             EvidenceLine("Because", detail.evidence)
         }
         EditOnMacNote(text: "Edit on your Mac: renaming, deadlines, merging projects.")
+    }
+
+    /// "Open Space" for a project that has one, "Make a Space" for one that doesn't. A Space is made only by this tap.
+    /// A Keep-private project gets neither: a Space would show on Home and in the Spaces list (SR10).
+    @ViewBuilder
+    private func spaceButton(_ detail: ProjectDetail) -> some View {
+        if detail.isPrivate {
+            EmptyView()
+        } else if let spaceID = model.spaceID {
+            Button { openedSpace = .space(id: spaceID) } label: {
+                Label(String(localized: "Open Space", bundle: .module), systemImage: "square.stack")
+            }
+            .buttonStyle(.psycheOutline).frame(maxWidth: 220)
+        } else {
+            Button {
+                Task { if let made = await model.makeSpace(named: detail.project.title) { openedSpace = .space(id: made) } }
+            } label: {
+                Label(String(localized: "Make a Space", bundle: .module), systemImage: "square.stack")
+            }
+            .buttonStyle(.psycheOutline).frame(maxWidth: 220)
+            .disabled(model.makingSpace)
+        }
     }
 
     private func todoRow(_ todo: TodoItem) -> some View {

@@ -47,8 +47,23 @@ export function sanitizeBlock(value: string): string {
  * recipients, amounts and URLs are shown in full; review #8); keys that sanitize to the same text
  * get a `#n` suffix instead of overwriting each other.
  */
+/** How deep `sanitizeDetails` shows approval details; anything deeper would be elided to "…". */
+export const MAX_DETAILS_DEPTH = 16;
+
+/**
+ * True when some value in `details` sits deeper than `sanitizeDetails` shows it. Such a card would
+ * hide part of what its binding covers on every surface, so the broker refuses to raise it.
+ */
+export function detailsTooDeep(value: unknown, depth = 0): boolean {
+  if (depth > MAX_DETAILS_DEPTH) return true;
+  if (Array.isArray(value)) return value.some((v) => detailsTooDeep(v, depth + 1));
+  if (typeof value === "object" && value !== null)
+    return Object.values(value).some((v) => detailsTooDeep(v, depth + 1));
+  return false;
+}
+
 export function sanitizeDetails(value: unknown, depth = 0): unknown {
-  if (depth > 16) return "…";
+  if (depth > MAX_DETAILS_DEPTH) return "…";
   if (typeof value === "string") return sanitizeDisplay(value, Number.POSITIVE_INFINITY);
   if (Array.isArray(value)) return value.map((v) => sanitizeDetails(v, depth + 1));
   if (typeof value === "object" && value !== null) {
@@ -231,6 +246,8 @@ export function cardHeader(a: Pick<ApprovalRequest, "kind" | "sideEffect" | "tai
 
 export function surfaceKind(surface: string): CardSurfaceKind {
   if (surface === "desktop" || surface === "web" || surface === "notification") return surface;
+  // A paired phone or tablet (`device:<deviceId>`) is the device itself, not a chat.
+  if (surface.startsWith("device:")) return "desktop";
   const channel = surface.split(":")[0] ?? "";
   if (["telegram", "imessage", "slack", "discord", "signal"].includes(channel))
     return channel as CardSurfaceKind;

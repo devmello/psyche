@@ -22,6 +22,10 @@ CI fails when the generated files are stale (`pnpm protocol:check`).
 
 ## Log
 
+### v1 additive — 2026-11-20 (Spaces, wave S7)
+
+- New methods `spaces.migration.offer` (read), `spaces.migration.apply` (write, side-effecting), `spaces.migration.dismiss`, `spaces.offers.list` (read) and `spaces.offers.dismiss`. New schemas `SpaceMigrationOffer`, `SpaceMigrationProject`, `SpaceOffers`, `SpaceOfferWidget`, `SpaceOfferRule`. The agent tool `space_propose` is not a protocol method; it fills `spaces.proposals.*` and raises `space.proposal.created`. Design: docs/design/spaces-2026.md §4.3, §8.
+- `SpaceProposal` gains optional `chats` (`{ id, title }[]`, the chats Create would move now) and `projectName`, filled by `spaces.proposals.list` so the card shows what moves. A Keep-private project is refused by `spaces.create`, `spaces.update`, `spaces.proposals.accept` and `spaces.migration.apply` with `forbidden` and `details.reason: "project_private"`.
 ### v1 additive — 2026-11-21 (setting up a remote server with a setup code)
 
 - New methods `gateway.claim.hello` and `gateway.claim.prove` (scope `none`, callable before `connect` and only while a fresh psyche-server is in claim mode), and `gateway.claim.finish` (`operator.admin`, `{ keepLan }` to `{ lan }`). New schemas `ClaimHelloParams`, `ClaimHelloResult`, `ClaimProveParams`, `ClaimProveResult`. `GatewayInfo` gains an optional `claim: { lanChoicePending }`.

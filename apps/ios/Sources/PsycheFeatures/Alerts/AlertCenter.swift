@@ -577,7 +577,9 @@ public final class AlertCenter {
     /// A tap on a notification or one of its buttons.
     func handle(_ incoming: IncomingNotification) async {
         switch AlertAction(rawValue: incoming.actionID) {
-        case .approve: await answer(incoming.id, .allow)
+        // Re-checked against the Gateway's fresh state, like the island: a device-only or presence-gated
+        // card is never approved from a lock-screen button, whatever category the notification had.
+        case .approve: await answer(incoming.id, .allow, onlyIf: AlertPolicy.answersInline)
         case .deny: await answer(incoming.id, .deny)
         case .review, .open: pendingOpen = .item(incoming.id)
         case nil:
@@ -618,10 +620,21 @@ public final class AlertCenter {
         await connection.release(appActive: appActive)
     }
 
+    /// The "couldn't answer" notification, in the app's language.
+    private func couldNotAnswer(_ id: String, _ message: String) -> AlertPayload {
+        var payload = AlertPolicy.couldNotAnswer(id, message: notice(message))
+        payload.title = notice(payload.title)
+        return payload
+    }
+
     private func send(_ id: String, _ decision: ApprovalDecision, onlyIf allowed: ((NeedsYouItem) -> Bool)?) async {
         if let allowed {
             let item = (try? await store.home())?.needsYou.first { $0.id == id }
-            guard let item, allowed(item) else { return }
+            guard let item, allowed(item) else {
+                // Not answerable from here any more (or the check could not run): say so, don't go quiet.
+                await notifier.post(couldNotAnswer(id, "Open Psyche to answer this one."))
+                return
+            }
         }
         do {
             try await store.answerApproval(id: id, decision: decision)
@@ -631,7 +644,7 @@ public final class AlertCenter {
         } catch BackendError.notFound {
             await notifier.removeDelivered(ids: [id])
         } catch {
-            await notifier.post(AlertPolicy.couldNotAnswer(id, message: error.localizedDescription))
+            await notifier.post(couldNotAnswer(id, error.localizedDescription))
         }
     }
 

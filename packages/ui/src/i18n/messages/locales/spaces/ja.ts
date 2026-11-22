@@ -131,4 +131,29 @@ export const spaces: Partial<Catalogue> = {
   "spaces.palette.archived": "アーカイブ済みのスペース",
   "spaces.palette.chatIn": "{name} で新しいチャット",
   "spaces.palette.keywords": "スペース プロジェクト ワークスペース トラッカー",
+  "spaces.proposal.kicker": "Spaceの提案",
+  "spaces.proposal.title": "{name}のSpaceを作成しますか？",
+  "spaces.proposal.untrusted":
+    "信頼できない内容（{source}）を読んでいる間に提案されました。以下の文は引用で、Psycheの言葉ではありません。",
+  "spaces.proposal.titleUntrusted": "この提案されたSpaceを作成しますか？",
+  "spaces.proposal.project": "プロジェクト「{name}」にリンクします",
+  "spaces.proposal.chats":
+    "{n, plural, =0 {移動するチャットはありません} other {#件のチャットを移動します:}}",
+  "spaces.proposal.chatsLabel": "移動するチャット",
+  "spaces.proposal.untitledChat": "無題のチャット",
+  "spaces.proposal.create": "作成",
+  "spaces.proposal.notNow": "今はしない",
+  "spaces.proposal.created": "Space「{name}」を作成しました",
+  "spaces.proposal.open": "開く",
+  "spaces.proposal.failed": "うまくいきませんでした: {reason}",
+  "spaces.migration.title": "プロジェクトのSpaceを作成しますか？",
+  "spaces.migration.hint":
+    "それぞれプロジェクトにひも付き、チャットも一緒に移ります。ピン留めしたウィジェットはホームに残ります。",
+  "spaces.migration.line":
+    "{threads, plural, other {チャット#件}} · {folders, plural, other {フォルダ#件（どこでも共有）}}",
+  "spaces.migration.create": "{n, plural, other {#個のSpaceを作成}}",
+  "spaces.migration.created": "{n, plural, other {#個のSpaceを作成しました}}",
+  "spaces.make": "Spaceを作成",
+  "spaces.make.failed": "Spaceを作成できませんでした: {reason}",
+  "spaces.openLinked": "Spaceを開く",
 };

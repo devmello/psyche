@@ -28,6 +28,7 @@ const EXT_MIME: Record<string, string> = {
   ogg: "audio/ogg",
   mp4: "video/mp4",
   mov: "video/quicktime",
+  m4v: "video/x-m4v",
   webm: "video/webm",
   json: "application/json",
   jsonl: "application/json",
@@ -83,8 +84,11 @@ export function sniffMime(bytes: Uint8Array): string | undefined {
     if (brand === "heic" || brand === "heix") return "image/heic";
     if (brand.startsWith("M4A")) return "audio/mp4";
     if (brand === "qt  ") return "video/quicktime";
+    if (brand === "M4V " || brand === "M4VH" || brand === "M4VP") return "video/x-m4v";
     return "video/mp4";
   }
+  // EBML header: WebM (Matroska is the same container; the file name tells them apart).
+  if (startsWith(bytes, [0x1a, 0x45, 0xdf, 0xa3])) return "video/webm";
   if (startsWith(bytes, [0xd0, 0xcf, 0x11, 0xe0])) return "application/x-ole-storage";
   if (startsWith(bytes, [0x50, 0x4b, 0x03, 0x04])) {
     // OOXML packages list their main part early; look in the first local headers.

@@ -39,6 +39,7 @@ import {
   type TouchIdFix,
 } from "./answer-error.ts";
 import { ApprovalDetails, ApprovalIds } from "./approval-details.tsx";
+import { otherSurfacesFor } from "./approval-surfaces.ts";
 import { floorClassOf, useLiftFloorConfirm } from "./LiftFloorDialog.tsx";
 import { approvalMachineLine } from "./machine-line.ts";
 import { taintSentence } from "./taint-text.ts";
@@ -418,7 +419,7 @@ export function ApprovalCard({
   createdFrom,
   parentThreadTitle,
   mode,
-  otherSurfaces = [],
+  otherSurfaces: allOtherSurfaces = [],
   onAnswer,
   now: fixedNow,
   autoFocus = false,
@@ -428,6 +429,8 @@ export function ApprovalCard({
   layoutId,
 }: ApprovalCardProps): ReactElement {
   const approval = useMemo(() => sanitizeApproval(raw), [raw]);
+  // A paired phone's own `device:<deviceId>` surface is not a place to name: hide it.
+  const otherSurfaces = useMemo(() => otherSurfacesFor(allOtherSurfaces, []), [allOtherSurfaces]);
   // First line of the per-surface template: kind · side effect · taint (never attacker text).
   const header = useMemo(() => renderForSurface("desktop", raw).text.split("\n")[0] ?? "", [raw]);
   const machineLine = approvalMachineLine(approval);

@@ -177,7 +177,7 @@ export const DEFAULT_VIEWER_SPECS: readonly ViewerSpec[] = [
     "media",
     "media",
     ["audio/*", "video/*"],
-    ["mp3", "m4a", "wav", "ogg", "mp4", "mov", "webm"],
+    ["mp3", "m4a", "wav", "ogg", "mp4", "mov", "webm", "m4v"],
     {
       label: "Media",
     },
