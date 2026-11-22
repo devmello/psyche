@@ -181,6 +181,7 @@ function fullDesktopPlatform(b: PsycheBridge): ShellPlatform {
       onPendingLink: (cb) => b.gateways.onPendingLink(cb),
       discover: () => b.gateways.discover() as Promise<DiscoveredGatewayView[]>,
       addDiscovered: (id) => b.gateways.addDiscovered(id) as Promise<SavedGatewayView>,
+      claim: (target, code) => b.gateways.claim(target, code) as Promise<SavedGatewayView>,
       rename: async (id, name) => void (await b.gateways.rename(id, name)),
       remove: async (id) => void (await b.gateways.remove(id)),
       switchTo: async (id, opts) => void (await b.gateways.switchTo(id, opts)),

@@ -878,6 +878,8 @@ export interface ApprovalExtras {
   trustSite?: "origin" | "subdomains";
   /** "Always allow <program> in <folder>" on a host-command card (sent with scope `once`). */
   hostProgram?: true;
+  /** "Allow in this Space" on a folder card that offers it (sent with scope `once`). */
+  inSpace?: true;
 }
 
 export async function answerApproval(
@@ -955,6 +957,7 @@ export async function answerApproval(
         ...(decision === "approve" && extras?.trustSite !== undefined
           ? { trustSite: extras.trustSite }
           : {}),
+        ...(decision === "approve" && extras?.inSpace === true ? { inSpace: true as const } : {}),
         ...(decision === "approve" && extras?.hostProgram === true
           ? { hostProgram: true as const }
           : {}),

@@ -1,6 +1,6 @@
 # Remote Gateway: the desktop app as a client of another machine
 
-Status: proposal v1 (2026-11-02). R0's routing half is built (§2.3, §4.1 rule 1; see the PR "Remote Gateway R0"): Host-bound capabilities use `NodeRegistry.hostHelper` (the `mac-helper` on the node socket that presented the handshake secret; guests relay to `run/guest.sock`; the device family is pinned at pairing), any other node claiming `mac-helper` is stored as `remote`, and the desktop gates the handshake secret, helper launch and first-admin bootstrap on a loopback Gateway. The `desktopApp` gate split, per-device appearance settings and `windows` in `DevicePlatform` are not built. R1's first half is built (2026-11-04; see the PR "Remote Gateway R1"): the Gateway identity key and its signature in the challenge, the client pin with the origin check, saved Gateways in the desktop app (switching restarts the app on that Gateway's own data directory), the `remote` supervisor mode, the splash states of §4.6, the Host's "Allow other computers" instructions, and the §4.2 gates marked R1 that the desktop can apply without the Host (browser pane, computer use, Share a folder, Show in Finder, Terminal title, Apple connectors, system-wide dictation). LAN is built (2026-11-04; see the PR "Remote Gateway LAN"): the `gateway.lan` setting (off by default, one chosen interface, admin plus presence), a self-signed certificate under `identity/lan-tls` that clients pin by SPKI, the identity key vouching for that certificate in the challenge (`lanCertSpki`, `lanCertSignature`), Bonjour `_psyche._tcp` with only the host name, port and key fingerprint, "Look on this network" in Add a Gateway, per-address connection limits, and an audit and `doctor` warning while it is on (§3.1, §3.2). R2's pairing links are built (2026-11-04; see the PR "Remote Gateway R2: pairing links"): the setup token and `psyche-pair:v1` link with its QR code on the Host (Settings → Server & remote access → Pair another computer), "Add a Gateway" with a pasted link (and a `psyche-pair:` URL from the OS in packaged builds, which only opens that field), the pre-pinned fingerprint and the Host's auto-approval with the chosen scopes. A link to a Gateway on the local network is a `psyche-pair:v2` link (2026-11-04; the PR "Remote Gateway: LAN pairing links v2 and IPv6"): it carries the certificate pin and the identity key, and a v1 link for such an address is still refused (§3.4). LAN also listens on IPv6 unique-local addresses when the owner turns that on (§3.1). Not built: the R2 audit checks, the tailnet list, `doctor` checks, upload and download with a cache, per-Gateway presence, notifications, per-computer settings. R4's terminal is built (2026-11-04; the PR "Remote Gateway R4: terminal on the Host"): `terminal.session.*` and the `terminal.output` / `terminal.exit` events in `compose/host-terminal.ts`, and the remote window's `hostTerminalPort`. Client presence for it (passkeys) plugs into `HostTerminalOptions.presence`. Nothing else here is built. Applies to `apps/desktop`, `apps/web`, `apps/gateway`, `packages/protocol` and `packages/notifications`. It shares pairing, the Gateway identity-key pin and the device surface with the [mobile companion](mobile-companion-2026.md), and the Windows work with the [cross-platform audit](cross-platform-2026.md).
+Status: proposal v1 (2026-11-02). R0's routing half is built (§2.3, §4.1 rule 1; see the PR "Remote Gateway R0"): Host-bound capabilities use `NodeRegistry.hostHelper` (the `mac-helper` on the node socket that presented the handshake secret; guests relay to `run/guest.sock`; the device family is pinned at pairing), any other node claiming `mac-helper` is stored as `remote`, and the desktop gates the handshake secret, helper launch and first-admin bootstrap on a loopback Gateway. The `desktopApp` gate split, per-device appearance settings and `windows` in `DevicePlatform` are not built. R1's first half is built (2026-11-04; see the PR "Remote Gateway R1"): the Gateway identity key and its signature in the challenge, the client pin with the origin check, saved Gateways in the desktop app (switching restarts the app on that Gateway's own data directory), the `remote` supervisor mode, the splash states of §4.6, the Host's "Allow other computers" instructions, and the §4.2 gates marked R1 that the desktop can apply without the Host (browser pane, computer use, Share a folder, Show in Finder, Terminal title, Apple connectors, system-wide dictation). LAN is built (2026-11-04; see the PR "Remote Gateway LAN"): the `gateway.lan` setting (off by default, one chosen interface, admin plus presence), a self-signed certificate under `identity/lan-tls` that clients pin by SPKI, the identity key vouching for that certificate in the challenge (`lanCertSpki`, `lanCertSignature`), Bonjour `_psyche._tcp` with only the host name, port and key fingerprint, "Look on this network" in Add a Gateway, per-address connection limits, and an audit and `doctor` warning while it is on (§3.1, §3.2). R2's pairing links are built (2026-11-04; see the PR "Remote Gateway R2: pairing links"): the setup token and `psyche-pair:v1` link with its QR code on the Host (Settings → Server & remote access → Pair another computer), "Add a Gateway" with a pasted link (and a `psyche-pair:` URL from the OS in packaged builds, which only opens that field), the pre-pinned fingerprint and the Host's auto-approval with the chosen scopes. A link to a Gateway on the local network is a `psyche-pair:v2` link (2026-11-04; the PR "Remote Gateway: LAN pairing links v2 and IPv6"): it carries the certificate pin and the identity key, and a v1 link for such an address is still refused (§3.4). LAN also listens on IPv6 unique-local addresses when the owner turns that on (§3.1). Not built: the R2 audit checks, the tailnet list, `doctor` checks, upload and download with a cache, per-Gateway presence, notifications, per-computer settings. R4's terminal is built (2026-11-04; the PR "Remote Gateway R4: terminal on the Host"): `terminal.session.*` and the `terminal.output` / `terminal.exit` events in `compose/host-terminal.ts`, and the remote window's `hostTerminalPort`. Client presence for it (passkeys) plugs into `HostTerminalOptions.presence`. Setting up a fresh psyche-server from the app with a setup code (§3.6) is built (2026-11-21, the PR "Set up a remote server"). Nothing else here is built. Applies to `apps/desktop`, `apps/web`, `apps/gateway`, `packages/protocol` and `packages/notifications`. It shares pairing, the Gateway identity-key pin and the device surface with the [mobile companion](mobile-companion-2026.md), and the Windows work with the [cross-platform audit](cross-platform-2026.md).
 
 **The owner's ask (2026-11-02):** "allow using the psyche app to connect to a remote gateway (over tailscale), for example i can use the psyche app on my windows or mac, and it will connect to a remotely running psyche instance."
 
@@ -261,6 +261,78 @@ What a client does with it, in this order (`addGatewayFromLanLink`, `PinnedChann
   - **Windows:** `safeStorage` (DPAPI, tied to the Windows user).
   - The key never syncs to iCloud or OneDrive, so a new computer pairs again.
 - **Forget this Gateway** deletes that Gateway's device key, its storage namespace (drafts, layout, caches) and any files the Client downloaded into its cache. It also asks the Host to revoke the device when the Host is reachable.
+
+### 3.6 Setting up a fresh psyche-server from the app (setup code)
+
+**The owner's ask (2026-11-21):** set a server up from the Mac app instead of the terminal. Installing `psyche-server` prints a one-time code, the app finds the server on the network, the owner types the code, and onboarding then runs in the app. SSH install is out of scope.
+
+**The flow.**
+1. `apt install` prints the code and starts the Gateway for the user who ran `sudo`.
+2. In the app, "Connect to a Psyche server" (first run, on This Mac) or Settings → Server & remote access → Gateways on this computer → "Set up a remote server" looks on the network.
+3. Servers announcing `claim=1` are listed first. Servers already set up are shown as "add it with a pairing link". The owner can always type an address.
+4. Main confirms the address in a native dialog, runs the handshake below, and saves the server pinned to the identity key and the certificate SPKI it proved, like a v2 link (§3.4.1).
+5. The owner presses Switch. Onboarding runs on the server, because its `ui.onboarding.completedAt` is unset. It adds "Keep this server reachable on my network", which is on by default.
+
+**Claim mode (unclaimed state).**
+- **Where it runs:** only a Linux `psyche-server` install, found by its install manifest, with no admin device.
+- **The code:**
+  - 10 Crockford base32 characters (50 bits), shown as `7K3QM-XR2TD`. Typing `O` reads as `0`, and `I` or `L` as `1`.
+  - Kept only as a salt and `scrypt(code, salt)` in `$PSYCHE_HOME/identity/setup-code.json` (0600).
+  - It works once and expires after 24 h.
+  - `psyche setup code` makes a new one and stops the old.
+- **The network side:**
+  - The LAN listener runs on the default-route interface with the existing certificate.
+  - The Bonjour record carries `claim=1`.
+- **What a connection may do:**
+  - An unauthenticated LAN connection may call only `gateway.claim.hello` and then `gateway.claim.prove`, one answer per connection, which then closes.
+  - `connect` from a LAN peer is refused (`claim_mode`) until the claim is done.
+  - The CLI on loopback is unaffected.
+- **Rate limits:** 5 failed proofs per minute per address and 30 per hour in all, on top of the connection limits.
+- **Set up from the terminal instead:** a server that already has an admin (`psyche setup`, `devices.bootstrapAdmin`) is marked claimed and never enters claim mode. If an admin appears while claim mode is running, a 15 s check ends it and puts the LAN listener back to the owner's setting.
+
+**The handshake.**
+1. `hello {clientNonce, deviceId, publicKey, name, platform}` gets back `{serverNonce, salt, gatewayKey, certSpki, hostName, expiresAt}`.
+2. The client checks that `certSpki` is the SPKI of the certificate this TLS connection presented, and stops otherwise.
+3. Both sides compute the transcript: `psyche-claim-v1`, then clientNonce, serverNonce, salt, gatewayKey, certSpki, deviceId and devicePublicKey, one per line.
+4. With `K = scrypt(code, salt; N=2^15, r=8, p=1, 32 bytes)`, the client sends `prove {HMAC-SHA256(K, "client\n" + transcript)}`.
+5. The server compares it in constant time. Only if it matches does the server answer with `HMAC-SHA256(K, "server\n" + transcript)`.
+6. The client accepts only a matching server proof. Then it pins the gatewayKey and the certSpki.
+
+The KDF parameters are fixed on both sides, never read from the wire. The server stores K, so a proof costs it one HMAC, not an scrypt.
+
+What the transcript binds:
+- The SPKI ties the proofs to this TLS connection, so a relay with its own certificate gets a transcript the real server won't accept.
+- The identity key makes the server's proof vouch for the key the client pins.
+- The device key makes the client's proof name the one key that becomes admin.
+
+**Why this primitive, not a PAKE.**
+- A PAKE (SPAKE2, OPAQUE) would make the code safe even against offline guessing. But the tree has only `@noble` primitives and no audited PAKE, and a hand-rolled one is a bigger risk than the one it removes.
+- A mutual HMAC keyed by a memory-hard KDF is standard and short.
+- **The cost is that the code is offline-guessable** by anyone who gets one proof together with its transcript.
+  - Getting one needs an active attacker: someone who poses as the server (a rogue `claim=1` announcement, or a typed address that reaches the wrong machine) and receives the client's proof.
+  - The client proves first, so a fake client never gets a server proof to guess against.
+  - TLS hides everything from a passive observer.
+- **The limits are what make that acceptable:**
+  - Single use and the 24 h expiry mean a code guessed offline is worthless once the real claim has happened, or once the day is over.
+  - Exhausting 2^50 codes at tens of milliseconds per scrypt guess takes far longer than a day, even on many machines.
+  - The rate limits stop online guessing: at most 720 wrong proofs in a code's life, a 1 in 10^12 chance.
+  - The owner can make a new code at any time.
+- **Residual risks:**
+  - Someone on the LAN can use up the hourly total and delay the owner's claim by up to an hour.
+  - Someone who can pose as the server can try to guess the code offline in the window above.
+
+**On success.**
+- In one transaction, while no admin exists and the device isn't revoked, the claiming device is registered as paired with the v2-link admin scopes (`operator.read`, `operator.write`, `operator.approvals`, `operator.admin`). No setup token or pending pairing is used.
+- The claim is audited as `device.bootstrap_admin` with `via: "claim"`, so `psyche security audit` counts it with the other first-admin claims.
+- The code file is removed, `identity/claimed.json` is written, and `claim=1` is dropped.
+- `gateway.lan` is saved as on for the claim interface, so the server stays reachable through onboarding and a restart. A pending LAN choice is recorded and shown in `gateway.info.claim.lanChoicePending`.
+- At the end of onboarding, `gateway.claim.finish {keepLan}` answers it, last of all. `false` turns the listener off, which ends this computer's connection, so it is meant for an owner who reaches the server another way (Tailscale).
+- There is no presence step: approvals stay a plain tap.
+
+**What the server shows.**
+- The plaintext code is never stored. The install output and `psyche setup code` show it once.
+- The journal shows it only when `psyched` made it itself, for example on a tarball install. Otherwise the journal says a code is waiting.
+- `psyche status` says whether a code is waiting, has expired, or is missing, never which code.
 
 ## 4. What changes on a remote Client
 

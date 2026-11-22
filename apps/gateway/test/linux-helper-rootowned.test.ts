@@ -8,6 +8,7 @@ import { HOST_HELPER_STATUS_SETTING } from "../src/nodes/registry.ts";
 import {
   linuxPeerChecker,
   PACKAGED_HELPER,
+  packagedHelperAt,
   packagedHelperInstalled,
 } from "../src/transports/peer-check.ts";
 import { startTestGateway, type TestGateway } from "./helpers.ts";
@@ -19,13 +20,21 @@ import { startTestGateway, type TestGateway } from "./helpers.ts";
  * test that fixture-based checks cannot replace: the Gateway reads `/proc` as an unprivileged
  * user, and anything that needs privileges there (for instance following `map_files`) refuses
  * every real helper.
+ *
+ * `LINUX_HELPER_ROOTOWNED_PATH` picks another packaged path, the installed `psyche-server`
+ * package's (`/usr/lib/psyche-server/psyche-helper`); anything that is not a packaged path skips.
  */
+
+const HELPER = packagedHelperAt(process.env.LINUX_HELPER_ROOTOWNED_PATH ?? PACKAGED_HELPER)?.path;
+/** What the tests run: the chosen packaged path (always set when the suite is enabled). */
+const BIN = HELPER ?? PACKAGED_HELPER;
 
 const enabled =
   process.platform === "linux" &&
   process.env.LINUX_HELPER_ROOTOWNED === "1" &&
   process.getuid?.() !== 0 &&
-  existsSync(PACKAGED_HELPER);
+  HELPER !== undefined &&
+  existsSync(HELPER);
 
 const status = (t: TestGateway) =>
   getSetting(t.gateway.context.db, HOST_HELPER_STATUS_SETTING)?.value as Record<string, unknown>;
@@ -89,7 +98,7 @@ describe.skipIf(!enabled)("the root-owned packaged helper, checked as an ordinar
 
   it("is root_owned, and pairs as the Host helper", async () => {
     const g = await start();
-    spawnHelper(PACKAGED_HELPER);
+    spawnHelper(BIN);
     const id = await until(
       "the helper to pair",
       () => g.gateway.context.nodes.hostHelpers()[0]?.info.id,
@@ -101,7 +110,7 @@ describe.skipIf(!enabled)("the root-owned packaged helper, checked as an ordinar
   it("a user-owned copy of the helper is refused, and the status says why", async () => {
     const g = await start();
     const copy = join(tmp("psyche-copy-"), "psyche-helper");
-    copyFileSync(PACKAGED_HELPER, copy);
+    copyFileSync(BIN, copy);
     chmodSync(copy, 0o755);
     spawnHelper(copy);
     const refused = await until(
@@ -114,7 +123,7 @@ describe.skipIf(!enabled)("the root-owned packaged helper, checked as an ordinar
 
   it("the packaged helper started with a loader path is a mismatch and is refused", async () => {
     const g = await start();
-    spawnHelper(PACKAGED_HELPER, { LD_LIBRARY_PATH: tmpdir() });
+    spawnHelper(BIN, { LD_LIBRARY_PATH: tmpdir() });
     const refused = await until(
       "the refusal",
       () => status(g)?.refused as Record<string, unknown> | undefined,
@@ -129,7 +138,7 @@ describe.skipIf(!enabled)("the root-owned packaged helper, checked as an ordinar
     "the packaged helper inside a private user and mount namespace is unverified (other_namespace)",
     async () => {
       const g = await start();
-      spawnHelper("unshare", {}, ["-Urm", "--", PACKAGED_HELPER, "--idle-timeout", "0"]);
+      spawnHelper("unshare", {}, ["-Urm", "--", BIN, "--idle-timeout", "0"]);
       const refused = await until(
         "the refusal",
         () => status(g)?.refused as Record<string, unknown> | undefined,
@@ -146,7 +155,7 @@ describe.skipIf(!enabled)("the root-owned packaged helper, checked as an ordinar
 
   it("refuses to start with LD_PRELOAD set (hygiene), so it never connects", async () => {
     const g = await start();
-    const child = spawnHelper(PACKAGED_HELPER, { LD_PRELOAD: "/nonexistent.so" });
+    const child = spawnHelper(BIN, { LD_PRELOAD: "/nonexistent.so" });
     const code = await new Promise<number | null>((resolve) =>
       child.once("exit", (c) => resolve(c)),
     );

@@ -14,6 +14,7 @@ import type {
   TaintSource,
 } from "@psyche/protocol";
 import type { PairedIdentity, PeerInfo } from "./auth.ts";
+import type { ClaimMode } from "./claim/mode.ts";
 import type { GatewayConfig } from "./config.ts";
 import type { EventBus, EventFilter } from "./event-bus.ts";
 import type { Idempotency } from "./idempotency.ts";
@@ -320,6 +321,11 @@ export interface GatewayContext {
   challengeOrigin(peer: PeerInfo): string;
   /** The LAN listener (`lan/listener.ts`): off unless the owner turned `gateway.lan` on. */
   readonly lan: LanControl;
+  /**
+   * Claim mode of a fresh psyche-server (`claim/mode.ts`, design §3.6); null on every other
+   * install. Set once at start.
+   */
+  readonly claim: ClaimMode | null;
   /** This Gateway's identity key (`identity/gateway.key`); it signs every challenge. */
   readonly identity: GatewayIdentity;
   connections(): Iterable<LiveConnection>;

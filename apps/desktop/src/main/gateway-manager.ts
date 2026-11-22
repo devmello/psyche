@@ -1,11 +1,21 @@
-import { readdirSync, rmSync } from "node:fs";
+import { existsSync, readdirSync, rmSync } from "node:fs";
+import { hostname } from "node:os";
 import { join } from "node:path";
 import { PairingLinkError, PsycheError, parsePairingLinkAny } from "@psyche/protocol";
+import {
+  ClaimError,
+  type ClaimedServer,
+  type ClaimOptions,
+  claimServer,
+} from "../lib/claim-client.ts";
+import { type DeviceKey, loadOrCreateDeviceKey, platformFromNode } from "../lib/device-key.ts";
 import { fingerprintOf } from "../lib/gateway-identity.ts";
 import {
   addGateway,
+  addGatewayFromClaim,
   addGatewayFromLanLink,
   addGatewayFromLink,
+  claimOriginFor,
   clearGatewayPin,
   clearSetupToken,
   defaultGatewayName,
@@ -18,6 +28,7 @@ import {
   isLanOrigin,
   liveSetupToken,
   loadGatewaysStrict,
+  newGatewayId,
   pinGatewayCert,
   pinGatewayKey,
   removeGateway,
@@ -71,6 +82,8 @@ export type GatewayConfirm =
       /** A `psyche-pair:v2` link: a Psyche on this network, held to the certificate it names. */
       lan?: { certPin: string };
     }
+  /** Set up the psyche-server at this address with its setup code (design §3.6). */
+  | { kind: "claim"; origin: string }
   | { kind: "forget"; name: string; origin: string }
   | { kind: "repair"; name: string; origin: string }
   | { kind: "stopLocal" };
@@ -87,11 +100,15 @@ export interface GatewayManagerDeps {
   /** Stops this Mac's own Gateway (the optional step when switching away from This Mac). */
   stopLocal?: () => Promise<void>;
   now?: () => Date;
+  /** Tests: the claim handshake (default `claimServer`). */
+  claimServer?: (opts: ClaimOptions) => Promise<ClaimedServer>;
 }
 
 export class GatewayManager {
   readonly #deps: GatewayManagerDeps;
   readonly #file: string;
+  /** Claims whose answer was lost, by server origin: the Gateway id (and so device key) to retry with. */
+  readonly #pendingClaims = new Map<string, string>();
 
   constructor(deps: GatewayManagerDeps) {
     this.#deps = deps;
@@ -258,6 +275,99 @@ export class GatewayManager {
     if (!ok) throw new PsycheError("forbidden", "Adding the Gateway was cancelled");
     // Read again after the dialog, as `add` does, so a pin written meanwhile is not erased.
     const result = attempt();
+    saveGateways(this.#file, result.gateways);
+    return this.#view(result.entry);
+  }
+
+  /**
+   * "Set up a remote server" (remote-gateway design §3.6): claims the unclaimed psyche-server at
+   * `address` with the setup code the owner read off it, then saves it pinned to the identity key
+   * and certificate it proved, under the id whose device key is now its first admin. The address
+   * is confirmed in a native dialog first, like every add. Nothing is saved, and the device key
+   * made for it is removed, unless the server proved it knows the code.
+   */
+  async claim(address: string, code: string): Promise<SavedGatewayView> {
+    let origin: string;
+    try {
+      origin = claimOriginFor(address);
+    } catch (err) {
+      if (err instanceof GatewayAddressError) {
+        throw new PsycheError("invalid_params", err.message, {
+          details: { problem: err.problem === "invalid" ? "claim_not_lan" : err.problem },
+        });
+      }
+      throw err;
+    }
+    const found = () => this.#load().gateways.find((g) => g.origin === origin);
+    const before = found();
+    if (before?.identityKey !== undefined || before?.certPin !== undefined) {
+      // Paired before: that server is set up, and its pins are not replaced by a claim.
+      throw new PsycheError("conflict", "That server is saved already", {
+        details: { problem: "claim_saved" },
+      });
+    }
+    const ok = await this.#deps.confirm({ kind: "claim", origin });
+    if (!ok) throw new PsycheError("forbidden", "Setting up the server was cancelled");
+    // A claim whose answer was lost keeps its id (and so its device key): the server may already
+    // have made that key its admin, and a retry from the same key finishes the claim.
+    const retrying = this.#pendingClaims.has(origin);
+    const id = found()?.id ?? this.#pendingClaims.get(origin) ?? newGatewayId();
+    const dir = gatewayDataDir(this.#deps.userData, id);
+    const fresh = retrying || !existsSync(dir);
+    const key: DeviceKey = loadOrCreateDeviceKey(join(dir, "device-key.json"));
+    const url = new URL(origin);
+    let claimed: ClaimedServer;
+    try {
+      claimed = await (this.#deps.claimServer ?? claimServer)({
+        host: url.hostname.replace(/^\[|\]$/g, ""),
+        port: Number(url.port || 443),
+        code,
+        device: {
+          deviceId: key.deviceId,
+          publicKey: key.publicKey,
+          name: `Psyche Desktop (${hostname()})`.slice(0, 64),
+          platform: platformFromNode(process.platform),
+        },
+      });
+    } catch (err) {
+      const problem = err instanceof ClaimError ? err.problem : null;
+      // Keep the key only when it may be the server's admin by now: the proof went out and no
+      // answer came back. A retry also keeps it through a wrong code, a rate limit or a bad
+      // connection, which prove nothing about the server's state.
+      const keep =
+        problem === "unconfirmed" ||
+        (retrying &&
+          (problem === "wrong_code" ||
+            problem === "too_many_attempts" ||
+            problem === "unreachable"));
+      if (keep) this.#pendingClaims.set(origin, id);
+      else {
+        this.#pendingClaims.delete(origin);
+        if (fresh) forgetGatewayData(this.#deps.userData, id);
+      }
+      if (err instanceof ClaimError) {
+        // The server dropped what a retry needs (or never knew this key): say what to do next.
+        const gone =
+          retrying && (err.problem === "not_claimable" || err.problem === "code_expired");
+        const shown =
+          err.problem === "unconfirmed" ? "unreachable" : gone ? "maybe_claimed" : err.problem;
+        throw new PsycheError("forbidden", `The server was not set up (${shown})`, {
+          details: {
+            problem: `claim_${shown}`,
+            ...(err.attemptsLeft === undefined ? {} : { attemptsLeft: err.attemptsLeft }),
+            ...(err.retryAfterSec === undefined ? {} : { retryAfterSec: err.retryAfterSec }),
+          },
+        });
+      }
+      throw err;
+    }
+    this.#pendingClaims.delete(origin);
+    // Read again after the handshake, so a write made meanwhile is not erased.
+    const result = addGatewayFromClaim(
+      this.#load(),
+      { origin, gatewayKey: claimed.gatewayKey, certPin: claimed.certSpki },
+      id,
+    );
     saveGateways(this.#file, result.gateways);
     return this.#view(result.entry);
   }
