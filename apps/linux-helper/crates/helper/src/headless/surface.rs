@@ -37,7 +37,7 @@ const A11Y_WAIT: Duration = Duration::from_secs(8);
 /// The machine ceiling (`policy.json`, `/etc` first), read again at every use.
 pub fn policy_source() -> Arc<PolicySource> {
     let home = ProcessEnv
-        .get("HOME")
+        .home()
         .map(std::path::PathBuf::from)
         .unwrap_or_else(|| std::path::PathBuf::from("/"));
     Arc::new(PolicySource::standard(&config_dir(&ProcessEnv), home, None))

@@ -1,0 +1,59 @@
+Name:           psyche-helper
+Version:        @VERSION@
+Release:        1
+Summary:        Lets your Mac's Psyche use this computer
+License:        MIT
+URL:            https://github.com/devmello/psyche
+# The binary is built (and stripped) by the release job; nothing is compiled here.
+AutoReqProv:    no
+Requires:       systemd
+Requires:       xorg-x11-server-Xvfb
+Requires:       dbus
+Requires:       at-spi2-core
+Requires:       xorg-x11-xauth
+Requires:       bubblewrap
+
+%global debug_package %{nil}
+%global __os_install_post %{nil}
+%global _build_id_links none
+
+%description
+The Psyche helper dials the Gateway on your Mac and does what you approve there: runs a private
+screen for apps, and (within /etc/psyche-helper/policy.json) commands and files. After installing,
+run psyche-helper-setup as the account the helper should use.
+
+%prep
+
+%build
+
+%install
+install -d %{buildroot}/usr/lib/psyche-helper %{buildroot}/usr/bin %{buildroot}/usr/lib/systemd/user %{buildroot}/etc/psyche-helper
+install -m 0755 %{_sourcedir}/psyche-helper %{buildroot}/usr/lib/psyche-helper/psyche-helper
+install -m 0755 %{_sourcedir}/install.sh %{buildroot}/usr/lib/psyche-helper/install.sh
+install -m 0644 %{_sourcedir}/policy.default.json %{buildroot}/usr/lib/psyche-helper/policy.default.json
+install -m 0644 %{_sourcedir}/policy.narrow.json %{buildroot}/usr/lib/psyche-helper/policy.narrow.json
+ln -s ../lib/psyche-helper/psyche-helper %{buildroot}/usr/bin/psyche-helper
+ln -s ../lib/psyche-helper/install.sh %{buildroot}/usr/bin/psyche-helper-setup
+install -m 0644 %{_sourcedir}/psyche-helper-remote.service %{buildroot}/usr/lib/systemd/user/psyche-helper-remote.service
+install -m 0644 %{_sourcedir}/psyche-machine.slice %{buildroot}/usr/lib/systemd/user/psyche-machine.slice
+install -m 0644 %{_sourcedir}/policy.default.json %{buildroot}/etc/psyche-helper/policy.json
+
+%files
+%dir /usr/lib/psyche-helper
+/usr/lib/psyche-helper/psyche-helper
+/usr/lib/psyche-helper/install.sh
+/usr/lib/psyche-helper/policy.default.json
+/usr/lib/psyche-helper/policy.narrow.json
+/usr/bin/psyche-helper
+/usr/bin/psyche-helper-setup
+/usr/lib/systemd/user/psyche-helper-remote.service
+/usr/lib/systemd/user/psyche-machine.slice
+%dir /etc/psyche-helper
+%config(noreplace) /etc/psyche-helper/policy.json
+
+%post
+echo "psyche-helper: run psyche-helper-setup as the account that should run it."
+
+%changelog
+* @DATE@ Psyche <noreply@psyche.invalid> - @VERSION@-1
+- Packaged by the release job.
