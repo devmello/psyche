@@ -103,6 +103,10 @@ function fakeMachine(ref: ComputerMachineRef, calls: Call[]): NodeClient {
             cwd: p.cwd,
             contained: box.contained,
             network: p.network === true,
+            quarantined: [
+              { path: `${p.cwd}/sub/.git`, movedTo: `${p.cwd}/sub/.git.psyche-quarantine-1` },
+              { path: 7 },
+            ],
           },
         };
       }
@@ -610,6 +614,10 @@ describe("exec_host on a machine: taint", () => {
     expect(r).toBeUndefined();
     const ok = await run(t, onA, ctx({ approvalId: id, onUpdate: (u) => updates.push(u) }));
     expect(ok.provenance).toBe("untrusted");
+    // What the box moved aside is named; a malformed entry is dropped.
+    expect((ok.output as { quarantined?: unknown }).quarantined).toEqual([
+      { path: `${PROJ}/sub/.git`, movedTo: `${PROJ}/sub/.git.psyche-quarantine-1` },
+    ]);
     expect(updates).toContainEqual({ data: { machine: A, stream: "stdout", text: "hi\n" } });
   });
 });

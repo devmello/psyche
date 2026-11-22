@@ -22,12 +22,13 @@ pub mod fit;
 pub mod protected;
 pub mod walk;
 
+use std::collections::HashMap;
 use std::ffi::OsString;
 use std::io::Write as _;
 use std::os::fd::AsRawFd;
 use std::os::unix::fs::FileExt;
 use std::path::{Path, PathBuf};
-use std::sync::Arc;
+use std::sync::{Arc, Mutex, OnceLock};
 
 use base64::Engine as _;
 use psyche_protocol::{ErrorCode, SideEffect, TargetKind};
@@ -164,6 +165,52 @@ pub fn real_roots(policy: &Policy, home: &Path) -> Vec<(PathBuf, PathBuf, Mode)>
         .collect()
 }
 
+/// Each read-only root's identity (`dev:ino`) as this helper first saw it, by its path as listed.
+fn ro_seen() -> &'static Mutex<HashMap<PathBuf, (u64, u64)>> {
+    static SEEN: OnceLock<Mutex<HashMap<PathBuf, (u64, u64)>>> = OnceLock::new();
+    SEEN.get_or_init(Mutex::default)
+}
+
+/// Refuses (`read_only_root_moved`) when a read-only root is not the folder it was when this
+/// helper first saw it: its parent was renamed and a decoy made at the old path, so its real
+/// content now sits under some other, perhaps read-write, path (#1512 review r2, finding 3).
+/// Contained commands can't rename such a parent (it is a mount point in the sandbox); this
+/// catches what got past that, before any later write or read-write run. A folder the owner
+/// really swapped is accepted once the helper restarts.
+pub fn ro_roots_unmoved(policy: &Policy, home: &Path) -> Result<(), CapabilityError> {
+    use std::os::unix::fs::MetadataExt as _;
+    let mut seen = ro_seen().lock().unwrap_or_else(|e| e.into_inner());
+    for root in policy.files.roots.iter().filter(|r| r.mode == Mode::Ro) {
+        let Some(expanded) = expand_root(&root.path, home) else {
+            continue;
+        };
+        let now = std::fs::metadata(&expanded)
+            .ok()
+            .filter(|m| m.is_dir())
+            .map(|m| (m.dev(), m.ino()));
+        let moved = match (seen.get(&expanded), now) {
+            (Some(was), Some(id)) => *was != id,
+            (Some(_), None) => true,
+            (None, Some(id)) => {
+                seen.insert(expanded.clone(), id);
+                false
+            }
+            (None, None) => false,
+        };
+        if moved {
+            return Err(err(
+                ErrorCode::Forbidden,
+                "read_only_root_moved",
+                &format!(
+                    "{} is not the read-only folder it was: it was moved or replaced. Nothing here writes until Psyche on this computer restarts",
+                    expanded.display()
+                ),
+            ));
+        }
+    }
+    Ok(())
+}
+
 /// Where `raw` lies under the ceiling, or why it may not be touched.
 pub fn locate(
     policy: &Policy,
@@ -183,6 +230,11 @@ pub fn locate(
     };
     if protected::is_protected(&lex, home) {
         return Err(refused(&lex));
+    }
+    // Recorded on every call; refused only for writes.
+    let unmoved = ro_roots_unmoved(policy, home);
+    if write {
+        unmoved?;
     }
     let roots = real_roots(policy, home);
     // The real spelling: through the root (by either of its spellings) that holds `lex` deepest.

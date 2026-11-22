@@ -6,7 +6,9 @@
 //!   (`docker.sock`, `screen`, the system bus) are gone. A read-only mount never stops
 //!   `connect()`, so hiding is the only cover for a path socket. With the network on, DNS's
 //!   files come back read-only (`/run/systemd/resolve`, and whatever `/etc/resolv.conf` points
-//!   to under `/run`). Known sockets outside `/run` (LXD, Incus) are covered by `/dev/null`.
+//!   to under `/run`). Known sockets outside `/run` (LXD, Incus), and every path socket
+//!   `/proc/net/unix` lists outside the read-write folder (a daemon's socket in the home folder,
+//!   multipass under `/var/snap`), are covered by `/dev/null`.
 //! - Only the granted folder is writable, and only when it was granted read-write. Inside it,
 //!   the ceiling's read-only `files.roots` stay read-only, and so do git hooks and config and
 //!   launch configs ([`super::launch`]).
@@ -87,6 +89,38 @@ fn covered_by(path: &Path, covers: &[PathBuf]) -> bool {
     covers.iter().any(|c| path.starts_with(c))
 }
 
+/// How many listening path sockets are covered at most.
+const PATH_SOCKETS_MAX: usize = 1024;
+
+/// The path sockets bound on this computer, from `/proc/net/unix` (the helper runs in the host's
+/// network namespace, so every one is listed). Only real sockets the helper can see: one it
+/// can't `lstat` the command can't reach either.
+pub fn path_sockets() -> Vec<PathBuf> {
+    use std::os::unix::fs::FileTypeExt as _;
+    let Ok(text) = std::fs::read_to_string("/proc/net/unix") else {
+        return Vec::new();
+    };
+    parse_unix(&text)
+        .into_iter()
+        .filter(|p| std::fs::symlink_metadata(p).is_ok_and(|m| m.file_type().is_socket()))
+        .take(PATH_SOCKETS_MAX)
+        .collect()
+}
+
+/// The absolute paths in `/proc/net/unix` (abstract names start with `@` and are skipped).
+pub fn parse_unix(text: &str) -> Vec<PathBuf> {
+    let mut out: Vec<PathBuf> = text
+        .lines()
+        .skip(1)
+        .filter_map(|l| l.split_whitespace().nth(7))
+        .filter(|p| p.starts_with('/'))
+        .map(PathBuf::from)
+        .collect();
+    out.sort();
+    out.dedup();
+    out
+}
+
 /// The arguments before `--`.
 pub fn args(plan: &Plan) -> Vec<OsString> {
     let mut out = Vec::new();
@@ -150,14 +184,23 @@ pub fn args(plan: &Plan) -> Vec<OsString> {
         plan.folder,
     );
     if plan.writable {
-        let mut read_only: Vec<PathBuf> = Vec::new();
-        for r in plan.read_only {
-            if r.starts_with(plan.folder) && r != plan.folder && r.is_dir() {
-                push_path(&mut out, "--ro-bind", r, r);
-                read_only.push(r.clone());
+        let read_only: Vec<PathBuf> = plan
+            .read_only
+            .iter()
+            .filter(|r| r.starts_with(plan.folder) && *r != plan.folder && r.is_dir())
+            .cloned()
+            .collect();
+        let inside = |p: &PathBuf| p.starts_with(plan.folder) && !covered_by(p, &read_only);
+        // Pinned folders first, parents first: each a mount point of its own, which can't be
+        // renamed or removed, so no mask below can be moved aside (#1512 r2 findings 1 and 3).
+        for p in plan.masks.pinned.iter().filter(|p| inside(p)) {
+            if std::fs::symlink_metadata(p).is_ok_and(|m| m.is_dir()) {
+                push_path(&mut out, "--bind", p, p);
             }
         }
-        let inside = |p: &PathBuf| p.starts_with(plan.folder) && !covered_by(p, &read_only);
+        for r in &read_only {
+            push_path(&mut out, "--ro-bind", r, r);
+        }
         for p in plan.masks.existing.iter().filter(|p| inside(p)) {
             push_path(&mut out, "--ro-bind", p, p);
         }
@@ -171,6 +214,8 @@ pub fn args(plan: &Plan) -> Vec<OsString> {
     }
     for hidden in protected::hidden_paths(plan.home) {
         match std::fs::symlink_metadata(&hidden) {
+            // A link is covered where it leads: its real spelling is in the list too.
+            Ok(m) if m.file_type().is_symlink() => {}
             Ok(m) if m.is_dir() => {
                 push_one(&mut out, "--tmpfs", &hidden);
                 covers.push(hidden);
@@ -182,12 +227,21 @@ pub fn args(plan: &Plan) -> Vec<OsString> {
             Err(_) => {}
         }
     }
-    for sock in plan.sockets {
-        if covered_by(sock, &covers) || !sock.is_absolute() {
+    // The sockets the helper's environment names, and every path socket listening on this
+    // computer (#1512 r2 finding 5: a host daemon's socket in the home folder or under /var is
+    // reachable otherwise, whether or not the network is on). Those in a read-write folder are
+    // the command's own to use.
+    let mut done: Vec<PathBuf> = Vec::new();
+    for sock in plan.sockets.iter().cloned().chain(path_sockets()) {
+        if covered_by(&sock, &covers) || !sock.is_absolute() || done.contains(&sock) {
             continue;
         }
-        if std::fs::symlink_metadata(sock).is_ok() {
-            push_path(&mut out, "--ro-bind", Path::new("/dev/null"), sock);
+        if plan.writable && sock.starts_with(plan.folder) {
+            continue;
+        }
+        if std::fs::symlink_metadata(&sock).is_ok() {
+            push_path(&mut out, "--ro-bind", Path::new("/dev/null"), &sock);
+            done.push(sock);
         }
     }
     if let Some((fd, path)) = plan.executable {
@@ -283,7 +337,9 @@ mod tests {
         let folder = home.join("proj");
         let keep = folder.join("keep");
         let outside = home.join("elsewhere");
+        std::fs::create_dir_all(folder.join(".git/hooks")).unwrap();
         let masks = Masks {
+            pinned: vec![folder.join(".git"), keep.join("inner")],
             existing: vec![folder.join(".git/hooks"), keep.join(".envrc")],
             missing_dirs: vec![folder.join(".vscode")],
             missing_files: vec![folder.join(".envrc")],
@@ -343,6 +399,16 @@ mod tests {
         // Launch configs: existing bound over themselves, missing covered, none inside `keep`.
         let hooks = folder.join(".git/hooks").display().to_string();
         assert!(has3(&a, "--ro-bind", &hooks, &hooks));
+        // `.git` is pinned (bound over itself read-write) before its hooks are made read-only;
+        // nothing inside the read-only root is pinned.
+        let git = folder.join(".git").display().to_string();
+        let pin_at = a
+            .windows(3)
+            .position(|w| w[0] == "--bind" && w[1] == git && w[2] == git)
+            .unwrap();
+        let hooks_at = a.windows(3).position(|w| w[1] == hooks).unwrap();
+        assert!(bind.unwrap() < pin_at && pin_at < hooks_at);
+        assert!(!a.contains(&keep.join("inner").display().to_string()));
         let vscode = folder.join(".vscode").display().to_string();
         assert!(a.windows(2).any(|w| w[0] == "--tmpfs" && w[1] == vscode));
         assert!(a
@@ -376,6 +442,23 @@ mod tests {
         if Path::new("/run/systemd/resolve").is_dir() {
             assert!(a.contains(&"/run/systemd/resolve".into()));
         }
+    }
+
+    #[test]
+    fn listening_path_sockets_are_read_from_proc_net_unix() {
+        let text = "Num       RefCount Protocol Flags    Type St Inode Path\n\
+            0000000000000000: 00000002 00000000 00010000 0001 01 1001 /home/u/.cache/svc/daemon.sock\n\
+            0000000000000000: 00000002 00000000 00010000 0001 01 1002 @/tmp/.X11-unix/X0\n\
+            0000000000000000: 00000003 00000000 00000000 0001 03 1003\n\
+            0000000000000000: 00000002 00000000 00010000 0001 01 1004 /var/snap/multipass/common/multipass_socket\n\
+            0000000000000000: 00000002 00000000 00010000 0001 01 1005 /home/u/.cache/svc/daemon.sock\n";
+        assert_eq!(
+            parse_unix(text),
+            vec![
+                PathBuf::from("/home/u/.cache/svc/daemon.sock"),
+                PathBuf::from("/var/snap/multipass/common/multipass_socket"),
+            ]
+        );
     }
 
     fn at_of(a: &[String], s: &str) -> usize {

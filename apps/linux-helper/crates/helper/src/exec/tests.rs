@@ -524,6 +524,13 @@ mod linux {
         found
     }
 
+    /// Contained runs one at a time: the launch stubs go only when the last read-write run ends
+    /// (one count for the whole helper), so a run in another test would keep them.
+    fn one_at_a_time() -> std::sync::MutexGuard<'static, ()> {
+        static ONE: Mutex<()> = Mutex::new(());
+        ONE.lock().unwrap_or_else(|e| e.into_inner())
+    }
+
     #[test]
     fn output_streams_and_is_capped_and_the_env_is_scrubbed() {
         let b = Box_::new(FULL);
@@ -624,6 +631,7 @@ mod linux {
     /// swapped between the check and the run.
     #[test]
     fn the_file_that_was_hashed_is_the_file_that_runs() {
+        let _one = one_at_a_time();
         let Some(bwrap) = bwrap_or_skip() else { return };
         let b = Box_::new(CONTAINED);
         let script = b.p("home/proj/build.sh");
@@ -677,6 +685,7 @@ mod linux {
     #[test]
     fn a_contained_command_reaches_no_unix_socket_outside_with_the_network_on_or_off() {
         use std::os::linux::net::SocketAddrExt;
+        let _one = one_at_a_time();
         let Some(bwrap) = bwrap_or_skip() else { return };
         let Some(py) = python() else {
             eprintln!("skipping: no python3");
@@ -753,6 +762,7 @@ print("tcp", try_(tcp)); print("pair", try_(pair))
     /// the sandbox needed are gone afterwards.
     #[test]
     fn a_contained_command_cannot_plant_code_in_its_read_write_folder() {
+        let _one = one_at_a_time();
         let Some(bwrap) = bwrap_or_skip() else { return };
         let b = Box_::new(CONTAINED);
         b.policy_raw(&format!(
@@ -882,6 +892,7 @@ print("tcp", try_(tcp)); print("pair", try_(pair))
 
     #[test]
     fn a_contained_command_cannot_read_secrets_reach_the_agent_or_write_outside_its_folder() {
+        let _one = one_at_a_time();
         let Some(bwrap) = bwrap_or_skip() else { return };
         let b = Box_::new(CONTAINED);
         let exec = b.exec(Some(bwrap));
@@ -952,5 +963,156 @@ print("tcp", try_(tcp)); print("pair", try_(pair))
         }
         assert_eq!(v["contained"], true);
         std::env::remove_var("SSH_AUTH_SOCK");
+    }
+
+    fn rw_in(b: &Box_, cwd: &str, script: &str) -> Value {
+        json!({ "argv": [bin("sh"), "-c", script], "cwd": b.h(cwd), "folder": b.h("proj"), "folderMode": "rw" })
+    }
+
+    /// #1512 review r2, P1: `.git` (and the way to the working folder) can't be moved aside
+    /// to make a fresh one the masks don't cover; git's own state stays writable.
+    #[test]
+    fn a_git_folder_or_the_way_to_the_working_folder_cannot_be_moved_aside() {
+        let _one = one_at_a_time();
+        let Some(bwrap) = bwrap_or_skip() else { return };
+        let b = Box_::new(CONTAINED);
+        std::fs::create_dir_all(b.p("home/proj/.git/hooks")).unwrap();
+        std::fs::write(b.p("home/proj/.git/config"), "[core]\n").unwrap();
+        std::fs::write(b.p("home/proj/.git/HEAD"), "ref: refs/heads/main\n").unwrap();
+        let exec = b.exec(Some(bwrap));
+        let script = [
+            "mv ../.git ../.git-old 2>/dev/null && echo moved-git",
+            "mv ../sub ../sub2 2>/dev/null && echo moved-sub",
+            "mkdir -p ../.git/hooks 2>/dev/null",
+            "echo '#!/bin/sh' > ../.git/hooks/pre-commit 2>/dev/null && echo planted",
+            "echo '  fsmonitor = /bin/true' >> ../.git/config 2>/dev/null && echo config",
+            "echo idx > ../.git/index && echo wrote-index",
+        ]
+        .join("\n");
+        let (v, _) = run_ok(&exec, rw_in(&b, "proj/sub", &script));
+        assert_eq!(v["stdout"], "wrote-index\n", "{v}");
+        assert!(!b.p("home/proj/.git-old").exists());
+        assert!(!b.p("home/proj/sub2").exists());
+        assert!(!b.p("home/proj/.git/hooks/pre-commit").exists());
+        assert_eq!(
+            std::fs::read_to_string(b.p("home/proj/.git/config")).unwrap(),
+            "[core]\n"
+        );
+        assert_eq!(
+            std::fs::read_to_string(b.p("home/proj/.git/index")).unwrap(),
+            "idx\n"
+        );
+    }
+
+    /// #1512 review r2, P2: a repository or launch config made one or two levels down is moved
+    /// aside after the run (never deleted) and named in the result; old ones stay.
+    #[test]
+    fn new_repositories_and_launch_configs_below_the_folder_are_moved_aside() {
+        let _one = one_at_a_time();
+        let Some(bwrap) = bwrap_or_skip() else { return };
+        let b = Box_::new(CONTAINED);
+        std::fs::create_dir_all(b.p("home/proj/old/.git")).unwrap();
+        let exec = b.exec(Some(bwrap));
+        let script = "mkdir -p sub/.git newrepo/.git a/b/.vscode && echo '[core]' > sub/.git/config && echo '{}' > a/b/.vscode/tasks.json && echo made";
+        let (v, _) = run_ok(&exec, rw_in(&b, "proj", script));
+        assert_eq!(v["stdout"], "made\n", "{v}");
+        let mut moved: Vec<String> = v["quarantined"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .map(|q| {
+                let (from, to) = (q["path"].as_str().unwrap(), q["movedTo"].as_str().unwrap());
+                assert!(!Path::new(from).exists(), "{from} still there");
+                assert!(Path::new(to).exists(), "{to} missing");
+                assert!(
+                    to.starts_with(&format!("{from}.psyche-quarantine-")),
+                    "{to}"
+                );
+                from.to_string()
+            })
+            .collect();
+        moved.sort();
+        let mut want = vec![
+            b.h("proj/a/b/.vscode"),
+            b.h("proj/newrepo/.git"),
+            b.h("proj/sub/.git"),
+        ];
+        want.sort();
+        assert_eq!(moved, want, "{v}");
+        assert!(b.p("home/proj/old/.git").is_dir());
+        // The stubs at the top were not moved: they are gone.
+        assert!(!b.p("home/proj/.git").exists());
+        assert!(!b.p("home/proj/.vscode").exists());
+    }
+
+    /// #1512 review r2, P3: a read-only root's parent (or the root) can't be renamed by a run,
+    /// and if one was moved anyway, nothing writes until the helper restarts.
+    #[test]
+    fn a_read_only_root_in_a_read_write_folder_cannot_be_moved_aside() {
+        let _one = one_at_a_time();
+        let Some(bwrap) = bwrap_or_skip() else { return };
+        let b = Box_::new(CONTAINED);
+        b.policy_raw(&format!(
+            r#"{{"exec":{CONTAINED},"files":{{"roots":[{{"path":"~","mode":"rw"}},{{"path":"~/proj/a/keep","mode":"ro"}}]}}}}"#
+        ));
+        std::fs::create_dir_all(b.p("home/proj/a/keep")).unwrap();
+        std::fs::write(b.p("home/proj/a/keep/k.txt"), "KEEP\n").unwrap();
+        let exec = b.exec(Some(bwrap));
+        let script = [
+            "mv a a2 2>/dev/null && echo moved",
+            "mv a/keep a/keep2 2>/dev/null && echo moved-keep",
+            "echo X > a/keep/k.txt 2>/dev/null && echo wrote",
+            "true",
+        ]
+        .join("\n");
+        let (v, _) = run_ok(&exec, rw_in(&b, "proj", &script));
+        assert_eq!(v["stdout"], "", "{v}");
+        assert!(!b.p("home/proj/a2").exists());
+        assert_eq!(
+            std::fs::read_to_string(b.p("home/proj/a/keep/k.txt")).unwrap(),
+            "KEEP\n"
+        );
+        // Moved aside from outside and a decoy made: writes and read-write runs are refused.
+        std::fs::rename(b.p("home/proj/a"), b.p("home/proj/a2")).unwrap();
+        std::fs::create_dir_all(b.p("home/proj/a/keep")).unwrap();
+        let (p, home) = (b.loaded(), b.p("home"));
+        assert_eq!(
+            reason(check(&p, &home, &bound(rw_in(&b, "proj", "true")))),
+            "read_only_root_moved"
+        );
+        let old = b.h("proj/a2/keep/k.txt");
+        let write = crate::fs::locate(&p, &home, &old, true);
+        assert_eq!(
+            write.err().map(|e| e.reason).as_deref(),
+            Some("read_only_root_moved")
+        );
+        // Reads still work.
+        assert!(crate::fs::locate(&p, &home, &old, false).is_ok());
+    }
+
+    /// #1512 review r2, P5: a host daemon's path socket in the home folder is out of reach with
+    /// the network off.
+    #[test]
+    fn a_host_daemon_socket_in_the_home_folder_is_out_of_reach() {
+        let _one = one_at_a_time();
+        let Some(bwrap) = bwrap_or_skip() else { return };
+        let Some(py) = python() else {
+            eprintln!("skipping: no python3");
+            return;
+        };
+        let b = Box_::new(CONTAINED);
+        std::fs::create_dir_all(b.p("home/.cache/svc")).unwrap();
+        let sock = b.p("home/.cache/svc/daemon.sock");
+        let _listener = std::os::unix::net::UnixListener::bind(&sock).unwrap();
+        let exec = b.exec(Some(bwrap));
+        let probe = format!(
+            "import socket\ns = socket.socket(socket.AF_UNIX)\ntry:\n    s.connect({:?}); print('reached')\nexcept OSError:\n    print('refused')\n",
+            sock.display().to_string()
+        );
+        let (v, _) = run_ok(
+            &exec,
+            json!({ "argv": [py, "-c", probe], "cwd": b.h("proj"), "network": false }),
+        );
+        assert_eq!(v["stdout"], "refused\n", "{v}");
     }
 }

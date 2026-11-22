@@ -160,7 +160,79 @@ fn homes(home: &Path) -> Vec<PathBuf> {
     out
 }
 
-/// Every protected path for this home, home-relative entries under both spellings of home.
+/// At most this many links are followed while spelling one path.
+const LINK_HOPS_MAX: usize = 40;
+
+/// Where `path` really is: each link along it is followed, the last one too even when it
+/// dangles (a protected name that points into a dotfiles repo is protected there), and a
+/// missing component ends the resolving (the rest is kept as written). `None` when it is the
+/// same path, or the links loop.
+pub fn real_spelling(path: &Path) -> Option<PathBuf> {
+    let mut todo: Vec<std::ffi::OsString> = path
+        .components()
+        .rev()
+        .filter_map(|c| match c {
+            Component::Normal(p) => Some(p.to_os_string()),
+            Component::ParentDir => Some("..".into()),
+            _ => None,
+        })
+        .collect();
+    let mut cur = PathBuf::from("/");
+    let mut hops = 0;
+    let mut missing = false;
+    while let Some(part) = todo.pop() {
+        if part == ".." {
+            cur.pop();
+            continue;
+        }
+        cur.push(&part);
+        if missing {
+            continue;
+        }
+        let Ok(meta) = std::fs::symlink_metadata(&cur) else {
+            missing = true;
+            continue;
+        };
+        if !meta.file_type().is_symlink() {
+            continue;
+        }
+        hops += 1;
+        if hops > LINK_HOPS_MAX {
+            return None;
+        }
+        let target = std::fs::read_link(&cur).ok()?;
+        cur.pop();
+        if target.is_absolute() {
+            cur = PathBuf::from("/");
+        }
+        for c in target.components().rev() {
+            match c {
+                Component::Normal(p) => todo.push(p.to_os_string()),
+                Component::ParentDir => todo.push("..".into()),
+                _ => {}
+            }
+        }
+    }
+    (cur != path).then_some(cur)
+}
+
+/// `paths` and, after them, the real spelling of each one that differs (no repeats).
+fn with_real_spellings(paths: Vec<PathBuf>) -> Vec<PathBuf> {
+    let mut out = paths.clone();
+    for p in &paths {
+        if let Some(real) = real_spelling(p) {
+            if !out.contains(&real) {
+                out.push(real);
+            }
+        }
+    }
+    out
+}
+
+/// Every protected path for this home, home-relative entries under both spellings of home,
+/// plus where each one really is when it is (or lies under) a link: a `~/.bashrc` that GNU
+/// stow links into `~/dotfiles` makes `~/dotfiles/.bashrc` protected too (#1512 review r2,
+/// finding 4).
 pub fn protected_paths(home: &Path) -> Vec<PathBuf> {
     let mut out: Vec<PathBuf> = ABSOLUTE.iter().map(PathBuf::from).collect();
     for h in homes(home) {
@@ -168,10 +240,10 @@ pub fn protected_paths(home: &Path) -> Vec<PathBuf> {
             out.push(h.join(rel));
         }
     }
-    out
+    with_real_spellings(out)
 }
 
-/// The hidden secrets only, for the contained shell's mounts.
+/// The hidden secrets only, for the contained shell's mounts (with their real spellings).
 pub fn hidden_paths(home: &Path) -> Vec<PathBuf> {
     let mut out = Vec::new();
     for h in homes(home) {
@@ -179,7 +251,7 @@ pub fn hidden_paths(home: &Path) -> Vec<PathBuf> {
             out.push(h.join(rel));
         }
     }
-    out
+    with_real_spellings(out)
 }
 
 /// Whether `path` is a protected path or inside one.
@@ -337,5 +409,51 @@ mod tests {
         ] {
             assert!(!holds_protected(Path::new(p), home), "{p}");
         }
+    }
+
+    /// #1512 review r2, P7: GNU stow links `~/.bashrc` and `~/.config/git` into `~/dotfiles`,
+    /// and `~/.ssh` too; the real files are protected and hidden where they really are.
+    #[test]
+    fn linked_dotfiles_are_protected_where_they_really_are() {
+        let dir = tempfile::tempdir().unwrap();
+        let home = std::fs::canonicalize(dir.path()).unwrap();
+        let dots = home.join("dotfiles");
+        std::fs::create_dir_all(dots.join("git")).unwrap();
+        std::fs::create_dir_all(dots.join("ssh")).unwrap();
+        std::fs::create_dir_all(home.join(".config")).unwrap();
+        std::fs::write(dots.join(".bashrc"), "# rc\n").unwrap();
+        std::os::unix::fs::symlink("dotfiles/.bashrc", home.join(".bashrc")).unwrap();
+        std::os::unix::fs::symlink(dots.join("git"), home.join(".config/git")).unwrap();
+        std::os::unix::fs::symlink("dotfiles/ssh", home.join(".ssh")).unwrap();
+        // A link that dangles still names where a write would land.
+        std::os::unix::fs::symlink("dotfiles/.zshrc", home.join(".zshrc")).unwrap();
+
+        // (path, must be refused)
+        let table = [
+            (dots.join(".bashrc"), true),
+            (dots.join("git/config"), true),
+            (dots.join("ssh/id_ed25519"), true),
+            (dots.join(".zshrc"), true),
+            (dots.join("README.md"), false),
+            (home.join("projects/app"), false),
+        ];
+        for (p, refused) in &table {
+            assert_eq!(is_protected(p, &home), *refused, "{}", p.display());
+        }
+        // A read-write folder on the dotfiles repo may not be granted to commands.
+        assert!(holds_protected(&dots, &home));
+        assert!(!holds_protected(&home.join("projects"), &home));
+        // The contained shell covers the real key folder, not only the link.
+        assert!(hidden_paths(&home).contains(&dots.join("ssh")));
+
+        // Real spellings: `..` in a link, a loop, and a path with no link at all.
+        std::os::unix::fs::symlink("../dotfiles/git", home.join(".config/up")).unwrap();
+        assert_eq!(
+            real_spelling(&home.join(".config/up/config")),
+            Some(dots.join("git/config"))
+        );
+        std::os::unix::fs::symlink("loop", home.join("loop")).unwrap();
+        assert_eq!(real_spelling(&home.join("loop/x")), None);
+        assert_eq!(real_spelling(&dots.join("README.md")), None);
     }
 }

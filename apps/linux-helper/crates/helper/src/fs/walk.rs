@@ -227,6 +227,24 @@ pub fn rename_at(dir: &OwnedFd, from: &OsStr, to: &OsStr) -> io::Result<()> {
     Ok(())
 }
 
+/// Renames within one directory, never replacing what is at the target name (`EEXIST`).
+pub fn rename_noreplace_at(dir: &OwnedFd, from: &OsStr, to: &OsStr) -> io::Result<()> {
+    let (a, b) = (cstr(from)?, cstr(to)?);
+    const RENAME_NOREPLACE: libc::c_uint = 1;
+    // SAFETY: valid descriptors and C strings; renameat2 takes them and a flag.
+    check(unsafe {
+        libc::syscall(
+            libc::SYS_renameat2,
+            dir.as_raw_fd(),
+            a.as_ptr(),
+            dir.as_raw_fd(),
+            b.as_ptr(),
+            RENAME_NOREPLACE,
+        ) as libc::c_int
+    })?;
+    Ok(())
+}
+
 pub fn unlink_at(dir: &OwnedFd, name: &OsStr, is_dir: bool) -> io::Result<()> {
     let c = cstr(name)?;
     let flags = if is_dir { libc::AT_REMOVEDIR } else { 0 };

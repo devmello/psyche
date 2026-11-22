@@ -520,6 +520,10 @@ pub fn check(policy: &Policy, home: &Path, params: &Value) -> Result<Checked, Ca
     }
     // The ceiling's file roots: a read-write folder may not lie in a read-only one (the deepest
     // root that holds it decides), and read-only roots inside it stay read-only.
+    let unmoved = crate::fs::ro_roots_unmoved(policy, home);
+    if writable {
+        unmoved?;
+    }
     let roots = crate::fs::real_roots(policy, home);
     if writable {
         let decider = roots
@@ -792,11 +796,11 @@ impl Tree {
     }
 }
 
-/// Ends one contained command in a folder for the launch-config stubs (see [`launch::Stubs`]).
-struct StubsHeld(PathBuf);
+/// Ends one contained read-write command for the launch-config stubs (see [`launch::Stubs`]).
+struct StubsHeld;
 impl Drop for StubsHeld {
     fn drop(&mut self) {
-        launch::Stubs::global().end(&self.0);
+        launch::Stubs::global().end();
     }
 }
 
@@ -813,6 +817,8 @@ pub struct Ran {
     pub duration: Duration,
     /// How the whole tree was ended: `pid_namespace`, `scope` or `process_group`.
     pub tree: &'static str,
+    /// Launch entries the command made in its read-write folder, moved aside.
+    pub quarantined: Vec<launch::Quarantined>,
 }
 
 fn spawn_err(e: std::io::Error) -> CapabilityError {
@@ -850,6 +856,7 @@ pub fn run(
     let mut keep: Vec<i32> = Vec::new();
     let mut _filter = None;
     let mut _stubs = None;
+    let mut before: Option<launch::Before> = None;
     let tree;
     let mut cmd = if c.contain {
         let Some(bwrap) = bwrap.filter(|b| contain::probe(b, c.network)) else {
@@ -883,8 +890,10 @@ pub fn run(
             None
         };
         let masks = if c.writable {
-            let m = launch::Stubs::global().begin(&c.folder, launch::masks(&c.folder, &c.cwd));
-            _stubs = Some(StubsHeld(c.folder.clone()));
+            let m = launch::Stubs::global().begin(launch::masks(&c.folder, &c.cwd, &c.read_only));
+            _stubs = Some(StubsHeld);
+            // What launch entries are there now: any new one afterwards is moved aside.
+            before = Some(launch::before(&c.folder, &c.cwd));
             m
         } else {
             launch::Masks::default()
@@ -1024,6 +1033,11 @@ pub fn run(
     };
     let (stdout, t1) = take(&out);
     let (stderr, t2) = take(&errs);
+    // The sandbox is gone: new launch entries the command made are moved aside (stubs other
+    // commands still mount over stay), then this command's stubs go.
+    let quarantined = before
+        .map(|b| launch::quarantine(&c.folder, &c.cwd, &b))
+        .unwrap_or_default();
     drop(_stubs);
     Ok(Ran {
         exit_code: status.and_then(|s| s.code()),
@@ -1035,6 +1049,7 @@ pub fn run(
         cancelled,
         duration: started.elapsed(),
         tree: tree.name(),
+        quarantined,
     })
 }
 
@@ -1132,6 +1147,10 @@ impl ExecHost {
             "contained": checked.contain,
             "network": checked.network,
             "tree": ran.tree,
+            "quarantined": ran.quarantined.iter().map(|q| json!({
+                "path": q.path.display().to_string(),
+                "movedTo": q.moved_to.display().to_string(),
+            })).collect::<Vec<_>>(),
         }))
     }
 }

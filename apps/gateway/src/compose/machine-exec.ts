@@ -480,6 +480,15 @@ export function machineExec(deps: MachineExecDeps) {
         };
       }
       const outcome = timedOut ? "uncertain" : exitCode === 0 ? "ok" : "failed";
+      // Launch configs or repositories the command made in its read-write folder, which the box
+      // moved aside after the run (never deleted): the agent says so to the owner.
+      const quarantined = (Array.isArray(res.quarantined) ? res.quarantined : [])
+        .slice(0, 50)
+        .flatMap((q: { path?: unknown; movedTo?: unknown }) =>
+          typeof q?.path === "string" && typeof q.movedTo === "string"
+            ? [{ path: str(q.path, 4096), movedTo: str(q.movedTo, 4096) }]
+            : [],
+        );
       return {
         output: {
           machine,
@@ -495,6 +504,7 @@ export function machineExec(deps: MachineExecDeps) {
           ...(sha === undefined ? {} : { executableSha256: sha }),
           cwd,
           outcome,
+          ...(quarantined.length === 0 ? {} : { quarantined }),
         },
         provenance: "untrusted",
         ...(outcome === "ok" ? {} : { isError: true }),
