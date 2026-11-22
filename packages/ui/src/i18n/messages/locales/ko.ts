@@ -177,6 +177,8 @@ export const ko: Partial<Catalogue> = {
     "이 프로젝트는 비공개라서 Space를 가질 수 없습니다. 먼저 비공개 유지를 끄세요.",
   "errors.reason.updating":
     "Psyche가 업데이트를 설치하기 위해 곧 다시 시작됩니다. 잠시 후 다시 시도하십시오.",
+  "errors.reason.space_main_chat":
+    "스페이스에 있는 자동화는 기본 채팅에서 실행할 수 없습니다. 자체 채팅에서 실행하거나 스페이스에서 빼십시오.",
   "errors.reason.passkey_required": "이 Psyche에서 결제를 승인하려면 패스키를 설정하세요.",
   "errors.reason.awaiting_owner":
     "앱에 저장되지 않은 변경 사항이 있습니다. 어떻게 할지 결정할 때까지 Psyche가 기다립니다.",

@@ -455,7 +455,7 @@ describe("Allow in this Space: what the tool tells the agent (spaces-2026 §5.3)
       },
     });
     // The agent loop binds the run at its start.
-    broker.bindRun({ threadId: "thr_1", runId: "run_1" });
+    broker.bindRun({ threadId: "thr_1", runId: "run_1", unattended: false });
   });
 
   async function inSpace() {

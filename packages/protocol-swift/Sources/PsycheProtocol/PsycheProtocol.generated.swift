@@ -36043,6 +36043,7 @@ public struct SpecialistSpec: Codable, Sendable {
     /// researcher | shopper | coder | organizer | writer | planner, or a skill-defined role
     public let role: String
     public let rootRunID: String?
+    public let spaceID: String?
     public let tools: [String]
 
     public enum CodingKeys: String, CodingKey {
@@ -36063,10 +36064,11 @@ public struct SpecialistSpec: Codable, Sendable {
         case result = "result"
         case role = "role"
         case rootRunID = "rootRunId"
+        case spaceID = "spaceId"
         case tools = "tools"
     }
 
-    public init(automation: SpecialistAutomation? = nil, budget: RunBudget, budgetPause: BudgetPause? = nil, deadline: String? = nil, deliver: Deliver, inputs: SpecialistInputs, model: String, parentRunID: String? = nil, parentThreadID: String, permissionMode: PermissionMode, planApproved: Bool? = nil, planFirst: Bool, preflight: [ApprovalHint]? = nil, queuePosition: Int? = nil, result: SpecialistResult? = nil, role: String, rootRunID: String? = nil, tools: [String]) {
+    public init(automation: SpecialistAutomation? = nil, budget: RunBudget, budgetPause: BudgetPause? = nil, deadline: String? = nil, deliver: Deliver, inputs: SpecialistInputs, model: String, parentRunID: String? = nil, parentThreadID: String, permissionMode: PermissionMode, planApproved: Bool? = nil, planFirst: Bool, preflight: [ApprovalHint]? = nil, queuePosition: Int? = nil, result: SpecialistResult? = nil, role: String, rootRunID: String? = nil, spaceID: String? = nil, tools: [String]) {
         self.automation = automation
         self.budget = budget
         self.budgetPause = budgetPause
@@ -36084,6 +36086,7 @@ public struct SpecialistSpec: Codable, Sendable {
         self.result = result
         self.role = role
         self.rootRunID = rootRunID
+        self.spaceID = spaceID
         self.tools = tools
     }
 }

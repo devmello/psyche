@@ -253,6 +253,8 @@ export type ContextSectionKind =
   | "persona"
   | "skills"
   | "tools"
+  /** The owner's standing instructions for the run's Space (spaces-2026 §5.2): stable head. */
+  | "space"
   | "daily_note"
   | "summary"
   | "hook";
@@ -395,6 +397,9 @@ export interface ToolRegistration {
 export interface ToolCallScope {
   runId: string;
   taskId?: string;
+  /** The calling run's chat and Space, so a tool can refuse before an approval card is raised. */
+  threadId?: string;
+  spaceId?: string;
 }
 
 /** The single source of tool metadata for the broker and the tool-toggle settings. */

@@ -363,6 +363,83 @@ describe("access.list and access.revoke", () => {
   });
 });
 
+describe("r2 follow-ups: specialists, the loop's hint and the share check", () => {
+  it("a specialist job inherits the Space's folders through the cross-checked hint; a main thread does not", async () => {
+    const { owner, s } = await setup();
+    const id = await space(owner, "Kitchen remodel");
+    const kitchen = join(work, "kitchen");
+    await owner.call("spaces.folders.add", { spaceId: id, path: kitchen, mode: "rw" }, ik());
+    const chat = await chatIn(owner, id);
+    const job = createThread(s.db, {
+      kind: "subagent",
+      sessionKey: "specialist:r:1",
+      parentThreadId: chat,
+    }).id;
+    const main = createThread(s.db, { kind: "main", sessionKey: "main-hint" }).id;
+    await s.rawBroker.foldersSettled();
+    const file = join(kitchen, "plans", "tile.md");
+    const bind = (threadId: string) =>
+      s.rawBroker.bindRun({
+        threadId,
+        runId: `run_${threadId}`,
+        unattended: false,
+        space: { id, name: "Kitchen remodel" },
+      });
+    const call = (threadId: string) => {
+      const params = { tool: "read_file", target: file };
+      return s.rawBroker.decide(
+        {
+          tool: "read_file",
+          sideEffect: "read",
+          target: { kind: "path", value: file },
+          targetKind: "path",
+          params,
+          paramsHash: sha256(JSON.stringify(params)),
+        },
+        ctx(threadId),
+      );
+    };
+    bind(job);
+    expect(passes(await call(job))).toBe(true);
+    // A caller naming the Space for the main chat gets nothing.
+    bind(main);
+    expect(await call(main)).toMatchObject({ decision: "deny", rule: "folder:not_granted" });
+  });
+
+  it("a pick a row of the same Space already covers adds no narrower row (PB, PC)", async () => {
+    const { owner, s } = await setup();
+    const id = await space(owner, "Kitchen remodel");
+    const src = spaceFolderSource(s.db);
+    const kitchen = join(work, "kitchen");
+    const plans = join(kitchen, "plans");
+    expect(src.add(id, { path: kitchen, real: kitchen, mode: "rw" }, {})).toBe("added");
+    s.db.sqlite.prepare("UPDATE space_folders SET automations_write = 1").run();
+    expect(src.add(id, { path: plans, real: plans, mode: "ro" }, {})).toBe("added");
+    expect(src.add(id, { path: plans, real: plans, mode: "rw" }, {})).toBe("added");
+    expect(src.folders(id).map((f) => f.path)).toEqual([kitchen]);
+    // A read-only parent does not cover a read & write pick: that one is a real row.
+    const jobs = join(work, "jobs");
+    const sub = join(jobs, "x");
+    src.add(id, { path: jobs, real: jobs, mode: "ro" }, {});
+    src.add(id, { path: sub, real: sub, mode: "rw" }, {});
+    expect(src.folders(id).map((f) => f.path)).toContain(sub);
+  });
+
+  it("the share check counts the thread's current Space folders, storing nothing", async () => {
+    const { owner, s } = await setup();
+    const id = await space(owner, "Kitchen remodel");
+    const kitchen = join(work, "kitchen");
+    await owner.call("spaces.folders.add", { spaceId: id, path: kitchen, mode: "rw" }, ik());
+    const chat = await chatIn(owner, id);
+    const loose = (await owner.call<Json>("threads.create", { kind: "side", title: "x" }, ik()))
+      .thread.id;
+    await s.rawBroker.foldersSettled();
+    expect(s.rawBroker.spaceFoldersOfThread(chat).map((f) => f.path)).toEqual([kitchen]);
+    expect(s.rawBroker.spaceFoldersOfThread(loose)).toEqual([]);
+    expect(s.rawBroker.liveSessionFolders(chat)).toEqual([]);
+  });
+});
+
 describe("spaceFolderSource (the broker's view)", () => {
   it("a pick widens a folder to read & write, never narrows it, and refuses an archived Space", async () => {
     const { owner, s } = await setup();

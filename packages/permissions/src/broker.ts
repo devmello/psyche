@@ -3175,7 +3175,7 @@ export class PsychePermissionBroker implements PermissionBroker {
   }
 
   #resolveRunSpace(input: RunBindingInput): RunSpaceBinding {
-    const none: RunSpaceBinding = { unattended: input.unattended === true };
+    const none: RunSpaceBinding = { unattended: input.unattended };
     if (this.#spaces === undefined) return none;
     if (input.requester !== undefined && input.requester.role !== "owner") return none;
     if (input.parent !== undefined) {
@@ -3188,18 +3188,36 @@ export class PsychePermissionBroker implements PermissionBroker {
       };
     }
     if (input.space !== undefined) {
-      // The loop's own run-start Space (spaces-2026 §5.1): the prompt and the grants agree.
+      // The loop's own run-start Space (spaces-2026 §5.1), cross-checked: a caller's word never
+      // gives a thread a Space it is not in (main, channel, incognito, archived).
       if (input.space === null) return none;
-      return { ...none, spaceId: input.space.id, spaceName: input.space.name ?? "" };
+      const own = this.#threadSpace(input.threadId, true);
+      if (own === undefined || own.spaceId !== input.space.id) return none;
+      return { ...none, spaceId: own.spaceId, spaceName: own.spaceName };
     }
-    let found: ReturnType<SpaceFolderSource["spaceOf"]>;
+    const own = this.#threadSpace(input.threadId);
+    if (own === undefined) return none;
+    return { ...none, spaceId: own.spaceId, spaceName: own.spaceName };
+  }
+
+  /**
+   * The open Space a thread is in. With `viaParent` (a loop-named Space for a specialist job), a
+   * subagent-kind thread takes its parent thread's, one hop only. Any throw is "none".
+   */
+  #threadSpace(
+    threadId: string,
+    viaParent = false,
+  ): { spaceId: string; spaceName: string } | undefined {
     try {
-      found = this.#spaces.spaceOf(input.threadId);
+      const found = this.#spaces?.spaceOf(threadId);
+      if (found === undefined) return undefined;
+      if ("spaceId" in found) return found;
+      if (!viaParent) return undefined;
+      const parent = this.#spaces?.spaceOf(found.parentThreadId);
+      return parent !== undefined && "spaceId" in parent ? parent : undefined;
     } catch {
-      return none;
+      return undefined;
     }
-    if (found === undefined || !("spaceId" in found)) return none;
-    return { ...none, spaceId: found.spaceId, spaceName: found.spaceName };
   }
 
   /** The Space one run works in, if any (fixed at the run's start by `bindRun`). */
@@ -3250,9 +3268,33 @@ export class PsychePermissionBroker implements PermissionBroker {
     runId: string | undefined,
     own: readonly FolderGrantEntry[],
   ): FolderGrantEntry[] {
-    const rows = this.#boundSpaceRows(threadId, runId);
-    if (rows.length === 0 || runId === undefined) return [];
+    if (runId === undefined) return [];
     const unattended = this.#runSpaces.get(runKey(threadId, runId))?.unattended !== false;
+    return this.#entriesOf(this.#boundSpaceRows(threadId, runId), unattended, own);
+  }
+
+  /**
+   * The folders of the Space the thread is in now, as an attended run would see them. A read that
+   * stores nothing and binds nothing: the share button asks whether a folder is already covered
+   * (it only ever answers "already", which grants nothing).
+   */
+  spaceFoldersOfThread(threadId: string): FolderGrantEntry[] {
+    const space = this.#threadSpace(threadId);
+    if (space === undefined || this.#spaces === undefined) return [];
+    try {
+      const rows = this.#spaces.folders(space.spaceId).filter((f) => f.spaceId === space.spaceId);
+      return this.#entriesOf(rows, false, this.sessionFolders(threadId));
+    } catch {
+      return [];
+    }
+  }
+
+  #entriesOf(
+    rows: readonly SpaceFolderRecord[],
+    unattended: boolean,
+    own: readonly FolderGrantEntry[],
+  ): FolderGrantEntry[] {
+    if (rows.length === 0) return [];
     const base = [
       ...(this.policy.folders ?? []).filter((f) => !this.folderRefused(f.path)),
       ...own.filter((f) => f.file !== true),
@@ -3345,7 +3387,7 @@ export class PsychePermissionBroker implements PermissionBroker {
     const runId = input.requestedBy.runId;
     const b =
       runId == null
-        ? this.#resolveRunSpace({ threadId, runId: "" })
+        ? this.#resolveRunSpace({ threadId, runId: "", unattended: false })
         : this.#runSpaces.get(runKey(threadId, runId));
     // An archived or deleted Space is caught at the answer: `add` refuses it.
     if (b?.spaceId === undefined || b.unattended) return undefined;

@@ -175,6 +175,8 @@ export const ja: Partial<Catalogue> = {
     "このプロジェクトは非公開のため、Spaceを持てません。先に「非公開にする」をオフにしてください。",
   "errors.reason.updating":
     "Psycheはアップデートをインストールするため、まもなく再起動します。しばらくしてからもう一度お試しください。",
+  "errors.reason.space_main_chat":
+    "スペース内のオートメーションはメインチャットでは実行できません。専用のチャットで実行するか、スペースから外してください。",
   "errors.reason.passkey_required":
     "この Psyche で支払いを承認するには、パスキーを設定してください。",
   "errors.reason.awaiting_owner":

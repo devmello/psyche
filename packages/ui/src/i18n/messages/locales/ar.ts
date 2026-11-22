@@ -211,6 +211,8 @@ export const ar: Partial<Catalogue> = {
   "errors.reason.project_private":
     "هذا المشروع خاص، لذا لا يمكن أن تكون له مساحة. أوقف «إبقاء خاصًا» أولًا.",
   "errors.reason.updating": "سيعيد Psyche التشغيل الآن لتثبيت تحديث. حاول مرة أخرى بعد لحظة.",
+  "errors.reason.space_main_chat":
+    "لا يمكن تشغيل أتمتة موجودة في مساحة داخل المحادثة الرئيسية. شغّلها في محادثتها الخاصة، أو أخرجها من المساحة.",
   "errors.reason.passkey_required": "أعدّ مفتاح مرور للموافقة على المدفوعات في Psyche هذا.",
   "errors.reason.awaiting_owner":
     "يحتوي تطبيق على تغييرات غير محفوظة. ينتظر Psyche أن تقرر ما يحدث لها.",

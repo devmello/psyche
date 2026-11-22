@@ -129,6 +129,11 @@ export const SpecialistSpec = Type.Object(
     result: Nullable(SpecialistResult),
     /** The automation that started the job, when one did ("From your automation {title}"). */
     automation: Type.Optional(SpecialistAutomation),
+    /**
+     * The Space the spawning run worked in (spaces-2026 §5.1): the job inherits its instructions
+     * and connector scope. Absent outside a Space.
+     */
+    spaceId: Type.Optional(Id),
     /** The approvals the job will likely ask for, computed at spawn (informational, §4.4). */
     preflight: Type.Optional(Type.Array(ApprovalHint, { maxItems: 16 })),
     /**

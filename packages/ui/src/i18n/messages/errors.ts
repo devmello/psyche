@@ -51,6 +51,8 @@ export const errors = {
     "That project is Keep private, so it can't have a Space. Turn off Keep private first.",
   "errors.reason.updating":
     "Psyche is about to restart to install an update. Try again in a moment.",
+  "errors.reason.space_main_chat":
+    "An automation in a Space can't run in the main chat. Run it in its own chat, or take it out of the Space.",
   "errors.reason.passkey_required": "Set up a passkey to approve payments on this Psyche.",
   "errors.reason.awaiting_owner":
     "An app has unsaved changes. Psyche waits for you to decide what happens to them.",

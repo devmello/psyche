@@ -8,10 +8,11 @@ import {
   threadActivity,
   updateThread,
 } from "@psyche/db";
-import { PsycheError, type Thread } from "@psyche/protocol";
+import { PsycheError, type Thread, type ToolCallScope } from "@psyche/protocol";
 import { Type } from "@sinclair/typebox";
 import { transcriptMarkdown } from "../handlers/chat.ts";
 import type { Gateway } from "../server.ts";
+import { threadHiddenByPrivateSpace } from "./space-context.ts";
 
 /**
  * Cross-thread awareness (feature E12, opt-in with the admin setting
@@ -20,7 +21,8 @@ import type { Gateway } from "../server.ts";
  * channel messages and tool output. Incognito threads are invisible. A message the agent sends is
  * recorded with `agent` provenance and queued as a follow-up, never steering or interrupting; a
  * tainted turn cannot send one, so untrusted content cannot launder itself into an owner-like
- * request in another thread.
+ * request in another thread. A private Space's chats are invisible from any run outside that
+ * Space (SP7, SR10): they are not listed, and reading, messaging or archiving one is `not_found`.
  */
 
 export const CROSS_THREAD_SETTING = "threads.crossThreadAwareness";
@@ -37,13 +39,24 @@ export interface ThreadToolDeps {
   gateway: () => Gateway | null;
 }
 
-/** An owner thread the calling thread may see: exists, not incognito, not the caller itself. */
-function visibleThread(db: PsycheDb, threadId: string, callerThreadId: string): Thread {
+/**
+ * An owner thread the calling run may see: exists, not incognito, not in a private Space other
+ * than the run's own, and not the caller itself.
+ */
+function visibleThread(
+  db: PsycheDb,
+  threadId: string,
+  caller: { threadId: string; spaceId?: string | undefined },
+): Thread {
   const thread = getThread(db, threadId);
-  if (!thread || thread.kind === "incognito") {
+  if (
+    !thread ||
+    thread.kind === "incognito" ||
+    threadHiddenByPrivateSpace(db, thread, caller.spaceId)
+  ) {
     throw new PsycheError("not_found", `thread ${threadId} not found`);
   }
-  if (thread.id === callerThreadId) {
+  if (thread.id === caller.threadId) {
     throw new PsycheError("invalid_params", "that is the current thread");
   }
   return thread;
@@ -58,6 +71,16 @@ function requireGateway(deps: ThreadToolDeps): Gateway {
 export function threadTools(deps: ThreadToolDeps): AgentToolRegistration[] {
   const { db } = deps;
 
+  // Before an approval card is raised: a hidden id is `not_found` with no card (the loop turns a
+  // throw here into a blocked call). Without a scope (previews) nothing is checked; `run` still is.
+  const precheck = (threadId: string, call: ToolCallScope | undefined) => {
+    if (call?.threadId === undefined) return;
+    visibleThread(db, threadId, {
+      threadId: call.threadId,
+      ...(call.spaceId === undefined ? {} : { spaceId: call.spaceId }),
+    });
+  };
+
   const list = defineTool({
     name: "threads_list",
     description:
@@ -71,10 +94,18 @@ export function threadTools(deps: ThreadToolDeps): AgentToolRegistration[] {
     async run(p, ctx) {
       const page = listThreadsPage(db, {
         limit: (p.limit ?? 20) + 1,
+        // Per-run work threads are noise next to the automation's own chat, and each is hidden
+        // by its automation's Space anyway.
+        hideRunThreads: true,
         ...(p.query === undefined ? {} : { query: p.query }),
       });
       const threads = page.threads
-        .filter((t) => t.kind !== "incognito" && t.id !== ctx.threadId)
+        .filter(
+          (t) =>
+            t.kind !== "incognito" &&
+            t.id !== ctx.threadId &&
+            !threadHiddenByPrivateSpace(db, t, ctx.spaceId),
+        )
         .slice(0, p.limit ?? 20);
       const activity = threadActivity(
         db,
@@ -106,14 +137,17 @@ export function threadTools(deps: ThreadToolDeps): AgentToolRegistration[] {
     provenanceOut: "untrusted",
     // Raw content of another chat is a new source: its first read asks the owner (E12;
     // docs/05 §3.2), who can allow it for the task.
-    describeCall: (p) => ({
-      kind: "connector_action",
-      target: { kind: "account", value: `thread:${p.threadId}` },
-      grantKey: `thread_read|${p.threadId}`,
-      summary: "Read another chat",
-    }),
+    describeCall: (p, call) => {
+      precheck(p.threadId, call);
+      return {
+        kind: "connector_action",
+        target: { kind: "account", value: `thread:${p.threadId}` },
+        grantKey: `thread_read|${p.threadId}`,
+        summary: "Read another chat",
+      };
+    },
     async run(p, ctx) {
-      const thread = visibleThread(db, p.threadId, ctx.threadId);
+      const thread = visibleThread(db, p.threadId, ctx);
       const { messages } = listMessagesPage(db, thread.id, { limit: p.limit ?? 20 });
       const markdown = transcriptMarkdown(thread, messages);
       const truncated = markdown.length > MAX_READ_CHARS;
@@ -138,11 +172,14 @@ export function threadTools(deps: ThreadToolDeps): AgentToolRegistration[] {
       content: Type.String({ minLength: 1, maxLength: MAX_MESSAGE_CHARS }),
     }),
     sideEffect: "write",
-    describeCall: (p) => ({
-      summary: `Message another thread`,
-      grantKey: `thread:${p.threadId}`,
-      bindingFields: { threadId: p.threadId, contentSha256: sha256(p.content) },
-    }),
+    describeCall: (p, call) => {
+      precheck(p.threadId, call);
+      return {
+        summary: `Message another thread`,
+        grantKey: `thread:${p.threadId}`,
+        bindingFields: { threadId: p.threadId, contentSha256: sha256(p.content) },
+      };
+    },
     async run(p, ctx) {
       if (ctx.taint) {
         throw new PsycheError(
@@ -150,7 +187,7 @@ export function threadTools(deps: ThreadToolDeps): AgentToolRegistration[] {
           "This turn read untrusted content, so it cannot message other threads; ask the owner",
         );
       }
-      const thread = visibleThread(db, p.threadId, ctx.threadId);
+      const thread = visibleThread(db, p.threadId, ctx);
       if (thread.archivedAt) throw new PsycheError("conflict", "that thread is archived");
       const from = getThread(db, ctx.threadId);
       const label = from?.title ? `the "${from.title}" thread` : "another thread";
@@ -169,14 +206,17 @@ export function threadTools(deps: ThreadToolDeps): AgentToolRegistration[] {
     input: Type.Object({ threadId: ThreadId }),
     // `destructive` so the broker always asks (feature E12: archiving another thread needs approval).
     sideEffect: "destructive",
-    describeCall: (p) => ({
-      kind: "archive_thread",
-      summary: "Archive another thread",
-      grantKey: `thread:${p.threadId}`,
-      bindingFields: { threadId: p.threadId },
-    }),
+    describeCall: (p, call) => {
+      precheck(p.threadId, call);
+      return {
+        kind: "archive_thread",
+        summary: "Archive another thread",
+        grantKey: `thread:${p.threadId}`,
+        bindingFields: { threadId: p.threadId },
+      };
+    },
     async run(p, ctx) {
-      const thread = visibleThread(db, p.threadId, ctx.threadId);
+      const thread = visibleThread(db, p.threadId, ctx);
       const gw = requireGateway(deps);
       const archived = db.sqlite.transaction(() => {
         const t = updateThread(db, thread.id, { archivedAt: gw.context.now().toISOString() });

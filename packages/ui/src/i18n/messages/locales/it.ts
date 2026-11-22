@@ -172,6 +172,8 @@ export const it: Partial<Catalogue> = {
     "Quel progetto è privato, quindi non può avere uno Space. Disattiva prima Mantieni privato.",
   "errors.reason.updating":
     "Psyche sta per riavviarsi per installare un aggiornamento. Riprova tra un momento.",
+  "errors.reason.space_main_chat":
+    "Un'automazione in uno Spazio non può essere eseguita nella chat principale. Eseguila nella sua chat oppure toglila dallo Spazio.",
   "errors.reason.passkey_required":
     "Configura una passkey per approvare i pagamenti su questo Psyche.",
   "errors.reason.awaiting_owner":

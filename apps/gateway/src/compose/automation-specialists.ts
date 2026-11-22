@@ -3,6 +3,7 @@ import { getThread, type PsycheDb } from "@psyche/db";
 import { PsycheError, type Task, TERMINAL_TASK_STATUSES } from "@psyche/protocol";
 import type { RunLauncher, RunResult } from "@psyche/scheduler";
 import type { SqliteTaskEngine } from "@psyche/tasks";
+import { runSpaceFor } from "./space-context.ts";
 
 /**
  * Scheduled automations as specialists (docs/agent/specialists-2026.md §4.10). An automation
@@ -75,6 +76,7 @@ export function withAutomationSpecialists(
         throw new PsycheError("unavailable", `the ${want.role} specialist is off or not installed`);
       }
       const parent = getThread(deps.db, request.threadId);
+      const spaceId = runSpaceFor(deps.db, request.threadId)?.id;
       const taintSources = request.taintSources ?? [];
       const built = buildSpecialistSpec(
         role,
@@ -95,6 +97,8 @@ export function withAutomationSpecialists(
           taint: taintSources.length > 0,
           taintSources,
           incognito: false,
+          // The job inherits the automation run's Space: its head and connector scope (§5.1).
+          ...(spaceId === undefined ? {} : { spaceId }),
         },
         deps.now(),
       );

@@ -176,14 +176,15 @@ export interface RunBindingInput {
   threadId: string;
   runId: string;
   /** An automation's or Task's run: Space folders stay read-only unless the owner allowed writes. */
-  unattended?: boolean;
+  unattended: boolean;
   /** Who the run is for; only the owner's runs work in a Space (SR11). */
   requester?: Requester;
   /** A subagent's parent run: the subagent works in the parent run's Space. */
   parent?: { threadId: string; runId: string };
   /**
-   * The Space the loop already fixed for this run (`null`: none). Absent, the broker reads the
-   * thread's Space itself.
+   * The Space the loop fixed for this run (`null`: none). A hint, never trusted: the broker uses
+   * it only when it is the thread's own Space (a subagent-kind thread: its parent thread's), and
+   * otherwise binds none. Absent, the broker reads the thread's Space itself.
    */
   space?: { id: string; name?: string } | null;
 }

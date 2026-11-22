@@ -161,6 +161,8 @@ export const de: Partial<Catalogue> = {
     "Dieses Projekt ist privat, daher kann es keinen Space haben. Schalte zuerst „Privat halten“ aus.",
   "errors.reason.updating":
     "Psyche startet gleich neu, um ein Update zu installieren. Versuche es in einem Moment erneut.",
+  "errors.reason.space_main_chat":
+    "Eine Automation in einem Space kann nicht im Hauptchat laufen. Lass sie in ihrem eigenen Chat laufen oder nimm sie aus dem Space.",
   "errors.reason.passkey_required":
     "Richte einen Passkey ein, um Zahlungen in diesem Psyche zu bestätigen.",
   "errors.reason.awaiting_owner":

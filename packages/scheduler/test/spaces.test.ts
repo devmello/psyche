@@ -1,4 +1,5 @@
 import { describe, expect, it } from "vitest";
+import { SPACE_MAIN_CHAT_REASON } from "../src/index.ts";
 import { BASE, setup } from "./helpers.ts";
 
 const T0 = Date.parse("2026-11-20T12:00:00Z");
@@ -36,6 +37,66 @@ describe("an automation's Space", () => {
     });
     await expect(scheduler.create({ ...hourly, spaceId: "sp_old" })).rejects.toMatchObject({
       code: "conflict",
+    });
+  });
+
+  // r1 finding 1: a run in the main chat gets neither the Space's head nor its scope, so an
+  // automation in a Space never targets main.
+  it.each([
+    ["create in a Space aimed at main", "create", { sessionTarget: "main", spaceId: "sp_a" }, true],
+    [
+      "create in a Space, isolated",
+      "create",
+      { sessionTarget: "isolated", spaceId: "sp_a" },
+      false,
+    ],
+    [
+      "create in a Space, named",
+      "create",
+      { sessionTarget: "named:tiles", spaceId: "sp_a" },
+      false,
+    ],
+    ["create outside a Space aimed at main", "create", { sessionTarget: "main" }, false],
+    ["move an isolated one in a Space to main", "retarget", { sessionTarget: "main" }, true],
+    ["move a main one into a Space", "join", { spaceId: "sp_a" }, true],
+    [
+      "move a main one into a Space and off main",
+      "join",
+      { spaceId: "sp_a", sessionTarget: "isolated" },
+      false,
+    ],
+  ] as const)("%s", async (_label, op, change, refused) => {
+    const { scheduler, db } = setup({ start: T0 });
+    addSpace(db, "sp_a");
+    const attempt = async () => {
+      if (op === "create") return scheduler.create({ ...hourly, ...change });
+      if (op === "retarget") {
+        const a = await scheduler.create({ ...hourly, spaceId: "sp_a" });
+        return scheduler.update(a.id, change);
+      }
+      const a = await scheduler.create({ ...hourly, sessionTarget: "main" });
+      return scheduler.update(a.id, change);
+    };
+    if (refused) {
+      await expect(attempt()).rejects.toMatchObject({
+        code: "invalid_params",
+        details: { reason: SPACE_MAIN_CHAT_REASON },
+      });
+    } else {
+      await expect(attempt()).resolves.toBeDefined();
+    }
+  });
+
+  // r2 finding 2: the rule applies to a patch that moves the row, never to a pause.
+  it("pauses and resumes a legacy main-target row in a Space", async () => {
+    const { scheduler, db } = setup({ start: T0 });
+    addSpace(db, "sp_a");
+    const a = await scheduler.create({ ...hourly, sessionTarget: "main" });
+    db.sqlite.prepare("UPDATE automations SET space_id = 'sp_a' WHERE id = ?").run(a.id);
+    expect((await scheduler.update(a.id, { enabled: false })).enabled).toBe(false);
+    expect((await scheduler.update(a.id, { enabled: true })).enabled).toBe(true);
+    await expect(scheduler.update(a.id, { sessionTarget: "main" })).rejects.toMatchObject({
+      details: { reason: SPACE_MAIN_CHAT_REASON },
     });
   });
 
