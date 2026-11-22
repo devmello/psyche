@@ -54,6 +54,8 @@ export interface MigrationMemory {
 export interface MigrationThreadStates {
   load(threadId: string): Promise<
     | {
+        /** A sticky taint (mail or web was read in this chat): no rule is offered from it. */
+        taint?: { sticky?: boolean | undefined } | undefined;
         summary?:
           | {
               untrusted: boolean;
