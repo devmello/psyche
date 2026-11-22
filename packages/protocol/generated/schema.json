@@ -541,7 +541,7 @@
         "sideEffecting": false
       },
       {
-        "description": "Lists what the owner has given the agent access to: shared folders (always or for one chat) and standing grants, in one list for Settings.",
+        "description": "Lists what the owner has given the agent access to: shared folders (always, for one chat or in one Space) and standing grants, in one list for Settings.",
         "name": "access.list",
         "params": "#/$defs/AccessListParams",
         "result": "#/$defs/AccessListResult",
@@ -1135,7 +1135,7 @@
       {
         "description": "Desktop only: the newest virtual-screen frame (JPEG) when it changed since `since`. Only while the pane is visible, at most 4 a second.",
         "name": "computerWatch.frame",
-        "params": "#/$defs/VscreenFrameParams",
+        "params": "#/$defs/ComputerWatchFrameParams",
         "result": "#/$defs/VscreenFrame",
         "scope": "operator.read",
         "sideEffecting": false
@@ -1143,7 +1143,7 @@
       {
         "description": "Desktop only: the owner's clicks and keys while taking over, sent through the helper's XTest.",
         "name": "computerWatch.input",
-        "params": "#/$defs/VscreenInputParams",
+        "params": "#/$defs/ComputerWatchInputParams",
         "result": "#/$defs/VscreenAck",
         "scope": "operator.write",
         "sideEffecting": false
@@ -1167,7 +1167,7 @@
       {
         "description": "Desktop only: Stop in the watch pane. Apps are asked to close; one with unsaved changes stays and the Task parks, unless `force` is set.",
         "name": "computerWatch.stop",
-        "params": "#/$defs/VscreenStopParams",
+        "params": "#/$defs/ComputerWatchStopParams",
         "result": "#/$defs/VscreenAck",
         "scope": "operator.write",
         "sideEffecting": false
@@ -1643,6 +1643,30 @@
         "result": "#/$defs/FilesWriteResult",
         "scope": "operator.admin",
         "sideEffecting": true
+      },
+      {
+        "description": "The last step of onboarding a claimed server: the owner's answer to Keep this server reachable on my network. conflict when no such answer is waiting. Side-effecting: false turns the network listener off.",
+        "name": "gateway.claim.finish",
+        "params": "#/$defs/GatewayClaimFinishParams",
+        "result": "#/$defs/GatewayClaimFinishResult",
+        "scope": "operator.admin",
+        "sideEffecting": true
+      },
+      {
+        "description": "Unclaimed psyche-server only, on its LAN listener, as the first frame of a connection (remote-gateway design §3.6). Returns the nonce, the code's salt, the identity key and the certificate pin the client proves its knowledge of the code over. forbidden with details.reason not_claimable or code_expired otherwise. Nothing is trusted yet on either side.",
+        "name": "gateway.claim.hello",
+        "params": "#/$defs/ClaimHelloParams",
+        "result": "#/$defs/ClaimHelloResult",
+        "scope": "none",
+        "sideEffecting": false
+      },
+      {
+        "description": "The client's proof that it knows the setup code. Right: the device from gateway.claim.hello becomes the first admin (operator.read, operator.write, operator.approvals, operator.admin), the code is spent, claim mode ends, and the server answers with its own proof, which the client checks before it pins anything. Wrong: forbidden with details.reason wrong_code and details.attemptsLeft; rate_limited with details.reason too_many_attempts past the per-address limit. The connection closes after either answer.",
+        "name": "gateway.claim.prove",
+        "params": "#/$defs/ClaimProveParams",
+        "result": "#/$defs/ClaimProveResult",
+        "scope": "none",
+        "sideEffecting": false
       },
       {
         "description": "The Gateway's identity key and fingerprint, the Host's name and whether it is set up to be reached from other computers (publicOrigin, trusted proxy). The Host's Settings shows the fingerprint next to a pairing request so the owner can compare it with the one the new computer shows.",
@@ -3997,6 +4021,14 @@
         "sideEffecting": false
       },
       {
+        "description": "Imports conversations from a claude.ai or ChatGPT export as archived, read-only threads (imported flag). Turns are untrusted data. Capped; the same export again adds nothing. Side-effecting.",
+        "name": "threads.import",
+        "params": "#/$defs/ThreadsImportParams",
+        "result": "#/$defs/ThreadImportResult",
+        "scope": "operator.write",
+        "sideEffecting": true
+      },
+      {
         "description": "Lists threads, most recent first, each with derived activity counts (running / awaiting input / awaiting approval).",
         "name": "threads.list",
         "params": "#/$defs/ThreadsListParams",
@@ -4448,7 +4480,8 @@
           "enum": [
             "always",
             "conversation",
-            "limited"
+            "limited",
+            "space"
           ],
           "type": "string"
         },
@@ -4492,6 +4525,19 @@
           "maxLength": 64,
           "minLength": 1,
           "type": "string"
+        },
+        "spaceId": {
+          "description": "ULID in production",
+          "maxLength": 64,
+          "minLength": 1,
+          "type": "string"
+        },
+        "spaceName": {
+          "maxLength": 60,
+          "type": "string"
+        },
+        "automationsWrite": {
+          "type": "boolean"
         },
         "grantId": {
           "description": "ULID in production",
@@ -7699,6 +7745,10 @@
           "const": true,
           "type": "boolean"
         },
+        "inSpace": {
+          "const": true,
+          "type": "boolean"
+        },
         "folderPath": {
           "maxLength": 4096,
           "minLength": 1,
@@ -10065,6 +10115,12 @@
         "visible": {
           "description": "The pane is on screen in the desktop app",
           "type": "boolean"
+        },
+        "machine": {
+          "description": "ULID in production",
+          "maxLength": 64,
+          "minLength": 1,
+          "type": "string"
         },
         "input": {
           "description": "The owner gave input in the app just now (key, click)",
@@ -15323,6 +15379,125 @@
       ],
       "type": "object"
     },
+    "ClaimHelloParams": {
+      "properties": {
+        "clientNonce": {
+          "description": "base64url, 32 random bytes from the client",
+          "pattern": "^[A-Za-z0-9_-]{43}$",
+          "type": "string"
+        },
+        "deviceId": {
+          "description": "ULID in production",
+          "maxLength": 64,
+          "minLength": 1,
+          "type": "string"
+        },
+        "publicKey": {
+          "description": "The claiming device's raw Ed25519 public key: the key that becomes the first admin",
+          "pattern": "^[A-Za-z0-9_-]{43}$",
+          "type": "string"
+        },
+        "name": {
+          "maxLength": 128,
+          "minLength": 1,
+          "type": "string"
+        },
+        "platform": {
+          "$ref": "#/$defs/DevicePlatform"
+        }
+      },
+      "required": [
+        "clientNonce",
+        "deviceId",
+        "publicKey",
+        "name",
+        "platform"
+      ],
+      "type": "object"
+    },
+    "ClaimHelloResult": {
+      "properties": {
+        "serverNonce": {
+          "description": "base64url, 32 random bytes, fresh for this connection",
+          "pattern": "^[A-Za-z0-9_-]{43}$",
+          "type": "string"
+        },
+        "salt": {
+          "description": "base64url, the 16-byte salt stored with the setup code",
+          "pattern": "^[A-Za-z0-9_-]{22}$",
+          "type": "string"
+        },
+        "gatewayKey": {
+          "description": "The server's identity public key. Not trusted until its proof checks",
+          "pattern": "^[A-Za-z0-9_-]{43}$",
+          "type": "string"
+        },
+        "certSpki": {
+          "description": "SHA-256 of the SPKI of the LAN certificate the server serves; the client checks it is the one this connection presented",
+          "pattern": "^[A-Za-z0-9_-]{43}$",
+          "type": "string"
+        },
+        "hostName": {
+          "maxLength": 64,
+          "minLength": 1,
+          "type": "string"
+        },
+        "expiresAt": {
+          "description": "ISO-8601 timestamp (UTC)",
+          "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}(\\.\\d{1,9})?(Z|[+-]\\d{2}:\\d{2})$",
+          "type": "string"
+        }
+      },
+      "required": [
+        "serverNonce",
+        "salt",
+        "gatewayKey",
+        "certSpki",
+        "hostName",
+        "expiresAt"
+      ],
+      "type": "object"
+    },
+    "ClaimProveParams": {
+      "properties": {
+        "proof": {
+          "description": "claimProof(scrypt(code, salt), client, claimTranscript(...)): HMAC-SHA256, base64url",
+          "pattern": "^[A-Za-z0-9_-]{43}$",
+          "type": "string"
+        }
+      },
+      "required": [
+        "proof"
+      ],
+      "type": "object"
+    },
+    "ClaimProveResult": {
+      "properties": {
+        "proof": {
+          "description": "The server's proof over the same transcript, role server",
+          "pattern": "^[A-Za-z0-9_-]{43}$",
+          "type": "string"
+        },
+        "deviceId": {
+          "description": "ULID in production",
+          "maxLength": 64,
+          "minLength": 1,
+          "type": "string"
+        },
+        "scopes": {
+          "items": {
+            "$ref": "#/$defs/DeviceScope"
+          },
+          "type": "array"
+        }
+      },
+      "required": [
+        "proof",
+        "deviceId",
+        "scopes"
+      ],
+      "type": "object"
+    },
     "ComingUpItem": {
       "properties": {
         "entityId": {
@@ -15591,6 +15766,47 @@
       ],
       "type": "string"
     },
+    "ComputerWatchFrameParams": {
+      "properties": {
+        "since": {
+          "minimum": 0,
+          "type": "integer"
+        },
+        "maxWidth": {
+          "maximum": 3840,
+          "minimum": 160,
+          "type": "integer"
+        },
+        "machine": {
+          "description": "ULID in production",
+          "maxLength": 64,
+          "minLength": 1,
+          "type": "string"
+        }
+      },
+      "type": "object"
+    },
+    "ComputerWatchInputParams": {
+      "properties": {
+        "events": {
+          "items": {
+            "$ref": "#/$defs/VscreenInputEvent"
+          },
+          "maxItems": 100,
+          "type": "array"
+        },
+        "machine": {
+          "description": "ULID in production",
+          "maxLength": 64,
+          "minLength": 1,
+          "type": "string"
+        }
+      },
+      "required": [
+        "events"
+      ],
+      "type": "object"
+    },
     "ComputerWatchParkAction": {
       "enum": [
         "look",
@@ -15606,6 +15822,12 @@
             "$ref": "#/$defs/VscreenApp"
           },
           "type": "array"
+        },
+        "machine": {
+          "description": "ULID in production",
+          "maxLength": 64,
+          "minLength": 1,
+          "type": "string"
         }
       },
       "required": [
@@ -15617,6 +15839,12 @@
       "properties": {
         "action": {
           "$ref": "#/$defs/ComputerWatchParkAction"
+        },
+        "machine": {
+          "description": "ULID in production",
+          "maxLength": 64,
+          "minLength": 1,
+          "type": "string"
         }
       },
       "required": [
@@ -15655,13 +15883,43 @@
       "type": "object"
     },
     "ComputerWatchStatusParams": {
-      "properties": {},
+      "properties": {
+        "machine": {
+          "description": "ULID in production",
+          "maxLength": 64,
+          "minLength": 1,
+          "type": "string"
+        }
+      },
+      "type": "object"
+    },
+    "ComputerWatchStopParams": {
+      "properties": {
+        "closeApps": {
+          "type": "boolean"
+        },
+        "force": {
+          "type": "boolean"
+        },
+        "machine": {
+          "description": "ULID in production",
+          "maxLength": 64,
+          "minLength": 1,
+          "type": "string"
+        }
+      },
       "type": "object"
     },
     "ComputerWatchTakeOverParams": {
       "properties": {
         "on": {
           "type": "boolean"
+        },
+        "machine": {
+          "description": "ULID in production",
+          "maxLength": 64,
+          "minLength": 1,
+          "type": "string"
         }
       },
       "required": [
@@ -21438,6 +21696,29 @@
       ],
       "type": "string"
     },
+    "GatewayClaimFinishParams": {
+      "properties": {
+        "keepLan": {
+          "description": "Keep the server reachable on this network (gateway.lan stays on the claim's interface); false turns LAN listening off once the answer is sent",
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "keepLan"
+      ],
+      "type": "object"
+    },
+    "GatewayClaimFinishResult": {
+      "properties": {
+        "lan": {
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "lan"
+      ],
+      "type": "object"
+    },
     "GatewayInfo": {
       "properties": {
         "identity": {
@@ -21459,6 +21740,15 @@
         },
         "hostName": {
           "description": "The Host machine's name",
+          "type": "string"
+        },
+        "hostOs": {
+          "description": "The Host's operating system, so a Client names it and its features in the Host's words (a Linux Host has no Apple connectors and offers computer use only on its private screen). Absent from older Gateways",
+          "enum": [
+            "macos",
+            "windows",
+            "linux"
+          ],
           "type": "string"
         },
         "publicOrigin": {
@@ -21593,6 +21883,19 @@
             "certSpki",
             "advertising",
             "problems"
+          ],
+          "type": "object"
+        },
+        "claim": {
+          "description": "Present only on a server set up with a setup code whose onboarding has not finished (remote-gateway design §3.6)",
+          "properties": {
+            "lanChoicePending": {
+              "description": "The server was claimed from the app and the owner has not yet said whether it stays reachable on this network (`gateway.claim.finish`). Until then LAN listening stays on the interface the claim came in on",
+              "type": "boolean"
+            }
+          },
+          "required": [
+            "lanChoicePending"
           ],
           "type": "object"
         }
@@ -40560,6 +40863,13 @@
         },
         "card": {
           "$ref": "#/$defs/SearchHitCard"
+        },
+        "imported": {
+          "enum": [
+            "claude",
+            "chatgpt"
+          ],
+          "type": "string"
         }
       },
       "required": [
@@ -48813,6 +49123,9 @@
         "userCreated": {
           "type": "boolean"
         },
+        "imported": {
+          "$ref": "#/$defs/ThreadImportSource"
+        },
         "spaceId": {
           "anyOf": [
             {
@@ -48981,6 +49294,68 @@
         "threadId"
       ],
       "type": "object"
+    },
+    "ThreadImportFormat": {
+      "enum": [
+        "claude",
+        "chatgpt"
+      ],
+      "type": "string"
+    },
+    "ThreadImportResult": {
+      "properties": {
+        "imported": {
+          "minimum": 0,
+          "type": "integer"
+        },
+        "duplicates": {
+          "minimum": 0,
+          "type": "integer"
+        },
+        "skipped": {
+          "items": {
+            "properties": {
+              "title": {
+                "type": "string"
+              },
+              "reason": {
+                "enum": [
+                  "too_many",
+                  "too_large",
+                  "empty",
+                  "invalid"
+                ],
+                "type": "string"
+              }
+            },
+            "required": [
+              "title",
+              "reason"
+            ],
+            "type": "object"
+          },
+          "maxItems": 500,
+          "type": "array"
+        },
+        "skippedMore": {
+          "minimum": 0,
+          "type": "integer"
+        }
+      },
+      "required": [
+        "imported",
+        "duplicates",
+        "skipped",
+        "skippedMore"
+      ],
+      "type": "object"
+    },
+    "ThreadImportSource": {
+      "enum": [
+        "claude",
+        "chatgpt"
+      ],
+      "type": "string"
     },
     "ThreadKind": {
       "enum": [
@@ -49235,6 +49610,26 @@
       "required": [
         "threadId",
         "messageId"
+      ],
+      "type": "object"
+    },
+    "ThreadsImportParams": {
+      "properties": {
+        "format": {
+          "$ref": "#/$defs/ThreadImportFormat"
+        },
+        "content": {
+          "maxLength": 330000,
+          "minLength": 2,
+          "type": "string"
+        },
+        "dryRun": {
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "format",
+        "content"
       ],
       "type": "object"
     },

@@ -12,6 +12,9 @@ export const helperCheck: Partial<Catalogue> = {
   "settings.devices.helperCheck.detail.userOwned":
     "它从你拥有的文件运行，例如 AppImage 或你主目录中的构建。Psyche 接受它，但无法排除你的其他程序已将它替换。",
   "settings.devices.helperCheck.detail.unverified": "Psyche 暂时接受它，但无法确定它是哪个程序。",
+  "settings.devices.helperCheck.state.tarball": "助手未验证（tarball 安装）",
+  "settings.devices.helperCheck.detail.tarball":
+    "此 psyche-server 是用 tarball 安装在你自己的账户下的，因此它的助手是你拥有的文件。Psyche 接受它，但无法排除你的其他程序已将它替换。deb 或 rpm 软件包会安装 Psyche 能够验证的助手。",
   "settings.devices.helperCheck.refused": "已拒绝：{reason}",
   "settings.devices.helperCheck.reason.unclear": "Psyche 无法验证该助手",
   "settings.devices.helperCheck.reason.notHelper": "这个程序不是 Psyche 助手",

@@ -19,6 +19,10 @@ export interface NewThread {
   readonly expiresAt?: string | null;
   /** Opened with "New chat": see {@link listEmptyUserChats}. */
   readonly userCreated?: boolean;
+  /** Brought over from an export: the source and its dedupe key ("<source>:<conversation id>"). */
+  readonly imported?: { readonly source: "claude" | "chatgpt"; readonly key: string };
+  readonly createdAt?: string;
+  readonly archivedAt?: string | null;
   /** The Space the chat starts in. */
   readonly spaceId?: string | null;
 }
@@ -41,8 +45,11 @@ export function createThread(db: PsycheDb, input: NewThread): Thread {
       pinned: fromBool(input.pinned),
       expiresAt: input.expiresAt ?? null,
       userCreated: input.userCreated ? 1 : 0,
+      imported: input.imported?.source ?? null,
+      importKey: input.imported?.key ?? null,
+      archivedAt: input.archivedAt ?? null,
+      createdAt: input.createdAt ?? at,
       spaceId: input.spaceId ?? null,
-      createdAt: at,
       updatedAt: at,
     })
     .returning()
@@ -52,6 +59,12 @@ export function createThread(db: PsycheDb, input: NewThread): Thread {
 
 export function getThread(db: PsycheDb, id: string): Thread | undefined {
   const row = db.drizzle.select().from(threads).where(eq(threads.id, id)).get();
+  return row === undefined ? undefined : threadFromRow(row);
+}
+
+/** The thread an export conversation was imported as, if it was (dedupe key). */
+export function findThreadByImportKey(db: PsycheDb, key: string): Thread | undefined {
+  const row = db.drizzle.select().from(threads).where(eq(threads.importKey, key)).get();
   return row === undefined ? undefined : threadFromRow(row);
 }
 

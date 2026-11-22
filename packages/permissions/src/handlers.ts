@@ -234,6 +234,7 @@ export function createPermissionHandlers(
 
 const FOLDER_ALWAYS = "folder:always:";
 const FOLDER_CHAT = "folder:chat:";
+const FOLDER_SPACE = "folder:space:";
 const GRANT = "grant:";
 
 /** The words a standing grant gets in the access list. */
@@ -245,14 +246,15 @@ function grantLabel(g: Grant): string {
 }
 
 /**
- * Everything the owner has given the agent access to, in one list: shared folders (Settings and
- * this conversation's) and live standing grants. Folders come first, longest-lived first.
+ * Everything the owner has given the agent access to, in one list: shared folders (Settings',
+ * this conversation's and each Space's) and live standing grants. Folders come first, longest-lived first.
  */
 export async function accessEntries(broker: PsychePermissionBroker): Promise<AccessEntry[]> {
   // Each folder's "refused" mark comes from the broker's last look at the disk: start a fresh
   // look where one is due and give it a moment (never long: a hung mount must not hold Settings).
   for (const f of broker.policy.folders ?? []) broker.folderRefused(f.path);
   for (const { entry } of broker.allSessionFolders()) broker.folderRefused(entry.path);
+  broker.allSpaceFolders();
   await broker.foldersSettled(250);
   const out: AccessEntry[] = [];
   const offers = await Promise.all(
@@ -287,6 +289,22 @@ export async function accessEntries(broker: PsychePermissionBroker): Promise<Acc
       ...(entry.file === true ? { file: true } : {}),
       ...(broker.folderRefused(entry.path) ? { refused: true } : {}),
       threadId,
+    });
+  }
+  // Each Space folder is its own row ("Kitchen remodel · ~/Projects/Kitchen"), revocable on its
+  // own (spaces-2026 §5.3). An archived Space's folders are not listed: they count for nothing.
+  for (const f of broker.allSpaceFolders()) {
+    out.push({
+      id: `${FOLDER_SPACE}${f.spaceId}:${f.path}`,
+      type: "folder",
+      scope: "space",
+      label: f.spaceName === "" ? f.path : `${f.spaceName} · ${f.path}`,
+      path: f.path,
+      mode: f.mode,
+      ...(f.refused ? { refused: true } : {}),
+      spaceId: f.spaceId,
+      spaceName: f.spaceName.slice(0, 60),
+      automationsWrite: f.automationsWrite,
     });
   }
   for (const g of await broker.listGrants()) {
@@ -325,6 +343,12 @@ export async function revokeAccess(
     const at = rest.indexOf(":");
     if (at <= 0) throw new PsycheError("invalid_params", "bad access entry");
     return broker.revokeSessionFolder(rest.slice(0, at), rest.slice(at + 1));
+  }
+  if (entryId.startsWith(FOLDER_SPACE)) {
+    const rest = entryId.slice(FOLDER_SPACE.length);
+    const at = rest.indexOf(":");
+    if (at <= 0) throw new PsycheError("invalid_params", "bad access entry");
+    return broker.revokeSpaceFolder(rest.slice(0, at), rest.slice(at + 1));
   }
   if (entryId.startsWith(GRANT)) {
     const grantId = entryId.slice(GRANT.length);

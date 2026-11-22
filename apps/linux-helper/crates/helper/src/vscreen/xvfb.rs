@@ -42,7 +42,7 @@ impl XvfbConfig {
             width,
             height,
             first_display: 90,
-            xvfb_path: "Xvfb".into(),
+            xvfb_path: super::tools::xvfb().to_string_lossy().into_owned(),
             runtime_dir: std::env::var("XDG_RUNTIME_DIR")
                 .ok()
                 .filter(|v| !v.is_empty()),
@@ -250,7 +250,7 @@ impl XvfbServer {
             .env_clear()
             .env(
                 "PATH",
-                std::env::var("PATH").unwrap_or_else(|_| "/usr/bin:/bin".into()),
+                super::tools::FIXED_PATH,
             )
             .stdin(Stdio::null())
             .stdout(Stdio::null())

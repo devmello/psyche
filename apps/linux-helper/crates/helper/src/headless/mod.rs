@@ -114,6 +114,20 @@ pub fn engine() -> Option<CapResult<Arc<Engine<LinuxBackend>>>> {
     SURFACE.get().map(|s| s.engine())
 }
 
+/// The other ids the app a call names carries on the running virtual screen (a verified
+/// Flatpak's own id beside the host id that caps it, and the other way round), for the dispatch
+/// gate. Never starts the screen: with no screen, or no engine on it yet, nothing is running and
+/// there are none.
+pub fn other_ids(id: &str) -> Vec<String> {
+    match SURFACE.get().and_then(|s| s.running_engine()) {
+        Some(engine) => {
+            use psyche_linux_computer::backend::Backend;
+            surface::ids_carried(&engine.backend.apps(), id)
+        }
+        None => Vec::new(),
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;

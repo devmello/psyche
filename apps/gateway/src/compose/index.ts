@@ -15,7 +15,14 @@ import {
 } from "@psyche/audit";
 import { redactUrl } from "@psyche/browser";
 import type { ConnectorRegistry } from "@psyche/connectors";
-import { getDevice, getSetting, getThread, type PsycheDb, setSetting } from "@psyche/db";
+import {
+  countActivePasskeys,
+  getDevice,
+  getSetting,
+  getThread,
+  type PsycheDb,
+  setSetting,
+} from "@psyche/db";
 import { fileTools } from "@psyche/files";
 import {
   brokerApprovalCheck,
@@ -116,7 +123,9 @@ import { alertNotice, alertNotifyDecision } from "../security/alerts.ts";
 import { sealedPermissionStore } from "../security/sealed-stores.ts";
 import { StateSeal } from "../security/state-seal.ts";
 import { type Gateway, type GatewayOptions, startGateway } from "../server.ts";
+import { psycheServerKind } from "../server-install.ts";
 import { reencodeToolImage } from "../session/image-resize.ts";
+import { composeSpaceFolders, spaceFolderSource } from "../spaces/folders.ts";
 import { BusySources, UpdateGate } from "../update-gate.ts";
 import {
   API_KEY_IDS,
@@ -131,7 +140,7 @@ import { artifactContextProvider, composeArtifacts } from "./artifacts.ts";
 import { attentionHandlers, OwnerAttention, parkWhenUnwatched } from "./attention.ts";
 import { createAutoTitler } from "./auto-title.ts";
 import { withAutomationSpecialists } from "./automation-specialists.ts";
-import { bootstrapAdminHandlers } from "./bootstrap-admin.ts";
+import { BOOTSTRAP_ADMIN_AUDIT_KIND, bootstrapAdminHandlers } from "./bootstrap-admin.ts";
 import type { ComposedBrowser } from "./browser.ts";
 import { CallContexts } from "./call-context.ts";
 import { capabilityCatalogue, capabilityTools, deferToolFor } from "./capabilities.ts";
@@ -144,7 +153,7 @@ import {
   toolEffectChange,
 } from "./changes.ts";
 import { ChannelConversations } from "./channel-conversations.ts";
-import { composeComputer } from "./computer.ts";
+import { type ComposedComputer, composeComputer } from "./computer.ts";
 import { CONNECTOR_MATRIX_PREFIX } from "./connector-matrix.ts";
 import { macHelper } from "./connectors.ts";
 import { createContext } from "./context.ts";
@@ -169,6 +178,7 @@ import {
   surfaceOf,
 } from "./handlers.ts";
 import { composeHarnesses } from "./harnesses.ts";
+import { headlessLinuxHost, hostGraphicalSession } from "./headless-host.ts";
 import { HELPER_AVAILABILITY_SETTING, HelperAvailability } from "./helper-availability.ts";
 import { type HostTerminalOptions, hostTerminalPart } from "./host-terminal.ts";
 import { insightsHandlers } from "./insights.ts";
@@ -206,6 +216,7 @@ import { composeOnePasswordSetup, type OnePasswordSetupOptions } from "./onepass
 import { createOtherChats, type OtherChats } from "./other-chats.ts";
 import { PageReadHub } from "./page-reads.ts";
 import { composePasskeys } from "./passkeys.ts";
+import { passkeyPresenceForced, withPaymentPresence } from "./payment-presence.ts";
 import { type ComposedPayments, type PaymentsSetup, paymentsSetupFromEnv } from "./payments.ts";
 import { composePeople, type People } from "./people.ts";
 import { graphSourceAdapters } from "./people-sources.ts";
@@ -219,7 +230,12 @@ import {
   runCarveOuts,
   writeProtection,
 } from "./protected-paths.ts";
-import { createPurchaseTool, LINK_PAYMENT_SOURCE, PURCHASE_TOOL } from "./purchase-tool.ts";
+import {
+  checkoutNeedsDesktop,
+  createPurchaseTool,
+  LINK_PAYMENT_SOURCE,
+  PURCHASE_TOOL,
+} from "./purchase-tool.ts";
 import { notifierRouting } from "./quiet-hours.ts";
 import { createRateLimits } from "./rate-limits.ts";
 import {
@@ -299,7 +315,7 @@ import { updateHandlers } from "./update.ts";
 import { usageSummaryHandlers } from "./usage-summary.ts";
 import { createUserProfile } from "./user-profile.ts";
 import { composeVault, maskingLogger, type VaultSetup, vaultSetupFromEnv } from "./vault.ts";
-import { composeVirtualScreen } from "./virtual-screen.ts";
+import { type ComposedVirtualScreen, composeVirtualScreen } from "./virtual-screen.ts";
 import type { ComposedVm } from "./vm.ts";
 import { type ComposedWebTools, composeWebTools, type WebToolsSetup } from "./web-tools.ts";
 import { ensureWeeklyCardAutomation, withWeeklyCard } from "./weekly-card.ts";
@@ -611,6 +627,15 @@ export async function composeGateway(options: ComposeOptions): Promise<ComposedG
       })
       .catch(() => undefined);
   };
+  gwOptions.onThreadsImported = (e) => {
+    void audit
+      .append({
+        kind: "threads.import",
+        actor: { type: "device", deviceId: e.deviceId },
+        data: { source: e.source, imported: e.imported, duplicates: e.duplicates },
+      })
+      .catch(() => undefined);
+  };
   gwOptions.onSettingChanged = (c) => {
     void changes.record(settingChange(c));
     if (c.narrowing === true) noticeTightened(c.deviceId);
@@ -830,6 +855,10 @@ export async function composeGateway(options: ComposeOptions): Promise<ComposedG
       repoint: repointFolder,
     },
     channelConversations: (ref) => channelConversations.get(ref),
+    // Spaces S2: "Allow in this Space" and the Space folders a run in a Space may use.
+    spaces: spaceFolderSource(db, (spaceId) =>
+      publish("space.updated", { spaceId, changed: ["folders"] }),
+    ),
     approvers: {
       async device(deviceId) {
         seal.ensure();
@@ -892,7 +921,16 @@ export async function composeGateway(options: ComposeOptions): Promise<ComposedG
     ],
     policy: hostPolicy((policy ?? storedPolicy) as PolicyConfig | undefined, db),
   });
-  const broker = withRelay(tokens.wrap(rawBroker), relays, gwOptions.logger);
+  // B3: on a headless Linux Host a payment needs a passkey; without one it fails before a card
+  // nobody could answer is raised (compose/payment-presence.ts). Other approvals are untouched.
+  // The service env's switch, read once now (the agent cannot set it), else B0's logind answer.
+  const passkeyForced = passkeyPresenceForced(gwOptions.env ?? process.env);
+  const graphical = hostGraphicalSession();
+  const broker = withPaymentPresence(withRelay(tokens.wrap(rawBroker), relays, gwOptions.logger), {
+    passkeyOnly: async () =>
+      passkeyForced || (await headlessLinuxHost(process.platform, graphical)),
+    hasPasskey: () => presence !== NO_PRESENCE || countActivePasskeys(db) > 0,
+  });
   // The teaching loop (#679) reads approval answers as implicit feedback; set once composed.
   let teachingRef: ComposedTeaching | undefined;
   // Executors (vault fills, the browser's mid-run gate, sandbox secrets) request approvals
@@ -1173,7 +1211,7 @@ export async function composeGateway(options: ComposeOptions): Promise<ComposedG
     // This conversation's "Allow once" folders count beside the owner's (request_folder_access).
     folders: (scope) => [
       ...rawBroker.grantedFolders(),
-      ...(scope === undefined ? [] : rawBroker.liveSessionFolders(scope.threadId)),
+      ...(scope === undefined ? [] : rawBroker.liveSessionFolders(scope.threadId, scope.runId)),
     ],
     protectedRoots: () => protectedRoots(config.home),
     ownDirs: () => ownWorkdirs(config.home),
@@ -1201,9 +1239,9 @@ export async function composeGateway(options: ComposeOptions): Promise<ComposedG
       broker: executorBroker,
       surfaces: ["desktop", "web"],
       folderEnv: () => folderAccessEnv(config.home),
-      grantedFolders: (threadId) => [
+      grantedFolders: (threadId, runId) => [
         ...rawBroker.grantedFolders(),
-        ...rawBroker.liveSessionFolders(threadId),
+        ...rawBroker.liveSessionFolders(threadId, runId),
       ],
       execHostEnabled: () => rawBroker.policy.exec?.execHostEnabled === true,
       enableExecHost: async () => {
@@ -1247,9 +1285,9 @@ export async function composeGateway(options: ComposeOptions): Promise<ComposedG
     execHostTool({
       broker: executorBroker,
       vault: vault.vault,
-      folders: (threadId) => [
+      folders: (threadId, runId) => [
         ...rawBroker.grantedFolders(),
-        ...rawBroker.liveSessionFolders(threadId),
+        ...rawBroker.liveSessionFolders(threadId, runId),
       ],
       // One live look per root at a time, bounded: a hung mount does not fill the libuv pool.
       lookRoot: (path) => rawBroker.lookRootNow(path),
@@ -1476,11 +1514,19 @@ export async function composeGateway(options: ComposeOptions): Promise<ComposedG
     return "payments" in p && p.payments !== undefined;
   });
   const browserPart = parts.find((p): p is ComposedBrowser => "ownsTab" in p && "devServers" in p);
+  // B3: headless computer use on the Host helper's private screen keeps the screen's take-over,
+  // parked card and Task-end rules (the agent browser runs headless Chromium, off that screen).
+  const screenPart = parts.find(
+    (p): p is ComposedVirtualScreen => "screen" in p && "handlers" in p,
+  );
+  parts.find((p): p is ComposedComputer => "useScreen" in p)?.useScreen(screenPart?.screen);
   if (paymentsPart !== undefined && browserPart !== undefined) {
     const availability = paymentsPart.availability;
     const purchaseTool = createPurchaseTool({
       payments: paymentsPart.payments,
       driver: () => browserPart.driver,
+      // A headless Host has no checkout driver yet (B3 r1): refused before any card.
+      unavailable: () => (browserPart.serverOnly ? checkoutNeedsDesktop() : undefined),
       ownsTab: (callId, tabId) => browserPart.ownsTab(callId, tabId),
       calls,
       approvals: broker,
@@ -2248,6 +2294,7 @@ export async function composeGateway(options: ComposeOptions): Promise<ComposedG
   parts.push(nudges.part());
   parts.push(mailFollowups.part());
   parts.push(composeSpaces({ scheduler }));
+  parts.push(composeSpaceFolders({ broker: () => rawBroker, home: config.home }));
   parts.push(
     composeWork({
       db,
@@ -2467,6 +2514,25 @@ export async function composeGateway(options: ComposeOptions): Promise<ComposedG
     webhooks,
     publicRoutes,
     onSetupTokenUsed: setupTokenUsedHook({ db, audit, log: gwOptions.logger }),
+    // A fresh psyche-server (deb, rpm or tarball on Linux) waits for the app's setup code.
+    claim: gwOptions.claim ?? {
+      enabled: process.platform === "linux" && psycheServerKind() !== null,
+    },
+    // The first admin made with the setup code: audited like the desktop's first admin, so
+    // `psyche security audit` counts it with the others (devices.bootstrap_repeated).
+    onClaimed: (device) => {
+      void audit
+        .append({
+          kind: BOOTSTRAP_ADMIN_AUDIT_KIND,
+          actor: { type: "device", deviceId: device.id },
+          data: { deviceId: device.id, name: device.name, via: "claim" },
+        })
+        .catch((err: unknown) =>
+          gwOptions.logger?.log("warn", "audit append for a claimed server failed", {
+            code: PsycheError.from(err).code,
+          }),
+        );
+    },
     onMachineChange: machineChangeHook({ audit, notifier, log: gwOptions.logger }),
     onDeviceSelfRevoked: (revoked) => {
       void audit

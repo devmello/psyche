@@ -60,6 +60,11 @@ export interface DiscoveredGatewayView {
   conflict: boolean;
   /** Already in the saved list. */
   saved: boolean;
+  /**
+   * The announcement carries `claim=1`: a fresh psyche-server waiting for its setup code (design
+   * §3.6). A claim like the rest; the setup-code handshake is what proves the server.
+   */
+  claimable?: boolean;
 }
 
 /** Why an address was refused when adding a Gateway. */
@@ -92,6 +97,12 @@ export interface GatewaysPort {
   discover?(): Promise<DiscoveredGatewayView[]>;
   /** Adds a listing `discover` returned; the same native confirmation and pin flow as `add`. */
   addDiscovered?(id: string): Promise<SavedGatewayView>;
+  /**
+   * "Set up a remote server" (design §3.6): claims a fresh psyche-server, by a listing's id or a
+   * typed address, with the setup code it printed. Main confirms the address natively, both sides
+   * prove the code, and the server is saved pinned. Rejects with `details.problem` `claim_<why>`.
+   */
+  claim?(target: { id: string } | { address: string }, code: string): Promise<SavedGatewayView>;
   rename(id: string, name: string): Promise<void>;
   /** Forgets the Gateway: its pin, this computer's key for it and its stored data. */
   remove(id: string): Promise<void>;

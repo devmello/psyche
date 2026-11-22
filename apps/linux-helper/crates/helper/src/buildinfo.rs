@@ -25,13 +25,16 @@ pub struct BuildInfo {
     pub arch: &'static str,
     #[serde(rename = "protocolVersion")]
     pub protocol_version: u64,
+    /// The update-manifest key ids this build trusts (the release job compares them with the app's).
+    #[serde(rename = "updateKeys")]
+    pub update_keys: Vec<crate::update::UpdateKey>,
 }
 
 impl BuildInfo {
     pub fn current() -> Self {
         Self {
             name: "psyche-helper",
-            version: env!("CARGO_PKG_VERSION"),
+            version: crate::update::RELEASE_VERSION,
             build: match option_env!("PSYCHE_BUILD") {
                 Some(build) if !build.is_empty() => build,
                 _ => "dev",
@@ -40,6 +43,7 @@ impl BuildInfo {
             platform: PLATFORM,
             arch: std::env::consts::ARCH,
             protocol_version: PROTOCOL_VERSION,
+            update_keys: crate::update::trusted_key_pairs(),
         }
     }
 }

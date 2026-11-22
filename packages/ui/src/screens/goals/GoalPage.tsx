@@ -238,7 +238,8 @@ export interface GoalPageViewProps {
   onDelete?: (goal: Goal) => void;
   /**
    * The owner's "Check in" switch (`goals.update` cadence; `null` is off, the default). A check-in
-   * may use a model, so it only ever runs at the time chosen here. Absent: the row is not drawn.
+   * is a free reminder at the chosen time; it never uses a model (that is "Suggest next step").
+   * Absent: the row is not drawn.
    */
   onCheckinChange?: (cadence: string | null) => void;
   /** "Suggest next step": asks the model for one step, on request only. Absent: no button. */

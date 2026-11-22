@@ -38,6 +38,7 @@ import {
   type FeedbackEvent,
   type FeedPost,
   FILE_CHUNK_BYTES,
+  formatMachineLink,
   type Goal,
   type GoalMilestone,
   type Grant,
@@ -49,6 +50,7 @@ import {
   type LibraryItem,
   type LinkPaymentMethod,
   type LinkSetupStatus,
+  type MachineInfo,
   type McpApp,
   type McpProposal,
   type McpServerChanges,
@@ -63,6 +65,7 @@ import {
   type MethodParams,
   type MethodResult,
   type Milestone,
+  machineNameOk,
   type NodeInfo,
   type Notification,
   type OnePasswordSetupStatus,
@@ -124,6 +127,8 @@ export interface MockBrowserRecording {
 }
 
 export interface MockWorld {
+  /** Linux computers paired as machines (absent = none): `machines.list`. */
+  machines?: MachineInfo[];
   /** Browser recordings (absent = none). */
   browserRecordings?: MockBrowserRecording[];
   /** Everything memory's review queue (absent = empty). */
@@ -414,6 +419,25 @@ export class MockGateway implements GatewayClient {
   private latency: number;
   private now: () => string;
   private counter = 0;
+  /**
+   * A computer finishes pairing (stories and tests): it joins `machines.list`, the newest live
+   * machine setup token is marked used by its device, and `machines.changed` says `added`.
+   */
+  pairMachine(machine: MachineInfo): void {
+    this.world.machines = [...(this.world.machines ?? []), machine];
+    const index = this.setupTokens.findIndex((s) => s.status === "live" && s.purpose === "machine");
+    const token = this.setupTokens[index];
+    if (token !== undefined) {
+      this.setupTokens[index] = {
+        ...token,
+        status: "used",
+        usedAt: this.now(),
+        usedByDeviceId: machine.deviceId,
+      };
+    }
+    this.emit("machines.changed", { machine, change: "added" });
+  }
+
   /** Setup tokens made through `devices.setupToken.create` (Settings → Pair another computer). */
   private readonly setupTokens: MethodResult<"devices.setupToken.list">["setupTokens"] = [];
   private sourcesStatus(): MethodResult<"search.sources"> {
@@ -4236,9 +4260,9 @@ export class MockGateway implements GatewayClient {
       trustedProxy: true,
     }),
     "devices.setupToken.create": (p) => {
-      const scopes = p.scopes ?? [];
-      if (p.purpose === "machine") fail("unavailable", "Pairing a computer is not available yet");
-      if (scopes.length === 0) fail("invalid_params", "scopes is required");
+      const machine = p.purpose === "machine";
+      const scopes = machine ? [] : (p.scopes ?? []);
+      if (!machine && scopes.length === 0) fail("invalid_params", "scopes is required");
       if (scopes.some((s) => (s as string) === "node")) {
         fail("invalid_params", "A setup token grants operator scopes only");
       }
@@ -4249,7 +4273,8 @@ export class MockGateway implements GatewayClient {
       if (live.length >= 3) fail("rate_limited", "Too many unused setup tokens");
       const setupToken = {
         id: this.id("stk"),
-        scopes: [...new Set(scopes)],
+        scopes: machine ? (["node"] as const).map((s) => s) : [...new Set(scopes)],
+        ...(machine ? { purpose: "machine" as const } : {}),
         createdAt: now,
         expiresAt: new Date(Date.parse(now) + 10 * 60_000).toISOString(),
         usedAt: null,
@@ -4260,6 +4285,26 @@ export class MockGateway implements GatewayClient {
       this.setupTokens.unshift(setupToken);
       const gatewayFingerprint = `sha256:${"cd34".repeat(16)}`;
       const token = `pst_${String(this.counter).padStart(43, "A")}`;
+      if (machine) {
+        const lan = p.via === "lan";
+        const gatewayUrl = lan
+          ? "https://studio-mac.local:7979"
+          : "https://studio-mac.tail1234.ts.net";
+        return {
+          setupToken,
+          link: formatMachineLink({
+            gatewayUrl,
+            gatewayKey: "AwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwM",
+            ...(lan ? { certPin: "CQkJCQkJCQkJCQkJCQkJCQkJCQkJCQkJCQkJCQkJCQk" } : {}),
+            setupToken: token,
+            hostName: "studio-mac",
+          }),
+          version: 1,
+          gatewayUrl,
+          gatewayFingerprint,
+          hostName: "studio-mac",
+        };
+      }
       if (p.via === "lan") {
         return {
           setupToken,
@@ -4291,6 +4336,22 @@ export class MockGateway implements GatewayClient {
       };
     },
     "devices.setupToken.list": () => ({ setupTokens: [...this.setupTokens] }),
+    "machines.list": () => ({ machines: structuredClone(this.world.machines ?? []) }),
+    "machines.rename": (p) => {
+      const machines = this.world.machines ?? [];
+      const found =
+        machines.find((m) => m.id === p.id) ?? fail("not_found", `machine ${p.id} not found`);
+      if (!machineNameOk(p.name))
+        return fail("invalid_params", "That is not a name a computer can have");
+      const key = p.name.toLowerCase();
+      if (machines.some((m) => m.id !== p.id && m.name.toLowerCase() === key)) {
+        return fail("conflict", "That name is taken or reserved");
+      }
+      const machine = { ...found, name: p.name };
+      this.world.machines = machines.map((m) => (m.id === p.id ? machine : m));
+      this.emit("machines.changed", { machine, change: "updated" });
+      return { machine };
+    },
     "devices.setupToken.revoke": (p) => {
       const index = this.setupTokens.findIndex((s) => s.id === p.id);
       const found = this.setupTokens[index] ?? fail("not_found", `setup token ${p.id} not found`);

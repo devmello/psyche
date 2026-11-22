@@ -9,6 +9,7 @@ import {
   type SpaceLink,
 } from "@psyche/protocol";
 import type { Call, HandlerDef } from "../context.ts";
+import { assertWritableThread } from "../session/imported-threads.ts";
 import { SpaceStore } from "./store.ts";
 
 /**
@@ -172,6 +173,10 @@ export function spacesHandlers(deps: SpaceHandlerDeps = {}): Record<string, Hand
       transactional: true,
       run(call: Call, p: P<"spaces.threads.move">) {
         const target = p.spaceId ?? null;
+        for (const id of new Set(p.threadIds)) {
+          const host = getThread(call.ctx.db, id);
+          if (host !== undefined) assertWritableThread(host, "moved");
+        }
         const { moved, from } = store(call).moveThreads(p.threadIds, target);
         // A moved chat takes effect from its next run; the counts of both Spaces change now.
         for (const id of new Set([

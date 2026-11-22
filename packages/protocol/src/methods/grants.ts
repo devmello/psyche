@@ -14,8 +14,11 @@ export const AccessEntry = Type.Object(
   {
     id: Type.String({ minLength: 1, maxLength: 4200 }),
     type: StringEnum(["folder", "grant"]),
-    /** `always`: until revoked. `conversation`: this chat only. `limited`: a task, site or session grant. */
-    scope: StringEnum(["always", "conversation", "limited"]),
+    /**
+     * `always`: until revoked. `conversation`: this chat only. `limited`: a task, site or session
+     * grant. `space`: a folder of one Space, for that Space's runs only (`spaceId`).
+     */
+    scope: StringEnum(["always", "conversation", "limited", "space"]),
     /** Plain words for the row: the folder path, or what the grant lets Psyche do. */
     label: Type.String({ maxLength: 600 }),
     /** Folders: read-only or read and change. */
@@ -48,6 +51,11 @@ export const AccessEntry = Type.Object(
      */
     reconnectBlocked: Type.Optional(Type.Boolean()),
     threadId: Type.Optional(Id),
+    /** A `space` row: the Space whose runs may use the folder, and its name. */
+    spaceId: Type.Optional(Id),
+    spaceName: Type.Optional(Type.String({ maxLength: 60 })),
+    /** A `space` row: unattended runs (automations) of the Space may change files here (SP8). */
+    automationsWrite: Type.Optional(Type.Boolean()),
     grantId: Type.Optional(Id),
     kind: Type.Optional(ApprovalKind),
     since: Type.Optional(IsoDateTime),
@@ -63,7 +71,7 @@ export const GrantsMethods = {
     result: Type.Object({ entries: Type.Array(AccessEntry) }),
     scope: "operator.read",
     description:
-      "Lists what the owner has given the agent access to: shared folders (always or for one chat) and standing grants, in one list for Settings.",
+      "Lists what the owner has given the agent access to: shared folders (always, for one chat or in one Space) and standing grants, in one list for Settings.",
   }),
   "access.revoke": defineMethod({
     params: Type.Object({ entryId: Type.String({ minLength: 1, maxLength: 4200 }) }),
