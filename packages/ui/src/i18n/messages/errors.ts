@@ -51,4 +51,13 @@ export const errors = {
     "Psyche is about to restart to install an update. Try again in a moment.",
   "errors.reason.space_main_chat":
     "An automation in a Space can't run in the main chat. Run it in its own chat, or take it out of the Space.",
+  "errors.reason.passkey_required": "Set up a passkey to approve payments on this Psyche.",
+  "errors.reason.awaiting_owner":
+    "An app has unsaved changes. Psyche waits for you to decide what happens to them.",
+  "errors.reason.checkout_needs_desktop":
+    "Paying in Psyche's browser needs the Psyche desktop app connected to this Host.",
+  "errors.reason.no_chromium":
+    "Psyche's browser needs Chromium on this Host. Install it, or set PSYCHE_CHROMIUM.",
+  "errors.reason.chromium_sandbox":
+    "Chromium's sandbox could not start on this Host, so Psyche's browser is off. Allow Chromium to use user namespaces (an AppArmor profile).",
 } as const;

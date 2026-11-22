@@ -1,3 +1,4 @@
+import { CLAIM_TXT_KEY } from "@psyche/protocol";
 import Bonjour from "bonjour-service";
 
 /**
@@ -15,6 +16,11 @@ export interface LanTxtInput {
   hostName: string;
   /** `sha256:<hex>` of the Gateway identity key (what the pairing card shows). */
   fingerprint: string;
+  /**
+   * An unclaimed psyche-server waiting for its setup code (design §3.6): `claim=1`. A flag, not a
+   * secret, and like the rest a claim: the claim handshake is what proves anything.
+   */
+  claim?: boolean;
 }
 
 /** The whole TXT record. Keys are fixed; adding one means reviewing it for secrets. */
@@ -23,6 +29,7 @@ export function buildLanTxt(input: LanTxtInput): Record<string, string> {
     v: TXT_VERSION,
     name: input.hostName,
     fp: input.fingerprint.replace(/^sha256:/, ""),
+    ...(input.claim === true ? { [CLAIM_TXT_KEY]: "1" } : {}),
   };
 }
 

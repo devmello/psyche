@@ -164,6 +164,8 @@ const bridge = {
     onPendingLink: (cb: () => void) => listen(IPC.gatewaysLinkOpened, () => cb()),
     discover: () => invoke(IPC.gatewaysDiscover),
     addDiscovered: (id: string) => invoke(IPC.gatewaysAddDiscovered, { id }),
+    claim: (target: { id?: string; address?: string }, code: string) =>
+      invoke(IPC.gatewaysClaim, { ...target, code }),
     rename: (id: string, name: string) => invoke(IPC.gatewaysRename, { id, name }),
     remove: (id: string) => invoke(IPC.gatewaysRemove, { id }),
     switchTo: (id: string, opts?: { stopLocal?: boolean }) =>

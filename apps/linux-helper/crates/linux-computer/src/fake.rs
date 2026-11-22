@@ -143,6 +143,7 @@ fn app(id: &str, name: &str, pid: u32) -> AppInfo {
         electron: false,
         frontmost: false,
         windows: 1,
+        also_ids: Vec::new(),
     }
 }
 

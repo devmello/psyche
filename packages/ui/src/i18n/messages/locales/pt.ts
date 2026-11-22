@@ -138,6 +138,16 @@ export const pt: Partial<Catalogue> = {
     "O Psyche vai reiniciar para instalar uma atualização. Tente novamente em instantes.",
   "errors.reason.space_main_chat":
     "Uma automação em um Espaço não pode ser executada no chat principal. Execute-a no próprio chat ou tire-a do Espaço.",
+  "errors.reason.passkey_required":
+    "Configure uma chave de acesso para aprovar pagamentos neste Psyche.",
+  "errors.reason.awaiting_owner":
+    "Um app tem alterações não salvas. O Psyche espera você decidir o que fazer com elas.",
+  "errors.reason.checkout_needs_desktop":
+    "Para pagar no navegador do Psyche, o app de desktop do Psyche precisa estar conectado a este host.",
+  "errors.reason.no_chromium":
+    "O navegador do Psyche precisa do Chromium neste host. Instale-o ou defina PSYCHE_CHROMIUM.",
+  "errors.reason.chromium_sandbox":
+    "O sandbox do Chromium não pôde iniciar neste host, então o navegador do Psyche está desativado. Permita que o Chromium use namespaces de usuário (um perfil do AppArmor).",
   "errors.unavailable": "O Psyche não consegue fazer isso agora.",
   "errors.approval_required": "Isso precisa da sua aprovação primeiro.",
   "errors.approval_expired": "A aprovação expirou; peça novamente.",
