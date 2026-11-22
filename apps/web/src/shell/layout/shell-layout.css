@@ -229,3 +229,7 @@
 .app-frame[data-frame="overlay"] > .titlebar {
   padding-right: calc(var(--caption-buttons-width) + 8px);
 }
+/* The right-most pane's header sits along the top edge too: its buttons clear the caption buttons. */
+.app-frame[data-chrome="overlay"] .panes > .pane:last-of-type > header {
+  padding-right: calc(var(--caption-buttons-width) + 8px);
+}

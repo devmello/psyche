@@ -183,6 +183,62 @@ export const settingsA: Partial<Catalogue> = {
     "O Psyche não conseguiu listar os sites com sessão iniciada ({reason}).",
   "settings.browser.signedIn.forgetFailed":
     "O Psyche não conseguiu encerrar a sessão em {site} ({reason}).",
+  "settings.browser.import.title": "Importar sessões de outro navegador",
+  "settings.browser.import.description":
+    "Traga suas sessões do Chrome, Brave, Edge, Arc ou Firefox para o navegador do Psyche, para que as tarefas fiquem conectadas onde você está. Você escolhe os sites; nada é importado antes disso.",
+  "settings.browser.import.from": "Importar sessões de…",
+  "settings.browser.import.chooseBrowser": "Escolha um navegador",
+  "settings.browser.import.profile": "Perfil",
+  "settings.browser.import.read": "Ler sessões",
+  "settings.browser.import.reading": "Lendo…",
+  "settings.browser.import.noProfiles":
+    "Nenhum perfil do {browser} com sessões foi encontrado neste computador.",
+  "settings.browser.import.keychainHint":
+    "O macOS pede sua senha para que o Psyche desbloqueie as sessões do {browser}. Elas ficam neste Mac e nunca chegam ao chat, aos logs ou à auditoria.",
+  "settings.browser.import.noneInstalled": "Nenhum desses navegadores está neste computador.",
+  "settings.browser.import.unsupportedFda":
+    "O {browser} não é compatível: ler as sessões dele exige acesso total ao disco, que o Psyche não pede.",
+  "settings.browser.import.unsupportedPlatform":
+    "O {browser} ainda não é compatível neste computador. A importação de sessões funciona no macOS.",
+  "settings.browser.import.sourcesFailed":
+    "O Psyche não conseguiu listar seus navegadores ({reason}).",
+  "settings.browser.import.readFailed":
+    "O Psyche não conseguiu ler as sessões do {browser} ({reason}).",
+  "settings.browser.import.leftOut":
+    "Deixados de fora: {expired} cookies expirados e {skipped} ilegíveis.",
+  "settings.browser.import.noneFound": "Este perfil não tem sessões para importar.",
+  "settings.browser.import.search": "Buscar sites",
+  "settings.browser.import.selectAll": "Selecionar tudo exceto os sensíveis",
+  "settings.browser.import.clear": "Limpar",
+  "settings.browser.import.noMatch": "Nenhum site corresponde a “{query}”.",
+  "settings.browser.import.cookies": "{count, plural, one {# cookie} other {# cookies}}",
+  "settings.browser.import.sensitive.bank": "Banco",
+  "settings.browser.import.sensitive.payment": "Pagamentos",
+  "settings.browser.import.sensitive.passwords": "Gerenciador de senhas",
+  "settings.browser.import.sensitive.email": "E-mail",
+  "settings.browser.import.sensitive.signin": "Provedor de login",
+  "settings.browser.import.hosts": "Hosts: {hosts}",
+  "settings.browser.import.hostsMore": "Hosts: {hosts} e mais {count}",
+  "settings.browser.import.sensitiveWarning":
+    "{kind}: uma sessão aqui pode movimentar dinheiro, redefinir suas outras contas ou abrir suas senhas. Marque só se as tarefas precisarem.",
+  "settings.browser.import.noTrust":
+    "Os sites importados não ganham confiança extra: pagamentos ainda precisam da sua confirmação e todo o resto segue o seu modo de aprovação.",
+  "settings.browser.import.importN":
+    "{count, plural, =0 {Importar} one {Importar # site} other {Importar # sites}}",
+  "settings.browser.import.cancel": "Cancelar",
+  "settings.browser.import.done":
+    "{count, plural, =0 {Nenhuma sessão foi importada.} one {Sessões importadas para # site.} other {Sessões importadas para # sites.}}",
+  "settings.browser.import.refused":
+    "{count, plural, one {O navegador do Psyche recusou # cookie.} other {O navegador do Psyche recusou # cookies.}}",
+  "settings.browser.import.importFailed": "O Psyche não conseguiu importar as sessões ({reason}).",
+  "settings.browser.import.importedTitle": "Sessões importadas",
+  "settings.browser.import.importedFrom":
+    "Do {browser} em {date}, {count, plural, one {# cookie} other {# cookies}}",
+  "settings.browser.import.remove": "Remover sessões importadas",
+  "settings.browser.import.removeHint":
+    "Remove os cookies que esta importação gravou. Não encerra a sessão: para isso use Esquecer em Sites com login.",
+  "settings.browser.import.removeFailed":
+    "O Psyche não conseguiu remover as sessões importadas de {site} ({reason}).",
   "settings.computerUse.appsHint": "Até onde o Psyche pode ir em cada app.",
   "settings.connectors.catalog.appleShortcuts": "Atalhos",
   "settings.connectors.catalog.obsidian": "Obsidian",

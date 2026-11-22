@@ -233,6 +233,62 @@ export const settingsRest: Partial<Catalogue> = {
   "settings.browser.signedIn.loadFailed":
     "Psyche n’a pas pu lister les sites connectés ({reason}).",
   "settings.browser.signedIn.forgetFailed": "Psyche n’a pas pu déconnecter {site} ({reason}).",
+  "settings.browser.import.title": "Importer les connexions d’un autre navigateur",
+  "settings.browser.import.description":
+    "Récupérez vos connexions de Chrome, Brave, Edge, Arc ou Firefox dans le navigateur de Psyche, pour que les tâches soient connectées là où vous l’êtes. Vous choisissez les sites ; rien n’est importé avant.",
+  "settings.browser.import.from": "Importer les connexions de…",
+  "settings.browser.import.chooseBrowser": "Choisir un navigateur",
+  "settings.browser.import.profile": "Profil",
+  "settings.browser.import.read": "Lire les connexions",
+  "settings.browser.import.reading": "Lecture…",
+  "settings.browser.import.noProfiles":
+    "Aucun profil {browser} avec des connexions n’a été trouvé sur cet ordinateur.",
+  "settings.browser.import.keychainHint":
+    "macOS vous demande votre mot de passe pour que Psyche déverrouille les connexions de {browser}. Elles restent sur ce Mac et n’atteignent jamais le chat, les journaux ni l’audit.",
+  "settings.browser.import.noneInstalled":
+    "Aucun de ces navigateurs n’est installé sur cet ordinateur.",
+  "settings.browser.import.unsupportedFda":
+    "{browser} n’est pas pris en charge : lire ses connexions exige l’accès complet au disque, que Psyche ne demande pas.",
+  "settings.browser.import.unsupportedPlatform":
+    "{browser} n’est pas encore pris en charge sur cet ordinateur. L’import des connexions fonctionne sur macOS.",
+  "settings.browser.import.sourcesFailed": "Psyche n’a pas pu lister vos navigateurs ({reason}).",
+  "settings.browser.import.readFailed":
+    "Psyche n’a pas pu lire les connexions de {browser} ({reason}).",
+  "settings.browser.import.leftOut":
+    "Laissés de côté : {expired} cookies expirés et {skipped} illisibles.",
+  "settings.browser.import.noneFound": "Ce profil n’a aucune connexion à importer.",
+  "settings.browser.import.search": "Rechercher des sites",
+  "settings.browser.import.selectAll": "Tout sélectionner sauf les sites sensibles",
+  "settings.browser.import.clear": "Effacer",
+  "settings.browser.import.noMatch": "Aucun site ne correspond à « {query} ».",
+  "settings.browser.import.cookies": "{count, plural, one {# cookie} other {# cookies}}",
+  "settings.browser.import.sensitive.bank": "Banque",
+  "settings.browser.import.sensitive.payment": "Paiements",
+  "settings.browser.import.sensitive.passwords": "Gestionnaire de mots de passe",
+  "settings.browser.import.sensitive.email": "E-mail",
+  "settings.browser.import.sensitive.signin": "Fournisseur de connexion",
+  "settings.browser.import.hosts": "Hôtes : {hosts}",
+  "settings.browser.import.hostsMore": "Hôtes : {hosts} et {count} autres",
+  "settings.browser.import.sensitiveWarning":
+    "{kind} : une session ici peut déplacer de l’argent, réinitialiser vos autres comptes ou ouvrir vos mots de passe. Ne le cochez que si des tâches en ont besoin.",
+  "settings.browser.import.noTrust":
+    "Les sites importés n’obtiennent aucune confiance supplémentaire : les paiements exigent toujours votre confirmation, et tout le reste suit votre mode d’approbation.",
+  "settings.browser.import.importN":
+    "{count, plural, =0 {Importer} one {Importer # site} other {Importer # sites}}",
+  "settings.browser.import.cancel": "Annuler",
+  "settings.browser.import.done":
+    "{count, plural, =0 {Aucune connexion n’a été importée.} one {Connexions importées pour # site.} other {Connexions importées pour # sites.}}",
+  "settings.browser.import.refused":
+    "{count, plural, one {Le navigateur de Psyche a refusé # cookie.} other {Le navigateur de Psyche a refusé # cookies.}}",
+  "settings.browser.import.importFailed": "Psyche n’a pas pu importer les connexions ({reason}).",
+  "settings.browser.import.importedTitle": "Connexions importées",
+  "settings.browser.import.importedFrom":
+    "Depuis {browser} le {date}, {count, plural, one {# cookie} other {# cookies}}",
+  "settings.browser.import.remove": "Supprimer les connexions importées",
+  "settings.browser.import.removeHint":
+    "Supprime les cookies écrits par cet import. Ce n’est pas une déconnexion : utilisez Oublier sous Sites connectés pour cela.",
+  "settings.browser.import.removeFailed":
+    "Psyche n’a pas pu supprimer les connexions importées de {site} ({reason}).",
   "settings.computerUse.appsHint": "Jusqu’où Psyche peut aller dans chaque app.",
   "settings.connectors.catalog.appleShortcuts": "Raccourcis",
   "settings.connectors.catalog.obsidian": "Obsidian",
