@@ -197,7 +197,7 @@ pub fn check_before_launch(
 pub struct BusctlBus;
 
 fn busctl_dbus(method: &str, name: &str) -> Result<String, String> {
-    let out = std::process::Command::new("busctl")
+    let out = std::process::Command::new(super::tools::busctl())
         .args([
             "--user",
             "call",

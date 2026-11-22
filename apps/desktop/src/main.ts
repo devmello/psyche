@@ -49,10 +49,13 @@ import {
   setupTokenAnswered,
 } from "./lib/gateways.ts";
 import {
+  APPROVAL_ONLY_CHANNELS,
   checkCallable,
   checkClipboardClearAfter,
   checkClipboardText,
   checkComposerText,
+  checkCookieImportPick,
+  checkCookieImportScan,
   checkExternalUrl,
   checkHttpUrl,
   checkIdempotencyKey,
@@ -60,6 +63,8 @@ import {
   checkNotifyRoute,
   checkPasskeyOptions,
   checkRoute,
+  checkScanId,
+  checkSiteDomain,
   checkTeachApp,
   checkTeachId,
   checkTeachKeep,
@@ -578,6 +583,9 @@ function handle(channel: string, fn: Handler): void {
   ipcMain.handle(channel, async (event, arg: unknown) => {
     if (!trusted(event))
       return { ok: false, error: { code: "forbidden", message: "untrusted sender" } };
+    if (APPROVAL_ONLY_CHANNELS.has(channel) && windows?.isApprovalContents(event.sender) !== true) {
+      return { ok: false, error: { code: "forbidden", message: "untrusted sender" } };
+    }
     if (remoteGateway && REMOTE_REFUSED_CHANNELS.has(channel)) {
       return {
         ok: false,
@@ -861,6 +869,18 @@ function requireGateway(): GatewayConnection {
   if (!gateway)
     throw new PsycheError("unavailable", "Gateway connection not ready", { retryable: true });
   return gateway;
+}
+
+/**
+ * Sends the queued cookie-import audit entries, in order, to this Mac's own Gateway once it is
+ * connected with `operator.admin` (the Gateway also requires `desktopShell`). Never with a
+ * remote Gateway.
+ */
+function flushCookieAudit(): void {
+  if (remoteGateway || !browser) return;
+  const st = gateway?.getStatus();
+  if (st?.phase !== "paired" || st.scopes?.includes("operator.admin") !== true) return;
+  void browser.flushCookieImportAudit().catch(() => undefined);
 }
 
 function requireBrowser(): BrowserHost {
@@ -1285,6 +1305,24 @@ function registerIpc(): void {
   handle(IPC.browserSignedInList, () => requireBrowser().signedInSites());
   handle(IPC.browserSignedInForget, (_e, arg) =>
     requireBrowser().forgetSignedInSite(checkHttpUrl(IPC.browserSignedInForget, arg)),
+  );
+  // Import sign-ins from another browser: the owner's clicks in Settings → Browser only.
+  // Values never cross this boundary; the window gets domains, counts and flags.
+  handle(IPC.cookieImportSources, () => requireBrowser().cookieImport().sources());
+  handle(IPC.cookieImportScan, (_e, arg) => {
+    const r = checkCookieImportScan(arg);
+    return requireBrowser().cookieImport().scan(r.browser, r.profileId);
+  });
+  handle(IPC.cookieImportImport, (_e, arg) => {
+    const r = checkCookieImportPick(arg);
+    return requireBrowser().cookieImport().import(r.scanId, r.domains, r.sensitive);
+  });
+  handle(IPC.cookieImportDiscard, (_e, arg) =>
+    requireBrowser().cookieImport().discard(checkScanId(IPC.cookieImportDiscard, arg)),
+  );
+  handle(IPC.cookieImportList, () => requireBrowser().cookieImport().imported());
+  handle(IPC.cookieImportRemove, (_e, arg) =>
+    requireBrowser().cookieImport().remove(checkSiteDomain(IPC.cookieImportRemove, arg)),
   );
   handle(IPC.browserClearData, (_e, arg) =>
     requireBrowser().clearBrowsingData(arg === "clean" ? "clean" : "logged-in"),
@@ -2016,10 +2054,18 @@ void app.whenReady().then(async () => {
         // Straight from this process to the Gateway's vault: the value never goes through the
         // renderer, a log or the model.
         vaultAdd: async (item) => void (await requireGateway().call("vault.add", item)),
+        // The audit entry for an import or a removal: domains and counts only. It is queued in
+        // $PSYCHE_HOME/browser/ first and sent here once this Mac's own Gateway is connected as
+        // admin; this host only exists for the local Gateway, so nothing goes to a remote one.
+        recordCookieImport: async (entry) => {
+          if (remoteGateway) throw new PsycheError("forbidden", "not for a remote Gateway");
+          void (await requireGateway().call("browser.cookieImport.record", entry));
+        },
         // Dev and test runs may shorten the idle time before a background tab is discarded.
         ...tabDiscardOverride(app.isPackaged, process.env),
       });
       browser.watchProfileCookies();
+      flushCookieAudit();
       browser.on("state", (s) => broadcast(IPC.browserState, s));
       // Pause-when-unwatched (#272): pane visibility and owner input go to the Gateway.
       browser.on("paneVisible", (v) => attention.visible(v));
@@ -2184,6 +2230,7 @@ void app.whenReady().then(async () => {
         if (cert !== undefined) gateways.pinCert(cert);
       }
       onPairing(s);
+      if (s.phase === "paired") flushCookieAudit();
       if (s.phase === "paired") gateways.markConnected();
       // Once paired, the Host says what it is called; until then the entry is named by address.
       if (s.phase === "paired" && remoteGateway) {

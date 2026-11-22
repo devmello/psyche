@@ -281,6 +281,44 @@ export interface DownloadNotice {
   quarantined: boolean;
 }
 
+export type CookieImportBrowserId = "chrome" | "brave" | "edge" | "arc" | "firefox" | "safari";
+
+export interface CookieImportSourceView {
+  browser: CookieImportBrowserId;
+  supported: boolean;
+  reason?: "full_disk_access" | "platform";
+  installed: boolean;
+  profiles: { id: string; name: string }[];
+}
+
+export interface CookieImportScanView {
+  scanId: string;
+  browser: CookieImportBrowserId;
+  sites: {
+    domain: string;
+    hosts: string[];
+    cookies: number;
+    sensitive: "bank" | "payment" | "passwords" | "email" | "signin" | null;
+  }[];
+  expired: number;
+  skipped: number;
+}
+
+export interface CookieImportPort {
+  sources(): Promise<CookieImportSourceView[]>;
+  scan(browser: CookieImportBrowserId, profileId: string): Promise<CookieImportScanView>;
+  import(
+    scanId: string,
+    domains: string[],
+    sensitive?: string[],
+  ): Promise<{ sites: { domain: string; cookies: number }[]; failed: number }>;
+  discard(scanId: string): Promise<void>;
+  imported(): Promise<
+    { domain: string; browser: CookieImportBrowserId; cookies: number; importedAt: string }[]
+  >;
+  remove(domain: string): Promise<void>;
+}
+
 /** Desktop only: the embedded browser host in the main process. */
 export interface BrowserPort {
   getState(): Promise<BrowserHostState>;
@@ -305,6 +343,12 @@ export interface BrowserPort {
   listSignedInSites?(): Promise<SignedInSiteView[]>;
   /** Sign out of a site: removes it from the list and deletes its cookies from the profile. */
   forgetSignedInSite?(origin: string): Promise<void>;
+  /**
+   * Import sign-ins from another browser (Settings → Browser). Owner-only: these exist only
+   * here, behind the Settings buttons; the agent and other devices have no way to call them.
+   * Results carry domains, counts and flags, never a cookie value.
+   */
+  cookieImport?: CookieImportPort;
   /**
    * Opens the Psyche Chrome profile real-Chrome mode uses (feature I13) in Google Chrome, with
    * no DevTools port, so the owner can sign in there; resolves to the profile's directory.

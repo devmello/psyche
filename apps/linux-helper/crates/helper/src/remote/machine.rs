@@ -187,9 +187,14 @@ impl MachineStatus {
         if p.surfaces.direct {
             surfaces.push("direct");
         }
+        // The helper runs in the account's own user manager and cannot prove a root ceiling, so the
+        // owner is always the account; a root-owned file only says why (update.rs).
+        let owner = crate::update::CEILING_OWNER;
+        let reason = crate::update::ceiling_owner_reason(matches!(loaded.owner, Owner::Root));
         json!({
             "account": self.account,
-            "policyOwner": match loaded.owner { Owner::Root => "root", Owner::User => "user" },
+            "policyOwner": owner,
+            "policyOwnerReason": reason,
             "policyValid": !matches!(loaded.source, Source::Invalid(_)),
             "passwordlessSudo": self.sudo_report(),
             "exec": { "enabled": p.exec.enabled, "contained": p.exec.contain },
@@ -445,6 +450,29 @@ mod tests {
             "own",
         );
         assert_eq!(no.report()["passwordlessSudo"], false);
+    }
+
+    #[test]
+    fn a_root_owned_policy_file_still_reports_the_account_as_owner() {
+        // The "root" file is the one at /etc, owned by `etc_owner`; here that is this test's user.
+        let dir = tempfile::tempdir().unwrap();
+        std::fs::set_permissions(dir.path(), std::fs::Permissions::from_mode(0o700)).unwrap();
+        let etc = dir.path().join("etc.json");
+        std::fs::write(&etc, r#"{"surfaces":{"virtualScreen":true,"direct":false}}"#).unwrap();
+        std::fs::set_permissions(&etc, std::fs::Permissions::from_mode(0o644)).unwrap();
+        // SAFETY: geteuid has no preconditions.
+        let me = unsafe { libc::geteuid() };
+        let src = Arc::new(PolicySource {
+            etc,
+            etc_owner: me,
+            user: dir.path().join("user.json"),
+            home: dir.path().join("home"),
+        });
+        let status = MachineStatus::new(src, BuildInfo::current(), None, "dedicated");
+        let report = status.report();
+        assert_eq!(report["policyValid"], true);
+        assert_eq!(report["policyOwner"], "user");
+        assert_eq!(report["policyOwnerReason"], "not_enforced_against_account");
     }
 
     #[test]

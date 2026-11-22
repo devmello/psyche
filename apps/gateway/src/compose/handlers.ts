@@ -30,14 +30,16 @@ export function mountParamsOnly(handlers: ParamsOnly): Record<string, HandlerDef
 
 /**
  * The approval surface a device answers for. Approvals are issued for `desktop` and `web`; a phone
- * or other client gets its own surface name and therefore no token (security §3.7).
+ * or other paired device answers on its own `device:<deviceId>` surface, which device-only cards
+ * that need no presence add for every paired operator device (broker `deviceSurfaces`, §3.7).
  */
 export function surfaceOf(db: PsycheDb, deviceId: string): Surface {
   const platform = getDevice(db, deviceId)?.platform;
   // The Psyche desktop app runs on macOS, Windows and Linux.
   if (platform === "macos" || platform === "windows" || platform === "linux") return "desktop";
   if (platform === "web") return "web";
-  return `device:${platform ?? "unknown"}`;
+  // One surface (and token) per device, never one per platform: two phones must not share a token.
+  return `device:${deviceId}`;
 }
 
 /** `approvals.*`, `grants.*` and `audit.*`: caller from the connection. */

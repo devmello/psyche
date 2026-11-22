@@ -48,8 +48,8 @@ const USAGE = `usage:
   psyched devices approve <code> [scopes]   approve the pending request showing <code>
   psyched devices grant <deviceId> <scopes> set a paired device's scopes
   psyched presence reset                    after losing every passkey and helper key: let
-                                            security changes run on operator.admin until a new
-                                            one is registered (they fail presence_required now)
+                                            adding a new verifier (a passkey or helper key) work
+                                            again (it fails presence_required until then)
   psyched security status                   whether the security records are sealed; open alerts
                                             and waiting requests
   psyched security reseal                   accept the current security records after they

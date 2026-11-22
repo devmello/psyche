@@ -49,10 +49,10 @@ struct Dirs {
 
 fn dirs(env: &dyn Env) -> Result<Dirs, String> {
     let home = env
-        .get("HOME")
+        .home()
         .map(PathBuf::from)
         .filter(|h| h.is_absolute())
-        .ok_or("HOME is not set")?;
+        .ok_or("no passwd entry with an absolute home for this account")?;
     Ok(Dirs {
         config: config::config_dir(env),
         state: state_dir(env),
@@ -574,10 +574,11 @@ fn status(dirs: &Dirs, env: &dyn Env, as_json: bool) -> Result<String, String> {
         Source::Default => "defaults (no policy.json)".to_string(),
         Source::Invalid(why) => format!("INVALID, everything is denied ({why})"),
     };
-    let owner = match loaded.owner {
-        Owner::Root => "root",
-        Owner::User => "your account",
-    };
+    let owner = match crate::update::ceiling_owner_reason(matches!(loaded.owner, Owner::Root)) {
+        Some(_) => "root's file, but it limits what your account reaches and is not enforced against it",
+        None => "your account",
+    }
+    .to_string();
     let account = if env.get("PSYCHE_HELPER_ACCOUNT").as_deref() == Some("dedicated") {
         "dedicated"
     } else {

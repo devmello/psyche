@@ -112,6 +112,8 @@ function node(n: FxNode, host: FxHost, origin: OriginFn): string {
       return `<div class="clickable" style="position:fixed;inset:0;background:rgba(0,0,0,0.02)"${actionAttr(n.onClick, host, origin)}>${esc(n.text)}</div>`;
     case "spacer":
       return `<div style="height:${n.height}px"></div>`;
+    case "editable":
+      return `<div contenteditable="true" aria-label="${esc(n.label)}">${esc(n.text)}</div>`;
     case "signed_in":
       return `<p id="whoami" role="status">${esc(signedInText(cookies.get(SESSION_COOKIE)))}</p>`;
     case "console_log":

@@ -41,7 +41,7 @@ type Story = StoryObj<typeof meta>;
 /** Nothing paired yet. */
 export const Empty: Story = { args: { machines: [] } };
 
-/** Online, on the owner's account, contained shell, limits owned by root. */
+/** Online, on the owner's account, contained shell, limits user-owned. */
 export const Online: Story = {};
 
 export const Offline: Story = { args: { machines: [OFFLINE_BOX] } };
@@ -57,7 +57,7 @@ export const DedicatedAccount: Story = { args: { machines: [DEDICATED_BOX] } };
 /** The contained shell is off: commands run with everything the account can reach. */
 export const FullShell: Story = { args: { machines: [FULL_SHELL_BOX] } };
 
-/** A tarball install: the box's limits can be changed by any program on the account. */
+/** The limits file is the account's own, so any program on the account can change it. */
 export const UserOwnedLimits: Story = { args: { machines: [USER_LIMITS_BOX] } };
 
 export const PasswordlessSudo: Story = { args: { machines: [SUDO_BOX] } };
