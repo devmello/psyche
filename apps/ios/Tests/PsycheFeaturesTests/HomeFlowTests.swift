@@ -59,6 +59,72 @@ struct HomeFlowTests {
         #expect(await sent.value == 0)
     }
 
+    /// Counts every Face ID request.
+    private final class RecordingPresence: PresenceCheck, @unchecked Sendable {
+        private(set) var asked = 0
+        func confirm(reason: String) async -> PresenceResult {
+            asked += 1
+            return .confirmed
+        }
+    }
+
+    private func detail(presenceNote: String?, needsMac: Bool) -> ApprovalDetail {
+        ApprovalDetail(
+            kindLabel: "Install a skill", title: "Run a script", summary: "", fields: [], evidence: [],
+            alsoSentTo: "Also sent to your Mac", presenceNote: presenceNote, allowLabel: "Allow once",
+            needsMac: needsMac)
+    }
+
+    @Test func aNeedsMacCardNeverAsksForPresenceAndSendsNoAllow() async {
+        let presence = RecordingPresence()
+        let sent = Counter()
+        // Even with a stray presence note, a needs-Mac card never calls the presence check.
+        for note in [nil, "Payments need Face ID on this phone."] as [String?] {
+            let flow = AnswerFlow()
+            await flow.answer(.allow, on: detail(presenceNote: note, needsMac: true), presence: presence, confirmation: "x") {
+                await sent.bump()
+            }
+            #expect(flow.stage == .failed(AnswerFlow.needsMacMessage))
+            let denied = AnswerFlow()
+            await denied.answer(.deny, on: detail(presenceNote: note, needsMac: true), presence: presence, confirmation: "Denied.") {
+                await sent.bump()
+            }
+            #expect(denied.stage == .answered("Denied."))
+        }
+        #expect(presence.asked == 0)
+        #expect(await sent.value == 2)
+    }
+
+    @Test func aCardThePhoneHoldsNoAnswerForSendsNoDeny() async {
+        let presence = RecordingPresence()
+        let sent = Counter()
+        let card = ApprovalDetail(
+            kindLabel: "Purchase", title: "Pay $5", summary: "", fields: [], evidence: [],
+            alsoSentTo: "Also sent to your Mac", presenceNote: nil, allowLabel: "Allow once",
+            needsMac: true, canDeny: false)
+        for decision in [ApprovalDecision.allow, .deny] {
+            let flow = AnswerFlow()
+            await flow.answer(decision, on: card, presence: presence, confirmation: "x") { await sent.bump() }
+            #expect(flow.stage == .failed(AnswerFlow.needsMacMessage))
+        }
+        #expect(presence.asked == 0)
+        #expect(await sent.value == 0)
+    }
+
+    @Test func onlyAPaymentThePhoneAnswersAsksForPresence() async {
+        let presence = RecordingPresence()
+        let tap = AnswerFlow()
+        await tap.answer(.allow, on: detail(presenceNote: nil, needsMac: false), presence: presence, confirmation: "Allowed.") { }
+        #expect(tap.stage == .answered("Allowed."))
+        #expect(presence.asked == 0)
+        let payment = AnswerFlow()
+        await payment.answer(
+            .allow, on: detail(presenceNote: "Payments need Face ID on this phone.", needsMac: false), presence: presence,
+            confirmation: "Allowed.") { }
+        #expect(payment.stage == .answered("Allowed."))
+        #expect(presence.asked == 1)
+    }
+
     @Test func gatewayErrorShowsItsMessageAndTryAgainRuns() async {
         let flow = AnswerFlow()
         let attempts = Counter()

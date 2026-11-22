@@ -98,7 +98,7 @@ export const MachineInfo = Type.Object(
     }),
     files: Type.Object({ roots: Type.Array(MachineFileRoot) }),
     account: StringEnum(["own", "dedicated"], { $id: "MachineAccount" }),
-    /** Who can change the box's `policy.json`: `root` (deb/rpm) or the owner's account (tarball). */
+    /** Who can change the box's `policy.json`. No Linux helper sends `root`: its limits file may be root's, but that is not enforced against the account, so it always says `user`. */
     policyOwner: StringEnum(["root", "user"], { $id: "MachinePolicyOwner" }),
     passwordlessSudo: Type.Boolean(),
     helperVersion: Nullable(Type.String({ maxLength: 64 })),

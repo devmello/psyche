@@ -9,6 +9,8 @@
 //   let accessEntry = try? JSONDecoder().decode(AccessEntry.self, from: jsonData)
 //   let accessListParams = try? JSONDecoder().decode(AccessListParams.self, from: jsonData)
 //   let accessListResult = try? JSONDecoder().decode(AccessListResult.self, from: jsonData)
+//   let accessReconnectFolderParams = try? JSONDecoder().decode(AccessReconnectFolderParams.self, from: jsonData)
+//   let accessReconnectFolderResult = try? JSONDecoder().decode(AccessReconnectFolderResult.self, from: jsonData)
 //   let accessRevokeParams = try? JSONDecoder().decode(AccessRevokeParams.self, from: jsonData)
 //   let accessRevokeResult = try? JSONDecoder().decode(AccessRevokeResult.self, from: jsonData)
 //   let actionCall = try? JSONDecoder().decode(ActionCall.self, from: jsonData)
@@ -238,6 +240,7 @@
 //   let browserBotAuthStatusResult = try? JSONDecoder().decode(BrowserBotAuthStatusResult.self, from: jsonData)
 //   let browserCloseParams = try? JSONDecoder().decode(BrowserCloseParams.self, from: jsonData)
 //   let browserController = try? JSONDecoder().decode(BrowserController.self, from: jsonData)
+//   let browserCookieImportRecordParams = try? JSONDecoder().decode(BrowserCookieImportRecordParams.self, from: jsonData)
 //   let browserDriverKind = try? JSONDecoder().decode(BrowserDriverKind.self, from: jsonData)
 //   let browserOpenParams = try? JSONDecoder().decode(BrowserOpenParams.self, from: jsonData)
 //   let browserOpenResult = try? JSONDecoder().decode(BrowserOpenResult.self, from: jsonData)
@@ -425,6 +428,9 @@
 //   let contextLimits = try? JSONDecoder().decode(ContextLimits.self, from: jsonData)
 //   let contextUsage = try? JSONDecoder().decode(ContextUsage.self, from: jsonData)
 //   let conversionTarget = try? JSONDecoder().decode(ConversionTarget.self, from: jsonData)
+//   let cookieImportAction = try? JSONDecoder().decode(CookieImportAction.self, from: jsonData)
+//   let cookieImportBrowser = try? JSONDecoder().decode(CookieImportBrowser.self, from: jsonData)
+//   let cookieImportSite = try? JSONDecoder().decode(CookieImportSite.self, from: jsonData)
 //   let credentialBinding = try? JSONDecoder().decode(CredentialBinding.self, from: jsonData)
 //   let credentialKind = try? JSONDecoder().decode(CredentialKind.self, from: jsonData)
 //   let credentialMeta = try? JSONDecoder().decode(CredentialMeta.self, from: jsonData)
@@ -1461,6 +1467,11 @@
 //   let spaceLink = try? JSONDecoder().decode(SpaceLink.self, from: jsonData)
 //   let spaceLinkKind = try? JSONDecoder().decode(SpaceLinkKind.self, from: jsonData)
 //   let spaceLinkProvenance = try? JSONDecoder().decode(SpaceLinkProvenance.self, from: jsonData)
+//   let spaceMigrationOffer = try? JSONDecoder().decode(SpaceMigrationOffer.self, from: jsonData)
+//   let spaceMigrationProject = try? JSONDecoder().decode(SpaceMigrationProject.self, from: jsonData)
+//   let spaceOfferRule = try? JSONDecoder().decode(SpaceOfferRule.self, from: jsonData)
+//   let spaceOfferWidget = try? JSONDecoder().decode(SpaceOfferWidget.self, from: jsonData)
+//   let spaceOffers = try? JSONDecoder().decode(SpaceOffers.self, from: jsonData)
 //   let spaceProposal = try? JSONDecoder().decode(SpaceProposal.self, from: jsonData)
 //   let spaceProposalCreatedPayload = try? JSONDecoder().decode(SpaceProposalCreatedPayload.self, from: jsonData)
 //   let spaceProposalStatus = try? JSONDecoder().decode(SpaceProposalStatus.self, from: jsonData)
@@ -1488,6 +1499,13 @@
 //   let spacesLinksRemoveParams = try? JSONDecoder().decode(SpacesLinksRemoveParams.self, from: jsonData)
 //   let spacesListParams = try? JSONDecoder().decode(SpacesListParams.self, from: jsonData)
 //   let spacesListResult = try? JSONDecoder().decode(SpacesListResult.self, from: jsonData)
+//   let spacesMigrationApplyParams = try? JSONDecoder().decode(SpacesMigrationApplyParams.self, from: jsonData)
+//   let spacesMigrationApplyResult = try? JSONDecoder().decode(SpacesMigrationApplyResult.self, from: jsonData)
+//   let spacesMigrationDismissParams = try? JSONDecoder().decode(SpacesMigrationDismissParams.self, from: jsonData)
+//   let spacesMigrationOfferParams = try? JSONDecoder().decode(SpacesMigrationOfferParams.self, from: jsonData)
+//   let spacesMigrationOfferResult = try? JSONDecoder().decode(SpacesMigrationOfferResult.self, from: jsonData)
+//   let spacesOffersDismissParams = try? JSONDecoder().decode(SpacesOffersDismissParams.self, from: jsonData)
+//   let spacesOffersListParams = try? JSONDecoder().decode(SpacesOffersListParams.self, from: jsonData)
 //   let spacesOpenParams = try? JSONDecoder().decode(SpacesOpenParams.self, from: jsonData)
 //   let spacesOpenResult = try? JSONDecoder().decode(SpacesOpenResult.self, from: jsonData)
 //   let spacesProposalsAcceptParams = try? JSONDecoder().decode(SpacesProposalsAcceptParams.self, from: jsonData)
@@ -1888,6 +1906,8 @@ public struct AccessEntry: Codable, Sendable {
     public let moved: Bool?
     public let movedTo: String?
     public let path: String?
+    public let reconnectBlocked: Bool?
+    public let reconnectTo: String?
     public let refused: Bool?
     public let scope: AccessEntryScope
     public let since: String?
@@ -1908,6 +1928,8 @@ public struct AccessEntry: Codable, Sendable {
         case moved = "moved"
         case movedTo = "movedTo"
         case path = "path"
+        case reconnectBlocked = "reconnectBlocked"
+        case reconnectTo = "reconnectTo"
         case refused = "refused"
         case scope = "scope"
         case since = "since"
@@ -1917,7 +1939,7 @@ public struct AccessEntry: Codable, Sendable {
         case type = "type"
     }
 
-    public init(automationsWrite: Bool? = nil, file: Bool? = nil, grantID: String? = nil, id: String, kind: ApprovalKind? = nil, label: String, lastUsedAt: String? = nil, mode: FolderModeEnum? = nil, moved: Bool? = nil, movedTo: String? = nil, path: String? = nil, refused: Bool? = nil, scope: AccessEntryScope, since: String? = nil, spaceID: String? = nil, spaceName: String? = nil, threadID: String? = nil, type: AccessEntryType) {
+    public init(automationsWrite: Bool? = nil, file: Bool? = nil, grantID: String? = nil, id: String, kind: ApprovalKind? = nil, label: String, lastUsedAt: String? = nil, mode: FolderModeEnum? = nil, moved: Bool? = nil, movedTo: String? = nil, path: String? = nil, reconnectBlocked: Bool? = nil, reconnectTo: String? = nil, refused: Bool? = nil, scope: AccessEntryScope, since: String? = nil, spaceID: String? = nil, spaceName: String? = nil, threadID: String? = nil, type: AccessEntryType) {
         self.automationsWrite = automationsWrite
         self.file = file
         self.grantID = grantID
@@ -1929,6 +1951,8 @@ public struct AccessEntry: Codable, Sendable {
         self.moved = moved
         self.movedTo = movedTo
         self.path = path
+        self.reconnectBlocked = reconnectBlocked
+        self.reconnectTo = reconnectTo
         self.refused = refused
         self.scope = scope
         self.since = since
@@ -1985,6 +2009,35 @@ public enum AccessEntryScope: String, Codable, Sendable {
 public enum AccessEntryType: String, Codable, Sendable {
     case folder = "folder"
     case grant = "grant"
+}
+
+// MARK: - AccessReconnectFolderParams
+public struct AccessReconnectFolderParams: Codable, Sendable {
+    public let entryID: String
+    public let to: String
+
+    public enum CodingKeys: String, CodingKey {
+        case entryID = "entryId"
+        case to = "to"
+    }
+
+    public init(entryID: String, to: String) {
+        self.entryID = entryID
+        self.to = to
+    }
+}
+
+// MARK: - AccessReconnectFolderResult
+public struct AccessReconnectFolderResult: Codable, Sendable {
+    public let reconnected: Bool
+
+    public enum CodingKeys: String, CodingKey {
+        case reconnected = "reconnected"
+    }
+
+    public init(reconnected: Bool) {
+        self.reconnected = reconnected
+    }
 }
 
 // MARK: - AccessRevokeParams
@@ -8158,6 +8211,55 @@ public struct BrowserCloseParams: Codable, Sendable {
 
     public init(tabID: String) {
         self.tabID = tabID
+    }
+}
+
+// MARK: - BrowserCookieImportRecordParams
+public struct BrowserCookieImportRecordParams: Codable, Sendable {
+    public let action: CookieImportAction
+    public let browser: CookieImportBrowser
+    public let sites: [CookieImportSite]
+
+    public enum CodingKeys: String, CodingKey {
+        case action = "action"
+        case browser = "browser"
+        case sites = "sites"
+    }
+
+    public init(action: CookieImportAction, browser: CookieImportBrowser, sites: [CookieImportSite]) {
+        self.action = action
+        self.browser = browser
+        self.sites = sites
+    }
+}
+
+public enum CookieImportAction: String, Codable, Sendable {
+    case imported = "imported"
+    case removed = "removed"
+}
+
+public enum CookieImportBrowser: String, Codable, Sendable {
+    case arc = "arc"
+    case brave = "brave"
+    case chrome = "chrome"
+    case edge = "edge"
+    case firefox = "firefox"
+    case safari = "safari"
+}
+
+// MARK: - CookieImportSite
+public struct CookieImportSite: Codable, Sendable {
+    public let cookies: Int
+    public let domain: String
+
+    public enum CodingKeys: String, CodingKey {
+        case cookies = "cookies"
+        case domain = "domain"
+    }
+
+    public init(cookies: Int, domain: String) {
+        self.cookies = cookies
+        self.domain = domain
     }
 }
 
@@ -27645,7 +27747,7 @@ public struct PrepareUpdateResult: Codable, Sendable {
 public struct UpdateBusy: Codable, Sendable {
     /// Chat (and automation) turns running right now
     public let activeChats: Int
-    public let chats: [ChatElement]
+    public let chats: [UpdateBusyChat]
     /// Approvals waiting for the owner; the runs parked on them resume after a restart
     public let pendingApprovals: Int
     /// Recordings in progress that the Gateway knows of (a Mac app being recorded)
@@ -27663,7 +27765,7 @@ public struct UpdateBusy: Codable, Sendable {
         case tasks = "tasks"
     }
 
-    public init(activeChats: Int, chats: [ChatElement], pendingApprovals: Int, recordings: Int, runningTasks: Int, tasks: [TaskElement]) {
+    public init(activeChats: Int, chats: [UpdateBusyChat], pendingApprovals: Int, recordings: Int, runningTasks: Int, tasks: [TaskElement]) {
         self.activeChats = activeChats
         self.chats = chats
         self.pendingApprovals = pendingApprovals
@@ -27673,8 +27775,8 @@ public struct UpdateBusy: Codable, Sendable {
     }
 }
 
-// MARK: - ChatElement
-public struct ChatElement: Codable, Sendable {
+// MARK: - UpdateBusyChat
+public struct UpdateBusyChat: Codable, Sendable {
     public let runID: String
     public let threadID: String
 
@@ -33812,6 +33914,68 @@ public enum SpaceTrackerKind: String, Codable, Sendable {
     case query = "query"
 }
 
+// MARK: - SpaceOffers
+public struct SpaceOffers: Codable, Sendable {
+    public let rules: [SpaceOfferRule]
+    public let widgets: [SpaceOfferWidget]
+
+    public enum CodingKeys: String, CodingKey {
+        case rules = "rules"
+        case widgets = "widgets"
+    }
+
+    public init(rules: [SpaceOfferRule], widgets: [SpaceOfferWidget]) {
+        self.rules = rules
+        self.widgets = widgets
+    }
+}
+
+// MARK: - SpaceOfferRule
+public struct SpaceOfferRule: Codable, Sendable {
+    public let fromThreadID: String
+    public let fromThreadTitle: String
+    /// The pin id, also the dismiss key
+    public let id: String
+    public let text: String
+
+    public enum CodingKeys: String, CodingKey {
+        case fromThreadID = "fromThreadId"
+        case fromThreadTitle = "fromThreadTitle"
+        case id = "id"
+        case text = "text"
+    }
+
+    public init(fromThreadID: String, fromThreadTitle: String, id: String, text: String) {
+        self.fromThreadID = fromThreadID
+        self.fromThreadTitle = fromThreadTitle
+        self.id = id
+        self.text = text
+    }
+}
+
+// MARK: - SpaceOfferWidget
+public struct SpaceOfferWidget: Codable, Sendable {
+    public let fromThreadID: String
+    /// Dismiss key
+    public let id: String
+    public let title: String
+    public let widgetID: String
+
+    public enum CodingKeys: String, CodingKey {
+        case fromThreadID = "fromThreadId"
+        case id = "id"
+        case title = "title"
+        case widgetID = "widgetId"
+    }
+
+    public init(fromThreadID: String, id: String, title: String, widgetID: String) {
+        self.fromThreadID = fromThreadID
+        self.id = id
+        self.title = title
+        self.widgetID = widgetID
+    }
+}
+
 // MARK: - SpaceProposalCreatedPayload
 public struct SpaceProposalCreatedPayload: Codable, Sendable {
     public let proposal: SpaceProposal
@@ -33827,38 +33991,60 @@ public struct SpaceProposalCreatedPayload: Codable, Sendable {
 
 // MARK: - SpaceProposal
 public struct SpaceProposal: Codable, Sendable {
+    public let chats: [SpaceProposalChat]?
     public let createdAt: String
     public let decidedAt: String?
     public let entityID: String?
     public let id: String
     public let name: String
+    public let projectName: String?
     public let reason: String
     public let status: SpaceProposalStatus
     public let taint: [TaintSource]
     public let threadIDS: [String]
 
     public enum CodingKeys: String, CodingKey {
+        case chats = "chats"
         case createdAt = "createdAt"
         case decidedAt = "decidedAt"
         case entityID = "entityId"
         case id = "id"
         case name = "name"
+        case projectName = "projectName"
         case reason = "reason"
         case status = "status"
         case taint = "taint"
         case threadIDS = "threadIds"
     }
 
-    public init(createdAt: String, decidedAt: String? = nil, entityID: String? = nil, id: String, name: String, reason: String, status: SpaceProposalStatus, taint: [TaintSource], threadIDS: [String]) {
+    public init(chats: [SpaceProposalChat]? = nil, createdAt: String, decidedAt: String? = nil, entityID: String? = nil, id: String, name: String, projectName: String? = nil, reason: String, status: SpaceProposalStatus, taint: [TaintSource], threadIDS: [String]) {
+        self.chats = chats
         self.createdAt = createdAt
         self.decidedAt = decidedAt
         self.entityID = entityID
         self.id = id
         self.name = name
+        self.projectName = projectName
         self.reason = reason
         self.status = status
         self.taint = taint
         self.threadIDS = threadIDS
+    }
+}
+
+// MARK: - SpaceProposalChat
+public struct SpaceProposalChat: Codable, Sendable {
+    public let id: String
+    public let title: String
+
+    public enum CodingKeys: String, CodingKey {
+        case id = "id"
+        case title = "title"
+    }
+
+    public init(id: String, title: String) {
+        self.id = id
+        self.title = title
     }
 }
 
@@ -34236,6 +34422,113 @@ public struct SpaceSummary: Codable, Sendable {
         self.name = name
         self.spaceSummaryPrivate = spaceSummaryPrivate
         self.sort = sort
+    }
+}
+
+// MARK: - SpacesMigrationApplyParams
+public struct SpacesMigrationApplyParams: Codable, Sendable {
+    public let entityIDS: [String]
+
+    public enum CodingKeys: String, CodingKey {
+        case entityIDS = "entityIds"
+    }
+
+    public init(entityIDS: [String]) {
+        self.entityIDS = entityIDS
+    }
+}
+
+// MARK: - SpacesMigrationApplyResult
+public struct SpacesMigrationApplyResult: Codable, Sendable {
+    public let spaces: [Space]
+
+    public enum CodingKeys: String, CodingKey {
+        case spaces = "spaces"
+    }
+
+    public init(spaces: [Space]) {
+        self.spaces = spaces
+    }
+}
+
+// MARK: - SpacesMigrationOfferResult
+public struct SpacesMigrationOfferResult: Codable, Sendable {
+    public let offer: SpaceMigrationOffer?
+
+    public enum CodingKeys: String, CodingKey {
+        case offer = "offer"
+    }
+
+    public init(offer: SpaceMigrationOffer? = nil) {
+        self.offer = offer
+    }
+}
+
+// MARK: - SpaceMigrationOffer
+public struct SpaceMigrationOffer: Codable, Sendable {
+    public let projects: [SpaceMigrationProject]
+
+    public enum CodingKeys: String, CodingKey {
+        case projects = "projects"
+    }
+
+    public init(projects: [SpaceMigrationProject]) {
+        self.projects = projects
+    }
+}
+
+// MARK: - SpaceMigrationProject
+public struct SpaceMigrationProject: Codable, Sendable {
+    public let anchors: Int
+    public let entityID: String
+    /// Listed in the Space as "shared everywhere"
+    public let folders: Int
+    public let name: String
+    public let threads: Int
+
+    public enum CodingKeys: String, CodingKey {
+        case anchors = "anchors"
+        case entityID = "entityId"
+        case folders = "folders"
+        case name = "name"
+        case threads = "threads"
+    }
+
+    public init(anchors: Int, entityID: String, folders: Int, name: String, threads: Int) {
+        self.anchors = anchors
+        self.entityID = entityID
+        self.folders = folders
+        self.name = name
+        self.threads = threads
+    }
+}
+
+// MARK: - SpacesOffersDismissParams
+public struct SpacesOffersDismissParams: Codable, Sendable {
+    public let offerID: String
+    public let spaceID: String
+
+    public enum CodingKeys: String, CodingKey {
+        case offerID = "offerId"
+        case spaceID = "spaceId"
+    }
+
+    public init(offerID: String, spaceID: String) {
+        self.offerID = offerID
+        self.spaceID = spaceID
+    }
+}
+
+// MARK: - SpacesOffersListParams
+public struct SpacesOffersListParams: Codable, Sendable {
+    public let spaceID: String
+
+    public enum CodingKeys: String, CodingKey {
+        case spaceID = "spaceId"
+    }
+
+    public init(spaceID: String) {
+        self.spaceID = spaceID
     }
 }
 
@@ -40999,6 +41292,8 @@ public typealias SearchSourcesParams = [String: JSONAny]
 public typealias SearchStatusParams = [String: JSONAny]
 public typealias SecurityStateGetParams = [String: JSONAny]
 public typealias Settings = [String: JSONAny]
+public typealias SpacesMigrationDismissParams = [String: JSONAny]
+public typealias SpacesMigrationOfferParams = [String: JSONAny]
 public typealias SpecialistsListParams = [String: JSONAny]
 public typealias SpeechEngineDownloadParams = [String: JSONAny]
 public typealias SpeechEngineStatusParams = [String: JSONAny]

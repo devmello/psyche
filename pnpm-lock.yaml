@@ -262,6 +262,9 @@ importers:
       react-dom:
         specifier: 19.3.1
         version: 19.3.1(react@19.3.1)
+      tldts:
+        specifier: 7.5.4
+        version: 7.5.4
     devDependencies:
       '@electron-forge/cli':
         specifier: 8.0.1

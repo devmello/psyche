@@ -154,3 +154,60 @@ describe("files.read", () => {
     expect(await codeOf(run("files.read", { libraryPath: "." }))).toBe("forbidden");
   });
 });
+
+describe("video files are range-served through the same granted-folder path (inline video)", () => {
+  // 3 chunks plus a tail: a player seeking asks for ranges of a large file, never the whole.
+  const size = FILE_CHUNK_BYTES * 2 + 1234;
+  const video = () => {
+    const b = Buffer.alloc(size);
+    Buffer.from([0, 0, 0, 0x18, 0x66, 0x74, 0x79, 0x70, 0x6d, 0x70, 0x34, 0x32]).copy(b);
+    for (let i = 12; i < size; i++) b[i] = i % 251;
+    return b;
+  };
+
+  it("returns exactly the asked range, a chunk at a time, with a stable etag", async () => {
+    const bytes = video();
+    await writeFile(join(granted, "clip.mp4"), bytes);
+    const a = await run("files.read", { path: join(granted, "clip.mp4") });
+    expect(a.mime).toBe("video/mp4");
+    expect(a.size).toBe(size);
+    expect(a.nextOffset).toBe(FILE_CHUNK_BYTES);
+    const mid = await run("files.read", {
+      path: join(granted, "clip.mp4"),
+      offset: 1_000_000,
+      length: 100,
+    });
+    expect(
+      Buffer.from(mid.bytes as string, "base64").equals(bytes.subarray(1_000_000, 1_000_100)),
+    ).toBe(true);
+    const tail = await run("files.read", {
+      path: join(granted, "clip.mp4"),
+      offset: FILE_CHUNK_BYTES * 2,
+    });
+    expect(tail.nextOffset).toBeNull();
+    expect(Buffer.from(tail.bytes as string, "base64").length).toBe(1234);
+    expect(tail.etag).toBe(a.etag);
+  });
+
+  it("types mov, webm and m4v by name", async () => {
+    for (const [name, mime] of [
+      ["a.mov", "video/quicktime"],
+      ["a.webm", "video/webm"],
+      ["a.m4v", "video/x-m4v"],
+    ] as const) {
+      await writeFile(join(granted, name), Buffer.from([0, 1, 2]));
+      expect((await run("files.read", { path: join(granted, name) })).mime).toBe(mime);
+    }
+  });
+
+  it("gives video no more access than an image: outside the grant, a link, or past the end", async () => {
+    await writeFile(join(outside, "x.mp4"), Buffer.from([0, 1, 2]));
+    expect(await codeOf(run("files.read", { path: join(outside, "x.mp4") }))).toBe("forbidden");
+    await symlink(join(outside, "x.mp4"), join(granted, "l.mp4"));
+    expect(await codeOf(run("files.read", { path: join(granted, "l.mp4") }))).not.toBe("ok");
+    await writeFile(join(granted, "c.mp4"), Buffer.from([0, 1, 2]));
+    expect(await codeOf(run("files.read", { path: join(granted, "c.mp4"), offset: 99 }))).toBe(
+      "invalid_params",
+    );
+  });
+});

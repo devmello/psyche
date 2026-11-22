@@ -154,6 +154,8 @@ export const fr: Partial<Catalogue> = {
   "errors.reason.connected_with_other_client":
     "Google est connecté avec un autre client. Déconnectez d'abord Google, puis changez de client.",
   "errors.reason.secret_required": "Un autre client a besoin de son propre secret client.",
+  "errors.reason.project_private":
+    "Ce projet est privé, il ne peut donc pas avoir de Space. Désactivez d’abord Garder privé.",
   "errors.reason.updating":
     "Psyche va redémarrer pour installer une mise à jour. Réessayez dans un instant.",
   "errors.reason.space_main_chat":

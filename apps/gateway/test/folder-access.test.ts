@@ -8,11 +8,14 @@ import {
   type PsychePermissionBroker,
   type SpaceFolderRecord,
 } from "@psyche/permissions";
-import { beforeEach, describe, expect, it } from "vitest";
+import { beforeEach, describe, expect, it, vi } from "vitest";
 import {
+  repointFolders,
   requestFolderAccessTool,
   withFolder,
   withRecordedReal,
+  withRecordedRef,
+  withRepointed,
 } from "../src/compose/folder-access.ts";
 
 /**
@@ -323,6 +326,103 @@ async function answerPending(id: string, scope: "once" | "always" | "deny", fold
     decidedBy: DEVICE,
   });
 }
+
+describe("withRecordedRef, withRepointed and repointFolders (folder reconnect)", () => {
+  const ref = { dev: "1", ino: "2", birth: "3" };
+  type P = {
+    folders: { path: string; mode: "ro" | "rw"; real?: string; ref?: typeof ref }[];
+  };
+
+  it("records the identity, and takes a new one when the folder at the path changed", () => {
+    const policy: P = { folders: [{ path: "/a", mode: "ro" }] };
+    const next = withRecordedRef(policy, "/a", ref);
+    expect(next?.folders[0]?.ref).toEqual(ref);
+    expect(withRecordedRef(next as P, "/a", ref)).toBeUndefined();
+    const again = withRecordedRef(next as P, "/a", { ...ref, birth: "9" });
+    expect(again?.folders[0]?.ref?.birth).toBe("9");
+    expect(withRecordedRef(policy, "/missing", ref)).toBeUndefined();
+  });
+
+  it("re-points a folder and its narrower override together, in place", () => {
+    const policy: P = {
+      folders: [
+        { path: "/w/A", mode: "rw", real: "/w/A", ref },
+        { path: "/w/A/secret", mode: "ro", real: "/w/A/secret", ref },
+        { path: "/b", mode: "ro" },
+      ],
+    };
+    const out = withRepointed(policy, [
+      { from: "/w/A", to: "/w/A2" },
+      { from: "/w/A/secret", to: "/w/A2/secret" },
+    ]);
+    expect(out?.folders).toEqual([
+      { path: "/w/A2", mode: "rw", real: "/w/A2", ref },
+      { path: "/w/A2/secret", mode: "ro", real: "/w/A2/secret", ref },
+      { path: "/b", mode: "ro" },
+    ]);
+  });
+
+  it("is all or nothing: a missing entry or a target that is another entry refuses the write", () => {
+    const policy: P = {
+      folders: [
+        { path: "/a", mode: "rw" },
+        { path: "/b", mode: "ro" },
+      ],
+    };
+    expect(withRepointed(policy, [{ from: "/a", to: "/b" }])).toBeUndefined();
+    expect(withRepointed(policy, [{ from: "/zzz", to: "/c" }])).toBeUndefined();
+    expect(
+      withRepointed(policy, [
+        { from: "/a", to: "/c" },
+        { from: "/zzz", to: "/d" },
+      ]),
+    ).toBeUndefined();
+  });
+
+  it("writes once, applies the policy and reports the owner's device's setting change", () => {
+    const stored: P = { folders: [{ path: "/a", mode: "rw", real: "/a", ref }] };
+    const calls: string[] = [];
+    const report = vi.fn();
+    const ok = repointFolders<P>(
+      {
+        read: () => ({ value: stored, policy: stored }),
+        write: (next) => {
+          calls.push("write");
+          return { saved: next };
+        },
+        applied: (next) => calls.push(`applied:${next.folders[0]?.path}`),
+        report,
+      },
+      [{ from: "/a", to: "/c" }],
+      { deviceId: "dev_admin" },
+    );
+    expect(ok).toBe(true);
+    expect(calls).toEqual(["write", "applied:/c"]);
+    expect(report).toHaveBeenCalledWith({
+      key: "permissions.policy",
+      before: stored,
+      after: expect.objectContaining({ folders: [expect.objectContaining({ path: "/c" })] }),
+      deviceId: "dev_admin",
+    });
+  });
+
+  it("a reporting failure never undoes the change, and nothing is written for a refused move", () => {
+    const stored: P = { folders: [{ path: "/a", mode: "rw" }] };
+    const write = vi.fn();
+    const deps = {
+      read: () => ({ value: stored, policy: stored }),
+      write,
+      applied: vi.fn(),
+      report: () => {
+        throw new Error("listener");
+      },
+    };
+    expect(repointFolders<P>(deps, [{ from: "/a", to: "/c" }], { deviceId: "d" })).toBe(true);
+    write.mockClear();
+    expect(repointFolders<P>(deps, [{ from: "/gone", to: "/c" }], { deviceId: "d" })).toBe(false);
+    expect(write).not.toHaveBeenCalled();
+  });
+});
 
 describe("Allow in this Space: what the tool tells the agent (spaces-2026 §5.3)", () => {
   let addFails: boolean;

@@ -91,6 +91,21 @@ export const PolicyConfig = Type.Object(
              * Settings write, or the first look at an older grant). See `grantedRootRefused`.
              */
             real: Type.Optional(Type.String({ minLength: 1 })),
+            /**
+             * The folder's identity (volume id and inode) when it was granted, set by the Gateway
+             * only. After a rename or move Settings offers to reconnect the grant to the folder
+             * with this identity (`checkReconnect`); it never re-points on its own.
+             */
+            ref: Type.Optional(
+              Type.Object(
+                {
+                  dev: Type.String({ minLength: 1 }),
+                  ino: Type.String({ minLength: 1 }),
+                  birth: Type.String({ minLength: 1 }),
+                },
+                { additionalProperties: false },
+              ),
+            ),
           },
           { additionalProperties: false },
         ),

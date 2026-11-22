@@ -7,18 +7,19 @@ import type { Call } from "./context.ts";
 import { INTERNAL_SETTING_PREFIX } from "./state-version.ts";
 
 /**
- * Fresh user presence for security changes (security §10): Touch ID through the helper, or a
- * passkey on the web. A gated call first fails `approval_required` with `details.approvalId`: a
- * device-only `policy_change` card bound to the exact change, which the broker accepts only with
- * a verified presence assertion. The retry with that `approvalId` goes through, once.
+ * The owner's approval for security changes (security §10). Presence (Touch ID, a passkey) is for
+ * payments only (owner's decision, 2026-11-09), so a gated call first fails `approval_required`
+ * with `details.approvalId`: a device-only `policy_change` card bound to the exact change, which
+ * the owner approves with a plain tap. The retry with that `approvalId` goes through, once. Only
+ * `strong` calls (enrolling a verifier) also need a verified presence assertion.
  *
  * - `ready`: some verifier can verify (a registered helper key, a passkey, an explicit one).
  * - `off`: none ever could, so a fresh install still works with `operator.admin` alone.
  * - `unavailable`: one could before (sticky, in the database) but none can now, for example
  *   after the owner's passkey device was revoked. Gated calls fail closed with
- *   `presence_required` instead of falling back to `operator.admin`: otherwise revoking the
- *   owner's device would switch the gate off. `psyched presence reset` on the machine clears it,
- *   24 hours later (a recovery every device shows) or at once with presence from an admin device.
+ *   the card (and enrolling a verifier, `presence_required`) instead of falling back to
+ *   `operator.admin`: otherwise revoking the owner's device would switch the gate off.
+ *   `psyched presence reset` on the machine clears it, 24 hours later (a recovery every device shows) or at once with presence from an admin device.
  */
 export type PresenceState = "ready" | "unavailable" | "off";
 

@@ -1,4 +1,5 @@
 import { existsSync, rmSync, writeFileSync } from "node:fs";
+import { homedir, tmpdir } from "node:os";
 import { join } from "node:path";
 import {
   hasEncryptedRecordings,
@@ -38,6 +39,8 @@ import {
   isAgentActionMethod,
   isAllowedNavigationUrl,
 } from "./cdp-policy.ts";
+import { CookieImporter, type CookieImportRecord } from "./cookie-import/importer.ts";
+import { readKeychainPassword } from "./cookie-import/read.ts";
 import { forgetDetected, refreshDetected } from "./detected-sessions.ts";
 import { ensureQuarantineDir, quarantinePath, setQuarantineAttribute } from "./downloads.ts";
 import { FORM_READ_SCRIPT, httpsOrigin, LoginCapture, parseFormSnapshot } from "./login-capture.ts";
@@ -88,6 +91,8 @@ export interface BrowserHostOptions {
   now?: () => number;
   /** The shell renderer's zoom factor, so its CSS-pixel pane rect maps to window pixels. */
   rendererZoom?: () => number;
+  /** Main → Gateway `browser.cookieImport.record`: the audit entry (counts and domains). */
+  recordCookieImport?: (entry: CookieImportRecord) => Promise<void>;
 }
 
 export interface BrowserHostEvents extends BridgeHostEvents {
@@ -217,8 +222,11 @@ export class BrowserHost implements BridgeTabHost {
   private bridgeConnected = false;
   private stateTimer: ReturnType<typeof setTimeout> | undefined;
   private disposed = false;
+  private importer: CookieImporter | undefined;
+  private readonly recordCookieImport: BrowserHostOptions["recordCookieImport"];
 
   constructor(opts: BrowserHostOptions) {
+    this.recordCookieImport = opts.recordCookieImport;
     this.win = opts.window;
     this.home = opts.psycheHome;
     this.userData = opts.userData;
@@ -1325,6 +1333,33 @@ export class BrowserHost implements BridgeTabHost {
     return done || cleared;
   }
 
+  /**
+   * "Import sign-ins from…" (Settings → Browser). Reached only from the app window's IPC; it
+   * writes into this profile's session and nowhere else.
+   */
+  cookieImport(): CookieImporter {
+    if (this.importer !== undefined) return this.importer;
+    const profile = loggedInPartition(this.profileName);
+    this.importer = new CookieImporter({
+      homeDir: homedir(),
+      psycheHome: this.home,
+      tmpRoot: tmpdir(),
+      platform: process.platform,
+      profile: () => {
+        this.prepareSession(profile);
+        return session.fromPartition(profile);
+      },
+      readKeychain: readKeychainPassword,
+      ...(this.recordCookieImport ? { record: this.recordCookieImport } : {}),
+    });
+    return this.importer;
+  }
+
+  /** Sends the queued cookie-import audit entries (local Gateway, admin, in order). */
+  flushCookieImportAudit(): Promise<number> {
+    return this.cookieImport().flushAudit();
+  }
+
   answerPrompt(promptId: string, action: SignInPromptAnswer): Promise<void> {
     return this.prompts.answer(promptId, action);
   }
@@ -1391,6 +1426,7 @@ export class BrowserHost implements BridgeTabHost {
 
   dispose(): void {
     this.disposed = true;
+    this.importer?.dispose();
     clearTimeout(this.stateTimer);
     clearInterval(this.discardTimer);
     this.capturePoller.stop();

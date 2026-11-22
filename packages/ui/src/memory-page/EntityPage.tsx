@@ -6,6 +6,7 @@ import { useGatewayQuery } from "../data/hooks.ts";
 import { t } from "../i18n/core.ts";
 import { ConnectedEntityCard } from "../people/ConnectedEntityCard.tsx";
 import { entityHref, kindForEntity, memoryHref } from "./kinds.ts";
+import { SpaceButton } from "./SpaceButton.tsx";
 
 /**
  * One person, project or place at page width, inside the Memory page
@@ -44,17 +45,20 @@ export function EntityPage({
           <ArrowLeft aria-hidden="true" className="rtl:rotate-180" />
           {t("memory.page.back", { tab: back })}
         </Button>
-        {canContinue ? (
-          <Button
-            type="button"
-            size="sm"
-            variant="outline"
-            onClick={() => continueInChat(continueItemOf(data))}
-          >
-            <MessageSquare aria-hidden="true" />
-            {t("memory.page.continue")}
-          </Button>
-        ) : null}
+        <div className="flex items-center gap-1.5">
+          {data === undefined ? null : <SpaceButton entity={data.entity} onNavigate={onNavigate} />}
+          {canContinue ? (
+            <Button
+              type="button"
+              size="sm"
+              variant="outline"
+              onClick={() => continueInChat(continueItemOf(data))}
+            >
+              <MessageSquare aria-hidden="true" />
+              {t("memory.page.continue")}
+            </Button>
+          ) : null}
+        </div>
       </div>
       <ConnectedEntityCard
         key={id}
