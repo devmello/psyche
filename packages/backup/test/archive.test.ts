@@ -44,8 +44,13 @@ const EXCLUDED: Record<string, string> = {
   "cli/device.json": '{"privateKey":"never-in-a-backup"}',
   "run/gateway.sock": "not a real socket",
   "logs/gateway.err.log": "log line\n",
+  "logs/gateway.log": "log line\n",
   // Kept recordings of the owner's demonstrations never travel (teach by showing).
   "state/teach/teach_abcdef123456.json": '{"v":1}',
+  // Link's plaintext refresh token (written by the Link CLI) never travels: sign in again after a restore.
+  "vault/link-auth.json": '{"access_token":"never-in-a-backup"}',
+  // The atomic write's temporary sibling holds the same token while it exists.
+  "vault/link-auth.json.tmp-1a2b3c4d": '{"access_token":"never-in-a-backup"}',
 };
 
 /** `mode` on macOS and Linux; on Windows, which has no modes, a DACL for this user only. */
@@ -242,5 +247,26 @@ describe("revocation ledger stays out of backups (S23 design-26)", () => {
       backupCreatedAt: FIXED_NOW.toISOString(),
     });
     expectPrivate(join(target, RESTORE_MARKER), 0o600);
+  });
+
+  it("the marker names the restored database's seal row (security-state M1)", async () => {
+    const home = fixtureHome();
+    const file = join(tempDir(), "b.tar.gz.age");
+    await createBackup(home, file, FAST, "0.0.0-test", { now: FIXED_NOW });
+    const target = join(tempDir(), "restored");
+    const asked: string[] = [];
+    await restoreBackup(file, { kind: "passphrase", passphrase: PASS }, target, {
+      force: false,
+      now: FIXED_NOW,
+      sealRow: async (path) => {
+        asked.push(path);
+        return { gen: 7, mac: "ab".repeat(32) };
+      },
+    });
+    expect(asked).toEqual([join(target, "state", "psyche.sqlite")]);
+    expect(JSON.parse(readFileSync(join(target, RESTORE_MARKER), "utf8"))).toMatchObject({
+      sealGen: "7",
+      sealRowMac: "ab".repeat(32),
+    });
   });
 });

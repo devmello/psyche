@@ -15,6 +15,15 @@ import { useLoadable } from "./useBytes.ts";
 export interface SheetEditorProps extends ViewerProps {
   /** Back to the read-only viewer. Unsaved edits ask first. */
   onClose: () => void;
+  /** Told whenever unsaved edits appear or are saved, so a host can warn before it navigates away. */
+  onDirtyChange?: (dirty: boolean) => void;
+  /** Starts with unsaved edits (a draft the host kept): Save is on from the first frame. */
+  initialDirty?: boolean;
+  /**
+   * Called as the editor goes away with unsaved edits, with the workbook written back in the
+   * file's own format, so a host can keep it as a draft.
+   */
+  onUnsaved?: (bytes: Promise<Uint8Array>) => void;
 }
 
 /** What `fromUniverSnapshot` cannot write back, said before the first save. */
@@ -76,9 +85,17 @@ function EditorSurface(
   const { snapshot, runtime } = props;
   const host = useRef<HTMLDivElement>(null);
   const session = useRef<SheetEditorSession | null>(null);
-  const [dirty, setDirty] = useState(false);
+  const [dirty, setDirty] = useState(props.initialDirty === true);
+  const dirtyNow = useRef(dirty);
+  dirtyNow.current = dirty;
+  const onUnsaved = useRef(props.onUnsaved);
+  onUnsaved.current = props.onUnsaved;
   const [save, setSave] = useState<SaveState>({ kind: "idle" });
   const [confirmClose, setConfirmClose] = useState(false);
+  const { onDirtyChange } = props;
+  useEffect(() => {
+    onDirtyChange?.(dirty);
+  }, [dirty, onDirtyChange]);
 
   useEffect(() => {
     const el = host.current;
@@ -91,6 +108,10 @@ function EditorSurface(
     });
     return () => {
       off();
+      if (dirtyNow.current && onUnsaved.current) {
+        // The snapshot is plain data: it can be written out after the editor is gone.
+        onUnsaved.current(fromUniverSnapshot(s.snapshot(), snapshot.format, snapshot.carry));
+      }
       s.dispose();
       session.current = null;
     };

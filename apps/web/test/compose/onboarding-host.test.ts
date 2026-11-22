@@ -249,53 +249,66 @@ describe("Touch ID key setup", () => {
     expect(touchIdSetup(gateway({}).call, undefined)).toBeUndefined();
   });
 
-  it("reports the bundled key, whether the Gateway holds it and the development switch", async () => {
+  it("reports the bundled key and whether the Gateway holds it", async () => {
+    const g = gateway({
+      "devices.presenceKey.list": () => ({ presenceKeys: [{ deviceId: "d1", keyId: KEY }] }),
+    });
     const port = touchIdSetup(
-      gateway({
-        "devices.presenceKey.list": () => ({ presenceKeys: [{ deviceId: "d1", keyId: KEY }] }),
-        "settings.get": () => ({ settings: { "devices.presence.allowDevFileKey": true } }),
-      }).call,
-      helper({ deviceId: "d1", keyId: KEY, kind: "enclave_file" }),
+      g.call,
+      helper({ deviceId: "d1", keyId: KEY, kind: "windows_hello" }),
     );
     expect(await port?.status()).toEqual({
-      identity: { deviceId: "d1", keyId: KEY, kind: "enclave_file" },
+      identity: { deviceId: "d1", keyId: KEY, kind: "windows_hello" },
       registered: true,
-      allowDevFileKey: true,
     });
+    // Nothing about a development key is read or written any more.
+    expect(g.calls.map((c) => c.method)).not.toContain("settings.get");
+  });
+
+  it("a Mac helper counts as set up once the Gateway lists its device key", async () => {
+    const port = touchIdSetup(
+      gateway({
+        "devices.presenceKey.list": () => ({
+          presenceKeys: [{ deviceId: "d1", keyId: "c".repeat(64), kind: "device_identity" }],
+        }),
+      }).call,
+      helper({ deviceId: "d1" }),
+    );
+    expect(await port?.status()).toEqual({ identity: { deviceId: "d1" }, registered: true });
+  });
+
+  it("a Mac helper that is not paired yet is not set up", async () => {
+    const port = touchIdSetup(
+      gateway({ "devices.presenceKey.list": () => ({ presenceKeys: [] }) }).call,
+      helper({ deviceId: "d1" }),
+    );
+    expect((await port?.status())?.registered).toBe(false);
   });
 
   it("does not count a different key on the same device as registered", async () => {
     const port = touchIdSetup(
       gateway({
         "devices.presenceKey.list": () => ({
-          presenceKeys: [{ deviceId: "d1", keyId: "b".repeat(64) }],
+          presenceKeys: [{ deviceId: "d1", keyId: "b".repeat(64), kind: "windows_hello" }],
         }),
-        "settings.get": () => ({ settings: {} }),
       }).call,
-      helper({ deviceId: "d1", keyId: KEY, kind: "keychain" }),
+      helper({ deviceId: "d1", keyId: KEY, kind: "windows_hello" }),
     );
     expect((await port?.status())?.registered).toBe(false);
   });
 
   it("answers with no identity when the build bundles no helper", async () => {
-    const port = touchIdSetup(
-      gateway({ "settings.get": () => ({ settings: {} }) }).call,
-      helper(null),
-    );
+    const port = touchIdSetup(gateway({}).call, helper(null));
     expect((await port?.status())?.identity).toBeNull();
   });
 
-  it("registers through the desktop's own channel and sets the switch with settings.set", async () => {
-    const h = helper({ deviceId: "d1", keyId: KEY, kind: "enclave_file" });
-    const g = gateway({ "settings.set": () => ({}) });
+  it("registers through the desktop's own channel", async () => {
+    const h = helper({ deviceId: "d1", keyId: KEY, kind: "windows_hello" });
+    const g = gateway({});
     const port = touchIdSetup(g.call, h);
     await port?.register();
     expect(h.register).toHaveBeenCalledOnce();
-    await port?.allowDevFileKey(true);
-    expect(g.calls.at(-1)).toMatchObject({
-      method: "settings.set",
-      params: { key: "devices.presence.allowDevFileKey", value: true },
-    });
+    expect(g.calls).toEqual([]);
   });
 });
 

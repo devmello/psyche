@@ -53,17 +53,7 @@ function Interactive({
       onDelete={(item) => setItems((all) => all.filter((i) => i.id !== item.id))}
       onOpenSettings={noop}
       onEditInChat={noop}
-      onParseEdit={async (item, text) => ({
-        draft: {
-          title: item.title,
-          kind: "cron",
-          schedule: "0 9 * * 1-5",
-          timezone: SCHEDULED_ZONE,
-          prompt: text,
-          humanSchedule: "Every weekday at 9:00 AM",
-        },
-      })}
-      onSaveEdit={async () => {}}
+      onEdit={noop}
       renderHistory={() => (
         <RunHistoryView
           runs={scheduledRuns()}

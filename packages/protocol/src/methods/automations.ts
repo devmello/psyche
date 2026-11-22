@@ -52,6 +52,8 @@ export const AutomationsMethods = {
       lightContext: Type.Optional(Type.Boolean()),
       /** Run each occurrence as a background specialist job (specialists §4.10). */
       specialist: Type.Optional(AutomationSpecialist),
+      /** Run in a Space (spaces §4.2). */
+      spaceId: Type.Optional(Id),
     }),
     result: AutomationResult,
     scope: "operator.write",
@@ -73,6 +75,8 @@ export const AutomationsMethods = {
       scratch: Type.Optional(Nullable(Type.String({ maxLength: 20_000 }))),
       /** null runs it as a plain automation again. */
       specialist: Type.Optional(Nullable(AutomationSpecialist)),
+      /** Move into a Space, or null to move out (spaces §4.2). */
+      spaceId: Type.Optional(Nullable(Id)),
     }),
     result: AutomationResult,
     scope: "operator.write",
@@ -91,6 +95,14 @@ export const AutomationsMethods = {
     sideEffecting: true,
     description:
       "Runs an automation now, outside its schedule. Side-effecting: a duplicate would run it twice.",
+  }),
+  "automations.cancelRetry": defineMethod({
+    params: Type.Object({ runId: Id }),
+    result: Type.Object({ run: AutomationRun }),
+    scope: "operator.write",
+    sideEffecting: true,
+    description:
+      "Cancels a scheduled run that is waiting to retry after a transient model error: the run ends as cancelled (its last error kept in the summary), the automation shows as failed, and Run now is free again. Side-effecting. `conflict` when the run is not waiting to retry (it already started its next attempt, or finished).",
   }),
   "automations.runs": defineMethod({
     params: Type.Object({ automationId: Id, ...pageParams }),

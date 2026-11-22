@@ -249,3 +249,10 @@ export function recorder(result: Partial<ToolResult> = {}) {
   };
   return { seen, execute };
 }
+
+/** Every text part of a request's messages (the turn's context rides in the owner's user message). */
+export function messagesText(request: ModelRequest | undefined): string {
+  return (request?.messages ?? [])
+    .flatMap((m) => m.parts.flatMap((p) => (p.type === "text" ? [p.text] : [])))
+    .join("\n");
+}

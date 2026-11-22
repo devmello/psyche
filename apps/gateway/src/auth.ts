@@ -15,7 +15,9 @@ import {
   findPendingPairingForDevice,
   getDevice,
   getDeviceFamily,
+  getMachineByDevice,
   insertDevice,
+  insertMachine,
   type PsycheDb,
   peekSetupToken,
   touchLastSeen,
@@ -32,13 +34,18 @@ import {
   isHostHelperFamily,
   lanCertSigningPayload,
   type PairingRequest,
+  type PeerCheck,
   PROTOCOL_VERSION,
   PsycheError,
   type ServerBuild,
 } from "@psyche/protocol";
 import type { GatewayLimits } from "./context.ts";
 import type { GatewayIdentity } from "./identity.ts";
+import { machinePairingCardsEnabled, uniqueMachineName } from "./nodes/machines.ts";
+import { recordPeerRefusal } from "./nodes/registry.ts";
 import type { RateLimiter } from "./rate-limit.ts";
+import { stateSealFor } from "./security/state-seal.ts";
+import { helperRestartHint } from "./transports/peer-check.ts";
 
 export const CHALLENGE_TTL_MS = 60_000;
 
@@ -63,9 +70,11 @@ export interface PeerInfo {
    * helper and psyche-node dial: the node socket (`run/node.sock`, 0600) on macOS and Linux, the
    * named pipe `\\.\pipe\psyche-node-<hash>` on Windows (`socket-path.ts`). `vm-relay`: the guest socket (`run/guest.sock`), where
    * the Host helper copies each sandbox guest's vsock stream; whatever the guest says, it is never
-   * the Host's helper and never auto-pairs.
+   * the Host's helper and never auto-pairs. `container-guest`: the per-container socket of a
+   * separate desktop (`nodes/guest-sockets.ts`, `PeerInfo.guest`): a node that proves the
+   * single-use token minted for that container, and nothing else, ever.
    */
-  transport: "ws" | "unix" | "vm-relay";
+  transport: "ws" | "unix" | "vm-relay" | "container-guest";
   remoteLoopback: boolean;
   /** Peer IP for WebSockets, `"unix"` / `"vm-relay"` for the sockets. Rate limits key on it. */
   remoteAddress: string;
@@ -78,6 +87,28 @@ export interface PeerInfo {
   limitKey?: string;
   /** WebSocket `Origin` header; `null` for native clients and Unix-socket nodes. */
   origin: string | null;
+  /**
+   * Set only by the listener of a separate desktop's own socket (`nodes/guest-sockets.ts`), never
+   * from anything the peer sends: which container this socket belongs to, and the one check that
+   * can pair a node on it (the container's single-use pairing token).
+   */
+  guest?: GuestPeer;
+  /**
+   * What the accept-time peer check found for a process on the Linux node socket (design §4.3):
+   * set only by the transport that owns that socket, after it looked at the connecting process,
+   * and never from anything the peer sends. Absent off Linux and on every other transport. A
+   * `mismatch` is never a Host helper.
+   */
+  peerCheck?: PeerCheck;
+  /** The machine reason behind `peerCheck` (logs and `devices.hostHelper.status`). */
+  peerCheckReason?: string;
+  /**
+   * The packaged helper is installed, so the peer check is strict here: only `root_owned` can be
+   * the Host helper. Set with `peerCheck`, by the transport.
+   */
+  peerCheckRequired?: true;
+  /** The platform of this Gateway, set by the node transport (the family rule needs it). */
+  hostPlatform?: NodeJS.Platform;
   /** Identity a trusted proxy claims for the client; shown on the pairing card, never trusted. */
   claimedIdentity?: string | null;
   /**
@@ -89,6 +120,17 @@ export interface PeerInfo {
   lan?: true;
   /** The `Host` header of a LAN connection (names the origin it dialed); `null` otherwise. */
   host?: string | null;
+}
+
+/** A separate desktop's socket, as `verifyChallenge` sees it. */
+export interface GuestPeer {
+  /** The container this socket was made for. */
+  container: string;
+  /**
+   * Spends the container's pairing token. True once, for the token minted for this container at
+   * its start and presented before it expires; false for anything else, always.
+   */
+  redeem(presented: string | undefined, deviceId: string): boolean;
 }
 
 /** The /64 a LAN IPv6 peer is also counted under, or `undefined` (IPv4, loopback, sockets). */
@@ -115,6 +157,14 @@ export interface PairedIdentity {
    */
   desktopShell?: true;
   /**
+   * This connection is the owner's CLI on the Host's own computer (B2): `deviceFamily: cli` over a
+   * loopback WebSocket without an Origin, presenting this launch's handshake secret from
+   * `$PSYCHE_HOME/run`. A TCP forward from another computer (ssh -L, socat, `tailscale serve --tcp`)
+   * is loopback but cannot read that file. It grants nothing by itself: `isLocalAdminCli` also needs
+   * the device to hold `operator.admin`.
+   */
+  localHostCli?: true;
+  /**
    * This connection is the Host's own helper: a `mac-helper` or `win-helper` node on the local
    * node transport that presented the per-launch handshake secret at this connect. The secret lives in
    * `$PSYCHE_HOME/run`, which the sandbox guest and any other machine cannot read, so neither a
@@ -122,11 +172,26 @@ export interface PairedIdentity {
    * a node declares proves nothing by itself (#278, remote-gateway design §4.1).
    */
   hostHelper?: true;
+  /**
+   * This connection is the helper inside a separate desktop, paired on that container's own
+   * socket with its single-use token. Whatever family it declares, it is a `guest` node bound to
+   * this container, never the Host's helper.
+   */
+  guestContainer?: string;
+  /**
+   * The owner decided this device is a machine (a sealed `machines` row), and this connection
+   * meets what a machine must be: a `linux-helper` node whose family was pinned when it paired,
+   * over the network, bound to this Gateway's key (v2). Set only here, from the stored decision,
+   * never from anything the node sent. `nodeKindOf` turns it into the `machine` kind.
+   */
+  machine?: true;
 }
 
 /**
  * The Host helper's connection proof: the local node transport (Unix socket, or the named pipe on
- * Windows) plus the per-launch handshake secret. Either helper family qualifies, the same way.
+ * Windows) plus the per-launch handshake secret. Every helper family qualifies, the same way. On
+ * Linux the accept-time peer check must also not have found another program (`mismatch`); the
+ * other outcomes are recorded and shown, not refused.
  */
 export function isHostHelper(
   params: ConnectParams,
@@ -139,8 +204,38 @@ export function isHostHelper(
     peer.origin === null &&
     params.role === "node" &&
     isHostHelperFamily(params.deviceFamily) &&
+    hostHelperRefusal(params, peer) === undefined &&
     secretMatches(handshakeSecret, params.handshakeSecret)
   );
+}
+
+/**
+ * Why this node is refused as the Host helper on the node transport, or `undefined` when nothing
+ * stands in the way (the secret is checked separately).
+ * - A Linux helper exists only on Linux: on another OS a node declaring it is not the helper.
+ * - Where the Linux peer check ran, only the `linux-helper` family is possible (a Mac or Windows
+ *   helper cannot exist on this computer), and the connecting process must not be another
+ *   program (`mismatch`). With the packaged helper installed (`peerCheckRequired`) it must also be
+ *   that helper, root-owned (`root_owned`): `user_owned` and `unverified` are refused, because
+ *   any file named `psyche-helper`, or any peer the Gateway could not identify, would otherwise
+ *   pass. Without a packaged helper (AppImage, a dev build) `user_owned` and `unverified` are
+ *   accepted, and recorded.
+ */
+export function hostHelperRefusal(params: ConnectParams, peer: PeerInfo): string | undefined {
+  if (
+    params.deviceFamily === "linux-helper" &&
+    (peer.hostPlatform ?? process.platform) !== "linux"
+  ) {
+    return "a Linux helper pairs only on a Linux computer";
+  }
+  if (peer.peerCheck === undefined) return undefined;
+  if (params.deviceFamily !== "linux-helper" || peer.peerCheck === "mismatch") {
+    return "this process is not the Linux helper of this computer";
+  }
+  if (peer.peerCheckRequired === true && peer.peerCheck !== "root_owned") {
+    return `the installed Linux helper could not be verified (${peer.peerCheck}: ${peer.peerCheckReason ?? "unknown"}); ${helperRestartHint()}`;
+  }
+  return undefined;
 }
 
 /** The desktop shell's connection proof, the same one its auto-pairing needs. */
@@ -155,6 +250,23 @@ export function isDesktopShell(
     peer.transport === "ws" &&
     params.role === "client" &&
     params.deviceFamily === "desktop" &&
+    secretMatches(handshakeSecret, params.handshakeSecret)
+  );
+}
+
+/** The Host CLI's connection proof: the desktop shell's, for the `cli` family. */
+export function isLocalHostCli(
+  params: ConnectParams,
+  peer: PeerInfo,
+  handshakeSecret: string,
+): boolean {
+  return (
+    peer.remoteLoopback &&
+    peer.origin === null &&
+    peer.transport === "ws" &&
+    peer.lan !== true &&
+    params.role === "client" &&
+    params.deviceFamily === "cli" &&
     secretMatches(handshakeSecret, params.handshakeSecret)
   );
 }
@@ -273,6 +385,7 @@ export function autoPairScopes(
   peer: PeerInfo,
   handshakeSecret: string,
 ): DeviceScope[] | null {
+  if (peer.transport === "container-guest" || peer.guest !== undefined) return null;
   if (!peer.remoteLoopback || peer.origin !== null || peer.transport === "vm-relay") return null;
   if (!secretMatches(handshakeSecret, params.handshakeSecret)) return null;
   if (params.role === "client" && params.deviceFamily === "desktop" && peer.transport === "ws") {
@@ -380,6 +493,20 @@ export function verifyChallenge(
     // client has to check `lanCertSignature` too, and a v1 connect has nothing to bind.
     fail("A client connecting over the network must name the Gateway key it verified");
   }
+  // A `linux-helper` node that comes over the network is a machine candidate, and a machine must
+  // bind its connect to the Gateway key it pinned (v2): a v1 payload proves nothing about which
+  // Gateway the box is talking to. v1 is refused before anything is paired or reconnected. (The
+  // loopback auto-pair with the handshake secret is the Host's own computer, not a machine.)
+  if (
+    input.gatewayKey === undefined &&
+    deps.gatewayKey !== undefined &&
+    params.role === "node" &&
+    params.deviceFamily === "linux-helper" &&
+    peer.transport === "ws" &&
+    autoPairScopes(params, peer, deps.handshakeSecret) === null
+  ) {
+    fail("A computer connecting over the network must name the Gateway key it verified");
+  }
   if (
     input.gatewayKey !== undefined &&
     deps.gatewayKey !== undefined &&
@@ -409,6 +536,10 @@ export function verifyChallenge(
     throw limited();
   }
   if (existing?.revokedAt) return denied("device revoked", "device_revoked");
+  // A separate desktop's socket pairs one way only: its container's single-use token.
+  if (peer.transport === "container-guest" || peer.guest !== undefined) {
+    return verifyGuest(params, peer, existing !== undefined, deps, record);
+  }
   // A Host helper (Mac or Windows) on the node transport either proves this launch's handshake
   // secret or is refused: accepted as an ordinary node it would stay connected (the helper only
   // retries after a denial) and Host features would stay off until it restarted. A stale or
@@ -419,7 +550,22 @@ export function verifyChallenge(
     peer.transport === "unix" &&
     !isHostHelper(params, peer, deps.handshakeSecret)
   ) {
-    return denied("stale or missing handshake secret; reconnect with the current one");
+    const refusal = hostHelperRefusal(params, peer);
+    // The owner can see why the helper was turned away (`devices.hostHelper.status`), but only
+    // for a process that held this launch's secret: anyone else is just a failed connection.
+    if (
+      refusal !== undefined &&
+      peer.peerCheck !== undefined &&
+      secretMatches(deps.handshakeSecret, params.handshakeSecret)
+    ) {
+      recordPeerRefusal(db, {
+        peerCheck: peer.peerCheck,
+        reason: peer.peerCheckReason ?? "unknown",
+        required: peer.peerCheckRequired === true,
+        message: refusal,
+      });
+    }
+    return denied(refusal ?? "stale or missing handshake secret; reconnect with the current one");
   }
   if (existing?.pairedAt) {
     // A paired device must present its pairing key, and keeps the role it was paired with.
@@ -430,22 +576,62 @@ export function verifyChallenge(
     // The family is pinned when the device pairs: a paired device cannot become a Mac helper (or
     // anything else) by declaring another family later. Devices paired before the column existed
     // record the family they declare now, once.
+    // While the security records are untrusted, only what the seal still trusts (H4).
+    const authz = stateSealFor(db)?.authorizeDevice(existing) ?? {
+      ok: true as const,
+      scopes: existing.scopes,
+    };
+    if (!authz.ok)
+      return denied("device not trusted while Psyche's security records are untrusted");
     const pinned = getDeviceFamily(db, existing.id);
-    if (pinned === null) updateDevice(db, existing.id, { deviceFamily: params.deviceFamily });
-    else if (pinned !== params.deviceFamily) return denied("device family mismatch");
+    // A device row the seal cannot vouch for is never written over (H1: the write would make it
+    // look like the Gateway's own); it stays read-only and unpinned until a re-seal.
+    if (pinned === null) {
+      // Except `desktop` (owner decision on B3 r1): that family opens the watch pane of a remote
+      // Host's private screen, so only a device paired as one is one. A legacy row that now
+      // declares it stays unrecorded, which every check reads as not a desktop.
+      if (
+        params.deviceFamily !== "desktop" &&
+        (stateSealFor(db)?.genuine("devices", existing.id) ?? true)
+      ) {
+        updateDevice(db, existing.id, { deviceFamily: params.deviceFamily });
+      }
+    } else if (pinned !== params.deviceFamily) return denied("device family mismatch");
+    // The owner's decision that this device is a machine (a sealed row) holds only for the
+    // connection a machine is: a node, in the family it was paired with, over the network, bound
+    // to this Gateway's key. Anything else from a machine's key is refused, not downgraded.
+    const machineRow = getMachineByDevice(db, existing.id);
+    if (machineRow !== undefined) {
+      if (
+        existing.scopes.length !== 1 ||
+        existing.scopes[0] !== "node" ||
+        params.role !== "node" ||
+        params.deviceFamily !== "linux-helper" ||
+        (pinned ?? params.deviceFamily) !== "linux-helper" ||
+        peer.transport !== "ws" ||
+        peer.origin !== null ||
+        deps.gatewayKey === undefined ||
+        input.gatewayKey !== deps.gatewayKey
+      ) {
+        record();
+        return denied("this computer was paired as a machine and connects only as one");
+      }
+    }
     touchLastSeen(db, existing.id, nowIso);
     // A token presented by a device that is already paired is spent anyway (the link was used,
     // by someone who did not need it), and grants nothing: the device keeps its own scopes.
     if (input.setupToken !== undefined)
-      consumeSetupToken(db, input.setupToken, existing.id, nowIso);
+      consumeSetupToken(db, input.setupToken, existing.id, nowIso, "any");
     return {
-      result: pairedResult(existing.id, existing.scopes, nowIso),
+      result: pairedResult(existing.id, authz.scopes, nowIso),
       identity: {
         deviceId: existing.id,
-        scopes: existing.scopes,
+        scopes: authz.scopes,
         role: params.role,
         ...(isDesktopShell(params, peer, deps.handshakeSecret) ? { desktopShell: true } : {}),
+        ...(isLocalHostCli(params, peer, deps.handshakeSecret) ? { localHostCli: true } : {}),
         ...(isHostHelper(params, peer, deps.handshakeSecret) ? { hostHelper: true } : {}),
+        ...(machineRow !== undefined ? { machine: true as const } : {}),
       },
       createdRequest: null,
       pendingDeviceId: null,
@@ -458,6 +644,26 @@ export function verifyChallenge(
   // presented in `connect.verify`, after the client verified this Gateway's identity, and spent
   // below in the same transaction that writes the device.
   const presentedToken = scopes === null ? input.setupToken : undefined;
+  // A network `linux-helper` node that bound its connect to this Gateway's key may become a
+  // machine: by a `purpose: machine` token it presents, or by the owner approving a machine
+  // pairing request. Nothing else about it (its name, its manifest) is read as consent.
+  const keyBound = deps.gatewayKey !== undefined && input.gatewayKey === deps.gatewayKey;
+  const machineCandidate =
+    scopes === null &&
+    params.role === "node" &&
+    params.deviceFamily === "linux-helper" &&
+    peer.transport === "ws" &&
+    peer.origin === null &&
+    keyBound;
+  // What the presenting connection is decides which token it may spend: a node spends a machine
+  // token and a client spends a device token. The purpose is checked again in the UPDATE that
+  // spends the token, so a token for the other purpose is refused and stays unspent.
+  const tokenPurpose = params.role === "node" ? "machine" : "device";
+  // H-B: while the security records are untrusted no pairing link works (a planted one could
+  // name any scopes), whatever the token row says.
+  if (presentedToken !== undefined && stateSealFor(db)?.untrusted() != null) {
+    return denied(SETUP_TOKEN_REFUSED, "setup_token_invalid");
+  }
   // The token is a bearer secret, so only a client that verified this Gateway's key (and bound the
   // connect to it, the v2 payload) may present it: an impostor that does not hold the key never
   // gets a client to send one. The check is unconditional. The desktop app and the iPhone/iPad app
@@ -467,10 +673,10 @@ export function verifyChallenge(
     !(
       peer.transport === "ws" &&
       peer.origin === null &&
-      params.role === "client" &&
-      SETUP_TOKEN_FAMILIES.has(params.deviceFamily) &&
-      deps.gatewayKey !== undefined &&
-      input.gatewayKey === deps.gatewayKey
+      keyBound &&
+      (tokenPurpose === "machine"
+        ? params.deviceFamily === "linux-helper"
+        : params.role === "client" && SETUP_TOKEN_FAMILIES.has(params.deviceFamily))
     )
   ) {
     record();
@@ -479,11 +685,19 @@ export function verifyChallenge(
   // A Host helper pairs only by the per-launch handshake secret on the machine. An owner-approved
   // pairing (a pending request anyone who can reach a transport may open) never makes a Host
   // helper: it would be offered the Host's computer use, keychain and approval cards.
-  if (scopes === null && params.role === "node" && isHostHelperFamily(params.deviceFamily)) {
+  if (
+    scopes === null &&
+    params.role === "node" &&
+    isHostHelperFamily(params.deviceFamily) &&
+    // A machine pairs with a link; a card for one (no token) only once the machine UI can show it.
+    !(machineCandidate && (presentedToken !== undefined || machinePairingCardsEnabled()))
+  ) {
     return denied(
       params.deviceFamily === "win-helper"
         ? "a Windows helper pairs only with the handshake secret on its own PC"
-        : "a Mac helper pairs only with the handshake secret on its own Mac",
+        : params.deviceFamily === "linux-helper"
+          ? "a Linux helper pairs only with the handshake secret on its own computer"
+          : "a Mac helper pairs only with the handshake secret on its own Mac",
     );
   }
   const keyChanged = existing !== undefined && existing.publicKey !== params.publicKey;
@@ -495,11 +709,18 @@ export function verifyChallenge(
 
   return db.sqlite.transaction((): VerifyOutcome => {
     const role = params.role === "node" ? "node" : "client";
-    let spentToken: { id: string; scopes: DeviceScope[] } | undefined;
+    let spentToken:
+      | {
+          id: string;
+          scopes: DeviceScope[];
+          purpose: "device" | "machine";
+          createdByDeviceId: string | null;
+        }
+      | undefined;
     if (presentedToken !== undefined) {
       // One conditional UPDATE: a token that is unused, unrevoked and unexpired is spent here, so
       // two connections racing on it cannot both pair, and nothing below runs for a refused one.
-      spentToken = consumeSetupToken(db, presentedToken, params.deviceId, nowIso);
+      spentToken = consumeSetupToken(db, presentedToken, params.deviceId, nowIso, tokenPurpose);
       if (spentToken === undefined) {
         record();
         return denied(SETUP_TOKEN_REFUSED, "setup_token_invalid");
@@ -509,10 +730,15 @@ export function verifyChallenge(
       // not later approve wider scopes than the owner chose when making the link.
       expirePendingPairingsForDevice(db, params.deviceId);
     }
+    // A machine token pairs a machine, and its name is one a machine may have, unique among them.
+    const machineToken = spentToken !== undefined && spentToken.purpose === "machine";
+    const deviceName = machineToken
+      ? uniqueMachineName(db, params.name, params.deviceId)
+      : params.name;
     if (existing === undefined) {
       insertDevice(db, {
         id: params.deviceId,
-        name: params.name,
+        name: deviceName,
         platform: params.platform,
         role,
         publicKey: params.publicKey,
@@ -523,8 +749,20 @@ export function verifyChallenge(
     } else {
       // Unpaired rows carry no authority. The holder of the handshake secret replaces a squatter.
       if (keyChanged) expirePendingPairingsForDevice(db, existing.id);
+      // A pending machine card shows what the box claimed when it asked. If the box comes back
+      // claiming another name, role or family, that card no longer describes it: it expires and a
+      // new one (with a new code) shows the new claim.
+      if (
+        machineCandidate &&
+        existing.pairedAt === null &&
+        (existing.name !== params.name ||
+          existing.role !== role ||
+          getDeviceFamily(db, existing.id) !== params.deviceFamily)
+      ) {
+        expirePendingPairingsForDevice(db, existing.id);
+      }
       updateDevice(db, existing.id, {
-        name: params.name,
+        name: deviceName,
         publicKey: params.publicKey,
         role,
         scopes: scopes ?? [],
@@ -533,6 +771,15 @@ export function verifyChallenge(
       });
     }
     touchLastSeen(db, params.deviceId, nowIso);
+    // The owner's decision, in the same transaction that writes the device and spends the token:
+    // a machine token that paired this computer is the approval.
+    if (machineToken) {
+      insertMachine(db, {
+        deviceId: params.deviceId,
+        approvedByDeviceId: spentToken?.createdByDeviceId ?? null,
+        via: "setup_token",
+      });
+    }
     if (scopes) {
       return {
         result: pairedResult(params.deviceId, scopes, nowIso),
@@ -541,7 +788,9 @@ export function verifyChallenge(
           scopes,
           role: params.role,
           ...(isDesktopShell(params, peer, deps.handshakeSecret) ? { desktopShell: true } : {}),
+          ...(isLocalHostCli(params, peer, deps.handshakeSecret) ? { localHostCli: true } : {}),
           ...(isHostHelper(params, peer, deps.handshakeSecret) ? { hostHelper: true } : {}),
+          ...(machineToken ? { machine: true as const } : {}),
         },
         createdRequest: null,
         pendingDeviceId: null,
@@ -594,6 +843,8 @@ export function verifyChallenge(
     }
     const request = createPairingRequest(db, {
       kind: "device",
+      // The card the owner reads says what approving it makes this computer.
+      ...(machineCandidate ? { purpose: "machine" as const } : {}),
       code: pairingCode(),
       deviceId: params.deviceId,
       display: `${params.name} (${params.platform}, ${params.deviceFamily}; claimed by the device)${
@@ -614,6 +865,62 @@ export function verifyChallenge(
       pendingDeviceId: params.deviceId,
     };
   })();
+}
+
+/** What a separate desktop is told when its token is missing, spent, expired or not its own. */
+export const GUEST_TOKEN_REFUSED =
+  "this separate desktop's pairing token is missing, was already used, has expired or is not for this desktop";
+
+/**
+ * Pairing on a separate desktop's own socket. Fail closed on everything: no owner approval, no
+ * handshake secret, no loopback trust and no Host-helper family can pair here. The helper inside
+ * presents the container's single-use token as its `handshakeSecret`; the token is spent here,
+ * once, and the device is created fresh, named by the Gateway (not by what the guest claims),
+ * with scope `node` only, bound to the container by `PairedIdentity.guestContainer`. A device id
+ * that already exists is refused: each start brings a new identity, and a spent token cannot
+ * be replayed by an old one.
+ */
+function verifyGuest(
+  params: ConnectParams,
+  peer: PeerInfo,
+  deviceExists: boolean,
+  deps: VerifyDeps,
+  record: () => void,
+): VerifyOutcome {
+  const guest = peer.transport === "container-guest" ? peer.guest : undefined;
+  if (guest === undefined) return denied("not a separate desktop socket");
+  if (params.role !== "node") return denied("a separate desktop pairs as a node only");
+  if (deviceExists) {
+    record();
+    return denied("a separate desktop pairs with a new identity every time it starts");
+  }
+  if (!guest.redeem(params.handshakeSecret, params.deviceId)) {
+    record();
+    return denied(GUEST_TOKEN_REFUSED);
+  }
+  const nowIso = deps.now().toISOString();
+  insertDevice(deps.db, {
+    id: params.deviceId,
+    name: `Separate desktop (${guest.container})`,
+    platform: params.platform,
+    role: "node",
+    publicKey: params.publicKey,
+    scopes: ["node"],
+    pairedAt: nowIso,
+    deviceFamily: "separate-desktop",
+  });
+  touchLastSeen(deps.db, params.deviceId, nowIso);
+  return {
+    result: pairedResult(params.deviceId, ["node"], nowIso),
+    identity: {
+      deviceId: params.deviceId,
+      scopes: ["node"],
+      role: "node",
+      guestContainer: guest.container,
+    },
+    createdRequest: null,
+    pendingDeviceId: null,
+  };
 }
 
 function pairedResult(deviceId: string, scopes: DeviceScope[], serverTime: string): ConnectResult {

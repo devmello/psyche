@@ -1,6 +1,7 @@
 import { existsSync, mkdirSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { homedir } from "node:os";
 import { dirname, join, posix } from "node:path";
+import { type SystemdOptions, SystemdUserSupervisor } from "../platform/systemd-supervisor.ts";
 import {
   defaultSleep,
   type Supervisor,
@@ -9,6 +10,7 @@ import {
 } from "./supervisor-base.ts";
 import { type TaskSchedulerOptions, TaskSchedulerSupervisor } from "./supervisor-windows.ts";
 
+export { type RestartReason, SystemdUserSupervisor } from "../platform/systemd-supervisor.ts";
 export {
   type BuildCheck,
   chooseMode,
@@ -361,13 +363,16 @@ export class LaunchdSupervisor extends SupervisorBase {
 }
 
 /** Everything either OS service takes; each reads its own part. */
-export type AnySupervisorOptions = LaunchdOptions & Partial<TaskSchedulerOptions>;
+export type AnySupervisorOptions = LaunchdOptions &
+  Partial<TaskSchedulerOptions> &
+  Partial<SystemdOptions>;
 
-/** The supervisor for this OS: Task Scheduler on Windows, launchd on macOS. */
+/** The supervisor for this OS: Task Scheduler on Windows, systemd on Linux, launchd on macOS. */
 export function createSupervisor(
   opts: AnySupervisorOptions,
   platform: NodeJS.Platform = process.platform,
 ): Supervisor {
   if (platform === "win32") return new TaskSchedulerSupervisor(opts as TaskSchedulerOptions);
+  if (platform === "linux") return new SystemdUserSupervisor(opts as SystemdOptions);
   return new LaunchdSupervisor(opts);
 }

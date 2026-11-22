@@ -43,6 +43,7 @@ import { NotificationsSection } from "./NotificationsSection.tsx";
 import { PeopleSection } from "./PeopleSection.tsx";
 import { PermissionsSection } from "./PermissionsSection.tsx";
 import { PersonaSection } from "./PersonaSection.tsx";
+import { PluginsSection } from "./PluginsSection.tsx";
 import { SearchSection } from "./SearchSection.tsx";
 import { ServerSection } from "./ServerSection.tsx";
 import { SettingsApprovalProvider } from "./SettingsApproval.tsx";
@@ -249,7 +250,12 @@ export function SettingsSectionView({
         />
       );
     case "skills":
-      return <SkillsSection {...opt("now", s.now)} {...opt("onPickFolder", s.onPickSkillFolder)} />;
+      return (
+        <>
+          <SkillsSection {...opt("now", s.now)} {...opt("onPickFolder", s.onPickSkillFolder)} />
+          <PluginsSection {...opt("onPickFolder", s.onPickSkillFolder)} />
+        </>
+      );
     case "specialists":
       return <SpecialistsSection />;
     case "permissions":
@@ -493,8 +499,11 @@ export function SettingsScreen({
     }
     show(smoothScrollBehavior());
     let settled = false;
+    let timer: ReturnType<typeof setInterval> | null = null;
     const stop = () => {
       settled = true;
+      if (timer !== null) clearInterval(timer);
+      timer = null;
     };
     const again = () => {
       if (!settled) show("auto");
@@ -504,9 +513,12 @@ export function SettingsScreen({
       typeof ResizeObserver === "function" && column !== null ? new ResizeObserver(again) : null;
     if (column !== null) resize?.observe(column);
     // Only while a setting row has not shown up yet; a smooth scroll to a pane is left alone.
-    const timer = setInterval(() => {
-      if (key !== null && !flashed) again();
-    }, 100);
+    if (key !== null) {
+      timer = setInterval(() => {
+        if (flashed) stop();
+        else again();
+      }, 100);
+    }
     const done = setTimeout(stop, 1500);
     content.addEventListener("wheel", stop, { passive: true });
     content.addEventListener("touchstart", stop, { passive: true });
@@ -514,7 +526,6 @@ export function SettingsScreen({
     return () => {
       stop();
       resize?.disconnect();
-      clearInterval(timer);
       clearTimeout(done);
       content.removeEventListener("wheel", stop);
       content.removeEventListener("touchstart", stop);

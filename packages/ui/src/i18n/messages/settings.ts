@@ -2,7 +2,7 @@
 export const settings = {
   // Shared frames, states and the settings writer (shared.tsx).
   "settings.shared.needsPresence":
-    "Changing “{label}” needs your approval with Touch ID or a passkey. Approve it in Settings or in the Psyche notification, then change it again.",
+    "Changing “{label}” needs your approval. Approve it in Settings or in the Psyche notification, then change it again.",
   "settings.shared.saveFailed": "Psyche couldn't save “{label}” ({reason}). Nothing changed.",
   "settings.shared.loading": "Loading {label}",
   "settings.shared.nothingChanged": "Nothing was changed.",
@@ -172,7 +172,12 @@ export const settings = {
   "settings.key.browser.useSignedInSessions": "Use my signed-in sessions",
   "settings.key.computerUse.enabled": "Allow computer use",
   "settings.key.exec.srtPath": "srt location",
+  "settings.key.devices.hostHelper.status": "Linux helper check",
+  "settings.key.devices.helper.availability": "Psyche Helper connection",
+  "settings.key.devices.hostHelperDeviceId": "Which Psyche Helper to use",
   "settings.key.computerUse.apps": "App access",
+  "settings.key.feed.sources": "Feed sources",
+  "settings.key.computerUse.linuxRevoke": "Forget the Linux computer",
   "settings.key.context.maxTokens": "Context limit",
   "settings.key.search.model.engine": "Model for search",
   "settings.key.search.web.provider": "Web search provider",
@@ -221,6 +226,8 @@ export const settings = {
   "settings.key.models.providers": "Model providers",
   "settings.key.permissions.mode": "Default mode",
   "settings.key.permissions.policy": "Permission policy",
+  "settings.key.permissions.sensitive.government": "Ask before reading government sites",
+  "settings.key.permissions.sensitive.icloud": "Ask before reading iCloud",
   "settings.key.permissions.folders": "Shared folders",
   "settings.key.persona.name": "Name",
   "settings.key.persona.tagline": "Vibe or tagline",
@@ -394,6 +401,57 @@ export const settings = {
   "settings.credentials.slot.keyFile": "a key file on this Mac",
   "settings.credentials.slot.recovery": "its recovery key only",
   "settings.credentials.protectedBy": "Vault protected by:",
+  "settings.credentials.vault.adminOnly": "Only an administrator device can do this.",
+  "settings.credentials.vault.unlockReason": "Confirm the recovery key",
+  "settings.credentials.vault.setup.title": "Set up the vault",
+  "settings.credentials.vault.setup.body":
+    "The vault keeps your passwords, cards and API keys encrypted on this computer. Psyche creates it with a recovery key that you save once.",
+  "settings.credentials.vault.setup.button": "Set up the vault",
+  "settings.credentials.vault.setup.failed": "The vault was not created: {reason}",
+  "settings.credentials.vault.setup.noSlot": "This Gateway offers no key slot for the vault.",
+  "settings.credentials.onePassword.title": "1Password",
+  "settings.credentials.onePassword.intro":
+    "Let Psyche read the items you link from 1Password. Psyche stores no 1Password password or token, and 1Password asks you itself when it needs to unlock.",
+  "settings.credentials.onePassword.check": "Check again",
+  "settings.credentials.onePassword.guide": "Open the guide",
+  "settings.credentials.onePassword.notInstalled.body":
+    "Psyche cannot find the 1Password command-line tool (op) on this computer. Install it, then check again.",
+  "settings.credentials.onePassword.notIntegrated.body":
+    "In the 1Password app, open Settings, choose Developer, and turn on Integrate with 1Password CLI. Then check again.",
+  "settings.credentials.onePassword.locked.body":
+    "Unlock the 1Password app and approve the request if it asks. Then check again.",
+  "settings.credentials.onePassword.error.body":
+    "The 1Password command-line tool did not answer as expected. Check again; if it keeps failing, reinstall op.",
+  "settings.credentials.onePassword.signedIn.body": "Signed in to 1Password as {email} ({url}).",
+  "settings.credentials.onePassword.signedIn.connect": "Use 1Password in Psyche",
+  "settings.credentials.onePassword.connected.body":
+    "Psyche reads the 1Password items you link through the 1Password app. They are read only; nothing is written to 1Password.",
+  "settings.credentials.onePassword.test": "Test connection",
+  "settings.credentials.onePassword.test.ok":
+    "Connected. Found {count, plural, one {# vault} other {# vaults}}.",
+  "settings.credentials.onePassword.test.failed": "The test did not work: {reason}",
+  "settings.credentials.onePassword.disconnect": "Disconnect",
+  "settings.credentials.onePassword.config":
+    "1Password is set up in the Gateway's config.json. Change it there.",
+  "settings.credentials.onePassword.failed": "That did not work: {reason}",
+  "settings.credentials.onePassword.found.body":
+    "Psyche found the 1Password command-line tool. Choose Check to see how far the setup is.",
+  "settings.credentials.onePassword.checkNow": "Check",
+  "settings.credentials.onePassword.changed.body":
+    "The 1Password command-line tool changed since you connected. Check again.",
+  "settings.credentials.onePassword.unsigned.body":
+    "The op file Psyche found is not signed by 1Password, so Psyche will not run it. Install op from 1Password, then check again.",
+  "settings.credentials.onePassword.unsafeFolder.body":
+    "Psyche found op, but a folder it sits in is not yours or can be changed by other users, so Psyche will not run it. Make those folders yours and not writable by group or others, then check again.",
+  "settings.credentials.onePassword.repinned.notice": "1Password CLI updated and re-checked {when}",
+  "settings.credentials.vault.confirm.title": "Confirm your recovery key",
+  "settings.credentials.vault.confirm.body":
+    "Type the last group of your recovery key, the part after the final dash, to show that you saved it.",
+  "settings.credentials.vault.confirm.label": "Last group",
+  "settings.credentials.vault.confirm.button": "Confirm",
+  "settings.credentials.vault.confirm.wrong":
+    "That is not the last group of the recovery key. Check where you saved it and try again.",
+  "settings.credentials.vault.confirm.failed": "The recovery key was not confirmed: {reason}",
   "settings.credentials.moveToKeychain": "Move to Keychain",
   "settings.credentials.moveToKeychainNeeds":
     "Needs a Psyche Helper signed with a Developer ID and a provisioning profile",
@@ -494,8 +552,68 @@ export const settings = {
   "settings.credentials.payments.description":
     "A one-time card, after you approve each purchase. Card numbers never reach Psyche.",
   "settings.credentials.payments.loadLabel": "payments",
-  "settings.credentials.payments.notConfigured":
-    "Stripe Link is not set up. Install the Link CLI on the Gateway's machine, sign in to Link, and set PSYCHE_LINK_CLI; Psyche then shows your payment methods here.",
+  "settings.credentials.payments.notConfigured": "Stripe Link is not set up on this Gateway.",
+  "settings.credentials.payments.setup.approvalLabel": "Stripe Link command-line tool",
+  "settings.credentials.payments.setup.refused": "Psyche won't run that program: {reason}.",
+  "settings.credentials.payments.setup.failed": "That didn't work: {reason}",
+  "settings.credentials.payments.setup.problem": "Psyche won't run {path}: {reason}.",
+  "settings.credentials.payments.setup.recheck": "Check again",
+  "settings.credentials.payments.setup.disconnect": "Disconnect",
+  "settings.credentials.payments.setup.disconnecting": "Disconnecting…",
+  "settings.credentials.payments.setup.disconnectConfirm.title": "Disconnect Stripe Link?",
+  "settings.credentials.payments.setup.disconnectConfirm.body":
+    "Psyche forgets the Link CLI and deletes its saved Link sign-in. Your Link account and cards are not touched, and you can connect again any time.",
+  "settings.credentials.payments.setup.disconnectConfirm.go": "Disconnect",
+  "settings.credentials.payments.setup.disconnectConfirm.cancel": "Stay connected",
+  "settings.credentials.payments.setup.envOverride":
+    "This Gateway was started with PSYCHE_LINK_CLI, which takes priority over the path saved here.",
+  "settings.credentials.payments.setup.missing.title": "Install the Link command-line tool",
+  "settings.credentials.payments.setup.missing.body":
+    "Psyche pays through Stripe Link using Link's own command-line tool. Run this on the computer that runs the Gateway, then check again.",
+  "settings.credentials.payments.setup.missing.region":
+    "Link payments for agents are available in the US and Canada.",
+  "settings.credentials.payments.setup.found.title": "Link CLI found",
+  "settings.credentials.payments.setup.found.body":
+    "Connect the copy you installed. Psyche runs it only to talk to Stripe Link, and only after you approve.",
+  "settings.credentials.payments.setup.found.connect": "Connect",
+  "settings.credentials.payments.setup.found.connecting": "Connecting…",
+  "settings.credentials.payments.setup.found.connectPath": "Connect {path}",
+  "settings.credentials.payments.setup.signedOut.title": "Sign in to Link",
+  "settings.credentials.payments.setup.signedOut.body":
+    "Psyche opens Link's own page, where you sign in and approve this device. You type your Link password there; it never reaches Psyche.",
+  "settings.credentials.payments.setup.signedOut.go": "Sign in with Link",
+  "settings.credentials.payments.setup.signedOut.starting": "Starting…",
+  "settings.credentials.payments.setup.signingIn.title": "Finish signing in on Link",
+  "settings.credentials.payments.setup.signingIn.body":
+    "Open Link's page and check that it shows the phrase below, then approve.",
+  "settings.credentials.payments.setup.signingIn.phrase": "Phrase:",
+  "settings.credentials.payments.setup.signingIn.open": "Open Link's page",
+  "settings.credentials.payments.setup.signingIn.waiting": "Waiting for you to approve in Link…",
+  "settings.credentials.payments.setup.connected": "Connected to Stripe Link through {path}.",
+  "settings.credentials.payments.setup.connectedNoPath": "Connected to Stripe Link.",
+  "settings.credentials.payments.setup.reason.not_absolute": "the path isn't absolute",
+  "settings.credentials.payments.setup.reason.missing": "it isn't there",
+  "settings.credentials.payments.setup.reason.not_a_file": "it is a link or not a regular file",
+  "settings.credentials.payments.setup.reason.not_executable": "it can't be run",
+  "settings.credentials.payments.setup.reason.wrong_owner": "it belongs to another user",
+  "settings.credentials.payments.setup.reason.writable": "other users can change it",
+  "settings.credentials.payments.setup.reason.parent_wrong_owner":
+    "a folder above it belongs to another user",
+  "settings.credentials.payments.setup.reason.parent_writable":
+    "other users can change a folder above it",
+  "settings.credentials.payments.setup.reason.in_psyche_home":
+    "it is inside Psyche's own folder; install the Link CLI with npm instead",
+  "settings.credentials.payments.setup.reason.not_link_cli":
+    "it is not part of the Link CLI package",
+  "settings.credentials.payments.setup.reason.volta_shim":
+    "it is Volta's shim; use the Link CLI's own folder under Volta, or install it with npm",
+  "settings.credentials.payments.setup.paymentInProgress":
+    "A payment is still in progress. Disconnect once it has finished.",
+  "settings.credentials.payments.setup.force.title": "Disconnect anyway?",
+  "settings.credentials.payments.setup.force.body":
+    "Still in progress: {payments}. If you disconnect anyway, Psyche cancels it where Link allows and forgets it. A hold at the merchant lapses on its own, and Psyche can no longer report it.",
+  "settings.credentials.payments.setup.force.go": "Disconnect anyway",
+  "settings.credentials.payments.setup.force.aPayment": "a payment",
   "settings.credentials.payments.noMethods":
     "Your Link wallet has no payment methods. Add one in the Link app.",
   "settings.credentials.payments.methods": "Link payment methods",
@@ -769,6 +887,43 @@ export const settings = {
   "settings.channels.loadLabel": "channels",
   "settings.channels.empty":
     "No channels yet. Connect Telegram, iMessage or Slack to reach {persona} away from this Mac.",
+  "settings.channels.add.button": "Add a channel",
+  "settings.channels.add.title": "Add a channel",
+  "settings.channels.add.description":
+    "Choose where {persona} can be reached. Tokens go straight to the vault and are never shown again.",
+  "settings.channels.add.type": "Channel",
+  "settings.channels.add.account.slack": "Workspace name",
+  "settings.channels.add.account.discord": "Application ID",
+  "settings.channels.add.secret.bot_token": "Bot token",
+  "settings.channels.add.secret.app_token": "App token",
+  "settings.channels.add.secret.auth_token": "Auth token",
+  "settings.channels.add.secret.access_token": "Access token",
+  "settings.channels.add.secret.app_secret": "App secret",
+  "settings.channels.add.secret.verify_token": "Verify token",
+  "settings.channels.add.submit": "Connect",
+  "settings.channels.add.connecting": "Connecting",
+  "settings.channels.add.missing": "Fill in every field to connect.",
+  "settings.channels.add.failed":
+    "Psyche couldn't add the channel ({reason}). It is not turned on.",
+  "settings.channels.add.account.sms": "Sending number (+15551234567)",
+  "settings.channels.add.account.whatsapp": "WhatsApp number (+15551234567)",
+  "settings.channels.add.badNumber": "Enter the number in international format, like +15551234567.",
+  "settings.channels.add.exists":
+    "A {type} channel for {account} already exists, so nothing was changed.",
+  "settings.channels.add.approvalLabel": "Adding a channel",
+  "settings.channels.add.envNote":
+    "The Gateway must also be started with {env} set to this account. Telegram, iMessage, Signal and email are set up where the Gateway runs; see the channel docs.",
+  "settings.channels.add.addedInactive":
+    "Channel added, but it is not running yet. Set {env} to this account where the Gateway runs, then restart it.",
+  "settings.channels.add.added":
+    "Channel added. It starts once the Gateway has {env} set to this account. Then message {persona} from it to get a pairing code, and approve it here.",
+  "settings.channels.add.storedNote":
+    "Already stored for this account: {names}. They are used as they are unless you replace them.",
+  "settings.channels.add.replace": "Replace stored tokens",
+  "settings.channels.add.statusFailed":
+    "Psyche couldn't check which tokens are already stored ({reason}). Nothing was changed.",
+  "settings.channels.add.storedTyped":
+    "Tokens are already stored for this account. Tick Replace stored tokens to use the ones you typed, or clear those fields. Nothing was changed.",
   "settings.channels.identities": "Identity links",
   "settings.channels.identitiesDescription":
     "One person across channels. Links change only from a paired device.",
@@ -1106,6 +1261,52 @@ export const settings = {
   "settings.mcp.command": "Command",
   "settings.mcp.domains": "Websites it may reach",
   "settings.mcp.domainsHint": "Comma-separated host names. Leave empty for no network.",
+  "settings.mcp.env.title": "Environment variables",
+  "settings.mcp.env.hint":
+    "Values the server needs when it starts. Names that look like secrets (token, key, password) are saved to your vault.",
+  "settings.mcp.env.name": "Variable name",
+  "settings.mcp.env.value": "Value",
+  "settings.mcp.env.namePlaceholder": "API_BASE_URL",
+  "settings.mcp.env.saved": "Saved",
+  "settings.mcp.updated": "Updated {name}.",
+  "settings.mcp.edit.group": "Edit and test",
+  "settings.mcp.edit.action": "Edit",
+  "settings.mcp.edit.title": "Edit {name}",
+  "settings.mcp.edit.intro":
+    "Changing what runs or where it connects asks for your approval again. The current server keeps running until you approve.",
+  "settings.mcp.edit.save": "Save changes",
+  "settings.mcp.edit.loadFailed": "Couldn't load this server's settings. {reason}",
+  "settings.mcp.edit.locked":
+    "This server's command and connection can't be edited. Remove it and add another to change them.",
+  "settings.mcp.test.action": "Test connection",
+  "settings.mcp.test.running": "Testing…",
+  "settings.mcp.test.hint": "Checks the saved setup again. Nothing changes.",
+  "settings.mcp.test.paused": "Turn this server on to test it.",
+  "settings.mcp.test.ok": "Works. {n, plural, one {# tool} other {# tools}} available.",
+  "settings.mcp.test.failed": "Didn't work: {reason}",
+  "settings.mcp.trust.updateTitle": "Update {name}?",
+  "settings.mcp.trust.updateIntro":
+    "Psyche ran the new setup in its sandbox and found these tools. The current server keeps running until you approve.",
+  "settings.mcp.trust.change.title": "What changes",
+  "settings.mcp.trust.change.none": "none",
+  "settings.mcp.trust.change.was": "Was: {value}",
+  "settings.mcp.trust.change.now": "Now: {value}",
+  "settings.mcp.trust.change.command": "Command",
+  "settings.mcp.trust.change.url": "Address",
+  "settings.mcp.trust.change.domains": "Allowed domains",
+  "settings.mcp.trust.change.auth": "Sign-in",
+  "settings.mcp.trust.change.envAdded": "Variables added",
+  "settings.mcp.trust.change.envRemoved": "Variables removed",
+  "settings.mcp.trust.change.envChanged": "Variables changed",
+  "settings.mcp.trust.change.query": "Address parameters changed",
+  "settings.mcp.trust.change.userinfo": "Sign-in details in the address",
+  "settings.mcp.trust.change.changed": "Changed",
+  "settings.mcp.edit.changeUrl": "Change address",
+  "settings.mcp.edit.urlHidden":
+    "Parts of this address are hidden. To change it, enter the full new address.",
+  "settings.mcp.env.add": "Add variable",
+  "settings.mcp.env.badName":
+    "Names use capital letters, digits and underscores, and start with a letter or underscore.",
   "settings.mcp.url": "Server URL",
   "settings.mcp.placeholder.command": "npx -y @modelcontextprotocol/server-everything",
   "settings.mcp.placeholder.domains": "api.example.com",
@@ -1157,6 +1358,17 @@ export const settings = {
   "settings.mcp.tools.off": "This server is off. Turn it on to see its tools.",
   "settings.mcp.tools.notConnected": "This server isn't connected, so it lists no tools.",
   "settings.mcp.tools.none": "This server has no tools.",
+  "settings.mcp.money.title": "Payments",
+  "settings.mcp.money.description":
+    "A tool that moves money asks you to confirm the payment every time. Say which of this server's tools do.",
+  "settings.mcp.money.auto": "Decide by each tool's name",
+  "settings.mcp.money.autoHint":
+    "Psyche guesses from the tool's name and description, which a server can word to avoid it.",
+  "settings.mcp.money.always": "Every tool moves money",
+  "settings.mcp.money.alwaysHint": "Every call to this server asks you to approve a payment.",
+  "settings.mcp.money.never": "No tool moves money",
+  "settings.mcp.money.neverHint":
+    "No call asks for a payment approval, whatever the tool is called. Only for a server that can't spend money.",
   "settings.mcp.secrets.title": "Secrets",
   "settings.mcp.secrets.intro":
     "Keys this server starts with. They stay in your vault; Psyche shows only whether each is set.",
@@ -1308,6 +1520,30 @@ export const settings = {
   "settings.webSearch.braveKey": "Brave Search key",
   "settings.webSearch.braveFromEnv": "Set (PSYCHE_SEARCH_BRAVE_KEY)",
   "settings.webSearch.braveNone": "Not set (PSYCHE_SEARCH_BRAVE_KEY)",
+  "settings.apiKeys.title": "API keys",
+  "settings.apiKeys.description":
+    "Keys for model providers and web search, entered here instead of in a terminal. Each is stored encrypted in the vault, is never shown again and is used from the next request. A key set in the environment takes priority.",
+  "settings.apiKeys.name.anthropic": "Anthropic",
+  "settings.apiKeys.name.openai": "OpenAI",
+  "settings.apiKeys.name.google": "Google Gemini",
+  "settings.apiKeys.name.openrouter": "OpenRouter",
+  "settings.apiKeys.name.brave": "Brave Search",
+  "settings.apiKeys.field": "{name} API key",
+  "settings.apiKeys.save": "Save",
+  "settings.apiKeys.saving": "Saving…",
+  "settings.apiKeys.clear": "Clear",
+  "settings.apiKeys.none": "Not set",
+  "settings.apiKeys.vault": "Saved in the vault",
+  "settings.apiKeys.env": "Set in the environment (takes priority)",
+  "settings.apiKeys.envAndVault":
+    "Set in the environment (takes priority); a saved key is kept too",
+  "settings.apiKeys.empty": "Paste a key first.",
+  "settings.apiKeys.whitespace": "A key has no spaces or line breaks.",
+  "settings.apiKeys.failed": "The key could not be saved: {reason}",
+  "settings.apiKeys.clearFailed": "The key could not be cleared: {reason}",
+  "settings.apiKeys.locked": "The vault is locked. Unlock it first, then save again.",
+  "settings.credentials.managed.web_search": "A web search key",
+  "settings.webSearch.braveFromVault": "Saved in the vault",
   "settings.webSearch.provider.brave": "Brave Search",
   "settings.webSearch.provider.searxng": "SearXNG",
   "settings.webSearch.provider.duckduckgo": "DuckDuckGo (no key, rate-limited)",
@@ -1465,12 +1701,10 @@ export const settings = {
   "settings.devices.keyLastSeenNever": "· last seen never",
   "settings.devices.lastSeen": "last seen {when}",
   "settings.devices.lastSeenNever": "last seen never",
-  "settings.devices.presenceKey.keychain": "Touch ID key (keychain), as reported by the helper",
-  "settings.devices.presenceKey.enclaveKeychainAcl":
-    "Touch ID key (Secure Enclave, readable only by Psyche Helper without a macOS prompt), as reported by the helper",
-  "settings.devices.presenceKey.enclaveFile":
-    "Touch ID key (Secure Enclave file, this build has no provisioning profile), as reported by the helper",
   "settings.devices.presenceKey.unknown": "Touch ID key (kind not reported by the helper)",
+  // A Mac helper has no key to register: it signs with its own device key after the system sheet.
+  "settings.devices.presenceKey.deviceIdentity":
+    "Payments use Touch ID or your Mac password. Nothing to set up.",
   // A Windows helper's key: Windows Hello (a TPM-backed key; RSA-2048 today), as the helper reports it.
   "settings.devices.presenceKey.windowsHello":
     "Windows Hello key ({algorithm}), as reported by the helper",
@@ -1481,33 +1715,18 @@ export const settings = {
   "settings.devices.touchId.bundled": "The Psyche Helper in this app shows key",
   "settings.devices.touchId.notBundled":
     "This helper isn't the one bundled with this app, so its key can't be registered here.",
-  "settings.devices.touchId.untrusted":
-    "The Touch ID key in the keychain was not used because it can’t be shown to be Psyche Helper’s. A harmless cause is that Psyche was moved or reinstalled somewhere else: move it back to /Applications and open it again. Otherwise quit Psyche Helper first, then run /Applications/Psyche.app/Contents/Resources/PsycheHelper.app/Contents/MacOS/psyche-helper --reset-presence-key in Terminal, and register the new key.",
-  "settings.devices.touchId.accessDenied":
-    "macOS did not let Psyche Helper use its Touch ID key in the keychain. Run Psyche again and choose Always Allow only if the dialog names psyche-helper (never for another program).",
-  "settings.devices.touchId.wrongLocation":
-    "Psyche Helper made no Touch ID key because it is running from a disk image, Downloads or another folder. Move Psyche to /Applications, eject any disk image, and open it from there.",
   "settings.devices.touchId.keyMismatch":
     "The Psyche Helper in this app now shows key {shown}, not the registered {registered}. If you didn’t reset the key yourself, treat this as suspicious and don’t register it.",
   "settings.devices.touchId.confirmReplace":
     "This replaces the Touch ID key {previous} that was registered for this Mac. Replace it only if you reset the key yourself.",
   "settings.devices.touchId.confirmReplaceButton": "Replace key",
-  "settings.devices.touchId.interactionNotAllowed":
-    "The keychain can’t ask for permission right now. Unlock the Mac and try again.",
-  "settings.devices.touchId.changed":
-    "The Touch ID key changed while Psyche Helper was running. Quit Psyche Helper and start it again.",
-  "settings.devices.touchId.aclUnavailable":
-    "The keychain wouldn’t keep the Touch ID key’s access list on this Mac. Restart Psyche Helper to try again.",
   "settings.devices.touchId.noBundledKey":
     "The Psyche Helper in this app has no Touch ID key ({reason}).",
   "settings.devices.touchId.register": "Register this key",
   "settings.devices.touchId.remove": "Remove key",
   "settings.devices.touchId.manualLabel": "Key id",
   "settings.devices.touchId.manualHint":
-    "Run psyche-helper --print-identity on the Mac and paste the presenceKeyId it prints.",
-  "settings.devices.touchId.allowDevFileKey": "Allow a development Touch ID key",
-  "settings.devices.touchId.devFileKey":
-    "This build has no provisioning profile, so its key is a Secure Enclave file. Any app running as you could ask it to sign behind its own Touch ID prompt. For development only.",
+    "Run psyche-helper --print-identity on the computer and paste the presenceKeyId it prints.",
   "settings.devices.revoked": "Revoked ({n, number})",
   "settings.devices.revokedItem": "{name}, revoked {when}",
   "settings.devices.nodes": "Nodes",
@@ -1558,12 +1777,17 @@ export const settings = {
     "Nothing yet. When {persona} needs a folder or an app, it asks you in the chat, and what you allow shows here.",
   "settings.access.scope.always": "Always",
   "settings.access.scope.conversation": "This chat",
+  "settings.access.scope.space": "In a Space",
   "settings.access.scope.limited": "For now",
   "settings.access.used": "used {when}",
+  "settings.access.fileOnly": "One file · read only",
   "settings.access.revokeNamed": "Revoke {name}",
   "settings.access.loadLabel": "what Psyche can reach",
   "settings.access.loadFailed": "Psyche couldn't load what it can reach ({reason}).",
   "settings.access.unchanged": "Access is unchanged.",
+  "settings.access.moved": "Now points to {path} — confirm only if you moved it yourself",
+  "settings.access.confirm": "Confirm",
+  "settings.access.confirmNamed": "Confirm {name} again at {path}",
   "settings.files.sharedFolders": "Shared folders",
   "settings.files.noFolders": "No folders shared. {persona} works only in its own workspace.",
   "settings.files.shareFolder": "Share a folder",
@@ -1623,7 +1847,7 @@ export const settings = {
   "settings.model.role.primary": "Primary",
   "settings.model.role.primaryHint": "Chat, tasks and tools",
   "settings.model.role.utility": "Utility",
-  "settings.model.role.utilityHint": "Titles, summaries and the auto-mode classifier",
+  "settings.model.role.utilityHint": "Titles, summaries, search cards and other background jobs",
   "settings.model.role.image": "Image",
   "settings.model.role.imageHint": "Avatar changes; none means the bundled creatures",
   "settings.model.addProvider": "Add a provider",
@@ -1683,7 +1907,8 @@ export const settings = {
   "settings.permissions.never.secrets":
     "Type a password, card number, bank account or government ID it can see",
   "settings.permissions.never.captcha": "Solve or bypass a CAPTCHA",
-  "settings.permissions.never.money": "Make a financial transfer or trade",
+  "settings.permissions.never.money":
+    "Trade securities or crypto, move money between bank accounts or send it to a person, even if you approve",
   "settings.permissions.never.delete": "Permanently delete data without a typed confirmation",
   "settings.permissions.never.injection": "Follow instructions found in web pages, email or files",
   "settings.permissions.never.accounts": "Create third-party accounts without your approval",
@@ -1710,6 +1935,7 @@ export const settings = {
   "settings.permissions.subject.execIn": "{argv} in {cwd}",
   "settings.permissions.subject.emailTo": "to {recipient}",
   "settings.permissions.subject.emailAny": "to any recipient",
+  "settings.permissions.subject.emailFrom": "to {recipients} from {account}",
   "settings.permissions.subject.calendarNamed": "calendar {id}",
   "settings.permissions.subject.calendar": "calendar",
   "settings.permissions.subject.prepNotes": 'Notes titled "Prep:" (meeting prep)',
@@ -1731,8 +1957,29 @@ export const settings = {
   "settings.permissions.toolsChanged":
     "{name} changed its tool list since you approved it, so Psyche revoked its grants. Every action asks again until you review it.",
   "settings.permissions.hash": "tools/list {hash}…",
+  "settings.permissions.sendsTitle": "Recipients you always allow",
+  "settings.permissions.sendsHint":
+    "Email sent to these recipients goes out without asking. Remove one to be asked again.",
+  "settings.permissions.noSends": "No recipient is set to always allow.",
   "settings.permissions.origins": "Browser origins",
   "settings.permissions.originsHint": "Sites the agent may open without asking.",
+  "settings.permissions.trusted.title": "Trusted sites",
+  "settings.permissions.trusted.description":
+    "Psyche reads these sites without asking, in any chat. Writing, forms and sensitive sites still ask first.",
+  "settings.permissions.trusted.empty":
+    "No trusted sites yet. Choose “Always for this site” on a first-read request to add one.",
+  "settings.permissions.trusted.added": "Added {date}",
+  "settings.permissions.trusted.remove": "Remove",
+  "settings.permissions.trusted.removeNamed": "Remove {name} from trusted sites",
+  "settings.permissions.subject.trustedSiteSubdomains": "{origin} and its subdomains",
+  "settings.permissions.subject.hostProgram": "{program} in {folder}, any arguments",
+  "settings.permissions.subject.hostProgramExact": "{program} in {folder}, exactly these arguments",
+  "settings.permissions.sensitive.title": "Sensitive sites",
+  "settings.permissions.sensitive.description":
+    "Banks, health, email and password managers always ask before a read. Government and iCloud sites ask too; turn one off here to read it without asking.",
+  "settings.permissions.sensitive.governmentHint":
+    "Sites ending in .gov or .gov.uk (tax, identity and health accounts). On by default.",
+  "settings.permissions.sensitive.icloudHint": "iCloud sites (mail, photos, files). On by default.",
   "settings.permissions.noOrigins": "No standing website grants. New sites ask first.",
   "settings.permissions.scopeExpires": "{scope}, expires {date}",
   "settings.permissions.revokeNamed": "Revoke {name}",
@@ -1806,8 +2053,11 @@ export const settings = {
   // Settings → Server & remote access → Gateways on this computer (docs/design/remote-gateway-2026.md §1.3).
   "settings.connectors.page.onHost": "On {host}",
   "settings.connectors.page.row.onHost": "On {host}",
+  "settings.connectors.page.row.macOnly": "Only on a Mac host",
   "settings.computerUse.remote":
     "Computer use works at {host}. Ask from there, or use the browser.",
+  "settings.computerUse.remoteLinux":
+    "Computer use runs on {host}'s private screen. Watch it and take over from the watch pane.",
   "settings.gateways.title": "Gateways on this computer",
   "settings.gateways.description":
     "Use Psyche from this computer with the Gateway on another one, such as your Mac at home. One Gateway is active at a time, and switching restarts Psyche.",
@@ -2011,6 +2261,70 @@ export const settings = {
     "What a computer announces on the network is a claim. The pairing screen shows its key: compare it with the Host's before you approve.",
   "settings.gateways.discoverAdd": "Add {name}",
   "settings.gateways.discoverSaved": "Saved",
+  // Set up a remote server (remote-gateway design §3.6).
+  "settings.remoteSetup.title": "Set up a remote server",
+  "settings.remoteSetup.open": "Set up a remote server",
+  "settings.remoteSetup.intro":
+    "Install psyche-server on a Linux computer on this network. It shows a setup code: type it here, and this computer becomes the server's admin.",
+  "settings.remoteSetup.lookFailed":
+    "Couldn't look on the network. Type the server's address instead.",
+  "settings.remoteSetup.noneWaiting":
+    "No server waiting for setup was found on this network. Type its address instead.",
+  "settings.remoteSetup.waiting": "Waiting for setup",
+  "settings.remoteSetup.pick": "Set up",
+  "settings.remoteSetup.pickNamed": "Set up {name}",
+  "settings.remoteSetup.alreadySetUp":
+    "Already set up. Add it with a pairing link from that server.",
+  "settings.remoteSetup.addressLabel": "Server address",
+  "settings.remoteSetup.addressPlaceholder": "192.168.1.20 or server.local",
+  "settings.remoteSetup.addressHint":
+    "An address on this network. Psyche uses port 7979 unless you type another.",
+  "settings.remoteSetup.next": "Next",
+  "settings.remoteSetup.codeTitle": "Setup code for {name}",
+  "settings.remoteSetup.codeLabel": "Setup code",
+  "settings.remoteSetup.codePlaceholder": "7K3QM-XR2TD",
+  "settings.remoteSetup.codeHint":
+    "The server showed it when psyche-server was installed. It works once, for 24 hours. For a new one, run psyche setup code on the server.",
+  "settings.remoteSetup.checking": "Checking the code…",
+  "settings.remoteSetup.submit": "Set up server",
+  "settings.remoteSetup.back": "Back",
+  "settings.remoteSetup.doneTitle": "{name} is set up",
+  "settings.remoteSetup.doneBody":
+    "This computer is its admin now. Switch to it to name your agent and choose a model there.",
+  "settings.remoteSetup.switch": "Switch to {name}",
+  "settings.remoteSetup.notNow": "Not now",
+  "settings.remoteSetup.keepLan": "Keep this server reachable on my network",
+  "settings.remoteSetup.keepLanHint":
+    "Computers on this network can reach the server and ask to pair. Each one still needs your approval.",
+  "settings.remoteSetup.keepLanOffHint":
+    "When setup finishes, the server stops listening on this network and this computer disconnects. Turn this off only if you reach the server another way, like Tailscale.",
+  "settings.remoteSetup.firstRunHint": "Installed Psyche on a server? Set it up from here instead.",
+  "settings.remoteSetup.connect": "Connect to a Psyche server",
+  "settings.remoteSetup.problem.wrong_code":
+    "{count, plural, one {That code isn't right. # more try, then the server makes you wait.} other {That code isn't right. # more tries, then the server makes you wait.}}",
+  "settings.remoteSetup.problem.wrong_code_wait":
+    "That code isn't right. Wait a minute, check the code on the server, and try again.",
+  "settings.remoteSetup.problem.too_many_attempts":
+    "Too many wrong codes. Try again in {seconds, plural, one {# second} other {# seconds}}.",
+  "settings.remoteSetup.problem.bad_code":
+    "A setup code is 10 letters and numbers, like 7K3QM-XR2TD.",
+  "settings.remoteSetup.problem.code_expired":
+    "That code has expired. Run psyche setup code on the server for a new one.",
+  "settings.remoteSetup.problem.not_claimable":
+    "That server is already set up. Add it with a pairing link from the server instead.",
+  "settings.remoteSetup.problem.unreachable":
+    "Couldn't reach a server at that address. Check that it's on and on this network.",
+  "settings.remoteSetup.problem.cert_mismatch":
+    "The server's certificate didn't match the one it named, so Psyche stopped. Check the address and try again.",
+  "settings.remoteSetup.problem.server_unproven":
+    "The server didn't prove it knows the code, so Psyche didn't trust it. Check the address and the code.",
+  "settings.remoteSetup.problem.maybe_claimed":
+    "The server may already be set up with this Mac. Connect with a pairing link or run `psyche devices link` on the server.",
+  "settings.remoteSetup.problem.saved":
+    "That server is saved already. Switch to it in the list above.",
+  "settings.remoteSetup.problem.not_lan":
+    "Type an address on this network, like 192.168.1.20 or server.local.",
+  "settings.remoteSetup.problem.failed": "Couldn't set up the server. Nothing changed.",
   // The pairing card for a computer on another network.
   "settings.devices.gatewayKey": "This Gateway's key {fingerprint}",
   "settings.devices.fromAddress": "From {address}",
@@ -2158,6 +2472,42 @@ export const settings = {
   "settings.skills.removeDescription":
     "Its files are deleted from this Gateway. Installing it again goes through the trust card.",
   "settings.skills.switchOn": "{name} on",
+  "settings.plugins.title": "Plugins",
+  "settings.plugins.description":
+    "Code that adds context, checks tool calls or runs evaluations. Each plugin runs in its own process. Plugins never grant permissions.",
+  "settings.plugins.off": "Plugins are switched off on this Gateway, so none of them run.",
+  "settings.plugins.loading": "Loading plugins…",
+  "settings.plugins.error": "Plugins could not be loaded. {reason}",
+  "settings.plugins.empty": "No plugins are installed.",
+  "settings.plugins.failed": "The change did not save. {reason}",
+  "settings.plugins.waitingApproval": "Waiting for your approval on this device.",
+  "settings.plugins.switchOn": "{name} on",
+  "settings.plugins.version": " · v{version}",
+  "settings.plugins.adds": "Adds: {list}",
+  "settings.plugins.install": "Install from folder…",
+  "settings.plugins.pickFailed": "Psyche couldn't open the folder chooser ({reason}).",
+  "settings.plugins.installFailed": "The install didn't start. {reason}",
+  "settings.plugins.proposed": "Review the install on the approval card.",
+  "settings.plugins.includes": "Includes: {list}",
+  "settings.plugins.count.skills": "{n, plural, one {# skill} other {# skills}}",
+  "settings.plugins.count.commands": "{n, plural, one {# command} other {# commands}}",
+  "settings.plugins.count.mcpServers": "{n, plural, one {# MCP server} other {# MCP servers}}",
+  "settings.plugins.count.hooks": "{n, plural, one {# hook} other {# hooks}}",
+  "settings.plugins.from": "From {source}",
+  "settings.plugins.state.active": "Running",
+  "settings.plugins.state.disabled": "Switched off",
+  "settings.plugins.state.off": "Waiting for plugins to be switched on",
+  "settings.plugins.state.hash_mismatch": "Changed since install, not running",
+  "settings.plugins.state.invalid": "Invalid manifest, not running",
+  "settings.plugins.state.failed": "Stopped with an error",
+  "settings.plugins.capability.context": "context",
+  "settings.plugins.capability.before_tool_call": "a check before tool calls",
+  "settings.plugins.capability.after_tool_call": "a check after tool calls",
+  "settings.plugins.capability.agent_end": "a step at the end of each run",
+  "settings.plugins.capability.evaluate": "evaluations",
+  "settings.plugins.removeTitle": "Remove {name}?",
+  "settings.plugins.removeDescription":
+    "Its files are deleted from this Gateway. Installing it again goes through the trust card.",
   "settings.skills.asksFor": "Asks for:",
   "settings.skills.toolsLabel": "Tools:",
   "settings.skills.title": "Skills",
@@ -2442,6 +2792,19 @@ export const settings = {
   "settings.connect.noSignIn": "the Gateway didn't return a sign-in page",
   "settings.connect.notConfigured":
     "{name} isn't set up on this Gateway yet: it needs your own OAuth client (the Connecting Google guide in Psyche's docs). Set it up later in Settings → Connectors & sources.",
+  "settings.googleClient.using": "Using your Google client {clientId}.",
+  "settings.googleClient.fromConfig": "It's set in config.json or the environment.",
+  "settings.googleClient.change": "Use a different client",
+  "settings.googleClient.help":
+    "Psyche has no Google client of its own. Create a free Desktop-app OAuth client in your own Google Cloud project once, then paste its ID here.",
+  "settings.googleClient.docs": "How to create one",
+  "settings.googleClient.id": "Client ID",
+  "settings.googleClient.idHint": "Ends in .apps.googleusercontent.com",
+  "settings.googleClient.invalid":
+    "That isn't a Google client ID. It ends in .apps.googleusercontent.com.",
+  "settings.googleClient.secret": "Client secret",
+  "settings.googleClient.secretHint": "Kept in your vault and only ever sent to Google.",
+  "settings.googleClient.saveFailed": "Couldn't save the Google client: {reason}",
   "settings.connect.alreadyConnected": "{name} is already connected.",
   "settings.connect.needsPermission":
     "{name} is set up, but macOS has not allowed it yet. Allow it in",

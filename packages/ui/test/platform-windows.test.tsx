@@ -57,7 +57,8 @@ describe("platform detection", () => {
     expect(normalizePlatform("windows")).toBe("windows");
     expect(normalizePlatform("darwin")).toBe("macos");
     expect(normalizePlatform("MacIntel")).toBe("macos");
-    expect(normalizePlatform("linux")).toBe("other");
+    expect(normalizePlatform("linux")).toBe("linux");
+    expect(normalizePlatform("web")).toBe("other");
     document.documentElement.dataset.platform = "win32";
     expect(uiPlatform()).toBe("windows");
     delete document.documentElement.dataset.platform;
@@ -71,7 +72,7 @@ describe("Windows copy (i18n/messages/variants/windows.ts)", () => {
     expect(t("web.remote.thisMac")).toBe("This Mac");
     setUiPlatform("windows");
     expect(t("web.remote.thisMac")).toBe("This PC");
-    expect(t("onboarding.safety.touchId")).toBe("Windows Hello for approvals");
+    expect(t("onboarding.safety.touchId")).toBe("Windows Hello for payments");
     expect(t("settings.about.revealHome")).toBe("Show in File Explorer");
     expect(t("settings.model.ram.fits", { gb: 16, fits: "Qwen" })).toBe(
       "This PC has 16 GB, so Qwen fit.",
@@ -107,6 +108,15 @@ describe("Windows copy (i18n/messages/variants/windows.ts)", () => {
     expect(t("web.remote.thisMac")).toBe("This PC");
   });
 
+  it("translates the security-record variants: PC and Windows Hello, never the Mac", () => {
+    setActiveI18n(createI18n({ locale: "de-DE", language: "de" }));
+    setUiPlatform("windows");
+    const text = t("web.security.alert.requested", { action: "x", when: "y" });
+    expect(text).toContain("diesem PC");
+    expect(text).not.toMatch(/Mac/);
+    expect(t("web.security.needsApproval")).toContain("Windows Hello");
+  });
+
   it("keeps every variant valid ICU with the English message's placeholders, and Mac-free", () => {
     const ids = Object.keys(windows) as MessageId[];
     expect(ids.length).toBeGreaterThan(150);
@@ -128,20 +138,7 @@ describe("Windows copy (i18n/messages/variants/windows.ts)", () => {
  */
 const ABOUT_MACOS = new Set<string>([
   // The Mac helper's Touch ID key in the login keychain (states only a mac-helper key reaches).
-  "blocks.approval.touchId.keyUntrusted",
-  "blocks.approval.touchId.keyAccessDenied",
-  "blocks.approval.touchId.keyChanged",
-  "blocks.approval.touchId.keyWrongLocation",
-  "blocks.approval.touchId.keyLocked",
-  "blocks.approval.touchId.keyAclUnavailable",
-  "settings.devices.presenceKey.enclaveKeychainAcl",
-  "settings.devices.touchId.untrusted",
-  "settings.devices.touchId.accessDenied",
-  "settings.devices.touchId.wrongLocation",
   "settings.devices.touchId.confirmReplace",
-  "settings.devices.touchId.interactionNotAllowed",
-  "settings.devices.touchId.changed",
-  "settings.devices.touchId.aclUnavailable",
   // The macOS bundle integrity check at start-up (main.ts runs it on macOS only).
   "app.integrity.detail",
   // iMessage / SMS channel: Apple vouches for iMessage senders.
@@ -149,6 +146,8 @@ const ABOUT_MACOS = new Set<string>([
   // Rendered on macOS only (MapLibre's Mac help text; the ⌘L keycap behind isMac()).
   "map.gesture.mac",
   "shell.search.keyCmdL",
+  // Apple connectors read a Mac Host's apps; any other Host shows them as Mac-only (B3).
+  "settings.connectors.page.row.macOnly",
   // Apple's on-device model (Search, Everything memory).
   "settings.searchModel.apple",
   "settings.searchModel.appleName",
@@ -178,12 +177,11 @@ const ABOUT_MACOS = new Set<string>([
   // A Mac device, its helper and its keys, named as such wherever they are listed.
   "settings.devices.platform.macos",
   "settings.devices.nodeKind.macHelper",
+  // The Contacts hint shows only after the Mac helper reports a macOS Contacts permission error.
+  "platform.helper.contactsPermission",
   "settings.devices.thisMacAdmin",
-  "settings.devices.presenceKey.keychain",
-  "settings.devices.presenceKey.enclaveFile",
   "settings.devices.presenceKey.unknown",
-  "settings.devices.touchId.allowDevFileKey",
-  "settings.devices.touchId.devFileKey",
+  "settings.devices.presenceKey.deviceIdentity",
   "web.about.appleSilicon",
   // "Available on macOS" itself.
   "platform.macOnly",
@@ -299,7 +297,8 @@ describe("Windows in Settings and onboarding", () => {
 
   it("names a key by its kind, not by the platform this window runs on", () => {
     setUiPlatform("windows");
-    expect(presenceKeyText({ kind: "keychain" })).toMatch(/^Touch ID key/);
+    expect(presenceKeyText({})).toMatch(/^Touch ID key/);
+    expect(presenceKeyText({ kind: "device_identity" })).toMatch(/Touch ID or your Mac password/);
     expect(presenceKeyText({}, "win-helper")).toBe("Windows Hello key, as reported by the helper");
     expect(presenceKeyText({ algorithm: "rs256" })).toMatch(/RSA-2048/);
     expect(presenceKeyText({ algorithm: "rsa-2048-pkcs1-sha256" })).toMatch(/RSA-2048/);

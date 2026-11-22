@@ -156,6 +156,151 @@ describe("deploy/sandbox-image/publish.sh split build (native per-arch runners, 
     expect(out).not.toContain("docker buildx build");
   });
 
+  describe("the desktop variant carries the Linux helper", () => {
+    const sha = "a".repeat(64);
+    const withSha = (...args: string[]) =>
+      spawnSync("bash", [script(), ...args], {
+        encoding: "utf8",
+        env: { ...process.env, PSYCHE_HELPER_SHA256: sha },
+      });
+
+    it.skipIf(!has("jq"))(
+      "is built per platform with the helper's checksum passed to the build",
+      () => {
+        const r = withSha(
+          "--dry-run",
+          "--version",
+          "1.2.3",
+          "--platform",
+          "linux/arm64",
+          "--digests-dir",
+          "/tmp/d",
+          "core",
+          "base",
+          "full",
+          "desktop",
+        );
+        expect(r.status, r.stderr).toBe(0);
+        const out = `${r.stdout}${r.stderr}`;
+        const builds = out.match(/\+ docker buildx build .*/g) ?? [];
+        expect(builds).toHaveLength(4);
+        // Only the desktop build gets the checksum.
+        expect(builds.filter((b) => b.includes(`HELPER_SHA256=${sha}`))).toHaveLength(1);
+        expect(builds.find((b) => b.includes("--target desktop"))).toContain(
+          `HELPER_SHA256=${sha}`,
+        );
+        expect(out).toContain("/tmp/d/desktop/linux-arm64");
+      },
+    );
+
+    it.skipIf(!has("jq"))("refuses a malformed checksum, even in a dry run", () => {
+      for (const bad of ["not-a-checksum", "A".repeat(64), "a".repeat(63)]) {
+        const r = spawnSync(
+          "bash",
+          [
+            script(),
+            "--dry-run",
+            "--version",
+            "1.2.3",
+            "--platform",
+            "linux/arm64",
+            "--digests-dir",
+            "/tmp/d",
+            "desktop",
+          ],
+          { encoding: "utf8", env: { ...process.env, PSYCHE_HELPER_SHA256: bad } },
+        );
+        expect(r.status, bad).toBe(2);
+        expect(r.stderr).toMatch(/PSYCHE_HELPER_SHA256/);
+      }
+    });
+
+    it.skipIf(!has("jq"))(
+      "is never one multi-platform build: it would put one architecture's helper in both",
+      () => {
+        const r = withSha("--dry-run", "--version", "1.2.3", "desktop");
+        expect(r.status).toBe(2);
+        expect(r.stderr).toMatch(/per platform/);
+      },
+    );
+
+    // The release workflow builds in one job and merges in another, and an environment variable
+    // does not cross jobs: a real (non-dry) --merge runs with no PSYCHE_HELPER_SHA256 at all.
+    it.skipIf(!has("jq"))(
+      "a real --merge needs no helper checksum (the merge job has none) and records desktop",
+      () => {
+        const work = mkdtempSync(join(tmpdir(), "psyche-merge-"));
+        try {
+          const dir = join(work, "sandbox-image");
+          mkdirSync(dir);
+          for (const f of ["publish.sh", "versions.json", "Dockerfile"]) {
+            writeFileSync(join(dir, f), readFileSync(resolve(deploy, "sandbox-image", f)));
+          }
+          const bin = join(work, "bin");
+          mkdirSync(bin);
+          const digest = `sha256:${"a".repeat(64)}`;
+          // Stubs: docker answers `imagetools inspect` with a manifest digest; cosign signs nothing.
+          writeFileSync(
+            join(bin, "docker"),
+            `#!/bin/sh\ncase "$*" in *inspect*) echo '{"digest":"${digest}"}' ;; esac\nexit 0\n`,
+            { mode: 0o755 },
+          );
+          writeFileSync(join(bin, "cosign"), "#!/bin/sh\nexit 0\n", { mode: 0o755 });
+          const digests = join(work, "digests");
+          for (const v of ["core", "base", "full", "desktop"]) {
+            mkdirSync(join(digests, v), { recursive: true });
+            for (const p of ["linux-arm64", "linux-amd64"]) {
+              writeFileSync(join(digests, v, p), `sha256:${"b".repeat(64)}\n`);
+            }
+          }
+          const env: NodeJS.ProcessEnv = {
+            ...process.env,
+            PATH: `${bin}:${process.env.PATH ?? ""}`,
+          };
+          env.PSYCHE_HELPER_SHA256 = undefined;
+          const r = spawnSync(
+            "bash",
+            [
+              join(dir, "publish.sh"),
+              "--version",
+              "1.2.3",
+              "--merge",
+              digests,
+              "core",
+              "base",
+              "full",
+              "desktop",
+            ],
+            { encoding: "utf8", env },
+          );
+          expect(r.status, r.stderr).toBe(0);
+          const versions = JSON.parse(readFileSync(join(dir, "versions.json"), "utf8"));
+          expect(versions.variants.desktop).toMatchObject({ tag: "1.2.3-desktop", digest });
+        } finally {
+          rmSync(work, { recursive: true, force: true });
+        }
+      },
+    );
+
+    it.skipIf(!has("jq"))("is merged, signed and recorded with the others", () => {
+      const r = withSha(
+        "--dry-run",
+        "--version",
+        "1.2.3",
+        "--merge",
+        "/tmp/d",
+        "core",
+        "base",
+        "full",
+        "desktop",
+      );
+      expect(r.status, r.stderr).toBe(0);
+      const out = `${r.stdout}${r.stderr}`;
+      expect(out).toContain("ghcr.io/devmello/psyche-sandbox:1.2.3-desktop");
+      expect(out.match(/\+ cosign sign --yes/g)).toHaveLength(4);
+    });
+  });
+
   it.skipIf(!has("jq"))("refuses an unknown platform and a platform without a digests dir", () => {
     expect(run("--dry-run", "--platform", "linux/s390x", "--digests-dir", "/tmp/d").status).toBe(2);
     expect(run("--dry-run", "--platform", "linux/arm64").status).toBe(2);
@@ -596,6 +741,19 @@ describe("deploy/scripts/prune-package-waste.mjs (app size, phase 1)", () => {
       "LICENSE",
     ])
       put(`${pdf}/${f}`);
+    const pty = pkg("node-pty@1.1.0", "node-pty");
+    for (const f of [
+      "lib/utils.js",
+      "prebuilds/darwin-arm64/pty.node",
+      "package.json",
+      "LICENSE",
+      "deps/winpty/winpty.gyp",
+      "src/unix/pty.cc",
+      "third_party/conpty/conpty.dll",
+      "scripts/prebuild.js",
+      "binding.gyp",
+    ])
+      put(`${pty}/${f}`);
     const pw = pkg("playwright-core@1.64.1", "playwright-core");
     for (const f of ["lib/coreBundle.js", "lib/vite/traceViewer/index.html", "index.js"])
       put(`${pw}/${f}`);
@@ -664,6 +822,13 @@ describe("deploy/scripts/prune-package-waste.mjs (app size, phase 1)", () => {
         `${pdf}/legacy/build/pdf.worker.mjs`,
         `${pdf}/standard_fonts/FoxitSans.pfb`,
         `${pdf}/wasm/openjpeg.wasm`,
+      ]);
+      const ptyDir = `${pnpm}/node-pty@1.1.0/node_modules/node-pty`;
+      expect(left.filter((f) => f.startsWith(ptyDir))).toEqual([
+        `${ptyDir}/LICENSE`,
+        `${ptyDir}/lib/utils.js`,
+        `${ptyDir}/package.json`,
+        `${ptyDir}/prebuilds/darwin-arm64/pty.node`,
       ]);
       const pw = `${pnpm}/playwright-core@1.64.1/node_modules/playwright-core`;
       expect(left.filter((f) => f.startsWith(pw))).toEqual([

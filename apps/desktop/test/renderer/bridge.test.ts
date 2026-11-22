@@ -1,6 +1,11 @@
 import { describe, expect, it } from "vitest";
 import type { PsycheBridge } from "../../src/preload.ts";
-import { desktopPlatform, GatewayCallError, unwrapCall } from "../../src/renderer/bridge.ts";
+import {
+  desktopPlatform,
+  GatewayCallError,
+  remoteClientPlatform,
+  unwrapCall,
+} from "../../src/renderer/bridge.ts";
 
 describe("renderer bridge", () => {
   it("returns the value of an ok envelope", async () => {
@@ -52,6 +57,33 @@ describe("renderer bridge", () => {
         details: { reason: "no_presence_key" },
       });
     }
+  });
+
+  it("on Linux offers the password path and no Touch ID, so Allow reaches approveWithPassword", async () => {
+    const sent: unknown[] = [];
+    const ok = { ok: true, value: { approval: { id: "ap_1" } } };
+    const mk = (platform: string) =>
+      ({
+        platform,
+        chrome: { titleBar: "native" },
+        helper: { touchIdApprove: async () => ok, touchIdRegister: async () => ok },
+        password: {
+          approve: async (p: unknown) => {
+            sent.push(p);
+            return ok;
+          },
+        },
+      }) as unknown as PsycheBridge;
+    const linux = desktopPlatform(mk("linux"));
+    expect(linux.helper?.touchId).toBeUndefined();
+    expect(linux.helper).toBeDefined();
+    await linux.password?.approve({ approvalId: "ap_1", answerToken: "t" });
+    expect(sent).toEqual([{ approvalId: "ap_1", answerToken: "t" }]);
+    // A window on another computer's Gateway has no password dialog of its own to promise.
+    expect(remoteClientPlatform(linux).password).toBeUndefined();
+    const mac = desktopPlatform(mk("darwin"));
+    expect(mac.helper?.touchId).toBeDefined();
+    expect(mac.password).toBeUndefined();
   });
 
   it("opens a cited source by document id and keeps the error code when main refuses", async () => {

@@ -196,35 +196,39 @@ describe.skipIf(process.platform === "win32")("install-local.sh", () => {
     }
   });
 
-  it("refuses folders outside the home folder, ancestors of it, and the personal folders", () => {
-    const outside = join(root, "elsewhere");
-    mkdirSync(join(outside, "state"), { recursive: true });
-    writeFileSync(join(outside, "state", "psyche.sqlite"), "x");
-    for (const d of ["Documents", "Desktop", "Downloads", "Library"]) {
-      mkdirSync(join(home, d, "state"), { recursive: true });
-      writeFileSync(join(home, d, "state", "psyche.sqlite"), "x");
-    }
-    for (const bad of [
-      root, // an ancestor of HOME
-      dirname(home),
-      "/",
-      "/Users",
-      "/Applications",
-      "/Volumes",
-      outside,
-      join(home, "Documents"),
-      join(home, "Desktop"),
-      join(home, "Downloads"),
-      join(home, "Library"),
-      "relative/path",
-    ]) {
-      if (bad === "relative/path") mkdirSync(join(root, "relative", "path"), { recursive: true });
-      const r = run(["--reset", "--yes"], { PSYCHE_HOME: bad }, bad === "relative/path");
-      expect(r.code, bad).toBe(1);
-      expect(r.out, bad).toContain("refusing");
-      expect(existsSync(data()), bad).toBe(true);
-    }
-  });
+  // macOS-only: the refused-folder list is the macOS layout (/Users, /Applications, ~/Library).
+  it.skipIf(process.platform !== "darwin")(
+    "refuses folders outside the home folder, ancestors of it, and the personal folders",
+    () => {
+      const outside = join(root, "elsewhere");
+      mkdirSync(join(outside, "state"), { recursive: true });
+      writeFileSync(join(outside, "state", "psyche.sqlite"), "x");
+      for (const d of ["Documents", "Desktop", "Downloads", "Library"]) {
+        mkdirSync(join(home, d, "state"), { recursive: true });
+        writeFileSync(join(home, d, "state", "psyche.sqlite"), "x");
+      }
+      for (const bad of [
+        root, // an ancestor of HOME
+        dirname(home),
+        "/",
+        "/Users",
+        "/Applications",
+        "/Volumes",
+        outside,
+        join(home, "Documents"),
+        join(home, "Desktop"),
+        join(home, "Downloads"),
+        join(home, "Library"),
+        "relative/path",
+      ]) {
+        if (bad === "relative/path") mkdirSync(join(root, "relative", "path"), { recursive: true });
+        const r = run(["--reset", "--yes"], { PSYCHE_HOME: bad }, bad === "relative/path");
+        expect(r.code, bad).toBe(1);
+        expect(r.out, bad).toContain("refusing");
+        expect(existsSync(data()), bad).toBe(true);
+      }
+    },
+  );
 
   it("refuses a folder with no Psyche marker file", () => {
     const f = join(home, "photos");

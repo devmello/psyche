@@ -2,7 +2,7 @@ import type { Message, Run, ToolCall } from "@psyche/protocol";
 import { act, render, screen, waitFor, within } from "@testing-library/react";
 import { userEvent } from "@testing-library/user-event";
 import { describe, expect, it } from "vitest";
-import { RunStepLog, runSteps, STALL_MS, VISIBLE_STEPS } from "../src/chat/RunStepLog.tsx";
+import { RunStepLog, runSteps, STALL_MS } from "../src/chat/RunStepLog.tsx";
 import { ChatThread } from "../src/chat/Thread.tsx";
 import type { MockGateway } from "../src/data/mock-gateway.ts";
 import { createFixtureWorld, IDS } from "../src/fixtures/index.ts";
@@ -80,7 +80,7 @@ describe("run steps (#623)", () => {
     expect(steps.at(-1)?.label).toBe("Writing the reply…");
   });
 
-  it("shows the last five, opens the rest, keeps failures red and marks the current step", async () => {
+  it("folds earlier finished steps, opens them, keeps failures red and marks the current step", async () => {
     const steps = runSteps({
       run,
       threadId: T,
@@ -102,10 +102,11 @@ describe("run steps (#623)", () => {
       </StoryWorld>,
     );
     const log = screen.getByTestId("run-step-log");
-    expect(log.querySelectorAll("li")).toHaveLength(VISIBLE_STEPS);
-    await userEvent.click(within(log).getByRole("button", { name: "Show all (7)" }));
+    // Three finished steps fold into one row; the failure, two finished steps and the current one stay.
+    expect(log.querySelectorAll("li")).toHaveLength(5);
+    await userEvent.click(within(log).getByRole("button", { name: "3 earlier steps done" }));
     expect(log.querySelectorAll("li")).toHaveLength(7);
-    const failed = log.querySelector('li[data-status="failed"] span');
+    const failed = log.querySelector('li[data-status="failed"] [data-role="label"]');
     expect(failed?.className).toContain("text-danger-text");
     expect(log.querySelector('li[data-status="running"]')).not.toBeNull();
     expect(screen.getByTestId("chat-working").textContent).toBe("Wren is working…");

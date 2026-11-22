@@ -1,3 +1,4 @@
+import PsycheDesign
 import SwiftUI
 
 /// Streaming text fades in by line, not by character (docs/design/ios-app-2026.md §9). A line starts
@@ -41,11 +42,12 @@ struct FadeByLineRenderer: TextRenderer {
 struct StreamingText: View {
     let text: AttributedString
     @State private var clock = LineClock()
-    @Environment(\.accessibilityReduceMotion) private var reduceMotion
-    private let duration: TimeInterval = 0.35
+    private let motion = MotionContext()
+    /// Opacity only: a new line never moves or scales (spec §4.6).
+    private let duration: TimeInterval = PsycheMotion.Duration.medium
 
     var body: some View {
-        if reduceMotion {
+        if motion.reduced {
             Text(text)
         } else {
             TimelineView(.animation) { timeline in

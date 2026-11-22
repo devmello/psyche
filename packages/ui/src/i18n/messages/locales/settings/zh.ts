@@ -83,6 +83,9 @@ export const settings: Partial<Catalogue> = {
   "settings.key.appearance.openAtLogin": "登录时打开 Psyche",
   "settings.key.browser.useSignedInSessions": "使用我已登录的会话",
   "settings.key.exec.srtPath": "srt 位置",
+  "settings.key.devices.hostHelper.status": "Linux 助手检查",
+  "settings.key.devices.helper.availability": "Psyche Helper 连接",
+  "settings.key.devices.hostHelperDeviceId": "使用哪个 Psyche Helper",
   "settings.key.search.model.engine": "搜索所用模型",
   "settings.key.search.semantic.enabled": "语义搜索（设备端）",
   "settings.key.search.cards.enabled": "搜索的上下文卡片",
@@ -363,6 +366,15 @@ export const settings: Partial<Catalogue> = {
   "settings.mcp.tools.off": "此服务器已关闭。开启后即可查看它的工具。",
   "settings.mcp.tools.notConnected": "此服务器未连接，因此没有列出任何工具。",
   "settings.mcp.tools.none": "此服务器没有工具。",
+  "settings.mcp.money.title": "付款",
+  "settings.mcp.money.description":
+    "会转移资金的工具每次都需要你确认付款。请说明此服务器的哪些工具属于这种情况。",
+  "settings.mcp.money.auto": "按每个工具的名称判断",
+  "settings.mcp.money.autoHint": "Psyche 根据工具的名称和描述来猜测，而服务器可以通过措辞来避开。",
+  "settings.mcp.money.always": "所有工具都会转移资金",
+  "settings.mcp.money.alwaysHint": "对此服务器的每次调用都会请你批准一笔付款。",
+  "settings.mcp.money.never": "没有工具会转移资金",
+  "settings.mcp.money.neverHint": "无论工具叫什么，都不会要求付款批准。仅适用于不能花钱的服务器。",
   "settings.mcp.secrets.title": "密钥",
   "settings.mcp.secrets.intro":
     "此服务器启动时使用的密钥。它们保存在你的保险库中；Psyche 只显示每个密钥是否已设置。",
@@ -531,42 +543,25 @@ export const settings: Partial<Catalogue> = {
   "settings.data.recallState.cloudBlocked": "嵌入服务不被允许接收你的记忆，因此调用时只匹配字词。",
   "settings.data.recallState.textOnly": "没有可用的嵌入模型，因此调用时只匹配字词。",
   "settings.data.replayRetentionHint": "{persona}工作时看过的屏幕，用于时间线。关闭则不保留。",
-  "settings.devices.presenceKey.keychain": "Touch ID 密钥（钥匙串），由助手报告",
-  "settings.devices.presenceKey.enclaveKeychainAcl":
-    "Touch ID 密钥（Secure Enclave，仅 Psyche 助手无需 macOS 提示即可读取），由助手报告",
-  "settings.devices.presenceKey.enclaveFile":
-    "Touch ID 密钥（Secure Enclave 文件，此版本没有配置描述文件），由助手报告",
   "settings.devices.presenceKey.unknown": "Touch ID 密钥（助手未报告类型）",
+  "settings.devices.presenceKey.deviceIdentity":
+    "付款会使用 Touch ID 或你的 Mac 密码。无需任何设置。",
   "settings.devices.touchId.none":
     "还没有 Touch ID 密钥。注册密钥之前，需要 Touch ID 的卡片无法批准。",
   "settings.devices.touchId.bundled": "此 App 中的 Psyche 助手显示密钥",
   "settings.devices.touchId.notBundled": "此助手不是此 App 自带的那个，因此无法在此注册它的密钥。",
-  "settings.devices.touchId.untrusted":
-    "钥匙串中的 Touch ID 密钥未被使用，因为无法证明它属于 Psyche 助手。无害的原因之一是 Psyche 被移动或在别处重新安装：请把它移回“应用程序”并重新打开。否则请先退出 Psyche 助手，在“终端”中运行 /Applications/Psyche.app/Contents/Resources/PsycheHelper.app/Contents/MacOS/psyche-helper --reset-presence-key，然后注册新密钥。",
-  "settings.devices.touchId.accessDenied":
-    "macOS 未允许 Psyche 助手使用钥匙串中的 Touch ID 密钥。请重新运行 Psyche，仅当对话框写明 psyche-helper 时才选择“始终允许”（对其他程序绝不要选）。",
-  "settings.devices.touchId.wrongLocation":
-    "Psyche 助手未创建 Touch ID 密钥，因为它正从磁盘映像、“下载”或其他文件夹运行。请把 Psyche 移到“应用程序”，推出所有磁盘映像，然后从那里打开。",
   "settings.devices.touchId.keyMismatch":
     "此 App 中的 Psyche 助手现在显示的密钥是 {shown}，与已注册的 {registered} 不同。如果不是你自己重置了密钥，请视为可疑，不要注册它。",
   "settings.devices.touchId.confirmReplace":
     "这将替换已为这台 Mac 注册的 Touch ID 密钥 {previous}。仅当你自己重置了密钥时才替换。",
   "settings.devices.touchId.confirmReplaceButton": "替换密钥",
-  "settings.devices.touchId.interactionNotAllowed": "钥匙串目前无法请求权限。请解锁 Mac 后重试。",
-  "settings.devices.touchId.changed":
-    "Psyche 助手运行期间 Touch ID 密钥发生了变化。请退出 Psyche 助手并重新启动。",
-  "settings.devices.touchId.aclUnavailable":
-    "这台 Mac 的钥匙串不肯保存 Touch ID 密钥的访问列表。请重启 Psyche 助手再试。",
   "settings.devices.touchId.noBundledKey":
     "此 App 中的 Psyche 助手没有 Touch ID 密钥（{reason}）。",
   "settings.devices.touchId.register": "注册此密钥",
   "settings.devices.touchId.remove": "移除密钥",
   "settings.devices.touchId.manualLabel": "密钥 ID",
   "settings.devices.touchId.manualHint":
-    "在 Mac 上运行 psyche-helper --print-identity，并粘贴它输出的 presenceKeyId。",
-  "settings.devices.touchId.allowDevFileKey": "允许开发用的 Touch ID 密钥",
-  "settings.devices.touchId.devFileKey":
-    "此版本没有配置描述文件，所以它的密钥是 Secure Enclave 文件。任何以你的身份运行的 App 都可以借它自己的 Touch ID 提示请求签名。仅供开发使用。",
+    "在这台电脑上运行 psyche-helper --print-identity，并粘贴它输出的 presenceKeyId。",
   "settings.files.execHost": "在这台 Mac 上运行命令",
   "settings.files.execHostHint":
     "让{persona}在你共享的文件夹中、在沙盒内运行命令。可能更改文件的命令会先询问你。",
@@ -587,12 +582,17 @@ export const settings: Partial<Catalogue> = {
     "目前没有。当{persona}需要某个文件夹或 App 时，会在聊天中询问你，你允许的内容会显示在这里。",
   "settings.access.scope.always": "始终",
   "settings.access.scope.conversation": "此聊天",
+  "settings.access.scope.space": "在空间中",
   "settings.access.scope.limited": "暂时",
   "settings.access.used": "{when}使用过",
+  "settings.access.fileOnly": "单个文件 · 只读",
   "settings.access.revokeNamed": "撤销{name}",
   "settings.access.loadLabel": "Psyche 能访问的内容",
   "settings.access.loadFailed": "Psyche 无法载入它能访问的内容（{reason}）。",
   "settings.access.unchanged": "访问权限未更改。",
+  "settings.access.moved": "现在指向 {path}——仅当是你自己移动的才确认",
+  "settings.access.confirm": "确认",
+  "settings.access.confirmNamed": "在 {path} 重新确认 {name}",
   "settings.model.advancedHint": "上下文上限、本地模型",
   "settings.permissions.subject.prepNotes": "标题为“Prep:”的备忘录（会议准备）",
   "settings.permissions.specificConnectors": "特定连接器的权限在“连接器”中它自己的页面上设置。",
@@ -602,7 +602,10 @@ export const settings: Partial<Catalogue> = {
   "settings.persona.showReasoningHint": "工作时显示{persona}的推理过程。从不保存。",
   "settings.connectors.page.onHost": "在 {host} 上",
   "settings.connectors.page.row.onHost": "在 {host} 上",
+  "settings.connectors.page.row.macOnly": "仅限 Mac 主机",
   "settings.computerUse.remote": "“电脑使用”在 {host} 上运行。请从那里发起，或使用浏览器。",
+  "settings.computerUse.remoteLinux":
+    "电脑操作在 {host} 的私有屏幕上运行。可在观看面板中查看并接管。",
   "settings.gateways.title": "这台电脑上的 Gateway",
   "settings.gateways.description":
     "在这台电脑上使用另一台电脑（比如你家里的 Mac）上的 Gateway 来使用 Psyche。同一时间只有一个 Gateway 处于活动状态，切换会重启 Psyche。",
@@ -817,6 +820,62 @@ export const settings: Partial<Catalogue> = {
     "电脑在网络上宣告的内容只是一种声明。配对界面会显示它的密钥：批准之前请与主机上的密钥核对。",
   "settings.gateways.discoverAdd": "添加{name}",
   "settings.gateways.discoverSaved": "已保存",
+  "settings.remoteSetup.title": "设置远程服务器",
+  "settings.remoteSetup.open": "设置远程服务器",
+  "settings.remoteSetup.intro":
+    "在此网络中的一台 Linux 电脑上安装 psyche-server。它会显示一个设置码：在这里输入，这台电脑就会成为服务器的管理员。",
+  "settings.remoteSetup.lookFailed": "无法在网络中查找。请改为输入服务器的地址。",
+  "settings.remoteSetup.noneWaiting": "此网络中没有找到等待设置的服务器。请改为输入它的地址。",
+  "settings.remoteSetup.waiting": "等待设置",
+  "settings.remoteSetup.pick": "设置",
+  "settings.remoteSetup.pickNamed": "设置 {name}",
+  "settings.remoteSetup.alreadySetUp": "已设置过。请用那台服务器上的配对链接添加它。",
+  "settings.remoteSetup.addressLabel": "服务器地址",
+  "settings.remoteSetup.addressPlaceholder": "192.168.1.20 或 server.local",
+  "settings.remoteSetup.addressHint": "此网络中的地址。除非你输入其他端口，Psyche 使用 7979 端口。",
+  "settings.remoteSetup.next": "下一步",
+  "settings.remoteSetup.codeTitle": "{name} 的设置码",
+  "settings.remoteSetup.codeLabel": "设置码",
+  "settings.remoteSetup.codePlaceholder": "7K3QM-XR2TD",
+  "settings.remoteSetup.codeHint":
+    "安装 psyche-server 时服务器上显示的设置码。它在 24 小时内只能用一次。要获取新的，请在服务器上运行 psyche setup code。",
+  "settings.remoteSetup.checking": "正在检查设置码…",
+  "settings.remoteSetup.submit": "设置服务器",
+  "settings.remoteSetup.back": "返回",
+  "settings.remoteSetup.doneTitle": "{name} 已设置好",
+  "settings.remoteSetup.doneBody":
+    "这台电脑现在是它的管理员。切换到它，在那里给你的智能体命名并选择模型。",
+  "settings.remoteSetup.switch": "切换到 {name}",
+  "settings.remoteSetup.notNow": "以后再说",
+  "settings.remoteSetup.keepLan": "让此服务器在我的网络中保持可连接",
+  "settings.remoteSetup.keepLanHint": "此网络中的电脑可以连接服务器并请求配对。每一台仍需你批准。",
+  "settings.remoteSetup.keepLanOffHint":
+    "设置完成后，服务器将停止在此网络上监听，这台电脑会断开连接。只有当你通过其他方式（如 Tailscale）连接服务器时才关闭此项。",
+  "settings.remoteSetup.firstRunHint": "已在服务器上安装 Psyche？可以在这里设置它。",
+  "settings.remoteSetup.connect": "连接到 Psyche 服务器",
+  "settings.remoteSetup.problem.wrong_code":
+    "{count, plural, other {设置码不正确。再错 # 次，服务器就会让你等待。}}",
+  "settings.remoteSetup.problem.wrong_code_wait":
+    "设置码不正确。请等一分钟，核对服务器上的设置码后再试。",
+  "settings.remoteSetup.problem.too_many_attempts":
+    "错误的设置码太多。请在 {seconds, plural, other {# 秒}}后再试。",
+  "settings.remoteSetup.problem.bad_code": "设置码由 10 个字母和数字组成，例如 7K3QM-XR2TD。",
+  "settings.remoteSetup.problem.code_expired":
+    "设置码已过期。请在服务器上运行 psyche setup code 获取新的设置码。",
+  "settings.remoteSetup.problem.not_claimable":
+    "该服务器已设置过。请改用服务器上的配对链接添加它。",
+  "settings.remoteSetup.problem.unreachable":
+    "无法连接到该地址的服务器。请检查它已开机并在此网络中。",
+  "settings.remoteSetup.problem.cert_mismatch":
+    "服务器的证书与它声明的不一致，因此 Psyche 已停止。请检查地址后再试。",
+  "settings.remoteSetup.problem.server_unproven":
+    "服务器没有证明它知道设置码，因此 Psyche 没有信任它。请检查地址和设置码。",
+  "settings.remoteSetup.problem.maybe_claimed":
+    "该服务器可能已经与这台 Mac 完成设置。请使用配对链接连接，或在服务器上运行 `psyche devices link`。",
+  "settings.remoteSetup.problem.saved": "该服务器已保存。请在上方列表中切换到它。",
+  "settings.remoteSetup.problem.not_lan":
+    "请输入此网络中的地址，例如 192.168.1.20 或 server.local。",
+  "settings.remoteSetup.problem.failed": "无法设置服务器。没有任何更改。",
   "settings.devices.gatewayKey": "此 Gateway 的密钥 {fingerprint}",
   "settings.devices.fromAddress": "来自 {address}",
   "settings.devices.fromLan": "来自 {address}，位于你的网络。请核对下方完整的密钥。",

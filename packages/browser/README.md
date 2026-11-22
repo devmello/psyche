@@ -17,22 +17,22 @@ The pane UI and the Electron `WebContentsView` host belong to S11.
 
 ## Layout
 
-| Path | What |
-| --- | --- |
-| `src/origin/` | `canonicalizeUrl`, `OriginPolicy` (read-only / read-writable sets, hard rules), `LocalBlocklist` / `ChainedReputation` |
-| `src/snapshot/` | `buildSnapshot` (CDP AX tree + DOMSnapshot → pruned text), `RefRegistry`, `extractText` |
-| `src/cdp/` | `CdpTarget` and `PageController`, the shared page engine both drivers use |
-| `src/bridge/` | `FrameConnection` (NDJSON), `BridgeServer` / `BridgeClient`, the CDP allowlist |
-| `src/drivers/` | `DriverBase`, `CdpBridgeDriver`, `PlaywrightDriver` |
-| `src/downloads/` | magic-byte `sniff`, `LibraryWriter`, `FsQuarantineWriter` |
-| `src/devpreview/` | `DevServerRegistry`, the gate that says which loopback servers a task may preview (security §3.10); `systemLoopbackProbes`, the OS probes behind the broker's localhost rule |
-| `src/realchrome/` | `launchRealChrome`, `findBrandedChrome`: the Psyche Chrome profile for real-Chrome mode (I13) |
-| `src/drivers/routing.ts` | `createRoutingDriver`: one driver API over the pane's driver and an attached real Chrome |
-| `src/recording/` | `FileRecordingSink` (frames, snapshots and the event log), `RecordingStore` (reads them back for `browser.recordings.*`) |
-| `src/teach/` | Teach by showing: the page script, `TeachRecorder` (owner-started only, built by the desktop app), `TeachKeptStore`, `matchRecordedTarget` behind `browser.check_target` ([design](../../docs/design/teach-by-showing-2026.md)) |
-| `src/tools/` | `registerBrowserTools`, `classifyActivation`, `ApprovalGate` |
-| `@psyche/browser/testing` | fixture site DSL, `FixtureServer`, `MockBrowser`, `MockDesktop` |
-| `@psyche/browser/conformance` | `describeBrowserDriverConformance` (imports vitest; a test-only entry, so `vitest` is a devDependency here and callers bring their own — it never reaches a production install, #299 DEP-12) |
+| Path                          | What                                                                                                                                                                                                                            |
+| ----------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `src/origin/`                 | `canonicalizeUrl`, `OriginPolicy` (read-only / read-writable sets, hard rules), `LocalBlocklist` / `ChainedReputation`                                                                                                          |
+| `src/snapshot/`               | `buildSnapshot` (CDP AX tree + DOMSnapshot → pruned text), `RefRegistry`, `extractText`                                                                                                                                         |
+| `src/cdp/`                    | `CdpTarget` and `PageController`, the shared page engine both drivers use                                                                                                                                                       |
+| `src/bridge/`                 | `FrameConnection` (NDJSON), `BridgeServer` / `BridgeClient`, the CDP allowlist                                                                                                                                                  |
+| `src/drivers/`                | `DriverBase`, `CdpBridgeDriver`, `PlaywrightDriver`                                                                                                                                                                             |
+| `src/downloads/`              | magic-byte `sniff`, `LibraryWriter`, `FsQuarantineWriter`                                                                                                                                                                       |
+| `src/devpreview/`             | `DevServerRegistry`, the gate that says which loopback servers a task may preview (security §3.10); `systemLoopbackProbes`, the OS probes behind the broker's localhost rule                                                    |
+| `src/realchrome/`             | `launchRealChrome`, `findBrandedChrome`: the Psyche Chrome profile for real-Chrome mode (I13)                                                                                                                                   |
+| `src/drivers/routing.ts`      | `createRoutingDriver`: one driver API over the pane's driver and an attached real Chrome                                                                                                                                        |
+| `src/recording/`              | `FileRecordingSink` (frames, snapshots and the event log), `RecordingStore` (reads them back for `browser.recordings.*`)                                                                                                        |
+| `src/teach/`                  | Teach by showing: the page script, `TeachRecorder` (owner-started only, built by the desktop app), `TeachKeptStore`, `matchRecordedTarget` behind `browser.check_target` ([design](../../docs/design/teach-by-showing-2026.md)) |
+| `src/tools/`                  | `registerBrowserTools`, `classifyActivation`, `ApprovalGate`                                                                                                                                                                    |
+| `@psyche/browser/testing`     | fixture site DSL, `FixtureServer`, `MockBrowser`, `MockDesktop`                                                                                                                                                                 |
+| `@psyche/browser/conformance` | `describeBrowserDriverConformance` (imports vitest; a test-only entry, so `vitest` is a devDependency here and callers bring their own — it never reaches a production install, #299 DEP-12)                                    |
 
 ## Design in one paragraph
 
@@ -79,39 +79,39 @@ All page-derived output is `provenance: "untrusted"`, and credential-like URL pa
 - A form submit is `write` (`browser_submit`); a GET form is `read`. This covers a submit button, Enter in a form field and `type {submit: true}`.
 - A button outside a form is `write` unless its name only changes the view (show, more, next, close, …).
 - "Accept all", agree and authorize, delete, cancel and sign-up are `destructive`.
-- Buy, pay, transfer, checkout, place-order and checkout-path form actions are `financial` (`purchase`).
+- `financial` (`purchase`) is only the control that pays, by the shared rule in `@psyche/protocol/money-intent`: a button labelled as a payment (Pay, Place order, Place bid, Sell, Swap, Confirm and pay), a submit of a form with real card fields (`cc-number`, `cc-exp`, `cc-csc`, card number, security code), or a submit of a POST form to a payment path (`/checkout`, `/payment`, `/transfer/submit`, `/orders/create`). A bare Confirm, Send or Continue counts only on a page or form that is clearly payment or checkout. Links and GET forms never pay (Where to buy, Buy tickets, Pay bills, Proceed to checkout, `/orders/search`), and an email CC, a library card or a card PIN field is not a card field.
 - A write on an origin that is read-only in the task asks through the broker as a new target.
 
 Every click by ref is hit-tested first (`conflict {reason: "obscured"}` when another element or a frame covers the point).
 
-| Tool | Params | Class | Notes |
-| --- | --- | --- | --- |
-| `browser.tabs` | — | none | the task's tabs |
-| `browser.open_tab` | `url?` | read | new origins ask |
-| `browser.close_tab` / `focus_tab` | `tabId` | none | |
-| `browser.navigate` | `tabId, url` | read | http(s) only; every hop is checked |
-| `browser.back` / `forward` / `reload` | `tabId` | read | |
-| `browser.snapshot` | `tabId, page?, maxChars?, viewportOnly?` | read | text tree above |
-| `browser.find` | `tabId, query` | read | all words must match; up to 20 refs |
-| `browser.read_text` | `tabId, maxChars?` | read | from the AX tree, no page JS |
-| `browser.screenshot` | `tabId` | read | for sparse trees; refused while a secure field is active |
-| `browser.click` | `tabId, target: {ref} \| {x,y}, button?, double?` | read → escalated | |
-| `browser.hover` | `tabId, target` | read | |
-| `browser.type` | `tabId, ref, text, clear? (true), submit?` | read → write on submit | refuses secure fields, `{{cred:…}}` and Luhn-valid card numbers |
-| `browser.press` | `tabId, keys, ref?` | read → write with Enter | `Enter`, `Shift+Tab`, `Meta+a`, … |
-| `browser.select` | `tabId, ref, values[]` | read | native `<select>` only |
-| `browser.scroll` / `scroll_to` | `tabId, direction, ref?, amount?` / `tabId, ref` | read | |
-| `browser.drag` | `tabId, from, to` | write | |
-| `browser.upload` | `tabId, ref, libraryItemIds[]` | write | paths come from the Library, never from the model |
-| `browser.download` | `tabId, source: {ref} \| {url}` | write | lands in the Library quarantine with a receipt |
-| `browser.wait` | `tabId, for, timeoutMs?` | none | load, text, ref, network_idle, timeout |
-| `browser.dialog` | `tabId, accept, promptText?` | read → write when accepting a confirm | |
-| `browser.fill_credential` | `tabId, ref, placeholder` | write (`credential_fill`) | see below |
-| `browser.use_real_chrome` | `url, reason` | destructive (`policy_change`) | opens the URL in the Psyche Chrome profile (I13); asks once per task, device-only, with presence |
-| `browser.stop_real_chrome` | — | none | ends the task's real-Chrome session; Chrome and its port close when no task uses it |
-| `browser.request_control` | `tabId, reason, timeoutMs?` | none | asks the owner to take the tab over (2FA, a login, personal details); waits until they hand it back or the timeout (default 10 min) passes; refs are stale after |
-| `browser.dev_preview` | `url` | read (`new_origin`) | opens the owner's own dev server in the task's dev-preview session (I12, below) |
-| `browser.console` / `network` | `tabId` | read | dev-preview tabs only (I12) |
+| Tool                                  | Params                                            | Class                                 | Notes                                                                                                                                                            |
+| ------------------------------------- | ------------------------------------------------- | ------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `browser.tabs`                        | —                                                 | none                                  | the task's tabs                                                                                                                                                  |
+| `browser.open_tab`                    | `url?`                                            | read                                  | new origins ask                                                                                                                                                  |
+| `browser.close_tab` / `focus_tab`     | `tabId`                                           | none                                  |                                                                                                                                                                  |
+| `browser.navigate`                    | `tabId, url`                                      | read                                  | http(s) only; every hop is checked                                                                                                                               |
+| `browser.back` / `forward` / `reload` | `tabId`                                           | read                                  |                                                                                                                                                                  |
+| `browser.snapshot`                    | `tabId, page?, maxChars?, viewportOnly?`          | read                                  | text tree above                                                                                                                                                  |
+| `browser.find`                        | `tabId, query`                                    | read                                  | all words must match; up to 20 refs                                                                                                                              |
+| `browser.read_text`                   | `tabId, maxChars?`                                | read                                  | from the AX tree, no page JS                                                                                                                                     |
+| `browser.screenshot`                  | `tabId`                                           | read                                  | for sparse trees; refused while a secure field is active                                                                                                         |
+| `browser.click`                       | `tabId, target: {ref} \| {x,y}, button?, double?` | read → escalated                      |                                                                                                                                                                  |
+| `browser.hover`                       | `tabId, target`                                   | read                                  |                                                                                                                                                                  |
+| `browser.type`                        | `tabId, ref, text, clear? (true), submit?`        | read → write on submit                | refuses secure fields, `{{cred:…}}` and Luhn-valid card numbers                                                                                                  |
+| `browser.press`                       | `tabId, keys, ref?`                               | read → write with Enter               | `Enter`, `Shift+Tab`, `Meta+a`, …                                                                                                                                |
+| `browser.select`                      | `tabId, ref, values[]`                            | read                                  | native `<select>` only                                                                                                                                           |
+| `browser.scroll` / `scroll_to`        | `tabId, direction, ref?, amount?` / `tabId, ref`  | read                                  |                                                                                                                                                                  |
+| `browser.drag`                        | `tabId, from, to`                                 | write                                 |                                                                                                                                                                  |
+| `browser.upload`                      | `tabId, ref, libraryItemIds[]`                    | write                                 | paths come from the Library, never from the model                                                                                                                |
+| `browser.download`                    | `tabId, source: {ref} \| {url}`                   | write                                 | lands in the Library quarantine with a receipt                                                                                                                   |
+| `browser.wait`                        | `tabId, for, timeoutMs?`                          | none                                  | load, text, ref, network_idle, timeout                                                                                                                           |
+| `browser.dialog`                      | `tabId, accept, promptText?`                      | read → write when accepting a confirm |                                                                                                                                                                  |
+| `browser.fill_credential`             | `tabId, ref, placeholder`                         | write (`credential_fill`)             | see below                                                                                                                                                        |
+| `browser.use_real_chrome`             | `url, reason`                                     | destructive (`policy_change`)         | opens the URL in the Psyche Chrome profile (I13); asks once per task, device-only, with presence                                                                 |
+| `browser.stop_real_chrome`            | —                                                 | none                                  | ends the task's real-Chrome session; Chrome and its port close when no task uses it                                                                              |
+| `browser.request_control`             | `tabId, reason, timeoutMs?`                       | none                                  | asks the owner to take the tab over (2FA, a login, personal details); waits until they hand it back or the timeout (default 10 min) passes; refs are stale after |
+| `browser.dev_preview`                 | `url`                                             | read (`new_origin`)                   | opens the owner's own dev server in the task's dev-preview session (I12, below)                                                                                  |
+| `browser.console` / `network`         | `tabId`                                           | read                                  | dev-preview tabs only (I12)                                                                                                                                      |
 
 **Purchase cards** (INT-2 scenario 1; data model §4.2): when a click, Enter or a submit is classed `purchase`, `describeCall` reads the latest snapshot of the tab (`src/tools/order.ts`) and the card's summary lists the merchant, the seller line, the items (name, quantity, price) and the total, marked "as shown on the page" since it is page text. The binding is the data model's: merchant origin (from the tab, not the page), amount, currency, a line-item hash and the payment method id (`null`; the browser never knows it). Right before the click the executor reads the page again and refuses with `conflict {reason: "order_changed"}` when the total or the items differ from what the card showed.
 
@@ -134,6 +134,7 @@ Every click by ref is hit-tested first (`conflict {reason: "obscured"}` when ano
 This is the wire spec v1 from `packages/protocol/src/bridge.ts`, with the spike 01 amendments.
 
 **Connection and auth**
+
 - The Gateway listens on `$PSYCHE_HOME/run/browser-bridge.sock`: mode 0600, in a 0700 directory, path at most 103 bytes.
 - The desktop connects and sends `req bridge.hello {protocolVersion, handshakeSecret, desktopVersion}`.
   - The secret is compared in constant time.
@@ -141,15 +142,18 @@ This is the wire spec v1 from `packages/protocol/src/bridge.ts`, with the spike 
 - One desktop is connected at a time.
 
 **Framing**
+
 - NDJSON `req` / `res` / `event` frames, validated against the protocol `Frame` schema.
 - Top-level document requests are paused with a narrow `Fetch.enable` (Document, request stage) and continued unmodified or failed, so a blocked origin never sees the request.
 - The frame cap is **16 MiB** (`BRIDGE_MAX_FRAME_BYTES`, amendment 2), because raw AX trees reach 2 MB.
 
 **Gateway → desktop calls**
+
 - `bridge.tabs.list`, `bridge.tab.open`, `bridge.tab.close`, `bridge.attach`, `bridge.detach`.
 - `bridge.cdp.send {tabId, method, params}`. Commands off the allowlist fail on the Gateway side before sending.
 
 **Desktop → Gateway events**
+
 - `bridge.cdp.event`
 - `bridge.tab.created`, with `openerTabId` for popups, which then join the opener's session
 - `bridge.tab.closed`
@@ -157,6 +161,7 @@ This is the wire spec v1 from `packages/protocol/src/bridge.ts`, with the spike 
 - `bridge.download {state: "completed", quarantinePath}`, which goes to the Library import and a receipt
 
 **CDP allowlist** (`CDP_ALLOWED_METHODS`, `checkCdpCommand`)
+
 - This is the spike's list plus what the driver needs: back, forward and reload, `Page.stopLoading`, `Page.handleJavaScriptDialog`, `Page.screencastFrameAck` and `DOM.setFileInputFiles`.
 - `Runtime.evaluate`, `Runtime.callFunctionOn` and `DOM.resolveNode` are allowed only against a bridge-created isolated world. They run two fixed helpers, a `<select>` setter and a download anchor; there is never any model-supplied script.
 - Denied: cookies, `Storage.*`, `Target.*`, `Browser.*`, `Debugger.*`, `Fetch.*` and download-behaviour changes.

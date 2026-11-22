@@ -6,10 +6,18 @@
 //        [--image gateway=ghcr.io/…@sha256:…] [--win-arch x64] [--delta-base 1.2.2]
 //        <artifacts…>                                      prints update-manifest.json
 //        (macOS zips/DMGs, and the Windows RELEASES, nupkgs, Setup.exe and zip; --delta-base names
-//        the release a delta nupkg was made from, without it clients use the full package)
+//        the release a delta nupkg was made from, without it clients use the full package;
+//        psyche-helper-<v>-linux-<arch>.{tar.zst,deb,rpm} are the helper-only packages, whose
+//        version must be --release, and --helper-complete requires all three per architecture)
 //   node update-manifest.mjs sign <update-manifest.json>   writes <file>.sig with the key in
 //                                                            PSYCHE_RELEASE_SIGNING_KEY (PEM)
 //   node update-manifest.mjs verify <update-manifest.json> <publicKey-base64>
+//   node update-manifest.mjs verify-trusted <update-manifest.json> <release-keys.ts>
+//                                                          verifies against the key the .sig names,
+//                                                            which must be one the app trusts
+//   node update-manifest.mjs server-check <update-manifest.json>
+//                                                          every linux arch with psyche-server
+//                                                            files has its deb, rpm and tar.zst
 //
 // The signature covers the manifest file's exact bytes: `build` output is written once and never
 // reformatted after signing.
@@ -21,12 +29,20 @@ import {
   sign,
   verify,
 } from "node:crypto";
-import { readFileSync, statSync, writeFileSync } from "node:fs";
-import { basename } from "node:path";
+import { existsSync, readFileSync, statSync, writeFileSync } from "node:fs";
+import { basename, resolve } from "node:path";
 import { pathToFileURL } from "node:url";
 
 const FORMAT = "psyche-update-manifest";
 const VERSION = /^\d+\.\d+\.\d+(-[0-9A-Za-z.-]+)?$/;
+
+/**
+ * Whether `classifyArtifact` knows the desktop Linux packages (`Psyche-<v>-linux-<arch>.deb|rpm|
+ * AppImage`, L2). release.yml asks this script for the constant (it imports the module), so a
+ * comment cannot flip the gate; set it to true together with that classification. The
+ * helper-only and server packages below are not the desktop's.
+ */
+export const DESKTOP_LINUX_SUPPORT = false;
 
 export function keyIdOf(raw) {
   return createHash("sha256").update(raw).digest("hex").slice(0, 16);
@@ -52,9 +68,47 @@ export function classifyArtifact(name, winArch = "x64") {
     return { platform: "win32", kind: "setup", arch: winArch };
   const winZip = /^Psyche-.+-win32-(arm64|x64)\.zip$/.exec(name);
   if (winZip) return { platform: "win32", kind: "zip", arch: winZip[1] };
+  // The Linux helper-only and server packages (docs/design/linux-helper-only-2026.md, section 9):
+  // `psyche-helper-<v>-linux-<arch>.<tar.zst|deb|rpm>` and `psyche-server-<v>-linux-<arch>.<ext>`.
+  // Desktop builds skip platform keys and kinds they do not know, so these are invisible to them.
+  const linux = /^psyche-(helper|server)-.+-linux-(arm64|x64)\.(tar\.zst|deb|rpm)$/.exec(name);
+  if (linux) {
+    const ext = linux[3] === "tar.zst" ? "tar-zst" : linux[3];
+    return { platform: "linux", kind: `${linux[1]}-${ext}`, arch: linux[2] };
+  }
   const mac = /^Psyche-(.+?)-(?:darwin-)?(arm64|x64)\.(zip|dmg)$/.exec(name);
   if (mac) return { platform: "darwin", kind: mac[3], arch: mac[2] };
   return null;
+}
+
+// --- Linux helper-only artifacts (docs/design/linux-helper-only-2026.md section 9; H7) ----------
+// `psyche-helper update` plans from `platforms["linux-<arch>"]` and unpacks
+// `psyche-helper-<release>-linux-<arch>/bin/psyche-helper` from the `helper-tar-zst` entry, so the
+// file's version must be the manifest's release. The server artifacts (B1) have their own checks.
+
+const HELPER_NAME = /^psyche-helper-(.+)-linux-(arm64|x64)\.(tar\.zst|deb|rpm)$/;
+
+/**
+ * Throws unless every `psyche-helper-*` file carries `release` in its name. With `complete`, every
+ * architecture that has a helper file must have all three packages (tarball, deb, rpm): the release
+ * job passes it, so a release cannot ship a half set that `psyche-helper update` would not find.
+ */
+export function checkHelperArtifacts(names, release, { complete = false } = {}) {
+  const arches = new Map();
+  for (const name of names) {
+    const m = HELPER_NAME.exec(name);
+    if (!m) continue;
+    if (m[1] !== release)
+      throw new Error(`${name}: the helper package version is ${m[1]}, the release is ${release}`);
+    arches.set(m[2], [...(arches.get(m[2]) ?? []), m[3]]);
+  }
+  if (!complete) return;
+  for (const [arch, exts] of arches) {
+    for (const want of ["tar.zst", "deb", "rpm"]) {
+      if (!exts.includes(want))
+        throw new Error(`the helper packages for ${arch} lack the ${want} (--helper-complete)`);
+    }
+  }
 }
 
 export function artifactOf(path, { winArch = "x64", deltaBase } = {}) {
@@ -87,6 +141,9 @@ export function buildManifest({
   files,
   winArch,
   deltaBase,
+  linuxOnly = false,
+  noMac = false,
+  helperComplete = false,
   now = new Date(),
 }) {
   if (!VERSION.test(release) || !VERSION.test(minimum))
@@ -94,20 +151,42 @@ export function buildManifest({
   if (deltaBase !== undefined && !VERSION.test(deltaBase))
     throw new Error("--delta-base must look like 1.2.3");
   if (!/^https:\/\/.+\/$/.test(base)) throw new Error("--base must be an https URL ending in /");
-  const all = files.map((f) => artifactOf(f, { winArch, deltaBase })).filter(Boolean);
+  // A file the caller named that this script cannot classify is an error, never a silent drop
+  // (a desktop Linux package would otherwise ship with no manifest entry). The one exception is
+  // an unexpanded shell glob (`artifacts/Psyche-*.dmg` with no match): it names no file.
+  const all = [];
+  for (const f of files) {
+    if (/[*?[]/.test(f) && !existsSync(f)) continue;
+    const a = artifactOf(f, { winArch, deltaBase });
+    if (!a) throw new Error(`cannot classify ${basename(f)}: not a known release file`);
+    all.push(a);
+  }
+  checkHelperArtifacts(
+    all.map((a) => a.name),
+    release,
+    { complete: helperComplete },
+  );
   const mac = all.filter((a) => a.platform === "darwin");
   const win = all.filter((a) => a.platform === "win32");
+  const linux = all.filter((a) => a.platform === "linux");
   const macUpdate = mac.some((a) => a.kind === "zip");
   const winUpdate =
     win.some((a) => a.kind === "squirrel-releases") && win.some((a) => a.kind === "nupkg-full");
-  if (!macUpdate && !winUpdate)
+  // Every Mac client reads the latest manifest, so one with no Mac update (a Windows-only or
+  // Linux-only one) would make them all refuse it. Leaving the Mac out takes an explicit --no-mac,
+  // or --linux-only for a Linux-only manifest. The release job passes neither.
+  if (!macUpdate && !noMac && !(linuxOnly && linux.length > 0))
+    throw new Error(
+      "no Mac update among the artifacts: a Psyche-<version>-darwin-<arch>.zip is required (--no-mac, or --linux-only for a Linux-only manifest, allows leaving it out)",
+    );
+  if (!macUpdate && !winUpdate && linux.length === 0)
     throw new Error(
       "no update among the artifacts: a Psyche-<version>-darwin-<arch>.zip, or RELEASES and a Psyche-<version>-full.nupkg",
     );
   if (win.length && !winUpdate)
     throw new Error("Windows files without RELEASES and the full nupkg cannot update anyone");
   let platforms;
-  if (win.length) {
+  if (win.length || linux.length) {
     platforms = {};
     for (const { platform, arch, ...rest } of all) {
       const key = `${platform}-${arch}`;
@@ -128,6 +207,55 @@ export function buildManifest({
   return `${JSON.stringify(manifest, null, 2)}\n`;
 }
 
+// ── psyche-server: the headless Linux Host package (docs/design/linux-helper-only-2026.md §3.2,
+// wave B1). Its files are classified above (`server-<deb|rpm|tar-zst>` under `linux-<arch>`); this
+// section names them for the packaging (deploy/linux-server/build.mjs) and checks a release has
+// every format for each arch it ships. The helper-only package (H7) has its own section.
+
+/** Every format the server package ships in, and its manifest kind. */
+export const SERVER_FORMATS = Object.freeze({
+  deb: "server-deb",
+  rpm: "server-rpm",
+  "tar.zst": "server-tar-zst",
+});
+const SERVER_ARCHES = ["arm64", "x64"];
+
+/** `psyche-server-<version>-linux-<arch>.<format>`: the name `classifyArtifact` knows. */
+export function serverArtifactName(version, arch, format) {
+  if (!VERSION.test(version)) throw new Error(`not a release version: ${version}`);
+  if (!SERVER_ARCHES.includes(arch)) throw new Error(`not a server arch: ${arch}`);
+  if (!Object.hasOwn(SERVER_FORMATS, format)) throw new Error(`not a server format: ${format}`);
+  return `psyche-server-${version}-linux-${arch}.${format}`;
+}
+
+/**
+ * The server entries of a built manifest, by arch: `{ x64: { deb, rpm, "tar.zst" }, … }`. Throws
+ * when an arch has some server files but not all three, or a file whose name is not this release's
+ * (a stale package left in the artifacts folder): `psyche update` on that arch would then find
+ * nothing for its install kind.
+ */
+export function serverEntriesOf(manifestText) {
+  const m = JSON.parse(manifestText);
+  const out = {};
+  for (const arch of SERVER_ARCHES) {
+    const list = (m.platforms?.[`linux-${arch}`] ?? []).filter((a) =>
+      String(a.kind).startsWith("server-"),
+    );
+    if (list.length === 0) continue;
+    const byFormat = {};
+    for (const [format, kind] of Object.entries(SERVER_FORMATS)) {
+      const found = list.filter((a) => a.kind === kind);
+      if (found.length !== 1)
+        throw new Error(`linux-${arch}: ${found.length} ${kind} entries, need exactly one`);
+      if (found[0].name !== serverArtifactName(m.release, arch, format))
+        throw new Error(`linux-${arch}: ${found[0].name} is not release ${m.release}'s ${format}`);
+      byFormat[format] = found[0];
+    }
+    out[arch] = byFormat;
+  }
+  return out;
+}
+
 export function signManifest(bytes, privatePem) {
   const key = createPrivateKey(privatePem);
   return `${JSON.stringify({
@@ -135,6 +263,54 @@ export function signManifest(bytes, privatePem) {
     keyId: keyIdOf(rawPublicKey(key)),
     signature: sign(null, bytes, key).toString("base64"),
   })}\n`;
+}
+
+/**
+ * The keys the app trusts: `TRUSTED_RELEASE_KEYS` as the app itself evaluates it, by importing
+ * release-keys.ts (Node strips its types). Parsing the source could disagree with what the app
+ * runs (a key in a comment, a second list, a filter); importing cannot. Every entry must be a plain
+ * { keyId, publicKey } whose keyId matches its key, or this throws. Only public keys live there.
+ */
+export async function loadTrustedKeys(keysFile) {
+  const mod = await import(`${pathToFileURL(resolve(keysFile)).href}?t=${Date.now()}`);
+  const list = mod.TRUSTED_RELEASE_KEYS;
+  if (!Array.isArray(list))
+    throw new Error("release-keys.ts: TRUSTED_RELEASE_KEYS is not an array");
+  return list.map((k, i) => {
+    const ok =
+      k !== null &&
+      typeof k === "object" &&
+      Object.keys(k).sort().join(",") === "keyId,publicKey" &&
+      /^[0-9a-f]{16}$/.test(k.keyId) &&
+      /^[A-Za-z0-9+/]{43}=$/.test(k.publicKey) &&
+      keyIdOf(Buffer.from(k.publicKey, "base64")) === k.keyId;
+    if (!ok) throw new Error(`release-keys.ts: entry ${i} is not a valid { keyId, publicKey }`);
+    return { keyId: k.keyId, publicKey: k.publicKey };
+  });
+}
+
+/**
+ * Verify against the key the signature names, but only if the app trusts that key (it is in
+ * release-keys.ts). A secret that is a different key than the one shipped in the app still
+ * self-verifies, and every client would then refuse the release.
+ */
+export function verifyTrusted(bytes, sigText, trusted) {
+  let env;
+  try {
+    env = JSON.parse(sigText);
+  } catch {
+    return { ok: false, why: "the signature file is not JSON" };
+  }
+  if (trusted.length === 0) return { ok: false, why: "release-keys.ts holds no trusted key" };
+  const key = trusted.find((k) => k.keyId === env.keyId);
+  if (!key)
+    return {
+      ok: false,
+      why: `signed by key ${env.keyId}, which is not in release-keys.ts (trusted: ${trusted.map((k) => k.keyId).join(", ")})`,
+    };
+  if (!verifyManifest(bytes, sigText, key.publicKey))
+    return { ok: false, why: `the signature does not verify against trusted key ${key.keyId}` };
+  return { ok: true, keyId: key.keyId };
 }
 
 export function verifyManifest(bytes, sigText, publicKeyB64) {
@@ -148,7 +324,7 @@ export function verifyManifest(bytes, sigText, publicKeyB64) {
   return verify(null, bytes, key, Buffer.from(env.signature, "base64"));
 }
 
-function main(argv) {
+async function main(argv) {
   const [cmd, ...rest] = argv;
   if (cmd === "keygen") {
     const out = rest[0];
@@ -173,6 +349,9 @@ function main(argv) {
       else if (a === "--base") opts.base = rest[++i];
       else if (a === "--win-arch") opts.winArch = rest[++i];
       else if (a === "--delta-base") opts.deltaBase = rest[++i];
+      else if (a === "--linux-only") opts.linuxOnly = true;
+      else if (a === "--no-mac") opts.noMac = true;
+      else if (a === "--helper-complete") opts.helperComplete = true;
       else if (a === "--image") {
         const [k, v] = String(rest[++i]).split("=");
         opts.images[k] = v;
@@ -195,14 +374,36 @@ function main(argv) {
     process.stdout.write(ok ? "ok\n" : "BAD SIGNATURE\n");
     process.exit(ok ? 0 : 1);
   }
-  throw new Error("commands: keygen, build, sign, verify");
+  if (cmd === "verify-trusted") {
+    const [file, keysFile] = rest;
+    if (!file || !keysFile)
+      throw new Error("usage: verify-trusted <update-manifest.json> <release-keys.ts>");
+    const r = verifyTrusted(
+      readFileSync(file),
+      readFileSync(`${file}.sig`, "utf8"),
+      await loadTrustedKeys(keysFile),
+    );
+    process.stdout.write(r.ok ? `ok (trusted key ${r.keyId})\n` : `UNTRUSTED: ${r.why}\n`);
+    process.exit(r.ok ? 0 : 1);
+  }
+  if (cmd === "server-check") {
+    const [file] = rest;
+    if (!file) throw new Error("usage: server-check <update-manifest.json>");
+    const entries = serverEntriesOf(readFileSync(file, "utf8"));
+    const arches = Object.keys(entries);
+    process.stdout.write(
+      arches.length
+        ? `server packages for ${arches.map((a) => `linux-${a}`).join(", ")}\n`
+        : "no server packages\n",
+    );
+    return;
+  }
+  throw new Error("commands: keygen, build, sign, verify, verify-trusted, server-check");
 }
 
 if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) {
-  try {
-    main(process.argv.slice(2));
-  } catch (err) {
+  main(process.argv.slice(2)).catch((err) => {
     process.stderr.write(`update-manifest: ${err.message}\n`);
     process.exit(2);
-  }
+  });
 }

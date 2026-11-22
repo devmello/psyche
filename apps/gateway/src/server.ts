@@ -7,6 +7,7 @@ import {
   type Server as NetServer,
   type Socket,
 } from "node:net";
+import { hostname } from "node:os";
 import { join } from "node:path";
 import type { Duplex } from "node:stream";
 import {
@@ -29,6 +30,7 @@ import { type WebSocket, WebSocketServer } from "ws";
 import pkg from "../package.json" with { type: "json" };
 import type { PeerInfo } from "./auth.ts";
 import { CloudflareAccessVerifier } from "./cf-access.ts";
+import { type ClaimLimits, ClaimMode, linuxDefaultRouteInterface } from "./claim/mode.ts";
 import { type GatewayConfig, resolveConfig } from "./config.ts";
 import { Connection } from "./connection.ts";
 import {
@@ -46,6 +48,7 @@ import {
   newHandshakeSecret,
   removeHandshakeSecret,
   writeHandshakeSecret,
+  writeListenFile,
 } from "./home.ts";
 import {
   handleHttp,
@@ -63,6 +66,7 @@ import { type LanContext, type LanLimits, LanListener, peerLimitKey } from "./la
 import { LAN_SETTING, readLanSettings } from "./lan/settings.ts";
 import { createLogger, type Logger } from "./log.ts";
 import { allowedMapOrigins } from "./map-proxy.ts";
+import type { MachineChange } from "./nodes/machines.ts";
 import { NodeRegistry } from "./nodes/registry.ts";
 import { openGatewayDb, releaseGatewayLock } from "./pre-update.ts";
 import { presenceStateFor } from "./presence-gate.ts";
@@ -77,11 +81,14 @@ import {
   runRetention,
 } from "./retention.ts";
 import { RunTraceSink } from "./run-trace/sink.ts";
+import { SecurityRecoveries } from "./security/recoveries.ts";
+import { StateSeal } from "./security/state-seal.ts";
 import { SessionController } from "./session/controller.ts";
 import { ensureSocketDir, writeGuestPointer, writeSocketPointer } from "./socket-path.ts";
 import { INTERNAL_SETTING_PREFIX, readStateVersion, writeStateVersion } from "./state-version.ts";
 import { TransportGate } from "./transport-gate.ts";
 import { NdjsonDecoder } from "./transports/ndjson.ts";
+import { type PeerChecker, type PeerResult, peerResultOf } from "./transports/peer-check.ts";
 import { UpdateGate } from "./update-gate.ts";
 
 /**
@@ -98,12 +105,37 @@ export interface GatewayOptions {
   env?: NodeJS.ProcessEnv;
   logger?: Logger;
   now?: () => Date;
+  /**
+   * The accept-time peer check for the Unix node socket (Linux; `transports/peer-check.ts`). Each
+   * accepted socket is paused until it finishes, and the verdict goes into `PeerInfo.peerCheck`.
+   * `main.ts` installs the Linux one. A Gateway started in process (tests, embedding) has none
+   * unless it passes one, and its node socket then behaves as it does on macOS.
+   */
+  peerChecker?: PeerChecker;
+  /**
+   * Asked at each accept: whether the packaged helper is installed, so that only a verified
+   * (`root_owned`) peer can be the Host helper. Without a packaged helper (AppImage, a dev
+   * build) a `user_owned` or `unverified` peer is accepted and the verdict recorded. Default:
+   * not required.
+   */
+  peerCheckRequired?: () => boolean;
+  /** The platform the Gateway reports for the host-helper family rule (tests). Default: this one. */
+  hostPlatform?: NodeJS.Platform;
+  /** The owner imported conversations (audit trail: counts only). */
+  onThreadsImported?: (e: {
+    source: string;
+    imported: number;
+    duplicates: number;
+    deviceId: string;
+  }) => void;
   /** The owner changed a setting (audit trail: key and value hashes, never the value). */
   onSettingChanged?: (change: {
     key: string;
     before: unknown;
     after: unknown;
     deviceId: string;
+    /** The change only narrowed what the agent may do, so it applied without an approval card. */
+    narrowing?: boolean;
   }) => void;
   /** Inject an open database (tests); defaults to SQLite at config.dbPath. */
   db?: PsycheDb;
@@ -123,12 +155,42 @@ export interface GatewayOptions {
    * it was true, it being false later fails them closed (`presence_required`).
    */
   settingsPresence?: () => boolean;
+  /**
+   * Whether any verifier could verify now, an auto-paired Mac helper's device key included
+   * (`presence-gate.ts`). Defaults to `settingsPresence`.
+   */
+  presenceCanVerify?: () => boolean;
+  /**
+   * The security-state seal (security/state-seal.ts). The composition root opens it before it
+   * reads policy or replays revocations; without one, `startGateway` opens it itself.
+   */
+  securityState?: StateSeal;
+  /** Tests: the local recovery delay (24 h) and how often the seal and the inbox are polled (1 s). */
+  security?: { recoveryDelayMs?: number; pollMs?: number };
   /** After a device is revoked (composition root: end the grants it approved). */
   onDeviceRevoked?: (deviceId: string) => Promise<unknown>;
   /** A device removed itself with devices.revokeSelf (composition root: audit it). */
   onDeviceSelfRevoked?: (revoked: { deviceId: string; name: string }) => void;
+  /**
+   * Claim mode (design §3.6): a psyche-server install with no admin device makes a setup code and
+   * waits on its LAN for the desktop app to claim it. Off unless the composition root turns it on.
+   */
+  claim?: {
+    enabled: boolean;
+    limits?: Partial<ClaimLimits>;
+    /** Tests: the LAN port (default 7979). */
+    port?: number;
+    /** Where the code is shown (default stderr, the journal under systemd). */
+    announce?: (line: string) => void;
+    /** Tests: the default-route interface (default: `/proc/net/route` on Linux). */
+    defaultInterface?: () => string | null;
+  };
+  /** A computer became the first admin with the setup code (composition root: audit it). */
+  onClaimed?: (device: { id: string; name: string }) => void;
   /** A computer paired itself with a setup token (composition root: audit it). */
   onSetupTokenUsed?: (used: { tokenId: string; deviceId: string; scopes: DeviceScope[] }) => void;
+  /** A machine was added or removed (composition root: audit it, tell every device). */
+  onMachineChange?: (change: MachineChange) => void;
   /**
    * The broker publishes its own `receipt.created` events (the composition root forwards them),
    * so `nodes.invoke` must not publish the same receipt again (issue #50).
@@ -229,6 +291,11 @@ export async function startGateway(options: GatewayOptions = {}): Promise<Gatewa
 
   ensureHome(config.home);
   const db = options.db ?? (await openGatewayDb(config, () => now().toISOString(), log));
+  // Before anything reads or writes security state: verify the seal and undo what changed
+  // outside the Gateway (docs/design/security-state-integrity-2026.md §7.1).
+  // A restore marker is the composition root's to honour (it re-seals, then replays and
+  // consumes it); without one here a marker would re-seal at every start, so it is ignored.
+  const seal = options.securityState ?? (await StateSeal.open(db, { home: config.home, now, log }));
   const recovery = recoverAfterRestart(db, log);
   const bus = new EventBus(readStateVersion(db), (v) => writeStateVersion(db, v));
   // The secret is written to disk only after both listeners are up (see below).
@@ -275,6 +342,17 @@ export async function startGateway(options: GatewayOptions = {}): Promise<Gatewa
   });
 
   const broker = options.broker ?? new LockedPermissionBroker();
+  const basePresence = presenceStateFor(db, options.settingsPresence ?? (() => false));
+  // While the security records are untrusted, presence fails closed (nothing that widens works).
+  const presenceState = () => {
+    if (seal.untrusted() !== null) return "unavailable" as const;
+    const state = basePresence();
+    // Enrolled once (the key file says so): the gate stays closed even if the database lost it.
+    if (state === "off" && seal.presenceEverEnrolled()) return "unavailable" as const;
+    // Enrolled once is remembered outside the database too: no first-admin shortcut since (D8).
+    if (state !== "off") seal.notePresenceEnrolled();
+    return state;
+  };
   const ctx = {
     config,
     db,
@@ -288,15 +366,21 @@ export async function startGateway(options: GatewayOptions = {}): Promise<Gatewa
     onDeviceRevoked: options.onDeviceRevoked ?? null,
     onDeviceSelfRevoked: options.onDeviceSelfRevoked ?? null,
     onSetupTokenUsed: options.onSetupTokenUsed ?? null,
+    onMachineChange: options.onMachineChange ?? null,
     onSettingChanged: options.onSettingChanged ?? null,
+    onThreadsImported: options.onThreadsImported ?? null,
     brokerPublishesReceipts: options.brokerPublishesReceipts ?? false,
-    presenceState: presenceStateFor(db, options.settingsPresence ?? (() => false)),
+    presenceState,
+    presenceCanVerify: options.presenceCanVerify ?? options.settingsPresence ?? (() => false),
+    securityState: seal,
     threadModels: options.threadModels ?? null,
     deviceDisconnected: new Set<(deviceId: string) => void>(),
     chatRedo: new Set(),
     chatScreen: { resolve: null },
     terminalSessions: { owns: null },
     chatContext: { resolve: null },
+    chatFiles: { attach: null, attached: null },
+    threadEnded: new Set(),
     messageScrub: { scrub: null, heal: null },
     limits,
     failedChallenges: new RateLimiter(limits.failedChallengesPerMinute, 60_000, () =>
@@ -336,6 +420,7 @@ export async function startGateway(options: GatewayOptions = {}): Promise<Gatewa
       rotateCert: () => lan.rotateCert(),
       refresh: () => lan.refresh(),
     },
+    claim: null,
     connections: () => connections,
   } as Omit<GatewayContext, "sessions" | "nodes" | "runTrace"> as GatewayContext;
   Object.assign(ctx, {
@@ -353,6 +438,59 @@ export async function startGateway(options: GatewayOptions = {}): Promise<Gatewa
       isIncognito: (threadId) => getThread(db, threadId)?.kind === "incognito",
     }),
   });
+
+  // Local `psyched` requests become first-admin approvals or delayed recoveries (§7.2).
+  const recoveries = new SecurityRecoveries({
+    db,
+    seal,
+    now,
+    log,
+    ...(options.security?.recoveryDelayMs === undefined
+      ? {}
+      : { delayMs: options.security.recoveryDelayMs }),
+    presence: { state: presenceState, forget: () => basePresence.forget() },
+    onDeviceChanged: (device) => {
+      bus.bumpStateVersion();
+      bus.publish("device.updated", { device });
+      // A pending device reconnects and comes back paired.
+      for (const conn of [...connections]) {
+        if (conn.pendingDeviceId === device.id) conn.close("pairing approved");
+      }
+    },
+  });
+  Object.assign(ctx, { securityRecoveries: recoveries });
+  const securityChanged = () =>
+    bus.publish("security.state.changed", {
+      status: seal.status().status,
+      openAlerts: seal.alerts.open().length,
+      waitingRecoveries: recoveries.waitingCount(),
+    });
+  const offSecurity = [
+    seal.onChange(securityChanged),
+    // A device that appeared outside Psyche was revoked by the seal: close it like a revocation.
+    seal.onDevicesRevoked((ids) => {
+      for (const conn of [...connections]) {
+        const id = conn.identity?.deviceId ?? conn.pendingDeviceId;
+        if (id !== undefined && id !== null && ids.includes(id)) conn.close("device revoked");
+      }
+    }),
+  ];
+  const pollSecurity = () => {
+    try {
+      seal.ensure();
+      // Not while an app update is being prepared: the files are about to be handed over. The
+      // checks before each authorizing read still run.
+      if (!ctx.updateGate.accepting()) return;
+      recoveries.processInbox();
+      recoveries.applyDue();
+    } catch (err) {
+      log.log("warn", "security state poll failed", { code: PsycheError.from(err).code });
+    }
+  };
+  pollSecurity();
+  const securityPollMs = options.security?.pollMs ?? 1000;
+  const securityTimer = securityPollMs > 0 ? setInterval(pollSecurity, securityPollMs) : null;
+  securityTimer?.unref();
 
   // Security §3.7: a restart invalidates pending approvals; the broker re-issues them.
   try {
@@ -576,31 +714,70 @@ export async function startGateway(options: GatewayOptions = {}): Promise<Gatewa
     createNetServer((socket: Socket) => {
       socket.setEncoding("utf8");
       const decoder = new NdjsonDecoder();
-      const conn = new Connection(
-        `node-${++connSeq}`,
-        {
-          transport,
-          // A relayed guest is not "this machine's own process": never loopback-trusted.
-          remoteLoopback: transport === "unix",
-          remoteAddress: transport,
-          origin: null,
-        },
-        { send: (f) => socket.writable && socket.write(`${f}\n`), close: () => socket.end() },
-        ctx,
-      );
-      connections.add(conn);
+      let conn: Connection | undefined;
       socket.on("data", (chunk: string) => {
+        const live = conn;
+        if (live === undefined) return; // not before the peer check has finished
         try {
-          for (const line of decoder.push(chunk)) void conn.handleRaw(line);
+          for (const line of decoder.push(chunk)) void live.handleRaw(line);
         } catch {
-          conn.close("frame too large");
+          live.close("frame too large");
         }
       });
       socket.on("close", () => {
+        if (conn === undefined) return;
         conn.close("socket closed");
         connections.delete(conn);
       });
-      socket.on("error", () => conn.close("socket error"));
+      socket.on("error", () => {
+        if (conn === undefined) socket.destroy();
+        else conn.close("socket error");
+      });
+      const open = (result: PeerResult | undefined, required: boolean) => {
+        if (socket.destroyed) return;
+        const live = new Connection(
+          `node-${++connSeq}`,
+          {
+            transport,
+            // A relayed guest is not "this machine's own process": never loopback-trusted.
+            remoteLoopback: transport === "unix",
+            remoteAddress: transport,
+            origin: null,
+            hostPlatform: options.hostPlatform ?? process.platform,
+            // Only the checker sets these, from what it saw of the process, never from the peer.
+            ...(result === undefined
+              ? {}
+              : {
+                  peerCheck: result.check,
+                  peerCheckReason: result.reason,
+                  ...(required ? { peerCheckRequired: true as const } : {}),
+                }),
+          },
+          { send: (f) => socket.writable && socket.write(`${f}\n`), close: () => socket.end() },
+          ctx,
+        );
+        conn = live;
+        connections.add(live);
+        socket.resume();
+      };
+      // The peer check runs on the node socket only (never the guest relay, whose peer is the
+      // Host helper's own process). The socket is paused until it has finished, so no frame is
+      // read, let alone answered, before the Gateway knows who is on the other end.
+      const check = transport === "unix" ? options.peerChecker : undefined;
+      if (check === undefined) {
+        open(undefined, false);
+        return;
+      }
+      socket.pause();
+      let required = true; // fail closed: if asking throws, the check is strict
+      try {
+        required = options.peerCheckRequired?.() ?? false;
+      } catch {}
+      check(socket).then(
+        (verdict) => open(peerResultOf(verdict), required),
+        // A checker that throws is a check that could not tell.
+        () => open({ check: "unverified", reason: "check_failed" }, required),
+      );
     });
   const listenOn = (server: NetServer, path: string) =>
     new Promise<void>((resolveListen, reject) => {
@@ -610,7 +787,16 @@ export async function startGateway(options: GatewayOptions = {}): Promise<Gatewa
         resolveListen();
       });
     });
-  // The secret first: a helper that reconnects the moment a socket opens (a Gateway restart)
+  // The address this Gateway is really bound to (not the configured name: `localhost` binds
+  // `127.0.0.1`, or `::1` on macOS), for the CLI's "is this my Gateway" check and its default URL
+  // (a Gateway on `gateway.host: localhost` is reached at that address). Written BEFORE the secret:
+  // the CLI reads the secret first and `listen.json` second, so any secret it holds was written
+  // after the `listen.json` it compares against, and a new secret never pairs with a stale origin.
+  const bound = http.address() as AddressInfo;
+  const listenPath = writeListenFile(config.home, [
+    `http://${bound.address.includes(":") ? `[${bound.address}]` : bound.address}:${bound.port}`,
+  ]);
+  // The secret next: a helper that reconnects the moment a socket opens (a Gateway restart)
   // must find this launch's secret, never the previous one or none.
   const { path: secretPath } = writeHandshakeSecret(config.home, handshakeSecret);
   const nodeServer = serveNodes("unix");
@@ -653,6 +839,34 @@ export async function startGateway(options: GatewayOptions = {}): Promise<Gatewa
   } catch (err) {
     log.log("warn", "lan listener failed to start", { code: PsycheError.from(err).code });
   }
+  // A fresh psyche-server waits for the desktop app's setup code (claim mode, design §3.6).
+  let claim: ClaimMode | null = null;
+  if (options.claim?.enabled === true && config.bind !== "container") {
+    claim = new ClaimMode({
+      home: config.home,
+      db,
+      log,
+      now,
+      identityKey: identity.publicKey,
+      hostName: () => hostname(),
+      lan: {
+        apply: (settings, owner) => lan.apply(settings, owner),
+        certSpki: () => lan.certSpki(),
+        setClaimFlag: (on) => lan.setClaimFlag(on),
+      },
+      defaultInterface: options.claim.defaultInterface ?? (() => linuxDefaultRouteInterface()),
+      ...(options.claim.announce ? { announce: options.claim.announce } : {}),
+      ...(options.claim.limits ? { limits: options.claim.limits } : {}),
+      ...(options.claim.port === undefined ? {} : { port: options.claim.port }),
+      ...(options.onClaimed ? { onClaimed: options.onClaimed } : {}),
+    });
+    Object.assign(ctx, { claim });
+    try {
+      await claim.start();
+    } catch (err) {
+      log.log("warn", "claim mode failed to start", { code: PsycheError.from(err).code });
+    }
+  }
 
   // Follow-ups queued before the restart run now; then the hourly retention sweep.
   ctx.sessions.drainAll();
@@ -688,11 +902,14 @@ export async function startGateway(options: GatewayOptions = {}): Promise<Gatewa
       if (stopped) return;
       stopped = true;
       if (retentionTimer) clearInterval(retentionTimer);
+      if (securityTimer) clearInterval(securityTimer);
+      for (const off of offSecurity) off();
       stopWatchingGate();
       bus.publish("gateway.shutdown", { reason });
       await ctx.sessions.stop();
       for (const conn of connections) conn.close(reason);
       connections.clear();
+      claim?.stop();
       await lan.stop();
       for (const client of wss.clients) client.terminate();
       await new Promise<void>((r) => wss.close(() => r()));
@@ -707,6 +924,8 @@ export async function startGateway(options: GatewayOptions = {}): Promise<Gatewa
       if (guestPipe) rmSync(join(config.home, "run", "guest-socket"), { force: true });
       rmSync(join(config.home, "run", "node-socket"), { force: true });
       removeHandshakeSecret(secretPath);
+      rmSync(listenPath, { force: true });
+      seal.close();
       if (!options.db) {
         db.close();
         // Windows will not delete a data folder while the lock file in it is open.

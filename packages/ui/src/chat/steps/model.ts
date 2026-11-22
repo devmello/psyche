@@ -9,8 +9,8 @@ import type { MessageId } from "../../i18n/messages/index.ts";
  * Pure: the step list, the summary row and their tests all read these.
  */
 
-/** Steps that stay visible while the rest fold into "Show all" (§3.2). */
-export const VISIBLE_STEPS = 5;
+/** Finished rows kept in view while earlier ones fold into "n earlier steps done" (§3.2). */
+export const KEEP_DONE_ROWS = 2;
 /** Parallel rows shown under "{n} at once" before "+{n} more". */
 export const GROUP_ROWS = 3;
 /** Silence after which the active row says "No response for …" (§3.2). */
@@ -26,7 +26,11 @@ export function stepLabel(step: RunStep): string {
     const summary = step.text?.summary?.trim();
     return summary ? t("chat.steps.thinking", { text: summary }) : t("chat.steps.thinkingEmpty");
   }
-  return ended(step) ? (step.doneLabel ?? step.label) : step.label;
+  const label = ended(step) ? (step.doneLabel ?? step.label) : step.label;
+  // A step on a paired computer says so ("Opened Firefox on lab-box"); the Host's steps don't.
+  return step.machine === undefined
+    ? label
+    : t("machines.step.on", { label, name: step.machine.name });
 }
 
 /** The glyph: a running thought shows the thinking glyph, everything else its status. */
@@ -56,6 +60,7 @@ function sameRepeat(a: RunStep, b: RunStep): boolean {
     a.status === b.status &&
     a.status !== "failed" &&
     (a.target ?? "") === (b.target ?? "") &&
+    a.machine?.deviceId === b.machine?.deviceId &&
     firstWord(stepLabel(a)) === firstWord(stepLabel(b))
   );
 }
@@ -95,14 +100,23 @@ export function buildRows(steps: readonly RunStep[]): TraceRow[] {
 const rowSteps = (row: TraceRow): readonly RunStep[] =>
   row.type === "step" ? [row.step] : row.steps;
 
-/** A row that must stay visible: something failed in it, or it waits on the owner. */
-const pinned = (row: TraceRow): boolean =>
-  rowSteps(row).some((s) => s.status === "failed" || s.status === "waiting");
+/** A row whose steps all finished well: the only kind that folds into "earlier steps done". */
+const settled = (row: TraceRow): boolean => rowSteps(row).every((s) => s.status === "ok");
 
-/** The rows to show: the last five, plus any failed or waiting row (they never fold away). */
+/**
+ * The rows to show while working: running, waiting, failed and stopped rows always, and the last
+ * two finished ones; earlier finished rows fold away (`foldedSteps` counts them).
+ */
 export function visibleRows(rows: readonly TraceRow[], all: boolean): TraceRow[] {
   if (all) return [...rows];
-  return rows.filter((row, i) => i >= rows.length - VISIBLE_STEPS || pinned(row));
+  const doneAt = rows.flatMap((r, i) => (settled(r) ? [i] : []));
+  const hidden = new Set(doneAt.slice(0, Math.max(0, doneAt.length - KEEP_DONE_ROWS)));
+  return rows.filter((_, i) => !hidden.has(i));
+}
+
+/** How many steps the folded rows held, for "n earlier steps done". */
+export function foldedSteps(rows: readonly TraceRow[], shown: readonly TraceRow[]): number {
+  return rows.filter((r) => !shown.includes(r)).reduce((n, r) => n + rowSteps(r).length, 0);
 }
 
 /** The step everything else waits on: the latest that is running or waiting. */

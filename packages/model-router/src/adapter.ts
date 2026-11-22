@@ -28,6 +28,7 @@ import { type KeySource, keyInjectingFetch, NO_KEYS } from "./credentials.ts";
 import { classifyError, ModelCallError } from "./errors.ts";
 import { buildProvider, loadProviderPackage } from "./factory.ts";
 import { Prices } from "./prices.ts";
+import { toolPlan } from "./prompt-cache.ts";
 import { formatModelRef, parseModelRef } from "./refs.ts";
 import { thinkingPrefix } from "./thinking.ts";
 import { ToolNameMap, toolNameRuleFor } from "./tool-names.ts";
@@ -82,6 +83,20 @@ function nomicPrefix(modelId: string, task: "document" | "query"): string {
       ? "search_query: "
       : "search_document: "
     : "";
+}
+
+/**
+ * Anthropic reports cache writes per TTL (`usage.cache_creation.ephemeral_1h_input_tokens`); the
+ * tools and stable-system breakpoints write with the 1-hour TTL, which costs more.
+ */
+function oneHourWrites(metadata: Record<string, Record<string, unknown>> | undefined): {
+  cacheWrite1h?: number;
+} {
+  const usage = metadata?.anthropic?.usage as
+    | { cache_creation?: { ephemeral_1h_input_tokens?: unknown } }
+    | undefined;
+  const tokens = usage?.cache_creation?.ephemeral_1h_input_tokens;
+  return typeof tokens === "number" && tokens > 0 ? { cacheWrite1h: tokens } : {};
 }
 
 /**
@@ -156,7 +171,10 @@ export class AiSdkAdapter implements ModelProvider {
     const cost =
       ref === undefined
         ? undefined
-        : this.#prices.cost(ref, usage, { cacheTtl: this.config.cacheTtl ?? "5m" });
+        : this.#prices.cost(ref, usage, {
+            cacheTtl: this.config.cacheTtl ?? "5m",
+            ...oneHourWrites(metadata),
+          });
     return { costUsd: cost ?? 0, providerCost: false, unpriced: cost === undefined };
   }
 
@@ -231,7 +249,13 @@ export class AiSdkAdapter implements ModelProvider {
       modelId,
       toolNames,
       this.config.kind === "anthropic"
-        ? { thinkingPrefix: thinkingPrefix(request, toolNames) }
+        ? {
+            thinkingPrefix: thinkingPrefix(
+              request,
+              toolNames,
+              toolPlan(request, this.config, modelId).upFront,
+            ),
+          }
         : {},
     );
     let reader: ReadableStreamDefaultReader<LanguageModelV4StreamPart> | undefined;

@@ -57,6 +57,17 @@ export interface AppleSourceDeps {
   /** The Mac helper offering `messages.graph_read`; undefined while none is live. */
   helper: () => HelperCall | undefined;
   /**
+   * Whether the Host's helper is connected now. False makes an app's source say the helper is not
+   * connected, not "not connected" (the connector is set up; its reads need the helper). Absent =
+   * the helper is taken to be connected.
+   */
+  helperOnline?: () => boolean;
+  /**
+   * Called when the Host's helper connects again, after a read was refused with "needs the Psyche
+   * helper" (paired but not serving). Clears that block so the reads resume.
+   */
+  resumeHelper?: () => void;
+  /**
    * The Host's Mac helper offering `contacts.list` and `contacts.read`, for the Contacts source;
    * undefined while none is live. Absent = Contacts is unavailable on this host.
    */
@@ -86,8 +97,16 @@ const WINDOWS_NOT_CONNECTED = {
   reminders: "neither Outlook nor Microsoft To Do (Microsoft 365) is connected",
   notes: NOT_CONNECTED,
 } as const;
+/**
+ * Why an Apple app's source reads nothing: the Host's helper is offline (the app is connected but
+ * every app read runs through that helper), else the app is not connected.
+ */
 const notConnected = (deps: AppleSourceDeps, app: keyof typeof WINDOWS_NOT_CONNECTED) =>
-  deps.platform === "win32" ? WINDOWS_NOT_CONNECTED[app] : NOT_CONNECTED;
+  deps.helperOnline?.() === false
+    ? NO_HELPER
+    : deps.platform === "win32"
+      ? WINDOWS_NOT_CONNECTED[app]
+      : NOT_CONNECTED;
 /** Contacts on Windows come from classic Outlook through the Windows helper. */
 const WINDOWS_NO_CONTACTS = "classic Outlook is not available through the Windows helper";
 const DAY = 86_400_000;

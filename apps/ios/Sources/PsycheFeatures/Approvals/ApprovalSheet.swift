@@ -12,18 +12,30 @@ struct ApprovalSheet: View {
     @Environment(\.backend) private var store
     @Environment(\.presenceCheck) private var presence
     @Environment(\.dismiss) private var dismiss
-    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+    private let motion = MotionContext()
+    /// What was just answered: picks the haptic and the receipt's symbol.
+    @State private var decision: ApprovalDecision?
     @State private var flow = AnswerFlow()
     /// 0 → 1 over the Gateway's 400 ms arming delay; shown as the ink filling the Allow button.
     @State private var arming = 0.0
 
-    private static let armingDelay: Duration = .milliseconds(400)
+    private static let armingDelay: Duration = .seconds(PsycheMotion.Duration.arming)
 
     var body: some View {
         ScrollView {
             VStack(alignment: .leading, spacing: 18) {
                 VStack(alignment: .leading, spacing: 6) {
                     StatusDot(.needsYou, "Needs your OK · \(detail.kindLabel)", font: .footnote.weight(.semibold))
+                    if let machine = detail.machineName {
+                        Label {
+                            Text("On \(machine)", bundle: .module)
+                        } icon: {
+                            Image(systemName: "desktopcomputer")
+                        }
+                        .font(.subheadline.weight(.medium))
+                        .foregroundStyle(PsycheColor.text)
+                        .accessibilityIdentifier("approvalMachineLine")
+                    }
                     Text(detail.title).psycheTitle(.title).foregroundStyle(PsycheColor.text)
                     Text(detail.summary).font(.subheadline).foregroundStyle(PsycheColor.muted)
                 }
@@ -40,16 +52,19 @@ struct ApprovalSheet: View {
         .scrollBounceBehavior(.basedOnSize)
         .safeAreaInset(edge: .bottom, spacing: 0) { actions }
         .psycheScreen()
-        .sensoryFeedback(.success, trigger: flow.answeredCount)
+        // Allow is a success; Deny is a firm, neutral tap. Both fire once, when the Gateway took the answer.
+        .sensoryFeedback(trigger: flow.answeredCount) { _, _ in
+            decision == .deny ? .impact(weight: .medium) : .success
+        }
         .interactiveDismissDisabled(flow.isBusy)
         .presentationDragIndicator(.visible)
         .presentationDetents([.large])
         .task {
-            if reduceMotion {
+            if motion.reduced {
                 try? await Task.sleep(for: Self.armingDelay)
                 arming = 1
             } else {
-                withAnimation(.linear(duration: 0.4)) { arming = 1 }
+                withAnimation(PsycheMotion.linear(PsycheMotion.Duration.arming)) { arming = 1 }
             }
         }
         .onChange(of: flow.answeredCount) {
@@ -65,7 +80,8 @@ struct ApprovalSheet: View {
         VStack(spacing: 12) {
             switch flow.stage {
             case .answered(let text):
-                AnsweredLine(text: text)
+                AnsweredLine(text: text, denied: decision == .deny)
+                    .transition(motion.transition(.receipt))
             case .failed(let message):
                 AnswerError(message: message, retry: { Task { await flow.retry() } }, cancel: flow.dismissError)
             case .review, .checking, .sending:
@@ -93,12 +109,15 @@ struct ApprovalSheet: View {
         .padding(.top, 8)
         .padding(.bottom, 12)
         .background(PsycheColor.paper)
-        .animation(.default, value: flow.stage)
+        // The answer landing is the one emphasis moment of the sheet (a touch of bounce, spec §4.4); the other
+        // stage changes (checking, sending, an error) are quiet.
+        .psycheAnimation(flow.stage.isAnswered ? .emphasis : .micro, value: flow.stage)
     }
 
     private func answer(_ decision: ApprovalDecision) {
         let id = item.id
         let store = store
+        self.decision = decision
         let needsPresence = decision == .allow && detail.presenceNote != nil
         Task {
             await flow.run(

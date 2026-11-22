@@ -7,6 +7,7 @@ import {
   type FolderGrantEntry,
   folderScopesOffered,
   type PolicyContext,
+  persistenceRoots,
   refuseFolder,
   resolveFolderPick,
   resolveRequestedFolder,
@@ -59,6 +60,88 @@ describe("sensitive roots", () => {
     expect(refuseFolder(WIN ? "C:\\" : "/", env)).toBe("sensitive_root");
   });
 
+  it.skipIf(WIN)(
+    "refuses ~/Applications and shell config folders as a share (apps.open review)",
+    async () => {
+      for (const rel of ["Applications", "Applications/Tools", ".config/fish", ".config/git"]) {
+        await mkdir(join(home, rel), { recursive: true });
+        expect(refuseFolder(join(home, rel), env), rel).toBe("sensitive_root");
+        await expect(resolveFolderPick(join(home, rel), env)).rejects.toMatchObject({
+          code: "forbidden",
+        });
+      }
+      // Near misses stay shareable on the Mac: other `.config` folders, a folder named like it
+      // elsewhere. On Linux `~/.config` is refused wholesale (autostart, systemd user units,
+      // environment.d all live there), so the same `.config/nvim` is a sensitive root.
+      const mac = { ...env, platform: "darwin" as const };
+      const linux = { ...env, platform: "linux" as const };
+      for (const rel of [".config/nvim", "Projects/Applications", "ApplicationsBackup"]) {
+        await mkdir(join(home, rel), { recursive: true });
+        expect(refuseFolder(join(home, rel), mac), rel).toBeUndefined();
+      }
+      expect(refuseFolder(join(home, ".config/nvim"), linux)).toBe("sensitive_root");
+      // Developer CLI tokens (review of #1294, round 7), wherever gh and gcloud are refused.
+      for (const rel of [
+        ".config/glab-cli",
+        ".config/op",
+        ".op",
+        ".azure",
+        ".config/doctl",
+        ".config/hub",
+      ]) {
+        expect(refuseFolder(join(home, rel), mac), rel).toBe("sensitive_root");
+        expect(refuseFolder(join(home, rel), linux), rel).toBe("sensitive_root");
+      }
+      expect(refuseFolder(join(home, ".config/hubris"), mac)).toBeUndefined();
+      for (const rel of ["Projects/Applications", "ApplicationsBackup"]) {
+        expect(refuseFolder(join(home, rel), linux), rel).toBeUndefined();
+      }
+    },
+  );
+
+  it.skipIf(WIN)("refuses other spellings APFS folds to a sensitive root (review r1)", () => {
+    const ci = { ...env, caseInsensitive: true };
+    for (const rel of [
+      "Applicationſ",
+      ".config/ﬁsh",
+      ".ſsh",
+      ".ẞh",
+      ".SSH",
+      "LIBRARY",
+      "Library/Keychains",
+    ]) {
+      expect(refuseFolder(join(home, rel), ci), rel).toBe("sensitive_root");
+    }
+    for (const rel of ["Projects/ſcratch", "Documents/ﬁnance", "Projects/app"]) {
+      expect(refuseFolder(join(home, rel), ci), rel).toBeUndefined();
+    }
+  });
+
+  it.skipIf(WIN)("lists the persistence locations under the owner's home", () => {
+    const roots = persistenceRoots(home);
+    for (const rel of [
+      "Applications",
+      "Library/LaunchAgents",
+      "Library/Services",
+      "Library/Preferences",
+      "Library/Application Support/com.apple.backgroundtaskmanagementagent",
+      ".zshrc",
+      ".zprofile",
+      ".zshenv",
+      ".zlogin",
+      ".bashrc",
+      ".bash_profile",
+      ".profile",
+      ".config/fish",
+      ".gitconfig",
+      ".ssh",
+    ]) {
+      expect(roots, rel).toContain(join(home, rel));
+    }
+    expect(roots).not.toContain(home);
+    expect(roots).not.toContain(join(home, "Library"));
+  });
+
   it("allows an ordinary folder inside home and returns its real path", async () => {
     expect(await resolveFolderPick(docs, env)).toBe(docs);
   });
@@ -89,7 +172,7 @@ describe("sensitive roots", () => {
   it("the Settings path applies the same rule", async () => {
     await expect(assertFolderGrantable(home, env)).rejects.toMatchObject({ code: "forbidden" });
     await expect(assertFolderGrantable("~/.ssh", env)).rejects.toMatchObject({ code: "forbidden" });
-    await expect(assertFolderGrantable(docs, env)).resolves.toBeUndefined();
+    await expect(assertFolderGrantable(docs, env)).resolves.toEqual(expect.any(String));
   });
 });
 
@@ -216,7 +299,7 @@ describe("Psyche's own CLI workdirs", () => {
   it("shares the workdir Psyche made for a CLI provider, with no block on the card", async () => {
     expect(await resolveRequestedFolder(cli, ownEnv)).toEqual({ status: "ok", path: cli });
     expect(await resolveFolderPick(cli, ownEnv)).toBe(cli);
-    await expect(assertFolderGrantable(cli, ownEnv)).resolves.toBeUndefined();
+    await expect(assertFolderGrantable(cli, ownEnv)).resolves.toEqual(expect.any(String));
     expect(refuseFolder(join(cli, "sub"), ownEnv)).toBeUndefined();
   });
 
@@ -360,5 +443,141 @@ describe("taint", () => {
       taint: true,
     });
     expect(issued.approval.scopesOffered).toEqual(["once"]);
+  });
+});
+
+describe("a separate-desktop share (separate_desktop_share)", () => {
+  const askShare = async (h: ReturnType<typeof harness>, c: PolicyContext, access: "ro" | "rw") => {
+    const issued = await h.broker.requestApproval({
+      kind: "separate_desktop_share",
+      summary: "Let the separate desktop read ~/stuff",
+      details: { requestedPath: "~/stuff", reason: "to read the notes", access },
+      bindingHash: `s${Math.random()}`.replace(".", "") as never,
+      grantKey: `separate_desktop_share|${access}`,
+      requestedBy: { runId: c.runId, taskId: null, threadId: c.threadId },
+      sideEffect: access === "rw" ? "write" : "read",
+      surfaces: ["desktop"],
+      // A caller that wrongly offers more is narrowed by the broker.
+      scopesOffered: ["once", "always"],
+      taint: c.taint,
+    });
+    h.clock.advance(500);
+    return issued;
+  };
+
+  it("offers this task only", async () => {
+    const h = harness();
+    const issued = await askShare(h, ctx(), "ro");
+    expect(issued.approval.scopesOffered).toEqual(["once"]);
+  });
+
+  it("records the owner's pick and grants nothing on the Host", async () => {
+    const h = harness();
+    const c = ctx();
+    const issued = await askShare(h, c, "ro");
+    const done = await answer(h, issued, "once", docs);
+    expect(done.status).toBe("approved");
+    expect(done.details.granted).toEqual({ path: docs, mode: "ro" });
+    // No Settings entry, no folder for the conversation, so no file tool can reach it.
+    expect(h.persisted).toEqual([]);
+    expect(h.broker.sessionFolders(c.threadId)).toEqual([]);
+    expect(h.broker.allSessionFolders()).toEqual([]);
+  });
+
+  it("an answer for always is refused: the share is never kept", async () => {
+    const h = harness();
+    const issued = await askShare(h, ctx(), "ro");
+    await expect(answer(h, issued, "always", docs)).rejects.toBeDefined();
+    expect(h.persisted).toEqual([]);
+  });
+
+  it("the owner can narrow read-write to read-only, and a sensitive pick is refused", async () => {
+    const h = harness();
+    const issued = await askShare(h, ctx(), "rw");
+    await expect(answer(h, issued, "once", join(home, ".ssh"))).rejects.toMatchObject({
+      code: "forbidden",
+    });
+    const narrowed = await h.broker.answer({
+      approvalId: issued.approval.id,
+      answerToken: issued.answerTokens.desktop ?? "",
+      decision: "approve",
+      scope: "once",
+      folderPath: docs,
+      folderMode: "ro",
+      decidedBy: DEVICE,
+    });
+    expect(narrowed.details.granted).toEqual({ path: docs, mode: "ro" });
+  });
+});
+
+describe("a separate-desktop share: one folder list, and an audit entry", () => {
+  it("refuses a pick under the container's own list, not only the Host's", async () => {
+    const wider = join(home, "Projects/app/secret-tools");
+    await mkdir(wider, { recursive: true });
+    const persisted: FolderGrantEntry[] = [];
+    const h = makeBroker({
+      folderAccess: {
+        env: () => env,
+        // The container's list also refuses `secret-tools`; the Host's does not.
+        separateDesktopEnv: () => ({ ...env, protectedRoots: [...env.protectedRoots, wider] }),
+        persist: async (e) => void persisted.push(e),
+      },
+    });
+    const c = ctx();
+    const ask = async (kind: "folder_access" | "separate_desktop_share") => {
+      const issued = await h.broker.requestApproval({
+        kind,
+        summary: "share",
+        details: { requestedPath: "~/x", reason: "r", access: "ro" },
+        bindingHash: `k${Math.random()}`.replace(".", "") as never,
+        grantKey: `${kind}|ro`,
+        requestedBy: { runId: c.runId, taskId: null, threadId: c.threadId },
+        sideEffect: "read",
+        surfaces: ["desktop"],
+        scopesOffered: ["once"],
+        taint: false,
+      });
+      h.clock.advance(500);
+      return issued;
+    };
+    const reply = (issued: Awaited<ReturnType<typeof ask>>) =>
+      h.broker.answer({
+        approvalId: issued.approval.id,
+        answerToken: issued.answerTokens.desktop ?? "",
+        decision: "approve",
+        scope: "once",
+        folderPath: wider,
+        decidedBy: DEVICE,
+      });
+    await expect(reply(await ask("separate_desktop_share"))).rejects.toMatchObject({
+      code: "forbidden",
+    });
+    // The Host's own folder card still accepts it: the lists differ on purpose.
+    expect((await reply(await ask("folder_access"))).status).toBe("approved");
+  });
+
+  it("writes an audit entry for an approved share, and none of the Host's folder entries", async () => {
+    const h = harness();
+    const c = ctx();
+    const issued = await h.broker.requestApproval({
+      kind: "separate_desktop_share",
+      summary: "Let the separate desktop read ~/stuff",
+      details: { requestedPath: "~/stuff", reason: "r", access: "ro" },
+      bindingHash: "sd1" as never,
+      grantKey: "separate_desktop_share|ro",
+      requestedBy: { runId: c.runId, taskId: "task_9", threadId: c.threadId },
+      sideEffect: "read",
+      surfaces: ["desktop"],
+      scopesOffered: ["once"],
+      taint: false,
+    });
+    h.clock.advance(500);
+    await answer(h, issued, "once", docs);
+    const entries = [...h.audit.store.entries()].flatMap((l) => (l.ok ? [l.entry] : []));
+    const kinds = entries.map((e) => e.kind);
+    expect(kinds).toContain("separate_desktop.share_granted");
+    expect(kinds).not.toContain("folder.granted");
+    const entry = entries.find((e) => e.kind === "separate_desktop.share_granted");
+    expect(entry?.data).toMatchObject({ path: docs, mode: "ro" });
   });
 });

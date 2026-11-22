@@ -182,6 +182,15 @@ export function runRetention(ctx: GatewayContext): RetentionReport {
     )
       bus.bumpStateVersion();
   })();
+  // Security-state D10: old decided approvals, spent grants and acknowledged alerts leave the
+  // sealed set (through this connection, so the seal's ledger follows).
+  try {
+    ctx.securityState?.prune();
+  } catch (err) {
+    ctx.log.log("warn", "security state not pruned", {
+      code: (err as { code?: string }).code ?? null,
+    });
+  }
   try {
     report.frames += expireScreenFrames(
       db,

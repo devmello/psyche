@@ -12,7 +12,7 @@ import WidgetKit
 // A's expanded layout and Lock Screen card, and E's inline Deny and Approve for approvals that may be answered
 // from the island. Presence-gated approvals keep "Review…".
 
-private enum LA {
+enum LA {
     static let card = Color(red: 0x14 / 255, green: 0x14 / 255, blue: 0x16 / 255)
     static let text = Color(red: 0xEF / 255, green: 0xEE / 255, blue: 0xEC / 255)
     static let muted = Color(red: 0xB6 / 255, green: 0xB4 / 255, blue: 0xB1 / 255)

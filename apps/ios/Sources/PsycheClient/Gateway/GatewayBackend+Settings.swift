@@ -45,7 +45,24 @@ extension GatewayBackend {
         try await client.revoke()
     }
 
+    /// `machines.list`. A Gateway without the registry (or a refused call) shows no list rather than an error.
+    public func machines() async throws -> [MachineSummary] {
+        guard let result = await optional({ try await self.call("machines.list", .obj([:])) }) else { return [] }
+        return Self.machineSummaries(result)
+    }
+
     // MARK: - Mapping
+
+    static func machineSummaries(_ result: JSONValue) -> [MachineSummary] {
+        (result["machines"]?.array ?? []).compactMap { m in
+            guard let id = m["id"]?.string,
+                  let name = m["name"]?.string?.trimmingCharacters(in: .whitespacesAndNewlines), !name.isEmpty
+            else { return nil }
+            // An unknown status reads as offline: never claim a computer is reachable on a guess.
+            let status = MachineSummary.Status(rawValue: m["status"]?.string ?? "") ?? .offline
+            return MachineSummary(id: id, name: name, status: status)
+        }
+    }
 
     /// ["operator.read", "operator.approvals"] -> ["Read", "Approvals"]; a scope this phone doesn't know shows as is.
     static func scopeLabels(_ scopes: [String]) -> [String] {

@@ -157,29 +157,33 @@ describe("opening a consent page", () => {
 });
 
 describe("the desktop app on Windows", () => {
-  it("is the per-user Squirrel install, started hidden and detached", async () => {
-    const env = { LOCALAPPDATA: "C:\\Users\\me\\AppData\\Local" };
-    expect(windowsDesktopExe(env)).toBe("C:\\Users\\me\\AppData\\Local\\Psyche\\Psyche.exe");
-    expect(windowsDesktopExe({ ...env, PSYCHE_DESKTOP_EXE: "D:\\dev\\Psyche.exe" })).toBe(
-      "D:\\dev\\Psyche.exe",
-    );
-    const runs: [string, string[]][] = [];
-    const launch = createDesktopLauncher({
-      platform: "win32",
-      windowsExe: "C:\\Apps\\Psyche.exe",
-      run: async (file, args) => void runs.push([file, args]),
-    });
-    await launch?.();
-    expect(runs).toEqual([["C:\\Apps\\Psyche.exe", ["--background"]]]);
-    expect(createDesktopLauncher({ platform: "linux" })).toBeUndefined();
-    const seen: string[] = [];
-    desktopInstalled((p) => {
-      seen.push(p);
-      return false;
-    }, "win32");
-    expect(seen).toHaveLength(1);
-    expect(seen[0]).toMatch(/Psyche[\\/]Psyche\.exe$/);
-  });
+  // Windows-only: windowsDesktopExe joins with the host path module, which is win32 only on Windows.
+  it.skipIf(process.platform !== "win32")(
+    "is the per-user Squirrel install, started hidden and detached",
+    async () => {
+      const env = { LOCALAPPDATA: "C:\\Users\\me\\AppData\\Local" };
+      expect(windowsDesktopExe(env)).toBe("C:\\Users\\me\\AppData\\Local\\Psyche\\Psyche.exe");
+      expect(windowsDesktopExe({ ...env, PSYCHE_DESKTOP_EXE: "D:\\dev\\Psyche.exe" })).toBe(
+        "D:\\dev\\Psyche.exe",
+      );
+      const runs: [string, string[]][] = [];
+      const launch = createDesktopLauncher({
+        platform: "win32",
+        windowsExe: "C:\\Apps\\Psyche.exe",
+        run: async (file, args) => void runs.push([file, args]),
+      });
+      await launch?.();
+      expect(runs).toEqual([["C:\\Apps\\Psyche.exe", ["--background"]]]);
+      expect(createDesktopLauncher({ platform: "linux" })).toBeUndefined();
+      const seen: string[] = [];
+      desktopInstalled((p) => {
+        seen.push(p);
+        return false;
+      }, "win32");
+      expect(seen).toHaveLength(1);
+      expect(seen[0]).toMatch(/Psyche[\\/]Psyche\.exe$/);
+    },
+  );
 });
 
 describe("Apple connectors off macOS", () => {

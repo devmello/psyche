@@ -10,44 +10,60 @@ import { capabilitiesRest } from "./capabilities-rest/hi.ts";
 import { charts } from "./charts/hi.ts";
 import { chatRest } from "./chat-rest/hi.ts";
 import { commonRest } from "./common-rest/hi.ts";
+import { computerWatch } from "./computer-watch/hi.ts";
 import { dailyRest } from "./daily-rest/hi.ts";
 import { deckRest } from "./deck-rest/hi.ts";
 import { designRest } from "./design-rest/hi.ts";
 import { everythingRest } from "./everything-rest/hi.ts";
 import { final202611 } from "./final-2026-11/hi.ts";
 import { galleryRest } from "./gallery-rest/hi.ts";
+import { helperCheck } from "./helper-check/hi.ts";
+import { helperOffline } from "./helper-offline/hi.ts";
 import { homeRest } from "./home-rest/hi.ts";
+import { keepAwake } from "./keep-awake/hi.ts";
 import { links } from "./links/hi.ts";
+import { linuxAccess } from "./linux-access/hi.ts";
+import { machines } from "./machines/hi.ts";
+import { mailFollowups } from "./mail-followups/hi.ts";
 import { mailMeetings } from "./mail-meetings/hi.ts";
 import { meetingRecordRest } from "./meeting-record-rest/hi.ts";
 import { memoryAdvancedRest } from "./memory-advanced-rest/hi.ts";
 import { memoryBasicsRest } from "./memory-basics-rest/hi.ts";
+import { memoryMap } from "./memory-map/hi.ts";
 import { memoryPrivacyRest } from "./memory-privacy-rest/hi.ts";
 import { memoryRest } from "./memory-rest/hi.ts";
 import { memoryReviewRest } from "./memory-review-rest/hi.ts";
 import { memorySurfacesRest } from "./memory-surfaces-rest/hi.ts";
 import { memoryWorkRest } from "./memory-work-rest/hi.ts";
+import { notices } from "./notices/hi.ts";
 import { nudgesRest } from "./nudges-rest/hi.ts";
 import { onboardingRest } from "./onboarding-rest/hi.ts";
 import { overview } from "./overview/hi.ts";
 import { overviewGrowth } from "./overview-growth/hi.ts";
 import { overviewShared } from "./overview-shared/hi.ts";
+import { passwordPresence } from "./password-presence/hi.ts";
 import { peopleRest } from "./people-rest/hi.ts";
 import { personDataRest } from "./person-data-rest/hi.ts";
 import { researchRest } from "./research-rest/hi.ts";
+import { scheduledForm } from "./scheduled-form/hi.ts";
 import { scheduledRest } from "./scheduled-rest/hi.ts";
 import { screensRest } from "./screens-rest/hi.ts";
+import { securityState } from "./security-state/hi.ts";
+import { separateDesktop } from "./separate-desktop/hi.ts";
 import { settingsRest } from "./settings-rest/hi.ts";
 import { shellRest } from "./shell-rest/hi.ts";
+import { spaces } from "./spaces/hi.ts";
 import { specialistsRest } from "./specialists-rest/hi.ts";
 import { webRest } from "./web-rest/hi.ts";
 import { widgetsRest } from "./widgets-rest/hi.ts";
+import { windowsPlatform202611 } from "./windows-platform-2026-11/hi.ts";
 import { workRest } from "./work-rest/hi.ts";
 import { workflows } from "./workflows/hi.ts";
 
 /** Hindi catalogue (hi). Same ids as `en`; missing ids fall back to English. */
 export const hi: Partial<Catalogue> = {
   // mail and meetings: settings and onboarding (docs/workflows/mail-and-meetings-2026.md §7.3, §7.5)
+  ...memoryMap,
   ...mailMeetings,
   // link menu and the "Open links in" setting
   ...links,
@@ -98,6 +114,7 @@ export const hi: Partial<Catalogue> = {
   ...automationChatRest,
   ...widgetsRest,
   ...scheduledRest,
+  ...scheduledForm,
   ...settingsRest,
   "common.cancel": "रद्द करें",
   "common.close": "बंद करें",
@@ -146,8 +163,22 @@ export const hi: Partial<Catalogue> = {
   "errors.rate_limited": "बहुत ज़्यादा अनुरोध; थोड़ा रुककर फिर से कोशिश करें।",
   "errors.timeout": "Psyche को जवाब देने में बहुत देर लगी।",
   "errors.cancelled": "इसे रद्द कर दिया गया।",
+  "errors.reason.vault_removal_pending":
+    "पुराने सर्वर को हटाने का काम पूरा करने के लिए वॉल्ट अनलॉक करें, फिर दोबारा कोशिश करें।",
+  "errors.reason.connected_with_other_client":
+    "Google किसी दूसरे क्लाइंट से जुड़ा है। पहले Google को डिस्कनेक्ट करें, फिर क्लाइंट बदलें।",
+  "errors.reason.secret_required": "दूसरे क्लाइंट को अपना क्लाइंट सीक्रेट चाहिए।",
   "errors.reason.updating":
     "Psyche अपडेट इंस्टॉल करने के लिए अभी रीस्टार्ट होने वाला है। थोड़ी देर में फिर से कोशिश करें।",
+  "errors.reason.passkey_required": "इस Psyche पर भुगतान स्वीकृत करने के लिए पासकी सेट करें।",
+  "errors.reason.awaiting_owner":
+    "किसी ऐप में बिना सहेजे बदलाव हैं। Psyche आपके तय करने का इंतज़ार करता है कि उनका क्या करना है।",
+  "errors.reason.checkout_needs_desktop":
+    "Psyche के ब्राउज़र में भुगतान करने के लिए Psyche डेस्कटॉप ऐप का इस होस्ट से जुड़ा होना ज़रूरी है।",
+  "errors.reason.no_chromium":
+    "Psyche के ब्राउज़र को इस होस्ट पर Chromium चाहिए। इसे इंस्टॉल करें या PSYCHE_CHROMIUM सेट करें।",
+  "errors.reason.chromium_sandbox":
+    "इस होस्ट पर Chromium का सैंडबॉक्स शुरू नहीं हो सका, इसलिए Psyche का ब्राउज़र बंद है। Chromium को यूज़र नेमस्पेस इस्तेमाल करने दें (AppArmor प्रोफ़ाइल)।",
   "errors.unavailable": "Psyche अभी ऐसा नहीं कर सकता।",
   "errors.approval_required": "इसके लिए पहले आपकी स्वीकृति चाहिए।",
   "errors.approval_expired": "स्वीकृति की अवधि समाप्त हो गई; फिर से पूछें।",
@@ -291,6 +322,7 @@ export const hi: Partial<Catalogue> = {
 
   "chat.toolbar.label": "चैट टूलबार",
   "chat.toolbar.incognito": "इनकॉग्निटो",
+  "chat.incognito.notice": "मेमोरी, खोज या गतिविधि के लिए उपयोग नहीं होती। 24 घंटे बाद समाप्त हो जाती है।",
   "chat.toolbar.view": "ट्रांसक्रिप्ट व्यू",
   "chat.toolbar.view.status": "केवल स्थिति",
   "chat.toolbar.view.actions": "कार्रवाइयाँ",
@@ -322,6 +354,10 @@ export const hi: Partial<Catalogue> = {
   "blocks.card.unknown": "Psyche अभी इस प्रकार का आइटम नहीं दिखा सकता ({type})।",
   "specialists.block.label": "{role} का परिणाम: {title}",
   "blocks.toolView.show": "परिणाम दिखाएँ",
+  "blocks.toolRun.shareFolder": "यह फ़ोल्डर साझा करें (केवल पढ़ने के लिए)",
+  "blocks.toolRun.shareWaiting": "कार्ड पर आपके जवाब का इंतज़ार है",
+  "blocks.toolRun.shared": "साझा हो गया। जारी रखने के लिए फिर से पूछें",
+  "blocks.toolRun.shareFailed": "इस फ़ोल्डर को साझा करने का अनुरोध नहीं हो सका। फिर से कोशिश करें।",
   "blocks.toolView.loading": "परिणाम लोड हो रहा है…",
   "blocks.toolView.none": "इस कार्रवाई का परिणाम सहेजा नहीं गया है।",
   "blocks.toolView.more": "{count, plural, one {# और} other {# और}}",
@@ -344,6 +380,7 @@ export const hi: Partial<Catalogue> = {
   "blocks.details.to": "प्रति",
   "blocks.details.exactRecipient": "(सटीक प्राप्तकर्ता)",
   "blocks.details.cc": "Cc",
+  "blocks.details.bcc": "Bcc",
   "blocks.details.subject": "विषय",
   "blocks.details.body": "मुख्य भाग",
   "blocks.details.view": "देखें",
@@ -384,9 +421,16 @@ export const hi: Partial<Catalogue> = {
 
   "blocks.approval.scope.once": "एक बार अनुमति दें",
   "blocks.approval.scope.task": "इस टास्क के लिए अनुमति दें",
+  "blocks.approval.scope.trustSite": "इस साइट के लिए हमेशा ({site})",
+  "blocks.approval.scope.trustSiteSubdomains": "इस साइट और इसके सबडोमेन के लिए हमेशा ({site})",
+  "blocks.approval.scope.hostProgram": "{folder} में {program} हमेशा अनुमति दें",
+  "blocks.approval.scope.hostProgramExact":
+    "{folder} में {program} को ठीक इन्हीं आर्गुमेंट के साथ हमेशा अनुमति दें",
   "blocks.approval.scope.site": "इस साइट के लिए अनुमति दें",
   "blocks.approval.scope.session": "इस सत्र के लिए अनुमति दें",
   "blocks.approval.scope.always": "हमेशा अनुमति दें",
+  "blocks.approval.alwaysRecipient": "{recipients} को भेजने की हमेशा अनुमति दें",
+  "blocks.approval.alwaysRecipientFrom": "{account} से {recipients} को भेजने की हमेशा अनुमति दें",
   "blocks.approval.scopeGranted.once": "एक बार अनुमति",
   "blocks.approval.scopeGranted.task": "इस टास्क के लिए अनुमति",
   "blocks.approval.scopeGranted.site": "इस साइट के लिए अनुमति",
@@ -482,6 +526,7 @@ export const hi: Partial<Catalogue> = {
   "blocks.artifact.bytes": "{size} B",
   "blocks.artifact.kilobytes": "{size} KB",
   "blocks.artifact.megabytes": "{size} MB",
+  "blocks.artifact.gigabytes": "{size} GB",
 
   "blocks.task.status.queued": "कतार में",
   "blocks.task.status.running": "चल रहा है",
@@ -565,6 +610,12 @@ export const hi: Partial<Catalogue> = {
   "context.marker.readsInstead": "इसके बदले एजेंट जो सारांश पढ़ता है:",
   "context.marker.empty": "रखने लायक कुछ नहीं मिला।",
   "context.marker.showReplaced": "दिखाएँ कि क्या बदला गया",
+  "context.marker.removePin": "हटाएँ",
+  "context.marker.removePinLabel": "यह स्थायी निर्देश हटाएँ: {text}",
+  "context.marker.pinRemoved": "स्थायी निर्देश हटा दिया गया।",
+  "context.marker.pinRemoveFailed": "हटाया नहीं जा सका: {reason}",
+  "context.marker.droppedPins":
+    "{count, plural, one {नए निर्देशों के लिए जगह बनाने हेतु एक पुराना स्थायी निर्देश हटाया गया।} other {नए निर्देशों के लिए जगह बनाने हेतु # पुराने स्थायी निर्देश हटाए गए।}}",
   "context.marker.replacedList": "बदले गए टर्न",
   "context.marker.notLoaded": "बदले गए टर्न यहाँ लोड नहीं हैं।",
   "context.marker.speaker": "{name}:",
@@ -688,6 +739,24 @@ export const hi: Partial<Catalogue> = {
   "agent.approvals.anAutomation": "एक ऑटोमेशन",
   "agent.approvals.wantedTo": "{what} चाहता था",
   "agent.approvals.openTask": "टास्क खोलें",
+  "agent.approvals.deferredHint":
+    "वे कार्रवाइयाँ जिन्हें आपके स्वचालनों ने अलग रखा। किसी को मंज़ूरी देने पर स्वचालन उसे करने के लिए फिर से चलता है। समाप्त हो चुकी कार्रवाई कभी देर से नहीं चलती।",
+  "agent.approvals.approve": "मंज़ूर करें",
+  "agent.approvals.decline": "अस्वीकार करें",
+  "agent.approvals.approveRoutine": "सभी सामान्य मंज़ूर करें ({n, number})",
+  "agent.approvals.riskRoutine": "सामान्य",
+  "agent.approvals.riskSensitive": "संवेदनशील",
+  "agent.approvals.setAside": "{when} स्थगित",
+  "agent.approvals.answerElsewhere": "जहाँ भेजा गया था वहाँ जवाब दें",
+  "agent.approvals.setAsideNote":
+    "एक स्वचालन ने इसे अलग रखा और आगे बढ़ गया। मंज़ूरी देने पर वह फिर से चलता है, और यह तभी होता है जब रन ठीक इसी कार्रवाई तक पहुँचे।",
+  "agent.approvals.setAsideApproved":
+    "मंज़ूर। स्वचालन फिर से चलता है और यह तभी करता है जब ठीक इसी कार्रवाई तक पहुँचे। अगर नहीं पहुँचा, तो आपको सूचना मिलेगी।",
+  "agent.approvals.resuming":
+    "मंज़ूर। {names} फिर से चल रहा है। हर कार्रवाई तभी होती है जब रन उस तक पहुँचे; नहीं तो आपको सूचना मिलेगी।",
+  "agent.approvals.notResumable":
+    "यह स्वचालन फिर से नहीं चल सकता, इसलिए मंज़ूरी देने से कुछ नहीं होगा। इसे अस्वीकार करें, या स्वचालन खुद चलाएँ।",
+  "agent.approvals.notRoutine": "इस कार्रवाई को अलग मंज़ूरी चाहिए। इसे इसके अपने कार्ड पर मंज़ूर करें।",
   "agent.approvals.noRecent": "पिछले 7 दिनों में कोई निर्णय नहीं।",
   "agent.schedule.once": "{weekday} {day, number} {month} {time}",
   "agent.schedule.every": "हर {span}",
@@ -752,7 +821,45 @@ export const hi: Partial<Catalogue> = {
   "agent.memory.incognito": "इनकॉग्निटो साइड चैट",
   "agent.memory.importExport": "इंपोर्ट, एक्सपोर्ट और रीसेट",
   "agent.memory.import": "मेमोरी इंपोर्ट करें",
+  "agent.memory.importConv.title": "claude.ai या ChatGPT से इंपोर्ट करें",
+  "agent.memory.importConv.note":
+    "इंपोर्ट की गई बातचीत केवल पढ़ने के लिए है। उसके टेक्स्ट को अविश्वसनीय डेटा माना जाता है और वह कभी पिन या निर्देश नहीं बनता।",
+  "agent.memory.importConv.source": "यहाँ से एक्सपोर्ट किया गया",
+  "agent.memory.importConv.claude": "claude.ai",
+  "agent.memory.importConv.chatgpt": "ChatGPT",
+  "agent.memory.importConv.mode": "क्या इंपोर्ट करना है",
+  "agent.memory.importConv.memoriesOnly": "केवल मेमोरी",
+  "agent.memory.importConv.both": "मेमोरी और बातचीत",
+  "agent.memory.importConv.memoriesFile": "मेमोरी की फ़ाइल",
+  "agent.memory.importConv.conversationsFile": "बातचीत की फ़ाइल (conversations.json)",
+  "agent.memory.importConv.start": "इंपोर्ट करें",
+  "agent.memory.importConv.working": "इंपोर्ट हो रहा है…",
+  "agent.memory.importConv.cancel": "रद्द करें",
+  "agent.memory.importConv.close": "बंद करें",
+  "agent.memory.importConv.progressMemories": "मेमोरी इंपोर्ट हो रही है…",
+  "agent.memory.importConv.progressConversations": "बातचीत इंपोर्ट हो रही है…",
+  "agent.memory.importConv.failed": "यह फ़ाइल इंपोर्ट नहीं हो सकी: {reason}",
+  "agent.memory.importConv.done": "इंपोर्ट पूरा हुआ।",
+  "agent.memory.importConv.sumMemories": "समीक्षा के लिए मेमोरी: {n}",
+  "agent.memory.importConv.sumThreads": "इंपोर्ट की गई बातचीत: {n}",
+  "agent.memory.importConv.sumDuplicates": "पहले ही इंपोर्ट की जा चुकी: {n}",
+  "agent.memory.importConv.sumSkipped": "छोड़ी गई बातचीत: {n}",
+  "agent.memory.importConv.skipTooMany": "{n} बातचीत की सीमा से अधिक",
+  "agent.memory.importConv.skipTooLarge": "बहुत लंबी",
+  "agent.memory.importConv.skipEmpty": "कोई संदेश नहीं",
+  "agent.memory.importConv.skipInvalid": "पढ़ी नहीं जा सकी",
+  "agent.memory.importConv.untitled": "बिना शीर्षक",
+  "agent.memory.importConv.progressCount": "बातचीत इंपोर्ट हो रही है… {total} में से {done}",
+  "agent.memory.importConv.tooBig":
+    "यह फ़ाइल {mb} MB से बड़ी है और यहाँ पढ़ने के लिए बहुत बड़ी है। छोटी अवधि चुनकर दोबारा एक्सपोर्ट करें।",
+  "agent.memory.importConv.memoriesTooBig":
+    "यह मेमोरी फ़ाइल {kb} KB से बड़ी है और एक बार में इंपोर्ट नहीं हो सकती। इसे बाँटें या कम मेमोरी एक्सपोर्ट करें।",
+  "agent.memory.importConv.partial":
+    "पूरा होने से पहले रुक गया: {reason}। {total} में से {done} बैच इंपोर्ट हुए। जारी रखने के लिए फिर से इंपोर्ट करें; पहले से इंपोर्ट की गई बातचीत छोड़ दी जाती है।",
+  "agent.memory.importConv.retry": "फिर से इंपोर्ट करें",
   "agent.memory.exported": "{file} एक्सपोर्ट की गई।",
+  "agent.memory.importConv.memoriesFailed":
+    "मेमोरी इंपोर्ट नहीं हो सकी: {reason}। दोबारा कोशिश करने के लिए फिर से इंपोर्ट करें।",
   "agent.memory.export": "सब कुछ एक्सपोर्ट करें",
   "agent.memory.resetDone":
     "{files, plural, one {# फ़ाइल} other {# फ़ाइलें}}, {claims, plural, one {# दावा} other {# दावे}} रीसेट किए गए।",
@@ -788,11 +895,11 @@ export const hi: Partial<Catalogue> = {
 
   "shell.shortcut.palette": "कमांड पैलेट",
   "shell.shortcut.newSideChat": "नई साइड चैट",
+  "shell.shortcut.newIncognitoChat": "नई गुप्त चैट",
   "shell.shortcut.closeThread": "थ्रेड व्यू या पॉप-आउट बंद करें",
   "shell.shortcut.toggleThreadList": "साइडबार टॉगल करें",
   "shell.shortcut.compactSidebar": "संक्षिप्त या पूरा साइडबार",
   "shell.shortcut.cycleThreads": "थ्रेड बदलते जाएँ",
-  "shell.shortcut.forkSelection": "चयन से साइड चैट में फ़ोर्क करें",
   "shell.shortcut.stop": "रन रोकें; नियंत्रण लें छोड़ें",
   "shell.shortcut.cycleDisclosure": "विवरण स्तर बदलते जाएँ",
   "shell.shortcut.browserPane": "ब्राउज़र पेन",
@@ -841,6 +948,7 @@ export const hi: Partial<Catalogue> = {
   "shell.shortcuts.addition": "Psyche का जोड़",
   "shell.shortcuts.description": "† Claude डेस्कटॉप मैप में Psyche के जोड़े गए शॉर्टकट दर्शाता है।",
   "shell.threads.needsYou": "आपकी ज़रूरत है",
+  "shell.threads.nowOn": "अभी: {step}",
   "shell.threads.running": "चल रहा है",
   "shell.threads.titleField": "थ्रेड शीर्षक",
   "shell.threads.incognito": "इनकॉग्निटो",
@@ -853,11 +961,14 @@ export const hi: Partial<Catalogue> = {
   "shell.threads.unpin": "अनपिन करें",
   "shell.threads.pin": "पिन करें",
   "shell.threads.archive": "आर्काइव करें",
+  "shell.threads.imported": "इंपोर्ट की गई",
+  "shell.threads.importedReadOnly": "यह इंपोर्ट की गई बातचीत केवल पढ़ने के लिए है।",
   "shell.threads.restore": "रीस्टोर करें",
   "shell.threads.region": "थ्रेड",
   "shell.threads.filter": "थ्रेड फ़िल्टर करें",
   "shell.threads.search": "थ्रेड खोजें",
   "shell.threads.newSideChat": "नई साइड चैट",
+  "shell.threads.newIncognitoChat": "नई गुप्त चैट",
   "shell.threads.loading": "थ्रेड लोड हो रहे हैं",
   "shell.threads.mainChat": "मुख्य चैट",
   "shell.threads.sideChats": "साइड चैट",
@@ -913,7 +1024,7 @@ export const hi: Partial<Catalogue> = {
   "shell.usage.openHint": "सेटिंग्ज़ → उपयोग के लिए क्लिक करें।",
 
   "settings.shared.needsPresence":
-    "“{label}” बदलने के लिए Touch ID या पासकी से आपकी स्वीकृति चाहिए। इसे सेटिंग्ज़ में या Psyche सूचना में स्वीकृत करें, फिर इसे दोबारा बदलें।",
+    "“{label}” बदलने के लिए आपकी स्वीकृति चाहिए। इसे सेटिंग्ज़ में या Psyche सूचना में स्वीकृत करें, फिर इसे दोबारा बदलें।",
   "settings.shared.saveFailed": "Psyche “{label}” सेव नहीं कर सका ({reason})। कुछ नहीं बदला।",
   "settings.shared.loading": "{label} लोड हो रहा है",
   "settings.shared.nothingChanged": "कुछ नहीं बदला गया।",
@@ -985,6 +1096,8 @@ export const hi: Partial<Catalogue> = {
   "settings.key.browser.botAuth": "Web Bot Auth",
   "settings.key.computerUse.enabled": "कंप्यूटर उपयोग की अनुमति दें",
   "settings.key.computerUse.apps": "ऐप ऐक्सेस",
+  "settings.key.feed.sources": "फ़ीड स्रोत",
+  "settings.key.computerUse.linuxRevoke": "Linux कंप्यूटर भुलाएँ",
   "settings.key.context.maxTokens": "संदर्भ सीमा",
   "settings.key.search.web.provider": "वेब खोज प्रदाता",
   "settings.key.search.web.searxngUrl": "SearXNG URL",
@@ -999,6 +1112,8 @@ export const hi: Partial<Catalogue> = {
   "settings.key.models.providers": "मॉडल प्रदाता",
   "settings.key.permissions.mode": "डिफ़ॉल्ट मोड",
   "settings.key.permissions.policy": "अनुमति नीति",
+  "settings.key.permissions.sensitive.government": "सरकारी साइटें पढ़ने से पहले पूछें",
+  "settings.key.permissions.sensitive.icloud": "iCloud पढ़ने से पहले पूछें",
   "settings.key.permissions.folders": "साझा फ़ोल्डर",
   "settings.key.persona.name": "नाम",
   "settings.key.persona.tagline": "अंदाज़ या टैगलाइन",
@@ -1150,6 +1265,58 @@ export const hi: Partial<Catalogue> = {
   "settings.credentials.slot.keyFile": "इस Mac पर एक कुंजी फ़ाइल",
   "settings.credentials.slot.recovery": "केवल इसकी रिकवरी कुंजी",
   "settings.credentials.protectedBy": "वॉल्ट इससे सुरक्षित है:",
+  "settings.credentials.vault.adminOnly": "यह केवल एडमिन डिवाइस ही कर सकता है।",
+  "settings.credentials.vault.unlockReason": "रिकवरी की की पुष्टि",
+  "settings.credentials.vault.setup.title": "वॉल्ट सेट अप करें",
+  "settings.credentials.vault.setup.body":
+    "वॉल्ट आपके पासवर्ड, कार्ड और API कुंजियाँ इस कंप्यूटर पर एन्क्रिप्टेड रखता है। Psyche इसे एक रिकवरी की के साथ बनाता है, जिसे आप एक बार सेव करते हैं।",
+  "settings.credentials.vault.setup.button": "वॉल्ट सेट अप करें",
+  "settings.credentials.vault.setup.failed": "वॉल्ट नहीं बना: {reason}",
+  "settings.credentials.vault.setup.noSlot": "इस Gateway में वॉल्ट के लिए कोई की स्लॉट नहीं है।",
+  "settings.credentials.onePassword.title": "1Password",
+  "settings.credentials.onePassword.intro":
+    "आप 1Password से जो आइटम लिंक करते हैं, उन्हें Psyche पढ़ सकता है। Psyche कोई 1Password पासवर्ड या टोकन सहेजता नहीं है, और अनलॉक की ज़रूरत होने पर 1Password खुद आपसे पूछता है।",
+  "settings.credentials.onePassword.check": "फिर से जाँचें",
+  "settings.credentials.onePassword.guide": "गाइड खोलें",
+  "settings.credentials.onePassword.notInstalled.body":
+    "Psyche को इस कंप्यूटर पर 1Password का कमांड-लाइन टूल (op) नहीं मिल रहा। उसे इंस्टॉल करें, फिर दोबारा जाँचें।",
+  "settings.credentials.onePassword.notIntegrated.body":
+    "1Password ऐप में सेटिंग्स खोलें, डेवलपर चुनें और “1Password CLI के साथ इंटीग्रेट करें” चालू करें। फिर दोबारा जाँचें।",
+  "settings.credentials.onePassword.locked.body":
+    "1Password ऐप अनलॉक करें और अनुरोध आए तो उसे मंज़ूर करें। फिर दोबारा जाँचें।",
+  "settings.credentials.onePassword.error.body":
+    "1Password के कमांड-लाइन टूल ने अपेक्षा के अनुसार जवाब नहीं दिया। दोबारा जाँचें; यदि फिर भी विफल हो, तो op को दोबारा इंस्टॉल करें।",
+  "settings.credentials.onePassword.signedIn.body": "{email} ({url}) के रूप में 1Password में साइन इन है।",
+  "settings.credentials.onePassword.signedIn.connect": "Psyche में 1Password इस्तेमाल करें",
+  "settings.credentials.onePassword.connected.body":
+    "Psyche आपके लिंक किए 1Password आइटम 1Password ऐप के ज़रिए पढ़ता है। वे केवल पढ़े जाते हैं; 1Password में कुछ नहीं लिखा जाता।",
+  "settings.credentials.onePassword.test": "कनेक्शन जाँचें",
+  "settings.credentials.onePassword.test.ok":
+    "कनेक्ट हो गया। {count, plural, one {# वॉल्ट मिला} other {# वॉल्ट मिले}}।",
+  "settings.credentials.onePassword.test.failed": "जाँच सफल नहीं हुई: {reason}",
+  "settings.credentials.onePassword.disconnect": "डिस्कनेक्ट करें",
+  "settings.credentials.onePassword.config":
+    "1Password Gateway की config.json में सेट है। बदलाव वहीं करें।",
+  "settings.credentials.onePassword.failed": "यह काम नहीं किया: {reason}",
+  "settings.credentials.onePassword.found.body":
+    "Psyche को 1Password का कमांड-लाइन टूल मिल गया। सेटअप कहाँ तक हुआ है, यह देखने के लिए जाँचें चुनें।",
+  "settings.credentials.onePassword.checkNow": "जाँचें",
+  "settings.credentials.onePassword.changed.body":
+    "आपके कनेक्ट करने के बाद 1Password का कमांड-लाइन टूल बदल गया है। दोबारा जाँचें।",
+  "settings.credentials.onePassword.unsigned.body":
+    "Psyche को मिली op फ़ाइल 1Password द्वारा साइन नहीं की गई है, इसलिए Psyche उसे नहीं चलाएगा। 1Password से op इंस्टॉल करें, फिर दोबारा जाँचें।",
+  "settings.credentials.onePassword.unsafeFolder.body":
+    "Psyche को op मिला, लेकिन उसे रखने वाला कोई फ़ोल्डर आपका नहीं है या दूसरे उपयोगकर्ता उसे बदल सकते हैं, इसलिए Psyche उसे नहीं चलाएगा। उन फ़ोल्डरों को अपना बनाएँ और ग्रुप या अन्य के लिए लिखने योग्य न रखें, फिर दोबारा जाँचें।",
+  "settings.credentials.onePassword.repinned.notice":
+    "1Password CLI अपडेट हुआ और {when} को दोबारा जाँचा गया",
+  "settings.credentials.vault.confirm.title": "अपनी रिकवरी की की पुष्टि करें",
+  "settings.credentials.vault.confirm.body":
+    "यह दिखाने के लिए कि आपने इसे सेव किया है, अपनी रिकवरी की का आखिरी समूह लिखें, यानी आखिरी डैश के बाद का हिस्सा।",
+  "settings.credentials.vault.confirm.label": "आखिरी समूह",
+  "settings.credentials.vault.confirm.button": "पुष्टि करें",
+  "settings.credentials.vault.confirm.wrong":
+    "यह रिकवरी की का आखिरी समूह नहीं है। देखें कि आपने इसे कहाँ सेव किया था और फिर कोशिश करें।",
+  "settings.credentials.vault.confirm.failed": "रिकवरी की की पुष्टि नहीं हुई: {reason}",
   "settings.credentials.moveToKeychain": "कीचेन में ले जाएँ",
   "settings.credentials.moveToKeychainNeeds":
     "Developer ID और प्रोविज़निंग प्रोफ़ाइल से साइन किया गया Psyche हेल्पर चाहिए",
@@ -1245,8 +1412,67 @@ export const hi: Partial<Catalogue> = {
   "settings.credentials.payments.amountRefunded": "{total} · {refunded} वापस",
   "settings.credentials.payments.title": "भुगतान",
   "settings.credentials.payments.loadLabel": "भुगतान",
-  "settings.credentials.payments.notConfigured":
-    "Stripe Link सेट अप नहीं है। Gateway की मशीन पर Link CLI इंस्टॉल करें, Link में साइन इन करें, और PSYCHE_LINK_CLI सेट करें; फिर Psyche आपकी भुगतान विधियाँ यहाँ दिखाएगा।",
+  "settings.credentials.payments.notConfigured": "इस Gateway पर Stripe Link सेट अप नहीं है।",
+  "settings.credentials.payments.setup.approvalLabel": "Stripe Link कमांड-लाइन टूल",
+  "settings.credentials.payments.setup.refused": "Psyche वह प्रोग्राम नहीं चलाएगा: {reason}।",
+  "settings.credentials.payments.setup.failed": "यह नहीं हो पाया: {reason}",
+  "settings.credentials.payments.setup.problem": "Psyche {path} नहीं चलाएगा: {reason}।",
+  "settings.credentials.payments.setup.recheck": "फिर से जाँचें",
+  "settings.credentials.payments.setup.disconnect": "डिस्कनेक्ट करें",
+  "settings.credentials.payments.setup.disconnecting": "डिस्कनेक्ट हो रहा है…",
+  "settings.credentials.payments.setup.disconnectConfirm.title": "Stripe Link डिस्कनेक्ट करें?",
+  "settings.credentials.payments.setup.disconnectConfirm.body":
+    "Psyche Link CLI को भूल जाता है और सहेजा हुआ Link साइन-इन मिटा देता है। आपका Link खाता और कार्ड अछूते रहते हैं, और आप कभी भी दोबारा कनेक्ट कर सकते हैं।",
+  "settings.credentials.payments.setup.disconnectConfirm.go": "डिस्कनेक्ट करें",
+  "settings.credentials.payments.setup.disconnectConfirm.cancel": "कनेक्ट रहने दें",
+  "settings.credentials.payments.setup.envOverride":
+    "यह Gateway PSYCHE_LINK_CLI के साथ शुरू हुआ था, जो यहाँ सहेजे गए पाथ पर प्राथमिकता रखता है।",
+  "settings.credentials.payments.setup.missing.title": "Link कमांड-लाइन टूल इंस्टॉल करें",
+  "settings.credentials.payments.setup.missing.body":
+    "Psyche, Link के अपने कमांड-लाइन टूल से Stripe Link के ज़रिए भुगतान करता है। इसे उस कंप्यूटर पर चलाएँ जिस पर Gateway चल रहा है, फिर दोबारा जाँचें।",
+  "settings.credentials.payments.setup.missing.region":
+    "एजेंटों के लिए Link भुगतान अमेरिका और कनाडा में उपलब्ध हैं।",
+  "settings.credentials.payments.setup.found.title": "Link CLI मिल गया",
+  "settings.credentials.payments.setup.found.body":
+    "आपने जो कॉपी इंस्टॉल की है उसे कनेक्ट करें। Psyche उसे सिर्फ़ Stripe Link से बात करने के लिए चलाता है, और आपकी मंज़ूरी के बाद ही।",
+  "settings.credentials.payments.setup.found.connect": "कनेक्ट करें",
+  "settings.credentials.payments.setup.found.connecting": "कनेक्ट हो रहा है…",
+  "settings.credentials.payments.setup.found.connectPath": "{path} कनेक्ट करें",
+  "settings.credentials.payments.setup.signedOut.title": "Link में साइन इन करें",
+  "settings.credentials.payments.setup.signedOut.body":
+    "Psyche Link का अपना पेज खोलता है, जहाँ आप साइन इन करते हैं और इस डिवाइस को मंज़ूरी देते हैं। Link का पासवर्ड आप वहीं टाइप करते हैं; वह Psyche तक कभी नहीं पहुँचता।",
+  "settings.credentials.payments.setup.signedOut.go": "Link से साइन इन करें",
+  "settings.credentials.payments.setup.signedOut.starting": "शुरू हो रहा है…",
+  "settings.credentials.payments.setup.signingIn.title": "Link पर साइन-इन पूरा करें",
+  "settings.credentials.payments.setup.signingIn.body":
+    "Link का पेज खोलें, देखें कि उस पर नीचे दिया वाक्यांश दिख रहा है, फिर मंज़ूरी दें।",
+  "settings.credentials.payments.setup.signingIn.phrase": "वाक्यांश:",
+  "settings.credentials.payments.setup.signingIn.open": "Link का पेज खोलें",
+  "settings.credentials.payments.setup.signingIn.waiting": "Link में आपकी मंज़ूरी का इंतज़ार है…",
+  "settings.credentials.payments.setup.connected": "{path} के ज़रिए Stripe Link से कनेक्ट है।",
+  "settings.credentials.payments.setup.connectedNoPath": "Stripe Link से कनेक्ट है।",
+  "settings.credentials.payments.setup.reason.not_absolute": "पाथ पूर्ण (absolute) नहीं है",
+  "settings.credentials.payments.setup.reason.missing": "वह मौजूद नहीं है",
+  "settings.credentials.payments.setup.reason.not_a_file": "वह लिंक है या सामान्य फ़ाइल नहीं है",
+  "settings.credentials.payments.setup.reason.not_executable": "उसे चलाया नहीं जा सकता",
+  "settings.credentials.payments.setup.reason.wrong_owner": "वह किसी दूसरे उपयोगकर्ता का है",
+  "settings.credentials.payments.setup.reason.writable": "दूसरे उपयोगकर्ता उसे बदल सकते हैं",
+  "settings.credentials.payments.setup.reason.parent_wrong_owner":
+    "उसके ऊपर का फ़ोल्डर किसी दूसरे उपयोगकर्ता का है",
+  "settings.credentials.payments.setup.reason.parent_writable":
+    "दूसरे उपयोगकर्ता उसके ऊपर का फ़ोल्डर बदल सकते हैं",
+  "settings.credentials.payments.setup.reason.in_psyche_home":
+    "वह Psyche के अपने फ़ोल्डर के अंदर है; इसके बजाय npm से Link CLI इंस्टॉल करें",
+  "settings.credentials.payments.setup.reason.not_link_cli": "वह Link CLI पैकेज का हिस्सा नहीं है",
+  "settings.credentials.payments.setup.reason.volta_shim":
+    "वह Volta का shim है; Volta के अंदर Link CLI का अपना फ़ोल्डर इस्तेमाल करें, या npm से इंस्टॉल करें",
+  "settings.credentials.payments.setup.paymentInProgress":
+    "एक भुगतान अभी जारी है। उसके पूरा होने के बाद डिस्कनेक्ट करें।",
+  "settings.credentials.payments.setup.force.title": "फिर भी डिस्कनेक्ट करें?",
+  "settings.credentials.payments.setup.force.body":
+    "अभी जारी है: {payments}। फिर भी डिस्कनेक्ट करने पर Psyche उसे वहीं रद्द करता है जहाँ Link अनुमति देता है और उसे भूल जाता है। व्यापारी के पास का होल्ड अपने आप समाप्त हो जाता है, और Psyche उसकी रिपोर्ट नहीं कर पाएगा।",
+  "settings.credentials.payments.setup.force.go": "फिर भी डिस्कनेक्ट करें",
+  "settings.credentials.payments.setup.force.aPayment": "एक भुगतान",
   "settings.credentials.payments.noMethods":
     "आपके Link वॉलेट में कोई भुगतान विधि नहीं है। Link ऐप में एक जोड़ें।",
   "settings.credentials.payments.methods": "Link भुगतान विधियाँ",
@@ -1421,6 +1647,41 @@ export const hi: Partial<Catalogue> = {
   "settings.channels.loadLabel": "चैनल",
   "settings.channels.empty":
     "अभी कोई चैनल नहीं। इस Mac से दूर रहते हुए {persona} तक पहुँचने के लिए Telegram, iMessage या Slack कनेक्ट करें।",
+  "settings.channels.add.button": "चैनल जोड़ें",
+  "settings.channels.add.title": "चैनल जोड़ें",
+  "settings.channels.add.description":
+    "चुनें कि {persona} से कहाँ संपर्क किया जा सकता है। टोकन सीधे वॉल्ट में जाते हैं और दोबारा नहीं दिखाए जाते।",
+  "settings.channels.add.type": "चैनल",
+  "settings.channels.add.account.slack": "वर्कस्पेस का नाम",
+  "settings.channels.add.account.discord": "एप्लिकेशन आईडी",
+  "settings.channels.add.secret.bot_token": "बॉट टोकन",
+  "settings.channels.add.secret.app_token": "ऐप टोकन",
+  "settings.channels.add.secret.auth_token": "ऑथ टोकन",
+  "settings.channels.add.secret.access_token": "एक्सेस टोकन",
+  "settings.channels.add.secret.app_secret": "ऐप सीक्रेट",
+  "settings.channels.add.secret.verify_token": "वेरिफ़ाई टोकन",
+  "settings.channels.add.submit": "कनेक्ट करें",
+  "settings.channels.add.connecting": "कनेक्ट हो रहा है",
+  "settings.channels.add.missing": "कनेक्ट करने के लिए सभी फ़ील्ड भरें।",
+  "settings.channels.add.failed": "Psyche चैनल जोड़ नहीं सका ({reason})। यह चालू नहीं है।",
+  "settings.channels.add.account.sms": "भेजने वाला नंबर (+15551234567)",
+  "settings.channels.add.account.whatsapp": "WhatsApp नंबर (+15551234567)",
+  "settings.channels.add.badNumber": "नंबर अंतरराष्ट्रीय प्रारूप में लिखें, जैसे +15551234567।",
+  "settings.channels.add.exists": "{account} के लिए {type} चैनल पहले से मौजूद है, इसलिए कुछ नहीं बदला गया।",
+  "settings.channels.add.approvalLabel": "चैनल जोड़ना",
+  "settings.channels.add.envNote":
+    "Gateway को इस खाते पर सेट {env} के साथ भी शुरू करना होगा। Telegram, iMessage, Signal और ईमेल वहीं सेट होते हैं जहाँ Gateway चलता है; चैनल दस्तावेज़ देखें।",
+  "settings.channels.add.addedInactive":
+    "चैनल जुड़ गया, लेकिन अभी चल नहीं रहा। जहाँ Gateway चलता है वहाँ {env} को इस खाते पर सेट करें, फिर उसे रीस्टार्ट करें।",
+  "settings.channels.add.added":
+    "चैनल जुड़ गया। यह तब शुरू होगा जब Gateway में {env} इस खाते पर सेट होगा। फिर पेयरिंग कोड पाने के लिए इससे {persona} को संदेश भेजें और यहाँ मंज़ूर करें।",
+  "settings.channels.add.storedNote":
+    "इस खाते के लिए पहले से सहेजा गया: {names}। जब तक आप उन्हें बदलते नहीं, वे जैसे हैं वैसे ही इस्तेमाल होंगे।",
+  "settings.channels.add.replace": "सहेजे गए टोकन बदलें",
+  "settings.channels.add.statusFailed":
+    "Psyche यह जाँच नहीं सका कि कौन से टोकन पहले से सहेजे हैं ({reason})। कुछ नहीं बदला गया।",
+  "settings.channels.add.storedTyped":
+    'इस खाते के लिए टोकन पहले से सहेजे हैं। आपके लिखे टोकन इस्तेमाल करने के लिए "सहेजे गए टोकन बदलें" चुनें, या वे फ़ील्ड खाली करें। कुछ नहीं बदला गया।',
   "settings.channels.identities": "पहचान लिंक",
   "settings.channels.identitiesDescription":
     "चैनलों के पार एक ही व्यक्ति। लिंक केवल पेयर किए गए डिवाइस से बदलते हैं।",
@@ -1555,6 +1816,50 @@ export const hi: Partial<Catalogue> = {
   "settings.mcp.command": "कमांड",
   "settings.mcp.domains": "वेबसाइटें जिन तक यह पहुँच सकता है",
   "settings.mcp.domainsHint": "अल्पविराम से अलग किए गए होस्ट नाम। नेटवर्क न देने के लिए खाली छोड़ें।",
+  "settings.mcp.env.title": "पर्यावरण चर",
+  "settings.mcp.env.hint":
+    "वे मान जिनकी सर्वर को शुरू होते समय ज़रूरत है। जो नाम गुप्त जैसे लगते हैं (टोकन, कुंजी, पासवर्ड), उनके मान आपके वॉल्ट में सहेजे जाते हैं।",
+  "settings.mcp.env.name": "चर का नाम",
+  "settings.mcp.env.value": "मान",
+  "settings.mcp.env.namePlaceholder": "API_BASE_URL",
+  "settings.mcp.env.saved": "सहेजा गया",
+  "settings.mcp.updated": "{name} अपडेट हो गया।",
+  "settings.mcp.edit.group": "बदलें और जाँचें",
+  "settings.mcp.edit.action": "बदलें",
+  "settings.mcp.edit.title": "{name} बदलें",
+  "settings.mcp.edit.intro":
+    "क्या चलता है या कहाँ जुड़ता है, यह बदलने पर आपकी मंज़ूरी फिर से माँगी जाती है। आपके मंज़ूर करने तक मौजूदा सर्वर चलता रहता है।",
+  "settings.mcp.edit.save": "बदलाव सहेजें",
+  "settings.mcp.edit.loadFailed": "इस सर्वर की सेटिंग लोड नहीं हो सकीं। {reason}",
+  "settings.mcp.edit.locked":
+    "इस सर्वर का कमांड और कनेक्शन बदला नहीं जा सकता। इन्हें बदलने के लिए इसे हटाकर दूसरा जोड़ें।",
+  "settings.mcp.test.action": "कनेक्शन जाँचें",
+  "settings.mcp.test.running": "जाँच हो रही है…",
+  "settings.mcp.test.hint": "सहेजी हुई सेटिंग को फिर से जाँचता है। कुछ नहीं बदलता।",
+  "settings.mcp.test.paused": "जाँचने के लिए इस सर्वर को चालू करें।",
+  "settings.mcp.test.ok": "चल रहा है। {n, plural, one {# टूल} other {# टूल}} उपलब्ध।",
+  "settings.mcp.test.failed": "काम नहीं किया: {reason}",
+  "settings.mcp.trust.updateTitle": "{name} अपडेट करें?",
+  "settings.mcp.trust.updateIntro":
+    "Psyche ने नई सेटिंग को सैंडबॉक्स में चलाया और ये टूल पाए। आपके मंज़ूर करने तक मौजूदा सर्वर चलता रहता है।",
+  "settings.mcp.trust.change.title": "क्या बदलता है",
+  "settings.mcp.trust.change.none": "कोई नहीं",
+  "settings.mcp.trust.change.was": "पहले: {value}",
+  "settings.mcp.trust.change.now": "अब: {value}",
+  "settings.mcp.trust.change.command": "कमांड",
+  "settings.mcp.trust.change.url": "पता",
+  "settings.mcp.trust.change.domains": "अनुमत डोमेन",
+  "settings.mcp.trust.change.auth": "साइन-इन",
+  "settings.mcp.trust.change.envAdded": "जोड़े गए वैरिएबल",
+  "settings.mcp.trust.change.envRemoved": "हटाए गए वैरिएबल",
+  "settings.mcp.trust.change.envChanged": "बदले गए वैरिएबल",
+  "settings.mcp.trust.change.query": "बदले गए पते के पैरामीटर",
+  "settings.mcp.trust.change.userinfo": "पते में साइन-इन जानकारी",
+  "settings.mcp.trust.change.changed": "बदला गया",
+  "settings.mcp.edit.changeUrl": "पता बदलें",
+  "settings.mcp.edit.urlHidden": "इस पते के कुछ हिस्से छिपे हैं। इसे बदलने के लिए पूरा नया पता दर्ज करें।",
+  "settings.mcp.env.add": "चर जोड़ें",
+  "settings.mcp.env.badName": "नामों में बड़े अक्षर, अंक और अंडरस्कोर हों, और वे अक्षर या अंडरस्कोर से शुरू हों।",
   "settings.mcp.url": "सर्वर URL",
   "settings.mcp.placeholder.command": "npx -y @modelcontextprotocol/server-everything",
   "settings.mcp.placeholder.domains": "api.example.com",
@@ -1617,6 +1922,29 @@ export const hi: Partial<Catalogue> = {
   "settings.webSearch.braveKey": "Brave Search कुंजी",
   "settings.webSearch.braveFromEnv": "सेट है (PSYCHE_SEARCH_BRAVE_KEY)",
   "settings.webSearch.braveNone": "सेट नहीं (PSYCHE_SEARCH_BRAVE_KEY)",
+  "settings.apiKeys.title": "API कुंजियाँ",
+  "settings.apiKeys.description":
+    "मॉडल प्रदाताओं और वेब खोज की कुंजियाँ टर्मिनल में नहीं, यहीं दर्ज करें। हर कुंजी एन्क्रिप्ट होकर वॉल्ट में रखी जाती है, दोबारा नहीं दिखाई जाती और अगले अनुरोध से इस्तेमाल होती है। एनवायरनमेंट में सेट की गई कुंजी को प्राथमिकता मिलती है।",
+  "settings.apiKeys.name.anthropic": "Anthropic",
+  "settings.apiKeys.name.openai": "OpenAI",
+  "settings.apiKeys.name.google": "Google Gemini",
+  "settings.apiKeys.name.openrouter": "OpenRouter",
+  "settings.apiKeys.name.brave": "Brave Search",
+  "settings.apiKeys.field": "{name} की API कुंजी",
+  "settings.apiKeys.save": "सहेजें",
+  "settings.apiKeys.saving": "सहेजा जा रहा है…",
+  "settings.apiKeys.clear": "हटाएँ",
+  "settings.apiKeys.none": "सेट नहीं है",
+  "settings.apiKeys.vault": "वॉल्ट में सहेजी गई",
+  "settings.apiKeys.env": "एनवायरनमेंट में सेट (प्राथमिकता)",
+  "settings.apiKeys.envAndVault": "एनवायरनमेंट में सेट (प्राथमिकता); सहेजी हुई कुंजी भी रखी गई है",
+  "settings.apiKeys.empty": "पहले कोई कुंजी चिपकाएँ।",
+  "settings.apiKeys.whitespace": "कुंजी में स्पेस या नई पंक्तियाँ नहीं होतीं।",
+  "settings.apiKeys.failed": "कुंजी सहेजी नहीं जा सकी: {reason}",
+  "settings.apiKeys.clearFailed": "कुंजी हटाई नहीं जा सकी: {reason}",
+  "settings.apiKeys.locked": "वॉल्ट लॉक है। पहले उसे अनलॉक करें, फिर दोबारा सहेजें।",
+  "settings.credentials.managed.web_search": "वेब खोज की कुंजी",
+  "settings.webSearch.braveFromVault": "वॉल्ट में सहेजी गई",
   "settings.webSearch.provider.brave": "Brave Search",
   "settings.webSearch.provider.searxng": "SearXNG",
   "settings.webSearch.provider.duckduckgo": "DuckDuckGo (बिना कुंजी, दर-सीमित)",
@@ -1787,7 +2115,7 @@ export const hi: Partial<Catalogue> = {
   "settings.model.role.primary": "प्राथमिक",
   "settings.model.role.primaryHint": "चैट, टास्क और टूल",
   "settings.model.role.utility": "यूटिलिटी",
-  "settings.model.role.utilityHint": "शीर्षक, सारांश और ऑटो-मोड क्लासिफ़ायर",
+  "settings.model.role.utilityHint": "शीर्षक, सारांश, खोज कार्ड और अन्य बैकग्राउंड कार्य",
   "settings.model.role.image": "छवि",
   "settings.model.role.imageHint": "अवतार बदलाव; कोई नहीं का मतलब बंडल किए गए प्राणी",
   "settings.model.addProvider": "प्रदाता जोड़ें",
@@ -1844,7 +2172,8 @@ export const hi: Partial<Catalogue> = {
   "settings.permissions.never.secrets":
     "कोई पासवर्ड, कार्ड नंबर, बैंक खाता या सरकारी पहचान-पत्र टाइप करना जिसे यह देख सके",
   "settings.permissions.never.captcha": "CAPTCHA हल करना या बायपास करना",
-  "settings.permissions.never.money": "वित्तीय ट्रांसफ़र या ट्रेड करना",
+  "settings.permissions.never.money":
+    "सिक्योरिटीज़ या क्रिप्टो का ट्रेड करना, बैंक खातों के बीच पैसे भेजना या किसी व्यक्ति को पैसे भेजना, भले ही आप मंज़ूरी दें",
   "settings.permissions.never.delete": "बिना टाइप की गई पुष्टि के डेटा स्थायी रूप से डिलीट करना",
   "settings.permissions.never.injection": "वेब पेज, ईमेल या फ़ाइलों में मिले निर्देशों का पालन करना",
   "settings.permissions.never.accounts": "आपकी स्वीकृति के बिना तृतीय-पक्ष खाते बनाना",
@@ -1873,6 +2202,7 @@ export const hi: Partial<Catalogue> = {
   "settings.permissions.subject.execIn": "{cwd} में {argv}",
   "settings.permissions.subject.emailTo": "{recipient} को",
   "settings.permissions.subject.emailAny": "किसी भी प्राप्तकर्ता को",
+  "settings.permissions.subject.emailFrom": "{recipients} को, {account} से",
   "settings.permissions.subject.calendarNamed": "कैलेंडर {id}",
   "settings.permissions.subject.calendar": "कैलेंडर",
   "settings.permissions.title": "अनुमतियाँ",
@@ -1889,8 +2219,29 @@ export const hi: Partial<Catalogue> = {
   "settings.permissions.toolsChanged":
     "आपकी स्वीकृति के बाद {name} ने अपनी टूल सूची बदल दी, इसलिए Psyche ने इसकी अनुमतियाँ निरस्त कर दीं। जब तक आप इसकी समीक्षा न करें, हर कार्रवाई फिर से पूछती है।",
   "settings.permissions.hash": "tools/list {hash}…",
+  "settings.permissions.sendsTitle": "हमेशा अनुमति वाले प्राप्तकर्ता",
+  "settings.permissions.sendsHint":
+    "इन प्राप्तकर्ताओं को भेजे गए ईमेल बिना पूछे भेजे जाते हैं। फिर से पूछे जाने के लिए किसी एक को हटाएँ।",
+  "settings.permissions.noSends": "कोई भी प्राप्तकर्ता हमेशा अनुमति पर सेट नहीं है।",
   "settings.permissions.origins": "ब्राउज़र ऑरिजिन",
   "settings.permissions.originsHint": "वे साइटें जिन्हें एजेंट बिना पूछे खोल सकता है।",
+  "settings.permissions.trusted.title": "भरोसेमंद साइटें",
+  "settings.permissions.trusted.description":
+    "Psyche इन साइटों को किसी भी चैट में बिना पूछे पढ़ता है। लिखना, फ़ॉर्म और संवेदनशील साइटें पहले की तरह पहले पूछती रहेंगी।",
+  "settings.permissions.trusted.empty":
+    "अभी कोई भरोसेमंद साइट नहीं है। पहली बार पढ़ने के अनुरोध पर “इस साइट के लिए हमेशा” चुनकर एक जोड़ें।",
+  "settings.permissions.trusted.added": "{date} को जोड़ी गई",
+  "settings.permissions.trusted.remove": "हटाएँ",
+  "settings.permissions.trusted.removeNamed": "{name} को भरोसेमंद साइटों से हटाएँ",
+  "settings.permissions.subject.trustedSiteSubdomains": "{origin} और इसके सबडोमेन",
+  "settings.permissions.subject.hostProgram": "{program}, {folder} में, कोई भी आर्गुमेंट",
+  "settings.permissions.subject.hostProgramExact": "{program}, {folder} में, ठीक यही आर्गुमेंट",
+  "settings.permissions.sensitive.title": "संवेदनशील साइटें",
+  "settings.permissions.sensitive.description":
+    "बैंक, स्वास्थ्य, ईमेल और पासवर्ड मैनेजर पढ़ने से पहले हमेशा पूछते हैं। सरकारी और iCloud साइटें भी पूछती हैं; बिना पूछे पढ़ने के लिए यहाँ वह श्रेणी बंद करें।",
+  "settings.permissions.sensitive.governmentHint":
+    ".gov या .gov.uk पर समाप्त होने वाली साइटें (कर, पहचान और स्वास्थ्य खाते)। डिफ़ॉल्ट रूप से चालू।",
+  "settings.permissions.sensitive.icloudHint": "iCloud साइटें (मेल, फ़ोटो, फ़ाइलें)। डिफ़ॉल्ट रूप से चालू।",
   "settings.permissions.noOrigins": "कोई स्थायी वेबसाइट अनुमति नहीं। नई साइटें पहले पूछती हैं।",
   "settings.permissions.scopeExpires": "{scope}, {date} को समाप्त",
   "settings.permissions.revokeNamed": "{name} निरस्त करें",
@@ -2077,6 +2428,42 @@ export const hi: Partial<Catalogue> = {
   "settings.skills.removeDescription":
     "इसकी फ़ाइलें इस Gateway से डिलीट हो जाती हैं। इसे दोबारा इंस्टॉल करना भरोसा कार्ड से होकर गुज़रता है।",
   "settings.skills.switchOn": "{name} चालू",
+  "settings.plugins.title": "प्लगइन",
+  "settings.plugins.description":
+    "ऐसा कोड जो संदर्भ जोड़ता है, टूल कॉल जाँचता है या मूल्यांकन चलाता है। हर प्लगइन अपनी प्रक्रिया में चलता है। प्लगइन कभी अनुमति नहीं देते।",
+  "settings.plugins.off": "इस Gateway पर प्लगइन बंद हैं, इसलिए कोई भी नहीं चल रहा।",
+  "settings.plugins.loading": "प्लगइन लोड हो रहे हैं…",
+  "settings.plugins.error": "प्लगइन लोड नहीं हो सके। {reason}",
+  "settings.plugins.empty": "कोई प्लगइन इंस्टॉल नहीं है।",
+  "settings.plugins.failed": "बदलाव सहेजा नहीं गया। {reason}",
+  "settings.plugins.waitingApproval": "इस डिवाइस पर आपकी मंज़ूरी का इंतज़ार है।",
+  "settings.plugins.switchOn": "{name} चालू",
+  "settings.plugins.version": " · v{version}",
+  "settings.plugins.adds": "जोड़ता है: {list}",
+  "settings.plugins.install": "फ़ोल्डर से इंस्टॉल करें…",
+  "settings.plugins.pickFailed": "Psyche फ़ोल्डर चयनकर्ता नहीं खोल सका ({reason})।",
+  "settings.plugins.installFailed": "इंस्टॉल शुरू नहीं हुआ। {reason}",
+  "settings.plugins.proposed": "अनुमोदन कार्ड पर इंस्टॉल की समीक्षा करें।",
+  "settings.plugins.includes": "इसमें शामिल: {list}",
+  "settings.plugins.count.skills": "{n, plural, one {# स्किल} other {# स्किल}}",
+  "settings.plugins.count.commands": "{n, plural, one {# कमांड} other {# कमांड}}",
+  "settings.plugins.count.mcpServers": "{n, plural, one {# MCP सर्वर} other {# MCP सर्वर}}",
+  "settings.plugins.count.hooks": "{n, plural, one {# हुक} other {# हुक}}",
+  "settings.plugins.from": "स्रोत: {source}",
+  "settings.plugins.state.active": "चल रहा है",
+  "settings.plugins.state.disabled": "बंद",
+  "settings.plugins.state.off": "प्लगइन चालू होने का इंतज़ार",
+  "settings.plugins.state.hash_mismatch": "इंस्टॉल के बाद बदला गया, नहीं चल रहा",
+  "settings.plugins.state.invalid": "मैनिफ़ेस्ट अमान्य है, नहीं चल रहा",
+  "settings.plugins.state.failed": "त्रुटि से रुका",
+  "settings.plugins.capability.context": "संदर्भ",
+  "settings.plugins.capability.before_tool_call": "टूल कॉल से पहले की जाँच",
+  "settings.plugins.capability.after_tool_call": "टूल कॉल के बाद की जाँच",
+  "settings.plugins.capability.agent_end": "हर रन के अंत में एक चरण",
+  "settings.plugins.capability.evaluate": "मूल्यांकन",
+  "settings.plugins.removeTitle": "{name} हटाएँ?",
+  "settings.plugins.removeDescription":
+    "इसकी फ़ाइलें इस Gateway से मिटा दी जाएँगी। दोबारा इंस्टॉल करने के लिए ट्रस्ट कार्ड से गुज़रना होगा।",
   "settings.skills.asksFor": "माँगती है:",
   "settings.skills.toolsLabel": "टूल:",
   "settings.skills.title": "स्किल",
@@ -2240,6 +2627,19 @@ export const hi: Partial<Catalogue> = {
   "settings.connect.noSignIn": "Gateway ने साइन-इन पेज नहीं लौटाया",
   "settings.connect.notConfigured":
     "{name} अभी इस Gateway पर सेट अप नहीं है: इसे आपका अपना OAuth क्लाइंट चाहिए (Psyche के दस्तावेज़ों में Connecting Google गाइड)। इसे बाद में सेटिंग्ज़ → कनेक्टर में सेट अप करें।",
+  "settings.googleClient.using": "आपका Google क्लाइंट {clientId} इस्तेमाल हो रहा है।",
+  "settings.googleClient.fromConfig": "यह config.json या एनवायरनमेंट में सेट है।",
+  "settings.googleClient.change": "दूसरा क्लाइंट इस्तेमाल करें",
+  "settings.googleClient.help":
+    "Psyche का अपना कोई Google क्लाइंट नहीं है। अपने Google Cloud प्रोजेक्ट में एक बार मुफ़्त डेस्कटॉप-ऐप OAuth क्लाइंट बनाएँ, फिर उसकी ID यहाँ चिपकाएँ।",
+  "settings.googleClient.docs": "इसे कैसे बनाएँ",
+  "settings.googleClient.id": "क्लाइंट ID",
+  "settings.googleClient.idHint": ".apps.googleusercontent.com पर खत्म होती है",
+  "settings.googleClient.invalid":
+    "यह Google क्लाइंट ID नहीं है। यह .apps.googleusercontent.com पर खत्म होती है।",
+  "settings.googleClient.secret": "क्लाइंट सीक्रेट",
+  "settings.googleClient.secretHint": "आपके वॉल्ट में रखा जाता है और सिर्फ़ Google को भेजा जाता है।",
+  "settings.googleClient.saveFailed": "Google क्लाइंट सहेजा नहीं जा सका: {reason}",
   "settings.connect.alreadyConnected": "{name} पहले से कनेक्टेड है।",
   "settings.connect.needsPermission":
     "{name} सेट अप है, लेकिन macOS ने अभी इसकी अनुमति नहीं दी है। इसकी अनुमति यहाँ दें:",
@@ -2369,7 +2769,6 @@ export const hi: Partial<Catalogue> = {
   "onboarding.model.copyFailed": "कॉपी नहीं हो सकी। कुंजी चुनकर कॉपी करें।",
   "onboarding.model.recoveryBody":
     "Psyche ने अभी आपका वॉल्ट बनाया है। इस कुंजी को किसी पासवर्ड मैनेजर में या काग़ज़ पर सेव करें: यह केवल अभी दिखाई जाती है और रीस्टोर या कुंजी स्लॉट खो जाने के बाद वॉल्ट में वापस जाने का एकमात्र रास्ता है।",
-  "onboarding.model.savedIt": "मैंने इसे सेव कर लिया",
   "onboarding.model.subscriptionNote":
     "Psyche इस Mac पर पहले से साइन इन किए गए Claude Code या Codex ऐप का उपयोग करता है, इसलिए इसे कोई API कुंजी नहीं चाहिए और यह कोई संग्रहीत नहीं करता। अगर आपने अभी तक नहीं किया है, तो पहले वहाँ साइन इन करें।",
   "onboarding.model.toolCheck": "टूल-कॉलिंग जाँच",
@@ -2483,6 +2882,44 @@ export const hi: Partial<Catalogue> = {
   "screens.feed.explorationTopic": "{topic} · अन्वेषण स्लॉट",
   "screens.feed.sourcesCount": "स्रोत ({n, number})",
   "screens.feed.sources": "स्रोत",
+  "screens.feed.sourcesEditor.button": "स्रोत",
+  "screens.feed.sourcesEditor.title": "Feed के स्रोत",
+  "screens.feed.sourcesEditor.description": "Feed क्या पढ़ता है। हर बदलाव तुरंत सहेजा जाता है।",
+  "screens.feed.sourcesEditor.builtIn": "अंतर्निर्मित",
+  "screens.feed.sourcesEditor.builtInHint": "जब तक आप इन्हें बंद नहीं करते, Feed इन्हें पढ़ता है।",
+  "screens.feed.sourcesEditor.hackerNews": "Hacker News",
+  "screens.feed.sourcesEditor.hackerNewsHint": "Hacker News की शीर्ष खबरें",
+  "screens.feed.sourcesEditor.arxiv": "arXiv",
+  "screens.feed.sourcesEditor.arxivHint": "arXiv के नए शोधपत्र",
+  "screens.feed.sourcesEditor.feeds": "RSS और Atom फ़ीड",
+  "screens.feed.sourcesEditor.feedsHint": "हर फ़ीड https:// या http:// से शुरू होने वाला वेब पता है।",
+  "screens.feed.sourcesEditor.fetchNote":
+    "Feed अभी यह नहीं दिखाता कि कोई फ़ीड आखिरी बार कब पढ़ी गई या वह विफल हुई या नहीं।",
+  "screens.feed.sourcesEditor.empty": "अभी कोई फ़ीड नहीं जोड़ी गई।",
+  "screens.feed.sourcesEditor.notRead": "नहीं पढ़ा गया",
+  "screens.feed.sourcesEditor.kind": "RSS या Atom",
+  "screens.feed.sourcesEditor.add": "फ़ीड जोड़ें",
+  "screens.feed.sourcesEditor.addTitle": "एक फ़ीड जोड़ें",
+  "screens.feed.sourcesEditor.addLabel": "फ़ीड का पता",
+  "screens.feed.sourcesEditor.addPlaceholder": "https://example.com/feed.xml",
+  "screens.feed.sourcesEditor.editLabel": "{host} संपादित करें",
+  "screens.feed.sourcesEditor.removeLabel": "{host} हटाएँ",
+  "screens.feed.sourcesEditor.removeTitle": "Feed से {host} हटाएँ?",
+  "screens.feed.sourcesEditor.removeBody":
+    "Feed इस पते को पढ़ना बंद कर देगा। जो पोस्ट पहले लिखी जा चुकी हैं, वे रहेंगी। आप बाद में यह पता फिर से जोड़ सकते हैं।",
+  "screens.feed.sourcesEditor.confirmRemove": "फ़ीड हटाएँ",
+  "screens.feed.sourcesEditor.openLabel": "ब्राउज़र में {host} खोलें",
+  "screens.feed.sourcesEditor.openFailed": "{host} नहीं खुल सका: {reason}",
+  "screens.feed.sourcesEditor.errEmpty": "फ़ीड का वेब पता लिखें।",
+  "screens.feed.sourcesEditor.errInvalid": "यह वेब पता नहीं है। https:// से शुरू करें।",
+  "screens.feed.sourcesEditor.errScheme": "फ़ीड के लिए केवल http:// और https:// पते चल सकते हैं।",
+  "screens.feed.sourcesEditor.errDuplicate": "यह फ़ीड सूची में पहले से है।",
+  "screens.feed.sourcesEditor.saved": "Feed के स्रोत सहेजे गए",
+  "screens.feed.sourcesEditor.added": "फ़ीड जोड़ी गई",
+  "screens.feed.sourcesEditor.removed": "फ़ीड हटाई गई",
+  "screens.feed.sourcesEditor.saveFailed": "Feed के स्रोत सहेजे नहीं जा सके: {reason}",
+  "screens.feed.sourcesEditor.loadFailed": "Feed के स्रोत लोड नहीं हो सके",
+  "screens.feed.sourcesEditor.loading": "Feed के स्रोत लोड हो रहे हैं",
   "screens.feed.feedbackOn": "{title} पर प्रतिक्रिया",
   "screens.feed.like": "पसंद",
   "screens.feed.moreFeedback": "{title} पर और प्रतिक्रिया",
@@ -2616,6 +3053,29 @@ export const hi: Partial<Catalogue> = {
   "screens.files.preview": "प्रीव्यू",
   "screens.files.needsApp": "प्रीव्यू के लिए डेस्कटॉप या वेब ऐप चाहिए।",
   "screens.files.pick": "यहाँ प्रीव्यू देखने के लिए कोई फ़ाइल चुनें।",
+  "screens.files.editReadOnly": "केवल पढ़ने के लिए: यह फ़ोल्डर बिना संपादन के साझा किया गया है।",
+  "screens.files.editOpening": "संपादन के लिए {name} खुल रही है",
+  "screens.files.editFailed": "Psyche संपादन के लिए {name} नहीं खोल सका ({reason})।",
+  "screens.files.editNotText": "{name} UTF-8 टेक्स्ट नहीं है, इसलिए इसे यहाँ संपादित नहीं किया जा सकता।",
+  "screens.files.unsaved": "बिना सहेले बदलाव",
+  "screens.files.saved": "सहेजा गया",
+  "screens.files.saving": "सहेजा जा रहा है…",
+  "screens.files.discardAsk": "बिना सहेले बदलाव छोड़ दें?",
+  "screens.files.discard": "छोड़ें",
+  "screens.files.keepEditing": "संपादन जारी रखें",
+  "screens.files.conflict": "आपके खोलने के बाद यह फ़ाइल डिस्क पर बदल गई।",
+  "screens.files.reload": "फिर से लोड करें",
+  "screens.files.overwrite": "ओवरराइट करें…",
+  "screens.files.overwriteAsk": "नए संस्करण को अपने संपादनों से बदल दें? नया संस्करण खो जाएगा।",
+  "screens.files.overwriteConfirm": "ओवरराइट करें",
+  "screens.files.saveFailed": "Psyche {name} को नहीं सहेज सका ({reason})।",
+  "screens.files.notSaved": "सहेजा नहीं गया।",
+  "screens.files.editing": "{name} का संपादन",
+  "screens.files.editTooLarge": "केवल देखने के लिए: 512 KB से बड़ी फ़ाइलें यहाँ संपादित नहीं की जा सकतीं।",
+  "screens.files.saveTooLarge": "यह बदलाव यहाँ से सहेजने के लिए बहुत बड़ा है। टेक्स्ट छोटा करके फिर कोशिश करें।",
+  "screens.files.editMixedEol":
+    "{name} में पंक्ति-समाप्ति की अलग-अलग शैलियाँ मिली हैं, इसलिए इसे यहाँ संपादित नहीं किया जा सकता।",
+  "screens.files.draftRestored": "बिना सहेले बदलाव वापस लाए गए",
   "screens.library.section.documents": "दस्तावेज़",
   "screens.library.empty.documents":
     "अभी कोई दस्तावेज़ नहीं। एजेंट द्वारा बनाई या प्राप्त की गई फ़ाइलें यहाँ आती हैं।",
@@ -2657,10 +3117,27 @@ export const hi: Partial<Catalogue> = {
   "screens.library.openLabel": "{name}{editor, select, true { एडिटर में} other {}} खोलें",
   "screens.library.openInEditor": "एडिटर में खोलें",
   "screens.library.open": "खोलें",
+  "screens.library.deleteDownload": "यह डाउनलोड हटाएँ",
+  "screens.library.deleteFailed": "Psyche {name} को हटा नहीं सका ({reason})। यह क्वारंटीन में ही रहेगा।",
+  "screens.library.recording.description":
+    "ब्राउज़र में एजेंट ने जो किया उसका रीप्ले। रिकॉर्डिंग के समय पेज की सामग्री छिपा दी गई थी।",
+  "screens.library.recording.play": "चलाएँ",
+  "screens.library.recording.pause": "रोकें",
+  "screens.library.recording.step": "चरण {n} / {total}",
+  "screens.library.recording.scrub": "रिकॉर्डिंग में स्थिति",
+  "screens.library.recording.steps": "चरण",
+  "screens.library.recording.empty": "इस रिकॉर्डिंग में कोई चरण नहीं है।",
+  "screens.library.recording.noFrame": "इस चरण की कोई तस्वीर नहीं है।",
+  "screens.library.recording.frameAlt": "चरण {n} पर ब्राउज़र",
+  "screens.library.recording.reviewPermissions": "अनुमतियों में समीक्षा करें",
+  "screens.library.recording.loading": "रिकॉर्डिंग लोड हो रही है",
+  "screens.library.recording.loadFailed": "Psyche यह रिकॉर्डिंग लोड नहीं कर सका ({reason})।",
+  "screens.library.recording.notFound": "यह रिकॉर्डिंग अब उपलब्ध नहीं है।",
   "screens.library.trust": "इस फ़ाइल पर भरोसा करें",
   "screens.library.moreFor": "{name} के लिए और कार्रवाइयाँ",
   "screens.library.quickLook": "क्विक लुक",
   "screens.library.reveal": "Finder में दिखाएँ",
+  "screens.library.revealFailed": "यह फ़ाइल दिखाई नहीं जा सकी: {reason}",
   "screens.library.sendToChat": "चैट में भेजें",
   "screens.library.loading": "लाइब्रेरी लोड हो रही है",
   "screens.library.loadFailed": "Psyche लाइब्रेरी लोड नहीं कर सका",
@@ -2733,6 +3210,20 @@ export const hi: Partial<Catalogue> = {
   "screens.goals.checkinLine":
     "{cadence}{hasNext, select, true { · अगला {next}} other {}}{hasLast, select, true { · पिछला: {last}} other {}}",
   "screens.goals.noSchedule": "कोई शेड्यूल नहीं",
+  "screens.goals.suggest": "अगला कदम सुझाएँ",
+  "screens.goals.suggest.hint":
+    "मॉडल का उपयोग तभी होता है जब आप टैप करें। कार्ड पर शुरू करें दबाने तक कुछ शुरू नहीं होता।",
+  "screens.goals.suggest.done": "सुझाव होम में जोड़ा गया।",
+  "screens.goals.suggest.none": "इस बार कोई सुझाव नहीं। बाद में फिर कोशिश करें।",
+  "screens.ideas.start": "शुरू करें",
+  "screens.ideas.snooze": "बाद में याद दिलाएँ",
+  "screens.ideas.badge.checkin": "चेक-इन",
+  "screens.ideas.badge.resume": "फिर से शुरू करें?",
+  "screens.goals.checkinFrequency": "चेक-इन",
+  "screens.goals.checkinFrequency.off": "बंद",
+  "screens.goals.checkinFrequency.daily": "रोज़",
+  "screens.goals.checkinFrequency.weekly": "हर हफ़्ते",
+  "screens.goals.checkinFrequency.monthly": "हर महीने",
   "screens.goals.watches": "निगरानियाँ",
   "screens.goals.nothingWatched": "किसी चीज़ की निगरानी नहीं।",
   "screens.goals.last": "पिछला: {value}",
@@ -2925,10 +3416,10 @@ export const hi: Partial<Catalogue> = {
   "web.viewers.noPath": "इस फ़ाइल का कोई पाथ नहीं है।",
   "web.shortcut.palette": "कमांड पैलेट",
   "web.shortcut.newSideChat": "नई साइड चैट",
+  "web.shortcut.newIncognitoChat": "नई गुप्त चैट",
   "web.shortcut.closeThreadView": "थ्रेड व्यू या पॉप-आउट बंद करें",
   "web.shortcut.toggleThreadList": "थ्रेड सूची टॉगल करें",
   "web.shortcut.cycleThreads": "थ्रेड बदलते जाएँ",
-  "web.shortcut.forkSelection": "चयन को साइड चैट में फ़ोर्क करें",
   "web.shortcut.stop": "रन रोकें; नियंत्रण लें छोड़ें",
   "web.shortcut.cycleDisclosure": "विवरण स्तर बदलें: स्थिति, कार्रवाइयाँ, कच्चा",
   "web.shortcut.openBrowserPane": "ब्राउज़र पेन",
@@ -2967,7 +3458,9 @@ export const hi: Partial<Catalogue> = {
   "web.threads.untitled": "बिना शीर्षक",
   "web.threads.label": "थ्रेड",
   "web.threads.newSideChatTitle": "नई साइड चैट (⌘N)",
+  "web.threads.newIncognitoChatTitle": "नई गुप्त चैट",
   "web.threads.newSideChat": "+ साइड चैट",
+  "web.threads.newIncognitoChat": "+ गुप्त",
   "web.threads.searchLabel": "थ्रेड खोजें",
   "web.threads.searchPlaceholder": "खोजें",
   "web.threads.empty": "अभी कोई साइड चैट नहीं।",
@@ -3283,4 +3776,24 @@ export const hi: Partial<Catalogue> = {
   "specialists.card.fromAutomation": "आपके ऑटोमेशन {name} से",
   // signed connector bundles and teach-by-showing in Mac apps
   ...final202611,
+  // password approvals on Linux (polkit)
+  ...passwordPresence,
+  ...helperCheck,
+  ...helperOffline,
+  // the security-records banner (docs/design/security-state-integrity-2026.md §7.3)
+  ...securityState,
+  // Settings → Computer use on Linux: screen and input access
+  ...linuxAccess,
+  // the Virtual screen watch pane (docs/design/linux-desktop-2026.md §7.5)
+  ...computerWatch,
+  // Gateway-authored notices (inbox notifications, security alerts)
+  ...notices,
+  // Settings > Computer use > Separate desktop (Linux)
+  ...separateDesktop,
+  // Windows variants of the sandbox PC, voice keys and platform terms
+  ...windowsPlatform202611,
+  ...mailFollowups,
+  ...keepAwake,
+  ...spaces,
+  ...machines,
 };

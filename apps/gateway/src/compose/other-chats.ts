@@ -24,6 +24,9 @@ import type { ComposedPart } from "./services.ts";
 
 export const OTHER_CHATS_SETTING = "threads.otherChats";
 /** Chats one turn may draw on, and characters of a digest's parts. */
+/** Thread kinds that may draw on the owner's other chats (not channels, subagents or incognito). */
+const OTHER_CHATS_THREADS = new Set(["main", "side", "automation"]);
+
 export const OTHER_CHATS_LIMITS = { threads: 3, request: 300, reply: 600, snippet: 240 };
 
 const DIGEST_KINDS = new Set(["main", "side", "automation"]);
@@ -114,6 +117,8 @@ export function createOtherChats(deps: OtherChatsDeps): OtherChats {
     name: "other-chats",
     async provide(input): Promise<TurnContext | undefined> {
       if (!enabled()) return undefined;
+      // The owner's own surfaces only: a channel (group) thread is shared with other people.
+      if (!OTHER_CHATS_THREADS.has(getThread(db, input.threadId)?.kind ?? "")) return undefined;
       const q = relatedQuery(input.text);
       if (q === undefined) return undefined;
       const { hits } = await index.query({ q, filters: { kinds: ["thread"] }, limit: 10 });

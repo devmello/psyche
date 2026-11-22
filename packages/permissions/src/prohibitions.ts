@@ -3,7 +3,14 @@ import { posix } from "node:path";
 import { cardDigits, findSensitiveNormalized as findSensitive } from "@psyche/audit";
 import { canonicalHostPath, isAbsoluteHostPath, slashHostPath } from "@psyche/hostfs";
 import { PLACEHOLDER_PATTERN, PROTECTED_MEMORY_FILES } from "@psyche/protocol";
+import {
+  FINANCIAL_BLOCK_REASON,
+  financialBlock,
+  isTradeOrTransferText,
+} from "@psyche/protocol/financial-block";
 import { dangerousEnvNames } from "./binding.ts";
+import { SEND_KINDS } from "./connector-matrix.ts";
+import { outboundSendDecision } from "./outbound.ts";
 import {
   type CanonicalUrl,
   canonicalUrl,
@@ -23,7 +30,7 @@ import type { PolicyCall, PolicyContext } from "./types.ts";
 export type ProhibitionResult =
   | { effect: "deny"; id: string; reason: string }
   | { effect: "confirm"; id: string; reason: string; word: string }
-  | { effect: "ask"; id: string; reason: string };
+  | { effect: "ask"; id: string; reason: string; deviceOnly?: true };
 
 export interface LoopbackCheck {
   ok: boolean;
@@ -170,16 +177,40 @@ const TRANSFER_PAIRS = [
   ["send", "payment"],
   ["send", "funds"],
   ["move", "money"],
-  ["submit", "order"],
-  ["place", "order"],
   ["create", "trade"],
+  // On-chain and ACH sends: `send_transaction`, `sendTransaction`, `sign_tx`, `create_ach`.
+  ["send", "transaction"],
+  ["sign", "transaction"],
+  ["broadcast", "transaction"],
+  ["send", "tx"],
+  ["sign", "tx"],
+  ["create", "ach"],
+  ["send", "ach"],
+  ["initiate", "ach"],
+  ["payment", "initiation"],
+  ["initiate", "payment"],
+  // Contract writes and token allowances (`write_contract`, `call_contract_function`,
+  // `approve_token`): they move tokens whatever the server is called.
+  ["write", "contract"],
+  ["call", "contract"],
+  ["execute", "contract"],
+  ["approve", "token"],
+  ["approve", "tokens"],
+  ["approve", "spender"],
+  ["approve", "allowance"],
+  ["approve", "erc20"],
+  ["approve", "erc721"],
+  ["approve", "erc1155"],
+  ["approve", "nft"],
+  ["increase", "allowance"],
 ];
+// `place_order` and `submit_order` alone are not here: a shop, a restaurant or a ticket seller has
+// them too. An order of stock or crypto is caught by `isTradeOrTransferText`, and any order on a
+// brokerage or exchange namespace by `FINANCIAL_NAMESPACES`.
 /** MCP servers / namespaces whose actions move money or trade. */
 const FINANCIAL_NAMESPACES = new Set([
   "bank",
   "banking",
-  "broker",
-  "brokerage",
   "crypto",
   "exchange",
   "wallet",
@@ -195,6 +226,221 @@ const FINANCIAL_NAMESPACES = new Set([
   "fidelity",
   "wise",
   "revolut",
+  "ibkr",
+  "interactivebrokers",
+  "etrade",
+  "tdameritrade",
+  "tradestation",
+  "webull",
+  "vanguard",
+  "tradier",
+  "bitstamp",
+  "bybit",
+  "okx",
+  "kucoin",
+  "metamask",
+  "uniswap",
+  "ledger",
+  "remitly",
+  "westernunion",
+  "moneygram",
+  "zellepay",
+  "ib",
+  "tws",
+  "ccxt",
+  "polymarket",
+  "kalshi",
+  "hyperliquid",
+  "tastytrade",
+  "firstrade",
+  "trading212",
+  "degiro",
+  "etoro",
+  "saxo",
+  "moomoo",
+  "zerodha",
+  "bitfinex",
+  "bitget",
+  "mexc",
+  "bitpanda",
+  "bitso",
+  "upbit",
+  "bithumb",
+  "bitflyer",
+  "phantom",
+  "dydx",
+]);
+/** Banks, by the name an MCP server for one would carry (`mcp__chase__pay`). */
+const BANK_NAMESPACES = [
+  "chase",
+  "bankofamerica",
+  "wellsfargo",
+  "citi",
+  "citibank",
+  "capitalone",
+  "usbank",
+  "pnc",
+  "tdbank",
+  "truist",
+  "hsbc",
+  "barclays",
+  "santander",
+  "scotiabank",
+  "cibc",
+  "commerzbank",
+  "bbva",
+  "sofi",
+  "chime",
+  "usaa",
+  "navyfederal",
+  "monzo",
+  "n26",
+  "starling",
+  "nubank",
+];
+for (const b of BANK_NAMESPACES) FINANCIAL_NAMESPACES.add(b);
+/**
+ * Words that are financial only on their own: a namespace containing "broker" (`mybroker`) or
+ * with the word "trading" is a brokerage's, unless another word says it is a message broker
+ * (`mqtt-broker`, `kafka_broker`) or a card game (`pokemon_trading`).
+ */
+/** Inside a word ("mybroker"); "trading" only as a word of its own ("libtrading" is a library). */
+const GENERIC_FINANCIAL_PARTS = ["broker"];
+const GENERIC_FINANCIAL_TOKENS = ["trading", "broker", "brokerage"];
+/**
+ * Words of a namespace that say it is a message broker or a card game, matched as whole words
+ * (`mqtt-broker`, `pokemon_trading`), or as the end of one for a bus (`eventbus`, `omnibus`):
+ * "business_trading" and "trading_bus" are still trading.
+ */
+const NOT_FINANCIAL_QUALIFIERS = [
+  "message",
+  "messages",
+  "mqtt",
+  "kafka",
+  "rabbit",
+  "rabbitmq",
+  "amqp",
+  "nats",
+  "redis",
+  "pubsub",
+  "queue",
+  "card",
+  "cards",
+  "pokemon",
+  "tcg",
+  "game",
+  "games",
+  "yugioh",
+  "magic",
+];
+/** Message buses by name, whole words only: "airbus" and "trading_bus" are not one. */
+const BUS_TOKENS = new Set([
+  "eventbus",
+  "servicebus",
+  "omnibus",
+  "messagebus",
+  "msgbus",
+  "databus",
+  "eventbridge",
+]);
+/** A tool verb that trades whatever the server calls itself. */
+const TRADE_ACTS = new Set(["buy", "sell", "order", "orders", "bet", "trade", "short", "swap"]);
+
+/**
+ * A tool that only reads is not a trade, even on a brokerage's or an exchange's server: its first
+ * word is one of these, it names what it reads, and no action word appears anywhere in it
+ * (`fetch_and_create_order`, `get_or_place_order` and a bare `fetch` or `query`, which can be
+ * any request, are not reads).
+ */
+const ACTION_WORDS = new Set([
+  "order",
+  "orders",
+  "buy",
+  "sell",
+  "execute",
+  "submit",
+  "place",
+  "create",
+  "send",
+  "pay",
+  "transfer",
+  "cancel",
+  "out",
+  "checkout",
+  "liquidate",
+  "open",
+  "close",
+  "fund",
+  "approve",
+  "sign",
+  "write",
+  "swap",
+  "withdraw",
+  "trade",
+  "new",
+  "add",
+  "confirm",
+  "call",
+  "invoke",
+  "request",
+  "post",
+  "put",
+  "delete",
+  "update",
+  "set",
+  "modify",
+  "replace",
+  "mint",
+  "burn",
+  "bridge",
+  "stake",
+  "deposit",
+  "then",
+  "and",
+  "or",
+]);
+/** A read verb that alone can be any request: it needs to name what it reads. */
+const GENERIC_READS = new Set(["fetch", "query", "request", "call", "get"]);
+/** What a passthrough reads: `query_private` on Kraken can add orders, `fetch_raw` anything. */
+const PASSTHROUGH_WORDS = new Set(["private", "raw", "any", "endpoint", "api", "rpc", "proxy"]);
+/** Read nouns that contain an action word: an order book, a list of open orders. */
+const READ_NOUNS: readonly (readonly string[])[] = [
+  ["order", "book"],
+  ["open", "orders"],
+  ["orders"],
+  ["order", "history"],
+  ["order", "status"],
+];
+
+/** The tool's words with the read nouns taken out (`get_open_orders` → `get`, `list_orders` → `list`). */
+function withoutReadNouns(words: readonly string[]): string[] {
+  const out = [...words];
+  for (const phrase of READ_NOUNS) {
+    for (let i = 0; i + phrase.length <= out.length; i++) {
+      if (phrase.every((w, k) => out[i + k] === w)) out.splice(i, phrase.length, "_read");
+    }
+  }
+  return out;
+}
+const READ_VERBS = new Set([
+  "get",
+  "list",
+  "read",
+  "fetch",
+  "search",
+  "find",
+  "view",
+  "show",
+  "describe",
+  "lookup",
+  "query",
+  "check",
+  "quote",
+  "quotes",
+  "estimate",
+  "preview",
+  "history",
+  "status",
 ]);
 
 export function isFinancialTransfer(tool: string): boolean {
@@ -202,8 +448,68 @@ export function isFinancialTransfer(tool: string): boolean {
   if (words.some((w) => TRANSFER_WORDS.has(w))) return true;
   if (TRANSFER_PAIRS.some(([a, b]) => words.includes(a ?? "") && words.includes(b ?? "")))
     return true;
+  // `buy_stock`, `sellShares`, `place_stock_order`, `send_bitcoin`, `swap_tokens`.
+  if (isTradeOrTransferText(tool)) return true;
   const ns = tool.startsWith("mcp__") ? (tool.split("__")[1] ?? "") : (tool.split(/[._]/)[0] ?? "");
-  return FINANCIAL_NAMESPACES.has(ns.toLowerCase());
+  const lower = ns.toLowerCase();
+  // `interactive-brokers` and `cash_app` read as `interactivebrokers` and `cashapp`; `robinhood-mcp`
+  // and `alpaca-mcp-server` have the broker as one of their words.
+  const compact = lower.replace(/[^a-z0-9]+/g, "");
+  const tokens = toolWords(ns);
+  // The tool's own words, past the server name.
+  const own = tool.startsWith("mcp__")
+    ? tool.split("__").slice(2).join("_")
+    : tool.slice(ns.length);
+  const ownRaw = toolWords(own);
+  // A message bus or a card game is not a brokerage, but only while the tool does not trade:
+  // `trading_games_broker__buy` and `sports-trading__place_bet` still trade.
+  const trades = ownRaw.some((w) => TRADE_ACTS.has(w));
+  const qualified =
+    !trades && tokens.some((t) => NOT_FINANCIAL_QUALIFIERS.includes(t) || BUS_TOKENS.has(t));
+  const financial =
+    FINANCIAL_NAMESPACES.has(compact) ||
+    tokens.some((t) => FINANCIAL_NAMESPACES.has(t)) ||
+    (!qualified &&
+      (GENERIC_FINANCIAL_PARTS.some((part) => compact.includes(part)) ||
+        tokens.some((t) => GENERIC_FINANCIAL_TOKENS.includes(t))));
+  if (!financial) return false;
+  // A quote, a balance or a list of rates moves nothing: only the tool's own words say so.
+  const ownWords = withoutReadNouns(ownRaw);
+  const verb = ownWords[0];
+  const reads =
+    verb !== undefined &&
+    READ_VERBS.has(verb) &&
+    !(GENERIC_READS.has(verb) && ownWords.length === 1) &&
+    !ownWords.some((w) => ACTION_WORDS.has(w) || PASSTHROUGH_WORDS.has(w));
+  return !reads;
+}
+
+/**
+ * Whether a browser or computer-use action trades or moves money, from what the executor saw of
+ * the control, the page's host and the app (`@psyche/protocol/financial-block`). A model is never
+ * asked, and no approval changes it.
+ */
+export function isFinancialControl(call: PolicyCall): boolean {
+  const c = call.meta?.control;
+  const origin = call.target?.kind === "origin" ? call.target.value : undefined;
+  const app = call.meta?.app ?? (call.target?.kind === "app" ? call.target.value : undefined);
+  if (c === undefined && origin === undefined && app === undefined) return false;
+  return (
+    financialBlock({
+      labels: c?.labels,
+      alsoLabels: c?.alsoLabels,
+      role: c?.role,
+      submits: c?.submits,
+      href: c?.href,
+      formMethod: c?.formMethod,
+      formAction: c?.formAction,
+      pageUrl: c?.pageUrl,
+      pageTitle: c?.pageTitle,
+      unreadable: c?.unreadable,
+      app,
+      origin,
+    }) !== undefined
+  );
 }
 const PERMANENT_DELETE_TOOL =
   /(^|[._])(purge|expunge|empty_trash|delete_permanently|permanent_delete|permanently_delete|hard_delete|destroy|wipe|shred)([._]|$)/i;
@@ -250,6 +556,14 @@ const SYSTEM_CREDENTIAL_PATHS = [
       "\\.kube",
       "\\.config/gh",
       "\\.config/gcloud",
+      "\\.config/glab-cli",
+      "\\.config/op",
+      "\\.op",
+      "\\.azure",
+      "\\.config/doctl",
+      "\\.config/hub",
+      "library/application support/glab-cli",
+      "library/application support/doctl",
       "\\.config/google-chrome",
       "\\.config/chromium",
       "\\.mozilla",
@@ -279,6 +593,12 @@ const SYSTEM_CREDENTIAL_PATHS = [
       "\\.kube",
       "\\.config/gh",
       "\\.config/gcloud",
+      "\\.config/glab-cli",
+      "\\.config/op",
+      "\\.op",
+      "\\.azure",
+      "\\.config/doctl",
+      "\\.config/hub",
       "ntuser\\.dat",
       "appdata/local/google/chrome/user data",
       "appdata/local/microsoft/edge/user data",
@@ -293,6 +613,8 @@ const SYSTEM_CREDENTIAL_PATHS = [
       "appdata/local/microsoft/vault",
       "appdata/roaming/github cli",
       "appdata/roaming/gcloud",
+      "appdata/roaming/glab-cli",
+      "appdata/roaming/doctl",
       "appdata/roaming/psyche",
     ].join("|")})(/|$)`,
     "i",
@@ -418,7 +740,7 @@ export async function checkProhibitions(
   if (path !== undefined && SYSTEM_CREDENTIAL_PATHS.some((re) => re.test(path))) {
     return deny(
       "system_credentials",
-      "keychains, browser profiles, SSH keys and CLI credentials are never read",
+      "keychains, browser profiles, SSH keys and CLI credentials are never read. To use a secret from one of them, store it in the vault and Psyche will fill it without seeing it",
     );
   }
 
@@ -435,7 +757,10 @@ export async function checkProhibitions(
       ["private_key", "api_key", "bearer_token", "jwt", "url_credentials"].includes(m.kind),
     );
     if (hit !== undefined) {
-      return deny("visible_secret", `a ${hit.kind} is visible in the arguments; use the vault`);
+      return deny(
+        "visible_secret",
+        `a ${hit.kind} is visible in the arguments; store it in the vault and Psyche will fill it without seeing it`,
+      );
     }
   }
 
@@ -466,7 +791,10 @@ export async function checkProhibitions(
     field?.type?.toLowerCase() === "password" ||
     /password/i.test(field?.autocomplete ?? "");
   if (TYPING_TOOL.test(tool) && passwordField) {
-    return deny("password_typing", "the agent never types into a password field");
+    return deny(
+      "password_typing",
+      "the agent never types into a password field. Store the password in the vault and Psyche will fill it without seeing it",
+    );
   }
 
   // Credential fills only into a matching field class (S23 design-01).
@@ -488,8 +816,8 @@ export async function checkProhibitions(
   }
 
   // Financial transfers and trades.
-  if (isFinancialTransfer(tool)) {
-    return deny("financial_transfer", "Psyche never moves money or trades");
+  if (isFinancialTransfer(tool) || isFinancialControl(call)) {
+    return deny("financial_transfer", FINANCIAL_BLOCK_REASON);
   }
 
   // Loopback origins that are not the owner's own project (§3.10, design-03).
@@ -538,13 +866,45 @@ export async function checkProhibitions(
         if (m.kind === "card_number") {
           const digits = cardDigits(s.value.slice(m.index, m.index + m.length));
           if (digits !== undefined && isPublishedTestCard(digits) && loopbackOwned) continue;
-          return deny("card_entry", "card numbers are never entered; purchases go through Link");
+          return deny(
+            "card_entry",
+            "card numbers are never entered; purchases go through Link. Any other secret goes in the vault, and Psyche will fill it without seeing it",
+          );
         }
         if (m.kind === "iban")
           return deny("bank_account_entry", "bank account numbers are never entered");
         if (m.kind === "us_ssn")
           return deny("government_id_entry", "government identifiers are never entered");
       }
+    }
+  }
+
+  // What Psyche sends to another person or service goes through the one outbound check (security
+  // §3.9), the same function the channel service uses. The audience is another party: a tool call
+  // has no owner chat. Credentials, cards and their codes, IBANs and US Social Security numbers found
+  // by the strict reading are refused outright; the other kinds (one-time codes, passports, SIN, NI and Aadhaar numbers, a
+  // routing and account number) ask on a paired device, once, so the owner can still send their own
+  // accountant a routing number (owner decision, review round 2).
+  let outboundAsk: ProhibitionResult | undefined;
+  if ((SEND_KINDS as readonly string[]).includes(effectiveKind)) {
+    const asked = new Set<string>();
+    for (const s of params) {
+      const decision = outboundSendDecision(s.value);
+      if (decision.action === "deny") {
+        return deny(
+          "outbound_sensitive",
+          `the message holds ${decision.kinds.join(", ").replaceAll("_", " ")}; the owner sends such values themselves`,
+        );
+      }
+      if (decision.action === "ask") for (const k of decision.kinds) asked.add(k);
+    }
+    if (asked.size > 0) {
+      outboundAsk = {
+        effect: "ask",
+        id: "prohibition:outbound_identifier",
+        reason: `the message holds ${[...asked].join(", ").replaceAll("_", " ")}; approve on a paired device`,
+        deviceOnly: true,
+      };
     }
   }
 
@@ -593,7 +953,7 @@ export async function checkProhibitions(
       reason: "creating a third-party account needs approval",
     };
   }
-  return undefined;
+  return outboundAsk;
 }
 
 function execEnv(call: PolicyCall): Record<string, string> | undefined {

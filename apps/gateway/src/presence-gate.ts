@@ -1,7 +1,7 @@
 import { hashCanonical } from "@psyche/audit";
 import { getSetting, type PsycheDb, setSetting } from "@psyche/db";
 import { bindingHash } from "@psyche/permissions";
-import { type JsonObject, PsycheError } from "@psyche/protocol";
+import { type JsonObject, MACHINE_TOKENS_ENABLED, PsycheError } from "@psyche/protocol";
 import { hostWords } from "@psyche/protocol/host-words";
 import type { Call } from "./context.ts";
 import { INTERNAL_SETTING_PREFIX } from "./state-version.ts";
@@ -17,16 +17,24 @@ import { INTERNAL_SETTING_PREFIX } from "./state-version.ts";
  * - `unavailable`: one could before (sticky, in the database) but none can now, for example
  *   after the owner's passkey device was revoked. Gated calls fail closed with
  *   `presence_required` instead of falling back to `operator.admin`: otherwise revoking the
- *   owner's device would switch the gate off. `psyched presence reset` on the machine clears it.
+ *   owner's device would switch the gate off. `psyched presence reset` on the machine clears it,
+ *   24 hours later (a recovery every device shows) or at once with presence from an admin device.
  */
 export type PresenceState = "ready" | "unavailable" | "off";
 
 export const PRESENCE_ENROLLED_SETTING = `${INTERNAL_SETTING_PREFIX}presence.enrolled`;
 
-/** The state function the Gateway context exposes; `ready()` reports whether one can verify. */
-export function presenceStateFor(db: PsycheDb, ready: () => boolean): () => PresenceState {
+/**
+ * The state function the Gateway context exposes; `ready()` reports whether one can verify.
+ * `forget()` drops the cached enrollment after the Gateway itself reset it (a presence-reset
+ * recovery, `security/recoveries.ts`).
+ */
+export function presenceStateFor(
+  db: PsycheDb,
+  ready: () => boolean,
+): (() => PresenceState) & { forget(): void } {
   let enrolled: boolean | undefined;
-  return () => {
+  const state = () => {
     if (ready()) {
       if (enrolled !== true) {
         if (getSetting(db, PRESENCE_ENROLLED_SETTING)?.value !== true) {
@@ -34,15 +42,24 @@ export function presenceStateFor(db: PsycheDb, ready: () => boolean): () => Pres
         }
         enrolled = true;
       }
-      return "ready";
+      return "ready" as const;
     }
-    // Re-read when not known enrolled: `psyched presence reset` runs in another process.
+    // Once known enrolled it stays so in memory: a write from another process cannot switch the
+    // gate off (the seal undoes such a write too, security-state-integrity §7.1).
     if (enrolled !== true) enrolled = getSetting(db, PRESENCE_ENROLLED_SETTING)?.value === true;
-    return enrolled ? "unavailable" : "off";
+    return enrolled ? ("unavailable" as const) : ("off" as const);
   };
+  return Object.assign(state, {
+    forget() {
+      enrolled = undefined;
+    },
+  });
 }
 
-/** Clears the sticky flag (`psyched presence reset`, owner on the machine). */
+/**
+ * Clears the sticky flag. Only the Gateway calls it, when a `psyched presence reset` recovery
+ * applies (24 hours after it was asked, or at once with fresh presence on an admin device).
+ */
 export function resetPresenceEnrollment(db: PsycheDb): boolean {
   const had = getSetting(db, PRESENCE_ENROLLED_SETTING)?.value === true;
   setSetting(db, PRESENCE_ENROLLED_SETTING, false);
@@ -59,23 +76,45 @@ export interface FreshPresenceAction {
   details: JsonObject;
 }
 
+/** Presence fails closed while the security records are untrusted (security-state-integrity §7.1). */
+export function stateUntrustedError(): PsycheError {
+  return new PsycheError(
+    "presence_required",
+    "Psyche's security records failed their check, so changes that widen access are blocked. Review your devices in Settings → Devices, then run `psyched security reseal` on the machine (it applies after 24 hours).",
+    { details: { reason: "state_untrusted" } },
+  );
+}
+
 export function presenceRequiredError(): PsycheError {
   return new PsycheError(
     "presence_required",
-    `This change needs ${hostWords().presence} or a passkey, and none can verify on this Gateway now. Register the helper's ${hostWords().presence} key or a passkey (or run \`psyched presence reset\` on the machine), then try again.`,
+    `This change needs ${hostWords().presence} or a passkey, and none can verify on this Gateway now. Connect Psyche Helper on this computer (a Windows PC also needs its Windows Hello key registered) or add a passkey, or run \`psyched presence reset\` on the machine, which applies after 24 hours, then try again.`,
     { details: { reason: "no_presence_verifier" } },
   );
 }
 
-/** Fresh presence for one change; throws until an approved card for exactly it is consumed. */
+/**
+ * A security change needs an approved card for exactly it, consumed once. The card is a tap on a
+ * paired device (owner's decision, 2026-11-09: presence is for payments only). Enrolling a presence
+ * verifier is the exception (`strong`): a stolen admin device must not be able to add its own
+ * authenticator or key and then approve payments with it, so that card needs the presence step too
+ * and fails closed when no verifier can verify.
+ */
 export async function requireFreshPresence(
   call: Pick<Call, "ctx" | "identity">,
   action: FreshPresenceAction,
   approvalId: string | undefined,
+  opts: { strong?: boolean } = {},
 ): Promise<void> {
+  if (call.ctx.securityState?.untrusted() != null) throw stateUntrustedError();
   const state = call.ctx.presenceState();
-  if (state === "off") return;
-  if (state === "unavailable") throw presenceRequiredError();
+  const strong = opts.strong === true;
+  // Adding a verifier is gated by what can verify, not by what the owner enrolled: on a default
+  // Mac the helper's auto-paired key can sign the sheet, so a first passkey from a device with
+  // only `operator.approvals` must pass it too (`presenceCanVerify`, context.ts).
+  const canVerify = call.ctx.presenceCanVerify?.() ?? state !== "off";
+  if (state === "off" && !(strong && canVerify)) return;
+  if (strong && !canVerify) throw presenceRequiredError();
   let valueSha256: string;
   try {
     valueSha256 = hashCanonical((action.subject ?? null) as never);
@@ -105,17 +144,23 @@ export async function requireFreshPresence(
       surfaces: ["desktop", "web", "notification"],
       scopesOffered: ["once"],
       taint: false,
+      ...(opts.strong === true ? { requireAuthentication: true } : {}),
     });
     // Like nodes.invoke: clients learn of the card (and their answer token) from the event.
     call.ctx.bus.publish("approval.created", { approval: issued.approval });
     throw new PsycheError(
       "approval_required",
-      `${action.summary} needs your approval with ${hostWords().presence} or a passkey`,
+      opts.strong === true
+        ? `${action.summary} needs your approval with ${hostWords().presence} or a passkey`
+        : `${action.summary} needs your approval`,
       { details: { approvalId: issued.approval.id } },
     );
   }
   const approval = await broker.get(approvalId);
-  if (approval?.kind !== "policy_change" || !approval.requiresAuthentication) {
+  if (
+    approval?.kind !== "policy_change" ||
+    (opts.strong === true && !approval.requiresAuthentication)
+  ) {
     throw new PsycheError("forbidden", "That approval is not a security-change approval");
   }
   const v = await broker.verifyBinding(approvalId, binding);
@@ -139,8 +184,21 @@ export const PRESENCE_METHODS: Readonly<Record<string, (p: Params) => string | u
   "devices.approve": (p) =>
     `Approve a new device with ${Array.isArray(p.scopes) ? p.scopes.join(", ") : "scopes"}`,
   // A setup token pairs a computer without a second approval, so making one is approving ahead.
+  // `purpose: machine` has no gate until the machine registry lands: the handler refuses it
+  // (`unavailable`) first, so no card is shown for a request that will fail. H3 must give it its
+  // own purpose-aware summary ("Let a new Linux computer pair itself as a computer Psyche can use").
   "devices.setupToken.create": (p) =>
-    `Let a new computer pair itself${p.via === "lan" ? " from this network" : ""} with ${Array.isArray(p.scopes) ? p.scopes.join(", ") : "scopes"}`,
+    p.purpose === "machine"
+      ? MACHINE_TOKENS_ENABLED
+        ? `Let a new Linux computer pair itself${p.via === "lan" ? " from this network" : ""} as a computer Psyche can use`
+        : undefined
+      : `Let a new computer pair itself${p.via === "lan" ? " from this network" : ""} with ${Array.isArray(p.scopes) ? p.scopes.join(", ") : "scopes"}`,
+  // Anything but "always" lowers protection: a server whose tools are not payments needs no
+  // presence on its calls. Raising it to "always" only adds friction and stays admin-only.
+  "mcp.handlesMoney.set": (p) =>
+    p.mode === "always"
+      ? undefined
+      : "Stop treating a tool server's tools as payments by their own say-so",
   "channels.configure": () => "Change a chat channel's access",
   "channels.allowlist.update": (p) =>
     Array.isArray(p.add) && p.add.length > 0 ? "Allow new chat senders" : undefined,

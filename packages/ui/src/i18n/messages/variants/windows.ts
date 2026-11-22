@@ -13,6 +13,8 @@ import type { MessageId } from "../index.ts";
  *   catalogue shows the English variant rather than its Mac wording.
  */
 export const windows: Partial<Record<MessageId, string>> = {
+  "settings.remoteSetup.problem.maybe_claimed":
+    "The server may already be set up with this PC. Connect with a pairing link or run `psyche devices link` on the server.",
   "settings.trusted.title.reminders": "Your Outlook task lists",
   "settings.trusted.none.reminders": "No Outlook task lists yet.",
   "settings.trusted.loading": "Reading them from this PC…",
@@ -50,9 +52,6 @@ export const windows: Partial<Record<MessageId, string>> = {
     "Allowed once (Windows Hello approvals from this window are once only)",
   "blocks.approval.touchId.keyUnavailable":
     "This build of the Windows helper can't keep a Windows Hello key, so cards that need Windows Hello can't be approved on this PC.",
-  "blocks.approval.touchId.cancelled": "Windows Hello was cancelled, so nothing was approved",
-  "settings.shared.needsPresence":
-    "Changing “{label}” needs your approval with Windows Hello or a passkey. Approve it in Settings or in the Psyche notification, then change it again.",
   "settings.page.permissions.description":
     "What {persona} may do on this PC without asking, and where it always stops to ask you.",
   "settings.page.data.description":
@@ -352,13 +351,13 @@ export const windows: Partial<Record<MessageId, string>> = {
   "onboarding.model.kind.localHint": "Runs on this PC; nothing leaves it.",
   "onboarding.model.subscriptionNote":
     "Psyche uses the Claude Code or Codex app already signed in on this PC, so it needs no API key and stores none. Sign in there first if you haven't.",
-  "onboarding.safety.touchId": "Windows Hello for approvals",
+  "onboarding.safety.touchId": "Windows Hello for payments",
   "onboarding.safety.touchId.checking": "Looking at the Windows helper…",
   "onboarding.safety.touchId.starting":
     "The Windows helper is still starting. Check again in a moment.",
   "onboarding.safety.touchId.noKey": "The Windows helper has no Windows Hello key ({reason}).",
   "onboarding.safety.touchId.hint":
-    "Register the Windows helper’s key once, so Windows Hello can confirm approvals.",
+    "Register the Windows helper’s key once, so Windows Hello can confirm payments.",
   "onboarding.safety.asks":
     "If you let {name} run commands on this PC, ones that only read, like ls or cat, run without a card. Anything else asks you first.",
   "onboarding.done.touchId": "Windows Hello",
@@ -373,7 +372,7 @@ export const windows: Partial<Record<MessageId, string>> = {
   "everything.run.reason.not_idle": "Not now: you are using the PC.",
   "everything.storage.note": "Everything is stored on this PC only.",
   "memoryWork.consent.k1": "Nothing leaves this PC. Dates and status are worked out by code.",
-  "screens.library.reveal": "Show in File Explorer",
+  "screens.library.reveal": "Show in folder",
   "web.zoom.description":
     "How large the app renders on this PC. Ctrl+Plus and Ctrl+Minus change the same setting, so it survives a restart; {min, number}–{max, number} %.",
   "web.transcriptMode.optionTitle": "{mode} (Ctrl+O cycles)",
@@ -442,8 +441,7 @@ export const windows: Partial<Record<MessageId, string>> = {
   "settings.shortcut.key.Control": "Ctrl",
   "settings.voice.key.rightCommand": "Right Ctrl",
   "settings.voice.engine.systemHint": "Windows' on-device recognizer, through the Windows helper.",
-  "onboarding.safety.touchId.setHint":
-    "Approvals that need you ask for your face, fingerprint or PIN.",
+  "onboarding.safety.touchId.setHint": "Payments ask for your face, fingerprint or PIN.",
   "shell.shortcut.pushToTalkKeys": "Hold Right Ctrl",
   "platform.term.os": "Windows",
   "platform.term.device": "PC",
@@ -460,4 +458,28 @@ export const windows: Partial<Record<MessageId, string>> = {
   "platform.term.terminal": "Windows Terminal",
   "platform.term.alt": "Alt",
   "platform.term.mod": "Ctrl",
+  "web.security.banner.recovery":
+    "{count, plural, one {A security change asked for on this PC applies on {when} unless you cancel it.} other {# security changes asked for on this PC are waiting. The next applies on {when}.}}",
+  "web.security.alert.changed":
+    "A program on this PC changed {count, plural, one {1 security record} other {# security records}} without going through Psyche. Psyche put {count, plural, one {it} other {them}} back. If you did not do this, check the PC for unwanted software.",
+  "web.security.alert.untrusted":
+    "The check of Psyche's security records failed. New devices, security settings and Windows Hello approvals are blocked. Review your devices, then run psyched security reseal on the PC; it applies after 24 hours.",
+  "web.security.alert.firstAdmin":
+    "A command on this PC made {name} the first admin device. If that was not you, revoke it in Devices.",
+  "web.security.alert.requested": "Asked for on this PC: {action} Applies on {when}.",
+  "web.security.op.presenceReset":
+    "stop requiring Windows Hello or a passkey for security changes until a new key is registered.",
+  "web.security.needsApproval":
+    "Approve the card with Windows Hello or a passkey, then press the button again.",
+  "notice.security.changed.body":
+    "A program on this PC changed {count, plural, =1 {# security record} other {# security records}} (devices, keys, grants or settings) without going through Psyche{times, plural, =0 {} =1 {} other {, # times so far}}. Psyche put them back. If you did not do this, check the PC for unwanted software.",
+  "notice.security.untrusted.body":
+    "The check of Psyche's security records failed, so security changes, new devices and Windows Hello approvals are blocked. Review your devices, then run psyched security reseal on this PC (it applies after 24 hours).",
+  "notice.security.firstAdmin.title": "A command on this PC made the first admin device",
+  "notice.security.firstAdmin.body":
+    "{device}{key, select, none {} other { (key {key})}} became the first admin device {via, select, desktop {from the Psyche app} other {through `psyched`}} on this PC. If that was not you, revoke it in Settings → Devices.",
+  "notice.security.recovery.title":
+    "{state, select, requested {A command on this PC asked for a security change} applied {A security change from this PC was applied} cancelled {A security change from this PC was cancelled} other {A security change from this PC could not be applied}}",
+  "notice.security.recovery.body":
+    "{op, select, approve {Approve the device {device}{key, select, none {} other { (key {key})}} with {scopes}.} grant {Give {device}{key, select, none {} other { (key {key})}} {scopes}.} presence {Turn off the Windows Hello and passkey requirement for security changes until a new key is registered.} seal {Accept the current security records as they are.} other {A security change.}}{state, select, requested { It applies {when, select, none {in 24 hours} other {on {when}}} unless you cancel it in Psyche.} failed {{reason, select, none {} other { {reason}}}} other {}}",
 };

@@ -112,6 +112,101 @@ export const LinkPaymentMethod = Type.Object(
 );
 export type LinkPaymentMethod = Static<typeof LinkPaymentMethod>;
 
+/**
+ * Where Stripe Link stands on this Gateway, for the guided setup in Settings → Credentials. The
+ * CLI is the owner's own install; Link's sign-in happens on Link's page, so nothing here is a
+ * token, a password or a card.
+ */
+export const LinkSetupState = StringEnum(
+  ["cli_missing", "cli_found", "signed_out", "signing_in", "connected"],
+  { $id: "LinkSetupState" },
+);
+export type LinkSetupState = Static<typeof LinkSetupState>;
+
+export const LinkSetupReason = StringEnum(
+  [
+    "not_absolute",
+    "missing",
+    "not_a_file",
+    "not_executable",
+    "wrong_owner",
+    "writable",
+    "parent_wrong_owner",
+    "parent_writable",
+    // Inside Psyche's own folder (the agent can write there), not in the Link CLI's package, or
+    // Volta's shim (which runs whichever tool its name says, not this file).
+    "in_psyche_home",
+    "not_link_cli",
+    "volta_shim",
+  ],
+  { $id: "LinkSetupReason" },
+);
+export type LinkSetupReason = Static<typeof LinkSetupReason>;
+
+export const LinkSetupStatus = Type.Object(
+  {
+    state: LinkSetupState,
+    /** The CLI Psyche runs: saved in Settings (`saved`) or from `PSYCHE_LINK_CLI` (`env`). */
+    cli: Type.Optional(Type.Object({ path: Type.String(), source: StringEnum(["saved", "env"]) })),
+    /** Installs found in the usual places that passed the safety check, to confirm one. */
+    candidates: Type.Array(Type.Object({ path: Type.String() })),
+    /** Why the saved CLI, or an install found, was refused (never a reason to run it anyway). */
+    problem: Type.Optional(Type.Object({ path: Type.String(), reason: LinkSetupReason })),
+    /** While `signing_in`: Link's own page and the phrase it shows, to compare. */
+    signIn: Type.Optional(
+      Type.Object({
+        verificationUrl: Type.String(),
+        phrase: Type.String(),
+        expiresAt: Type.Number(),
+      }),
+    ),
+  },
+  { $id: "LinkSetupStatus" },
+);
+export type LinkSetupStatus = Static<typeof LinkSetupStatus>;
+
+/**
+ * Where the 1Password setup stands (Settings → Credentials). `not_installed`: no safe `op` found;
+ * `not_integrated`: `op` finds no account, so the app's "Integrate with 1Password CLI" is off;
+ * `found`: a safe `op` exists but nothing has run yet (opening the panel never runs `op` unless
+ * connected); `locked`: an account exists but 1Password is locked or signed out; `signed_in`: `op whoami`
+ * answers; `error`: `op` ran and failed some other way.
+ */
+export const OnePasswordSetupState = StringEnum(
+  ["not_installed", "found", "not_integrated", "locked", "signed_in", "error"],
+  { $id: "OnePasswordSetupState" },
+);
+export type OnePasswordSetupState = Static<typeof OnePasswordSetupState>;
+
+export const OnePasswordSetupStatus = Type.Object(
+  {
+    state: OnePasswordSetupState,
+    /** Psyche reads linked items through the 1Password app on this Mac. */
+    connected: Type.Boolean(),
+    /** Set when `credentials.onePassword` in config.json already supplies the source. */
+    managedBy: Type.Optional(StringEnum(["config"])),
+    /** Why a file was refused: it changed since Connect, or is not signed by 1Password. */
+    problem: Type.Optional(StringEnum(["op_changed", "op_unsigned", "op_unsafe_folder"])),
+    /** When the pinned file last moved to a new `op` by itself (an upgrade), epoch ms. */
+    repinnedAt: Type.Optional(Type.Number()),
+    /** Where the Gateway runs: the install command differs. */
+    os: StringEnum(["macos", "other"]),
+    /** The `op` Psyche would run (a real file that passed the safety check). */
+    op: Type.Optional(Type.Object({ path: Type.String() })),
+    /** From `op whoami` when signed in: the account address and email, never a token. */
+    account: Type.Optional(Type.Object({ url: Type.String(), email: Type.String() })),
+  },
+  { $id: "OnePasswordSetupStatus" },
+);
+export type OnePasswordSetupStatus = Static<typeof OnePasswordSetupStatus>;
+
+/** The harmless read behind "Test connection": a count only, never names or values. */
+export const OnePasswordTestResult = Type.Object(
+  { status: OnePasswordSetupStatus, vaultCount: Type.Integer({ minimum: 0 }) },
+  { $id: "OnePasswordTestResult" },
+);
+export type OnePasswordTestResult = Static<typeof OnePasswordTestResult>;
+
 /** Brand / last4 of a card: the one-time Link card or its funding method. Never the number. */
 const MaskedCard = Type.Object({ brand: Type.String(), last4: Type.String({ maxLength: 4 }) });
 
@@ -394,6 +489,8 @@ export const Automation = Type.Object(
     delivery: Delivery,
     prompt: Type.String(),
     scratch: Nullable(Type.String()),
+    /** The Space this automation runs in (docs/design/spaces-2026.md §4.1). */
+    spaceId: Nullable(Id),
     enabled: Type.Boolean(),
     nextRunAt: Nullable(IsoDateTime),
     lastRunAt: Nullable(IsoDateTime),
@@ -453,6 +550,10 @@ export const AutomationRun = Type.Object(
     /** The agent run that did the work (its trace: `runs.get`). */
     runId: Nullable(Id),
     usage: Type.Optional(Usage),
+    /** Retries of a transient model error made so far (0 to 3). */
+    attempt: Type.Optional(Type.Integer({ minimum: 0, maximum: 3 })),
+    /** `running` and waiting for its next attempt: when that attempt is due. */
+    retryAt: Type.Optional(Nullable(IsoDateTime)),
   },
   { $id: "AutomationRun" },
 );

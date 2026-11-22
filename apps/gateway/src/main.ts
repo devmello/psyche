@@ -1,3 +1,5 @@
+import { homedir } from "node:os";
+import { join, resolve } from "node:path";
 import { PsycheError } from "@psyche/protocol";
 import { runCli } from "./cli.ts";
 import {
@@ -7,6 +9,8 @@ import {
   vaultModelSetup,
 } from "./compose/index.ts";
 import { createLogger } from "./log.ts";
+import { rotatingFileSink } from "./log-rotation.ts";
+import { defaultPeerChecker, packagedHelperInstalled } from "./transports/peer-check.ts";
 
 const args = process.argv.slice(2);
 if (args[0] === "--bundle-check") {
@@ -14,9 +18,13 @@ if (args[0] === "--bundle-check") {
   process.stdout.write(`${JSON.stringify(await bundleCheck())}\n`);
   process.exit(0);
 }
-if (args.length > 0) process.exit(runCli(args));
+if (args.length > 0) process.exit(await runCli(args));
 
-const log = createLogger();
+// Logs go to a file the Gateway rotates itself (10 MB, three files), so they stay bounded without
+// a newsyslog rule. launchd's StandardErrorPath still catches crashes.
+const home = resolve(process.env.PSYCHE_HOME ?? join(homedir(), ".psyche"));
+const log = createLogger(rotatingFileSink(join(home, "logs", "gateway.log")));
+const peerChecker = defaultPeerChecker();
 
 try {
   // PSYCHE_MODEL (development, server mode) wins; otherwise provider keys come from the vault
@@ -26,6 +34,11 @@ try {
     logger: log,
     model,
     parts: partsFromEnv(process.env),
+    // Linux: look at the process on the other end of the node socket before it is read from.
+    // With the packaged helper installed only a verified (root-owned) peer can be the helper.
+    ...(peerChecker === undefined
+      ? {}
+      : { peerChecker, peerCheckRequired: () => packagedHelperInstalled() }),
   });
   const shutdown = (signal: string) => {
     log.log("info", "signal received", { signal });

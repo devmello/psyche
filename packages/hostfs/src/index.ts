@@ -15,6 +15,22 @@ export {
   windowsLaunchable,
 } from "./launch.ts";
 export {
+  findLaunchConfig,
+  LAUNCH_CONFIG_DIRS,
+  LAUNCH_CONFIG_FILES,
+  LAUNCH_SCAN_SKIPPED_DIRS,
+  type LaunchConfigFound,
+  type LaunchConfigScan,
+  type LaunchConfigScanLimits,
+  type LaunchConfigUnlisted,
+  launchConfigEntry,
+  launchConfigLinkTargets,
+  listPinned,
+  type PinRetry,
+  SWAP_TRIES,
+  withPinned,
+} from "./launch-config.ts";
+export {
   absoluteHostPathPattern,
   canonicalHostPath,
   foldHostPath,
@@ -22,6 +38,7 @@ export {
   type HostPathFlavor,
   hostPathFlavor,
   isAbsoluteHostPath,
+  isMacMagicPath,
   isUnderHostPath,
   isWin32HostPath,
   joinHostPath,

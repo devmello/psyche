@@ -72,7 +72,7 @@ export function proposeAutomationTool(options: {
   return defineTool({
     name: "propose_automation",
     description:
-      "After a trial run with the owner, show ONE confirm card that lists each schedule (time, days), what each run does, the approvals it needs and how it notifies. Confirming creates the linked scheduled runs; this call creates nothing. Use it for repeatable workflows only, never for a one-off, and never before the trial run. Do not call schedule for the same workflow.",
+      "After a trial run with the owner, show one confirm card that lists each schedule (time, days), what each run does, the approvals it needs and how it notifies. Confirming creates the linked scheduled runs; this call creates nothing. Use it for repeatable workflows only, never for a one-off, and never before the trial run. Do not call schedule for the same workflow.",
     input: ProposeAutomationInput,
     sideEffect: "none",
     describeCall: (p) => ({ summary: `Propose automation "${p.title}"` }),

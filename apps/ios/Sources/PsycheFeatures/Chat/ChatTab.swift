@@ -5,6 +5,11 @@ import SwiftUI
 
 /// Chat is a split view: thread list and thread side by side on iPad, a stack on iPhone
 /// (docs/design/ios-app-2026.md §8, decision 5).
+extension EnvironmentValues {
+    /// False while a phone shows the thread list over a thread that is still alive in the detail column.
+    @Entry var threadIsFrontmost = true
+}
+
 struct ChatTab: View {
     @Environment(Router.self) private var router
     @Environment(\.backend) private var store
@@ -37,6 +42,10 @@ struct ChatTab: View {
             }
         }
         .tint(PsycheColor.inkText)
+        // The thread stays in the detail column after a back swipe (the selection is kept so the same row can be
+        // tapped again), so it must be told when it is no longer the visible page: a tab-bar preference from a
+        // page that is merely still in the tree would keep the bar hidden on the list.
+        .environment(\.threadIsFrontmost, column == .detail)
         .task { if router.selectedThread != nil { column = .detail } }
         .onChange(of: router.selectedThread) { _, id in column = id == nil ? .sidebar : .detail }
     }
@@ -44,6 +53,7 @@ struct ChatTab: View {
 
 struct ThreadListView: View {
     @State private var model: ThreadListModel
+    @State private var spaces: SpaceMenuModel
     @Binding var selection: String?
     /// Shown again after a back swipe on a phone, when the same row is tapped twice.
     @Binding var column: NavigationSplitViewColumn
@@ -53,6 +63,7 @@ struct ThreadListView: View {
     init(store: any PsycheBackend, selection: Binding<String?>, column: Binding<NavigationSplitViewColumn>, sideBySide: Bool) {
         self.sideBySide = sideBySide
         _model = State(initialValue: ThreadListModel(store: store))
+        _spaces = State(initialValue: SpaceMenuModel(store: store))
         _selection = selection
         _column = column
     }
@@ -74,6 +85,11 @@ struct ThreadListView: View {
                         .accessibilityAddTraits(selected ? .isSelected : [])
                         .listRowBackground(selected ? PsycheColor.fill : PsycheColor.sheet)
                         .listRowSeparatorTint(PsycheColor.hairline)
+                        .contextMenu {
+                            if !thread.isMain, !spaces.spaces.isEmpty {
+                                MoveToSpaceMenu(model: spaces, thread: thread) { await model.load() }
+                            }
+                        }
                         .swipeActions(edge: .leading, allowsFullSwipe: true) {
                             if !thread.isMain {
                                 Button { Task { await model.pin(thread) } } label: {
@@ -98,27 +114,41 @@ struct ThreadListView: View {
         .navigationTitle("Chat")
         .toolbar {
             ToolbarItem(placement: .primaryAction) { AgentButton(needsYou: model.phase.value?.contains { $0.statusKind == .needsYou } ?? false) }
+            if !spaces.spaces.isEmpty {
+                ToolbarItem(placement: .primaryAction) { SpaceTargetMenu(model: spaces) }
+            }
             ToolbarItem(placement: .primaryAction) {
-                Button { Task { selection = await model.newThread() ?? selection } } label: {
+                Button { Task { selection = await newChat() ?? selection } } label: {
                     Label("New chat", systemImage: "square.and.pencil")
                 }
                 .accessibilityLabel("New chat")
             }
         }
         .alert("Couldn't do that", isPresented: errorShown) {
-            Button("OK") { model.clearError() }
+            Button("OK") { model.clearError(); spaces.clearError() }
         } message: {
-            Text(model.actionError ?? "")
+            Text(model.actionError ?? spaces.actionError ?? "")
         }
         .task {
+            await spaces.load()
             await model.load()
             await model.observe()
         }
+        .task { await spaces.observe() }
         .refreshable { await model.resync() }
     }
 
     private var errorShown: Binding<Bool> {
-        Binding(get: { model.actionError != nil }, set: { if !$0 { model.clearError() } })
+        Binding(
+            get: { model.actionError != nil || spaces.actionError != nil },
+            set: { if !$0 { model.clearError(); spaces.clearError() } })
+    }
+
+    /// A new chat, in the Space the owner chose in the menu (none by default), then the list refreshes.
+    private func newChat() async -> String? {
+        let id = await spaces.newChat()
+        await model.load()
+        return id
     }
 }
 

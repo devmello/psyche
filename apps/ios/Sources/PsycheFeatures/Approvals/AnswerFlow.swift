@@ -14,6 +14,11 @@ final class AnswerFlow {
         case answered(String)
         /// The Gateway's own message, with "Try again".
         case failed(String)
+
+        var isAnswered: Bool {
+            if case .answered = self { return true }
+            return false
+        }
     }
 
     private(set) var stage: Stage = .review

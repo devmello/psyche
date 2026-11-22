@@ -1,0 +1,23 @@
+# Managed by the Psyche desktop app: it rewrites this file when its content changes.
+# Not part of graphical-session.target on purpose: the Gateway also runs headless.
+[Unit]
+Description=Psyche Gateway (psyched)
+Documentation=https://github.com/devmello/psyche/blob/main/deploy/README.md
+After=default.target
+
+[Service]
+Type=simple
+ExecStart="/usr/lib/psyche/resources/psyched/psyched"
+Restart=on-failure
+RestartSec=5
+TimeoutStopSec=20
+# Files 0600, directories 0700 (security §14).
+UMask=0077
+NoNewPrivileges=yes
+LockPersonality=yes
+RestrictSUIDSGID=yes
+# A throttle, never a kill: no MemoryMax (design §2.3).
+MemoryHigh=768M
+
+[Install]
+WantedBy=default.target

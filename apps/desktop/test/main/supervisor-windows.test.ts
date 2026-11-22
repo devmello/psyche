@@ -262,7 +262,8 @@ function supervisor(b: ReturnType<typeof bundle>, f: ReturnType<typeof scheduler
   });
 }
 
-describe("TaskSchedulerSupervisor", () => {
+// Windows-only: drives schtasks.exe command lines and Windows paths.
+describe.skipIf(process.platform !== "win32")("TaskSchedulerSupervisor", () => {
   const verbs = (calls: string[][]) =>
     calls.filter((c) => c[0] === "schtasks.exe" && c[3] !== LEGACY_GATEWAY_TASK).map((c) => c[1]);
   const legacyCalls = (calls: string[][]) =>

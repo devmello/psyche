@@ -25,6 +25,45 @@ import { join, resolve } from "node:path";
  * same name (another Gateway, or a squatter) fails with EADDRINUSE instead of sharing it.
  */
 
+/**
+ * Where the packaged Linux helper lives (deb and rpm install under `/usr/lib/psyche`). The
+ * Gateway's peer check accepts a `root_owned` peer only at this path, and the desktop packaging
+ * bundles the helper there. The Gateway imports it from here now; the packaging (L2) will too, so
+ * they cannot drift apart.
+ */
+export const LINUX_PACKAGED_HELPER_PATH = "/usr/lib/psyche/resources/linux-helper/psyche-helper";
+
+/**
+ * Every root-owned path a packaged Linux Host helper may run from: the desktop package's and the
+ * headless `psyche-server` package's (docs/design/linux-helper-only-2026.md, sections 7.2 and 9).
+ * The Gateway's peer check will accept a `root_owned` peer only at one of these (wave B1); until
+ * then it still reads `LINUX_PACKAGED_HELPER_PATH`, which stays as the desktop alias. A
+ * helper-only machine's own path (`/usr/lib/psyche-helper/psyche-helper`) is deliberately NOT
+ * here: a machine is never the Host helper.
+ */
+export const LINUX_PACKAGED_HELPER_PATHS: readonly string[] = [
+  LINUX_PACKAGED_HELPER_PATH,
+  "/usr/lib/psyche-server/psyche-helper",
+];
+
+/** Where the helper-only package installs the helper on a machine (deb/rpm). Never a Host helper. */
+export const LINUX_MACHINE_HELPER_PATH = "/usr/lib/psyche-helper/psyche-helper";
+
+/** Whether `path` is a packaged Host helper path (exact match; callers resolve symlinks first). */
+export function isLinuxPackagedHelperPath(path: string): boolean {
+  return LINUX_PACKAGED_HELPER_PATHS.includes(path);
+}
+
+/**
+ * The name (`comm`, at most 15 bytes) the Linux helper gives itself once its start-up hardening is
+ * done: descriptors closed, environment checked. Before that it still carries the name it was
+ * executed under. The Gateway's peer check requires this name, so a process that is still inside
+ * the window between `exec` and the cleanup does not pass as the helper. It contains a `/`: an
+ * executable's name (the default `comm`) is its basename and can never contain one, while
+ * `PR_SET_NAME` allows it, so a process cannot get this name just by being executed under it.
+ */
+export const LINUX_HELPER_READY_COMM = "psyche-helper/1";
+
 /** Whether this platform's local endpoints are named pipes instead of Unix sockets. */
 export function usesNamedPipes(platform: NodeJS.Platform = process.platform): boolean {
   return platform === "win32";

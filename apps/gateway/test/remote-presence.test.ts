@@ -79,9 +79,12 @@ async function card(
     bindingHash: hash,
     grantKey: hash,
     requestedBy: { runId: null, taskId: null, threadId: null },
-    sideEffect: risky ? "financial" : "write",
+    // A payment is once-only and never offers `always`; the wider-scope card is a destructive
+    // one that the Gateway still requires presence for (`requireAuthentication`).
+    sideEffect: kind === "exec_host" ? "destructive" : risky ? "financial" : "write",
     surfaces: ["desktop", "web"],
     scopesOffered: kind === "exec_host" ? ["once", "always"] : ["once"],
+    ...(kind === "exec_host" ? { requireAuthentication: true } : {}),
     taint: false,
   });
   const got = await r.client.call<{ approval: ApprovalRequest; answerToken?: string }>(

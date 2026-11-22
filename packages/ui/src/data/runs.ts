@@ -27,6 +27,85 @@ const EMPTY_RUNS: readonly Run[] = [];
 const STEP_PAGE = 500;
 const MAX_PAGES = 4;
 
+/**
+ * `runs.get` for the traces in a chat. A long chat mounts one trace per run at once (hundreds of
+ * them), and a reconnect used to reload every one: that burst was thousands of requests a
+ * minute and drained the Gateway's per-device request budget, so Settings, Usage and Allow
+ * failed with "rate limited". Now a trace loads only once it is on screen (`RunTrace` passes
+ * `enabled`), each run is fetched once at a time, at most `MAX_RUN_LOADS` run at once, and a
+ * settled run (done, failed, cancelled) the store already has is not fetched again on a refresh
+ * at all, unless a `run.step` or `run.updated` (or a gap) changed it; then only its steps after
+ * the last seq it holds are asked for (`runs.steps`).
+ */
+const MAX_RUN_LOADS = 4;
+const inFlightRuns = new WeakMap<GatewayStore, Map<string, Promise<void>>>();
+let activeRunLoads = 0;
+const waitingRunLoads: (() => void)[] = [];
+
+/**
+ * A run whose `runs.get` failed is not asked for again on every refresh (an event gap used to
+ * re-read it each time: thousands of calls a minute). `not_found` (a pruned run) is not retried
+ * by a refresh at all; any other failure waits `RUN_RETRY_BASE_MS`, doubling per failure up to
+ * `RUN_RETRY_MAX_MS`. Mounting the trace again (`cause: "mount"`) always tries, and a success
+ * clears the record.
+ */
+const RUN_RETRY_BASE_MS = 2_000;
+const RUN_RETRY_MAX_MS = 5 * 60_000;
+const failedRuns = new WeakMap<GatewayStore, Map<string, { failures: number; until: number }>>();
+
+function runRetryBlocked(store: GatewayStore, runId: string): boolean {
+  const f = failedRuns.get(store)?.get(runId);
+  return f !== undefined && Date.now() < f.until;
+}
+
+function noteRunFailure(store: GatewayStore, runId: string, err: unknown): void {
+  let byRun = failedRuns.get(store);
+  if (byRun === undefined) {
+    byRun = new Map();
+    failedRuns.set(store, byRun);
+  }
+  const failures = (byRun.get(runId)?.failures ?? 0) + 1;
+  const code = (err as { code?: unknown } | null)?.code;
+  const wait =
+    code === "not_found"
+      ? Number.POSITIVE_INFINITY
+      : Math.min(RUN_RETRY_MAX_MS, RUN_RETRY_BASE_MS * 2 ** (failures - 1));
+  byRun.set(runId, { failures, until: Date.now() + wait });
+}
+
+async function withRunLoadSlot<T>(job: () => Promise<T>): Promise<T> {
+  if (activeRunLoads >= MAX_RUN_LOADS) {
+    await new Promise<void>((resolve) => waitingRunLoads.push(resolve));
+  } else {
+    activeRunLoads += 1;
+  }
+  try {
+    return await job();
+  } finally {
+    // Hand the slot straight to the next waiter, else free it.
+    const next = waitingRunLoads.shift();
+    if (next) next();
+    else activeRunLoads -= 1;
+  }
+}
+
+/**
+ * The statuses a run does not leave on its own (protocol `RunStatus`). `awaiting_approval` and
+ * `awaiting_input` are not settled: the run goes on once the owner answers.
+ */
+const SETTLED_RUN_STATUSES: ReadonlySet<string> = new Set(["done", "failed", "cancelled"]);
+
+/** True when the store already has this run, settled, with its steps. */
+function runIsSettledInStore(store: GatewayStore, runId: string): boolean {
+  const s = store.getState();
+  const run = s.runs[runId];
+  return (
+    run !== undefined &&
+    SETTLED_RUN_STATUSES.has(run.status) &&
+    (s.runSteps[runId]?.length ?? 0) > 0
+  );
+}
+
 /** Loads a run's steps after the last seq the store has, page by page. */
 async function loadSteps(store: GatewayStore, runId: string): Promise<void> {
   const version = store.version();
@@ -49,7 +128,10 @@ export type ExportRun = (
  * One run with its steps and helper runs (`runs.get`), live. `exportTrace` and `deleteTrace`
  * act on it ("Delete trace" keeps receipts).
  */
-export function useRun(runId: string | null): LoadState & {
+export function useRun(
+  runId: string | null,
+  options: { enabled?: boolean } = {},
+): LoadState & {
   run: Run | null;
   steps: readonly RunStep[];
   children: readonly Run[];
@@ -62,20 +144,51 @@ export function useRun(runId: string | null): LoadState & {
     runId === null ? EMPTY_STEPS : (s.runSteps[runId] ?? EMPTY_STEPS),
   );
   const runs = useStoreState((s) => s.runs);
-  const load = useLoader(runId === null ? null : `run:${runId}`, async (st) => {
+  // A trace that is not on screen (`enabled: false`) loads nothing until it is.
+  const active = runId !== null && (options.enabled ?? true);
+  const load = useLoader(active ? `run:${runId}` : null, async (st, cause) => {
     if (runId === null) return;
-    const version = st.version();
-    const res = await st.call("runs.get", { runId });
-    st.update((s) =>
-      upsertRunSteps(
-        putMany(s, "runs", [res.run, ...res.children], version),
-        runId,
-        res.steps,
-        version,
-      ),
-    );
-    // runs.get returns the first 500; the rest page in.
-    if (res.steps.length >= STEP_PAGE) await loadSteps(st, runId);
+    // Several traces of one run share one request.
+    let byRun = inFlightRuns.get(st);
+    if (byRun === undefined) {
+      byRun = new Map();
+      inFlightRuns.set(st, byRun);
+    }
+    const pending = byRun.get(runId);
+    if (pending !== undefined) return pending;
+    if (cause === "refresh" && runRetryBlocked(st, runId)) return;
+    const job = withRunLoadSlot(async () => {
+      if (cause === "refresh" && runIsSettledInStore(st, runId)) {
+        // A settled run is not re-read unless an event (or a gap) said it changed.
+        if (!st.runChanged(runId)) return;
+        st.markRunLoaded(runId);
+        // The finishing `run.updated` may have arrived before the last steps: catch up.
+        await loadSteps(st, runId);
+        return;
+      }
+      st.markRunLoaded(runId);
+      const version = st.version();
+      let res: Awaited<ReturnType<typeof st.call<"runs.get">>>;
+      try {
+        res = await st.call("runs.get", { runId });
+      } catch (err) {
+        noteRunFailure(st, runId, err);
+        throw err;
+      }
+      failedRuns.get(st)?.delete(runId);
+      st.update((s) =>
+        upsertRunSteps(
+          putMany(s, "runs", [res.run, ...res.children], version),
+          runId,
+          res.steps,
+          version,
+        ),
+      );
+      // runs.get returns the first 500; the rest page in.
+      if (res.steps.length >= STEP_PAGE) await loadSteps(st, runId);
+    }).finally(() => byRun.delete(runId));
+    byRun.set(runId, job);
+    return job;
   });
   const children = useMemo(
     () =>

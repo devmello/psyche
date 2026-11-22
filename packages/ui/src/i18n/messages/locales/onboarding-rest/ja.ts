@@ -54,6 +54,20 @@ export const onboardingRest: Partial<Catalogue> = {
   "onboarding.step.you": "あなたとエージェント",
   "onboarding.step.stuff": "あなたのデータ",
   "onboarding.step.safety": "安全性",
+  "onboarding.step.folders": "フォルダ",
+  "onboarding.folders.lead":
+    "{name} に「書類」「デスクトップ」「ダウンロード」の読み取りを許可します。読み取り専用で、{name} はファイルを見るだけで、変更や削除は一切しません。チェックしない限り何も共有されません。",
+  "onboarding.folders.group": "共有するフォルダ（読み取り専用）",
+  "onboarding.folders.documents": "書類",
+  "onboarding.folders.desktop": "デスクトップ",
+  "onboarding.folders.downloads": "ダウンロード",
+  "onboarding.folders.hint": "設定の「ファイルアクセス」でいつでも変更できます。",
+  "onboarding.folders.shareLater":
+    "これらのフォルダは、あとで「設定 → ファイルアクセス」から共有できます。",
+  "onboarding.folders.openFileAccess": "ファイルアクセスを開く",
+  "onboarding.folders.retry": "もう一度試す",
+  "onboarding.folders.continueWithout": "共有せずに続ける",
+  "onboarding.folders.failed": "これらのフォルダを共有できませんでした：{reason}",
   "onboarding.you.lead": "このページの内容はすべて任意で、あとから変更できます。",
   "onboarding.you.agent": "あなたのエージェント",
   "onboarding.you.customize": "見た目をカスタマイズ",
@@ -77,17 +91,17 @@ export const onboardingRest: Partial<Catalogue> = {
     "朝の概要がオフのため、人物はまだどこにも表示されません。オンにすると表示されます。",
   "onboarding.safety.lead":
     "承認の届け方と、自動で実行される内容を設定します。ファイル、アプリ、画面へのアクセスはここでは尋ねません。{name}が初めて必要としたときにチャットで尋ねます。",
-  "onboarding.safety.touchId": "承認にTouch IDを使う",
+  "onboarding.safety.touchId": "支払いにTouch IDを使う",
   "onboarding.safety.touchId.checking": "Macヘルパーを確認しています…",
   "onboarding.safety.touchId.again": "もう一度確認",
   "onboarding.safety.touchId.set": "設定",
-  "onboarding.safety.touchId.setHint": "あなたの対応が必要な承認では、指紋を求めます。",
+  "onboarding.safety.touchId.setHint": "支払いでは、指紋かMacのパスワードを求めます。",
   "onboarding.safety.touchId.starting":
     "Macヘルパーはまだ起動中です。しばらくしてからもう一度確認してください。",
   "onboarding.safety.touchId.noKey": "MacヘルパーにTouch IDキーがありません（{reason}）。",
   "onboarding.safety.touchId.register": "このキーを登録",
   "onboarding.safety.touchId.hint":
-    "Macヘルパーのキーを一度登録しておくと、Touch IDで承認を確認できます。",
+    "Macヘルパーのキーを一度登録しておくと、Touch IDで支払いを確認できます。",
   "onboarding.safety.notifications": "通知",
   "onboarding.safety.asks":
     "{name}にこのMacでのコマンド実行を許可した場合、lsやcatのように読み取るだけのものはカードなしで実行されます。それ以外は先に確認します。",

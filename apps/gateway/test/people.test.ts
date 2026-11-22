@@ -408,7 +408,12 @@ describe("people and projects graph in the Gateway (#651)", () => {
       } finally {
         owner.close();
       }
-      const system = (model.requests[0] as ModelRequest).system ?? "";
+      // The recall rides in the owner's user message, not in `system`.
+      const sent = model.requests[0] as ModelRequest;
+      expect(sent.system ?? "").not.toContain("Sam Lee — last talked");
+      const system = sent.messages
+        .flatMap((m) => m.parts.flatMap((p) => (p.type === "text" ? [p.text] : [])))
+        .join("\n");
       const section = /<section id="context:entity_recall:0"[^>]*>\n([\s\S]*?)\n<\/section>/.exec(
         system,
       );

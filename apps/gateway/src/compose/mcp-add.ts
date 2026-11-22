@@ -4,6 +4,7 @@ import {
   createMcpHost,
   diagnoseLaunch,
   type McpHostOptions,
+  mcpCredentialTarget,
   type PsycheMcpServerConfig,
   type StdioLauncher,
   type ToolWarning,
@@ -17,6 +18,7 @@ import {
   type McpServerStatus,
   mcpTrustFor,
   PsycheError,
+  type Target,
 } from "@psyche/protocol";
 import type { HandlerDef } from "../context.ts";
 import { TURN_ON_SANDBOX_PC } from "./guest-sandbox.ts";
@@ -120,6 +122,8 @@ export interface McpAdder {
   commit(proposalId: string, approvalId: string): Promise<{ server: McpServerStatus }>;
   /** `mcp.remove`: drops the entry (its tools unregister, its grants are revoked). */
   remove(serverId: string): Promise<void>;
+  /** Finishes the unbinding of removed servers' vault items that a locked vault left (on unlock). */
+  retryPending(): Promise<void>;
   /**
    * An install the owner approved on a card that showed the config before anything ran (the
    * capability catalogue's `install_capability`): checks the approval against `bindingHash`,
@@ -137,7 +141,7 @@ export interface McpAdder {
 const sha = (text: string) => `sha256:${createHash("sha256").update(text, "utf8").digest("hex")}`;
 
 /** Sorted-key JSON, so the hash does not depend on key order. */
-function canonical(value: unknown): string {
+export function canonical(value: unknown): string {
   if (Array.isArray(value)) return `[${value.map(canonical).join(",")}]`;
   if (value !== null && typeof value === "object") {
     const o = value as Record<string, unknown>;
@@ -240,12 +244,48 @@ export function mcpAdder(deps: McpAddDeps): McpAdder {
     }
     // Same launcher and secrets as the real host; nothing is registered, no events reach it.
     const { onEvent: _ignored, ...hostOptions } = deps.hostOptions ?? {};
+    const probeId = `${config.id}-probe-${randomUUID().slice(0, 8)}`;
+    // The probe host names the server `<id>-probe-xxxx`, but the owner's vault items are bound to
+    // `mcp:<id>`. The probe asks for, and resolves, exactly the server's own binding: the same
+    // items the real server may read, no others.
+    const own = mcpCredentialTarget(config.id);
+    const asProbe = mcpCredentialTarget(probeId).value;
+    const rebind = (t: Target): Target => (t.value === asProbe ? own : t);
+    const inj = deps.secrets;
+    const secrets: McpHostOptions["secrets"] =
+      inj === undefined
+        ? undefined
+        : {
+            // Only `resolve` is re-aimed; everything else (redaction included) is the shared
+            // broker's own.
+            credentials: new Proxy(inj.credentials, {
+              get(base, prop) {
+                if (prop === "resolve") {
+                  return (
+                    placeholder: string,
+                    target: Target,
+                    approvalId: string,
+                    options?: Parameters<typeof base.resolve>[3],
+                  ) => base.resolve(placeholder, rebind(target), approvalId, options);
+                }
+                const v = Reflect.get(base, prop, base) as unknown;
+                return typeof v === "function" ? v.bind(base) : v;
+              },
+            }),
+            approve: (input) =>
+              // The card says this is a check; the vault target stays the server's own.
+              inj.approve({
+                ...input,
+                serverId: config.id,
+                check: true,
+                target: rebind(input.target),
+              }),
+          };
     const host = createMcpHost({
-      ...(deps.secrets === undefined ? {} : { secrets: deps.secrets }),
+      ...(secrets === undefined ? {} : { secrets }),
       ...hostOptions,
       ...(launcher === undefined ? {} : { launcher }),
     });
-    const probeId = `${config.id}-probe-${randomUUID().slice(0, 8)}`;
     try {
       const info = await host.addServer({ ...runAs, id: probeId });
       const d = host.describe(probeId);
@@ -316,6 +356,7 @@ export function mcpAdder(deps: McpAddDeps): McpAdder {
 
   const propose = async (input: McpServerInput, extra?: ProposeExtra) => {
     sweep();
+    await assertReleased(input.id);
     const current = readServers(services, deps.settingKey);
     if (extra?.replace !== true && current.some((c) => c.id === input.id)) {
       throw new PsycheError("conflict", `an MCP server with id ${input.id} exists`);
@@ -384,6 +425,7 @@ export function mcpAdder(deps: McpAddDeps): McpAdder {
     if (s === undefined) {
       throw new PsycheError("approval_expired", "the probe expired; check the server again");
     }
+    await assertReleased(s.config.id);
     const approval = await services.rawBroker.get(approvalId);
     if (
       approval === undefined ||
@@ -479,6 +521,7 @@ export function mcpAdder(deps: McpAddDeps): McpAdder {
     approvalId: string,
     bindingHash: string,
   ) => {
+    await assertReleased(config.id);
     const approval = await services.rawBroker.get(approvalId);
     const v = await services.rawBroker.verifyBinding(approvalId, bindingHash);
     if (
@@ -541,6 +584,108 @@ export function mcpAdder(deps: McpAddDeps): McpAdder {
     await deps.apply(next);
     // An agent-made server's code goes with it.
     await deps.removed?.(entry);
+    await releaseSecrets(serverId);
+  };
+
+  /**
+   * Removed servers whose vault items are not unbound yet (a locked vault), in an internal
+   * setting: the server id, and the exact vault item ids recorded at remove time. A retry
+   * unbinds only those, never "whatever is bound to `mcp:<id>` now", so a key the owner stores
+   * for a new server of the same id keeps its binding. `unlisted` is set when the vault could
+   * not even be listed at remove time; the retry then lists once and takes what is bound.
+   */
+  const PENDING_KEY = "_mcp.pendingUnbind";
+  type Pending = Record<string, { ids: string[]; unlisted: boolean }>;
+  const pending = (): Pending => {
+    const v = getSetting(services.db, PENDING_KEY)?.value;
+    if (typeof v !== "object" || v === null || Array.isArray(v)) return {};
+    const out: Pending = {};
+    for (const [id, e] of Object.entries(v as Record<string, unknown>)) {
+      const r = e as { ids?: unknown; unlisted?: unknown } | null;
+      out[id] = {
+        ids: Array.isArray(r?.ids) ? r.ids.filter((x): x is string => typeof x === "string") : [],
+        unlisted: r?.unlisted === true,
+      };
+    }
+    return out;
+  };
+  const savePending = (p: Pending) => {
+    setSetting(services.db, PENDING_KEY, p);
+  };
+  const boundTo = (item: { bindings: readonly unknown[] }, target: string) =>
+    item.bindings.filter((b) => (b as { connector?: unknown }).connector === target);
+
+  /** Unbinds `mcp:<id>` from one item. An item left with no bindings at all stays. */
+  const unbind = async (item: { id: string; bindings: readonly unknown[] }, target: string) => {
+    const rest = item.bindings.filter((b) => (b as { connector?: unknown }).connector !== target);
+    await services.vault.update(item.id, { bindings: rest as never });
+  };
+
+  /**
+   * The vault items bound to `mcp:<id>` are unbound when the server goes, never deleted: they
+   * stay in the vault for the owner to reuse or delete. One item failing does not stop the rest.
+   * What could not be unbound is recorded and retried on unlock; until it is done an Add under
+   * that id is refused (`assertReleased`), so the old secrets can't be filled into a new server.
+   */
+  const releaseSecrets = async (serverId: string) => {
+    const target = `mcp:${serverId}`;
+    const state = pending();
+    let ids: string[];
+    let unlisted = false;
+    if (state[serverId] === undefined) {
+      // First attempt, at remove time: the ids are fixed here.
+      try {
+        ids = (await services.vault.list())
+          .filter((i) => boundTo(i, target).length > 0)
+          .map((i) => i.id);
+      } catch {
+        ids = [];
+        unlisted = true;
+      }
+    } else {
+      ids = [...(state[serverId]?.ids ?? [])];
+      unlisted = state[serverId]?.unlisted === true;
+      if (unlisted) {
+        try {
+          ids = (await services.vault.list())
+            .filter((i) => boundTo(i, target).length > 0)
+            .map((i) => i.id);
+          unlisted = false;
+        } catch {
+          // still locked
+        }
+      }
+    }
+    const failed: string[] = [];
+    for (const id of ids) {
+      try {
+        const item = await services.vault.get(id);
+        if (item === undefined) continue; // deleted by the owner meanwhile
+        if (boundTo(item, target).length > 0) await unbind(item, target);
+      } catch {
+        failed.push(id);
+      }
+    }
+    const next = pending();
+    if (failed.length > 0 || unlisted) next[serverId] = { ids: failed, unlisted };
+    else delete next[serverId];
+    savePending(next);
+  };
+
+  const assertReleased = async (serverId: string) => {
+    if (pending()[serverId] === undefined) return;
+    await releaseSecrets(serverId);
+    if (pending()[serverId] !== undefined) {
+      throw new PsycheError(
+        "unavailable",
+        "Unlock the vault to finish removing the old server first",
+        { details: { reason: "vault_removal_pending" } },
+      );
+    }
+  };
+
+  const retryPending = async () => {
+    for (const id of Object.keys(pending())) await releaseSecrets(id);
   };
 
   const handlers: Record<string, HandlerDef> = {
@@ -566,8 +711,9 @@ export function mcpAdder(deps: McpAddDeps): McpAdder {
     propose,
     commit,
     remove,
+    retryPending,
     install,
-    test: (config) => probe(inputOf(config), config),
+    test: (config) => probe(inputOfAny(config), config),
   };
 }
 
@@ -580,5 +726,39 @@ export function inputOf(config: PsycheMcpServerConfig): McpServerInput {
     name: config.name,
     transport: { kind: "stdio", command: [...t.command] },
     allowedDomains: [...(config.sandbox?.allowedDomains ?? [])],
+  };
+}
+
+/** The `McpServerInput` view of any config: how `mcp.test` and `mcp.update` probe a stored one. */
+export function inputOfAny(config: PsycheMcpServerConfig): McpServerInput {
+  const t = config.transport;
+  if (t.kind === "stdio") {
+    return {
+      id: config.id,
+      name: config.name,
+      transport: {
+        kind: "stdio",
+        command: [...t.command],
+        ...(t.env === undefined ? {} : { env: { ...t.env } }),
+      },
+      allowedDomains: [...(config.sandbox?.allowedDomains ?? [])],
+    };
+  }
+  const a = config.auth;
+  return {
+    id: config.id,
+    name: config.name,
+    transport: {
+      kind: "http",
+      url: t.url,
+      ...(a === undefined
+        ? {}
+        : {
+            auth:
+              a.kind === "bearer"
+                ? { kind: "bearer" as const, credential: a.credential }
+                : { kind: a.kind },
+          }),
+    },
   };
 }

@@ -1,7 +1,22 @@
 import { type DeviceScope, type EventName, type EventPayload, eventFrame } from "@psyche/protocol";
 import type { Reader } from "./message-scrub.ts";
+import { redactMcpServers } from "./redact.ts";
 
 export type FrameSink = (frame: string) => void;
+
+/** A `settings.changed` payload with the tool-server setting redacted (`redactMcpServers`). */
+export function redactSettingsPayload(payload: unknown): unknown {
+  const entries = (payload as { entries?: unknown } | null)?.entries;
+  if (!Array.isArray(entries)) return payload;
+  return {
+    ...(payload as object),
+    entries: entries.map((e: unknown) =>
+      (e as { key?: unknown } | null)?.key === "mcp.servers"
+        ? { ...(e as object), value: redactMcpServers((e as { value?: unknown }).value) }
+        : e,
+    ),
+  };
+}
 
 /** `events.subscribe` filters (data model §11); absent fields match everything. */
 export interface EventFilter {
@@ -46,6 +61,8 @@ interface Subscriber {
   deviceId: string | null;
   /** Who is behind the sink; a part of the Gateway itself reads as the least trusted. */
   reader: Reader;
+  /** The last `seq` sent to this subscriber: its own count, so filtered events leave no gap. */
+  seq: number;
 }
 
 const NO_READER: Reader = { role: null, desktop: false };
@@ -66,7 +83,9 @@ function matches(filter: EventFilter | null, event: string, threadId: string | u
 
 /**
  * Event bus with `seq` and `stateVersion` (architecture §11, data model §11).
- * `seq` orders events within one Gateway process; `stateVersion` increases on every persisted
+ * `seq` is per subscriber: it counts the events that subscriber was sent, so an event it was not
+ * meant to receive (scope, filter, device) never shows as a gap and a client refreshes only for
+ * a real loss. `stateVersion` increases on every persisted
  * mutation and survives restarts (seeded from the database). Events are not replayed: a client
  * that sees a gap refreshes using `stateVersion`.
  */
@@ -102,7 +121,7 @@ export class EventBus {
     deviceId: string | null = null,
     reader: Reader = NO_READER,
   ): () => void {
-    this.#subscribers.set(sink, { scopes, filter: null, deviceId, reader });
+    this.#subscribers.set(sink, { scopes, filter: null, deviceId, reader, seq: 0 });
     return () => this.#subscribers.delete(sink);
   }
 
@@ -122,24 +141,32 @@ export class EventBus {
    * Publishes to every subscriber holding the event's scope whose filter matches. `threadId`
    * is the thread the event belongs to, for `threadIds` filters.
    */
-  publish<E extends EventName>(event: E, payload: EventPayload<E>, threadId?: string): void {
+  publish<E extends EventName>(event: E, rawPayload: EventPayload<E>, threadId?: string): void {
+    // No subscriber, a part of the Gateway included, is told a tool server's secrets: parts that
+    // act on `mcp.servers` read the stored value, not the event.
+    const payload = (
+      event === "settings.changed" ? redactSettingsPayload(rawPayload) : rawPayload
+    ) as EventPayload<E>;
     this.#seq += 1;
     const requiredScope = eventScope(event);
-    const frame = JSON.stringify(eventFrame(event, payload, this.#seq, this.#stateVersion));
     for (const [sink, sub] of this.#subscribers) {
       if (requiredScope !== null && !sub.scopes.includes(requiredScope)) continue;
       if (!matches(sub.filter, event, threadId)) continue;
+      sub.seq += 1;
       const own = this.#personalizer?.(event, payload, {
         deviceId: sub.deviceId,
         scopes: sub.scopes,
         reader: sub.reader,
       });
       sink(
-        own === undefined
-          ? frame
-          : JSON.stringify(
-              eventFrame(event, own as EventPayload<E>, this.#seq, this.#stateVersion),
-            ),
+        JSON.stringify(
+          eventFrame(
+            event,
+            own === undefined ? payload : (own as EventPayload<E>),
+            sub.seq,
+            this.#stateVersion,
+          ),
+        ),
       );
     }
   }
@@ -158,12 +185,12 @@ export class EventBus {
   publishToDevice<E extends EventName>(deviceId: string, event: E, payload: EventPayload<E>): void {
     this.#seq += 1;
     const requiredScope = eventScope(event);
-    const frame = JSON.stringify(eventFrame(event, payload, this.#seq, this.#stateVersion));
     for (const [sink, sub] of this.#subscribers) {
       if (sub.deviceId !== deviceId) continue;
       if (requiredScope !== null && !sub.scopes.includes(requiredScope)) continue;
       if (!matches(sub.filter, event, undefined)) continue;
-      sink(frame);
+      sub.seq += 1;
+      sink(JSON.stringify(eventFrame(event, payload, sub.seq, this.#stateVersion)));
     }
   }
 }

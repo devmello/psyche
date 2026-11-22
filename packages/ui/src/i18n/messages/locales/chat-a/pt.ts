@@ -55,6 +55,10 @@ export const chatA: Partial<Catalogue> = {
     "{name}: o Psyche não consegue ler este tipo de arquivo. Anexe um PDF, Word, Excel, texto ou imagem",
   "chat.attach.refused.size": "{name} é grande demais para anexar (imagens 5 MB, documentos 25 MB)",
   "chat.attach.refused.count": "{name}: é possível enviar até 8 arquivos com uma mensagem",
+  "chat.attach.refused.sensitive":
+    "{name} está em um local protegido e não pode ser compartilhado com o Psyche",
+  "chat.attach.refused.unreadable":
+    "Não foi possível anexar {name}. Verifique se ele ainda existe e se é um arquivo, não uma pasta",
   "chat.message.fromWidget": "De um widget",
   "chat.teach.notLikeThis": "Assim não",
   "chat.teach.dialog": "Ensinar o Psyche",
@@ -133,6 +137,9 @@ export const chatA: Partial<Catalogue> = {
   "chat.steps.approval": "Aguardando sua aprovação: {summary}",
   "chat.steps.question": "Perguntou: {question}",
   "chat.steps.answered": "Respondido: {question}",
+  "chat.steps.earlier":
+    "{n, plural, one {# passo anterior concluído} other {# passos anteriores concluídos}}",
+  "chat.steps.needsYou": "Precisa de você",
   "chat.steps.writing": "Escrevendo a resposta…",
   "chat.steps.thinking": "Pensando: {text}",
   "chat.steps.thinkingEmpty": "Pensando…",
@@ -190,4 +197,16 @@ export const chatA: Partial<Catalogue> = {
   "chat.clear.clearing": "Limpando…",
   "chat.clear.done": "Chat limpo",
   "chat.clear.failed": "Não foi possível limpar o chat: {reason}",
+  "chat.modeSwitch.label": "Modo de permissão",
+  "chat.modeSwitch.autoExplainer":
+    "O Auto executa ações de rotina dentro das suas permissões e pergunta antes de qualquer coisa sensível. Pagamentos sempre perguntam; a sua lista de proibidos é sempre recusada.",
+  "chat.modeSwitch.gotIt": "Entendi",
+  "chat.modeSwitch.autoUnavailable": "O Auto não pode usar {model}.",
+  "chat.modeSwitch.needsModel": "O Auto precisa de um modelo compatível.",
+  "chat.modeSwitch.switchModel": "Mudar para {model} e usar o Auto",
+  "chat.modeSwitch.noModel":
+    "O Auto precisa de um modelo compatível, como Claude, GPT ou Gemini. Adicione a chave dele em Ajustes.",
+  "chat.modeSwitch.failed": "Não foi possível mudar o modo: {reason}",
+  "chat.modeSwitch.notSaved":
+    "Alterado para este chat, mas não foi possível guardar como padrão para novos chats.",
 };

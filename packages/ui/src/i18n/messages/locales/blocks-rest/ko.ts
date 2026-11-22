@@ -29,6 +29,11 @@ export const blocksRest: Partial<Catalogue> = {
     '"이 대화만"은 대화가 끝날 때까지 유지됩니다. "항상"은 설정 → 권한 → 접근에서 삭제하기 전까지 폴더를 유지합니다.',
   "blocks.folder.scope.once": "이 대화만",
   "blocks.folder.scope.always": "항상 (이 폴더와 하위 폴더)",
+  "blocks.folder.scope.space": "이 스페이스에서 허용",
+  "blocks.folder.scope.spaceNamed": "{space}에서 허용",
+  "blocks.folder.space.automationsRead": "{space}의 Psyche 자동화도 이 폴더를 읽을 수 있습니다.",
+  "blocks.folder.space.automationsWrite":
+    "{space}의 Psyche 자동화도 이 폴더를 읽고 쓸 수 있습니다.",
   "blocks.folder.explain.ro": "{persona}가 폴더의 파일을 읽으려고 합니다.",
   "blocks.folder.explain.rw": "{persona}가 폴더의 파일을 읽고 변경하려고 합니다.",
   "blocks.folder.readOnly": "읽기만 허용하고 아무것도 변경하지 못하게 하기",
@@ -112,7 +117,7 @@ export const blocksRest: Partial<Catalogue> = {
   "blocks.approval.answerOnHost":
     "{host}에서 답하거나 설정 → 기기에서 이 컴퓨터의 승인용 Touch ID를 설정하십시오.",
   "blocks.approval.rateLimited":
-    "1분 동안 승인 횟수가 너무 많습니다. {seconds}초 후에 다시 시도하십시오.",
+    "1분 동안 시도 횟수가 너무 많습니다. {seconds}초 후에 다시 시도하십시오.",
   "blocks.approval.touchIdFailed": "Touch ID에 실패했습니다: {reason}. 다시 시도하십시오.",
   "blocks.approval.touchIdFailedNoReason": "Touch ID에 실패했습니다. 다시 시도하십시오.",
   "blocks.approval.touchIdInvalid": "Psyche가 본인임을 확인하지 못했습니다",
@@ -131,21 +136,8 @@ export const blocksRest: Partial<Catalogue> = {
   "blocks.approval.touchId.onceOnly": "이 윈도우에서의 Touch ID 승인은 한 번만 가능합니다.",
   "blocks.approval.status.allowedOnceTouchId":
     "한 번만 허용 (이 윈도우에서의 Touch ID 승인은 한 번만 가능)",
-  "blocks.approval.touchId.keyUntrusted":
-    "키체인에 있는 Psyche 도우미의 Touch ID 키가 도우미 자신의 것임을 확인할 수 없어 사용하지 않았습니다. 설정 → 기기에서 해결 방법을 확인하세요.",
-  "blocks.approval.touchId.keyAccessDenied":
-    "macOS가 Psyche 도우미의 Touch ID 키 사용을 허용하지 않았습니다. 다시 시도하고, 대화상자에 psyche-helper가 표시될 때만 항상 허용을 선택하세요.",
-  "blocks.approval.touchId.keyChanged":
-    "Psyche 도우미가 실행되는 동안 Touch ID 키가 바뀌었습니다. Psyche 도우미를 종료한 뒤 다시 시작하세요.",
-  "blocks.approval.touchId.keyWrongLocation":
-    "Psyche가 Touch ID 키를 보관할 수 없는 곳(디스크 이미지, 다운로드 또는 다른 폴더)에서 실행 중입니다. Psyche를 응용 프로그램 폴더로 옮기고 그곳에서 여세요.",
-  "blocks.approval.touchId.keyLocked":
-    "키체인이 지금은 권한을 요청할 수 없습니다. Mac의 잠금을 해제하고 다시 시도하세요.",
-  "blocks.approval.touchId.keyAclUnavailable":
-    "이 Mac의 키체인이 Touch ID 키의 접근 목록을 유지하지 않았습니다. Psyche 도우미를 다시 시작해 다시 시도하세요.",
   "blocks.approval.touchId.keyUnavailable":
     "이 빌드의 Psyche Helper는 Touch ID 키를 보관할 수 없어(키체인 접근 그룹 없음) 이 Mac에서는 Touch ID가 필요한 카드를 승인할 수 없습니다.",
-  "blocks.approval.touchId.cancelled": "Touch ID가 취소되어 아무것도 승인되지 않았습니다",
   "blocks.approval.touchId.restartHelper": "Psyche 도우미 다시 시작",
   "blocks.approval.touchId.startHelper": "Psyche Helper 시작",
   "blocks.question.answerLine": "↳ {answer}",

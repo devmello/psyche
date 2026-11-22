@@ -57,6 +57,8 @@ export class FakeMemoryStore implements MemoryStore {
   #claims = new Map<string, MemoryClaim>();
   /** Every `flush` call, for assertions (the private copy is cloned). */
   readonly flushes: { threadId: string; messages: ModelMessage[]; taint: boolean }[] = [];
+  /** Facts the compaction summarizer listed (`flushLines`), per call. */
+  readonly flushedLines: { threadId: string; lines: string[]; taint: boolean }[] = [];
 
   constructor(options: FakeMemoryStoreOptions = {}) {
     this.clock = options.clock ?? new FakeClock();
@@ -264,6 +266,21 @@ export class FakeMemoryStore implements MemoryStore {
         await this.appendDailyNote({ text, provenance: taint ? "untrusted" : "agent" });
         appended += 1;
       }
+    }
+    return { appended };
+  }
+
+  async flushLines(
+    threadId: string,
+    lines: readonly string[],
+    options: { taint?: boolean } = {},
+  ): Promise<MemoryFlushResult> {
+    const taint = options.taint === true;
+    this.flushedLines.push({ threadId, lines: [...lines], taint });
+    let appended = 0;
+    for (const text of lines) {
+      await this.appendDailyNote({ text, provenance: taint ? "untrusted" : "agent" });
+      appended += 1;
     }
     return { appended };
   }

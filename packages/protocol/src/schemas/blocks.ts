@@ -76,7 +76,7 @@ export const FileBlock = Type.Object(
 export const ContextBlock = Type.Object(
   {
     type: Type.Literal("context"),
-    kind: StringEnum(["feed_item", "search_hit", "memory_entity", "life_answer"]),
+    kind: StringEnum(["feed_item", "search_hit", "memory_entity", "life_answer", "mail_followup"]),
     id: Id,
     title: Type.String({ maxLength: 300 }),
     url: Type.Optional(Type.String({ maxLength: 2000 })),
@@ -205,6 +205,8 @@ export const CompactionBlock = Type.Object(
     }),
     tokensBefore: Type.Integer({ minimum: 0 }),
     tokensAfter: Type.Integer({ minimum: 0 }),
+    /** Older standing instructions dropped to make room for new ones (the list was full). */
+    droppedPins: Type.Optional(Type.Array(Type.String({ maxLength: 500 }), { maxItems: 40 })),
   },
   { $id: "CompactionBlock" },
 );

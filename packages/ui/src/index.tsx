@@ -165,6 +165,23 @@ export {
 export { FollowUpQueue } from "./chat/FollowUpQueue.tsx";
 export { chatFocusFromRoute, requestChatFocus } from "./chat/focus-request.ts";
 export { MessageView, type MessageViewProps, messageText } from "./chat/MessageView.tsx";
+export { ModeSwitch, type ModeSwitchProps } from "./chat/ModeSwitch.tsx";
+export {
+  AUTO_EXPLAINER_KEY,
+  applyModeChoice,
+  autoExplainerSeen,
+  autoModeBlockedBy,
+  autoModeSuggestion,
+  type DefaultSaved,
+  isAutoModelRefusal,
+  isSwitchMode,
+  type ListedModels,
+  markAutoExplainerSeen,
+  SWITCH_MODES,
+  type SwitchMode,
+  safeLocalStorage,
+  shortModel,
+} from "./chat/mode-switch.ts";
 export { OfflineBanner } from "./chat/OfflineBanner.tsx";
 export { ComposerPrefill, usePrefillComposer } from "./chat/prefill.ts";
 export { ChatThread, type ChatThreadProps } from "./chat/Thread.tsx";
@@ -316,6 +333,7 @@ export {
   type ScreenAskViewProps,
 } from "./screen-ask/ScreenAskView.tsx";
 // Screens.
+export * from "./screens/computer-watch/index.ts";
 export * from "./screens/feed/index.ts";
 export * from "./screens/files/index.ts";
 export * from "./screens/goals/index.ts";
@@ -331,6 +349,12 @@ export {
   GatewaysList,
 } from "./screens/settings/GatewaysGroup.tsx";
 export * from "./screens/settings/index.ts";
+export {
+  ConnectServerEntry,
+  claimProblemText,
+  KeepOnNetworkChoice,
+  RemoteServerSetup,
+} from "./screens/settings/RemoteServerSetup.tsx";
 export * from "./screens/workflows/index.ts";
 export { AppearanceProvider, type AppearanceProviderProps } from "./shell/AppearanceProvider.tsx";
 // Shell pieces.
@@ -437,6 +461,7 @@ export {
   usePersona,
   useSlots,
 } from "./slots.tsx";
+export * from "./spaces/index.ts";
 // The teaching loop (docs/agent/teaching-loop-2026.md §5).
 export * from "./teaching/index.ts";
 // Theme and data layer.

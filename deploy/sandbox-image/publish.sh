@@ -90,6 +90,32 @@ for pair in "NODE_IMAGE=$node_image" "UV_IMAGE=$uv_image"; do
   }
 done
 
+# The desktop image carries the Linux helper binary, staged at desktop/psyche-helper by the
+# release job; its checksum is required, so a swapped binary cannot be published.
+helper_sha="${PSYCHE_HELPER_SHA256:-}"
+for v in "${variants[@]}"; do
+  if [ "$v" = desktop ]; then
+    # It carries a native helper binary, so it is built one platform at a time (--platform):
+    # a single multi-platform build would put one architecture's helper in both images.
+    if [ -z "$platform" ] && [ -z "$merge_dir" ]; then
+      echo "the desktop variant is built per platform: use --platform P --digests-dir D, then --merge D" >&2
+      exit 2
+    fi
+    # --merge builds nothing (it tags and signs digests another job pushed), and that job's
+    # environment is not this one's: the checksum is required only where an image is built.
+    if [ -z "$merge_dir" ]; then
+      if [ "$dry_run" = 1 ] && [ -z "$helper_sha" ]; then helper_sha=dry-run; fi
+      [[ "$helper_sha" =~ ^[0-9a-f]{64}$ || "$helper_sha" = dry-run ]] || {
+        echo "the desktop variant needs PSYCHE_HELPER_SHA256 (the staged helper's sha256)" >&2
+        exit 2
+      }
+    fi
+  fi
+done
+extra_args() { # extra_args <variant>: build flags only some variants need
+  if [ "$1" = desktop ]; then printf '%s\n' --build-arg "HELPER_SHA256=$helper_sha"; fi
+}
+
 for v in "${variants[@]}"; do
   jq -e --arg v "$v" '.variants | has($v)' versions.json > /dev/null || {
     echo "unknown variant '$v' (versions.json has: $(jq -r '.variants | keys | join(" ")' versions.json))" >&2
@@ -114,6 +140,7 @@ if [ -n "$platform" ]; then
   for v in "${variants[@]}"; do
     if [ "$v" = base ]; then tag="$version"; else tag="$version-$v"; fi
     meta="$meta_dir/$v.json"
+    extra=(); while IFS= read -r line; do extra+=("$line"); done < <(extra_args "$v")
     echo "== $v: $repo ($platform) by digest" >&2
     run docker buildx build \
       --platform "$platform" \
@@ -122,6 +149,7 @@ if [ -n "$platform" ]; then
       --build-arg "UV_IMAGE=$uv_image" \
       --label "org.opencontainers.image.version=$tag" \
       --label "org.opencontainers.image.revision=$revision" \
+      "${extra[@]+"${extra[@]}"}" \
       --provenance=mode=max \
       --sbom=true \
       --output "type=image,name=$repo,push-by-digest=true,name-canonical=true,push=true" \
@@ -189,6 +217,7 @@ fi
 for v in "${variants[@]}"; do
   if [ "$v" = base ]; then tag="$version"; else tag="$version-$v"; fi
   meta="$meta_dir/$v.json"
+  extra=(); while IFS= read -r line; do extra+=("$line"); done < <(extra_args "$v")
   echo "== $v: $repo:$tag for $platforms" >&2
   run docker buildx build \
     --platform "$platforms" \
@@ -197,6 +226,7 @@ for v in "${variants[@]}"; do
     --build-arg "UV_IMAGE=$uv_image" \
     --label "org.opencontainers.image.version=$tag" \
     --label "org.opencontainers.image.revision=$revision" \
+    "${extra[@]+"${extra[@]}"}" \
     --provenance=mode=max \
     --sbom=true \
     --tag "$repo:$tag" \

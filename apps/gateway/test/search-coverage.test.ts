@@ -114,6 +114,27 @@ describe("files source", () => {
     expect(t.ids()).not.toContain("Private/diary.txt");
   });
 
+  it("walks and reads only the roots of a fresh look, even from a kept listing (PR #1395 r2)", async () => {
+    const t = setup();
+    // The broker's `freshGrantedFolders`: a root swapped since its last look is left out there,
+    // although the plain `folders` still lists it.
+    let fresh = [{ path: t.root, mode: "ro" as const }];
+    const adapter = filesAdapter(
+      filesSourceDeps({
+        folders: () => [{ path: t.root, mode: "ro" as const }],
+        freshFolders: async () => fresh,
+      }),
+    );
+    const signal = new AbortController().signal;
+    const listIds = (s: AbortSignal) => (adapter.listIds as NonNullable<typeof adapter.listIds>)(s);
+    expect((await listIds(signal)).ids.length).toBe(4);
+    // The listing is kept for a while; a pull now must not read what the root held.
+    fresh = [];
+    expect((await adapter.pull(null, { signal, limit: 40 })).items).toEqual([]);
+    adapter.invalidate();
+    expect((await listIds(signal)).ids).toEqual([]);
+  });
+
   it("is unavailable when no folder is granted, and a revoked grant empties the source on sweep", async () => {
     const t = setup();
     await t.indexer.tick();

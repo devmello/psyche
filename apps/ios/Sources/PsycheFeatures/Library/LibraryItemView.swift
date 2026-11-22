@@ -10,6 +10,7 @@ struct LibraryItemView: View {
     @Environment(\.backend) private var store
     @Environment(\.dismiss) private var dismiss
     @State private var model: ItemModel?
+    @Environment(\.psycheZoomNamespace) private var zoom
 
     var body: some View {
         Group {
@@ -22,6 +23,8 @@ struct LibraryItemView: View {
         .task {
             if model == nil { model = ItemModel(id: id, store: store) }
         }
+        // The page grows out of the thumbnail that was tapped, and shrinks back into it on the way out.
+        .psycheZoomDestination(id: id, in: zoom)
     }
 }
 
@@ -29,6 +32,10 @@ struct LibraryItemView: View {
 final class ItemModel {
     enum Phase { case loading, loaded(PsycheStore.LibraryItem), gone, failed(String) }
     private(set) var phase: Phase = .loading
+    var isLoading: Bool {
+        if case .loading = phase { return true }
+        return false
+    }
     private(set) var file: URL?
     private(set) var deleting = false
     private(set) var deleteError: String?
@@ -90,8 +97,10 @@ private struct ItemContent: View {
             case .loading:
                 ItemBody(item: .skeletonItem, file: nil, preview: $preview, confirmDelete: $confirmDelete)
                     .redacted(reason: .placeholder).allowsHitTesting(false)
+                    .transition(.opacity)
             case .loaded(let item):
                 ItemBody(item: item, file: model.file, preview: $preview, confirmDelete: $confirmDelete)
+                    .transition(.opacity)
             case .gone:
                 message("That file is gone", "It was deleted, here or on your Mac.")
             case .failed(let text):
@@ -102,6 +111,7 @@ private struct ItemContent: View {
             }
         }
         .psycheScreen()
+        .psycheFade(PsycheMotion.Duration.short, value: model.isLoading)
         .psycheInlineTitle()
         .navigationTitle("")
         .toolbar {

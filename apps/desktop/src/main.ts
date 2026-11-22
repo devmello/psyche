@@ -1,5 +1,5 @@
 import { execFile, spawn } from "node:child_process";
-import { existsSync, mkdirSync, readFileSync } from "node:fs";
+import { existsSync, mkdirSync, readFileSync, rmSync } from "node:fs";
 import { mkdir, readFile, realpath } from "node:fs/promises";
 import { homedir } from "node:os";
 import { dirname, join, resolve } from "node:path";
@@ -27,6 +27,7 @@ import {
   nativeTheme,
   powerMonitor,
   protocol,
+  safeStorage,
   screen,
   session,
   shell,
@@ -72,11 +73,13 @@ import {
 } from "./lib/ipc.ts";
 import { LanDiscovery } from "./lib/lan-discovery.ts";
 import { createPinnedFetch, createPinnedWebSocket, PinnedChannel } from "./lib/lan-tls.ts";
+import { checkLibraryReveal, revealLibraryItem } from "./lib/library-reveal.ts";
 import { NotificationRelay } from "./lib/notify-relay.ts";
 import { createPairLinkInbox, isPairLinkUrl, PAIR_LINK_SCHEME } from "./lib/pair-link.ts";
 import { pairingEdge } from "./lib/pairing-edge.ts";
 import {
   appPathKeys,
+  findLinuxChromium,
   findWindowsChromium,
   parseRegDefault,
   realChromeOpenCommand,
@@ -87,6 +90,7 @@ import { WindowTheme } from "./lib/window-theme.ts";
 import { ZoomController } from "./lib/zoom.ts";
 import { bootstrapAdminIfNeeded } from "./main/bootstrap-admin.ts";
 import { BridgeClient, bridgeSocketPath } from "./main/bridge/bridge-client.ts";
+import { passwordApprove } from "./main/bridge/password-approve.ts";
 import { createAttentionReporter } from "./main/browser/attention.ts";
 import { BrowserHost } from "./main/browser/browser-host.ts";
 import {
@@ -185,6 +189,33 @@ import {
   wantsAnyWindowSize,
 } from "./main/window-options.ts";
 import { type AppWindows, createAppWindows, preloadPath } from "./main/windows.ts";
+import { autostartPath } from "./platform/autostart.ts";
+import {
+  hostPlatform,
+  isLinux,
+  LINUX_DESKTOP_NAME,
+  quitsOnLastWindowClosed,
+} from "./platform/index.ts";
+import {
+  linuxAutostartExec,
+  linuxGatewayLaunch,
+  linuxInstallKind,
+  linuxPackageManager,
+} from "./platform/install-kind.ts";
+import { Linger } from "./platform/linger.ts";
+import { guardSafeStorage } from "./platform/secrets.ts";
+import { systemctlUser } from "./platform/systemd-supervisor.ts";
+import { GATEWAY_UNIT, userUnitDir } from "./platform/systemd-unit.ts";
+import { statusNotifierAvailable } from "./platform/tray-support.ts";
+import {
+  confirmTextLinux,
+  type LinuxUninstallDeps,
+  linuxUnitOwner,
+  planUninstallLinux,
+  psycheHomeFromUnit,
+  runUninstallLinux,
+  UNINSTALL_MANUAL_STEPS_LINUX,
+} from "./platform/uninstall-linux.ts";
 
 /**
  * Psyche desktop main process (S11; architecture §5). It holds the Gateway connection, the
@@ -197,6 +228,10 @@ import { type AppWindows, createAppWindows, preloadPath } from "./main/windows.t
 if (handleSquirrelEvent({ app, shell })) process.exit(0);
 
 const windows32 = process.platform === "win32";
+
+// Linux: the shell (GNOME's shortcut portal, the launcher) knows the app by its .desktop file; a
+// mismatch makes GNOME silently deny every global shortcut (design §10.4).
+if (isLinux()) app.setDesktopName(LINUX_DESKTOP_NAME);
 
 // Windows groups the taskbar button, the jump list and every toast under the AppUserModelID (the
 // one the installer's shortcuts carry); it must be set before any window or notification.
@@ -269,6 +304,7 @@ const supervisorMode = remoteGateway ? "remote" : chooseMode(process.env, app.is
 const canUninstall =
   (app.isPackaged &&
     ((supervisorMode === "launchd" && process.platform === "darwin") ||
+      (supervisorMode === "systemd" && isLinux()) ||
       (supervisorMode === "taskscheduler" &&
         process.platform === "win32" &&
         squirrelLayout(process.execPath) !== undefined))) ||
@@ -433,7 +469,23 @@ function systemAppearance(): { reduceTransparency: boolean; highContrast: boolea
 
 /** Psyche leaves the Dock and ⌘-Tab while no window is open. */
 const dockPolicy = new DockPolicy({ app, warn: (m) => console.warn(`[dock] ${m}`) });
-const loginItem = new LoginItem(app, { leadingArgs, warn: (m) => console.warn(`[login] ${m}`) });
+const loginItem = new LoginItem(app, {
+  leadingArgs,
+  // Linux has no Electron login item: an XDG autostart entry does the same job.
+  ...(isLinux() && app.isPackaged
+    ? {
+        autostart: {
+          file: autostartPath(process.env, homedir()),
+          exec: linuxAutostartExec(process.env),
+        },
+      }
+    : {}),
+  warn: (m) => console.warn(`[login] ${m}`),
+});
+/** "Keep Psyche running after I log out" (Settings › General): systemd lingering, Linux only. */
+const linger = new Linger(execRunner, { warn: (m) => console.warn(`[linger] ${m}`) });
+/** False when no StatusNotifierWatcher is on the session bus (stock GNOME): no tray, quit on close. */
+let trayAvailable = true;
 
 const windowTheme = new WindowTheme({
   targets: () => windows?.chromeWindows() ?? [],
@@ -854,24 +906,31 @@ async function confirmGatewayChange(c: GatewayConfirm): Promise<boolean | "plain
               detail: `Name: ${c.name}${c.fingerprint ? `\nKey it announced: ${c.fingerprint.slice(0, 31)}…` : ""}\n\nThis computer will ask that Gateway to pair. Nothing is shared until its owner approves this computer there, and Psyche pins the Gateway's identity at the first connection.`,
               buttons: ["Add Gateway", "Cancel"],
             }
-          : c.kind === "forget"
+          : c.kind === "claim"
             ? {
-                message: `Forget ${c.name}?`,
-                detail: `${c.origin}\n\nThis removes this computer's key for it and everything Psyche stored here for it. ${c.name} still lists this computer until someone removes it there.`,
-                buttons: ["Forget", "Cancel"],
+                message: `Set up the Psyche server at ${c.origin}?`,
+                detail:
+                  "Psyche checks that the server knows the setup code you typed before it trusts it, and the server checks that this computer knows it before making it the server's admin. Only continue if you just installed that server yourself.",
+                buttons: ["Set up", "Cancel"],
               }
-            : c.kind === "repair"
+            : c.kind === "forget"
               ? {
-                  message: `Pair with ${c.name} again?`,
-                  detail: `${c.origin}\n\nThis forgets the identity Psyche pinned for it and this computer's key, so the next connection pins whatever answers at that address and asks to pair as a new computer. Only do this if you know why its identity changed.`,
-                  buttons: ["Pair again", "Cancel"],
+                  message: `Forget ${c.name}?`,
+                  detail: `${c.origin}\n\nThis removes this computer's key for it and everything Psyche stored here for it. ${c.name} still lists this computer until someone removes it there.`,
+                  buttons: ["Forget", "Cancel"],
                 }
-              : {
-                  message: `Stop Psyche on ${hostWords().thisDevice}?`,
-                  detail:
-                    "Its automations and scheduled tasks stop until you switch back. Leave it running to keep them going.",
-                  buttons: [`Stop Psyche on ${hostWords().thisDevice}`, "Keep it running"],
-                };
+              : c.kind === "repair"
+                ? {
+                    message: `Pair with ${c.name} again?`,
+                    detail: `${c.origin}\n\nThis forgets the identity Psyche pinned for it and this computer's key, so the next connection pins whatever answers at that address and asks to pair as a new computer. Only do this if you know why its identity changed.`,
+                    buttons: ["Pair again", "Cancel"],
+                  }
+                : {
+                    message: `Stop Psyche on ${hostWords().thisDevice}?`,
+                    detail:
+                      "Its automations and scheduled tasks stop until you switch back. Leave it running to keep them going.",
+                    buttons: [`Stop Psyche on ${hostWords().thisDevice}`, "Keep it running"],
+                  };
   const win = windows?.main();
   const dialogOptions = {
     type: "question" as const,
@@ -976,13 +1035,35 @@ function registerIpc(): void {
     });
     const found = await discovering;
     const saved = new Set(gateways.list().map((g) => g.origin));
-    return found.map((d) => ({
-      id: d.id,
-      name: d.name,
-      fingerprint: d.fingerprint,
-      conflict: d.conflict,
-      saved: saved.has(d.origin),
-    }));
+    // Servers waiting for their setup code first (design §3.6).
+    return [...found]
+      .sort((a, b) => Number(b.claimable) - Number(a.claimable))
+      .map((d) => ({
+        id: d.id,
+        name: d.name,
+        fingerprint: d.fingerprint,
+        conflict: d.conflict,
+        saved: saved.has(d.origin),
+        claimable: d.claimable,
+      }));
+  });
+  // "Set up a remote server": a listing this process found (by id) or an address the owner typed,
+  // and the setup code. Main normalizes the address, confirms it natively and runs the handshake.
+  handle(IPC.gatewaysClaim, (_e, arg) => {
+    const r = rec(IPC.gatewaysClaim, arg);
+    const code = str(IPC.gatewaysClaim, r.code, "code", 64);
+    let address: string;
+    if (typeof r.id === "string") {
+      const found = lanDiscovery.get(str(IPC.gatewaysClaim, r.id, "id", 32));
+      if (found === undefined) throw new PsycheError("not_found", "Look on the network again");
+      if (found.conflict) {
+        throw new PsycheError("forbidden", "That name was announced with different keys");
+      }
+      address = found.origin;
+    } else {
+      address = str(IPC.gatewaysClaim, r.address, "address", 300);
+    }
+    return gateways.claim(address, code);
   });
   handle(IPC.gatewaysAddDiscovered, (_e, arg) => {
     const found = lanDiscovery.get(
@@ -1162,13 +1243,19 @@ function registerIpc(): void {
       str(IPC.browserOpenRealChromeProfile, arg, "profile", 64),
     );
     const found = windows32 ? await findWindowsChromium({ appPath: readAppPath }) : undefined;
-    const cmd = realChromeOpenCommand(process.platform, dir, found?.path);
+    const linuxFound = isLinux() ? await findLinuxChromium({ run: execRunner }) : undefined;
+    const cmd =
+      isLinux() && linuxFound === undefined
+        ? null
+        : realChromeOpenCommand(process.platform, dir, found?.path, linuxFound);
     if (cmd === null) {
       throw new PsycheError(
         "unavailable",
         windows32
           ? "Install Google Chrome (or Microsoft Edge) to open the Psyche Chrome profile"
-          : "Opening the Psyche Chrome profile needs macOS, Windows or Linux",
+          : isLinux()
+            ? "Install Google Chrome, Chromium, Brave or Microsoft Edge to open the Psyche Chrome profile"
+            : "Opening the Psyche Chrome profile needs macOS, Windows or Linux",
       );
     }
     await mkdir(dir, { recursive: true, mode: 0o700 });
@@ -1281,7 +1368,9 @@ function registerIpc(): void {
         "unavailable",
         id === undefined
           ? `This app has no bundled Psyche Helper to read the ${hostWords().presence} key from`
-          : `The bundled Psyche Helper has no ${hostWords().presence} key (${id.error ?? "unknown"})`,
+          : id.error === undefined && process.platform === "darwin"
+            ? `${hostWords().presence} on this Mac needs no key to register`
+            : `The bundled Psyche Helper has no ${hostWords().presence} key (${id.error ?? "unknown"})`,
       );
     }
     // `confirmReplacesKeyId` is only an accident guard: any admin caller can send it. The owner's
@@ -1312,6 +1401,11 @@ function registerIpc(): void {
       ...(id === undefined ? {} : { helperDeviceId: id.deviceId }),
     });
   });
+  // Linux: the window's Allow on a card that needs the owner's password (polkit, linux design §9).
+  handle(
+    IPC.passwordApprove,
+    (e, arg) => (approvalWindow(e), passwordApprove(requireGateway(), arg)),
+  );
   // The app session refuses navigator.clipboard (the permission check allows only audio), so
   // copy buttons (vault recovery key, credential ids) write through main (#507).
   handle(IPC.clipboardWrite, (_event, arg) => {
@@ -1340,6 +1434,18 @@ function registerIpc(): void {
       showItemInFolder: (path) => shell.showItemInFolder(path),
     }),
   );
+  // Library → Reveal in Finder: the renderer names an item id; main checks the file is in the Library.
+  handle(IPC.libraryReveal, async (_event, arg) => {
+    const { itemId } = checkLibraryReveal(arg);
+    const result = await revealLibraryItem(itemId, {
+      getItem: (id) => requireGateway().call("library.get", { itemId: id }),
+      libraryRoot: join(home, "library"),
+      showItemInFolder: (path) => shell.showItemInFolder(path),
+    });
+    if (result === "none")
+      throw new PsycheError("not_found", "That file is no longer in the Library");
+    return result;
+  });
   handle(IPC.appInfo, () =>
     appInfo({
       appVersion: app.getVersion(),
@@ -1486,6 +1592,73 @@ function registerIpc(): void {
         log: (m) => console.warn(`[uninstall] ${m}`),
       },
     );
+  // Linux: the same sheet over platform/uninstall-linux.ts (the Trash, the user unit, the package).
+  const linuxDeps = async (): Promise<LinuxUninstallDeps> => {
+    const install = linuxInstallKind(process.env);
+    const launch = linuxGatewayLaunch(process.env);
+    const unitFile = join(userUnitDir(process.env, homedir()), GATEWAY_UNIT);
+    const readUnit = (): string | undefined => {
+      try {
+        return existsSync(unitFile) ? readFileSync(unitFile, "utf8") : undefined;
+      } catch {
+        return undefined;
+      }
+    };
+    const locale = app.getLocale();
+    return {
+      userHome: homedir(),
+      env: process.env,
+      psycheHome: process.env.PSYCHE_HOME,
+      unitPsycheHome: (() => {
+        const text = readUnit();
+        return text === undefined ? undefined : psycheHomeFromUnit(text);
+      })(),
+      install,
+      appImagePath: install === "appimage" ? (process.env.APPIMAGE ?? null) : null,
+      packageManager: install === "package" ? await linuxPackageManager(execRunner) : undefined,
+      locale,
+      run: execRunner,
+      trashItem: (p) => shell.trashItem(p),
+      removePath: (p) => rmSync(p, { recursive: true, force: true }),
+      setOpenAtLogin: (v) => loginItem.set(v),
+      unitOwner: () => linuxUnitOwner({ install, unitFile, program: launch.program }),
+      unitActive: async () => (await execRunner("systemctl", systemctlUser.isActive())).code === 0,
+      restartGateway: async () => {
+        await supervisor?.ensureRunning();
+      },
+      clearStagedUpdate: async () => {
+        stopUpdater();
+        const staged = join(app.getPath("temp"), "psyche-update");
+        return existsSync(staged) ? [staged] : [];
+      },
+      authorizeDelete: async (path, approvalId) => {
+        await requireGateway().call("app.uninstall.authorize", {
+          path,
+          ...(approvalId === undefined ? {} : { approvalId }),
+        });
+      },
+      confirm: async (plan) => {
+        const text = confirmTextLinux(plan, locale);
+        const box = await dialog.showMessageBox({
+          type: "warning",
+          buttons: [text.cancel, text.confirm],
+          defaultId: 0,
+          cancelId: 0,
+          message: text.title,
+          detail: text.detail,
+        });
+        return box.response === 1;
+      },
+      closeWindows: () => {
+        for (const w of BaseWindow.getAllWindows()) w.destroy();
+      },
+      quit: () => {
+        quittingEntirely = true;
+        app.quit();
+      },
+      log: (m) => console.warn(`[uninstall] ${m}`),
+    };
+  };
   const asPsycheError = (err: unknown): unknown =>
     err instanceof UninstallError ? new PsycheError(err.code, err.message) : err;
   const uninstallAllowed = (): void => {
@@ -1499,7 +1672,9 @@ function registerIpc(): void {
     try {
       const plan = windows32
         ? await planUninstallWindows(await windowsDeps(), req)
-        : planUninstall(uninstallDeps(), req);
+        : isLinux()
+          ? planUninstallLinux(await linuxDeps(), req)
+          : planUninstall(uninstallDeps(), req);
       return {
         stops: plan.stops.map(({ kind, label }) => ({ kind, label })),
         trash: plan.trash.map(({ kind, path, label }) => ({ kind, path, label })),
@@ -1519,7 +1694,9 @@ function registerIpc(): void {
     try {
       const res = windows32
         ? await runUninstallWindows(await windowsDeps(), req)
-        : await runUninstall(uninstallDeps(), req);
+        : isLinux()
+          ? await runUninstallLinux(await linuxDeps(), req)
+          : await runUninstall(uninstallDeps(), req);
       if (res.failed.length > 0) {
         throw new PsycheError(
           "internal",
@@ -1527,7 +1704,7 @@ function registerIpc(): void {
             .map((f) => f.path)
             .join(
               ", ",
-            )}. ${res.restarted ? "The Gateway was started again. " : ""}${windows32 ? UNINSTALL_MANUAL_STEPS_WINDOWS : UNINSTALL_MANUAL_STEPS}`,
+            )}. ${res.restarted ? "The Gateway was started again. " : ""}${windows32 ? UNINSTALL_MANUAL_STEPS_WINDOWS : isLinux() ? UNINSTALL_MANUAL_STEPS_LINUX : UNINSTALL_MANUAL_STEPS}`,
         );
       }
     } catch (err) {
@@ -1634,6 +1811,7 @@ function onGatewayEvent(e: {
     if (!remoteGateway) {
       dockPolicy.onSettingsChanged(entries);
       loginItem.onSettingsChanged(entries);
+      linger.onSettingsChanged(entries);
     }
   }
   if (e.event === "notification.opened") {
@@ -1914,6 +2092,7 @@ void app.whenReady().then(async () => {
       if (!remoteGateway) {
         void dockPolicy.load((method, params) => requireGateway().call(method, params));
         void loginItem.load((method, params) => requireGateway().call(method, params));
+        void linger.load((method, params) => requireGateway().call(method, params));
       }
       // System-wide dictation and Ask about my screen would listen to, and capture, the Host's
       // microphone and screen from here: off until they can run on this computer (design §4.2).
@@ -2117,6 +2296,16 @@ void app.whenReady().then(async () => {
     bundledPsyched: bundledGateway.dir,
     bundledNode: bundledGateway.node,
     bundledTemplate: bundledGateway.template,
+    ...(isLinux()
+      ? (() => {
+          const launch = linuxGatewayLaunch(process.env);
+          return {
+            gatewayProgram: launch.program,
+            gatewayArgs: launch.args,
+            install: launch.install,
+          };
+        })()
+      : {}),
     ...(expectedBuild === undefined ? {} : { expectedBuild }),
     prepareRestart: () =>
       requireGateway().call("gateway.prepareUpdate", { waitMs: 10_000, timeoutMs: 60_000 }),
@@ -2137,7 +2326,7 @@ void app.whenReady().then(async () => {
     // Windows helper never can. macOS passes it in the LaunchAgent's environment; Windows in
     // run\gateway-service.json, which the task's service host reads (supervisor-windows.ts).
     vaultKeyFile: async () =>
-      (await helperCanHoldKeychain(bundledHelperPath(), execRunner))
+      !isLinux() && (await helperCanHoldKeychain(bundledHelperPath(), execRunner))
         ? undefined
         : desktopVaultKeyFile(home),
     onState: (run) => {
@@ -2146,25 +2335,31 @@ void app.whenReady().then(async () => {
     },
   });
 
-  tray = new PsycheTray(
-    {
-      status: gateway.getStatus(),
-      run: supervisor.getState(),
-      pendingApprovals: 0,
-      usagePercentRemaining: null,
-    },
-    {
-      open: () => windows?.showMain(),
-      newSideChat: () => command({ type: "newSideChat" }),
-      quickEntry: () => windows?.toggleQuickEntry(),
-      ...(remoteGateway ? {} : { askScreen: () => screenAsk?.trigger() }),
-      openApprovals: () => command({ type: "navigate", route: "/agent/approvals" }),
-      closeWindow: () => windows?.main()?.close(),
-      quitApp: () => app.quit(),
-      quitEntirely,
-    },
-    { taskbarDark: () => taskbarDark },
-  );
+  // Stock GNOME has no StatusNotifierWatcher: without a tray the app quits on the last window.
+  if (isLinux()) {
+    trayAvailable = await statusNotifierAvailable(execRunner);
+    guardSafeStorage(safeStorage);
+  }
+  if (!isLinux() || trayAvailable)
+    tray = new PsycheTray(
+      {
+        status: gateway.getStatus(),
+        run: supervisor.getState(),
+        pendingApprovals: 0,
+        usagePercentRemaining: null,
+      },
+      {
+        open: () => windows?.showMain(),
+        newSideChat: () => command({ type: "newSideChat" }),
+        quickEntry: () => windows?.toggleQuickEntry(),
+        ...(remoteGateway ? {} : { askScreen: () => screenAsk?.trigger() }),
+        openApprovals: () => command({ type: "navigate", route: "/agent/approvals" }),
+        closeWindow: () => windows?.main()?.close(),
+        quitApp: () => app.quit(),
+        quitEntirely,
+      },
+      { taskbarDark: () => (isLinux() ? nativeTheme.shouldUseDarkColors : taskbarDark) },
+    );
 
   // Quick entry: ⌥Space on macOS (⌃⌥Space when another utility owns it; docs/06 §3.21), on
   // Windows Ctrl+Alt+Space (Alt+Space is the system menu), until `quickEntry.shortcut` says
@@ -2193,7 +2388,7 @@ void app.whenReady().then(async () => {
     disabled: remoteGateway,
   });
   screenAskShortcut.apply(screenAskShortcut.settings);
-  tray.update({ shortcuts: shownShortcuts() });
+  tray?.update({ shortcuts: shownShortcuts() });
   if (!remoteGateway) {
     app.dock?.setMenu(
       Menu.buildFromTemplate([
@@ -2237,6 +2432,8 @@ void app.whenReady().then(async () => {
   runTaskbarTask(taskFromArgv(process.argv));
   pairLinks.offerArgv(process.argv);
   pairLinks.showPending();
+  // TODO(beta feed): once the pipeline publishes a beta manifest, read `updates.channel` after the
+  // Gateway is paired (not here: the connection is not up in this tick) and pass it as `channel`.
   if (perfProbe === undefined) void startUpdater({ stateFile: join(home, "run", "updater.json") });
 
   app.on("activate", () => windows?.showMain());
@@ -2299,10 +2496,11 @@ app.on("second-instance", (_e, argv) => {
 // Closing the window keeps the app (the menu bar on macOS, the notification area on Windows) and
 // the Gateway running (feature A7).
 app.on("window-all-closed", () => {
-  if (process.platform !== "darwin" && process.platform !== "win32") app.quit();
+  if (quitsOnLastWindowClosed(hostPlatform(), trayAvailable)) app.quit();
 });
 
 app.on("will-quit", () => {
+  stopHelperForQuit();
   dictation?.dispose();
   screenAskShortcut?.dispose();
   quickEntryShortcut?.dispose();
@@ -2311,7 +2509,25 @@ app.on("will-quit", () => {
   globalShortcut.unregisterAll();
 });
 
+/**
+ * Every real quit ends the bundled helper (⌘Q, the menu bar or Dock, "Quit Psyche entirely", an
+ * update or restart relaunch, uninstall); closing the last window while the app stays in the menu
+ * bar never gets here. The Gateway is not touched: "Quit Psyche" leaves it running, "Quit entirely"
+ * boots it out (`quitEntirely`). Runs from both `before-quit` and `will-quit`; the second call finds
+ * the launcher latched and the helper gone. A second copy that exits at once (single-instance lock)
+ * has no launcher, so it never stops the first copy's helper.
+ */
+function stopHelperForQuit(): void {
+  try {
+    const res = helper?.stopForQuit();
+    if (res === "killed" || res === "still-running") console.warn(`[helper] quit: ${res}`);
+  } catch (err) {
+    console.warn(`[helper] could not stop the helper on quit: ${String(err)}`);
+  }
+}
+
 app.on("before-quit", () => {
+  stopHelperForQuit();
   windows?.setQuitting();
   dockPolicy.dispose();
   for (const id of [...terminalOwners.keys()]) closeHostTerminal(id);

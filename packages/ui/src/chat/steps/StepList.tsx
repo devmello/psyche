@@ -10,9 +10,11 @@ import { t } from "../../i18n/core.ts";
 import { parseNotVerified } from "../../lib/verdict.ts";
 import { usePersona, useSlots } from "../../slots.tsx";
 import { StepFeedback } from "../../teaching/StepFeedback.tsx";
+import { RailLine, RailNode } from "../RailNode.tsx";
 import {
   buildRows,
   ended,
+  foldedSteps,
   GROUP_ROWS,
   stepGlyph,
   stepLabel,
@@ -80,10 +82,12 @@ function HelperStep({
   step,
   now,
   enter,
+  connect,
 }: {
   step: RunStep;
   now?: number | undefined;
   enter: boolean;
+  connect: boolean;
 }): ReactElement {
   const childRunId = step.childRunId ?? null;
   const { steps: child } = useRunSteps(childRunId);
@@ -105,6 +109,7 @@ function HelperStep({
       endedAt={ms(step.endedAt)}
       {...(now === undefined ? {} : { now })}
       enter={enter}
+      connect={connect}
       defaultOpen={!done}
     >
       {child.length > 0 ? (
@@ -134,16 +139,19 @@ export function StepItem({
   now,
   level = 0,
   enter = false,
+  connect = false,
 }: {
   runId: string;
   step: RunStep;
   now?: number | undefined;
   level?: 0 | 1;
   enter?: boolean;
+  /** Draw the rail line to the next row. */
+  connect?: boolean;
 }): ReactElement {
   const { level: disclosure } = useDisclosure();
   if (step.kind === "subagent" && step.childRunId)
-    return <HelperStep step={step} now={now} enter={enter} />;
+    return <HelperStep step={step} now={now} enter={enter} connect={connect} />;
   const preview =
     disclosure === 2 && (step.preview?.input || step.preview?.output) ? (
       <div className="flex flex-col gap-1 text-mono">
@@ -222,6 +230,7 @@ export function StepItem({
       level={level}
       accessory={accessory}
       enter={enter}
+      connect={connect}
       defaultOpen={step.status === "failed"}
       className="group/step relative"
     >
@@ -281,11 +290,13 @@ function RepeatRow({
   row,
   now,
   enter,
+  connect,
 }: {
   runId: string;
   row: Extract<TraceRow, { type: "repeat" }>;
   now?: number | undefined;
   enter: boolean;
+  connect: boolean;
 }): ReactElement {
   const first = row.steps[0] as RunStep;
   const last = row.steps.at(-1) as RunStep;
@@ -299,6 +310,7 @@ function RepeatRow({
       endedAt={ms(last.endedAt)}
       {...(now === undefined ? {} : { now })}
       enter={enter}
+      connect={connect}
     >
       <ul className="-ms-7 flex flex-col">
         {row.steps.map((s) => (
@@ -310,8 +322,8 @@ function RepeatRow({
 }
 
 /**
- * A run's steps as rows (§3.2): groups, repeats, helpers; the last five while working, failed and
- * waiting rows always, "Show all (n)" for the rest. Only rows that arrive after the list mounted
+ * A run's steps as rows on the rail (§3.2): groups, repeats, helpers; while working the last two
+ * finished rows, and every running, waiting or failed row, with "n earlier steps done" for the rest. Only rows that arrive after the list mounted
  * enter with motion (§3.7: steps arrive one by one, no stagger).
  */
 export function StepList({
@@ -331,7 +343,7 @@ export function StepList({
   const [all, setAll] = useState(false);
   const rows = buildRows(steps);
   const shown = folding ? visibleRows(rows, all) : rows;
-  const hidden = rows.length - shown.length;
+  const folded = foldedSteps(rows, shown);
   const mounted = useRef<Set<string> | null>(null);
   if (mounted.current === null) mounted.current = new Set(rows.map((r) => r.key));
   const isNew = (key: string) => !(mounted.current as Set<string>).has(key);
@@ -340,22 +352,43 @@ export function StepList({
   });
   return (
     <div className="flex flex-col">
-      {folding && (hidden > 0 || all) ? (
+      {folding && all ? (
         <button
           type="button"
-          onClick={() => setAll((v) => !v)}
-          aria-expanded={all}
+          onClick={() => setAll(false)}
+          aria-expanded
           className="me-auto mb-0.5 h-6 cursor-default rounded-sm px-1 text-callout text-label-secondary outline-none hover:bg-fill-tertiary hover:text-label-primary focus-visible:ring-2 focus-visible:ring-ring"
         >
-          {all ? t("chat.steps.showFewer") : t("chat.steps.showAll", { n: steps.length })}
+          {t("chat.steps.showFewer")}
         </button>
       ) : null}
       <ul aria-label={label} className="flex flex-col" data-testid="trace-steps">
-        {shown.map((row) =>
+        {folding && folded > 0 ? (
+          <li className="relative flex min-h-7 items-center gap-2 px-1" data-step-folded="">
+            <RailLine show state="done" startClass="start-[11.5px]" />
+            <RailNode state="done" />
+            <button
+              type="button"
+              onClick={() => setAll(true)}
+              aria-expanded={false}
+              className="-ms-1 inline-flex h-6 cursor-default items-center rounded-sm px-1 text-callout text-label-secondary outline-none transition-colors duration-(--duration-micro) ease-(--ease-standard) hover:bg-fill-tertiary hover:text-label-primary focus-visible:ring-2 focus-visible:ring-ring"
+            >
+              {t("chat.steps.earlier", { n: folded })}
+            </button>
+          </li>
+        ) : null}
+        {shown.map((row, i) =>
           row.type === "group" ? (
             <GroupRow key={row.key} runId={runId} row={row} now={now} enter={isNew(row.key)} />
           ) : row.type === "repeat" ? (
-            <RepeatRow key={row.key} runId={runId} row={row} now={now} enter={isNew(row.key)} />
+            <RepeatRow
+              key={row.key}
+              runId={runId}
+              row={row}
+              now={now}
+              enter={isNew(row.key)}
+              connect={folding && i < shown.length - 1}
+            />
           ) : (
             <StepItem
               key={row.key}
@@ -363,6 +396,7 @@ export function StepList({
               step={row.step}
               now={now}
               enter={isNew(row.key)}
+              connect={folding && i < shown.length - 1}
             />
           ),
         )}

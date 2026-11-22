@@ -108,6 +108,7 @@ function pairingFromSql(row: PairingSqlRow): PairingRequest {
     publicKeyFingerprint: row.public_key_fingerprint ?? null,
     transport: row.transport ?? null,
     remoteAddress: row.remote_address ?? null,
+    purpose: "device",
     createdAt: row.created_at,
     updatedAt: row.updated_at,
   };

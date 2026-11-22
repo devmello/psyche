@@ -1,12 +1,18 @@
 import { appCap } from "@psyche/permissions/apps";
+import type { MachineInfo } from "@psyche/protocol";
 import { Lock } from "lucide-react";
-import type { ReactElement } from "react";
+import { type ReactElement, useState } from "react";
 import { Button } from "../../components/ui/button.tsx";
 import { Kbd } from "../../components/ui/kbd.tsx";
+import { useHostOs } from "../../data/host-os.ts";
 import { t } from "../../i18n/core.ts";
-import { isWindows, type UiPlatform, uiPlatform } from "../../lib/platform.ts";
+import { isLinux, isWindows, type UiPlatform, uiPlatform } from "../../lib/platform.ts";
 import { usePersona, useSlots } from "../../slots.tsx";
+import { LinuxAccessRows, linuxAccessFromSettings } from "./LinuxAccess.tsx";
+import { HOST_CHOICE, MachineAppsGroup, MachinePicker } from "./MachinePicker.tsx";
+import { useMachines } from "./MachinesGroup.tsx";
 import { SegmentedRadio } from "./SegmentedRadio.tsx";
+import { isLinuxUi, SeparateDesktopGroup } from "./SeparateDesktopGroup.tsx";
 import {
   bool,
   EmptyNotice,
@@ -98,9 +104,23 @@ export const WINDOWS_LOCKED_APPS: readonly ComputerUseApp[] = [
   banking,
 ];
 
+/** The same caps as the Linux helper names apps: by desktop-file id. */
+export const LINUX_LOCKED_APPS: readonly ComputerUseApp[] = [
+  lockedApp("firefox", "Firefox", "browser"),
+  lockedApp("google-chrome", "Google Chrome", "browser"),
+  lockedApp("gnome-terminal", "GNOME Terminal", "terminal"),
+  lockedApp("code", "Visual Studio Code", "ide"),
+  lockedApp("keepassxc", "KeePassXC", "passwords"),
+  banking,
+];
+
 /** The locked rows for the Host's platform (computer use runs on the Host, never remotely). */
 export function lockedApps(platform: UiPlatform = uiPlatform()): readonly ComputerUseApp[] {
-  return platform === "windows" ? WINDOWS_LOCKED_APPS : LOCKED_APPS;
+  return platform === "windows"
+    ? WINDOWS_LOCKED_APPS
+    : platform === "linux"
+      ? LINUX_LOCKED_APPS
+      : LOCKED_APPS;
 }
 
 const tccLabel = (p: TccPermission) => ({
@@ -148,6 +168,8 @@ export interface ComputerUsePanelProps extends SettingsFormProps, LoadProps {
   tcc: Partial<Record<TccPermission, TccState>>;
   /** Opens System Settings at the pane for `permission` (the shell asks macOS). */
   onOpenSystemSettings?: (permission: TccPermission) => void;
+  /** Linux computers the owner paired: with any, the page offers a computer picker. */
+  machines?: readonly MachineInfo[];
 }
 
 export function ComputerUsePanel({
@@ -157,10 +179,14 @@ export function ComputerUsePanel({
   persona,
   tcc,
   onOpenSystemSettings,
+  machines = [],
   loading,
   error,
   onRetry,
 }: ComputerUsePanelProps): ReactElement {
+  // Which computer's app access the page shows; the Host unless the owner picks a paired one.
+  const [shown, setShown] = useState(HOST_CHOICE);
+  const machine = machines.find((m) => m.id === shown);
   const enabled = bool(values, "computerUse.enabled", false);
   const apps = appsFromSettings(values);
   const setTier = (app: ComputerUseApp, tier: AppTier) =>
@@ -186,97 +212,130 @@ export function ComputerUsePanel({
         error={error ?? null}
         {...(onRetry ? { onRetry } : {})}
       >
-        <Group
-          title={t("settings.computerUse.macPermissions")}
-          description={t("settings.computerUse.macPermissionsHint")}
-        >
-          {isWindows() ? (
-            <WindowsAccessRows
-              persona={persona}
-              microphone={tcc.microphone}
-              onOpenSettings={onOpenSystemSettings}
-            />
-          ) : (
-            <>
-              {(["accessibility", "screenRecording"] as const).map((p) => {
-                const state = tcc[p] ?? "not_determined";
-                return (
-                  <div key={p} className="flex flex-wrap items-center gap-2">
-                    <span className="font-medium">{TCC_LABEL[p].name}</span>
-                    <StatusChip tone={TCC_TONE[state]}>
-                      {t(`settings.computerUse.tccState.${state}`)}
-                    </StatusChip>
-                    <span className="text-callout text-muted-foreground">
-                      {TCC_LABEL[p].why(persona)}
-                    </span>
-                    {state !== "granted" && onOpenSystemSettings ? (
-                      <Button
-                        type="button"
-                        variant="outline"
-                        size="xs"
-                        className="ms-auto"
-                        onClick={() => onOpenSystemSettings(p)}
-                        aria-label={t("settings.computerUse.openSystemSettingsFor", {
-                          name: TCC_LABEL[p].name,
-                        })}
-                      >
-                        {t("settings.computerUse.openSystemSettings")}
-                      </Button>
-                    ) : null}
-                  </div>
-                );
-              })}
-            </>
-          )}
-        </Group>
+        <MachinePicker
+          machines={machines}
+          values={values}
+          selected={machine?.id ?? HOST_CHOICE}
+          onSelect={setShown}
+          onChange={onChange}
+        />
 
-        <Group
-          title={t("settings.computerUse.apps")}
-          description={t("settings.computerUse.appsHint")}
-        >
-          <SwitchField
-            label={t("settings.key.computerUse.enabled")}
-            description={t("settings.computerUse.enabledHint")}
-            checked={enabled}
-            settingKey="computerUse.enabled"
-            onChange={(v) => onChange("computerUse.enabled", v)}
+        {machine ? (
+          <MachineAppsGroup
+            machine={machine}
+            values={values}
+            tiers={TIERS}
+            enabled={enabled}
+            onChange={onChange}
           />
-          <SettingHint settingKey="computerUse.apps" />
-          {/* One row per app with a segmented tier control; fixed caps are locked rows (§5.8). */}
-          {apps.length === 0 ? (
-            <EmptyNotice text={t("settings.computerUse.noApps")} />
-          ) : (
-            <>
-              {apps.map((a) => (
-                <div key={a.id} className="flex flex-wrap items-center gap-x-3 gap-y-1">
-                  <span className="min-w-0 flex-1 text-body text-label-primary">{a.name}</span>
-                  <SegmentedRadio
-                    label={a.name}
-                    options={TIERS}
-                    value={a.tier}
-                    disabled={!enabled}
-                    onChange={(tier) => setTier(a, tier)}
-                    segmentLabel={(o) =>
-                      t("settings.matrix.cell", { row: a.name, column: o.label })
-                    }
-                  />
-                </div>
-              ))}
-              {lockedApps().map((a) => (
-                <div key={a.id} data-locked="true" className="flex items-center gap-3">
-                  <Lock className="size-3.5 shrink-0 text-label-tertiary" aria-hidden="true" />
-                  <div className="flex min-w-0 flex-1 flex-col">
-                    <span className="text-body text-label-primary">{a.name}</span>
-                    <span className="text-callout text-label-secondary">{a.locked?.reason}</span>
+        ) : null}
+
+        {machine ? null : (
+          <Group
+            title={t("settings.computerUse.macPermissions")}
+            description={t("settings.computerUse.macPermissionsHint")}
+          >
+            {isWindows() ? (
+              <WindowsAccessRows
+                persona={persona}
+                microphone={tcc.microphone}
+                onOpenSettings={onOpenSystemSettings}
+              />
+            ) : isLinux() ? (
+              <LinuxAccessRows
+                persona={persona}
+                state={linuxAccessFromSettings(values)}
+                computerUseOn={enabled}
+                onRevoke={() => onChange("computerUse.linuxRevoke", new Date().toISOString())}
+              />
+            ) : (
+              <>
+                {(["accessibility", "screenRecording"] as const).map((p) => {
+                  const state = tcc[p] ?? "not_determined";
+                  return (
+                    <div key={p} className="flex flex-wrap items-center gap-2">
+                      <span className="font-medium">{TCC_LABEL[p].name}</span>
+                      <StatusChip tone={TCC_TONE[state]}>
+                        {t(`settings.computerUse.tccState.${state}`)}
+                      </StatusChip>
+                      <span className="text-callout text-muted-foreground">
+                        {TCC_LABEL[p].why(persona)}
+                      </span>
+                      {state !== "granted" && onOpenSystemSettings ? (
+                        <Button
+                          type="button"
+                          variant="outline"
+                          size="xs"
+                          className="ms-auto"
+                          onClick={() => onOpenSystemSettings(p)}
+                          aria-label={t("settings.computerUse.openSystemSettingsFor", {
+                            name: TCC_LABEL[p].name,
+                          })}
+                        >
+                          {t("settings.computerUse.openSystemSettings")}
+                        </Button>
+                      ) : null}
+                    </div>
+                  );
+                })}
+              </>
+            )}
+          </Group>
+        )}
+
+        {machine ? null : (
+          <Group
+            title={t("settings.computerUse.apps")}
+            description={t("settings.computerUse.appsHint")}
+          >
+            <SwitchField
+              label={t("settings.key.computerUse.enabled")}
+              description={t("settings.computerUse.enabledHint")}
+              checked={enabled}
+              settingKey="computerUse.enabled"
+              onChange={(v) => onChange("computerUse.enabled", v)}
+            />
+            <SettingHint settingKey="computerUse.apps" />
+            {/* One row per app with a segmented tier control; fixed caps are locked rows (§5.8). */}
+            {apps.length === 0 ? (
+              <EmptyNotice text={t("settings.computerUse.noApps")} />
+            ) : (
+              <>
+                {apps.map((a) => (
+                  <div key={a.id} className="flex flex-wrap items-center gap-x-3 gap-y-1">
+                    <span className="min-w-0 flex-1 text-body text-label-primary">{a.name}</span>
+                    <SegmentedRadio
+                      label={a.name}
+                      options={TIERS}
+                      value={a.tier}
+                      disabled={!enabled}
+                      onChange={(tier) => setTier(a, tier)}
+                      segmentLabel={(o) =>
+                        t("settings.matrix.cell", { row: a.name, column: o.label })
+                      }
+                    />
                   </div>
-                  <span className="shrink-0 text-body text-label-secondary">
-                    {a.locked ? t(`settings.computerUse.cap.${a.locked.cap}`) : ""}
-                  </span>
-                </div>
-              ))}
-            </>
-          )}
-        </Group>
+                ))}
+                {lockedApps().map((a) => (
+                  <div key={a.id} data-locked="true" className="flex items-center gap-3">
+                    <Lock className="size-3.5 shrink-0 text-label-tertiary" aria-hidden="true" />
+                    <div className="flex min-w-0 flex-1 flex-col">
+                      <span className="text-body text-label-primary">{a.name}</span>
+                      <span className="text-callout text-label-secondary">{a.locked?.reason}</span>
+                    </div>
+                    <span className="shrink-0 text-body text-label-secondary">
+                      {a.locked ? t(`settings.computerUse.cap.${a.locked.cap}`) : ""}
+                    </span>
+                  </div>
+                ))}
+              </>
+            )}
+          </Group>
+        )}
+
+        {isLinuxUi() && !machine ? (
+          <SeparateDesktopGroup values={values} onChange={onChange} />
+        ) : null}
       </LoadGate>
     </SectionFrame>
   );
@@ -294,12 +353,17 @@ export function ComputerUseSection({
   const form = useSettingsForm();
   const persona = usePersona();
   const { remoteHost } = useSlots();
+  const hostOs = useHostOs();
+  const { machines } = useMachines();
   // Driving a Mac nobody can see is unsafe, and the Host's screen may be locked: computer use
-  // stays at the Host (owner decision G5), whatever the Host's own switch says.
+  // stays at the Host (owner decision G5), whatever the Host's own switch says. A Linux Host runs
+  // it on its own private screen, which a Client watches and takes over (B3); `direct` stays off.
   if (remoteHost !== undefined) {
     return (
       <p className="text-callout text-label-secondary" data-testid="computer-use-remote">
-        {t("settings.computerUse.remote", { host: remoteHost })}
+        {hostOs === "linux"
+          ? t("settings.computerUse.remoteLinux", { host: remoteHost })
+          : t("settings.computerUse.remote", { host: remoteHost })}
       </p>
     );
   }
@@ -311,6 +375,7 @@ export function ComputerUseSection({
         needsApproval={form.needsApproval}
         persona={persona.name}
         tcc={tcc}
+        machines={machines}
         loading={form.loading && Object.keys(form.values).length === 0}
         error={form.error}
         onRetry={form.reload}

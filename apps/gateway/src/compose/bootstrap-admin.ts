@@ -1,7 +1,9 @@
 import { getDevice, listDevices, type PsycheDb, updateDevice } from "@psyche/db";
 import { type AuditLog, type MethodResult, PsycheError } from "@psyche/protocol";
 import { hostWords } from "@psyche/protocol/host-words";
+import { keyFingerprint } from "../auth.ts";
 import type { Call, HandlerDef } from "../context.ts";
+import { stateSealFor } from "../security/state-seal.ts";
 
 /**
  * First admin device without a terminal (packaged first run). The handshake secret never buys
@@ -41,6 +43,27 @@ export function bootstrapAdminHandlers(deps: {
             `only the Psyche desktop on ${hostWords().thisDevice} can do this`,
           );
         }
+        // Untrusted security records: no first admin either (the seal may have been reset to
+        // make "no admin exists" true).
+        stateSealFor(deps.db)?.ensure();
+        if (stateSealFor(deps.db)?.untrusted() != null) {
+          throw new PsycheError(
+            "presence_required",
+            "Psyche's security records failed their check; re-seal them before making an admin",
+            { details: { reason: "state_untrusted" } },
+          );
+        }
+        // D8: once a Touch ID key or a passkey could verify (recorded outside the database too),
+        // an install with no admin left is a recovery (`psyched devices grant`, 24 hours), not a
+        // first run any program holding the handshake secret could claim.
+        const seal = stateSealFor(deps.db);
+        if (seal?.presenceEverEnrolled() === true || call.ctx.presenceState() !== "off") {
+          throw new PsycheError(
+            "forbidden",
+            "Touch ID or a passkey was set up on this Gateway before; recover admin with `psyched devices grant` on the Mac (it applies after 24 hours)",
+            { details: { reason: "presence_enrolled" } },
+          );
+        }
         const grant = deps.db.sqlite.transaction(() => {
           if (activeAdminCount(deps.db) > 0) {
             throw new PsycheError("conflict", "this Gateway already has an admin device");
@@ -59,6 +82,12 @@ export function bootstrapAdminHandlers(deps: {
           kind: BOOTSTRAP_ADMIN_AUDIT_KIND,
           actor: { type: "device", deviceId: device.id },
           data: { deviceId: device.id, name: device.name },
+        });
+        seal?.alerts.add("local_first_admin", {
+          deviceName: device.name,
+          deviceFingerprint: keyFingerprint(device.publicKey),
+          scopes: [...device.scopes],
+          via: "desktop",
         });
         call.ctx.bus.bumpStateVersion();
         call.emit("device.updated", { device });

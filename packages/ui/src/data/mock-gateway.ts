@@ -9,6 +9,7 @@ import type {
   EndpointProbe,
   ModelProviderSummary,
   ModelRoles,
+  PluginSummarySchema,
 } from "@psyche/protocol";
 import {
   AGENT_NOTES_DIR,
@@ -19,6 +20,9 @@ import {
   type Automation,
   type AutomationRun,
   type BotAuthStatus,
+  type BrowserRecording,
+  type BrowserRecordingEvent,
+  type BrowserRecordingFrame,
   buildPsycheTrace,
   type Channel,
   type ChannelIdentity,
@@ -34,6 +38,7 @@ import {
   type FeedbackEvent,
   type FeedPost,
   FILE_CHUNK_BYTES,
+  formatMachineLink,
   type Goal,
   type GoalMilestone,
   type Grant,
@@ -44,8 +49,12 @@ import {
   type Lesson,
   type LibraryItem,
   type LinkPaymentMethod,
+  type LinkSetupStatus,
+  type MachineInfo,
   type McpApp,
   type McpProposal,
+  type McpServerChanges,
+  type McpServerConfigView,
   type McpServerSecret,
   type McpServerStatus,
   type McpServerTool,
@@ -56,10 +65,13 @@ import {
   type MethodParams,
   type MethodResult,
   type Milestone,
+  machineNameOk,
   type NodeInfo,
   type Notification,
+  type OnePasswordSetupStatus,
   type PairingRequest,
   PsycheError,
+  pinId,
   type Receipt,
   type Run,
   type RunFrame,
@@ -79,6 +91,7 @@ import {
   type ToolCall,
   traceMarkdown,
   type VaultPayment,
+  type VaultStatus,
   validateEventPayload,
   validateParams,
   validateResult,
@@ -96,6 +109,7 @@ import { toBase64 } from "./files.ts";
 import { emptyGraph, graphHandlers } from "./mock-graph.ts";
 import { type ProposalMockContext, proposalHandlers, settleBatch } from "./mock-proposals.ts";
 import { emptyReview, type ReviewWorld, reviewHandlers } from "./mock-review.ts";
+import { emptySpaces, type SpacesWorld, spacesHandlers } from "./mock-spaces.ts";
 
 /**
  * In-memory Gateway for stories and tests (no network). It speaks the protocol exactly: every
@@ -105,7 +119,18 @@ import { emptyReview, type ReviewWorld, reviewHandlers } from "./mock-review.ts"
  * disconnects.
  */
 
+/** One agent browser recording (`browser.recordings.*`): its index and frame images. */
+export interface MockBrowserRecording {
+  recording: BrowserRecording;
+  events: BrowserRecordingEvent[];
+  frames: { frame: BrowserRecordingFrame; mime: "image/jpeg" | "image/png"; data: string }[];
+}
+
 export interface MockWorld {
+  /** Linux computers paired as machines (absent = none): `machines.list`. */
+  machines?: MachineInfo[];
+  /** Browser recordings (absent = none). */
+  browserRecordings?: MockBrowserRecording[];
   /** Everything memory's review queue (absent = empty). */
   review?: ReviewWorld;
   threads: ThreadListEntry[];
@@ -149,8 +174,17 @@ export interface MockWorld {
   nodes: NodeInfo[];
   credentials: CredentialMeta[];
   credentialUses: CredentialUse[];
+  /**
+   * The vault (`vault.status|setup|confirmRecovery|unlock`); absent → the mock does not implement
+   * them. Mirrors the Gateway: one setup (then `conflict`), a wrong last group is `invalid_params`.
+   */
+  vault?: { status: VaultStatus; recoveryKey?: string };
   /** Stripe Link (`vault.payments.*`); absent → Link is not set up (`payments_not_configured`). */
   linkMethods?: LinkPaymentMethod[];
+  /** The guided Link setup (`payments.link.*`); absent → derived from `linkMethods`. */
+  linkSetup?: LinkSetupStatus;
+  /** The guided 1Password setup (`vault.onePassword.*`); absent → `op` is not installed. */
+  onePassword?: { status: OnePasswordSetupStatus; vaultCount?: number };
   payments?: VaultPayment[];
   settings: Record<string, unknown>;
   memoryFiles: Record<string, string>;
@@ -167,12 +201,17 @@ export interface MockWorld {
   };
   /** The people and projects graph (`memory.entities.*`); absent → empty. */
   graph?: GraphWorld;
+  /** Spaces (`spaces.*`, docs/design/spaces-2026.md); absent → none. */
+  spaces?: SpacesWorld;
   /** Batch proposals (`proposals.*`) and the calls that fail when one runs, by proposal id. */
   proposals?: ActionProposal[];
   proposalFailures?: Record<string, Record<number, string>>;
   skills: SkillDetails[];
   skillSources: Record<string, MockSkillSource>;
   skillDrafts: SkillDraft[];
+  /** Settings → Skills → Plugins: `plugins.list` and the admin switch `plugins.enabled`. */
+  plugins: PluginSummarySchema[];
+  pluginsEnabled: boolean;
   /** `models.list` providers (B1, B4); absent → `models.list` answers with none. */
   modelProviders?: ModelProviderSummary[];
   modelRoles?: ModelRoles;
@@ -180,6 +219,11 @@ export interface MockWorld {
   modelProbes?: Record<string, EndpointProbe>;
   /** `connectors.connect` behaviour: "unavailable" answers not_implemented (#505). */
   connectorConnect?: "unavailable" | "not_configured";
+  /**
+   * `connectors.googleClient`: the owner's Google OAuth client. Absent: set in config.json (so
+   * Connect works as before); `null`: not set up yet.
+   */
+  googleClient?: { clientId: string; hasSecret: boolean; source: "app" | "config" } | null;
   /** macOS grant for the Apple connectors (#549); default granted. */
   appleGrant?: "granted" | "denied" | "notDetermined";
   /** `connectors.catalogue`; absent → the fixture catalogue (accounts and the Apple apps). */
@@ -294,6 +338,8 @@ export const EMPTY_WORLD: MockWorld = {
   skills: [],
   skillSources: {},
   skillDrafts: [],
+  plugins: [],
+  pluginsEnabled: false,
 };
 
 export interface MockGatewayOptions {
@@ -345,27 +391,53 @@ const fakeHash = (text: string): `sha256:${string}` => {
 const MOCK_FRAME_PNG =
   "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAIAAACQd1PeAAAADElEQVR4nGPYsGEDAAQkAhG7+/aHAAAAAElFTkSuQmCC";
 
-const fail = (code: ErrorCode, message: string): never => {
-  throw new PsycheError(code, message);
+const fail = (code: ErrorCode, message: string, details?: Record<string, unknown>): never => {
+  throw new PsycheError(code, message, details === undefined ? undefined : { details });
 };
 
 export class MockGateway implements GatewayClient {
   readonly world: MockWorld;
   readonly calls: RecordedCall[] = [];
+  /** Channel transport secrets by `type|account` (names only, like the Gateway). */
+  readonly channelSecrets = new Map<string, MethodParams<"channels.secrets.set">["name"][]>();
   /** A host's presence (a web passkey); tests set it to exercise approvals that need one. */
   presence?: GatewayClient["presence"];
   /** The desktop host: Touch ID cards go through `approvals.approveWithTouchId`. */
   approveWithTouchId?: GatewayClient["approveWithTouchId"];
+  /** The desktop on Linux: password cards go through `approvals.approveWithPassword`. */
+  approveWithPassword?: GatewayClient["approveWithPassword"];
   private seq = 0;
   private stateVersion = 1;
   private state: ConnectionState;
   private listeners = new Set<(e: GatewayEvent) => void>();
   private connListeners = new Set<(s: ConnectionState) => void>();
   private idempotent = new Map<string, unknown>();
-  private failures = new Map<string, { code: ErrorCode; message: string }>();
+  private failures = new Map<
+    string,
+    { code: ErrorCode; message: string; details?: Record<string, unknown> }
+  >();
   private latency: number;
   private now: () => string;
   private counter = 0;
+  /**
+   * A computer finishes pairing (stories and tests): it joins `machines.list`, the newest live
+   * machine setup token is marked used by its device, and `machines.changed` says `added`.
+   */
+  pairMachine(machine: MachineInfo): void {
+    this.world.machines = [...(this.world.machines ?? []), machine];
+    const index = this.setupTokens.findIndex((s) => s.status === "live" && s.purpose === "machine");
+    const token = this.setupTokens[index];
+    if (token !== undefined) {
+      this.setupTokens[index] = {
+        ...token,
+        status: "used",
+        usedAt: this.now(),
+        usedByDeviceId: machine.deviceId,
+      };
+    }
+    this.emit("machines.changed", { machine, change: "added" });
+  }
+
   /** Setup tokens made through `devices.setupToken.create` (Settings → Pair another computer). */
   private readonly setupTokens: MethodResult<"devices.setupToken.list">["setupTokens"] = [];
   private sourcesStatus(): MethodResult<"search.sources"> {
@@ -433,6 +505,8 @@ export class MockGateway implements GatewayClient {
   /** `sandbox.installSrt` calls so far, and an error to throw from it (tests). */
   installSrtCalls = 0;
   installSrtError: Error | null = null;
+  /** Makes the next `payments.link.connect` fail (an approval card, a refused path). */
+  linkConnectError: Error | null = null;
   /** What `sandbox.setup` finds (guided setup); tests change it between "Check again"s. */
   sandboxSetup: MethodResult<"sandbox.setup"> = {
     ready: true,
@@ -462,7 +536,14 @@ export class MockGateway implements GatewayClient {
     },
   };
 
-  private mcpProposals = new Map<string, { proposal: McpProposal; approvalId: string }>();
+  private mcpProposals = new Map<
+    string,
+    { proposal: McpProposal; approvalId: string; update?: McpServerChanges }
+  >();
+  /** What `mcp.config` shows, by server id (stories, tests); set when a server is added. */
+  private mcpConfigs = new Map<string, McpServerConfigView>();
+  /** Set to make `mcp.test` fail with this reason (stories, tests). */
+  mcpTestError: string | null = null;
   /** Code of the servers Psyche made (`mcp.files.*`), by server id then path. */
   private mcpFiles = new Map<string, Map<string, string>>();
   /** What an added server's detail shows: its tools (the owner's switches) and secrets by name. */
@@ -492,9 +573,25 @@ export class MockGateway implements GatewayClient {
   /** A server already added, with the tools and secrets its detail shows (stories, tests). */
   seedMcpServer(
     server: McpServerStatus,
-    detail: { tools?: McpServerTool[]; secrets?: McpServerSecret[] } = {},
+    detail: {
+      tools?: McpServerTool[];
+      secrets?: McpServerSecret[];
+      config?: Partial<McpServerConfigView>;
+    } = {},
   ): void {
     this.mcpServers.push(structuredClone(server));
+    this.mcpConfigs.set(server.id, {
+      id: server.id,
+      name: server.name,
+      kind: server.transport === "http" ? "url" : "command",
+      ...(server.transport === "http"
+        ? { url: "https://mcp.example.com/mcp" }
+        : { command: ["npx", "-y", server.id] }),
+      allowedDomains: [],
+      envNames: (detail.secrets ?? []).map((x) => x.name),
+      editable: true,
+      ...structuredClone(detail.config ?? {}),
+    });
     this.mcpDetail.set(server.id, {
       tools: structuredClone(detail.tools ?? []),
       secrets: structuredClone(detail.secrets ?? []),
@@ -525,6 +622,9 @@ export class MockGateway implements GatewayClient {
     const failure = this.failures.get(method);
     if (failure !== undefined) {
       this.failures.delete(method);
+      if (failure.details !== undefined) {
+        throw new PsycheError(failure.code, failure.message, { details: failure.details });
+      }
       fail(failure.code, failure.message);
     }
     const valid = validateParams(method, params);
@@ -582,8 +682,13 @@ export class MockGateway implements GatewayClient {
   }
 
   /** Makes the next call to `method` fail with `code`. */
-  failNext(method: MethodName, code: ErrorCode, message = `${method} failed`): void {
-    this.failures.set(method, { code, message });
+  failNext(
+    method: MethodName,
+    code: ErrorCode,
+    message = `${method} failed`,
+    details?: Record<string, unknown>,
+  ): void {
+    this.failures.set(method, { code, message, ...(details === undefined ? {} : { details }) });
   }
 
   /** Streams an agent reply as `chat.delta` chunks, then commits it with `chat.message`. */
@@ -965,6 +1070,36 @@ export class MockGateway implements GatewayClient {
     return validateResult(method, result) as MethodResult<M>;
   }
 
+  private vaultOf(): NonNullable<MockWorld["vault"]> {
+    const vault = this.world.vault;
+    return vault === undefined ? fail("not_implemented", "MockGateway has no vault") : vault;
+  }
+
+  /** Where the guided Link setup stands: set by the calls below, else read off the fixtures. */
+  private onePasswordOf(): NonNullable<MockWorld["onePassword"]> {
+    this.world.onePassword ??= {
+      status: { state: "not_installed", connected: false, os: "macos" },
+    };
+    return this.world.onePassword;
+  }
+
+  private linkStatus(): LinkSetupStatus {
+    if (this.world.linkSetup !== undefined) return structuredClone(this.world.linkSetup);
+    return this.world.linkMethods === undefined
+      ? { state: "cli_missing", candidates: [] }
+      : {
+          state: "connected",
+          cli: { path: "/opt/homebrew/bin/link-cli", source: "saved" },
+          candidates: [],
+        };
+  }
+
+  private setLinkStatus(status: LinkSetupStatus): LinkSetupStatus {
+    this.world.linkSetup = status;
+    this.emit("payments.link.changed", { status });
+    return structuredClone(status);
+  }
+
   /** The owner's Link payment methods; like the vault, `unavailable` when Link is not set up. */
   private linkWallet(): LinkPaymentMethod[] {
     if (this.world.linkMethods === undefined) {
@@ -1141,6 +1276,29 @@ export class MockGateway implements GatewayClient {
     return { task };
   }
 
+  /** Keys saved through `keys.set` (the mock keeps only that one is set, never the value). */
+  private savedKeys = new Set<string>();
+
+  /** What `files.starterFolders` offers; empty unless a test or story sets it. */
+  starterFolders: { id: "documents" | "desktop" | "downloads"; path: string }[] = [];
+
+  /** Every `files.requestShare` the mock saw; `shareAnswer` is what it replies (default: a card). */
+  shareRequests: { threadId: string; path: string; access: "read" }[] = [];
+  shareAnswer: "pending" | "already" = "pending";
+  /** Every `files.write` the mock accepted (the content is kept for assertions). */
+  fileWrites: { path: string; content: string; ifMatch: string }[] = [];
+  /** False: this device lacks operator.admin (`devices.list` and the like are refused). */
+  admin = true;
+
+  private keyStatuses() {
+    return ["anthropic", "openai", "google", "openrouter", "brave"].map((id) => ({
+      id: id as "anthropic" | "openai" | "google" | "openrouter" | "brave",
+      configured: this.savedKeys.has(id),
+      source: this.savedKeys.has(id) ? ("vault" as const) : null,
+      inVault: this.savedKeys.has(id),
+    }));
+  }
+
   private modelProvider(id: string): ModelProviderSummary {
     const p = (this.world.modelProviders ?? []).find((x) => x.id === id);
     return p ?? fail("not_found", `no model provider "${id}"`);
@@ -1184,13 +1342,31 @@ export class MockGateway implements GatewayClient {
       now: () => this.now(),
     }),
     ...proposalHandlers(this.proposalContext()),
+    ...spacesHandlers({
+      world: () => {
+        this.world.spaces ??= emptySpaces();
+        return this.world.spaces;
+      },
+      threads: () => this.world.threads,
+      setThreads: (next) => {
+        this.world.threads = next;
+      },
+      widgets: () => this.world.widgets,
+      setWidgets: (next) => {
+        this.world.widgets = next;
+      },
+      now: () => this.now(),
+      id: (prefix) => this.id(prefix),
+      emit: (event, payload) => this.emit(event, payload),
+    }),
     "events.subscribe": () => ({ stateVersion: this.stateVersion }),
 
     "threads.list": (p) => ({
       threads: this.world.threads
         .filter((t) => !isEmptyUserChat(t))
         .filter((t) => p.includeArchived === true || t.thread.archivedAt == null)
-        .filter((t) => p.kind === undefined || t.thread.kind === p.kind),
+        .filter((t) => p.kind === undefined || t.thread.kind === p.kind)
+        .filter((t) => p.spaceId === undefined || t.thread.spaceId === p.spaceId),
       nextCursor: null,
     }),
     "threads.get": (p) => this.thread(p.threadId),
@@ -1214,6 +1390,7 @@ export class MockGateway implements GatewayClient {
         createdAt: now,
         updatedAt: now,
         lastMessageAt: null,
+        ...(p.spaceId === undefined ? {} : { spaceId: p.spaceId }),
       };
       this.world.threads.push({
         thread,
@@ -1225,14 +1402,22 @@ export class MockGateway implements GatewayClient {
     "threads.newChat": (p) => {
       const reusable = (id: string) => {
         const e = this.world.threads.find((x) => x.thread.id === id);
-        return e !== undefined && isEmptyUserChat(e) && e.thread.kind === p.kind;
+        return (
+          e !== undefined &&
+          isEmptyUserChat(e) &&
+          e.thread.kind === p.kind &&
+          (e.thread.spaceId ?? null) === (p.spaceId ?? null)
+        );
       };
       const empty = this.world.threads.filter((x) => reusable(x.thread.id));
       const reuse = empty.find((x) => x.thread.id === p.preferThreadId) ?? empty[empty.length - 1];
       if (reuse) return { thread: reuse.thread, reused: true };
       const create = this.handlers["threads.create"];
       if (create === undefined) return fail("not_found", "threads.create");
-      const { thread } = create({ kind: p.kind }) as { thread: ThreadListEntry["thread"] };
+      const { thread } = create({
+        kind: p.kind,
+        ...(p.spaceId === undefined ? {} : { spaceId: p.spaceId }),
+      }) as { thread: ThreadListEntry["thread"] };
       const marked = { ...thread, title: "", userCreated: true };
       const entry = this.world.threads.find((x) => x.thread.id === thread.id);
       if (entry) entry.thread = marked;
@@ -1325,6 +1510,21 @@ export class MockGateway implements GatewayClient {
         limits: this.contextLimits(p.threadId),
         threadLimits: this.world.contextLimits[p.threadId] ?? {},
       };
+    },
+    "threads.summary.pins.remove": (p) => {
+      this.thread(p.threadId);
+      let left: string[] = [];
+      for (const m of this.world.messages) {
+        if (m.threadId !== p.threadId) continue;
+        for (const b of m.blocks) {
+          if (b.type !== "compaction") continue;
+          b.summary.pinnedInstructions = b.summary.pinnedInstructions.filter(
+            (i) => pinId(i) !== p.pinId,
+          );
+          left = b.summary.pinnedInstructions;
+        }
+      }
+      return { pinnedInstructions: left };
     },
     "threads.compact": (p) => {
       this.thread(p.threadId);
@@ -1676,6 +1876,9 @@ export class MockGateway implements GatewayClient {
         !approval.scopesOffered.includes(p.scope)
       )
         fail("invalid_params", `scope ${p.scope} was not offered`);
+      // As the broker: a bulk answer lands only on a card classed routine.
+      if (p.bulk === true && (approval.riskClass !== "routine" || approval.requiresAuthentication))
+        fail("invalid_params", "this action needs its own approval");
       delete this.world.answerTokens[approval.id];
       const decided: ApprovalRequest = {
         ...approval,
@@ -1707,6 +1910,30 @@ export class MockGateway implements GatewayClient {
       this.emit("approval.updated", { approval: decided });
       return { approval: decided, grant: null };
     },
+    // The desktop's Allow on a card that needs the owner's password (Linux): polkit says yes here.
+    "approvals.approveWithPassword": (p) => {
+      const approval = this.find(this.world.approvals, p.approvalId, "approval");
+      if (approval.status !== "pending") fail("answer_late", "this approval was already decided");
+      if (this.world.answerTokens[approval.id] !== p.answerToken)
+        fail("answer_replayed", "the answer token is not valid for this surface");
+      delete this.world.answerTokens[approval.id];
+      const decided: ApprovalRequest = {
+        ...approval,
+        status: "approved",
+        scopeGranted: "once",
+        decidedBy: { deviceId: "dev_this", surface: "desktop" },
+        decidedAt: this.now(),
+      };
+      this.replace("approvals", decided);
+      this.emit("approval.updated", { approval: decided });
+      return { approval: decided, grant: null };
+    },
+    "devices.presence.status": () => ({
+      verifiers: [
+        { kind: "passkey" as const, state: "not_enrolled" as const },
+        { kind: "password" as const, state: "ready" as const },
+      ],
+    }),
     // The access list: folders from `permissions.policy` plus the live grants (as the Gateway).
     "access.list": () => {
       const policy = this.world.settings["permissions.policy"] as
@@ -1761,6 +1988,8 @@ export class MockGateway implements GatewayClient {
       this.world.settings["permissions.policy"] = { ...policy, folders: kept };
       return { revoked: true };
     },
+    // The mock never marks a folder moved, so there is nothing to confirm.
+    "access.confirmFolder": () => ({ confirmed: false }),
     "grants.list": (p) => ({
       grants: this.world.grants.filter((g) => p.includeRevoked === true || g.revokedAt == null),
     }),
@@ -1958,6 +2187,13 @@ export class MockGateway implements GatewayClient {
         restoredFrom: p.version,
       });
     },
+    "files.starterFolders": () => ({ folders: this.starterFolders }),
+    "files.requestShare": (p) => {
+      this.shareRequests.push({ threadId: p.threadId, path: p.path, access: p.access });
+      return this.shareAnswer === "already"
+        ? { status: "already" as const }
+        : { status: "pending" as const, approvalId: "apr_share_1" };
+    },
     "files.list": (p) => {
       this.assertGranted(p.path);
       const node = this.world.files[p.path];
@@ -1976,6 +2212,28 @@ export class MockGateway implements GatewayClient {
         }))
         .sort((a, b) => rank(a.kind) - rank(b.kind) || a.name.localeCompare(b.name));
       return { entries, nextOffset: null };
+    },
+    "files.write": (p) => {
+      if (!this.admin) fail("forbidden", "saving a file requires operator.admin");
+      const policy = this.world.settings["permissions.policy"] as
+        | { folders?: { path: string; mode: "ro" | "rw" }[] }
+        | undefined;
+      const hits = (policy?.folders ?? []).filter((f) => p.path.startsWith(`${f.path}/`));
+      const best = hits.sort((a, b) => b.path.length - a.path.length)[0];
+      if (best === undefined) return fail("forbidden", `${p.path} is outside every granted folder`);
+      if (best.mode !== "rw") fail("forbidden", `${best.path} is granted read-only`);
+      const node = this.world.files[p.path];
+      if (node === undefined) return fail("not_found", `${p.path} does not exist`);
+      if (node.kind !== "file") return fail("invalid_params", `${p.path} is not a file`);
+      const modifiedAt = this.now();
+      const current = `${new TextEncoder().encode(node.text).length}-${node.modifiedAt ?? modifiedAt}`;
+      if (p.ifMatch !== current) return fail("conflict", `${p.path} changed since you opened it`);
+      this.fileWrites.push({ path: p.path, content: p.content, ifMatch: p.ifMatch });
+      const size = new TextEncoder().encode(p.content).length;
+      // A fresh stamp each save, so the next etag differs even when the length does not.
+      const stamp = new Date(Date.parse(modifiedAt) + this.fileWrites.length * 1000).toISOString();
+      this.world.files[p.path] = { kind: "file", text: p.content, modifiedAt: stamp };
+      return { etag: `${size}-${stamp}`, modifiedAt: stamp, size };
     },
     "files.read": (p) => {
       if ((p.path === undefined) === (p.libraryPath === undefined))
@@ -2021,11 +2279,26 @@ export class MockGateway implements GatewayClient {
           (p.kind === undefined || i.kind === p.kind) &&
           (p.taskId === undefined || i.taskId === p.taskId) &&
           (p.threadId === undefined || i.threadId === p.threadId) &&
+          (p.quarantined === undefined || (i.quarantined === true) === p.quarantined) &&
           (p.query === undefined || i.name.toLowerCase().includes(p.query.toLowerCase())),
       ),
       nextCursor: null,
     }),
     "library.get": (p) => ({ item: this.find(this.world.library, p.itemId, "library item") }),
+    // The Gateway's shapes: a pick under a sensitive root is refused, the rest come back with
+    // their name, size and type.
+    "chat.attachFiles": (p) => {
+      const sensitive = (path: string) => /\/\.(ssh|psyche)\//.test(path);
+      return {
+        files: p.paths
+          .filter((path) => !sensitive(path))
+          .map((path) => {
+            const name = path.slice(path.lastIndexOf("/") + 1);
+            return { path, name, size: 12, type: mockMime(name) };
+          }),
+        refused: p.paths.filter(sensitive).map((path) => ({ path, reason: "sensitive" as const })),
+      };
+    },
     "library.upload": (p) => {
       const item: LibraryItem = {
         id: this.id("lib"),
@@ -2048,6 +2321,24 @@ export class MockGateway implements GatewayClient {
     "library.delete": (p) => {
       this.world.library = this.world.library.filter((i) => i.id !== p.itemId);
       return { ok: true };
+    },
+    "library.quarantine.decide": (p) => {
+      const item = this.world.library.find((i) => i.id === p.itemId);
+      if (item === undefined) return fail("not_found", `library item ${p.itemId} not found`);
+      if (item.quarantined !== true) {
+        return fail("invalid_params", `${item.name} is not in quarantine`);
+      }
+      if (p.decision === "delete") {
+        this.world.library = this.world.library.filter((i) => i.id !== p.itemId);
+        return { ok: true, item: null };
+      }
+      // The Gateway releases only files from outside; a meeting recording or voice note stays.
+      if (!["download", "channel", "connector"].includes(item.origin)) {
+        return fail("invalid_params", `${item.name} cannot be trusted; delete it instead`);
+      }
+      const { quarantined: _q, ...released } = item;
+      this.world.library = this.world.library.map((i) => (i.id === p.itemId ? released : i));
+      return { ok: true, item: released };
     },
 
     // --- The teaching loop (T0 #678; docs/agent/teaching-loop-2026.md §7) ---------------
@@ -2289,6 +2580,7 @@ export class MockGateway implements GatewayClient {
       this.emit("goal.updated", { goal });
       return { goal };
     },
+    "goals.suggest": () => ({ ideaId: null }),
     "goals.milestone": (p) => {
       const list = this.goalMilestones(p.goalId);
       if (p.milestoneId === undefined) {
@@ -2414,6 +2706,16 @@ export class MockGateway implements GatewayClient {
       }
       return { provider };
     },
+    "keys.status": () => ({ keys: this.keyStatuses() }),
+    "keys.set": (p) => {
+      if (p.key.trim() === "") fail("invalid_params", "the key is empty");
+      this.savedKeys.add(p.id);
+      return { status: this.keyStatuses().find((k) => k.id === p.id) as never };
+    },
+    "keys.clear": (p) => {
+      this.savedKeys.delete(p.id);
+      return { status: this.keyStatuses().find((k) => k.id === p.id) as never };
+    },
     "models.setKey": (p) => {
       const provider = this.modelProvider(p.providerId);
       if (provider.local) fail("invalid_params", `${p.providerId} takes no API key`);
@@ -2468,6 +2770,39 @@ export class MockGateway implements GatewayClient {
         .slice(0, p.limit ?? 200),
     }),
     "automations.run": () => ({ runId: this.id("run"), taskId: this.id("task") }),
+    "automations.cancelRetry": (p) => {
+      const found = (this.world.automationRuns ?? []).find((r) => r.id === p.runId);
+      if (!found) return fail("not_found", `run ${p.runId} not found`);
+      const run = {
+        ...found,
+        status: "cancelled" as const,
+        endedAt: new Date().toISOString(),
+        retryAt: null,
+      };
+      return { run };
+    },
+    "storage.usage": () => ({
+      categories: [
+        { id: "database" as const, bytes: 48_000_000, clearable: false },
+        { id: "memoryIndex" as const, bytes: 12_000_000, clearable: false },
+        { id: "library" as const, bytes: 220_000_000, clearable: false },
+        { id: "browserProfiles" as const, bytes: 90_000_000, clearable: false },
+        {
+          id: "recordings" as const,
+          bytes: 30_000_000,
+          clearable: true,
+          reclaimableBytes: 12_000_000,
+        },
+        { id: "logs" as const, bytes: 4_000_000, clearable: false },
+        { id: "caches" as const, bytes: 16_000_000, clearable: true, reclaimableBytes: 16_000_000 },
+        { id: "other" as const, bytes: 2_000_000, clearable: false },
+      ],
+      totalBytes: 422_000_000,
+    }),
+    "storage.clearCache": () => ({
+      cleared: ["caches" as const, "recordings" as const],
+      freedBytes: 46_000_000,
+    }),
     "automations.runs": (p) => {
       const all = (this.world.automationRuns ?? [])
         .filter((r) => r.automationId === p.automationId)
@@ -2615,6 +2950,37 @@ export class MockGateway implements GatewayClient {
       });
       return { path: p.path, bytes: content.length, updatedAt: this.now(), etag: etagOf(content) };
     },
+    "memory.persona.get": () => {
+      const file = this.world.memoryFiles["IDENTITY.md"] ?? "";
+      return { identity: identityFields(file), description: "", etag: etagOf(file) };
+    },
+    "memory.persona.edit": (p) => {
+      let file = this.world.memoryFiles["IDENTITY.md"] ?? "---\n---\n";
+      const changed: string[] = [];
+      for (const [key, value] of Object.entries(p.fields ?? {})) {
+        if (typeof value !== "string") continue;
+        const line = `${key}: ${JSON.stringify(value)}`;
+        const existing = new RegExp(`^${key}:.*$`, "m");
+        file = existing.test(file)
+          ? file.replace(existing, line)
+          : file.replace("\n---\n", `\n${line}\n---\n`);
+        changed.push(key);
+      }
+      this.world.memoryFiles["IDENTITY.md"] = file;
+      this.emit("memory.file.changed", {
+        path: "IDENTITY.md",
+        etag: etagOf(file),
+        source: "api",
+        provenance: "owner",
+      });
+      return {
+        identity: identityFields(file),
+        description: "",
+        etag: etagOf(file),
+        changed,
+        avatarRequested: changed.includes("name") || changed.includes("creature"),
+      };
+    },
     "memory.notes.list": () => ({
       notes: Object.entries(this.world.memoryFiles)
         .filter(([path]) => path.startsWith(AGENT_NOTES_DIR))
@@ -2623,7 +2989,9 @@ export class MockGateway implements GatewayClient {
           updatedAt: this.now(),
           text: content.slice(0, 600),
           bytes: content.length,
-          provenance: /\[untrusted\]/i.test(content) ? ("untrusted" as const) : ("agent" as const),
+          provenance: /\[untrusted[\]:]/i.test(content)
+            ? ("untrusted" as const)
+            : ("agent" as const),
         })),
     }),
     "memory.notes.delete": (p) => {
@@ -2763,6 +3131,38 @@ export class MockGateway implements GatewayClient {
       this.world.connectors = this.world.connectors.filter((x) => x.id !== c.id);
       return { ok: true as const };
     },
+    "connectors.googleClient": () => {
+      const c = this.world.googleClient;
+      if (c === undefined)
+        return {
+          configured: true,
+          clientId: "1234567890-abc.apps.googleusercontent.com",
+          hasSecret: false,
+          source: "config" as const,
+        };
+      return c === null
+        ? { configured: false, hasSecret: false, source: null }
+        : { configured: true, clientId: c.clientId, hasSecret: c.hasSecret, source: c.source };
+    },
+    "connectors.googleClient.set": (p) => {
+      if (this.world.googleClient?.source === "config")
+        throw new PsycheError("conflict", "The Google client is set in config.json", {
+          details: { reason: "client_from_config" },
+        });
+      this.world.googleClient = {
+        clientId: p.clientId,
+        hasSecret: p.clientSecret !== undefined,
+        source: "app",
+      };
+      return {
+        status: {
+          configured: true,
+          clientId: p.clientId,
+          hasSecret: p.clientSecret !== undefined,
+          source: "app" as const,
+        },
+      };
+    },
     "connectors.catalogue": () => ({ entries: this.world.catalogue ?? connectorCatalogue() }),
     "connectors.configure": (p) => {
       const c = this.find(this.world.connectors, p.connectorId, "connector");
@@ -2831,7 +3231,25 @@ export class MockGateway implements GatewayClient {
       return { ok: c.status === "connected", status: c.status, checkedAt: Date.parse(this.now()) };
     },
     "channels.list": () => ({ channels: this.world.channels }),
-    "devices.list": () => ({ devices: this.world.devices }),
+    "devices.list": () => {
+      if (!this.admin) fail("forbidden", "devices.list requires operator.admin");
+      return { devices: this.world.devices };
+    },
+    "browser.recordings.list": () => ({
+      recordings: (this.world.browserRecordings ?? []).map((r) => r.recording),
+      nextCursor: null,
+    }),
+    "browser.recordings.get": (p) => {
+      const r = (this.world.browserRecordings ?? []).find((x) => x.recording.id === p.recordingId);
+      if (r === undefined) return fail("not_found", `recording ${p.recordingId} not found`);
+      return { recording: r.recording, events: r.events, frames: r.frames.map((f) => f.frame) };
+    },
+    "browser.recordings.frame": (p) => {
+      const r = (this.world.browserRecordings ?? []).find((x) => x.recording.id === p.recordingId);
+      const f = r?.frames.find((x) => x.frame.seq === p.seq);
+      if (f === undefined) return fail("not_found", `frame ${p.seq} not found`);
+      return { frame: f.frame, mime: f.mime, data: f.data };
+    },
     "browser.botAuth.status": () => ({ status: structuredClone(this.world.botAuth) }),
     "browser.botAuth.rotate": () => {
       // A fresh fake thumbprint each time, as a real rotation gives.
@@ -2844,6 +3262,28 @@ export class MockGateway implements GatewayClient {
       return { status: structuredClone(this.world.botAuth) };
     },
     "skills.list": () => ({ skills: this.world.skills }),
+    "plugins.list": () => ({
+      enabled: this.world.pluginsEnabled,
+      plugins: structuredClone(this.world.plugins),
+    }),
+    "plugins.setEnabled": (p) => {
+      const current =
+        this.world.plugins.find((x) => x.name === p.name) ??
+        fail("not_found", `no plugin ${p.name}`);
+      const plugin: PluginSummarySchema = {
+        ...current,
+        enabled: p.enabled,
+        status: !p.enabled ? "disabled" : this.world.pluginsEnabled ? "active" : "off",
+      };
+      this.world.plugins = this.world.plugins.map((x) => (x === current ? plugin : x));
+      return { plugin: structuredClone(plugin) };
+    },
+    "plugins.remove": (p) => {
+      if (!this.world.plugins.some((x) => x.name === p.name))
+        return fail("not_found", `no plugin ${p.name}`);
+      this.world.plugins = this.world.plugins.filter((x) => x.name !== p.name);
+      return { ok: true as const };
+    },
     "skills.commands": () => ({
       commands: this.world.skills
         .filter((x) => x.enabled && x.userInvocable)
@@ -2953,6 +3393,23 @@ export class MockGateway implements GatewayClient {
         fail("approval_required", "adding an MCP server needs its approved trust card");
       this.mcpProposals.delete(p.proposalId);
       const s = staged.proposal.server;
+      if (staged.update !== undefined) {
+        // An approved edit: the server takes the new config and keeps running.
+        const cfg = this.mcpConfigs.get(s.id) ?? fail("not_found", `no MCP server ${s.id}`);
+        const live =
+          this.mcpServers.find((x) => x.id === s.id) ?? fail("not_found", `no MCP server ${s.id}`);
+        const ch = staged.update;
+        if (ch.name !== undefined) cfg.name = live.name = ch.name;
+        if (ch.command !== undefined) cfg.command = [...ch.command];
+        if (ch.url !== undefined) cfg.url = ch.url;
+        if (ch.allowedDomains !== undefined) cfg.allowedDomains = [...ch.allowedDomains];
+        for (const [k, v] of Object.entries(ch.env ?? {})) {
+          if (v === null) cfg.envNames = cfg.envNames.filter((n) => n !== k);
+          else if (!cfg.envNames.includes(k)) cfg.envNames.push(k);
+        }
+        live.connected = true;
+        return { server: structuredClone(live) };
+      }
       const made = this.mcpServers.find((x) => x.id === s.id && x.madeBy === "psyche");
       if (made !== undefined) {
         // An update of a connector Psyche wrote: the new code starts, the entry stays.
@@ -2970,6 +3427,15 @@ export class MockGateway implements GatewayClient {
       };
       this.mcpServers.push(server);
       const t = s.transport;
+      this.mcpConfigs.set(s.id, {
+        id: s.id,
+        name: s.name,
+        kind: t.kind === "stdio" ? "command" : "url",
+        ...(t.kind === "stdio" ? { command: [...t.command] } : { url: t.url }),
+        allowedDomains: [...(s.allowedDomains ?? [])],
+        envNames: t.kind === "stdio" ? Object.keys(t.env ?? {}) : [],
+        editable: true,
+      });
       this.mcpDetail.set(s.id, {
         tools: staged.proposal.tools.map((x) => ({
           name: x.name,
@@ -3083,6 +3549,106 @@ export class MockGateway implements GatewayClient {
       this.mcpProposals.set(proposal.id, { proposal, approvalId: approval.id });
       return { proposal, approval };
     },
+    "mcp.config": (p) => {
+      this.mcpServer(p.serverId);
+      const c = this.mcpConfigs.get(p.serverId) ?? fail("not_found", `no MCP server ${p.serverId}`);
+      return { config: structuredClone(c) };
+    },
+    "mcp.update": (p) => {
+      const live = this.mcpServer(p.id);
+      const cfg = this.mcpConfigs.get(p.id) ?? fail("not_found", `no MCP server ${p.id}`);
+      const { name, ...rest } = p.changes;
+      if (Object.keys(rest).length === 0) {
+        // Only the display name: applies at once, no card.
+        if (name !== undefined) cfg.name = live.name = name;
+        return { applied: true, server: structuredClone(live) };
+      }
+      const now = this.now();
+      const proposal: McpProposal = {
+        id: this.id("mcpp"),
+        server: {
+          id: p.id,
+          name: name ?? live.name,
+          transport:
+            cfg.kind === "url"
+              ? { kind: "http", url: rest.url ?? cfg.url ?? "https://mcp.example.com/mcp" }
+              : { kind: "stdio", command: rest.command ?? cfg.command ?? [] },
+        },
+        tools: [
+          {
+            name: "search_files",
+            description: "Search files by name.",
+            sideEffect: "read",
+            warnings: [],
+            blocked: false,
+          },
+        ],
+        toolsListHash: `sha256:${"d".repeat(64)}`,
+        network: { reaches: cfg.kind === "url", hosts: [] },
+        isolation: cfg.kind === "url" ? "remote" : "srt",
+        expiresAt: Date.parse(now) + 30 * 60_000,
+      };
+      const approval = this.requestApproval({
+        id: this.id("apr"),
+        kind: "skill_install",
+        summary: `Update MCP server "${live.name}"`,
+        details: {
+          kind: "mcp_server",
+          id: p.id,
+          name: live.name,
+          replaces: true,
+          tools: ["read search_files"],
+          change: {
+            fields: Object.keys(rest),
+            ...(rest.command === undefined
+              ? {}
+              : { oldCommand: (cfg.command ?? []).join(" "), newCommand: rest.command.join(" ") }),
+            ...(rest.url === undefined ? {} : { oldUrl: cfg.url ?? "", newUrl: rest.url }),
+            ...(rest.env === undefined
+              ? {}
+              : {
+                  envAdded: Object.entries(rest.env)
+                    .filter(([k, v]) => v !== null && !cfg.envNames.includes(k))
+                    .map(([k]) => k),
+                  envRemoved: Object.entries(rest.env)
+                    .filter(([, v]) => v === null)
+                    .map(([k]) => k),
+                }),
+          },
+        },
+        bindingHash: `sha256:${"e".repeat(64)}`,
+        grantKey: `sha256:${"f".repeat(64)}`,
+        requestedBy: { runId: null, taskId: null, threadId: null },
+        sideEffect: "destructive",
+        surfaces: ["desktop", "web"],
+        scopesOffered: ["once"],
+        deviceOnly: true,
+        requiresAuthentication: false,
+        taint: false,
+        status: "pending",
+        scopeGranted: null,
+        decidedBy: null,
+        requestedAt: now,
+        expiresAt: new Date(Date.parse(now) + 30 * 60_000).toISOString(),
+        decidedAt: null,
+        grantId: null,
+      });
+      this.mcpProposals.set(proposal.id, {
+        proposal,
+        approvalId: approval.id,
+        update: structuredClone(p.changes),
+      });
+      return { applied: false, server: structuredClone(live), proposal, approval };
+    },
+    "mcp.test": (p) => {
+      const s = this.mcpServer(p.id);
+      if (s.enabled === false) fail("unavailable", "the server is paused; turn it on to test it");
+      if (this.mcpTestError !== null) {
+        return { ok: false, toolCount: 0, tools: [] as string[], error: this.mcpTestError };
+      }
+      const tools = this.mcpDetailOf(p.id).tools.map((x) => x.name);
+      return { ok: true, toolCount: tools.length, tools };
+    },
     "mcp.tools": (p) => {
       const s = this.mcpServer(p.serverId);
       const live = s.connected && s.enabled !== false;
@@ -3099,6 +3665,12 @@ export class MockGateway implements GatewayClient {
         fail("not_found", `${p.serverId} has no tool ${p.tool}`);
       tool.enabled = p.enabled;
       return { tools: structuredClone(this.mcpDetailOf(p.serverId).tools) };
+    },
+    "mcp.handlesMoney.set": (p) => {
+      const s = this.mcpServer(p.serverId);
+      if (p.mode === "auto") delete s.handlesMoney;
+      else s.handlesMoney = p.mode === "always";
+      return { server: structuredClone(s) };
     },
     "mcp.setEnabled": (p) => {
       const s = this.mcpServer(p.serverId);
@@ -3327,6 +3899,67 @@ export class MockGateway implements GatewayClient {
         result: { shortcuts: this.world.shortcuts ?? appleShortcuts() },
       };
     },
+    "vault.onePassword.status": (p) => {
+      const { status } = this.onePasswordOf();
+      // Like the Gateway: opening the panel runs no `op` unless connected or asked to probe.
+      if (
+        p.probe === true ||
+        status.connected ||
+        status.problem !== undefined ||
+        status.state === "not_installed"
+      )
+        return status;
+      const { account: _a, ...rest } = status;
+      return { ...rest, state: "found" as const };
+    },
+    "vault.onePassword.test": () => {
+      const op = this.onePasswordOf();
+      if (op.status.state !== "signed_in")
+        fail("unavailable", "1Password is not ready", { reason: op.status.state });
+      return { status: op.status, vaultCount: op.vaultCount ?? 2 };
+    },
+    "vault.onePassword.connect": () => {
+      const op = this.onePasswordOf();
+      if (op.status.managedBy === "config")
+        fail("conflict", "config.json supplies 1Password", { reason: "managed_by_config" });
+      if (op.status.state !== "signed_in")
+        fail("conflict", "1Password is not signed in to the CLI yet", { reason: op.status.state });
+      op.status = { ...op.status, connected: true };
+      return op.status;
+    },
+    "vault.onePassword.disconnect": () => {
+      const op = this.onePasswordOf();
+      op.status = { ...op.status, connected: false };
+      return op.status;
+    },
+    "vault.status": () => ({ status: this.vaultOf().status }),
+    "vault.setup": () => {
+      const vault = this.vaultOf();
+      if (vault.status.state !== "uninitialized") fail("conflict", "a vault already exists here");
+      vault.recoveryKey = "MOCK-ABCD-EFGH-WXYZ";
+      vault.status = {
+        ...vault.status,
+        state: "unlocked",
+        slots: ["key_file", "recovery"],
+        recoveryConfirmed: false,
+      };
+      return { status: vault.status, recoveryKey: vault.recoveryKey };
+    },
+    "vault.confirmRecovery": (p) => {
+      const vault = this.vaultOf();
+      if (vault.status.state === "uninitialized") fail("not_found", "no vault");
+      if (vault.status.state === "locked") fail("unauthorized", "the vault is locked");
+      const expected = vault.recoveryKey?.split("-").at(-1) ?? "";
+      if (expected === "" || p.lastGroup.trim().toUpperCase() !== expected)
+        fail("invalid_params", "that is not the last group of the recovery key");
+      vault.status = { ...vault.status, recoveryConfirmed: true };
+      return { status: vault.status };
+    },
+    "vault.unlock": () => {
+      const vault = this.vaultOf();
+      vault.status = { ...vault.status, state: "unlocked" };
+      return { status: vault.status };
+    },
     "vault.list": () => ({ credentials: this.world.credentials }),
     "vault.add": (p) => {
       // The mock never keeps the secret. Like the vault, it refuses card-like numbers.
@@ -3406,6 +4039,36 @@ export class MockGateway implements GatewayClient {
         ownerConnectorId: null,
       });
       return { credential };
+    },
+    "payments.link.status": () => this.linkStatus(),
+    "payments.link.connect": (p) => {
+      if (this.linkConnectError) throw this.linkConnectError;
+      return this.setLinkStatus({
+        state: "signed_out",
+        cli: { path: p.path, source: "saved" },
+        candidates: [],
+      });
+    },
+    "payments.link.signIn": () => {
+      const cli = this.linkStatus().cli ?? fail("conflict", "connect the Link CLI first");
+      return this.setLinkStatus({
+        state: "signing_in",
+        cli,
+        candidates: [],
+        signIn: {
+          verificationUrl: "https://login.link.com/device?c=1",
+          phrase: "blue-otter-moon",
+          expiresAt: Date.now() + 5 * 60_000,
+        },
+      });
+    },
+    "payments.link.disconnect": () => {
+      const cli = this.linkStatus().cli;
+      delete this.world.linkMethods;
+      return this.setLinkStatus({
+        state: cli === undefined ? "cli_missing" : "cli_found",
+        candidates: cli === undefined ? [] : [{ path: cli.path }],
+      });
     },
     "vault.payments.methods": () => ({ methods: this.linkWallet() }),
     "vault.payments.list": (p) => {
@@ -3510,11 +4173,53 @@ export class MockGateway implements GatewayClient {
     "channels.identities.list": () => ({ identities: this.world.channelIdentities }),
     "channels.pairing.approve": (p) => ({ pairingRequest: this.decidePairing(p, "approved") }),
     "channels.pairing.deny": (p) => ({ pairingRequest: this.decidePairing(p, "denied") }),
+    "channels.secrets.set": (p) => {
+      const key = `${p.type}|${p.account}`;
+      const have = new Set(this.channelSecrets.get(key) ?? []);
+      have.add(p.name);
+      this.channelSecrets.set(key, [...have]);
+      return { set: [...have] };
+    },
+    "channels.secrets.clear": (p) => {
+      const key = `${p.type}|${p.account}`;
+      const left = (this.channelSecrets.get(key) ?? []).filter((n) => n !== p.name);
+      this.channelSecrets.set(key, left);
+      return { set: left };
+    },
+    "channels.secrets.status": (p) => ({
+      required: [],
+      set: this.channelSecrets.get(`${p.type}|${p.account}`) ?? [],
+    }),
+    "channels.get": (p) => ({
+      channel: this.find(this.world.channels, p.channelId, "channel") as Channel,
+    }),
     "channels.configure": (p) => {
-      const { channelId, ...fields } = p;
-      const current =
-        channelId === undefined ? undefined : this.find(this.world.channels, channelId, "channel");
-      if (current === undefined) fail("not_implemented", "MockGateway does not create channels");
+      const { channelId, approvalId: _approval, ...fields } = p;
+      if (channelId === undefined) {
+        if (fields.type === undefined || fields.account === undefined) {
+          return fail("invalid_params", "a new channel needs a type and an account");
+        }
+        const now = this.now();
+        const created: Channel = {
+          id: this.id("chn"),
+          type: fields.type,
+          account: fields.account,
+          dmPolicy: fields.dmPolicy ?? "pairing",
+          allowFrom: fields.allowFrom ?? [],
+          groupAllowFrom: fields.groupAllowFrom ?? [],
+          requireMention: fields.requireMention ?? true,
+          ownerIds: fields.ownerIds ?? [],
+          dmScope: fields.dmScope ?? "per-channel-peer",
+          nodeId: fields.nodeId ?? null,
+          status: fields.status ?? "active",
+          config: fields.config ?? {},
+          createdAt: now,
+          updatedAt: now,
+        };
+        this.world.channels = [...this.world.channels, created];
+        return { channel: created };
+      }
+      const current = this.find(this.world.channels, channelId, "channel");
       const channel: Channel = {
         ...(current as Channel),
         ...fields,
@@ -3554,7 +4259,10 @@ export class MockGateway implements GatewayClient {
       trustedProxy: true,
     }),
     "devices.setupToken.create": (p) => {
-      if (p.scopes.some((s) => (s as string) === "node")) {
+      const machine = p.purpose === "machine";
+      const scopes = machine ? [] : (p.scopes ?? []);
+      if (!machine && scopes.length === 0) fail("invalid_params", "scopes is required");
+      if (scopes.some((s) => (s as string) === "node")) {
         fail("invalid_params", "A setup token grants operator scopes only");
       }
       const now = this.now();
@@ -3564,7 +4272,8 @@ export class MockGateway implements GatewayClient {
       if (live.length >= 3) fail("rate_limited", "Too many unused setup tokens");
       const setupToken = {
         id: this.id("stk"),
-        scopes: [...new Set(p.scopes)],
+        scopes: machine ? (["node"] as const).map((s) => s) : [...new Set(scopes)],
+        ...(machine ? { purpose: "machine" as const } : {}),
         createdAt: now,
         expiresAt: new Date(Date.parse(now) + 10 * 60_000).toISOString(),
         usedAt: null,
@@ -3575,6 +4284,26 @@ export class MockGateway implements GatewayClient {
       this.setupTokens.unshift(setupToken);
       const gatewayFingerprint = `sha256:${"cd34".repeat(16)}`;
       const token = `pst_${String(this.counter).padStart(43, "A")}`;
+      if (machine) {
+        const lan = p.via === "lan";
+        const gatewayUrl = lan
+          ? "https://studio-mac.local:7979"
+          : "https://studio-mac.tail1234.ts.net";
+        return {
+          setupToken,
+          link: formatMachineLink({
+            gatewayUrl,
+            gatewayKey: "AwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwM",
+            ...(lan ? { certPin: "CQkJCQkJCQkJCQkJCQkJCQkJCQkJCQkJCQkJCQkJCQk" } : {}),
+            setupToken: token,
+            hostName: "studio-mac",
+          }),
+          version: 1,
+          gatewayUrl,
+          gatewayFingerprint,
+          hostName: "studio-mac",
+        };
+      }
       if (p.via === "lan") {
         return {
           setupToken,
@@ -3606,6 +4335,22 @@ export class MockGateway implements GatewayClient {
       };
     },
     "devices.setupToken.list": () => ({ setupTokens: [...this.setupTokens] }),
+    "machines.list": () => ({ machines: structuredClone(this.world.machines ?? []) }),
+    "machines.rename": (p) => {
+      const machines = this.world.machines ?? [];
+      const found =
+        machines.find((m) => m.id === p.id) ?? fail("not_found", `machine ${p.id} not found`);
+      if (!machineNameOk(p.name))
+        return fail("invalid_params", "That is not a name a computer can have");
+      const key = p.name.toLowerCase();
+      if (machines.some((m) => m.id !== p.id && m.name.toLowerCase() === key)) {
+        return fail("conflict", "That name is taken or reserved");
+      }
+      const machine = { ...found, name: p.name };
+      this.world.machines = machines.map((m) => (m.id === p.id ? machine : m));
+      this.emit("machines.changed", { machine, change: "updated" });
+      return { machine };
+    },
     "devices.setupToken.revoke": (p) => {
       const index = this.setupTokens.findIndex((s) => s.id === p.id);
       const found = this.setupTokens[index] ?? fail("not_found", `setup token ${p.id} not found`);
@@ -3726,6 +4471,16 @@ function sleep(ms: number): Promise<void> {
 }
 
 /** Stable short etag for mock files. */
+/** The persona fields of an IDENTITY.md, read the way the Gateway's frontmatter parser reads them. */
+function identityFields(file: string): Record<string, string> {
+  const out: Record<string, string> = {};
+  for (const key of ["name", "creature", "vibe", "tagline", "emoji"]) {
+    const raw = new RegExp(`^${key}:\\s*(.*)$`, "m").exec(file)?.[1]?.trim();
+    if (raw) out[key] = raw.replace(/^"(.*)"$/, "$1");
+  }
+  return out;
+}
+
 function etagOf(content: string): string {
   let h = 2166136261;
   for (let i = 0; i < content.length; i++) {

@@ -2,11 +2,12 @@ import Foundation
 import PsycheHelperCore
 import PsycheHelperSystem
 import PsycheProtocol
+import PsycheWire
 import Testing
 
 @Suite("capability manifest")
 struct ManifestTests {
-    let runtime = HelperRuntime(log: HelperLog(echo: { _ in }), environment: ["PSYCHE_HOME": NSTemporaryDirectory()])
+    let runtime = HelperRuntime(identity: DeviceIdentity(), log: HelperLog(echo: { _ in }), environment: ["PSYCHE_HOME": NSTemporaryDirectory()])
 
     @Test func namesAreUniqueAndGrouped() {
         let names = runtime.registry.ordered.map(\.spec.name)
@@ -15,7 +16,7 @@ struct ManifestTests {
         #expect(groups.isSuperset(of: ["computer", "apps", "permissions", "notify"]))
         for required in ["computer.ax_tree", "computer.click", "computer.double_click", "computer.right_click", "computer.type",
                          "computer.key", "computer.scroll", "computer.drag", "computer.screenshot", "computer.screenshot_pick", "screen.context",
-                         "apps.open", "apps.focus", "apps.list", "apps.applescript", "apps.jxa", "apps.shortcut_run",
+                         "apps.open", "apps.resolve", "apps.focus", "apps.list", "apps.applescript", "apps.jxa", "apps.shortcut_run",
                          "permissions.status", "permissions.request", "notify.show"] {
             #expect(names.contains(required), "missing \(required)")
         }
@@ -35,6 +36,7 @@ struct ManifestTests {
         #expect(byName["computer.click"]?.sideEffect == .write)
         #expect(byName["apps.applescript"]?.sideEffect == .destructive)
         #expect(byName["apps.shortcut_run"]?.sideEffect == .destructive)
+        #expect(byName["apps.resolve"]?.sideEffect == .read)
         for (name, spec) in byName where name.hasPrefix("computer.") && name != "computer.end_session" && name != "computer.screenshot_pick" {
             #expect(spec.targetKind == .app, "\(name) targetKind")
         }
@@ -88,7 +90,7 @@ struct AttentionMonitorTests {
 @Suite("permissions.status for onboarding and doctor (packaging)")
 struct PermissionsStatusBundleTests {
     @Test func reportsEveryPermissionAndTheBundle() async throws {
-        let runtime = HelperRuntime(log: HelperLog(echo: { _ in }), environment: ["PSYCHE_HOME": NSTemporaryDirectory()])
+        let runtime = HelperRuntime(identity: DeviceIdentity(), log: HelperLog(echo: { _ in }), environment: ["PSYCHE_HOME": NSTemporaryDirectory()])
         let cap = try #require(runtime.registry["permissions.status"])
         let r = try await cap.invoke(InvocationContext(invocationId: "i", capability: "permissions.status", params: [:], approvalId: nil, emit: { _ in })).result
         let rows = try #require(r["permissions"]?.arrayValue)

@@ -1,5 +1,6 @@
 import { existsSync } from "node:fs";
-import { join } from "node:path";
+import { delimiter, join } from "node:path";
+import type { Runner } from "../main/supervisor-base.ts";
 
 /**
  * Settings → Browser → "Open the Psyche Chrome profile" (feature I13): the owner opens the
@@ -81,12 +82,69 @@ export function parseRegDefault(out: string): string | undefined {
   return undefined;
 }
 
+/** The Chromium browsers Linux can open the profile in, in order of preference (design §10.6). */
+export const LINUX_CHROMIUM_COMMANDS = [
+  { name: "Google Chrome", command: "google-chrome" },
+  { name: "Google Chrome", command: "google-chrome-stable" },
+  { name: "Chromium", command: "chromium" },
+  { name: "Chromium", command: "chromium-browser" },
+  { name: "Brave", command: "brave-browser" },
+  { name: "Microsoft Edge", command: "microsoft-edge" },
+] as const;
+
+/** The same browsers as Flatpaks, tried after every one on the PATH. */
+export const LINUX_CHROMIUM_FLATPAKS = [
+  { name: "Google Chrome", id: "com.google.Chrome" },
+  { name: "Chromium", id: "org.chromium.Chromium" },
+  { name: "Brave", id: "com.brave.Browser" },
+  { name: "Microsoft Edge", id: "com.microsoft.Edge" },
+] as const;
+
+export interface LinuxBrowser {
+  name: string;
+  command: string;
+  /** Arguments before the profile's (empty for a command on the PATH). */
+  args: string[];
+  /** A Flatpak sandbox cannot see the profile folder unless it is granted. */
+  flatpakId?: string;
+}
+
+export interface LinuxBrowserLookup {
+  run: Runner;
+  env?: NodeJS.ProcessEnv;
+  exists?: (path: string) => boolean;
+}
+
+/**
+ * Finds a Chromium browser on Linux: a command on the PATH first (Chrome before Chromium, Brave,
+ * Edge: the profile is Chrome's), then a Flatpak (`flatpak info <id>` succeeds when installed).
+ */
+export async function findLinuxChromium(
+  lookup: LinuxBrowserLookup,
+): Promise<LinuxBrowser | undefined> {
+  const exists = lookup.exists ?? existsSync;
+  const dirs = (lookup.env ?? process.env).PATH?.split(delimiter).filter((d) => d !== "") ?? [];
+  for (const b of LINUX_CHROMIUM_COMMANDS) {
+    if (dirs.some((d) => exists(join(d, b.command)))) {
+      return { name: b.name, command: b.command, args: [] };
+    }
+  }
+  for (const f of LINUX_CHROMIUM_FLATPAKS) {
+    if ((await lookup.run("flatpak", ["info", f.id])).code === 0) {
+      return { name: f.name, command: "flatpak", args: ["run", f.id], flatpakId: f.id };
+    }
+  }
+  return undefined;
+}
+
 /** How to start Google Chrome on this platform with that profile, or null when unsupported. */
 export function realChromeOpenCommand(
   platform: NodeJS.Platform,
   userDataDir: string,
   /** Windows: the browser `findWindowsChromium` found. */
   windowsBrowser?: string,
+  /** Linux: the browser `findLinuxChromium` found (default: `google-chrome` on the PATH). */
+  linuxBrowser?: LinuxBrowser,
 ): { command: string; args: string[] } | null {
   const chromeArgs = [
     `--user-data-dir=${userDataDir}`,
@@ -97,7 +155,15 @@ export function realChromeOpenCommand(
     // `-n`: a new instance for this data dir, separate from the owner's running Chrome.
     return { command: "open", args: ["-n", "-a", "Google Chrome", "--args", ...chromeArgs] };
   }
-  if (platform === "linux") return { command: "google-chrome", args: chromeArgs };
+  if (platform === "linux") {
+    if (linuxBrowser === undefined) return { command: "google-chrome", args: chromeArgs };
+    // The sandbox sees the profile folder through `--filesystem=<dir>` and nothing else new.
+    const head =
+      linuxBrowser.flatpakId === undefined
+        ? linuxBrowser.args
+        : ["run", `--filesystem=${userDataDir}`, linuxBrowser.flatpakId];
+    return { command: linuxBrowser.command, args: [...head, ...chromeArgs] };
+  }
   // A separate --user-data-dir is a separate browser instance on Windows too.
   if (platform === "win32" && windowsBrowser) return { command: windowsBrowser, args: chromeArgs };
   return null;

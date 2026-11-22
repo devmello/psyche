@@ -57,8 +57,16 @@ export class Prices {
     return base === ref ? undefined : (this.#overrides.get(base) ?? this.#models.get(base));
   }
 
-  /** Cost of one call. Unknown models cost 0 and the ledger flags them as unpriced. */
-  cost(ref: ModelRef, usage: Usage, options: { cacheTtl?: "5m" | "1h" } = {}): number | undefined {
+  /**
+   * Cost of one call. Unknown models cost 0 and the ledger flags them as unpriced. Cache writes
+   * are priced at `cacheTtl`'s rate, except `cacheWrite1h` of them (tokens the provider reports
+   * written with the 1-hour TTL), which use the 1-hour rate.
+   */
+  cost(
+    ref: ModelRef,
+    usage: Usage,
+    options: { cacheTtl?: "5m" | "1h"; cacheWrite1h?: number } = {},
+  ): number | undefined {
     const p = this.lookup(ref);
     if (p === undefined) return undefined;
     const promptTokens = usage.input + usage.cacheRead + usage.cacheWrite;
@@ -68,10 +76,13 @@ export class Prices {
     const readRate = (long ? p.aboveTokens?.cacheRead : undefined) ?? p.cacheRead ?? inRate;
     const writeRate =
       (options.cacheTtl === "1h" ? p.cacheWrite1h : undefined) ?? p.cacheWrite ?? inRate;
+    const write1hRate = p.cacheWrite1h ?? writeRate;
+    const hour = Math.min(Math.max(options.cacheWrite1h ?? 0, 0), usage.cacheWrite);
     const usd =
       (usage.input * inRate +
         usage.cacheRead * readRate +
-        usage.cacheWrite * writeRate +
+        (usage.cacheWrite - hour) * writeRate +
+        hour * write1hRate +
         usage.output * outRate) /
       1_000_000;
     return roundUsd(usd);

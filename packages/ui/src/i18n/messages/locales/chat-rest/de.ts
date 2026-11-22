@@ -51,6 +51,10 @@ export const chatRest: Partial<Catalogue> = {
     "{name}: Psyche kann diese Dateiart nicht lesen. Hänge eine PDF-, Word-, Excel-, Text- oder Bilddatei an",
   "chat.attach.refused.size": "{name} ist zu groß zum Anhängen (Bilder 5 MB, Dokumente 25 MB)",
   "chat.attach.refused.count": "{name}: Pro Nachricht sind bis zu 8 Dateien möglich",
+  "chat.attach.refused.sensitive":
+    "{name} liegt an einem geschützten Ort und kann nicht mit Psyche geteilt werden",
+  "chat.attach.refused.unreadable":
+    "{name} konnte nicht angehängt werden. Prüfe, ob die Datei noch existiert und eine Datei, kein Ordner, ist",
   "chat.message.fromWidget": "Von Widget",
   "chat.teach.notLikeThis": "So nicht",
   "chat.teach.dialog": "Psyche etwas beibringen",
@@ -131,6 +135,9 @@ export const chatRest: Partial<Catalogue> = {
   "chat.steps.approval": "Wartet auf deine Genehmigung: {summary}",
   "chat.steps.question": "Gefragt: {question}",
   "chat.steps.answered": "Beantwortet: {question}",
+  "chat.steps.earlier":
+    "{n, plural, one {# früherer Schritt erledigt} other {# frühere Schritte erledigt}}",
+  "chat.steps.needsYou": "Braucht dich",
   "chat.steps.writing": "Antwort wird geschrieben …",
   "chat.steps.thinking": "Denkt nach: {text}",
   "chat.steps.thinkingEmpty": "Denkt nach …",
@@ -192,4 +199,16 @@ export const chatRest: Partial<Catalogue> = {
   "chat.clear.mainOnly":
     "Leeren funktioniert im Hauptchat. Nutze /new für einen frischen Nebenchat.",
   "chat.commands.clear.description": "Hauptchat leeren",
+  "chat.modeSwitch.label": "Berechtigungsmodus",
+  "chat.modeSwitch.autoExplainer":
+    "Auto führt Routineaktionen innerhalb deiner Freigaben aus und fragt vor allem Sensiblen nach. Zahlungen fragen immer nach; deine Nie-Liste wird immer abgelehnt.",
+  "chat.modeSwitch.gotIt": "Verstanden",
+  "chat.modeSwitch.autoUnavailable": "Auto kann {model} nicht verwenden.",
+  "chat.modeSwitch.needsModel": "Auto braucht ein unterstütztes Modell.",
+  "chat.modeSwitch.switchModel": "Zu {model} wechseln und Auto nutzen",
+  "chat.modeSwitch.noModel":
+    "Auto braucht ein unterstütztes Modell wie Claude, GPT oder Gemini. Füge seinen Schlüssel in den Einstellungen hinzu.",
+  "chat.modeSwitch.failed": "Der Modus konnte nicht geändert werden: {reason}",
+  "chat.modeSwitch.notSaved":
+    "Für diesen Chat geändert, konnte aber nicht als Standard für neue Chats gespeichert werden.",
 };

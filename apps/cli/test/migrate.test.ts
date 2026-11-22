@@ -8,7 +8,12 @@ import { startGateway } from "@psyche/gateway";
 import { afterEach, describe, expect, it } from "vitest";
 import { run } from "../src/cli.ts";
 import type { Deps } from "../src/context.ts";
-import { knownMigrations, migrationsFromDir, planMigrations } from "../src/migrate.ts";
+import {
+  knownMigrations,
+  migrationsFromDir,
+  planMigrations,
+  restoredSealRow,
+} from "../src/migrate.ts";
 import { scriptedPrompter } from "../src/prompt.ts";
 import { closedPort } from "./helpers.ts";
 
@@ -236,4 +241,19 @@ describe("release scripts", () => {
       ).toThrow();
     },
   );
+});
+
+describe("restoredSealRow", () => {
+  it("reads the seal row a restore marker names, and nothing from a database without one", async () => {
+    const path = join(temp(), "psyche.sqlite");
+    const db = new DatabaseSync(path);
+    db.exec("CREATE TABLE other (x)");
+    db.close();
+    expect(await restoredSealRow(path)).toBeUndefined();
+    const again = new DatabaseSync(path);
+    again.exec("CREATE TABLE security_seal (id INTEGER PRIMARY KEY, gen INTEGER, mac TEXT)");
+    again.exec("INSERT INTO security_seal (id, gen, mac) VALUES (1, 12, 'cafe')");
+    again.close();
+    expect(await restoredSealRow(path)).toEqual({ gen: 12, mac: "cafe" });
+  });
 });

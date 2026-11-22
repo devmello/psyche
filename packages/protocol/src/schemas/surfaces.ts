@@ -132,6 +132,12 @@ export const NotificationAction = Type.Object(
   {
     id: Type.String(),
     label: Type.String(),
+    labelKey: Type.Optional(
+      Type.String({
+        description:
+          "Message id of the label (e.g. notice.action.keepIt), so each client words it in its own language; `label` stays the English text for old clients and the OS",
+      }),
+    ),
     destructive: Type.Optional(Type.Boolean()),
     authenticationRequired: Type.Optional(
       Type.Boolean({
@@ -143,12 +149,35 @@ export const NotificationAction = Type.Object(
   { $id: "NotificationAction" },
 );
 
+/**
+ * A Gateway-authored notice as message ids plus values, so each client words it in its own
+ * language (`t(titleKey, params)`). `title` and `body` stay the English text: an old client, an
+ * unknown id or a surface the Gateway words itself (OS, chat channels) shows those.
+ */
+export const NoticeMessage = Type.Object(
+  {
+    titleKey: Type.String({
+      description: "Message id of the title, e.g. notice.browser.chrome.title",
+    }),
+    bodyKey: Type.String({ description: "Message id of the body" }),
+    params: Type.Optional(
+      Type.Record(Type.String(), Type.Union([Type.String(), Type.Number()]), {
+        description:
+          "Values for the placeholders. The Gateway has stripped control, format and bidirectional characters from the strings; show them as plain text, never as markup.",
+      }),
+    ),
+  },
+  { $id: "NoticeMessage" },
+);
+export type NoticeMessage = Static<typeof NoticeMessage>;
+
 export const Notification = Type.Object(
   {
     id: Id,
     kind: NotificationKind,
     title: Type.String(),
     body: Type.String(),
+    message: Type.Optional(NoticeMessage),
     taskId: Nullable(Id),
     approvalId: Nullable(Id),
     route: Nullable(

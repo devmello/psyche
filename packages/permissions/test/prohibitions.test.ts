@@ -42,6 +42,22 @@ describe("hard prohibitions", () => {
     expect(d).toMatchObject({ decision: "deny", rule: "prohibition:password_typing" });
   });
 
+  it("a refusal for a secret the model would see or type says how to do it safely (vault)", async () => {
+    // Copy only: the rules above are unchanged, the refusal now names the vault path.
+    const typed = await decide(["browser.type", "write", origin("https://github.com")], {
+      params: { ref: "ref_3", text: "hunter2" },
+      meta: { field: { type: "password" } },
+    });
+    const pasted = await decide(["http.request", "write", origin("https://api.example.com")], {
+      params: { headers: { "x-api-key": j("sk-", "ant-", "q".repeat(30)) } },
+    });
+    for (const d of [typed, pasted]) {
+      expect(d.reason).toMatch(
+        /[Ss]tore (it|the password) in the vault and Psyche will fill it without seeing it$/,
+      );
+    }
+  });
+
   it("refuses a model-visible secret even if the owner pasted it", async () => {
     const d = await decide(["http.request", "write", origin("https://api.example.com")], {
       params: { headers: { "x-api-key": j("sk-", "ant-", "q".repeat(30)) } },
@@ -91,6 +107,81 @@ describe("hard prohibitions", () => {
     }
     const d = await decide(["captcha.solve", "write"]);
     expect(d.rule).toBe("prohibition:captcha");
+  });
+
+  it("an email with a bank, id or one-time code value asks on a device; a card is refused", async () => {
+    const send = (body: string) =>
+      decide(["email.send", "destructive", { kind: "recipient", value: "a@example.org" }], {
+        params: { body },
+      });
+    for (const body of [
+      `passport number: ${j("X123", "4567")}`,
+      `Routing number: ${j("0210", "00021")}, account number ${j("12345", "67890")}`,
+      "Your verification code is 482913",
+      "Your password reset code is 482913",
+      `SIN: ${j("130", "692", "544")}`,
+    ]) {
+      expect(await send(body)).toMatchObject({
+        decision: "ask",
+        deviceOnly: true,
+        scopesOffered: ["once"],
+      });
+    }
+    // A card, an IBAN or a key: refused outright, approval or not.
+    const card = await send(`pay with ${TEST_CARD}`);
+    expect(card.decision).toBe("deny");
+    // Ordinary text, with shapes that share digits and words, is not caught by this rule.
+    for (const body of [
+      "Order 112-4567890-1234567 ships Friday; tracking 1Z999AA10123456784",
+      "the source code is 100 lines; call +1 (415) 555-0132",
+    ]) {
+      const d = await send(body);
+      expect(d.rule).not.toMatch(/outbound/);
+      expect(d.deviceOnly).toBeUndefined();
+    }
+  });
+
+  it("card_entry blocks typing a RuPay or a Mir number into a form (review round 3)", async () => {
+    const luhn = (prefix: string, length: number) => {
+      const body = (prefix + "3".repeat(length)).slice(0, length - 1);
+      for (let d = 0; d < 10; d += 1) if (luhnValid(`${body}${d}`)) return `${body}${d}`;
+      throw new Error("unreachable");
+    };
+    for (const pan of [luhn("8100", 16), luhn("2200", 16), luhn("9792", 16), luhn("1100", 15)]) {
+      const d = await decide(["browser.type", "write", origin("https://shop.example.com")], {
+        params: { ref: "ref_3", text: pan },
+      });
+      expect(d).toMatchObject({ decision: "deny", rule: "prohibition:card_entry" });
+    }
+  });
+
+  it("an email body whose digit rows only the outbound reading reads as a card asks, not denies", async () => {
+    // Two-space aligned rows: no card for the strict reading, a card shape for the outbound one.
+    const rows = [TEST_CARD.match(/.{4}/g)?.join("  ") ?? "", "1200  3400  5600  7800"].join("\n");
+    const d = await decide(
+      ["email.send", "destructive", { kind: "recipient", value: "a@example.org" }],
+      { params: { body: `Totals\n${rows}` } },
+    );
+    expect(d).toMatchObject({ decision: "ask", deviceOnly: true });
+    expect(d.rule).not.toBe("prohibition:outbound_sensitive");
+  });
+
+  it("number shapes in a file write are never a card (review round 2)", async () => {
+    const sudoku = Array.from({ length: 9 }, (_, r) =>
+      Array.from({ length: 9 }, (_, c) => ((r * 3 + Math.floor(r / 3) + c) % 9) + 1).join(" "),
+    ).join("\n");
+    const csv = `port\n${Array.from({ length: 50 }, (_, i) => String(4000 + ((i * 7919) % 6000))).join("\n")}`;
+    for (const content of [
+      "ports = [5432, 6379, 8080, 3000, 9092, 2181]",
+      sudoku,
+      csv,
+      "[5432,6379,8080,3000,9092,2181,4242,5555]",
+    ]) {
+      const d = await decide(["fs.write", "write", path("/Users/o/Projects/app/data.txt")], {
+        params: { path: "/Users/o/Projects/app/data.txt", content },
+      });
+      expect(d.rule).not.toBe("prohibition:card_entry");
+    }
   });
 
   it("never enters a card number, bank account or government id", async () => {
@@ -463,6 +554,17 @@ describe("Psyche's own files and CLI credentials are never file targets (#285)",
       `${H}/.aws/credentials`,
       `${H}/Library/Application Support/Google/Chrome/Default/Login Data`,
       "/home/o/.ssh/id_ed25519",
+      // Developer CLI tokens (review of #1294, round 7).
+      `${H}/.config/glab-cli/config.yml`,
+      `${H}/.config/op/config`,
+      `${H}/.op/config`,
+      `${H}/.azure/msal_token_cache.json`,
+      `${H}/.config/doctl/config.yaml`,
+      `${H}/.config/hub`,
+      `${H}/Library/Application Support/doctl/config.yaml`,
+      `${H}/Library/Application Support/glab-cli/config.yml`,
+      "/home/o/.azure/accessTokens.json",
+      "/home/o/.config/glab-cli/config.yml",
     ]) {
       const d = await h.broker.decide(at("read_file", "read", p), CTX);
       expect(d.decision, p).toBe("deny");

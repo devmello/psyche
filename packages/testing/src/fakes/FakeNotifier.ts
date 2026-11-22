@@ -62,6 +62,7 @@ export class FakeNotifier implements Notifier {
       kind: input.kind,
       title: input.title,
       body: input.body,
+      ...(input.message === undefined ? {} : { message: structuredClone(input.message) }),
       taskId: input.taskId ?? null,
       approvalId: input.approvalId ?? null,
       route: input.route ?? null,

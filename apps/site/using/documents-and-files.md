@@ -15,6 +15,8 @@ The agent reads and writes files only inside folders you share. Anything else is
 3. To let the agent save changes there, switch it to **Read and write**.
 4. To stop sharing, remove it from the list.
 
+When a file tool reaches outside every shared folder, its error row offers **Share this folder (read only)**. That button raises the normal folder card; nothing is shared until you approve it, and the agent does not retry the tool by itself.
+
 Changes apply at once. Sharing a folder needs a device paired as admin; see [Getting started](/guides/getting-started) for how to make the app an admin device. On the web client there is no folder chooser: type the folder's full path.
 
 Use real paths. A path through a symbolic link is refused, so on macOS share `/private/tmp`, not `/tmp`.
@@ -84,7 +86,7 @@ Conversion needs a container runtime (Apple `container` on macOS 26 and later, o
 
 ## Limits today
 
-- Everything in the Files pane is view only. The Markdown editor (Rich, Source and Diff) and spreadsheet editing exist in the code, but the app does not turn them on yet. Edit files in another app, or ask the agent.
+- You can edit Markdown (`.md`, `.markdown`), text (`.txt`) and CSV files in the Files pane, and only in a folder you shared read & write. Press Edit, then Save. If the file changed on disk while you edited, Psyche offers Reload or Overwrite, and asks once more before it overwrites. Saving needs a paired device with admin rights, raises no approval card (it is you editing, as in Finder) and works on files up to 512 KB (larger ones are view only). Files you made read only in Finder are not overwritten. Excel (`.xlsx`) and other formats are view only, and so is everything in a folder shared read only or in the Library.
 - The Library has no text search box yet, and you cannot filter by tag. Use Search in the left rail or ⌘K.
 - Library actions such as "Trust this file", Quick Look, Reveal in Finder and Send to chat are not shown yet.
 - Files you attach in chat may not appear in the Library; the Gateway has no upload method for the Library yet.

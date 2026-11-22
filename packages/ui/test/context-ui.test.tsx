@@ -102,6 +102,52 @@ describe("CompactionMarker", () => {
   });
 });
 
+describe("CompactionMarker standing instructions", () => {
+  const compaction = {
+    id: "c2",
+    trigger: "auto" as const,
+    tokensBefore: 48_200,
+    tokensAfter: 3_100,
+    replacedTurns: 12,
+    summary: {
+      facts: [],
+      decisions: [],
+      openTasks: [],
+      pinnedInstructions: ["Always sign updates as Avery.", "Never cc ops@example.com."],
+    },
+    droppedPins: ["An old rule."],
+    createdAt: FIXTURE_NOW,
+  };
+
+  it("offers Remove on each standing instruction and says what was dropped", async () => {
+    const onRemovePin = vi.fn();
+    render(
+      <StoryWorld>
+        <CompactionMarker compaction={compaction} onRemovePin={onRemovePin} defaultOpen />
+      </StoryWorld>,
+    );
+    await userEvent.click(
+      screen.getByRole("button", {
+        name: "Remove this standing instruction: Never cc ops@example.com.",
+      }),
+    );
+    expect(onRemovePin).toHaveBeenCalledWith("Never cc ops@example.com.");
+    expect(
+      screen.getAllByRole("button", { name: /Remove this standing instruction/ }),
+    ).toHaveLength(2);
+    expect(screen.getByText(/An older standing instruction was dropped/)).toBeTruthy();
+  });
+
+  it("shows no Remove without the handler", () => {
+    render(
+      <StoryWorld>
+        <CompactionMarker compaction={compaction} defaultOpen />
+      </StoryWorld>,
+    );
+    expect(screen.queryByRole("button", { name: /Remove this standing instruction/ })).toBeNull();
+  });
+});
+
 describe("Settings → context and compaction", () => {
   it("saves values inside their bounds and explains the rest", async () => {
     let gw: MockGateway | null = null;

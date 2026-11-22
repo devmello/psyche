@@ -12,7 +12,7 @@ pnpm --filter @psyche/node start -- manifest     # print what this machine would
 pnpm --filter @psyche/node start -- identity     # device id and public key
 ```
 
-On first connect the Gateway answers `pending` and the node logs a pairing code; the owner approves it with `psyched devices approve <code>` (or in the UI) and chooses the scopes. The Gateway then closes the pending connection and the node reconnects paired. Only the mac helper and the desktop can auto-pair; a node never can (security §10).
+On first connect the Gateway answers `pending` and the node logs a pairing code; the owner approves it in the UI (Settings → Devices) and chooses the scopes; `psyched devices approve <code>` on the Gateway host applies at once only while no admin device exists, and otherwise waits 24 hours in plain view. The Gateway then closes the pending connection and the node reconnects paired. Only the mac helper and the desktop can auto-pair; a node never can (security §10).
 
 Installers: `scripts/install-macos.sh` (LaunchAgent `com.psyche.node`), `scripts/install-linux.sh` (systemd user unit), `scripts/guest-bootstrap.sh` (what the VM manager runs inside a fresh macOS guest). Manual test plan for vsock inside a VM: [docs/manual-test-plan.md](docs/manual-test-plan.md).
 

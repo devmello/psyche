@@ -14,18 +14,38 @@ import { StoryWorld } from "../src/stories/harness.tsx";
 function setup(props: Partial<OnboardingFlowProps> = {}, slots: UiSlots = {}) {
   const onComplete = vi.fn<(r: OnboardingResult) => void>();
   const onStepChange = vi.fn();
+  let gw: MockGateway | null = null;
   render(
-    // First run: the Gateway has no connectors yet.
+    // First run: the Gateway has no connectors yet. The vault exists (the model step just made it)
+    // and its recovery key is the one the step shows, so `vault.confirmRecovery` can check it.
     <StoryWorld
       slots={slots}
       edit={(w) => {
         w.connectors = [];
+        w.vault = {
+          status: {
+            state: "unlocked",
+            slots: ["key_file"],
+            recoveryConfirmed: false,
+            autoLockMinutes: 480,
+            lockAt: null,
+            itemCount: 0,
+          },
+          recoveryKey: "ABCD-EFGH-IJKL",
+        };
+      }}
+      onGateway={(g) => {
+        gw = g;
       }}
     >
       <OnboardingFlow onComplete={onComplete} onStepChange={onStepChange} {...props} />
     </StoryWorld>,
   );
-  return { onComplete, onStepChange };
+  const gateway = () => {
+    if (gw === null) throw new Error("gateway not ready");
+    return gw;
+  };
+  return { onComplete, onStepChange, gateway };
 }
 
 const progress = () => screen.getByRole("progressbar", { name: "Onboarding progress" });
@@ -301,8 +321,8 @@ describe("OnboardingFlow", () => {
 });
 
 describe("First run from scratch", () => {
-  it("shows the vault recovery key once when saving the key created the vault", async () => {
-    setup({
+  it("keeps the vault recovery key until the owner types its last group back", async () => {
+    const { gateway } = setup({
       step: "model",
       onSaveKey: async () => ({ keyRef: "model-anthropic", recoveryKey: "ABCD-EFGH-IJKL" }),
     });
@@ -314,10 +334,28 @@ describe("First run from scratch", () => {
     expect(
       screen.getAllByRole("status").some((s) => s.textContent?.includes("model-anthropic")),
     ).toBe(true);
-    const next = screen.getByRole("button", { name: "Next" }) as HTMLButtonElement;
-    expect(next.disabled).toBe(true);
-    await userEvent.click(screen.getByRole("checkbox", { name: "I saved it" }));
-    expect(next.disabled).toBe(false);
+    expect((screen.getByRole("button", { name: "Next" }) as HTMLButtonElement).disabled).toBe(true);
+
+    // A wrong group is refused with Settings' error, clears the field, and keeps the key shown.
+    await userEvent.type(screen.getByLabelText("Last group"), "WXYZ");
+    await userEvent.click(screen.getByRole("button", { name: "Confirm" }));
+    expect((await screen.findByRole("alert")).textContent).toContain(
+      "not the last group of the recovery key",
+    );
+    expect((screen.getByLabelText("Last group") as HTMLInputElement).value).toBe("");
+    expect(screen.getByTestId("vault-recovery-key")).toBeTruthy();
+    expect((screen.getByRole("button", { name: "Next" }) as HTMLButtonElement).disabled).toBe(true);
+
+    // The last group is confirmed on the Gateway; the key goes away and Next opens.
+    await userEvent.type(screen.getByLabelText("Last group"), "IJKL");
+    await userEvent.click(screen.getByRole("button", { name: "Confirm" }));
+    await waitFor(() => expect(screen.queryByTestId("vault-recovery-key")).toBeNull());
+    expect((screen.getByRole("button", { name: "Next" }) as HTMLButtonElement).disabled).toBe(
+      false,
+    );
+    const confirms = gateway().calls.filter((c) => c.method === "vault.confirmRecovery");
+    expect(confirms).toHaveLength(2);
+    expect(confirms.at(-1)?.params).toEqual({ lastGroup: "IJKL" });
   });
 
   it("copies the recovery key through the host's clipboard and says so (#507)", async () => {

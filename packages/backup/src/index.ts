@@ -12,6 +12,7 @@ export {
   type ManifestFile,
   parseManifest,
   RESTORE_MARKER,
+  type RestoredSealRow,
   restoreBackup,
   verifyBackup,
 } from "./archive.ts";

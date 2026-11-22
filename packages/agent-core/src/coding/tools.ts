@@ -1,7 +1,8 @@
 import { createHash } from "node:crypto";
+import { mkdirSync, readFileSync, renameSync, writeFileSync } from "node:fs";
 import { lstat, realpath, stat } from "node:fs/promises";
-import { basename, isAbsolute, resolve } from "node:path";
-import { absoluteHostPathPattern } from "@psyche/hostfs";
+import { basename, dirname, isAbsolute, resolve } from "node:path";
+import { absoluteHostPathPattern, launchConfigEntry } from "@psyche/hostfs";
 import {
   type DecisionContext,
   EXEC_DEFAULT_TIMEOUT_MS,
@@ -15,15 +16,24 @@ import {
 } from "@psyche/protocol";
 import { Type } from "@sinclair/typebox";
 import { type AgentToolRegistration, defineTool, type ToolRunContext } from "../registry.ts";
+import { assertContained, assertOneName } from "./contain.ts";
 import {
+  assertOwnRepository,
   BRANCH_PATTERN,
   capOutput,
   type GitRunner,
   git,
+  gitlinks,
   gitOk,
   parseStatus,
   REMOTE_PATTERN,
 } from "./git.ts";
+import {
+  agentView,
+  guardLaunchConfig,
+  type LaunchConfigReport,
+  launchConfigNotice,
+} from "./launch-guard.ts";
 import { applyFilePatch, PATCH_LIMITS, parsePatch, patchStats } from "./patch.ts";
 import { CODE_SEARCH_LIMITS, searchCode } from "./search.ts";
 import {
@@ -60,8 +70,14 @@ import {
 export interface CodingToolsDeps {
   /** The P9 file tools' registrations (`read_file`, `write_file`) whose executors are reused. */
   files: { read: AgentToolRegistration; write: AgentToolRegistration };
-  /** The owner's granted folders, read on every call (`permissions.policy.folders`). */
-  folders: () => readonly CodingFolderGrant[] | undefined;
+  /**
+   * The owner's granted folders, read on every call (`permissions.policy.folders`). The Gateway
+   * passes the broker's `freshGrantedFolders`: the tools follow the root themselves (search, git).
+   */
+  folders: () =>
+    | readonly CodingFolderGrant[]
+    | undefined
+    | Promise<readonly CodingFolderGrant[] | undefined>;
   /**
    * Locations no coding workspace may be, or contain (Psyche's own home, credential stores;
    * #285): a workspace root is mounted into the sandbox whole, so `~` would expose `~/.ssh`.
@@ -80,6 +96,116 @@ export interface CodingToolsDeps {
   track?(scope: SandboxScope, ctx: DecisionContext): () => void;
   workspaces?: CodingWorkspaces;
   now?: () => Date;
+  /**
+   * The launch-config guard of `code.run` (`guardLaunchConfig`): where new entries are held, and
+   * how the owner hears about them. Without it `code.run` mounts the repository as before.
+   */
+  launchConfig?: CodingLaunchConfig;
+}
+
+/** What `code.run` tells the owner, beside its tool result. */
+/** A sandbox `code.run` made: its id in this process and its scope, which outlives a restart. */
+export interface CodingSandbox {
+  sandboxId: string;
+  scope: SandboxScope;
+}
+
+/**
+ * The sandboxes `code.run` made per repository, so the owner's "Keep it" can stop them before
+ * anything is put back (nothing left running in one can then swap a folder during the moves).
+ * With `file`, the scopes are kept across Gateway restarts (#1435 review r3): a container the
+ * runner adopts after a restart is still found by its scope.
+ */
+const SCOPE_KINDS: ReadonlySet<string> = new Set(["thread", "project", "task"]);
+
+export class CodingSandboxes {
+  readonly #byRoot = new Map<string, Map<string, CodingSandbox>>();
+  readonly #file: string | undefined;
+
+  constructor(file?: string) {
+    this.#file = file;
+    if (file === undefined) return;
+    try {
+      const saved = JSON.parse(readFileSync(file, "utf8")) as Record<string, CodingSandbox[]>;
+      for (const [root, list] of Object.entries(saved)) {
+        const byKey = new Map<string, CodingSandbox>();
+        for (const sb of Array.isArray(list) ? list : []) {
+          if (
+            typeof sb?.sandboxId !== "string" ||
+            typeof sb.scope?.id !== "string" ||
+            sb.scope.id === "" ||
+            !SCOPE_KINDS.has(sb.scope.kind)
+          ) {
+            continue;
+          }
+          byKey.set(`${sb.scope.kind}:${sb.scope.id}`, {
+            sandboxId: sb.sandboxId,
+            scope: sb.scope,
+          });
+        }
+        if (byKey.size > 0) this.#byRoot.set(root, byKey);
+      }
+    } catch {
+      // None yet, or unreadable: start empty.
+    }
+  }
+
+  track(root: string, sandbox: CodingSandbox): void {
+    const byKey = this.#byRoot.get(root) ?? new Map<string, CodingSandbox>();
+    const key = `${sandbox.scope.kind}:${sandbox.scope.id}`;
+    if (byKey.get(key)?.sandboxId === sandbox.sandboxId) return;
+    byKey.set(key, { sandboxId: sandbox.sandboxId, scope: { ...sandbox.scope } });
+    this.#byRoot.set(root, byKey);
+    this.#save();
+  }
+
+  /** The sandboxes made for `root`; each stays listed until `forget` (after its destroy). */
+  list(root: string): CodingSandbox[] {
+    return [...(this.#byRoot.get(root)?.values() ?? [])].map((sb) => ({
+      sandboxId: sb.sandboxId,
+      scope: { ...sb.scope },
+    }));
+  }
+
+  forget(root: string, sandbox: CodingSandbox): void {
+    const byKey = this.#byRoot.get(root);
+    if (byKey?.delete(`${sandbox.scope.kind}:${sandbox.scope.id}`) !== true) return;
+    if (byKey.size === 0) this.#byRoot.delete(root);
+    this.#save();
+  }
+
+  #save(): void {
+    if (this.#file === undefined) return;
+    const data = Object.fromEntries(
+      [...this.#byRoot].map(([root, byKey]) => [root, [...byKey.values()]]),
+    );
+    try {
+      mkdirSync(dirname(this.#file), { recursive: true });
+      const tmp = `${this.#file}.${process.pid}.tmp`;
+      writeFileSync(tmp, `${JSON.stringify(data)}\n`, { mode: 0o600 });
+      renameSync(tmp, this.#file);
+    } catch {
+      // The in-memory list still serves this process.
+    }
+  }
+}
+
+export interface CodingLaunchConfig {
+  /** `$PSYCHE_HOME/quarantine/code-run`. */
+  quarantineDir: string;
+  /** Where `code.run` notes the sandboxes it made per repository (for "Keep it"). */
+  sandboxes?: CodingSandboxes;
+  /** Folders the walk reads at most before it checks only the top levels (default 50 000). */
+  maxDirs?: number;
+  /** Test seam: runs between a quarantine move's checks and the move. */
+  beforeMove?: (from: string) => Promise<void> | void;
+  /** A run created or changed launch config, or the walk fell back to the top levels. */
+  report?(report: LaunchConfigReport, at: { root: string; ctx: ToolRunContext }): void;
+  /**
+   * The sandbox was made again because its mounts changed (a launch-config folder or `.git`
+   * came or went): what ran in it and what it installed outside the repository is gone.
+   */
+  recreated?(at: { root: string; ctx: ToolRunContext }): void;
 }
 
 const MAX_TIMEOUT_MS = 30 * 60_000;
@@ -121,21 +247,32 @@ const worst = (a: ProvenanceOut, b: ProvenanceOut): ProvenanceOut =>
 export function codingTools(deps: CodingToolsDeps): AgentToolRegistration[] {
   const workspaces = deps.workspaces ?? new CodingWorkspaces(deps.now);
   /** A folder grant for `path`, unless it is, or holds, a protected location. */
-  const grantOf = (path: string, isRoot = false): CodingFolderGrant | undefined => {
+  const grantOf = async (path: string, isRoot = false): Promise<CodingFolderGrant | undefined> => {
     for (const raw of deps.protectedRoots?.() ?? []) {
       const r = canonicalRoot(raw);
       if (isUnder(path, r) || (isRoot && isUnder(r, path))) return undefined;
     }
-    return grantFor(path, deps.folders());
+    return grantFor(path, await deps.folders());
   };
 
-  /** The workspace and a live re-check of its folder grant (a revoke applies at once). */
-  const workspace = (ctx: ToolRunContext, root: string, access: "read" | "write") => {
+  /**
+   * The workspace and a live re-check of its folder grant (a revoke applies at once), and of its
+   * root: still a real folder at the path `code.open` checked. A root or a parent swapped for a
+   * link since then (even under a wider grant that still covers the path) closes it.
+   */
+  const workspace = async (ctx: ToolRunContext, root: string, access: "read" | "write") => {
     const ws = workspaces.get(ctx, canonicalRoot(root));
-    const grant = grantOf(ws.root, true);
+    const grant = await grantOf(ws.root, true);
     if (grant === undefined) throw new PsycheError("forbidden", `${ws.root} is no longer granted`);
     if (access === "write" && grant.mode !== "rw") {
       throw new PsycheError("forbidden", `${grant.path} is granted read-only`);
+    }
+    const real = await realpath(ws.root).catch(() => undefined);
+    if (real !== ws.root) {
+      throw new PsycheError(
+        "forbidden",
+        `${ws.root} is no longer the folder that was opened; open it again`,
+      );
     }
     return ws;
   };
@@ -157,7 +294,15 @@ export function codingTools(deps: CodingToolsDeps): AgentToolRegistration[] {
       toolCallId: ctx.callId,
       approvalId: ctx.approvalId ?? null,
       externalRefs,
-      payload: JSON.parse(JSON.stringify(payload)),
+      payload: JSON.parse(
+        JSON.stringify({
+          ...payload,
+          // The standing grant that let it through (a resume's done check reads it).
+          ...(ctx.authority?.grantId === undefined
+            ? {}
+            : { grantId: ctx.authority.grantId, bindingHash: ctx.authority.bindingHash }),
+        }),
+      ),
     });
     return r.id;
   };
@@ -216,7 +361,7 @@ export function codingTools(deps: CodingToolsDeps): AgentToolRegistration[] {
     }),
     async run(p, ctx) {
       const root = canonicalRoot(p.path);
-      const grant = grantOf(root, true);
+      const grant = await grantOf(root, true);
       if (grant === undefined) {
         throw new PsycheError("forbidden", `${root} is outside every granted folder`);
       }
@@ -234,9 +379,12 @@ export function codingTools(deps: CodingToolsDeps): AgentToolRegistration[] {
       const ws = workspaces.open(ctx, root, grant.mode);
       let status: unknown = null;
       if (deps.git !== undefined && (await lstat(`${root}/.git`).catch(() => undefined))) {
-        status = await gitStatus(deps.git, root, ctx.signal).catch((e: Error) => ({
-          error: e.message,
-        }));
+        const runner = deps.git;
+        // A `.git` link or `gitdir:` file would show another repository's status, and a
+        // config with a program in it would run that program.
+        status = await assertOwnRepository(runner, root, ctx.signal)
+          .then(() => gitStatus(runner, root, ctx.signal))
+          .catch((e: Error) => ({ error: e.message }));
       }
       return {
         output: {
@@ -276,7 +424,7 @@ export function codingTools(deps: CodingToolsDeps): AgentToolRegistration[] {
     provenanceOut: "untrusted",
     describeCall: (p) => ({ target: { kind: "path", value: joinTarget(p.root, p.path) } }),
     async run(p, ctx) {
-      const ws = workspace(ctx, p.root, "read");
+      const ws = await workspace(ctx, p.root, "read");
       const dir = resolveInRoot(ws.root, p.path ?? ".");
       const result = await searchCode({
         dir,
@@ -313,8 +461,11 @@ export function codingTools(deps: CodingToolsDeps): AgentToolRegistration[] {
     provenanceOut: "untrusted",
     describeCall: (p) => ({ target: { kind: "path", value: joinTarget(p.root, p.path) } }),
     async run(p, ctx) {
-      const ws = workspace(ctx, p.root, "read");
+      const ws = await workspace(ctx, p.root, "read");
       const full = resolveInRoot(ws.root, p.path);
+      // By its real path too: a link in the repository never reads outside it.
+      await assertContained(ws.root, full);
+      await assertOneName(full);
       const file = await readWhole(full, ctx);
       const lines = file.text === "" ? [] : file.text.replace(/\n$/, "").split("\n");
       const start = p.start_line ?? 1;
@@ -356,8 +507,13 @@ export function codingTools(deps: CodingToolsDeps): AgentToolRegistration[] {
       // `validate` refuses invalid patches and paths outside the workspace before the broker;
       // this keeps describeCall total.
     }
+    // An edit into an app's launch config (`.vscode/tasks.json`, `.husky/pre-commit`, `.envrc`)
+    // is code that runs when the app next opens the folder: destructive, so the card listing
+    // every file always shows (`.git` itself is refused by `patchFiles`).
+    const runsLater = files.some((f) => launchConfigEntry(f) !== undefined);
     return {
       kind: "file_write",
+      ...(runsLater ? { sideEffect: "destructive" as const } : {}),
       target: { kind: "path", value: root },
       bindingFields: {
         operation: "patch",
@@ -390,7 +546,7 @@ export function codingTools(deps: CodingToolsDeps): AgentToolRegistration[] {
     targetKind: "path",
     describeCall: editDescribe,
     async run(p, ctx) {
-      const ws = workspace(ctx, p.root, "write");
+      const ws = await workspace(ctx, p.root, "write");
       const patches = parsePatch(p.patch);
       // Plan every file first: one hunk that does not match writes nothing at all.
       const planned: {
@@ -404,13 +560,14 @@ export function codingTools(deps: CodingToolsDeps): AgentToolRegistration[] {
       for (const f of patches) {
         cancelled(ctx);
         const full = resolveInRoot(ws.root, f.path);
+        await assertContained(ws.root, full);
         if (isGitInternal(ws.root, full)) {
           throw new PsycheError(
             "forbidden",
             `${f.path} is inside .git; code.edit never writes there`,
           );
         }
-        const g = grantOf(full);
+        const g = await grantOf(full);
         if (g?.mode !== "rw")
           throw new PsycheError("forbidden", `${f.path} is not in a read-write grant`);
         const exists = await lstat(full).then(
@@ -448,6 +605,7 @@ export function codingTools(deps: CodingToolsDeps): AgentToolRegistration[] {
             );
           }
         }
+        await assertContained(ws.root, f.full);
         await runFile(deps.files.write, { path: f.full, content: f.after }, ctx);
         written.push({
           path: f.rel,
@@ -524,7 +682,11 @@ export function filesSummary(files: readonly string[]): string {
   return `${shown.slice(0, -1).join(", ")} and ${shown.at(-1)}`;
 }
 
-type WorkspaceOf = (ctx: ToolRunContext, root: string, access: "read" | "write") => CodingWorkspace;
+type WorkspaceOf = (
+  ctx: ToolRunContext,
+  root: string,
+  access: "read" | "write",
+) => Promise<CodingWorkspace>;
 type ReceiptFn = (
   ctx: ToolRunContext,
   kind: string,
@@ -548,9 +710,34 @@ function runTool(
   workspace: WorkspaceOf,
   receipt: ReceiptFn,
 ): AgentToolRegistration {
+  /** The sandbox each scope runs in, so one whose mounts changed can be made again. */
+  const sandboxIds = new Map<string, string>();
+  const ensure = async (
+    scope: SandboxScope,
+    options: Parameters<SandboxRunner["ensureSandbox"]>[1],
+    onRecreate: () => void,
+  ) => {
+    const key = `${scope.kind}:${scope.id}`;
+    let sandbox: Awaited<ReturnType<SandboxRunner["ensureSandbox"]>>;
+    try {
+      sandbox = await runner.ensureSandbox(scope, options);
+    } catch (err) {
+      // The repository's `.git` or launch-config folders changed since the sandbox was made:
+      // its mounts are fixed, so it is made again (the workspace volume stays).
+      const known = sandboxIds.get(key);
+      if (!(err instanceof PsycheError) || err.code !== "conflict" || known === undefined) {
+        throw err;
+      }
+      await runner.destroy(known);
+      sandbox = await runner.ensureSandbox(scope, options);
+      onRecreate();
+    }
+    sandboxIds.set(key, sandbox.id);
+    return sandbox;
+  };
   return defineTool({
     name: "code.run",
-    description: `Run one command (an argv array, no shell string) in the sandbox with the coding workspace mounted at ${REPO_MOUNT} (cwd is relative to the repository root). Network is off; \`network: "proxy"\` allows the sites the owner approves through the egress proxy. Never runs on the owner's machine. Use it for tests, builds and linters.`,
+    description: `Run one command (an argv array, no shell string) in the sandbox with the coding workspace mounted at ${REPO_MOUNT} (cwd is relative to the repository root). Network is off; \`network: "proxy"\` allows the sites the owner approves through the egress proxy. Never runs on the owner's machine. Use it for tests, builds and linters. App launch config (.vscode, .idea, .husky, .npmrc and the like) is not the run's to create: what a run makes there is held back for the owner, so edit it with code.edit.`,
     input: Type.Object({
       root: AbsolutePath,
       argv: Type.Array(Type.String({ maxLength: 8192 }), { minItems: 1, maxItems: 256 }),
@@ -589,19 +776,51 @@ function runTool(
       };
     },
     async run(p, ctx) {
-      const ws = workspace(ctx, p.root, "write");
+      const ws = await workspace(ctx, p.root, "write");
       // The command's cwd must be the repository or a folder in it.
       const hostCwd = resolveInRoot(ws.root, p.cwd ?? ".");
+      await assertContained(ws.root, hostCwd);
       const network = p.network ?? "none";
       const scope = sandboxScopeOf(ws, network);
+      // `.git` is mounted by its host path, which the runtime resolves on the host: a link there
+      // (one a run planted in a folder without git) would mount whatever it points at.
       const gitDir = await lstat(`${ws.root}/.git`).then(
-        () => true,
+        (st) => {
+          if (st.isSymbolicLink()) {
+            throw new PsycheError(
+              "forbidden",
+              `${ws.root}/.git is a symlink; code.run never mounts it`,
+            );
+          }
+          return true;
+        },
         () => false,
       );
-      const sandbox = await runner.ensureSandbox(scope, {
-        network,
-        mounts: repoMounts(ws, gitDir),
-      });
+      // App launch config stays as it was (#1434 review r1, finding 1).
+      const lc = deps.launchConfig;
+      const guard =
+        ws.mode === "rw" && lc !== undefined
+          ? await guardLaunchConfig(ws.root, REPO_MOUNT, {
+              quarantineDir: lc.quarantineDir,
+              ...(deps.now === undefined ? {} : { now: deps.now }),
+              ...(lc.maxDirs === undefined ? {} : { maxDirs: lc.maxDirs }),
+              ...(lc.beforeMove === undefined ? {} : { beforeMove: lc.beforeMove }),
+            })
+          : undefined;
+      const mounts = [...repoMounts(ws, gitDir), ...(guard?.mounts ?? [])];
+      const sandbox = await ensure(scope, { network, mounts }, () =>
+        lc?.recreated?.({ root: ws.root, ctx }),
+      );
+      lc?.sandboxes?.track(ws.root, { sandboxId: sandbox.id, scope });
+      // The sandbox PC shares each folder on its own, so a read-only folder inside the
+      // repository would be writable through the repository's share there.
+      if (sandbox.backend === "vm" && mounts.some((m) => m.readOnly && m.target !== REPO_MOUNT)) {
+        throw new PsycheError(
+          "unavailable",
+          "code.run needs a container runtime that keeps .git and launch-config folders read-only; the sandbox PC cannot",
+          { details: { reason: "nested_mounts_unsupported" } },
+        );
+      }
       const rel = relativeTo(ws.root, hostCwd);
       const release =
         network === "proxy"
@@ -617,6 +836,7 @@ function runTool(
             })
           : undefined;
       let result: Awaited<ReturnType<SandboxRunner["exec"]>>;
+      let launch: LaunchConfigReport | undefined;
       try {
         result = await runner.exec({
           sandboxId: sandbox.id,
@@ -626,9 +846,19 @@ function runTool(
           signal: ctx.signal,
           provenance: ctx.taint ? "untrusted" : "trusted",
           ...(ctx.taint ? { taintSources: [...(ctx.taintSources ?? [])] } : {}),
+          ...grantOf(ctx),
         });
       } finally {
         release?.();
+        launch = await guard?.settle();
+      }
+      const notice = launch === undefined ? undefined : launchConfigNotice(launch);
+      const readOnlyHint = readOnlyHintFor(
+        guard?.mounts ?? [],
+        `${result.stderr}\n${result.stdout}`,
+      );
+      if (launch !== undefined && (notice !== undefined || launch.partial)) {
+        lc?.report?.(launch, { root: ws.root, ctx });
       }
       const failed = result.outcome === "failed";
       const command = p.argv.join(" ");
@@ -647,6 +877,9 @@ function runTool(
           timedOut: result.timedOut,
           filesChanged: result.filesChanged,
           outcome: result.outcome,
+          ...(notice === undefined || launch === undefined
+            ? {}
+            : { launchConfig: launchConfigOutput(launch) }),
         },
         { exitCode: result.exitCode ?? -1 },
       );
@@ -660,6 +893,10 @@ function runTool(
           timedOut: result.timedOut,
           filesChanged: result.filesChanged,
           outcome: result.outcome,
+          ...(notice === undefined || launch === undefined
+            ? {}
+            : { launchConfig: { ...launchConfigOutput(launch), notice } }),
+          ...(readOnlyHint === undefined ? {} : { readOnlyHint }),
         },
         // Command output is data (design-07: the workspace's provenance decides the rest).
         provenance: "untrusted",
@@ -670,11 +907,60 @@ function runTool(
   });
 }
 
+/**
+ * When the command failed writing into a folder `code.run` keeps read-only, the way to change it
+ * (#1435 review r2): `.claude` and launch-config folders through `code.edit`.
+ */
+function readOnlyHintFor(
+  mounts: readonly { target: string }[],
+  output: string,
+): string | undefined {
+  if (!/EROFS|read-only file system/i.test(output)) return undefined;
+  const hit = mounts
+    .map((m) => m.target.slice(REPO_MOUNT.length + 1))
+    .filter((rel) => output.includes(rel))
+    .sort((a, b) => b.length - a.length)[0];
+  if (hit === undefined) return undefined;
+  const what =
+    hit === ".claude"
+      ? "`.claude` (Claude Code's settings and worktrees)"
+      : `\`${hit}\` (launch config or git metadata)`;
+  return `${what} is read-only during code.run. To change files there, use code.edit, which asks the owner.`;
+}
+
+/** What the receipt and the model see of a guard's report (no file ids). */
+/**
+ * What the agent sees (#1457 and #1469 reviews r1): how many, and only names the guard could tell
+ * were the repository's; never where the quarantine is. The owner's notices get the raw report.
+ */
+function launchConfigOutput(r: LaunchConfigReport) {
+  const a = agentView(r);
+  return {
+    quarantined: a.quarantined,
+    changed: a.changed,
+    unmoved: a.unmoved,
+    incidents: a.incidents,
+    // Of what the agent is told, never of the raw lists (#1469 review r2: how many files a
+    // folder outside holds, or whether it exists, would be told by them).
+    counts: {
+      quarantined: a.quarantined.length,
+      changed: a.changed.length,
+      unmoved: a.unmoved.length,
+      incidents: a.incidents.length,
+    },
+    ...(a.withheld ? { withheld: true } : {}),
+    // Folders swapped for a link while the guard read them (#1469 review r3): said in place of
+    // anything in them, and of whether the walk was partial.
+    ...(a.swapped.length > 0 ? { swapped: a.swapped } : {}),
+    ...(a.partial === undefined ? {} : { partial: a.partial }),
+  };
+}
+
 async function gitStatus(runner: GitRunner, root: string, signal?: AbortSignal) {
   const porcelain = await gitOk(
     runner,
     root,
-    ["status", "--porcelain=v1", "--branch", "--untracked-files=all"],
+    ["status", "--porcelain=v1", "--branch", "--untracked-files=all", "--ignore-submodules=all"],
     signal,
   );
   const remotes = await gitOk(runner, root, ["remote", "-v"], signal);
@@ -785,8 +1071,9 @@ function gitTool(
     },
     async run(p, ctx) {
       const writes = p.op === "commit" || p.op === "branch" || p.op === "push";
-      const ws = workspace(ctx, p.root, writes ? "write" : "read");
+      const ws = await workspace(ctx, p.root, writes ? "write" : "read");
       const root = ws.root;
+      await assertOwnRepository(runner, root, ctx.signal);
       const sig = ctx.signal;
       const ok = (output: Record<string, unknown>, receiptId?: string): ToolResult => ({
         output,
@@ -795,7 +1082,13 @@ function gitTool(
       });
       if (p.op === "status") return ok({ ...(await gitStatus(runner, root, sig)) });
       if (p.op === "diff") {
-        const paths = (p.paths ?? []).map((x) => relativeTo(root, resolveInRoot(root, x)));
+        const paths: string[] = [];
+        for (const x of p.paths ?? []) {
+          const full = resolveInRoot(root, x);
+          // Git takes a link as a link, never through one: only the last part may be a link.
+          await assertContained(root, full, { finalLink: "allow" });
+          paths.push(relativeTo(root, full));
+        }
         const out = await gitOk(
           runner,
           root,
@@ -804,6 +1097,7 @@ function gitTool(
             "--no-ext-diff",
             "--no-textconv",
             "--no-color",
+            "--ignore-submodules=all",
             ...(p.staged === true ? ["--cached"] : []),
             "--",
             ...paths,
@@ -836,12 +1130,34 @@ function gitTool(
         return ok({ commits });
       }
       if (p.op === "commit") {
-        const paths = (p.paths ?? ["."]).map((x) => {
+        const paths: string[] = [];
+        for (const x of p.paths ?? ["."]) {
           const full = resolveInRoot(root, x);
           if (isGitInternal(root, full)) throw new PsycheError("forbidden", `${x} is inside .git`);
-          return relativeTo(root, full);
-        });
+          await assertContained(root, full, { finalLink: "allow" });
+          paths.push(relativeTo(root, full));
+        }
+        // `add --all` would stage a nested repository as a gitlink, and a repository with one
+        // gets no code.git: refused before anything is staged, so the index stays as it was.
+        // `ls-files --others` lists a nested repository as one entry ending in "/".
+        const untracked = await gitOk(
+          runner,
+          root,
+          ["ls-files", "-z", "--others", "--exclude-standard", "--", ...paths],
+          sig,
+        );
+        const nestedRepos = untracked
+          .split("\0")
+          .filter((e) => e.endsWith("/"))
+          .map((e) => e.slice(0, -1));
+        if (nestedRepos.length > 0) throw nestedRefusal(nestedRepos);
         await gitOk(runner, root, ["add", "--all", "--", ...paths], sig);
+        // Backstop: a gitlink `add` staged anyway is taken out of the index again.
+        const nested = await gitlinks(runner, root, sig);
+        if (nested.length > 0) {
+          await gitOk(runner, root, ["update-index", "--force-remove", "--", ...nested], sig);
+          throw nestedRefusal(nested);
+        }
         const staged = await git(runner, root, ["diff", "--cached", "--quiet"], sig);
         if (staged.exitCode === 0) throw new PsycheError("conflict", "nothing to commit");
         await gitOk(runner, root, ["commit", "--no-verify", "--quiet", "-m", p.message], sig);
@@ -940,8 +1256,20 @@ function gitTool(
       const pushed = await git(
         runner,
         root,
-        ["push", "--porcelain", "--no-verify", p.remote, `${p.commit}:refs/heads/${p.branch}`],
+        [
+          // The pushed remote's receive-pack is git's own.
+          "-c",
+          `remote.${p.remote}.receivepack=git-receive-pack`,
+          "push",
+          "--porcelain",
+          "--no-verify",
+          p.remote,
+          `${p.commit}:refs/heads/${p.branch}`,
+        ],
         sig,
+        // No proxy command for git:// remotes. `core.gitProxy` is first-match, so a `-c` value
+        // cannot override an earlier entry; a set (even empty) GIT_PROXY_COMMAND skips them all.
+        { GIT_PROXY_COMMAND: "" },
       );
       const failed = pushed.exitCode !== 0;
       const receiptId = await receipt(
@@ -977,4 +1305,20 @@ function gitTool(
       };
     },
   });
+}
+
+/** A commit refused for nested repositories (`add --all` would stage them as gitlinks). */
+function nestedRefusal(paths: readonly string[]): PsycheError {
+  const one = paths.length === 1;
+  return new PsycheError(
+    "forbidden",
+    `${paths.slice(0, 3).join(", ")} ${one ? "is a" : "are"} nested repositor${one ? "y" : "ies"}; repositories with submodules aren't supported by code.git yet, so nothing was committed (leave it out of paths, or add it to .gitignore)`,
+    { details: { reason: "submodules", paths: [...paths] } },
+  );
+}
+
+/** The standing grant that let this call through, for the sandbox runner's own receipt. */
+function grantOf(ctx: ToolRunContext): { grant?: { id: string; bindingHash: string } } {
+  const a = ctx.authority;
+  return a?.grantId === undefined ? {} : { grant: { id: a.grantId, bindingHash: a.bindingHash } };
 }

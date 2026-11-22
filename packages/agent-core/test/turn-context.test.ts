@@ -4,7 +4,7 @@ import {
   type TurnContextInput,
   type TurnContextProvider,
 } from "../src/index.ts";
-import { blocks, call, harness, recorder, runTurn, say, spec } from "./harness.ts";
+import { blocks, call, harness, messagesText, recorder, runTurn, say, spec } from "./harness.ts";
 
 /** E12 seam: context from the owner's own data, once per owner turn, untrusted, with a block. */
 
@@ -46,8 +46,18 @@ describe("turn context providers (E12)", () => {
     const events = await runTurn(h, "when is the launch?");
     expect(calls.map((c) => c.text)).toEqual(["when is the launch?"]);
     for (const r of h.provider.requests) {
-      expect(r.system).toContain('source="context:other-chats" provenance="untrusted"');
+      // In the owner's user message, flagged untrusted; never in `system`.
+      expect(r.system ?? "").not.toContain("context:other-chats");
+      expect(r.system ?? "").not.toContain("Launch plan");
+      const first = r.messages[0];
+      expect(first?.role).toBe("user");
+      const ctx = first?.parts.find((p) => p.type === "text" && p.text.includes("Launch plan"));
+      expect(ctx).toMatchObject({ type: "text", provenance: "untrusted" });
+      expect(messagesText(r)).toContain('source="context:other-chats" provenance="untrusted"');
     }
+    // The owner's own words stay a separate, unflagged part, after the context.
+    const owner = h.provider.requests[0]?.messages[0]?.parts.at(-1);
+    expect(owner).toEqual({ type: "text", text: "when is the launch?" });
     expect(h.broker.decisions[0]?.ctx.taintSources).toEqual([
       { sourceKind: "other_chats", origin: "thr_main" },
     ]);
@@ -61,7 +71,7 @@ describe("turn context providers (E12)", () => {
       loop: { contextProviders: [provider(calls, true)] },
     });
     const events = await runTurn(h, "hi");
-    expect(h.provider.requests[0]?.system ?? "").not.toContain("context:other-chats");
+    expect(messagesText(h.provider.requests[0])).not.toContain("context:other-chats");
     expect(blocks(events).filter((b) => b.type === "related_threads")).toHaveLength(0);
     const quiet: TurnContextInput[] = [];
     const h2 = harness({ script: [say("ok")], loop: { contextProviders: [provider(quiet)] } });
@@ -86,7 +96,8 @@ describe("turn context providers (E12)", () => {
     });
     h.loop.registry.register({ spec: spec("notes.list", "read"), execute: recorder().execute });
     await runTurn(h, "ask Sam Lee");
-    const system = h.provider.requests[0]?.system ?? "";
+    expect(h.provider.requests[0]?.system ?? "").not.toContain("Sam Lee");
+    const system = messagesText(h.provider.requests[0]);
     expect(system).toContain(
       'source="context:entity_recall" title="People and projects you named"',
     );
@@ -101,7 +112,7 @@ describe("turn context providers (E12)", () => {
       loop: { contextProviders: [recall("Sam Lee — Head of product at Acme")] },
     });
     await runTurn(h2, "ask Sam Lee", { requester: { role: "owner", toolAllow: ["notes.*"] } });
-    expect(h2.provider.requests[0]?.system ?? "").not.toContain("context:entity_recall");
+    expect(messagesText(h2.provider.requests[0])).not.toContain("context:entity_recall");
 
     // Capped, and its text cannot close the fence or open a section of its own.
     const h3 = harness({
@@ -113,7 +124,7 @@ describe("turn context providers (E12)", () => {
       },
     });
     await runTurn(h3, "hi");
-    const s3 = h3.provider.requests[0]?.system ?? "";
+    const s3 = messagesText(h3.provider.requests[0]);
     expect(s3).not.toContain('</section><section id="base"');
     const body = /source="context:entity_recall"[^>]*>\n([\s\S]*?)\n<\/section>/.exec(s3)?.[1];
     // The cap, its ellipsis and the two escaped markers.

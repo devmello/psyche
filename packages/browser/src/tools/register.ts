@@ -1,4 +1,5 @@
 import {
+  type ControlFacts,
   type CredentialBroker,
   type CredentialMeta,
   createValidator,
@@ -15,6 +16,12 @@ import {
   type WaitCondition,
 } from "@psyche/protocol";
 import { toolCallBindingHash } from "@psyche/protocol/binding";
+import {
+  FINANCIAL_BLOCK_REASON,
+  financialBlock,
+  isMoneyFlowPage,
+  isVenueFormAction,
+} from "@psyche/protocol/financial-block";
 import { type Static, type TSchema, Type } from "@sinclair/typebox";
 import { fillElementOf } from "../cdp/page.ts";
 import type { DevPreviewGate } from "../devpreview/gate.ts";
@@ -26,6 +33,7 @@ import type { ActionTarget, BrowserDriverEx, ElementMeta } from "../types.ts";
 import { type AttentionGate, assertWatched, attentionExempt } from "./attention.ts";
 import {
   type ActionClass,
+  activatingKeys,
   classifyActivation,
   classifyFormSubmit,
   classifyKeys,
@@ -116,6 +124,12 @@ export interface BrowserToolDeps {
    * it `browser.request_control` is unavailable (no pane to hand control in).
    */
   requestControl?(request: ControlRequest): Promise<(() => Promise<void> | void) | undefined>;
+  /**
+   * Whether a pane can show this tab to the owner (default yes when `requestControl` is set). A
+   * headless Host's server driver has none yet, so `browser.request_control` answers `no_pane`
+   * and the agent asks in chat instead.
+   */
+  canRequestControl?(tabId: string): boolean;
 }
 
 export interface RealChromeDeps {
@@ -180,6 +194,72 @@ function def<S extends TSchema>(d: Def<S>): Def<S> {
   return d;
 }
 
+/** Enter or Space (alone or in a chord such as `Shift+Enter`) presses whatever has focus. */
+function activatesFocus(keys: string): boolean {
+  const k = activatingKeys(keys);
+  return k.enter || k.space;
+}
+
+/**
+ * What the hard block on trades and transfers needs to know about the control. `enter` is a press
+ * of Enter inside a field: it submits the field's form, which the field's own `submits` (false for
+ * a textbox) does not say, so it is marked as submitting. The rule then refuses it on a trading,
+ * banking or P2P site unless the field is a search or the form is a GET to another page. A login
+ * form (it holds a password) is the exception: Enter there signs in, and it is not marked, unless
+ * the page or the form's action is a money flow (a "transaction password" step-up on a transfer).
+ * A field of `type=search` or named `q`, `query` or `search` is a search box.
+ */
+function controlOf(
+  meta: ElementMeta | undefined,
+  origin: string | undefined,
+  enter = false,
+): ControlFacts {
+  if (meta === undefined)
+    return { unreadable: true, ...(origin === undefined ? {} : { pageUrl: origin }) };
+  const login =
+    meta.formHasPassword === true &&
+    !isMoneyFlowPage(meta.pageUrl ?? origin, origin) &&
+    !isMoneyFlowPage(meta.pageTitle, meta.pageUrl ?? origin) &&
+    !isVenueFormAction("post", meta.formAction);
+  const formSubmit = enter && meta.inForm && !login;
+  // A search box, off a money-moving page: inside a transfer or a pay form Enter in any field,
+  // a payee search included, submits the payment, so it is not re-roled there.
+  const page = meta.pageUrl ?? origin;
+  const search =
+    (meta.inputType === "search" ||
+      /^(?:q|query|search|search_?query|keywords?)$/i.test(meta.fieldName ?? "")) &&
+    !isMoneyFlowPage(page, origin) &&
+    !isMoneyFlowPage(meta.pageTitle, page);
+  return {
+    labels: [meta.name],
+    role: search && meta.role === "textbox" ? "searchbox" : meta.role,
+    submits: meta.submits || formSubmit,
+    ...(meta.href === undefined ? {} : { href: meta.href }),
+    ...(meta.formMethod === undefined ? {} : { formMethod: meta.formMethod }),
+    ...(meta.formAction === undefined ? {} : { formAction: meta.formAction }),
+    ...((meta.pageUrl ?? origin) === undefined
+      ? {}
+      : { pageUrl: (meta.pageUrl ?? origin) as string }),
+    ...(meta.pageTitle === undefined ? {} : { pageTitle: meta.pageTitle }),
+  };
+}
+
+/** `ControlFacts` as the rule's input (the shapes differ only in optionality). */
+function controlFactsOf(c: ControlFacts): Parameters<typeof financialBlock>[0] {
+  return {
+    labels: c.labels,
+    alsoLabels: c.alsoLabels,
+    role: c.role,
+    submits: c.submits,
+    href: c.href,
+    formMethod: c.formMethod,
+    formAction: c.formAction,
+    pageUrl: c.pageUrl,
+    pageTitle: c.pageTitle,
+    unreadable: c.unreadable,
+  };
+}
+
 function originTarget(url: string): ToolCallDescription {
   const origin = tryOrigin(url);
   return origin === undefined ? {} : { target: { kind: "origin", value: origin } };
@@ -208,6 +288,26 @@ export function browserToolDefs(deps: BrowserToolDeps) {
       );
     }
   };
+  /**
+   * The describe step judged the snapshot's cached name for the control; a page can rename a
+   * button between that and the click. The control is read again as the action goes out
+   * (`driver.describe`: the live name and form facts from `FIELD_HELPER` laid over the snapshot's),
+   * and the hard block applies to what it says now.
+   */
+  const guardFinancial = async (tabId: string, ref: string | undefined, enter = false) => {
+    if (ref === undefined) return;
+    const live = await d.describe(tabId, ref).catch(() => undefined);
+    if (live === undefined) return;
+    const hit = financialBlock({
+      ...controlFactsOf(controlOf(live, d.tabOrigin(tabId), enter)),
+      ...(d.tabOrigin(tabId) === undefined ? {} : { origin: d.tabOrigin(tabId) as string }),
+    });
+    if (hit !== undefined) {
+      throw new PsycheError("policy_denied", FINANCIAL_BLOCK_REASON, {
+        details: { rule: "prohibition:financial_transfer" },
+      });
+    }
+  };
   const sessionTab = async (callId: string, tabId: string) => {
     const sessionIds =
       deps.openSessions === undefined
@@ -224,12 +324,15 @@ export function browserToolDefs(deps: BrowserToolDeps) {
     ref: string,
     summary: string,
     classify: (meta: ElementMeta | undefined) => ActionClass = classifyActivation,
+    /** "activate": a click or a button press; "enter": Enter in a field; "none": it activates nothing. */
+    mode: "activate" | "enter" | "none" = "activate",
   ): ToolCallDescription => {
     const meta = d.peek(tabId, ref);
     const c = classify(meta);
     const out: ToolCallDescription = { sideEffect: c.sideEffect, summary };
     const origin = d.tabOrigin(tabId);
     if (origin !== undefined) out.target = { kind: "origin", value: origin };
+    if (mode !== "none") out.meta = { control: controlOf(meta, origin, mode === "enter") };
     if (c.kind !== undefined) out.kind = c.kind;
     if (c.kind === "purchase" && origin !== undefined) {
       // The card lists merchant, items and total as the page shows them (INT-2), and the
@@ -263,6 +366,14 @@ export function browserToolDefs(deps: BrowserToolDeps) {
       if (t !== undefined) out.target = t;
     }
     return out;
+  };
+  const originOfTab = (tabId: string): Pick<ToolCallDescription, "target"> => {
+    const origin = d.tabOrigin(tabId);
+    return origin === undefined ? {} : { target: { kind: "origin", value: origin } };
+  };
+  const pageOf = (tabId: string): { pageUrl?: string } => {
+    const origin = d.tabOrigin(tabId);
+    return origin === undefined ? {} : { pageUrl: origin };
   };
   const pageOut = (tabId: string, extra: Record<string, unknown> = {}) => {
     const tab = { tabId, origin: d.tabOrigin(tabId) ?? null };
@@ -488,12 +599,20 @@ export function browserToolDefs(deps: BrowserToolDeps) {
               p.target.ref,
               `Click ${d.peek(p.tabId, p.target.ref)?.name ?? p.target.ref}`,
             )
-          : { sideEffect: "write", summary: "Click at a point" },
+          : {
+              sideEffect: "write",
+              summary: "Click at a point",
+              ...originOfTab(p.tabId),
+              meta: { control: { unreadable: true, ...pageOf(p.tabId) } },
+            },
       run: async (p, { callId }) => {
         const tabId = await sessionTab(callId, p.tabId);
         const action =
           p.button === "right" ? "right_click" : p.double === true ? "double_click" : "click";
         await guardOrder(tabId, "ref" in p.target ? p.target.ref : undefined);
+        if (action !== "right_click") {
+          await guardFinancial(tabId, "ref" in p.target ? p.target.ref : undefined);
+        }
         await d.pointer(tabId, p.target as ActionTarget, action);
         return pageOut(tabId, { ok: true });
       },
@@ -523,15 +642,23 @@ export function browserToolDefs(deps: BrowserToolDeps) {
       describe: (p) => {
         if (p.submit !== true) return { summary: "Type into a field" };
         // Enter in a field submits the field's form (review finding 2).
-        return activation(p.tabId, p.ref, "Type and submit", (meta) =>
-          meta?.inForm === true
-            ? classifyFormSubmit(meta)
-            : { sideEffect: "write", reason: "Enter outside a form" },
+        return activation(
+          p.tabId,
+          p.ref,
+          "Type and submit",
+          (meta) =>
+            meta?.inForm === true
+              ? classifyFormSubmit(meta)
+              : { sideEffect: "write", reason: "Enter outside a form" },
+          "enter",
         );
       },
       run: async (p, { callId }) => {
         const tabId = await sessionTab(callId, p.tabId);
-        if (p.submit === true) await guardOrder(tabId, p.ref);
+        if (p.submit === true) {
+          await guardOrder(tabId, p.ref);
+          await guardFinancial(tabId, p.ref, true);
+        }
         await d.type(tabId, p.ref, p.text, { clear: p.clear ?? true, submit: p.submit ?? false });
         return { ok: true };
       },
@@ -548,13 +675,33 @@ export function browserToolDefs(deps: BrowserToolDeps) {
       sideEffect: "read",
       describe: (p) =>
         p.ref === undefined
-          ? { sideEffect: classifyKeys(p.keys, undefined).sideEffect, summary: `Press ${p.keys}` }
-          : activation(p.tabId, p.ref, `Press ${p.keys}`, (meta) => classifyKeys(p.keys, meta)),
+          ? {
+              sideEffect: classifyKeys(p.keys, undefined).sideEffect,
+              summary: `Press ${p.keys}`,
+              ...originOfTab(p.tabId),
+              // Enter or Space with no ref lands on whatever has focus: unreadable on a venue.
+              meta: { control: { unreadable: activatesFocus(p.keys), ...pageOf(p.tabId) } },
+            }
+          : activation(
+              p.tabId,
+              p.ref,
+              `Press ${p.keys}`,
+              (meta) => classifyKeys(p.keys, meta),
+              // Tab, arrows and the like activate nothing; Enter in a field submits its form.
+              !activatesFocus(p.keys)
+                ? "none"
+                : activatingKeys(p.keys).enter && d.peek(p.tabId, p.ref)?.inForm === true
+                  ? "enter"
+                  : "activate",
+            ),
       run: async (p, { callId }) => {
         const o: { ref?: string } = {};
         if (p.ref !== undefined) o.ref = p.ref;
         const tabId = await sessionTab(callId, p.tabId);
         await guardOrder(tabId, p.ref);
+        if (activatesFocus(p.keys)) {
+          await guardFinancial(tabId, p.ref, activatingKeys(p.keys).enter);
+        }
         await d.press(tabId, p.keys, o);
         return { ok: true };
       },
@@ -570,10 +717,15 @@ export function browserToolDefs(deps: BrowserToolDeps) {
       sideEffect: "read",
       // `onchange` auto-submit is common: a select in a POST form counts as a write.
       describe: (p) =>
-        activation(p.tabId, p.ref, "Choose an option", (meta) =>
-          meta?.inForm === true && meta.formMethod !== "get"
-            ? { sideEffect: "write", reason: "select in a POST form" }
-            : { sideEffect: "read", reason: "select" },
+        activation(
+          p.tabId,
+          p.ref,
+          "Choose an option",
+          (meta) =>
+            meta?.inForm === true && meta.formMethod !== "get"
+              ? { sideEffect: "write", reason: "select in a POST form" }
+              : { sideEffect: "read", reason: "select" },
+          "none",
         ),
       run: async (p, { callId }) => {
         await d.select(await sessionTab(callId, p.tabId), p.ref, p.values);
@@ -618,6 +770,27 @@ export function browserToolDefs(deps: BrowserToolDeps) {
       description: "Drag from one element or point to another.",
       schema: Type.Object({ tabId: TabId, from: Target, to: Target }),
       sideEffect: "write",
+      // A drag from an element to itself is a click on it, and a drop on a button presses it: both
+      // ends are read for the hard block, and an end given as a point cannot be.
+      describe: (p) => {
+        const origin = d.tabOrigin(p.tabId);
+        const ends = [p.from, p.to].map((t) => ("ref" in t ? d.peek(p.tabId, t.ref) : undefined));
+        const [from, to] = ends;
+        if (from === undefined || to === undefined) {
+          return {
+            sideEffect: "write",
+            summary: "Drag",
+            ...originOfTab(p.tabId),
+            meta: { control: { unreadable: true, ...pageOf(p.tabId) } },
+          };
+        }
+        return {
+          sideEffect: "write",
+          summary: "Drag",
+          ...originOfTab(p.tabId),
+          meta: { control: { ...controlOf(from, origin), alsoLabels: [to.name] } },
+        };
+      },
       run: async (p, { callId }) => {
         await d.drag(
           await sessionTab(callId, p.tabId),
@@ -709,7 +882,13 @@ export function browserToolDefs(deps: BrowserToolDeps) {
       describe: (p) => {
         const dlg = d.pendingDialog(p.tabId);
         return p.accept && dlg !== undefined && dlg.type !== "alert"
-          ? { sideEffect: "write", summary: "Confirm a page dialog" }
+          ? {
+              sideEffect: "write",
+              summary: "Confirm a page dialog",
+              ...originOfTab(p.tabId),
+              // The dialog's own words ("Sell 10 shares?") are read for the hard block.
+              meta: { control: { labels: [dlg.message], role: "dialog", ...pageOf(p.tabId) } },
+            }
           : { summary: "Dismiss a page dialog" };
       },
       run: async (p, { callId }) => {
@@ -839,7 +1018,11 @@ export function browserToolDefs(deps: BrowserToolDeps) {
           );
         }
         const sessionId = d.sessionOf(tabId);
-        if (deps.requestControl === undefined || sessionId === undefined) {
+        if (
+          deps.requestControl === undefined ||
+          sessionId === undefined ||
+          deps.canRequestControl?.(tabId) === false
+        ) {
           throw new PsycheError("unavailable", "there is no browser pane to hand control in", {
             details: { reason: "no_pane" },
           });

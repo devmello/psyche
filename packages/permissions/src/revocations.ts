@@ -30,13 +30,32 @@ export type RevocationEntry =
   | { type: "grant"; id: string; at: string; reason: string }
   | { type: "vault_item"; id: string; at: string };
 
+/** A ledger line as read back, with its MAC when it was written signed. */
+export type SignedRevocationEntry = RevocationEntry & { mac?: string };
+
+/** The canonical text a revocation's MAC covers (the entry without `mac`). */
+export function revocationLineText(e: SignedRevocationEntry): string {
+  const { mac: _mac, ...rest } = e;
+  return JSON.stringify(rest);
+}
+
 export class RevocationLedger {
   readonly path: string;
   readonly #now: () => string;
+  readonly #sign: ((line: string) => string) | undefined;
 
-  constructor(home: string, now: () => string = () => new Date().toISOString()) {
+  /**
+   * `sign`: the Gateway's security-state seal MACs each line it writes, so a running Gateway can
+   * tell its own revocations from lines another program appended (they still replay at boot).
+   */
+  constructor(
+    home: string,
+    now: () => string = () => new Date().toISOString(),
+    sign?: (line: string) => string,
+  ) {
     this.path = join(home, REVOCATIONS_FILE);
     this.#now = now;
+    this.#sign = sign;
   }
 
   get exists(): boolean {
@@ -55,7 +74,9 @@ export class RevocationLedger {
 
   #append(entry: RevocationEntry): void {
     this.ensure();
-    appendFileSync(this.path, `${JSON.stringify(entry)}\n`, { mode: 0o600 });
+    const line = JSON.stringify(entry);
+    const signed = this.#sign === undefined ? entry : { ...entry, mac: this.#sign(line) };
+    appendFileSync(this.path, `${JSON.stringify(signed)}\n`, { mode: 0o600 });
   }
 
   recordDevice(id: string): void {
@@ -77,13 +98,13 @@ export class RevocationLedger {
     return out;
   }
 
-  entries(): RevocationEntry[] {
+  entries(): SignedRevocationEntry[] {
     if (!this.exists) return [];
-    const out: RevocationEntry[] = [];
+    const out: SignedRevocationEntry[] = [];
     for (const line of readFileSync(this.path, "utf8").split("\n")) {
       if (line.trim() === "") continue;
       try {
-        const e = JSON.parse(line) as RevocationEntry;
+        const e = JSON.parse(line) as SignedRevocationEntry;
         if (
           e.type === "device" ||
           e.type === "grant" ||

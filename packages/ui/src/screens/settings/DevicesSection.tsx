@@ -8,6 +8,14 @@ import { isMessageId, t } from "../../i18n/core.ts";
 import { groupFingerprint } from "../../lib/fingerprint.ts";
 import { formatRelative } from "../../lib/format.ts";
 import { useNow } from "../../lib/use-now.ts";
+import {
+  HOST_HELPER_STATUS_KEY,
+  HostHelperCheckGroup,
+  type HostHelperStatus,
+  parseHostHelperStatus,
+} from "./HostHelperCheckGroup.tsx";
+import { MachinesGroup } from "./MachinesGroup.tsx";
+import { PasswordPresenceGroup, type PasswordPresenceRow } from "./PasswordPresenceGroup.tsx";
 import { RowMoreMenu } from "./RowMoreMenu.tsx";
 import {
   EmptyNotice,
@@ -22,7 +30,6 @@ import {
 } from "./shared.tsx";
 import {
   type BundledHelperKey,
-  DEV_FILE_KEY_SETTING,
   type PresenceKeyRow,
   presenceKeyText,
   TouchIdKeySetup,
@@ -49,9 +56,11 @@ const NODE_KIND_ID: Readonly<Record<NodeInfo["kind"] | "win-helper", string>> = 
   "vm-guest": "vmGuest",
   remote: "remote",
   phone: "phone",
-  // Linux L0 kinds. No Gateway emits them yet; a later Linux PR gives them their own labels.
-  "host-helper": "macHelper",
-  guest: "vmGuest",
+  // The Linux helper (stored as host-helper) and the helper inside a separate desktop.
+  "host-helper": "hostHelper",
+  // A paired helper-only computer; H6 adds its label, until then the kind shows as written.
+  machine: "machine",
+  guest: "guest",
 };
 
 const nodeKindLabel = (k: string): string => {
@@ -79,22 +88,26 @@ export interface DevicesPanelProps extends LoadProps {
   devices: readonly Device[];
   pairing: readonly PairingRequest[];
   nodes: readonly NodeInfo[];
-  /** Registered helper Touch ID keys; each shows on its helper's row with its kind. */
+  /** The helpers' presence keys (a Mac's own device key, a PC's Windows Hello key), each on its helper's row. */
   presenceKeys?: readonly PresenceKeyRow[];
   /** Touch ID key setup on each helper's row (absent: the keys are shown, nothing more). */
   touchId?: {
     bundled?: BundledHelperKey | null | undefined;
-    allowDevFileKey: boolean;
     onRegister: (
       deviceId: string,
       expectKeyId?: string,
       confirmReplacesKeyId?: string,
     ) => Promise<unknown>;
     onRemove: (deviceId: string) => Promise<unknown>;
-    onAllowDevFileKey: (on: boolean) => Promise<unknown>;
   };
+  /** Linux: the Gateway's password-approval status (`devices.presence.status`); absent elsewhere. */
+  passwordPresence?: PasswordPresenceRow | undefined;
+  /** Linux: what the Gateway saw of the helper's process (`devices.hostHelper.status`). */
+  hostHelperStatus?: HostHelperStatus | undefined;
   now?: number;
   thisDeviceId?: string;
+  /** "Computers Psyche can use": the connected group (absent in the pure panel's stories). */
+  machines?: ReactElement | null;
   onApprove?: (request: PairingRequest, scopes: DeviceScope[]) => void;
   onDeny?: (request: PairingRequest) => void;
   onRevoke?: (device: Device) => void;
@@ -109,8 +122,11 @@ export function DevicesPanel({
   nodes,
   presenceKeys = [],
   touchId,
+  passwordPresence,
+  hostHelperStatus,
   now,
   thisDeviceId,
+  machines = null,
   onApprove,
   onDeny,
   onRevoke,
@@ -159,6 +175,11 @@ export function DevicesPanel({
             </ul>
           </Group>
         ) : null}
+
+        {passwordPresence ? <PasswordPresenceGroup row={passwordPresence} /> : null}
+        {hostHelperStatus ? <HostHelperCheckGroup status={hostHelperStatus} /> : null}
+
+        {machines}
 
         <Group title={t("settings.devices.paired")}>
           {active.length === 0 ? (
@@ -287,12 +308,10 @@ export function DevicesPanel({
                       nodeKind={n.kind}
                       registered={presenceKeys.find((k) => k.deviceId === n.deviceId)}
                       bundled={touchId.bundled}
-                      allowDevFileKey={touchId.allowDevFileKey}
                       onRegister={(expect, confirm) =>
                         touchId.onRegister(n.deviceId, expect, confirm)
                       }
                       onRemove={() => touchId.onRemove(n.deviceId)}
-                      onAllowDevFileKey={touchId.onAllowDevFileKey}
                     />
                   ) : (
                     presenceKeys
@@ -483,7 +502,8 @@ export function DevicesSection({
   };
 }): ReactElement {
   const call = useCall();
-  const devSettingQ = useGatewayQuery("settings.get", { keys: [DEV_FILE_KEY_SETTING] });
+  // Only a Linux Gateway records a peer check of its helper; elsewhere there is nothing to show.
+  const hostStatusQ = useGatewayQuery("settings.get", { keys: [HOST_HELPER_STATUS_KEY] });
   const [bundled, setBundled] = useState<BundledHelperKey | null | undefined>(undefined);
   useEffect(() => {
     if (!touchId) return;
@@ -507,10 +527,12 @@ export function DevicesSection({
     },
   );
   const keysQ = useGatewayQuery("devices.presenceKey.list", {});
+  // Only a Linux Gateway reports a password verifier; an older Gateway answers an error.
+  const presenceQ = useGatewayQuery("devices.presence.status", {});
+  const passwordRow = presenceQ.data?.verifiers.find((v) => v.kind === "password");
   const settled = (p: Promise<unknown>) =>
     p.then((v) => {
       keysQ.reload();
-      devSettingQ.reload();
       return v;
     });
   const [actionError, setActionError] = useState<string | null>(null);
@@ -532,10 +554,11 @@ export function DevicesSection({
       pairing={pairingQ.data?.pairingRequests ?? []}
       nodes={nodesQ.data?.nodes ?? []}
       presenceKeys={keysQ.data?.presenceKeys ?? []}
+      passwordPresence={passwordRow}
+      hostHelperStatus={parseHostHelperStatus(hostStatusQ.data?.settings?.[HOST_HELPER_STATUS_KEY])}
       {...(infoQ.data ? { gatewayFingerprint: infoQ.data.identity.fingerprint } : {})}
       touchId={{
         bundled: touchId ? bundled : undefined,
-        allowDevFileKey: devSettingQ.data?.settings?.[DEV_FILE_KEY_SETTING] === true,
         onRegister: (deviceId, expectKeyId, confirmReplacesKeyId) =>
           settled(
             touchId && expectKeyId === undefined
@@ -547,9 +570,8 @@ export function DevicesSection({
                 }),
           ),
         onRemove: (deviceId) => settled(call("devices.presenceKey.remove", { deviceId })),
-        onAllowDevFileKey: (on) =>
-          settled(call("settings.set", { key: DEV_FILE_KEY_SETTING, value: on })),
       }}
+      machines={<MachinesGroup {...(now === undefined ? {} : { now })} />}
       loading={devicesQ.loading && devicesQ.data === undefined}
       error={devicesQ.error ?? nodesQ.error}
       onRetry={reloadAll}

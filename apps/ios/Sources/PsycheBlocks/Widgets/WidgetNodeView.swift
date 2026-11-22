@@ -190,7 +190,8 @@ private struct ListRowView: View {
 
 private struct ProgressNodeView: View {
     let progress: ProgressNode
-    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+    private let motion = MotionContext()
+    private var reduceMotion: Bool { motion.reduced }
     @State private var slide = false
 
     private var valueText: String {
@@ -226,7 +227,7 @@ private struct ProgressNodeView: View {
                 .frame(height: 6)
                 .task(id: progress.indeterminate) {
                     guard progress.fraction == nil, !reduceMotion else { return }
-                    withAnimation(.easeInOut(duration: 1.2).repeatForever(autoreverses: true)) { slide = true }
+                    withAnimation(PsycheMotion.pulse) { slide = true }
                 }
             }
             .accessibilityElement(children: .ignore)

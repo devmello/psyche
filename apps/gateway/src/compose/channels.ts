@@ -40,6 +40,7 @@ import {
   webChatChannelDefaults,
 } from "@psyche/channels";
 import {
+  appendMessage,
   createThread,
   findThreadBySessionKey,
   getAgentThreadState,
@@ -48,7 +49,12 @@ import {
   getWidgets,
   updateThread,
 } from "@psyche/db";
-import { bindingFor, type ChannelReplyTurn } from "@psyche/permissions";
+import {
+  bindingFor,
+  type ChannelReplyTurn,
+  fillOutboundText,
+  outboundText,
+} from "@psyche/permissions";
 import {
   type Channel,
   type ChannelAdapter,
@@ -72,6 +78,8 @@ import {
 import type { Call, HandlerDef } from "../context.ts";
 import { MAIN_SESSION_KEY } from "../handlers/threads.ts";
 import { type WebhookRoute, webhookRoute } from "../http.ts";
+import { sealedChannelStore } from "../security/sealed-stores.ts";
+import { ensureSecurityState, stateSealFor } from "../security/state-seal.ts";
 import type { Gateway } from "../server.ts";
 import type { TxHooks } from "../session/controller.ts";
 import { channelSecretHandlers, vaultChannelSecret } from "./channel-secrets.ts";
@@ -448,6 +456,36 @@ function discordSetupFromEnv(
  * (`turnFor`). The node only checks that an approval id is present, so the Gateway verifies and
  * spends it at dispatch against the actual send (`verifiedMessagesSends`).
  */
+/**
+ * The note a held message leaves in its conversation (security §3.9): the model reads it on its
+ * next turn and the owner sees it in the thread. While the turn that wrote the message still owns
+ * the transcript the note is its own to append; once it has finished, nobody owns it.
+ */
+export function noteHeldMessage(
+  services: Pick<ComposeServices, "db" | "publish">,
+  threadId: string,
+  writerRunId: string | null,
+  md: string,
+): Message | undefined {
+  const note = {
+    threadId,
+    role: "system" as const,
+    blocks: [{ type: "text" as const, md }],
+    provenance: "system" as const,
+    runId: null,
+  };
+  for (const writer of [writerRunId, null]) {
+    try {
+      const message = appendMessage(services.db, note, { expectedWriterRunId: writer });
+      services.publish("chat.message", { message }, threadId);
+      return message;
+    } catch {
+      // Owned by another run: try the next owner; the notification tells the owner anyway.
+    }
+  }
+  return undefined;
+}
+
 export function channelReplyAuthority(
   services: ComposeServices,
   turnFor: (recipient: string) => ChannelReplyTurn | undefined = () => undefined,
@@ -650,6 +688,7 @@ export function composeChannels(
   const iso = () => new Date(clock.now()).toISOString();
   let gateway: Gateway | null = null;
   let stopWatchingGate: (() => void) | undefined;
+  let stopWatchingSeal: (() => void) | undefined;
 
   // Where each channel-started run replies, and inbound turns waiting for a busy thread.
   const replyTo = new Map<string, OutboundTarget>();
@@ -806,12 +845,23 @@ export function composeChannels(
   const publish = <E extends EventName>(event: E, payload: EventPayload<E>) =>
     services.publish(event, payload);
   const storedOwners = getSetting(db, "commands.ownerAllowFrom")?.value;
+  /** The outbound check's words in the owner's language (`ui.language`, else the Mac's). */
+  const ownerText = () => {
+    const chosen = getSetting(db, "ui.language")?.value;
+    return outboundText(
+      typeof chosen === "string" ? chosen : undefined,
+      Intl.DateTimeFormat().resolvedOptions().locale,
+    );
+  };
 
   const sink = {
     deliver: (event: ChannelInboundEvent) => onInbound(event),
   };
   const service = new ChannelService({
-    store: new SqliteChannelStore(db),
+    // Allowlists, DM policies and owner identities are sealed security state: checked first.
+    store: sealedChannelStore(new SqliteChannelStore(db), stateSealFor(db), () =>
+      ensureSecurityState(db),
+    ),
     broker: services.broker,
     sink,
     clock,
@@ -822,6 +872,46 @@ export function composeChannels(
     ...(setup.speech === undefined ? {} : { speech: setup.speech }),
     ...(setup.pairingRandom === undefined ? {} : { pairingRandom: setup.pairingRandom }),
     ...(Array.isArray(storedOwners) ? { ownerAllowFrom: storedOwners.map(String) } : {}),
+    outboundNotice: () => ownerText().notice,
+    // The outbound check (security §3.9): kinds only in the audit log, never the value.
+    onOutboundWithheld: (event) => {
+      const held = event.action === "hold";
+      void services.audit
+        .append({
+          kind: "outbound.withheld",
+          actor: { type: "system" },
+          subject: { channelId: event.channel.id },
+          data: {
+            decision: held ? "deny" : "redact",
+            channelType: event.channel.type,
+            kinds: event.kinds,
+          },
+        })
+        .catch(() => undefined);
+      if (!held) return;
+      const words = ownerText();
+      const filled = (t: string) =>
+        fillOutboundText(t, { channel: event.channel.type, kinds: event.kinds });
+      // The conversation the held message belonged to: its thread gets a note the model reads too, and
+      // the notification opens that thread.
+      const run = [...replyTo.entries()]
+        .reverse()
+        .find(([, t]) => t.channelId === event.channel.id && t.chatId === event.chatId);
+      const threadId = run === undefined ? undefined : turns.get(run[0])?.threadId;
+      if (threadId !== undefined) {
+        noteHeldMessage(services, threadId, run?.[0] ?? null, filled(words.threadNote));
+      }
+      void services.notifier
+        .notify({
+          kind: "system",
+          title: words.heldTitle,
+          body: filled(words.heldBody),
+          route:
+            threadId === undefined ? `/settings/channels/${event.channel.id}` : `/chat/${threadId}`,
+          dedupeKey: `outbound-held:${event.channel.id}:${event.chatId}`,
+        })
+        .catch(() => undefined);
+    },
     onInboundDecision: (event) => services.channelConversations.record(event),
     onPairingDecided: (event) => services.channelConversations.pairingDecided(event),
     // Security §10: 30/minute per sender by default (`gateway.rateLimits.inboundChatPerMinute`).
@@ -1425,6 +1515,23 @@ export function composeChannels(
       unregisterSendTool ??= services.tools.register(sendTool);
       unsubscribe = gw.bus.subscribe(["operator.read"], onFrame);
       await service.init();
+      // The service caches channels as the seal let it read them; after a re-seal the narrowed
+      // ones are read again (M2).
+      const seal = stateSealFor(db);
+      if (seal !== undefined) {
+        let wasUntrusted = seal.untrusted() !== null;
+        stopWatchingSeal = seal.onChange(() => {
+          const untrusted = seal.untrusted() !== null;
+          if (wasUntrusted && !untrusted) {
+            void service
+              .init()
+              .catch((err: unknown) =>
+                logger.warn("channel.reload_failed", { code: PsycheError.from(err).code }),
+              );
+          }
+          wasUntrusted = untrusted;
+        });
+      }
       await ensureWebChat();
       attachReady();
       // Messages held before the last stop (an update restarts the Gateway) run once the
@@ -1454,6 +1561,8 @@ export function composeChannels(
     async stop() {
       stopWatchingGate?.();
       stopWatchingGate = undefined;
+      stopWatchingSeal?.();
+      stopWatchingSeal = undefined;
       unregisterSendTool?.();
       unregisterSendTool = undefined;
       if (timer !== null) clearInterval(timer);

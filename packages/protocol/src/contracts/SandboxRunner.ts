@@ -66,6 +66,11 @@ export interface ExecRequest {
   provenance?: ProvenanceOut;
   /** The calling turn's taint sources, recorded with the files the command changes. */
   taintSources?: TaintSource[];
+  /**
+   * The standing grant that let the call through and that call's binding: a runner that
+   * records its own receipt names them, so a resume can tell this very call succeeded.
+   */
+  grant?: { id: string; bindingHash: string };
 }
 
 export interface ExecResult {
@@ -108,4 +113,10 @@ export interface SandboxRunner {
    */
   exec(request: ExecRequest): Promise<ExecResult>;
   destroy(sandboxId: string): Promise<void>;
+  /**
+   * Removes the scope's container, also one this process has not adopted yet (left by an earlier
+   * Gateway process); keeps its workspace volume and what is known about the files in it. A
+   * runner without containers of its own may leave it out.
+   */
+  destroyScope?(scope: SandboxScope): Promise<void>;
 }

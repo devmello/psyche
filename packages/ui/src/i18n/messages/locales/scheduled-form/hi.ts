@@ -1,0 +1,55 @@
+import type { Catalogue } from "../../index.ts";
+
+/** Automation form strings (hi); merged into `../hi.ts`. */
+export const scheduledForm: Partial<Catalogue> = {
+  "scheduled.form.edit.title": "स्वचालन संपादित करें",
+  "scheduled.form.prompt": "Psyche को क्या करना है?",
+  "scheduled.form.prompt.hint":
+    "इसे वैसे लिखें जैसे आप Psyche से पूछते। यह बिना किसी की निगरानी के चलता है, इसलिए यह आपसे सवाल नहीं पूछ सकता।",
+  "scheduled.form.name": "नाम (वैकल्पिक)",
+  "scheduled.form.name.hint": "खाली छोड़ें तो निर्देशों की पहली पंक्ति इस्तेमाल होगी।",
+  "scheduled.form.when": "कब",
+  "scheduled.form.zone": "समय {zone} में।",
+  "scheduled.form.when.kind": "दोहराव",
+  "scheduled.form.when.once": "एक बार, तारीख और समय पर",
+  "scheduled.form.when.daily": "हर दिन, एक समय पर",
+  "scheduled.form.when.weekdays": "कार्यदिवस, एक समय पर",
+  "scheduled.form.when.weekly": "हर हफ़्ते, चुने हुए दिनों पर",
+  "scheduled.form.when.interval": "हर कुछ घंटे पर",
+  "scheduled.form.when.custom": "मौजूदा समय-सारणी: {schedule}",
+  "scheduled.form.date": "तारीख",
+  "scheduled.form.time": "समय",
+  "scheduled.form.days": "इन दिनों पर",
+  "scheduled.form.hours": "हर बार के बीच घंटे",
+  "scheduled.form.custom.hint":
+    "Psyche इस समय-सारणी को जैसी है वैसी रखता है। बदलने के लिए कोई और विकल्प चुनें।",
+  "scheduled.form.switch.hint":
+    "एक बार वाला स्वचालन दोहराया नहीं जा सकता, और दोहराने वाला एक बार वाला नहीं बन सकता। इसके लिए नया स्वचालन बनाएँ।",
+  "scheduled.form.next": "अगले रन",
+  "scheduled.form.next.none": "इस समय-सारणी के आगे कोई रन नहीं है।",
+  "scheduled.form.delivery": "नतीजा कहाँ जाए",
+  "scheduled.form.delivery.inbox": "मेरा इनबॉक्स",
+  "scheduled.form.delivery.thread": "एक चैट",
+  "scheduled.form.delivery.none": "कहीं नहीं (कोई सूचना नहीं)",
+  "scheduled.form.delivery.threadPick": "चैट",
+  "scheduled.form.delivery.pick": "चैट चुनें",
+  "scheduled.form.enabled": "चालू",
+  "scheduled.form.enabled.hint": "बंद करें तो यह रहेगा पर चलेगा नहीं।",
+  "scheduled.form.approvals":
+    "अगर किसी रन को आपकी मंज़ूरी चाहिए, तो वह रन के दौरान नहीं पूछता। कार्रवाई मंज़ूरी में, स्थगित सूची में आपके जवाब तक रुकी रहती है।",
+  "scheduled.form.save": "सहेजें",
+  "scheduled.form.cancel": "रद्द करें",
+  "scheduled.form.delete": "हटाएँ",
+  "scheduled.form.error.prompt": "लिखें कि Psyche को क्या करना है।",
+  "scheduled.form.error.name": "नाम 200 अक्षरों से कम रखें।",
+  "scheduled.form.error.date": "तारीख चुनें।",
+  "scheduled.form.error.time": "समय चुनें।",
+  "scheduled.form.error.past": "यह समय निकल चुका है। कोई बाद का समय चुनें।",
+  "scheduled.form.error.days": "कम से कम एक दिन चुनें।",
+  "scheduled.form.error.hours": "1 से 168 के बीच घंटों की पूरी संख्या लिखें।",
+  "scheduled.form.error.switch":
+    "Psyche एक बार और दोहराने वाले स्वचालन के बीच बदल नहीं सकता। इसके बजाय नया बनाएँ।",
+  "scheduled.form.error.thread": "वह चैट चुनें जहाँ नतीजा जाए, या कोई और जगह चुनें।",
+  "scheduled.form.notFound": "वह स्वचालन अब मौजूद नहीं है।",
+  "scheduled.form.toast.created": "{title} बनाया गया",
+};

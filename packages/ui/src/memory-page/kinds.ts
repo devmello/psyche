@@ -14,6 +14,14 @@ export function memoryHref(kind: MemoryKind): string {
   return kind === "everything" ? "/memory" : `/memory?kind=${kind}`;
 }
 
+/** `/memory?view=map`: the Map view of the Memory page (List is the bare chip routes). */
+export const MEMORY_MAP_ROUTE = "/memory?view=map";
+
+/** `?view=` as a view; anything else is the list. */
+export function parseMemoryView(value: string | null | undefined): "list" | "map" {
+  return value === "map" ? "map" : "list";
+}
+
 /** The route of an entity's page, which opens in the Memory page. */
 export function entityHref(id: string): string {
   return `/memory?entity=${encodeURIComponent(id)}`;

@@ -20,6 +20,7 @@ import {
   loadProgress,
   previewImport,
   saveProgress,
+  shareStarterFolders,
   touchIdSetup,
 } from "./onboarding-host.ts";
 import { readPermissions, requestPermission } from "./permissions.tsx";
@@ -103,6 +104,7 @@ export function FirstRun({
         onPreviewImport={(format, content) => previewImport(gw, format, content)}
         onCommitImport={(items) => commitImport(gw, items)}
         onProgress={(p) => void saveProgress(gw, p).catch(() => undefined)}
+        onShareFolders={(folders, approvalId) => shareStarterFolders(gw, folders, approvalId)}
         onComplete={onComplete}
       />
     </Suspense>

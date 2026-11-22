@@ -1,7 +1,7 @@
 import * as m from "motion/react-m";
 import { type ReactElement, useEffect, useRef, useState } from "react";
 import { useI18n } from "../i18n/I18nProvider.tsx";
-import { duration, motionSpring, spring } from "../motion/tokens.ts";
+import { duration, ease, motionSpring, spring } from "../motion/tokens.ts";
 import { useReducedMotion } from "../theme/ThemeProvider.tsx";
 
 /**
@@ -87,7 +87,7 @@ export function Sparkline({
         key={live && !reduce ? generation : 0}
         initial={live && !reduce && generation > 0 ? { x: rtl ? -step : step } : false}
         animate={{ x: 0 }}
-        transition={{ duration: duration.medium / 1000, ease: "easeOut" }}
+        transition={{ duration: duration.medium / 1000, ease: [...ease.enter] }}
       >
         {d ? (
           <m.path

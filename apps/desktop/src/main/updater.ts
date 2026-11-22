@@ -7,6 +7,7 @@ import { claimedRequirement } from "./bundle-integrity.ts";
 import { TRUSTED_RELEASE_KEYS } from "./release-keys.ts";
 import {
   checkForVerifiedUpdate,
+  feedForChannel,
   serveVerifiedUpdate,
   switchToFullPackage,
   type UpdateCheck,
@@ -52,6 +53,8 @@ export type UpdaterState =
 export interface UpdaterOptions {
   /** Overrides the feed (PSYCHE_UPDATE_FEED); still must be on the pinned release host. */
   feedUrl?: string;
+  /** The `updates.channel` setting; it only picks the feed (see update-flow.ts). */
+  channel?: unknown;
   /** Defaults to stderr. */
   log?: (message: string) => void;
   /** `$PSYCHE_HOME/run/updater.json`: the result, for `psyche security audit`. */
@@ -164,7 +167,7 @@ async function runUpdater(opts: UpdaterOptions): Promise<RunResult> {
   const blocked = await updaterGate(log);
   if (blocked) return blocked;
   const platform = process.platform === "win32" ? "win32" : "darwin";
-  const feed = opts.feedUrl ?? process.env.PSYCHE_UPDATE_FEED;
+  const feed = opts.feedUrl ?? process.env.PSYCHE_UPDATE_FEED ?? feedForChannel(opts.channel);
   const result = await checkForVerifiedUpdate({
     fetch,
     currentVersion: app.getVersion(),

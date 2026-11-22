@@ -14,6 +14,9 @@ public protocol HomeBackend: Sendable {
     func actOnNudge(id: String, action: NudgeAction) async throws
     func inbox() async throws -> [InboxItem]
     func markRead(ids: [String]) async throws
+    /// Taps one of a Gateway notice's own buttons ("Keep it"), the same `notifications.resolve` call the web inbox makes.
+    /// Approval buttons are not here: they answer through `answerApproval`.
+    func resolveNotice(id: String, actionID: String) async throws
 }
 
 public enum ApprovalDecision: String, Sendable, Equatable { case allow, deny }
@@ -44,12 +47,18 @@ public struct InboxItem: Sendable, Equatable, Identifiable {
     public var needsYouID: String?
     /// Older than today: the Inbox puts it under "Earlier".
     public var earlier: Bool
+    /// The message ids of a Gateway notice, so the app can word it in its own language. nil: show `title` and `body`.
+    public var message: InboxNoticeKeys?
+    /// The notice's own buttons ("Keep it"). Empty for approvals and questions, which answer through their own calls.
+    public var actions: [InboxAction]
 
     public init(
         id: String, title: String, body: String, kindLabel: String, time: String,
         needsYou: Bool = false, read: Bool = false, route: String? = nil, needsYouID: String? = nil,
-        earlier: Bool = false
+        earlier: Bool = false, message: InboxNoticeKeys? = nil, actions: [InboxAction] = []
     ) {
+        self.message = message
+        self.actions = actions
         self.id = id
         self.title = title
         self.body = body
@@ -60,6 +69,36 @@ public struct InboxItem: Sendable, Equatable, Identifiable {
         self.route = route
         self.needsYouID = needsYouID
         self.earlier = earlier
+    }
+}
+
+/// A Gateway notice's message ids and values (`NoticeMessage` on the wire). The app words it with its own
+/// String Catalog; an id it does not know falls back to the Gateway's English text.
+public struct InboxNoticeKeys: Sendable, Equatable {
+    public var titleKey: String
+    public var bodyKey: String
+    public var params: [String: String]
+
+    public init(titleKey: String, bodyKey: String, params: [String: String] = [:]) {
+        self.titleKey = titleKey
+        self.bodyKey = bodyKey
+        self.params = params
+    }
+}
+
+/// A button on a Gateway notice ("Keep it"). A tap resolves the notice with `id`.
+public struct InboxAction: Sendable, Equatable, Identifiable {
+    public var id: String
+    /// The Gateway's English label, for a client that does not know `labelKey`.
+    public var label: String
+    public var labelKey: String?
+    public var destructive: Bool
+
+    public init(id: String, label: String, labelKey: String? = nil, destructive: Bool = false) {
+        self.id = id
+        self.label = label
+        self.labelKey = labelKey
+        self.destructive = destructive
     }
 }
 
@@ -163,11 +202,14 @@ public struct ApprovalDetail: Sendable, Equatable {
     /// "Payments need Face ID on this phone." nil when no presence check applies.
     public var presenceNote: String?
     public var allowLabel: String
+    /// The paired computer the action is for ("lab-box"), from the approval's `machine`. nil means this Mac.
+    public var machineName: String?
 
     public init(
         kindLabel: String, title: String, summary: String, fields: [Field], evidence: [String],
-        alsoSentTo: String, presenceNote: String?, allowLabel: String
+        alsoSentTo: String, presenceNote: String?, allowLabel: String, machineName: String? = nil
     ) {
+        self.machineName = machineName
         self.kindLabel = kindLabel
         self.title = title
         self.summary = summary

@@ -1,12 +1,16 @@
 import { execFile } from "node:child_process";
+import { dirname, join } from "node:path";
 import {
   type AgentToolRegistration,
+  CodingSandboxes,
   type CodingToolsDeps,
   codingTools,
   type GitRunner,
+  keepQuarantined,
 } from "@psyche/agent-core";
-import type { SandboxRunner } from "@psyche/protocol";
-import { protectedRoots } from "./protected-paths.ts";
+import { PsycheError, type SandboxRunner } from "@psyche/protocol";
+import { codingNotices, KEEP_ACTION } from "./coding-notices.ts";
+import { protectedRoots, writeProtectedRoots } from "./protected-paths.ts";
 import type { ComposedPart, ComposeServices } from "./services.ts";
 
 /**
@@ -38,6 +42,14 @@ const GIT_MAX_BUFFER = 8 * 1024 * 1024;
 const GIT_TIMEOUT_MS = 120_000;
 
 /**
+ * The only variables a caller may set per command (`GitRunner` `options.env`). Anything else,
+ * `PATH`, `GIT_CONFIG_PARAMETERS`, `GIT_CONFIG_COUNT`/`KEY_n`/`VALUE_n`, `GIT_EXEC_PATH`,
+ * `DYLD_*`, `LD_*` or one of the fixed keys below, is refused: they would change which program
+ * runs or undo the hardening.
+ */
+export const HOST_GIT_COMMAND_ENV: ReadonlySet<string> = new Set(["GIT_PROXY_COMMAND"]);
+
+/**
  * `git` on the host as a child process with an argv (no shell). Prompts are off, so a push that
  * needs credentials the owner's helpers cannot supply fails instead of waiting on a terminal;
  * `GIT_DIR` / `GIT_WORK_TREE` from the Gateway's own environment never redirect it.
@@ -45,8 +57,33 @@ const GIT_TIMEOUT_MS = 120_000;
 export function hostGit(binary = "git"): GitRunner {
   return {
     run(cwd, args, options = {}) {
-      const env: NodeJS.ProcessEnv = { ...process.env, GIT_TERMINAL_PROMPT: "0", LC_ALL: "C" };
-      for (const k of ["GIT_DIR", "GIT_WORK_TREE", "GIT_INDEX_FILE", "GIT_EXTERNAL_DIFF"]) {
+      const extra = Object.keys(options.env ?? {}).filter((k) => !HOST_GIT_COMMAND_ENV.has(k));
+      if (extra.length > 0) {
+        return Promise.reject(
+          new PsycheError(
+            "internal",
+            `git may not be given ${extra.join(", ")}; only ${[...HOST_GIT_COMMAND_ENV].join(", ")} can be set per command`,
+          ),
+        );
+      }
+      const env: NodeJS.ProcessEnv = {
+        ...process.env,
+        GIT_TERMINAL_PROMPT: "0",
+        LC_ALL: "C",
+        // Discovery never climbs above the workspace into a repository around it.
+        GIT_CEILING_DIRECTORIES: dirname(cwd),
+        // What agent-core asks for this command, allowlisted above (a push: GIT_PROXY_COMMAND="").
+        ...options.env,
+      };
+      for (const k of [
+        "GIT_DIR",
+        "GIT_WORK_TREE",
+        "GIT_INDEX_FILE",
+        "GIT_EXTERNAL_DIFF",
+        // Programs git would run for a password: prompts are off, nothing may ask.
+        "GIT_ASKPASS",
+        "SSH_ASKPASS",
+      ]) {
         delete env[k];
       }
       return new Promise((resolve) => {
@@ -74,6 +111,33 @@ export function hostGit(binary = "git"): GitRunner {
   };
 }
 
+/**
+ * Stops every sandbox `code.run` made for `root` before "Keep it" (#1438 review r1): each one
+ * best-effort, logged when it fails, and forgotten only once it is gone, so a failed one is tried
+ * again by the next Keep it.
+ */
+export async function stopRepositorySandboxes(
+  sandboxes: CodingSandboxes,
+  runner: SandboxRunner | undefined,
+  root: string,
+  logger?: ComposeServices["logger"],
+): Promise<void> {
+  if (runner === undefined) return;
+  for (const sb of sandboxes.list(root)) {
+    try {
+      if (runner.destroyScope !== undefined) await runner.destroyScope(sb.scope);
+      else await runner.destroy(sb.sandboxId);
+      sandboxes.forget(root, sb);
+    } catch (err) {
+      logger?.log("warn", "coding: a sandbox could not be stopped before Keep it", {
+        root,
+        sandbox: sb.sandboxId,
+        error: err instanceof Error ? err.message : String(err),
+      });
+    }
+  }
+}
+
 export function composeCoding(services: ComposeServices, setup: CodingSetup = {}): ComposedPart {
   const read = services.tools.get("read_file") as AgentToolRegistration | undefined;
   const write = services.tools.get("write_file") as AgentToolRegistration | undefined;
@@ -82,14 +146,44 @@ export function composeCoding(services: ComposeServices, setup: CodingSetup = {}
     return {};
   }
   const git = setup.git === undefined ? hostGit() : setup.git;
+  // What a `code.run` creates in a repository's launch config is held here (#1434 review r2):
+  // inside Psyche's home, which no workspace or file tool reaches.
+  const quarantineDir = join(services.home, "quarantine", "code-run");
+  const notices = codingNotices((input) => services.notifier.notify(input), {
+    resolve: (id) => services.notifier.resolve(id),
+    quarantineDir,
+  });
+  // Kept across restarts: a container the runner adopts later is still stopped by Keep it.
+  const sandboxes = new CodingSandboxes(join(services.home, "coding", "sandboxes.json"));
+  const runner = setup.runner;
+  const unregisterKeep = services.notificationActions?.register(KEEP_ACTION, async (_n, id) => {
+    const kept = await keepQuarantined(quarantineDir, id, {
+      // Keep it is the owner's own tap: the repository's sandbox stops first, so nothing still
+      // running in it can swap a folder while entries go back (dev servers in it end too).
+      beforeKeep: (root) => stopRepositorySandboxes(sandboxes, runner, root, services.logger),
+    });
+    services.logger?.log("info", "coding: the owner kept launch config a run made", {
+      root: kept.root,
+      entries: kept.kept.join(", "),
+    });
+  });
   const tools = codingTools({
     files: { read, write },
-    folders: () => services.rawBroker.policy.folders ?? [],
-    protectedRoots: () => protectedRoots(services.home),
+    // The coding tools follow the root themselves (search, git): a look within the fresh window.
+    folders: () => services.rawBroker.freshGrantedFolders(),
+    // A workspace is read and written (`code.edit`, `code.run` mounts it read-write): never one
+    // in or around a persistence location either.
+    protectedRoots: () => [...protectedRoots(services.home), ...writeProtectedRoots()],
     broker: services.broker,
     ...(setup.runner === undefined ? {} : { runner: setup.runner }),
     ...(setup.track === undefined ? {} : { track: setup.track }),
     ...(git === null ? {} : { git }),
+    launchConfig: {
+      quarantineDir,
+      sandboxes,
+      report: (report, { root }) => void notices.report(report, root),
+      recreated: ({ root }) => notices.recreated(root),
+    },
   });
   const unregister = tools.map((t) => services.tools.register(t));
   services.logger?.log("info", "coding: code.* tools enabled", {
@@ -99,6 +193,7 @@ export function composeCoding(services: ComposeServices, setup: CodingSetup = {}
   return {
     stop: () => {
       for (const u of unregister) u();
+      unregisterKeep?.();
     },
   };
 }

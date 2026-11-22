@@ -33,10 +33,13 @@ import { useCall, useGatewayQuery, useMemoryFile } from "../data/index.ts";
 import { activeI18n, t } from "../i18n/core.ts";
 import { describeError } from "../i18n/errors.ts";
 import { cn } from "../lib/utils.ts";
+import { downloadExport, type ExportFile } from "../screens/settings/DataControlsSection.tsx";
 import { usePersona, useSlots } from "../slots.tsx";
 import { lessonsAt, useLessons } from "../teaching/hooks.ts";
 import { LessonMark, lessonMarkLabel } from "../teaching/LessonMark.tsx";
 import { AgentNotes } from "./AgentNotes.tsx";
+import { ImportDialog } from "./ImportDialog.tsx";
+import { runImport } from "./run-import.ts";
 
 /** Persona files and their budgets (architecture §4.2: 20k per file, 4k for USER.md). */
 export const PERSONA_FILES = [
@@ -345,8 +348,8 @@ export function SoulMemoryPanel({
   onStartIncognito?: () => void;
   /** The shell picks the export file to import (format + content) and calls back. */
   onImport?: () => void;
-  /** Receives the export zip (base64) to save. */
-  onExported?: (file: { filename: string; data: string }) => void;
+  /** Receives the export zip (base64) to save; without it the zip is saved as a download. */
+  onExported?: (file: ExportFile) => void;
 }): ReactElement {
   const persona = usePersona();
   const slots = useSlots();
@@ -355,6 +358,7 @@ export function SoulMemoryPanel({
   const status = useGatewayQuery("memory.status", {});
   const daily = useGatewayQuery("memory.daily.list", { limit: 7 });
   const [notice, setNotice] = useState<string | null>(null);
+  const [importing, setImporting] = useState(false);
   const [searching, setSearching] = useState(false);
   const paused = status.data?.paused ?? false;
   const fileBudget = PERSONA_FILES.find((f) => f.path === path)?.budget ?? 20_000;
@@ -485,17 +489,15 @@ export function SoulMemoryPanel({
 
       <fieldset aria-label={t("agent.memory.importExport")} className="m-0 min-w-0 border-0 p-0">
         <GroupedList>
-          {onImport ? (
-            <GroupedRow
-              label={t("agent.memory.import")}
-              leading={<Upload className="size-4" aria-hidden="true" />}
-              control={
-                <Button size="sm" variant="ghost" onClick={onImport}>
-                  {t("screens.soul.choose")}
-                </Button>
-              }
-            />
-          ) : null}
+          <GroupedRow
+            label={t("agent.memory.import")}
+            leading={<Upload className="size-4" aria-hidden="true" />}
+            control={
+              <Button size="sm" variant="ghost" onClick={onImport ?? (() => setImporting(true))}>
+                {t("screens.soul.choose")}
+              </Button>
+            }
+          />
           <GroupedRow
             label={t("agent.memory.export")}
             leading={<Download className="size-4" aria-hidden="true" />}
@@ -505,7 +507,8 @@ export function SoulMemoryPanel({
                 variant="ghost"
                 onClick={async () => {
                   const res = await call("memory.export", {});
-                  onExported?.({ filename: res.filename, data: res.data });
+                  // Without a host save of its own, the zip is saved as a download (it was dropped).
+                  (onExported ?? downloadExport)(res);
                   setNotice(t("agent.memory.exported", { file: res.filename }));
                 }}
               >
@@ -534,6 +537,12 @@ export function SoulMemoryPanel({
           {notice}
         </p>
       ) : null}
+
+      <ImportDialog
+        open={importing}
+        onOpenChange={setImporting}
+        run={(req, onStage, onProgress) => runImport(call, req, onStage, onProgress)}
+      />
 
       {/* The editor in a level-3 sheet (§5.7); Rich / Source / Diff come from the editor slot. */}
       <Dialog

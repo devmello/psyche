@@ -55,11 +55,11 @@ export type NodeCapability = Static<typeof NodeCapability>;
  * `remote`. `isHostHelperKind` (node.ts) tests for both.
  */
 export const NodeKind = StringEnum(
-  ["mac-helper", "vm-guest", "remote", "phone", "win-helper", "host-helper", "guest"],
+  ["mac-helper", "vm-guest", "remote", "phone", "win-helper", "host-helper", "guest", "machine"],
   {
     $id: "NodeKind",
     description:
-      "win-helper: the Windows helper on the Host (the node socket plus the handshake secret). host-helper: the helper the desktop launched on the Host (macOS mac-helper or Linux linux-helper; stored rows keep mac-helper, which stays a valid alias). guest: the helper inside a separate desktop (container or VM).",
+      "win-helper: the Windows helper on the Host (the node socket plus the handshake secret). host-helper: the helper the desktop launched on the Host (macOS mac-helper or Linux linux-helper; stored rows keep mac-helper, which stays a valid alias). guest: the helper inside a separate desktop (container or VM). machine: a separate computer that runs only the helper and that the owner paired so the agent can use its screen, apps, shell and files (docs/design/linux-helper-only-2026.md). SECURITY: the owner's approval is the only way a device becomes a machine; a node can never declare this kind in its own handshake or manifest, and the Gateway sets it from the stored decision (wave H3).",
   },
 );
 export type NodeKind = Static<typeof NodeKind>;
@@ -85,10 +85,27 @@ export const PairingStatus = StringEnum(["pending", "approved", "denied", "expir
 });
 export type PairingStatus = Static<typeof PairingStatus>;
 
+/**
+ * What a setup token is for, and what approving a pairing request makes the device. `device` (the
+ * default, and what every token was before) pairs a computer's app with the operator scopes the
+ * owner chose. `machine` pairs a helper-only Linux computer as a `machine` node: its scopes are
+ * always exactly `["node"]`, never chosen by the caller, and its link is `psyche-machine:v1`
+ * (`machine-link.ts`). A `device` token never pairs a machine and a `machine` token never pairs a
+ * client. The Gateway side is wave H3.
+ */
+export const SetupTokenPurpose = StringEnum(["device", "machine"], { $id: "SetupTokenPurpose" });
+export type SetupTokenPurpose = Static<typeof SetupTokenPurpose>;
+
 export const PairingRequest = Type.Object(
   {
     id: Id,
     kind: StringEnum(["device", "channel-sender"]),
+    /**
+     * Device requests: what approving this request makes the device. Absent means `device` (an
+     * older Gateway never sets it). `machine` is the "wants to let Psyche use its screen, apps,
+     * shell and files" card; approving it is what makes the device a `machine` node (H3).
+     */
+    purpose: Type.Optional(SetupTokenPurpose),
     code: Type.String(),
     deviceId: Nullable(Id),
     channelId: Nullable(Id),

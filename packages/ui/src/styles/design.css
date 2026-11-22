@@ -506,13 +506,63 @@
   .psy-shimmer {
     mask-image: linear-gradient(90deg, black 30%, oklch(0 0 0 / 55%) 50%, black 70%);
     mask-size: 300% 100%;
-    animation: psy-shimmer 1.5s linear infinite;
+    /* Seven passes (~10 s), then it rests at mask-position 0 0, where each pass also ends: a
+       skeleton stuck on a failed load stops repainting without a visible jump. */
+    animation: psy-shimmer var(--duration-shimmer) var(--ease-linear) 7;
+  }
+}
+
+/*
+  Toasts (motion.md §4.1, moment 7): Sonner animates its own transform and opacity. These rules
+  put it on the tokens: it rises on spring.smooth with an opacity fade over duration.medium, and
+  leaves by fading at 0.7x without moving. Sonner's `height` and `box-shadow` transitions are
+  dropped (§1.7). The selector is (0,3,0) so Sonner's runtime-injected stylesheet cannot win.
+  The stack offset still animates: Sonner positions every toast with `--y` (translateY of
+  `--offset`, `--lift` and `--toasts-before`) through `transform`, which stays in the list. What
+  now changes at once is the card height when the stack expands or collapses (§2.5).
+*/
+[data-sonner-toaster] [data-sonner-toast][data-styled="true"] {
+  transition-property: transform, opacity;
+  transition-duration: var(--spring-smooth-duration), var(--duration-medium);
+  transition-timing-function: var(--spring-smooth), var(--ease-enter);
+}
+[data-sonner-toaster] [data-sonner-toast][data-styled="true"][data-removed="true"],
+[data-sonner-toaster]
+  [data-sonner-toast][data-styled="true"][data-removed="true"][data-front="false"][data-swipe-out="false"][data-expanded="false"] {
+  transition-property: transform, opacity;
+  transition-duration: var(--duration-medium-exit), var(--duration-medium-exit);
+  transition-timing-function: var(--ease-exit), var(--ease-exit);
+}
+/* Reduced motion: a toast only fades; it never travels. */
+:root[data-reduce-motion="true"] [data-sonner-toaster] [data-sonner-toast][data-styled="true"] {
+  transition-property: opacity;
+  transition-duration: var(--duration-short);
+  transition-timing-function: var(--ease-standard);
+  translate: none;
+}
+:root[data-reduce-motion="true"]
+  [data-sonner-toaster]
+  [data-sonner-toast][data-styled="true"][data-removed="true"] {
+  transform: var(--y, none) !important;
+}
+@media (prefers-reduced-motion: reduce) {
+  :root:not([data-reduce-motion="false"])
+    [data-sonner-toaster]
+    [data-sonner-toast][data-styled="true"] {
+    transition-property: opacity;
+    transition-duration: var(--duration-short);
+    transition-timing-function: var(--ease-standard);
+  }
+  :root:not([data-reduce-motion="false"])
+    [data-sonner-toaster]
+    [data-sonner-toast][data-styled="true"][data-removed="true"] {
+    transform: var(--y, none) !important;
   }
 }
 
 /* Agent glow (smoothness-2026 C8): opacity-only pulse while active; the transition fades it out. */
 .psy-agent-glow[data-active="true"] {
-  animation: psy-agent-glow 1.2s linear infinite;
+  animation: psy-agent-glow var(--duration-pulse) var(--ease-linear) infinite;
 }
 @keyframes psy-agent-glow {
   0%,
@@ -721,7 +771,7 @@
 /* Listening: three level bars that rise and fall; reduced motion holds them still. */
 .psy-orb-bar {
   transform-origin: center;
-  animation: psy-orb-level 0.9s ease-in-out infinite;
+  animation: psy-orb-level var(--duration-orb-level) var(--ease-standard) infinite;
 }
 @keyframes psy-orb-level {
   50% {

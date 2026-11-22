@@ -27,3 +27,22 @@ describe("the Memory routes", () => {
     expect(resolveAppRoute("/people?entity=ent_1")).toBeNull();
   });
 });
+
+describe("the Spaces routes", () => {
+  it("opens /spaces and /spaces/<id>", () => {
+    expect(resolveAppRoute("/spaces")).toBe("/spaces");
+    expect(resolveAppRoute("/spaces/spc_01-A")).toBe("/spaces/spc_01-A");
+  });
+
+  it("takes no queries, hashes, nested paths or odd ids", () => {
+    for (const bad of [
+      "/spaces/a/b",
+      "/spaces?x=1",
+      "/spaces#x",
+      "/spaces/a b",
+      "/spaces/..",
+      `/spaces/${"a".repeat(65)}`,
+    ])
+      expect(resolveAppRoute(bad), bad).toBeNull();
+  });
+});

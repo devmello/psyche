@@ -170,12 +170,11 @@ export const PersonaLoading: Story = { render: () => <PersonaPanel {...form} loa
 export const PersonaError: Story = {
   render: () => <PersonaPanel {...form} error="timeout" onRetry={noop} />,
 };
-export const PersonaWithImageModel: Story = {
+export const PersonaWithIdentity: Story = {
   render: () => (
     <PersonaPanel
       {...form}
-      values={{ ...values, "persona.creatureId": "owl", "persona.emoji": "🦉" }}
-      hasImageModel
+      identity={{ name: "Owl", creature: "owl", emoji: "🦉", tagline: "Quiet wings" }}
     />
   ),
 };
@@ -232,6 +231,8 @@ const mcpState = (servers: McpState["servers"]): McpState => ({
   notice: null,
   review: null,
   check: noop,
+  update: noop,
+  updated: 0,
   remove: noop,
   setEnabled: noop,
 });

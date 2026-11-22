@@ -29,6 +29,11 @@ export const blocksRest: Partial<Catalogue> = {
     "「このチャットのみ」は会話が終わるまで有効です。「常時」は、設定 → 権限 → アクセスで削除するまでフォルダを保持します。",
   "blocks.folder.scope.once": "このチャットのみ",
   "blocks.folder.scope.always": "常時（このフォルダとその配下）",
+  "blocks.folder.scope.space": "このスペースで許可",
+  "blocks.folder.scope.spaceNamed": "{space} で許可",
+  "blocks.folder.space.automationsRead": "{space} の Psyche の自動化もこのフォルダを読み取れます。",
+  "blocks.folder.space.automationsWrite":
+    "{space} の Psyche の自動化もこのフォルダの読み取りと書き込みができます。",
   "blocks.folder.explain.ro": "{persona}がフォルダ内のファイルを読み取ろうとしています。",
   "blocks.folder.explain.rw": "{persona}がフォルダ内のファイルを読み取り、変更しようとしています。",
   "blocks.folder.readOnly": "読み取りのみ許可し、何も変更させない",
@@ -114,7 +119,7 @@ export const blocksRest: Partial<Catalogue> = {
   "blocks.approval.answerOnHost":
     "{host}で回答するか、設定 → デバイスで、このコンピュータでの承認用にTouch IDを設定してください。",
   "blocks.approval.rateLimited":
-    "1分間の承認回数が多すぎます。{seconds}秒後にもう一度お試しください。",
+    "1分間の試行回数が多すぎます。{seconds}秒後にもう一度お試しください。",
   "blocks.approval.touchIdFailed": "Touch IDに失敗しました: {reason}。もう一度お試しください。",
   "blocks.approval.touchIdFailedNoReason": "Touch IDに失敗しました。もう一度お試しください。",
   "blocks.approval.touchIdInvalid": "Psycheは本人であることを確認できませんでした",
@@ -133,21 +138,8 @@ export const blocksRest: Partial<Catalogue> = {
   "blocks.approval.touchId.onceOnly": "このウインドウからのTouch ID承認は1回のみです。",
   "blocks.approval.status.allowedOnceTouchId":
     "1回のみ許可（このウインドウからのTouch ID承認は1回のみ）",
-  "blocks.approval.touchId.keyUntrusted":
-    "キーチェーンにあるPsyche HelperのTouch IDキーは本人のものと確認できないため、使われませんでした。「設定 → デバイス」で対処方法を確認してください。",
-  "blocks.approval.touchId.keyAccessDenied":
-    "macOSがPsyche HelperにTouch IDキーの使用を許可しませんでした。もう一度試し、確認画面に psyche-helper と表示されている場合にだけ「常に許可」を選んでください。",
-  "blocks.approval.touchId.keyChanged":
-    "Psyche Helperの実行中にTouch IDキーが変わりました。Psyche Helperを終了して、もう一度起動してください。",
-  "blocks.approval.touchId.keyWrongLocation":
-    "PsycheがTouch IDキーを保持できない場所（ディスクイメージ、ダウンロード、別のフォルダ）から実行されています。Psycheを「アプリケーション」に移動し、そこから開いてください。",
-  "blocks.approval.touchId.keyLocked":
-    "キーチェーンは今は許可を求められません。Macのロックを解除してもう一度試してください。",
-  "blocks.approval.touchId.keyAclUnavailable":
-    "このMacのキーチェーンはTouch IDキーのアクセスリストを保持しませんでした。Psyche Helperを再起動してもう一度試してください。",
   "blocks.approval.touchId.keyUnavailable":
     "このビルドのPsyche HelperはTouch IDキーを保持できない（キーチェーンのアクセスグループがない）ため、このMacではTouch IDが必要なカードを承認できません。",
-  "blocks.approval.touchId.cancelled": "Touch IDがキャンセルされたため、何も承認されていません",
   "blocks.approval.touchId.restartHelper": "Psyche Helperを再起動",
   "blocks.approval.touchId.startHelper": "Psyche Helperを起動",
   "blocks.question.answerLine": "↳ {answer}",

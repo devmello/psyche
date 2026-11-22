@@ -9,13 +9,45 @@ struct PhaseView<Value: Sendable, Content: View>: View {
     let skeleton: Value
     let retry: () async -> Void
     @ViewBuilder let content: (Value) -> Content
+    /// The skeleton holds its place from the first frame (no layout shift) but is only drawn after
+    /// `PsycheMotion.Duration.skeletonDelay`: a load faster than that shows nothing at all.
+    @State private var skeletonVisible = false
+
+    private enum Stage { case loading, loaded, failed }
+    private var stage: Stage {
+        switch phase {
+        case .idle, .loading: .loading
+        case .loaded: .loaded
+        case .failed: .failed
+        }
+    }
 
     var body: some View {
+        // Skeleton → content is a 150 ms fade-in (spec §4.7); the stage change is the only thing that animates.
+        // A Group, not a ZStack: the content is often several siblings (Home's sections) or List rows, which
+        // must join the parent's stack or list. The outgoing stage leaves at once so it never stacks beside
+        // the incoming one.
+        Group { stageBody }
+            .psycheFade(PsycheMotion.Duration.short, value: stage)
+            .task(id: stage == .loading) {
+                guard stage == .loading else { return }
+                skeletonVisible = false
+                try? await Task.sleep(for: .seconds(PsycheMotion.Duration.skeletonDelay))
+                skeletonVisible = true
+            }
+    }
+
+    private static var stageTransition: AnyTransition { .asymmetric(insertion: .opacity, removal: .identity) }
+
+    @ViewBuilder
+    private var stageBody: some View {
         switch phase {
         case .idle, .loading:
             content(skeleton).redacted(reason: .placeholder).allowsHitTesting(false)
+                .opacity(skeletonVisible ? 1 : 0)
+                .transition(Self.stageTransition)
         case .loaded(let value):
-            content(value)
+            content(value).transition(Self.stageTransition)
         case .failed(let message):
             VStack(spacing: 12) {
                 Text("Couldn't load this").font(.headline).foregroundStyle(PsycheColor.text)
@@ -26,6 +58,7 @@ struct PhaseView<Value: Sendable, Content: View>: View {
             }
             .frame(maxWidth: .infinity)
             .padding(.vertical, 40)
+            .transition(Self.stageTransition)
         }
     }
 }

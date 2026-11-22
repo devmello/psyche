@@ -1,12 +1,9 @@
-import type { DailyAutomationDraft, ScheduledItem } from "@psyche/protocol";
+import type { ScheduledItem } from "@psyche/protocol";
 import { type ReactElement, type ReactNode, useId, useState } from "react";
 import { Badge } from "../../components/ui/badge.tsx";
 import { Button } from "../../components/ui/button.tsx";
-import { Textarea } from "../../components/ui/textarea.tsx";
 import { t } from "../../i18n/core.ts";
-import { describeError } from "../../i18n/errors.ts";
 import { cn } from "../../lib/utils.ts";
-import { AutomationDraftCard } from "./AutomationDraftCard.tsx";
 import {
   absoluteWhen,
   approvalLines,
@@ -27,12 +24,8 @@ export interface ScheduledRowProps {
   onDelete: (item: ScheduledItem) => void;
   /** `/settings/<section>` of a routine. */
   onOpenSettings?: (section: string) => void;
-  /** Turns the owner's sentence into the draft the confirm card shows. */
-  onParseEdit?: (
-    item: ScheduledItem,
-    text: string,
-  ) => Promise<{ draft?: DailyAutomationDraft; error?: string }>;
-  onSaveEdit?: (item: ScheduledItem, draft: DailyAutomationDraft) => Promise<void>;
+  /** Opens the automation form for a one-time or repeating automation. */
+  onEdit?: (item: ScheduledItem) => void;
   /** Linked runs and unusual kinds are changed in a chat. */
   onEditInChat?: (item: ScheduledItem) => void;
   /** The run history, shown when the owner opens it. */
@@ -40,7 +33,10 @@ export interface ScheduledRowProps {
   className?: string;
 }
 
-type Mode = "idle" | "edit" | "delete";
+type Mode = "idle" | "delete";
+
+/** The kinds the automation form can change; the rest are changed in a chat. */
+const FORM_KINDS = ["cron", "interval", "reminder"];
 
 /** One scheduled item: when, what, approvals, linked runs, and the actions that fit it. */
 export function ScheduledRow({
@@ -51,8 +47,7 @@ export function ScheduledRow({
   onRunNow,
   onDelete,
   onOpenSettings,
-  onParseEdit,
-  onSaveEdit,
+  onEdit,
   onEditInChat,
   renderHistory,
   className,
@@ -61,61 +56,18 @@ export function ScheduledRow({
   const name = itemName(item);
   const [mode, setMode] = useState<Mode>("idle");
   const [historyOpen, setHistoryOpen] = useState(false);
-  const [text, setText] = useState("");
-  const [draft, setDraft] = useState<DailyAutomationDraft | null>(null);
-  const [problem, setProblem] = useState<string | null>(null);
-  const [busy, setBusy] = useState(false);
 
   const owner = item.group === "owner";
-  const sentenceEditable =
-    owner && item.linked === undefined && ["cron", "interval"].includes(item.kind);
+  const formEditable = item.linked === undefined && FORM_KINDS.includes(item.kind);
   // A recording's instruction is fixed by the skill, so there is nothing to reword.
   const canEdit =
     owner &&
     item.recordedSkill === undefined &&
-    (sentenceEditable ? onParseEdit && onSaveEdit : onEditInChat);
+    (formEditable ? onEdit !== undefined : onEditInChat !== undefined);
 
   const startEdit = () => {
-    if (!sentenceEditable) {
-      onEditInChat?.(item);
-      return;
-    }
-    setText(`${itemSchedule(item)}: ${item.prompt ?? item.summary}`.slice(0, 1000));
-    setDraft(null);
-    setProblem(null);
-    setMode("edit");
-  };
-
-  const review = async () => {
-    if (!onParseEdit) return;
-    setBusy(true);
-    setProblem(null);
-    try {
-      const r = await onParseEdit(item, text.trim());
-      if (r.draft) setDraft(r.draft);
-      else
-        setProblem(
-          r.error === "no_model" ? t("scheduled.edit.noModel") : t("scheduled.edit.parseFailed"),
-        );
-    } catch (err) {
-      setProblem(describeError(err));
-    } finally {
-      setBusy(false);
-    }
-  };
-
-  const save = async () => {
-    if (!draft || !onSaveEdit) return;
-    setBusy(true);
-    try {
-      await onSaveEdit(item, draft);
-      setMode("idle");
-      setDraft(null);
-    } catch (err) {
-      setProblem(describeError(err));
-    } finally {
-      setBusy(false);
-    }
+    if (formEditable) onEdit?.(item);
+    else onEditInChat?.(item);
   };
 
   const approvals = approvalLines(item.approvals);
@@ -217,54 +169,6 @@ export function ScheduledRow({
               {t("scheduled.delete.cancel")}
             </Button>
           </div>
-        </fieldset>
-      ) : null}
-
-      {mode === "edit" ? (
-        <fieldset className="flex min-w-0 flex-col gap-2 border-0 p-0">
-          <legend className="sr-only">{t("scheduled.edit.title", { title: name })}</legend>
-          {draft === null ? (
-            <>
-              <label htmlFor={`${titleId}-edit`} className="text-callout text-label-secondary">
-                {t("scheduled.edit.label")}
-              </label>
-              <Textarea
-                id={`${titleId}-edit`}
-                value={text}
-                rows={3}
-                onChange={(e) => setText(e.target.value)}
-              />
-              <div className="flex gap-2">
-                <Button
-                  type="button"
-                  disabled={busy || text.trim() === ""}
-                  onClick={() => void review()}
-                >
-                  {t("scheduled.edit.review")}
-                </Button>
-                <Button type="button" variant="ghost" onClick={() => setMode("idle")}>
-                  {t("scheduled.edit.cancel")}
-                </Button>
-              </div>
-            </>
-          ) : (
-            <AutomationDraftCard
-              draft={draft}
-              busy={busy}
-              title={t("scheduled.edit.cardTitle")}
-              confirmLabel={t("scheduled.edit.save")}
-              onConfirm={() => void save()}
-              onCancel={() => {
-                setDraft(null);
-                setMode("idle");
-              }}
-            />
-          )}
-          {problem ? (
-            <p role="alert" className="text-callout text-destructive">
-              {problem}
-            </p>
-          ) : null}
         </fieldset>
       ) : null}
 

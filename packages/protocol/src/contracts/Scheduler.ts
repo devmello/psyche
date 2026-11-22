@@ -8,8 +8,11 @@ import type { Automation } from "../schemas/integrations.ts";
 
 export type AutomationInput = Omit<
   Automation,
-  "id" | "nextRunAt" | "lastRunAt" | "lastStatus" | "createdAt" | "updatedAt"
->;
+  "id" | "nextRunAt" | "lastRunAt" | "lastStatus" | "createdAt" | "updatedAt" | "spaceId"
+> & {
+  /** The Space it runs in; absent or null for none (docs/design/spaces-2026.md §4.1). */
+  spaceId?: string | null;
+};
 
 /** `specialist: null` clears it (the automation runs as a plain Task again). */
 export type AutomationPatch = Partial<Omit<AutomationInput, "specialist">> & {

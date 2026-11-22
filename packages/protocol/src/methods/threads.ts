@@ -76,6 +76,8 @@ export const ThreadsMethods = {
       permissionMode: Type.Optional(PermissionMode),
       modelRef: Type.Optional(ModelRef),
       parentThreadId: Type.Optional(Id),
+      /** Start the thread in a Space (spaces §4.2). */
+      spaceId: Type.Optional(Id),
     }),
     result: ThreadResult,
     scope: "operator.write",
@@ -87,6 +89,8 @@ export const ThreadsMethods = {
     params: Type.Object({
       kind: Type.Union([Type.Literal("side"), Type.Literal("incognito")]),
       preferThreadId: Type.Optional(Id),
+      /** Start the chat in a Space (spaces §4.2). */
+      spaceId: Type.Optional(Id),
     }),
     result: Type.Object({
       thread: Thread,
@@ -95,6 +99,36 @@ export const ThreadsMethods = {
     scope: "operator.write",
     description:
       "New chat: returns the empty chat of that kind the owner already has (preferring preferThreadId), else creates one marked as user-created.",
+  }),
+  "threads.import": defineMethod({
+    params: Type.Object({
+      format: StringEnum(["claude", "chatgpt"], { $id: "ThreadImportFormat" }),
+      /** A batch of whole conversations from the export (a frame is 1 MiB; clients split the file). */
+      content: Type.String({ minLength: 2, maxLength: 330_000 }),
+      dryRun: Type.Optional(Type.Boolean()),
+    }),
+    result: Type.Object(
+      {
+        /** Threads created (or, in a dry run, that would be). */
+        imported: Type.Integer({ minimum: 0 }),
+        /** Conversations already imported earlier: left as they are. */
+        duplicates: Type.Integer({ minimum: 0 }),
+        skipped: Type.Array(
+          Type.Object({
+            title: Type.String(),
+            reason: StringEnum(["too_many", "too_large", "empty", "invalid"]),
+          }),
+          { maxItems: 500 },
+        ),
+        /** Skipped entries past the 500 listed above. */
+        skippedMore: Type.Integer({ minimum: 0 }),
+      },
+      { $id: "ThreadImportResult" },
+    ),
+    scope: "operator.write",
+    sideEffecting: true,
+    description:
+      "Imports conversations from a claude.ai or ChatGPT export as archived, read-only threads (imported flag). Turns are untrusted data. Capped; the same export again adds nothing. Side-effecting.",
   }),
   "threads.discardEmpty": defineMethod({
     params: ThreadIdParams,
@@ -108,6 +142,8 @@ export const ThreadsMethods = {
       kind: Type.Optional(ThreadKind),
       includeArchived: Type.Optional(Type.Boolean()),
       pinnedOnly: Type.Optional(Type.Boolean()),
+      /** Only threads in this Space (spaces §4.2). */
+      spaceId: Type.Optional(Id),
       query: Type.Optional(
         Type.String({
           minLength: 1,
@@ -232,5 +268,20 @@ export const ThreadsMethods = {
     sideEffecting: true,
     description:
       "Side-effecting: compacts the thread's earlier turns now (null when there is nothing to compact); conflict while the thread runs or waits on an approval.",
+  }),
+  "threads.summary.pins.remove": defineMethod({
+    params: Type.Object({
+      threadId: Id,
+      /** The pin's id (`pinId(text)` in @psyche/protocol): the text itself never travels. */
+      pinId: Type.String({ pattern: "^[0-9a-f]{16}$" }),
+    }),
+    result: Type.Object({
+      /** The standing instructions the thread's summary keeps. */
+      pinnedInstructions: Type.Array(Type.String({ maxLength: 500 }), { maxItems: 40 }),
+    }),
+    scope: "operator.write",
+    sideEffecting: true,
+    description:
+      "Side-effecting: the owner removes one standing instruction (by pin id) from a thread's compaction summary, and from the compaction blocks that show it. A plain tap on a paired device, no presence; the agent and channels cannot reach it. conflict while the thread runs.",
   }),
 } as const;

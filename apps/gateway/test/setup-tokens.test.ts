@@ -143,6 +143,28 @@ describe("making a pairing link", () => {
     });
   });
 
+  it("makes a machine token only for scopes [node], and still needs scopes for a device token", async () => {
+    await start();
+    const admin = await adminClient(t.gateway);
+    open.push(admin);
+    // A machine link takes no scopes of its own: the purpose decides, so a caller cannot widen it.
+    expect(
+      await admin.request("devices.setupToken.create", {
+        purpose: "machine",
+        scopes: ["operator.admin"],
+      }),
+    ).toMatchObject({ ok: false, error: { code: "invalid_params" } });
+    expect(await admin.request("devices.setupToken.create", { purpose: "machine" })).toMatchObject({
+      ok: true,
+      payload: { setupToken: { scopes: ["node"], purpose: "machine" } },
+    });
+    expect(await admin.request("devices.setupToken.create", {})).toMatchObject({
+      ok: false,
+      error: { code: "invalid_params" },
+    });
+    expect(audited.filter((e) => e.kind === "device.setup_token.created")).toHaveLength(1);
+  });
+
   it("audits making and revoking a token without the token", async () => {
     await start();
     const { made, token } = await makeLink(["operator.read"]);

@@ -1,5 +1,5 @@
 import type { ApprovalRequest, Message, Notification, ThreadListEntry } from "@psyche/protocol";
-import { isEmptyUserChat, t } from "@psyche/ui";
+import { isAutoModelRefusal, isEmptyUserChat, shortModel, t } from "@psyche/ui";
 import type { GatewayEvent } from "../client/connection.ts";
 import { type GatewayStatus, INITIAL_STATUS } from "../client/status.ts";
 import type { GatewayPort, Unsubscribe } from "./platform.ts";
@@ -15,6 +15,8 @@ export interface Toast {
   id: string;
   text: string;
   tone: "info" | "warn" | "error";
+  /** One optional button on the toast, e.g. "Switch model". */
+  action?: { label: string; run: () => void };
 }
 
 export interface ShellState {
@@ -129,9 +131,11 @@ export class ShellStore {
    * Shows a toast. Errors stay until dismissed; others close after `ttlMs` (8 s), and the timer
    * pauses while the pointer or focus is on the toasts (WCAG 2.2.1; docs/a11y-audit.md T1).
    */
-  toast(text: string, tone: Toast["tone"] = "info", ttlMs = 8_000): void {
+  toast(text: string, tone: Toast["tone"] = "info", ttlMs = 8_000, action?: Toast["action"]): void {
     const id = `t${++toastSeq}`;
-    this.set({ toasts: [...this.state.toasts, { id, text, tone }] });
+    this.set({
+      toasts: [...this.state.toasts, { id, text, tone, ...(action ? { action } : {}) }],
+    });
     if (tone !== "error") this.#arm(id, ttlMs);
   }
 
@@ -185,13 +189,15 @@ export class ShellStore {
 
   /**
    * Changes a thread's permission mode or model (`threads.update`). "Needs a newer version" is
-   * only for a Gateway that lacks the method; any other failure (e.g. the Gateway refusing Auto
-   * for a model off the allowlist) shows the Gateway's own message. Returns whether it applied.
+   * only for a Gateway that lacks the method. A refusal of Auto for the model says so in plain
+   * words and offers `onSwitchModel` (the model picker) as one button; any other failure shows
+   * the Gateway's own message. Returns whether it applied.
    */
   async updateThread(
     threadId: string,
     patch: { permissionMode?: string; modelRef?: string },
     unsupportedText: string,
+    options: { onSwitchModel?: () => void } = {},
   ): Promise<boolean> {
     try {
       const r = await this.call("threads.update", { threadId, ...patch });
@@ -202,6 +208,22 @@ export class ShellStore {
       void this.refresh();
       return true;
     } catch (err) {
+      const refusal = isAutoModelRefusal(err);
+      if (refusal !== null) {
+        const action =
+          options.onSwitchModel === undefined
+            ? undefined
+            : { label: t("web.toast.switchModel"), run: options.onSwitchModel };
+        this.toast(
+          refusal.model === null
+            ? t("web.toast.autoModelRefusedNoModel")
+            : t("web.toast.autoModelRefused", { model: shortModel(refusal.model) }),
+          "warn",
+          8_000,
+          action,
+        );
+        return false;
+      }
       const message = err instanceof Error ? err.message.trim() : "";
       this.toast(message === "" ? t("web.toast.threadUpdateFailed") : message, "warn");
       return false;

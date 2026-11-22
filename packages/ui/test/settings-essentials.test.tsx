@@ -135,6 +135,68 @@ describe("Access list", () => {
     expect(onRevoke).toHaveBeenCalledWith(expect.objectContaining({ id: "grant:g1" }));
   });
 
+  it("shows an older folder that moved, with a one-tap Confirm (PR #1395)", async () => {
+    const user = userEvent.setup();
+    const onConfirm = vi.fn();
+    render(
+      <AccessListView
+        persona="Wren"
+        onRevoke={vi.fn()}
+        onConfirm={onConfirm}
+        entries={[
+          {
+            id: "folder:always:/Users/o/cloud/Notes",
+            type: "folder",
+            scope: "always",
+            label: "/Users/o/cloud/Notes",
+            path: "/Users/o/cloud/Notes",
+            mode: "rw",
+            refused: true,
+            moved: true,
+            movedTo: "/Users/o/real-cloud/Notes",
+          },
+        ]}
+      />,
+    );
+    expect(
+      screen.getByText(
+        /Now points to \/Users\/o\/real-cloud\/Notes — confirm only if you moved it yourself/,
+      ),
+    ).toBeTruthy();
+    await user.click(
+      screen.getByRole("button", {
+        name: "Confirm /Users/o/cloud/Notes again at /Users/o/real-cloud/Notes",
+      }),
+    );
+    expect(onConfirm).toHaveBeenCalledWith(
+      expect.objectContaining({ id: "folder:always:/Users/o/cloud/Notes" }),
+    );
+  });
+
+  it("shows a folder that is a system folder today as refused, with Revoke", () => {
+    render(
+      <AccessListView
+        persona="Wren"
+        entries={[
+          {
+            id: "folder:always:/opt/homebrew",
+            type: "folder",
+            scope: "always",
+            label: "/opt/homebrew",
+            path: "/opt/homebrew",
+            mode: "rw",
+            refused: true,
+          },
+        ]}
+        onRevoke={vi.fn()}
+      />,
+    );
+    const list = screen.getByRole("list", { name: "What Wren can reach" });
+    expect(within(list).getByText(/\/opt\/homebrew can't be shared/)).toBeTruthy();
+    expect(within(list).queryByText(/Read and write/)).toBeNull();
+    expect(within(list).getByRole("button", { name: /Revoke/ })).toBeTruthy();
+  });
+
   it("says Psyche asks when nothing is granted yet", () => {
     render(<AccessListView persona="Wren" entries={[]} />);
     expect(screen.getByText(/it asks you in the chat/)).toBeTruthy();

@@ -133,6 +133,9 @@ export function remoteClientPlatform(full: ShellPlatform, b?: PsycheBridge): She
     terminal: _terminal,
     sources: _sources,
     permissions: _permissions,
+    // The password dialog is on this computer, not on the Host's: a remote window must not
+    // promise "type your password in the system dialog".
+    password: _password,
     ...rest
   } = full;
   const { showLogs: _showLogs, ...gateway } = full.gateway;
@@ -175,6 +178,7 @@ function fullDesktopPlatform(b: PsycheBridge): ShellPlatform {
       onPendingLink: (cb) => b.gateways.onPendingLink(cb),
       discover: () => b.gateways.discover() as Promise<DiscoveredGatewayView[]>,
       addDiscovered: (id) => b.gateways.addDiscovered(id) as Promise<SavedGatewayView>,
+      claim: (target, code) => b.gateways.claim(target, code) as Promise<SavedGatewayView>,
       rename: async (id, name) => void (await b.gateways.rename(id, name)),
       remove: async (id) => void (await b.gateways.remove(id)),
       switchTo: async (id, opts) => void (await b.gateways.switchTo(id, opts)),
@@ -234,6 +238,7 @@ function fullDesktopPlatform(b: PsycheBridge): ShellPlatform {
     notify: { show: (n) => b.notify.show(n) },
     dialogs: {
       pickFolder: (opts) => b.dialogs.pickFolder(opts) as Promise<string | null>,
+      pathOfFile: (file) => b.dialogs.pathOfFile(file) || null,
     },
     permissions: {
       status: () =>
@@ -244,13 +249,30 @@ function fullDesktopPlatform(b: PsycheBridge): ShellPlatform {
       getState: () => b.helper.getState() as Promise<MacHelperState>,
       onState: (cb) => b.helper.onState((s) => cb(s as MacHelperState)),
       launch: (restart) => b.helper.launch(restart) as Promise<MacHelperState>,
-      touchId: {
-        identity: () => b.helper.touchIdIdentity() as Promise<BundledHelperIdentity | null>,
-        register: (confirmReplacesKeyId) =>
-          unwrapCall(b.helper.touchIdRegister(confirmReplacesKeyId)),
-        approve: (p) => unwrapCall(b.helper.touchIdApprove(p)),
-      },
+      // Not on Linux: there the helper has no Touch ID, and offering it would send Allow to
+      // `approveWithTouchId` (helper_offline) instead of the password path.
+      ...(b.platform === "linux"
+        ? {}
+        : {
+            touchId: {
+              identity: () => b.helper.touchIdIdentity() as Promise<BundledHelperIdentity | null>,
+              register: (confirmReplacesKeyId?: string) =>
+                unwrapCall(b.helper.touchIdRegister(confirmReplacesKeyId)),
+              approve: (p: { approvalId: string; answerToken: string }) =>
+                unwrapCall(b.helper.touchIdApprove(p)),
+            },
+          }),
     },
+    // Linux only: Allow on a card that needs presence asks the Gateway to run the polkit check;
+    // the owner types the password into the system's own dialog (linux design §9).
+    ...(b.platform === "linux"
+      ? {
+          password: {
+            approve: (p: { approvalId: string; answerToken: string }) =>
+              unwrapCall(b.password.approve(p)),
+          },
+        }
+      : {}),
     // Windows only: the sandbox PC's one-time setup. Elsewhere main answers "unsupported".
     ...(b.platform === "win32"
       ? {
@@ -284,6 +306,7 @@ function fullDesktopPlatform(b: PsycheBridge): ShellPlatform {
     app: {
       info: () => b.app.info() as Promise<HostAppInfo>,
       revealHome: async () => void (await b.app.revealHome()),
+      revealLibraryItem: async (itemId) => void (await b.library.reveal(itemId)),
       ...(b.chrome.uninstall === true
         ? {
             uninstallPlan: (req: { deleteData: boolean; removeKeychain?: boolean }) =>

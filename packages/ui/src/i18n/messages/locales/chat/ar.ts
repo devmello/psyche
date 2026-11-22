@@ -53,6 +53,9 @@ export const chat: Partial<Catalogue> = {
     "{name}: لا يستطيع Psyche قراءة هذا النوع من الملفات. أرفق ملف PDF أو Word أو Excel أو نصًا أو صورة",
   "chat.attach.refused.size": "{name} كبير جدًا للإرفاق (الصور 5 ميغابايت، والمستندات 25 ميغابايت)",
   "chat.attach.refused.count": "{name}: يمكن إرفاق ما يصل إلى 8 ملفات مع الرسالة",
+  "chat.attach.refused.sensitive": "{name}: موجود في مكان محمي ولا يمكن مشاركته مع Psyche",
+  "chat.attach.refused.unreadable":
+    "تعذّر إرفاق {name}. تأكد من أنه ما زال موجودًا وأنه ملف وليس مجلدًا",
   "chat.message.fromWidget": "من أداة",
   "chat.teach.notLikeThis": "ليس هكذا",
   "chat.teach.dialog": "علّم Psyche",
@@ -131,6 +134,9 @@ export const chat: Partial<Catalogue> = {
   "chat.steps.approval": "بانتظار موافقتك: {summary}",
   "chat.steps.question": "سُئل: {question}",
   "chat.steps.answered": "أُجيب: {question}",
+  "chat.steps.earlier":
+    "{n, plural, zero {لا خطوات سابقة مكتملة} one {خطوة سابقة مكتملة} two {خطوتان سابقتان مكتملتان} few {# خطوات سابقة مكتملة} many {# خطوة سابقة مكتملة} other {# خطوة سابقة مكتملة}}",
+  "chat.steps.needsYou": "بانتظارك",
   "chat.steps.writing": "جارٍ كتابة الرد…",
   "chat.steps.thinking": "تفكير: {text}",
   "chat.steps.thinkingEmpty": "جارٍ التفكير…",
@@ -196,4 +202,16 @@ export const chat: Partial<Catalogue> = {
   "chat.clear.failed": "تعذّر مسح الدردشة: {reason}",
   "chat.clear.mainOnly": "المسح يعمل في الدردشة الرئيسية. استخدم /new لدردشة جانبية جديدة.",
   "chat.commands.clear.description": "مسح الدردشة الرئيسية",
+  "chat.modeSwitch.label": "وضع الأذونات",
+  "chat.modeSwitch.autoExplainer":
+    "يُنفّذ الوضع التلقائي الإجراءات الروتينية ضمن صلاحياتك ويسأل قبل أي أمر حساس. تطلب المدفوعات موافقتك دائمًا، وتُرفض قائمة «لا تفعل أبدًا» دائمًا.",
+  "chat.modeSwitch.gotIt": "فهمت",
+  "chat.modeSwitch.autoUnavailable": "لا يمكن للوضع التلقائي العمل على {model}.",
+  "chat.modeSwitch.needsModel": "يحتاج الوضع التلقائي إلى نموذج مدعوم.",
+  "chat.modeSwitch.switchModel": "التبديل إلى {model} واستخدام الوضع التلقائي",
+  "chat.modeSwitch.noModel":
+    "يحتاج الوضع التلقائي إلى نموذج مدعوم مثل Claude أو GPT أو Gemini. أضف مفتاحه في الإعدادات.",
+  "chat.modeSwitch.failed": "تعذّر تغيير الوضع: {reason}",
+  "chat.modeSwitch.notSaved":
+    "تم التغيير لهذه الدردشة، لكن تعذّر حفظه كإعداد افتراضي للدردشات الجديدة.",
 };

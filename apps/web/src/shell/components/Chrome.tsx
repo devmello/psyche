@@ -123,6 +123,7 @@ export function ThreadList(props: {
   currentThreadId: string | null;
   onOpen: (threadId: string) => void;
   onNew: () => void;
+  onNewIncognito?: () => void;
 }): ReactElement {
   const threads = useShellState((s) => s.threads);
   const searchId = useId();
@@ -154,6 +155,16 @@ export function ThreadList(props: {
         >
           {t("web.threads.newSideChat")}
         </button>
+        {props.onNewIncognito ? (
+          <button
+            type="button"
+            className="pill"
+            onClick={props.onNewIncognito}
+            title={t("web.threads.newIncognitoChatTitle")}
+          >
+            {t("web.threads.newIncognitoChat")}
+          </button>
+        ) : null}
       </div>
       <div className="threads-search">
         <label htmlFor={searchId} className="sr-only">
@@ -326,6 +337,19 @@ export function Toasts(): ReactElement {
         >
           {toast.tone === "error" ? <span className="sr-only">{t("web.toast.error")}</span> : null}
           {toast.text}{" "}
+          {toast.action ? (
+            <button
+              type="button"
+              className="pill"
+              data-testid="toast-action"
+              onClick={() => {
+                toast.action?.run();
+                store.dismissToast(toast.id);
+              }}
+            >
+              {toast.action.label}
+            </button>
+          ) : null}{" "}
           <button
             type="button"
             className="pill"

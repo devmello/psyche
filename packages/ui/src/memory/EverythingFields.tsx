@@ -390,7 +390,7 @@ export function SensitiveFields({
               {t("memoryPrivacy.sensitiveChoose")}
               <ChevronRight
                 aria-hidden="true"
-                className="size-3 transition-transform duration-short ease-standard group-open/topics:rotate-90"
+                className="size-3 transition-transform duration-(--duration-short) ease-(--ease-standard) group-open/topics:rotate-90"
               />
             </span>
           </summary>

@@ -1,0 +1,8 @@
+# Everything the helper starts for Psyche (apps, commands) lands in this slice, so one limit
+# covers it. 3G is the default ceiling's memoryHigh (policy.json); a user manager that has no
+# memory controller delegated ignores the line.
+[Unit]
+Description=Psyche: apps and commands started for your Mac's Psyche
+
+[Slice]
+MemoryHigh=3G

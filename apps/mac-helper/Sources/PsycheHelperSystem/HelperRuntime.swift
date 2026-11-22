@@ -1,5 +1,6 @@
 import Foundation
 import PsycheHelperCore
+import PsycheWire
 
 /// Assembles every capability group into one registry (the capability manifest).
 public final class HelperRuntime: @unchecked Sendable {
@@ -8,14 +9,13 @@ public final class HelperRuntime: @unchecked Sendable {
     public let notifications: NotificationCenterBridge
     public let preflight = LivePreflight()
     public let registry: CapabilityRegistry
-    private let presence: PreferredPresenceKey
 
-    public init(log: HelperLog = HelperLog(), environment: [String: String] = ProcessInfo.processInfo.environment) {
+    /// `identity` is the device identity the helper paired with; it signs presence assertions after
+    /// the owner passed the system sheet.
+    public init(identity: DeviceIdentity, log: HelperLog = HelperLog(), environment: [String: String] = ProcessInfo.processInfo.environment) {
         self.log = log
         computer = ComputerUse(environment: environment, log: log)
-        // The keychain key when this build has an access group; else the Secure Enclave file key.
-        let presence = PreferredPresenceKey.live()
-        self.presence = presence
+        let presence = DeviceIdentityPresence(identity: identity)
         notifications = NotificationCenterBridge(log: log, presence: presence)
         var handlers: [any CapabilityHandler] = []
         handlers += PermissionsCapabilities.make(preflight: preflight)
@@ -51,12 +51,5 @@ public final class HelperRuntime: @unchecked Sendable {
     /// the helper reaches the delegate.
     public func start() {
         notifications.start()
-        // The running helper makes the Touch ID key (--print-identity only reads), off the main
-        // thread: it may take the creation lock. A failure is logged and retried by the next use.
-        let log = log
-        let presence = presence
-        Task.detached {
-            do { _ = try presence.publicKey() } catch let e as CapabilityError { log.info("Touch ID key not ready: \(e.reason)") } catch {}
-        }
     }
 }

@@ -52,9 +52,9 @@ export function rememberAgentTab(tab: AgentTab): void {
 
 /** What approvals and questions are waiting: the Approvals badge and the default segment. */
 export function useNeedsYouCount(): number {
-  const { live } = useApprovalQueue();
+  const { needsYou } = useApprovalQueue();
   const questions = useQuestions();
-  return live.length + questions.open.length;
+  return needsYou + questions.open.length;
 }
 
 /** Approvals when something needs you, otherwise the segment used last (else Approvals). */

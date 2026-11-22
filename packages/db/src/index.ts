@@ -11,11 +11,18 @@ export {
   runMigrations,
 } from "./migrate.ts";
 export { type OpenDbOptions, openDb, type PsycheDb } from "./open.ts";
+export {
+  type ReadGuard,
+  readGuardOf,
+  readGuardOfConnection,
+  setReadGuard,
+} from "./read-guard.ts";
 export * from "./repos/artifacts.ts";
 export * from "./repos/chat-queue.ts";
 export * from "./repos/devices.ts";
 export * from "./repos/idempotency.ts";
 export * from "./repos/library.ts";
+export * from "./repos/machines.ts";
 export * from "./repos/messages.ts";
 export * from "./repos/nodes.ts";
 export * from "./repos/pairing.ts";
@@ -27,8 +34,10 @@ export * from "./repos/setup-tokens.ts";
 export * from "./repos/thread-state.ts";
 export * from "./repos/threads.ts";
 export * from "./repos/tool-calls.ts";
+export * from "./repos/trace-scrub.ts";
 export * from "./repos/widgets.ts";
 export * from "./schema.ts";
+export * from "./secure-delete.ts";
 export {
   backupDatabaseFile,
   checkpointDatabaseFile,

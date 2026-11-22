@@ -20,13 +20,16 @@ import type {
   Lesson,
   LibraryItem,
   LinkPaymentMethod,
+  LinkSetupStatus,
   MemoryClaim,
   MemoryFileInfo,
   Message,
   Milestone,
   NodeInfo,
   Notification,
+  OnePasswordSetupStatus,
   PairingRequest,
+  PluginSummarySchema,
   Receipt,
   Run,
   RunFrame,
@@ -41,15 +44,18 @@ import type {
   ThreadListEntry,
   ToolCall,
   VaultPayment,
+  VaultStatus,
   Widget,
 } from "@psyche/protocol";
 import type { ReviewWorld } from "../data/mock-review.ts";
+import type { SpacesWorld } from "../data/mock-spaces.ts";
 import { answerTokens, approvals, grants } from "./approvals.ts";
 import { messages, runs, threads, toolCalls } from "./chat.ts";
 import { fileTree, type MockFileNode } from "./files.ts";
 import { feedbackEvents, lessons, milestones } from "./learning.ts";
 import { memoryClaims, memoryFileInfos, memoryFiles, searchHits } from "./memory.ts";
 import { type GraphWorld, graphWorld } from "./people.ts";
+import { plugins } from "./plugins.ts";
 import { automations, feed, goals, ideas, NEXT_BRIEF_AT, notifications } from "./proactive.ts";
 import {
   channels,
@@ -147,6 +153,12 @@ export interface FixtureWorld {
   credentialUses: CredentialUse[];
   /** Stripe Link (`vault.payments.*`); absent methods → Link is not set up. */
   linkMethods?: LinkPaymentMethod[];
+  /** The vault (`vault.status|setup|confirmRecovery|unlock`); absent → not implemented. */
+  vault?: { status: VaultStatus; recoveryKey?: string };
+  /** The guided Link setup (`payments.link.*`); absent → derived from `linkMethods`. */
+  linkSetup?: LinkSetupStatus;
+  /** The guided 1Password setup (`vault.onePassword.*`); absent → `op` is not installed. */
+  onePassword?: { status: OnePasswordSetupStatus; vaultCount?: number };
   payments?: VaultPayment[];
   settings: Record<string, unknown>;
   /** Workspace file contents by workspace-relative path. */
@@ -169,15 +181,23 @@ export interface FixtureWorld {
   graph: GraphWorld;
   /** Everything memory's review queue, quarantine and runs (absent = empty). */
   review?: ReviewWorld;
+  /** Spaces (absent = none); `withSpaces` fills it. */
+  spaces?: SpacesWorld;
   /** Settings → Skills (T2). */
   skills: SkillDetails[];
   /** What reviewing a folder finds: a proposal to stage, or policy violations. */
   skillSources: Record<string, MockSkillSource>;
   /** Agent-proposed skill drafts (T3). */
   skillDrafts: SkillDraft[];
+  /** Settings → Skills → Plugins: `plugins.list`. */
+  plugins: PluginSummarySchema[];
+  /** The admin switch `plugins.enabled`. */
+  pluginsEnabled: boolean;
   usage: UsageSummary;
   /** `connectors.connect` behaviour in the mock: "unavailable" answers not_implemented. */
   connectorConnect?: "unavailable" | "not_configured";
+  /** `connectors.googleClient`: absent = set in config.json; `null` = not set up yet. */
+  googleClient?: { clientId: string; hasSecret: boolean; source: "app" | "config" } | null;
   /** macOS grant for the Apple connectors (#549); default granted. */
   appleGrant?: "granted" | "denied" | "notDetermined";
   /** The last turn's context usage by thread id; absent → no turn has reported yet. */
@@ -266,6 +286,8 @@ export function createFixtureWorld(): FixtureWorld {
     skills: skills(),
     skillSources: skillSources(),
     skillDrafts: skillDrafts(),
+    plugins: plugins(),
+    pluginsEnabled: true,
     usage: usage(),
     specialistRoles: specialistRoles(),
     specialistJobs: specialistJobs(),

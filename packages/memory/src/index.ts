@@ -9,6 +9,7 @@ import { SqliteMemoryStore, type SqliteMemoryStoreOptions } from "./store.ts";
 export * from "./agent-notes.ts";
 export * from "./chunker.ts";
 export * from "./context.ts";
+export * from "./conversations.ts";
 export * from "./daily.ts";
 export * from "./dreaming.ts";
 export * from "./export.ts";

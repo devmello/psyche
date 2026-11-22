@@ -203,3 +203,60 @@ With the library shipped and the fuse off, the installed app is 510 MiB and the 
 before `codesign`. `psyche-helper` goes from 29.7 to 10.1 MiB (31,145,840 to 10,632,096 bytes):
 `__LINKEDIT` (symbols) shrinks from 21.0 to 1.4 MiB, `__TEXT` is unchanged. Runtime RAM is
 unchanged. `PSYCHE_HELPER_STRIP=x` (strip -x) or `none` overrides it.
+
+## 2026-11-19: psychedMB 208 to 250
+
+Fresh main (2c63447e9) built darwin-arm64 at **209.3 MiB**, over 208. The owner raised the limit to
+250 MiB rather than cutting the bundle. Largest entries on that build (KiB): `runtime/node` 95260
+(Node 24.22.1); `onnxruntime-node` darwin-arm64 dylib 44272; `app/apps/web` 37984; `app/apps/gateway`
+9940; `app/apps/cli` 2244; `playwright-core` 7904; `pdfjs-dist` 7952; `better-sqlite3-multiple-ciphers`
+2320; `better-sqlite3` 2068. Only about 1.4 MiB of the bundle looks like dev material (headers, .md,
+.ts), and nothing is a duplicate copy: the bundle is all real files apart from 62 symlinks.
+The dependency bumps since 205 to 208 are onnxruntime-node 1.30.0 to 1.31.1, pdfjs-dist 6.4.299 to
+6.5.438, playwright-core 1.64.1 to 1.65.1, better-sqlite3 13.0.3 to 13.2.0.
+
+## 2026-11-18: psychedMB 205 to 208
+
+The Gateway bundle (`Resources/psyched`, the `psychedMB` check) measured **210.4 MiB** on a real
+darwin-arm64 `build-psyched.mjs` run, over the 205 limit. Measurements were made with
+`PNPM_CONFIG_IGNORE_SCRIPTS=true`, which skips native install scripts; the `.node` prebuilds come from
+each package. The web client was built from source. Sizes are MiB.
+
+Breakdown after the node-pty cut below (206.6 MiB in total):
+
+| Part | MiB |
+|---|---|
+| `runtime/node` (the Gateway's Node 24.22.1) | 93.0 |
+| onnxruntime-node (one dylib after the dedupe) | 42.9 |
+| `app/apps/web` (web client JS: `core-*.js` 6.4, `es-*.js` 5.3) | 37.3 |
+| `app/apps/gateway` | 9.7 |
+| playwright-core | 7.4 |
+| pdfjs-dist | 7.3 |
+| better-sqlite3-multiple-ciphers / better-sqlite3 | 2.3 / 2.0 |
+| node-pty (prebuild only, after the cut) | about 0.2 |
+| `app/apps/cli` | 0.9 |
+
+**What grew since 8e40a20f4** (the 196 MiB record): the runtime dependencies added since then are
+node-pty (2026-11-04, ab06dbee3), bonjour-service (2026-11-04, 6333efbdd), dbus-next (2026-11-05,
+9aa542bdd), the `ai` upgrade from 7.0.143 to 7.0.152, and `tldts`. Their esbuild share is not
+measured separately. `@napi-rs/canvas` is deliberately dropped from the bundle (`DROP_PACKAGES` in
+`build-psyched.mjs`), so it is not part of the growth.
+
+**node-pty cut (applied in this change):** `deps/`, `src/`, `third_party/` (Windows conpty sources),
+`scripts/` and `binding.gyp` leave the bundle, about 3.9 MiB installed. `node-pty`'s `lib/utils.js`
+loads `build/Release`, then `prebuilds/<platform>-<arch>`, so the sources are never read on darwin.
+Measured: 210.4 to 206.6 MiB.
+
+**Why the budget is raised, not the runtime cut:** the owner prefers lower runtime RAM to a smaller
+app, so the separate Node runtime stays (see Phase 3). 208 leaves 1.4 MiB of headroom above the
+measured 206.6, so the next small growth still trips the check.
+
+**One web client copy (done by S2, #937):** the packaged app already ships one copy. The renderer
+build in `app.asar` carries the web client as `web.html`. `dropGatewayWebCopy`
+(`apps/desktop/src/packaging/web-copy.ts`) removes `Resources/psyched/app/apps/web/dist` before
+signing, and the bundled Gateway serves the client from `app.asar` (`apps/gateway/src/web-asar.ts`),
+checking the header against `ElectronAsarIntegrity` and each file against its SHA-256. The 37.3 MiB
+`app/apps/web` row and the 206.6 MiB total above are the standalone `build-psyched.mjs` bundle, which
+keeps its own `apps/web/dist` (standalone Gateways, Docker). So the 208 MiB `psychedMB` limit checked
+by that script counts the web client once more than the packaged app does; `release.yml` checks the
+packaged `Resources/psyched` after the drop. No further saving is left here, and RAM is unchanged.

@@ -64,6 +64,11 @@ export interface DiscoveredGateway {
   /** Announced more than once with different keys: not addable. */
   conflict: boolean;
   saved: boolean;
+  /**
+   * The announcement carries `claim=1`: a fresh psyche-server waiting for its setup code (design
+   * §3.6). A claim like the rest; the setup-code handshake is what proves the server.
+   */
+  claimable?: boolean;
 }
 
 /**
@@ -78,6 +83,11 @@ export interface GatewaysSlot {
   discover?(): Promise<DiscoveredGateway[]>;
   /** Adds one `discover` returned, by its id: the app never takes an address from here. */
   addDiscovered?(id: string): Promise<GatewayEntry>;
+  /**
+   * Claims a fresh psyche-server with its setup code (design §3.6), by a listing's id or a typed
+   * address. Rejects with `details.problem` `claim_<why>` (and `attemptsLeft`, `retryAfterSec`).
+   */
+  claim?(target: { id: string } | { address: string }, code: string): Promise<GatewayEntry>;
   remove(id: string): Promise<void>;
   switchTo(id: string, opts?: { stopLocal?: boolean }): Promise<void>;
   repair(id: string): Promise<void>;
@@ -152,7 +162,13 @@ export interface UiSlots {
   /** Navigate to an in-app route, e.g. `/agent/activity/<taskId>`. */
   navigate?: (route: string) => void;
   openArtifact?: (artifact: Artifact) => void;
+  /** Opens a Library item in the file viewer (the Files pane beside the view). */
   openLibraryItem?: (item: LibraryItem) => void;
+  /**
+   * Shows a Library item in Finder (desktop, this Mac's Gateway only; absent elsewhere, so the
+   * action is not offered). Rejects when the file is no longer in the Library.
+   */
+  revealLibraryItem?: (item: LibraryItem) => Promise<void>;
   openTask?: (task: Task) => void;
   openReceipt?: (receipt: Receipt) => void;
   /** Thumbnails and previews from `packages/viewers`. */
@@ -218,6 +234,11 @@ export interface UiSlots {
   /** The desktop: cards that need Touch ID are approved once only from this window. */
   touchIdOnceOnly?: boolean;
   /**
+   * The desktop on Linux: cards that need presence are approved by typing the owner's password
+   * into the system's own dialog (polkit), so the card says so while it waits and in its refusals.
+   */
+  passwordPresence?: boolean;
+  /**
    * A client of another computer's Gateway (remote-gateway design §6.2): a card that needs Touch
    * ID is approved here only with a passkey made on this computer. Without one the card says
    * "Answer on {host}" and Allow stays off (Deny still works); ordinary cards are unaffected.
@@ -226,6 +247,12 @@ export interface UiSlots {
   remotePresence?: { hostName: string; hasPasskey: boolean };
   /** The host's native folder picker; resolves to the real path, or null when cancelled. */
   pickFolder?: (opts?: { title?: string }) => Promise<string | null>;
+  /**
+   * The real path of a picked or dropped file (desktop on This Mac), or null. With it the chat
+   * attaches the file in place (`chat.attachFiles`: a read-only grant for that file) instead of
+   * uploading it to the Library.
+   */
+  pathOfFile?: (file: File) => string | null;
   /** Persona shown in agent messages and cards. */
   persona?: { name: string; creature?: string; imageSrc?: string };
 }

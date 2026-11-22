@@ -49,7 +49,7 @@ Some sites need extensions, such as 1Password, or a real Chrome. Real Chrome mod
 
 1. Open Settings → Browser and turn on **Let tasks use the Psyche profile**.
 2. Click **Open the profile in Chrome**. Sign in to the sites you need and install 1Password there if you use it, then close Chrome. (This button is in the desktop app only.)
-3. When a task wants real Chrome, it asks you first, every task, on a device-only card that needs Touch ID or a passkey.
+3. When a task wants real Chrome, it asks you first, every task, on a device-only card. Approving it is a tap on a paired device.
 
 While a task uses it, Psyche runs Chrome with that profile and a debugging port on `127.0.0.1` only, and closes it after 15 minutes idle. The agent does not attach while you have the profile open yourself. Google Chrome must be installed.
 
@@ -68,10 +68,10 @@ Pages are untrusted content. Text on a page never becomes an instruction, and af
 
 - The Browser pane is in the desktop app only. A Gateway on a server has no live browser view in the web client yet.
 - Choosing logged-in or logged-out browsing per site is done with Gateway environment variables, not in Settings.
-- Recordings of browsing are made only when the Gateway runs with `PSYCHE_BROWSER_RECORD=1`. They are listed in the Library, but there is no replay view in Activity yet, and the "Keep task replays for" setting in Data controls has no effect yet.
+- Recordings of browsing are made only when the Gateway runs with `PSYCHE_BROWSER_RECORD=1`. They are listed in the Library, but there is no replay view in Activity yet, and the "Keep task replays for" setting in Data controls sets how long they are kept.
 - There is no web search tool. The agent looks things up by opening pages in its browser.
 - Loopback and private-network addresses are refused, except for an approved dev preview.
-- Real Chrome mode's per-task card needs Touch ID or a passkey. Touch ID approvals cannot be approved in the desktop app yet, because nothing registers Psyche Helper's key with the Gateway; a passkey in the web client over https works. The same applies to credential fills and payments.
+- Real Chrome mode's per-task card is a device-only card that you approve with a tap on a paired device. Only payments ask for Touch ID (on the Mac, through Psyche Helper, which needs no key to be registered) or a passkey in the web client over https.
 
 ## Learn more
 

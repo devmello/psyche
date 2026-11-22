@@ -47,6 +47,8 @@ export type FxNode =
   | { kind: "canvas"; width: number; height: number }
   | { kind: "image"; alt: string }
   | { kind: "clickable"; text: string; onClick: FxAction }
+  /** A `contenteditable` div with an `aria-label` (AX role `generic`, `editable` property). */
+  | { kind: "editable"; label: string; text: string }
   | { kind: "spacer"; height: number }
   /** A full-viewport `position: fixed` layer (clickjacking fixture). */
   | { kind: "overlay"; text: string; onClick: FxAction }
@@ -388,6 +390,116 @@ export const FIXTURE_SITE: FxSite = {
         },
       ],
     },
+    // A payment step whose form action and button say nothing about paying: only the card fields do.
+    "a/pay-step": {
+      title: "Payment details",
+      body: [
+        { kind: "heading", level: 1, text: "Payment details" },
+        {
+          kind: "form",
+          action: "/submit/step3",
+          method: "post",
+          children: [
+            { kind: "input", label: "Card number", name: "cardnumber", autocomplete: "cc-number" },
+            { kind: "input", label: "Security code", name: "cvv", autocomplete: "cc-csc" },
+            { kind: "button", text: "Continue", type: "submit" },
+          ],
+        },
+      ],
+    },
+    // Fields that only look like card fields: email CC, a library card, a card PIN. No payment.
+    "a/not-pay": {
+      title: "New message",
+      body: [
+        { kind: "heading", level: 1, text: "New message" },
+        { kind: "link", text: "Where to buy", href: "/a/cart" },
+        {
+          kind: "form",
+          action: "/submit/message",
+          method: "post",
+          children: [
+            { kind: "input", label: "Cc", name: "cc" },
+            { kind: "input", label: "Library card", name: "library-card" },
+            { kind: "input", label: "PIN", name: "card_pin" },
+            { kind: "button", text: "Send", type: "submit" },
+          ],
+        },
+      ],
+    },
+    // Pre-filled secret fields that are not `type=password`, beside look-alikes that are not secret.
+    "a/codes": {
+      title: "Verify",
+      body: [
+        { kind: "heading", level: 1, text: "Verify" },
+        {
+          kind: "form",
+          action: "/submit/verify",
+          method: "post",
+          children: [
+            { kind: "input", label: "Verification code", name: "otp", value: "482913" },
+            { kind: "input", label: "Card security code", name: "cvc", value: "7391" },
+            {
+              kind: "input",
+              label: "Code",
+              name: "code",
+              autocomplete: "one-time-code",
+              value: "551122",
+            },
+            { kind: "input", label: "Password hint", name: "hint", value: "first pet" },
+            { kind: "input", label: "Find a flight", name: "pass", type: "search", value: "LHR" },
+            { kind: "button", text: "Verify", type: "submit" },
+          ],
+        },
+      ],
+    },
+    // A secret only the DOM path can see: a contenteditable (AX `generic`, not a text field)
+    // labelled as a code, with a 3-character value the value scrubber ignores; and card text on
+    // a page with no form field.
+    "a/editable-code": {
+      title: "Verify",
+      body: [
+        { kind: "heading", level: 1, text: "Verify" },
+        { kind: "editable", label: "Verification code", text: "731" },
+        { kind: "editable", label: "Notes", text: "bring 2 forms" },
+      ],
+    },
+    "a/card-text": {
+      title: "Receipt",
+      body: [
+        { kind: "heading", level: 1, text: "Receipt" },
+        { kind: "text", text: "Paid with 4242 4242 4242 4242 on 12 May" },
+      ],
+    },
+    // Fields that look like secrets and are not: nothing hides, screenshots stay available.
+    "a/lookalikes": {
+      title: "Booking",
+      body: [
+        { kind: "heading", level: 1, text: "Booking" },
+        { kind: "link", text: "Verify by link", href: "/a/lookalikes?code=909090" },
+        {
+          kind: "form",
+          action: "/submit/booking",
+          method: "post",
+          children: [
+            {
+              kind: "input",
+              label: "Confirmation code",
+              name: "confirmationCode",
+              value: "PNR7Q2",
+            },
+            { kind: "input", label: "PIN code", name: "pincode", value: "560001" },
+            {
+              kind: "input",
+              label: "Search: where is my CVV",
+              name: "q",
+              type: "search",
+              value: "cvv help",
+            },
+            { kind: "button", text: "Look up", type: "submit" },
+          ],
+        },
+      ],
+    },
     "a/cart": {
       title: "Cart",
       body: [
@@ -445,6 +557,27 @@ export const FIXTURE_SITE: FxSite = {
           kind: "button",
           text: "Go to tab two",
           onClick: { kind: "push_state", href: "/spa/two" },
+        },
+      ],
+    },
+    // A card form that moves to a review step with pushState (same document, new URL).
+    "a/pay-spa": {
+      title: "Payment",
+      body: [
+        { kind: "heading", level: 1, text: "Payment" },
+        {
+          kind: "form",
+          action: "/submit/pay",
+          method: "post",
+          children: [
+            { kind: "input", label: "Security code", name: "cvv" },
+            { kind: "input", label: "Expiry", name: "expiry" },
+          ],
+        },
+        {
+          kind: "button",
+          text: "Review order",
+          onClick: { kind: "push_state", href: "/a/pay-spa/review" },
         },
       ],
     },
@@ -518,6 +651,7 @@ export const REGRESSION_PAGES = [
   "a/untrusted",
   "a/upload",
   "a/checkout",
+  "a/pay-step",
   "a/cookies",
   "a/captcha",
   "a/spa",

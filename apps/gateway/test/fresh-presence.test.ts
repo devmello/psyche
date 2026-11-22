@@ -2,15 +2,19 @@ import { mkdtempSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { updateDevice } from "@psyche/db";
-import { type PresenceVerifier, presenceChallenge } from "@psyche/permissions";
-import type { ApprovalRequest } from "@psyche/protocol";
+import type { PresenceVerifier } from "@psyche/permissions";
+import { type ApprovalRequest, MACHINE_TOKENS_ENABLED } from "@psyche/protocol";
 import { FakeModelProvider } from "@psyche/testing";
 import { afterEach, describe, expect, it } from "vitest";
 import { runCli } from "../src/cli.ts";
 import { composeHelper } from "../src/compose/helper.ts";
 import { type ComposedGateway, type ComposeOptions, composeGateway } from "../src/compose/index.ts";
 import { silentLogger } from "../src/log.ts";
-import { PRESENCE_ENROLLED_SETTING, presenceStateFor } from "../src/presence-gate.ts";
+import {
+  PRESENCE_ENROLLED_SETTING,
+  PRESENCE_METHODS,
+  presenceStateFor,
+} from "../src/presence-gate.ts";
 import { desktopClient, ik, newDeviceKey, type TestClient } from "./helpers.ts";
 
 /**
@@ -37,14 +41,21 @@ const touchId: PresenceVerifier = {
 };
 const DEVICE = "admin-fresh";
 
+/** Added to the real clock: a test moves the Gateway a day ahead without fake timers. */
+let offsetMs = 0;
+
 async function boot(
   presence?: PresenceVerifier,
   parts?: ComposeOptions["parts"],
   config: Record<string, unknown> = {},
+  security?: ComposeOptions["security"],
 ) {
   home = mkdtempSync(join(tmpdir(), "psyche-fresh-"));
+  offsetMs = 0;
   composed = await composeGateway({
     env: {},
+    now: () => new Date(Date.now() + offsetMs),
+    ...(security === undefined ? {} : { security }),
     logger: silentLogger,
     retentionIntervalMs: 0,
     background: false,
@@ -63,7 +74,33 @@ async function boot(
   return { c: composed, admin };
 }
 
-async function approveWithPresence(admin: TestClient, res: Record<string, unknown>) {
+/**
+ * Presence is for payments only: a security change is a plain tap on its card (no presence
+ * assertion, `requiresAuthentication` false), still bound to the exact change and spent once.
+ */
+async function approveWithTap(admin: TestClient, res: Record<string, unknown>) {
+  expect(res).toMatchObject({ ok: false, error: { code: "approval_required" } });
+  const approvalId = (res as { error: { details: { approvalId: string } } }).error.details
+    .approvalId;
+  const got = await admin.call<{ approval: ApprovalRequest; answerToken?: string }>(
+    "approvals.get",
+    { approvalId },
+  );
+  expect(got.approval).toMatchObject({ kind: "policy_change", requiresAuthentication: false });
+  const token = got.answerToken ?? "";
+  await new Promise((r) => setTimeout(r, 450)); // past the arm delay
+  expect(
+    await admin.request(
+      "approvals.answer",
+      { approvalId, answerToken: token, decision: "approve" },
+      ik(),
+    ),
+  ).toMatchObject({ ok: true });
+  return { approvalId, approval: got.approval };
+}
+
+/** The card that enrolling a presence verifier raises: it still needs presence. */
+async function strongCard(admin: TestClient, res: Record<string, unknown>) {
   expect(res).toMatchObject({ ok: false, error: { code: "approval_required" } });
   const approvalId = (res as { error: { details: { approvalId: string } } }).error.details
     .approvalId;
@@ -72,22 +109,7 @@ async function approveWithPresence(admin: TestClient, res: Record<string, unknow
     { approvalId },
   );
   expect(got.approval).toMatchObject({ kind: "policy_change", requiresAuthentication: true });
-  const token = got.answerToken ?? "";
-  await new Promise((r) => setTimeout(r, 450)); // past the arm delay
-  const challenge = presenceChallenge(approvalId, got.approval.bindingHash, token);
-  expect(
-    await admin.request(
-      "approvals.answer",
-      {
-        approvalId,
-        answerToken: token,
-        decision: "approve",
-        presence: { kind: "webauthn", deviceId: DEVICE, signature: `signed:${challenge}` },
-      },
-      ik(),
-    ),
-  ).toMatchObject({ ok: true });
-  return { approvalId, approval: got.approval };
+  return { approvalId, approval: got.approval, token: got.answerToken ?? "" };
 }
 
 describe("fresh presence on admin methods", () => {
@@ -97,7 +119,7 @@ describe("fresh presence on admin methods", () => {
       ok: true,
     });
     const first = await admin.request("memory.reset", {}, ik());
-    const { approvalId, approval } = await approveWithPresence(admin, first);
+    const { approvalId, approval } = await approveWithTap(admin, first);
     expect(approval.details).toMatchObject({ method: "memory.reset" });
 
     const key = ik();
@@ -118,7 +140,7 @@ describe("fresh presence on admin methods", () => {
     });
     const scopes = ["operator.read", "operator.write"];
     const first = await admin.request("devices.setupToken.create", { scopes });
-    const { approvalId, approval } = await approveWithPresence(admin, first);
+    const { approvalId, approval } = await approveWithTap(admin, first);
     expect(approval.details).toMatchObject({ method: "devices.setupToken.create" });
     // The card covers those scopes and no others: asking for admin with it is refused.
     expect(
@@ -137,6 +159,30 @@ describe("fresh presence on admin methods", () => {
     });
   });
 
+  it("a machine token request raises a card worded for a machine, and mints nothing without it", async () => {
+    const { admin } = await boot(touchId, undefined, {
+      publicOrigin: "https://studio-mac.tail1234.ts.net",
+      allowedOrigins: ["https://studio-mac.tail1234.ts.net"],
+    });
+    expect(MACHINE_TOKENS_ENABLED).toBe(true);
+    // The gate raises the card before the handler runs: no token exists until it is approved.
+    const first = await admin.request("devices.setupToken.create", { purpose: "machine" });
+    expect(first).toMatchObject({ ok: false, error: { code: "approval_required" } });
+    expect(PRESENCE_METHODS["devices.setupToken.create"]?.({ purpose: "machine" })).toMatch(
+      /Linux computer/,
+    );
+    const { approvalId } = await approveWithTap(admin, first);
+    const made = await admin.request("devices.setupToken.create", {
+      purpose: "machine",
+      approvalId,
+    });
+    expect(made).toMatchObject({ ok: true, payload: { setupToken: { scopes: ["node"] } } });
+    // A device token still raises its own card.
+    expect(
+      await admin.request("devices.setupToken.create", { scopes: ["operator.read"] }),
+    ).toMatchObject({ ok: false, error: { code: "approval_required" } });
+  });
+
   it("another device cannot spend the card the owner approved for a link", async () => {
     const { admin, c } = await boot(touchId, undefined, {
       publicOrigin: "https://studio-mac.tail1234.ts.net",
@@ -144,7 +190,7 @@ describe("fresh presence on admin methods", () => {
     });
     const scopes = ["operator.read", "operator.write"];
     const first = await admin.request("devices.setupToken.create", { scopes });
-    const { approvalId } = await approveWithPresence(admin, first);
+    const { approvalId } = await approveWithTap(admin, first);
     // A second Host-shell admin presents device A's approved card.
     const keyB = newDeviceKey();
     (await desktopClient(c.gateway, keyB, "admin-b")).close();
@@ -178,7 +224,7 @@ describe("fresh presence on admin methods", () => {
 });
 
 describe("fail closed once presence was enrolled", () => {
-  it("losing the last verifier fails security changes presence_required, not admin-only", async () => {
+  it("losing the last verifier leaves security changes one tap, not admin-only and not presence_required", async () => {
     const keys = new Map<string, string>();
     const { admin } = await boot(undefined, [
       (s) => composeHelper(s, { presenceKeys: (id) => keys.get(id) }),
@@ -193,16 +239,43 @@ describe("fail closed once presence was enrolled", () => {
     await admin.call("devices.list", {});
     keys.delete(DEVICE);
 
-    const res = await policy();
-    expect(res).toMatchObject({ ok: false, error: { code: "presence_required" } });
-    expect(await admin.request("memory.reset", {}, ik())).toMatchObject({
-      ok: false,
-      error: { code: "presence_required" },
-    });
+    // Presence is for payments only: the change still needs its card, and a tap approves it.
+    const { approvalId } = await approveWithTap(admin, await policy());
+    expect(
+      await admin.request(
+        "settings.set",
+        { key: "permissions.policy", value: { allow: [] }, approvalId },
+        ik(),
+      ),
+    ).toMatchObject({ ok: true });
+    const mem = await admin.request("memory.reset", {}, ik());
+    expect(mem).toMatchObject({ ok: false, error: { code: "approval_required" } });
   });
 
-  it("psyched presence reset clears the enrollment", async () => {
-    const { c } = await boot();
+  it("enrolling a presence verifier still fails closed with no verifier, and its card needs presence", async () => {
+    const keys = new Map<string, string>();
+    const { c } = await boot(undefined, [
+      (s) => composeHelper(s, { presenceKeys: (id) => keys.get(id) }),
+    ]);
+    const phone = await desktopClient(c.gateway, newDeviceKey(), "phone-strong");
+    clients.push(phone);
+    const finish = () =>
+      phone.request("passkeys.register.finish", { ceremonyId: "cer_x", response: {} }, ik());
+    // Presence ready (a verifier exists): the card for adding the first passkey needs presence.
+    keys.set(DEVICE, "registered-key");
+    const strong = await strongCard(phone, await finish());
+    await new Promise((r) => setTimeout(r, 450));
+    // A tap with no presence assertion is refused (no verifier is configured at the broker here,
+    // so the card's flag is what the UI/helper act on; the helper path is in helper-presence-key).
+    expect(strong.approval.requiresAuthentication).toBe(true);
+    // The last verifier goes: the enrollment stays sticky, so this fails closed.
+    await phone.call("devices.list", {}).catch(() => undefined);
+    keys.delete(DEVICE);
+    expect(await finish()).toMatchObject({ ok: false, error: { code: "presence_required" } });
+  });
+
+  it("psyched presence reset waits 24 hours in plain view, then clears the enrollment", async () => {
+    const { c } = await boot(undefined, undefined, {}, { pollMs: 20 });
     const db = c.gateway.context.db;
     let ready = true;
     expect(presenceStateFor(db, () => ready)()).toBe("ready");
@@ -214,14 +287,27 @@ describe("fail closed once presence was enrolled", () => {
     process.env.PSYCHE_HOME = home;
     process.env.PSYCHE_DB = join(home, "psyche.db");
     try {
-      expect(runCli(["presence", "reset"], (l) => lines.push(l))).toBe(0);
+      // 3: waiting. Nothing changed yet; every device shows the request.
+      const code = await runCli(["presence", "reset"], (l) => lines.push(l), { pollMs: 20 });
+      expect(code).toBe(3);
     } finally {
       if (prev === undefined) delete process.env.PSYCHE_HOME;
       else process.env.PSYCHE_HOME = prev;
       if (prevDb === undefined) delete process.env.PSYCHE_DB;
       else process.env.PSYCHE_DB = prevDb;
     }
-    expect(lines[0]).toMatch(/presence enrollment cleared/);
+    expect(lines[0]).toMatch(/^waiting: this applies at /);
+    expect(presenceStateFor(db, () => false)()).toBe("unavailable");
+    const recoveries = c.gateway.context.securityRecoveries;
+    const [waiting] = recoveries?.list() ?? [];
+    expect(waiting).toMatchObject({ op: "presence.reset", status: "waiting" });
+    expect(c.gateway.context.securityState?.alerts.open().map((a) => a.kind)).toContain(
+      "recovery_requested",
+    );
+    // A day later it applies by itself.
+    offsetMs = 24 * 60 * 60 * 1000 + 1000;
+    recoveries?.applyDue();
+    expect(recoveries?.get(waiting?.id ?? "")?.status).toBe("applied");
     expect(presenceStateFor(db, () => false)()).toBe("off");
     expect(PRESENCE_ENROLLED_SETTING.startsWith("_")).toBe(true);
   });

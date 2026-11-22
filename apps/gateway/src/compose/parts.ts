@@ -4,15 +4,19 @@ import { type GoogleClientConfig, googleClientFrom, readConfigFile } from "../co
 import { openExternalUrl } from "../platform.ts";
 import { composeBackup } from "./backup.ts";
 import { type ComposedBrowser, composeBrowser } from "./browser.ts";
+import { serverBrowserSetupFor } from "./browser-server.ts";
 import { channelsSetupFromEnv, composeChannels } from "./channels.ts";
 import { composeCoding } from "./coding.ts";
 import { composeConnectors } from "./connectors.ts";
 import { usesSandboxPc } from "./guest-sandbox.ts";
+import { hostGraphicalSession } from "./headless-host.ts";
 import { composeHelper } from "./helper.ts";
 import { composeMcp } from "./mcp.ts";
+import { composePasswordPresence } from "./password-presence.ts";
 import { type ComposedSandbox, composeSandboxIfAvailable, type SandboxSetup } from "./sandbox.ts";
 import type { ComposedPart, ComposeServices } from "./services.ts";
 import { createSrtResolver, type SrtResolver } from "./srt.ts";
+import { composeStorage } from "./storage.ts";
 import { type ComposedVm, composeVm } from "./vm.ts";
 
 type PartFactory = (services: ComposeServices) => Promise<ComposedPart> | ComposedPart;
@@ -29,9 +33,9 @@ type PartFactory = (services: ComposeServices) => Promise<ComposedPart> | Compos
  *   the `PSYCHE_SMS_*` variables are (`smsSetupFromEnv`);
  * - backups and the log viewer (`backup.*`, `logs.tail`); `PSYCHE_BACKUP_IDENTITY_FILE` lets
  *   `backup.verify` open recipient-encrypted archives;
- * - approvals on the Mac through a connected helper's notifications. No presence key is
- *   registered yet (the helper does not sign, S14 issue), so approvals that need Touch ID
- *   stay refused there; Approve / Deny works for the rest;
+ * - approvals on the Mac through a connected helper's notifications. Approvals that need
+ *   presence raise the helper's one owner sheet (Touch ID or the Mac password) and are signed
+ *   by the helper's device key; Approve / Deny works for the rest;
  * - VM mode (`PSYCHE_VM=off` skips it): the sandbox Mac's status as `vm.updated`, and Tasks
  *   whose workspace is `vm` running their commands in the guest;
  * - the sandbox's `exec` tool, only when a container backend is found or VM mode is on
@@ -140,6 +144,9 @@ export function partsFromEnv(
       browser = composeBrowser(s, {
         record: env.PSYCHE_BROWSER_RECORD === "1",
         ...bridgeSocketSetup(env),
+        // A headless Linux Host (B3): headless Chromium, decided by the service env's
+        // `PSYCHE_BROWSER_DRIVER` or B0's logind answer. Off on every other platform.
+        server: serverBrowserSetupFor(process.platform, env, hostGraphicalSession()),
         // Real-Chrome mode (I13) is off unless the owner turns it on; each task still asks.
         ...(env.PSYCHE_REAL_CHROME === "1"
           ? {
@@ -209,13 +216,17 @@ export function partsFromEnv(
   // Read (and validated) at boot, so a bad token file stops psyched instead of a silent channel.
   const channels = channelsSetupFromEnv(env, (path) => readFileSync(path, "utf8"));
   parts.push((s) => composeChannels(s, channels));
-  // Touch ID answers verify against keys the owner registers (devices.presenceKey.*, #253).
+  // Touch ID answers verify against the Mac helper's own device key (nothing to register); a
+  // Windows helper's Windows Hello key is registered with devices.presenceKey.*.
   parts.push((s) => composeHelper(s));
+  // Linux: the owner's password through polkit (linux design §9). Inert elsewhere.
+  parts.push((s) => composePasswordPresence(s));
   parts.push((s) =>
     composeBackup(s, {
       ...(env.PSYCHE_BACKUP_IDENTITY_FILE ? { identityFile: env.PSYCHE_BACKUP_IDENTITY_FILE } : {}),
     }),
   );
+  parts.push((s) => composeStorage(s));
   if (env.PSYCHE_MCP !== "off") {
     parts.push((s) => {
       const runner = sandbox?.runner;
@@ -261,6 +272,11 @@ function openConsent(services: ComposeServices, url: URL): void {
     .notify({
       kind: "system",
       route: "/settings/connectors",
+      message: {
+        titleKey: "notice.connector.consent.title",
+        bodyKey: "notice.connector.consent.body",
+        params: { url: url.href },
+      },
       title: "Finish connecting Google",
       body: `Open this link on the computer running Psyche to grant access: ${url.href}`,
       dedupeKey: `connector:consent:${url.searchParams.get("state") ?? ""}`,

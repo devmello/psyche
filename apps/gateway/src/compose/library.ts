@@ -1,4 +1,5 @@
 import { createHash } from "node:crypto";
+import { createReadStream } from "node:fs";
 import {
   appendFile,
   mkdir,
@@ -11,6 +12,7 @@ import {
   writeFile,
 } from "node:fs/promises";
 import { extname, isAbsolute, join, relative, resolve } from "node:path";
+import type { HashChainAuditLog } from "@psyche/audit";
 import {
   FsQuarantineWriter,
   type LibraryImport,
@@ -24,10 +26,12 @@ import type { LibrarySink } from "@psyche/connectors";
 import {
   deleteLibraryItem,
   getLibraryItem,
+  getThread,
   insertLibraryItem,
   listLibraryItemsPage,
   type NewLibraryItem,
   type PsycheDb,
+  releaseLibraryItem,
   upsertLibraryItemByPath,
 } from "@psyche/db";
 import { assertNoSymlinks, fsError, isUnder } from "@psyche/files";
@@ -41,6 +45,7 @@ import {
 } from "@psyche/protocol";
 import type { Call, HandlerDef } from "../context.ts";
 import { decodeOffset, encodeOffset } from "../handlers/threads.ts";
+import { assertWritableThread } from "../session/imported-threads.ts";
 
 /**
  * The Library (data model §9; feature P4): files under `$PSYCHE_HOME/library`, indexed in the
@@ -260,6 +265,32 @@ export interface LibrarySetup {
   db: PsycheDb;
   /** `$PSYCHE_HOME`. */
   home: string;
+  /** Records quarantine decisions. */
+  audit: Pick<HashChainAuditLog, "append">;
+}
+
+/** What `trust` accepts: files that arrived from outside. Their origin stays untrusted after release. */
+const RELEASABLE_ORIGINS: ReadonlySet<LibraryItem["origin"]> = new Set([
+  "download",
+  "channel",
+  "connector",
+]);
+
+/** Hashes a stored file the way writers recorded it (`sha256:<hex>`), without following links. */
+async function hashStored(home: string, item: LibraryItem): Promise<string> {
+  const root = await realpath(libraryRoot(home));
+  const target = resolve(root, item.path);
+  if (target === root || !isUnder(target, root)) {
+    throw new PsycheError("forbidden", `${item.path} is outside the Library`);
+  }
+  await assertNoSymlinks(target);
+  const h = createHash("sha256");
+  try {
+    for await (const chunk of createReadStream(target)) h.update(chunk as Buffer);
+  } catch (err) {
+    throw fsError(err, item.path);
+  }
+  return `sha256:${h.digest("hex")}`;
 }
 
 function requireItem(db: PsycheDb, itemId: string): LibraryItem {
@@ -308,7 +339,7 @@ function uploadMime(declared: string | undefined, name: string): string {
 
 /** `library.list`, `library.get`, `library.upload`, `library.delete` (scopes from the protocol). */
 export function libraryHandlers(setup: LibrarySetup): Record<string, HandlerDef> {
-  const { db, home } = setup;
+  const { db, home, audit } = setup;
   const staged = new Map<string, Staged>();
   const dropStale = async (now: number) => {
     for (const [id, u] of staged) {
@@ -333,6 +364,10 @@ export function libraryHandlers(setup: LibrarySetup): Record<string, HandlerDef>
         let uploadId = params.uploadId;
         let u: Staged | undefined;
         if (uploadId === undefined) {
+          if (params.threadId != null) {
+            const host = getThread(db, params.threadId);
+            if (host !== undefined) assertWritableThread(host, "attached to");
+          }
           const mine = [...staged.values()].filter((s) => s.deviceId === call.identity.deviceId);
           if (mine.length >= UPLOADS_PER_DEVICE) {
             throw new PsycheError("rate_limited", "too many uploads in progress");
@@ -420,6 +455,7 @@ export function libraryHandlers(setup: LibrarySetup): Record<string, HandlerDef>
           ...(params.threadId === undefined ? {} : { threadId: params.threadId }),
           ...(params.taskId === undefined ? {} : { taskId: params.taskId }),
           ...(params.query === undefined ? {} : { query: params.query }),
+          ...(params.quarantined === undefined ? {} : { quarantined: params.quarantined }),
         });
         return {
           items: page.items,
@@ -442,6 +478,50 @@ export function libraryHandlers(setup: LibrarySetup): Record<string, HandlerDef>
         deleteLibraryItem(db, item.id);
         call.emit("library.item.changed", { itemId: item.id, change: "deleted" });
         return { ok: true };
+      },
+    },
+    // A plain tap from a paired admin device (approvals are button-only; Touch ID is for
+    // payments). Never opens, executes or moves the file: trust only clears the flag. Releasing
+    // a file does not make its words the owner's: attachments and search read its origin.
+    "library.quarantine.decide": {
+      run: async (
+        call: Call,
+        params: MethodParams<"library.quarantine.decide">,
+      ): Promise<MethodResult<"library.quarantine.decide">> => {
+        const item = requireItem(db, params.itemId);
+        if (item.quarantined !== true) {
+          throw new PsycheError("invalid_params", `${item.name} is not in quarantine`);
+        }
+        const actor = { type: "device", deviceId: call.identity.deviceId } as const;
+        const data = { itemId: item.id, name: item.name, sha256: item.sha256, path: item.path };
+        if (params.decision === "delete") {
+          await removeStored(home, item);
+          deleteLibraryItem(db, item.id);
+          await audit.append({ kind: "library.quarantine.delete", actor, data });
+          call.emit("library.item.changed", { itemId: item.id, change: "deleted" });
+          return { ok: true, item: null };
+        }
+        // Only files other people made can be released: for a meeting recording or an untrusted
+        // voice note the flag is the only marker that third-party speech is in it.
+        if (!RELEASABLE_ORIGINS.has(item.origin)) {
+          throw new PsycheError(
+            "invalid_params",
+            `${item.name} cannot be trusted; delete it instead`,
+          );
+        }
+        // Integrity check: the file on disk is still the one that was recorded at download.
+        if ((await hashStored(home, item)) !== item.sha256) {
+          throw new PsycheError(
+            "conflict",
+            `${item.name} changed since it was downloaded; delete it instead`,
+          );
+        }
+        if (!releaseLibraryItem(db, item.id)) {
+          throw new PsycheError("conflict", `${item.name} was already released`);
+        }
+        await audit.append({ kind: "library.quarantine.trust", actor, data });
+        call.emit("library.item.changed", { itemId: item.id, change: "updated" });
+        return { ok: true, item: requireItem(db, item.id) };
       },
     },
   };

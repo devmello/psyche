@@ -59,7 +59,11 @@ export function createTaskLauncher(options: {
           : { taint: true, taintSources: request.taintSources }),
         ...(options.budget === undefined ? {} : { budget: options.budget }),
       });
-      const result = settle(task.id);
+      // A tool step is checkpointed before it is dispatched, so no checkpoint means no side effect.
+      const result = settle(task.id).then(async (r) => {
+        const steps = await engine.checkpoints(task.id).catch(() => undefined);
+        return steps === undefined ? r : { ...r, noSideEffects: steps.length === 0 };
+      });
       pool?.poke();
       return { taskId: task.id, result };
     },

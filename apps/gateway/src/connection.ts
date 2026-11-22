@@ -23,6 +23,7 @@ import {
   verifyChallenge,
 } from "./auth.ts";
 import { serverBuild } from "./build-info.ts";
+import type { ClaimHelloInput, ClaimSession } from "./claim/mode.ts";
 import type { Call, GatewayContext, HandlerDef, LiveConnection } from "./context.ts";
 import type { EventFilter, FrameSink } from "./event-bus.ts";
 import { HANDLERS } from "./handlers/index.ts";
@@ -75,6 +76,9 @@ function keepIdentity(result: unknown, always: boolean): unknown {
   return out;
 }
 
+/** The desktop shell's request budget, as a multiple of the plain per-device budget. */
+const SHELL_BUDGET_FACTOR = 10;
+
 const STREAM_METHODS: ReadonlySet<string> = new Set([
   "terminal.session.write",
   "terminal.session.resize",
@@ -110,6 +114,8 @@ export class Connection implements LiveConnection {
   #identity: PairedIdentity | null = null;
   #pendingDeviceId: string | null = null;
   #connectParams: ConnectParams | null = null;
+  /** A setup-code claim between `gateway.claim.hello` and `gateway.claim.prove` (design §3.6). */
+  #claim: ClaimSession | null = null;
   #unsubscribe: (() => void) | null = null;
   #sink: FrameSink | null = null;
   #pendingTimer: NodeJS.Timeout | null = null;
@@ -295,6 +301,8 @@ export class Connection implements LiveConnection {
     const { method } = frame;
     if (!isMethodName(method)) throw new PsycheError("unknown_method", `Unknown method ${method}`);
     const params = validateParams(method, frame.params ?? {});
+    if (method === "gateway.claim.hello") return this.#claimHello(params as ClaimHelloInput);
+    if (method === "gateway.claim.prove") return this.#claimProve(params as { proof: string });
     if (method === "connect") return this.#connect(params as ConnectParams);
     if (method === "connect.verify") return this.#verify(params as ConnectVerifyParams);
 
@@ -305,13 +313,17 @@ export class Connection implements LiveConnection {
         "Complete connect and connect.verify first",
       );
     }
+    // Security state changed outside the Gateway is undone before this call reads any of it.
+    this.#ctx.securityState?.ensure();
     this.#refreshIdentity(identity);
     const spec = methodSpec(method);
     const scope = spec.scope as DeviceScope | "none";
-    if (scope !== "none" && !identity.scopes.includes(scope)) {
+    // While untrusted, `identity.scopes` are what the seal vouches for (H-C: no stored scopes).
+    const have = identity.scopes;
+    if (scope !== "none" && !have.includes(scope)) {
       throw new PsycheError("forbidden", `${method} requires scope ${scope}`);
     }
-    this.#rateLimit(identity.deviceId, method, spec.sideEffecting, params);
+    this.#rateLimit(identity, method, spec.sideEffecting, params);
     const def: HandlerDef | undefined = HANDLERS[method] ?? this.#ctx.extraHandlers[method];
     if (def === undefined) {
       throw new PsycheError("not_implemented", `${method} is not implemented yet`);
@@ -353,27 +365,54 @@ export class Connection implements LiveConnection {
   /**
    * Per-device budgets (security §10 "rate limits per device token"). Node-protocol frames are
    * exempt: a node streams `node.event`s for invocations the Gateway itself started.
+   *
+   * The Psyche desktop shell on this Mac (`identity.desktopShell` on a loopback connection, with
+   * the per-launch handshake secret) is the owner's own app, so it gets `SHELL_BUDGET_FACTOR`
+   * times the budget: normal use never reaches it, while a runaway loop in the shell still cannot
+   * pin the Gateway. One noisy screen used to drain the plain budget and make Settings, Usage and
+   * Allow fail as "rate limited". Calls that name a session the caller does not own are charged
+   * at the plain budget for everyone, the shell included: that is probing, not normal traffic.
    */
-  #rateLimit(deviceId: string, method: string, sideEffecting: boolean, params: unknown): void {
+  #rateLimit(
+    identity: PairedIdentity,
+    method: string,
+    sideEffecting: boolean,
+    params: unknown,
+  ): void {
     if (method.startsWith("node.")) return;
+    const deviceId = identity.deviceId;
     // Only calls that name a session this device owns; a guess at an id is charged like any call.
+    let namesOwnSession = false;
     if (STREAM_METHODS.has(method)) {
       const sessionId = (params as { sessionId?: unknown } | null)?.sessionId;
-      if (
+      namesOwnSession =
         typeof sessionId === "string" &&
-        this.#ctx.terminalSessions.owns?.(deviceId, sessionId) === true
-      ) {
-        return;
-      }
+        this.#ctx.terminalSessions.owns?.(deviceId, sessionId) === true;
+      if (namesOwnSession) return;
     }
+    const probing = STREAM_METHODS.has(method) && !namesOwnSession;
+    const shell = identity.desktopShell === true && this.peer.remoteLoopback && !probing;
+    const factor = shell ? SHELL_BUDGET_FACTOR : 1;
     const { deviceRequests, deviceSideEffects } = this.#ctx;
-    if (
-      !deviceRequests.allowed(deviceId) ||
-      (sideEffecting && !deviceSideEffects.allowed(deviceId))
-    ) {
+    const requestsLimit = deviceRequests.limit * factor;
+    const sideEffectsLimit = deviceSideEffects.limit * factor;
+    const requestsFull = !deviceRequests.allowed(deviceId, requestsLimit);
+    const sideEffectsFull = sideEffecting && !deviceSideEffects.allowed(deviceId, sideEffectsLimit);
+    if (requestsFull || sideEffectsFull) {
+      const retryAfterSec = Math.max(
+        requestsFull ? deviceRequests.retryAfterSec(deviceId, requestsLimit) : 0,
+        sideEffectsFull ? deviceSideEffects.retryAfterSec(deviceId, sideEffectsLimit) : 0,
+        1,
+      );
       throw new PsycheError("rate_limited", "Too many requests from this device; slow down", {
         retryable: true,
-        details: { scope: sideEffecting ? "side_effects" : "requests", windowMs: 60_000 },
+        // `scope` tells a client this is a request budget, not the approvals' answer limit; it
+        // names the budget that is full.
+        details: {
+          scope: sideEffectsFull ? "side_effects" : "requests",
+          windowMs: 60_000,
+          retryAfterSec,
+        },
       });
     }
     deviceRequests.record(deviceId);
@@ -390,11 +429,26 @@ export class Connection implements LiveConnection {
       // `unauthorized` closes the connection once the error is sent (handleRaw).
       throw new PsycheError("unauthorized", "This device is no longer paired");
     }
+    // While the security records are untrusted, a device has only what the seal still trusts.
+    const authz = this.#ctx.securityState?.authorizeDevice(device) ?? {
+      ok: true as const,
+      scopes: device.scopes,
+    };
+    if (!authz.ok) {
+      throw new PsycheError(
+        "unauthorized",
+        "Psyche's security records are untrusted and this device is not one it knows; pair it again after a re-seal",
+      );
+    }
+    // A machine is `["node"]` and nothing else; if its row ever holds more, the socket ends.
+    if (identity.machine === true && (authz.scopes.length !== 1 || authz.scopes[0] !== "node")) {
+      throw new PsycheError("unauthorized", "This computer is paired as a machine only");
+    }
     const same =
-      device.scopes.length === identity.scopes.length &&
-      device.scopes.every((s) => identity.scopes.includes(s));
+      authz.scopes.length === identity.scopes.length &&
+      authz.scopes.every((s) => identity.scopes.includes(s));
     if (!same) {
-      identity.scopes = [...device.scopes];
+      identity.scopes = [...authz.scopes];
       if (this.#sink) this.#ctx.bus.setScopes(this.#sink, identity.scopes);
     }
   }
@@ -411,11 +465,15 @@ export class Connection implements LiveConnection {
     const events: Array<() => void> = [];
     const after: Array<() => void> = [];
     let inTx = false;
+    let prepared: unknown;
     const call: Call = {
       ctx,
       conn: this,
       identity,
       method,
+      get prepared() {
+        return prepared;
+      },
       emit: <E extends EventName>(event: E, payload: EventPayload<E>, threadId?: string) => {
         const publish = () => ctx.bus.publish(event, payload, threadId);
         if (inTx) events.push(publish);
@@ -426,6 +484,7 @@ export class Connection implements LiveConnection {
         else fn();
       },
     };
+    if (def.prepare !== undefined) prepared = await def.prepare(call, params as never);
     if (!def.transactional) {
       const out = await def.run(call, params as never);
       this.#healAnswers(method);
@@ -451,6 +510,9 @@ export class Connection implements LiveConnection {
 
   /** A memory call that removes something: the answers kept in chats lose the words it supported. */
   #healAnswers(method: string): void {
+    // `memory.forget` heals through the memory store's forget hook, which the agent's tool also
+    // reaches; healing here as well would run the same pass twice.
+    if (method === "memory.forget") return;
     if (!/^memory\..*(forget|retract|delete|decide|reject)/i.test(method)) return;
     try {
       this.#ctx.messageScrub.heal?.();
@@ -459,9 +521,60 @@ export class Connection implements LiveConnection {
     }
   }
 
+  /**
+   * `gateway.claim.hello` (design §3.6): only as the first frame of a LAN connection to a server in
+   * claim mode. Any refusal ends the connection.
+   */
+  #claimHello(params: ClaimHelloInput): unknown {
+    if (this.#phase !== "new" || this.#claim !== null) {
+      throw new PsycheError("conflict", "a claim was already started on this connection");
+    }
+    const claim = this.#ctx.claim;
+    try {
+      if (claim === null) {
+        throw new PsycheError("forbidden", "This server is not waiting to be set up", {
+          details: { reason: "not_claimable" },
+        });
+      }
+      const { session, result } = claim.hello(this.peer, params);
+      this.#claim = session;
+      return result;
+    } catch (err) {
+      // No second try on this connection (handleRaw closes a spent one after the error).
+      this.#phase = "spent";
+      throw err;
+    }
+  }
+
+  /** `gateway.claim.prove`: one answer per connection; the connection closes after it either way. */
+  async #claimProve(params: { proof: string }): Promise<unknown> {
+    const session = this.#claim;
+    const claim = this.#ctx.claim;
+    this.#claim = null;
+    if (this.#phase !== "new" || session === null || claim === null) {
+      this.#phase = "spent";
+      throw new PsycheError("conflict", "gateway.claim.prove needs gateway.claim.hello first");
+    }
+    this.#phase = "spent";
+    const out = await claim.prove(this.peer, session, params.proof);
+    const device = getDevice(this.#ctx.db, out.device.id);
+    this.#ctx.bus.bumpStateVersion();
+    if (device) this.#ctx.bus.publish("device.updated", { device });
+    this.#closeAfterReply = "claimed";
+    return { proof: out.proof, deviceId: out.device.id, scopes: out.scopes };
+  }
+
   #connect(params: ConnectParams): unknown {
     if (this.#phase !== "new") {
       throw new PsycheError("conflict", "connect was already sent on this connection");
+    }
+    // Claim mode: before the server has an admin, a LAN connection may only claim it.
+    if (this.peer.lan === true && this.#ctx.claim?.active() === true) {
+      throw new PsycheError(
+        "forbidden",
+        "This server is waiting to be set up with its setup code: use Connect to a Psyche server in the app",
+        { details: { reason: "claim_mode" } },
+      );
     }
     const { pending, challenge } = issueChallenge(
       params,
@@ -499,6 +612,8 @@ export class Connection implements LiveConnection {
     // costs nothing. A refused handshake closes the connection (see `handleRaw`).
     this.#challenge = null;
     this.#phase = "spent";
+    // The device row decides this connect: undo any change made to it outside the Gateway first.
+    ctx.securityState?.ensure();
     const outcome = verifyChallenge(pending, params, this.peer, {
       db: ctx.db,
       handshakeSecret: ctx.handshakeSecret,

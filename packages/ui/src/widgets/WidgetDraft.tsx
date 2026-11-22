@@ -47,8 +47,8 @@ export default function WidgetDraft({
           </WidgetContext.Provider>
         )}
         <div className="mt-2 space-y-2" aria-hidden="true" data-testid="widget-draft-skeleton">
-          <div className="h-3 w-3/4 rounded bg-fill-quaternary motion-safe:animate-pulse" />
-          <div className="h-3 w-1/2 rounded bg-fill-quaternary motion-safe:animate-pulse" />
+          <div className="h-3 w-3/4 rounded bg-fill-quaternary animate-psy-working reduced:animate-none" />
+          <div className="h-3 w-1/2 rounded bg-fill-quaternary animate-psy-working reduced:animate-none" />
         </div>
       </div>
     </section>

@@ -58,9 +58,19 @@ export interface GatewayClient {
     approvalId: string;
     answerToken: string;
   }): Promise<MethodResult<"approvals.approveWithTouchId">>;
+  /**
+   * The desktop window on Linux: approving a card that requires authentication goes through
+   * `approvals.approveWithPassword` (once). The Gateway asks polkit, and the owner types the
+   * password into the system's own dialog; no password reaches Psyche. The host sends it on its
+   * own channel, which only the main and Settings windows reach.
+   */
+  approveWithPassword?(params: {
+    approvalId: string;
+    answerToken: string;
+  }): Promise<MethodResult<"approvals.approveWithPassword">>;
 }
 
-/** `ApprovalAnswer.presence` (a WebAuthn or helper assertion). */
+/** `ApprovalAnswer.presence` (a WebAuthn, helper or Gateway-made password assertion). */
 export type PresenceAssertion = NonNullable<MethodParams<"approvals.answer">["presence"]>;
 
 /** Error surfaced by hooks; `code` is the wire error code when the Gateway sent one. */

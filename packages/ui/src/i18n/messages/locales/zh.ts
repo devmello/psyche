@@ -10,45 +10,61 @@ import { capabilities } from "./capabilities/zh.ts";
 import { charts } from "./charts/zh.ts";
 import { chat } from "./chat/zh.ts";
 import { common } from "./common/zh.ts";
+import { computerWatch } from "./computer-watch/zh.ts";
 import { connectorGallery } from "./connector-gallery/zh.ts";
 import { connectorsPage } from "./connectors-page/zh.ts";
 import { daily } from "./daily/zh.ts";
 import { design } from "./design/zh.ts";
 import { deviceAccess } from "./device-access/zh.ts";
 import { final202611 } from "./final-2026-11/zh.ts";
+import { helperCheck } from "./helper-check/zh.ts";
+import { helperOffline } from "./helper-offline/zh.ts";
 import { home } from "./home/zh.ts";
+import { keepAwake } from "./keep-awake/zh.ts";
 import { links } from "./links/zh.ts";
+import { linuxAccess } from "./linux-access/zh.ts";
+import { machines } from "./machines/zh.ts";
+import { mailFollowups } from "./mail-followups/zh.ts";
 import { mailMeetings } from "./mail-meetings/zh.ts";
 import { meetingRecord } from "./meeting-record/zh.ts";
+import { memoryMap } from "./memory-map/zh.ts";
 import { memoryPage } from "./memory-page/zh.ts";
 import { memoryReview } from "./memory-review/zh.ts";
 import { memorySettings } from "./memory-settings/zh.ts";
+import { notices } from "./notices/zh.ts";
 import { nudges } from "./nudges/zh.ts";
 import { onboarding } from "./onboarding/zh.ts";
 import { overview } from "./overview/zh.ts";
 import { overviewGrowth } from "./overview-growth/zh.ts";
 import { overviewShared } from "./overview-shared/zh.ts";
+import { passwordPresence } from "./password-presence/zh.ts";
 import { people } from "./people/zh.ts";
 import { research } from "./research/zh.ts";
 import { scheduled } from "./scheduled/zh.ts";
+import { scheduledForm } from "./scheduled-form/zh.ts";
 import { screens } from "./screens/zh.ts";
+import { securityState } from "./security-state/zh.ts";
 import { selfConnectors } from "./self-connectors/zh.ts";
+import { separateDesktop } from "./separate-desktop/zh.ts";
 import { settings } from "./settings/zh.ts";
 import { settingsLanguage } from "./settings-language/zh.ts";
 import { settingsSections } from "./settings-sections/zh.ts";
 import { shell } from "./shell/zh.ts";
 import { skillAuthor } from "./skill-author/zh.ts";
+import { spaces } from "./spaces/zh.ts";
 import { specialists } from "./specialists/zh.ts";
 import { teach } from "./teach/zh.ts";
 import { web } from "./web/zh.ts";
 import { whatCanYouDo } from "./what-can-you-do/zh.ts";
 import { widgets } from "./widgets/zh.ts";
+import { windowsPlatform202611 } from "./windows-platform-2026-11/zh.ts";
 import { work } from "./work/zh.ts";
 import { workflows } from "./workflows/zh.ts";
 
 /** Simplified Chinese catalogue (zh). Same ids as `en`; missing ids fall back to English. */
 export const zh: Partial<Catalogue> = {
   // common: translated ids (i18n completion)
+  ...memoryMap,
   ...common,
   // chat: translated ids (i18n completion)
   ...chat,
@@ -118,6 +134,7 @@ export const zh: Partial<Catalogue> = {
   ...research,
   // scheduled: translated ids (i18n completion)
   ...scheduled,
+  ...scheduledForm,
   // automation-chat: translated ids (i18n completion)
   ...automationChat,
   // widgets: translated ids (i18n completion)
@@ -185,7 +202,19 @@ export const zh: Partial<Catalogue> = {
   "errors.rate_limited": "请求过多，请稍候再试。",
   "errors.timeout": "Psyche 响应超时。",
   "errors.cancelled": "已取消。",
+  "errors.reason.vault_removal_pending": "请先解锁保管库以完成旧服务器的移除，然后重试。",
+  "errors.reason.connected_with_other_client":
+    "Google 已通过另一个客户端连接。请先断开 Google，再更改客户端。",
+  "errors.reason.secret_required": "不同的客户端需要它自己的客户端密钥。",
   "errors.reason.updating": "Psyche 即将重启以安装更新，请稍后再试。",
+  "errors.reason.passkey_required": "请设置通行密钥，以在此 Psyche 上批准付款。",
+  "errors.reason.awaiting_owner": "某个应用有未保存的更改。Psyche 会等你决定如何处理。",
+  "errors.reason.checkout_needs_desktop":
+    "要在 Psyche 的浏览器中付款，需要将 Psyche 桌面应用连接到此主机。",
+  "errors.reason.no_chromium":
+    "Psyche 的浏览器需要此主机上的 Chromium。请安装它，或设置 PSYCHE_CHROMIUM。",
+  "errors.reason.chromium_sandbox":
+    "此主机上 Chromium 的沙盒无法启动，因此 Psyche 的浏览器已关闭。请允许 Chromium 使用用户命名空间（AppArmor 配置文件）。",
   "errors.unavailable": "Psyche 目前无法执行该操作。",
   "errors.approval_required": "此操作需要先获得你的批准。",
   "errors.approval_expired": "批准已过期，请重新请求。",
@@ -324,6 +353,7 @@ export const zh: Partial<Catalogue> = {
 
   "chat.toolbar.label": "聊天工具栏",
   "chat.toolbar.incognito": "无痕",
+  "chat.incognito.notice": "不用于记忆、搜索或活动记录。24 小时后过期。",
   "chat.toolbar.view": "记录视图",
   "chat.toolbar.view.status": "仅状态",
   "chat.toolbar.view.actions": "操作",
@@ -355,6 +385,10 @@ export const zh: Partial<Catalogue> = {
   "blocks.card.unknown": "Psyche 暂时无法显示此类项目（{type}）。",
   "specialists.block.label": "{role}的结果：{title}",
   "blocks.toolView.show": "显示结果",
+  "blocks.toolRun.shareFolder": "共享此文件夹（只读）",
+  "blocks.toolRun.shareWaiting": "正在等待你在卡片上的回答",
+  "blocks.toolRun.shared": "已共享。请再次提问以继续",
+  "blocks.toolRun.shareFailed": "无法请求共享此文件夹。请重试。",
   "blocks.toolView.loading": "正在加载结果…",
   "blocks.toolView.none": "此操作的结果未保留。",
   "blocks.toolView.more": "还有 {count} 项",
@@ -377,6 +411,7 @@ export const zh: Partial<Catalogue> = {
   "blocks.details.to": "收件人",
   "blocks.details.exactRecipient": "（精确收件人）",
   "blocks.details.cc": "抄送",
+  "blocks.details.bcc": "密送",
   "blocks.details.subject": "主题",
   "blocks.details.body": "正文",
   "blocks.details.view": "查看",
@@ -417,9 +452,16 @@ export const zh: Partial<Catalogue> = {
 
   "blocks.approval.scope.once": "允许一次",
   "blocks.approval.scope.task": "允许用于此任务",
+  "blocks.approval.scope.trustSite": "始终允许此网站（{site}）",
+  "blocks.approval.scope.trustSiteSubdomains": "始终允许此网站及其子域名（{site}）",
+  "blocks.approval.scope.hostProgram": "始终允许在 {folder} 中运行 {program}",
+  "blocks.approval.scope.hostProgramExact":
+    "始终允许在 {folder} 中以这些完全相同的参数运行 {program}",
   "blocks.approval.scope.site": "允许用于此网站",
   "blocks.approval.scope.session": "允许用于本次会话",
   "blocks.approval.scope.always": "始终允许",
+  "blocks.approval.alwaysRecipient": "始终允许发送给 {recipients}",
+  "blocks.approval.alwaysRecipientFrom": "始终允许从 {account} 发送给 {recipients}",
   "blocks.approval.scopeGranted.once": "允许一次",
   "blocks.approval.scopeGranted.task": "允许用于此任务",
   "blocks.approval.scopeGranted.site": "允许用于此网站",
@@ -513,6 +555,7 @@ export const zh: Partial<Catalogue> = {
   "blocks.artifact.bytes": "{size} B",
   "blocks.artifact.kilobytes": "{size} KB",
   "blocks.artifact.megabytes": "{size} MB",
+  "blocks.artifact.gigabytes": "{size} GB",
 
   "blocks.task.status.queued": "已排队",
   "blocks.task.status.running": "运行中",
@@ -595,6 +638,12 @@ export const zh: Partial<Catalogue> = {
   "context.marker.readsInstead": "代理改为读取的摘要：",
   "context.marker.empty": "没有找到值得保留的内容。",
   "context.marker.showReplaced": "显示被替换的内容",
+  "context.marker.removePin": "删除",
+  "context.marker.removePinLabel": "删除这条长期指令：{text}",
+  "context.marker.pinRemoved": "已删除长期指令。",
+  "context.marker.pinRemoveFailed": "无法删除：{reason}",
+  "context.marker.droppedPins":
+    "{count, plural, other {为给新指令腾出空间，已丢弃 # 条较早的长期指令。}}",
   "context.marker.replacedList": "被替换的轮次",
   "context.marker.notLoaded": "被替换的轮次未在此处载入。",
   "context.marker.speaker": "{name}：",
@@ -715,6 +764,24 @@ export const zh: Partial<Catalogue> = {
   "agent.approvals.anAutomation": "一个自动化",
   "agent.approvals.wantedTo": "想要{what}",
   "agent.approvals.openTask": "打开任务",
+  "agent.approvals.deferredHint":
+    "自动化搁置的操作。批准其中一项后，自动化会再次运行来完成它。过期的操作绝不会延迟执行。",
+  "agent.approvals.approve": "批准",
+  "agent.approvals.decline": "拒绝",
+  "agent.approvals.approveRoutine": "批准所有常规操作（{n, number}）",
+  "agent.approvals.riskRoutine": "常规",
+  "agent.approvals.riskSensitive": "敏感",
+  "agent.approvals.setAside": "{when}搁置",
+  "agent.approvals.answerElsewhere": "在发出的地方回复",
+  "agent.approvals.setAsideNote":
+    "某个自动化搁置了此操作并继续运行。批准后会再次运行，只有在运行到达完全相同的操作时才会执行。",
+  "agent.approvals.setAsideApproved":
+    "已批准。自动化会再次运行，只有到达完全相同的操作时才会执行此操作。否则你会收到通知。",
+  "agent.approvals.resuming":
+    "已批准。正在再次运行 {names}。每项操作只有在运行到达时才会执行；否则你会收到通知。",
+  "agent.approvals.notResumable":
+    "此自动化无法再次运行，因此批准不会有任何作用。请拒绝，或自己运行该自动化。",
+  "agent.approvals.notRoutine": "此操作需要单独批准。请在它自己的卡片上批准。",
   "agent.approvals.noRecent": "最近 7 天没有决定。",
   "agent.schedule.once": "{weekday} {month}{day, number}日 {time}",
   "agent.schedule.every": "每 {span}",
@@ -779,8 +846,44 @@ export const zh: Partial<Catalogue> = {
   "agent.memory.incognito": "无痕支线聊天",
   "agent.memory.importExport": "导入、导出和重置",
   "agent.memory.import": "导入记忆",
+  "agent.memory.importConv.title": "从 claude.ai 或 ChatGPT 导入",
+  "agent.memory.importConv.note":
+    "导入的对话为只读。其文本被视为不可信数据，绝不会成为置顶项或指令。",
+  "agent.memory.importConv.source": "导出自",
+  "agent.memory.importConv.claude": "claude.ai",
+  "agent.memory.importConv.chatgpt": "ChatGPT",
+  "agent.memory.importConv.mode": "导入内容",
+  "agent.memory.importConv.memoriesOnly": "仅记忆",
+  "agent.memory.importConv.both": "记忆和对话",
+  "agent.memory.importConv.memoriesFile": "记忆文件",
+  "agent.memory.importConv.conversationsFile": "对话文件（conversations.json）",
+  "agent.memory.importConv.start": "导入",
+  "agent.memory.importConv.working": "正在导入…",
+  "agent.memory.importConv.cancel": "取消",
+  "agent.memory.importConv.close": "关闭",
+  "agent.memory.importConv.progressMemories": "正在导入记忆…",
+  "agent.memory.importConv.progressConversations": "正在导入对话…",
+  "agent.memory.importConv.failed": "无法导入此文件：{reason}",
+  "agent.memory.importConv.done": "导入完成。",
+  "agent.memory.importConv.sumMemories": "待审阅的记忆：{n}",
+  "agent.memory.importConv.sumThreads": "已导入的对话：{n}",
+  "agent.memory.importConv.sumDuplicates": "此前已导入：{n}",
+  "agent.memory.importConv.sumSkipped": "已跳过的对话：{n}",
+  "agent.memory.importConv.skipTooMany": "超过 {n} 个对话的上限",
+  "agent.memory.importConv.skipTooLarge": "过长",
+  "agent.memory.importConv.skipEmpty": "没有消息",
+  "agent.memory.importConv.skipInvalid": "无法读取",
+  "agent.memory.importConv.untitled": "无标题",
+  "agent.memory.importConv.progressCount": "正在导入对话… {done} / {total}",
+  "agent.memory.importConv.tooBig": "此文件超过 {mb} MB，太大无法在此读取。请缩小范围后重新导出。",
   "agent.memory.exported": "已导出 {file}。",
+  "agent.memory.importConv.memoriesTooBig":
+    "此记忆文件超过 {kb} KB，无法一次性导入。请拆分文件或导出更少的记忆。",
+  "agent.memory.importConv.partial":
+    "在完成前停止：{reason}。已导入 {total} 批中的 {done} 批。再次导入即可继续；已导入的对话会被跳过。",
+  "agent.memory.importConv.retry": "再次导入",
   "agent.memory.export": "导出全部",
+  "agent.memory.importConv.memoriesFailed": "无法导入记忆：{reason}。再次导入即可重试。",
   "agent.memory.resetDone":
     "已重置 {files, plural, other {# 个文件}}、{claims, plural, other {# 条断言}}。",
   "agent.creature.axolotl.name": "美西螈",
@@ -813,11 +916,11 @@ export const zh: Partial<Catalogue> = {
 
   "shell.shortcut.palette": "命令面板",
   "shell.shortcut.newSideChat": "新建支线聊天",
+  "shell.shortcut.newIncognitoChat": "新建无痕聊天",
   "shell.shortcut.closeThread": "关闭会话视图或弹出窗口",
   "shell.shortcut.toggleThreadList": "显示或隐藏边栏",
   "shell.shortcut.compactSidebar": "紧凑或完整边栏",
   "shell.shortcut.cycleThreads": "循环切换会话",
-  "shell.shortcut.forkSelection": "从所选内容分叉到支线聊天",
   "shell.shortcut.stop": "停止运行；释放“接管”",
   "shell.shortcut.cycleDisclosure": "循环切换详细程度",
   "shell.shortcut.browserPane": "浏览器面板",
@@ -866,6 +969,7 @@ export const zh: Partial<Catalogue> = {
   "shell.shortcuts.addition": "Psyche 新增",
   "shell.shortcuts.description": "† 标记 Psyche 在 Claude 桌面版快捷键之外新增的项目。",
   "shell.threads.needsYou": "需要你",
+  "shell.threads.nowOn": "现在：{step}",
   "shell.threads.running": "运行中",
   "shell.threads.titleField": "会话标题",
   "shell.threads.incognito": "无痕",
@@ -878,11 +982,14 @@ export const zh: Partial<Catalogue> = {
   "shell.threads.unpin": "取消置顶",
   "shell.threads.pin": "置顶",
   "shell.threads.archive": "归档",
+  "shell.threads.imported": "已导入",
+  "shell.threads.importedReadOnly": "此导入的对话为只读。",
   "shell.threads.restore": "恢复",
   "shell.threads.region": "会话",
   "shell.threads.filter": "过滤会话",
   "shell.threads.search": "搜索会话",
   "shell.threads.newSideChat": "新建支线聊天",
+  "shell.threads.newIncognitoChat": "新建无痕聊天",
   "shell.threads.loading": "正在载入会话",
   "shell.threads.mainChat": "主聊天",
   "shell.threads.sideChats": "支线聊天",
@@ -938,7 +1045,7 @@ export const zh: Partial<Catalogue> = {
   "shell.usage.openHint": "点按打开“设置 → 用量”。",
 
   "settings.shared.needsPresence":
-    "更改“{label}”需要你通过 Touch ID 或通行密钥批准。请在“设置”或 Psyche 通知中批准，然后再次更改。",
+    "更改“{label}”需要你的批准。请在“设置”或 Psyche 通知中批准，然后再次更改。",
   "settings.shared.saveFailed": "Psyche 无法存储“{label}”（{reason}）。未做任何更改。",
   "settings.shared.loading": "正在载入{label}",
   "settings.shared.nothingChanged": "未做任何更改。",
@@ -1009,6 +1116,8 @@ export const zh: Partial<Catalogue> = {
   "settings.key.browser.botAuth": "Web Bot Auth",
   "settings.key.computerUse.enabled": "允许电脑使用",
   "settings.key.computerUse.apps": "App 访问",
+  "settings.key.feed.sources": "信息流来源",
+  "settings.key.computerUse.linuxRevoke": "忘记 Linux 电脑",
   "settings.key.context.maxTokens": "上下文限制",
   "settings.key.search.web.provider": "网页搜索提供商",
   "settings.key.search.web.searxngUrl": "SearXNG URL",
@@ -1023,6 +1132,8 @@ export const zh: Partial<Catalogue> = {
   "settings.key.models.providers": "模型提供商",
   "settings.key.permissions.mode": "默认模式",
   "settings.key.permissions.policy": "权限策略",
+  "settings.key.permissions.sensitive.government": "读取政府网站前先询问",
+  "settings.key.permissions.sensitive.icloud": "读取 iCloud 前先询问",
   "settings.key.permissions.folders": "共享文件夹",
   "settings.key.persona.name": "名称",
   "settings.key.persona.tagline": "气质或标语",
@@ -1169,6 +1280,57 @@ export const zh: Partial<Catalogue> = {
   "settings.credentials.slot.keyFile": "这台 Mac 上的密钥文件",
   "settings.credentials.slot.recovery": "仅其恢复密钥",
   "settings.credentials.protectedBy": "保险库保护方式：",
+  "settings.credentials.vault.adminOnly": "只有管理员设备才能执行此操作。",
+  "settings.credentials.vault.unlockReason": "确认恢复密钥",
+  "settings.credentials.vault.setup.title": "设置保险库",
+  "settings.credentials.vault.setup.body":
+    "保险库会把你的密码、银行卡和 API 密钥加密保存在这台电脑上。Psyche 创建它时会生成一个恢复密钥，你只需保存一次。",
+  "settings.credentials.vault.setup.button": "设置保险库",
+  "settings.credentials.vault.setup.failed": "未能创建保险库：{reason}",
+  "settings.credentials.vault.setup.noSlot": "此 Gateway 没有可用于保险库的密钥槽。",
+  "settings.credentials.onePassword.title": "1Password",
+  "settings.credentials.onePassword.intro":
+    "让 Psyche 读取你从 1Password 关联的项目。Psyche 不保存任何 1Password 密码或令牌，需要解锁时由 1Password 自己询问你。",
+  "settings.credentials.onePassword.check": "重新检查",
+  "settings.credentials.onePassword.guide": "打开指南",
+  "settings.credentials.onePassword.notInstalled.body":
+    "Psyche 在这台电脑上找不到 1Password 命令行工具（op）。请先安装，然后重新检查。",
+  "settings.credentials.onePassword.notIntegrated.body":
+    "在 1Password 应用中打开“设置”，选择“开发者”，并打开“与 1Password CLI 集成”。然后重新检查。",
+  "settings.credentials.onePassword.locked.body":
+    "解锁 1Password 应用，如果它请求授权就批准。然后重新检查。",
+  "settings.credentials.onePassword.error.body":
+    "1Password 命令行工具没有按预期响应。请重新检查；如果仍然失败，请重新安装 op。",
+  "settings.credentials.onePassword.signedIn.body": "已以 {email}（{url}）登录 1Password。",
+  "settings.credentials.onePassword.signedIn.connect": "在 Psyche 中使用 1Password",
+  "settings.credentials.onePassword.connected.body":
+    "Psyche 通过 1Password 应用读取你关联的 1Password 项目。它们是只读的，不会向 1Password 写入任何内容。",
+  "settings.credentials.onePassword.test": "测试连接",
+  "settings.credentials.onePassword.test.ok": "已连接。找到 {count, plural, other {# 个保险库}}。",
+  "settings.credentials.onePassword.test.failed": "测试没有成功：{reason}",
+  "settings.credentials.onePassword.disconnect": "断开连接",
+  "settings.credentials.onePassword.config":
+    "1Password 已在 Gateway 的 config.json 中设置。请在那里修改。",
+  "settings.credentials.onePassword.failed": "操作没有成功：{reason}",
+  "settings.credentials.onePassword.found.body":
+    "Psyche 找到了 1Password 命令行工具。选择“检查”可查看设置进行到哪一步。",
+  "settings.credentials.onePassword.checkNow": "检查",
+  "settings.credentials.onePassword.changed.body":
+    "自你连接以来，1Password 命令行工具发生了变化。请重新检查。",
+  "settings.credentials.onePassword.unsigned.body":
+    "Psyche 找到的 op 文件不是由 1Password 签名的，因此不会运行它。请从 1Password 安装 op，然后重新检查。",
+  "settings.credentials.onePassword.unsafeFolder.body":
+    "Psyche 找到了 op，但它所在的某个文件夹不属于你，或可被其他用户修改，因此不会运行它。请让这些文件夹归你所有，且不可被组或其他人写入，然后重新检查。",
+  "settings.credentials.onePassword.repinned.notice":
+    "1Password CLI 已更新，并已于 {when} 重新检查",
+  "settings.credentials.vault.confirm.title": "确认你的恢复密钥",
+  "settings.credentials.vault.confirm.body":
+    "输入恢复密钥的最后一组（最后一个短横线之后的部分），以证明你已保存。",
+  "settings.credentials.vault.confirm.label": "最后一组",
+  "settings.credentials.vault.confirm.button": "确认",
+  "settings.credentials.vault.confirm.wrong":
+    "这不是恢复密钥的最后一组。请检查你保存它的位置后重试。",
+  "settings.credentials.vault.confirm.failed": "未能确认恢复密钥：{reason}",
   "settings.credentials.moveToKeychain": "移至钥匙串",
   "settings.credentials.moveToKeychainNeeds":
     "需要使用 Developer ID 签名并带有描述文件的 Psyche 助手",
@@ -1261,8 +1423,65 @@ export const zh: Partial<Catalogue> = {
   "settings.credentials.payments.amountRefunded": "{total} · 已退款 {refunded}",
   "settings.credentials.payments.title": "付款",
   "settings.credentials.payments.loadLabel": "付款",
-  "settings.credentials.payments.notConfigured":
-    "尚未设置 Stripe Link。请在运行 Gateway 的电脑上安装 Link CLI，登录 Link，并设置 PSYCHE_LINK_CLI；之后 Psyche 会在此显示你的付款方式。",
+  "settings.credentials.payments.notConfigured": "此 Gateway 尚未设置 Stripe Link。",
+  "settings.credentials.payments.setup.approvalLabel": "Stripe Link 命令行工具",
+  "settings.credentials.payments.setup.refused": "Psyche 不会运行该程序:{reason}。",
+  "settings.credentials.payments.setup.failed": "没有成功:{reason}",
+  "settings.credentials.payments.setup.problem": "Psyche 不会运行 {path}:{reason}。",
+  "settings.credentials.payments.setup.recheck": "重新检查",
+  "settings.credentials.payments.setup.disconnect": "断开连接",
+  "settings.credentials.payments.setup.disconnecting": "正在断开…",
+  "settings.credentials.payments.setup.disconnectConfirm.title": "断开 Stripe Link?",
+  "settings.credentials.payments.setup.disconnectConfirm.body":
+    "Psyche 会忘记 Link CLI,并删除已保存的 Link 登录。你的 Link 账户和银行卡不受影响,随时可以重新连接。",
+  "settings.credentials.payments.setup.disconnectConfirm.go": "断开连接",
+  "settings.credentials.payments.setup.disconnectConfirm.cancel": "保持连接",
+  "settings.credentials.payments.setup.envOverride":
+    "此 Gateway 是用 PSYCHE_LINK_CLI 启动的,它优先于这里保存的路径。",
+  "settings.credentials.payments.setup.missing.title": "安装 Link 命令行工具",
+  "settings.credentials.payments.setup.missing.body":
+    "Psyche 通过 Stripe Link 付款,使用 Link 自己的命令行工具。请在运行 Gateway 的电脑上执行下面的命令,然后重新检查。",
+  "settings.credentials.payments.setup.missing.region":
+    "面向代理的 Link 支付目前支持美国和加拿大。",
+  "settings.credentials.payments.setup.found.title": "已找到 Link CLI",
+  "settings.credentials.payments.setup.found.body":
+    "连接你安装的这一份。Psyche 只会为了与 Stripe Link 通信而运行它,并且只在你批准之后。",
+  "settings.credentials.payments.setup.found.connect": "连接",
+  "settings.credentials.payments.setup.found.connecting": "正在连接…",
+  "settings.credentials.payments.setup.found.connectPath": "连接 {path}",
+  "settings.credentials.payments.setup.signedOut.title": "登录 Link",
+  "settings.credentials.payments.setup.signedOut.body":
+    "Psyche 会打开 Link 自己的页面,你在那里登录并批准这台设备。Link 密码只在那里输入,不会到达 Psyche。",
+  "settings.credentials.payments.setup.signedOut.go": "使用 Link 登录",
+  "settings.credentials.payments.setup.signedOut.starting": "正在开始…",
+  "settings.credentials.payments.setup.signingIn.title": "在 Link 上完成登录",
+  "settings.credentials.payments.setup.signingIn.body":
+    "打开 Link 的页面,确认它显示下面的短语,然后批准。",
+  "settings.credentials.payments.setup.signingIn.phrase": "短语:",
+  "settings.credentials.payments.setup.signingIn.open": "打开 Link 页面",
+  "settings.credentials.payments.setup.signingIn.waiting": "正在等待你在 Link 中批准…",
+  "settings.credentials.payments.setup.connected": "已通过 {path} 连接到 Stripe Link。",
+  "settings.credentials.payments.setup.connectedNoPath": "已连接到 Stripe Link。",
+  "settings.credentials.payments.setup.reason.not_absolute": "路径不是绝对路径",
+  "settings.credentials.payments.setup.reason.missing": "它不存在",
+  "settings.credentials.payments.setup.reason.not_a_file": "它是链接,或不是普通文件",
+  "settings.credentials.payments.setup.reason.not_executable": "它无法运行",
+  "settings.credentials.payments.setup.reason.wrong_owner": "它属于其他用户",
+  "settings.credentials.payments.setup.reason.writable": "其他用户可以修改它",
+  "settings.credentials.payments.setup.reason.parent_wrong_owner": "上级文件夹属于其他用户",
+  "settings.credentials.payments.setup.reason.parent_writable": "其他用户可以修改上级文件夹",
+  "settings.credentials.payments.setup.reason.in_psyche_home":
+    "它位于 Psyche 自己的文件夹内；请改用 npm 安装 Link CLI",
+  "settings.credentials.payments.setup.reason.not_link_cli": "它不属于 Link CLI 软件包",
+  "settings.credentials.payments.setup.reason.volta_shim":
+    "它是 Volta 的 shim；请使用 Volta 下 Link CLI 自己的文件夹，或用 npm 安装",
+  "settings.credentials.payments.setup.paymentInProgress":
+    "仍有一笔付款在进行中。请在完成后再断开连接。",
+  "settings.credentials.payments.setup.force.title": "仍要断开连接吗？",
+  "settings.credentials.payments.setup.force.body":
+    "仍在进行中：{payments}。如果仍要断开，Psyche 会在 Link 允许的范围内取消它并忘记它。商家处的预授权会自行失效，Psyche 将无法再上报。",
+  "settings.credentials.payments.setup.force.go": "仍要断开",
+  "settings.credentials.payments.setup.force.aPayment": "一笔付款",
   "settings.credentials.payments.noMethods": "你的 Link 钱包没有付款方式。请在 Link App 中添加。",
   "settings.credentials.payments.methods": "Link 付款方式",
   "settings.credentials.payments.default": "默认",
@@ -1429,6 +1648,39 @@ export const zh: Partial<Catalogue> = {
   "settings.channels.loadLabel": "渠道",
   "settings.channels.empty":
     "还没有渠道。连接 Telegram、iMessage 或 Slack，即可在离开这台 Mac 时联系 {persona}。",
+  "settings.channels.add.button": "添加渠道",
+  "settings.channels.add.title": "添加渠道",
+  "settings.channels.add.description":
+    "选择可以联系 {persona} 的渠道。令牌会直接存入保险库，不会再次显示。",
+  "settings.channels.add.type": "渠道",
+  "settings.channels.add.account.slack": "工作区名称",
+  "settings.channels.add.account.discord": "应用 ID",
+  "settings.channels.add.secret.bot_token": "机器人令牌",
+  "settings.channels.add.secret.app_token": "应用令牌",
+  "settings.channels.add.secret.auth_token": "认证令牌",
+  "settings.channels.add.secret.access_token": "访问令牌",
+  "settings.channels.add.secret.app_secret": "应用密钥",
+  "settings.channels.add.secret.verify_token": "验证令牌",
+  "settings.channels.add.submit": "连接",
+  "settings.channels.add.connecting": "正在连接",
+  "settings.channels.add.missing": "请填写所有字段后再连接。",
+  "settings.channels.add.failed": "Psyche 无法添加该渠道（{reason}）。它尚未启用。",
+  "settings.channels.add.account.sms": "发送号码 (+15551234567)",
+  "settings.channels.add.account.whatsapp": "WhatsApp 号码 (+15551234567)",
+  "settings.channels.add.badNumber": "请按国际格式输入号码，例如 +15551234567。",
+  "settings.channels.add.exists": "{account} 的 {type} 渠道已存在，因此未做任何更改。",
+  "settings.channels.add.approvalLabel": "添加渠道",
+  "settings.channels.add.envNote":
+    "Gateway 还需在启动时将 {env} 设为此账号。Telegram、iMessage、Signal 和电子邮件需在运行 Gateway 的位置设置；请参阅渠道文档。",
+  "settings.channels.add.addedInactive":
+    "渠道已添加，但尚未运行。请在运行 Gateway 的位置将 {env} 设为此账号，然后重启。",
+  "settings.channels.add.added":
+    "渠道已添加。Gateway 将 {env} 设为此账号后才会启动。随后请从该渠道给 {persona} 发消息获取配对码，并在此批准。",
+  "settings.channels.add.storedNote": "此账号已存有：{names}。除非你选择替换，否则将原样使用。",
+  "settings.channels.add.replace": "替换已存的令牌",
+  "settings.channels.add.statusFailed": "Psyche 无法检查哪些令牌已存储（{reason}）。未做任何更改。",
+  "settings.channels.add.storedTyped":
+    "此账号已存有令牌。请勾选“替换已存的令牌”以使用你输入的令牌，或清空这些字段。未做任何更改。",
   "settings.channels.identities": "身份关联",
   "settings.channels.identitiesDescription": "跨渠道识别同一个人。关联只能从已配对的设备更改。",
   "settings.channels.identitiesFailed": "Psyche 无法载入身份关联（{reason}）。",
@@ -1554,6 +1806,49 @@ export const zh: Partial<Catalogue> = {
   "settings.mcp.command": "命令",
   "settings.mcp.domains": "可访问的网站",
   "settings.mcp.domainsHint": "以逗号分隔的主机名。留空表示不联网。",
+  "settings.mcp.env.title": "环境变量",
+  "settings.mcp.env.hint":
+    "服务器启动时需要的值。看起来像机密的名称（令牌、密钥、密码）会保存到你的保险库。",
+  "settings.mcp.env.name": "变量名",
+  "settings.mcp.env.value": "值",
+  "settings.mcp.env.namePlaceholder": "API_BASE_URL",
+  "settings.mcp.env.saved": "已保存",
+  "settings.mcp.updated": "已更新 {name}。",
+  "settings.mcp.edit.group": "编辑与测试",
+  "settings.mcp.edit.action": "编辑",
+  "settings.mcp.edit.title": "编辑 {name}",
+  "settings.mcp.edit.intro":
+    "更改运行的内容或连接的目标，需要你再次批准。批准之前，当前的服务器会继续运行。",
+  "settings.mcp.edit.save": "保存更改",
+  "settings.mcp.edit.loadFailed": "无法加载此服务器的设置。{reason}",
+  "settings.mcp.edit.locked": "此服务器的命令和连接无法编辑。如需更改，请移除后再添加另一个。",
+  "settings.mcp.test.action": "测试连接",
+  "settings.mcp.test.running": "正在测试…",
+  "settings.mcp.test.hint": "重新检查已保存的设置。不会更改任何内容。",
+  "settings.mcp.test.paused": "请先开启此服务器再测试。",
+  "settings.mcp.test.ok": "运行正常。可用的工具有 {n, plural, other {# 个}}。",
+  "settings.mcp.test.failed": "没有成功：{reason}",
+  "settings.mcp.trust.updateTitle": "更新 {name}？",
+  "settings.mcp.trust.updateIntro":
+    "Psyche 在沙盒中运行了新的设置，并找到了这些工具。批准之前，当前的服务器会继续运行。",
+  "settings.mcp.trust.change.title": "更改内容",
+  "settings.mcp.trust.change.none": "无",
+  "settings.mcp.trust.change.was": "之前：{value}",
+  "settings.mcp.trust.change.now": "现在：{value}",
+  "settings.mcp.trust.change.command": "命令",
+  "settings.mcp.trust.change.url": "地址",
+  "settings.mcp.trust.change.domains": "允许的域名",
+  "settings.mcp.trust.change.auth": "登录",
+  "settings.mcp.trust.change.envAdded": "新增的变量",
+  "settings.mcp.trust.change.envRemoved": "移除的变量",
+  "settings.mcp.trust.change.envChanged": "更改的变量",
+  "settings.mcp.trust.change.query": "已更改的地址参数",
+  "settings.mcp.trust.change.userinfo": "地址中的登录信息",
+  "settings.mcp.trust.change.changed": "已更改",
+  "settings.mcp.edit.changeUrl": "更改地址",
+  "settings.mcp.edit.urlHidden": "此地址的部分内容已隐藏。如需更改，请输入完整的新地址。",
+  "settings.mcp.env.add": "添加变量",
+  "settings.mcp.env.badName": "名称只能使用大写字母、数字和下划线，并以字母或下划线开头。",
   "settings.mcp.url": "服务器 URL",
   "settings.mcp.placeholder.command": "npx -y @modelcontextprotocol/server-everything",
   "settings.mcp.placeholder.domains": "api.example.com",
@@ -1616,6 +1911,29 @@ export const zh: Partial<Catalogue> = {
   "settings.webSearch.braveKey": "Brave Search 密钥",
   "settings.webSearch.braveFromEnv": "已设置（PSYCHE_SEARCH_BRAVE_KEY）",
   "settings.webSearch.braveNone": "未设置（PSYCHE_SEARCH_BRAVE_KEY）",
+  "settings.apiKeys.title": "API 密钥",
+  "settings.apiKeys.description":
+    "在这里而不是终端中输入模型提供商和网页搜索的密钥。每个密钥都会加密保存在保险库中，不会再次显示，并从下一次请求起生效。环境变量中设置的密钥优先。",
+  "settings.apiKeys.name.anthropic": "Anthropic",
+  "settings.apiKeys.name.openai": "OpenAI",
+  "settings.apiKeys.name.google": "Google Gemini",
+  "settings.apiKeys.name.openrouter": "OpenRouter",
+  "settings.apiKeys.name.brave": "Brave Search",
+  "settings.apiKeys.field": "{name} API 密钥",
+  "settings.apiKeys.save": "保存",
+  "settings.apiKeys.saving": "正在保存…",
+  "settings.apiKeys.clear": "清除",
+  "settings.apiKeys.none": "未设置",
+  "settings.apiKeys.vault": "已保存到保险库",
+  "settings.apiKeys.env": "已在环境变量中设置（优先）",
+  "settings.apiKeys.envAndVault": "已在环境变量中设置（优先）；同时保留已保存的密钥",
+  "settings.apiKeys.empty": "请先粘贴密钥。",
+  "settings.apiKeys.whitespace": "密钥不含空格或换行。",
+  "settings.apiKeys.failed": "无法保存密钥：{reason}",
+  "settings.apiKeys.clearFailed": "无法清除密钥：{reason}",
+  "settings.apiKeys.locked": "保险库已锁定。请先解锁，然后再保存。",
+  "settings.credentials.managed.web_search": "网页搜索密钥",
+  "settings.webSearch.braveFromVault": "已保存到保险库",
   "settings.webSearch.provider.brave": "Brave Search",
   "settings.webSearch.provider.searxng": "SearXNG",
   "settings.webSearch.provider.duckduckgo": "DuckDuckGo（无需密钥，有频率限制）",
@@ -1777,7 +2095,7 @@ export const zh: Partial<Catalogue> = {
   "settings.model.role.primary": "主模型",
   "settings.model.role.primaryHint": "聊天、任务和工具",
   "settings.model.role.utility": "辅助模型",
-  "settings.model.role.utilityHint": "标题、摘要和自动模式分类器",
+  "settings.model.role.utilityHint": "标题、摘要、搜索卡片和其他后台任务",
   "settings.model.role.image": "图像模型",
   "settings.model.role.imageHint": "头像更改；“无”表示使用自带的生物",
   "settings.model.addProvider": "添加提供商",
@@ -1831,7 +2149,8 @@ export const zh: Partial<Catalogue> = {
     "授权范围内的常规操作直接运行；分类器会对任何敏感操作询问。",
   "settings.permissions.never.secrets": "输入它能看到的密码、卡号、银行账号或政府证件号",
   "settings.permissions.never.captcha": "解答或绕过 CAPTCHA 验证",
-  "settings.permissions.never.money": "进行资金转账或交易",
+  "settings.permissions.never.money":
+    "即使你批准，也不会交易证券或加密货币、在银行账户之间转账，或向个人汇款",
   "settings.permissions.never.delete": "在没有输入确认的情况下永久删除数据",
   "settings.permissions.never.injection": "遵循网页、邮件或文件中的指令",
   "settings.permissions.never.accounts": "未经你批准创建第三方账户",
@@ -1857,6 +2176,7 @@ export const zh: Partial<Catalogue> = {
   "settings.permissions.subject.execIn": "{argv}，位于 {cwd}",
   "settings.permissions.subject.emailTo": "发送给 {recipient}",
   "settings.permissions.subject.emailAny": "发送给任何收件人",
+  "settings.permissions.subject.emailFrom": "发送给 {recipients}，账户 {account}",
   "settings.permissions.subject.calendarNamed": "日历 {id}",
   "settings.permissions.subject.calendar": "日历",
   "settings.permissions.title": "权限",
@@ -1873,8 +2193,28 @@ export const zh: Partial<Catalogue> = {
   "settings.permissions.toolsChanged":
     "{name} 在你批准后更改了工具列表，因此 Psyche 撤销了它的授权。在你重新审核之前，每个操作都会再次询问。",
   "settings.permissions.hash": "tools/list {hash}…",
+  "settings.permissions.sendsTitle": "始终允许的收件人",
+  "settings.permissions.sendsHint": "发给这些收件人的邮件无需询问即可发送。移除后将重新询问。",
+  "settings.permissions.noSends": "没有设置为始终允许的收件人。",
   "settings.permissions.origins": "浏览器来源",
   "settings.permissions.originsHint": "代理无需询问即可打开的网站。",
+  "settings.permissions.trusted.title": "信任的网站",
+  "settings.permissions.trusted.description":
+    "Psyche 会在任何聊天中直接读取这些网站，不再询问。写入、表单和敏感网站仍会先询问。",
+  "settings.permissions.trusted.empty":
+    "还没有信任的网站。在首次读取请求中选择“始终允许此网站”即可添加。",
+  "settings.permissions.trusted.added": "添加于 {date}",
+  "settings.permissions.trusted.remove": "移除",
+  "settings.permissions.trusted.removeNamed": "将 {name} 从信任的网站中移除",
+  "settings.permissions.subject.trustedSiteSubdomains": "{origin} 及其子域名",
+  "settings.permissions.subject.hostProgram": "{program}，在 {folder} 中，任意参数",
+  "settings.permissions.subject.hostProgramExact": "{program}，在 {folder} 中，仅限这些参数",
+  "settings.permissions.sensitive.title": "敏感网站",
+  "settings.permissions.sensitive.description":
+    "银行、健康、电子邮件和密码管理器在读取前始终会询问。政府网站和 iCloud 也会询问；想不经询问直接读取，请在此关闭对应类别。",
+  "settings.permissions.sensitive.governmentHint":
+    "以 .gov 或 .gov.uk 结尾的网站（税务、身份和健康账户）。默认开启。",
+  "settings.permissions.sensitive.icloudHint": "iCloud 网站（邮件、照片、文件）。默认开启。",
   "settings.permissions.noOrigins": "没有长期的网站授权。新网站会先询问。",
   "settings.permissions.scopeExpires": "{scope}，{date}过期",
   "settings.permissions.revokeNamed": "撤销 {name}",
@@ -2055,6 +2395,41 @@ export const zh: Partial<Catalogue> = {
   "settings.skills.removeDescription":
     "其文件会从此 Gateway 中删除。再次安装时需重新经过信任卡片。",
   "settings.skills.switchOn": "{name} 开",
+  "settings.plugins.title": "插件",
+  "settings.plugins.description":
+    "可补充上下文、检查工具调用或运行评估的代码。每个插件在自己的进程中运行。插件从不授予权限。",
+  "settings.plugins.off": "此 Gateway 已关闭插件，因此没有任何插件在运行。",
+  "settings.plugins.loading": "正在加载插件…",
+  "settings.plugins.error": "无法加载插件。{reason}",
+  "settings.plugins.empty": "没有安装任何插件。",
+  "settings.plugins.failed": "更改未保存。{reason}",
+  "settings.plugins.waitingApproval": "正在等待你在此设备上批准。",
+  "settings.plugins.switchOn": "{name} 开启",
+  "settings.plugins.version": " · v{version}",
+  "settings.plugins.adds": "包括：{list}",
+  "settings.plugins.install": "从文件夹安装…",
+  "settings.plugins.pickFailed": "Psyche 无法打开文件夹选择器（{reason}）。",
+  "settings.plugins.installFailed": "安装未能开始。{reason}",
+  "settings.plugins.proposed": "请在批准卡片上查看此次安装。",
+  "settings.plugins.includes": "包含：{list}",
+  "settings.plugins.count.skills": "{n, plural, other {# 个技能}}",
+  "settings.plugins.count.commands": "{n, plural, other {# 个命令}}",
+  "settings.plugins.count.mcpServers": "{n, plural, other {# 个 MCP 服务器}}",
+  "settings.plugins.count.hooks": "{n, plural, other {# 个钩子}}",
+  "settings.plugins.from": "来源：{source}",
+  "settings.plugins.state.active": "运行中",
+  "settings.plugins.state.disabled": "已关闭",
+  "settings.plugins.state.off": "等待开启插件",
+  "settings.plugins.state.hash_mismatch": "安装后已更改，未运行",
+  "settings.plugins.state.invalid": "清单无效，未运行",
+  "settings.plugins.state.failed": "因错误而停止",
+  "settings.plugins.capability.context": "上下文",
+  "settings.plugins.capability.before_tool_call": "工具调用前的检查",
+  "settings.plugins.capability.after_tool_call": "工具调用后的检查",
+  "settings.plugins.capability.agent_end": "每次运行结束时的一步",
+  "settings.plugins.capability.evaluate": "评估",
+  "settings.plugins.removeTitle": "移除 {name}？",
+  "settings.plugins.removeDescription": "它的文件将从此 Gateway 删除。重新安装需要经过信任卡片。",
   "settings.skills.asksFor": "请求：",
   "settings.skills.toolsLabel": "工具：",
   "settings.skills.title": "技能",
@@ -2213,6 +2588,19 @@ export const zh: Partial<Catalogue> = {
   "settings.connect.noSignIn": "Gateway 未返回登录页面",
   "settings.connect.notConfigured":
     "此 Gateway 上尚未设置 {name}：它需要你自己的 OAuth 客户端（见 Psyche 文档中的“连接 Google”指南）。稍后可在“设置 → 连接器”中设置。",
+  "settings.googleClient.using": "正在使用你的 Google 客户端 {clientId}。",
+  "settings.googleClient.fromConfig": "它在 config.json 或环境变量中设置。",
+  "settings.googleClient.change": "使用其他客户端",
+  "settings.googleClient.help":
+    "Psyche 没有自己的 Google 客户端。请在你自己的 Google Cloud 项目中创建一次免费的桌面应用 OAuth 客户端，然后把它的 ID 粘贴到这里。",
+  "settings.googleClient.docs": "如何创建",
+  "settings.googleClient.id": "客户端 ID",
+  "settings.googleClient.idHint": "以 .apps.googleusercontent.com 结尾",
+  "settings.googleClient.invalid":
+    "这不是 Google 客户端 ID。它以 .apps.googleusercontent.com 结尾。",
+  "settings.googleClient.secret": "客户端密钥",
+  "settings.googleClient.secretHint": "保存在你的保险库中，只会发送给 Google。",
+  "settings.googleClient.saveFailed": "无法保存 Google 客户端：{reason}",
   "settings.connect.alreadyConnected": "{name} 已经连接。",
   "settings.connect.needsPermission": "{name} 已设置，但 macOS 尚未允许它。请在以下位置允许：",
   "settings.connect.openSystemSettings": "打开系统设置",
@@ -2339,7 +2727,6 @@ export const zh: Partial<Catalogue> = {
   "onboarding.model.copyFailed": "无法拷贝。请选中密钥并手动拷贝。",
   "onboarding.model.recoveryBody":
     "Psyche 刚刚创建了你的保险库。请将此密钥保存在密码管理器中或写在纸上：它只显示这一次，是在恢复系统或丢失密钥槽后重新进入保险库的唯一途径。",
-  "onboarding.model.savedIt": "我已保存",
   "onboarding.model.subscriptionNote":
     "Psyche 使用这台 Mac 上已登录的 Claude Code 或 Codex App，因此不需要也不存储 API 密钥。如果尚未登录，请先在那里登录。",
   "onboarding.model.toolCheck": "工具调用检查",
@@ -2453,6 +2840,44 @@ export const zh: Partial<Catalogue> = {
   "screens.feed.explorationTopic": "{topic} · 探索栏目",
   "screens.feed.sourcesCount": "来源（{n, number}）",
   "screens.feed.sources": "来源",
+  "screens.feed.sourcesEditor.button": "来源",
+  "screens.feed.sourcesEditor.title": "Feed 来源",
+  "screens.feed.sourcesEditor.description": "Feed 读取的来源。每次更改都会立即保存。",
+  "screens.feed.sourcesEditor.builtIn": "内置",
+  "screens.feed.sourcesEditor.builtInHint": "除非你关闭，Feed 会读取这些来源。",
+  "screens.feed.sourcesEditor.hackerNews": "Hacker News",
+  "screens.feed.sourcesEditor.hackerNewsHint": "Hacker News 的热门内容",
+  "screens.feed.sourcesEditor.arxiv": "arXiv",
+  "screens.feed.sourcesEditor.arxivHint": "arXiv 的新论文",
+  "screens.feed.sourcesEditor.feeds": "RSS 和 Atom 订阅源",
+  "screens.feed.sourcesEditor.feedsHint": "每个订阅源都是以 https:// 或 http:// 开头的网址。",
+  "screens.feed.sourcesEditor.fetchNote":
+    "Feed 目前还不显示每个订阅源的最后读取时间，也不显示是否失败。",
+  "screens.feed.sourcesEditor.empty": "还没有添加订阅源。",
+  "screens.feed.sourcesEditor.notRead": "不会读取",
+  "screens.feed.sourcesEditor.kind": "RSS 或 Atom",
+  "screens.feed.sourcesEditor.add": "添加订阅源",
+  "screens.feed.sourcesEditor.addTitle": "添加订阅源",
+  "screens.feed.sourcesEditor.addLabel": "订阅源地址",
+  "screens.feed.sourcesEditor.addPlaceholder": "https://example.com/feed.xml",
+  "screens.feed.sourcesEditor.editLabel": "编辑 {host}",
+  "screens.feed.sourcesEditor.removeLabel": "移除 {host}",
+  "screens.feed.sourcesEditor.removeTitle": "从 Feed 中移除 {host}？",
+  "screens.feed.sourcesEditor.removeBody":
+    "Feed 将不再读取此地址。已经写好的内容会保留。你之后可以再次添加该地址。",
+  "screens.feed.sourcesEditor.confirmRemove": "移除订阅源",
+  "screens.feed.sourcesEditor.openLabel": "在浏览器中打开 {host}",
+  "screens.feed.sourcesEditor.openFailed": "无法打开 {host}：{reason}",
+  "screens.feed.sourcesEditor.errEmpty": "请输入订阅源的网址。",
+  "screens.feed.sourcesEditor.errInvalid": "这不是网址。请以 https:// 开头。",
+  "screens.feed.sourcesEditor.errScheme": "订阅源只能是 http:// 或 https:// 地址。",
+  "screens.feed.sourcesEditor.errDuplicate": "这个订阅源已在列表中。",
+  "screens.feed.sourcesEditor.saved": "Feed 来源已保存",
+  "screens.feed.sourcesEditor.added": "已添加订阅源",
+  "screens.feed.sourcesEditor.removed": "已移除订阅源",
+  "screens.feed.sourcesEditor.saveFailed": "无法保存 Feed 来源：{reason}",
+  "screens.feed.sourcesEditor.loadFailed": "无法加载 Feed 来源",
+  "screens.feed.sourcesEditor.loading": "正在加载 Feed 来源",
   "screens.feed.feedbackOn": "对 {title} 的反馈",
   "screens.feed.like": "喜欢",
   "screens.feed.moreFeedback": "对 {title} 的更多反馈",
@@ -2586,6 +3011,28 @@ export const zh: Partial<Catalogue> = {
   "screens.files.preview": "预览",
   "screens.files.needsApp": "预览需要桌面版或网页版 App。",
   "screens.files.pick": "选择一个文件在此预览。",
+  "screens.files.editReadOnly": "只读:此文件夹未开放编辑。",
+  "screens.files.editOpening": "正在打开 {name} 以便编辑",
+  "screens.files.editFailed": "Psyche 无法打开 {name} 进行编辑({reason})。",
+  "screens.files.editNotText": "{name} 不是 UTF-8 文本,无法在此编辑。",
+  "screens.files.unsaved": "未保存的更改",
+  "screens.files.saved": "已保存",
+  "screens.files.saving": "正在保存…",
+  "screens.files.discardAsk": "放弃未保存的更改?",
+  "screens.files.discard": "放弃",
+  "screens.files.keepEditing": "继续编辑",
+  "screens.files.conflict": "你打开此文件后,它在磁盘上已被更改。",
+  "screens.files.reload": "重新加载",
+  "screens.files.overwrite": "覆盖…",
+  "screens.files.overwriteAsk": "用你的编辑替换较新的版本?较新的版本将丢失。",
+  "screens.files.overwriteConfirm": "覆盖",
+  "screens.files.saveFailed": "Psyche 无法保存 {name}({reason})。",
+  "screens.files.notSaved": "未保存。",
+  "screens.files.editing": "正在编辑 {name}",
+  "screens.files.editTooLarge": "仅供查看:超过 512 KB 的文件无法在此编辑。",
+  "screens.files.saveTooLarge": "此更改太大,无法从这里保存。请缩短文本后重试。",
+  "screens.files.editMixedEol": "{name} 混用了多种换行符,无法在此编辑。",
+  "screens.files.draftRestored": "已恢复未保存的更改",
   "screens.library.section.documents": "文稿",
   "screens.library.empty.documents": "还没有文稿。代理制作或收到的文件会出现在这里。",
   "screens.library.section.images": "图片",
@@ -2624,10 +3071,26 @@ export const zh: Partial<Catalogue> = {
   "screens.library.openLabel": "{editor, select, true {在编辑器中打开 {name}} other {打开 {name}}}",
   "screens.library.openInEditor": "在编辑器中打开",
   "screens.library.open": "打开",
+  "screens.library.deleteDownload": "删除此下载",
+  "screens.library.deleteFailed": "Psyche 无法删除 {name}（{reason}）。它仍在隔离中。",
+  "screens.library.recording.description": "重放代理在浏览器中的操作。页面内容在录制时已被遮盖。",
+  "screens.library.recording.play": "播放",
+  "screens.library.recording.pause": "暂停",
+  "screens.library.recording.step": "第 {n} 步，共 {total} 步",
+  "screens.library.recording.scrub": "录制中的位置",
+  "screens.library.recording.steps": "步骤",
+  "screens.library.recording.empty": "此录制没有步骤。",
+  "screens.library.recording.noFrame": "此步骤没有画面。",
+  "screens.library.recording.frameAlt": "第 {n} 步的浏览器画面",
+  "screens.library.recording.reviewPermissions": "在权限中查看",
+  "screens.library.recording.loading": "正在加载录制",
+  "screens.library.recording.loadFailed": "Psyche 无法加载此录制（{reason}）。",
+  "screens.library.recording.notFound": "此录制已不可用。",
   "screens.library.trust": "信任此文件",
   "screens.library.moreFor": "{name} 的更多操作",
   "screens.library.quickLook": "快速查看",
   "screens.library.reveal": "在访达中显示",
+  "screens.library.revealFailed": "无法显示此文件：{reason}",
   "screens.library.sendToChat": "发送到聊天",
   "screens.library.loading": "正在载入资料库",
   "screens.library.loadFailed": "Psyche 无法载入资料库",
@@ -2698,6 +3161,19 @@ export const zh: Partial<Catalogue> = {
   "screens.goals.checkinLine":
     "{cadence}{hasNext, select, true { · 下次 {next}} other {}}{hasLast, select, true { · 上次：{last}} other {}}",
   "screens.goals.noSchedule": "无计划",
+  "screens.goals.suggest": "建议下一步",
+  "screens.goals.suggest.hint": "仅在你点按时使用模型。在卡片上点按“开始”之前不会开始任何操作。",
+  "screens.goals.suggest.done": "建议已添加到主页。",
+  "screens.goals.suggest.none": "这次没有建议。请稍后再试。",
+  "screens.ideas.start": "开始",
+  "screens.ideas.snooze": "稍后提醒",
+  "screens.ideas.badge.checkin": "例行检查",
+  "screens.ideas.badge.resume": "要继续吗？",
+  "screens.goals.checkinFrequency": "例行检查",
+  "screens.goals.checkinFrequency.off": "关闭",
+  "screens.goals.checkinFrequency.daily": "每天",
+  "screens.goals.checkinFrequency.weekly": "每周",
+  "screens.goals.checkinFrequency.monthly": "每月",
   "screens.goals.watches": "监视",
   "screens.goals.nothingWatched": "没有监视的内容。",
   "screens.goals.last": "上次：{value}",
@@ -2884,10 +3360,10 @@ export const zh: Partial<Catalogue> = {
   "web.viewers.noPath": "此文件没有路径。",
   "web.shortcut.palette": "命令面板",
   "web.shortcut.newSideChat": "新建支线聊天",
+  "web.shortcut.newIncognitoChat": "新建无痕聊天",
   "web.shortcut.closeThreadView": "关闭会话视图或弹出窗口",
   "web.shortcut.toggleThreadList": "显示或隐藏会话列表",
   "web.shortcut.cycleThreads": "循环切换会话",
-  "web.shortcut.forkSelection": "将所选内容分叉到支线聊天",
   "web.shortcut.stop": "停止运行；释放“接管”",
   "web.shortcut.cycleDisclosure": "循环切换详细程度：状态、操作、原始",
   "web.shortcut.openBrowserPane": "浏览器面板",
@@ -2924,7 +3400,9 @@ export const zh: Partial<Catalogue> = {
   "web.threads.untitled": "未命名",
   "web.threads.label": "会话",
   "web.threads.newSideChatTitle": "新建支线聊天（⌘N）",
+  "web.threads.newIncognitoChatTitle": "新建无痕聊天",
   "web.threads.newSideChat": "+ 支线聊天",
+  "web.threads.newIncognitoChat": "+ 无痕",
   "web.threads.searchLabel": "搜索会话",
   "web.threads.searchPlaceholder": "搜索",
   "web.threads.empty": "还没有支线聊天。",
@@ -3236,4 +3714,24 @@ export const zh: Partial<Catalogue> = {
   "specialists.card.fromAutomation": "来自你的自动化 {name}",
   // signed connector bundles and teach-by-showing in Mac apps
   ...final202611,
+  // password approvals on Linux (polkit)
+  ...passwordPresence,
+  ...helperCheck,
+  ...helperOffline,
+  // the security-records banner (docs/design/security-state-integrity-2026.md §7.3)
+  ...securityState,
+  // Settings → Computer use on Linux: screen and input access
+  ...linuxAccess,
+  // the Virtual screen watch pane (docs/design/linux-desktop-2026.md §7.5)
+  ...computerWatch,
+  // Gateway-authored notices (inbox notifications, security alerts)
+  ...notices,
+  // Settings > Computer use > Separate desktop (Linux)
+  ...separateDesktop,
+  // Windows variants of the sandbox PC, voice keys and platform terms
+  ...windowsPlatform202611,
+  ...mailFollowups,
+  ...keepAwake,
+  ...spaces,
+  ...machines,
 };

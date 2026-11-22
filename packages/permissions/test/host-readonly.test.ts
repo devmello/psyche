@@ -92,16 +92,155 @@ describe("classifyHostCommand", () => {
     }
   });
 
-  it("never takes git: config can make every reading subcommand run a program (review 1)", () => {
+  it("takes the read-only git subcommands, with the flags a reader expects", () => {
     for (const argv of [
       ["git", "status"],
-      ["git", "status", "-vv"],
+      ["git", "status", "--short", "--branch"],
+      ["git", "status", "--porcelain=v2", "-uno"],
+      ["git", "log"],
+      ["git", "log", "--oneline", "-5"],
+      ["git", "log", "-n", "5", "--graph", "--decorate", "--all"],
+      ["git", "log", "--format=%h %an %s", "--since=2.days"],
+      ["git", "log", "--author=ada", "--grep=fix", "--", "src"],
+      ["git", "log", "main..HEAD", "--stat"],
       ["git", "diff"],
+      ["git", "diff", "--cached", "--stat"],
+      ["git", "diff", "HEAD~1", "--name-only"],
+      ["git", "diff", "-U5", "--", "src/a.ts"],
+      ["git", "show", "HEAD", "--stat"],
+      ["git", "show", "HEAD~2", "--no-patch", "--format=%H"],
+      ["git", "branch"],
+      ["git", "branch", "-a", "-vv"],
+      ["git", "branch", "--list"],
+      ["git", "branch", "--show-current"],
+      ["git", "rev-parse", "HEAD"],
+      ["git", "rev-parse", "--show-toplevel"],
+      ["git", "rev-parse", "--abbrev-ref", "HEAD"],
+      ["git", "ls-files"],
+      ["git", "ls-files", "-o", "--exclude-standard"],
+      ["git", "ls-files", "src"],
+      ["git", "blame", "src/a.ts"],
+      ["git", "blame", "-L", "10,20", "src/a.ts"],
+      ["git", "remote"],
+      ["git", "remote", "-v"],
+    ]) {
+      expect(classifyHostCommand(argv, CWD), argv.join(" ")).toMatchObject({
+        readOnly: true,
+        program: "git",
+      });
+    }
+  });
+
+  it("refuses git that can write, run a program, leave the folder or reach the network", () => {
+    for (const argv of [
+      // Options before the subcommand: config, other directories, other programs.
+      ["git", "-c", "core.pager=sh", "status"],
+      ["git", "-ccore.pager=sh", "status"],
+      ["git", "-C", "/etc", "status"],
+      ["git", "-C", ".", "status"],
+      ["git", "--git-dir=/tmp/x", "status"],
+      ["git", "--git-dir", "/tmp/x", "status"],
+      ["git", "--work-tree=/", "status"],
+      ["git", "--exec-path=/tmp", "status"],
+      ["git", "--config-env=core.pager=X", "status"],
+      ["git", "--no-pager", "status"],
+      ["git", "--paginate", "log"],
+      ["git", "--help"],
+      ["git", "-p", "log"],
+      // Writing or executing flags.
+      ["git", "diff", "--output=/tmp/x"],
+      ["git", "diff", "--output", "/tmp/x"],
+      ["git", "log", "--output=/tmp/x"],
+      ["git", "log", "-o", "x"],
+      ["git", "log", "--ext-diff"],
+      ["git", "diff", "--ext-diff"],
+      ["git", "diff", "--textconv"],
+      ["git", "show", "--textconv", "HEAD"],
       ["git", "log", "--show-signature"],
       ["git", "log", "--format=%G?"],
+      ["git", "log", "--pretty=format:%GS"],
       ["git", "show", "--show-signature"],
+      ["git", "diff", "--no-index", "a", "b"],
+      ["git", "diff", "--open-files-in-pager"],
+      ["git", "diff", "-O", "orderfile"],
+      ["git", "log", "--upload-pack=sh"],
+      ["git", "status", "--exec-path"],
+      ["git", "blame", "--contents", "x", "f"],
+      ["git", "blame", "-L", "1,2;touch x", "f"],
+      ["git", "ls-files", "--exclude-from=/etc/passwd"],
+      ["git", "ls-files", "-x", "*"],
+      ["git", "status", "-v"],
+      ["git", "status", "-vv"],
+      // Branch is list-only: any name creates one.
+      ["git", "branch", "evil"],
+      ["git", "branch", "-d", "x"],
+      ["git", "branch", "-D", "x"],
+      ["git", "branch", "-m", "a", "b"],
+      ["git", "branch", "-M", "a"],
+      ["git", "branch", "-c", "a", "b"],
+      ["git", "branch", "-f", "a", "HEAD"],
+      ["git", "branch", "--set-upstream-to=origin/main"],
+      ["git", "branch", "-u", "origin/main"],
+      ["git", "branch", "--edit-description"],
       ["git", "branch", "--format=%(signature)"],
-      ["git", "branch", "-a"],
+      ["git", "branch", "--list", "feat/*"],
+      ["git", "branch", "--", "evil"],
+      ["git", "branch", "--delete", "x"],
+      ["git", "branch", "--move", "a", "b"],
+      // Remote only with -v or nothing.
+      ["git", "remote", "add", "x", "https://example.com"],
+      ["git", "remote", "remove", "origin"],
+      ["git", "remote", "-v", "origin"],
+      ["git", "remote", "show", "origin"],
+      ["git", "remote", "update"],
+      ["git", "remote", "set-url", "origin", "x"],
+      // Other subcommands and the network.
+      ["git", "push"],
+      ["git", "fetch"],
+      ["git", "pull"],
+      ["git", "clone", "https://example.com/x"],
+      ["git", "commit", "-m", "x"],
+      ["git", "checkout", "."],
+      ["git", "reset", "--hard"],
+      ["git", "stash"],
+      ["git", "config", "--get", "core.pager"],
+      ["git", "config", "core.pager", "sh"],
+      ["git", "grep", "x"],
+      ["git", "format-patch", "-o", "/tmp", "HEAD~1"],
+      ["git", "archive", "HEAD", "-o", "/tmp/x.tar"],
+      ["git", "bundle", "create", "x", "HEAD"],
+      ["git", "submodule", "status"],
+      ["git", "worktree", "list"],
+      ["git", "gc"],
+      ["git", "rev-list", "HEAD"],
+      ["git", "cat-file", "-p", "HEAD"],
+      ["git", "difftool"],
+      ["git", "mergetool"],
+      ["git", "STATUS"],
+      ["git", ""],
+      ["git"],
+      // Operands outside the folder, or revision/pathspec syntax that reaches elsewhere.
+      ["git", "log", "--", "../other"],
+      ["git", "diff", "/etc/hosts"],
+      ["git", "diff", "HEAD", "--", "/etc/passwd"],
+      ["git", "show", "HEAD:../secret"],
+      ["git", "show", ":/"],
+      ["git", "ls-files", "../x"],
+      ["git", "ls-files", "~/.ssh"],
+      ["git", "blame", "../x"],
+      ["git", "status", "--", ":(top)x"],
+      ["git", "rev-parse", "--resolve-git-dir", "/tmp"],
+      // Not the bare system git, or smuggled through a shell, a launcher or shell syntax.
+      ["/usr/bin/git", "status"],
+      ["./git", "status"],
+      ["env", "git", "status"],
+      ["sh", "-c", "git status"],
+      ["git", "status;", "rm", "-rf", "x"],
+      ["git", "status", ";", "rm", "-rf", "x"],
+      ["git", "status", "&&", "id"],
+      ["git", "status", "|", "sh"],
+      ["git", "log", ">", "x"],
+      ["git", "log", "open"],
     ]) {
       expect(classifyHostCommand(argv, CWD), argv.join(" ")).toMatchObject({ readOnly: false });
     }
@@ -168,11 +307,24 @@ describe("the broker and the read-only class", () => {
     const h = makeBroker({ policy: ON });
     const d = await h.broker.decide(host(["ls", "-la"]), CTX);
     expect(d).toMatchObject({ decision: "allow", rule: READ_ONLY_RULE, sideEffect: "read" });
-    // git never: even with the Gateway's word, the broker's own check says no.
-    expect(await h.broker.decide(host(["git", "status"]), CTX)).toMatchObject({
-      decision: "ask",
-      sideEffect: "destructive",
+    // Read-only git runs quietly too; a git that can write still asks, with the Gateway's word.
+    expect(await h.broker.decide(host(["git", "log", "--oneline", "-5"]), CTX)).toMatchObject({
+      decision: "allow",
+      rule: READ_ONLY_RULE,
     });
+    for (const argv of [
+      ["git", "-c", "core.pager=sh", "status"],
+      ["git", "diff", "--output=/tmp/x"],
+      ["git", "branch", "evil"],
+      ["git", "push"],
+      ["git", "-C", "/etc", "status"],
+      ["git", "status;", "rm", "-rf", "x"],
+    ]) {
+      expect(await h.broker.decide(host(argv), CTX), argv.join(" ")).toMatchObject({
+        decision: "ask",
+        sideEffect: "destructive",
+      });
+    }
     // And again: no `once`-style card in between.
     expect((await h.broker.decide(host(["date"]), CTX)).decision).toBe("allow");
   });
@@ -208,7 +360,7 @@ describe("the broker and the read-only class", () => {
     const d = await h.broker.decide(host(["date"]), { ...CTX, taint: true });
     expect(d).toMatchObject({ decision: "ask", sideEffect: "read", scopesOffered: ["once"] });
     const { approval } = await approve(h, host(["date"]), { ...CTX, taint: true }, "once");
-    expect(approval).toMatchObject({ deviceOnly: true, requiresAuthentication: true });
+    expect(approval).toMatchObject({ deviceOnly: true, requiresAuthentication: false });
     expect(approval.sideEffect).toBe("read");
   });
 
@@ -244,6 +396,28 @@ describe("the broker and the read-only class", () => {
       decision: "ask",
       rule: "exec_host:no_sandbox",
       sideEffect: "read",
+    });
+  });
+
+  it("read-only git: asks in manual mode and in a tainted turn, denied outside a shared folder", async () => {
+    const status = host(["git", "status"]);
+    const manual = makeBroker({ policy: ON });
+    expect(
+      await manual.broker.decide(status, { ...CTX, permissionMode: "manual" as const }),
+    ).toMatchObject({ decision: "ask", rule: "mode:manual/exec_host" });
+    const h = makeBroker({ policy: ON });
+    for (const permissionMode of ["balanced", "auto"] as const) {
+      expect(await h.broker.decide(status, { ...CTX, permissionMode })).toMatchObject({
+        decision: "allow",
+        rule: READ_ONLY_RULE,
+      });
+    }
+    expect((await h.broker.decide(status, { ...CTX, taint: true })).decision).toBe("ask");
+    // The cwd of the call is outside every shared folder.
+    const elsewhere = host(["git", "status"], true, { cwd: "/elsewhere/app" });
+    expect(await h.broker.decide(elsewhere, CTX)).toMatchObject({
+      decision: "deny",
+      rule: "folder:not_granted",
     });
   });
 

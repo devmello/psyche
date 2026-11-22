@@ -1,5 +1,5 @@
 import { type Static, Type } from "@sinclair/typebox";
-import { StringEnum } from "../common.ts";
+import { Id, StringEnum } from "../common.ts";
 import { defineMethod } from "./define.ts";
 
 /**
@@ -11,7 +11,9 @@ import { defineMethod } from "./define.ts";
  * connection may call it; any other device is refused.
  */
 
-export const AttentionPane = StringEnum(["browser", "computer"], { $id: "AttentionPane" });
+export const AttentionPane = StringEnum(["browser", "computer", "vscreen"], {
+  $id: "AttentionPane",
+});
 export type AttentionPane = Static<typeof AttentionPane>;
 
 export const AttentionMethods = {
@@ -19,6 +21,7 @@ export const AttentionMethods = {
     params: Type.Object({
       pane: AttentionPane,
       visible: Type.Boolean({ description: "The pane is on screen in the desktop app" }),
+      machine: Type.Optional(Id),
       input: Type.Optional(
         Type.Boolean({ description: "The owner gave input in the app just now (key, click)" }),
       ),

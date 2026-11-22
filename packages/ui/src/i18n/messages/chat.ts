@@ -112,6 +112,9 @@ export const chat = {
     "{name}: Psyche can't read this kind of file. Attach a PDF, Word, Excel, text or image file",
   "chat.attach.refused.size": "{name} is too large to attach (images 5 MB, documents 25 MB)",
   "chat.attach.refused.count": "{name}: up to 8 files go with a message",
+  "chat.attach.refused.sensitive": "{name} is in a protected place and can't be shared with Psyche",
+  "chat.attach.refused.unreadable":
+    "{name} couldn't be attached. Check that it still exists and is a file, not a folder",
   // {key}: the push-to-talk key as Settings names it ("fn", "Right Ctrl", "Caps Lock").
   "chat.composer.dictate": "Dictate (hold {key})",
   "chat.composer.hintIdle": "Type / for commands",
@@ -251,6 +254,7 @@ export const chat = {
   // Redesign 2026, workstream B (docs/design/redesign-2026.md §5.2).
   "chat.toolbar.label": "Chat toolbar",
   "chat.toolbar.incognito": "Incognito",
+  "chat.incognito.notice": "Not used for memory, search or activity. Expires after 24 h.",
   "chat.toolbar.view": "Transcript view",
   "chat.toolbar.view.status": "Status only",
   "chat.toolbar.view.actions": "Actions",
@@ -281,6 +285,8 @@ export const chat = {
   "chat.steps.approval": "Waiting for your approval: {summary}",
   "chat.steps.question": "Asked: {question}",
   "chat.steps.answered": "Answered: {question}",
+  "chat.steps.earlier": "{n, plural, one {# earlier step done} other {# earlier steps done}}",
+  "chat.steps.needsYou": "Needs you",
   "chat.steps.writing": "Writing the reply…",
   "chat.steps.thinking": "Thinking: {text}",
   "chat.steps.thinkingEmpty": "Thinking…",
@@ -339,4 +345,16 @@ export const chat = {
   "chat.clear.failed": "Could not clear the chat: {reason}",
   "chat.clear.mainOnly": "Clear works in the main chat. Use /new for a fresh side chat.",
   "chat.commands.clear.description": "Clear the main chat",
+  "chat.modeSwitch.label": "Permission mode",
+  "chat.modeSwitch.autoExplainer":
+    "Auto runs routine actions inside your grants and asks before anything sensitive. Payments always ask; your never list is always refused.",
+  "chat.modeSwitch.gotIt": "Got it",
+  "chat.modeSwitch.autoUnavailable": "Auto can't run on {model}.",
+  "chat.modeSwitch.needsModel": "Auto needs a supported model.",
+  "chat.modeSwitch.switchModel": "Switch to {model} and use Auto",
+  "chat.modeSwitch.noModel":
+    "Auto needs a supported model such as Claude, GPT or Gemini. Add its key in Settings.",
+  "chat.modeSwitch.failed": "Could not change the mode: {reason}",
+  "chat.modeSwitch.notSaved":
+    "Changed for this chat, but it could not be saved as the default for new chats.",
 } as const;

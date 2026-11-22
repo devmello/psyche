@@ -4,9 +4,10 @@ import { join } from "node:path";
 import { FakeModelProvider } from "@psyche/testing";
 import { afterEach, describe, expect, it } from "vitest";
 import { type ComposedGateway, composeGateway } from "../src/compose/index.ts";
-import { type ComposedMcp, composeMcp, MCP_SERVERS_SETTING } from "../src/compose/mcp.ts";
+import { type ComposedMcp, composeMcp } from "../src/compose/mcp.ts";
 import { serverConfig } from "../src/compose/mcp-add.ts";
-import { adminClient, ik, type TestClient } from "./helpers.ts";
+import type { ComposeServices } from "../src/compose/services.ts";
+import { adminClient, seedMcpServers, type TestClient } from "./helpers.ts";
 
 /**
  * Verified trust: an owner-added server earns `verified` only from an exact official package or
@@ -27,6 +28,7 @@ afterEach(async () => {
 async function setup() {
   home = mkdtempSync(join(tmpdir(), "psyche-mcp-trust-"));
   let mcp: ComposedMcp | undefined;
+  let services: ComposeServices | undefined;
   composed = await composeGateway({
     retentionIntervalMs: 0,
     background: false,
@@ -34,6 +36,7 @@ async function setup() {
     model: { provider: new FakeModelProvider(), model: "fake/model" },
     parts: [
       (s) => {
+        services = s;
         mcp = composeMcp(s, {
           // A remote server is never reached: the fake fetch refuses every request.
           hostOptions: {
@@ -48,7 +51,7 @@ async function setup() {
   });
   const owner = await adminClient(composed.gateway);
   clients.push(owner);
-  return { owner, mcp: mcp as ComposedMcp };
+  return { owner, mcp: mcp as ComposedMcp, services: services as ComposeServices };
 }
 
 const stdio = (id: string, command: string[], trust?: string) => ({
@@ -82,24 +85,17 @@ describe("verified MCP trust", () => {
   });
 
   it("re-derives the tier of every stored server: a claim does not make it verified", async () => {
-    const { owner, mcp } = await setup();
-    await owner.call(
-      "settings.set",
-      {
-        key: MCP_SERVERS_SETTING,
-        value: [
-          // Official and stamped unknown by an older Gateway: now verified.
-          remote("linear", "https://mcp.linear.app/mcp", "unknown"),
-          stdio("fs", ["npx", "-y", "@modelcontextprotocol/server-filesystem", "/tmp"]),
-          // Claims verified, but the command was edited to run something else.
-          stdio("edited", ["sh", "-c", "npx @modelcontextprotocol/server-filesystem"], "verified"),
-          remote("lookalike", "https://mcp.linear.app.evil.test/mcp", "verified"),
-          // A bundled claim stays the host's to refuse (this id does not ship with Psyche).
-          stdio("fake-bundled", ["node", "x.js"], "bundled"),
-        ],
-      },
-      ik(),
-    );
+    const { owner, mcp, services } = await setup();
+    seedMcpServers(services, [
+      // Official and stamped unknown by an older Gateway: now verified.
+      remote("linear", "https://mcp.linear.app/mcp", "unknown"),
+      stdio("fs", ["npx", "-y", "@modelcontextprotocol/server-filesystem", "/tmp"]),
+      // Claims verified, but the command was edited to run something else.
+      stdio("edited", ["sh", "-c", "npx @modelcontextprotocol/server-filesystem"], "verified"),
+      remote("lookalike", "https://mcp.linear.app.evil.test/mcp", "verified"),
+      // A bundled claim stays the host's to refuse (this id does not ship with Psyche).
+      stdio("fake-bundled", ["node", "x.js"], "bundled"),
+    ]);
     await mcp.idle();
     const { servers } = await owner.call<{ servers: { id: string; trust: string }[] }>(
       "mcp.status",

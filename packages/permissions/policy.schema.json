@@ -97,6 +97,7 @@
               "git_write",
               "git_push",
               "folder_access",
+              "separate_desktop_share",
               "batch",
               "permission_request"
             ]
@@ -201,6 +202,10 @@
           "mode": {
             "type": "string",
             "enum": ["ro", "rw"]
+          },
+          "real": {
+            "minLength": 1,
+            "type": "string"
           }
         }
       }
@@ -252,6 +257,18 @@
       "items": {
         "minLength": 1,
         "type": "string"
+      }
+    },
+    "sensitiveCategories": {
+      "additionalProperties": false,
+      "type": "object",
+      "properties": {
+        "government": {
+          "type": "boolean"
+        },
+        "icloud": {
+          "type": "boolean"
+        }
       }
     },
     "exec": {

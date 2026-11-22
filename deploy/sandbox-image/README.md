@@ -7,6 +7,7 @@
 | `core` | Debian 13 (node:24 trixie-slim), Node 24, bash, Python 3 + uv, git, ripgrep, jq, curl, procps | 618 MB |
 | `base` | core + pandoc, poppler-utils, pdftk-java, ffmpeg (the default runtime image) | 1.76 GB |
 | `full` | base + LibreOffice writer, calc and impress (no GUI) | 2.3 GB |
+| `desktop` | full + Xvfb, a private D-Bus, AT-SPI, Firefox ESR, a file manager, LibreOffice with its GUI, and the Linux helper (the separate desktop, Linux only) | 2.29 GB (amd64, measured) |
 
 Every target:
 
@@ -16,6 +17,19 @@ Every target:
 - idles on `sleep infinity`; the runner adds `--init`.
 
 The base images are pinned by digest in the Dockerfile and in [`versions.json`](versions.json). `versions.json` also holds the published repository, tags, platforms (`linux/arm64`, `linux/amd64`), the digest of each published variant (`null` until the first release) and the cosign keyless identity that `publish.sh` signs with.
+
+## The desktop target (separate desktop, Linux)
+
+`desktop` is not a sandbox for commands. It is the image the Linux **separate desktop** runs (`packages/sandbox/src/desktop.ts`, [design §8](../../docs/design/linux-desktop-2026.md)): a graphical desktop that the Gateway drives through the helper inside it. It keeps the rules above (UID 1000, read-only root, `/tmp` a tmpfs, `/workspace` a volume, no setuid) and adds: no network at all, one read-only socket mount for the Gateway, a single-use pairing token in `PSYCHE_GUEST_TOKEN`, and shared folders only at `/shares/<name>`.
+
+`desktop/entrypoint.sh` starts a private session bus, Xvfb on `:1`, the AT-SPI bus, then the helper in the foreground (the container exits if it does). The helper is not built here: stage the Linux helper binary at `desktop/psyche-helper` (git-ignored) first. Its checksum is **required**: the build fails without `--build-arg HELPER_SHA256=<sha256>` (a local dev build may skip it with `--build-arg ALLOW_UNVERIFIED_HELPER=1`; `publish.sh` never does and needs `PSYCHE_HELPER_SHA256` for this variant):
+
+```bash
+cp apps/linux-helper/target/release/psyche-helper deploy/sandbox-image/desktop/psyche-helper
+podman build --target desktop   --build-arg HELPER_SHA256=$(sha256sum deploy/sandbox-image/desktop/psyche-helper | cut -d" " -f1)   -t psyche-sandbox:desktop-dev deploy/sandbox-image
+```
+
+The release workflow builds and publishes `desktop` with the other three: each architecture's job builds the Linux helper natively, stages it at `desktop/psyche-helper` and passes its checksum to `publish.sh` as `PSYCHE_HELPER_SHA256`, without which `publish.sh` refuses to build this variant. `publish.sh`'s own default variants stay `core base full`; name `desktop` to build it by hand.
 
 ## Build locally
 
@@ -45,7 +59,7 @@ The workflow then runs `cosign verify` on all three digests against `signing` in
 A manual run with `dry_run` ticked, or a manual run from a branch, only runs `publish.sh --dry-run` (a manual run on a `v*` tag with `dry_run` unticked publishes, which is how to retry a failed release). Locally:
 
 ```bash
-deploy/sandbox-image/publish.sh --dry-run --version 0.2.0 core base full   # prints the commands; needs bash + jq
+deploy/sandbox-image/publish.sh --dry-run --version 0.2.0 core base full desktop   # prints the commands; needs bash + jq
 ```
 
 Apt packages are not snapshot-pinned, so two builds of the same commit are not byte-identical; the pinned digest in `versions.json` is what makes a run reproducible.

@@ -26,6 +26,7 @@ import { formatCountdown, formatRelative } from "../lib/format.ts";
 import { keysLabel } from "../lib/keys.ts";
 import { pathBasename } from "../lib/paths.ts";
 import { isMac } from "../lib/platform.ts";
+import { parseSendGrantKey, splitRecipients } from "../lib/send-grant.ts";
 import { useNow } from "../lib/use-now.ts";
 import { cn } from "../lib/utils.ts";
 import { easeLinear, fade, motionSpring, spring } from "../motion/index.ts";
@@ -39,6 +40,7 @@ import {
 } from "./answer-error.ts";
 import { ApprovalDetails, ApprovalIds } from "./approval-details.tsx";
 import { floorClassOf, useLiftFloorConfirm } from "./LiftFloorDialog.tsx";
+import { approvalMachineLine } from "./machine-line.ts";
 import { taintSentence } from "./taint-text.ts";
 
 /** The approve chord on the button: the compact ⌘↩ on macOS, "Ctrl+Enter" elsewhere. */
@@ -64,7 +66,63 @@ export function focusApproval(approvalId: string): void {
 
 export type ApprovalChoice = "deny" | "once" | "task" | "site" | "always" | "session";
 
-type AllowScope = Exclude<ApprovalChoice, "deny">;
+/**
+ * `trust` / `trustSubdomains` are "Always for this site" (and its subdomains): sent as `once` plus
+ * `trustSite`, only on a first-read card that offers it (`details.trustSite`).
+ */
+type AllowScope =
+  | Exclude<ApprovalChoice, "deny">
+  | "trust"
+  | "trustSubdomains"
+  | "program"
+  | "space";
+
+/** The origin a first-read card offers to trust, as the Gateway computed it. */
+function trustSiteOffer(
+  approval: ApprovalRequest,
+): { origin: string; display: string; subdomains: boolean } | null {
+  const o = (approval.details as Record<string, unknown>).trustSite;
+  if (typeof o !== "object" || o === null) return null;
+  const { origin, subdomains } = o as { origin?: unknown; subdomains?: unknown };
+  if (typeof origin !== "string" || !approval.scopesOffered.includes("once")) return null;
+  return { origin, display: origin.replace(/^https:\/\//, ""), subdomains: subdomains === true };
+}
+
+/**
+ * "Always allow <program> in <folder>" on a host-command card, as the Gateway computed it
+ * (`details.hostProgram`): sent as `once` plus `hostProgram`. `exact` when it covers only the
+ * argv shown (a program that can run other code), else any arguments of a read-only tool.
+ */
+function hostProgramOffer(
+  approval: ApprovalRequest,
+): { program: string; folder: string; exact: boolean } | null {
+  const o = (approval.details as Record<string, unknown>).hostProgram;
+  if (typeof o !== "object" || o === null) return null;
+  const { program, folder, argv } = o as { program?: unknown; folder?: unknown; argv?: unknown };
+  if (typeof program !== "string" || typeof folder !== "string") return null;
+  if (!approval.scopesOffered.includes("once")) return null;
+  return { program, folder, exact: Array.isArray(argv) };
+}
+
+/**
+ * "Allow in this Space" on a folder card, as the Gateway offered it (`details.space`): sent as
+ * `once` plus `inSpace`. Never on a tainted card (spaces-2026 §5.3).
+ */
+function spaceOffer(approval: ApprovalRequest): { name: string; automationsWrite: boolean } | null {
+  if (approval.kind !== "folder_access" || approval.taint) return null;
+  const o = (approval.details as Record<string, unknown>).space;
+  if (typeof o !== "object" || o === null) return null;
+  const { id, name, automationsWrite } = o as {
+    id?: unknown;
+    name?: unknown;
+    automationsWrite?: unknown;
+  };
+  if (typeof id !== "string" || id === "" || !approval.scopesOffered.includes("once")) return null;
+  return {
+    name: typeof name === "string" ? name : "",
+    automationsWrite: automationsWrite === true,
+  };
+}
 
 export interface ApprovalCardProps {
   approval: ApprovalRequest;
@@ -92,6 +150,12 @@ export interface ApprovalCardProps {
       unsandboxed?: "UNSANDBOXED";
       editedText?: string;
       recipientChoice?: string;
+      /** "Always for this site" on a first-read card (sent with scope `once`). */
+      trustSite?: "origin" | "subdomains";
+      /** "Always allow <program> in <folder>" on a host-command card (sent with scope `once`). */
+      hostProgram?: true;
+      /** "Allow in this Space" on a folder card that offers it (sent with scope `once`). */
+      inSpace?: true;
     },
   ) => unknown;
   /** Fixed clock (stories, tests). */
@@ -366,6 +430,7 @@ export function ApprovalCard({
   const approval = useMemo(() => sanitizeApproval(raw), [raw]);
   // First line of the per-surface template: kind · side effect · taint (never attacker text).
   const header = useMemo(() => renderForSurface("desktop", raw).text.split("\n")[0] ?? "", [raw]);
+  const machineLine = approvalMachineLine(approval);
   const now = useNow(1000, fixedNow);
   const headingId = useId();
   const headingRef = useRef<HTMLHeadingElement>(null);
@@ -388,8 +453,19 @@ export function ApprovalCard({
   const inFlight = useRef(false);
   const [showIds, setShowIds] = useState(false);
   // folder_access: the folder the owner picks is what is granted, never the agent's string.
-  const isFolder = raw.kind === "folder_access";
-  const { pickFolder, permissionAction, touchIdFix, touchIdOnceOnly, remotePresence } = useSlots();
+  // separate_desktop_share is the same pick for the Linux separate desktop, and grants nothing here.
+  const isSdShare = raw.kind === "separate_desktop_share";
+  const isFolder = raw.kind === "folder_access" || isSdShare;
+  const {
+    pickFolder,
+    permissionAction,
+    touchIdFix,
+    touchIdOnceOnly,
+    passwordPresence,
+    remotePresence,
+  } = useSlots();
+  // Linux: Allow opens the system's own password dialog; the card says so while it is up.
+  const [waitingForPassword, setWaitingForPassword] = useState(false);
   // A remote client with no passkey of its own can't give the presence this card needs.
   const answerOnHost =
     remotePresence !== undefined && approval.requiresAuthentication && !remotePresence.hasPasskey
@@ -413,7 +489,7 @@ export function ApprovalCard({
   );
   const folderBlocked = requestedFolder?.status === "blocked" && folder === "";
   // The agent asked to change files: the owner may narrow that to read-only (never the reverse).
-  const asksWrite = raw.kind === "folder_access" && raw.details.access === "rw";
+  const asksWrite = isFolder && raw.details.access === "rw";
   const [readOnly, setReadOnly] = useState(false);
   // message_send compose card (`messages_send`): the recipient picked and the text left in the
   // editor are what the Gateway binds and sends, not the agent's draft.
@@ -467,6 +543,9 @@ export function ApprovalCard({
     return () => clearTimeout(timer);
   }, [interactive, armDelayMs]);
   const site = originOf(approval);
+  const trustOffer = approval.status === "pending" ? trustSiteOffer(approval) : null;
+  const programOffer = approval.status === "pending" ? hostProgramOffer(approval) : null;
+  const inSpaceOffer = approval.status === "pending" ? spaceOffer(approval) : null;
   // A send / destructive / financial card (§3.12): Always allow lifts its floor for this call
   // class, so it confirms first, and a tainted one never offers it (§3.6).
   const floor = floorClassOf(approval.kind, approval.sideEffect);
@@ -488,13 +567,29 @@ export function ApprovalCard({
       );
       return;
     }
-    const scope: GrantScope | undefined = decision === "deny" ? undefined : choice;
+    const trustSite =
+      decision === "approve" && choice === "trust"
+        ? ("origin" as const)
+        : decision === "approve" && choice === "trustSubdomains"
+          ? ("subdomains" as const)
+          : undefined;
+    const hostProgram = decision === "approve" && choice === "program";
+    const inSpace = decision === "approve" && choice === "space" && inSpaceOffer !== null;
+    const scope: GrantScope | undefined =
+      decision === "deny"
+        ? undefined
+        : trustSite !== undefined || hostProgram || inSpace
+          ? "once"
+          : (choice as GrantScope);
     inFlight.current = true;
     setBusy(true);
     setError(null);
     setLimitedUntil(null);
     setLimitFailure(null);
     setTouchIdFixFor(null);
+    setWaitingForPassword(
+      decision === "approve" && passwordPresence === true && approval.requiresAuthentication,
+    );
     try {
       // macOS access: re-read the grant first, so the Gateway's check sees what was just allowed.
       if (decision === "approve" && need?.need === "macos_access") {
@@ -509,10 +604,15 @@ export function ApprovalCard({
             ? {
                 folderPath: folder,
                 ...(asksWrite && readOnly ? { folderMode: "ro" as const } : {}),
+                ...(inSpace ? { inSpace: true as const } : {}),
               }
             : unsandboxed && decision === "approve"
               ? { unsandboxed: "UNSANDBOXED" }
-              : undefined,
+              : trustSite !== undefined
+                ? { trustSite }
+                : hostProgram
+                  ? { hostProgram: true as const }
+                  : undefined,
       );
       if (decision === "approve" && onceOnlyHere && scope !== undefined && scope !== "once") {
         setForcedOnce(true);
@@ -523,12 +623,16 @@ export function ApprovalCard({
         setLimitedUntil(Date.now() + failure.retryAfterSec * 1000);
         setLimitFailure(failure);
         setError(null);
+      } else if (failure.kind === "cancelled") {
+        // The owner cancelled the system sheet: not approved, and the card just stays as it was.
+        setError(null);
       } else {
         setError(answerFailureText(failure));
         if (failure.kind === "touch_id_setup") setTouchIdFixFor(failure.fix);
       }
     } finally {
       inFlight.current = false;
+      setWaitingForPassword(false);
       setBusy(false);
     }
   };
@@ -552,7 +656,9 @@ export function ApprovalCard({
 
   const status =
     forcedOnce && approval.status === "approved"
-      ? t("blocks.approval.status.allowedOnceTouchId")
+      ? passwordPresence === true
+        ? t("blocks.approval.status.allowedOncePassword")
+        : t("blocks.approval.status.allowedOnceTouchId")
       : statusText(approval, now);
   const whatLabel = t("blocks.approval.whatItWillDo");
   const onlyOnce = offered.length === 1 && offered[0] === "once";
@@ -582,7 +688,7 @@ export function ApprovalCard({
     : t("blocks.permission.checkAgain");
   const scopeText = (scope: GrantScope) =>
     isFolder && (scope === "once" || scope === "always")
-      ? t(`blocks.folder.scope.${scope}`)
+      ? t(isSdShare ? "blocks.folder.sd.scope.once" : `blocks.folder.scope.${scope}`)
       : scopeLabel(scope);
   const offeredScopes: { value: AllowScope; label: string }[] = [
     ...(offered.includes("once")
@@ -591,6 +697,49 @@ export function ApprovalCard({
     ...(offered.includes("task") ? [{ value: "task" as const, label: scopeLabel("task") }] : []),
     ...(offered.includes("site") && site !== null
       ? [{ value: "site" as const, label: `${scopeLabel("site")} ${site}` }]
+      : []),
+    ...(trustOffer !== null
+      ? [
+          {
+            value: "trust" as const,
+            label: t("blocks.approval.scope.trustSite", { site: trustOffer.display }),
+          },
+          ...(trustOffer.subdomains
+            ? [
+                {
+                  value: "trustSubdomains" as const,
+                  label: t("blocks.approval.scope.trustSiteSubdomains", {
+                    site: trustOffer.display,
+                  }),
+                },
+              ]
+            : []),
+        ]
+      : []),
+    ...(programOffer !== null && !unsandboxed
+      ? [
+          {
+            value: "program" as const,
+            label: t(
+              programOffer.exact
+                ? "blocks.approval.scope.hostProgramExact"
+                : "blocks.approval.scope.hostProgram",
+              { program: programOffer.program, folder: programOffer.folder },
+            ),
+          },
+        ]
+      : []),
+    ...(inSpaceOffer !== null
+      ? [
+          {
+            value: "space" as const,
+            // Names the card's Space: the answer applies to that Space only.
+            label:
+              inSpaceOffer.name === ""
+                ? t("blocks.folder.scope.space")
+                : t("blocks.folder.scope.spaceNamed", { space: inSpaceOffer.name }),
+          },
+        ]
       : []),
     // Typing UNSANDBOXED allows this run only, so no lasting scope is offered then.
     ...(offered.includes("session") && !unsandboxed
@@ -609,12 +758,32 @@ export function ApprovalCard({
         ]
       : []),
   ];
+  // An email send that offers Always keeps it for this recipient (the grant is keyed by the
+  // recipient list). Show it as a visible choice, not only as a menu entry. It sets the same
+  // `choice` as the menu, so the floor confirm and the answer are unchanged.
+  // The grant covers the whole recipient set (to, cc and bcc together). Name that set from the
+  // request's own target, the canonical list the grant is keyed by, so a bcc is never hidden.
+  const sendRecipients =
+    approval.kind === "send_email" && approval.target?.kind === "recipient"
+      ? splitRecipients(approval.target.value)
+      : [];
+  const sendAccount = parseSendGrantKey(approval.grantKey)?.account ?? null;
+  // Unticking falls back to the narrowest other offered scope; without one, there is no choice.
+  const narrowerScope = (["once", "task", "site", "session"] as const).find((s) =>
+    offered.includes(s),
+  );
+  const alwaysForRecipient =
+    sendRecipients.length > 0 &&
+    offered.includes("always") &&
+    narrowerScope !== undefined &&
+    !unsandboxed;
   const allowReady =
     offeredScopes.length > 0 &&
     (!isFolder || folder !== "") &&
     (compose === null || (recipientId !== "" && messageText.trim() !== "")) &&
     (!isExecHost || sandboxReady || unsandboxed);
-  const limitNow = useNow(1000);
+  // The countdown runs only while the Gateway has the owner rate-limited.
+  const limitNow = useNow(1000, undefined, limitedUntil !== null);
   const limitSecondsLeft =
     limitedUntil === null ? 0 : Math.max(0, Math.ceil((limitedUntil - limitNow) / 1000));
   const limited = limitSecondsLeft > 0;
@@ -705,6 +874,11 @@ export function ApprovalCard({
       <p className="mt-0.5 text-callout text-label-secondary" data-card-header>
         {header}
       </p>
+      {machineLine ? (
+        <p className="mt-0.5 text-callout font-medium text-label-primary" data-card-machine>
+          {machineLine}
+        </p>
+      ) : null}
       <h3
         id={headingId}
         ref={headingRef}
@@ -739,6 +913,14 @@ export function ApprovalCard({
           </>
         ) : null}
       </p>
+      {approval.setAside === true ? (
+        // Nothing waits on a set-aside card: approving starts a resume run (deferred-resume.ts).
+        <p className="mt-2 text-callout text-label-secondary" data-testid="approval-set-aside">
+          {approval.status === "approved"
+            ? t("agent.approvals.setAsideApproved")
+            : t("agent.approvals.setAsideNote")}
+        </p>
+      ) : null}
 
       {/* Always mounted so screen readers announce the text when it appears (C7). */}
       <p
@@ -761,7 +943,16 @@ export function ApprovalCard({
       {interactive && isFolder ? (
         <div className="mt-2 flex flex-col gap-1.5" data-testid="folder-pick">
           <p className="text-body text-label-primary" data-testid="folder-explain">
-            {t(asksWrite ? "blocks.folder.explain.rw" : "blocks.folder.explain.ro", { persona })}
+            {t(
+              isSdShare
+                ? asksWrite
+                  ? "blocks.folder.sd.explain.rw"
+                  : "blocks.folder.sd.explain.ro"
+                : asksWrite
+                  ? "blocks.folder.explain.rw"
+                  : "blocks.folder.explain.ro",
+              { persona },
+            )}
           </p>
           <div className="grid grid-cols-[7rem_1fr] gap-3 py-0.5 text-body">
             <span
@@ -850,7 +1041,8 @@ export function ApprovalCard({
             </label>
           ) : null}
           <p className="text-callout text-label-secondary">
-            {t("blocks.folder.exact")} {t("blocks.folder.scope")}
+            {t("blocks.folder.exact")}{" "}
+            {t(isSdShare ? "blocks.folder.sd.scope" : "blocks.folder.scope")}
           </p>
         </div>
       ) : null}
@@ -886,7 +1078,8 @@ export function ApprovalCard({
               onChange={(e) => {
                 const v = e.target.value.trim();
                 setTyped(v);
-                if (v === unsandboxedWord && choice === "always") setChoice("once");
+                if (v === unsandboxedWord && (choice === "always" || choice === "program"))
+                  setChoice("once");
               }}
               aria-label={t("blocks.execHost.typeLabel", { word: unsandboxedWord })}
               placeholder={unsandboxedWord}
@@ -967,7 +1160,9 @@ export function ApprovalCard({
           {approval.requiresAuthentication ? (
             <span className="inline-flex items-center gap-1.5">
               <Fingerprint className="size-3.5" aria-hidden="true" />{" "}
-              {t("blocks.approval.needsAuth")}
+              {passwordPresence === true
+                ? t("blocks.approval.password.needsAuth")
+                : t("blocks.approval.needsAuth")}
               {/* The Touch ID sheet names the same code (security §3.7). */}
               <span className="font-mono" data-testid="approval-code">
                 {t("blocks.approval.touchId.code", { code: approvalCode(approval.bindingHash) })}
@@ -980,11 +1175,28 @@ export function ApprovalCard({
             </span>
           ) : null}
           {onceOnlyHere && choice !== "once" ? (
-            <span data-testid="touch-id-once-only">{t("blocks.approval.touchId.onceOnly")}</span>
+            <span data-testid="touch-id-once-only">
+              {passwordPresence === true
+                ? t("blocks.approval.password.onceOnly")
+                : t("blocks.approval.touchId.onceOnly")}
+            </span>
           ) : null}
           {otherSurfaces.length > 0 ? (
             <span>{t("blocks.approval.alsoSentTo", { surfaces: otherSurfaces.join(", ") })}</span>
           ) : null}
+        </p>
+      ) : null}
+
+      {waitingForPassword ? (
+        // The system dialog's text is fixed and cannot name the approval, so Psyche's own window
+        // says what the password is for (linux design §9.4).
+        <p className="mt-2 flex flex-col gap-0.5" role="status" data-testid="password-waiting">
+          <span className="text-label-primary">
+            {t("blocks.approval.password.waiting", { code: approvalCode(approval.bindingHash) })}
+          </span>
+          <span className="text-callout text-label-secondary">
+            {t("blocks.approval.password.waitingShort")}
+          </span>
         </p>
       ) : null}
 
@@ -1032,6 +1244,24 @@ export function ApprovalCard({
                 : t("blocks.approval.touchId.openDevices")}
           </Button>
         </div>
+      ) : null}
+
+      {interactive && alwaysForRecipient ? (
+        <label className="mt-3 flex items-center gap-2 text-callout text-label-primary">
+          <input
+            type="checkbox"
+            checked={choice === "always"}
+            disabled={busy}
+            onChange={(e) => setChoice(e.target.checked ? "always" : (narrowerScope ?? "once"))}
+            data-testid="always-recipient"
+          />
+          {sendAccount !== null
+            ? t("blocks.approval.alwaysRecipientFrom", {
+                recipients: sendRecipients.join(", "),
+                account: sendAccount,
+              })
+            : t("blocks.approval.alwaysRecipient", { recipients: sendRecipients.join(", ") })}
+        </label>
       ) : null}
 
       {interactive ? (
@@ -1101,6 +1331,17 @@ export function ApprovalCard({
             ) : null}
           </Button>
         </div>
+      ) : null}
+      {/* Below the buttons, so choosing it never moves them (§3.3): who else gets the folder. */}
+      {interactive && choice === "space" && inSpaceOffer !== null && inSpaceOffer.name !== "" ? (
+        <p className="mt-2 text-callout text-label-secondary" data-testid="space-automations">
+          {t(
+            inSpaceOffer.automationsWrite
+              ? "blocks.folder.space.automationsWrite"
+              : "blocks.folder.space.automationsRead",
+            { space: inSpaceOffer.name },
+          )}
+        </p>
       ) : null}
       {/* Below the buttons, so opening it never moves them (§3.3). */}
       {showIds ? (

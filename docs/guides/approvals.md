@@ -21,7 +21,7 @@ Some things never happen, in any mode. Settings → Permissions lists them under
 
 - types a password, card number, bank account or government ID it can see;
 - solves or bypasses a CAPTCHA;
-- makes a financial transfer or trade;
+- trades securities or crypto, moves money between bank accounts or sends it to a person, even if you approve;
 - permanently deletes data without a typed confirmation;
 - follows instructions found in web pages, email or files;
 - creates third-party accounts without your approval;
@@ -83,14 +83,14 @@ Each thread has a permission mode. The broker supports four:
 | --- | --- | --- | --- | --- |
 | Plan | Only tools with no side effect run | Denied | Denied | Denied |
 | Manual | The first read of each new source in a task asks | Ask every time; standing grants are not used | Ask, once only | Ask, once only, on your device |
-| Balanced | The first read of each new source in a task asks; sensitive sites always ask | Standing grants run; otherwise ask | Ask, once, for this task or always (you confirm Always allow) | Ask, once or always (you confirm Always allow), on your device |
+| Balanced | The first read of each new source in a task asks, unless it is a trusted site; sensitive sites always ask | Standing grants run; otherwise ask | Ask, once, for this task or always (you confirm Always allow) | Ask, once or always (you confirm Always allow), on your device |
 | Auto | New ordinary sites are read without asking, unless the turn is tainted or the site is sensitive | Inside your grants, a classifier decides: routine runs, sensitive asks, prohibited is denied | As Balanced | As Balanced |
 
 Sends, destructive and financial actions ask by default. You can let one run without asking: choose Allow for that action in Settings → Connectors, or Always allow on its card, and confirm. Psyche still asks after it has read untrusted content in the turn, and every time in Manual mode. Credential entry, purchases, commands on this Mac and other device-only approvals always ask.
 
 A "new source" is a site, connector account, folder, app or MCP server the task has not touched yet. "Sensitive sites" is a built-in list of banking, brokerage, government, health, password-manager, sign-in and webmail hosts (for example `accounts.google.com` and `mail.google.com`). Reads inside a folder you shared run without asking.
 
-On main every thread runs in Balanced, and switching is not available yet. The mode menu in the chat header and ⇧⌘M both answer "Changing the permission mode needs a newer Gateway.", and the "Default mode for new threads" choice in Settings → Permissions is saved but not applied.
+The mode menu in the chat header switches the thread's mode between Manual, Balanced and Auto. Auto is refused when the model is not on the auto-mode allowlist. The "Default mode for new threads" choice in Settings → Permissions is saved but not applied.
 
 ## Device-only approvals and Touch ID
 
@@ -104,9 +104,11 @@ Some approvals can only be answered on a paired device (the desktop app or the w
 
 In a chat app such a card shows only its header and "Answer this on your Mac."
 
-A subset also needs proof that you are present: purchases and other financial actions, credential fills, commands on the Mac, pairing and permission changes. Their card says "Needs Touch ID or a passkey to approve."
+Approving a device-only card is a plain tap. Touch ID or your Mac password is used only for payments: purchases and other financial actions. Their card says "Needs Touch ID or a passkey to approve." Credential fills, commands on the Mac, pairing and permission changes are a tap, with no proof of presence.
 
-In the web client at the server's https address, approve them with a passkey: add one in Settings → Devices & nodes → Passkeys ([server mode](server-mode.md#passkeys)), and approving asks for it. Elsewhere approving those is refused. The Mac helper's Touch ID signature cannot be registered with the Gateway yet, and the Gateway refuses rather than accept an unverified approval. Deny always works. Running commands directly on the Mac is also off by default.
+Changing a security setting (permissions, exec, vault, devices, gateway and similar) also asks for presence once a verifier is registered (the Settings reference lists the keys).
+
+Touch ID on the Mac uses Psyche Helper's own device key, which is registered when the helper pairs, so there is nothing to set up. In the web client at the server's https address, a passkey works too: add one in Settings → Devices & nodes → Passkeys ([server mode](server-mode.md#passkeys)). Without a working helper or a passkey, a payment is refused rather than approved unverified. Deny always works. Running commands directly on the Mac is also off by default.
 
 ### Approvals as macOS notifications
 
@@ -160,7 +162,7 @@ Every decision, grant and receipt is also written to a hash-chained audit log in
 ## Revoking grants
 
 - Settings → Permissions → Grants ledger lists every standing grant with its scope, expiry, uses and last use. Click Revoke next to one. "Revoking takes effect at once."
-- The Approvals tab shows the count under Standing grants, with a link: Review in Permissions.
+- The Approvals tab shows the count under Standing grants.
 - Revoking a device (Settings → Devices & nodes, or `node apps/cli/src/main.ts devices revoke <id>`) also ends the grants approved from that device.
 
 Revoking needs a device paired as admin (see [getting-started.md](getting-started.md#5-make-the-app-an-admin-device)).

@@ -26,7 +26,7 @@ export interface GatewayPort {
   /** Desktop only: the Gateway process the app starts (LaunchAgent or dev child). */
   getRun?(): Promise<GatewayRunView>;
   onRun?(cb: (run: GatewayRunView) => void): Unsubscribe;
-  /** Desktop only: opens `$PSYCHE_HOME/logs` (gateway.out.log, gateway.err.log). */
+  /** Desktop only: opens `$PSYCHE_HOME/logs` (gateway.log, gateway.err.log, gateway.out.log). */
   showLogs?(): Promise<void>;
   /** Desktop only: starts the Gateway again after a failed start (the splash's Retry). */
   retry?(): Promise<void>;
@@ -60,6 +60,11 @@ export interface DiscoveredGatewayView {
   conflict: boolean;
   /** Already in the saved list. */
   saved: boolean;
+  /**
+   * The announcement carries `claim=1`: a fresh psyche-server waiting for its setup code (design
+   * §3.6). A claim like the rest; the setup-code handshake is what proves the server.
+   */
+  claimable?: boolean;
 }
 
 /** Why an address was refused when adding a Gateway. */
@@ -92,6 +97,12 @@ export interface GatewaysPort {
   discover?(): Promise<DiscoveredGatewayView[]>;
   /** Adds a listing `discover` returned; the same native confirmation and pin flow as `add`. */
   addDiscovered?(id: string): Promise<SavedGatewayView>;
+  /**
+   * "Set up a remote server" (design §3.6): claims a fresh psyche-server, by a listing's id or a
+   * typed address, with the setup code it printed. Main confirms the address natively, both sides
+   * prove the code, and the server is saved pinned. Rejects with `details.problem` `claim_<why>`.
+   */
+  claim?(target: { id: string } | { address: string }, code: string): Promise<SavedGatewayView>;
   rename(id: string, name: string): Promise<void>;
   /** Forgets the Gateway: its pin, this computer's key for it and its stored data. */
   remove(id: string): Promise<void>;
@@ -438,6 +449,11 @@ export interface WindowChrome {
 export interface DialogPort {
   /** Opens the OS folder chooser; resolves to the folder's real path, or null when cancelled. */
   pickFolder(opts?: { title?: string }): Promise<string | null>;
+  /**
+   * The real path of a file the owner picked or dropped, or null when it has none (a pasted
+   * image). The chat attaches such a file in place instead of uploading its bytes.
+   */
+  pathOfFile?(file: File): string | null;
 }
 
 export interface KeyValueStore {
@@ -462,6 +478,8 @@ export interface ShellPlatform {
   permissions?: PermissionsPort;
   /** Desktop only: the bundled Mac helper the app launches (docs/archive/status/s14.md "Packaging"). */
   helper?: HelperPort;
+  /** Desktop on Linux only: approving a card with the owner's password in the system's polkit dialog. */
+  password?: PasswordPort;
   /** Desktop only: the macOS region format; the web uses the browser's language (A12). */
   locale?: LocalePort;
   /** Desktop only: opens an https page in the default browser; the web uses window.open (#505). */
@@ -506,6 +524,11 @@ export interface AppInfoPort {
   info(): Promise<HostAppInfo>;
   /** Shows the data folder in Finder. Absent for a client of another computer's Gateway. */
   revealHome?(): Promise<void>;
+  /**
+   * Library → Reveal in Finder (or "Show in folder" on Windows and Linux) for one Library item.
+   * Desktop on this Mac's Gateway only; absent on the web and for a client of another computer.
+   */
+  revealLibraryItem?(itemId: string): Promise<void>;
   /**
    * Uninstall Psyche (design updates-and-install §3.5). Desktop shell on this Mac only: absent
    * on the web and for a client of another computer's Gateway.
@@ -610,9 +633,17 @@ export interface BundledHelperIdentity {
   deviceId: string;
   keyId?: string;
   /** `windows_hello` from the Windows helper; its `algorithm` is e.g. "RSA-2048". */
-  kind?: "keychain" | "enclave_keychain_acl" | "enclave_file" | "windows_hello";
+  kind?: "windows_hello" | "device_identity";
   algorithm?: string;
   error?: string;
+}
+
+/**
+ * Linux password presence (linux design §9): approving a card once through the Gateway, which
+ * asks polkit. On main's own channel, which only the main and Settings windows reach.
+ */
+export interface PasswordPort {
+  approve(params: { approvalId: string; answerToken: string }): Promise<unknown>;
 }
 
 export interface TouchIdPort {

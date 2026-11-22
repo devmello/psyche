@@ -51,6 +51,9 @@ export const chatRest: Partial<Catalogue> = {
     "{name}: Psyche는 이 종류의 파일을 읽을 수 없습니다. PDF, Word, Excel, 텍스트 또는 이미지 파일을 첨부하십시오",
   "chat.attach.refused.size": "{name}은(는) 너무 커서 첨부할 수 없습니다 (이미지 5MB, 문서 25MB)",
   "chat.attach.refused.count": "{name}: 메시지 하나에는 파일을 최대 8개까지 첨부할 수 있습니다",
+  "chat.attach.refused.sensitive": "{name}은(는) 보호된 위치에 있어 Psyche와 공유할 수 없습니다",
+  "chat.attach.refused.unreadable":
+    "{name}을(를) 첨부하지 못했습니다. 파일이 아직 있고 폴더가 아닌 파일인지 확인하세요",
   "chat.message.fromWidget": "위젯에서",
   "chat.teach.notLikeThis": "이렇게 말고",
   "chat.teach.dialog": "Psyche에게 가르치기",
@@ -129,6 +132,8 @@ export const chatRest: Partial<Catalogue> = {
   "chat.steps.approval": "승인 대기 중: {summary}",
   "chat.steps.question": "질문: {question}",
   "chat.steps.answered": "답변: {question}",
+  "chat.steps.earlier": "{n, plural, other {이전 # 단계 완료}}",
+  "chat.steps.needsYou": "확인이 필요해요",
   "chat.steps.writing": "답변 작성 중…",
   "chat.steps.thinking": "생각 중: {text}",
   "chat.steps.thinkingEmpty": "생각 중…",
@@ -187,4 +192,15 @@ export const chatRest: Partial<Catalogue> = {
   "chat.clear.mainOnly":
     "지우기는 메인 대화에서 사용할 수 있습니다. 새 사이드 채팅은 /new를 사용하십시오.",
   "chat.commands.clear.description": "메인 대화 지우기",
+  "chat.modeSwitch.label": "권한 모드",
+  "chat.modeSwitch.autoExplainer":
+    "자동 모드는 허용된 범위 안에서 일상적인 작업을 실행하고, 민감한 작업은 먼저 묻습니다. 결제는 항상 묻고, ‘절대 안 함’ 목록은 항상 거부됩니다.",
+  "chat.modeSwitch.gotIt": "확인",
+  "chat.modeSwitch.autoUnavailable": "자동 모드는 {model}에서 사용할 수 없습니다.",
+  "chat.modeSwitch.needsModel": "자동 모드에는 지원되는 모델이 필요합니다.",
+  "chat.modeSwitch.switchModel": "{model}(으)로 전환하고 자동 모드 사용",
+  "chat.modeSwitch.noModel":
+    "자동 모드에는 Claude, GPT, Gemini 같은 지원 모델이 필요합니다. 설정에서 해당 키를 추가하세요.",
+  "chat.modeSwitch.failed": "모드를 변경하지 못했습니다: {reason}",
+  "chat.modeSwitch.notSaved": "이 채팅에서는 변경했지만 새 채팅의 기본값으로 저장하지 못했습니다.",
 };

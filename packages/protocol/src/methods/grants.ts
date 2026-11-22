@@ -14,14 +14,36 @@ export const AccessEntry = Type.Object(
   {
     id: Type.String({ minLength: 1, maxLength: 4200 }),
     type: StringEnum(["folder", "grant"]),
-    /** `always`: until revoked. `conversation`: this chat only. `limited`: a task, site or session grant. */
-    scope: StringEnum(["always", "conversation", "limited"]),
+    /**
+     * `always`: until revoked. `conversation`: this chat only. `limited`: a task, site or session
+     * grant. `space`: a folder of one Space, for that Space's runs only (`spaceId`).
+     */
+    scope: StringEnum(["always", "conversation", "limited", "space"]),
     /** Plain words for the row: the folder path, or what the grant lets Psyche do. */
     label: Type.String({ maxLength: 600 }),
     /** Folders: read-only or read and change. */
     mode: Type.Optional(StringEnum(["ro", "rw"])),
+    /** A conversation row for one attached file, not a folder. */
+    file: Type.Optional(Type.Boolean()),
     path: Type.Optional(Type.String({ maxLength: 4096 })),
+    /**
+     * A folder row the Gateway no longer honours: it is a sensitive root today (`/opt`, `/usr`,
+     * `~/.ssh`...), so it covers nothing. Revoke is still offered.
+     */
+    refused: Type.Optional(Type.Boolean()),
+    /**
+     * With `refused`: a folder kept until revoked, granted before Psyche recorded where each
+     * folder really is, that now leads somewhere else (`movedTo`). It covers nothing until the
+     * owner confirms it again there (`access.confirmFolder`).
+     */
+    moved: Type.Optional(Type.Boolean()),
+    movedTo: Type.Optional(Type.String({ maxLength: 4096 })),
     threadId: Type.Optional(Id),
+    /** A `space` row: the Space whose runs may use the folder, and its name. */
+    spaceId: Type.Optional(Id),
+    spaceName: Type.Optional(Type.String({ maxLength: 60 })),
+    /** A `space` row: unattended runs (automations) of the Space may change files here (SP8). */
+    automationsWrite: Type.Optional(Type.Boolean()),
     grantId: Type.Optional(Id),
     kind: Type.Optional(ApprovalKind),
     since: Type.Optional(IsoDateTime),
@@ -37,7 +59,7 @@ export const GrantsMethods = {
     result: Type.Object({ entries: Type.Array(AccessEntry) }),
     scope: "operator.read",
     description:
-      "Lists what the owner has given the agent access to: shared folders (always or for one chat) and standing grants, in one list for Settings.",
+      "Lists what the owner has given the agent access to: shared folders (always, for one chat or in one Space) and standing grants, in one list for Settings.",
   }),
   "access.revoke": defineMethod({
     params: Type.Object({ entryId: Type.String({ minLength: 1, maxLength: 4200 }) }),
@@ -45,6 +67,17 @@ export const GrantsMethods = {
     scope: "operator.admin",
     description:
       "Revokes one entry of `access.list` at once (a folder stops working on the next call; a grant is revoked). Changing standing permissions is an admin action.",
+  }),
+  "access.confirmFolder": defineMethod({
+    params: Type.Object({
+      entryId: Type.String({ minLength: 1, maxLength: 4200 }),
+      /** The row's `movedTo`, as the owner saw it: confirmed only while the folder still leads there. */
+      movedTo: Type.String({ minLength: 1, maxLength: 4096 }),
+    }),
+    result: Type.Object({ confirmed: Type.Boolean() }),
+    scope: "operator.admin",
+    description:
+      "Confirms again a folder row of `access.list` marked `moved`: the folder is looked up now and shared where it leads, only if that is still `movedTo` (the place the owner saw) and a grant there would not be refused. A plain tap from an admin device, recorded and reported as that device's security setting change. False when there is nothing to confirm or the folder leads somewhere else now (read the list again).",
   }),
   "grants.list": defineMethod({
     params: Type.Object({

@@ -50,6 +50,11 @@ export const web: Partial<Catalogue> = {
   "web.chat.autoUnavailable":
     "“自动”不可用：{model} 不在自动模式允许列表中。请选择其他模型来使用它。",
   "web.toast.threadUpdateFailed": "Psyche 无法更改该聊天设置。",
+  "web.toast.autoModelRefused":
+    "自动模式只能用于列出的模型，{model} 不在自动模式列表中。请选择允许的模型，或改用手动或平衡模式。",
+  "web.toast.autoModelRefusedNoModel":
+    "自动模式只能用于列出的模型。请先在模型选择器中选择一个模型。",
+  "web.toast.switchModel": "切换模型",
   "web.splash.remote.finding": "正在查找{host}…",
   "web.splash.remote.checking": "正在确认确实是{host}…",
   "web.splash.remote.waiting": "正在等待{host}上的批准…",

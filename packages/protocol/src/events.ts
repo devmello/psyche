@@ -1,11 +1,12 @@
 import { type Static, Type } from "@sinclair/typebox";
-import { Id, Nullable, Provenance, StringEnum } from "./common.ts";
+import { Id, IsoDateTime, Nullable, Provenance, StringEnum } from "./common.ts";
 import { PsycheError } from "./errors.ts";
 import { AuditChangeCategory } from "./methods/audit.ts";
 import { BrowserRecording } from "./methods/browser.ts";
 import { QueuedMessage } from "./methods/chat.ts";
 import { createValidator, defineEvent, type EventSpec, type Validator } from "./methods/define.ts";
 import { DictationKeyPayload } from "./methods/dictation.ts";
+import { VscreenApp } from "./methods/screen.ts";
 import { SearchIndexStatus, SearchSourcesStatus } from "./methods/search.ts";
 import { SkillChangeEvent, SkillDraft, SkillUpdateStatus } from "./methods/skills.ts";
 import { TerminalExitPayload, TerminalOutputPayload } from "./methods/terminal.ts";
@@ -25,20 +26,24 @@ import {
   Channel,
   Connector,
   CredentialMeta,
+  LinkSetupStatus,
   VaultPayment,
   VaultStatus,
 } from "./schemas/integrations.ts";
 import { FeedbackEvent, Lesson, LessonStatus } from "./schemas/learning.ts";
+import { MachineInfo } from "./schemas/machines.ts";
 import { MemoryChangeSource, MemoryJob, PersonaIdentity } from "./schemas/memory.ts";
 import { ApprovalRequest, Receipt } from "./schemas/permissions.ts";
 import { ResearchProgressEvent } from "./schemas/research.ts";
 import { RunStep } from "./schemas/runs.ts";
+import { SpaceProposal } from "./schemas/spaces.ts";
 import { SpecialistJob, SpecialistResult } from "./schemas/specialists.ts";
 import {
   Artifact,
   FeedPost,
   Goal,
   Idea,
+  NoticeMessage,
   Notification,
   NotificationKind,
   SettingEntry,
@@ -220,10 +225,10 @@ export const Events = {
   "library.item.changed": defineEvent({
     payload: Type.Object({
       itemId: Id,
-      change: StringEnum(["created", "deleted"]),
+      change: StringEnum(["created", "deleted", "updated"]),
     }),
     description:
-      "A Library item was uploaded or deleted from a client, so other paired clients refetch the Library (a hint, not state).",
+      "A Library item was uploaded, deleted or released from quarantine from a client, so other paired clients refetch the Library (a hint, not state).",
   }),
   "notification.created": defineEvent({
     payload: Type.Object({ notification: Notification }),
@@ -235,6 +240,7 @@ export const Events = {
       kind: NotificationKind,
       title: Type.String(),
       body: Type.String(),
+      message: Type.Optional(NoticeMessage),
       route: Nullable(Type.String()),
       interruption: StringEnum(["passive", "active", "timeSensitive"]),
       createdAt: Type.String(),
@@ -280,6 +286,24 @@ export const Events = {
   "device.updated": defineEvent({
     payload: Type.Object({ device: Device }),
     description: "A device was paired, changed scopes or was revoked.",
+  }),
+  "security.state.changed": defineEvent({
+    payload: Type.Object({
+      status: StringEnum(["sealed", "untrusted"]),
+      openAlerts: Type.Integer({ minimum: 0 }),
+      waitingRecoveries: Type.Integer({ minimum: 0 }),
+    }),
+    description:
+      "A security alert was raised or acknowledged, a local recovery changed, or the seal's state changed: clients refresh security.state.get.",
+  }),
+  "computerWatch.parked": defineEvent({
+    payload: Type.Object({
+      apps: Type.Array(VscreenApp),
+      /** The machine whose screen has the unsaved app; absent means the Host's own screen. */
+      machine: Type.Optional(Id),
+    }),
+    description:
+      "A Task is parked because an app on the virtual screen has unsaved changes: the watch pane shows Look / Discard / Keep it open.",
   }),
   "pairing.requested": defineEvent({
     payload: Type.Object({ pairingRequest: PairingRequest }),
@@ -397,6 +421,11 @@ export const Events = {
     description:
       "A Stripe Link payment changed: requested, card issued, held, captured, refunded, declined or released. Never card data.",
   }),
+  "payments.link.changed": defineEvent({
+    payload: Type.Object({ status: LinkSetupStatus }),
+    description:
+      "Stripe Link setup changed: a CLI was connected, sign-in finished or timed out, or Link was disconnected. Never a token.",
+  }),
   "question.updated": defineEvent({
     payload: Type.Object({ inputRequest: InputRequest }),
     description: "An input request was answered or cancelled.",
@@ -408,6 +437,24 @@ export const Events = {
   "idea.updated": defineEvent({
     payload: Type.Object({ idea: Idea }),
     description: "An idea was proposed, accepted, edited, dismissed or expired.",
+  }),
+  "space.updated": defineEvent({
+    payload: Type.Object({
+      spaceId: Id,
+      /** What changed: "row", "folders", "links", "shelf", "archived", "deleted" … */
+      changed: Type.Array(Type.String()),
+    }),
+    description:
+      "A Space changed: its row, folders, links or tracker shelf, or it was archived, restored or deleted. Clients re-read it with spaces.get.",
+  }),
+  "space.tracker.refreshed": defineEvent({
+    payload: Type.Object({ spaceId: Id, widgetId: Id, refreshedAt: IsoDateTime }),
+    description:
+      "A tracker on a Space's shelf was recomputed or refreshed. The values themselves ride widget.updated.",
+  }),
+  "space.proposal.created": defineEvent({
+    payload: Type.Object({ proposal: SpaceProposal }),
+    description: "The agent proposed a new Space. It was not created; the owner decides.",
   }),
   "goal.updated": defineEvent({
     payload: Type.Object({ goal: Goal }),
@@ -526,6 +573,14 @@ export const Events = {
     payload: SearchIndexStatus,
     description:
       "Search index backfill started, progressed or finished (docs/design/search-2026.md §6).",
+  }),
+  "machines.changed": defineEvent({
+    payload: Type.Object({
+      machine: MachineInfo,
+      change: StringEnum(["added", "updated", "removed"], { $id: "MachineChange" }),
+    }),
+    description:
+      "A machine was added, renamed, changed status or limits, or removed. Emitted once the machine registry lands (wave H3).",
   }),
 } as const;
 

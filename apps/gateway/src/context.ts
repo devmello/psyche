@@ -14,16 +14,20 @@ import type {
   TaintSource,
 } from "@psyche/protocol";
 import type { PairedIdentity, PeerInfo } from "./auth.ts";
+import type { ClaimMode } from "./claim/mode.ts";
 import type { GatewayConfig } from "./config.ts";
 import type { EventBus, EventFilter } from "./event-bus.ts";
 import type { Idempotency } from "./idempotency.ts";
 import type { GatewayIdentity } from "./identity.ts";
 import type { LanStatus } from "./lan/listener.ts";
 import type { Logger } from "./log.ts";
+import type { MachineChange } from "./nodes/machines.ts";
 import type { NodeRegistry } from "./nodes/registry.ts";
 import type { PresenceState } from "./presence-gate.ts";
 import type { RateLimiter } from "./rate-limit.ts";
 import type { RunTraceSink } from "./run-trace/sink.ts";
+import type { SecurityRecoveries } from "./security/recoveries.ts";
+import type { StateSeal } from "./security/state-seal.ts";
 import type { SessionController } from "./session/controller.ts";
 import type { UpdateGate } from "./update-gate.ts";
 
@@ -130,6 +134,8 @@ export interface ResolvedChatContext {
   /** Carried by the user message instead of `block` when set (a life answer's own block). */
   blocks?: Block[];
   taintSources: TaintSource[];
+  /** The taint stays on the chat for its later turns (a mail follow-up draft). */
+  stickyTaint?: boolean;
 }
 
 /** Who is sending and where: a context that depends on the connection or the chat's model reads it. */
@@ -181,9 +187,19 @@ export interface GatewayContext {
   readonly agent: AgentLoop;
   readonly broker: PermissionBroker;
   readonly memory: MemoryStore | null;
+  /** Reports a conversation import to the audit trail (counts only, never text). */
+  readonly onThreadsImported:
+    | ((e: { source: string; imported: number; duplicates: number; deviceId: string }) => void)
+    | null;
   /** Reports `settings.set` to the audit trail. */
   readonly onSettingChanged:
-    | ((change: { key: string; before: unknown; after: unknown; deviceId: string }) => void)
+    | ((change: {
+        key: string;
+        before: unknown;
+        after: unknown;
+        deviceId: string;
+        narrowing?: boolean;
+      }) => void)
     | null;
   readonly limits: GatewayLimits;
   readonly failedChallenges: RateLimiter;
@@ -218,6 +234,8 @@ export interface GatewayContext {
   readonly onSetupTokenUsed?:
     | ((used: { tokenId: string; deviceId: string; scopes: DeviceScope[] }) => void)
     | null;
+  /** A machine was added or removed (the composition root audits it and tells every device). */
+  readonly onMachineChange?: ((change: MachineChange) => void) | null;
   /** The broker emits `receipt.created` itself; handlers must not publish it again. */
   readonly brokerPublishesReceipts: boolean;
   /**
@@ -225,6 +243,21 @@ export interface GatewayContext {
    * verify, `unavailable` when one could before but none can now (fail closed), else `off`.
    */
   readonly presenceState: () => PresenceState;
+  /**
+   * Whether any verifier could verify a presence step now, including a Mac helper's auto-paired
+   * device key. Unlike `presenceState` (which only a registered key or a passkey turns on, so
+   * first-admin bootstrap and the sticky enrollment are not tripped by pairing the helper), this
+   * decides whether adding a verifier (`strong`) must still pass the Mac sheet.
+   */
+  readonly presenceCanVerify: () => boolean;
+  /**
+   * The security-state seal (security/state-seal.ts): checked before authorizing reads; while it
+   * is untrusted, presence and every widening call fail closed. Absent only in hand-built test
+   * contexts.
+   */
+  readonly securityState?: StateSeal;
+  /** Local `psyched` requests and their delayed recoveries (security/recoveries.ts). */
+  readonly securityRecoveries?: SecurityRecoveries;
   /** Null without a composition root: a thread can then never be created in `auto`. */
   readonly threadModels: ThreadModelPolicy | null;
   /** Called with a device id when its last paired connection closes (parts register here). */
@@ -250,6 +283,32 @@ export interface GatewayContext {
    * sets it; without one a send naming a context is refused.
    */
   readonly chatContext: { resolve: ChatContextResolver | null };
+  /**
+   * Files attached from disk (desktop): `attach` grants the owner's picks read-only for one
+   * thread (the broker's `attachFiles`), `attached` lists the files it holds for that thread.
+   * The composition root sets both; without them chat.attachFiles is unavailable and a send
+   * naming `attachedFiles` is refused.
+   */
+  readonly chatFiles: {
+    attach:
+      | ((
+          threadId: string,
+          paths: readonly string[],
+          by: { deviceId: string },
+        ) => Promise<{
+          files: { path: string; size: number }[];
+          refused: { path: string; reason: string }[];
+        }>)
+      | null;
+    /** The files attached to the thread whose grant is still live (never folders). */
+    attached: ((threadId: string) => readonly { path: string }[]) | null;
+  };
+  /**
+   * A thread's conversation ended (Clear chat, delete): whatever the broker holds for that
+   * conversation alone (its "Allow once" folders, attached files) ends with it. The composition
+   * root adds `broker.endSession`.
+   */
+  readonly threadEnded: Set<(threadId: string) => void>;
   /** Per-reader pass over messages that carry a life answer (`chat.history`, `chat.message`, exports). */
   readonly messageScrub: MessageScrub;
   serverOrigin(): string;
@@ -262,6 +321,11 @@ export interface GatewayContext {
   challengeOrigin(peer: PeerInfo): string;
   /** The LAN listener (`lan/listener.ts`): off unless the owner turned `gateway.lan` on. */
   readonly lan: LanControl;
+  /**
+   * Claim mode of a fresh psyche-server (`claim/mode.ts`, design §3.6); null on every other
+   * install. Set once at start.
+   */
+  readonly claim: ClaimMode | null;
   /** This Gateway's identity key (`identity/gateway.key`); it signs every challenge. */
   readonly identity: GatewayIdentity;
   connections(): Iterable<LiveConnection>;
@@ -273,6 +337,8 @@ export interface Call {
   readonly conn: LiveConnection;
   readonly identity: PairedIdentity;
   readonly method: string;
+  /** What the handler's `prepare` returned. */
+  readonly prepared?: unknown;
   /**
    * Queues an event to publish after the request's transaction commits (architecture §4.2
    * step 6: committed before it is acknowledged). Outside a transaction it publishes at once.
@@ -286,6 +352,11 @@ export type Handler = (call: Call, params: never) => unknown;
 
 export interface HandlerDef {
   readonly run: Handler;
+  /**
+   * Async work that must finish before a transactional handler's transaction opens (file
+   * system checks): its result is `call.prepared`. A throw fails the call.
+   */
+  readonly prepare?: (call: Call, params: never) => Promise<unknown>;
   /**
    * The handler is synchronous and runs inside one SQLite transaction together with its
    * idempotency record; events and `afterCommit` work run only once it commits.

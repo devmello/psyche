@@ -1,5 +1,6 @@
 import {
   DevicesSection,
+  HelperOfflineBanner,
   type MacHelperStatus,
   MacHelperStatusRow,
   t,
@@ -29,6 +30,26 @@ export function useMacHelper(platform: ShellPlatform): MacHelperStatus | undefin
     };
   }, [platform]);
   return state;
+}
+
+/**
+ * The desktop's one "Psyche Helper isn't connected" notice (dismissable, with Reconnect), shown
+ * over the app while the bundled helper is offline. Absent on hosts without a helper port.
+ */
+export function DesktopHelperBanner({
+  platform,
+}: {
+  platform: ShellPlatform;
+}): ReactElement | null {
+  const helper = useMacHelper(platform);
+  const launch = platform.helper?.launch;
+  if (!launch) return null;
+  return (
+    <HelperOfflineBanner
+      state={helper}
+      onReconnect={() => launch(false).then((s) => s as MacHelperStatus)}
+    />
+  );
 }
 
 /** This window's device id, so Devices marks "this device" and offers no Revoke for it. */

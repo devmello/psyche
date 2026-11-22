@@ -305,7 +305,7 @@ describe("Stripe Link payments (G12)", () => {
       );
     }
     assertNoSecrets(await audit.list(), "audit");
-    expect(redactor.redact(`card ${VISA} cvc ${CVC}`)).toBe("card ••• cvc 737"); // a 3-digit CVC is too short to track
+    expect(redactor.redact(`card ${VISA} cvc ${CVC}`)).toBe("card ••• cvc 737"); // too short to mask as a substring: the browser masks the field
   });
 
   it("refuses a card file Link left readable", async () => {
@@ -341,7 +341,13 @@ describe("Stripe Link payments (G12)", () => {
       await broker.fillCard({ cdp: number.cdp, spendRequestId: sr, field: "number" }),
     ).toMatchObject({ ok: true, secureField: true });
     expect(number.typed).toEqual([VISA]);
-    const exp = checkout("https://shop.press.stripe.com", { fieldName: "cc-exp" });
+    // A subdomain is another site: only the exact approved host is filled.
+    const sub = checkout("https://shop.press.stripe.com", { fieldName: "cc-exp" });
+    expect(await broker.fillCard({ cdp: sub.cdp, spendRequestId: sr, field: "exp" })).toMatchObject(
+      { ok: false, reason: "merchant_mismatch" },
+    );
+    expect(sub.typed).toEqual([]);
+    const exp = checkout("https://press.stripe.com", { fieldName: "cc-exp" });
     expect(await broker.fillCard({ cdp: exp.cdp, spendRequestId: sr, field: "exp" })).toMatchObject(
       { ok: true },
     );
@@ -506,6 +512,26 @@ describe("Link CLI adapter", () => {
         "--output-file",
         "/home/p/.psyche/vault/cards/lsrq_abc1.json",
       ]),
+    );
+  });
+
+  it("asks for approval with request-approval when the created request is still `created`", async () => {
+    const calls: string[][] = [];
+    const responses = [
+      { id: "lsrq_abc1", status: "created", amount: 3500, currency: "usd" },
+      { id: "lsrq_abc1", status: "pending_approval", amount: 3500, currency: "usd" },
+    ];
+    const wallet = new LinkCliWallet({
+      cli: "/opt/link-cli/dist/cli.js",
+      run: async (_file, args) => {
+        calls.push(args);
+        return JSON.stringify(responses.shift());
+      },
+    });
+    const sr = await wallet.create({ ...PURCHASE, context: spendContext(PURCHASE) });
+    expect(sr.status).toBe("pending_approval");
+    expect(calls[1]).toEqual(
+      expect.arrayContaining(["spend-request", "request-approval", "lsrq_abc1"]),
     );
   });
 

@@ -32,6 +32,7 @@ interface NotificationRow {
   kind: Notification["kind"];
   title: string;
   body: string;
+  message: string | null;
   task_id: string | null;
   approval_id: string | null;
   route: string | null;
@@ -57,6 +58,15 @@ interface DeliveryRow {
   detail: string | null;
 }
 
+function parseMessage(raw: string | null): Notification["message"] {
+  if (raw === null) return undefined;
+  try {
+    return JSON.parse(raw) as Notification["message"];
+  } catch {
+    return undefined;
+  }
+}
+
 function fromRow(r: NotificationRow): StoredNotification {
   const n: Notification = {
     id: r.id,
@@ -73,6 +83,8 @@ function fromRow(r: NotificationRow): StoredNotification {
     resolvedAt: r.resolved_at,
     createdAt: r.created_at,
   };
+  const message = parseMessage(r.message);
+  if (message !== undefined) n.message = message;
   if (r.stale_at !== null) {
     n.staleAt = r.stale_at;
     n.staleReason = r.stale_reason;
@@ -93,7 +105,7 @@ function deliveryFromRow(r: DeliveryRow): DeliveryRecord {
 }
 
 const COLUMNS =
-  "id, kind, title, body, task_id, approval_id, route, actions, surfaces, delivered, read_at, resolved_at, stale_at, stale_reason, dedupe_key, seq, created_at";
+  "id, kind, title, body, message, task_id, approval_id, route, actions, surfaces, delivered, read_at, resolved_at, stale_at, stale_reason, dedupe_key, seq, created_at";
 
 /**
  * SQLite inbox on a better-sqlite3 handle. Expects the tables from
@@ -107,7 +119,14 @@ export class SqliteNotificationStore implements NotificationStore {
   constructor(db: SqliteDatabase, options: { migrate?: boolean; now?: () => string } = {}) {
     this.#db = db;
     this.#now = options.now ?? (() => new Date().toISOString());
-    if (options.migrate === true) db.exec(notificationsMigrationSql());
+    if (options.migrate === true) {
+      db.exec(notificationsMigrationSql());
+      // Added after the first migration (the ledger's `notifications_message`).
+      const cols = db.prepare("PRAGMA table_info(notifications)").all() as { name: string }[];
+      if (!cols.some((c) => c.name === "message")) {
+        db.exec("ALTER TABLE notifications ADD COLUMN message TEXT");
+      }
+    }
   }
 
   transaction<T>(fn: () => T): T {
@@ -130,6 +149,7 @@ export class SqliteNotificationStore implements NotificationStore {
       n.kind,
       n.title,
       n.body,
+      n.message === undefined ? null : JSON.stringify(n.message),
       n.taskId,
       n.approvalId,
       n.route,
@@ -148,7 +168,7 @@ export class SqliteNotificationStore implements NotificationStore {
 
   insert(row: StoredNotification): void {
     this.#db
-      .prepare(`INSERT INTO notifications (${COLUMNS}, updated_at) VALUES (${"?, ".repeat(17)}?)`)
+      .prepare(`INSERT INTO notifications (${COLUMNS}, updated_at) VALUES (${"?, ".repeat(18)}?)`)
       .run(...this.#params(row), this.#now());
   }
 

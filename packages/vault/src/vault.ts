@@ -393,6 +393,8 @@ export class Vault implements CredentialBroker, ConnectorCredentialStore {
   readonly #redactor: SecretRedactor;
   readonly #newId: () => string;
   #unlocked: Unlocked | undefined;
+  /** 1Password as the external source: from options, or set later by the guided setup. */
+  #onePassword: OnePasswordSource | undefined;
   #lockAt: number | null = null;
   #cancelTimer: (() => void) | undefined;
   #unlocking: Promise<void> | undefined;
@@ -412,6 +414,7 @@ export class Vault implements CredentialBroker, ConnectorCredentialStore {
       argon2: DEFAULT_ARGON2,
       ...options,
     };
+    this.#onePassword = options.onePassword;
     this.clock = options.clock ?? { now: () => Date.now() };
     this.#dir = join(options.home, "vault");
     this.#redactor = options.redactor ?? new SecretRedactor();
@@ -1629,7 +1632,7 @@ export class Vault implements CredentialBroker, ConnectorCredentialStore {
     const ref = item.attrs.external;
     if (ref === undefined) return undefined;
     if (ext === "1password") {
-      const source = this.#o.onePassword;
+      const source = this.#onePassword;
       const field = OP_FIELD[key];
       if (source === undefined || field === undefined || !("vault" in ref)) return undefined;
       return () => source.readField(ref, field);
@@ -1698,7 +1701,7 @@ export class Vault implements CredentialBroker, ConnectorCredentialStore {
     checkRef(input.ref);
     this.#checkRefusals(input.name, {});
     const u = this.#requireUnlocked();
-    if (this.#o.onePassword === undefined) {
+    if (this.#onePassword === undefined) {
       return fail("unavailable", "1Password is not configured");
     }
     return this.#linkExternal(
@@ -1707,6 +1710,14 @@ export class Vault implements CredentialBroker, ConnectorCredentialStore {
       { vault: input.ref.vault, item: input.ref.item },
       input,
     );
+  }
+
+  /**
+   * Switches the 1Password source at runtime (Settings' guided setup): `undefined` turns linked
+   * 1Password items back to unavailable. Nothing is stored or read here.
+   */
+  setOnePassword(source: OnePasswordSource | undefined): void {
+    this.#onePassword = source;
   }
 
   /** Header name for `.header` fills (not secret). */

@@ -19,14 +19,18 @@ import { t } from "../../i18n/core.ts";
 import {
   Group,
   messageOf,
+  RadioField,
   SectionSkeleton,
   StatusChip,
   SwitchField,
   type Tone,
 } from "./shared.tsx";
 import {
+  type McpMoneyMode,
+  type McpMoneyState,
   type McpSecretsState,
   type McpToolsState,
+  useMcpMoney,
   useMcpSecrets,
   useMcpTools,
 } from "./use-mcp.tsx";
@@ -125,6 +129,48 @@ export function McpToolsGroup({
           />
         ))
       )}
+      {state.actionError !== null ? (
+        <p role="alert" className="text-callout text-danger-text">
+          {state.actionError}
+        </p>
+      ) : null}
+    </Group>
+  );
+}
+
+/**
+ * Whether this server's tools move money. A tool that does asks for Touch ID or the password on
+ * every call, so "automatic" (judged by each tool's name and description, which a server can word
+ * to avoid it) is the default and the owner can say better either way.
+ */
+export function McpMoneyGroup({ state }: { state: McpMoneyState }): ReactElement {
+  return (
+    <Group title={t("settings.mcp.money.title")} description={t("settings.mcp.money.description")}>
+      <RadioField<McpMoneyMode>
+        label={t("settings.mcp.money.title")}
+        hideLabel
+        value={state.mode}
+        onChange={(mode) => {
+          if (!state.busy && mode !== state.mode) state.set(mode);
+        }}
+        options={[
+          {
+            value: "auto",
+            label: t("settings.mcp.money.auto"),
+            hint: t("settings.mcp.money.autoHint"),
+          },
+          {
+            value: "always",
+            label: t("settings.mcp.money.always"),
+            hint: t("settings.mcp.money.alwaysHint"),
+          },
+          {
+            value: "never",
+            label: t("settings.mcp.money.never"),
+            hint: t("settings.mcp.money.neverHint"),
+          },
+        ]}
+      />
       {state.actionError !== null ? (
         <p role="alert" className="text-callout text-danger-text">
           {state.actionError}
@@ -383,9 +429,11 @@ export function McpServerPanels({
 }): ReactElement {
   const tools = useMcpTools(server, true);
   const secrets = useMcpSecrets(server, true);
+  const money = useMcpMoney(server);
   return (
     <div className="flex flex-col gap-4">
       <McpToolsGroup server={server} state={tools} />
+      <McpMoneyGroup state={money} />
       <McpSecretsGroup state={secrets} />
       <McpDangerZone
         server={server}

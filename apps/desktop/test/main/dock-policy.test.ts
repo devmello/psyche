@@ -482,7 +482,7 @@ describe("main.ts opens windows only through showMain", () => {
 
   it("closing the last window does not quit on macOS or Windows, and the policy is wired in", () => {
     expect(text).toMatch(
-      /app\.on\("window-all-closed", \(\) => \{\s*if \(process\.platform !== "darwin" && process\.platform !== "win32"\) app\.quit\(\)/,
+      /app\.on\("window-all-closed", \(\) => \{\s*if \(quitsOnLastWindowClosed\(hostPlatform\(\), trayAvailable\)\) app\.quit\(\)/,
     );
     expect(text).toContain("dock: dockPolicy");
     expect(text).toContain("dockPolicy.onSettingsChanged(entries)");

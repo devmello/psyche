@@ -1,14 +1,15 @@
 import type { Message, RunStep } from "@psyche/protocol";
 import { act, render, screen, waitFor, within } from "@testing-library/react";
 import { userEvent } from "@testing-library/user-event";
-import { describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import {
   buildRows,
+  foldedSteps,
+  KEEP_DONE_ROWS,
   STALL_MS,
   stepLabel,
   summarizeRun,
   timelineRoute,
-  VISIBLE_STEPS,
   visibleRows,
 } from "../src/chat/steps/model.ts";
 import { ChatThread } from "../src/chat/Thread.tsx";
@@ -16,6 +17,28 @@ import type { MockGateway } from "../src/data/mock-gateway.ts";
 import { type createFixtureWorld, FIXTURE_NOW, IDS } from "../src/fixtures/index.ts";
 import { runTraceWorld, TRACE_IDS, traceRuns, traceSteps } from "../src/fixtures/runs.ts";
 import { StoryWorld } from "../src/stories/harness.tsx";
+
+/** Every trace is on screen in these tests: an observed element reports as intersecting at once. */
+class InView {
+  private readonly callback: IntersectionObserverCallback;
+  constructor(callback: IntersectionObserverCallback) {
+    this.callback = callback;
+  }
+  observe(target: Element) {
+    this.callback(
+      [{ isIntersecting: true, target } as IntersectionObserverEntry],
+      this as unknown as IntersectionObserver,
+    );
+  }
+  unobserve() {}
+  disconnect() {}
+  takeRecords() {
+    return [];
+  }
+}
+
+beforeEach(() => vi.stubGlobal("IntersectionObserver", InView));
+afterEach(() => vi.unstubAllGlobals());
 
 const R = TRACE_IDS.runs;
 const NOW = Date.parse(FIXTURE_NOW);
@@ -81,18 +104,21 @@ describe("step rows (run-trace §3.2)", () => {
     ]);
   });
 
-  it("shows the last five, and a failed or waiting row however early", () => {
+  it("folds finished rows beyond the last two, and never a failed, waiting or running row", () => {
     const many = Array.from({ length: 9 }, (_, i) =>
       tool(`s${i}`, i + 1, {
         target: `site${i}.com`,
         ...(i === 1 ? { status: "failed" as const } : {}),
         ...(i === 2 ? { kind: "approval" as const, status: "waiting" as const } : {}),
+        ...(i === 8 ? { status: "running" as const } : {}),
       }),
     );
     const rows = buildRows(many);
     const shown = visibleRows(rows, false);
-    expect(shown).toHaveLength(VISIBLE_STEPS + 2);
-    expect(shown.map((r) => r.key)).toEqual(["s1", "s2", "s4", "s5", "s6", "s7", "s8"]);
+    // Done: s0, s3..s7 (six); the last KEEP_DONE_ROWS stay, the other four fold.
+    expect(KEEP_DONE_ROWS).toBe(2);
+    expect(shown.map((r) => r.key)).toEqual(["s1", "s2", "s6", "s7", "s8"]);
+    expect(foldedSteps(rows, shown)).toBe(4);
     expect(visibleRows(rows, true)).toHaveLength(9);
   });
 

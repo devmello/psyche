@@ -1,0 +1,12 @@
+---
+"@psyche/protocol": minor
+"@psyche/gateway": minor
+"@psyche/db": minor
+"@psyche/ui": minor
+"@psyche/web": minor
+"@psyche/backup": minor
+"@psyche/permissions": minor
+"@psyche/cli": minor
+---
+
+Seal the security state against same-user tampering (docs/design/security-state-integrity-2026.md). Devices, presence keys, passkeys, setup tokens, grants, approvals, policy, channels and every non-cosmetic setting are sealed by a keyed ledger and a MAC'd seal row (keyed start value, generation counter) that only the Gateway's own connection maintains, plus the Gateway's in-memory copy of what it committed. It is checked at every start, at every schema change, before every authorizing read (a read guard in `@psyche/db` covers settings and devices) and at least every 30 seconds. While it verifies, a change made by another process is put back (added devices revoked); planted triggers and views are dropped; a Gateway write whose old row is not the known one aborts. When it does not verify, nothing is destroyed and the state is untrusted: presence and admin fail closed, devices keep only what the Gateway knew (read-only after a restart), unknown grants, approvals and channel rows are ignored, and a Gateway write over a row nothing vouches for is never vouched for after a restart. A restore marker names the restored database's seal row and works once; a verified restore is the new baseline. Every device shows an alert (`security.state.get`, `security.alerts.acknowledge`, the `security.state.changed` event, a banner in the app, a `system` notification). `psyched devices approve|grant`, `presence reset` and the new `security reseal` / `recovery cancel` go through the running Gateway: only the first admin of a fresh install applies at once (also for `devices.bootstrapAdmin`), anything else after 24 hours in plain view unless an admin cancels it or approves it now with fresh presence (`security.recoveries.cancel`, `security.recoveries.approve`). New migration `202611051800_gateway_security-seal`. This is tamper evidence, not protection against a program that reads Psyche's key files or controls `psyched`; see the design note's decisions D1–D11.

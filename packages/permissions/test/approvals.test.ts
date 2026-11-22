@@ -1,3 +1,4 @@
+import { createHash } from "node:crypto";
 import { FakeClock, sha256 } from "@psyche/testing";
 import { describe, expect, it } from "vitest";
 import { type BrokerEvent, type PolicyCall, presenceChallenge } from "../src/index.ts";
@@ -13,6 +14,8 @@ import {
 } from "./helpers.ts";
 
 const write = () => call("calendar.create", "write", origin("https://calendar.example.com"));
+
+const h0 = () => makeBroker();
 
 async function request(
   h: ReturnType<typeof makeBroker>,
@@ -225,10 +228,29 @@ describe("approval lifecycle", () => {
     expect(ok.status).toBe("denied");
   });
 
-  it("rate-limits real decisions per identity with a retry-after (security §10)", async () => {
+  it("never caps real decisions: the owner can answer card after card (owner decision 2026-11-09)", async () => {
     const h = makeBroker();
     h.clock.advance(500);
-    for (let i = 0; i < 10; i += 1) {
+    // Far past the old 10-a-minute decision cap, all inside one minute, allows and denies mixed.
+    for (let i = 0; i < 40; i += 1) {
+      const issued = await request(h, write());
+      h.clock.advance(500); // the card arms; 40 cards still fit in one minute
+      const answered = await h.broker.answer({
+        approvalId: issued.approval.id,
+        answerToken: issued.answerTokens.desktop ?? "",
+        decision: i % 2 === 0 ? "approve" : "deny",
+        scope: "once",
+        decidedBy: { deviceId: "dev_mac" },
+      });
+      expect(answered.status).toBe(i % 2 === 0 ? "approved" : "denied");
+    }
+  });
+
+  it("still locks out a guessing identity, and real decisions don't count toward it", async () => {
+    const h = makeBroker();
+    h.clock.advance(500);
+    // Real decisions first: they must not shrink the guessing budget.
+    for (let i = 0; i < 20; i += 1) {
       const issued = await request(h, write());
       h.clock.advance(500);
       await h.broker.answer({
@@ -238,24 +260,35 @@ describe("approval lifecycle", () => {
         decidedBy: { deviceId: "dev_mac" },
       });
     }
-    const next = await request(h, write());
+    const target = await request(h, write());
     h.clock.advance(500);
+    // The default guessing cap is 10 x 6 = 60 wrong tokens a minute.
+    for (let i = 0; i < 60; i += 1) {
+      await expect(
+        h.broker.answer({
+          approvalId: target.approval.id,
+          answerToken: `wrong-${i}`,
+          decision: "approve",
+          scope: "once",
+          decidedBy: { deviceId: "dev_mac" },
+        }),
+      ).rejects.toThrow(/unknown answer token/);
+    }
     await expect(
       h.broker.answer({
-        approvalId: next.approval.id,
-        answerToken: next.answerTokens.desktop ?? "",
+        approvalId: target.approval.id,
+        answerToken: target.answerTokens.desktop ?? "",
         decision: "deny",
         decidedBy: { deviceId: "dev_mac" },
       }),
     ).rejects.toMatchObject({
       code: "rate_limited",
-      message: expect.stringMatching(/^Too many approvals in a minute\. Try again in \d+ s/),
       details: { retryAfterSec: expect.any(Number) },
     });
     h.clock.advance(61_000);
     const later = await h.broker.answer({
-      approvalId: next.approval.id,
-      answerToken: next.answerTokens.desktop ?? "",
+      approvalId: target.approval.id,
+      answerToken: target.answerTokens.desktop ?? "",
       decision: "deny",
       decidedBy: { deviceId: "dev_mac" },
     });
@@ -271,6 +304,28 @@ describe("approval lifecycle", () => {
     );
     expect(issued.approval.surfaces).toEqual(["desktop"]);
     expect(issued.approval.deviceOnly).toBe(true);
+  });
+
+  it("a send that carries a passport or a one-time code asks on a paired device only (§3.9)", async () => {
+    const send = (body: string) =>
+      call(
+        "gmail.send",
+        "write",
+        { kind: "recipient", value: "a@example.org" },
+        {
+          params: { body },
+        },
+      );
+    const passport = await request(h0(), send(`passport number: ${["X123", "4567"].join("")}`), [
+      "telegram:1",
+      "desktop",
+    ]);
+    expect(passport.approval.surfaces).toEqual(["desktop"]);
+    expect(passport.approval.deviceOnly).toBe(true);
+    // The same send without the value may reach the chat as usual.
+    const plain = await request(h0(), send("See you Tuesday."), ["telegram:1", "desktop"]);
+    expect(plain.approval.deviceOnly).toBe(false);
+    expect(plain.approval.surfaces).toContain("telegram:1");
   });
 
   it("presence is required and bound to the request when a verifier is configured (design-04)", async () => {
@@ -313,6 +368,86 @@ describe("approval lifecycle", () => {
     });
     expect(ok.status).toBe("approved");
     expect(seen).toContain(right);
+  });
+
+  it("only payments need presence: every other approval is a tap on its card", async () => {
+    let verifierCalls = 0;
+    const h = makeBroker({
+      presence: {
+        verify: async () => {
+          verifierCalls++;
+          return true;
+        },
+      },
+    });
+    // A financial action needs it (and a purchase kind does, whatever its side effect).
+    const pay = await request(
+      h,
+      call("purchase.checkout", "financial", origin("https://s.example")),
+      ["desktop"],
+    );
+    expect(pay.approval.requiresAuthentication).toBe(true);
+    // Credential fills, host commands, AppleScript, pairing and policy changes are taps.
+    for (const [kind, sideEffect] of [
+      ["credential_fill", "write"],
+      ["exec_host", "destructive"],
+      ["apple_script", "destructive"],
+      ["pairing", "write"],
+      ["policy_change", "destructive"],
+    ] as const) {
+      const issued = await h.broker.requestApproval({
+        kind,
+        summary: `a ${kind}`,
+        details: {},
+        bindingHash: sha256(kind),
+        grantKey: kind,
+        requestedBy: { runId: null, taskId: null, threadId: null },
+        sideEffect,
+        surfaces: ["desktop", "web"],
+        scopesOffered: ["once"],
+        taint: false,
+      });
+      expect(issued.approval.requiresAuthentication, kind).toBe(false);
+      h.clock.advance(500);
+      const done = await h.broker.answer({
+        approvalId: issued.approval.id,
+        answerToken: issued.answerTokens.web ?? "",
+        decision: "approve",
+        scope: "once",
+        decidedBy: { deviceId: "dev_web" },
+      });
+      expect(done.status, kind).toBe("approved");
+    }
+    expect(verifierCalls).toBe(0);
+    // The Gateway's gate for enrolling a presence verifier can force it on a non-payment card.
+    const forced = await h.broker.requestApproval({
+      kind: "policy_change",
+      summary: "Add a passkey",
+      details: {},
+      bindingHash: sha256("enroll"),
+      grantKey: "enroll",
+      requestedBy: { runId: null, taskId: null, threadId: null },
+      sideEffect: "destructive",
+      surfaces: ["desktop"],
+      scopesOffered: ["once"],
+      taint: false,
+      requireAuthentication: true,
+    });
+    expect(forced.approval.requiresAuthentication).toBe(true);
+  });
+
+  it("the presence challenge is the bare 64-hex digest the helper and WebAuthn require", () => {
+    const hash = "a".repeat(64);
+    const once = presenceChallenge("apr_1", hash, "tok");
+    expect(once).toMatch(/^[0-9a-f]{64}$/);
+    expect(once).toBe(
+      createHash("sha256").update(`psyche.presence.v1|apr_1|${hash}|tok`).digest("hex"),
+    );
+    // A wider scope is bound into the challenge; `once` is the same as no scope.
+    const always = presenceChallenge("apr_1", hash, "tok", "always");
+    expect(always).toMatch(/^[0-9a-f]{64}$/);
+    expect(always).not.toBe(once);
+    expect(presenceChallenge("apr_1", hash, "tok", "once")).toBe(once);
   });
 
   it("verifyBinding consumes a once approval and audits a mismatch", async () => {

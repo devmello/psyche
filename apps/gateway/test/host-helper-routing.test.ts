@@ -126,6 +126,7 @@ async function secondMac(g: Gateway, label: string, deviceId = "second-mac"): Pr
 }
 
 const gwOf = (g: Gateway) => () => g;
+const hostClient = (g: Gateway) => g.context.nodes.hostHelper()?.client;
 const nodeInfo = (g: Gateway, id: string): NodeInfo | undefined =>
   g.context.nodes.list().find((n) => n.id === id);
 
@@ -320,6 +321,77 @@ describe("an ambiguous Host denies", () => {
     nodes.push(again);
     expect(g.context.nodes.hostHelpers()).toHaveLength(1);
     expect(await who(computerHelper(gwOf(g))()?.client, "computer.ax_tree")).toBe("two");
+  });
+});
+
+describe("a helper that disconnects and reconnects", () => {
+  const settle = () => new Promise((r) => setTimeout(r, 50));
+  const connectAs = async (
+    g: Gateway,
+    label: string,
+    deviceId: string,
+    key = newDeviceKey(),
+  ): Promise<FakeNode> => {
+    const node = await FakeNode.connect(g.config.nodeSocketPath, {
+      origin: g.origin,
+      secret: g.handshakeSecret,
+      handlers: handlers(label),
+      key,
+      deviceId,
+    });
+    nodes.push(node);
+    return node;
+  };
+
+  it("is reached on its new connection, with the same node id, and calls made while it was away fail cleanly", async () => {
+    const g = await start();
+    const key = newDeviceKey();
+    const first = await connectAs(g, "before", "helper-x", key);
+    expect(await who(hostClient(g), "apps.list")).toBe("before");
+    await first.close();
+    await settle();
+    // Away: every Apple-app route says "no helper" (the "needs the Psyche helper" error), no hang.
+    expect(macHelper(gwOf(g))()).toBeUndefined();
+    expect(g.context.nodes.isLive(first.nodeId)).toBe(false);
+
+    const second = await connectAs(g, "after", "helper-x", key);
+    expect(second.nodeId).toBe(first.nodeId);
+    const helper = macHelper(gwOf(g))();
+    expect(helper?.nodeId).toBe(second.nodeId);
+    expect(await who(hostClient(g), "apps.list")).toBe("after");
+    // Only the call made before it left reached it.
+    expect(first.invocations).toHaveLength(1);
+  });
+
+  it("is reached after a re-pair under a new device and node id; the old node stays offline", async () => {
+    const g = await start();
+    const old = await connectAs(g, "old", "helper-old");
+    await old.close();
+    await settle();
+
+    const fresh = await connectAs(g, "fresh", "helper-new");
+    expect(fresh.nodeId).not.toBe(old.nodeId);
+    const gw = gwOf(g);
+    expect(macHelper(gw)()?.nodeId).toBe(fresh.nodeId);
+    expect(computerHelper(gw)()?.nodeId).toBe(fresh.nodeId);
+    expect(await who(hostClient(g), "apps.list")).toBe("fresh");
+    expect(g.context.nodes.isLive(old.nodeId)).toBe(false);
+    expect(g.context.nodes.client(old.nodeId)).toBeUndefined();
+    expect(nodeInfo(g, old.nodeId)?.status).toBe("offline");
+    expect(nodeInfo(g, fresh.nodeId)?.status).toBe("online");
+    expect(old.invocations).toEqual([]);
+  });
+
+  it("a stale connection closing late does not take the new one offline", async () => {
+    const g = await start();
+    const key = newDeviceKey();
+    const first = await connectAs(g, "one", "helper-y", key);
+    const second = await connectAs(g, "two", "helper-y", key);
+    await first.close().catch(() => undefined);
+    await settle();
+    expect(g.context.nodes.isLive(second.nodeId)).toBe(true);
+    expect(nodeInfo(g, second.nodeId)?.status).toBe("online");
+    expect(await who(hostClient(g), "apps.list")).toBe("two");
   });
 });
 

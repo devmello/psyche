@@ -378,6 +378,15 @@ describe("commands against a paired MockGateway", () => {
       expect(existsSync(join(deps.home, "config.json"))).toBe(false);
     });
 
+    it("config set mcp.servers is a usage error that points to Settings, and never reaches the Gateway", async () => {
+      const deps = makeDeps();
+      expect(await run(["config", "set", "mcp.servers", "[]", ...urlArgs(deps)], deps)).toBe(2);
+      expect(err(deps)).toContain("Settings → Connectors");
+      // Positive control: an ordinary setting is still sent.
+      const ok = makeDeps();
+      expect(await run(["config", "set", "appearance.theme", "light", ...urlArgs(ok)], ok)).toBe(0);
+    });
+
     it("an invalid gateway.port value is a usage error", async () => {
       const deps = makeDeps();
       expect(await run(["config", "set", "gateway.port", "99999", ...urlArgs(deps)], deps)).toBe(2);

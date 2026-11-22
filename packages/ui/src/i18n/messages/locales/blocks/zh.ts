@@ -27,6 +27,10 @@ export const blocks: Partial<Catalogue> = {
     "“仅此聊天”在对话结束前有效。“始终”会一直保留该文件夹，直到你在“设置 → 权限 → 访问”中将其移除。",
   "blocks.folder.scope.once": "仅此聊天",
   "blocks.folder.scope.always": "始终，此文件夹及其下所有内容",
+  "blocks.folder.scope.space": "在此空间中允许",
+  "blocks.folder.scope.spaceNamed": "在 {space} 中允许",
+  "blocks.folder.space.automationsRead": "{space} 中的 Psyche 自动化也可以读取此文件夹。",
+  "blocks.folder.space.automationsWrite": "{space} 中的 Psyche 自动化也可以读取和写入此文件夹。",
   "blocks.folder.explain.ro": "{persona}想读取某个文件夹中的文件。",
   "blocks.folder.explain.rw": "{persona}想读取并更改某个文件夹中的文件。",
   "blocks.folder.readOnly": "只允许读取，不允许更改任何内容",
@@ -104,7 +108,7 @@ export const blocks: Partial<Catalogue> = {
   "blocks.details.reason": "理由",
   "blocks.approval.answerOnHost":
     "请在 {host} 上回答，或在“设置 → 设备”中为这台电脑设置 Touch ID 批准。",
-  "blocks.approval.rateLimited": "一分钟内批准过多，请 {seconds} 秒后再试。",
+  "blocks.approval.rateLimited": "一分钟内尝试次数过多，请 {seconds} 秒后再试。",
   "blocks.approval.touchIdFailed": "Touch ID 失败：{reason}。请重试。",
   "blocks.approval.touchIdFailedNoReason": "Touch ID 失败，请重试。",
   "blocks.approval.touchIdInvalid": "Psyche 无法验证是你本人",
@@ -122,20 +126,8 @@ export const blocks: Partial<Catalogue> = {
   "blocks.approval.touchId.onceOnly": "从此窗口进行的 Touch ID 批准只有一次有效。",
   "blocks.approval.status.allowedOnceTouchId":
     "已允许一次（从此窗口进行的 Touch ID 批准只有一次有效）",
-  "blocks.approval.touchId.keyUntrusted":
-    "钥匙串中 Psyche 助手的 Touch ID 密钥无法证明属于它自己，因此未被使用。请打开“设置 → 设备”查看如何处理。",
-  "blocks.approval.touchId.keyAccessDenied":
-    "macOS 未允许 Psyche 助手使用其 Touch ID 密钥。请重试，仅当对话框写明 psyche-helper 时才选择“始终允许”。",
-  "blocks.approval.touchId.keyChanged":
-    "Psyche 助手运行期间 Touch ID 密钥发生了变化。请退出 Psyche 助手并重新启动。",
-  "blocks.approval.touchId.keyWrongLocation":
-    "Psyche 正在无法保存其 Touch ID 密钥的位置运行（磁盘映像、“下载”或其他文件夹）。请把 Psyche 移到“应用程序”并从那里打开。",
-  "blocks.approval.touchId.keyLocked": "钥匙串目前无法请求权限。请解锁 Mac 后重试。",
-  "blocks.approval.touchId.keyAclUnavailable":
-    "这台 Mac 的钥匙串不肯保存 Touch ID 密钥的访问列表。请重启 Psyche 助手再试。",
   "blocks.approval.touchId.keyUnavailable":
     "此版本的 Psyche 助手无法保存 Touch ID 密钥（没有钥匙串访问组），因此需要 Touch ID 的卡片无法在这台 Mac 上批准。",
-  "blocks.approval.touchId.cancelled": "Touch ID 已取消，因此没有批准任何内容",
   "blocks.approval.touchId.restartHelper": "重启 Psyche 助手",
   "blocks.approval.touchId.startHelper": "启动 Psyche 助手",
   "blocks.question.answerLine": "↳ {answer}",

@@ -5,6 +5,7 @@ import { describe, expect, it } from "vitest";
 import {
   AiSdkAdapter,
   brokerKeySource,
+  createModelRouter,
   InMemoryProbeStore,
   InMemoryUsageRepository,
   ModelRouter,
@@ -219,6 +220,70 @@ describe("ModelRouter", () => {
     const { router } = setup();
     expect(router.allowsAutoMode("anthropic/claude-opus-5-5")).toBe(true);
     expect(router.allowsAutoMode("ollama/qwen3.8:27b")).toBe(false);
+  });
+
+  it("allows Auto on the current models, the small tiers included, not older or local ones", () => {
+    const { router } = setup();
+    for (const ref of [
+      "anthropic/claude-opus-5-5",
+      "anthropic/claude-sonnet-5-5",
+      "anthropic/claude-fable-5-1",
+      "anthropic/claude-sonnet-5",
+      "openai/gpt-6-sol",
+      "openai/gpt-6.1-sol",
+      "google/gemini-4-argon",
+      // The owner decided on 2026-11-09 to allow the smallest tiers too.
+      "anthropic/claude-haiku-5-5",
+      "openai/gpt-6-luna",
+      "google/gemini-3.8-flash",
+    ]) {
+      expect(router.allowsAutoMode(ref), ref).toBe(true);
+    }
+    for (const ref of [
+      "anthropic/claude-haiku-4-5",
+      "xai/grok-4.7",
+      "deepseek/deepseek-v4-pro",
+      "mistral/mistral-large-4",
+      "anthropic/claude-sonnet-4-6",
+      "openai/gpt-4o",
+      "lmstudio/tiny-7b",
+    ]) {
+      expect(router.allowsAutoMode(ref), ref).toBe(false);
+    }
+  });
+
+  it("matches the default rules on the provider's kind, not its id", () => {
+    const router = createModelRouter(
+      {
+        providers: [
+          // A local endpoint the owner named like a hosted provider: it gets nothing.
+          { id: "anthropic", kind: "anthropic-compatible", baseURL: "http://127.0.0.1:9" },
+          { id: "openai", kind: "openai-compatible", baseURL: "http://127.0.0.1:9" },
+          // A real Anthropic provider under another id counts by its kind.
+          { id: "anthropic-work", kind: "anthropic" },
+          { id: "claude-code", kind: "claude-code" },
+          { id: "codex", kind: "codex" },
+        ],
+      },
+      { clock: new FakeClock() },
+    );
+    expect(router.allowsAutoMode("anthropic/claude-opus-5-5")).toBe(false);
+    expect(router.allowsAutoMode("openai/gpt-6-sol")).toBe(false);
+    expect(router.allowsAutoMode("anthropic-work/claude-opus-5-5")).toBe(true);
+    expect(router.allowsAutoMode("anthropic-work/claude-haiku-5-5")).toBe(true);
+    expect(router.allowsAutoMode("anthropic-work/claude-haiku-4-5")).toBe(false);
+    for (const ref of [
+      "claude-code/opus",
+      "claude-code/sonnet",
+      "claude-code/haiku",
+      "claude-code/default",
+      "codex/default",
+    ]) {
+      expect(router.allowsAutoMode(ref), ref).toBe(true);
+    }
+    expect(router.allowsAutoMode("claude-code/opus-3")).toBe(false);
+    expect(router.allowsAutoMode("codex/gpt-5.5")).toBe(false);
+    expect(router.allowsAutoMode("not a ref")).toBe(false);
   });
 
   it("embeds through the embedding role and reports the dimension", async () => {

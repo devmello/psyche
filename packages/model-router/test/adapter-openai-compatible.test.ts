@@ -187,10 +187,11 @@ describe("openai-compatible adapter (llama.cpp, recorded fixtures)", () => {
       content: JSON.stringify({ tempC: 18 }),
     });
     // The package does not send multi-part tool content by default: the parts are serialized
-    // as a JSON string (the image goes along as base64 inside that string).
+    // as a JSON string, so the image is replaced by a note rather than going as base64 text.
     const shot = body.messages.find((m) => m.role === "tool" && m.tool_call_id === "call_lc_shot");
     expect(typeof shot?.content).toBe("string");
-    expect(shot?.content).toContain("iVBORw0KGgoAAAANSUhEUg==");
+    expect(shot?.content).not.toContain("iVBORw0KGgoAAAANSUhEUg==");
+    expect(shot?.content).toContain("cannot take images inside tool results");
     expect(body.messages.at(-1)).toEqual({
       role: "user",
       content: [

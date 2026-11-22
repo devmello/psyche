@@ -62,16 +62,25 @@ export {
 } from "./receipts.ts";
 export { type ContentDigest, contentDigest, type RedactOptions, redactForAudit } from "./redact.ts";
 export {
+  aadhaarValid,
+  abaValid,
   cardDigits,
+  cardIssuerValid,
   containsSensitive,
+  type FindOptions,
   findSensitive,
   findSensitiveNormalized,
+  findSensitiveOriginal,
   ibanValid,
   luhnValid,
   REDACTED,
   redactSensitive,
+  type ScanView,
   type SensitiveKind,
   type SensitiveMatch,
+  scanView,
+  sinValid,
+  verhoeffValid,
 } from "./sensitive.ts";
 export {
   ANCHOR_FILE,

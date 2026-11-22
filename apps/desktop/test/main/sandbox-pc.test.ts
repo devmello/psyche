@@ -256,7 +256,8 @@ describe("downloading the guest image", () => {
   });
 });
 
-describe("running one program elevated", () => {
+// Windows-only: quotes arguments for PowerShell Start-Process -Verb RunAs.
+describe.skipIf(process.platform !== "win32")("running one program elevated", () => {
   it("passes the program and arguments in the environment, never in the command", async () => {
     const calls: { file: string; args: string[]; env: NodeJS.ProcessEnv }[] = [];
     const res = await runElevated(

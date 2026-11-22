@@ -286,9 +286,22 @@ export class MockTab implements CdpTarget {
     return undefined;
   }
 
+  /** Test hook: page script, autofill or the owner sets a field's value. */
+  setFieldValue(name: string, value: string): void {
+    for (const el of this.#doc.els.values()) if (el.attrs.name === name) el.value = value;
+  }
+
   /** Test hook: the page script changes a field's `type` (TM-28). */
   setFieldType(name: string, type: string): void {
     for (const el of this.#doc.els.values()) if (el.attrs.name === name) el.attrs.type = type;
+  }
+
+  /** Test hook: page script renames a control (its text or aria-label) after the snapshot. */
+  renameControl(from: string, to: string): void {
+    for (const el of this.#doc.els.values()) {
+      if (el.attrs["aria-label"] === from) el.attrs["aria-label"] = to;
+      else if (el.text === from) el.text = to;
+    }
   }
 
   /** Test hook: page script moves focus to another field. */
@@ -468,6 +481,13 @@ export class MockTab implements CdpTarget {
         }
         case "clickable": {
           leaf(mk("DIV", parent, { fx: n, text: n.text, clickable: true }), 200);
+          return;
+        }
+        case "editable": {
+          const el = mk("DIV", parent, { fx: n, text: n.text });
+          el.attrs.contenteditable = "true";
+          el.attrs["aria-label"] = n.label;
+          leaf(el, 400);
           return;
         }
         case "overlay": {
@@ -805,15 +825,31 @@ export class MockTab implements CdpTarget {
               while (p !== undefined && p !== form) p = p.parent;
               return p === form && x.tag === "INPUT" && x.attrs.type === "password";
             });
+      const formFields =
+        form === undefined
+          ? undefined
+          : [...this.#doc.els.values()]
+              .filter((x) => {
+                let p = x.parent;
+                while (p !== undefined && p !== form) p = p.parent;
+                return p === form && (x.tag === "INPUT" || x.tag === "SELECT");
+              })
+              .map((x) => ({ ...x.attrs }));
       const value: Record<string, unknown> = {
         focused: this.#focused === el,
         tag: el.tag,
         contentEditable: false,
       };
+      // The name as the page shows it now (aria-label, or a non-field's own text).
+      const textOf = (n: MockEl): string =>
+        [n.text ?? "", ...n.children.map(textOf)].join(" ").replace(/\s+/g, " ").trim();
+      const name = el.attrs["aria-label"] ?? (input ? "" : textOf(el));
+      if (name !== "") value.name = name.slice(0, 400);
       if (input) value.type = (el.attrs.type ?? "text").toLowerCase();
       if (el.attrs.autocomplete !== undefined) value.autocomplete = el.attrs.autocomplete;
       if (form?.attrs.action !== undefined) value.formAction = form.attrs.action;
       if (hasPassword !== undefined) value.formHasPassword = hasPassword;
+      if (formFields !== undefined) value.formFields = formFields;
       return { result: { type: "object", value } };
     }
     if (fn.includes("psyche:download")) {
@@ -1344,10 +1380,23 @@ function axTree(doc: MockDoc, focused: MockEl | undefined): AXNode[] {
       case "IMG":
         add({ ...base, role: v("image"), name: v(el.attrs.alt ?? "") }, parent.nodeId);
         return;
-      case "DIV":
-        node = add({ ...base, role: v("generic"), name: v("") }, parent.nodeId);
+      case "DIV": {
+        // A contenteditable is `generic` with an `editable` property in Chromium, not a textbox.
+        const editable = el.attrs.contenteditable === "true";
+        node = add(
+          {
+            ...base,
+            role: v("generic"),
+            name: v(editable ? (el.attrs["aria-label"] ?? "") : ""),
+            ...(editable
+              ? { properties: [...props, { name: "editable", value: v("plaintext") }] }
+              : {}),
+          },
+          parent.nodeId,
+        );
         if (el.text !== undefined) text(el.text, node);
         return;
+      }
       default:
         kids();
     }

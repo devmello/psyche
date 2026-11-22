@@ -31,6 +31,8 @@ export const IPC = {
   gatewaysLinkOpened: "psyche:gateways:link-opened",
   gatewaysDiscover: "psyche:gateways:discover",
   gatewaysAddDiscovered: "psyche:gateways:add-discovered",
+  /** "Set up a remote server": claim a psyche-server with its setup code (design §3.6). */
+  gatewaysClaim: "psyche:gateways:claim",
   gatewaysRename: "psyche:gateways:rename",
   gatewaysRemove: "psyche:gateways:remove",
   gatewaysSwitch: "psyche:gateways:switch",
@@ -99,6 +101,9 @@ export const IPC = {
   touchIdIdentity: "psyche:touchid:identity",
   touchIdRegister: "psyche:touchid:register",
   touchIdApprove: "psyche:touchid:approve",
+  // Password presence on Linux (linux design §9): the main window's Allow asks the Gateway to run
+  // the polkit check. Main and Settings windows only.
+  passwordApprove: "psyche:password:approve",
   // The owner's macOS region format (A12: numbers, dates and times; Settings can override it).
   localeGet: "psyche:locale:get",
   systemAppearanceGet: "psyche:system-appearance:get",
@@ -114,6 +119,9 @@ export const IPC = {
   // Settings → About: versions, platform and the data folder (#610).
   appInfo: "psyche:app:info",
   appRevealHome: "psyche:app:reveal-home",
+  // Library → Reveal in Finder: the renderer names a Library item by id; main resolves its file and
+  // checks it is inside the Library before it reveals it (lib/library-reveal.ts).
+  libraryReveal: "psyche:library:reveal",
   // Settings → About → Uninstall Psyche: what would go, then do it. Main only; never a remote window.
   appUninstallPlan: "psyche:app:uninstall-plan",
   appUninstall: "psyche:app:uninstall",
@@ -318,6 +326,7 @@ export function checkCallable(method: unknown, isMethodName: (m: unknown) => boo
     // Touch ID from the window and its key go through their own channels, which only the main
     // and Settings windows reach and which add the bundled helper's identity (security §10).
     method === "approvals.approveWithTouchId" ||
+    method === "approvals.approveWithPassword" ||
     method === "devices.presenceKey.register"
   )
     throw new IpcPayloadError(IPC.call, `${method} is not callable from the renderer`);
@@ -439,9 +448,12 @@ export const REMOTE_REFUSED_CHANNELS: ReadonlySet<string> = new Set([
   IPC.touchIdIdentity,
   IPC.touchIdRegister,
   IPC.touchIdApprove,
+  // polkit prompts on the computer that runs the Gateway, never on a remote Host.
+  IPC.passwordApprove,
   IPC.dictationRecheck,
   IPC.dictationCheckHotkey,
   IPC.sourceOpen,
+  IPC.libraryReveal,
   IPC.appUninstallPlan,
   IPC.appUninstall,
 ]);

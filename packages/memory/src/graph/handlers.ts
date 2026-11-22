@@ -32,6 +32,7 @@ export type GraphMethod =
   | "memory.loops.list"
   | "memory.loops.update"
   | "memory.graph.status"
+  | "memory.graph.map"
   | "memory.graph.forgetAll"
   | "memory.graph.deleteSource"
   | "memory.graph.blocklist.list"
@@ -65,6 +66,7 @@ export const GRAPH_METHODS: readonly GraphMethod[] = [
   "memory.loops.list",
   "memory.loops.update",
   "memory.graph.status",
+  "memory.graph.map",
   "memory.graph.forgetAll",
   "memory.graph.deleteSource",
   "memory.graph.blocklist.list",
@@ -325,6 +327,13 @@ export function createGraphHandlers(
 
     async "memory.graph.status"() {
       return graph.status(options.settings?.() ?? { enabled: false, sources: {} });
+    },
+
+    async "memory.graph.map"(p) {
+      return graph.memoryMap({
+        ...(p.limit === undefined ? {} : { limit: p.limit }),
+        ...(p.kinds === undefined ? {} : { kinds: p.kinds }),
+      });
     },
 
     async "memory.graph.forgetAll"(p) {

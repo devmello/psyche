@@ -121,6 +121,9 @@ export const settingsRest: Partial<Catalogue> = {
   "settings.key.appearance.openAtLogin": "लॉगिन पर Psyche खोलें",
   "settings.key.browser.useSignedInSessions": "मेरे साइन-इन सत्र उपयोग करें",
   "settings.key.exec.srtPath": "srt का स्थान",
+  "settings.key.devices.hostHelper.status": "Linux हेल्पर की जाँच",
+  "settings.key.devices.helper.availability": "Psyche Helper कनेक्शन",
+  "settings.key.devices.hostHelperDeviceId": "कौन-सा Psyche Helper इस्तेमाल करें",
   "settings.key.search.model.engine": "खोज के लिए मॉडल",
   "settings.key.search.semantic.enabled": "सिमेंटिक खोज (ऑन-डिवाइस)",
   "settings.key.search.cards.enabled": "खोज के लिए संदर्भ कार्ड",
@@ -411,6 +414,17 @@ export const settingsRest: Partial<Catalogue> = {
   "settings.mcp.tools.off": "यह सर्वर बंद है। इसके टूल देखने के लिए इसे चालू करें।",
   "settings.mcp.tools.notConnected": "यह सर्वर कनेक्ट नहीं है, इसलिए कोई टूल सूचीबद्ध नहीं करता।",
   "settings.mcp.tools.none": "इस सर्वर में कोई टूल नहीं है।",
+  "settings.mcp.money.title": "भुगतान",
+  "settings.mcp.money.description":
+    "पैसे भेजने वाला टूल हर बार आपसे भुगतान की पुष्टि करवाता है। बताइए कि इस सर्वर के कौन-से टूल ऐसा करते हैं।",
+  "settings.mcp.money.auto": "हर टूल के नाम से तय करें",
+  "settings.mcp.money.autoHint":
+    "Psyche टूल के नाम और विवरण से अंदाज़ा लगाता है, जिसे कोई सर्वर बदलकर बच सकता है।",
+  "settings.mcp.money.always": "हर टूल पैसे भेजता है",
+  "settings.mcp.money.alwaysHint": "इस सर्वर पर हर कॉल आपसे भुगतान की मंज़ूरी माँगती है।",
+  "settings.mcp.money.never": "कोई टूल पैसे नहीं भेजता",
+  "settings.mcp.money.neverHint":
+    "टूल का नाम जो भी हो, कोई कॉल भुगतान की मंज़ूरी नहीं माँगती। केवल ऐसे सर्वर के लिए जो पैसे खर्च नहीं कर सकता।",
   "settings.mcp.secrets.title": "गोपनीय मान",
   "settings.mcp.secrets.intro":
     "वे कुंजियाँ जिनके साथ यह सर्वर शुरू होता है। ये आपके वॉल्ट में रहती हैं; Psyche सिर्फ़ यह दिखाता है कि हर एक सेट है या नहीं।",
@@ -592,44 +606,26 @@ export const settingsRest: Partial<Catalogue> = {
     "कोई एम्बेडिंग मॉडल उपलब्ध नहीं है, इसलिए रिकॉल सिर्फ़ शब्द मिलाता है।",
   "settings.data.replayRetentionHint":
     "काम करते समय {persona} ने जो स्क्रीन देखीं, टाइमलाइन के लिए। बंद करने पर कोई नहीं रखी जाती।",
-  "settings.devices.presenceKey.keychain": "Touch ID कुंजी (कीचेन), जैसा हेल्पर ने बताया",
-  "settings.devices.presenceKey.enclaveKeychainAcl":
-    "Touch ID कुंजी (Secure Enclave, macOS प्रॉम्प्ट के बिना केवल Psyche हेल्पर पढ़ सकता है), जैसा हेल्पर ने बताया",
-  "settings.devices.presenceKey.enclaveFile":
-    "Touch ID कुंजी (Secure Enclave फ़ाइल, इस बिल्ड में प्रोविज़निंग प्रोफ़ाइल नहीं है), जैसा हेल्पर ने बताया",
   "settings.devices.presenceKey.unknown": "Touch ID कुंजी (हेल्पर ने प्रकार नहीं बताया)",
+  "settings.devices.presenceKey.deviceIdentity":
+    "भुगतान Touch ID या आपके Mac के पासवर्ड का उपयोग करते हैं। कुछ भी सेट अप करने की ज़रूरत नहीं है।",
   "settings.devices.touchId.none":
     "अभी कोई Touch ID कुंजी नहीं। जब तक कोई रजिस्टर नहीं होती, Touch ID चाहने वाले कार्ड स्वीकृत नहीं हो सकते।",
   "settings.devices.touchId.bundled": "इस ऐप का Psyche Helper कुंजी दिखाता है",
   "settings.devices.touchId.notBundled":
     "यह हेल्पर इस ऐप के साथ आया हेल्पर नहीं है, इसलिए इसकी कुंजी यहाँ रजिस्टर नहीं की जा सकती।",
-  "settings.devices.touchId.untrusted":
-    "कीचेन में मौजूद Touch ID कुंजी इस्तेमाल नहीं की गई, क्योंकि यह साबित नहीं हो सकता कि वह Psyche हेल्पर की है। एक हानिरहित कारण यह है कि Psyche को हटाकर कहीं और ले जाया गया या दोबारा इंस्टॉल किया गया: उसे वापस /Applications में रखें और फिर खोलें। नहीं तो पहले Psyche हेल्पर बंद करें, Terminal में /Applications/Psyche.app/Contents/Resources/PsycheHelper.app/Contents/MacOS/psyche-helper --reset-presence-key चलाएँ, और नई कुंजी पंजीकृत करें।",
-  "settings.devices.touchId.accessDenied":
-    "macOS ने Psyche हेल्पर को कीचेन की अपनी Touch ID कुंजी इस्तेमाल करने नहीं दी। Psyche फिर से चलाएँ और हमेशा अनुमति दें केवल तभी चुनें जब संवाद में psyche-helper का नाम हो (किसी और प्रोग्राम के लिए कभी नहीं)।",
-  "settings.devices.touchId.wrongLocation":
-    "Psyche हेल्पर ने Touch ID कुंजी नहीं बनाई, क्योंकि वह डिस्क इमेज, डाउनलोड या किसी और फ़ोल्डर से चल रहा है। Psyche को /Applications में ले जाएँ, कोई भी डिस्क इमेज निकालें और वहीं से खोलें।",
   "settings.devices.touchId.keyMismatch":
     "इस ऐप का Psyche हेल्पर अब कुंजी {shown} दिखा रहा है, पंजीकृत {registered} नहीं। अगर आपने कुंजी खुद रीसेट नहीं की, तो इसे संदिग्ध मानें और इसे पंजीकृत न करें।",
   "settings.devices.touchId.confirmReplace":
     "यह इस Mac के लिए पंजीकृत Touch ID कुंजी {previous} को बदल देगा। इसे तभी बदलें जब आपने कुंजी खुद रीसेट की हो।",
   "settings.devices.touchId.confirmReplaceButton": "कुंजी बदलें",
-  "settings.devices.touchId.interactionNotAllowed":
-    "कीचेन अभी अनुमति नहीं माँग सकता। Mac अनलॉक करें और फिर कोशिश करें।",
-  "settings.devices.touchId.changed":
-    "Psyche हेल्पर चलते समय Touch ID कुंजी बदल गई। Psyche हेल्पर बंद करके फिर शुरू करें।",
-  "settings.devices.touchId.aclUnavailable":
-    "इस Mac पर कीचेन ने Touch ID कुंजी की एक्सेस सूची नहीं रखी। दोबारा कोशिश के लिए Psyche हेल्पर को रीस्टार्ट करें।",
   "settings.devices.touchId.noBundledKey":
     "इस ऐप के Psyche Helper के पास Touch ID कुंजी नहीं है ({reason})।",
   "settings.devices.touchId.register": "यह कुंजी रजिस्टर करें",
   "settings.devices.touchId.remove": "कुंजी हटाएँ",
   "settings.devices.touchId.manualLabel": "कुंजी आईडी",
   "settings.devices.touchId.manualHint":
-    "Mac पर psyche-helper --print-identity चलाएँ और जो presenceKeyId छपे उसे पेस्ट करें।",
-  "settings.devices.touchId.allowDevFileKey": "डेवलपमेंट Touch ID कुंजी की अनुमति दें",
-  "settings.devices.touchId.devFileKey":
-    "इस बिल्ड में प्रोविज़निंग प्रोफ़ाइल नहीं है, इसलिए इसकी कुंजी एक Secure Enclave फ़ाइल है। आपके रूप में चल रहा कोई भी ऐप इसे अपने Touch ID प्रॉम्प्ट के पीछे साइन करने को कह सकता है। केवल डेवलपमेंट के लिए।",
+    "कंप्यूटर पर psyche-helper --print-identity चलाएँ और जो presenceKeyId छपे उसे पेस्ट करें।",
   "settings.files.execHost": "इस Mac पर कमांड चलाएँ",
   "settings.files.execHostHint":
     "{persona} को आपके साझा फ़ोल्डर में, सैंडबॉक्स में कमांड चलाने देता है। जो कमांड फ़ाइलें बदल सकते हैं वे पहले आपसे पूछते हैं।",
@@ -651,12 +647,17 @@ export const settingsRest: Partial<Catalogue> = {
     "अभी कुछ नहीं। जब {persona} को किसी फ़ोल्डर या ऐप की ज़रूरत होती है, तो वह चैट में आपसे पूछता है, और जो आप अनुमति देते हैं वह यहाँ दिखता है।",
   "settings.access.scope.always": "हमेशा",
   "settings.access.scope.conversation": "यह चैट",
+  "settings.access.scope.space": "एक स्पेस में",
   "settings.access.scope.limited": "फ़िलहाल",
   "settings.access.used": "{when} उपयोग हुआ",
+  "settings.access.fileOnly": "एक फ़ाइल · केवल पढ़ने के लिए",
   "settings.access.revokeNamed": "{name} रद्द करें",
   "settings.access.loadLabel": "Psyche कहाँ तक पहुँच सकता है",
   "settings.access.loadFailed": "Psyche यह लोड नहीं कर सका कि वह कहाँ तक पहुँच सकता है ({reason})।",
   "settings.access.unchanged": "एक्सेस जस का तस है।",
+  "settings.access.moved": "अब {path} की ओर इशारा करता है — पुष्टि तभी करें जब आपने इसे खुद ले जाया हो",
+  "settings.access.confirm": "पुष्टि करें",
+  "settings.access.confirmNamed": "{path} पर {name} की फिर से पुष्टि करें",
   "settings.model.advancedHint": "संदर्भ की सीमाएँ, लोकल मॉडल",
   "settings.permissions.subject.prepNotes": "“Prep:” शीर्षक वाले नोट्स (मीटिंग की तैयारी)",
   "settings.permissions.specificConnectors":
@@ -668,7 +669,10 @@ export const settingsRest: Partial<Catalogue> = {
     "काम करते समय {persona} का सोच-विचार दिखाता है। कभी सेव नहीं होता।",
   "settings.connectors.page.onHost": "{host} पर",
   "settings.connectors.page.row.onHost": "{host} पर",
+  "settings.connectors.page.row.macOnly": "केवल Mac होस्ट पर",
   "settings.computerUse.remote": "कंप्यूटर उपयोग {host} पर काम करता है। वहीं से पूछें, या ब्राउज़र उपयोग करें।",
+  "settings.computerUse.remoteLinux":
+    "कंप्यूटर उपयोग {host} की निजी स्क्रीन पर चलता है। देखने वाले पैनल से इसे देखें और नियंत्रण लें।",
   "settings.gateways.title": "इस कंप्यूटर पर Gateway",
   "settings.gateways.description":
     "किसी दूसरे कंप्यूटर के Gateway के साथ, जैसे घर के आपके Mac के साथ, इस कंप्यूटर से Psyche उपयोग करें। एक समय में एक ही Gateway सक्रिय होता है, और बदलने पर Psyche रीस्टार्ट होता है।",
@@ -901,6 +905,65 @@ export const settingsRest: Partial<Catalogue> = {
     "कंप्यूटर नेटवर्क पर जो घोषित करता है वह सिर्फ़ एक दावा है। पेयरिंग स्क्रीन उसकी कुंजी दिखाती है: स्वीकृत करने से पहले उसे होस्ट की कुंजी से मिलाएँ।",
   "settings.gateways.discoverAdd": "{name} जोड़ें",
   "settings.gateways.discoverSaved": "सेव किया गया",
+  "settings.remoteSetup.title": "रिमोट सर्वर सेट अप करें",
+  "settings.remoteSetup.open": "रिमोट सर्वर सेट अप करें",
+  "settings.remoteSetup.intro":
+    "इस नेटवर्क के किसी Linux कंप्यूटर पर psyche-server इंस्टॉल करें। वह एक सेटअप कोड दिखाता है: उसे यहाँ लिखें, और यह कंप्यूटर सर्वर का एडमिन बन जाएगा।",
+  "settings.remoteSetup.lookFailed": "नेटवर्क पर खोज नहीं हो सकी। इसके बजाय सर्वर का पता लिखें।",
+  "settings.remoteSetup.noneWaiting":
+    "इस नेटवर्क पर सेटअप का इंतज़ार करता कोई सर्वर नहीं मिला। इसके बजाय उसका पता लिखें।",
+  "settings.remoteSetup.waiting": "सेटअप का इंतज़ार",
+  "settings.remoteSetup.pick": "सेट अप करें",
+  "settings.remoteSetup.pickNamed": "{name} सेट अप करें",
+  "settings.remoteSetup.alreadySetUp": "पहले से सेट अप है। उस सर्वर के पेयरिंग लिंक से इसे जोड़ें।",
+  "settings.remoteSetup.addressLabel": "सर्वर का पता",
+  "settings.remoteSetup.addressPlaceholder": "192.168.1.20 या server.local",
+  "settings.remoteSetup.addressHint":
+    "इस नेटवर्क का कोई पता। जब तक आप दूसरा पोर्ट न लिखें, Psyche पोर्ट 7979 इस्तेमाल करता है।",
+  "settings.remoteSetup.next": "आगे",
+  "settings.remoteSetup.codeTitle": "{name} का सेटअप कोड",
+  "settings.remoteSetup.codeLabel": "सेटअप कोड",
+  "settings.remoteSetup.codePlaceholder": "7K3QM-XR2TD",
+  "settings.remoteSetup.codeHint":
+    "psyche-server इंस्टॉल होने पर सर्वर ने इसे दिखाया था। यह 24 घंटे में एक बार काम करता है। नए कोड के लिए सर्वर पर psyche setup code चलाएँ।",
+  "settings.remoteSetup.checking": "कोड जाँचा जा रहा है…",
+  "settings.remoteSetup.submit": "सर्वर सेट अप करें",
+  "settings.remoteSetup.back": "वापस",
+  "settings.remoteSetup.doneTitle": "{name} सेट अप हो गया",
+  "settings.remoteSetup.doneBody":
+    "अब यह कंप्यूटर इसका एडमिन है। वहाँ अपने एजेंट का नाम रखने और मॉडल चुनने के लिए इस पर स्विच करें।",
+  "settings.remoteSetup.switch": "{name} पर स्विच करें",
+  "settings.remoteSetup.notNow": "अभी नहीं",
+  "settings.remoteSetup.keepLan": "इस सर्वर को मेरे नेटवर्क पर पहुँचने लायक रखें",
+  "settings.remoteSetup.keepLanHint":
+    "इस नेटवर्क के कंप्यूटर सर्वर तक पहुँचकर पेयर करने को कह सकते हैं। हर एक को फिर भी आपकी मंज़ूरी चाहिए।",
+  "settings.remoteSetup.keepLanOffHint":
+    "सेटअप पूरा होने पर सर्वर इस नेटवर्क पर सुनना बंद कर देगा और यह कंप्यूटर डिस्कनेक्ट हो जाएगा। इसे तभी बंद करें जब आप सर्वर तक किसी और तरीके से पहुँचते हों, जैसे Tailscale।",
+  "settings.remoteSetup.firstRunHint": "किसी सर्वर पर Psyche इंस्टॉल किया है? उसे यहीं से सेट अप करें।",
+  "settings.remoteSetup.connect": "Psyche सर्वर से जुड़ें",
+  "settings.remoteSetup.problem.wrong_code":
+    "{count, plural, one {यह कोड सही नहीं है। # और कोशिश, फिर सर्वर आपको इंतज़ार कराएगा।} other {यह कोड सही नहीं है। # और कोशिशें, फिर सर्वर आपको इंतज़ार कराएगा।}}",
+  "settings.remoteSetup.problem.wrong_code_wait":
+    "यह कोड सही नहीं है। एक मिनट रुकें, सर्वर पर कोड जाँचें और फिर कोशिश करें।",
+  "settings.remoteSetup.problem.too_many_attempts":
+    "बहुत ज़्यादा गलत कोड। {seconds, plural, one {# सेकंड} other {# सेकंड}} बाद फिर कोशिश करें।",
+  "settings.remoteSetup.problem.bad_code": "सेटअप कोड में 10 अक्षर और अंक होते हैं, जैसे 7K3QM-XR2TD।",
+  "settings.remoteSetup.problem.code_expired":
+    "यह कोड एक्सपायर हो गया है। नए कोड के लिए सर्वर पर psyche setup code चलाएँ।",
+  "settings.remoteSetup.problem.not_claimable":
+    "यह सर्वर पहले से सेट अप है। इसके बजाय सर्वर के पेयरिंग लिंक से इसे जोड़ें।",
+  "settings.remoteSetup.problem.unreachable":
+    "उस पते पर कोई सर्वर नहीं मिला। जाँचें कि वह चालू है और इसी नेटवर्क पर है।",
+  "settings.remoteSetup.problem.cert_mismatch":
+    "सर्वर का सर्टिफ़िकेट उसके बताए सर्टिफ़िकेट से मेल नहीं खाया, इसलिए Psyche रुक गया। पता जाँचें और फिर कोशिश करें।",
+  "settings.remoteSetup.problem.server_unproven":
+    "सर्वर ने साबित नहीं किया कि वह कोड जानता है, इसलिए Psyche ने उस पर भरोसा नहीं किया। पता और कोड जाँचें।",
+  "settings.remoteSetup.problem.maybe_claimed":
+    "हो सकता है सर्वर पहले ही इस Mac के साथ सेट हो चुका हो। पेयरिंग लिंक से कनेक्ट करें या सर्वर पर `psyche devices link` चलाएँ।",
+  "settings.remoteSetup.problem.saved": "यह सर्वर पहले से सेव है। ऊपर की सूची में इस पर स्विच करें।",
+  "settings.remoteSetup.problem.not_lan":
+    "इस नेटवर्क का कोई पता लिखें, जैसे 192.168.1.20 या server.local।",
+  "settings.remoteSetup.problem.failed": "सर्वर सेट अप नहीं हो सका। कुछ नहीं बदला।",
   "settings.devices.gatewayKey": "इस Gateway की कुंजी {fingerprint}",
   "settings.devices.fromAddress": "{address} से",
   "settings.devices.fromLan": "{address} से, आपके नेटवर्क पर। नीचे पूरी कुंजी जाँचें।",

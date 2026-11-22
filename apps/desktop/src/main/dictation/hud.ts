@@ -89,6 +89,7 @@ export class HudWindow implements DictationHud, DictationCapture {
         webSecurity: true,
         spellcheck: false,
         preload: this.#o.preloadPath,
+        // Throttled while hidden (see #throttle): the window is off screen between sessions.
         backgroundThrottling: false,
         autoplayPolicy: "no-user-gesture-required",
       },
@@ -111,8 +112,27 @@ export class HudWindow implements DictationHud, DictationCapture {
       if (this.#win === win) this.#link.reset();
     });
     this.#win = win;
+    // Created hidden: idle timers stay throttled until the HUD is shown or the mic is opened.
+    win.webContents.setBackgroundThrottling(true);
     this.#ready = win.loadURL(this.#o.url(HUD_ROUTE)).catch(() => undefined);
     return this.#ready;
+  }
+
+  /**
+   * Unthrottled while shown or while the microphone is open: the chunks of a hidden, capturing
+   * HUD must keep flowing. Throttled again only once the HUD is hidden and no capture is running.
+   */
+  #throttle(allowed: boolean): void {
+    const win = this.#win;
+    if (!win || win.isDestroyed() || win.webContents.isDestroyed()) return;
+    win.webContents.setBackgroundThrottling(allowed);
+  }
+
+  /** Throttles a hidden HUD once no capture is running; a no-op while one is. */
+  #settleThrottle(): void {
+    const win = this.#win;
+    if (this.#link.capturing || !win || win.isDestroyed() || win.isVisible()) return;
+    this.#throttle(true);
   }
 
   show(state: HudState): void {
@@ -129,6 +149,7 @@ export class HudWindow implements DictationHud, DictationCapture {
           width: WIDTH,
           height: HEIGHT,
         });
+        this.#throttle(false);
         win.showInactive();
       }
     });
@@ -136,20 +157,24 @@ export class HudWindow implements DictationHud, DictationCapture {
 
   hide(): void {
     // A hidden HUD never keeps the microphone (the controller stops first; this is the backstop).
-    if (this.#link.capturing) void this.#link.stop();
+    if (this.#link.capturing) void this.#link.stop().finally(() => this.#settleThrottle());
     const win = this.#win;
     if (!win || win.isDestroyed()) return;
     win.webContents.send(IPC.dictationHudState, null);
     win.hide();
+    this.#settleThrottle();
   }
 
   async start(): Promise<void> {
     await this.warm();
+    // The microphone must keep running while the HUD is hidden, so no throttling for a capture.
+    this.#throttle(false);
     await this.#link.start();
   }
 
-  stop(): Promise<void> {
-    return this.#link.stop();
+  async stop(): Promise<void> {
+    await this.#link.stop();
+    this.#settleThrottle();
   }
 
   destroy(): void {

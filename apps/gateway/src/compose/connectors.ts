@@ -48,19 +48,23 @@ import {
   type CredentialBroker,
   type CredentialRevokedEvent,
   isMethodName,
+  type NoticeMessage,
   PsycheError,
   type ToolRegistration,
 } from "@psyche/protocol";
 import { hostWords } from "@psyche/protocol/host-words";
 import { VaultTokenVault } from "@psyche/vault";
 import type { Call, HandlerDef } from "../context.ts";
+import { sealedConnectorStore } from "../security/sealed-stores.ts";
+import { stateSealFor } from "../security/state-seal.ts";
 import type { Gateway } from "../server.ts";
 import { createChangeRecorder } from "./changes.ts";
 import { connectorMatrixSync } from "./connector-matrix.ts";
 import { fetchLimit, taskOrigins } from "./fetch-origins.ts";
+import { googleClientStore } from "./google-client.ts";
 import { indexedConnectorLibrary } from "./library.ts";
 import { type MailCredentials, mailCredentials } from "./mail-credentials.ts";
-import { protectedRoots } from "./protected-paths.ts";
+import { protectedRoots, writeProtectionFor } from "./protected-paths.ts";
 import type { ComposedPart, ComposeServices } from "./services.ts";
 
 /**
@@ -69,6 +73,13 @@ import type { ComposedPart, ComposeServices } from "./services.ts";
  * (`services.calls.approvalFor`) reaches the registry's executor wrapper, which re-verifies the
  * approval binding right before dispatch and records a receipt for every write.
  */
+
+/** The connector store, behind the security-state seal when the connection has one (L1). */
+function connectorStoreFor(db: ComposeServices["db"]): ConnectorStore {
+  const store = new SqliteConnectorStore(db.sqlite);
+  const seal = stateSealFor(db);
+  return seal === undefined ? store : sealedConnectorStore(store, seal);
+}
 
 /** How often connected connectors sync (README: "run by the Gateway every 1–5 min"). */
 export const DEFAULT_SYNC_INTERVAL_MS = 3 * 60_000;
@@ -210,8 +221,15 @@ function defaultFactories(
     // file tools (granted folder and its mode, protected roots, no symlinks).
     obsidianFactory({
       access: async (path, mode) => {
-        assertNotProtected(path, protectedRoots(services.home));
-        assertGranted(path, services.rawBroker.policy.folders ?? [], mode);
+        assertNotProtected(
+          path,
+          protectedRoots(services.home),
+          [],
+          mode === "write"
+            ? writeProtectionFor(path, services.rawBroker.grantedFolders())
+            : undefined,
+        );
+        assertGranted(path, services.rawBroker.grantedFolders(), mode);
         await assertNoSymlinks(path);
       },
     }),
@@ -310,7 +328,9 @@ export function composeConnectors(
   const registry: ConnectorRegistry = new ConnectorRegistry({
     factories,
     extraCatalogue: setup.extraCatalogue ?? [...REMOTE_MCP_PRESETS, ...COMING_SOON],
-    store: setup.store ?? new SqliteConnectorStore(services.db.sqlite),
+    // L1: connector rows (scope mode, action matrix) are sealed: checked first, and while
+    // untrusted one the Gateway cannot vouch for is not loaded or run.
+    store: setup.store ?? connectorStoreFor(services.db),
     context: {
       clock: services.clock,
       fetch: setup.fetch ?? ((input, init) => fetch(input, init)),
@@ -322,6 +342,7 @@ export function composeConnectors(
     broker: services.broker,
     approvalFor: (callId) => services.calls.approvalFor(callId),
     authorityFor: (callId) => services.calls.authorityFor(callId),
+    taskFor: (callId) => services.calls.get(callId)?.taskId,
     // The owner's confirmed opt-ins, as the broker holds them (security §3.12).
     floorLifted: (id, action) => floorLifted(services.rawBroker.policy.liftedFloors?.[id], action),
     onEvent: (event) => {
@@ -341,9 +362,24 @@ export function composeConnectors(
   }
   // #505: connect returns at once; an OAuth sign-in comes back pending with its consent page and
   // finishes as connectors.updated. The UI never shows Connected before tokens are stored.
-  const googleDefaults = setup.google ?? {};
-  const googleConfigured =
-    typeof googleDefaults.clientId === "string" && googleDefaults.clientId !== "";
+  const googleClient = googleClientStore(
+    services,
+    setup.google ?? {},
+    async (call, kind, data) => {
+      await services.audit
+        .append({
+          kind,
+          actor: { type: "device", deviceId: call.identity.deviceId },
+          data: data as never,
+        })
+        .catch(() => undefined);
+    },
+    async () =>
+      (await registry.list())
+        .filter((r) => r.type === "google" && r.status !== "disconnected")
+        .map((r) => (typeof r.config.clientId === "string" ? r.config.clientId : undefined)),
+  );
+  Object.assign(handlers, googleClient.handlers);
   handlers["connectors.connect"] = {
     run: async (_call: Call, params: never) => {
       const p = (params ?? {}) as {
@@ -355,17 +391,16 @@ export function composeConnectors(
       };
       let config = p.config ?? {};
       if (p.catalogueId === "google") {
+        const defaults = googleClient.resolve();
         config = {
-          ...(googleDefaults.clientId === undefined ? {} : { clientId: googleDefaults.clientId }),
-          ...(googleDefaults.clientSecret === undefined
-            ? {}
-            : { clientSecret: googleDefaults.clientSecret }),
+          ...(defaults.clientId === undefined ? {} : { clientId: defaults.clientId }),
+          ...(defaults.clientSecret === undefined ? {} : { clientSecret: defaults.clientSecret }),
           ...config,
         };
         if (typeof config.clientId !== "string" || config.clientId === "") {
           throw new PsycheError(
             "unavailable",
-            "Google is not set up on this Gateway: add your OAuth client id (docs/guides/connectors-google.md)",
+            "Google is not set up yet: paste your OAuth client id in Settings → Connectors (docs/guides/connectors-google.md)",
             { details: { reason: "not_configured", guide: "docs/guides/connectors-google.md" } },
           );
         }
@@ -392,7 +427,7 @@ export function composeConnectors(
         .map((e) => ({
           ...e,
           available: e.available && implemented.has(e.id),
-          ...(e.id === "google" ? { configured: googleConfigured } : {}),
+          ...(e.id === "google" ? { configured: googleClient.status().configured } : {}),
         })),
     }),
   };
@@ -733,6 +768,11 @@ function onConnectorEvent(services: ComposeServices, event: ConnectorEvent): voi
       notify(services, {
         title: "A connection changed",
         body: invalidatedCopy(event.reason),
+        message: {
+          titleKey: "notice.connector.changed.title",
+          bodyKey: "notice.connector.changed.body",
+          params: { reason: event.reason },
+        },
         dedupeKey: `connector:${event.connectorId}:invalidated:${event.reason}`,
       });
       return;
@@ -746,6 +786,10 @@ function onConnectorEvent(services: ComposeServices, event: ConnectorEvent): voi
         notify(services, {
           title: "Reconnect needed",
           body: "A connector lost access and needs you to sign in again.",
+          message: {
+            titleKey: "notice.connector.reconnect.title",
+            bodyKey: "notice.connector.reconnect.body",
+          },
           dedupeKey: `connector:${event.connectorId}:needs_auth`,
         });
       }
@@ -785,7 +829,7 @@ function invalidatedCopy(reason: Extract<ConnectorEvent, { type: "invalidated" }
 
 function notify(
   services: ComposeServices,
-  input: { title: string; body: string; dedupeKey: string },
+  input: { title: string; body: string; message: NoticeMessage; dedupeKey: string },
 ): void {
   services.notifier
     .notify({ kind: "system", route: "/settings/connectors", ...input })

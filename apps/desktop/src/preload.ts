@@ -1,4 +1,4 @@
-import { contextBridge, type IpcRendererEvent, ipcRenderer } from "electron";
+import { contextBridge, type IpcRendererEvent, ipcRenderer, webUtils } from "electron";
 import { IPC } from "./lib/ipc.ts";
 
 /**
@@ -164,6 +164,8 @@ const bridge = {
     onPendingLink: (cb: () => void) => listen(IPC.gatewaysLinkOpened, () => cb()),
     discover: () => invoke(IPC.gatewaysDiscover),
     addDiscovered: (id: string) => invoke(IPC.gatewaysAddDiscovered, { id }),
+    claim: (target: { id?: string; address?: string }, code: string) =>
+      invoke(IPC.gatewaysClaim, { ...target, code }),
     rename: (id: string, name: string) => invoke(IPC.gatewaysRename, { id, name }),
     remove: (id: string) => invoke(IPC.gatewaysRemove, { id }),
     switchTo: (id: string, opts?: { stopLocal?: boolean }) =>
@@ -226,6 +228,14 @@ const bridge = {
   },
   dialogs: {
     pickFolder: (opts?: { title?: string }) => invoke(IPC.dialogPickFolder, opts ?? {}),
+    /** A picked or dropped File's real path ("" when it has none). */
+    pathOfFile: (file: File): string => {
+      try {
+        return webUtils.getPathForFile(file);
+      } catch {
+        return "";
+      }
+    },
   },
   /**
    * Voice conversation (V-G): the voice key going down / up from any app, and `lock` / `suspend`
@@ -287,6 +297,11 @@ const bridge = {
     touchIdApprove: (p: { approvalId: string; answerToken: string }) =>
       ipcRenderer.invoke(IPC.touchIdApprove, p) as Promise<Envelope>,
   },
+  /** Linux: approve a card with the owner's password in the system's polkit dialog (main checks the window). */
+  password: {
+    approve: (p: { approvalId: string; answerToken: string }) =>
+      ipcRenderer.invoke(IPC.passwordApprove, p) as Promise<Envelope>,
+  },
   /** Windows: the sandbox PC's one-time setup (elevated service install + guest image download). */
   sandboxPc: {
     getState: () => invoke(IPC.sandboxPcGetState),
@@ -324,6 +339,13 @@ const bridge = {
    */
   sources: {
     open: (docId: string) => ipcRenderer.invoke(IPC.sourceOpen, { docId }) as Promise<Envelope>,
+  },
+  /**
+   * Library → Reveal in Finder for one Library item id (this Mac's Gateway only). Main resolves the
+   * file itself and refuses anything outside the Library: no path travels from the renderer.
+   */
+  library: {
+    reveal: (itemId: string) => invoke(IPC.libraryReveal, { itemId }),
   },
   /** Settings → About (#610): versions, platform, the data folder and the Gateway's origin. */
   app: {

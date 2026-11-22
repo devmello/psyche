@@ -186,7 +186,7 @@ function AccentPicker({
             <RadioPrimitive.Root
               value={p.seed}
               id={`${id}-${p.id}`}
-              className="flex size-8 items-center justify-center rounded-full border border-gray-a4 text-white outline-none transition-shadow focus-visible:ring-3 focus-visible:ring-ring data-checked:ring-2 data-checked:ring-gray-12 data-checked:ring-offset-2 data-checked:ring-offset-background"
+              className="flex size-8 items-center justify-center rounded-full border border-gray-a4 text-white outline-none focus-visible:ring-3 focus-visible:ring-ring data-checked:ring-2 data-checked:ring-gray-12 data-checked:ring-offset-2 data-checked:ring-offset-background"
               style={{ backgroundColor: p.seed }}
             >
               <RadioPrimitive.Indicator>

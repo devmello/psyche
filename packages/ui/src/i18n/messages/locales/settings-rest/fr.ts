@@ -126,6 +126,9 @@ export const settingsRest: Partial<Catalogue> = {
   "settings.key.appearance.openAtLogin": "Ouvrir Psyche à l’ouverture de session",
   "settings.key.browser.useSignedInSessions": "Utiliser mes sessions connectées",
   "settings.key.exec.srtPath": "Emplacement de srt",
+  "settings.key.devices.hostHelper.status": "Vérification de l'assistant Linux",
+  "settings.key.devices.helper.availability": "Connexion de Psyche Helper",
+  "settings.key.devices.hostHelperDeviceId": "Quel Psyche Helper utiliser",
   "settings.key.search.model.engine": "Modèle pour la recherche",
   "settings.key.search.semantic.enabled": "Recherche sémantique (sur l’appareil)",
   "settings.key.search.cards.enabled": "Cartes de contexte pour la recherche",
@@ -429,6 +432,17 @@ export const settingsRest: Partial<Catalogue> = {
   "settings.mcp.tools.off": "Ce serveur est désactivé. Activez-le pour voir ses outils.",
   "settings.mcp.tools.notConnected": "Ce serveur n’est pas connecté et ne liste donc aucun outil.",
   "settings.mcp.tools.none": "Ce serveur n’a aucun outil.",
+  "settings.mcp.money.title": "Paiements",
+  "settings.mcp.money.description":
+    "Un outil qui déplace de l’argent te demande de confirmer le paiement à chaque fois. Indique lesquels des outils de ce serveur le font.",
+  "settings.mcp.money.auto": "Décider d’après le nom de chaque outil",
+  "settings.mcp.money.autoHint":
+    "Psyche devine d’après le nom et la description de l’outil, qu’un serveur peut formuler pour y échapper.",
+  "settings.mcp.money.always": "Chaque outil déplace de l’argent",
+  "settings.mcp.money.alwaysHint": "Chaque appel à ce serveur te demande d’approuver un paiement.",
+  "settings.mcp.money.never": "Aucun outil ne déplace d’argent",
+  "settings.mcp.money.neverHint":
+    "Aucun appel ne demande l’approbation d’un paiement, quel que soit le nom de l’outil. Seulement pour un serveur qui ne peut pas dépenser d’argent.",
   "settings.mcp.secrets.title": "Secrets",
   "settings.mcp.secrets.intro":
     "Clés avec lesquelles ce serveur démarre. Elles restent dans votre coffre ; Psyche indique seulement si chacune est définie.",
@@ -622,44 +636,26 @@ export const settingsRest: Partial<Catalogue> = {
     "Aucun modèle d’embedding n’est disponible, le rappel ne fait donc correspondre que les mots.",
   "settings.data.replayRetentionHint":
     "Les écrans que {persona} a regardés pendant son travail, pour la chronologie. Désactivé, aucun n’est conservé.",
-  "settings.devices.presenceKey.keychain": "Clé Touch ID (trousseau), signalée par l’assistant",
-  "settings.devices.presenceKey.enclaveKeychainAcl":
-    "Clé Touch ID (Secure Enclave, lisible sans invite macOS uniquement par l’assistant Psyche), signalée par l’assistant",
-  "settings.devices.presenceKey.enclaveFile":
-    "Clé Touch ID (fichier Secure Enclave, cette version n’a pas de profil de provisionnement), signalée par l’assistant",
   "settings.devices.presenceKey.unknown": "Clé Touch ID (type non signalé par l’assistant)",
+  "settings.devices.presenceKey.deviceIdentity":
+    "Les paiements utilisent Touch ID ou le mot de passe de votre Mac. Il n’y a rien à configurer.",
   "settings.devices.touchId.none":
     "Pas encore de clé Touch ID. Les cartes qui exigent Touch ID ne peuvent pas être approuvées tant qu’aucune n’est enregistrée.",
   "settings.devices.touchId.bundled": "Le Psyche Helper de cette app affiche la clé",
   "settings.devices.touchId.notBundled":
     "Cet assistant n’est pas celui fourni avec cette app, sa clé ne peut donc pas être enregistrée ici.",
-  "settings.devices.touchId.untrusted":
-    "La clé Touch ID du trousseau n’a pas été utilisée, car rien ne prouve qu’elle appartient à l’assistant Psyche. Une cause bénigne : Psyche a été déplacé ou réinstallé ailleurs, remettez-le dans /Applications et rouvrez-le. Sinon, quittez d’abord l’assistant Psyche, lancez /Applications/Psyche.app/Contents/Resources/PsycheHelper.app/Contents/MacOS/psyche-helper --reset-presence-key dans le Terminal, puis enregistrez la nouvelle clé.",
-  "settings.devices.touchId.accessDenied":
-    "macOS n’a pas autorisé l’assistant Psyche à utiliser sa clé Touch ID du trousseau. Relancez Psyche et choisissez Toujours autoriser seulement si la fenêtre nomme psyche-helper (jamais pour un autre programme).",
-  "settings.devices.touchId.wrongLocation":
-    "L’assistant Psyche n’a pas créé de clé Touch ID, car il s’exécute depuis une image disque, Téléchargements ou un autre dossier. Déplacez Psyche dans /Applications, éjectez toute image disque et ouvrez-le depuis là.",
   "settings.devices.touchId.keyMismatch":
     "L’assistant Psyche de cette app affiche maintenant la clé {shown}, et non celle enregistrée {registered}. Si vous n’avez pas réinitialisé la clé vous-même, considérez cela comme suspect et ne l’enregistrez pas.",
   "settings.devices.touchId.confirmReplace":
     "Cela remplace la clé Touch ID {previous} enregistrée pour ce Mac. Ne la remplacez que si vous avez réinitialisé la clé vous-même.",
   "settings.devices.touchId.confirmReplaceButton": "Remplacer la clé",
-  "settings.devices.touchId.interactionNotAllowed":
-    "Le trousseau ne peut pas demander l’autorisation pour le moment. Déverrouillez le Mac et réessayez.",
-  "settings.devices.touchId.changed":
-    "La clé Touch ID a changé pendant l’exécution de l’assistant Psyche. Quittez l’assistant Psyche et relancez-le.",
-  "settings.devices.touchId.aclUnavailable":
-    "Le trousseau n’a pas conservé la liste d’accès de la clé Touch ID sur ce Mac. Relancez l’assistant Psyche pour réessayer.",
   "settings.devices.touchId.noBundledKey":
     "Le Psyche Helper de cette app n’a pas de clé Touch ID ({reason}).",
   "settings.devices.touchId.register": "Enregistrer cette clé",
   "settings.devices.touchId.remove": "Supprimer la clé",
   "settings.devices.touchId.manualLabel": "ID de la clé",
   "settings.devices.touchId.manualHint":
-    "Exécutez psyche-helper --print-identity sur le Mac et collez la presenceKeyId affichée.",
-  "settings.devices.touchId.allowDevFileKey": "Autoriser une clé Touch ID de développement",
-  "settings.devices.touchId.devFileKey":
-    "Cette version n’a pas de profil de provisionnement, sa clé est donc un fichier Secure Enclave. Toute app exécutée sous votre identité pourrait lui demander de signer derrière sa propre invite Touch ID. Pour le développement uniquement.",
+    "Exécutez psyche-helper --print-identity sur l’ordinateur et collez la presenceKeyId affichée.",
   "settings.files.execHost": "Exécuter des commandes sur ce Mac",
   "settings.files.execHostHint":
     "Permet à {persona} d’exécuter des commandes dans vos dossiers partagés, dans le bac à sable. Les commandes susceptibles de modifier des fichiers demandent d’abord votre accord.",
@@ -681,12 +677,18 @@ export const settingsRest: Partial<Catalogue> = {
     "Rien pour l’instant. Quand {persona} a besoin d’un dossier ou d’une app, il vous le demande dans la discussion, et ce que vous autorisez apparaît ici.",
   "settings.access.scope.always": "Toujours",
   "settings.access.scope.conversation": "Cette discussion",
+  "settings.access.scope.space": "Dans un espace",
   "settings.access.scope.limited": "Pour l’instant",
   "settings.access.used": "utilisé {when}",
+  "settings.access.fileOnly": "Un seul fichier · lecture seule",
   "settings.access.revokeNamed": "Révoquer {name}",
   "settings.access.loadLabel": "ce à quoi Psyche peut accéder",
   "settings.access.loadFailed": "Psyche n’a pas pu charger ce à quoi il peut accéder ({reason}).",
   "settings.access.unchanged": "L’accès est inchangé.",
+  "settings.access.moved":
+    "Pointe désormais vers {path} — ne confirmez que si vous l’avez déplacé vous-même",
+  "settings.access.confirm": "Confirmer",
+  "settings.access.confirmNamed": "Confirmer à nouveau {name} à {path}",
   "settings.model.advancedHint": "Limites de contexte, modèles locaux",
   "settings.permissions.subject.prepNotes": "Notes intitulées « Prep: » (préparation de réunion)",
   "settings.permissions.specificConnectors":
@@ -698,8 +700,11 @@ export const settingsRest: Partial<Catalogue> = {
     "Affiche le raisonnement de {persona} pendant son travail. Jamais enregistré.",
   "settings.connectors.page.onHost": "Sur {host}",
   "settings.connectors.page.row.onHost": "Sur {host}",
+  "settings.connectors.page.row.macOnly": "Uniquement sur un hôte Mac",
   "settings.computerUse.remote":
     "L’utilisation de l’ordinateur fonctionne chez {host}. Demandez depuis là-bas, ou utilisez le navigateur.",
+  "settings.computerUse.remoteLinux":
+    "L’utilisation de l’ordinateur se fait sur l’écran privé de {host}. Suivez-la et prenez la main depuis le panneau d’observation.",
   "settings.gateways.title": "Gateways sur cet ordinateur",
   "settings.gateways.description":
     "Utilisez Psyche depuis cet ordinateur avec la Gateway d’un autre, par exemple votre Mac à la maison. Une seule Gateway est active à la fois, et en changer redémarre Psyche.",
@@ -945,6 +950,70 @@ export const settingsRest: Partial<Catalogue> = {
     "Ce qu’un ordinateur annonce sur le réseau n’est qu’une affirmation. L’écran de jumelage affiche sa clé : comparez-la avec celle de l’hôte avant d’approuver.",
   "settings.gateways.discoverAdd": "Ajouter {name}",
   "settings.gateways.discoverSaved": "Enregistrée",
+  "settings.remoteSetup.title": "Configurer un serveur distant",
+  "settings.remoteSetup.open": "Configurer un serveur distant",
+  "settings.remoteSetup.intro":
+    "Installez psyche-server sur un ordinateur Linux de ce réseau. Il affiche un code de configuration : saisissez-le ici, et cet ordinateur devient l'administrateur du serveur.",
+  "settings.remoteSetup.lookFailed":
+    "Impossible de chercher sur le réseau. Saisissez plutôt l'adresse du serveur.",
+  "settings.remoteSetup.noneWaiting":
+    "Aucun serveur en attente de configuration n'a été trouvé sur ce réseau. Saisissez plutôt son adresse.",
+  "settings.remoteSetup.waiting": "En attente de configuration",
+  "settings.remoteSetup.pick": "Configurer",
+  "settings.remoteSetup.pickNamed": "Configurer {name}",
+  "settings.remoteSetup.alreadySetUp":
+    "Déjà configuré. Ajoutez-le avec un lien d'association depuis ce serveur.",
+  "settings.remoteSetup.addressLabel": "Adresse du serveur",
+  "settings.remoteSetup.addressPlaceholder": "192.168.1.20 ou server.local",
+  "settings.remoteSetup.addressHint":
+    "Une adresse de ce réseau. Psyche utilise le port 7979, sauf si vous en saisissez un autre.",
+  "settings.remoteSetup.next": "Suivant",
+  "settings.remoteSetup.codeTitle": "Code de configuration de {name}",
+  "settings.remoteSetup.codeLabel": "Code de configuration",
+  "settings.remoteSetup.codePlaceholder": "7K3QM-XR2TD",
+  "settings.remoteSetup.codeHint":
+    "Le serveur l'a affiché à l'installation de psyche-server. Il sert une fois, pendant 24 heures. Pour en obtenir un nouveau, lancez psyche setup code sur le serveur.",
+  "settings.remoteSetup.checking": "Vérification du code…",
+  "settings.remoteSetup.submit": "Configurer le serveur",
+  "settings.remoteSetup.back": "Retour",
+  "settings.remoteSetup.doneTitle": "{name} est configuré",
+  "settings.remoteSetup.doneBody":
+    "Cet ordinateur en est maintenant l'administrateur. Passez-y pour nommer votre agent et choisir un modèle.",
+  "settings.remoteSetup.switch": "Passer à {name}",
+  "settings.remoteSetup.notNow": "Plus tard",
+  "settings.remoteSetup.keepLan": "Garder ce serveur joignable sur mon réseau",
+  "settings.remoteSetup.keepLanHint":
+    "Les ordinateurs de ce réseau peuvent joindre le serveur et demander à s'associer. Chacun a toujours besoin de votre accord.",
+  "settings.remoteSetup.keepLanOffHint":
+    "À la fin de la configuration, le serveur n'écoute plus sur ce réseau et cet ordinateur est déconnecté. Désactivez cette option seulement si vous joignez le serveur autrement, par exemple avec Tailscale.",
+  "settings.remoteSetup.firstRunHint":
+    "Vous avez installé Psyche sur un serveur ? Configurez-le plutôt d'ici.",
+  "settings.remoteSetup.connect": "Se connecter à un serveur Psyche",
+  "settings.remoteSetup.problem.wrong_code":
+    "{count, plural, one {Ce code n'est pas le bon. Encore # essai, puis le serveur vous fera attendre.} other {Ce code n'est pas le bon. Encore # essais, puis le serveur vous fera attendre.}}",
+  "settings.remoteSetup.problem.wrong_code_wait":
+    "Ce code n'est pas le bon. Attendez une minute, vérifiez le code sur le serveur et réessayez.",
+  "settings.remoteSetup.problem.too_many_attempts":
+    "Trop de codes erronés. Réessayez dans {seconds, plural, one {# seconde} other {# secondes}}.",
+  "settings.remoteSetup.problem.bad_code":
+    "Un code de configuration compte 10 lettres et chiffres, comme 7K3QM-XR2TD.",
+  "settings.remoteSetup.problem.code_expired":
+    "Ce code a expiré. Lancez psyche setup code sur le serveur pour en obtenir un nouveau.",
+  "settings.remoteSetup.problem.not_claimable":
+    "Ce serveur est déjà configuré. Ajoutez-le plutôt avec un lien d'association depuis le serveur.",
+  "settings.remoteSetup.problem.unreachable":
+    "Aucun serveur n'a répondu à cette adresse. Vérifiez qu'il est allumé et sur ce réseau.",
+  "settings.remoteSetup.problem.cert_mismatch":
+    "Le certificat du serveur ne correspondait pas à celui qu'il a annoncé, donc Psyche s'est arrêté. Vérifiez l'adresse et réessayez.",
+  "settings.remoteSetup.problem.server_unproven":
+    "Le serveur n'a pas prouvé qu'il connaît le code, donc Psyche ne lui fait pas confiance. Vérifiez l'adresse et le code.",
+  "settings.remoteSetup.problem.maybe_claimed":
+    "Le serveur est peut-être déjà configuré avec ce Mac. Connectez-vous avec un lien d'appairage ou exécutez `psyche devices link` sur le serveur.",
+  "settings.remoteSetup.problem.saved":
+    "Ce serveur est déjà enregistré. Passez-y depuis la liste ci-dessus.",
+  "settings.remoteSetup.problem.not_lan":
+    "Saisissez une adresse de ce réseau, comme 192.168.1.20 ou server.local.",
+  "settings.remoteSetup.problem.failed": "Impossible de configurer le serveur. Rien n'a changé.",
   "settings.devices.gatewayKey": "Clé de cette Gateway {fingerprint}",
   "settings.devices.fromAddress": "Depuis {address}",
   "settings.devices.fromLan":

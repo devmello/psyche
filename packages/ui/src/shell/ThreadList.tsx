@@ -18,11 +18,14 @@ import {
   useContext,
   useEffect,
   useId,
+  useMemo,
   useRef,
   useState,
 } from "react";
 import { resultLine } from "../chat/AutomationChat.tsx";
 import { compactWithToast, ThreadContextDialog } from "../chat/context/connected.tsx";
+import { RunningMark } from "../chat/RunningMark.tsx";
+import { currentStepLabels } from "../chat/run-progress.ts";
 import { DelayedSkeletons } from "../components/DelayedSkeleton.tsx";
 import { Button } from "../components/ui/button.tsx";
 import {
@@ -34,7 +37,7 @@ import {
 } from "../components/ui/dropdown-menu.tsx";
 import { Input } from "../components/ui/input.tsx";
 import { Skeleton } from "../components/ui/skeleton.tsx";
-import { compactThread, useStore, useThreads } from "../data/index.ts";
+import { compactThread, useStore, useStoreState, useThreads } from "../data/index.ts";
 import { t } from "../i18n/core.ts";
 import { formatRelative } from "../lib/format.ts";
 import { useNow } from "../lib/use-now.ts";
@@ -90,7 +93,14 @@ function kindLabel(kind: ThreadListEntry["thread"]["kind"]): string | null {
 }
 
 /** The trailing status glyph: waiting on the owner beats running (one glyph per state, §3.6). */
-function StatusGlyph({ entry }: { entry: ThreadListEntry }): ReactElement | null {
+function StatusGlyph({
+  entry,
+  step,
+}: {
+  entry: ThreadListEntry;
+  /** The plain-language step the run is on, when the store knows it. */
+  step?: string | null | undefined;
+}): ReactElement | null {
   const a = entry.activity;
   if (a.awaitingApproval + a.awaitingInput > 0) {
     return (
@@ -105,11 +115,13 @@ function StatusGlyph({ entry }: { entry: ThreadListEntry }): ReactElement | null
   if (a.running > 0)
     return (
       <span
-        className="size-2 shrink-0 rounded-full bg-accent-9"
-        title={t("shell.threads.running")}
+        className="flex shrink-0 items-center"
+        title={step ? t("shell.threads.nowOn", { step }) : t("shell.threads.running")}
         data-testid="thread-status"
         data-status="running"
-      />
+      >
+        <RunningMark />
+      </span>
     );
   return null;
 }
@@ -135,6 +147,8 @@ export interface ThreadRowProps {
   onContextLimits?: () => void;
   /** Compacts this chat's earlier turns now. */
   onCompact?: () => void;
+  /** What the running run is doing, in plain words (the status mark's tooltip). */
+  step?: string | null;
 }
 
 /**
@@ -154,6 +168,7 @@ export function ThreadRow({
   onExport,
   onContextLimits,
   onCompact,
+  step,
 }: ThreadRowProps): ReactElement {
   const th = entry.thread;
   const [editing, setEditing] = useState(false);
@@ -161,7 +176,7 @@ export function ThreadRow({
   const needs = entry.activity.awaitingApproval + entry.activity.awaitingInput;
   const Glyph = KIND_GLYPH[th.kind];
   const glyphLabel = kindLabel(th.kind);
-  const status = <StatusGlyph entry={entry} />;
+  const status = <StatusGlyph entry={entry} step={step} />;
   const run = entry.automation;
   const lastLine = entry.lastMessage
     ? entry.lastMessage.role === "user"
@@ -221,6 +236,11 @@ export function ThreadRow({
           </span>
           {th.pinned && glyphLabel ? <span className="sr-only">{glyphLabel}</span> : null}
           <span className="min-w-0 flex-1 truncate">{threadTitle(entry)}</span>
+          {th.imported !== undefined ? (
+            <span className="shrink-0 rounded-sm bg-fill-tertiary px-1.5 text-callout text-label-secondary">
+              {t("shell.threads.imported")}
+            </span>
+          ) : null}
           {needs > 0 ? (
             <span className="sr-only">{t("shell.threads.srNeedsYou")}</span>
           ) : entry.activity.running > 0 ? (
@@ -304,7 +324,7 @@ export function ThreadRow({
               ) : null}
             </>
           ) : null}
-          {th.kind !== "main" && (onArchive || onRestore) ? (
+          {th.kind !== "main" && th.imported === undefined && (onArchive || onRestore) ? (
             <>
               <DropdownMenuSeparator />
               {th.archivedAt == null ? (
@@ -333,6 +353,7 @@ export interface ThreadGroupProps {
   activeThreadId: string | null;
   onOpen: (threadId: string) => void;
   onNewSideChat?: () => void;
+  onNewIncognitoChat?: () => void;
   onExport?: (threadId: string, format: "markdown" | "json" | "html") => void;
   now?: number;
   /** Opens the filter field (⌘F inside the sidebar); bumps reveal it again. */
@@ -348,6 +369,7 @@ export function ThreadGroup({
   activeThreadId,
   onOpen,
   onNewSideChat,
+  onNewIncognitoChat,
   onExport,
   now: fixedNow,
   filterToken = 0,
@@ -358,6 +380,9 @@ export function ThreadGroup({
   const now = fixedNow ?? Math.max(tick, Date.now());
   const threads = useThreads();
   const store = useStore();
+  const runs = useStoreState((st) => st.runs);
+  const toolCalls = useStoreState((st) => st.toolCalls);
+  const stepLabels = useMemo(() => currentStepLabels(runs, toolCalls), [runs, toolCalls]);
   const [limitsFor, setLimitsFor] = useState<string | null>(null);
   const [filter, setFilter] = useState("");
   const [filtering, setFiltering] = useState(false);
@@ -379,6 +404,7 @@ export function ThreadGroup({
       entry={e}
       active={e.thread.id === activeThreadId}
       now={now}
+      step={stepLabels[e.thread.id] ?? null}
       onOpen={() => onOpen(e.thread.id)}
       onRename={(title) => void threads.rename(e.thread.id, title)}
       onPin={(p) => void threads.pin(e.thread.id, p)}
@@ -430,6 +456,19 @@ export function ThreadGroup({
             className="text-label-secondary"
           >
             <Plus aria-hidden="true" />
+          </Button>
+        ) : null}
+        {onNewIncognitoChat ? (
+          <Button
+            variant="ghost"
+            size="icon-xs"
+            onClick={onNewIncognitoChat}
+            aria-label={t("shell.threads.newIncognitoChat")}
+            aria-keyshortcuts="Meta+Shift+N"
+            title={t("shell.threads.newIncognitoChat")}
+            className="text-label-secondary"
+          >
+            <EyeOff aria-hidden="true" />
           </Button>
         ) : null}
       </div>

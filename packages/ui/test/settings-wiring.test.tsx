@@ -109,3 +109,34 @@ describe("Controls nothing reads are gone (settings-2026 §6)", () => {
     },
   );
 });
+
+/**
+ * Settings that saved to keys nothing reads are hidden, not shown as if they applied (the
+ * "dead controls" audit). The keys stay stored; only the controls are gone.
+ */
+describe("Settings nothing reads are hidden", () => {
+  const unreadKeys = [
+    "voice.engine",
+    "persona.name",
+    "persona.tagline",
+    "persona.emoji",
+    "persona.creature",
+    "persona.creatureId",
+    "vault.backend",
+    "vault.fillDefault",
+  ];
+
+  it.each([["persona"], ["voice"], ["credentials"]] as const)(
+    "the %s page renders none of them",
+    async (page) => {
+      setup(<SettingsScreen defaultSection={page} />);
+      await screen.findByRole("heading", { level: 2 });
+      await new Promise((r) => setTimeout(r, 300));
+      for (const key of unreadKeys)
+        expect(document.querySelector(`[data-setting-key="${key}"]`), key).toBeNull();
+      expect(within(document.body).queryByText("Speech engine")).toBeNull();
+      expect(within(document.body).queryByText("Describe a change")).toBeNull();
+      expect(within(document.body).queryByText("Where credentials are kept")).toBeNull();
+    },
+  );
+});

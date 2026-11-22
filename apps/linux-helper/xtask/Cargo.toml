@@ -1,0 +1,12 @@
+[package]
+name = "xtask"
+version.workspace = true
+edition.workspace = true
+publish.workspace = true
+
+[dependencies]
+prettyplease = "0.3.0"
+schemars = "0.8"
+serde_json = "1.0.154"
+syn = "3.0.9"
+typify = "0.8.0"

@@ -64,6 +64,7 @@ import {
   ShortcutSheet,
 } from "./components/Overlays.tsx";
 import { PaneArea, type PaneRenderer } from "./components/Panes.tsx";
+import { SecurityStateBanner } from "./components/SecurityStateBanner.tsx";
 import {
   frameKind,
   hasInsetTitleBar,
@@ -239,6 +240,7 @@ export interface ShellSlots {
     threadId: string | null;
     onOpen: (threadId: string) => void;
     onNew: () => void;
+    onNewIncognito: () => void;
   }) => ReactNode;
   /** ⌘K (§5.5); absent keeps the shell's own palette. */
   palette?: (props: PaletteSlotProps) => ReactNode;
@@ -309,6 +311,13 @@ export const openSideChatAction = (threadId: string, title?: string): LayoutActi
 
 /** Layout keys of screens that are not a chat start with this; they are never reported. */
 const VIEW_LAYOUT_PREFIX = "view:";
+
+/** The layout action that shows a Library item in the Files pane's viewer (Quick Look, Open). */
+export const openLibraryItemAction = (item: { path: string }): LayoutAction => ({
+  type: "open",
+  pane: "files",
+  target: `library:${item.path}`,
+});
 
 /** The layout action that shows an artifact in the canvas pane. */
 export const openArtifactAction = (artifactId: string, title?: string): LayoutAction => ({
@@ -631,6 +640,7 @@ function Shell({ layout, slots }: { layout: LayoutStore; slots: ShellSlots }): R
     [store, kitStore, dispatch, openChatId],
   );
   const pickFolder = platform.dialogs?.pickFolder;
+  const pathOfFile = platform.dialogs?.pathOfFile;
   const remoteHost = platform.chrome?.remote?.hostName;
   const gatewaysPort = platform.gateways;
   const kitSlots = useMemo<UiSlots>(
@@ -641,12 +651,22 @@ function Shell({ layout, slots }: { layout: LayoutStore; slots: ShellSlots }): R
       openSideChat,
       renderMcpApp,
       ...(pickFolder === undefined ? {} : { pickFolder }),
+      // Real paths are this Mac's: a client of another computer's Gateway uploads instead.
+      ...(pathOfFile === undefined || platform.chrome?.remote !== undefined ? {} : { pathOfFile }),
       ...(remoteHost === undefined ? {} : { remoteHost }),
       ...(gatewaysPort === undefined ? {} : { gateways: gatewaysPort }),
       openSettings: (section: string) => {
         if (platform.windows?.openSettings) platform.windows.openSettings(section);
         else navigate?.(`/settings/${section}`);
       },
+      openLibraryItem: (item) => dispatch(openLibraryItemAction(item)),
+      // Finder reveals only this Mac's own files: a client of another computer's Gateway has none.
+      ...(platform.app?.revealLibraryItem !== undefined && remoteHost === undefined
+        ? {
+            revealLibraryItem: (item) =>
+              platform.app?.revealLibraryItem?.(item.id) ?? Promise.resolve(),
+          }
+        : {}),
     }),
     [
       navigate,
@@ -654,9 +674,13 @@ function Shell({ layout, slots }: { layout: LayoutStore; slots: ShellSlots }): R
       openInPsyche,
       openSideChat,
       pickFolder,
+      pathOfFile,
+      platform.chrome?.remote,
       remoteHost,
       gatewaysPort,
       platform.windows,
+      platform.app,
+      dispatch,
     ],
   );
 
@@ -686,6 +710,21 @@ function Shell({ layout, slots }: { layout: LayoutStore; slots: ShellSlots }): R
     // receive the same events and must not act on them twice.
     if (platform.kind !== "desktop" || popOutPane || route === "/quick") return;
     const offCmd = store.tap((e) => {
+      // A Task parked on an app with unsaved changes on the virtual screen: show the watch pane.
+      if (e.event === "computerWatch.parked" && threadId) {
+        // A computer's parked card opens that computer's pane; the Host's opens the Host's.
+        const machine = (e.payload as { machine?: unknown } | undefined)?.machine;
+        layout.dispatch(
+          threadId,
+          {
+            type: "open",
+            pane: "computer-watch",
+            ...(typeof machine === "string" ? { target: machine } : {}),
+          },
+          env(),
+        );
+        return;
+      }
       if (e.event !== "view.command" || !threadId) return;
       const out = layout.applyViewCommand(e.payload, threadId, env());
       if (!out.ok) store.toast(t("web.toast.paneFailed", { code: out.error.code }), "warn");
@@ -760,6 +799,8 @@ function Shell({ layout, slots }: { layout: LayoutStore; slots: ShellSlots }): R
         thread.id,
         { permissionMode },
         t("web.toast.permissionModeUnsupported"),
+        // A refused Auto offers the model picker: "Switch model" on the toast.
+        { onSwitchModel: () => setOverlay("model") },
       );
     },
     [thread, store],
@@ -839,6 +880,9 @@ function Shell({ layout, slots }: { layout: LayoutStore; slots: ShellSlots }): R
           return true;
         case "newSideChat":
           newSideChat();
+          return true;
+        case "newIncognitoChat":
+          newIncognitoChat();
           return true;
         case "toggleThreadList":
           // ⌘B: the sidebar, or the threads drawer when compact (redesign §4).
@@ -930,6 +974,7 @@ function Shell({ layout, slots }: { layout: LayoutStore; slots: ShellSlots }): R
       compact,
       toggleSidebar,
       toggleSidebarMode,
+      newIncognitoChat,
     ],
   );
 
@@ -1065,9 +1110,14 @@ function Shell({ layout, slots }: { layout: LayoutStore; slots: ShellSlots }): R
   const openThread = (id: string) => navigate(`/chat/${id}`);
   const threadsFor = (onOpen: (id: string) => void) =>
     slots.threadList ? (
-      slots.threadList({ threadId, onOpen, onNew: newSideChat })
+      slots.threadList({ threadId, onOpen, onNew: newSideChat, onNewIncognito: newIncognitoChat })
     ) : (
-      <ThreadList currentThreadId={threadId} onOpen={onOpen} onNew={newSideChat} />
+      <ThreadList
+        currentThreadId={threadId}
+        onOpen={onOpen}
+        onNew={newSideChat}
+        onNewIncognito={newIncognitoChat}
+      />
     );
   const sidebar = slots.sidebar ? (
     slots.sidebar({
@@ -1120,6 +1170,7 @@ function Shell({ layout, slots }: { layout: LayoutStore; slots: ShellSlots }): R
         thread={thread}
         onModeCycle={cycleMode}
         autoBlockedBy={autoBlockedBy}
+        listedModels={listedModels}
         onModelPicker={() => setOverlay("model")}
         focusToken={focusToken}
       />
@@ -1236,6 +1287,8 @@ function Shell({ layout, slots }: { layout: LayoutStore; slots: ShellSlots }): R
                   ? { onShowLogs: () => void platform.gateway.showLogs?.() }
                   : {})}
               />
+              {/* Security changes made outside Psyche, on every screen (security-state-integrity §7.3). */}
+              {status.phase === "paired" ? <SecurityStateBanner platform={platform} /> : null}
               <RouteTransition>
                 {onChat ? (
                   // Keyed by the route's thread: `/chat` stays one view while the main chat loads.

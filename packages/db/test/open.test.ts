@@ -47,6 +47,11 @@ const TABLES = [
   "policy_rules",
   "receipts",
   "runs",
+  "security_alerts",
+  "security_ledger",
+  "security_recoveries",
+  "security_requests",
+  "security_seal",
   "settings",
   "skills",
   "task_actions",
@@ -111,6 +116,7 @@ describe("openDb", () => {
     expect(db.path).toBe(file);
     expect(db.sqlite.pragma("journal_mode", { simple: true })).toBe("wal");
     expect(db.sqlite.pragma("synchronous", { simple: true })).toBe(1); // NORMAL
+    expect(db.sqlite.pragma("secure_delete", { simple: true })).toBe(2); // FAST
     db.sqlite.prepare("INSERT INTO settings VALUES ('a', '1', 'x', 'x')").run();
     if (process.platform !== "win32") {
       expect(statSync(file).mode & 0o777).toBe(0o600);

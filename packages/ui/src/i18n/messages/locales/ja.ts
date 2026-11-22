@@ -10,16 +10,24 @@ import { capabilitiesRest } from "./capabilities-rest/ja.ts";
 import { charts } from "./charts/ja.ts";
 import { chatRest } from "./chat-rest/ja.ts";
 import { commonRest } from "./common-rest/ja.ts";
+import { computerWatch } from "./computer-watch/ja.ts";
 import { dailyRest } from "./daily-rest/ja.ts";
 import { deckRest } from "./deck-rest/ja.ts";
 import { designRest } from "./design-rest/ja.ts";
 import { everythingRest } from "./everything-rest/ja.ts";
 import { final202611 } from "./final-2026-11/ja.ts";
 import { galleryRest } from "./gallery-rest/ja.ts";
+import { helperCheck } from "./helper-check/ja.ts";
+import { helperOffline } from "./helper-offline/ja.ts";
 import { homeRest } from "./home-rest/ja.ts";
+import { keepAwake } from "./keep-awake/ja.ts";
 import { links } from "./links/ja.ts";
+import { linuxAccess } from "./linux-access/ja.ts";
+import { machines } from "./machines/ja.ts";
+import { mailFollowups } from "./mail-followups/ja.ts";
 import { mailMeetings } from "./mail-meetings/ja.ts";
 import { meetingRecordRest } from "./meetingRecord-rest/ja.ts";
+import { memoryMap } from "./memory-map/ja.ts";
 import { memoryRest } from "./memory-rest/ja.ts";
 import { memoryAdvancedRest } from "./memoryAdvanced-rest/ja.ts";
 import { memoryBasicsRest } from "./memoryBasics-rest/ja.ts";
@@ -27,27 +35,35 @@ import { memoryPrivacyRest } from "./memoryPrivacy-rest/ja.ts";
 import { memoryReviewRest } from "./memoryReview-rest/ja.ts";
 import { memorySurfacesRest } from "./memorySurfaces-rest/ja.ts";
 import { memoryWorkRest } from "./memoryWork-rest/ja.ts";
+import { notices } from "./notices/ja.ts";
 import { nudgesRest } from "./nudges-rest/ja.ts";
 import { onboardingRest } from "./onboarding-rest/ja.ts";
 import { overview } from "./overview/ja.ts";
 import { overviewGrowth } from "./overview-growth/ja.ts";
 import { overviewShared } from "./overview-shared/ja.ts";
+import { passwordPresence } from "./password-presence/ja.ts";
 import { peopleRest } from "./people-rest/ja.ts";
 import { personDataRest } from "./personData-rest/ja.ts";
 import { researchRest } from "./research-rest/ja.ts";
+import { scheduledForm } from "./scheduled-form/ja.ts";
 import { scheduledRest } from "./scheduled-rest/ja.ts";
 import { screensRest } from "./screens-rest/ja.ts";
+import { securityState } from "./security-state/ja.ts";
+import { separateDesktop } from "./separate-desktop/ja.ts";
 import { settingsRest } from "./settings-rest/ja.ts";
 import { shellRest } from "./shell-rest/ja.ts";
+import { spaces } from "./spaces/ja.ts";
 import { specialistsRest } from "./specialists-rest/ja.ts";
 import { webRest } from "./web-rest/ja.ts";
 import { widgetsRest } from "./widgets-rest/ja.ts";
+import { windowsPlatform202611 } from "./windows-platform-2026-11/ja.ts";
 import { workRest } from "./work-rest/ja.ts";
 import { workflows } from "./workflows/ja.ts";
 
 /** Japanese catalogue (ja). Same ids as `en`; missing ids fall back to English. */
 export const ja: Partial<Catalogue> = {
   // mail and meetings: settings and onboarding (docs/workflows/mail-and-meetings-2026.md §7.3, §7.5)
+  ...memoryMap,
   ...mailMeetings,
   // link menu and the "Open links in" setting
   ...links,
@@ -66,6 +82,7 @@ export const ja: Partial<Catalogue> = {
   ...widgetsRest,
   ...automationChatRest,
   ...scheduledRest,
+  ...scheduledForm,
   ...researchRest,
   ...homeRest,
   ...meetingRecordRest,
@@ -148,8 +165,24 @@ export const ja: Partial<Catalogue> = {
   "errors.rate_limited": "リクエストが多すぎます。しばらく待ってからもう一度お試しください。",
   "errors.timeout": "Psycheの応答に時間がかかりすぎました。",
   "errors.cancelled": "キャンセルされました。",
+  "errors.reason.vault_removal_pending":
+    "古いサーバーの削除を完了するには、保管庫のロックを解除してから、もう一度お試しください。",
+  "errors.reason.connected_with_other_client":
+    "Google は別のクライアントで接続されています。先に Google を切断してから、クライアントを変更してください。",
+  "errors.reason.secret_required":
+    "別のクライアントには、そのクライアント専用のシークレットが必要です。",
   "errors.reason.updating":
     "Psycheはアップデートをインストールするため、まもなく再起動します。しばらくしてからもう一度お試しください。",
+  "errors.reason.passkey_required":
+    "この Psyche で支払いを承認するには、パスキーを設定してください。",
+  "errors.reason.awaiting_owner":
+    "アプリに未保存の変更があります。どうするかをあなたが決めるまで Psyche は待ちます。",
+  "errors.reason.checkout_needs_desktop":
+    "Psyche のブラウザで支払うには、Psyche デスクトップアプリをこのホストに接続する必要があります。",
+  "errors.reason.no_chromium":
+    "Psyche のブラウザにはこのホストの Chromium が必要です。インストールするか、PSYCHE_CHROMIUM を設定してください。",
+  "errors.reason.chromium_sandbox":
+    "このホストでは Chromium のサンドボックスを起動できないため、Psyche のブラウザは無効です。Chromium にユーザー名前空間の使用を許可してください（AppArmor プロファイル）。",
   "errors.unavailable": "Psycheは現在その操作を実行できません。",
   "errors.approval_required": "先にあなたの承認が必要です。",
   "errors.approval_expired": "承認の期限が切れました。もう一度依頼してください。",
@@ -289,6 +322,8 @@ export const ja: Partial<Catalogue> = {
   "chat.runFailed.details": "詳細",
   "chat.toolbar.label": "チャットツールバー",
   "chat.toolbar.incognito": "シークレット",
+  "chat.incognito.notice":
+    "メモリー、検索、アクティビティには使われません。24 時間後に期限切れになります。",
   "chat.toolbar.view": "トランスクリプト表示",
   "chat.toolbar.view.status": "ステータスのみ",
   "chat.toolbar.view.actions": "アクション",
@@ -319,6 +354,11 @@ export const ja: Partial<Catalogue> = {
   "blocks.card.unknown": "Psyche はこの種類の項目をまだ表示できません（{type}）。",
   "specialists.block.label": "{role}の結果: {title}",
   "blocks.toolView.show": "結果を表示",
+  "blocks.toolRun.shareFolder": "このフォルダを共有（読み取り専用）",
+  "blocks.toolRun.shareWaiting": "カードでの回答を待っています",
+  "blocks.toolRun.shared": "共有しました。続けるにはもう一度依頼してください",
+  "blocks.toolRun.shareFailed":
+    "このフォルダの共有を依頼できませんでした。もう一度お試しください。",
   "blocks.toolView.loading": "結果を読み込み中…",
   "blocks.toolView.none": "この操作の結果は保存されていません。",
   "blocks.toolView.more": "ほか {count} 件",
@@ -340,6 +380,7 @@ export const ja: Partial<Catalogue> = {
   "blocks.details.to": "宛先",
   "blocks.details.exactRecipient": "（厳密な宛先）",
   "blocks.details.cc": "Cc",
+  "blocks.details.bcc": "Bcc",
   "blocks.details.subject": "件名",
   "blocks.details.body": "本文",
   "blocks.details.view": "表示",
@@ -379,9 +420,15 @@ export const ja: Partial<Catalogue> = {
   "blocks.details.binding": "バインド",
   "blocks.approval.scope.once": "1回だけ許可",
   "blocks.approval.scope.task": "このタスクで許可",
+  "blocks.approval.scope.trustSite": "このサイトでは常に許可（{site}）",
+  "blocks.approval.scope.trustSiteSubdomains": "このサイトとそのサブドメインで常に許可（{site}）",
+  "blocks.approval.scope.hostProgram": "{folder} で {program} を常に許可",
+  "blocks.approval.scope.hostProgramExact": "{folder} で {program} をこの引数のときだけ常に許可",
   "blocks.approval.scope.site": "このサイトで許可",
   "blocks.approval.scope.session": "このセッションで許可",
   "blocks.approval.scope.always": "常に許可",
+  "blocks.approval.alwaysRecipient": "{recipients} への送信を常に許可",
+  "blocks.approval.alwaysRecipientFrom": "{account} から {recipients} への送信を常に許可",
   "blocks.approval.scopeGranted.once": "1回だけ許可",
   "blocks.approval.scopeGranted.task": "このタスクで許可",
   "blocks.approval.scopeGranted.site": "このサイトで許可",
@@ -473,6 +520,7 @@ export const ja: Partial<Catalogue> = {
   "blocks.artifact.bytes": "{size} B",
   "blocks.artifact.kilobytes": "{size} KB",
   "blocks.artifact.megabytes": "{size} MB",
+  "blocks.artifact.gigabytes": "{size} GB",
   "blocks.task.status.queued": "待機中",
   "blocks.task.status.running": "実行中",
   "blocks.task.status.awaiting_input": "回答待ち",
@@ -547,6 +595,12 @@ export const ja: Partial<Catalogue> = {
   "context.marker.readsInstead": "代わりにエージェントが読む要約：",
   "context.marker.empty": "残す価値のある内容は見つかりませんでした。",
   "context.marker.showReplaced": "置き換えられた内容を表示",
+  "context.marker.removePin": "削除",
+  "context.marker.removePinLabel": "この常設の指示を削除: {text}",
+  "context.marker.pinRemoved": "常設の指示を削除しました。",
+  "context.marker.pinRemoveFailed": "削除できませんでした: {reason}",
+  "context.marker.droppedPins":
+    "{count, plural, other {古い常設の指示 # 件を、新しい指示の余地を作るために破棄しました。}}",
   "context.marker.replacedList": "置き換えられたターン",
   "context.marker.notLoaded": "置き換えられたターンはここには読み込まれていません。",
   "context.marker.speaker": "{name}：",
@@ -662,6 +716,25 @@ export const ja: Partial<Catalogue> = {
   "agent.approvals.anAutomation": "オートメーション",
   "agent.approvals.wantedTo": "の要求：{what}",
   "agent.approvals.openTask": "タスクを開く",
+  "agent.approvals.deferredHint":
+    "自動化が保留にした操作です。承認すると、その操作を行うために自動化がもう一度実行されます。期限切れの操作が遅れて実行されることはありません。",
+  "agent.approvals.approve": "承認",
+  "agent.approvals.decline": "却下",
+  "agent.approvals.approveRoutine": "定型の操作をすべて承認（{n, number}）",
+  "agent.approvals.riskRoutine": "定型",
+  "agent.approvals.riskSensitive": "機密性あり",
+  "agent.approvals.setAside": "{when}に保留",
+  "agent.approvals.answerElsewhere": "送信された場所で回答",
+  "agent.approvals.setAsideNote":
+    "自動化がこの操作を保留にして先に進みました。承認すると再実行され、実行がまったく同じ操作に到達した場合にだけ行われます。",
+  "agent.approvals.setAsideApproved":
+    "承認しました。自動化が再実行され、まったく同じ操作に到達した場合にだけこれを行います。到達しなかった場合は通知が届きます。",
+  "agent.approvals.resuming":
+    "承認しました。{names}を再実行しています。各操作は実行が到達した場合にだけ行われ、到達しなかった場合は通知が届きます。",
+  "agent.approvals.notResumable":
+    "この自動化は再実行できないため、承認しても何も起きません。拒否するか、自動化を自分で実行してください。",
+  "agent.approvals.notRoutine":
+    "この操作には個別の承認が必要です。その操作のカードで承認してください。",
   "agent.approvals.noRecent": "過去7日間に判断はありません。",
   "agent.schedule.once": "{month}{day, number}日（{weekday}）{time}",
   "agent.schedule.every": "{span}ごと",
@@ -727,7 +800,45 @@ export const ja: Partial<Catalogue> = {
   "agent.memory.incognito": "シークレットのサイドチャット",
   "agent.memory.importExport": "読み込み、書き出し、リセット",
   "agent.memory.import": "メモリを読み込む",
+  "agent.memory.importConv.title": "claude.ai または ChatGPT から読み込む",
+  "agent.memory.importConv.note":
+    "読み込んだ会話は読み取り専用です。テキストは信頼できないデータとして扱われ、ピン留めや指示になることはありません。",
+  "agent.memory.importConv.source": "書き出し元",
+  "agent.memory.importConv.claude": "claude.ai",
+  "agent.memory.importConv.chatgpt": "ChatGPT",
+  "agent.memory.importConv.mode": "読み込む内容",
+  "agent.memory.importConv.memoriesOnly": "メモリのみ",
+  "agent.memory.importConv.both": "メモリと会話",
+  "agent.memory.importConv.memoriesFile": "メモリのファイル",
+  "agent.memory.importConv.conversationsFile": "会話のファイル（conversations.json）",
+  "agent.memory.importConv.start": "読み込む",
+  "agent.memory.importConv.working": "読み込み中…",
+  "agent.memory.importConv.cancel": "キャンセル",
+  "agent.memory.importConv.close": "閉じる",
+  "agent.memory.importConv.progressMemories": "メモリを読み込み中…",
+  "agent.memory.importConv.progressConversations": "会話を読み込み中…",
+  "agent.memory.importConv.failed": "このファイルを読み込めませんでした：{reason}",
+  "agent.memory.importConv.done": "読み込みが完了しました。",
+  "agent.memory.importConv.sumMemories": "確認するメモリ：{n}",
+  "agent.memory.importConv.sumThreads": "読み込んだ会話：{n}",
+  "agent.memory.importConv.sumDuplicates": "以前に読み込み済み：{n}",
+  "agent.memory.importConv.sumSkipped": "スキップした会話：{n}",
+  "agent.memory.importConv.skipTooMany": "会話{n}件の上限を超えています",
+  "agent.memory.importConv.skipTooLarge": "長すぎます",
+  "agent.memory.importConv.skipEmpty": "メッセージがありません",
+  "agent.memory.importConv.skipInvalid": "読み取れませんでした",
+  "agent.memory.importConv.untitled": "無題",
+  "agent.memory.importConv.progressCount": "会話を読み込み中… {done} / {total}",
+  "agent.memory.importConv.tooBig":
+    "このファイルは {mb} MB を超えており、ここでは大きすぎて読めません。範囲を小さくして書き出し直してください。",
+  "agent.memory.importConv.memoriesTooBig":
+    "このメモリファイルは {kb} KB を超えており、一度に読み込めません。分割するか、書き出すメモリを減らしてください。",
+  "agent.memory.importConv.partial":
+    "完了前に停止しました：{reason}。{total} 件中 {done} 件のバッチを読み込みました。もう一度読み込むと続きから進み、読み込み済みの会話はスキップされます。",
+  "agent.memory.importConv.retry": "もう一度読み込む",
   "agent.memory.exported": "{file}を書き出しました。",
+  "agent.memory.importConv.memoriesFailed":
+    "メモリを読み込めませんでした：{reason}。もう一度読み込むと再試行します。",
   "agent.memory.export": "すべてを書き出す",
   "agent.memory.resetDone":
     "{files, plural, other {#個のファイル}}と{claims, plural, other {#件の事実}}をリセットしました。",
@@ -768,11 +879,11 @@ export const ja: Partial<Catalogue> = {
 
   "shell.shortcut.palette": "コマンドパレット",
   "shell.shortcut.newSideChat": "新しいサイドチャット",
+  "shell.shortcut.newIncognitoChat": "新しいシークレットチャット",
   "shell.shortcut.closeThread": "スレッド表示またはポップアウトを閉じる",
   "shell.shortcut.toggleThreadList": "サイドバーの表示/非表示",
   "shell.shortcut.compactSidebar": "コンパクト/フルサイドバーの切り替え",
   "shell.shortcut.cycleThreads": "スレッドを順に切り替え",
-  "shell.shortcut.forkSelection": "選択範囲からサイドチャットに分岐",
   "shell.shortcut.stop": "実行を停止。「操作を引き継ぐ」を解除",
   "shell.shortcut.cycleDisclosure": "表示の詳細度を切り替え",
   "shell.shortcut.browserPane": "ブラウザパネル",
@@ -821,6 +932,7 @@ export const ja: Partial<Catalogue> = {
   "shell.shortcuts.addition": "Psyche独自",
   "shell.shortcuts.description": "†はClaudeデスクトップ版の配列にPsycheが追加したものです。",
   "shell.threads.needsYou": "要対応",
+  "shell.threads.nowOn": "実行中: {step}",
   "shell.threads.running": "実行中",
   "shell.threads.titleField": "スレッドのタイトル",
   "shell.threads.incognito": "シークレット",
@@ -833,11 +945,14 @@ export const ja: Partial<Catalogue> = {
   "shell.threads.unpin": "ピン留めを解除",
   "shell.threads.pin": "ピン留め",
   "shell.threads.archive": "アーカイブ",
+  "shell.threads.imported": "読み込み済み",
+  "shell.threads.importedReadOnly": "この読み込んだ会話は読み取り専用です。",
   "shell.threads.restore": "復元",
   "shell.threads.region": "スレッド",
   "shell.threads.filter": "スレッドを絞り込む",
   "shell.threads.search": "スレッドを検索",
   "shell.threads.newSideChat": "新しいサイドチャット",
+  "shell.threads.newIncognitoChat": "新しいシークレットチャット",
   "shell.threads.loading": "スレッドを読み込み中",
   "shell.threads.mainChat": "メインチャット",
   "shell.threads.sideChats": "サイドチャット",
@@ -893,7 +1008,7 @@ export const ja: Partial<Catalogue> = {
   "shell.usage.openHint": "クリックすると設定 → 使用状況を開きます。",
 
   "settings.shared.needsPresence":
-    "「{label}」の変更にはTouch IDまたはパスキーによる承認が必要です。設定またはPsycheの通知で承認してから、もう一度変更してください。",
+    "「{label}」の変更には承認が必要です。設定またはPsycheの通知で承認してから、もう一度変更してください。",
   "settings.shared.saveFailed":
     "Psycheは「{label}」を保存できませんでした（{reason}）。何も変更されていません。",
   "settings.shared.loading": "{label}を読み込み中",
@@ -963,6 +1078,8 @@ export const ja: Partial<Catalogue> = {
   "settings.key.browser.botAuth": "Web Bot Auth",
   "settings.key.computerUse.enabled": "コンピュータ操作を許可",
   "settings.key.computerUse.apps": "アプリへのアクセス",
+  "settings.key.feed.sources": "フィードのソース",
+  "settings.key.computerUse.linuxRevoke": "Linux コンピュータを忘れる",
   "settings.key.context.maxTokens": "コンテキスト上限",
   "settings.key.search.web.provider": "Web検索プロバイダ",
   "settings.key.search.web.searxngUrl": "SearXNGのURL",
@@ -977,6 +1094,8 @@ export const ja: Partial<Catalogue> = {
   "settings.key.models.providers": "モデルプロバイダ",
   "settings.key.permissions.mode": "デフォルトモード",
   "settings.key.permissions.policy": "権限ポリシー",
+  "settings.key.permissions.sensitive.government": "政府系サイトを読む前に確認する",
+  "settings.key.permissions.sensitive.icloud": "iCloudを読む前に確認する",
   "settings.key.permissions.folders": "共有フォルダ",
   "settings.key.persona.name": "名前",
   "settings.key.persona.tagline": "雰囲気やキャッチフレーズ",
@@ -1128,6 +1247,60 @@ export const ja: Partial<Catalogue> = {
   "settings.credentials.slot.keyFile": "このMac上のキーファイル",
   "settings.credentials.slot.recovery": "復旧キーのみ",
   "settings.credentials.protectedBy": "保管庫の保護方法：",
+  "settings.credentials.vault.adminOnly": "管理者のデバイスだけが実行できます。",
+  "settings.credentials.vault.unlockReason": "復旧キーを確認",
+  "settings.credentials.vault.setup.title": "保管庫を設定",
+  "settings.credentials.vault.setup.body":
+    "保管庫は、パスワード、カード、API キーを暗号化してこのコンピュータに保管します。Psyche は、一度だけ保存する復旧キーとともに保管庫を作成します。",
+  "settings.credentials.vault.setup.button": "保管庫を設定",
+  "settings.credentials.vault.setup.failed": "保管庫を作成できませんでした：{reason}",
+  "settings.credentials.vault.setup.noSlot":
+    "この Gateway には保管庫用のキースロットがありません。",
+  "settings.credentials.onePassword.title": "1Password",
+  "settings.credentials.onePassword.intro":
+    "1Password からリンクした項目を Psyche が読み取れるようにします。Psyche は 1Password のパスワードやトークンを保存せず、ロック解除が必要なときは 1Password 自身が確認します。",
+  "settings.credentials.onePassword.check": "再確認",
+  "settings.credentials.onePassword.guide": "ガイドを開く",
+  "settings.credentials.onePassword.notInstalled.body":
+    "このコンピュータで 1Password のコマンドラインツール（op）が見つかりません。インストールしてから再確認してください。",
+  "settings.credentials.onePassword.notIntegrated.body":
+    "1Password アプリで「設定」を開き、「デベロッパー」を選んで「1Password CLI と連携」をオンにします。その後、再確認してください。",
+  "settings.credentials.onePassword.locked.body":
+    "1Password アプリのロックを解除し、確認が出たら承認してください。その後、再確認してください。",
+  "settings.credentials.onePassword.error.body":
+    "1Password のコマンドラインツールが想定どおりに応答しませんでした。再確認してください。失敗が続く場合は op を再インストールしてください。",
+  "settings.credentials.onePassword.signedIn.body":
+    "{email}（{url}）として 1Password にサインイン済みです。",
+  "settings.credentials.onePassword.signedIn.connect": "Psyche で 1Password を使う",
+  "settings.credentials.onePassword.connected.body":
+    "Psyche は、リンクした 1Password の項目を 1Password アプリ経由で読み取ります。読み取り専用で、1Password には何も書き込みません。",
+  "settings.credentials.onePassword.test": "接続をテスト",
+  "settings.credentials.onePassword.test.ok":
+    "接続しました。{count, plural, other {保管庫が # 件見つかりました}}。",
+  "settings.credentials.onePassword.test.failed": "テストに失敗しました：{reason}",
+  "settings.credentials.onePassword.disconnect": "接続を解除",
+  "settings.credentials.onePassword.config":
+    "1Password は Gateway の config.json で設定されています。変更はそちらで行ってください。",
+  "settings.credentials.onePassword.failed": "うまくいきませんでした：{reason}",
+  "settings.credentials.onePassword.found.body":
+    "Psyche は 1Password のコマンドラインツールを見つけました。「確認」を選ぶと、設定の進み具合がわかります。",
+  "settings.credentials.onePassword.checkNow": "確認",
+  "settings.credentials.onePassword.changed.body":
+    "接続後に 1Password のコマンドラインツールが変更されました。再確認してください。",
+  "settings.credentials.onePassword.unsigned.body":
+    "Psyche が見つけた op ファイルは 1Password の署名がないため、実行しません。1Password から op をインストールして、再確認してください。",
+  "settings.credentials.onePassword.unsafeFolder.body":
+    "Psyche は op を見つけましたが、それを含むフォルダがあなたのものではないか、他のユーザーが変更できるため、実行しません。それらのフォルダを自分のものにし、グループやその他のユーザーが書き込めないようにしてから、再確認してください。",
+  "settings.credentials.onePassword.repinned.notice":
+    "1Password CLI が更新され、{when} に再確認されました",
+  "settings.credentials.vault.confirm.title": "復旧キーを確認",
+  "settings.credentials.vault.confirm.body":
+    "保存したことを確認するため、復旧キーの最後のグループ（最後のハイフンより後ろ）を入力してください。",
+  "settings.credentials.vault.confirm.label": "最後のグループ",
+  "settings.credentials.vault.confirm.button": "確認",
+  "settings.credentials.vault.confirm.wrong":
+    "復旧キーの最後のグループと一致しません。保存した場所を確認して、もう一度お試しください。",
+  "settings.credentials.vault.confirm.failed": "復旧キーを確認できませんでした：{reason}",
   "settings.credentials.moveToKeychain": "キーチェーンに移動",
   "settings.credentials.moveToKeychainNeeds":
     "Developer IDで署名され、プロビジョニングプロファイルを持つPsyche Helperが必要です",
@@ -1219,8 +1392,68 @@ export const ja: Partial<Catalogue> = {
   "settings.credentials.payments.amountRefunded": "{total} · {refunded}返金済み",
   "settings.credentials.payments.title": "支払い",
   "settings.credentials.payments.loadLabel": "支払い",
-  "settings.credentials.payments.notConfigured":
-    "Stripe Linkが設定されていません。GatewayのマシンにLink CLIをインストールしてLinkにサインインし、PSYCHE_LINK_CLIを設定すると、ここに支払い方法が表示されます。",
+  "settings.credentials.payments.notConfigured": "このGatewayではStripe Linkが設定されていません。",
+  "settings.credentials.payments.setup.approvalLabel": "Stripe Linkのコマンドラインツール",
+  "settings.credentials.payments.setup.refused": "Psycheはそのプログラムを実行しません: {reason}。",
+  "settings.credentials.payments.setup.failed": "うまくいきませんでした: {reason}",
+  "settings.credentials.payments.setup.problem": "Psycheは{path}を実行しません: {reason}。",
+  "settings.credentials.payments.setup.recheck": "もう一度確認",
+  "settings.credentials.payments.setup.disconnect": "接続を解除",
+  "settings.credentials.payments.setup.disconnecting": "解除しています…",
+  "settings.credentials.payments.setup.disconnectConfirm.title": "Stripe Linkの接続を解除しますか?",
+  "settings.credentials.payments.setup.disconnectConfirm.body":
+    "PsycheはLink CLIを忘れ、保存したLinkのサインインを削除します。Linkのアカウントとカードには触れません。いつでも再接続できます。",
+  "settings.credentials.payments.setup.disconnectConfirm.go": "接続を解除",
+  "settings.credentials.payments.setup.disconnectConfirm.cancel": "接続したままにする",
+  "settings.credentials.payments.setup.envOverride":
+    "このGatewayはPSYCHE_LINK_CLIで起動されており、ここに保存したパスより優先されます。",
+  "settings.credentials.payments.setup.missing.title": "Linkのコマンドラインツールをインストール",
+  "settings.credentials.payments.setup.missing.body":
+    "PsycheはLink公式のコマンドラインツールを使ってStripe Linkで支払います。Gatewayを動かしているコンピューターで実行してから、もう一度確認してください。",
+  "settings.credentials.payments.setup.missing.region":
+    "エージェント向けのLink決済は米国とカナダで利用できます。",
+  "settings.credentials.payments.setup.found.title": "Link CLIが見つかりました",
+  "settings.credentials.payments.setup.found.body":
+    "インストールしたものを接続します。PsycheはStripe Linkとやり取りするためだけに、承認の後にのみ実行します。",
+  "settings.credentials.payments.setup.found.connect": "接続",
+  "settings.credentials.payments.setup.found.connecting": "接続しています…",
+  "settings.credentials.payments.setup.found.connectPath": "{path}を接続",
+  "settings.credentials.payments.setup.signedOut.title": "Linkにサインイン",
+  "settings.credentials.payments.setup.signedOut.body":
+    "PsycheはLink自身のページを開きます。サインインとこの端末の承認はそこで行います。Linkのパスワードはそこで入力し、Psycheには届きません。",
+  "settings.credentials.payments.setup.signedOut.go": "Linkでサインイン",
+  "settings.credentials.payments.setup.signedOut.starting": "開始しています…",
+  "settings.credentials.payments.setup.signingIn.title": "Linkでサインインを完了",
+  "settings.credentials.payments.setup.signingIn.body":
+    "Linkのページを開き、下のフレーズが表示されていることを確認して承認してください。",
+  "settings.credentials.payments.setup.signingIn.phrase": "フレーズ:",
+  "settings.credentials.payments.setup.signingIn.open": "Linkのページを開く",
+  "settings.credentials.payments.setup.signingIn.waiting": "Linkでの承認を待っています…",
+  "settings.credentials.payments.setup.connected": "{path}経由でStripe Linkに接続しています。",
+  "settings.credentials.payments.setup.connectedNoPath": "Stripe Linkに接続しています。",
+  "settings.credentials.payments.setup.reason.not_absolute": "パスが絶対パスではありません",
+  "settings.credentials.payments.setup.reason.missing": "存在しません",
+  "settings.credentials.payments.setup.reason.not_a_file": "リンクか、通常のファイルではありません",
+  "settings.credentials.payments.setup.reason.not_executable": "実行できません",
+  "settings.credentials.payments.setup.reason.wrong_owner": "別のユーザーのものです",
+  "settings.credentials.payments.setup.reason.writable": "他のユーザーが変更できます",
+  "settings.credentials.payments.setup.reason.parent_wrong_owner":
+    "上のフォルダが別のユーザーのものです",
+  "settings.credentials.payments.setup.reason.parent_writable":
+    "他のユーザーが上のフォルダを変更できます",
+  "settings.credentials.payments.setup.reason.in_psyche_home":
+    "Psyche 自身のフォルダ内にあります。代わりに npm で Link CLI をインストールしてください",
+  "settings.credentials.payments.setup.reason.not_link_cli":
+    "Link CLI のパッケージの一部ではありません",
+  "settings.credentials.payments.setup.reason.volta_shim":
+    "Volta のシムです。Volta 内の Link CLI のフォルダを使うか、npm でインストールしてください",
+  "settings.credentials.payments.setup.paymentInProgress":
+    "支払いがまだ進行中です。完了してから接続を解除してください。",
+  "settings.credentials.payments.setup.force.title": "それでも接続を解除しますか？",
+  "settings.credentials.payments.setup.force.body":
+    "進行中: {payments}。それでも解除すると、Psyche は Link が許す範囲でキャンセルし、記録を破棄します。加盟店側の保留は自然に失効し、Psyche はもう報告できません。",
+  "settings.credentials.payments.setup.force.go": "それでも解除",
+  "settings.credentials.payments.setup.force.aPayment": "支払い1件",
   "settings.credentials.payments.noMethods":
     "Linkウォレットに支払い方法がありません。Linkアプリで追加してください。",
   "settings.credentials.payments.methods": "Linkの支払い方法",
@@ -1394,6 +1627,43 @@ export const ja: Partial<Catalogue> = {
   "settings.channels.loadLabel": "チャンネル",
   "settings.channels.empty":
     "チャンネルはまだありません。Telegram、iMessage、Slackを接続すると、このMacから離れていても{persona}に連絡できます。",
+  "settings.channels.add.button": "チャンネルを追加",
+  "settings.channels.add.title": "チャンネルを追加",
+  "settings.channels.add.description":
+    "{persona} に連絡できる場所を選びます。トークンは直接保管庫に保存され、再表示されません。",
+  "settings.channels.add.type": "チャンネル",
+  "settings.channels.add.account.slack": "ワークスペース名",
+  "settings.channels.add.account.discord": "アプリケーション ID",
+  "settings.channels.add.secret.bot_token": "ボットトークン",
+  "settings.channels.add.secret.app_token": "アプリトークン",
+  "settings.channels.add.secret.auth_token": "認証トークン",
+  "settings.channels.add.secret.access_token": "アクセストークン",
+  "settings.channels.add.secret.app_secret": "アプリシークレット",
+  "settings.channels.add.secret.verify_token": "検証トークン",
+  "settings.channels.add.submit": "接続",
+  "settings.channels.add.connecting": "接続中",
+  "settings.channels.add.missing": "接続するにはすべての項目を入力してください。",
+  "settings.channels.add.failed":
+    "Psyche はチャンネルを追加できませんでした（{reason}）。有効にはなっていません。",
+  "settings.channels.add.account.sms": "送信元番号 (+15551234567)",
+  "settings.channels.add.account.whatsapp": "WhatsApp 番号 (+15551234567)",
+  "settings.channels.add.badNumber": "番号は国際形式で入力してください（例: +15551234567）。",
+  "settings.channels.add.exists":
+    "{account} 用の {type} チャンネルはすでにあるため、何も変更していません。",
+  "settings.channels.add.approvalLabel": "チャンネルの追加",
+  "settings.channels.add.envNote":
+    "Gateway も、このアカウントを {env} に設定して起動する必要があります。Telegram、iMessage、Signal、メールは Gateway が動作する場所で設定します。チャンネルのドキュメントを参照してください。",
+  "settings.channels.add.addedInactive":
+    "チャンネルを追加しましたが、まだ動作していません。Gateway が動作する場所で {env} をこのアカウントに設定し、再起動してください。",
+  "settings.channels.add.added":
+    "チャンネルを追加しました。Gateway で {env} がこのアカウントに設定されると開始します。その後、そこから {persona} にメッセージを送ってペアリングコードを受け取り、ここで承認してください。",
+  "settings.channels.add.storedNote":
+    "このアカウントには保存済み: {names}。置き換えない限り、そのまま使われます。",
+  "settings.channels.add.replace": "保存済みのトークンを置き換える",
+  "settings.channels.add.statusFailed":
+    "Psyche は保存済みのトークンを確認できませんでした（{reason}）。何も変更していません。",
+  "settings.channels.add.storedTyped":
+    "このアカウントには保存済みのトークンがあります。入力したトークンを使うには「保存済みのトークンを置き換える」にチェックを入れるか、その欄を空にしてください。何も変更していません。",
   "settings.channels.identities": "IDの関連付け",
   "settings.channels.identitiesDescription":
     "複数のチャンネルにまたがる同一人物。関連付けはペアリングされたデバイスからのみ変更できます。",
@@ -1532,6 +1802,52 @@ export const ja: Partial<Catalogue> = {
   "settings.mcp.domains": "接続を許可するWebサイト",
   "settings.mcp.domainsHint":
     "ホスト名をカンマ区切りで入力します。空のままにするとネットワークを使用しません。",
+  "settings.mcp.env.title": "環境変数",
+  "settings.mcp.env.hint":
+    "サーバーの起動時に必要な値です。トークン、キー、パスワードなど秘密らしい名前の値はボールトに保存されます。",
+  "settings.mcp.env.name": "変数名",
+  "settings.mcp.env.value": "値",
+  "settings.mcp.env.namePlaceholder": "API_BASE_URL",
+  "settings.mcp.env.saved": "保存済み",
+  "settings.mcp.updated": "{name}を更新しました。",
+  "settings.mcp.edit.group": "編集とテスト",
+  "settings.mcp.edit.action": "編集",
+  "settings.mcp.edit.title": "{name}を編集",
+  "settings.mcp.edit.intro":
+    "実行内容や接続先を変えると、もう一度承認が必要です。承認するまで現在のサーバーは動き続けます。",
+  "settings.mcp.edit.save": "変更を保存",
+  "settings.mcp.edit.loadFailed": "このサーバーの設定を読み込めませんでした。{reason}",
+  "settings.mcp.edit.locked":
+    "このサーバーのコマンドと接続は編集できません。変更するには、削除して別のサーバーを追加してください。",
+  "settings.mcp.test.action": "接続をテスト",
+  "settings.mcp.test.running": "テスト中…",
+  "settings.mcp.test.hint": "保存済みの設定をもう一度確認します。何も変わりません。",
+  "settings.mcp.test.paused": "テストするには、このサーバーをオンにしてください。",
+  "settings.mcp.test.ok": "動作しています。使えるツールは{n, plural, other {#個}}です。",
+  "settings.mcp.test.failed": "うまくいきませんでした：{reason}",
+  "settings.mcp.trust.updateTitle": "{name}を更新しますか？",
+  "settings.mcp.trust.updateIntro":
+    "Psycheは新しい設定をサンドボックスで実行し、これらのツールを見つけました。承認するまで現在のサーバーは動き続けます。",
+  "settings.mcp.trust.change.title": "変更内容",
+  "settings.mcp.trust.change.none": "なし",
+  "settings.mcp.trust.change.was": "変更前：{value}",
+  "settings.mcp.trust.change.now": "変更後：{value}",
+  "settings.mcp.trust.change.command": "コマンド",
+  "settings.mcp.trust.change.url": "アドレス",
+  "settings.mcp.trust.change.domains": "許可するドメイン",
+  "settings.mcp.trust.change.auth": "サインイン",
+  "settings.mcp.trust.change.envAdded": "追加した変数",
+  "settings.mcp.trust.change.envRemoved": "削除した変数",
+  "settings.mcp.trust.change.envChanged": "変更した変数",
+  "settings.mcp.trust.change.query": "変更したアドレスのパラメーター",
+  "settings.mcp.trust.change.userinfo": "アドレス内のサインイン情報",
+  "settings.mcp.trust.change.changed": "変更あり",
+  "settings.mcp.edit.changeUrl": "アドレスを変更",
+  "settings.mcp.edit.urlHidden":
+    "このアドレスの一部は非表示です。変更するには、新しいアドレス全体を入力してください。",
+  "settings.mcp.env.add": "変数を追加",
+  "settings.mcp.env.badName":
+    "名前は大文字、数字、アンダースコアを使い、英字またはアンダースコアで始めてください。",
   "settings.mcp.url": "サーバのURL",
   "settings.mcp.placeholder.command": "npx -y @modelcontextprotocol/server-everything",
   "settings.mcp.placeholder.domains": "api.example.com",
@@ -1593,6 +1909,30 @@ export const ja: Partial<Catalogue> = {
   "settings.webSearch.braveKey": "Brave Searchのキー",
   "settings.webSearch.braveFromEnv": "設定済み（PSYCHE_SEARCH_BRAVE_KEY）",
   "settings.webSearch.braveNone": "未設定（PSYCHE_SEARCH_BRAVE_KEY）",
+  "settings.apiKeys.title": "APIキー",
+  "settings.apiKeys.description":
+    "モデルプロバイダとウェブ検索のキーを、ターミナルではなくここで入力します。キーは暗号化されて保管庫に保存され、二度と表示されず、次のリクエストから使われます。環境変数で設定されたキーが優先されます。",
+  "settings.apiKeys.name.anthropic": "Anthropic",
+  "settings.apiKeys.name.openai": "OpenAI",
+  "settings.apiKeys.name.google": "Google Gemini",
+  "settings.apiKeys.name.openrouter": "OpenRouter",
+  "settings.apiKeys.name.brave": "Brave Search",
+  "settings.apiKeys.field": "{name}のAPIキー",
+  "settings.apiKeys.save": "保存",
+  "settings.apiKeys.saving": "保存中…",
+  "settings.apiKeys.clear": "消去",
+  "settings.apiKeys.none": "未設定",
+  "settings.apiKeys.vault": "保管庫に保存済み",
+  "settings.apiKeys.env": "環境変数で設定済み（優先）",
+  "settings.apiKeys.envAndVault": "環境変数で設定済み（優先）。保存済みのキーも保持されています",
+  "settings.apiKeys.empty": "先にキーを貼り付けてください。",
+  "settings.apiKeys.whitespace": "キーにスペースや改行は含まれません。",
+  "settings.apiKeys.failed": "キーを保存できませんでした: {reason}",
+  "settings.apiKeys.clearFailed": "キーを消去できませんでした: {reason}",
+  "settings.apiKeys.locked":
+    "保管庫がロックされています。先にロックを解除してから、もう一度保存してください。",
+  "settings.credentials.managed.web_search": "ウェブ検索のキー",
+  "settings.webSearch.braveFromVault": "保管庫に保存済み",
   "settings.webSearch.provider.brave": "Brave Search",
   "settings.webSearch.provider.searxng": "SearXNG",
   "settings.webSearch.provider.duckduckgo": "DuckDuckGo（キー不要、レート制限あり）",
@@ -1767,7 +2107,7 @@ export const ja: Partial<Catalogue> = {
   "settings.model.role.primary": "プライマリ",
   "settings.model.role.primaryHint": "チャット、タスク、ツール",
   "settings.model.role.utility": "ユーティリティ",
-  "settings.model.role.utilityHint": "タイトル、要約、自動モードの分類",
+  "settings.model.role.utilityHint": "タイトル、要約、検索カード、その他のバックグラウンド処理",
   "settings.model.role.image": "画像",
   "settings.model.role.imageHint": "アバターの変更。なしの場合は同梱の生き物を使います",
   "settings.model.addProvider": "プロバイダを追加",
@@ -1826,7 +2166,8 @@ export const ja: Partial<Catalogue> = {
   "settings.permissions.never.secrets":
     "見える形でパスワード、カード番号、銀行口座、政府発行IDを入力する",
   "settings.permissions.never.captcha": "CAPTCHAを解く、または回避する",
-  "settings.permissions.never.money": "送金や金融取引を行う",
+  "settings.permissions.never.money":
+    "承認しても、証券や暗号資産の取引、銀行口座間の送金、個人への送金は行わない",
   "settings.permissions.never.delete": "入力による確認なしにデータを完全に削除する",
   "settings.permissions.never.injection": "Webページ、メール、ファイルに書かれた指示に従う",
   "settings.permissions.never.accounts": "あなたの承認なしに第三者サービスのアカウントを作成する",
@@ -1855,6 +2196,7 @@ export const ja: Partial<Catalogue> = {
   "settings.permissions.subject.execIn": "{cwd}で{argv}",
   "settings.permissions.subject.emailTo": "{recipient}宛て",
   "settings.permissions.subject.emailAny": "任意の宛先",
+  "settings.permissions.subject.emailFrom": "{recipients} へ（{account}から）",
   "settings.permissions.subject.calendarNamed": "カレンダー{id}",
   "settings.permissions.subject.calendar": "カレンダー",
   "settings.permissions.title": "権限",
@@ -1872,8 +2214,30 @@ export const ja: Partial<Catalogue> = {
   "settings.permissions.toolsChanged":
     "{name}は承認後にツールリストを変更したため、Psycheはその許可を取り消しました。確認するまで、すべてのアクションを再度確認します。",
   "settings.permissions.hash": "tools/list {hash}…",
+  "settings.permissions.sendsTitle": "常に許可している宛先",
+  "settings.permissions.sendsHint":
+    "これらの宛先へのメールは確認なしで送信されます。削除すると再度確認します。",
+  "settings.permissions.noSends": "常に許可に設定された宛先はありません。",
   "settings.permissions.origins": "ブラウザのオリジン",
   "settings.permissions.originsHint": "エージェントが確認なしで開けるサイト。",
+  "settings.permissions.trusted.title": "信頼するサイト",
+  "settings.permissions.trusted.description":
+    "Psycheは、これらのサイトをどのチャットでも確認なしで読み取ります。書き込み、フォーム、機密性の高いサイトは引き続き先に確認します。",
+  "settings.permissions.trusted.empty":
+    "信頼するサイトはまだありません。最初の読み取りの確認で「このサイトでは常に許可」を選ぶと追加されます。",
+  "settings.permissions.trusted.added": "{date} に追加",
+  "settings.permissions.trusted.remove": "削除",
+  "settings.permissions.trusted.removeNamed": "{name} を信頼するサイトから削除",
+  "settings.permissions.subject.trustedSiteSubdomains": "{origin} とそのサブドメイン",
+  "settings.permissions.subject.hostProgram": "{program}（{folder}、任意の引数）",
+  "settings.permissions.subject.hostProgramExact": "{program}（{folder}、この引数のみ）",
+  "settings.permissions.sensitive.title": "機密性の高いサイト",
+  "settings.permissions.sensitive.description":
+    "銀行、医療、メール、パスワード管理は、読み取りの前に必ず確認します。政府系サイトとiCloudも確認します。確認なしで読み取りたい場合は、ここでカテゴリをオフにしてください。",
+  "settings.permissions.sensitive.governmentHint":
+    ".gov または .gov.uk で終わるサイト（税金、本人確認、医療のアカウント）。初期設定ではオンです。",
+  "settings.permissions.sensitive.icloudHint":
+    "iCloudのサイト（メール、写真、ファイル）。初期設定ではオンです。",
   "settings.permissions.noOrigins":
     "Webサイトへの継続的な許可はありません。新しいサイトは先に確認されます。",
   "settings.permissions.scopeExpires": "{scope}、{date}に期限切れ",
@@ -2063,6 +2427,43 @@ export const ja: Partial<Catalogue> = {
   "settings.skills.removeDescription":
     "ファイルはこのGatewayから削除されます。再インストールには信頼カードの確認が必要です。",
   "settings.skills.switchOn": "{name}をオン",
+  "settings.plugins.title": "プラグイン",
+  "settings.plugins.description":
+    "文脈を追加したり、ツール呼び出しを確認したり、評価を実行したりするコードです。各プラグインは独自のプロセスで動作します。プラグインが権限を与えることはありません。",
+  "settings.plugins.off":
+    "この Gateway ではプラグインがオフになっているため、動作しているものはありません。",
+  "settings.plugins.loading": "プラグインを読み込んでいます…",
+  "settings.plugins.error": "プラグインを読み込めませんでした。{reason}",
+  "settings.plugins.empty": "インストールされたプラグインはありません。",
+  "settings.plugins.failed": "変更を保存できませんでした。{reason}",
+  "settings.plugins.waitingApproval": "この端末での承認を待っています。",
+  "settings.plugins.switchOn": "{name} をオン",
+  "settings.plugins.version": " · v{version}",
+  "settings.plugins.adds": "追加内容: {list}",
+  "settings.plugins.install": "フォルダからインストール…",
+  "settings.plugins.pickFailed": "Psycheがフォルダ選択を開けませんでした（{reason}）。",
+  "settings.plugins.installFailed": "インストールを開始できませんでした。{reason}",
+  "settings.plugins.proposed": "承認カードでインストール内容を確認してください。",
+  "settings.plugins.includes": "含まれるもの: {list}",
+  "settings.plugins.count.skills": "{n, plural, other {スキル#件}}",
+  "settings.plugins.count.commands": "{n, plural, other {コマンド#件}}",
+  "settings.plugins.count.mcpServers": "{n, plural, other {MCPサーバー#件}}",
+  "settings.plugins.count.hooks": "{n, plural, other {フック#件}}",
+  "settings.plugins.from": "取得元: {source}",
+  "settings.plugins.state.active": "動作中",
+  "settings.plugins.state.disabled": "オフ",
+  "settings.plugins.state.off": "プラグインのオン待ち",
+  "settings.plugins.state.hash_mismatch": "インストール後に変更され、動作していません",
+  "settings.plugins.state.invalid": "マニフェストが無効で、動作していません",
+  "settings.plugins.state.failed": "エラーで停止しました",
+  "settings.plugins.capability.context": "文脈",
+  "settings.plugins.capability.before_tool_call": "ツール呼び出し前のチェック",
+  "settings.plugins.capability.after_tool_call": "ツール呼び出し後のチェック",
+  "settings.plugins.capability.agent_end": "実行終了ごとの処理",
+  "settings.plugins.capability.evaluate": "評価",
+  "settings.plugins.removeTitle": "{name} を削除しますか？",
+  "settings.plugins.removeDescription":
+    "ファイルはこの Gateway から削除されます。再インストールには信頼カードの確認が必要です。",
   "settings.skills.asksFor": "求めるもの：",
   "settings.skills.toolsLabel": "ツール：",
   "settings.skills.title": "スキル",
@@ -2227,6 +2628,19 @@ export const ja: Partial<Catalogue> = {
   "settings.connect.noSignIn": "Gatewayがサインインページを返しませんでした",
   "settings.connect.notConfigured":
     "{name}はこのGatewayでまだ設定されていません。独自のOAuthクライアントが必要です（Psycheのドキュメントの「Googleとの接続」ガイドを参照）。後で設定 → コネクタから設定してください。",
+  "settings.googleClient.using": "あなたの Google クライアント {clientId} を使用しています。",
+  "settings.googleClient.fromConfig": "config.json または環境変数で設定されています。",
+  "settings.googleClient.change": "別のクライアントを使う",
+  "settings.googleClient.help":
+    "Psyche には専用の Google クライアントがありません。ご自身の Google Cloud プロジェクトで、デスクトップアプリ用の無料 OAuth クライアントを一度作成し、その ID をここに貼り付けてください。",
+  "settings.googleClient.docs": "作成方法",
+  "settings.googleClient.id": "クライアント ID",
+  "settings.googleClient.idHint": ".apps.googleusercontent.com で終わります",
+  "settings.googleClient.invalid":
+    "Google のクライアント ID ではありません。.apps.googleusercontent.com で終わる必要があります。",
+  "settings.googleClient.secret": "クライアントシークレット",
+  "settings.googleClient.secretHint": "保管庫に保存され、Google にのみ送信されます。",
+  "settings.googleClient.saveFailed": "Google クライアントを保存できませんでした: {reason}",
   "settings.connect.alreadyConnected": "{name}はすでに接続されています。",
   "settings.connect.needsPermission":
     "{name}は設定されていますが、macOSがまだ許可していません。次の場所で許可してください：",
@@ -2361,7 +2775,6 @@ export const ja: Partial<Catalogue> = {
   "onboarding.model.copyFailed": "コピーできませんでした。キーを選択してコピーしてください。",
   "onboarding.model.recoveryBody":
     "Psycheは保管庫を作成しました。このキーをパスワードマネージャか紙に保存してください。表示されるのは今だけで、復元後やキースロットを失った後に保管庫に戻る唯一の手段です。",
-  "onboarding.model.savedIt": "保存しました",
   "onboarding.model.subscriptionNote":
     "PsycheはこのMacでサインイン済みのClaude CodeまたはCodexアプリを使用するため、APIキーは不要で、保存もしません。まだの場合は、先にそちらでサインインしてください。",
   "onboarding.model.toolCheck": "ツール呼び出しの確認",
@@ -2477,6 +2890,48 @@ export const ja: Partial<Catalogue> = {
   "screens.feed.explorationTopic": "{topic} · 探索枠",
   "screens.feed.sourcesCount": "ソース（{n, number}）",
   "screens.feed.sources": "ソース",
+  "screens.feed.sourcesEditor.button": "ソース",
+  "screens.feed.sourcesEditor.title": "フィードのソース",
+  "screens.feed.sourcesEditor.description":
+    "フィードが読むソースです。変更は行うたびに保存されます。",
+  "screens.feed.sourcesEditor.builtIn": "内蔵",
+  "screens.feed.sourcesEditor.builtInHint": "オフにしない限り、フィードはこれらを読みます。",
+  "screens.feed.sourcesEditor.hackerNews": "Hacker News",
+  "screens.feed.sourcesEditor.hackerNewsHint": "Hacker News の注目記事",
+  "screens.feed.sourcesEditor.arxiv": "arXiv",
+  "screens.feed.sourcesEditor.arxivHint": "arXiv の新着論文",
+  "screens.feed.sourcesEditor.feeds": "RSS・Atom フィード",
+  "screens.feed.sourcesEditor.feedsHint":
+    "各フィードは https:// または http:// で始まるウェブアドレスです。",
+  "screens.feed.sourcesEditor.fetchNote":
+    "フィードは、各フィードを最後に読んだ時刻や失敗の有無をまだ表示しません。",
+  "screens.feed.sourcesEditor.empty": "フィードはまだ追加されていません。",
+  "screens.feed.sourcesEditor.notRead": "読み込まれません",
+  "screens.feed.sourcesEditor.kind": "RSS または Atom",
+  "screens.feed.sourcesEditor.add": "フィードを追加",
+  "screens.feed.sourcesEditor.addTitle": "新しいフィードを追加",
+  "screens.feed.sourcesEditor.addLabel": "フィードのアドレス",
+  "screens.feed.sourcesEditor.addPlaceholder": "https://example.com/feed.xml",
+  "screens.feed.sourcesEditor.editLabel": "{host} を編集",
+  "screens.feed.sourcesEditor.removeLabel": "{host} を削除",
+  "screens.feed.sourcesEditor.removeTitle": "フィードから {host} を削除しますか？",
+  "screens.feed.sourcesEditor.removeBody":
+    "フィードはこのアドレスを読まなくなります。すでに書かれた投稿はそのまま残ります。アドレスは後から再び追加できます。",
+  "screens.feed.sourcesEditor.confirmRemove": "フィードを削除",
+  "screens.feed.sourcesEditor.openLabel": "{host} をブラウザで開く",
+  "screens.feed.sourcesEditor.openFailed": "{host} を開けませんでした: {reason}",
+  "screens.feed.sourcesEditor.errEmpty": "フィードのウェブアドレスを入力してください。",
+  "screens.feed.sourcesEditor.errInvalid":
+    "ウェブアドレスではありません。https:// から始めてください。",
+  "screens.feed.sourcesEditor.errScheme":
+    "フィードに使えるのは http:// と https:// のアドレスだけです。",
+  "screens.feed.sourcesEditor.errDuplicate": "このフィードはすでに一覧にあります。",
+  "screens.feed.sourcesEditor.saved": "フィードのソースを保存しました",
+  "screens.feed.sourcesEditor.added": "フィードを追加しました",
+  "screens.feed.sourcesEditor.removed": "フィードを削除しました",
+  "screens.feed.sourcesEditor.saveFailed": "フィードのソースを保存できませんでした: {reason}",
+  "screens.feed.sourcesEditor.loadFailed": "フィードのソースを読み込めませんでした",
+  "screens.feed.sourcesEditor.loading": "フィードのソースを読み込んでいます",
   "screens.feed.feedbackOn": "{title}へのフィードバック",
   "screens.feed.like": "いいね",
   "screens.feed.moreFeedback": "{title}へのその他のフィードバック",
@@ -2616,6 +3071,30 @@ export const ja: Partial<Catalogue> = {
   "screens.files.preview": "プレビュー",
   "screens.files.needsApp": "プレビューにはデスクトップアプリまたはWebアプリが必要です。",
   "screens.files.pick": "ファイルを選ぶとここにプレビューが表示されます。",
+  "screens.files.editReadOnly": "読み取り専用: このフォルダは編集なしで共有されています。",
+  "screens.files.editOpening": "{name} を編集用に開いています",
+  "screens.files.editFailed": "Psyche は {name} を編集用に開けませんでした ({reason})。",
+  "screens.files.editNotText": "{name} は UTF-8 のテキストではないため、ここでは編集できません。",
+  "screens.files.unsaved": "未保存の変更",
+  "screens.files.saved": "保存しました",
+  "screens.files.saving": "保存中…",
+  "screens.files.discardAsk": "未保存の変更を破棄しますか?",
+  "screens.files.discard": "破棄",
+  "screens.files.keepEditing": "編集を続ける",
+  "screens.files.conflict": "このファイルは、開いた後にディスク上で変更されました。",
+  "screens.files.reload": "再読み込み",
+  "screens.files.overwrite": "上書き…",
+  "screens.files.overwriteAsk":
+    "新しいバージョンをあなたの編集内容で置き換えますか? 新しいバージョンは失われます。",
+  "screens.files.overwriteConfirm": "上書きする",
+  "screens.files.saveFailed": "Psyche は {name} を保存できませんでした ({reason})。",
+  "screens.files.notSaved": "保存されていません。",
+  "screens.files.editing": "{name} を編集中",
+  "screens.files.editTooLarge": "表示のみ: 512 KB を超えるファイルはここでは編集できません。",
+  "screens.files.saveTooLarge":
+    "この変更は大きすぎて、ここからは保存できません。テキストを短くして、もう一度お試しください。",
+  "screens.files.editMixedEol": "{name} は改行の形式が混在しているため、ここでは編集できません。",
+  "screens.files.draftRestored": "未保存の変更を復元しました",
   "screens.library.section.documents": "書類",
   "screens.library.empty.documents":
     "書類はまだありません。エージェントが作成または受け取ったファイルがここに入ります。",
@@ -2659,10 +3138,28 @@ export const ja: Partial<Catalogue> = {
   "screens.library.openLabel": "{name}を{editor, select, true {エディタで} other {}}開く",
   "screens.library.openInEditor": "エディタで開く",
   "screens.library.open": "開く",
+  "screens.library.deleteDownload": "このダウンロードを削除",
+  "screens.library.deleteFailed":
+    "Psyche は {name} を削除できませんでした（{reason}）。隔離されたままです。",
+  "screens.library.recording.description":
+    "エージェントがブラウザで行った操作のリプレイです。ページの内容は記録時に伏せられています。",
+  "screens.library.recording.play": "再生",
+  "screens.library.recording.pause": "一時停止",
+  "screens.library.recording.step": "ステップ {n} / {total}",
+  "screens.library.recording.scrub": "録画内の位置",
+  "screens.library.recording.steps": "ステップ",
+  "screens.library.recording.empty": "この録画にはステップがありません。",
+  "screens.library.recording.noFrame": "このステップの画像はありません。",
+  "screens.library.recording.frameAlt": "ステップ {n} のブラウザ",
+  "screens.library.recording.reviewPermissions": "権限で確認",
+  "screens.library.recording.loading": "録画を読み込み中",
+  "screens.library.recording.loadFailed": "Psyche はこの録画を読み込めませんでした（{reason}）。",
+  "screens.library.recording.notFound": "この録画はもう利用できません。",
   "screens.library.trust": "このファイルを信頼",
   "screens.library.moreFor": "{name}のその他の操作",
   "screens.library.quickLook": "クイックルック",
   "screens.library.reveal": "Finderに表示",
+  "screens.library.revealFailed": "このファイルを表示できませんでした: {reason}",
   "screens.library.sendToChat": "チャットに送る",
   "screens.library.loading": "ライブラリを読み込み中",
   "screens.library.loadFailed": "Psycheはライブラリを読み込めませんでした",
@@ -2735,6 +3232,20 @@ export const ja: Partial<Catalogue> = {
   "screens.goals.checkinLine":
     "{cadence}{hasNext, select, true { · 次回 {next}} other {}}{hasLast, select, true { · 前回：{last}} other {}}",
   "screens.goals.noSchedule": "スケジュールなし",
+  "screens.goals.suggest": "次のステップを提案",
+  "screens.goals.suggest.hint":
+    "タップしたときだけモデルを使います。カードの「開始」をタップするまで何も始まりません。",
+  "screens.goals.suggest.done": "提案をホームに追加しました。",
+  "screens.goals.suggest.none": "今回は提案がありませんでした。あとでもう一度お試しください。",
+  "screens.ideas.start": "開始",
+  "screens.ideas.snooze": "あとで通知",
+  "screens.ideas.badge.checkin": "チェックイン",
+  "screens.ideas.badge.resume": "再開しますか？",
+  "screens.goals.checkinFrequency": "チェックイン",
+  "screens.goals.checkinFrequency.off": "オフ",
+  "screens.goals.checkinFrequency.daily": "毎日",
+  "screens.goals.checkinFrequency.weekly": "毎週",
+  "screens.goals.checkinFrequency.monthly": "毎月",
   "screens.goals.watches": "ウォッチ",
   "screens.goals.nothingWatched": "ウォッチしているものはありません。",
   "screens.goals.last": "前回：{value}",
@@ -2925,10 +3436,10 @@ export const ja: Partial<Catalogue> = {
   "web.viewers.noPath": "このファイルにはパスがありません。",
   "web.shortcut.palette": "コマンドパレット",
   "web.shortcut.newSideChat": "新しいサイドチャット",
+  "web.shortcut.newIncognitoChat": "新しいシークレットチャット",
   "web.shortcut.closeThreadView": "スレッド表示またはポップアウトを閉じる",
   "web.shortcut.toggleThreadList": "スレッドリストの表示/非表示",
   "web.shortcut.cycleThreads": "スレッドを順に切り替え",
-  "web.shortcut.forkSelection": "選択範囲をサイドチャットに分岐",
   "web.shortcut.stop": "実行を停止。「操作を引き継ぐ」を解除",
   "web.shortcut.cycleDisclosure": "表示の詳細度を切り替え：ステータス、アクション、生データ",
   "web.shortcut.openBrowserPane": "ブラウザパネル",
@@ -2966,7 +3477,9 @@ export const ja: Partial<Catalogue> = {
   "web.threads.untitled": "名称未設定",
   "web.threads.label": "スレッド",
   "web.threads.newSideChatTitle": "新しいサイドチャット（⌘N）",
+  "web.threads.newIncognitoChatTitle": "新しいシークレットチャット",
   "web.threads.newSideChat": "+ サイドチャット",
+  "web.threads.newIncognitoChat": "+ シークレット",
   "web.threads.searchLabel": "スレッドを検索",
   "web.threads.searchPlaceholder": "検索",
   "web.threads.empty": "サイドチャットはまだありません。",
@@ -3282,4 +3795,24 @@ export const ja: Partial<Catalogue> = {
   "specialists.card.fromAutomation": "オートメーション「{name}」から",
   // signed connector bundles and teach-by-showing in Mac apps
   ...final202611,
+  // password approvals on Linux (polkit)
+  ...passwordPresence,
+  ...helperCheck,
+  ...helperOffline,
+  // the security-records banner (docs/design/security-state-integrity-2026.md §7.3)
+  ...securityState,
+  // Settings → Computer use on Linux: screen and input access
+  ...linuxAccess,
+  // the Virtual screen watch pane (docs/design/linux-desktop-2026.md §7.5)
+  ...computerWatch,
+  // Gateway-authored notices (inbox notifications, security alerts)
+  ...notices,
+  // Settings > Computer use > Separate desktop (Linux)
+  ...separateDesktop,
+  // Windows variants of the sandbox PC, voice keys and platform terms
+  ...windowsPlatform202611,
+  ...mailFollowups,
+  ...keepAwake,
+  ...spaces,
+  ...machines,
 };

@@ -3,39 +3,8 @@ import PsycheDesign
 import PsycheStore
 import SwiftUI
 
-/// Home's "More" pages other than the Inbox: what's scheduled, and what the agent has been doing.
-/// Both read `AgentBackend.activity()`; running a schedule or opening a run's trace is a Mac thing.
-struct ScheduledView: View {
-    @State private var model: AgentModel
-
-    init(store: any PsycheBackend) {
-        _model = State(initialValue: AgentModel(store: store))
-    }
-
-    var body: some View {
-        MorePage(title: "Scheduled", model: model) { activity in
-            if activity.nextUp.isEmpty {
-                Text("Nothing scheduled.").font(.subheadline).foregroundStyle(PsycheColor.muted)
-                    .frame(maxWidth: .infinity).padding(.vertical, 40)
-            } else {
-                PaperCard {
-                    ForEach(Array(activity.nextUp.enumerated()), id: \.element.id) { index, item in
-                        if index > 0 { HairlineDivider() }
-                        VStack(alignment: .leading, spacing: 3) {
-                            Text(item.title).font(.psycheRow).foregroundStyle(PsycheColor.text)
-                            EvidenceLine([item.when])
-                        }
-                        .padding(PsycheMetrics.rowPadding)
-                        .frame(maxWidth: .infinity, alignment: .leading)
-                        .accessibilityElement(children: .combine)
-                    }
-                }
-                Text("Change schedules on your Mac.").font(.footnote).foregroundStyle(PsycheColor.muted)
-            }
-        }
-    }
-}
-
+/// Home's Overview page: what the agent has been doing. Reads `AgentBackend.activity()`; opening a run's trace is a Mac thing.
+/// Scheduled lives in `Proactive/ProactiveViews.swift`.
 struct OverviewView: View {
     @State private var model: AgentModel
 

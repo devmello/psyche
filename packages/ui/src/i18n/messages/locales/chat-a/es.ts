@@ -55,6 +55,10 @@ export const chatA: Partial<Catalogue> = {
   "chat.attach.refused.size":
     "{name} es demasiado grande para adjuntarlo (imágenes 5 MB, documentos 25 MB)",
   "chat.attach.refused.count": "{name}: se pueden enviar hasta 8 archivos con un mensaje",
+  "chat.attach.refused.sensitive":
+    "{name} está en una ubicación protegida y no se puede compartir con Psyche",
+  "chat.attach.refused.unreadable":
+    "No se pudo adjuntar {name}. Comprueba que sigue existiendo y que es un archivo, no una carpeta",
   "chat.message.fromWidget": "Desde un widget",
   "chat.teach.notLikeThis": "Así no",
   "chat.teach.dialog": "Enseñar a Psyche",
@@ -133,6 +137,9 @@ export const chatA: Partial<Catalogue> = {
   "chat.steps.approval": "Esperando tu aprobación: {summary}",
   "chat.steps.question": "Preguntó: {question}",
   "chat.steps.answered": "Respondido: {question}",
+  "chat.steps.earlier":
+    "{n, plural, one {# paso anterior hecho} other {# pasos anteriores hechos}}",
+  "chat.steps.needsYou": "Te necesita",
   "chat.steps.writing": "Escribiendo la respuesta…",
   "chat.steps.thinking": "Pensando: {text}",
   "chat.steps.thinkingEmpty": "Pensando…",
@@ -189,4 +196,16 @@ export const chatA: Partial<Catalogue> = {
   "chat.clear.clearing": "Borrando…",
   "chat.clear.done": "Chat borrado",
   "chat.clear.failed": "No se pudo borrar el chat: {reason}",
+  "chat.modeSwitch.label": "Modo de permisos",
+  "chat.modeSwitch.autoExplainer":
+    "Auto ejecuta las acciones rutinarias dentro de tus permisos y pregunta antes de cualquier cosa sensible. Los pagos siempre preguntan; tu lista de prohibidos siempre se rechaza.",
+  "chat.modeSwitch.gotIt": "Entendido",
+  "chat.modeSwitch.autoUnavailable": "Auto no puede usar {model}.",
+  "chat.modeSwitch.needsModel": "Auto necesita un modelo compatible.",
+  "chat.modeSwitch.switchModel": "Cambiar a {model} y usar Auto",
+  "chat.modeSwitch.noModel":
+    "Auto necesita un modelo compatible, como Claude, GPT o Gemini. Añade su clave en Ajustes.",
+  "chat.modeSwitch.failed": "No se pudo cambiar el modo: {reason}",
+  "chat.modeSwitch.notSaved":
+    "Cambiado para este chat, pero no se pudo guardar como predeterminado para los chats nuevos.",
 };

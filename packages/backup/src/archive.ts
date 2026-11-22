@@ -1,5 +1,5 @@
 import { spawn, spawnSync } from "node:child_process";
-import { createHash } from "node:crypto";
+import { createHash, createHmac } from "node:crypto";
 import {
   chmodSync,
   copyFileSync,
@@ -44,10 +44,18 @@ export const BACKUP_ENTRIES = [
 /** Never in a backup: kept recordings of the owner's demonstrations (teach by showing). */
 export const BACKUP_EXCLUDED = [
   "state/teach",
+  // Link one-time card files (plaintext PAN / CVC while a payment is in flight).
+  "vault/cards",
   "state/channels/held.json",
   // Which build last booted here: a fact about this folder's history, not part of the data.
   "state/last-boot.json",
+  // Stripe Link's sign-in, written in plain text by the Link CLI: the owner signs in again after a restore.
+  "vault/link-auth.json",
 ] as const;
+/** The Link auth file's atomic-write sibling (`link-auth.json.tmp-…`) holds the same token. */
+const isExcluded = (rel: string): boolean =>
+  (BACKUP_EXCLUDED as readonly string[]).includes(rel) ||
+  rel.startsWith("vault/link-auth.json.tmp");
 export const MANIFEST = "psyche-backup.json";
 const FORMAT = "psyche-backup";
 
@@ -199,7 +207,7 @@ function stageTree(home: string, tree: string, rel: string, skip: ReadonlySet<st
   const st = lstatSync(src);
   if (st.isSymbolicLink()) return; // never follow links out of $PSYCHE_HOME
   const dest = join(tree, rel);
-  if (BACKUP_EXCLUDED.includes(rel.split(sep).join("/") as never)) return;
+  if (isExcluded(rel.split(sep).join("/"))) return;
   if (st.isDirectory()) {
     mkdirSync(dest, { recursive: true, mode: 0o700 });
     for (const name of readdirSync(src).sort()) stageTree(home, tree, join(rel, name), skip);
@@ -438,7 +446,18 @@ function tighten(path: string): void {
  */
 export const RESTORE_MARKER = join("security", "restored.json");
 
-function writeRestoreMarker(home: string, restoredAt: string, backupCreatedAt: string): void {
+/** The restored database's seal row, as the restore marker names it (M1). */
+export interface RestoredSealRow {
+  gen: number;
+  mac: string;
+}
+
+function writeRestoreMarker(
+  home: string,
+  restoredAt: string,
+  backupCreatedAt: string,
+  seal: RestoredSealRow | undefined,
+): void {
   // Chat messages held across an update belong to the Gateway that held them; a restored
   // backup must not bring old ones back to be answered.
   rmSync(join(home, "state", "channels", "held.json"), { force: true });
@@ -448,13 +467,34 @@ function writeRestoreMarker(home: string, restoredAt: string, backupCreatedAt: s
   const dir = join(home, "security");
   mkdirSync(dir, { recursive: true, mode: 0o700 });
   makePrivate(dir, 0o700);
-  writeFileSync(
-    join(home, RESTORE_MARKER),
-    `${JSON.stringify({ restoredAt, backupCreatedAt })}\n`,
-    {
-      mode: 0o600,
-    },
-  );
+  const marker: Record<string, string> = { restoredAt, backupCreatedAt };
+  // The marker names the restored database's seal row, under its MAC: it cannot vouch for
+  // another database (M1). The Gateway also uses a marker only once.
+  if (seal !== undefined) {
+    marker.sealGen = String(seal.gen);
+    marker.sealRowMac = seal.mac;
+  }
+  // A restore on the same Mac signs its marker with the security-state seal key, which never
+  // travels in a backup: the Gateway then knows this restore was made here (a marker another
+  // program planted, or one from another Mac, is not trusted; docs/design/
+  // security-state-integrity-2026.md §7.1).
+  const mac = sealMac(home, marker);
+  if (mac !== undefined) marker.mac = mac;
+  writeFileSync(join(home, RESTORE_MARKER), `${JSON.stringify(marker)}\n`, { mode: 0o600 });
+}
+
+function sealMac(home: string, marker: Record<string, string>): string | undefined {
+  try {
+    const file = JSON.parse(
+      readFileSync(join(home, "security", "state-seal-key.json"), "utf8"),
+    ) as { key?: unknown };
+    const key = Buffer.from(String(file.key ?? ""), "base64");
+    if (key.length !== 32) return undefined;
+    const text = JSON.stringify(marker, Object.keys(marker).sort());
+    return createHmac("sha256", key).update(`restore\0${text}`).digest("hex");
+  } catch {
+    return undefined;
+  }
 }
 
 /**
@@ -465,7 +505,12 @@ export async function restoreBackup(
   file: string,
   dec: Decryption,
   home: string,
-  opts: { force: boolean; now?: Date },
+  opts: {
+    force: boolean;
+    now?: Date;
+    /** Reads the restored database's seal row (the CLI's SQLite reader), for the marker. */
+    sealRow?: (dbPath: string) => Promise<RestoredSealRow | undefined>;
+  },
 ): Promise<{ manifest: Manifest; movedAside: string | null }> {
   const clashes = BACKUP_ENTRIES.filter((e) => existsSync(join(home, e)));
   if (clashes.length && !opts.force) {
@@ -511,7 +556,14 @@ export async function restoreBackup(
       throw err;
     }
     makePrivate(home, 0o700);
-    writeRestoreMarker(home, (opts.now ?? new Date()).toISOString(), manifest.createdAt);
+    let seal: RestoredSealRow | undefined;
+    try {
+      seal = await opts.sealRow?.(join(home, "state", "psyche.sqlite"));
+    } catch {
+      // Without it the restore still works; the Gateway then starts untrusted (restore_unverified).
+      seal = undefined;
+    }
+    writeRestoreMarker(home, (opts.now ?? new Date()).toISOString(), manifest.createdAt, seal);
     return { manifest, movedAside: movedAside ? relative(home, movedAside) : null };
   } finally {
     rmSync(dir, { recursive: true, force: true });

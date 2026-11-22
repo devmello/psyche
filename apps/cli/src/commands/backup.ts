@@ -13,6 +13,7 @@ import { PsycheError } from "@psyche/protocol";
 import { bool, type CommandResult, type CommandSpec, type OptionValues, str } from "../command.ts";
 import type { Ctx } from "../context.ts";
 import { CliError } from "../errors.ts";
+import { restoredSealRow } from "../migrate.ts";
 import { bytes, kv } from "../output.ts";
 import { readAll } from "../prompt.ts";
 import { resumeService, stopService } from "../supervisor.ts";
@@ -285,7 +286,11 @@ export const backupCommands: CommandSpec[] = [
       const dec = await decryptionFrom(ctx, opts);
       const { manifest, movedAside } = await withGatewayStopped(ctx, opts, "restore", () =>
         archiveErrors(() =>
-          restoreBackup(file, dec, ctx.home, { force: bool(opts, "force"), now: ctx.deps.now() }),
+          restoreBackup(file, dec, ctx.home, {
+            force: bool(opts, "force"),
+            now: ctx.deps.now(),
+            sealRow: restoredSealRow,
+          }),
         ),
       );
       return {

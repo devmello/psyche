@@ -9,6 +9,8 @@ final class SettingsModel {
     struct Loaded: Equatable, Sendable {
         var device: DeviceInfo
         var settings: PhoneSettings
+        /// Read-only; empty when there are none or the Gateway doesn't say.
+        var machines: [MachineSummary] = []
     }
 
     private(set) var phase: LoadPhase<Loaded> = .idle
@@ -27,7 +29,9 @@ final class SettingsModel {
         do {
             async let device = store.device()
             async let settings = store.settings()
-            phase = .loaded(Loaded(device: try await device, settings: try await settings))
+            async let machines = store.machines()
+            phase = .loaded(Loaded(
+                device: try await device, settings: try await settings, machines: (try? await machines) ?? []))
         } catch {
             if phase.value == nil { phase = .failed(error.localizedDescription) }
         }
@@ -217,6 +221,8 @@ struct SettingsSheet: View {
             toggleRow("Face ID for approvals", isOn: binding(\.faceIDForApprovals, settings), last: true)
         }
 
+        computersSection(loaded.machines)
+
         section("Gateway") {
             Button { confirmingRepair = true } label: { actionRow("Re-pair with your Mac", destructive: false) }
                 .buttonStyle(.plain)
@@ -237,6 +243,43 @@ struct SettingsSheet: View {
         EditOnMacNote(text: "Change everything else on your Mac, in Settings.")
     }
 
+    /// "Computers Psyche can use": read-only. Adding or pairing one is done on the Mac.
+    private func computersSection(_ machines: [MachineSummary]) -> some View {
+        VStack(alignment: .leading, spacing: 8) {
+            SectionHeader(String(localized: "Computers Psyche can use", bundle: .module))
+            PaperStack {
+                if machines.isEmpty {
+                    Text("No computers added yet.", bundle: .module)
+                        .font(.subheadline).foregroundStyle(PsycheColor.muted)
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                        .padding(PsycheMetrics.rowPadding)
+                } else {
+                    ForEach(Array(machines.enumerated()), id: \.element.id) { index, machine in
+                        VStack(spacing: 0) {
+                            HStack(alignment: .firstTextBaseline, spacing: 12) {
+                                Text(machine.name).font(.psycheRow).foregroundStyle(PsycheColor.text)
+                                Spacer(minLength: 12)
+                                Self.statusText(machine.status)
+                                    .font(.subheadline).foregroundStyle(PsycheColor.muted)
+                            }
+                            .padding(PsycheMetrics.rowPadding)
+                            if index < machines.count - 1 { HairlineDivider() }
+                        }
+                        .accessibilityElement(children: .combine)
+                    }
+                }
+            }
+        }
+    }
+
+    static func statusText(_ status: MachineSummary.Status) -> Text {
+        switch status {
+        case .online: Text("Online", bundle: .module)
+        case .offline: Text("Offline", bundle: .module)
+        case .degraded: Text("Limited", bundle: .module)
+        }
+    }
+
     /// "Stay connected while a task runs" (off by default), its battery note, and what it has cost today.
     private func stayConnectedSection(_ settings: PhoneSettings) -> some View {
         VStack(alignment: .leading, spacing: 8) {
@@ -255,7 +298,7 @@ struct SettingsSheet: View {
                 AwakeTodayRow(alerts: alerts, isOn: settings.stayConnectedWhileRunning)
             }
             Text(
-                "Keeps Psyche running in the background, with a silent audio session, only while a task you're watching runs or waits for you. It uses some battery, and stops on Low Power Mode or when the battery is below 20 percent and unplugged.",
+                "Keeps Psyche running in the background, with a silent audio session, only while a task or chat reply you're watching runs or waits for you. It uses some battery, and stops on Low Power Mode or when the battery is below 20 percent and unplugged.",
                 bundle: .module
             )
             .font(.footnote).foregroundStyle(PsycheColor.muted).padding(.horizontal, 2)

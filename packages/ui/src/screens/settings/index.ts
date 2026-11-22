@@ -114,6 +114,8 @@ export {
   policyWithFolderMode,
   policyWithFolders,
 } from "./FileAccessSection.tsx";
+export { HelperOfflineBanner } from "./HelperOfflineBanner.tsx";
+export { type HostHelperStatus, parseHostHelperStatus } from "./HostHelperCheckGroup.tsx";
 export { type MacHelperStatus, MacHelperStatusRow } from "./MacHelperStatus.tsx";
 export {
   ModelProvidersPanel,
@@ -166,6 +168,7 @@ export {
   type SkillTrustCardProps,
   skillSourceOf,
 } from "./SkillsSection.tsx";
+export { StoragePanel, type StoragePanelProps, StorageSection } from "./StorageSection.tsx";
 export { resolveSection } from "./settings-pages.ts";
 export { parseSettingsRoute, type SettingsTarget } from "./settings-route.ts";
 export { useSettingsForm } from "./shared.tsx";

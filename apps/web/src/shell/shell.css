@@ -298,6 +298,23 @@ button {
   background: transparent;
   cursor: pointer;
 }
+.mode-switch {
+  padding: 4px 16px 0;
+  font-size: 13px;
+  color: var(--label-secondary);
+}
+.mode-switch p {
+  margin: 4px 0 0;
+}
+.mode-switch-group {
+  display: inline-flex;
+  gap: 4px;
+}
+.mode-switch-group .pill[aria-checked="true"] {
+  background: var(--fill-secondary);
+  color: var(--label-primary);
+  font-weight: 600;
+}
 .messages {
   flex: 1;
   overflow: auto;
@@ -397,6 +414,48 @@ button {
   font: inherit;
   text-decoration: underline;
   cursor: pointer;
+}
+.banner-action:disabled {
+  opacity: 0.5;
+  cursor: default;
+}
+/* Security records (docs/design/security-state-integrity-2026.md §7.3): one line, a list on Review. */
+.security-banner-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 4px 12px;
+}
+.security-panel {
+  margin-top: 6px;
+  max-height: 40vh;
+  overflow: auto;
+}
+.security-list,
+.security-changes {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.security-list > li {
+  padding: 6px 0;
+  border-top: 1px solid rgb(0 0 0 / 0.12);
+}
+.security-list p {
+  margin: 0;
+}
+.security-changes {
+  margin-top: 2px;
+  padding-inline-start: 12px;
+  font-size: 12px;
+}
+.security-actions {
+  display: flex;
+  gap: 12px;
+  margin-top: 2px;
+}
+.security-notice {
+  margin: 6px 0 0;
 }
 .panes {
   display: flex;

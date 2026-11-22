@@ -5,9 +5,11 @@ import { getDevice, listPairingRequests, updateDevice } from "@psyche/db";
 import type { AuditEntry } from "@psyche/protocol";
 import { FakeModelProvider } from "@psyche/testing";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
+import { composeHelper } from "../src/compose/helper.ts";
 import { type ComposedGateway, composeGateway } from "../src/compose/index.ts";
 import { approvePairing } from "../src/handlers/devices.ts";
 import { silentLogger } from "../src/log.ts";
+import { FakeNode } from "./fake-node.ts";
 import {
   type TestClient as Client,
   desktopClient,
@@ -62,6 +64,65 @@ afterEach(async () => {
 });
 
 describe("devices.bootstrapAdmin", () => {
+  it("is refused once Touch ID or a passkey was ever set up (D8), and raises an alert when it works", async () => {
+    const gw = await compose();
+    const first = await desktop(gw, "d1");
+    await first.call("devices.bootstrapAdmin", {}, ik());
+    expect(
+      gw.gateway.context.securityState?.alerts.open().map((a) => [a.kind, a.details.via]),
+    ).toContainEqual(["local_first_admin", "desktop"]);
+    // The owner had a verifier once, then revoked every admin device.
+    gw.gateway.context.securityState?.notePresenceEnrolled();
+    await first.call("devices.revokeSelf", {}, ik()).catch(() => undefined);
+    const second = await desktop(gw, "d2");
+    expect(await second.request("devices.bootstrapAdmin", {}, ik())).toMatchObject({
+      ok: false,
+      error: { code: "forbidden", details: { reason: "presence_enrolled" } },
+    });
+  });
+
+  it("still works after the Mac helper auto-paired: its device key is not presence enrollment (D8)", async () => {
+    composed = await composeGateway({
+      env: {},
+      logger: silentLogger,
+      retentionIntervalMs: 0,
+      background: false,
+      config: { home, port: 0, dbPath: join(home, "psyche.db"), webRoot: null },
+      model: { provider: new FakeModelProvider(), model: "fake/model" },
+      parts: [(s) => composeHelper(s)],
+    });
+    const gw = composed;
+    const node = await FakeNode.connect(gw.gateway.config.nodeSocketPath, {
+      origin: gw.gateway.origin,
+      secret: gw.gateway.handshakeSecret,
+      deviceId: "helper-boot",
+      handlers: [
+        {
+          capability: { name: "notify.show", sideEffect: "write", streaming: false },
+          run: () => ({ shown: true }),
+        },
+        {
+          capability: { name: "notify.subscribe", sideEffect: "read", streaming: true },
+          run: () => new Promise(() => undefined),
+        },
+      ],
+    });
+    try {
+      // The helper is paired and online, and the gate counts nothing as enrolled.
+      expect(getDevice(gw.db, "helper-boot")?.pairedAt).not.toBeNull();
+      expect(gw.gateway.context.presenceState()).toBe("off");
+      const first = await desktop(gw, "d1");
+      const res = await first.call<{ device: { id: string; scopes: string[] } }>(
+        "devices.bootstrapAdmin",
+        {},
+        ik(),
+      );
+      expect(res.device.scopes).toContain("operator.admin");
+    } finally {
+      await node.close();
+    }
+  });
+
   it("grants the first desktop admin once, audited, and is inert afterwards", async () => {
     const gw = await compose();
     const first = await desktop(gw, "d1");

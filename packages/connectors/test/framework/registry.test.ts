@@ -414,6 +414,7 @@ describe("standing grants (ToolRunContext.authority)", () => {
     authority?: ToolCallAuthority;
     grants?: Grant[];
     approvalFor?: () => string | undefined;
+    taskFor?: () => string | undefined;
     now?: number;
   }) => {
     const tools = new Map<string, { execute: (...a: unknown[]) => Promise<unknown> }>();
@@ -488,6 +489,7 @@ describe("standing grants (ToolRunContext.authority)", () => {
       } as never,
       authorityFor: () => opts.authority,
       ...(opts.approvalFor === undefined ? {} : { approvalFor: opts.approvalFor }),
+      ...(opts.taskFor === undefined ? {} : { taskFor: opts.taskFor }),
       newId: () => "demo-1",
     });
     const call = (name: string) =>
@@ -513,10 +515,19 @@ describe("standing grants (ToolRunContext.authority)", () => {
     await expect(call("keyed")).resolves.toMatchObject({ output: "written", receiptId: "r" });
     expect(executed).toEqual([byGrant]);
     expect(receipts).toEqual([expect.objectContaining({ kind: "demo.write", approvalId: null })]);
-    // The receipt says which rule let the call through (#747).
+    // The receipt says which rule let the call through (#747), and the grant's id (a resume's
+    // done check matches the receipt to the grant, never to its kind or task).
     expect(receipts).toEqual([
-      expect.objectContaining({ payload: { rule: "grant:grt_1", via: "grant" } }),
+      expect.objectContaining({
+        payload: { rule: "grant:grt_1", via: "grant", grantId: "grt_1", bindingHash: "sha256:00" },
+      }),
     ]);
+  });
+
+  it("the receipt names the call's task when the Gateway knows it", async () => {
+    const { call, receipts } = setup({ authority: byGrant, taskFor: () => "task_9" });
+    await call("keyed");
+    expect(receipts).toEqual([expect.objectContaining({ taskId: "task_9" })]);
   });
 
   it("a grant the ledger no longer has, or that expired, is refused", async () => {

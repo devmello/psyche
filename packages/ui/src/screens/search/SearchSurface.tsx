@@ -863,6 +863,9 @@ function SurfaceRow({
           {t("screens.search.related")}
         </Badge>
       ) : null}
+      {hit.imported !== undefined ? (
+        <Badge variant="muted">{t("shell.threads.imported")}</Badge>
+      ) : null}
       {hit.scope === "memory" ? (
         <Badge variant="muted">
           <ShieldQuestion aria-hidden="true" />

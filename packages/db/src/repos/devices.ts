@@ -2,6 +2,7 @@ import type { Device, DevicePlatform, DeviceRole, DeviceScope } from "@psyche/pr
 import { and, asc, eq, isNull } from "drizzle-orm";
 import { deviceFromRow } from "../mappers.ts";
 import type { PsycheDb } from "../open.ts";
+import { readGuardOf } from "../read-guard.ts";
 import { devices } from "../schema.ts";
 
 export interface NewDevice {
@@ -47,11 +48,13 @@ export function insertDevice(db: PsycheDb, input: NewDevice): Device {
 }
 
 export function getDevice(db: PsycheDb, id: string): Device | undefined {
+  readGuardOf(db)?.check();
   const row = db.drizzle.select().from(devices).where(eq(devices.id, id)).get();
   return row === undefined ? undefined : deviceFromRow(row);
 }
 
 export function listDevices(db: PsycheDb, opts: { includeRevoked?: boolean } = {}): Device[] {
+  readGuardOf(db)?.check();
   const query = db.drizzle.select().from(devices);
   const rows = opts.includeRevoked
     ? query.orderBy(asc(devices.createdAt)).all()

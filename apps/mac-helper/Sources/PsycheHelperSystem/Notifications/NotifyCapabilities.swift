@@ -23,6 +23,7 @@ public enum NotifyCapabilities {
         [
             "id": idSchema("Gateway notification id; reusing it replaces the shown notification"),
             "kind": Schema.string("NotificationKind", enum: kinds),
+            "category": Schema.string("The Gateway's name for kind (accepted instead of kind)", enum: kinds),
             "title": Schema.string("Truncated to \(NotificationLimits.maxTitle) characters"),
             "body": Schema.string("Truncated to \(NotificationLimits.maxBody) characters"),
             "subtitle": Schema.string("Truncated to \(NotificationLimits.maxSubtitle) characters"),
@@ -45,15 +46,15 @@ public enum NotifyCapabilities {
             "route": Schema.string("Deep link inside the app (not stored in the OS notification)"),
             "interruption": Schema.string("Overrides the kind's default level", enum: NotifyInterruptionLevel.allCases.map(\.rawValue)),
             "approvalId": idSchema("Approval answered by this notification"),
-            "requireBiometry": Schema.boolean("Run device-owner authentication before forwarding a non-destructive action"),
-            "presenceChallenge": Schema.string("Hex SHA-256 the Secure Enclave presence key signs after Touch ID (with requireBiometry)", maxLength: 64),
+            "requireBiometry": Schema.boolean("Run device-owner authentication (one system sheet) before forwarding the action"),
+            "presenceChallenge": Schema.string("Hex SHA-256 the helper signs with its device key after the owner sheet (with requireBiometry)", maxLength: 64),
             "quietHours": Schema.object(
                 ["start": Schema.string("HH:mm"), "end": Schema.string("HH:mm")], required: ["end", "start"],
                 description: "Local-time window during which the notification is passive and silent"
             ),
             "sound": Schema.boolean("Defaults to true unless the level is passive"),
         ],
-        required: ["body", "id", "kind", "title"]
+        required: ["body", "id", "title"]
     )
 
     static func show(_ bridge: NotificationCenterBridge, now: @escaping @Sendable () -> Date, calendar: Calendar) -> Capability {

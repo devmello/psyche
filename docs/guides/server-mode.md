@@ -1,17 +1,117 @@
 # Server mode
 
-You can run the Gateway (`psyched`) on a Linux server or a Mac without a screen, and reach it from the desktop app, a browser or the CLI. This guide covers Docker Compose, the systemd and launchd units, Tailscale and other ways in, pairing clients, backups and restore, logs, and what server mode does not support yet.
+You can run the Gateway (`psyched`) on a Linux server or a Mac without a screen, and reach it from the desktop app, a browser or the CLI. The easiest way is the `psyche-server` package on Ubuntu or Debian. This guide covers that package, then Docker Compose, the systemd and launchd units, Tailscale and other ways in, pairing clients, backups and restore, logs, and what server mode does not support yet.
+
+## Quick start: an Ubuntu server and your Mac
+
+You need Ubuntu or Debian, a user on the server who can use `sudo`, and a Mac on the same network with the Psyche app. Without a model key the first reply is "No model is configured yet", which is expected.
+
+1. Install the package on the server, as the user Psyche will run for. Use the `.deb` from the release, or build one with `node deploy/linux-server/build.mjs` (see the header of that file for its options):
+
+   ```bash
+   sudo apt install ./psyche-server-<version>-linux-<arch>.deb
+   ```
+
+   It installs `psyche`, `psyched` and a helper. It turns on linger for the user who ran `sudo`, so the Gateway keeps running after you log out. It recommends `avahi-daemon`, so the Mac can find the server by name. It can't be installed next to the desktop package.
+
+2. Read the setup code the install printed:
+
+   ```text
+   Setup code: 7K3QM-XR2TD
+   ```
+
+   Then the Gateway starts, waiting to be set up. The code works once, for 24 hours. If you lost it or it expired, run `psyche setup code` as that user for a new one (the old one stops working). `psyche status` says whether a code is waiting.
+
+3. On the Mac, open Psyche and choose **Connect to a Psyche server**. Once Psyche is set up on the Mac, use Settings → Server & remote access → Gateways on this computer → **Set up a remote server** instead.
+   - Psyche lists the servers on the network that are waiting for setup. Pick yours, or type its address (`ip addr` on the server shows it).
+   - Confirm the address, then type the code.
+   - Both sides prove they know the code before either trusts the other. Then the Mac pins the server's key and certificate and becomes its first admin.
+
+4. Press **Switch to** the server. Onboarding runs on the server: your agent's name, your name and a model provider. It also asks about **Keep this server reachable on my network**, which is on by default. Turn it off only if you reach the server another way, such as [Tailscale Serve](#tailscale-serve): when onboarding finishes, the server stops listening on the network and the Mac disconnects.
+
+5. Check it: send a message.
+
+If something goes wrong:
+- **"That code isn't right":** check it on the server. After a few wrong tries, the server makes you wait a minute.
+- **"That code has expired":** run `psyche setup code` on the server and type the new code.
+- **No server is listed:** type its address. Ubuntu Server doesn't answer `.local` names or show up on the network without an mDNS responder: `sudo apt install avahi-daemon`.
+- **"That server is already set up":** it was set up from the terminal or another computer. Add it with a pairing link (below).
+
+Once a server has an admin, set up from the app or from the terminal, it never waits for a setup code again.
+
+### Setting it up from the terminal instead
+
+Use this if you'd rather not use the setup code, or the Mac can't reach the server on the network.
+
+1. Set it up, as the user Psyche runs for (not root):
+
+   ```bash
+   psyche setup --yes --provider skip --start --no-wait
+   ```
+
+   Leave out `--yes --provider skip` to answer the prompts and give it a model key instead. The command starts the Gateway and prints a pairing code for this CLI. Approve it on the server:
+
+   ```bash
+   psyched devices approve <CODE>
+   ```
+
+   Then run `psyche setup --yes --provider skip` again, and check that `psyche status` says healthy and paired. Once the CLI is the server's admin, the setup code stops working.
+
+2. Let computers on your network connect, and name the interface they reach the server on:
+
+   ```bash
+   psyche lan on --interface eth0
+   ```
+
+   The pairing link names the server as `https://<hostname>.local:7979`, so the Mac needs `avahi-daemon` on the server to find it by that name (see above). If you prefer Tailscale to the local network, skip this step and the next one's `--lan`, and follow [Tailscale Serve](#tailscale-serve) below.
+
+3. Make a pairing link on the server:
+
+   ```bash
+   psyche devices link --lan
+   ```
+
+   It prints a `psyche-pair:v2:…` link that works once, for ten minutes. Anyone holding it can pair until then, so don't paste it anywhere shared.
+
+4. On the Mac, open Psyche, then Settings → Server & remote access → Gateways on this computer → Add a Gateway.
+   - Paste the link.
+   - Check the key fingerprint it shows against the one on the server (`psyched identity show`).
+   - Add it, then press Switch.
+
+   The Mac pins the server's key and certificate and pairs by itself, because the link carries the one-time token.
+
+5. Check it: send a message. Without a model key the reply is "No model is configured yet." Give the Gateway a model through `psyche setup` (run it without `--provider skip`).
+
+### If the Mac cannot reach the server by name
+
+You can add the server by its address instead, without a link:
+
+1. In Add a Gateway, type `https://<server ip>:7979` (find the address with `ip addr`).
+2. The Mac shows a pairing code and the server's key fingerprint. On the server, compare that fingerprint with the one `psyched identity show` prints. They must match.
+3. On the server, approve the code:
+
+   ```bash
+   psyche pairing approve <CODE>
+   ```
+
+   Run `psyche pairing list` to see waiting codes.
+
+### Checking from a script
+
+`apps/desktop/scripts/remote-e2e.ts` is a manual check that uses the desktop app's own connection code. It pairs with a link or a typed address, or sets up a fresh server with its setup code (`--claim <code> <address>`). Then it lists and creates a thread and sends one message. See the comment at the top of the file for how to run it. It is not part of any test suite.
+
+Everything below applies to other setups, and to using the Gateway beyond this quick start.
 
 ## How it works
 
-- The Gateway binds `127.0.0.1` only. It refuses any other address ("Refusing to bind …"), so nothing listens on a public interface.
-- You reach it through a proxy or tunnel on the same machine: Tailscale Serve, Cloudflare Tunnel with Cloudflare Access, or an SSH tunnel.
+- The Gateway binds `127.0.0.1` only, unless you turn LAN on for one interface (`psyche lan on`). It refuses any other address ("Refusing to bind …").
+- Otherwise, you reach it through a proxy or tunnel on the same machine: Tailscale Serve, Cloudflare Tunnel with Cloudflare Access, or an SSH tunnel.
 - Every client (desktop, browser, CLI) pairs as a device that you approve. Identity headers from a proxy never authorize anything on their own.
 - `GET /healthz` answers `{"ok":true}` without authentication. Everything else needs a paired device.
 
-Before you start:
+Before you start with the other setups:
 
-- There is no release yet: no published container image, no `psyche` or `psyched` binaries. You build from a source checkout. [install.md](install.md) describes the release path for when it exists.
+- There is no published container image. The Docker Compose and source-checkout steps below build from a source checkout. [install.md](install.md) describes the release path.
 - The model is set with environment variables, as in [getting-started.md](getting-started.md#2-choose-a-model-and-start-the-gateway). Model keys in the vault are not available yet.
 
 ## Docker Compose on Linux
@@ -106,7 +206,7 @@ Two parts of the Compose file are not used by the Gateway yet:
 `psyche start` installs the Gateway as a user service and waits for `/healthz`:
 
 - On Linux it writes `~/.config/systemd/user/psyche-gateway.service`, then runs `daemon-reload` and `enable --now`.
-- On macOS it writes `~/Library/LaunchAgents/com.psyche.gateway.plist` and starts it with `launchctl`. Its logs go to `$PSYCHE_HOME/logs/gateway.out.log` and `gateway.err.log`.
+- On macOS it writes `~/Library/LaunchAgents/com.psyche.gateway.plist` and starts it with `launchctl`. Its logs go to `$PSYCHE_HOME/logs/gateway.log`, which the Gateway rotates itself (10 MB, three files). `gateway.err.log` holds crash output only, and `gateway.out.log` holds stdout.
 - `psyche stop` stops it and keeps it stopped; `psyche restart` restarts it; `psyche status` reports health, the service state and the CLI's pairing.
 
 On Linux, keep a user service running after you log out:
@@ -115,16 +215,32 @@ On Linux, keep a user service running after you log out:
 loginctl enable-linger "$USER"
 ```
 
-Two limits make these units hard to use today:
+Two limits make these units hard to use by hand (the `psyche-server` package sets them up for you):
 
-- `psyche start` needs a `psyched` executable: `--psyched <path>`, `PSYCHE_GATEWAY_BIN`, or `psyched` on your `PATH`. No release ships one yet.
+- `psyche start` needs a `psyched` executable: `--psyched <path>`, `PSYCHE_GATEWAY_BIN`, or `psyched` on your `PATH`. The `psyche-server` package puts one on your `PATH`.
 - The unit and the plist set only `PSYCHE_HOME`. A Gateway started this way has no model, because model keys come only from the environment. `psyche start` rewrites the file whenever it differs from what it would write, so hand edits do not last.
 
-Until that changes, use Docker Compose on Linux. On a Mac without a screen, run the Gateway from the source checkout in a terminal session that stays open:
+Until that changes, use the `psyche-server` package or Docker Compose on Linux. On a Mac without a screen, run the Gateway from the source checkout in a terminal session that stays open:
 
 ```bash
 PSYCHE_MODEL=anthropic/claude-sonnet-5-5 ANTHROPIC_API_KEY=<your key> pnpm --filter @psyche/gateway start
 ```
+
+### A headless Linux Host
+
+A Linux Host is headless when logind reports no graphical session for its user (an SSH-only box, or linger without a login). The Gateway asks logind every few seconds. Its own environment doesn't count. On a headless Host:
+
+- The agent's browser is headless Chromium. It has no screen, so it never shares one with computer use. It gets a private home and runtime dir under `$PSYCHE_HOME/browser/` (0700), its own certificate store and no session bus. Install Chromium (`apt install chromium`), or name the binary with `PSYCHE_CHROMIUM`. You can't take over its tabs yet, so `browser.request_control` answers that there is no pane and the agent asks in chat. Checkout in the browser needs the desktop app connected.
+- Computer use runs on the helper's private screen. Watch it and take over from a paired desktop. Stopping that screen, and answering its unsaved-changes card, need a device allowed to approve.
+- A payment needs a passkey. Without one it fails before any card is shown.
+
+These variables change that. Set them only in the service's environment (`systemctl --user edit psyche-gateway`, then `Environment=` under `[Service]`), never in a file the agent can write. The Gateway reads them once at start.
+
+| Variable | Values | Effect |
+| --- | --- | --- |
+| `PSYCHE_BROWSER_DRIVER` | `bridge`, `server` | `bridge`: only a desktop app's browser, never headless Chromium. `server`: headless Chromium on Linux even with a graphical session. Unset: logind decides. |
+| `PSYCHE_PAYMENT_PRESENCE` | `passkey` | Payments need a passkey on any Host, not only a headless one. |
+| `PSYCHE_CHROMIUM` | a path | The Chromium binary for the headless browser. Unset: the first of `/usr/bin/chromium`, `/usr/bin/chromium-browser`, `/snap/bin/chromium`, `/usr/bin/google-chrome-stable` and `/usr/bin/google-chrome` that exists. |
 
 ## Reaching the Gateway
 
@@ -303,7 +419,7 @@ The Gateway writes JSON lines with metadata only: never message bodies, tool arg
 | Where the Gateway runs | Where the logs go | How to read them |
 | --- | --- | --- |
 | A terminal | Standard error | In that terminal |
-| LaunchAgent (macOS) | `$PSYCHE_HOME/logs/gateway.out.log` and `gateway.err.log` | `psyche logs -n 200`, or `psyche logs -f` to follow |
+| LaunchAgent (macOS) | `$PSYCHE_HOME/logs/gateway.log` (crashes in `gateway.err.log`) | `psyche logs -n 200`, or `psyche logs -f` to follow |
 | systemd user unit | The journal | `psyche logs -f` (it reads `journalctl --user -u psyche-gateway`) |
 | Docker Compose | Container output | `docker compose -f deploy/docker-compose.yml logs gateway` |
 
@@ -323,7 +439,7 @@ node apps/cli/src/main.ts security audit
 
 ## Not supported yet
 
-- A published container image, release binaries, or a packaged `psyched`.
+- A published container image.
 - The shipped Compose file on the container bind: it still uses host networking (see "Container bind").
 - Model keys from the vault, and setting the vault up from the app or the CLI.
 - The agent's browser on a server: the headless browser profile is not used.

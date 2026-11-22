@@ -29,6 +29,12 @@ export const blocksRest: Partial<Catalogue> = {
     "“Solo questa chat” dura fino alla fine della conversazione. “Sempre” mantiene la cartella finché non la rimuovi in Impostazioni → Permessi → Accesso.",
   "blocks.folder.scope.once": "Solo questa chat",
   "blocks.folder.scope.always": "Sempre, questa cartella e quelle al suo interno",
+  "blocks.folder.scope.space": "Consenti in questo spazio",
+  "blocks.folder.scope.spaceNamed": "Consenti in {space}",
+  "blocks.folder.space.automationsRead":
+    "Anche le automazioni di Psyche in {space} possono leggere questa cartella.",
+  "blocks.folder.space.automationsWrite":
+    "Anche le automazioni di Psyche in {space} possono leggere e scrivere in questa cartella.",
   "blocks.folder.explain.ro": "{persona} vuole leggere i file di una cartella.",
   "blocks.folder.explain.rw": "{persona} vuole leggere e modificare i file di una cartella.",
   "blocks.folder.readOnly": "Consenti solo la lettura, senza modificare nulla",
@@ -116,7 +122,7 @@ export const blocksRest: Partial<Catalogue> = {
   "blocks.details.reason": "Motivo",
   "blocks.approval.answerOnHost":
     "Rispondi su {host}, oppure configura Touch ID per le approvazioni su questo computer in Impostazioni → Dispositivi.",
-  "blocks.approval.rateLimited": "Troppe approvazioni in un minuto. Riprova tra {seconds} s.",
+  "blocks.approval.rateLimited": "Troppi tentativi in un minuto. Riprova tra {seconds} s.",
   "blocks.approval.touchIdFailed": "Touch ID non riuscito: {reason}. Riprova.",
   "blocks.approval.touchIdFailedNoReason": "Touch ID non riuscito. Riprova.",
   "blocks.approval.touchIdInvalid": "Psyche non ha potuto verificare che fossi tu",
@@ -136,22 +142,8 @@ export const blocksRest: Partial<Catalogue> = {
     "Le approvazioni con Touch ID da questa finestra valgono una sola volta.",
   "blocks.approval.status.allowedOnceTouchId":
     "Consentito una volta (le approvazioni con Touch ID da questa finestra valgono una sola volta)",
-  "blocks.approval.touchId.keyUntrusted":
-    "La chiave Touch ID dell’helper di Psyche nel portachiavi non si può dimostrare sua, quindi non è stata usata. Apri Impostazioni → Dispositivi per vedere cosa fare.",
-  "blocks.approval.touchId.keyAccessDenied":
-    "macOS non ha permesso all’helper di Psyche di usare la sua chiave Touch ID. Riprova e scegli Consenti sempre solo se la finestra nomina psyche-helper.",
-  "blocks.approval.touchId.keyChanged":
-    "La chiave Touch ID è cambiata mentre l’helper di Psyche era in esecuzione. Esci dall’helper di Psyche e riavvialo.",
-  "blocks.approval.touchId.keyWrongLocation":
-    "Psyche è in esecuzione da un posto in cui la sua chiave Touch ID non può essere conservata (immagine disco, Download o un’altra cartella). Sposta Psyche in Applicazioni e aprilo da lì.",
-  "blocks.approval.touchId.keyLocked":
-    "Il portachiavi non può chiedere il permesso in questo momento. Sblocca il Mac e riprova.",
-  "blocks.approval.touchId.keyAclUnavailable":
-    "Il portachiavi non ha conservato l’elenco di accesso della chiave Touch ID su questo Mac. Riavvia l’helper di Psyche per riprovare.",
   "blocks.approval.touchId.keyUnavailable":
     "Questa build di Psyche Helper non può conservare una chiave Touch ID (non ha un gruppo di accesso al portachiavi), quindi le schede che richiedono Touch ID non possono essere approvate su questo Mac.",
-  "blocks.approval.touchId.cancelled":
-    "Touch ID è stato annullato, quindi non è stato approvato nulla",
   "blocks.approval.touchId.restartHelper": "Riavvia l’helper di Psyche",
   "blocks.approval.touchId.startHelper": "Avvia Psyche Helper",
   "blocks.question.answerLine": "↳ {answer}",

@@ -27,13 +27,14 @@
   "dependencies": {
     "@psyche/audit": "workspace:*",
     "@psyche/hostfs": "workspace:*",
+    "@psyche/model-router": "workspace:*",
     "@psyche/protocol": "workspace:*",
     "@sinclair/typebox": "0.34.52",
+    "tldts": "7.5.4",
     "ulid": "3.0.2"
   },
   "devDependencies": {
     "@psyche/db": "workspace:*",
-    "@psyche/model-router": "workspace:*",
     "@psyche/testing": "workspace:*",
     "fast-check": "4.10.2"
   }
