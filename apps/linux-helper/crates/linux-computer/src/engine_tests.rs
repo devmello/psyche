@@ -275,17 +275,190 @@ fn a_surface_that_refuses_the_focus_stops_typing_and_keys_before_anything_is_sen
 
 /// The machine ceiling's gate sees the app the engine resolved, however the call named it.
 fn deny_keepass(r: &Rig) {
-    r.engine.policy.set_app_gate(std::sync::Arc::new(|id| {
-        if crate::app_id::normalize(id) == "keepassxc" {
-            Err(crate::error::CapError::new(
-                "policy_denied",
-                "app_denied",
-                "out of reach",
-            ))
-        } else {
-            Ok(())
+    r.engine
+        .policy
+        .set_app_gate(std::sync::Arc::new(|id, _also| {
+            if crate::app_id::normalize(id) == "keepassxc" {
+                Err(crate::error::CapError::new(
+                    "policy_denied",
+                    "app_denied",
+                    "out of reach",
+                ))
+            } else {
+                Ok(())
+            }
+        }));
+}
+
+/// The gate is asked of the app's id and of the other ids it carries, for every authorization.
+#[test]
+fn the_app_gate_is_asked_with_the_ids_the_app_carries() {
+    let r = rig(all_interact());
+    editor(&r);
+    r.engine
+        .policy
+        .set_app_gate(std::sync::Arc::new(|_id, also| {
+            if also.iter().any(|a| a == "com.example.flatpak") {
+                Ok(())
+            } else {
+                Err(crate::error::CapError::new(
+                    "policy_denied",
+                    "app_denied",
+                    "out of reach",
+                ))
+            }
+        }));
+    let tree = |r: &Rig| {
+        call(
+            r,
+            "computer.ax_tree",
+            json!({"app": "org.gnome.TextEditor"}),
+            &inv(),
+        )
+    };
+    assert_eq!(tree(&r).unwrap_err().1, "app_denied");
+    {
+        let mut s = r.fake.s.lock().unwrap();
+        let editor = s
+            .apps
+            .iter_mut()
+            .find(|a| a.id == "org.gnome.texteditor")
+            .unwrap();
+        editor.also_ids = vec!["com.example.flatpak".into()];
+    }
+    tree(&r).unwrap();
+}
+
+/// A call may name a running app by an id it carries (a verified Flatpak's own id): the engine
+/// finds it, and the gate is asked with all its ids (#1502 r4). Reads, typing and the tier all
+/// see the one program.
+#[test]
+fn a_call_may_name_the_app_by_an_id_it_carries() {
+    let r = rig(all_interact());
+    editor(&r);
+    // The gate allows the program only under the Flatpak's own id.
+    r.engine
+        .policy
+        .set_app_gate(std::sync::Arc::new(|id, also| {
+            if crate::app_id::normalize(id) == "com.example.flatpak"
+                || also.iter().any(|a| a == "com.example.flatpak")
+            {
+                Ok(())
+            } else {
+                Err(crate::error::CapError::new(
+                    "policy_denied",
+                    "app_denied",
+                    "out of reach",
+                ))
+            }
+        }));
+    let named = "com.example.Flatpak";
+    // Before the app carries the id, nothing running answers to it.
+    let err = call(&r, "computer.ax_tree", json!({"app": named}), &inv()).unwrap_err();
+    assert_eq!(err.1, "app_not_running");
+    {
+        let mut s = r.fake.s.lock().unwrap();
+        let editor = s
+            .apps
+            .iter_mut()
+            .find(|a| a.id == "org.gnome.texteditor")
+            .unwrap();
+        editor.also_ids = vec!["com.example.flatpak".into()];
+    }
+    let snap = call(
+        &r,
+        "computer.ax_tree",
+        json!({"app": named, "session": "s1"}),
+        &inv(),
+    )
+    .unwrap();
+    // The app is reported under its own (strictest) id.
+    assert_eq!(snap["header"]["bundleId"], "org.gnome.texteditor");
+    call(
+        &r,
+        "computer.screenshot",
+        json!({"app": named, "session": "s1"}),
+        &inv(),
+    )
+    .unwrap();
+    call(
+        &r,
+        "computer.type",
+        json!({"text": "hi", "app": named, "session": "s1"}),
+        &inv(),
+    )
+    .unwrap();
+    assert_eq!(r.fake.s.lock().unwrap().typed, "hi");
+    // Its host id still works, and the gate still refuses an app that carries no allowed id.
+    snapshot(&r, "org.gnome.TextEditor");
+    {
+        let mut s = r.fake.s.lock().unwrap();
+        s.apps
+            .iter_mut()
+            .find(|a| a.id == "org.gnome.texteditor")
+            .unwrap()
+            .also_ids
+            .clear();
+    }
+    let err = call(&r, "computer.ax_tree", json!({"app": named}), &inv()).unwrap_err();
+    assert_eq!(err.1, "app_not_running");
+    let err = call(
+        &r,
+        "computer.ax_tree",
+        json!({"app": "org.gnome.TextEditor"}),
+        &inv(),
+    )
+    .unwrap_err();
+    assert_eq!(err.1, "app_denied");
+}
+
+/// A tier the owner wrote for an id the app carries counts: the strictest wins (#1502 r4).
+#[test]
+fn the_strictest_tier_over_the_ids_an_app_carries_counts() {
+    // (default, the value on the reported id, the value on the id it carries, typing refused as)
+    for (default, on_id, written, want) in [
+        ("interact", Some("interact"), "off", Some("tier_off")),
+        ("interact", Some("interact"), "read", Some("tier_read")),
+        ("interact", Some("interact"), "ask", Some("tier_ask")),
+        ("interact", Some("interact"), "interact", None),
+        // The default is not a value the owner wrote: it never overrides one (#1502 r5).
+        ("off", None, "interact", None),
+        ("ask", None, "interact", None),
+        ("interact", None, "read", Some("tier_read")),
+        // A fixed limit beside an `ask` is named as what it is, not as off (#1502 r5).
+        ("ask", Some("read"), "ask", Some("tier_read")),
+        ("ask", Some("ask"), "read", Some("tier_read")),
+        ("ask", Some("click"), "ask", Some("tier_click")),
+    ] {
+        let mut apps = serde_json::Map::new();
+        if let Some(v) = on_id {
+            apps.insert("org.gnome.TextEditor".into(), json!(v));
         }
-    }));
+        apps.insert("com.example.Flatpak".into(), json!(written));
+        let r = rig(json!({"version": 1, "default": default, "apps": apps}));
+        let written = format!("default={default} id={on_id:?} other={written}");
+        editor(&r);
+        {
+            let mut s = r.fake.s.lock().unwrap();
+            s.apps
+                .iter_mut()
+                .find(|a| a.id == "org.gnome.texteditor")
+                .unwrap()
+                .also_ids = vec!["com.example.flatpak".into()];
+        }
+        let got = call(
+            &r,
+            "computer.type",
+            json!({"text": "x", "app": "org.gnome.TextEditor", "session": "s1"}),
+            &inv(),
+        );
+        match want {
+            Some(reason) => assert_eq!(got.unwrap_err().1, reason, "{written}"),
+            None => {
+                got.unwrap();
+            }
+        }
+    }
 }
 
 #[test]

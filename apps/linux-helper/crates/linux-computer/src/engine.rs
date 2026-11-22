@@ -504,7 +504,8 @@ impl<B: Backend> Engine<B> {
 
     // --- Apps -------------------------------------------------------------------------------
 
-    /// The app a call names (id or display name), else the focused one.
+    /// The app a call names (its id, then an id it carries such as a verified Flatpak's own id,
+    /// then its display name), else the focused one.
     pub fn find_app(&self, named: Option<&str>, pid: Option<i64>) -> CapResult<AppInfo> {
         let apps = self.backend.apps();
         if let Some(pid) = pid {
@@ -524,6 +525,7 @@ impl<B: Backend> Engine<B> {
                 let id = crate::app_id::normalize(q);
                 apps.iter()
                     .find(|a| a.id == id)
+                    .or_else(|| apps.iter().find(|a| a.carries(&id)))
                     .or_else(|| apps.iter().find(|a| a.name.eq_ignore_ascii_case(q)))
                     .cloned()
                     .ok_or_else(|| {
@@ -700,12 +702,8 @@ impl<B: Backend> Engine<B> {
         let el = self.resolve(&r)?;
         // A click or press on a menu-like element runs an app command (#266).
         let intent = intent.escalated(Some(ax_role_of(&el.data)));
-        self.policy.authorize(
-            intent,
-            Some(&el.app.id),
-            &el.app.name,
-            self.binding(inv, params).as_ref(),
-        )?;
+        self.policy
+            .authorize_app(intent, &el.app, self.binding(inv, params).as_ref())?;
         let expect = t.expect.as_ref().ok_or_else(|| {
             CapError::invalid_params(
                 "expect {role, label} from the snapshot is required with a ref",
@@ -801,7 +799,10 @@ impl<B: Backend> Engine<B> {
                 return Err(CapError::new(
                     code::POLICY_DENIED,
                     "app_mismatch",
-                    format!("The point is in {}, not {named}", app.name),
+                    format!(
+                        "The point is in {}, not {named}. If {named} is behind it, bring {named} forward with apps.focus first.",
+                        app.name
+                    ),
                 )
                 .detail("app", named)
                 .detail("appAtPoint", app.id.as_str()));
@@ -810,12 +811,8 @@ impl<B: Backend> Engine<B> {
         };
         let role = self.backend.hit_test(x, y).and_then(|h| h.role);
         let intent = intent.escalated(role.as_deref());
-        self.policy.authorize(
-            intent,
-            Some(&app.id),
-            &app.name,
-            self.binding(inv, params).as_ref(),
-        )?;
+        self.policy
+            .authorize_app(intent, &app, self.binding(inv, params).as_ref())?;
         Ok((x, y, app))
     }
 
@@ -921,12 +918,8 @@ impl<B: Backend> Engine<B> {
         self.reload_settings();
         self.backend.check_desktop()?;
         let app = self.find_app(p.app.as_deref(), p.pid)?;
-        self.policy.authorize(
-            Intent::Read,
-            Some(&app.id),
-            &app.name,
-            self.binding(inv, params).as_ref(),
-        )?;
+        self.policy
+            .authorize_app(Intent::Read, &app, self.binding(inv, params).as_ref())?;
         let options =
             SnapshotOptions::clamped(p.max_visit, p.max_emit, p.text_max, p.value_max, p.clip);
         if p.window.is_some_and(|w| w < 0) {
@@ -950,7 +943,7 @@ impl<B: Backend> Engine<B> {
         result.insert("provenance".into(), json!("untrusted"));
         result.insert(
             "tier".into(),
-            json!(self.policy.effective_tier(Some(&app.id)).as_str()),
+            json!(self.policy.effective_tier_app(&app).as_str()),
         );
         if p.format.as_deref() == Some("json") {
             result.insert(
@@ -985,12 +978,8 @@ impl<B: Backend> Engine<B> {
         self.reload_settings();
         self.backend.check_desktop()?;
         let app = self.find_app(p.app.as_deref(), None)?;
-        self.policy.authorize(
-            Intent::Read,
-            Some(&app.id),
-            &app.name,
-            self.binding(inv, params).as_ref(),
-        )?;
+        self.policy
+            .authorize_app(Intent::Read, &app, self.binding(inv, params).as_ref())?;
         let options =
             SnapshotOptions::clamped(Some(8000), Some(2000), Some(400), Some(20), Some(true));
         let snap = self.snapshot_on(&app, None, is_menu.then_some("app"), options)?;
@@ -1147,12 +1136,8 @@ impl<B: Backend> Engine<B> {
             .filter(|s| !s.is_empty())
             .ok_or_else(|| CapError::invalid_params("app is required with focused", Some("app")))?;
         let app = self.find_app(Some(named), None)?;
-        self.policy.authorize(
-            Intent::Read,
-            Some(&app.id),
-            &app.name,
-            self.binding(inv, params).as_ref(),
-        )?;
+        self.policy
+            .authorize_app(Intent::Read, &app, self.binding(inv, params).as_ref())?;
         let unknown = || {
             Ok(CapOutput::plain(target_report(&TargetReport {
                 app: &app.id,
@@ -1197,12 +1182,8 @@ impl<B: Backend> Engine<B> {
     fn ax_value(&self, inv: &Invocation, params: &Value) -> CapResult<CapOutput> {
         let p: ValueParams = decode(params)?;
         let el = self.resolve(&p.ref_)?;
-        self.policy.authorize(
-            Intent::Read,
-            Some(&el.app.id),
-            &el.app.name,
-            self.binding(inv, params).as_ref(),
-        )?;
+        self.policy
+            .authorize_app(Intent::Read, &el.app, self.binding(inv, params).as_ref())?;
         if is_secure(&el.data) {
             return Err(CapError::secure_refusal());
         }
@@ -1523,12 +1504,8 @@ impl<B: Backend> Engine<B> {
         } else {
             self.begin_action(p.t.session.as_deref())?;
             let app = self.find_app(p.t.app.as_deref(), None)?;
-            self.policy.authorize(
-                Intent::Type,
-                Some(&app.id),
-                &app.name,
-                self.binding(inv, params).as_ref(),
-            )?;
+            self.policy
+                .authorize_app(Intent::Type, &app, self.binding(inv, params).as_ref())?;
             (app, None)
         };
         // #270: a line break in typed text presses Return, which sends in messaging and mail apps.
@@ -1590,12 +1567,8 @@ impl<B: Backend> Engine<B> {
         }
         self.begin_action(p.session.as_deref())?;
         let app = self.find_app(p.app.as_deref(), None)?;
-        self.policy.authorize(
-            Intent::Key,
-            Some(&app.id),
-            &app.name,
-            self.binding(inv, params).as_ref(),
-        )?;
+        self.policy
+            .authorize_app(Intent::Key, &app, self.binding(inv, params).as_ref())?;
         if send_keys::is_messaging_app(Some(&app.id))
             && send_keys::is_send_chord(&chord)
             && self.binding(inv, params).is_none()
@@ -1715,12 +1688,8 @@ impl<B: Backend> Engine<B> {
         }
         self.begin_action(p.session.as_deref())?;
         let app = self.find_app(p.app.as_deref(), None)?;
-        self.policy.authorize(
-            Intent::Menu,
-            Some(&app.id),
-            &app.name,
-            self.binding(inv, params).as_ref(),
-        )?;
+        self.policy
+            .authorize_app(Intent::Menu, &app, self.binding(inv, params).as_ref())?;
         let risky: Vec<&str> = path
             .iter()
             .map(String::as_str)
@@ -1831,12 +1800,8 @@ impl<B: Backend> Engine<B> {
         let p: ShotParams = decode(params)?;
         self.reload_settings();
         let app = self.find_app(p.app.as_deref(), None)?;
-        self.policy.authorize(
-            Intent::Read,
-            Some(&app.id),
-            &app.name,
-            self.binding(inv, params).as_ref(),
-        )?;
+        self.policy
+            .authorize_app(Intent::Read, &app, self.binding(inv, params).as_ref())?;
         self.backend.check_desktop()?;
         // Below the model: no capture while any password field has focus.
         if self.backend.focused_is_secure(None) {
@@ -1853,6 +1818,7 @@ impl<B: Backend> Engine<B> {
             .map(|a| AppRef {
                 app_id: Some(a.id),
                 pid: a.pid,
+                also_ids: a.also_ids,
             })
             .collect();
         let mut excluded = hygiene::excluded_pids(&running, self.own_pid, &self.policy);

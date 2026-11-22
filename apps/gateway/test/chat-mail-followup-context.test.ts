@@ -93,6 +93,9 @@ describe("chat.send with a mail follow-up context", () => {
     const turn = agent.turns[0];
     // Tainted from the first step: a send needs its approval card whatever the floor or grants say.
     expect(turn?.taintSources).toEqual([{ sourceKind: "email", origin: "gmail" }]);
+    // The taint is kept on the chat, so the owner's "ok, go ahead" next turn is tainted too.
+    expect(turn?.stickyTaint).toBe(true);
+    expect(turn?.input.text).toContain("Gmail thread id: g1");
     expect(turn?.input.text).toContain("[untrusted:email #");
     expect(turn?.input.text.endsWith("Draft a follow-up for this thread.")).toBe(true);
 

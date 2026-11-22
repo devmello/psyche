@@ -15,28 +15,31 @@ export interface AccessListResult {
 }
 
 export interface AccessEntry {
-    file?:       boolean;
-    grantId?:    string;
-    id:          string;
-    kind?:       ApprovalKind;
-    label:       string;
-    lastUsedAt?: string;
-    mode?:       FolderModeEnum;
-    moved?:      boolean;
-    movedTo?:    string;
-    path?:       string;
-    refused?:    boolean;
-    scope:       AccessEntryScope;
-    since?:      string;
-    threadId?:   string;
-    type:        AccessEntryType;
+    automationsWrite?: boolean;
+    file?:             boolean;
+    grantId?:          string;
+    id:                string;
+    kind?:             ApprovalKind;
+    label:             string;
+    lastUsedAt?:       string;
+    mode?:             FolderModeEnum;
+    moved?:            boolean;
+    movedTo?:          string;
+    path?:             string;
+    refused?:          boolean;
+    scope:             AccessEntryScope;
+    since?:            string;
+    spaceId?:          string;
+    spaceName?:        string;
+    threadId?:         string;
+    type:              AccessEntryType;
 }
 
 export type ApprovalKind = "exec" | "exec_host" | "send_email" | "calendar_write" | "message_send" | "browser_submit" | "credential_fill" | "purchase" | "file_write" | "connector_action" | "computer_action" | "new_origin" | "plan_exit" | "skill_install" | "mcp_tool" | "archive_thread" | "memory_protected_write" | "pairing" | "policy_change" | "task_start" | "apple_script" | "shortcut_run" | "git_write" | "git_push" | "folder_access" | "separate_desktop_share" | "batch" | "permission_request";
 
 export type FolderModeEnum = "ro" | "rw";
 
-export type AccessEntryScope = "always" | "conversation" | "limited";
+export type AccessEntryScope = "always" | "conversation" | "limited" | "space";
 
 export type AccessEntryType = "folder" | "grant";
 
@@ -1031,6 +1034,7 @@ export interface ApprovalAnswer {
     folderMode?:      FolderModeEnum;
     folderPath?:      string;
     hostProgram?:     boolean;
+    inSpace?:         boolean;
     presence?:        PresenceAssertion;
     recipientChoice?: string;
     scope?:           GrantScope;
@@ -1572,8 +1576,9 @@ export interface AttentionReportParams {
     /**
      * The owner gave input in the app just now (key, click)
      */
-    input?: boolean;
-    pane:   AttentionPane;
+    input?:   boolean;
+    machine?: string;
+    pane:     AttentionPane;
     /**
      * The pane is on screen in the desktop app
      */
@@ -2017,6 +2022,14 @@ export interface DailyWorkflowRun {
 export type DailyWorkflowRunKind = "cron" | "interval";
 
 export type AutomationWorkflowBlockType = "automation_workflow";
+
+export interface AutomationsCancelRetryParams {
+    runId: string;
+}
+
+export interface AutomationsCancelRetryResult {
+    run: AutomationRun;
+}
 
 export interface AutomationsCreateParams {
     delivery?:     Delivery;
@@ -3257,6 +3270,60 @@ export interface ChecklistItem {
 
 export type ChecklistBlockType = "checklist";
 
+export interface ClaimHelloParams {
+    /**
+     * base64url, 32 random bytes from the client
+     */
+    clientNonce: string;
+    deviceId:    string;
+    name:        string;
+    platform:    DevicePlatform;
+    /**
+     * The claiming device's raw Ed25519 public key: the key that becomes the first admin
+     */
+    publicKey: string;
+}
+
+export interface ClaimHelloResult {
+    /**
+     * SHA-256 of the SPKI of the LAN certificate the server serves; the client checks it is the
+     * one this connection presented
+     */
+    certSpki:  string;
+    expiresAt: string;
+    /**
+     * The server's identity public key. Not trusted until its proof checks
+     */
+    gatewayKey: string;
+    hostName:   string;
+    /**
+     * base64url, the 16-byte salt stored with the setup code
+     */
+    salt: string;
+    /**
+     * base64url, 32 random bytes, fresh for this connection
+     */
+    serverNonce: string;
+}
+
+export interface ClaimProveParams {
+    /**
+     * claimProof(scrypt(code, salt), client, claimTranscript(...)): HMAC-SHA256, base64url
+     */
+    proof: string;
+}
+
+export interface ClaimProveResult {
+    deviceId: string;
+    /**
+     * The server's proof over the same transcript, role server
+     */
+    proof:  string;
+    scopes: DeviceScope[];
+}
+
+export type DeviceScope = "operator.read" | "operator.write" | "operator.approvals" | "operator.admin" | "node";
+
 export interface CompactionBlock {
     compactionId: string;
     droppedPins?: string[];
@@ -3271,8 +3338,35 @@ export interface CompactionBlock {
 
 export type CompactionBlockType = "compaction";
 
+export interface ComputerWatchFrameParams {
+    machine?:  string;
+    maxWidth?: number;
+    since?:    number;
+}
+
+export interface ComputerWatchInputParams {
+    events:   VscreenInputEvent[];
+    machine?: string;
+}
+
+export interface VscreenInputEvent {
+    button?: Button;
+    type:    VscreenInputEventType;
+    x?:      number;
+    y?:      number;
+    dx?:     number;
+    dy?:     number;
+    key?:    string;
+    text?:   string;
+}
+
+export type Button = "left" | "middle" | "right";
+
+export type VscreenInputEventType = "move" | "down" | "up" | "scroll" | "key_down" | "key_up" | "text";
+
 export interface ComputerWatchParkedPayload {
-    apps: VscreenApp[];
+    apps:     VscreenApp[];
+    machine?: string;
 }
 
 export interface VscreenApp {
@@ -3283,7 +3377,8 @@ export interface VscreenApp {
 }
 
 export interface ComputerWatchResolveParkedParams {
-    action: ComputerWatchParkAction;
+    action:   ComputerWatchParkAction;
+    machine?: string;
 }
 
 export type ComputerWatchParkAction = "look" | "discard" | "keep_open";
@@ -3313,8 +3408,19 @@ export interface VscreenStatus {
 
 export type VscreenState = "stopped" | "starting" | "running" | "stopping";
 
+export interface ComputerWatchStatusParams {
+    machine?: string;
+}
+
+export interface ComputerWatchStopParams {
+    closeApps?: boolean;
+    force?:     boolean;
+    machine?:   string;
+}
+
 export interface ComputerWatchTakeOverParams {
-    on: boolean;
+    machine?: string;
+    on:       boolean;
 }
 
 export interface ComputerWatchTakeOverResult {
@@ -3410,8 +3516,6 @@ export interface ConnectPaired {
 }
 
 export type ConnectPairedPhase = "paired";
-
-export type DeviceScope = "operator.read" | "operator.write" | "operator.approvals" | "operator.admin" | "node";
 
 export interface ConnectParams {
     capabilities?: NodeCapability[];
@@ -5338,7 +5442,24 @@ export type ErrorCode = "not_implemented" | "invalid_frame" | "invalid_params" |
 
 export type FrameType = "req" | "res" | "event";
 
+export interface GatewayClaimFinishParams {
+    /**
+     * Keep the server reachable on this network (gateway.lan stays on the claim's interface);
+     * false turns LAN listening off once the answer is sent
+     */
+    keepLan: boolean;
+}
+
+export interface GatewayClaimFinishResult {
+    lan: boolean;
+}
+
 export interface GatewayInfo {
+    /**
+     * Present only on a server set up with a setup code whose onboarding has not finished
+     * (remote-gateway design §3.6)
+     */
+    claim?: Claim;
     /**
      * Keys in config.json that this version does not know: kept and ignored. Admins only; the
      * Settings screen shows them so a misspelt setting is noticed
@@ -5348,6 +5469,12 @@ export interface GatewayInfo {
      * The Host machine's name
      */
     hostName: string;
+    /**
+     * The Host's operating system, so a Client names it and its features in the Host's words (a
+     * Linux Host has no Apple connectors and offers computer use only on its private screen).
+     * Absent from older Gateways
+     */
+    hostOs?:  HostOS;
     identity: Identity;
     lan?:     LAN;
     /**
@@ -5359,6 +5486,26 @@ export interface GatewayInfo {
      */
     trustedProxy: boolean;
 }
+
+/**
+ * Present only on a server set up with a setup code whose onboarding has not finished
+ * (remote-gateway design §3.6)
+ */
+export interface Claim {
+    /**
+     * The server was claimed from the app and the owner has not yet said whether it stays
+     * reachable on this network (`gateway.claim.finish`). Until then LAN listening stays on the
+     * interface the claim came in on
+     */
+    lanChoicePending: boolean;
+}
+
+/**
+ * The Host's operating system, so a Client names it and its features in the Host's words (a
+ * Linux Host has no Apple connectors and offers computer use only on its private screen).
+ * Absent from older Gateways
+ */
+export type HostOS = "macos" | "windows" | "linux";
 
 export interface Identity {
     /**
@@ -5580,6 +5727,14 @@ export interface GoalsMilestoneResult {
     links:      GoalLink[];
     milestones: GoalMilestone[];
     taskIds:    string[];
+}
+
+export interface GoalsSuggestParams {
+    goalId: string;
+}
+
+export interface GoalsSuggestResult {
+    ideaId?: null | string;
 }
 
 export interface GoalsUpdateParams {
@@ -6404,14 +6559,15 @@ export interface MailFollowupsListResult {
 }
 
 export interface MailFollowupItem {
-    daysQuiet: number;
-    id:        string;
-    kind:      MailFollowupKind;
-    link?:     string;
-    source:    MailFollowupItemSource;
-    subject:   string;
-    untrusted: boolean;
-    who:       string;
+    daysQuiet:      number;
+    gmailThreadId?: string;
+    id:             string;
+    kind:           MailFollowupKind;
+    link?:          string;
+    source:         MailFollowupItemSource;
+    subject:        string;
+    untrusted:      boolean;
+    who:            string;
 }
 
 export type MailFollowupKind = "no_reply" | "unanswered_question";
@@ -10540,6 +10696,7 @@ export interface SearchHit {
     entityType?:        SearchEntityType;
     group?:             SearchGroup;
     id:                 string;
+    imported?:          ThreadImportSource;
     kind?:              SearchIndexDocKind;
     match?:             SearchMatch;
     provenance?:        Provenance;
@@ -10562,6 +10719,8 @@ export interface SearchHitCard {
     span:    string;
     summary: string;
 }
+
+export type ThreadImportSource = "claude" | "chatgpt";
 
 export type SearchIndexDocKind = "thread" | "message" | "task" | "memory" | "library" | "feed" | "idea" | "goal" | "connector" | "person" | "project";
 
@@ -12293,6 +12452,32 @@ export interface TranscriptSegment {
 
 export type SpeechTranscribePreset = "long" | "short";
 
+export interface StorageClearCacheParams {
+    targets?: StorageClearTarget[];
+}
+
+export type StorageClearTarget = "caches" | "recordings";
+
+export interface StorageCleared {
+    cleared:    StorageClearTarget[];
+    freedBytes: number;
+}
+
+export interface StorageUsage {
+    categories: StorageCategory[];
+    partial?:   boolean;
+    totalBytes: number;
+}
+
+export interface StorageCategory {
+    bytes:             number;
+    clearable:         boolean;
+    id:                StorageCategoryID;
+    reclaimableBytes?: number;
+}
+
+export type StorageCategoryID = "database" | "memoryIndex" | "library" | "browserProfiles" | "recordings" | "logs" | "caches" | "other";
+
 export interface TaskActionPayload {
     action: TaskAction;
 }
@@ -12915,6 +13100,20 @@ export interface ThreadIDParams {
     threadId: string;
 }
 
+export interface ThreadImportResult {
+    duplicates:  number;
+    imported:    number;
+    skipped:     ThreadImportResultSkipped[];
+    skippedMore: number;
+}
+
+export interface ThreadImportResultSkipped {
+    reason: SkippedReason;
+    title:  string;
+}
+
+export type SkippedReason = "too_many" | "too_large" | "empty" | "invalid";
+
 export interface ThreadResult {
     thread: Thread;
 }
@@ -12926,6 +13125,7 @@ export interface Thread {
     expiresAt?:           null | string;
     forkedFromMessageId?: null | string;
     id:                   string;
+    imported?:            ThreadImportSource;
     kind:                 ThreadKind;
     lastMessageAt?:       null | string;
     modelRef?:            null | string;
@@ -13017,6 +13217,12 @@ export interface ThreadsForkParams {
     messageId: string;
     threadId:  string;
     title?:    string;
+}
+
+export interface ThreadsImportParams {
+    content: string;
+    dryRun?: boolean;
+    format:  ThreadImportSource;
 }
 
 export interface ThreadsListParams {
@@ -13325,10 +13531,10 @@ export type VaultImportParamsFormat = "auto" | "1password" | "bitwarden" | "chro
 
 export interface VaultImportResult {
     imported: CredentialMeta[];
-    skipped:  Skipped[];
+    skipped:  VaultImportResultSkipped[];
 }
 
-export interface Skipped {
+export interface VaultImportResultSkipped {
     reason: string;
     row:    number;
 }
@@ -14012,21 +14218,6 @@ export interface VscreenFrameParams {
 export interface VscreenInputParams {
     events: VscreenInputEvent[];
 }
-
-export interface VscreenInputEvent {
-    button?: Button;
-    type:    VscreenInputEventType;
-    x?:      number;
-    y?:      number;
-    dx?:     number;
-    dy?:     number;
-    key?:    string;
-    text?:   string;
-}
-
-export type Button = "left" | "middle" | "right";
-
-export type VscreenInputEventType = "move" | "down" | "up" | "scroll" | "key_down" | "key_up" | "text";
 
 export interface VscreenStartParams {
     height?: number;

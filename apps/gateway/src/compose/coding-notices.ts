@@ -46,6 +46,11 @@ export class CodingNoticeLimiter {
   }
 }
 
+/** A fingerprint that tells what a path holds (see `print` in agent-core's launch guard). */
+function specific(print: string): boolean {
+  return print === "unmoved" || /^(file|other|link):/.test(print);
+}
+
 /** `a, b, c (+2)` in the English fallback; clients get the list as one value. */
 function listed(paths: readonly string[]): string {
   const shown = paths.slice(0, MAX_LISTED).join(", ");
@@ -167,27 +172,49 @@ export function codingNotices(notify: Notify, options: CodingNoticeOptions = {})
           },
         );
       }
+      // What could not be moved, with where it is held when it was moved without its record.
+      const unmoved = report.unmoved.map((p) => {
+        const place = report.heldIn?.[p];
+        return place === undefined ? p : `${p} (held in ${place})`;
+      });
       // Every changed path with what it holds now, and what could not be moved.
       const now = new Map<string, string>([
         ...report.changed.map((p) => [p, report.fingerprints[p] ?? "changed"] as const),
-        ...report.unmoved.map((p) => [p, "unmoved"] as const),
+        ...unmoved.map((p) => [p, "unmoved"] as const),
       ]);
       if (now.size > 0) {
         queue = queue.then(() => {
           const seen = changes.get(root)?.seen;
-          const fresh = new Map([...now].filter(([p, print]) => seen?.get(p) !== print));
+          // A print that cannot tell one change from the next (#1469 review r1) is new each time.
+          const fresh = new Map(
+            [...now].filter(([p, print]) => !specific(print) || seen?.get(p) !== print),
+          );
           return fresh.size > 0 ? changedNotice(root, fresh) : undefined;
         });
       }
       // Launch config still in place, not held: its own notice, new every run, so it alerts.
-      if (report.unmoved.length > 0) {
-        const paths = listed(report.unmoved);
+      if (unmoved.length > 0) {
+        const paths = listed(unmoved);
         send(
           "unmoved",
           { repo, paths },
           {
             title: `Launch config from a code run in ${repo} is still in place`,
             body: `A command in the sandbox created ${paths}, and Psyche could not move it aside, so it is not held. Apps or your next command could run code from it. Delete it before you open the folder or run anything there. Don't change its permissions to look inside first, since that can let it run.`,
+          },
+        );
+      }
+      // Folders that changed every time Psyche read them after the run (#1469 review r4): not
+      // made by the run, so never "delete it"; nothing in them was checked. New every run.
+      const unchecked = report.unchecked ?? [];
+      if (unchecked.length > 0) {
+        const paths = listed(unchecked);
+        send(
+          "unchecked",
+          { repo, paths },
+          {
+            title: `Psyche could not check part of ${repo} after a code run`,
+            body: `${paths} changed while Psyche checked it after a command ran in the sandbox, so nothing in it was checked for launch config. If you or your tools didn't change it, look at it before you open the folder or run anything there.`,
           },
         );
       }

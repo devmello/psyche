@@ -56,6 +56,8 @@ export interface MessageViewProps {
   showHeader?: boolean;
   onReply?: (message: Message) => void;
   onFork?: (message: Message) => void;
+  /** The thread is an imported conversation: its user turns are marked Imported. */
+  imported?: boolean;
   /** Edit a user message and resend it as a fork (E5): called with the edited text. */
   onEdit?: (message: Message, text: string) => void;
   onJumpTo?: (messageId: string) => void;
@@ -75,6 +77,7 @@ export function MessageView({
   showHeader = true,
   onReply,
   onFork,
+  imported,
   onEdit,
   onJumpTo,
   onWrapUpAction,
@@ -142,7 +145,7 @@ export function MessageView({
     return null;
 
   // Teaching lives in the ⋯ menu (no thumbs): it saves a local lesson, never provider feedback.
-  const canTeach = message.role === "agent" && !streamingText;
+  const canTeach = message.role === "agent" && !streamingText && imported !== true;
   const actions =
     onReply || onFork || canEdit || canTeach ? (
       <DropdownMenu>
@@ -205,6 +208,11 @@ export function MessageView({
         aria-label={t("chat.message.userLabel", { time })}
         data-role="user"
       >
+        {imported === true && message.provenance === "untrusted" ? (
+          <span className="mb-0.5 text-callout text-label-secondary">
+            {t("shell.threads.imported")}
+          </span>
+        ) : null}
         {message.via === "widget" ? (
           <span
             className="mb-0.5 inline-flex items-center gap-1 text-callout text-label-secondary"

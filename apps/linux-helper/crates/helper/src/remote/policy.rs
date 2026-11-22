@@ -8,8 +8,9 @@
 //!   the wrong user, or can be written by others means *everything is denied*. A missing file
 //!   means the defaults: computer use on the helper's own virtual screen, no shell, no files.
 //! - **The user-owned file is advisory.** An agent with a shell or a GUI terminal on the box runs
-//!   as the same account and can edit it. Only the root-owned `/etc` ceiling (deb/rpm) is a limit
-//!   the account cannot change. The Gateway's own machine rules (H3, H4) apply either way.
+//!   as the same account and can edit it. A root-owned `/etc` file (deb/rpm, dedicated account) limits
+//!   what the agent reaches, but it is not enforced against the account's own processes, so
+//!   Psyche shows the limits as user-owned. The Gateway's own machine rules (H3, H4) apply either way.
 //! - `apps.deny` means "never launched": the call that opens or drives an app is refused. It does
 //!   not stop an allowed app from opening a denied one, or a denied window that is already on the
 //!   screen. H1 must also check the focused window's app against this list.
@@ -26,27 +27,36 @@ use serde::{Deserialize, Serialize};
 use serde_json::Value;
 
 use crate::capability::CapabilityError;
+use crate::headless::focus::Denies;
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields, rename_all = "camelCase")]
 pub struct Surfaces {
+    #[serde(default = "yes")]
     pub virtual_screen: bool,
+    #[serde(default)]
     pub direct: bool,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct Apps {
+    #[serde(default = "star")]
     pub allow: Vec<String>,
+    #[serde(default)]
     pub deny: Vec<String>,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields, rename_all = "camelCase")]
 pub struct Exec {
+    #[serde(default)]
     pub enabled: bool,
+    #[serde(default = "yes")]
     pub contain: bool,
+    #[serde(default = "yes")]
     pub network: bool,
+    #[serde(default)]
     pub cwd_roots: Vec<String>,
 }
 
@@ -67,6 +77,7 @@ pub struct Root {
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct Files {
+    #[serde(default)]
     pub roots: Vec<Root>,
 }
 
@@ -89,6 +100,9 @@ pub struct Policy {
 
 fn yes() -> bool {
     true
+}
+fn star() -> Vec<String> {
+    vec!["*".into()]
 }
 fn default_surfaces() -> Surfaces {
     Surfaces {
@@ -385,9 +399,75 @@ impl Policy {
     /// engine names it. Both sides go through `app_id::normalize` first (trim, Unicode lowercase,
     /// no `.desktop`), so the gate and the engine agree on which app is meant.
     pub fn app_permitted(&self, id: &str) -> bool {
+        !self.deny_listed(id) && self.allow_listed(id)
+    }
+
+    /// Whether `apps.deny` names this id under **any** alias (a snap's `<snap>_<app>` is also
+    /// `<app>` and `<snap>`, with a parallel-install `+key` stripped), or by the short name's
+    /// `x_x` form. Wide on purpose: the deny list protects, and a miss lets an app through.
+    pub fn deny_listed(&self, id: &str) -> bool {
+        let mut ids = psyche_linux_computer::app_id::aliases(id);
+        for form in Self::forms(id) {
+            if !ids.contains(&form) {
+                ids.push(form);
+            }
+        }
+        self.apps.deny.iter().any(|p| {
+            let p = normalize(p);
+            let patterns = if p.contains('*') {
+                vec![p]
+            } else {
+                Self::forms(&p)
+            };
+            patterns
+                .iter()
+                .any(|pat| ids.iter().any(|id| glob_match(pat, id)))
+        })
+    }
+
+    /// Whether `apps.allow` names this id, or its short form (`x` and `x_x` only): the allow
+    /// list is narrow, so that `firefox` does not allow `evil_firefox` or `code_insiders`.
+    pub fn allow_listed(&self, id: &str) -> bool {
+        Self::listed(&self.apps.allow, id)
+    }
+
+    fn listed(list: &[String], id: &str) -> bool {
+        // The id as written; a plain pattern names its own `x` / `x_x` forms, a wildcard one is
+        // matched as written. (Not the id's forms: `*_*` must not reach `xterm`.)
+        let ids = [normalize(id)];
+        list.iter().any(|p| {
+            let p = normalize(p);
+            // A pattern with a `*` is matched as written; a plain one may name either form.
+            let patterns = if p.contains('*') {
+                vec![p]
+            } else {
+                Self::forms(&p)
+            };
+            patterns
+                .iter()
+                .any(|pat| ids.iter().any(|id| glob_match(pat, id)))
+        })
+    }
+
+    /// The ids an id can be written as. A snap's desktop id is `<snap>_<app>`; when the two
+    /// are the same name (`firefox_firefox`) it is also just `firefox`, the id `apps.list`
+    /// reports. Nothing wider: `evil_firefox` and `firefox_evil` are not `firefox`, and
+    /// `code_insiders` is not `code`.
+    fn forms(id: &str) -> Vec<String> {
         let id = normalize(id);
-        let hit = |p: &String| glob_match(&normalize(p), &id);
-        !self.apps.deny.iter().any(hit) && self.apps.allow.iter().any(hit)
+        let mut out = vec![id.clone()];
+        if !id.contains('.') {
+            if let Some((a, b)) = id.split_once('_') {
+                if a == b && !a.is_empty() && !b.contains('_') {
+                    out.push(a.to_string());
+                }
+            }
+            // The short name also stands for the snap's id.
+            if !id.contains('_') && !id.is_empty() && !id.contains('*') {
+                out.push(format!("{id}_{id}"));
+            }
+        }
+        out
     }
 
     /// The same for a call that names no app: it is as permitted as the empty id, so `*` and
@@ -443,12 +523,30 @@ impl Policy {
     }
 
     /// Whether this call may run under the ceiling. `Ok` for a capability the policy does not
-    /// speak of (it is limited by the remote allowlist instead).
+    /// speak of (it is limited by the remote allowlist instead). An app is judged on the id the
+    /// call names only; see [`Policy::check_with`].
     pub fn check(
         &self,
         capability: &str,
         params: &Value,
         home: &Path,
+    ) -> Result<(), CapabilityError> {
+        self.check_with(capability, params, home, &|_| Vec::new())
+    }
+
+    /// [`Policy::check`], where `other_ids` gives the other ids the running app a call names
+    /// carries (a verified Flatpak's own id beside the host id that caps it, and the other way
+    /// round). The app is judged with [`Denies::permits`] on all of them, as the engine gate
+    /// judges it, so the owner may name either id and a call may name either.
+    ///
+    /// `apps.open` is not: a launch is judged on the desktop id it names (the program is not
+    /// running yet), and a refusal says which id `apps.allow` must name.
+    pub fn check_with(
+        &self,
+        capability: &str,
+        params: &Value,
+        home: &Path,
+        other_ids: &dyn Fn(&str) -> Vec<String>,
     ) -> Result<(), CapabilityError> {
         let string = |key: &str| params.get(key).and_then(Value::as_str);
         let denied = |what: &str| {
@@ -497,11 +595,29 @@ impl Policy {
                 if !self.nameless_permitted() {
                     return denied("that app");
                 }
-            } else if named
-                .iter()
-                .any(|id| !is_app_id(id) || !self.app_permitted(id))
-            {
-                return denied("that app");
+            } else {
+                for id in named {
+                    if !is_app_id(id) {
+                        return denied("that app");
+                    }
+                    if capability == "apps.open" {
+                        if self.deny_listed(id) {
+                            return denied("that app");
+                        }
+                        if !self.allow_listed(id) {
+                            // `is_app_id` held: the id is plain ASCII, safe to echo.
+                            let id = normalize(id);
+                            return Err(forbidden(
+                                "machine_policy",
+                                &format!(
+                                    "This computer's limits do not allow opening {id}. An app is opened by the id it is named by: apps.allow must name {id}"
+                                ),
+                            ));
+                        }
+                    } else if !self.permits(id, &other_ids(id)) {
+                        return denied("that app");
+                    }
+                }
             }
             return Ok(());
         }
@@ -654,6 +770,94 @@ mod tests {
         let _ = std::fs::remove_file(f.path("user-policy.json"));
         f.write("user-policy.json", good, 0o600);
         assert!(matches!(f.source().load().source, Source::File(_)));
+    }
+
+    /// A partial sub-object is the owner narrowing one thing, not a broken file: every field
+    /// defaults to what no file at all means.
+    #[test]
+    fn a_policy_that_names_only_what_it_changes_loads_with_the_defaults_for_the_rest() {
+        let defaults = Policy::default();
+        for (text, check) in [
+            (
+                r#"{"apps":{"deny":["org.keepassxc.KeePassXC"]}}"#,
+                (|p: &Policy| p.apps.allow == ["*"] && p.apps.deny == ["org.keepassxc.KeePassXC"])
+                    as fn(&Policy) -> bool,
+            ),
+            (r#"{"apps":{"allow":["org.gnome.*"]}}"#, |p| {
+                p.apps.allow == ["org.gnome.*"] && p.apps.deny.is_empty()
+            }),
+            (r#"{"surfaces":{"virtualScreen":false}}"#, |p| {
+                !p.surfaces.virtual_screen && !p.surfaces.direct
+            }),
+            (r#"{"surfaces":{"direct":true}}"#, |p| {
+                p.surfaces.virtual_screen && p.surfaces.direct
+            }),
+            (r#"{"exec":{"enabled":true}}"#, |p| {
+                p.exec.enabled && p.exec.contain && p.exec.network && p.exec.cwd_roots.is_empty()
+            }),
+            (r#"{"exec":{"contain":false}}"#, |p| {
+                !p.exec.enabled && !p.exec.contain && p.exec.network
+            }),
+            (r#"{"files":{}}"#, |p| p.files.roots.is_empty()),
+            (r#"{"apps":{},"surfaces":{},"exec":{}}"#, |p| {
+                *p == Policy::default()
+            }),
+        ] {
+            let f = Fixture::new();
+            f.write("user-policy.json", text, 0o600);
+            let loaded = f.source().load();
+            assert!(
+                matches!(loaded.source, Source::File(_)),
+                "{text}: {:?}",
+                loaded.source
+            );
+            assert!(check(&loaded.policy), "{text}");
+            // Whatever it did not name is what no file means.
+            if text.contains("\"surfaces\":{}") {
+                assert_eq!(loaded.policy.surfaces, defaults.surfaces);
+            }
+        }
+        // Unknown keys are still refused, and a deny-only file denies that app and no other.
+        let f = Fixture::new();
+        f.write(
+            "user-policy.json",
+            r#"{"apps":{"deny":["a.b"],"bogus":1}}"#,
+            0o600,
+        );
+        assert!(matches!(f.source().load().source, Source::Invalid(_)));
+        let _ = std::fs::remove_file(f.path("user-policy.json"));
+        f.write(
+            "user-policy.json",
+            r#"{"apps":{"deny":["org.keepassxc.KeePassXC"]}}"#,
+            0o600,
+        );
+        let p = f.source().load().policy;
+        assert!(!p.app_permitted("org.keepassxc.keepassxc"));
+        assert!(p.app_permitted("org.gnome.TextEditor"));
+    }
+
+    /// The ceiling printed in the design (§5.3) must load as written.
+    #[test]
+    fn the_design_documents_example_policy_loads() {
+        let doc = include_str!("../../../../../../docs/design/linux-helper-only-2026.md");
+        let start = doc.find("### 5.3 The ceiling").expect("section 5.3");
+        let rest = &doc[start..];
+        let open = rest.find("```json\n").expect("the example") + "```json\n".len();
+        let close = rest[open..].find("```").expect("end of the example");
+        let example = &rest[open..open + close];
+        let f = Fixture::new();
+        f.write("user-policy.json", example, 0o600);
+        let loaded = f.source().load();
+        assert!(
+            matches!(loaded.source, Source::File(_)),
+            "{:?}",
+            loaded.source
+        );
+        assert!(loaded.policy.surfaces.virtual_screen && !loaded.policy.surfaces.direct);
+        assert!(!loaded.policy.app_permitted("org.keepassxc.KeePassXC"));
+        assert!(loaded.policy.app_permitted("org.gnome.TextEditor"));
+        assert!(loaded.policy.exec.enabled);
+        assert_eq!(loaded.policy.files.roots.len(), 1);
     }
 
     #[test]
@@ -888,6 +1092,130 @@ mod tests {
         }
         assert!(policy.app_permitted("org.gnome.texteditor"));
         assert!(policy.app_permitted("keepassxc-helper"));
+    }
+
+    #[test]
+    fn dispatch_judges_a_running_app_on_every_id_it_carries() {
+        // A running verified Flatpak: reported as `sublime_text`, its own id
+        // `com.sublimetext.three`. The resolver answers as `headless::other_ids` would.
+        let ids = |id: &str| -> Vec<String> {
+            match normalize(id).as_str() {
+                "sublime_text" => vec!["com.sublimetext.three".into()],
+                "com.sublimetext.three" => vec!["sublime_text".into()],
+                _ => vec![],
+            }
+        };
+        let home = PathBuf::from("/h");
+        let check = |allow: &[&str], deny: &[&str], cap: &str, app: &str| {
+            let mut policy = Policy::default();
+            policy.apps = Apps {
+                allow: allow.iter().map(|s| s.to_string()).collect(),
+                deny: deny.iter().map(|s| s.to_string()).collect(),
+            };
+            policy
+                .check_with(
+                    cap,
+                    &json!({"surface": "virtual_screen", "app": app}),
+                    &home,
+                    &ids,
+                )
+                .is_ok()
+        };
+        let fp = "com.sublimetext.Three";
+        let host = "sublime_text";
+        // (allow, deny, the id the call names, passes)
+        let rows: Vec<(Vec<&str>, Vec<&str>, &str, bool)> = vec![
+            // D1, D2: the owner names the Flatpak id; the call names the reported id.
+            (vec![fp], vec![], host, true),
+            // D3: the call names the Flatpak id.
+            (vec![fp], vec![], fp, true),
+            // The owner names the host id; the call names either.
+            (vec![host], vec![], host, true),
+            (vec![host], vec![], fp, true),
+            // Deny on either id refuses, whichever the call names.
+            (vec!["*"], vec![host], fp, false),
+            (vec!["*"], vec![fp], host, false),
+            (vec![fp], vec![host], host, false),
+            (vec![fp], vec![host], fp, false),
+            // Neither id allowed.
+            (vec!["org.other.App"], vec![], host, false),
+            (vec!["org.other.App"], vec![], fp, false),
+            // An app that carries no other id is judged on its own.
+            (vec![fp], vec![], "org.gnome.TextEditor", false),
+            (
+                vec!["org.gnome.TextEditor"],
+                vec![],
+                "org.gnome.TextEditor",
+                true,
+            ),
+        ];
+        for cap in [
+            "computer.ax_tree",
+            "computer.screenshot",
+            "computer.type",
+            "apps.focus",
+        ] {
+            for (allow, deny, app, want) in &rows {
+                assert_eq!(
+                    check(allow, deny, cap, app),
+                    *want,
+                    "{cap} allow={allow:?} deny={deny:?} app={app}"
+                );
+            }
+        }
+        // Without the resolver (`check`), only the named id counts: the old single-id answer.
+        let mut policy = Policy::default();
+        policy.apps = Apps {
+            allow: vec![fp.into()],
+            deny: vec![],
+        };
+        assert!(!call(
+            &policy,
+            "computer.ax_tree",
+            json!({"surface": "virtual_screen", "app": host}),
+            &home
+        ));
+    }
+
+    /// A launch is judged on the id it names, as written in `apps.allow`; the refusal says which
+    /// id to allow. The other ids of a running program do not open it.
+    #[test]
+    fn a_launch_is_judged_on_the_id_it_names_and_the_refusal_names_it() {
+        let ids = |id: &str| -> Vec<String> {
+            match normalize(id).as_str() {
+                "sublime_text" => vec!["com.sublimetext.three".into()],
+                "com.sublimetext.three" => vec!["sublime_text".into()],
+                _ => vec![],
+            }
+        };
+        let home = PathBuf::from("/h");
+        let mut policy = Policy::default();
+        policy.apps = Apps {
+            allow: vec!["sublime_text".into()],
+            deny: vec![],
+        };
+        let open = |policy: &Policy, id: &str| {
+            policy.check_with(
+                "apps.open",
+                &json!({"surface": "virtual_screen", "bundleId": id}),
+                &home,
+                &ids,
+            )
+        };
+        let err = open(&policy, "com.sublimetext.Three").unwrap_err();
+        assert_eq!(err.reason, "machine_policy");
+        assert!(
+            err.message
+                .contains("apps.allow must name com.sublimetext.three"),
+            "{}",
+            err.message
+        );
+        policy.apps.allow = vec!["com.sublimetext.Three".into()];
+        open(&policy, "com.sublimetext.Three").unwrap();
+        // A deny gets the plain refusal.
+        policy.apps.deny = vec!["com.sublimetext.*".into()];
+        let err = open(&policy, "com.sublimetext.Three").unwrap_err();
+        assert!(!err.message.contains("apps.allow"), "{}", err.message);
     }
 
     #[test]

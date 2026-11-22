@@ -23,6 +23,7 @@ import {
   pinId,
 } from "@psyche/protocol";
 import type { Call, HandlerDef } from "../context.ts";
+import { assertWritableThread } from "../session/imported-threads.ts";
 
 /**
  * Context usage per chat, owner-set limits and compaction (owner priority; features B7, C2).
@@ -186,8 +187,9 @@ export function createContext(deps: ContextDeps) {
     "threads.setContextLimits": async (
       p: MethodParams<"threads.setContextLimits">,
     ): Promise<MethodResult<"threads.setContextLimits">> => {
-      if (getThread(db, p.threadId) === undefined)
-        throw new PsycheError("not_found", "no such thread");
+      const host = getThread(db, p.threadId);
+      if (host === undefined) throw new PsycheError("not_found", "no such thread");
+      assertWritableThread(host, "changed");
       const limits = await window(p.threadId);
       if (p.limits?.maxTokens !== undefined && p.limits.maxTokens > limits.contextWindow) {
         throw new PsycheError(
@@ -201,8 +203,9 @@ export function createContext(deps: ContextDeps) {
     "threads.compact": async (
       p: MethodParams<"threads.compact">,
     ): Promise<MethodResult<"threads.compact">> => {
-      if (getThread(db, p.threadId) === undefined)
-        throw new PsycheError("not_found", "no such thread");
+      const host = getThread(db, p.threadId);
+      if (host === undefined) throw new PsycheError("not_found", "no such thread");
+      assertWritableThread(host, "compacted");
       if (deps.isRunning(p.threadId)) {
         throw new PsycheError("conflict", "the thread is running; compact it when the turn ends");
       }
@@ -233,8 +236,9 @@ export function createContext(deps: ContextDeps) {
   const pinHandlers = (loop: () => PsycheAgentLoop): Record<string, HandlerDef> => ({
     "threads.summary.pins.remove": {
       async run(call: Call, p: MethodParams<"threads.summary.pins.remove">) {
-        if (getThread(db, p.threadId) === undefined)
-          throw new PsycheError("not_found", "no such thread");
+        const host = getThread(db, p.threadId);
+        if (host === undefined) throw new PsycheError("not_found", "no such thread");
+        assertWritableThread(host, "changed");
         if (deps.isRunning(p.threadId)) {
           throw new PsycheError("conflict", "the thread is running; try again when the turn ends");
         }

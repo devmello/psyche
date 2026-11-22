@@ -295,44 +295,50 @@ export const ComputerWatchParkAction = StringEnum(["look", "discard", "keep_open
 });
 export type ComputerWatchParkAction = Static<typeof ComputerWatchParkAction>;
 
+/**
+ * Which computer a watch call is about: a machine's id (`machines.list`). Absent means the Host's
+ * own virtual screen (linux-helper-only design sections 8.3 and 9).
+ */
+const WatchMachine = Type.Optional(Id);
+
 export const ComputerWatchMethods = {
   "computerWatch.status": defineMethod({
-    params: Type.Object({}),
+    params: Type.Object({ machine: WatchMachine }),
     result: ComputerWatchState,
     scope: "operator.read",
     description:
       "Desktop only: the virtual screen's state, its open apps and whether a Task is parked on unsaved changes.",
   }),
   "computerWatch.frame": defineMethod({
-    params: VscreenFrameParams,
+    params: Type.Object({ ...VscreenFrameParams.properties, machine: WatchMachine }),
     result: VscreenFrame,
     scope: "operator.read",
     description:
       "Desktop only: the newest virtual-screen frame (JPEG) when it changed since `since`. Only while the pane is visible, at most 4 a second.",
   }),
   "computerWatch.input": defineMethod({
-    params: VscreenInputParams,
+    params: Type.Object({ ...VscreenInputParams.properties, machine: WatchMachine }),
     result: VscreenAck,
     scope: "operator.write",
     description:
       "Desktop only: the owner's clicks and keys while taking over, sent through the helper's XTest.",
   }),
   "computerWatch.takeOver": defineMethod({
-    params: Type.Object({ on: Type.Boolean() }),
+    params: Type.Object({ on: Type.Boolean(), machine: WatchMachine }),
     result: Type.Object({ takenOver: Type.Boolean() }),
     scope: "operator.write",
     description:
       "Desktop only: the owner takes control of the virtual screen (the agent pauses) or gives it back.",
   }),
   "computerWatch.stop": defineMethod({
-    params: VscreenStopParams,
+    params: Type.Object({ ...VscreenStopParams.properties, machine: WatchMachine }),
     result: VscreenAck,
     scope: "operator.write",
     description:
       "Desktop only: Stop in the watch pane. Apps are asked to close; one with unsaved changes stays and the Task parks, unless `force` is set.",
   }),
   "computerWatch.resolveParked": defineMethod({
-    params: Type.Object({ action: ComputerWatchParkAction }),
+    params: Type.Object({ action: ComputerWatchParkAction, machine: WatchMachine }),
     result: Type.Object({
       action: ComputerWatchParkAction,
       /** For `look`: the pane to open. */

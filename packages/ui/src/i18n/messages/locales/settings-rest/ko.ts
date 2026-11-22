@@ -659,6 +659,7 @@ export const settingsRest: Partial<Catalogue> = {
     "아직 없습니다. {persona}가 폴더나 앱이 필요하면 대화에서 묻고, 허용한 항목이 여기에 표시됩니다.",
   "settings.access.scope.always": "항상",
   "settings.access.scope.conversation": "이 대화",
+  "settings.access.scope.space": "스페이스에서",
   "settings.access.scope.limited": "지금만",
   "settings.access.used": "{when}에 사용됨",
   "settings.access.fileOnly": "파일 하나 · 읽기 전용",
@@ -680,8 +681,11 @@ export const settingsRest: Partial<Catalogue> = {
     "{persona}의 생각을 작업 중에 표시합니다. 저장되지 않습니다.",
   "settings.connectors.page.onHost": "{host}에서",
   "settings.connectors.page.row.onHost": "{host}에서",
+  "settings.connectors.page.row.macOnly": "Mac 호스트에서만",
   "settings.computerUse.remote":
     "컴퓨터 사용은 {host}에서 이루어집니다. 그쪽에서 요청하거나 브라우저를 사용하십시오.",
+  "settings.computerUse.remoteLinux":
+    "컴퓨터 사용은 {host}의 비공개 화면에서 실행됩니다. 보기 창에서 지켜보고 제어를 넘겨받을 수 있습니다.",
   "settings.gateways.title": "이 컴퓨터의 Gateway",
   "settings.gateways.description":
     "집에 있는 Mac 등 다른 컴퓨터의 Gateway를 사용해 이 컴퓨터에서 Psyche를 이용합니다. 한 번에 하나의 Gateway만 활성화되며, 전환하면 Psyche가 다시 시작됩니다.",
@@ -918,6 +922,65 @@ export const settingsRest: Partial<Catalogue> = {
     "네트워크에서 컴퓨터가 알리는 내용은 자체 주장일 뿐입니다. 페어링 화면에 키가 표시되므로 승인하기 전에 호스트의 키와 비교하십시오.",
   "settings.gateways.discoverAdd": "{name} 추가",
   "settings.gateways.discoverSaved": "저장됨",
+  "settings.remoteSetup.title": "원격 서버 설정",
+  "settings.remoteSetup.open": "원격 서버 설정",
+  "settings.remoteSetup.intro":
+    "이 네트워크의 Linux 컴퓨터에 psyche-server를 설치하세요. 설정 코드가 표시되면 여기에 입력하세요. 그러면 이 컴퓨터가 서버의 관리자가 됩니다.",
+  "settings.remoteSetup.lookFailed": "네트워크를 검색하지 못했습니다. 서버 주소를 입력하세요.",
+  "settings.remoteSetup.noneWaiting":
+    "이 네트워크에서 설정을 기다리는 서버를 찾지 못했습니다. 주소를 입력하세요.",
+  "settings.remoteSetup.waiting": "설정 대기 중",
+  "settings.remoteSetup.pick": "설정",
+  "settings.remoteSetup.pickNamed": "{name} 설정",
+  "settings.remoteSetup.alreadySetUp": "이미 설정되었습니다. 그 서버의 페어링 링크로 추가하세요.",
+  "settings.remoteSetup.addressLabel": "서버 주소",
+  "settings.remoteSetup.addressPlaceholder": "192.168.1.20 또는 server.local",
+  "settings.remoteSetup.addressHint":
+    "이 네트워크의 주소입니다. 다른 포트를 입력하지 않으면 Psyche는 7979 포트를 사용합니다.",
+  "settings.remoteSetup.next": "다음",
+  "settings.remoteSetup.codeTitle": "{name}의 설정 코드",
+  "settings.remoteSetup.codeLabel": "설정 코드",
+  "settings.remoteSetup.codePlaceholder": "7K3QM-XR2TD",
+  "settings.remoteSetup.codeHint":
+    "psyche-server를 설치할 때 서버에 표시된 코드입니다. 24시간 동안 한 번만 쓸 수 있습니다. 새 코드는 서버에서 psyche setup code를 실행하세요.",
+  "settings.remoteSetup.checking": "코드 확인 중…",
+  "settings.remoteSetup.submit": "서버 설정",
+  "settings.remoteSetup.back": "뒤로",
+  "settings.remoteSetup.doneTitle": "{name} 설정 완료",
+  "settings.remoteSetup.doneBody":
+    "이제 이 컴퓨터가 관리자입니다. 서버로 전환해 에이전트 이름과 모델을 정하세요.",
+  "settings.remoteSetup.switch": "{name}(으)로 전환",
+  "settings.remoteSetup.notNow": "나중에",
+  "settings.remoteSetup.keepLan": "내 네트워크에서 이 서버에 계속 연결할 수 있게 두기",
+  "settings.remoteSetup.keepLanHint":
+    "이 네트워크의 컴퓨터가 서버에 연결해 페어링을 요청할 수 있습니다. 각각 내 승인이 필요합니다.",
+  "settings.remoteSetup.keepLanOffHint":
+    "설정이 끝나면 서버가 이 네트워크에서 수신을 멈추고 이 컴퓨터는 연결이 끊깁니다. Tailscale처럼 다른 방법으로 서버에 연결할 때만 끄세요.",
+  "settings.remoteSetup.firstRunHint": "서버에 Psyche를 설치했나요? 여기서 설정하세요.",
+  "settings.remoteSetup.connect": "Psyche 서버에 연결",
+  "settings.remoteSetup.problem.wrong_code":
+    "{count, plural, other {코드가 맞지 않습니다. # 번 더 틀리면 서버가 잠시 기다리게 합니다.}}",
+  "settings.remoteSetup.problem.wrong_code_wait":
+    "코드가 맞지 않습니다. 1분 기다린 뒤 서버의 코드를 확인하고 다시 시도하세요.",
+  "settings.remoteSetup.problem.too_many_attempts":
+    "틀린 코드가 너무 많습니다. {seconds, plural, other {#초}} 후에 다시 시도하세요.",
+  "settings.remoteSetup.problem.bad_code": "설정 코드는 7K3QM-XR2TD처럼 10자의 영문과 숫자입니다.",
+  "settings.remoteSetup.problem.code_expired":
+    "코드가 만료되었습니다. 서버에서 psyche setup code를 실행해 새 코드를 받으세요.",
+  "settings.remoteSetup.problem.not_claimable":
+    "이 서버는 이미 설정되었습니다. 서버의 페어링 링크로 추가하세요.",
+  "settings.remoteSetup.problem.unreachable":
+    "그 주소의 서버에 연결하지 못했습니다. 켜져 있고 이 네트워크에 있는지 확인하세요.",
+  "settings.remoteSetup.problem.cert_mismatch":
+    "서버 인증서가 서버가 알려 준 것과 달라 Psyche가 중단했습니다. 주소를 확인하고 다시 시도하세요.",
+  "settings.remoteSetup.problem.server_unproven":
+    "서버가 코드를 안다는 것을 증명하지 못해 Psyche가 신뢰하지 않았습니다. 주소와 코드를 확인하세요.",
+  "settings.remoteSetup.problem.maybe_claimed":
+    "서버가 이미 이 Mac으로 설정되었을 수 있습니다. 페어링 링크로 연결하거나 서버에서 `psyche devices link`를 실행하세요.",
+  "settings.remoteSetup.problem.saved": "이 서버는 이미 저장되어 있습니다. 위 목록에서 전환하세요.",
+  "settings.remoteSetup.problem.not_lan":
+    "192.168.1.20이나 server.local처럼 이 네트워크의 주소를 입력하세요.",
+  "settings.remoteSetup.problem.failed": "서버를 설정하지 못했습니다. 바뀐 것은 없습니다.",
   "settings.devices.gatewayKey": "이 Gateway의 키 {fingerprint}",
   "settings.devices.fromAddress": "{address}에서",
   "settings.devices.fromLan": "네트워크의 {address}에서. 아래 키 전체를 확인하십시오.",

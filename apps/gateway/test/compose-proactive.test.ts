@@ -103,6 +103,50 @@ describe("composition root: proactive surfaces (S15)", () => {
     expect(notifications.map((n) => n.kind)).toEqual(["proactive"]);
   });
 
+  it("goals.suggest asks the model once for a next step; a goal cadence never does", async () => {
+    home = mkdtempSync(join(tmpdir(), "psyche-suggest-"));
+    const provider = new FakeModelProvider();
+    composed = await composeGateway({
+      env: {},
+      logger: silentLogger,
+      retentionIntervalMs: 0,
+      background: false,
+      timeZone: "UTC",
+      config: { home, port: 0, dbPath: join(home, "psyche.db"), webRoot: null },
+      model: { provider, model: "fake/model" },
+    });
+    const { proactive, scheduler } = composed;
+    expect(Object.keys(proactive.handlers)).toContain("goals.suggest");
+    const { goal } = await proactive.goals.create({
+      title: "Run a 10k",
+      category: "health",
+      cadence: "0 9 * * 1",
+    });
+    // A scheduled check-in is the free reminder: it makes no model call.
+    const before = provider.requests.length;
+    const checkin = (await scheduler.list()).find((a) => a.prompt.includes(goal.id));
+    await scheduler.trigger(checkin?.id ?? "");
+    await scheduler.idle();
+    expect(provider.requests.length).toBe(before);
+
+    provider.enqueue([
+      {
+        type: "text_delta",
+        text: JSON.stringify({ title: "Book the race", step: "Find the October 10k." }),
+      },
+      { type: "finish", reason: "stop" },
+    ]);
+    const out = await (
+      proactive.handlers["goals.suggest"] as never as {
+        run: (c: never, p: never) => Promise<{ ideaId: string | null }>;
+      }
+    ).run({} as never, { goalId: goal.id } as never);
+    expect(provider.requests.length).toBe(before + 1);
+    const { ideas } = await proactive.ideas.list();
+    expect(ideas.map((i) => i.id)).toEqual([out.ideaId]);
+    expect(ideas[0]?.title).toBe("Book the race");
+  });
+
   it("runs an approved batch proposal through the composed broker and registry (W2)", async () => {
     home = mkdtempSync(join(tmpdir(), "psyche-proposals-"));
     composed = await composeGateway({

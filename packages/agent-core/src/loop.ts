@@ -1049,11 +1049,23 @@ export class PsycheAgentLoop implements AgentLoop {
     };
     this.#runs.set(runId, run);
     this.#ranHere.add(runId);
+    // The run's Space is fixed here, before the prompt is built, for the whole run (spaces-2026
+    // SR3): nothing else on this thread (a preview, a widget, another run) can change it.
+    this.#o.broker.bindRun?.({
+      threadId,
+      runId,
+      unattended: run.mode === "unattended",
+      ...(requester === undefined ? {} : { requester: structuredClone(requester) }),
+      ...(child === undefined
+        ? {}
+        : { parent: { threadId: child.parent.threadId, runId: child.parent.runId } }),
+    });
     let outcome: RunOutcome = "final";
     let error: string | undefined;
     // `run.thread` starts empty: it is saved only once the stored thread was read into it, so a
     // turn cancelled first (or one whose read failed) never overwrites the owner's history.
     let threadLoaded = false;
+    let stickyTaint = input.stickyTaint === true;
     try {
       if (input.signal?.aborted === true) throw new RunEnd("cancelled", "signal");
       emit({ type: "run.status", runId, status: "running" });
@@ -1081,6 +1093,12 @@ export class PsycheAgentLoop implements AgentLoop {
       if (containsUntrusted(run.thread.messages) || run.thread.summary?.untrusted === true) {
         this.#taint(run, { sourceKind: "transcript" });
         for (const s of run.thread.taint?.sources ?? []) this.#taint(run, { ...s });
+      }
+      // A chat opened about untrusted content (a mail follow-up draft) stays tainted for every
+      // later turn, whether or not the content is still in the transcript.
+      if (run.thread.taint?.sticky === true) {
+        stickyTaint = true;
+        for (const s of run.thread.taint.sources) this.#taint(run, { ...s });
       }
       if (input.taskId !== undefined && this.#o.tasks !== undefined) {
         const task = await this.#o.tasks.get(input.taskId);
@@ -1233,7 +1251,11 @@ export class PsycheAgentLoop implements AgentLoop {
       closeDanglingCalls(run.thread.messages, outcome === "cancelled" ? "cancelled" : "not run");
       for (const q of run.questions.values()) q.reject(new RunEnd("cancelled"));
       // The sources outlive the turn with the untrusted content that caused them.
-      if (run.taint) run.thread.taint = { sources: dedupeSources(run.taintSources) };
+      if (run.taint)
+        run.thread.taint = {
+          sources: dedupeSources(run.taintSources),
+          ...(stickyTaint ? { sticky: true } : {}),
+        };
       else delete run.thread.taint;
       run.thread.messages = keepRecentToolImages(run.thread.messages);
       // Recall is for this run: nothing of it is at rest once the run ends (the next run would
@@ -1248,6 +1270,7 @@ export class PsycheAgentLoop implements AgentLoop {
         }
       }
       this.#runs.delete(runId);
+      this.#o.broker.endRun?.(threadId, runId);
       thread.activeRunId = undefined;
     }
     this.#reportContext(run);

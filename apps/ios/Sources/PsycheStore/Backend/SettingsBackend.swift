@@ -18,10 +18,31 @@ public protocol SettingsBackend: Sendable {
     /// "Remove from this phone only": wipes keys, outbox and caches without telling the Gateway, for when the
     /// Gateway cannot be reached. The Mac keeps listing the phone until it is removed there.
     func removeThisPhoneLocally() async throws
+
+    /// The computers Psyche can use (`machines.list`, read-only). Empty when there are none or the Gateway
+    /// does not answer; the phone never adds or pairs one.
+    func machines() async throws -> [MachineSummary]
 }
 
 extension SettingsBackend {
     public func removeThisPhoneLocally() async throws {}
+    public func machines() async throws -> [MachineSummary] { [] }
+}
+
+/// One paired computer, as the phone lists it: a name and whether it is reachable.
+public struct MachineSummary: Sendable, Equatable, Identifiable {
+    public enum Status: String, Sendable, Equatable {
+        case online, offline, degraded
+    }
+
+    public var id: String
+    public var name: String
+    public var status: Status
+    public init(id: String, name: String, status: Status) {
+        self.id = id
+        self.name = name
+        self.status = status
+    }
 }
 
 public struct DeviceInfo: Sendable, Equatable {

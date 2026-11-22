@@ -19,6 +19,7 @@ import { homeRest } from "./home-rest/de.ts";
 import { keepAwake } from "./keep-awake/de.ts";
 import { links } from "./links/de.ts";
 import { linuxAccess } from "./linux-access/de.ts";
+import { machines } from "./machines/de.ts";
 import { mailFollowups } from "./mail-followups/de.ts";
 import { mailMeetings } from "./mail-meetings/de.ts";
 import { memoryMap } from "./memory-map/de.ts";
@@ -158,6 +159,16 @@ export const de: Partial<Catalogue> = {
   "errors.reason.secret_required": "Ein anderer Client braucht sein eigenes Client-Secret.",
   "errors.reason.updating":
     "Psyche startet gleich neu, um ein Update zu installieren. Versuche es in einem Moment erneut.",
+  "errors.reason.passkey_required":
+    "Richte einen Passkey ein, um Zahlungen in diesem Psyche zu bestätigen.",
+  "errors.reason.awaiting_owner":
+    "Eine App hat ungespeicherte Änderungen. Psyche wartet, bis du entscheidest, was mit ihnen passiert.",
+  "errors.reason.checkout_needs_desktop":
+    "Zum Bezahlen in Psyches Browser muss die Psyche-Desktop-App mit diesem Host verbunden sein.",
+  "errors.reason.no_chromium":
+    "Psyches Browser braucht Chromium auf diesem Host. Installiere es oder setze PSYCHE_CHROMIUM.",
+  "errors.reason.chromium_sandbox":
+    "Die Sandbox von Chromium konnte auf diesem Host nicht starten, daher ist Psyches Browser aus. Erlaube Chromium Benutzer-Namespaces (ein AppArmor-Profil).",
   "errors.unavailable": "Psyche kann das gerade nicht.",
   "errors.approval_required": "Das braucht zuerst deine Genehmigung.",
   "errors.approval_expired": "Die Genehmigung ist abgelaufen; frage erneut.",
@@ -514,6 +525,7 @@ export const de: Partial<Catalogue> = {
   "blocks.artifact.bytes": "{size} B",
   "blocks.artifact.kilobytes": "{size} KB",
   "blocks.artifact.megabytes": "{size} MB",
+  "blocks.artifact.gigabytes": "{size} GB",
 
   "blocks.task.status.queued": "wartet",
   "blocks.task.status.running": "läuft",
@@ -815,7 +827,45 @@ export const de: Partial<Catalogue> = {
   "agent.memory.incognito": "Inkognito-Nebenchat",
   "agent.memory.importExport": "Importieren, exportieren und zurücksetzen",
   "agent.memory.import": "Gedächtnis importieren",
+  "agent.memory.importConv.title": "Aus claude.ai oder ChatGPT importieren",
+  "agent.memory.importConv.note":
+    "Importierte Unterhaltungen sind schreibgeschützt. Ihr Text gilt als nicht vertrauenswürdige Daten und wird nie zu einer Anheftung oder Anweisung.",
+  "agent.memory.importConv.source": "Exportiert aus",
+  "agent.memory.importConv.claude": "claude.ai",
+  "agent.memory.importConv.chatgpt": "ChatGPT",
+  "agent.memory.importConv.mode": "Was importieren?",
+  "agent.memory.importConv.memoriesOnly": "Nur Erinnerungen",
+  "agent.memory.importConv.both": "Erinnerungen und Unterhaltungen",
+  "agent.memory.importConv.memoriesFile": "Datei mit Erinnerungen",
+  "agent.memory.importConv.conversationsFile": "Datei mit Unterhaltungen (conversations.json)",
+  "agent.memory.importConv.start": "Importieren",
+  "agent.memory.importConv.working": "Wird importiert …",
+  "agent.memory.importConv.cancel": "Abbrechen",
+  "agent.memory.importConv.close": "Schließen",
+  "agent.memory.importConv.progressMemories": "Erinnerungen werden importiert …",
+  "agent.memory.importConv.progressConversations": "Unterhaltungen werden importiert …",
+  "agent.memory.importConv.failed": "Diese Datei konnte nicht importiert werden: {reason}",
+  "agent.memory.importConv.done": "Import abgeschlossen.",
+  "agent.memory.importConv.sumMemories": "Erinnerungen zur Prüfung: {n}",
+  "agent.memory.importConv.sumThreads": "Importierte Unterhaltungen: {n}",
+  "agent.memory.importConv.sumDuplicates": "Schon früher importiert: {n}",
+  "agent.memory.importConv.sumSkipped": "Übersprungene Unterhaltungen: {n}",
+  "agent.memory.importConv.skipTooMany": "über dem Limit von {n} Unterhaltungen",
+  "agent.memory.importConv.skipTooLarge": "zu lang",
+  "agent.memory.importConv.skipEmpty": "keine Nachrichten",
+  "agent.memory.importConv.skipInvalid": "nicht lesbar",
+  "agent.memory.importConv.untitled": "Ohne Titel",
+  "agent.memory.importConv.progressCount": "Unterhaltungen werden importiert … {done} von {total}",
+  "agent.memory.importConv.tooBig":
+    "Diese Datei ist größer als {mb} MB und hier zu groß zum Lesen. Exportiere erneut mit kleinerem Zeitraum.",
+  "agent.memory.importConv.memoriesTooBig":
+    "Diese Erinnerungsdatei ist größer als {kb} KB und lässt sich nicht auf einmal importieren. Teile sie auf oder exportiere weniger Erinnerungen.",
+  "agent.memory.importConv.partial":
+    "Vor dem Ende gestoppt: {reason}. {done} von {total} Paketen wurden importiert. Importiere erneut, um fortzufahren; bereits importierte Unterhaltungen werden übersprungen.",
+  "agent.memory.importConv.retry": "Erneut importieren",
   "agent.memory.exported": "{file} exportiert.",
+  "agent.memory.importConv.memoriesFailed":
+    "Die Erinnerungen konnten nicht importiert werden: {reason}. Importiere erneut, um es noch einmal zu versuchen.",
   "agent.memory.export": "Alles exportieren",
   "agent.memory.resetDone":
     "{files, plural, one {# Datei} other {# Dateien}}, {claims, plural, one {# Aussage} other {# Aussagen}} zurückgesetzt.",
@@ -925,6 +975,8 @@ export const de: Partial<Catalogue> = {
   "shell.threads.unpin": "Loslösen",
   "shell.threads.pin": "Anheften",
   "shell.threads.archive": "Archivieren",
+  "shell.threads.imported": "Importiert",
+  "shell.threads.importedReadOnly": "Diese importierte Unterhaltung ist schreibgeschützt.",
   "shell.threads.restore": "Wiederherstellen",
   "shell.threads.region": "Threads",
   "shell.threads.filter": "Threads filtern",
@@ -3277,6 +3329,20 @@ export const de: Partial<Catalogue> = {
   "screens.goals.checkinLine":
     "{cadence}{hasNext, select, true { · nächster {next}} other {}}{hasLast, select, true { · zuletzt: {last}} other {}}",
   "screens.goals.noSchedule": "Kein Zeitplan",
+  "screens.goals.suggest": "Nächsten Schritt vorschlagen",
+  "screens.goals.suggest.hint":
+    "Nutzt das Modell, nur wenn du tippst. Nichts startet, bis du auf der Karte „Starten“ tippst.",
+  "screens.goals.suggest.done": "Vorschlag zu Start hinzugefügt.",
+  "screens.goals.suggest.none": "Diesmal kein Vorschlag. Versuch es später noch einmal.",
+  "screens.ideas.start": "Starten",
+  "screens.ideas.snooze": "Später erinnern",
+  "screens.ideas.badge.checkin": "Check-in",
+  "screens.ideas.badge.resume": "Fortsetzen?",
+  "screens.goals.checkinFrequency": "Check-in",
+  "screens.goals.checkinFrequency.off": "Aus",
+  "screens.goals.checkinFrequency.daily": "Täglich",
+  "screens.goals.checkinFrequency.weekly": "Wöchentlich",
+  "screens.goals.checkinFrequency.monthly": "Monatlich",
   "screens.goals.watches": "Beobachtungen",
   "screens.goals.nothingWatched": "Nichts beobachtet.",
   "screens.goals.last": "zuletzt: {value}",
@@ -3869,4 +3935,5 @@ export const de: Partial<Catalogue> = {
   ...mailFollowups,
   ...keepAwake,
   ...spaces,
+  ...machines,
 };

@@ -42,7 +42,7 @@ impl XvfbConfig {
             width,
             height,
             first_display: 90,
-            xvfb_path: "Xvfb".into(),
+            xvfb_path: super::tools::xvfb().to_string_lossy().into_owned(),
             runtime_dir: std::env::var("XDG_RUNTIME_DIR")
                 .ok()
                 .filter(|v| !v.is_empty()),
@@ -72,6 +72,32 @@ pub fn lock_path(n: u32) -> PathBuf {
 /// The pid an X lock file names (`/tmp/.X<n>-lock` holds it as text, padded).
 pub fn lock_pid(lock: &Path) -> Option<u32> {
     std::fs::read_to_string(lock).ok()?.trim().parse().ok()
+}
+
+/// Whether `/tmp/.X11-unix` can be trusted to hold the display socket: absent (Xvfb makes it),
+/// or a real directory owned by root or this user that no one else can rename entries in
+/// (sticky, or not group/other-writable). Another account's directory there could swap sockets.
+pub fn check_x11_dir(dir: &Path, euid: u32) -> Result<(), String> {
+    use std::os::unix::fs::MetadataExt;
+    let st = match std::fs::symlink_metadata(dir) {
+        Ok(st) => st,
+        Err(e) if e.kind() == std::io::ErrorKind::NotFound => return Ok(()),
+        Err(e) => return Err(format!("{}: {e}", dir.display())),
+    };
+    if !st.is_dir() {
+        return Err(format!("{} is not a directory", dir.display()));
+    }
+    if st.uid() != 0 && st.uid() != euid {
+        return Err(format!("{} belongs to uid {}", dir.display(), st.uid()));
+    }
+    let mode = st.mode();
+    if mode & 0o022 != 0 && mode & 0o1000 == 0 {
+        return Err(format!(
+            "{} is writable by others and not sticky",
+            dir.display()
+        ));
+    }
+    Ok(())
 }
 
 /// Connects to display `n` without checking who answers: the socket file when there is one,
@@ -183,6 +209,8 @@ impl XvfbServer {
         let dir = xauth::runtime_dir(config.runtime_dir.as_deref())
             .map_err(|e| format!("runtime dir: {e}"))?;
         let cookie = xauth::new_cookie().map_err(|e| format!("cookie: {e}"))?;
+        // SAFETY: geteuid has no preconditions.
+        check_x11_dir(Path::new("/tmp/.X11-unix"), unsafe { libc::geteuid() })?;
         let mut last = String::from("no free display");
         for n in config.first_display..config.first_display + 40 {
             if display_in_use(n) {
@@ -222,7 +250,7 @@ impl XvfbServer {
             .env_clear()
             .env(
                 "PATH",
-                std::env::var("PATH").unwrap_or_else(|_| "/usr/bin:/bin".into()),
+                super::tools::FIXED_PATH,
             )
             .stdin(Stdio::null())
             .stdout(Stdio::null())
@@ -347,6 +375,31 @@ impl Drop for XvfbServer {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn the_x11_socket_dir_must_be_ours_or_roots_and_not_open() {
+        use std::os::unix::fs::PermissionsExt;
+        let tmp = tempfile::tempdir().unwrap();
+        // SAFETY: geteuid has no preconditions.
+        let euid = unsafe { libc::geteuid() };
+        let d = tmp.path().join("x11");
+        assert_eq!(check_x11_dir(&d, euid), Ok(()), "absent is fine");
+        std::fs::create_dir(&d).unwrap();
+        for (mode, ok) in [(0o755, true), (0o1777, true), (0o777, false), (0o772, false)] {
+            std::fs::set_permissions(&d, std::fs::Permissions::from_mode(mode)).unwrap();
+            assert_eq!(check_x11_dir(&d, euid).is_ok(), ok, "{mode:o}");
+        }
+        std::fs::set_permissions(&d, std::fs::Permissions::from_mode(0o755)).unwrap();
+        if euid != 0 {
+            assert!(check_x11_dir(&d, euid + 1).is_err(), "someone else's");
+        }
+        let link = tmp.path().join("link");
+        std::os::unix::fs::symlink(&d, &link).unwrap();
+        assert!(check_x11_dir(&link, euid).is_err(), "a symlink is refused");
+        let file = tmp.path().join("file");
+        std::fs::write(&file, "").unwrap();
+        assert!(check_x11_dir(&file, euid).is_err());
+    }
 
     #[test]
     fn displayfd_text_is_a_number_and_a_newline() {

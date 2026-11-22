@@ -47,6 +47,8 @@ export type FxNode =
   | { kind: "canvas"; width: number; height: number }
   | { kind: "image"; alt: string }
   | { kind: "clickable"; text: string; onClick: FxAction }
+  /** A `contenteditable` div with an `aria-label` (AX role `generic`, `editable` property). */
+  | { kind: "editable"; label: string; text: string }
   | { kind: "spacer"; height: number }
   /** A full-viewport `position: fixed` layer (clickjacking fixture). */
   | { kind: "overlay"; text: string; onClick: FxAction }
@@ -420,6 +422,80 @@ export const FIXTURE_SITE: FxSite = {
             { kind: "input", label: "Library card", name: "library-card" },
             { kind: "input", label: "PIN", name: "card_pin" },
             { kind: "button", text: "Send", type: "submit" },
+          ],
+        },
+      ],
+    },
+    // Pre-filled secret fields that are not `type=password`, beside look-alikes that are not secret.
+    "a/codes": {
+      title: "Verify",
+      body: [
+        { kind: "heading", level: 1, text: "Verify" },
+        {
+          kind: "form",
+          action: "/submit/verify",
+          method: "post",
+          children: [
+            { kind: "input", label: "Verification code", name: "otp", value: "482913" },
+            { kind: "input", label: "Card security code", name: "cvc", value: "7391" },
+            {
+              kind: "input",
+              label: "Code",
+              name: "code",
+              autocomplete: "one-time-code",
+              value: "551122",
+            },
+            { kind: "input", label: "Password hint", name: "hint", value: "first pet" },
+            { kind: "input", label: "Find a flight", name: "pass", type: "search", value: "LHR" },
+            { kind: "button", text: "Verify", type: "submit" },
+          ],
+        },
+      ],
+    },
+    // A secret only the DOM path can see: a contenteditable (AX `generic`, not a text field)
+    // labelled as a code, with a 3-character value the value scrubber ignores; and card text on
+    // a page with no form field.
+    "a/editable-code": {
+      title: "Verify",
+      body: [
+        { kind: "heading", level: 1, text: "Verify" },
+        { kind: "editable", label: "Verification code", text: "731" },
+        { kind: "editable", label: "Notes", text: "bring 2 forms" },
+      ],
+    },
+    "a/card-text": {
+      title: "Receipt",
+      body: [
+        { kind: "heading", level: 1, text: "Receipt" },
+        { kind: "text", text: "Paid with 4242 4242 4242 4242 on 12 May" },
+      ],
+    },
+    // Fields that look like secrets and are not: nothing hides, screenshots stay available.
+    "a/lookalikes": {
+      title: "Booking",
+      body: [
+        { kind: "heading", level: 1, text: "Booking" },
+        { kind: "link", text: "Verify by link", href: "/a/lookalikes?code=909090" },
+        {
+          kind: "form",
+          action: "/submit/booking",
+          method: "post",
+          children: [
+            {
+              kind: "input",
+              label: "Confirmation code",
+              name: "confirmationCode",
+              value: "PNR7Q2",
+            },
+            { kind: "input", label: "PIN code", name: "pincode", value: "560001" },
+            {
+              kind: "input",
+              label: "Search: where is my CVV",
+              name: "q",
+              type: "search",
+              value: "cvv help",
+            },
+            { kind: "button", text: "Look up", type: "submit" },
           ],
         },
       ],

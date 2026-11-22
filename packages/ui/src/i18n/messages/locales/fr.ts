@@ -19,6 +19,7 @@ import { homeRest } from "./home-rest/fr.ts";
 import { keepAwake } from "./keep-awake/fr.ts";
 import { links } from "./links/fr.ts";
 import { linuxAccess } from "./linux-access/fr.ts";
+import { machines } from "./machines/fr.ts";
 import { mailFollowups } from "./mail-followups/fr.ts";
 import { mailMeetings } from "./mail-meetings/fr.ts";
 import { memoryMap } from "./memory-map/fr.ts";
@@ -155,6 +156,16 @@ export const fr: Partial<Catalogue> = {
   "errors.reason.secret_required": "Un autre client a besoin de son propre secret client.",
   "errors.reason.updating":
     "Psyche va redémarrer pour installer une mise à jour. Réessayez dans un instant.",
+  "errors.reason.passkey_required":
+    "Configurez une clé d’accès pour approuver les paiements sur ce Psyche.",
+  "errors.reason.awaiting_owner":
+    "Une app a des modifications non enregistrées. Psyche attend que vous décidiez de leur sort.",
+  "errors.reason.checkout_needs_desktop":
+    "Pour payer dans le navigateur de Psyche, l’app de bureau Psyche doit être connectée à cet hôte.",
+  "errors.reason.no_chromium":
+    "Le navigateur de Psyche a besoin de Chromium sur cet hôte. Installez-le ou définissez PSYCHE_CHROMIUM.",
+  "errors.reason.chromium_sandbox":
+    "Le bac à sable de Chromium n'a pas pu démarrer sur cet hôte, le navigateur de Psyche est donc désactivé. Autorisez Chromium à utiliser les espaces de noms utilisateur (un profil AppArmor).",
   "errors.unavailable": "Psyche ne peut pas faire cela pour le moment.",
   "errors.approval_required": "Votre approbation est d’abord nécessaire.",
   "errors.approval_expired": "L’approbation a expiré ; redemandez.",
@@ -494,6 +505,7 @@ export const fr: Partial<Catalogue> = {
   "blocks.artifact.bytes": "{size} o",
   "blocks.artifact.kilobytes": "{size} Ko",
   "blocks.artifact.megabytes": "{size} Mo",
+  "blocks.artifact.gigabytes": "{size} Go",
   "blocks.task.status.queued": "en file d’attente",
   "blocks.task.status.running": "en cours",
   "blocks.task.status.awaiting_input": "attend votre réponse",
@@ -780,7 +792,45 @@ export const fr: Partial<Catalogue> = {
   "agent.memory.incognito": "Discussion annexe incognito",
   "agent.memory.importExport": "Importer, exporter et réinitialiser",
   "agent.memory.import": "Importer une mémoire",
+  "agent.memory.importConv.title": "Importer depuis claude.ai ou ChatGPT",
+  "agent.memory.importConv.note":
+    "Les conversations importées sont en lecture seule. Leur texte est traité comme une donnée non fiable et ne devient jamais un élément épinglé ni une instruction.",
+  "agent.memory.importConv.source": "Exporté depuis",
+  "agent.memory.importConv.claude": "claude.ai",
+  "agent.memory.importConv.chatgpt": "ChatGPT",
+  "agent.memory.importConv.mode": "Que faut-il importer ?",
+  "agent.memory.importConv.memoriesOnly": "Souvenirs uniquement",
+  "agent.memory.importConv.both": "Souvenirs et conversations",
+  "agent.memory.importConv.memoriesFile": "Fichier des souvenirs",
+  "agent.memory.importConv.conversationsFile": "Fichier des conversations (conversations.json)",
+  "agent.memory.importConv.start": "Importer",
+  "agent.memory.importConv.working": "Importation…",
+  "agent.memory.importConv.cancel": "Annuler",
+  "agent.memory.importConv.close": "Fermer",
+  "agent.memory.importConv.progressMemories": "Importation des souvenirs…",
+  "agent.memory.importConv.progressConversations": "Importation des conversations…",
+  "agent.memory.importConv.failed": "Impossible d’importer ce fichier : {reason}",
+  "agent.memory.importConv.done": "Importation terminée.",
+  "agent.memory.importConv.sumMemories": "Souvenirs à vérifier : {n}",
+  "agent.memory.importConv.sumThreads": "Conversations importées : {n}",
+  "agent.memory.importConv.sumDuplicates": "Déjà importées auparavant : {n}",
+  "agent.memory.importConv.sumSkipped": "Conversations ignorées : {n}",
+  "agent.memory.importConv.skipTooMany": "au-delà de la limite de {n} conversations",
+  "agent.memory.importConv.skipTooLarge": "trop longue",
+  "agent.memory.importConv.skipEmpty": "aucun message",
+  "agent.memory.importConv.skipInvalid": "illisible",
+  "agent.memory.importConv.untitled": "Sans titre",
+  "agent.memory.importConv.progressCount": "Importation des conversations… {done} sur {total}",
+  "agent.memory.importConv.tooBig":
+    "Ce fichier dépasse {mb} Mo : il est trop gros pour être lu ici. Exportez à nouveau une période plus courte.",
+  "agent.memory.importConv.memoriesTooBig":
+    "Ce fichier de souvenirs dépasse {kb} Ko : il est trop gros pour être importé d’un coup. Découpez-le ou exportez moins de souvenirs.",
+  "agent.memory.importConv.partial":
+    "Arrêt avant la fin : {reason}. {done} lots sur {total} ont été importés. Relancez l’importation pour continuer ; les conversations déjà importées sont ignorées.",
+  "agent.memory.importConv.retry": "Importer à nouveau",
   "agent.memory.exported": "{file} exporté.",
+  "agent.memory.importConv.memoriesFailed":
+    "Les souvenirs n’ont pas pu être importés : {reason}. Relancez l’importation pour réessayer.",
   "agent.memory.export": "Tout exporter",
   "agent.memory.resetDone":
     "Réinitialisation : {files, plural, one {# fichier} other {# fichiers}}, {claims, plural, one {# affirmation} other {# affirmations}}.",
@@ -890,6 +940,8 @@ export const fr: Partial<Catalogue> = {
   "shell.threads.unpin": "Désépingler",
   "shell.threads.pin": "Épingler",
   "shell.threads.archive": "Archiver",
+  "shell.threads.imported": "Importée",
+  "shell.threads.importedReadOnly": "Cette conversation importée est en lecture seule.",
   "shell.threads.restore": "Restaurer",
   "shell.threads.region": "Discussions",
   "shell.threads.filter": "Filtrer les discussions",
@@ -3216,6 +3268,20 @@ export const fr: Partial<Catalogue> = {
   "screens.goals.checkinLine":
     "{cadence}{hasNext, select, true { · prochain {next}} other {}}{hasLast, select, true { · dernier : {last}} other {}}",
   "screens.goals.noSchedule": "Aucune planification",
+  "screens.goals.suggest": "Suggérer la prochaine étape",
+  "screens.goals.suggest.hint":
+    "Utilise le modèle, uniquement quand vous appuyez. Rien ne démarre avant que vous appuyiez sur Démarrer sur la carte.",
+  "screens.goals.suggest.done": "Suggestion ajoutée à l’accueil.",
+  "screens.goals.suggest.none": "Aucune suggestion cette fois. Réessayez plus tard.",
+  "screens.ideas.start": "Démarrer",
+  "screens.ideas.snooze": "Reporter",
+  "screens.ideas.badge.checkin": "Point d'étape",
+  "screens.ideas.badge.resume": "Reprendre ?",
+  "screens.goals.checkinFrequency": "Point d'étape",
+  "screens.goals.checkinFrequency.off": "Désactivé",
+  "screens.goals.checkinFrequency.daily": "Chaque jour",
+  "screens.goals.checkinFrequency.weekly": "Chaque semaine",
+  "screens.goals.checkinFrequency.monthly": "Chaque mois",
   "screens.goals.watches": "Surveillances",
   "screens.goals.nothingWatched": "Rien n’est surveillé.",
   "screens.goals.last": "dernier : {value}",
@@ -3794,4 +3860,5 @@ export const fr: Partial<Catalogue> = {
   ...mailFollowups,
   ...keepAwake,
   ...spaces,
+  ...machines,
 };

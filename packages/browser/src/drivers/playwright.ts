@@ -32,6 +32,10 @@ const chromium = async (): Promise<BrowserType> => (await import("playwright-cor
  * session with the same `PageController` as the bridge driver, so refs, boxes and action
  * semantics match by construction.
  */
+/** What Chromium prints when its sandbox cannot start (user namespaces, setuid helper). */
+const SANDBOX_FAILURE =
+  /sandbox|namespace|No usable sandbox|zygote|Operation not permitted|Failed to move to new/i;
+
 export interface PlaywrightDriverOptions extends DriverDeps {
   mode?: "launch" | "connect";
   /** Real-Chrome mode: the DevTools endpoint (127.0.0.1, random port, only while attached). */
@@ -41,6 +45,18 @@ export interface PlaywrightDriverOptions extends DriverDeps {
   executablePath?: string;
   channel?: string;
   viewport?: { width: number; height: number };
+  /**
+   * The browser process's whole environment (launch mode). A headless Linux Host gives headless
+   * Chromium a private HOME, XDG and runtime dirs and no session bus. Unset: Playwright's default,
+   * this process's environment.
+   */
+  env?: Record<string, string>;
+  /**
+   * Launch mode: keep Chromium's own sandbox on. Playwright adds `--no-sandbox` unless this is
+   * `true`, so a headless Host sets it; if the sandbox cannot start the launch fails closed
+   * (`unavailable`, reason `chromium_sandbox`) instead of running unsandboxed.
+   */
+  chromiumSandbox?: boolean;
 }
 
 interface ContextEntry {
@@ -125,7 +141,26 @@ export class PlaywrightDriver extends DriverBase {
     };
     if (this.#o.executablePath !== undefined) o.executablePath = this.#o.executablePath;
     if (this.#o.channel !== undefined) o.channel = this.#o.channel;
+    if (this.#o.env !== undefined) o.env = { ...this.#o.env };
+    if (this.#o.chromiumSandbox !== undefined) o.chromiumSandbox = this.#o.chromiumSandbox;
     return o;
+  }
+
+  /** Launch with the sandbox on: a launch that fails for want of the sandbox is `unavailable`. */
+  async #launching<T>(launch: () => Promise<T>): Promise<T> {
+    try {
+      return await launch();
+    } catch (err) {
+      const message = err instanceof Error ? err.message : String(err);
+      if (this.#o.chromiumSandbox === true && SANDBOX_FAILURE.test(message)) {
+        throw new PsycheError(
+          "unavailable",
+          "Chromium's sandbox could not start on this computer, so Psyche's browser is off. Allow unprivileged user namespaces for Chromium (an AppArmor profile on Ubuntu 24.04), or install Chromium from a package that ships one.",
+          { details: { reason: "chromium_sandbox" }, cause: err },
+        );
+      }
+      throw err;
+    }
   }
 
   async #sharedBrowser(): Promise<Browser> {
@@ -133,7 +168,7 @@ export class PlaywrightDriver extends DriverBase {
     this.#browser =
       this.#o.mode === "connect"
         ? await (await chromium()).connectOverCDP(this.#endpoint(), { timeout: 15_000 })
-        : await (await chromium()).launch(this.#launchOptions());
+        : await this.#launching(async () => (await chromium()).launch(this.#launchOptions()));
     if (this.#o.mode === "connect" && (this.#o.downloads ?? "deny") === "deny") {
       // A click that starts a download is cancelled by Chrome itself. This browser-level
       // session belongs to the driver; the model's page sessions cannot reach `Browser.*`.
@@ -188,11 +223,13 @@ export class PlaywrightDriver extends DriverBase {
         entry = shared;
       } else {
         const dir = await profileDir(name, this.#o.psycheHome ?? psycheHome());
-        const context = await (await chromium()).launchPersistentContext(dir, {
-          ...this.#launchOptions(),
-          viewport,
-          acceptDownloads: true,
-        });
+        const context = await this.#launching(async () =>
+          (await chromium()).launchPersistentContext(dir, {
+            ...this.#launchOptions(),
+            viewport,
+            acceptDownloads: true,
+          }),
+        );
         entry = { context, refs: 1, persistentKey: name };
         this.#persistent.set(name, entry);
         // A persistent context opens with one blank page; it is not an agent tab.

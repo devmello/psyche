@@ -150,6 +150,10 @@ export class SqliteThreadStateStore implements ThreadStateStore {
       if (text.trim() === "" && attachedText === "" && notesText === "" && images.length === 0) {
         continue;
       }
+      if (nonOwner && !taint.some((s) => s.sourceKind === "thread_untrusted")) {
+        // The words are somebody else's: the turn that reads them is tainted, as it was live.
+        taint.push({ sourceKind: "thread_untrusted", origin: `thread:${threadId}` });
+      }
       const role = m.role === "user" ? "user" : "assistant";
       const prev = out.at(-1);
       const fence = randomUUID().replaceAll("-", "").slice(0, 16);

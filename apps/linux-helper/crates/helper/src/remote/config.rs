@@ -37,7 +37,7 @@ pub fn config_dir(env: &dyn Env) -> PathBuf {
         Some(base) if PathBuf::from(&base).is_absolute() => {
             PathBuf::from(base).join("psyche-helper")
         }
-        _ => PathBuf::from(env.get("HOME").unwrap_or_else(|| "/".to_string()))
+        _ => PathBuf::from(env.home().unwrap_or_else(|| "/".to_string()))
             .join(".config/psyche-helper"),
     }
 }
