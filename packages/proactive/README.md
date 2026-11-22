@@ -11,12 +11,12 @@ Permission Broker).
 
 ## Status (M2, in order of the spec's dependencies)
 
-| Slice | Feature ids | State |
-| --- | --- | --- |
-| Goals, check-ins, confirm-first candidates, `goals.*`, heartbeat budget | O9, O2 | **done** (PR 1) |
-| Interest ledger, Feed pipeline, briefings, `feed.*` | O5, O6 | **done** (PR 2) |
-| Ideas pipeline, acceptance model, delivery windows, `ideas.*` | O7, O8 | **done** (PR 3) |
-| Goal watches, budget audit | O3 | **done** (PR 4) |
+| Slice                                                                   | Feature ids | State           |
+| ----------------------------------------------------------------------- | ----------- | --------------- |
+| Goals, check-ins, confirm-first candidates, `goals.*`, heartbeat budget | O9, O2      | **done** (PR 1) |
+| Interest ledger, Feed pipeline, briefings, `feed.*`                     | O5, O6      | **done** (PR 2) |
+| Ideas pipeline, acceptance model, delivery windows, `ideas.*`           | O7, O8      | **done** (PR 3) |
+| Goal watches, budget audit                                              | O3          | **done** (PR 4) |
 
 ## Public API (`src/index.ts`)
 
@@ -114,13 +114,13 @@ sources ──▶ candidate pool ──▶ dedupe by url ──▶ clusters (cos
 Lines: `- <topic> (<weight>) — <why>`, `- !exclude: <topic> — <why>`, `- !hide-source: <host> — <why>`.
 Everything else in the file is kept verbatim; the template's commented examples are not entries.
 
-| Feedback | Effect on the post's matched topics | Undo (`null`) |
-| --- | --- | --- |
-| `like` | +0.10 each (cap 1.00) | −0.10 |
-| `save` | +0.15 each (cap 1.00) | −0.15 |
-| `not_interested` | −0.20 each (floor 0.05); the third time at the floor the topic becomes `!exclude:` | +0.20 |
-| `hide_source` | adds `!hide-source: <host>` for every citation host | removes those lines |
-| `follow_topic` | adds `<topic> (0.60)` (and drops a matching `!exclude:`); +0.20 if it exists | removes the line it created, else −0.20 |
+| Feedback         | Effect on the post's matched topics                                                | Undo (`null`)                           |
+| ---------------- | ---------------------------------------------------------------------------------- | --------------------------------------- |
+| `like`           | +0.10 each (cap 1.00)                                                              | −0.10                                   |
+| `save`           | +0.15 each (cap 1.00)                                                              | −0.15                                   |
+| `not_interested` | −0.20 each (floor 0.05); the third time at the floor the topic becomes `!exclude:` | +0.20                                   |
+| `hide_source`    | adds `!hide-source: <host>` for every citation host                                | removes those lines                     |
+| `follow_topic`   | adds `<topic> (0.60)` (and drops a matching `!exclude:`); +0.20 if it exists       | removes the line it created, else −0.20 |
 
 A `like` / `save` on a post that matched no topic adds the title's key phrase (0.40 / 0.50). Every
 change appends a note to the line's "why" (`like 2026-10-19 (post <id>)`) and one audit line to
@@ -170,13 +170,13 @@ ideas.dismiss ─▶ suppression + a training example
 
 #### Suppression rules
 
-| History of the same pattern (or source) | New candidate |
-| --- | --- |
-| open (queued or delivered) | not queued |
-| accepted / edited | never again |
-| dismissed `not_interested` | never again |
-| dismissed `never_from_source` | nothing from that source again |
-| dismissed `not_now`, or expired | not for 7 days, then allowed |
+| History of the same pattern (or source) | New candidate                  |
+| --------------------------------------- | ------------------------------ |
+| open (queued or delivered)              | not queued                     |
+| accepted / edited                       | never again                    |
+| dismissed `not_interested`              | never again                    |
+| dismissed `never_from_source`           | nothing from that source again |
+| dismissed `not_now`, or expired         | not for 7 days, then allowed   |
 
 #### Acceptance model
 
@@ -205,19 +205,19 @@ held for a later window until it expires (14 days).
 `proactiveTools({ goals?, ideas?, feed?, clock })` returns `defineTool` registrations for the
 agent loop's registry (architecture §4.3 built-ins "`goal.*`, `idea.*`, `feed.*` (read-mostly)").
 
-| Tool | Side effect | Broker (balanced) | Result provenance |
-| --- | --- | --- | --- |
-| `goals.list` | none | allows | trusted |
-| `goals.propose` | write | asks; creates a candidate only (confirm-first) | trusted |
-| `goals.update_progress` | write | asks | trusted |
-| `goals.add_checkin` | write | asks | trusted |
-| `ideas.list` | none | allows | `untrusted` when any listed idea has connector evidence |
-| `ideas.accept` | write | asks; the task card lands in the current conversation | trusted |
-| `ideas.dismiss` | write | asks | trusted |
-| `ideas.snooze` | write | asks (`not_now`: may return after 7 days) | trusted |
-| `feed.list` | none | allows | `untrusted` (web text) |
-| `feed.mark_read` | none | allows (read state only) | trusted |
-| `feed.explain` | none | allows | `untrusted` (web titles) |
+| Tool                    | Side effect | Broker (balanced)                                     | Result provenance                                       |
+| ----------------------- | ----------- | ----------------------------------------------------- | ------------------------------------------------------- |
+| `goals.list`            | none        | allows                                                | trusted                                                 |
+| `goals.propose`         | write       | asks; creates a candidate only (confirm-first)        | trusted                                                 |
+| `goals.update_progress` | write       | asks                                                  | trusted                                                 |
+| `goals.add_checkin`     | write       | asks                                                  | trusted                                                 |
+| `ideas.list`            | none        | allows                                                | `untrusted` when any listed idea has connector evidence |
+| `ideas.accept`          | write       | asks; the task card lands in the current conversation | trusted                                                 |
+| `ideas.dismiss`         | write       | asks                                                  | trusted                                                 |
+| `ideas.snooze`          | write       | asks (`not_now`: may return after 7 days)             | trusted                                                 |
+| `feed.list`             | none        | allows                                                | `untrusted` (web text)                                  |
+| `feed.mark_read`        | none        | allows (read state only)                              | trusted                                                 |
+| `feed.explain`          | none        | allows                                                | `untrusted` (web titles)                                |
 
 - Each write's `describeCall` binds the approval to the exact arguments (`bindingFields`) and
   gives the card a one-line summary. The broker infers the kind (`connector_action`).
@@ -231,6 +231,7 @@ agent loop's registry (architecture §4.3 built-ins "`goal.*`, `idea.*`, `feed.*
 ### Batch proposals (mail and meeting workflows §8.1, #670 W2)
 
 `ProposalService({ db, clock, broker, tools, mainThread, surfaces?, newId?, onEvent?, inverses?, onError? })`:
+
 - `create({ title, calls, createdBy, postId?, threadId?, taint?, taintSources?, ttlMs?, undoOf? })`: a pending proposal of 1–100 exact calls; a tool above `write` is refused at once.
 - `approve(id)`: builds each call's intent exactly as the agent loop does (validate, `describeCall`, side-effect floor, `paramsHash`, the kind's binding, the namespaced grant key) and asks `broker.requestBatch`. The broker decides every call now and refuses the batch when any call is denied, above `write` after its floors, a send (`send_email`), or a device-only or authentication kind. The result is one `batch` card, `once` only, that lists every call.
 - When the owner approves, the broker mints one approved, once-only child approval per call (id `<batch>.<index>`), bound to that call's own binding. The service runs the broker's stored calls in order: it checks that each call's params still hash to what was decided, calls `verifyBinding` (consumed once), then runs the tool with the child as its `authority`, and records a receipt when the tool gave none. Results are per call; the proposal ends `done`, `partial` or `failed`. Editing the row after approval changes nothing.
@@ -241,6 +242,7 @@ agent loop's registry (architecture §4.3 built-ins "`goal.*`, `idea.*`, `feed.*
 ### New-mail poller (§4.7, #670 W3)
 
 `MailWatcher({ scheduler, clock, sources, activeHours?, timezone?, wanted?, onError? })`:
+
 - **Cadence:** a system `interval` automation (`PT10M`, `[psyche:mail-watch poll]`) runs `poll()` in-process. Outside active hours (default 08–22) it polls at most hourly.
 - **Reads:** nothing is read unless an enabled `mail.received` event automation exists (`wanted`). It makes no model call.
 - **Sources:**
@@ -251,6 +253,7 @@ agent loop's registry (architecture §4.3 built-ins "`goal.*`, `idea.*`, `feed.*
 ### Inbox digest and follow-ups (§4.1, §4.2, #670 W4)
 
 `DigestService({ db, clock, scheduler, tools, memory, proposals?, feed, notifier?, provider?, model?, modelIsRemote?, loops?, isKnownPerson?, personName?, knownDomains?, timezone? })`:
+
 - **Collect:** unread mail since the last digest (a cursor per source): Apple Mail `mail_search` plus up to 60 `mail_read` previews, and Gmail `gmail_search_threads` snippets. At most 200 messages. Senders are recorded in `mail_senders`.
 - **Pre-sort, without a model, in this order:**
   1. the owner's `mail/RULES.md` (allow / always archive / not now until / category)
