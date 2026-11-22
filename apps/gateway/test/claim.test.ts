@@ -1,7 +1,7 @@
 import { randomBytes } from "node:crypto";
 import { existsSync, readFileSync, statSync } from "node:fs";
 import { createServer, type Server } from "node:net";
-import { getSetting, listDevices, openDb } from "@psyche/db";
+import { getSetting, insertDevice, listDevices, openDb } from "@psyche/db";
 import { claimTranscript, normalizeSetupCode } from "@psyche/protocol";
 import {
   claimedMarkerPath,
@@ -11,7 +11,7 @@ import {
   readSetupCode,
   setupCodePath,
 } from "@psyche/protocol/claim-node";
-import { afterEach, describe, expect, it } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 // The desktop's own claim client, so the round trip below is the one the app runs.
 import { ClaimError, claimServer } from "../../desktop/src/lib/claim-client.ts";
 import { CLAIM_LAN_CHOICE_SETTING, linuxDefaultRouteInterface } from "../src/claim/mode.ts";
@@ -31,9 +31,23 @@ const IFACES: LanInterface[] = [
   { name: "lan0", address: "127.0.0.1", family: "IPv4", network: "127.0.0.0/8", isDefault: true },
 ];
 
+// `removeSetupCode` can be made to fail, to check that nothing after the admin commit fails a claim.
+const failing = vi.hoisted(() => ({ removeSetupCode: false }));
+vi.mock("@psyche/protocol/claim-node", async (orig) => {
+  const real = await orig<typeof import("@psyche/protocol/claim-node")>();
+  return {
+    ...real,
+    removeSetupCode: (home: string) => {
+      if (failing.removeSetupCode) throw new Error("EACCES: cannot remove the setup code");
+      real.removeSetupCode(home);
+    },
+  };
+});
+
 let t: TestGateway | undefined;
 const open: TestClient[] = [];
 afterEach(async () => {
+  failing.removeSetupCode = false;
   for (const c of open.splice(0)) c.close();
   await t?.cleanup();
   t = undefined;
@@ -326,6 +340,106 @@ describe("an unclaimed server", () => {
       device: device().claim,
     }).catch((e: unknown) => e as ClaimError);
     expect((err as ClaimError).problem).toBe("wrong_code");
+  });
+});
+
+describe("a claim whose last steps go wrong or whose reply is lost", () => {
+  const claimWith = (s: Started, d: ReturnType<typeof device>, code = s.code as string) =>
+    claimServer({ host: "127.0.0.1", port: s.port, code, device: d.claim });
+
+  it("still returns the server proof when removing the setup code fails after the commit", async () => {
+    const s = await startClaimable();
+    const d = device();
+    failing.removeSetupCode = true;
+    const got = await claimWith(s, d);
+    expect(got.gatewayKey).toBe(s.t.gateway.context.identity.publicKey);
+    const ctx = s.t.gateway.context;
+    expect(listDevices(ctx.db).filter((x) => x.scopes.includes("operator.admin"))).toHaveLength(1);
+    expect(ctx.claim?.active()).toBe(false);
+    // The spent code file is still there, but claim mode is over: nobody else gets in with it.
+    await expect(claimWith(s, device())).rejects.toMatchObject({ problem: "not_claimable" });
+  });
+
+  it("lets the same device key repeat the claim when the reply was lost", async () => {
+    const s = await startClaimable();
+    const d = device();
+    const first = await claimWith(s, d);
+    // The server cannot tell a lost reply from a repeat: the same key asks again.
+    const again = await claimWith(s, d);
+    expect(again).toMatchObject({ gatewayKey: first.gatewayKey, certSpki: first.certSpki });
+    const admins = listDevices(s.t.gateway.context.db).filter((x) =>
+      x.scopes.includes("operator.admin"),
+    );
+    expect(admins.map((x) => x.id)).toEqual([d.claim.deviceId]);
+    // A wrong code on the repeat is refused and counted like any other.
+    await expect(claimWith(s, d, "AAAAA-AAAAA")).rejects.toMatchObject({ problem: "wrong_code" });
+  });
+
+  it("refuses a different device, or the same id with another key, after a claim", async () => {
+    const s = await startClaimable();
+    const d = device();
+    await claimWith(s, d);
+    await expect(claimWith(s, device())).rejects.toMatchObject({ problem: "not_claimable" });
+    const other = newDeviceKey();
+    await expect(
+      claimServer({
+        host: "127.0.0.1",
+        port: s.port,
+        code: s.code as string,
+        device: { ...d.claim, publicKey: other.publicKey },
+      }),
+    ).rejects.toMatchObject({ problem: "not_claimable" });
+    expect(
+      listDevices(s.t.gateway.context.db).filter((x) => x.scopes.includes("operator.admin")),
+    ).toHaveLength(1);
+  });
+
+  it("stops answering repeats once the window has passed", async () => {
+    const s = await startClaimable({ limits: { retryWindowMs: 1 } });
+    const d = device();
+    await claimWith(s, d);
+    await new Promise((r) => setTimeout(r, 30));
+    await expect(claimWith(s, d)).rejects.toMatchObject({ problem: "not_claimable" });
+  });
+
+  it("makes exactly one admin when two right claims arrive together", async () => {
+    const s = await startClaimable();
+    const results = await Promise.allSettled([claimWith(s, device()), claimWith(s, device())]);
+    expect(results.filter((r) => r.status === "fulfilled")).toHaveLength(1);
+    const rejected = results.find((r) => r.status === "rejected") as PromiseRejectedResult;
+    expect(rejected.reason).toMatchObject({ problem: "not_claimable" });
+    expect(
+      listDevices(s.t.gateway.context.db).filter((x) => x.scopes.includes("operator.admin")),
+    ).toHaveLength(1);
+  });
+
+  it("refuses gateway.claim.finish to a device that is not an admin", async () => {
+    const s = await startClaimable();
+    await claimWith(s, device());
+    const ctx = s.t.gateway.context;
+    const key = newDeviceKey();
+    const deviceId = "reader-1";
+    insertDevice(ctx.db, {
+      id: deviceId,
+      name: "reader",
+      platform: "macos",
+      role: "client",
+      publicKey: key.publicKey,
+      scopes: ["operator.read", "operator.write"],
+      pairedAt: new Date().toISOString(),
+      deviceFamily: "desktop",
+    });
+    const c = await lanClient(s.port);
+    open.push(c);
+    const r = await handshake(c, `https://127.0.0.1:${s.port}`, {
+      key,
+      deviceId,
+      gatewayKey: ctx.identity.publicKey,
+    });
+    expect((r.verifyRes?.payload as { phase?: string } | undefined)?.phase).toBe("paired");
+    const res = await c.request("gateway.claim.finish", { keepLan: false });
+    expect(res).toMatchObject({ ok: false });
+    expect(ctx.claim?.lanChoicePending()).toBe(true);
   });
 });
 

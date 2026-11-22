@@ -34,6 +34,7 @@ const CLAIM_PROBLEMS = [
   "unreachable",
   "cert_mismatch",
   "server_unproven",
+  "maybe_claimed",
   "saved",
   "not_lan",
 ] as const;

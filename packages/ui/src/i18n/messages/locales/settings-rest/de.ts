@@ -1012,6 +1012,8 @@ export const settingsRest: Partial<Catalogue> = {
     "Das Zertifikat des Servers passte nicht zu dem, das er genannt hat, deshalb hat Psyche abgebrochen. Prüfe die Adresse und versuch es noch einmal.",
   "settings.remoteSetup.problem.server_unproven":
     "Der Server hat nicht bewiesen, dass er den Code kennt, deshalb vertraut Psyche ihm nicht. Prüfe die Adresse und den Code.",
+  "settings.remoteSetup.problem.maybe_claimed":
+    "Der Server ist möglicherweise schon mit diesem Mac eingerichtet. Verbinde dich mit einem Kopplungslink oder führe `psyche devices link` auf dem Server aus.",
   "settings.remoteSetup.problem.saved":
     "Dieser Server ist schon gespeichert. Wechsle in der Liste oben zu ihm.",
   "settings.remoteSetup.problem.not_lan":

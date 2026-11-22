@@ -68,12 +68,18 @@ export interface ClaimLimits {
   failedPerHourTotal: number;
   /** How often claim mode checks whether the server was set up another way (0: never). */
   watchMs: number;
+  /**
+   * How long after a claim the same device may repeat it (its prove reply was lost). The server
+   * keeps the derived key for that long, in memory only, and only for that one device.
+   */
+  retryWindowMs: number;
 }
 
 export const DEFAULT_CLAIM_LIMITS: ClaimLimits = {
   failedPerMinutePerAddress: 5,
   failedPerHourTotal: 30,
   watchMs: 15_000,
+  retryWindowMs: 10 * 60_000,
 };
 
 /** What claim mode needs of the LAN listener. */
@@ -114,6 +120,8 @@ export interface ClaimSession {
   publicKey: string;
   name: string;
   platform: DevicePlatform;
+  /** The device claimed already and repeats it: the server proof is all that is missing. */
+  retry?: boolean;
 }
 
 export interface ClaimHelloInput {
@@ -162,6 +170,19 @@ export class ClaimMode {
   #watch: ReturnType<typeof setInterval> | null = null;
   /** A prove is being decided: a second one waits for its outcome rather than racing it. */
   #deciding: Promise<unknown> = Promise.resolve();
+  /**
+   * What lets the one device that claimed repeat its claim until `until` (its prove reply may
+   * have been lost). The code is spent; this keeps only its derived key, never the code, and only
+   * in memory: a restart or the window ending drops it.
+   */
+  #claimed: {
+    deviceId: string;
+    publicKey: string;
+    salt: string;
+    key: Buffer;
+    expiresAt: string;
+    until: number;
+  } | null = null;
 
   constructor(deps: ClaimDeps) {
     this.#d = deps;
@@ -230,6 +251,35 @@ export class ClaimMode {
 
   /** `gateway.claim.hello`: hands out what the client proves its knowledge of the code over. */
   hello(peer: PeerInfo, input: ClaimHelloInput): { session: ClaimSession; result: unknown } {
+    const retry = this.#retryFor(input);
+    if (retry !== null && peer.lan === true && !this.#active) {
+      this.#refuseOverLimit(peer);
+      const certSpki = this.#d.lan.certSpki();
+      if (certSpki === null) throw new PsycheError("unavailable", "Not listening on the network");
+      const session: ClaimSession = {
+        clientNonce: input.clientNonce,
+        serverNonce: randomBytes(32).toString("base64url"),
+        salt: retry.salt,
+        gatewayKey: this.#d.identityKey,
+        certSpki,
+        deviceId: input.deviceId,
+        publicKey: input.publicKey,
+        name: input.name,
+        platform: input.platform,
+        retry: true,
+      };
+      return {
+        session,
+        result: {
+          serverNonce: session.serverNonce,
+          salt: session.salt,
+          gatewayKey: session.gatewayKey,
+          certSpki,
+          hostName: (this.#d.hostName().trim() || "Psyche").slice(0, 64),
+          expiresAt: retry.expiresAt,
+        },
+      };
+    }
     if (!this.#active || peer.lan !== true) {
       throw refused("not_claimable", "This server is not waiting to be set up");
     }
@@ -292,6 +342,7 @@ export class ClaimMode {
     proof: string,
   ): Promise<{ proof: string; device: { id: string; name: string }; scopes: DeviceScope[] }> {
     const { db, home, now } = this.#d;
+    if (session.retry === true) return this.#proveAgain(peer, session, proof);
     if (!this.#active) throw refused("not_claimable", "This server is already set up");
     this.#refuseOverLimit(peer);
     const stored = readSetupCode(home, now());
@@ -305,28 +356,9 @@ export class ClaimMode {
     if (stored.salt.toString("base64url") !== session.salt) {
       throw refused("code_expired", "The setup code changed; type the new one");
     }
-    const transcript = claimTranscript({
-      clientNonce: session.clientNonce,
-      serverNonce: session.serverNonce,
-      salt: session.salt,
-      gatewayKey: session.gatewayKey,
-      certSpki: session.certSpki,
-      deviceId: session.deviceId,
-      devicePublicKey: session.publicKey,
-    });
+    const transcript = transcriptOf(session);
     if (!proofsEqual(proof, claimProof(stored.key, "client", transcript))) {
-      const key = limitKey(peer);
-      this.#perAddress.record(key);
-      this.#total.record("all");
-      const left = Math.max(
-        0,
-        Math.min(
-          this.#limits.failedPerMinutePerAddress - this.#perAddress.count(key),
-          this.#limits.failedPerHourTotal - this.#total.count("all"),
-        ),
-      );
-      this.#d.log.log("info", "claim refused: wrong code", { attemptsLeft: left });
-      throw refused("wrong_code", "That setup code is not right", { attemptsLeft: left });
+      throw this.#wrongCode(peer);
     }
     const seal = stateSealFor(db);
     seal?.ensure();
@@ -377,18 +409,97 @@ export class ClaimMode {
         return { id: session.deviceId, name: session.name };
       })
       .immediate();
-    this.#recordClaimed("claim");
+    // The admin row is committed: the claim is done, and nothing below may turn it into an error
+    // (the client would delete the only key that is now an admin). Each step is best effort.
+    const answer = {
+      proof: claimProof(stored.key, "server", transcript),
+      device,
+      scopes: [...CLAIM_SCOPES],
+    };
+    this.#claimed = {
+      deviceId: session.deviceId,
+      publicKey: session.publicKey,
+      salt: session.salt,
+      key: stored.key,
+      expiresAt: stored.expiresAt,
+      until: now().getTime() + this.#limits.retryWindowMs,
+    };
+    try {
+      this.#recordClaimed("claim");
+    } catch (err) {
+      this.#d.log.log("warn", "claim cleanup failed", { code: PsycheError.from(err).code });
+    }
     try {
       this.#d.onClaimed?.(device);
     } catch {
       // the audit hook never undoes a claim
     }
-    this.#d.log.log("info", "server claimed", { deviceId: device.id });
+    try {
+      this.#d.log.log("info", "server claimed", { deviceId: device.id });
+    } catch {
+      // nor does the log
+    }
+    return answer;
+  }
+
+  /**
+   * The device that claimed repeats the handshake because it never got the server's proof. It
+   * must prove the code again; nothing changes on the server, and no other device gets this far.
+   */
+  async #proveAgain(
+    peer: PeerInfo,
+    session: ClaimSession,
+    proof: string,
+  ): Promise<{ proof: string; device: { id: string; name: string }; scopes: DeviceScope[] }> {
+    this.#refuseOverLimit(peer);
+    const claimed = this.#retryFor(session);
+    const device = getDevice(this.#d.db, session.deviceId);
+    if (
+      claimed === null ||
+      claimed.salt !== session.salt ||
+      device === undefined ||
+      device.revokedAt ||
+      device.publicKey !== session.publicKey ||
+      !device.scopes.includes("operator.admin")
+    ) {
+      throw refused("not_claimable", "This server is already set up");
+    }
+    const transcript = transcriptOf(session);
+    if (!proofsEqual(proof, claimProof(claimed.key, "client", transcript))) {
+      throw this.#wrongCode(peer);
+    }
+    this.#d.log.log("info", "server claim repeated", { deviceId: device.id });
     return {
-      proof: claimProof(stored.key, "server", transcript),
-      device,
+      proof: claimProof(claimed.key, "server", transcript),
+      device: { id: device.id, name: device.name },
       scopes: [...CLAIM_SCOPES],
     };
+  }
+
+  /** The kept key, when `who` is the one device that claimed and the window is still open. */
+  #retryFor(who: { deviceId: string; publicKey: string }) {
+    const c = this.#claimed;
+    if (c === null) return null;
+    if (this.#d.now().getTime() > c.until) {
+      this.#claimed = null;
+      return null;
+    }
+    return c.deviceId === who.deviceId && c.publicKey === who.publicKey ? c : null;
+  }
+
+  #wrongCode(peer: PeerInfo): PsycheError {
+    const key = limitKey(peer);
+    this.#perAddress.record(key);
+    this.#total.record("all");
+    const left = Math.max(
+      0,
+      Math.min(
+        this.#limits.failedPerMinutePerAddress - this.#perAddress.count(key),
+        this.#limits.failedPerHourTotal - this.#total.count("all"),
+      ),
+    );
+    this.#d.log.log("info", "claim refused: wrong code", { attemptsLeft: left });
+    return refused("wrong_code", "That setup code is not right", { attemptsLeft: left });
   }
 
   /** `gateway.claim.finish`: the owner's answer to "Keep this server reachable on my network". */
@@ -444,7 +555,18 @@ export class ClaimMode {
   #recordClaimed(via: "claim" | "terminal"): void {
     this.#active = false;
     this.stop();
-    removeSetupCode(this.#d.home);
+    for (let attempt = 0; attempt < 2; attempt++) {
+      try {
+        removeSetupCode(this.#d.home);
+        break;
+      } catch (err) {
+        // Claim mode is over either way; a leftover file is spent (a restart removes it).
+        this.#d.log.log("warn", "could not remove the setup code", {
+          code: PsycheError.from(err).code,
+          attempt,
+        });
+      }
+    }
     try {
       markClaimed(this.#d.home, via, this.#d.now());
     } catch (err) {
@@ -462,6 +584,18 @@ export class ClaimMode {
       // nowhere to say it
     }
   }
+}
+
+function transcriptOf(session: ClaimSession): string {
+  return claimTranscript({
+    clientNonce: session.clientNonce,
+    serverNonce: session.serverNonce,
+    salt: session.salt,
+    gatewayKey: session.gatewayKey,
+    certSpki: session.certSpki,
+    deviceId: session.deviceId,
+    devicePublicKey: session.publicKey,
+  });
 }
 
 function limitKey(peer: PeerInfo): string {

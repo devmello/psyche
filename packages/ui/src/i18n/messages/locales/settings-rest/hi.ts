@@ -958,6 +958,8 @@ export const settingsRest: Partial<Catalogue> = {
     "सर्वर का सर्टिफ़िकेट उसके बताए सर्टिफ़िकेट से मेल नहीं खाया, इसलिए Psyche रुक गया। पता जाँचें और फिर कोशिश करें।",
   "settings.remoteSetup.problem.server_unproven":
     "सर्वर ने साबित नहीं किया कि वह कोड जानता है, इसलिए Psyche ने उस पर भरोसा नहीं किया। पता और कोड जाँचें।",
+  "settings.remoteSetup.problem.maybe_claimed":
+    "हो सकता है सर्वर पहले ही इस Mac के साथ सेट हो चुका हो। पेयरिंग लिंक से कनेक्ट करें या सर्वर पर `psyche devices link` चलाएँ।",
   "settings.remoteSetup.problem.saved": "यह सर्वर पहले से सेव है। ऊपर की सूची में इस पर स्विच करें।",
   "settings.remoteSetup.problem.not_lan":
     "इस नेटवर्क का कोई पता लिखें, जैसे 192.168.1.20 या server.local।",

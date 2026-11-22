@@ -136,6 +136,8 @@ export const settingsD: Partial<Catalogue> = {
     "El certificado del servidor no coincidía con el que indicó, así que Psyche se detuvo. Revisa la dirección y vuelve a intentarlo.",
   "settings.remoteSetup.problem.server_unproven":
     "El servidor no demostró que conoce el código, así que Psyche no confió en él. Revisa la dirección y el código.",
+  "settings.remoteSetup.problem.maybe_claimed":
+    "Es posible que el servidor ya esté configurado con este Mac. Conéctate con un enlace de emparejamiento o ejecuta `psyche devices link` en el servidor.",
   "settings.remoteSetup.problem.saved":
     "Ese servidor ya está guardado. Cambia a él en la lista de arriba.",
   "settings.remoteSetup.problem.not_lan":
