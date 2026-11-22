@@ -349,6 +349,12 @@ export {
   GatewaysList,
 } from "./screens/settings/GatewaysGroup.tsx";
 export * from "./screens/settings/index.ts";
+export {
+  ConnectServerEntry,
+  claimProblemText,
+  KeepOnNetworkChoice,
+  RemoteServerSetup,
+} from "./screens/settings/RemoteServerSetup.tsx";
 export * from "./screens/workflows/index.ts";
 export { AppearanceProvider, type AppearanceProviderProps } from "./shell/AppearanceProvider.tsx";
 // Shell pieces.

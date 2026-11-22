@@ -146,6 +146,8 @@ const ABOUT_MACOS = new Set<string>([
   // Rendered on macOS only (MapLibre's Mac help text; the ⌘L keycap behind isMac()).
   "map.gesture.mac",
   "shell.search.keyCmdL",
+  // Apple connectors read a Mac Host's apps; any other Host shows them as Mac-only (B3).
+  "settings.connectors.page.row.macOnly",
   // Apple's on-device model (Search, Everything memory).
   "settings.searchModel.apple",
   "settings.searchModel.appleName",

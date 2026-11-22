@@ -1327,26 +1327,24 @@ jobs:
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
-      - name: Headless helper unit and its starter present (wave B0)
-        id: unit
-        # Both halves of B0: the unit file, and the Gateway code that starts it. A unit alone would
-        # ship packages whose Gateway never starts its helper.
-        run: |
-          if [ -f deploy/systemd/psyche-helper-headless.service ] && grep -q 'psyche-helper-headless\.service' apps/gateway/src/compose/computer.ts; then echo "present=true" >> "$GITHUB_OUTPUT"; else
-            echo "::notice title=no psyche-server packages::deploy/systemd/psyche-helper-headless.service, or the Gateway code that starts it (apps/gateway/src/compose/computer.ts), is not on this branch yet (B0): this release has no psyche-server packages."
-            echo "present=false" >> "$GITHUB_OUTPUT"; fi
       - name: Set up pnpm
-        if: steps.unit.outputs.present == 'true'
         uses: pnpm/action-setup@73e46992e05b19abd31f2f3c20e0e7370d762115 # v6.1.1
       - name: Set up Node
-        if: steps.unit.outputs.present == 'true'
         uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
         with:
           node-version-file: .nvmrc
           cache: pnpm
       - name: Install
-        if: steps.unit.outputs.present == 'true'
         run: pnpm install --frozen-lockfile
+      - name: Headless helper unit and its starter present (wave B0)
+        id: unit
+        # Both halves of B0: the unit file, and the Gateway code that starts it. A unit alone would
+        # ship packages whose Gateway never starts its helper. The check loads the real starter
+        # (compose/computer-linux.ts) and runs it with no graphical session, rather than grepping.
+        run: |
+          if node deploy/scripts/check-headless-starter.mjs; then echo "present=true" >> "$GITHUB_OUTPUT"; else
+            echo "::notice title=no psyche-server packages::deploy/systemd/psyche-helper-headless.service, or the Gateway code that starts it (apps/gateway/src/compose/computer-linux.ts), is not on this branch yet (B0): this release has no psyche-server packages."
+            echo "present=false" >> "$GITHUB_OUTPUT"; fi
       - name: Packaging tools and the libraries the helper links against
         if: steps.unit.outputs.present == 'true'
         run: |
