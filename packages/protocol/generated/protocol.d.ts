@@ -12193,9 +12193,14 @@ export interface SpacesThreadsMoveResult {
 }
 
 export interface SpacesTrackersAddParams {
-    spaceId:   string;
-    template?: SpaceTrackerTemplate;
-    widgetId?: string;
+    /**
+     * With widgetId: the automation of this Space that Refresh runs for an agent tracker (the
+     * owner's link)
+     */
+    automationId?: string;
+    spaceId:       string;
+    template?:     SpaceTrackerTemplate;
+    widgetId?:     string;
 }
 
 export type SpaceTrackerTemplate = "work_due" | "next_events" | "recent_files" | "mail_on_this" | "checklist" | "automation_status";

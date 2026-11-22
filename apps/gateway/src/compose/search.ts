@@ -173,6 +173,8 @@ export interface SearchDeps extends Omit<SearchSourceDeps, "pageSize"> {
     power?: (() => PowerState) & { fresh?: () => Promise<PowerState> };
     /** Watch granted folders for changes (FSEvents); off in tests. */
     watch?: boolean;
+    /** Space-only folders (no search grant) a Space's files tracker wants watched. */
+    spaceFolders?: { roots(): string[]; changed(root: string): void };
   };
   /** The owner's IANA zone (USER.md): "yesterday" and "last week" mean their days. */
   timeZone?: string;
@@ -533,8 +535,28 @@ function buildSearch(deps: SearchDeps, sqlite: PsycheDb["sqlite"]): ComposedSear
   };
   let grantsKey = "";
   let stopWatch: (() => void) | undefined;
+  let spaceKey = "";
+  let stopSpaceWatch: (() => void) | undefined;
+  /**
+   * A folder added only to a Space is not a search grant, so the search watcher never saw it. The
+   * Space's files tracker needs it (spaces-2026 §6.2): the same FSEvents stream kind, started for
+   * the roots a live Space with a files tracker names, and reported per root. It indexes nothing.
+   */
+  const syncSpaceFolders = () => {
+    const spaces = deps.sources?.spaceFolders;
+    if (spaces === undefined) return;
+    const roots = spaces.roots();
+    const key = roots.join("\n");
+    if (key === spaceKey) return;
+    spaceKey = key;
+    stopSpaceWatch?.();
+    stopSpaceWatch = undefined;
+    if (roots.length > 0 && deps.sources?.watch === true)
+      stopSpaceWatch = watchFolders(roots, () => undefined, spaces.changed);
+  };
   /** (Re)starts the folder watcher when files are on and the grants changed; sweeps revoked roots. */
   const syncFolders = () => {
+    syncSpaceFolders();
     const files = deps.sources?.files;
     if (files === undefined || sourceIndexer === undefined) return;
     const on = sourcesConfig().sources.files.enabled;
@@ -787,6 +809,7 @@ function buildSearch(deps: SearchDeps, sqlite: PsycheDb["sqlite"]): ComposedSear
       unsubscribe = undefined;
       if (libraryTimer !== undefined) clearInterval(libraryTimer);
       stopWatch?.();
+      stopSpaceWatch?.();
       await sourceIndexer?.stop();
       gateway = undefined;
       controller.stop();

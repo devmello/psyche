@@ -11,6 +11,7 @@ import {
   type SpaceProposal,
   type SpaceSummary,
   type SpaceTracker,
+  type TaintSource,
 } from "@psyche/protocol";
 import { spaceMainTargetError } from "@psyche/scheduler";
 
@@ -66,6 +67,7 @@ interface TrackerRow {
   refreshed_at: string | null;
   added_by: string;
   created_at: string;
+  taint: string;
 }
 
 interface ProposalRow {
@@ -187,7 +189,10 @@ export class SpaceStore {
 
   counts(spaceId: string): SpaceCounts {
     const chats = this.#db.sqlite
-      .prepare("SELECT count(*) AS n FROM threads WHERE space_id = ? AND archived_at IS NULL")
+      // An automation's run threads are not chats of the Space (they stay in the run history).
+      .prepare(
+        "SELECT count(*) AS n FROM threads WHERE space_id = ? AND archived_at IS NULL AND session_key NOT LIKE 'cron:%'",
+      )
       .get(spaceId) as { n: number };
     const trackers = this.#db.sqlite
       .prepare("SELECT count(*) AS n FROM space_trackers WHERE space_id = ?")
@@ -199,7 +204,7 @@ export class SpaceStore {
   lastActivityAt(spaceId: string): string | null {
     const row = this.#db.sqlite
       .prepare(
-        "SELECT max(coalesce(last_message_at, created_at)) AS at FROM threads WHERE space_id = ?",
+        "SELECT max(coalesce(last_message_at, created_at)) AS at FROM threads WHERE space_id = ? AND session_key NOT LIKE 'cron:%'",
       )
       .get(spaceId) as { at: string | null };
     return row.at;
@@ -246,7 +251,10 @@ export class SpaceStore {
     );
     const trackers = (
       this.#db.sqlite
-        .prepare("SELECT * FROM space_trackers WHERE space_id = ? ORDER BY position, created_at")
+        .prepare(
+          `SELECT t.*, w.taint AS taint FROM space_trackers t JOIN widgets w ON w.id = t.widget_id
+            WHERE t.space_id = ? ORDER BY t.position, t.created_at`,
+        )
         .all(id) as TrackerRow[]
     ).map(
       (t): SpaceTracker => ({
@@ -257,6 +265,8 @@ export class SpaceStore {
         refreshedAt: t.refreshed_at,
         addedBy: t.added_by as SpaceTracker["addedBy"],
         createdAt: t.created_at,
+        // The widget's taint (section 5.5): a tainted tracker enters a run's context as a count.
+        taint: JSON.parse(t.taint) as TaintSource[],
       }),
     );
     const automationIds = (
@@ -399,6 +409,12 @@ export class SpaceStore {
         id: string;
       }[]
     ).map((t) => t.id);
+    // Templates were drawn by the Gateway for this Space alone: their values go with it (SR14).
+    this.#db.sqlite
+      .prepare(
+        "DELETE FROM widgets WHERE id IN (SELECT widget_id FROM space_trackers WHERE space_id = ? AND added_by = 'template')",
+      )
+      .run(id);
     this.#db.sqlite.prepare("DELETE FROM spaces WHERE id = ?").run(id);
     return threadIds;
   }
@@ -527,6 +543,12 @@ export class SpaceStore {
     for (const r of rows) {
       if (r.space_id === spaceId) continue;
       stmt.run(spaceId, at, r.id);
+      // Its run threads follow it: none stays marked with a Space the automation has left.
+      this.#db.sqlite
+        .prepare(
+          "UPDATE threads SET space_id = ? WHERE kind = 'automation' AND session_key LIKE ? ESCAPE '\\'",
+        )
+        .run(spaceId, `cron:${r.id.replace(/[\\%_]/g, "\\$&")}:%`);
       moved.push(r.id);
       if (r.space_id !== null) from.add(r.space_id);
     }

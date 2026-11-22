@@ -22,6 +22,9 @@ CI fails when the generated files are stale (`pnpm protocol:check`).
 
 ## Log
 
+### v1 additive — 2026-11-20 (Spaces, wave S4)
+
+- `WIDGET_BINDINGS` gains the bindable fields of the six Space query sources: `entity` (status, nextStep, stoppedAt, due), `work_due` (count, next), `calendar` (next, countWeek), `reminders` (open, done, nextDue), `mail` (unread, latest), `files` (recent, count). For `entity` the bind `id` is the linked project or one of its children; for the others it is the Space's id. New exports `SPACE_QUERY_SOURCES` and `isSpaceQuerySource`. `spaces.trackers.add` gains an optional `automationId` (with `widgetId`): the owner's link from an agent tracker to an automation of the Space, which is the only thing its Refresh runs. The generated Swift params gain the optional field.
 ### v1 additive — 2026-11-20 (Spaces, wave S7)
 
 - New methods `spaces.migration.offer` (read), `spaces.migration.apply` (write, side-effecting), `spaces.migration.dismiss`, `spaces.offers.list` (read) and `spaces.offers.dismiss`. New schemas `SpaceMigrationOffer`, `SpaceMigrationProject`, `SpaceOffers`, `SpaceOfferWidget`, `SpaceOfferRule`. The agent tool `space_propose` is not a protocol method; it fills `spaces.proposals.*` and raises `space.proposal.created`. Design: docs/design/spaces-2026.md §4.3, §8.

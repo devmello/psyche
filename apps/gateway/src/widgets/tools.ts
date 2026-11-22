@@ -108,6 +108,10 @@ export function widgetTools(store: WidgetStore): AgentToolRegistration[] {
             ...(p.baseRev === undefined ? {} : { baseRev: p.baseRev }),
             ops: p.ops,
             taint: turnTaint(ctx),
+            // A channel peer or delegated persona has no reach into a Space's shelf (SR11).
+            ...(ctx.requester !== undefined && ctx.requester.role !== "owner"
+              ? { notOwner: true }
+              : {}),
           });
           return { output: { widgetId: w.id, rev: w.rev }, provenance: "trusted" };
         } catch (e) {

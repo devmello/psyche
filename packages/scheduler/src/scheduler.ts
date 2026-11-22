@@ -161,6 +161,14 @@ export class SqliteScheduler implements Scheduler {
     return () => this.#listeners.delete(listener);
   }
 
+  readonly #workflowEventListeners = new Set<(event: WorkflowEvent) => void>();
+
+  /** Taps every published workflow event (mail, calendar, recording), apart from automations. */
+  onWorkflowEvent(listener: (event: WorkflowEvent) => void): () => void {
+    this.#workflowEventListeners.add(listener);
+    return () => this.#workflowEventListeners.delete(listener);
+  }
+
   // --- internals --------------------------------------------------------------------------------
 
   #iso(ms: number = this.clock.now()): string {
@@ -1217,6 +1225,15 @@ export class SqliteScheduler implements Scheduler {
    * the automations that queued it.
    */
   async publishEvent(event: WorkflowEvent): Promise<string[]> {
+    // Free listeners (a Space's trackers, spaces-2026 section 6.3) see every event, whether or not
+    // an automation matches. They never start a run; a listener that throws is ignored.
+    for (const l of this.#workflowEventListeners) {
+      try {
+        l(event);
+      } catch {
+        // a listener must not stop the event
+      }
+    }
     const nowIso = this.#iso();
     const queued = this.#tx(() => {
       const rows = this.#db.sqlite
