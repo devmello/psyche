@@ -97,4 +97,8 @@ export const notices: Partial<Catalogue> = {
   "notice.machine.removed.title": "{name} hat sich selbst entfernt",
   "notice.machine.removed.body":
     "Es war ein Computer, den Psyche nutzen konnte. Psyche nutzt ihn nicht wieder, solange du ihn nicht erneut hinzufügst.",
+  "notice.machine.scanIncomplete.title":
+    "{folder} auf {name} konnte nach einem Befehl nicht vollständig geprüft werden",
+  "notice.machine.scanIncomplete.body":
+    "Neue Repositorys oder Startdateien dort wurden womöglich nicht beiseitegelegt. Prüfe den Ordner auf neue .git- oder .vscode-Ordner, bevor du ihn in einem Editor öffnest oder dort git ausführst. Befehle können dort erst wieder schreiben, wenn Psyche auf {name} neu startet.",
 };

@@ -207,8 +207,11 @@ pub fn args(plan: &Plan) -> Vec<OsString> {
         let inside = |p: &PathBuf| p.starts_with(plan.folder) && !covered_by(p, &read_only);
         // Pinned folders first, parents first: each a mount point of its own, which can't be
         // renamed or removed, so no mask below can be moved aside (#1512 r2 findings 1 and 3).
-        // Bound from the descriptor `launch::open_pins` opened without following a link, so a
-        // folder swapped for a link meanwhile can't lead the bind outside (#1512 r3, B3).
+        // Bound from the descriptor `launch::open_pins` opened without following a link and
+        // checked. Not race-free on its own: bwrap resolves the descriptor to a path and mounts
+        // that, so a folder swapped for a link meanwhile could still lead the bind outside. What
+        // prevents that is `launch::Folders`: read-write runs in overlapping folders take turns,
+        // so nothing else writes there during setup (#1512 r3 B3, r4). Keep it that way.
         for (fd, p) in plan.pins.iter().filter(|(_, p)| inside(p)) {
             out.push("--bind-fd".into());
             out.push(fd.to_string().into());

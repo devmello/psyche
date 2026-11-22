@@ -88,4 +88,7 @@ export const notices: Partial<Catalogue> = {
   "notice.machine.removed.title": "{name} ने खुद को हटा लिया",
   "notice.machine.removed.body":
     "यह ऐसा कंप्यूटर था जिसे Psyche इस्तेमाल कर सकता था। जब तक आप इसे दोबारा नहीं जोड़ेंगे, Psyche इसे इस्तेमाल नहीं करेगा।",
+  "notice.machine.scanIncomplete.title": "एक कमांड के बाद {name} पर {folder} की जाँच पूरी नहीं हो सकी",
+  "notice.machine.scanIncomplete.body":
+    "वहाँ के नए रिपॉज़िटरी या लॉन्च फ़ाइलें शायद अलग नहीं की गईं। इसे किसी एडिटर में खोलने या वहाँ git चलाने से पहले नए .git या .vscode फ़ोल्डर देख लें। जब तक {name} पर Psyche दोबारा शुरू नहीं होता, कमांड वहाँ फिर से नहीं लिख सकते।",
 };

@@ -1,5 +1,6 @@
 import { createHash } from "node:crypto";
 import type { ToolRunContext } from "@psyche/agent-core";
+import type { PsycheNotifier } from "@psyche/notifications";
 import {
   type AuditLog,
   type ComputerMachineRef,
@@ -57,6 +58,8 @@ export interface MachineExecDeps {
   broker: Pick<PermissionBroker, "get">;
   vault: { redact(text: string): string };
   audit?: Pick<AuditLog, "append">;
+  /** Tells the owner, outside the agent, when the box could not check a folder after a run. */
+  notifier?: Pick<PsycheNotifier, "notify">;
   /** Clock for the resolve cache (tests). */
   now?: () => number;
 }
@@ -440,6 +443,39 @@ export function machineExec(deps: MachineExecDeps) {
       const sha = typeof res.executableSha256 === "string" ? res.executableSha256 : undefined;
       const exitCode = num(res.exitCode);
       const timedOut = res.timedOut === true;
+      const scanIncomplete = r.ok && res.launchScanIncomplete === true;
+      const scanNote = str(res.launchScanNote, 2000);
+      // The box could not check the folder whole after the run: repositories or launch files the
+      // command made may still be in place. The owner hears it here, whatever the agent says
+      // (#1512 review r4, R1); the box takes no more read-write runs there until it restarts.
+      if (scanIncomplete) {
+        await deps.audit
+          ?.append({
+            kind: "machine.exec.scan_incomplete",
+            actor: { type: "agent", runId: ctx.runId },
+            subject: { runId: ctx.runId, threadId: ctx.threadId },
+            data: { machine, folder: grant.path, cwd, note: scanNote },
+          })
+          .catch(() => undefined);
+        try {
+          void Promise.resolve(
+            deps.notifier?.notify({
+              kind: "system",
+              title: `Couldn't finish checking ${grant.path} on ${machine.name} after a command`,
+              body: `New repositories or launch files there may not have been moved aside. Check it for new .git or .vscode folders before you open it in an editor or run git there. Commands can't write there again until Psyche restarts on ${machine.name}.`,
+              message: {
+                titleKey: "notice.machine.scanIncomplete.title",
+                bodyKey: "notice.machine.scanIncomplete.body",
+                params: { name: machine.name, folder: grant.path },
+              },
+              route: "/settings/devices",
+              dedupeKey: `machine-scan-incomplete:${machine.deviceId}:${grant.path}`,
+            }),
+          ).catch(() => undefined);
+        } catch {
+          // A notifier that fails must not fail the command's result.
+        }
+      }
       // Receipt-like trail: the argv hash, cwd, exit code and duration, never output.
       await deps.audit
         ?.append({
@@ -510,9 +546,7 @@ export function machineExec(deps: MachineExecDeps) {
             : {}),
           // The box could not check the folder whole after the run: it takes no more
           // read-write commands until the owner looks and restarts Psyche there.
-          ...(res.launchScanIncomplete === true
-            ? { launchScanIncomplete: true, launchScanNote: str(res.launchScanNote, 2000) }
-            : {}),
+          ...(scanIncomplete ? { launchScanIncomplete: true, launchScanNote: scanNote } : {}),
         },
         provenance: "untrusted",
         ...(outcome === "ok" ? {} : { isError: true }),

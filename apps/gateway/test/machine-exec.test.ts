@@ -177,11 +177,33 @@ const directory = (): MachineDirectory => ({
 });
 
 const vault = { redact: (t: string) => t.replaceAll("s3cret", "[masked]") };
+/** What the owner was told (the notifier) and what the audit log took. */
+let notified: Record<string, unknown>[] = [];
+let audited: Record<string, unknown>[] = [];
 const restart = () => {
-  hook = machineExec({ directory: directory(), grants, broker: recording(), vault });
+  hook = machineExec({
+    directory: directory(),
+    grants,
+    broker: recording(),
+    vault,
+    notifier: {
+      notify: async (n) => {
+        notified.push(n as unknown as Record<string, unknown>);
+        return {} as never;
+      },
+    },
+    audit: {
+      append: async (e) => {
+        audited.push(e as unknown as Record<string, unknown>);
+        return {} as never;
+      },
+    },
+  });
 };
 
 beforeEach(() => {
+  notified = [];
+  audited = [];
   tokens.clear();
   callsA = [];
   callsB = [];
@@ -627,6 +649,27 @@ describe("exec_host on a machine: taint", () => {
       launchScanIncomplete: true,
       launchScanNote: "more than 20000 folders to check",
     });
+    // #1512 r4, R1: the owner hears it outside the agent, with the machine and the folder.
+    expect(notified).toContainEqual(
+      expect.objectContaining({
+        message: {
+          titleKey: "notice.machine.scanIncomplete.title",
+          bodyKey: "notice.machine.scanIncomplete.body",
+          params: { name: A.name, folder: PROJ },
+        },
+        dedupeKey: `machine-scan-incomplete:${A.deviceId}:${PROJ}`,
+      }),
+    );
+    expect(audited).toContainEqual(
+      expect.objectContaining({
+        kind: "machine.exec.scan_incomplete",
+        data: expect.objectContaining({
+          machine: A,
+          folder: PROJ,
+          note: "more than 20000 folders to check",
+        }),
+      }),
+    );
     expect(updates).toContainEqual({ data: { machine: A, stream: "stdout", text: "hi\n" } });
   });
 });

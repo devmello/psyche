@@ -6,7 +6,10 @@
 //!
 //! - **One at a time.** Read-write contained runs whose folders overlap run one after the other
 //!   ([`Folders`]): no run can swap, plant into or move what another run's sandbox is being built
-//!   from.
+//!   from. This turn-taking is what stops a pinned folder being swapped for a link to outside
+//!   while the sandbox is set up (#1512 r3 B3, r4): `--bind-fd` alone does not, because bwrap
+//!   turns the descriptor back into a path (`realpath("/proc/self/fd/N")`) and mounts that
+//!   path, and its own check afterwards is racy. Never let read-write runs overlap.
 //! - **Pinned folders.** The working folder, every folder between it and the granted folder,
 //!   the folders two levels below both, each existing `.git` among them, and the folders on the
 //!   way to each read-only root inside the folder are bound read-write over themselves, each
@@ -288,9 +291,10 @@ fn parts_of(rel: &Path) -> Vec<OsString> {
 
 /// Each pinned folder (not under a read-only root), opened from the folder's descriptor one
 /// component at a time without following a link, and checked to be the folder [`masks`] saw.
-/// `bwrap` binds the descriptor (`--bind-fd`), so a pinned folder swapped for a link to
-/// somewhere else can't lead the read-write bind there (#1512 r3, B3). Any change, or one that
-/// can't be opened, refuses the run: the path is returned.
+/// `bwrap` binds the descriptor (`--bind-fd`). That is a check, not the guard: bwrap resolves the
+/// descriptor back to a path before it mounts, so only [`Folders`]' turn-taking keeps another run
+/// from swapping a pin for a link meanwhile (#1512 r3 B3, r4). Any change, or one that can't be
+/// opened, refuses the run: the path is returned.
 pub fn open_pins(
     folder: &Path,
     m: &Masks,

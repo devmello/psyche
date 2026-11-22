@@ -97,4 +97,8 @@ export const notices: Partial<Catalogue> = {
   "notice.machine.removed.title": "{name} se quitó a sí mismo",
   "notice.machine.removed.body":
     "Era un ordenador que Psyche podía usar. Psyche no lo usará de nuevo a menos que lo añadas otra vez.",
+  "notice.machine.scanIncomplete.title":
+    "No se pudo terminar de revisar {folder} en {name} después de un comando",
+  "notice.machine.scanIncomplete.body":
+    "Puede que los repositorios o archivos de inicio nuevos que haya ahí no se hayan apartado. Revisa si hay carpetas .git o .vscode nuevas antes de abrirla en un editor o ejecutar git ahí. Los comandos no podrán volver a escribir ahí hasta que Psyche se reinicie en {name}.",
 };

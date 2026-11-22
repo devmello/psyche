@@ -1290,6 +1290,7 @@ export async function composeGateway(options: ComposeOptions): Promise<ComposedG
         broker: executorBroker,
         vault: vault.vault,
         audit,
+        notifier,
       }),
       broker: executorBroker,
       vault: vault.vault,

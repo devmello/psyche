@@ -90,4 +90,8 @@ export const notices: Partial<Catalogue> = {
   "notice.machine.removed.title": "{name}が自分自身を削除しました",
   "notice.machine.removed.body":
     "Psyche が使えるコンピュータでした。もう一度追加しない限り、Psyche はこのコンピュータを使いません。",
+  "notice.machine.scanIncomplete.title":
+    "コマンドの実行後、{name} の {folder} を最後まで確認できませんでした",
+  "notice.machine.scanIncomplete.body":
+    "そこにある新しいリポジトリや起動用ファイルは、退避されていない可能性があります。エディタで開いたり git を実行したりする前に、新しい .git や .vscode フォルダがないか確認してください。{name} で Psyche が再起動するまで、コマンドはそこに書き込めません。",
 };
