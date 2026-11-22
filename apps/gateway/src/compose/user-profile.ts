@@ -422,7 +422,7 @@ export function createUserProfile(deps: UserProfileDeps) {
     /** The owner's message carried Library attachments. */
     attached?: boolean;
     /** The turn read third-party content (an email, a screen, forwarded text, a tool result). */
-    taint?: boolean;
+    inputTaint?: boolean;
   }
 
   const learn = async (turn: OwnerTurn, config: ReturnType<typeof userProfileConfig>) => {
@@ -520,7 +520,7 @@ export function createUserProfile(deps: UserProfileDeps) {
   const onOwnerTurn = async (turn: OwnerTurn) => {
     // A turn that read third-party content writes nothing about the owner: what it learned could
     // be that content's words (the same line as the `memory_protected_write` taint deny).
-    if (turn.taint === true) return;
+    if (turn.inputTaint === true) return;
     const config = admit(turn.threadId);
     if (config === undefined) return;
     const every = deps.minIntervalMs ?? 0;

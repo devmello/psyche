@@ -521,6 +521,8 @@ export interface AgentLoopOptions {
     attached?: boolean;
     /** The turn read untrusted content (the owner's words are still the owner's). */
     taint: boolean;
+    /** This turn's own input was third-party content (a forward, an email, a screen, a file). */
+    inputTaint?: boolean;
   }) => Promise<void> | void;
   /**
    * After every side-effecting tool call (write or worse), with the thread, turn, approval and
@@ -620,6 +622,8 @@ interface RunState {
   proposedCall?: { tool: string; input: Record<string, unknown> };
   /** The owner's own message carried Library attachments (#509: the learner reads uploads). */
   ownerAttached: boolean;
+  /** The first turn's input was third-party content (see `inputTainted`). */
+  inputTaint?: boolean;
   /** Who asked for the turn (security §9); absent means the owner. */
   requester?: Requester;
   abort: AbortController;
@@ -1170,6 +1174,7 @@ export class PsycheAgentLoop implements AgentLoop {
       // the whole turn is untrusted for compaction and replay, and so are its images.
       const inputTainted =
         (input.taintSources?.length ?? 0) > 0 || (attached !== undefined && thirdParty);
+      run.inputTaint = inputTainted;
       const attachedPart: ModelPart[] =
         attached === undefined
           ? []
@@ -1289,6 +1294,7 @@ export class PsycheAgentLoop implements AgentLoop {
         ...(run.taskId === undefined ? {} : { taskId: run.taskId }),
         ownerText: run.ownerText,
         ...(run.ownerAttached ? { attached: true } : {}),
+        ...(run.inputTaint === true ? { inputTaint: true } : {}),
         taint: run.taint,
       };
       void Promise.resolve()

@@ -58,7 +58,7 @@ describe("profile learner request", () => {
       threadId: s.id,
       runId: "run_t",
       ownerText: "what does this want?",
-      taint: true,
+      inputTaint: true,
     });
     expect(s.requests).toHaveLength(0);
   });
