@@ -218,11 +218,12 @@ describe("widget safety", () => {
     const buttons = within(frame).getAllByRole("button");
     expect(buttons.map((b) => b.getAttribute("aria-label") ?? b.textContent)).toEqual([
       "Pin to Home",
+      "Add to Space…",
       "Copy as text",
       "Send it",
     ]);
-    expect(buttons[2]?.className).toMatch(/border-input|outline|bg-background/);
-    expect(buttons[2]?.className).not.toMatch(/bg-primary/);
+    expect(buttons[3]?.className).toMatch(/border-input|outline|bg-background/);
+    expect(buttons[3]?.className).not.toMatch(/bg-primary/);
     expect(document.querySelector("[data-card='framed'][data-kind='approval']")).toBeNull();
   });
 });
