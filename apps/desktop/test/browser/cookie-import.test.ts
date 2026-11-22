@@ -6,6 +6,8 @@ import {
   mkdtempSync,
   readdirSync,
   readFileSync,
+  renameSync,
+  rmdirSync,
   rmSync,
   statSync,
   writeFileSync,
@@ -736,6 +738,82 @@ describe("local audit queue", () => {
     const q = new CookieAuditQueue(psyche);
     expect(q.pending()).toBe(0);
     expect(readdirSync(join(psyche, "browser")).some((n) => n.includes(".corrupt-"))).toBe(true);
+  });
+
+  it("refuses an entry that would pass the byte cap, and leaves the file as it was", () => {
+    const q = new CookieAuditQueue(psyche);
+    const big = (n: number) => ({
+      action: "imported" as const,
+      browser: "chrome" as const,
+      sites: Array.from({ length: 5000 }, (_, i) => ({
+        domain: `${"a".repeat(200)}${n}-${i}.example`,
+        cookies: 1,
+      })),
+    });
+    let before = "";
+    let threw = false;
+    for (let n = 0; n < 40 && !threw; n++) {
+      try {
+        q.enqueue(big(n));
+        before = readFileSync(auditQueueFile(psyche), "utf8");
+      } catch {
+        threw = true;
+      }
+    }
+    expect(threw).toBe(true);
+    expect(readFileSync(auditQueueFile(psyche), "utf8")).toBe(before);
+    expect(readdirSync(join(psyche, "browser")).some((n) => n.includes(".corrupt-"))).toBe(false);
+    expect(q.pending()).toBeGreaterThan(0);
+  });
+
+  it("an unreadable file is not renamed aside, and loses no entry", () => {
+    const q = new CookieAuditQueue(psyche);
+    q.settle(
+      q.enqueue({
+        action: "imported",
+        browser: "chrome",
+        sites: [{ domain: "a.example", cookies: 1 }],
+      }),
+      {
+        action: "imported",
+        browser: "chrome",
+        sites: [{ domain: "a.example", cookies: 1 }],
+      },
+    );
+    // A directory where the file is: readFileSync fails with EISDIR, a stand-in for EIO.
+    const file = auditQueueFile(psyche);
+    const kept = readFileSync(file, "utf8");
+    renameSync(file, `${file}.hold`);
+    mkdirSync(file);
+    expect(q.pending()).toBe(0);
+    expect(() => q.enqueue({ action: "imported", browser: "chrome", sites: [] })).toThrow();
+    expect(readdirSync(join(psyche, "browser")).some((n) => n.includes(".corrupt-"))).toBe(false);
+    rmdirSync(file);
+    renameSync(`${file}.hold`, file);
+    expect(readFileSync(file, "utf8")).toBe(kept);
+    expect(q.pending()).toBe(1);
+  });
+
+  it("flushes the valid entries of a .corrupt-* file", async () => {
+    const q = new CookieAuditQueue(psyche);
+    q.settle(
+      q.enqueue({
+        action: "imported",
+        browser: "chrome",
+        sites: [{ domain: "a.example", cookies: 1 }],
+      }),
+      {
+        action: "imported",
+        browser: "chrome",
+        sites: [{ domain: "a.example", cookies: 1 }],
+      },
+    );
+    const file = auditQueueFile(psyche);
+    renameSync(file, `${file}.corrupt-1`);
+    const got: string[] = [];
+    expect(await q.flush(async (r) => void got.push(r.sites[0]?.domain ?? ""))).toBe(1);
+    expect(got).toEqual(["a.example"]);
+    expect(readdirSync(join(psyche, "browser")).some((n) => n.includes(".corrupt-"))).toBe(false);
   });
 });
 

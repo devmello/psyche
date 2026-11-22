@@ -3,12 +3,13 @@ import {
   chmodSync,
   existsSync,
   mkdirSync,
+  readdirSync,
   readFileSync,
   renameSync,
-  statSync,
+  unlinkSync,
   writeFileSync,
 } from "node:fs";
-import { dirname, join } from "node:path";
+import { basename, dirname, join } from "node:path";
 import { PsycheError } from "@psyche/protocol";
 import type { ImportBrowser } from "./sources.ts";
 
@@ -60,7 +61,12 @@ export class CookieAuditQueue {
   }
 
   pending(): number {
-    return this.#load().length;
+    try {
+      return this.#load().length;
+    } catch {
+      // A read error is not a reason to touch the file: say nothing is known, leave it be.
+      return 0;
+    }
   }
 
   /**
@@ -77,6 +83,12 @@ export class CookieAuditQueue {
     }
     const id = randomBytes(8).toString("hex");
     entries.push({ id, at: new Date(this.#now()).toISOString(), record: clean(record) });
+    if (Buffer.byteLength(serialize(entries)) > MAX_FILE_BYTES) {
+      throw new PsycheError(
+        "unavailable",
+        "too many sign-in records are waiting for the Gateway; open Psyche with its Gateway running first",
+      );
+    }
     this.#save(entries);
     this.#open.add(id);
     return id;
@@ -85,7 +97,13 @@ export class CookieAuditQueue {
   /** The work is done: store the real counts (or, with no record, drop an entry for nothing). */
   settle(id: string, record: QueuedAudit | undefined): void {
     this.#open.delete(id);
-    const entries = this.#load();
+    let entries: Entry[];
+    try {
+      entries = this.#load();
+    } catch {
+      // Unreadable right now: the planned counts stay queued rather than the entry vanishing.
+      return;
+    }
     const i = entries.findIndex((e) => e.id === id);
     if (i === -1) return;
     if (record === undefined || record.sites.length === 0) entries.splice(i, 1);
@@ -106,29 +124,40 @@ export class CookieAuditQueue {
 
   async #flush(send: (record: QueuedAudit) => Promise<void>): Promise<number> {
     let sent = 0;
-    for (const e of this.#load()) {
+    let entries: Entry[];
+    try {
+      this.#salvage();
+      entries = this.#load();
+    } catch {
+      return 0;
+    }
+    for (const e of entries) {
       if (this.#open.has(e.id)) break;
       try {
         await send(e.record);
       } catch {
         break;
       }
-      const rest = this.#load().filter((x) => x.id !== e.id);
-      this.#save(rest);
+      try {
+        this.#save(this.#load().filter((x) => x.id !== e.id));
+      } catch {
+        break;
+      }
       sent += 1;
     }
     return sent;
   }
 
+  /** Throws on an I/O error and leaves the file alone; only unparseable content is set aside. */
   #load(): Entry[] {
     if (!existsSync(this.#file)) return [];
+    const text = readFileSync(this.#file, "utf8");
     try {
-      if (statSync(this.#file).size > MAX_FILE_BYTES) throw new Error("too big");
-      const doc = JSON.parse(readFileSync(this.#file, "utf8")) as { entries?: unknown };
+      const doc = JSON.parse(text) as { entries?: unknown };
       if (!Array.isArray(doc.entries)) throw new Error("shape");
       return doc.entries.filter(isEntry);
     } catch {
-      // Never throw the record away: keep the unreadable file aside and start a new queue.
+      // Never throw the record away: keep the unparseable file aside; the next flush salvages it.
       try {
         renameSync(this.#file, `${this.#file}.corrupt-${this.#now()}`);
       } catch {
@@ -138,13 +167,40 @@ export class CookieAuditQueue {
     }
   }
 
+  /** Moves the valid entries of any `.corrupt-*` file back into the queue. */
+  #salvage(): void {
+    const dir = dirname(this.#file);
+    const prefix = `${basename(this.#file)}.corrupt-`;
+    for (const name of readdirSync(dir)) {
+      if (!name.startsWith(prefix)) continue;
+      const path = join(dir, name);
+      let found: Entry[];
+      try {
+        const doc = JSON.parse(readFileSync(path, "utf8")) as { entries?: unknown };
+        if (!Array.isArray(doc.entries)) continue;
+        found = doc.entries.filter(isEntry);
+      } catch {
+        continue;
+      }
+      const entries = this.#load();
+      const have = new Set(entries.map((e) => e.id));
+      for (const e of found) if (!have.has(e.id)) entries.push(e);
+      this.#save(entries);
+      unlinkSync(path);
+    }
+  }
+
   #save(entries: Entry[]): void {
     mkdirSync(dirname(this.#file), { recursive: true, mode: 0o700 });
     const tmp = `${this.#file}.${randomBytes(4).toString("hex")}.tmp`;
-    writeFileSync(tmp, `${JSON.stringify({ version: 1, entries })}\n`, { mode: 0o600 });
+    writeFileSync(tmp, serialize(entries), { mode: 0o600 });
     chmodSync(tmp, 0o600);
     renameSync(tmp, this.#file);
   }
+}
+
+function serialize(entries: Entry[]): string {
+  return `${JSON.stringify({ version: 1, entries })}\n`;
 }
 
 /** Only the fields the audit takes, with sizes bounded. Never a cookie name or a value. */
