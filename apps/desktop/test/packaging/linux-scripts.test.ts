@@ -1,4 +1,5 @@
 import { execFileSync, spawnSync } from "node:child_process";
+import { createHash } from "node:crypto";
 import {
   chmodSync,
   copyFileSync,
@@ -14,6 +15,7 @@ import {
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { afterEach, describe, expect, it } from "vitest";
+import { installPackageCommand } from "../../src/packaging/linux-apply.ts";
 
 /**
  * deploy/linux/psyche-system-setup (the root-run installer, tested with DESTDIR) and
@@ -213,6 +215,95 @@ describe.skipIf(!posix)("psyche-system-setup", () => {
     expect(r.code).not.toBe(0);
     expect(r.out).toMatch(/links or special files/);
     expect(existsSync(join(d2, "usr/lib/systemd"))).toBe(false);
+  });
+
+  describe("install-package", () => {
+    const PKG = Buffer.from("a signed package, as bytes");
+    const sha = createHash("sha256").update(PKG).digest("hex");
+
+    /** A PATH holding only the tools the script needs and the given fake package managers. */
+    function fakePath(managers: string[], record: string) {
+      const bin = temp();
+      for (const tool of ["cat", "chmod", "cut", "mktemp", "rm", "tr", "sha256sum", "shasum"]) {
+        const found = spawnSync("/bin/sh", ["-c", `command -v ${tool}`], { encoding: "utf8" });
+        const path = found.stdout.trim();
+        if (found.status === 0 && path.startsWith("/")) symlinkSync(path, join(bin, tool));
+      }
+      for (const m of managers) {
+        write(
+          join(bin, m),
+          `#!/bin/sh\nfor a; do last=$a; done\n{ echo "${m} $*"; echo "copy=$last"; cat "$last"; echo; } >> "${record}"\n`,
+          0o755,
+        );
+      }
+      return bin;
+    }
+
+    /** Runs the script with the argv the updater would give pkexec, minus pkexec and the script path. */
+    function run(
+      file: string,
+      managers: string[],
+      over: { mode?: "install" | "downgrade"; sha?: string } = {},
+    ) {
+      const record = join(temp(), "record");
+      const argv = installPackageCommand(over.sha ?? sha, file, over.mode ?? "install").slice(2);
+      const r = setup(argv, {
+        DESTDIR: temp(),
+        PSYCHE_SETUP_TEST_PATH: fakePath(managers, record),
+      });
+      return { ...r, record: existsSync(record) ? readFileSync(record, "utf8") : "" };
+    }
+
+    it("installs a copy of the file with apt-get, --allow-downgrades only for a downgrade", () => {
+      const f = join(temp(), "Psyche-1.1.0-linux-x64.deb");
+      write(f, PKG);
+      const up = run(f, ["apt-get", "dnf"]);
+      expect(up.code).toBe(0);
+      expect(up.record).toMatch(/^apt-get install -y \S+psyche-package\.deb$/m);
+      expect(up.record).not.toContain("--allow-downgrades");
+      expect(up.record).toContain("a signed package, as bytes");
+      expect(up.record).not.toContain(f);
+      const down = run(f, ["apt-get"], { mode: "downgrade" });
+      expect(down.code).toBe(0);
+      expect(down.record).toContain("--allow-downgrades");
+    });
+
+    it("uses dnf (install or downgrade), then zypper, for an rpm", () => {
+      const f = join(temp(), "Psyche-1.1.0-linux-x64.rpm");
+      write(f, PKG);
+      expect(run(f, ["dnf", "zypper"]).record).toMatch(/^dnf install -y --nogpgcheck /m);
+      expect(run(f, ["dnf"], { mode: "downgrade" }).record).toMatch(/^dnf downgrade -y /m);
+      expect(run(f, ["zypper"]).record).toMatch(/^zypper --non-interactive install /m);
+      expect(run(f, ["zypper"], { mode: "downgrade" }).record).toContain("--oldpackage");
+    });
+
+    it("exits 65 on a hash mismatch and never starts the installer", () => {
+      const f = join(temp(), "Psyche-1.1.0-linux-x64.deb");
+      write(f, Buffer.from("something else"));
+      const r = run(f, ["apt-get"]);
+      expect(r.code).toBe(65);
+      expect(r.record).toBe("");
+    });
+
+    it("exits 69 when no package manager fits", () => {
+      const f = join(temp(), "Psyche-1.1.0-linux-x64.rpm");
+      write(f, PKG);
+      expect(run(f, ["apt-get"]).code).toBe(69);
+    });
+
+    it("refuses a bad digest, a link and a file that is not a package", () => {
+      const f = join(temp(), "Psyche-1.1.0-linux-x64.deb");
+      write(f, PKG);
+      expect(run(f, ["apt-get"], { sha: "deadbeef" }).code).toBe(1);
+      const link = join(temp(), "Psyche-1.1.0-linux-x64.deb");
+      symlinkSync(f, link);
+      const l = run(link, ["apt-get"]);
+      expect(l.code).toBe(1);
+      expect(l.record).toBe("");
+      const other = join(temp(), "Psyche.tar");
+      write(other, PKG);
+      expect(run(other, ["apt-get"]).code).toBe(1);
+    });
   });
 
   it("remove takes the files out and leaves other things alone", () => {

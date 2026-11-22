@@ -4,6 +4,10 @@
 #   psyche-system-setup install <payload-dir>   install what the folder holds (deb/rpm postinst)
 #   psyche-system-setup install-stdin           the same, from a tar stream on stdin (the AppImage:
 #                                               `Psyche.AppImage --setup-system` pipes it in through pkexec)
+#   psyche-system-setup install-package [--downgrade] <sha256> <file>
+#                                               the desktop updater's deb/rpm step (through pkexec): copy
+#                                               the file into a root-only folder, check the copy against
+#                                               the signed sha256, install only the copy
 #   psyche-system-setup remove                  take it all out again (deb/rpm removal, uninstall)
 #
 # The payload is laid out like the root it lands in. Only these paths are ever read from it, and
@@ -23,6 +27,10 @@ set -eu
 PATH=/usr/sbin:/usr/bin:/sbin:/bin
 export PATH
 umask 022
+# Tests only (DESTDIR set): a folder of fake package managers replaces PATH, so no real one runs.
+if [ -n "${DESTDIR:-}" ] && [ -n "${PSYCHE_SETUP_TEST_PATH:-}" ]; then
+  PATH=$PSYCHE_SETUP_TEST_PATH
+fi
 
 D=${DESTDIR:-}
 POLICY=/usr/share/polkit-1/actions/com.psyche.presence.policy
@@ -37,7 +45,7 @@ say() { printf 'psyche-system-setup: %s\n' "$*" >&2; }
 die() { say "$*"; exit 1; }
 
 usage() {
-  say "usage: psyche-system-setup install <payload-dir> | install-stdin | remove"
+  say "usage: psyche-system-setup install <payload-dir> | install-stdin | install-package [--downgrade] <sha256> <file> | remove"
   exit 64
 }
 
@@ -144,7 +152,72 @@ remove() {
   say "removed Psyche's system files (your data in ~/.psyche is untouched)"
 }
 
+# install_package <downgrade 0|1> <sha256> <file>: the file is user-writable, so nothing is trusted
+# until it is a root-owned copy whose hash matches the sha256 the signed manifest named.
+install_package() {
+  downgrade=$1 want=$2 src=$3
+  case $want in
+    *[!0-9a-fA-F]*|"") die "the sha256 is not a hex digest" ;;
+  esac
+  [ ${#want} -eq 64 ] || die "the sha256 is not 64 hex characters"
+  want=$(printf '%s' "$want" | tr 'A-F' 'a-f')
+  case $src in
+    *.deb) ext=deb ;;
+    *.rpm) ext=rpm ;;
+    *) die "not a .deb or .rpm file" ;;
+  esac
+  [ ! -L "$src" ] || die "the package is a link"
+  [ -f "$src" ] || die "the package is not a regular file"
+  work=$(mktemp -d) || die "could not make a work folder"
+  chmod 700 "$work"
+  trap 'rm -rf "$work"' EXIT
+  copy=$work/psyche-package.$ext
+  # The copy is the only thing hashed and installed; a swap of $src after this point changes nothing.
+  cat < "$src" > "$copy" || die "could not copy the package"
+  chmod 600 "$copy"
+  if command -v sha256sum >/dev/null 2>&1; then
+    got=$(sha256sum "$copy" | cut -d ' ' -f 1)
+  else
+    got=$(shasum -a 256 "$copy" | cut -d ' ' -f 1)
+  fi
+  if [ "$got" != "$want" ]; then
+    say "the package does not match its signed sha256"
+    exit 65
+  fi
+  if [ "$ext" = deb ] && command -v apt-get >/dev/null 2>&1; then
+    if [ "$downgrade" = 1 ]; then
+      apt-get install -y --allow-downgrades "$copy"
+    else
+      apt-get install -y "$copy"
+    fi
+  elif [ "$ext" = rpm ] && command -v dnf >/dev/null 2>&1; then
+    # The hash above is the trust anchor (the manifest is signed), not an rpm signature.
+    if [ "$downgrade" = 1 ]; then
+      dnf downgrade -y --nogpgcheck "$copy"
+    else
+      dnf install -y --nogpgcheck "$copy"
+    fi
+  elif [ "$ext" = rpm ] && command -v zypper >/dev/null 2>&1; then
+    if [ "$downgrade" = 1 ]; then
+      zypper --non-interactive install --oldpackage --allow-unsigned-rpm "$copy"
+    else
+      zypper --non-interactive install --allow-unsigned-rpm "$copy"
+    fi
+  else
+    say "no package manager for a .$ext file"
+    exit 69
+  fi
+}
+
 case ${1:-} in
+  install-package)
+    shift
+    downgrade=0
+    if [ "${1:-}" = "--downgrade" ]; then downgrade=1; shift; fi
+    [ $# -eq 2 ] || usage
+    require_root
+    install_package "$downgrade" "$1" "$2"
+    ;;
   install)
     [ $# -eq 2 ] || usage
     require_root

@@ -631,6 +631,11 @@ export async function applyPackage(
 export interface RollbackHooks {
   /** Restore the pre-update snapshot of `~/.psyche` taken when updating from `toVersion` (Gateway stopped). */
   restoreSnapshot(toVersion: string): Promise<void>;
+  /**
+   * Undo `restoreSnapshot(toVersion)`: put back what it moved aside (the `.displaced-*` folder), so
+   * a go-back that does not happen leaves the data as it was. Called on any outcome but `applied`.
+   */
+  undoRestore(toVersion: string): Promise<void>;
   /** `run/skip-builds.json`: the build being left, so the updater does not offer it again. */
   recordSkipBuild(build: { release: string; build?: string | undefined }): Promise<void>;
 }
@@ -666,36 +671,46 @@ export async function rollbackLinux(
     await d.gateway.restart("update").catch(() => undefined);
     return fail("swap_failed", `your data could not be put back: ${errorText(err)}`);
   }
+  // From here, anything but `applied` hands the data back, so "cancelled" still means nothing changed.
+  const abort = async (result: ApplyResult): Promise<ApplyResult> => {
+    try {
+      await hooks.undoRestore(kept.version);
+    } catch (err) {
+      d.log(`could not put the newer data back: ${errorText(err)}`);
+      await d.gateway.restart("update").catch(() => undefined);
+      return fail(
+        "swap_failed",
+        `going back did not happen and your newer data could not be put back from the pre-update folder: ${errorText(err)}`,
+      );
+    }
+    await d.gateway.restart("update").catch(() => undefined);
+    return result;
+  };
   if (kind === "appimage") {
-    if (!appImagePath) return fail("swap_failed", "the AppImage path is unknown");
+    if (!appImagePath) return abort(fail("swap_failed", "the AppImage path is unknown"));
     const notFile = await replaceableImage(d, appImagePath);
     if (notFile) {
-      await d.gateway.restart("update").catch(() => undefined);
-      return notFile;
+      return abort(notFile);
     }
     if (!(await canReplace(d.fs, appImagePath))) {
-      await d.gateway.restart("update").catch(() => undefined);
-      return { state: "manual", reason: "not_writable", file };
+      return abort({ state: "manual", reason: "not_writable", file });
     }
     try {
       await replaceFile(d.fs, file, appImagePath, 0o755);
       await clearKept(d.fs, dir);
     } catch (err) {
-      await d.gateway.restart("update").catch(() => undefined);
-      return fail("swap_failed", errorText(err));
+      return abort(fail("swap_failed", errorText(err)));
     }
   } else {
     if (!(await exists(d.fs, PACKAGED_SETUP))) {
-      await d.gateway.restart("update").catch(() => undefined);
-      return { state: "manual", reason: "no_package_manager", file };
+      return abort({ state: "manual", reason: "no_package_manager", file });
     }
     const res = await runPackageManager(
       d,
       installPackageCommand(kept.artifact.sha256, file, "downgrade"),
     );
     if (!res.ok) {
-      await d.gateway.restart("update").catch(() => undefined);
-      return packageFailure(res, file);
+      return abort(packageFailure(res, file));
     }
     // The kept package is installed again: it is `installed`, and nothing older is kept.
     await d.fs.mkdir(d.paths.packageDir, { recursive: true, mode: 0o700 });

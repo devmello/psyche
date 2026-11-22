@@ -5,13 +5,14 @@ import {
   mkdirSync,
   mkdtempSync,
   readFileSync,
+  renameSync,
   rmSync,
   statSync,
   symlinkSync,
   writeFileSync,
 } from "node:fs";
 import { tmpdir } from "node:os";
-import { join } from "node:path";
+import { dirname, join } from "node:path";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { keyIdOf, type ReleaseKey } from "../../src/main/update-manifest.ts";
 import {
@@ -175,6 +176,7 @@ const hooks = () => {
   const calls: string[] = [];
   const h: RollbackHooks = {
     restoreSnapshot: async () => void calls.push("restore"),
+    undoRestore: async () => void calls.push("undo"),
     recordSkipBuild: async (b) => void calls.push(`skip:${b.release}:${b.build}`),
   };
   return { h, calls };
@@ -449,6 +451,38 @@ describe("AppImage", () => {
       ).toBeUndefined();
     });
 
+    it("puts the newer data back when the image cannot be replaced", async () => {
+      const { s, image, running } = await updated();
+      // Not a regular file any more: the swap is refused after the data was restored.
+      const elsewhere = join(dirname(image), "elsewhere.AppImage");
+      renameSync(image, elsewhere);
+      symlinkSync(elsewhere, image);
+      const { h, calls } = hooks();
+      expect(await rollbackLinux("appimage", image, running, h)).toMatchObject({
+        state: "failed",
+        code: "not_regular_file",
+      });
+      expect(calls).toEqual(["restore", "undo"]);
+      expect(s.events).toEqual(["stop", "restart:update"]);
+      expect(readFileSync(elsewhere)).toEqual(NEW);
+    });
+
+    it("says so when the newer data cannot be put back either", async () => {
+      const { image, running } = await updated();
+      const elsewhere = join(dirname(image), "elsewhere.AppImage");
+      renameSync(image, elsewhere);
+      symlinkSync(elsewhere, image);
+      const { h } = hooks();
+      h.undoRestore = async () => {
+        throw new Error("disk full");
+      };
+      expect(await rollbackLinux("appimage", image, running, h)).toMatchObject({
+        state: "failed",
+        code: "swap_failed",
+        detail: expect.stringContaining("disk full"),
+      });
+    });
+
     it("has nothing to go back to when none is kept", async () => {
       const s = setup("appimage");
       const image = installed(s);
@@ -630,7 +664,10 @@ describe.each(["deb", "rpm"] as const)("%s", (kind) => {
     expect(readFileSync(join(s.paths.packageDir, fileName(kind, "1.1.0")))).toEqual(PKG1);
   });
 
-  it("restarts the Gateway and keeps the files when the downgrade is refused", async () => {
+  it.each([
+    ["dismissed", 126, "cancelled"],
+    ["refused", 1, "package_manager_failed"],
+  ] as const)("puts the newer data back when the downgrade is %s", async (_n, code, expected) => {
     const s = setup(kind);
     await applyLinuxUpdate(s.stage("1.1.0", PKG1), install, s.deps);
     await applyLinuxUpdate(s.stage("1.2.0", PKG2), install, {
@@ -638,7 +675,7 @@ describe.each(["deb", "rpm"] as const)("%s", (kind) => {
       current: { version: "1.1.0", build: "b1" },
     });
     s.events.length = 0;
-    s.setPkexec({ code: 1, stderr: "held package" });
+    s.setPkexec({ code, stderr: "held package" });
     const { h, calls } = hooks();
     const res = await rollbackLinux(
       kind,
@@ -646,8 +683,13 @@ describe.each(["deb", "rpm"] as const)("%s", (kind) => {
       { ...s.deps, current: { version: "1.2.0", build: "b2" } },
       h,
     );
-    expect(res).toMatchObject({ state: "failed", code: "package_manager_failed" });
-    expect(calls).toEqual(["restore"]);
+    expect(res).toMatchObject(
+      expected === "cancelled"
+        ? { state: "cancelled" }
+        : { state: "failed", code: "package_manager_failed" },
+    );
+    // The data went back and came back: no skip entry, the old Gateway restarts.
+    expect(calls).toEqual(["restore", "undo"]);
     expect(s.events).toEqual(["stop", "restart:update"]);
     expect(await previousArtifact(nodeApplyFs, s.paths, kind, trust())).toMatchObject({
       version: "1.1.0",

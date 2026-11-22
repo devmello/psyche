@@ -286,6 +286,12 @@ async function runLinuxUpdater(opts: UpdaterOptions, log: (m: string) => void): 
     if (gate.state === "no_keys") log(`${gate.why}: updates stay off`);
     return { state: gate.state };
   }
+  // Nothing can apply a staged update until the desktop sets the host (`setLinuxUpdateHost`), so
+  // do not download one on every launch only to leave it unused.
+  if (!linuxHost) {
+    log("the Linux update host is not set: not downloading an update that could not be applied");
+    return { state: "disabled" };
+  }
   const feed = opts.feedUrl ?? process.env.PSYCHE_UPDATE_FEED;
   const result = await checkForVerifiedUpdate({
     fetch,
