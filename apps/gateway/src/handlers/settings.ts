@@ -3,6 +3,7 @@ import { normalize, sep } from "node:path";
 import { getSetting, getSettings, setSetting } from "@psyche/db";
 import { assertFolderGrantable } from "@psyche/permissions";
 import { isAdminSettingKey, PsycheError } from "@psyche/protocol";
+import { normalizeMachineSetting } from "../compose/computer-settings.ts";
 import { folderAccessEnv } from "../compose/protected-paths.ts";
 import type { Call, HandlerDef } from "../context.ts";
 import { LAN_SETTING, parseLanSettings } from "../lan/settings.ts";
@@ -263,6 +264,9 @@ export const settingsHandlers: Record<string, HandlerDef> = {
       // `gateway.lan` is stored in its normalized form, and a malformed or wildcard value is
       // refused before anything (including the presence card) is created for it.
       let value = key === LAN_SETTING ? parseLanSettings(params.value) : params.value;
+      // Per-machine tiers and the default computer (wave H4): only paired machines, tiers at
+      // most the fixed caps, refused before any card is made for them.
+      value = normalizeMachineSetting(call.ctx.db, key, value);
       if (key.startsWith(INTERNAL_SETTING_PREFIX)) {
         throw new PsycheError(
           "invalid_params",

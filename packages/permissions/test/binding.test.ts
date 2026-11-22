@@ -508,12 +508,15 @@ const computerBase: fc.Arbitrary<Args> = fc.record({
   tierRequired: tierArb,
   action: fc.string({ minLength: 1, maxLength: 12 }),
   elementRefSha256: opt(shaArb),
+  machine: opt(ident),
 });
 const computerMutations: Mutation[] = [
   field("app", appArb, true),
   field("tierRequired", tierArb, true),
   field("action", fc.string({ minLength: 1, maxLength: 12 }), false),
   field("elementRefSha256", opt(shaArb), false),
+  // Wave H4: the machine is bound and part of the grant key (absent: the Host).
+  field("machine", opt(ident), true),
 ];
 
 const newOriginBase: fc.Arbitrary<Args> = fc.record({
