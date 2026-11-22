@@ -652,6 +652,18 @@ export function turnText(parts: readonly InboundPart[]): string {
 }
 
 /**
+ * The turn's text split: other people's words (forwarded, quoted, untrusted parts) first as
+ * `lead`, then the sender's own typed words. `content` is `lead`, a blank line, the typed words.
+ */
+export function turnTextParts(parts: readonly InboundPart[]): { content: string; lead: string } {
+  const isOther = (p: InboundPart) =>
+    p.label === "forwarded" || p.label === "quoted" || p.provenance === "untrusted";
+  const lead = turnText(parts.filter(isOther));
+  const typed = turnText(parts.filter((p) => !isOther(p)));
+  return { lead, content: lead === "" ? typed : typed === "" ? lead : `${lead}\n\n${typed}` };
+}
+
+/**
  * What a channel message becomes as turn input. A non-owner sender (a group member, an allowed
  * sender) is third-party content whatever the event's own taint list says: the turn starts
  * tainted by `channel_message` for them, and the loop tags and fences their text as untrusted
@@ -660,6 +672,8 @@ export function turnText(parts: readonly InboundPart[]): string {
  */
 export function inboundTurnInput(event: ChannelInboundEvent): {
   content: string;
+  /** The start of `content` that is other people's words. */
+  lead: string;
   requester: ReturnType<typeof requesterFromRoute>;
   taintSources: TaintSource[];
 } {
@@ -673,8 +687,10 @@ export function inboundTurnInput(event: ChannelInboundEvent): {
       sender: `${event.route.channelType}:${event.route.senderId}`,
     });
   }
+  const { content, lead } = turnTextParts(event.parts);
   return {
-    content: turnText(event.parts),
+    content,
+    lead,
     requester: requesterFromRoute(event.route),
     taintSources,
   };
@@ -694,6 +710,8 @@ interface TurnState {
 interface Pending {
   target: OutboundTarget;
   content: string;
+  /** The start of `content` that is forwarded or quoted text: not the sender's words. */
+  lead?: string;
   /** Who sent it (S10 `RouteContext` → `Requester`); the broker decides the turn as theirs. */
   requester: Requester;
   /** Forwarded or quoted third-party text inside it (#275). */
@@ -790,6 +808,7 @@ export function composeChannels(
           p === null ||
           typeof p !== "object" ||
           typeof p.content !== "string" ||
+          (p.lead !== undefined && (typeof p.lead !== "string" || !p.content.startsWith(p.lead))) ||
           typeof p.target?.channelId !== "string" ||
           p.inbound === undefined ||
           typeof p.inbound.chatId !== "string" ||
@@ -1259,6 +1278,9 @@ export function composeChannels(
         {
           threadId,
           content: pending.content,
+          ...(pending.lead === undefined || pending.lead === ""
+            ? {}
+            : { leadingContext: pending.lead }),
           deviceId: `channel:${pending.target.channelId}`,
           requester: pending.requester,
           ...(pending.taintSources === undefined ? {} : { taintSources: pending.taintSources }),
@@ -1328,11 +1350,12 @@ export function composeChannels(
       await onCommand(event, thread, target);
       return;
     }
-    const { content, requester, taintSources } = inboundTurnInput(event);
+    const { content, lead, requester, taintSources } = inboundTurnInput(event);
     if (content.trim() === "") return;
     startTurn(thread.id, {
       target,
       content,
+      ...(lead === "" ? {} : { lead }),
       requester,
       ...(taintSources.length === 0 ? {} : { taintSources }),
       inbound: message,

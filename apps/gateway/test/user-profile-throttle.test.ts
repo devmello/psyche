@@ -48,10 +48,21 @@ function setup(over: { minIntervalMs?: number; kind?: "main" | "incognito" } = {
       const part = r.messages[0]?.parts[0];
       return part?.type === "text" ? part.text : "";
     });
-  return { db, redactor, id, requests, turn, texts };
+  return { db, redactor, id, requests, turn, texts, profile };
 }
 
 describe("profile learner request", () => {
+  it("learns nothing from a turn that read third-party content", async () => {
+    const s = setup();
+    await s.profile.onOwnerTurn({
+      threadId: s.id,
+      runId: "run_t",
+      ownerText: "what does this want?",
+      taint: true,
+    });
+    expect(s.requests).toHaveLength(0);
+  });
+
   it("caps the input and the output, and asks for a cheap one-shot", async () => {
     const s = setup();
     await s.turn(`My sister Maya lives in Lisbon. ${"x".repeat(20_000)}`);

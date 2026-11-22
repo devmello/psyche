@@ -97,6 +97,12 @@ export interface SendInput {
    */
   taintSources?: TaintSource[];
   /**
+   * The start of `content` that is not the sender's own words (forwarded or quoted text in a
+   * channel message). `content` keeps it, ahead of the typed words; the model reads it as
+   * untrusted context and it names no targets. Must be a prefix of `content`.
+   */
+  leadingContext?: string;
+  /**
    * Context the agent reads ahead of the message but the transcript doesn't show (Ask about my
    * screen: the untrusted text of what was on screen, docs/design/screen-ask-2026.md §3.3). Only
    * for a turn that starts now: a busy thread refuses it rather than queueing it without.
@@ -301,6 +307,7 @@ export class SessionController {
         input.provenance,
         quote,
         extra,
+        input.leadingContext,
       );
       this.#noteTaint(run.id, input.taintSources);
       this.#noteTurnOptions(run.id, input);
@@ -351,7 +358,8 @@ export class SessionController {
         const ownerWords =
           input.provenance !== "agent" &&
           messageProvenance(input.requester) === "owner" &&
-          quote === undefined;
+          quote === undefined &&
+          input.leadingContext === undefined;
         this.#ctx.agent
           .steer(active, withQuote(quote, input.content), { ownerWords })
           .catch((err) => this.#warn("steer failed", err));
@@ -374,6 +382,7 @@ export class SessionController {
       input.provenance,
       quote,
       extra,
+      input.leadingContext,
     );
     this.#noteTaint(run.id, input.taintSources);
     this.#noteTurnOptions(run.id, input);
@@ -423,7 +432,7 @@ export class SessionController {
       Promise.resolve(
         // The owner's own reply; a quoted message ahead of it is not their words.
         this.#ctx.agent.supersedeWaits?.(active, withQuote(quote, input.content), {
-          ownerWords: quote === undefined,
+          ownerWords: quote === undefined && input.leadingContext === undefined,
         }),
       )
         .then((closed) => {
@@ -480,11 +489,14 @@ export class SessionController {
     provenance: "owner" | "agent" = "owner",
     quote?: Quote,
     extra?: TurnExtra,
+    leadingContext?: string,
   ): { messageId: string; run: Run } {
     const { db } = this.#ctx;
     // What the Gateway puts ahead of the typed words (Ask about this, a screen ask, a quote): the
     // model reads it as its own part, never as the sender's words.
-    const context = [extra?.preamble, quoteContext(quote)]
+    const lead =
+      leadingContext !== undefined && content.startsWith(leadingContext) ? leadingContext : "";
+    const context = [extra?.preamble, quoteContext(quote), lead]
       .filter((c): c is string => c !== undefined && c !== "")
       .join("\n\n");
     const agentContent = context === "" ? content : `${context}\n\n${content}`;

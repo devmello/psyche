@@ -939,7 +939,7 @@ export class PsycheAgentLoop implements AgentLoop {
     run.chatReplyOwner = options.ownerWords === true;
     run.chatReplies += 1;
     run.replied = true;
-    run.ownerText += `\n${text}`;
+    if (options.ownerWords === true && run.ownerRun) run.ownerText += `\n${text}`;
     const questions: InputRequest[] = [];
     for (const [id, pending] of [...run.questions]) {
       run.questions.delete(id);
@@ -1012,7 +1012,8 @@ export class PsycheAgentLoop implements AgentLoop {
       mode: input.mode,
       permissionMode: input.permissionMode,
       // Only the owner's words name targets the agent may act on (security §3.6, §9).
-      ownerText: ownerSent && input.ownerWords !== false ? input.input.text : "",
+      // Only the typed words: never the Gateway's context (preamble, quote, forwarded text).
+      ownerText: ownerSent && input.ownerWords !== false ? ownerTypedText(input) : "",
       ...(input.proposedCall === undefined ? {} : { proposedCall: input.proposedCall }),
       ownerAttached: ownerSent && (input.input.attachments?.length ?? 0) > 0,
       ...(requester === undefined ? {} : { requester }),
@@ -1396,7 +1397,7 @@ export class PsycheAgentLoop implements AgentLoop {
       if (followUp !== undefined) {
         this.#flushUnattended(run, pendingText);
         pendingText = "";
-        run.ownerText += `\n${followUp.text}`;
+        if (followUp.ownerWords && run.ownerRun) run.ownerText += `\n${followUp.text}`;
         run.thread.messages.push({ role: "user", parts: [ownerPart(run, followUp)] });
         continue;
       }
@@ -1777,7 +1778,7 @@ export class PsycheAgentLoop implements AgentLoop {
     run.replied = false;
     if (run.steer.length === 0) return false;
     for (const s of run.steer.splice(0)) {
-      run.ownerText += `\n${s.text}`;
+      if (s.ownerWords && run.ownerRun) run.ownerText += `\n${s.text}`;
       run.thread.messages.push({ role: "user", parts: [ownerPart(run, s)] });
     }
     return true;
@@ -4428,6 +4429,12 @@ export function controlFacts(c: ControlFacts): ControlFacts {
 
 function worst(a: ProvenanceOut, b: ProvenanceOut | undefined): ProvenanceOut {
   return a === "untrusted" || b === "untrusted" ? "untrusted" : "trusted";
+}
+
+/** The owner's typed words of a turn: `text` without the Gateway's leading context. */
+function ownerTypedText(input: StartTurnInput): string {
+  const { typed, context } = userTextParts(input);
+  return context === false ? "" : typed;
 }
 
 /**
