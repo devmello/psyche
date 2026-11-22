@@ -14,11 +14,12 @@ import { resolveConfig } from "./config.ts";
 import { loadOrCreateGatewayIdentity, rotateGatewayIdentity } from "./identity.ts";
 import {
   acquireGatewayLock,
+  createSnapshot,
+  GATEWAY_LOCK_FILE,
   listSnapshots,
   releaseGatewayLock,
   restoreWithMarker,
 } from "./pre-update.ts";
-import { createSnapshot, GATEWAY_LOCK_FILE } from "./pre-update.ts";
 import { DEFAULT_APPROVE_SCOPES } from "./security/recoveries.ts";
 
 /**

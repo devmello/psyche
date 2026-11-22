@@ -26,8 +26,8 @@ import { claimedRequirement } from "./bundle-integrity.ts";
 import { TRUSTED_RELEASE_KEYS } from "./release-keys.ts";
 import {
   checkForVerifiedUpdate,
-  fetchReleaseManifest,
   feedForChannel,
+  fetchReleaseManifest,
   serveVerifiedUpdate,
   switchToFullPackage,
   type UpdateCheck,
