@@ -107,6 +107,9 @@ function fakeMachine(ref: ComputerMachineRef, calls: Call[]): NodeClient {
               { path: `${p.cwd}/sub/.git`, movedTo: `${p.cwd}/sub/.git.psyche-quarantine-1` },
               { path: 7 },
             ],
+            quarantinedCount: 3,
+            launchScanIncomplete: true,
+            launchScanNote: "more than 20000 folders to check",
           },
         };
       }
@@ -618,6 +621,12 @@ describe("exec_host on a machine: taint", () => {
     expect((ok.output as { quarantined?: unknown }).quarantined).toEqual([
       { path: `${PROJ}/sub/.git`, movedTo: `${PROJ}/sub/.git.psyche-quarantine-1` },
     ]);
+    // How many there were, and that the box could not check the folder whole.
+    expect(ok.output).toMatchObject({
+      quarantinedCount: 3,
+      launchScanIncomplete: true,
+      launchScanNote: "more than 20000 folders to check",
+    });
     expect(updates).toContainEqual({ data: { machine: A, stream: "stdout", text: "hi\n" } });
   });
 });

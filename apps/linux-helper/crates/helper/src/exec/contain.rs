@@ -62,6 +62,8 @@ pub struct Plan<'a> {
     pub read_only: &'a [PathBuf],
     /// Launch configs to show read-only inside a writable folder.
     pub masks: &'a Masks,
+    /// The pinned folders' open descriptors and paths, parents first (`launch::open_pins`).
+    pub pins: &'a [(i32, PathBuf)],
     /// The executable's open descriptor and real path: bound over that path.
     pub executable: Option<(i32, &'a Path)>,
     /// argv[0] as the call wrote it.
@@ -108,11 +110,23 @@ pub fn path_sockets() -> Vec<PathBuf> {
 }
 
 /// The absolute paths in `/proc/net/unix` (abstract names start with `@` and are skipped).
+/// The path column of one `/proc/net/unix` line: everything after the seven fields before it,
+/// spaces in the path kept (#1512 r3, N4).
+fn unix_path(line: &str) -> Option<&str> {
+    let mut rest = line;
+    for _ in 0..7 {
+        rest = rest.trim_start_matches(' ');
+        rest = &rest[rest.find(' ')?..];
+    }
+    let path = rest.trim_start_matches(' ');
+    (!path.is_empty()).then_some(path)
+}
+
 pub fn parse_unix(text: &str) -> Vec<PathBuf> {
     let mut out: Vec<PathBuf> = text
         .lines()
         .skip(1)
-        .filter_map(|l| l.split_whitespace().nth(7))
+        .filter_map(unix_path)
         .filter(|p| p.starts_with('/'))
         .map(PathBuf::from)
         .collect();
@@ -193,10 +207,12 @@ pub fn args(plan: &Plan) -> Vec<OsString> {
         let inside = |p: &PathBuf| p.starts_with(plan.folder) && !covered_by(p, &read_only);
         // Pinned folders first, parents first: each a mount point of its own, which can't be
         // renamed or removed, so no mask below can be moved aside (#1512 r2 findings 1 and 3).
-        for p in plan.masks.pinned.iter().filter(|p| inside(p)) {
-            if std::fs::symlink_metadata(p).is_ok_and(|m| m.is_dir()) {
-                push_path(&mut out, "--bind", p, p);
-            }
+        // Bound from the descriptor `launch::open_pins` opened without following a link, so a
+        // folder swapped for a link meanwhile can't lead the bind outside (#1512 r3, B3).
+        for (fd, p) in plan.pins.iter().filter(|(_, p)| inside(p)) {
+            out.push("--bind-fd".into());
+            out.push(fd.to_string().into());
+            out.push(p.as_os_str().to_os_string());
         }
         for r in &read_only {
             push_path(&mut out, "--ro-bind", r, r);
@@ -339,11 +355,12 @@ mod tests {
         let outside = home.join("elsewhere");
         std::fs::create_dir_all(folder.join(".git/hooks")).unwrap();
         let masks = Masks {
-            pinned: vec![folder.join(".git"), keep.join("inner")],
             existing: vec![folder.join(".git/hooks"), keep.join(".envrc")],
             missing_dirs: vec![folder.join(".vscode")],
             missing_files: vec![folder.join(".envrc")],
+            ..Masks::default()
         };
+        let pins = [(11, folder.join(".git")), (12, keep.join("inner"))];
         let exe = folder.join("build.sh");
         let plan = Plan {
             home: &home,
@@ -358,6 +375,7 @@ mod tests {
             ],
             read_only: &[keep.clone(), outside.clone()],
             masks: &masks,
+            pins: &pins,
             executable: Some((7, &exe)),
             argv0: Some("./build.sh"),
             seccomp: None,
@@ -404,7 +422,7 @@ mod tests {
         let git = folder.join(".git").display().to_string();
         let pin_at = a
             .windows(3)
-            .position(|w| w[0] == "--bind" && w[1] == git && w[2] == git)
+            .position(|w| w[0] == "--bind-fd" && w[1] == "11" && w[2] == git)
             .unwrap();
         let hooks_at = a.windows(3).position(|w| w[1] == hooks).unwrap();
         assert!(bind.unwrap() < pin_at && pin_at < hooks_at);
@@ -451,11 +469,13 @@ mod tests {
             0000000000000000: 00000002 00000000 00010000 0001 01 1002 @/tmp/.X11-unix/X0\n\
             0000000000000000: 00000003 00000000 00000000 0001 03 1003\n\
             0000000000000000: 00000002 00000000 00010000 0001 01 1004 /var/snap/multipass/common/multipass_socket\n\
-            0000000000000000: 00000002 00000000 00010000 0001 01 1005 /home/u/.cache/svc/daemon.sock\n";
+            0000000000000000: 00000002 00000000 00010000 0001 01 1005 /home/u/.cache/svc/daemon.sock\n\
+            0000000000000000: 00000002 00000000 00010000 0001 01   106 /home/u/My Stuff/a b.sock\n";
         assert_eq!(
             parse_unix(text),
             vec![
                 PathBuf::from("/home/u/.cache/svc/daemon.sock"),
+                PathBuf::from("/home/u/My Stuff/a b.sock"),
                 PathBuf::from("/var/snap/multipass/common/multipass_socket"),
             ]
         );

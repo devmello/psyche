@@ -61,6 +61,10 @@ pub const EXEC_OUTPUT_CAP_BYTES: usize = 128 * 1024;
 /// Each stream's text in the result, JSON-encoded, at most: both fit in one 1 MiB frame.
 pub const EXEC_OUTPUT_JSON_BUDGET: usize = 384 * 1024;
 pub const EXEC_DEFAULT_TIMEOUT_MS: u64 = 60_000;
+/// How many moved-aside launch entries one result names, and in how much JSON at most (the
+/// count says how many there were).
+pub const QUARANTINED_LISTED_MAX: usize = 50;
+pub const QUARANTINED_JSON_BUDGET: usize = 64 * 1024;
 pub const EXEC_TIMEOUT_MS_MAX: u64 = 600_000;
 pub const KILL_GRACE: Duration = Duration::from_secs(2);
 /// Bare names are looked up here only.
@@ -796,12 +800,23 @@ impl Tree {
     }
 }
 
-/// Ends one contained read-write command for the launch-config stubs (see [`launch::Stubs`]).
-struct StubsHeld;
-impl Drop for StubsHeld {
-    fn drop(&mut self) {
-        launch::Stubs::global().end();
-    }
+/// What one contained read-write run holds from before it starts until its folder was checked
+/// after it: its turn in the folder, what the folder held, and the masks it was built from.
+struct ReadWrite {
+    _turn: launch::Held<'static>,
+    before: launch::Before,
+    masks: launch::Masks,
+}
+
+/// Why a read-write run in `folder` does not start: its launch-config check can't be trusted.
+fn scan_refused(folder: &Path, why: &str) -> CapabilityError {
+    refuse(
+        "launch_scan_incomplete",
+        format!(
+            "{} can't be checked for launch configs ({why}), so commands may not write there; grant a smaller folder, or run it read-only",
+            folder.display()
+        ),
+    )
 }
 
 /// What ran and how it ended.
@@ -819,6 +834,8 @@ pub struct Ran {
     pub tree: &'static str,
     /// Launch entries the command made in its read-write folder, moved aside.
     pub quarantined: Vec<launch::Quarantined>,
+    /// Why some launch entries may still be in place (the folder takes no more read-write runs).
+    pub scan_cut: Option<String>,
 }
 
 fn spawn_err(e: std::io::Error) -> CapabilityError {
@@ -855,8 +872,8 @@ pub fn run(
     // Descriptors the child keeps across exec (the executable, the seccomp filter).
     let mut keep: Vec<i32> = Vec::new();
     let mut _filter = None;
-    let mut _stubs = None;
-    let mut before: Option<launch::Before> = None;
+    let mut rw: Option<ReadWrite> = None;
+    let mut _pins: Vec<std::os::fd::OwnedFd> = Vec::new();
     let tree;
     let mut cmd = if c.contain {
         let Some(bwrap) = bwrap.filter(|b| contain::probe(b, c.network)) else {
@@ -889,15 +906,52 @@ pub fn run(
         } else {
             None
         };
-        let masks = if c.writable {
-            let m = launch::Stubs::global().begin(launch::masks(&c.folder, &c.cwd, &c.read_only));
-            _stubs = Some(StubsHeld);
-            // What launch entries are there now: any new one afterwards is moved aside.
-            before = Some(launch::before(&c.folder, &c.cwd));
-            m
-        } else {
-            launch::Masks::default()
-        };
+        let mut pins: Vec<(i32, PathBuf)> = Vec::new();
+        if c.writable {
+            // One read-write run at a time in overlapping folders: no other run can swap, plant
+            // into or move what this sandbox is built from (#1512 r3, B3 and B4).
+            let Some(turn) = launch::Folders::global().hold(&c.folder, &ctx.cancelled) else {
+                return Err(err(
+                    ErrorCode::Cancelled,
+                    "cancelled",
+                    "exec.host was cancelled before it started",
+                ));
+            };
+            if let Some(f) = launch::Folders::global().flagged(&c.folder) {
+                return Err(refuse(
+                    "launch_scan_incomplete",
+                    format!(
+                        "A command in {} may have left launch configs that were not moved aside; check the folder, then restart Psyche on this computer to let commands write there again",
+                        f.display()
+                    ),
+                ));
+            }
+            // What launch entries are there now: any new or changed one afterwards is moved
+            // aside. A folder that can't be checked whole is refused (fail closed).
+            let before =
+                launch::before(&c.folder, &c.cwd).map_err(|cut| scan_refused(&c.folder, &cut.0))?;
+            let masks = launch::masks(&c.folder, &c.cwd, &c.read_only);
+            for (fd, p) in launch::open_pins(&c.folder, &masks, &c.read_only).map_err(|p| {
+                refuse(
+                    "folder_changed",
+                    format!(
+                        "{} changed while the command was being set up; it was not run",
+                        p.display()
+                    ),
+                )
+            })? {
+                keep.push(fd.as_raw_fd());
+                pins.push((fd.as_raw_fd(), p));
+                _pins.push(fd);
+            }
+            rw = Some(ReadWrite {
+                _turn: turn,
+                before,
+                masks,
+            });
+        }
+        let no_masks = launch::Masks::default();
+        let masks = rw.as_ref().map_or(&no_masks, |r| &r.masks);
         let sockets: Vec<PathBuf> = ["SSH_AUTH_SOCK", "GPG_AGENT_INFO"]
             .iter()
             .filter_map(std::env::var_os)
@@ -917,7 +971,8 @@ pub fn run(
             cwd: &c.cwd,
             sockets: &sockets,
             read_only: &c.read_only,
-            masks: &masks,
+            masks,
+            pins: &pins,
             executable: Some((exe_fd, &c.executable)),
             argv0: Some(&c.argv[0]),
             seccomp: seccomp_fd,
@@ -981,6 +1036,8 @@ pub fn run(
     let started = Instant::now();
     let mut child = cmd.spawn().map_err(spawn_err)?;
     drop(_filter.take());
+    // bwrap has its own copies of the pinned folders' descriptors.
+    drop(std::mem::take(&mut _pins));
     let pid = i32::try_from(child.id()).unwrap_or(0);
     let out = Arc::new(Mutex::new(Kept::default()));
     let errs = Arc::new(Mutex::new(Kept::default()));
@@ -1033,12 +1090,20 @@ pub fn run(
     };
     let (stdout, t1) = take(&out);
     let (stderr, t2) = take(&errs);
-    // The sandbox is gone: new launch entries the command made are moved aside (stubs other
-    // commands still mount over stay), then this command's stubs go.
-    let quarantined = before
-        .map(|b| launch::quarantine(&c.folder, &c.cwd, &b))
-        .unwrap_or_default();
-    drop(_stubs);
+    // The sandbox is gone: its empty stubs go, then every launch entry that is new or changed
+    // (a stub with something in it too) is moved aside. If that can't be done whole, the folder
+    // takes no more read-write runs (fail closed). Its turn ends after that.
+    let (quarantined, scan_cut) = match rw.take() {
+        Some(rw) => {
+            launch::remove_stubs(&c.folder, &rw.masks);
+            let o = launch::quarantine(&c.folder, &c.cwd, &rw.before);
+            if o.cut.is_some() {
+                launch::Folders::global().flag(&c.folder);
+            }
+            (o.moved, o.cut)
+        }
+        None => (Vec::new(), None),
+    };
     Ok(Ran {
         exit_code: status.and_then(|s| s.code()),
         signal: status.and_then(|s| s.signal()),
@@ -1050,6 +1115,7 @@ pub fn run(
         duration: started.elapsed(),
         tree: tree.name(),
         quarantined,
+        scan_cut,
     })
 }
 
@@ -1133,6 +1199,21 @@ impl ExecHost {
                 "exec.host was cancelled; its processes were killed",
             ));
         }
+        // What was moved aside, as much as fits beside the output in one frame (#1512 r3, N2).
+        let mut listed = Vec::new();
+        let mut size = 0;
+        for q in &ran.quarantined {
+            let v = json!({
+                "path": q.path.display().to_string(),
+                "movedTo": q.moved_to.display().to_string(),
+            });
+            size += v.to_string().len() + 1;
+            if listed.len() >= QUARANTINED_LISTED_MAX || size > QUARANTINED_JSON_BUDGET {
+                break;
+            }
+            listed.push(v);
+        }
+        let listed_cut = listed.len() < ran.quarantined.len();
         Ok(json!({
             "exitCode": ran.exit_code,
             "signal": ran.signal,
@@ -1147,10 +1228,11 @@ impl ExecHost {
             "contained": checked.contain,
             "network": checked.network,
             "tree": ran.tree,
-            "quarantined": ran.quarantined.iter().map(|q| json!({
-                "path": q.path.display().to_string(),
-                "movedTo": q.moved_to.display().to_string(),
-            })).collect::<Vec<_>>(),
+            "quarantined": listed,
+            "quarantinedCount": ran.quarantined.len(),
+            "quarantinedTruncated": listed_cut,
+            "launchScanIncomplete": ran.scan_cut.is_some(),
+            "launchScanNote": ran.scan_cut,
         }))
     }
 }

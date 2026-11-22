@@ -1115,4 +1115,189 @@ print("tcp", try_(tcp)); print("pair", try_(pair))
         );
         assert_eq!(v["stdout"], "refused\n", "{v}");
     }
+
+    fn call(exec: &ExecHost, params: Value) -> Result<Value, CapabilityError> {
+        let (ctx, _) = ctx_with(bound(params), Some("apr_1".into()));
+        exec.call(&ctx)
+    }
+
+    fn moved(v: &Value) -> Vec<String> {
+        let mut out: Vec<String> = v["quarantined"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .map(|q| q["path"].as_str().unwrap().to_string())
+            .collect();
+        out.sort();
+        out
+    }
+
+    /// #1512 review r3, B1: a `commondir` (and `config.worktree`, `info`) written into an
+    /// existing `.git` would send git to a config and hooks the command wrote: moved aside.
+    #[test]
+    fn git_redirects_written_into_an_existing_git_folder_are_moved_aside() {
+        let _one = one_at_a_time();
+        let Some(bwrap) = bwrap_or_skip() else { return };
+        let b = Box_::new(CONTAINED);
+        std::fs::create_dir_all(b.p("home/proj/.git/hooks")).unwrap();
+        std::fs::write(b.p("home/proj/.git/config"), "[core]\n").unwrap();
+        std::fs::write(b.p("home/proj/.git/HEAD"), "ref: refs/heads/main\n").unwrap();
+        let exec = b.exec(Some(bwrap));
+        let script = [
+            "mkdir -p .git/evil/objects .git/evil/refs .git/evil/hooks",
+            "echo 'ref: refs/heads/main' > .git/evil/HEAD",
+            "printf '[core]\\n\\tfsmonitor = /bin/true\\n' > .git/evil/config",
+            "echo evil > .git/commondir && echo planted",
+            "echo '[core]' > .git/config.worktree",
+            "mkdir .git/info && echo '* filter=x' > .git/info/attributes",
+        ]
+        .join("\n");
+        let (v, _) = run_ok(&exec, rw_in(&b, "proj", &script));
+        assert_eq!(v["stdout"], "planted\n", "{v}");
+        let want: Vec<String> = [".git/commondir", ".git/config.worktree", ".git/info"]
+            .iter()
+            .map(|p| b.h(&format!("proj/{p}")))
+            .collect();
+        assert_eq!(moved(&v), want, "{v}");
+        for p in [".git/commondir", ".git/config.worktree", ".git/info"] {
+            assert!(!b.p("home/proj").join(p).exists(), "{p} still in place");
+        }
+        assert_eq!(v["launchScanIncomplete"], false);
+        // git's own state is untouched.
+        assert_eq!(
+            std::fs::read_to_string(b.p("home/proj/.git/config")).unwrap(),
+            "[core]\n"
+        );
+    }
+
+    /// #1512 review r3, B2 (b, c): guessed quarantine names and a name too long for a suffix
+    /// don't leave a planted entry in place.
+    #[test]
+    fn guessed_quarantine_names_and_long_names_are_still_moved_aside() {
+        let _one = one_at_a_time();
+        let Some(bwrap) = bwrap_or_skip() else { return };
+        let b = Box_::new(CONTAINED);
+        let exec = b.exec(Some(bwrap));
+        let long = format!("{}.code-workspace", "w".repeat(240));
+        let script = format!(
+            "mkdir -p sub/.git && echo '[core]' > sub/.git/config && t=$(date +%s) && for i in 0 1 2 3 4 5 6 7 8; do for n in '' -1 -2 -3; do touch sub/.git.psyche-quarantine-$((t+i))$n; done; done && echo '{{}}' > {long} && echo made"
+        );
+        let (v, _) = run_ok(&exec, rw_in(&b, "proj", &script));
+        assert_eq!(v["stdout"], "made\n", "{v}");
+        let mut want = vec![b.h("proj/sub/.git"), b.h(&format!("proj/{long}"))];
+        want.sort();
+        assert_eq!(moved(&v), want, "{v}");
+        assert!(!b.p("home/proj/sub/.git").exists());
+        assert!(!b.p("home/proj").join(&long).exists());
+        assert_eq!(v["launchScanIncomplete"], false);
+    }
+
+    /// #1512 review r3, B2 (a) and N2: a run that leaves more than the scan can check is
+    /// flagged, says so, names only what fits, and the folder takes no more read-write runs.
+    #[test]
+    fn a_folder_too_big_to_check_after_a_run_takes_no_more_read_write_runs() {
+        let _one = one_at_a_time();
+        let Some(bwrap) = bwrap_or_skip() else { return };
+        let b = Box_::new(CONTAINED);
+        let exec = b.exec(Some(bwrap));
+        let script = "seq -f 'd%g/.git' 1 20100 | xargs mkdir -p && echo made";
+        let (v, _) = run_ok(&exec, rw_in(&b, "proj", script));
+        assert_eq!(v["stdout"], "made\n");
+        assert_eq!(v["launchScanIncomplete"], true, "{}", v["launchScanNote"]);
+        assert!(v["quarantinedCount"].as_u64().unwrap() > 19_000);
+        assert!(v["quarantined"].as_array().unwrap().len() <= QUARANTINED_LISTED_MAX);
+        assert_eq!(v["quarantinedTruncated"], true);
+        assert!(v.to_string().len() < 1024 * 1024);
+        let again = call(&exec, rw_in(&b, "proj/sub", "true"));
+        assert_eq!(
+            again.err().map(|e| e.reason).as_deref(),
+            Some("launch_scan_incomplete")
+        );
+        // Read-only runs still work.
+        let (v, _) = run_ok(
+            &exec,
+            json!({ "argv": [bin("sh"), "-c", "echo ro"], "cwd": b.h("proj"), "folder": b.h("proj"), "folderMode": "ro" }),
+        );
+        assert_eq!(v["stdout"], "ro\n");
+    }
+
+    /// #1512 review r3, B3: a pinned folder toggled between a folder and a link to outside
+    /// while runs start never makes the outside writable.
+    #[test]
+    fn a_pinned_folder_swapped_for_a_link_never_leads_the_bind_outside() {
+        let _one = one_at_a_time();
+        let Some(bwrap) = bwrap_or_skip() else { return };
+        let b = Box_::new(CONTAINED);
+        let nd = b.p("home/proj/nd");
+        std::fs::create_dir_all(&nd).unwrap();
+        let exec = b.exec(Some(bwrap));
+        let stop = Arc::new(AtomicBool::new(false));
+        let toggler = {
+            let (nd, stop) = (nd.clone(), Arc::clone(&stop));
+            std::thread::spawn(move || {
+                while !stop.load(Ordering::SeqCst) {
+                    let _ = std::fs::remove_dir(&nd);
+                    let _ = symlink("../other", &nd);
+                    std::thread::yield_now();
+                    let _ = std::fs::remove_file(&nd);
+                    let _ = std::fs::create_dir(&nd);
+                    std::thread::yield_now();
+                }
+            })
+        };
+        let script = format!(
+            "echo PWNED > {} 2>/dev/null; echo PWNED > nd/f 2>/dev/null; true",
+            b.h("other/f")
+        );
+        let (mut ran, mut refused) = (0, 0);
+        for _ in 0..300 {
+            match call(&exec, rw_in(&b, "proj", &script)) {
+                Ok(_) => ran += 1,
+                Err(_) => refused += 1,
+            }
+            // A scan the toggling cut short flags the folder; as if the owner restarted.
+            launch::Folders::global().unflag(&b.p("home/proj"));
+        }
+        stop.store(true, Ordering::SeqCst);
+        toggler.join().unwrap();
+        eprintln!("B3 race: {ran} ran, {refused} refused");
+        assert!(
+            !b.p("home/other/f").exists(),
+            "outside written ({ran} ran, {refused} refused)"
+        );
+    }
+
+    /// #1512 review r3, B4: two read-write runs in one folder take turns, so neither writes
+    /// into the other's stubs, and what the first planted is moved aside.
+    #[test]
+    fn two_read_write_runs_in_one_folder_take_turns_and_leave_nothing_planted() {
+        let _one = one_at_a_time();
+        let Some(bwrap) = bwrap_or_skip() else { return };
+        let b = Box_::new(CONTAINED);
+        let exec = b.exec(Some(bwrap));
+        let a_script = [
+            "sleep 1",
+            "mkdir -p sub/.vscode sub/.git",
+            "echo '{}' > sub/.vscode/tasks.json",
+            "printf '[core]\\n\\tfsmonitor = /bin/true\\n' > sub/.git/config",
+            "echo a-done",
+        ]
+        .join("\n");
+        std::thread::scope(|s| {
+            let a = s.spawn(|| call(&exec, rw_in(&b, "proj", &a_script)));
+            std::thread::sleep(Duration::from_millis(300));
+            let t = Instant::now();
+            let second = call(&exec, rw_in(&b, "proj/sub", "echo b-done")).unwrap();
+            let first = a.join().unwrap().unwrap();
+            assert!(t.elapsed() >= Duration::from_millis(500), "B waited for A");
+            assert_eq!(first["stdout"], "a-done\n", "{first}");
+            assert_eq!(second["stdout"], "b-done\n", "{second}");
+            let mut want = vec![b.h("proj/sub/.git"), b.h("proj/sub/.vscode")];
+            want.sort();
+            assert_eq!(moved(&first), want, "{first}");
+        });
+        assert!(!b.p("home/proj/sub/.vscode/tasks.json").exists());
+        assert!(!b.p("home/proj/sub/.git/config").exists());
+        assert!(!b.p("home/proj/sub/.vscode").exists() && !b.p("home/proj/sub/.git").exists());
+    }
 }

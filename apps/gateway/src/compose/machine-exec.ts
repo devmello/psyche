@@ -505,6 +505,14 @@ export function machineExec(deps: MachineExecDeps) {
           cwd,
           outcome,
           ...(quarantined.length === 0 ? {} : { quarantined }),
+          ...(typeof res.quarantinedCount === "number" && res.quarantinedCount > quarantined.length
+            ? { quarantinedCount: res.quarantinedCount }
+            : {}),
+          // The box could not check the folder whole after the run: it takes no more
+          // read-write commands until the owner looks and restarts Psyche there.
+          ...(res.launchScanIncomplete === true
+            ? { launchScanIncomplete: true, launchScanNote: str(res.launchScanNote, 2000) }
+            : {}),
         },
         provenance: "untrusted",
         ...(outcome === "ok" ? {} : { isError: true }),
