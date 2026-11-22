@@ -158,6 +158,16 @@ export const fr: Partial<Catalogue> = {
     "Ce projet est privé, il ne peut donc pas avoir de Space. Désactivez d’abord Garder privé.",
   "errors.reason.updating":
     "Psyche va redémarrer pour installer une mise à jour. Réessayez dans un instant.",
+  "errors.reason.passkey_required":
+    "Configurez une clé d’accès pour approuver les paiements sur ce Psyche.",
+  "errors.reason.awaiting_owner":
+    "Une app a des modifications non enregistrées. Psyche attend que vous décidiez de leur sort.",
+  "errors.reason.checkout_needs_desktop":
+    "Pour payer dans le navigateur de Psyche, l’app de bureau Psyche doit être connectée à cet hôte.",
+  "errors.reason.no_chromium":
+    "Le navigateur de Psyche a besoin de Chromium sur cet hôte. Installez-le ou définissez PSYCHE_CHROMIUM.",
+  "errors.reason.chromium_sandbox":
+    "Le bac à sable de Chromium n'a pas pu démarrer sur cet hôte, le navigateur de Psyche est donc désactivé. Autorisez Chromium à utiliser les espaces de noms utilisateur (un profil AppArmor).",
   "errors.unavailable": "Psyche ne peut pas faire cela pour le moment.",
   "errors.approval_required": "Votre approbation est d’abord nécessaire.",
   "errors.approval_expired": "L’approbation a expiré ; redemandez.",

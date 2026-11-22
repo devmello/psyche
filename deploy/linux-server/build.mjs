@@ -84,6 +84,12 @@ export const DEB_DEPENDS = [
   "at-spi2-core",
   "bubblewrap",
 ];
+/**
+ * Not required, but wanted: a server has no mDNS responder by default, and the LAN pairing link
+ * names `https://<hostname>.local:7979`, which a Mac cannot resolve without one.
+ */
+export const DEB_RECOMMENDS = ["avahi-daemon"];
+export const RPM_RECOMMENDS = ["avahi"];
 export const RPM_REQUIRES = [
   "glibc >= 2.35",
   "libstdc++",
@@ -194,10 +200,24 @@ if [ "$first" = yes ]; then
       echo "psyche-server: $h/.config/systemd/user/${GATEWAY_UNIT} overrides this package's unit (psyche start or a tarball install wrote it); remove it to use the package's" >&2
     fi
     systemctl --machine "$u@" --user daemon-reload >/dev/null 2>&1 || true
+    # The setup code (remote-gateway design §3.6): this server is set up from the Psyche app on a
+    # Mac on the same network, with a one-time code. Only a hash of it is kept, so it is shown
+    # here, once; \`psyche setup code\` makes a new one. Then the Gateway starts, in claim mode.
+    if [ -n "$h" ] && command -v runuser >/dev/null 2>&1 &&
+      runuser -u "$u" -- env HOME="$h" /usr/bin/psyche setup code; then
+      echo "psyche-server: in the Psyche app on your Mac, choose Connect to a Psyche server and type that code"
+    else
+      echo "psyche-server: for a setup code, as $u run: psyche setup code" >&2
+    fi
+    if systemctl --machine "$u@" --user enable --now ${GATEWAY_UNIT} >/dev/null 2>&1; then
+      echo "psyche-server: started Psyche for $u"
+    else
+      echo "psyche-server: as $u, run: systemctl --user enable --now ${GATEWAY_UNIT}" >&2
+    fi
   else
     echo "psyche-server: so Psyche keeps running while nobody is logged in, run: sudo loginctl enable-linger <user>"
+    echo "psyche-server: as the user Psyche runs for: psyche setup code, then systemctl --user enable --now ${GATEWAY_UNIT}"
   fi
-  echo "psyche-server: as the user Psyche runs for: systemctl --user enable --now ${GATEWAY_UNIT}"
   exit 0
 fi
 # An upgrade: every running Gateway and headless helper restarts on the new files. A helper left
@@ -320,6 +340,7 @@ function buildDeb(work, out, input) {
       `Maintainer: ${MAINTAINER}`,
       `Installed-Size: ${size}`,
       `Depends: ${DEB_DEPENDS.join(", ")}`,
+      `Recommends: ${DEB_RECOMMENDS.join(", ")}`,
       `Conflicts: ${DESKTOP_PACKAGE}`,
       "Section: net",
       "Priority: optional",
@@ -364,6 +385,7 @@ License: Apache-2.0
 URL: ${HOMEPAGE}
 BuildArch: ${ARCHES[input.arch].rpm}
 Requires: ${RPM_REQUIRES.join(", ")}
+Recommends: ${RPM_RECOMMENDS.join(", ")}
 Conflicts: ${DESKTOP_PACKAGE}
 AutoReqProv: no
 

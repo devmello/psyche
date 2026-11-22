@@ -1,5 +1,6 @@
 import { closeSync, existsSync, openSync, readdirSync, readSync, statSync, watch } from "node:fs";
 import { join, resolve } from "node:path";
+import { isClaimedHome, readSetupCode } from "@psyche/protocol/claim-node";
 import { bool, type CommandSpec, str } from "../command.ts";
 import type { Ctx } from "../context.ts";
 import { CliError } from "../errors.ts";
@@ -126,11 +127,15 @@ export const serviceCommands: CommandSpec[] = [
       }
       const install =
         ctx.deps.platform === "linux" ? serverInstallStatus(bundleOfThisCli()) : undefined;
+      // A psyche-server waiting to be set up from the app (remote-gateway design §3.6). Only a hash
+      // of the code is kept, so this says a code is waiting, never which.
+      const setup = install === undefined || cli.paired ? undefined : setupState(ctx);
       const data = {
         gateway: { url: url.origin, ...probe },
         service,
         cli,
         ...(install === undefined ? {} : { install }),
+        ...(setup === undefined ? {} : { setup }),
       };
       const v = probe.version;
       return {
@@ -145,6 +150,7 @@ export const serviceCommands: CommandSpec[] = [
           service: `${service.kind}${service.kind === "none" ? "" : `: ${service.running ? "running" : "not running"}${"pid" in service && service.pid ? ` (pid ${service.pid})` : ""}${service.installed ? "" : ", not installed"}`}`,
           cli: cli.paired ? `paired (${cli.scopes?.join(", ")})` : `not paired: ${cli.detail}`,
           ...(install === undefined ? {} : { install: serverInstallText(install) }),
+          ...(setup === undefined ? {} : { setup: setupText(setup) }),
         }),
         exitCode: probe.healthy ? 0 : 1,
       };
@@ -313,4 +319,27 @@ function follow(files: string[], emit: (line: string) => void): Promise<void> {
       resolve();
     });
   });
+}
+
+type SetupState =
+  | { state: "waiting"; expiresAt: string }
+  | { state: "expired" }
+  | { state: "no_code" };
+
+/** Whether this unclaimed server has a setup code waiting; undefined once it is set up. */
+export function setupState(ctx: Pick<Ctx, "home" | "deps">): SetupState | undefined {
+  if (isClaimedHome(ctx.home)) return undefined;
+  const code = readSetupCode(ctx.home, ctx.deps.now());
+  if (code === "expired") return { state: "expired" };
+  if (code === null) return { state: "no_code" };
+  return { state: "waiting", expiresAt: code.expiresAt };
+}
+
+export function setupText(s: SetupState): string {
+  if (s.state === "waiting") {
+    return `not set up yet: a setup code is waiting until ${s.expiresAt} (it was shown at install; \`psyche setup code\` makes a new one)`;
+  }
+  if (s.state === "expired")
+    return "not set up yet: the setup code expired. Run `psyche setup code`";
+  return "not set up yet: run `psyche setup code`, then Connect to a Psyche server in the app";
 }

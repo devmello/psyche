@@ -51,4 +51,13 @@ export const errors = {
     "That project is Keep private, so it can't have a Space. Turn off Keep private first.",
   "errors.reason.updating":
     "Psyche is about to restart to install an update. Try again in a moment.",
+  "errors.reason.passkey_required": "Set up a passkey to approve payments on this Psyche.",
+  "errors.reason.awaiting_owner":
+    "An app has unsaved changes. Psyche waits for you to decide what happens to them.",
+  "errors.reason.checkout_needs_desktop":
+    "Paying in Psyche's browser needs the Psyche desktop app connected to this Host.",
+  "errors.reason.no_chromium":
+    "Psyche's browser needs Chromium on this Host. Install it, or set PSYCHE_CHROMIUM.",
+  "errors.reason.chromium_sandbox":
+    "Chromium's sandbox could not start on this Host, so Psyche's browser is off. Allow Chromium to use user namespaces (an AppArmor profile).",
 } as const;

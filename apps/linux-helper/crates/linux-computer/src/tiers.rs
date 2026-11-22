@@ -635,7 +635,7 @@ type SessionState = (Option<(String, f64)>, Vec<String>);
 /// session" allowances (30 minutes). Thread-safe.
 /// Judges an app by the id the engine **resolved** (after a pid, a display name or the focus
 /// became an app). The helper's machine ceiling (`apps.allow` / `apps.deny`) is one.
-pub type AppGate = std::sync::Arc<dyn Fn(&str) -> CapResult<()> + Send + Sync>;
+pub type AppGate = std::sync::Arc<dyn Fn(&str, &[String]) -> CapResult<()> + Send + Sync>;
 
 pub struct TierPolicy {
     gate: Mutex<Option<AppGate>>,
@@ -676,8 +676,58 @@ impl TierPolicy {
     }
 
     pub fn effective_tier(&self, bundle_id: Option<&str>) -> Tier {
+        self.effective_tier_with(bundle_id, &[])
+    }
+
+    /// [`TierPolicy::effective_tier`] for a running app, with the other ids it carries.
+    pub fn effective_tier_app(&self, app: &crate::backend::AppInfo) -> Tier {
+        self.effective_tier_with(Some(&app.id), &app.also_ids)
+    }
+
+    /// The tier in effect for `bundle_id` when the same program also has the ids `also` (a
+    /// verified Flatpak's own id beside the host id that caps it): see [`TierPolicy::values`].
+    pub fn effective_tier_with(&self, bundle_id: Option<&str>, also: &[String]) -> Tier {
         let st = self.state.lock().unwrap();
-        self.effective_locked(&st.0, &st.1, bundle_id)
+        self.effective_locked(&st.0, &st.1, bundle_id, also)
+    }
+
+    /// The owner's settings that apply to one program: each value the owner **wrote** for
+    /// `bundle_id` or an id in `also`, and the default only when none of them has one. The
+    /// strictest wins: a tier set on a Flatpak's own id is not lost because the app is reported
+    /// under its host id, and the default never overrides a value the owner wrote for the other.
+    fn values(
+        settings: &TierSettings,
+        bundle_id: Option<&str>,
+        also: &[String],
+    ) -> Vec<SettingValue> {
+        let Some(id) = bundle_id else {
+            return vec![settings.default_value];
+        };
+        let out: Vec<SettingValue> = std::iter::once(id)
+            .chain(also.iter().map(String::as_str))
+            .filter_map(|i| settings.explicit(i))
+            .collect();
+        if out.is_empty() {
+            vec![settings.value(bundle_id)]
+        } else {
+            out
+        }
+    }
+
+    /// The strictest of the fixed values among `values` (`Ask` is not one): what no approval can
+    /// lift.
+    fn hard_limit(values: &[SettingValue]) -> Tier {
+        values
+            .iter()
+            .filter_map(|v| match v {
+                SettingValue::Off => Some(Tier::Off),
+                SettingValue::Read => Some(Tier::Read),
+                SettingValue::Click => Some(Tier::Click),
+                SettingValue::Interact => Some(Tier::Interact),
+                SettingValue::Ask => None,
+            })
+            .min()
+            .unwrap_or(Tier::Interact)
     }
 
     fn effective_locked(
@@ -685,21 +735,22 @@ impl TierPolicy {
         settings: &TierSettings,
         allowances: &HashMap<String, (Tier, f64)>,
         bundle_id: Option<&str>,
+        also: &[String],
     ) -> Tier {
         let cap = cap_for(bundle_id, settings);
-        let user = match settings.value(bundle_id) {
-            SettingValue::Off => Tier::Off,
-            SettingValue::Read => Tier::Read,
-            SettingValue::Click => Tier::Click,
-            SettingValue::Interact => Tier::Interact,
-            SettingValue::Ask => match bundle_id
+        let values = Self::values(settings, bundle_id, also);
+        let mut user = Self::hard_limit(&values);
+        if values.contains(&SettingValue::Ask) {
+            // An allowance is recorded under the reported id, the one approvals are bound to.
+            let allowed = match bundle_id
                 .map(str::to_lowercase)
                 .and_then(|k| allowances.get(&k).copied())
             {
                 Some((t, until)) if until > (self.now)() => t,
                 _ => Tier::Off,
-            },
-        };
+            };
+            user = user.min(allowed);
+        }
         cap.min(user)
     }
 
@@ -713,10 +764,33 @@ impl TierPolicy {
         app_name: &str,
         approval: Option<&ApprovalBinding>,
     ) -> CapResult<()> {
+        self.authorize_with(intent, bundle_id, &[], app_name, approval)
+    }
+
+    /// [`TierPolicy::authorize`] for a running app: the machine ceiling is asked of its id and
+    /// of the other ids it carries ([`AppInfo::also_ids`]) together, so every gate gives one
+    /// answer for one program.
+    pub fn authorize_app(
+        &self,
+        intent: Intent,
+        app: &crate::backend::AppInfo,
+        approval: Option<&ApprovalBinding>,
+    ) -> CapResult<()> {
+        self.authorize_with(intent, Some(&app.id), &app.also_ids, &app.name, approval)
+    }
+
+    fn authorize_with(
+        &self,
+        intent: Intent,
+        bundle_id: Option<&str>,
+        also: &[String],
+        app_name: &str,
+        approval: Option<&ApprovalBinding>,
+    ) -> CapResult<()> {
         if let Some(id) = bundle_id {
             let gate = self.gate.lock().unwrap_or_else(|e| e.into_inner()).clone();
             if let Some(gate) = gate {
-                gate(id)?;
+                gate(id, also)?;
             }
         }
         let mut guard = self.state.lock().unwrap();
@@ -743,17 +817,22 @@ impl TierPolicy {
                 }
             }
         }
-        let mut have = self.effective_locked(settings, allowances, bundle_id);
-        let asks = settings.value(bundle_id) == SettingValue::Ask;
+        let mut have = self.effective_locked(settings, allowances, bundle_id, also);
+        let values = Self::values(settings, bundle_id, also);
+        let hard = Self::hard_limit(&values);
+        // A card is asked for only when an approval could lift the tier far enough: a value the
+        // owner wrote for another id of the program (`Read` on a Flatpak's own id) cannot be.
+        let asks = values.contains(&SettingValue::Ask) && hard >= needed;
         if have < needed && !asks {
-            return Err(refusal(needed, have, app_name, bundle_id, false));
+            // Name the limit that holds: a `read` the owner wrote beside an `ask` is Read, not Off.
+            return Err(refusal(needed, cap.min(hard), app_name, bundle_id, false));
         }
         // Before any card: an approval from a phone is not someone watching this PC.
         self.check_attention(intent, bundle_id, app_name, settings)?;
         if have < needed && asks {
             if let (Some(a), Some(key)) = (approval, bundle_id.map(str::to_lowercase)) {
                 if a.tier >= needed {
-                    let granted = cap.min(a.tier);
+                    let granted = cap.min(a.tier).min(hard);
                     allowances.insert(key, (granted, (self.now)() + SESSION_ALLOWANCE_SECS));
                     have = granted;
                 }

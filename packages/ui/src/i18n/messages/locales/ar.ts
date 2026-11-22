@@ -211,6 +211,15 @@ export const ar: Partial<Catalogue> = {
   "errors.reason.project_private":
     "هذا المشروع خاص، لذا لا يمكن أن تكون له مساحة. أوقف «إبقاء خاصًا» أولًا.",
   "errors.reason.updating": "سيعيد Psyche التشغيل الآن لتثبيت تحديث. حاول مرة أخرى بعد لحظة.",
+  "errors.reason.passkey_required": "أعدّ مفتاح مرور للموافقة على المدفوعات في Psyche هذا.",
+  "errors.reason.awaiting_owner":
+    "يحتوي تطبيق على تغييرات غير محفوظة. ينتظر Psyche أن تقرر ما يحدث لها.",
+  "errors.reason.checkout_needs_desktop":
+    "يتطلب الدفع في متصفح Psyche أن يكون تطبيق Psyche لسطح المكتب متصلاً بهذا المضيف.",
+  "errors.reason.no_chromium":
+    "يحتاج متصفح Psyche إلى Chromium على هذا المضيف. ثبّته أو اضبط PSYCHE_CHROMIUM.",
+  "errors.reason.chromium_sandbox":
+    "تعذّر تشغيل صندوق الحماية في Chromium على هذا المضيف، لذا فمتصفح Psyche متوقف. اسمح لـ Chromium باستخدام مساحات أسماء المستخدم (ملف تعريف AppArmor).",
   "errors.unavailable": "لا يستطيع Psyche القيام بذلك الآن.",
   "errors.approval_required": "يحتاج هذا إلى موافقتك أولًا.",
   "errors.approval_expired": "انتهت صلاحية الموافقة؛ اطلب مرة أخرى.",
