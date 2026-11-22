@@ -57,7 +57,7 @@ describe("turn context providers (E12)", () => {
     }
     // The owner's own words stay a separate, unflagged part, after the context.
     const owner = h.provider.requests[0]?.messages[0]?.parts.at(-1);
-    expect(owner).toEqual({ type: "text", text: "when is the launch?" });
+    expect(owner).toEqual({ type: "text", text: "when is the launch?", author: "owner" });
     expect(h.broker.decisions[0]?.ctx.taintSources).toEqual([
       { sourceKind: "other_chats", origin: "thr_main" },
     ]);

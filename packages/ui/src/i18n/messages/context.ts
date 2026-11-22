@@ -42,6 +42,8 @@ export const context = {
   "context.marker.pinRemoveFailed": "Couldn't remove it: {reason}",
   "context.marker.droppedPins":
     "{count, plural, one {An older standing instruction was} other {# older standing instructions were}} dropped to make room for new ones.",
+  "context.marker.keptPins":
+    "{count, plural, one {A standing instruction was kept} other {# standing instructions were kept}}: a file or someone else's content in this chat can't remove them. Use Remove if you meant to.",
   "context.marker.replacedList": "Replaced turns",
   "context.marker.notLoaded": "The replaced turns aren't loaded here.",
   "context.marker.speaker": "{name}:",

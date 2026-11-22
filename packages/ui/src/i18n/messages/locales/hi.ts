@@ -620,6 +620,8 @@ export const hi: Partial<Catalogue> = {
   "context.marker.pinRemoveFailed": "हटाया नहीं जा सका: {reason}",
   "context.marker.droppedPins":
     "{count, plural, one {नए निर्देशों के लिए जगह बनाने हेतु एक पुराना स्थायी निर्देश हटाया गया।} other {नए निर्देशों के लिए जगह बनाने हेतु # पुराने स्थायी निर्देश हटाए गए।}}",
+  "context.marker.keptPins":
+    "{count, plural, one {एक स्थायी निर्देश रखा गया} other {# स्थायी निर्देश रखे गए}}: इस चैट में कोई फ़ाइल या किसी और की सामग्री उन्हें हटा नहीं सकती। अगर आप यही चाहते थे तो हटाएँ का उपयोग करें।",
   "context.marker.replacedList": "बदले गए टर्न",
   "context.marker.notLoaded": "बदले गए टर्न यहाँ लोड नहीं हैं।",
   "context.marker.speaker": "{name}:",

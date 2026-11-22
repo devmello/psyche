@@ -591,6 +591,8 @@ export const fr: Partial<Catalogue> = {
   "context.marker.pinRemoveFailed": "Impossible de la retirer : {reason}",
   "context.marker.droppedPins":
     "{count, plural, one {Une ancienne instruction permanente a été abandonnée} other {# anciennes instructions permanentes ont été abandonnées}} pour faire de la place aux nouvelles.",
+  "context.marker.keptPins":
+    "{count, plural, one {Une instruction permanente a été conservée} other {# instructions permanentes ont été conservées}} : un fichier ou le contenu d'une autre personne dans ce chat ne peut pas les supprimer. Utilisez Supprimer si c'était votre intention.",
   "context.marker.replacedList": "Tours remplacés",
   "context.marker.notLoaded": "Les tours remplacés ne sont pas chargés ici.",
   "context.marker.speaker": "{name} :",

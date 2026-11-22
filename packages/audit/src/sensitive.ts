@@ -60,6 +60,31 @@ const CREDENTIAL_PATTERNS: { kind: SensitiveKind; re: RegExp }[] = [
 ];
 
 const IBAN_CANDIDATE = /(?<![A-Za-z0-9])[A-Za-z]{2}\d{2}(?: ?[A-Za-z0-9]){11,30}(?![A-Za-z0-9])/g;
+
+/** IBAN length per country (ISO 13616 registry). A candidate must have its country's length. */
+const IBAN_LENGTHS: Readonly<Record<string, number>> = Object.fromEntries(
+  (
+    "AD24 AE23 AL28 AT20 AZ28 BA20 BE16 BG22 BH22 BI27 BR29 BY28 CH21 CR22 CY28 CZ24 DE22 DJ27 " +
+    "DK18 DO28 EE20 EG29 ES24 FI18 FK18 FO18 FR27 GB22 GE22 GI23 GL18 GR27 GT28 HN28 HR21 HU28 " +
+    "IE22 IL23 IQ23 IS26 IT27 JO30 KW30 KZ20 LB28 LC32 LI21 LT20 LU20 LV21 LY25 MC27 MD24 ME22 " +
+    "MK19 MN20 MR27 MT31 MU30 NI28 NL18 NO15 OM23 PK24 PL28 PS29 PT25 QA29 RO24 RS22 RU33 SA24 " +
+    "SC31 SD18 SE24 SI19 SK24 SM27 SO23 ST25 SV28 TL23 TN24 TR26 UA29 VA22 VG24 XK20 YE30"
+  )
+    .split(" ")
+    .map((e) => [e.slice(0, 2), Number(e.slice(2))]),
+);
+
+/**
+ * Whether a checksum-valid candidate is shaped like an IBAN: a registry country with its exact
+ * length, and not a lowercase hex digest (`ed25519:dc2669c91af935bc`, a hash): about 1 in 97
+ * hex strings passes mod 97 by chance.
+ */
+export function ibanShaped(raw: string): boolean {
+  const compact = raw.replace(/ /g, "");
+  if (IBAN_LENGTHS[compact.slice(0, 2).toUpperCase()] !== compact.length) return false;
+  const bban = compact.slice(4);
+  return !(/^[0-9a-f]+$/.test(bban) && /[a-f]/.test(bban));
+}
 const SSN_CANDIDATE = /(?<!\d)(?!000|666|9\d\d)\d{3}[-. ](?!00)\d{2}[-. ](?!0000)\d{4}(?!\d)/g;
 
 // ---- government and bank identifiers (outbound check) --------------------------------------------
@@ -446,7 +471,7 @@ export function findSensitive(text: string, options: FindOptions = {}): Sensitiv
     for (let end = m[0].length; end >= 15; end -= 1) {
       const head = m[0].slice(0, end);
       if (head.endsWith(" ")) continue;
-      if (ibanValid(head)) {
+      if (ibanValid(head) && ibanShaped(head)) {
         out.push({ kind: "iban", index: m.index, length: end });
         break;
       }

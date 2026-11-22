@@ -99,6 +99,12 @@ export interface SendInput {
   /** `taintSources` hold for the whole chat, not this turn only (a mail follow-up draft). */
   stickyTaint?: boolean;
   /**
+   * The start of `content` that is not the sender's own words (forwarded or quoted text in a
+   * channel message). `content` keeps it, ahead of the typed words; the model reads it as
+   * untrusted context and it names no targets. Must be a prefix of `content`.
+   */
+  leadingContext?: string;
+  /**
    * Context the agent reads ahead of the message but the transcript doesn't show (Ask about my
    * screen: the untrusted text of what was on screen, docs/design/screen-ask-2026.md §3.3). Only
    * for a turn that starts now: a busy thread refuses it rather than queueing it without.
@@ -180,14 +186,20 @@ export function quoteText(message: Pick<Message, "blocks">): string {
  * agent sees"). The quoted text is data the user chose to point at, labelled as such.
  */
 export function withQuote(quote: Quote | undefined, content: string): string {
-  if (quote === undefined) return content;
+  const context = quoteContext(quote);
+  return context === undefined ? content : `${context}\n\n${content}`;
+}
+
+/** The quoted message as the context line ahead of a reply (never the sender's own words). */
+function quoteContext(quote: Quote | undefined): string | undefined {
+  if (quote === undefined) return undefined;
   const whose =
     quote.role === "user"
       ? "the user's earlier message"
       : quote.role === "agent"
         ? "your earlier message"
         : `an earlier ${quote.role} message`;
-  return `[Replying to ${whose} ${quote.messageId}]\n> ${quote.text}\n\n${content}`;
+  return `[Replying to ${whose} ${quote.messageId}]\n> ${quote.text}`;
 }
 
 function hasQuestionBlock(blocks: readonly Block[], inputRequestId: string): boolean {
@@ -297,6 +309,7 @@ export class SessionController {
         input.provenance,
         quote,
         extra,
+        input.leadingContext,
       );
       this.#noteTaint(run.id, input.taintSources);
       this.#noteTurnOptions(run.id, input);
@@ -343,8 +356,14 @@ export class SessionController {
       this.#bump();
       hooks.emit("chat.message", { message }, thread.id);
       hooks.afterCommit(() => {
+        // The owner's own typed words (not an agent's, a non-owner's or a quote) are owner-marked.
+        const ownerWords =
+          input.provenance !== "agent" &&
+          messageProvenance(input.requester) === "owner" &&
+          quote === undefined &&
+          input.leadingContext === undefined;
         this.#ctx.agent
-          .steer(active, withQuote(quote, input.content))
+          .steer(active, withQuote(quote, input.content), { ownerWords })
           .catch((err) => this.#warn("steer failed", err));
       });
       return { messageId: message.id, runId: active, queued: true };
@@ -365,6 +384,7 @@ export class SessionController {
       input.provenance,
       quote,
       extra,
+      input.leadingContext,
     );
     this.#noteTaint(run.id, input.taintSources);
     this.#noteTurnOptions(run.id, input);
@@ -411,7 +431,12 @@ export class SessionController {
     this.#bump();
     hooks.emit("chat.message", { message }, thread.id);
     hooks.afterCommit(() => {
-      Promise.resolve(this.#ctx.agent.supersedeWaits?.(active, withQuote(quote, input.content)))
+      Promise.resolve(
+        // The owner's own reply; a quoted message ahead of it is not their words.
+        this.#ctx.agent.supersedeWaits?.(active, withQuote(quote, input.content), {
+          ownerWords: quote === undefined && input.leadingContext === undefined,
+        }),
+      )
         .then((closed) => {
           for (const inputRequest of closed?.questions ?? []) {
             this.#ctx.bus.publish("question.updated", { inputRequest }, thread.id);
@@ -428,6 +453,9 @@ export class SessionController {
   }
 
   #noteTurnOptions(runId: string, input: SendInput): void {
+    // A lead that is not the start of the content cannot be split off: none of it is owner words.
+    if (input.leadingContext !== undefined && !input.content.startsWith(input.leadingContext))
+      this.#notOwnerWords(runId);
     if (
       input.proposedCall === undefined &&
       input.ownerWords === undefined &&
@@ -435,10 +463,16 @@ export class SessionController {
     )
       return;
     this.#turnOptions.set(runId, {
+      ...this.#turnOptions.get(runId),
       ...(input.proposedCall === undefined ? {} : { proposedCall: input.proposedCall }),
       ...(input.ownerWords === undefined ? {} : { ownerWords: input.ownerWords }),
       ...(input.stickyTaint === true ? { stickyTaint: true } : {}),
     });
+  }
+
+  /** The turn's text was written by the harness or another agent, not typed by the owner. */
+  #notOwnerWords(runId: string): void {
+    this.#turnOptions.set(runId, { ...this.#turnOptions.get(runId), ownerWords: false });
   }
 
   /** The quoted message of a reply, which must belong to the same thread. */
@@ -466,10 +500,19 @@ export class SessionController {
     provenance: "owner" | "agent" = "owner",
     quote?: Quote,
     extra?: TurnExtra,
+    leadingContext?: string,
   ): { messageId: string; run: Run } {
     const { db } = this.#ctx;
-    const quoted = withQuote(quote, content);
-    const agentContent = extra?.preamble === undefined ? quoted : `${extra.preamble}\n\n${quoted}`;
+    // What the Gateway puts ahead of the typed words (Ask about this, a screen ask, a quote): the
+    // model reads it as its own part, never as the sender's words.
+    const lead =
+      leadingContext !== undefined && content.startsWith(leadingContext) ? leadingContext : "";
+    const context = [extra?.preamble, quoteContext(quote), lead]
+      .filter((c): c is string => c !== undefined && c !== "")
+      .join("\n\n");
+    // `content` keeps the lead (the transcript shows it); the agent gets it once, in `context`.
+    const typed = lead === "" ? content : content.slice(lead.length).replace(/^\n\n/, "");
+    const agentContent = context === "" ? typed : typed === "" ? context : `${context}\n\n${typed}`;
     if (supersedes === null) {
       // The user message goes in before the run owns the transcript.
       const message = appendMessage(
@@ -493,10 +536,19 @@ export class SessionController {
         origin: requester === undefined ? "owner" : "channel",
       });
       claimWriter(db, thread.id, run.id);
+      if (provenance === "agent") this.#notOwnerWords(run.id);
       this.#bump();
       hooks.emit("run.updated", { run }, thread.id);
       hooks.afterCommit(() =>
-        this.#startTurn(thread, run.id, agentContent, attachments, requester, extra?.images),
+        this.#startTurn(
+          thread,
+          run.id,
+          agentContent,
+          attachments,
+          requester,
+          extra?.images,
+          context,
+        ),
       );
       return { messageId: message.id, run };
     }
@@ -507,6 +559,7 @@ export class SessionController {
       origin: requester === undefined ? "owner" : "channel",
     });
     claimWriter(db, thread.id, run.id);
+    if (provenance === "agent") this.#notOwnerWords(run.id);
     const message = appendMessage(
       db,
       {
@@ -524,7 +577,7 @@ export class SessionController {
     hooks.emit("chat.message", { message }, thread.id);
     hooks.emit("run.updated", { run }, thread.id);
     hooks.afterCommit(() =>
-      this.#startTurn(thread, run.id, agentContent, attachments, requester, extra?.images),
+      this.#startTurn(thread, run.id, agentContent, attachments, requester, extra?.images, context),
     );
     return { messageId: message.id, run };
   }
@@ -634,6 +687,8 @@ export class SessionController {
       origin: "owner",
     });
     claimWriter(db, thread.id, run.id);
+    // The greeting prompt is the harness's text, not the owner's words.
+    this.#notOwnerWords(run.id);
     this.#bump();
     hooks.emit("run.updated", { run }, thread.id);
     hooks.afterCommit(() => this.#startTurn(thread, run.id, GREETING_PROMPT, []));
@@ -717,12 +772,14 @@ export class SessionController {
     attachments: readonly string[],
     requester?: Requester,
     images?: TurnImages,
+    /** The start of `content` the Gateway wrote (preamble, quote), if any. */
+    context?: string,
   ): void {
     if (this.#stopping || this.#closing.has(thread.id)) return;
     const abort = new AbortController();
     const turn: ActiveTurn = { runId, abort, detached: false, done: Promise.resolve() };
     this.#active.set(thread.id, turn);
-    turn.done = this.#runTurn(thread, turn, content, attachments, requester, images)
+    turn.done = this.#runTurn(thread, turn, content, attachments, requester, images, context)
       .catch((err) => this.#warn("turn crashed", err))
       .finally(() => {
         if (this.#active.get(thread.id) === turn) this.#active.delete(thread.id);
@@ -737,6 +794,7 @@ export class SessionController {
     attachments: readonly string[],
     requester?: Requester,
     images?: TurnImages,
+    context?: string,
   ): Promise<void> {
     const { db, bus, agent } = this.#ctx;
     const { runId } = turn;
@@ -830,12 +888,20 @@ export class SessionController {
         runId,
         input: {
           text: content,
+          ...(context === undefined || context === "" ? {} : { context }),
           ...(attachments.length > 0
             ? { attachments: attachments.map((libraryItemId) => ({ libraryItemId })) }
             : {}),
-          ...(attached === undefined || attached.text === ""
+          ...(attached === undefined || attached.body === ""
             ? {}
-            : { attachmentText: attached.text }),
+            : { attachmentText: attached.body }),
+          ...(attached === undefined || attached.notes === ""
+            ? {}
+            : { attachmentNotes: attached.notes }),
+          // Only an explicit false (the owner's own upload) makes the text non-tainting.
+          ...(attached === undefined || attached.taint.length > 0
+            ? {}
+            : { attachmentThirdParty: false }),
           ...(allImages.length === 0 ? {} : { images: allImages }),
         },
         mode: "attended",

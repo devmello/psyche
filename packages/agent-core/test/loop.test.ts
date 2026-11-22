@@ -31,7 +31,9 @@ describe("text-only turn", () => {
     expect(usage).toMatchObject({ usage: { input: 10, output: 5 } });
     const request = h.provider.requests[0];
     expect(request?.model).toBe("fake/main");
-    expect(request?.messages).toEqual([{ role: "user", parts: [{ type: "text", text: "hi" }] }]);
+    expect(request?.messages).toEqual([
+      { role: "user", parts: [{ type: "text", text: "hi", author: "owner" }] },
+    ]);
   });
 
   it("gives the model the turn's images after the text (a pinned screen capture)", async () => {
@@ -44,7 +46,7 @@ describe("text-only turn", () => {
     expect(h.provider.requests[0]?.messages[0]).toEqual({
       role: "user",
       parts: [
-        { type: "text", text: "what is this?" },
+        { type: "text", text: "what is this?", author: "owner" },
         { type: "image", mime: "image/jpeg", data: "AAAA" },
       ],
     });
@@ -58,15 +60,11 @@ describe("text-only turn", () => {
     for await (const _ of h.loop.startTurn(input)) {
       // drain
     }
-    expect(h.provider.requests[0]?.messages[0]).toEqual({
-      role: "user",
-      parts: [
-        {
-          type: "text",
-          text: "summarize\n\n[attached file: a.txt]\nhello\n[end of attached file]",
-        },
-      ],
-    });
+    const parts = h.provider.requests[0]?.messages[0]?.parts ?? [];
+    // The file's words come first, apart; the owner's request is the last text.
+    expect(parts[0]).toMatchObject({ type: "text", provenance: "untrusted" });
+    expect(parts[0]?.type === "text" ? parts[0].text : "").toContain("hello");
+    expect(parts[1]).toEqual({ type: "text", text: "summarize", author: "owner" });
   });
 
   it("keeps provider-native reasoning verbatim in the next request", async () => {

@@ -9760,6 +9760,7 @@ public struct Block: Codable, Sendable {
     public let question: String?
     public let compactionID: String?
     public let droppedPins: [String]?
+    public let keptPins: [String]?
     public let replaced: Replaced?
     public let summary: CompactionSummary?
     public let tokensAfter: Int?
@@ -9807,6 +9808,7 @@ public struct Block: Codable, Sendable {
         case question = "question"
         case compactionID = "compactionId"
         case droppedPins = "droppedPins"
+        case keptPins = "keptPins"
         case replaced = "replaced"
         case summary = "summary"
         case tokensAfter = "tokensAfter"
@@ -9821,7 +9823,7 @@ public struct Block: Codable, Sendable {
         case widgetID = "widgetId"
     }
 
-    public init(md: String? = nil, type: BlockType, level1: String? = nil, status: ToolCallStatus? = nil, tool: String? = nil, toolCallID: String? = nil, planID: String? = nil, items: [ItemElement]? = nil, approvalID: String? = nil, inputRequestID: String? = nil, artifactID: String? = nil, preview: String? = nil, libraryItemID: String? = nil, id: String? = nil, kind: BlockKind? = nil, source: String? = nil, title: String? = nil, url: String? = nil, receiptID: String? = nil, taskID: String? = nil, actions: [WrapUpAction]? = nil, ask: String? = nil, recap: String? = nil, cited: [String]? = nil, answer: String? = nil, factIDS: [String]? = nil, facts: [LifeFactHit]? = nil, model: ModelEnum? = nil, passageIDS: [String]? = nil, passages: [LifeAnswerPassage]? = nil, question: String? = nil, compactionID: String? = nil, droppedPins: [String]? = nil, replaced: Replaced? = nil, summary: CompactionSummary? = nil, tokensAfter: Int? = nil, tokensBefore: Int? = nil, trigger: BlockTrigger? = nil, feedbackID: String? = nil, lessonID: String? = nil, messageID: String? = nil, statement: String? = nil, proposal: DailyWorkflowProposal? = nil, route: String? = nil, widgetID: String? = nil) {
+    public init(md: String? = nil, type: BlockType, level1: String? = nil, status: ToolCallStatus? = nil, tool: String? = nil, toolCallID: String? = nil, planID: String? = nil, items: [ItemElement]? = nil, approvalID: String? = nil, inputRequestID: String? = nil, artifactID: String? = nil, preview: String? = nil, libraryItemID: String? = nil, id: String? = nil, kind: BlockKind? = nil, source: String? = nil, title: String? = nil, url: String? = nil, receiptID: String? = nil, taskID: String? = nil, actions: [WrapUpAction]? = nil, ask: String? = nil, recap: String? = nil, cited: [String]? = nil, answer: String? = nil, factIDS: [String]? = nil, facts: [LifeFactHit]? = nil, model: ModelEnum? = nil, passageIDS: [String]? = nil, passages: [LifeAnswerPassage]? = nil, question: String? = nil, compactionID: String? = nil, droppedPins: [String]? = nil, keptPins: [String]? = nil, replaced: Replaced? = nil, summary: CompactionSummary? = nil, tokensAfter: Int? = nil, tokensBefore: Int? = nil, trigger: BlockTrigger? = nil, feedbackID: String? = nil, lessonID: String? = nil, messageID: String? = nil, statement: String? = nil, proposal: DailyWorkflowProposal? = nil, route: String? = nil, widgetID: String? = nil) {
         self.md = md
         self.type = type
         self.level1 = level1
@@ -9855,6 +9857,7 @@ public struct Block: Codable, Sendable {
         self.question = question
         self.compactionID = compactionID
         self.droppedPins = droppedPins
+        self.keptPins = keptPins
         self.replaced = replaced
         self.summary = summary
         self.tokensAfter = tokensAfter
@@ -11015,6 +11018,7 @@ public enum DeviceScope: String, Codable, Sendable {
 public struct CompactionBlock: Codable, Sendable {
     public let compactionID: String
     public let droppedPins: [String]?
+    public let keptPins: [String]?
     public let replaced: Replaced
     public let summary: CompactionSummary
     public let tokensAfter: Int
@@ -11025,6 +11029,7 @@ public struct CompactionBlock: Codable, Sendable {
     public enum CodingKeys: String, CodingKey {
         case compactionID = "compactionId"
         case droppedPins = "droppedPins"
+        case keptPins = "keptPins"
         case replaced = "replaced"
         case summary = "summary"
         case tokensAfter = "tokensAfter"
@@ -11033,9 +11038,10 @@ public struct CompactionBlock: Codable, Sendable {
         case type = "type"
     }
 
-    public init(compactionID: String, droppedPins: [String]? = nil, replaced: Replaced, summary: CompactionSummary, tokensAfter: Int, tokensBefore: Int, trigger: BlockTrigger, type: CompactionBlockType) {
+    public init(compactionID: String, droppedPins: [String]? = nil, keptPins: [String]? = nil, replaced: Replaced, summary: CompactionSummary, tokensAfter: Int, tokensBefore: Int, trigger: BlockTrigger, type: CompactionBlockType) {
         self.compactionID = compactionID
         self.droppedPins = droppedPins
+        self.keptPins = keptPins
         self.replaced = replaced
         self.summary = summary
         self.tokensAfter = tokensAfter

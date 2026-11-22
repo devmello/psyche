@@ -55,12 +55,31 @@ export type RunOutcome =
 
 export interface TurnInput {
   text: string;
+  /**
+   * Text the Gateway put ahead of the owner's words (Ask about this, a screen ask, a quoted
+   * message, the names of attached files). When set, `text` starts with it and a blank line, and
+   * the rest of `text` is what the sender typed. The model reads it as its own part: never
+   * `author: "owner"`, and `provenance: "untrusted"` when the turn carries input taint.
+   */
+  context?: string;
   attachments?: { libraryItemId: string }[];
   /**
    * The attachments' extracted text (documents, capped), which the model reads after `text`. Kept
    * apart from `text` so it never counts as what the owner said (the learner, a task's goal).
    */
   attachmentText?: string;
+  /**
+   * Whether `attachmentText` holds someone else's words (a download, a channel or connector file,
+   * a quarantined item, a recording). Absent means yes: only an explicit `false` (the owner's own
+   * upload) makes the text non-tainting. It is then still fenced and quoted apart from the
+   * owner's words, and never a source of standing instructions.
+   */
+  attachmentThirdParty?: boolean;
+  /**
+   * The Gateway's own notes about the attachments ("you can see it", "quarantined", "not found").
+   * Harness text: never fenced as a third party's and never taints.
+   */
+  attachmentNotes?: string;
   /**
    * Images the model sees with the message (Ask about my screen: a pinned capture). Base64; the
    * turn's caller widens taint for them when they are untrusted (`taintSources`).
@@ -205,11 +224,19 @@ export interface ToolCallDetails {
   receiptId?: string | null;
 }
 
+/**
+ * `ownerWords: true`: the owner typed this text themselves (not an agent, a widget, a quote or a
+ * non-owner). The loop marks it `author: "owner"` only then, and only in the owner's own runs.
+ */
+export interface OwnerWordsOption {
+  ownerWords?: boolean;
+}
+
 export interface AgentLoop {
   /** Runs one turn; the iterable ends after exactly one `end` event. */
   startTurn(input: StartTurnInput): AsyncIterable<AgentEvent>;
   /** Interrupt the current tool loop of `runId` with new guidance. */
-  steer(runId: string, text: string): Promise<void>;
+  steer(runId: string, text: string, options?: OwnerWordsOption): Promise<void>;
   /** Whether the run's turn is parked on a question or card the owner has not answered. */
   isWaiting?(runId: string): boolean;
   /**
@@ -220,9 +247,10 @@ export interface AgentLoop {
   supersedeWaits?(
     runId: string,
     text: string,
+    options?: OwnerWordsOption,
   ): Promise<{ questions: InputRequest[]; approvals: ApprovalRequest[] }>;
   /** Queue a message to run after the thread's current turn settles. */
-  followUp(threadId: string, text: string): Promise<void>;
+  followUp(threadId: string, text: string, options?: OwnerWordsOption): Promise<void>;
   /** Cancel a run; its tool and approval authority is revoked immediately (§4.5). */
   cancel(runId: string, reason?: string): Promise<void>;
   /**

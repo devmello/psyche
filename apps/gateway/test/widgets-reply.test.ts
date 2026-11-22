@@ -58,6 +58,8 @@ describe("chat.send from a widget (D10, §7.3)", () => {
     );
     await t.gateway.context.sessions.idle();
     expect(agent.turns[0]?.taintSources ?? []).toEqual([]);
+    // The widget wrote the text: not the owner's words, so never `author: "owner"` (#1462 r2).
+    expect(agent.turns[0]?.ownerWords).toBe(false);
     const { messages } = await c.call<{ messages: Message[] }>("chat.history", {
       threadId: thread.id,
     });

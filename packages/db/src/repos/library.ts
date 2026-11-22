@@ -91,6 +91,27 @@ export function getLibraryItem(db: PsycheDb, id: string): LibraryItem | undefine
   return row === undefined ? undefined : libraryItemFromRow(row);
 }
 
+/**
+ * The writer's provenance detail (`source`), which `getLibraryItem` never returns: for trust
+ * decisions inside the Gateway only (a screen capture is `provenance: "untrusted"`).
+ */
+export function getLibraryItemSource(db: PsycheDb, id: string): Record<string, unknown> | null {
+  const row = db.drizzle
+    .select({ source: libraryItems.source })
+    .from(libraryItems)
+    .where(eq(libraryItems.id, id))
+    .get();
+  if (row?.source == null) return null;
+  try {
+    const parsed: unknown = JSON.parse(row.source);
+    return typeof parsed === "object" && parsed !== null && !Array.isArray(parsed)
+      ? (parsed as Record<string, unknown>)
+      : null;
+  } catch {
+    return null;
+  }
+}
+
 /** Newest first. */
 export function listLibraryItemsPage(
   db: PsycheDb,

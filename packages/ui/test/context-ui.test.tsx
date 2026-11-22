@@ -138,6 +138,18 @@ describe("CompactionMarker standing instructions", () => {
     expect(screen.getByText(/An older standing instruction was dropped/)).toBeTruthy();
   });
 
+  it("says when a standing instruction was kept because a file could not revoke it", () => {
+    render(
+      <StoryWorld>
+        <CompactionMarker
+          compaction={{ ...compaction, keptPins: ["Never cc ops@example.com."] }}
+          defaultOpen
+        />
+      </StoryWorld>,
+    );
+    expect(screen.getByText(/A standing instruction was kept/)).toBeTruthy();
+  });
+
   it("shows no Remove without the handler", () => {
     render(
       <StoryWorld>

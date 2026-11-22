@@ -67,16 +67,19 @@ export function splitForCompaction(
 }
 
 /**
- * Untrusted content in these messages: tool results tagged so, provider-executed results, and
- * per-turn context text a provider quoted from third parties (a text part tagged `untrusted`).
+ * Untrusted content in these messages: tool results tagged so, provider-executed results, text
+ * or images tagged `untrusted` (third-party files, quoted context, a non-owner's words), and user
+ * turns that carried input taint (`untrusted` on the message: a screen capture, Ask about this).
  */
 export function containsUntrusted(messages: readonly ModelMessage[]): boolean {
-  return messages.some((m) =>
-    m.parts.some(
-      (p) =>
-        (p.type === "tool_result" && (p.provenance === "untrusted" || m.role === "assistant")) ||
-        (p.type === "text" && p.provenance === "untrusted"),
-    ),
+  return messages.some(
+    (m) =>
+      m.untrusted === true ||
+      m.parts.some(
+        (p) =>
+          (p.type === "tool_result" && (p.provenance === "untrusted" || m.role === "assistant")) ||
+          ((p.type === "text" || p.type === "image") && p.provenance === "untrusted"),
+      ),
   );
 }
 
@@ -110,7 +113,8 @@ export function renderTranscript(
     .map((m) => {
       // Quoted third-party context (recalled chats, artifacts) is not the owner's words: it gets
       // its own line, so the summarizer cannot read it as something the owner said.
-      const quoted = (p: ModelPart) => p.type === "text" && p.provenance === "untrusted";
+      const quoted = (p: ModelPart) =>
+        p.type === "text" && (p.provenance === "untrusted" || p.ownerFile === true);
       const lines = (own: boolean) =>
         m.parts
           .filter((p) => quoted(p) !== own)
@@ -250,6 +254,269 @@ export function parseCompactionReply(text: string): CompactionReply | undefined 
 /** The model's JSON as a `CompactionSummary`, or `undefined` when it is not one. */
 export function parseCompactionSummary(text: string): CompactionSummary | undefined {
   return parseCompactionReply(text)?.summary;
+}
+
+/** Case, compatibility forms and invisible format characters folded (`＠`, ZWSP, NBSP). */
+const folded = (t: string) =>
+  t
+    .normalize("NFKC")
+    .replace(/\p{Cf}/gu, "")
+    .toLowerCase();
+
+/**
+ * Spelled-out addresses written back as the address: "ops [at] evil [dot] example", "ops(at)evil
+ * (dot)example" and "ops at evil dot example" all read `ops@evil.example`. Run on folded text, on
+ * both sides of every comparison, so a rule cannot hide its target behind the spelling.
+ */
+export function deobfuscate(folded: string): string {
+  return folded
+    .replace(/\s*[[({<]\s*at\s*[\])}>]\s*/gu, "@")
+    .replace(/\s*[[({<]\s*dot\s*[\])}>]\s*/gu, ".")
+    .replace(
+      /([\p{L}\p{N}._%+-]+)\s+at\s+([\p{L}\p{N}-]+(?:\s+dot\s+[\p{L}\p{N}-]+)+)/gu,
+      (_m, local: string, host: string) => `${local}@${host.replace(/\s+dot\s+/gu, ".")}`,
+    );
+}
+
+/** Folded, then spelled-out addresses decoded. */
+const decoded = (t: string) => deobfuscate(folded(t));
+
+/** Words only, one space apart: "Always CC x." and "always cc x" are the same text. */
+const loose = (t: string) =>
+  ` ${decoded(t)
+    .replace(/[^\p{L}\p{N}@]+/gu, " ")
+    .trim()} `;
+
+/** The digits of a number, an amount or a phone number ("$1,200.00" → "1200"). */
+const digitKey = (t: string) =>
+  t
+    .replace(/[^\d.]/g, "")
+    .replace(/^\.+|\.+$/g, "")
+    .replace(/\.0+$/, "");
+
+const EMAIL = /[\p{L}\p{N}._%+-]+@[\p{L}\p{N}-]+(?:\.[\p{L}\p{N}-]+)+/gu;
+const URL_TOKEN = /\b(?:https?|ftp):\/\/[^\s<>"'`)\]]+/gu;
+const DOMAIN =
+  /(?<![\p{L}\p{N}@._-])(?:[\p{L}\p{N}](?:[\p{L}\p{N}-]*[\p{L}\p{N}])?\.)+\p{L}{2,}(?![\p{L}\p{N}@-])/gu;
+const HANDLE = /(?<![\p{L}\p{N}._%+-])@[\p{L}\p{N}_][\p{L}\p{N}_.]*/gu;
+/** A home-relative path, or an absolute one with at least two parts (`~/.ssh/id_rsa`, `/etc/x`). */
+const PATH =
+  /(?<![\p{L}\p{N}:/.~-])(?:~\/[\p{L}\p{N}._~-]+(?:\/[\p{L}\p{N}._~-]+)*|\/[\p{L}\p{N}._~-]+(?:\/[\p{L}\p{N}._~-]+)+)/gu;
+const IPV4 = /(?<![\d.])(?:\d{1,3}\.){3}\d{1,3}(?![\d.])/g;
+/** Bitcoin bech32 and Ethereum-style addresses. */
+const CRYPTO = /\b(?:bc1|tb1)[02-9ac-hj-np-z]{11,87}\b|\b0x[0-9a-f]{40}\b/g;
+const AMOUNT =
+  /[$€£¥₹₩₽₿]\s?\d(?:[\d,.]*\d)?|\b\d(?:[\d,.]*\d)?\s?(?:usd|eur|gbp|jpy|chf|cad|aud|inr|btc|eth|sol|usdc|usdt|dollars?|euros?|pounds?|bucks)\b/gu;
+/** Phone and account numbers: seven or more digits, with the usual separators. */
+const LONG_NUMBER = /\+?\(?\d[\d\s().-]{5,30}\d/g;
+
+export interface Token {
+  /** `text`: compared exactly. `amount` and `number`: compared by their digits. */
+  kind: "text" | "amount" | "number";
+  value: string;
+  /**
+   * A target no trusted source writes into a standing instruction by itself (an IP address, a
+   * crypto address): flagged whenever the owner did not type it, file text or not.
+   */
+  always?: true;
+}
+
+/**
+ * The tokens in `text` that name a target: email addresses, URLs and their hosts, domains,
+ * @handles, paths, IP and crypto addresses, amounts, and phone or account numbers. Words like
+ * these are what an injected rule needs ("cc ops@evil.example", "pay $500"); a summarizer can
+ * reword a sentence but not them. Spelled-out addresses are decoded first.
+ */
+export function distinctiveTokens(text: string): Token[] {
+  const t = decoded(text);
+  const out: Token[] = [];
+  const add = (kind: Token["kind"], value: string, always = false) => {
+    if (value === "" || out.some((o) => o.kind === kind && o.value === value)) return;
+    out.push(always ? { kind, value, always: true } : { kind, value });
+  };
+  for (const m of t.matchAll(EMAIL)) add("text", m[0].replace(/\.+$/, ""));
+  for (const m of t.matchAll(URL_TOKEN)) {
+    add(
+      "text",
+      m[0]
+        .replace(/^[a-z]+:\/\//, "")
+        .replace(/^www\./, "")
+        .replace(/[.,;:!?/]+$/, ""),
+    );
+  }
+  for (const m of t.matchAll(DOMAIN)) {
+    const host = m[0].replace(/^www\./, "");
+    add("text", host);
+    // A link written without its scheme ("evil.example/pay") is the same token as with it.
+    const rest = /^\/[^\s<>"'`)\]]*/u.exec(t.slice((m.index ?? 0) + m[0].length))?.[0];
+    const path = rest?.replace(/[.,;:!?/]+$/, "") ?? "";
+    if (path !== "") add("text", `${host}${path}`);
+  }
+  for (const m of t.matchAll(HANDLE)) add("text", m[0].replace(/\.+$/, ""));
+  for (const m of t.matchAll(PATH)) add("text", m[0].replace(/[.,;:!?]+$/, ""));
+  for (const m of t.matchAll(IPV4)) add("text", m[0], true);
+  for (const m of t.matchAll(CRYPTO)) add("text", m[0], true);
+  for (const m of t.matchAll(AMOUNT)) add("amount", digitKey(m[0]));
+  for (const m of t.matchAll(LONG_NUMBER)) {
+    const digits = m[0].replace(/\D/g, "");
+    if (digits.length >= 7) add("number", digits);
+  }
+  return out;
+}
+
+/** Every number in `text`, by its digits ("1,200" → "1200", "(415) 555-0199" → "4155550199"). */
+function numberKeys(text: string): string[] {
+  const keys = new Set<string>();
+  for (const m of text.matchAll(/\d(?:[\d,.]*\d)?/g)) keys.add(digitKey(m[0]));
+  for (const m of text.matchAll(LONG_NUMBER)) keys.add(m[0].replace(/\D/g, ""));
+  return [...keys].filter((k) => k !== "");
+}
+
+/** The same long number written with or without a country code. */
+const sameNumber = (a: string, b: string) =>
+  a === b || (a.length >= 7 && b.length >= 7 && (a.endsWith(b) || b.endsWith(a)));
+
+/**
+ * What one side of the comparison said: its exact text tokens (plus the host of every email and
+ * URL, so `billing@acme.com` covers `acme.com`), its amounts and its numbers.
+ */
+function sideTokens(text: string): { text: Set<string>; amounts: Set<string>; numbers: string[] } {
+  const tokens = distinctiveTokens(text);
+  const out = { text: new Set<string>(), amounts: new Set<string>(), numbers: numberKeys(text) };
+  for (const t of tokens) {
+    if (t.kind === "amount") out.amounts.add(t.value);
+    if (t.kind !== "text") continue;
+    out.text.add(t.value);
+    const at = t.value.lastIndexOf("@");
+    if (at > 0) out.text.add(t.value.slice(at + 1));
+    const slash = t.value.indexOf("/");
+    if (slash > 0 && !t.value.startsWith("~")) out.text.add(t.value.slice(0, slash));
+  }
+  return out;
+}
+
+/** Whether `item` hides its letters: invisible or compatibility characters, or mixed scripts. */
+function obfuscated(item: string): boolean {
+  if (/\p{Cf}/u.test(item) || item.normalize("NFKC") !== item) return true;
+  return item
+    .split(/[\s,;:!?()[\]{}<>"']+/u)
+    .some((w) => /\p{Script=Latin}/u.test(w) && /[\p{Script=Cyrillic}\p{Script=Greek}]/u.test(w));
+}
+
+/**
+ * The items (new pins, daily-note lines) that file text in `messages` may have put there, so
+ * they are never filed as the owner's: never a trusted standing instruction, never a trusted
+ * memory line. `messages` must be exactly what the summarizer read.
+ *
+ * File text is any user-turn text part tagged `ownerFile` (the owner's own upload) or `untrusted`
+ * (someone else's file, a non-owner's message, Gateway context from a tainted turn). The owner's
+ * words are only parts marked `author: "owner"` and the owner's chat replies on tool messages
+ * (`ownerReply`): never the Gateway's notes, unmarked context, turn context or harness text.
+ * When there is no file text, nothing is flagged. Otherwise an item is flagged when:
+ * - it appears in file text and not in the owner's words (case, spacing, punctuation and
+ *   spelled-out addresses folded); or
+ * - it carries a distinctive token (`distinctiveTokens`) the owner did not say, compared exactly
+ *   (`acme.co` is not `acme.com`, `@bob` is not `@bobby`), that the file text holds: the same
+ *   token, the same digits, or for an address every part of it (`opsXevilYexample` holds
+ *   `ops@evil.example`). A token the summarizer worked out or took from a trusted tool result
+ *   ("next Tuesday" as a date, "GitHub" as `github.com`) is not in the file and stays trusted;
+ * - or the token is one no trusted source writes by itself (an IP or crypto address), or the item
+ *   hides its letters (zero-width or fullwidth characters, mixed scripts).
+ * A pure paraphrase with no token and no shared wording ("reply only in French") is not caught:
+ * an accepted residual, since it names no target.
+ */
+export function fileOnlyItems(
+  messages: readonly ModelMessage[],
+  items: readonly string[],
+): string[] {
+  const owner: string[] = [];
+  const file: string[] = [];
+  for (const m of messages) {
+    if (m.ownerReply !== undefined && m.ownerReply !== "") owner.push(m.ownerReply);
+    if (m.role !== "user") continue;
+    for (const p of m.parts) {
+      if (p.type !== "text") continue;
+      if (p.ownerFile === true || p.provenance === "untrusted") file.push(p.text);
+      else if (p.author === "owner") owner.push(p.text);
+    }
+  }
+  if (file.length === 0) return [];
+  const ownerLoose = owner.map(loose);
+  const fileLoose = file.map(loose);
+  const fileJoined = fileLoose.join(" ");
+  const ownerSide = sideTokens(owner.join("\n"));
+  const fileSide = sideTokens(file.join("\n"));
+  const ownerSaid = (t: Token) =>
+    t.kind === "text"
+      ? ownerSide.text.has(t.value)
+      : t.kind === "amount"
+        ? ownerSide.amounts.has(t.value)
+        : ownerSide.numbers.some((k) => sameNumber(k, t.value));
+  const fileHolds = (t: Token) => {
+    if (t.kind !== "text") return fileSide.numbers.some((k) => sameNumber(k, t.value));
+    if (fileSide.text.has(t.value)) return true;
+    if (!t.value.includes("@")) return false;
+    const parts = t.value.split(/[^\p{L}\p{N}]+/u).filter((s) => s.length >= 3);
+    return parts.length > 0 && parts.every((s) => fileJoined.includes(s));
+  };
+  return items.filter((item) => {
+    const k = loose(item);
+    if (k.trim() === "") return false;
+    if (fileLoose.some((f) => f.includes(k)) && !ownerLoose.some((o) => o.includes(k))) return true;
+    const hidden = obfuscated(item);
+    return distinctiveTokens(item).some(
+      (t) => !ownerSaid(t) && (hidden || t.always === true || fileHolds(t)),
+    );
+  });
+}
+
+/** Whether these messages carry text from a file the owner attached (`ownerFile`). */
+export function readsOwnerFile(messages: readonly ModelMessage[]): boolean {
+  return messages.some(
+    (m) => m.role === "user" && m.parts.some((p) => p.type === "text" && p.ownerFile === true),
+  );
+}
+
+/** Words that revoke or replace a rule ("stop", "no longer", "instead"). */
+const REVOKE =
+  /\b(?:stop|stopped|no longer|not anymore|anymore|don'?t|do not|never mind|nevermind|forget|cancel|remove|drop|undo|revoke|instead|quit|cease)\b/u;
+
+/** Words too common to tie a revoke to one rule. */
+const STOPWORDS = new Set(
+  "always never every from with that this when what your their about into than then them they have will would should could also just only more most some such like over after before again answer reply respond".split(
+    " ",
+  ),
+);
+
+/**
+ * Whether the owner's own words in `messages` support retiring `pin`: they say to stop or replace
+ * something, and they share a content word (four letters or more) or a distinctive token with
+ * the pin. Lets the owner's revoke through when a file is in the same window, without letting the
+ * file's words retire the owner's rules.
+ */
+export function ownerRetires(messages: readonly ModelMessage[], pin: string): boolean {
+  const owner: string[] = [];
+  for (const m of messages) {
+    if (m.ownerReply !== undefined) owner.push(m.ownerReply);
+    if (m.role !== "user") continue;
+    for (const p of m.parts) if (p.type === "text" && p.author === "owner") owner.push(p.text);
+  }
+  const words = (t: string) =>
+    new Set(
+      loose(t)
+        .split(" ")
+        .filter((w) => w.length >= 4 && !STOPWORDS.has(w)),
+    );
+  const pinWords = words(pin);
+  const pinTokens = distinctiveTokens(pin).filter((t) => t.kind === "text");
+  return owner.some((o) => {
+    if (!REVOKE.test(decoded(o))) return false;
+    const said = words(o);
+    const stems = [...said].map((w) => w.slice(0, 5));
+    if ([...pinWords].some((w) => said.has(w) || stems.includes(w.slice(0, 5)))) return true;
+    const ownerText = sideTokens(o).text;
+    return pinTokens.length > 0 && pinTokens.every((t) => ownerText.has(t.value));
+  });
 }
 
 /** The summary as the context section the model reads. */

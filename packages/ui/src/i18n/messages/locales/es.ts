@@ -594,6 +594,8 @@ export const es: Partial<Catalogue> = {
   "context.marker.pinRemoveFailed": "No se pudo quitar: {reason}",
   "context.marker.droppedPins":
     "{count, plural, one {Se descartó una instrucción permanente anterior} other {Se descartaron # instrucciones permanentes anteriores}} para dejar sitio a las nuevas.",
+  "context.marker.keptPins":
+    "{count, plural, one {Se mantuvo una instrucción permanente} other {Se mantuvieron # instrucciones permanentes}}: un archivo o el contenido de otra persona en este chat no puede quitarlas. Usa Quitar si era lo que querías.",
   "context.marker.replacedList": "Turnos sustituidos",
   "context.marker.notLoaded": "Los turnos sustituidos no están cargados aquí.",
   "context.marker.speaker": "{name}:",

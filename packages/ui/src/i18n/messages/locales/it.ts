@@ -602,6 +602,8 @@ export const it: Partial<Catalogue> = {
   "context.marker.pinRemoveFailed": "Impossibile rimuoverla: {reason}",
   "context.marker.droppedPins":
     "{count, plural, one {Una vecchia istruzione permanente è stata eliminata} other {# vecchie istruzioni permanenti sono state eliminate}} per fare spazio alle nuove.",
+  "context.marker.keptPins":
+    "{count, plural, one {Un'istruzione permanente è stata mantenuta} other {# istruzioni permanenti sono state mantenute}}: un file o contenuti di altri in questa chat non possono rimuoverle. Usa Rimuovi se era tua intenzione.",
   "context.marker.replacedList": "Turni sostituiti",
   "context.marker.notLoaded": "I turni sostituiti non sono caricati qui.",
   "context.marker.speaker": "{name}:",

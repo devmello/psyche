@@ -1,3 +1,4 @@
+import { createHash } from "node:crypto";
 import { fixtureSecret, loadSecretRegistry, resolveSample } from "@psyche/testing";
 import { describe, expect, it } from "vitest";
 import {
@@ -44,6 +45,28 @@ describe("sensitive detectors", () => {
   it("does not flag sha256 references or ULIDs", () => {
     expect(containsSensitive(`sha256:${"ab12".repeat(16)}`)).toBe(false);
     expect(containsSensitive("01J9ZK4Q7W8X9Y0Z1A2B3C4D5E")).toBe(false);
+  });
+
+  // #1462 r3: about 1 in 1000 random anchor key ids passed mod 97 and was redacted as an IBAN.
+  it("does not take a hex key id for an IBAN, and still finds IBANs in any case", () => {
+    const keyId = "ed25519:dc2669c91af935bc";
+    // Its first 15 characters pass the IBAN checksum.
+    expect(ibanValid("dc2669c91af935b")).toBe(true);
+    expect(containsSensitive(keyId)).toBe(false);
+    expect(redactForAudit({ keyId })).toEqual({ keyId });
+    // A random sample of key ids: none is redacted.
+    // Fixed sample (sha256 of 0..4999), so the test is the same on every run.
+    for (let i = 0; i < 5000; i++) {
+      const id = `ed25519:${createHash("sha256").update(String(i)).digest("hex").slice(0, 16)}`;
+      expect(
+        findSensitive(id).filter((m) => m.kind === "iban"),
+        id,
+      ).toEqual([]);
+    }
+    for (const iban of samples("iban")) {
+      expect(containsSensitive(`pay ${iban} now`)).toBe(true);
+      expect(containsSensitive(`pay ${iban.toLowerCase()} now`)).toBe(true);
+    }
   });
 
   it.each([

@@ -621,6 +621,8 @@ export const de: Partial<Catalogue> = {
   "context.marker.pinRemoveFailed": "Konnte nicht entfernt werden: {reason}",
   "context.marker.droppedPins":
     "{count, plural, one {Eine ältere ständige Anweisung wurde} other {# ältere ständige Anweisungen wurden}} entfernt, um Platz für neue zu schaffen.",
+  "context.marker.keptPins":
+    "{count, plural, one {Eine ständige Anweisung wurde behalten} other {# ständige Anweisungen wurden behalten}}: Eine Datei oder Inhalte anderer in diesem Chat können sie nicht entfernen. Nutze Entfernen, wenn du das wolltest.",
   "context.marker.replacedList": "Ersetzte Züge",
   "context.marker.notLoaded": "Die ersetzten Züge sind hier nicht geladen.",
   "context.marker.speaker": "{name}:",

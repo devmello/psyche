@@ -458,7 +458,7 @@ describe("renderUserContext fences", () => {
     });
     await runTurn(h, "my question");
     const parts = h.provider.requests[0]?.messages[0]?.parts ?? [];
-    expect(parts.at(-1)).toEqual({ type: "text", text: "my question" });
+    expect(parts.at(-1)).toEqual({ type: "text", text: "my question", author: "owner" });
     expect(parts.slice(0, -1).every((p) => p.type === "text" && p.turnContext === true)).toBe(true);
   });
 });
