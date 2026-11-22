@@ -1,6 +1,6 @@
 import { existsSync, mkdirSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
-import { join } from "node:path";
+import { join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import {
   type ElectronApplication,
@@ -12,6 +12,7 @@ import {
 import { MockGateway as KitGateway } from "@psyche/ui/testing";
 import { MockGateway } from "@psyche/web/testing";
 import { createFixtureWorld } from "../../../packages/ui/src/fixtures/index.ts";
+import { mainWindowPage, stopTestHelpers } from "./helpers.ts";
 
 /**
  * Window layout (docs/06 §3.1, §3.19, §4.1; redesign-2026 §4, §5.1, §5.11) in the packaged
@@ -26,7 +27,9 @@ import { createFixtureWorld } from "../../../packages/ui/src/fixtures/index.ts";
  * host at phone width.
  */
 
-const appDir = fileURLToPath(new URL("..", import.meta.url));
+// resolve() drops the trailing separator: on Windows `...desktop` before the closing quote of
+// the quoted argv entry would escape it and Electron would never find the app.
+const appDir = resolve(fileURLToPath(new URL("..", import.meta.url)));
 const shotsDir = fileURLToPath(new URL("./__screenshots__/", import.meta.url));
 const webDist = fileURLToPath(new URL("../../web/dist/", import.meta.url));
 const webHost = fileURLToPath(new URL("./web-host.cjs", import.meta.url));
@@ -103,12 +106,12 @@ const THREADS = [
 ];
 
 const STEPS = [
-  "Meet your agent",
-  "Permissions",
-  "Connectors",
-  "Model & provider",
-  "Where .* works",
-  "Done",
+  "You and your agent",
+  "Your stuff",
+  "Choose a model",
+  "Memory and daily habits",
+  "Safety",
+  "You.re set",
 ];
 
 interface Box {
@@ -196,8 +199,25 @@ async function setWindowSize(width: number, height: number): Promise<void> {
   await expect.poll(() => page.evaluate(() => window.innerHeight)).toBe(height);
 }
 
-/** The traffic-light buttons: the window's button position and the three 12 px buttons. */
-async function trafficLights(): Promise<Box> {
+/**
+ * The window's own controls, which nothing of ours may sit under. macOS: the traffic-light
+ * buttons (the window's button position and the three 12 px buttons). Windows: the caption
+ * buttons Windows draws in the Window Controls Overlay, i.e. whatever is right of the page's
+ * title-bar area.
+ */
+async function trafficLights(from: Page = page): Promise<Box> {
+  if (process.platform === "win32") {
+    return from.evaluate(() => {
+      const wco = (
+        navigator as unknown as {
+          windowControlsOverlay: { getTitlebarAreaRect(): DOMRect };
+        }
+      ).windowControlsOverlay;
+      const r = wco.getTitlebarAreaRect();
+      const x = r.x + r.width;
+      return { x, y: 0, width: window.innerWidth - x, height: r.height };
+    });
+  }
   const p = await app.evaluate(({ BaseWindow }) =>
     BaseWindow.getAllWindows()
       .find((w) => w.getTitle() === "Psyche")
@@ -230,7 +250,15 @@ async function intruders(p: Page, rect: Box): Promise<string[]> {
     for (const el of Array.from(
       document.querySelectorAll("button, a, input, textarea, select, img, svg, [role=button]"),
     )) {
-      if (overlaps(el.getBoundingClientRect())) hits.push(`<${el.tagName.toLowerCase()}>`);
+      // Invisible elements (the autosize textarea's hidden measuring clone) are not on screen.
+      if (getComputedStyle(el).visibility === "hidden") continue;
+      if (overlaps(el.getBoundingClientRect())) {
+        const b = el.getBoundingClientRect();
+        const id = el.getAttribute("data-testid") ?? el.getAttribute("aria-label") ?? "";
+        hits.push(
+          `<${el.tagName.toLowerCase()}>${id ? ` ${id}` : ""} @${Math.round(b.left)},${Math.round(b.top)} ${Math.round(b.width)}x${Math.round(b.height)}`,
+        );
+      }
     }
     return hits;
   }, rect);
@@ -297,11 +325,12 @@ test.beforeAll(async () => {
       PSYCHE_E2E_ANY_WINDOW_SIZE: "1",
     },
   });
-  page = await app.firstWindow();
+  page = await mainWindowPage(app);
   await page.waitForSelector('[data-testid="onboarding"]');
 });
 
 test.afterAll(async () => {
+  stopTestHelpers(appDir);
   await app?.close();
   await gw?.stop();
   rmSync(dir, { recursive: true, force: true });
@@ -379,7 +408,7 @@ for (const [width, height] of [
     // The sidebar and the content column start on the same line, and the agent header is the
     // content column's first row.
     const content = await box(page, "content");
-    const agentHeader = await page.getByTestId("kit-chat").locator("header").first().boundingBox();
+    const agentHeader = await page.getByTestId("chat-toolbar").first().boundingBox();
     expect(Math.abs(sidebar.y - content.y), `${tag}: sidebar and content tops`).toBeLessThanOrEqual(
       1,
     );
@@ -460,6 +489,13 @@ for (const [width, height] of [
         `${tag}: pane header bottom`,
       ).toBeLessThanOrEqual(1);
     }
+    // The pane's header runs along the top edge too: its buttons stay clear of the window's own.
+    // (Polled: the pane slides in.)
+    await expect
+      .poll(async () => intruders(page, await trafficLights()), {
+        message: `${tag}: under the window controls with a pane`,
+      })
+      .toEqual([]);
     await expectNoSidewaysScroll(page, `${tag} with a pane`);
     await shot(page, `main-pane-${width}x${height}`);
     gw.emit("view.command", { command: "close", args: { pane: "tasks" } });
@@ -475,20 +511,18 @@ test("rail screens, inbox and agent sheet at 1440x900: kit chrome, no sideways s
   await page.waitForSelector('[data-testid="kit-chat"]');
   await setWindowSize(1440, 900);
   const lights = await trafficLights();
-  // The sidebar's destinations (redesign §5.1): six rows, Chat current while a thread is open.
+  // The sidebar's destinations (redesign §5.1): Search, Chat, Home, Library and Memory; Chat current while a thread is open.
   const rail = page.getByRole("list", { name: "Destinations" });
-  await expect(rail.getByRole("button")).toHaveCount(6);
+  await expect(rail.getByRole("button")).toHaveCount(5);
   await expect(rail.getByRole("button", { name: /^Chat/ })).toHaveAttribute("aria-current", "true");
   // The Threads group: its header with the filter and new-side-chat buttons.
   const group = page.getByTestId("thread-group");
   await expect(group.getByRole("heading", { name: "Threads" })).toBeVisible();
   await expect(group.getByRole("button", { name: "New side chat" })).toBeVisible();
   for (const [label, id] of [
-    ["Search", "search"],
-    ["Feed", "feed"],
-    ["Ideas", "ideas"],
-    ["Goals", "goals"],
+    ["Home", "home"],
     ["Library", "library"],
+    ["Memory", "memory"],
   ] as const) {
     await rail.getByRole("button", { name: new RegExp(`^${label}`) }).click();
     await expect(page.getByTestId(`screen-${id}`)).toBeVisible();
@@ -513,7 +547,7 @@ test("rail screens, inbox and agent sheet at 1440x900: kit chrome, no sideways s
   await page.getByRole("button", { name: /approvals and memory/ }).click();
   for (const [tab, id] of [
     ["Approvals", "approvals"],
-    ["Soul & Memory", "soul"],
+    ["Soul", "soul"],
   ] as const) {
     await page.getByRole("tab", { name: new RegExp(`^${tab}`) }).click();
     await page.waitForTimeout(400);
@@ -540,7 +574,8 @@ test("Settings window: 920x640, centred on the main window, the main window's ch
   });
   const sp = await opened;
   await sp.waitForSelector('[data-testid="settings-window"]');
-  const w = await app.evaluate(({ BaseWindow, screen }) => {
+  const mac = process.platform === "darwin";
+  const w = await app.evaluate(({ BaseWindow, screen }, isMac) => {
     const all = BaseWindow.getAllWindows();
     const settings = all.find((x) => x.getTitle() === "Settings");
     const main = all.find((x) => x.getTitle() === "Psyche");
@@ -549,11 +584,12 @@ test("Settings window: 920x640, centred on the main window, the main window's ch
       bounds: settings.getBounds(),
       main: main.getBounds(),
       min: settings.getMinimumSize(),
-      lights: settings.getWindowButtonPosition(),
-      mainLights: main.getWindowButtonPosition(),
+      // Only macOS has window buttons the app positions.
+      lights: isMac ? settings.getWindowButtonPosition() : undefined,
+      mainLights: isMac ? main.getWindowButtonPosition() : undefined,
       area: screen.getDisplayMatching(main.getBounds()).workArea,
     };
-  });
+  }, mac);
   expect(w.min).toEqual([760, 520]);
   expect(w.lights).toEqual(w.mainLights);
   // The default size, clamped to a screen smaller than it (CI).
@@ -568,8 +604,10 @@ test("Settings window: 920x640, centred on the main window, the main window's ch
   // The 52 px toolbar, with nothing under the traffic lights.
   const bar = await box(sp, "titlebar");
   expect(bar.height).toBe(52);
-  if (!w.lights) throw new Error("no traffic-light position");
-  const lights = { x: w.lights.x - 2, y: w.lights.y - 2, width: 56, height: 18 };
+  if (mac && !w.lights) throw new Error("no traffic-light position");
+  const lights = w.lights
+    ? { x: w.lights.x - 2, y: w.lights.y - 2, width: 56, height: 18 }
+    : await trafficLights(sp);
   expect(await intruders(sp, lights), "Settings: under the traffic lights").toEqual([]);
   await shot(sp, "settings-window-1440x900");
   await app.evaluate(({ BaseWindow }) =>
@@ -601,11 +639,7 @@ test("web client at 390 px: no title bar, every onboarding step, main chat", asy
     await p.waitForSelector('[data-testid="onboarding"]');
     expect(await p.evaluate(() => window.innerWidth)).toBe(390);
     await expect(p.getByTestId("titlebar")).toHaveCount(0);
-    // The web can't ask macOS, so its onboarding may leave Permissions out (#554).
-    const progress = await p.getByRole("navigation", { name: "Onboarding progress" }).textContent();
-    const webSteps = progress?.includes("Permissions")
-      ? STEPS
-      : STEPS.filter((s) => s !== "Permissions");
+    const webSteps = STEPS;
     for (const [i, label] of webSteps.entries()) {
       await expect(p.getByRole("heading", { level: 1, name: new RegExp(label) })).toBeVisible();
       await expectOnboardingLayout(p, `web ${label}`, 0);
@@ -629,7 +663,7 @@ test("web client at 390 px: no title bar, every onboarding step, main chat", asy
     await expect(p.getByTestId("shell")).toHaveAttribute("data-compact", "true");
     // Compact (redesign §5.11): the top bar and the tab bar, no sidebar.
     await expect(p.getByTestId("compact-top-bar")).toBeVisible();
-    await expect(p.getByTestId("tab-bar").getByRole("button")).toHaveCount(5);
+    await expect(p.getByTestId("tab-bar").getByRole("button")).toHaveCount(4);
     await expect(p.getByRole("navigation", { name: "Sidebar" })).toHaveCount(0);
     await expectNoSidewaysScroll(p, "web main");
     await shot(p, "web-main-390");
