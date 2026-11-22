@@ -3104,7 +3104,7 @@ export class PsychePermissionBroker implements PermissionBroker {
     const runId = input.requestedBy.runId;
     const b =
       runId == null
-        ? this.#resolveRunSpace({ threadId, runId: "" })
+        ? this.#resolveRunSpace({ threadId, runId: "", unattended: false })
         : this.#runSpaces.get(runKey(threadId, runId));
     // An archived or deleted Space is caught at the answer: `add` refuses it.
     if (b?.spaceId === undefined || b.unattended) return undefined;
