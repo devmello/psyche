@@ -23,6 +23,28 @@ struct MachineLineTests {
         #expect(try #require(item?.approval).machineName == "lab-box")
     }
 
+    @Test func aCardForAnotherComputerIsReadInTheAppAndNeverAsksForFaceID() throws {
+        // Scalar-only details, short: only the machine keeps it off the lock screen, which can't name the computer.
+        func card(_ machine: JSONValue?) throws -> NeedsYouItem {
+            var fields: [String: JSONValue] = [
+                "id": "ap2", "kind": "calendar_write", "summary": "Add an event", "status": "pending",
+                "details": .object(["title": "Standup"]),
+            ]
+            if let machine { fields["machine"] = machine }
+            return try #require(GatewayBackend.needsYou(approval: .object(fields)))
+        }
+        let here = try card(nil)
+        #expect(AlertPolicy.answersInline(here))
+        let there = try card(.object(["deviceId": "dev_1", "name": "lab-box"]))
+        let approval = try #require(there.approval)
+        #expect(approval.reviewInApp)
+        #expect(!AlertPolicy.answersInline(there))
+        // Still a plain tap in the app: no presence note, not a Mac-only card.
+        #expect(approval.presenceNote == nil)
+        #expect(!approval.needsMac)
+        #expect(!approval.needsPresence(for: .allow))
+    }
+
     @Test(arguments: [
         JSONValue?.none, .some(.object([:])), .some(.object(["name": ""])), .some(.object(["name": "   "])),
         .some(.string("lab-box")), .some(.object(["name": .number(3)])),

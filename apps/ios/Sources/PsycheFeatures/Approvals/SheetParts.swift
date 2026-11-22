@@ -85,7 +85,7 @@ struct AnswerError: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: 12) {
-            StatusDot(.failed, message, textColor: PsycheColor.text, font: .footnote)
+            StatusDot(.failed, notice(message), textColor: PsycheColor.text, font: .footnote)
                 .frame(maxWidth: .infinity, alignment: .leading)
             HStack(spacing: 10) {
                 GlassTextButton(title: "Not now", action: cancel)

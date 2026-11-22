@@ -59,11 +59,14 @@ public struct AlertPayload: Equatable, Sendable {
 }
 
 public enum AlertPolicy {
-    /// Presence-gated kinds are those whose approval carries a `presenceNote` (payments, device-only,
-    /// credential fills). They never get an Approve button on the lock screen.
+    /// Presence-gated kinds (a `presenceNote`: payments), cards to read first (`reviewInApp`: security changes,
+    /// destructive actions, long details) and cards the phone can't allow (`needsMac`) never get an Approve button on
+    /// the lock screen; the ones the phone answers are a plain tap in the app.
     public static func category(for item: NeedsYouItem) -> AlertCategory {
         switch item.kind {
-        case .approval: item.approval?.presenceNote == nil ? .approvalWrite : .approvalReview
+        case .approval:
+            item.approval.map { $0.presenceNote != nil || $0.reviewInApp || $0.needsMac } == true
+                ? .approvalReview : .approvalWrite
         case .question, .task: .question
         }
     }

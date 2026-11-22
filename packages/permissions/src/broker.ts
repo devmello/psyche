@@ -38,7 +38,13 @@ import {
 import { venueOfHost } from "@psyche/protocol/financial-block";
 import { monotonicFactory } from "ulid";
 import { type Binding, bindingFor, bindingHash, grantKeyHash, readsCwdConfig } from "./binding.ts";
-import { cardHeader, cardTaintSources, sanitizeDetails, sanitizeDisplay } from "./cards.ts";
+import {
+  cardHeader,
+  cardTaintSources,
+  detailsTooDeep,
+  sanitizeDetails,
+  sanitizeDisplay,
+} from "./cards.ts";
 import {
   CHANNEL_PAIRING_WINDOW_MS,
   CHANNEL_REPLIES_PER_MINUTE,
@@ -254,6 +260,13 @@ export interface PermissionBrokerOptions {
   presence?: PresenceVerifier;
   /** Which approvals need a presence assertion once a verifier is configured. */
   presenceFor?: "authentication" | "device_only";
+  /**
+   * The `device:<deviceId>` surfaces of the paired operator devices that answer with a plain tap
+   * (a phone, a tablet): added to every card that needs no presence assertion and whose caller
+   * offered `notification` or `web`, each with its own token. Never a shared per-platform
+   * surface, never a chat surface.
+   */
+  deviceSurfaces?: () => readonly Surface[];
   ttlMs?: number;
   armDelayMs?: number;
   /**
@@ -357,7 +370,8 @@ export function presenceChallenge(
   return digest.slice("sha256:".length);
 }
 
-const isChat = (s: Surface) => s.includes(":");
+/** A chat surface is `<channel>:<id>`; `device:<deviceId>` is a paired device, not a chat. */
+const isChat = (s: Surface) => s.includes(":") && !s.startsWith("device:");
 
 function actorOf(by: DecidedBy, surface?: Surface): AuditEntryInput["actor"] {
   if ("deviceId" in by) {
@@ -450,6 +464,7 @@ export class PsychePermissionBroker implements PermissionBroker {
   readonly #notifier: Notifier | undefined;
   readonly #presence: PresenceVerifier | undefined;
   readonly #presenceFor: "authentication" | "device_only";
+  readonly #deviceSurfaces: (() => readonly Surface[]) | undefined;
   readonly #armDelayMs: number;
   readonly #ttlMs: number | undefined;
   readonly #deferredApproval: PermissionBrokerOptions["deferredApproval"];
@@ -523,6 +538,7 @@ export class PsychePermissionBroker implements PermissionBroker {
     this.#notifier = options.notifier;
     this.#presence = options.presence;
     this.#presenceFor = options.presenceFor ?? "authentication";
+    this.#deviceSurfaces = options.deviceSurfaces;
     this.#armDelayMs = options.armDelayMs ?? APPROVAL_ARM_DELAY_MS;
     this.#ttlMs = options.ttlMs;
     this.#deferredApproval = options.deferredApproval;
@@ -1518,6 +1534,11 @@ export class PsychePermissionBroker implements PermissionBroker {
     if (input.children.length === 0 || input.children.length > MAX_BATCH_CALLS) {
       fail("invalid_params", `a batch holds 1 to ${MAX_BATCH_CALLS} calls`);
     }
+    if (detailsTooDeep(input.details)) {
+      fail("invalid_params", "the approval's details are nested too deeply to show in full", {
+        reason: "details_too_deep",
+      });
+    }
     const children: BatchChild[] = [];
     // Per child: the live prep-note standing grant that covers it (security §3.4), and whether
     // the decision already used it. Taint is never exempted: a tainted call asks and is not covered.
@@ -1741,6 +1762,13 @@ export class PsychePermissionBroker implements PermissionBroker {
 
   async requestApproval(input: PolicyApprovalInput): Promise<IssuedApproval> {
     this.#sweep();
+    // A card shows its details in full or is not raised: past the display depth, part of what the
+    // binding covers would show as "…" on every surface (desktop, web, phone).
+    if (detailsTooDeep(input.details)) {
+      fail("invalid_params", "the approval's details are nested too deeply to show in full", {
+        reason: "details_too_deep",
+      });
+    }
     const issued = this.#issue(input);
     await this.#afterIssue(issued.approval);
     return issued;
@@ -1789,6 +1817,22 @@ export class PsychePermissionBroker implements PermissionBroker {
       ),
     ];
     if (surfaces.length === 0) surfaces = ["desktop"];
+    // A card that needs no presence is a plain tap on any paired operator device (owner's decision,
+    // 2026-11-09): each gets its own surface and token. Only when the caller itself offered the
+    // off-Mac surfaces (`notification` or `web`), never a relay (the Mac helper adds
+    // `notification` to every card): a card its caller kept on `["desktop"]` shows arguments only
+    // the Mac renders in full and stays there. A card that needs a presence assertion (a payment,
+    // enrolling a verifier) stays on the Mac surfaces. A phone paired after the card was raised
+    // gets no token for it.
+    const offMac = input.offMac ?? input.surfaces.some((s) => s === "notification" || s === "web");
+    if (!requiresAuthentication && this.#deviceSurfaces !== undefined && offMac) {
+      surfaces = [
+        ...new Set([
+          ...surfaces,
+          ...this.#deviceSurfaces().filter((s) => s.startsWith("device:") && !own.has(s)),
+        ]),
+      ];
+    }
 
     const allowed = allowedScopes(se, input.kind);
     const fromDecision = recent?.decision.scopesOffered;
@@ -3568,6 +3612,9 @@ export class PsychePermissionBroker implements PermissionBroker {
     for (const rec of pending) {
       const input = structuredClone(rec.input);
       input.taint = input.taint || rec.approval.taint;
+      // A row stored without the flag (before it existed, or from a caller the relay wrapper never saw) holds the
+      // relay-merged surfaces: never take the phones from those. Every card the Gateway raises now carries it.
+      input.offMac ??= false;
       if (input.call !== undefined && input.context !== undefined) {
         const ctx = { ...input.context, taint: input.context.taint || rec.approval.taint };
         const { decision } = await this.engine.evaluate(input.call, ctx);
