@@ -189,12 +189,38 @@ function segmentPattern(seg: string): RegExp {
  * sibling that merely starts with the same letters (`AB` for `A`) is another folder.
  */
 export function ruleNamesOldPath(rule: string, old: string, home: string): boolean {
-  const open = rule.indexOf("(");
-  const close = rule.lastIndexOf(")");
-  let arg = open >= 0 && close > open ? rule.slice(open + 1, close) : rule;
+  const raw = rule.trim();
+  let arg: string | undefined;
+  if (raw.startsWith("path:")) arg = raw.slice(5);
+  else if (/^(origin|recipient|app|account|command):/.test(raw)) return false;
+  else {
+    const call = /^([^()]+)\((.+)\)$/.exec(raw);
+    const a = call?.[2];
+    // Only an argument that reads as a path is a path rule (as `parseRule` decides).
+    if (a !== undefined && (a.startsWith("/") || a.startsWith("**") || a.startsWith("~"))) arg = a;
+  }
+  if (arg === undefined) return false;
   if (arg === "~" || arg.startsWith("~/")) arg = `${home}${arg.slice(1)}`;
-  const segs = arg.split("/").filter((x) => x.length > 0);
   const oldSegs = old.split("/").filter((x) => x.length > 0);
+  // A segment with `**` stuck to text (`**A`, `Wo**`) is read as `.*` by the matcher, crossing
+  // `/`: take both readings, one segment (`X*Y`) or several (`X*`, `**`, `*Y`), and OR them.
+  let variants: string[][] = [[]];
+  for (const g of arg.split("/").filter((x) => x.length > 0)) {
+    if (g !== "**" && g.includes("**")) {
+      const [x = "", ...rest] = g.split("**");
+      const y = rest.join("**");
+      const one = `${x}*${y.replaceAll("**", "*")}`;
+      variants = variants.flatMap((v) => [
+        [...v, one],
+        [...v, `${x}*`, "**", `*${y.replaceAll("**", "*")}`],
+      ]);
+    } else variants = variants.map((v) => [...v, g]);
+    if (variants.length > 64) return true;
+  }
+  return variants.some((segs) => segsNameOld(segs, oldSegs));
+}
+
+function segsNameOld(segs: string[], oldSegs: string[]): boolean {
   const fold = (x: string): string => x.toLowerCase();
   const patterns = segs.map((g) => (GLOB_CHARS.test(g) ? segmentPattern(g) : undefined));
   const memo = new Map<string, boolean>();

@@ -972,7 +972,14 @@ export class PsychePermissionBroker implements PermissionBroker {
   ): Promise<{ real: string; moves: { from: string; to: string }[] } | "blocked"> {
     const real = await checkReconnect(path, to, entry.ref, env);
     const home = env.home ?? homedir();
-    const rules = [...(this.#policy.config.deny ?? []), ...(this.#policy.config.ask ?? [])];
+    const rules = [
+      ...(this.#policy.config.deny ?? []),
+      ...(this.#policy.config.ask ?? []),
+      ...Object.values(this.#policy.config.designated ?? {}).flatMap((m) => [
+        ...(m.deny ?? []),
+        ...(m.ask ?? []),
+      ]),
+    ];
     if (rules.some((r) => ruleNamesOldPath(r, path, home))) return "blocked";
     const moves = [{ from: path, to: real }];
     for (const child of this.#policy.config.folders ?? []) {

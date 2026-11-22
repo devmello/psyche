@@ -7,19 +7,26 @@ The Permission Broker: the only component that can authorize a side effect (arch
 ## Public API
 
 ```ts
-import { createPermissionBroker, SqlitePermissionStore, createPermissionHandlers } from "@psyche/permissions";
+import {
+  createPermissionBroker,
+  SqlitePermissionStore,
+  createPermissionHandlers,
+} from "@psyche/permissions";
 import { createAuditLog, Receipts, SqliteReceiptStore } from "@psyche/audit";
 
 const audit = createAuditLog({ dir: `${home}/audit`, redact: vault.redact });
 const broker = createPermissionBroker({
-  approvers,                                   // ApproverDirectory: devices with operator.approvals, owner senders
+  approvers, // ApproverDirectory: devices with operator.approvals, owner senders
   store: new SqlitePermissionStore(db.sqlite), // or MemoryPermissionStore (default)
   receipts: new Receipts({ audit, store: new SqliteReceiptStore(db.sqlite) }),
-  audit, notifier, policy, psycheHome: home,
-  localProject,                                // LocalProjectVerifier for §3.10 (default: deny all loopback)
-  presence,                                    // optional PresenceVerifier (design-04)
+  audit,
+  notifier,
+  policy,
+  psycheHome: home,
+  localProject, // LocalProjectVerifier for §3.10 (default: deny all loopback)
+  presence, // optional PresenceVerifier (design-04)
 });
-await broker.reissue();                        // at every Gateway boot
+await broker.reissue(); // at every Gateway boot
 const api = createPermissionHandlers(broker, audit); // approvals.*, grants.*, audit.*
 ```
 
@@ -79,6 +86,7 @@ The broker floors declared side-effect classes (`src/kinds.ts`): a registry or n
 - **Breakdowns:** per approval kind and per permission mode.
 
 The roadmap uses it to see where cards cost the owner the most.
+
 ## Classifier evaluation (M2)
 
 `eval/classifier-cases.json` holds 32 labelled classifier inputs: routine owner-aligned writes; sensitive cases (taint, tainted goals, sharing, bulk, sensitive targets, misalignment, outward messages); and destructive or financial calls. Each case lists the labels a safe classifier may return. `evaluateClassifier(classifier, cases)` reports `unsafe` (a label below the lowest acceptable one), `overCautious`, a confusion table and latency. The gate is `unsafe = 0`: `passes` must be true before a model may serve `auto` mode (security §7.3).
@@ -91,30 +99,30 @@ The roadmap uses it to see where cards cost the owner the most.
 
 `bindingHash = sha256("psyche.binding.v1|" + kind + "|" + canonicalJSON(fields))`, `grantKey = sha256("psyche.grantkey.v1|" + kind + "|" + canonicalJSON(keyFields))`, over the strict canonical JSON in `@psyche/audit` (throws on NaN, ±Infinity, -0, non-plain objects, `undefined` in arrays, lone surrogates; no NFC folding; design-13). Security §3.5 is the normative table; extra fields from data model §4.2 and S23 are included:
 
-| Kind | Bound fields | Grant key |
-| --- | --- | --- |
-| `exec`, `exec_host` | argv (exact), cwd, env (`k=v`, sorted), executable, executableSha256 (required for `exec_host`), sandboxId, stdinSha256, network, cwdConfigHashes | argv, cwd, env, executable, executableSha256, cwdConfigHashes, stdinSha256, network, sandboxId |
-| `send_email` | account, to / cc / bcc (addr-spec, lowercased, punycode, sorted), subject, bodySha256, htmlSha256, mimeSha256, from, sender, replyTo, inReplyTo, references, other headers, attachments | account + exact recipient set |
-| `calendar_write` | account, calendarId, operation, eventSha256 | account, calendarId, operation |
-| `message_send` | channel, account, recipient, bodySha256, attachments | channel, account, recipient |
-| `browser_submit` | origin, pathname, action URL and origin, method, sorted field names (hidden included), values digest, submitRef | origin, pathname |
-| `credential_fill` | itemId, origin, field selector (ref, name, element type), field, tabId | itemId, origin |
-| `purchase` | merchant, amountMinor (safe integer), currency, line-item hash, paymentSourceId | — (`once` only) |
-| `file_write` | realPath, operation, contentSha256, mode | folder-grant root, operation |
-| `mcp_tool` | serverId, tool, toolsListHash, argsSha256 | serverId, tool, toolsListHash |
-| `computer_action` | app, tierRequired, action, elementRefSha256, textSha256 | app, tierRequired |
-| `new_origin` | origin, taskId | origin |
-| other kinds | tool, paramsHash, target | tool, target |
+| Kind                | Bound fields                                                                                                                                                                            | Grant key                                                                                      |
+| ------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------- |
+| `exec`, `exec_host` | argv (exact), cwd, env (`k=v`, sorted), executable, executableSha256 (required for `exec_host`), sandboxId, stdinSha256, network, cwdConfigHashes                                       | argv, cwd, env, executable, executableSha256, cwdConfigHashes, stdinSha256, network, sandboxId |
+| `send_email`        | account, to / cc / bcc (addr-spec, lowercased, punycode, sorted), subject, bodySha256, htmlSha256, mimeSha256, from, sender, replyTo, inReplyTo, references, other headers, attachments | account + exact recipient set                                                                  |
+| `calendar_write`    | account, calendarId, operation, eventSha256                                                                                                                                             | account, calendarId, operation                                                                 |
+| `message_send`      | channel, account, recipient, bodySha256, attachments                                                                                                                                    | channel, account, recipient                                                                    |
+| `browser_submit`    | origin, pathname, action URL and origin, method, sorted field names (hidden included), values digest, submitRef                                                                         | origin, pathname                                                                               |
+| `credential_fill`   | itemId, origin, field selector (ref, name, element type), field, tabId                                                                                                                  | itemId, origin                                                                                 |
+| `purchase`          | merchant, amountMinor (safe integer), currency, line-item hash, paymentSourceId                                                                                                         | — (`once` only)                                                                                |
+| `file_write`        | realPath, operation, contentSha256, mode                                                                                                                                                | folder-grant root, operation                                                                   |
+| `mcp_tool`          | serverId, tool, toolsListHash, argsSha256                                                                                                                                               | serverId, tool, toolsListHash                                                                  |
+| `computer_action`   | app, tierRequired, action, elementRefSha256, textSha256                                                                                                                                 | app, tierRequired                                                                              |
+| `new_origin`        | origin, taskId                                                                                                                                                                          | origin                                                                                         |
+| other kinds         | tool, paramsHash, target                                                                                                                                                                | tool, target                                                                                   |
 
 ## Grant scopes
 
-| Scope | Lifetime (default) | Notes |
-| --- | --- | --- |
-| `once` | until dispatch (`verifyBinding` consumes it) | only via the approval id, never via `decide` |
-| `task` | 24 h, 8 h for `destructive` (design-28), ends at `endTask` | covers only that Task |
-| `site` | 30 days | one origin; `credential_fill` binds item + origin |
-| `session` | 12 h idle, 24 h absolute; ends at restart (boot id) and `/new` | stored as its own scope with boot and thread (design-28) |
-| `always` | 90 days (`exec_host` 30 days) | refused for cwd-config executables unless their config hashes are bound |
+| Scope     | Lifetime (default)                                             | Notes                                                                   |
+| --------- | -------------------------------------------------------------- | ----------------------------------------------------------------------- |
+| `once`    | until dispatch (`verifyBinding` consumes it)                   | only via the approval id, never via `decide`                            |
+| `task`    | 24 h, 8 h for `destructive` (design-28), ends at `endTask`     | covers only that Task                                                   |
+| `site`    | 30 days                                                        | one origin; `credential_fill` binds item + origin                       |
+| `session` | 12 h idle, 24 h absolute; ends at restart (boot id) and `/new` | stored as its own scope with boot and thread (design-28)                |
+| `always`  | 90 days (`exec_host` 30 days)                                  | refused for cwd-config executables unless their config hashes are bound |
 
 `destructive` offers `once | task`, `financial` and `purchase` `once`, `credential_fill` `once | site`, `exec_host` `once | always`. Chat surfaces answer `once` only (design-28) and never see device-only kinds or `destructive` / `financial` requests (architecture §4.6).
 

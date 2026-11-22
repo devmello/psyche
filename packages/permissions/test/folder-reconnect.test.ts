@@ -2,8 +2,10 @@ import { mkdir, mkdtemp, realpath, rename, rm, symlink } from "node:fs/promises"
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { afterEach, describe, expect, it, vi } from "vitest";
+import { ruleNamesOldPath } from "../src/folder-reconnect.ts";
 import { accessEntries, createPermissionHandlers } from "../src/handlers.ts";
 import { type FolderRef, folderRefOf } from "../src/index.ts";
+import { globToRegExp } from "../src/policy.ts";
 import { makeBroker } from "./helpers.ts";
 
 /**
@@ -335,6 +337,18 @@ describe("a nested override moves with its parent, or nothing moves (#1483 r1, P
     ["a rule about every .env file", () => "read_file(**/*.env)", false],
     ["a rule about another folder", (o) => `read_file(${o.replace("/A", "/C")}/**)`, false],
     ["case-folded", (o) => `read_file(${o.toUpperCase()}/x/**)`, true],
+    ["r3 path: target rule", (o) => `path:${o}/private/**`, true],
+    [
+      "r3 ** glued to the folder name",
+      (o) => `read_file(**${o.split("/").pop()}/private/**)`,
+      true,
+    ],
+    [
+      "r3 ** glued inside a parent segment",
+      (o) => `read_file(${o.replace("Work", "Wo**")}/private/**)`,
+      true,
+    ],
+    ["r3 path: rule on another folder", (o) => `path:${o.replace("/A", "/C")}/**`, false],
   ];
   for (const [label, rule, refused] of RULES) {
     for (const kind of ["deny", "ask"] as const) {
@@ -354,6 +368,40 @@ describe("a nested override moves with its parent, or nothing moves (#1483 r1, P
         expect(h.repoint).toHaveBeenCalledTimes(refused ? 0 : 1);
       });
     }
+  }
+  it("refuses a reconnect when a designated person's deny rule names the old folder", async () => {
+    const n = await nested();
+    await rename(n.parent, n.renamed);
+    const h = setupWith(n.home, [{ path: n.parent, mode: "rw", ref: n.pRef }], {
+      designated: { idn_p: { deny: [`read_file(${n.parent}/private/**)`] } },
+    });
+    expect(await h.broker.reconnectFolder(n.parent, n.renamed, BY)).toBe(false);
+    expect(h.repoint).not.toHaveBeenCalled();
+  });
+});
+
+describe("ruleNamesOldPath against the engine's glob", () => {
+  const old = "/h/Work/A";
+  const tails = ["private/k", "x", "k.env"];
+  const rules = [
+    "read_file(/h/Work/A/**)",
+    "read_file(**A/private/**)",
+    "read_file(/h/Wo**/private/**)",
+    "path:/h/Work/A/private/**",
+    "read_file(**/*.env)",
+    "read_file(/h/W*/A/*)",
+    "read_file(/h/Work/AB/**)",
+  ];
+  for (const rule of rules) {
+    it(`flags ${rule} whenever it matches under the old path`, () => {
+      const arg = rule.startsWith("path:") ? rule.slice(5) : (/\((.+)\)$/.exec(rule)?.[1] ?? "");
+      const re = globToRegExp(arg, "path");
+      const literal = /\*\*\/\*\.env|^\*\*\/\*/.test(arg);
+      for (const t of tails) {
+        if (re.test(`${old}/${t}`) && !literal)
+          expect(ruleNamesOldPath(rule, old, "/h")).toBe(true);
+      }
+    });
   }
 });
 
