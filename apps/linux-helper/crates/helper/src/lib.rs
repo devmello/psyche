@@ -25,6 +25,7 @@ pub mod paths;
 pub mod receipt;
 pub mod remote;
 pub mod session;
+pub mod update;
 #[cfg(target_os = "linux")]
 pub mod vscreen;
 

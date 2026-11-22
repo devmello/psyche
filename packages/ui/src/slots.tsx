@@ -64,6 +64,11 @@ export interface DiscoveredGateway {
   /** Announced more than once with different keys: not addable. */
   conflict: boolean;
   saved: boolean;
+  /**
+   * The announcement carries `claim=1`: a fresh psyche-server waiting for its setup code (design
+   * §3.6). A claim like the rest; the setup-code handshake is what proves the server.
+   */
+  claimable?: boolean;
 }
 
 /**
@@ -78,6 +83,11 @@ export interface GatewaysSlot {
   discover?(): Promise<DiscoveredGateway[]>;
   /** Adds one `discover` returned, by its id: the app never takes an address from here. */
   addDiscovered?(id: string): Promise<GatewayEntry>;
+  /**
+   * Claims a fresh psyche-server with its setup code (design §3.6), by a listing's id or a typed
+   * address. Rejects with `details.problem` `claim_<why>` (and `attemptsLeft`, `retryAfterSec`).
+   */
+  claim?(target: { id: string } | { address: string }, code: string): Promise<GatewayEntry>;
   remove(id: string): Promise<void>;
   switchTo(id: string, opts?: { stopLocal?: boolean }): Promise<void>;
   repair(id: string): Promise<void>;

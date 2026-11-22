@@ -4,6 +4,7 @@ import { Lock } from "lucide-react";
 import { type ReactElement, useState } from "react";
 import { Button } from "../../components/ui/button.tsx";
 import { Kbd } from "../../components/ui/kbd.tsx";
+import { useHostOs } from "../../data/host-os.ts";
 import { t } from "../../i18n/core.ts";
 import { isLinux, isWindows, type UiPlatform, uiPlatform } from "../../lib/platform.ts";
 import { usePersona, useSlots } from "../../slots.tsx";
@@ -352,13 +353,17 @@ export function ComputerUseSection({
   const form = useSettingsForm();
   const persona = usePersona();
   const { remoteHost } = useSlots();
+  const hostOs = useHostOs();
   const { machines } = useMachines();
   // Driving a Mac nobody can see is unsafe, and the Host's screen may be locked: computer use
-  // stays at the Host (owner decision G5), whatever the Host's own switch says.
+  // stays at the Host (owner decision G5), whatever the Host's own switch says. A Linux Host runs
+  // it on its own private screen, which a Client watches and takes over (B3); `direct` stays off.
   if (remoteHost !== undefined) {
     return (
       <p className="text-callout text-label-secondary" data-testid="computer-use-remote">
-        {t("settings.computerUse.remote", { host: remoteHost })}
+        {hostOs === "linux"
+          ? t("settings.computerUse.remoteLinux", { host: remoteHost })
+          : t("settings.computerUse.remote", { host: remoteHost })}
       </p>
     );
   }

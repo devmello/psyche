@@ -15,7 +15,7 @@ export const LAB_BOX: MachineInfo = {
   exec: { enabled: true, contained: true },
   files: { roots: [{ path: "/home/dev/work", mode: "rw" }] },
   account: "own",
-  policyOwner: "root",
+  policyOwner: "user",
   passwordlessSudo: false,
   helperVersion: "0.9.2",
   lastSeenAt: "2026-11-19T11:58:00Z",

@@ -2053,8 +2053,11 @@ export const settings = {
   // Settings → Server & remote access → Gateways on this computer (docs/design/remote-gateway-2026.md §1.3).
   "settings.connectors.page.onHost": "On {host}",
   "settings.connectors.page.row.onHost": "On {host}",
+  "settings.connectors.page.row.macOnly": "Only on a Mac host",
   "settings.computerUse.remote":
     "Computer use works at {host}. Ask from there, or use the browser.",
+  "settings.computerUse.remoteLinux":
+    "Computer use runs on {host}'s private screen. Watch it and take over from the watch pane.",
   "settings.gateways.title": "Gateways on this computer",
   "settings.gateways.description":
     "Use Psyche from this computer with the Gateway on another one, such as your Mac at home. One Gateway is active at a time, and switching restarts Psyche.",
@@ -2258,6 +2261,70 @@ export const settings = {
     "What a computer announces on the network is a claim. The pairing screen shows its key: compare it with the Host's before you approve.",
   "settings.gateways.discoverAdd": "Add {name}",
   "settings.gateways.discoverSaved": "Saved",
+  // Set up a remote server (remote-gateway design §3.6).
+  "settings.remoteSetup.title": "Set up a remote server",
+  "settings.remoteSetup.open": "Set up a remote server",
+  "settings.remoteSetup.intro":
+    "Install psyche-server on a Linux computer on this network. It shows a setup code: type it here, and this computer becomes the server's admin.",
+  "settings.remoteSetup.lookFailed":
+    "Couldn't look on the network. Type the server's address instead.",
+  "settings.remoteSetup.noneWaiting":
+    "No server waiting for setup was found on this network. Type its address instead.",
+  "settings.remoteSetup.waiting": "Waiting for setup",
+  "settings.remoteSetup.pick": "Set up",
+  "settings.remoteSetup.pickNamed": "Set up {name}",
+  "settings.remoteSetup.alreadySetUp":
+    "Already set up. Add it with a pairing link from that server.",
+  "settings.remoteSetup.addressLabel": "Server address",
+  "settings.remoteSetup.addressPlaceholder": "192.168.1.20 or server.local",
+  "settings.remoteSetup.addressHint":
+    "An address on this network. Psyche uses port 7979 unless you type another.",
+  "settings.remoteSetup.next": "Next",
+  "settings.remoteSetup.codeTitle": "Setup code for {name}",
+  "settings.remoteSetup.codeLabel": "Setup code",
+  "settings.remoteSetup.codePlaceholder": "7K3QM-XR2TD",
+  "settings.remoteSetup.codeHint":
+    "The server showed it when psyche-server was installed. It works once, for 24 hours. For a new one, run psyche setup code on the server.",
+  "settings.remoteSetup.checking": "Checking the code…",
+  "settings.remoteSetup.submit": "Set up server",
+  "settings.remoteSetup.back": "Back",
+  "settings.remoteSetup.doneTitle": "{name} is set up",
+  "settings.remoteSetup.doneBody":
+    "This computer is its admin now. Switch to it to name your agent and choose a model there.",
+  "settings.remoteSetup.switch": "Switch to {name}",
+  "settings.remoteSetup.notNow": "Not now",
+  "settings.remoteSetup.keepLan": "Keep this server reachable on my network",
+  "settings.remoteSetup.keepLanHint":
+    "Computers on this network can reach the server and ask to pair. Each one still needs your approval.",
+  "settings.remoteSetup.keepLanOffHint":
+    "When setup finishes, the server stops listening on this network and this computer disconnects. Turn this off only if you reach the server another way, like Tailscale.",
+  "settings.remoteSetup.firstRunHint": "Installed Psyche on a server? Set it up from here instead.",
+  "settings.remoteSetup.connect": "Connect to a Psyche server",
+  "settings.remoteSetup.problem.wrong_code":
+    "{count, plural, one {That code isn't right. # more try, then the server makes you wait.} other {That code isn't right. # more tries, then the server makes you wait.}}",
+  "settings.remoteSetup.problem.wrong_code_wait":
+    "That code isn't right. Wait a minute, check the code on the server, and try again.",
+  "settings.remoteSetup.problem.too_many_attempts":
+    "Too many wrong codes. Try again in {seconds, plural, one {# second} other {# seconds}}.",
+  "settings.remoteSetup.problem.bad_code":
+    "A setup code is 10 letters and numbers, like 7K3QM-XR2TD.",
+  "settings.remoteSetup.problem.code_expired":
+    "That code has expired. Run psyche setup code on the server for a new one.",
+  "settings.remoteSetup.problem.not_claimable":
+    "That server is already set up. Add it with a pairing link from the server instead.",
+  "settings.remoteSetup.problem.unreachable":
+    "Couldn't reach a server at that address. Check that it's on and on this network.",
+  "settings.remoteSetup.problem.cert_mismatch":
+    "The server's certificate didn't match the one it named, so Psyche stopped. Check the address and try again.",
+  "settings.remoteSetup.problem.server_unproven":
+    "The server didn't prove it knows the code, so Psyche didn't trust it. Check the address and the code.",
+  "settings.remoteSetup.problem.maybe_claimed":
+    "The server may already be set up with this Mac. Connect with a pairing link or run `psyche devices link` on the server.",
+  "settings.remoteSetup.problem.saved":
+    "That server is saved already. Switch to it in the list above.",
+  "settings.remoteSetup.problem.not_lan":
+    "Type an address on this network, like 192.168.1.20 or server.local.",
+  "settings.remoteSetup.problem.failed": "Couldn't set up the server. Nothing changed.",
   // The pairing card for a computer on another network.
   "settings.devices.gatewayKey": "This Gateway's key {fingerprint}",
   "settings.devices.fromAddress": "From {address}",

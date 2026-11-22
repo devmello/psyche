@@ -124,6 +124,12 @@ export interface BrowserToolDeps {
    * it `browser.request_control` is unavailable (no pane to hand control in).
    */
   requestControl?(request: ControlRequest): Promise<(() => Promise<void> | void) | undefined>;
+  /**
+   * Whether a pane can show this tab to the owner (default yes when `requestControl` is set). A
+   * headless Host's server driver has none yet, so `browser.request_control` answers `no_pane`
+   * and the agent asks in chat instead.
+   */
+  canRequestControl?(tabId: string): boolean;
 }
 
 export interface RealChromeDeps {
@@ -1012,7 +1018,11 @@ export function browserToolDefs(deps: BrowserToolDeps) {
           );
         }
         const sessionId = d.sessionOf(tabId);
-        if (deps.requestControl === undefined || sessionId === undefined) {
+        if (
+          deps.requestControl === undefined ||
+          sessionId === undefined ||
+          deps.canRequestControl?.(tabId) === false
+        ) {
           throw new PsycheError("unavailable", "there is no browser pane to hand control in", {
             details: { reason: "no_pane" },
           });

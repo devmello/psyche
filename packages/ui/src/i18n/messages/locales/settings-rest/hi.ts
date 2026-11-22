@@ -669,7 +669,10 @@ export const settingsRest: Partial<Catalogue> = {
     "काम करते समय {persona} का सोच-विचार दिखाता है। कभी सेव नहीं होता।",
   "settings.connectors.page.onHost": "{host} पर",
   "settings.connectors.page.row.onHost": "{host} पर",
+  "settings.connectors.page.row.macOnly": "केवल Mac होस्ट पर",
   "settings.computerUse.remote": "कंप्यूटर उपयोग {host} पर काम करता है। वहीं से पूछें, या ब्राउज़र उपयोग करें।",
+  "settings.computerUse.remoteLinux":
+    "कंप्यूटर उपयोग {host} की निजी स्क्रीन पर चलता है। देखने वाले पैनल से इसे देखें और नियंत्रण लें।",
   "settings.gateways.title": "इस कंप्यूटर पर Gateway",
   "settings.gateways.description":
     "किसी दूसरे कंप्यूटर के Gateway के साथ, जैसे घर के आपके Mac के साथ, इस कंप्यूटर से Psyche उपयोग करें। एक समय में एक ही Gateway सक्रिय होता है, और बदलने पर Psyche रीस्टार्ट होता है।",
@@ -902,6 +905,65 @@ export const settingsRest: Partial<Catalogue> = {
     "कंप्यूटर नेटवर्क पर जो घोषित करता है वह सिर्फ़ एक दावा है। पेयरिंग स्क्रीन उसकी कुंजी दिखाती है: स्वीकृत करने से पहले उसे होस्ट की कुंजी से मिलाएँ।",
   "settings.gateways.discoverAdd": "{name} जोड़ें",
   "settings.gateways.discoverSaved": "सेव किया गया",
+  "settings.remoteSetup.title": "रिमोट सर्वर सेट अप करें",
+  "settings.remoteSetup.open": "रिमोट सर्वर सेट अप करें",
+  "settings.remoteSetup.intro":
+    "इस नेटवर्क के किसी Linux कंप्यूटर पर psyche-server इंस्टॉल करें। वह एक सेटअप कोड दिखाता है: उसे यहाँ लिखें, और यह कंप्यूटर सर्वर का एडमिन बन जाएगा।",
+  "settings.remoteSetup.lookFailed": "नेटवर्क पर खोज नहीं हो सकी। इसके बजाय सर्वर का पता लिखें।",
+  "settings.remoteSetup.noneWaiting":
+    "इस नेटवर्क पर सेटअप का इंतज़ार करता कोई सर्वर नहीं मिला। इसके बजाय उसका पता लिखें।",
+  "settings.remoteSetup.waiting": "सेटअप का इंतज़ार",
+  "settings.remoteSetup.pick": "सेट अप करें",
+  "settings.remoteSetup.pickNamed": "{name} सेट अप करें",
+  "settings.remoteSetup.alreadySetUp": "पहले से सेट अप है। उस सर्वर के पेयरिंग लिंक से इसे जोड़ें।",
+  "settings.remoteSetup.addressLabel": "सर्वर का पता",
+  "settings.remoteSetup.addressPlaceholder": "192.168.1.20 या server.local",
+  "settings.remoteSetup.addressHint":
+    "इस नेटवर्क का कोई पता। जब तक आप दूसरा पोर्ट न लिखें, Psyche पोर्ट 7979 इस्तेमाल करता है।",
+  "settings.remoteSetup.next": "आगे",
+  "settings.remoteSetup.codeTitle": "{name} का सेटअप कोड",
+  "settings.remoteSetup.codeLabel": "सेटअप कोड",
+  "settings.remoteSetup.codePlaceholder": "7K3QM-XR2TD",
+  "settings.remoteSetup.codeHint":
+    "psyche-server इंस्टॉल होने पर सर्वर ने इसे दिखाया था। यह 24 घंटे में एक बार काम करता है। नए कोड के लिए सर्वर पर psyche setup code चलाएँ।",
+  "settings.remoteSetup.checking": "कोड जाँचा जा रहा है…",
+  "settings.remoteSetup.submit": "सर्वर सेट अप करें",
+  "settings.remoteSetup.back": "वापस",
+  "settings.remoteSetup.doneTitle": "{name} सेट अप हो गया",
+  "settings.remoteSetup.doneBody":
+    "अब यह कंप्यूटर इसका एडमिन है। वहाँ अपने एजेंट का नाम रखने और मॉडल चुनने के लिए इस पर स्विच करें।",
+  "settings.remoteSetup.switch": "{name} पर स्विच करें",
+  "settings.remoteSetup.notNow": "अभी नहीं",
+  "settings.remoteSetup.keepLan": "इस सर्वर को मेरे नेटवर्क पर पहुँचने लायक रखें",
+  "settings.remoteSetup.keepLanHint":
+    "इस नेटवर्क के कंप्यूटर सर्वर तक पहुँचकर पेयर करने को कह सकते हैं। हर एक को फिर भी आपकी मंज़ूरी चाहिए।",
+  "settings.remoteSetup.keepLanOffHint":
+    "सेटअप पूरा होने पर सर्वर इस नेटवर्क पर सुनना बंद कर देगा और यह कंप्यूटर डिस्कनेक्ट हो जाएगा। इसे तभी बंद करें जब आप सर्वर तक किसी और तरीके से पहुँचते हों, जैसे Tailscale।",
+  "settings.remoteSetup.firstRunHint": "किसी सर्वर पर Psyche इंस्टॉल किया है? उसे यहीं से सेट अप करें।",
+  "settings.remoteSetup.connect": "Psyche सर्वर से जुड़ें",
+  "settings.remoteSetup.problem.wrong_code":
+    "{count, plural, one {यह कोड सही नहीं है। # और कोशिश, फिर सर्वर आपको इंतज़ार कराएगा।} other {यह कोड सही नहीं है। # और कोशिशें, फिर सर्वर आपको इंतज़ार कराएगा।}}",
+  "settings.remoteSetup.problem.wrong_code_wait":
+    "यह कोड सही नहीं है। एक मिनट रुकें, सर्वर पर कोड जाँचें और फिर कोशिश करें।",
+  "settings.remoteSetup.problem.too_many_attempts":
+    "बहुत ज़्यादा गलत कोड। {seconds, plural, one {# सेकंड} other {# सेकंड}} बाद फिर कोशिश करें।",
+  "settings.remoteSetup.problem.bad_code": "सेटअप कोड में 10 अक्षर और अंक होते हैं, जैसे 7K3QM-XR2TD।",
+  "settings.remoteSetup.problem.code_expired":
+    "यह कोड एक्सपायर हो गया है। नए कोड के लिए सर्वर पर psyche setup code चलाएँ।",
+  "settings.remoteSetup.problem.not_claimable":
+    "यह सर्वर पहले से सेट अप है। इसके बजाय सर्वर के पेयरिंग लिंक से इसे जोड़ें।",
+  "settings.remoteSetup.problem.unreachable":
+    "उस पते पर कोई सर्वर नहीं मिला। जाँचें कि वह चालू है और इसी नेटवर्क पर है।",
+  "settings.remoteSetup.problem.cert_mismatch":
+    "सर्वर का सर्टिफ़िकेट उसके बताए सर्टिफ़िकेट से मेल नहीं खाया, इसलिए Psyche रुक गया। पता जाँचें और फिर कोशिश करें।",
+  "settings.remoteSetup.problem.server_unproven":
+    "सर्वर ने साबित नहीं किया कि वह कोड जानता है, इसलिए Psyche ने उस पर भरोसा नहीं किया। पता और कोड जाँचें।",
+  "settings.remoteSetup.problem.maybe_claimed":
+    "हो सकता है सर्वर पहले ही इस Mac के साथ सेट हो चुका हो। पेयरिंग लिंक से कनेक्ट करें या सर्वर पर `psyche devices link` चलाएँ।",
+  "settings.remoteSetup.problem.saved": "यह सर्वर पहले से सेव है। ऊपर की सूची में इस पर स्विच करें।",
+  "settings.remoteSetup.problem.not_lan":
+    "इस नेटवर्क का कोई पता लिखें, जैसे 192.168.1.20 या server.local।",
+  "settings.remoteSetup.problem.failed": "सर्वर सेट अप नहीं हो सका। कुछ नहीं बदला।",
   "settings.devices.gatewayKey": "इस Gateway की कुंजी {fingerprint}",
   "settings.devices.fromAddress": "{address} से",
   "settings.devices.fromLan": "{address} से, आपके नेटवर्क पर। नीचे पूरी कुंजी जाँचें।",

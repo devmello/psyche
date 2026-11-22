@@ -62,15 +62,15 @@ describe("versions", () => {
 
 describe("the warnings a row shows (design 6.5)", () => {
   it.each([
-    ["a healthy computer", LAB_BOX, []],
-    ["the contained shell is off", FULL_SHELL_BOX, ["fullShell"]],
+    ["a healthy computer", LAB_BOX, ["userLimits"]],
+    ["the contained shell is off", FULL_SHELL_BOX, ["fullShell", "userLimits"]],
     ["limits the account can change", USER_LIMITS_BOX, ["userLimits"]],
-    ["passwordless sudo", SUDO_BOX, ["sudo"]],
-    ["a dedicated account", DEDICATED_BOX, []],
+    ["passwordless sudo", SUDO_BOX, ["userLimits", "sudo"]],
+    ["a dedicated account", DEDICATED_BOX, ["userLimits"]],
     [
       "commands off: no shell warning even though nothing is contained",
       { ...LAB_BOX, exec: { enabled: false, contained: false } },
-      [],
+      ["userLimits"],
     ],
     [
       "all three",
@@ -105,7 +105,7 @@ describe("Computers Psyche can use", () => {
     expect(onAdd).toHaveBeenCalledOnce();
   });
 
-  it("shows an online computer on the owner's account with its limits and no warnings", () => {
+  it("shows an online computer on the owner's account with its limits and only the user-owned warning", () => {
     panel([LAB_BOX]);
     const row = screen.getByTestId("machine-row");
     expect(within(row).getByText("lab-box")).toBeTruthy();
@@ -115,7 +115,9 @@ describe("Computers Psyche can use", () => {
     expect(within(row).getByText(/Commands run in a contained shell/)).toBeTruthy();
     expect(within(row).getByText(/1 folder granted/)).toBeTruthy();
     expect(within(row).getByText(/Helper 0\.9\.2/)).toBeTruthy();
-    expect(within(row).queryByRole("list", { name: /Warnings/ })).toBeNull();
+    const warnings = within(row).getByRole("list", { name: /Warnings/ });
+    expect(within(warnings).getAllByRole("listitem")).toHaveLength(1);
+    expect(within(warnings).getByText(/Limits are user-owned/)).toBeTruthy();
     expect(within(row).queryByTestId("machine-update")).toBeNull();
   });
 

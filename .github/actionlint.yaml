@@ -1,0 +1,6 @@
+# actionlint (run by hand: GitHub Actions is not the gate). GitHub-hosted runner labels newer than
+# the actionlint release in use, so they are not reported as unknown.
+self-hosted-runner:
+  labels:
+    - macos-26
+    - macos-15-intel
