@@ -7,6 +7,7 @@ import { DocumentViewer } from "../src/react/DocumentViewer.tsx";
 import { ImageViewer } from "../src/react/ImageViewer.tsx";
 import { JsonViewer } from "../src/react/JsonViewer.tsx";
 import { SlidesViewer } from "../src/react/SlidesViewer.tsx";
+import { PlayerViewer, VideoViewer } from "../src/react/VideoViewer.tsx";
 import { sampleDocx, samplePptx } from "./fixtures/office.ts";
 import { manyPagePdf } from "./fixtures/pdf.ts";
 
@@ -104,6 +105,68 @@ describe("ImageViewer", () => {
   it("refuses non-images even with an image name", async () => {
     render(<ImageViewer item={item("x.png", "text/html")} load={async () => enc("<script>")} />);
     expect(await screen.findByText("This file is not a supported image")).toBeTruthy();
+  });
+});
+
+describe("VideoViewer", () => {
+  const mp4 = new Uint8Array([0, 0, 0, 0x18, 0x66, 0x74, 0x79, 0x70, 0x69, 0x73, 0x6f, 0x6d]);
+  const webm = new Uint8Array([0x1a, 0x45, 0xdf, 0xa3, 0, 0, 0, 0]);
+
+  it("plays mp4, mov, webm and m4v with the native element: controls, no autoplay", async () => {
+    const made: Blob[] = [];
+    URL.createObjectURL = vi.fn((b: Blob) => {
+      made.push(b);
+      return "blob:video/1";
+    });
+    URL.revokeObjectURL = vi.fn();
+    const cases: [string, string, Uint8Array, string][] = [
+      ["a.mp4", "video/mp4", mp4, "video/mp4"],
+      [
+        "a.mov",
+        "video/quicktime",
+        new Uint8Array([0, 0, 0, 0x14, 0x66, 0x74, 0x79, 0x70, 0x71, 0x74, 0x20, 0x20]),
+        "video/quicktime",
+      ],
+      ["a.webm", "video/webm", webm, "video/webm"],
+      [
+        "a.m4v",
+        "video/x-m4v",
+        new Uint8Array([0, 0, 0, 0x18, 0x66, 0x74, 0x79, 0x70, 0x4d, 0x34, 0x56, 0x20]),
+        "video/x-m4v",
+      ],
+    ];
+    for (const [name, mime, bytes, type] of cases) {
+      const { unmount } = render(<VideoViewer item={item(name, mime)} load={async () => bytes} />);
+      const video = (await screen.findByLabelText(name)) as HTMLVideoElement;
+      expect(video.tagName).toBe("VIDEO");
+      expect(video.controls).toBe(true);
+      expect(video.autoplay).toBe(false);
+      expect(video.getAttribute("src")).toBe("blob:video/1");
+      expect(made.at(-1)?.type).toBe(type);
+      unmount();
+    }
+  });
+
+  it("refuses a non-video type even with a video name", async () => {
+    render(<VideoViewer item={item("x.mp4", "text/html")} load={async () => enc("<script>")} />);
+    expect(await screen.findByText("This file is not a supported video")).toBeTruthy();
+  });
+
+  it("sends audio to the plain player and video to the video viewer", async () => {
+    URL.createObjectURL = vi.fn(() => "blob:m/1");
+    URL.revokeObjectURL = vi.fn();
+    const { container } = render(
+      <PlayerViewer item={item("a.mp4", "video/mp4")} load={async () => mp4} />,
+    );
+    await screen.findByLabelText("a.mp4");
+    expect(container.querySelector(".psy-video video")).toBeTruthy();
+    cleanup();
+    const audio = render(
+      <PlayerViewer item={item("a.mp3", "audio/mpeg")} load={async () => enc("ID3")} />,
+    );
+    await screen.findByLabelText("a.mp3");
+    expect(audio.container.querySelector("audio")).toBeTruthy();
+    expect(audio.container.querySelector("video")).toBeNull();
   });
 });
 

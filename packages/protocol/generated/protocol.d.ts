@@ -26,6 +26,8 @@ export interface AccessEntry {
     moved?:            boolean;
     movedTo?:          string;
     path?:             string;
+    reconnectBlocked?: boolean;
+    reconnectTo?:      string;
     refused?:          boolean;
     scope:             AccessEntryScope;
     since?:            string;
@@ -42,6 +44,15 @@ export type FolderModeEnum = "ro" | "rw";
 export type AccessEntryScope = "always" | "conversation" | "limited" | "space";
 
 export type AccessEntryType = "folder" | "grant";
+
+export interface AccessReconnectFolderParams {
+    entryId: string;
+    to:      string;
+}
+
+export interface AccessReconnectFolderResult {
+    reconnected: boolean;
+}
 
 export interface AccessRevokeParams {
     entryId: string;

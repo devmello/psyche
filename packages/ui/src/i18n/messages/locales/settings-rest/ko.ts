@@ -724,6 +724,13 @@ export const settingsRest: Partial<Catalogue> = {
   "settings.access.moved": "이제 {path}을(를) 가리킵니다. 직접 옮긴 경우에만 확인하세요",
   "settings.access.confirm": "확인",
   "settings.access.confirmNamed": "{path}에서 {name} 다시 확인",
+  "settings.access.reconnectPrompt": "{name}을(를) 다시 연결할까요? 지금은 {path}에 있습니다",
+  "settings.access.reconnect": "다시 연결",
+  "settings.access.reconnectNamed": "{name}을(를) {path}에 다시 연결",
+  "settings.access.reconnectFailed":
+    "{name}이(가) 다시 이동되었거나 다시 연결할 수 없습니다. 목록을 새로 고쳤습니다.",
+  "settings.access.reconnectBlocked":
+    "{name}이(가) 이동되었지만 안전하게 다시 연결할 수 없습니다. 규칙이나 그 안의 폴더가 이전 위치를 가리킵니다. 공유를 취소하고 다시 공유하세요.",
   "settings.model.advancedHint": "컨텍스트 한도, 로컬 모델",
   "settings.permissions.subject.prepNotes": '제목이 "Prep:"인 메모 (회의 준비)',
   "settings.permissions.specificConnectors":
