@@ -131,4 +131,29 @@ export const spaces: Partial<Catalogue> = {
   "spaces.palette.archived": "Archivierte Spaces",
   "spaces.palette.chatIn": "Neuer Chat in {name}",
   "spaces.palette.keywords": "space projekt arbeitsbereich tracker",
+  "spaces.proposal.kicker": "Space-Vorschlag",
+  "spaces.proposal.title": "Einen Space für {name} anlegen?",
+  "spaces.proposal.untrusted":
+    "Vorgeschlagen, während nicht vertrauenswürdige Inhalte gelesen wurden ({source}). Der Text unten ist zitiert, nicht Psyches eigene Worte.",
+  "spaces.proposal.titleUntrusted": "Diesen vorgeschlagenen Space anlegen?",
+  "spaces.proposal.project": "Verknüpft das Projekt {name}",
+  "spaces.proposal.chats":
+    "{n, plural, =0 {Verschiebt keine Chats} one {Verschiebt # Chat:} other {Verschiebt # Chats:}}",
+  "spaces.proposal.chatsLabel": "Chats, die verschoben werden",
+  "spaces.proposal.untitledChat": "Chat ohne Titel",
+  "spaces.proposal.create": "Anlegen",
+  "spaces.proposal.notNow": "Nicht jetzt",
+  "spaces.proposal.created": "Space {name} angelegt",
+  "spaces.proposal.open": "Öffnen",
+  "spaces.proposal.failed": "Das hat nicht geklappt: {reason}",
+  "spaces.migration.title": "Spaces für deine Projekte anlegen?",
+  "spaces.migration.hint":
+    "Jeder wird mit seinem Projekt verknüpft und bringt seine Chats mit. Angeheftete Widgets bleiben auf Home.",
+  "spaces.migration.line":
+    "{threads, plural, one {# Chat} other {# Chats}} · {folders, plural, one {# Ordner, überall geteilt} other {# Ordner, überall geteilt}}",
+  "spaces.migration.create": "{n, plural, one {# Space anlegen} other {# Spaces anlegen}}",
+  "spaces.migration.created": "{n, plural, one {# Space angelegt} other {# Spaces angelegt}}",
+  "spaces.make": "Space anlegen",
+  "spaces.make.failed": "Der Space wurde nicht angelegt: {reason}",
+  "spaces.openLinked": "Space öffnen",
 };

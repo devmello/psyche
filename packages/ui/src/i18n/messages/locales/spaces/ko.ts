@@ -129,4 +129,28 @@ export const spaces: Partial<Catalogue> = {
   "spaces.palette.archived": "보관된 스페이스",
   "spaces.palette.chatIn": "{name}에서 새 채팅",
   "spaces.palette.keywords": "스페이스 프로젝트 작업공간 트래커",
+  "spaces.proposal.kicker": "Space 제안",
+  "spaces.proposal.title": "{name}용 Space를 만들까요?",
+  "spaces.proposal.untrusted":
+    "신뢰할 수 없는 내용({source})을 읽는 중에 제안되었습니다. 아래 글은 인용이며 Psyche의 말이 아닙니다.",
+  "spaces.proposal.titleUntrusted": "제안된 이 Space를 만들까요?",
+  "spaces.proposal.project": "프로젝트 {name}에 연결합니다",
+  "spaces.proposal.chats": "{n, plural, =0 {옮기는 채팅이 없습니다} other {채팅 #개를 옮깁니다:}}",
+  "spaces.proposal.chatsLabel": "옮길 채팅",
+  "spaces.proposal.untitledChat": "제목 없는 채팅",
+  "spaces.proposal.create": "만들기",
+  "spaces.proposal.notNow": "나중에",
+  "spaces.proposal.created": "Space {name}을(를) 만들었습니다",
+  "spaces.proposal.open": "열기",
+  "spaces.proposal.failed": "작동하지 않았습니다: {reason}",
+  "spaces.migration.title": "프로젝트용 Space를 만들까요?",
+  "spaces.migration.hint":
+    "각각 프로젝트에 연결되고 채팅도 함께 옮겨집니다. 고정된 위젯은 홈에 남습니다.",
+  "spaces.migration.line":
+    "{threads, plural, other {채팅 #개}} · {folders, plural, other {폴더 #개, 어디서나 공유}}",
+  "spaces.migration.create": "{n, plural, other {Space #개 만들기}}",
+  "spaces.migration.created": "{n, plural, other {Space #개를 만들었습니다}}",
+  "spaces.make": "Space 만들기",
+  "spaces.make.failed": "Space를 만들지 못했습니다: {reason}",
+  "spaces.openLinked": "Space 열기",
 };
