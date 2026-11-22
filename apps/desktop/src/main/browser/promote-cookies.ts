@@ -25,7 +25,7 @@ export interface CookieSetDetails extends CookieRecord {
 }
 
 export interface CookieJar {
-  get(filter: Record<string, never>): Promise<CookieRecord[]>;
+  get(filter: { url?: string; name?: string }): Promise<CookieRecord[]>;
   set(details: CookieSetDetails): Promise<void>;
   remove(url: string, name: string): Promise<void>;
 }

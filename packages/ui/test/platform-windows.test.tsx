@@ -183,6 +183,10 @@ const ABOUT_MACOS = new Set<string>([
   "settings.devices.presenceKey.unknown",
   "settings.devices.presenceKey.deviceIdentity",
   "web.about.appleSilicon",
+  // Cookie import reads browsers on macOS only: the Keychain hint shows there, and elsewhere
+  // every browser is listed as not supported with this line.
+  "settings.browser.import.keychainHint",
+  "settings.browser.import.unsupportedPlatform",
   // "Available on macOS" itself.
   "platform.macOnly",
   "platform.macOnlyHint",

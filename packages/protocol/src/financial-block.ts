@@ -1946,3 +1946,8 @@ export function isMoneyFlowPage(text: string | undefined, origin?: string): bool
 }
 
 const P2P_FLOW_SEGMENTS = new Set(["pay", "send", "request", "payment", "payments", "transfer"]);
+
+/** Every registered domain the host table knows, for tests and lists that must not drift from it. */
+export function venueDomains(): string[] {
+  return Object.values(HOST_VENUES).flat();
+}
