@@ -751,6 +751,7 @@ async function prints(
   const walk = async (rel: string, folder?: string) => {
     let budget = MAX_PRINTS_PER_FOLDER;
     const queue = [rel];
+    const relisted = new Map<string, number>();
     while (queue.length > 0 && budget > 0) {
       const dir = queue.shift() as string;
       // Kept only when the folder was the repository's throughout, so a folder outside never
@@ -762,6 +763,7 @@ async function prints(
         return entries.map((d) => ({ child: `${dir}/${d.name}`, isDir: d.isDirectory() }));
       });
       if (listed === undefined) continue;
+      const listPin = pins[dir];
       const names = listed.filter((e) => !e.isDir).map((e) => e.child);
       const files =
         names.length === 0
@@ -775,6 +777,20 @@ async function prints(
               return got;
             });
       if (files === undefined) continue;
+      // The folder read is not the one listed (replaced between the two windows, and the read's
+      // retry pinned the new one): what it holds was never named. List it again, a bounded
+      // number of times, then leave it to the owner as unchecked (#1514 review r1).
+      if (names.length > 0 && listPin !== undefined && pins[dir] !== listPin) {
+        const n = (relisted.get(dir) ?? 0) + 1;
+        relisted.set(dir, n);
+        if (n > SWAP_TRIES) {
+          pins[dir] = "";
+          retry.seen.add(dir);
+        } else {
+          queue.unshift(dir);
+        }
+        continue;
+      }
       budget -= listed.length;
       for (const [child, p] of files) set(child, p, folder);
       queue.push(...listed.filter((e) => e.isDir).map((e) => e.child));

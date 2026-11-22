@@ -1666,6 +1666,36 @@ describe("code.run and launch config", () => {
   });
 
   describe("#1469 review r5 probes", () => {
+    // P3c (#1514 review r1): the run replaces `web/.vscode` between the listing window and the
+    // reads, with a folder holding a planted tasks.json. The owner is never told nothing.
+    it("P3c: names a file planted in a folder replaced between the listing and the reads", async () => {
+      put("web/.vscode/debug.log", "x");
+      const { use, runner, reports } = setup();
+      let armed = false;
+      let done = false;
+      acts(runner, "noop", () => {
+        armed = true;
+      });
+      hooks.lstat = (path) => {
+        if (!armed || done || path !== join(repo, "web/.vscode/debug.log")) return;
+        done = true;
+        renameSync(join(repo, "web"), join(repo, "web.x"));
+        renameSync(join(repo, "web.x/.vscode"), join(repo, "web.x/old"));
+        mkdirSync(join(repo, "web.x/.vscode"));
+        renameSync(join(repo, "web.x/old/debug.log"), join(repo, "web.x/.vscode/debug.log"));
+        writeFileSync(join(repo, "web.x/.vscode/tasks.json"), "{}");
+        renameSync(join(repo, "web.x"), join(repo, "web"));
+      };
+      await use("code.open", { path: repo });
+      const r = await use("code.run", { root: repo, argv: ["noop"] });
+      hooks.lstat = undefined;
+      expect(done).toBe(true);
+      const report = reports[0];
+      const named = (report?.changed ?? []).includes("web/.vscode/tasks.json");
+      const unchecked = (report?.unchecked ?? []).includes("web/.vscode");
+      expect(named || unchecked).toBe(true);
+      expect((r.output.launchConfig as Record<string, unknown>).swapped).toEqual(["web/.vscode"]);
+    });
     // T1: the run swaps `web` (the read-write parent of the owner's read-only web/.vscode) for a
     // link to `evil/`, whose `.vscode` links outside, and leaves it there. The work the guard does
     // through it, counted in fs calls under web/, must not depend on what the link leads to, and
