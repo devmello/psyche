@@ -348,6 +348,12 @@ describe("a nested override moves with its parent, or nothing moves (#1483 r1, P
       (o) => `read_file(${o.replace("Work", "Wo**")}/private/**)`,
       true,
     ],
+    ["r4 single * leading", (o) => `read_file(*/${o.split("/").pop()}/private/**)`, true],
+    ["r4 * glued to the name", (o) => `read_file(*${o.split("/").pop()}/private*)`, true],
+    ["r4 ? leading", (o) => `read_file(?${o.slice(2)}/**)`, true],
+    ["r4 any tool", (o) => `*(*/${o.split("/").pop()}/private/*)`, true],
+    ["r4 trailing /*", () => "read_file(*/Work/A/*)", true],
+    ["r4 bare *", () => "read_file(*)", false],
     ["r3 path: rule on another folder", (o) => `path:${o.replace("/A", "/C")}/**`, false],
   ];
   for (const [label, rule, refused] of RULES) {
@@ -391,11 +397,19 @@ describe("ruleNamesOldPath against the engine's glob", () => {
     "read_file(**/*.env)",
     "read_file(/h/W*/A/*)",
     "read_file(/h/Work/AB/**)",
+    "read_file(*/A/private/**)",
+    "read_file(*A/private*)",
+    "read_file(?h/Work/A/**)",
+    "*(*/A/private/*)",
+    "read_file(*/Work/A/*)",
   ];
   for (const rule of rules) {
     it(`flags ${rule} whenever it matches under the old path`, () => {
       const arg = rule.startsWith("path:") ? rule.slice(5) : (/\((.+)\)$/.exec(rule)?.[1] ?? "");
-      const re = globToRegExp(arg, "path");
+      const re = globToRegExp(
+        arg,
+        rule.startsWith("path:") || arg.startsWith("/") || arg.startsWith("**") ? "path" : "plain",
+      );
       const literal = /\*\*\/\*\.env|^\*\*\/\*/.test(arg);
       for (const t of tails) {
         if (re.test(`${old}/${t}`) && !literal)

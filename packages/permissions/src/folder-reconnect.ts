@@ -198,6 +198,10 @@ export function ruleNamesOldPath(rule: string, old: string, home: string): boole
     const a = call?.[2];
     // Only an argument that reads as a path is a path rule (as `parseRule` decides).
     if (a !== undefined && (a.startsWith("/") || a.startsWith("**") || a.startsWith("~"))) arg = a;
+    // Any other argument is a plain glob in the engine, where `*` and `?` cross `/`: read it as
+    // a path glob with each run of `*` as `**` and `?` as `*`.
+    else if (a !== undefined && (a.startsWith("*") || a.startsWith("?")))
+      arg = a.replaceAll("?", "*").replace(/\*+/g, "**");
   }
   if (arg === undefined) return false;
   if (arg === "~" || arg.startsWith("~/")) arg = `${home}${arg.slice(1)}`;
