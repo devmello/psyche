@@ -48,6 +48,7 @@ import {
 import { hostWords } from "@psyche/protocol/host-words";
 import { type CliDriver, type CliResult, nodeCliDriver } from "@psyche/sandbox";
 import { Type } from "@sinclair/typebox";
+import type { MachineExecHook } from "./machine-exec.ts";
 import { folderAccessEnv } from "./protected-paths.ts";
 import type { SrtResolver } from "./srt.ts";
 
@@ -367,6 +368,11 @@ export interface ExecHostDeps {
   readOnlyTimeoutMs?: number;
   /** Whose rules apply (tests; default this process's platform). */
   platform?: NodeJS.Platform;
+  /**
+   * `machine`: the command runs on that paired computer instead (compose/machine-exec.ts, H5).
+   * Without it a call that names a machine is refused, never run here.
+   */
+  machine?: MachineExecHook;
 }
 
 /**
@@ -971,6 +977,20 @@ const Input = Type.Object({
     }),
   ),
   timeoutMs: Type.Optional(Type.Integer({ minimum: 1_000, maximum: MAX_TIMEOUT_MS })),
+  machine: Type.Optional(
+    Type.String({
+      minLength: 1,
+      maxLength: 128,
+      description:
+        "Run it on one of the owner's paired computers instead (its name or id from machines.list); omit for this computer",
+    }),
+  ),
+  network: Type.Optional(
+    Type.Boolean({
+      description:
+        "With `machine`: let the contained command reach the network (off by default; that computer's limits decide)",
+    }),
+  ),
 });
 type HostParams = {
   argv: string[];
@@ -978,7 +998,19 @@ type HostParams = {
   env?: Record<string, string>;
   allowedDomains?: string[];
   timeoutMs?: number;
+  machine?: string;
+  network?: boolean;
 };
+
+/** The `machine` hook, or the refusal when this Gateway has none. */
+function machineHook(deps: ExecHostDeps): MachineExecHook {
+  if (deps.machine === undefined) {
+    throw new PsycheError("unavailable", "commands on other computers are not available here", {
+      details: { reason: "machine_unavailable" },
+    });
+  }
+  return deps.machine;
+}
 
 function checkParams(p: HostParams, platform: NodeJS.Platform): void {
   if (platform === "win32") {
@@ -988,6 +1020,12 @@ function checkParams(p: HostParams, platform: NodeJS.Platform): void {
     }
   } else if (!isAbsolute(p.cwd)) {
     throw new PsycheError("invalid_params", "cwd must be an absolute path");
+  }
+  if (p.network !== undefined) {
+    throw new PsycheError(
+      "invalid_params",
+      "network is for a paired computer's sandbox; here, allowedDomains names the hosts",
+    );
   }
   for (const [k, v] of Object.entries(p.env ?? {})) {
     if (RESERVED_ENV.test(k) || (platform === "win32" && RESERVED_ENV_WINDOWS.test(k))) {
@@ -1041,6 +1079,10 @@ export function execHostTool(deps: ExecHostDeps): AgentToolRegistration {
     sideEffect: "destructive",
     provenanceOut: "untrusted",
     describeCall: (p) => {
+      // A paired machine's command never runs here, so none of the Host's rules describe it.
+      if (p.machine !== undefined) {
+        return machineHook(deps).describe({ ...p, machine: p.machine });
+      }
       checkParams(p, platform);
       const described = describe(p, platform);
       const { resolved, env, domains } = described;
@@ -1107,6 +1149,7 @@ export function execHostTool(deps: ExecHostDeps): AgentToolRegistration {
       };
     },
     async run(p, ctx) {
+      if (p.machine !== undefined) return machineHook(deps).run({ ...p, machine: p.machine }, ctx);
       checkParams(p, platform);
       // A quiet run takes its slot before the first await, so runs racing through the checks
       // never make a third; every exit releases it.

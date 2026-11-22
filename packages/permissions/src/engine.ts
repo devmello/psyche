@@ -616,7 +616,18 @@ export class PolicyEngine {
       } catch {
         return done("deny", "folder:invalid_path", "exec_host needs an absolute cwd");
       }
-      if (this.folderFor(cwd, ctx.threadId, ctx.runId) === undefined) {
+      // A command on a paired machine (its device id is in the binding) runs in a folder granted
+      // on that machine, never in one of the Host's: the machine tool checks that grant before
+      // the card and again at run time, and the box's ceiling checks it a third time. It is
+      // still never a read and never quiet: every machine command asks or uses its exact grant.
+      // `exec_host` with a `machine` parameter only ever runs there (compose/machine-exec.ts).
+      const onMachine =
+        typeof (call.params as { machine?: unknown } | undefined)?.machine === "string" ||
+        typeof (binding.fields as { machine?: unknown }).machine === "string";
+      if (onMachine && hostReadOnly) {
+        return done("deny", "exec_host:machine_read_only", "a machine command is never quiet");
+      }
+      if (!onMachine && this.folderFor(cwd, ctx.threadId, ctx.runId) === undefined) {
         return done("deny", "folder:not_granted", `${cwd} is outside every granted folder`, {
           binding,
         });
@@ -643,6 +654,23 @@ export class PolicyEngine {
     if (kind === "git_push") {
       // A push publishes commits with the owner's credentials: never silent, never reusable (V10).
       floors.push({ rule: "git:push", reason: "pushes always ask", scopes: ["once"] });
+    }
+    // A file change on a paired machine (H5, linux-helper-only §5.2): a write, a new folder or
+    // a remove asks every time and is never kept, whatever grants exist (a copy into the Library
+    // keeps its one grant per machine). The op is the tool's own: it acts on exactly that op.
+    const machineOp = (call.params as { op?: unknown } | undefined)?.op;
+    if (
+      call.tool === "machine_files" &&
+      (SEVERITY[se] >= SEVERITY.destructive ||
+        machineOp === "write" ||
+        machineOp === "mkdir" ||
+        machineOp === "remove")
+    ) {
+      floors.push({
+        rule: "machine_files:change",
+        reason: "file changes on a machine ask every time",
+        scopes: ["once"],
+      });
     }
 
     const targetApp = call.target?.kind === "app" ? call.target.value : undefined;

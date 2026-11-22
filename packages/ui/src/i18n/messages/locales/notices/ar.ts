@@ -89,6 +89,9 @@ export const notices: Partial<Catalogue> = {
   "notice.machine.removed.title": "أزال {name} نفسه",
   "notice.machine.removed.body":
     "كان جهاز كمبيوتر يمكن لـ Psyche استخدامه. لن يستخدمه Psyche مجدداً ما لم تضفه من جديد.",
+  "notice.machine.scanIncomplete.title": "تعذّر إكمال فحص {folder} على {name} بعد أمر",
+  "notice.machine.scanIncomplete.body":
+    "ربما لم تُنقل المستودعات أو ملفات التشغيل الجديدة هناك جانباً. افحصه بحثاً عن مجلدات .git أو .vscode جديدة قبل فتحه في محرر أو تشغيل git فيه. لن تتمكن الأوامر من الكتابة هناك مرة أخرى حتى يُعاد تشغيل Psyche على {name}.",
   "notice.machine.offline.title": "انقطع اتصال {name}",
   "notice.machine.offline.body":
     "توجد مهمة تنتظر استخدامه، وستتابع عندما يعود {name}. يمكنك أيضاً إلغاء المهمة.",

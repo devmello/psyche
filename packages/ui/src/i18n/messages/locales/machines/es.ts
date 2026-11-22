@@ -119,4 +119,14 @@ export const machines: Partial<Catalogue> = {
   "settings.key.computerUse.defaultMachine":
     "Ordenador predeterminado para el trabajo en segundo plano",
   "settings.key.computerUse.machineApps": "Acceso a apps en un ordenador Linux",
+  "machines.card.folder": "Carpeta",
+  "machines.card.runsContained":
+    "aislado, solo en la carpeta concedida: sin claves, perfiles del navegador ni otras carpetas",
+  "machines.card.runsFullAccount":
+    "con la cuenta completa: puede hacer todo lo que puede esa cuenta",
+  "machines.card.networkOff": "desactivada",
+  "machines.card.networkOn": "activada",
+  "machines.card.folderReadOnly": "{path}, solo lectura",
+  "machines.card.folderReadWrite": "{path}, lectura y escritura",
+  "machines.card.folderNotEnforced": "{path}, la solo lectura no se aplica con la cuenta completa",
 };

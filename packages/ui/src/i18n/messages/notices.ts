@@ -94,6 +94,10 @@ export const notices = {
   "notice.machine.removed.title": "{name} removed itself",
   "notice.machine.removed.body":
     "It was a computer Psyche could use. Psyche won't use it again unless you add it again.",
+  "notice.machine.scanIncomplete.title":
+    "Couldn't finish checking {folder} on {name} after a command",
+  "notice.machine.scanIncomplete.body":
+    "New repositories or launch files there may not have been moved aside. Check it for new .git or .vscode folders before you open it in an editor or run git there. Commands can't write there again until Psyche restarts on {name}.",
   "notice.machine.offline.title": "{name} went offline",
   "notice.machine.offline.body":
     "A task is waiting to use it and goes on when {name} is back. You can also cancel the task.",

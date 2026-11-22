@@ -97,6 +97,10 @@ export const notices: Partial<Catalogue> = {
   "notice.machine.removed.title": "{name} s'est retiré lui-même",
   "notice.machine.removed.body":
     "C'était un ordinateur que Psyche pouvait utiliser. Psyche ne l'utilisera plus tant que vous ne l'aurez pas ajouté de nouveau.",
+  "notice.machine.scanIncomplete.title":
+    "Impossible de finir de vérifier {folder} sur {name} après une commande",
+  "notice.machine.scanIncomplete.body":
+    "Les nouveaux dépôts ou fichiers de lancement qui s'y trouvent n'ont peut-être pas été mis de côté. Vérifiez s'il contient de nouveaux dossiers .git ou .vscode avant de l'ouvrir dans un éditeur ou d'y lancer git. Les commandes ne pourront plus y écrire tant que Psyche n'aura pas redémarré sur {name}.",
   "notice.machine.offline.title": "{name} est hors ligne",
   "notice.machine.offline.body":
     "Une tâche attend de l'utiliser et reprendra quand {name} sera de retour. Vous pouvez aussi annuler la tâche.",

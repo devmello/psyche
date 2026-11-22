@@ -116,4 +116,13 @@ export const machines = {
   "computerWatch.machineMissing": "That computer isn't available.",
   "settings.key.computerUse.defaultMachine": "Default computer for background work",
   "settings.key.computerUse.machineApps": "App access on a Linux computer",
+  "machines.card.folder": "Folder",
+  "machines.card.runsContained":
+    "contained, in the granted folder only: no keys, browser profiles or other folders",
+  "machines.card.runsFullAccount": "on the full account: it can do anything that account can",
+  "machines.card.networkOff": "off",
+  "machines.card.networkOn": "on",
+  "machines.card.folderReadOnly": "{path}, read-only",
+  "machines.card.folderReadWrite": "{path}, read and write",
+  "machines.card.folderNotEnforced": "{path}, read-only is not enforced on the full account",
 } as const;

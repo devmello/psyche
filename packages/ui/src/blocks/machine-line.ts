@@ -14,7 +14,10 @@ export function machinePlace(
   details: Readonly<Record<string, unknown>> | undefined,
 ): string {
   if (kind === "exec_host") return t("machines.place.command");
-  if (kind === "folder_access") return t("machines.place.files");
+  // A folder grant or a file change on the machine (`machine_files`, H5).
+  if (kind === "folder_access" || details?.tool === "machine_files") {
+    return t("machines.place.files");
+  }
   return details?.surface === "direct" ? t("machines.place.desktop") : t("machines.place.screen");
 }
 

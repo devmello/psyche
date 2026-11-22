@@ -680,6 +680,11 @@ export interface HostProgramFacts {
   sha256: string;
   /** The real cwd after symlinks, when the Gateway could resolve it. */
   cwdReal?: string | undefined;
+  /**
+   * The paired machine the command runs on (its `machine` parameter); absent on the Host. A
+   * program grant is keyed on the computer too: a Host grant never covers a machine command.
+   */
+  machine?: string | undefined;
 }
 
 export interface HostProgramContext {
@@ -695,6 +700,9 @@ export function hostProgramRefusal(
   ctx: HostProgramContext,
 ): string | undefined {
   if (ctx.platform === "win32") return "windows";
+  // A machine's binary, folder and operands live on the box: the checks below read the Host's
+  // disk, so they cannot vouch for it. Never offered there (linux-helper-only §5.1, H5).
+  if (f.machine !== undefined) return "machine";
   const argv0 = f.argv[0];
   if (typeof argv0 !== "string" || argv0 === "" || f.argv.some((a) => typeof a !== "string")) {
     return "argv";
@@ -725,10 +733,14 @@ export interface HostProgramGrant {
   sha256: string;
   folder: string;
   argv: string[] | null;
+  /** The machine it was granted for; absent (or null) for the Host. */
+  machine?: string | null;
 }
 
 /** Whether the call lies in the grant's program, folder and arguments (the safety checks apart). */
 export function hostProgramGrantCovers(g: HostProgramGrant, f: HostProgramFacts): boolean {
+  // The computer is part of the key: Host and machine grants never cover each other.
+  if ((g.machine ?? undefined) !== (f.machine ?? undefined)) return false;
   if (g.executable !== f.executable || g.sha256 !== f.sha256) return false;
   let cwd: string;
   try {

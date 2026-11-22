@@ -118,4 +118,13 @@ export const machines: Partial<Catalogue> = {
   "computerWatch.machineMissing": "Esse computador não está disponível.",
   "settings.key.computerUse.defaultMachine": "Computador padrão para trabalho em segundo plano",
   "settings.key.computerUse.machineApps": "Acesso a apps em um computador Linux",
+  "machines.card.folder": "Pasta",
+  "machines.card.runsContained":
+    "isolado, só na pasta concedida: sem chaves, perfis do navegador ou outras pastas",
+  "machines.card.runsFullAccount": "com a conta completa: pode fazer tudo o que essa conta pode",
+  "machines.card.networkOff": "desativada",
+  "machines.card.networkOn": "ativada",
+  "machines.card.folderReadOnly": "{path}, somente leitura",
+  "machines.card.folderReadWrite": "{path}, leitura e escrita",
+  "machines.card.folderNotEnforced": "{path}, somente leitura não é aplicado com a conta completa",
 };

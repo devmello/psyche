@@ -117,4 +117,14 @@ export const machines: Partial<Catalogue> = {
   "computerWatch.machineMissing": "그 컴퓨터를 사용할 수 없습니다.",
   "settings.key.computerUse.defaultMachine": "백그라운드 작업의 기본 컴퓨터",
   "settings.key.computerUse.machineApps": "Linux 컴퓨터의 앱 접근",
+  "machines.card.folder": "폴더",
+  "machines.card.runsContained":
+    "격리되어 허용한 폴더에서만 실행: 키, 브라우저 프로필, 다른 폴더에 접근할 수 없습니다",
+  "machines.card.runsFullAccount":
+    "전체 계정 권한으로 실행: 그 계정이 할 수 있는 모든 일을 할 수 있습니다",
+  "machines.card.networkOff": "꺼짐",
+  "machines.card.networkOn": "켜짐",
+  "machines.card.folderReadOnly": "{path}, 읽기 전용",
+  "machines.card.folderReadWrite": "{path}, 읽기 및 쓰기",
+  "machines.card.folderNotEnforced": "{path}, 전체 계정 권한에서는 읽기 전용이 적용되지 않습니다",
 };

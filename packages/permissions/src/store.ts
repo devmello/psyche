@@ -27,6 +27,8 @@ export interface StoredToken {
 export interface StoredCardFields {
   cardRiskClass?: "routine" | "sensitive";
   cardSetAside?: true;
+  /** The paired machine the card is about (H5 machine cards); absent for the Host. */
+  cardMachine?: { deviceId: string; name: string };
 }
 
 export interface StoredApproval {
@@ -432,6 +434,9 @@ function approvalFromRow(r: ApprovalRow): StoredApproval {
   if (card.cardRiskClass === "routine" || card.cardRiskClass === "sensitive")
     approval.riskClass = card.cardRiskClass;
   if (card.cardSetAside === true) approval.setAside = true;
+  if (typeof card.cardMachine?.deviceId === "string" && typeof card.cardMachine.name === "string") {
+    approval.machine = { deviceId: card.cardMachine.deviceId, name: card.cardMachine.name };
+  }
   return {
     approval,
     tokens: parse<StoredToken[]>(r.answer_tokens),

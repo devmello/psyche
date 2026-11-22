@@ -119,4 +119,14 @@ export const machines: Partial<Catalogue> = {
   "computerWatch.machineMissing": "Dieser Computer ist nicht verfügbar.",
   "settings.key.computerUse.defaultMachine": "Standardcomputer für Hintergrundarbeit",
   "settings.key.computerUse.machineApps": "App-Zugriff auf einem Linux-Computer",
+  "machines.card.folder": "Ordner",
+  "machines.card.runsContained":
+    "abgeschirmt, nur im freigegebenen Ordner: keine Schlüssel, Browserprofile oder anderen Ordner",
+  "machines.card.runsFullAccount": "mit dem vollen Konto: es kann alles, was dieses Konto kann",
+  "machines.card.networkOff": "aus",
+  "machines.card.networkOn": "an",
+  "machines.card.folderReadOnly": "{path}, nur lesen",
+  "machines.card.folderReadWrite": "{path}, lesen und schreiben",
+  "machines.card.folderNotEnforced":
+    "{path}, „nur lesen“ wird mit dem vollen Konto nicht durchgesetzt",
 };

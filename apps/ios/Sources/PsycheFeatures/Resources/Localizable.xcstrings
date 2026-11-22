@@ -7100,6 +7100,148 @@
           }
         }
       }
+    },
+    "notice.machine.scanIncomplete.title": {
+      "extractionState": "manual",
+      "localizations": {
+        "ar": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "تعذّر إكمال فحص {folder} على {name} بعد أمر"
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "{folder} auf {name} konnte nach einem Befehl nicht vollständig geprüft werden"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Couldn't finish checking {folder} on {name} after a command"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "No se pudo terminar de revisar {folder} en {name} después de un comando"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Impossible de finir de vérifier {folder} sur {name} après une commande"
+          }
+        },
+        "hi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "एक कमांड के बाद {name} पर {folder} की जाँच पूरी नहीं हो सकी"
+          }
+        },
+        "it": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Impossibile finire di controllare {folder} su {name} dopo un comando"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "コマンドの実行後、{name} の {folder} を最後まで確認できませんでした"
+          }
+        },
+        "ko": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "명령 실행 후 {name}의 {folder}을(를) 끝까지 확인하지 못했습니다"
+          }
+        },
+        "pt": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Não foi possível terminar de verificar {folder} em {name} após um comando"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "命令运行后，未能完成检查 {name} 上的 {folder}"
+          }
+        }
+      }
+    },
+    "notice.machine.scanIncomplete.body": {
+      "extractionState": "manual",
+      "localizations": {
+        "ar": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "ربما لم تُنقل المستودعات أو ملفات التشغيل الجديدة هناك جانباً. افحصه بحثاً عن مجلدات .git أو .vscode جديدة قبل فتحه في محرر أو تشغيل git فيه. لن تتمكن الأوامر من الكتابة هناك مرة أخرى حتى يُعاد تشغيل Psyche على {name}."
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Neue Repositorys oder Startdateien dort wurden womöglich nicht beiseitegelegt. Prüfe den Ordner auf neue .git- oder .vscode-Ordner, bevor du ihn in einem Editor öffnest oder dort git ausführst. Befehle können dort erst wieder schreiben, wenn Psyche auf {name} neu startet."
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "New repositories or launch files there may not have been moved aside. Check it for new .git or .vscode folders before you open it in an editor or run git there. Commands can't write there again until Psyche restarts on {name}."
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Puede que los repositorios o archivos de inicio nuevos que haya ahí no se hayan apartado. Revisa si hay carpetas .git o .vscode nuevas antes de abrirla en un editor o ejecutar git ahí. Los comandos no podrán volver a escribir ahí hasta que Psyche se reinicie en {name}."
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Les nouveaux dépôts ou fichiers de lancement qui s'y trouvent n'ont peut-être pas été mis de côté. Vérifiez s'il contient de nouveaux dossiers .git ou .vscode avant de l'ouvrir dans un éditeur ou d'y lancer git. Les commandes ne pourront plus y écrire tant que Psyche n'aura pas redémarré sur {name}."
+          }
+        },
+        "hi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "वहाँ के नए रिपॉज़िटरी या लॉन्च फ़ाइलें शायद अलग नहीं की गईं। इसे किसी एडिटर में खोलने या वहाँ git चलाने से पहले नए .git या .vscode फ़ोल्डर देख लें। जब तक {name} पर Psyche दोबारा शुरू नहीं होता, कमांड वहाँ फिर से नहीं लिख सकते।"
+          }
+        },
+        "it": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "I nuovi repository o file di avvio presenti potrebbero non essere stati messi da parte. Controlla se ci sono nuove cartelle .git o .vscode prima di aprirla in un editor o eseguirci git. I comandi non potranno scriverci di nuovo finché Psyche non si riavvia su {name}."
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "そこにある新しいリポジトリや起動用ファイルは、退避されていない可能性があります。エディタで開いたり git を実行したりする前に、新しい .git や .vscode フォルダがないか確認してください。{name} で Psyche が再起動するまで、コマンドはそこに書き込めません。"
+          }
+        },
+        "ko": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "그곳의 새 저장소나 실행 파일이 따로 옮겨지지 않았을 수 있습니다. 편집기로 열거나 git을 실행하기 전에 새 .git 또는 .vscode 폴더가 있는지 확인하세요. {name}에서 Psyche가 다시 시작될 때까지 명령은 그곳에 쓸 수 없습니다."
+          }
+        },
+        "pt": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Repositórios ou arquivos de inicialização novos ali podem não ter sido colocados de lado. Procure pastas .git ou .vscode novas antes de abri-la em um editor ou rodar git ali. Os comandos só poderão gravar ali de novo quando o Psyche reiniciar em {name}."
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "那里新出现的仓库或启动文件可能没有被移到一旁。在用编辑器打开它或在那里运行 git 之前，请检查是否有新的 .git 或 .vscode 文件夹。在 {name} 上的 Psyche 重启之前，命令无法再写入那里。"
+          }
+        }
+      }
     }
   },
   "version": "1.0"

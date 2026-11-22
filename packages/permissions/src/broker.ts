@@ -23,6 +23,7 @@ import {
   type IssuedApproval,
   isPrepNoteCall,
   type JsonObject,
+  machineNameOk,
   type Notifier,
   type PermissionBroker,
   PREP_NOTE_TITLE_PREFIX,
@@ -415,6 +416,28 @@ function actorOf(by: DecidedBy, surface?: Surface): AuditEntryInput["actor"] {
 
 function fail(code: ErrorCode, message: string, details?: unknown): never {
   throw new PsycheError(code, message, details === undefined ? {} : { details });
+}
+
+/**
+ * The machine an H5 card is about (linux-helper-only §5): a command on a paired machine
+ * (`exec_host` with `onMachine`) or a `machine_files` card (a folder request, a file change, a
+ * copy), named by the Gateway's own machine tools in the card's details. Only those cards, and
+ * only a well-formed reference: any other card names no computer.
+ */
+export function machineCardOf(
+  kind: ApprovalKind,
+  details: unknown,
+): ApprovalRequest["machine"] | undefined {
+  if (typeof details !== "object" || details === null) return undefined;
+  const d = details as { tool?: unknown; onMachine?: unknown; machine?: unknown };
+  const h5 = d.tool === "machine_files" || (kind === "exec_host" && d.onMachine === true);
+  if (!h5 || typeof d.machine !== "object" || d.machine === null) return undefined;
+  const m = d.machine as { deviceId?: unknown; name?: unknown };
+  if (typeof m.deviceId !== "string" || m.deviceId.length === 0 || m.deviceId.length > 64) {
+    return undefined;
+  }
+  if (!machineNameOk(m.name)) return undefined;
+  return { deviceId: m.deviceId, name: m.name };
 }
 
 /**
@@ -1481,8 +1504,12 @@ export class PsychePermissionBroker implements PermissionBroker {
       cwd?: unknown;
       env?: unknown;
       allowedDomains?: unknown;
+      machine?: unknown;
     };
     if (hp === undefined || !Array.isArray(p.argv) || typeof p.cwd !== "string") return undefined;
+    // Any `machine` parameter at all keys the facts on it (H5): a program grant is never
+    // offered or matched for a machine command, whatever its meta claims.
+    if (p.machine !== undefined && typeof p.machine !== "string") return undefined;
     if (p.env !== undefined && (typeof p.env !== "object" || p.env === null)) return undefined;
     if (p.allowedDomains !== undefined && !Array.isArray(p.allowedDomains)) return undefined;
     // The binding the engine hashed names the same binary, or the description is not trusted.
@@ -1497,6 +1524,7 @@ export class PsychePermissionBroker implements PermissionBroker {
       executable: hp.executable,
       sha256: hp.sha256,
       cwdReal: hp.cwdReal,
+      ...(typeof p.machine === "string" ? { machine: p.machine } : {}),
     };
   }
 
@@ -2181,8 +2209,13 @@ export class PsychePermissionBroker implements PermissionBroker {
     if (approval.taint && sources !== undefined && sources.length > 0) {
       approval.taintSources = cardTaintSources(sources);
     }
+    // An H5 machine card names its machine (the card's machine line), from the Gateway's details.
+    const onMachine = approval.machine ?? machineCardOf(input.kind, input.details);
+    if (onMachine !== undefined) approval.machine = { ...onMachine };
     // Kept with the stored input, so a SQLite store (no column for them) gives them back.
     const card = input as PolicyApprovalInput & StoredCardFields;
+    if (approval.machine !== undefined) card.cardMachine = { ...approval.machine };
+    else delete card.cardMachine;
     card.cardRiskClass = approval.riskClass;
     if (approval.setAside === true) card.cardSetAside = true;
     else delete card.cardSetAside;
