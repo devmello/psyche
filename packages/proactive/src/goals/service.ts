@@ -593,9 +593,13 @@ export class GoalsService {
     if ((await this.#o.scheduler.get(automationId)) !== undefined) {
       await this.#o.scheduler.remove(automationId);
     }
-    const touched: Goal = { ...goal, updatedAt: this.#now() };
-    this.store.update(touched);
-    this.#emit(touched);
+    // Patch onto the current row: a milestone written during the awaits above keeps its taint.
+    const current = this.store.get(goalId);
+    if (current !== undefined) {
+      const touched: Goal = { ...current, updatedAt: this.#now() };
+      this.store.update(touched);
+      this.#emit(touched);
+    }
     return this.get(goalId);
   }
 
@@ -859,9 +863,11 @@ export class GoalsService {
       dedupeKey: `goal:${goal.id}:checkin`,
     });
     const automation = await this.#o.scheduler.get(request.automation.id);
+    // Patch onto the current row: a milestone written during the awaits above keeps its taint.
+    const current = this.store.get(goal.id) ?? goal;
     const next: Goal = {
-      ...goal,
-      nextCheckinAt: automation?.nextRunAt ?? goal.nextCheckinAt,
+      ...current,
+      nextCheckinAt: automation?.nextRunAt ?? current.nextCheckinAt,
       updatedAt: this.#now(),
     };
     this.store.update(next);

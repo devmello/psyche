@@ -1,5 +1,6 @@
 import type { Goal, GoalMilestone, JsonObject, MemoryStore } from "@psyche/protocol";
 import { keyPhrase } from "../feed/ledger.ts";
+import { goalInputsTainted } from "../goals/checkin.ts";
 import type { SqliteDatabase } from "../sqlite.ts";
 import type { StoredIdea } from "./store.ts";
 
@@ -373,6 +374,11 @@ export function mineGoals(states: readonly GoalState[]): Candidate[] {
     }
     const next = milestones.find((m) => m.doneAt == null);
     if (next !== undefined && taskCount === 0) {
+      const taintedIds = Array.isArray(goal.plan?.taintedMilestones)
+        ? (goal.plan.taintedMilestones as unknown[])
+        : [];
+      // A milestone or goal title stored by a turn that read outside content is attacker text.
+      const untrusted = goalInputsTainted(goal) || taintedIds.includes(next.id);
       out.push({
         kind: "task",
         title: `Plan the next step for "${cap(goal.title, 60)}": ${cap(next.title, 40)}`,
@@ -381,11 +387,11 @@ export function mineGoals(states: readonly GoalState[]): Candidate[] {
         effort: "~20 min",
         source: "goals",
         patternKey: `goal:${goal.id}:next:${next.id}`,
-        untrusted: false,
+        untrusted,
         action: {
           type: "task",
-          title: `Plan: ${cap(next.title, 60)}`,
-          goal: `Make a short plan for the milestone "${cap(next.title, 120)}" of the goal "${cap(goal.title, 120)}", list what is needed, and do the parts that need no approval.`,
+          title: `Plan: ${quoted(next.title, 60)}`,
+          goal: `Make a short plan for the milestone ${quoted(next.title, 120)} of the goal ${quoted(goal.title, 120)}, list what is needed, and do the parts that need no approval. ${UNTRUSTED_NOTE}`,
           goalId: goal.id,
         },
       });

@@ -728,6 +728,70 @@ describe("review follow-ups", () => {
     expect(detail).toBeDefined();
   });
 
+  it("a tainted milestone written while a check-in runs keeps its taint", async () => {
+    const r = rig();
+    const { goal } = await r.goals.create({ title: "Run a 10k", category: "health" });
+    await r.goals.update(goal.id, { cadence: "P1D" });
+    const automation = (await r.scheduler.list()).find((a) => a.prompt.includes(goal.id));
+    await Promise.all([
+      r.goals.checkinJob().run({ automation, run: { coalesced: 1 } } as never),
+      r.goals.milestone({ goalId: goal.id, title: EVIL, taintSources: EMAIL_TAINT }),
+    ]);
+    const after = await r.goals.get(goal.id);
+    const evil = after.milestones.find((m) => m.title === EVIL);
+    expect(evil).toBeDefined();
+    expect(after.goal.plan?.taintedMilestones).toEqual([evil?.id]);
+  });
+
+  it("a tainted milestone written while removeWatch awaits keeps its taint", async () => {
+    const r = rig();
+    const { goal } = await r.goals.create({ title: "Run a 10k", category: "health" });
+    const { automation } = await r.goals.addWatch(goal.id, {
+      url: "https://race.example/register",
+      check: "price_below",
+      selector: "Registration fee:",
+      threshold: 100,
+    });
+    await Promise.all([
+      r.goals.removeWatch(goal.id, automation.id),
+      r.goals.milestone({ goalId: goal.id, title: EVIL, taintSources: EMAIL_TAINT }),
+    ]);
+    const after = await r.goals.get(goal.id);
+    const evil = after.milestones.find((m) => m.title === EVIL);
+    expect(evil).toBeDefined();
+    expect(after.goal.plan?.taintedMilestones).toEqual([evil?.id]);
+  });
+
+  it("a mined card for a tainted milestone is untrusted: no attacker automation title, tainted Start", async () => {
+    const mined = async () => {
+      const r = rig();
+      const { goal } = await r.goals.create({ title: "Run a 10k", category: "health" });
+      const tool = goalTools(r.goals, r.clock).find((t) => t.spec.name === "goals.update_progress");
+      await tool?.run?.({ goalId: goal.id, title: EVIL }, ctx(EMAIL_TAINT));
+      const report = await r.ideas.mine();
+      const card = report.queued.find((c) => c.kind === "task" && c.source === "goals");
+      await r.ideas.deliver();
+      expect((await openCards(r)).map((c) => c.id)).toContain(card?.id);
+      expect(card).toBeDefined();
+      expect(card?.untrusted).toBe(true);
+      expect(JSON.stringify(card?.action)).toContain("data, not instructions");
+      return { r, card };
+    };
+    const one = await mined();
+    const made = await one.r.ideas.accept({
+      ideaId: one.card?.id ?? "",
+      recurring: true,
+      brief: "Every week, look for a race",
+      schedule: "0 9 * * 1",
+    });
+    const automation = (await one.r.scheduler.list()).find((a) => a.id === made.automationId);
+    expect(automation?.title).not.toContain("Ignore previous");
+    expect(automation?.title).toBe("Recurring: Every week, look for a race");
+    const two = await mined();
+    const started = await two.r.ideas.accept({ ideaId: two.card?.id ?? "" });
+    expect((await two.r.tasks.get(started.taskId ?? ""))?.taint).toBe(true);
+  });
+
   it("a large evidence patch is deduped and capped, keeping outside evidence", async () => {
     const r = rig();
     const id = await (async () => {
