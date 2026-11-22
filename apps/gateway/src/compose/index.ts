@@ -123,6 +123,7 @@ import { alertNotice, alertNotifyDecision } from "../security/alerts.ts";
 import { sealedPermissionStore } from "../security/sealed-stores.ts";
 import { StateSeal } from "../security/state-seal.ts";
 import { type Gateway, type GatewayOptions, startGateway } from "../server.ts";
+import { psycheServerKind } from "../server-install.ts";
 import { reencodeToolImage } from "../session/image-resize.ts";
 import { composeSpaceFolders, spaceFolderSource } from "../spaces/folders.ts";
 import { BusySources, UpdateGate } from "../update-gate.ts";
@@ -139,7 +140,7 @@ import { artifactContextProvider, composeArtifacts } from "./artifacts.ts";
 import { attentionHandlers, OwnerAttention, parkWhenUnwatched } from "./attention.ts";
 import { createAutoTitler } from "./auto-title.ts";
 import { withAutomationSpecialists } from "./automation-specialists.ts";
-import { bootstrapAdminHandlers } from "./bootstrap-admin.ts";
+import { BOOTSTRAP_ADMIN_AUDIT_KIND, bootstrapAdminHandlers } from "./bootstrap-admin.ts";
 import type { ComposedBrowser } from "./browser.ts";
 import { CallContexts } from "./call-context.ts";
 import { capabilityCatalogue, capabilityTools, deferToolFor } from "./capabilities.ts";
@@ -2474,6 +2475,25 @@ export async function composeGateway(options: ComposeOptions): Promise<ComposedG
     webhooks,
     publicRoutes,
     onSetupTokenUsed: setupTokenUsedHook({ db, audit, log: gwOptions.logger }),
+    // A fresh psyche-server (deb, rpm or tarball on Linux) waits for the app's setup code.
+    claim: gwOptions.claim ?? {
+      enabled: process.platform === "linux" && psycheServerKind() !== null,
+    },
+    // The first admin made with the setup code: audited like the desktop's first admin, so
+    // `psyche security audit` counts it with the others (devices.bootstrap_repeated).
+    onClaimed: (device) => {
+      void audit
+        .append({
+          kind: BOOTSTRAP_ADMIN_AUDIT_KIND,
+          actor: { type: "device", deviceId: device.id },
+          data: { deviceId: device.id, name: device.name, via: "claim" },
+        })
+        .catch((err: unknown) =>
+          gwOptions.logger?.log("warn", "audit append for a claimed server failed", {
+            code: PsycheError.from(err).code,
+          }),
+        );
+    },
     onMachineChange: machineChangeHook({ audit, notifier, log: gwOptions.logger }),
     onDeviceSelfRevoked: (revoked) => {
       void audit

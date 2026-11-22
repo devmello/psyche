@@ -79,6 +79,67 @@ export const settingsD: Partial<Catalogue> = {
     "O que um computador anuncia na rede é uma alegação. A tela de emparelhamento mostra a chave dele: compare-a com a do Host antes de aprovar.",
   "settings.gateways.discoverAdd": "Adicionar {name}",
   "settings.gateways.discoverSaved": "Salvo",
+  "settings.remoteSetup.title": "Configurar um servidor remoto",
+  "settings.remoteSetup.open": "Configurar um servidor remoto",
+  "settings.remoteSetup.intro":
+    "Instale o psyche-server em um computador Linux desta rede. Ele mostra um código de configuração: digite-o aqui, e este computador passa a ser o administrador do servidor.",
+  "settings.remoteSetup.lookFailed":
+    "Não foi possível procurar na rede. Digite o endereço do servidor.",
+  "settings.remoteSetup.noneWaiting":
+    "Nenhum servidor aguardando configuração foi encontrado nesta rede. Digite o endereço dele.",
+  "settings.remoteSetup.waiting": "Aguardando configuração",
+  "settings.remoteSetup.pick": "Configurar",
+  "settings.remoteSetup.pickNamed": "Configurar {name}",
+  "settings.remoteSetup.alreadySetUp":
+    "Já configurado. Adicione-o com um link de pareamento desse servidor.",
+  "settings.remoteSetup.addressLabel": "Endereço do servidor",
+  "settings.remoteSetup.addressPlaceholder": "192.168.1.20 ou server.local",
+  "settings.remoteSetup.addressHint":
+    "Um endereço desta rede. O Psyche usa a porta 7979, a menos que você digite outra.",
+  "settings.remoteSetup.next": "Avançar",
+  "settings.remoteSetup.codeTitle": "Código de configuração de {name}",
+  "settings.remoteSetup.codeLabel": "Código de configuração",
+  "settings.remoteSetup.codePlaceholder": "7K3QM-XR2TD",
+  "settings.remoteSetup.codeHint":
+    "O servidor o mostrou quando o psyche-server foi instalado. Ele vale uma vez, por 24 horas. Para um novo, execute psyche setup code no servidor.",
+  "settings.remoteSetup.checking": "Verificando o código…",
+  "settings.remoteSetup.submit": "Configurar servidor",
+  "settings.remoteSetup.back": "Voltar",
+  "settings.remoteSetup.doneTitle": "{name} está configurado",
+  "settings.remoteSetup.doneBody":
+    "Este computador agora é o administrador dele. Mude para ele para dar um nome ao seu agente e escolher um modelo lá.",
+  "settings.remoteSetup.switch": "Mudar para {name}",
+  "settings.remoteSetup.notNow": "Agora não",
+  "settings.remoteSetup.keepLan": "Manter este servidor acessível na minha rede",
+  "settings.remoteSetup.keepLanHint":
+    "Computadores desta rede podem acessar o servidor e pedir pareamento. Cada um ainda precisa da sua aprovação.",
+  "settings.remoteSetup.keepLanOffHint":
+    "Ao terminar a configuração, o servidor deixa de escutar nesta rede e este computador é desconectado. Desative só se você acessa o servidor de outro jeito, como pelo Tailscale.",
+  "settings.remoteSetup.firstRunHint": "Instalou o Psyche em um servidor? Configure-o daqui.",
+  "settings.remoteSetup.connect": "Conectar a um servidor Psyche",
+  "settings.remoteSetup.problem.wrong_code":
+    "{count, plural, one {Esse código não está certo. Resta # tentativa; depois o servidor fará você esperar.} other {Esse código não está certo. Restam # tentativas; depois o servidor fará você esperar.}}",
+  "settings.remoteSetup.problem.wrong_code_wait":
+    "Esse código não está certo. Espere um minuto, confira o código no servidor e tente de novo.",
+  "settings.remoteSetup.problem.too_many_attempts":
+    "Códigos errados demais. Tente de novo em {seconds, plural, one {# segundo} other {# segundos}}.",
+  "settings.remoteSetup.problem.bad_code":
+    "Um código de configuração tem 10 letras e números, como 7K3QM-XR2TD.",
+  "settings.remoteSetup.problem.code_expired":
+    "Esse código expirou. Execute psyche setup code no servidor para obter um novo.",
+  "settings.remoteSetup.problem.not_claimable":
+    "Esse servidor já está configurado. Adicione-o com um link de pareamento do servidor.",
+  "settings.remoteSetup.problem.unreachable":
+    "Não foi possível acessar um servidor nesse endereço. Verifique se ele está ligado e nesta rede.",
+  "settings.remoteSetup.problem.cert_mismatch":
+    "O certificado do servidor não correspondia ao que ele informou, então o Psyche parou. Confira o endereço e tente de novo.",
+  "settings.remoteSetup.problem.server_unproven":
+    "O servidor não provou que conhece o código, então o Psyche não confiou nele. Confira o endereço e o código.",
+  "settings.remoteSetup.problem.saved":
+    "Esse servidor já está salvo. Mude para ele na lista acima.",
+  "settings.remoteSetup.problem.not_lan":
+    "Digite um endereço desta rede, como 192.168.1.20 ou server.local.",
+  "settings.remoteSetup.problem.failed": "Não foi possível configurar o servidor. Nada mudou.",
   "settings.devices.gatewayKey": "Chave deste Gateway {fingerprint}",
   "settings.devices.fromAddress": "De {address}",
   "settings.devices.fromLan": "De {address}, na sua rede. Confira a chave completa abaixo.",

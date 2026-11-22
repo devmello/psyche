@@ -248,7 +248,21 @@ export const devicesHandlers: Record<string, HandlerDef> = {
             ? call.ctx.lan.status().candidates
             : [],
         },
+        ...(call.ctx.claim?.lanChoicePending() === true
+          ? { claim: { lanChoicePending: true } }
+          : {}),
       };
+    },
+  },
+  "gateway.claim.finish": {
+    async run(call: Call, params: { keepLan: boolean }) {
+      const claim = call.ctx.claim;
+      if (claim === null || !claim.lanChoicePending()) {
+        throw new PsycheError("conflict", "There is no setup answer waiting");
+      }
+      const result = await claim.finish(params.keepLan);
+      call.ctx.bus.bumpStateVersion();
+      return result;
     },
   },
   "gateway.lan.rotateCert": {

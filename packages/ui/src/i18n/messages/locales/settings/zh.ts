@@ -820,6 +820,60 @@ export const settings: Partial<Catalogue> = {
     "电脑在网络上宣告的内容只是一种声明。配对界面会显示它的密钥：批准之前请与主机上的密钥核对。",
   "settings.gateways.discoverAdd": "添加{name}",
   "settings.gateways.discoverSaved": "已保存",
+  "settings.remoteSetup.title": "设置远程服务器",
+  "settings.remoteSetup.open": "设置远程服务器",
+  "settings.remoteSetup.intro":
+    "在此网络中的一台 Linux 电脑上安装 psyche-server。它会显示一个设置码：在这里输入，这台电脑就会成为服务器的管理员。",
+  "settings.remoteSetup.lookFailed": "无法在网络中查找。请改为输入服务器的地址。",
+  "settings.remoteSetup.noneWaiting": "此网络中没有找到等待设置的服务器。请改为输入它的地址。",
+  "settings.remoteSetup.waiting": "等待设置",
+  "settings.remoteSetup.pick": "设置",
+  "settings.remoteSetup.pickNamed": "设置 {name}",
+  "settings.remoteSetup.alreadySetUp": "已设置过。请用那台服务器上的配对链接添加它。",
+  "settings.remoteSetup.addressLabel": "服务器地址",
+  "settings.remoteSetup.addressPlaceholder": "192.168.1.20 或 server.local",
+  "settings.remoteSetup.addressHint": "此网络中的地址。除非你输入其他端口，Psyche 使用 7979 端口。",
+  "settings.remoteSetup.next": "下一步",
+  "settings.remoteSetup.codeTitle": "{name} 的设置码",
+  "settings.remoteSetup.codeLabel": "设置码",
+  "settings.remoteSetup.codePlaceholder": "7K3QM-XR2TD",
+  "settings.remoteSetup.codeHint":
+    "安装 psyche-server 时服务器上显示的设置码。它在 24 小时内只能用一次。要获取新的，请在服务器上运行 psyche setup code。",
+  "settings.remoteSetup.checking": "正在检查设置码…",
+  "settings.remoteSetup.submit": "设置服务器",
+  "settings.remoteSetup.back": "返回",
+  "settings.remoteSetup.doneTitle": "{name} 已设置好",
+  "settings.remoteSetup.doneBody":
+    "这台电脑现在是它的管理员。切换到它，在那里给你的智能体命名并选择模型。",
+  "settings.remoteSetup.switch": "切换到 {name}",
+  "settings.remoteSetup.notNow": "以后再说",
+  "settings.remoteSetup.keepLan": "让此服务器在我的网络中保持可连接",
+  "settings.remoteSetup.keepLanHint": "此网络中的电脑可以连接服务器并请求配对。每一台仍需你批准。",
+  "settings.remoteSetup.keepLanOffHint":
+    "设置完成后，服务器将停止在此网络上监听，这台电脑会断开连接。只有当你通过其他方式（如 Tailscale）连接服务器时才关闭此项。",
+  "settings.remoteSetup.firstRunHint": "已在服务器上安装 Psyche？可以在这里设置它。",
+  "settings.remoteSetup.connect": "连接到 Psyche 服务器",
+  "settings.remoteSetup.problem.wrong_code":
+    "{count, plural, other {设置码不正确。再错 # 次，服务器就会让你等待。}}",
+  "settings.remoteSetup.problem.wrong_code_wait":
+    "设置码不正确。请等一分钟，核对服务器上的设置码后再试。",
+  "settings.remoteSetup.problem.too_many_attempts":
+    "错误的设置码太多。请在 {seconds, plural, other {# 秒}}后再试。",
+  "settings.remoteSetup.problem.bad_code": "设置码由 10 个字母和数字组成，例如 7K3QM-XR2TD。",
+  "settings.remoteSetup.problem.code_expired":
+    "设置码已过期。请在服务器上运行 psyche setup code 获取新的设置码。",
+  "settings.remoteSetup.problem.not_claimable":
+    "该服务器已设置过。请改用服务器上的配对链接添加它。",
+  "settings.remoteSetup.problem.unreachable":
+    "无法连接到该地址的服务器。请检查它已开机并在此网络中。",
+  "settings.remoteSetup.problem.cert_mismatch":
+    "服务器的证书与它声明的不一致，因此 Psyche 已停止。请检查地址后再试。",
+  "settings.remoteSetup.problem.server_unproven":
+    "服务器没有证明它知道设置码，因此 Psyche 没有信任它。请检查地址和设置码。",
+  "settings.remoteSetup.problem.saved": "该服务器已保存。请在上方列表中切换到它。",
+  "settings.remoteSetup.problem.not_lan":
+    "请输入此网络中的地址，例如 192.168.1.20 或 server.local。",
+  "settings.remoteSetup.problem.failed": "无法设置服务器。没有任何更改。",
   "settings.devices.gatewayKey": "此 Gateway 的密钥 {fingerprint}",
   "settings.devices.fromAddress": "来自 {address}",
   "settings.devices.fromLan": "来自 {address}，位于你的网络。请核对下方完整的密钥。",

@@ -23,6 +23,7 @@ import {
   verifyChallenge,
 } from "./auth.ts";
 import { serverBuild } from "./build-info.ts";
+import type { ClaimHelloInput, ClaimSession } from "./claim/mode.ts";
 import type { Call, GatewayContext, HandlerDef, LiveConnection } from "./context.ts";
 import type { EventFilter, FrameSink } from "./event-bus.ts";
 import { HANDLERS } from "./handlers/index.ts";
@@ -113,6 +114,8 @@ export class Connection implements LiveConnection {
   #identity: PairedIdentity | null = null;
   #pendingDeviceId: string | null = null;
   #connectParams: ConnectParams | null = null;
+  /** A setup-code claim between `gateway.claim.hello` and `gateway.claim.prove` (design §3.6). */
+  #claim: ClaimSession | null = null;
   #unsubscribe: (() => void) | null = null;
   #sink: FrameSink | null = null;
   #pendingTimer: NodeJS.Timeout | null = null;
@@ -298,6 +301,8 @@ export class Connection implements LiveConnection {
     const { method } = frame;
     if (!isMethodName(method)) throw new PsycheError("unknown_method", `Unknown method ${method}`);
     const params = validateParams(method, frame.params ?? {});
+    if (method === "gateway.claim.hello") return this.#claimHello(params as ClaimHelloInput);
+    if (method === "gateway.claim.prove") return this.#claimProve(params as { proof: string });
     if (method === "connect") return this.#connect(params as ConnectParams);
     if (method === "connect.verify") return this.#verify(params as ConnectVerifyParams);
 
@@ -516,9 +521,60 @@ export class Connection implements LiveConnection {
     }
   }
 
+  /**
+   * `gateway.claim.hello` (design §3.6): only as the first frame of a LAN connection to a server in
+   * claim mode. Any refusal ends the connection.
+   */
+  #claimHello(params: ClaimHelloInput): unknown {
+    if (this.#phase !== "new" || this.#claim !== null) {
+      throw new PsycheError("conflict", "a claim was already started on this connection");
+    }
+    const claim = this.#ctx.claim;
+    try {
+      if (claim === null) {
+        throw new PsycheError("forbidden", "This server is not waiting to be set up", {
+          details: { reason: "not_claimable" },
+        });
+      }
+      const { session, result } = claim.hello(this.peer, params);
+      this.#claim = session;
+      return result;
+    } catch (err) {
+      // No second try on this connection (handleRaw closes a spent one after the error).
+      this.#phase = "spent";
+      throw err;
+    }
+  }
+
+  /** `gateway.claim.prove`: one answer per connection; the connection closes after it either way. */
+  async #claimProve(params: { proof: string }): Promise<unknown> {
+    const session = this.#claim;
+    const claim = this.#ctx.claim;
+    this.#claim = null;
+    if (this.#phase !== "new" || session === null || claim === null) {
+      this.#phase = "spent";
+      throw new PsycheError("conflict", "gateway.claim.prove needs gateway.claim.hello first");
+    }
+    this.#phase = "spent";
+    const out = await claim.prove(this.peer, session, params.proof);
+    const device = getDevice(this.#ctx.db, out.device.id);
+    this.#ctx.bus.bumpStateVersion();
+    if (device) this.#ctx.bus.publish("device.updated", { device });
+    this.#closeAfterReply = "claimed";
+    return { proof: out.proof, deviceId: out.device.id, scopes: out.scopes };
+  }
+
   #connect(params: ConnectParams): unknown {
     if (this.#phase !== "new") {
       throw new PsycheError("conflict", "connect was already sent on this connection");
+    }
+    // Claim mode: before the server has an admin, a LAN connection may only claim it.
+    if (this.peer.lan === true && this.#ctx.claim?.active() === true) {
+      throw new PsycheError(
+        "forbidden",
+        "This server is waiting to be set up with its setup code: use Connect to a Psyche server in the app",
+        { details: { reason: "claim_mode" } },
+      );
     }
     const { pending, challenge } = issueChallenge(
       params,
