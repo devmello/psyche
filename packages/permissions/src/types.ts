@@ -148,6 +148,15 @@ export interface PolicyApprovalInput extends ApprovalRequestInput {
    * `outbound_identifier`), so it holds even when no cached decision is found for the binding.
    */
   deviceOnly?: true;
+  /**
+   * Whether the caller itself offered an off-Mac surface (`notification` or `web`), before the
+   * Gateway's relays (the Mac helper's `notification`) added theirs. Only that decides whether a
+   * paired phone gets its own `device:` surface: a card its caller kept on `["desktop"]` stays on
+   * the Mac even with the helper connected. The Gateway's relay wrapper always sets it from the
+   * caller's list; absent, the card's own `surfaces` decide (no relay added any). Persisted with
+   * the input, so `reissue()` decides from the caller's list too.
+   */
+  offMac?: boolean;
   /** The decided call and context, persisted so `reissue()` re-evaluates the same inputs. */
   call?: PolicyCall;
   context?: PolicyContext;

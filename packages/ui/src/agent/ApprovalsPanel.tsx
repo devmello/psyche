@@ -3,6 +3,7 @@ import { ChevronRight } from "lucide-react";
 import { type ReactElement, type ReactNode, useEffect, useMemo, useRef, useState } from "react";
 import { ApprovalCard } from "../blocks/ApprovalCard.tsx";
 import { answerFailureText, classifyAnswerError } from "../blocks/answer-error.ts";
+import { otherSurfacesFor } from "../blocks/approval-surfaces.ts";
 import { PermissionActionsProvider } from "../blocks/permission-actions.tsx";
 import { Badge } from "../components/ui/badge.tsx";
 import { Button } from "../components/ui/button.tsx";
@@ -336,9 +337,7 @@ export function ApprovalsPanel({
                         ? (threads[task.specialist.parentThreadId]?.thread.title ?? null)
                         : null
                     }
-                    otherSurfaces={v.approval.surfaces.filter(
-                      (s) => s !== "desktop" && s !== "web",
-                    )}
+                    otherSurfaces={otherSurfacesFor(v.approval.surfaces)}
                     onAnswer={(d, scope, extras) => answer(v.approval.id, d, scope, extras)}
                     now={now}
                   />

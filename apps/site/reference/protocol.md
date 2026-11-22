@@ -61,7 +61,7 @@ The owner chooses a device's scopes when approving it; a client cannot declare i
 | `node` | `node.invoke`, `node.event` and `node.result`, for nodes only | 3 |
 | none | `connect` and `connect.verify` | 2 |
 
-`settings.set` is an `operator.write` method, but the Gateway also requires `operator.admin` for every key outside the cosmetic list; see [Settings reference](/reference/settings). Admin calls that widen access or destroy data, and security settings, also need fresh proof of presence (Touch ID or a passkey) once a verifier is registered. Such a call first fails with `approval_required` and a device-only card; retry with the `approvalId` after approving. See [Approvals and tiers](/security/approvals-and-tiers).
+`settings.set` is an `operator.write` method, but the Gateway also requires `operator.admin` for every key outside the cosmetic list; see [Settings reference](/reference/settings). Admin calls that widen access or destroy data, and security settings, also need an approval card once a presence verifier is registered, answered with a plain tap (Touch ID or a passkey is for payments and for adding a verifier). Such a call first fails with `approval_required` and a device-only card; retry with the `approvalId` after approving. See [Approvals and tiers](/security/approvals-and-tiers).
 
 ## Method families
 

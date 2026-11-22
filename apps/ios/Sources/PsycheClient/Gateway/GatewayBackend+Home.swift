@@ -23,9 +23,12 @@ extension GatewayBackend {
         let current = try await call("approvals.get", .obj(["approvalId": .string(id)]))
         guard let approval = current["approval"] else { throw BackendError.notFound }
         if approval["status"]?.string != "pending" { throw BackendError.refused("That approval is no longer waiting.") }
-        // Device-only and presence-gated approvals need a presence assertion from a registered Secure Enclave
-        // key (companion §5); the phone has none yet, so these stay on the Mac rather than failing late.
-        if approval["deviceOnly"]?.bool == true || approval["requiresAuthentication"]?.bool == true {
+        // Only presence-gated approvals (payments, adding a verifier) need a presence assertion from a registered
+        // Secure Enclave key (companion §5); the phone has none yet, so these stay on the Mac rather than failing
+        // late. Device-only just means "never in chat": the paired phone answers it with a plain tap. A card whose
+        // details the phone can't show in full is never allowed from here; Deny stays (refusing shows nothing new).
+        if approval["requiresAuthentication"]?.bool == true
+            || (decision == .allow && Self.detailsNeedMac(approval["details"])) {
             throw BackendError.refused("This one needs your Mac. Answer it there.")
         }
         guard let token = current["answerToken"]?.string else {
@@ -94,7 +97,13 @@ extension GatewayBackend {
 
     func needsYouApprovals() async throws -> [NeedsYouItem] {
         let result = try await call("approvals.list", .obj(["status": .array(["pending"]), "limit": .number(30)]))
-        return (result["approvals"]?.array ?? []).compactMap(Self.needsYou(approval:))
+        // The Gateway lists this phone's own tokens by approval id. An older one that sends none is trusted to
+        // refuse at answer time instead.
+        let tokens = result["answerTokens"]?.object
+        return (result["approvals"]?.array ?? []).compactMap { a in
+            let holds = tokens.map { t in a["id"]?.string.flatMap { t[$0]?.string } != nil } ?? true
+            return Self.needsYou(approval: a, holdsAnswer: holds)
+        }
     }
 
     func needsYouQuestions() async throws -> [NeedsYouItem] {
@@ -133,31 +142,90 @@ extension GatewayBackend {
 
     // MARK: - Mapping
 
-    static func needsYou(approval a: JSONValue) -> NeedsYouItem? {
+    /// `holdsAnswer`: whether the Gateway gave this phone an answer token for the card (`approvals.list`'s
+    /// `answerTokens`). A card without one (its caller kept it on the Mac, a payment) can't be answered here.
+    static func needsYou(approval a: JSONValue, holdsAnswer: Bool = true) -> NeedsYouItem? {
         guard let id = a["id"]?.string, a["status"]?.string == "pending" || a["status"] == nil else { return nil }
         let kind = a["kind"]?.string ?? "approval"
         let summary = a["summary"]?.string ?? Self.humanized(kind)
         let agent = a.at("requestedBy", "agent")?.string
         var fields: [ApprovalDetail.Field] = []
+        // Read in the app before Allow: a lock-screen banner or the Dynamic Island shows only the title.
+        var reviewInApp = a["deviceOnly"]?.bool == true
         for (key, value) in (a["details"]?.object ?? [:]).sorted(by: { $0.key < $1.key }) {
             if let text = value.string ?? value.double.map({ String($0) }) ?? value.bool.map({ String($0) }) {
+                // A long value or one that spans lines (the server shows a newline as ⏎), such as a plan's text.
+                if Self.scalarNeedsReview(text) { reviewInApp = true }
+                fields.append(.init(key: Self.humanized(key), value: text))
+            } else if let text = Self.nestedText(value) {
+                // The arguments being approved (a command's params, a script's lines) are shown in full,
+                // never summarised: the tap approves exactly this.
+                reviewInApp = true
                 fields.append(.init(key: Self.humanized(key), value: text))
             }
         }
         var evidence: [String] = []
         if let because = a.at("fromLesson", "because")?.string { evidence.append("Because you said: \(because)") }
         if a["taint"]?.bool == true { evidence.append("Based on content from outside Psyche") }
-        let needsMac = a["deviceOnly"]?.bool == true || a["requiresAuthentication"]?.bool == true
+        // The phone has no presence key (companion §5), so it never asks for Face ID on a Gateway card: a payment,
+        // a card it can't show in full, or one not sent to this phone (no answer token for it) is answered on the Mac.
+        let payment = a["requiresAuthentication"]?.bool == true
+        let needsMac = payment || !holdsAnswer || Self.detailsNeedMac(a["details"])
+        // Deny needs the phone's own answer token too, and a payment is never answered from the phone.
+        let canDeny = holdsAnswer && !payment
+        // The lock screen shows only the title and source: it can't say which computer the action is for.
+        let machineName = Self.machineName(a["machine"])
         let detail = ApprovalDetail(
             kindLabel: Self.humanized(kind), title: summary,
             summary: agent.map { "Requested by \($0)." } ?? "Psyche is asking before it goes ahead.",
             fields: fields, evidence: evidence, alsoSentTo: "Also sent to your Mac",
-            presenceNote: needsMac ? "This one needs your Mac." : nil, allowLabel: "Allow once",
-            machineName: Self.machineName(a["machine"]))
+            presenceNote: nil, allowLabel: "Allow once",
+            reviewInApp: reviewInApp || machineName != nil, needsMac: needsMac, canDeny: canDeny,
+            machineName: machineName)
         return NeedsYouItem(
             id: id, kind: .approval, title: summary, source: agent ?? Self.humanized(kind),
             time: WireFormat.time(a["requestedAt"]?.string), approval: detail,
             threadID: a.at("requestedBy", "threadId")?.string, taskID: a.at("requestedBy", "taskId")?.string)
+    }
+
+    /// The longest nested value the card shows in full. Past it the card is answered on the Mac, where the
+    /// whole thing can be read: the phone never approves what it cannot show.
+    static let nestedLimit = 20_000
+
+    /// The longest scalar detail a lock-screen Approve may stand for unread.
+    static let inlineScalarLimit = 200
+
+    /// True when a scalar detail must be read in the app first: longer than `inlineScalarLimit`, or spanning
+    /// lines (the Gateway's sanitizer turns every newline into ⏎).
+    static func scalarNeedsReview(_ text: String) -> Bool {
+        text.count > inlineScalarLimit || text.contains("⏎") || text.contains(where: \.isNewline)
+    }
+
+    /// An array or object detail as pretty, sorted JSON, or nil when it is empty or null.
+    static func nestedText(_ value: JSONValue) -> String? {
+        switch value {
+        case .array, .object:
+            let encoder = JSONEncoder()
+            encoder.outputFormatting = [.prettyPrinted, .sortedKeys, .withoutEscapingSlashes]
+            guard let data = try? encoder.encode(value), let text = String(data: data, encoding: .utf8) else {
+                return nil
+            }
+            return text
+        default: return nil
+        }
+    }
+
+    /// True when a detail can't be shown in full on the phone: a nested value that won't encode, or one
+    /// longer than `nestedLimit`. Such a card stays on the Mac.
+    static func detailsNeedMac(_ details: JSONValue?) -> Bool {
+        for (_, value) in details?.object ?? [:] {
+            switch value {
+            case .array, .object:
+                guard let text = nestedText(value), text.count <= nestedLimit else { return true }
+            default: continue
+            }
+        }
+        return false
     }
 
     /// The computer an approval is for: `machine.name`, trimmed. nil when absent or blank (the action is on this Mac).

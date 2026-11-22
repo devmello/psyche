@@ -60,6 +60,25 @@ final class AnswerFlow {
         }
     }
 
+    /// Answers an approval card: Face ID first only when `detail.needsPresence(for:)` says so (a payment the phone
+    /// answers itself). Allow on a needs-Mac card asks for nothing and sends nothing: it says so instead.
+    func answer(
+        _ decision: ApprovalDecision, on detail: ApprovalDetail, presence: any PresenceCheck, confirmation: String,
+        _ operation: @escaping @Sendable () async throws -> Void
+    ) async {
+        guard !isBusy else { return }
+        if (decision == .allow && detail.needsMac) || (decision == .deny && !detail.canDeny) {
+            stage = .failed(Self.needsMacMessage)
+            return
+        }
+        let needsPresence = detail.needsPresence(for: decision)
+        await run(
+            presence: needsPresence ? presence : nil, reason: needsPresence ? "Allow: \(detail.title)" : nil,
+            confirmation: confirmation, operation)
+    }
+
+    static let needsMacMessage = "This one needs your Mac. Answer it there."
+
     func retry() async { await lastAttempt?() }
     func dismissError() { stage = .review }
 }
