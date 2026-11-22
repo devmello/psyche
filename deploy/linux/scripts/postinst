@@ -1,0 +1,19 @@
+#!/bin/sh
+# deb postinst (docs/design/linux-desktop-2026.md §2.1): installs the polkit policy, the Gateway's
+# systemd user unit and (on AppArmor 4) the Psyche profile from /usr/lib/psyche/resources/system.
+# A failure here must never leave the package half-configured: Psyche then runs without those
+# pieces (no password approvals), and the owner can run `psyche-system-setup` again.
+set -e
+APP=/usr/lib/psyche
+case "${1:-configure}" in
+  configure)
+    if [ -x "$APP/resources/psyche-system-setup" ] && [ -d "$APP/resources/system" ]; then
+      "$APP/resources/psyche-system-setup" install "$APP/resources/system" ||
+        echo "psyche: system setup did not finish; run: sudo $APP/resources/psyche-system-setup install $APP/resources/system" >&2
+    fi
+    if command -v update-desktop-database >/dev/null 2>&1; then
+      update-desktop-database -q /usr/share/applications || true
+    fi
+    ;;
+esac
+exit 0

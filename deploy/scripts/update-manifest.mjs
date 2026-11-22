@@ -5,8 +5,9 @@
 //   node update-manifest.mjs build --release 1.2.3 --base <url>/ [--minimum 1.0.0]
 //        [--image gateway=ghcr.io/…@sha256:…] [--win-arch x64] [--delta-base 1.2.2]
 //        <artifacts…>                                      prints update-manifest.json
-//        (macOS zips/DMGs, and the Windows RELEASES, nupkgs, Setup.exe and zip; --delta-base names
-//        the release a delta nupkg was made from, without it clients use the full package;
+//        (macOS zips/DMGs, the Windows RELEASES, nupkgs, Setup.exe and zip, and the Linux
+//        Psyche-<v>-linux-<arch>.AppImage|deb|rpm; --delta-base names the release a delta nupkg
+//        was made from, without it clients use the full package;
 //        psyche-helper-<v>-linux-<arch>.{tar.zst,deb,rpm} are the helper-only packages, whose
 //        version must be --release, and --helper-complete requires all three per architecture)
 //   node update-manifest.mjs sign <update-manifest.json>   writes <file>.sig with the key in
@@ -42,7 +43,7 @@ const VERSION = /^\d+\.\d+\.\d+(-[0-9A-Za-z.-]+)?$/;
  * comment cannot flip the gate; set it to true together with that classification. The
  * helper-only and server packages below are not the desktop's.
  */
-export const DESKTOP_LINUX_SUPPORT = false;
+export const DESKTOP_LINUX_SUPPORT = true;
 
 export function keyIdOf(raw) {
   return createHash("sha256").update(raw).digest("hex").slice(0, 16);
@@ -57,6 +58,7 @@ function rawPublicKey(keyObject) {
  * What a release file is, from its name. Windows files (deploy/windows/build-local.ps1 and the
  * Squirrel maker): `Psyche-<v>-Setup.exe`, `Psyche-<v>-win32-<arch>.zip`, Squirrel's `RELEASES`
  * and `Psyche-<nuget-version>-full.nupkg` / `-delta.nupkg` (those name no arch: `winArch`).
+ * Linux files (apps/desktop/forge.config.ts postMake): `Psyche-<v>-linux-<arch>.AppImage|deb|rpm`.
  * Anything else named `Psyche-<v>-[darwin-]<arch>.zip|dmg` is macOS.
  */
 /** `{ platform, kind, arch }` for a release file name, or null when it is not one. */
@@ -68,6 +70,9 @@ export function classifyArtifact(name, winArch = "x64") {
     return { platform: "win32", kind: "setup", arch: winArch };
   const winZip = /^Psyche-.+-win32-(arm64|x64)\.zip$/.exec(name);
   if (winZip) return { platform: "win32", kind: "zip", arch: winZip[1] };
+  const linuxDesktop = /^Psyche-.+-linux-(arm64|x64)\.(AppImage|deb|rpm)$/.exec(name);
+  if (linuxDesktop)
+    return { platform: "linux", kind: linuxDesktop[2].toLowerCase(), arch: linuxDesktop[1] };
   // The Linux helper-only and server packages (docs/design/linux-helper-only-2026.md, section 9):
   // `psyche-helper-<v>-linux-<arch>.<tar.zst|deb|rpm>` and `psyche-server-<v>-linux-<arch>.<ext>`.
   // Desktop builds skip platform keys and kinds they do not know, so these are invisible to them.
@@ -131,7 +136,7 @@ export function artifactOf(path, { winArch = "x64", deltaBase } = {}) {
 /**
  * The manifest. `artifacts` keeps only macOS files, exactly as before Windows support: released
  * Mac builds refuse a manifest with anything else there (apps/desktop/src/main/update-manifest.ts).
- * With Windows files, `platforms` lists every platform's files by `<platform>-<arch>`.
+ * With Windows or Linux files, `platforms` lists every platform's files by `<platform>-<arch>`.
  */
 export function buildManifest({
   release,
@@ -181,7 +186,7 @@ export function buildManifest({
     );
   if (!macUpdate && !winUpdate && linux.length === 0)
     throw new Error(
-      "no update among the artifacts: a Psyche-<version>-darwin-<arch>.zip, or RELEASES and a Psyche-<version>-full.nupkg",
+      "no update among the artifacts: a Psyche-<version>-darwin-<arch>.zip, RELEASES and a Psyche-<version>-full.nupkg, or a Psyche-<version>-linux-<arch>.AppImage|deb|rpm",
     );
   if (win.length && !winUpdate)
     throw new Error("Windows files without RELEASES and the full nupkg cannot update anyone");

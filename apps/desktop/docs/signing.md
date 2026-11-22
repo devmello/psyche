@@ -57,13 +57,13 @@ on its own.
 
 ## Environment variables
 
-| Variable | Purpose |
-| --- | --- |
-| `PSYCHE_SIGN_IDENTITY` | What to sign with: the SHA-1 (or name) of the self-signed "Psyche Release" certificate, or `Developer ID Application: Jane Doe (TEAMID1234)`. Turns on `osxSign` with the hardened runtime. A signing failure fails the build. |
-| `PSYCHE_SIGN_KEYCHAIN` | The keychain file that holds the identity (CI uses a temporary one). Without it the search list is used. |
-| `PSYCHE_SIGN_TIMESTAMP` | `1` asks Apple's timestamp server for a secure timestamp on a self-signed signature (verified to work without a Developer ID; needs the network). Default: none. A Developer ID is always timestamped. |
-| `APPLE_API_KEY`, `APPLE_API_KEY_ID`, `APPLE_API_ISSUER` | Optional, Developer ID only. Notarization with an App Store Connect API key (preferred). `APPLE_API_KEY` is the path to the `.p8` file. |
-| `APPLE_ID`, `APPLE_APP_SPECIFIC_PASSWORD`, `APPLE_TEAM_ID` | Optional, Developer ID only. Notarization with an Apple ID and an app-specific password, used only when the API key set is incomplete. |
+| Variable                                                   | Purpose                                                                                                                                                                                                                        |
+| ---------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| `PSYCHE_SIGN_IDENTITY`                                     | What to sign with: the SHA-1 (or name) of the self-signed "Psyche Release" certificate, or `Developer ID Application: Jane Doe (TEAMID1234)`. Turns on `osxSign` with the hardened runtime. A signing failure fails the build. |
+| `PSYCHE_SIGN_KEYCHAIN`                                     | The keychain file that holds the identity (CI uses a temporary one). Without it the search list is used.                                                                                                                       |
+| `PSYCHE_SIGN_TIMESTAMP`                                    | `1` asks Apple's timestamp server for a secure timestamp on a self-signed signature (verified to work without a Developer ID; needs the network). Default: none. A Developer ID is always timestamped.                         |
+| `APPLE_API_KEY`, `APPLE_API_KEY_ID`, `APPLE_API_ISSUER`    | Optional, Developer ID only. Notarization with an App Store Connect API key (preferred). `APPLE_API_KEY` is the path to the `.p8` file.                                                                                        |
+| `APPLE_ID`, `APPLE_APP_SPECIFIC_PASSWORD`, `APPLE_TEAM_ID` | Optional, Developer ID only. Notarization with an Apple ID and an app-specific password, used only when the API key set is incomplete.                                                                                         |
 
 Notarization runs only for a **Developer ID** identity with one complete credential set. A self-signed
 build skips it, and the forge log says so (`[forge] signing: self-signed identity, ... skipping
@@ -150,10 +150,10 @@ different Team IDs"). Electron cannot load its own framework, and psyched's Node
 native addons. So a self-signed build uses two other files, and only these two carry
 `com.apple.security.cs.disable-library-validation`:
 
-| File | Applied to | Keys |
-| --- | --- | --- |
-| `entitlements.self-signed.plist` | the app and Electron's helpers | everything in `entitlements.plist` plus `disable-library-validation` (required: Electron will not start without it) |
-| `entitlements.self-signed.psyched.plist` | the files under `Contents/Resources/psyched/` (what matters is `runtime/node`) | `allow-jit` and `disable-library-validation` only |
+| File                                     | Applied to                                                                     | Keys                                                                                                                |
+| ---------------------------------------- | ------------------------------------------------------------------------------ | ------------------------------------------------------------------------------------------------------------------- |
+| `entitlements.self-signed.plist`         | the app and Electron's helpers                                                 | everything in `entitlements.plist` plus `disable-library-validation` (required: Electron will not start without it) |
+| `entitlements.self-signed.psyched.plist` | the files under `Contents/Resources/psyched/` (what matters is `runtime/node`) | `allow-jit` and `disable-library-validation` only                                                                   |
 
 `PsycheHelper.app` links only system libraries and keeps full library validation.
 
@@ -238,13 +238,13 @@ default** and still install and run; SmartScreen warns about an unsigned install
 protected your PC" › More info › Run anyway). Authenticode signing switches on only when one of
 these sets is complete (`windowsSigning` in `src/packaging/signing-config.ts`):
 
-| Variable | Purpose |
-| --- | --- |
-| `WINDOWS_CERTIFICATE_FILE`, `WINDOWS_CERTIFICATE_PASSWORD` | A code-signing certificate as a `.pfx` file and its password. |
-| `WINDOWS_TIMESTAMP_SERVER` | Optional, with the PFX: the RFC 3161 timestamp server (default `http://timestamp.digicert.com`). |
+| Variable                                                                                                                         | Purpose                                                                                                                                                                                                                   |
+| -------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `WINDOWS_CERTIFICATE_FILE`, `WINDOWS_CERTIFICATE_PASSWORD`                                                                       | A code-signing certificate as a `.pfx` file and its password.                                                                                                                                                             |
+| `WINDOWS_TIMESTAMP_SERVER`                                                                                                       | Optional, with the PFX: the RFC 3161 timestamp server (default `http://timestamp.digicert.com`).                                                                                                                          |
 | `AZURE_TRUSTED_SIGNING_ENDPOINT`, `AZURE_TRUSTED_SIGNING_ACCOUNT`, `AZURE_TRUSTED_SIGNING_PROFILE`, `AZURE_TRUSTED_SIGNING_DLIB` | Azure Trusted Signing: the region endpoint (e.g. `https://eus.codesigning.azure.net`), the code signing account, the certificate profile and the path to `Azure.CodeSigning.Dlib.dll`. Used when the PFX pair is not set. |
-| `AZURE_TENANT_ID`, `AZURE_CLIENT_ID`, `AZURE_CLIENT_SECRET` | The service principal the dlib signs as (read by the dlib, not by Psyche). |
-| `WINDOWS_SIGNTOOL_PATH` | Optional: a Windows SDK `signtool.exe`. Trusted Signing needs one newer than the copy `@electron/windows-sign` vendors. |
+| `AZURE_TENANT_ID`, `AZURE_CLIENT_ID`, `AZURE_CLIENT_SECRET`                                                                      | The service principal the dlib signs as (read by the dlib, not by Psyche).                                                                                                                                                |
+| `WINDOWS_SIGNTOOL_PATH`                                                                                                          | Optional: a Windows SDK `signtool.exe`. Trusted Signing needs one newer than the copy `@electron/windows-sign` vendors.                                                                                                   |
 
 Everything is signed with SHA-256 only. The packager signs every `.exe`, `.dll` and `.node` under the
 app folder before the installer is made, so `Psyche.exe`, `resources\psyched\runtime\node.exe`, the
@@ -269,27 +269,27 @@ The updater runs only on a Squirrel install whose `Psyche.exe` has a valid signa
 
 Squirrel.Windows installs per user, without administrator rights:
 
-| Path | What |
-| --- | --- |
-| `%LOCALAPPDATA%\Psyche\Update.exe` | Squirrel (install, update, uninstall) |
-| `%LOCALAPPDATA%\Psyche\Psyche.exe` | Stub that starts the newest version; the shortcuts point here |
-| `%LOCALAPPDATA%\Psyche\app-<version>\Psyche.exe` | The app (`<version>` is the NuGet form, e.g. `0.3.0-alpha0`) |
-| `…\app-<version>\resources\app.asar` | The desktop and web UI |
-| `…\app-<version>\resources\psyched\` | The Gateway: `psyched.cmd`, `psyche.cmd`, `runtime\node.exe`, `app\`, `service-host.mjs`, `psyche-gateway.task.xml.template` |
-| `…\app-<version>\resources\win-helper\psyche-helper.exe` | Psyche Helper |
-| `…\app-<version>\resources\tray.ico` | The notification-area icon |
-| `%LOCALAPPDATA%\Psyche\packages\` | The installed nupkg, for delta updates |
-| `%APPDATA%\Psyche\` | The desktop's settings, web storage and caches |
-| `%USERPROFILE%\.psyche\` | `$PSYCHE_HOME`, as on macOS |
+| Path                                                     | What                                                                                                                         |
+| -------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------- |
+| `%LOCALAPPDATA%\Psyche\Update.exe`                       | Squirrel (install, update, uninstall)                                                                                        |
+| `%LOCALAPPDATA%\Psyche\Psyche.exe`                       | Stub that starts the newest version; the shortcuts point here                                                                |
+| `%LOCALAPPDATA%\Psyche\app-<version>\Psyche.exe`         | The app (`<version>` is the NuGet form, e.g. `0.3.0-alpha0`)                                                                 |
+| `…\app-<version>\resources\app.asar`                     | The desktop and web UI                                                                                                       |
+| `…\app-<version>\resources\psyched\`                     | The Gateway: `psyched.cmd`, `psyche.cmd`, `runtime\node.exe`, `app\`, `service-host.mjs`, `psyche-gateway.task.xml.template` |
+| `…\app-<version>\resources\win-helper\psyche-helper.exe` | Psyche Helper                                                                                                                |
+| `…\app-<version>\resources\tray.ico`                     | The notification-area icon                                                                                                   |
+| `%LOCALAPPDATA%\Psyche\packages\`                        | The installed nupkg, for delta updates                                                                                       |
+| `%APPDATA%\Psyche\`                                      | The desktop's settings, web storage and caches                                                                               |
+| `%USERPROFILE%\.psyche\`                                 | `$PSYCHE_HOME`, as on macOS                                                                                                  |
 
 The identity values are shared with the helper's build through `apps/win-helper/aumid.json`;
 changing one orphans existing shortcuts, toast settings and notification history:
 
-| | Value |
-| --- | --- |
-| App AppUserModelID | `com.psyche.desktop` (the app must call `app.setAppUserModelId` with it) |
-| Helper AppUserModelID | `com.psyche.helper` |
-| Helper toast activator CLSID | `{B1DFC43D-98FC-44C2-9C1B-F3C21D0871C6}` |
+|                              | Value                                                                    |
+| ---------------------------- | ------------------------------------------------------------------------ |
+| App AppUserModelID           | `com.psyche.desktop` (the app must call `app.setAppUserModelId` with it) |
+| Helper AppUserModelID        | `com.psyche.helper`                                                      |
+| Helper toast activator CLSID | `{B1DFC43D-98FC-44C2-9C1B-F3C21D0871C6}`                                 |
 
 `src/main/squirrel-events.ts` handles Squirrel's events before anything else in `main.ts` starts:
 
