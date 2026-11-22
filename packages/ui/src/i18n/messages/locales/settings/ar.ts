@@ -617,6 +617,7 @@ export const settings: Partial<Catalogue> = {
     "لا شيء بعد. عندما يحتاج {persona} إلى مجلد أو تطبيق يسألك في الدردشة، وما تسمح به يظهر هنا.",
   "settings.access.scope.always": "دائمًا",
   "settings.access.scope.conversation": "هذه الدردشة",
+  "settings.access.scope.space": "في مساحة",
   "settings.access.scope.limited": "مؤقتًا",
   "settings.access.used": "استُخدم {when}",
   "settings.access.fileOnly": "ملف واحد · للقراءة فقط",
@@ -636,8 +637,11 @@ export const settings: Partial<Catalogue> = {
   "settings.persona.showReasoningHint": "يعرض استدلال {persona} أثناء عمله. لا يُحفظ أبدًا.",
   "settings.connectors.page.onHost": "على {host}",
   "settings.connectors.page.row.onHost": "على {host}",
+  "settings.connectors.page.row.macOnly": "على مضيف Mac فقط",
   "settings.computerUse.remote":
     "استخدام الكمبيوتر يعمل على {host}. اطلب من هناك، أو استخدم المتصفح.",
+  "settings.computerUse.remoteLinux":
+    "يعمل استخدام الحاسوب على الشاشة الخاصة لـ {host}. شاهده وتولَّ التحكم من لوحة المشاهدة.",
   "settings.gateways.title": "Gateways على هذا الكمبيوتر",
   "settings.gateways.description":
     "استخدم Psyche من هذا الكمبيوتر عبر Gateway على كمبيوتر آخر، مثل جهاز Mac في منزلك. يعمل Gateway واحد في كل مرة، والتبديل يعيد تشغيل Psyche.",
@@ -871,6 +875,65 @@ export const settings: Partial<Catalogue> = {
     "ما يعلنه كمبيوتر على الشبكة مجرد ادعاء. تعرض شاشة الإقران مفتاحه: قارنه بمفتاح المضيف قبل أن توافق.",
   "settings.gateways.discoverAdd": "إضافة {name}",
   "settings.gateways.discoverSaved": "محفوظ",
+  "settings.remoteSetup.title": "إعداد خادم بعيد",
+  "settings.remoteSetup.open": "إعداد خادم بعيد",
+  "settings.remoteSetup.intro":
+    "ثبّت psyche-server على حاسوب Linux في هذه الشبكة. سيعرض رمز إعداد: اكتبه هنا، وسيصبح هذا الحاسوب مسؤول الخادم.",
+  "settings.remoteSetup.lookFailed": "تعذّر البحث في الشبكة. اكتب عنوان الخادم بدلًا من ذلك.",
+  "settings.remoteSetup.noneWaiting":
+    "لم يُعثر على خادم ينتظر الإعداد في هذه الشبكة. اكتب عنوانه بدلًا من ذلك.",
+  "settings.remoteSetup.waiting": "ينتظر الإعداد",
+  "settings.remoteSetup.pick": "إعداد",
+  "settings.remoteSetup.pickNamed": "إعداد {name}",
+  "settings.remoteSetup.alreadySetUp": "مُعدّ بالفعل. أضِفه برابط اقتران من ذلك الخادم.",
+  "settings.remoteSetup.addressLabel": "عنوان الخادم",
+  "settings.remoteSetup.addressPlaceholder": "192.168.1.20 أو server.local",
+  "settings.remoteSetup.addressHint":
+    "عنوان في هذه الشبكة. يستخدم Psyche المنفذ 7979 ما لم تكتب منفذًا آخر.",
+  "settings.remoteSetup.next": "التالي",
+  "settings.remoteSetup.codeTitle": "رمز الإعداد لـ {name}",
+  "settings.remoteSetup.codeLabel": "رمز الإعداد",
+  "settings.remoteSetup.codePlaceholder": "7K3QM-XR2TD",
+  "settings.remoteSetup.codeHint":
+    "عرضه الخادم عند تثبيت psyche-server. يعمل مرة واحدة خلال 24 ساعة. للحصول على رمز جديد، شغّل psyche setup code على الخادم.",
+  "settings.remoteSetup.checking": "جارٍ التحقق من الرمز…",
+  "settings.remoteSetup.submit": "إعداد الخادم",
+  "settings.remoteSetup.back": "رجوع",
+  "settings.remoteSetup.doneTitle": "تم إعداد {name}",
+  "settings.remoteSetup.doneBody":
+    "أصبح هذا الحاسوب مسؤوله الآن. انتقل إليه لتسمية وكيلك واختيار نموذج هناك.",
+  "settings.remoteSetup.switch": "الانتقال إلى {name}",
+  "settings.remoteSetup.notNow": "ليس الآن",
+  "settings.remoteSetup.keepLan": "إبقاء هذا الخادم متاحًا على شبكتي",
+  "settings.remoteSetup.keepLanHint":
+    "يمكن للحواسيب في هذه الشبكة الوصول إلى الخادم وطلب الاقتران. ويحتاج كل منها إلى موافقتك.",
+  "settings.remoteSetup.keepLanOffHint":
+    "عند انتهاء الإعداد، يتوقف الخادم عن الاستماع في هذه الشبكة وينقطع اتصال هذا الحاسوب. أوقف هذا فقط إن كنت تصل إلى الخادم بطريقة أخرى، مثل Tailscale.",
+  "settings.remoteSetup.firstRunHint": "هل ثبّتّ Psyche على خادم؟ أعدّه من هنا بدلًا من ذلك.",
+  "settings.remoteSetup.connect": "الاتصال بخادم Psyche",
+  "settings.remoteSetup.problem.wrong_code":
+    "{count, plural, zero {الرمز غير صحيح. بعد ذلك سيجعلك الخادم تنتظر.} one {الرمز غير صحيح. بقيت محاولة واحدة، ثم سيجعلك الخادم تنتظر.} two {الرمز غير صحيح. بقيت محاولتان، ثم سيجعلك الخادم تنتظر.} few {الرمز غير صحيح. بقيت # محاولات، ثم سيجعلك الخادم تنتظر.} many {الرمز غير صحيح. بقيت # محاولة، ثم سيجعلك الخادم تنتظر.} other {الرمز غير صحيح. بقيت # محاولة، ثم سيجعلك الخادم تنتظر.}}",
+  "settings.remoteSetup.problem.wrong_code_wait":
+    "الرمز غير صحيح. انتظر دقيقة، وتحقق من الرمز على الخادم، ثم حاول مجددًا.",
+  "settings.remoteSetup.problem.too_many_attempts":
+    "رموز خاطئة كثيرة. حاول مجددًا بعد {seconds, plural, zero {# ثانية} one {ثانية واحدة} two {ثانيتين} few {# ثوانٍ} many {# ثانية} other {# ثانية}}.",
+  "settings.remoteSetup.problem.bad_code": "رمز الإعداد 10 أحرف وأرقام، مثل 7K3QM-XR2TD.",
+  "settings.remoteSetup.problem.code_expired":
+    "انتهت صلاحية الرمز. شغّل psyche setup code على الخادم للحصول على رمز جديد.",
+  "settings.remoteSetup.problem.not_claimable":
+    "هذا الخادم مُعدّ بالفعل. أضِفه برابط اقتران من الخادم بدلًا من ذلك.",
+  "settings.remoteSetup.problem.unreachable":
+    "تعذّر الوصول إلى خادم على هذا العنوان. تأكد من أنه يعمل وفي هذه الشبكة.",
+  "settings.remoteSetup.problem.cert_mismatch":
+    "لم تطابق شهادة الخادم الشهادة التي أعلنها، فتوقف Psyche. تحقق من العنوان وحاول مجددًا.",
+  "settings.remoteSetup.problem.server_unproven":
+    "لم يُثبت الخادم أنه يعرف الرمز، فلم يثق به Psyche. تحقق من العنوان والرمز.",
+  "settings.remoteSetup.problem.maybe_claimed":
+    "قد يكون الخادم قد أُعدّ بالفعل مع هذا الـ Mac. اتصل برابط اقتران أو شغّل `psyche devices link` على الخادم.",
+  "settings.remoteSetup.problem.saved": "هذا الخادم محفوظ بالفعل. انتقل إليه من القائمة أعلاه.",
+  "settings.remoteSetup.problem.not_lan":
+    "اكتب عنوانًا في هذه الشبكة، مثل 192.168.1.20 أو server.local.",
+  "settings.remoteSetup.problem.failed": "تعذّر إعداد الخادم. لم يتغير شيء.",
   "settings.devices.gatewayKey": "مفتاح هذا Gateway {fingerprint}",
   "settings.devices.fromAddress": "من {address}",
   "settings.devices.fromLan": "من {address}، على شبكتك. تحقق من المفتاح كاملًا أدناه.",

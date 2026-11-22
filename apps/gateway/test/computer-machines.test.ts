@@ -1447,14 +1447,27 @@ describe("review r1 of #1509: tiers, parks, apps.open, pins", () => {
     expect(desc?.details?.machine).toEqual({ deviceId: A.deviceId, name: "lab-box" });
   });
 
-  it("compares app ids exactly: another case is another app", async () => {
-    allowTiers(A.id, [{ id: editor, tier: "interact" }]);
-    answer = "none";
-    const r = await call(
-      "computer.act",
-      { ...typeOn("lab-box"), app: editor.toLowerCase() },
-      { unattended: true },
-    );
-    expect(errorOf(r)?.code).toBe("approval_required");
+  it.each([
+    ["off", editor],
+    ["off", editor.toUpperCase()],
+    ["off", `${editor}.desktop`],
+    ["read", editor],
+    ["read", editor.toUpperCase()],
+    ["read", `${editor}.desktop`],
+  ])("must refuse: %s on the lowercase id holds for %s", async (tier, spelling) => {
+    allowTiers(A.id, [{ id: editor.toLowerCase(), tier }]);
+    const r = await call("computer.act", { ...typeOn("lab-box"), app: spelling });
+    expect(errorOf(r)?.code).toBe("policy_denied");
+    expect(errorOf(r)?.details).toMatchObject({ reason: `app_tier:${tier}` });
+    expect(issued).toHaveLength(0);
+    expect(typed()).toHaveLength(0);
+  });
+
+  it("must allow: Interact on the lowercase id covers another case, with no card", async () => {
+    allowTiers(A.id, [{ id: editor.toLowerCase(), tier: "interact" }]);
+    const r = await call("computer.act", { ...typeOn("lab-box"), app: editor });
+    expect(r.isError, JSON.stringify(r.output)).toBeUndefined();
+    expect(issued).toHaveLength(0);
+    expect(typed()).toHaveLength(1);
   });
 });

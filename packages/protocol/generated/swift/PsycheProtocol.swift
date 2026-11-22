@@ -350,6 +350,10 @@
 //   let checklistItemStatus = try? JSONDecoder().decode(ChecklistItemStatus.self, from: jsonData)
 //   let checkpointStatus = try? JSONDecoder().decode(CheckpointStatus.self, from: jsonData)
 //   let citation = try? JSONDecoder().decode(Citation.self, from: jsonData)
+//   let claimHelloParams = try? JSONDecoder().decode(ClaimHelloParams.self, from: jsonData)
+//   let claimHelloResult = try? JSONDecoder().decode(ClaimHelloResult.self, from: jsonData)
+//   let claimProveParams = try? JSONDecoder().decode(ClaimProveParams.self, from: jsonData)
+//   let claimProveResult = try? JSONDecoder().decode(ClaimProveResult.self, from: jsonData)
 //   let comingUpItem = try? JSONDecoder().decode(ComingUpItem.self, from: jsonData)
 //   let comingUpKind = try? JSONDecoder().decode(ComingUpKind.self, from: jsonData)
 //   let compactionBlock = try? JSONDecoder().decode(CompactionBlock.self, from: jsonData)
@@ -594,6 +598,8 @@
 //   let filesWriteResult = try? JSONDecoder().decode(FilesWriteResult.self, from: jsonData)
 //   let frame = try? JSONDecoder().decode(Frame.self, from: jsonData)
 //   let gatedCapability = try? JSONDecoder().decode(GatedCapability.self, from: jsonData)
+//   let gatewayClaimFinishParams = try? JSONDecoder().decode(GatewayClaimFinishParams.self, from: jsonData)
+//   let gatewayClaimFinishResult = try? JSONDecoder().decode(GatewayClaimFinishResult.self, from: jsonData)
 //   let gatewayInfo = try? JSONDecoder().decode(GatewayInfo.self, from: jsonData)
 //   let gatewayInfoParams = try? JSONDecoder().decode(GatewayInfoParams.self, from: jsonData)
 //   let gatewayLANRotateCERTParams = try? JSONDecoder().decode(GatewayLANRotateCERTParams.self, from: jsonData)
@@ -1871,6 +1877,7 @@ public struct AccessListResult: Codable, Sendable {
 
 // MARK: - AccessEntry
 public struct AccessEntry: Codable, Sendable {
+    public let automationsWrite: Bool?
     public let file: Bool?
     public let grantID: String?
     public let id: String
@@ -1884,10 +1891,13 @@ public struct AccessEntry: Codable, Sendable {
     public let refused: Bool?
     public let scope: AccessEntryScope
     public let since: String?
+    public let spaceID: String?
+    public let spaceName: String?
     public let threadID: String?
     public let type: AccessEntryType
 
     public enum CodingKeys: String, CodingKey {
+        case automationsWrite = "automationsWrite"
         case file = "file"
         case grantID = "grantId"
         case id = "id"
@@ -1901,11 +1911,14 @@ public struct AccessEntry: Codable, Sendable {
         case refused = "refused"
         case scope = "scope"
         case since = "since"
+        case spaceID = "spaceId"
+        case spaceName = "spaceName"
         case threadID = "threadId"
         case type = "type"
     }
 
-    public init(file: Bool? = nil, grantID: String? = nil, id: String, kind: ApprovalKind? = nil, label: String, lastUsedAt: String? = nil, mode: FolderModeEnum? = nil, moved: Bool? = nil, movedTo: String? = nil, path: String? = nil, refused: Bool? = nil, scope: AccessEntryScope, since: String? = nil, threadID: String? = nil, type: AccessEntryType) {
+    public init(automationsWrite: Bool? = nil, file: Bool? = nil, grantID: String? = nil, id: String, kind: ApprovalKind? = nil, label: String, lastUsedAt: String? = nil, mode: FolderModeEnum? = nil, moved: Bool? = nil, movedTo: String? = nil, path: String? = nil, refused: Bool? = nil, scope: AccessEntryScope, since: String? = nil, spaceID: String? = nil, spaceName: String? = nil, threadID: String? = nil, type: AccessEntryType) {
+        self.automationsWrite = automationsWrite
         self.file = file
         self.grantID = grantID
         self.id = id
@@ -1919,6 +1932,8 @@ public struct AccessEntry: Codable, Sendable {
         self.refused = refused
         self.scope = scope
         self.since = since
+        self.spaceID = spaceID
+        self.spaceName = spaceName
         self.threadID = threadID
         self.type = type
     }
@@ -1964,6 +1979,7 @@ public enum AccessEntryScope: String, Codable, Sendable {
     case always = "always"
     case conversation = "conversation"
     case limited = "limited"
+    case space = "space"
 }
 
 public enum AccessEntryType: String, Codable, Sendable {
@@ -4217,6 +4233,7 @@ public struct ApprovalAnswer: Codable, Sendable {
     public let folderMode: FolderModeEnum?
     public let folderPath: String?
     public let hostProgram: Bool?
+    public let inSpace: Bool?
     public let presence: PresenceAssertion?
     public let recipientChoice: String?
     public let scope: GrantScope?
@@ -4233,6 +4250,7 @@ public struct ApprovalAnswer: Codable, Sendable {
         case folderMode = "folderMode"
         case folderPath = "folderPath"
         case hostProgram = "hostProgram"
+        case inSpace = "inSpace"
         case presence = "presence"
         case recipientChoice = "recipientChoice"
         case scope = "scope"
@@ -4241,7 +4259,7 @@ public struct ApprovalAnswer: Codable, Sendable {
         case via = "via"
     }
 
-    public init(answerToken: String, approvalID: String, bulk: Bool? = nil, decision: ApprovalAnswerDecision, editedText: String? = nil, folderMode: FolderModeEnum? = nil, folderPath: String? = nil, hostProgram: Bool? = nil, presence: PresenceAssertion? = nil, recipientChoice: String? = nil, scope: GrantScope? = nil, trustSite: TrustSite? = nil, unsandboxed: Unsandboxed? = nil, via: InputVia? = nil) {
+    public init(answerToken: String, approvalID: String, bulk: Bool? = nil, decision: ApprovalAnswerDecision, editedText: String? = nil, folderMode: FolderModeEnum? = nil, folderPath: String? = nil, hostProgram: Bool? = nil, inSpace: Bool? = nil, presence: PresenceAssertion? = nil, recipientChoice: String? = nil, scope: GrantScope? = nil, trustSite: TrustSite? = nil, unsandboxed: Unsandboxed? = nil, via: InputVia? = nil) {
         self.answerToken = answerToken
         self.approvalID = approvalID
         self.bulk = bulk
@@ -4250,6 +4268,7 @@ public struct ApprovalAnswer: Codable, Sendable {
         self.folderMode = folderMode
         self.folderPath = folderPath
         self.hostProgram = hostProgram
+        self.inSpace = inSpace
         self.presence = presence
         self.recipientChoice = recipientChoice
         self.scope = scope
@@ -10788,6 +10807,108 @@ public enum ChecklistBlockType: String, Codable, Sendable {
     case checklist = "checklist"
 }
 
+// MARK: - ClaimHelloParams
+public struct ClaimHelloParams: Codable, Sendable {
+    /// base64url, 32 random bytes from the client
+    public let clientNonce: String
+    public let deviceID: String
+    public let name: String
+    public let platform: DevicePlatform
+    /// The claiming device's raw Ed25519 public key: the key that becomes the first admin
+    public let publicKey: String
+
+    public enum CodingKeys: String, CodingKey {
+        case clientNonce = "clientNonce"
+        case deviceID = "deviceId"
+        case name = "name"
+        case platform = "platform"
+        case publicKey = "publicKey"
+    }
+
+    public init(clientNonce: String, deviceID: String, name: String, platform: DevicePlatform, publicKey: String) {
+        self.clientNonce = clientNonce
+        self.deviceID = deviceID
+        self.name = name
+        self.platform = platform
+        self.publicKey = publicKey
+    }
+}
+
+// MARK: - ClaimHelloResult
+public struct ClaimHelloResult: Codable, Sendable {
+    /// SHA-256 of the SPKI of the LAN certificate the server serves; the client checks it is the
+    /// one this connection presented
+    public let certSpki: String
+    public let expiresAt: String
+    /// The server's identity public key. Not trusted until its proof checks
+    public let gatewayKey: String
+    public let hostName: String
+    /// base64url, the 16-byte salt stored with the setup code
+    public let salt: String
+    /// base64url, 32 random bytes, fresh for this connection
+    public let serverNonce: String
+
+    public enum CodingKeys: String, CodingKey {
+        case certSpki = "certSpki"
+        case expiresAt = "expiresAt"
+        case gatewayKey = "gatewayKey"
+        case hostName = "hostName"
+        case salt = "salt"
+        case serverNonce = "serverNonce"
+    }
+
+    public init(certSpki: String, expiresAt: String, gatewayKey: String, hostName: String, salt: String, serverNonce: String) {
+        self.certSpki = certSpki
+        self.expiresAt = expiresAt
+        self.gatewayKey = gatewayKey
+        self.hostName = hostName
+        self.salt = salt
+        self.serverNonce = serverNonce
+    }
+}
+
+// MARK: - ClaimProveParams
+public struct ClaimProveParams: Codable, Sendable {
+    /// claimProof(scrypt(code, salt), client, claimTranscript(...)): HMAC-SHA256, base64url
+    public let proof: String
+
+    public enum CodingKeys: String, CodingKey {
+        case proof = "proof"
+    }
+
+    public init(proof: String) {
+        self.proof = proof
+    }
+}
+
+// MARK: - ClaimProveResult
+public struct ClaimProveResult: Codable, Sendable {
+    public let deviceID: String
+    /// The server's proof over the same transcript, role server
+    public let proof: String
+    public let scopes: [DeviceScope]
+
+    public enum CodingKeys: String, CodingKey {
+        case deviceID = "deviceId"
+        case proof = "proof"
+        case scopes = "scopes"
+    }
+
+    public init(deviceID: String, proof: String, scopes: [DeviceScope]) {
+        self.deviceID = deviceID
+        self.proof = proof
+        self.scopes = scopes
+    }
+}
+
+public enum DeviceScope: String, Codable, Sendable {
+    case node = "node"
+    case operatorAdmin = "operator.admin"
+    case operatorApprovals = "operator.approvals"
+    case operatorRead = "operator.read"
+    case operatorWrite = "operator.write"
+}
+
 // MARK: - CompactionBlock
 public struct CompactionBlock: Codable, Sendable {
     public let compactionID: String
@@ -11256,14 +11377,6 @@ public struct ConnectPaired: Codable, Sendable {
 
 public enum ConnectPairedPhase: String, Codable, Sendable {
     case paired = "paired"
-}
-
-public enum DeviceScope: String, Codable, Sendable {
-    case node = "node"
-    case operatorAdmin = "operator.admin"
-    case operatorApprovals = "operator.approvals"
-    case operatorRead = "operator.read"
-    case operatorWrite = "operator.write"
 }
 
 // MARK: - ConnectParams
@@ -16499,13 +16612,48 @@ public enum FrameType: String, Codable, Sendable {
     case res = "res"
 }
 
+// MARK: - GatewayClaimFinishParams
+public struct GatewayClaimFinishParams: Codable, Sendable {
+    /// Keep the server reachable on this network (gateway.lan stays on the claim's interface);
+    /// false turns LAN listening off once the answer is sent
+    public let keepLAN: Bool
+
+    public enum CodingKeys: String, CodingKey {
+        case keepLAN = "keepLan"
+    }
+
+    public init(keepLAN: Bool) {
+        self.keepLAN = keepLAN
+    }
+}
+
+// MARK: - GatewayClaimFinishResult
+public struct GatewayClaimFinishResult: Codable, Sendable {
+    public let lan: Bool
+
+    public enum CodingKeys: String, CodingKey {
+        case lan = "lan"
+    }
+
+    public init(lan: Bool) {
+        self.lan = lan
+    }
+}
+
 // MARK: - GatewayInfo
 public struct GatewayInfo: Codable, Sendable {
+    /// Present only on a server set up with a setup code whose onboarding has not finished
+    /// (remote-gateway design §3.6)
+    public let claim: Claim?
     /// Keys in config.json that this version does not know: kept and ignored. Admins only; the
     /// Settings screen shows them so a misspelt setting is noticed
     public let configWarnings: [String]?
     /// The Host machine's name
     public let hostName: String
+    /// The Host's operating system, so a Client names it and its features in the Host's words (a
+    /// Linux Host has no Apple connectors and offers computer use only on its private screen).
+    /// Absent from older Gateways
+    public let hostOS: HostOS?
     public let identity: Identity
     public let lan: LAN?
     /// gateway.publicOrigin, the https address other computers reach it at
@@ -16514,22 +16662,53 @@ public struct GatewayInfo: Codable, Sendable {
     public let trustedProxy: Bool
 
     public enum CodingKeys: String, CodingKey {
+        case claim = "claim"
         case configWarnings = "configWarnings"
         case hostName = "hostName"
+        case hostOS = "hostOs"
         case identity = "identity"
         case lan = "lan"
         case publicOrigin = "publicOrigin"
         case trustedProxy = "trustedProxy"
     }
 
-    public init(configWarnings: [String]? = nil, hostName: String, identity: Identity, lan: LAN? = nil, publicOrigin: String? = nil, trustedProxy: Bool) {
+    public init(claim: Claim? = nil, configWarnings: [String]? = nil, hostName: String, hostOS: HostOS? = nil, identity: Identity, lan: LAN? = nil, publicOrigin: String? = nil, trustedProxy: Bool) {
+        self.claim = claim
         self.configWarnings = configWarnings
         self.hostName = hostName
+        self.hostOS = hostOS
         self.identity = identity
         self.lan = lan
         self.publicOrigin = publicOrigin
         self.trustedProxy = trustedProxy
     }
+}
+
+/// Present only on a server set up with a setup code whose onboarding has not finished
+/// (remote-gateway design §3.6)
+// MARK: - Claim
+public struct Claim: Codable, Sendable {
+    /// The server was claimed from the app and the owner has not yet said whether it stays
+    /// reachable on this network (`gateway.claim.finish`). Until then LAN listening stays on the
+    /// interface the claim came in on
+    public let lanChoicePending: Bool
+
+    public enum CodingKeys: String, CodingKey {
+        case lanChoicePending = "lanChoicePending"
+    }
+
+    public init(lanChoicePending: Bool) {
+        self.lanChoicePending = lanChoicePending
+    }
+}
+
+/// The Host's operating system, so a Client names it and its features in the Host's words (a
+/// Linux Host has no Apple connectors and offers computer use only on its private screen).
+/// Absent from older Gateways
+public enum HostOS: String, Codable, Sendable {
+    case linux = "linux"
+    case macos = "macos"
+    case windows = "windows"
 }
 
 // MARK: - Identity

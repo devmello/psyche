@@ -66,6 +66,16 @@ const SETTINGS_TIMEOUT_MS = 10_000;
 /** A credential placeholder (`{{cred:…}}`, any spacing or case): never sent to a machine. */
 const CREDENTIAL_PLACEHOLDER = /\{\{\s*cred\s*:/i;
 
+/**
+ * An app id as the Linux helper reads it (`app_id::normalize`: trim, lowercase, no `.desktop`),
+ * so an owner's Off or Read on one spelling holds for every spelling the helper treats as the same.
+ */
+const appKey = (id: string): string =>
+  id
+    .trim()
+    .toLowerCase()
+    .replace(/\.desktop$/, "");
+
 /** The live connection of a machine, as `NodeRegistry.machine(deviceId)` returns it. */
 export interface LiveMachine {
   info: NodeInfo;
@@ -242,7 +252,7 @@ export function createMachineRouter(deps: MachineRouterDeps): MachineRouterHandl
       machineId === undefined
         ? {}
         : machineAppTiers(getSetting(deps.db, COMPUTER_USE_MACHINE_APPS)?.value, machineId);
-    const own = Object.entries(tiers).find(([k]) => k === app)?.[1];
+    const own = Object.entries(tiers).find(([k]) => appKey(k) === appKey(app))?.[1];
     return effectiveTier(app, own).tier;
   }
 
@@ -277,12 +287,12 @@ export function createMachineRouter(deps: MachineRouterDeps): MachineRouterHandl
         app,
       });
     }
-    const key = `${m.deviceId}|${app}`;
+    const key = `${m.deviceId}|${appKey(app)}`;
     const approved = (call.params as { approval?: { app?: unknown; tier?: unknown } }).approval;
     if (
       call.approvalId !== undefined &&
       typeof approved?.app === "string" &&
-      approved.app === app &&
+      appKey(approved.app) === appKey(app) &&
       isTier(approved.tier) &&
       TIER_RANK[approved.tier] >= TIER_RANK[needed]
     ) {

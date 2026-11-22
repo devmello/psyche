@@ -207,6 +207,14 @@ export const zh: Partial<Catalogue> = {
     "Google 已通过另一个客户端连接。请先断开 Google，再更改客户端。",
   "errors.reason.secret_required": "不同的客户端需要它自己的客户端密钥。",
   "errors.reason.updating": "Psyche 即将重启以安装更新，请稍后再试。",
+  "errors.reason.passkey_required": "请设置通行密钥，以在此 Psyche 上批准付款。",
+  "errors.reason.awaiting_owner": "某个应用有未保存的更改。Psyche 会等你决定如何处理。",
+  "errors.reason.checkout_needs_desktop":
+    "要在 Psyche 的浏览器中付款，需要将 Psyche 桌面应用连接到此主机。",
+  "errors.reason.no_chromium":
+    "Psyche 的浏览器需要此主机上的 Chromium。请安装它，或设置 PSYCHE_CHROMIUM。",
+  "errors.reason.chromium_sandbox":
+    "此主机上 Chromium 的沙盒无法启动，因此 Psyche 的浏览器已关闭。请允许 Chromium 使用用户命名空间（AppArmor 配置文件）。",
   "errors.unavailable": "Psyche 目前无法执行该操作。",
   "errors.approval_required": "此操作需要先获得你的批准。",
   "errors.approval_expired": "批准已过期，请重新请求。",

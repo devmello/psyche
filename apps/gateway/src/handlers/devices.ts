@@ -18,6 +18,7 @@ import {
   updateDevice,
 } from "@psyche/db";
 import { type Device, type DeviceScope, type PairingRequest, PsycheError } from "@psyche/protocol";
+import { hostOs } from "@psyche/protocol/host-words";
 import { keyFingerprint } from "../auth.ts";
 import { configWarnings } from "../config.ts";
 import type { Call, GatewayContext, HandlerDef, LiveConnection } from "../context.ts";
@@ -234,6 +235,7 @@ export const devicesHandlers: Record<string, HandlerDef> = {
       return {
         identity: { publicKey: identity.publicKey, fingerprint: identity.fingerprint },
         hostName: hostname(),
+        hostOs: hostOs(),
         publicOrigin: config.publicOrigin,
         trustedProxy: config.trustedProxy.enabled,
         ...(call.identity.scopes.includes("operator.admin") && configWarnings().length > 0
@@ -246,7 +248,21 @@ export const devicesHandlers: Record<string, HandlerDef> = {
             ? call.ctx.lan.status().candidates
             : [],
         },
+        ...(call.ctx.claim?.lanChoicePending() === true
+          ? { claim: { lanChoicePending: true } }
+          : {}),
       };
+    },
+  },
+  "gateway.claim.finish": {
+    async run(call: Call, params: { keepLan: boolean }) {
+      const claim = call.ctx.claim;
+      if (claim === null || !claim.lanChoicePending()) {
+        throw new PsycheError("conflict", "There is no setup answer waiting");
+      }
+      const result = await claim.finish(params.keepLan);
+      call.ctx.bus.bumpStateVersion();
+      return result;
     },
   },
   "gateway.lan.rotateCert": {
