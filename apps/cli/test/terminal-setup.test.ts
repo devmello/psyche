@@ -119,6 +119,7 @@ describe("psyche lan on", () => {
     expect(await run(["lan", "on", "--interface", "eth0", ...urlArgs(deps)], deps)).toBe(0);
     expect(lanSetting).toEqual({ enabled: true, interfaces: ["eth0"], port: 9000, ipv6: true });
     expect(out(deps)).toContain("https://lab-box.local:7777");
+    expect(out(deps)).toContain("install avahi-daemon");
   });
 
   it("never sends a wildcard: no interface means the stored one, or the primary (empty)", async () => {

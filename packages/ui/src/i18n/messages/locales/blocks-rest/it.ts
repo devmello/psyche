@@ -29,6 +29,12 @@ export const blocksRest: Partial<Catalogue> = {
     "“Solo questa chat” dura fino alla fine della conversazione. “Sempre” mantiene la cartella finché non la rimuovi in Impostazioni → Permessi → Accesso.",
   "blocks.folder.scope.once": "Solo questa chat",
   "blocks.folder.scope.always": "Sempre, questa cartella e quelle al suo interno",
+  "blocks.folder.scope.space": "Consenti in questo spazio",
+  "blocks.folder.scope.spaceNamed": "Consenti in {space}",
+  "blocks.folder.space.automationsRead":
+    "Anche le automazioni di Psyche in {space} possono leggere questa cartella.",
+  "blocks.folder.space.automationsWrite":
+    "Anche le automazioni di Psyche in {space} possono leggere e scrivere in questa cartella.",
   "blocks.folder.explain.ro": "{persona} vuole leggere i file di una cartella.",
   "blocks.folder.explain.rw": "{persona} vuole leggere e modificare i file di una cartella.",
   "blocks.folder.readOnly": "Consenti solo la lettura, senza modificare nulla",

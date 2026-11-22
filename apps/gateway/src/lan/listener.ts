@@ -247,6 +247,8 @@ export class LanListener {
   /** The listener cannot run now (Cloudflare Access, a container): refresh does nothing. */
   #halted = false;
   #watch: ReturnType<typeof setInterval> | null = null;
+  /** Claim mode (design §3.6): the Bonjour record carries `claim=1`. */
+  #claim = false;
 
   constructor(deps: LanListenerDeps) {
     this.#deps = {
@@ -303,6 +305,29 @@ export class LanListener {
     const run = this.#chain.then(() => this.#teardown());
     this.#chain = run.catch(() => undefined);
     await run;
+  }
+
+  /**
+   * Adds or drops `claim=1` in the Bonjour record (claim mode, design §3.6). Bound interfaces are
+   * announced again with the new record; nothing else about the listeners changes.
+   */
+  setClaimFlag(on: boolean): Promise<void> {
+    const run = this.#chain.then(async () => {
+      if (this.#claim === on) return;
+      this.#claim = on;
+      const label = this.#deps.hostLabel();
+      for (const b of this.#bound) {
+        if (b.ad === null) continue;
+        await timeBox(b.ad.stop(), 2_000);
+        b.ad = null;
+        const bind = this.#deps
+          .candidates()
+          .find((c) => c.address === b.address && c.family === "IPv4");
+        if (bind !== undefined) b.ad = this.#advertise(bind, b.server, label);
+      }
+    });
+    this.#chain = run.catch(() => undefined);
+    return run;
   }
 
   /** Tells the listener when a LAN socket has finished `connect`; until then it can be evicted. */
@@ -561,7 +586,11 @@ export class LanListener {
         name: label,
         host: lanHostName(label),
         port: (server.address() as AddressInfo).port,
-        txt: buildLanTxt({ hostName: label, fingerprint: this.#deps.identityFingerprint }),
+        txt: buildLanTxt({
+          hostName: label,
+          fingerprint: this.#deps.identityFingerprint,
+          ...(this.#claim ? { claim: true } : {}),
+        }),
         interfaceAddress: bind.address,
       });
     } catch (err) {

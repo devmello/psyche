@@ -666,6 +666,7 @@ export const settingsRest: Partial<Catalogue> = {
     "まだありません。{persona}がフォルダやアプリを必要とするとチャットで尋ね、許可したものがここに表示されます。",
   "settings.access.scope.always": "常時",
   "settings.access.scope.conversation": "このチャット",
+  "settings.access.scope.space": "スペース内",
   "settings.access.scope.limited": "一時的",
   "settings.access.used": "{when}に使用",
   "settings.access.fileOnly": "ファイル 1 つ · 読み取り専用",
@@ -687,8 +688,11 @@ export const settingsRest: Partial<Catalogue> = {
     "{persona}の思考を作業中に表示します。保存されることはありません。",
   "settings.connectors.page.onHost": "{host}上",
   "settings.connectors.page.row.onHost": "{host}上",
+  "settings.connectors.page.row.macOnly": "Mac ホストでのみ",
   "settings.computerUse.remote":
     "コンピュータの操作は{host}で行われます。そちらから依頼するか、ブラウザを使ってください。",
+  "settings.computerUse.remoteLinux":
+    "コンピュータ操作は {host} のプライベート画面で行われます。監視ペインで様子を見て、操作を引き継げます。",
   "settings.gateways.title": "このコンピュータのGateway",
   "settings.gateways.description":
     "自宅のMacなど、別のコンピュータのGatewayを使って、このコンピュータからPsycheを利用します。有効なGatewayは一度に1つで、切り替えるとPsycheが再起動します。",
@@ -931,6 +935,70 @@ export const settingsRest: Partial<Catalogue> = {
     "ネットワーク上でコンピュータが通知する内容は自己申告です。ペアリング画面にキーが表示されるので、承認する前にホストのキーと照合してください。",
   "settings.gateways.discoverAdd": "{name}を追加",
   "settings.gateways.discoverSaved": "保存済み",
+  "settings.remoteSetup.title": "リモートサーバーを設定",
+  "settings.remoteSetup.open": "リモートサーバーを設定",
+  "settings.remoteSetup.intro":
+    "このネットワーク上の Linux コンピュータに psyche-server をインストールしてください。表示されるセットアップコードをここに入力すると、このコンピュータがサーバーの管理者になります。",
+  "settings.remoteSetup.lookFailed":
+    "ネットワークを検索できませんでした。サーバーのアドレスを入力してください。",
+  "settings.remoteSetup.noneWaiting":
+    "このネットワークで設定待ちのサーバーは見つかりませんでした。アドレスを入力してください。",
+  "settings.remoteSetup.waiting": "設定待ち",
+  "settings.remoteSetup.pick": "設定",
+  "settings.remoteSetup.pickNamed": "{name} を設定",
+  "settings.remoteSetup.alreadySetUp":
+    "設定済みです。そのサーバーのペアリングリンクで追加してください。",
+  "settings.remoteSetup.addressLabel": "サーバーのアドレス",
+  "settings.remoteSetup.addressPlaceholder": "192.168.1.20 または server.local",
+  "settings.remoteSetup.addressHint":
+    "このネットワーク上のアドレス。別のポートを入力しない限り、Psyche はポート 7979 を使います。",
+  "settings.remoteSetup.next": "次へ",
+  "settings.remoteSetup.codeTitle": "{name} のセットアップコード",
+  "settings.remoteSetup.codeLabel": "セットアップコード",
+  "settings.remoteSetup.codePlaceholder": "7K3QM-XR2TD",
+  "settings.remoteSetup.codeHint":
+    "psyche-server のインストール時にサーバーに表示されたコードです。24 時間以内に 1 回だけ使えます。新しいコードはサーバーで psyche setup code を実行してください。",
+  "settings.remoteSetup.checking": "コードを確認中…",
+  "settings.remoteSetup.submit": "サーバーを設定",
+  "settings.remoteSetup.back": "戻る",
+  "settings.remoteSetup.doneTitle": "{name} を設定しました",
+  "settings.remoteSetup.doneBody":
+    "このコンピュータが管理者になりました。切り替えて、エージェントの名前とモデルを設定してください。",
+  "settings.remoteSetup.switch": "{name} に切り替える",
+  "settings.remoteSetup.notNow": "今はしない",
+  "settings.remoteSetup.keepLan": "このサーバーをネットワークから接続できるようにしておく",
+  "settings.remoteSetup.keepLanHint":
+    "このネットワーク上のコンピュータがサーバーに接続してペアリングを求められます。それぞれにあなたの承認が必要です。",
+  "settings.remoteSetup.keepLanOffHint":
+    "設定が終わると、サーバーはこのネットワークでの待ち受けをやめ、このコンピュータは切断されます。Tailscale など別の方法でサーバーに接続する場合だけオフにしてください。",
+  "settings.remoteSetup.firstRunHint":
+    "サーバーに Psyche をインストールしましたか？ここから設定できます。",
+  "settings.remoteSetup.connect": "Psyche サーバーに接続",
+  "settings.remoteSetup.problem.wrong_code":
+    "{count, plural, other {コードが正しくありません。あと # 回間違えると、しばらく待つ必要があります。}}",
+  "settings.remoteSetup.problem.wrong_code_wait":
+    "コードが正しくありません。1 分待ってから、サーバーのコードを確認してもう一度お試しください。",
+  "settings.remoteSetup.problem.too_many_attempts":
+    "間違ったコードが多すぎます。{seconds, plural, other {# 秒}}後にもう一度お試しください。",
+  "settings.remoteSetup.problem.bad_code":
+    "セットアップコードは 7K3QM-XR2TD のような 10 文字の英数字です。",
+  "settings.remoteSetup.problem.code_expired":
+    "コードの有効期限が切れています。サーバーで psyche setup code を実行して新しいコードを表示してください。",
+  "settings.remoteSetup.problem.not_claimable":
+    "このサーバーは設定済みです。サーバーのペアリングリンクで追加してください。",
+  "settings.remoteSetup.problem.unreachable":
+    "そのアドレスのサーバーに接続できませんでした。電源が入っていて、このネットワークにあるか確認してください。",
+  "settings.remoteSetup.problem.cert_mismatch":
+    "サーバーの証明書が示されたものと一致しなかったため、Psyche は中止しました。アドレスを確認してもう一度お試しください。",
+  "settings.remoteSetup.problem.server_unproven":
+    "サーバーがコードを知っていることを証明しなかったため、Psyche は信頼しませんでした。アドレスとコードを確認してください。",
+  "settings.remoteSetup.problem.maybe_claimed":
+    "サーバーはすでにこの Mac で設定済みかもしれません。ペアリングリンクで接続するか、サーバーで `psyche devices link` を実行してください。",
+  "settings.remoteSetup.problem.saved":
+    "このサーバーは保存済みです。上のリストから切り替えてください。",
+  "settings.remoteSetup.problem.not_lan":
+    "192.168.1.20 や server.local のような、このネットワーク上のアドレスを入力してください。",
+  "settings.remoteSetup.problem.failed": "サーバーを設定できませんでした。何も変更されていません。",
   "settings.devices.gatewayKey": "このGatewayのキー {fingerprint}",
   "settings.devices.fromAddress": "{address}から",
   "settings.devices.fromLan": "ネットワーク上の{address}から。下のキー全体を確認してください。",

@@ -15,28 +15,31 @@ export interface AccessListResult {
 }
 
 export interface AccessEntry {
-    file?:       boolean;
-    grantId?:    string;
-    id:          string;
-    kind?:       ApprovalKind;
-    label:       string;
-    lastUsedAt?: string;
-    mode?:       FolderModeEnum;
-    moved?:      boolean;
-    movedTo?:    string;
-    path?:       string;
-    refused?:    boolean;
-    scope:       AccessEntryScope;
-    since?:      string;
-    threadId?:   string;
-    type:        AccessEntryType;
+    automationsWrite?: boolean;
+    file?:             boolean;
+    grantId?:          string;
+    id:                string;
+    kind?:             ApprovalKind;
+    label:             string;
+    lastUsedAt?:       string;
+    mode?:             FolderModeEnum;
+    moved?:            boolean;
+    movedTo?:          string;
+    path?:             string;
+    refused?:          boolean;
+    scope:             AccessEntryScope;
+    since?:            string;
+    spaceId?:          string;
+    spaceName?:        string;
+    threadId?:         string;
+    type:              AccessEntryType;
 }
 
 export type ApprovalKind = "exec" | "exec_host" | "send_email" | "calendar_write" | "message_send" | "browser_submit" | "credential_fill" | "purchase" | "file_write" | "connector_action" | "computer_action" | "new_origin" | "plan_exit" | "skill_install" | "mcp_tool" | "archive_thread" | "memory_protected_write" | "pairing" | "policy_change" | "task_start" | "apple_script" | "shortcut_run" | "git_write" | "git_push" | "folder_access" | "separate_desktop_share" | "batch" | "permission_request";
 
 export type FolderModeEnum = "ro" | "rw";
 
-export type AccessEntryScope = "always" | "conversation" | "limited";
+export type AccessEntryScope = "always" | "conversation" | "limited" | "space";
 
 export type AccessEntryType = "folder" | "grant";
 
@@ -1031,6 +1034,7 @@ export interface ApprovalAnswer {
     folderMode?:      FolderModeEnum;
     folderPath?:      string;
     hostProgram?:     boolean;
+    inSpace?:         boolean;
     presence?:        PresenceAssertion;
     recipientChoice?: string;
     scope?:           GrantScope;
@@ -3265,6 +3269,60 @@ export interface ChecklistItem {
 
 export type ChecklistBlockType = "checklist";
 
+export interface ClaimHelloParams {
+    /**
+     * base64url, 32 random bytes from the client
+     */
+    clientNonce: string;
+    deviceId:    string;
+    name:        string;
+    platform:    DevicePlatform;
+    /**
+     * The claiming device's raw Ed25519 public key: the key that becomes the first admin
+     */
+    publicKey: string;
+}
+
+export interface ClaimHelloResult {
+    /**
+     * SHA-256 of the SPKI of the LAN certificate the server serves; the client checks it is the
+     * one this connection presented
+     */
+    certSpki:  string;
+    expiresAt: string;
+    /**
+     * The server's identity public key. Not trusted until its proof checks
+     */
+    gatewayKey: string;
+    hostName:   string;
+    /**
+     * base64url, the 16-byte salt stored with the setup code
+     */
+    salt: string;
+    /**
+     * base64url, 32 random bytes, fresh for this connection
+     */
+    serverNonce: string;
+}
+
+export interface ClaimProveParams {
+    /**
+     * claimProof(scrypt(code, salt), client, claimTranscript(...)): HMAC-SHA256, base64url
+     */
+    proof: string;
+}
+
+export interface ClaimProveResult {
+    deviceId: string;
+    /**
+     * The server's proof over the same transcript, role server
+     */
+    proof:  string;
+    scopes: DeviceScope[];
+}
+
+export type DeviceScope = "operator.read" | "operator.write" | "operator.approvals" | "operator.admin" | "node";
+
 export interface CompactionBlock {
     compactionId: string;
     droppedPins?: string[];
@@ -3456,8 +3514,6 @@ export interface ConnectPaired {
 }
 
 export type ConnectPairedPhase = "paired";
-
-export type DeviceScope = "operator.read" | "operator.write" | "operator.approvals" | "operator.admin" | "node";
 
 export interface ConnectParams {
     capabilities?: NodeCapability[];
@@ -5384,7 +5440,24 @@ export type ErrorCode = "not_implemented" | "invalid_frame" | "invalid_params" |
 
 export type FrameType = "req" | "res" | "event";
 
+export interface GatewayClaimFinishParams {
+    /**
+     * Keep the server reachable on this network (gateway.lan stays on the claim's interface);
+     * false turns LAN listening off once the answer is sent
+     */
+    keepLan: boolean;
+}
+
+export interface GatewayClaimFinishResult {
+    lan: boolean;
+}
+
 export interface GatewayInfo {
+    /**
+     * Present only on a server set up with a setup code whose onboarding has not finished
+     * (remote-gateway design §3.6)
+     */
+    claim?: Claim;
     /**
      * Keys in config.json that this version does not know: kept and ignored. Admins only; the
      * Settings screen shows them so a misspelt setting is noticed
@@ -5394,6 +5467,12 @@ export interface GatewayInfo {
      * The Host machine's name
      */
     hostName: string;
+    /**
+     * The Host's operating system, so a Client names it and its features in the Host's words (a
+     * Linux Host has no Apple connectors and offers computer use only on its private screen).
+     * Absent from older Gateways
+     */
+    hostOs?:  HostOS;
     identity: Identity;
     lan?:     LAN;
     /**
@@ -5405,6 +5484,26 @@ export interface GatewayInfo {
      */
     trustedProxy: boolean;
 }
+
+/**
+ * Present only on a server set up with a setup code whose onboarding has not finished
+ * (remote-gateway design §3.6)
+ */
+export interface Claim {
+    /**
+     * The server was claimed from the app and the owner has not yet said whether it stays
+     * reachable on this network (`gateway.claim.finish`). Until then LAN listening stays on the
+     * interface the claim came in on
+     */
+    lanChoicePending: boolean;
+}
+
+/**
+ * The Host's operating system, so a Client names it and its features in the Host's words (a
+ * Linux Host has no Apple connectors and offers computer use only on its private screen).
+ * Absent from older Gateways
+ */
+export type HostOS = "macos" | "windows" | "linux";
 
 export interface Identity {
     /**
