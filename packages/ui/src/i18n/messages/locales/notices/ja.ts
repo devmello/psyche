@@ -78,4 +78,16 @@ export const notices: Partial<Catalogue> = {
     "Psyche は {repo} でのコード実行によるものではないかもしれないものを保留しました",
   "notice.codeRun.incident.body":
     "{paths} を移す途中で経路上のフォルダが変わったため、移したものは別の場所のものかもしれません。{place} に保管しています。「残す」をタップする前に確認してください。「残す」は {repo} の {paths} に戻します。",
+  "notice.codeRun.unmoved.title": "{repo} でのコード実行が作った起動設定がそのまま残っています",
+  "notice.codeRun.unmoved.body":
+    "サンドボックス内のコマンドが {paths} を作成しましたが、Psyche は別の場所へ移せなかったため、保留されていません。アプリや次のコマンドがここからコードを実行する可能性があります。フォルダを開いたり、そこで何かを実行したりする前に削除してください。中を見るために先にアクセス権を変更しないでください。実行できる状態になるおそれがあります。",
+  "notice.codeRun.unchecked.title": "コード実行の後、Psyche は {repo} の一部を確認できませんでした",
+  "notice.codeRun.unchecked.body":
+    "サンドボックスでコマンドを実行した後、Psyche が {paths} を確認している間にそれが変わったため、中の起動設定は何も確認されていません。あなたやツールが変更したのでなければ、フォルダを開いたり、そこで何かを実行したりする前に確認してください。",
+  "notice.machine.added.title": "{name}を Psyche が使えるコンピュータとして追加しました",
+  "notice.machine.added.body":
+    "Psyche はその画面、アプリ、シェル、ファイルを使えますが、そこでの操作はそのつど先に確認します。心当たりがない場合は、設定 → デバイスから削除してください。",
+  "notice.machine.removed.title": "{name}が自分自身を削除しました",
+  "notice.machine.removed.body":
+    "Psyche が使えるコンピュータでした。もう一度追加しない限り、Psyche はこのコンピュータを使いません。",
 };

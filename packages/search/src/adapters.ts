@@ -40,7 +40,9 @@ export function threadDoc(thread: Thread): SearchDoc {
     kind: "thread",
     title: thread.title,
     text: thread.title,
-    provenance: "owner",
+    // An imported title is somebody else's text: indexed untrusted so Ask about this and recall
+    // carry the taint.
+    provenance: thread.imported === undefined ? "owner" : "untrusted",
     threadId: thread.id,
     incognito: isIncognito(thread),
     scopeKey: threadScope(thread),

@@ -124,6 +124,9 @@ export const automationRuns = sqliteTable("automation_runs", {
   // 202610261400_gateway_run-trace-automations: the agent run behind it and what it used.
   runId: text("run_id"),
   usage: text("usage"),
+  // 202611191500_gateway_scheduled-retry: retries made so far, and when the next attempt is due.
+  attempt: integer("attempt").notNull(),
+  retryAt: text("retry_at"),
 });
 
 export const watches = sqliteTable("watches", {

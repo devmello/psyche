@@ -12,11 +12,48 @@
 
 CI fails when the generated files are stale (`pnpm protocol:check`).
 
+## Quiet email threads (follow-ups on mail)
+
+- New methods `mailFollowups.list` and `mailFollowups.act` (`snooze` | `dismiss`); new types `MailFollowupItem`, `MailFollowupKind`, `MailFollowupAction`. `DailySectionId` gains `quiet_threads`; `DailyBrief.sections` allows 10 sections (was 8). Setting keys: the existing `mail.followups.enabled` and `mail.followups.waitDays`.
+
 ## Versioning
 
 `PROTOCOL_VERSION` (in `src/version.ts`) is negotiated at `connect`: clients send a `{min, max}` range and the Gateway answers with the version it will speak or `protocol_version_mismatch`. It changes only for breaking changes.
 
 ## Log
+
+### v1 additive — 2026-11-21 (setting up a remote server with a setup code)
+
+- New methods `gateway.claim.hello` and `gateway.claim.prove` (scope `none`, callable before `connect` and only while a fresh psyche-server is in claim mode), and `gateway.claim.finish` (`operator.admin`, `{ keepLan }` to `{ lan }`). New schemas `ClaimHelloParams`, `ClaimHelloResult`, `ClaimProveParams`, `ClaimProveResult`. `GatewayInfo` gains an optional `claim: { lanChoicePending }`.
+- New pure helpers in `claim.ts` (`normalizeSetupCode`, `formatSetupCode`, `claimTranscript`, `CLAIM_SCOPES`, `CLAIM_TXT_KEY`) and a Node subpath `@psyche/protocol/claim-node` (the scrypt-keyed HMAC proofs and the hashed code file). The Bonjour TXT record may carry `claim=1`. Design: docs/design/remote-gateway-2026.md §3.6.
+
+### v1 additive — 2026-11-20 (Spaces, wave S2: folder scope)
+
+- `ApprovalAnswer` gains an optional `inSpace: true`: "Allow in this Space" on a `folder_access` card that offered it (`details.space`, set by the Gateway), sent with `scope: "once"`. The pick joins that Space's folders.
+- `AccessEntry.scope` gains `space` (a value at the end); new optional `spaceId`, `spaceName` and `automationsWrite` on a `space` row. `access.revoke` takes its id. Design: docs/design/spaces-2026.md §5.3.
+- The `PermissionBroker` contract gains optional `bindRun(RunBindingInput)` and `endRun(threadId, runId)`: the agent loop fixes a run's Space at its start, before the prompt, and drops it at its end (SR3). Bindings are keyed by (thread, run); `preview` never binds. `RunBindingInput.space` lets the loop pass its own run-start Space.
+
+### v1 additive — 2026-11-19 (machine registry, H3)
+
+- New method `node.unpair` (scope `node`, `{}` to `{ device }`): a connection paired as a machine removes itself; any other node gets `forbidden`. `MACHINE_TOKENS_ENABLED` is now true. Design: docs/design/linux-helper-only-2026.md §6.6, §9.
+### v1 additive — 2026-11-19 (what a plugin adds)
+
+- `PluginSummary` gains an optional `adds` (`PluginAdds`: counts of skills, commands, MCP servers and hooks). The Gateway counts them from the plugin's own files, never from its manifest; plugins installed earlier are counted from their installed folder. Settings → Plugins shows them.
+### v1 additive — 2026-11-20 (Spaces, wave S0)
+
+- New methods `spaces.*` (24, no handlers yet): `list`, `get`, `create`, `update`, `archive`, `restore`, `delete`, `folders.add|remove|setMode`, `settings.set`, `links.add|remove`, `threads.move`, `automations.move`, `trackers.add|remove|reorder|refresh`, `open`, `context.preview`, `proposals.list|accept|dismiss`. Folders, settings and delete are `operator.admin`. New schemas in `schemas/spaces.ts` (`Space`, `SpaceDetail`, `SpaceSummary`, `SpaceFolder`, `SpaceLink`, `SpaceTracker`, `SpaceProposal`, ...).
+- New optional `spaceId` on `Thread`, `Automation` and `Widget`; optional `spaceId` on `threads.create`, `threads.newChat`, `threads.list`, `automations.create` and `automations.update`.
+- `WidgetBindingSource` gains `entity`, `work_due`, `calendar`, `reminders`, `mail`, `files`. `WIDGET_BINDINGS` has an empty entry for each: no field is bindable until S4. The generated Swift enum gains the six cases; no Swift file switches on it.
+- New events `space.updated`, `space.tracker.refreshed`, `space.proposal.created`.
+- `resolveAppRoute` opens `/spaces` and `/spaces/<id>` (`APP_SPACES_ROUTE`); they join `APP_TOP_LEVEL_ROUTES` with the screen in S5. Design: docs/design/spaces-2026.md.
+
+### v1 additive — 2026-11-19 (whose call a description is for)
+
+- `ToolRegistration.describeCall` takes an optional second argument `call?: ToolCallScope` (`{runId, taskId?}`, new type). The agent loop's approval gate passes the run and Task making the call. A description that depends on it (the separate desktop's file-local words, which relax only for the Task that owns the desktop) must be at least as strict without it. Existing implementations ignore it.
+
+### v1 additive — 2026-11-05 (Linux virtual screen watch pane, L6)
+
+- New methods for the desktop's watch pane, all desktop shell only and wrapping the helper's `vscreen.*` capabilities: `computerWatch.status` (`operator.read`, `{ status: VscreenStatus, parked }`), `computerWatch.frame` (`operator.read`, `VscreenFrameParams` to `VscreenFrame`), `computerWatch.input` (`operator.write`), `computerWatch.takeOver` (`operator.write`, `{ on }`), `computerWatch.stop` (`operator.write`, `VscreenStopParams`), `computerWatch.resolveParked` (`operator.write`, `look` | `discard` | `keep_open`). New event `computerWatch.parked` (`apps`). New types `ComputerWatchState`, `ComputerWatchParkAction`. `VscreenStopParams` gains an optional `force` (close an app even if it asks "Save changes?"). `ViewPane` gains `computer-watch` (the Gateway opens the watch pane with `view.command` when a virtual screen starts). `AttentionPane` gains `vscreen` (the watch pane's visibility, so frames are only pulled while it is shown). Design: docs/design/linux-desktop-2026.md §7.5.
 
 ### v1 additive — 2026-11-18 (share the folder a file tool could not reach)
 

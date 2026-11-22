@@ -903,24 +903,31 @@ async function confirmGatewayChange(c: GatewayConfirm): Promise<boolean | "plain
               detail: `Name: ${c.name}${c.fingerprint ? `\nKey it announced: ${c.fingerprint.slice(0, 31)}…` : ""}\n\nThis computer will ask that Gateway to pair. Nothing is shared until its owner approves this computer there, and Psyche pins the Gateway's identity at the first connection.`,
               buttons: ["Add Gateway", "Cancel"],
             }
-          : c.kind === "forget"
+          : c.kind === "claim"
             ? {
-                message: `Forget ${c.name}?`,
-                detail: `${c.origin}\n\nThis removes this computer's key for it and everything Psyche stored here for it. ${c.name} still lists this computer until someone removes it there.`,
-                buttons: ["Forget", "Cancel"],
+                message: `Set up the Psyche server at ${c.origin}?`,
+                detail:
+                  "Psyche checks that the server knows the setup code you typed before it trusts it, and the server checks that this computer knows it before making it the server's admin. Only continue if you just installed that server yourself.",
+                buttons: ["Set up", "Cancel"],
               }
-            : c.kind === "repair"
+            : c.kind === "forget"
               ? {
-                  message: `Pair with ${c.name} again?`,
-                  detail: `${c.origin}\n\nThis forgets the identity Psyche pinned for it and this computer's key, so the next connection pins whatever answers at that address and asks to pair as a new computer. Only do this if you know why its identity changed.`,
-                  buttons: ["Pair again", "Cancel"],
+                  message: `Forget ${c.name}?`,
+                  detail: `${c.origin}\n\nThis removes this computer's key for it and everything Psyche stored here for it. ${c.name} still lists this computer until someone removes it there.`,
+                  buttons: ["Forget", "Cancel"],
                 }
-              : {
-                  message: `Stop Psyche on ${hostWords().thisDevice}?`,
-                  detail:
-                    "Its automations and scheduled tasks stop until you switch back. Leave it running to keep them going.",
-                  buttons: [`Stop Psyche on ${hostWords().thisDevice}`, "Keep it running"],
-                };
+              : c.kind === "repair"
+                ? {
+                    message: `Pair with ${c.name} again?`,
+                    detail: `${c.origin}\n\nThis forgets the identity Psyche pinned for it and this computer's key, so the next connection pins whatever answers at that address and asks to pair as a new computer. Only do this if you know why its identity changed.`,
+                    buttons: ["Pair again", "Cancel"],
+                  }
+                : {
+                    message: `Stop Psyche on ${hostWords().thisDevice}?`,
+                    detail:
+                      "Its automations and scheduled tasks stop until you switch back. Leave it running to keep them going.",
+                    buttons: [`Stop Psyche on ${hostWords().thisDevice}`, "Keep it running"],
+                  };
   const win = windows?.main();
   const dialogOptions = {
     type: "question" as const,
@@ -1025,13 +1032,35 @@ function registerIpc(): void {
     });
     const found = await discovering;
     const saved = new Set(gateways.list().map((g) => g.origin));
-    return found.map((d) => ({
-      id: d.id,
-      name: d.name,
-      fingerprint: d.fingerprint,
-      conflict: d.conflict,
-      saved: saved.has(d.origin),
-    }));
+    // Servers waiting for their setup code first (design §3.6).
+    return [...found]
+      .sort((a, b) => Number(b.claimable) - Number(a.claimable))
+      .map((d) => ({
+        id: d.id,
+        name: d.name,
+        fingerprint: d.fingerprint,
+        conflict: d.conflict,
+        saved: saved.has(d.origin),
+        claimable: d.claimable,
+      }));
+  });
+  // "Set up a remote server": a listing this process found (by id) or an address the owner typed,
+  // and the setup code. Main normalizes the address, confirms it natively and runs the handshake.
+  handle(IPC.gatewaysClaim, (_e, arg) => {
+    const r = rec(IPC.gatewaysClaim, arg);
+    const code = str(IPC.gatewaysClaim, r.code, "code", 64);
+    let address: string;
+    if (typeof r.id === "string") {
+      const found = lanDiscovery.get(str(IPC.gatewaysClaim, r.id, "id", 32));
+      if (found === undefined) throw new PsycheError("not_found", "Look on the network again");
+      if (found.conflict) {
+        throw new PsycheError("forbidden", "That name was announced with different keys");
+      }
+      address = found.origin;
+    } else {
+      address = str(IPC.gatewaysClaim, r.address, "address", 300);
+    }
+    return gateways.claim(address, code);
   });
   handle(IPC.gatewaysAddDiscovered, (_e, arg) => {
     const found = lanDiscovery.get(
@@ -2400,6 +2429,8 @@ void app.whenReady().then(async () => {
   runTaskbarTask(taskFromArgv(process.argv));
   pairLinks.offerArgv(process.argv);
   pairLinks.showPending();
+  // TODO(beta feed): once the pipeline publishes a beta manifest, read `updates.channel` after the
+  // Gateway is paired (not here: the connection is not up in this tick) and pass it as `channel`.
   if (perfProbe === undefined) void startUpdater({ stateFile: join(home, "run", "updater.json") });
 
   app.on("activate", () => windows?.showMain());

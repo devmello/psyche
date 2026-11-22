@@ -147,7 +147,7 @@ export interface FileToolsOptions {
    * The owner's granted folders (`permissions.policy.folders`), read on every call. When set,
    * the executors refuse paths outside them (and writes outside `rw` ones) behind the broker.
    */
-  folders?: (scope?: { threadId: string }) => readonly GrantedFolder[] | undefined;
+  folders?: (scope?: { threadId: string; runId?: string }) => readonly GrantedFolder[] | undefined;
   /**
    * Locations refused for every read and write whatever is granted: Psyche's own home and the
    * owner's credential stores (security §5.3, #285).
@@ -158,6 +158,11 @@ export interface FileToolsOptions {
    * working directories): a granted one is reachable, with its dotfiles still protected.
    */
   ownDirs?: () => readonly string[];
+  /**
+   * The owner's own places inside a protected root (Linux: drives and network mounts under
+   * `/run`): readable and writable there, with every write rule still applied.
+   */
+  carveOuts?: () => readonly string[];
   /**
    * Locations refused for every write whatever is granted, an older home-root share included:
    * where code runs at login, in a shell or at an app launch (`~/Applications`, LaunchAgents,
@@ -309,10 +314,10 @@ export function fileTools(options: FileToolsOptions = {}): AgentToolRegistration
   const readOut: ProvenanceOut = trustedRoots.length > 0 ? "trusted" : "untrusted";
   /** Inside a protected root: never read, searched or listed, even under a granted folder. */
   const isProtected = (path: string) =>
-    isProtectedPath(path, options.protectedRoots?.(), options.ownDirs?.());
+    isProtectedPath(path, options.protectedRoots?.(), options.ownDirs?.(), options.carveOuts?.());
   const granted = (path: string, access: "read" | "write", ctx: ToolRunContext) => {
     // The conversation's own roots (`request_permission`, "Allow once") count too.
-    const folders = options.folders?.({ threadId: ctx.threadId });
+    const folders = options.folders?.({ threadId: ctx.threadId, runId: ctx.runId });
     let wp: WriteProtection | undefined;
     if (access === "write") {
       const raw = options.writeProtectedRoots?.() ?? [];
@@ -323,7 +328,13 @@ export function fileTools(options: FileToolsOptions = {}): AgentToolRegistration
           ? w
           : { roots: w.roots };
     }
-    assertNotProtected(path, options.protectedRoots?.(), options.ownDirs?.(), wp);
+    assertNotProtected(
+      path,
+      options.protectedRoots?.(),
+      options.ownDirs?.(),
+      wp,
+      options.carveOuts?.(),
+    );
     assertGranted(path, folders, access);
   };
   /**

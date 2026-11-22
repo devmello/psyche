@@ -11,12 +11,20 @@ pub mod capability;
 pub mod channel;
 pub mod cli;
 pub mod daemon;
+pub mod direct;
 pub mod handshake;
 pub mod hardening;
+#[cfg(target_os = "linux")]
+pub mod headless;
 pub mod identity;
 pub mod idle;
 pub mod paths;
+pub mod receipt;
+pub mod remote;
 pub mod session;
+pub mod update;
+#[cfg(target_os = "linux")]
+pub mod vscreen;
 
 /// Structured, content-free logging to stderr: phases, names and sizes only, never params,
 /// results or secrets. The service manager captures it.

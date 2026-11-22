@@ -7,6 +7,7 @@ import {
   type Server as NetServer,
   type Socket,
 } from "node:net";
+import { hostname } from "node:os";
 import { join } from "node:path";
 import type { Duplex } from "node:stream";
 import {
@@ -29,6 +30,7 @@ import { type WebSocket, WebSocketServer } from "ws";
 import pkg from "../package.json" with { type: "json" };
 import type { PeerInfo } from "./auth.ts";
 import { CloudflareAccessVerifier } from "./cf-access.ts";
+import { type ClaimLimits, ClaimMode, linuxDefaultRouteInterface } from "./claim/mode.ts";
 import { type GatewayConfig, resolveConfig } from "./config.ts";
 import { Connection } from "./connection.ts";
 import {
@@ -46,6 +48,7 @@ import {
   newHandshakeSecret,
   removeHandshakeSecret,
   writeHandshakeSecret,
+  writeListenFile,
 } from "./home.ts";
 import {
   handleHttp,
@@ -63,6 +66,7 @@ import { type LanContext, type LanLimits, LanListener, peerLimitKey } from "./la
 import { LAN_SETTING, readLanSettings } from "./lan/settings.ts";
 import { createLogger, type Logger } from "./log.ts";
 import { allowedMapOrigins } from "./map-proxy.ts";
+import type { MachineChange } from "./nodes/machines.ts";
 import { NodeRegistry } from "./nodes/registry.ts";
 import { openGatewayDb, releaseGatewayLock } from "./pre-update.ts";
 import { presenceStateFor } from "./presence-gate.ts";
@@ -117,6 +121,13 @@ export interface GatewayOptions {
   peerCheckRequired?: () => boolean;
   /** The platform the Gateway reports for the host-helper family rule (tests). Default: this one. */
   hostPlatform?: NodeJS.Platform;
+  /** The owner imported conversations (audit trail: counts only). */
+  onThreadsImported?: (e: {
+    source: string;
+    imported: number;
+    duplicates: number;
+    deviceId: string;
+  }) => void;
   /** The owner changed a setting (audit trail: key and value hashes, never the value). */
   onSettingChanged?: (change: {
     key: string;
@@ -160,8 +171,26 @@ export interface GatewayOptions {
   onDeviceRevoked?: (deviceId: string) => Promise<unknown>;
   /** A device removed itself with devices.revokeSelf (composition root: audit it). */
   onDeviceSelfRevoked?: (revoked: { deviceId: string; name: string }) => void;
+  /**
+   * Claim mode (design §3.6): a psyche-server install with no admin device makes a setup code and
+   * waits on its LAN for the desktop app to claim it. Off unless the composition root turns it on.
+   */
+  claim?: {
+    enabled: boolean;
+    limits?: Partial<ClaimLimits>;
+    /** Tests: the LAN port (default 7979). */
+    port?: number;
+    /** Where the code is shown (default stderr, the journal under systemd). */
+    announce?: (line: string) => void;
+    /** Tests: the default-route interface (default: `/proc/net/route` on Linux). */
+    defaultInterface?: () => string | null;
+  };
+  /** A computer became the first admin with the setup code (composition root: audit it). */
+  onClaimed?: (device: { id: string; name: string }) => void;
   /** A computer paired itself with a setup token (composition root: audit it). */
   onSetupTokenUsed?: (used: { tokenId: string; deviceId: string; scopes: DeviceScope[] }) => void;
+  /** A machine was added or removed (composition root: audit it, tell every device). */
+  onMachineChange?: (change: MachineChange) => void;
   /**
    * The broker publishes its own `receipt.created` events (the composition root forwards them),
    * so `nodes.invoke` must not publish the same receipt again (issue #50).
@@ -337,7 +366,9 @@ export async function startGateway(options: GatewayOptions = {}): Promise<Gatewa
     onDeviceRevoked: options.onDeviceRevoked ?? null,
     onDeviceSelfRevoked: options.onDeviceSelfRevoked ?? null,
     onSetupTokenUsed: options.onSetupTokenUsed ?? null,
+    onMachineChange: options.onMachineChange ?? null,
     onSettingChanged: options.onSettingChanged ?? null,
+    onThreadsImported: options.onThreadsImported ?? null,
     brokerPublishesReceipts: options.brokerPublishesReceipts ?? false,
     presenceState,
     presenceCanVerify: options.presenceCanVerify ?? options.settingsPresence ?? (() => false),
@@ -389,6 +420,7 @@ export async function startGateway(options: GatewayOptions = {}): Promise<Gatewa
       rotateCert: () => lan.rotateCert(),
       refresh: () => lan.refresh(),
     },
+    claim: null,
     connections: () => connections,
   } as Omit<GatewayContext, "sessions" | "nodes" | "runTrace"> as GatewayContext;
   Object.assign(ctx, {
@@ -755,7 +787,16 @@ export async function startGateway(options: GatewayOptions = {}): Promise<Gatewa
         resolveListen();
       });
     });
-  // The secret first: a helper that reconnects the moment a socket opens (a Gateway restart)
+  // The address this Gateway is really bound to (not the configured name: `localhost` binds
+  // `127.0.0.1`, or `::1` on macOS), for the CLI's "is this my Gateway" check and its default URL
+  // (a Gateway on `gateway.host: localhost` is reached at that address). Written BEFORE the secret:
+  // the CLI reads the secret first and `listen.json` second, so any secret it holds was written
+  // after the `listen.json` it compares against, and a new secret never pairs with a stale origin.
+  const bound = http.address() as AddressInfo;
+  const listenPath = writeListenFile(config.home, [
+    `http://${bound.address.includes(":") ? `[${bound.address}]` : bound.address}:${bound.port}`,
+  ]);
+  // The secret next: a helper that reconnects the moment a socket opens (a Gateway restart)
   // must find this launch's secret, never the previous one or none.
   const { path: secretPath } = writeHandshakeSecret(config.home, handshakeSecret);
   const nodeServer = serveNodes("unix");
@@ -797,6 +838,34 @@ export async function startGateway(options: GatewayOptions = {}): Promise<Gatewa
     await lan.apply(readLanSettings(getSetting(db, LAN_SETTING)?.value));
   } catch (err) {
     log.log("warn", "lan listener failed to start", { code: PsycheError.from(err).code });
+  }
+  // A fresh psyche-server waits for the desktop app's setup code (claim mode, design §3.6).
+  let claim: ClaimMode | null = null;
+  if (options.claim?.enabled === true && config.bind !== "container") {
+    claim = new ClaimMode({
+      home: config.home,
+      db,
+      log,
+      now,
+      identityKey: identity.publicKey,
+      hostName: () => hostname(),
+      lan: {
+        apply: (settings, owner) => lan.apply(settings, owner),
+        certSpki: () => lan.certSpki(),
+        setClaimFlag: (on) => lan.setClaimFlag(on),
+      },
+      defaultInterface: options.claim.defaultInterface ?? (() => linuxDefaultRouteInterface()),
+      ...(options.claim.announce ? { announce: options.claim.announce } : {}),
+      ...(options.claim.limits ? { limits: options.claim.limits } : {}),
+      ...(options.claim.port === undefined ? {} : { port: options.claim.port }),
+      ...(options.onClaimed ? { onClaimed: options.onClaimed } : {}),
+    });
+    Object.assign(ctx, { claim });
+    try {
+      await claim.start();
+    } catch (err) {
+      log.log("warn", "claim mode failed to start", { code: PsycheError.from(err).code });
+    }
   }
 
   // Follow-ups queued before the restart run now; then the hourly retention sweep.
@@ -840,6 +909,7 @@ export async function startGateway(options: GatewayOptions = {}): Promise<Gatewa
       await ctx.sessions.stop();
       for (const conn of connections) conn.close(reason);
       connections.clear();
+      claim?.stop();
       await lan.stop();
       for (const client of wss.clients) client.terminate();
       await new Promise<void>((r) => wss.close(() => r()));
@@ -854,6 +924,7 @@ export async function startGateway(options: GatewayOptions = {}): Promise<Gatewa
       if (guestPipe) rmSync(join(config.home, "run", "guest-socket"), { force: true });
       rmSync(join(config.home, "run", "node-socket"), { force: true });
       removeHandshakeSecret(secretPath);
+      rmSync(listenPath, { force: true });
       seal.close();
       if (!options.db) {
         db.close();

@@ -1,11 +1,15 @@
+import { existsSync, mkdirSync } from "node:fs";
+import { join } from "node:path";
 import {
   listDevices,
   listPairingRequests,
   openDb,
   type PsycheDb,
   probeMigrations,
+  takeExclusiveFileLock,
 } from "@psyche/db";
 import { DeviceScope, PsycheError, type DeviceScope as Scope } from "@psyche/protocol";
+import { serverBuild } from "./build-info.ts";
 import { resolveConfig } from "./config.ts";
 import { loadOrCreateGatewayIdentity, rotateGatewayIdentity } from "./identity.ts";
 import {
@@ -14,6 +18,7 @@ import {
   releaseGatewayLock,
   restoreWithMarker,
 } from "./pre-update.ts";
+import { createSnapshot, GATEWAY_LOCK_FILE } from "./pre-update.ts";
 import { DEFAULT_APPROVE_SCOPES } from "./security/recoveries.ts";
 
 /**
@@ -64,6 +69,10 @@ const USAGE = `usage:
   psyched identity rotate                   make a new identity key: every computer that pinned the
                                             old one stops with "identity changed" and must pair
                                             again; restart psyched afterwards
+  psyched snapshot <to-version>             the pre-update safety copy of the databases, their key
+                                            files and config.json (backups/pre-update), made by
+                                            this build before an update to <to-version> (what
+                                            \`psyche update\` runs); psyched must be stopped
 scopes: comma-separated; default for approve is every operator scope (the owner's first device)
 
 The commands that change security state ask the running psyched and wait for its answer. Making
@@ -74,7 +83,15 @@ exit codes: 0 applied, 1 refused or failed, 2 usage, 3 waiting (applies later), 
 answer (nothing changed)`;
 
 /** Exit codes of the commands that go through the running Gateway. */
-export const CLI_EXIT = { applied: 0, refused: 1, usage: 2, waiting: 3, noAnswer: 4 } as const;
+export const CLI_EXIT = {
+  applied: 0,
+  refused: 1,
+  usage: 2,
+  waiting: 3,
+  noAnswer: 4,
+  /** `psyched snapshot`: there is no data folder yet, so there was nothing to copy. */
+  noData: 5,
+} as const;
 
 export interface CliOptions {
   /** How long to wait for the running Gateway to take a request (default 15 s). */
@@ -140,6 +157,57 @@ async function submit(
     "error: psyched did not answer, so nothing changed. Start psyched (or the Psyche app) and run this again.",
   );
   return CLI_EXIT.noAnswer;
+}
+
+const RELEASE_VERSION = /^\d+\.\d+\.\d+(-[0-9A-Za-z.-]+)?$/;
+
+/**
+ * `psyched snapshot <to>`: the same pre-update snapshot the Gateway makes in front of pending
+ * migrations (`pre-update.ts`), made on demand by this build before `psyche update` replaces it.
+ * It holds the Gateway lock for the copy, so it refuses while psyched runs (copying a live
+ * encrypted store or its log as bytes is not safe), and it never opens the database for writing.
+ * Prints the snapshot folder on success; exits `CLI_EXIT.noData` (5), printing no folder, when
+ * there is no data folder yet.
+ */
+async function snapshotCommand(
+  to: string | undefined,
+  out: (line: string) => void,
+): Promise<number> {
+  if (to === undefined || !RELEASE_VERSION.test(to)) {
+    out(USAGE);
+    return CLI_EXIT.usage;
+  }
+  const config = resolveConfig();
+  if (!existsSync(config.home)) {
+    out(`no data folder at ${config.home}: nothing to copy`);
+    return CLI_EXIT.noData;
+  }
+  mkdirSync(join(config.home, "run"), { recursive: true, mode: 0o700 });
+  const lock = takeExclusiveFileLock(join(config.home, GATEWAY_LOCK_FILE));
+  if (lock === null) {
+    out("error: psyched is running on this data folder; stop it first (psyche stop)");
+    return CLI_EXIT.refused;
+  }
+  try {
+    const build = serverBuild();
+    const probe = probeMigrations(config.dbPath);
+    const dir = await createSnapshot({
+      home: config.home,
+      dbPath: config.dbPath,
+      from: build.version,
+      to,
+      build: build.build,
+      pending: probe.state === "pending" ? probe.ids : [],
+      ...(probe.state === "unknown" ? { probe: probe.reason } : {}),
+    });
+    out(dir);
+    return CLI_EXIT.applied;
+  } catch (err) {
+    out(`error: ${PsycheError.from(err).message}`);
+    return CLI_EXIT.refused;
+  } finally {
+    lock.release();
+  }
 }
 
 function securityStatus(db: PsycheDb, out: (line: string) => void): number {
@@ -219,6 +287,7 @@ export async function runCli(
       releaseGatewayLock(home);
     }
   }
+  if (group === "snapshot") return await snapshotCommand(verb, out);
   const known =
     (group === "devices" && (verb === "list" || verb === "approve" || verb === "grant")) ||
     (group === "presence" && verb === "reset") ||

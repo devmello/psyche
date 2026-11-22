@@ -27,6 +27,7 @@ import { t } from "../i18n/core.ts";
 import { describeError } from "../i18n/errors.ts";
 import { LayoutMotion, Presence } from "../motion/index.ts";
 import { usePersona, useSlots } from "../slots.tsx";
+import { SpaceComposerChip } from "../spaces/SpaceSwitcher.tsx";
 import { SpecialistSpawns } from "../specialists/SpawnLine.tsx";
 import { VoiceComposer } from "../voice/composer-voice.tsx";
 import { WidgetDrafts } from "../widgets/WidgetBlock.tsx";
@@ -196,6 +197,8 @@ export function ChatThread({
   // A remote window keeps the composer on while offline: what is typed waits in the outbox.
   const outbox = useOutbox(threadId);
   const composerOff = offline && !outbox.enabled;
+  // An imported conversation is read-only: no composer, voice, reply, fork or edit.
+  const importedThread = view.thread?.thread.imported !== undefined;
   // The + button shows when the thread's model can take files (unknown shows it; documents work
   // on any chat model, images need vision). Capabilities come from `models.list`: no new probe.
   const models = useGatewayQuery("models.list", {});
@@ -837,6 +840,7 @@ export function ChatThread({
                           ) : null}
                           <MessageView
                             message={m}
+                            {...(importedThread ? { imported: true } : {})}
                             streamingText={d.streamingText}
                             quoted={
                               m.replyToMessageId ? (byId.get(m.replyToMessageId) ?? null) : null
@@ -846,15 +850,22 @@ export function ChatThread({
                             showHeader={
                               prev?.role !== "agent" || fromTask !== null || prev.runId !== m.runId
                             }
-                            onReply={setQuoting}
-                            onFork={(msg) => void fork(threadId, msg.id)}
-                            onEdit={(msg, text) => void editAndResend(msg, text)}
+                            {...(importedThread
+                              ? {}
+                              : {
+                                  onReply: setQuoting,
+                                  onFork: (msg: Message) => void fork(threadId, msg.id),
+                                  onEdit: (msg: Message, text: string) =>
+                                    void editAndResend(msg, text),
+                                })}
                             onJumpTo={(id) =>
                               document
                                 .getElementById(`message-${id}`)
                                 ?.scrollIntoView({ block: "center" })
                             }
-                            onWrapUpAction={(text) => void view.send(text)}
+                            {...(importedThread
+                              ? {}
+                              : { onWrapUpAction: (text: string) => void view.send(text) })}
                           />
                           {failed.map((run) => (
                             <RunFailure key={run.id} run={run} />
@@ -938,30 +949,40 @@ export function ChatThread({
                     }
                   />
                 ) : null}
-                <VoiceComposer
-                  threadId={threadId}
-                  persona={persona.name}
-                  running={view.running}
-                  disabled={composerOff}
-                  quoting={quoting}
-                  onClearQuote={() => setQuoting(null)}
-                  {...(askContext
-                    ? {
-                        context: {
-                          kind: askContext.ref.kind,
-                          title: askContext.title,
-                          source: askContext.source,
-                          onRemove: clearAskContext,
-                        },
-                      }
-                    : {})}
-                  mode={mode}
-                  argContext={argContext}
-                  onStop={() => void view.cancel()}
-                  {...(attachments.attach ? { attach: attachments.attach } : {})}
-                  sendBlocked={attachments.uploading}
-                  {...(onDictate ? { onDictate } : {})}
-                />
+                <SpaceComposerChip threadId={threadId} />
+                {importedThread ? (
+                  <p
+                    role="note"
+                    className="m-0 rounded-md bg-fill-quaternary px-3 py-2 text-callout text-label-secondary"
+                  >
+                    {t("shell.threads.importedReadOnly")}
+                  </p>
+                ) : (
+                  <VoiceComposer
+                    threadId={threadId}
+                    persona={persona.name}
+                    running={view.running}
+                    disabled={composerOff}
+                    quoting={quoting}
+                    onClearQuote={() => setQuoting(null)}
+                    {...(askContext
+                      ? {
+                          context: {
+                            kind: askContext.ref.kind,
+                            title: askContext.title,
+                            source: askContext.source,
+                            onRemove: clearAskContext,
+                          },
+                        }
+                      : {})}
+                    mode={mode}
+                    argContext={argContext}
+                    onStop={() => void view.cancel()}
+                    {...(attachments.attach ? { attach: attachments.attach } : {})}
+                    sendBlocked={attachments.uploading}
+                    {...(onDictate ? { onDictate } : {})}
+                  />
+                )}
               </div>
             </div>
           </ThreadPrimitive.Root>

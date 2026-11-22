@@ -179,6 +179,11 @@
         "payload": "#/$defs/ChatReasoningPayload"
       },
       {
+        "description": "A Task is parked because an app on the virtual screen has unsaved changes: the watch pane shows Look / Discard / Keep it open.",
+        "name": "computerWatch.parked",
+        "payload": "#/$defs/ComputerWatchParkedPayload"
+      },
+      {
         "description": "A connector's state changed (Settings → Connectors and onboarding refresh from it): a sign-in finished or failed, it was disconnected, or its token was revoked.",
         "name": "connectors.updated",
         "payload": "#/$defs/ConnectorsUpdatedPayload"
@@ -394,6 +399,21 @@
         "payload": "#/$defs/SkillUpdateStatus"
       },
       {
+        "description": "The agent proposed a new Space. It was not created; the owner decides.",
+        "name": "space.proposal.created",
+        "payload": "#/$defs/SpaceProposalCreatedPayload"
+      },
+      {
+        "description": "A tracker on a Space's shelf was recomputed or refreshed. The values themselves ride widget.updated.",
+        "name": "space.tracker.refreshed",
+        "payload": "#/$defs/SpaceTrackerRefreshedPayload"
+      },
+      {
+        "description": "A Space changed: its row, folders, links or tracker shelf, or it was archived, restored or deleted. Clients re-read it with spaces.get.",
+        "name": "space.updated",
+        "payload": "#/$defs/SpaceUpdatedPayload"
+      },
+      {
         "description": "A specialist job's latest step and budget use; at most one per child step, coalesced to 1/s. Labels only, never tool payloads or thinking text.",
         "name": "specialist.progress",
         "payload": "#/$defs/SpecialistProgressPayload"
@@ -521,7 +541,7 @@
         "sideEffecting": false
       },
       {
-        "description": "Lists what the owner has given the agent access to: shared folders (always or for one chat) and standing grants, in one list for Settings.",
+        "description": "Lists what the owner has given the agent access to: shared folders (always, for one chat or in one Space) and standing grants, in one list for Settings.",
         "name": "access.list",
         "params": "#/$defs/AccessListParams",
         "result": "#/$defs/AccessListResult",
@@ -711,6 +731,14 @@
         "result": "#/$defs/AuditVerifyResult",
         "scope": "operator.read",
         "sideEffecting": false
+      },
+      {
+        "description": "Cancels a scheduled run that is waiting to retry after a transient model error: the run ends as cancelled (its last error kept in the summary), the automation shows as failed, and Run now is free again. Side-effecting. `conflict` when the run is not waiting to retry (it already started its next attempt, or finished).",
+        "name": "automations.cancelRetry",
+        "params": "#/$defs/AutomationsCancelRetryParams",
+        "result": "#/$defs/AutomationsCancelRetryResult",
+        "scope": "operator.write",
+        "sideEffecting": true
       },
       {
         "description": "Creates an automation (enabled by default). Side-effecting.",
@@ -1095,6 +1123,54 @@
         "result": "#/$defs/QueuedMessageResult",
         "scope": "operator.write",
         "sideEffecting": true
+      },
+      {
+        "description": "Desktop only: the newest virtual-screen frame (JPEG) when it changed since `since`. Only while the pane is visible, at most 4 a second.",
+        "name": "computerWatch.frame",
+        "params": "#/$defs/ComputerWatchFrameParams",
+        "result": "#/$defs/VscreenFrame",
+        "scope": "operator.read",
+        "sideEffecting": false
+      },
+      {
+        "description": "Desktop only: the owner's clicks and keys while taking over, sent through the helper's XTest.",
+        "name": "computerWatch.input",
+        "params": "#/$defs/ComputerWatchInputParams",
+        "result": "#/$defs/VscreenAck",
+        "scope": "operator.write",
+        "sideEffecting": false
+      },
+      {
+        "description": "Desktop only: answers the parked card (Look opens the watch pane, Discard closes the app and loses its changes, Keep it open leaves it).",
+        "name": "computerWatch.resolveParked",
+        "params": "#/$defs/ComputerWatchResolveParkedParams",
+        "result": "#/$defs/ComputerWatchResolveParkedResult",
+        "scope": "operator.write",
+        "sideEffecting": false
+      },
+      {
+        "description": "Desktop only: the virtual screen's state, its open apps and whether a Task is parked on unsaved changes.",
+        "name": "computerWatch.status",
+        "params": "#/$defs/ComputerWatchStatusParams",
+        "result": "#/$defs/ComputerWatchState",
+        "scope": "operator.read",
+        "sideEffecting": false
+      },
+      {
+        "description": "Desktop only: Stop in the watch pane. Apps are asked to close; one with unsaved changes stays and the Task parks, unless `force` is set.",
+        "name": "computerWatch.stop",
+        "params": "#/$defs/ComputerWatchStopParams",
+        "result": "#/$defs/VscreenAck",
+        "scope": "operator.write",
+        "sideEffecting": false
+      },
+      {
+        "description": "Desktop only: the owner takes control of the virtual screen (the agent pauses) or gives it back.",
+        "name": "computerWatch.takeOver",
+        "params": "#/$defs/ComputerWatchTakeOverParams",
+        "result": "#/$defs/ComputerWatchTakeOverResult",
+        "scope": "operator.write",
+        "sideEffecting": false
       },
       {
         "description": "First frame on every connection. Negotiates the protocol version and returns a 60 s challenge nonce.",
@@ -1561,6 +1637,30 @@
         "sideEffecting": true
       },
       {
+        "description": "The last step of onboarding a claimed server: the owner's answer to Keep this server reachable on my network. conflict when no such answer is waiting. Side-effecting: false turns the network listener off.",
+        "name": "gateway.claim.finish",
+        "params": "#/$defs/GatewayClaimFinishParams",
+        "result": "#/$defs/GatewayClaimFinishResult",
+        "scope": "operator.admin",
+        "sideEffecting": true
+      },
+      {
+        "description": "Unclaimed psyche-server only, on its LAN listener, as the first frame of a connection (remote-gateway design §3.6). Returns the nonce, the code's salt, the identity key and the certificate pin the client proves its knowledge of the code over. forbidden with details.reason not_claimable or code_expired otherwise. Nothing is trusted yet on either side.",
+        "name": "gateway.claim.hello",
+        "params": "#/$defs/ClaimHelloParams",
+        "result": "#/$defs/ClaimHelloResult",
+        "scope": "none",
+        "sideEffecting": false
+      },
+      {
+        "description": "The client's proof that it knows the setup code. Right: the device from gateway.claim.hello becomes the first admin (operator.read, operator.write, operator.approvals, operator.admin), the code is spent, claim mode ends, and the server answers with its own proof, which the client checks before it pins anything. Wrong: forbidden with details.reason wrong_code and details.attemptsLeft; rate_limited with details.reason too_many_attempts past the per-address limit. The connection closes after either answer.",
+        "name": "gateway.claim.prove",
+        "params": "#/$defs/ClaimProveParams",
+        "result": "#/$defs/ClaimProveResult",
+        "scope": "none",
+        "sideEffecting": false
+      },
+      {
         "description": "The Gateway's identity key and fingerprint, the Host's name and whether it is set up to be reached from other computers (publicOrigin, trusted proxy). The Host's Settings shows the fingerprint next to a pairing request so the owner can compare it with the one the new computer shows.",
         "name": "gateway.info",
         "params": "#/$defs/GatewayInfoParams",
@@ -1637,6 +1737,14 @@
         "name": "goals.milestone",
         "params": "#/$defs/GoalsMilestoneParams",
         "result": "#/$defs/GoalsMilestoneResult",
+        "scope": "operator.write",
+        "sideEffecting": true
+      },
+      {
+        "description": "Asks the model for one next step for a goal and offers it as a Home card (Start, Snooze, Dismiss). Uses the model, and runs only when the owner asks. Nothing starts. Side-effecting.",
+        "name": "goals.suggest",
+        "params": "#/$defs/GoalsSuggestParams",
+        "result": "#/$defs/GoalsSuggestResult",
         "scope": "operator.write",
         "sideEffecting": true
       },
@@ -1791,6 +1899,22 @@
         "result": "#/$defs/MachinesRenameResult",
         "scope": "operator.admin",
         "sideEffecting": true
+      },
+      {
+        "description": "Snooze a quiet thread for a week, or dismiss it until the thread has new mail. Side-effecting; sends nothing.",
+        "name": "mailFollowups.act",
+        "params": "#/$defs/MailFollowupsActParams",
+        "result": "#/$defs/MailFollowupsActResult",
+        "scope": "operator.write",
+        "sideEffecting": true
+      },
+      {
+        "description": "Quiet email threads to show now (not snoozed or dismissed), longest quiet first. Empty while the setting is off or no mail source is connected. Reads mail; subjects are untrusted.",
+        "name": "mailFollowups.list",
+        "params": "#/$defs/MailFollowupsListParams",
+        "result": "#/$defs/MailFollowupsListResult",
+        "scope": "operator.read",
+        "sideEffecting": false
       },
       {
         "description": "Side-effecting: adds a probed server to mcp.servers with its approved trust card; approval_required without it, conflict when its tools changed since the probe.",
@@ -2673,6 +2797,14 @@
         "sideEffecting": false
       },
       {
+        "description": "Machine → Gateway: the machine removes itself (`psyche-helper unpair`). Runs the same cascade as devices.revoke on the caller's own device (the stored machine decision, the node, the audit entry machine.revoked, the owner's notice) and the connection closes right after the reply. Takes no device id, so it can never name another device. Only a connection paired as a machine may call it; any other node gets `forbidden`.",
+        "name": "node.unpair",
+        "params": "#/$defs/NodeUnpairParams",
+        "result": "#/$defs/NodeUnpairResult",
+        "scope": "node",
+        "sideEffecting": false
+      },
+      {
         "description": "Returns a node's declared capabilities.",
         "name": "nodes.capabilities",
         "params": "#/$defs/NodesCapabilitiesParams",
@@ -3417,6 +3549,198 @@
         "sideEffecting": true
       },
       {
+        "description": "Archives a Space: hidden everywhere but the palette's Archived Spaces, its automations pause and its folders stop working.",
+        "name": "spaces.archive",
+        "params": "#/$defs/SpacesArchiveParams",
+        "result": "#/$defs/SpaceResult",
+        "scope": "operator.write",
+        "sideEffecting": false
+      },
+      {
+        "description": "Moves up to 50 automations into a Space, or out (spaceId null).",
+        "name": "spaces.automations.move",
+        "params": "#/$defs/SpacesAutomationsMoveParams",
+        "result": "#/$defs/SpacesAutomationsMoveResult",
+        "scope": "operator.write",
+        "sideEffecting": false
+      },
+      {
+        "description": "What Psyche sees here: the exact Space card and head section a run in this Space would get, with sizes.",
+        "name": "spaces.context.preview",
+        "params": "#/$defs/SpacesContextPreviewParams",
+        "result": "#/$defs/SpacesContextPreviewResult",
+        "scope": "operator.read",
+        "sideEffecting": false
+      },
+      {
+        "description": "Creates a Space. Side-effecting: a retried key returns the same Space.",
+        "name": "spaces.create",
+        "params": "#/$defs/SpacesCreateParams",
+        "result": "#/$defs/SpaceResult",
+        "scope": "operator.write",
+        "sideEffecting": true
+      },
+      {
+        "description": "Deletes a Space. Threads and automations stay with no Space, trackers return to their thread, folders are revoked and the memory project is untouched.",
+        "name": "spaces.delete",
+        "params": "#/$defs/SpacesDeleteParams",
+        "result": "#/$defs/OkResult",
+        "scope": "operator.admin",
+        "sideEffecting": false
+      },
+      {
+        "description": "Adds a folder to a Space (the same refusals as Settings → File access). Side-effecting.",
+        "name": "spaces.folders.add",
+        "params": "#/$defs/SpacesFoldersAddParams",
+        "result": "#/$defs/SpaceDetail",
+        "scope": "operator.admin",
+        "sideEffecting": true
+      },
+      {
+        "description": "Removes a folder from a Space and revokes it at once.",
+        "name": "spaces.folders.remove",
+        "params": "#/$defs/SpacesFoldersRemoveParams",
+        "result": "#/$defs/SpaceDetail",
+        "scope": "operator.admin",
+        "sideEffecting": false
+      },
+      {
+        "description": "Sets a Space folder to read only or read and write.",
+        "name": "spaces.folders.setMode",
+        "params": "#/$defs/SpacesFoldersSetModeParams",
+        "result": "#/$defs/SpaceDetail",
+        "scope": "operator.admin",
+        "sideEffecting": false
+      },
+      {
+        "description": "One Space with folders, links, trackers, automations and goals.",
+        "name": "spaces.get",
+        "params": "#/$defs/SpacesGetParams",
+        "result": "#/$defs/SpaceDetail",
+        "scope": "operator.read",
+        "sideEffecting": false
+      },
+      {
+        "description": "Adds an owner link to a Space.",
+        "name": "spaces.links.add",
+        "params": "#/$defs/SpacesLinksAddParams",
+        "result": "#/$defs/SpacesLinksAddResult",
+        "scope": "operator.write",
+        "sideEffecting": false
+      },
+      {
+        "description": "Removes a link from a Space.",
+        "name": "spaces.links.remove",
+        "params": "#/$defs/SpacesLinksRemoveParams",
+        "result": "#/$defs/OkResult",
+        "scope": "operator.write",
+        "sideEffecting": false
+      },
+      {
+        "description": "Spaces in sort order, with counts (chats, trackers, due items) and lastActivityAt. archived: true lists archived ones.",
+        "name": "spaces.list",
+        "params": "#/$defs/SpacesListParams",
+        "result": "#/$defs/SpacesListResult",
+        "scope": "operator.read",
+        "sideEffecting": false
+      },
+      {
+        "description": "Called when the Space page opens: recomputes stale query trackers (no model call) and returns their values. Rate-limited to one recompute per Space per 30 s.",
+        "name": "spaces.open",
+        "params": "#/$defs/SpacesOpenParams",
+        "result": "#/$defs/SpacesOpenResult",
+        "scope": "operator.read",
+        "sideEffecting": false
+      },
+      {
+        "description": "Accepts a proposal: creates the Space and moves the named threads in. Side-effecting.",
+        "name": "spaces.proposals.accept",
+        "params": "#/$defs/SpacesProposalsAcceptParams",
+        "result": "#/$defs/SpaceResult",
+        "scope": "operator.write",
+        "sideEffecting": true
+      },
+      {
+        "description": "Dismisses a proposal.",
+        "name": "spaces.proposals.dismiss",
+        "params": "#/$defs/SpacesProposalsDismissParams",
+        "result": "#/$defs/OkResult",
+        "scope": "operator.write",
+        "sideEffecting": false
+      },
+      {
+        "description": "Space proposals the agent made.",
+        "name": "spaces.proposals.list",
+        "params": "#/$defs/SpacesProposalsListParams",
+        "result": "#/$defs/SpacesProposalsListResult",
+        "scope": "operator.read",
+        "sideEffecting": false
+      },
+      {
+        "description": "Restores an archived Space.",
+        "name": "spaces.restore",
+        "params": "#/$defs/SpacesRestoreParams",
+        "result": "#/$defs/SpaceResult",
+        "scope": "operator.write",
+        "sideEffecting": false
+      },
+      {
+        "description": "Owner settings: default permission mode (capped by the global setting), connector scope (only narrows) and per-folder automationsWrite.",
+        "name": "spaces.settings.set",
+        "params": "#/$defs/SpacesSettingsSetParams",
+        "result": "#/$defs/SpaceDetail",
+        "scope": "operator.admin",
+        "sideEffecting": false
+      },
+      {
+        "description": "Moves up to 50 threads into a Space, or out (spaceId null). Takes effect from each thread's next run.",
+        "name": "spaces.threads.move",
+        "params": "#/$defs/SpacesThreadsMoveParams",
+        "result": "#/$defs/SpacesThreadsMoveResult",
+        "scope": "operator.write",
+        "sideEffecting": false
+      },
+      {
+        "description": "Puts a tracker on the shelf, from an existing widget (widgetId) or a template.",
+        "name": "spaces.trackers.add",
+        "params": "#/$defs/SpacesTrackersAddParams",
+        "result": "#/$defs/SpaceDetail",
+        "scope": "operator.write",
+        "sideEffecting": false
+      },
+      {
+        "description": "The owner's Refresh: a query tracker recomputes at once; an agent tracker starts its one run. Side-effecting.",
+        "name": "spaces.trackers.refresh",
+        "params": "#/$defs/SpacesTrackersRefreshParams",
+        "result": "#/$defs/SpacesTrackersRefreshResult",
+        "scope": "operator.write",
+        "sideEffecting": true
+      },
+      {
+        "description": "Removes a tracker from the shelf; the widget returns to its thread.",
+        "name": "spaces.trackers.remove",
+        "params": "#/$defs/SpacesTrackersRemoveParams",
+        "result": "#/$defs/SpaceDetail",
+        "scope": "operator.write",
+        "sideEffecting": false
+      },
+      {
+        "description": "Reorders the shelf.",
+        "name": "spaces.trackers.reorder",
+        "params": "#/$defs/SpacesTrackersReorderParams",
+        "result": "#/$defs/SpaceDetail",
+        "scope": "operator.write",
+        "sideEffecting": false
+      },
+      {
+        "description": "Edits a Space. Bumps instructionsRev when the instructions change; a new revision applies from the next run.",
+        "name": "spaces.update",
+        "params": "#/$defs/SpacesUpdateParams",
+        "result": "#/$defs/SpaceResult",
+        "scope": "operator.write",
+        "sideEffecting": false
+      },
+      {
         "description": "Lists specialist jobs, newest first: queued (with their place), working, needing the owner, and finished with their result.",
         "name": "specialists.jobs",
         "params": "#/$defs/SpecialistsJobsParams",
@@ -3446,6 +3770,22 @@
         "params": "#/$defs/SpeechEngineStatusParams",
         "result": "#/$defs/SpeechEngineStatus",
         "scope": "operator.read",
+        "sideEffecting": false
+      },
+      {
+        "description": "Side-effecting. Empties the rebuildable caches (converted documents and thumbnails) and deletes finished browser recordings older than 7 days together with their Library entries. Recordings still in progress, and every other category, are untouched.",
+        "name": "storage.clearCache",
+        "params": "#/$defs/StorageClearCacheParams",
+        "result": "#/$defs/StorageCleared",
+        "scope": "operator.admin",
+        "sideEffecting": true
+      },
+      {
+        "description": "Disk use under the Gateway's data folder by category (database, memory index, attachments and Library, browser profiles, recordings, logs, caches, other). Sizes only; symbolic links are not followed.",
+        "name": "storage.usage",
+        "params": "#/$defs/StorageUsageParams",
+        "result": "#/$defs/StorageUsage",
+        "scope": "operator.admin",
         "sideEffecting": false
       },
       {
@@ -3673,6 +4013,14 @@
         "sideEffecting": false
       },
       {
+        "description": "Imports conversations from a claude.ai or ChatGPT export as archived, read-only threads (imported flag). Turns are untrusted data. Capped; the same export again adds nothing. Side-effecting.",
+        "name": "threads.import",
+        "params": "#/$defs/ThreadsImportParams",
+        "result": "#/$defs/ThreadImportResult",
+        "scope": "operator.write",
+        "sideEffecting": true
+      },
+      {
         "description": "Lists threads, most recent first, each with derived activity counts (running / awaiting input / awaiting approval).",
         "name": "threads.list",
         "params": "#/$defs/ThreadsListParams",
@@ -3719,6 +4067,14 @@
         "result": "#/$defs/ThreadsSetContextLimitsResult",
         "scope": "operator.write",
         "sideEffecting": false
+      },
+      {
+        "description": "Side-effecting: the owner removes one standing instruction (by pin id) from a thread's compaction summary, and from the compaction blocks that show it. A plain tap on a paired device, no presence; the agent and channels cannot reach it. conflict while the thread runs.",
+        "name": "threads.summary.pins.remove",
+        "params": "#/$defs/ThreadsSummaryPinsRemoveParams",
+        "result": "#/$defs/ThreadsSummaryPinsRemoveResult",
+        "scope": "operator.write",
+        "sideEffecting": true
       },
       {
         "description": "Sets a thread's permission mode and/or model (composer /plan, /model, the mode and model pills). auto is refused with forbidden unless the thread's model is on the auto-mode allowlist; picking a model that is not allowed drops an auto thread to balanced.",
@@ -4116,7 +4472,8 @@
           "enum": [
             "always",
             "conversation",
-            "limited"
+            "limited",
+            "space"
           ],
           "type": "string"
         },
@@ -4153,6 +4510,19 @@
           "maxLength": 64,
           "minLength": 1,
           "type": "string"
+        },
+        "spaceId": {
+          "description": "ULID in production",
+          "maxLength": 64,
+          "minLength": 1,
+          "type": "string"
+        },
+        "spaceName": {
+          "maxLength": 60,
+          "type": "string"
+        },
+        "automationsWrite": {
+          "type": "boolean"
         },
         "grantId": {
           "description": "ULID in production",
@@ -7330,6 +7700,10 @@
           "const": true,
           "type": "boolean"
         },
+        "inSpace": {
+          "const": true,
+          "type": "boolean"
+        },
         "folderPath": {
           "maxLength": 4096,
           "minLength": 1,
@@ -9683,7 +10057,8 @@
     "AttentionPane": {
       "enum": [
         "browser",
-        "computer"
+        "computer",
+        "vscreen"
       ],
       "type": "string"
     },
@@ -9695,6 +10070,12 @@
         "visible": {
           "description": "The pane is on screen in the desktop app",
           "type": "boolean"
+        },
+        "machine": {
+          "description": "ULID in production",
+          "maxLength": 64,
+          "minLength": 1,
+          "type": "string"
         },
         "input": {
           "description": "The owner gave input in the app just now (key, click)",
@@ -10635,6 +11016,19 @@
             }
           ]
         },
+        "spaceId": {
+          "anyOf": [
+            {
+              "description": "ULID in production",
+              "maxLength": 64,
+              "minLength": 1,
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
         "enabled": {
           "type": "boolean"
         },
@@ -10879,6 +11273,23 @@
         },
         "usage": {
           "$ref": "#/$defs/Usage"
+        },
+        "attempt": {
+          "maximum": 3,
+          "minimum": 0,
+          "type": "integer"
+        },
+        "retryAt": {
+          "anyOf": [
+            {
+              "description": "ISO-8601 timestamp (UTC)",
+              "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}(\\.\\d{1,9})?(Z|[+-]\\d{2}:\\d{2})$",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ]
         }
       },
       "required": [
@@ -11006,6 +11417,31 @@
       ],
       "type": "object"
     },
+    "AutomationsCancelRetryParams": {
+      "properties": {
+        "runId": {
+          "description": "ULID in production",
+          "maxLength": 64,
+          "minLength": 1,
+          "type": "string"
+        }
+      },
+      "required": [
+        "runId"
+      ],
+      "type": "object"
+    },
+    "AutomationsCancelRetryResult": {
+      "properties": {
+        "run": {
+          "$ref": "#/$defs/AutomationRun"
+        }
+      },
+      "required": [
+        "run"
+      ],
+      "type": "object"
+    },
     "AutomationsCreateParams": {
       "properties": {
         "kind": {
@@ -11049,6 +11485,12 @@
         },
         "specialist": {
           "$ref": "#/$defs/AutomationSpecialist"
+        },
+        "spaceId": {
+          "description": "ULID in production",
+          "maxLength": 64,
+          "minLength": 1,
+          "type": "string"
         }
       },
       "required": [
@@ -11280,6 +11722,19 @@
           "anyOf": [
             {
               "$ref": "#/$defs/AutomationSpecialist"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "spaceId": {
+          "anyOf": [
+            {
+              "description": "ULID in production",
+              "maxLength": 64,
+              "minLength": 1,
+              "type": "string"
             },
             {
               "type": "null"
@@ -14307,7 +14762,8 @@
             "feed_item",
             "search_hit",
             "memory_entity",
-            "life_answer"
+            "life_answer",
+            "mail_followup"
           ],
           "type": "string"
         },
@@ -14878,6 +15334,125 @@
       ],
       "type": "object"
     },
+    "ClaimHelloParams": {
+      "properties": {
+        "clientNonce": {
+          "description": "base64url, 32 random bytes from the client",
+          "pattern": "^[A-Za-z0-9_-]{43}$",
+          "type": "string"
+        },
+        "deviceId": {
+          "description": "ULID in production",
+          "maxLength": 64,
+          "minLength": 1,
+          "type": "string"
+        },
+        "publicKey": {
+          "description": "The claiming device's raw Ed25519 public key: the key that becomes the first admin",
+          "pattern": "^[A-Za-z0-9_-]{43}$",
+          "type": "string"
+        },
+        "name": {
+          "maxLength": 128,
+          "minLength": 1,
+          "type": "string"
+        },
+        "platform": {
+          "$ref": "#/$defs/DevicePlatform"
+        }
+      },
+      "required": [
+        "clientNonce",
+        "deviceId",
+        "publicKey",
+        "name",
+        "platform"
+      ],
+      "type": "object"
+    },
+    "ClaimHelloResult": {
+      "properties": {
+        "serverNonce": {
+          "description": "base64url, 32 random bytes, fresh for this connection",
+          "pattern": "^[A-Za-z0-9_-]{43}$",
+          "type": "string"
+        },
+        "salt": {
+          "description": "base64url, the 16-byte salt stored with the setup code",
+          "pattern": "^[A-Za-z0-9_-]{22}$",
+          "type": "string"
+        },
+        "gatewayKey": {
+          "description": "The server's identity public key. Not trusted until its proof checks",
+          "pattern": "^[A-Za-z0-9_-]{43}$",
+          "type": "string"
+        },
+        "certSpki": {
+          "description": "SHA-256 of the SPKI of the LAN certificate the server serves; the client checks it is the one this connection presented",
+          "pattern": "^[A-Za-z0-9_-]{43}$",
+          "type": "string"
+        },
+        "hostName": {
+          "maxLength": 64,
+          "minLength": 1,
+          "type": "string"
+        },
+        "expiresAt": {
+          "description": "ISO-8601 timestamp (UTC)",
+          "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}(\\.\\d{1,9})?(Z|[+-]\\d{2}:\\d{2})$",
+          "type": "string"
+        }
+      },
+      "required": [
+        "serverNonce",
+        "salt",
+        "gatewayKey",
+        "certSpki",
+        "hostName",
+        "expiresAt"
+      ],
+      "type": "object"
+    },
+    "ClaimProveParams": {
+      "properties": {
+        "proof": {
+          "description": "claimProof(scrypt(code, salt), client, claimTranscript(...)): HMAC-SHA256, base64url",
+          "pattern": "^[A-Za-z0-9_-]{43}$",
+          "type": "string"
+        }
+      },
+      "required": [
+        "proof"
+      ],
+      "type": "object"
+    },
+    "ClaimProveResult": {
+      "properties": {
+        "proof": {
+          "description": "The server's proof over the same transcript, role server",
+          "pattern": "^[A-Za-z0-9_-]{43}$",
+          "type": "string"
+        },
+        "deviceId": {
+          "description": "ULID in production",
+          "maxLength": 64,
+          "minLength": 1,
+          "type": "string"
+        },
+        "scopes": {
+          "items": {
+            "$ref": "#/$defs/DeviceScope"
+          },
+          "type": "array"
+        }
+      },
+      "required": [
+        "proof",
+        "deviceId",
+        "scopes"
+      ],
+      "type": "object"
+    },
     "ComingUpItem": {
       "properties": {
         "entityId": {
@@ -15016,6 +15591,14 @@
         "tokensAfter": {
           "minimum": 0,
           "type": "integer"
+        },
+        "droppedPins": {
+          "items": {
+            "maxLength": 500,
+            "type": "string"
+          },
+          "maxItems": 40,
+          "type": "array"
         }
       },
       "required": [
@@ -15137,6 +15720,178 @@
         "separate_desktop"
       ],
       "type": "string"
+    },
+    "ComputerWatchFrameParams": {
+      "properties": {
+        "since": {
+          "minimum": 0,
+          "type": "integer"
+        },
+        "maxWidth": {
+          "maximum": 3840,
+          "minimum": 160,
+          "type": "integer"
+        },
+        "machine": {
+          "description": "ULID in production",
+          "maxLength": 64,
+          "minLength": 1,
+          "type": "string"
+        }
+      },
+      "type": "object"
+    },
+    "ComputerWatchInputParams": {
+      "properties": {
+        "events": {
+          "items": {
+            "$ref": "#/$defs/VscreenInputEvent"
+          },
+          "maxItems": 100,
+          "type": "array"
+        },
+        "machine": {
+          "description": "ULID in production",
+          "maxLength": 64,
+          "minLength": 1,
+          "type": "string"
+        }
+      },
+      "required": [
+        "events"
+      ],
+      "type": "object"
+    },
+    "ComputerWatchParkAction": {
+      "enum": [
+        "look",
+        "discard",
+        "keep_open"
+      ],
+      "type": "string"
+    },
+    "ComputerWatchParkedPayload": {
+      "properties": {
+        "apps": {
+          "items": {
+            "$ref": "#/$defs/VscreenApp"
+          },
+          "type": "array"
+        },
+        "machine": {
+          "description": "ULID in production",
+          "maxLength": 64,
+          "minLength": 1,
+          "type": "string"
+        }
+      },
+      "required": [
+        "apps"
+      ],
+      "type": "object"
+    },
+    "ComputerWatchResolveParkedParams": {
+      "properties": {
+        "action": {
+          "$ref": "#/$defs/ComputerWatchParkAction"
+        },
+        "machine": {
+          "description": "ULID in production",
+          "maxLength": 64,
+          "minLength": 1,
+          "type": "string"
+        }
+      },
+      "required": [
+        "action"
+      ],
+      "type": "object"
+    },
+    "ComputerWatchResolveParkedResult": {
+      "properties": {
+        "action": {
+          "$ref": "#/$defs/ComputerWatchParkAction"
+        },
+        "view": {
+          "const": "computer-watch",
+          "type": "string"
+        }
+      },
+      "required": [
+        "action"
+      ],
+      "type": "object"
+    },
+    "ComputerWatchState": {
+      "properties": {
+        "status": {
+          "$ref": "#/$defs/VscreenStatus"
+        },
+        "parked": {
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "status",
+        "parked"
+      ],
+      "type": "object"
+    },
+    "ComputerWatchStatusParams": {
+      "properties": {
+        "machine": {
+          "description": "ULID in production",
+          "maxLength": 64,
+          "minLength": 1,
+          "type": "string"
+        }
+      },
+      "type": "object"
+    },
+    "ComputerWatchStopParams": {
+      "properties": {
+        "closeApps": {
+          "type": "boolean"
+        },
+        "force": {
+          "type": "boolean"
+        },
+        "machine": {
+          "description": "ULID in production",
+          "maxLength": 64,
+          "minLength": 1,
+          "type": "string"
+        }
+      },
+      "type": "object"
+    },
+    "ComputerWatchTakeOverParams": {
+      "properties": {
+        "on": {
+          "type": "boolean"
+        },
+        "machine": {
+          "description": "ULID in production",
+          "maxLength": 64,
+          "minLength": 1,
+          "type": "string"
+        }
+      },
+      "required": [
+        "on"
+      ],
+      "type": "object"
+    },
+    "ComputerWatchTakeOverResult": {
+      "properties": {
+        "takenOver": {
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "takenOver"
+      ],
+      "type": "object"
     },
     "ConnectChallenge": {
       "properties": {
@@ -16500,7 +17255,8 @@
             "feed_item",
             "search_hit",
             "memory_entity",
-            "life_answer"
+            "life_answer",
+            "mail_followup"
           ],
           "type": "string"
         },
@@ -17517,7 +18273,7 @@
           "items": {
             "$ref": "#/$defs/DailySection"
           },
-          "maxItems": 8,
+          "maxItems": 10,
           "type": "array"
         },
         "carryOver": {
@@ -17833,6 +18589,7 @@
         "learned",
         "coming_up",
         "keep_in_touch",
+        "quiet_threads",
         "catching_up",
         "worked_on"
       ],
@@ -20894,6 +21651,29 @@
       ],
       "type": "string"
     },
+    "GatewayClaimFinishParams": {
+      "properties": {
+        "keepLan": {
+          "description": "Keep the server reachable on this network (gateway.lan stays on the claim's interface); false turns LAN listening off once the answer is sent",
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "keepLan"
+      ],
+      "type": "object"
+    },
+    "GatewayClaimFinishResult": {
+      "properties": {
+        "lan": {
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "lan"
+      ],
+      "type": "object"
+    },
     "GatewayInfo": {
       "properties": {
         "identity": {
@@ -20915,6 +21695,15 @@
         },
         "hostName": {
           "description": "The Host machine's name",
+          "type": "string"
+        },
+        "hostOs": {
+          "description": "The Host's operating system, so a Client names it and its features in the Host's words (a Linux Host has no Apple connectors and offers computer use only on its private screen). Absent from older Gateways",
+          "enum": [
+            "macos",
+            "windows",
+            "linux"
+          ],
           "type": "string"
         },
         "publicOrigin": {
@@ -21049,6 +21838,19 @@
             "certSpki",
             "advertising",
             "problems"
+          ],
+          "type": "object"
+        },
+        "claim": {
+          "description": "Present only on a server set up with a setup code whose onboarding has not finished (remote-gateway design §3.6)",
+          "properties": {
+            "lanChoicePending": {
+              "description": "The server was claimed from the app and the owner has not yet said whether it stays reachable on this network (`gateway.claim.finish`). Until then LAN listening stays on the interface the claim came in on",
+              "type": "boolean"
+            }
+          },
+          "required": [
+            "lanChoicePending"
           ],
           "type": "object"
         }
@@ -21718,6 +22520,38 @@
         "milestones",
         "links"
       ],
+      "type": "object"
+    },
+    "GoalsSuggestParams": {
+      "properties": {
+        "goalId": {
+          "description": "ULID in production",
+          "maxLength": 64,
+          "minLength": 1,
+          "type": "string"
+        }
+      },
+      "required": [
+        "goalId"
+      ],
+      "type": "object"
+    },
+    "GoalsSuggestResult": {
+      "properties": {
+        "ideaId": {
+          "anyOf": [
+            {
+              "description": "ULID in production",
+              "maxLength": 64,
+              "minLength": 1,
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        }
+      },
       "type": "object"
     },
     "GoalsUpdateParams": {
@@ -26618,6 +27452,129 @@
       },
       "required": [
         "machine"
+      ],
+      "type": "object"
+    },
+    "MailFollowupAction": {
+      "enum": [
+        "snooze",
+        "dismiss"
+      ],
+      "type": "string"
+    },
+    "MailFollowupItem": {
+      "properties": {
+        "id": {
+          "description": "ULID in production",
+          "maxLength": 64,
+          "minLength": 1,
+          "type": "string"
+        },
+        "kind": {
+          "$ref": "#/$defs/MailFollowupKind"
+        },
+        "source": {
+          "enum": [
+            "apple",
+            "gmail",
+            "imap"
+          ],
+          "type": "string"
+        },
+        "who": {
+          "maxLength": 120,
+          "type": "string"
+        },
+        "subject": {
+          "maxLength": 200,
+          "type": "string"
+        },
+        "daysQuiet": {
+          "minimum": 0,
+          "type": "integer"
+        },
+        "link": {
+          "maxLength": 1000,
+          "type": "string"
+        },
+        "gmailThreadId": {
+          "maxLength": 64,
+          "pattern": "^[A-Za-z0-9_-]{1,64}$",
+          "type": "string"
+        },
+        "untrusted": {
+          "const": true,
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "id",
+        "kind",
+        "source",
+        "who",
+        "subject",
+        "daysQuiet",
+        "untrusted"
+      ],
+      "type": "object"
+    },
+    "MailFollowupKind": {
+      "enum": [
+        "no_reply",
+        "unanswered_question"
+      ],
+      "type": "string"
+    },
+    "MailFollowupsActParams": {
+      "properties": {
+        "id": {
+          "description": "ULID in production",
+          "maxLength": 64,
+          "minLength": 1,
+          "type": "string"
+        },
+        "action": {
+          "$ref": "#/$defs/MailFollowupAction"
+        }
+      },
+      "required": [
+        "id",
+        "action"
+      ],
+      "type": "object"
+    },
+    "MailFollowupsActResult": {
+      "properties": {
+        "ok": {
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "ok"
+      ],
+      "type": "object"
+    },
+    "MailFollowupsListParams": {
+      "properties": {},
+      "type": "object"
+    },
+    "MailFollowupsListResult": {
+      "properties": {
+        "enabled": {
+          "description": "`mail.followups.enabled` is on",
+          "type": "boolean"
+        },
+        "items": {
+          "items": {
+            "$ref": "#/$defs/MailFollowupItem"
+          },
+          "maxItems": 10,
+          "type": "array"
+        }
+      },
+      "required": [
+        "enabled",
+        "items"
       ],
       "type": "object"
     },
@@ -33498,6 +34455,21 @@
       ],
       "type": "string"
     },
+    "NodeUnpairParams": {
+      "properties": {},
+      "type": "object"
+    },
+    "NodeUnpairResult": {
+      "properties": {
+        "device": {
+          "$ref": "#/$defs/Device"
+        }
+      },
+      "required": [
+        "device"
+      ],
+      "type": "object"
+    },
     "NodeUpdatedPayload": {
       "properties": {
         "node": {
@@ -35074,6 +36046,33 @@
       ],
       "type": "string"
     },
+    "PluginAdds": {
+      "properties": {
+        "skills": {
+          "minimum": 0,
+          "type": "integer"
+        },
+        "commands": {
+          "minimum": 0,
+          "type": "integer"
+        },
+        "mcpServers": {
+          "minimum": 0,
+          "type": "integer"
+        },
+        "hooks": {
+          "minimum": 0,
+          "type": "integer"
+        }
+      },
+      "required": [
+        "skills",
+        "commands",
+        "mcpServers",
+        "hooks"
+      ],
+      "type": "object"
+    },
     "PluginCapability": {
       "enum": [
         "context",
@@ -35234,6 +36233,9 @@
         },
         "installedAt": {
           "type": "string"
+        },
+        "adds": {
+          "$ref": "#/$defs/PluginAdds"
         },
         "error": {
           "type": "string"
@@ -39816,6 +40818,13 @@
         },
         "card": {
           "$ref": "#/$defs/SearchHitCard"
+        },
+        "imported": {
+          "enum": [
+            "claude",
+            "chatgpt"
+          ],
+          "type": "string"
         }
       },
       "required": [
@@ -43313,6 +44322,1419 @@
       ],
       "type": "object"
     },
+    "Space": {
+      "additionalProperties": false,
+      "properties": {
+        "id": {
+          "description": "ULID in production",
+          "maxLength": 64,
+          "minLength": 1,
+          "type": "string"
+        },
+        "name": {
+          "maxLength": 60,
+          "minLength": 1,
+          "type": "string"
+        },
+        "description": {
+          "anyOf": [
+            {
+              "maxLength": 160,
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "icon": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "instructions": {
+          "maxLength": 4000,
+          "type": "string"
+        },
+        "instructionsRev": {
+          "minimum": 1,
+          "type": "integer"
+        },
+        "entityId": {
+          "anyOf": [
+            {
+              "description": "ULID in production",
+              "maxLength": 64,
+              "minLength": 1,
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "defaultPermissionMode": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/PermissionMode"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "connectorScope": {
+          "anyOf": [
+            {
+              "items": {
+                "type": "string"
+              },
+              "type": "array"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "private": {
+          "type": "boolean"
+        },
+        "sort": {
+          "type": "integer"
+        },
+        "archivedAt": {
+          "anyOf": [
+            {
+              "description": "ISO-8601 timestamp (UTC)",
+              "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}(\\.\\d{1,9})?(Z|[+-]\\d{2}:\\d{2})$",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "createdFrom": {
+          "$ref": "#/$defs/SpaceCreatedFrom"
+        },
+        "createdAt": {
+          "description": "ISO-8601 timestamp (UTC)",
+          "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}(\\.\\d{1,9})?(Z|[+-]\\d{2}:\\d{2})$",
+          "type": "string"
+        },
+        "updatedAt": {
+          "description": "ISO-8601 timestamp (UTC)",
+          "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}(\\.\\d{1,9})?(Z|[+-]\\d{2}:\\d{2})$",
+          "type": "string"
+        }
+      },
+      "required": [
+        "id",
+        "name",
+        "instructions",
+        "instructionsRev",
+        "private",
+        "sort",
+        "createdFrom",
+        "createdAt",
+        "updatedAt"
+      ],
+      "type": "object"
+    },
+    "SpaceContextSection": {
+      "additionalProperties": false,
+      "properties": {
+        "kind": {
+          "enum": [
+            "instructions",
+            "card",
+            "work",
+            "trackers"
+          ],
+          "type": "string"
+        },
+        "text": {
+          "type": "string"
+        },
+        "chars": {
+          "minimum": 0,
+          "type": "integer"
+        },
+        "cap": {
+          "minimum": 0,
+          "type": "integer"
+        }
+      },
+      "required": [
+        "kind",
+        "text",
+        "chars",
+        "cap"
+      ],
+      "type": "object"
+    },
+    "SpaceCounts": {
+      "additionalProperties": false,
+      "properties": {
+        "chats": {
+          "minimum": 0,
+          "type": "integer"
+        },
+        "trackers": {
+          "minimum": 0,
+          "type": "integer"
+        },
+        "due": {
+          "minimum": 0,
+          "type": "integer"
+        }
+      },
+      "required": [
+        "chats",
+        "trackers",
+        "due"
+      ],
+      "type": "object"
+    },
+    "SpaceCreatedFrom": {
+      "enum": [
+        "owner",
+        "proposal",
+        "project",
+        "migration"
+      ],
+      "type": "string"
+    },
+    "SpaceDetail": {
+      "additionalProperties": false,
+      "properties": {
+        "space": {
+          "$ref": "#/$defs/Space"
+        },
+        "folders": {
+          "items": {
+            "$ref": "#/$defs/SpaceFolder"
+          },
+          "type": "array"
+        },
+        "links": {
+          "items": {
+            "$ref": "#/$defs/SpaceLink"
+          },
+          "type": "array"
+        },
+        "trackers": {
+          "items": {
+            "$ref": "#/$defs/SpaceTracker"
+          },
+          "type": "array"
+        },
+        "automationIds": {
+          "items": {
+            "description": "ULID in production",
+            "maxLength": 64,
+            "minLength": 1,
+            "type": "string"
+          },
+          "type": "array"
+        },
+        "goalIds": {
+          "items": {
+            "description": "ULID in production",
+            "maxLength": 64,
+            "minLength": 1,
+            "type": "string"
+          },
+          "type": "array"
+        },
+        "counts": {
+          "$ref": "#/$defs/SpaceCounts"
+        },
+        "lastActivityAt": {
+          "anyOf": [
+            {
+              "description": "ISO-8601 timestamp (UTC)",
+              "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}(\\.\\d{1,9})?(Z|[+-]\\d{2}:\\d{2})$",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        }
+      },
+      "required": [
+        "space",
+        "folders",
+        "links",
+        "trackers",
+        "automationIds",
+        "goalIds",
+        "counts"
+      ],
+      "type": "object"
+    },
+    "SpaceFolder": {
+      "additionalProperties": false,
+      "properties": {
+        "path": {
+          "type": "string"
+        },
+        "real": {
+          "description": "The real path recorded when the folder was added",
+          "type": "string"
+        },
+        "mode": {
+          "enum": [
+            "ro",
+            "rw"
+          ],
+          "type": "string"
+        },
+        "automationsWrite": {
+          "description": "Unattended runs (automations) may write here (SP8); default false",
+          "type": "boolean"
+        },
+        "addedAt": {
+          "description": "ISO-8601 timestamp (UTC)",
+          "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}(\\.\\d{1,9})?(Z|[+-]\\d{2}:\\d{2})$",
+          "type": "string"
+        },
+        "addedByDevice": {
+          "anyOf": [
+            {
+              "description": "ULID in production",
+              "maxLength": 64,
+              "minLength": 1,
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        }
+      },
+      "required": [
+        "path",
+        "real",
+        "mode",
+        "automationsWrite",
+        "addedAt"
+      ],
+      "type": "object"
+    },
+    "SpaceLink": {
+      "additionalProperties": false,
+      "properties": {
+        "id": {
+          "description": "ULID in production",
+          "maxLength": 64,
+          "minLength": 1,
+          "type": "string"
+        },
+        "kind": {
+          "$ref": "#/$defs/SpaceLinkKind"
+        },
+        "ref": {
+          "minLength": 1,
+          "type": "string"
+        },
+        "label": {
+          "maxLength": 120,
+          "minLength": 1,
+          "type": "string"
+        },
+        "labelProvenance": {
+          "$ref": "#/$defs/SpaceLinkProvenance"
+        },
+        "addedBy": {
+          "enum": [
+            "owner",
+            "agent"
+          ],
+          "type": "string"
+        },
+        "createdAt": {
+          "description": "ISO-8601 timestamp (UTC)",
+          "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}(\\.\\d{1,9})?(Z|[+-]\\d{2}:\\d{2})$",
+          "type": "string"
+        }
+      },
+      "required": [
+        "id",
+        "kind",
+        "ref",
+        "label",
+        "labelProvenance",
+        "addedBy",
+        "createdAt"
+      ],
+      "type": "object"
+    },
+    "SpaceLinkKind": {
+      "enum": [
+        "url",
+        "library_item",
+        "note",
+        "mail_thread",
+        "file"
+      ],
+      "type": "string"
+    },
+    "SpaceLinkProvenance": {
+      "enum": [
+        "owner",
+        "agent",
+        "untrusted"
+      ],
+      "type": "string"
+    },
+    "SpaceProposal": {
+      "additionalProperties": false,
+      "properties": {
+        "id": {
+          "description": "ULID in production",
+          "maxLength": 64,
+          "minLength": 1,
+          "type": "string"
+        },
+        "name": {
+          "maxLength": 60,
+          "minLength": 1,
+          "type": "string"
+        },
+        "reason": {
+          "type": "string"
+        },
+        "entityId": {
+          "anyOf": [
+            {
+              "description": "ULID in production",
+              "maxLength": 64,
+              "minLength": 1,
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "threadIds": {
+          "items": {
+            "description": "ULID in production",
+            "maxLength": 64,
+            "minLength": 1,
+            "type": "string"
+          },
+          "type": "array"
+        },
+        "taint": {
+          "items": {
+            "$ref": "#/$defs/TaintSource"
+          },
+          "type": "array"
+        },
+        "status": {
+          "$ref": "#/$defs/SpaceProposalStatus"
+        },
+        "createdAt": {
+          "description": "ISO-8601 timestamp (UTC)",
+          "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}(\\.\\d{1,9})?(Z|[+-]\\d{2}:\\d{2})$",
+          "type": "string"
+        },
+        "decidedAt": {
+          "anyOf": [
+            {
+              "description": "ISO-8601 timestamp (UTC)",
+              "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}(\\.\\d{1,9})?(Z|[+-]\\d{2}:\\d{2})$",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        }
+      },
+      "required": [
+        "id",
+        "name",
+        "reason",
+        "threadIds",
+        "taint",
+        "status",
+        "createdAt"
+      ],
+      "type": "object"
+    },
+    "SpaceProposalCreatedPayload": {
+      "properties": {
+        "proposal": {
+          "$ref": "#/$defs/SpaceProposal"
+        }
+      },
+      "required": [
+        "proposal"
+      ],
+      "type": "object"
+    },
+    "SpaceProposalStatus": {
+      "enum": [
+        "open",
+        "accepted",
+        "dismissed"
+      ],
+      "type": "string"
+    },
+    "SpaceResult": {
+      "properties": {
+        "space": {
+          "$ref": "#/$defs/Space"
+        }
+      },
+      "required": [
+        "space"
+      ],
+      "type": "object"
+    },
+    "SpaceSummary": {
+      "additionalProperties": false,
+      "properties": {
+        "id": {
+          "description": "ULID in production",
+          "maxLength": 64,
+          "minLength": 1,
+          "type": "string"
+        },
+        "name": {
+          "maxLength": 60,
+          "minLength": 1,
+          "type": "string"
+        },
+        "description": {
+          "anyOf": [
+            {
+              "maxLength": 160,
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "icon": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "entityId": {
+          "anyOf": [
+            {
+              "description": "ULID in production",
+              "maxLength": 64,
+              "minLength": 1,
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "private": {
+          "type": "boolean"
+        },
+        "sort": {
+          "type": "integer"
+        },
+        "archivedAt": {
+          "anyOf": [
+            {
+              "description": "ISO-8601 timestamp (UTC)",
+              "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}(\\.\\d{1,9})?(Z|[+-]\\d{2}:\\d{2})$",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "counts": {
+          "$ref": "#/$defs/SpaceCounts"
+        },
+        "lastActivityAt": {
+          "anyOf": [
+            {
+              "description": "ISO-8601 timestamp (UTC)",
+              "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}(\\.\\d{1,9})?(Z|[+-]\\d{2}:\\d{2})$",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        }
+      },
+      "required": [
+        "id",
+        "name",
+        "private",
+        "sort",
+        "counts"
+      ],
+      "type": "object"
+    },
+    "SpaceTracker": {
+      "additionalProperties": false,
+      "properties": {
+        "widgetId": {
+          "description": "ULID in production",
+          "maxLength": 64,
+          "minLength": 1,
+          "type": "string"
+        },
+        "position": {
+          "minimum": 0,
+          "type": "integer"
+        },
+        "kind": {
+          "$ref": "#/$defs/SpaceTrackerKind"
+        },
+        "staleAfterS": {
+          "anyOf": [
+            {
+              "minimum": 1,
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "refreshedAt": {
+          "anyOf": [
+            {
+              "description": "ISO-8601 timestamp (UTC)",
+              "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}(\\.\\d{1,9})?(Z|[+-]\\d{2}:\\d{2})$",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "addedBy": {
+          "enum": [
+            "owner",
+            "agent",
+            "template"
+          ],
+          "type": "string"
+        },
+        "createdAt": {
+          "description": "ISO-8601 timestamp (UTC)",
+          "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}(\\.\\d{1,9})?(Z|[+-]\\d{2}:\\d{2})$",
+          "type": "string"
+        },
+        "taint": {
+          "items": {
+            "$ref": "#/$defs/TaintSource"
+          },
+          "type": "array"
+        }
+      },
+      "required": [
+        "widgetId",
+        "position",
+        "kind",
+        "addedBy",
+        "createdAt"
+      ],
+      "type": "object"
+    },
+    "SpaceTrackerKind": {
+      "enum": [
+        "bound",
+        "query",
+        "agent"
+      ],
+      "type": "string"
+    },
+    "SpaceTrackerRefreshedPayload": {
+      "properties": {
+        "spaceId": {
+          "description": "ULID in production",
+          "maxLength": 64,
+          "minLength": 1,
+          "type": "string"
+        },
+        "widgetId": {
+          "description": "ULID in production",
+          "maxLength": 64,
+          "minLength": 1,
+          "type": "string"
+        },
+        "refreshedAt": {
+          "description": "ISO-8601 timestamp (UTC)",
+          "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}(\\.\\d{1,9})?(Z|[+-]\\d{2}:\\d{2})$",
+          "type": "string"
+        }
+      },
+      "required": [
+        "spaceId",
+        "widgetId",
+        "refreshedAt"
+      ],
+      "type": "object"
+    },
+    "SpaceTrackerTemplate": {
+      "enum": [
+        "work_due",
+        "next_events",
+        "recent_files",
+        "mail_on_this",
+        "checklist",
+        "automation_status"
+      ],
+      "type": "string"
+    },
+    "SpaceTrackerValue": {
+      "additionalProperties": false,
+      "properties": {
+        "widgetId": {
+          "description": "ULID in production",
+          "maxLength": 64,
+          "minLength": 1,
+          "type": "string"
+        },
+        "refreshedAt": {
+          "description": "ISO-8601 timestamp (UTC)",
+          "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}(\\.\\d{1,9})?(Z|[+-]\\d{2}:\\d{2})$",
+          "type": "string"
+        },
+        "stale": {
+          "type": "boolean"
+        },
+        "unavailable": {
+          "description": "The source is gone",
+          "type": "boolean"
+        },
+        "source": {
+          "description": "e.g. \"mail\", for \"Updated 2h ago · from mail\"",
+          "type": "string"
+        }
+      },
+      "required": [
+        "widgetId",
+        "refreshedAt",
+        "stale"
+      ],
+      "type": "object"
+    },
+    "SpaceUpdatedPayload": {
+      "properties": {
+        "spaceId": {
+          "description": "ULID in production",
+          "maxLength": 64,
+          "minLength": 1,
+          "type": "string"
+        },
+        "changed": {
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
+        }
+      },
+      "required": [
+        "spaceId",
+        "changed"
+      ],
+      "type": "object"
+    },
+    "SpacesArchiveParams": {
+      "properties": {
+        "spaceId": {
+          "description": "ULID in production",
+          "maxLength": 64,
+          "minLength": 1,
+          "type": "string"
+        }
+      },
+      "required": [
+        "spaceId"
+      ],
+      "type": "object"
+    },
+    "SpacesAutomationsMoveParams": {
+      "properties": {
+        "automationIds": {
+          "items": {
+            "description": "ULID in production",
+            "maxLength": 64,
+            "minLength": 1,
+            "type": "string"
+          },
+          "maxItems": 50,
+          "minItems": 1,
+          "type": "array"
+        },
+        "spaceId": {
+          "anyOf": [
+            {
+              "description": "ULID in production",
+              "maxLength": 64,
+              "minLength": 1,
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        }
+      },
+      "required": [
+        "automationIds"
+      ],
+      "type": "object"
+    },
+    "SpacesAutomationsMoveResult": {
+      "properties": {
+        "moved": {
+          "minimum": 0,
+          "type": "integer"
+        }
+      },
+      "required": [
+        "moved"
+      ],
+      "type": "object"
+    },
+    "SpacesContextPreviewParams": {
+      "properties": {
+        "spaceId": {
+          "description": "ULID in production",
+          "maxLength": 64,
+          "minLength": 1,
+          "type": "string"
+        },
+        "threadId": {
+          "description": "ULID in production",
+          "maxLength": 64,
+          "minLength": 1,
+          "type": "string"
+        }
+      },
+      "required": [
+        "spaceId"
+      ],
+      "type": "object"
+    },
+    "SpacesContextPreviewResult": {
+      "properties": {
+        "sections": {
+          "items": {
+            "$ref": "#/$defs/SpaceContextSection"
+          },
+          "type": "array"
+        }
+      },
+      "required": [
+        "sections"
+      ],
+      "type": "object"
+    },
+    "SpacesCreateParams": {
+      "properties": {
+        "name": {
+          "maxLength": 60,
+          "minLength": 1,
+          "type": "string"
+        },
+        "description": {
+          "maxLength": 160,
+          "type": "string"
+        },
+        "icon": {
+          "maxLength": 40,
+          "minLength": 1,
+          "type": "string"
+        },
+        "instructions": {
+          "maxLength": 4000,
+          "type": "string"
+        },
+        "entityId": {
+          "description": "ULID in production",
+          "maxLength": 64,
+          "minLength": 1,
+          "type": "string"
+        }
+      },
+      "required": [
+        "name"
+      ],
+      "type": "object"
+    },
+    "SpacesDeleteParams": {
+      "properties": {
+        "spaceId": {
+          "description": "ULID in production",
+          "maxLength": 64,
+          "minLength": 1,
+          "type": "string"
+        }
+      },
+      "required": [
+        "spaceId"
+      ],
+      "type": "object"
+    },
+    "SpacesFoldersAddParams": {
+      "properties": {
+        "spaceId": {
+          "description": "ULID in production",
+          "maxLength": 64,
+          "minLength": 1,
+          "type": "string"
+        },
+        "path": {
+          "description": "Omit on the Host to open the native picker",
+          "minLength": 1,
+          "type": "string"
+        },
+        "mode": {
+          "enum": [
+            "ro",
+            "rw"
+          ],
+          "type": "string"
+        }
+      },
+      "required": [
+        "spaceId"
+      ],
+      "type": "object"
+    },
+    "SpacesFoldersRemoveParams": {
+      "properties": {
+        "spaceId": {
+          "description": "ULID in production",
+          "maxLength": 64,
+          "minLength": 1,
+          "type": "string"
+        },
+        "path": {
+          "minLength": 1,
+          "type": "string"
+        }
+      },
+      "required": [
+        "spaceId",
+        "path"
+      ],
+      "type": "object"
+    },
+    "SpacesFoldersSetModeParams": {
+      "properties": {
+        "spaceId": {
+          "description": "ULID in production",
+          "maxLength": 64,
+          "minLength": 1,
+          "type": "string"
+        },
+        "path": {
+          "minLength": 1,
+          "type": "string"
+        },
+        "mode": {
+          "enum": [
+            "ro",
+            "rw"
+          ],
+          "type": "string"
+        }
+      },
+      "required": [
+        "spaceId",
+        "path",
+        "mode"
+      ],
+      "type": "object"
+    },
+    "SpacesGetParams": {
+      "properties": {
+        "spaceId": {
+          "description": "ULID in production",
+          "maxLength": 64,
+          "minLength": 1,
+          "type": "string"
+        }
+      },
+      "required": [
+        "spaceId"
+      ],
+      "type": "object"
+    },
+    "SpacesLinksAddParams": {
+      "properties": {
+        "spaceId": {
+          "description": "ULID in production",
+          "maxLength": 64,
+          "minLength": 1,
+          "type": "string"
+        },
+        "kind": {
+          "$ref": "#/$defs/SpaceLinkKind"
+        },
+        "ref": {
+          "minLength": 1,
+          "type": "string"
+        },
+        "label": {
+          "maxLength": 120,
+          "minLength": 1,
+          "type": "string"
+        }
+      },
+      "required": [
+        "spaceId",
+        "kind",
+        "ref",
+        "label"
+      ],
+      "type": "object"
+    },
+    "SpacesLinksAddResult": {
+      "properties": {
+        "link": {
+          "$ref": "#/$defs/SpaceLink"
+        }
+      },
+      "required": [
+        "link"
+      ],
+      "type": "object"
+    },
+    "SpacesLinksRemoveParams": {
+      "properties": {
+        "spaceId": {
+          "description": "ULID in production",
+          "maxLength": 64,
+          "minLength": 1,
+          "type": "string"
+        },
+        "linkId": {
+          "description": "ULID in production",
+          "maxLength": 64,
+          "minLength": 1,
+          "type": "string"
+        }
+      },
+      "required": [
+        "spaceId",
+        "linkId"
+      ],
+      "type": "object"
+    },
+    "SpacesListParams": {
+      "properties": {
+        "archived": {
+          "type": "boolean"
+        }
+      },
+      "type": "object"
+    },
+    "SpacesListResult": {
+      "properties": {
+        "spaces": {
+          "items": {
+            "$ref": "#/$defs/SpaceSummary"
+          },
+          "type": "array"
+        }
+      },
+      "required": [
+        "spaces"
+      ],
+      "type": "object"
+    },
+    "SpacesOpenParams": {
+      "properties": {
+        "spaceId": {
+          "description": "ULID in production",
+          "maxLength": 64,
+          "minLength": 1,
+          "type": "string"
+        }
+      },
+      "required": [
+        "spaceId"
+      ],
+      "type": "object"
+    },
+    "SpacesOpenResult": {
+      "properties": {
+        "trackers": {
+          "items": {
+            "$ref": "#/$defs/SpaceTrackerValue"
+          },
+          "type": "array"
+        }
+      },
+      "required": [
+        "trackers"
+      ],
+      "type": "object"
+    },
+    "SpacesProposalsAcceptParams": {
+      "properties": {
+        "proposalId": {
+          "description": "ULID in production",
+          "maxLength": 64,
+          "minLength": 1,
+          "type": "string"
+        },
+        "name": {
+          "maxLength": 60,
+          "minLength": 1,
+          "type": "string"
+        }
+      },
+      "required": [
+        "proposalId"
+      ],
+      "type": "object"
+    },
+    "SpacesProposalsDismissParams": {
+      "properties": {
+        "proposalId": {
+          "description": "ULID in production",
+          "maxLength": 64,
+          "minLength": 1,
+          "type": "string"
+        }
+      },
+      "required": [
+        "proposalId"
+      ],
+      "type": "object"
+    },
+    "SpacesProposalsListParams": {
+      "properties": {
+        "status": {
+          "const": "open",
+          "type": "string"
+        }
+      },
+      "type": "object"
+    },
+    "SpacesProposalsListResult": {
+      "properties": {
+        "proposals": {
+          "items": {
+            "$ref": "#/$defs/SpaceProposal"
+          },
+          "type": "array"
+        }
+      },
+      "required": [
+        "proposals"
+      ],
+      "type": "object"
+    },
+    "SpacesRestoreParams": {
+      "properties": {
+        "spaceId": {
+          "description": "ULID in production",
+          "maxLength": 64,
+          "minLength": 1,
+          "type": "string"
+        }
+      },
+      "required": [
+        "spaceId"
+      ],
+      "type": "object"
+    },
+    "SpacesSettingsSetParams": {
+      "properties": {
+        "spaceId": {
+          "description": "ULID in production",
+          "maxLength": 64,
+          "minLength": 1,
+          "type": "string"
+        },
+        "defaultPermissionMode": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/PermissionMode"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "connectorScope": {
+          "anyOf": [
+            {
+              "items": {
+                "minLength": 1,
+                "type": "string"
+              },
+              "maxItems": 100,
+              "type": "array"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "automationsWrite": {
+          "description": "Per folder: unattended runs may write here (SP8)",
+          "items": {
+            "properties": {
+              "path": {
+                "minLength": 1,
+                "type": "string"
+              },
+              "allow": {
+                "type": "boolean"
+              }
+            },
+            "required": [
+              "path",
+              "allow"
+            ],
+            "type": "object"
+          },
+          "maxItems": 100,
+          "type": "array"
+        }
+      },
+      "required": [
+        "spaceId"
+      ],
+      "type": "object"
+    },
+    "SpacesThreadsMoveParams": {
+      "properties": {
+        "threadIds": {
+          "items": {
+            "description": "ULID in production",
+            "maxLength": 64,
+            "minLength": 1,
+            "type": "string"
+          },
+          "maxItems": 50,
+          "minItems": 1,
+          "type": "array"
+        },
+        "spaceId": {
+          "anyOf": [
+            {
+              "description": "ULID in production",
+              "maxLength": 64,
+              "minLength": 1,
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        }
+      },
+      "required": [
+        "threadIds"
+      ],
+      "type": "object"
+    },
+    "SpacesThreadsMoveResult": {
+      "properties": {
+        "moved": {
+          "minimum": 0,
+          "type": "integer"
+        }
+      },
+      "required": [
+        "moved"
+      ],
+      "type": "object"
+    },
+    "SpacesTrackersAddParams": {
+      "properties": {
+        "spaceId": {
+          "description": "ULID in production",
+          "maxLength": 64,
+          "minLength": 1,
+          "type": "string"
+        },
+        "widgetId": {
+          "description": "ULID in production",
+          "maxLength": 64,
+          "minLength": 1,
+          "type": "string"
+        },
+        "template": {
+          "$ref": "#/$defs/SpaceTrackerTemplate"
+        }
+      },
+      "required": [
+        "spaceId"
+      ],
+      "type": "object"
+    },
+    "SpacesTrackersRefreshParams": {
+      "properties": {
+        "spaceId": {
+          "description": "ULID in production",
+          "maxLength": 64,
+          "minLength": 1,
+          "type": "string"
+        },
+        "widgetId": {
+          "description": "ULID in production",
+          "maxLength": 64,
+          "minLength": 1,
+          "type": "string"
+        }
+      },
+      "required": [
+        "spaceId",
+        "widgetId"
+      ],
+      "type": "object"
+    },
+    "SpacesTrackersRefreshResult": {
+      "properties": {
+        "tracker": {
+          "$ref": "#/$defs/SpaceTrackerValue"
+        }
+      },
+      "required": [
+        "tracker"
+      ],
+      "type": "object"
+    },
+    "SpacesTrackersRemoveParams": {
+      "properties": {
+        "spaceId": {
+          "description": "ULID in production",
+          "maxLength": 64,
+          "minLength": 1,
+          "type": "string"
+        },
+        "widgetId": {
+          "description": "ULID in production",
+          "maxLength": 64,
+          "minLength": 1,
+          "type": "string"
+        }
+      },
+      "required": [
+        "spaceId",
+        "widgetId"
+      ],
+      "type": "object"
+    },
+    "SpacesTrackersReorderParams": {
+      "properties": {
+        "spaceId": {
+          "description": "ULID in production",
+          "maxLength": 64,
+          "minLength": 1,
+          "type": "string"
+        },
+        "widgetIds": {
+          "items": {
+            "description": "ULID in production",
+            "maxLength": 64,
+            "minLength": 1,
+            "type": "string"
+          },
+          "maxItems": 12,
+          "type": "array"
+        }
+      },
+      "required": [
+        "spaceId",
+        "widgetIds"
+      ],
+      "type": "object"
+    },
+    "SpacesUpdateParams": {
+      "properties": {
+        "spaceId": {
+          "description": "ULID in production",
+          "maxLength": 64,
+          "minLength": 1,
+          "type": "string"
+        },
+        "name": {
+          "maxLength": 60,
+          "minLength": 1,
+          "type": "string"
+        },
+        "description": {
+          "anyOf": [
+            {
+              "maxLength": 160,
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "icon": {
+          "anyOf": [
+            {
+              "maxLength": 40,
+              "minLength": 1,
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "instructions": {
+          "maxLength": 4000,
+          "type": "string"
+        },
+        "entityId": {
+          "anyOf": [
+            {
+              "description": "ULID in production",
+              "maxLength": 64,
+              "minLength": 1,
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "private": {
+          "type": "boolean"
+        },
+        "sort": {
+          "type": "integer"
+        }
+      },
+      "required": [
+        "spaceId"
+      ],
+      "type": "object"
+    },
     "SpecialistAutomation": {
       "properties": {
         "id": {
@@ -44607,6 +47029,108 @@
         "downloads"
       ],
       "type": "string"
+    },
+    "StorageCategory": {
+      "properties": {
+        "id": {
+          "$ref": "#/$defs/StorageCategoryId"
+        },
+        "bytes": {
+          "minimum": 0,
+          "type": "integer"
+        },
+        "clearable": {
+          "type": "boolean"
+        },
+        "reclaimableBytes": {
+          "minimum": 0,
+          "type": "integer"
+        }
+      },
+      "required": [
+        "id",
+        "bytes",
+        "clearable"
+      ],
+      "type": "object"
+    },
+    "StorageCategoryId": {
+      "enum": [
+        "database",
+        "memoryIndex",
+        "library",
+        "browserProfiles",
+        "recordings",
+        "logs",
+        "caches",
+        "other"
+      ],
+      "type": "string"
+    },
+    "StorageClearCacheParams": {
+      "properties": {
+        "targets": {
+          "items": {
+            "$ref": "#/$defs/StorageClearTarget"
+          },
+          "maxItems": 2,
+          "minItems": 1,
+          "type": "array"
+        }
+      },
+      "type": "object"
+    },
+    "StorageClearTarget": {
+      "enum": [
+        "caches",
+        "recordings"
+      ],
+      "type": "string"
+    },
+    "StorageCleared": {
+      "properties": {
+        "cleared": {
+          "items": {
+            "$ref": "#/$defs/StorageClearTarget"
+          },
+          "type": "array"
+        },
+        "freedBytes": {
+          "minimum": 0,
+          "type": "integer"
+        }
+      },
+      "required": [
+        "cleared",
+        "freedBytes"
+      ],
+      "type": "object"
+    },
+    "StorageUsage": {
+      "properties": {
+        "categories": {
+          "items": {
+            "$ref": "#/$defs/StorageCategory"
+          },
+          "type": "array"
+        },
+        "totalBytes": {
+          "minimum": 0,
+          "type": "integer"
+        },
+        "partial": {
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "categories",
+        "totalBytes"
+      ],
+      "type": "object"
+    },
+    "StorageUsageParams": {
+      "properties": {},
+      "type": "object"
     },
     "SurfaceAnswerToken": {
       "minLength": 1,
@@ -46553,6 +49077,22 @@
         },
         "userCreated": {
           "type": "boolean"
+        },
+        "imported": {
+          "$ref": "#/$defs/ThreadImportSource"
+        },
+        "spaceId": {
+          "anyOf": [
+            {
+              "description": "ULID in production",
+              "maxLength": 64,
+              "minLength": 1,
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ]
         }
       },
       "required": [
@@ -46709,6 +49249,68 @@
         "threadId"
       ],
       "type": "object"
+    },
+    "ThreadImportFormat": {
+      "enum": [
+        "claude",
+        "chatgpt"
+      ],
+      "type": "string"
+    },
+    "ThreadImportResult": {
+      "properties": {
+        "imported": {
+          "minimum": 0,
+          "type": "integer"
+        },
+        "duplicates": {
+          "minimum": 0,
+          "type": "integer"
+        },
+        "skipped": {
+          "items": {
+            "properties": {
+              "title": {
+                "type": "string"
+              },
+              "reason": {
+                "enum": [
+                  "too_many",
+                  "too_large",
+                  "empty",
+                  "invalid"
+                ],
+                "type": "string"
+              }
+            },
+            "required": [
+              "title",
+              "reason"
+            ],
+            "type": "object"
+          },
+          "maxItems": 500,
+          "type": "array"
+        },
+        "skippedMore": {
+          "minimum": 0,
+          "type": "integer"
+        }
+      },
+      "required": [
+        "imported",
+        "duplicates",
+        "skipped",
+        "skippedMore"
+      ],
+      "type": "object"
+    },
+    "ThreadImportSource": {
+      "enum": [
+        "claude",
+        "chatgpt"
+      ],
+      "type": "string"
     },
     "ThreadKind": {
       "enum": [
@@ -46902,6 +49504,12 @@
           "maxLength": 64,
           "minLength": 1,
           "type": "string"
+        },
+        "spaceId": {
+          "description": "ULID in production",
+          "maxLength": 64,
+          "minLength": 1,
+          "type": "string"
         }
       },
       "type": "object"
@@ -46960,6 +49568,26 @@
       ],
       "type": "object"
     },
+    "ThreadsImportParams": {
+      "properties": {
+        "format": {
+          "$ref": "#/$defs/ThreadImportFormat"
+        },
+        "content": {
+          "maxLength": 330000,
+          "minLength": 2,
+          "type": "string"
+        },
+        "dryRun": {
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "format",
+        "content"
+      ],
+      "type": "object"
+    },
     "ThreadsListParams": {
       "properties": {
         "kind": {
@@ -46970,6 +49598,12 @@
         },
         "pinnedOnly": {
           "type": "boolean"
+        },
+        "spaceId": {
+          "description": "ULID in production",
+          "maxLength": 64,
+          "minLength": 1,
+          "type": "string"
         },
         "query": {
           "description": "Case-insensitive substring match on the title",
@@ -47033,6 +49667,12 @@
           ]
         },
         "preferThreadId": {
+          "description": "ULID in production",
+          "maxLength": 64,
+          "minLength": 1,
+          "type": "string"
+        },
+        "spaceId": {
           "description": "ULID in production",
           "maxLength": 64,
           "minLength": 1,
@@ -47135,6 +49775,41 @@
       "required": [
         "limits",
         "threadLimits"
+      ],
+      "type": "object"
+    },
+    "ThreadsSummaryPinsRemoveParams": {
+      "properties": {
+        "threadId": {
+          "description": "ULID in production",
+          "maxLength": 64,
+          "minLength": 1,
+          "type": "string"
+        },
+        "pinId": {
+          "pattern": "^[0-9a-f]{16}$",
+          "type": "string"
+        }
+      },
+      "required": [
+        "threadId",
+        "pinId"
+      ],
+      "type": "object"
+    },
+    "ThreadsSummaryPinsRemoveResult": {
+      "properties": {
+        "pinnedInstructions": {
+          "items": {
+            "maxLength": 500,
+            "type": "string"
+          },
+          "maxItems": 40,
+          "type": "array"
+        }
+      },
+      "required": [
+        "pinnedInstructions"
       ],
       "type": "object"
     },
@@ -49129,7 +51804,8 @@
         "subagents",
         "artifact",
         "vm",
-        "sidechat"
+        "sidechat",
+        "computer-watch"
       ],
       "type": "string"
     },
@@ -50712,6 +53388,9 @@
       "properties": {
         "closeApps": {
           "type": "boolean"
+        },
+        "force": {
+          "type": "boolean"
         }
       },
       "type": "object"
@@ -50796,6 +53475,19 @@
         },
         "pinned": {
           "type": "boolean"
+        },
+        "spaceId": {
+          "anyOf": [
+            {
+              "description": "ULID in production",
+              "maxLength": 64,
+              "minLength": 1,
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ]
         },
         "createdAt": {
           "description": "ISO-8601 timestamp (UTC)",
@@ -50972,7 +53664,13 @@
         "automation",
         "research",
         "tool_call",
-        "job"
+        "job",
+        "entity",
+        "work_due",
+        "calendar",
+        "reminders",
+        "mail",
+        "files"
       ],
       "type": "string"
     },

@@ -554,6 +554,17 @@ describe("Psyche's own files and CLI credentials are never file targets (#285)",
       `${H}/.aws/credentials`,
       `${H}/Library/Application Support/Google/Chrome/Default/Login Data`,
       "/home/o/.ssh/id_ed25519",
+      // Developer CLI tokens (review of #1294, round 7).
+      `${H}/.config/glab-cli/config.yml`,
+      `${H}/.config/op/config`,
+      `${H}/.op/config`,
+      `${H}/.azure/msal_token_cache.json`,
+      `${H}/.config/doctl/config.yaml`,
+      `${H}/.config/hub`,
+      `${H}/Library/Application Support/doctl/config.yaml`,
+      `${H}/Library/Application Support/glab-cli/config.yml`,
+      "/home/o/.azure/accessTokens.json",
+      "/home/o/.config/glab-cli/config.yml",
     ]) {
       const d = await h.broker.decide(at("read_file", "read", p), CTX);
       expect(d.decision, p).toBe("deny");

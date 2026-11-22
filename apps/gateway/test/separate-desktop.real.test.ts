@@ -1,7 +1,7 @@
 import { execFileSync } from "node:child_process";
 import { existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
-import { join } from "node:path";
+import { dirname, join } from "node:path";
 import { listDevices } from "@psyche/db";
 import type { PermissionBroker } from "@psyche/protocol";
 import { DesktopContainers } from "@psyche/sandbox";
@@ -39,6 +39,108 @@ const exec = (cmd: string): { code: number; out: string } => {
     const err = e as { status?: number; stdout?: string; stderr?: string };
     return { code: err.status ?? 1, out: `${err.stdout ?? ""}${err.stderr ?? ""}` };
   }
+};
+
+/** Writes `text` to `path` inside the container (as the app user), through base64. */
+const put = (path: string, text: string): void => {
+  const r = exec(`echo ${Buffer.from(text).toString("base64")} | /usr/bin/base64 -d > ${path}`);
+  if (r.code !== 0) throw new Error(`could not write ${path}: ${r.out}`);
+};
+const LOGIN_MARKER = "kept-by-the-allowlist-7f3a";
+const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
+
+/**
+ * Planted app state that runs a program, and the proof that it does: LibreOffice binds the
+ * application event OnStartApp to `macro:///` (which neither MacroSecurityLevel nor
+ * DisableMacrosExecution gates) and Firefox opens a MIME type with /usr/bin/python3 without asking.
+ * Each plant is first run in a profile that is read as planted (the control: it must run), then a
+ * later start must not run it.
+ */
+const LO_PROFILE = "/workspace/.config/libreoffice/4";
+const LO_MODULE = `<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE script:module PUBLIC "-//OpenOffice.org//DTD OfficeDocument 1.0//EN" "module.dtd">
+<script:module xmlns:script="http://openoffice.org/2000/script" script:name="Module1" script:language="StarBasic">
+Sub AppStart
+  Dim f As Integer
+  f = FreeFile
+  Open "/workspace/lo-app-start-ran" For Output As #f
+  Print #f, "ran"
+  Close #f
+  Shell("/usr/bin/touch", 0, "/workspace/lo-shell-ran", True)
+End Sub
+</script:module>
+`;
+const LO_BINDING =
+  '<item oor:path="/org.openoffice.Office.Common/Security/Scripting"><prop oor:name="DisableMacrosExecution" oor:op="fuse"><value>false</value></prop></item>' +
+  '<item oor:path="/org.openoffice.Office.Events/ApplicationEvents/Bindings"><node oor:name="OnStartApp" oor:op="replace"><prop oor:name="BindingURL" oor:op="fuse"><value>macro:///Standard.Module1.AppStart</value></prop></node></item>';
+const soffice = (profile: string | null, doc: string) =>
+  exec(
+    `/usr/bin/timeout -s KILL 90 /usr/bin/soffice --headless --norestore --convert-to pdf --outdir /tmp ${
+      profile ? `-env:UserInstallation=file://${profile} ` : ""
+    }${doc}`,
+  );
+const LO_MARKERS = "/workspace/lo-app-start-ran /workspace/lo-shell-ran";
+
+const FF_PAYLOAD = "open('/workspace/ff-handler-ran','w').write('x')\\n";
+const FF_PROXY = String.raw`import socket
+s = socket.socket(); s.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
+s.bind(("127.0.0.1", 3128)); s.listen(50)
+body = b"${FF_PAYLOAD}"
+while True:
+    c, _ = s.accept(); c.settimeout(2)
+    try:
+        d = c.recv(4096).split(b"\r\n")[0]
+        if b"payload.invalid" in d:
+            open("/workspace/ff-page-requested", "w").write("x")
+        if b"payload.invalid" in d:
+            c.sendall(b"HTTP/1.1 200 OK\r\nContent-Type: application/x-psyche-probe\r\nContent-Disposition: attachment; filename=payload.py\r\nContent-Length: %d\r\nConnection: close\r\n\r\n" % len(body) + body)
+        else:
+            c.sendall(b"HTTP/1.1 404 Not Found\r\nContent-Length: 0\r\nConnection: close\r\n\r\n")
+    except Exception:
+        pass
+    c.close()
+`;
+const FF_HANDLERS = JSON.stringify({
+  defaultHandlersVersion: {},
+  isDownloadsImprovementsAlreadyMigrated: true,
+  mimeTypes: {
+    "application/x-psyche-probe": {
+      action: 2,
+      ask: false,
+      handlers: [{ name: "python3", path: "/usr/bin/python3" }],
+      extensions: ["py"],
+    },
+  },
+  schemes: {},
+});
+/**
+ * Opens the probe URL in Firefox's default profile, with a stand-in proxy that serves the type.
+ * `loaded`: Firefox requested the page (so it works at all in this container); `ran`: the planted
+ * handler ran python3 on the download.
+ */
+const firefoxFetchesPayload = async (): Promise<{ loaded: boolean; ran: boolean }> => {
+  put("/workspace/ff-proxy.py", FF_PROXY);
+  exec("rm -f /workspace/ff-page-requested /workspace/ff-handler-ran");
+  exec("nohup /usr/bin/python3 -I /workspace/ff-proxy.py > /tmp/ff-proxy.log 2>&1 &");
+  exec(
+    "GNOME_ACCESSIBILITY=0 NO_AT_BRIDGE=1 DISPLAY=:1 nohup /usr/bin/firefox-esr --no-remote http://payload.invalid/x > /tmp/ff-probe.log 2>&1 &",
+  );
+  const seen = (f: string) => exec(`test -e ${f} && echo y || echo n`).out.trim() === "y";
+  let loadedAt = 0;
+  for (let i = 0; i < 25; i++) {
+    await sleep(2000);
+    if (seen("/workspace/ff-handler-ran")) break;
+    if (!loadedAt && seen("/workspace/ff-page-requested")) loadedAt = i;
+    // A handler would run within seconds of the download: give it 12 s after the page loaded.
+    if (loadedAt && i - loadedAt >= 6) break;
+  }
+  const out = {
+    loaded: seen("/workspace/ff-page-requested"),
+    ran: seen("/workspace/ff-handler-ran"),
+  };
+  exec("/usr/bin/pkill -x 'firefox.*'; /usr/bin/pkill -x python3");
+  await sleep(2000);
+  return out;
 };
 
 /** The broker's `get`, over cards this test approves as the owner would. */
@@ -166,7 +268,10 @@ describe.skipIf(!REAL)("a real separate desktop", () => {
     // Apps keep their profile in the workspace: HOME is /workspace, not the host user's home.
     expect(exec("echo $HOME").out.trim()).toBe("/workspace");
     expect(exec("echo $XDG_DATA_DIRS:$XDG_CONFIG_DIRS").out.trim()).toBe("/usr/share:/etc/xdg");
-    expect(exec("grep CapEff /proc/self/status").out).toMatch(/CapEff:\s*0+$/m);
+    // Only CAP_SYS_CHROOT (bit 18, 0x40000) is left, for Firefox's content sandbox.
+    expect(exec("grep -E 'CapEff|CapBnd' /proc/self/status").out).toMatch(
+      /CapEff:\s*0*(40000)?\nCapBnd:\s*0*40000$/m,
+    );
     expect(exec("ls /sys/class/net").out.trim()).toBe("lo");
     expect(exec("test -e /home/dev && echo yes || echo no").out.trim()).toBe("no");
     expect(exec("touch /etc/psyche-test").code).not.toBe(0);
@@ -227,6 +332,75 @@ describe.skipIf(!REAL)("a real separate desktop", () => {
       "clean",
     );
 
+    // LibreOffice: a profile planted at the default place before the fix, with an OnStartApp
+    // binding to a Basic macro that also runs Shell(). Control: read as the profile, it runs.
+    expect(
+      exec("mkdir -p /workspace/lo-docs && echo hello > /workspace/lo-docs/plain.txt").code,
+    ).toBe(0);
+    soffice(LO_PROFILE, "/workspace/lo-docs/plain.txt");
+    put(`${LO_PROFILE}/user/basic/Standard/Module1.xba`, LO_MODULE);
+    put("/workspace/lo-binding.xml", LO_BINDING);
+    expect(
+      exec(
+        `/usr/bin/python3 -I -c "import sys; f=sys.argv[1]; s=open(f).read(); open(f,'w').write(s.replace('</oor:items>', open(sys.argv[2]).read()+'</oor:items>'))" ${LO_PROFILE}/user/registrymodifications.xcu /workspace/lo-binding.xml`,
+      ).code,
+    ).toBe(0);
+    soffice(LO_PROFILE, "/workspace/lo-docs/plain.txt");
+    expect(
+      exec(`ls ${LO_MARKERS}`).out.split(/\s+/).filter(Boolean).sort(),
+      "control: the planted LibreOffice profile does run when it is read",
+    ).toEqual(LO_MARKERS.split(" ").sort());
+    exec(`rm -f ${LO_MARKERS}`);
+    // Firefox: a handler that runs python3 on a download, prefs that relax extension checks, an
+    // extension, userChrome, and a login that must survive. Control: it runs when read.
+    exec(
+      "DISPLAY=:1 nohup /usr/bin/firefox-esr --no-remote about:blank > /tmp/firefox-a.log 2>&1 &",
+    );
+    await sleep(12_000);
+    exec("/usr/bin/pkill -x 'firefox.*'");
+    await sleep(2000);
+    const profile = dirname(
+      exec(
+        "/usr/bin/find /workspace/.config/mozilla /workspace/.mozilla -name times.json 2>/dev/null | head -1",
+      ).out.trim(),
+    );
+    expect(profile, "Firefox created a profile in the workspace").toMatch(/^\/workspace\//);
+    put(`${profile}/handlers.json`, FF_HANDLERS);
+    put(`${profile}/user.js`, 'user_pref("xpinstall.signatures.required", false);\n');
+    put(`${profile}/logins.json`, `{"nextId":1,"logins":[],"psycheMarker":"${LOGIN_MARKER}"}`);
+    expect(
+      exec(
+        `mkdir -p ${profile}/extensions ${profile}/chrome && echo x > ${profile}/extensions/x.xpi && echo x > ${profile}/chrome/userChrome.css`,
+      ).code,
+    ).toBe(0);
+    const ffControl = await firefoxFetchesPayload();
+    expect(
+      ffControl,
+      "control: Firefox loads the page and the planted handler runs python3",
+    ).toEqual({
+      loaded: true,
+      ran: true,
+    });
+    exec("rm -f /workspace/ff-handler-ran");
+    // (the planted files must be back after the control run rewrote the profile)
+    put(`${profile}/handlers.json`, FF_HANDLERS);
+    // Bypasses of a sweep that skips links and unreadable folders: the old root a link into the
+    // workspace (F2), a profile folder that is a link (F3), a profile folder with mode 0300 (F6),
+    // and a 0500 folder under the LibreOffice profile (it must not block the next start).
+    const profilesDir = dirname(profile);
+    expect(
+      exec(
+        "mkdir -p /workspace/ffdecoy/firefox/evil.default /workspace/ffdecoy3 " +
+          `${profilesDir}/evil6.default /workspace/.config/libreoffice/locked/sub && ` +
+          `echo '${FF_HANDLERS}' > /workspace/ffdecoy/firefox/evil.default/handlers.json && ` +
+          `echo '${FF_HANDLERS}' > /workspace/ffdecoy3/handlers.json && ` +
+          `echo '${FF_HANDLERS}' > ${profilesDir}/evil6.default/handlers.json && ` +
+          `ln -s /workspace/ffdecoy3 ${profilesDir}/evil3.default && ` +
+          "ln -s /workspace/ffdecoy /workspace/.mozilla && " +
+          `chmod 0300 ${profilesDir}/evil6.default && chmod 0500 /workspace/.config/libreoffice/locked`,
+      ).code,
+    ).toBe(0);
+
     await sd.release("real-A", { force: true });
     expect(podman("ps", "--all", "--format", "{{.Names}}").trim()).toBe("");
 
@@ -271,10 +445,78 @@ describe.skipIf(!REAL)("a real separate desktop", () => {
     expect(exec("test -e /workspace/x.py && echo planted || echo missing").out.trim()).toBe(
       "planted",
     );
-    // The image's own services still activate (the folder it lists works).
+    // The image's own services still activate: an activatable name nobody owns yet (the dconf
+    // service) is started from the folder the bus does list.
+    expect(exec(`${bus} --dest=ca.desrt.dconf / org.freedesktop.DBus.Peer.Ping`).code).toBe(0);
+
+    // The daemons the Gateway trusts run with a home under /tmp; the rest keeps /workspace.
+    const homeOf = (comm: string) =>
+      exec(
+        `for p in /proc/[0-9]*; do read c < $p/comm; if [ "$c" = "${comm}" ]; then /usr/bin/grep -a -o -E '(HOME|XDG_[A-Z]+_HOME)=[^[:cntrl:]]*' $p/environ; fi; done`,
+      ).out;
+    for (const daemon of ["dbus-daemon", "Xvfb", "at-spi-bus-laun"]) {
+      const env = homeOf(daemon);
+      expect(env, daemon).toContain("HOME=/tmp/trusted-home");
+      expect(env, daemon).toContain("XDG_DATA_HOME=/tmp/trusted-home/data");
+      expect(env, daemon).toContain("XDG_CONFIG_HOME=/tmp/trusted-home/config");
+      expect(env, daemon).toContain("XDG_CACHE_HOME=/tmp/trusted-home/cache");
+      expect(env, daemon).not.toContain("/workspace");
+    }
+    // (The helper itself is not dumpable, so its environment can't be read; the container's
+    // init, which started it with the same environment, shows what it was given.)
+    expect(homeOf("tini")).toContain("HOME=/workspace");
+
+    // Firefox extensions are blocked by policy (root-owned, on the read-only image).
     expect(
-      exec(`${bus} --dest=org.a11y.Bus /org/a11y/bus org.freedesktop.DBus.Peer.Ping`).code,
-    ).toBe(0);
+      exec(
+        'grep -c \'"installation_mode": "blocked"\' /etc/firefox/policies/policies.json',
+      ).out.trim(),
+    ).toBe("1");
+
+    // What task A planted in the app profiles did not survive the start, and does not run.
+    expect(
+      exec("test -e /workspace/.config/libreoffice && echo still || echo gone").out.trim(),
+    ).toBe("gone");
+    soffice(null, "/workspace/lo-docs/plain.txt");
+    expect(
+      exec(`ls ${LO_MARKERS} 2>&1`).out,
+      "LibreOffice ran a macro from a profile planted by an earlier task",
+    ).not.toMatch(/lo-(app-start|shell)-ran\s*$/m);
+    expect(exec("test -d /tmp/lo-user/user && echo tmpfs || echo none").out.trim()).toBe("tmpfs");
+    expect(
+      exec("test -e /workspace/.config/libreoffice && echo still || echo gone").out.trim(),
+    ).toBe("gone");
+    // Nothing Firefox could reach holds a handler: not through the old root (a link), not through a
+    // linked or unreadable profile folder. The link targets were not entered, so they are untouched.
+    expect(
+      exec(
+        "/usr/bin/find -L /workspace/.mozilla /workspace/.config/mozilla -name handlers.json 2>/dev/null; " +
+          "test -e /workspace/.mozilla && echo old-root-still-there; " +
+          `test -e ${profile}/handlers.json && echo profile-handler-still-there; ` +
+          `test -e ${dirname(profile)}/evil6.default && echo f6-still-there; ` +
+          `test -e ${dirname(profile)}/evil3.default && echo f3-still-there; ` +
+          "test -e /workspace/.config/libreoffice && echo lo-profile-still-there; true",
+      ).out.trim(),
+      "planted Firefox/LibreOffice state is still reachable",
+    ).toBe("");
+    expect(exec("cat /workspace/ffdecoy3/handlers.json | /usr/bin/wc -c").out.trim()).not.toBe("0");
+    const ffAfter = await firefoxFetchesPayload();
+    expect(ffAfter, "Firefox loads the page and no handler planted earlier runs").toEqual({
+      loaded: true,
+      ran: false,
+    });
+    // The kept logins are in the profile Firefox actually opened: it created no other profile (a
+    // second one would hold a times.json too), and the kept profile holds the marker and was used.
+    const used = exec(
+      "/usr/bin/find /workspace/.config/mozilla /workspace/.mozilla -name times.json 2>/dev/null",
+    ).out.trim();
+    expect(used.split("\n"), "Firefox used the rebuilt profile and made no other").toEqual([
+      expect.stringMatching(/\/psyche\.default\/times\.json$/),
+    ]);
+    expect(
+      exec(`cat ${dirname(used)}/logins.json`).out,
+      "the marker kept in logins.json is in the profile Firefox uses",
+    ).toContain(LOGIN_MARKER);
 
     // A long-lived app opens on the display and keeps its profile in the workspace (Firefox ESR uses ~/.config/mozilla).
     exec("DISPLAY=:1 nohup /usr/bin/firefox-esr --no-remote about:blank > /tmp/firefox.log 2>&1 &");
@@ -311,5 +553,5 @@ describe.skipIf(!REAL)("a real separate desktop", () => {
       listDevices(t.gateway.context.db).some((d) => d.name.startsWith("Separate desktop")),
     ).toBe(false);
     expect(t.gateway.context.nodes.isLive(infoB.id)).toBe(false);
-  }, 300_000);
+  }, 900_000);
 });

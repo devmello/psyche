@@ -33,6 +33,11 @@ export interface ConnectOptions {
   platform: "macos" | "windows" | "linux";
   timeoutMs?: number;
   createWebSocket?: WebSocketFactory;
+  /**
+   * The per-launch secret from `$PSYCHE_HOME/run/handshake.secret`: proof this CLI runs on the
+   * Gateway's own computer. Set only for a loopback Gateway (see `Ctx.gateway`).
+   */
+  handshakeSecret?: string;
 }
 
 export interface CallOptions {
@@ -157,6 +162,7 @@ export class GatewayClient {
             platform: opts.platform,
             deviceFamily: "cli",
             name: opts.identity.name,
+            ...(opts.handshakeSecret ? { handshakeSecret: opts.handshakeSecret } : {}),
           }),
         ),
       );

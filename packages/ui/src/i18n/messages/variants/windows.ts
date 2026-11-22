@@ -13,6 +13,8 @@ import type { MessageId } from "../index.ts";
  *   catalogue shows the English variant rather than its Mac wording.
  */
 export const windows: Partial<Record<MessageId, string>> = {
+  "settings.remoteSetup.problem.maybe_claimed":
+    "The server may already be set up with this PC. Connect with a pairing link or run `psyche devices link` on the server.",
   "settings.trusted.title.reminders": "Your Outlook task lists",
   "settings.trusted.none.reminders": "No Outlook task lists yet.",
   "settings.trusted.loading": "Reading them from this PC…",

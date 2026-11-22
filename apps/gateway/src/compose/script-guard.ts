@@ -183,6 +183,25 @@ const EXECUTABLE_EXTENSIONS = new Set([
   "saver",
   "mobileconfig",
   "action",
+  // Linux (and what Wine runs there): launchers, self-running images, installers and packages.
+  "desktop",
+  "appimage",
+  "run",
+  "bin",
+  "deb",
+  "rpm",
+  "snap",
+  "flatpak",
+  "flatpakref",
+  "flatpakrepo",
+  "exe",
+  "msi",
+  "com",
+  "bat",
+  "cmd",
+  "ps1",
+  "vbs",
+  "lnk",
 ]);
 
 function deny(reason: string, message: string, details: Record<string, string> = {}): never {

@@ -1,11 +1,14 @@
 import { hashCanonical } from "@psyche/audit";
 import type { CallContext } from "@psyche/browser";
-import { getSetting } from "@psyche/db";
-import { type AppTier, bindingHash } from "@psyche/permissions";
+import { getSetting, listNodes } from "@psyche/db";
+import { type AppTier, appIdAliases, bindingHash } from "@psyche/permissions";
 import {
+  APPROVAL_TTL_MS,
   type ApprovalRequest,
+  type ComputerSurface,
   createValidator,
   type ErrorPayload,
+  isHostHelperKind,
   type NodeClient,
   type NodeInfo,
   type NodeInvokeResult,
@@ -14,6 +17,7 @@ import {
   type SideEffect,
   type ToolCallAuthority,
   type ToolCallDescription,
+  type ToolCallScope,
   type ToolRegistration,
   type ToolResult,
 } from "@psyche/protocol";
@@ -24,13 +28,22 @@ import {
   isTradeOrTransferText,
   looksLikeVenueStep,
 } from "@psyche/protocol/financial-block";
-import { hostWords } from "@psyche/protocol/host-words";
+import { hostOs, hostWords } from "@psyche/protocol/host-words";
 import { isAmbiguousActionLabel, isMoneyContext, isMoneyText } from "@psyche/protocol/money-intent";
 import { type Static, type TSchema, Type } from "@sinclair/typebox";
 import type { Logger } from "../log.ts";
 import type { Gateway } from "../server.ts";
 import { ATTENTION_WINDOW_MS } from "./attention.ts";
-import { COMPUTER_USE_ENABLED, computerUseSettings } from "./computer-settings.ts";
+import {
+  cachedGraphicalSession,
+  createLinuxComputerState,
+  startHelperWithSystemd,
+} from "./computer-linux.ts";
+
+export { startHelperWithSystemd };
+
+import { APP_ID_PATTERN, COMPUTER_USE_ENABLED, computerUseSettings } from "./computer-settings.ts";
+import { gateHeadlessRouter, type HeadlessScreen } from "./headless-screen.ts";
 import { assertOpenAllowed, assertScriptAllowed } from "./script-guard.ts";
 import type { ComposedPart, ComposeServices } from "./services.ts";
 
@@ -52,6 +65,21 @@ import type { ComposedPart, ComposeServices } from "./services.ts";
  * - When the helper asks for the owner's approval (an app on "Ask", a risky label or chord), the
  *   executor asks the broker for a `computer_action` approval bound to that exact call and
  *   retries once with it; unattended runs queue the card and fail the call.
+ * - Surfaces: every `computer.*` / `apps.*` tool takes an optional `surface`: `direct` (default,
+ *   the Host's own desktop through the Host helper), `virtual_screen` or `separate_desktop`. A
+ *   session is bound to one surface, and one session per node and surface drives at a time. The
+ *   other surfaces are served by routers that later PRs register with `registerSurfaceRouter`
+ *   (or pass as `ComputerDeps.surfaces`): a router gets each call as a `SurfaceCall` (capability,
+ *   params with the session id, approval id, signal) and answers with the same `NodeInvokeResult`
+ *   a helper would, supplying its own helper node and session handling (`endSession` runs when
+ *   the run or Task ends). A surface with no router answers `unavailable` with
+ *   `details.reason: "surface_unavailable"`. The Mac and Windows paths never see a surface.
+ * - Linux: app ids are desktop-file ids (`org.gnome.TextEditor`, `firefox`). The Linux helper
+ *   starts on demand (`systemctl --user start psyche-helper.service`, `ComputerDeps.startHelper`)
+ *   and offers no Apple tools, so `apps.applescript`, `apps.shortcuts_list` and
+ *   `apps.shortcut_run` are registered only when the host helper's manifest lists them. The
+ *   screen and input access state is shared with Settings through `computerUse.linux`
+ *   (`compose/computer-linux.ts`).
  * - Off unless Settings → Computer use is on (`computerUse.enabled`): the tools are registered
  *   only while it is. The section's per-app tiers reach the helper's `computer-use.json` and the
  *   broker (`compose/computer-settings.ts`).
@@ -59,6 +87,8 @@ import type { ComposedPart, ComposeServices } from "./services.ts";
 
 /** The helper releases an idle session after 2 minutes; the Gateway's view follows it. */
 const SESSION_IDLE_MS = 2 * 60_000;
+/** Tool calls a session remembers, to know which pending cards are its own. */
+const MAX_SESSION_CALLS = 256;
 const INVOKE_TIMEOUT_MS = 60_000;
 /** Shortcuts get `SHORTCUT_TIMEOUT_S` in the helper; the Gateway waits a little longer. */
 const SHORTCUT_TIMEOUT_S = 600;
@@ -150,6 +180,8 @@ export function isRiskyChord(keys: string): boolean {
     .split("+")
     .map((k) => (k === "command" || k === "⌘" ? "cmd" : k));
   const key = parts.at(-1) ?? "";
+  // Linux: Alt+F4 and Ctrl+F4 close the window or tab (the helper refuses them too).
+  if (key === "f4" && (parts.includes("alt") || parts.includes("ctrl"))) return true;
   return parts.includes("cmd") && ["q", "w", "delete", "backspace"].includes(key);
 }
 
@@ -208,9 +240,59 @@ const SEND_EXES = [
   "phoneexperiencehost.exe",
 ];
 
+/**
+ * The same kind of apps as the Linux helper names them: by desktop-file id (`org.mozilla.thunderbird`,
+ * `signal-desktop`), plain or as the Flatpak app id. Compared without case.
+ */
+const SEND_LINUX_IDS = new Set(
+  [
+    // Mail
+    "thunderbird",
+    "org.mozilla.thunderbird",
+    "betterbird",
+    "eu.betterbird.betterbird",
+    "evolution",
+    "org.gnome.evolution",
+    "geary",
+    "org.gnome.geary",
+    "kmail",
+    "org.kde.kmail2",
+    "claws-mail",
+    "org.claws_mail.claws-mail",
+    "mailspring",
+    "com.getmailspring.mailspring",
+    // Chat
+    "slack",
+    "com.slack.slack",
+    "discord",
+    "com.discordapp.discord",
+    "signal-desktop",
+    "org.signal.signal",
+    "telegram-desktop",
+    "org.telegram.desktop",
+    "element-desktop",
+    "im.riot.riot",
+    "io.element.element",
+    "whatsapp-for-linux",
+    "com.github.eneshecan.whatsappforlinux",
+    "teams-for-linux",
+    "com.github.ientuaneb.teams-for-linux",
+    "dino",
+    "im.dino.dino",
+    "org.gnome.fractal",
+    "org.kde.neochat",
+    "pidgin",
+    "hexchat",
+    "io.github.hexchat",
+    "org.gnome.polari",
+  ].map((id) => id.toLowerCase()),
+);
+
 export function isSendApp(app: string): boolean {
   const id = app.trim().toLowerCase();
   if (SEND_APPS.some((a) => a.toLowerCase() === id)) return true;
+  // A snap's `<snap>_<app>` id (`thunderbird_thunderbird`) is that app too.
+  if (appIdAliases(id).some((a) => SEND_LINUX_IDS.has(a))) return true;
   const exe = id.split(/[\\/]/).pop() ?? "";
   return SEND_EXES.includes(exe);
 }
@@ -232,10 +314,19 @@ export function isSendChord(app: string, keys: string): boolean {
 
 const BUNDLE_ID_SHAPE = /^[A-Za-z0-9-]+(\.[A-Za-z0-9_-]+)+$/;
 const BundleId = Type.String({
-  pattern: BUNDLE_ID_SHAPE.source,
+  pattern: APP_ID_PATTERN,
   maxLength: 200,
-  description: "App bundle id, e.g. com.apple.Notes (apps.list shows them)",
+  description:
+    "App id: a bundle id on macOS (com.apple.Notes), the exe name on Windows, the desktop file id on Linux (org.gnome.TextEditor, firefox). apps.list shows them",
 });
+/** Where the call runs: the Host's own desktop (default), or a surface a router serves. */
+const Surface = Type.Union(
+  (["direct", "virtual_screen", "separate_desktop"] as const).map((s) => Type.Literal(s)),
+  {
+    description:
+      "direct (default): this computer's own desktop. virtual_screen or separate_desktop: a surface the owner turned on; a session stays on one surface",
+  },
+);
 const Ref = Type.String({ pattern: "^e[0-9]{1,7}$", description: "Element ref from the snapshot" });
 const Expect = Type.Object(
   {
@@ -283,6 +374,7 @@ export function tierFor(action: Action): "click" | "interact" {
 const SnapshotParams = Type.Object(
   {
     app: BundleId,
+    surface: Type.Optional(Surface),
     window: Type.Optional(Type.Integer({ minimum: 0, maximum: 50 })),
     root: Type.Optional(
       Type.String({
@@ -302,6 +394,7 @@ const SnapshotParams = Type.Object(
 const CheckTargetParams = Type.Object(
   {
     app: BundleId,
+    surface: Type.Optional(Surface),
     role: Type.Optional(
       Type.String({
         maxLength: 64,
@@ -325,6 +418,7 @@ const CheckTargetParams = Type.Object(
 const ActParams = Type.Object(
   {
     app: BundleId,
+    surface: Type.Optional(Surface),
     action: Type.Union(ACTIONS.map((a) => Type.Literal(a))),
     ref: Type.Optional(Ref),
     expect: Type.Optional(Expect),
@@ -358,6 +452,7 @@ type ActParams = Static<typeof ActParams>;
 const ScreenshotParams = Type.Object(
   {
     app: BundleId,
+    surface: Type.Optional(Surface),
     reason: Type.String({
       minLength: 3,
       maxLength: 300,
@@ -419,6 +514,7 @@ export function systemAppPath(path: string): boolean {
 const OpenParams = Type.Object(
   {
     app: BundleId,
+    surface: Type.Optional(Surface),
     url: Type.Optional(
       Type.String({
         maxLength: 2048,
@@ -429,7 +525,15 @@ const OpenParams = Type.Object(
   { additionalProperties: false },
 );
 const FocusParams = Type.Object(
-  { app: BundleId, window: Type.Optional(Type.Integer({ minimum: 0, maximum: 50 })) },
+  {
+    app: BundleId,
+    surface: Type.Optional(Surface),
+    window: Type.Optional(Type.Integer({ minimum: 0, maximum: 50 })),
+  },
+  { additionalProperties: false },
+);
+const ListParams = Type.Object(
+  { surface: Type.Optional(Surface) },
   { additionalProperties: false },
 );
 const ScriptParams = Type.Object(
@@ -454,8 +558,77 @@ const NoParams = Type.Object({}, { additionalProperties: false });
 export interface HelperNode {
   nodeId: string;
   client: NodeClient;
-  /** `mac-helper` / `win-helper`: "the Mac" or "the PC" in what the owner reads. */
+  /** `mac-helper` / `win-helper` / `host-helper`: "the Mac", "the PC" or "the computer". */
   kind?: string;
+}
+
+/** A surface other than the Host's own desktop. */
+export type RoutedSurface = Exclude<ComputerSurface, "direct">;
+
+/**
+ * The surface node ids whose sessions end when a node of this kind goes offline. The separate
+ * desktop's helper (kind `guest`, only ever that desktop's) ends its desktop's sessions through
+ * the router, which releases the desktop for their Task. The Host helper's private screen (B0)
+ * carries the `virtual_screen` id, so a headless helper that exits on idle or crashes does not
+ * leave the one-Task lock held.
+ */
+export function surfaceNodesOnOffline(kind: string | undefined): string[] {
+  if (kind === "guest") return [surfaceNodeId("separate_desktop")];
+  if (isHostHelperKind(kind)) return [surfaceNodeId("virtual_screen")];
+  return [];
+}
+
+/** The node id a routed surface's sessions carry (`ComputerUse.nodeGone` takes it). */
+export const surfaceNodeId = (surface: RoutedSurface): string => `surface:${surface}`;
+
+/** One call to a surface router: what the Gateway would have sent to the Host helper. */
+export interface SurfaceCall {
+  surface: RoutedSurface;
+  /** The agent tool (`computer.act`, `apps.open`, ...). */
+  tool: string;
+  /** The helper capability (`computer.click`, `computer.ax_tree`, `apps.focus`, ...). */
+  capability: string;
+  /** The capability's params; `computer.*` calls carry the session id as `session`. */
+  params: Record<string, unknown>;
+  /** The session this call belongs to (`computer.*` calls), bound to this surface. */
+  session?: string;
+  /** The owner's approval for this call, when the router asked for one and got it. */
+  approvalId?: string;
+  timeoutMs: number;
+  signal: AbortSignal;
+  /** The running call's decision context (run, Task, thread). */
+  context: CallContext;
+}
+
+/**
+ * Serves a surface (`virtual_screen`, `separate_desktop`): finds or starts its own helper node and
+ * handles its own session state, and answers with the `NodeInvokeResult` a helper would, so the
+ * same approvals, refs and receipts apply. Errors keep the protocol codes and `details.reason`.
+ */
+export interface SurfaceRouter {
+  invoke(call: SurfaceCall): Promise<NodeInvokeResult>;
+  /** The run or Task that owned `session` ended (or its helper went away). Best effort. */
+  endSession?(session: string): Promise<void>;
+  /**
+   * Whether a risky-looking label asks on this surface, for the run and Task making the call.
+   * Absent: it asks (`isRiskyLabel`). The separate desktop sets file-local words aside under its
+   * own rules, for the Task that owns it only; no other surface does. Without `call` (a caller
+   * that cannot say whose call it is) every word asks.
+   */
+  asks?(text: string | undefined, target: { app?: string }, call?: ToolCallScope): boolean;
+}
+
+const surfaceRouters = new Map<RoutedSurface, SurfaceRouter>();
+
+/**
+ * Registers the router for a surface (the separate-desktop and virtual-screen PRs call this once
+ * at composition). Returns the function that removes it again.
+ */
+export function registerSurfaceRouter(surface: RoutedSurface, router: SurfaceRouter): () => void {
+  surfaceRouters.set(surface, router);
+  return () => {
+    if (surfaceRouters.get(surface) === router) surfaceRouters.delete(surface);
+  };
 }
 
 export interface ComputerDeps {
@@ -478,6 +651,37 @@ export interface ComputerDeps {
   lastOwnerInput?(): number | undefined;
   /** True when the desktop reported the computer-use pane hidden (`attention.report`, #272). */
   paneHidden?(): boolean;
+  /** Routers per non-direct surface; these win over `registerSurfaceRouter`'s. */
+  surfaces?: Partial<Record<RoutedSurface, SurfaceRouter>>;
+  /**
+   * Linux: starts the Host helper when none is connected (`startHelperWithSystemd`). Absent on
+   * macOS and Windows, which never start it from here. A rejection means "no graphical session".
+   * `graphical` is the session decision the call already made (`graphicalSession`), so the unit
+   * started matches the path the call took; absent, the starter asks itself.
+   */
+  startHelper?(signal: AbortSignal, graphical?: boolean): Promise<void>;
+  /**
+   * Linux: whether logind reports a graphical session (`cachedGraphicalSession`, with the call's
+   * signal). Without one the Host helper runs headless (B0): `direct` answers `unavailable` with
+   * `details.reason: "no_graphical_session"`, and `virtual_screen` is served by the headless
+   * helper's private screen. Asked once per call, in `resolveTarget`.
+   */
+  graphicalSession?(signal?: AbortSignal): Promise<boolean>;
+  /**
+   * The Host's private screen (the virtual-screen part's `screen`), for the headless path's
+   * take-over gate and Task-end handling (B3). Absent: nobody can take over and Task end only
+   * ends the helper's session.
+   */
+  headlessScreen?(): HeadlessScreen | undefined;
+  /**
+   * Linux: settles a Revoke the owner made while no helper ran (`LinuxComputerState`) before a
+   * direct call uses the helper, so the stored portal grant is gone first. False: still pending.
+   */
+  revokeSettled?(): Promise<boolean>;
+  /** How long to wait for the started helper to connect (default 5 s, polling every 100 ms). */
+  helperWait?: { timeoutMs: number; pollMs: number };
+  /** A direct computer-use session ended (run or Task end, Esc): Linux refreshes its state. */
+  sessionEnded?(): void;
   now?: () => number;
   logger?: Logger;
   /** A screenshot Psyche saw: the run trace keeps it as a frame (run trace §4.2). */
@@ -490,11 +694,15 @@ export interface ComputerDeps {
 interface Session {
   id: string;
   nodeId: string;
+  /** The surface this session is bound to (`direct` for the Host helper). */
+  surface: ComputerSurface;
   runIds: Set<string>;
   taskId?: string;
   lastUsed: number;
   /** Apps snapshotted in this session (screenshots come after AX). */
   snapshotted: Set<string>;
+  /** The tool calls made in this session (the newest `MAX_SESSION_CALLS`). */
+  callIds: Set<string>;
 }
 
 /** An element as the latest snapshot showed it. Refs are helper-global and never reused. */
@@ -504,8 +712,22 @@ interface SeenElement {
   label?: string;
 }
 
+/** Tools that drive Apple apps; the Linux helper offers none of them. */
+export const APPLE_TOOLS = [
+  "apps.applescript",
+  "apps.shortcuts_list",
+  "apps.shortcut_run",
+] as const;
+
 export interface ComputerUse {
-  registrations(): ToolRegistration[];
+  /**
+   * The tools. `apple: false` leaves out the Apple-only ones (`APPLE_TOOLS`); `appleTools`
+   * keeps just the listed ones. Default: all of them.
+   */
+  registrations(options?: {
+    apple?: boolean;
+    appleTools?: ReadonlySet<string>;
+  }): ToolRegistration[];
   /** A run ended: release its session. */
   runEnded(runId: string): Promise<void>;
   /** A Task ended: release its session. */
@@ -514,7 +736,7 @@ export interface ComputerUse {
   nodeGone(nodeId: string): void;
   endAll(): Promise<void>;
   /** Live sessions, for tests and status. */
-  sessions(): { id: string; nodeId: string; runIds: string[] }[];
+  sessions(): { id: string; nodeId: string; runIds: string[]; surface?: ComputerSurface }[];
 }
 
 function fail(e: ErrorPayload): PsycheError {
@@ -522,6 +744,11 @@ function fail(e: ErrorPayload): PsycheError {
     ...(e.details === undefined ? {} : { details: e.details }),
     ...(e.retryable === undefined ? {} : { retryable: e.retryable }),
   });
+}
+
+/** Binding fields naming a non-direct surface; none for `direct`, so those hashes stay as they were. */
+function surfaceFields(surface: ComputerSurface | undefined): { surface?: ComputerSurface } {
+  return surface === undefined || surface === "direct" ? {} : { surface };
 }
 
 function reasonOf(err: PsycheError): string | undefined {
@@ -679,10 +906,19 @@ export function createComputerUse(deps: ComputerDeps): ComputerUse {
   const sessions = new Map<string, Session>();
   const elements = new Map<string, SeenElement>();
 
-  function remember(app: string, text: string): void {
+  /** Refs are per helper: another surface's helper may reuse `e1`. */
+  const elementKey = (surface: ComputerSurface | undefined, ref: string): string =>
+    surface === undefined || surface === "direct" ? ref : `${surface}:${ref}`;
+  const seenElement = (
+    surface: ComputerSurface | undefined,
+    ref: string,
+  ): SeenElement | undefined => elements.get(elementKey(surface, ref));
+
+  function remember(app: string, text: string, surface?: ComputerSurface): void {
     for (const e of elementsIn(text)) {
-      elements.delete(e.ref);
-      elements.set(e.ref, {
+      const key = elementKey(surface, e.ref);
+      elements.delete(key);
+      elements.set(key, {
         app: app.toLowerCase(),
         role: e.role,
         ...(e.label === undefined ? {} : { label: e.label }),
@@ -698,33 +934,107 @@ export function createComputerUse(deps: ComputerDeps): ComputerUse {
    * One session per run, grouped by Task: the helper refuses a session for good once Esc
    * stopped it, so a later run of the same Task needs a fresh id.
    */
-  function sessionKey(ctx: CallContext): string {
-    return ctx.taskId === undefined ? ctx.runId : `${ctx.taskId}:${ctx.runId}`;
+  function sessionKey(ctx: CallContext, surface?: ComputerSurface): string {
+    const base = ctx.taskId === undefined ? ctx.runId : `${ctx.taskId}:${ctx.runId}`;
+    // A session is bound to one surface: another surface gets its own id.
+    return surface === undefined || surface === "direct" ? base : `${base}@${surface}`;
   }
 
-  /** One session drives the computer at a time (J5); a stale one (helper idle release) yields. */
-  function acquire(ctx: CallContext, node: HelperNode): Session {
-    const id = sessionKey(ctx);
-    for (const s of sessions.values()) {
-      if (s.id === id || s.nodeId !== node.nodeId) continue;
-      if (now() - s.lastUsed < SESSION_IDLE_MS) {
-        throw new PsycheError(
-          "conflict",
-          "Another task is using the computer right now. Wait for it to finish, or ask the owner.",
-          { details: { reason: "computer_busy" }, retryable: true },
+  /**
+   * Whether the run or Task that owns `s` waits on one of the owner's cards (the loop's own card
+   * before a call, or a helper's ask during one). A failed look counts as waiting.
+   */
+  async function waitsOnOwner(s: Session): Promise<boolean> {
+    // At most one card's lifetime from the session's last use: a Task cannot hold the surface
+    // (its shares, its tunnel) by raising one card after another.
+    if (now() - s.lastUsed > APPROVAL_TTL_MS) return false;
+    try {
+      const pending = await deps.broker.list({ status: "pending" });
+      return pending.some((a) => {
+        if (a.kind !== "computer_action") return false;
+        // A card one of this session's calls raised (the helper's ask, a payment card)...
+        if (a.requestedBy.toolCallId !== undefined && s.callIds.has(a.requestedBy.toolCallId)) {
+          return true;
+        }
+        // ...or the loop's card for this Task's next call on this same surface.
+        const surface = (a.details as { surface?: unknown } | undefined)?.surface;
+        if (surface !== s.surface) return false;
+        return (
+          (s.taskId !== undefined && a.requestedBy.taskId === s.taskId) ||
+          (typeof a.requestedBy.runId === "string" && s.runIds.has(a.requestedBy.runId))
         );
+      });
+    } catch {
+      return true;
+    }
+  }
+
+  /** `acquire` calls per node and surface, one at a time (a yield awaits its router). */
+  const acquiring = new Map<string, Promise<unknown>>();
+
+  /**
+   * One session drives the computer at a time per node and surface (J5); a stale one (helper idle
+   * release) yields. Serialized per node and surface, so two Tasks never both take a stale
+   * session's place.
+   */
+  async function acquire(
+    ctx: CallContext,
+    node: Pick<HelperNode, "nodeId">,
+    surface: ComputerSurface,
+  ): Promise<Session> {
+    const key = `${node.nodeId}|${surface}`;
+    const run = (acquiring.get(key) ?? Promise.resolve()).then(() =>
+      acquireNow(ctx, node, surface),
+    );
+    const tail = run.catch(() => undefined);
+    acquiring.set(key, tail);
+    try {
+      return await run;
+    } finally {
+      if (acquiring.get(key) === tail) acquiring.delete(key);
+    }
+  }
+
+  async function acquireNow(
+    ctx: CallContext,
+    node: Pick<HelperNode, "nodeId">,
+    surface: ComputerSurface,
+  ): Promise<Session> {
+    const id = sessionKey(ctx, surface);
+    const busy = () =>
+      new PsycheError(
+        "conflict",
+        "Another task is using the computer right now. Wait for it to finish, or ask the owner.",
+        { details: { reason: "computer_busy" }, retryable: true },
+      );
+    // Scanned again after every yield: the sessions can change while a router releases.
+    for (let yielded = true; yielded; ) {
+      yielded = false;
+      for (const s of [...sessions.values()]) {
+        if (s.id === id || s.nodeId !== node.nodeId || s.surface !== surface) continue;
+        if (now() - s.lastUsed < SESSION_IDLE_MS) throw busy();
+        // A routed surface holds its Task's workspace: a Task waiting on the owner's tap keeps it
+        // (no yield, no reset under an approved action).
+        if (s.surface !== "direct" && (await waitsOnOwner(s))) throw busy();
+        // A stale session yields. On a routed surface its router must hear of it, so the surface
+        // is released (the separate desktop's shares and internet tunnel go with its Task) before
+        // the next Task gets it.
+        await forget(s);
+        yielded = true;
+        break;
       }
-      sessions.delete(s.id);
     }
     let s = sessions.get(id);
     if (s === undefined || s.nodeId !== node.nodeId) {
       s = {
         id,
         nodeId: node.nodeId,
+        surface,
         runIds: new Set(),
         ...(ctx.taskId === undefined ? {} : { taskId: ctx.taskId }),
         lastUsed: now(),
         snapshotted: new Set(),
+        callIds: new Set(),
       };
       sessions.set(id, s);
     }
@@ -733,30 +1043,235 @@ export function createComputerUse(deps: ComputerDeps): ComputerUse {
     return s;
   }
 
+  /**
+   * The Host's own private screen (B0): with no graphical session the headless helper, started on
+   * demand, serves `virtual_screen` calls itself. A graphical Host never uses it. `resolveTarget`
+   * decides that once per call, before a session is acquired; the router does not ask again, so
+   * a changed answer cannot refuse a call that already holds a session.
+   */
+  const headlessHostRouter: SurfaceRouter | undefined =
+    deps.startHelper === undefined || deps.graphicalSession === undefined
+      ? undefined
+      : {
+          async invoke(call) {
+            const node = await requireHelper(call.signal, false);
+            // B3: after every wait above, and with nothing awaited before the send, the owner's
+            // take-over and a parked unsaved-changes card still stop the call (headless-screen.ts).
+            deps.headlessScreen?.()?.assertAgentMayAct(call.signal);
+            return node.client.invoke(
+              call.capability,
+              { ...call.params, surface: "virtual_screen" },
+              {
+                signal: call.signal,
+                timeoutMs: call.timeoutMs,
+                ...(call.approvalId === undefined ? {} : { approvalId: call.approvalId }),
+              },
+            );
+          },
+          async endSession(session) {
+            const node = deps.helper();
+            if (node === undefined) return;
+            await node.client
+              .invoke(
+                "computer.end_session",
+                { session, surface: "virtual_screen" },
+                { timeoutMs: 5_000 },
+              )
+              .catch(() => undefined);
+          },
+        };
+
+  /**
+   * B3: like every use of that screen, the headless path keeps the take-over gate and the
+   * Task-end handling (`gateHeadlessRouter`): the agent waits while the owner has taken over, and
+   * the last session's end closes the screen's apps or parks the Task on unsaved changes.
+   */
+  const gatedHeadlessRouter: SurfaceRouter | undefined =
+    headlessHostRouter === undefined
+      ? undefined
+      : gateHeadlessRouter(
+          headlessHostRouter,
+          () => deps.headlessScreen?.(),
+          (message, err) => deps.logger?.log("warn", message, { code: PsycheError.from(err).code }),
+        );
+
+  const routerFor = (surface: RoutedSurface): SurfaceRouter | undefined =>
+    deps.surfaces?.[surface] ??
+    surfaceRouters.get(surface) ??
+    (surface === "virtual_screen" ? gatedHeadlessRouter : undefined);
+
+  /**
+   * Drops a session the helper already ended or abandoned (idle yield, Esc, helper gone). The
+   * Host helper needs no call; a routed surface's router releases what the session's Task held.
+   */
+  async function forget(s: Session): Promise<void> {
+    sessions.delete(s.id);
+    if (s.surface === "direct") return;
+    await routerFor(s.surface)
+      ?.endSession?.(s.id)
+      .catch(() => undefined);
+  }
+
   async function end(s: Session): Promise<void> {
     sessions.delete(s.id);
-    const node = deps.helper();
-    if (node === undefined || node.nodeId !== s.nodeId) return;
-    const res = await node.client
-      .invoke("computer.end_session", { session: s.id }, { timeoutMs: 5_000 })
-      .catch(() => undefined);
-    if (res !== undefined && !res.ok) {
-      deps.logger?.log("warn", "computer.end_session failed", {
-        code: res.error?.code ?? "internal",
-      });
+    if (s.surface !== "direct") {
+      await routerFor(s.surface)
+        ?.endSession?.(s.id)
+        .catch(() => undefined);
+      return;
+    }
+    try {
+      const node = deps.helper();
+      if (node === undefined || node.nodeId !== s.nodeId) return;
+      const res = await node.client
+        .invoke("computer.end_session", { session: s.id }, { timeoutMs: 5_000 })
+        .catch(() => undefined);
+      if (res !== undefined && !res.ok) {
+        deps.logger?.log("warn", "computer.end_session failed", {
+          code: res.error?.code ?? "internal",
+        });
+      }
+    } finally {
+      deps.sessionEnded?.();
     }
   }
 
-  function requireHelper(): HelperNode {
+  let starting: Promise<void> | undefined;
+
+  /** The connected Host helper; on Linux, started on demand when none is connected. */
+  async function requireHelper(signal: AbortSignal, graphical?: boolean): Promise<HelperNode> {
     const node = deps.helper();
-    if (node === undefined) {
+    if (node !== undefined) return node;
+    if (deps.startHelper !== undefined) {
+      const notStarted = (message: string): PsycheError =>
+        new PsycheError("unavailable", message, {
+          details: { reason: "helper_not_started" },
+          retryable: true,
+        });
+      const start = deps.startHelper;
+      starting ??= start(signal, graphical).finally(() => {
+        starting = undefined;
+      });
+      try {
+        await starting;
+      } catch (err) {
+        const unit = (err as { unit?: unknown } | undefined)?.unit;
+        throw notStarted(
+          typeof unit === "string"
+            ? `Could not start the Psyche helper (${unit}). Check that the unit is installed.`
+            : "Needs a graphical session on this computer",
+        );
+      }
+      const wait = deps.helperWait ?? { timeoutMs: 5_000, pollMs: 100 };
+      const deadline = Date.now() + wait.timeoutMs;
+      for (;;) {
+        const up = deps.helper();
+        if (up !== undefined) return up;
+        if (signal.aborted) throw new PsycheError("cancelled", "The call was cancelled");
+        if (Date.now() >= deadline) {
+          throw notStarted("The Psyche helper did not start in time. Try again in a moment.");
+        }
+        await new Promise((r) => setTimeout(r, wait.pollMs));
+      }
+    }
+    throw new PsycheError(
+      "unavailable",
+      `The Psyche helper is not running on ${hostWords().thisDevice}, so computer use is unavailable.`,
+      { retryable: true },
+    );
+  }
+
+  /** Where one call goes: the Host helper, or a surface's router. */
+  interface Target {
+    nodeId: string;
+    kind?: string;
+    send(
+      inv: Invocation,
+      params: Record<string, unknown>,
+      options: { signal: AbortSignal; approvalId?: string; session?: string },
+    ): Promise<NodeInvokeResult>;
+  }
+
+  async function resolveTarget(
+    surface: ComputerSurface,
+    ctx: CallContext,
+    signal: AbortSignal,
+  ): Promise<Target> {
+    if (surface === "direct") {
+      if (deps.graphicalSession !== undefined && !(await deps.graphicalSession(signal))) {
+        throw new PsycheError(
+          "unavailable",
+          "Needs a graphical session on this computer. Use the virtual screen instead.",
+          { details: { reason: "no_graphical_session" } },
+        );
+      }
+      const node = await requireHelper(
+        signal,
+        deps.graphicalSession === undefined ? undefined : true,
+      );
+      // A pending Revoke reaches the helper before any computer.* call does (PR #1498 r3).
+      if (deps.revokeSettled !== undefined && !(await deps.revokeSettled())) {
+        throw new PsycheError(
+          "unavailable",
+          "Psyche is still revoking screen and input access. Try again in a moment.",
+          { details: { reason: "revoke_pending" }, retryable: true },
+        );
+      }
+      if (signal.aborted) throw new PsycheError("cancelled", "The call was cancelled");
+      return {
+        nodeId: node.nodeId,
+        ...(node.kind === undefined ? {} : { kind: node.kind }),
+        send: (inv, params, options) =>
+          node.client.invoke(
+            inv.capability,
+            // On Linux the surface is named, so a headless helper that is still connected after a
+            // session appeared refuses the call instead of serving it on its private screen.
+            deps.graphicalSession === undefined ? params : { ...params, surface: "direct" },
+            {
+              signal: options.signal,
+              timeoutMs: inv.timeoutMs ?? INVOKE_TIMEOUT_MS,
+              ...(options.approvalId === undefined ? {} : { approvalId: options.approvalId }),
+            },
+          ),
+      };
+    }
+    const router = routerFor(surface);
+    // The Host's own private screen exists only without a graphical session. Decide that before
+    // a session is acquired, so a refusal leaves no phantom session holding the surface. The
+    // router trusts this decision for the call and does not ask again.
+    if (
+      router !== undefined &&
+      router === gatedHeadlessRouter &&
+      (await deps.graphicalSession?.(signal)) === true
+    ) {
       throw new PsycheError(
         "unavailable",
-        `The Psyche helper is not running on ${hostWords().thisDevice}, so computer use is unavailable.`,
-        { retryable: true },
+        `The virtual screen is not set up on ${hostWords().thisDevice}, so computer use cannot run there.`,
+        { details: { reason: "surface_unavailable", surface } },
       );
     }
-    return node;
+    if (router === undefined) {
+      throw new PsycheError(
+        "unavailable",
+        `${surface === "virtual_screen" ? "The virtual screen" : "The separate desktop"} is not set up on ${hostWords().thisDevice}, so computer use cannot run there.`,
+        { details: { reason: "surface_unavailable", surface } },
+      );
+    }
+    return {
+      nodeId: surfaceNodeId(surface),
+      send: (inv, params, options) =>
+        router.invoke({
+          surface,
+          tool: inv.tool,
+          capability: inv.capability,
+          params,
+          ...(options.session === undefined ? {} : { session: options.session }),
+          ...(options.approvalId === undefined ? {} : { approvalId: options.approvalId }),
+          timeoutMs: inv.timeoutMs ?? INVOKE_TIMEOUT_MS,
+          signal: options.signal,
+          context: ctx,
+        }),
+    };
   }
 
   /**
@@ -769,7 +1284,7 @@ export function createComputerUse(deps: ComputerDeps): ComputerUse {
     tool: string,
     params: unknown,
     err: PsycheError,
-    fallback: { app: string; action: string; tierRequired: string },
+    fallback: { app: string; action: string; tierRequired: string; surface?: ComputerSurface },
     signal: AbortSignal,
     opts: { financial?: boolean } = {},
   ): Promise<string> {
@@ -787,6 +1302,7 @@ export function createComputerUse(deps: ComputerDeps): ComputerUse {
       app,
       tierRequired,
       action: fallback.action,
+      ...surfaceFields(fallback.surface),
     };
     const hash = bindingHash("computer_action", fields);
     // A press whose label moves money is a payment: financial, so it needs presence.
@@ -818,12 +1334,16 @@ export function createComputerUse(deps: ComputerDeps): ComputerUse {
     }
     const issued = await deps.broker.requestApproval({
       kind: "computer_action",
-      summary: risky
-        ? `${fallback.action} “${label ?? fallback.action}” in ${app}`
-        : `Let Psyche use ${app} for 30 minutes`,
+      summary: placed(
+        fallback.surface,
+        risky
+          ? `${fallback.action} “${label ?? fallback.action}” in ${app}`
+          : `Let Psyche use ${app} for 30 minutes`,
+      ),
       details: {
         app,
         action: fallback.action,
+        ...placeField(fallback.surface),
         tierRequired,
         ...(label === undefined ? {} : { label }),
         why: err.message,
@@ -1091,11 +1611,18 @@ export function createComputerUse(deps: ComputerDeps): ComputerUse {
     confirmedBindings.add(hash, ctx);
   }
 
-  /** Apps where a payment control, page or card was seen lately (lowercased app → when). */
+  /**
+   * Apps where a payment control, page or card was seen lately (surface and lowercased app →
+   * when). The same app id on another surface is another app: the separate desktop's Firefox is
+   * not the Host's.
+   */
   const moneySeen = new Map<string, number>();
-  const markMoney = (app: string) => moneySeen.set(app.toLowerCase(), now());
-  const recentMoney = (app: string) => {
-    const at = moneySeen.get(app.toLowerCase());
+  const moneyKey = (p: { app: string; surface?: ComputerSurface }) =>
+    `${p.surface ?? "direct"}|${p.app.toLowerCase()}`;
+  const markMoney = (p: { app: string; surface?: ComputerSurface }) =>
+    moneySeen.set(moneyKey(p), now());
+  const recentMoney = (p: { app: string; surface?: ComputerSurface }) => {
+    const at = moneySeen.get(moneyKey(p));
     return at !== undefined && now() - at <= MONEY_MEMORY_MS;
   };
 
@@ -1108,7 +1635,7 @@ export function createComputerUse(deps: ComputerDeps): ComputerUse {
    * Elsewhere the unknown goes ahead: presence is for payments only.
    */
   function moneyVerdict(
-    app: string,
+    p: { app: string; surface?: ComputerSurface },
     t: ResolvedTarget,
     mode: "activate" | "submit",
   ): { label: string } | undefined {
@@ -1116,11 +1643,11 @@ export function createComputerUse(deps: ComputerDeps): ComputerUse {
     const context =
       isMoneyContext({ title: t.window, url: t.url }) ||
       t.labels.slice(1).some((l) => isMoneyContext({ title: l }));
-    if (money !== undefined || context) markMoney(app);
+    if (money !== undefined || context) markMoney(p);
     if (money !== undefined) return { label: money };
-    if (!context && !recentMoney(app)) return undefined;
+    if (!context && !recentMoney(p)) return undefined;
     const own = t.labels[0];
-    const where = t.window ?? app;
+    const where = t.window ?? p.app;
     if (own === undefined) return { label: `an unlabelled control in “${where}”` };
     if (isAmbiguousActionLabel(own)) return { label: own };
     if (mode === "submit" && isTextEntry(t)) return { label: `${own} (submits the form)` };
@@ -1149,6 +1676,7 @@ export function createComputerUse(deps: ComputerDeps): ComputerUse {
           params: { ...params, app: p.app },
           session: true,
           approval: { app: p.app, action: p.action, tierRequired: actTier(p) },
+          ...(p.surface === undefined ? {} : { surface: p.surface }),
         },
         signal,
       ));
@@ -1160,10 +1688,12 @@ export function createComputerUse(deps: ComputerDeps): ComputerUse {
         code === "unknown_method" ||
         code === "invalid_params"
       ) {
-        // The Windows and Linux helpers do not answer `computer.resolve_target` yet: their
-        // actions go ahead as before (security §3.7). The Mac helper ships with the app, so one
-        // that cannot say what the action lands on is out of date: refuse rather than guess.
-        if (deps.helper()?.kind !== "mac-helper") return undefined;
+        // Only the Windows helper does not answer `computer.resolve_target` yet: its actions go
+        // ahead as before (security §3.7). The Mac and Linux helpers (the Host's `host-helper`
+        // and the separate desktop's `guest`) do; one that cannot say what the action lands on is
+        // out of date or broken: refuse rather than guess. Every routed surface fails closed.
+        const direct = p.surface === undefined || p.surface === "direct";
+        if (direct && deps.helper()?.kind === "win-helper") return undefined;
         throw new PsycheError(
           "policy_denied",
           reason === "point_unchecked"
@@ -1259,7 +1789,7 @@ export function createComputerUse(deps: ComputerDeps): ComputerUse {
     if (p.ref === undefined) return;
     // The label the snapshot gave, then the agent's own expectation: either one that reads like a
     // trade or a transfer is enough to look at where the element is.
-    const labels = [elements.get(p.ref)?.label, p.expect?.label].filter(
+    const labels = [seenElement(p.surface, p.ref)?.label, p.expect?.label].filter(
       (l): l is string => typeof l === "string" && l !== "",
     );
     const looksLikeTrade = labels.some((l) =>
@@ -1298,7 +1828,7 @@ export function createComputerUse(deps: ComputerDeps): ComputerUse {
     where: string,
     label: string,
   ): Promise<string> {
-    markMoney(p.app);
+    markMoney(p);
     return approveForHelper(
       callId,
       "computer.act",
@@ -1310,7 +1840,12 @@ export function createComputerUse(deps: ComputerDeps): ComputerUse {
           details: { reason: "money_label", app: p.app, tierRequired: actTier(p), label },
         },
       ),
-      { app: p.app, action: p.action, tierRequired: actTier(p) },
+      {
+        app: p.app,
+        action: p.action,
+        tierRequired: actTier(p),
+        ...(p.surface === undefined ? {} : { surface: p.surface }),
+      },
       signal,
       { financial: true },
     );
@@ -1350,7 +1885,7 @@ export function createComputerUse(deps: ComputerDeps): ComputerUse {
       if (t === undefined) continue;
       await refuseFinancialBlock(p, t, "activate", callId);
       if (alreadyFinancial) continue;
-      const verdict = moneyVerdict(p.app, t, "activate");
+      const verdict = moneyVerdict(p, t, "activate");
       if (verdict === undefined) continue;
       return askFinancial(
         p,
@@ -1399,7 +1934,7 @@ export function createComputerUse(deps: ComputerDeps): ComputerUse {
     if (mode === "activate" && takesText(t)) return undefined;
     await refuseFinancialBlock(p, t, mode, callId);
     if (alreadyFinancial) return undefined;
-    const verdict = moneyVerdict(p.app, t, mode);
+    const verdict = moneyVerdict(p, t, mode);
     if (verdict === undefined) return undefined;
     return askFinancial(
       p,
@@ -1428,7 +1963,7 @@ export function createComputerUse(deps: ComputerDeps): ComputerUse {
     if (mode === "activate" && takesText(t)) return undefined;
     await refuseFinancialBlock(p, t, mode, callId);
     if (describeAct(p).sideEffect === "financial") return undefined;
-    const verdict = moneyVerdict(p.app, t, mode);
+    const verdict = moneyVerdict(p, t, mode);
     if (verdict === undefined) return undefined;
     return askFinancial(
       p,
@@ -1469,6 +2004,7 @@ export function createComputerUse(deps: ComputerDeps): ComputerUse {
           session: true,
           approval: { app: p.app, action: p.action, tierRequired: actTier(p) },
           ...(approval === undefined ? {} : { approvalId: approval }),
+          ...(p.surface === undefined ? {} : { surface: p.surface }),
         },
         signal,
       );
@@ -1489,6 +2025,8 @@ export function createComputerUse(deps: ComputerDeps): ComputerUse {
     timeoutMs?: number;
     /** What an approval asked mid-call binds to. */
     approval: { app: string; action: string; tierRequired: string };
+    /** Absent or `direct`: the Host helper. */
+    surface?: ComputerSurface;
     /** An approval obtained before the call (a financial card for a money label): used first. */
     approvalId?: string;
   }
@@ -1507,7 +2045,8 @@ export function createComputerUse(deps: ComputerDeps): ComputerUse {
     // The helper's contract (docs/archive/status/s14.md, #266 / #267): `approval: {app, tier}` with every
     // approved `computer.*` / `apps.focus` call; without it the helper treats the call as
     // unapproved.
-    const approvable = inv.session || inv.capability === "apps.focus";
+    const approvable =
+      inv.session || inv.capability === "apps.focus" || inv.capability === "apps.open";
     const scoped = (approved: string | undefined): Record<string, unknown> => ({
       ...inv.params,
       ...(inv.session && inv.approval.app !== "*" ? { app: inv.approval.app } : {}),
@@ -1515,20 +2054,33 @@ export function createComputerUse(deps: ComputerDeps): ComputerUse {
         ? { approval: { app: inv.approval.app, tier: inv.approval.tierRequired } }
         : {}),
     });
+    const surface = inv.surface ?? "direct";
+    // On a routed surface every call, `apps.*` included, belongs to a session: the one-Task-at-a-
+    // time lock covers it, and the Task's end releases the surface. Only `computer.*` calls send
+    // the session id to the helper.
+    const tracked = inv.session || surface !== "direct";
     for (let round = 0; ; round++) {
-      const node = requireHelper();
-      const session = inv.session ? acquire(ctx, node) : undefined;
+      const node = await resolveTarget(surface, ctx, signal);
+      const session = tracked ? await acquire(ctx, node, surface) : undefined;
       const params = scoped(approvalId);
-      const res = await node.client.invoke(
-        inv.capability,
-        session === undefined ? params : { ...params, session: session.id },
+      const res = await node.send(
+        inv,
+        session === undefined || !inv.session ? params : { ...params, session: session.id },
         {
           signal,
-          timeoutMs: inv.timeoutMs ?? INVOKE_TIMEOUT_MS,
+          ...(session === undefined ? {} : { session: session.id }),
           ...(approvalId === undefined ? {} : { approvalId }),
         },
       );
-      if (session !== undefined) session.lastUsed = now();
+      if (session !== undefined) {
+        session.lastUsed = now();
+        session.callIds.delete(callId);
+        session.callIds.add(callId);
+        for (const old of session.callIds) {
+          if (session.callIds.size <= MAX_SESSION_CALLS) break;
+          session.callIds.delete(old);
+        }
+      }
       if (res.ok) {
         // A helper that acted on another app than the approved one (an older helper without
         // the check): report it and stop, never treat it as the approved action.
@@ -1563,7 +2115,10 @@ export function createComputerUse(deps: ComputerDeps): ComputerUse {
       const err = fail(res.error ?? { code: "internal", message: "the helper failed" });
       if (err.code === "cancelled" && reasonOf(err) === "user_stopped") {
         // Esc on the Host (J5): the helper already ended the session; stop the run too.
-        if (session !== undefined) sessions.delete(session.id);
+        if (session !== undefined) {
+          await forget(session);
+          if (surface === "direct") deps.sessionEnded?.();
+        }
         deps.cancelRun(
           ctx.threadId,
           ctx.runId,
@@ -1579,7 +2134,7 @@ export function createComputerUse(deps: ComputerDeps): ComputerUse {
           inv.tool,
           inv.params,
           err,
-          inv.approval,
+          { ...inv.approval, ...(inv.surface === undefined ? {} : { surface: inv.surface }) },
           signal,
         );
         continue;
@@ -1628,12 +2183,33 @@ export function createComputerUse(deps: ComputerDeps): ComputerUse {
     schema: S;
     sideEffect: SideEffect;
     targetKind?: "app";
-    describe?: (p: Static<S>) => ToolCallDescription;
+    describe?: (p: Static<S>, call?: ToolCallScope) => ToolCallDescription;
     run: (
       p: Static<S>,
       callId: string,
       signal: AbortSignal,
     ) => Promise<{ output: unknown; receiptId?: string }>;
+  }
+
+  /**
+   * The schema takes Linux desktop-file ids (`firefox`, no dot). Anywhere else the app id must be
+   * a bundle id or an executable name with a dot: the Mac helper also finds an app by its display
+   * name, and the Gateway's app-keyed checks (caps, send apps, web apps, tiers, grants) would
+   * then judge "Chase" or "Messages" instead of the bundle (review of #1294, round 6, finding 2).
+   */
+  function assertAppIdShape(params: unknown): void {
+    const p = params as { app?: unknown; surface?: unknown };
+    if (typeof p.app !== "string") return;
+    if (p.surface !== undefined && p.surface !== "direct") return;
+    // `host-helper` is only ever the Linux helper (`hostHelperKindOf`).
+    const kind = deps.helper()?.kind;
+    if (kind === "host-helper" || hostOs(kind) === "linux") return;
+    if (BUNDLE_ID_SHAPE.test(p.app)) return;
+    throw new PsycheError(
+      "policy_denied",
+      `${p.app} is not an app id. Use the bundle id apps.list shows (com.apple.Notes), not the app's name.`,
+      { details: { reason: "app_id_shape" } },
+    );
   }
 
   function def<S extends TSchema>(t: Def<S>): ToolRegistration {
@@ -1652,6 +2228,7 @@ export function createComputerUse(deps: ComputerDeps): ComputerUse {
           if (!validator.check(params)) {
             throw new PsycheError("invalid_params", validator.errors(params).join("; "));
           }
+          assertAppIdShape(params);
           const out = await t.run(params as Static<S>, callId, signal);
           return {
             output: out.output,
@@ -1669,10 +2246,11 @@ export function createComputerUse(deps: ComputerDeps): ComputerUse {
     };
     const describe = t.describe;
     if (describe !== undefined) {
-      registration.describeCall = (params) => {
+      registration.describeCall = (params, call) => {
         if (!validator.check(params)) return {};
         try {
-          return describe(params as Static<S>);
+          assertAppIdShape(params);
+          return describe(params as Static<S>, call);
         } catch (err) {
           // An action the executor or the helper always refuses is refused here, before the
           // broker: the loop blocks it and no card is shown (#354).
@@ -1685,6 +2263,36 @@ export function createComputerUse(deps: ComputerDeps): ComputerUse {
   }
 
   const appTarget = (app: string) => ({ kind: "app" as const, value: app });
+  /** A grant for one surface never covers another; the direct surface keeps the old keys. */
+  const surfaceSuffix = (surface: ComputerSurface | undefined): string =>
+    surface === undefined || surface === "direct" ? "" : `|${surface}`;
+  /**
+   * Where a card's action happens, named on every card (owner decision for #1294): the separate
+   * desktop or the virtual screen, or the Host itself when it is a Linux computer (which also has
+   * a separate desktop). A Mac's or PC's own desktop is the only one there and is not named.
+   */
+  const placeOf = (surface: ComputerSurface | undefined): string | undefined =>
+    surface === "separate_desktop"
+      ? "In the separate desktop"
+      : surface === "virtual_screen"
+        ? "On the virtual screen"
+        : hostOs(deps.helper()?.kind) === "linux"
+          ? `On ${hostWords(deps.helper()?.kind).thisDevice}`
+          : undefined;
+  const placed = (surface: ComputerSurface | undefined, summary: string): string => {
+    const where = placeOf(surface);
+    return where === undefined ? summary : `${where}: ${summary}`;
+  };
+  /** `surface` for a card's details, whenever the card names its place. */
+  const placeField = (surface: ComputerSurface | undefined): { surface?: ComputerSurface } =>
+    placeOf(surface) === undefined ? {} : { surface: surface ?? "direct" };
+  const placeDetails = (
+    surface: ComputerSurface | undefined,
+    details: Record<string, unknown> = {},
+  ): { details?: Record<string, unknown> } => {
+    const d = { ...details, ...placeField(surface) };
+    return Object.keys(d).length === 0 ? {} : { details: d };
+  };
 
   /**
    * An element target the helper may act on: a ref must come from a snapshot of `app` (the app
@@ -1694,11 +2302,12 @@ export function createComputerUse(deps: ComputerDeps): ComputerUse {
   function endpoint(
     app: string,
     t: { ref?: string; expect?: Static<typeof Expect>; x?: number; y?: number },
+    surface?: ComputerSurface,
   ): Record<string, unknown> {
     if (t.ref === undefined) {
       return { ...(t.x === undefined ? {} : { x: t.x }), ...(t.y === undefined ? {} : { y: t.y }) };
     }
-    const seen = elements.get(t.ref);
+    const seen = seenElement(surface, t.ref);
     if (seen === undefined || seen.app !== app.toLowerCase()) {
       throw new PsycheError(
         "invalid_params",
@@ -1721,7 +2330,7 @@ export function createComputerUse(deps: ComputerDeps): ComputerUse {
   }
 
   function actCapability(p: ActParams): { capability: string; params: Record<string, unknown> } {
-    const target = endpoint(p.app, p);
+    const target = endpoint(p.app, p, p.surface);
     const need = (field: keyof ActParams) => {
       if (p[field] === undefined) {
         throw new PsycheError("invalid_params", `${p.action} needs ${field}`);
@@ -1790,7 +2399,7 @@ export function createComputerUse(deps: ComputerDeps): ComputerUse {
         need("to");
         return {
           capability: "computer.drag",
-          params: { from: target, to: endpoint(p.app, p.to ?? {}) },
+          params: { from: target, to: endpoint(p.app, p.to ?? {}, p.surface) },
         };
       case "menu":
         need("path");
@@ -1817,7 +2426,7 @@ export function createComputerUse(deps: ComputerDeps): ComputerUse {
   function actTier(p: ActParams): "click" | "interact" {
     const tier = tierFor(p.action);
     if (tier !== "click" || p.ref === undefined) return tier;
-    const role = elements.get(p.ref)?.role?.toLowerCase() ?? "";
+    const role = seenElement(p.surface, p.ref)?.role?.toLowerCase() ?? "";
     return MENU_ROLES.has(role.replace(/^ax/, "")) ? "interact" : tier;
   }
 
@@ -1825,19 +2434,30 @@ export function createComputerUse(deps: ComputerDeps): ComputerUse {
    * What the owner sees and the broker classifies: risky labels and chords are destructive, and
    * a label that moves money (Pay, Buy, Place order, Checkout, Transfer…) is financial.
    */
-  function describeAct(p: ActParams): ToolCallDescription {
+  function describeAct(p: ActParams, call?: ToolCallScope): ToolCallDescription {
+    // A label's words ask everywhere, except that the separate desktop sets file-local words
+    // aside under its own rules for the calling Task (its router decides; every other surface,
+    // and a description with no caller, keeps `isRiskyLabel`).
+    const riskyLabel = (text: string | undefined): boolean => {
+      if (p.surface === "separate_desktop" && call !== undefined) {
+        const router = routerFor(p.surface);
+        if (router?.asks !== undefined) return router.asks(text, { app: p.app }, call);
+      }
+      return isRiskyLabel(text);
+    };
     // Risk comes from what the snapshot showed, not only from what the agent copied: an element
     // the Gateway has not seen in this app, or a bare screen point, could be anything.
     const unknown = (t: { ref?: string; x?: number; y?: number } | undefined): boolean => {
       if (t === undefined) return false;
       if (t.ref === undefined) return t.x !== undefined || t.y !== undefined;
-      const seen = elements.get(t.ref);
-      return seen === undefined || seen.app !== p.app.toLowerCase() || isRiskyLabel(seen.label);
+      const seen = seenElement(p.surface, t.ref);
+      return seen === undefined || seen.app !== p.app.toLowerCase() || riskyLabel(seen.label);
     };
-    const label = p.expect?.label ?? (p.ref === undefined ? undefined : elements.get(p.ref)?.label);
+    const label =
+      p.expect?.label ?? (p.ref === undefined ? undefined : seenElement(p.surface, p.ref)?.label);
     const risky =
-      isRiskyLabel(p.expect?.label) ||
-      isRiskyLabel(p.to?.expect?.label) ||
+      riskyLabel(p.expect?.label) ||
+      riskyLabel(p.to?.expect?.label) ||
       unknown(p) ||
       unknown(p.to) ||
       (p.action === "key" && p.keys !== undefined && isRiskyChord(p.keys)) ||
@@ -1845,8 +2465,8 @@ export function createComputerUse(deps: ComputerDeps): ComputerUse {
       (p.action === "key" && p.keys !== undefined && isSendChord(p.app, p.keys)) ||
       (p.action === "type" && isSendApp(p.app) && /[\r\n]/.test(p.text ?? "")) ||
       unwatched(p.app) ||
-      (p.action === "menu" && (p.path ?? "").split(">").some((seg) => isRiskyLabel(seg))) ||
-      (p.action === "press" && isRiskyLabel(p.press?.replace(/^custom:/, "")));
+      (p.action === "menu" && (p.path ?? "").split(">").some((seg) => riskyLabel(seg))) ||
+      (p.action === "press" && riskyLabel(p.press?.replace(/^custom:/, "")));
     const what =
       p.action === "type"
         ? "Type text"
@@ -1858,7 +2478,7 @@ export function createComputerUse(deps: ComputerDeps): ComputerUse {
     const money =
       isMoneyLabel(p.expect?.label) ||
       isMoneyLabel(p.to?.expect?.label) ||
-      (p.ref !== undefined && isMoneyLabel(elements.get(p.ref)?.label)) ||
+      (p.ref !== undefined && isMoneyLabel(seenElement(p.surface, p.ref)?.label)) ||
       (p.action === "menu" && (p.path ?? "").split(">").some((seg) => isMoneyLabel(seg))) ||
       (p.action === "press" && isMoneyLabel(p.press?.replace(/^custom:/, "")));
     return {
@@ -1874,12 +2494,13 @@ export function createComputerUse(deps: ComputerDeps): ComputerUse {
         app: p.app,
         tierRequired: actTier(p),
         action: p.action,
+        ...surfaceFields(p.surface),
         ...(p.ref === undefined ? {} : { elementRef: p.ref }),
         ...(p.text === undefined && p.keys === undefined
           ? {}
           : { textSha256: hashCanonical(p.text ?? p.keys ?? "") }),
       },
-      grantKey: `${p.app}|${actTier(p)}`,
+      grantKey: `${p.app}|${actTier(p)}${surfaceSuffix(p.surface)}`,
       // The broker's per-app tier check keys on the action: a click needs `click`, typing
       // `interact`; a click that opens a menu is judged as `menu` (interact).
       meta: {
@@ -1888,14 +2509,21 @@ export function createComputerUse(deps: ComputerDeps): ComputerUse {
         // What the hard block on trades and transfers reads: the labels this call names and
         // whether it activates something the Gateway has not seen (a point, a key, a newline).
         control: {
-          labels: controlLabels(p, p.ref === undefined ? undefined : elements.get(p.ref)?.label),
+          labels: controlLabels(
+            p,
+            p.ref === undefined ? undefined : seenElement(p.surface, p.ref)?.label,
+          ),
           ...(activatesUnseen(p) ? { unreadable: true } : {}),
         },
       },
-      summary: `${unwatched(p.app) ? "While you're away: " : ""}${what} in ${p.app}`,
+      summary: placed(
+        p.surface,
+        `${unwatched(p.app) ? "While you're away: " : ""}${what} in ${p.app}`,
+      ),
       details: {
         app: p.app,
         action: p.action,
+        ...placeField(p.surface),
         ...(label === undefined ? {} : { element: label }),
         ...(p.text === undefined ? {} : { text: p.text }),
         ...(p.keys === undefined ? {} : { keys: p.keys }),
@@ -1908,10 +2536,10 @@ export function createComputerUse(deps: ComputerDeps): ComputerUse {
     def({
       name: "apps.list",
       description:
-        "Apps running on this computer: app id (a bundle id on macOS, the exe name on Windows), name, frontmost, and the computer-use tier in effect.",
-      schema: NoParams,
+        "Apps running on this computer: app id (a bundle id on macOS, the exe name on Windows, the desktop file id on Linux), name, frontmost, and the computer-use tier in effect.",
+      schema: ListParams,
       sideEffect: "read",
-      async run(_p, callId, signal) {
+      async run(p, callId, signal) {
         const { res } = await invoke(
           callId,
           {
@@ -1920,6 +2548,7 @@ export function createComputerUse(deps: ComputerDeps): ComputerUse {
             params: {},
             session: false,
             approval: { app: "*", action: "list", tierRequired: "read" },
+            ...(p.surface === undefined ? {} : { surface: p.surface }),
           },
           signal,
         );
@@ -1936,9 +2565,15 @@ export function createComputerUse(deps: ComputerDeps): ComputerUse {
       describe: (p) => ({
         kind: "computer_action",
         target: appTarget(p.app),
-        bindingFields: { app: p.app, tierRequired: "read", action: "snapshot" },
-        grantKey: `${p.app}|read`,
-        summary: `Read ${p.app}`,
+        bindingFields: {
+          app: p.app,
+          tierRequired: "read",
+          action: "snapshot",
+          ...surfaceFields(p.surface),
+        },
+        grantKey: `${p.app}|read${surfaceSuffix(p.surface)}`,
+        summary: placed(p.surface, `Read ${p.app}`),
+        ...placeDetails(p.surface),
       }),
       async run(p, callId, signal) {
         const { res, session } = await invoke(
@@ -1956,6 +2591,7 @@ export function createComputerUse(deps: ComputerDeps): ComputerUse {
             },
             session: true,
             approval: { app: p.app, action: "snapshot", tierRequired: "read" },
+            ...(p.surface === undefined ? {} : { surface: p.surface }),
           },
           signal,
         );
@@ -1968,7 +2604,7 @@ export function createComputerUse(deps: ComputerDeps): ComputerUse {
         // What the element map and the model see: \n lines only, bounded (#271).
         const text = sanitizeSnapshot(typeof r.text === "string" ? r.text : "");
         session?.snapshotted.add(p.app.toLowerCase());
-        remember(p.app, text);
+        remember(p.app, text, p.surface);
         return {
           output: {
             app: p.app,
@@ -1983,16 +2619,22 @@ export function createComputerUse(deps: ComputerDeps): ComputerUse {
     def({
       name: "computer.check_target",
       description:
-        "Read-only check before a replayed step of a recorded Mac-app skill: is the recorded target (role and name, identifier, or menu path) in the app's window right now? Needs a role (generic means any). Answers found, missing, ambiguous (also when the window was too big to read in full) or wrong_app. Anything but found carries stop: true: stop and ask the owner; never pick a similar element. When found, take computer.snapshot and act on the same ref.",
+        "Read-only check before a replayed step of a recorded app skill: is the recorded target (role and name, identifier, or menu path) in the app's window right now? Needs a role (generic means any). Answers found, missing, ambiguous (also when the window was too big to read in full) or wrong_app. Anything but found carries stop: true: stop and ask the owner; never pick a similar element. When found, take computer.snapshot and act on the same ref.",
       schema: CheckTargetParams,
       sideEffect: "read",
       targetKind: "app",
       describe: (p) => ({
         kind: "computer_action",
         target: appTarget(p.app),
-        bindingFields: { app: p.app, tierRequired: "read", action: "check_target" },
-        grantKey: `${p.app}|read`,
-        summary: `Check the recorded step in ${p.app}`,
+        bindingFields: {
+          app: p.app,
+          tierRequired: "read",
+          action: "check_target",
+          ...surfaceFields(p.surface),
+        },
+        grantKey: `${p.app}|read${surfaceSuffix(p.surface)}`,
+        summary: placed(p.surface, `Check the recorded step in ${p.app}`),
+        ...placeDetails(p.surface),
       }),
       async run(p, callId, signal) {
         // A role is required (`generic` means any), unless it is a menu choice.
@@ -2012,6 +2654,7 @@ export function createComputerUse(deps: ComputerDeps): ComputerUse {
             },
             session: true,
             approval: { app: p.app, action: "check_target", tierRequired: "read" },
+            ...(p.surface === undefined ? {} : { surface: p.surface }),
           },
           signal,
         );
@@ -2056,7 +2699,7 @@ export function createComputerUse(deps: ComputerDeps): ComputerUse {
         // Refs must come from a snapshot of `p.app` (checked in `endpoint`).
         const { capability, params } = actCapability(p);
         // A payment card was classed from the call itself: the app is showing a payment.
-        if (describeAct(p).sideEffect === "financial") markMoney(p.app);
+        if (describeAct(p).sideEffect === "financial") markMoney(p);
         await blockUnderRef(p, callId, signal);
         // A point carries no label the Gateway saw, and a key or a typed newline activates
         // whatever has focus: ask the helper what the action lands on first. Typed text that
@@ -2077,6 +2720,7 @@ export function createComputerUse(deps: ComputerDeps): ComputerUse {
                     session: true,
                     approval: { app: p.app, action: p.action, tierRequired: actTier(p) },
                     ...(financialApproval === undefined ? {} : { approvalId: financialApproval }),
+                    ...(p.surface === undefined ? {} : { surface: p.surface }),
                   },
                   signal,
                 );
@@ -2101,15 +2745,22 @@ export function createComputerUse(deps: ComputerDeps): ComputerUse {
       describe: (p) => ({
         kind: "computer_action",
         target: appTarget(p.app),
-        bindingFields: { app: p.app, tierRequired: "read", action: "screenshot" },
-        grantKey: `${p.app}|read`,
-        summary: `Look at ${p.app}`,
-        details: { app: p.app, reason: p.reason },
+        bindingFields: {
+          app: p.app,
+          tierRequired: "read",
+          action: "screenshot",
+          ...surfaceFields(p.surface),
+        },
+        grantKey: `${p.app}|read${surfaceSuffix(p.surface)}`,
+        summary: placed(p.surface, `Look at ${p.app}`),
+        details: { app: p.app, reason: p.reason, ...placeField(p.surface) },
       }),
       async run(p, callId, signal) {
         const ctx = deps.context(callId);
         // J3 / security §12: the vision fallback comes after the accessibility tree.
-        if (sessions.get(sessionKey(ctx))?.snapshotted.has(p.app.toLowerCase()) !== true) {
+        if (
+          sessions.get(sessionKey(ctx, p.surface))?.snapshotted.has(p.app.toLowerCase()) !== true
+        ) {
           throw new PsycheError(
             "invalid_params",
             `Take computer.snapshot of ${p.app} first; screenshots are for what the snapshot cannot show.`,
@@ -2123,6 +2774,7 @@ export function createComputerUse(deps: ComputerDeps): ComputerUse {
             params: { app: p.app, windowOnly: true, maxWidth: 1372, maxHeight: 887 },
             session: true,
             approval: { app: p.app, action: "screenshot", tierRequired: "read" },
+            ...(p.surface === undefined ? {} : { surface: p.surface }),
           },
           signal,
         );
@@ -2157,28 +2809,31 @@ export function createComputerUse(deps: ComputerDeps): ComputerUse {
     def({
       name: "apps.open",
       description:
-        "Open (launch or bring forward) an app by bundle id, optionally with a file:// document or a mailto: URL. Web pages go through the browser tools.",
+        "Open (launch or bring forward) an app by app id (bundle id, exe name or desktop file id), optionally with a file:// document or a mailto: URL. Web pages go through the browser tools.",
       schema: OpenParams,
       sideEffect: "write",
       targetKind: "app",
       describe: (p) => {
         assertOpenAllowed(p.app, p.url);
-        // The bundle the helper last resolved this id to: the card names it and its folder.
-        const known = knownApp(p.app);
+        // The bundle the Host helper last resolved this id to: the card names it and its folder.
+        // Another surface is another machine: the Host's answer says nothing about it.
+        const known =
+          p.surface === undefined || p.surface === "direct" ? knownApp(p.app) : undefined;
         const urlSha256 = p.url === undefined ? undefined : hashCanonical(p.url);
         return {
           kind: "computer_action",
           target: appTarget(p.app),
-          bindingFields: openBindingFields(p, known?.path),
+          bindingFields: { ...openBindingFields(p, known?.path), ...surfaceFields(p.surface) },
           // A grant for opening the app never covers opening a document with it, and a grant
-          // for one document never covers another.
-          grantKey: `${p.app}|click${urlSha256 === undefined ? "" : `|url:${urlSha256}`}`,
+          // for one document never covers another; one surface's never covers another's.
+          grantKey: `${p.app}|click${urlSha256 === undefined ? "" : `|url:${urlSha256}`}${surfaceSuffix(p.surface)}`,
           meta: { app: p.app, action: "open_app" },
-          summary: `Open ${known?.name ?? p.app}`,
+          summary: placed(p.surface, `Open ${known?.name ?? p.app}`),
           details: {
             app: p.app,
             ...(known === undefined ? {} : { name: known.name, path: known.path }),
             ...(p.url === undefined ? {} : { url: p.url }),
+            ...placeField(p.surface),
           },
         };
       },
@@ -2195,7 +2850,12 @@ export function createComputerUse(deps: ComputerDeps): ComputerUse {
         // What the card could name (the last resolution), then the bundle the helper resolves
         // now: a bundle outside the system's app folders that no approved card named gets a
         // card of its own, and the helper opens exactly the bundle resolved here.
-        const resolved = await resolveApp(p.app, callId, signal);
+        // Only the Host helper resolves bundles (`apps.resolve`); a routed surface's helper opens
+        // the id itself under its own trust rules.
+        const resolved =
+          p.surface === undefined || p.surface === "direct"
+            ? await resolveApp(p.app, callId, signal)
+            : undefined;
         if (resolved !== undefined && !systemAppPath(resolved.path)) {
           // The loop's card named this path only when the approval the call ran on binds these
           // exact arguments with this path (its own binding, not what the cache says now).
@@ -2228,6 +2888,7 @@ export function createComputerUse(deps: ComputerDeps): ComputerUse {
             },
             session: false,
             approval: { app: p.app, action: "open_app", tierRequired: "click" },
+            ...(p.surface === undefined ? {} : { surface: p.surface }),
           },
           signal,
         );
@@ -2244,10 +2905,16 @@ export function createComputerUse(deps: ComputerDeps): ComputerUse {
       describe: (p) => ({
         kind: "computer_action",
         target: appTarget(p.app),
-        bindingFields: { app: p.app, tierRequired: "click", action: "focus" },
-        grantKey: `${p.app}|click`,
+        bindingFields: {
+          app: p.app,
+          tierRequired: "click",
+          action: "focus",
+          ...surfaceFields(p.surface),
+        },
+        grantKey: `${p.app}|click${surfaceSuffix(p.surface)}`,
         meta: { app: p.app, action: "focus" },
-        summary: `Focus ${p.app}`,
+        summary: placed(p.surface, `Focus ${p.app}`),
+        ...placeDetails(p.surface),
       }),
       async run(p, callId, signal) {
         const { res, approvalId } = await invoke(
@@ -2258,6 +2925,7 @@ export function createComputerUse(deps: ComputerDeps): ComputerUse {
             params: { app: p.app, ...(p.window === undefined ? {} : { window: p.window }) },
             session: false,
             approval: { app: p.app, action: "focus", tierRequired: "click" },
+            ...(p.surface === undefined ? {} : { surface: p.surface }),
           },
           signal,
         );
@@ -2401,7 +3069,15 @@ export function createComputerUse(deps: ComputerDeps): ComputerUse {
   ];
 
   return {
-    registrations: () => tools,
+    registrations(options) {
+      const allowed =
+        options?.appleTools ?? (options?.apple === false ? new Set<string>() : undefined);
+      if (allowed === undefined) return tools;
+      return tools.filter(
+        (t) =>
+          !(APPLE_TOOLS as readonly string[]).includes(t.spec.name) || allowed.has(t.spec.name),
+      );
+    },
     async runEnded(runId) {
       for (const s of [...sessions.values()]) {
         if (!s.runIds.has(runId)) continue;
@@ -2414,7 +3090,9 @@ export function createComputerUse(deps: ComputerDeps): ComputerUse {
       for (const s of [...sessions.values()]) if (s.taskId === taskId) await end(s);
     },
     nodeGone(nodeId) {
-      for (const s of [...sessions.values()]) if (s.nodeId === nodeId) sessions.delete(s.id);
+      // A routed surface's helper going away (`surfaceNodeId`) ends its sessions through the
+      // router, which releases what their Task held.
+      for (const s of [...sessions.values()]) if (s.nodeId === nodeId) void forget(s);
       // A reconnected helper starts its ref table over.
       elements.clear();
     },
@@ -2422,7 +3100,12 @@ export function createComputerUse(deps: ComputerDeps): ComputerUse {
       for (const s of [...sessions.values()]) await end(s);
     },
     sessions: () =>
-      [...sessions.values()].map((s) => ({ id: s.id, nodeId: s.nodeId, runIds: [...s.runIds] })),
+      [...sessions.values()].map((s) => ({
+        id: s.id,
+        nodeId: s.nodeId,
+        runIds: [...s.runIds],
+        ...(s.surface === "direct" ? {} : { surface: s.surface }),
+      })),
   };
 }
 
@@ -2445,18 +3128,57 @@ export function computerHelper(gateway: () => Gateway | undefined): () => Helper
   };
 }
 
-export function composeComputer(services: ComposeServices): ComposedPart {
+/**
+ * Which Apple-only tools to register for a Host helper: `undefined` means all of them (macOS and
+ * Windows keep registering every tool). On Linux there are none unless the helper's manifest
+ * lists the capability; with no information about the helper yet, none.
+ */
+export function appleToolsFor(
+  info: { kind?: string; capabilities: readonly { name: string }[] } | undefined,
+  platform: string | undefined = process.platform,
+): Set<string> | undefined {
+  if (hostOs(info?.kind, platform) !== "linux") return undefined;
+  const offered = new Set(info?.capabilities.map((c) => c.name));
+  const out = new Set<string>();
+  if (offered.has("apps.applescript") || offered.has("apps.jxa")) out.add("apps.applescript");
+  if (offered.has("apps.shortcuts_list")) out.add("apps.shortcuts_list");
+  if (offered.has("apps.shortcut_run")) out.add("apps.shortcut_run");
+  return out;
+}
+
+/** The computer-use part, plus the hook for the Host's private screen (B3). */
+export interface ComposedComputer extends ComposedPart {
+  /** The virtual-screen part's screen: the headless path's take-over gate and Task end. */
+  useScreen(screen: HeadlessScreen | undefined): void;
+}
+
+export function composeComputer(services: ComposeServices): ComposedComputer {
+  let screen: HeadlessScreen | undefined;
   // Settings → Computer use → the helper's computer-use.json and the broker's app tiers.
   const settings = computerUseSettings(services);
   let gateway: Gateway | undefined;
   const offs: (() => void)[] = [];
-  let unregister: (() => void)[] = [];
+  const registered = new Map<string, () => void>();
+  let enabled = false;
+  const onLinux = process.platform === "linux";
+  const helper = computerHelper(() => gateway);
+  // Never handed a starter: turning computer use off, and Revoke, start nothing (owner rule).
+  const linux = onLinux
+    ? createLinuxComputerState({
+        db: services.db,
+        publishEntry: (entry) => services.publish("settings.changed", { entries: [entry] }),
+        helper,
+        ...(services.logger === undefined ? {} : { logger: services.logger }),
+      })
+    : undefined;
+  // One logind answer per few seconds for every call site, cut short by the call's signal.
+  const graphical = onLinux ? cachedGraphicalSession() : undefined;
   const cu = createComputerUse({
     // Pause-when-unwatched (#272): the Gateway's shared view of the owner's attention.
     lastOwnerInput: () => services.attention.lastInput(),
     paneHidden: () => services.attention.paneHidden("computer"),
     broker: services.broker,
-    helper: computerHelper(() => gateway),
+    helper,
     context: (callId) => services.calls.context(callId),
     authority: (callId) => services.calls.authorityFor(callId),
     cancelRun(_threadId, runId, reason) {
@@ -2469,22 +3191,65 @@ export function composeComputer(services: ComposeServices): ComposedPart {
       const runId = services.calls.get(callId)?.runId;
       if (runId !== undefined) gateway?.context.runTrace.addFrame(runId, callId, frame);
     },
+    ...(graphical === undefined
+      ? {}
+      : {
+          startHelper: (signal: AbortSignal, decided?: boolean) =>
+            startHelperWithSystemd(signal, undefined, () =>
+              decided === undefined ? graphical(signal) : Promise.resolve(decided),
+            ),
+          graphicalSession: (signal?: AbortSignal) => graphical(signal),
+        }),
+    headlessScreen: () => screen,
+    ...(linux === undefined
+      ? {}
+      : { sessionEnded: () => void linux.refresh(), revokeSettled: () => linux.revokeSettled() }),
   });
 
-  function setEnabled(on: boolean): void {
-    if (on && unregister.length === 0) {
-      unregister = cu.registrations().map((r) => services.tools.register(r));
-    } else if (!on && unregister.length > 0) {
-      for (const u of unregister.splice(0)) u();
-      void cu.endAll();
+  /** The Host helper as far as we know it: connected now, else the last one that paired. */
+  function hostInfo(): NodeInfo | undefined {
+    const live = gateway?.context.nodes.hostHelper()?.info;
+    if (live !== undefined) return live;
+    return listNodes(services.db)
+      .filter((n) => isHostHelperKind(n.kind))
+      .sort((a, b) => (b.lastHeartbeatAt ?? "").localeCompare(a.lastHeartbeatAt ?? ""))[0];
+  }
+
+  /** Registers the tools that should exist now and removes the others (Settings, node changes). */
+  function syncTools(): void {
+    const apple = enabled && onLinux ? appleToolsFor(hostInfo()) : undefined;
+    const want = enabled
+      ? cu.registrations(apple === undefined ? undefined : { appleTools: apple })
+      : [];
+    const names = new Set(want.map((r) => r.spec.name));
+    for (const [name, off] of [...registered]) {
+      if (names.has(name)) continue;
+      off();
+      registered.delete(name);
     }
+    for (const r of want) {
+      if (!registered.has(r.spec.name)) registered.set(r.spec.name, services.tools.register(r));
+    }
+  }
+
+  function setEnabled(on: boolean): void {
+    const wasRegistered = registered.size > 0;
+    enabled = on;
+    syncTools();
+    if (!on && wasRegistered) void cu.endAll();
   }
   setEnabled(getSetting(services.db, COMPUTER_USE_ENABLED)?.value === true);
   settings.sync();
 
   return {
+    useScreen(next) {
+      screen = next;
+    },
     start(gw) {
       gateway = gw;
+      // The tools depend on the live helper's manifest once there is one.
+      syncTools();
+      if (helper() !== undefined) void linux?.helperOnline();
       offs.push(
         gw.bus.subscribe(["operator.read"], (frame) => {
           const f = JSON.parse(frame) as { event?: string; payload?: Record<string, unknown> };
@@ -2497,20 +3262,29 @@ export function composeComputer(services: ComposeServices): ComposedPart {
             if (task !== undefined && TASK_FINISHED.has(task.status)) void cu.taskEnded(task.id);
           } else if (f.event === "node.updated") {
             const node = p.node as NodeInfo | undefined;
-            if (node !== undefined && node.status !== "online") cu.nodeGone(node.id);
+            if (node !== undefined && node.status !== "online") {
+              cu.nodeGone(node.id);
+              for (const id of surfaceNodesOnOffline(node.kind)) cu.nodeGone(id);
+            }
+            if (node !== undefined && isHostHelperKind(node.kind)) {
+              syncTools();
+              if (node.status === "online") void linux?.helperOnline();
+            }
           } else if (f.event === "settings.changed") {
             const entries = (p.entries ?? []) as { key: string; value: unknown }[];
             for (const e of entries) {
               if (e.key === COMPUTER_USE_ENABLED) setEnabled(e.value === true);
             }
             settings.onChanged(entries);
+            linux?.onChanged(entries);
           }
         }),
       );
     },
     async stop() {
       for (const off of offs.splice(0)) off();
-      for (const u of unregister.splice(0)) u();
+      for (const off of registered.values()) off();
+      registered.clear();
       await cu.endAll();
     },
   };

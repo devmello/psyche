@@ -89,6 +89,11 @@ export interface StartTurnInput {
    */
   taintSources?: TaintSource[];
   /**
+   * The turn's `taintSources` belong to the whole conversation (a chat opened about a mail
+   * thread): the thread keeps them, and every later turn starts tainted with them.
+   */
+  stickyTaint?: boolean;
+  /**
    * `false`: `input.text` is not the owner's own words (a widget composed it, generative-ui-2026
    * §7.3), so it never names targets for the broker's new-target rule. Default true.
    */
@@ -378,8 +383,18 @@ export interface ToolCallAuthority {
 export interface ToolRegistration {
   spec: ToolSpec;
   execute: ToolExecutor;
-  /** Optional per-call description; must be pure and must not throw for valid params. */
-  describeCall?: (params: unknown) => ToolCallDescription;
+  /**
+   * Optional per-call description; must be pure and must not throw for valid params. `call` names
+   * the run and Task making the call when the caller knows them (the agent loop's approval gate);
+   * a description that depends on it must be at least as strict without it.
+   */
+  describeCall?: (params: unknown, call?: ToolCallScope) => ToolCallDescription;
+}
+
+/** The run and Task a described call belongs to. */
+export interface ToolCallScope {
+  runId: string;
+  taskId?: string;
 }
 
 /** The single source of tool metadata for the broker and the tool-toggle settings. */

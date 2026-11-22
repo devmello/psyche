@@ -10,6 +10,7 @@ import { capabilities } from "./capabilities/ar.ts";
 import { charts } from "./charts/ar.ts";
 import { chat } from "./chat/ar.ts";
 import { common } from "./common/ar.ts";
+import { computerWatch } from "./computer-watch/ar.ts";
 import { connectorGallery } from "./connector-gallery/ar.ts";
 import { connectorsPage } from "./connectors-page/ar.ts";
 import { daily } from "./daily/ar.ts";
@@ -19,7 +20,11 @@ import { final202611 } from "./final-2026-11/ar.ts";
 import { helperCheck } from "./helper-check/ar.ts";
 import { helperOffline } from "./helper-offline/ar.ts";
 import { home } from "./home/ar.ts";
+import { keepAwake } from "./keep-awake/ar.ts";
 import { links } from "./links/ar.ts";
+import { linuxAccess } from "./linux-access/ar.ts";
+import { machines } from "./machines/ar.ts";
+import { mailFollowups } from "./mail-followups/ar.ts";
 import { mailMeetings } from "./mail-meetings/ar.ts";
 import { meetingRecord } from "./meeting-record/ar.ts";
 import { memoryMap } from "./memory-map/ar.ts";
@@ -46,6 +51,7 @@ import { settingsLanguage } from "./settings-language/ar.ts";
 import { settingsSections } from "./settings-sections/ar.ts";
 import { shell } from "./shell/ar.ts";
 import { skillAuthor } from "./skill-author/ar.ts";
+import { spaces } from "./spaces/ar.ts";
 import { specialists } from "./specialists/ar.ts";
 import { teach } from "./teach/ar.ts";
 import { web } from "./web/ar.ts";
@@ -203,6 +209,15 @@ export const ar: Partial<Catalogue> = {
     "Google متصل بعميل آخر. افصل Google أولًا ثم غيّر العميل.",
   "errors.reason.secret_required": "يحتاج العميل المختلف إلى سر عميل خاص به.",
   "errors.reason.updating": "سيعيد Psyche التشغيل الآن لتثبيت تحديث. حاول مرة أخرى بعد لحظة.",
+  "errors.reason.passkey_required": "أعدّ مفتاح مرور للموافقة على المدفوعات في Psyche هذا.",
+  "errors.reason.awaiting_owner":
+    "يحتوي تطبيق على تغييرات غير محفوظة. ينتظر Psyche أن تقرر ما يحدث لها.",
+  "errors.reason.checkout_needs_desktop":
+    "يتطلب الدفع في متصفح Psyche أن يكون تطبيق Psyche لسطح المكتب متصلاً بهذا المضيف.",
+  "errors.reason.no_chromium":
+    "يحتاج متصفح Psyche إلى Chromium على هذا المضيف. ثبّته أو اضبط PSYCHE_CHROMIUM.",
+  "errors.reason.chromium_sandbox":
+    "تعذّر تشغيل صندوق الحماية في Chromium على هذا المضيف، لذا فمتصفح Psyche متوقف. اسمح لـ Chromium باستخدام مساحات أسماء المستخدم (ملف تعريف AppArmor).",
   "errors.unavailable": "لا يستطيع Psyche القيام بذلك الآن.",
   "errors.approval_required": "يحتاج هذا إلى موافقتك أولًا.",
   "errors.approval_expired": "انتهت صلاحية الموافقة؛ اطلب مرة أخرى.",
@@ -552,6 +567,7 @@ export const ar: Partial<Catalogue> = {
   "blocks.artifact.bytes": "{size} بايت",
   "blocks.artifact.kilobytes": "{size} ك.ب",
   "blocks.artifact.megabytes": "{size} م.ب",
+  "blocks.artifact.gigabytes": "{size} غ.ب",
 
   "blocks.task.status.queued": "في قائمة الانتظار",
   "blocks.task.status.running": "قيد التشغيل",
@@ -635,6 +651,12 @@ export const ar: Partial<Catalogue> = {
   "context.marker.readsInstead": "الملخص الذي يقرؤه الوكيل بدلًا منها:",
   "context.marker.empty": "لم يُعثر على شيء يستحق الاحتفاظ به.",
   "context.marker.showReplaced": "عرض ما تم استبداله",
+  "context.marker.removePin": "إزالة",
+  "context.marker.removePinLabel": "إزالة هذا التوجيه الدائم: {text}",
+  "context.marker.pinRemoved": "تمت إزالة التوجيه الدائم.",
+  "context.marker.pinRemoveFailed": "تعذّرت الإزالة: {reason}",
+  "context.marker.droppedPins":
+    "{count, plural, one {تم تجاهل توجيه دائم أقدم} two {تم تجاهل توجيهين دائمين أقدم} few {تم تجاهل # توجيهات دائمة أقدم} many {تم تجاهل # توجيهًا دائمًا أقدم} other {تم تجاهل # توجيه دائم أقدم}} لإفساح المجال للتوجيهات الجديدة.",
   "context.marker.replacedList": "الأدوار المستبدلة",
   "context.marker.notLoaded": "الأدوار المستبدلة غير محمّلة هنا.",
   "context.marker.speaker": "{name}:",
@@ -840,7 +862,45 @@ export const ar: Partial<Catalogue> = {
   "agent.memory.incognito": "دردشة جانبية متخفية",
   "agent.memory.importExport": "الاستيراد والتصدير وإعادة التعيين",
   "agent.memory.import": "استيراد الذاكرة",
+  "agent.memory.importConv.title": "الاستيراد من claude.ai أو ChatGPT",
+  "agent.memory.importConv.note":
+    "المحادثات المستوردة للقراءة فقط. يُعامل نصها كبيانات غير موثوقة ولا يصبح أبدًا عنصرًا مثبتًا أو تعليمات.",
+  "agent.memory.importConv.source": "تم التصدير من",
+  "agent.memory.importConv.claude": "claude.ai",
+  "agent.memory.importConv.chatgpt": "ChatGPT",
+  "agent.memory.importConv.mode": "ما الذي تريد استيراده",
+  "agent.memory.importConv.memoriesOnly": "الذكريات فقط",
+  "agent.memory.importConv.both": "الذكريات والمحادثات",
+  "agent.memory.importConv.memoriesFile": "ملف الذكريات",
+  "agent.memory.importConv.conversationsFile": "ملف المحادثات (conversations.json)",
+  "agent.memory.importConv.start": "استيراد",
+  "agent.memory.importConv.working": "جارٍ الاستيراد…",
+  "agent.memory.importConv.cancel": "إلغاء",
+  "agent.memory.importConv.close": "إغلاق",
+  "agent.memory.importConv.progressMemories": "جارٍ استيراد الذكريات…",
+  "agent.memory.importConv.progressConversations": "جارٍ استيراد المحادثات…",
+  "agent.memory.importConv.failed": "تعذّر استيراد هذا الملف: {reason}",
+  "agent.memory.importConv.done": "اكتمل الاستيراد.",
+  "agent.memory.importConv.sumMemories": "ذكريات للمراجعة: {n}",
+  "agent.memory.importConv.sumThreads": "محادثات مستوردة: {n}",
+  "agent.memory.importConv.sumDuplicates": "مستوردة سابقًا: {n}",
+  "agent.memory.importConv.sumSkipped": "محادثات تم تخطيها: {n}",
+  "agent.memory.importConv.skipTooMany": "تجاوزت حد {n} محادثة",
+  "agent.memory.importConv.skipTooLarge": "طويلة جدًا",
+  "agent.memory.importConv.skipEmpty": "بلا رسائل",
+  "agent.memory.importConv.skipInvalid": "تعذّرت قراءتها",
+  "agent.memory.importConv.untitled": "بلا عنوان",
+  "agent.memory.importConv.progressCount": "جارٍ استيراد المحادثات… {done} من {total}",
+  "agent.memory.importConv.tooBig":
+    "حجم هذا الملف يتجاوز {mb} ميغابايت وهو كبير جدًا للقراءة هنا. أعد التصدير بنطاق أصغر.",
+  "agent.memory.importConv.memoriesTooBig":
+    "ملف الذكريات هذا يتجاوز {kb} كيلوبايت وهو كبير جدًا للاستيراد دفعة واحدة. قسّمه أو صدّر ذكريات أقل.",
+  "agent.memory.importConv.partial":
+    "توقف قبل الاكتمال: {reason}. تم استيراد {done} من {total} دفعات. أعد الاستيراد للمتابعة؛ تُتخطى المحادثات المستوردة سابقًا.",
+  "agent.memory.importConv.retry": "إعادة الاستيراد",
   "agent.memory.exported": "تم تصدير {file}.",
+  "agent.memory.importConv.memoriesFailed":
+    "تعذّر استيراد الذكريات: {reason}. أعد الاستيراد للمحاولة مرة أخرى.",
   "agent.memory.export": "تصدير كل شيء",
   "agent.memory.resetDone":
     "تمت إعادة تعيين {files, plural, one {ملف واحد} two {ملفين} few {# ملفات} many {# ملفًا} other {# ملف} zero {# ملف}} و{claims, plural, one {ادعاء واحد} two {ادعاءين} few {# ادعاءات} many {# ادعاءً} other {# ادعاء} zero {# ادعاء}}.",
@@ -941,6 +1001,8 @@ export const ar: Partial<Catalogue> = {
   "shell.threads.unpin": "إلغاء التثبيت",
   "shell.threads.pin": "تثبيت",
   "shell.threads.archive": "أرشفة",
+  "shell.threads.imported": "مستوردة",
+  "shell.threads.importedReadOnly": "هذه المحادثة المستوردة للقراءة فقط.",
   "shell.threads.restore": "استعادة",
   "shell.threads.region": "المحادثات",
   "shell.threads.filter": "تصفية المحادثات",
@@ -1077,6 +1139,8 @@ export const ar: Partial<Catalogue> = {
   "settings.key.browser.botAuth": "Web Bot Auth",
   "settings.key.computerUse.enabled": "السماح باستخدام الكمبيوتر",
   "settings.key.computerUse.apps": "الوصول إلى التطبيقات",
+  "settings.key.feed.sources": "مصادر الخلاصة",
+  "settings.key.computerUse.linuxRevoke": "نسيان حاسوب Linux",
   "settings.key.context.maxTokens": "حدّ السياق",
   "settings.key.search.web.provider": "مزوّد البحث على الويب",
   "settings.key.search.web.searxngUrl": "عنوان URL لـ SearXNG",
@@ -2415,6 +2479,46 @@ export const ar: Partial<Catalogue> = {
   "settings.skills.removeDescription":
     "تُحذف ملفاتها من Gateway هذا. تثبيتها مرة أخرى يمر عبر بطاقة الثقة.",
   "settings.skills.switchOn": "تشغيل {name}",
+  "settings.plugins.title": "الإضافات",
+  "settings.plugins.description":
+    "شيفرة تضيف سياقاً أو تفحص استدعاءات الأدوات أو تجري تقييمات. تعمل كل إضافة في عمليتها الخاصة. لا تمنح الإضافات أي أذونات أبداً.",
+  "settings.plugins.off": "الإضافات متوقفة على هذه البوابة، لذلك لا تعمل أي منها.",
+  "settings.plugins.loading": "جارٍ تحميل الإضافات…",
+  "settings.plugins.error": "تعذر تحميل الإضافات. {reason}",
+  "settings.plugins.empty": "لا توجد إضافات مثبتة.",
+  "settings.plugins.failed": "لم يُحفظ التغيير. {reason}",
+  "settings.plugins.waitingApproval": "بانتظار موافقتك على هذا الجهاز.",
+  "settings.plugins.switchOn": "تشغيل {name}",
+  "settings.plugins.version": " · الإصدار {version}",
+  "settings.plugins.adds": "تضيف: {list}",
+  "settings.plugins.install": "التثبيت من مجلد…",
+  "settings.plugins.pickFailed": "تعذّر على Psyche فتح أداة اختيار المجلد ({reason}).",
+  "settings.plugins.installFailed": "لم يبدأ التثبيت. {reason}",
+  "settings.plugins.proposed": "راجع التثبيت على بطاقة الموافقة.",
+  "settings.plugins.includes": "تتضمن: {list}",
+  "settings.plugins.count.skills":
+    "{n, plural, one {مهارة واحدة} two {مهارتان} few {# مهارات} many {# مهارة} other {# مهارة}}",
+  "settings.plugins.count.commands":
+    "{n, plural, one {أمر واحد} two {أمران} few {# أوامر} many {# أمرًا} other {# أمر}}",
+  "settings.plugins.count.mcpServers":
+    "{n, plural, one {خادم MCP واحد} two {خادما MCP} few {# خوادم MCP} many {# خادم MCP} other {# خادم MCP}}",
+  "settings.plugins.count.hooks":
+    "{n, plural, one {خطاف واحد} two {خطافان} few {# خطافات} many {# خطافًا} other {# خطاف}}",
+  "settings.plugins.from": "من {source}",
+  "settings.plugins.state.active": "تعمل",
+  "settings.plugins.state.disabled": "متوقفة",
+  "settings.plugins.state.off": "بانتظار تشغيل الإضافات",
+  "settings.plugins.state.hash_mismatch": "تغيّرت منذ التثبيت، لا تعمل",
+  "settings.plugins.state.invalid": "البيان غير صالح، لا تعمل",
+  "settings.plugins.state.failed": "توقفت بسبب خطأ",
+  "settings.plugins.capability.context": "السياق",
+  "settings.plugins.capability.before_tool_call": "فحص قبل استدعاءات الأدوات",
+  "settings.plugins.capability.after_tool_call": "فحص بعد استدعاءات الأدوات",
+  "settings.plugins.capability.agent_end": "خطوة عند نهاية كل تشغيل",
+  "settings.plugins.capability.evaluate": "التقييمات",
+  "settings.plugins.removeTitle": "إزالة {name}؟",
+  "settings.plugins.removeDescription":
+    "تُحذف ملفاته من هذه البوابة. إعادة تثبيتها تمر ببطاقة الثقة.",
   "settings.skills.asksFor": "تطلب:",
   "settings.skills.toolsLabel": "الأدوات:",
   "settings.skills.title": "المهارات",
@@ -3077,6 +3181,7 @@ export const ar: Partial<Catalogue> = {
   "screens.library.recording.empty": "لا تحتوي هذه اللقطة على خطوات.",
   "screens.library.recording.noFrame": "لا توجد صورة لهذه الخطوة.",
   "screens.library.recording.frameAlt": "المتصفح عند الخطوة {n}",
+  "screens.library.recording.reviewPermissions": "المراجعة في الأذونات",
   "screens.library.recording.loading": "جارٍ تحميل التسجيل",
   "screens.library.recording.loadFailed": "تعذّر على Psyche تحميل هذا التسجيل ({reason}).",
   "screens.library.recording.notFound": "لم يعد هذا التسجيل متاحًا.",
@@ -3159,6 +3264,20 @@ export const ar: Partial<Catalogue> = {
   "screens.goals.checkinLine":
     "{cadence}{hasNext, select, true { · التالية {next}} other {}}{hasLast, select, true { · الأخيرة: {last}} other {}}",
   "screens.goals.noSchedule": "لا جدول",
+  "screens.goals.suggest": "اقترح الخطوة التالية",
+  "screens.goals.suggest.hint":
+    "يستخدم النموذج فقط عند الضغط. لا يبدأ شيء حتى تضغط على «ابدأ» في البطاقة.",
+  "screens.goals.suggest.done": "أُضيف الاقتراح إلى الرئيسية.",
+  "screens.goals.suggest.none": "لا يوجد اقتراح هذه المرة. حاول لاحقًا.",
+  "screens.ideas.start": "ابدأ",
+  "screens.ideas.snooze": "تأجيل",
+  "screens.ideas.badge.checkin": "متابعة",
+  "screens.ideas.badge.resume": "هل تستأنف؟",
+  "screens.goals.checkinFrequency": "المتابعة",
+  "screens.goals.checkinFrequency.off": "إيقاف",
+  "screens.goals.checkinFrequency.daily": "يوميًا",
+  "screens.goals.checkinFrequency.weekly": "أسبوعيًا",
+  "screens.goals.checkinFrequency.monthly": "شهريًا",
   "screens.goals.watches": "المراقبات",
   "screens.goals.nothingWatched": "لا شيء مراقَب.",
   "screens.goals.last": "الأخيرة: {value}",
@@ -3715,10 +3834,18 @@ export const ar: Partial<Catalogue> = {
   ...helperOffline,
   // the security-records banner (docs/design/security-state-integrity-2026.md §7.3)
   ...securityState,
+  // Settings → Computer use on Linux: screen and input access
+  ...linuxAccess,
+  // the Virtual screen watch pane (docs/design/linux-desktop-2026.md §7.5)
+  ...computerWatch,
   // Gateway-authored notices (inbox notifications, security alerts)
   ...notices,
   // Settings > Computer use > Separate desktop (Linux)
   ...separateDesktop,
   // Windows variants of the sandbox PC, voice keys and platform terms
   ...windowsPlatform202611,
+  ...mailFollowups,
+  ...keepAwake,
+  ...spaces,
+  ...machines,
 };

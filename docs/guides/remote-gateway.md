@@ -102,7 +102,7 @@ Chat, Tasks, Search, Library, memory, automations and the non-Apple connectors w
 | Terminal | Off. "The terminal runs on studio-mac." This window starts no shell, because a shell is started here from what the Gateway answers, and a Gateway on another computer must never be able to ask for one. A real Host terminal over the connection is later work. |
 | Apple apps (Notes, Messages, Mail, Calendar, Reminders, Contacts) | The Host's, labelled "On studio-mac". This computer's own are never used. |
 | Ask about my screen, system-wide dictation | Off until they can run on this computer. |
-| Touch ID and passkeys from this window | Not built yet. Answer risky approvals (payments, credential fills, running commands on the Host, security changes) on the Host. |
+| Touch ID from this window | Not built yet. A passkey for the Host works from this window. Otherwise answer payments on the Host; other approvals are a tap on a paired device. |
 
 ## Forgetting a Gateway
 

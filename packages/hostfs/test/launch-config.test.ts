@@ -1,4 +1,12 @@
-import { mkdirSync, mkdtempSync, rmSync, symlinkSync, writeFileSync } from "node:fs";
+import {
+  chmodSync,
+  lstatSync,
+  mkdirSync,
+  mkdtempSync,
+  rmSync,
+  symlinkSync,
+  writeFileSync,
+} from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { afterEach, describe, expect, it } from "vitest";
@@ -145,6 +153,40 @@ describe("finding launch config in a folder tree", () => {
     expect((await findLaunchConfig(root, { nestedGit: true })).found).toEqual([
       { rel: "vendor/lib/.git", kind: "dir", git: true },
     ]);
+  });
+
+  // #1469 review r3, finding 1: a folder only probed for a `.git` (below a skipped folder, or past
+  // the depth walked) is pinned like a listed one, so what is in its `.git` can be pinned too.
+  it("pins each folder it probes for a nested repository", async () => {
+    const root = tree(["build/lib/.git/config", "packages/foo/.git/config", "a.md"]);
+    const scan = await findLaunchConfig(root, { nestedGit: true, maxDepth: 1 });
+    expect(scan.found.map((f) => f.rel).sort()).toEqual(["build/lib/.git", "packages/foo/.git"]);
+    for (const dir of ["build", "build/lib", "packages", "packages/foo"]) {
+      const st = lstatSync(join(root, dir), { bigint: true });
+      expect(scan.folders?.[dir]).toBe(`${st.dev}:${st.ino}`);
+    }
+  });
+
+  // #1438 review r3: a search-only folder hides its entries from a listing, not from an app.
+  it("names the folders it could not list", async () => {
+    const root = tree(["pkg/.npmrc", "a/b/.npmrc", "ok/.npmrc"]);
+    chmodSync(join(root, "pkg"), 0o111);
+    chmodSync(join(root, "a/b"), 0o000);
+    try {
+      const scan = await findLaunchConfig(root);
+      expect(scan.found.map((f) => f.rel)).toEqual(["ok/.npmrc"]);
+      expect(scan.unreadable?.map((u) => u.rel).sort()).toEqual(["a/b", "pkg"]);
+      // Each with who it was, so a folder found at its path later can be told apart.
+      const pkg = lstatSync(join(root, "pkg"), { bigint: true });
+      expect(scan.unreadable?.find((u) => u.rel === "pkg")?.id).toBe(`${pkg.dev}:${pkg.ino}`);
+      // And every folder it listed, with who it was while it listed it (#1457 review r1).
+      const ok = lstatSync(join(root, "ok"), { bigint: true });
+      expect(scan.folders?.ok).toBe(`${ok.dev}:${ok.ino}`);
+    } finally {
+      chmodSync(join(root, "pkg"), 0o755);
+      chmodSync(join(root, "a/b"), 0o755);
+    }
+    expect((await findLaunchConfig(root)).unreadable).toBeUndefined();
   });
 
   it("reports a link as a link, and says when a limit stopped the walk", async () => {

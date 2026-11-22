@@ -1,12 +1,14 @@
 // Builds the self-contained Gateway bundle for Psyche.app (docs/archive/status/s22.md "Packaging layout").
 //
-//   node deploy/scripts/build-psyched.mjs [--platform darwin|linux|win32] [--arch arm64|x64] [--out <dir>] [--skip-web-build] [--smoke]
+//   node deploy/scripts/build-psyched.mjs [--arch arm64|x64] [--out <dir>] [--skip-web-build] [--smoke]
+//        (on Linux: the bundle the psyche-server package ships, deploy/linux-server/build.mjs)
 //   node deploy/scripts/build-psyched.mjs --smoke-only [--out <dir>]     smoke an already built bundle
 //
-// Output: apps/gateway/dist-bin/<darwin|linux|win32>-<arch>/psyched/ (the host's platform; on Windows
-// win32-bundle.mjs says what differs: node.exe, .cmd launchers, the Task Scheduler template and a
-// flat node_modules without links. On Linux: the linux-<arch> Node tarball, ELF addons, the
-// compile cache under $XDG_CACHE_HOME/psyche, no plist, and "platform" in build-info.json)
+// Output: apps/gateway/dist-bin/<darwin|win32|linux>-<arch>/psyched/ (the host's platform; on
+// Windows win32-bundle.mjs says what differs: node.exe, .cmd launchers, the Task Scheduler template
+// and a flat node_modules without links. On Linux: the linux-<arch> Node build, ELF addons, the
+// compile cache under $XDG_CACHE_HOME (else ~/.cache), no service template (the server package
+// ships the systemd units) and "platform": "linux" in build-info.json)
 //   psyched, psyche            /bin/sh launchers (no PATH needed): runtime/node + app/apps/*/dist/main.mjs
 //   runtime/node               the official Node build of the version deploy/scripts/node-pins.mjs pins,
 //                              SHA-256 checked against nodejs.org's SHASUMS256.txt
@@ -18,8 +20,8 @@
 //   com.psyche.gateway.plist.template   LaunchAgent with {{PSYCHED}} and {{PSYCHE_HOME}}
 //   build-info.json            {version, build, commit, node, arch, builtAt, bytes}
 //
-// The bundle's size is held to deploy/size-budget.json (psychedMB, psychedWin32MB, psychedLinuxMB);
-// the build fails above it.
+// The bundle's size is held to deploy/size-budget.json (psychedMB, psychedWin32MB,
+// psychedLinuxMB); the build fails above it.
 //
 // Native addons (better-sqlite3, node-pty, sqlite-vec, …) are installed for the host by pnpm, so
 // build each arch on a host of that arch (the release workflow uses an Intel runner for x64); the
@@ -88,6 +90,7 @@ const PRUNE = [
   "deploy/macos",
   "deploy/windows",
   "deploy/linux",
+  "deploy/linux-server",
   "deploy/scripts",
 ];
 
@@ -155,7 +158,10 @@ export function pinnedNodeVersion(root = ROOT) {
   return v;
 }
 
-/** node-v<ver>-<darwin|linux>-<arch>/bin/node, downloaded once into a cache and checked against SHASUMS256. */
+/**
+ * node-v<ver>-<darwin|linux>-<arch>/bin/node, downloaded once into a cache and checked against
+ * SHASUMS256.
+ */
 async function nodeRuntime(version, arch, plat = "darwin") {
   const cache = join(
     process.env.XDG_CACHE_HOME ??
@@ -245,23 +251,24 @@ export function pruneForeignPrebuilds(appDir, arch, plat = "darwin") {
   return removed;
 }
 
-/** Every .node file must be a Mach-O (macOS) or ELF (Linux) for `arch` (pnpm installs host binaries). */
+/** What `file -b` says for an addon built for `arch`: Mach-O on macOS, ELF on Linux. */
+export function addonMatches(fileOutput, arch, plat = "darwin") {
+  if (plat === "linux") {
+    return (
+      fileOutput.startsWith("ELF 64-bit") &&
+      fileOutput.includes(arch === "arm64" ? "ARM aarch64" : "x86-64")
+    );
+  }
+  return fileOutput.includes(arch === "arm64" ? "arm64" : "x86_64");
+}
+
+/** Every .node file must be a Mach-O (macOS) or an ELF (Linux) for `arch` (pnpm installs host binaries). */
 export function checkAddons(appDir, arch, plat = "darwin") {
-  const want =
-    plat === "linux"
-      ? arch === "arm64"
-        ? "ARM aarch64"
-        : "x86-64"
-      : arch === "arm64"
-        ? "arm64"
-        : "x86_64";
   const bad = [];
   walk(appDir, (p) => {
     if (!p.endsWith(".node")) return;
     const out = execFileSync("/usr/bin/file", ["-b", p], { encoding: "utf8" });
-    if (plat === "linux" && !out.startsWith("ELF"))
-      bad.push(`${p.slice(appDir.length + 1)}: ${out.trim()}`);
-    else if (!out.includes(want)) bad.push(`${p.slice(appDir.length + 1)}: ${out.trim()}`);
+    if (!addonMatches(out, arch, plat)) bad.push(`${p.slice(appDir.length + 1)}: ${out.trim()}`);
   });
   return bad;
 }
@@ -462,7 +469,8 @@ const COMPILE_CACHE = `if [ -z "\${NODE_COMPILE_CACHE:-}" ] && [ -n "\${HOME:-}"
   export NODE_COMPILE_CACHE
 fi`;
 
-// Linux: the same cache under XDG_CACHE_HOME (else ~/.cache), outside the installed tree.
+// Linux: the same cache under $XDG_CACHE_HOME (else ~/.cache), outside the installed tree, which
+// is root-owned for the server's deb and rpm.
 const COMPILE_CACHE_LINUX = `if [ -z "\${NODE_COMPILE_CACHE:-}" ]; then
   if [ -n "\${XDG_CACHE_HOME:-}" ]; then
     NODE_COMPILE_CACHE="$XDG_CACHE_HOME/psyche/node-compile-cache"
@@ -652,7 +660,7 @@ async function smoke(bundle) {
     });
     const LISTENING = /"msg":"gateway listening","origin":"(http:\/\/127\.0\.0\.1:\d+)"/;
     // The Gateway logs to $PSYCHE_HOME/logs/gateway.log (it rotates its own file); stderr only
-    // carries what could not reach the file. Read both.
+    // carries what could not reach the file, or a crash. Read both.
     const origin = await new Promise((ok, fail) => {
       let buf = "";
       const logFile = join(home, "logs", "gateway.log");
@@ -853,7 +861,8 @@ async function main(argv) {
     const longest = longestPath(bundle);
     process.stdout.write(`longest path in the bundle: ${longest.length} chars (${longest})\n`);
   } else if (plat === "linux") {
-    // No plist: the systemd user unit is rendered from deploy/linux/root at packaging time.
+    // No service template: the psyche-server package renders its systemd units
+    // (deploy/linux-server/build.mjs). GNU strip, and no signing step.
     const rt = await nodeRuntime(version, arch, "linux");
     try {
       cpSync(rt.node, join(bundle, "runtime/node"));

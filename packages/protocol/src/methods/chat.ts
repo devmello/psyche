@@ -27,7 +27,7 @@ export const ChatSendResult = Type.Object(
  */
 export const ChatContextRef = Type.Object(
   {
-    kind: StringEnum(["feed_item", "search_hit", "memory_entity", "life_answer"]),
+    kind: StringEnum(["feed_item", "search_hit", "memory_entity", "life_answer", "mail_followup"]),
     id: Id,
     /**
      * `search_hit` only: what the window labelled the result, for the card it shows. The Gateway

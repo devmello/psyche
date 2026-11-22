@@ -1,11 +1,12 @@
 import { type Static, Type } from "@sinclair/typebox";
-import { Id, Nullable, Provenance, StringEnum } from "./common.ts";
+import { Id, IsoDateTime, Nullable, Provenance, StringEnum } from "./common.ts";
 import { PsycheError } from "./errors.ts";
 import { AuditChangeCategory } from "./methods/audit.ts";
 import { BrowserRecording } from "./methods/browser.ts";
 import { QueuedMessage } from "./methods/chat.ts";
 import { createValidator, defineEvent, type EventSpec, type Validator } from "./methods/define.ts";
 import { DictationKeyPayload } from "./methods/dictation.ts";
+import { VscreenApp } from "./methods/screen.ts";
 import { SearchIndexStatus, SearchSourcesStatus } from "./methods/search.ts";
 import { SkillChangeEvent, SkillDraft, SkillUpdateStatus } from "./methods/skills.ts";
 import { TerminalExitPayload, TerminalOutputPayload } from "./methods/terminal.ts";
@@ -35,6 +36,7 @@ import { MemoryChangeSource, MemoryJob, PersonaIdentity } from "./schemas/memory
 import { ApprovalRequest, Receipt } from "./schemas/permissions.ts";
 import { ResearchProgressEvent } from "./schemas/research.ts";
 import { RunStep } from "./schemas/runs.ts";
+import { SpaceProposal } from "./schemas/spaces.ts";
 import { SpecialistJob, SpecialistResult } from "./schemas/specialists.ts";
 import {
   Artifact,
@@ -294,6 +296,15 @@ export const Events = {
     description:
       "A security alert was raised or acknowledged, a local recovery changed, or the seal's state changed: clients refresh security.state.get.",
   }),
+  "computerWatch.parked": defineEvent({
+    payload: Type.Object({
+      apps: Type.Array(VscreenApp),
+      /** The machine whose screen has the unsaved app; absent means the Host's own screen. */
+      machine: Type.Optional(Id),
+    }),
+    description:
+      "A Task is parked because an app on the virtual screen has unsaved changes: the watch pane shows Look / Discard / Keep it open.",
+  }),
   "pairing.requested": defineEvent({
     payload: Type.Object({ pairingRequest: PairingRequest }),
     description: "A new pairing request awaits the owner's approval.",
@@ -426,6 +437,24 @@ export const Events = {
   "idea.updated": defineEvent({
     payload: Type.Object({ idea: Idea }),
     description: "An idea was proposed, accepted, edited, dismissed or expired.",
+  }),
+  "space.updated": defineEvent({
+    payload: Type.Object({
+      spaceId: Id,
+      /** What changed: "row", "folders", "links", "shelf", "archived", "deleted" … */
+      changed: Type.Array(Type.String()),
+    }),
+    description:
+      "A Space changed: its row, folders, links or tracker shelf, or it was archived, restored or deleted. Clients re-read it with spaces.get.",
+  }),
+  "space.tracker.refreshed": defineEvent({
+    payload: Type.Object({ spaceId: Id, widgetId: Id, refreshedAt: IsoDateTime }),
+    description:
+      "A tracker on a Space's shelf was recomputed or refreshed. The values themselves ride widget.updated.",
+  }),
+  "space.proposal.created": defineEvent({
+    payload: Type.Object({ proposal: SpaceProposal }),
+    description: "The agent proposed a new Space. It was not created; the owner decides.",
   }),
   "goal.updated": defineEvent({
     payload: Type.Object({ goal: Goal }),

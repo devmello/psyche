@@ -14,12 +14,14 @@ import type {
   TaintSource,
 } from "@psyche/protocol";
 import type { PairedIdentity, PeerInfo } from "./auth.ts";
+import type { ClaimMode } from "./claim/mode.ts";
 import type { GatewayConfig } from "./config.ts";
 import type { EventBus, EventFilter } from "./event-bus.ts";
 import type { Idempotency } from "./idempotency.ts";
 import type { GatewayIdentity } from "./identity.ts";
 import type { LanStatus } from "./lan/listener.ts";
 import type { Logger } from "./log.ts";
+import type { MachineChange } from "./nodes/machines.ts";
 import type { NodeRegistry } from "./nodes/registry.ts";
 import type { PresenceState } from "./presence-gate.ts";
 import type { RateLimiter } from "./rate-limit.ts";
@@ -132,6 +134,8 @@ export interface ResolvedChatContext {
   /** Carried by the user message instead of `block` when set (a life answer's own block). */
   blocks?: Block[];
   taintSources: TaintSource[];
+  /** The taint stays on the chat for its later turns (a mail follow-up draft). */
+  stickyTaint?: boolean;
 }
 
 /** Who is sending and where: a context that depends on the connection or the chat's model reads it. */
@@ -183,6 +187,10 @@ export interface GatewayContext {
   readonly agent: AgentLoop;
   readonly broker: PermissionBroker;
   readonly memory: MemoryStore | null;
+  /** Reports a conversation import to the audit trail (counts only, never text). */
+  readonly onThreadsImported:
+    | ((e: { source: string; imported: number; duplicates: number; deviceId: string }) => void)
+    | null;
   /** Reports `settings.set` to the audit trail. */
   readonly onSettingChanged:
     | ((change: {
@@ -226,6 +234,8 @@ export interface GatewayContext {
   readonly onSetupTokenUsed?:
     | ((used: { tokenId: string; deviceId: string; scopes: DeviceScope[] }) => void)
     | null;
+  /** A machine was added or removed (the composition root audits it and tells every device). */
+  readonly onMachineChange?: ((change: MachineChange) => void) | null;
   /** The broker emits `receipt.created` itself; handlers must not publish it again. */
   readonly brokerPublishesReceipts: boolean;
   /**
@@ -311,6 +321,11 @@ export interface GatewayContext {
   challengeOrigin(peer: PeerInfo): string;
   /** The LAN listener (`lan/listener.ts`): off unless the owner turned `gateway.lan` on. */
   readonly lan: LanControl;
+  /**
+   * Claim mode of a fresh psyche-server (`claim/mode.ts`, design §3.6); null on every other
+   * install. Set once at start.
+   */
+  readonly claim: ClaimMode | null;
   /** This Gateway's identity key (`identity/gateway.key`); it signs every challenge. */
   readonly identity: GatewayIdentity;
   connections(): Iterable<LiveConnection>;

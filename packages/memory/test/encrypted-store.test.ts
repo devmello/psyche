@@ -44,6 +44,8 @@ describe("openEncrypted", () => {
     const path = join(dir, "memory.sqlite");
     const key = newKey();
     const db = openEncrypted(path, key);
+    // Deleted cells are zeroed (a Forget must not leave text in freed space).
+    expect(db.pragma("secure_delete", { simple: true })).toBe(1);
     db.exec("create table t(v text)");
     db.prepare("insert into t values (?)").run("SENTINEL-sam-birthday-may-3");
     db.close();

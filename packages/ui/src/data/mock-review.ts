@@ -4,6 +4,7 @@ import {
   type EverythingRunResult,
   type GraphFact,
   type LifeFactHit,
+  type MailFollowupItem,
   type MemoryRun,
   type MethodName,
   type MethodParams,
@@ -36,6 +37,8 @@ export interface ReviewWorld {
   senders?: SenderTrust[];
   /** Relationship nudges (absent = switched off). */
   nudges?: { items: NudgeItem[]; muted: string[]; acted?: string[] };
+  /** Quiet email threads (absent = switched off). */
+  mailFollowups?: { items: MailFollowupItem[]; acted?: string[] };
 }
 
 export function emptyReview(): ReviewWorld {
@@ -167,6 +170,18 @@ export function reviewHandlers(ctx: { world: () => ReviewWorld; now: () => strin
       n.acted = [...(n.acted ?? []), `${p.id}:${p.action}`];
       if (p.action === "mute_person") n.muted.push(item.entityId);
       else n.items = n.items.filter((i) => i.id !== p.id);
+      return { ok: true };
+    },
+    "mailFollowups.list": () => {
+      const m = ctx.world().mailFollowups;
+      return m === undefined ? { enabled: false, items: [] } : { enabled: true, items: m.items };
+    },
+    "mailFollowups.act": (p) => {
+      const m = ctx.world().mailFollowups;
+      if (m === undefined || !m.items.some((i) => i.id === p.id))
+        throw new PsycheError("not_found", "that thread is gone");
+      m.acted = [...(m.acted ?? []), `${p.id}:${p.action}`];
+      m.items = m.items.filter((i) => i.id !== p.id);
       return { ok: true };
     },
     "nudges.mute": (p) => {

@@ -32,6 +32,7 @@ import {
   type PermissionMode,
   type ProvenanceOut,
   PsycheError,
+  pinId,
   type Question,
   type Receipt,
   type Requester,
@@ -79,15 +80,19 @@ import {
 } from "./builtins/turn.ts";
 import {
   type CompactionPolicy,
+  type CompactionReply,
+  capItem,
   containsUntrusted,
   DEFAULT_COMPACTION_POLICY,
   estimateBreakdown,
   estimateContextTokens,
   hasUnansweredToolCalls,
+  type LoopPrefix,
   renderCompactionSummary,
   scaleBreakdown,
   splitForCompaction,
-  summarizeStructured,
+  summarizeInPlace,
+  summarizeWithNotes,
 } from "./compaction.ts";
 import {
   assembleContext,
@@ -218,7 +223,96 @@ const notifyKey = (run: { taskId?: string; runId: string }) =>
   run.taskId === undefined ? `run:${run.runId}` : `task:${run.taskId}`;
 
 export const DEFAULT_COMPACT_AT = 0.8;
+/**
+ * The default threshold is also capped in tokens: a window of a million tokens would otherwise
+ * read 800,000 of them on every step before compacting. Owner limits win over it: an explicit
+ * `compactAt`, an explicit `maxTokens`, or the loop's `compaction.thresholdRatio`.
+ */
+export const DEFAULT_COMPACT_MAX_TOKENS = 160_000;
 export const DEFAULT_KEEP_RECENT_TURNS = 4;
+
+const PINNED_CAP = 40;
+/** New standing instructions one compaction may add. */
+const PINNED_NEW_PER_COMPACTION = 5;
+const pinKey = (item: string) => item.replace(/\s+/g, " ").trim().toLowerCase();
+
+/**
+ * Standing instructions across compactions, decided by code and not by the model copying them:
+ * `carry = previous − retired + new`, deduped. An earlier item leaves only when the summarizer
+ * names it in `retired` (and only when this summary is trusted: a summary that read untrusted text
+ * cannot revoke the owner's rules). At most 5 new items per compaction. Each item remembers whether
+ * a trusted or an untrusted summary added it; past `PINNED_CAP`, untrusted items go first (newest
+ * first), then the oldest trusted one, so a flood from an untrusted source never evicts the
+ * owner's rules and a new rule is never the one dropped.
+ */
+export function carryPinned(
+  previous: readonly string[],
+  added: readonly string[],
+  options: {
+    /** Items of `previous` that an untrusted summary added. */
+    untrustedPrevious?: readonly string[];
+    /** Earlier items the owner revoked or replaced, verbatim. */
+    retired?: readonly string[];
+    /** The summary that listed `added` read untrusted content. */
+    untrusted?: boolean;
+    /**
+     * Whether `retired` may remove an item the owner's own words pinned. A summary that read
+     * untrusted text may still retire items an untrusted summary added: removing third-party
+     * content grants no one anything.
+     */
+    canRetireTrusted?: boolean;
+  } = {},
+): { items: string[]; untrusted: string[]; dropped: string[] } {
+  const bad = new Set((options.untrustedPrevious ?? []).map(pinKey));
+  const retired = new Set(
+    (options.retired ?? [])
+      .map(pinKey)
+      .filter((k) => options.canRetireTrusted !== false || bad.has(k)),
+  );
+  const kept: { text: string; untrusted: boolean }[] = [];
+  const seen = new Set<string>();
+  for (const raw of previous) {
+    // A pin saved at 501 characters by an older compaction is cut to the cap now.
+    const item = capItem(raw);
+    const key = pinKey(item);
+    if (key === "" || seen.has(key) || retired.has(key)) continue;
+    seen.add(key);
+    kept.push({ text: item, untrusted: bad.has(key) || bad.has(pinKey(raw)) });
+  }
+  let fresh = 0;
+  for (const item of added) {
+    const key = pinKey(item);
+    if (key === "" || seen.has(key)) continue;
+    if (fresh >= PINNED_NEW_PER_COMPACTION) break;
+    seen.add(key);
+    fresh += 1;
+    kept.push({ text: item, untrusted: options.untrusted === true });
+  }
+  const dropped: string[] = [];
+  while (kept.length > PINNED_CAP) {
+    let drop = -1;
+    for (let i = kept.length - 1; i >= 0; i--) {
+      if (kept[i]?.untrusted === true) {
+        drop = i;
+        break;
+      }
+    }
+    // Nothing untrusted left: the oldest of the owner's goes, so a new rule is not lost at once
+    // (the compaction block tells the owner which ones were dropped).
+    const [gone] = kept.splice(drop < 0 ? 0 : drop, 1);
+    if (gone !== undefined) dropped.push(gone.text);
+  }
+  return {
+    items: kept.map((k) => k.text),
+    untrusted: kept.filter((k) => k.untrusted).map((k) => k.text),
+    dropped,
+  };
+}
+
+/** How many user messages stay after a compaction (the summarizer is told the cut by count). */
+function keptUserMessages(recent: readonly ModelMessage[]): number {
+  return recent.filter((m) => m.role === "user" && m.parts.some((p) => p.type === "text")).length;
+}
 
 /** What a compaction did, for the Gateway's `compaction` block and audit entry. */
 export interface CompactionInfo {
@@ -233,6 +327,8 @@ export interface CompactionInfo {
   keptTurns: number;
   tokensBefore: number;
   tokensAfter: number;
+  /** Older standing instructions dropped to make room for new ones (the list was full). */
+  droppedPins?: string[];
 }
 
 const estimateTokensOf = (text: string) => estimateContextTokens(text, [], []);
@@ -474,6 +570,8 @@ interface RunState {
   turnContext?: string;
   /** The sections behind `turnContext`, for "what the model saw" (`explainContext`). */
   turnSections?: ContextSection[];
+  /** The in-place summarizer failed this run: later compactions of it use the standalone request. */
+  inPlaceFailed?: boolean;
   /** The compaction summary, sent as the first retained message and not in `system`. */
   summarySection?: ContextSection;
   /**
@@ -905,11 +1003,23 @@ export class PsycheAgentLoop implements AgentLoop {
     };
     this.#runs.set(runId, run);
     this.#ranHere.add(runId);
+    // The run's Space is fixed here, before the prompt is built, for the whole run (spaces-2026
+    // SR3): nothing else on this thread (a preview, a widget, another run) can change it.
+    this.#o.broker.bindRun?.({
+      threadId,
+      runId,
+      unattended: run.mode === "unattended",
+      ...(requester === undefined ? {} : { requester: structuredClone(requester) }),
+      ...(child === undefined
+        ? {}
+        : { parent: { threadId: child.parent.threadId, runId: child.parent.runId } }),
+    });
     let outcome: RunOutcome = "final";
     let error: string | undefined;
     // `run.thread` starts empty: it is saved only once the stored thread was read into it, so a
     // turn cancelled first (or one whose read failed) never overwrites the owner's history.
     let threadLoaded = false;
+    let stickyTaint = input.stickyTaint === true;
     try {
       if (input.signal?.aborted === true) throw new RunEnd("cancelled", "signal");
       emit({ type: "run.status", runId, status: "running" });
@@ -937,6 +1047,12 @@ export class PsycheAgentLoop implements AgentLoop {
       if (containsUntrusted(run.thread.messages) || run.thread.summary?.untrusted === true) {
         this.#taint(run, { sourceKind: "transcript" });
         for (const s of run.thread.taint?.sources ?? []) this.#taint(run, { ...s });
+      }
+      // A chat opened about untrusted content (a mail follow-up draft) stays tainted for every
+      // later turn, whether or not the content is still in the transcript.
+      if (run.thread.taint?.sticky === true) {
+        stickyTaint = true;
+        for (const s of run.thread.taint.sources) this.#taint(run, { ...s });
       }
       if (input.taskId !== undefined && this.#o.tasks !== undefined) {
         const task = await this.#o.tasks.get(input.taskId);
@@ -1019,7 +1135,11 @@ export class PsycheAgentLoop implements AgentLoop {
       closeDanglingCalls(run.thread.messages, outcome === "cancelled" ? "cancelled" : "not run");
       for (const q of run.questions.values()) q.reject(new RunEnd("cancelled"));
       // The sources outlive the turn with the untrusted content that caused them.
-      if (run.taint) run.thread.taint = { sources: dedupeSources(run.taintSources) };
+      if (run.taint)
+        run.thread.taint = {
+          sources: dedupeSources(run.taintSources),
+          ...(stickyTaint ? { sticky: true } : {}),
+        };
       else delete run.thread.taint;
       run.thread.messages = keepRecentToolImages(run.thread.messages);
       // Recall is for this run: nothing of it is at rest once the run ends (the next run would
@@ -1034,6 +1154,7 @@ export class PsycheAgentLoop implements AgentLoop {
         }
       }
       this.#runs.delete(runId);
+      this.#o.broker.endRun?.(threadId, runId);
       thread.activeRunId = undefined;
     }
     this.#reportContext(run);
@@ -1591,7 +1712,13 @@ export class PsycheAgentLoop implements AgentLoop {
     let estimate = estimateContextTokens(built.system, this.#requestMessages(run), built.tools);
     // Owner-set limits (thread → settings → model): compact before the call would pass compactAt.
     if (estimate > limits.maxTokens * limits.compactAt) {
-      if (await this.#compact(run, estimate, limits.contextWindow, "auto")) {
+      const prefix = {
+        system: built.system,
+        systemStableLength: built.systemStableLength,
+        tools: built.tools,
+        deferredTools: built.tools.length === 0 ? [] : built.deferredTools,
+      };
+      if (await this.#compact(run, estimate, limits.contextWindow, "auto", prefix)) {
         built = await this.#assemble(run);
         estimate = estimateContextTokens(built.system, this.#requestMessages(run), built.tools);
       }
@@ -1916,6 +2043,8 @@ export class PsycheAgentLoop implements AgentLoop {
     estimate: number,
     window: number,
     trigger: "auto" | "manual",
+    /** The loop's own system and tools, for a summarizer that reuses its cached prefix. */
+    prefix?: Omit<LoopPrefix, "model" | "messages">,
   ): Promise<boolean> {
     const keep = run.limits?.keepRecentTurns ?? this.#policy.keepRecentTurns;
     const split = splitForCompaction(run.thread.messages, keep);
@@ -1927,10 +2056,14 @@ export class PsycheAgentLoop implements AgentLoop {
     if (older.length === 0) return false;
     // Never fold a call whose result has not come back (an approval still pending).
     if (hasUnansweredToolCalls(older)) return false;
-    const untrusted = containsUntrusted(older) || run.thread.summary?.untrusted === true;
+    const priorUntrusted = run.thread.summary?.untrusted === true;
+    let untrusted = containsUntrusted(older) || priorUntrusted;
     const signal = run.abort.signal;
     const memory = this.#o.memory;
-    if (memory?.flush !== undefined && this.#o.isIncognito?.(run.threadId) !== true) {
+    const incognito = this.#o.isIncognito?.(run.threadId) === true;
+    const merged = memory?.flushLines !== undefined;
+    // A store without `flushLines` still gets its own flush call first, on the same stubbed turns.
+    if (!merged && memory?.flush !== undefined && !incognito) {
       try {
         const copy = structuredClone(run.thread.messages);
         stubTurnContext(copy);
@@ -1951,25 +2084,81 @@ export class PsycheAgentLoop implements AgentLoop {
       });
     }
     let structured: CompactionSummary;
-    try {
-      structured = await summarizeStructured(
+    let notes: string[] = [];
+    let retiredPins: string[] = [];
+    const utility = this.#o.utilityModel ?? run.model;
+    const standalone = () =>
+      summarizeWithNotes(
         this.#o.provider,
-        this.#o.utilityModel ?? run.model,
+        utility,
         run.thread.summary?.structured,
         run.thread.summary?.structured === undefined ? run.thread.summary?.text : undefined,
         older,
         this.#policy,
         { signal },
       );
+    try {
+      let reply: CompactionReply | undefined;
+      // On the run's own model the summarizer is a fork of the loop's request, so the provider
+      // serves the history from its cache. A different (cheaper) utility model has no such cache:
+      // it gets the standalone request, which costs less than cached reads on the primary model.
+      if (prefix !== undefined && utility === run.model && run.inPlaceFailed !== true) {
+        const messages = structuredClone(this.#requestMessages(run));
+        stubTurnContext(messages);
+        try {
+          reply = await summarizeInPlace(
+            this.#o.provider,
+            { ...prefix, model: run.model, messages },
+            keptUserMessages(recent),
+            { signal },
+          );
+          // It read every message sent, the turns that stay included: the summary is as
+          // untrusted as anything in them (and in the previous summary).
+          untrusted = containsUntrusted(messages) || untrusted;
+        } catch {
+          this.#checkAbort(run);
+          // Once per run: fall back to the standalone request now, and do not fork again.
+          run.inPlaceFailed = true;
+        }
+      }
+      reply ??= await standalone();
+      structured = reply.summary;
+      notes = reply.dailyNoteLines;
+      retiredPins = reply.retiredInstructions;
     } catch {
       // An unusable summary never replaces the turns (fail closed: the limit check decides).
       this.#checkAbort(run);
       return false;
     }
+    // Standing instructions are carried over mechanically, never left to the model to copy.
+    const priorPins = run.thread.summary?.structured?.pinnedInstructions ?? [];
+    const carried = carryPinned(priorPins, structured.pinnedInstructions, {
+      // A summary from before pins were tracked, and untrusted, counts all of its items as such.
+      untrustedPrevious: run.thread.summary?.untrustedPins ?? (priorUntrusted ? priorPins : []),
+      retired: retiredPins,
+      // A summary that read untrusted text cannot revoke the owner's rules (only untrusted items).
+      canRetireTrusted: !untrusted,
+      untrusted,
+    });
+    structured = { ...structured, pinnedInstructions: carried.items };
+    if (merged && !incognito && notes.length > 0) {
+      try {
+        // The summarizer read the same stubbed turns; the lines are tainted like the flush's were.
+        await memory?.flushLines?.(run.threadId, notes, { taint: run.taint || untrusted });
+      } catch {
+        // A failed note write never blocks the compaction.
+      }
+    }
     const replacedTurns = older.filter(
       (m) => m.role === "user" && m.parts.some((p) => p.type === "text"),
     ).length;
-    run.thread.summary = { text: renderCompactionSummary(structured), untrusted, structured };
+    run.thread.summary = {
+      text: renderCompactionSummary(structured, carried.untrusted),
+      untrusted,
+      structured,
+      // Always written (even empty) for summaries made here; only older ones lack it.
+      untrustedPins: carried.untrusted,
+    };
     run.thread.messages = recent;
     run.turnStart = Math.max(0, run.turnStart - older.length);
     run.thread.compactions = (run.thread.compactions ?? 0) + 1;
@@ -1985,6 +2174,7 @@ export class PsycheAgentLoop implements AgentLoop {
         keptTurns: keep,
         tokensBefore: estimate,
         tokensAfter: after,
+        ...(carried.dropped.length === 0 ? {} : { droppedPins: carried.dropped }),
       }),
     ).catch(() => undefined);
     return true;
@@ -1999,7 +2189,12 @@ export class PsycheAgentLoop implements AgentLoop {
       maxTokens,
       // The owner's limits, else the loop's own compaction policy when one was configured
       // (`compaction.thresholdRatio` / `keepRecentTurns`), else the defaults.
-      compactAt: own?.compactAt ?? this.#o.compaction?.thresholdRatio ?? DEFAULT_COMPACT_AT,
+      compactAt:
+        own?.compactAt ??
+        this.#o.compaction?.thresholdRatio ??
+        (own?.maxTokens === undefined
+          ? Math.min(DEFAULT_COMPACT_AT, DEFAULT_COMPACT_MAX_TOKENS / maxTokens)
+          : DEFAULT_COMPACT_AT),
       keepRecentTurns:
         own?.keepRecentTurns ?? this.#o.compaction?.keepRecentTurns ?? DEFAULT_KEEP_RECENT_TURNS,
       contextWindow: window,
@@ -2038,6 +2233,51 @@ export class PsycheAgentLoop implements AgentLoop {
   /** Whether a run holds the thread right now. */
   isBusy(threadId: string): boolean {
     return this.#threads.get(threadId)?.activeRunId !== undefined;
+  }
+
+  /**
+   * The owner removes one standing instruction from a thread's summary (`threads.summary.pins.remove`),
+   * named by its pin id: out of the stored structured summary (and its untrusted list) and the text
+   * the model reads. The thread's run slot is held while it works, so a run that starts meanwhile is
+   * refused instead of saving the old summary back. `conflict` while the thread has a run;
+   * `not_found` when the thread has no structured summary to edit.
+   */
+  async removePinnedInstruction(
+    threadId: string,
+    id: string,
+  ): Promise<{ pinnedInstructions: string[]; removed: string[] }> {
+    const slot = this.#thread(threadId);
+    if (slot.activeRunId !== undefined) {
+      throw new PsycheError("conflict", "the thread is running; try again when the turn ends");
+    }
+    slot.activeRunId = `pin-remove:${id}`;
+    try {
+      const thread = await this.#state.load(threadId);
+      const summary = thread?.summary;
+      if (thread === undefined || summary?.structured === undefined) {
+        throw new PsycheError("not_found", "this chat has no standing instructions to edit");
+      }
+      const pins = summary.structured.pinnedInstructions;
+      const removed = pins.filter((p) => pinId(p) === id);
+      const structured = {
+        ...summary.structured,
+        pinnedInstructions: pins.filter((p) => pinId(p) !== id),
+      };
+      // A summary from before pins were tracked: the same default the compaction uses.
+      const untrustedPins = (summary.untrustedPins ?? (summary.untrusted ? pins : [])).filter(
+        (p) => pinId(p) !== id,
+      );
+      thread.summary = {
+        ...summary,
+        structured,
+        text: renderCompactionSummary(structured, untrustedPins),
+        ...(summary.untrustedPins === undefined ? {} : { untrustedPins }),
+      };
+      if (removed.length > 0) await this.#state.save(threadId, thread);
+      return { pinnedInstructions: structured.pinnedInstructions, removed };
+    } finally {
+      slot.activeRunId = undefined;
+    }
   }
 
   /**
@@ -2614,7 +2854,11 @@ export class PsycheAgentLoop implements AgentLoop {
       );
     let desc: ToolCallDescription = {};
     try {
-      desc = reg.describeCall?.(call.input) ?? {};
+      desc =
+        reg.describeCall?.(call.input, {
+          runId: run.runId,
+          ...(run.taskId === undefined ? {} : { taskId: run.taskId }),
+        }) ?? {};
     } catch (err) {
       return this.#blocked(run, call, `invalid params: ${errorMessage(err)}`, "failed");
     }

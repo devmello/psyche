@@ -333,6 +333,7 @@ export {
   type ScreenAskViewProps,
 } from "./screen-ask/ScreenAskView.tsx";
 // Screens.
+export * from "./screens/computer-watch/index.ts";
 export * from "./screens/feed/index.ts";
 export * from "./screens/files/index.ts";
 export * from "./screens/goals/index.ts";
@@ -348,6 +349,12 @@ export {
   GatewaysList,
 } from "./screens/settings/GatewaysGroup.tsx";
 export * from "./screens/settings/index.ts";
+export {
+  ConnectServerEntry,
+  claimProblemText,
+  KeepOnNetworkChoice,
+  RemoteServerSetup,
+} from "./screens/settings/RemoteServerSetup.tsx";
 export * from "./screens/workflows/index.ts";
 export { AppearanceProvider, type AppearanceProviderProps } from "./shell/AppearanceProvider.tsx";
 // Shell pieces.
@@ -454,6 +461,7 @@ export {
   usePersona,
   useSlots,
 } from "./slots.tsx";
+export * from "./spaces/index.ts";
 // The teaching loop (docs/agent/teaching-loop-2026.md §5).
 export * from "./teaching/index.ts";
 // Theme and data layer.

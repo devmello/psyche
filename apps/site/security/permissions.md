@@ -59,7 +59,7 @@ Only the broker's routine class can be approved in bulk, and the Gateway checks 
 
 Every decision is written to the audit log with the rule that decided it.
 
-**Read-only commands on the Mac** do not ask. `ls`, `cat` and similar commands, and the read-only `git` subcommands (`status`, `diff`, `log`), run without a card outside Manual mode, on a turn that has not read untrusted content, when the sandbox (srt) is set up. They run with no network and no environment, in a sandbox that can write only to a scratch folder, for at most 15 seconds, and each run is audited. Any other command on the Mac asks every time. The owner can make read-only commands ask too with `exec.readOnlyWithoutAsking` (see [Settings reference](/reference/settings)).
+**Read-only commands on the Mac** do not ask. `ls`, `cat` and similar commands, and the read-only `git` subcommands (`status`, `diff`, `log`, `show`, `blame` and a few more), run without a card outside Manual mode, on a turn that has not read untrusted content, when the sandbox (srt) is set up. They run with no network and no environment, in a sandbox that can write only to a scratch folder, for at most 15 seconds, and each run is audited. Any other command on the Mac asks every time, unless you choose **Always allow {program} in {folder}** on its card. That grant covers that program in that shared folder only, and expires like other "always" grants. The owner can make read-only commands ask too with `exec.readOnlyWithoutAsking` (see [Settings reference](/reference/settings)).
 
 ## Standing grants and scopes
 

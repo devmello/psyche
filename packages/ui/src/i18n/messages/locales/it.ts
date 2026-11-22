@@ -10,6 +10,7 @@ import { capabilitiesRest } from "./capabilities-rest/it.ts";
 import { charts } from "./charts/it.ts";
 import { chatRest } from "./chat-rest/it.ts";
 import { commonRest } from "./common-rest/it.ts";
+import { computerWatch } from "./computer-watch/it.ts";
 import { dailyRest } from "./daily-rest/it.ts";
 import { deckRest } from "./deck-rest/it.ts";
 import { designRest } from "./design-rest/it.ts";
@@ -19,7 +20,11 @@ import { galleryRest } from "./gallery-rest/it.ts";
 import { helperCheck } from "./helper-check/it.ts";
 import { helperOffline } from "./helper-offline/it.ts";
 import { homeRest } from "./home-rest/it.ts";
+import { keepAwake } from "./keep-awake/it.ts";
 import { links } from "./links/it.ts";
+import { linuxAccess } from "./linux-access/it.ts";
+import { machines } from "./machines/it.ts";
+import { mailFollowups } from "./mail-followups/it.ts";
 import { mailMeetings } from "./mail-meetings/it.ts";
 import { meetingRecordRest } from "./meeting-record-rest/it.ts";
 import { memoryAdvancedRest } from "./memory-advanced-rest/it.ts";
@@ -47,6 +52,7 @@ import { securityState } from "./security-state/it.ts";
 import { separateDesktop } from "./separate-desktop/it.ts";
 import { settingsRest } from "./settings-rest/it.ts";
 import { shellRest } from "./shell-rest/it.ts";
+import { spaces } from "./spaces/it.ts";
 import { specialistsRest } from "./specialists-rest/it.ts";
 import { webRest } from "./web-rest/it.ts";
 import { widgetsRest } from "./widgets-rest/it.ts";
@@ -164,6 +170,16 @@ export const it: Partial<Catalogue> = {
   "errors.reason.secret_required": "Un client diverso richiede il proprio segreto del client.",
   "errors.reason.updating":
     "Psyche sta per riavviarsi per installare un aggiornamento. Riprova tra un momento.",
+  "errors.reason.passkey_required":
+    "Configura una passkey per approvare i pagamenti su questo Psyche.",
+  "errors.reason.awaiting_owner":
+    "Un’app ha modifiche non salvate. Psyche aspetta che tu decida cosa farne.",
+  "errors.reason.checkout_needs_desktop":
+    "Per pagare nel browser di Psyche, l’app desktop di Psyche deve essere collegata a questo host.",
+  "errors.reason.no_chromium":
+    "Il browser di Psyche ha bisogno di Chromium su questo host. Installalo o imposta PSYCHE_CHROMIUM.",
+  "errors.reason.chromium_sandbox":
+    "La sandbox di Chromium non è partita su questo host, quindi il browser di Psyche è disattivato. Consenti a Chromium i namespace utente (un profilo AppArmor).",
   "errors.unavailable": "Psyche non può farlo in questo momento.",
   "errors.approval_required": "Prima serve la tua approvazione.",
   "errors.approval_expired": "L’approvazione è scaduta; chiedi di nuovo.",
@@ -502,6 +518,7 @@ export const it: Partial<Catalogue> = {
   "blocks.artifact.bytes": "{size} B",
   "blocks.artifact.kilobytes": "{size} KB",
   "blocks.artifact.megabytes": "{size} MB",
+  "blocks.artifact.gigabytes": "{size} GB",
   "blocks.task.status.queued": "in coda",
   "blocks.task.status.running": "in esecuzione",
   "blocks.task.status.awaiting_input": "richiede una tua risposta",
@@ -575,6 +592,12 @@ export const it: Partial<Catalogue> = {
   "context.marker.readsInstead": "Il riassunto che l’agente legge al posto loro:",
   "context.marker.empty": "Non è stato trovato nulla che valesse la pena conservare.",
   "context.marker.showReplaced": "Mostra ciò che è stato sostituito",
+  "context.marker.removePin": "Rimuovi",
+  "context.marker.removePinLabel": "Rimuovi questa istruzione permanente: {text}",
+  "context.marker.pinRemoved": "Istruzione permanente rimossa.",
+  "context.marker.pinRemoveFailed": "Impossibile rimuoverla: {reason}",
+  "context.marker.droppedPins":
+    "{count, plural, one {Una vecchia istruzione permanente è stata eliminata} other {# vecchie istruzioni permanenti sono state eliminate}} per fare spazio alle nuove.",
   "context.marker.replacedList": "Turni sostituiti",
   "context.marker.notLoaded": "I turni sostituiti non sono caricati qui.",
   "context.marker.speaker": "{name}:",
@@ -779,7 +802,45 @@ export const it: Partial<Catalogue> = {
   "agent.memory.incognito": "Chat secondaria in incognito",
   "agent.memory.importExport": "Importa, esporta e ripristina",
   "agent.memory.import": "Importa memoria",
+  "agent.memory.importConv.title": "Importa da claude.ai o ChatGPT",
+  "agent.memory.importConv.note":
+    "Le conversazioni importate sono in sola lettura. Il loro testo è trattato come dato non attendibile e non diventa mai un elemento fissato né un’istruzione.",
+  "agent.memory.importConv.source": "Esportato da",
+  "agent.memory.importConv.claude": "claude.ai",
+  "agent.memory.importConv.chatgpt": "ChatGPT",
+  "agent.memory.importConv.mode": "Cosa importare",
+  "agent.memory.importConv.memoriesOnly": "Solo ricordi",
+  "agent.memory.importConv.both": "Ricordi e conversazioni",
+  "agent.memory.importConv.memoriesFile": "File dei ricordi",
+  "agent.memory.importConv.conversationsFile": "File delle conversazioni (conversations.json)",
+  "agent.memory.importConv.start": "Importa",
+  "agent.memory.importConv.working": "Importazione…",
+  "agent.memory.importConv.cancel": "Annulla",
+  "agent.memory.importConv.close": "Chiudi",
+  "agent.memory.importConv.progressMemories": "Importazione dei ricordi…",
+  "agent.memory.importConv.progressConversations": "Importazione delle conversazioni…",
+  "agent.memory.importConv.failed": "Impossibile importare questo file: {reason}",
+  "agent.memory.importConv.done": "Importazione completata.",
+  "agent.memory.importConv.sumMemories": "Ricordi da rivedere: {n}",
+  "agent.memory.importConv.sumThreads": "Conversazioni importate: {n}",
+  "agent.memory.importConv.sumDuplicates": "Già importate in precedenza: {n}",
+  "agent.memory.importConv.sumSkipped": "Conversazioni saltate: {n}",
+  "agent.memory.importConv.skipTooMany": "oltre il limite di {n} conversazioni",
+  "agent.memory.importConv.skipTooLarge": "troppo lunga",
+  "agent.memory.importConv.skipEmpty": "nessun messaggio",
+  "agent.memory.importConv.skipInvalid": "non leggibile",
+  "agent.memory.importConv.untitled": "Senza titolo",
+  "agent.memory.importConv.progressCount": "Importazione delle conversazioni… {done} di {total}",
+  "agent.memory.importConv.tooBig":
+    "Questo file supera {mb} MB ed è troppo grande per essere letto qui. Esporta di nuovo un intervallo più piccolo.",
+  "agent.memory.importConv.memoriesTooBig":
+    "Questo file dei ricordi supera {kb} KB ed è troppo grande per essere importato in una volta. Dividilo o esporta meno ricordi.",
+  "agent.memory.importConv.partial":
+    "Interrotto prima della fine: {reason}. Sono stati importati {done} lotti su {total}. Importa di nuovo per continuare; le conversazioni già importate vengono saltate.",
+  "agent.memory.importConv.retry": "Importa di nuovo",
   "agent.memory.exported": "Esportato {file}.",
+  "agent.memory.importConv.memoriesFailed":
+    "Impossibile importare i ricordi: {reason}. Importa di nuovo per riprovare.",
   "agent.memory.export": "Esporta tutto",
   "agent.memory.resetDone":
     "Ripristinati {files, plural, one {# file} other {# file}}, {claims, plural, one {# affermazione} other {# affermazioni}}.",
@@ -888,6 +949,8 @@ export const it: Partial<Catalogue> = {
   "shell.threads.unpin": "Rimuovi dai fissati",
   "shell.threads.pin": "Fissa",
   "shell.threads.archive": "Archivia",
+  "shell.threads.imported": "Importata",
+  "shell.threads.importedReadOnly": "Questa conversazione importata è in sola lettura.",
   "shell.threads.restore": "Ripristina",
   "shell.threads.region": "Thread",
   "shell.threads.filter": "Filtra i thread",
@@ -1019,6 +1082,8 @@ export const it: Partial<Catalogue> = {
   "settings.key.browser.botAuth": "Web Bot Auth",
   "settings.key.computerUse.enabled": "Consenti l’uso del computer",
   "settings.key.computerUse.apps": "Accesso alle app",
+  "settings.key.feed.sources": "Fonti del feed",
+  "settings.key.computerUse.linuxRevoke": "Dimentica il computer Linux",
   "settings.key.context.maxTokens": "Limite del contesto",
   "settings.key.search.web.provider": "Fornitore di ricerca web",
   "settings.key.search.web.searxngUrl": "URL di SearXNG",
@@ -2390,6 +2455,44 @@ export const it: Partial<Catalogue> = {
   "settings.skills.removeDescription":
     "I suoi file vengono eliminati da questo Gateway. Per installarla di nuovo si passa dalla scheda di attendibilità.",
   "settings.skills.switchOn": "{name} attiva",
+  "settings.plugins.title": "Plugin",
+  "settings.plugins.description":
+    "Codice che aggiunge contesto, controlla le chiamate agli strumenti o esegue valutazioni. Ogni plugin gira nel proprio processo. I plugin non concedono mai permessi.",
+  "settings.plugins.off": "I plugin sono disattivati su questo Gateway, quindi nessuno gira.",
+  "settings.plugins.loading": "Caricamento dei plugin…",
+  "settings.plugins.error": "Impossibile caricare i plugin. {reason}",
+  "settings.plugins.empty": "Nessun plugin installato.",
+  "settings.plugins.failed": "La modifica non è stata salvata. {reason}",
+  "settings.plugins.waitingApproval": "In attesa della tua approvazione su questo dispositivo.",
+  "settings.plugins.switchOn": "{name} attivo",
+  "settings.plugins.version": " · v{version}",
+  "settings.plugins.adds": "Aggiunge: {list}",
+  "settings.plugins.install": "Installa da una cartella…",
+  "settings.plugins.pickFailed":
+    "Psyche non è riuscito ad aprire il selettore di cartelle ({reason}).",
+  "settings.plugins.installFailed": "L'installazione non è partita. {reason}",
+  "settings.plugins.proposed": "Controlla l'installazione sulla scheda di approvazione.",
+  "settings.plugins.includes": "Include: {list}",
+  "settings.plugins.count.skills": "{n, plural, one {# skill} other {# skill}}",
+  "settings.plugins.count.commands": "{n, plural, one {# comando} other {# comandi}}",
+  "settings.plugins.count.mcpServers": "{n, plural, one {# server MCP} other {# server MCP}}",
+  "settings.plugins.count.hooks": "{n, plural, one {# hook} other {# hook}}",
+  "settings.plugins.from": "Da {source}",
+  "settings.plugins.state.active": "In esecuzione",
+  "settings.plugins.state.disabled": "Disattivato",
+  "settings.plugins.state.off": "In attesa che i plugin vengano attivati",
+  "settings.plugins.state.hash_mismatch": "Modificato dall'installazione, non gira",
+  "settings.plugins.state.invalid": "Manifesto non valido, non gira",
+  "settings.plugins.state.failed": "Fermato da un errore",
+  "settings.plugins.capability.context": "contesto",
+  "settings.plugins.capability.before_tool_call":
+    "un controllo prima delle chiamate agli strumenti",
+  "settings.plugins.capability.after_tool_call": "un controllo dopo le chiamate agli strumenti",
+  "settings.plugins.capability.agent_end": "un passo alla fine di ogni esecuzione",
+  "settings.plugins.capability.evaluate": "valutazioni",
+  "settings.plugins.removeTitle": "Rimuovere {name}?",
+  "settings.plugins.removeDescription":
+    "I suoi file vengono eliminati da questo Gateway. Reinstallarlo passa dalla scheda di fiducia.",
   "settings.skills.asksFor": "Richiede:",
   "settings.skills.toolsLabel": "Strumenti:",
   "settings.skills.title": "Skill",
@@ -3082,6 +3185,7 @@ export const it: Partial<Catalogue> = {
   "screens.library.recording.empty": "Questa registrazione non ha passi.",
   "screens.library.recording.noFrame": "Nessuna immagine per questo passo.",
   "screens.library.recording.frameAlt": "Il browser al passo {n}",
+  "screens.library.recording.reviewPermissions": "Rivedi in Permessi",
   "screens.library.recording.loading": "Caricamento della registrazione",
   "screens.library.recording.loadFailed":
     "Psyche non è riuscito a caricare questa registrazione ({reason}).",
@@ -3163,6 +3267,20 @@ export const it: Partial<Catalogue> = {
   "screens.goals.checkinLine":
     "{cadence}{hasNext, select, true { · prossimo {next}} other {}}{hasLast, select, true { · ultimo: {last}} other {}}",
   "screens.goals.noSchedule": "Nessuna pianificazione",
+  "screens.goals.suggest": "Suggerisci il prossimo passo",
+  "screens.goals.suggest.hint":
+    "Usa il modello, solo quando tocchi. Non parte nulla finché non tocchi Inizia sulla scheda.",
+  "screens.goals.suggest.done": "Suggerimento aggiunto a Home.",
+  "screens.goals.suggest.none": "Nessun suggerimento stavolta. Riprova più tardi.",
+  "screens.ideas.start": "Inizia",
+  "screens.ideas.snooze": "Rimanda",
+  "screens.ideas.badge.checkin": "Check-in",
+  "screens.ideas.badge.resume": "Riprendere?",
+  "screens.goals.checkinFrequency": "Check-in",
+  "screens.goals.checkinFrequency.off": "Disattivato",
+  "screens.goals.checkinFrequency.daily": "Ogni giorno",
+  "screens.goals.checkinFrequency.weekly": "Ogni settimana",
+  "screens.goals.checkinFrequency.monthly": "Ogni mese",
   "screens.goals.watches": "Monitoraggi",
   "screens.goals.nothingWatched": "Nulla di monitorato.",
   "screens.goals.last": "ultimo: {value}",
@@ -3721,10 +3839,18 @@ export const it: Partial<Catalogue> = {
   ...helperOffline,
   // the security-records banner (docs/design/security-state-integrity-2026.md §7.3)
   ...securityState,
+  // Settings → Computer use on Linux: screen and input access
+  ...linuxAccess,
+  // the Virtual screen watch pane (docs/design/linux-desktop-2026.md §7.5)
+  ...computerWatch,
   // Gateway-authored notices (inbox notifications, security alerts)
   ...notices,
   // Settings > Computer use > Separate desktop (Linux)
   ...separateDesktop,
   // Windows variants of the sandbox PC, voice keys and platform terms
   ...windowsPlatform202611,
+  ...mailFollowups,
+  ...keepAwake,
+  ...spaces,
+  ...machines,
 };

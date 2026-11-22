@@ -19,6 +19,9 @@ struct EventMapperTests {
         let task = await m.map(frame("task.updated", .object([:])), ownDeviceID: "d").events
         #expect(task.contains(.changed(.widgets)) && task.contains(.changed(.activity)) && task.contains(.changed(.home)))
         #expect(await m.map(frame("automation.updated", .object([:])), ownDeviceID: "d").events == [.changed(.widgets)])
+        for event in ["space.updated", "space.tracker.refreshed", "space.proposal.created"] {
+            #expect(await m.map(frame(event, .object(["spaceId": "s1"])), ownDeviceID: "d").events == [.changed(.spaces)])
+        }
         for event in ["library.item.changed", "artifact.updated"] {
             #expect(await m.map(frame(event, .object(["itemId": "lib_1", "change": "deleted"])), ownDeviceID: "d").events == [.changed(.library)])
         }

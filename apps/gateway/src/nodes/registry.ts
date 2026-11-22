@@ -1,8 +1,10 @@
 import {
   getDevice,
+  getMachineByDevice,
   getNodeByDevice,
   getSetting,
   listNodes,
+  type MachineRecord,
   setNodeStatus,
   setSetting,
   upsertNode,
@@ -24,6 +26,8 @@ import {
 } from "@psyche/protocol";
 import type { PairedIdentity, PeerInfo } from "../auth.ts";
 import type { GatewayContext, LiveConnection } from "../context.ts";
+import { isTarballInstall } from "../server-install.ts";
+import { announceMachine, filterMachineCapabilities, machineInfoOf } from "./machines.ts";
 
 /** Default end-to-end timeout of one invocation. */
 export const NODE_INVOKE_TIMEOUT_MS = 60_000;
@@ -53,6 +57,16 @@ export const GUEST_NODE_KIND: NodeKind = "guest";
  * agent's computer use, Apple-app calls, keychain access or notifications.
  */
 export function nodeKindOf(identity: PairedIdentity, params: ConnectParams): NodeKind {
+  // A machine is the owner's stored decision (`PairedIdentity.machine`, set by `auth.ts` from the
+  // sealed `machines` row at this connect), never anything the node declares: not the family,
+  // not the manifest. A Host helper or a separate desktop's helper is never one.
+  if (
+    identity.machine === true &&
+    identity.hostHelper !== true &&
+    identity.guestContainer === undefined
+  ) {
+    return "machine";
+  }
   // The helper inside a separate desktop: its kind comes from the socket it paired on, never from
   // the family it declares (it runs the same helper binary and says `linux-helper`).
   if (identity.guestContainer !== undefined) return GUEST_NODE_KIND;
@@ -69,7 +83,7 @@ export function nodeKindOf(identity: PairedIdentity, params: ConnectParams): Nod
  */
 export const HOST_HELPER_PIN_SETTING = "devices.hostHelperDeviceId";
 /**
- * Written by the Gateway: `{ ambiguous, helpers, candidates?, peerCheck?, peerCheckReason?, refused? }`, so the
+ * Written by the Gateway: `{ ambiguous, helpers, candidates?, peerCheck?, peerCheckReason?, refused?, install? }`, so the
  * app can say why Host features are off. `peerCheck` (Linux only, additive) is what the
  * accept-time peer check found
  * for the Host helper in use: absent when there is no single helper or no check ran.
@@ -135,12 +149,28 @@ export class NodeRegistry {
   attach(conn: LiveConnection, identity: PairedIdentity, params: ConnectParams): NodeInfo {
     const { db, bus } = this.#ctx;
     const existing = getNodeByDevice(db, identity.deviceId);
+    const kind = nodeKindOf(identity, params);
+    const machine = kind === "machine" ? getMachineByDevice(db, identity.deviceId) : undefined;
+    // The decision and the device are looked at again here, in the same turn as the write: a
+    // machine whose device was revoked (or whose row was removed) between the handshake and now
+    // never registers, so a revoke cannot leave a live machine behind.
+    if (
+      kind === "machine" &&
+      (machine === undefined || getDevice(db, identity.deviceId)?.revokedAt)
+    ) {
+      conn.close("device revoked");
+      throw new PsycheError("unauthorized", "This computer is no longer paired");
+    }
     const info = db.sqlite.transaction(() => {
       const node = upsertNode(db, {
         id: existing?.id ?? db.newId(),
         deviceId: identity.deviceId,
-        kind: nodeKindOf(identity, params),
-        capabilities: params.capabilities ?? [],
+        kind,
+        // A machine's manifest is cut to the allowlist here; every other node keeps what it declared.
+        capabilities:
+          kind === "machine"
+            ? filterMachineCapabilities(params.capabilities)
+            : (params.capabilities ?? []),
         status: "online",
       });
       bus.bumpStateVersion();
@@ -177,9 +207,33 @@ export class NodeRegistry {
       replaced: previous !== undefined && previous.conn !== conn,
     });
     bus.publish("node.updated", { node: info });
+    if (machine !== undefined) this.#publishMachine(machine, true);
     this.#syncHostHelperStatus();
     this.#notifyChange();
     return info;
+  }
+
+  /**
+   * Tells every device a machine changed. The first time a machine connects, `added` goes out
+   * (once, whichever way the owner approved it) together with the "added" notice, instead of
+   * `updated`.
+   */
+  #publishMachine(machine: MachineRecord, announce: boolean): void {
+    const { db, bus } = this.#ctx;
+    const announced =
+      announce &&
+      announceMachine(
+        db,
+        machine,
+        (m) => {
+          bus.bumpStateVersion();
+          bus.publish("machines.changed", { machine: m, change: "added" });
+        },
+        this.#ctx.onMachineChange,
+      );
+    if (announced) return;
+    const info = machineInfoOf(db, machine);
+    if (info !== undefined) bus.publish("machines.changed", { machine: info, change: "updated" });
   }
 
   detach(conn: LiveConnection): void {
@@ -195,6 +249,10 @@ export class NodeRegistry {
       this.#failInvocations(conn.id, "node disconnected");
       const node = setNodeStatus(this.#ctx.db, nodeId, "offline");
       if (node) this.#ctx.bus.publish("node.updated", { node });
+      if (entry.info.kind === "machine") {
+        const record = getMachineByDevice(this.#ctx.db, entry.info.deviceId);
+        if (record !== undefined) this.#publishMachine(record, false);
+      }
     }
     this.#syncHostHelperStatus();
     this.#notifyChange();
@@ -378,6 +436,9 @@ export class NodeRegistry {
           }),
       ...(peerCheck === undefined ? {} : { peerCheck }),
       ...(peerCheckReason === undefined ? {} : { peerCheckReason }),
+      // A psyche-server tarball: the helper is the account's own file, so it is never verified
+      // (weak mode, an owner decision); Settings says why.
+      ...(isTarballInstall() ? { install: "tarball" } : {}),
     });
     this.#ctx.bus.bumpStateVersion();
     this.#ctx.bus.publish("settings.changed", { entries: [entry] });
@@ -396,6 +457,27 @@ export class NodeRegistry {
   /** Every live Host helper (zero, one, or more than one: the caller decides what that means). */
   hostHelpers(): HostHelper[] {
     return this.#liveHostHelpers().map((e) => this.#hostHelperOf(e));
+  }
+
+  /**
+   * The live machine of a device, or `undefined`. Never "any node that says it is a machine": the
+   * node must have been attached as one, its connection must be open, and the owner's decision
+   * must still stand (a sealed `machines` row, device not revoked) at this call, so a machine
+   * that was removed a moment ago is not routable even before its connection has closed.
+   */
+  machine(deviceId: string): { info: NodeInfo; client: NodeClient } | undefined {
+    for (const entry of this.#live.values()) {
+      if (entry.info.deviceId !== deviceId || entry.info.kind !== "machine" || !entry.conn.open) {
+        continue;
+      }
+      if (getMachineByDevice(this.#ctx.db, deviceId) === undefined) return undefined;
+      if (getDevice(this.#ctx.db, deviceId)?.revokedAt) return undefined;
+      return {
+        info: structuredClone(entry.info),
+        client: new ConnectionNodeClient(this, entry.conn, entry.info),
+      };
+    }
+    return undefined;
   }
 
   /** The transport a live node arrived on (`vm-relay` for a relayed sandbox guest). */

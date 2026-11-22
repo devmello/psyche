@@ -10,6 +10,7 @@ import { capabilitiesRest } from "./capabilities-rest/hi.ts";
 import { charts } from "./charts/hi.ts";
 import { chatRest } from "./chat-rest/hi.ts";
 import { commonRest } from "./common-rest/hi.ts";
+import { computerWatch } from "./computer-watch/hi.ts";
 import { dailyRest } from "./daily-rest/hi.ts";
 import { deckRest } from "./deck-rest/hi.ts";
 import { designRest } from "./design-rest/hi.ts";
@@ -19,7 +20,11 @@ import { galleryRest } from "./gallery-rest/hi.ts";
 import { helperCheck } from "./helper-check/hi.ts";
 import { helperOffline } from "./helper-offline/hi.ts";
 import { homeRest } from "./home-rest/hi.ts";
+import { keepAwake } from "./keep-awake/hi.ts";
 import { links } from "./links/hi.ts";
+import { linuxAccess } from "./linux-access/hi.ts";
+import { machines } from "./machines/hi.ts";
+import { mailFollowups } from "./mail-followups/hi.ts";
 import { mailMeetings } from "./mail-meetings/hi.ts";
 import { meetingRecordRest } from "./meeting-record-rest/hi.ts";
 import { memoryAdvancedRest } from "./memory-advanced-rest/hi.ts";
@@ -47,6 +52,7 @@ import { securityState } from "./security-state/hi.ts";
 import { separateDesktop } from "./separate-desktop/hi.ts";
 import { settingsRest } from "./settings-rest/hi.ts";
 import { shellRest } from "./shell-rest/hi.ts";
+import { spaces } from "./spaces/hi.ts";
 import { specialistsRest } from "./specialists-rest/hi.ts";
 import { webRest } from "./web-rest/hi.ts";
 import { widgetsRest } from "./widgets-rest/hi.ts";
@@ -164,6 +170,15 @@ export const hi: Partial<Catalogue> = {
   "errors.reason.secret_required": "दूसरे क्लाइंट को अपना क्लाइंट सीक्रेट चाहिए।",
   "errors.reason.updating":
     "Psyche अपडेट इंस्टॉल करने के लिए अभी रीस्टार्ट होने वाला है। थोड़ी देर में फिर से कोशिश करें।",
+  "errors.reason.passkey_required": "इस Psyche पर भुगतान स्वीकृत करने के लिए पासकी सेट करें।",
+  "errors.reason.awaiting_owner":
+    "किसी ऐप में बिना सहेजे बदलाव हैं। Psyche आपके तय करने का इंतज़ार करता है कि उनका क्या करना है।",
+  "errors.reason.checkout_needs_desktop":
+    "Psyche के ब्राउज़र में भुगतान करने के लिए Psyche डेस्कटॉप ऐप का इस होस्ट से जुड़ा होना ज़रूरी है।",
+  "errors.reason.no_chromium":
+    "Psyche के ब्राउज़र को इस होस्ट पर Chromium चाहिए। इसे इंस्टॉल करें या PSYCHE_CHROMIUM सेट करें।",
+  "errors.reason.chromium_sandbox":
+    "इस होस्ट पर Chromium का सैंडबॉक्स शुरू नहीं हो सका, इसलिए Psyche का ब्राउज़र बंद है। Chromium को यूज़र नेमस्पेस इस्तेमाल करने दें (AppArmor प्रोफ़ाइल)।",
   "errors.unavailable": "Psyche अभी ऐसा नहीं कर सकता।",
   "errors.approval_required": "इसके लिए पहले आपकी स्वीकृति चाहिए।",
   "errors.approval_expired": "स्वीकृति की अवधि समाप्त हो गई; फिर से पूछें।",
@@ -511,6 +526,7 @@ export const hi: Partial<Catalogue> = {
   "blocks.artifact.bytes": "{size} B",
   "blocks.artifact.kilobytes": "{size} KB",
   "blocks.artifact.megabytes": "{size} MB",
+  "blocks.artifact.gigabytes": "{size} GB",
 
   "blocks.task.status.queued": "कतार में",
   "blocks.task.status.running": "चल रहा है",
@@ -594,6 +610,12 @@ export const hi: Partial<Catalogue> = {
   "context.marker.readsInstead": "इसके बदले एजेंट जो सारांश पढ़ता है:",
   "context.marker.empty": "रखने लायक कुछ नहीं मिला।",
   "context.marker.showReplaced": "दिखाएँ कि क्या बदला गया",
+  "context.marker.removePin": "हटाएँ",
+  "context.marker.removePinLabel": "यह स्थायी निर्देश हटाएँ: {text}",
+  "context.marker.pinRemoved": "स्थायी निर्देश हटा दिया गया।",
+  "context.marker.pinRemoveFailed": "हटाया नहीं जा सका: {reason}",
+  "context.marker.droppedPins":
+    "{count, plural, one {नए निर्देशों के लिए जगह बनाने हेतु एक पुराना स्थायी निर्देश हटाया गया।} other {नए निर्देशों के लिए जगह बनाने हेतु # पुराने स्थायी निर्देश हटाए गए।}}",
   "context.marker.replacedList": "बदले गए टर्न",
   "context.marker.notLoaded": "बदले गए टर्न यहाँ लोड नहीं हैं।",
   "context.marker.speaker": "{name}:",
@@ -799,7 +821,45 @@ export const hi: Partial<Catalogue> = {
   "agent.memory.incognito": "इनकॉग्निटो साइड चैट",
   "agent.memory.importExport": "इंपोर्ट, एक्सपोर्ट और रीसेट",
   "agent.memory.import": "मेमोरी इंपोर्ट करें",
+  "agent.memory.importConv.title": "claude.ai या ChatGPT से इंपोर्ट करें",
+  "agent.memory.importConv.note":
+    "इंपोर्ट की गई बातचीत केवल पढ़ने के लिए है। उसके टेक्स्ट को अविश्वसनीय डेटा माना जाता है और वह कभी पिन या निर्देश नहीं बनता।",
+  "agent.memory.importConv.source": "यहाँ से एक्सपोर्ट किया गया",
+  "agent.memory.importConv.claude": "claude.ai",
+  "agent.memory.importConv.chatgpt": "ChatGPT",
+  "agent.memory.importConv.mode": "क्या इंपोर्ट करना है",
+  "agent.memory.importConv.memoriesOnly": "केवल मेमोरी",
+  "agent.memory.importConv.both": "मेमोरी और बातचीत",
+  "agent.memory.importConv.memoriesFile": "मेमोरी की फ़ाइल",
+  "agent.memory.importConv.conversationsFile": "बातचीत की फ़ाइल (conversations.json)",
+  "agent.memory.importConv.start": "इंपोर्ट करें",
+  "agent.memory.importConv.working": "इंपोर्ट हो रहा है…",
+  "agent.memory.importConv.cancel": "रद्द करें",
+  "agent.memory.importConv.close": "बंद करें",
+  "agent.memory.importConv.progressMemories": "मेमोरी इंपोर्ट हो रही है…",
+  "agent.memory.importConv.progressConversations": "बातचीत इंपोर्ट हो रही है…",
+  "agent.memory.importConv.failed": "यह फ़ाइल इंपोर्ट नहीं हो सकी: {reason}",
+  "agent.memory.importConv.done": "इंपोर्ट पूरा हुआ।",
+  "agent.memory.importConv.sumMemories": "समीक्षा के लिए मेमोरी: {n}",
+  "agent.memory.importConv.sumThreads": "इंपोर्ट की गई बातचीत: {n}",
+  "agent.memory.importConv.sumDuplicates": "पहले ही इंपोर्ट की जा चुकी: {n}",
+  "agent.memory.importConv.sumSkipped": "छोड़ी गई बातचीत: {n}",
+  "agent.memory.importConv.skipTooMany": "{n} बातचीत की सीमा से अधिक",
+  "agent.memory.importConv.skipTooLarge": "बहुत लंबी",
+  "agent.memory.importConv.skipEmpty": "कोई संदेश नहीं",
+  "agent.memory.importConv.skipInvalid": "पढ़ी नहीं जा सकी",
+  "agent.memory.importConv.untitled": "बिना शीर्षक",
+  "agent.memory.importConv.progressCount": "बातचीत इंपोर्ट हो रही है… {total} में से {done}",
+  "agent.memory.importConv.tooBig":
+    "यह फ़ाइल {mb} MB से बड़ी है और यहाँ पढ़ने के लिए बहुत बड़ी है। छोटी अवधि चुनकर दोबारा एक्सपोर्ट करें।",
+  "agent.memory.importConv.memoriesTooBig":
+    "यह मेमोरी फ़ाइल {kb} KB से बड़ी है और एक बार में इंपोर्ट नहीं हो सकती। इसे बाँटें या कम मेमोरी एक्सपोर्ट करें।",
+  "agent.memory.importConv.partial":
+    "पूरा होने से पहले रुक गया: {reason}। {total} में से {done} बैच इंपोर्ट हुए। जारी रखने के लिए फिर से इंपोर्ट करें; पहले से इंपोर्ट की गई बातचीत छोड़ दी जाती है।",
+  "agent.memory.importConv.retry": "फिर से इंपोर्ट करें",
   "agent.memory.exported": "{file} एक्सपोर्ट की गई।",
+  "agent.memory.importConv.memoriesFailed":
+    "मेमोरी इंपोर्ट नहीं हो सकी: {reason}। दोबारा कोशिश करने के लिए फिर से इंपोर्ट करें।",
   "agent.memory.export": "सब कुछ एक्सपोर्ट करें",
   "agent.memory.resetDone":
     "{files, plural, one {# फ़ाइल} other {# फ़ाइलें}}, {claims, plural, one {# दावा} other {# दावे}} रीसेट किए गए।",
@@ -901,6 +961,8 @@ export const hi: Partial<Catalogue> = {
   "shell.threads.unpin": "अनपिन करें",
   "shell.threads.pin": "पिन करें",
   "shell.threads.archive": "आर्काइव करें",
+  "shell.threads.imported": "इंपोर्ट की गई",
+  "shell.threads.importedReadOnly": "यह इंपोर्ट की गई बातचीत केवल पढ़ने के लिए है।",
   "shell.threads.restore": "रीस्टोर करें",
   "shell.threads.region": "थ्रेड",
   "shell.threads.filter": "थ्रेड फ़िल्टर करें",
@@ -1034,6 +1096,8 @@ export const hi: Partial<Catalogue> = {
   "settings.key.browser.botAuth": "Web Bot Auth",
   "settings.key.computerUse.enabled": "कंप्यूटर उपयोग की अनुमति दें",
   "settings.key.computerUse.apps": "ऐप ऐक्सेस",
+  "settings.key.feed.sources": "फ़ीड स्रोत",
+  "settings.key.computerUse.linuxRevoke": "Linux कंप्यूटर भुलाएँ",
   "settings.key.context.maxTokens": "संदर्भ सीमा",
   "settings.key.search.web.provider": "वेब खोज प्रदाता",
   "settings.key.search.web.searxngUrl": "SearXNG URL",
@@ -2364,6 +2428,42 @@ export const hi: Partial<Catalogue> = {
   "settings.skills.removeDescription":
     "इसकी फ़ाइलें इस Gateway से डिलीट हो जाती हैं। इसे दोबारा इंस्टॉल करना भरोसा कार्ड से होकर गुज़रता है।",
   "settings.skills.switchOn": "{name} चालू",
+  "settings.plugins.title": "प्लगइन",
+  "settings.plugins.description":
+    "ऐसा कोड जो संदर्भ जोड़ता है, टूल कॉल जाँचता है या मूल्यांकन चलाता है। हर प्लगइन अपनी प्रक्रिया में चलता है। प्लगइन कभी अनुमति नहीं देते।",
+  "settings.plugins.off": "इस Gateway पर प्लगइन बंद हैं, इसलिए कोई भी नहीं चल रहा।",
+  "settings.plugins.loading": "प्लगइन लोड हो रहे हैं…",
+  "settings.plugins.error": "प्लगइन लोड नहीं हो सके। {reason}",
+  "settings.plugins.empty": "कोई प्लगइन इंस्टॉल नहीं है।",
+  "settings.plugins.failed": "बदलाव सहेजा नहीं गया। {reason}",
+  "settings.plugins.waitingApproval": "इस डिवाइस पर आपकी मंज़ूरी का इंतज़ार है।",
+  "settings.plugins.switchOn": "{name} चालू",
+  "settings.plugins.version": " · v{version}",
+  "settings.plugins.adds": "जोड़ता है: {list}",
+  "settings.plugins.install": "फ़ोल्डर से इंस्टॉल करें…",
+  "settings.plugins.pickFailed": "Psyche फ़ोल्डर चयनकर्ता नहीं खोल सका ({reason})।",
+  "settings.plugins.installFailed": "इंस्टॉल शुरू नहीं हुआ। {reason}",
+  "settings.plugins.proposed": "अनुमोदन कार्ड पर इंस्टॉल की समीक्षा करें।",
+  "settings.plugins.includes": "इसमें शामिल: {list}",
+  "settings.plugins.count.skills": "{n, plural, one {# स्किल} other {# स्किल}}",
+  "settings.plugins.count.commands": "{n, plural, one {# कमांड} other {# कमांड}}",
+  "settings.plugins.count.mcpServers": "{n, plural, one {# MCP सर्वर} other {# MCP सर्वर}}",
+  "settings.plugins.count.hooks": "{n, plural, one {# हुक} other {# हुक}}",
+  "settings.plugins.from": "स्रोत: {source}",
+  "settings.plugins.state.active": "चल रहा है",
+  "settings.plugins.state.disabled": "बंद",
+  "settings.plugins.state.off": "प्लगइन चालू होने का इंतज़ार",
+  "settings.plugins.state.hash_mismatch": "इंस्टॉल के बाद बदला गया, नहीं चल रहा",
+  "settings.plugins.state.invalid": "मैनिफ़ेस्ट अमान्य है, नहीं चल रहा",
+  "settings.plugins.state.failed": "त्रुटि से रुका",
+  "settings.plugins.capability.context": "संदर्भ",
+  "settings.plugins.capability.before_tool_call": "टूल कॉल से पहले की जाँच",
+  "settings.plugins.capability.after_tool_call": "टूल कॉल के बाद की जाँच",
+  "settings.plugins.capability.agent_end": "हर रन के अंत में एक चरण",
+  "settings.plugins.capability.evaluate": "मूल्यांकन",
+  "settings.plugins.removeTitle": "{name} हटाएँ?",
+  "settings.plugins.removeDescription":
+    "इसकी फ़ाइलें इस Gateway से मिटा दी जाएँगी। दोबारा इंस्टॉल करने के लिए ट्रस्ट कार्ड से गुज़रना होगा।",
   "settings.skills.asksFor": "माँगती है:",
   "settings.skills.toolsLabel": "टूल:",
   "settings.skills.title": "स्किल",
@@ -3029,6 +3129,7 @@ export const hi: Partial<Catalogue> = {
   "screens.library.recording.empty": "इस रिकॉर्डिंग में कोई चरण नहीं है।",
   "screens.library.recording.noFrame": "इस चरण की कोई तस्वीर नहीं है।",
   "screens.library.recording.frameAlt": "चरण {n} पर ब्राउज़र",
+  "screens.library.recording.reviewPermissions": "अनुमतियों में समीक्षा करें",
   "screens.library.recording.loading": "रिकॉर्डिंग लोड हो रही है",
   "screens.library.recording.loadFailed": "Psyche यह रिकॉर्डिंग लोड नहीं कर सका ({reason})।",
   "screens.library.recording.notFound": "यह रिकॉर्डिंग अब उपलब्ध नहीं है।",
@@ -3109,6 +3210,20 @@ export const hi: Partial<Catalogue> = {
   "screens.goals.checkinLine":
     "{cadence}{hasNext, select, true { · अगला {next}} other {}}{hasLast, select, true { · पिछला: {last}} other {}}",
   "screens.goals.noSchedule": "कोई शेड्यूल नहीं",
+  "screens.goals.suggest": "अगला कदम सुझाएँ",
+  "screens.goals.suggest.hint":
+    "मॉडल का उपयोग तभी होता है जब आप टैप करें। कार्ड पर शुरू करें दबाने तक कुछ शुरू नहीं होता।",
+  "screens.goals.suggest.done": "सुझाव होम में जोड़ा गया।",
+  "screens.goals.suggest.none": "इस बार कोई सुझाव नहीं। बाद में फिर कोशिश करें।",
+  "screens.ideas.start": "शुरू करें",
+  "screens.ideas.snooze": "बाद में याद दिलाएँ",
+  "screens.ideas.badge.checkin": "चेक-इन",
+  "screens.ideas.badge.resume": "फिर से शुरू करें?",
+  "screens.goals.checkinFrequency": "चेक-इन",
+  "screens.goals.checkinFrequency.off": "बंद",
+  "screens.goals.checkinFrequency.daily": "रोज़",
+  "screens.goals.checkinFrequency.weekly": "हर हफ़्ते",
+  "screens.goals.checkinFrequency.monthly": "हर महीने",
   "screens.goals.watches": "निगरानियाँ",
   "screens.goals.nothingWatched": "किसी चीज़ की निगरानी नहीं।",
   "screens.goals.last": "पिछला: {value}",
@@ -3667,10 +3782,18 @@ export const hi: Partial<Catalogue> = {
   ...helperOffline,
   // the security-records banner (docs/design/security-state-integrity-2026.md §7.3)
   ...securityState,
+  // Settings → Computer use on Linux: screen and input access
+  ...linuxAccess,
+  // the Virtual screen watch pane (docs/design/linux-desktop-2026.md §7.5)
+  ...computerWatch,
   // Gateway-authored notices (inbox notifications, security alerts)
   ...notices,
   // Settings > Computer use > Separate desktop (Linux)
   ...separateDesktop,
   // Windows variants of the sandbox PC, voice keys and platform terms
   ...windowsPlatform202611,
+  ...mailFollowups,
+  ...keepAwake,
+  ...spaces,
+  ...machines,
 };

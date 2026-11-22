@@ -129,3 +129,25 @@ const INSTRUCTION_LIKE: RegExp[] = [
 export function looksLikeInstruction(text: string): boolean {
   return INSTRUCTION_LIKE.some((p) => p.test(text));
 }
+
+/**
+ * Lines the compaction summarizer lists for the daily note are third-person facts ("The owner
+ * forwards …"), which is also the shape an injected instruction takes after the model rewrites it.
+ * Those that read as an instruction or a standing mail/payment rule are dropped, not stored, since
+ * a plain agent note is read back as trusted context. A heuristic: the taint tag, decided by code,
+ * is the real protection. Plans and wishes ("wants to send … to a@b.c", "will email … on Friday")
+ * are facts and pass.
+ */
+const FLUSHED_INSTRUCTION_LIKE: RegExp[] = [
+  ...INSTRUCTION_LIKE.filter((_, i) => i !== 4),
+  /\b(?:forwards|emails|sends|transfers|wires|uploads|posts|shares|replies|pays)\b.{0,60}\b(?:to|at|with)\b.{0,40}(?:@|https?:\/\/|\$\d)/i,
+  /\b(?:cc|bcc)(?:'?d|'s|s)?\b.{0,40}(?:@|https?:\/\/)/i,
+  /\b(?:always|never)\s+(?:cc|bcc|forward|email|send|share|reply|pay|wire|transfer|post|upload)\b/i,
+  /\bthe agent (?:should|must|shall|needs to|always|never)\b/i,
+  /\bwhenever the owner\b/i,
+  /\b(?:payout|payment)\s+(?:account|details|address|link)\b.{0,60}(?:https?:\/\/|@)/i,
+];
+
+export function looksLikeFlushedInstruction(text: string): boolean {
+  return FLUSHED_INSTRUCTION_LIKE.some((p) => p.test(text));
+}

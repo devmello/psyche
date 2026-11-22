@@ -22,8 +22,13 @@ export {
   type LaunchConfigFound,
   type LaunchConfigScan,
   type LaunchConfigScanLimits,
+  type LaunchConfigUnlisted,
   launchConfigEntry,
   launchConfigLinkTargets,
+  listPinned,
+  type PinRetry,
+  SWAP_TRIES,
+  withPinned,
 } from "./launch-config.ts";
 export {
   absoluteHostPathPattern,

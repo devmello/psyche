@@ -1,7 +1,11 @@
 import { mkdtempSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { estimateContextTokens, STRUCTURED_SUMMARIZER_SYSTEM } from "@psyche/agent-core";
+import {
+  estimateContextTokens,
+  IN_PLACE_TASK_PREFIX,
+  STRUCTURED_SUMMARIZER_SYSTEM,
+} from "@psyche/agent-core";
 import { listMessagesPage } from "@psyche/db";
 import type { ContextUsage, ModelEvent, ModelProvider, ModelRequest } from "@psyche/protocol";
 import { afterEach, describe, expect, it } from "vitest";
@@ -35,15 +39,25 @@ const reply = (text: string, input: number): ModelEvent[] => [
 ];
 
 /** Answers every turn with a paragraph; the summarizer keeps the plan. Reports exact input. */
-function scripted(): ModelProvider & { summaries: number } {
+function scripted(): ModelProvider & { summaries: number; inPlace: number; standalone: number } {
   const p = {
     id: "scripted",
     summaries: 0,
+    inPlace: 0,
+    standalone: 0,
     capabilities: async () => ({ contextWindow: 16_000 }) as never,
     async *stream(req: ModelRequest) {
       const input = estimateContextTokens(req.system ?? "", req.messages, req.tools ?? []);
-      if (req.system === STRUCTURED_SUMMARIZER_SYSTEM) {
+      // A summarizer call is either the standalone request (its own system prompt, a utility
+      // model) or the in-place one (the loop's own prompt, the task as the last user message).
+      const standalone = req.system === STRUCTURED_SUMMARIZER_SYSTEM;
+      const inPlace = req.messages
+        .at(-1)
+        ?.parts.some((x) => x.type === "text" && x.text.startsWith(IN_PLACE_TASK_PREFIX));
+      if (standalone || inPlace) {
         p.summaries += 1;
+        if (standalone) p.standalone += 1;
+        else p.inPlace += 1;
         yield* reply(
           JSON.stringify({
             facts: [],
@@ -62,95 +76,109 @@ function scripted(): ModelProvider & { summaries: number } {
 }
 
 describe("context usage, limits and compaction (Gateway)", () => {
-  it("meters every turn, enforces limits and compacts with a recoverable, audited marker", async () => {
-    home = mkdtempSync(join(tmpdir(), "psyche-context-"));
-    const model = scripted();
-    composed = await composeGateway({
-      logger: silentLogger,
-      retentionIntervalMs: 0,
-      background: false,
-      config: { home, port: 0, dbPath: join(home, "psyche.db"), webRoot: null },
-      model: { provider: model, model: "scripted/main" },
-    });
-    const owner = await adminClient(composed.gateway);
-    clients.push(owner);
-    const { thread } = await owner.call<{ thread: { id: string } }>(
-      "threads.create",
-      { kind: "main" },
-      ik(),
-    );
-    const turn = async (content: string) => {
-      await owner.call("chat.send", { threadId: thread.id, content }, ik());
-      await composed?.gateway.context.sessions.idle();
-    };
-
-    // 1. The meter: exact prompt tokens after a turn, as an event and from the method.
-    await turn("Plan: launch on Nov 3 with Maya.");
-    const event = owner.events.find((e) => e.event === "thread.context.updated");
-    if (event === undefined) throw new Error("no thread.context.updated event");
-    const usage = (event.payload as { usage: ContextUsage }).usage;
-    expect(usage).toMatchObject({ threadId: thread.id, estimated: false, compactions: 0 });
-    expect(usage.limits).toMatchObject({
-      contextWindow: 16_000,
-      maxTokens: 16_000,
-      maxTokensFrom: "model",
-    });
-    const read = await owner.call<{ usage: ContextUsage }>("threads.contextUsage", {
-      threadId: thread.id,
-    });
-    expect(read.usage.promptTokens).toBe(usage.promptTokens);
-
-    // 2. Limits: over the model's window is refused; a thread override applies.
-    await expect(
-      owner.call(
-        "threads.setContextLimits",
-        { threadId: thread.id, limits: { maxTokens: 20_000 } },
+  it.each([
+    ["in place on the run's model", undefined],
+    ["standalone on a utility model", "scripted/utility"],
+  ])(
+    "meters every turn, enforces limits and compacts with a recoverable, audited marker (%s)",
+    async (_name, utility) => {
+      home = mkdtempSync(join(tmpdir(), "psyche-context-"));
+      const model = scripted();
+      composed = await composeGateway({
+        logger: silentLogger,
+        retentionIntervalMs: 0,
+        background: false,
+        config: { home, port: 0, dbPath: join(home, "psyche.db"), webRoot: null },
+        model: {
+          provider: model,
+          model: "scripted/main",
+          ...(utility === undefined ? {} : { utilityModel: utility }),
+        },
+      });
+      const owner = await adminClient(composed.gateway);
+      clients.push(owner);
+      const { thread } = await owner.call<{ thread: { id: string } }>(
+        "threads.create",
+        { kind: "main" },
         ik(),
-      ),
-    ).rejects.toThrow(/invalid_params/);
-    // The fixed part (system prompt, the composed tools) is the first turn's size; leave room
-    // for about two turns of history above it.
-    const MAX = Math.min(16_000, usage.promptTokens + 1_200);
-    const compactAt = Math.min(0.95, (usage.promptTokens + 500) / MAX);
-    const set = await owner.call<{ limits: { maxTokens: number; maxTokensFrom: string } }>(
-      "threads.setContextLimits",
-      { threadId: thread.id, limits: { maxTokens: MAX, compactAt, keepRecentTurns: 1 } },
-      ik(),
-    );
-    expect(set.limits).toMatchObject({ maxTokens: MAX });
+      );
+      const turn = async (content: string) => {
+        await owner.call("chat.send", { threadId: thread.id, content }, ik());
+        await composed?.gateway.context.sessions.idle();
+      };
 
-    // 3. Long turns: compaction happens, every turn stays under the limit, the marker is kept.
-    for (let i = 0; i < 6; i++)
-      await turn(`Status ${i}: ${"vendors, venues and copy. ".repeat(25)}`);
-    const updates = owner.events
-      .filter((e) => e.event === "thread.context.updated")
-      .map((e) => (e.payload as { usage: ContextUsage }).usage);
-    // Every one of the six long turns ran (none hit the limit) and stayed under it.
-    expect(updates).toHaveLength(7);
-    expect(Math.max(...updates.slice(1).map((u) => u.peakTokens))).toBeLessThanOrEqual(MAX);
-    expect(updates.at(-1)?.limits.maxTokensFrom).toBe("thread");
-    expect(model.summaries).toBeGreaterThan(0);
-    const { messages } = listMessagesPage(composed.db, thread.id, { limit: 200 });
-    const markers = messages.filter((m) => m.blocks.some((b) => b.type === "compaction"));
-    expect(markers.length).toBe(model.summaries);
-    const block = markers[0]?.blocks[0];
-    expect(block).toMatchObject({
-      type: "compaction",
-      trigger: "auto",
-      summary: { decisions: ["Plan: launch on Nov 3 with Maya"] },
-    });
-    // Recoverable: the replaced messages are still in the transcript.
-    const from = (block as { replaced: { fromMessageId: string } }).replaced.fromMessageId;
-    expect(messages.some((m) => m.id === from)).toBe(true);
-    const audits = await composed.audit.list({ kind: "thread.compacted" });
-    expect(audits.length).toBe(model.summaries);
+      // 1. The meter: exact prompt tokens after a turn, as an event and from the method.
+      await turn("Plan: launch on Nov 3 with Maya.");
+      const event = owner.events.find((e) => e.event === "thread.context.updated");
+      if (event === undefined) throw new Error("no thread.context.updated event");
+      const usage = (event.payload as { usage: ContextUsage }).usage;
+      expect(usage).toMatchObject({ threadId: thread.id, estimated: false, compactions: 0 });
+      expect(usage.limits).toMatchObject({
+        contextWindow: 16_000,
+        maxTokens: 16_000,
+        maxTokensFrom: "model",
+      });
+      const read = await owner.call<{ usage: ContextUsage }>("threads.contextUsage", {
+        threadId: thread.id,
+      });
+      expect(read.usage.promptTokens).toBe(usage.promptTokens);
 
-    // 4. On demand.
-    const manual = await owner.call<{ compaction: { replacedTurns: number } | null }>(
-      "threads.compact",
-      { threadId: thread.id },
-      ik(),
-    );
-    expect(manual.compaction === null || manual.compaction.replacedTurns >= 0).toBe(true);
-  }, 30_000);
+      // 2. Limits: over the model's window is refused; a thread override applies.
+      await expect(
+        owner.call(
+          "threads.setContextLimits",
+          { threadId: thread.id, limits: { maxTokens: 20_000 } },
+          ik(),
+        ),
+      ).rejects.toThrow(/invalid_params/);
+      // The fixed part (system prompt, the composed tools) is the first turn's size; leave room
+      // for about two turns of history above it.
+      const MAX = Math.min(16_000, usage.promptTokens + 1_200);
+      const compactAt = Math.min(0.95, (usage.promptTokens + 500) / MAX);
+      const set = await owner.call<{ limits: { maxTokens: number; maxTokensFrom: string } }>(
+        "threads.setContextLimits",
+        { threadId: thread.id, limits: { maxTokens: MAX, compactAt, keepRecentTurns: 1 } },
+        ik(),
+      );
+      expect(set.limits).toMatchObject({ maxTokens: MAX });
+
+      // 3. Long turns: compaction happens, every turn stays under the limit, the marker is kept.
+      for (let i = 0; i < 6; i++)
+        await turn(`Status ${i}: ${"vendors, venues and copy. ".repeat(25)}`);
+      const updates = owner.events
+        .filter((e) => e.event === "thread.context.updated")
+        .map((e) => (e.payload as { usage: ContextUsage }).usage);
+      // Every one of the six long turns ran (none hit the limit) and stayed under it.
+      expect(updates).toHaveLength(7);
+      expect(Math.max(...updates.slice(1).map((u) => u.peakTokens))).toBeLessThanOrEqual(MAX);
+      expect(updates.at(-1)?.limits.maxTokensFrom).toBe("thread");
+      expect(model.summaries).toBeGreaterThan(0);
+      // Which request shape did the work: the fork on the run's own model, else the standalone one.
+      if (utility === undefined) expect(model.standalone).toBe(0);
+      else expect(model.inPlace).toBe(0);
+      const { messages } = listMessagesPage(composed.db, thread.id, { limit: 200 });
+      const markers = messages.filter((m) => m.blocks.some((b) => b.type === "compaction"));
+      expect(markers.length).toBe(model.summaries);
+      const block = markers[0]?.blocks[0];
+      expect(block).toMatchObject({
+        type: "compaction",
+        trigger: "auto",
+        summary: { decisions: ["Plan: launch on Nov 3 with Maya"] },
+      });
+      // Recoverable: the replaced messages are still in the transcript.
+      const from = (block as { replaced: { fromMessageId: string } }).replaced.fromMessageId;
+      expect(messages.some((m) => m.id === from)).toBe(true);
+      const audits = await composed.audit.list({ kind: "thread.compacted" });
+      expect(audits.length).toBe(model.summaries);
+
+      // 4. On demand.
+      const manual = await owner.call<{ compaction: { replacedTurns: number } | null }>(
+        "threads.compact",
+        { threadId: thread.id },
+        ik(),
+      );
+      expect(manual.compaction === null || manual.compaction.replacedTurns >= 0).toBe(true);
+    },
+    30_000,
+  );
 });

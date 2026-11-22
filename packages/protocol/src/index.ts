@@ -1,6 +1,7 @@
 export * from "./app-routes.ts";
 export * from "./bridge.ts";
 export * from "./browser-teach.ts";
+export * from "./claim.ts";
 export * from "./common.ts";
 export * from "./contracts/index.ts";
 export * from "./deferred.ts";
@@ -15,6 +16,7 @@ export * from "./mcp-presets.ts";
 export * from "./methods/index.ts";
 export * from "./node.ts";
 export * from "./pairing-link.ts";
+export * from "./pin-id.ts";
 export * from "./prep-note.ts";
 export * from "./registrable.ts";
 export * from "./schemas/index.ts";

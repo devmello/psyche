@@ -12,6 +12,7 @@ const report = (over: Partial<LaunchConfigReport> = {}): LaunchConfigReport => (
   fingerprints: {},
   unmoved: [],
   incidents: [],
+  relinked: [],
   partial: false,
   ...over,
 });
@@ -129,7 +130,74 @@ describe("code.run launch-config notices", () => {
       }),
       at,
     );
-    expect(box.shown.at(-1)).toEqual({ id: "ntf_2", paths: ".mcp.json, sub/.vscode" });
+    // ntf_2 is the "still in place" notice for sub/.vscode; the change notice is new again.
+    expect(box.shown.at(-1)).toEqual({ id: "ntf_3", paths: ".mcp.json, sub/.vscode" });
+  });
+
+  // #1438 review r3: what could not be moved is live, so it alerts on its own, every run.
+  it("says loudly what is still in place and not held, every run", async () => {
+    const sent: NotifyInput[] = [];
+    const n = codingNotices((i) => sent.push(i));
+    await n.report(report({ unmoved: [".vscode"] }), "/Users/o/app");
+    await n.report(report({ unmoved: [".vscode"] }), "/Users/o/app");
+    const loud = sent.filter((s) => s.message?.titleKey === "notice.codeRun.unmoved.title");
+    expect(loud).toHaveLength(2);
+    expect(loud[0]).toMatchObject({
+      kind: "system",
+      message: {
+        bodyKey: "notice.codeRun.unmoved.body",
+        params: { repo: "app", paths: ".vscode" },
+      },
+    });
+    expect(loud[0]?.dedupeKey).toBeUndefined();
+    expect(loud[0]?.body).toContain("not held");
+  });
+
+  // #1469 review r1, finding 3 (the reviewer's probe): a change whose print cannot tell it from
+  // the last one alerts every time, never only once.
+  it("alerts for each change it cannot tell apart from the last", async () => {
+    const sent: NotifyInput[] = [];
+    let n = 0;
+    const notices = codingNotices(
+      (i) => {
+        sent.push(i);
+        return { id: `n${++n}` };
+      },
+      { resolve: () => undefined },
+    );
+    const collapsed = report({
+      changed: ["a/sub"],
+      fingerprints: { "a/sub": "changed during the check" },
+    });
+    await notices.report(collapsed, "/Users/o/app");
+    await notices.report(collapsed, "/Users/o/app");
+    await notices.report(collapsed, "/Users/o/app");
+    expect(sent.length).toBeGreaterThan(1);
+  });
+
+  // #1469 review r4, finding 2: a folder that only changed while Psyche read it is never one the
+  // run "created" for the owner to delete; it has its own notice, new every run.
+  it("says a folder could not be checked without telling the owner to delete it", async () => {
+    const sent: NotifyInput[] = [];
+    const n = codingNotices((i) => sent.push(i));
+    await n.report(report({ unchecked: ["dist"] }), "/Users/o/app");
+    await n.report(report({ unchecked: ["dist"] }), "/Users/o/app");
+    const keys = sent.map((s) => s.message?.titleKey);
+    expect(keys).toEqual(["notice.codeRun.unchecked.title", "notice.codeRun.unchecked.title"]);
+    expect(sent[0]?.message?.params?.paths).toBe("dist");
+    expect(sent[0]?.body).not.toMatch(/created|Delete/);
+  });
+
+  // #1469 review r1, finding 4: where entries without a record are held is a field.
+  it("names where entries without a record are held, from its own field", async () => {
+    const sent: NotifyInput[] = [];
+    const n = codingNotices((i) => sent.push(i));
+    await n.report(
+      report({ unmoved: [".vscode"], heldIn: { ".vscode": "/p/quarantine/code-run/1-ab" } }),
+      "/Users/o/app",
+    );
+    const loud = sent.find((s) => s.message?.titleKey === "notice.codeRun.unmoved.title");
+    expect(loud?.message?.params?.paths).toBe(".vscode (held in /p/quarantine/code-run/1-ab)");
   });
 
   it("says when only the top levels were checked, and when the sandbox was made again", () => {

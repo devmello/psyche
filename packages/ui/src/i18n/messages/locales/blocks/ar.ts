@@ -28,6 +28,12 @@ export const blocks: Partial<Catalogue> = {
     "«هذه الدردشة فقط» تدوم حتى تنتهي المحادثة. «دائمًا» يُبقي المجلد حتى تزيله في الإعدادات ← الأذونات ← الوصول.",
   "blocks.folder.scope.once": "هذه الدردشة فقط",
   "blocks.folder.scope.always": "دائمًا، هذا المجلد وما تحته",
+  "blocks.folder.scope.space": "السماح في هذه المساحة",
+  "blocks.folder.scope.spaceNamed": "السماح في {space}",
+  "blocks.folder.space.automationsRead":
+    "يمكن لعمليات Psyche التلقائية في {space} قراءة هذا المجلد أيضًا.",
+  "blocks.folder.space.automationsWrite":
+    "يمكن لعمليات Psyche التلقائية في {space} قراءة هذا المجلد والكتابة فيه أيضًا.",
   "blocks.folder.explain.ro": "يريد {persona} قراءة الملفات في مجلد.",
   "blocks.folder.explain.rw": "يريد {persona} قراءة الملفات في مجلد وتغييرها.",
   "blocks.folder.readOnly": "السماح بالقراءة فقط دون تغيير أي شيء",

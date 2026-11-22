@@ -36,6 +36,7 @@ import type {
   VmUpdatedPayload,
   Widget,
 } from "@psyche/protocol";
+import { pinId } from "@psyche/protocol";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { t } from "../i18n/core.ts";
 import { errorCode as codeOf, describeError } from "../i18n/errors.ts";
@@ -695,6 +696,39 @@ export async function compactThread(
 }
 
 /**
+ * Removes one standing instruction from a thread's summary (the owner's own control), and from
+ * the compaction blocks already loaded, which would otherwise keep showing it.
+ */
+export async function removeSummaryPin(
+  store: GatewayStore,
+  threadId: string,
+  instruction: string,
+): Promise<void> {
+  const id = pinId(instruction);
+  await store.call("threads.summary.pins.remove", { threadId, pinId: id });
+  store.update((s) => ({
+    ...s,
+    messages: {
+      ...s.messages,
+      [threadId]: (s.messages[threadId] ?? []).map((m) => ({
+        ...m,
+        blocks: m.blocks.map((b) =>
+          b.type === "compaction"
+            ? {
+                ...b,
+                summary: {
+                  ...b.summary,
+                  pinnedInstructions: b.summary.pinnedInstructions.filter((i) => pinId(i) !== id),
+                },
+              }
+            : b,
+        ),
+      })),
+    },
+  }));
+}
+
+/**
  * A thread's context usage and limits (the header meter, "Compact now", the per-chat limits):
  * `threads.contextUsage` on open, then `thread.context.updated` after every turn.
  */
@@ -844,6 +878,8 @@ export interface ApprovalExtras {
   trustSite?: "origin" | "subdomains";
   /** "Always allow <program> in <folder>" on a host-command card (sent with scope `once`). */
   hostProgram?: true;
+  /** "Allow in this Space" on a folder card that offers it (sent with scope `once`). */
+  inSpace?: true;
 }
 
 export async function answerApproval(
@@ -921,6 +957,7 @@ export async function answerApproval(
         ...(decision === "approve" && extras?.trustSite !== undefined
           ? { trustSite: extras.trustSite }
           : {}),
+        ...(decision === "approve" && extras?.inSpace === true ? { inSpace: true as const } : {}),
         ...(decision === "approve" && extras?.hostProgram === true
           ? { hostProgram: true as const }
           : {}),

@@ -5,8 +5,20 @@ import { type GrantedFolder, homeShareGoverns, type WriteProtection } from "@psy
 import { launchConfigLinkTargets } from "@psyche/hostfs";
 import { defaultDenyRead } from "@psyche/mcp-host";
 import { CLI_HOME_DIRS } from "@psyche/model-router";
-import { type FolderAccessEnv, writeProtectedHomeRoots } from "@psyche/permissions";
+import {
+  type FolderAccessEnv,
+  linuxRunCarveOuts,
+  writeProtectedHomeRoots,
+} from "@psyche/permissions";
+import { psycheServerTarballRoot } from "../server-install.ts";
 import { DESKTOP_APP_NAME } from "./desktop-launch.ts";
+
+/**
+ * Linux: the runtime and kernel file systems: `/run/user/<uid>` holds D-Bus services, user units
+ * and the agents' sockets, `/proc` every process's environment. Neither read nor written, apart
+ * from the owner's drives and network mounts (`runCarveOuts`).
+ */
+export const LINUX_SYSTEM_ROOTS: readonly string[] = ["/run", "/proc", "/sys"];
 
 /**
  * Paths no file tool or Files-pane method reads or writes, whatever folder the owner granted
@@ -16,13 +28,20 @@ import { DESKTOP_APP_NAME } from "./desktop-launch.ts";
  * never as a granted path. Each entry is given as written and as its real path, since granted
  * paths are compared as real paths.
  */
-export function protectedRoots(psycheHome: string): string[] {
+export function protectedRoots(
+  psycheHome: string,
+  platform: NodeJS.Platform = process.platform,
+  userHome: string = homedir(),
+): string[] {
   const out = new Set<string>();
+  // Linux: a psyche-server tarball install's root (the Gateway's own code, which the account can
+  // write), wherever its --root put it (B1 review r1, finding 11).
   // The CLI binaries Psyche runs unsandboxed (`~/.local/share/claude`, `~/.bun`...): not writable
   // through a wide grant such as an older home-root one. Not in `defaultDenyRead`: MCP servers
   // run `npx` from `~/.npm-global`.
-  const cliDirs = CLI_HOME_DIRS.map((segments) => join(homedir(), ...segments));
-  for (const p of [...defaultDenyRead(psycheHome), ...cliDirs]) {
+  const cliDirs = CLI_HOME_DIRS.map((segments) => join(userHome, ...segments));
+  const linux = platform === "linux" ? [...LINUX_SYSTEM_ROOTS, ...psycheServerTarballRoot()] : [];
+  for (const p of [...defaultDenyRead(psycheHome, platform), ...cliDirs, ...linux]) {
     out.add(p);
     try {
       out.add(realpathSync(p));
@@ -39,8 +58,14 @@ export function protectedRoots(psycheHome: string): string[] {
  * LaunchAgents, Preferences, shell rc files, `.gitconfig`...) and Psyche.app wherever it is
  * installed. Reads there follow the grants as before. Each entry as written and as its real path.
  */
-export function writeProtectedRoots(userHome: string = homedir()): string[] {
-  return withRealPaths([...writeProtectedHomeRoots(userHome), ...psycheAppPaths(userHome)]);
+export function writeProtectedRoots(
+  userHome: string = homedir(),
+  platform: NodeJS.Platform = process.platform,
+): string[] {
+  return withRealPaths([
+    ...writeProtectedHomeRoots(userHome, platform),
+    ...psycheAppPaths(userHome),
+  ]);
 }
 
 /**
@@ -123,6 +148,16 @@ export function launchConfigLinks(
 }
 
 /**
+ * Linux: the owner's drives and network mounts under `/run` (`linuxRunCarveOuts`), the places a
+ * file tool reaches inside `/run`. Only the never-read roots are lifted there: every write rule
+ * (write-protected roots, identity, dot entries) still applies. Not Psyche's own folders
+ * (`ownWorkdirs`), which skip those rules (review of #1294, round 6).
+ */
+export function runCarveOuts(platform: NodeJS.Platform = process.platform): string[] {
+  return platform === "linux" ? linuxRunCarveOuts() : [];
+}
+
+/**
  * The working directories Psyche gives the subscription CLI providers (`<home>/cli/<id>`, see
  * `resolveRouter`), as written and as real paths. They are the one place inside `$PSYCHE_HOME`
  * a granted folder may reach: the models in those CLIs run with it as their cwd, so asking the
@@ -136,7 +171,7 @@ export function ownWorkdirs(psycheHome: string): string[] {
   try {
     names = readdirSync(root, { withFileTypes: true });
   } catch {
-    return [];
+    return [...out];
   }
   for (const e of names) {
     if (!e.isDirectory() || !/^[A-Za-z0-9][A-Za-z0-9._-]{0,63}$/.test(e.name)) continue;

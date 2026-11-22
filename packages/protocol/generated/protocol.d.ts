@@ -15,28 +15,31 @@ export interface AccessListResult {
 }
 
 export interface AccessEntry {
-    file?:       boolean;
-    grantId?:    string;
-    id:          string;
-    kind?:       ApprovalKind;
-    label:       string;
-    lastUsedAt?: string;
-    mode?:       FolderModeEnum;
-    moved?:      boolean;
-    movedTo?:    string;
-    path?:       string;
-    refused?:    boolean;
-    scope:       AccessEntryScope;
-    since?:      string;
-    threadId?:   string;
-    type:        AccessEntryType;
+    automationsWrite?: boolean;
+    file?:             boolean;
+    grantId?:          string;
+    id:                string;
+    kind?:             ApprovalKind;
+    label:             string;
+    lastUsedAt?:       string;
+    mode?:             FolderModeEnum;
+    moved?:            boolean;
+    movedTo?:          string;
+    path?:             string;
+    refused?:          boolean;
+    scope:             AccessEntryScope;
+    since?:            string;
+    spaceId?:          string;
+    spaceName?:        string;
+    threadId?:         string;
+    type:              AccessEntryType;
 }
 
 export type ApprovalKind = "exec" | "exec_host" | "send_email" | "calendar_write" | "message_send" | "browser_submit" | "credential_fill" | "purchase" | "file_write" | "connector_action" | "computer_action" | "new_origin" | "plan_exit" | "skill_install" | "mcp_tool" | "archive_thread" | "memory_protected_write" | "pairing" | "policy_change" | "task_start" | "apple_script" | "shortcut_run" | "git_write" | "git_push" | "folder_access" | "separate_desktop_share" | "batch" | "permission_request";
 
 export type FolderModeEnum = "ro" | "rw";
 
-export type AccessEntryScope = "always" | "conversation" | "limited";
+export type AccessEntryScope = "always" | "conversation" | "limited" | "space";
 
 export type AccessEntryType = "folder" | "grant";
 
@@ -1031,6 +1034,7 @@ export interface ApprovalAnswer {
     folderMode?:      FolderModeEnum;
     folderPath?:      string;
     hostProgram?:     boolean;
+    inSpace?:         boolean;
     presence?:        PresenceAssertion;
     recipientChoice?: string;
     scope?:           GrantScope;
@@ -1572,15 +1576,16 @@ export interface AttentionReportParams {
     /**
      * The owner gave input in the app just now (key, click)
      */
-    input?: boolean;
-    pane:   AttentionPane;
+    input?:   boolean;
+    machine?: string;
+    pane:     AttentionPane;
     /**
      * The pane is on screen in the desktop app
      */
     visible: boolean;
 }
 
-export type AttentionPane = "browser" | "computer";
+export type AttentionPane = "browser" | "computer" | "vscreen";
 
 export interface AttentionReportResult {
     ok: boolean;
@@ -1832,6 +1837,7 @@ export interface Automation {
      * main | isolated | named:<id>
      */
     sessionTarget: string;
+    spaceId?:      null | string;
     specialist?:   AutomationSpecialist;
     timezone:      string;
     title:         string;
@@ -1926,6 +1932,7 @@ export interface AutomationRunFinishedPayload {
 }
 
 export interface AutomationRun {
+    attempt?:     number;
     automationId: string;
     /**
      * Missed ticks folded into this run
@@ -1935,6 +1942,7 @@ export interface AutomationRun {
     events?:         WorkflowEvent[];
     id:              string;
     notificationId?: null | string;
+    retryAt?:        null | string;
     runId?:          null | string;
     scheduledFor:    string;
     startedAt:       string;
@@ -2015,6 +2023,14 @@ export type DailyWorkflowRunKind = "cron" | "interval";
 
 export type AutomationWorkflowBlockType = "automation_workflow";
 
+export interface AutomationsCancelRetryParams {
+    runId: string;
+}
+
+export interface AutomationsCancelRetryResult {
+    run: AutomationRun;
+}
+
 export interface AutomationsCreateParams {
     delivery?:     Delivery;
     enabled?:      boolean;
@@ -2029,6 +2045,7 @@ export interface AutomationsCreateParams {
      * main | isolated | named:<id>
      */
     sessionTarget?: string;
+    spaceId?:       string;
     specialist?:    AutomationSpecialist;
     /**
      * IANA zone; defaults to the Gateway's
@@ -2113,6 +2130,7 @@ export interface AutomationsUpdateParams {
      * main | isolated | named:<id>
      */
     sessionTarget?: string;
+    spaceId?:       null | string;
     specialist?:    AutomationSpecialist | null;
     /**
      * IANA zone; defaults to the Gateway's
@@ -2879,6 +2897,7 @@ export interface Block {
      */
     question?:     string;
     compactionId?: string;
+    droppedPins?:  string[];
     replaced?:     Replaced;
     summary?:      CompactionSummary;
     tokensAfter?:  number;
@@ -2989,7 +3008,7 @@ export type WorkNoteAttribute = "status" | "deadline" | "progress" | "stopped_at
 
 export type ChecklistItemStatus = "pending" | "in_progress" | "completed";
 
-export type BlockKind = "feed_item" | "search_hit" | "memory_entity" | "life_answer";
+export type BlockKind = "feed_item" | "search_hit" | "memory_entity" | "life_answer" | "mail_followup";
 
 /**
  * The kind of model that made the answer
@@ -3250,8 +3269,63 @@ export interface ChecklistItem {
 
 export type ChecklistBlockType = "checklist";
 
+export interface ClaimHelloParams {
+    /**
+     * base64url, 32 random bytes from the client
+     */
+    clientNonce: string;
+    deviceId:    string;
+    name:        string;
+    platform:    DevicePlatform;
+    /**
+     * The claiming device's raw Ed25519 public key: the key that becomes the first admin
+     */
+    publicKey: string;
+}
+
+export interface ClaimHelloResult {
+    /**
+     * SHA-256 of the SPKI of the LAN certificate the server serves; the client checks it is the
+     * one this connection presented
+     */
+    certSpki:  string;
+    expiresAt: string;
+    /**
+     * The server's identity public key. Not trusted until its proof checks
+     */
+    gatewayKey: string;
+    hostName:   string;
+    /**
+     * base64url, the 16-byte salt stored with the setup code
+     */
+    salt: string;
+    /**
+     * base64url, 32 random bytes, fresh for this connection
+     */
+    serverNonce: string;
+}
+
+export interface ClaimProveParams {
+    /**
+     * claimProof(scrypt(code, salt), client, claimTranscript(...)): HMAC-SHA256, base64url
+     */
+    proof: string;
+}
+
+export interface ClaimProveResult {
+    deviceId: string;
+    /**
+     * The server's proof over the same transcript, role server
+     */
+    proof:  string;
+    scopes: DeviceScope[];
+}
+
+export type DeviceScope = "operator.read" | "operator.write" | "operator.approvals" | "operator.admin" | "node";
+
 export interface CompactionBlock {
     compactionId: string;
+    droppedPins?: string[];
     replaced:     Replaced;
     summary:      CompactionSummary;
     tokensAfter:  number;
@@ -3261,6 +3335,95 @@ export interface CompactionBlock {
 }
 
 export type CompactionBlockType = "compaction";
+
+export interface ComputerWatchFrameParams {
+    machine?:  string;
+    maxWidth?: number;
+    since?:    number;
+}
+
+export interface ComputerWatchInputParams {
+    events:   VscreenInputEvent[];
+    machine?: string;
+}
+
+export interface VscreenInputEvent {
+    button?: Button;
+    type:    VscreenInputEventType;
+    x?:      number;
+    y?:      number;
+    dx?:     number;
+    dy?:     number;
+    key?:    string;
+    text?:   string;
+}
+
+export type Button = "left" | "middle" | "right";
+
+export type VscreenInputEventType = "move" | "down" | "up" | "scroll" | "key_down" | "key_up" | "text";
+
+export interface ComputerWatchParkedPayload {
+    apps:     VscreenApp[];
+    machine?: string;
+}
+
+export interface VscreenApp {
+    appId:              string;
+    hasUnsavedChanges?: boolean;
+    pid:                number;
+    windowTitle?:       null | string;
+}
+
+export interface ComputerWatchResolveParkedParams {
+    action:   ComputerWatchParkAction;
+    machine?: string;
+}
+
+export type ComputerWatchParkAction = "look" | "discard" | "keep_open";
+
+export interface ComputerWatchResolveParkedResult {
+    action: ComputerWatchParkAction;
+    view?:  View;
+}
+
+export type View = "computer-watch";
+
+export interface ComputerWatchState {
+    parked: boolean;
+    status: VscreenStatus;
+}
+
+export interface VscreenStatus {
+    apps:       VscreenApp[];
+    display?:   null | string;
+    frameSeq:   number;
+    height:     number;
+    startedAt?: null | string;
+    state:      VscreenState;
+    takenOver:  boolean;
+    width:      number;
+}
+
+export type VscreenState = "stopped" | "starting" | "running" | "stopping";
+
+export interface ComputerWatchStatusParams {
+    machine?: string;
+}
+
+export interface ComputerWatchStopParams {
+    closeApps?: boolean;
+    force?:     boolean;
+    machine?:   string;
+}
+
+export interface ComputerWatchTakeOverParams {
+    machine?: string;
+    on:       boolean;
+}
+
+export interface ComputerWatchTakeOverResult {
+    takenOver: boolean;
+}
 
 export interface ConnectChallenge {
     expiresAt: string;
@@ -3351,8 +3514,6 @@ export interface ConnectPaired {
 }
 
 export type ConnectPairedPhase = "paired";
-
-export type DeviceScope = "operator.read" | "operator.write" | "operator.approvals" | "operator.admin" | "node";
 
 export interface ConnectParams {
     capabilities?: NodeCapability[];
@@ -4743,7 +4904,7 @@ export interface DailySection {
     unavailable?: boolean;
 }
 
-export type DailySectionID = "calendar" | "mail" | "due" | "followups" | "weather" | "done" | "open" | "tomorrow" | "learned" | "coming_up" | "keep_in_touch" | "catching_up" | "worked_on";
+export type DailySectionID = "calendar" | "mail" | "due" | "followups" | "weather" | "done" | "open" | "tomorrow" | "learned" | "coming_up" | "keep_in_touch" | "quiet_threads" | "catching_up" | "worked_on";
 
 export interface InboxDigest {
     accounts: string[];
@@ -5279,7 +5440,24 @@ export type ErrorCode = "not_implemented" | "invalid_frame" | "invalid_params" |
 
 export type FrameType = "req" | "res" | "event";
 
+export interface GatewayClaimFinishParams {
+    /**
+     * Keep the server reachable on this network (gateway.lan stays on the claim's interface);
+     * false turns LAN listening off once the answer is sent
+     */
+    keepLan: boolean;
+}
+
+export interface GatewayClaimFinishResult {
+    lan: boolean;
+}
+
 export interface GatewayInfo {
+    /**
+     * Present only on a server set up with a setup code whose onboarding has not finished
+     * (remote-gateway design §3.6)
+     */
+    claim?: Claim;
     /**
      * Keys in config.json that this version does not know: kept and ignored. Admins only; the
      * Settings screen shows them so a misspelt setting is noticed
@@ -5289,6 +5467,12 @@ export interface GatewayInfo {
      * The Host machine's name
      */
     hostName: string;
+    /**
+     * The Host's operating system, so a Client names it and its features in the Host's words (a
+     * Linux Host has no Apple connectors and offers computer use only on its private screen).
+     * Absent from older Gateways
+     */
+    hostOs?:  HostOS;
     identity: Identity;
     lan?:     LAN;
     /**
@@ -5300,6 +5484,26 @@ export interface GatewayInfo {
      */
     trustedProxy: boolean;
 }
+
+/**
+ * Present only on a server set up with a setup code whose onboarding has not finished
+ * (remote-gateway design §3.6)
+ */
+export interface Claim {
+    /**
+     * The server was claimed from the app and the owner has not yet said whether it stays
+     * reachable on this network (`gateway.claim.finish`). Until then LAN listening stays on the
+     * interface the claim came in on
+     */
+    lanChoicePending: boolean;
+}
+
+/**
+ * The Host's operating system, so a Client names it and its features in the Host's words (a
+ * Linux Host has no Apple connectors and offers computer use only on its private screen).
+ * Absent from older Gateways
+ */
+export type HostOS = "macos" | "windows" | "linux";
 
 export interface Identity {
     /**
@@ -5521,6 +5725,14 @@ export interface GoalsMilestoneResult {
     links:      GoalLink[];
     milestones: GoalMilestone[];
     taskIds:    string[];
+}
+
+export interface GoalsSuggestParams {
+    goalId: string;
+}
+
+export interface GoalsSuggestResult {
+    ideaId?: null | string;
 }
 
 export interface GoalsUpdateParams {
@@ -6324,6 +6536,41 @@ export interface MachinesRenameParams {
 export interface MachinesRenameResult {
     machine: MachineInfo;
 }
+
+export interface MailFollowupsActParams {
+    action: MailFollowupAction;
+    id:     string;
+}
+
+export type MailFollowupAction = "snooze" | "dismiss";
+
+export interface MailFollowupsActResult {
+    ok: boolean;
+}
+
+export interface MailFollowupsListResult {
+    /**
+     * `mail.followups.enabled` is on
+     */
+    enabled: boolean;
+    items:   MailFollowupItem[];
+}
+
+export interface MailFollowupItem {
+    daysQuiet:      number;
+    gmailThreadId?: string;
+    id:             string;
+    kind:           MailFollowupKind;
+    link?:          string;
+    source:         MailFollowupItemSource;
+    subject:        string;
+    untrusted:      boolean;
+    who:            string;
+}
+
+export type MailFollowupKind = "no_reply" | "unanswered_question";
+
+export type MailFollowupItemSource = "apple" | "gmail" | "imap";
 
 export interface MCPAddParams {
     approvalId: string;
@@ -8661,6 +8908,10 @@ export type ExternalRef = number | string;
 
 export type ReceiptOutcome = "ok" | "failed" | "uncertain";
 
+export interface NodeUnpairResult {
+    device: Device;
+}
+
 export interface NodeUpdatedPayload {
     node: NodeInfo;
 }
@@ -9169,6 +9420,7 @@ export interface PluginsInstallResult {
 }
 
 export interface PluginSummary {
+    adds?:        PluginAdds;
     capabilities: PluginCapability[];
     description:  string;
     /**
@@ -9188,6 +9440,13 @@ export interface PluginSummary {
     source:  string;
     status:  PluginStatus;
     version: string;
+}
+
+export interface PluginAdds {
+    commands:   number;
+    hooks:      number;
+    mcpServers: number;
+    skills:     number;
 }
 
 /**
@@ -10435,6 +10694,7 @@ export interface SearchHit {
     entityType?:        SearchEntityType;
     group?:             SearchGroup;
     id:                 string;
+    imported?:          ThreadImportSource;
     kind?:              SearchIndexDocKind;
     match?:             SearchMatch;
     provenance?:        Provenance;
@@ -10457,6 +10717,8 @@ export interface SearchHitCard {
     span:    string;
     summary: string;
 }
+
+export type ThreadImportSource = "claude" | "chatgpt";
 
 export type SearchIndexDocKind = "thread" | "message" | "task" | "memory" | "library" | "feed" | "idea" | "goal" | "connector" | "person" | "project";
 
@@ -11547,6 +11809,333 @@ export interface AnswerSource {
 
 export type SourcesBlockType = "sources";
 
+export interface SpaceDetail {
+    automationIds:   string[];
+    counts:          SpaceCounts;
+    folders:         SpaceFolder[];
+    goalIds:         string[];
+    lastActivityAt?: null | string;
+    links:           SpaceLink[];
+    space:           Space;
+    trackers:        SpaceTracker[];
+}
+
+export interface SpaceCounts {
+    chats:    number;
+    due:      number;
+    trackers: number;
+}
+
+export interface SpaceFolder {
+    addedAt:        string;
+    addedByDevice?: null | string;
+    /**
+     * Unattended runs (automations) may write here (SP8); default false
+     */
+    automationsWrite: boolean;
+    mode:             FolderModeEnum;
+    path:             string;
+    /**
+     * The real path recorded when the folder was added
+     */
+    real: string;
+}
+
+export interface SpaceLink {
+    addedBy:         Drafted;
+    createdAt:       string;
+    id:              string;
+    kind:            SpaceLinkKind;
+    label:           string;
+    labelProvenance: SpaceLinkProvenance;
+    ref:             string;
+}
+
+export type SpaceLinkKind = "url" | "library_item" | "note" | "mail_thread" | "file";
+
+export type SpaceLinkProvenance = "owner" | "agent" | "untrusted";
+
+export interface Space {
+    archivedAt?:            null | string;
+    connectorScope?:        string[] | null;
+    createdAt:              string;
+    createdFrom:            SpaceCreatedFrom;
+    defaultPermissionMode?: PermissionMode | null;
+    description?:           null | string;
+    entityId?:              null | string;
+    icon?:                  null | string;
+    id:                     string;
+    instructions:           string;
+    instructionsRev:        number;
+    name:                   string;
+    private:                boolean;
+    sort:                   number;
+    updatedAt:              string;
+}
+
+export type SpaceCreatedFrom = "owner" | "proposal" | "project" | "migration";
+
+export type PermissionMode = "plan" | "manual" | "balanced" | "auto";
+
+export interface SpaceTracker {
+    addedBy:      AddedBy;
+    createdAt:    string;
+    kind:         SpaceTrackerKind;
+    position:     number;
+    refreshedAt?: null | string;
+    staleAfterS?: number | null;
+    taint?:       TaintSource[];
+    widgetId:     string;
+}
+
+export type AddedBy = "owner" | "agent" | "template";
+
+export type SpaceTrackerKind = "bound" | "query" | "agent";
+
+export interface SpaceProposalCreatedPayload {
+    proposal: SpaceProposal;
+}
+
+export interface SpaceProposal {
+    createdAt:  string;
+    decidedAt?: null | string;
+    entityId?:  null | string;
+    id:         string;
+    name:       string;
+    reason:     string;
+    status:     SpaceProposalStatus;
+    taint:      TaintSource[];
+    threadIds:  string[];
+}
+
+export type SpaceProposalStatus = "open" | "accepted" | "dismissed";
+
+export interface SpaceResult {
+    space: Space;
+}
+
+export interface SpaceTrackerRefreshedPayload {
+    refreshedAt: string;
+    spaceId:     string;
+    widgetId:    string;
+}
+
+export interface SpaceUpdatedPayload {
+    changed: string[];
+    spaceId: string;
+}
+
+export interface SpacesArchiveParams {
+    spaceId: string;
+}
+
+export interface SpacesAutomationsMoveParams {
+    automationIds: string[];
+    spaceId?:      null | string;
+}
+
+export interface SpacesAutomationsMoveResult {
+    moved: number;
+}
+
+export interface SpacesContextPreviewParams {
+    spaceId:   string;
+    threadId?: string;
+}
+
+export interface SpacesContextPreviewResult {
+    sections: SpaceContextSection[];
+}
+
+export interface SpaceContextSection {
+    cap:   number;
+    chars: number;
+    kind:  SpaceContextSectionKind;
+    text:  string;
+}
+
+export type SpaceContextSectionKind = "instructions" | "card" | "work" | "trackers";
+
+export interface SpacesCreateParams {
+    description?:  string;
+    entityId?:     string;
+    icon?:         string;
+    instructions?: string;
+    name:          string;
+}
+
+export interface SpacesDeleteParams {
+    spaceId: string;
+}
+
+export interface SpacesFoldersAddParams {
+    mode?: FolderModeEnum;
+    /**
+     * Omit on the Host to open the native picker
+     */
+    path?:   string;
+    spaceId: string;
+}
+
+export interface SpacesFoldersRemoveParams {
+    path:    string;
+    spaceId: string;
+}
+
+export interface SpacesFoldersSetModeParams {
+    mode:    FolderModeEnum;
+    path:    string;
+    spaceId: string;
+}
+
+export interface SpacesGetParams {
+    spaceId: string;
+}
+
+export interface SpacesLinksAddParams {
+    kind:    SpaceLinkKind;
+    label:   string;
+    ref:     string;
+    spaceId: string;
+}
+
+export interface SpacesLinksAddResult {
+    link: SpaceLink;
+}
+
+export interface SpacesLinksRemoveParams {
+    linkId:  string;
+    spaceId: string;
+}
+
+export interface SpacesListParams {
+    archived?: boolean;
+}
+
+export interface SpacesListResult {
+    spaces: SpaceSummary[];
+}
+
+export interface SpaceSummary {
+    archivedAt?:     null | string;
+    counts:          SpaceCounts;
+    description?:    null | string;
+    entityId?:       null | string;
+    icon?:           null | string;
+    id:              string;
+    lastActivityAt?: null | string;
+    name:            string;
+    private:         boolean;
+    sort:            number;
+}
+
+export interface SpacesOpenParams {
+    spaceId: string;
+}
+
+export interface SpacesOpenResult {
+    trackers: SpaceTrackerValue[];
+}
+
+export interface SpaceTrackerValue {
+    refreshedAt: string;
+    /**
+     * e.g. "mail", for "Updated 2h ago · from mail"
+     */
+    source?: string;
+    stale:   boolean;
+    /**
+     * The source is gone
+     */
+    unavailable?: boolean;
+    widgetId:     string;
+}
+
+export interface SpacesProposalsAcceptParams {
+    name?:      string;
+    proposalId: string;
+}
+
+export interface SpacesProposalsDismissParams {
+    proposalId: string;
+}
+
+export interface SpacesProposalsListParams {
+    status?: SpacesProposalsListParamsStatus;
+}
+
+export type SpacesProposalsListParamsStatus = "open";
+
+export interface SpacesProposalsListResult {
+    proposals: SpaceProposal[];
+}
+
+export interface SpacesRestoreParams {
+    spaceId: string;
+}
+
+export interface SpacesSettingsSetParams {
+    /**
+     * Per folder: unattended runs may write here (SP8)
+     */
+    automationsWrite?:      AutomationsWrite[];
+    connectorScope?:        string[] | null;
+    defaultPermissionMode?: PermissionMode | null;
+    spaceId:                string;
+}
+
+export interface AutomationsWrite {
+    allow: boolean;
+    path:  string;
+}
+
+export interface SpacesThreadsMoveParams {
+    spaceId?:  null | string;
+    threadIds: string[];
+}
+
+export interface SpacesThreadsMoveResult {
+    moved: number;
+}
+
+export interface SpacesTrackersAddParams {
+    spaceId:   string;
+    template?: SpaceTrackerTemplate;
+    widgetId?: string;
+}
+
+export type SpaceTrackerTemplate = "work_due" | "next_events" | "recent_files" | "mail_on_this" | "checklist" | "automation_status";
+
+export interface SpacesTrackersRefreshParams {
+    spaceId:  string;
+    widgetId: string;
+}
+
+export interface SpacesTrackersRefreshResult {
+    tracker: SpaceTrackerValue;
+}
+
+export interface SpacesTrackersRemoveParams {
+    spaceId:  string;
+    widgetId: string;
+}
+
+export interface SpacesTrackersReorderParams {
+    spaceId:   string;
+    widgetIds: string[];
+}
+
+export interface SpacesUpdateParams {
+    description?:  null | string;
+    entityId?:     null | string;
+    icon?:         null | string;
+    instructions?: string;
+    name?:         string;
+    private?:      boolean;
+    sort?:         number;
+    spaceId:       string;
+}
+
 export interface SpecialistProgressPayload {
     budget: RunBudget;
     runId:  string;
@@ -11699,8 +12288,6 @@ export interface Caps {
     tokens?:  number;
 }
 
-export type PermissionMode = "plan" | "manual" | "balanced" | "auto";
-
 export type ModelClassEnum = "utility" | "primary" | "harness" | "vision";
 
 export type SpecialistResultKind = "findings" | "draft" | "changes" | "plan" | "items";
@@ -11776,8 +12363,6 @@ export interface SpeechWhisperRuntime {
     release:   string;
     sizeBytes: number;
 }
-
-export type VscreenState = "stopped" | "starting" | "running" | "stopping";
 
 export type SpeechWhisperSetupState = "missing" | "downloading" | "ready" | "error";
 
@@ -11864,6 +12449,32 @@ export interface TranscriptSegment {
 }
 
 export type SpeechTranscribePreset = "long" | "short";
+
+export interface StorageClearCacheParams {
+    targets?: StorageClearTarget[];
+}
+
+export type StorageClearTarget = "caches" | "recordings";
+
+export interface StorageCleared {
+    cleared:    StorageClearTarget[];
+    freedBytes: number;
+}
+
+export interface StorageUsage {
+    categories: StorageCategory[];
+    partial?:   boolean;
+    totalBytes: number;
+}
+
+export interface StorageCategory {
+    bytes:             number;
+    clearable:         boolean;
+    id:                StorageCategoryID;
+    reclaimableBytes?: number;
+}
+
+export type StorageCategoryID = "database" | "memoryIndex" | "library" | "browserProfiles" | "recordings" | "logs" | "caches" | "other";
 
 export interface TaskActionPayload {
     action: TaskAction;
@@ -12487,6 +13098,20 @@ export interface ThreadIDParams {
     threadId: string;
 }
 
+export interface ThreadImportResult {
+    duplicates:  number;
+    imported:    number;
+    skipped:     ThreadImportResultSkipped[];
+    skippedMore: number;
+}
+
+export interface ThreadImportResultSkipped {
+    reason: SkippedReason;
+    title:  string;
+}
+
+export type SkippedReason = "too_many" | "too_large" | "empty" | "invalid";
+
 export interface ThreadResult {
     thread: Thread;
 }
@@ -12498,6 +13123,7 @@ export interface Thread {
     expiresAt?:           null | string;
     forkedFromMessageId?: null | string;
     id:                   string;
+    imported?:            ThreadImportSource;
     kind:                 ThreadKind;
     lastMessageAt?:       null | string;
     modelRef?:            null | string;
@@ -12509,6 +13135,7 @@ export interface Thread {
      * e.g. "owner:main", "telegram:peer:12345"
      */
     sessionKey:   string;
+    spaceId?:     null | string;
     title:        string;
     titleSource:  TitleSource;
     updatedAt:    string;
@@ -12568,6 +13195,7 @@ export interface ThreadsCreateParams {
     modelRef?:       string;
     parentThreadId?: string;
     permissionMode?: PermissionMode;
+    spaceId?:        string;
     title?:          string;
 }
 
@@ -12589,6 +13217,12 @@ export interface ThreadsForkParams {
     title?:    string;
 }
 
+export interface ThreadsImportParams {
+    content: string;
+    dryRun?: boolean;
+    format:  ThreadImportSource;
+}
+
 export interface ThreadsListParams {
     /**
      * Opaque cursor
@@ -12601,7 +13235,8 @@ export interface ThreadsListParams {
     /**
      * Case-insensitive substring match on the title
      */
-    query?: string;
+    query?:   string;
+    spaceId?: string;
 }
 
 export interface ThreadsListResult {
@@ -12647,6 +13282,7 @@ export type ThreadPreviewRole = "user" | "agent";
 export interface ThreadsNewChatParams {
     kind:            ThreadsNewChatParamsKind;
     preferThreadId?: string;
+    spaceId?:        string;
 }
 
 export type ThreadsNewChatParamsKind = "side" | "incognito";
@@ -12677,6 +13313,15 @@ export interface ThreadsSetContextLimitsParams {
 export interface ThreadsSetContextLimitsResult {
     limits:       EffectiveContextLimits;
     threadLimits: ContextLimits;
+}
+
+export interface ThreadsSummaryPinsRemoveParams {
+    pinId:    string;
+    threadId: string;
+}
+
+export interface ThreadsSummaryPinsRemoveResult {
+    pinnedInstructions: string[];
 }
 
 export interface ThreadsUpdateParams {
@@ -12884,10 +13529,10 @@ export type VaultImportParamsFormat = "auto" | "1password" | "bitwarden" | "chro
 
 export interface VaultImportResult {
     imported: CredentialMeta[];
-    skipped:  Skipped[];
+    skipped:  VaultImportResultSkipped[];
 }
 
-export interface Skipped {
+export interface VaultImportResultSkipped {
     reason: string;
     row:    number;
 }
@@ -13092,7 +13737,7 @@ export interface ViewPaneState {
     threadId?: null | string;
 }
 
-export type ViewPane = "chat" | "browser" | "terminal" | "files" | "editor" | "diff" | "plan" | "tasks" | "subagents" | "artifact" | "vm" | "sidechat";
+export type ViewPane = "chat" | "browser" | "terminal" | "files" | "editor" | "diff" | "plan" | "tasks" | "subagents" | "artifact" | "vm" | "sidechat" | "computer-watch";
 
 export type ViewPlacement = "main" | "side" | "split";
 
@@ -13572,46 +14217,14 @@ export interface VscreenInputParams {
     events: VscreenInputEvent[];
 }
 
-export interface VscreenInputEvent {
-    button?: Button;
-    type:    VscreenInputEventType;
-    x?:      number;
-    y?:      number;
-    dx?:     number;
-    dy?:     number;
-    key?:    string;
-    text?:   string;
-}
-
-export type Button = "left" | "middle" | "right";
-
-export type VscreenInputEventType = "move" | "down" | "up" | "scroll" | "key_down" | "key_up" | "text";
-
 export interface VscreenStartParams {
     height?: number;
     width?:  number;
 }
 
-export interface VscreenStatus {
-    apps:       VscreenApp[];
-    display?:   null | string;
-    frameSeq:   number;
-    height:     number;
-    startedAt?: null | string;
-    state:      VscreenState;
-    takenOver:  boolean;
-    width:      number;
-}
-
-export interface VscreenApp {
-    appId:              string;
-    hasUnsavedChanges?: boolean;
-    pid:                number;
-    windowTitle?:       null | string;
-}
-
 export interface VscreenStopParams {
     closeApps?: boolean;
+    force?:     boolean;
 }
 
 export interface WidgetAction {
@@ -13635,7 +14248,7 @@ export interface WidgetBind {
     source: WidgetBindingSource;
 }
 
-export type WidgetBindingSource = "task" | "automation" | "research" | "tool_call" | "job";
+export type WidgetBindingSource = "task" | "automation" | "research" | "tool_call" | "job" | "entity" | "work_due" | "calendar" | "reminders" | "mail" | "files";
 
 export interface WidgetDraftPayload {
     callId: string;
@@ -13746,6 +14359,7 @@ export interface Widget {
     owner:     WidgetOwner;
     pinned:    boolean;
     rev:       number;
+    spaceId?:  null | string;
     spec:      WidgetSpec;
     state:     WidgetState;
     taint:     TaintSource[];

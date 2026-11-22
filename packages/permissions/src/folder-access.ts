@@ -1,6 +1,6 @@
 import { realpathSync } from "node:fs";
 import { lstat, realpath, stat } from "node:fs/promises";
-import { homedir, tmpdir } from "node:os";
+import { homedir, tmpdir, userInfo } from "node:os";
 import { dirname, posix, resolve, win32 } from "node:path";
 import {
   canonicalHostPath,
@@ -163,12 +163,22 @@ const WINDOWS_HOME_SENSITIVE = [
   ".aws",
   ".config/gcloud",
   ".config/gh",
+  ".config/glab-cli",
+  ".config/op",
+  ".op",
+  ".azure",
+  ".config/doctl",
+  ".config/hub",
   ".kube",
   ".docker",
   ".netrc",
   "_netrc",
   ".psyche",
   "NTUSER.DAT",
+  // What git runs on its own (hooks paths, fsmonitor, aliases), and a bin folder on PATH.
+  "bin",
+  ".gitconfig",
+  ".config/git",
 ];
 
 /** Under the home directory: refused with everything under them. */
@@ -179,6 +189,12 @@ const HOME_SENSITIVE = [
   ".aws",
   ".config/gcloud",
   ".config/gh",
+  ".config/glab-cli",
+  ".config/op",
+  ".op",
+  ".azure",
+  ".config/doctl",
+  ".config/hub",
   ".kube",
   ".docker",
   ".netrc",
@@ -189,12 +205,48 @@ const HOME_SENSITIVE = [
   "Applications",
   // Shell and git configuration that runs code in the next shell or git command.
   ".config/fish",
+  // `~/bin`, which shells put on PATH (review of #1294, round 4). Compared by name: a `~/bin`
+  // that links elsewhere leaves the folders around its target pickable, and the target itself
+  // is write-protected by its real path (`writeProtectedRoots`).
+  "bin",
   ".config/git",
   // Binaries Psyche runs unsandboxed (the subscription CLIs, `op`): a read-write grant on one
   // would let `write_file` replace them, as `/opt/homebrew` would. The same list the CLI
   // resolver searches, so a new installer directory is refused as soon as it is searched.
   ...CLI_HOME_DIRS.map((segments) => segments.join("/")),
 ];
+
+/**
+ * Linux: the config, data and cache folders, refused wholesale as `~/Library` is on macOS. A file
+ * written there runs code later: desktop entries, autostart, user services, Flatpak overrides,
+ * Python `.pth` files, app plug-ins and start-up scripts, shell extensions, the terminal lists
+ * and caches (review of #1294, round 4).
+ */
+const LINUX_HOME_SENSITIVE = [".config", ".local", ".cache"];
+
+/** Linux: runtime and kernel file systems (`/run/user/<uid>` holds D-Bus services and units). */
+const LINUX_SUBTREE_ROOTS = ["/run", "/proc", "/sys"];
+
+/**
+ * Linux: the places under `/run` that hold the owner's own files, lifted out of `/run`: removable
+ * drives (udisks2 mounts them at `/run/media/<user>` on Fedora, Arch and openSUSE) and network
+ * and phone mounts (GVFS, `/run/user/<uid>/gvfs`). The rest of `/run/user/<uid>` (D-Bus
+ * services, user units, sockets) stays refused (review of #1294, round 5).
+ */
+export function linuxRunCarveOuts(): string[] {
+  const out: string[] = [];
+  try {
+    const user = userInfo().username;
+    if (/^[A-Za-z0-9._-]+$/.test(user) && !user.startsWith(".")) {
+      out.push(posix.join("/run/media", user));
+    }
+  } catch {
+    // No user name: no drive folder is lifted.
+  }
+  const uid = process.getuid?.();
+  if (uid !== undefined) out.push(`/run/user/${uid}/gvfs`);
+  return out;
+}
 
 /**
  * Under the home directory (macOS and Linux): places where a write runs code later, at login, in
@@ -222,11 +274,19 @@ export const PERSISTENCE_HOME_PATHS: readonly string[] = [
   ".config/fish",
   ".gitconfig",
   ".config/git",
+  "bin",
   ".ssh",
   // Linux: autostart entries, user services and launcher entries.
   ".config/autostart",
   ".config/systemd",
   ".local/share/applications",
+  // Linux: the other shell and session start-up files.
+  ".zlogout",
+  ".bash_logout",
+  ".xprofile",
+  ".xsessionrc",
+  ".xinitrc",
+  ".pam_environment",
 ];
 
 /** The persistence locations under `home` (`PERSISTENCE_HOME_PATHS`); none on Windows. */
@@ -253,21 +313,29 @@ export const MAC_WRITE_PROTECTED_HOME_PATHS: readonly string[] = [
   ".config/zed",
 ];
 
+/** Windows: what git runs on its own (`core.hooksPath`, `core.fsmonitor`, aliases) and `~/bin`. */
+const WINDOWS_WRITE_PROTECTED_HOME_PATHS = ["bin", ".gitconfig", ".config/git"];
+
 /**
  * Every place under `home` no agent write reaches, whatever folder is granted (an older home
  * share included): the persistence locations, everything refused as a share
- * (`HOME_SENSITIVE`), and on macOS `MAC_WRITE_PROTECTED_HOME_PATHS`. None on Windows. Writes to
- * a dot entry directly in home are refused too (`assertNotProtected`'s `dotHome`).
+ * (`HOME_SENSITIVE`), on macOS `MAC_WRITE_PROTECTED_HOME_PATHS`, on Linux `~/.config`,
+ * `~/.local` and `~/.cache` wholesale, and on Windows only git's configuration and `~/bin`.
+ * Writes to a dot entry directly in home are refused too (`assertNotProtected`'s `dotHome`).
  */
 export function writeProtectedHomeRoots(
   home: string = homedir(),
   platform: NodeJS.Platform = process.platform,
 ): string[] {
-  if (platform === "win32") return [];
+  // Windows: what git runs on its own and `~/bin` (review of #1294, rounds 4 to 6).
+  if (platform === "win32")
+    return WINDOWS_WRITE_PROTECTED_HOME_PATHS.map((rel) => win32.join(home, rel));
   const rels = new Set([
     ...PERSISTENCE_HOME_PATHS,
     ...HOME_SENSITIVE,
     ...(platform === "darwin" ? MAC_WRITE_PROTECTED_HOME_PATHS : []),
+    // Linux: the config, data and cache folders wholesale, where a written file runs code later.
+    ...(platform === "linux" ? LINUX_HOME_SENSITIVE : []),
   ]);
   return [...rels].map((rel) => posix.join(resolve(home), rel));
 }
@@ -304,10 +372,13 @@ function under(child: string, root: string): boolean {
 /** The roots a pick may not equal or contain (and, for subtree roots, lie under). */
 export function sensitiveRoots(env: FolderAccessEnv = {}): { exact: string[]; subtree: string[] } {
   const win = process.platform === "win32";
+  const linux = !win && (env.platform ?? process.platform) === "linux";
   const home = resolve(env.home ?? homedir());
   const subtree = new Set<string>(win ? windowsSubtreeRoots() : SUBTREE_ROOTS);
+  if (linux) for (const root of LINUX_SUBTREE_ROOTS) subtree.add(root);
   for (const rel of win ? WINDOWS_HOME_SENSITIVE : HOME_SENSITIVE)
     subtree.add(joinHostPath(home, rel));
+  if (linux) for (const rel of LINUX_HOME_SENSITIVE) subtree.add(joinHostPath(home, rel));
   if (env.psycheHome !== undefined) subtree.add(resolve(env.psycheHome));
   for (const p of env.protectedRoots ?? []) subtree.add(resolve(p));
   return { exact: [...(win ? windowsExactRoots() : EXACT_ROOTS), home], subtree: [...subtree] };
@@ -330,8 +401,13 @@ export function inSystemRoot(given: string, env: FolderAccessEnv = {}): boolean 
   if (isMacMagicPath(real, env.platform)) return true;
   const ci = env.caseInsensitive ?? process.platform === "darwin";
   const fold = (p: string): string => (ci && !isWin32HostPath(p) ? foldName(p) : p);
-  const roots = process.platform === "win32" ? windowsSubtreeRoots() : SUBTREE_ROOTS;
+  const win = process.platform === "win32";
+  const linux = !win && (env.platform ?? process.platform) === "linux";
+  const roots = win ? windowsSubtreeRoots() : SUBTREE_ROOTS;
   if (roots.some((r) => under(fold(real), fold(r)))) return true;
+  if (linux && LINUX_SUBTREE_ROOTS.some((r) => under(real, r))) {
+    if (!linuxRunCarveOuts().some((c) => under(real, c))) return true;
+  }
   // The CLI binary folders in home (`~/.local/bin`...), and a folder around one (`~/.local`), but
   // not home itself or above: an older home grant keeps its meaning (see above).
   const home = fold(resolve(env.home ?? homedir()));
@@ -507,7 +583,10 @@ export function refuseFolder(given: string, env: FolderAccessEnv = {}): FolderRe
   if (exact.some((r) => sameHostPath(r, real))) return "sensitive_root";
   // Only the roots that contain the exempt folder are lifted for it: a CLI workdir is never an
   // opening into `~/.ssh` or `~/Library` (those do not contain it).
-  const own = (env.ownDirs ?? []).map((d) => fold(resolve(d))).find((d) => under(real, d));
+  // Linux: the owner's drives and network mounts under `/run` are lifted the same way.
+  const linux = process.platform !== "win32" && (env.platform ?? process.platform) === "linux";
+  const exempt = [...(env.ownDirs ?? []), ...(linux ? linuxRunCarveOuts() : [])];
+  const own = exempt.map((d) => fold(resolve(d))).find((d) => under(real, d));
   // Its dot-folders hold the CLI's settings and tool token: never shared, even inside the exempt one.
   if (own !== undefined && real.slice(own.length + 1).startsWith(".")) return "sensitive_root";
   // Windows' temp folder lifts only `~\AppData`, and only for itself and what is inside it: the
@@ -743,6 +822,74 @@ function expandHome(raw: string, env: FolderAccessEnv): string {
 /** Offers only `once` when the request comes from a tainted context (security §3.6). */
 export function folderScopesOffered(taint: boolean): ("once" | "always")[] {
   return taint ? ["once"] : ["once", "always"];
+}
+
+/**
+ * One folder of a Space (docs/design/spaces-2026.md §5.3), as the Gateway keeps it
+ * (`space_folders`): the path the owner picked, the real path recorded when it was added, its
+ * mode, and whether unattended runs may write there (`automations_write`, SP8).
+ */
+export interface SpaceFolderRecord {
+  spaceId: string;
+  spaceName: string;
+  path: string;
+  real: string;
+  mode: "ro" | "rw";
+  automationsWrite: boolean;
+}
+
+/** Where a thread's runs get their Space from (`PermissionBrokerOptions.spaces.spaceOf`). */
+export type ThreadSpace =
+  /** The thread is in this Space (a chat, or the automation it runs for). */
+  | { spaceId: string; spaceName: string }
+  /**
+   * A subagent thread: it works in its parent run's Space, which the loop names at the run's
+   * start (`bindRun`'s `parent`). Without that, the subagent's run gets no Space.
+   */
+  | { parentThreadId: string };
+
+/**
+ * What storing a card's pick did: `added` (the folder is in the Space at the pick's mode now), or
+ * `not_raised` (the Space holds it read-only and lets automations write there, so a card does not
+ * raise it to read & write: that is the Mac's own `spaces.folders.setMode`; nothing changed).
+ */
+export type SpaceFolderAdd = "added" | "not_raised";
+
+/**
+ * The third folder scope, "Allow in this Space", as the Gateway stores it. Reads are synchronous
+ * (the Gateway's SQLite) and answer the live state, so a folder removed, a Space archived or
+ * deleted stops counting on the next call. Any throw is taken as "no Space folders" (fail closed).
+ */
+export interface SpaceFolderSource {
+  /** The Space a run in this thread works in, read once at the run's start (`bindRun`). */
+  spaceOf(threadId: string): ThreadSpace | undefined;
+  /** The folders of a Space that is not archived; none for an archived or deleted one. */
+  folders(spaceId: string): readonly SpaceFolderRecord[];
+  /** Every folder of every Space that is not archived (Settings' access list, the root looks). */
+  all(): readonly SpaceFolderRecord[];
+  /**
+   * Stores an approved pick ("Allow in this Space"); throws when the Space is gone or archived.
+   * Only ever widens a folder, and never to read & write where automations may write (SP8).
+   */
+  add(
+    spaceId: string,
+    entry: { path: string; real: string; mode: "ro" | "rw" },
+    by: { deviceId?: string },
+  ): SpaceFolderAdd | Promise<SpaceFolderAdd>;
+  /** Removes one folder from a Space (the owner's revoke); true when it was there. */
+  remove(spaceId: string, path: string): boolean | Promise<boolean>;
+}
+
+/**
+ * The mode a Space folder has in one run: a chat uses the folder's own mode; an unattended run
+ * (an automation) writes only where the owner turned on "Automations may change files here"
+ * (SP8, SR4). Never wider than the folder's own mode.
+ */
+export function spaceFolderMode(
+  folder: Pick<SpaceFolderRecord, "mode" | "automationsWrite">,
+  unattended: boolean,
+): "ro" | "rw" {
+  return folder.mode === "rw" && (!unattended || folder.automationsWrite) ? "rw" : "ro";
 }
 
 /**

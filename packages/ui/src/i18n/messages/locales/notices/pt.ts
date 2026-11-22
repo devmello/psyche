@@ -81,4 +81,18 @@ export const notices: Partial<Catalogue> = {
     "O Psyche reteve algo que talvez não venha de uma execução de código em {repo}",
   "notice.codeRun.incident.body":
     "Enquanto {paths} era deixado de lado, uma pasta no caminho mudou, então o que foi movido pode vir de outro lugar. Está guardado em {place}. Confira antes de tocar em Manter, que o coloca em {paths} dentro de {repo}.",
+  "notice.codeRun.unmoved.title":
+    "A configuração de inicialização de uma execução de código em {repo} continua no lugar",
+  "notice.codeRun.unmoved.body":
+    "Um comando no sandbox criou {paths} e o Psyche não conseguiu deixá-lo de lado, então ele não está retido. Apps ou seu próximo comando poderiam executar código a partir disso. Apague antes de abrir a pasta ou executar qualquer coisa nela. Não mude as permissões antes para olhar dentro, porque isso pode deixá-lo ser executado.",
+  "notice.codeRun.unchecked.title":
+    "O Psyche não conseguiu verificar parte de {repo} depois de uma execução de código",
+  "notice.codeRun.unchecked.body":
+    "{paths} mudou enquanto o Psyche o verificava depois de um comando no sandbox, então nada dentro dele foi verificado em busca de configuração de inicialização. Se não foi você nem suas ferramentas que o mudaram, olhe antes de abrir a pasta ou executar qualquer coisa nela.",
+  "notice.machine.added.title": "{name} foi adicionado como um computador que o Psyche pode usar",
+  "notice.machine.added.body":
+    "O Psyche pode usar a tela, os apps, o shell e os arquivos dele, e cada ação lá pede sua confirmação antes. Se não foi você que adicionou, remova em Ajustes → Dispositivos.",
+  "notice.machine.removed.title": "{name} se removeu sozinho",
+  "notice.machine.removed.body":
+    "Era um computador que o Psyche podia usar. O Psyche não vai usá-lo de novo, a menos que você o adicione outra vez.",
 };

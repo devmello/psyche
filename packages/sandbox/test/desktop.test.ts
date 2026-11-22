@@ -60,6 +60,7 @@ describe("the desktop container's flags", () => {
     has(
       "--read-only",
       "--cap-drop=all",
+      "--cap-add=SYS_CHROOT",
       "--security-opt=no-new-privileges",
       "--network=none",
       "--detach",
@@ -75,8 +76,10 @@ describe("the desktop container's flags", () => {
   it("never asks for anything wider", () => {
     const joined = args.join(" ");
     expect(joined).not.toMatch(
-      /--privileged|--network=host|--net=host|--cap-add|--pid=host|--ipc=host|--userns=host/,
+      /--privileged|--network=host|--net=host|--pid=host|--ipc=host|--userns=host/,
     );
+    // The one capability added back: Firefox's content sandbox needs chroot (see desktop.ts).
+    expect(args.filter((a) => a.startsWith("--cap-add"))).toEqual(["--cap-add=SYS_CHROOT"]);
     expect(joined).not.toMatch(
       /--device|--security-opt[= ]seccomp=unconfined|--security-opt[= ]label=disable/,
     );

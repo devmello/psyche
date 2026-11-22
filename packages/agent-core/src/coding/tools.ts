@@ -1,6 +1,7 @@
 import { createHash } from "node:crypto";
+import { mkdirSync, readFileSync, renameSync, writeFileSync } from "node:fs";
 import { lstat, realpath, stat } from "node:fs/promises";
-import { basename, isAbsolute, resolve } from "node:path";
+import { basename, dirname, isAbsolute, resolve } from "node:path";
 import { absoluteHostPathPattern, launchConfigEntry } from "@psyche/hostfs";
 import {
   type DecisionContext,
@@ -27,7 +28,12 @@ import {
   parseStatus,
   REMOTE_PATTERN,
 } from "./git.ts";
-import { guardLaunchConfig, type LaunchConfigReport, launchConfigNotice } from "./launch-guard.ts";
+import {
+  agentView,
+  guardLaunchConfig,
+  type LaunchConfigReport,
+  launchConfigNotice,
+} from "./launch-guard.ts";
 import { applyFilePatch, PATCH_LIMITS, parsePatch, patchStats } from "./patch.ts";
 import { CODE_SEARCH_LIMITS, searchCode } from "./search.ts";
 import {
@@ -98,24 +104,89 @@ export interface CodingToolsDeps {
 }
 
 /** What `code.run` tells the owner, beside its tool result. */
+/** A sandbox `code.run` made: its id in this process and its scope, which outlives a restart. */
+export interface CodingSandbox {
+  sandboxId: string;
+  scope: SandboxScope;
+}
+
 /**
  * The sandboxes `code.run` made per repository, so the owner's "Keep it" can stop them before
  * anything is put back (nothing left running in one can then swap a folder during the moves).
+ * With `file`, the scopes are kept across Gateway restarts (#1435 review r3): a container the
+ * runner adopts after a restart is still found by its scope.
  */
-export class CodingSandboxes {
-  readonly #byRoot = new Map<string, Set<string>>();
+const SCOPE_KINDS: ReadonlySet<string> = new Set(["thread", "project", "task"]);
 
-  track(root: string, sandboxId: string): void {
-    const ids = this.#byRoot.get(root) ?? new Set<string>();
-    ids.add(sandboxId);
-    this.#byRoot.set(root, ids);
+export class CodingSandboxes {
+  readonly #byRoot = new Map<string, Map<string, CodingSandbox>>();
+  readonly #file: string | undefined;
+
+  constructor(file?: string) {
+    this.#file = file;
+    if (file === undefined) return;
+    try {
+      const saved = JSON.parse(readFileSync(file, "utf8")) as Record<string, CodingSandbox[]>;
+      for (const [root, list] of Object.entries(saved)) {
+        const byKey = new Map<string, CodingSandbox>();
+        for (const sb of Array.isArray(list) ? list : []) {
+          if (
+            typeof sb?.sandboxId !== "string" ||
+            typeof sb.scope?.id !== "string" ||
+            sb.scope.id === "" ||
+            !SCOPE_KINDS.has(sb.scope.kind)
+          ) {
+            continue;
+          }
+          byKey.set(`${sb.scope.kind}:${sb.scope.id}`, {
+            sandboxId: sb.sandboxId,
+            scope: sb.scope,
+          });
+        }
+        if (byKey.size > 0) this.#byRoot.set(root, byKey);
+      }
+    } catch {
+      // None yet, or unreadable: start empty.
+    }
   }
 
-  /** The sandboxes made for `root`, forgotten here (the caller destroys them). */
-  take(root: string): string[] {
-    const ids = [...(this.#byRoot.get(root) ?? [])];
-    this.#byRoot.delete(root);
-    return ids;
+  track(root: string, sandbox: CodingSandbox): void {
+    const byKey = this.#byRoot.get(root) ?? new Map<string, CodingSandbox>();
+    const key = `${sandbox.scope.kind}:${sandbox.scope.id}`;
+    if (byKey.get(key)?.sandboxId === sandbox.sandboxId) return;
+    byKey.set(key, { sandboxId: sandbox.sandboxId, scope: { ...sandbox.scope } });
+    this.#byRoot.set(root, byKey);
+    this.#save();
+  }
+
+  /** The sandboxes made for `root`; each stays listed until `forget` (after its destroy). */
+  list(root: string): CodingSandbox[] {
+    return [...(this.#byRoot.get(root)?.values() ?? [])].map((sb) => ({
+      sandboxId: sb.sandboxId,
+      scope: { ...sb.scope },
+    }));
+  }
+
+  forget(root: string, sandbox: CodingSandbox): void {
+    const byKey = this.#byRoot.get(root);
+    if (byKey?.delete(`${sandbox.scope.kind}:${sandbox.scope.id}`) !== true) return;
+    if (byKey.size === 0) this.#byRoot.delete(root);
+    this.#save();
+  }
+
+  #save(): void {
+    if (this.#file === undefined) return;
+    const data = Object.fromEntries(
+      [...this.#byRoot].map(([root, byKey]) => [root, [...byKey.values()]]),
+    );
+    try {
+      mkdirSync(dirname(this.#file), { recursive: true });
+      const tmp = `${this.#file}.${process.pid}.tmp`;
+      writeFileSync(tmp, `${JSON.stringify(data)}\n`, { mode: 0o600 });
+      renameSync(tmp, this.#file);
+    } catch {
+      // The in-memory list still serves this process.
+    }
   }
 }
 
@@ -740,7 +811,7 @@ function runTool(
       const sandbox = await ensure(scope, { network, mounts }, () =>
         lc?.recreated?.({ root: ws.root, ctx }),
       );
-      lc?.sandboxes?.track(ws.root, sandbox.id);
+      lc?.sandboxes?.track(ws.root, { sandboxId: sandbox.id, scope });
       // The sandbox PC shares each folder on its own, so a read-only folder inside the
       // repository would be writable through the repository's share there.
       if (sandbox.backend === "vm" && mounts.some((m) => m.readOnly && m.target !== REPO_MOUNT)) {
@@ -858,13 +929,30 @@ function readOnlyHintFor(
 }
 
 /** What the receipt and the model see of a guard's report (no file ids). */
+/**
+ * What the agent sees (#1457 and #1469 reviews r1): how many, and only names the guard could tell
+ * were the repository's; never where the quarantine is. The owner's notices get the raw report.
+ */
 function launchConfigOutput(r: LaunchConfigReport) {
+  const a = agentView(r);
   return {
-    quarantined: r.quarantined,
-    changed: r.changed,
-    unmoved: r.unmoved,
-    incidents: r.incidents,
-    partial: r.partial,
+    quarantined: a.quarantined,
+    changed: a.changed,
+    unmoved: a.unmoved,
+    incidents: a.incidents,
+    // Of what the agent is told, never of the raw lists (#1469 review r2: how many files a
+    // folder outside holds, or whether it exists, would be told by them).
+    counts: {
+      quarantined: a.quarantined.length,
+      changed: a.changed.length,
+      unmoved: a.unmoved.length,
+      incidents: a.incidents.length,
+    },
+    ...(a.withheld ? { withheld: true } : {}),
+    // Folders swapped for a link while the guard read them (#1469 review r3): said in place of
+    // anything in them, and of whether the walk was partial.
+    ...(a.swapped.length > 0 ? { swapped: a.swapped } : {}),
+    ...(a.partial === undefined ? {} : { partial: a.partial }),
   };
 }
 

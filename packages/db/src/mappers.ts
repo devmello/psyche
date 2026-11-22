@@ -107,6 +107,7 @@ export function pairingRequestFromRow(row: PairingRequestRow): PairingRequest {
     decidedAt: row.decidedAt,
     decidedByDeviceId: row.decidedByDeviceId,
   };
+  if (row.purpose === "machine") out.purpose = "machine";
   if (row.publicKeyFingerprint !== null) out.publicKeyFingerprint = row.publicKeyFingerprint;
   if (row.transport !== null) out.transport = row.transport as "ws" | "unix";
   if (row.remoteAddress !== null) out.remoteAddress = row.remoteAddress;
@@ -132,7 +133,9 @@ export function threadFromRow(row: ThreadRow): Thread {
     createdAt: row.createdAt,
     updatedAt: row.updatedAt,
     lastMessageAt: row.lastMessageAt,
+    spaceId: row.spaceId,
     ...(row.userCreated === 1 ? { userCreated: true } : {}),
+    ...(row.imported === "claude" || row.imported === "chatgpt" ? { imported: row.imported } : {}),
   };
 }
 

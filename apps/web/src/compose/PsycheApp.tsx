@@ -41,6 +41,9 @@ import {
   recentHref,
   ScheduledScreen,
   SearchScreen,
+  SpacePage,
+  SpaceSwitcher,
+  SpacesScreen,
   sheetTab,
   ThreadContextDialog,
   ThreadContextMeter,
@@ -75,6 +78,12 @@ import { renderLibraryThumbnail } from "./library-thumbnails.tsx";
 import { writeOnboarding } from "./onboarding.ts";
 import { saveHabits, saveMemory } from "./onboarding-host.ts";
 import { useRemotePresence } from "./remote-presence.tsx";
+import {
+  ClaimLanChoice,
+  finishClaim,
+  ServerSetupEntry,
+  useClaimLanChoice,
+} from "./server-setup.tsx";
 import { settingsRoute } from "./settings.tsx";
 import { SideChatPane } from "./side-chat.tsx";
 import { useTranscriptMode } from "./transcript-mode.tsx";
@@ -145,6 +154,7 @@ function KitChat({ threadId, ctx }: { threadId: string; ctx: ChatSlotContext }):
           onOpenSheet={() => ctx.navigate(agentSheetHref(defaultTab))}
           onOpenTask={() => ctx.navigate("/overview#now")}
           incognito={incognito}
+          spaceSwitcher={<SpaceSwitcher threadId={threadId} onNavigate={ctx.navigate} />}
           onOpenInbox={() => ctx.navigate("/inbox")}
           {...(ctx.thread
             ? { mode: ctx.thread.permissionMode, onModeChange: ctx.setPermissionMode }
@@ -308,6 +318,24 @@ export function screenRoute(route: string, navigate: (to: string) => void): Reac
           onOpenGoal={(goal) => navigate(`/goals/${goal.id}`)}
         />,
       );
+    case "spaces": {
+      // `/spaces` is the list (`?new=1` opens New Space, `#archived` scrolls to the archived
+      // ones); `/spaces/<id>` is a Space's page. Off the sidebar, like `/goals/<id>`.
+      const hash = route.split("#")[1];
+      return page(
+        "Spaces",
+        parts[1] === undefined ? (
+          <SpacesScreen
+            key={new URLSearchParams(query).get("new") === "1" ? "new" : "list"}
+            onNavigate={navigate}
+            startAdding={new URLSearchParams(query).get("new") === "1"}
+            {...(hash ? { anchor: hash } : {})}
+          />
+        ) : (
+          <SpacePage key={parts[1]} spaceId={decodeURIComponent(parts[1])} onNavigate={navigate} />
+        ),
+      );
+    }
     case "scheduled":
       return page(
         "Scheduled",
@@ -382,7 +410,7 @@ export async function completeOnboarding(
   platform: ShellPlatform,
   result: OnboardingResult,
   now: () => Date = () => new Date(),
-  options: { rerun?: boolean } = {},
+  options: { rerun?: boolean; keepLan?: boolean } = {},
 ): Promise<void> {
   const call = (m: string, p: unknown, o?: { idempotencyKey?: string }) =>
     platform.gateway.call(m, p, o ?? {});
@@ -423,6 +451,8 @@ export async function completeOnboarding(
     { idempotencyKey: `onboarding:done:${now().getTime()}` },
   );
   if (!options.rerun) await greetMainChat(call, now);
+  // A server this computer just claimed (design §3.6): last, since off can end this connection.
+  if (options.keepLan !== undefined) await finishClaim(call, options.keepLan, now);
 }
 
 /**
@@ -611,6 +641,7 @@ export function PsycheApp({ platform }: { platform: ShellPlatform }): ReactEleme
   const [gate, setGate] = useState<Gate>("loading");
   const [error, setError] = useState<string | null>(null);
   const [persona, reloadPersona] = useWorkspacePersona(platform);
+  const claimLan = useClaimLanChoice(platform, gate === "onboarding");
 
   useEffect(() => {
     let cancelled = false;
@@ -720,11 +751,18 @@ export function PsycheApp({ platform }: { platform: ShellPlatform }): ReactEleme
               {error}
             </p>
           ) : null}
+          <ServerSetupEntry platform={platform} />
+          <ClaimLanChoice keepLan={claimLan.keepLan} onChange={claimLan.setKeepLan} />
           <FirstRun
             platform={platform}
             mode="first"
             onComplete={(result) => {
-              completeOnboarding(platform, result).then(
+              completeOnboarding(
+                platform,
+                result,
+                undefined,
+                claimLan.keepLan === null ? {} : { keepLan: claimLan.keepLan },
+              ).then(
                 () => {
                   reloadPersona();
                   // The folders needed a card that cannot be answered here: land on File access.

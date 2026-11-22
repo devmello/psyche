@@ -54,6 +54,52 @@ export const BROWSER_APPS = [
   "opera.exe",
   "vivaldi.exe",
   "arc.exe",
+  // Linux: desktop-file ids (apps/linux-helper), compared without case.
+  "firefox",
+  "firefox-esr",
+  "chromium",
+  "chromium-browser",
+  "org.chromium.chromium",
+  "google-chrome",
+  "google-chrome-stable",
+  "google-chrome-beta",
+  "com.google.chrome",
+  "brave-browser",
+  "com.brave.browser",
+  "vivaldi-stable",
+  "vivaldi",
+  "com.vivaldi.vivaldi",
+  "epiphany",
+  "org.gnome.epiphany",
+  "microsoft-edge",
+  "microsoft-edge-stable",
+  "com.microsoft.edge",
+  "librewolf",
+  "io.gitlab.librewolf-community",
+  "opera",
+  "falkon",
+  "org.kde.falkon",
+  "zen-browser",
+  // Linux snap, Flatpak and other browser ids (mirrors the helper's BROWSERS).
+  "chrome",
+  "brave",
+  "brave-browser-stable",
+  "google-chrome-unstable",
+  "microsoft-edge-beta",
+  "microsoft-edge-dev",
+  "torbrowser-launcher",
+  "mullvad-browser",
+  "chromium_chromium",
+  "brave_brave",
+  "firefox_firefox",
+  "io.github.ungoogled_software.ungoogled_chromium",
+  "org.torproject.torbrowser-launcher",
+  "com.github.micahflee.torbrowser-launcher",
+  "one.ablaze.floorp",
+  "com.opera.opera",
+  "waterfox",
+  "floorp",
+  "tor-browser",
 ];
 
 /**
@@ -110,6 +156,97 @@ export const TERMINAL_IDE_APPS = [
   "clion64.exe",
 ];
 
+/**
+ * Linux terminals, editors and IDEs (desktop-file ids, compared without case): click-only, as the
+ * Linux helper's `TERMINALS_AND_IDES` caps them. Kept apart from `TERMINAL_IDE_APPS`, which
+ * the Mac and Windows helpers' lists mirror (`terminal-caps-sync.test.ts`).
+ */
+export const LINUX_TERMINAL_IDE_APPS = [
+  "gnome-terminal",
+  "org.gnome.terminal",
+  "ptyxis",
+  "org.gnome.ptyxis",
+  "konsole",
+  "org.kde.konsole",
+  "kitty",
+  "alacritty",
+  "org.alacritty.alacritty",
+  "wezterm",
+  "org.wezfurlong.wezterm",
+  "foot",
+  "xterm",
+  "uxterm",
+  "xfce4-terminal",
+  "tilix",
+  "com.gexperts.tilix",
+  "terminator",
+  "lxterminal",
+  "qterminal",
+  "kgx",
+  "org.gnome.console",
+  "code",
+  "code-oss",
+  "codium",
+  "vscodium",
+  "com.visualstudio.code",
+  "com.vscodium.codium",
+  "cursor",
+  "zed",
+  "dev.zed.zed",
+  "sublime_text",
+  "sublime-text",
+  "emacs",
+  "gvim",
+  "jetbrains-*",
+  "idea",
+  "pycharm",
+  "webstorm",
+  "clion",
+  "goland",
+  "rider",
+  "android-studio",
+  "org.gnome.builder",
+  "org.kde.kate",
+  "org.kde.kdevelop",
+  // More Linux terminals, and editors and IDEs that run code (mirrors the helper).
+  "mate-terminal",
+  "io.elementary.terminal",
+  "guake",
+  "tilda",
+  "org.kde.yakuake",
+  "yakuake",
+  "terminology",
+  "sakura",
+  "rxvt-unicode",
+  "rxvt",
+  "urxvt",
+  "urxvtc",
+  "st",
+  "cool-retro-term",
+  "deepin-terminal",
+  "ghostty",
+  "com.raggesilver.blackbox",
+  "footclient",
+  "foot-server",
+  "vim",
+  "nvim",
+  "neovide",
+  "nvim-qt",
+  "geany",
+  "org.geany.geany",
+  "thonny",
+  "org.thonny.thonny",
+  "spyder",
+  "org.spyder_ide.spyder",
+  "qtcreator",
+  "org.qt-project.qtcreator",
+  "io.qt.qtcreator",
+  "eclipse",
+  "org.eclipse.java",
+  "codeblocks",
+  "org.codeblocks.codeblocks",
+];
+
 /** Off, and the owner cannot raise them (chat or settings). */
 export const LOCKED_OFF_APPS = [
   "com.1password.1password",
@@ -150,18 +287,139 @@ export const LOCKED_OFF_APPS = [
   "logonui.exe",
   "psyche.exe",
   "psyche-helper.exe",
+  // Linux: password managers and keyrings, the shell, Settings and the authentication prompts,
+  // Psyche itself, and banking and crypto apps (desktop-file ids).
+  "keepassxc",
+  "org.keepassxc.keepassxc",
+  "keepass2",
+  "bitwarden",
+  "1password",
+  "enpass",
+  "seahorse",
+  "org.gnome.seahorse.application",
+  "kwalletmanager5",
+  "kwalletmanager6",
+  "org.kde.kwalletmanager5",
+  "org.kde.kwalletmanager6",
+  "gnome-keyring",
+  "proton-pass",
+  "nordpass",
+  "gnome-shell",
+  "org.gnome.shell",
+  "plasmashell",
+  "org.kde.plasmashell",
+  "gnome-control-center",
+  "org.gnome.settings",
+  "org.gnome.controlcenter",
+  "systemsettings",
+  "org.kde.systemsettings",
+  "polkit-gnome-authentication-agent-1",
+  "polkit-kde-authentication-agent-1",
+  "org.kde.polkit-kde-authentication-agent-1",
+  "polkit-mate-authentication-agent-1",
+  "lxqt-policykit-agent",
+  "xfce-polkit",
+  "gcr-prompter",
+  "gcr-viewer",
+  "pinentry-gnome3",
+  "pinentry-qt",
+  "pinentry-gtk-2",
+  "org.gnome.initialsetup",
+  "gnome-initial-setup",
+  "gdm",
+  "sddm",
+  "lightdm",
+  "gnome-screensaver",
+  "org.gnome.screensaver",
+  "xscreensaver",
+  "swaylock",
+  "hyprlock",
+  "psyche",
+  "psyche-desktop",
+  "psyche-helper",
+  "electrum",
+  "org.electrum.electrum",
+  "exodus",
+  "ledger-live-desktop",
+  "trezor-suite",
+  "bitcoin-qt",
+  "org.bitcoin.bitcoin-qt",
+  "sparrow",
+  "tradingview",
+  "coinbase*",
+  "robinhood*",
+  "revolut*",
+  // Linux password managers the helper also caps.
+  "lastpass",
+  "dashlane",
 ];
 
-/** Bundle ids compare without case: LaunchServices treats them case-insensitively (review #13). */
+/**
+ * Linux program launchers (desktop-file ids): opening a document with one of them runs it as a
+ * program, whatever its extension (`wine invoice.pdf.exe`, `java -jar`, a Python script). Off,
+ * so `apps.open` and computer use never drive them.
+ */
+export const LAUNCHER_APPS = [
+  "wine",
+  "wine64",
+  "wine-*",
+  "org.winehq.*",
+  "winetricks",
+  "wine-desktop",
+  "com.usebottles.bottles",
+  "bottles",
+  "net.lutris.lutris",
+  "lutris",
+  "playonlinux",
+  "q4wine",
+  "crossover",
+  "java",
+  "java-*",
+  "javaws",
+  "openjdk-*",
+  "icedtea-*",
+  "mono",
+  "mono-*",
+  "python",
+  "python2*",
+  "python3*",
+  "idle",
+  "idle3*",
+  "idle-python3*",
+];
+
+/**
+ * Bundle ids compare without case: LaunchServices treats them case-insensitively (review #13).
+ * A pattern ending in "*" matches every id that starts with what comes before it
+ * ("com.chase.*", "jetbrains-*", "coinbase*").
+ */
 function matchesAny(bundleId: string, patterns: readonly string[]): boolean {
   const id = bundleId.toLowerCase();
   return patterns.some((raw) => {
     const p = raw.toLowerCase();
-    return p.endsWith(".*") ? id.startsWith(p.slice(0, -1)) : id === p;
+    return p.endsWith("*") ? id.startsWith(p.slice(0, -1)) : id === p;
   });
 }
 
-export function appCap(bundleId: string): { cap: AppTier; reason: string } {
+/** A snap's desktop-file id: `<snap>_<app>` (one underscore, no dots, snapd's characters). */
+const SNAP_DESKTOP_ID = /^([a-z0-9][a-z0-9+-]*)_([a-z0-9][a-z0-9+-]*)$/;
+
+/**
+ * The ids an app id also stands for. A snap's desktop id `<snap>_<app>` (`thunderbird_thunderbird`,
+ * `chromium_chromium`) is that app and that snap too, so the fixed caps and the send rule judge
+ * every one of them (the Linux helper's `app_id::aliases` does the same). Dotted ids (Flatpak, Mac,
+ * `org.claws_mail.claws-mail`) are never split. An extra alias can only add a match.
+ */
+export function appIdAliases(appId: string): string[] {
+  const id = appId.trim().toLowerCase();
+  const m = SNAP_DESKTOP_ID.exec(id);
+  if (m === null) return [id];
+  const [, snap = "", app = ""] = m;
+  return [...new Set([id, app, snap])];
+}
+
+/** The fixed cap for one id, without aliases. */
+function capOf(bundleId: string): { cap: AppTier; reason: string } {
   if (matchesAny(bundleId, LOCKED_OFF_APPS)) {
     return {
       cap: "off",
@@ -169,13 +427,26 @@ export function appCap(bundleId: string): { cap: AppTier; reason: string } {
         "password managers, banking, trading, system settings, notifications and security prompts are off",
     };
   }
+  if (matchesAny(bundleId, LAUNCHER_APPS)) {
+    return { cap: "off", reason: "apps that run programs (Wine, Java, Mono, Python) are off" };
+  }
   if (matchesAny(bundleId, BROWSER_APPS) && !isBrowserWebApp(bundleId)) {
     return { cap: "read", reason: "browsers are read-only; the agent browser acts on the web" };
   }
-  if (matchesAny(bundleId, TERMINAL_IDE_APPS)) {
+  if (matchesAny(bundleId, TERMINAL_IDE_APPS) || matchesAny(bundleId, LINUX_TERMINAL_IDE_APPS)) {
     return { cap: "click", reason: "terminals and IDEs are click-only" };
   }
   return { cap: "interact", reason: "" };
+}
+
+/** The highest tier an app can ever get: the strictest cap of the id and its aliases. */
+export function appCap(bundleId: string): { cap: AppTier; reason: string } {
+  let best = capOf(bundleId);
+  for (const alias of appIdAliases(bundleId).slice(1)) {
+    const c = capOf(alias);
+    if (TIER_RANK[c.cap] < TIER_RANK[best.cap]) best = c;
+  }
+  return best;
 }
 
 /** Tier an action needs. Unknown actions need `interact`. */

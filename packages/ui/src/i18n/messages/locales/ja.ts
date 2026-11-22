@@ -10,6 +10,7 @@ import { capabilitiesRest } from "./capabilities-rest/ja.ts";
 import { charts } from "./charts/ja.ts";
 import { chatRest } from "./chat-rest/ja.ts";
 import { commonRest } from "./common-rest/ja.ts";
+import { computerWatch } from "./computer-watch/ja.ts";
 import { dailyRest } from "./daily-rest/ja.ts";
 import { deckRest } from "./deck-rest/ja.ts";
 import { designRest } from "./design-rest/ja.ts";
@@ -19,7 +20,11 @@ import { galleryRest } from "./gallery-rest/ja.ts";
 import { helperCheck } from "./helper-check/ja.ts";
 import { helperOffline } from "./helper-offline/ja.ts";
 import { homeRest } from "./home-rest/ja.ts";
+import { keepAwake } from "./keep-awake/ja.ts";
 import { links } from "./links/ja.ts";
+import { linuxAccess } from "./linux-access/ja.ts";
+import { machines } from "./machines/ja.ts";
+import { mailFollowups } from "./mail-followups/ja.ts";
 import { mailMeetings } from "./mail-meetings/ja.ts";
 import { meetingRecordRest } from "./meetingRecord-rest/ja.ts";
 import { memoryMap } from "./memory-map/ja.ts";
@@ -47,6 +52,7 @@ import { securityState } from "./security-state/ja.ts";
 import { separateDesktop } from "./separate-desktop/ja.ts";
 import { settingsRest } from "./settings-rest/ja.ts";
 import { shellRest } from "./shell-rest/ja.ts";
+import { spaces } from "./spaces/ja.ts";
 import { specialistsRest } from "./specialists-rest/ja.ts";
 import { webRest } from "./web-rest/ja.ts";
 import { widgetsRest } from "./widgets-rest/ja.ts";
@@ -167,6 +173,16 @@ export const ja: Partial<Catalogue> = {
     "別のクライアントには、そのクライアント専用のシークレットが必要です。",
   "errors.reason.updating":
     "Psycheはアップデートをインストールするため、まもなく再起動します。しばらくしてからもう一度お試しください。",
+  "errors.reason.passkey_required":
+    "この Psyche で支払いを承認するには、パスキーを設定してください。",
+  "errors.reason.awaiting_owner":
+    "アプリに未保存の変更があります。どうするかをあなたが決めるまで Psyche は待ちます。",
+  "errors.reason.checkout_needs_desktop":
+    "Psyche のブラウザで支払うには、Psyche デスクトップアプリをこのホストに接続する必要があります。",
+  "errors.reason.no_chromium":
+    "Psyche のブラウザにはこのホストの Chromium が必要です。インストールするか、PSYCHE_CHROMIUM を設定してください。",
+  "errors.reason.chromium_sandbox":
+    "このホストでは Chromium のサンドボックスを起動できないため、Psyche のブラウザは無効です。Chromium にユーザー名前空間の使用を許可してください（AppArmor プロファイル）。",
   "errors.unavailable": "Psycheは現在その操作を実行できません。",
   "errors.approval_required": "先にあなたの承認が必要です。",
   "errors.approval_expired": "承認の期限が切れました。もう一度依頼してください。",
@@ -504,6 +520,7 @@ export const ja: Partial<Catalogue> = {
   "blocks.artifact.bytes": "{size} B",
   "blocks.artifact.kilobytes": "{size} KB",
   "blocks.artifact.megabytes": "{size} MB",
+  "blocks.artifact.gigabytes": "{size} GB",
   "blocks.task.status.queued": "待機中",
   "blocks.task.status.running": "実行中",
   "blocks.task.status.awaiting_input": "回答待ち",
@@ -578,6 +595,12 @@ export const ja: Partial<Catalogue> = {
   "context.marker.readsInstead": "代わりにエージェントが読む要約：",
   "context.marker.empty": "残す価値のある内容は見つかりませんでした。",
   "context.marker.showReplaced": "置き換えられた内容を表示",
+  "context.marker.removePin": "削除",
+  "context.marker.removePinLabel": "この常設の指示を削除: {text}",
+  "context.marker.pinRemoved": "常設の指示を削除しました。",
+  "context.marker.pinRemoveFailed": "削除できませんでした: {reason}",
+  "context.marker.droppedPins":
+    "{count, plural, other {古い常設の指示 # 件を、新しい指示の余地を作るために破棄しました。}}",
   "context.marker.replacedList": "置き換えられたターン",
   "context.marker.notLoaded": "置き換えられたターンはここには読み込まれていません。",
   "context.marker.speaker": "{name}：",
@@ -777,7 +800,45 @@ export const ja: Partial<Catalogue> = {
   "agent.memory.incognito": "シークレットのサイドチャット",
   "agent.memory.importExport": "読み込み、書き出し、リセット",
   "agent.memory.import": "メモリを読み込む",
+  "agent.memory.importConv.title": "claude.ai または ChatGPT から読み込む",
+  "agent.memory.importConv.note":
+    "読み込んだ会話は読み取り専用です。テキストは信頼できないデータとして扱われ、ピン留めや指示になることはありません。",
+  "agent.memory.importConv.source": "書き出し元",
+  "agent.memory.importConv.claude": "claude.ai",
+  "agent.memory.importConv.chatgpt": "ChatGPT",
+  "agent.memory.importConv.mode": "読み込む内容",
+  "agent.memory.importConv.memoriesOnly": "メモリのみ",
+  "agent.memory.importConv.both": "メモリと会話",
+  "agent.memory.importConv.memoriesFile": "メモリのファイル",
+  "agent.memory.importConv.conversationsFile": "会話のファイル（conversations.json）",
+  "agent.memory.importConv.start": "読み込む",
+  "agent.memory.importConv.working": "読み込み中…",
+  "agent.memory.importConv.cancel": "キャンセル",
+  "agent.memory.importConv.close": "閉じる",
+  "agent.memory.importConv.progressMemories": "メモリを読み込み中…",
+  "agent.memory.importConv.progressConversations": "会話を読み込み中…",
+  "agent.memory.importConv.failed": "このファイルを読み込めませんでした：{reason}",
+  "agent.memory.importConv.done": "読み込みが完了しました。",
+  "agent.memory.importConv.sumMemories": "確認するメモリ：{n}",
+  "agent.memory.importConv.sumThreads": "読み込んだ会話：{n}",
+  "agent.memory.importConv.sumDuplicates": "以前に読み込み済み：{n}",
+  "agent.memory.importConv.sumSkipped": "スキップした会話：{n}",
+  "agent.memory.importConv.skipTooMany": "会話{n}件の上限を超えています",
+  "agent.memory.importConv.skipTooLarge": "長すぎます",
+  "agent.memory.importConv.skipEmpty": "メッセージがありません",
+  "agent.memory.importConv.skipInvalid": "読み取れませんでした",
+  "agent.memory.importConv.untitled": "無題",
+  "agent.memory.importConv.progressCount": "会話を読み込み中… {done} / {total}",
+  "agent.memory.importConv.tooBig":
+    "このファイルは {mb} MB を超えており、ここでは大きすぎて読めません。範囲を小さくして書き出し直してください。",
+  "agent.memory.importConv.memoriesTooBig":
+    "このメモリファイルは {kb} KB を超えており、一度に読み込めません。分割するか、書き出すメモリを減らしてください。",
+  "agent.memory.importConv.partial":
+    "完了前に停止しました：{reason}。{total} 件中 {done} 件のバッチを読み込みました。もう一度読み込むと続きから進み、読み込み済みの会話はスキップされます。",
+  "agent.memory.importConv.retry": "もう一度読み込む",
   "agent.memory.exported": "{file}を書き出しました。",
+  "agent.memory.importConv.memoriesFailed":
+    "メモリを読み込めませんでした：{reason}。もう一度読み込むと再試行します。",
   "agent.memory.export": "すべてを書き出す",
   "agent.memory.resetDone":
     "{files, plural, other {#個のファイル}}と{claims, plural, other {#件の事実}}をリセットしました。",
@@ -884,6 +945,8 @@ export const ja: Partial<Catalogue> = {
   "shell.threads.unpin": "ピン留めを解除",
   "shell.threads.pin": "ピン留め",
   "shell.threads.archive": "アーカイブ",
+  "shell.threads.imported": "読み込み済み",
+  "shell.threads.importedReadOnly": "この読み込んだ会話は読み取り専用です。",
   "shell.threads.restore": "復元",
   "shell.threads.region": "スレッド",
   "shell.threads.filter": "スレッドを絞り込む",
@@ -1015,6 +1078,8 @@ export const ja: Partial<Catalogue> = {
   "settings.key.browser.botAuth": "Web Bot Auth",
   "settings.key.computerUse.enabled": "コンピュータ操作を許可",
   "settings.key.computerUse.apps": "アプリへのアクセス",
+  "settings.key.feed.sources": "フィードのソース",
+  "settings.key.computerUse.linuxRevoke": "Linux コンピュータを忘れる",
   "settings.key.context.maxTokens": "コンテキスト上限",
   "settings.key.search.web.provider": "Web検索プロバイダ",
   "settings.key.search.web.searxngUrl": "SearXNGのURL",
@@ -2362,6 +2427,43 @@ export const ja: Partial<Catalogue> = {
   "settings.skills.removeDescription":
     "ファイルはこのGatewayから削除されます。再インストールには信頼カードの確認が必要です。",
   "settings.skills.switchOn": "{name}をオン",
+  "settings.plugins.title": "プラグイン",
+  "settings.plugins.description":
+    "文脈を追加したり、ツール呼び出しを確認したり、評価を実行したりするコードです。各プラグインは独自のプロセスで動作します。プラグインが権限を与えることはありません。",
+  "settings.plugins.off":
+    "この Gateway ではプラグインがオフになっているため、動作しているものはありません。",
+  "settings.plugins.loading": "プラグインを読み込んでいます…",
+  "settings.plugins.error": "プラグインを読み込めませんでした。{reason}",
+  "settings.plugins.empty": "インストールされたプラグインはありません。",
+  "settings.plugins.failed": "変更を保存できませんでした。{reason}",
+  "settings.plugins.waitingApproval": "この端末での承認を待っています。",
+  "settings.plugins.switchOn": "{name} をオン",
+  "settings.plugins.version": " · v{version}",
+  "settings.plugins.adds": "追加内容: {list}",
+  "settings.plugins.install": "フォルダからインストール…",
+  "settings.plugins.pickFailed": "Psycheがフォルダ選択を開けませんでした（{reason}）。",
+  "settings.plugins.installFailed": "インストールを開始できませんでした。{reason}",
+  "settings.plugins.proposed": "承認カードでインストール内容を確認してください。",
+  "settings.plugins.includes": "含まれるもの: {list}",
+  "settings.plugins.count.skills": "{n, plural, other {スキル#件}}",
+  "settings.plugins.count.commands": "{n, plural, other {コマンド#件}}",
+  "settings.plugins.count.mcpServers": "{n, plural, other {MCPサーバー#件}}",
+  "settings.plugins.count.hooks": "{n, plural, other {フック#件}}",
+  "settings.plugins.from": "取得元: {source}",
+  "settings.plugins.state.active": "動作中",
+  "settings.plugins.state.disabled": "オフ",
+  "settings.plugins.state.off": "プラグインのオン待ち",
+  "settings.plugins.state.hash_mismatch": "インストール後に変更され、動作していません",
+  "settings.plugins.state.invalid": "マニフェストが無効で、動作していません",
+  "settings.plugins.state.failed": "エラーで停止しました",
+  "settings.plugins.capability.context": "文脈",
+  "settings.plugins.capability.before_tool_call": "ツール呼び出し前のチェック",
+  "settings.plugins.capability.after_tool_call": "ツール呼び出し後のチェック",
+  "settings.plugins.capability.agent_end": "実行終了ごとの処理",
+  "settings.plugins.capability.evaluate": "評価",
+  "settings.plugins.removeTitle": "{name} を削除しますか？",
+  "settings.plugins.removeDescription":
+    "ファイルはこの Gateway から削除されます。再インストールには信頼カードの確認が必要です。",
   "settings.skills.asksFor": "求めるもの：",
   "settings.skills.toolsLabel": "ツール：",
   "settings.skills.title": "スキル",
@@ -3049,6 +3151,7 @@ export const ja: Partial<Catalogue> = {
   "screens.library.recording.empty": "この録画にはステップがありません。",
   "screens.library.recording.noFrame": "このステップの画像はありません。",
   "screens.library.recording.frameAlt": "ステップ {n} のブラウザ",
+  "screens.library.recording.reviewPermissions": "権限で確認",
   "screens.library.recording.loading": "録画を読み込み中",
   "screens.library.recording.loadFailed": "Psyche はこの録画を読み込めませんでした（{reason}）。",
   "screens.library.recording.notFound": "この録画はもう利用できません。",
@@ -3129,6 +3232,20 @@ export const ja: Partial<Catalogue> = {
   "screens.goals.checkinLine":
     "{cadence}{hasNext, select, true { · 次回 {next}} other {}}{hasLast, select, true { · 前回：{last}} other {}}",
   "screens.goals.noSchedule": "スケジュールなし",
+  "screens.goals.suggest": "次のステップを提案",
+  "screens.goals.suggest.hint":
+    "タップしたときだけモデルを使います。カードの「開始」をタップするまで何も始まりません。",
+  "screens.goals.suggest.done": "提案をホームに追加しました。",
+  "screens.goals.suggest.none": "今回は提案がありませんでした。あとでもう一度お試しください。",
+  "screens.ideas.start": "開始",
+  "screens.ideas.snooze": "あとで通知",
+  "screens.ideas.badge.checkin": "チェックイン",
+  "screens.ideas.badge.resume": "再開しますか？",
+  "screens.goals.checkinFrequency": "チェックイン",
+  "screens.goals.checkinFrequency.off": "オフ",
+  "screens.goals.checkinFrequency.daily": "毎日",
+  "screens.goals.checkinFrequency.weekly": "毎週",
+  "screens.goals.checkinFrequency.monthly": "毎月",
   "screens.goals.watches": "ウォッチ",
   "screens.goals.nothingWatched": "ウォッチしているものはありません。",
   "screens.goals.last": "前回：{value}",
@@ -3684,10 +3801,18 @@ export const ja: Partial<Catalogue> = {
   ...helperOffline,
   // the security-records banner (docs/design/security-state-integrity-2026.md §7.3)
   ...securityState,
+  // Settings → Computer use on Linux: screen and input access
+  ...linuxAccess,
+  // the Virtual screen watch pane (docs/design/linux-desktop-2026.md §7.5)
+  ...computerWatch,
   // Gateway-authored notices (inbox notifications, security alerts)
   ...notices,
   // Settings > Computer use > Separate desktop (Linux)
   ...separateDesktop,
   // Windows variants of the sandbox PC, voice keys and platform terms
   ...windowsPlatform202611,
+  ...mailFollowups,
+  ...keepAwake,
+  ...spaces,
+  ...machines,
 };
