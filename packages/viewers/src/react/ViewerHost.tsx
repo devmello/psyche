@@ -30,7 +30,7 @@ export const DEFAULT_VIEWER_COMPONENTS: Record<
   document: lazyNamed(() => import("./DocumentViewer.tsx"), "DocumentViewer"),
   slides: lazyNamed(() => import("./SlidesViewer.tsx"), "SlidesViewer"),
   image: lazyNamed(() => import("./ImageViewer.tsx"), "ImageViewer"),
-  media: lazyNamed(() => import("./ImageViewer.tsx"), "MediaViewer"),
+  media: lazyNamed(() => import("./VideoViewer.tsx"), "PlayerViewer"),
   code: lazyNamed(() => import("./CodeViewer.tsx"), "CodeViewer"),
   text: lazyNamed(() => import("./CodeViewer.tsx"), "CodeViewer"),
   markdown: lazyNamed(() => import("./CodeViewer.tsx"), "CodeViewer"),

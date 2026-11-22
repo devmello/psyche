@@ -33,7 +33,6 @@ run once. `--dry-run` shows every step without doing it, `--no-launch` leaves th
 
 ### From a DMG, by hand
 
-
 1. Open `Psyche-<version>-<arch>.dmg` and drag **Psyche** onto **Applications**.
 2. Eject the disk image, then open Psyche from Applications.
    - If you open it straight from the disk image or from Downloads, macOS runs it from a temporary read-only copy (App Translocation). Psyche notices and asks you to move it to Applications first, because the Gateway's LaunchAgent must point at a path that stays put.
@@ -78,16 +77,16 @@ Until those changes are in your build (#406, #407, #408), grant admin once in Te
 
 ## macOS prompts, in order
 
-| When | Prompt | What to do |
-| --- | --- | --- |
-| First open (ad-hoc or unnotarized build) | "Psyche" Not Opened / Apple could not verify… | System Settings → Privacy & Security → **Open Anyway**, then confirm. Notarized builds instead show "downloaded from the Internet. Are you sure?" → **Open**. |
-| The Gateway's LaunchAgent is loaded | Notification: "Background Items Added" | Nothing; leave it allowed in System Settings → General → Login Items & Extensions. If you turn it off there, the Gateway stops. |
-| Permissions → Accessibility → Allow | "Psyche would like to control this computer using accessibility features" | **Open System Settings**, turn Psyche on, come back; the row updates. |
-| Permissions → Screen Recording → Allow | "Psyche would like to record this computer's screen and audio" (or System Settings opens directly) | Turn Psyche on in System Settings → Privacy & Security → Screen & System Audio Recording. |
-| Permissions → Notifications → Allow | "Psyche Helper would like to send you notifications" (from the helper when it is connected, else from Psyche) | **Allow**. |
-| Model & provider → Save to vault (Keychain vault slot only) | Touch ID / password "Psyche Helper is trying to unlock your Psyche vault" | Approve. A key-file vault has no prompt. |
-| First dictation | "Psyche would like to access the microphone" | **Allow**. |
-| First computer-use action on an app, by Psyche Helper | Accessibility / Automation prompts naming **Psyche Helper** | Allow for the apps you want it to use. |
+| When                                                        | Prompt                                                                                                        | What to do                                                                                                                                                    |
+| ----------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| First open (ad-hoc or unnotarized build)                    | "Psyche" Not Opened / Apple could not verify…                                                                 | System Settings → Privacy & Security → **Open Anyway**, then confirm. Notarized builds instead show "downloaded from the Internet. Are you sure?" → **Open**. |
+| The Gateway's LaunchAgent is loaded                         | Notification: "Background Items Added"                                                                        | Nothing; leave it allowed in System Settings → General → Login Items & Extensions. If you turn it off there, the Gateway stops.                               |
+| Permissions → Accessibility → Allow                         | "Psyche would like to control this computer using accessibility features"                                     | **Open System Settings**, turn Psyche on, come back; the row updates.                                                                                         |
+| Permissions → Screen Recording → Allow                      | "Psyche would like to record this computer's screen and audio" (or System Settings opens directly)            | Turn Psyche on in System Settings → Privacy & Security → Screen & System Audio Recording.                                                                     |
+| Permissions → Notifications → Allow                         | "Psyche Helper would like to send you notifications" (from the helper when it is connected, else from Psyche) | **Allow**.                                                                                                                                                    |
+| Model & provider → Save to vault (Keychain vault slot only) | Touch ID / password "Psyche Helper is trying to unlock your Psyche vault"                                     | Approve. A key-file vault has no prompt.                                                                                                                      |
+| First dictation                                             | "Psyche would like to access the microphone"                                                                  | **Allow**.                                                                                                                                                    |
+| First computer-use action on an app, by Psyche Helper       | Accessibility / Automation prompts naming **Psyche Helper**                                                   | Allow for the apps you want it to use.                                                                                                                        |
 
 The rows after the Permissions step happen only when you use the feature.
 
@@ -95,13 +94,13 @@ What the 2026-10-20 run showed, on a locally built app (not quarantined, so ther
 
 ## Where files live
 
-| Path | What |
-| --- | --- |
-| `/Applications/Psyche.app` | The app, the bundled Gateway and Psyche Helper |
-| `~/.psyche/` (`PSYCHE_HOME`) | Everything the Gateway keeps: `state/psyche.sqlite`, `workspace/` (memory files), `vault/` (encrypted vault and its slots), `secrets/vault.key` (unsigned builds only), `logs/gateway.log` (and `gateway.err.log` for crashes), `run/` (node socket, `handshake.secret`, `helper.lock`), backups |
-| `~/Library/LaunchAgents/com.psyche.gateway.plist` | The Gateway's LaunchAgent (label `com.psyche.gateway`, `KeepAlive`, `RunAtLoad`) |
-| `~/Library/Application Support/Psyche/` | The window's own data: device key, browser profiles, window state |
-| `~/Library/Preferences/com.psyche.desktop.plist`, `com.psyche.helper.plist` | macOS preferences for the two apps |
+| Path                                                                        | What                                                                                                                                                                                                                                                                                             |
+| --------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| `/Applications/Psyche.app`                                                  | The app, the bundled Gateway and Psyche Helper                                                                                                                                                                                                                                                   |
+| `~/.psyche/` (`PSYCHE_HOME`)                                                | Everything the Gateway keeps: `state/psyche.sqlite`, `workspace/` (memory files), `vault/` (encrypted vault and its slots), `secrets/vault.key` (unsigned builds only), `logs/gateway.log` (and `gateway.err.log` for crashes), `run/` (node socket, `handshake.secret`, `helper.lock`), backups |
+| `~/Library/LaunchAgents/com.psyche.gateway.plist`                           | The Gateway's LaunchAgent (label `com.psyche.gateway`, `KeepAlive`, `RunAtLoad`)                                                                                                                                                                                                                 |
+| `~/Library/Application Support/Psyche/`                                     | The window's own data: device key, browser profiles, window state                                                                                                                                                                                                                                |
+| `~/Library/Preferences/com.psyche.desktop.plist`, `com.psyche.helper.plist` | macOS preferences for the two apps                                                                                                                                                                                                                                                               |
 
 To run against another home, open the app with `open -a Psyche --env PSYCHE_HOME=/path/to/home`. The LaunchAgent is rewritten for that home. Keep the path short: some of the Gateway's Unix sockets live under it, and macOS limits socket paths to 104 bytes.
 

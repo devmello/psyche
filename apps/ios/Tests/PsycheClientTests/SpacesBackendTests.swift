@@ -110,4 +110,23 @@ struct SpacesBackendTests {
         #expect(h.gateway.received.first { $0.method == "threads.list" }?.params?["spaceId"]?.string == "s1")
         #expect(h.gateway.received.first { $0.method == "spaces.update" }?.params?["instructions"]?.string == "Copy Sam.")
     }
+
+    @Test func aProjectsSpaceIsFoundByItsEntityAndMadeOnlyOnATap() async throws {
+        let (backend, h) = try await live { g in
+            g.on("spaces.list") { _ in .success(.object(["spaces": .array([
+                .object(["id": "s1", "name": "Kitchen", "entityId": "ent_kitchen"]),
+                .object(["id": "s2", "name": "Taxes", "entityId": .null]),
+            ])])) }
+            g.on("spaces.create") { _ in .success(.object(["space": .object(["id": "s9", "name": "Thesis"])])) }
+        }
+        #expect(try await backend.spaceID(forProject: "ent_kitchen") == "s1")
+        #expect(try await backend.spaceID(forProject: "ent_thesis") == nil)
+        // Looking never creates anything.
+        #expect(h.gateway.received.filter { $0.method == "spaces.create" }.isEmpty)
+        let made = try await backend.makeSpace(forProject: "ent_thesis", named: String(repeating: "T", count: 90))
+        #expect(made == "s9")
+        let create = h.gateway.received.first { $0.method == "spaces.create" }
+        #expect(create?.params?["entityId"]?.string == "ent_thesis")
+        #expect(create?.params?["name"]?.string?.count == 60)
+    }
 }

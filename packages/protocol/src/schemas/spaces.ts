@@ -173,10 +173,67 @@ export const SpaceProposal = Type.Object(
     status: SpaceProposalStatus,
     createdAt: IsoDateTime,
     decidedAt: Nullable(IsoDateTime),
+    /**
+     * `spaces.proposals.list` only: the chats Create would move now (no Space yet, not the main
+     * chat or a channel chat), so the card shows exactly what moves.
+     */
+    chats: Type.Optional(
+      Type.Array(Type.Object({ id: Id, title: Type.String() }, { ...Strict }), { maxItems: 10 }),
+    ),
+    /** `spaces.proposals.list` only: the linked project's name, when Memory knows it. */
+    projectName: Type.Optional(Nullable(Type.String())),
   },
   { $id: "SpaceProposal", ...Strict },
 );
 export type SpaceProposal = Static<typeof SpaceProposal>;
+
+/** One project the migration offer lists (§8): what it would bring into a Space. */
+export const SpaceMigrationProject = Type.Object(
+  {
+    entityId: Id,
+    name: Type.String(),
+    anchors: Type.Integer({ minimum: 0 }),
+    threads: Type.Integer({ minimum: 0 }),
+    folders: Type.Integer({
+      minimum: 0,
+      description: 'Listed in the Space as "shared everywhere"',
+    }),
+  },
+  { $id: "SpaceMigrationProject", ...Strict },
+);
+export type SpaceMigrationProject = Static<typeof SpaceMigrationProject>;
+
+/** "Make Spaces for your projects?" (§8, SP12): up to 5 projects, shown until decided. */
+export const SpaceMigrationOffer = Type.Object(
+  { projects: Type.Array(SpaceMigrationProject, { maxItems: 5 }) },
+  { $id: "SpaceMigrationOffer", ...Strict },
+);
+export type SpaceMigrationOffer = Static<typeof SpaceMigrationOffer>;
+
+/** Offers on a Space page after a chat moved in (§8). Nothing here is applied without a tap. */
+export const SpaceOfferWidget = Type.Object(
+  {
+    id: Type.String({ description: "Dismiss key" }),
+    widgetId: Id,
+    title: Type.String(),
+    fromThreadId: Id,
+  },
+  { $id: "SpaceOfferWidget", ...Strict },
+);
+export const SpaceOfferRule = Type.Object(
+  {
+    id: Type.String({ description: "The pin id, also the dismiss key" }),
+    text: Type.String({ maxLength: 500 }),
+    fromThreadId: Id,
+    fromThreadTitle: Type.String(),
+  },
+  { $id: "SpaceOfferRule", ...Strict },
+);
+export const SpaceOffers = Type.Object(
+  { widgets: Type.Array(SpaceOfferWidget), rules: Type.Array(SpaceOfferRule) },
+  { $id: "SpaceOffers", ...Strict },
+);
+export type SpaceOffers = Static<typeof SpaceOffers>;
 
 /** A refreshed query tracker value (`spaces.open`, `spaces.trackers.refresh`). */
 export const SpaceTrackerValue = Type.Object(

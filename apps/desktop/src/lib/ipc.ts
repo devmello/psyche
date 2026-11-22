@@ -55,6 +55,13 @@ export const IPC = {
   browserSignedInList: "psyche:browser:signed-in-list",
   browserSignedInForget: "psyche:browser:signed-in-forget",
   browserOpenRealChromeProfile: "psyche:browser:open-real-chrome-profile",
+  // Import sign-ins from another browser (owner only, Settings → Browser).
+  cookieImportSources: "psyche:browser:cookie-import:sources",
+  cookieImportScan: "psyche:browser:cookie-import:scan",
+  cookieImportImport: "psyche:browser:cookie-import:import",
+  cookieImportDiscard: "psyche:browser:cookie-import:discard",
+  cookieImportList: "psyche:browser:cookie-import:list",
+  cookieImportRemove: "psyche:browser:cookie-import:remove",
   // Teach by showing (owner only): Record, Stop, Cancel and the kept recordings.
   teachStart: "psyche:teach:start",
   teachStop: "psyche:teach:stop",
@@ -327,7 +334,9 @@ export function checkCallable(method: unknown, isMethodName: (m: unknown) => boo
     // and Settings windows reach and which add the bundled helper's identity (security §10).
     method === "approvals.approveWithTouchId" ||
     method === "approvals.approveWithPassword" ||
-    method === "devices.presenceKey.register"
+    method === "devices.presenceKey.register" ||
+    // Cookie import is recorded by main after the owner's own import, never by a window.
+    method.startsWith("browser.cookieImport.")
   )
     throw new IpcPayloadError(IPC.call, `${method} is not callable from the renderer`);
   return method;
@@ -421,8 +430,28 @@ export function checkAudioChunk(v: unknown): string {
  * terminal pane is a session on the Host over the Gateway connection, so main never starts a
  * process from what a Gateway answers.)
  */
+/**
+ * Channels only the main window and the Settings window may call (`isApprovalContents`), never
+ * pop-outs, quick entry or the screen-ask window: importing sign-ins from another browser.
+ */
+export const APPROVAL_ONLY_CHANNELS: ReadonlySet<string> = new Set([
+  IPC.cookieImportSources,
+  IPC.cookieImportScan,
+  IPC.cookieImportImport,
+  IPC.cookieImportDiscard,
+  IPC.cookieImportList,
+  IPC.cookieImportRemove,
+]);
+
 export const REMOTE_REFUSED_CHANNELS: ReadonlySet<string> = new Set([
   IPC.browserOpenRealChromeProfile,
+  // The owner's browsers are this computer's; their sign-ins go only into this Mac's profile.
+  IPC.cookieImportSources,
+  IPC.cookieImportScan,
+  IPC.cookieImportImport,
+  IPC.cookieImportDiscard,
+  IPC.cookieImportList,
+  IPC.cookieImportRemove,
   IPC.teachStart,
   IPC.teachStop,
   IPC.teachCancel,
@@ -480,4 +509,55 @@ export function checkUninstall(
   if (r.confirm !== undefined) out.confirm = str(channel, r.confirm, "confirm", 32);
   if (r.approvalId !== undefined) out.approvalId = str(channel, r.approvalId, "approvalId", 128);
   return out;
+}
+
+const COOKIE_IMPORT_BROWSERS = ["chrome", "brave", "edge", "arc", "firefox", "safari"] as const;
+const SCAN_ID = /^[0-9a-f]{32}$/;
+const SITE_DOMAIN = /^[a-z0-9](?:[a-z0-9.-]{0,251}[a-z0-9])?$/;
+
+/** "Read sign-ins": a browser from the list and one of its profile ids (looked up again). */
+export function checkCookieImportScan(v: unknown): {
+  browser: (typeof COOKIE_IMPORT_BROWSERS)[number];
+  profileId: string;
+} {
+  const r = rec(IPC.cookieImportScan, v);
+  const browser = COOKIE_IMPORT_BROWSERS.find((b) => b === r.browser);
+  if (browser === undefined) throw new IpcPayloadError(IPC.cookieImportScan, "unknown browser");
+  return { browser, profileId: str(IPC.cookieImportScan, r.profileId, "profileId", 512) };
+}
+
+export function checkScanId(channel: string, v: unknown): string {
+  const s = str(channel, v, "scanId", 32);
+  if (!SCAN_ID.test(s)) throw new IpcPayloadError(channel, "bad scanId");
+  return s;
+}
+
+export function checkSiteDomain(channel: string, v: unknown): string {
+  const s = str(channel, v, "domain", 253).toLowerCase();
+  if (!SITE_DOMAIN.test(s)) throw new IpcPayloadError(channel, "bad domain");
+  return s;
+}
+
+/** "Import N sites": the read list's id and the ticked registrable domains. */
+export function checkCookieImportPick(v: unknown): {
+  scanId: string;
+  domains: string[];
+  sensitive: string[];
+} {
+  const r = rec(IPC.cookieImportImport, v);
+  if (!Array.isArray(r.domains) || r.domains.length === 0 || r.domains.length > 5000)
+    throw new IpcPayloadError(IPC.cookieImportImport, "domains must be a non-empty list");
+  return {
+    scanId: checkScanId(IPC.cookieImportImport, r.scanId),
+    domains: r.domains.map((d) => checkSiteDomain(IPC.cookieImportImport, d)),
+    // The picked sites the owner ticked one by one; main refuses a sensitive site not named here.
+    sensitive:
+      r.sensitive === undefined
+        ? []
+        : Array.isArray(r.sensitive) && r.sensitive.length <= 5000
+          ? r.sensitive.map((d) => checkSiteDomain(IPC.cookieImportImport, d))
+          : (() => {
+              throw new IpcPayloadError(IPC.cookieImportImport, "sensitive must be a list");
+            })(),
+  };
 }

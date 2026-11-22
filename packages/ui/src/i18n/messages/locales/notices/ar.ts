@@ -89,4 +89,7 @@ export const notices: Partial<Catalogue> = {
   "notice.machine.removed.title": "أزال {name} نفسه",
   "notice.machine.removed.body":
     "كان جهاز كمبيوتر يمكن لـ Psyche استخدامه. لن يستخدمه Psyche مجدداً ما لم تضفه من جديد.",
+  "notice.machine.offline.title": "انقطع اتصال {name}",
+  "notice.machine.offline.body":
+    "توجد مهمة تنتظر استخدامه، وستتابع عندما يعود {name}. يمكنك أيضاً إلغاء المهمة.",
 };

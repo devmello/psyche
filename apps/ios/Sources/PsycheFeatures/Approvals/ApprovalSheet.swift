@@ -85,9 +85,15 @@ struct ApprovalSheet: View {
             case .failed(let message):
                 AnswerError(message: message, retry: { Task { await flow.retry() } }, cancel: flow.dismissError)
             case .review, .checking, .sending:
-                // Right above Allow, as in the mockup: the note explains the Face ID that Allow asks for.
-                if let note = detail.presenceNote {
-                    Label(note, systemImage: "faceid")
+                // Right above Allow, as in the mockup. A card the phone can't allow says so (no Face ID: Allow is
+                // off); otherwise the note explains the Face ID that Allow asks for (a payment).
+                if detail.needsMac {
+                    Label(notice("This one needs your Mac."), systemImage: "laptopcomputer")
+                        .font(.footnote)
+                        .foregroundStyle(PsycheColor.muted)
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                } else if let note = detail.presenceNote {
+                    Label(notice(note), systemImage: "faceid")
                         .font(.footnote)
                         .foregroundStyle(PsycheColor.muted)
                         .frame(maxWidth: .infinity, alignment: .leading)
@@ -96,11 +102,15 @@ struct ApprovalSheet: View {
                     Text("Reconnect to answer").font(.footnote).foregroundStyle(PsycheColor.muted)
                 }
                 HStack(spacing: 10) {
+                    // Deny stays on a card the phone holds an answer for (refusing shows nothing the card doesn't); off
+                    // when it holds none (a payment, a card kept on the Mac), where it could only fail.
                     GlassTextButton(title: "Deny") { answer(.deny) }
+                        .disabled(!detail.canDeny)
                     ArmingInkButton(
                         title: flow.stage == .checking ? "Checking…" : detail.allowLabel,
                         progress: arming, isBusy: flow.stage == .sending
                     ) { answer(.allow) }
+                    .disabled(detail.needsMac)
                 }
                 .disabled(!session.state.canAnswer || flow.isBusy)
             }
@@ -118,11 +128,11 @@ struct ApprovalSheet: View {
         let id = item.id
         let store = store
         self.decision = decision
-        let needsPresence = decision == .allow && detail.presenceNote != nil
+        let detail = detail
+        let presence = presence
         Task {
-            await flow.run(
-                presence: needsPresence ? presence : nil,
-                reason: needsPresence ? "Allow: \(detail.title)" : nil,
+            await flow.answer(
+                decision, on: detail, presence: presence,
                 confirmation: decision == .allow ? "Allowed. Your Mac has your answer." : "Denied. Your Mac has your answer."
             ) {
                 try await store.answerApproval(id: id, decision: decision)

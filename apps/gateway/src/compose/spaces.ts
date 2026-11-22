@@ -1,7 +1,7 @@
 import { getSettings } from "@psyche/db";
 import type { FolderAccessEnv } from "@psyche/permissions";
 import { type Automation, PsycheError, type WorkflowEvent } from "@psyche/protocol";
-import { spacesHandlers } from "../spaces/handlers.ts";
+import { type SpaceProjects, spacesHandlers } from "../spaces/handlers.ts";
 import { SpaceStore } from "../spaces/store.ts";
 import { checkWidgetBindings } from "../widgets/bindings.ts";
 import { ownerMatrices } from "./connector-matrix.ts";
@@ -40,6 +40,8 @@ type Lookup = Parameters<typeof toolReader>[0] & {
  */
 export function composeSpaces(deps: {
   scheduler: SpacesScheduler;
+  /** The people graph: a Keep-private project gets no Space (SR10). */
+  projects?: () => SpaceProjects | undefined;
   services?: ComposeServices;
   trackers?: SpaceTrackersRef;
   /** The connector tools the calendar, reminders and mail queries read (read-only ones only). */
@@ -48,6 +50,7 @@ export function composeSpaces(deps: {
 }): ComposedPart {
   const { scheduler, services } = deps;
   const base = spacesHandlers({
+    projects: deps.projects,
     automations: {
       setEnabled: (id, enabled) => scheduler.update(id, { enabled }),
       get: (id) => scheduler.get(id),

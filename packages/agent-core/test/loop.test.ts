@@ -262,6 +262,33 @@ describe("tool calls", () => {
     });
   });
 
+  it("names the machine on a computer card the loop raises", async () => {
+    const exec = recorder();
+    const h = harness({ script: [call("c1", "computer.act", {}), say("Okay.")] });
+    h.loop.registry.register({
+      spec: spec("computer.act", "write"),
+      execute: exec.execute,
+      describeCall: () => ({
+        kind: "computer_action",
+        details: { machine: { deviceId: "DEVA", name: "lab-box" } },
+      }),
+    });
+    const asked: unknown[] = [];
+    const request = h.broker.requestApproval.bind(h.broker);
+    h.broker.requestApproval = (input) => {
+      asked.push(input);
+      return request(input);
+    };
+    const turn = start(h, "type it");
+    await until(() => h.broker.issued.length === 1, "approval");
+    expect((asked[0] as { machine?: unknown }).machine).toEqual({
+      deviceId: "DEVA",
+      name: "lab-box",
+    });
+    await h.broker.decideLatest("deny", h.clock);
+    await turn.done;
+  });
+
   it("a denied approval blocks the call", async () => {
     const exec = recorder();
     const h = harness({ script: [call("c1", "calendar.create", {}), say("Okay, not booked.")] });

@@ -20,6 +20,18 @@ struct AlertPolicyTests {
         #expect(AlertPolicy.actions(for: .approvalWrite) == [.approve, .deny])
     }
 
+    @Test func deviceOnlyCardsAreReviewedInTheAppButNeedNoPresence() {
+        let item = NeedsYouItem(
+            id: "appr_2", kind: .approval, title: "Change a security setting", source: "Settings", time: "9:12",
+            approval: ApprovalDetail(
+                kindLabel: "Policy change", title: "t", summary: "s", fields: [], evidence: [], alsoSentTo: "",
+                presenceNote: nil, allowLabel: "Allow", reviewInApp: true),
+            threadID: nil)
+        #expect(AlertPolicy.category(for: item) == .approvalReview)
+        #expect(!AlertPolicy.answersInline(item))
+        #expect(item.approval?.presenceNote == nil)
+    }
+
     @Test func presenceGatedKindsGetOnlyReview() {
         let payment = approval(kind: "payment", presenceNote: "Payments need Face ID on this phone.")
         #expect(AlertPolicy.category(for: payment) == .approvalReview)

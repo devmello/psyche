@@ -57,11 +57,16 @@ public struct ProjectDetail: Sendable, Equatable {
     public var notes: [MemoryFact]
     /// Where this page comes from: "mail Oct 30", "notes/kitchen.md".
     public var evidence: [String]
-    public init(project: ProjectItem, todos: [TodoItem], notes: [MemoryFact], evidence: [String] = []) {
+    /// Keep private in Memory: such a project gets no Space (spaces SR10), so its page shows no Space button.
+    public var isPrivate: Bool
+    public init(
+        project: ProjectItem, todos: [TodoItem], notes: [MemoryFact], evidence: [String] = [], isPrivate: Bool = false
+    ) {
         self.project = project
         self.todos = todos
         self.notes = notes
         self.evidence = evidence
+        self.isPrivate = isPrivate
     }
 }
 

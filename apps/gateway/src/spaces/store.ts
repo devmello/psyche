@@ -100,6 +100,15 @@ export interface SpacePatch {
   readonly sort?: number | undefined;
 }
 
+/**
+ * A Keep-private project gets no Space (SR10): a Space shows on Home and in the Spaces list. The
+ * UI says it through `errors.reason.project_private`.
+ */
+export const projectPrivateError = (): PsycheError =>
+  new PsycheError("forbidden", "That project is Keep private, so it can't have a Space.", {
+    details: { reason: "project_private" },
+  });
+
 const notFound = (id: string): PsycheError => new PsycheError("not_found", `space ${id} not found`);
 
 function spaceFromRow(r: SpaceRow): Space {
@@ -467,9 +476,18 @@ export class SpaceStore {
     const rows: { id: string; kind: string; space_id: string | null }[] = [];
     for (const id of ids) {
       const row = this.#db.sqlite
-        .prepare("SELECT id, kind, space_id FROM threads WHERE id = ?")
-        .get(id) as { id: string; kind: string; space_id: string | null } | undefined;
+        .prepare("SELECT id, kind, space_id, imported FROM threads WHERE id = ?")
+        .get(id) as
+        | { id: string; kind: string; space_id: string | null; imported: string | null }
+        | undefined;
       if (row === undefined) throw new PsycheError("not_found", `thread ${id} not found`);
+      // Backstop for every caller: an imported conversation is somebody's file and stays out.
+      if (row.imported !== null) {
+        throw new PsycheError(
+          "forbidden",
+          "Imported conversations are read-only: they cannot be moved.",
+        );
+      }
       if (row.kind === "main") {
         throw new PsycheError("invalid_params", "the main chat cannot be put in a Space");
       }

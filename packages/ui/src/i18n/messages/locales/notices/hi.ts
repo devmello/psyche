@@ -88,4 +88,7 @@ export const notices: Partial<Catalogue> = {
   "notice.machine.removed.title": "{name} ने खुद को हटा लिया",
   "notice.machine.removed.body":
     "यह ऐसा कंप्यूटर था जिसे Psyche इस्तेमाल कर सकता था। जब तक आप इसे दोबारा नहीं जोड़ेंगे, Psyche इसे इस्तेमाल नहीं करेगा।",
+  "notice.machine.offline.title": "{name} ऑफ़लाइन हो गया",
+  "notice.machine.offline.body":
+    "एक काम इसे इस्तेमाल करने का इंतज़ार कर रहा है और {name} के वापस आने पर आगे बढ़ेगा। आप काम रद्द भी कर सकते हैं।",
 };

@@ -26,6 +26,7 @@ export { PdfViewer, type PdfViewerProps } from "./react/PdfViewer.tsx";
 export { SheetEditor, type SheetEditorProps } from "./react/SheetEditor.tsx";
 export { SheetViewer } from "./react/SheetViewer.tsx";
 export { SlidesViewer } from "./react/SlidesViewer.tsx";
+export { PlayerViewer, VIDEO_TYPES, VideoViewer } from "./react/VideoViewer.tsx";
 export {
   DEFAULT_VIEWER_COMPONENTS,
   ViewerHost,

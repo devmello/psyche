@@ -30,6 +30,11 @@ import { useIdeaActions } from "../screens/ideas/use-idea-actions.ts";
 import { NeedsYouList, needsYou } from "../screens/inbox/InboxScreen.tsx";
 import { usePersona, useSlots } from "../slots.tsx";
 import { PastDueAsks } from "./PastDueAsks.tsx";
+import {
+  SpaceMigrationCard,
+  SpaceProposalCard,
+  useSpaceSuggestions,
+} from "./SpaceSuggestionCards.tsx";
 import { useCatchUp } from "./use-catch-up.ts";
 
 /** A raised list of rows (the grouped-list surface), for the side column's sections. */
@@ -131,7 +136,13 @@ export function SuggestionsSection({
   const { goals, later, decide } = useGoalDecisions();
   const [expanded, setExpanded] = useState(false);
   const candidates = goals.candidates.filter((g) => !later.has(g.id));
+  const spaceSuggestions = useSpaceSuggestions();
   const all = [
+    // Spaces: the one migration offer first, then what the agent proposed. Both wait for a tap.
+    ...(spaceSuggestions.migration === null
+      ? []
+      : [{ kind: "spaceMigration" as const, offer: spaceSuggestions.migration }]),
+    ...spaceSuggestions.proposals.map((proposal) => ({ kind: "spaceProposal" as const, proposal })),
     ...ideas.proposed.map((idea) => ({ kind: "idea" as const, idea })),
     ...candidates.map((goal) => ({ kind: "goal" as const, goal })),
   ];
@@ -148,8 +159,20 @@ export function SuggestionsSection({
     >
       <ul id="suggestions-list" aria-label={t("home.suggestions")} className="flex flex-col gap-3">
         {shown.map((item, i) => (
-          <ListItem key={item.kind === "idea" ? item.idea.id : item.goal.id} index={i}>
-            {item.kind === "idea" ? (
+          <ListItem key={suggestionKey(item)} index={i}>
+            {item.kind === "spaceMigration" ? (
+              <SpaceMigrationCard
+                offer={item.offer}
+                onNavigate={onNavigate}
+                onChanged={spaceSuggestions.reload}
+              />
+            ) : item.kind === "spaceProposal" ? (
+              <SpaceProposalCard
+                proposal={item.proposal}
+                onNavigate={onNavigate}
+                onChanged={spaceSuggestions.reload}
+              />
+            ) : item.kind === "idea" ? (
               <IdeaCard
                 idea={item.idea}
                 prominent={accent && i === 0}
@@ -182,6 +205,25 @@ export function SuggestionsSection({
       ) : null}
     </ScreenSection>
   );
+}
+
+function suggestionKey(
+  item:
+    | { kind: "spaceMigration" }
+    | { kind: "spaceProposal"; proposal: { id: string } }
+    | { kind: "idea"; idea: { id: string } }
+    | { kind: "goal"; goal: { id: string } },
+): string {
+  switch (item.kind) {
+    case "spaceMigration":
+      return "space-migration";
+    case "spaceProposal":
+      return item.proposal.id;
+    case "idea":
+      return item.idea.id;
+    case "goal":
+      return item.goal.id;
+  }
 }
 
 const COMING_UP_ROWS = 3;

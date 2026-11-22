@@ -130,4 +130,30 @@ export const spaces = {
   "spaces.palette.archived": "Archived Spaces",
   "spaces.palette.chatIn": "New chat in {name}",
   "spaces.palette.keywords": "space project workspace trackers",
+
+  "spaces.proposal.kicker": "Suggested Space",
+  "spaces.proposal.title": "Make a Space for {name}?",
+  "spaces.proposal.untrusted":
+    "Suggested while reading untrusted content ({source}). The text below is quoted, not Psyche's own words.",
+  "spaces.proposal.titleUntrusted": "Make this suggested Space?",
+  "spaces.proposal.project": "Links the project {name}",
+  "spaces.proposal.chats":
+    "{n, plural, =0 {Moves no chats} one {Moves # chat:} other {Moves # chats:}}",
+  "spaces.proposal.chatsLabel": "Chats it moves",
+  "spaces.proposal.untitledChat": "Untitled chat",
+  "spaces.proposal.create": "Create",
+  "spaces.proposal.notNow": "Not now",
+  "spaces.proposal.created": "Made the Space {name}",
+  "spaces.proposal.open": "Open",
+  "spaces.proposal.failed": "That did not work: {reason}",
+  "spaces.migration.title": "Make Spaces for your projects?",
+  "spaces.migration.hint":
+    "Each one links to its project and brings its chats along. Pinned widgets stay on Home.",
+  "spaces.migration.line":
+    "{threads, plural, one {# chat} other {# chats}} · {folders, plural, one {# folder, shared everywhere} other {# folders, shared everywhere}}",
+  "spaces.migration.create": "{n, plural, one {Create # Space} other {Create # Spaces}}",
+  "spaces.migration.created": "{n, plural, one {Made # Space} other {Made # Spaces}}",
+  "spaces.make": "Make a Space",
+  "spaces.make.failed": "The Space was not made: {reason}",
+  "spaces.openLinked": "Open Space",
 } as const;

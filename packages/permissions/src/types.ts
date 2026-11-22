@@ -3,6 +3,7 @@ import type {
   ApprovalKind,
   ApprovalRequest,
   ApprovalRequestInput,
+  ComputerMachineRef,
   ControlFacts,
   DecisionContext,
   DecisionResult,
@@ -68,6 +69,8 @@ export interface CallMeta {
   connector?: { id: string; action: string };
   /** Bundle id for computer-use actions. */
   app?: string;
+  /** A paired machine's device id when the computer-use call is for that machine, not the Host. */
+  machine?: string;
   /** Computer-use or browser action name (`click`, `type`, …). */
   action?: string;
   /** The element being typed into or filled. */
@@ -148,6 +151,15 @@ export interface PolicyApprovalInput extends ApprovalRequestInput {
    * `outbound_identifier`), so it holds even when no cached decision is found for the binding.
    */
   deviceOnly?: true;
+  /**
+   * Whether the caller itself offered an off-Mac surface (`notification` or `web`), before the
+   * Gateway's relays (the Mac helper's `notification`) added theirs. Only that decides whether a
+   * paired phone gets its own `device:` surface: a card its caller kept on `["desktop"]` stays on
+   * the Mac even with the helper connected. The Gateway's relay wrapper always sets it from the
+   * caller's list; absent, the card's own `surfaces` decide (no relay added any). Persisted with
+   * the input, so `reissue()` decides from the caller's list too.
+   */
+  offMac?: boolean;
   /** The decided call and context, persisted so `reissue()` re-evaluates the same inputs. */
   call?: PolicyCall;
   context?: PolicyContext;
@@ -161,6 +173,12 @@ export interface PolicyApprovalInput extends ApprovalRequestInput {
   taintSources?: TaintSource[];
   /** `kind: "batch"`: the decided calls the one approval covers, in order (§8.1, #670). */
   batch?: { children: BatchChild[] };
+  /**
+   * The paired machine the card is about (wave H4), for `computer_action`, `exec_host` and
+   * `folder_access` cards only; absent means the Host. Display: the binding hash carries the
+   * machine's device id itself (`ComputerBindingArgs.machine`).
+   */
+  machine?: ComputerMachineRef;
 }
 
 /**

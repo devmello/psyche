@@ -22,6 +22,11 @@ public protocol SpacesBackend: Sendable {
     func newThread(inSpace id: String) async throws -> ChatThreadSummary
     /// Moves a chat into a Space, or out with nil (`spaces.threads.move`).
     func moveThread(id: String, toSpace spaceID: String?) async throws
+    /// The Space linked to a Memory project, if there is one (`spaces.list` entityId).
+    func spaceID(forProject projectID: String) async throws -> String?
+    /// "Make a Space" on a project's page: one Space linked to the project (`spaces.create { entityId }`), made by the
+    /// owner's tap. Returns its id.
+    func makeSpace(forProject projectID: String, named name: String) async throws -> String
 }
 
 public struct SpaceItem: Sendable, Equatable, Identifiable {
@@ -32,10 +37,12 @@ public struct SpaceItem: Sendable, Equatable, Identifiable {
     public var trackers: Int
     public var due: Int
     public var lastActivityAt: Date?
+    /// The Memory project this Space is linked to, if any.
+    public var entityID: String?
 
     public init(
         id: String, name: String, description: String = "", chats: Int = 0, trackers: Int = 0, due: Int = 0,
-        lastActivityAt: Date? = nil
+        lastActivityAt: Date? = nil, entityID: String? = nil
     ) {
         self.id = id
         self.name = name
@@ -44,6 +51,7 @@ public struct SpaceItem: Sendable, Equatable, Identifiable {
         self.trackers = trackers
         self.due = due
         self.lastActivityAt = lastActivityAt
+        self.entityID = entityID
     }
 }
 

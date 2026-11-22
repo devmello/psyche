@@ -1,0 +1,19 @@
+[Unit]
+Description=Psyche Gateway (psyched)
+After=default.target
+
+[Service]
+Type=simple
+ExecStart=@PSYCHED@
+Environment=PSYCHE_BUILD=@BUILD@
+Restart=on-failure
+RestartSec=5
+TimeoutStopSec=20
+UMask=0077
+NoNewPrivileges=yes
+LockPersonality=yes
+RestrictSUIDSGID=yes
+MemoryHigh=768M
+
+[Install]
+WantedBy=default.target

@@ -23,7 +23,7 @@ import {
   type SchedulerLike,
 } from "../jobs.ts";
 import { type SqliteDatabase, toIso } from "../sqlite.ts";
-import type { CheckinInput, NextStepProposer } from "./checkin.ts";
+import { type CheckinInput, isUntrustedEvidence, type NextStepProposer } from "./checkin.ts";
 import { GoalStore } from "./store.ts";
 
 /**
@@ -159,6 +159,9 @@ const NOT_STALLED: ReadonlySet<string> = new Set([
 
 const DAY_MS = 86_400_000;
 
+/** At most this many evidence items are kept on a goal's plan. */
+const MAX_EVIDENCE = 200;
+
 /**
  * A plan patch replaces the plan but never drops where the goal came from: `evidence` is kept
  * (the patch may add items) and `taintedMilestones` is the union of the old and the patch's ids,
@@ -170,12 +173,36 @@ function mergePlan(
   milestoneIds: ReadonlySet<string>,
 ): JsonObject | null {
   const next: JsonObject = { ...(patch ?? {}) };
-  const evidence: unknown[] = [];
+  let evidence: unknown[] = [];
+  const seen = new Set<string>();
   for (const item of [
     ...(Array.isArray(old?.evidence) ? old.evidence : []),
     ...(Array.isArray(patch?.evidence) ? patch.evidence : []),
   ]) {
-    if (!evidence.some((e) => JSON.stringify(e) === JSON.stringify(item))) evidence.push(item);
+    const key = JSON.stringify(item);
+    if (seen.has(key)) continue;
+    seen.add(key);
+    evidence.push(item);
+  }
+  if (evidence.length > MAX_EVIDENCE) {
+    // Over the cap: drop the oldest owner-trusted items first. Untrusted items are what marks the
+    // goal tainted, so they go last (and the newest of them always stay).
+    const isOutside = (e: unknown) =>
+      typeof e !== "object" ||
+      e === null ||
+      Array.isArray(e) ||
+      isUntrustedEvidence(e as JsonObject);
+    let excess = evidence.length - MAX_EVIDENCE;
+    const drop = new Set<number>();
+    for (const outside of [false, true]) {
+      for (let i = 0; i < evidence.length && excess > 0; i++) {
+        if (isOutside(evidence[i]) === outside && !drop.has(i)) {
+          drop.add(i);
+          excess--;
+        }
+      }
+    }
+    evidence = evidence.filter((_, i) => !drop.has(i));
   }
   if (evidence.length > 0) next.evidence = evidence as never;
   const tainted = new Set<string>(
@@ -566,9 +593,13 @@ export class GoalsService {
     if ((await this.#o.scheduler.get(automationId)) !== undefined) {
       await this.#o.scheduler.remove(automationId);
     }
-    const touched: Goal = { ...goal, updatedAt: this.#now() };
-    this.store.update(touched);
-    this.#emit(touched);
+    // Patch onto the current row: a milestone written during the awaits above keeps its taint.
+    const current = this.store.get(goalId);
+    if (current !== undefined) {
+      const touched: Goal = { ...current, updatedAt: this.#now() };
+      this.store.update(touched);
+      this.#emit(touched);
+    }
     return this.get(goalId);
   }
 
@@ -611,7 +642,17 @@ export class GoalsService {
     try {
       await this.#syncCheckin(next, patch.timezone);
     } catch (e) {
-      this.store.update(goal);
+      // Revert only the fields this call patched, and only where nobody has changed them since.
+      const current = this.store.get(goalId);
+      if (current !== undefined) {
+        const back: Goal = { ...current, updatedAt: goal.updatedAt };
+        for (const key of ["title", "category", "status", "plan", "cadence"] as const) {
+          if (JSON.stringify(current[key]) === JSON.stringify(next[key])) {
+            (back as unknown as Record<string, unknown>)[key] = goal[key];
+          }
+        }
+        this.store.update(back);
+      }
       throw e;
     }
     if (patch.status !== undefined && patch.status !== goal.status) await this.#syncWatches(next);
@@ -732,9 +773,7 @@ export class GoalsService {
     const wants = goal.cadence != null && goal.status !== "archived";
     if (!wants) {
       if (existing !== undefined) await this.#o.scheduler.remove(existing.id);
-      if (goal.nextCheckinAt != null) {
-        this.store.update({ ...goal, nextCheckinAt: null });
-      }
+      if (this.store.get(goal.id)?.nextCheckinAt != null) this.#patchNextCheckin(goal.id, null);
       return;
     }
     const cadence = (goal.cadence ?? "").trim();
@@ -758,7 +797,13 @@ export class GoalsService {
     } else {
       automation = await this.#o.scheduler.update(existing.id, fields);
     }
-    this.store.update({ ...goal, nextCheckinAt: automation.nextRunAt });
+    this.#patchNextCheckin(goal.id, automation.nextRunAt ?? null);
+  }
+
+  /** Writes only `nextCheckinAt` onto the current row: a write that landed meanwhile survives. */
+  #patchNextCheckin(goalId: string, nextCheckinAt: string | null): void {
+    const current = this.store.get(goalId);
+    if (current !== undefined) this.store.update({ ...current, nextCheckinAt });
   }
 
   /**
@@ -818,9 +863,11 @@ export class GoalsService {
       dedupeKey: `goal:${goal.id}:checkin`,
     });
     const automation = await this.#o.scheduler.get(request.automation.id);
+    // Patch onto the current row: a milestone written during the awaits above keeps its taint.
+    const current = this.store.get(goal.id) ?? goal;
     const next: Goal = {
-      ...goal,
-      nextCheckinAt: automation?.nextRunAt ?? goal.nextCheckinAt,
+      ...current,
+      nextCheckinAt: automation?.nextRunAt ?? current.nextCheckinAt,
       updatedAt: this.#now(),
     };
     this.store.update(next);
