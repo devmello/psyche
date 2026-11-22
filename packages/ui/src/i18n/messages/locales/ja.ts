@@ -23,6 +23,7 @@ import { homeRest } from "./home-rest/ja.ts";
 import { keepAwake } from "./keep-awake/ja.ts";
 import { links } from "./links/ja.ts";
 import { linuxAccess } from "./linux-access/ja.ts";
+import { machines } from "./machines/ja.ts";
 import { mailFollowups } from "./mail-followups/ja.ts";
 import { mailMeetings } from "./mail-meetings/ja.ts";
 import { meetingRecordRest } from "./meetingRecord-rest/ja.ts";
@@ -172,6 +173,16 @@ export const ja: Partial<Catalogue> = {
     "別のクライアントには、そのクライアント専用のシークレットが必要です。",
   "errors.reason.updating":
     "Psycheはアップデートをインストールするため、まもなく再起動します。しばらくしてからもう一度お試しください。",
+  "errors.reason.passkey_required":
+    "この Psyche で支払いを承認するには、パスキーを設定してください。",
+  "errors.reason.awaiting_owner":
+    "アプリに未保存の変更があります。どうするかをあなたが決めるまで Psyche は待ちます。",
+  "errors.reason.checkout_needs_desktop":
+    "Psyche のブラウザで支払うには、Psyche デスクトップアプリをこのホストに接続する必要があります。",
+  "errors.reason.no_chromium":
+    "Psyche のブラウザにはこのホストの Chromium が必要です。インストールするか、PSYCHE_CHROMIUM を設定してください。",
+  "errors.reason.chromium_sandbox":
+    "このホストでは Chromium のサンドボックスを起動できないため、Psyche のブラウザは無効です。Chromium にユーザー名前空間の使用を許可してください（AppArmor プロファイル）。",
   "errors.unavailable": "Psycheは現在その操作を実行できません。",
   "errors.approval_required": "先にあなたの承認が必要です。",
   "errors.approval_expired": "承認の期限が切れました。もう一度依頼してください。",
@@ -826,6 +837,8 @@ export const ja: Partial<Catalogue> = {
     "完了前に停止しました：{reason}。{total} 件中 {done} 件のバッチを読み込みました。もう一度読み込むと続きから進み、読み込み済みの会話はスキップされます。",
   "agent.memory.importConv.retry": "もう一度読み込む",
   "agent.memory.exported": "{file}を書き出しました。",
+  "agent.memory.importConv.memoriesFailed":
+    "メモリを読み込めませんでした：{reason}。もう一度読み込むと再試行します。",
   "agent.memory.export": "すべてを書き出す",
   "agent.memory.resetDone":
     "{files, plural, other {#個のファイル}}と{claims, plural, other {#件の事実}}をリセットしました。",
@@ -3801,4 +3814,5 @@ export const ja: Partial<Catalogue> = {
   ...mailFollowups,
   ...keepAwake,
   ...spaces,
+  ...machines,
 };

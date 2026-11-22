@@ -10,6 +10,8 @@ import { Group, StatusChip, type Tone } from "./shared.tsx";
 export interface HostHelperStatus {
   peerCheck?: string;
   refused?: { peerCheck: string; reason: string };
+  /** `tarball`: a psyche-server tarball install, whose helper is never verified (weak mode). */
+  install?: string;
 }
 
 /** The setting the Gateway writes. */
@@ -21,6 +23,7 @@ export function parseHostHelperStatus(value: unknown): HostHelperStatus | undefi
   const v = value as Record<string, unknown>;
   const out: HostHelperStatus = {};
   if (typeof v.peerCheck === "string") out.peerCheck = v.peerCheck;
+  if (v.install === "tarball") out.install = "tarball";
   const r = v.refused;
   if (typeof r === "object" && r !== null) {
     const rr = r as Record<string, unknown>;
@@ -36,6 +39,11 @@ const STATES = {
     chip: "settings.devices.helperCheck.state.verified",
     msgId: "settings.devices.helperCheck.detail.verified",
     tone: "success",
+  },
+  tarball: {
+    chip: "settings.devices.helperCheck.state.tarball",
+    msgId: "settings.devices.helperCheck.detail.tarball",
+    tone: "neutral",
   },
   user_owned: {
     chip: "settings.devices.helperCheck.state.userOwned",
@@ -77,8 +85,14 @@ export function refusedText(reason: string): string {
 }
 
 export function HostHelperCheckGroup({ status }: { status: HostHelperStatus }): ReactElement {
-  const s =
-    status.peerCheck === undefined ? undefined : STATES[status.peerCheck as keyof typeof STATES];
+  // A tarball install's helper is the owner's own file: say that, rather than the generic words.
+  const key =
+    status.install === "tarball" &&
+    status.peerCheck !== undefined &&
+    status.peerCheck !== "root_owned"
+      ? "tarball"
+      : status.peerCheck;
+  const s = key === undefined ? undefined : STATES[key as keyof typeof STATES];
   return (
     <Group
       title={t("settings.devices.helperCheck.title")}

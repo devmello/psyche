@@ -29,6 +29,26 @@ describe("Settings → Devices: the Linux helper check", () => {
     );
   });
 
+  it("says a psyche-server tarball install's helper is not verified, and why", () => {
+    const { rerender } = render(
+      <HostHelperCheckGroup status={{ peerCheck: "user_owned", install: "tarball" }} />,
+    );
+    expect(screen.getByTestId("host-helper-check-state").textContent).toContain(
+      "Helper not verified (tarball install)",
+    );
+    rerender(<HostHelperCheckGroup status={{ peerCheck: "unverified", install: "tarball" }} />);
+    expect(screen.getByTestId("host-helper-check-state").textContent).toContain(
+      "Helper not verified (tarball install)",
+    );
+    expect(parseHostHelperStatus({ peerCheck: "user_owned", install: "tarball" })).toEqual({
+      peerCheck: "user_owned",
+      install: "tarball",
+    });
+    expect(parseHostHelperStatus({ peerCheck: "user_owned", install: "other" })).toEqual({
+      peerCheck: "user_owned",
+    });
+  });
+
   it("says why a helper was refused, in words", () => {
     render(
       <HostHelperCheckGroup

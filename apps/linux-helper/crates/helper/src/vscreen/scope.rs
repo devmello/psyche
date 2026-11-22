@@ -231,7 +231,6 @@ pub fn env_wrapped_argv(
 /// What `systemd-run` itself needs to reach the user manager. None of it reaches the app (see
 /// `env_wrapped_argv`).
 pub const SYSTEMD_RUN_ENV: &[&str] = &[
-    "PATH",
     "HOME",
     "USER",
     "XDG_RUNTIME_DIR",
@@ -353,8 +352,10 @@ fn systemd_run_command(
     spec: &LaunchSpec,
 ) -> Result<Command, String> {
     let argv = env_wrapped_argv(env_program(), &spec.env, &spec.argv)?;
-    let mut cmd = Command::new("systemd-run");
+    let mut cmd = Command::new(super::tools::systemd_run());
     cmd.env_clear();
+    // Never the inherited PATH: the account's manager can put its own folders first.
+    cmd.env("PATH", super::tools::FIXED_PATH);
     for name in SYSTEMD_RUN_ENV {
         if let Ok(v) = std::env::var(name) {
             cmd.env(name, v);
@@ -394,7 +395,7 @@ impl ScopeRunner for SystemdRunner {
     }
 
     fn list_scopes(&self) -> Vec<String> {
-        Command::new("systemctl")
+        Command::new(super::tools::systemctl())
             .args([
                 "--user",
                 "list-units",
@@ -414,13 +415,13 @@ impl ScopeRunner for SystemdRunner {
 
     fn adopt(&self, unit: &str, description: &str, pid: u32) -> Result<(), String> {
         run_checked(
-            Command::new("busctl").args(adopt_args(unit, description, pid)),
+            Command::new(super::tools::busctl()).args(adopt_args(unit, description, pid)),
             "busctl StartTransientUnit",
         )
     }
 
     fn stop(&self, unit: &str) {
-        let _ = Command::new("systemctl")
+        let _ = Command::new(super::tools::systemctl())
             .args(["--user", "stop", &format!("{unit}.scope")])
             .stdin(Stdio::null())
             .stdout(Stdio::null())
@@ -430,13 +431,13 @@ impl ScopeRunner for SystemdRunner {
 
     fn limit_slice(&self, limits: &SliceLimits) -> Result<(), String> {
         run_checked(
-            Command::new("systemctl")
+            Command::new(super::tools::systemctl())
                 .args(["--user", "set-property", "--runtime", SLICE_NAME])
                 .args(limits.properties()),
             "systemctl set-property",
         )?;
         // Read the caps back: exit 0 does not mean the controllers took them.
-        let out = Command::new("systemctl")
+        let out = Command::new(super::tools::systemctl())
             .args([
                 "--user",
                 "show",

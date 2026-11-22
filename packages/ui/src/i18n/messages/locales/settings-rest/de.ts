@@ -681,6 +681,7 @@ export const settingsRest: Partial<Catalogue> = {
     "Noch nichts. Braucht {persona} einen Ordner oder eine App, fragt es dich im Chat, und was du erlaubst, erscheint hier.",
   "settings.access.scope.always": "Immer",
   "settings.access.scope.conversation": "Dieser Chat",
+  "settings.access.scope.space": "In einem Space",
   "settings.access.scope.limited": "Vorerst",
   "settings.access.used": "verwendet {when}",
   "settings.access.fileOnly": "Eine Datei · nur Lesen",
@@ -703,8 +704,11 @@ export const settingsRest: Partial<Catalogue> = {
     "Zeigt die Überlegungen von {persona} während der Arbeit. Wird nie gesichert.",
   "settings.connectors.page.onHost": "Auf {host}",
   "settings.connectors.page.row.onHost": "Auf {host}",
+  "settings.connectors.page.row.macOnly": "Nur auf einem Mac-Host",
   "settings.computerUse.remote":
     "Die Computer-Nutzung funktioniert bei {host}. Frag von dort aus oder nutze den Browser.",
+  "settings.computerUse.remoteLinux":
+    "Computerbedienung läuft auf dem privaten Bildschirm von {host}. Im Beobachtungsbereich kannst du zusehen und übernehmen.",
   "settings.gateways.title": "Gateways auf diesem Computer",
   "settings.gateways.description":
     "Nutze Psyche von diesem Computer aus mit dem Gateway auf einem anderen, etwa deinem Mac zu Hause. Es ist immer ein Gateway aktiv, und das Wechseln startet Psyche neu.",
@@ -951,6 +955,71 @@ export const settingsRest: Partial<Catalogue> = {
     "Was ein Computer im Netzwerk ankündigt, ist nur eine Behauptung. Der Kopplungsbildschirm zeigt seinen Schlüssel: Vergleiche ihn mit dem des Hosts, bevor du genehmigst.",
   "settings.gateways.discoverAdd": "{name} hinzufügen",
   "settings.gateways.discoverSaved": "Gespeichert",
+  "settings.remoteSetup.title": "Einen entfernten Server einrichten",
+  "settings.remoteSetup.open": "Einen entfernten Server einrichten",
+  "settings.remoteSetup.intro":
+    "Installiere psyche-server auf einem Linux-Computer in diesem Netzwerk. Er zeigt einen Einrichtungscode: Gib ihn hier ein, und dieser Computer wird Admin des Servers.",
+  "settings.remoteSetup.lookFailed":
+    "Im Netzwerk konnte nicht gesucht werden. Gib stattdessen die Adresse des Servers ein.",
+  "settings.remoteSetup.noneWaiting":
+    "In diesem Netzwerk wartet kein Server auf die Einrichtung. Gib stattdessen seine Adresse ein.",
+  "settings.remoteSetup.waiting": "Wartet auf Einrichtung",
+  "settings.remoteSetup.pick": "Einrichten",
+  "settings.remoteSetup.pickNamed": "{name} einrichten",
+  "settings.remoteSetup.alreadySetUp":
+    "Schon eingerichtet. Füge ihn mit einem Kopplungslink von diesem Server hinzu.",
+  "settings.remoteSetup.addressLabel": "Serveradresse",
+  "settings.remoteSetup.addressPlaceholder": "192.168.1.20 oder server.local",
+  "settings.remoteSetup.addressHint":
+    "Eine Adresse in diesem Netzwerk. Psyche nutzt Port 7979, wenn du keinen anderen angibst.",
+  "settings.remoteSetup.next": "Weiter",
+  "settings.remoteSetup.codeTitle": "Einrichtungscode für {name}",
+  "settings.remoteSetup.codeLabel": "Einrichtungscode",
+  "settings.remoteSetup.codePlaceholder": "7K3QM-XR2TD",
+  "settings.remoteSetup.codeHint":
+    "Der Server hat ihn bei der Installation von psyche-server angezeigt. Er gilt einmal, 24 Stunden lang. Für einen neuen führe auf dem Server psyche setup code aus.",
+  "settings.remoteSetup.checking": "Code wird geprüft…",
+  "settings.remoteSetup.submit": "Server einrichten",
+  "settings.remoteSetup.back": "Zurück",
+  "settings.remoteSetup.doneTitle": "{name} ist eingerichtet",
+  "settings.remoteSetup.doneBody":
+    "Dieser Computer ist jetzt sein Admin. Wechsle zu ihm, um dort deinem Agenten einen Namen zu geben und ein Modell zu wählen.",
+  "settings.remoteSetup.switch": "Zu {name} wechseln",
+  "settings.remoteSetup.notNow": "Nicht jetzt",
+  "settings.remoteSetup.keepLan": "Diesen Server in meinem Netzwerk erreichbar lassen",
+  "settings.remoteSetup.keepLanHint":
+    "Computer in diesem Netzwerk können den Server erreichen und um Kopplung bitten. Jeder braucht trotzdem deine Zustimmung.",
+  "settings.remoteSetup.keepLanOffHint":
+    "Nach der Einrichtung hört der Server nicht mehr in diesem Netzwerk, und dieser Computer wird getrennt. Schalte das nur aus, wenn du den Server anders erreichst, etwa über Tailscale.",
+  "settings.remoteSetup.firstRunHint":
+    "Psyche auf einem Server installiert? Richte ihn stattdessen von hier aus ein.",
+  "settings.remoteSetup.connect": "Mit einem Psyche-Server verbinden",
+  "settings.remoteSetup.problem.wrong_code":
+    "{count, plural, one {Der Code stimmt nicht. Noch # Versuch, dann lässt dich der Server warten.} other {Der Code stimmt nicht. Noch # Versuche, dann lässt dich der Server warten.}}",
+  "settings.remoteSetup.problem.wrong_code_wait":
+    "Der Code stimmt nicht. Warte eine Minute, prüfe den Code auf dem Server und versuch es noch einmal.",
+  "settings.remoteSetup.problem.too_many_attempts":
+    "Zu viele falsche Codes. Versuch es in {seconds, plural, one {# Sekunde} other {# Sekunden}} noch einmal.",
+  "settings.remoteSetup.problem.bad_code":
+    "Ein Einrichtungscode hat 10 Buchstaben und Ziffern, etwa 7K3QM-XR2TD.",
+  "settings.remoteSetup.problem.code_expired":
+    "Der Code ist abgelaufen. Führe auf dem Server psyche setup code aus, um einen neuen zu bekommen.",
+  "settings.remoteSetup.problem.not_claimable":
+    "Dieser Server ist schon eingerichtet. Füge ihn stattdessen mit einem Kopplungslink vom Server hinzu.",
+  "settings.remoteSetup.problem.unreachable":
+    "Unter dieser Adresse war kein Server erreichbar. Prüfe, ob er läuft und in diesem Netzwerk ist.",
+  "settings.remoteSetup.problem.cert_mismatch":
+    "Das Zertifikat des Servers passte nicht zu dem, das er genannt hat, deshalb hat Psyche abgebrochen. Prüfe die Adresse und versuch es noch einmal.",
+  "settings.remoteSetup.problem.server_unproven":
+    "Der Server hat nicht bewiesen, dass er den Code kennt, deshalb vertraut Psyche ihm nicht. Prüfe die Adresse und den Code.",
+  "settings.remoteSetup.problem.maybe_claimed":
+    "Der Server ist möglicherweise schon mit diesem Mac eingerichtet. Verbinde dich mit einem Kopplungslink oder führe `psyche devices link` auf dem Server aus.",
+  "settings.remoteSetup.problem.saved":
+    "Dieser Server ist schon gespeichert. Wechsle in der Liste oben zu ihm.",
+  "settings.remoteSetup.problem.not_lan":
+    "Gib eine Adresse in diesem Netzwerk ein, etwa 192.168.1.20 oder server.local.",
+  "settings.remoteSetup.problem.failed":
+    "Der Server konnte nicht eingerichtet werden. Nichts wurde geändert.",
   "settings.devices.gatewayKey": "Schlüssel dieses Gateways {fingerprint}",
   "settings.devices.fromAddress": "Von {address}",
   "settings.devices.fromLan":

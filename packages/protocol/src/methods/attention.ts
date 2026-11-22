@@ -1,5 +1,5 @@
 import { type Static, Type } from "@sinclair/typebox";
-import { StringEnum } from "../common.ts";
+import { Id, StringEnum } from "../common.ts";
 import { defineMethod } from "./define.ts";
 
 /**
@@ -21,6 +21,7 @@ export const AttentionMethods = {
     params: Type.Object({
       pane: AttentionPane,
       visible: Type.Boolean({ description: "The pane is on screen in the desktop app" }),
+      machine: Type.Optional(Id),
       input: Type.Optional(
         Type.Boolean({ description: "The owner gave input in the app just now (key, click)" }),
       ),

@@ -23,6 +23,7 @@ import { home } from "./home/zh.ts";
 import { keepAwake } from "./keep-awake/zh.ts";
 import { links } from "./links/zh.ts";
 import { linuxAccess } from "./linux-access/zh.ts";
+import { machines } from "./machines/zh.ts";
 import { mailFollowups } from "./mail-followups/zh.ts";
 import { mailMeetings } from "./mail-meetings/zh.ts";
 import { meetingRecord } from "./meeting-record/zh.ts";
@@ -206,6 +207,14 @@ export const zh: Partial<Catalogue> = {
     "Google 已通过另一个客户端连接。请先断开 Google，再更改客户端。",
   "errors.reason.secret_required": "不同的客户端需要它自己的客户端密钥。",
   "errors.reason.updating": "Psyche 即将重启以安装更新，请稍后再试。",
+  "errors.reason.passkey_required": "请设置通行密钥，以在此 Psyche 上批准付款。",
+  "errors.reason.awaiting_owner": "某个应用有未保存的更改。Psyche 会等你决定如何处理。",
+  "errors.reason.checkout_needs_desktop":
+    "要在 Psyche 的浏览器中付款，需要将 Psyche 桌面应用连接到此主机。",
+  "errors.reason.no_chromium":
+    "Psyche 的浏览器需要此主机上的 Chromium。请安装它，或设置 PSYCHE_CHROMIUM。",
+  "errors.reason.chromium_sandbox":
+    "此主机上 Chromium 的沙盒无法启动，因此 Psyche 的浏览器已关闭。请允许 Chromium 使用用户命名空间（AppArmor 配置文件）。",
   "errors.unavailable": "Psyche 目前无法执行该操作。",
   "errors.approval_required": "此操作需要先获得你的批准。",
   "errors.approval_expired": "批准已过期，请重新请求。",
@@ -874,6 +883,7 @@ export const zh: Partial<Catalogue> = {
     "在完成前停止：{reason}。已导入 {total} 批中的 {done} 批。再次导入即可继续；已导入的对话会被跳过。",
   "agent.memory.importConv.retry": "再次导入",
   "agent.memory.export": "导出全部",
+  "agent.memory.importConv.memoriesFailed": "无法导入记忆：{reason}。再次导入即可重试。",
   "agent.memory.resetDone":
     "已重置 {files, plural, other {# 个文件}}、{claims, plural, other {# 条断言}}。",
   "agent.creature.axolotl.name": "美西螈",
@@ -3723,4 +3733,5 @@ export const zh: Partial<Catalogue> = {
   ...mailFollowups,
   ...keepAwake,
   ...spaces,
+  ...machines,
 };

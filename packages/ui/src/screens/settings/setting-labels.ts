@@ -43,6 +43,8 @@ const LABELLED_KEYS = [
   "computerUse.enabled",
   "computerUse.apps",
   "computerUse.linuxRevoke",
+  "computerUse.defaultMachine",
+  "computerUse.machineApps",
   "feed.sources",
   "context.maxTokens",
   "exec.srtPath",

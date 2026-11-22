@@ -354,6 +354,22 @@ describe("Chat header and composer", () => {
     });
   });
 
+  it("does not offer to move an imported conversation", async () => {
+    const { user } = setup(
+      <WithThreads>
+        <SpaceSwitcher threadId={IDS.threads.dentist} />
+      </WithThreads>,
+      (w) => {
+        withSpaces(w);
+        const entry = w.threads.find((e) => e.thread.id === IDS.threads.dentist);
+        if (entry) entry.thread.imported = "claude";
+      },
+    );
+    await user.click(await screen.findByRole("button", { name: /^Space:/ }));
+    await screen.findAllByRole("menuitem");
+    expect(screen.queryByRole("menuitem", { name: "Move this chat to…" })).toBeNull();
+  });
+
   it("is not drawn for the main chat when there are no Spaces, nor in a private window", async () => {
     const { callsTo } = setup(
       <WithThreads>
