@@ -15,6 +15,9 @@ export const helperCheck: Partial<Catalogue> = {
     "내가 소유한 파일(AppImage나 홈 폴더의 빌드 등)에서 실행됩니다. Psyche는 이를 허용하지만, 내 다른 프로그램이 바꿔 놓았을 가능성을 배제할 수는 없습니다.",
   "settings.devices.helperCheck.detail.unverified":
     "지금은 Psyche가 허용하지만 어떤 프로그램인지는 확인하지 못했습니다.",
+  "settings.devices.helperCheck.state.tarball": "헬퍼 미확인(tarball 설치)",
+  "settings.devices.helperCheck.detail.tarball":
+    "이 psyche-server는 내 계정에 tarball로 설치되어 헬퍼가 내가 소유한 파일입니다. Psyche는 이를 허용하지만, 내 다른 프로그램이 바꿔 놓았을 가능성을 배제할 수는 없습니다. deb 또는 rpm 패키지는 Psyche가 확인할 수 있는 헬퍼를 설치합니다.",
   "settings.devices.helperCheck.refused": "거부됨: {reason}",
   "settings.devices.helperCheck.reason.unclear": "Psyche가 도우미를 확인하지 못했습니다",
   "settings.devices.helperCheck.reason.notHelper": "이 프로그램은 Psyche 도우미가 아닙니다",

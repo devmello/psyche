@@ -578,7 +578,7 @@ describe("untrusted inputs", () => {
     expect((await r.tasks.get(started.taskId ?? ""))?.taint).toBeUndefined();
   });
 
-  it("a tainted card cannot become a standing automation, even with a brief of the owner's own", async () => {
+  it("a brief written in a tainted turn cannot become a recurring prompt; the owner's own brief can", async () => {
     const r = rig();
     r.model.enqueue(say(STEP));
     const id = await proposeViaTool(r, EMAIL_TAINT);
@@ -597,15 +597,89 @@ describe("untrusted inputs", () => {
       schedule: "0 9 * * 1",
     });
     expect(ok.automationId).not.toBeNull();
-    // The tainted card refuses the same request, and with a tainted turn's brief.
+    // On the tainted card, the owner's own brief (no turn taint) is allowed, as accept() designs it.
+    const own = await r.ideas.accept({
+      ideaId: card?.id ?? "",
+      recurring: true,
+      brief: "Every week, look for a race",
+      schedule: "0 9 * * 1",
+    });
+    expect(own.automationId).not.toBeNull();
+    // A brief written in a tainted turn is refused.
+    r.model.enqueue(say(OTHER));
+    await r.goals.suggestNextStep(id);
+    const card2 = (await openCards(r))[0];
     await expect(
       r.ideas.accept({
-        ideaId: card?.id ?? "",
+        ideaId: card2?.id ?? "",
         recurring: true,
         schedule: "0 9 * * 1",
         taintSources: EMAIL_TAINT as never,
         brief: "Every week, look for a race",
       }),
     ).rejects.toMatchObject({ code: "conflict" });
+  });
+});
+
+describe("review follow-ups", () => {
+  it("Suggest with the goal-card budget full makes one call and keeps the asked-for card", async () => {
+    const r = rig();
+    const { goal } = await r.goals.create({ title: "Run a 10k", category: "health" });
+    for (let i = 0; i < PROACTIVITY_BUDGET.ideas.perWindow; i += 1) {
+      const t = await r.tasks.create({
+        threadId: "thr_1",
+        title: `Task ${i}`,
+        goal: "g",
+        createdFrom: "chat",
+      });
+      await r.goals.link({ goalId: goal.id, taskId: t.id });
+    }
+    r.clock.advance(10 * DAY);
+    await r.ideas.mine();
+    expect(await openCards(r)).toHaveLength(PROACTIVITY_BUDGET.ideas.perWindow);
+    r.model.enqueue(say(STEP));
+    const out = await r.goals.suggestNextStep(goal.id);
+    expect(r.model.requests).toHaveLength(1);
+    expect(out.ideaId).not.toBeNull();
+    const cards = await openCards(r);
+    expect(cards).toHaveLength(PROACTIVITY_BUDGET.ideas.perWindow);
+    expect(cards.map((c) => c.id)).toContain(out.ideaId);
+    // It took the place of the oldest Resume card.
+    expect(cards.map((c) => c.title)).not.toContain("Resume: Task 0");
+  });
+
+  it("a plan patch keeps evidence and the taint of milestones it keeps", async () => {
+    const r = rig();
+    const tool = goalTools(r.goals, r.clock).find((t) => t.spec.name === "goals.propose");
+    await tool?.run?.({ title: "Run a 10k", category: "health", why: EVIL }, ctx(EMAIL_TAINT));
+    const [candidate] = await r.goals.list({ status: ["candidate"] });
+    const id = candidate?.id ?? "";
+    await r.goals.decide(id, "confirm");
+    const progress = goalTools(r.goals, r.clock).find(
+      (t) => t.spec.name === "goals.update_progress",
+    );
+    await progress?.run?.({ goalId: id, title: EVIL }, ctx(EMAIL_TAINT));
+    await progress?.run?.({ goalId: id, title: "Run 5k" }, ctx());
+    const before = await r.goals.get(id);
+    const evil = before.milestones.find((m) => m.title === EVIL);
+    const gone = await (async () => {
+      await progress?.run?.({ goalId: id, title: "Temp" }, ctx(EMAIL_TAINT));
+      const m = (await r.goals.get(id)).milestones.find((x) => x.title === "Temp");
+      await r.goals.milestone({ goalId: id, milestoneId: m?.id ?? "", remove: true });
+      return m?.id;
+    })();
+
+    const after = await r.goals.update(id, {
+      plan: { note: "my plan", taintedMilestones: [gone ?? "x", "not-a-milestone"] },
+    });
+    const plan = after.goal.plan as Record<string, unknown>;
+    expect(plan.note).toBe("my plan");
+    expect(plan.evidence).toEqual(before.goal.plan?.evidence);
+    // The kept milestone keeps its flag; removed and made-up ids do not come back.
+    expect(plan.taintedMilestones).toEqual([evil?.id]);
+    const cleared = await r.goals.update(id, { plan: null });
+    expect(cleared.goal.plan?.taintedMilestones).toEqual([evil?.id]);
+    const kept = (cleared.goal.plan as { evidence: never[] }).evidence;
+    expect(isUntrustedEvidence(kept[0] as never)).toBe(true);
   });
 });

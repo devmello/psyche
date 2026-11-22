@@ -38,6 +38,11 @@ export interface ComputerWatchProps {
   client: ComputerWatchClient;
   /** Only a visible pane polls: nothing runs, and nothing costs, while it is hidden. */
   visible: boolean;
+  /**
+   * The paired computer being watched; absent means the Host's own virtual screen. The title then
+   * reads "lab-box · private screen". `name` is the owner's label, shown as written.
+   */
+  machine?: { name: string } | undefined;
   /** Set while a task is parked on an app's "Save changes?" dialog. */
   parked?: boolean;
   /** "Look": the owner wants to see the app that is asking. */
@@ -58,6 +63,7 @@ const BUTTONS = ["left", "middle", "right"] as const;
 export function ComputerWatch({
   client,
   visible,
+  machine,
   parked,
   onLook,
   onDiscard,
@@ -258,18 +264,19 @@ export function ComputerWatch({
     if (events.length > 0) send(events);
   };
 
+  const title = machine
+    ? t("computerWatch.titleMachine", { name: machine.name })
+    : t("computerWatch.title");
   const apps = status?.apps ?? [];
   const unsaved = apps.filter((a) => a.hasUnsavedChanges);
 
   return (
     <section
-      aria-label={t("computerWatch.title")}
+      aria-label={title}
       className="flex h-full min-h-0 flex-col gap-3 bg-surface-raised p-3"
     >
       <header className="flex items-center gap-2">
-        <h2 className="flex-1 truncate text-callout font-medium text-label-primary">
-          {t("computerWatch.title")}
-        </h2>
+        <h2 className="flex-1 truncate text-callout font-medium text-label-primary">{title}</h2>
         <Button
           variant="outline"
           size="sm"
@@ -286,7 +293,9 @@ export function ComputerWatch({
 
       <p role="status" aria-live="polite" className="text-footnote text-label-secondary">
         {failed
-          ? t("computerWatch.error")
+          ? machine
+            ? t("computerWatch.machineOffline", { name: machine.name })
+            : t("computerWatch.error")
           : running
             ? t(takenOver ? "computerWatch.control.you" : "computerWatch.control.agent")
             : status?.state === "starting"
@@ -357,7 +366,9 @@ export function ComputerWatch({
             {t("computerWatch.empty.title")}
           </p>
           <p className="max-w-xs text-footnote text-label-secondary">
-            {t("computerWatch.empty.body")}
+            {machine
+              ? t("computerWatch.empty.bodyMachine", { name: machine.name })
+              : t("computerWatch.empty.body")}
           </p>
         </div>
       )}

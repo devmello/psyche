@@ -4,10 +4,12 @@ import { type GoogleClientConfig, googleClientFrom, readConfigFile } from "../co
 import { openExternalUrl } from "../platform.ts";
 import { composeBackup } from "./backup.ts";
 import { type ComposedBrowser, composeBrowser } from "./browser.ts";
+import { serverBrowserSetupFor } from "./browser-server.ts";
 import { channelsSetupFromEnv, composeChannels } from "./channels.ts";
 import { composeCoding } from "./coding.ts";
 import { composeConnectors } from "./connectors.ts";
 import { usesSandboxPc } from "./guest-sandbox.ts";
+import { hostGraphicalSession } from "./headless-host.ts";
 import { composeHelper } from "./helper.ts";
 import { composeMcp } from "./mcp.ts";
 import { composePasswordPresence } from "./password-presence.ts";
@@ -142,6 +144,9 @@ export function partsFromEnv(
       browser = composeBrowser(s, {
         record: env.PSYCHE_BROWSER_RECORD === "1",
         ...bridgeSocketSetup(env),
+        // A headless Linux Host (B3): headless Chromium, decided by the service env's
+        // `PSYCHE_BROWSER_DRIVER` or B0's logind answer. Off on every other platform.
+        server: serverBrowserSetupFor(process.platform, env, hostGraphicalSession()),
         // Real-Chrome mode (I13) is off unless the owner turns it on; each task still asks.
         ...(env.PSYCHE_REAL_CHROME === "1"
           ? {

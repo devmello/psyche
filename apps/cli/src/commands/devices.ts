@@ -59,6 +59,18 @@ interface LanStatus {
   candidates?: { name: string; address: string }[];
 }
 
+/** A `.local` name only resolves on a Mac if the server announces itself (mDNS). */
+function lanNameHint(origin: string): string {
+  let host = "";
+  try {
+    host = new URL(origin).hostname;
+  } catch {
+    return "";
+  }
+  if (!host.endsWith(".local")) return "";
+  return `\nIf a Mac cannot find ${host}, install avahi-daemon on this computer (sudo apt install avahi-daemon).`;
+}
+
 /**
  * Turns LAN listening on for one interface through the existing `gateway.lan` setting (an admin
  * setting: the Gateway enforces the scope and, once a verifier exists, fresh presence). Keeps the
@@ -302,7 +314,7 @@ export const devicesCommands: CommandSpec[] = [
       return {
         data: { enabled: true, ...res },
         human: res.origin
-          ? `LAN is on at ${res.origin}`
+          ? `LAN is on at ${res.origin}${lanNameHint(res.origin)}`
           : "LAN is on, but nothing is listening yet; check `psyche doctor`",
       };
     },

@@ -30,6 +30,10 @@
       "types": "./src/binding.ts",
       "default": "./src/binding.ts"
     },
+    "./claim-node": {
+      "types": "./src/claim-node.ts",
+      "default": "./src/claim-node.ts"
+    },
     "./routine-path": {
       "types": "./src/routine-path.ts",
       "default": "./src/routine-path.ts"

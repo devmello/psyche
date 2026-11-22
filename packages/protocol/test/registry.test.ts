@@ -55,6 +55,7 @@ const REQUIRED_METHODS: MethodName[] = [
   "threads.clear",
   "threads.pin",
   "threads.fork",
+  "threads.import",
   "chat.send",
   "chat.history",
   "chat.cancel",
@@ -305,8 +306,17 @@ describe("method registry", () => {
       ) {
         expect(["operator.read", "operator.admin"], name).toContain(scope);
       }
-      if (scope === "none") expect(name.startsWith("connect"), name).toBe(true);
+      // Before connect: the handshake, and the setup-code claim of a fresh psyche-server (design
+      // §3.6), which the Gateway answers only in claim mode and refuses on a paired connection.
+      if (scope === "none") {
+        expect(
+          name.startsWith("connect") ||
+            ["gateway.claim.hello", "gateway.claim.prove"].includes(name),
+          name,
+        ).toBe(true);
+      }
     }
+    expect(methodSpec("gateway.claim.finish").scope).toBe("operator.admin");
     expect(methodSpec("approvals.answer").scope).toBe("operator.approvals");
     expect(methodSpec("grants.revoke").scope).toBe("operator.admin");
     expect(methodSpec("settings.set").scope).toBe("operator.write");

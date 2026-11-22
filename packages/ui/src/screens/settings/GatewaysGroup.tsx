@@ -5,6 +5,7 @@ import { Label } from "../../components/ui/label.tsx";
 import { t } from "../../i18n/core.ts";
 import { groupFingerprint } from "../../lib/fingerprint.ts";
 import { type DiscoveredGateway, type GatewayEntry, useSlots } from "../../slots.tsx";
+import { RemoteServerSetup } from "./RemoteServerSetup.tsx";
 import { ErrorNotice, Group, StatusChip } from "./shared.tsx";
 
 /**
@@ -447,13 +448,27 @@ export function GatewaysGroup(): ReactElement | null {
   const { gateways } = useSlots();
   const { entries, reload } = useSavedGateways();
   const [error, setError] = useState<string | null>(null);
+  const [settingUp, setSettingUp] = useState(false);
   if (!gateways) return null;
   return (
     <Group title={t("settings.gateways.title")} description={t("settings.gateways.description")}>
       {error ? <ErrorNotice what={error} did={t("settings.shared.nothingChanged")} /> : null}
       {entries ? <GatewaysList entries={entries} onChanged={reload} onError={setError} /> : null}
-      <DiscoverGateways onAdded={reload} />
-      <AddGatewayForm onAdded={reload} />
+      {settingUp ? (
+        <RemoteServerSetup onClose={() => setSettingUp(false)} onClaimed={reload} />
+      ) : (
+        <>
+          {gateways.claim ? (
+            <div>
+              <Button type="button" size="sm" variant="outline" onClick={() => setSettingUp(true)}>
+                {t("settings.remoteSetup.open")}
+              </Button>
+            </div>
+          ) : null}
+          <DiscoverGateways onAdded={reload} />
+          <AddGatewayForm onAdded={reload} />
+        </>
+      )}
     </Group>
   );
 }

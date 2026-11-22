@@ -51,6 +51,12 @@ export interface PurchaseToolDeps {
   payments: PaymentBroker;
   /** The connected desktop's browser driver, or undefined while none is connected. */
   driver: () => BrowserDriverEx | undefined;
+  /**
+   * Why this Host cannot pay in the browser at all right now, if so (a headless Host has no
+   * checkout driver yet, B3): the call is refused before any card is raised, and again when it
+   * runs.
+   */
+  unavailable?: () => PsycheError | undefined;
   /** Throws unless `tabId` is one of the calling task's tabs. */
   ownsTab: (callId: string, tabId: string) => Promise<void>;
   calls: CallContexts;
@@ -261,9 +267,20 @@ const notReady = (): never => {
   );
 };
 
+/** A headless Host's checkout: not built yet, so the tool says so before any card (B3 r1). */
+export function checkoutNeedsDesktop(): PsycheError {
+  return new PsycheError(
+    "unavailable",
+    "Paying in Psyche's browser needs the Psyche desktop app connected to this Host. On a headless Host checkout isn't supported yet, so nothing was paid and no approval was asked.",
+    { details: { reason: "checkout_needs_desktop" } },
+  );
+}
+
 export function createPurchaseTool(deps: PurchaseToolDeps): ToolRegistration {
   const describeCall = (params: unknown): ToolCallDescription => {
     if (deps.ready !== undefined && !deps.ready()) notReady();
+    const refused = deps.unavailable?.();
+    if (refused !== undefined) throw refused;
     const tabId = (params as { tabId?: unknown } | undefined)?.tabId;
     const d = deps.driver();
     const origin = typeof tabId === "string" ? d?.tabOrigin(tabId) : undefined;
@@ -354,6 +371,8 @@ export function createPurchaseTool(deps: PurchaseToolDeps): ToolRegistration {
       const tabId = (params as { tabId?: unknown }).tabId;
       if (typeof tabId !== "string") throw new PsycheError("invalid_params", "tabId is required");
       if (deps.ready !== undefined && !deps.ready()) notReady();
+      const refused = deps.unavailable?.();
+      if (refused !== undefined) throw refused;
       const ctx = deps.calls.context(callId);
       const approvalId = ctx.approvalId;
       if (approvalId === undefined) {

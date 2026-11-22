@@ -4,7 +4,11 @@ import { readdir, readFile, readlink, stat } from "node:fs/promises";
 import type { Socket } from "node:net";
 import { basename, dirname } from "node:path";
 import type { PeerCheck } from "@psyche/protocol";
-import { LINUX_HELPER_READY_COMM, LINUX_PACKAGED_HELPER_PATH } from "@psyche/protocol/platform";
+import {
+  LINUX_HELPER_READY_COMM,
+  LINUX_PACKAGED_HELPER_PATH,
+  LINUX_PACKAGED_HELPER_PATHS,
+} from "@psyche/protocol/platform";
 
 /**
  * The accept-time peer check for the Linux helper (linux-desktop design §4.3).
@@ -51,6 +55,10 @@ import { LINUX_HELPER_READY_COMM, LINUX_PACKAGED_HELPER_PATH } from "@psyche/pro
  * a peer already gone, several or hidden holders, a timeout, an unreadable `/proc`, a deleted
  * binary.
  *
+ * The packaged paths are the protocol's `LINUX_PACKAGED_HELPER_PATHS`: the desktop package's and
+ * the headless `psyche-server` package's, each walked up to its own package root
+ * (`PACKAGED_HELPERS`). The match is exact; any other root-owned file is `unverified`.
+ *
  * What this proves: that the peer is the root-owned packaged helper binary, running only its own
  * and the system's executable code, not stopped or traced, and not holding a socket its parent
  * made for it. What it does not: it is defence in depth against same-user impersonation, not a
@@ -64,10 +72,66 @@ import { LINUX_HELPER_READY_COMM, LINUX_PACKAGED_HELPER_PATH } from "@psyche/pro
  * only records what it saw.
  */
 
-/** The packaged install root (deb and rpm). */
+/** The desktop package's install root (deb and rpm). */
 export const PACKAGED_ROOT = "/usr/lib/psyche";
-/** Where the packaged helper lives; shared with the desktop packaging through the protocol. */
+/** Where the desktop package's helper lives; shared with its packaging through the protocol. */
 export const PACKAGED_HELPER = LINUX_PACKAGED_HELPER_PATH;
+/** The headless `psyche-server` package's install root (deb and rpm, linux-helper-only §3.2). */
+export const SERVER_PACKAGED_ROOT = "/usr/lib/psyche-server";
+
+/**
+ * The package directory each packaged Host helper path belongs to. The root is the top of the
+ * directory walk: every directory from the helper's own up to it must be root-controlled. The
+ * protocol's `LINUX_PACKAGED_HELPER_PATHS` lists the paths and this table pairs each with its
+ * package; a path the protocol adds without a root here makes the module refuse to load, so a new
+ * path is never accepted with the wrong walk or none. The helper-only machine's path
+ * (`/usr/lib/psyche-helper/psyche-helper`) is in neither: a machine is never the Host helper, so a
+ * root-owned file there is `root_owned_outside_package`.
+ */
+const PACKAGE_ROOTS: Readonly<Record<string, string>> = {
+  [LINUX_PACKAGED_HELPER_PATH]: PACKAGED_ROOT,
+  [`${SERVER_PACKAGED_ROOT}/psyche-helper`]: SERVER_PACKAGED_ROOT,
+};
+
+export interface PackagedHelper {
+  /** The helper's exact path (`/proc/<pid>/exe` names the resolved file, so no symlinks). */
+  path: string;
+  /** The package directory the walk ends at. */
+  root: string;
+}
+
+/** Pairs every protocol path with its package root, or throws (a programming error, at load). */
+export function packagedHelpersOf(
+  paths: readonly string[],
+  roots: Readonly<Record<string, string>> = PACKAGE_ROOTS,
+): readonly PackagedHelper[] {
+  return Object.freeze(
+    paths.map((path) => {
+      const root = Object.hasOwn(roots, path) ? roots[path] : undefined;
+      if (
+        root === undefined ||
+        !isCanonical(path) ||
+        !isCanonical(root) ||
+        root === "/" ||
+        root.endsWith("/") ||
+        !path.startsWith(`${root}/`)
+      ) {
+        throw new Error(`peer check: no package root for the packaged helper path ${path}`);
+      }
+      return Object.freeze({ path, root });
+    }),
+  );
+}
+
+/** The packaged Host helpers (the desktop package's and the server package's). */
+export const PACKAGED_HELPERS: readonly PackagedHelper[] = packagedHelpersOf(
+  LINUX_PACKAGED_HELPER_PATHS,
+);
+
+/** The packaged helper at exactly `path`, if it is one: exact match, no normalization. */
+export function packagedHelperAt(path: string): PackagedHelper | undefined {
+  return PACKAGED_HELPERS.find((h) => h.path === path);
+}
 /** The name the helper gives itself once its start-up hardening is done. */
 export const HELPER_READY_COMM = LINUX_HELPER_READY_COMM;
 /** The binary's name, in the package and in a build tree. */
@@ -357,8 +421,9 @@ async function isRootControlledDir(deps: PeerCheckDeps, path: string): Promise<b
   return s.uid === 0 && (s.mode & S_IFMT) === S_IFDIR && (s.mode & GROUP_OTHER_WRITE) === 0;
 }
 
-const isCanonical = (path: string): boolean =>
-  path.startsWith("/") && !path.split("/").some((part) => part === ".." || part === ".");
+function isCanonical(path: string): boolean {
+  return path.startsWith("/") && !path.split("/").some((part) => part === ".." || part === ".");
+}
 
 type ImageVerdict = "ok" | "foreign" | "replaced" | "unreadable";
 
@@ -519,15 +584,18 @@ async function judgePid(
   }
   if (basename(exePath) !== HELPER_BINARY_NAME) return { check: "mismatch", reason: "not_helper" };
 
-  if (exePath === PACKAGED_HELPER && exe.uid === 0) {
+  const packagedAt = packagedHelperAt(exePath);
+  if (packagedAt !== undefined && exe.uid === 0) {
     // The path must name this very file here too (a mount over the path shows another file), the
-    // file must not be user-writable, and no directory up to the root may be.
+    // file must not be user-writable, and no directory up to its package's root may be.
     const named = await deps.stat(exePath);
     if (named.dev !== exe.dev || named.ino !== exe.ino) return unverified("path_remounted");
     if ((exe.mode & GROUP_OTHER_WRITE) !== 0) return unverified("helper_writable");
     for (let dir = dirname(exePath); ; dir = dirname(dir)) {
       if (!(await isRootControlledDir(deps, dir))) return unverified("dir_writable");
-      if (dir === PACKAGED_ROOT) break;
+      if (dir === packagedAt.root) break;
+      // Never past the root: packagedHelpersOf makes the root an ancestor, so this cannot happen.
+      if (dir === "/") return unverified("dir_writable");
     }
     // In our own user and mount namespaces (a private mount could fake the libraries' inodes).
     const ns = await namespaceOf(deps, pid);
@@ -656,9 +724,26 @@ export function linuxPeerChecker(options: LinuxPeerCheckerOptions = {}): PeerChe
   };
 }
 
-/** Whether the packaged helper is installed, which makes the peer check strict. */
+/**
+ * Whether a packaged Host helper (the desktop package's or the server package's) is installed,
+ * which makes the peer check strict: then only `root_owned` pairs as the Host helper.
+ */
 export function packagedHelperInstalled(exists: (path: string) => boolean = existsSync): boolean {
-  return exists(PACKAGED_HELPER);
+  return PACKAGED_HELPERS.some((h) => exists(h.path));
+}
+
+/** The headless helper's systemd user unit (deploy/systemd, wave B0), which a psyche-server runs. */
+export const HEADLESS_HELPER_UNIT = "psyche-helper-headless.service";
+
+/**
+ * How the owner restarts the Host helper, for a refusal's text. A psyche-server Host has no app:
+ * there the helper is the headless unit (after a package upgrade the running helper's file is
+ * gone, which the check refuses until it restarts).
+ */
+export function helperRestartHint(exists: (path: string) => boolean = existsSync): string {
+  return exists(`${SERVER_PACKAGED_ROOT}/psyche-helper`)
+    ? `restart it: systemctl --user restart ${HEADLESS_HELPER_UNIT}`
+    : "restart it from the Psyche app";
 }
 
 /**
