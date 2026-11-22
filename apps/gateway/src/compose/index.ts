@@ -15,7 +15,14 @@ import {
 } from "@psyche/audit";
 import { redactUrl } from "@psyche/browser";
 import type { ConnectorRegistry } from "@psyche/connectors";
-import { getDevice, getSetting, getThread, type PsycheDb, setSetting } from "@psyche/db";
+import {
+  countActivePasskeys,
+  getDevice,
+  getSetting,
+  getThread,
+  type PsycheDb,
+  setSetting,
+} from "@psyche/db";
 import { fileTools } from "@psyche/files";
 import {
   brokerApprovalCheck,
@@ -145,7 +152,7 @@ import {
   toolEffectChange,
 } from "./changes.ts";
 import { ChannelConversations } from "./channel-conversations.ts";
-import { composeComputer } from "./computer.ts";
+import { type ComposedComputer, composeComputer } from "./computer.ts";
 import { CONNECTOR_MATRIX_PREFIX } from "./connector-matrix.ts";
 import { macHelper } from "./connectors.ts";
 import { createContext } from "./context.ts";
@@ -170,6 +177,7 @@ import {
   surfaceOf,
 } from "./handlers.ts";
 import { composeHarnesses } from "./harnesses.ts";
+import { headlessLinuxHost, hostGraphicalSession } from "./headless-host.ts";
 import { HELPER_AVAILABILITY_SETTING, HelperAvailability } from "./helper-availability.ts";
 import { type HostTerminalOptions, hostTerminalPart } from "./host-terminal.ts";
 import { insightsHandlers } from "./insights.ts";
@@ -207,6 +215,7 @@ import { composeOnePasswordSetup, type OnePasswordSetupOptions } from "./onepass
 import { createOtherChats, type OtherChats } from "./other-chats.ts";
 import { PageReadHub } from "./page-reads.ts";
 import { composePasskeys } from "./passkeys.ts";
+import { passkeyPresenceForced, withPaymentPresence } from "./payment-presence.ts";
 import { type ComposedPayments, type PaymentsSetup, paymentsSetupFromEnv } from "./payments.ts";
 import { composePeople, type People } from "./people.ts";
 import { graphSourceAdapters } from "./people-sources.ts";
@@ -220,7 +229,12 @@ import {
   runCarveOuts,
   writeProtection,
 } from "./protected-paths.ts";
-import { createPurchaseTool, LINK_PAYMENT_SOURCE, PURCHASE_TOOL } from "./purchase-tool.ts";
+import {
+  checkoutNeedsDesktop,
+  createPurchaseTool,
+  LINK_PAYMENT_SOURCE,
+  PURCHASE_TOOL,
+} from "./purchase-tool.ts";
 import { notifierRouting } from "./quiet-hours.ts";
 import { createRateLimits } from "./rate-limits.ts";
 import {
@@ -300,7 +314,7 @@ import { updateHandlers } from "./update.ts";
 import { usageSummaryHandlers } from "./usage-summary.ts";
 import { createUserProfile } from "./user-profile.ts";
 import { composeVault, maskingLogger, type VaultSetup, vaultSetupFromEnv } from "./vault.ts";
-import { composeVirtualScreen } from "./virtual-screen.ts";
+import { type ComposedVirtualScreen, composeVirtualScreen } from "./virtual-screen.ts";
 import type { ComposedVm } from "./vm.ts";
 import { type ComposedWebTools, composeWebTools, type WebToolsSetup } from "./web-tools.ts";
 import { ensureWeeklyCardAutomation, withWeeklyCard } from "./weekly-card.ts";
@@ -867,7 +881,16 @@ export async function composeGateway(options: ComposeOptions): Promise<ComposedG
     ],
     policy: hostPolicy((policy ?? storedPolicy) as PolicyConfig | undefined, db),
   });
-  const broker = withRelay(tokens.wrap(rawBroker), relays, gwOptions.logger);
+  // B3: on a headless Linux Host a payment needs a passkey; without one it fails before a card
+  // nobody could answer is raised (compose/payment-presence.ts). Other approvals are untouched.
+  // The service env's switch, read once now (the agent cannot set it), else B0's logind answer.
+  const passkeyForced = passkeyPresenceForced(gwOptions.env ?? process.env);
+  const graphical = hostGraphicalSession();
+  const broker = withPaymentPresence(withRelay(tokens.wrap(rawBroker), relays, gwOptions.logger), {
+    passkeyOnly: async () =>
+      passkeyForced || (await headlessLinuxHost(process.platform, graphical)),
+    hasPasskey: () => presence !== NO_PRESENCE || countActivePasskeys(db) > 0,
+  });
   // The teaching loop (#679) reads approval answers as implicit feedback; set once composed.
   let teachingRef: ComposedTeaching | undefined;
   // Executors (vault fills, the browser's mid-run gate, sandbox secrets) request approvals
@@ -1451,11 +1474,19 @@ export async function composeGateway(options: ComposeOptions): Promise<ComposedG
     return "payments" in p && p.payments !== undefined;
   });
   const browserPart = parts.find((p): p is ComposedBrowser => "ownsTab" in p && "devServers" in p);
+  // B3: headless computer use on the Host helper's private screen keeps the screen's take-over,
+  // parked card and Task-end rules (the agent browser runs headless Chromium, off that screen).
+  const screenPart = parts.find(
+    (p): p is ComposedVirtualScreen => "screen" in p && "handlers" in p,
+  );
+  parts.find((p): p is ComposedComputer => "useScreen" in p)?.useScreen(screenPart?.screen);
   if (paymentsPart !== undefined && browserPart !== undefined) {
     const availability = paymentsPart.availability;
     const purchaseTool = createPurchaseTool({
       payments: paymentsPart.payments,
       driver: () => browserPart.driver,
+      // A headless Host has no checkout driver yet (B3 r1): refused before any card.
+      unavailable: () => (browserPart.serverOnly ? checkoutNeedsDesktop() : undefined),
       ownsTab: (callId, tabId) => browserPart.ownsTab(callId, tabId),
       calls,
       approvals: broker,

@@ -2053,8 +2053,11 @@ export const settings = {
   // Settings → Server & remote access → Gateways on this computer (docs/design/remote-gateway-2026.md §1.3).
   "settings.connectors.page.onHost": "On {host}",
   "settings.connectors.page.row.onHost": "On {host}",
+  "settings.connectors.page.row.macOnly": "Only on a Mac host",
   "settings.computerUse.remote":
     "Computer use works at {host}. Ask from there, or use the browser.",
+  "settings.computerUse.remoteLinux":
+    "Computer use runs on {host}'s private screen. Watch it and take over from the watch pane.",
   "settings.gateways.title": "Gateways on this computer",
   "settings.gateways.description":
     "Use Psyche from this computer with the Gateway on another one, such as your Mac at home. One Gateway is active at a time, and switching restarts Psyche.",

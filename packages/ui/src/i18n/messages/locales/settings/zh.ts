@@ -602,7 +602,10 @@ export const settings: Partial<Catalogue> = {
   "settings.persona.showReasoningHint": "工作时显示{persona}的推理过程。从不保存。",
   "settings.connectors.page.onHost": "在 {host} 上",
   "settings.connectors.page.row.onHost": "在 {host} 上",
+  "settings.connectors.page.row.macOnly": "仅限 Mac 主机",
   "settings.computerUse.remote": "“电脑使用”在 {host} 上运行。请从那里发起，或使用浏览器。",
+  "settings.computerUse.remoteLinux":
+    "电脑操作在 {host} 的私有屏幕上运行。可在观看面板中查看并接管。",
   "settings.gateways.title": "这台电脑上的 Gateway",
   "settings.gateways.description":
     "在这台电脑上使用另一台电脑（比如你家里的 Mac）上的 Gateway 来使用 Psyche。同一时间只有一个 Gateway 处于活动状态，切换会重启 Psyche。",

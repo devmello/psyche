@@ -43,6 +43,7 @@ import {
 export { startHelperWithSystemd };
 
 import { APP_ID_PATTERN, COMPUTER_USE_ENABLED, computerUseSettings } from "./computer-settings.ts";
+import { gateHeadlessRouter, type HeadlessScreen } from "./headless-screen.ts";
 import { assertOpenAllowed, assertScriptAllowed } from "./script-guard.ts";
 import type { ComposedPart, ComposeServices } from "./services.ts";
 
@@ -667,6 +668,12 @@ export interface ComputerDeps {
    */
   graphicalSession?(signal?: AbortSignal): Promise<boolean>;
   /**
+   * The Host's private screen (the virtual-screen part's `screen`), for the headless path's
+   * take-over gate and Task-end handling (B3). Absent: nobody can take over and Task end only
+   * ends the helper's session.
+   */
+  headlessScreen?(): HeadlessScreen | undefined;
+  /**
    * Linux: settles a Revoke the owner made while no helper ran (`LinuxComputerState`) before a
    * direct call uses the helper, so the stored portal grant is gone first. False: still pending.
    */
@@ -1048,6 +1055,9 @@ export function createComputerUse(deps: ComputerDeps): ComputerUse {
       : {
           async invoke(call) {
             const node = await requireHelper(call.signal, false);
+            // B3: after every wait above, and with nothing awaited before the send, the owner's
+            // take-over and a parked unsaved-changes card still stop the call (headless-screen.ts).
+            deps.headlessScreen?.()?.assertAgentMayAct(call.signal);
             return node.client.invoke(
               call.capability,
               { ...call.params, surface: "virtual_screen" },
@@ -1071,10 +1081,24 @@ export function createComputerUse(deps: ComputerDeps): ComputerUse {
           },
         };
 
+  /**
+   * B3: like every use of that screen, the headless path keeps the take-over gate and the
+   * Task-end handling (`gateHeadlessRouter`): the agent waits while the owner has taken over, and
+   * the last session's end closes the screen's apps or parks the Task on unsaved changes.
+   */
+  const gatedHeadlessRouter: SurfaceRouter | undefined =
+    headlessHostRouter === undefined
+      ? undefined
+      : gateHeadlessRouter(
+          headlessHostRouter,
+          () => deps.headlessScreen?.(),
+          (message, err) => deps.logger?.log("warn", message, { code: PsycheError.from(err).code }),
+        );
+
   const routerFor = (surface: RoutedSurface): SurfaceRouter | undefined =>
     deps.surfaces?.[surface] ??
     surfaceRouters.get(surface) ??
-    (surface === "virtual_screen" ? headlessHostRouter : undefined);
+    (surface === "virtual_screen" ? gatedHeadlessRouter : undefined);
 
   /**
    * Drops a session the helper already ended or abandoned (idle yield, Esc, helper gone). The
@@ -1217,7 +1241,7 @@ export function createComputerUse(deps: ComputerDeps): ComputerUse {
     // router trusts this decision for the call and does not ask again.
     if (
       router !== undefined &&
-      router === headlessHostRouter &&
+      router === gatedHeadlessRouter &&
       (await deps.graphicalSession?.(signal)) === true
     ) {
       throw new PsycheError(
@@ -3122,7 +3146,14 @@ export function appleToolsFor(
   return out;
 }
 
-export function composeComputer(services: ComposeServices): ComposedPart {
+/** The computer-use part, plus the hook for the Host's private screen (B3). */
+export interface ComposedComputer extends ComposedPart {
+  /** The virtual-screen part's screen: the headless path's take-over gate and Task end. */
+  useScreen(screen: HeadlessScreen | undefined): void;
+}
+
+export function composeComputer(services: ComposeServices): ComposedComputer {
+  let screen: HeadlessScreen | undefined;
   // Settings → Computer use → the helper's computer-use.json and the broker's app tiers.
   const settings = computerUseSettings(services);
   let gateway: Gateway | undefined;
@@ -3169,6 +3200,7 @@ export function composeComputer(services: ComposeServices): ComposedPart {
             ),
           graphicalSession: (signal?: AbortSignal) => graphical(signal),
         }),
+    headlessScreen: () => screen,
     ...(linux === undefined
       ? {}
       : { sessionEnded: () => void linux.refresh(), revokeSettled: () => linux.revokeSettled() }),
@@ -3210,6 +3242,9 @@ export function composeComputer(services: ComposeServices): ComposedPart {
   settings.sync();
 
   return {
+    useScreen(next) {
+      screen = next;
+    },
     start(gw) {
       gateway = gw;
       // The tools depend on the live helper's manifest once there is one.

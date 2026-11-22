@@ -18,6 +18,7 @@ import {
   updateDevice,
 } from "@psyche/db";
 import { type Device, type DeviceScope, type PairingRequest, PsycheError } from "@psyche/protocol";
+import { hostOs } from "@psyche/protocol/host-words";
 import { keyFingerprint } from "../auth.ts";
 import { configWarnings } from "../config.ts";
 import type { Call, GatewayContext, HandlerDef, LiveConnection } from "../context.ts";
@@ -234,6 +235,7 @@ export const devicesHandlers: Record<string, HandlerDef> = {
       return {
         identity: { publicKey: identity.publicKey, fingerprint: identity.fingerprint },
         hostName: hostname(),
+        hostOs: hostOs(),
         publicOrigin: config.publicOrigin,
         trustedProxy: config.trustedProxy.enabled,
         ...(call.identity.scopes.includes("operator.admin") && configWarnings().length > 0

@@ -16519,6 +16519,10 @@ public struct GatewayInfo: Codable, Sendable {
     public let configWarnings: [String]?
     /// The Host machine's name
     public let hostName: String
+    /// The Host's operating system, so a Client names it and its features in the Host's words (a
+    /// Linux Host has no Apple connectors and offers computer use only on its private screen).
+    /// Absent from older Gateways
+    public let hostOS: HostOS?
     public let identity: Identity
     public let lan: LAN?
     /// gateway.publicOrigin, the https address other computers reach it at
@@ -16529,20 +16533,31 @@ public struct GatewayInfo: Codable, Sendable {
     public enum CodingKeys: String, CodingKey {
         case configWarnings = "configWarnings"
         case hostName = "hostName"
+        case hostOS = "hostOs"
         case identity = "identity"
         case lan = "lan"
         case publicOrigin = "publicOrigin"
         case trustedProxy = "trustedProxy"
     }
 
-    public init(configWarnings: [String]? = nil, hostName: String, identity: Identity, lan: LAN? = nil, publicOrigin: String? = nil, trustedProxy: Bool) {
+    public init(configWarnings: [String]? = nil, hostName: String, hostOS: HostOS? = nil, identity: Identity, lan: LAN? = nil, publicOrigin: String? = nil, trustedProxy: Bool) {
         self.configWarnings = configWarnings
         self.hostName = hostName
+        self.hostOS = hostOS
         self.identity = identity
         self.lan = lan
         self.publicOrigin = publicOrigin
         self.trustedProxy = trustedProxy
     }
+}
+
+/// The Host's operating system, so a Client names it and its features in the Host's words (a
+/// Linux Host has no Apple connectors and offers computer use only on its private screen).
+/// Absent from older Gateways
+public enum HostOS: String, Codable, Sendable {
+    case linux = "linux"
+    case macos = "macos"
+    case windows = "windows"
 }
 
 // MARK: - Identity

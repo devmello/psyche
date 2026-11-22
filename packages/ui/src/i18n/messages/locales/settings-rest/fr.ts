@@ -700,8 +700,11 @@ export const settingsRest: Partial<Catalogue> = {
     "Affiche le raisonnement de {persona} pendant son travail. Jamais enregistré.",
   "settings.connectors.page.onHost": "Sur {host}",
   "settings.connectors.page.row.onHost": "Sur {host}",
+  "settings.connectors.page.row.macOnly": "Uniquement sur un hôte Mac",
   "settings.computerUse.remote":
     "L’utilisation de l’ordinateur fonctionne chez {host}. Demandez depuis là-bas, ou utilisez le navigateur.",
+  "settings.computerUse.remoteLinux":
+    "L’utilisation de l’ordinateur se fait sur l’écran privé de {host}. Suivez-la et prenez la main depuis le panneau d’observation.",
   "settings.gateways.title": "Gateways sur cet ordinateur",
   "settings.gateways.description":
     "Utilisez Psyche depuis cet ordinateur avec la Gateway d’un autre, par exemple votre Mac à la maison. Une seule Gateway est active à la fois, et en changer redémarre Psyche.",

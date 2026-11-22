@@ -11,6 +11,12 @@ export const GatewayInfo = Type.Object(
       fingerprint: Type.String({ description: "sha256:<hex> of the raw key, as clients show it" }),
     }),
     hostName: Type.String({ description: "The Host machine's name" }),
+    hostOs: Type.Optional(
+      StringEnum(["macos", "windows", "linux"], {
+        description:
+          "The Host's operating system, so a Client names it and its features in the Host's words (a Linux Host has no Apple connectors and offers computer use only on its private screen). Absent from older Gateways",
+      }),
+    ),
     publicOrigin: Type.Union([Type.String(), Type.Null()], {
       description: "gateway.publicOrigin, the https address other computers reach it at",
     }),

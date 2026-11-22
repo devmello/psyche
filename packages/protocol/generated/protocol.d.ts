@@ -5398,6 +5398,12 @@ export interface GatewayInfo {
      * The Host machine's name
      */
     hostName: string;
+    /**
+     * The Host's operating system, so a Client names it and its features in the Host's words (a
+     * Linux Host has no Apple connectors and offers computer use only on its private screen).
+     * Absent from older Gateways
+     */
+    hostOs?:  HostOS;
     identity: Identity;
     lan?:     LAN;
     /**
@@ -5409,6 +5415,13 @@ export interface GatewayInfo {
      */
     trustedProxy: boolean;
 }
+
+/**
+ * The Host's operating system, so a Client names it and its features in the Host's words (a
+ * Linux Host has no Apple connectors and offers computer use only on its private screen).
+ * Absent from older Gateways
+ */
+export type HostOS = "macos" | "windows" | "linux";
 
 export interface Identity {
     /**

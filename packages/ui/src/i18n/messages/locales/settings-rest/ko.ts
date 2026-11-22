@@ -681,8 +681,11 @@ export const settingsRest: Partial<Catalogue> = {
     "{persona}의 생각을 작업 중에 표시합니다. 저장되지 않습니다.",
   "settings.connectors.page.onHost": "{host}에서",
   "settings.connectors.page.row.onHost": "{host}에서",
+  "settings.connectors.page.row.macOnly": "Mac 호스트에서만",
   "settings.computerUse.remote":
     "컴퓨터 사용은 {host}에서 이루어집니다. 그쪽에서 요청하거나 브라우저를 사용하십시오.",
+  "settings.computerUse.remoteLinux":
+    "컴퓨터 사용은 {host}의 비공개 화면에서 실행됩니다. 보기 창에서 지켜보고 제어를 넘겨받을 수 있습니다.",
   "settings.gateways.title": "이 컴퓨터의 Gateway",
   "settings.gateways.description":
     "집에 있는 Mac 등 다른 컴퓨터의 Gateway를 사용해 이 컴퓨터에서 Psyche를 이용합니다. 한 번에 하나의 Gateway만 활성화되며, 전환하면 Psyche가 다시 시작됩니다.",

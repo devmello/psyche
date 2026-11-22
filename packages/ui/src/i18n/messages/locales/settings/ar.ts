@@ -637,8 +637,11 @@ export const settings: Partial<Catalogue> = {
   "settings.persona.showReasoningHint": "يعرض استدلال {persona} أثناء عمله. لا يُحفظ أبدًا.",
   "settings.connectors.page.onHost": "على {host}",
   "settings.connectors.page.row.onHost": "على {host}",
+  "settings.connectors.page.row.macOnly": "على مضيف Mac فقط",
   "settings.computerUse.remote":
     "استخدام الكمبيوتر يعمل على {host}. اطلب من هناك، أو استخدم المتصفح.",
+  "settings.computerUse.remoteLinux":
+    "يعمل استخدام الحاسوب على الشاشة الخاصة لـ {host}. شاهده وتولَّ التحكم من لوحة المشاهدة.",
   "settings.gateways.title": "Gateways على هذا الكمبيوتر",
   "settings.gateways.description":
     "استخدم Psyche من هذا الكمبيوتر عبر Gateway على كمبيوتر آخر، مثل جهاز Mac في منزلك. يعمل Gateway واحد في كل مرة، والتبديل يعيد تشغيل Psyche.",
