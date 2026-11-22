@@ -4,17 +4,46 @@ You can run the Gateway (`psyched`) on a Linux server or a Mac without a screen,
 
 ## Quick start: an Ubuntu server and your Mac
 
-This is the path that was run end to end: Ubuntu 24.04 (arm64) with the package built from `main`, a Mac on the same network, the answer "No model is configured yet" when no model key was set (expected). You need a user on the server who can use `sudo`.
+You need Ubuntu or Debian, a user on the server who can use `sudo`, and a Mac on the same network with the Psyche app. Without a model key the first reply is "No model is configured yet", which is expected.
 
-1. Install the package on the server. Use the `.deb` from the release, or build one with `node deploy/linux-server/build.mjs` (see the header of that file for its options):
+1. Install the package on the server, as the user Psyche will run for. Use the `.deb` from the release, or build one with `node deploy/linux-server/build.mjs` (see the header of that file for its options):
 
    ```bash
    sudo apt install ./psyche-server-<version>-linux-<arch>.deb
    ```
 
-   It installs `psyche`, `psyched` and a helper, and turns on linger for the user who ran `sudo`, so the Gateway keeps running after you log out. It recommends `avahi-daemon` (see step 3). It cannot be installed next to the desktop package.
+   It installs `psyche`, `psyched` and a helper. It turns on linger for the user who ran `sudo`, so the Gateway keeps running after you log out. It recommends `avahi-daemon`, so the Mac can find the server by name. It can't be installed next to the desktop package.
 
-2. Set it up, as that same user (not root):
+2. Read the setup code the install printed:
+
+   ```text
+   Setup code: 7K3QM-XR2TD
+   ```
+
+   Then the Gateway starts, waiting to be set up. The code works once, for 24 hours. If you lost it or it expired, run `psyche setup code` as that user for a new one (the old one stops working). `psyche status` says whether a code is waiting.
+
+3. On the Mac, open Psyche and choose **Connect to a Psyche server**. Once Psyche is set up on the Mac, use Settings → Server & remote access → Gateways on this computer → **Set up a remote server** instead.
+   - Psyche lists the servers on the network that are waiting for setup. Pick yours, or type its address (`ip addr` on the server shows it).
+   - Confirm the address, then type the code.
+   - Both sides prove they know the code before either trusts the other. Then the Mac pins the server's key and certificate and becomes its first admin.
+
+4. Press **Switch to** the server. Onboarding runs on the server: your agent's name, your name and a model provider. It also asks about **Keep this server reachable on my network**, which is on by default. Turn it off only if you reach the server another way, such as [Tailscale Serve](#tailscale-serve): when onboarding finishes, the server stops listening on the network and the Mac disconnects.
+
+5. Check it: send a message.
+
+If something goes wrong:
+- **"That code isn't right":** check it on the server. After a few wrong tries, the server makes you wait a minute.
+- **"That code has expired":** run `psyche setup code` on the server and type the new code.
+- **No server is listed:** type its address. Ubuntu Server doesn't answer `.local` names or show up on the network without an mDNS responder: `sudo apt install avahi-daemon`.
+- **"That server is already set up":** it was set up from the terminal or another computer. Add it with a pairing link (below).
+
+Once a server has an admin, set up from the app or from the terminal, it never waits for a setup code again.
+
+### Setting it up from the terminal instead
+
+Use this if you'd rather not use the setup code, or the Mac can't reach the server on the network.
+
+1. Set it up, as the user Psyche runs for (not root):
 
    ```bash
    psyche setup --yes --provider skip --start --no-wait
@@ -26,33 +55,32 @@ This is the path that was run end to end: Ubuntu 24.04 (arm64) with the package 
    psyched devices approve <CODE>
    ```
 
-   Then run `psyche setup --yes --provider skip` again, and check that `psyche status` says healthy and paired.
+   Then run `psyche setup --yes --provider skip` again, and check that `psyche status` says healthy and paired. Once the CLI is the server's admin, the setup code stops working.
 
-3. Let computers on your network connect, and name the interface they reach the server on:
+2. Let computers on your network connect, and name the interface they reach the server on:
 
    ```bash
    psyche lan on --interface eth0
    ```
 
-   The pairing link names the server as `https://<hostname>.local:7979`. Ubuntu Server does not answer `.local` names unless it runs an mDNS responder, so your Mac cannot find it by that name. The package recommends `avahi-daemon`; if it is not installed, run:
+   The pairing link names the server as `https://<hostname>.local:7979`, so the Mac needs `avahi-daemon` on the server to find it by that name (see above). If you prefer Tailscale to the local network, skip this step and the next one's `--lan`, and follow [Tailscale Serve](#tailscale-serve) below.
 
-   ```bash
-   sudo apt install avahi-daemon
-   ```
-
-   If you prefer Tailscale to the local network, skip this step and the next one's `--lan`, and follow [Tailscale Serve](#tailscale-serve) below.
-
-4. Make a pairing link on the server:
+3. Make a pairing link on the server:
 
    ```bash
    psyche devices link --lan
    ```
 
-   It prints a `psyche-pair:v2:…` link that works once, for ten minutes. Anyone holding it can pair until then, so do not paste it anywhere shared.
+   It prints a `psyche-pair:v2:…` link that works once, for ten minutes. Anyone holding it can pair until then, so don't paste it anywhere shared.
 
-5. On the Mac, open Psyche, then Settings → Server & remote access → Gateways on this computer → Add a Gateway. Paste the link, check the key fingerprint it shows against the one on the server (`psyched identity show`), add it, then press Switch. The Mac pins the server's key and certificate and pairs by itself, because the link carries the one-time token.
+4. On the Mac, open Psyche, then Settings → Server & remote access → Gateways on this computer → Add a Gateway.
+   - Paste the link.
+   - Check the key fingerprint it shows against the one on the server (`psyched identity show`).
+   - Add it, then press Switch.
 
-6. Check it: send a message. Without a model key the reply is "No model is configured yet." Give the Gateway a model through `psyche setup` (run it without `--provider skip`).
+   The Mac pins the server's key and certificate and pairs by itself, because the link carries the one-time token.
+
+5. Check it: send a message. Without a model key the reply is "No model is configured yet." Give the Gateway a model through `psyche setup` (run it without `--provider skip`).
 
 ### If the Mac cannot reach the server by name
 
@@ -70,7 +98,7 @@ You can add the server by its address instead, without a link:
 
 ### Checking from a script
 
-`apps/desktop/scripts/remote-e2e.ts` is a manual check that uses the desktop app's own connection code. It pairs with a link (or a typed address), lists and creates a thread, and sends one message. See the comment at the top of the file for how to run it. It is not part of any test suite.
+`apps/desktop/scripts/remote-e2e.ts` is a manual check that uses the desktop app's own connection code. It pairs with a link or a typed address, or sets up a fresh server with its setup code (`--claim <code> <address>`). Then it lists and creates a thread and sends one message. See the comment at the top of the file for how to run it. It is not part of any test suite.
 
 Everything below applies to other setups, and to using the Gateway beyond this quick start.
 

@@ -7,6 +7,9 @@
 //   node apps/desktop/scripts/remote-e2e.ts '<psyche-pair:v2:...>' [state-dir]
 //   node apps/desktop/scripts/remote-e2e.ts https://<server ip>:7979      # typed address:
 //       prints a pairing code; approve it on the server with `psyche pairing approve <code>`
+//   node apps/desktop/scripts/remote-e2e.ts --claim <setup code> <server ip or name> [state-dir]
+//       sets up a fresh psyche-server with its setup code (remote-gateway design §3.6), the way
+//       "Set up a remote server" does, then connects with the pins it proved, as its admin
 //
 // If this computer cannot resolve the server's <hostname>.local name, dial an address instead:
 //   E2E_DIAL_HOST=<server ip> node apps/desktop/scripts/remote-e2e.ts '<link>'
@@ -15,28 +18,70 @@ import { hostname, tmpdir } from "node:os";
 import { join } from "node:path";
 import { PROTOCOL_VERSION, parsePairingLinkAny } from "../../../packages/protocol/src/index.ts";
 import { GatewayConnection } from "../../web/src/client/index.ts";
+import { claimServer } from "../src/lib/claim-client.ts";
 import {
   loadOrCreateDeviceKey,
   platformFromNode,
   signWithDeviceKey,
 } from "../src/lib/device-key.ts";
 import { createGatewayVerifier, fingerprintOf } from "../src/lib/gateway-identity.ts";
+import { claimOriginFor } from "../src/lib/gateways.ts";
 import { createPinnedFetch, createPinnedWebSocket, PinnedChannel } from "../src/lib/lan-tls.ts";
 
-const link = process.argv[2];
-if (!link) throw new Error("usage: remote-e2e.ts <psyche-pair:v2 link> [state-dir]");
-const dir = process.argv[3] ?? mkdtempSync(join(tmpdir(), "psyche-e2e-client-"));
-// A typed address (https://host:7979) pairs without a link: trust on first use, approved on the Host.
-const typed = /^https:/i.test(link);
-const parsed = typed ? undefined : parsePairingLinkAny(link);
-if (parsed !== undefined && parsed.version !== 2) throw new Error("expected a v2 (LAN) link");
-const p = parsed?.payload ?? {
-  gatewayUrl: link,
-  gatewayKey: undefined,
-  certPin: undefined,
-  setupToken: undefined,
-  hostName: "typed address",
+const claiming = process.argv[2] === "--claim";
+const args = claiming ? process.argv.slice(3) : process.argv.slice(2);
+const link = claiming ? args[1] : args[0];
+if (!link) {
+  throw new Error(
+    "usage: remote-e2e.ts <psyche-pair:v2 link> [state-dir] | --claim <code> <address> [state-dir]",
+  );
+}
+const dir = args[claiming ? 2 : 1] ?? mkdtempSync(join(tmpdir(), "psyche-e2e-client-"));
+const key = loadOrCreateDeviceKey(join(dir, "device-key.json"));
+type Target = {
+  gatewayUrl: string;
+  gatewayKey: string | undefined;
+  certPin: string | undefined;
+  setupToken: string | undefined;
+  hostName: string;
 };
+let p: Target;
+if (claiming) {
+  const claimOrigin = claimOriginFor(link);
+  const u = new URL(claimOrigin);
+  console.log("claiming", claimOrigin, "(by the address typed, not Bonjour)");
+  const claimed = await claimServer({
+    host: process.env.E2E_DIAL_HOST ?? u.hostname,
+    port: Number(u.port || 443),
+    code: args[0] ?? "",
+    device: {
+      deviceId: key.deviceId,
+      publicKey: key.publicKey,
+      name: `Psyche e2e client (${hostname()})`.slice(0, 64),
+      platform: platformFromNode(process.platform),
+    },
+  });
+  console.log("CLAIMED: both sides proved the code; pinning", fingerprintOf(claimed.gatewayKey));
+  p = {
+    gatewayUrl: claimOrigin,
+    gatewayKey: claimed.gatewayKey,
+    certPin: claimed.certSpki,
+    setupToken: undefined,
+    hostName: claimed.hostName,
+  };
+} else {
+  // A typed address (https://host:7979) pairs without a link: trust on first use, approved on the Host.
+  const typed = /^https:/i.test(link);
+  const parsed = typed ? undefined : parsePairingLinkAny(link);
+  if (parsed !== undefined && parsed.version !== 2) throw new Error("expected a v2 (LAN) link");
+  p = parsed?.payload ?? {
+    gatewayUrl: link,
+    gatewayKey: undefined,
+    certPin: undefined,
+    setupToken: undefined,
+    hostName: "typed address",
+  };
+}
 const origin = new URL(p.gatewayUrl).origin;
 console.log(
   "target",
@@ -49,8 +94,7 @@ console.log(
 const dial = process.env.E2E_DIAL_HOST;
 const url = new URL(origin);
 const dialHost = dial ?? url.hostname;
-const key = loadOrCreateDeviceKey(join(dir, "device-key.json"));
-let pinnedKey: string | undefined;
+const pinnedKey: string | undefined = claiming ? p.gatewayKey : undefined;
 const pinnedCert: string | undefined = p.certPin;
 const channel = new PinnedChannel({
   host: dialHost,
@@ -122,5 +166,16 @@ const hist: any = await conn.call("chat.history", { threadId });
 for (const m of hist.messages.slice().reverse())
   console.log(`[${m.role}]`, JSON.stringify(m).slice(0, 400));
 console.log("events seen:", [...new Set(events)].join(", "));
+if (claiming) {
+  const info: any = await conn.call("gateway.info", {});
+  console.log("gateway.info.claim ->", JSON.stringify(info.claim ?? null));
+  // Keeps the listener on (onboarding's "Keep this server reachable on my network").
+  const done: any = await conn.call(
+    "gateway.claim.finish",
+    { keepLan: true },
+    { idempotencyKey: `e2e:claim:${Date.now()}` },
+  );
+  console.log("gateway.claim.finish ->", JSON.stringify(done));
+}
 conn.stop();
 process.exit(0);

@@ -20,6 +20,8 @@ export interface DiscoveredGateway {
   fingerprint: string | null;
   /** Another announcement for this origin disagreed on the key (or left it out). */
   conflict: boolean;
+  /** `claim=1`: a fresh psyche-server waiting for its setup code (design §3.6). A claim too. */
+  claimable: boolean;
 }
 
 /** What a Bonjour browser reports for one service. */
@@ -57,6 +59,7 @@ export function toDiscovered(svc: FoundService): DiscoveredGateway | null {
     origin,
     fingerprint: HEX64.test(fp) ? `sha256:${fp}` : null,
     conflict: false,
+    claimable: txt.claim !== undefined && String(txt.claim) === "1",
   };
 }
 

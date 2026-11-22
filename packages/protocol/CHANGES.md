@@ -22,6 +22,11 @@ CI fails when the generated files are stale (`pnpm protocol:check`).
 
 ## Log
 
+### v1 additive — 2026-11-21 (setting up a remote server with a setup code)
+
+- New methods `gateway.claim.hello` and `gateway.claim.prove` (scope `none`, callable before `connect` and only while a fresh psyche-server is in claim mode), and `gateway.claim.finish` (`operator.admin`, `{ keepLan }` to `{ lan }`). New schemas `ClaimHelloParams`, `ClaimHelloResult`, `ClaimProveParams`, `ClaimProveResult`. `GatewayInfo` gains an optional `claim: { lanChoicePending }`.
+- New pure helpers in `claim.ts` (`normalizeSetupCode`, `formatSetupCode`, `claimTranscript`, `CLAIM_SCOPES`, `CLAIM_TXT_KEY`) and a Node subpath `@psyche/protocol/claim-node` (the scrypt-keyed HMAC proofs and the hashed code file). The Bonjour TXT record may carry `claim=1`. Design: docs/design/remote-gateway-2026.md §3.6.
+
 ### v1 additive — 2026-11-20 (Spaces, wave S2: folder scope)
 
 - `ApprovalAnswer` gains an optional `inSpace: true`: "Allow in this Space" on a `folder_access` card that offered it (`details.space`, set by the Gateway), sent with `scope: "once"`. The pick joins that Space's folders.

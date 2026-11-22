@@ -48,3 +48,32 @@ export function psycheServerTarballRoot(execPath: string = process.execPath): st
 export function isTarballInstall(execPath: string = process.execPath): boolean {
   return psycheServerTarballRoot(execPath).length > 0;
 }
+
+const kinds = new Map<string, string | null>();
+
+/**
+ * The kind of psyche-server install this Gateway runs from (`deb`, `rpm` or `tarball`), read
+ * from `psyche-server.json` beside its bundle (`<root>/psyched/runtime/node` is this process's
+ * Node); null for every other install (the desktop app, a checkout, Docker).
+ */
+export function psycheServerKind(execPath: string = process.execPath): string | null {
+  const known = kinds.get(execPath);
+  if (known !== undefined) return known;
+  let kind: string | null = null;
+  try {
+    const root = dirname(dirname(dirname(realpathSync(execPath))));
+    const info = JSON.parse(readFileSync(join(root, "psyche-server.json"), "utf8")) as {
+      format?: unknown;
+      kind?: unknown;
+    };
+    if (
+      info.format === "psyche-server-install" &&
+      (info.kind === "deb" || info.kind === "rpm" || info.kind === "tarball")
+    )
+      kind = info.kind;
+  } catch {
+    // Not a psyche-server install.
+  }
+  kinds.set(execPath, kind);
+  return kind;
+}

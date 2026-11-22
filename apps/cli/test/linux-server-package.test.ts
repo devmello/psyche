@@ -457,6 +457,9 @@ describe("the maintainer scripts on upgrade and removal", () => {
     writeFileSync(join(dir, "systemctl"), `#!/bin/sh\necho "systemctl $*" >> "${log}"\nexit 0\n`, {
       mode: 0o755,
     });
+    writeFileSync(join(dir, "runuser"), `#!/bin/sh\necho "runuser $*" >> "${log}"\nexit 0\n`, {
+      mode: 0o755,
+    });
     writeFileSync(
       join(dir, "getent"),
       "#!/bin/sh\necho 'ann:x:1000:1000::/nonexistent:/bin/sh'\n",
@@ -483,11 +486,29 @@ describe("the maintainer scripts on upgrade and removal", () => {
         expect(r.code).toBe(0);
         expect(r.calls).toContain("loginctl enable-linger ann");
         expect(r.calls.some((c) => c.includes("try-restart"))).toBe(false);
+        // The setup code, made as that user, then the Gateway started for them (design §3.6).
+        const code = r.calls.indexOf(
+          "runuser -u ann -- env HOME=/nonexistent /usr/bin/psyche setup code",
+        );
+        const start = r.calls.indexOf(
+          "systemctl --machine ann@ --user enable --now psyche-gateway.service",
+        );
+        expect(code).toBeGreaterThanOrEqual(0);
+        expect(start).toBeGreaterThan(code);
       }
+      // No sudo user: nothing is made or started for anyone; it says what to run.
+      const plain = await runScript(POSTINST, ["configure", ""]);
+      expect(plain.code).toBe(0);
+      expect(plain.calls.some((c) => c.includes("runuser") || c.includes("enable --now"))).toBe(
+        false,
+      );
+      expect(plain.stdout).toContain("psyche setup code");
       for (const upgrade of [["configure", "1.4.0"], ["2"]]) {
         const r = await runScript(POSTINST, upgrade, { SUDO_USER: "ann" });
         expect(r.code).toBe(0);
         expect(r.calls.some((c) => c.includes("enable-linger"))).toBe(false);
+        // An upgrade never makes a new code (that would stop the one the owner has).
+        expect(r.calls.some((c) => c.includes("setup code"))).toBe(false);
         for (const u of ["ann", "bob"])
           expect(r.calls).toContain(
             `systemctl --machine ${u}@ --user try-restart psyche-gateway.service psyche-helper-headless.service`,
