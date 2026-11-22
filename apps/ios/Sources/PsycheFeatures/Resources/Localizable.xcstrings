@@ -1421,6 +1421,148 @@
         }
       }
     },
+    "notice.codeRun.unchecked.body": {
+      "extractionState": "manual",
+      "localizations": {
+        "ar": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "تغيّر {paths} بينما كان Psyche يفحصه بعد تشغيل أمر في بيئة العزل، لذلك لم يُفحص أي شيء بداخله بحثًا عن إعدادات تشغيل. إذا لم تغيّره أنت أو أدواتك، فانظر فيه قبل أن تفتح المجلد أو تشغّل أي شيء فيه."
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "{paths} hat sich geändert, während Psyche es nach einem Befehl in der Sandbox geprüft hat, deshalb wurde darin nichts auf Startkonfiguration geprüft. Wenn weder du noch deine Tools es geändert haben, sieh es dir an, bevor du den Ordner öffnest oder dort etwas ausführst."
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "{paths} changed while Psyche checked it after a command ran in the sandbox, so nothing in it was checked for launch config. If you or your tools didn't change it, look at it before you open the folder or run anything there."
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "{paths} cambió mientras Psyche lo revisaba tras un comando en el sandbox, así que no se revisó nada de su interior en busca de configuración de inicio. Si no lo cambiaste tú ni tus herramientas, míralo antes de abrir la carpeta o ejecutar algo en ella."
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "{paths} a changé pendant que Psyche le vérifiait après une commande dans le bac à sable : rien à l'intérieur n'a donc été vérifié pour la configuration de lancement. Si ni vous ni vos outils ne l'avez modifié, regardez-le avant d'ouvrir le dossier ou d'y exécuter quoi que ce soit."
+          }
+        },
+        "hi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "सैंडबॉक्स में कमांड चलने के बाद जब Psyche {paths} को जाँच रहा था, तब यह बदल गया, इसलिए इसके अंदर लॉन्च कॉन्फ़िगरेशन के लिए कुछ भी नहीं जाँचा गया। अगर इसे आपने या आपके टूल ने नहीं बदला, तो फ़ोल्डर खोलने या वहाँ कुछ भी चलाने से पहले इसे देख लें।"
+          }
+        },
+        "it": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "{paths} è cambiato mentre Psyche lo controllava dopo un comando nella sandbox, quindi al suo interno non è stato controllato nulla in cerca di configurazione di avvio. Se non l'hai cambiato tu o i tuoi strumenti, guardalo prima di aprire la cartella o di eseguirci qualcosa."
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "サンドボックスでコマンドを実行した後、Psyche が {paths} を確認している間にそれが変わったため、中の起動設定は何も確認されていません。あなたやツールが変更したのでなければ、フォルダを開いたり、そこで何かを実行したりする前に確認してください。"
+          }
+        },
+        "ko": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "샌드박스에서 명령을 실행한 뒤 Psyche가 {paths}을(를) 확인하는 동안 바뀌어서, 그 안의 실행 구성은 아무것도 확인하지 못했습니다. 본인이나 사용 중인 도구가 바꾼 것이 아니라면 폴더를 열거나 그곳에서 무엇이든 실행하기 전에 살펴보세요."
+          }
+        },
+        "pt": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "{paths} mudou enquanto o Psyche o verificava depois de um comando no sandbox, então nada dentro dele foi verificado em busca de configuração de inicialização. Se não foi você nem suas ferramentas que o mudaram, olhe antes de abrir a pasta ou executar qualquer coisa nela."
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "沙盒中的命令运行后，Psyche 检查 {paths} 时它发生了变化，所以其中的启动配置都没有检查。如果不是你或你的工具改动了它，请在打开该文件夹或在其中运行任何内容之前先查看它。"
+          }
+        }
+      }
+    },
+    "notice.codeRun.unchecked.title": {
+      "extractionState": "manual",
+      "localizations": {
+        "ar": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "تعذّر على Psyche فحص جزء من {repo} بعد تنفيذ كود"
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Psyche konnte nach einem Code-Lauf einen Teil von {repo} nicht prüfen"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Psyche could not check part of {repo} after a code run"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Psyche no pudo revisar parte de {repo} tras una ejecución de código"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Psyche n'a pas pu vérifier une partie de {repo} après une exécution de code"
+          }
+        },
+        "hi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "कोड रन के बाद Psyche {repo} का एक हिस्सा जाँच नहीं सका"
+          }
+        },
+        "it": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Psyche non è riuscito a controllare una parte di {repo} dopo un'esecuzione di codice"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "コード実行の後、Psyche は {repo} の一部を確認できませんでした"
+          }
+        },
+        "ko": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "코드 실행 후 Psyche가 {repo}의 일부를 확인하지 못했습니다"
+          }
+        },
+        "pt": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "O Psyche não conseguiu verificar parte de {repo} depois de uma execução de código"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "代码运行后，Psyche 未能检查 {repo} 的一部分"
+          }
+        }
+      }
+    },
     "notice.codeRun.unmoved.body": {
       "extractionState": "manual",
       "localizations": {

@@ -232,7 +232,7 @@ mod linux {
             match self.op {
                 AppsOp::List => CapabilitySpec {
                     name: "apps.list",
-                    description: "Running apps: bundleId (the desktop file id, the id computer.* uses), name, pid, frontmost, window count and the computer-use tier in effect.",
+                    description: "Running apps: bundleId (the desktop file id, the id computer.* uses), alsoIds (other ids the same program answers to, such as a system Flatpak's own id), name, pid, frontmost, window count and the computer-use tier in effect.",
                     side_effect: SideEffect::Read,
                     target_kind: None,
                     streaming: false,
@@ -345,8 +345,8 @@ mod linux {
                         .into_iter()
                         .map(|a| {
                             json!({
-                                "bundleId": a.id, "name": a.name, "pid": a.pid, "frontmost": a.frontmost,
-                                "windows": a.windows, "tier": engine.policy.effective_tier(Some(&a.id)).as_str(),
+                                "bundleId": a.id, "alsoIds": a.also_ids, "name": a.name, "pid": a.pid, "frontmost": a.frontmost,
+                                "windows": a.windows, "tier": engine.policy.effective_tier_app(&a).as_str(),
                             })
                         })
                         .collect();
@@ -366,7 +366,7 @@ mod linux {
                         .map_err(|e| cap_error(&e))?;
                     engine
                         .policy
-                        .authorize(Intent::Click, Some(&app.id), &app.name, binding.as_ref())
+                        .authorize_app(Intent::Click, &app, binding.as_ref())
                         .map_err(|e| cap_error(&e))?;
                     let window = ctx
                         .params
@@ -378,7 +378,7 @@ mod linux {
                         .activate(&app, window, &engine.stop)
                         .map_err(|e| cap_error(&e))?;
                     Ok(
-                        json!({"focused": moved, "focus": if moved { "moved" } else { "requested" }, "app": app.id}),
+                        json!({"focused": moved, "focus": if moved { "moved" } else { "requested" }, "app": app.id, "alsoIds": app.also_ids}),
                     )
                 }
             }
@@ -513,6 +513,36 @@ mod linux {
         state_dir(&ProcessEnv).join("portal.json")
     }
 
+    /// Deletes the stored restore token; `revoked` says whether there was one. psyched treats
+    /// this answer as the confirmation that clears a pending Revoke, so a token that could not be
+    /// deleted is an error, never `revoked`.
+    fn forget_portal_token(path: &std::path::Path) -> Result<Value, CapabilityError> {
+        match std::fs::remove_file(path) {
+            Ok(()) => Ok(json!({"revoked": true})),
+            Err(e) if e.kind() == std::io::ErrorKind::NotFound => Ok(json!({"revoked": false})),
+            Err(_) => Err(CapabilityError::new(
+                ErrorCode::Internal,
+                "revoke_failed",
+                "Could not delete the stored screen and input permission",
+            )),
+        }
+    }
+
+    /// A Misc op on the headless helper. The others act on the session bus and portals of the
+    /// environment, which under linger are the owner's, not the virtual screen's private ones, so
+    /// they are refused. Revoke is only a file in the state dir both helpers share: the headless
+    /// helper forgets the stored grant too, so the graphical helper cannot reuse it later.
+    fn headless_misc(op: &Misc, token: &std::path::Path) -> Result<Value, CapabilityError> {
+        match op {
+            Misc::PortalRevoke => forget_portal_token(token),
+            _ => Err(CapabilityError::new(
+                ErrorCode::Unavailable,
+                "headless",
+                "Not available in headless mode: the virtual screen has its own private session",
+            )),
+        }
+    }
+
     fn portal_status(shared: &Shared) -> Value {
         let kind = SessionKind::detect(&env_get);
         let desktop = desktop_name(&env_get);
@@ -596,14 +626,8 @@ mod linux {
         }
 
         fn invoke(&self, ctx: &InvocationContext) -> Result<Value, CapabilityError> {
-            // Headless: these act on the session bus and portals of the environment, which under
-            // linger are the owner's, not the virtual screen's private ones.
             if crate::headless::active() {
-                return Err(CapabilityError::new(
-                    ErrorCode::Unavailable,
-                    "headless",
-                    "Not available in headless mode: the virtual screen has its own private session",
-                ));
+                return headless_misc(&self.op, &portal_token_path());
             }
             match self.op {
                 Misc::A11yStatus => Ok(a11y_status()),
@@ -622,8 +646,6 @@ mod linux {
                 }
                 Misc::PortalStatus => Ok(portal_status(&self.shared)),
                 Misc::PortalRevoke => {
-                    let path = portal_token_path();
-                    let had = path.exists();
                     if let Some(p) = self
                         .shared
                         .portal
@@ -633,8 +655,7 @@ mod linux {
                     {
                         p.revoke();
                     }
-                    let _ = std::fs::remove_file(&path);
-                    Ok(json!({"revoked": had}))
+                    forget_portal_token(&portal_token_path())
                 }
             }
         }
@@ -846,6 +867,48 @@ mod linux {
                 serde_json::to_value(err.payload()).unwrap()["details"]["reason"],
                 "no_graphical_session"
             );
+        }
+
+        #[test]
+        fn forgetting_the_portal_token_deletes_it_and_says_so() {
+            let dir = tempfile::tempdir().unwrap();
+            let path = dir.path().join("portal.json");
+            write_private(&path, &json!({"restoreToken": "t"})).unwrap();
+            assert_eq!(
+                forget_portal_token(&path).unwrap(),
+                json!({"revoked": true})
+            );
+            assert!(!path.exists());
+            // Nothing stored: still a confirmed answer, with nothing revoked.
+            assert_eq!(
+                forget_portal_token(&path).unwrap(),
+                json!({"revoked": false})
+            );
+            // A token that cannot be deleted is an error, so psyched keeps the Revoke pending.
+            let stuck = dir.path().join("stuck");
+            std::fs::create_dir_all(stuck.join("child")).unwrap();
+            assert!(forget_portal_token(&stuck).is_err());
+        }
+
+        /// PR #1498 r3: the headless helper shares the state dir, so it forgets the grant too
+        /// instead of refusing (a refusal used to leave the token for the graphical helper).
+        #[test]
+        fn the_headless_helper_answers_portal_revoke_and_refuses_the_rest() {
+            let dir = tempfile::tempdir().unwrap();
+            let token = dir.path().join("portal.json");
+            write_private(&token, &json!({"restoreToken": "t"})).unwrap();
+            assert_eq!(
+                headless_misc(&Misc::PortalRevoke, &token).unwrap(),
+                json!({"revoked": true})
+            );
+            assert!(!token.exists());
+            for op in [Misc::A11yStatus, Misc::A11yEnable, Misc::PortalStatus] {
+                let err = headless_misc(&op, &token).expect_err("refused in headless mode");
+                assert_eq!(
+                    serde_json::to_value(err.payload()).unwrap()["code"],
+                    "unavailable"
+                );
+            }
         }
 
         #[test]

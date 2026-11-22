@@ -236,6 +236,11 @@ export function ThreadRow({
           </span>
           {th.pinned && glyphLabel ? <span className="sr-only">{glyphLabel}</span> : null}
           <span className="min-w-0 flex-1 truncate">{threadTitle(entry)}</span>
+          {th.imported !== undefined ? (
+            <span className="shrink-0 rounded-sm bg-fill-tertiary px-1.5 text-callout text-label-secondary">
+              {t("shell.threads.imported")}
+            </span>
+          ) : null}
           {needs > 0 ? (
             <span className="sr-only">{t("shell.threads.srNeedsYou")}</span>
           ) : entry.activity.running > 0 ? (
@@ -319,7 +324,7 @@ export function ThreadRow({
               ) : null}
             </>
           ) : null}
-          {th.kind !== "main" && (onArchive || onRestore) ? (
+          {th.kind !== "main" && th.imported === undefined && (onArchive || onRestore) ? (
             <>
               <DropdownMenuSeparator />
               {th.archivedAt == null ? (

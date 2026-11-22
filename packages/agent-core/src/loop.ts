@@ -1011,6 +1011,17 @@ export class PsycheAgentLoop implements AgentLoop {
     };
     this.#runs.set(runId, run);
     this.#ranHere.add(runId);
+    // The run's Space is fixed here, before the prompt is built, for the whole run (spaces-2026
+    // SR3): nothing else on this thread (a preview, a widget, another run) can change it.
+    this.#o.broker.bindRun?.({
+      threadId,
+      runId,
+      unattended: run.mode === "unattended",
+      ...(requester === undefined ? {} : { requester: structuredClone(requester) }),
+      ...(child === undefined
+        ? {}
+        : { parent: { threadId: child.parent.threadId, runId: child.parent.runId } }),
+    });
     let outcome: RunOutcome = "final";
     let error: string | undefined;
     // `run.thread` starts empty: it is saved only once the stored thread was read into it, so a
@@ -1151,6 +1162,7 @@ export class PsycheAgentLoop implements AgentLoop {
         }
       }
       this.#runs.delete(runId);
+      this.#o.broker.endRun?.(threadId, runId);
       thread.activeRunId = undefined;
     }
     this.#reportContext(run);

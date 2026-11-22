@@ -23,6 +23,7 @@ import { homeRest } from "./home-rest/ko.ts";
 import { keepAwake } from "./keep-awake/ko.ts";
 import { links } from "./links/ko.ts";
 import { linuxAccess } from "./linux-access/ko.ts";
+import { machines } from "./machines/ko.ts";
 import { mailFollowups } from "./mail-followups/ko.ts";
 import { mailMeetings } from "./mail-meetings/ko.ts";
 import { meetingRecordRest } from "./meetingRecord-rest/ko.ts";
@@ -174,6 +175,15 @@ export const ko: Partial<Catalogue> = {
   "errors.reason.secret_required": "다른 클라이언트에는 해당 클라이언트의 보안 비밀이 필요합니다.",
   "errors.reason.updating":
     "Psyche가 업데이트를 설치하기 위해 곧 다시 시작됩니다. 잠시 후 다시 시도하십시오.",
+  "errors.reason.passkey_required": "이 Psyche에서 결제를 승인하려면 패스키를 설정하세요.",
+  "errors.reason.awaiting_owner":
+    "앱에 저장되지 않은 변경 사항이 있습니다. 어떻게 할지 결정할 때까지 Psyche가 기다립니다.",
+  "errors.reason.checkout_needs_desktop":
+    "Psyche 브라우저에서 결제하려면 Psyche 데스크톱 앱이 이 호스트에 연결되어 있어야 합니다.",
+  "errors.reason.no_chromium":
+    "Psyche 브라우저에는 이 호스트의 Chromium이 필요합니다. 설치하거나 PSYCHE_CHROMIUM을 설정하세요.",
+  "errors.reason.chromium_sandbox":
+    "이 호스트에서 Chromium 샌드박스를 시작할 수 없어 Psyche 브라우저가 꺼져 있습니다. Chromium이 사용자 네임스페이스를 쓰도록 허용하세요(AppArmor 프로파일).",
   "errors.unavailable": "Psyche가 지금은 해당 작업을 할 수 없습니다.",
   "errors.approval_required": "먼저 사용자의 승인이 필요합니다.",
   "errors.approval_expired": "승인이 만료되었습니다. 다시 요청하십시오.",
@@ -790,7 +800,45 @@ export const ko: Partial<Catalogue> = {
   "agent.memory.incognito": "시크릿 사이드 채팅",
   "agent.memory.importExport": "가져오기, 내보내기 및 재설정",
   "agent.memory.import": "메모리 가져오기",
+  "agent.memory.importConv.title": "claude.ai 또는 ChatGPT에서 가져오기",
+  "agent.memory.importConv.note":
+    "가져온 대화는 읽기 전용입니다. 텍스트는 신뢰할 수 없는 데이터로 취급되며 고정 항목이나 지시가 되지 않습니다.",
+  "agent.memory.importConv.source": "내보낸 곳",
+  "agent.memory.importConv.claude": "claude.ai",
+  "agent.memory.importConv.chatgpt": "ChatGPT",
+  "agent.memory.importConv.mode": "가져올 내용",
+  "agent.memory.importConv.memoriesOnly": "메모리만",
+  "agent.memory.importConv.both": "메모리와 대화",
+  "agent.memory.importConv.memoriesFile": "메모리 파일",
+  "agent.memory.importConv.conversationsFile": "대화 파일(conversations.json)",
+  "agent.memory.importConv.start": "가져오기",
+  "agent.memory.importConv.working": "가져오는 중…",
+  "agent.memory.importConv.cancel": "취소",
+  "agent.memory.importConv.close": "닫기",
+  "agent.memory.importConv.progressMemories": "메모리를 가져오는 중…",
+  "agent.memory.importConv.progressConversations": "대화를 가져오는 중…",
+  "agent.memory.importConv.failed": "이 파일을 가져올 수 없습니다: {reason}",
+  "agent.memory.importConv.done": "가져오기가 끝났습니다.",
+  "agent.memory.importConv.sumMemories": "검토할 메모리: {n}",
+  "agent.memory.importConv.sumThreads": "가져온 대화: {n}",
+  "agent.memory.importConv.sumDuplicates": "이전에 이미 가져옴: {n}",
+  "agent.memory.importConv.sumSkipped": "건너뛴 대화: {n}",
+  "agent.memory.importConv.skipTooMany": "대화 {n}개 한도를 넘었습니다",
+  "agent.memory.importConv.skipTooLarge": "너무 깁니다",
+  "agent.memory.importConv.skipEmpty": "메시지가 없습니다",
+  "agent.memory.importConv.skipInvalid": "읽을 수 없습니다",
+  "agent.memory.importConv.untitled": "제목 없음",
+  "agent.memory.importConv.progressCount": "대화를 가져오는 중… {done}/{total}",
+  "agent.memory.importConv.tooBig":
+    "이 파일은 {mb}MB를 넘어 여기서 읽기에는 너무 큽니다. 범위를 줄여 다시 내보내세요.",
+  "agent.memory.importConv.memoriesTooBig":
+    "이 메모리 파일은 {kb}KB를 넘어 한 번에 가져올 수 없습니다. 파일을 나누거나 내보낼 메모리를 줄이세요.",
+  "agent.memory.importConv.partial":
+    "완료되기 전에 중단되었습니다: {reason}. {total}개 중 {done}개 묶음을 가져왔습니다. 다시 가져오면 이어서 진행하며, 이미 가져온 대화는 건너뜁니다.",
+  "agent.memory.importConv.retry": "다시 가져오기",
   "agent.memory.exported": "{file}을(를) 내보냈습니다.",
+  "agent.memory.importConv.memoriesFailed":
+    "메모리를 가져오지 못했습니다: {reason}. 다시 가져오기를 눌러 재시도하세요.",
   "agent.memory.export": "모두 내보내기",
   "agent.memory.resetDone":
     "{files, plural, other {파일 #개}}, {claims, plural, other {주장 #개}}를 재설정했습니다.",
@@ -898,6 +946,8 @@ export const ko: Partial<Catalogue> = {
   "shell.threads.unpin": "고정 해제",
   "shell.threads.pin": "고정",
   "shell.threads.archive": "보관",
+  "shell.threads.imported": "가져옴",
+  "shell.threads.importedReadOnly": "가져온 이 대화는 읽기 전용입니다.",
   "shell.threads.restore": "복원",
   "shell.threads.region": "스레드",
   "shell.threads.filter": "스레드 필터",
@@ -3739,4 +3789,5 @@ export const ko: Partial<Catalogue> = {
   ...mailFollowups,
   ...keepAwake,
   ...spaces,
+  ...machines,
 };

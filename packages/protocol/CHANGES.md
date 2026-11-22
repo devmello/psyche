@@ -22,6 +22,17 @@ CI fails when the generated files are stale (`pnpm protocol:check`).
 
 ## Log
 
+### v1 additive — 2026-11-21 (setting up a remote server with a setup code)
+
+- New methods `gateway.claim.hello` and `gateway.claim.prove` (scope `none`, callable before `connect` and only while a fresh psyche-server is in claim mode), and `gateway.claim.finish` (`operator.admin`, `{ keepLan }` to `{ lan }`). New schemas `ClaimHelloParams`, `ClaimHelloResult`, `ClaimProveParams`, `ClaimProveResult`. `GatewayInfo` gains an optional `claim: { lanChoicePending }`.
+- New pure helpers in `claim.ts` (`normalizeSetupCode`, `formatSetupCode`, `claimTranscript`, `CLAIM_SCOPES`, `CLAIM_TXT_KEY`) and a Node subpath `@psyche/protocol/claim-node` (the scrypt-keyed HMAC proofs and the hashed code file). The Bonjour TXT record may carry `claim=1`. Design: docs/design/remote-gateway-2026.md §3.6.
+
+### v1 additive — 2026-11-20 (Spaces, wave S2: folder scope)
+
+- `ApprovalAnswer` gains an optional `inSpace: true`: "Allow in this Space" on a `folder_access` card that offered it (`details.space`, set by the Gateway), sent with `scope: "once"`. The pick joins that Space's folders.
+- `AccessEntry.scope` gains `space` (a value at the end); new optional `spaceId`, `spaceName` and `automationsWrite` on a `space` row. `access.revoke` takes its id. Design: docs/design/spaces-2026.md §5.3.
+- The `PermissionBroker` contract gains optional `bindRun(RunBindingInput)` and `endRun(threadId, runId)`: the agent loop fixes a run's Space at its start, before the prompt, and drops it at its end (SR3). Bindings are keyed by (thread, run); `preview` never binds. `RunBindingInput.space` lets the loop pass its own run-start Space.
+
 ### v1 additive — 2026-11-19 (machine registry, H3)
 
 - New method `node.unpair` (scope `node`, `{}` to `{ device }`): a connection paired as a machine removes itself; any other node gets `forbidden`. `MACHINE_TOKENS_ENABLED` is now true. Design: docs/design/linux-helper-only-2026.md §6.6, §9.

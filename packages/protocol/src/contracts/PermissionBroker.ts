@@ -166,6 +166,28 @@ export interface DecisionContext {
   requester?: Requester;
 }
 
+/**
+ * One run, at its start (spaces-2026 §5.3, SR3): the agent loop tells the broker before it builds
+ * the prompt, and the broker fixes the Space the run works in for its whole life. Calls are keyed
+ * by (thread, run): a call from another run, a preview or a widget on the same thread never
+ * changes it.
+ */
+export interface RunBindingInput {
+  threadId: string;
+  runId: string;
+  /** An automation's or Task's run: Space folders stay read-only unless the owner allowed writes. */
+  unattended?: boolean;
+  /** Who the run is for; only the owner's runs work in a Space (SR11). */
+  requester?: Requester;
+  /** A subagent's parent run: the subagent works in the parent run's Space. */
+  parent?: { threadId: string; runId: string };
+  /**
+   * The Space the loop already fixed for this run (`null`: none). Absent, the broker reads the
+   * thread's Space itself.
+   */
+  space?: { id: string; name?: string } | null;
+}
+
 export interface DecisionResult {
   decision: Decision;
   /** Deciding rule for the audit log, e.g. `mode:balanced/write`, `grant:<id>`, `taint:new_target`. */
@@ -317,6 +339,10 @@ export interface PermissionBroker {
    * (reason `owner_replied_in_chat`, audited) and returns them. Typed text never approves.
    */
   denyPendingForRun?(runId: string, reason?: string): Promise<ApprovalRequest[]>;
+  /** Run start: fixes the run's Space before its prompt is built (`RunBindingInput`). */
+  bindRun?(input: RunBindingInput): void;
+  /** Run end: the run's Space binding is dropped. A live run's binding is never evicted. */
+  endRun?(threadId: string, runId: string): void;
   listGrants(filter?: GrantFilter): Promise<Grant[]>;
   revokeGrant(grantId: string): Promise<Grant>;
 }

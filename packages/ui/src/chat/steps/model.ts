@@ -26,7 +26,11 @@ export function stepLabel(step: RunStep): string {
     const summary = step.text?.summary?.trim();
     return summary ? t("chat.steps.thinking", { text: summary }) : t("chat.steps.thinkingEmpty");
   }
-  return ended(step) ? (step.doneLabel ?? step.label) : step.label;
+  const label = ended(step) ? (step.doneLabel ?? step.label) : step.label;
+  // A step on a paired computer says so ("Opened Firefox on lab-box"); the Host's steps don't.
+  return step.machine === undefined
+    ? label
+    : t("machines.step.on", { label, name: step.machine.name });
 }
 
 /** The glyph: a running thought shows the thinking glyph, everything else its status. */
@@ -56,6 +60,7 @@ function sameRepeat(a: RunStep, b: RunStep): boolean {
     a.status === b.status &&
     a.status !== "failed" &&
     (a.target ?? "") === (b.target ?? "") &&
+    a.machine?.deviceId === b.machine?.deviceId &&
     firstWord(stepLabel(a)) === firstWord(stepLabel(b))
   );
 }

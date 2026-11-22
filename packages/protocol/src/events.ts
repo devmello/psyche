@@ -297,7 +297,11 @@ export const Events = {
       "A security alert was raised or acknowledged, a local recovery changed, or the seal's state changed: clients refresh security.state.get.",
   }),
   "computerWatch.parked": defineEvent({
-    payload: Type.Object({ apps: Type.Array(VscreenApp) }),
+    payload: Type.Object({
+      apps: Type.Array(VscreenApp),
+      /** The machine whose screen has the unsaved app; absent means the Host's own screen. */
+      machine: Type.Optional(Id),
+    }),
     description:
       "A Task is parked because an app on the virtual screen has unsaved changes: the watch pane shows Look / Discard / Keep it open.",
   }),

@@ -677,6 +677,7 @@ export const settingsRest: Partial<Catalogue> = {
     "Rien pour l’instant. Quand {persona} a besoin d’un dossier ou d’une app, il vous le demande dans la discussion, et ce que vous autorisez apparaît ici.",
   "settings.access.scope.always": "Toujours",
   "settings.access.scope.conversation": "Cette discussion",
+  "settings.access.scope.space": "Dans un espace",
   "settings.access.scope.limited": "Pour l’instant",
   "settings.access.used": "utilisé {when}",
   "settings.access.fileOnly": "Un seul fichier · lecture seule",
@@ -699,8 +700,11 @@ export const settingsRest: Partial<Catalogue> = {
     "Affiche le raisonnement de {persona} pendant son travail. Jamais enregistré.",
   "settings.connectors.page.onHost": "Sur {host}",
   "settings.connectors.page.row.onHost": "Sur {host}",
+  "settings.connectors.page.row.macOnly": "Uniquement sur un hôte Mac",
   "settings.computerUse.remote":
     "L’utilisation de l’ordinateur fonctionne chez {host}. Demandez depuis là-bas, ou utilisez le navigateur.",
+  "settings.computerUse.remoteLinux":
+    "L’utilisation de l’ordinateur se fait sur l’écran privé de {host}. Suivez-la et prenez la main depuis le panneau d’observation.",
   "settings.gateways.title": "Gateways sur cet ordinateur",
   "settings.gateways.description":
     "Utilisez Psyche depuis cet ordinateur avec la Gateway d’un autre, par exemple votre Mac à la maison. Une seule Gateway est active à la fois, et en changer redémarre Psyche.",
@@ -946,6 +950,70 @@ export const settingsRest: Partial<Catalogue> = {
     "Ce qu’un ordinateur annonce sur le réseau n’est qu’une affirmation. L’écran de jumelage affiche sa clé : comparez-la avec celle de l’hôte avant d’approuver.",
   "settings.gateways.discoverAdd": "Ajouter {name}",
   "settings.gateways.discoverSaved": "Enregistrée",
+  "settings.remoteSetup.title": "Configurer un serveur distant",
+  "settings.remoteSetup.open": "Configurer un serveur distant",
+  "settings.remoteSetup.intro":
+    "Installez psyche-server sur un ordinateur Linux de ce réseau. Il affiche un code de configuration : saisissez-le ici, et cet ordinateur devient l'administrateur du serveur.",
+  "settings.remoteSetup.lookFailed":
+    "Impossible de chercher sur le réseau. Saisissez plutôt l'adresse du serveur.",
+  "settings.remoteSetup.noneWaiting":
+    "Aucun serveur en attente de configuration n'a été trouvé sur ce réseau. Saisissez plutôt son adresse.",
+  "settings.remoteSetup.waiting": "En attente de configuration",
+  "settings.remoteSetup.pick": "Configurer",
+  "settings.remoteSetup.pickNamed": "Configurer {name}",
+  "settings.remoteSetup.alreadySetUp":
+    "Déjà configuré. Ajoutez-le avec un lien d'association depuis ce serveur.",
+  "settings.remoteSetup.addressLabel": "Adresse du serveur",
+  "settings.remoteSetup.addressPlaceholder": "192.168.1.20 ou server.local",
+  "settings.remoteSetup.addressHint":
+    "Une adresse de ce réseau. Psyche utilise le port 7979, sauf si vous en saisissez un autre.",
+  "settings.remoteSetup.next": "Suivant",
+  "settings.remoteSetup.codeTitle": "Code de configuration de {name}",
+  "settings.remoteSetup.codeLabel": "Code de configuration",
+  "settings.remoteSetup.codePlaceholder": "7K3QM-XR2TD",
+  "settings.remoteSetup.codeHint":
+    "Le serveur l'a affiché à l'installation de psyche-server. Il sert une fois, pendant 24 heures. Pour en obtenir un nouveau, lancez psyche setup code sur le serveur.",
+  "settings.remoteSetup.checking": "Vérification du code…",
+  "settings.remoteSetup.submit": "Configurer le serveur",
+  "settings.remoteSetup.back": "Retour",
+  "settings.remoteSetup.doneTitle": "{name} est configuré",
+  "settings.remoteSetup.doneBody":
+    "Cet ordinateur en est maintenant l'administrateur. Passez-y pour nommer votre agent et choisir un modèle.",
+  "settings.remoteSetup.switch": "Passer à {name}",
+  "settings.remoteSetup.notNow": "Plus tard",
+  "settings.remoteSetup.keepLan": "Garder ce serveur joignable sur mon réseau",
+  "settings.remoteSetup.keepLanHint":
+    "Les ordinateurs de ce réseau peuvent joindre le serveur et demander à s'associer. Chacun a toujours besoin de votre accord.",
+  "settings.remoteSetup.keepLanOffHint":
+    "À la fin de la configuration, le serveur n'écoute plus sur ce réseau et cet ordinateur est déconnecté. Désactivez cette option seulement si vous joignez le serveur autrement, par exemple avec Tailscale.",
+  "settings.remoteSetup.firstRunHint":
+    "Vous avez installé Psyche sur un serveur ? Configurez-le plutôt d'ici.",
+  "settings.remoteSetup.connect": "Se connecter à un serveur Psyche",
+  "settings.remoteSetup.problem.wrong_code":
+    "{count, plural, one {Ce code n'est pas le bon. Encore # essai, puis le serveur vous fera attendre.} other {Ce code n'est pas le bon. Encore # essais, puis le serveur vous fera attendre.}}",
+  "settings.remoteSetup.problem.wrong_code_wait":
+    "Ce code n'est pas le bon. Attendez une minute, vérifiez le code sur le serveur et réessayez.",
+  "settings.remoteSetup.problem.too_many_attempts":
+    "Trop de codes erronés. Réessayez dans {seconds, plural, one {# seconde} other {# secondes}}.",
+  "settings.remoteSetup.problem.bad_code":
+    "Un code de configuration compte 10 lettres et chiffres, comme 7K3QM-XR2TD.",
+  "settings.remoteSetup.problem.code_expired":
+    "Ce code a expiré. Lancez psyche setup code sur le serveur pour en obtenir un nouveau.",
+  "settings.remoteSetup.problem.not_claimable":
+    "Ce serveur est déjà configuré. Ajoutez-le plutôt avec un lien d'association depuis le serveur.",
+  "settings.remoteSetup.problem.unreachable":
+    "Aucun serveur n'a répondu à cette adresse. Vérifiez qu'il est allumé et sur ce réseau.",
+  "settings.remoteSetup.problem.cert_mismatch":
+    "Le certificat du serveur ne correspondait pas à celui qu'il a annoncé, donc Psyche s'est arrêté. Vérifiez l'adresse et réessayez.",
+  "settings.remoteSetup.problem.server_unproven":
+    "Le serveur n'a pas prouvé qu'il connaît le code, donc Psyche ne lui fait pas confiance. Vérifiez l'adresse et le code.",
+  "settings.remoteSetup.problem.maybe_claimed":
+    "Le serveur est peut-être déjà configuré avec ce Mac. Connectez-vous avec un lien d'appairage ou exécutez `psyche devices link` sur le serveur.",
+  "settings.remoteSetup.problem.saved":
+    "Ce serveur est déjà enregistré. Passez-y depuis la liste ci-dessus.",
+  "settings.remoteSetup.problem.not_lan":
+    "Saisissez une adresse de ce réseau, comme 192.168.1.20 ou server.local.",
+  "settings.remoteSetup.problem.failed": "Impossible de configurer le serveur. Rien n'a changé.",
   "settings.devices.gatewayKey": "Clé de cette Gateway {fingerprint}",
   "settings.devices.fromAddress": "Depuis {address}",
   "settings.devices.fromLan":
