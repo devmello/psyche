@@ -453,6 +453,9 @@ export class SessionController {
   }
 
   #noteTurnOptions(runId: string, input: SendInput): void {
+    // A lead that is not the start of the content cannot be split off: none of it is owner words.
+    if (input.leadingContext !== undefined && !input.content.startsWith(input.leadingContext))
+      this.#notOwnerWords(runId);
     if (
       input.proposedCall === undefined &&
       input.ownerWords === undefined &&
@@ -507,7 +510,9 @@ export class SessionController {
     const context = [extra?.preamble, quoteContext(quote), lead]
       .filter((c): c is string => c !== undefined && c !== "")
       .join("\n\n");
-    const agentContent = context === "" ? content : `${context}\n\n${content}`;
+    // `content` keeps the lead (the transcript shows it); the agent gets it once, in `context`.
+    const typed = lead === "" ? content : content.slice(lead.length).replace(/^\n\n/, "");
+    const agentContent = context === "" ? typed : typed === "" ? context : `${context}\n\n${typed}`;
     if (supersedes === null) {
       // The user message goes in before the run owns the transcript.
       const message = appendMessage(
