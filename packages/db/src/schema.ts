@@ -16,6 +16,7 @@ import { s07Schema } from "./schema-s07.ts";
 import { s15Schema } from "./schema-s15.ts";
 import { s16Schema } from "./schema-s16.ts";
 import { securitySchema } from "./schema-security.ts";
+import { spacesSchema } from "./schema-spaces.ts";
 
 export * from "./schema-connectors.ts";
 export * from "./schema-notifications.ts";
@@ -23,6 +24,7 @@ export * from "./schema-s04.ts";
 export * from "./schema-s07.ts";
 export * from "./schema-s15.ts";
 export * from "./schema-s16.ts";
+export * from "./schema-spaces.ts";
 
 // §1 Identity --------------------------------------------------------------------------------
 
@@ -531,6 +533,7 @@ export const schema = {
   ...notificationsSchema,
   ...connectorsSchema,
   ...securitySchema,
+  ...spacesSchema,
 };
 export type Schema = typeof schema;
 

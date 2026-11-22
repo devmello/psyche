@@ -104,6 +104,8 @@ export const automations = sqliteTable("automations", {
   specialist: text("specialist"),
   // 202611041600_scheduler_recorded_skill: runs a skill made from a recording ({skill}).
   recordedSkill: text("recorded_skill"),
+  // 202611201000_gateway_spaces: the Space this automation belongs to; NULL for none.
+  spaceId: text("space_id"),
 });
 
 export const automationRuns = sqliteTable("automation_runs", {

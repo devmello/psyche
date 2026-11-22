@@ -11,7 +11,6 @@ export const notifications = sqliteTable("notifications", {
   kind: text("kind").notNull(),
   title: text("title").notNull(),
   body: text("body").notNull(),
-  message: text("message"),
   taskId: text("task_id"),
   approvalId: text("approval_id"),
   route: text("route"),
@@ -26,6 +25,8 @@ export const notifications = sqliteTable("notifications", {
   seq: integer("seq").notNull(),
   createdAt: text("created_at").notNull(),
   updatedAt: text("updated_at").notNull(),
+  // 202611181000_notifications_message: added by ALTER, so it is the last column.
+  message: text("message"),
 });
 
 export const notificationDeliveries = sqliteTable(
