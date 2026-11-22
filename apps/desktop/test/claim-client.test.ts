@@ -31,7 +31,12 @@ const device = {
  * A server stand-in that answers the claim handshake however a test says: with the code it
  * knows (`knows`), with a proof it made up (`acceptAnything`), or naming another certificate.
  */
-async function fakeServer(opts: { knows?: string; acceptAnything?: boolean; otherSpki?: boolean }) {
+async function fakeServer(opts: {
+  knows?: string;
+  acceptAnything?: boolean;
+  otherSpki?: boolean;
+  dropAfterProve?: boolean;
+}) {
   const home = mkdtempSync(join(tmpdir(), "psyche-claim-client-"));
   const cert = await ensureLanCert(home, ["lab-box.local", "127.0.0.1"]);
   const server: Server = createHttpsServer({ key: cert.keyPem, cert: cert.certPem });
@@ -66,6 +71,11 @@ async function fakeServer(opts: { knows?: string; acceptAnything?: boolean; othe
               },
             }),
           );
+          return;
+        }
+        if (opts.dropAfterProve) {
+          // The claim went through, the reply never arrives.
+          ws.terminate();
           return;
         }
         let proof = randomBytes(32).toString("base64url");
@@ -137,6 +147,12 @@ describe("the desktop's side of the claim", () => {
     const err = await claim(s.port, "7K3QM-XR2TD").catch((e: unknown) => e);
     expect(err).toBeInstanceOf(ClaimError);
     expect((err as ClaimError).problem).toBe("server_unproven");
+  });
+
+  it("says the claim is unconfirmed when the connection drops after the proof was sent", async () => {
+    const s = await fakeServer({ knows: "7K3QM-XR2TD", dropAfterProve: true });
+    const err = await claim(s.port, "7K3QM-XR2TD").catch((e: unknown) => e);
+    expect((err as ClaimError).problem).toBe("unconfirmed");
   });
 
   it("stops before proving anything when the server names another certificate", async () => {

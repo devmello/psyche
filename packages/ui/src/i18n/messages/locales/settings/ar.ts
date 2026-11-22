@@ -928,6 +928,8 @@ export const settings: Partial<Catalogue> = {
     "لم تطابق شهادة الخادم الشهادة التي أعلنها، فتوقف Psyche. تحقق من العنوان وحاول مجددًا.",
   "settings.remoteSetup.problem.server_unproven":
     "لم يُثبت الخادم أنه يعرف الرمز، فلم يثق به Psyche. تحقق من العنوان والرمز.",
+  "settings.remoteSetup.problem.maybe_claimed":
+    "قد يكون الخادم قد أُعدّ بالفعل مع هذا الـ Mac. اتصل برابط اقتران أو شغّل `psyche devices link` على الخادم.",
   "settings.remoteSetup.problem.saved": "هذا الخادم محفوظ بالفعل. انتقل إليه من القائمة أعلاه.",
   "settings.remoteSetup.problem.not_lan":
     "اكتب عنوانًا في هذه الشبكة، مثل 192.168.1.20 أو server.local.",

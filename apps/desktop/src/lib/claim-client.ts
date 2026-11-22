@@ -36,6 +36,11 @@ export type ClaimProblem =
   | "cert_mismatch"
   /** The server took the code but could not prove it knows it: not the server you set up. */
   | "server_unproven"
+  /**
+   * The proof was sent and no answer came back (dropped connection, timeout): the server may
+   * have made this device its admin. The caller keeps the device key and lets the owner retry.
+   */
+  | "unconfirmed"
   /** Anything else the server refused with. */
   | "failed";
 
@@ -223,7 +228,7 @@ export async function claimServer(opts: ClaimOptions): Promise<ClaimedServer> {
       proof: claimProof(key, "client", transcript),
     });
     if (prove.ok !== true) {
-      if (prove.error?.code === "closed") throw closedWith ?? new ClaimError("unreachable");
+      if (prove.error?.code === "closed") throw new ClaimError("unconfirmed");
       throw refusalOf(prove.error);
     }
     const p = (prove.payload ?? {}) as Record<string, unknown>;

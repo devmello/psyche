@@ -870,6 +870,8 @@ export const settings: Partial<Catalogue> = {
     "服务器的证书与它声明的不一致，因此 Psyche 已停止。请检查地址后再试。",
   "settings.remoteSetup.problem.server_unproven":
     "服务器没有证明它知道设置码，因此 Psyche 没有信任它。请检查地址和设置码。",
+  "settings.remoteSetup.problem.maybe_claimed":
+    "该服务器可能已经与这台 Mac 完成设置。请使用配对链接连接，或在服务器上运行 `psyche devices link`。",
   "settings.remoteSetup.problem.saved": "该服务器已保存。请在上方列表中切换到它。",
   "settings.remoteSetup.problem.not_lan":
     "请输入此网络中的地址，例如 192.168.1.20 或 server.local。",

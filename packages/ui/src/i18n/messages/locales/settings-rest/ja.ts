@@ -992,6 +992,8 @@ export const settingsRest: Partial<Catalogue> = {
     "サーバーの証明書が示されたものと一致しなかったため、Psyche は中止しました。アドレスを確認してもう一度お試しください。",
   "settings.remoteSetup.problem.server_unproven":
     "サーバーがコードを知っていることを証明しなかったため、Psyche は信頼しませんでした。アドレスとコードを確認してください。",
+  "settings.remoteSetup.problem.maybe_claimed":
+    "サーバーはすでにこの Mac で設定済みかもしれません。ペアリングリンクで接続するか、サーバーで `psyche devices link` を実行してください。",
   "settings.remoteSetup.problem.saved":
     "このサーバーは保存済みです。上のリストから切り替えてください。",
   "settings.remoteSetup.problem.not_lan":

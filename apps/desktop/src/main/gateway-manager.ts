@@ -107,6 +107,8 @@ export interface GatewayManagerDeps {
 export class GatewayManager {
   readonly #deps: GatewayManagerDeps;
   readonly #file: string;
+  /** Claims whose answer was lost, by server origin: the Gateway id (and so device key) to retry with. */
+  readonly #pendingClaims = new Map<string, string>();
 
   constructor(deps: GatewayManagerDeps) {
     this.#deps = deps;
@@ -306,9 +308,12 @@ export class GatewayManager {
     }
     const ok = await this.#deps.confirm({ kind: "claim", origin });
     if (!ok) throw new PsycheError("forbidden", "Setting up the server was cancelled");
-    const id = found()?.id ?? newGatewayId();
+    // A claim whose answer was lost keeps its id (and so its device key): the server may already
+    // have made that key its admin, and a retry from the same key finishes the claim.
+    const retrying = this.#pendingClaims.has(origin);
+    const id = found()?.id ?? this.#pendingClaims.get(origin) ?? newGatewayId();
     const dir = gatewayDataDir(this.#deps.userData, id);
-    const fresh = !existsSync(dir);
+    const fresh = retrying || !existsSync(dir);
     const key: DeviceKey = loadOrCreateDeviceKey(join(dir, "device-key.json"));
     const url = new URL(origin);
     let claimed: ClaimedServer;
@@ -325,11 +330,30 @@ export class GatewayManager {
         },
       });
     } catch (err) {
-      if (fresh) forgetGatewayData(this.#deps.userData, id);
+      const problem = err instanceof ClaimError ? err.problem : null;
+      // Keep the key only when it may be the server's admin by now: the proof went out and no
+      // answer came back. A retry also keeps it through a wrong code, a rate limit or a bad
+      // connection, which prove nothing about the server's state.
+      const keep =
+        problem === "unconfirmed" ||
+        (retrying &&
+          (problem === "wrong_code" ||
+            problem === "too_many_attempts" ||
+            problem === "unreachable"));
+      if (keep) this.#pendingClaims.set(origin, id);
+      else {
+        this.#pendingClaims.delete(origin);
+        if (fresh) forgetGatewayData(this.#deps.userData, id);
+      }
       if (err instanceof ClaimError) {
-        throw new PsycheError("forbidden", `The server was not set up (${err.problem})`, {
+        // The server dropped what a retry needs (or never knew this key): say what to do next.
+        const gone =
+          retrying && (err.problem === "not_claimable" || err.problem === "code_expired");
+        const shown =
+          err.problem === "unconfirmed" ? "unreachable" : gone ? "maybe_claimed" : err.problem;
+        throw new PsycheError("forbidden", `The server was not set up (${shown})`, {
           details: {
-            problem: `claim_${err.problem}`,
+            problem: `claim_${shown}`,
             ...(err.attemptsLeft === undefined ? {} : { attemptsLeft: err.attemptsLeft }),
             ...(err.retryAfterSec === undefined ? {} : { retryAfterSec: err.retryAfterSec }),
           },
@@ -337,6 +361,7 @@ export class GatewayManager {
       }
       throw err;
     }
+    this.#pendingClaims.delete(origin);
     // Read again after the handshake, so a write made meanwhile is not erased.
     const result = addGatewayFromClaim(
       this.#load(),

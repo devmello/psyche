@@ -2318,6 +2318,8 @@ export const settings = {
     "The server's certificate didn't match the one it named, so Psyche stopped. Check the address and try again.",
   "settings.remoteSetup.problem.server_unproven":
     "The server didn't prove it knows the code, so Psyche didn't trust it. Check the address and the code.",
+  "settings.remoteSetup.problem.maybe_claimed":
+    "The server may already be set up with this Mac. Connect with a pairing link or run `psyche devices link` on the server.",
   "settings.remoteSetup.problem.saved":
     "That server is saved already. Switch to it in the list above.",
   "settings.remoteSetup.problem.not_lan":

@@ -975,6 +975,8 @@ export const settingsRest: Partial<Catalogue> = {
     "서버 인증서가 서버가 알려 준 것과 달라 Psyche가 중단했습니다. 주소를 확인하고 다시 시도하세요.",
   "settings.remoteSetup.problem.server_unproven":
     "서버가 코드를 안다는 것을 증명하지 못해 Psyche가 신뢰하지 않았습니다. 주소와 코드를 확인하세요.",
+  "settings.remoteSetup.problem.maybe_claimed":
+    "서버가 이미 이 Mac으로 설정되었을 수 있습니다. 페어링 링크로 연결하거나 서버에서 `psyche devices link`를 실행하세요.",
   "settings.remoteSetup.problem.saved": "이 서버는 이미 저장되어 있습니다. 위 목록에서 전환하세요.",
   "settings.remoteSetup.problem.not_lan":
     "192.168.1.20이나 server.local처럼 이 네트워크의 주소를 입력하세요.",

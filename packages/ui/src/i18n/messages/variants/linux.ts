@@ -13,6 +13,8 @@ import type { MessageId } from "../index.ts";
  *   translated catalogue shows the English variant rather than its Mac wording.
  */
 export const linux: Partial<Record<MessageId, string>> = {
+  "settings.remoteSetup.problem.maybe_claimed":
+    "The server may already be set up with this computer. Connect with a pairing link or run `psyche devices link` on the server.",
   "settings.devices.nodeKind.hostHelper": "Linux helper",
   "settings.links.description":
     "Where a link in a chat message, card or artifact opens. Ctrl+click always uses your default browser.",
