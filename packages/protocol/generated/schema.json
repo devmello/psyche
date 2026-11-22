@@ -549,6 +549,14 @@
         "sideEffecting": false
       },
       {
+        "description": "Re-points a folder row of `access.list` that has `reconnectTo` (the owner renamed or moved it): the new place goes through every check of a fresh grant again and must be the same folder (volume and inode) with the old path gone. A plain tap from an admin device. False when there is nothing to reconnect, the old path is back, the target is a link or a different folder (read the list again); `forbidden` when a grant there would be refused.",
+        "name": "access.reconnectFolder",
+        "params": "#/$defs/AccessReconnectFolderParams",
+        "result": "#/$defs/AccessReconnectFolderResult",
+        "scope": "operator.admin",
+        "sideEffecting": false
+      },
+      {
         "description": "Revokes one entry of `access.list` at once (a folder stops working on the next call; a grant is revoked). Changing standing permissions is an admin action.",
         "name": "access.revoke",
         "params": "#/$defs/AccessRevokeParams",
@@ -3653,6 +3661,46 @@
         "sideEffecting": false
       },
       {
+        "description": "Side-effecting. The owner's Create on the migration offer: one Space per checked project (createdFrom migration), linked, with the project's anchored chats moved in. Closes the offer.",
+        "name": "spaces.migration.apply",
+        "params": "#/$defs/SpacesMigrationApplyParams",
+        "result": "#/$defs/SpacesMigrationApplyResult",
+        "scope": "operator.write",
+        "sideEffecting": true
+      },
+      {
+        "description": "Closes the migration offer without creating anything.",
+        "name": "spaces.migration.dismiss",
+        "params": "#/$defs/SpacesMigrationDismissParams",
+        "result": "#/$defs/OkResult",
+        "scope": "operator.write",
+        "sideEffecting": false
+      },
+      {
+        "description": "The one-time offer to make Spaces for up to 5 active, non-private projects with at least two owner or rule anchors. null once decided or when nothing qualifies.",
+        "name": "spaces.migration.offer",
+        "params": "#/$defs/SpacesMigrationOfferParams",
+        "result": "#/$defs/SpacesMigrationOfferResult",
+        "scope": "operator.read",
+        "sideEffecting": false
+      },
+      {
+        "description": "Dismisses one offer so it does not come back.",
+        "name": "spaces.offers.dismiss",
+        "params": "#/$defs/SpacesOffersDismissParams",
+        "result": "#/$defs/OkResult",
+        "scope": "operator.write",
+        "sideEffecting": false
+      },
+      {
+        "description": "Offers for a Space after chats moved in: pinned widgets of those chats for the shelf, and the owner-provenance standing instructions of those chats. Untrusted pins are never offered.",
+        "name": "spaces.offers.list",
+        "params": "#/$defs/SpacesOffersListParams",
+        "result": "#/$defs/SpaceOffers",
+        "scope": "operator.read",
+        "sideEffecting": false
+      },
+      {
         "description": "Called when the Space page opens: recomputes stale query trackers (no model call) and returns their values. Rate-limited to one recompute per Space per 30 s.",
         "name": "spaces.open",
         "params": "#/$defs/SpacesOpenParams",
@@ -4513,6 +4561,13 @@
           "maxLength": 4096,
           "type": "string"
         },
+        "reconnectTo": {
+          "maxLength": 4096,
+          "type": "string"
+        },
+        "reconnectBlocked": {
+          "type": "boolean"
+        },
         "threadId": {
           "description": "ULID in production",
           "maxLength": 64,
@@ -4575,6 +4630,36 @@
       },
       "required": [
         "entries"
+      ],
+      "type": "object"
+    },
+    "AccessReconnectFolderParams": {
+      "properties": {
+        "entryId": {
+          "maxLength": 4200,
+          "minLength": 1,
+          "type": "string"
+        },
+        "to": {
+          "maxLength": 4096,
+          "minLength": 1,
+          "type": "string"
+        }
+      },
+      "required": [
+        "entryId",
+        "to"
+      ],
+      "type": "object"
+    },
+    "AccessReconnectFolderResult": {
+      "properties": {
+        "reconnected": {
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "reconnected"
       ],
       "type": "object"
     },
@@ -44765,6 +44850,139 @@
       ],
       "type": "string"
     },
+    "SpaceMigrationOffer": {
+      "additionalProperties": false,
+      "properties": {
+        "projects": {
+          "items": {
+            "$ref": "#/$defs/SpaceMigrationProject"
+          },
+          "maxItems": 5,
+          "type": "array"
+        }
+      },
+      "required": [
+        "projects"
+      ],
+      "type": "object"
+    },
+    "SpaceMigrationProject": {
+      "additionalProperties": false,
+      "properties": {
+        "entityId": {
+          "description": "ULID in production",
+          "maxLength": 64,
+          "minLength": 1,
+          "type": "string"
+        },
+        "name": {
+          "type": "string"
+        },
+        "anchors": {
+          "minimum": 0,
+          "type": "integer"
+        },
+        "threads": {
+          "minimum": 0,
+          "type": "integer"
+        },
+        "folders": {
+          "description": "Listed in the Space as \"shared everywhere\"",
+          "minimum": 0,
+          "type": "integer"
+        }
+      },
+      "required": [
+        "entityId",
+        "name",
+        "anchors",
+        "threads",
+        "folders"
+      ],
+      "type": "object"
+    },
+    "SpaceOfferRule": {
+      "additionalProperties": false,
+      "properties": {
+        "id": {
+          "description": "The pin id, also the dismiss key",
+          "type": "string"
+        },
+        "text": {
+          "maxLength": 500,
+          "type": "string"
+        },
+        "fromThreadId": {
+          "description": "ULID in production",
+          "maxLength": 64,
+          "minLength": 1,
+          "type": "string"
+        },
+        "fromThreadTitle": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "id",
+        "text",
+        "fromThreadId",
+        "fromThreadTitle"
+      ],
+      "type": "object"
+    },
+    "SpaceOfferWidget": {
+      "additionalProperties": false,
+      "properties": {
+        "id": {
+          "description": "Dismiss key",
+          "type": "string"
+        },
+        "widgetId": {
+          "description": "ULID in production",
+          "maxLength": 64,
+          "minLength": 1,
+          "type": "string"
+        },
+        "title": {
+          "type": "string"
+        },
+        "fromThreadId": {
+          "description": "ULID in production",
+          "maxLength": 64,
+          "minLength": 1,
+          "type": "string"
+        }
+      },
+      "required": [
+        "id",
+        "widgetId",
+        "title",
+        "fromThreadId"
+      ],
+      "type": "object"
+    },
+    "SpaceOffers": {
+      "additionalProperties": false,
+      "properties": {
+        "widgets": {
+          "items": {
+            "$ref": "#/$defs/SpaceOfferWidget"
+          },
+          "type": "array"
+        },
+        "rules": {
+          "items": {
+            "$ref": "#/$defs/SpaceOfferRule"
+          },
+          "type": "array"
+        }
+      },
+      "required": [
+        "widgets",
+        "rules"
+      ],
+      "type": "object"
+    },
     "SpaceProposal": {
       "additionalProperties": false,
       "properties": {
@@ -44823,6 +45041,39 @@
             {
               "description": "ISO-8601 timestamp (UTC)",
               "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}(\\.\\d{1,9})?(Z|[+-]\\d{2}:\\d{2})$",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "chats": {
+          "items": {
+            "additionalProperties": false,
+            "properties": {
+              "id": {
+                "description": "ULID in production",
+                "maxLength": 64,
+                "minLength": 1,
+                "type": "string"
+              },
+              "title": {
+                "type": "string"
+              }
+            },
+            "required": [
+              "id",
+              "title"
+            ],
+            "type": "object"
+          },
+          "maxItems": 10,
+          "type": "array"
+        },
+        "projectName": {
+          "anyOf": [
+            {
               "type": "string"
             },
             {
@@ -45435,6 +45686,96 @@
       },
       "required": [
         "spaces"
+      ],
+      "type": "object"
+    },
+    "SpacesMigrationApplyParams": {
+      "properties": {
+        "entityIds": {
+          "items": {
+            "description": "ULID in production",
+            "maxLength": 64,
+            "minLength": 1,
+            "type": "string"
+          },
+          "maxItems": 5,
+          "minItems": 1,
+          "type": "array"
+        }
+      },
+      "required": [
+        "entityIds"
+      ],
+      "type": "object"
+    },
+    "SpacesMigrationApplyResult": {
+      "properties": {
+        "spaces": {
+          "items": {
+            "$ref": "#/$defs/Space"
+          },
+          "type": "array"
+        }
+      },
+      "required": [
+        "spaces"
+      ],
+      "type": "object"
+    },
+    "SpacesMigrationDismissParams": {
+      "properties": {},
+      "type": "object"
+    },
+    "SpacesMigrationOfferParams": {
+      "properties": {},
+      "type": "object"
+    },
+    "SpacesMigrationOfferResult": {
+      "properties": {
+        "offer": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/SpaceMigrationOffer"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        }
+      },
+      "type": "object"
+    },
+    "SpacesOffersDismissParams": {
+      "properties": {
+        "spaceId": {
+          "description": "ULID in production",
+          "maxLength": 64,
+          "minLength": 1,
+          "type": "string"
+        },
+        "offerId": {
+          "maxLength": 80,
+          "minLength": 1,
+          "type": "string"
+        }
+      },
+      "required": [
+        "spaceId",
+        "offerId"
+      ],
+      "type": "object"
+    },
+    "SpacesOffersListParams": {
+      "properties": {
+        "spaceId": {
+          "description": "ULID in production",
+          "maxLength": 64,
+          "minLength": 1,
+          "type": "string"
+        }
+      },
+      "required": [
+        "spaceId"
       ],
       "type": "object"
     },

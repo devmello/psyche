@@ -101,4 +101,7 @@ export const notices: Partial<Catalogue> = {
     "{folder} auf {name} konnte nach einem Befehl nicht vollständig geprüft werden",
   "notice.machine.scanIncomplete.body":
     "Neue Repositorys oder Startdateien dort wurden womöglich nicht beiseitegelegt. Prüfe den Ordner auf neue .git- oder .vscode-Ordner, bevor du ihn in einem Editor öffnest oder dort git ausführst. Befehle können dort erst wieder schreiben, wenn Psyche auf {name} neu startet.",
+  "notice.machine.offline.title": "{name} ist offline",
+  "notice.machine.offline.body":
+    "Eine Aufgabe wartet darauf, ihn zu nutzen, und läuft weiter, sobald {name} wieder da ist. Du kannst die Aufgabe auch abbrechen.",
 };

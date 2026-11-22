@@ -168,6 +168,8 @@ export const hi: Partial<Catalogue> = {
   "errors.reason.connected_with_other_client":
     "Google किसी दूसरे क्लाइंट से जुड़ा है। पहले Google को डिस्कनेक्ट करें, फिर क्लाइंट बदलें।",
   "errors.reason.secret_required": "दूसरे क्लाइंट को अपना क्लाइंट सीक्रेट चाहिए।",
+  "errors.reason.project_private":
+    "वह प्रोजेक्ट निजी है, इसलिए उसका Space नहीं हो सकता। पहले निजी रखें बंद करें।",
   "errors.reason.updating":
     "Psyche अपडेट इंस्टॉल करने के लिए अभी रीस्टार्ट होने वाला है। थोड़ी देर में फिर से कोशिश करें।",
   "errors.reason.passkey_required": "इस Psyche पर भुगतान स्वीकृत करने के लिए पासकी सेट करें।",

@@ -3,6 +3,7 @@ import type {
   ApprovalKind,
   ApprovalRequest,
   ApprovalRequestInput,
+  ComputerMachineRef,
   ControlFacts,
   DecisionContext,
   DecisionResult,
@@ -68,6 +69,8 @@ export interface CallMeta {
   connector?: { id: string; action: string };
   /** Bundle id for computer-use actions. */
   app?: string;
+  /** A paired machine's device id when the computer-use call is for that machine, not the Host. */
+  machine?: string;
   /** Computer-use or browser action name (`click`, `type`, …). */
   action?: string;
   /** The element being typed into or filled. */
@@ -170,6 +173,12 @@ export interface PolicyApprovalInput extends ApprovalRequestInput {
   taintSources?: TaintSource[];
   /** `kind: "batch"`: the decided calls the one approval covers, in order (§8.1, #670). */
   batch?: { children: BatchChild[] };
+  /**
+   * The paired machine the card is about (wave H4), for `computer_action`, `exec_host` and
+   * `folder_access` cards only; absent means the Host. Display: the binding hash carries the
+   * machine's device id itself (`ComputerBindingArgs.machine`).
+   */
+  machine?: ComputerMachineRef;
 }
 
 /**

@@ -300,6 +300,88 @@ export function withRecordedReal<
   return { ...policy, folders: folders.map((f, i) => (i === at ? { ...f, real } : f)) };
 }
 
+type Ref = { dev: string; ino: string; birth: string };
+
+/**
+ * `permissions.policy.folders` with the identity `ref` recorded for the entry at `path`. An entry
+ * that has none takes it; one that has a different one takes the new (a folder re-created at the
+ * same path). Undefined when nothing changes.
+ */
+export function withRecordedRef<
+  P extends { folders?: { path: string; mode: "ro" | "rw"; ref?: Ref }[] },
+>(policy: P, path: string, ref: Ref): P | undefined {
+  const folders = policy.folders ?? [];
+  const at = folders.findIndex(
+    (f) =>
+      f.path === path &&
+      (f.ref === undefined ||
+        f.ref.dev !== ref.dev ||
+        f.ref.ino !== ref.ino ||
+        f.ref.birth !== ref.birth),
+  );
+  if (at === -1) return undefined;
+  return { ...policy, folders: folders.map((f, i) => (i === at ? { ...f, ref } : f)) };
+}
+
+/**
+ * `permissions.policy.folders` with each entry in `moves` re-pointed from `from` to `to` (a real
+ * path judged by `checkReconnect`): same mode, same identity, same place in the list. All or
+ * nothing: undefined when an entry is missing or a target is already another entry (a duplicate
+ * row would shadow it).
+ */
+export function withRepointed<
+  P extends { folders?: { path: string; mode: "ro" | "rw"; real?: string; ref?: Ref }[] },
+>(policy: P, moves: readonly { from: string; to: string }[]): P | undefined {
+  const folders = policy.folders ?? [];
+  const taking = new Set(moves.map((m) => m.from));
+  const targets = new Set<string>();
+  for (const m of moves) {
+    if (!folders.some((f) => f.path === m.from) || targets.has(m.to)) return undefined;
+    if (folders.some((f) => f.path === m.to && !taking.has(f.path))) return undefined;
+    targets.add(m.to);
+  }
+  const to = new Map(moves.map((m) => [m.from, m.to]));
+  return {
+    ...policy,
+    folders: folders.map((f) => {
+      const t = to.get(f.path);
+      return t === undefined ? f : { ...f, path: t, real: t };
+    }),
+  };
+}
+
+/** What `repointFolders` needs from the Gateway (so the report and the write can be tested). */
+export interface RepointDeps<P> {
+  read: () => { value: unknown; policy: P | undefined };
+  write: (next: P) => unknown;
+  /** Applies the written policy to the broker and tells the clients. */
+  applied: (next: P, saved: unknown) => void;
+  /** The security setting change report (change record, setting listeners). */
+  report: (change: { key: string; before: unknown; after: P; deviceId: string }) => void;
+}
+
+/** The owner's tap on "Reconnect <name>?": one write for the folder and what is under it. */
+export function repointFolders<
+  P extends { folders?: { path: string; mode: "ro" | "rw"; real?: string; ref?: Ref }[] },
+>(
+  deps: RepointDeps<P>,
+  moves: readonly { from: string; to: string }[],
+  by: { deviceId: string },
+): boolean {
+  // Read at the moment of writing, so a concurrent change is never undone.
+  const { value: before, policy } = deps.read();
+  const next = policy === undefined ? undefined : withRepointed(policy, moves);
+  if (next === undefined) return false;
+  const saved = deps.write(next);
+  deps.applied(next, saved);
+  try {
+    deps.report({ key: "permissions.policy", before, after: next, deviceId: by.deviceId });
+  } catch {
+    // Reporting never fails the change.
+  }
+  return true;
+}
+
 /** `permissions.policy.folders` with `entry` added (a wider mode replaces a narrower one). */
 export function withFolder<P extends { folders?: { path: string; mode: "ro" | "rw" }[] }>(
   policy: P,

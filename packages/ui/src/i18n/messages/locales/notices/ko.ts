@@ -93,4 +93,7 @@ export const notices: Partial<Catalogue> = {
     "명령 실행 후 {name}의 {folder}을(를) 끝까지 확인하지 못했습니다",
   "notice.machine.scanIncomplete.body":
     "그곳의 새 저장소나 실행 파일이 따로 옮겨지지 않았을 수 있습니다. 편집기로 열거나 git을 실행하기 전에 새 .git 또는 .vscode 폴더가 있는지 확인하세요. {name}에서 Psyche가 다시 시작될 때까지 명령은 그곳에 쓸 수 없습니다.",
+  "notice.machine.offline.title": "{name}이(가) 오프라인 상태입니다",
+  "notice.machine.offline.body":
+    "작업이 이 컴퓨터를 사용하려고 기다리고 있으며 {name}이(가) 돌아오면 계속됩니다. 작업을 취소할 수도 있습니다.",
 };

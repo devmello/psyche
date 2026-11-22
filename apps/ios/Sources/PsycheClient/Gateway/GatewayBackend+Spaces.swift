@@ -5,6 +5,9 @@ import enum PsycheProtocol.JSONValue
 // Spaces over `spaces.*` (docs/design/spaces-2026.md §4.2). The phone reads Spaces, opens one (the Gateway recomputes
 // stale query trackers for free), refreshes a tracker on request, edits instructions, starts a chat in a Space and
 // moves a chat in or out. Folders and Space settings are admin scope and stay on the Mac.
+/// Mirrors `SPACE_LIMITS` in the protocol.
+enum SpaceLimits { static let name = 60 }
+
 extension GatewayBackend {
     public func spaces() async throws -> [SpaceItem] {
         let result = try await call("spaces.list", .obj([:]))
@@ -56,6 +59,22 @@ extension GatewayBackend {
             .obj(["threadIds": .array([.string(id)]), "spaceId": spaceID.map { .string($0) } ?? .null]))
     }
 
+    public func spaceID(forProject projectID: String) async throws -> String? {
+        let result = try await call("spaces.list", .obj([:]))
+        return (result["spaces"]?.array ?? []).first { $0["entityId"]?.string == projectID }?["id"]?.string
+    }
+
+    public func makeSpace(forProject projectID: String, named name: String) async throws -> String {
+        // Side-effecting: a retried tap returns the same Space (and the Gateway refuses a second one per project).
+        let result = try await call(
+            "spaces.create", .obj(["name": .string(String(name.prefix(SpaceLimits.name))), "entityId": .string(projectID)]),
+            key: "spaces.create.project.\(projectID)")
+        guard let id = result.at("space", "id")?.string else {
+            throw BackendError.refused("The Gateway didn't make that Space.")
+        }
+        return id
+    }
+
     // MARK: Wire to model
 
     static func spaceItem(from wire: JSONValue) -> SpaceItem? {
@@ -63,7 +82,8 @@ extension GatewayBackend {
         return SpaceItem(
             id: id, name: name, description: wire["description"]?.string ?? "",
             chats: wire.at("counts", "chats")?.int ?? 0, trackers: wire.at("counts", "trackers")?.int ?? 0,
-            due: wire.at("counts", "due")?.int ?? 0, lastActivityAt: WireFormat.date(wire["lastActivityAt"]?.string))
+            due: wire.at("counts", "due")?.int ?? 0, lastActivityAt: WireFormat.date(wire["lastActivityAt"]?.string),
+            entityID: wire["entityId"]?.string)
     }
 
     static func spaceDetail(from wire: JSONValue) -> SpaceDetailItem? {

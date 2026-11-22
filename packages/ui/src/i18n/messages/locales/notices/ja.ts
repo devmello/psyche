@@ -94,4 +94,7 @@ export const notices: Partial<Catalogue> = {
     "コマンドの実行後、{name} の {folder} を最後まで確認できませんでした",
   "notice.machine.scanIncomplete.body":
     "そこにある新しいリポジトリや起動用ファイルは、退避されていない可能性があります。エディタで開いたり git を実行したりする前に、新しい .git や .vscode フォルダがないか確認してください。{name} で Psyche が再起動するまで、コマンドはそこに書き込めません。",
+  "notice.machine.offline.title": "{name} がオフラインになりました",
+  "notice.machine.offline.body":
+    "タスクがこのコンピュータを使うために待っています。{name} が戻ると続きます。タスクをキャンセルすることもできます。",
 };

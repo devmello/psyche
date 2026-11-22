@@ -127,4 +127,29 @@ export const spaces: Partial<Catalogue> = {
   "spaces.palette.archived": "संग्रहीत स्पेस",
   "spaces.palette.chatIn": "{name} में नई चैट",
   "spaces.palette.keywords": "स्पेस प्रोजेक्ट वर्कस्पेस ट्रैकर",
+  "spaces.proposal.kicker": "सुझाया गया Space",
+  "spaces.proposal.title": "{name} के लिए Space बनाएँ?",
+  "spaces.proposal.untrusted":
+    "अविश्वसनीय सामग्री ({source}) पढ़ते समय सुझाया गया। नीचे का पाठ उद्धरण है, Psyche के अपने शब्द नहीं।",
+  "spaces.proposal.titleUntrusted": "यह सुझाया गया Space बनाएँ?",
+  "spaces.proposal.project": "प्रोजेक्ट {name} को जोड़ता है",
+  "spaces.proposal.chats":
+    "{n, plural, =0 {कोई चैट नहीं ले जाता} one {# चैट ले जाता है:} other {# चैट ले जाता है:}}",
+  "spaces.proposal.chatsLabel": "जो चैट ले जाए जाएँगे",
+  "spaces.proposal.untitledChat": "बिना शीर्षक की चैट",
+  "spaces.proposal.create": "बनाएँ",
+  "spaces.proposal.notNow": "अभी नहीं",
+  "spaces.proposal.created": "Space {name} बन गया",
+  "spaces.proposal.open": "खोलें",
+  "spaces.proposal.failed": "यह नहीं हो सका: {reason}",
+  "spaces.migration.title": "अपने प्रोजेक्ट के लिए Space बनाएँ?",
+  "spaces.migration.hint":
+    "हर Space अपने प्रोजेक्ट से जुड़ता है और उसकी चैट साथ लाता है। पिन किए विजेट होम पर ही रहते हैं।",
+  "spaces.migration.line":
+    "{threads, plural, one {# चैट} other {# चैट}} · {folders, plural, one {# फ़ोल्डर, हर जगह साझा} other {# फ़ोल्डर, हर जगह साझा}}",
+  "spaces.migration.create": "{n, plural, one {# Space बनाएँ} other {# Space बनाएँ}}",
+  "spaces.migration.created": "{n, plural, one {# Space बना} other {# Space बने}}",
+  "spaces.make": "Space बनाएँ",
+  "spaces.make.failed": "Space नहीं बन सका: {reason}",
+  "spaces.openLinked": "Space खोलें",
 };

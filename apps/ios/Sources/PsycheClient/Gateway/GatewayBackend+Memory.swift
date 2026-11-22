@@ -95,7 +95,9 @@ extension GatewayBackend {
         var evidence: [String] = []
         for label in notes.flatMap(\.evidence) + timelineEvidence where !evidence.contains(label) { evidence.append(label) }
         let item = Self.projectItem(head["entity"]!, progress: Self.progress(children: children, facts: facts))
-        return ProjectDetail(project: item, todos: Self.sorted(todos), notes: notes, evidence: Array(evidence.prefix(4)))
+        return ProjectDetail(
+            project: item, todos: Self.sorted(todos), notes: notes, evidence: Array(evidence.prefix(4)),
+            isPrivate: entity["private"]?.bool == true)
     }
 
     public func confirmFact(personID: String, factID: String) async throws {

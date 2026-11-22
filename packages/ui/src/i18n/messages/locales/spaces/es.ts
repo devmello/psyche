@@ -131,4 +131,29 @@ export const spaces: Partial<Catalogue> = {
   "spaces.palette.archived": "Espacios archivados",
   "spaces.palette.chatIn": "Nuevo chat en {name}",
   "spaces.palette.keywords": "espacio proyecto trabajo seguimientos",
+  "spaces.proposal.kicker": "Space sugerido",
+  "spaces.proposal.title": "¿Crear un Space para {name}?",
+  "spaces.proposal.untrusted":
+    "Sugerido al leer contenido no fiable ({source}). El texto de abajo es una cita, no palabras de Psyche.",
+  "spaces.proposal.titleUntrusted": "¿Crear este Space sugerido?",
+  "spaces.proposal.project": "Vincula el proyecto {name}",
+  "spaces.proposal.chats":
+    "{n, plural, =0 {No mueve ningún chat} one {Mueve # chat:} other {Mueve # chats:}}",
+  "spaces.proposal.chatsLabel": "Chats que mueve",
+  "spaces.proposal.untitledChat": "Chat sin título",
+  "spaces.proposal.create": "Crear",
+  "spaces.proposal.notNow": "Ahora no",
+  "spaces.proposal.created": "Space {name} creado",
+  "spaces.proposal.open": "Abrir",
+  "spaces.proposal.failed": "No funcionó: {reason}",
+  "spaces.migration.title": "¿Crear Spaces para tus proyectos?",
+  "spaces.migration.hint":
+    "Cada uno se vincula a su proyecto y trae sus chats. Los widgets fijados se quedan en Inicio.",
+  "spaces.migration.line":
+    "{threads, plural, one {# chat} other {# chats}} · {folders, plural, one {# carpeta, compartida en todas partes} other {# carpetas, compartidas en todas partes}}",
+  "spaces.migration.create": "{n, plural, one {Crear # Space} other {Crear # Spaces}}",
+  "spaces.migration.created": "{n, plural, one {# Space creado} other {# Spaces creados}}",
+  "spaces.make": "Crear un Space",
+  "spaces.make.failed": "No se creó el Space: {reason}",
+  "spaces.openLinked": "Abrir Space",
 };

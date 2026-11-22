@@ -1,6 +1,12 @@
 import { basename } from "node:path";
 import { canonicalJSON, hashCanonical, isSha256Ref, type Sha256Ref, sha256 } from "@psyche/audit";
-import { type ApprovalKind, type JsonObject, PsycheError } from "@psyche/protocol";
+import {
+  type ApprovalKind,
+  type ComputerMachineRef,
+  type JsonObject,
+  machineNameOk,
+  PsycheError,
+} from "@psyche/protocol";
 import { canonicalEmail, canonicalPath, canonicalUrl, TargetError } from "./targets.ts";
 
 /**
@@ -160,6 +166,12 @@ export interface ComputerBindingArgs {
   action: string;
   elementRefSha256?: string;
   textSha256?: string;
+  /**
+   * The paired machine's device id when the action runs on a machine, not the Host (wave H4):
+   * bound and part of the grant key, so a card or grant for one machine never covers the Host or
+   * another machine. Absent means the Host, and the Host's hashes stay as they were.
+   */
+  machine?: string;
 }
 
 export interface NewOriginBindingArgs {
@@ -214,6 +226,26 @@ export type BindingArgsByKind = {
   computer_action: ComputerBindingArgs;
   new_origin: NewOriginBindingArgs;
 };
+
+/** The approval kinds whose card can name a paired machine (`ApprovalRequest.machine`). */
+export const MACHINE_CARD_KINDS: ReadonlySet<ApprovalKind> = new Set<ApprovalKind>([
+  "computer_action",
+  "exec_host",
+  "folder_access",
+]);
+
+/**
+ * A `{deviceId, name}` machine reference, or `undefined` for anything else: the device id is a
+ * plain id (1 to 64 letters, digits, `_` or `-`) and the name passes `machineNameOk`. Only the
+ * two fields are kept.
+ */
+export function machineRefOf(value: unknown): ComputerMachineRef | undefined {
+  if (typeof value !== "object" || value === null || Array.isArray(value)) return undefined;
+  const v = value as { deviceId?: unknown; name?: unknown };
+  if (typeof v.deviceId !== "string" || !/^[A-Za-z0-9_-]{1,64}$/.test(v.deviceId)) return undefined;
+  if (!machineNameOk(v.name)) return undefined;
+  return { deviceId: v.deviceId, name: v.name };
+}
 
 // ---- validation helpers -----------------------------------------------------------------------
 
@@ -634,6 +666,7 @@ function computerBinding(raw: unknown): [JsonObject, JsonObject] {
   const tierRequired = str(k, "tierRequired", a.tierRequired);
   if (!["read", "click", "interact"].includes(tierRequired)) bad(k, "unknown tier");
   const action = str(k, "action", a.action);
+  const machine = optStr(k, "machine", a.machine);
   return [
     compact({
       app,
@@ -642,8 +675,9 @@ function computerBinding(raw: unknown): [JsonObject, JsonObject] {
       elementRefSha256: optSha(k, "elementRefSha256", a.elementRefSha256),
       /** SHA-256 of typed text or keys, so "type X" never verifies "type Y". */
       textSha256: optSha(k, "textSha256", a.textSha256),
+      machine,
     }),
-    { app, tierRequired },
+    compact({ app, tierRequired, machine }),
   ];
 }
 

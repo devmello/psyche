@@ -88,4 +88,7 @@ export const notices: Partial<Catalogue> = {
   "notice.machine.scanIncomplete.title": "命令运行后，未能完成检查 {name} 上的 {folder}",
   "notice.machine.scanIncomplete.body":
     "那里新出现的仓库或启动文件可能没有被移到一旁。在用编辑器打开它或在那里运行 git 之前，请检查是否有新的 .git 或 .vscode 文件夹。在 {name} 上的 Psyche 重启之前，命令无法再写入那里。",
+  "notice.machine.offline.title": "{name} 已离线",
+  "notice.machine.offline.body":
+    "有一个任务正在等待使用它，{name} 恢复后会继续。你也可以取消这个任务。",
 };

@@ -1842,6 +1842,13 @@ export const settings = {
   "settings.access.moved": "Now points to {path} — confirm only if you moved it yourself",
   "settings.access.confirm": "Confirm",
   "settings.access.confirmNamed": "Confirm {name} again at {path}",
+  "settings.access.reconnectPrompt": "Reconnect {name}? It is now at {path}",
+  "settings.access.reconnect": "Reconnect",
+  "settings.access.reconnectNamed": "Reconnect {name} to {path}",
+  "settings.access.reconnectFailed":
+    "{name} moved again or can't be reconnected. The list was refreshed.",
+  "settings.access.reconnectBlocked":
+    "{name} moved, but it can't be reconnected safely: a rule or a folder inside it points at the old place. Revoke it and share it again.",
   "settings.files.sharedFolders": "Shared folders",
   "settings.files.noFolders": "No folders shared. {persona} works only in its own workspace.",
   "settings.files.shareFolder": "Share a folder",

@@ -99,4 +99,7 @@ export const notices: Partial<Catalogue> = {
     "Não foi possível terminar de verificar {folder} em {name} após um comando",
   "notice.machine.scanIncomplete.body":
     "Repositórios ou arquivos de inicialização novos ali podem não ter sido colocados de lado. Procure pastas .git ou .vscode novas antes de abri-la em um editor ou rodar git ali. Os comandos só poderão gravar ali de novo quando o Psyche reiniciar em {name}.",
+  "notice.machine.offline.title": "{name} ficou offline",
+  "notice.machine.offline.body":
+    "Uma tarefa está esperando para usá-lo e continua quando {name} voltar. Você também pode cancelar a tarefa.",
 };

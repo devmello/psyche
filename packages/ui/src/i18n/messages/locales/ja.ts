@@ -171,6 +171,8 @@ export const ja: Partial<Catalogue> = {
     "Google は別のクライアントで接続されています。先に Google を切断してから、クライアントを変更してください。",
   "errors.reason.secret_required":
     "別のクライアントには、そのクライアント専用のシークレットが必要です。",
+  "errors.reason.project_private":
+    "このプロジェクトは非公開のため、Spaceを持てません。先に「非公開にする」をオフにしてください。",
   "errors.reason.updating":
     "Psycheはアップデートをインストールするため、まもなく再起動します。しばらくしてからもう一度お試しください。",
   "errors.reason.passkey_required":

@@ -171,7 +171,7 @@ import { type ExecHostDeps, execHostTool } from "./exec-host.ts";
 import { feedContextResolver } from "./feed-context.ts";
 import { filesHandlers } from "./files.ts";
 import { migrateFilesConnector } from "./files-migration.ts";
-import { withFolder, withRecordedReal } from "./folder-access.ts";
+import { repointFolders, withFolder, withRecordedReal, withRecordedRef } from "./folder-access.ts";
 import { usesSandboxPc } from "./guest-sandbox.ts";
 import {
   mountParamsOnly,
@@ -291,6 +291,7 @@ import {
 } from "./services.ts";
 import { setupTokenHandlers, setupTokenUsedHook } from "./setup-tokens.ts";
 import { composeSkills } from "./skills.ts";
+import { composeSpaceOffers } from "./space-propose-tool.ts";
 import { composeSpaces } from "./spaces.ts";
 import { withSpecialistContext } from "./specialist-approvals.ts";
 import {
@@ -815,6 +816,43 @@ export async function composeGateway(options: ComposeOptions): Promise<ComposedG
       }
     }
   };
+  // The identity (volume and inode) of a Settings folder, stored once so a rename can be offered
+  // back to the owner as "Reconnect <name>?" (never re-pointed silently).
+  const recordFolderRef = (path: string, ref: { dev: string; ino: string; birth: string }) => {
+    const current = validPolicy(getSetting(db, "permissions.policy")?.value, gwOptions.logger);
+    const next = current === undefined ? undefined : withRecordedRef(current, path, ref);
+    if (next === undefined) return;
+    const saved = setSetting(db, "permissions.policy", next);
+    rawBroker.setPolicy(hostPolicy(next, db));
+    publish("settings.changed", { entries: [saved] });
+  };
+  // The owner's tap on "Reconnect <name>?": the broker has already run every grant check.
+  const repointFolder = (
+    moves: readonly { from: string; to: string }[],
+    by: { deviceId: string },
+  ) =>
+    repointFolders(
+      {
+        read: () => ({
+          value: getSetting(db, "permissions.policy")?.value,
+          policy: validPolicy(getSetting(db, "permissions.policy")?.value, gwOptions.logger),
+        }),
+        write: (next) => setSetting(db, "permissions.policy", next),
+        applied: (next, saved) => {
+          rawBroker.setPolicy(hostPolicy(next, db));
+          publish("settings.changed", { entries: [saved as never] });
+        },
+        report: (change) =>
+          gwOptions.onSettingChanged?.({
+            key: change.key,
+            before: change.before as never,
+            after: change.after,
+            deviceId: change.deviceId,
+          }),
+      },
+      moves,
+      by,
+    );
   let deferredResumeRef: DeferredResume | undefined;
   const rawBroker = new PsychePermissionBroker({
     folderAccess: {
@@ -824,6 +862,8 @@ export async function composeGateway(options: ComposeOptions): Promise<ComposedG
       persist: persistFolder,
       remove: forgetFolder,
       recordReal: recordFolderReal,
+      recordRef: recordFolderRef,
+      repoint: repointFolder,
     },
     channelConversations: (ref) => channelConversations.get(ref),
     // Spaces S2: "Allow in this Space" and the Space folders a run in a Space may use.
@@ -2303,7 +2343,17 @@ export async function composeGateway(options: ComposeOptions): Promise<ComposedG
   );
   parts.push(nudges.part());
   parts.push(mailFollowups.part());
-  parts.push(composeSpaces({ scheduler }));
+  parts.push(composeSpaces({ scheduler, projects: () => people.graph }));
+  // Proposals and migration offers (Spaces S7): the agent only proposes, the owner taps Create.
+  parts.push(
+    composeSpaceOffers({
+      db,
+      register: (tool) => registry.register(tool),
+      publish,
+      memory: () => people.graph,
+      states: new SqliteThreadStateStore(db),
+    }),
+  );
   parts.push(composeSpaceFolders({ broker: () => rawBroker, home: config.home }));
   parts.push(
     composeWork({

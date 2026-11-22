@@ -167,6 +167,18 @@ struct MemorySearchWidgetsTests {
         #expect(!detail.evidence.isEmpty)
     }
 
+    @Test func aKeepPrivateProjectIsMarkedPrivate() async throws {
+        let (backend, _) = try await live { g in
+            g.on("memory.entities.get") { _ in .success(.object([
+                "entity": .object(["id": "ent_priv", "kind": "project", "name": "Health", "private": .bool(true)]),
+                "facts": .array([]),
+            ])) }
+        }
+        #expect(try await backend.project(id: "ent_priv").isPrivate)
+        let (open, _) = try await live { memoryGateway($0) }
+        #expect(try await open.project(id: "ent_p1").isPrivate == false)
+    }
+
     @Test func factsAreConfirmedByReviewAndRetractedByTheGraph() async throws {
         let seen = Calls()
         let (backend, _) = try await live { g in

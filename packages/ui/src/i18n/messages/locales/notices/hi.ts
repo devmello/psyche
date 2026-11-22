@@ -91,4 +91,7 @@ export const notices: Partial<Catalogue> = {
   "notice.machine.scanIncomplete.title": "एक कमांड के बाद {name} पर {folder} की जाँच पूरी नहीं हो सकी",
   "notice.machine.scanIncomplete.body":
     "वहाँ के नए रिपॉज़िटरी या लॉन्च फ़ाइलें शायद अलग नहीं की गईं। इसे किसी एडिटर में खोलने या वहाँ git चलाने से पहले नए .git या .vscode फ़ोल्डर देख लें। जब तक {name} पर Psyche दोबारा शुरू नहीं होता, कमांड वहाँ फिर से नहीं लिख सकते।",
+  "notice.machine.offline.title": "{name} ऑफ़लाइन हो गया",
+  "notice.machine.offline.body":
+    "एक काम इसे इस्तेमाल करने का इंतज़ार कर रहा है और {name} के वापस आने पर आगे बढ़ेगा। आप काम रद्द भी कर सकते हैं।",
 };
