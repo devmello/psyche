@@ -280,6 +280,12 @@ export const ApprovalAnswer = Type.Object(
      */
     hostProgram: Type.Optional(Type.Literal(true)),
     /**
+     * "Allow in this Space" on a `folder_access` card that offered it (`details.space`), with
+     * `scope: "once"`: the picked folder is added to that Space's folders, for the runs of that
+     * Space only (docs/design/spaces-2026.md §5.3). Never from chat, never when tainted.
+     */
+    inSpace: Type.Optional(Type.Literal(true)),
+    /**
      * `folder_access` only: the folder the owner picked (native picker). This path, resolved by
      * the Gateway, is what is granted, never the agent's own string.
      */

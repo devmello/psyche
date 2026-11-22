@@ -19,6 +19,7 @@ import { homeRest } from "./home-rest/fr.ts";
 import { keepAwake } from "./keep-awake/fr.ts";
 import { links } from "./links/fr.ts";
 import { linuxAccess } from "./linux-access/fr.ts";
+import { machines } from "./machines/fr.ts";
 import { mailFollowups } from "./mail-followups/fr.ts";
 import { mailMeetings } from "./mail-meetings/fr.ts";
 import { memoryMap } from "./memory-map/fr.ts";
@@ -155,6 +156,16 @@ export const fr: Partial<Catalogue> = {
   "errors.reason.secret_required": "Un autre client a besoin de son propre secret client.",
   "errors.reason.updating":
     "Psyche va redémarrer pour installer une mise à jour. Réessayez dans un instant.",
+  "errors.reason.passkey_required":
+    "Configurez une clé d’accès pour approuver les paiements sur ce Psyche.",
+  "errors.reason.awaiting_owner":
+    "Une app a des modifications non enregistrées. Psyche attend que vous décidiez de leur sort.",
+  "errors.reason.checkout_needs_desktop":
+    "Pour payer dans le navigateur de Psyche, l’app de bureau Psyche doit être connectée à cet hôte.",
+  "errors.reason.no_chromium":
+    "Le navigateur de Psyche a besoin de Chromium sur cet hôte. Installez-le ou définissez PSYCHE_CHROMIUM.",
+  "errors.reason.chromium_sandbox":
+    "Le bac à sable de Chromium n'a pas pu démarrer sur cet hôte, le navigateur de Psyche est donc désactivé. Autorisez Chromium à utiliser les espaces de noms utilisateur (un profil AppArmor).",
   "errors.unavailable": "Psyche ne peut pas faire cela pour le moment.",
   "errors.approval_required": "Votre approbation est d’abord nécessaire.",
   "errors.approval_expired": "L’approbation a expiré ; redemandez.",
@@ -816,6 +827,8 @@ export const fr: Partial<Catalogue> = {
     "Arrêt avant la fin : {reason}. {done} lots sur {total} ont été importés. Relancez l’importation pour continuer ; les conversations déjà importées sont ignorées.",
   "agent.memory.importConv.retry": "Importer à nouveau",
   "agent.memory.exported": "{file} exporté.",
+  "agent.memory.importConv.memoriesFailed":
+    "Les souvenirs n’ont pas pu être importés : {reason}. Relancez l’importation pour réessayer.",
   "agent.memory.export": "Tout exporter",
   "agent.memory.resetDone":
     "Réinitialisation : {files, plural, one {# fichier} other {# fichiers}}, {claims, plural, one {# affirmation} other {# affirmations}}.",
@@ -3845,4 +3858,5 @@ export const fr: Partial<Catalogue> = {
   ...mailFollowups,
   ...keepAwake,
   ...spaces,
+  ...machines,
 };

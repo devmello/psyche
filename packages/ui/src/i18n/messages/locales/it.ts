@@ -23,6 +23,7 @@ import { homeRest } from "./home-rest/it.ts";
 import { keepAwake } from "./keep-awake/it.ts";
 import { links } from "./links/it.ts";
 import { linuxAccess } from "./linux-access/it.ts";
+import { machines } from "./machines/it.ts";
 import { mailFollowups } from "./mail-followups/it.ts";
 import { mailMeetings } from "./mail-meetings/it.ts";
 import { meetingRecordRest } from "./meeting-record-rest/it.ts";
@@ -169,6 +170,16 @@ export const it: Partial<Catalogue> = {
   "errors.reason.secret_required": "Un client diverso richiede il proprio segreto del client.",
   "errors.reason.updating":
     "Psyche sta per riavviarsi per installare un aggiornamento. Riprova tra un momento.",
+  "errors.reason.passkey_required":
+    "Configura una passkey per approvare i pagamenti su questo Psyche.",
+  "errors.reason.awaiting_owner":
+    "Un’app ha modifiche non salvate. Psyche aspetta che tu decida cosa farne.",
+  "errors.reason.checkout_needs_desktop":
+    "Per pagare nel browser di Psyche, l’app desktop di Psyche deve essere collegata a questo host.",
+  "errors.reason.no_chromium":
+    "Il browser di Psyche ha bisogno di Chromium su questo host. Installalo o imposta PSYCHE_CHROMIUM.",
+  "errors.reason.chromium_sandbox":
+    "La sandbox di Chromium non è partita su questo host, quindi il browser di Psyche è disattivato. Consenti a Chromium i namespace utente (un profilo AppArmor).",
   "errors.unavailable": "Psyche non può farlo in questo momento.",
   "errors.approval_required": "Prima serve la tua approvazione.",
   "errors.approval_expired": "L’approvazione è scaduta; chiedi di nuovo.",
@@ -828,6 +839,8 @@ export const it: Partial<Catalogue> = {
     "Interrotto prima della fine: {reason}. Sono stati importati {done} lotti su {total}. Importa di nuovo per continuare; le conversazioni già importate vengono saltate.",
   "agent.memory.importConv.retry": "Importa di nuovo",
   "agent.memory.exported": "Esportato {file}.",
+  "agent.memory.importConv.memoriesFailed":
+    "Impossibile importare i ricordi: {reason}. Importa di nuovo per riprovare.",
   "agent.memory.export": "Esporta tutto",
   "agent.memory.resetDone":
     "Ripristinati {files, plural, one {# file} other {# file}}, {claims, plural, one {# affermazione} other {# affermazioni}}.",
@@ -3839,4 +3852,5 @@ export const it: Partial<Catalogue> = {
   ...mailFollowups,
   ...keepAwake,
   ...spaces,
+  ...machines,
 };

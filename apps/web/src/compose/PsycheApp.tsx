@@ -78,6 +78,12 @@ import { renderLibraryThumbnail } from "./library-thumbnails.tsx";
 import { writeOnboarding } from "./onboarding.ts";
 import { saveHabits, saveMemory } from "./onboarding-host.ts";
 import { useRemotePresence } from "./remote-presence.tsx";
+import {
+  ClaimLanChoice,
+  finishClaim,
+  ServerSetupEntry,
+  useClaimLanChoice,
+} from "./server-setup.tsx";
 import { settingsRoute } from "./settings.tsx";
 import { SideChatPane } from "./side-chat.tsx";
 import { useTranscriptMode } from "./transcript-mode.tsx";
@@ -404,7 +410,7 @@ export async function completeOnboarding(
   platform: ShellPlatform,
   result: OnboardingResult,
   now: () => Date = () => new Date(),
-  options: { rerun?: boolean } = {},
+  options: { rerun?: boolean; keepLan?: boolean } = {},
 ): Promise<void> {
   const call = (m: string, p: unknown, o?: { idempotencyKey?: string }) =>
     platform.gateway.call(m, p, o ?? {});
@@ -445,6 +451,8 @@ export async function completeOnboarding(
     { idempotencyKey: `onboarding:done:${now().getTime()}` },
   );
   if (!options.rerun) await greetMainChat(call, now);
+  // A server this computer just claimed (design §3.6): last, since off can end this connection.
+  if (options.keepLan !== undefined) await finishClaim(call, options.keepLan, now);
 }
 
 /**
@@ -633,6 +641,7 @@ export function PsycheApp({ platform }: { platform: ShellPlatform }): ReactEleme
   const [gate, setGate] = useState<Gate>("loading");
   const [error, setError] = useState<string | null>(null);
   const [persona, reloadPersona] = useWorkspacePersona(platform);
+  const claimLan = useClaimLanChoice(platform, gate === "onboarding");
 
   useEffect(() => {
     let cancelled = false;
@@ -742,11 +751,18 @@ export function PsycheApp({ platform }: { platform: ShellPlatform }): ReactEleme
               {error}
             </p>
           ) : null}
+          <ServerSetupEntry platform={platform} />
+          <ClaimLanChoice keepLan={claimLan.keepLan} onChange={claimLan.setKeepLan} />
           <FirstRun
             platform={platform}
             mode="first"
             onComplete={(result) => {
-              completeOnboarding(platform, result).then(
+              completeOnboarding(
+                platform,
+                result,
+                undefined,
+                claimLan.keepLan === null ? {} : { keepLan: claimLan.keepLan },
+              ).then(
                 () => {
                   reloadPersona();
                   // The folders needed a card that cannot be answered here: land on File access.

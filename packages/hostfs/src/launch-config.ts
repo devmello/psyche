@@ -318,7 +318,8 @@ export async function listPinned(
  * what `inner` read may be outside the root, and its answer is dropped. With `retry`, it is then
  * read again, up to `retry.tries` times, each pinned afresh below its folder's pin (#1469 review
  * r4: a swap out and back must not hide what the folder holds), and noted in `retry.seen`. The
- * answer is undefined when no try was clean. A folder noted once keeps that identity for this
+ * answer is undefined when no try was clean. One already swapped before a try reads (`pinOnce`)
+ * is not read, nor tried again. A folder noted once keeps that identity for this
  * map, unless a fresh try pins it again. A folder that was not there at either look, below a
  * folder that stayed, is left unnoted and its answer dropped: it is gone, not swapped. Without
  * `openat`, a folder swapped out after the first look and back before the last one is not seen
@@ -350,7 +351,8 @@ export async function withPinned<T>(
     if (r.state === "swapped") {
       retry?.seen.add(rel);
       folders[rel] = "";
-      if (attempt < (retry?.tries ?? 0)) continue;
+      // Seen before the read: a swap that is still there, so trying again reads nothing new.
+      if (!r.early && attempt < (retry?.tries ?? 0)) continue;
       return undefined;
     }
     if (attempt > 0) {
@@ -368,6 +370,8 @@ interface PinTry<T> {
   value?: T;
   failed: boolean;
   error?: unknown;
+  /** Swapped already before the read, which was skipped. */
+  early?: true;
 }
 
 /** One pinned read; a clean one notes the folder's identity in `map`. */
@@ -400,6 +404,10 @@ async function pinOnce<T>(
   };
   const aboveBefore = await above();
   const was = await look(path);
+  // Already swapped before the read (#1469 review r5): its folder is no longer the one pinned, or
+  // it is a link or a file. Nothing is read, so a swap that stays costs the same whatever it
+  // leads to, and reads nothing outside the root.
+  if (!aboveBefore || was === "") return { state: "swapped", failed: false, early: true };
   let value: T | undefined;
   let error: unknown;
   let failed = false;

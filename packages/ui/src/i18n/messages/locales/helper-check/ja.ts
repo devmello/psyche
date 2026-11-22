@@ -15,6 +15,9 @@ export const helperCheck: Partial<Catalogue> = {
     "あなたが所有するファイル（AppImage やホームフォルダ内のビルドなど）から実行されています。Psyche は受け入れますが、あなたの別のプログラムが置き換えた可能性は否定できません。",
   "settings.devices.helperCheck.detail.unverified":
     "今のところ Psyche は受け入れていますが、どのプログラムかは確認できませんでした。",
+  "settings.devices.helperCheck.state.tarball": "ヘルパーは未検証です（tarball インストール）",
+  "settings.devices.helperCheck.detail.tarball":
+    "この psyche-server はあなた自身のアカウントに tarball からインストールされているため、ヘルパーはあなたが所有するファイルです。Psyche は受け入れますが、あなたの別のプログラムが置き換えた可能性は否定できません。deb または rpm パッケージなら、Psyche が検証できるヘルパーがインストールされます。",
   "settings.devices.helperCheck.refused": "拒否: {reason}",
   "settings.devices.helperCheck.reason.unclear": "Psyche はヘルパーを確認できませんでした",
   "settings.devices.helperCheck.reason.notHelper":

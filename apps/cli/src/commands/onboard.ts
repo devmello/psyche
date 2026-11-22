@@ -1,5 +1,6 @@
 import { chmodSync, mkdirSync } from "node:fs";
-import { PsycheError } from "@psyche/protocol";
+import { formatSetupCode, PsycheError } from "@psyche/protocol";
+import { isClaimedHome, makeSetupCode } from "@psyche/protocol/claim-node";
 import { bool, type CommandSpec, type OptionSpec, str } from "../command.ts";
 import { readConfig, setPath, validateConfig, writeConfig } from "../config-file.ts";
 import type { Ctx } from "../context.ts";
@@ -367,6 +368,30 @@ export const onboardCommands: CommandSpec[] = [
         );
       }
       return finish(steps, 0);
+    },
+  },
+  {
+    path: ["setup", "code"],
+    summary: "A new one-time setup code, for setting this server up from the Psyche app",
+    description:
+      "On a psyche-server that is not set up yet: makes a new setup code and prints it. In the Psyche app on your Mac, choose Connect to a Psyche server (or Settings → Server & remote access → Set up a remote server) and type it. The code works once, for 24 hours; making a new one stops the old one. Only a hash of it is kept, so it is shown only now. Refused once the server is set up.",
+    async run(ctx) {
+      if (isClaimedHome(ctx.home)) {
+        throw new CliError(
+          "usage",
+          "This server is set up already. Add another computer with `psyche devices link`.",
+        );
+      }
+      const { code, expiresAt } = await makeSetupCode(ctx.home, ctx.deps.now());
+      const shown = formatSetupCode(code);
+      return {
+        data: { code: shown, expiresAt },
+        human: [
+          `Setup code: ${shown}`,
+          `It works once, until ${expiresAt}. Any earlier code no longer works.`,
+          "In the Psyche app on your Mac: Connect to a Psyche server, then type this code.",
+        ].join("\n"),
+      };
     },
   },
 ];

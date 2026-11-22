@@ -23,6 +23,7 @@ import { home } from "./home/ar.ts";
 import { keepAwake } from "./keep-awake/ar.ts";
 import { links } from "./links/ar.ts";
 import { linuxAccess } from "./linux-access/ar.ts";
+import { machines } from "./machines/ar.ts";
 import { mailFollowups } from "./mail-followups/ar.ts";
 import { mailMeetings } from "./mail-meetings/ar.ts";
 import { meetingRecord } from "./meeting-record/ar.ts";
@@ -208,6 +209,15 @@ export const ar: Partial<Catalogue> = {
     "Google متصل بعميل آخر. افصل Google أولًا ثم غيّر العميل.",
   "errors.reason.secret_required": "يحتاج العميل المختلف إلى سر عميل خاص به.",
   "errors.reason.updating": "سيعيد Psyche التشغيل الآن لتثبيت تحديث. حاول مرة أخرى بعد لحظة.",
+  "errors.reason.passkey_required": "أعدّ مفتاح مرور للموافقة على المدفوعات في Psyche هذا.",
+  "errors.reason.awaiting_owner":
+    "يحتوي تطبيق على تغييرات غير محفوظة. ينتظر Psyche أن تقرر ما يحدث لها.",
+  "errors.reason.checkout_needs_desktop":
+    "يتطلب الدفع في متصفح Psyche أن يكون تطبيق Psyche لسطح المكتب متصلاً بهذا المضيف.",
+  "errors.reason.no_chromium":
+    "يحتاج متصفح Psyche إلى Chromium على هذا المضيف. ثبّته أو اضبط PSYCHE_CHROMIUM.",
+  "errors.reason.chromium_sandbox":
+    "تعذّر تشغيل صندوق الحماية في Chromium على هذا المضيف، لذا فمتصفح Psyche متوقف. اسمح لـ Chromium باستخدام مساحات أسماء المستخدم (ملف تعريف AppArmor).",
   "errors.unavailable": "لا يستطيع Psyche القيام بذلك الآن.",
   "errors.approval_required": "يحتاج هذا إلى موافقتك أولًا.",
   "errors.approval_expired": "انتهت صلاحية الموافقة؛ اطلب مرة أخرى.",
@@ -889,6 +899,8 @@ export const ar: Partial<Catalogue> = {
     "توقف قبل الاكتمال: {reason}. تم استيراد {done} من {total} دفعات. أعد الاستيراد للمتابعة؛ تُتخطى المحادثات المستوردة سابقًا.",
   "agent.memory.importConv.retry": "إعادة الاستيراد",
   "agent.memory.exported": "تم تصدير {file}.",
+  "agent.memory.importConv.memoriesFailed":
+    "تعذّر استيراد الذكريات: {reason}. أعد الاستيراد للمحاولة مرة أخرى.",
   "agent.memory.export": "تصدير كل شيء",
   "agent.memory.resetDone":
     "تمت إعادة تعيين {files, plural, one {ملف واحد} two {ملفين} few {# ملفات} many {# ملفًا} other {# ملف} zero {# ملف}} و{claims, plural, one {ادعاء واحد} two {ادعاءين} few {# ادعاءات} many {# ادعاءً} other {# ادعاء} zero {# ادعاء}}.",
@@ -3835,4 +3847,5 @@ export const ar: Partial<Catalogue> = {
   ...mailFollowups,
   ...keepAwake,
   ...spaces,
+  ...machines,
 };

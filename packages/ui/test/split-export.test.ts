@@ -86,6 +86,25 @@ describe("splitExport", () => {
     expect(batches[0]).not.toContain("mmmm");
   });
 
+  it("skips an entry with an id over 400 characters instead of cutting it", () => {
+    const longId = { ...conv(1, 1, 10), uuid: "u".repeat(401) };
+    const sameId = { ...conv(2, 1, 10), uuid: "u".repeat(400) };
+    const { batches, skipped } = splitExport(JSON.stringify([longId, sameId]));
+    expect(skipped).toEqual([{ title: "Chat 1", reason: "invalid" }]);
+    expect(batches[0]).toContain("u".repeat(400));
+  });
+
+  it("cuts long text with the Gateway's marker and never inside a surrogate pair", () => {
+    const text = `${"a".repeat(19_954)}😀${"b".repeat(500)}`;
+    const entry = { ...conv(1, 0, 0), chat_messages: [{ sender: "human", text }] };
+    const { batches } = splitExport(JSON.stringify([entry]));
+    const kept = (JSON.parse(batches[0] as string) as { chat_messages: { text: string }[] }[])[0]
+      ?.chat_messages[0]?.text as string;
+    expect(kept.length).toBeLessThanOrEqual(20_000);
+    expect(kept).toMatch(/\n\[truncated: \d+ more characters\]$/);
+    expect(kept).not.toMatch(/[\uD800-\uDBFF](?![\uDC00-\uDFFF])/);
+  });
+
   it("rejects text that is not a list", () => {
     expect(() => splitExport("{}")).toThrow();
     expect(() => splitExport("nope")).toThrow();

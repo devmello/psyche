@@ -1,0 +1,22 @@
+# psyche-helper-remote.service: lets your Psyche (on your Mac) use this computer.
+# A systemd --user unit (linux-helper-only design 3.3). install.sh enables it for one account and
+# turns on linger, so it runs at boot with nobody logged in. The tarball installer rewrites the
+# ExecStart path to the helper under ~/.local/lib/psyche-helper.
+[Unit]
+Description=Psyche helper: lets your Psyche use this computer
+After=network-online.target dbus.socket
+Wants=network-online.target
+
+[Service]
+Type=simple
+ExecStart=/usr/bin/psyche-helper remote
+Restart=on-failure
+RestartSec=5
+# 78 = revoked, identity changed, protocol mismatch, not paired: never restart into a loop.
+RestartPreventExitStatus=78
+# Nothing the helper starts (apps, commands) can gain privileges: no sudo, pkexec or setuid.
+NoNewPrivileges=yes
+Slice=psyche-machine.slice
+
+[Install]
+WantedBy=default.target

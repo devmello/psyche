@@ -7,6 +7,13 @@ use std::path::PathBuf;
 /// The environment, as a lookup. Tests pass a map; `main` passes the process environment.
 pub trait Env {
     fn get(&self, key: &str) -> Option<String>;
+
+    /// The account's home. A map says `HOME`; the process environment says what passwd says (see
+    /// [`passwd_home`]), because the account's own manager can set `$HOME` to anything and the
+    /// policy's `~` must not follow it.
+    fn home(&self) -> Option<String> {
+        self.get("HOME")
+    }
 }
 
 pub struct ProcessEnv;
@@ -14,6 +21,45 @@ pub struct ProcessEnv;
 impl Env for ProcessEnv {
     fn get(&self, key: &str) -> Option<String> {
         std::env::var(key).ok().filter(|v| !v.is_empty())
+    }
+
+    fn home(&self) -> Option<String> {
+        passwd_home().map(|p| p.to_string_lossy().into_owned())
+    }
+}
+
+/// The home directory of the effective user from the passwd database (`getpwuid_r`), never from
+/// `$HOME`. `None` when there is no entry or its directory is not absolute.
+pub fn passwd_home() -> Option<PathBuf> {
+    use std::os::unix::ffi::OsStrExt;
+    // SAFETY: geteuid has no preconditions.
+    let uid = unsafe { libc::geteuid() };
+    let mut buf = vec![0u8; 4096];
+    loop {
+        // SAFETY: all-zero is a valid (empty) passwd; getpwuid_r fills it.
+        let mut pwd: libc::passwd = unsafe { std::mem::zeroed() };
+        let mut result: *mut libc::passwd = std::ptr::null_mut();
+        // SAFETY: the buffer and out-pointers are valid for the call.
+        let rc = unsafe {
+            libc::getpwuid_r(
+                uid,
+                &mut pwd,
+                buf.as_mut_ptr().cast(),
+                buf.len(),
+                &mut result,
+            )
+        };
+        if rc == libc::ERANGE && buf.len() < 1 << 20 {
+            buf.resize(buf.len() * 2, 0);
+            continue;
+        }
+        if rc != 0 || result.is_null() || pwd.pw_dir.is_null() {
+            return None;
+        }
+        // SAFETY: pw_dir points at a NUL-terminated string inside `buf`.
+        let dir = unsafe { std::ffi::CStr::from_ptr(pwd.pw_dir) };
+        let path = PathBuf::from(std::ffi::OsStr::from_bytes(dir.to_bytes()));
+        return path.is_absolute().then_some(path);
     }
 }
 
@@ -26,7 +72,7 @@ impl Env for std::collections::HashMap<String, String> {
 }
 
 fn home_dir(env: &dyn Env) -> PathBuf {
-    PathBuf::from(env.get("HOME").unwrap_or_else(|| "/".to_string()))
+    PathBuf::from(env.home().unwrap_or_else(|| "/".to_string()))
 }
 
 pub fn psyche_home(env: &dyn Env) -> PathBuf {
@@ -91,6 +137,46 @@ mod tests {
             .iter()
             .map(|(k, v)| (k.to_string(), v.to_string()))
             .collect()
+    }
+
+    #[test]
+    fn the_process_home_is_the_passwd_home_not_home() {
+        // The child run: HOME=/ must not change what the helper takes as the account's home.
+        if std::env::var_os("PSYCHE_TEST_HOME_CHILD").is_some() {
+            let want = passwd_home().expect("checked by the parent run");
+            assert_eq!(ProcessEnv.home().as_deref(), want.to_str());
+            assert_ne!(ProcessEnv.home().as_deref(), Some("/"));
+            assert_eq!(
+                psyche_home(&ProcessEnv),
+                want.join(".psyche"),
+            );
+            return;
+        }
+        // No passwd entry (a rootless container with an arbitrary UID) or a home of `/`: nothing to compare.
+        match passwd_home() {
+            None => return,
+            Some(h) if h == std::path::Path::new("/") => return,
+            Some(_) => {}
+        }
+        let out = std::process::Command::new(std::env::current_exe().unwrap())
+            .args([
+                "--exact",
+                "paths::tests::the_process_home_is_the_passwd_home_not_home",
+                "--test-threads=1",
+            ])
+            .env("HOME", "/")
+            .env("PSYCHE_TEST_HOME_CHILD", "1")
+            .output()
+            .unwrap();
+        assert!(
+            out.status.success(),
+            "{}{}",
+            String::from_utf8_lossy(&out.stdout),
+            String::from_utf8_lossy(&out.stderr)
+        );
+        assert!(String::from_utf8_lossy(&out.stdout).contains("1 passed"));
+        // A map still says HOME (tests and dev).
+        assert_eq!(env(&[("HOME", "/h")]).home().as_deref(), Some("/h"));
     }
 
     #[test]

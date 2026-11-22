@@ -33,6 +33,23 @@ fn main() -> ExitCode {
             return ExitCode::from(2);
         }
     };
+    if let Command::Update {
+        check,
+        rollback,
+        from,
+    } = &command
+    {
+        return match psyche_helper::update::run(*check, *rollback, from.as_deref()) {
+            Ok(text) => {
+                println!("{text}");
+                ExitCode::SUCCESS
+            }
+            Err(message) => {
+                eprintln!("psyche-helper: {message}");
+                ExitCode::FAILURE
+            }
+        };
+    }
     if matches!(
         command,
         Command::Pair { .. } | Command::Remote | Command::Status { .. } | Command::Unpair

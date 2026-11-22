@@ -16,6 +16,10 @@ export const helperCheck: Partial<Catalogue> = {
     "Il s'exécute depuis des fichiers qui vous appartiennent, comme un AppImage ou une version compilée dans votre dossier personnel. Psyche l'accepte, mais ne peut pas exclure qu'un autre de vos programmes l'ait remplacé.",
   "settings.devices.helperCheck.detail.unverified":
     "Psyche l'accepte pour l'instant, mais n'a pas pu déterminer de quel programme il s'agit.",
+  "settings.devices.helperCheck.state.tarball":
+    "Assistant non vérifié (installation depuis le tarball)",
+  "settings.devices.helperCheck.detail.tarball":
+    "Ce psyche-server a été installé depuis le tarball sous votre propre compte : son assistant est donc un fichier qui vous appartient. Psyche l'accepte, mais ne peut pas exclure qu'un autre de vos programmes l'ait remplacé. Le paquet deb ou rpm installe un assistant que Psyche peut vérifier.",
   "settings.devices.helperCheck.refused": "Refusé : {reason}",
   "settings.devices.helperCheck.reason.unclear": "Psyche n'a pas pu vérifier l'assistant",
   "settings.devices.helperCheck.reason.notHelper": "ce programme n'est pas l'assistant de Psyche",

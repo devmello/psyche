@@ -36,6 +36,7 @@ pub mod rmtree;
 pub mod scope;
 pub mod spawn;
 pub mod sweep;
+pub mod tools;
 pub mod wm;
 pub mod wmdriver;
 pub mod xauth;

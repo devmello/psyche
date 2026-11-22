@@ -19,6 +19,7 @@ import { homeRest } from "./home-rest/de.ts";
 import { keepAwake } from "./keep-awake/de.ts";
 import { links } from "./links/de.ts";
 import { linuxAccess } from "./linux-access/de.ts";
+import { machines } from "./machines/de.ts";
 import { mailFollowups } from "./mail-followups/de.ts";
 import { mailMeetings } from "./mail-meetings/de.ts";
 import { memoryMap } from "./memory-map/de.ts";
@@ -158,6 +159,16 @@ export const de: Partial<Catalogue> = {
   "errors.reason.secret_required": "Ein anderer Client braucht sein eigenes Client-Secret.",
   "errors.reason.updating":
     "Psyche startet gleich neu, um ein Update zu installieren. Versuche es in einem Moment erneut.",
+  "errors.reason.passkey_required":
+    "Richte einen Passkey ein, um Zahlungen in diesem Psyche zu bestätigen.",
+  "errors.reason.awaiting_owner":
+    "Eine App hat ungespeicherte Änderungen. Psyche wartet, bis du entscheidest, was mit ihnen passiert.",
+  "errors.reason.checkout_needs_desktop":
+    "Zum Bezahlen in Psyches Browser muss die Psyche-Desktop-App mit diesem Host verbunden sein.",
+  "errors.reason.no_chromium":
+    "Psyches Browser braucht Chromium auf diesem Host. Installiere es oder setze PSYCHE_CHROMIUM.",
+  "errors.reason.chromium_sandbox":
+    "Die Sandbox von Chromium konnte auf diesem Host nicht starten, daher ist Psyches Browser aus. Erlaube Chromium Benutzer-Namespaces (ein AppArmor-Profil).",
   "errors.unavailable": "Psyche kann das gerade nicht.",
   "errors.approval_required": "Das braucht zuerst deine Genehmigung.",
   "errors.approval_expired": "Die Genehmigung ist abgelaufen; frage erneut.",
@@ -851,6 +862,8 @@ export const de: Partial<Catalogue> = {
     "Vor dem Ende gestoppt: {reason}. {done} von {total} Paketen wurden importiert. Importiere erneut, um fortzufahren; bereits importierte Unterhaltungen werden übersprungen.",
   "agent.memory.importConv.retry": "Erneut importieren",
   "agent.memory.exported": "{file} exportiert.",
+  "agent.memory.importConv.memoriesFailed":
+    "Die Erinnerungen konnten nicht importiert werden: {reason}. Importiere erneut, um es noch einmal zu versuchen.",
   "agent.memory.export": "Alles exportieren",
   "agent.memory.resetDone":
     "{files, plural, one {# Datei} other {# Dateien}}, {claims, plural, one {# Aussage} other {# Aussagen}} zurückgesetzt.",
@@ -3920,4 +3933,5 @@ export const de: Partial<Catalogue> = {
   ...mailFollowups,
   ...keepAwake,
   ...spaces,
+  ...machines,
 };

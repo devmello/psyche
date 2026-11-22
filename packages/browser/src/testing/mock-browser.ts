@@ -286,6 +286,11 @@ export class MockTab implements CdpTarget {
     return undefined;
   }
 
+  /** Test hook: page script, autofill or the owner sets a field's value. */
+  setFieldValue(name: string, value: string): void {
+    for (const el of this.#doc.els.values()) if (el.attrs.name === name) el.value = value;
+  }
+
   /** Test hook: the page script changes a field's `type` (TM-28). */
   setFieldType(name: string, type: string): void {
     for (const el of this.#doc.els.values()) if (el.attrs.name === name) el.attrs.type = type;
@@ -476,6 +481,13 @@ export class MockTab implements CdpTarget {
         }
         case "clickable": {
           leaf(mk("DIV", parent, { fx: n, text: n.text, clickable: true }), 200);
+          return;
+        }
+        case "editable": {
+          const el = mk("DIV", parent, { fx: n, text: n.text });
+          el.attrs.contenteditable = "true";
+          el.attrs["aria-label"] = n.label;
+          leaf(el, 400);
           return;
         }
         case "overlay": {
@@ -1368,10 +1380,23 @@ function axTree(doc: MockDoc, focused: MockEl | undefined): AXNode[] {
       case "IMG":
         add({ ...base, role: v("image"), name: v(el.attrs.alt ?? "") }, parent.nodeId);
         return;
-      case "DIV":
-        node = add({ ...base, role: v("generic"), name: v("") }, parent.nodeId);
+      case "DIV": {
+        // A contenteditable is `generic` with an `editable` property in Chromium, not a textbox.
+        const editable = el.attrs.contenteditable === "true";
+        node = add(
+          {
+            ...base,
+            role: v("generic"),
+            name: v(editable ? (el.attrs["aria-label"] ?? "") : ""),
+            ...(editable
+              ? { properties: [...props, { name: "editable", value: v("plaintext") }] }
+              : {}),
+          },
+          parent.nodeId,
+        );
         if (el.text !== undefined) text(el.text, node);
         return;
+      }
       default:
         kids();
     }

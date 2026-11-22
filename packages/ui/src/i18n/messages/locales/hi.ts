@@ -23,6 +23,7 @@ import { homeRest } from "./home-rest/hi.ts";
 import { keepAwake } from "./keep-awake/hi.ts";
 import { links } from "./links/hi.ts";
 import { linuxAccess } from "./linux-access/hi.ts";
+import { machines } from "./machines/hi.ts";
 import { mailFollowups } from "./mail-followups/hi.ts";
 import { mailMeetings } from "./mail-meetings/hi.ts";
 import { meetingRecordRest } from "./meeting-record-rest/hi.ts";
@@ -169,6 +170,15 @@ export const hi: Partial<Catalogue> = {
   "errors.reason.secret_required": "दूसरे क्लाइंट को अपना क्लाइंट सीक्रेट चाहिए।",
   "errors.reason.updating":
     "Psyche अपडेट इंस्टॉल करने के लिए अभी रीस्टार्ट होने वाला है। थोड़ी देर में फिर से कोशिश करें।",
+  "errors.reason.passkey_required": "इस Psyche पर भुगतान स्वीकृत करने के लिए पासकी सेट करें।",
+  "errors.reason.awaiting_owner":
+    "किसी ऐप में बिना सहेजे बदलाव हैं। Psyche आपके तय करने का इंतज़ार करता है कि उनका क्या करना है।",
+  "errors.reason.checkout_needs_desktop":
+    "Psyche के ब्राउज़र में भुगतान करने के लिए Psyche डेस्कटॉप ऐप का इस होस्ट से जुड़ा होना ज़रूरी है।",
+  "errors.reason.no_chromium":
+    "Psyche के ब्राउज़र को इस होस्ट पर Chromium चाहिए। इसे इंस्टॉल करें या PSYCHE_CHROMIUM सेट करें।",
+  "errors.reason.chromium_sandbox":
+    "इस होस्ट पर Chromium का सैंडबॉक्स शुरू नहीं हो सका, इसलिए Psyche का ब्राउज़र बंद है। Chromium को यूज़र नेमस्पेस इस्तेमाल करने दें (AppArmor प्रोफ़ाइल)।",
   "errors.unavailable": "Psyche अभी ऐसा नहीं कर सकता।",
   "errors.approval_required": "इसके लिए पहले आपकी स्वीकृति चाहिए।",
   "errors.approval_expired": "स्वीकृति की अवधि समाप्त हो गई; फिर से पूछें।",
@@ -848,6 +858,8 @@ export const hi: Partial<Catalogue> = {
     "पूरा होने से पहले रुक गया: {reason}। {total} में से {done} बैच इंपोर्ट हुए। जारी रखने के लिए फिर से इंपोर्ट करें; पहले से इंपोर्ट की गई बातचीत छोड़ दी जाती है।",
   "agent.memory.importConv.retry": "फिर से इंपोर्ट करें",
   "agent.memory.exported": "{file} एक्सपोर्ट की गई।",
+  "agent.memory.importConv.memoriesFailed":
+    "मेमोरी इंपोर्ट नहीं हो सकी: {reason}। दोबारा कोशिश करने के लिए फिर से इंपोर्ट करें।",
   "agent.memory.export": "सब कुछ एक्सपोर्ट करें",
   "agent.memory.resetDone":
     "{files, plural, one {# फ़ाइल} other {# फ़ाइलें}}, {claims, plural, one {# दावा} other {# दावे}} रीसेट किए गए।",
@@ -3783,4 +3795,5 @@ export const hi: Partial<Catalogue> = {
   ...mailFollowups,
   ...keepAwake,
   ...spaces,
+  ...machines,
 };

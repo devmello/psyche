@@ -758,3 +758,77 @@ export function resolveTarget(opts: {
 export function forgetGatewayData(userData: string, id: string): void {
   rmSync(gatewayDataDir(userData, id), { recursive: true, force: true });
 }
+
+/**
+ * The origin to claim a server at (remote-gateway design §3.6), from a typed address or a Bonjour
+ * listing: an https origin on the local network. A typed address without a port gets the
+ * Gateway's (7979): a bare `192.168.1.20` means "that server", not port 443. Throws a
+ * `GatewayAddressError` (`invalid` for an address that is not on this network).
+ */
+export function claimOriginFor(input: string): string {
+  const typed = input.trim();
+  if (typed === "") throw new GatewayAddressError("empty");
+  const withScheme = /^[a-z][a-z0-9+.-]*:\/\//i.test(typed) ? typed : `https://${typed}`;
+  let url: URL;
+  try {
+    url = new URL(withScheme);
+  } catch {
+    throw new GatewayAddressError("invalid");
+  }
+  // `URL` drops an explicit `:443`, so the Gateway's port is added only when none was typed.
+  if (url.port === "" && !/^[a-z]+:\/\/[^/]*:443(?:[/?#]|$)/i.test(withScheme)) {
+    url.port = String(DEFAULT_GATEWAY_PORT);
+  }
+  const origin = normalizeGatewayOrigin(url.origin);
+  if (!isLanOrigin(origin)) throw new GatewayAddressError("invalid");
+  return origin;
+}
+
+/**
+ * Saves the server a claim proved (remote-gateway design §3.6): pinned to the identity key and
+ * the certificate SPKI at once, exactly as a `psyche-pair:v2` link pins them, under the id whose
+ * device key just became the server's admin. An entry already saved for that address keeps its
+ * id and name and gains the pins; one pinned to anything else is refused (`pin_mismatch`).
+ */
+export function addGatewayFromClaim(
+  data: GatewaysFile,
+  claimed: { origin: string; gatewayKey: string; certPin: string },
+  id: string,
+): AddResult {
+  const origin = normalizeGatewayOrigin(claimed.origin);
+  if (!isLanOrigin(origin)) throw new GatewayLinkError("not_lan");
+  if (!KEY_PATTERN.test(claimed.gatewayKey) || !KEY_PATTERN.test(claimed.certPin)) {
+    throw new GatewayLinkError("pin_mismatch");
+  }
+  const found = data.gateways.find((g) => g.origin === origin);
+  if (found) {
+    if (
+      found.id !== id ||
+      (found.identityKey !== undefined && found.identityKey !== claimed.gatewayKey) ||
+      (found.certPin !== undefined && found.certPin !== claimed.certPin)
+    ) {
+      throw new GatewayLinkError("pin_mismatch");
+    }
+    const { identityFingerprint: _f, advertisedFingerprint: _hint, ...rest } = found;
+    const updated: SavedGateway = {
+      ...rest,
+      identityKey: claimed.gatewayKey,
+      certPin: claimed.certPin,
+      lan: true,
+    };
+    return {
+      gateways: { ...data, gateways: data.gateways.map((g) => (g.id === id ? updated : g)) },
+      entry: updated,
+      existing: false,
+    };
+  }
+  const entry: SavedGateway = {
+    id,
+    name: defaultGatewayName(origin),
+    origin,
+    identityKey: claimed.gatewayKey,
+    certPin: claimed.certPin,
+    lan: true,
+  };
+  return { gateways: { ...data, gateways: [...data.gateways, entry] }, entry, existing: false };
+}
