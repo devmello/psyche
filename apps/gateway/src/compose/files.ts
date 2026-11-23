@@ -59,18 +59,103 @@ export interface FilesSetup {
   audit?: Pick<HashChainAuditLog, "append">;
   /** Test seam: the rename that publishes a saved file. */
   rename?: (from: string, to: string) => Promise<void>;
+  /**
+   * The Library rows the quarantine gate checks (`listLibraryGateRows`): every quarantined item and every row
+   * under `quarantine/`. A phone (any caller but the Mac's own desktop app) can't read a file that matches a
+   * quarantined row or sits in `quarantine/` without a trusted row. Without this, phone reads of Library files
+   * are refused (fail closed).
+   */
+  library?: { rows: () => readonly LibraryGateRow[] };
 }
 
-/** A file the caller may read: its real path and display name. */
+/** One Library row as the quarantine gate sees it: its path relative to `library/` and its state. */
+export interface LibraryGateRow {
+  name: string;
+  path: string;
+  quarantined: boolean;
+}
+
+/** Where quarantined bytes sit (`quarantine/<id>-<name>`); trusted files may stay there too. */
+const QUARANTINE_FOLDER = "quarantine";
+
+/**
+ * Whether the call comes from the owner's own Psyche desktop app on this computer (the Host's viewers). Only
+ * that caller may open a quarantined file: the Mac's own Trust flow is the gate for everyone else.
+ */
+export function isLocalDesktopCall(call: Call): boolean {
+  return call.identity?.desktopShell === true && call.conn?.peer?.remoteLoopback === true;
+}
+
+/** A file the caller may read: its real path, display name, and (for Library files) the Library's root. */
 export interface FileSource {
   path: string;
   name: string;
+  library?: { root: string };
 }
 
-/** Resolves `{path}` or `{libraryPath}` to a readable real path, or throws. */
+/**
+ * Checks the file behind an open Library read, by identity: the fd's device and inode, compared with the
+ * stored rows' files and the `quarantine/` folder's. Names and spellings don't matter, so a hard link or a
+ * case, Unicode or `ſ` variant of a quarantined file is the same file and is refused. Runs on the fd the read
+ * then uses, so the check and the read can't diverge.
+ */
+export async function assertLibraryFileOpened(
+  fh: FileHandle,
+  source: FileSource,
+  setup: FilesSetup,
+): Promise<void> {
+  if (source.library === undefined) return;
+  if (setup.library === undefined) {
+    throw new PsycheError("unavailable", "the Library can't be checked, so its files aren't read");
+  }
+  const root = source.library.root;
+  const me = await fh.stat({ bigint: true });
+  const sameFile = (st: BigIntStats): boolean => st.dev === me.dev && st.ino === me.ino;
+  const matched: LibraryGateRow[] = [];
+  for (const row of setup.library.rows()) {
+    const st = await lstat(join(root, row.path), { bigint: true }).catch(() => undefined);
+    if (st !== undefined && sameFile(st)) matched.push(row);
+  }
+  const held = matched.find((row) => row.quarantined);
+  if (held !== undefined) {
+    throw new PsycheError(
+      "forbidden",
+      `${held.name} is quarantined on your Mac; trust it there first`,
+    );
+  }
+  // Inside quarantine/ (any depth, by identity of the folder) needs a trusted row for this very file.
+  const quarantineDir = await lstat(join(root, QUARANTINE_FOLDER), { bigint: true }).catch(
+    () => undefined,
+  );
+  if (quarantineDir === undefined || !quarantineDir.isDirectory()) return;
+  let dir = dirname(source.path);
+  let inQuarantine = false;
+  while (isUnder(dir, root)) {
+    const st = await lstat(dir, { bigint: true }).catch(() => undefined);
+    if (st !== undefined && st.dev === quarantineDir.dev && st.ino === quarantineDir.ino) {
+      inQuarantine = true;
+      break;
+    }
+    const up = dirname(dir);
+    if (up === dir) break;
+    dir = up;
+  }
+  if (inQuarantine && !matched.some((row) => !row.quarantined)) {
+    throw new PsycheError(
+      "forbidden",
+      `${basename(source.path)} is quarantined on your Mac; trust it there first`,
+    );
+  }
+}
+
+/**
+ * Resolves `{path}` or `{libraryPath}` to a readable real path, or throws. A Library file is checked on its
+ * open descriptor (`assertLibraryFileOpened`) by the callers, unless the call is the Mac's own desktop app.
+ */
 export async function resolveFileSource(
   params: { path?: string; libraryPath?: string },
   setup: FilesSetup,
+  call?: Call,
 ): Promise<FileSource> {
   const { path, libraryPath } = params;
   if ((path === undefined) === (libraryPath === undefined)) {
@@ -96,7 +181,12 @@ export async function resolveFileSource(
     throw new PsycheError("forbidden", `${relative} is outside the Library`);
   }
   await assertNoSymlinks(target);
-  return { path: target, name: basename(target) };
+  // The Mac's own desktop app (the Host's viewers) may open a quarantined file after its Open click; any other
+  // caller is checked on the open descriptor.
+  if (call !== undefined && isLocalDesktopCall(call)) {
+    return { path: target, name: basename(target) };
+  }
+  return { path: target, name: basename(target), library: { root } };
 }
 
 /** Opens a regular file without following a link swapped in after the checks. */
@@ -195,12 +285,14 @@ async function listFolder(
 }
 
 async function readFile(
+  call: Call,
   params: MethodParams<"files.read">,
   setup: FilesSetup,
 ): Promise<MethodResult<"files.read">> {
-  const source = await resolveFileSource(params, setup);
+  const source = await resolveFileSource(params, setup, call);
   const fh = await openRegularFile(source.path);
   try {
+    await assertLibraryFileOpened(fh, source, setup);
     const info = await fh.stat({ bigint: true });
     const chunk = await readChunk(fh, Number(info.size), params.offset, params.length);
     return {
@@ -478,7 +570,7 @@ export function filesHandlers(setup: FilesSetup): Record<string, HandlerDef> {
       run: (call: Call, params: MethodParams<"files.write">) => writeFile(call, params, setup),
     },
     "files.read": {
-      run: (_call: Call, params: MethodParams<"files.read">) => readFile(params, setup),
+      run: (call: Call, params: MethodParams<"files.read">) => readFile(call, params, setup),
     },
   };
 }

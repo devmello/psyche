@@ -32,6 +32,14 @@ extension FixtureBackend: LibraryBackend {
         return url
     }
 
+    public func downloadLibraryFile(id: String, progress: @escaping @Sendable (Double) -> Void) async throws -> URL {
+        progress(0)
+        await pause()
+        guard let url = try await libraryFile(id: id) else { throw LibraryFileRefusal.unavailable }
+        progress(1)
+        return url
+    }
+
     public func upload(_ file: UploadFile) async throws -> LibraryItem {
         try await upload(file, progress: { _ in })
     }
