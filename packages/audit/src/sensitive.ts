@@ -304,7 +304,57 @@ const isDigitAt = (s: string, i: number) => {
   return c >= 48 && c <= 57;
 };
 
-/** 13–19 digits, optionally grouped by single spaces, dots, tabs or dashes (the strict reading). */
+/** ASCII letters and digits. */
+const isAlnumAt = (s: string, i: number) => {
+  const c = s.charCodeAt(i);
+  return (c >= 48 && c <= 57) || (c >= 65 && c <= 90) || (c >= 97 && c <= 122);
+};
+
+/** Longest token scanned on either side of a candidate; a longer one is never an identifier. */
+const TOKEN_SCAN = 512;
+const HEX_ID = /^[0-9a-fA-F]{32,}$/;
+const ULID_ID = /^[0-9A-HJKMNP-TV-Z]{26}$/i;
+const UUID_ID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
+/**
+ * True when the token around a card-length digit run [start, end) is an identifier, not a card: a
+ * hex digest or git sha (32+ hex characters), a ULID, or a canonical UUID with its dashes (so an
+ * all-digit UUID counts). The token is the maximal run of letters and digits around the candidate,
+ * and for the UUID shape, that run plus dashes. Any other neighbour, such as a letter that makes
+ * "4111111111111111a" or "x4111111111111111", leaves the candidate a card.
+ */
+function isIdToken(text: string, start: number, end: number): boolean {
+  const n = text.length;
+  let l = start;
+  while (l > 0 && isAlnumAt(text, l - 1)) {
+    l -= 1;
+    if (start - l > TOKEN_SCAN) return false;
+  }
+  let r = end;
+  while (r < n && isAlnumAt(text, r)) {
+    r += 1;
+    if (r - end > TOKEN_SCAN) return false;
+  }
+  const word = text.slice(l, r);
+  if (HEX_ID.test(word) || ULID_ID.test(word)) return true;
+  let dl = start;
+  while (dl > 0 && (isAlnumAt(text, dl - 1) || text.charCodeAt(dl - 1) === 45)) {
+    dl -= 1;
+    if (start - dl > TOKEN_SCAN) return false;
+  }
+  let dr = end;
+  while (dr < n && (isAlnumAt(text, dr) || text.charCodeAt(dr) === 45)) {
+    dr += 1;
+    if (dr - end > TOKEN_SCAN) return false;
+  }
+  return UUID_ID.test(text.slice(dl, dr));
+}
+
+/**
+ * 13–19 digits, optionally grouped by single spaces, dots, tabs or dashes (the strict reading).
+ * A run touching a digit is never a candidate; one touching a letter is skipped only when its
+ * token is an identifier shape (see `isIdToken`).
+ */
 const CARD_CANDIDATE = /(?<!\d)\d(?:[ .\t-]?\d){12,18}(?!\d)/g;
 
 /**
@@ -342,7 +392,7 @@ const CARD_WORD =
  * numbers, a table or a grid is not a card. Order numbers like "112-4567890-1234567" start with a
  * short group and are never read as cards. Linear: each start looks at most 19 digits ahead.
  */
-function cardMatches(text: string): { start: number; length: number }[] {
+function cardMatches(text: string, skipIds: boolean): { start: number; length: number }[] {
   const found: { start: number; length: number }[] = [];
   const n = text.length;
   let i = 0;
@@ -425,7 +475,8 @@ function cardMatches(text: string): { start: number; length: number }[] {
         continue;
       }
       const start = gs[2 * cur] as number;
-      found.push({ start, length: (gs[2 * e + 1] as number) - start });
+      const end = gs[2 * e + 1] as number;
+      if (!(skipIds && isIdToken(text, start, end))) found.push({ start, length: end - start });
       cur = e + 1;
     }
   }
@@ -433,10 +484,13 @@ function cardMatches(text: string): { start: number; length: number }[] {
 }
 
 /** Card numbers in the strict reading (tool arguments, audit): single space, dot or dash, Luhn only. */
-function strictCardMatches(text: string): { start: number; length: number }[] {
+function strictCardMatches(text: string, skipIds: boolean): { start: number; length: number }[] {
   const found: { start: number; length: number }[] = [];
   for (const m of text.matchAll(CARD_CANDIDATE)) {
-    if (cardDigits(m[0]) !== undefined) found.push({ start: m.index, length: m[0].length });
+    const end = m.index + m[0].length;
+    if (cardDigits(m[0]) !== undefined && !(skipIds && isIdToken(text, m.index, end))) {
+      found.push({ start: m.index, length: m[0].length });
+    }
   }
   return found;
 }
@@ -448,6 +502,13 @@ export interface FindOptions {
    * is what the hard prohibitions and audit redaction use: there a false match blocks a file write.
    */
   outbound?: boolean;
+  /**
+   * `"skip"`: a card-length run inside an identifier-shaped token (a hex digest of 32+ characters, a
+   * ULID, a canonical UUID) is not reported. Only the owner-facing redaction of logs and receipts
+   * passes it, so a hash is not masked there. Blocking paths never do: the default is `"strict"`, which
+   * reports every Luhn-valid card, so hex padding around a card cannot hide it.
+   */
+  idTokens?: "skip" | "strict";
 }
 
 export function findSensitive(text: string, options: FindOptions = {}): SensitiveMatch[] {
@@ -463,7 +524,9 @@ export function findSensitive(text: string, options: FindOptions = {}): Sensitiv
       out.push({ kind, index: m.index, length });
     }
   }
-  for (const span of options.outbound === true ? cardMatches(text) : strictCardMatches(text)) {
+  for (const span of options.outbound === true
+    ? cardMatches(text, options.idTokens === "skip")
+    : strictCardMatches(text, options.idTokens === "skip")) {
     out.push({ kind: "card_number", index: span.start, length: span.length });
   }
   for (const m of text.matchAll(IBAN_CANDIDATE)) {
@@ -701,12 +764,15 @@ export function containsSensitive(text: string): boolean {
 
 export const REDACTED = "[redacted]";
 
-/** Replace every sensitive match with `[redacted:<kind>]`. */
-export function redactSensitive(text: string): string {
-  const matches = findSensitive(text);
+/**
+ * Replace every sensitive match with `[redacted:<kind>]`. Owner-facing by default: identifier-shaped
+ * tokens are not masked (`idTokens: "skip"`). A caller whose output a model reads passes `{}`.
+ */
+export function redactSensitive(text: string, options: FindOptions = { idTokens: "skip" }): string {
+  const matches = findSensitive(text, options);
   if (matches.length === 0) {
     // Encoded forms (full-width or Arabic-Indic digits, zero-width separators) redact the whole string.
-    const hidden = findSensitiveNormalized(text)[0];
+    const hidden = findSensitiveNormalized(text, options)[0];
     return hidden === undefined ? text : `[redacted:${hidden.kind}]`;
   }
   let out = "";

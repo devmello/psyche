@@ -45,13 +45,15 @@ afterEach(() => reset());
 
 /** A Windows Hello stand-in: RSA-2048, SPKI DER public key. */
 function helloKey() {
-  const { publicKey, privateKey } = generateKeyPairSync("rsa", { modulusLength: 2048 });
-  const der = publicKey.export({ format: "der", type: "spki" });
-  return {
-    publicKey: der.toString("base64url"),
-    keyId: createHash("sha256").update(der).digest("hex"),
-    privateKey,
-  };
+  // The key ID is the digest of the key, so a digest with a long digit run would be a flaky
+  // fixture (the audit redactor used to mask it). Regenerate until the ID has no such run.
+  for (;;) {
+    const { publicKey, privateKey } = generateKeyPairSync("rsa", { modulusLength: 2048 });
+    const der = publicKey.export({ format: "der", type: "spki" });
+    const keyId = createHash("sha256").update(der).digest("hex");
+    if (/\d{13,}/.test(keyId)) continue;
+    return { publicKey: der.toString("base64url"), keyId, privateKey };
+  }
 }
 
 type Signer = { sign(challenge: string): string; keyId: string };

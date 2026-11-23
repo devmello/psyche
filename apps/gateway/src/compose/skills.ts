@@ -472,7 +472,8 @@ export function composeSkills(opts: SkillsOptions = {}): ComposedSkills {
     const drafts = new SkillDrafts({
       dir: join(home, "skills", ".drafts"),
       loader: fs,
-      redact: (text) => redactSensitive(services.redactor.redact(text)),
+      // Skill drafts are stored for the model to read: no identifier-shaped exception here.
+      redact: (text) => redactSensitive(services.redactor.redact(text), {}),
       knownTools: () => tools.list().map((t) => t.name),
       audit: (entry) =>
         services.audit
