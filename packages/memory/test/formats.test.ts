@@ -277,4 +277,52 @@ describe("workspace paths", () => {
     }
     expect(normalizeWorkspacePath("memory/2026-10-18.md")).toBe("memory/2026-10-18.md");
   });
+
+  // Two-way: Finder names the owner really makes must pass; anything that would reach a shell,
+  // hide text (bidi, control, tags), escape the folder or hold a card number must still fail.
+  const accept = [
+    "Trip 🏝️.md",
+    "C#.md",
+    "What now?.md",
+    "a;b.md",
+    "50% done.md",
+    "[draft] plan.md",
+    "👨‍👩‍👧 family.md",
+    "a=b ~ {c} ^d !e @f %g.md",
+    "🇧🇷 flag.md",
+    "Café 日本語.md",
+  ];
+  const refuse = [
+    "$(touch x).md",
+    "`x`.md",
+    "a‮b.md",
+    "a\u0085b.md",
+    "a⁦b.md",
+    "a‎b.md",
+    "a\u{E0041}b.md",
+    "a\u0000b.md",
+    "a:b.md",
+    "a|b.md",
+    "a*b.md",
+    'a"b.md',
+    "a<b>.md",
+    "a\\b.md",
+    "a b.md",
+    "a­b.md",
+    ".hidden.md",
+    " lead.md",
+    "trail .md ",
+    "../x.md",
+    "memory/../x.md",
+    "4111 1111 1111 1111.md",
+  ];
+  it("accepts ordinary Finder names and refuses shell, bidi, control and traversal names", () => {
+    for (const name of accept) {
+      expect(() => normalizeWorkspacePath(name), name).not.toThrow();
+      expect(normalizeWorkspacePath(name)).toBe(name);
+    }
+    for (const name of refuse) {
+      expect(() => normalizeWorkspacePath(name), JSON.stringify(name)).toThrow();
+    }
+  });
 });

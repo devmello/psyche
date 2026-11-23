@@ -14,8 +14,15 @@ import { canonicalCase } from "./layout.ts";
 
 const MAX_PATH = 1024;
 const MAX_SEGMENT = 128;
-/** Letters, digits, space, `.`, `_`, `-`, `(`, `)`, `+`, `,`, `'`, `&` in any script. */
-const SEGMENT = /^[\p{L}\p{N}\p{M} ._\-()+,'&]+$/u;
+/**
+ * Ordinary Finder names: letters, digits, marks and space in any script; `. _ - ( ) + , ' &`
+ * and `# ! ? @ % ; = ~ [ ] { } ^`; emoji (pictographs, emoji components such as skin tones and
+ * regional indicators, ZWJ, VS16). Refused, on purpose: control characters (C0, C1, U+0085),
+ * format characters (bidi overrides and isolates, LRM/RLM, tag characters), `*`, and `$ \` " < > |
+ * : \ /`. `Emoji_Component` contains `*` and the tag characters, so both are carved out.
+ */
+const SEGMENT =
+  /^(?:[\p{L}\p{N}\p{M} ._\-()+,'&#!?@%;=~[\]{}^]|\p{Extended_Pictographic}|(?!\*)(?!\p{Cf})\p{Emoji_Component}|‍|️)+$/u;
 
 export function invalidPath(message: string): never {
   throw new PsycheError("invalid_params", message);
@@ -35,7 +42,9 @@ export function normalizeWorkspacePath(path: string): string {
   }
   if (parts.some((p) => p.startsWith("."))) invalidPath("hidden files are not workspace files");
   if (parts.some((p) => p.length > MAX_SEGMENT || !SEGMENT.test(p) || p !== p.trim())) {
-    invalidPath("workspace file names may use letters, digits, spaces and . _ - ( ) + , ' &");
+    invalidPath(
+      "workspace file names may use letters, digits, spaces, emoji and . _ - ( ) + , ' & # ! ? @ % ; = ~ [ ] { } ^; control, bidi and format characters, and $ ` \" < > | * : \\ / are not allowed",
+    );
   }
   // File names are model-visible too: no credentials or card numbers in them.
   if (blockingKinds(path.replace(/[/.]/g, " "), true).length > 0) {

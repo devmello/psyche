@@ -516,6 +516,22 @@ describe("external edits", () => {
     }
     expect((await env.store.search("quokka")).length).toBe(1);
   });
+
+  it("indexes and lists a Finder-made or pulled C#.md and the other ordinary Finder names", async () => {
+    env = await makeEnv();
+    writeFileSync(join(env.workspace, "C#.md"), "csharp narwhal notes");
+    writeFileSync(join(env.workspace, "Trip 🏝️.md"), "island narwhal trip");
+    writeFileSync(join(env.workspace, "a|b.md"), "pipe narwhal refused");
+    await env.store.sync();
+    const files = await env.store.listFiles();
+    expect(files).toContain("C#.md");
+    expect(files).toContain("Trip 🏝️.md");
+    expect(files).not.toContain("a|b.md");
+    const hits = await env.store.search("csharp narwhal");
+    expect(hits.map((h) => h.chunk.source)).toContain("C#.md");
+    const refused = await env.store.search("pipe refused");
+    expect(refused.map((h) => h.chunk.source)).not.toContain("a|b.md");
+  });
 });
 
 describe("bootstrapContext (budgets and markers)", () => {

@@ -59,6 +59,13 @@ const AUTHOR = ["-c", "user.name=Psyche", "-c", "user.email=psyche@localhost"];
  */
 const BYTES_AS_WRITTEN = ["-c", "core.autocrlf=false", "-c", "core.eol=lf"];
 
+/**
+ * Every path given to git is literal. Workspace names may hold `[ ] * ? :` (Finder names), and
+ * git reads those in a pathspec as glob or magic: `git rm --cached -- "a[1].md"` would miss the
+ * file, and a leading `:` would be pathspec magic. Literal pathspecs keep directory prefixes.
+ */
+const LITERAL_PATHSPECS = ["--literal-pathspecs"];
+
 export interface GitSyncOptions {
   /** Remote name (default `origin`). */
   remote?: string;
@@ -129,12 +136,16 @@ export class WorkspaceGit {
 
   async #run(args: string[], allowFail = false): Promise<{ stdout: string; code: number }> {
     try {
-      const { stdout } = await run(this.#git, [...BYTES_AS_WRITTEN, ...args], {
-        cwd: this.#store.root,
-        env: { ...process.env, GIT_TERMINAL_PROMPT: "0", GIT_ASKPASS: "", LC_ALL: "C" },
-        maxBuffer: 16 * 1024 * 1024,
-        timeout: 120_000,
-      });
+      const { stdout } = await run(
+        this.#git,
+        [...BYTES_AS_WRITTEN, ...LITERAL_PATHSPECS, ...args],
+        {
+          cwd: this.#store.root,
+          env: { ...process.env, GIT_TERMINAL_PROMPT: "0", GIT_ASKPASS: "", LC_ALL: "C" },
+          maxBuffer: 16 * 1024 * 1024,
+          timeout: 120_000,
+        },
+      );
       return { stdout, code: 0 };
     } catch (err) {
       const e = err as { code?: unknown; stdout?: string; stderr?: string };
