@@ -42,8 +42,13 @@ extension FixtureBackend: HomeBackend {
     }
 
     public func answerQuestion(id: String, answer: QuestionAnswer) async throws {
-        let text = answer.text?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
-        guard answer.optionID != nil || !text.isEmpty else { throw BackendError.refused("Pick an option or write an answer.") }
+        let answered = answer.values.values.allSatisfy { value in
+            switch value {
+            case .text(let text): !text.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+            case .choices(let choices): !choices.isEmpty
+            }
+        }
+        guard !answer.values.isEmpty, answered else { throw BackendError.refused("Pick an option or write an answer.") }
         try resolveNeedsYou(id: id)
     }
 

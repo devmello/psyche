@@ -25,8 +25,8 @@ extension GatewayBackend {
         if approval["status"]?.string != "pending" { throw BackendError.refused("That approval is no longer waiting.") }
         // Only presence-gated approvals (payments, adding a verifier) need a presence assertion from a registered
         // Secure Enclave key (companion §5); the phone has none yet, so these stay on the Mac rather than failing
-        // late. Device-only just means "never in chat": the paired phone answers it with a plain tap. A card whose
-        // details the phone can't show in full is never allowed from here; Deny stays (refusing shows nothing new).
+        // late. Device-only just means "never in chat": the paired phone answers it with a plain tap. Long or nested
+        // details are not a reason to refuse: the card shows every field in full, scrollable, before the tap.
         if approval["requiresAuthentication"]?.bool == true
             || (decision == .allow && Self.detailsNeedMac(approval["details"])) {
             throw BackendError.refused("This one needs your Mac. Answer it there.")
@@ -44,13 +44,45 @@ extension GatewayBackend {
 
     public func answerQuestion(id: String, answer: QuestionAnswer) async throws {
         let current = try await call("questions.get", .obj(["inputRequestId": .string(id)]))
-        guard let request = current["inputRequest"], let questions = request["questions"]?.array, let first = questions.first,
-              let header = first["header"]?.string else { throw BackendError.notFound }
-        guard questions.count == 1 else { throw BackendError.refused("This question has several parts. Answer it on your Mac.") }
-        guard let value = answer.optionID ?? answer.text, !value.isEmpty else { throw BackendError.refused("Choose an answer first.") }
+        guard let request = current["inputRequest"], let questions = request["questions"]?.array, !questions.isEmpty
+        else { throw BackendError.notFound }
+        let wire = try Self.questionAnswerObject(answer, questions: questions)
         _ = try await call(
-            "questions.answer", .obj(["inputRequestId": .string(id), "answer": .object([header: .string(value)])]),
+            "questions.answer", .obj(["inputRequestId": .string(id), "answer": .object(wire)]),
             key: "answer-\(id)")
+    }
+
+    /// The `questions.answer` object for every part of the request, keyed by each part's header. Every part must be
+    /// answered, and no key may name a part the request does not have. A text answer is trimmed and sent as a
+    /// string; a multi-select answer as an array of at most four.
+    static func questionAnswerObject(_ answer: QuestionAnswer, questions: [JSONValue]) throws -> [String: JSONValue] {
+        var values = answer.values
+        // A single-part answer from a surface that doesn't know the header is filed under the request's only part.
+        if let only = values.removeValue(forKey: QuestionAnswer.onlyPartKey), questions.count == 1,
+           let header = questions[0]["header"]?.string, !header.isEmpty {
+            values[header] = only
+        }
+        var wire: [String: JSONValue] = [:]
+        var asked = Set<String>()
+        for question in questions {
+            guard let header = question["header"]?.string, !header.isEmpty else { throw BackendError.notFound }
+            asked.insert(header)
+            guard let value = values[header] else { throw BackendError.refused("Answer every question first.") }
+            switch value {
+            case .text(let text):
+                let trimmed = text.trimmingCharacters(in: .whitespacesAndNewlines)
+                guard !trimmed.isEmpty else { throw BackendError.refused("Answer every question first.") }
+                guard trimmed.count <= QuestionDraft.maxTextLength else { throw BackendError.refused("That answer is too long.") }
+                wire[header] = .string(trimmed)
+            case .choices(let choices):
+                let picked = choices.map { $0.trimmingCharacters(in: .whitespacesAndNewlines) }.filter { !$0.isEmpty }
+                guard !picked.isEmpty else { throw BackendError.refused("Answer every question first.") }
+                guard picked.count <= QuestionDraft.maxChoices else { throw BackendError.refused("Pick at most four answers.") }
+                wire[header] = .array(picked.map { .string($0) })
+            }
+        }
+        guard Set(values.keys).isSubset(of: asked) else { throw BackendError.refused("That answer does not match this question.") }
+        return wire
     }
 
     public func actOnNudge(id: String, action: NudgeAction) async throws {
@@ -110,11 +142,40 @@ extension GatewayBackend {
         let result = try await call("questions.list", .obj(["limit": .number(30)]))
         return (result["inputRequests"]?.array ?? []).compactMap { request in
             guard let id = request["id"]?.string, request["status"]?.string != "answered" else { return nil }
-            let title = request["questions"]?.array?.first?["question"]?.string ?? "Psyche has a question"
+            let title = request["questions"]?.array?.first?["question"]?.string.map(DisplaySafe.text) ?? "Psyche has a question"
             return NeedsYouItem(
                 id: id, kind: .question, title: title, source: "Question",
-                time: WireFormat.time(request["createdAt"]?.string), threadID: request["threadId"]?.string)
+                time: WireFormat.time(request["createdAt"]?.string), threadID: request["threadId"]?.string,
+                question: Self.questionDetail(request))
         }
+    }
+
+    /// Every part of a question request, as the phone answers it: each part's header, prompt and options, in the
+    /// order the request has them. nil when a part is missing its header or options, so the phone never shows a
+    /// partial question.
+    static func questionDetail(_ request: JSONValue) -> QuestionDetail? {
+        guard let questions = request["questions"]?.array, !questions.isEmpty else { return nil }
+        var parts: [QuestionDetail.Part] = []
+        for question in questions {
+            guard let header = question["header"]?.string, !header.isEmpty,
+                  let prompt = question["question"]?.string,
+                  let rawOptions = question["options"]?.array, !rawOptions.isEmpty
+            else { return nil }
+            let options: [QuestionDetail.Option] = rawOptions.enumerated().compactMap { index, option in
+                guard let label = option["label"]?.string, !label.isEmpty else { return nil }
+                // The desktop card drops a trailing "(recommended)" from the label it shows and sends back.
+                let value = label.replacingOccurrences(of: #"\s*\(recommended\)\s*$"#, with: "", options: [.regularExpression, .caseInsensitive])
+                return QuestionDetail.Option(
+                    id: "\(index)", label: DisplaySafe.text(value),
+                    detail: option["description"]?.string.map(DisplaySafe.text), value: value)
+            }
+            guard options.count == rawOptions.count else { return nil }
+            // The header keys the answer on the wire, so it stays exact; only the prompt is shown made safe.
+            parts.append(QuestionDetail.Part(
+                header: header, prompt: DisplaySafe.text(prompt), options: options,
+                multiSelect: question["multiSelect"]?.bool == true))
+        }
+        return QuestionDetail(parts: parts)
     }
 
     func runningTasks() async throws -> [RunningTask] {
@@ -149,21 +210,11 @@ extension GatewayBackend {
         let kind = a["kind"]?.string ?? "approval"
         let summary = a["summary"]?.string ?? Self.humanized(kind)
         let agent = a.at("requestedBy", "agent")?.string
-        var fields: [ApprovalDetail.Field] = []
-        // Read in the app before Allow: a lock-screen banner or the Dynamic Island shows only the title.
-        var reviewInApp = a["deviceOnly"]?.bool == true
-        for (key, value) in (a["details"]?.object ?? [:]).sorted(by: { $0.key < $1.key }) {
-            if let text = value.string ?? value.double.map({ String($0) }) ?? value.bool.map({ String($0) }) {
-                // A long value or one that spans lines (the server shows a newline as ⏎), such as a plan's text.
-                if Self.scalarNeedsReview(text) { reviewInApp = true }
-                fields.append(.init(key: Self.humanized(key), value: text))
-            } else if let text = Self.nestedText(value) {
-                // The arguments being approved (a command's params, a script's lines) are shown in full,
-                // never summarised: the tap approves exactly this.
-                reviewInApp = true
-                fields.append(.init(key: Self.humanized(key), value: text))
-            }
-        }
+        // Read in the app before Allow: a lock-screen banner or the Dynamic Island shows only the title. Nested
+        // details (a command's params, a script's lines) are shown in full, never summarised: the tap approves
+        // exactly this, so they are read in the app first too.
+        let (fields, nested) = Self.detailFields(a["details"])
+        let reviewInApp = a["deviceOnly"]?.bool == true || nested
         var evidence: [String] = []
         if let because = a.at("fromLesson", "because")?.string { evidence.append("Because you said: \(because)") }
         if a["taint"]?.bool == true { evidence.append("Based on content from outside Psyche") }
@@ -188,10 +239,6 @@ extension GatewayBackend {
             threadID: a.at("requestedBy", "threadId")?.string, taskID: a.at("requestedBy", "taskId")?.string)
     }
 
-    /// The longest nested value the card shows in full. Past it the card is answered on the Mac, where the
-    /// whole thing can be read: the phone never approves what it cannot show.
-    static let nestedLimit = 20_000
-
     /// The longest scalar detail a lock-screen Approve may stand for unread.
     static let inlineScalarLimit = 200
 
@@ -200,6 +247,10 @@ extension GatewayBackend {
     static func scalarNeedsReview(_ text: String) -> Bool {
         text.count > inlineScalarLimit || text.contains("⏎") || text.contains(where: \.isNewline)
     }
+
+    /// The largest nested value (as pretty JSON, in characters) the phone draws. Past it the card stays on the Mac:
+    /// a text too big for one layer can't be drawn in full, and the phone never approves what it can't show.
+    static let nestedLimit = 20_000
 
     /// An array or object detail as pretty, sorted JSON, or nil when it is empty or null.
     static func nestedText(_ value: JSONValue) -> String? {
@@ -215,8 +266,8 @@ extension GatewayBackend {
         }
     }
 
-    /// True when a detail can't be shown in full on the phone: a nested value that won't encode, or one
-    /// longer than `nestedLimit`. Such a card stays on the Mac.
+    /// True when a detail is too large to show in full on the phone: a nested value over `nestedLimit`, or one that
+    /// won't encode. Such a card is answered on the Mac, where the whole thing can be read. Deny stays on the phone.
     static func detailsNeedMac(_ details: JSONValue?) -> Bool {
         for (_, value) in details?.object ?? [:] {
             switch value {
@@ -226,6 +277,58 @@ extension GatewayBackend {
             }
         }
         return false
+    }
+
+    /// Keys whose value is code or a command: shown in monospace (and so is everything under them).
+    static let codeKeys: Set<String> = ["command", "cmd", "script", "code", "diff", "argv", "args"]
+
+    /// Every field of an approval's details, as the desktop card lists them: top-level keys sorted, nested objects
+    /// and arrays spread into indented rows, each leaf shown whole. Nothing is left out, so the owner sees every value
+    /// the approval binds before the tap. `review` is true when a value must be read in the app first (a nested
+    /// value, a long one, or one that spans lines).
+    static func detailFields(_ details: JSONValue?) -> (fields: [ApprovalDetail.Field], review: Bool) {
+        var fields: [ApprovalDetail.Field] = []
+        var review = false
+        // Each row's path is its position at every level (0/2/1), never the raw keys: a key can hold a "." or "/",
+        // so keys alone could repeat (`{"a":{"b":1},"a.b":2}`), and a repeated id breaks the SwiftUI list.
+        func add(key: String, value: JSONValue, depth: Int, path: String, monospaced: Bool) {
+            let code = monospaced || codeKeys.contains(key)
+            switch value {
+            case .object(let object) where !object.isEmpty:
+                review = true
+                fields.append(.init(key: Self.humanized(key), value: "", depth: depth, path: path))
+                for (position, child) in object.sorted(by: { $0.key < $1.key }).enumerated() {
+                    add(key: child.key, value: child.value, depth: depth + 1, path: "\(path)/\(position)", monospaced: code)
+                }
+            case .array(let items) where !items.isEmpty:
+                review = true
+                fields.append(.init(key: Self.humanized(key), value: "", depth: depth, path: path))
+                for (index, item) in items.enumerated() {
+                    add(key: "\(index + 1)", value: item, depth: depth + 1, path: "\(path)/\(index)", monospaced: code)
+                }
+            default:
+                let text = Self.scalarText(value)
+                if Self.scalarNeedsReview(text) { review = true }
+                fields.append(.init(key: Self.humanized(key), value: text, depth: depth, monospaced: code, path: path))
+            }
+        }
+        for (position, entry) in (details?.object ?? [:]).sorted(by: { $0.key < $1.key }).enumerated() {
+            add(key: entry.key, value: entry.value, depth: 0, path: "\(position)", monospaced: false)
+        }
+        return (fields, review)
+    }
+
+    /// A leaf value as the card shows it. Null reads "—" (as on the desktop), an empty object or array "{}" or "[]".
+    static func scalarText(_ value: JSONValue) -> String {
+        switch value {
+        case .null: return "—"
+        case .bool(let flag): return flag ? "true" : "false"
+        case .number(let number):
+            return number.rounded() == number && abs(number) < 1e15 ? String(Int(number)) : String(number)
+        case .string(let text): return text.isEmpty ? "—" : text
+        case .array: return "[]"
+        case .object: return "{}"
+        }
     }
 
     /// The computer an approval is for: `machine.name`, trimmed. nil when absent or blank (the action is on this Mac).
