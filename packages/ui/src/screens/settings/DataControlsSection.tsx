@@ -1,7 +1,7 @@
 import type { MemoryRecallStatus, MemoryStoreStatus, MethodResult } from "@psyche/protocol";
 import { MEMORY_REVIEW_ROUTE } from "@psyche/protocol";
 import { Download, Trash2 } from "lucide-react";
-import { type ReactElement, useId, useState } from "react";
+import { type ReactElement, type ReactNode, useId, useState } from "react";
 import { Button } from "../../components/ui/button.tsx";
 import { Input } from "../../components/ui/input.tsx";
 import { Label } from "../../components/ui/label.tsx";
@@ -10,6 +10,7 @@ import { t } from "../../i18n/core.ts";
 import { useMemoryReview } from "../../memory/hooks.ts";
 import { usePersona, useSlots } from "../../slots.tsx";
 import { useEverythingSetup } from "./EverythingMemorySection.tsx";
+import { GitBackupGroup } from "./GitBackupGroup.tsx";
 import { MapGroup } from "./MapSettings.tsx";
 import { GRAPH_SETTING, readGraphSettings } from "./PeopleGraphSettings.tsx";
 import {
@@ -65,6 +66,8 @@ export interface DataControlsPanelProps extends PanelBase {
   onExport?: () => void;
   onDeleteArchived?: () => void;
   onReset?: () => void;
+  /** The "Back up to git" block (it reads the Gateway itself; stories leave it out). */
+  gitBackup?: ReactNode;
   /** Opens with the reset confirmation showing (stories). */
   defaultResetting?: boolean;
 }
@@ -271,6 +274,7 @@ export function DataControlsPanel({
   onExport,
   onDeleteArchived,
   onReset,
+  gitBackup,
   notice = null,
   busy = false,
   defaultResetting = false,
@@ -344,6 +348,8 @@ export function DataControlsPanel({
             </Button>
           </div>
         </Group>
+
+        {gitBackup}
 
         <Advanced description={t("settings.data.advancedHint")}>
           <MapGroup values={values} onChange={onChange} />
@@ -575,6 +581,7 @@ export function DataControlsSection({ onExportReady }: DataControlsSectionProps)
       onChange={form.onChange}
       needsApproval={form.needsApproval}
       archivedThreads={archived.length}
+      gitBackup={<GitBackupGroup />}
       busy={busy}
       notice={notice ?? (form.writeError ? { kind: "error", text: form.writeError } : null)}
       loading={form.loading && Object.keys(form.values).length === 0}

@@ -2397,6 +2397,30 @@
         "sideEffecting": true
       },
       {
+        "description": "Git backup of the workspace: the remote, branch and enabled flag, and the last sync result.",
+        "name": "memory.gitSync.get",
+        "params": "#/$defs/MemoryGitSyncGetParams",
+        "result": "#/$defs/MemoryGitSyncGetResult",
+        "scope": "operator.read",
+        "sideEffecting": false
+      },
+      {
+        "description": "Runs one git backup now: commits the workspace after a secret scan, pulls with rebase and pushes. Returns the outcome; expected failures come back with ok false. Side-effecting.",
+        "name": "memory.gitSync.run",
+        "params": "#/$defs/MemoryGitSyncRunParams",
+        "result": "#/$defs/GitSyncResult",
+        "scope": "operator.admin",
+        "sideEffecting": true
+      },
+      {
+        "description": "Sets the git backup remote (https://, ssh://, user@host:path or a local path; never a password in the URL), branch and enabled flag. Side-effecting.",
+        "name": "memory.gitSync.set",
+        "params": "#/$defs/MemoryGitSyncSetParams",
+        "result": "#/$defs/GitSyncConfig",
+        "scope": "operator.admin",
+        "sideEffecting": true
+      },
+      {
         "description": "Never model this address, phone or domain again (a blocked domain covers every address at it). Existing cards stay until forgotten. Side-effecting.",
         "name": "memory.graph.blocklist.add",
         "params": "#/$defs/MemoryGraphBlocklistAddParams",
@@ -22079,6 +22103,102 @@
       ],
       "type": "object"
     },
+    "GitSyncConfig": {
+      "properties": {
+        "remote": {
+          "maxLength": 2048,
+          "type": "string"
+        },
+        "branch": {
+          "maxLength": 200,
+          "minLength": 1,
+          "type": "string"
+        },
+        "enabled": {
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "remote",
+        "branch",
+        "enabled"
+      ],
+      "type": "object"
+    },
+    "GitSyncErrorCode": {
+      "enum": [
+        "no_git",
+        "no_remote",
+        "auth_failed",
+        "remote_failed",
+        "conflict",
+        "blocked_secret",
+        "not_enabled",
+        "failed"
+      ],
+      "type": "string"
+    },
+    "GitSyncResult": {
+      "properties": {
+        "at": {
+          "description": "ISO-8601 timestamp (UTC)",
+          "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}(\\.\\d{1,9})?(Z|[+-]\\d{2}:\\d{2})$",
+          "type": "string"
+        },
+        "ok": {
+          "type": "boolean"
+        },
+        "committed": {
+          "type": "boolean"
+        },
+        "commit": {
+          "maxLength": 64,
+          "type": "string"
+        },
+        "files": {
+          "minimum": 0,
+          "type": "integer"
+        },
+        "pulled": {
+          "type": "boolean"
+        },
+        "pushed": {
+          "type": "boolean"
+        },
+        "conflicts": {
+          "items": {
+            "maxLength": 1024,
+            "type": "string"
+          },
+          "maxItems": 500,
+          "type": "array"
+        },
+        "blocked": {
+          "items": {
+            "maxLength": 1024,
+            "type": "string"
+          },
+          "maxItems": 500,
+          "type": "array"
+        },
+        "errorCode": {
+          "$ref": "#/$defs/GitSyncErrorCode"
+        },
+        "error": {
+          "maxLength": 500,
+          "type": "string"
+        }
+      },
+      "required": [
+        "at",
+        "ok",
+        "committed",
+        "files",
+        "pulled",
+        "pushed"
+      ],
+      "type": "object"
+    },
     "Goal": {
       "properties": {
         "id": {
@@ -31026,6 +31146,58 @@
         "retractedClaimIds",
         "removedChunkIds",
         "files"
+      ],
+      "type": "object"
+    },
+    "MemoryGitSyncGetParams": {
+      "properties": {},
+      "type": "object"
+    },
+    "MemoryGitSyncGetResult": {
+      "properties": {
+        "config": {
+          "$ref": "#/$defs/GitSyncConfig"
+        },
+        "last": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/GitSyncResult"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        }
+      },
+      "required": [
+        "config",
+        "last"
+      ],
+      "type": "object"
+    },
+    "MemoryGitSyncRunParams": {
+      "properties": {},
+      "type": "object"
+    },
+    "MemoryGitSyncSetParams": {
+      "properties": {
+        "remote": {
+          "maxLength": 2048,
+          "type": "string"
+        },
+        "branch": {
+          "maxLength": 200,
+          "minLength": 1,
+          "type": "string"
+        },
+        "enabled": {
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "remote",
+        "branch",
+        "enabled"
       ],
       "type": "object"
     },

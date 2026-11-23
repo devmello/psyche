@@ -12,6 +12,7 @@ import { usesSandboxPc } from "./guest-sandbox.ts";
 import { hostGraphicalSession } from "./headless-host.ts";
 import { composeHelper } from "./helper.ts";
 import { composeMcp } from "./mcp.ts";
+import { composeMemoryGit } from "./memory-git.ts";
 import { composePasswordPresence } from "./password-presence.ts";
 import { type ComposedSandbox, composeSandboxIfAvailable, type SandboxSetup } from "./sandbox.ts";
 import type { ComposedPart, ComposeServices } from "./services.ts";
@@ -227,6 +228,8 @@ export function partsFromEnv(
     }),
   );
   parts.push((s) => composeStorage(s));
+  // Git backup of the workspace (`memory.gitSync.*`); the owner's own repository and credentials.
+  parts.push((s) => composeMemoryGit(s));
   if (env.PSYCHE_MCP !== "off") {
     parts.push((s) => {
       const runner = sandbox?.runner;

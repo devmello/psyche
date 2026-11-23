@@ -612,6 +612,9 @@
 //   let gatewayLANRotateCERTResult = try? JSONDecoder().decode(GatewayLANRotateCERTResult.self, from: jsonData)
 //   let gatewayPrepareUpdateParams = try? JSONDecoder().decode(GatewayPrepareUpdateParams.self, from: jsonData)
 //   let gatewayShutdownPayload = try? JSONDecoder().decode(GatewayShutdownPayload.self, from: jsonData)
+//   let gitSyncConfig = try? JSONDecoder().decode(GitSyncConfig.self, from: jsonData)
+//   let gitSyncErrorCode = try? JSONDecoder().decode(GitSyncErrorCode.self, from: jsonData)
+//   let gitSyncResult = try? JSONDecoder().decode(GitSyncResult.self, from: jsonData)
 //   let goal = try? JSONDecoder().decode(Goal.self, from: jsonData)
 //   let goalCategory = try? JSONDecoder().decode(GoalCategory.self, from: jsonData)
 //   let goalDecision = try? JSONDecoder().decode(GoalDecision.self, from: jsonData)
@@ -914,6 +917,10 @@
 //   let memoryForgetLearnedResult = try? JSONDecoder().decode(MemoryForgetLearnedResult.self, from: jsonData)
 //   let memoryForgetParams = try? JSONDecoder().decode(MemoryForgetParams.self, from: jsonData)
 //   let memoryForgetResult = try? JSONDecoder().decode(MemoryForgetResult.self, from: jsonData)
+//   let memoryGitSyncGetParams = try? JSONDecoder().decode(MemoryGitSyncGetParams.self, from: jsonData)
+//   let memoryGitSyncGetResult = try? JSONDecoder().decode(MemoryGitSyncGetResult.self, from: jsonData)
+//   let memoryGitSyncRunParams = try? JSONDecoder().decode(MemoryGitSyncRunParams.self, from: jsonData)
+//   let memoryGitSyncSetParams = try? JSONDecoder().decode(MemoryGitSyncSetParams.self, from: jsonData)
 //   let memoryGraphBlocklistAddParams = try? JSONDecoder().decode(MemoryGraphBlocklistAddParams.self, from: jsonData)
 //   let memoryGraphBlocklistAddResult = try? JSONDecoder().decode(MemoryGraphBlocklistAddResult.self, from: jsonData)
 //   let memoryGraphBlocklistListParams = try? JSONDecoder().decode(MemoryGraphBlocklistListParams.self, from: jsonData)
@@ -22684,6 +22691,114 @@ public struct MemoryForgetResult: Codable, Sendable {
     }
 }
 
+// MARK: - MemoryGitSyncGetResult
+public struct MemoryGitSyncGetResult: Codable, Sendable {
+    public let config: GitSyncConfig
+    public let last: GitSyncResult?
+
+    public enum CodingKeys: String, CodingKey {
+        case config = "config"
+        case last = "last"
+    }
+
+    public init(config: GitSyncConfig, last: GitSyncResult? = nil) {
+        self.config = config
+        self.last = last
+    }
+}
+
+// MARK: - GitSyncConfig
+public struct GitSyncConfig: Codable, Sendable {
+    public let branch: String
+    public let enabled: Bool
+    public let remote: String
+
+    public enum CodingKeys: String, CodingKey {
+        case branch = "branch"
+        case enabled = "enabled"
+        case remote = "remote"
+    }
+
+    public init(branch: String, enabled: Bool, remote: String) {
+        self.branch = branch
+        self.enabled = enabled
+        self.remote = remote
+    }
+}
+
+// MARK: - GitSyncResult
+public struct GitSyncResult: Codable, Sendable {
+    public let at: String
+    public let blocked: [String]?
+    public let commit: String?
+    public let committed: Bool
+    public let conflicts: [String]?
+    public let error: String?
+    public let errorCode: GitSyncErrorCode?
+    public let files: Int
+    public let ok: Bool
+    public let pulled: Bool
+    public let pushed: Bool
+
+    public enum CodingKeys: String, CodingKey {
+        case at = "at"
+        case blocked = "blocked"
+        case commit = "commit"
+        case committed = "committed"
+        case conflicts = "conflicts"
+        case error = "error"
+        case errorCode = "errorCode"
+        case files = "files"
+        case ok = "ok"
+        case pulled = "pulled"
+        case pushed = "pushed"
+    }
+
+    public init(at: String, blocked: [String]? = nil, commit: String? = nil, committed: Bool, conflicts: [String]? = nil, error: String? = nil, errorCode: GitSyncErrorCode? = nil, files: Int, ok: Bool, pulled: Bool, pushed: Bool) {
+        self.at = at
+        self.blocked = blocked
+        self.commit = commit
+        self.committed = committed
+        self.conflicts = conflicts
+        self.error = error
+        self.errorCode = errorCode
+        self.files = files
+        self.ok = ok
+        self.pulled = pulled
+        self.pushed = pushed
+    }
+}
+
+public enum GitSyncErrorCode: String, Codable, Sendable {
+    case authFailed = "auth_failed"
+    case blockedSecret = "blocked_secret"
+    case conflict = "conflict"
+    case failed = "failed"
+    case noGit = "no_git"
+    case noRemote = "no_remote"
+    case notEnabled = "not_enabled"
+    case remoteFailed = "remote_failed"
+}
+
+// MARK: - MemoryGitSyncSetParams
+public struct MemoryGitSyncSetParams: Codable, Sendable {
+    public let branch: String
+    public let enabled: Bool
+    public let remote: String
+
+    public enum CodingKeys: String, CodingKey {
+        case branch = "branch"
+        case enabled = "enabled"
+        case remote = "remote"
+    }
+
+    public init(branch: String, enabled: Bool, remote: String) {
+        self.branch = branch
+        self.enabled = enabled
+        self.remote = remote
+    }
+}
+
 // MARK: - MemoryGraphBlocklistAddParams
 public struct MemoryGraphBlocklistAddParams: Codable, Sendable {
     public let kind: GraphBlockKind
@@ -41264,6 +41379,8 @@ public typealias MeetingsRecordStatusParams = [String: JSONAny]
 public typealias MemoryEverythingRunParams = [String: JSONAny]
 public typealias MemoryExclusionsListParams = [String: JSONAny]
 public typealias MemoryExportParams = [String: JSONAny]
+public typealias MemoryGitSyncGetParams = [String: JSONAny]
+public typealias MemoryGitSyncRunParams = [String: JSONAny]
 public typealias MemoryGraphBlocklistListParams = [String: JSONAny]
 public typealias MemoryGraphStatusParams = [String: JSONAny]
 public typealias MemoryNotesListParams = [String: JSONAny]

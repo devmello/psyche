@@ -1,3 +1,4 @@
+import { randomBytes } from "node:crypto";
 import {
   chmodSync,
   type Dirent,
@@ -46,6 +47,7 @@ import { chunkId, chunkText, estimateTokens, stripComments } from "./chunker.ts"
 import { applyDailyWrite, formatEntry, newDailyNote, oneLine, parseDailyNote } from "./daily.ts";
 import { blockingKinds } from "./filters.ts";
 import { type FlushConfig, flushFacts, flushMemory } from "./flush.ts";
+import { readRegularFile, realDirUnder, writeFileReplacing } from "./hidden-fs.ts";
 import { type ChunkInput, MemoryIndex } from "./index-db.ts";
 import {
   BOOTSTRAP_FILE,
@@ -69,7 +71,12 @@ import {
   refuseFact,
   removeLearned,
 } from "./learned.ts";
-import { canonicalWorkspacePath, resolveInWorkspace, toWorkspacePath } from "./paths.ts";
+import {
+  canonicalWorkspacePath,
+  normalizeWorkspacePath,
+  resolveInWorkspace,
+  toWorkspacePath,
+} from "./paths.ts";
 import { substituteTokens } from "./persona.ts";
 import {
   normalizeFieldValue,
@@ -479,7 +486,11 @@ export class SqliteMemoryStore implements MemoryStore {
     return this.#index.deleteFile(path);
   }
 
-  /** All regular workspace files, relative, sorted; hidden entries are skipped. */
+  /**
+   * All regular workspace files, relative, sorted. Hidden entries and names the store would refuse
+   * (`normalizeWorkspacePath`: shell characters, credentials) are skipped, so a pulled file with
+   * such a name is never indexed.
+   */
   #walk(prefix = ""): string[] {
     const out: string[] = [];
     const visit = (dir: string) => {
@@ -493,11 +504,99 @@ export class SqliteMemoryStore implements MemoryStore {
         if (e.name.startsWith(".")) continue;
         const abs = join(dir, e.name);
         if (e.isDirectory()) visit(abs);
-        else if (e.isFile()) out.push(toWorkspacePath(this.root, abs));
+        else if (e.isFile()) {
+          const rel = toWorkspacePath(this.root, abs);
+          if (isWorkspacePath(rel)) out.push(rel);
+        }
       }
     };
     visit(this.root);
     return out.filter((p) => p.startsWith(prefix)).sort();
+  }
+
+  /**
+   * Writes this machine's provenance sidecar, `.psyche/provenance/<machine>.json`: every indexed
+   * file whose provenance is not the owner's, with that class and the sha256 of the content it
+   * describes. The git backup commits it. One file per machine means two machines never edit the
+   * same file (no merge conflicts), and a pull keeps untrusted content untrusted everywhere. Hidden,
+   * so the walker and the index never see it. The remote can make any `.psyche` entry a symlink:
+   * see hidden-fs.ts, nothing here follows one.
+   */
+  writeProvenanceSidecar(): void {
+    const files: Record<string, SidecarEntry> = {};
+    for (const row of this.#index.listFiles()) {
+      if (row.provenance === "owner") continue;
+      if (!existsSync(join(this.root, ...row.path.split("/")))) continue;
+      files[row.path] = { provenance: row.provenance, sha256: row.sha256 };
+    }
+    const name = `${this.#machineId()}.json`;
+    const dir = realDirUnder(this.root, [PSYCHE_DIR, PROVENANCE_DIR], {
+      create: true,
+      mode: DIR_MODE,
+    }) as string;
+    const text = `${JSON.stringify({ version: SIDECAR_VERSION, files }, null, 2)}\n`;
+    if (readRegularFile(dir, name, MAX_SIDECAR_BYTES) === text) return;
+    writeFileReplacing(dir, name, text, FILE_MODE);
+  }
+
+  /**
+   * A random id for this workspace's machine, kept in `.psyche/machine.id` (never committed). A
+   * symlink, a non-regular file or a malformed id there is replaced by a fresh id.
+   */
+  #machineId(): string {
+    const dir = realDirUnder(this.root, [PSYCHE_DIR], { create: true, mode: DIR_MODE }) as string;
+    const id = readRegularFile(dir, MACHINE_ID_FILE, 64)?.trim();
+    if (id !== undefined && /^[0-9a-f]{16}$/.test(id)) return id;
+    const fresh = randomBytes(8).toString("hex");
+    writeFileReplacing(dir, MACHINE_ID_FILE, `${fresh}\n`, FILE_MODE);
+    return fresh;
+  }
+
+  /**
+   * Every machine's sidecar merged: per path and content sha256, the least trusted class any
+   * machine recorded. Malformed entries, entries without a sha256 (version 1), symlinked or
+   * non-regular sidecars and sidecars over `MAX_SIDECAR_BYTES` are ignored.
+   */
+  #readProvenanceSidecar(): Map<string, Map<string, Provenance>> {
+    const out = new Map<string, Map<string, Provenance>>();
+    const dir = realDirUnder(this.root, [PSYCHE_DIR, PROVENANCE_DIR], {
+      create: false,
+      mode: DIR_MODE,
+    });
+    if (dir === undefined) return out;
+    let names: string[];
+    try {
+      names = readdirSync(dir).filter((n) => n.endsWith(".json"));
+    } catch {
+      return out;
+    }
+    for (const name of names) {
+      let parsed: unknown;
+      try {
+        const text = readRegularFile(dir, name, MAX_SIDECAR_BYTES);
+        if (text === undefined) continue;
+        parsed = JSON.parse(text);
+      } catch {
+        continue;
+      }
+      const files = (parsed as { files?: unknown } | null)?.files;
+      if (files === null || typeof files !== "object") continue;
+      for (const [path, value] of Object.entries(files)) {
+        if (value === null || typeof value !== "object") continue;
+        const { provenance, sha256 } = value as { provenance?: unknown; sha256?: unknown };
+        if (!isProvenance(provenance) || provenance === "owner") continue;
+        if (typeof sha256 !== "string" || !/^[0-9a-f]{64}$/.test(sha256)) continue;
+        if (path.length === 0 || path.startsWith("/") || path.split("/").includes("..")) continue;
+        let byHash = out.get(path);
+        if (byHash === undefined) {
+          byHash = new Map();
+          out.set(path, byHash);
+        }
+        const prior = byHash.get(sha256);
+        byHash.set(sha256, prior === undefined ? provenance : leastTrusted(prior, provenance));
+      }
+    }
+    return out;
   }
 
   /**
@@ -510,14 +609,26 @@ export class SqliteMemoryStore implements MemoryStore {
       const changed: string[] = [];
       const removed: string[] = [];
       const onDisk = new Set(this.#walk());
+      // Provenance from the git backup's sidecar: a file that arrived with a pull keeps the less
+      // trusted class of what this machine knows and what the sidecar says (least trusted wins).
+      // An entry applies only to the content it was written for (its sha256), so an owner rewrite
+      // clears it even while the stale sidecar is still on disk.
+      const sidecar = this.#readProvenanceSidecar();
+      const withSidecar = (own: Provenance, path: string, sha: string): Provenance => {
+        const trust = sidecar.get(path)?.get(sha);
+        return trust === undefined ? own : leastTrusted(own, trust);
+      };
       for (const path of onDisk) {
         const abs = join(this.root, ...path.split("/"));
         const st = statSync(abs);
         const row = this.#index.getFile(path);
         if (row !== undefined && row.mtime_ms === st.mtimeMs && row.bytes === st.size) continue;
         const content = readFileSync(abs, "utf8");
-        if (row !== undefined && row.sha256 === sha256Hex(content)) {
-          this.#index.upsertFile({ ...row, mtimeMs: st.mtimeMs, provenance: row.provenance });
+        const sha = sha256Hex(content);
+        if (row !== undefined && row.sha256 === sha) {
+          const kept = withSidecar(row.provenance, path, sha);
+          if (kept !== row.provenance) this.#indexFile(path, content, kept, st.mtimeMs);
+          else this.#index.upsertFile({ ...row, mtimeMs: st.mtimeMs, provenance: row.provenance });
           continue;
         }
         // The old text is gone from disk; its indexed chunks stand in for it.
@@ -528,12 +639,30 @@ export class SqliteMemoryStore implements MemoryStore {
                 .chunksBySource(path)
                 .map((c) => c.text)
                 .join("\n");
-        const provenance = ownerEditProvenance(row?.provenance, before, content);
+        const own = ownerEditProvenance(row?.provenance, before, content);
+        const provenance = withSidecar(own, path, sha);
         this.#indexFile(path, content, provenance, st.mtimeMs);
         changed.push(path);
         this.#emit({
           event: "memory.file.changed",
           payload: { path, etag: etagOf(content), source: "external", provenance },
+        });
+      }
+      // Files whose bytes did not change but whose sidecar entry is less trusted.
+      for (const [path, byHash] of sidecar) {
+        if (!onDisk.has(path)) continue;
+        const row = this.#index.getFile(path);
+        if (row === undefined || !byHash.has(row.sha256)) continue;
+        const kept = withSidecar(row.provenance, path, row.sha256);
+        if (kept === row.provenance) continue;
+        const abs = join(this.root, ...path.split("/"));
+        const content = readFileSync(abs, "utf8");
+        if (sha256Hex(content) !== row.sha256) continue;
+        this.#indexFile(path, content, kept, statSync(abs).mtimeMs);
+        changed.push(path);
+        this.#emit({
+          event: "memory.file.changed",
+          payload: { path, etag: null, source: "external", provenance: kept },
         });
       }
       for (const row of this.#index.listFiles()) {
@@ -1557,8 +1686,8 @@ export class SqliteMemoryStore implements MemoryStore {
   }
 
   /**
-   * Deletes every workspace file (hidden entries such as `.git` are kept), chunk and claim and
-   * re-creates the templates. The UI asks for a typed confirmation before calling this.
+   * Deletes every workspace file, the local git history and the provenance sidecar (other hidden
+   * entries are kept), chunk and claim, and re-creates the templates. The UI asks for a typed confirmation before calling this.
    */
   async reset(options: { dryRun?: boolean } = {}) {
     const files = this.#walk();
@@ -1572,6 +1701,11 @@ export class SqliteMemoryStore implements MemoryStore {
       for (const entry of readdirSync(this.root)) {
         if (entry.startsWith(".")) continue;
         rmSync(join(this.root, entry), { recursive: true, force: true });
+      }
+      // The git backup's history holds every past note: this device's copy goes too. A remote
+      // keeps its own history; that is the owner's to delete.
+      for (const hidden of [".git", PSYCHE_DIR]) {
+        rmSync(join(this.root, hidden), { recursive: true, force: true });
       }
       this.#db.transaction(() => {
         this.#index.clear();
@@ -1588,6 +1722,25 @@ export class SqliteMemoryStore implements MemoryStore {
     }
     return { files, chunks, claims, dryRun };
   }
+}
+
+/** The hidden folder for the workspace's own bookkeeping (never indexed, never shown to the agent). */
+export const PSYCHE_DIR = ".psyche";
+/** The git backup's provenance sidecars, one per machine, inside `PSYCHE_DIR`. */
+export const PROVENANCE_DIR = "provenance";
+/** This workspace's machine id (local only). */
+export const MACHINE_ID_FILE = "machine.id";
+/**
+ * Sidecar format. Version 2 entries are `{ provenance, sha256 }`; version 1's bare class strings
+ * cannot be matched to content and are ignored.
+ */
+const SIDECAR_VERSION = 2;
+/** Sidecars larger than this are skipped on read (a remote controls their content). */
+const MAX_SIDECAR_BYTES = 4 * 1024 * 1024;
+
+interface SidecarEntry {
+  provenance: Provenance;
+  sha256: string;
 }
 
 /** Removes `dir` and its subdirectories if they hold nothing (hidden files keep them). */
@@ -1615,6 +1768,15 @@ export function ownerEditProvenance(
   if (previous !== "untrusted" || before === undefined) return "owner";
   const old = new Set(before.split("\n").filter((l) => l.trim().length > 0));
   return after.split("\n").some((l) => old.has(l)) ? "untrusted" : "owner";
+}
+
+/** Whether `path` is a name the store accepts (see `normalizeWorkspacePath`). */
+function isWorkspacePath(path: string): boolean {
+  try {
+    return normalizeWorkspacePath(path) === path;
+  } catch {
+    return false;
+  }
 }
 
 function ensureDir(dir: string): void {

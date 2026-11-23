@@ -1971,6 +1971,39 @@ export const pt: Partial<Catalogue> = {
   "settings.data.export": "Exportar",
   "settings.data.exportHint":
     "Um zip do espaço de trabalho (SOUL.md, memória, notas) e de todas as afirmações.",
+  "settings.data.git.title": "Backup no git",
+  "settings.data.git.description":
+    "Copia sua memória para um repositório git privado que é seu. Ao enviar, ela sai deste dispositivo, então cada arquivo é verificado antes por credenciais e números de cartão. O Psyche usa suas próprias credenciais do git e não guarda nenhuma.",
+  "settings.data.git.remote": "Remoto",
+  "settings.data.git.remoteHint":
+    "Um repositório privado: https://, ssh://, usuario@host:caminho ou um caminho local. Nunca coloque uma senha na URL.",
+  "settings.data.git.branch": "Branch",
+  "settings.data.git.enabled": "Backup no git ativado",
+  "settings.data.git.enabledHint":
+    "Roda somente quando você toca em «Sincronizar agora». Nada sincroniza em segundo plano.",
+  "settings.data.git.save": "Salvar",
+  "settings.data.git.sync": "Sincronizar agora",
+  "settings.data.git.lastSync": "Última sincronização {when}",
+  "settings.data.git.backedUp":
+    "{files, plural, one {# arquivo copiado} other {# arquivos copiados}} e enviado.",
+  "settings.data.git.upToDate": "Nada novo para copiar. O remoto está atualizado.",
+  "settings.data.git.pulled": "Mudanças baixadas do remoto. Nada novo para enviar.",
+  "settings.data.git.noGit":
+    "O git não está instalado neste dispositivo. Instale-o e sincronize de novo.",
+  "settings.data.git.noRemote": "Defina um remoto primeiro.",
+  "settings.data.git.notEnabled": "Ative o backup no git primeiro.",
+  "settings.data.git.authFailed":
+    "O remoto recusou seu login. Verifique sua chave SSH ou o auxiliar de credenciais do git.",
+  "settings.data.git.remoteFailed":
+    "Não foi possível acessar o remoto. Verifique o endereço e sua conexão.",
+  "settings.data.git.conflict":
+    "O remoto tem mudanças que conflitam com a memória deste dispositivo. Nada foi enviado.",
+  "settings.data.git.blocked":
+    "Não sincronizado: {files} parece conter uma credencial ou número de cartão. Remova-o e sincronize de novo.",
+  "settings.data.git.failed": "O backup no git falhou. Tente de novo.",
+  "settings.data.git.needsAdmin":
+    "O backup no git precisa de permissão de administrador neste dispositivo.",
+  "settings.data.git.saveFailed": "Não foi possível salvar as configurações do backup no git.",
   "settings.data.exportEverything": "Exportar tudo",
   "settings.data.deleteThreads": "Apagar conversas",
   "settings.data.deleteThreadsHint":
@@ -1981,7 +2014,9 @@ export const pt: Partial<Catalogue> = {
     "{n, plural, =0 {Nenhuma conversa arquivada} one {Apagar # conversa arquivada} other {Apagar # conversas arquivadas}}",
   "settings.data.reset": "Redefinir",
   "settings.data.resetHint":
-    "Apaga todos os arquivos de memória, índices e afirmações e começa {persona} do zero. As conversas permanecem.",
+    "Apaga cada arquivo de memória, índice e afirmação, e o histórico git local do espaço de trabalho, e faz {persona} começar do zero. As conversas ficam. Um remoto git mantém o próprio histórico: apagá-lo fica por sua conta.",
+  "settings.data.git.historyNote":
+    "Um remoto git mantém o próprio histórico. Redefinir e esquecer apagam só a cópia deste dispositivo; remover as notas antigas do remoto fica por sua conta.",
   "settings.data.typeToConfirm": "Digite “{word}” para confirmar. Isso não pode ser desfeito.",
   "settings.data.resetMemory": "Redefinir memória",
   "settings.data.resetMemoryEllipsis": "Redefinir memória…",

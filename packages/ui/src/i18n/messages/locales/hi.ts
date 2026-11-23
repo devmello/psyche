@@ -2005,6 +2005,36 @@ export const hi: Partial<Catalogue> = {
   "settings.data.days": "{n, plural, one {# दिन} other {# दिन}}",
   "settings.data.export": "एक्सपोर्ट",
   "settings.data.exportHint": "वर्कस्पेस (SOUL.md, मेमोरी, नोट्स) और हर दावे की एक zip।",
+  "settings.data.git.title": "git पर बैकअप",
+  "settings.data.git.description":
+    "आपकी मेमोरी को आपके अपने निजी git रिपॉज़िटरी में कॉपी करता है। भेजने पर वह इस डिवाइस से बाहर जाती है, इसलिए हर फ़ाइल पहले क्रेडेंशियल और कार्ड नंबर के लिए जाँची जाती है। Psyche आपके अपने git क्रेडेंशियल इस्तेमाल करता है और कोई क्रेडेंशियल सहेजता नहीं।",
+  "settings.data.git.remote": "रिमोट",
+  "settings.data.git.remoteHint":
+    "एक निजी रिपॉज़िटरी: https://, ssh://, user@host:path या स्थानीय पथ। URL में कभी पासवर्ड न डालें।",
+  "settings.data.git.branch": "ब्रांच",
+  "settings.data.git.enabled": "git बैकअप चालू",
+  "settings.data.git.enabledHint":
+    "केवल तब चलता है जब आप «अभी सिंक करें» दबाते हैं। पृष्ठभूमि में कुछ भी सिंक नहीं होता।",
+  "settings.data.git.save": "सहेजें",
+  "settings.data.git.sync": "अभी सिंक करें",
+  "settings.data.git.lastSync": "पिछला सिंक {when}",
+  "settings.data.git.backedUp":
+    "{files, plural, one {# फ़ाइल का बैकअप} other {# फ़ाइलों का बैकअप}} लिया और भेजा गया।",
+  "settings.data.git.upToDate": "बैकअप के लिए कुछ नया नहीं है। रिमोट अद्यतन है।",
+  "settings.data.git.pulled": "रिमोट से बदलाव लिए गए। भेजने के लिए कुछ नया नहीं है।",
+  "settings.data.git.noGit": "इस डिवाइस पर git इंस्टॉल नहीं है। git इंस्टॉल करें, फिर दोबारा सिंक करें।",
+  "settings.data.git.noRemote": "पहले एक रिमोट सेट करें।",
+  "settings.data.git.notEnabled": "पहले git बैकअप चालू करें।",
+  "settings.data.git.authFailed":
+    "रिमोट ने आपका लॉगिन अस्वीकार किया। अपनी SSH कुंजी या git क्रेडेंशियल हेल्पर जाँचें।",
+  "settings.data.git.remoteFailed": "रिमोट तक पहुँच नहीं हो सकी। पता और कनेक्शन जाँचें।",
+  "settings.data.git.conflict":
+    "रिमोट में ऐसे बदलाव हैं जो इस डिवाइस की मेमोरी से टकराते हैं। कुछ भी नहीं भेजा गया।",
+  "settings.data.git.blocked":
+    "सिंक नहीं हुआ: {files} में क्रेडेंशियल या कार्ड नंबर होने लगता है। उसे हटाएँ, फिर दोबारा सिंक करें।",
+  "settings.data.git.failed": "git बैकअप विफल रहा। फिर से कोशिश करें।",
+  "settings.data.git.needsAdmin": "git बैकअप के लिए इस डिवाइस पर एडमिन अनुमति चाहिए।",
+  "settings.data.git.saveFailed": "git बैकअप की सेटिंग सहेजी नहीं जा सकीं।",
   "settings.data.exportEverything": "सब कुछ एक्सपोर्ट करें",
   "settings.data.deleteThreads": "थ्रेड डिलीट करें",
   "settings.data.deleteThreadsHint":
@@ -2015,7 +2045,9 @@ export const hi: Partial<Catalogue> = {
     "{n, plural, =0 {कोई आर्काइव किया गया थ्रेड नहीं} one {# आर्काइव किया गया थ्रेड डिलीट करें} other {# आर्काइव किए गए थ्रेड डिलीट करें}}",
   "settings.data.reset": "रीसेट",
   "settings.data.resetHint":
-    "हर मेमोरी फ़ाइल, इंडेक्स और दावे को डिलीट करता है और {persona} को नए सिरे से शुरू करता है। चैट बनी रहती हैं।",
+    "हर मेमोरी फ़ाइल, इंडेक्स और दावा, और कार्यक्षेत्र का स्थानीय git इतिहास हटाता है, और {persona} को नए सिरे से शुरू करता है। चैट बनी रहती हैं। git रिमोट अपना इतिहास स्वयं रखता है: उसे हटाना आपके हाथ में है।",
+  "settings.data.git.historyNote":
+    "git रिमोट अपना इतिहास स्वयं रखता है। रीसेट और भूलना केवल इस डिवाइस की प्रति हटाते हैं, इसलिए रिमोट से पुरानी नोट्स हटाना आपके हाथ में है।",
   "settings.data.typeToConfirm": "पुष्टि के लिए “{word}” टाइप करें। इसे पूर्ववत नहीं किया जा सकता।",
   "settings.data.resetMemory": "मेमोरी रीसेट करें",
   "settings.data.resetMemoryEllipsis": "मेमोरी रीसेट करें…",
