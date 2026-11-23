@@ -531,6 +531,10 @@ describe("external edits", () => {
     expect(hits.map((h) => h.chunk.source)).toContain("C#.md");
     const refused = await env.store.search("pipe refused");
     expect(refused.map((h) => h.chunk.source)).not.toContain("a|b.md");
+    // Open and save again: the same name reads and writes through the store.
+    expect((await env.store.readFile("C#.md"))?.content).toBe("csharp narwhal notes");
+    await env.store.writeFile("C#.md", "csharp edited\n", { provenance: "owner" });
+    expect((await env.store.readFile("C#.md"))?.content).toBe("csharp edited\n");
   });
 });
 
