@@ -1,9 +1,8 @@
 import { type ChildProcess, execFile, spawn } from "node:child_process";
-import { randomBytes } from "node:crypto";
-import { existsSync, mkdirSync, readFileSync, rmSync, writeFileSync } from "node:fs";
+import { existsSync, readFileSync, rmSync } from "node:fs";
 import { homedir } from "node:os";
-import { dirname, join } from "node:path";
-import { ensureOwnerOnly } from "@psyche/hostfs";
+import { join } from "node:path";
+import { ensureVaultKeyFile } from "@psyche/hostfs";
 
 /**
  * Gateway lifecycle (feature A7, architecture §3.1), the part every platform shares. The window is
@@ -83,23 +82,9 @@ export function desktopVaultKeyFile(
   psycheHome: string,
   platform: NodeJS.Platform = process.platform,
 ): string | undefined {
-  const keyFile = join(psycheHome, "secrets", "vault.key");
-  const slotsFile = join(psycheHome, "vault", "slots.json");
-  if (existsSync(slotsFile)) {
-    try {
-      const slots = (JSON.parse(readFileSync(slotsFile, "utf8")) as { slots?: object }).slots;
-      if (!slots || !("key_file" in slots)) return undefined;
-    } catch {
-      return undefined;
-    }
-  }
-  if (!existsSync(keyFile)) {
-    mkdirSync(dirname(keyFile), { recursive: true, mode: 0o700 });
-    if (platform === "win32") ensureOwnerOnly(dirname(keyFile), platform);
-    writeFileSync(keyFile, randomBytes(32), { mode: 0o600, flag: "wx" });
-  }
-  if (platform === "win32") ensureOwnerOnly(keyFile, platform);
-  return keyFile;
+  // The rules live in @psyche/hostfs (`ensureVaultKeyFile`), shared with psyched on Linux.
+  const key = ensureVaultKeyFile(psycheHome, platform);
+  return key.ok ? key.path : undefined;
 }
 
 /**

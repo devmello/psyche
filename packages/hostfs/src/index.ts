@@ -55,3 +55,4 @@ export {
   readDaclsSddl,
   restrictToOwner,
 } from "./private.ts";
+export { ensureVaultKeyFile, type VaultKeyFile } from "./vault-key-file.ts";

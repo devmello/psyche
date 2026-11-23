@@ -152,7 +152,7 @@ On the new Mac:
 
 7. Pair your laptop's CLI and the desktop app through a tunnel as in [install.md](install.md#5-pair-your-first-device), revoke the old Mac's devices, and run `psyche doctor`.
 
-A server has no Mac helper and no agent browser; see [server-mode.md](server-mode.md#not-supported-yet). The server has a vault key slot only when `PSYCHE_VAULT_KEY_FILE` names a key file, which the shipped Compose file does not set; without it, each unlock needs the recovery key.
+A server has no Mac helper and no agent browser; see [server-mode.md](server-mode.md#not-supported-yet). The server's vault key slot is the key file `$PSYCHE_HOME/secrets/vault.key`, which psyched creates on first start when nothing else is set (under Compose that is on the `psyche-home` volume). Backups do not include `secrets/`, so after a restore on a new server, unlock with the recovery key (`psyche vault unlock --recovery`). See [server-mode.md](server-mode.md#the-vault-key).
 
 ## From a Compose server back to a Mac
 

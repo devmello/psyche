@@ -48,13 +48,22 @@ services:
       PSYCHE_LOG_LEVEL: ${PSYCHE_LOG_LEVEL:-info}
     volumes:
       - psyche-home:/data
+      # The vault key is /data/secrets/vault.key on this volume unless PSYCHE_VAULT_KEY_FILE names a
+      # 0600 file owned by the Gateway's user (a Compose secret, set with its mode). Backups leave it
+      # out: keep the vault recovery key somewhere else.
       # Optional: run sandboxes as sibling containers on the host's Docker.
       # RISK: the Docker socket is root on this host. Anything that controls the Gateway process
       # can then start privileged containers. Prefer a rootless Podman socket, or run the sandbox
       # on a separate machine. Never enable this on a shared host.
       # - /var/run/docker.sock:/var/run/docker.sock
     healthcheck:
-      test: ["CMD", "node", "-e", "fetch('http://127.0.0.1:'+(process.env.PSYCHE_PORT||7979)+'/healthz').then(r=>process.exit(r.ok?0:1),()=>process.exit(1))"]
+      test:
+        [
+          "CMD",
+          "node",
+          "-e",
+          "fetch('http://127.0.0.1:'+(process.env.PSYCHE_PORT||7979)+'/healthz').then(r=>process.exit(r.ok?0:1),()=>process.exit(1))",
+        ]
       interval: 30s
       timeout: 5s
       start_period: 20s

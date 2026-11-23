@@ -1,6 +1,7 @@
 import { accessSync, constants, statSync } from "node:fs";
 import { delimiter, extname, isAbsolute, join } from "node:path";
 import type { PsycheDb } from "@psyche/db";
+import { ensureVaultKeyFile } from "@psyche/hostfs";
 import {
   type AuditLog,
   type Clock,
@@ -35,6 +36,7 @@ import {
   Vault,
   type VaultEventName,
   type VaultRemovals,
+  type WrappedKey,
 } from "@psyche/vault";
 import type { BitwardenConfig, OnePasswordConfig } from "../config.ts";
 import type { Call, HandlerDef } from "../context.ts";
@@ -51,8 +53,13 @@ import type { NodeRegistry } from "../nodes/registry.ts";
 export interface VaultSetup {
   /** A ready key slot (tests). Overrides everything below. */
   wrapper?: KeyWrapper;
-  /** Server mode: a 0600 key file (`PSYCHE_VAULT_KEY_FILE`, a Compose secret). */
+  /**
+   * Server mode: a 0600 key file (`PSYCHE_VAULT_KEY_FILE`, a Compose secret). Without it, on a
+   * host that has neither a Keychain nor DPAPI (Linux), psyched uses `$PSYCHE_HOME/secrets/vault.key`.
+   */
   keyFile?: string;
+  /** The host's platform for the key-slot default (tests pin it; default `process.platform`). */
+  platform?: NodeJS.Platform;
   /** The desktop's Electron `safeStorage`, when it hosts the Gateway. */
   safeStorage?: SafeStorageAdapter;
   /** Keychain account of the key item (default `"default"`). */
@@ -271,12 +278,51 @@ export class HelperNodeClient implements NodeClient {
 export type VaultSlotChoice = "key_file" | "safe_storage" | "keychain" | "injected";
 
 /**
+ * The key-file slot when psyched may not use one here (the vault already has another slot, or the
+ * file cannot be made). It never unlocks, and says why, so the owner sees the cause rather than
+ * "helper lacks keychain.set".
+ */
+class UnavailableKeyFileWrapper implements KeyWrapper {
+  readonly slot = "key_file" as const;
+  readonly #reason: string;
+
+  constructor(reason: string) {
+    this.#reason = reason;
+  }
+
+  async unavailableReason(): Promise<string | null> {
+    return this.#reason;
+  }
+
+  async wrap(): Promise<WrappedKey> {
+    throw new PsycheError("unavailable", this.#reason);
+  }
+
+  async unwrap(): Promise<Buffer> {
+    throw new PsycheError("unavailable", this.#reason);
+  }
+}
+
+/** The default key file for psyched on a host without Keychain or DPAPI (see `ensureVaultKeyFile`). */
+function defaultKeyFileWrapper(home: string, platform: NodeJS.Platform): KeyWrapper {
+  try {
+    const key = ensureVaultKeyFile(home, platform);
+    return key.ok ? new KeyFileWrapper(key.path) : new UnavailableKeyFileWrapper(key.reason);
+  } catch (err) {
+    const code = (err as NodeJS.ErrnoException).code ?? "error";
+    return new UnavailableKeyFileWrapper(`the vault key file could not be created (${code})`);
+  }
+}
+
+/**
  * Key slot per deployment: an injected wrapper; else the key file in server mode; else the
- * desktop's safeStorage; else the keychain through the Mac helper (the macOS default).
+ * desktop's safeStorage; else, on Linux (no Keychain, no DPAPI), the conventional key file under
+ * `$PSYCHE_HOME/secrets`; else the keychain through the Mac helper (the macOS default).
  */
 export function chooseWrapper(
   setup: VaultSetup,
   helper: NodeClient,
+  host: { home: string; platform: NodeJS.Platform },
 ): { wrapper: KeyWrapper; choice: VaultSlotChoice } {
   if (setup.wrapper !== undefined) return { wrapper: setup.wrapper, choice: "injected" };
   if (setup.keyFile !== undefined && setup.keyFile !== "") {
@@ -284,6 +330,9 @@ export function chooseWrapper(
   }
   if (setup.safeStorage !== undefined) {
     return { wrapper: new SafeStorageWrapper(setup.safeStorage), choice: "safe_storage" };
+  }
+  if (host.platform !== "darwin" && host.platform !== "win32") {
+    return { wrapper: defaultKeyFileWrapper(host.home, host.platform), choice: "key_file" };
   }
   return {
     wrapper: new KeychainWrapper({ helper, account: setup.keychainAccount ?? "default" }),
@@ -372,7 +421,10 @@ export function composeVault(
 ): ComposedVault {
   let nodes: NodeRegistry | undefined;
   const helper = new HelperNodeClient(() => nodes);
-  const { wrapper, choice } = chooseWrapper(setup, helper);
+  const { wrapper, choice } = chooseWrapper(setup, helper, {
+    home: deps.home,
+    platform: setup.platform ?? process.platform,
+  });
   const redactor = deps.redactor ?? new SecretRedactor();
   // The source reads the token from the vault it serves, once that exists.
   let built: Vault | undefined;
