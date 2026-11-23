@@ -42,6 +42,15 @@ final class PersonModel {
         await write { try await self.store.retractFact(personID: self.id, factID: fact.id) }
     }
 
+    /// Saves the owner's value. Throws so the edit sheet shows the Gateway's words beside its field
+    /// (a refusal stays on the sheet, so the owner can change the value and try again).
+    func edit(_ fact: MemoryFact, value: String) async throws {
+        guard let attribute = fact.attribute else { throw BackendError.refused("Edit this on your Mac.") }
+        try await store.editFact(personID: id, attribute: attribute, value: value)
+        changes += 1
+        await load()
+    }
+
     private func write(_ action: () async throws -> Void) async {
         do {
             try await action()
@@ -53,11 +62,12 @@ final class PersonModel {
     }
 }
 
-/// A person (docs/design/ios-app-2026.md §4.5): what Psyche knows, with "That's right" and "Remove" on
+/// A person (docs/design/ios-app-2026.md §4.5): what Psyche knows, with "That's right", "Edit" and "Forget" on
 /// each fact. Names, aliases and merging say "Edit on your Mac".
 struct PersonPage: View {
     @State private var model: PersonModel
     @State private var retracting: MemoryFact?
+    @State private var editing: MemoryFact?
 
     init(id: String, store: any PsycheBackend) {
         _model = State(initialValue: PersonModel(id: id, store: store))
@@ -93,14 +103,17 @@ struct PersonPage: View {
             await model.observe()
         }
         .sensoryFeedback(.success, trigger: model.changes)
-        .confirmationDialog(
-            String(localized: "Remove this fact?", bundle: .module), isPresented: Binding(get: { retracting != nil }, set: { if !$0 { retracting = nil } }),
-            titleVisibility: .visible, presenting: retracting
+        .alert(
+            String(localized: "Forget this fact?", bundle: .module), isPresented: Binding(get: { retracting != nil }, set: { if !$0 { retracting = nil } }),
+            presenting: retracting
         ) { fact in
-            Button(String(localized: "Remove", bundle: .module), role: .destructive) { Task { await model.retract(fact) } }
+            Button(String(localized: "Forget", bundle: .module), role: .destructive) { Task { await model.retract(fact) } }
             Button(String(localized: "Keep it", bundle: .module), role: .cancel) {}
         } message: { fact in
             Text("\u{201C}\(fact.text)\u{201D} stops shaping what Psyche does.", bundle: .module)
+        }
+        .sheet(item: $editing) { fact in
+            FactEditSheet(fact: fact) { value in try await model.edit(fact, value: value) }
         }
         .alert(String(localized: "Couldn't change that", bundle: .module), isPresented: Binding(get: { model.notice != nil }, set: { if !$0 { model.notice = nil } })) {
             Button(String(localized: "OK", bundle: .module), role: .cancel) {}
@@ -166,7 +179,10 @@ struct PersonPage: View {
                 if !fact.confirmed {
                     Button { Task { await model.confirm(fact) } } label: { Label(String(localized: "That's right", bundle: .module), systemImage: "checkmark") }
                 }
-                Button(role: .destructive) { retracting = fact } label: { Label(String(localized: "Remove", bundle: .module), systemImage: "trash") }
+                if fact.attribute != nil {
+                    Button { editing = fact } label: { Label(String(localized: "Edit", bundle: .module), systemImage: "pencil") }
+                }
+                Button(role: .destructive) { retracting = fact } label: { Label(String(localized: "Forget", bundle: .module), systemImage: "trash") }
             } label: {
                 Image(systemName: "ellipsis")
                     .font(.subheadline.weight(.semibold))

@@ -114,6 +114,16 @@ extension GatewayBackend {
             key: "retract-\(factID)")
     }
 
+    /// "Edit" on a fact: `memory.entities.facts.set` supersedes the current value (kept in history). The
+    /// Gateway's refusal (a sensitive trait, a bad value) reaches the owner as the Gateway's own words.
+    public func editFact(personID: String, attribute: String, value: String) async throws {
+        _ = try await call(
+            "memory.entities.facts.set",
+            .obj(["entityId": .string(personID), "attribute": .string(attribute), "value": .string(value),
+                  "source": .obj(["kind": "owner_edit"])]),
+            key: "edit-\(UUID().uuidString)")
+    }
+
     // MARK: - Reads
 
     func entities(kind: String, limit: Int) async throws -> [JSONValue] {
@@ -334,7 +344,8 @@ extension GatewayBackend {
             let attribute = fact["attribute"]?.string ?? "note"
             let text = ["note", "preference"].contains(attribute) ? value : "\(attributeLabel(attribute)): \(value)"
             let owner = fact["provenance"]?.string == "owner" || fact["review"]?.string == "edited"
-            return MemoryFact(id: id, text: text, evidence: evidence(of: fact), confirmed: owner)
+            return MemoryFact(
+                id: id, text: text, evidence: evidence(of: fact), confirmed: owner, attribute: fact["attribute"]?.string, value: value)
         }
     }
 
