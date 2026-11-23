@@ -41,6 +41,23 @@ describe("readServerBuild", () => {
     expect(readServerBuild({}, read).build).toBe("dev");
   });
 
+  it("reads build-info.json at a long absolute path, never cutting the path short", () => {
+    // The AppImage's mount prefix alone is 73 characters; this one is well past 100.
+    const longPath =
+      "/tmp/.mount_PsycheAbC123/usr/lib/psyche/resources/psyched/" +
+      "a-directory-name-that-keeps-going-well-past-the-old-limit/build-info.json";
+    expect(longPath.length).toBeGreaterThan(100);
+    files[longPath] = JSON.stringify({ build: "0.3.0-test.1", commit: "abc123" });
+    const server = readServerBuild({ PSYCHE_BUILD: "0.2.0", PSYCHE_BUILD_INFO: longPath }, read);
+    // The file's build wins over the plist's claim, and the claim is reported on its own.
+    expect(server).toEqual({
+      version: expect.stringMatching(/^\d+\.\d+\.\d+/),
+      build: "0.3.0-test.1",
+      commit: "abc123",
+      envBuild: "0.2.0",
+    });
+  });
+
   it("falls back to dev for unreadable or nonsense build info, and always carries the version", () => {
     const broken = readServerBuild({ PSYCHE_BUILD_INFO: "/nowhere.json" }, read);
     expect(broken.build).toBe("dev");
