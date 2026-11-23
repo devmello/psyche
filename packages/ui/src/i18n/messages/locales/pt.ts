@@ -1982,7 +1982,9 @@ export const pt: Partial<Catalogue> = {
     "{n, plural, =0 {Nenhuma conversa arquivada} one {Apagar # conversa arquivada} other {Apagar # conversas arquivadas}}",
   "settings.data.reset": "Redefinir",
   "settings.data.resetHint":
-    "Apaga todos os arquivos de memória, índices e afirmações e começa {persona} do zero. As conversas permanecem.",
+    "Apaga cada arquivo de memória, índice e afirmação, e o histórico git local do espaço de trabalho, e faz {persona} começar do zero. As conversas ficam. Um remoto git mantém o próprio histórico: apagá-lo fica por sua conta.",
+  "settings.data.git.historyNote":
+    "Um remoto git mantém o próprio histórico. Redefinir e esquecer apagam só a cópia deste dispositivo; remover as notas antigas do remoto fica por sua conta.",
   "settings.data.typeToConfirm": "Digite “{word}” para confirmar. Isso não pode ser desfeito.",
   "settings.data.resetMemory": "Redefinir memória",
   "settings.data.resetMemoryEllipsis": "Redefinir memória…",

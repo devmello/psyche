@@ -5,6 +5,7 @@
 **Owner:** S17 (speech). **Status:** spec, 2026-10-25. **Issues:** epic #696; V-G #691, V-H #692, V-U #693; bug #690. **Asked by:** the owner ("full voice mode would be cool too").
 
 Research behind this plan, with sources:
+
 - [research/apple-on-device-speech.md](research/apple-on-device-speech.md): SpeechAnalyzer and SpeechDetector, AVSpeechSynthesizer voices and Personal Voice, wake-word options, voice processing and echo, the microphone indicator.
 - [research/cloud-voice-apis.md](research/cloud-voice-apis.md): realtime speech-to-speech APIs, cloud TTS and STT, cascaded versus speech-to-speech, latency budgets, cost.
 - [research/voice-ux-landscape.md](research/voice-ux-landscape.md): how ChatGPT, Gemini Live, Siri, Claude and Sesame handle turn-taking, interruptions, feedback and actions by voice.
@@ -16,16 +17,16 @@ The short version: Psyche can already transcribe on the Mac, speak with the syst
 
 From [research/psyche-today.md](research/psyche-today.md):
 
-| Piece | State |
-| --- | --- |
+| Piece         | State                                                                                                                                                                                                                                           |
+| ------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | On-device STT | `speech.transcribe_stream` in the helper: DictationTranscriber with contextual strings on macOS 26+ (3.0–3.4 % WER), SpeechTranscriber without, SFSpeechRecognizer before 26. First partial 0.6–0.8 s, final 0.1–0.6 s after key-up (spike 03). |
-| On-device TTS | `speech.synthesize` (AVSpeechSynthesizer `write`, PCM back to the Gateway); Personal Voice only on opt-in, flagged non-commercial |
-| Gateway | `voice.*` dictation sessions, `speech.readAloud {save: false}` with cancel, `speech.voices`, custom vocabulary, engine selection, cloud TTS (OpenAI, ElevenLabs) only when named |
-| Clients | Composer dictation and Q5 voice mode (#481) are built in the shell's `ChatView`. System dictation (hold fn, HUD) is in the desktop. |
-| **Gap** | **The shipped app renders the kit's `ChatThread`, which gets neither dictation nor voice mode.** The Voice mode settings exist, but nothing reads them. |
-| Latency | A reply is read only after the run ends, so the first audio waits for the whole answer |
-| Router | Text and tools only; no audio models |
-| Look | The lantern glow exists only in the startup splash; the avatar has no listening or speaking state |
+| On-device TTS | `speech.synthesize` (AVSpeechSynthesizer `write`, PCM back to the Gateway); Personal Voice only on opt-in, flagged non-commercial                                                                                                               |
+| Gateway       | `voice.*` dictation sessions, `speech.readAloud {save: false}` with cancel, `speech.voices`, custom vocabulary, engine selection, cloud TTS (OpenAI, ElevenLabs) only when named                                                                |
+| Clients       | Composer dictation and Q5 voice mode (#481) are built in the shell's `ChatView`. System dictation (hold fn, HUD) is in the desktop.                                                                                                             |
+| **Gap**       | **The shipped app renders the kit's `ChatThread`, which gets neither dictation nor voice mode.** The Voice mode settings exist, but nothing reads them.                                                                                         |
+| Latency       | A reply is read only after the run ends, so the first audio waits for the whole answer                                                                                                                                                          |
+| Router        | Text and tools only; no audio models                                                                                                                                                                                                            |
+| Look          | The lantern glow exists only in the startup splash; the avatar has no listening or speaking state                                                                                                                                               |
 
 ## 2. What the research says (summary)
 
@@ -46,7 +47,7 @@ From [research/psyche-today.md](research/psyche-today.md):
   - a one-line preamble only for slow tools;
   - separate "mute" and "stop speaking" controls;
   - a visual driven by audio level, with a reduced-motion form.
-  The most common complaint everywhere is being cut off at a pause. Several products default to hands-free. Psyche defaults to push-to-talk, as this plan's brief asks, which also avoids that failure.
+    The most common complaint everywhere is being cut off at a pause. Several products default to hands-free. Psyche defaults to push-to-talk, as this plan's brief asks, which also avoids that failure.
 
 ## 3. Decisions
 
@@ -64,12 +65,12 @@ From [research/psyche-today.md](research/psyche-today.md):
 
 ### 4.1 Modes
 
-| Mode | Start | End of the owner's turn | Barge-in | Microphone open |
-| --- | --- | --- | --- | --- |
-| **Push-to-talk** (default) | Hold the voice key from any app, or hold the overlay's mic | Key up | Pressing the key again while Psyche speaks | Only while held, plus 250 ms |
-| **Tap-to-talk** | Tap Voice in the composer, or tap the voice key | A pause (endpointing, §4.3) or a second tap | Talking, or tapping | From tap to end of turn; again for each turn after a reply |
-| **Hands-free** | Tap Voice, then keep talking turn after turn | A pause | Talking over the reply | For the whole conversation; ends after 30 s of silence, on End, or on screen lock |
-| **Wake word** | Not in this plan | — | — | — |
+| Mode                       | Start                                                      | End of the owner's turn                     | Barge-in                                   | Microphone open                                                                   |
+| -------------------------- | ---------------------------------------------------------- | ------------------------------------------- | ------------------------------------------ | --------------------------------------------------------------------------------- |
+| **Push-to-talk** (default) | Hold the voice key from any app, or hold the overlay's mic | Key up                                      | Pressing the key again while Psyche speaks | Only while held, plus 250 ms                                                      |
+| **Tap-to-talk**            | Tap Voice in the composer, or tap the voice key            | A pause (endpointing, §4.3) or a second tap | Talking, or tapping                        | From tap to end of turn; again for each turn after a reply                        |
+| **Hands-free**             | Tap Voice, then keep talking turn after turn               | A pause                                     | Talking over the reply                     | For the whole conversation; ends after 30 s of silence, on End, or on screen lock |
+| **Wake word**              | Not in this plan                                           | —                                           | —                                          | —                                                                                 |
 
 A conversation belongs to one thread. In-app it uses the open thread. From the global hotkey it uses the main thread, unless the owner held the key while a side chat was frontmost in Psyche.
 
@@ -119,29 +120,31 @@ If the owner wants it later, it is an opt-in hands-free start behind its own swi
 
 ### 4.5 What Psyche says
 
-| Setting | Spoken | On screen |
-| --- | --- | --- |
+| Setting             | Spoken                                                                                            | On screen       |
+| ------------------- | ------------------------------------------------------------------------------------------------- | --------------- |
 | **Brief** (default) | The spoken lead (≤ 2–3 sentences, about 60 words), then "The rest is on screen" when more follows | The full answer |
-| **Full** | The whole answer, flattened, up to 2 000 characters, then "The rest is on screen" | The full answer |
+| **Full**            | The whole answer, flattened, up to 2 000 characters, then "The rest is on screen"                 | The full answer |
 
 **The voice-turn prompt section** (agent-core, ≤ 400 characters, per locale) tells the model:
+
 - start with a direct spoken answer in plain sentences, with no lists, no Markdown and no URLs in that lead;
 - put details after a blank line;
 - for a question it can't answer yet, say what it is doing in one short sentence;
 - never say something is done before the tool reports success (the reply after a write waits for the receipt).
 
 **The speakable filter** (`markdownToSpeech`, already in `packages/speech`):
+
 - code blocks, tables and URLs are never spoken; "I've put the link on screen" replaces a URL;
 - numbers and dates are read as written;
 - untrusted quoted content is spoken only as part of the agent's own sentences, never as markup (SSML is stripped).
 
 **Narration of tool steps** (`voice.conversation.narrate`):
 
-| Level | What is spoken |
-| --- | --- |
-| Off | Nothing |
+| Level               | What is spoken                                                                  |
+| ------------------- | ------------------------------------------------------------------------------- |
+| Off                 | Nothing                                                                         |
 | **Brief** (default) | One short phrase when a step runs longer than 1.5 s ("Checking your calendar.") |
-| Every step | Each step's one-line label |
+| Every step          | Each step's one-line label                                                      |
 
 - The phrases come from the tool's `describeCall().summary` / `level1` label, rendered by a template. They are not model text, so injected content can't choose what Psyche says.
 - Labels carrying third-party text (subjects, page titles) are cut to the verb and the app.
@@ -149,10 +152,12 @@ If the owner wants it later, it is an opt-in hands-free start behind its own swi
 ### 4.6 Approvals by voice
 
 The tiers are chat's (security §3.7, §9):
+
 - `write` and `destructive` approvals can be answered by voice;
 - `deviceOnly` kinds (`financial`, `credential_fill`, `exec_host`, `policy`, `pairing`) never can.
 
 The setting `voice.conversation.approvals` takes:
+
 - `off`;
 - **`write`** (default);
 - `write_destructive`.
@@ -164,10 +169,11 @@ The setting `voice.conversation.approvals` takes:
 3. **Phrase match.** The owner's final transcript is matched, after normalisation, against a fixed phrase list per locale in the catalogue:
    - approve: "yes", "send it", "do it", "go ahead", "approve";
    - deny: "no", "cancel", "don't", "stop", "deny".
-   Anything else, or silence: "I'll leave it on screen." The card stays and nothing is decided.
+     Anything else, or silence: "I'll leave it on screen." The card stays and nothing is decided.
 4. **Answer.** On a match the Gateway calls the broker's answer path with this device's surface token, scope `once` only, and `via: "voice"`. The audit entry records the voice surface and a hash of the utterance, and the receipt says "approved by voice".
 
 **Never by voice:**
+
 - grant scopes wider than `once`;
 - approvals in a turn tainted by untrusted content: voice can deny, but approving needs the card;
 - `deviceOnly` kinds, where Psyche says "That needs your Touch ID on screen".
@@ -215,20 +221,21 @@ The setting `voice.conversation.approvals` takes:
 
 Target: the first audio of the reply **within 1 s of the end of the owner's turn** for a short answer with push-to-talk, and about 1.5 s hands-free, where the pause itself takes 0.6 s. The earcon and lantern change ("heard you") come within 100 ms.
 
-| Stage | Push-to-talk | Hands-free | Evidence |
-| --- | --- | --- | --- |
-| End of turn | 0 (key up) | 600 ms (1.2 s after an unfinished phrase) | §4.3 |
-| STT final | 100–300 ms | 100–300 ms | spike 03: 0.1–0.6 s after input ends; the short preset is unmeasured (V-H H3) |
-| Model first token | 250–400 ms | 250–400 ms | fast model, cached prompt, thinking off; an assumption to measure per router target ([cloud-voice-apis.md](research/cloud-voice-apis.md) §5) |
-| First speakable sentence | 50–150 ms | 50–150 ms | 10–20 tokens at 100–230 tokens/s |
-| TTS first audio | 100–200 ms warm (target) | same | AVSpeechSynthesizer measured 0.8 s **cold**: V-H H2 must keep it warm. ElevenLabs Flash 100–150 ms over the network |
-| Playback start | 20–50 ms | 20–50 ms | first 100 ms PCM chunk |
-| **Total** | **≈ 0.5–1.1 s** | **≈ 1.1–1.7 s** | Products measure 0.7–1.35 s ([cloud-voice-apis.md](research/cloud-voice-apis.md) §5) |
+| Stage                    | Push-to-talk             | Hands-free                                | Evidence                                                                                                                                     |
+| ------------------------ | ------------------------ | ----------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------- |
+| End of turn              | 0 (key up)               | 600 ms (1.2 s after an unfinished phrase) | §4.3                                                                                                                                         |
+| STT final                | 100–300 ms               | 100–300 ms                                | spike 03: 0.1–0.6 s after input ends; the short preset is unmeasured (V-H H3)                                                                |
+| Model first token        | 250–400 ms               | 250–400 ms                                | fast model, cached prompt, thinking off; an assumption to measure per router target ([cloud-voice-apis.md](research/cloud-voice-apis.md) §5) |
+| First speakable sentence | 50–150 ms                | 50–150 ms                                 | 10–20 tokens at 100–230 tokens/s                                                                                                             |
+| TTS first audio          | 100–200 ms warm (target) | same                                      | AVSpeechSynthesizer measured 0.8 s **cold**: V-H H2 must keep it warm. ElevenLabs Flash 100–150 ms over the network                          |
+| Playback start           | 20–50 ms                 | 20–50 ms                                  | first 100 ms PCM chunk                                                                                                                       |
+| **Total**                | **≈ 0.5–1.1 s**          | **≈ 1.1–1.7 s**                           | Products measure 0.7–1.35 s ([cloud-voice-apis.md](research/cloud-voice-apis.md) §5)                                                         |
 
 - **The largest risk is the cold synthesizer.** Without H2 the on-device voice adds about 0.6 s to every first sentence.
 - **Dead air.** If 1.5 s pass without audio, the lantern keeps its thinking pulse and a soft cue plays once, because silence reads as failure (Alexa+ took up to 10 s on old devices).
 
 Measures that buy the budget:
+
 - push-to-talk ends the turn with no hangover;
 - a new `voice` model role (beside the router's `primary`, `utility`, `embedding`, `vision` and `speech`; it picks the chat model for voice turns, while `speech` stays the audio model role) points at a fast model. It defaults to the primary model, and the owner can pick a faster one in Settings → Models;
 - the first sentence is synthesized while the model writes the second;
@@ -254,6 +261,7 @@ The Gateway records each turn's timings (`voice.turn.timing` in the log, no cont
 ### 6.2 Outside the app: the voice HUD
 
 Holding the voice key while another app is frontmost opens a floating HUD:
+
 - top-centre, 380 × 96 pt, the same capsule and material;
 - it uses the existing dictation HUD window machinery;
 - it follows the conversation and closes 4 s after the last reply;
@@ -265,35 +273,35 @@ The global hotkey never takes text from the focused app. That remains system dic
 
 The moth's lantern from the app icon and splash becomes the voice's face. It is a radial accent glow behind the avatar, driven by audio levels the client measures itself (RMS of the capture and of the playback, 30 Hz, smoothed with 80 ms attack and 250 ms release):
 
-| State | Glow |
-| --- | --- |
-| Listening, quiet | steady, 35 % opacity |
+| State                     | Glow                                                     |
+| ------------------------- | -------------------------------------------------------- |
+| Listening, quiet          | steady, 35 % opacity                                     |
 | Listening, owner speaking | scale 1.00–1.12 and opacity 35–85 % with the input level |
-| Heard you | one 120 ms brighten (with the earcon) |
-| Thinking | the shared working pulse (1.2 s, motion.md §4.6) |
-| Speaking | follows the output level, warmer (accent-10) |
-| Needs you (approval) | still, accent ring draining over the 10 s window |
-| Mic off / ended | fades out in 280 ms |
+| Heard you                 | one 120 ms brighten (with the earcon)                    |
+| Thinking                  | the shared working pulse (1.2 s, motion.md §4.6)         |
+| Speaking                  | follows the output level, warmer (accent-10)             |
+| Needs you (approval)      | still, accent ring draining over the 10 s window         |
+| Mic off / ended           | fades out in 280 ms                                      |
 
 Reduced motion: no scale and no level following. Three still opacities (listening, thinking, speaking), with the state as text. The glow is CSS (`opacity`, `transform` on one layer), within motion.md §5's budget, and it stops when the conversation ends (WCAG 2.2.2).
 
 ### 6.4 Settings → Voice & dictation → Voice conversation
 
-| Row | Control | Default |
-| --- | --- | --- |
-| Talk with Psyche | switch | off |
-| Voice key | key picker (fn / Right ⌥ / Right ⌘), must differ from the dictation key | Right ⌘ |
-| How turns end | Push to talk / Tap to talk / Hands-free | Push to talk |
-| Voice | the voice catalogue (`speech.voices`) with quality labels; "Get better voices…" opens Spoken Content; Personal Voice switch with Apple's terms line; cloud voices with their label | best installed for the language |
-| Speed | 0.8× – 1.5× slider | 1.0× |
-| Spoken replies | Brief / Full | Brief |
-| Say what it's doing | Off / Brief / Every step | Brief |
-| Interrupt by talking | switch | on |
-| Approve by voice | Off / Writes only / Writes and deletes ("Purchases, passwords and security changes always need the card") | Writes only |
-| Language | Follow app language / list | follow |
-| Captions | switch | on |
-| Review before sending | switch | off |
-| Spoken brief | Off / On Listen / When I'm at the Mac | On Listen |
+| Row                   | Control                                                                                                                                                                            | Default                         |
+| --------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------- |
+| Talk with Psyche      | switch                                                                                                                                                                             | off                             |
+| Voice key             | key picker (fn / Right ⌥ / Right ⌘), must differ from the dictation key                                                                                                            | Right ⌘                         |
+| How turns end         | Push to talk / Tap to talk / Hands-free                                                                                                                                            | Push to talk                    |
+| Voice                 | the voice catalogue (`speech.voices`) with quality labels; "Get better voices…" opens Spoken Content; Personal Voice switch with Apple's terms line; cloud voices with their label | best installed for the language |
+| Speed                 | 0.8× – 1.5× slider                                                                                                                                                                 | 1.0×                            |
+| Spoken replies        | Brief / Full                                                                                                                                                                       | Brief                           |
+| Say what it's doing   | Off / Brief / Every step                                                                                                                                                           | Brief                           |
+| Interrupt by talking  | switch                                                                                                                                                                             | on                              |
+| Approve by voice      | Off / Writes only / Writes and deletes ("Purchases, passwords and security changes always need the card")                                                                          | Writes only                     |
+| Language              | Follow app language / list                                                                                                                                                         | follow                          |
+| Captions              | switch                                                                                                                                                                             | on                              |
+| Review before sending | switch                                                                                                                                                                             | off                             |
+| Spoken brief          | Off / On Listen / When I'm at the Mac                                                                                                                                              | On Listen                       |
 
 These replace the Q5 group from #481. The existing keys migrate: `voice.conversation.start` toggle becomes hands-free and push stays push. `voice.conversation.reply` is dropped (decision 6).
 
@@ -305,30 +313,31 @@ The last onboarding step gains one line when the helper is connected: "Hold Righ
 
 Additive. The method names below are the contract the other workstreams build against.
 
-| Method / event | Shape | Notes |
-| --- | --- | --- |
-| `voice.conversation.start` | `{threadId?, mode: "push" \| "tap" \| "handsfree", format, language?, voice?}` → `{conversationId, engine, location}` | `operator.write`; one per device |
-| `voice.conversation.audio` | `{conversationId, seq, audio}` → `{}` | mic PCM, as `voice.push` |
-| `voice.conversation.turn` | `{conversationId, action: "begin" \| "end"}` → `{}` | push-to-talk key down / up, tap |
-| `voice.conversation.interrupt` | `{conversationId, stage: "suspect" \| "confirmed", playedMs?}` → `{}` | barge-in: `suspect` from the client VAD (ducked), `confirmed` from a key press; the Gateway confirms a suspect with a transcribed word (event `voice.conversation.state` `phase: "listening"`) or releases it |
-| `voice.conversation.played` | `{conversationId, utteranceId, playedMs, done}` → `{}` | what the owner heard |
-| `voice.conversation.stop` | `{conversationId}` → `OkResult` | ends; mic off |
-| event `voice.conversation.state` | `{conversationId, phase: "listening" \| "heard" \| "thinking" \| "speaking" \| "waiting" \| "ended", reason?, approvalId?}` | to the starting device |
-| event `voice.conversation.caption` | `{conversationId, role: "owner" \| "agent", utteranceId, text, final}` | |
-| event `voice.conversation.speech` | `{conversationId, utteranceId, seq, audio, format, last}` | PCM for playback |
-| event `voice.conversation.step` | `{conversationId, toolCallId, label, status}` | narration text as shown |
-| event `voice.conversation.ended` | `{conversationId, reason: "stopped" \| "idle" \| "locked" \| "error" \| "disconnected", error?}` | |
-| `ApprovalAnswer.via` | optional `"voice"` | audit and receipt |
-| `Message.via` | optional `"voice"` | the waveform glyph |
-| `StartTurnInput.voice` | optional `{speak: "brief" \| "full", narrate}` | the voice-turn prompt section |
-| `PickableModelRole`, `ModelRoles` | gain `voice` (optional) | Settings → Models; the router's `MODEL_ROLES` gains `voice` |
-| Settings keys | `voice.conversation.{enabled, key, mode, voice, rate, speak, narrate, bargeIn, approvals, language, captions, reviewBeforeSend, pauseMs, brief}` | documented in `setting-labels.ts` |
+| Method / event                     | Shape                                                                                                                                            | Notes                                                                                                                                                                                                         |
+| ---------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `voice.conversation.start`         | `{threadId?, mode: "push" \| "tap" \| "handsfree", format, language?, voice?}` → `{conversationId, engine, location}`                            | `operator.write`; one per device                                                                                                                                                                              |
+| `voice.conversation.audio`         | `{conversationId, seq, audio}` → `{}`                                                                                                            | mic PCM, as `voice.push`                                                                                                                                                                                      |
+| `voice.conversation.turn`          | `{conversationId, action: "begin" \| "end"}` → `{}`                                                                                              | push-to-talk key down / up, tap                                                                                                                                                                               |
+| `voice.conversation.interrupt`     | `{conversationId, stage: "suspect" \| "confirmed", playedMs?}` → `{}`                                                                            | barge-in: `suspect` from the client VAD (ducked), `confirmed` from a key press; the Gateway confirms a suspect with a transcribed word (event `voice.conversation.state` `phase: "listening"`) or releases it |
+| `voice.conversation.played`        | `{conversationId, utteranceId, playedMs, done}` → `{}`                                                                                           | what the owner heard                                                                                                                                                                                          |
+| `voice.conversation.stop`          | `{conversationId}` → `OkResult`                                                                                                                  | ends; mic off                                                                                                                                                                                                 |
+| event `voice.conversation.state`   | `{conversationId, phase: "listening" \| "heard" \| "thinking" \| "speaking" \| "waiting" \| "ended", reason?, approvalId?}`                      | to the starting device                                                                                                                                                                                        |
+| event `voice.conversation.caption` | `{conversationId, role: "owner" \| "agent", utteranceId, text, final}`                                                                           |                                                                                                                                                                                                               |
+| event `voice.conversation.speech`  | `{conversationId, utteranceId, seq, audio, format, last}`                                                                                        | PCM for playback                                                                                                                                                                                              |
+| event `voice.conversation.step`    | `{conversationId, toolCallId, label, status}`                                                                                                    | narration text as shown                                                                                                                                                                                       |
+| event `voice.conversation.ended`   | `{conversationId, reason: "stopped" \| "idle" \| "locked" \| "error" \| "disconnected", error?}`                                                 |                                                                                                                                                                                                               |
+| `ApprovalAnswer.via`               | optional `"voice"`                                                                                                                               | audit and receipt                                                                                                                                                                                             |
+| `Message.via`                      | optional `"voice"`                                                                                                                               | the waveform glyph                                                                                                                                                                                            |
+| `StartTurnInput.voice`             | optional `{speak: "brief" \| "full", narrate}`                                                                                                   | the voice-turn prompt section                                                                                                                                                                                 |
+| `PickableModelRole`, `ModelRoles`  | gain `voice` (optional)                                                                                                                          | Settings → Models; the router's `MODEL_ROLES` gains `voice`                                                                                                                                                   |
+| Settings keys                      | `voice.conversation.{enabled, key, mode, voice, rate, speak, narrate, bargeIn, approvals, language, captions, reviewBeforeSend, pauseMs, brief}` | documented in `setting-labels.ts`                                                                                                                                                                             |
 
 The helper additions are in V-H's brief.
 
 ## 8. Plan: three workstreams
 
 **Order:**
+
 1. V-G's protocol PR (G0) first.
 2. Then three tracks in parallel, against fakes and fixtures:
    - V-H, queued behind the connectors helper session (#638): it starts when that session's last wave-1 PR merges or the integrator frees the Swift slot;
@@ -338,6 +347,7 @@ The helper additions are in V-H's brief.
 4. One announced dev run at the end, with the owner present, because it puts the microphone prompt on screen.
 
 **Every PR:**
+
 - **Tests** use fixtures only: fake audio frames, `FakeNodeClient` for the helper, scripted model streams for the agent loop. No microphone and no speakers in CI.
 - **Checks:** vitest with `--maxWorkers=1`, and typecheck only the changed packages.
 - **Dev runs:** at most one announced run for the whole plan, with `PSYCHE_HOME=~/.psyche-try PSYCHE_PORT=7989`, never the owner's installed app or `~/.psyche`.
@@ -380,7 +390,7 @@ The helper additions are in V-H's brief.
   > - **Narration** comes from tool-call labels through templates (never model text).
   > - **Approvals and questions by voice:** exactly §4.6. The readback is built from the ApprovalRequest; the phrase lists come from the UI catalogues (ask V-U for the keys); answers go through the broker with the device's surface token, scope `once`, `via: "voice"`. Refuse `deviceOnly`, tainted approves and any wider scope.
   > - **Endings:** the conversation ends on stop, after 30 s idle, on lock or sleep (desktop main reports these), on disconnect and on Gateway shutdown, and the mic-on state goes false on every path.
-  >
+    >
   > Mount the handlers through `SPEECH_METHODS` in `apps/gateway/src/compose/speech.ts`.
   >
   > In agent-core, add the voice-turn section of §4.5 (≤ 400 characters, per locale) when `StartTurnInput.voice` is set. In the router config, add a `voice` model role that defaults to the primary model.
@@ -389,7 +399,7 @@ The helper additions are in V-H's brief.
   > - the voice key through the helper's watch (V-H adds a second key; until it lands, use the existing single-key watch when the dictation key is off);
   > - a HUD window like the dictation HUD, loading the renderer entry V-U provides;
   > - lock, sleep and disconnect reporting.
-  >
+    >
   > Add Listen to the daily brief and check-in notifications (§4.9).
   >
   > Cloud voices: OpenAI's `gpt-4o-mini-tts` shuts down on 2027-01-06 (docs/voice/research/cloud-voice-apis.md §2). Remove the `openai` voice from `CloudTtsEngine` and the catalogue, migrating an owner who chose it to the default voice with a notice. Keep ElevenLabs, and use its streaming WebSocket so the first byte arrives in 100–150 ms.
@@ -426,7 +436,7 @@ The helper additions are in V-H's brief.
   > - Never play audio from the helper; the renderer plays.
   > - Never capture the microphone for conversation; the renderer captures.
   > - Never prompt for Personal Voice without an explicit call.
-  >
+    >
   > Each PR has a fake-backend test, Core unit tests for pure logic, a manual-test-plan row and the README table. One `swift build --build-tests` per PR, then `swift test --skip-build --filter <your suites>`; one Swift build at a time on this machine. No microphone or speaker in tests. At most one announced dev run with `PSYCHE_HOME=~/.psyche-try PSYCHE_PORT=7989`. Title PRs `feat(helper): <part> for voice conversation (part of #692)`.
 
 ### V-U: voice UI (TypeScript; one session)
@@ -461,13 +471,13 @@ The helper additions are in V-H's brief.
   > - the lantern behind the 40 px avatar, driven by input and output RMS at 30 Hz as §6.3's table says;
   > - one caption line, the step line, the controls and the mic-on chip;
   > - the approval readback state, with its 10 s ring.
-  >
+    >
   > Turn `apps/web/src/shell/voice-mode.ts` into the audio terminal for V-G's `voice.conversation.*` events:
   > - capture with echo cancellation;
   > - the barge-in VAD;
   > - Web Audio playback with `played` reports;
   > - the level meter.
-  >
+    >
   > Then:
   > - the HUD view and the desktop renderer entry the V-G HUD window loads;
   > - the Settings group of §6.4, replacing the Q5 group and migrating its keys;
@@ -475,17 +485,17 @@ The helper additions are in V-H's brief.
   > - every string, readback template, approval phrase list and trailing-word list in all ten catalogues and English;
   > - RTL captions for Arabic;
   > - the accessibility items of §4.10.
-  >
+    >
   > Tests run on the MockGateway with fake audio, `vitest --maxWorkers=1` for packages/ui and apps/web only. Typecheck only those. No Electron e2e, no microphone, no local models. Title PRs `feat(ui): voice <part> (part of #693)`.
 
 ### What each workstream proves before its last PR merges
 
-| Workstream | Proof |
-| --- | --- |
-| V-G | protocol check clean; fixture tests of §8's V-G list; the timing log on fake clocks |
-| V-H | fake-backend tests per PR; existing capabilities unchanged; manual test rows |
-| V-U | U1 test on the composed app; MockGateway phase tests; lantern stories incl. reduced motion; axe; i18n check |
-| All | one announced dev run with the owner: push-to-talk turn, hands-free turn, barge-in on laptop speakers, a voice-approved email draft, mic indicator off after each ending; timings against §5 |
+| Workstream | Proof                                                                                                                                                                                        |
+| ---------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| V-G        | protocol check clean; fixture tests of §8's V-G list; the timing log on fake clocks                                                                                                          |
+| V-H        | fake-backend tests per PR; existing capabilities unchanged; manual test rows                                                                                                                 |
+| V-U        | U1 test on the composed app; MockGateway phase tests; lantern stories incl. reduced motion; axe; i18n check                                                                                  |
+| All        | one announced dev run with the owner: push-to-talk turn, hands-free turn, barge-in on laptop speakers, a voice-approved email draft, mic indicator off after each ending; timings against §5 |
 
 ## 9. Later (not in this plan)
 
@@ -503,7 +513,7 @@ The helper additions are in V-H's brief.
   - the stricter barge-in profile;
   - "Interrupt by talking" can be turned off;
   - #481's browser voice is removed (decision 6), so every reply is page-played PCM.
-  If the dev run shows Chromium's canceller off in Electron, barge-in defaults to off on speakers and on with headphones.
+    If the dev run shows Chromium's canceller off in Electron, barge-in defaults to off on speakers and on with headphones.
 - **Cutting the owner off at pauses.** A 500 ms endpoint is fast but cuts slow speakers off. This is handled by the trailing-word extension, the `pauseMs` setting and push-to-talk as the default.
 - **Voice approvals overheard or replayed.** A TV or another person could say "send it". The mitigations:
   - writes only by default;
@@ -512,7 +522,7 @@ The helper additions are in V-H's brief.
   - `deviceOnly` exclusions;
   - no approving in tainted turns;
   - receipts say "by voice".
-  Speaker identification is later (§9).
+    Speaker identification is later (§9).
 - **Cost.** On-device STT and TTS are free. Each voice turn is a normal model turn, so a 10-minute conversation costs like 10–20 chat turns on the `voice` role's model ($0.15–0.45 per 10 minutes on cloud models, against $0.45–3 for speech-to-speech APIs, [cloud-voice-apis.md](research/cloud-voice-apis.md) §6). Cloud voices bill per character. The usage screen shows voice turns separately.
 - **Latency on older Macs.** The spike measured an M5. M1-class Macs will be slower ([apple-on-device-speech.md](research/apple-on-device-speech.md)), so the timing log reports real numbers and the brief default stays short.
 - **Vendor churn.** OpenAI's TTS endpoints and the original `gpt-realtime` shut down in January 2027. V-G removes the OpenAI cloud voice, and nothing in this plan depends on a speech-to-speech API.
@@ -521,6 +531,7 @@ The helper additions are in V-H's brief.
 ## 11. Decisions the owner should confirm
 
 **Decided 2026-10-26** (relayed by the integrator):
+
 1. No wake word in this plan. The hook stays, so a keyword spotter can be added later behind a setting.
 2. "Writes only" stays the default for approving by voice.
 3. The spoken brief defaults to "On Listen". Onboarding offers "When I'm at the Mac" as a choice, not the default.

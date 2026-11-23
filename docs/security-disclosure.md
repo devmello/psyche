@@ -13,12 +13,12 @@ How Psyche handles a vulnerability report from the moment it arrives to the publ
 1. **Reproduce** on `main` and on the latest release.
 2. **Score** with CVSS 4.0, then adjust for Psyche's assets (docs/05 §1.2). The severity sets the fix target:
 
-| Severity | Typical examples | Fix target |
-| --- | --- | --- |
-| Critical | A secret (vault item, device token) reaches model-visible text or a remote party; a side effect runs without owner authority; remote takeover of the Gateway | 7 days |
-| High | An approval card that hides or misstates what it authorizes; a grant that outlives its scope; a sandbox or helper tier escape that needs one owner approval | 30 days |
-| Medium | A deterministic control is bypassed but another layer still asks; local-only information disclosure | 90 days |
-| Low | Defense-in-depth gaps, misleading messages, hardening | normal work |
+| Severity | Typical examples                                                                                                                                             | Fix target  |
+| -------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------ | ----------- |
+| Critical | A secret (vault item, device token) reaches model-visible text or a remote party; a side effect runs without owner authority; remote takeover of the Gateway | 7 days      |
+| High     | An approval card that hides or misstates what it authorizes; a grant that outlives its scope; a sandbox or helper tier escape that needs one owner approval  | 30 days     |
+| Medium   | A deterministic control is bypassed but another layer still asks; local-only information disclosure                                                          | 90 days     |
+| Low      | Defense-in-depth gaps, misleading messages, hardening                                                                                                        | normal work |
 
 3. **Decide scope**, using SECURITY.md. Out-of-scope reports get a reasoned answer, and a public issue if they are still worth fixing as hardening.
 4. **Name an owner** (the package owner from `docs/09-execution-plan.md`) and a fix branch in a **private fork** opened from the advisory. Fixes for in-scope reports are never developed in public branches before disclosure.
@@ -51,6 +51,7 @@ How Psyche handles a vulnerability report from the moment it arrives to the publ
 ## 5. Write-up
 
 Anything that shipped in a release gets a public write-up in `docs/release-notes/` (or linked from it) within 30 days of the advisory:
+
 - what happened;
 - which versions and configurations were affected;
 - how it was found;

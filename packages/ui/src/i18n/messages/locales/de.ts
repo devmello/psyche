@@ -2068,7 +2068,9 @@ export const de: Partial<Catalogue> = {
     "{n, plural, =0 {Keine archivierten Threads} one {# archivierten Thread löschen} other {# archivierte Threads löschen}}",
   "settings.data.reset": "Zurücksetzen",
   "settings.data.resetHint":
-    "Löscht jede Gedächtnisdatei, jeden Index und jede Aussage und lässt {persona} neu beginnen. Chats bleiben.",
+    "Löscht jede Gedächtnisdatei, jeden Index und jede Aussage sowie den lokalen git-Verlauf des Arbeitsbereichs und lässt {persona} neu beginnen. Chats bleiben. Ein git-Remote behält seinen eigenen Verlauf: Ihn zu löschen liegt bei dir.",
+  "settings.data.git.historyNote":
+    "Ein git-Remote behält seinen eigenen Verlauf. Zurücksetzen und Vergessen löschen nur die Kopie auf diesem Gerät. Alte Notizen aus dem Remote zu entfernen, liegt bei dir.",
   "settings.data.typeToConfirm":
     "Gib „{word}“ ein, um zu bestätigen. Das lässt sich nicht widerrufen.",
   "settings.data.resetMemory": "Gedächtnis zurücksetzen",

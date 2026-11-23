@@ -1729,7 +1729,9 @@ export const settings = {
     "{n, plural, =0 {No archived threads} one {Delete # archived thread} other {Delete # archived threads}}",
   "settings.data.reset": "Reset",
   "settings.data.resetHint":
-    "Deletes every memory file, index and claim and starts {persona} fresh. Chats stay.",
+    "Deletes every memory file, index and claim, and this device's local git history for the workspace, and starts {persona} fresh. Chats stay. A git remote keeps its own history: deleting that is up to you.",
+  "settings.data.git.historyNote":
+    "A git remote keeps its own history. Reset and forgetting clear only this device's copy, so removing old notes from the remote is up to you.",
   "settings.data.typeToConfirm": "Type “{word}” to confirm. This can't be undone.",
   "settings.data.resetMemory": "Reset memory",
   "settings.data.resetMemoryEllipsis": "Reset memory…",

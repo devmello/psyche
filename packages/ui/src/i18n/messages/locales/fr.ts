@@ -2021,7 +2021,9 @@ export const fr: Partial<Catalogue> = {
     "{n, plural, =0 {Aucune discussion archivée} one {Supprimer # discussion archivée} other {Supprimer # discussions archivées}}",
   "settings.data.reset": "Réinitialiser",
   "settings.data.resetHint":
-    "Supprime tous les fichiers de mémoire, index et affirmations et repart de zéro avec {persona}. Les discussions sont conservées.",
+    "Supprime chaque fichier de mémoire, index et affirmation, ainsi que l'historique git local de l'espace de travail, et laisse {persona} repartir de zéro. Les discussions restent. Un dépôt distant git conserve son propre historique : le supprimer t'appartient.",
+  "settings.data.git.historyNote":
+    "Un dépôt distant git conserve son propre historique. La réinitialisation et l'oubli n'effacent que la copie de cet appareil : retirer les anciennes notes du distant t'appartient.",
   "settings.data.typeToConfirm":
     "Saisissez « {word} » pour confirmer. Cette action est irréversible.",
   "settings.data.resetMemory": "Réinitialiser la mémoire",

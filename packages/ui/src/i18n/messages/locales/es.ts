@@ -2044,7 +2044,9 @@ export const es: Partial<Catalogue> = {
     "{n, plural, =0 {No hay conversaciones archivadas} one {Eliminar # conversación archivada} other {Eliminar # conversaciones archivadas}}",
   "settings.data.reset": "Restablecer",
   "settings.data.resetHint":
-    "Elimina todos los archivos de memoria, índices y afirmaciones, y {persona} empieza de cero. Las conversaciones se conservan.",
+    "Borra cada archivo de memoria, índice y afirmación, y el historial git local del espacio de trabajo, y deja a {persona} empezar de nuevo. Los chats se mantienen. Un remoto git conserva su propio historial: borrarlo depende de ti.",
+  "settings.data.git.historyNote":
+    "Un remoto git conserva su propio historial. Restablecer y olvidar solo borran la copia de este dispositivo, así que quitar las notas antiguas del remoto depende de ti.",
   "settings.data.typeToConfirm": "Escribe «{word}» para confirmar. Esto no se puede deshacer.",
   "settings.data.resetMemory": "Restablecer la memoria",
   "settings.data.resetMemoryEllipsis": "Restablecer la memoria…",

@@ -2,11 +2,11 @@
 
 Psyche creates and edits real documents as canvas artifacts, so the owner and the agent work on the same thing and every change is a version.
 
-| Kind | `type` | Content | Agent ops | Export |
-|---|---|---|---|---|
-| Doc | `doc` | Markdown | `replaceSection`, `addSection`, `removeSection` (by heading), plus the text ops | `.docx`, `.pdf`, `.md` |
-| Sheet | `workbook` | JSON `{sheets: [{name, cells: {A1: value or {f}}}]}` | `setCells`, `addSheet`, `renameSheet`, `removeSheet`; `sheet.read` returns computed values | `.xlsx`, `.csv` |
-| Slides | `slides` | JSON `{theme, slides: [{id, layout, title, bullets, bullets2, image, notes}]}` | `addSlide`, `updateSlide`, `removeSlide`, `moveSlide`, `setTheme` | `.pptx`, `.pdf` |
+| Kind   | `type`     | Content                                                                        | Agent ops                                                                                  | Export                 |
+| ------ | ---------- | ------------------------------------------------------------------------------ | ------------------------------------------------------------------------------------------ | ---------------------- |
+| Doc    | `doc`      | Markdown                                                                       | `replaceSection`, `addSection`, `removeSection` (by heading), plus the text ops            | `.docx`, `.pdf`, `.md` |
+| Sheet  | `workbook` | JSON `{sheets: [{name, cells: {A1: value or {f}}}]}`                           | `setCells`, `addSheet`, `renameSheet`, `removeSheet`; `sheet.read` returns computed values | `.xlsx`, `.csv`        |
+| Slides | `slides`   | JSON `{theme, slides: [{id, layout, title, bullets, bullets2, image, notes}]}` | `addSlide`, `updateSlide`, `removeSlide`, `moveSlide`, `setTheme`                          | `.pptx`, `.pdf`        |
 
 ## Merging
 

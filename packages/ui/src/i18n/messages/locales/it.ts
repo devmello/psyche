@@ -2023,7 +2023,9 @@ export const it: Partial<Catalogue> = {
     "{n, plural, =0 {Nessun thread archiviato} one {Elimina # thread archiviato} other {Elimina # thread archiviati}}",
   "settings.data.reset": "Ripristina",
   "settings.data.resetHint":
-    "Elimina ogni file di memoria, indice e affermazione e fa ripartire {persona} da zero. Le chat restano.",
+    "Elimina ogni file di memoria, indice e affermazione, e la cronologia git locale dello spazio di lavoro, e fa ripartire {persona} da zero. Le chat restano. Un remoto git conserva la propria cronologia: eliminarla spetta a te.",
+  "settings.data.git.historyNote":
+    "Un remoto git conserva la propria cronologia. Ripristino e oblio cancellano solo la copia di questo dispositivo: rimuovere le vecchie note dal remoto spetta a te.",
   "settings.data.typeToConfirm":
     "Digita “{word}” per confermare. Questa operazione non può essere annullata.",
   "settings.data.resetMemory": "Ripristina la memoria",

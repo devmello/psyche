@@ -46,7 +46,7 @@ All pages were accessed on 2026-10-25 unless noted. Where a page shows its own d
   - Auto-merge on import (Gmail, file, Zapier, extension) when first and last name match and email, phone or a social URL also matches.
   - Weaker matches go to a "Duplicates" view that explains why each group was flagged. You can merge one group, "merge all", or choose "Don't merge".
   - In a manual merge, the user picks which emails and phones to keep and stars the primary one.
-  [source](https://help.folk.app/en/articles/5007403-manage-duplicates)
+    [source](https://help.folk.app/en/articles/5007403-manage-duplicates)
 - Enrichment: infers a contact's company from the email domain and integrates Dropcontact (folk education site, as quoted in search results; the page could not be fetched). [source](https://education.folk.app/6-use-data-intelligence)
 - Sources: auto-sync from Gmail or Outlook (marketing page). [source](https://www.folk.app/products/pipelines-management)
 
@@ -64,7 +64,7 @@ All pages were accessed on 2026-10-25 unless noted. Where a page shows its own d
   - Frontmatter: `name`, `company`, `email`, `phone`, `tags`, `created`, `last_contact`.
   - Body sections: "About" and "Contact History".
   - Interaction notes carry `person: "[[John Smith]]"`, and the plugin updates `last_contact` when you add one.
-  [source](https://github.com/TalkingQuickly/obsidian-crm)
+    [source](https://github.com/TalkingQuickly/obsidian-crm)
 - Other contact plugins store `birthday`, `last_contact` and `friends` in frontmatter and sort by "longest since last contact". [source](https://github.com/jwir3/obsidian-contacts-ng)
 - Daily-note pattern: a person note shows a Dataview query of journal entries that link to it, which works as an interaction log. [source](https://obsidian.rocks/supercharge-your-daily-notes-in-obsidian/)
 
@@ -105,12 +105,12 @@ Sources: [obsidian-crm](https://github.com/TalkingQuickly/obsidian-crm), [contac
   - The system orchestrator uses the "Spotlight index and App Toolbox, which work entirely on device".
   - Personal context reaches third-party apps that integrate with Spotlight.
   - Private Cloud Compute requests are "not stored nor made accessible to Apple".
-  [source](https://www.apple.com/newsroom/2026/06/apple-introduces-siri-ai-a-profoundly-more-capable-and-personal-assistant/)
+    [source](https://www.apple.com/newsroom/2026/06/apple-introduces-siri-ai-a-profoundly-more-capable-and-personal-assistant/)
 - Siri AI, shipped 2026-09 as a beta:
   - Uses personal context across messages, emails and photos.
   - Can "reflect how users usually communicate with each recipient".
   - Siri Recap summarises conversations.
-  [source](https://www.apple.com/newsroom/2026/09/siri-ai-a-profoundly-more-capable-and-personal-assistant-is-here/)
+    [source](https://www.apple.com/newsroom/2026/09/siri-ai-a-profoundly-more-capable-and-personal-assistant-is-here/)
 
 ### Google
 
@@ -119,7 +119,7 @@ Sources: [obsidian-crm](https://github.com/TalkingQuickly/obsidian-crm), [contac
   - people you share Drive files with
   - people in the same events or groups as you
   - senders of calendar invitations you accept
-  
+
   This can be turned off in the Google Account. [source](https://support.google.com/accounts/answer/7345608?hl=en&co=GENIE.Platform%3DDesktop)
 - People API: exposes `otherContacts` and `copyOtherContactToMyContactsGroup`, so the API keeps contacts inferred from interactions separate from contacts the user saved. [source](https://developers.google.com/people/api/rest/v1/otherContacts)
 - Merge & fix: suggested duplicate merges that you accept one at a time or all at once. Contacts in different Google Accounts cannot be merged. [source](https://support.google.com/contacts/answer/7078226?hl=en&co=GENIE.Platform%3DDesktop)
@@ -129,7 +129,7 @@ Sources: [obsidian-crm](https://github.com/TalkingQuickly/obsidian-crm), [contac
   - Gemini tries to cite the sources it used.
   - Users can regenerate an answer without personalisation, or use temporary chats.
   - Google names its failure modes: "over-personalization", and struggles with "relationship changes, like divorce". Its example is a user with hundreds of golf photos who doesn't like golf (they are for the user's son).
-  [source](https://blog.google/innovation-and-ai/products/gemini-app/personal-intelligence/)
+    [source](https://blog.google/innovation-and-ai/products/gemini-app/personal-intelligence/)
 
 ### Microsoft
 
@@ -139,7 +139,7 @@ Sources: [obsidian-crm](https://github.com/TalkingQuickly/obsidian-crm), [contac
   - Search is fuzzy: "tiler" matches Tyler.
   - Each address has a `relevanceScore`.
   - Other people see your "working-with" list only where a public relationship exists.
-  [source](https://learn.microsoft.com/en-us/graph/people-insights-overview)
+    [source](https://learn.microsoft.com/en-us/graph/people-insights-overview)
   - Microsoft's own Q&A says the docs don't explain how the score is computed. [source](https://learn.microsoft.com/en-us/answers/questions/1685296/graph-api-people-relevance-score)
 - Viva Insights: the Briefing email listed:
   - commitments you made
@@ -152,7 +152,7 @@ Sources: [obsidian-crm](https://github.com/TalkingQuickly/obsidian-crm), [contac
   - Summarises "relevant context, tasks, documents, and other resources" for the event.
   - Summaries are offered only for 1:1 meetings and meetings with related content. Others get generic answers.
   - Each person's summary depends on what that person can access.
-  [source](https://support.microsoft.com/en-us/outlook/prepare-for-your-meeting-with-copilot)
+    [source](https://support.microsoft.com/en-us/outlook/prepare-for-your-meeting-with-copilot)
 
 ## 4. AI memory products
 
@@ -164,7 +164,7 @@ Sources: [obsidian-crm](https://github.com/TalkingQuickly/obsidian-crm), [contac
   - Deep Search returns keyword matches first and AI matches after.
   - Chat is time-aware and can be scoped to one note or collection.
   - "Heads Up" shows your history with a person.
-  
+
   This is all vendor copy. [source](https://get.mem.ai/blog/mem-2-dot-0-transition-guide)
 - **Khoj:** open source and self-hostable, with local or cloud LLMs. It does semantic search over PDF, Markdown, org-mode, Word and Notion files, and has agents and automations. It does no people extraction. [source](https://github.com/khoj-ai/khoj)
 - **Personal.ai:** a "Memory Stack" of memory blocks, each with time, source, scope and text, that the user can "add, delete, or edit". [source](https://docs.personal.ai/documentation/training/memory-stack)
@@ -172,19 +172,19 @@ Sources: [obsidian-crm](https://github.com/TalkingQuickly/obsidian-crm), [contac
   - "People and Companies" is built from calendar attendees when you take notes. It is enriched with photos, titles and company info, and opens to all notes that include the person.
   - Users cannot add entries by hand. Wrong names have to be reported to support.
   - A person is missing if they weren't an attendee or declined.
-  [source](https://docs.granola.ai/help-center/people-and-companies)
+    [source](https://docs.granola.ai/help-center/people-and-companies)
   - Pre-meeting briefs are 2–3 bullets prepared overnight from prior notes with the same people or company, the web (including LinkedIn), the event and optionally Gmail. They cover external meetings only and are skipped when there isn't enough information. [source](https://docs.granola.ai/help-center/taking-notes/pre-meeting-briefs)
 - **Otter:** "My Action Items" collects tasks assigned to you across meetings. Each item links back to the moment in the transcript where it came up, and a weekly digest lists open items. [source](https://otter.ai/blog/streamline-workflows-with-my-action-items-otter-ai-can-now-keep-track-of-all-your-action-items-across-all-your-meetings)
 - **ChatGPT memory:**
   - "Saved memories" (explicit) are separate from "reference chat history" (inferred).
   - Deleting a chat does not delete a memory created from it.
   - Users can ask it to forget something or manage memories in settings.
-  [source](https://help.openai.com/en/articles/8590148-memory-in-chatgpt)
+    [source](https://help.openai.com/en/articles/8590148-memory-in-chatgpt)
 - **Claude memory:**
   - Saved as individual topics that can be read, edited and deleted. It covers "the people and places in your work".
   - Each project has its own memory. Incognito chats are never saved.
   - Sensitive topics are excluded by default, and some kinds of data, such as government IDs, are never saved.
-  [source](https://support.claude.com/en/articles/11817273-use-claude-s-chat-search-and-memory-to-build-on-previous-context)
+    [source](https://support.claude.com/en/articles/11817273-use-claude-s-chat-search-and-memory-to-build-on-previous-context)
 - **User research:**
   - In a CHI '26 interview study (N=20), most participants reacted negatively when they learned what ChatGPT remembered, and they wanted visibility and control. [source](https://grady.uga.edu/research/ai-never-forgets-exploring-users-perceptions-of-ai-memory-and-chatgpts-memory-feature/)
   - In another study (N=18), users raised concerns about the accuracy of remembered information and wanted "granular control over memory generation, management, usage and updating". [source](https://arxiv.org/abs/2508.07664)
@@ -194,13 +194,13 @@ Sources: [obsidian-crm](https://github.com/TalkingQuickly/obsidian-crm), [contac
 
 ### What each question needs
 
-| Question | Data | Freshness | Ranking and behaviour |
-|---|---|---|---|
-| "Who is Sam" | Contacts card(s), aliases and nicknames, handles seen in Mail and Messages, org and title, relationship label, notes, first met, last contact | Contacts on change; interaction stats daily is fine | Several Sams: rank by recency × frequency of two-way contact, as Graph People relevance does. Ask when the top two are close. Show provenance |
-| "What am I waiting on from Sam" | Sent mail and messages containing a request or question with no reply; Sam's commitments in meeting notes and threads | Must reflect replies within minutes, or the answer is wrong | Open loops, oldest first. Close a loop automatically when Sam replies. Let the user dismiss. Pattern: Gmail Nudges, Apple Mail's 3-day rule, Viva follow-ups, Otter action items |
-| "Prep me for my 2 pm" | Event, attendees resolved to people, last interactions, open loops both ways, previous meeting notes, related project and docs | Built shortly before the meeting | Copilot and Granola limit full briefs to meetings that have related content, and skip or give short output otherwise. Few bullets, with sources |
-| "Kitchen remodel" | Project entity with aliases (contractor names, "reno", address), linked threads, events, notes and people; status timeline | Incremental | Latest activity first, plus open loops and next dated event. Notion's "latest date" rollup is the simple version |
-| Cards / mail triage | Person relevance, VIP or relationship label, open loops with the sender | Live | Relevance from interaction patterns, not from enrichment |
+| Question                        | Data                                                                                                                                          | Freshness                                                   | Ranking and behaviour                                                                                                                                                            |
+| ------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| "Who is Sam"                    | Contacts card(s), aliases and nicknames, handles seen in Mail and Messages, org and title, relationship label, notes, first met, last contact | Contacts on change; interaction stats daily is fine         | Several Sams: rank by recency × frequency of two-way contact, as Graph People relevance does. Ask when the top two are close. Show provenance                                    |
+| "What am I waiting on from Sam" | Sent mail and messages containing a request or question with no reply; Sam's commitments in meeting notes and threads                         | Must reflect replies within minutes, or the answer is wrong | Open loops, oldest first. Close a loop automatically when Sam replies. Let the user dismiss. Pattern: Gmail Nudges, Apple Mail's 3-day rule, Viva follow-ups, Otter action items |
+| "Prep me for my 2 pm"           | Event, attendees resolved to people, last interactions, open loops both ways, previous meeting notes, related project and docs                | Built shortly before the meeting                            | Copilot and Granola limit full briefs to meetings that have related content, and skip or give short output otherwise. Few bullets, with sources                                  |
+| "Kitchen remodel"               | Project entity with aliases (contractor names, "reno", address), linked threads, events, notes and people; status timeline                    | Incremental                                                 | Latest activity first, plus open loops and next dated event. Notion's "latest date" rollup is the simple version                                                                 |
+| Cards / mail triage             | Person relevance, VIP or relationship label, open loops with the sender                                                                       | Live                                                        | Relevance from interaction patterns, not from enrichment                                                                                                                         |
 
 ### Recurring design patterns
 

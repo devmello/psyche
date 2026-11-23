@@ -55,21 +55,21 @@ There is one interface, already defined by `@psyche/memory`: `Embedder { model, 
 
 The settings are `search.semantic.enabled`, `search.semantic.engine` (`builtin` | `router`), `search.semantic.model` and, from S4, `search.semantic.allowCloud`. Everything is off by default. They are under Settings → Model & providers → Search, next to Web search.
 
-| Engine | What | When |
-| --- | --- | --- |
-| **builtin** (default when enabled) | An ONNX model run in-process. Runtime: `@huggingface/transformers` on `onnxruntime-node`, on CPU, in a worker thread. | Nothing else to install. This is "Semantic search (on-device)". |
-| **router**, local provider | The model-router's `embedding` role bound to Ollama, LM Studio, llama.cpp or another OpenAI-compatible local server (`isLocalKind`). | The owner already runs one. Bigger models such as `bge-m3` or `qwen3-embedding` live here. |
-| **router**, cloud provider | The same role bound to OpenAI (`text-embedding-3-small` at 512 dimensions), Voyage (`voyage-3.5-lite`) and similar. The key comes from the vault through the router. | Only with `allowCloud: true`, set by the owner in Settings after a warning. |
+| Engine                             | What                                                                                                                                                                 | When                                                                                       |
+| ---------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------ |
+| **builtin** (default when enabled) | An ONNX model run in-process. Runtime: `@huggingface/transformers` on `onnxruntime-node`, on CPU, in a worker thread.                                                | Nothing else to install. This is "Semantic search (on-device)".                            |
+| **router**, local provider         | The model-router's `embedding` role bound to Ollama, LM Studio, llama.cpp or another OpenAI-compatible local server (`isLocalKind`).                                 | The owner already runs one. Bigger models such as `bge-m3` or `qwen3-embedding` live here. |
+| **router**, cloud provider         | The same role bound to OpenAI (`text-embedding-3-small` at 512 dimensions), Voyage (`voyage-3.5-lite`) and similar. The key comes from the vault through the router. | Only with `allowCloud: true`, set by the owner in Settings after a warning.                |
 
 ### Default built-in model: `multilingual-e5-small`
 
-| Property | Value |
-| --- | --- |
-| Size | 118M params, ~120 MB int8 ONNX |
-| Dimensions | 384 |
-| Input | 512 tokens |
-| Languages | ~100 |
-| Licence | MIT |
+| Property   | Value                          |
+| ---------- | ------------------------------ |
+| Size       | 118M params, ~120 MB int8 ONNX |
+| Dimensions | 384                            |
+| Input      | 512 tokens                     |
+| Languages  | ~100                           |
+| Licence    | MIT                            |
 
 Alternatives in the catalog, since the owner may pick them:
 
@@ -83,10 +83,10 @@ Rejected:
 
 Throughput (estimates, to be benchmarked in S5):
 
-| Workload | Estimate |
-| --- | --- |
+| Workload                                          | Estimate                                                                      |
+| ------------------------------------------------- | ----------------------------------------------------------------------------- |
 | 12-layer 384-dim model, 2 CPU threads, 256 tokens | ~15–40 chunks/s, so a 100k-chunk backfill takes about 1–2 h in the background |
-| One query embedding | 5–20 ms |
+| One query embedding                               | 5–20 ms                                                                       |
 
 ### Download policy
 
@@ -118,11 +118,11 @@ Otherwise the router engine refuses (`forbidden`) and semantic search reports `b
 
 Everything lives in `$PSYCHE_HOME/state/search.sqlite`: derived data that is safe to delete and rebuild, in its own file so its writes never contend with the transcript writer.
 
-| Table | Content |
-| --- | --- |
-| `search_docs`, `search_fts`, `search_flags`, `search_meta` | existing lexical index |
-| `search_vectors` (new) | `id` (`<docId>#<n>@<model>`), `doc_id`, `chunk` (n), `model`, `dims`, `text` (the chunk, for snippets), `embedding` (unit float32 BLOB, the source of truth) |
-| `search_vec_state` (new) | `doc_id`, `model`, `version`: which version of each document a model embedded, so edits re-embed and unchanged documents never do |
+| Table                                                      | Content                                                                                                                                                      |
+| ---------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| `search_docs`, `search_fts`, `search_flags`, `search_meta` | existing lexical index                                                                                                                                       |
+| `search_vectors` (new)                                     | `id` (`<docId>#<n>@<model>`), `doc_id`, `chunk` (n), `model`, `dims`, `text` (the chunk, for snippets), `embedding` (unit float32 BLOB, the source of truth) |
+| `search_vec_state` (new)                                   | `doc_id`, `model`, `version`: which version of each document a model embedded, so edits re-embed and unchanged documents never do                            |
 
 A trigger on `search_docs` deletes a document's vectors and state with the document, whatever deletes it: a deleted thread, incognito, a dropped connector, a rebuild's sweep.
 
@@ -174,11 +174,11 @@ Vector rows are keyed by `doc_id`. Removing a doc removes its vectors in the sam
 
 ### 5.3 Chunking
 
-| Content | How it is embedded |
-| --- | --- |
-| Messages, tasks, ideas, goals, feed posts | One vector each: title + text, capped at ~1,500 characters (about 400 tokens). |
-| Messages under 24 characters ("ok", "thanks") | Not embedded; lexical search still has them. |
-| Library documents and long messages | Chunks of ~1,200 characters with 200 characters of overlap, split on paragraph boundaries. At most 64 chunks per doc (the rest stays lexical). |
+| Content                                       | How it is embedded                                                                                                                             |
+| --------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------- |
+| Messages, tasks, ideas, goals, feed posts     | One vector each: title + text, capped at ~1,500 characters (about 400 tokens).                                                                 |
+| Messages under 24 characters ("ok", "thanks") | Not embedded; lexical search still has them.                                                                                                   |
+| Library documents and long messages           | Chunks of ~1,200 characters with 200 characters of overlap, split on paragraph boundaries. At most 64 chunks per doc (the rest stays lexical). |
 
 Hits collapse to the best chunk per doc, then to the thread or task, before fusion.
 
@@ -223,11 +223,11 @@ Connector caches are indexed only for connectors the owner opted into (`search.c
 
 ⌘K must answer in under 150 ms at p95 on 100k docs. Measured lexical costs are 40–260 ms on 100k docs (`perf.test.ts`); semantic estimates are below.
 
-| Step | Cost |
-| --- | --- |
-| Lexical | under 40 ms for typical palette queries |
-| Query embedding | ~10 ms |
-| KNN, 100k × 384 | ~15–70 ms |
+| Step            | Cost                                    |
+| --------------- | --------------------------------------- |
+| Lexical         | under 40 ms for typical palette queries |
+| Query embedding | ~10 ms                                  |
+| KNN, 100k × 384 | ~15–70 ms                               |
 
 Two rules keep ⌘K inside the budget:
 
@@ -270,13 +270,13 @@ Every nested object gets an `$id`, so Swift codegen doesn't emit stdlib names.
 
 ## 7. Phases and acceptance criteria
 
-| Phase | Scope | Accepted when |
-| --- | --- | --- |
-| **S1: wire FTS end to end** | `composeSearch`: index at `state/search.sqlite`, `SearchIndexer` on the bus, `search.query` with owner viewer, richer wire hits (kind, group, provenance, highlights, groups, warnings). | A new chat is findable from the Search screen and ⌘K. A deleted thread disappears. A gateway test covers the round trip and delegated scope filtering. |
-| **S2: backfill, status, reindex** | Resumable, throttled backfill over every store. `search.status`, `search.reindex`, `search.status.updated`. Library items are indexed on add and remove. The Search screen shows "Indexing… n of m" and offers "Rebuild index" in the failure card and in Settings → Search. | On an existing home, old chats are found after one start. Killing the Gateway mid-backfill resumes from the cursor. Reindex runs once even when clicked twice. |
-| **S3: local semantic** | `search_vectors` plus the sqlite-vec mirror, the chunker, the built-in ONNX engine (worker thread, download on enable with progress), the router engine (local kinds only), hybrid RRF in `SqliteSearchIndex.search`, `match` on hits, Settings → Search → "Semantic search (on-device)". | With a fake embedder, a paraphrase query finds a doc that has no shared words. A delegated viewer never gets another scope's semantic hit. Disabling semantic search drops vectors. No test downloads or runs a real model. |
-| **S4: online provider** | `allowCloud` with a warning dialog, routing to a cloud-kind `embedding` binding through the router (key from the vault), and a per-model dimension option. | Cloud embeddings never run without `allowCloud`, which a test asserts. Switching between cloud and local re-embeds without serving mixed vectors. |
-| **S5: tuning and evals** | A small labelled eval set from fixtures (recall@10, MRR, lexical vs hybrid), cosine floor calibration, int8 vectors, a CJK trigram fallback, perf tests for hybrid at 100k. | Hybrid recall@10 is at least lexical's on every query class, and better on paraphrase queries. p95 for ⌘K is under 150 ms at 100k docs. |
+| Phase                             | Scope                                                                                                                                                                                                                                                                                     | Accepted when                                                                                                                                                                                                               |
+| --------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **S1: wire FTS end to end**       | `composeSearch`: index at `state/search.sqlite`, `SearchIndexer` on the bus, `search.query` with owner viewer, richer wire hits (kind, group, provenance, highlights, groups, warnings).                                                                                                  | A new chat is findable from the Search screen and ⌘K. A deleted thread disappears. A gateway test covers the round trip and delegated scope filtering.                                                                      |
+| **S2: backfill, status, reindex** | Resumable, throttled backfill over every store. `search.status`, `search.reindex`, `search.status.updated`. Library items are indexed on add and remove. The Search screen shows "Indexing… n of m" and offers "Rebuild index" in the failure card and in Settings → Search.              | On an existing home, old chats are found after one start. Killing the Gateway mid-backfill resumes from the cursor. Reindex runs once even when clicked twice.                                                              |
+| **S3: local semantic**            | `search_vectors` plus the sqlite-vec mirror, the chunker, the built-in ONNX engine (worker thread, download on enable with progress), the router engine (local kinds only), hybrid RRF in `SqliteSearchIndex.search`, `match` on hits, Settings → Search → "Semantic search (on-device)". | With a fake embedder, a paraphrase query finds a doc that has no shared words. A delegated viewer never gets another scope's semantic hit. Disabling semantic search drops vectors. No test downloads or runs a real model. |
+| **S4: online provider**           | `allowCloud` with a warning dialog, routing to a cloud-kind `embedding` binding through the router (key from the vault), and a per-model dimension option.                                                                                                                                | Cloud embeddings never run without `allowCloud`, which a test asserts. Switching between cloud and local re-embeds without serving mixed vectors.                                                                           |
+| **S5: tuning and evals**          | A small labelled eval set from fixtures (recall@10, MRR, lexical vs hybrid), cosine floor calibration, int8 vectors, a CJK trigram fallback, perf tests for hybrid at 100k.                                                                                                               | Hybrid recall@10 is at least lexical's on every query class, and better on paraphrase queries. p95 for ⌘K is under 150 ms at 100k docs.                                                                                     |
 
 ## 8. Open questions for the owner
 

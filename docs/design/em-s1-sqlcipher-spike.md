@@ -15,21 +15,21 @@ A throwaway script (not committed) on macOS arm64, Node 24, SQLite 3.53.4, `sqli
 with a synthetic store of 40k facts, 60k citations (one-line quotes) and an FTS5 index over them.
 Plain `better-sqlite3@13.0.3` was measured next to it.
 
-| Check | Result |
-| --- | --- |
-| SQLCipher mode | `cipher='sqlcipher'`, `legacy=4` (SQLCipher 4 defaults), raw 32-byte key as `x'<hex>'` (so no key-derivation cost at open) |
-| File on disk | not plaintext (`SQLite format 3` header absent); WAL mode works and the WAL is encrypted too |
-| Wrong key | `SQLITE_NOTADB` on the first read; the file is never half-opened |
-| FTS5 | works unchanged (create, insert, `MATCH`) |
-| sqlite-vec | `db.loadExtension(sqliteVec.getLoadablePath())` loads into the ciphers build; `vec0` tables create, insert and KNN correctly (`vec_version()` = v0.1.9) |
-| File size | 13.1 MB encrypted vs 12.6 MB plain (+4%) |
-| Build (insert 100k rows in one transaction) | 437 ms vs 258 ms (about 1.7x) |
-| Open (key, WAL, first read) | 0.5 ms either way |
-| 200 FTS5 queries | 239 ms vs 248 ms (no difference) |
-| Full scan with `LIKE` over 60k citations | 27 ms vs 5 ms (reads are the cost: every page is decrypted) |
-| Memory | +1 MB RSS to open; process RSS 115 MB at the end including a 5,000-vector index |
-| 5,000 x 384-dim vectors | insert 440 ms; one KNN query 0.7 ms |
-| Re-key (`PRAGMA rekey`), 40k facts | 516 ms; the old key is refused afterwards and all rows read under the new key |
+| Check                                       | Result                                                                                                                                                  |
+| ------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| SQLCipher mode                              | `cipher='sqlcipher'`, `legacy=4` (SQLCipher 4 defaults), raw 32-byte key as `x'<hex>'` (so no key-derivation cost at open)                              |
+| File on disk                                | not plaintext (`SQLite format 3` header absent); WAL mode works and the WAL is encrypted too                                                            |
+| Wrong key                                   | `SQLITE_NOTADB` on the first read; the file is never half-opened                                                                                        |
+| FTS5                                        | works unchanged (create, insert, `MATCH`)                                                                                                               |
+| sqlite-vec                                  | `db.loadExtension(sqliteVec.getLoadablePath())` loads into the ciphers build; `vec0` tables create, insert and KNN correctly (`vec_version()` = v0.1.9) |
+| File size                                   | 13.1 MB encrypted vs 12.6 MB plain (+4%)                                                                                                                |
+| Build (insert 100k rows in one transaction) | 437 ms vs 258 ms (about 1.7x)                                                                                                                           |
+| Open (key, WAL, first read)                 | 0.5 ms either way                                                                                                                                       |
+| 200 FTS5 queries                            | 239 ms vs 248 ms (no difference)                                                                                                                        |
+| Full scan with `LIKE` over 60k citations    | 27 ms vs 5 ms (reads are the cost: every page is decrypted)                                                                                             |
+| Memory                                      | +1 MB RSS to open; process RSS 115 MB at the end including a 5,000-vector index                                                                         |
+| 5,000 x 384-dim vectors                     | insert 440 ms; one KNN query 0.7 ms                                                                                                                     |
+| Re-key (`PRAGMA rekey`), 40k facts          | 516 ms; the old key is refused afterwards and all rows read under the new key                                                                           |
 
 ## What it means
 

@@ -163,6 +163,9 @@ export function GitBackupGroup(): ReactElement | null {
             {t("settings.data.git.sync")}
           </Button>
         </div>
+        <p className="px-1 text-footnote text-label-tertiary">
+          {t("settings.data.git.historyNote")}
+        </p>
         {last ? (
           <div className="flex flex-col gap-1 px-1 text-footnote text-label-tertiary">
             <p>{t("settings.data.git.lastSync", { when: new Date(last.at).toLocaleString() })}</p>

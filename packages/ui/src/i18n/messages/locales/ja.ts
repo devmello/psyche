@@ -2005,7 +2005,9 @@ export const ja: Partial<Catalogue> = {
     "{n, plural, =0 {アーカイブ済みスレッドはありません} other {#件のアーカイブ済みスレッドを削除}}",
   "settings.data.reset": "リセット",
   "settings.data.resetHint":
-    "すべてのメモリファイル、インデックス、事実を削除し、{persona}を初期状態に戻します。チャットは残ります。",
+    "メモリのファイル、索引、主張をすべて、ワークスペースのローカル git 履歴も含めて削除し、{persona} を最初から始めます。チャットは残ります。git のリモートは独自の履歴を保持します。それを削除するかどうかはあなたが決めてください。",
+  "settings.data.git.historyNote":
+    "git のリモートは独自の履歴を保持します。リセットと忘却が消すのはこのデバイスのコピーだけなので、リモートから古いメモを削除するかどうかはあなたが決めてください。",
   "settings.data.typeToConfirm":
     "確認のため「{word}」と入力してください。この操作は取り消せません。",
   "settings.data.resetMemory": "メモリをリセット",

@@ -8,12 +8,12 @@ decisions §14 are binding) and the people features merged in #1058–#1088.
 Psyche notices the people you are drifting away from or owe something to, and nudges you. Four
 kinds, each one plain sentence:
 
-| Kind | Example | Where it comes from |
-| --- | --- | --- |
-| **Unanswered** | "You haven't replied to Priya's message from 9 days ago." | The latest one-to-one message or mail from a two-way contact came in, and nothing from you went out after it. |
-| **Drifting** | "You usually talk to Sam every 2 weeks; it's been 6." | The usual gap between your contact days with that person, against the current gap. Timestamps only. |
-| **Birthday / anniversary** | "Alex's birthday is Thursday." | Accepted `birthday` and `anniversary` facts you confirmed (or wrote). |
-| **Promise** | "You told Jordan you'd send the deck. Did you?" | An open loop where you owe something, written down from your own words. |
+| Kind                       | Example                                                   | Where it comes from                                                                                           |
+| -------------------------- | --------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------- |
+| **Unanswered**             | "You haven't replied to Priya's message from 9 days ago." | The latest one-to-one message or mail from a two-way contact came in, and nothing from you went out after it. |
+| **Drifting**               | "You usually talk to Sam every 2 weeks; it's been 6."     | The usual gap between your contact days with that person, against the current gap. Timestamps only.           |
+| **Birthday / anniversary** | "Alex's birthday is Thursday."                            | Accepted `birthday` and `anniversary` facts you confirmed (or wrote).                                         |
+| **Promise**                | "You told Jordan you'd send the deck. Did you?"           | An open loop where you owe something, written down from your own words.                                       |
 
 Nothing is sent for you. A nudge can open a chat with a draft request filled in; you press send.
 
@@ -140,10 +140,10 @@ When a nudge says to reach out, it can also say what to talk about: up to three 
 with a line showing where it comes from.
 
 > Ask how the new job at Initech is going
-> *Employer: Initech · their own words, accepted by you · Oct 12*
+> _Employer: Initech · their own words, accepted by you · Oct 12_
 >
 > You promised: “send the deck”
-> *Your promise · Oct 28*
+> _Your promise · Oct 28_
 
 **What can be a starter** (deterministic templates, `packages/memory/src/graph/starters.ts`):
 

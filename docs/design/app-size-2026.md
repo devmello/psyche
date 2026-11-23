@@ -8,15 +8,15 @@ build fails; a PR that needs more raises the number and says why.
 
 ## Where the bytes were (arm64, 0.3.0-alpha.0)
 
-| Part | MiB |
-|---|---|
-| `Contents/Frameworks` (Electron 44) | 240 |
-| `Resources/psyched/runtime/node` (the Gateway's Node 24.22.0) | 93 |
-| `Resources/psyched/app/node_modules` | 200 |
-| `Resources/psyched/app/apps` (web client 33, Gateway 2.4) | 35 |
-| `Resources/psyched/app/packages` | 14 |
-| `Resources/app.asar` | 32 |
-| `PsycheHelper.app` | 30 |
+| Part                                                          | MiB |
+| ------------------------------------------------------------- | --- |
+| `Contents/Frameworks` (Electron 44)                           | 240 |
+| `Resources/psyched/runtime/node` (the Gateway's Node 24.22.0) | 93  |
+| `Resources/psyched/app/node_modules`                          | 200 |
+| `Resources/psyched/app/apps` (web client 33, Gateway 2.4)     | 35  |
+| `Resources/psyched/app/packages`                              | 14  |
+| `Resources/app.asar`                                          | 32  |
+| `PsycheHelper.app`                                            | 30  |
 
 `node_modules`: onnxruntime-node 85 (two 44 MB copies of one dylib), pdfjs-dist 17,
 better-sqlite3-multiple-ciphers 16, better-sqlite3 12, playwright-core 11, domino 8.6, then
@@ -58,11 +58,11 @@ Checked and left alone:
 
 ### Result
 
-| arm64 | before | after phase 1 |
-|---|---|---|
-| `Resources/psyched` | 344 MiB | 245 MiB |
-| Psyche.app installed | 651 MiB | 561 MiB |
-| DMG | 283 MiB (297 MB) | 249 MiB (261 MB) |
+| arm64                | before           | after phase 1    |
+| -------------------- | ---------------- | ---------------- |
+| `Resources/psyched`  | 344 MiB          | 245 MiB          |
+| Psyche.app installed | 651 MiB          | 561 MiB          |
+| DMG                  | 283 MiB (297 MB) | 249 MiB (261 MB) |
 
 ## Phase 2: onnxruntime on demand (tried, then reversed)
 
@@ -99,15 +99,15 @@ Everything below was measured on this machine; sizes are from the phase 2 build 
 
 Technically yes.
 
-| Question | Finding |
-|---|---|
-| Node version | Electron 44.9.0 embeds **Node 24.22.0**, the same as the pinned runtime (`deploy/Dockerfile` pin). V8 differs (Electron 15.2). |
-| Type stripping, flags | `ELECTRON_RUN_AS_NODE=1 Electron --max-semi-space-size=4 --disable-warning=ExperimentalWarning apps/gateway/src/main.ts` boots the Gateway as is: `/healthz` ok, and `node:module` has `stripTypeScriptTypes`. No prebuilt JS needed. |
-| Native ABI | Electron's `NODE_MODULE_VERSION` is 149 (Node 24: 137), but the Gateway's three addons (better-sqlite3, the cipher fork, onnxruntime's binding) are all **N-API** (`nm -u`: 60–63 `napi_*` symbols, no V8 ones), so nothing is rebuilt. sqlite-vec is a plain dylib loaded by SQLite. The same smoke (both SQLite builds, sqlite-vec, SQLCipher, playwright-core, turndown) passes under Electron's Node. node-pty is desktop-only and already built for Electron by Forge. |
-| Idle memory | Gateway RSS after boot plus 4 s: 197 MB on Electron's Node, 205 MB on the bundled Node. No penalty. |
-| Survives ⌘Q | The agent is a separate launchd job, so quitting the UI does not touch it, as today. |
-| Notarization | No new signing work: the binary is already inside the sealed app and signed with it. |
-| Windows later | The same mechanism exists (`ELECTRON_RUN_AS_NODE` on `Psyche.exe`, started by a Task Scheduler entry or service) with the same fuse trade-off below. |
+| Question              | Finding                                                                                                                                                                                                                                                                                                                                                                                                                                                                     |
+| --------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Node version          | Electron 44.9.0 embeds **Node 24.22.0**, the same as the pinned runtime (`deploy/Dockerfile` pin). V8 differs (Electron 15.2).                                                                                                                                                                                                                                                                                                                                              |
+| Type stripping, flags | `ELECTRON_RUN_AS_NODE=1 Electron --max-semi-space-size=4 --disable-warning=ExperimentalWarning apps/gateway/src/main.ts` boots the Gateway as is: `/healthz` ok, and `node:module` has `stripTypeScriptTypes`. No prebuilt JS needed.                                                                                                                                                                                                                                       |
+| Native ABI            | Electron's `NODE_MODULE_VERSION` is 149 (Node 24: 137), but the Gateway's three addons (better-sqlite3, the cipher fork, onnxruntime's binding) are all **N-API** (`nm -u`: 60–63 `napi_*` symbols, no V8 ones), so nothing is rebuilt. sqlite-vec is a plain dylib loaded by SQLite. The same smoke (both SQLite builds, sqlite-vec, SQLCipher, playwright-core, turndown) passes under Electron's Node. node-pty is desktop-only and already built for Electron by Forge. |
+| Idle memory           | Gateway RSS after boot plus 4 s: 197 MB on Electron's Node, 205 MB on the bundled Node. No penalty.                                                                                                                                                                                                                                                                                                                                                                         |
+| Survives ⌘Q           | The agent is a separate launchd job, so quitting the UI does not touch it, as today.                                                                                                                                                                                                                                                                                                                                                                                        |
+| Notarization          | No new signing work: the binary is already inside the sealed app and signed with it.                                                                                                                                                                                                                                                                                                                                                                                        |
+| Windows later         | The same mechanism exists (`ELECTRON_RUN_AS_NODE` on `Psyche.exe`, started by a Task Scheduler entry or service) with the same fuse trade-off below.                                                                                                                                                                                                                                                                                                                        |
 
 ### Why not now: the `RunAsNode` fuse
 
@@ -177,12 +177,12 @@ Result: `Resources/psyched` 245 → 196 MiB, Psyche.app 561 → 510 MiB, DMG 247
 
 ### Where that leaves the target (arm64, installed)
 
-| | MiB |
-|---|---|
-| Original | 651 |
-| After phase 1, onnxruntime shipped | 561 |
-| + esbuild Gateway bundle (measured) | **510** |
-| + Electron's Node instead of the bundled one (fuse; owner said no) | ≈ 417 |
+|                                                                    | MiB     |
+| ------------------------------------------------------------------ | ------- |
+| Original                                                           | 651     |
+| After phase 1, onnxruntime shipped                                 | 561     |
+| + esbuild Gateway bundle (measured)                                | **510** |
+| + Electron's Node instead of the bundled one (fuse; owner said no) | ≈ 417   |
 
 With the library shipped and the fuse off, the installed app is 510 MiB and the DMG 198 MiB. Under
 500 needs one of the smaller things below; 300–400 needs the second Node gone:
@@ -224,17 +224,17 @@ each package. The web client was built from source. Sizes are MiB.
 
 Breakdown after the node-pty cut below (206.6 MiB in total):
 
-| Part | MiB |
-|---|---|
-| `runtime/node` (the Gateway's Node 24.22.1) | 93.0 |
-| onnxruntime-node (one dylib after the dedupe) | 42.9 |
-| `app/apps/web` (web client JS: `core-*.js` 6.4, `es-*.js` 5.3) | 37.3 |
-| `app/apps/gateway` | 9.7 |
-| playwright-core | 7.4 |
-| pdfjs-dist | 7.3 |
-| better-sqlite3-multiple-ciphers / better-sqlite3 | 2.3 / 2.0 |
-| node-pty (prebuild only, after the cut) | about 0.2 |
-| `app/apps/cli` | 0.9 |
+| Part                                                           | MiB       |
+| -------------------------------------------------------------- | --------- |
+| `runtime/node` (the Gateway's Node 24.22.1)                    | 93.0      |
+| onnxruntime-node (one dylib after the dedupe)                  | 42.9      |
+| `app/apps/web` (web client JS: `core-*.js` 6.4, `es-*.js` 5.3) | 37.3      |
+| `app/apps/gateway`                                             | 9.7       |
+| playwright-core                                                | 7.4       |
+| pdfjs-dist                                                     | 7.3       |
+| better-sqlite3-multiple-ciphers / better-sqlite3               | 2.3 / 2.0 |
+| node-pty (prebuild only, after the cut)                        | about 0.2 |
+| `app/apps/cli`                                                 | 0.9       |
 
 **What grew since 8e40a20f4** (the 196 MiB record): the runtime dependencies added since then are
 node-pty (2026-11-04, ab06dbee3), bonjour-service (2026-11-04, 6333efbdd), dbus-next (2026-11-05,

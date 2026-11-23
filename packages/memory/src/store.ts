@@ -1,3 +1,4 @@
+import { randomBytes } from "node:crypto";
 import {
   chmodSync,
   type Dirent,
@@ -501,6 +502,75 @@ export class SqliteMemoryStore implements MemoryStore {
   }
 
   /**
+   * Writes this machine's provenance sidecar, `.psyche/provenance/<machine>.json`: every indexed
+   * file whose provenance is not the owner's, with that class. The git backup commits it. One file
+   * per machine means two machines never edit the same file (no merge conflicts), and a pull keeps
+   * untrusted content untrusted everywhere. Hidden, so the walker and the index never see it.
+   */
+  writeProvenanceSidecar(): void {
+    const files: Record<string, Provenance> = {};
+    for (const row of this.#index.listFiles()) {
+      if (row.provenance === "owner") continue;
+      if (!existsSync(join(this.root, ...row.path.split("/")))) continue;
+      files[row.path] = row.provenance;
+    }
+    const dir = join(this.root, PSYCHE_DIR, PROVENANCE_DIR);
+    ensureDir(dir);
+    const path = join(dir, `${this.#machineId()}.json`);
+    const text = `${JSON.stringify({ version: 1, files }, null, 2)}\n`;
+    if (existsSync(path) && readFileSync(path, "utf8") === text) return;
+    writeFileSync(path, text, { mode: 0o600 });
+  }
+
+  /** A random id for this workspace's machine, kept in `.psyche/machine.id` (never committed). */
+  #machineId(): string {
+    const dir = join(this.root, PSYCHE_DIR);
+    const path = join(dir, MACHINE_ID_FILE);
+    try {
+      const id = readFileSync(path, "utf8").trim();
+      if (/^[0-9a-f]{16}$/.test(id)) return id;
+    } catch {
+      // not written yet
+    }
+    const id = randomBytes(8).toString("hex");
+    ensureDir(dir);
+    writeFileSync(path, `${id}\n`, { mode: 0o600 });
+    return id;
+  }
+
+  /**
+   * Every machine's sidecar merged: per path, the least trusted class any machine recorded.
+   * Malformed entries are ignored.
+   */
+  #readProvenanceSidecar(): Map<string, Provenance> {
+    const out = new Map<string, Provenance>();
+    const dir = join(this.root, PSYCHE_DIR, PROVENANCE_DIR);
+    let names: string[];
+    try {
+      names = readdirSync(dir).filter((n) => n.endsWith(".json"));
+    } catch {
+      return out;
+    }
+    for (const name of names) {
+      let parsed: unknown;
+      try {
+        parsed = JSON.parse(readFileSync(join(dir, name), "utf8"));
+      } catch {
+        continue;
+      }
+      const files = (parsed as { files?: unknown } | null)?.files;
+      if (files === null || typeof files !== "object") continue;
+      for (const [path, value] of Object.entries(files)) {
+        if (!isProvenance(value) || value === "owner") continue;
+        if (path.length === 0 || path.startsWith("/") || path.split("/").includes("..")) continue;
+        const prior = out.get(path);
+        out.set(path, prior === undefined ? value : leastTrusted(prior, value));
+      }
+    }
+    return out;
+  }
+
+  /**
    * Reconciles the index with the disk: files changed outside Psyche (Finder, an editor, git)
    * are reindexed as the owner's edits and announced with `source: "external"`; deleted files
    * leave the index.
@@ -510,6 +580,9 @@ export class SqliteMemoryStore implements MemoryStore {
       const changed: string[] = [];
       const removed: string[] = [];
       const onDisk = new Set(this.#walk());
+      // Provenance from the git backup's sidecar: a file that arrived with a pull keeps the less
+      // trusted class of what this machine knows and what the sidecar says (least trusted wins).
+      const sidecar = this.#readProvenanceSidecar();
       for (const path of onDisk) {
         const abs = join(this.root, ...path.split("/"));
         const st = statSync(abs);
@@ -517,7 +590,11 @@ export class SqliteMemoryStore implements MemoryStore {
         if (row !== undefined && row.mtime_ms === st.mtimeMs && row.bytes === st.size) continue;
         const content = readFileSync(abs, "utf8");
         if (row !== undefined && row.sha256 === sha256Hex(content)) {
-          this.#index.upsertFile({ ...row, mtimeMs: st.mtimeMs, provenance: row.provenance });
+          const kept = sidecar.has(path)
+            ? leastTrusted(row.provenance, sidecar.get(path) as Provenance)
+            : row.provenance;
+          if (kept !== row.provenance) this.#indexFile(path, content, kept, st.mtimeMs);
+          else this.#index.upsertFile({ ...row, mtimeMs: st.mtimeMs, provenance: row.provenance });
           continue;
         }
         // The old text is gone from disk; its indexed chunks stand in for it.
@@ -528,12 +605,30 @@ export class SqliteMemoryStore implements MemoryStore {
                 .chunksBySource(path)
                 .map((c) => c.text)
                 .join("\n");
-        const provenance = ownerEditProvenance(row?.provenance, before, content);
+        const own = ownerEditProvenance(row?.provenance, before, content);
+        const provenance = sidecar.has(path)
+          ? leastTrusted(own, sidecar.get(path) as Provenance)
+          : own;
         this.#indexFile(path, content, provenance, st.mtimeMs);
         changed.push(path);
         this.#emit({
           event: "memory.file.changed",
           payload: { path, etag: etagOf(content), source: "external", provenance },
+        });
+      }
+      // Files whose bytes did not change but whose sidecar entry is less trusted.
+      for (const [path, trust] of sidecar) {
+        if (!onDisk.has(path)) continue;
+        const row = this.#index.getFile(path);
+        if (row === undefined) continue;
+        const kept = leastTrusted(row.provenance, trust);
+        if (kept === row.provenance) continue;
+        const abs = join(this.root, ...path.split("/"));
+        this.#indexFile(path, readFileSync(abs, "utf8"), kept, statSync(abs).mtimeMs);
+        changed.push(path);
+        this.#emit({
+          event: "memory.file.changed",
+          payload: { path, etag: null, source: "external", provenance: kept },
         });
       }
       for (const row of this.#index.listFiles()) {
@@ -1557,8 +1652,8 @@ export class SqliteMemoryStore implements MemoryStore {
   }
 
   /**
-   * Deletes every workspace file (hidden entries such as `.git` are kept), chunk and claim and
-   * re-creates the templates. The UI asks for a typed confirmation before calling this.
+   * Deletes every workspace file, the local git history and the provenance sidecar (other hidden
+   * entries are kept), chunk and claim, and re-creates the templates. The UI asks for a typed confirmation before calling this.
    */
   async reset(options: { dryRun?: boolean } = {}) {
     const files = this.#walk();
@@ -1572,6 +1667,11 @@ export class SqliteMemoryStore implements MemoryStore {
       for (const entry of readdirSync(this.root)) {
         if (entry.startsWith(".")) continue;
         rmSync(join(this.root, entry), { recursive: true, force: true });
+      }
+      // The git backup's history holds every past note: this device's copy goes too. A remote
+      // keeps its own history; that is the owner's to delete.
+      for (const hidden of [".git", PSYCHE_DIR]) {
+        rmSync(join(this.root, hidden), { recursive: true, force: true });
       }
       this.#db.transaction(() => {
         this.#index.clear();
@@ -1589,6 +1689,13 @@ export class SqliteMemoryStore implements MemoryStore {
     return { files, chunks, claims, dryRun };
   }
 }
+
+/** The hidden folder for the workspace's own bookkeeping (never indexed, never shown to the agent). */
+export const PSYCHE_DIR = ".psyche";
+/** The git backup's provenance sidecars, one per machine, inside `PSYCHE_DIR`. */
+export const PROVENANCE_DIR = "provenance";
+/** This workspace's machine id (local only). */
+export const MACHINE_ID_FILE = "machine.id";
 
 /** Removes `dir` and its subdirectories if they hold nothing (hidden files keep them). */
 function removeEmptyDirs(dir: string): void {

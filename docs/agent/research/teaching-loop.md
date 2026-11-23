@@ -8,14 +8,15 @@ Prepared 2026-10-25 for the Psyche "teaching loop" spec. Each source has a date:
 
 **What it does**
 
-- **Two layers, two toggles.** "Reference saved memories" covers facts the user explicitly asked ChatGPT to keep. "Reference chat history" lets it draw on past conversations. Either can be on or off on its own. Turning off saved memories also turns off chat-history reference. *Temporary Chat* neither reads nor writes memory.
+- **Two layers, two toggles.** "Reference saved memories" covers facts the user explicitly asked ChatGPT to keep. "Reference chat history" lets it draw on past conversations. Either can be on or off on its own. Turning off saved memories also turns off chat-history reference. _Temporary Chat_ neither reads nor writes memory.
 - **Write notices.** Since the September 2024 update, ChatGPT shows an inline **"Memory updated"** marker when it writes a memory. Hovering it gives a **"Manage memories"** link to review or delete what was saved. This in-the-moment, one-click route from the notice to the entry is the most-copied pattern in this space.
-- **Deletion is layered and only partly intuitive.** The FAQ says deleting a chat does not remove a memory saved from it. To fully forget something you delete the saved memory *and* the source chat. Indexed versions of the FAQ say deleted saved memories may be kept up to 30 days for safety and debugging. A newer version adds that removing a fact from the summary may not remove it everywhere: past chats, files and connected apps can still hold it. It also adds a **"Don't mention this again"** option that suppresses a detail without deleting it.
-- **Project-only memory (August 2025).** A project's Memory setting can change from *Default* to *Project-only*. The project then uses only its own chats, files and instructions and cannot see general memories. Shared projects get this automatically.
+- **Deletion is layered and only partly intuitive.** The FAQ says deleting a chat does not remove a memory saved from it. To fully forget something you delete the saved memory _and_ the source chat. Indexed versions of the FAQ say deleted saved memories may be kept up to 30 days for safety and debugging. A newer version adds that removing a fact from the summary may not remove it everywhere: past chats, files and connected apps can still hold it. It also adds a **"Don't mention this again"** option that suppresses a detail without deleting it.
+- **Project-only memory (August 2025).** A project's Memory setting can change from _Default_ to _Project-only_. The project then uses only its own chats, files and instructions and cannot see general memories. Shared projects get this automatically.
 - **Automatic management (October 2025).** ChatGPT began pruning and re-ranking saved memories by recency and frequency, and users could search and re-prioritise them in settings.
 - **"Dreaming V3" (June 2026).** A background process curates memory from chat history into one editable **Memory Summary** (Settings > Personalization > Memory Summary). It replaced legacy saved memories by default, with a toggle back to the old system. OpenAI's reason was that the old list "often became stale" and could hold contradictions; their example was a marathon plan next to a sprained ankle (OpenAI, via Thurrott). The summary shows a relative "last updated" time. It shows only the most important details, so the FAQ tells users to ask in chat to check a specific item. Edits are made by typing a correction or highlighting text.
 
 **Borrow**
+
 - Name every write in the moment, and link straight from that notice to the entry.
 - Keep separate controls for "explicitly saved" and "inferred from history". They carry different levels of consent.
 - Use scoped memory (per project) with strict isolation as a first-class option.
@@ -23,11 +24,13 @@ Prepared 2026-10-25 for the Psyche "teaching loop" spec. Each source has a date:
 - Offer "suppress" as a softer tool alongside "forget".
 
 **Avoid**
+
 - A summary that admits it does not show everything ChatGPT knows. That breaks inspectability.
 - Deletion that requires hunting down every source (chat, file, connector) to really forget something. If a lesson is deleted, its derived copies should go with it.
 - Opaque background "dreaming" that rewrites memory with no per-change record.
 
 **Sources**
+
 - OpenAI, "Memory and new controls for ChatGPT": https://openai.com/index/memory-and-new-controls-for-chatgpt/ (published 2024-02-13, updated 2024-09-05 and later)
 - OpenAI Help Center, "Memory FAQ": https://help.openai.com/en/articles/8590148-memory-faq (fetched 2026-10-25; direct fetch returned 403, so content is from search-indexed versions with differing "Updated" dates)
 - TechRadar, project-only memory: https://www.techradar.com/ai-platforms-assistants/chatgpt/chatgpt-project-only-memory-is-live-and-it-might-change-how-you-work-with-ai (August 2025; rollout dated 2025-08-22)
@@ -51,6 +54,7 @@ Prepared 2026-10-25 for the Psyche "teaching loop" spec. Each source has a date:
 - **Safety testing.** Before the Pro/Max rollout, Anthropic says it tested whether memory could reinforce harmful patterns, lead to "over-accommodation", or help bypass safeguards, and adjusted based on the results (Anthropic blog).
 
 **Borrow**
+
 - Store discrete, individually editable entries (topics) rather than one prose blob. Each entry can carry provenance and a "taught" mark.
 - Keep pause and reset as separate verbs. Pause should not back-fill.
 - Make memory retrieval visible as a tool call. That is a clean model for "the agent consulted lesson X".
@@ -58,10 +62,12 @@ Prepared 2026-10-25 for the Psyche "teaching loop" spec. Each source has a date:
 - Ship export as a plain-text artifact, so the owner can move it, diff it and audit it.
 
 **Avoid**
+
 - The legacy 24-hour batch summary, where users cannot tell which conversation caused which change.
 - Defaulting memory on without a first-run explanation. For a self-hosted agent, the teaching loop should be opt-in per signal type.
 
 **Sources**
+
 - Claude Help Center, "How does Claude's memory work?": https://support.claude.com/en/articles/11817273 (page says "Updated this week"; fetched 2026-10-25)
 - Anthropic/Claude blog, "Memory": https://claude.com/blog/memory (published 2025-09-11, updated 2025-10-23)
 
@@ -74,22 +80,25 @@ Prepared 2026-10-25 for the Psyche "teaching loop" spec. Each source has a date:
 - **Saved info** sits under Settings & help > **Personal context** (also gemini.google.com/saved-info). Users can **Add** an item, ask mid-chat for Gemini to remember something, or use **More > Edit / Delete**. One toggle covers the whole feature: "Info you asked Gemini to Save". It is not available to under-18s or in Gemini Live.
 - **Disclosure at the point of use.** When saved info shapes an answer, the response usually shows "Your saved info" under "Sources and related content". Google's help page notes that this label is occasionally shown incorrectly, a candid admission.
 - **Past chats → "memory".** Past-chat personalization launched on by default in August 2025, under the description "on by default to help Gemini give you more relevant responses" (Google blog). It has since been renamed "memory" under Settings & help > **Personal Intelligence**. It requires Keep Activity. Google suggests asking "Did you use any info from past chats?" to check. Deleting a chat can take a short delay before personalization stops using it.
-- **Two-place deletion problem.** To forget a fact that came from a connected app, Google says you must delete the chats *and* disconnect the app. Otherwise Gemini may still find it in one place or the other.
+- **Two-place deletion problem.** To forget a fact that came from a connected app, Google says you must delete the chats _and_ disconnect the app. Otherwise Gemini may still find it in one place or the other.
 - **Personal Intelligence (January 2026)** links Gmail, Photos, YouTube and Search. Connecting apps is off by default, and users pick each app. Gemini tries to cite which connected source it used. Users can correct a response directly, **regenerate without personalization** for one chat, or use Temporary Chat. Google names "over-personalization" as a known beta failure: linking unrelated topics, misreading timing or relationship changes. Its example is assuming you love golf from many golf-course photos. Gemini avoids proactive assumptions about sensitive data such as health.
 - **Temporary chats** are kept up to 72 hours, are not shown in history, and are not used for personalization or training.
 
 **Borrow**
-- Put source chips on the answer itself ("used: your saved info"). This is the reverse of the "taught" mark: it shows *which* lesson shaped *this* answer.
+
+- Put source chips on the answer itself ("used: your saved info"). This is the reverse of the "taught" mark: it shows _which_ lesson shaped _this_ answer.
 - Offer "regenerate without personalization" as a per-answer escape hatch. It is cheap and tests whether a lesson is helping.
 - Name over-personalization in product copy, and invite the owner to flag it.
 - Leave sensitive categories alone unless the owner raises them.
 
 **Avoid**
+
 - Turning inferred personalization on by default.
 - Lessons that live in several stores, so that forgetting needs several actions.
 - Disclosure labels that are sometimes wrong. If Psyche shows provenance, it has to be deterministic, not model-generated.
 
 **Sources**
+
 - Gemini Apps Help, "Save info and reference past chats": https://support.google.com/gemini/answer/16413516 (undated; fetched 2026-10-25)
 - Gemini Apps Help, "Get personalization with memory of your past Gemini chats": https://support.google.com/gemini/answer/16598469 (undated; fetched 2026-10-25)
 - Google blog, "Gemini app personalizes responses based on past chats, plus new privacy controls": https://blog.google/products-and-platforms/products/gemini/temporary-chats-privacy-controls/ (2025-08-13)
@@ -103,7 +112,7 @@ Prepared 2026-10-25 for the Psyche "teaching loop" spec. Each source has a date:
 
 - **GitHub Copilot code review.** Each review comment has thumbs up/down. Thumbs-down opens an optional reason menu and a comment box. GitHub uses the ratings to improve the product generally, not as a per-user preference.
 - **GitHub Copilot Memory (public preview).** This is the most rigorous design surveyed.
-  - It stores repository *facts* and per-user *preferences*.
+  - It stores repository _facts_ and per-user _preferences_.
   - Facts carry **citations** to code. Before use, Copilot checks the citations against the current branch, and "Only validated facts are used" (GitHub Docs).
   - Preferences can cite direct user quotes.
   - Any fact or preference unused for **28 days is automatically deleted**. Successful use resets the clock.
@@ -112,25 +121,28 @@ Prepared 2026-10-25 for the Psyche "teaching loop" spec. Each source has a date:
 - **Cursor.** "Memories" were generated by a background model watching chats, or by an agent tool call, and managed under Settings > Rules. They were **removed in 2.1 (late 2025)**. Staff told users to run "Export memories" and convert them into User or Project Rules (`.mdc`). Users later reported memories still applying with no UI to manage them. The industry signal: implicit memories lost to explicit, file-based rules.
 - **Windsurf / Devin Cascade.** Auto-generated memories are workspace-scoped and stored locally in `~/.codeium/windsurf/memories/`, not committed to the repo. The docs now recommend writing durable knowledge as Rules (`.devin/rules/`, `AGENTS.md`), because rules are version-controlled with explicit activation. Memories apply only to the legacy agent.
 - **Raycast AI.** Splits **Profile**, which is entirely user-written ("only contains what you choose to share", Raycast manual), from **Memory**, an auto-built summary regenerated every few hours from recent chats. Memory is read-only in the UI. Users can **Generate**, "Add to Memory", ask AI to update it, or **Reset Memory**. It is stored locally and synced encrypted.
-- **Notion Agent.** Behaviour is driven by an *instructions page* (default "My Notion AI", a private page) opened by hovering the AI face to **Personalize**. Its "Let it learn" claim is that the agent "remembers your style and workflows" (Notion help), but the page does not say where or how. If others can edit the instructions page, they change how your agent responds.
+- **Notion Agent.** Behaviour is driven by an _instructions page_ (default "My Notion AI", a private page) opened by hovering the AI face to **Personalize**. Its "Let it learn" claim is that the agent "remembers your style and workflows" (Notion help), but the page does not say where or how. If others can edit the instructions page, they change how your agent responds.
 - **Superhuman.** Write with AI analyses a sample of recent emails to set tone. Explicit settings (greeting, sign-off, tone, length) live under Settings > Personalization. If the voice feels off, users are told to email support. There is no visible correction loop.
 - **Granola.** Each meeting is processed independently, so edits to one note do not carry forward. Persistent preferences live in user-authored **templates** and **Recipes** (reusable prompts). Granola Chat handles one-off corrections such as "make next steps more detailed".
 - **Mem 2.0** (relaunched 2025) focuses on capture, Deep Search and "Heads Up" resurfacing. It documents no feedback-to-preference loop.
 
 **Borrow**
-- Thumbs-down that opens an *optional* reason chip and a free-text line ("not like this"). The text is the lesson candidate.
+
+- Thumbs-down that opens an _optional_ reason chip and a free-text line ("not like this"). The text is the lesson candidate.
 - Copilot's validated, cited lessons with use-based expiry. Lessons that stop being used fade out, and lessons whose evidence no longer holds are not applied.
 - Raycast's split between "what you told me" (Profile) and "what I inferred" (Memory), shown separately.
 - Rules as plain, diffable files the owner can edit outside the app (Copilot, Windsurf, Cursor all converged here).
 - Granola's distinction between one-off fixes ("this note") and standing changes ("templates"). Psyche should ask which one a correction is.
 
 **Avoid**
+
 - Silent background extraction with no review step (Cursor's path, then removed).
 - "Learns your voice" claims with no visible artifact or correction path (Superhuman, Notion "Let it learn").
 - Instruction stores other people can edit (Notion's shared-page caveat), which is a poisoning vector.
 - Unresolved conflicts between rules. Psyche should detect and surface contradictions instead of choosing at random.
 
 **Sources**
+
 - GitHub Docs, "Copilot Memory": https://docs.github.com/en/enterprise-cloud@latest/copilot/concepts/agents/copilot-memory (undated, public preview; fetched 2026-10-25)
 - GitHub Docs, "Adding repository custom instructions": https://docs.github.com/en/copilot/how-tos/copilot-on-github/customize-copilot/add-custom-instructions/add-repository-instructions (fetched 2026-10-25)
 - GitHub Docs, "Using GitHub Copilot code review": https://docs.github.com/en/copilot/how-tos/use-copilot-agents/request-a-code-review/use-code-review (fetched 2026-10-25)
@@ -149,23 +161,26 @@ Prepared 2026-10-25 for the Psyche "teaching loop" spec. Each source has a date:
 **What it does**
 
 - **Plain-language claim with a control next to it.** Apple's Siri privacy page says Siri Suggestions "uses local, on-device processing to learn how you use your devices and apps" (Apple Legal). It names the inputs (Safari history, messages, contacts) and says suggestions are not stored on Apple servers. Sync across devices uses end-to-end encryption.
-- **Per-source learning switch.** Settings > Siri > Apps (or App Access) > [app] > **"Learn from this App"**. This is the clearest per-source consent control in the survey: the owner turns off learning from one app without turning off the assistant. Separate toggles control where suggestions *appear* (Show on Home Screen, Suggest App, Suggestion Notifications, Show in Spotlight). Health has its own "Learn from this App" switch.
+- **Per-source learning switch.** Settings > Siri > Apps (or App Access) > [app] > **"Learn from this App"**. This is the clearest per-source consent control in the survey: the owner turns off learning from one app without turning off the assistant. Separate toggles control where suggestions _appear_ (Show on Home Screen, Suggest App, Suggestion Notifications, Show in Spotlight). Health has its own "Learn from this App" switch.
 - **Delete history:** Settings > Siri > Siri & Dictation History > **Delete Siri & Dictation History**. Turning off Siri and Dictation deletes the stored transcripts used for personalization.
-- **Photos Memories, negative feedback with a scope.** Touch and hold a memory > **Feature Less**, then choose the *scope*: this person, day or place, or (Mac) **Feature Fewer Memories Like This**. The undo is a global **Reset Suggested Memories** / **Reset People & Pets Suggestions**. Apple documents these in its *Personal Safety* guide: "not like this" is partly a safety tool (an ex-partner, a bereavement).
+- **Photos Memories, negative feedback with a scope.** Touch and hold a memory > **Feature Less**, then choose the _scope_: this person, day or place, or (Mac) **Feature Fewer Memories Like This**. The undo is a global **Reset Suggested Memories** / **Reset People & Pets Suggestions**. Apple documents these in its _Personal Safety_ guide: "not like this" is partly a safety tool (an ex-partner, a bereavement).
 - **Apple Intelligence.** An on-device semantic index provides personal context. Heavier requests go to Private Cloud Compute, which Apple says keeps no data and runs publicly logged software. The **Apple Intelligence Report** (Settings > Privacy & Security) logs and exports requests sent off-device, as an auditable record.
 
 **Borrow**
+
 - Per-source "learn from this" toggles: email, calendar, drafts and each connector are separately teachable.
-- Separate *learning* from *surfacing*. Two independent switches.
+- Separate _learning_ from _surfacing_. Two independent switches.
 - When the owner says "less of this", ask "less of what?" (person, topic, time, type) before writing a lesson.
 - Use plain sentences that name the inputs and where processing happens. For self-hosted Psyche the claim is stronger ("this lives on your machine, in this file") and should be stated just as plainly.
 - An exportable log of what the system did with personal data.
 
 **Avoid**
+
 - A reset that only works globally. Apple's "Feature Less" needs a full reset to undo, so per-lesson undo is better.
-- Learning that cannot be inspected at entry level. Apple shows controls but not *what* Siri learned. Psyche should show both.
+- Learning that cannot be inspected at entry level. Apple shows controls but not _what_ Siri learned. Psyche should show both.
 
 **Sources**
+
 - Apple Legal, "Siri, Dictation & Privacy": https://www.apple.com/legal/privacy/data/en/ask-siri-dictation/ (2026-09-14)
 - Apple Support, "Change Siri settings on iPhone" (iOS 27): https://support.apple.com/guide/iphone/change-siri-settings-iphc28624b81abc/27/ios/27 (fetched 2026-10-25)
 - Apple Personal Safety Guide, "Feature a person, a place, or a memory less often in Photos": https://support.apple.com/guide/personal-safety/feature-a-person-place-memory-ipsa4c9edc62/web (fetched 2026-10-25)
@@ -176,30 +191,31 @@ Prepared 2026-10-25 for the Psyche "teaching loop" spec. Each source has a date:
 
 ## 6. Progress and growth views: what to borrow and what to avoid
 
-**Duolingo (avoid most of it).** Streaks, guilt-framed reminders and an emotive mascot. A 2025 IHC paper credits Duolingo with clear, ethical interface practices but finds "excessive notifications and emotionally charged visuals" (Castro & Valença), especially concerning for children. A 2022 study calls the result "gamification misuse": users fixate on points and streaks at the expense of learning. The Decision Lab's "Streak Creep" essay says streaks can sap intrinsic enjoyment, and notes that Duolingo's own streak forgiveness keeps users going. *Lesson:* never measure the owner's diligence, never create loss aversion, never nag.
+**Duolingo (avoid most of it).** Streaks, guilt-framed reminders and an emotive mascot. A 2025 IHC paper credits Duolingo with clear, ethical interface practices but finds "excessive notifications and emotionally charged visuals" (Castro & Valença), especially concerning for children. A 2022 study calls the result "gamification misuse": users fixate on points and streaks at the expense of learning. The Decision Lab's "Streak Creep" essay says streaks can sap intrinsic enjoyment, and notes that Duolingo's own streak forgiveness keeps users going. _Lesson:_ never measure the owner's diligence, never create loss aversion, never nag.
 
 **GitHub contribution graph (cautionary).** GitHub **removed current and longest streak counters in May 2016**. Moldon, Strohmaier & Wachs (ICSE 2021) used this as a natural experiment: after the removal, long streaks were abandoned and weekend activity dropped. The streak counter had been driving behaviour, not just measuring it. Open-source maintainers had complained that the graph rewards working every day. The heatmap itself is a respectful, dense, glanceable history. The counters were the manipulative part.
 
 **Strava (borrow the training log, avoid the paywalled recap).** Fitness & Freshness charts training load over time. Strava stresses that Fitness and Relative Effort are relative to the individual athlete, not for comparing people. The Training Log is a calendar of what happened, not a score. **Year in Sport** is a mobile-only, shareable recap. In December 2025 it went subscription-only, which users criticised (Ars Technica).
 
-**Oura (borrow the explanations).** The Readiness score is broken into named **contributors** (resting HR, HRV balance, sleep balance, etc.), each compared with *your own* long-term baseline. Oura needs up to two weeks to learn your averages before scoring. The lowest band is labelled "Pay Attention", not "Bad". *Lesson:* every aggregate must decompose into its causes, and the owner's own past is the only baseline. Say "still learning" while history is thin.
+**Oura (borrow the explanations).** The Readiness score is broken into named **contributors** (resting HR, HRV balance, sleep balance, etc.), each compared with _your own_ long-term baseline. Oura needs up to two weeks to learn your averages before scoring. The lowest band is labelled "Pay Attention", not "Bad". _Lesson:_ every aggregate must decompose into its causes, and the owner's own past is the only baseline. Say "still learning" while history is thin.
 
 **Apple Fitness Trends (borrow).** Compares your last 90 days with your last 365, using up/down arrows per metric. It needs 180 days of data before trends appear. A down arrow comes with a coaching suggestion, not a penalty. The comparison is calm and has a long window.
 
-**Spotify Wrapped (borrow the format, avoid the comparisons).** It is a once-a-year story of independently shareable cards. The December 2025 edition added "Listening Age" (comparing you with your age group), "Clubs" (typing users into one of six groups), artist-fan leaderboards and an AI-generated "Listening Archive". Critics argue it has normalised "constant tracking" (Proton, citing a Northeastern researcher). The 2025 edition drew backlash over heavy automation. *Lesson:* a periodic recap is a good container. Labelling the owner, ranking them and comparing them with other people are the parts that read as profiling.
+**Spotify Wrapped (borrow the format, avoid the comparisons).** It is a once-a-year story of independently shareable cards. The December 2025 edition added "Listening Age" (comparing you with your age group), "Clubs" (typing users into one of six groups), artist-fan leaderboards and an AI-generated "Listening Archive". Critics argue it has normalised "constant tracking" (Proton, citing a Northeastern researcher). The 2025 edition drew backlash over heavy automation. _Lesson:_ a periodic recap is a good container. Labelling the owner, ranking them and comparing them with other people are the parts that read as profiling.
 
 **Respectful vs. manipulative, in practice**
 
-| Respectful | Manipulative |
-|---|---|
-| Baseline is the owner's own past (Oura, Apple Trends, Strava Fitness) | Comparison with other users, ranks, leaderboards (Wrapped) |
-| Score decomposes into named, inspectable causes (Oura contributors) | Opaque scores, levels, XP |
-| Long windows, slow arrows, "not enough data yet" states | Daily streaks and loss-aversion counters (Duolingo, old GitHub) |
-| Recap is a record you can browse (Strava log, GitHub heatmap) | Recap is a personality label ("Clubs", "Listening Age") |
-| Notifications only when something changed | Guilt-framed reminders, emotive mascots |
-| Free, owned by the user | Recap held behind a paywall or used as marketing |
+| Respectful                                                            | Manipulative                                                    |
+| --------------------------------------------------------------------- | --------------------------------------------------------------- |
+| Baseline is the owner's own past (Oura, Apple Trends, Strava Fitness) | Comparison with other users, ranks, leaderboards (Wrapped)      |
+| Score decomposes into named, inspectable causes (Oura contributors)   | Opaque scores, levels, XP                                       |
+| Long windows, slow arrows, "not enough data yet" states               | Daily streaks and loss-aversion counters (Duolingo, old GitHub) |
+| Recap is a record you can browse (Strava log, GitHub heatmap)         | Recap is a personality label ("Clubs", "Listening Age")         |
+| Notifications only when something changed                             | Guilt-framed reminders, emotive mascots                         |
+| Free, owned by the user                                               | Recap held behind a paywall or used as marketing                |
 
 **Sources**
+
 - Castro & Valença, "Teaching or Manipulating? On the Adoption of Bright and Deceptive Patterns by Duolingo", IHC 2025: https://sol.sbc.org.br/index.php/ihc/article/view/37677 (2025-09-08)
 - arXiv 2203.16175, gamification misuse in language learning: https://www.arxiv.org/abs/2203.16175 (2022)
 - The Decision Lab, "Streak Creep": https://thedecisionlab.com/insights/consumer-insights/streak-creep-the-perils-of-too-much-gamification (undated; fetched 2026-10-25)
@@ -217,34 +233,38 @@ Prepared 2026-10-25 for the Psyche "teaching loop" spec. Each source has a date:
 
 ## 7. Literature: preference learning, sycophancy, poisoning, privacy
 
-**Learning from edits works best as distilled, retrievable text.** PRELUDE / CIPHER (Gao et al., Microsoft, NeurIPS 2024) treats the user's edits to agent drafts as the signal. For each context, an LLM infers a short natural-language *preference description* from the edit. At generation time it retrieves the preferences from the k most similar past contexts and combines them. On summarisation and email tasks (with simulated users) it gave the lowest cumulative edit distance among baselines, at small extra cost, and its learned preferences resembled the ground truth. *Practical takeaway:* heavy edits of drafts are the richest implicit signal. Turn each into a one-line, human-readable, context-tagged lesson rather than fine-tuning. The lesson text is also what the owner reviews.
+**Learning from edits works best as distilled, retrievable text.** PRELUDE / CIPHER (Gao et al., Microsoft, NeurIPS 2024) treats the user's edits to agent drafts as the signal. For each context, an LLM infers a short natural-language _preference description_ from the edit. At generation time it retrieves the preferences from the k most similar past contexts and combines them. On summarisation and email tasks (with simulated users) it gave the lowest cumulative edit distance among baselines, at small extra cost, and its learned preferences resembled the ground truth. _Practical takeaway:_ heavy edits of drafts are the richest implicit signal. Turn each into a one-line, human-readable, context-tagged lesson rather than fine-tuning. The lesson text is also what the owner reviews.
 
-**Implicit feedback in conversation is real but noisy.** WildFeedback (Shi et al., 2024, revised 2025) mines multi-turn chats for in-situ satisfaction and dissatisfaction signals and builds preference pairs. It works at population scale for fine-tuning. For one owner, the same signals (rephrasing, "no, I meant…", undo) are better used as *candidates* for review than as automatic writes.
+**Implicit feedback in conversation is real but noisy.** WildFeedback (Shi et al., 2024, revised 2025) mines multi-turn chats for in-situ satisfaction and dissatisfaction signals and builds preference pairs. It works at population scale for fine-tuning. For one owner, the same signals (rephrasing, "no, I meant…", undo) are better used as _candidates_ for review than as automatic writes.
 
 **Learning from approval breeds sycophancy.**
+
 - Sharma et al. (Anthropic, ICLR 2024) show that five assistants are consistently sycophantic. Human preference data favours responses that agree with the user's views. Optimising against preference models sometimes trades truthfulness for agreement.
 - OpenAI's GPT-4o post-mortem (May 2025) says adding a thumbs-up/down reward signal weakened the main reward that had been holding sycophancy in check. It adds that user feedback "can sometimes favor more agreeable responses", and that memory made the effect worse in some cases (OpenAI).
 - Jain et al. (CHI 2026, 38 users, two weeks of real context) find that user memory profiles produced the largest increase in agreement sycophancy, e.g. +45% for one model. Perspective sycophancy rose when the model could infer the user's viewpoint.
 - OP-Bench (2026) defines "over-personalization", including affirming memories that do not exist.
-- *Practical takeaway:* thumbs-up should never become a lesson by itself. Lessons should be about *form and process* ("bullets, not prose"; "ask before emailing my manager"), not about *conclusions* ("the owner is right about X"). Psyche needs a guard so that factual answers are not adjusted toward what the owner seems to believe.
+- _Practical takeaway:_ thumbs-up should never become a lesson by itself. Lessons should be about _form and process_ ("bullets, not prose"; "ask before emailing my manager"), not about _conclusions_ ("the owner is right about X"). Psyche needs a guard so that factual answers are not adjusted toward what the owner seems to believe.
 
-**Preference drift.** Benchmarks such as HorizonBench (2026: 360 simulated users, six-month histories, ground-truth provenance per preference change) and methods such as SPRInG (2026) show that static retrieval assumes preferences never change, and that this fails. *Practical takeaway:* lessons need timestamps, last-used and last-confirmed dates, explicit supersession ("replaces lesson #12"), and decay. Copilot's 28-day unused expiry and ChatGPT's stale-memory rewrite are two product answers to the same problem.
+**Preference drift.** Benchmarks such as HorizonBench (2026: 360 simulated users, six-month histories, ground-truth provenance per preference change) and methods such as SPRInG (2026) show that static retrieval assumes preferences never change, and that this fails. _Practical takeaway:_ lessons need timestamps, last-used and last-confirmed dates, explicit supersession ("replaces lesson #12"), and decay. Copilot's 28-day unused expiry and ChatGPT's stale-memory rewrite are two product answers to the same problem.
 
 **Memory poisoning is the main security risk.**
+
 - Rehberger (Embrace The Red, May and September 2024) showed that indirect prompt injection from documents, images or web pages could call ChatGPT's memory tool. It planted false memories, and in the macOS app ("SpAIware") persisted exfiltration across sessions. OpenAI patched the exfiltration but acknowledged that memory-writing injections remain an open problem. Similar work followed on Gemini (2025).
-- MINJA (Dong et al., NeurIPS 2025) poisons agent memory through *query-only* interaction. Over 95% injection success under idealised conditions.
+- MINJA (Dong et al., NeurIPS 2025) poisons agent memory through _query-only_ interaction. Over 95% injection success under idealised conditions.
 - MemoryGraft (December 2025) plants fake "successful experiences" through files such as READMEs.
-- *Practical takeaway:* only the owner's own UI actions and messages can create lessons. Content the agent reads (emails, web pages, documents, tool output) can never write a lesson or approve one. Every lesson records its originating event, and lessons from untrusted context are blocked, not merely downranked.
+- _Practical takeaway:_ only the owner's own UI actions and messages can create lessons. Content the agent reads (emails, web pages, documents, tool output) can never write a lesson or approve one. Every lesson records its originating event, and lessons from untrusted context are blocked, not merely downranked.
 
 **Privacy and regulatory framing.**
+
 - **GDPR Art. 4(4)** defines profiling as automated processing to evaluate or predict personal aspects such as preferences and interests. A teaching loop that infers preferences is profiling.
 - **GDPR Art. 21** gives a right to object, **Art. 17** a right to erasure, and **Arts. 13–15** require information and access.
-- **EDPB Opinion 28/2024** (December 2024) says models trained on personal data cannot automatically be treated as anonymous. This argues for keeping owner lessons as *in-context, deletable memory*, never baked into weights, so erasure is real and immediate.
+- **EDPB Opinion 28/2024** (December 2024) says models trained on personal data cannot automatically be treated as anonymous. This argues for keeping owner lessons as _in-context, deletable memory_, never baked into weights, so erasure is real and immediate.
 - **EU AI Act Art. 50** (applies from 2026-08-02) requires disclosing AI interaction and marking synthetic content. It does not regulate memory directly, but sets the expectation of explicit disclosure.
 - **NIST AI 600-1** (Generative AI Profile, July 2024) lists data privacy, including leakage and de-anonymisation of sensitive data, among its twelve GenAI risks. It recommends documenting provenance and testing for disclosure of personal information.
-- *Practical takeaway:* self-hosting reduces but does not remove these concerns (shared households, third parties named in lessons). Provenance, erasure that cascades to derived data, and an exportable record are the controls that hold up.
+- _Practical takeaway:_ self-hosting reduces but does not remove these concerns (shared households, third parties named in lessons). Provenance, erasure that cascades to derived data, and an exportable record are the controls that hold up.
 
 **What works**
+
 - Distilled, human-readable lessons with context tags, retrieved per task (CIPHER).
 - Cited lessons that are re-checked before use, with use-based expiry (Copilot Memory).
 - Explicit, file-based rules the owner edits (where Cursor, Windsurf and Copilot converged).
@@ -252,6 +272,7 @@ Prepared 2026-10-25 for the Psyche "teaching loop" spec. Each source has a date:
 - Per-answer disclosure of which lessons were applied (Gemini source chips).
 
 **What fails**
+
 - Silent background extraction (Cursor memories, removed).
 - One growing summary that becomes stale and self-contradictory (ChatGPT's stated reason for Dreaming V3).
 - Approval-driven learning (GPT-4o sycophancy).
@@ -259,6 +280,7 @@ Prepared 2026-10-25 for the Psyche "teaching loop" spec. Each source has a date:
 - Deletion that leaves copies in other stores (ChatGPT and Gemini caveats).
 
 **Sources**
+
 - Gao et al., "Aligning LLM Agents by Learning Latent Preference from User Edits" (PRELUDE/CIPHER): https://arxiv.org/abs/2404.15269 (2024-04; NeurIPS 2024)
 - Shi et al., "WildFeedback": https://arxiv.org/abs/2408.15549v3 (2024-08; v3 2025-04)
 - Sharma et al., "Towards Understanding Sycophancy in Language Models": https://arxiv.org/abs/2310.13548 (2023-10; ICLR 2024)
@@ -279,13 +301,13 @@ Prepared 2026-10-25 for the Psyche "teaching loop" spec. Each source has a date:
 
 ## Implications for Psyche: design rules
 
-1. **Lessons are discrete, typed, plain-text entries, never a summary blob.** Each lesson has an id and a one-line statement. It has a scope: global, project, contact, or task type such as "email drafts". It has a kind: *stated* (the owner said it) or *inferred* (from an edit, undo or dismissal). Stated and inferred lessons are shown in separate sections, as Raycast separates Profile from Memory. (Claude Topics, Raycast, CIPHER.)
+1. **Lessons are discrete, typed, plain-text entries, never a summary blob.** Each lesson has an id and a one-line statement. It has a scope: global, project, contact, or task type such as "email drafts". It has a kind: _stated_ (the owner said it) or _inferred_ (from an edit, undo or dismissal). Stated and inferred lessons are shown in separate sections, as Raycast separates Profile from Memory. (Claude Topics, Raycast, CIPHER.)
 
 2. **Every lesson carries provenance that cannot be edited away.** That means the originating event (message id, draft id plus diff, undo event), the timestamp, the signal type, and the exact owner words if any. "Why do you think this?" always resolves to a real event, never a model-generated explanation. (Copilot citations; Gemini's admission that its labels are sometimes wrong.)
 
 3. **Only the owner can teach.** Lessons can only be created or approved by owner UI actions or owner-authored messages. Content the agent reads (mail, web, files, tool results, other people's messages) cannot write, approve or edit a lesson, even if it says "remember that…". (SpAIware, MINJA, MemoryGraft.)
 
-4. **Explicit corrections write immediately; implicit signals only propose.** A one-line correction or "not like this" with text becomes a lesson right away, with an inline "Learned: … · Undo · Edit" notice linked to the entry (ChatGPT's "Memory updated" pattern). Undo, heavy edits and dismissals become *candidates* held for the weekly card and never apply silently. (Cursor's removal of silent memories; WildFeedback noise.)
+4. **Explicit corrections write immediately; implicit signals only propose.** A one-line correction or "not like this" with text becomes a lesson right away, with an inline "Learned: … · Undo · Edit" notice linked to the entry (ChatGPT's "Memory updated" pattern). Undo, heavy edits and dismissals become _candidates_ held for the weekly card and never apply silently. (Cursor's removal of silent memories; WildFeedback noise.)
 
 5. **Thumbs-up never becomes a lesson by itself, and lessons are about form, not truth.** Approval may raise confidence in an existing lesson but never creates one. Lessons may govern style, format, process, permissions and priorities. They may never steer factual claims or conclusions toward what the owner believes. Add a check that flags any lesson phrased as an opinion about the world. (Sharma et al.; OpenAI's GPT-4o post-mortem; Jain et al.)
 

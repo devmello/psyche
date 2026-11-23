@@ -192,4 +192,37 @@ describe("memory.gitSync.* on the running Gateway", () => {
     expect(runRes.ok).toBe(false);
     expect(codeOf(runRes)).toBe("forbidden");
   }, 60_000);
+
+  it("keeps the voice profile and raw imports off the remote, even when a commit tracked them", async () => {
+    const { gw, home, bare } = await setup();
+    const admin = await adminClient(gw.gateway);
+    clients.push(admin);
+    await admin.call("memory.gitSync.set", { remote: bare, branch: "main", enabled: true }, ik());
+    const workspace = join(home, "workspace");
+    mkdirSync(join(workspace, "mail"), { recursive: true });
+    mkdirSync(join(workspace, "memory", "imports"), { recursive: true });
+    writeFileSync(join(workspace, "mail", "VOICE.md"), "# Voice\n\nHow I write.\n");
+    writeFileSync(join(workspace, "mail", "voice-samples.jsonl"), '{"text":"hi"}\n');
+    writeFileSync(join(workspace, "memory", "imports", "raw.md"), "# Raw export\n");
+
+    const first = await admin.call<Result>("memory.gitSync.run", {}, ik());
+    expect(first.ok).toBe(true);
+    const onRemote = git(bare, ["ls-tree", "-r", "--name-only", "main"]).split("\n");
+    expect(onRemote).not.toContain("mail/VOICE.md");
+    expect(onRemote).not.toContain("mail/voice-samples.jsonl");
+    expect(onRemote.some((p) => p.startsWith("memory/imports/"))).toBe(false);
+
+    // A commit made elsewhere (or before the exclusion) tracks the voice profile.
+    git(workspace, ["add", "-f", "mail/VOICE.md"]);
+    git(workspace, ["commit", "-q", "-m", "track voice"]);
+    // The owner also drops the ignore lines: the pathspec step must still keep it out.
+    writeFileSync(join(workspace, ".gitignore"), "");
+    writeFileSync(join(workspace, "note.md"), "# Note\n\nA normal note.\n");
+    const second = await admin.call<Result>("memory.gitSync.run", {}, ik());
+    expect(second.ok).toBe(true);
+    const after = git(bare, ["ls-tree", "-r", "--name-only", "main"]).split("\n");
+    expect(after).not.toContain("mail/VOICE.md");
+    expect(after).toContain("note.md");
+    expect(git(workspace, ["ls-files"]).split("\n")).not.toContain("mail/VOICE.md");
+  }, 60_000);
 });

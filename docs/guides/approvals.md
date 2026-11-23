@@ -8,12 +8,12 @@ Every tool call with a side effect goes through the Gateway's Permission Broker.
 
 Each action has a side-effect class:
 
-| Class | Examples |
-| --- | --- |
-| read | Reading a page, a file in a shared folder, a mailbox |
-| write | Saving a file, a draft, a calendar event, a click or typing in a page |
+| Class       | Examples                                                                                  |
+| ----------- | ----------------------------------------------------------------------------------------- |
+| read        | Reading a page, a file in a shared folder, a mailbox                                      |
+| write       | Saving a file, a draft, a calendar event, a click or typing in a page                     |
 | destructive | Anything irreversible or visible to others: sending an email, submitting a form, deleting |
-| financial | Moving money or committing to pay |
+| financial   | Moving money or committing to pay                                                         |
 
 For each call the broker checks, in order: the hard prohibitions, your deny rules and shared folders, untrusted content in the turn, your standing grants, and then the default for the thread's permission mode. The result is allow, ask or deny. "Ask" puts an approval card in front of you and pauses that action until you answer.
 
@@ -55,13 +55,13 @@ To answer, pick a choice and click "Allow with scope", or click Deny. The button
 
 A scope says how far your "yes" reaches. Only "Allow once" is single use. The others create a standing grant that you can see and revoke in Settings → Permissions.
 
-| Choice on the card | Covers | Lasts |
-| --- | --- | --- |
-| Allow once | This exact call with these exact arguments | Until it runs |
-| Allow for this task | The same kind of action on the same target, inside this task | Until the task ends, at most 24 hours (8 hours for destructive actions) |
-| Allow for this site | One website | 30 days |
-| Always allow, until this session ends | The same kind of action on the same target | Until the Gateway restarts, after 12 hours idle, or 24 hours at most |
-| Always allow, until revoked | The same kind of action on the same target | Until you revoke it; the Gateway ends it after 90 days by default |
+| Choice on the card                    | Covers                                                       | Lasts                                                                   |
+| ------------------------------------- | ------------------------------------------------------------ | ----------------------------------------------------------------------- |
+| Allow once                            | This exact call with these exact arguments                   | Until it runs                                                           |
+| Allow for this task                   | The same kind of action on the same target, inside this task | Until the task ends, at most 24 hours (8 hours for destructive actions) |
+| Allow for this site                   | One website                                                  | 30 days                                                                 |
+| Always allow, until this session ends | The same kind of action on the same target                   | Until the Gateway restarts, after 12 hours idle, or 24 hours at most    |
+| Always allow, until revoked           | The same kind of action on the same target                   | Until you revoke it; the Gateway ends it after 90 days by default       |
 
 Which choices a card offers depends on the action:
 
@@ -79,12 +79,12 @@ Which choices a card offers depends on the action:
 
 Each thread has a permission mode. The broker supports four:
 
-| Mode | Reads | Writes | Destructive | Financial |
-| --- | --- | --- | --- | --- |
-| Plan | Only tools with no side effect run | Denied | Denied | Denied |
-| Manual | The first read of each new source in a task asks | Ask every time; standing grants are not used | Ask, once only | Ask, once only, on your device |
-| Balanced | The first read of each new source in a task asks, unless it is a trusted site; sensitive sites always ask | Standing grants run; otherwise ask | Ask, once, for this task or always (you confirm Always allow) | Ask, once or always (you confirm Always allow), on your device |
-| Auto | New ordinary sites are read without asking, unless the turn is tainted or the site is sensitive | Inside your grants, a classifier decides: routine runs, sensitive asks, prohibited is denied | As Balanced | As Balanced |
+| Mode     | Reads                                                                                                     | Writes                                                                                       | Destructive                                                   | Financial                                                      |
+| -------- | --------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------- | ------------------------------------------------------------- | -------------------------------------------------------------- |
+| Plan     | Only tools with no side effect run                                                                        | Denied                                                                                       | Denied                                                        | Denied                                                         |
+| Manual   | The first read of each new source in a task asks                                                          | Ask every time; standing grants are not used                                                 | Ask, once only                                                | Ask, once only, on your device                                 |
+| Balanced | The first read of each new source in a task asks, unless it is a trusted site; sensitive sites always ask | Standing grants run; otherwise ask                                                           | Ask, once, for this task or always (you confirm Always allow) | Ask, once or always (you confirm Always allow), on your device |
+| Auto     | New ordinary sites are read without asking, unless the turn is tainted or the site is sensitive           | Inside your grants, a classifier decides: routine runs, sensitive asks, prohibited is denied | As Balanced                                                   | As Balanced                                                    |
 
 Sends, destructive and financial actions ask by default. You can let one run without asking: choose Allow for that action in Settings → Connectors, or Always allow on its card, and confirm. Psyche still asks after it has read untrusted content in the turn, and every time in Manual mode. Credential entry, purchases, commands on this Mac and other device-only approvals always ask.
 

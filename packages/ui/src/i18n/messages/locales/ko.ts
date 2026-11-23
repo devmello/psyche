@@ -1999,7 +1999,9 @@ export const ko: Partial<Catalogue> = {
     "{n, plural, =0 {보관된 스레드 없음} other {보관된 스레드 #개 삭제}}",
   "settings.data.reset": "재설정",
   "settings.data.resetHint":
-    "모든 메모리 파일, 색인 및 주장을 삭제하고 {persona}을(를) 처음 상태로 되돌립니다. 채팅은 유지됩니다.",
+    "모든 메모리 파일, 색인, 주장과 작업 공간의 로컬 git 기록을 삭제하고 {persona}을(를) 처음부터 다시 시작합니다. 채팅은 남습니다. git 원격 저장소는 자체 기록을 유지하며, 그것을 삭제하는 것은 본인의 몫입니다.",
+  "settings.data.git.historyNote":
+    "git 원격 저장소는 자체 기록을 유지합니다. 초기화와 잊기는 이 기기의 사본만 지우므로, 원격 저장소에서 오래된 메모를 지우는 것은 본인의 몫입니다.",
   "settings.data.typeToConfirm":
     "확인하려면 “{word}”을(를) 입력하십시오. 이 동작은 실행 취소할 수 없습니다.",
   "settings.data.resetMemory": "메모리 재설정",

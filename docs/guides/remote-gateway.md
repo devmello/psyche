@@ -94,15 +94,15 @@ There is no "continue anyway". If the identity changed on purpose (you rebuilt t
 
 Chat, Tasks, Search, Library, memory, automations and the non-Apple connectors work as on the Host and run there. These stay on the Host and say so:
 
-| Feature | On the other computer |
-| --- | --- |
-| The agent's browser | Off. "The browser runs on studio-mac." Browser tasks keep running in Psyche on the Host, which has to be open there. |
-| Computer use | Off. "Computer use works at studio-mac." |
-| Share a folder, Show in Finder, Show logs | Hidden. A path chosen here means nothing on the Host. |
-| Terminal | Off. "The terminal runs on studio-mac." This window starts no shell, because a shell is started here from what the Gateway answers, and a Gateway on another computer must never be able to ask for one. A real Host terminal over the connection is later work. |
-| Apple apps (Notes, Messages, Mail, Calendar, Reminders, Contacts) | The Host's, labelled "On studio-mac". This computer's own are never used. |
-| Ask about my screen, system-wide dictation | Off until they can run on this computer. |
-| Touch ID from this window | Not built yet. A passkey for the Host works from this window. Otherwise answer payments on the Host; other approvals are a tap on a paired device. |
+| Feature                                                           | On the other computer                                                                                                                                                                                                                                            |
+| ----------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| The agent's browser                                               | Off. "The browser runs on studio-mac." Browser tasks keep running in Psyche on the Host, which has to be open there.                                                                                                                                             |
+| Computer use                                                      | Off. "Computer use works at studio-mac."                                                                                                                                                                                                                         |
+| Share a folder, Show in Finder, Show logs                         | Hidden. A path chosen here means nothing on the Host.                                                                                                                                                                                                            |
+| Terminal                                                          | Off. "The terminal runs on studio-mac." This window starts no shell, because a shell is started here from what the Gateway answers, and a Gateway on another computer must never be able to ask for one. A real Host terminal over the connection is later work. |
+| Apple apps (Notes, Messages, Mail, Calendar, Reminders, Contacts) | The Host's, labelled "On studio-mac". This computer's own are never used.                                                                                                                                                                                        |
+| Ask about my screen, system-wide dictation                        | Off until they can run on this computer.                                                                                                                                                                                                                         |
+| Touch ID from this window                                         | Not built yet. A passkey for the Host works from this window. Otherwise answer payments on the Host; other approvals are a tap on a paired device.                                                                                                               |
 
 ## Forgetting a Gateway
 

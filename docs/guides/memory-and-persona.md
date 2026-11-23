@@ -6,17 +6,17 @@ Psyche keeps the agent's persona and memory as plain Markdown files you can read
 
 The files live in `~/.psyche/workspace/` (`$PSYCHE_HOME/workspace/`). On the first start, the Gateway copies them from the repository's `templates/` folder. They are ordinary files: you can open them in Soul & Memory, in any editor, or in Finder.
 
-| File | What it holds |
-| --- | --- |
-| `SOUL.md` | Core truths, boundaries and personality, written in the first person for you to read |
-| `IDENTITY.md` | The agent's name, creature, vibe, tagline, emoji, avatar and voice in a frontmatter block, plus a one-line self-description |
-| `AGENTS.md` | Operating instructions: safety, asking versus acting, approvals and receipts, memory, status lines |
-| `USER.md` | Stable facts about you and dated directives; the latest directive wins |
-| `MEMORY.md` | Curated long-term memory; each bullet ends with the dates it came from |
-| `memory/YYYY-MM-DD.md` | Daily notes, one bullet per entry |
-| `interests.md` | The Feed's interest ledger: one topic per line with a weight and a reason |
-| `BOOTSTRAP.md` | A first-run ritual, copied only into a fresh workspace |
-| `DREAMS.md` | The diary of nightly dreaming |
+| File                   | What it holds                                                                                                               |
+| ---------------------- | --------------------------------------------------------------------------------------------------------------------------- |
+| `SOUL.md`              | Core truths, boundaries and personality, written in the first person for you to read                                        |
+| `IDENTITY.md`          | The agent's name, creature, vibe, tagline, emoji, avatar and voice in a frontmatter block, plus a one-line self-description |
+| `AGENTS.md`            | Operating instructions: safety, asking versus acting, approvals and receipts, memory, status lines                          |
+| `USER.md`              | Stable facts about you and dated directives; the latest directive wins                                                      |
+| `MEMORY.md`            | Curated long-term memory; each bullet ends with the dates it came from                                                      |
+| `memory/YYYY-MM-DD.md` | Daily notes, one bullet per entry                                                                                           |
+| `interests.md`         | The Feed's interest ledger: one topic per line with a weight and a reason                                                   |
+| `BOOTSTRAP.md`         | A first-run ritual, copied only into a fresh workspace                                                                      |
+| `DREAMS.md`            | The diary of nightly dreaming                                                                                               |
 
 A daily note entry looks like `- HH:MM [tag] text`. The tag says where the entry came from: `owner`, `agent`, `system`, or `untrusted` (with the kind and source of the content). A `USER.md` directive looks like `- YYYY-MM-DD active: …`. When you replace one, the old line stays, marked `superseded by` the new date.
 
@@ -89,7 +89,7 @@ The Gateway supports incognito threads: nothing from them is written to memory, 
 
 ## Reset
 
-Soul & Memory has "Reset {name}…". It asks you to type `reset {name}` to confirm. It deletes every workspace file and the memory index and copies the templates back in. Receipts and the audit log are kept. Settings → Data controls has the same action. Reset needs a device paired as admin.
+Soul & Memory has "Reset {name}…". It asks you to type `reset {name}` to confirm. It deletes every workspace file and the memory index and copies the templates back in. It also deletes this device's local git history for the workspace; a git remote keeps its own history. Receipts and the audit log are kept. Settings → Data controls has the same action. Reset needs a device paired as admin.
 
 Deleting a chat does not delete what the agent learned from it. To forget that too, reset memory.
 
@@ -126,5 +126,8 @@ Settings → Data → "Back up to git" copies the workspace (SOUL.md, memory and
 - **Conflicts.** If the remote has edits to the same lines, the rebase is aborted and nothing is pushed. The result lists the files. Pulled changes are reindexed as your own edits.
 - **Who can change it.** Only a device with admin can change the remote or run a sync. Psyche uses your own git credentials and stores none.
 - **Needs git.** The Mac must have git installed. Without it the result says so.
+- **Voice files stay here.** `mail/VOICE.md` and `mail/voice-samples.jsonl` are never committed, even when an old commit tracked them. Raw imports under `memory/imports/` stay here too.
+- **Provenance travels.** Each commit includes `.psyche/provenance.json`, listing files whose content is untrusted (from the web, email or another source). A pull on another machine keeps those files untrusted, so trust is never raised by syncing.
+- **History.** Psyche's local git history is part of the workspace: Reset memory deletes it on this device, and forgetting a note removes it from the notes, which the next sync commits. The git remote keeps its own history. Removing old notes from there is up to you.
 
 The workspace is a plain folder of Markdown files, so you can also keep it under version control yourself. Psyche treats changes that arrive that way as your edits.

@@ -3,6 +3,7 @@
 Status: proposal v1 (2026-10-25), for the owner's sign-off. It applies to psyche-desktop (Electron 44) and psyche-web.
 
 Companion documents:
+
 - [motion.md](motion.md), the motion system
 - [research/apple-and-reference-apps.md](research/apple-and-reference-apps.md) and [research/motion-systems.md](research/motion-systems.md), the sourced research notes with URLs and dates
 - [../06-ui-design.md](../06-ui-design.md), which this document amends: §4 design language, §2.1 rail, §3.1 main window
@@ -11,7 +12,8 @@ Companion documents:
 **The owner's brief:** the app feels "kind of iffy" and "scrappy like an old Android app". It should be cohesive, Apple-like, high quality and animated, informed by research into modern app design and animation systems.
 
 **The short answer:**
-- The October polish wave fixed *components*. The app still feels scrappy because of four *system* problems:
+
+- The October polish wave fixed _components_. The app still feels scrappy because of four _system_ problems:
   - everything sits on one flat surface
   - every region draws a hairline box
   - the chrome is as loud as the content
@@ -24,17 +26,18 @@ Companion documents:
 
 The research, condensed. Full citations are in the research notes.
 
-| App | What it does that Psyche doesn't |
-| --- | --- |
-| **Apple, macOS 26** | **Text and type:** body text is 13 pt/16, not 15. Hierarchy comes from Title 1–3 and Headline weights, not colour. **Materials:** glass is only on the navigation and control layer, and content stays opaque ("Don't use Liquid Glass in the content layer"). Hard dividers are replaced by scroll-edge effects. Corners are concentric (inner radius = outer − padding). Sidebars float as inset panes. **Motion:** brief and cancellable, and nothing on frequent interactions. The default spring is critically damped (response 0.55, damping 1.0). |
-| **Linear** | Three theme inputs (base, accent, contrast) generated in LCH, which give elevation surfaces automatically. The sidebar is "a few notches dimmer" than content, with smaller icons and muted inactive text. Fewer and softer dividers. "Structure should be felt not seen." "Don't compete for attention you haven't earned." |
-| **Raycast** | No `cursor: pointer`, few hover highlights. An action bar that teaches shortcuts. No flicker on appear. Settings in their own window. |
-| **Things 3** | Mostly white space, with colour as rare accents. Opening an item is a spatial card transition, not a page change. Type-to-jump. |
-| **Superhuman** | Every interaction in under 100 ms (50 ms target). Minimal animation. Shortcut hints in the UI. ⌘K. |
-| **Claude desktop, ChatGPT (Electron, 2026)** | Opaque warm-neutral canvas (Claude `#fcfcfb` / `#151515`), no vibrancy, a hidden title bar with custom traffic lights. Reviewers judged them on **structure and clarity before polish**: ChatGPT's nested panes were called "UX hell". |
-| **Warp, Arc, Bear, Craft, Reflect, Notion Calendar** | Keyboard-first, a `?`/⌘/ shortcut list, custom-built rendering for speed, one strong idea per surface (Warp's blocks, Arc's sidebar). |
+| App                                                  | What it does that Psyche doesn't                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                         |
+| ---------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **Apple, macOS 26**                                  | **Text and type:** body text is 13 pt/16, not 15. Hierarchy comes from Title 1–3 and Headline weights, not colour. **Materials:** glass is only on the navigation and control layer, and content stays opaque ("Don't use Liquid Glass in the content layer"). Hard dividers are replaced by scroll-edge effects. Corners are concentric (inner radius = outer − padding). Sidebars float as inset panes. **Motion:** brief and cancellable, and nothing on frequent interactions. The default spring is critically damped (response 0.55, damping 1.0). |
+| **Linear**                                           | Three theme inputs (base, accent, contrast) generated in LCH, which give elevation surfaces automatically. The sidebar is "a few notches dimmer" than content, with smaller icons and muted inactive text. Fewer and softer dividers. "Structure should be felt not seen." "Don't compete for attention you haven't earned."                                                                                                                                                                                                                             |
+| **Raycast**                                          | No `cursor: pointer`, few hover highlights. An action bar that teaches shortcuts. No flicker on appear. Settings in their own window.                                                                                                                                                                                                                                                                                                                                                                                                                    |
+| **Things 3**                                         | Mostly white space, with colour as rare accents. Opening an item is a spatial card transition, not a page change. Type-to-jump.                                                                                                                                                                                                                                                                                                                                                                                                                          |
+| **Superhuman**                                       | Every interaction in under 100 ms (50 ms target). Minimal animation. Shortcut hints in the UI. ⌘K.                                                                                                                                                                                                                                                                                                                                                                                                                                                       |
+| **Claude desktop, ChatGPT (Electron, 2026)**         | Opaque warm-neutral canvas (Claude `#fcfcfb` / `#151515`), no vibrancy, a hidden title bar with custom traffic lights. Reviewers judged them on **structure and clarity before polish**: ChatGPT's nested panes were called "UX hell".                                                                                                                                                                                                                                                                                                                   |
+| **Warp, Arc, Bear, Craft, Reflect, Notion Calendar** | Keyboard-first, a `?`/⌘/ shortcut list, custom-built rendering for speed, one strong idea per surface (Warp's blocks, Arc's sidebar).                                                                                                                                                                                                                                                                                                                                                                                                                    |
 
 **What these apps have in common, and what Psyche adopts:**
+
 1. One accent colour, used as a signal rather than a theme.
 2. Chrome dimmer than content.
 3. Opaque content, with translucency only in chrome.
@@ -46,6 +49,7 @@ The research, condensed. Full citations are in the research notes.
 ## 2. Audit: why the current app reads as scrappy
 
 The evidence:
+
 - 45 captures of the composed web client served by the mock Gateway (1440×900 and 390×844, light and dark)
 - 22 Storybook captures at 1280×800 of the populated states
 - a code survey of `packages/ui/src` and `apps/web/src/shell` on `origin/main` at `ba675177`
@@ -54,38 +58,38 @@ Captures were taken on 2026-10-25. The Electron e2e was not run, per the machine
 
 ### 2.1 System-level problems (cross-cutting, highest impact)
 
-| # | Problem | Evidence | Fix (section) |
-| --- | --- | --- | --- |
-| S1 | **One flat surface.** The rail, thread list, content, cards and settings panels all sit on `gray-1` / `gray-2`. Nothing reads as chrome versus content, so the window looks like a web page in a frame. | Every capture | Materials and surfaces (§3.4) |
-| S2 | **Boxes everywhere.** Each region and card draws a 1 px gray-6 border. Settings nests a bordered card inside a bordered card inside a bordered table. Feed is a stack of outlined boxes. The approval card has an amber outline inside a dock with an outline. | Settings → Permissions; Feed; dentist thread | Elevation without borders, grouped inset lists (§3.5) |
-| S3 | **Two sidebars.** A 56 px icon rail plus a 260 px thread list, each with its own border. That is two navigation columns where Mac apps have one source list. | Main window | One sidebar (§5.1) |
-| S4 | **Type is iOS-sized and flat.** Body is 15 px everywhere, including chrome, while macOS chrome is 13. Hierarchy is mostly size jumps plus colour. Labels at 11 px uppercase compete with titles. Tracking isn't adjusted (SF needs −0.08 at 13 px, −0.23 at 15 and so on, which the web doesn't apply automatically). | Settings list 15 px, chat header | Type scale (§3.2) |
-| S5 | **The accent is everywhere.** A 2 px violet ring around the composer at rest, violet radio dots, violet selected rows, violet "Try again" links, violet badges. Linear calls this competing for attention you haven't earned. | Composer, settings matrices | Colour restraint (§3.3) |
-| S6 | **Nothing moves, and what does move jumps.** Motion is Tailwind `transition-colors`, `tw-animate-css` enter/exit on some primitives, and 13 spinners. Cards pop in, panes and sheets snap, and lists reflow without FLIP. Twelve files honour reduced motion, and the rest have no motion to reduce. | Code survey | Motion system ([motion.md](motion.md)) |
-| S7 | **Two styling systems.** The shell (rail fallback, title bar, panes, splash, banners, toasts) is 716 lines of plain CSS in `apps/web/src/shell/shell.css` with its own `--shell-*` variables. The kit is Tailwind tokens. They drift (header heights, borders, focus). | `shell.css` | Tokens own everything (§7.2) |
-| S8 | **Native conventions are missed.** `cursor: pointer` on controls. Always-visible thin scrollbars instead of overlay scrollers. Primary buttons sometimes on the leading side. Destructive confirmations as inline panels. A title bar showing a centred title over a toolbar-less window. Inactive windows look identical to active ones. | Captures | Window chrome (§4), conventions (§3.8) |
-| S9 | **Error and empty states shout.** The error banner uses danger-red text for the whole sentence. Empty states are a gray sentence in a large void. | Feed, Goals and Settings error captures | States (§5.9) |
-| S10 | **Phone width is cramped.** At 390 px the agent header overflows: the name truncates to "Wr…" and the model pill wraps onto two lines. The view toggle duplicates header controls. | `web-390-chat` | Compact layout (§5.10) |
+| #   | Problem                                                                                                                                                                                                                                                                                                                                   | Evidence                                     | Fix (section)                                         |
+| --- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | -------------------------------------------- | ----------------------------------------------------- |
+| S1  | **One flat surface.** The rail, thread list, content, cards and settings panels all sit on `gray-1` / `gray-2`. Nothing reads as chrome versus content, so the window looks like a web page in a frame.                                                                                                                                   | Every capture                                | Materials and surfaces (§3.4)                         |
+| S2  | **Boxes everywhere.** Each region and card draws a 1 px gray-6 border. Settings nests a bordered card inside a bordered card inside a bordered table. Feed is a stack of outlined boxes. The approval card has an amber outline inside a dock with an outline.                                                                            | Settings → Permissions; Feed; dentist thread | Elevation without borders, grouped inset lists (§3.5) |
+| S3  | **Two sidebars.** A 56 px icon rail plus a 260 px thread list, each with its own border. That is two navigation columns where Mac apps have one source list.                                                                                                                                                                              | Main window                                  | One sidebar (§5.1)                                    |
+| S4  | **Type is iOS-sized and flat.** Body is 15 px everywhere, including chrome, while macOS chrome is 13. Hierarchy is mostly size jumps plus colour. Labels at 11 px uppercase compete with titles. Tracking isn't adjusted (SF needs −0.08 at 13 px, −0.23 at 15 and so on, which the web doesn't apply automatically).                     | Settings list 15 px, chat header             | Type scale (§3.2)                                     |
+| S5  | **The accent is everywhere.** A 2 px violet ring around the composer at rest, violet radio dots, violet selected rows, violet "Try again" links, violet badges. Linear calls this competing for attention you haven't earned.                                                                                                             | Composer, settings matrices                  | Colour restraint (§3.3)                               |
+| S6  | **Nothing moves, and what does move jumps.** Motion is Tailwind `transition-colors`, `tw-animate-css` enter/exit on some primitives, and 13 spinners. Cards pop in, panes and sheets snap, and lists reflow without FLIP. Twelve files honour reduced motion, and the rest have no motion to reduce.                                      | Code survey                                  | Motion system ([motion.md](motion.md))                |
+| S7  | **Two styling systems.** The shell (rail fallback, title bar, panes, splash, banners, toasts) is 716 lines of plain CSS in `apps/web/src/shell/shell.css` with its own `--shell-*` variables. The kit is Tailwind tokens. They drift (header heights, borders, focus).                                                                    | `shell.css`                                  | Tokens own everything (§7.2)                          |
+| S8  | **Native conventions are missed.** `cursor: pointer` on controls. Always-visible thin scrollbars instead of overlay scrollers. Primary buttons sometimes on the leading side. Destructive confirmations as inline panels. A title bar showing a centred title over a toolbar-less window. Inactive windows look identical to active ones. | Captures                                     | Window chrome (§4), conventions (§3.8)                |
+| S9  | **Error and empty states shout.** The error banner uses danger-red text for the whole sentence. Empty states are a gray sentence in a large void.                                                                                                                                                                                         | Feed, Goals and Settings error captures      | States (§5.9)                                         |
+| S10 | **Phone width is cramped.** At 390 px the agent header overflows: the name truncates to "Wr…" and the model pill wraps onto two lines. The view toggle duplicates header controls.                                                                                                                                                        | `web-390-chat`                               | Compact layout (§5.10)                                |
 
 ### 2.2 Screen by screen
 
-| Screen | What reads as scrappy | Apple conventions violated |
-| --- | --- | --- |
-| **Chat column + composer** | **Header and view controls:** the header is 56 px with a 40 px avatar plus a count badge overlapping it. A second 36 px "View: Normal / Thinking / Verbose" bar sits under the header, so two strips of chrome come before any content. **Messages:** user bubbles are gray-3 pills. Agent text runs full column width at 15 px. Timestamps sit right-aligned under every bubble. **Composer:** a 2 px accent-bordered box with a hint line, a send button and a stop square. It looks like a form field, not a floating control. **Empty chat:** a lone gray sentence. | Toolbar density (two bars). No scroll-edge treatment. The focus ring is drawn at rest. |
-| **Tool / approval / question cards** | **Tool runs:** rows are aligned but each has a gray dot plus a "pending" label plus an icon. **Approval:** the card is a dense key–value table with an amber outline, a radio row, "Details", a binding hash, keyboard hints and two buttons. The primary "Allow with scope" is pale violet and reads as disabled. **Question card:** has its own border style. **"Waiting for your approval":** appears as a separate line under each tool run. | Alert/sheet button order is right (Deny leading), but there is no visual default. The card isn't concentric with the dock. |
-| **Side chats / thread list** | A search field, a pen icon, "SIDE CHATS" in 11 px caps, and rows with amber dots and dates. **Row and selection:** the row height is 28–32 px, inconsistent with the settings list (36). The selected row is a gray-4 slab with no rounding inset. Archived is a text button. | Sidebar rows should follow the system sidebar sizes (small, medium or large). Selection should be a rounded inset pill using the accent when the window is key and gray when it isn't. |
-| **Shell navigation** | **Rail:** 56 px icon-over-label stack (10 px labels), a hamburger at the bottom, and the Psyche mark missing. The rail item highlight is accent-3. **Page titles:** each screen has its own h1, so Feed, Goals and Settings repeat the title the rail already shows. **Title bar:** a 52 px drag bar showing just the thread title. | No unified toolbar. No sidebar show/hide control. Window title and toolbar are separate. |
-| **Search** | A centred 80ch column with a big input. Results are grouped by headings. There's no preview and no keyboard affordance shown. | The ⌘K palette and Search look unrelated. |
-| **Onboarding** | **Layout:** a left-aligned 896 px form beside a preview card, a numbered stepper and a 12-tile creature grid with borders. Back/Next sit below a rule. **Weight:** it reads like a settings form, not a first-run moment. | macOS 26 onboarding is bold, left-aligned and has a single focus. Too many controls are shown at once. |
-| **Splash** | A centred mark that fades into the app. Fine, but the window paints `#fff` before React (no `backgroundColor`), so dark mode flashes. | Electron recommends `backgroundColor` matching the app's background. |
-| **Settings** | **Layout:** a second in-page sidebar (20 items with icons) next to the rail. Each section is a bordered card stack. **Permissions:** the matrices are tables with radio columns and mono key labels. **Persona:** repeats the onboarding creature grid inside a card. **Error:** red text across the whole sentence. | **Window:** macOS settings are their own window (⌘,) with grouped inset rows (System Settings style). Here they are a route that hides the app. |
-| **Feed** | **Posts:** bordered cards with a kind label in caps, a title and body, a sources row with letter monograms, and four icon buttons. **Rhythm and end:** the same treatment for every post, so there is no rhythm. The end marker is plain text. | Content is fine as cards. They need less outline and more air. |
-| **Ideas** | **Cards:** each has evidence, effort and three buttons. The "Let's do it" button is primary on every card, so the screen is a wall of violet. | One primary per view, not per card. |
-| **Goals** | **Layout and progress:** a split list and detail. Progress bars are a 4 px accent on gray. **Detail page:** a definition-list page with caps labels (MILESTONES, PLAN, TASKS). **Inferred goal:** a dashed accent box. | It works structurally but looks like a debug view. |
-| **Library** | **Navigation and filters:** a tabs pill plus three native selects. **Cards:** file icons in boxes, a Task chip, tags, Open plus three icon actions. | Grid items should be thumbnails with a name underneath, as in Finder, with actions in a context menu. |
-| **Persona / Soul & Memory** | **Layout:** the Agent sheet at `/agent/*` stretches four tabs across the full window width. **Editing:** Soul & Memory is a textarea editor with budget text. | A sheet shouldn't become a full-width page with stretched tabs. |
-| **Inbox** | **Rows:** kind chips, Approve/Deny inline, and Open on every row. | Fine structurally; the noise level is the problem. |
-| **Web at 390 px** | **Header overflow:** the header overflows, the persona name truncates and the model pill wraps. **Bottom tab bar:** 5 tabs with icon and label; the active tab gets an accent tile. | Phone conventions: a 44 px top bar, a single title, and a drawer for threads. |
+| Screen                               | What reads as scrappy                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                   | Apple conventions violated                                                                                                                                                             |
+| ------------------------------------ | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **Chat column + composer**           | **Header and view controls:** the header is 56 px with a 40 px avatar plus a count badge overlapping it. A second 36 px "View: Normal / Thinking / Verbose" bar sits under the header, so two strips of chrome come before any content. **Messages:** user bubbles are gray-3 pills. Agent text runs full column width at 15 px. Timestamps sit right-aligned under every bubble. **Composer:** a 2 px accent-bordered box with a hint line, a send button and a stop square. It looks like a form field, not a floating control. **Empty chat:** a lone gray sentence. | Toolbar density (two bars). No scroll-edge treatment. The focus ring is drawn at rest.                                                                                                 |
+| **Tool / approval / question cards** | **Tool runs:** rows are aligned but each has a gray dot plus a "pending" label plus an icon. **Approval:** the card is a dense key–value table with an amber outline, a radio row, "Details", a binding hash, keyboard hints and two buttons. The primary "Allow with scope" is pale violet and reads as disabled. **Question card:** has its own border style. **"Waiting for your approval":** appears as a separate line under each tool run.                                                                                                                        | Alert/sheet button order is right (Deny leading), but there is no visual default. The card isn't concentric with the dock.                                                             |
+| **Side chats / thread list**         | A search field, a pen icon, "SIDE CHATS" in 11 px caps, and rows with amber dots and dates. **Row and selection:** the row height is 28–32 px, inconsistent with the settings list (36). The selected row is a gray-4 slab with no rounding inset. Archived is a text button.                                                                                                                                                                                                                                                                                           | Sidebar rows should follow the system sidebar sizes (small, medium or large). Selection should be a rounded inset pill using the accent when the window is key and gray when it isn't. |
+| **Shell navigation**                 | **Rail:** 56 px icon-over-label stack (10 px labels), a hamburger at the bottom, and the Psyche mark missing. The rail item highlight is accent-3. **Page titles:** each screen has its own h1, so Feed, Goals and Settings repeat the title the rail already shows. **Title bar:** a 52 px drag bar showing just the thread title.                                                                                                                                                                                                                                     | No unified toolbar. No sidebar show/hide control. Window title and toolbar are separate.                                                                                               |
+| **Search**                           | A centred 80ch column with a big input. Results are grouped by headings. There's no preview and no keyboard affordance shown.                                                                                                                                                                                                                                                                                                                                                                                                                                           | The ⌘K palette and Search look unrelated.                                                                                                                                              |
+| **Onboarding**                       | **Layout:** a left-aligned 896 px form beside a preview card, a numbered stepper and a 12-tile creature grid with borders. Back/Next sit below a rule. **Weight:** it reads like a settings form, not a first-run moment.                                                                                                                                                                                                                                                                                                                                               | macOS 26 onboarding is bold, left-aligned and has a single focus. Too many controls are shown at once.                                                                                 |
+| **Splash**                           | A centred mark that fades into the app. Fine, but the window paints `#fff` before React (no `backgroundColor`), so dark mode flashes.                                                                                                                                                                                                                                                                                                                                                                                                                                   | Electron recommends `backgroundColor` matching the app's background.                                                                                                                   |
+| **Settings**                         | **Layout:** a second in-page sidebar (20 items with icons) next to the rail. Each section is a bordered card stack. **Permissions:** the matrices are tables with radio columns and mono key labels. **Persona:** repeats the onboarding creature grid inside a card. **Error:** red text across the whole sentence.                                                                                                                                                                                                                                                    | **Window:** macOS settings are their own window (⌘,) with grouped inset rows (System Settings style). Here they are a route that hides the app.                                        |
+| **Feed**                             | **Posts:** bordered cards with a kind label in caps, a title and body, a sources row with letter monograms, and four icon buttons. **Rhythm and end:** the same treatment for every post, so there is no rhythm. The end marker is plain text.                                                                                                                                                                                                                                                                                                                          | Content is fine as cards. They need less outline and more air.                                                                                                                         |
+| **Ideas**                            | **Cards:** each has evidence, effort and three buttons. The "Let's do it" button is primary on every card, so the screen is a wall of violet.                                                                                                                                                                                                                                                                                                                                                                                                                           | One primary per view, not per card.                                                                                                                                                    |
+| **Goals**                            | **Layout and progress:** a split list and detail. Progress bars are a 4 px accent on gray. **Detail page:** a definition-list page with caps labels (MILESTONES, PLAN, TASKS). **Inferred goal:** a dashed accent box.                                                                                                                                                                                                                                                                                                                                                  | It works structurally but looks like a debug view.                                                                                                                                     |
+| **Library**                          | **Navigation and filters:** a tabs pill plus three native selects. **Cards:** file icons in boxes, a Task chip, tags, Open plus three icon actions.                                                                                                                                                                                                                                                                                                                                                                                                                     | Grid items should be thumbnails with a name underneath, as in Finder, with actions in a context menu.                                                                                  |
+| **Persona / Soul & Memory**          | **Layout:** the Agent sheet at `/agent/*` stretches four tabs across the full window width. **Editing:** Soul & Memory is a textarea editor with budget text.                                                                                                                                                                                                                                                                                                                                                                                                           | A sheet shouldn't become a full-width page with stretched tabs.                                                                                                                        |
+| **Inbox**                            | **Rows:** kind chips, Approve/Deny inline, and Open on every row.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                       | Fine structurally; the noise level is the problem.                                                                                                                                     |
+| **Web at 390 px**                    | **Header overflow:** the header overflows, the persona name truncates and the model pill wraps. **Bottom tab bar:** 5 tabs with icon and label; the active tab gets an accent tile.                                                                                                                                                                                                                                                                                                                                                                                     | Phone conventions: a 44 px top bar, a single title, and a drawer for threads.                                                                                                          |
 
 ## 3. Visual language
 
@@ -116,48 +120,51 @@ Captures were taken on 2026-10-25. The Electron e2e was not run, per the machine
 **Grid:** 8-point with a 4-point half step. The spacing scale is 2 · 4 · 8 · 12 · 16 · 20 · 24 · 32 · 40 · 48 · 64. Tailwind's `--spacing: 4px` stays, so `p-2` = 8 px. The density setting was removed (#608); the compact sidebar mode is separate.
 
 **Font:**
+
 - `system-ui, -apple-system, "SF Pro Text", "SF Pro", "Inter Variable", "Segoe UI", sans-serif` with `font-optical-sizing: auto`, so SF switches to Display optics at 20 pt and up.
 - Mono: `ui-monospace, "SF Mono", "JetBrains Mono", Menlo, monospace`.
 - Inter is self-hosted for Linux and the web only.
 
-**Type scale: macOS text styles** (HIG Typography, change log 2025-12-16). Chrome uses the macOS sizes. Reading content (the chat transcript, feed posts, documents) uses a larger *reading* style, because a conversation is read like a document. Claude, ChatGPT and Notion read at 15–16.
+**Type scale: macOS text styles** (HIG Typography, change log 2025-12-16). Chrome uses the macOS sizes. Reading content (the chat transcript, feed posts, documents) uses a larger _reading_ style, because a conversation is read like a document. Claude, ChatGPT and Notion read at 15–16.
 
-| Token | macOS style | Size / line | Weight | Tracking | Used for |
-| --- | --- | --- | --- | --- | --- |
-| `text-large-title` | Large Title | 26 / 32 | 600 | +0.22 px | Onboarding headline, empty-state headline |
-| `text-title-1` | Title 1 | 22 / 28 | 600 | −0.26 px | Page title (Feed, Goals, Library); settings window section title |
-| `text-title-2` | Title 2 | 17 / 22 | 600 | −0.43 px | Card titles (feed post, goal, approval summary), sheet titles |
-| `text-title-3` | Title 3 | 15 / 20 | 600 | −0.23 px | Group headers inside a page, dialog titles |
-| `text-headline` | Headline | 13 / 16 | 600 | −0.08 px | Row titles, persona name in the toolbar, button labels on primary |
-| `text-body` | Body | 13 / 18 | 400 | −0.08 px | All chrome: sidebar rows, settings rows, menus, form labels, buttons |
-| `text-reading` | (Psyche) | 15 / 23 | 400 | −0.23 px | Chat messages, feed post bodies, Markdown documents, onboarding copy |
-| `text-callout` | Callout | 12 / 16 | 400 | 0 | Secondary line in rows, help text under fields, timestamps |
-| `text-subheadline` | Subheadline | 11 / 14 | 400 | +0.06 px | Metadata chips, keyboard hints, status lines |
-| `text-caption` | Caption 1 | 11 / 14 | 500 | +0.06 px | Group labels. Sentence case, not caps; Apple stopped using small caps for sidebar headers |
-| `text-mono` | — | 12 / 18 | 400 | 0 | Code, paths, command arguments (level 2 only) |
+| Token              | macOS style | Size / line | Weight | Tracking | Used for                                                                                  |
+| ------------------ | ----------- | ----------- | ------ | -------- | ----------------------------------------------------------------------------------------- |
+| `text-large-title` | Large Title | 26 / 32     | 600    | +0.22 px | Onboarding headline, empty-state headline                                                 |
+| `text-title-1`     | Title 1     | 22 / 28     | 600    | −0.26 px | Page title (Feed, Goals, Library); settings window section title                          |
+| `text-title-2`     | Title 2     | 17 / 22     | 600    | −0.43 px | Card titles (feed post, goal, approval summary), sheet titles                             |
+| `text-title-3`     | Title 3     | 15 / 20     | 600    | −0.23 px | Group headers inside a page, dialog titles                                                |
+| `text-headline`    | Headline    | 13 / 16     | 600    | −0.08 px | Row titles, persona name in the toolbar, button labels on primary                         |
+| `text-body`        | Body        | 13 / 18     | 400    | −0.08 px | All chrome: sidebar rows, settings rows, menus, form labels, buttons                      |
+| `text-reading`     | (Psyche)    | 15 / 23     | 400    | −0.23 px | Chat messages, feed post bodies, Markdown documents, onboarding copy                      |
+| `text-callout`     | Callout     | 12 / 16     | 400    | 0        | Secondary line in rows, help text under fields, timestamps                                |
+| `text-subheadline` | Subheadline | 11 / 14     | 400    | +0.06 px | Metadata chips, keyboard hints, status lines                                              |
+| `text-caption`     | Caption 1   | 11 / 14     | 500    | +0.06 px | Group labels. Sentence case, not caps; Apple stopped using small caps for sidebar headers |
+| `text-mono`        | —           | 12 / 18     | 400    | 0        | Code, paths, command arguments (level 2 only)                                             |
 
 Notes:
+
 - **Minimum size and line heights:** the minimum is 11 px, above Apple's 10, for web legibility and AA. Line heights are 2–4 px looser than AppKit's, because browsers don't clip glyphs the way AppKit does, and the extra lead reads better at 13 px.
 - **Weights:** only 400, 500 and 600 for text styles (Large Title and Title 1 were 700; amended 2026-11-01 by the unslop pass, since bold at display sizes read heavy). Apple advises against Ultralight, Thin and Light.
 - **Uppercase:** the existing `text-label` (11/14 uppercase) is retired. Uppercase is only for the approval card's single "APPROVAL NEEDED" eyebrow, if anywhere.
 
 ### 3.3 Colour
 
-**The model stays.** Psyche keeps docs/06 §4.8: OKLCH 12-step scales generated from a seed with a WCAG gate. What changes is *which tokens components may use*. Following Linear's three inputs (base, accent, contrast), components never touch raw steps. They use semantic roles that map onto steps per appearance, modeled on AppKit's semantic colours.
+**The model stays.** Psyche keeps docs/06 §4.8: OKLCH 12-step scales generated from a seed with a WCAG gate. What changes is _which tokens components may use_. Following Linear's three inputs (base, accent, contrast), components never touch raw steps. They use semantic roles that map onto steps per appearance, modeled on AppKit's semantic colours.
 
-| Role | Light | Dark | Use |
-| --- | --- | --- | --- |
-| `--canvas` | gray-1, tinted warm (`oklch(0.992 0.003 85)`, about `#fcfcfb`) | `oklch(0.195 0.003 85)` (about `#151515`) | Content background: chat, pages, settings window content |
-| `--surface-sidebar` | material (§3.4); fallback `oklch(0.965 0.004 85)` | material; fallback `oklch(0.225 0.004 85)` | Sidebar, settings window sidebar |
-| `--surface-raised` | `oklch(1 0 0)` | `oklch(0.245 0.004 85)` | Cards, the approval dock, grouped rows (level 1) |
-| `--surface-overlay` | glass (§3.4); fallback `oklch(1 0 0)` | glass; fallback `oklch(0.27 0.004 85)` | Popovers, menus, palette, sheets (level 2–3) |
-| `--label-primary` / `-secondary` / `-tertiary` / `-quaternary` | gray-12 / gray-11 / gray-10 at 70% / gray-9 at 55% | the same steps | Text and icons, in four levels like AppKit's label colours. Primary and secondary pass AA on every surface; tertiary is only for non-essential metadata ≥ 13 px at 3:1 |
-| `--fill-primary` … `--fill-quaternary` | black at 9 / 6 / 4 / 2.5% | white at 14 / 10 / 7 / 4% | Control backgrounds, hover (quaternary → tertiary), pressed (secondary), selected rows when the window is inactive |
-| `--separator` | black at 8% | white at 9% | Hairlines, only where grouping needs them (§3.5) |
-| `--accent` | accent-9 | accent-9 (dark-tuned) | Primary buttons, key-window selection, links, focus ring (`--ring` = accent-8 at 60%) |
-| `--approval`, `--danger`, `--success`, `--info` | fixed Radix amber / tomato / grass / sky (unchanged) | the same | Status only |
+| Role                                                           | Light                                                          | Dark                                       | Use                                                                                                                                                                    |
+| -------------------------------------------------------------- | -------------------------------------------------------------- | ------------------------------------------ | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `--canvas`                                                     | gray-1, tinted warm (`oklch(0.992 0.003 85)`, about `#fcfcfb`) | `oklch(0.195 0.003 85)` (about `#151515`)  | Content background: chat, pages, settings window content                                                                                                               |
+| `--surface-sidebar`                                            | material (§3.4); fallback `oklch(0.965 0.004 85)`              | material; fallback `oklch(0.225 0.004 85)` | Sidebar, settings window sidebar                                                                                                                                       |
+| `--surface-raised`                                             | `oklch(1 0 0)`                                                 | `oklch(0.245 0.004 85)`                    | Cards, the approval dock, grouped rows (level 1)                                                                                                                       |
+| `--surface-overlay`                                            | glass (§3.4); fallback `oklch(1 0 0)`                          | glass; fallback `oklch(0.27 0.004 85)`     | Popovers, menus, palette, sheets (level 2–3)                                                                                                                           |
+| `--label-primary` / `-secondary` / `-tertiary` / `-quaternary` | gray-12 / gray-11 / gray-10 at 70% / gray-9 at 55%             | the same steps                             | Text and icons, in four levels like AppKit's label colours. Primary and secondary pass AA on every surface; tertiary is only for non-essential metadata ≥ 13 px at 3:1 |
+| `--fill-primary` … `--fill-quaternary`                         | black at 9 / 6 / 4 / 2.5%                                      | white at 14 / 10 / 7 / 4%                  | Control backgrounds, hover (quaternary → tertiary), pressed (secondary), selected rows when the window is inactive                                                     |
+| `--separator`                                                  | black at 8%                                                    | white at 9%                                | Hairlines, only where grouping needs them (§3.5)                                                                                                                       |
+| `--accent`                                                     | accent-9                                                       | accent-9 (dark-tuned)                      | Primary buttons, key-window selection, links, focus ring (`--ring` = accent-8 at 60%)                                                                                  |
+| `--approval`, `--danger`, `--success`, `--info`                | fixed Radix amber / tomato / grass / sky (unchanged)           | the same                                   | Status only                                                                                                                                                            |
 
 Rules:
+
 - **Accent:**
   - The accent may fill at most one control per view: the primary action.
   - Selected sidebar rows are accent-tinted (`accent-a4` fill, label-primary text) when the window is key, and `fill-secondary` when it isn't. That is Apple's focused versus unfocused selection.
@@ -168,6 +175,7 @@ Rules:
 ### 3.4 Materials ("glass") and fallbacks
 
 Apple's rule: glass on the navigation and control layer only; never glass on glass; content is opaque. Electron has no Liquid Glass:
+
 - PR #50415 (`setGlassEffect`) closed unmerged on 2026-06-30.
 - The community `electron-liquid-glass` addon says "DO NOT USE IN PROD".
 
@@ -177,15 +185,15 @@ This Mac runs macOS 27, where WWDC26 made sidebars edge to edge again, made glas
 
 Every glass surface is a `GlassSurface` with a fallback ladder: **native → refraction → css → opaque** (`resolveGlassImpl`).
 
-| Surface | Desktop (Electron) | Web, Chromium | Web, Safari / Firefox |
-| --- | --- | --- | --- |
-| **Sidebar**, including the Settings window sidebar | Opaque `--surface-sidebar` with the traffic lights on it (**amended by #597**: native `vibrancy: "sidebar"` was built, then dropped because it flickered; see §4) | Opaque `--surface-sidebar` | Opaque |
-| **Toolbar row** (52 px) | **No material.** Opaque canvas with a 24 px scroll-edge fade | Same | Same |
-| **Toolbar control groups** (mode and model pills, bell, ⋯) | `ToolbarGroup` → `GlassSurface impl="refraction"` capsule | Refraction | CSS blur |
-| **Composer** | `GlassSurface impl="refraction"`, radius = height / 2 | Refraction | CSS blur |
-| **Popovers, menus, ⌘K palette** | `.material-glass` (the CSS rung, 72% tint, `blur(20px) saturate(1.6)`) | Same | Same |
-| **Agent sheet, Settings sheets, dialogs** | Opaque `--surface-overlay` with `--elevation-3` and a dimming scrim, **no glass** | Same | Same |
-| **Clear variant** | Only controls over media (image or video viewer, avatar crop), with a 35% dark dim behind labels | Same | CSS |
+| Surface                                                    | Desktop (Electron)                                                                                                                                                | Web, Chromium              | Web, Safari / Firefox |
+| ---------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------- | -------------------------- | --------------------- |
+| **Sidebar**, including the Settings window sidebar         | Opaque `--surface-sidebar` with the traffic lights on it (**amended by #597**: native `vibrancy: "sidebar"` was built, then dropped because it flickered; see §4) | Opaque `--surface-sidebar` | Opaque                |
+| **Toolbar row** (52 px)                                    | **No material.** Opaque canvas with a 24 px scroll-edge fade                                                                                                      | Same                       | Same                  |
+| **Toolbar control groups** (mode and model pills, bell, ⋯) | `ToolbarGroup` → `GlassSurface impl="refraction"` capsule                                                                                                         | Refraction                 | CSS blur              |
+| **Composer**                                               | `GlassSurface impl="refraction"`, radius = height / 2                                                                                                             | Refraction                 | CSS blur              |
+| **Popovers, menus, ⌘K palette**                            | `.material-glass` (the CSS rung, 72% tint, `blur(20px) saturate(1.6)`)                                                                                            | Same                       | Same                  |
+| **Agent sheet, Settings sheets, dialogs**                  | Opaque `--surface-overlay` with `--elevation-3` and a dimming scrim, **no glass**                                                                                 | Same                       | Same                  |
+| **Clear variant**                                          | Only controls over media (image or video viewer, avatar crop), with a 35% dark dim behind labels                                                                  | Same                       | CSS                   |
 
 - **Tokens:**
   - `--material-glass` (CSS rung), `--material-glass-refraction` (50% overlay), `--material-glass-clear` (15%)
@@ -202,25 +210,25 @@ Every glass surface is a `GlassSurface` with a fallback ladder: **native → ref
 
 **Radii** follow the concentric rule: inner radius = outer radius − padding. Ink stays on the 4 px grid.
 
-| Token | px | Use |
-| --- | --- | --- |
-| `radius-xs` | 4 | Checkboxes, inline code, tag chips inside text |
-| `radius-sm` | 6 | Small controls (h-6/h-7 buttons, segmented items), sidebar selection pill (row 28, inset 4 → about 6) |
-| `radius-md` | 8 | Regular controls: buttons, inputs, selects, menu items |
-| `radius-lg` | 12 | Cards, grouped row containers, the approval dock, popovers |
-| `radius-xl` | 16 | Sheets, dialogs, the composer (it's a large control: capsule-like at 1 line) |
-| `radius-full` | 9999 | Avatars, badges, pills, toggle tracks |
+| Token         | px   | Use                                                                                                   |
+| ------------- | ---- | ----------------------------------------------------------------------------------------------------- |
+| `radius-xs`   | 4    | Checkboxes, inline code, tag chips inside text                                                        |
+| `radius-sm`   | 6    | Small controls (h-6/h-7 buttons, segmented items), sidebar selection pill (row 28, inset 4 → about 6) |
+| `radius-md`   | 8    | Regular controls: buttons, inputs, selects, menu items                                                |
+| `radius-lg`   | 12   | Cards, grouped row containers, the approval dock, popovers                                            |
+| `radius-xl`   | 16   | Sheets, dialogs, the composer (it's a large control: capsule-like at 1 line)                          |
+| `radius-full` | 9999 | Avatars, badges, pills, toggle tracks                                                                 |
 
 Large controls are capsules, as in macOS 26: the composer at one line, onboarding primary buttons and the toolbar pill group.
 
 **Elevation:** borders become the exception.
 
-| Level | What | Light | Dark |
-| --- | --- | --- | --- |
-| 0 | Canvas | `--canvas` | `--canvas` |
-| 1 | Cards, grouped rows | `--surface-raised` + `0 0 0 0.5px var(--separator)` + `0 1px 2px black/4%` | `--surface-raised` + `0 0 0 0.5px white/8%` (surfaces step up; no shadow) |
-| 2 | Popovers, menus, palette | glass + `0 0 0 0.5px black/10%` + `0 8px 24px black/12%` | glass + `0 0 0 0.5px white/12%` + `0 8px 24px black/40%` |
-| 3 | Sheets, dialogs | glass/raised + `0 24px 64px black/18%` | + `0 24px 64px black/50%` |
+| Level | What                     | Light                                                                      | Dark                                                                      |
+| ----- | ------------------------ | -------------------------------------------------------------------------- | ------------------------------------------------------------------------- |
+| 0     | Canvas                   | `--canvas`                                                                 | `--canvas`                                                                |
+| 1     | Cards, grouped rows      | `--surface-raised` + `0 0 0 0.5px var(--separator)` + `0 1px 2px black/4%` | `--surface-raised` + `0 0 0 0.5px white/8%` (surfaces step up; no shadow) |
+| 2     | Popovers, menus, palette | glass + `0 0 0 0.5px black/10%` + `0 8px 24px black/12%`                   | glass + `0 0 0 0.5px white/12%` + `0 8px 24px black/40%`                  |
+| 3     | Sheets, dialogs          | glass/raised + `0 24px 64px black/18%`                                     | + `0 24px 64px black/50%`                                                 |
 
 **Separators** appear only where a grouped list needs them: between rows inside a grouped container, inset to the text start, with 0.5 px hairlines on 2× displays. There are no page-region borders. The sidebar meets the canvas through the material change, with no line.
 
@@ -232,25 +240,26 @@ Large controls are capsules, as in macOS 26: the composer at one line, onboardin
   - 2 px at 12–14 px inside badges
 - **Mapping:** Lucide names follow docs/06 §4.6.
 - **Colour:** icons in chrome are `--label-secondary`. Only the current sidebar item's icon takes the accent, and only when the window is key.
-- **Status icons:** one glyph per state across the app, defined once in `components/status.tsx`. No coloured dot *plus* a label *plus* an icon.
+- **Status icons:** one glyph per state across the app, defined once in `components/status.tsx`. No coloured dot _plus_ a label _plus_ an icon.
 - **Persona and avatar:** the persona emoji and avatar never appear as decoration in chrome. The avatar appears in the toolbar (28 px), on agent message runs (20 px) and in the agent sheet (64 px).
 
 ### 3.7 Density per surface
 
-| Surface | Row / control height | Padding | Text |
-| --- | --- | --- | --- |
-| Sidebar | 28 px rows (macOS medium sidebar) | 8 px horizontal; selection inset 4 px | `text-body`; group labels `text-caption` |
-| Toolbar | 52 px unified (traffic lights centred at y 19) | 12 px between groups; 28 px controls | `text-headline` title, `text-body` controls |
-| Chat transcript | — | 24 px column gutter; 680 px max (`--prose-width` 68ch at 15 px); 20 px between runs | `text-reading` |
-| Composer | 44 px at one line, grows to 40% of window height | 12 px | `text-reading` |
-| Lists in pages (inbox, activity, library list) | 44 px two-line rows / 32 px one-line rows | 12 px | `text-body` + `text-callout` |
-| Settings rows | 36 px grouped rows (System Settings) | 12 px horizontal; 20 px between groups | `text-body` |
-| Cards (feed, ideas, goals) | — | 16 px; 12 px between cards | `text-title-2` + `text-reading` |
-| Compact (web < 720 px) | 44 px touch targets (WCAG 2.5.8 needs 24 px; Apple's touch minimum is 44) | 16 px gutters | The same tokens |
+| Surface                                        | Row / control height                                                      | Padding                                                                             | Text                                        |
+| ---------------------------------------------- | ------------------------------------------------------------------------- | ----------------------------------------------------------------------------------- | ------------------------------------------- |
+| Sidebar                                        | 28 px rows (macOS medium sidebar)                                         | 8 px horizontal; selection inset 4 px                                               | `text-body`; group labels `text-caption`    |
+| Toolbar                                        | 52 px unified (traffic lights centred at y 19)                            | 12 px between groups; 28 px controls                                                | `text-headline` title, `text-body` controls |
+| Chat transcript                                | —                                                                         | 24 px column gutter; 680 px max (`--prose-width` 68ch at 15 px); 20 px between runs | `text-reading`                              |
+| Composer                                       | 44 px at one line, grows to 40% of window height                          | 12 px                                                                               | `text-reading`                              |
+| Lists in pages (inbox, activity, library list) | 44 px two-line rows / 32 px one-line rows                                 | 12 px                                                                               | `text-body` + `text-callout`                |
+| Settings rows                                  | 36 px grouped rows (System Settings)                                      | 12 px horizontal; 20 px between groups                                              | `text-body`                                 |
+| Cards (feed, ideas, goals)                     | —                                                                         | 16 px; 12 px between cards                                                          | `text-title-2` + `text-reading`             |
+| Compact (web < 720 px)                         | 44 px touch targets (WCAG 2.5.8 needs 24 px; Apple's touch minimum is 44) | 16 px gutters                                                                       | The same tokens                             |
 
 ### 3.8 Conventions checklist (native feel)
 
 Every screen PR is reviewed against this list:
+
 - [ ] No `cursor: pointer` on buttons, rows or menu items. Links keep it.
 - [ ] Overlay scrollbars: `scrollbar-width: thin` stays for the web. On desktop, rely on macOS overlay scrollers (`scrollbar-gutter: stable` where layout must not jump).
 - [ ] Primary action on the trailing side. Cancel or Deny leading. Destructive actions confirmed in a dialog, not inline.
@@ -371,12 +380,12 @@ Wireframes are layout-level. Every string goes through the catalogue.
 ╰────────────────────────────────────────────────────────────────╯
 ```
 
-  - **Fixed structure** (docs/06 §3.3): Deny is preselected, buttons are armed after 400 ms, Return does nothing, ⌘Return approves and ⌘D denies.
-  - **What changes:**
-    - The scope radios become one segmented control.
-    - Binding details, raw ids and the hash move under ⋯ → "Details", a level-2 disclosure.
-    - The primary is solid accent once armed. Before that it is `fill-secondary` with a 400 ms progress underline, so it never reads as "disabled forever".
-    - Several pending approvals stack as a deck: the top card full, the others as 8 px peeking edges with a count, "2 more".
+- **Fixed structure** (docs/06 §3.3): Deny is preselected, buttons are armed after 400 ms, Return does nothing, ⌘Return approves and ⌘D denies.
+- **What changes:**
+  - The scope radios become one segmented control.
+  - Binding details, raw ids and the hash move under ⋯ → "Details", a level-2 disclosure.
+  - The primary is solid accent once armed. Before that it is `fill-secondary` with a 400 ms progress underline, so it never reads as "disabled forever".
+  - Several pending approvals stack as a deck: the top card full, the others as 8 px peeking edges with a count, "2 more".
 - **Answered:** the card morphs into the transcript's one-line result row (`layoutId`, `spring.emphasis`), with the receipt line underneath: "Sent to jane.ortiz@… · Gmail 18c4… · 10:07", a success glyph, and `text-callout`.
 - **Question card:**
   - The same surface, with an accent-neutral border.
@@ -390,7 +399,7 @@ Wireframes are layout-level. Every string goes through the catalogue.
 - **Creation:** a side chat is a thread in the sidebar, created with `+`, ⌘N, or "Continue in a side chat" from a message's ⋯.
 - **Transition:** opening one crossfades the column. The toolbar title becomes the side-chat title, and a breadcrumb leading glyph shows that it was forked from Main chat.
 - **Incognito:** a dashed avatar ring, and the accent swapped for gray inside the thread (`data-incognito`, already in the tokens).
-- **Beside the view (⌘L):** "Open in a side chat" on a search result (⌘L, or ⌘↵) opens a chat *about* that result in a `sidechat` pane next to whatever is open, which stays where it is. Nothing is copied: the result is the new chat's context (a chip in the composer, a card on the first message, `chat.send.context` kind `search_hit`: the Gateway reads the result from its index by id, so text and trust never come from the window; anything but an owner-written result taints the turn), the new thread is named "About <result>", and its `parentThreadId` is the result when that is a chat, else the chat that was open. The pane is the shell's ordinary pane (per-chat layout, tab, ×, resizer); on a screen that is not a chat (Home, Library …) the pane belongs to that screen. **Expand** opens the thread full screen and closes the pane. Enter on a chat result still opens that chat. "Continue in a side chat", ⌘N and the tray's "New side chat" still open a chat full screen.
+- **Beside the view (⌘L):** "Open in a side chat" on a search result (⌘L, or ⌘↵) opens a chat _about_ that result in a `sidechat` pane next to whatever is open, which stays where it is. Nothing is copied: the result is the new chat's context (a chip in the composer, a card on the first message, `chat.send.context` kind `search_hit`: the Gateway reads the result from its index by id, so text and trust never come from the window; anything but an owner-written result taints the turn), the new thread is named "About <result>", and its `parentThreadId` is the result when that is a chat, else the chat that was open. The pane is the shell's ordinary pane (per-chat layout, tab, ×, resizer); on a screen that is not a chat (Home, Library …) the pane belongs to that screen. **Expand** opens the thread full screen and closes the pane. Enter on a chat result still opens that chat. "Continue in a side chat", ⌘N and the tray's "New side chat" still open a chat full screen.
 
 ### 5.5 Search and ⌘K
 
@@ -519,37 +528,37 @@ Wireframes are layout-level. Every string goes through the catalogue.
 
 Ownership: A = tokens, motion and chrome; B = chat; C = shell, sidebar and search; D = onboarding, splash and settings; E = content screens (see §7.4).
 
-| Component (packages/ui/src/…) | Current | Target | WS |
-| --- | --- | --- | --- |
-| `styles/index.css`, `theme-default.css`, `semantic.css` | Radix-style scales, shadcn mapping, old type roles | + semantic roles (§3.3), macOS type scale (§3.2), radii and elevation (§3.5), materials (§3.4), motion CSS variables generated from `motion/tokens.ts`, `reduced`/`high-contrast`/`window-inactive` variants | A |
-| `motion/` (new) | stub `tokens.ts` (this PR) | tokens, `MotionProvider` (`LazyMotion` + `MotionConfig reducedMotion="user"`), `Presence`, `FadeIn`, `ListItem`, `useSpring` helpers, CSS generator script | A |
-| `components/ui/button` | radius 8, fills, transition-colors | radius per size (sm 6, md 8, large capsule), no pointer cursor, instant press fill, `prominent` variant = accent, `plain` variant | A |
-| `components/ui/input`, `textarea`, `native-select`, `select` | radius 8, gray-7 border | `fill-quaternary` well with a 0.5 px separator, focus ring hairline; select menus glass | A |
-| `components/ui/popover`, `dropdown-menu`, `hover-card`, `tooltip`, `command` | shadow-level-2, `tw-animate-css` | glass level 2, `@starting-style` enter/exit (motion.md §4.2), 6 px item radius, 28 px items | A |
-| `components/ui/dialog`, `alert-dialog`, `sheet`, `drawer` | shadow-level-3 | glass or raised level 3, `spring.gentle` / `snappy` via Motion, trailing primary | A |
-| `components/ui/tabs`, `toggle-group` | pill tabs | segmented control with a `layoutId` indicator (`spring.micro`) | A |
-| `components/ui/switch`, `checkbox`, `radio-group`, `progress`, `skeleton`, `badge`, `kbd`, `separator`, `scroll-area`, `table`, `card`, `label`, `sonner` | partly retuned in #155 | tokens only (`switch` knob springs, `progress` fills with `scaleX`, `skeleton` shimmer, `card` = level 1 without border, toasts glass + presence) | A |
-| `components/page.tsx` | Page, PageHeader, EmptyState, ErrorState, LoadingCards | + `GroupedList` / `GroupedRow` (settings style), `Toolbar` slot API (title, leading, trailing), states per §5.10 | A |
-| `components/status.tsx` (new) | — | one status-glyph component for task, tool and approval states | A |
-| `shell/AppShell`, `Rail`, `ThreadList` | 56 px rail + 260 px list | `Sidebar` (§5.1) with destinations, threads group and footer; `ThreadList` becomes `ThreadGroup` inside it; `layoutId` selection | C |
-| `shell/CommandPalette`, `screens/search/*` | separate palette and search screen | one `SearchSurface` used by ⌘K and the Search destination (§5.5) | C |
-| `shell/ShortcutList`, `AppearanceProvider` | dialog; appearance attributes | glass sheet; adds `data-window-active` and reduced-transparency wiring | C (shortcuts), A (provider) |
-| `agent/AgentHeader` | 56 px header + View strip | toolbar content (§5.2), status crossfade, pill group | B |
-| `agent/AgentSheet`, `ActivityPanel`, `ApprovalsPanel`, `UpcomingPanel`, `SoulMemoryPanel` | sheet or full-width route | 420 px opaque right sheet with a scrim, header, segmented tabs, grouped rows (§5.7) | E |
-| `avatar/Avatar` | states, loops | adds a 5 s idle stop and the 28 px toolbar size; loops honour reduced motion (unchanged art) | E |
-| `chat/Thread`, `MessageView`, `WorkingIndicator`, `RunFailure`, `OfflineBanner` | flat transcript | §5.2 runs, hover times, task dividers, jump pill, list presence | B |
-| `chat/Composer`, `FollowUpQueue`, `commands.ts` | bordered box | floating `GlassSurface` refraction capsule, layout growth, glass queue chips, slash popover (§5.2) | B |
-| `chat/ApprovalDock`, `blocks/ApprovalCard`, `approval-details` | amber outline card + rows | §5.3 dock, segmented scope, deck stacking, `layoutId` morph to receipt | B |
-| `blocks/QuestionCard`, `WrapUp`, `Receipt`, `ToolRun`, `Checklist`, `TaskCard`, `ArtifactCard`, `DiffBlock`, `Markdown`, `MessageBlocks`, `RelatedThreads`, `disclosure` | individually styled | §5.2 / §5.3 run rows, status glyphs, reading type, level 1 cards | B |
-| `chat/ExportMenu` | dropdown | moves into the toolbar ⋯ menu | B |
-| `screens/onboarding/*` | form wizard | §5.9 single-column steps, dots, capsule primary, step transitions | D |
-| `screens/settings/*` (41 files) | in-app route with a second sidebar, bordered cards | Settings window (§5.8): `SettingsSidebar` grouped, `GroupedList` rows, `ActionMatrix` → segmented rows, technical names under ⋯ | D |
-| `screens/feed/*` | outlined cards | §5.6 | E |
-| `screens/ideas/*`, `screens/goals/*` | outlined cards, caps labels | §5.6 | E |
-| `screens/library/*`, `screens/files/FilesPane` | tabs pill + selects + boxed cards | §5.7 Finder-like grid and table | E |
-| `screens/inbox/*` | rows with chips and buttons | grouped rows, status glyphs, inline Approve/Deny only for approvals | E |
-| `apps/web/src/shell/*` (`shell.css`, `TitleBar`, `Chrome`, `Panes`, `StartupSplash`, `Overlays`, `BrowserPane`) | 716 lines of plain CSS with `--shell-*` variables | `shell.css` shrinks to structure only (grid, drag regions), every colour, radius and shadow comes from kit tokens; `TitleBar` becomes the toolbar host; panes get §4.3 motion; splash per §5.9 | A (`TitleBar`, splash, `shell.css` tokens), C (`Chrome`, layout, panes) |
-| `apps/desktop/src/main/window-options.ts`, `windows.ts` | `hiddenInset`, no vibrancy, no backgroundColor | `hidden`, `trafficLightPosition` recomputed, `vibrancy: "sidebar"` behind a setting, `backgroundColor` per appearance, the Settings window, `data-window-active` IPC | A (D owns the Settings window route content) |
+| Component (packages/ui/src/…)                                                                                                                                            | Current                                                | Target                                                                                                                                                                                                       | WS                                                                      |
+| ------------------------------------------------------------------------------------------------------------------------------------------------------------------------ | ------------------------------------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ | ----------------------------------------------------------------------- |
+| `styles/index.css`, `theme-default.css`, `semantic.css`                                                                                                                  | Radix-style scales, shadcn mapping, old type roles     | + semantic roles (§3.3), macOS type scale (§3.2), radii and elevation (§3.5), materials (§3.4), motion CSS variables generated from `motion/tokens.ts`, `reduced`/`high-contrast`/`window-inactive` variants | A                                                                       |
+| `motion/` (new)                                                                                                                                                          | stub `tokens.ts` (this PR)                             | tokens, `MotionProvider` (`LazyMotion` + `MotionConfig reducedMotion="user"`), `Presence`, `FadeIn`, `ListItem`, `useSpring` helpers, CSS generator script                                                   | A                                                                       |
+| `components/ui/button`                                                                                                                                                   | radius 8, fills, transition-colors                     | radius per size (sm 6, md 8, large capsule), no pointer cursor, instant press fill, `prominent` variant = accent, `plain` variant                                                                            | A                                                                       |
+| `components/ui/input`, `textarea`, `native-select`, `select`                                                                                                             | radius 8, gray-7 border                                | `fill-quaternary` well with a 0.5 px separator, focus ring hairline; select menus glass                                                                                                                      | A                                                                       |
+| `components/ui/popover`, `dropdown-menu`, `hover-card`, `tooltip`, `command`                                                                                             | shadow-level-2, `tw-animate-css`                       | glass level 2, `@starting-style` enter/exit (motion.md §4.2), 6 px item radius, 28 px items                                                                                                                  | A                                                                       |
+| `components/ui/dialog`, `alert-dialog`, `sheet`, `drawer`                                                                                                                | shadow-level-3                                         | glass or raised level 3, `spring.gentle` / `snappy` via Motion, trailing primary                                                                                                                             | A                                                                       |
+| `components/ui/tabs`, `toggle-group`                                                                                                                                     | pill tabs                                              | segmented control with a `layoutId` indicator (`spring.micro`)                                                                                                                                               | A                                                                       |
+| `components/ui/switch`, `checkbox`, `radio-group`, `progress`, `skeleton`, `badge`, `kbd`, `separator`, `scroll-area`, `table`, `card`, `label`, `sonner`                | partly retuned in #155                                 | tokens only (`switch` knob springs, `progress` fills with `scaleX`, `skeleton` shimmer, `card` = level 1 without border, toasts glass + presence)                                                            | A                                                                       |
+| `components/page.tsx`                                                                                                                                                    | Page, PageHeader, EmptyState, ErrorState, LoadingCards | + `GroupedList` / `GroupedRow` (settings style), `Toolbar` slot API (title, leading, trailing), states per §5.10                                                                                             | A                                                                       |
+| `components/status.tsx` (new)                                                                                                                                            | —                                                      | one status-glyph component for task, tool and approval states                                                                                                                                                | A                                                                       |
+| `shell/AppShell`, `Rail`, `ThreadList`                                                                                                                                   | 56 px rail + 260 px list                               | `Sidebar` (§5.1) with destinations, threads group and footer; `ThreadList` becomes `ThreadGroup` inside it; `layoutId` selection                                                                             | C                                                                       |
+| `shell/CommandPalette`, `screens/search/*`                                                                                                                               | separate palette and search screen                     | one `SearchSurface` used by ⌘K and the Search destination (§5.5)                                                                                                                                             | C                                                                       |
+| `shell/ShortcutList`, `AppearanceProvider`                                                                                                                               | dialog; appearance attributes                          | glass sheet; adds `data-window-active` and reduced-transparency wiring                                                                                                                                       | C (shortcuts), A (provider)                                             |
+| `agent/AgentHeader`                                                                                                                                                      | 56 px header + View strip                              | toolbar content (§5.2), status crossfade, pill group                                                                                                                                                         | B                                                                       |
+| `agent/AgentSheet`, `ActivityPanel`, `ApprovalsPanel`, `UpcomingPanel`, `SoulMemoryPanel`                                                                                | sheet or full-width route                              | 420 px opaque right sheet with a scrim, header, segmented tabs, grouped rows (§5.7)                                                                                                                          | E                                                                       |
+| `avatar/Avatar`                                                                                                                                                          | states, loops                                          | adds a 5 s idle stop and the 28 px toolbar size; loops honour reduced motion (unchanged art)                                                                                                                 | E                                                                       |
+| `chat/Thread`, `MessageView`, `WorkingIndicator`, `RunFailure`, `OfflineBanner`                                                                                          | flat transcript                                        | §5.2 runs, hover times, task dividers, jump pill, list presence                                                                                                                                              | B                                                                       |
+| `chat/Composer`, `FollowUpQueue`, `commands.ts`                                                                                                                          | bordered box                                           | floating `GlassSurface` refraction capsule, layout growth, glass queue chips, slash popover (§5.2)                                                                                                           | B                                                                       |
+| `chat/ApprovalDock`, `blocks/ApprovalCard`, `approval-details`                                                                                                           | amber outline card + rows                              | §5.3 dock, segmented scope, deck stacking, `layoutId` morph to receipt                                                                                                                                       | B                                                                       |
+| `blocks/QuestionCard`, `WrapUp`, `Receipt`, `ToolRun`, `Checklist`, `TaskCard`, `ArtifactCard`, `DiffBlock`, `Markdown`, `MessageBlocks`, `RelatedThreads`, `disclosure` | individually styled                                    | §5.2 / §5.3 run rows, status glyphs, reading type, level 1 cards                                                                                                                                             | B                                                                       |
+| `chat/ExportMenu`                                                                                                                                                        | dropdown                                               | moves into the toolbar ⋯ menu                                                                                                                                                                                | B                                                                       |
+| `screens/onboarding/*`                                                                                                                                                   | form wizard                                            | §5.9 single-column steps, dots, capsule primary, step transitions                                                                                                                                            | D                                                                       |
+| `screens/settings/*` (41 files)                                                                                                                                          | in-app route with a second sidebar, bordered cards     | Settings window (§5.8): `SettingsSidebar` grouped, `GroupedList` rows, `ActionMatrix` → segmented rows, technical names under ⋯                                                                              | D                                                                       |
+| `screens/feed/*`                                                                                                                                                         | outlined cards                                         | §5.6                                                                                                                                                                                                         | E                                                                       |
+| `screens/ideas/*`, `screens/goals/*`                                                                                                                                     | outlined cards, caps labels                            | §5.6                                                                                                                                                                                                         | E                                                                       |
+| `screens/library/*`, `screens/files/FilesPane`                                                                                                                           | tabs pill + selects + boxed cards                      | §5.7 Finder-like grid and table                                                                                                                                                                              | E                                                                       |
+| `screens/inbox/*`                                                                                                                                                        | rows with chips and buttons                            | grouped rows, status glyphs, inline Approve/Deny only for approvals                                                                                                                                          | E                                                                       |
+| `apps/web/src/shell/*` (`shell.css`, `TitleBar`, `Chrome`, `Panes`, `StartupSplash`, `Overlays`, `BrowserPane`)                                                          | 716 lines of plain CSS with `--shell-*` variables      | `shell.css` shrinks to structure only (grid, drag regions), every colour, radius and shadow comes from kit tokens; `TitleBar` becomes the toolbar host; panes get §4.3 motion; splash per §5.9               | A (`TitleBar`, splash, `shell.css` tokens), C (`Chrome`, layout, panes) |
+| `apps/desktop/src/main/window-options.ts`, `windows.ts`                                                                                                                  | `hiddenInset`, no vibrancy, no backgroundColor         | `hidden`, `trafficLightPosition` recomputed, `vibrancy: "sidebar"` behind a setting, `backgroundColor` per appearance, the Settings window, `data-window-active` IPC                                         | A (D owns the Settings window route content)                            |
 
 ## 7. Technical plan
 
@@ -557,19 +566,21 @@ Ownership: A = tokens, motion and chrome; B = chat; C = shell, sidebar and searc
 
 **Use all three, each where it fits.** The measurements are in motion.md §5 and research §4.
 
-| Option | Cost | Strengths | Weaknesses | Psyche uses it for |
-| --- | --- | --- | --- | --- |
-| CSS only (Tailwind transitions, `@starting-style`, `linear()` springs) | 0 KB JS | Compositor-run, zero runtime | No velocity hand-off; exits need tricks; no FLIP | Hover and press fills, popovers and menus (Base UI `data-open`), skeletons, pulses |
-| **Motion 14.6** (`motion/react`, `LazyMotion` + `m`) | About 14.0 KiB gz initial + 17.7 KiB lazy `domAnimation`. `domMax` (layout and `layoutId`) about 45 KiB total, only in the chat and sidebar chunks. (Docs claim "~5 kB initial"; this was not reproduced on 14.6.0.) | Interruptible springs with velocity hand-off; `AnimatePresence`; FLIP layout; `layoutId`; WAAPI acceleration for opacity, transform, filter, clipPath and backgroundColor (oklch included); `reducedMotion="user"`; React 19 peer | JS cost; CSS-variable animations not accelerated | Sheets, panes, list presence, reorder, selection pill, approval → receipt, composer growth |
-| React 19.3 `<ViewTransition>` | 0 KB beyond React | Route crossfades between arbitrary trees | Not interruptible; old view frozen; hit-testing blocked; reduced motion is manual | Route changes between destinations only |
+| Option                                                                 | Cost                                                                                                                                                                                                                 | Strengths                                                                                                                                                                                                                         | Weaknesses                                                                        | Psyche uses it for                                                                         |
+| ---------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------ |
+| CSS only (Tailwind transitions, `@starting-style`, `linear()` springs) | 0 KB JS                                                                                                                                                                                                              | Compositor-run, zero runtime                                                                                                                                                                                                      | No velocity hand-off; exits need tricks; no FLIP                                  | Hover and press fills, popovers and menus (Base UI `data-open`), skeletons, pulses         |
+| **Motion 14.6** (`motion/react`, `LazyMotion` + `m`)                   | About 14.0 KiB gz initial + 17.7 KiB lazy `domAnimation`. `domMax` (layout and `layoutId`) about 45 KiB total, only in the chat and sidebar chunks. (Docs claim "~5 kB initial"; this was not reproduced on 14.6.0.) | Interruptible springs with velocity hand-off; `AnimatePresence`; FLIP layout; `layoutId`; WAAPI acceleration for opacity, transform, filter, clipPath and backgroundColor (oklch included); `reducedMotion="user"`; React 19 peer | JS cost; CSS-variable animations not accelerated                                  | Sheets, panes, list presence, reorder, selection pill, approval → receipt, composer growth |
+| React 19.3 `<ViewTransition>`                                          | 0 KB beyond React                                                                                                                                                                                                    | Route crossfades between arbitrary trees                                                                                                                                                                                          | Not interruptible; old view frozen; hit-testing blocked; reduced motion is manual | Route changes between destinations only                                                    |
 
 **Tailwind 4 coexistence:**
+
 - Tokens stay CSS custom properties in `@theme`.
 - `motion/tokens.ts` is the source of truth. A build script (`pnpm --filter @psyche/ui gen:motion`) writes `styles/motion.css` with `--duration-*`, `--ease-*` and `linear()` springs.
 - Tailwind's `--default-transition-duration` / `-timing-function` point at the tokens (already true since #155).
 - `tw-animate-css` stays until every primitive has moved to `@starting-style`, then it is removed.
 
 **Rejected:**
+
 - **GSAP:** licence and size, and it isn't React-idiomatic.
 - **react-spring:** smaller ecosystem, no `layoutId` equivalent.
 - **The Liquid Glass addon:** "DO NOT USE IN PROD".
@@ -579,7 +590,7 @@ Ownership: A = tokens, motion and chrome; B = chat; C = shell, sidebar and searc
 1. **Add, don't rename** (A1). The new semantic roles, the type scale, radii, elevation, materials and motion variables are added alongside the old tokens. The old names (`text-label`, `text-h1`…, `--card`, `shadow-level-*`) become aliases of the new ones, so nothing breaks.
 2. **Primitives first** (A1). `components/ui/*` switch to the new roles in one PR, and every screen inherits the change.
 3. **The shell CSS collapses** (A2). The `--shell-*` variables become aliases of kit roles, then the colour, border and shadow rules are deleted from `shell.css`.
-4. **Screens migrate** (B–E), each in its own files, using only the new names. A lint test (motion.md §8 style) fails on old names *in files the PR touches*, so a migration never regresses.
+4. **Screens migrate** (B–E), each in its own files, using only the new names. A lint test (motion.md §8 style) fails on old names _in files the PR touches_, so a migration never regresses.
 5. **Aliases are removed** (A3, last). Once B–E have merged, one PR deletes the aliases and the `text-label` / `text-h*` roles.
 
 ### 7.3 Storybook visual baselines
@@ -601,6 +612,7 @@ Ownership: A = tokens, motion and chrome; B = chat; C = shell, sidebar and searc
 ### 7.4 Workstreams
 
 **Merge order:**
+
 1. A1 merges first; it is small and blocks nobody.
 2. B, C, D and E then run in parallel on top of A1.
 3. A2 (window chrome) runs in parallel with B–E, because it owns disjoint files.
@@ -609,6 +621,7 @@ Ownership: A = tokens, motion and chrome; B = chat; C = shell, sidebar and searc
 Each workstream has disjoint file ownership and uses at most 2 subagents. Locally it runs only `vitest --maxWorkers=1` for its packages and typechecks only those packages. No Electron e2e runs locally, and no local models.
 
 #### A: tokens, motion primitives, window chrome
+
 - **Owns:**
   - `packages/ui/src/{styles,theme,motion,components}/**`
   - `packages/ui/src/shell/AppearanceProvider.tsx`
@@ -632,6 +645,7 @@ Each workstream has disjoint file ownership and uses at most 2 subagents. Locall
   > You own Psyche's design-system foundation for the 2026 redesign. Read docs/design/redesign-2026.md (§3, §4, §6, §7) and docs/design/motion.md in full. In packages/ui, add the semantic colour roles, the macOS type scale, the radii and elevation, the materials and the motion tokens alongside the existing tokens, with the old names as aliases. Wire `packages/ui/src/motion/tokens.ts` into a `MotionProvider` (`LazyMotion` with async `domAnimation`, `MotionConfig reducedMotion="user"` with `spring.smooth`) and a generated `styles/motion.css`. Move every `components/ui` primitive to the new roles and to `@starting-style` enter/exit (glass for popovers and menus, segmented tabs with a `layoutId` indicator). Then, in a second PR, do the Electron window chrome: `titleBarStyle: "hidden"`, traffic lights at (20, 19) recomputed on zoom, `vibrancy: "sidebar"` with `visualEffectState: "followWindow"` behind an `appearance.vibrancy` setting (verify on macOS 26; default off if it renders grey), `backgroundColor` per appearance, `data-window-active`, Reduce Transparency and Increase Contrast fallbacks, a separate Settings `BrowserWindow` shell on ⌘,, and a dev-only rAF probe that logs refresh rate. Regenerate all Storybook baselines once in A1 with `--workers=1`. Every new string goes through `t()`. Meet WCAG 2.2 AA and give every animation a reduced-motion form. Run `vitest --maxWorkers=1` for packages/ui, apps/web and apps/desktop only. Don't run the Electron e2e or local models. Don't touch `~/.psyche` or `/Applications/Psyche.app`. Merge A1 before anyone else.
 
 #### B: chat column, composer, tool / approval / question cards
+
 - **Owns:**
   - `packages/ui/src/chat/**`
   - `packages/ui/src/blocks/**`
@@ -657,10 +671,11 @@ Each workstream has disjoint file ownership and uses at most 2 subagents. Locall
   > - The composer as a floating glass capsule with layout growth.
   > - The approval dock as specified, keeping docs/06 §3.3's fixed structure (Deny first, 400 ms arming, ⌘↩ and ⌘D, scope as one segmented control, technical details under ⋯), plus the deck for several approvals and the `layoutId` morph into the receipt row.
   > - The question card, wrap-up box and receipt line.
-  >
+    >
   > You own `packages/ui/src/{chat,blocks}/**`, `agent/AgentHeader.tsx` and `KitChat` in `apps/web/src/compose/PsycheApp.tsx`, and nothing else. Every animation needs its reduced-motion form, and every string goes through `t()`. Regenerate only the Chat/, Cards/, Blocks/ and Agent/Header Storybook baselines with `--workers=1`, and put before/after captures in each PR. Run only `vitest --maxWorkers=1` for packages/ui and apps/web. Don't run the Electron e2e or local models.
 
 #### C: shell navigation, sidebar, thread list, side chats, search
+
 - **Owns:**
   - `packages/ui/src/shell/**` except `AppearanceProvider.tsx`
   - `packages/ui/src/screens/search/**`
@@ -682,6 +697,7 @@ Each workstream has disjoint file ownership and uses at most 2 subagents. Locall
   > You own Psyche's navigation shell for the 2026 redesign. Read docs/design/redesign-2026.md (§3, §4, §5.1, §5.4, §5.5, §5.11, §6) and docs/design/motion.md, and build on workstream A's tokens and motion primitives. Replace the 56 px rail plus the 260 px thread list with one 248 px macOS-style sidebar. It has destinations (Chat, Search, Feed, Ideas, Goals, Library with counts), a "Threads" group (Main chat, side chats by activity, an incognito or channel glyph, Archived disclosure), and a footer with the persona and a settings gear. Make it resizable (220–320 px), collapsible with ⌘B, and give it a `layoutId` selection pill that's accent when the window is key and gray when it isn't. Merge the ⌘K palette and the Search destination into one search surface with grouped results, typed filters and a preview. Animate panes and the sidebar per motion.md §4.3, and crossfade route changes with React's `<ViewTransition>`, with a reduced-motion CSS rule. At under 720 px, use a 44 px top bar, a threads drawer and a glass bottom tab bar. You own `packages/ui/src/shell/**` (not `AppearanceProvider`), `packages/ui/src/screens/search/**`, and `apps/web/src/shell/{ShellApp.tsx,components/{Chrome,Panes,Overlays}.tsx,layout/**,keyboard.ts}` plus the shell-slot wiring in `PsycheApp.tsx`. Keep the docs/06 §4.11 keyboard map and focus rules intact. Regenerate only the Shell/ and Screens/Search baselines with `--workers=1`. Every string goes through `t()`. Run only `vitest --maxWorkers=1` for packages/ui and apps/web, and update `apps/desktop/e2e/layout.spec.ts` assertions without running them locally.
 
 #### D: onboarding, splash content, settings
+
 - **Owns:**
   - `packages/ui/src/screens/onboarding/**`
   - `packages/ui/src/screens/settings/**`
@@ -698,10 +714,11 @@ Each workstream has disjoint file ownership and uses at most 2 subagents. Locall
   > - 36 px rows, controls trailing, help text in callout
   > - permission matrices as one Allow/Ask/Deny segmented control per action, with raw keys only under ⋯ → "Show technical name"
   > - destructive actions in confirmation dialogs
-  >
+    >
   > On desktop the Settings content renders in the separate Settings window that workstream A2 adds. On the web it stays the `/settings/:section` route with the same layout. You own `packages/ui/src/screens/{onboarding,settings}/**` and the settings and onboarding modules in `apps/web/src/compose/`. Every string goes through `t()`, and every control keeps its label and keyboard access. Regenerate only the Screens/Onboarding and Screens/Settings baselines with `--workers=1`. Run only `vitest --maxWorkers=1` for packages/ui and apps/web. Don't run the Electron e2e or local models.
 
 #### E: feed, ideas, goals, library, inbox, persona and agent sheet, empty states
+
 - **Owns:**
   - `packages/ui/src/screens/{feed,ideas,goals,library,inbox,files}/**`
   - `packages/ui/src/agent/**` except `AgentHeader.tsx`
@@ -729,7 +746,7 @@ Each workstream has disjoint file ownership and uses at most 2 subagents. Locall
   > - **Inbox:** grouped rows with status glyphs.
   > - **Agent sheet:** a 420 px glass right sheet with a 64 px header and segmented tabs; `/agent/*` renders the sheet over the chat, never full width.
   > - **States:** apply §5.10's empty, loading and error states everywhere.
-  >
+    >
   > You own `packages/ui/src/screens/{feed,ideas,goals,library,inbox,files}/**`, `packages/ui/src/agent/**` (not `AgentHeader.tsx`), `packages/ui/src/avatar/**` and the `screenRoute`/`agentRoute` functions in `PsycheApp.tsx`. Every string goes through `t()`. Every animation has its reduced-motion form, and avatar loops stop after 5 s idle. Regenerate only the baselines for your screen titles with `--workers=1`. Run only `vitest --maxWorkers=1` for packages/ui and apps/web. Don't run the Electron e2e or local models.
 
 ### 7.5 Shared-file rules
@@ -778,6 +795,7 @@ Each workstream has disjoint file ownership and uses at most 2 subagents. Locall
 The key sources are below. Every fact in §1–§4 is cited, with its date, in [research/apple-and-reference-apps.md](research/apple-and-reference-apps.md) and [research/motion-systems.md](research/motion-systems.md).
 
 **Apple Human Interface Guidelines:**
+
 - Typography (2025-12-16): https://developer.apple.com/design/human-interface-guidelines/typography
 - Materials (2025-09-09): https://developer.apple.com/design/human-interface-guidelines/materials
 - Sidebars (2026-06-08): https://developer.apple.com/design/human-interface-guidelines/sidebars
@@ -787,12 +805,14 @@ The key sources are below. Every fact in §1–§4 is cited, with its date, in [
 - Focus and selection (2023-10-24): https://developer.apple.com/design/human-interface-guidelines/focus-and-selection
 
 **Apple, other:**
+
 - WWDC25 219 "Meet Liquid Glass": https://developer.apple.com/videos/play/wwdc2025/219/
 - WWDC25 356 "Get to know the new design system": https://developer.apple.com/videos/play/wwdc2025/356/
 - WWDC25 310 "Build an AppKit app with the new design": https://developer.apple.com/videos/play/wwdc2025/310/
 - Apple newsroom, new software design (2025-06-09): https://www.apple.com/newsroom/2025/06/apple-introduces-a-delightful-and-elegant-new-software-design/
 
 **Electron:**
+
 - BaseWindow options (fetched 2026-10-25): https://www.electronjs.org/docs/latest/api/structures/base-window-options
 - Custom window styles: https://www.electronjs.org/docs/latest/tutorial/custom-window-styles
 - Liquid Glass PR #50415 (closed 2026-06-30): https://github.com/electron/electron/pull/50415
@@ -801,6 +821,7 @@ The key sources are below. Every fact in §1–§4 is cited, with its date, in [
 - MDN `backdrop-filter` (2026-04-20): https://developer.mozilla.org/en-US/docs/Web/CSS/backdrop-filter
 
 **Reference apps:**
+
 - Linear: https://linear.app/now/how-we-redesigned-the-linear-ui (2024-03-28) and https://linear.app/now/behind-the-latest-design-refresh (2026-03-12)
 - Raycast: https://www.raycast.com/blog/a-technical-deep-dive-into-the-new-raycast (2026-05-14)
 - Superhuman: https://blog.superhuman.com/superhuman-is-built-for-speed/ (2022-06-28)

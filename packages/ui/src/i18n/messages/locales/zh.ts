@@ -1995,7 +1995,10 @@ export const zh: Partial<Catalogue> = {
   "settings.data.deleteArchived":
     "{n, plural, =0 {没有已归档的会话} other {删除 # 个已归档的会话}}",
   "settings.data.reset": "重置",
-  "settings.data.resetHint": "删除所有记忆文件、索引和断言，让 {persona} 重新开始。聊天会保留。",
+  "settings.data.resetHint":
+    "删除每个记忆文件、索引和断言，以及工作区的本地 git 历史，让 {persona} 从头开始。聊天记录保留。git 远程仓库会保留自己的历史，是否删除由你决定。",
+  "settings.data.git.historyNote":
+    "git 远程仓库会保留自己的历史。重置和遗忘只清除本设备上的副本，远程仓库中的旧笔记是否删除由你决定。",
   "settings.data.typeToConfirm": "输入“{word}”以确认。此操作无法撤销。",
   "settings.data.resetMemory": "重置记忆",
   "settings.data.resetMemoryEllipsis": "重置记忆…",
