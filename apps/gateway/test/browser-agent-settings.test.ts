@@ -289,8 +289,25 @@ describe("the one list of signed-in sites", () => {
     ).toEqual([
       { origin: "https://a.example", source: "setting" },
       { origin: "https://both.example", source: "setting" },
+      // An origin the setting shares with Stay signed in is listed for both: removing the
+      // setting row must leave the row that can sign out.
+      { origin: "https://both.example", source: "stay_signed_in" },
       { origin: "https://canvas.ucsc.edu", source: "stay_signed_in" },
       // ucsc.edu is already listed through its Stay-signed-in site, so it is not listed twice.
+      { origin: "https://github.com", source: "detected" },
+    ]);
+  });
+
+  it("an origin in the setting and in the detected domains keeps its detected row", () => {
+    expect(
+      effectiveSignedInSites({
+        settingOrigins: ["https://github.com"],
+        stayOrigins: [],
+        detectedDomains: ["github.com"],
+        useDetected: true,
+      }),
+    ).toEqual([
+      { origin: "https://github.com", source: "setting" },
       { origin: "https://github.com", source: "detected" },
     ]);
   });

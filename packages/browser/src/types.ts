@@ -213,6 +213,16 @@ export interface BrowserDriverEx extends BrowserDriver {
    * approvals and taint as in any tab.
    */
   switchToProfile(tabId: string, url: string): Promise<DriverTabEx | undefined>;
+  /**
+   * The reverse: a `profile` tab about to open a URL the session's settings now put in `clean`
+   * moves to a clean tab at that URL, and the old tab closes. Undefined when nothing applies.
+   */
+  switchToClean(tabId: string, url: string): Promise<DriverTabEx | undefined>;
+  /**
+   * Closes every `profile` tab whose URL the session's settings now put in `clean` (the owner
+   * narrowed the mode or removed a signed-in site). Returns the closed tab ids.
+   */
+  closeTightenedTabs(): Promise<string[]>;
   /** The partition a tab runs in (feature I15). */
   tabPartition(tabId: string): TabPartition;
   snapshot(tabId: string, options?: SnapshotOptions): Promise<BrowserSnapshot>;

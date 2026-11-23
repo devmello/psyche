@@ -132,4 +132,34 @@ describe("Settings → Browser signed-in sites", () => {
     expect(hint()).not.toMatch(/already signed in to/);
     expect(hint()).toMatch(/Only the sites in the list below/);
   });
+
+  it("removing the setting row of a site that is also Stay signed in leaves the row with Sign out", async () => {
+    const shared: BrowserAgentSettings["signedInSites"] = [
+      { origin: "https://both.example", source: "setting" },
+      { origin: "https://both.example", source: "stay_signed_in" },
+    ];
+    const forget = vi.fn(async () => {});
+    const api = { list: async () => [], forget };
+    const first = render(
+      <AgentBrowserGroup
+        agent={agent(shared)}
+        values={{ "browser.signedInOrigins": ["https://both.example"] }}
+        onChange={() => {}}
+        signedInSites={api}
+      />,
+    );
+    expect(screen.getAllByText("https://both.example")).toHaveLength(2);
+    first.unmount();
+    // After the setting write the list is read again: only the Stay signed in row is left.
+    render(
+      <AgentBrowserGroup
+        agent={agent([{ origin: "https://both.example", source: "stay_signed_in" }])}
+        values={{ "browser.signedInOrigins": [] }}
+        onChange={() => {}}
+        signedInSites={api}
+      />,
+    );
+    await userEvent.click(screen.getByRole("button", { name: "Sign out of https://both.example" }));
+    expect(forget).toHaveBeenCalledWith("https://both.example");
+  });
 });

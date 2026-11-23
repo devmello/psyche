@@ -441,6 +441,15 @@ export function browserToolDefs(deps: BrowserToolDeps) {
           if (moved === undefined) return undefined;
           return { ...(await d.navigate(moved.id, p.url, { signal })), tabId: moved.id };
         };
+        // A profile tab the owner has since narrowed (mode or site removed) moves to a clean tab
+        // for this URL: an agent navigation never carries the old sign-ins somewhere they no
+        // longer apply.
+        if (d.tabPartition(tabId) === "profile") {
+          const clean = await d.switchToClean(tabId, p.url);
+          if (clean !== undefined) {
+            return { ...(await d.navigate(clean.id, p.url, { signal })), tabId: clean.id };
+          }
+        }
         const early = await switched(p.url);
         if (early !== undefined) return early;
         const result = await d.navigate(tabId, p.url, { signal });

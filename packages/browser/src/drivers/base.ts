@@ -171,9 +171,20 @@ export abstract class DriverBase implements BrowserDriverEx {
     return s;
   }
 
+  /** Tabs closed because the owner tightened the sign-in settings, so the next call says why. */
+  readonly #tightened = new Set<string>();
+
   protected tabState(tabId: string): TabState {
     const t = this.tabs.get(tabId);
-    if (t === undefined) throw new PsycheError("not_found", `tab ${tabId} not found`);
+    if (t === undefined) {
+      if (this.#tightened.has(tabId)) {
+        throw new PsycheError(
+          "not_found",
+          `tab ${tabId} was closed because the browser sign-in settings were tightened; open a new tab`,
+        );
+      }
+      throw new PsycheError("not_found", `tab ${tabId} not found`);
+    }
     return t;
   }
 
@@ -490,6 +501,43 @@ export abstract class DriverBase implements BrowserDriverEx {
     const moved = await this.#openTabIn(t.session, url, choice);
     await this.closeTab(tabId);
     return moved;
+  }
+
+  /**
+   * The reverse of `switchToProfile`, for an agent navigation: a `profile` tab that is about to
+   * open a URL the session's current settings put in `clean` (the owner narrowed the mode or
+   * removed the site while the tab was open) moves to a clean tab at that URL. The old tab closes.
+   */
+  async switchToClean(tabId: string, url: string): Promise<DriverTabEx | undefined> {
+    const t = this.tabState(tabId);
+    if (t.partition !== "profile") return undefined;
+    const choice = t.session.partitions.choose(url);
+    if (choice.partition !== "clean") return undefined;
+    const moved = await this.#openTabIn(t.session, url, choice);
+    await this.closeTab(tabId);
+    return moved;
+  }
+
+  /**
+   * Closes every `profile` tab whose current URL the session's settings now put in `clean`: the
+   * owner tightened the sign-in mode or the signed-in sites. A later call on such a tab fails
+   * with a message that says why. Returns the closed tab ids.
+   */
+  async closeTightenedTabs(): Promise<string[]> {
+    const closed: string[] = [];
+    for (const t of [...this.tabs.values()]) {
+      if (t.partition !== "profile") continue;
+      if (t.session.partitions.choose(t.page.url).partition !== "clean") continue;
+      const id = t.tab.id;
+      try {
+        await this.closeTab(id);
+      } catch {
+        continue;
+      }
+      this.#tightened.add(id);
+      closed.push(id);
+    }
+    return closed;
   }
 
   async #openTabIn(

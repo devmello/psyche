@@ -258,8 +258,9 @@ export interface EffectiveSignedInSite {
 /**
  * The one list of sites the agent browser uses the owner's sign-ins on: the stored setting,
  * "Stay signed in" (`browser/signed-in.json`) and, while "Let Psyche use my signed-in sessions"
- * is on, registrable domains the profile holds live cookies for. Each origin appears once; the
- * source says how to remove it.
+ * is on, registrable domains the profile holds live cookies for. An origin that two sources
+ * share is listed once per source, so removing the setting row leaves the row that can sign out.
+ * Stay-signed-in and detected entries are de-duplicated among themselves only.
  */
 export function effectiveSignedInSites(input: {
   settingOrigins: readonly string[];
@@ -269,15 +270,17 @@ export function effectiveSignedInSites(input: {
 }): EffectiveSignedInSite[] {
   const out: EffectiveSignedInSite[] = [];
   const seen = new Set<string>();
-  const add = (origin: string, source: SignedInSiteSource) => {
-    if (seen.has(origin)) return;
-    seen.add(origin);
-    out.push({ origin, source });
-  };
-  for (const o of input.settingOrigins) add(o, "setting");
+  for (const o of input.settingOrigins) {
+    if (!seen.has(`setting ${o}`)) {
+      seen.add(`setting ${o}`);
+      out.push({ origin: o, source: "setting" });
+    }
+  }
   const stayDomains = new Set<string>();
   for (const o of input.stayOrigins) {
-    add(o, "stay_signed_in");
+    if (seen.has(`other ${o}`)) continue;
+    seen.add(`other ${o}`);
+    out.push({ origin: o, source: "stay_signed_in" });
     try {
       stayDomains.add(registrableDomain(new URL(o).hostname));
     } catch {
@@ -286,7 +289,10 @@ export function effectiveSignedInSites(input: {
   }
   if (input.useDetected) {
     for (const d of input.detectedDomains) {
-      if (!stayDomains.has(registrableDomain(d))) add(`https://${d}`, "detected");
+      const origin = `https://${d}`;
+      if (stayDomains.has(registrableDomain(d)) || seen.has(`other ${origin}`)) continue;
+      seen.add(`other ${origin}`);
+      out.push({ origin, source: "detected" });
     }
   }
   return out;

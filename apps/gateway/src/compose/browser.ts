@@ -173,6 +173,13 @@ export const BOT_AUTH_SETTING = "browser.botAuth";
  * "Let Psyche use my signed-in sessions" (admin key, boolean, default on). Off keeps agent tabs
  * logged out except for sites the owner chose with "Stay signed in".
  */
+/** Settings whose change can put an open profile tab back in the logged-out partition. */
+const TIGHTENING_KEYS = new Set([
+  "browser.partition",
+  "browser.signedInOrigins",
+  "browser.useSignedInSessions",
+]);
+
 export const USE_SIGNED_IN_SETTING = "browser.useSignedInSessions";
 
 export function useSignedInFromSetting(value: unknown): boolean {
@@ -950,6 +957,15 @@ export function composeBrowser(
           (f.payload?.entries ?? []).some((e) => e.key === REAL_CHROME_SETTING)
         ) {
           syncTools();
+        }
+        // Tightening the sign-in settings also closes the open profile tabs they no longer allow.
+        if (
+          f.event === "settings.changed" &&
+          (f.payload?.entries ?? []).some((e) => TIGHTENING_KEYS.has(e.key))
+        ) {
+          void primaryDriver()
+            ?.closeTightenedTabs()
+            .catch(() => undefined);
         }
       });
       if (setup.socketPath === false) return;

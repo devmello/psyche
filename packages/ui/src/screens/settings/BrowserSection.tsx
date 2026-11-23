@@ -221,9 +221,8 @@ export function AgentBrowserGroup({
       : [];
   const useSignedIn = useSignedInOf(values);
   // The one list: sites chosen here (live from the form) plus the ones the browser is signed in to.
-  const otherSites = (agent?.signedInSites ?? []).filter(
-    (site) => site.source !== "setting" && !siteList.includes(site.origin),
-  );
+  // A site the setting and another source share keeps its other row, so it can still be signed out.
+  const otherSites = (agent?.signedInSites ?? []).filter((site) => site.source !== "setting");
   const [signOutError, setSignOutError] = useState<string | null>(null);
   const signOut = (site: string): void => {
     if (signedInSites === undefined) return;
@@ -349,7 +348,10 @@ export function AgentBrowserGroup({
             </li>
           ))}
           {otherSites.map((site) => (
-            <li key={site.origin} className="flex items-center justify-between gap-3">
+            <li
+              key={`${site.source}:${site.origin}`}
+              className="flex items-center justify-between gap-3"
+            >
               <span>
                 <span className="font-mono">{site.origin}</span>
                 <span
