@@ -230,6 +230,21 @@ export function getArtifact(db: PsycheDb, id: string): StoredArtifact | null {
   return row === undefined ? null : storedFromRow(row);
 }
 
+/** The citations of the artifact mirrored to a Library item; undefined when it has none. */
+export function artifactSourcesForLibraryItem(
+  db: PsycheDb,
+  libraryItemId: string,
+): AnswerSource[] | undefined {
+  const row = db.drizzle
+    .select({ sources: artifacts.sources })
+    .from(artifacts)
+    .where(eq(artifacts.libraryItemId, libraryItemId))
+    .get();
+  if (row === undefined || row.sources === null) return undefined;
+  const sources = JSON.parse(row.sources) as AnswerSource[];
+  return sources.length === 0 ? undefined : sources;
+}
+
 export function listArtifactsPage(
   db: PsycheDb,
   options: { threadId?: string; offset?: number; limit?: number } = {},

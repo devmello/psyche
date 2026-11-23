@@ -24,6 +24,7 @@ import {
 import type { LibraryIngest, LibraryIngestInput } from "@psyche/channels";
 import type { LibrarySink } from "@psyche/connectors";
 import {
+  artifactSourcesForLibraryItem,
   deleteLibraryItem,
   getLibraryItem,
   getThread,
@@ -45,6 +46,7 @@ import {
 } from "@psyche/protocol";
 import type { Call, HandlerDef } from "../context.ts";
 import { decodeOffset, encodeOffset } from "../handlers/threads.ts";
+import { inAppRoute, RUN_SOURCES_LIMIT } from "../run-sources.ts";
 import { assertWritableThread } from "../session/imported-threads.ts";
 
 /**
@@ -464,9 +466,16 @@ export function libraryHandlers(setup: LibrarySetup): Record<string, HandlerDef>
       },
     },
     "library.get": {
-      run: (_call: Call, params: MethodParams<"library.get">): MethodResult<"library.get"> => ({
-        item: requireItem(db, params.itemId),
-      }),
+      run: (_call: Call, params: MethodParams<"library.get">): MethodResult<"library.get"> => {
+        const item = requireItem(db, params.itemId);
+        // An artifact's citations, capped and routed like the run's own (`inAppRoute`). No field when it has none.
+        const stored = artifactSourcesForLibraryItem(db, item.id);
+        if (stored === undefined) return { item };
+        const sources = stored
+          .slice(0, RUN_SOURCES_LIMIT)
+          .map((s) => ({ ...s, route: inAppRoute(s.route) }));
+        return { item: { ...item, sources } };
+      },
     },
     "library.delete": {
       run: async (

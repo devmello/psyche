@@ -7,6 +7,7 @@ import {
   appendMessage,
   createThread,
   getLibraryItem,
+  insertArtifact,
   insertLibraryItem,
   type NewLibraryItem,
   openDb,
@@ -124,6 +125,68 @@ describe("library.list / library.get", () => {
     expect(out).toEqual(saved);
     expect(out.quarantined).toBe(true);
     expect(await codeOf(run("library.get", { itemId: "missing" }))).toBe("not_found");
+  });
+
+  it("returns an artifact's stored sources with in-app routes only, and no field without sources", async () => {
+    const withSources = insertLibraryItem(
+      db,
+      item({ kind: "artifact", name: "Plan.md", path: "a/plan.md", mime: "text/markdown" }),
+    );
+    const plain = insertLibraryItem(
+      db,
+      item({ kind: "artifact", name: "Empty.md", path: "a/empty.md", mime: "text/markdown" }),
+    );
+    const base = {
+      type: "markdown" as const,
+      nameSlug: "x",
+      content: "body",
+      bytes: 4,
+      hash: "sha256:01",
+      untrusted: false,
+    };
+    const source = (id: string, route: string | null) => ({
+      id,
+      kind: "mail",
+      source: "mail",
+      title: `T ${id}`,
+      date: "2026-11-02",
+      provenance: "untrusted",
+      span: "Gate 4",
+      route,
+    });
+    insertArtifact(
+      db,
+      {
+        ...base,
+        id: "art_sources",
+        libraryItemId: withSources.id,
+        title: "Plan",
+        sources: [
+          source("s1", "/library/f1"),
+          source("s2", "https://evil.example/x"),
+          source("s3", "//evil.example"),
+        ],
+      },
+      { author: "agent", summary: "made" },
+    );
+    insertArtifact(
+      db,
+      { ...base, id: "art_plain", libraryItemId: plain.id, title: "Empty" },
+      { author: "agent", summary: "made" },
+    );
+
+    const out = (await run("library.get", { itemId: withSources.id })).item as LibraryItem & {
+      sources: Array<{ id: string; route: string | null }>;
+    };
+    expect(Value.Check(LibraryItem, out)).toBe(true);
+    expect(out.sources.map((s) => [s.id, s.route])).toEqual([
+      ["s1", "/library/f1"],
+      ["s2", null],
+      ["s3", null],
+    ]);
+
+    const none = (await run("library.get", { itemId: plain.id })).item as Record<string, unknown>;
+    expect("sources" in none).toBe(false);
   });
 });
 

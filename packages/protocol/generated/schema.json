@@ -26984,6 +26984,13 @@
         "quarantined": {
           "type": "boolean"
         },
+        "sources": {
+          "items": {
+            "$ref": "#/$defs/AnswerSource"
+          },
+          "maxItems": 20,
+          "type": "array"
+        },
         "createdAt": {
           "description": "ISO-8601 timestamp (UTC)",
           "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}(\\.\\d{1,9})?(Z|[+-]\\d{2}:\\d{2})$",
