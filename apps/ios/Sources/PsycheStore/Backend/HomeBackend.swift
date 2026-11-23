@@ -21,13 +21,28 @@ public protocol HomeBackend: Sendable {
 
 public enum ApprovalDecision: String, Sendable, Equatable { case allow, deny }
 
+/// The answer to every part of a question request: one value per part, keyed by the part's header. The wire
+/// shape of `questions.answer` (`QuestionAnswers`): a text for a single choice or a typed answer, an array for a
+/// multi-select.
 public struct QuestionAnswer: Sendable, Equatable {
-    public var optionID: String?
-    public var text: String?
-    public init(optionID: String? = nil, text: String? = nil) {
-        self.optionID = optionID
-        self.text = text
+    public enum Value: Sendable, Equatable {
+        case text(String)
+        case choices([String])
     }
+
+    public var values: [String: Value]
+
+    public init(values: [String: Value] = [:]) {
+        self.values = values
+    }
+
+    /// A single-part answer from a surface that doesn't know the part's header (the chat card's option tap). It is
+    /// keyed by the empty string, and the Gateway backend files it under the request's only part.
+    public init(singleText text: String) {
+        self.values = [Self.onlyPartKey: .text(text)]
+    }
+
+    public static let onlyPartKey = ""
 }
 
 public enum NudgeAction: String, Sendable, Equatable { case startMessage, snooze, mute }
@@ -156,29 +171,60 @@ public struct NeedsYouItem: Sendable, Equatable, Identifiable {
     }
 }
 
-/// A question Psyche asked: a prompt, a few options, and optionally a free-text answer.
+/// A question Psyche asked: one or more parts (1-4, as `ask_user` sends them), each with a prompt and options.
+/// Every part is answered before the answer can be sent.
 public struct QuestionDetail: Sendable, Equatable {
     public struct Option: Sendable, Equatable, Identifiable {
         public var id: String
         public var label: String
         /// A quiet line under the label ("Sent Oct 30 · 14 slides").
         public var detail: String?
-        public init(id: String, label: String, detail: String? = nil) {
+        /// The text the answer carries for this option (the label the agent matches). Defaults to `label`.
+        public var value: String
+        public init(id: String, label: String, detail: String? = nil, value: String? = nil) {
             self.id = id
             self.label = label
             self.detail = detail
+            self.value = value ?? label
         }
     }
 
-    public var prompt: String
-    public var options: [Option]
-    public var allowsFreeText: Bool
-
-    public init(prompt: String, options: [Option], allowsFreeText: Bool = true) {
-        self.prompt = prompt
-        self.options = options
-        self.allowsFreeText = allowsFreeText
+    /// One question of the request. `header` keys its answer on the wire.
+    public struct Part: Sendable, Equatable, Identifiable {
+        public var header: String
+        public var prompt: String
+        public var options: [Option]
+        /// A multi-select part takes several options (an array on the wire); otherwise one.
+        public var multiSelect: Bool
+        /// The "Other" row: a typed answer of the owner's own words.
+        public var allowsFreeText: Bool
+        public var id: String { header }
+        public init(
+            header: String, prompt: String, options: [Option], multiSelect: Bool = false, allowsFreeText: Bool = true
+        ) {
+            self.header = header
+            self.prompt = prompt
+            self.options = options
+            self.multiSelect = multiSelect
+            self.allowsFreeText = allowsFreeText
+        }
     }
+
+    public var parts: [Part]
+
+    public init(parts: [Part]) {
+        self.parts = parts
+    }
+
+    /// A single-part question, as the fixtures and older callers build it.
+    public init(prompt: String, options: [Option], allowsFreeText: Bool = true) {
+        self.parts = [Part(header: "Answer", prompt: prompt, options: options, allowsFreeText: allowsFreeText)]
+    }
+
+    /// The first part's prompt and options. Use `parts` for a request with several.
+    public var prompt: String { parts.first?.prompt ?? "" }
+    public var options: [Option] { parts.first?.options ?? [] }
+    public var allowsFreeText: Bool { parts.first?.allowsFreeText ?? false }
 }
 
 /// Everything an approval shows, never truncated (security §3.7).
@@ -186,10 +232,19 @@ public struct ApprovalDetail: Sendable, Equatable {
     public struct Field: Sendable, Equatable, Identifiable {
         public var key: String
         public var value: String
-        public var id: String { key }
-        public init(key: String, value: String) {
+        /// How far down the nested details this row sits (0 for a top-level field).
+        public var depth: Int
+        /// Code or a command: shown in monospace.
+        public var monospaced: Bool
+        /// The row's place in the details ("params.command"), so repeated nested keys stay distinct.
+        public var path: String
+        public var id: String { path }
+        public init(key: String, value: String, depth: Int = 0, monospaced: Bool = false, path: String? = nil) {
             self.key = key
             self.value = value
+            self.depth = depth
+            self.monospaced = monospaced
+            self.path = path ?? key
         }
     }
 

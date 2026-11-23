@@ -39,7 +39,9 @@ struct ApprovalSheet: View {
                     Text(detail.title).psycheTitle(.title).foregroundStyle(PsycheColor.text)
                     Text(detail.summary).font(.subheadline).foregroundStyle(PsycheColor.muted)
                 }
-                ApprovalCard(fields: detail.fields.map { .init(key: $0.key, value: $0.value) })
+                ApprovalCard(fields: detail.fields.map {
+                    .init(key: $0.key, value: $0.value, depth: $0.depth, monospaced: $0.monospaced, id: $0.path)
+                })
                 VStack(alignment: .leading, spacing: 6) {
                     EvidenceLine(String(localized: "Because", bundle: .module), detail.evidence)
                     EvidenceLine(String(localized: "Also sent to", bundle: .module), [detail.alsoSentTo])

@@ -242,7 +242,7 @@ final class ThreadModel {
         let previous = chosen[question]
         chosen[question] = option
         Task {
-            do { try await store.answerQuestion(id: question, answer: QuestionAnswer(optionID: option)) } catch {
+            do { try await store.answerQuestion(id: question, answer: QuestionAnswer(singleText: option)) } catch {
                 if chosen[question] == option { chosen[question] = previous }
                 actionError = error.localizedDescription
             }

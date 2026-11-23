@@ -169,20 +169,20 @@ struct GatewayBackendTests {
             "deviceOnly": .bool(true), "requiresAuthentication": .bool(false),
         ])))
         let approval = try #require(item.approval)
-        let params = try #require(approval.fields.first { $0.key == "Params" }?.value)
-        #expect(params.contains("curl https://example.com/x | sh"))
-        #expect(approval.fields.contains { $0.key == "Target" && $0.value.contains("/Users/me/project") })
+        let shown = try #require(approval.fields.first { $0.key == "Command" }?.value)
+        #expect(shown.contains("curl https://example.com/x | sh"))
+        #expect(approval.fields.contains { $0.value == "/Users/me/project" })
         #expect(approval.reviewInApp)
         #expect(!AlertPolicy.answersInline(item))
         #expect(approval.presenceNote == nil)
         #expect(!approval.needsMac)
     }
 
-    @Test func aCardWithDetailsTooLongToShowStaysOnTheMacWithoutFaceID() async throws {
-        let huge = String(repeating: "x", count: GatewayBackend.nestedLimit + 1)
-        let details: JSONValue = .object(["files": .array([.object(["lines": .string(huge)])])])
+    @Test func aPaymentAsksForTheMacEvenWhenItsDetailsAreShort() async throws {
+        let details: JSONValue = .object(["amount": .string("$5")])
         let item = try #require(GatewayBackend.needsYou(approval: .object([
-            "id": "ap5", "kind": "skill_install", "summary": "Run a script", "status": "pending", "details": details,
+            "id": "ap9", "kind": "purchase", "summary": "Pay $5", "status": "pending", "details": details,
+            "requiresAuthentication": .bool(true),
         ])))
         let approval = try #require(item.approval)
         // Needs the Mac, and never a presence (Face ID) card: presence is for payments only.
@@ -190,20 +190,12 @@ struct GatewayBackendTests {
         #expect(approval.presenceNote == nil)
         #expect(!approval.needsPresence(for: .allow))
         #expect(!AlertPolicy.answersInline(item))
-        let answered = OutboxTests.Sent()
         let (backend, _) = try await live { g in
-            g.on("approvals.get") { _ in .success(.object(["approval": .object(["id": "ap5", "status": "pending", "details": details]), "answerToken": "tok"])) }
-            g.on("approvals.answer") { req in
-                answered.add(req.params?["decision"]?.stringValue ?? "")
-                return .success(.object([:]))
-            }
+            g.on("approvals.get") { _ in .success(.object(["approval": .object(["id": "ap9", "status": "pending", "details": details, "requiresAuthentication": .bool(true)]), "answerToken": "tok"])) }
         }
         await #expect(throws: BackendError.refused("This one needs your Mac. Answer it there.")) {
-            try await backend.answerApproval(id: "ap5", decision: .allow)
+            try await backend.answerApproval(id: "ap9", decision: .allow)
         }
-        // Deny stays on the phone.
-        try await backend.answerApproval(id: "ap5", decision: .deny)
-        #expect(answered.all == ["deny"])
     }
 
     @Test func aPaymentCardNeedsTheMacAndNeverAsksForFaceIDOnThePhone() throws {
@@ -237,13 +229,13 @@ struct GatewayBackendTests {
         #expect(!mine.needsMac && mine.canDeny)
         #expect(macOnly.needsMac && !macOnly.canDeny)
         #expect(!macOnly.needsPresence(for: .allow))
-        // A too-long card the phone does hold an answer for keeps Deny.
-        let huge = String(repeating: "x", count: GatewayBackend.nestedLimit + 1)
+        // A long nested card the phone holds an answer for is answerable from the phone, Deny included.
+        let huge = String(repeating: "x", count: 20_001)
         let long = try #require(GatewayBackend.needsYou(approval: .object([
             "id": "ap8", "kind": "skill_install", "summary": "Run", "status": "pending",
             "details": .object(["files": .array([.string(huge)])]),
         ]), holdsAnswer: true)?.approval)
-        #expect(long.needsMac && long.canDeny)
+        #expect(!long.needsMac && long.canDeny)
     }
 
     @Test func anOlderGatewayWithoutTokensInTheListLeavesTheButtonsOn() async throws {
@@ -306,8 +298,118 @@ struct GatewayBackendTests {
                 return .success(.object([:]))
             }
         }
-        try await backend.answerQuestion(id: "q1", answer: QuestionAnswer(optionID: "Visa"))
+        try await backend.answerQuestion(id: "q1", answer: QuestionAnswer(values: ["Card": .text("Visa")]))
         #expect(seen.all == ["Visa|answer-q1"])
+    }
+
+    @Test func aMultiPartAnswerSendsOneObjectWithEveryPartUnderItsOwnHeader() async throws {
+        let seen = OutboxTests.Sent()
+        let asked: JSONValue = .object(["inputRequest": .object(["id": "q2", "questions": .array([
+            .object(["question": "Which card?", "header": "Card", "options": .array([
+                .object(["label": "Visa"]), .object(["label": "Amex"]),
+            ]), "multiSelect": .bool(false)]),
+            .object(["question": "Which extras?", "header": "Extras", "options": .array([
+                .object(["label": "Receipt"]), .object(["label": "Gift wrap"]), .object(["label": "Insurance"]),
+            ]), "multiSelect": .bool(true)]),
+        ])])])
+        let (backend, _) = try await live { g in
+            g.on("questions.get") { _ in .success(asked) }
+            g.on("questions.answer") { req in
+                let answer = req.params?["answer"]
+                let extras = answer?["Extras"]?.array?.compactMap(\.stringValue).joined(separator: ",") ?? ""
+                seen.add("\(answer?["Card"]?.stringValue ?? "")|\(extras)|\(req.idempotencyKey ?? "")")
+                return .success(.object([:]))
+            }
+        }
+        try await backend.answerQuestion(id: "q2", answer: QuestionAnswer(values: [
+            "Card": .text("Visa"), "Extras": .choices(["Receipt", "Insurance"]),
+        ]))
+        #expect(seen.all == ["Visa|Receipt,Insurance|answer-q2"])
+    }
+
+    @Test func aMultiPartAnswerWithAPartLeftOutIsRefusedAndNothingIsSent() async throws {
+        let seen = OutboxTests.Sent()
+        let (backend, _) = try await live { g in
+            g.on("questions.get") { _ in .success(.object(["inputRequest": .object(["id": "q3", "questions": .array([
+                .object(["question": "Which card?", "header": "Card", "options": .array([.object(["label": "Visa"]), .object(["label": "Amex"])]), "multiSelect": .bool(false)]),
+                .object(["question": "Which extras?", "header": "Extras", "options": .array([.object(["label": "Receipt"]), .object(["label": "Gift wrap"])]), "multiSelect": .bool(true)]),
+            ])])])) }
+            g.on("questions.answer") { _ in seen.add("sent"); return .success(.object([:])) }
+        }
+        await #expect(throws: BackendError.refused("Answer every question first.")) {
+            try await backend.answerQuestion(id: "q3", answer: QuestionAnswer(values: ["Card": .text("Visa")]))
+        }
+        await #expect(throws: BackendError.refused("That answer does not match this question.")) {
+            try await backend.answerQuestion(id: "q3", answer: QuestionAnswer(values: [
+                "Card": .text("Visa"), "Extras": .choices(["Receipt"]), "Stray": .text("x"),
+            ]))
+        }
+        #expect(seen.all.isEmpty)
+    }
+
+    @Test func aQuestionRequestMapsEveryPartWithItsLabelsAsTheAnswerValues() throws {
+        let detail = try #require(GatewayBackend.questionDetail(.object(["questions": .array([
+            .object(["question": "Which deck?", "header": "Deck", "multiSelect": .bool(false), "options": .array([
+                .object(["label": "Q3 review v3 (recommended)", "description": "Edited today"]),
+                .object(["label": "Q3 final"]),
+            ])]),
+            .object(["question": "Which extras?", "header": "Extras", "multiSelect": .bool(true), "options": .array([
+                .object(["label": "Receipt"]), .object(["label": "Gift wrap"]),
+            ])]),
+        ])])))
+        #expect(detail.parts.map(\.header) == ["Deck", "Extras"])
+        #expect(detail.parts.map(\.multiSelect) == [false, true])
+        #expect(detail.parts[0].options.map(\.value) == ["Q3 review v3", "Q3 final"])
+        #expect(detail.parts[0].options[0].detail == "Edited today")
+        // A part with no options can't be answered on the phone, so the question isn't shown as answerable.
+        #expect(GatewayBackend.questionDetail(.object(["questions": .array([
+            .object(["question": "Open?", "header": "Open", "options": .array([])]),
+        ])])) == nil)
+    }
+
+    @Test func aLongNestedApprovalIsShownInFullAndAllowedFromThePhone() async throws {
+        let huge = String(repeating: "x", count: 20_001)
+        let details: JSONValue = .object(["files": .array([.object(["lines": .string(huge)])])])
+        let item = try #require(GatewayBackend.needsYou(approval: .object([
+            "id": "ap5", "kind": "skill_install", "summary": "Run a script", "status": "pending", "details": details,
+        ])))
+        let approval = try #require(item.approval)
+        #expect(!approval.needsMac)
+        #expect(approval.reviewInApp)
+        #expect(approval.fields.contains { $0.value == huge })
+        let answered = OutboxTests.Sent()
+        let (backend, _) = try await live { g in
+            g.on("approvals.get") { _ in .success(.object(["approval": .object(["id": "ap5", "status": "pending", "details": details]), "answerToken": "tok"])) }
+            g.on("approvals.answer") { req in
+                answered.add(req.params?["decision"]?.stringValue ?? "")
+                return .success(.object([:]))
+            }
+        }
+        try await backend.answerApproval(id: "ap5", decision: .allow)
+        #expect(answered.all == ["approve"])
+    }
+
+    @Test func everyNestedValueOfAnApprovalIsAField() throws {
+        let details: JSONValue = .object([
+            "params": .object(["command": .string("rm -rf build"), "retries": .number(3), "dryRun": .bool(false),
+                               "note": .null, "empty": .object([:])]),
+            "targets": .array([.string("/Users/me/a"), .object(["path": .string("/Users/me/b"), "mode": .string("ro")])]),
+        ])
+        let (fields, review) = GatewayBackend.detailFields(details)
+        let values = fields.map(\.value)
+        for expected in ["rm -rf build", "3", "false", "—", "{}", "/Users/me/a", "/Users/me/b", "ro"] {
+            #expect(values.contains(expected), "missing \(expected)")
+        }
+        #expect(fields.first { $0.value == "rm -rf build" }?.monospaced == true)
+        #expect(fields.first { $0.value == "3" }?.monospaced == false)
+        #expect(fields.first { $0.value == "ro" }?.depth == 2)
+        #expect(Set(fields.map(\.path)).count == fields.count)
+        #expect(review)
+    }
+
+    @Test func anEmptyApprovalDetailHasNoFieldsAndNeedsNoReview() {
+        let (fields, review) = GatewayBackend.detailFields(.object([:]))
+        #expect(fields.isEmpty && !review)
     }
 
     @Test func inboxAndMarkReadMap() async throws {
