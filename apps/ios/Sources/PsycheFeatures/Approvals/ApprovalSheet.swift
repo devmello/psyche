@@ -99,7 +99,7 @@ struct ApprovalSheet: View {
                         .frame(maxWidth: .infinity, alignment: .leading)
                 }
                 if !session.state.canAnswer {
-                    Text("Reconnect to answer").font(.footnote).foregroundStyle(PsycheColor.muted)
+                    Text("Reconnect to answer", bundle: .module).font(.footnote).foregroundStyle(PsycheColor.muted)
                 }
                 HStack(spacing: 10) {
                     // Deny stays on a card the phone holds an answer for (refusing shows nothing the card doesn't); off

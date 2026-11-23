@@ -38,7 +38,7 @@ struct InboxView: View {
         }
         .psycheGroupedList()
         .psycheScreen()
-        .navigationTitle("Inbox")
+        .navigationTitle(String(localized: "Inbox", bundle: .module))
         .psycheInlineTitle()
         .psycheShowsNavigationBar()
         .task {
@@ -53,7 +53,7 @@ struct InboxView: View {
         let waiting = items.filter(\.needsYou)
         let rest = items.filter { !$0.needsYou }
         if items.isEmpty {
-            Text("Nothing here yet.").font(.subheadline).foregroundStyle(PsycheColor.muted)
+            Text("Nothing here yet.", bundle: .module).font(.subheadline).foregroundStyle(PsycheColor.muted)
                 .frame(maxWidth: .infinity).padding(.vertical, 40)
                 .listRowBackground(Color.clear)
         }
@@ -73,7 +73,7 @@ struct InboxView: View {
                     .listRowSeparatorTint(PsycheColor.hairline)
                     .swipeActions(edge: .trailing, allowsFullSwipe: true) {
                         if !item.read {
-                            Button("Read", systemImage: "envelope.open") { Task { await model.markRead(item) } }
+                            Button(String(localized: "Read", bundle: .module), systemImage: "envelope.open") { Task { await model.markRead(item) } }
                                 .tint(PsycheColor.muted)
                         }
                     }

@@ -29,8 +29,8 @@ struct AgentSheet: View {
         ScrollView {
             VStack(alignment: .leading, spacing: PsycheMetrics.sectionSpacing) {
                 header
-                Picker("Section", selection: $segment) {
-                    ForEach(Segment.allCases) { Text($0.rawValue).tag($0) }
+                Picker(String(localized: "Section", bundle: .module), selection: $segment) {
+                    ForEach(Segment.allCases) { Text(LocalizedStringKey($0.rawValue), bundle: .module).tag($0) }
                 }
                 .pickerStyle(.segmented)
                 if let error = model.error {
@@ -71,10 +71,10 @@ struct AgentSheet: View {
                 get: { cancelling != nil }, set: { if !$0 { cancelling = nil } }),
             titleVisibility: .visible, presenting: cancelling
         ) { task in
-            Button("Cancel task", role: .destructive) { Task { await model.cancel(taskID: task.id) } }
-            Button("Keep running", role: .cancel) {}
+            Button(String(localized: "Cancel task", bundle: .module), role: .destructive) { Task { await model.cancel(taskID: task.id) } }
+            Button(String(localized: "Keep running", bundle: .module), role: .cancel) {}
         } message: { _ in
-            Text("Psyche stops where it is. Work already done stays.")
+            Text("Psyche stops where it is. Work already done stays.", bundle: .module)
         }
     }
 
@@ -106,7 +106,7 @@ struct AgentSheet: View {
                     .glassEffect(.regular.interactive(), in: .circle)
             }
             .buttonStyle(.plain)
-            .accessibilityLabel("Settings")
+            .accessibilityLabel(String(localized: "Settings", bundle: .module))
         }
     }
 
@@ -119,13 +119,13 @@ struct AgentSheet: View {
         }
         if !activity.needsYou.isEmpty {
             VStack(alignment: .leading, spacing: 8) {
-                SectionHeader("Needs you", count: activity.needsYou.count, needsYou: true)
+                SectionHeader(String(localized: "Needs you", bundle: .module), count: activity.needsYou.count, needsYou: true)
                 needsYouCard(activity.needsYou)
             }
         }
         if !activity.now.isEmpty {
             VStack(alignment: .leading, spacing: 8) {
-                SectionHeader("Now")
+                SectionHeader(String(localized: "Now", bundle: .module))
                 PaperCard {
                     ForEach(Array(activity.now.enumerated()), id: \.element.id) { index, task in
                         if index > 0 { HairlineDivider() }
@@ -136,13 +136,13 @@ struct AgentSheet: View {
         }
         if !activity.nextUp.isEmpty {
             VStack(alignment: .leading, spacing: 8) {
-                SectionHeader("Next up")
+                SectionHeader(String(localized: "Next up", bundle: .module))
                 upcomingCard(Array(activity.nextUp.prefix(3)))
             }
         }
         if !activity.recent.isEmpty {
             VStack(alignment: .leading, spacing: 8) {
-                SectionHeader("Recent")
+                SectionHeader(String(localized: "Recent", bundle: .module))
                 recentCard(activity.recent)
             }
         }
@@ -173,13 +173,13 @@ struct AgentSheet: View {
             HStack(alignment: .firstTextBaseline, spacing: 12) {
                 Text(task.title).font(.psycheRow).foregroundStyle(PsycheColor.text)
                 Spacer(minLength: 0)
-                Button("Cancel") { cancelling = task }
+                Button(String(localized: "Cancel", bundle: .module)) { cancelling = task }
                     .font(.subheadline.weight(.medium))
                     .foregroundStyle(PsycheColor.muted)
                     .disabled(!session.state.canAnswer)
             }
             ProgressBar(fraction: task.fraction)
-            EvidenceLine(["Step \(task.step) of \(task.stepCount)", task.detail, task.elapsed])
+            EvidenceLine([String(localized: "Step \(task.step) of \(task.stepCount)", bundle: .module), task.detail, task.elapsed])
         }
         .padding(PsycheMetrics.rowPadding)
     }
@@ -226,7 +226,7 @@ struct AgentSheet: View {
             quiet("No approvals waiting.")
         } else {
             VStack(alignment: .leading, spacing: 8) {
-                SectionHeader("Waiting for you", count: pending.count, needsYou: true)
+                SectionHeader(String(localized: "Waiting for you", bundle: .module), count: pending.count, needsYou: true)
                 needsYouCard(pending)
             }
         }
@@ -245,7 +245,7 @@ struct AgentSheet: View {
     private var soul: some View {
         if let persona = model.persona {
             VStack(alignment: .leading, spacing: 8) {
-                SectionHeader("Soul")
+                SectionHeader(String(localized: "Soul", bundle: .module))
                 PaperCard(padding: 16) {
                     VStack(alignment: .leading, spacing: 14) {
                         Text(persona.summary).font(.callout).foregroundStyle(PsycheColor.text)
@@ -255,7 +255,7 @@ struct AgentSheet: View {
                         }
                     }
                 }
-                Text("Edit on your Mac")
+                Text("Edit on your Mac", bundle: .module)
                     .font(.footnote).foregroundStyle(PsycheColor.muted)
                     .padding(.horizontal, 2)
             }

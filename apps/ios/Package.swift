@@ -43,7 +43,7 @@ let package = Package(
         .target(name: "PsycheDesign", resources: [.process("Resources")]),
         // Native block views (I4) and the generative-UI WebView host (I8). Blocks read `ChatItem`, so they
         // depend on PsycheStore (which has no UI and no further dependencies, so nothing points up).
-        .target(name: "PsycheBlocks", dependencies: ["PsycheDesign", "PsycheStore"]),
+        .target(name: "PsycheBlocks", dependencies: ["PsycheDesign", "PsycheStore"], resources: [.process("Resources")]),
         .target(
             name: "PsycheFeatures",
             dependencies: ["PsycheBlocks", "PsycheDesign", "PsycheClient", "PsycheStore", "PsycheShared"],

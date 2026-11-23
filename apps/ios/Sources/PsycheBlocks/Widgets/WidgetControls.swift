@@ -118,7 +118,7 @@ struct ChoicesNodeView: View {
                 }
                 Button { submit(action) } label: {
                     HStack(spacing: 8) {
-                        Text("Send")
+                        Text("Send", bundle: .module)
                         if runner.phase == .working { ProgressView().controlSize(.small) }
                         if runner.phase == .sent { Image(systemName: "checkmark").font(.footnote.weight(.bold)) }
                     }
@@ -214,7 +214,7 @@ struct FormNodeView: View {
             }
             if let error = errors[field.id] {
                 Text(error).font(.footnote).foregroundStyle(PsycheColor.red)
-                    .accessibilityLabel("\(field.label): \(error)")
+                    .accessibilityLabel(String(localized: "\(field.label): \(error)", bundle: .module))
             }
         }
     }
@@ -231,7 +231,7 @@ struct FormNodeView: View {
                 .fieldBox(invalid: errors[field.id] != nil)
         case .select:
             Picker(field.label, selection: binding) {
-                Text("Choose…").tag("")
+                Text("Choose…", bundle: .module).tag("")
                 ForEach(field.options) { Text($0.label).tag($0.id) }
             }
             .pickerStyle(.menu)

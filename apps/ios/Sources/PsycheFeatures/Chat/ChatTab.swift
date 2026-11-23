@@ -32,7 +32,7 @@ struct ChatTab: View {
                     } else {
                         VStack(spacing: 8) {
                             MothAvatar(size: 44)
-                            Text("Pick a chat").font(.psycheRow).foregroundStyle(PsycheColor.muted)
+                            Text("Pick a chat", bundle: .module).font(.psycheRow).foregroundStyle(PsycheColor.muted)
                         }
                         .frame(maxWidth: .infinity, maxHeight: .infinity)
                         .psycheScreen()
@@ -113,7 +113,7 @@ struct ThreadListView: View {
                         .swipeActions(edge: .leading, allowsFullSwipe: true) {
                             if !thread.isMain {
                                 Button { Task { await model.pin(thread) } } label: {
-                                    Label(thread.isPinned ? "Unpin" : "Pin", systemImage: thread.isPinned ? "pin.slash" : "pin")
+                                    Label(thread.isPinned ? String(localized: "Unpin", bundle: .module) : String(localized: "Pin", bundle: .module), systemImage: thread.isPinned ? "pin.slash" : "pin")
                                 }
                                 .tint(PsycheColor.muted)
                             }
@@ -121,7 +121,7 @@ struct ThreadListView: View {
                         .swipeActions(edge: .trailing, allowsFullSwipe: true) {
                             if !thread.isMain {
                                 Button { Task { await model.archive(thread) } } label: {
-                                    Label("Archive", systemImage: "archivebox")
+                                    Label(String(localized: "Archive", bundle: .module), systemImage: "archivebox")
                                 }
                                 .tint(PsycheColor.muted)
                             }
@@ -131,7 +131,7 @@ struct ThreadListView: View {
         }
         .scrollContentBackground(.hidden)
         .psycheScreen()
-        .navigationTitle("Chat")
+        .navigationTitle(String(localized: "Chat", bundle: .module))
         .toolbar {
             ToolbarItem(placement: .primaryAction) { AgentButton(needsYou: model.phase.value?.contains { $0.statusKind == .needsYou } ?? false) }
             if !spaces.spaces.isEmpty {
@@ -139,13 +139,13 @@ struct ThreadListView: View {
             }
             ToolbarItem(placement: .primaryAction) {
                 Button { Task { selection = await newChat() ?? selection } } label: {
-                    Label("New chat", systemImage: "square.and.pencil")
+                    Label(String(localized: "New chat", bundle: .module), systemImage: "square.and.pencil")
                 }
-                .accessibilityLabel("New chat")
+                .accessibilityLabel(String(localized: "New chat", bundle: .module))
             }
         }
-        .alert("Couldn't do that", isPresented: errorShown) {
-            Button("OK") { model.clearError(); spaces.clearError() }
+        .alert(String(localized: "Couldn't do that", bundle: .module), isPresented: errorShown) {
+            Button(String(localized: "OK", bundle: .module)) { model.clearError(); spaces.clearError() }
         } message: {
             Text(model.actionError ?? spaces.actionError ?? "")
         }
@@ -246,7 +246,7 @@ private struct ThreadRow: View {
             Spacer(minLength: 0)
             if thread.isPinned, !thread.isMain {
                 Image(systemName: "pin.fill").font(.caption2).foregroundStyle(PsycheColor.muted)
-                    .accessibilityLabel("Pinned")
+                    .accessibilityLabel(String(localized: "Pinned", bundle: .module))
             }
         }
         .padding(.vertical, 2)

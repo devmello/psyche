@@ -81,7 +81,7 @@ struct ThreadView: View {
                 }
                 .padding(.trailing, 16).padding(.bottom, 10)
                 .transition(motion.transition(.control))
-                .accessibilityLabel("Jump to latest")
+                .accessibilityLabel(String(localized: "Jump to latest", bundle: .module))
             }
         }
         .psycheAnimation(.snappy, value: pinned)
@@ -115,8 +115,8 @@ struct ThreadView: View {
                 focused: $composerFocused, send: send, stop: model.cancel)
         }
         .sensoryFeedback(.impact(weight: .light), trigger: model.sentCount)
-        .alert("Couldn't do that", isPresented: actionErrorShown) {
-            Button("OK") { model.clearActionError() }
+        .alert(String(localized: "Couldn't do that", bundle: .module), isPresented: actionErrorShown) {
+            Button(String(localized: "OK", bundle: .module)) { model.clearActionError() }
         } message: {
             Text(model.actionError ?? "")
         }

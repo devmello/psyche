@@ -45,6 +45,6 @@ public struct NeedsYouDot: View {
     public init() {}
     public var body: some View {
         Circle().fill(PsycheColor.amber).frame(width: 8, height: 8)
-            .accessibilityLabel("Needs you")
+            .accessibilityLabel(String(localized: "Needs you", bundle: .module))
     }
 }

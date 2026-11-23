@@ -120,7 +120,7 @@ struct PaperSearchField: View {
                     Image(systemName: "xmark.circle.fill").foregroundStyle(PsycheColor.muted)
                 }
                 .buttonStyle(.plain)
-                .accessibilityLabel("Clear search")
+                .accessibilityLabel(String(localized: "Clear search", bundle: .module))
             }
         }
         .padding(.horizontal, 14)

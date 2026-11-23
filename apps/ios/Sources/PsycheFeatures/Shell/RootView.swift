@@ -120,7 +120,7 @@ struct MainTabs: View {
         .tabViewSidebarHeader {
             HStack(spacing: 10) {
                 MothAvatar(size: 28)
-                Text("Psyche").psycheTitle(.title3)
+                Text("Psyche", bundle: .module).psycheTitle(.title3)
             }
             .padding(.vertical, 4)
         }
@@ -188,12 +188,12 @@ extension MainTabs {
     fileprivate var watchOffer: some View {
         if let alerts, let task = alerts.offer {
             HStack(spacing: 12) {
-                Text("Watch this on your Lock Screen?")
+                Text("Watch this on your Lock Screen?", bundle: .module)
                     .font(.subheadline).foregroundStyle(PsycheColor.text)
                 Spacer(minLength: 0)
-                Button("Not now") { alerts.dismissOffer() }
+                Button(String(localized: "Not now", bundle: .module)) { alerts.dismissOffer() }
                     .font(.subheadline).foregroundStyle(PsycheColor.muted)
-                Button("Watch") {
+                Button(String(localized: "Watch", bundle: .module)) {
                     Task {
                         _ = await alerts.watch(task)
                         alerts.dismissOffer()

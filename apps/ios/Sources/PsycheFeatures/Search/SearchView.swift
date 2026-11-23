@@ -256,14 +256,14 @@ struct SearchView: View {
     @ViewBuilder
     private var idle: some View {
         if model.recents.isEmpty {
-            Text("Search your chats, files, people and to-dos, or ask about your life.")
+            Text("Search your chats, files, people and to-dos, or ask about your life.", bundle: .module)
                 .font(.subheadline).foregroundStyle(PsycheColor.muted)
         } else {
             VStack(alignment: .leading, spacing: 8) {
                 HStack {
-                    SectionHeader("Recent searches")
+                    SectionHeader(String(localized: "Recent searches", bundle: .module))
                     Spacer()
-                    Button("Clear") { model.clearRecents() }
+                    Button(String(localized: "Clear", bundle: .module)) { model.clearRecents() }
                         .font(.footnote.weight(.semibold))
                         .foregroundStyle(PsycheColor.inkText)
                 }
@@ -274,7 +274,7 @@ struct SearchView: View {
                     }
                 }
             }
-            Text("Kept on this phone only.").font(.footnote).foregroundStyle(PsycheColor.muted)
+            Text("Kept on this phone only.", bundle: .module).font(.footnote).foregroundStyle(PsycheColor.muted)
         }
     }
 
@@ -295,7 +295,7 @@ struct SearchView: View {
                     .frame(width: 32, height: 32).contentShape(Rectangle())
             }
             .buttonStyle(.plain)
-            .accessibilityLabel("Remove \(recent) from recent searches")
+            .accessibilityLabel(String(localized: "Remove \(recent) from recent searches", bundle: .module))
         }
         .padding(PsycheMetrics.rowPadding)
     }
@@ -311,11 +311,11 @@ struct SearchView: View {
 
     private var noResults: some View {
         VStack(alignment: .leading, spacing: 14) {
-            Text("Nothing matches \u{201C}\(model.trimmed)\u{201D}.")
+            Text("Nothing matches \u{201C}\(model.trimmed)\u{201D}.", bundle: .module)
                 .font(.psycheRow.weight(.semibold)).foregroundStyle(PsycheColor.text)
-            Text("Try fewer words, or ask Psyche in chat.")
+            Text("Try fewer words, or ask Psyche in chat.", bundle: .module)
                 .font(.subheadline).foregroundStyle(PsycheColor.muted)
-            Button("Ask Psyche") { router.askPsyche(model.trimmed) }
+            Button(String(localized: "Ask Psyche", bundle: .module)) { router.askPsyche(model.trimmed) }
                 .buttonStyle(.psycheOutline)
                 .frame(maxWidth: 220)
         }
@@ -324,9 +324,9 @@ struct SearchView: View {
 
     private func failed(_ message: String) -> some View {
         VStack(spacing: 12) {
-            Text("Couldn't search").font(.headline).foregroundStyle(PsycheColor.text)
+            Text("Couldn't search", bundle: .module).font(.headline).foregroundStyle(PsycheColor.text)
             Text(message).font(.subheadline).foregroundStyle(PsycheColor.muted)
-            Button("Try again") { Task { await model.run() } }
+            Button(String(localized: "Try again", bundle: .module)) { Task { await model.run() } }
                 .buttonStyle(.psycheOutline).frame(maxWidth: 220)
         }
         .frame(maxWidth: .infinity)
@@ -366,7 +366,7 @@ struct SearchView: View {
                     claimsView(answer)
                     EvidenceLine("Sources", answer.evidence)
                 } else {
-                    Text("Nothing in your reviewed memory answers this yet.")
+                    Text("Nothing in your reviewed memory answers this yet.", bundle: .module)
                         .font(.subheadline).foregroundStyle(PsycheColor.muted)
                 }
                 if model.offersDeep { deepButton }
@@ -387,7 +387,7 @@ struct SearchView: View {
             Button { Task { await model.askDeep() } } label: {
                 HStack(spacing: 8) {
                     if model.deepLoading { ProgressView().controlSize(.small) }
-                    Text("Answer from my mail, messages and files")
+                    Text("Answer from my mail, messages and files", bundle: .module)
                 }
             }
             .buttonStyle(.psycheOutline)
@@ -433,7 +433,7 @@ struct SearchView: View {
             case .answered(let answer):
                 claimsView(answer)
                 EvidenceLine("Sources", answer.evidence)
-            case .none: Text("No answer to that.").font(.subheadline).foregroundStyle(PsycheColor.muted)
+            case .none: Text("No answer to that.", bundle: .module).font(.subheadline).foregroundStyle(PsycheColor.muted)
             case .failed(let message): Text(message).font(.subheadline).foregroundStyle(PsycheColor.muted)
             }
         }
@@ -443,7 +443,7 @@ struct SearchView: View {
     private var followUpBox: some View {
         if model.canAskFollowUp {
             HStack(spacing: 8) {
-                TextField("Ask a follow-up", text: $model.followUpText)
+                TextField(String(localized: "Ask a follow-up", bundle: .module), text: $model.followUpText)
                     .font(.callout)
                     .submitLabel(.send)
                     .onSubmit { Task { await model.askFollowUp() } }
@@ -455,12 +455,12 @@ struct SearchView: View {
                 .buttonStyle(.plain)
                 .disabled(model.followUpText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
                 .opacity(model.followUpText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty ? 0.4 : 1)
-                .accessibilityLabel("Ask follow-up")
+                .accessibilityLabel(String(localized: "Ask follow-up", bundle: .module))
             }
             .padding(.leading, 14).padding(.trailing, 6).padding(.vertical, 6)
             .background(PsycheColor.fill, in: Capsule())
         } else if model.turns.count >= SearchModel.maxFollowUps {
-            Text("That is as far as one answer goes. Ask Psyche in chat to keep going.")
+            Text("That is as far as one answer goes. Ask Psyche in chat to keep going.", bundle: .module)
                 .font(.footnote).foregroundStyle(PsycheColor.muted)
         }
     }
@@ -592,7 +592,7 @@ private struct PassageChip: View {
             .contentShape(Capsule())
         }
         .buttonStyle(.plain)
-        .accessibilityLabel("Source: \(passageSourceName(passage.source)), \(passage.title)")
+        .accessibilityLabel(String(localized: "Source: \(passageSourceName(passage.source)), \(passage.title)", bundle: .module))
         .accessibilityIdentifier("passage-chip")
     }
 }
@@ -622,8 +622,8 @@ private struct PassageSheet: View {
                             HStack(spacing: 10) {
                                 Image(systemName: "desktopcomputer").foregroundStyle(PsycheColor.muted)
                                 VStack(alignment: .leading, spacing: 2) {
-                                    Text("Open on your Mac").font(.subheadline.weight(.semibold)).foregroundStyle(PsycheColor.text)
-                                    Text("This one isn't opened on your phone. Read it in Psyche on your Mac.")
+                                    Text("Open on your Mac", bundle: .module).font(.subheadline.weight(.semibold)).foregroundStyle(PsycheColor.text)
+                                    Text("This one isn't opened on your phone. Read it in Psyche on your Mac.", bundle: .module)
                                         .font(.footnote).foregroundStyle(PsycheColor.muted)
                                 }
                             }
@@ -638,10 +638,10 @@ private struct PassageSheet: View {
                 .frame(maxWidth: .infinity, alignment: .leading)
             }
             .psycheScreen()
-            .navigationTitle("Source")
+            .navigationTitle(String(localized: "Source", bundle: .module))
             .psycheInlineTitle()
             .toolbar {
-                ToolbarItem(placement: .confirmationAction) { Button("Done") { dismiss() } }
+                ToolbarItem(placement: .confirmationAction) { Button(String(localized: "Done", bundle: .module)) { dismiss() } }
             }
         }
         .presentationDetents([.medium, .large])
