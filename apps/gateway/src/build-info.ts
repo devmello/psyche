@@ -26,7 +26,9 @@ export function readServerBuild(
   const claimed = clean(env.PSYCHE_BUILD);
   let fileBuild: string | undefined;
   let commit: string | undefined;
-  const infoPath = clean(env.PSYCHE_BUILD_INFO);
+  // A path is never capped: the 64-character limit is for build ids and commits. A bundled
+  // psyched lives under a long path (the AppImage's /tmp/.mount_… prefix is 73 characters).
+  const infoPath = trimmed(env.PSYCHE_BUILD_INFO);
   if (infoPath !== undefined) {
     try {
       const info = JSON.parse(read(infoPath)) as { build?: unknown; commit?: unknown };
@@ -44,9 +46,15 @@ export function readServerBuild(
   };
 }
 
+/** A build id or commit: trimmed and capped at 64 characters. */
 function clean(value: string | undefined): string | undefined {
+  return trimmed(value)?.slice(0, 64);
+}
+
+/** A file path: trimmed, never truncated (a cut path names a file that is not there). */
+function trimmed(value: string | undefined): string | undefined {
   const v = value?.trim();
-  return v === undefined || v === "" ? undefined : v.slice(0, 64);
+  return v === undefined || v === "" ? undefined : v;
 }
 
 let current: ServerBuild | undefined;
