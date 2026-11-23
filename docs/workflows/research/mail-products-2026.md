@@ -12,7 +12,7 @@
 
 **Triage.** Split Inbox divides mail into tabs. Since early 2025 the default Important/Other split is driven by AI: marketing, cold pitches, and social updates move to Other [1]. Auto Labels classify every incoming message. Superhuman names categories such as needs a response, waiting on, meeting requests, and marketing, but does not publish the full default list [1]. Custom Auto Labels are written as short prompts ("job applications", "requests to review work") and can become their own Split Inbox tab. They require the Business or Enterprise plan [1]. Auto Archive takes marketing, cold pitches, and social updates out of the inbox entirely, and they stay reachable through their label [1]. Superhuman does not explain how the classifier decides beyond vendor framing [1].
 
-**Follow-up.** The manual "Remind me" brings a sent email back if nobody replies by a date you choose [7]. Auto Reminders has three scope settings: emails the AI judges to need a follow-up (based on your latest outgoing message when no reply arrived), every external email, or none. You can also set a default reminder time and limit reminders to weekdays [4] (help page blocked our fetcher; from search excerpts). When a reminder fires, the thread returns to the inbox. On Business plans it comes back with a pre-written follow-up draft [4]. Whether an incoming reply automatically cancels a pending reminder is implied but **unverified**. Superhuman's February 2025 post listed automatic sending of follow-ups ("Auto Follow Up") as a _future_ feature [1]. We found no evidence that it shipped (**unverified**).
+**Follow-up.** The manual "Remind me" brings a sent email back if nobody replies by a date you choose [7]. Auto Reminders has three scope settings: emails the AI judges to need a follow-up (based on your latest outgoing message when no reply arrived), every external email, or none. You can also set a default reminder time and limit reminders to weekdays [4] (help page blocked our fetcher; from search excerpts). When a reminder fires, the thread returns to the inbox. On Business plans it comes back with a pre-written follow-up draft [4]. Whether an incoming reply automatically cancels a pending reminder is implied but **unverified**. Superhuman's February 2025 post listed automatic sending of follow-ups ("Auto Follow Up") as a *future* feature [1]. We found no evidence that it shipped (**unverified**).
 
 **Drafting.** Write with AI (Cmd/Ctrl+J) turns a prompt into a draft. The help center says it analyzes a sample of your recent emails when you enable it, to learn your tone. Business users can also set written preferences for tone, length, and formatting [3]. Instant Reply (February 2024) puts three full draft replies under the latest received message, matched to the voice of your sent mail [2]. Auto Drafts (Business plan, relaunched July 2026) writes a reply before you open an email and offers two alternative variations [6]. It adapts tone, length, and structure to how you have written to each recipient before [1]. A scheduling variant proposes times and includes a booking link [7]. Superhuman reports that 40% of auto-drafts were sent within a day, and 60% of those were sent unedited. These are vendor figures [6].
 
@@ -36,7 +36,7 @@
 
 ## HEY (37signals)
 
-**Triage.** The Screener is a first-contact gate: the first time someone emails you, you decide whether you hear from them again [14]. Accepted senders are routed by _sender_ (not by message) to the Imbox (important), the Feed (newsletters, shown already open), or the Paper Trail (receipts and transactional mail) [14]. Nothing here is AI. Every routing decision is made once by the user and then applied deterministically.
+**Triage.** The Screener is a first-contact gate: the first time someone emails you, you decide whether you hear from them again [14]. Accepted senders are routed by *sender* (not by message) to the Imbox (important), the Feed (newsletters, shown already open), or the Paper Trail (receipts and transactional mail) [14]. Nothing here is AI. Every routing decision is made once by the user and then applied deterministically.
 
 **Follow-up.** Reply Later moves a thread to a pile at the bottom of the screen. "Focus & Reply" then walks you through that pile in sequence [14][16]. Set Aside is a reference pile [14]. Bubble Up hides a thread and brings it back to the top of the Imbox later [14]. The features page does not list the timing options for Bubble Up. HEY also blocks tracking pixels and names the sender who tried to track you [14].
 
@@ -54,7 +54,7 @@
 
 **Drafting.** Spark +AI offers tone presets (formal, friendly) and length settings [22]. "My Writing Style" (February 2024) sends a few recent sent emails to Azure OpenAI to learn sentence structure, greetings, sign-offs, pacing, and vocabulary [21][22]. Coverage reports that the samples are deleted after a month and never used for training. That claim comes from secondhand reporting (Cult of Mac via search excerpt), so it is **unverified** at the primary source.
 
-**Privacy architecture.** AI is opt-in. Spark builds a _local_ index of your mail, and only the most relevant emails plus the prompt go to its AI provider for each question [20]. This is a useful middle ground for Psyche: local retrieval, then remote generation.
+**Privacy architecture.** AI is opt-in. Spark builds a *local* index of your mail, and only the most relevant emails plus the prompt go to its AI provider for each question [20]. This is a useful middle ground for Psyche: local retrieval, then remote generation.
 
 **Pricing.** Free tier (AI assistant over one month of history), Plus $10/month (Priority, Gatekeeper, one year of history), Pro $20/month [20].
 
@@ -78,7 +78,7 @@
 
 **Summaries.** "Summary by Copilot" sits at the top of a thread and includes numbered citations that jump to the source message [41].
 
-**Drafting and coaching.** Draft with Copilot has tone and length controls [39]. Custom drafting instructions (tone, length, greeting) apply to every draft [38]. Coaching by Copilot reviews a draft _you_ wrote for tone, reader sentiment, and clarity [37]. A PC Pro/TechRadar review called drafts a starting point and said the tone presets overshoot: "formal" comes out very formal [44].
+**Drafting and coaching.** Draft with Copilot has tone and length controls [39]. Custom drafting instructions (tone, length, greeting) apply to every draft [38]. Coaching by Copilot reviews a draft *you* wrote for tone, reader sentiment, and clarity [37]. A PC Pro/TechRadar review called drafts a starting point and said the tone presets overshoot: "formal" comes out very formal [44].
 
 **Scheduling.** "Schedule with Copilot" turns a thread into a draft invite with a title, agenda, attendees, and the thread attached. The user reviews it and sends [40].
 
@@ -104,7 +104,7 @@
 
 **Drafting and scheduling.** AI reply drafting could pull in Notion pages as context. Meeting proposals were matched against Notion Calendar to suggest open times [48]. We could not confirm that fully automatic pre-drafting ever shipped (**unverified**).
 
-**Status.** Notion shut Notion Mail down on 2026-09-22. It cited the shift to agents and said more than half of its users managed email without ever opening the inbox [50]. Auto-label instructions, drafts, and snippets had to be exported. Custom views and reminders did not carry over [50]. _Implication:_ the "agent-run inbox" is replacing the "AI-sorted inbox UI", and portable, user-owned triage rules matter.
+**Status.** Notion shut Notion Mail down on 2026-09-22. It cited the shift to agents and said more than half of its users managed email without ever opening the inbox [50]. Auto-label instructions, drafts, and snippets had to be exported. Custom views and reminders did not carry over [50]. *Implication:* the "agent-run inbox" is replacing the "AI-sorted inbox UI", and portable, user-owned triage rules matter.
 
 ## Apple Intelligence in Mail (on-device reference)
 
@@ -112,7 +112,7 @@
 
 **Architecture.** Apple says many of its models run entirely on device. Heavier requests go to Private Cloud Compute, which Apple says does not retain data and whose server code can be independently inspected [52]. Our sources do not say which Mail features use PCC and which stay on-device (**unverified**). Developers can call the ~3B-parameter on-device model through the Foundation Models framework. Apple positions it for summarization, extraction, and classification, not world knowledge or advanced reasoning [58]. A third-generation model family was announced in June 2026 [58].
 
-**Reception and failures.** In August 2024, during the beta, Priority Messages promoted phishing emails, such as a fake Xfinity bill. A security analyst said the system weighs content and urgency rather than sender authentication [55]. A self-selected TidBITS poll of 760 readers (June 2025) found that about 90% saw no impact from Priority Messages, Smart Reply, or Mail categorization, and 84% none from Mail summaries [57]. Early categorization misfiled newsletters [54]. Apple paused AI _news_ notification summaries in iOS 18.3 after the BBC complained about a fabricated headline. It then added italics and a beta label to summaries and let users turn them off per app [56].
+**Reception and failures.** In August 2024, during the beta, Priority Messages promoted phishing emails, such as a fake Xfinity bill. A security analyst said the system weighs content and urgency rather than sender authentication [55]. A self-selected TidBITS poll of 760 readers (June 2025) found that about 90% saw no impact from Priority Messages, Smart Reply, or Mail categorization, and 84% none from Mail summaries [57]. Early categorization misfiled newsletters [54]. Apple paused AI *news* notification summaries in iOS 18.3 after the BBC complained about a fabricated headline. It then added italics and a beta label to summaries and let users turn them off per app [56].
 
 ## Evidence on voice learning and local models
 
@@ -137,7 +137,7 @@
 1. **Over-nudging and notification fatigue.** Reminders for mail the user already knows is unanswered feel like an overreach [28]. Superhuman's "every external email" reminder scope shows how wide automatic reminders can get [4]. AI Inbox adds unanswered-mail reminders on top of existing nudges [24].
 2. **Wrong-tone or hallucinated content.** Seen as salesy tone [6], verbose formality [32][44], drafts that accept unsuitable meetings [6], and fabricated summaries (Apple's news summaries [56]). Prompt-injected summaries can add fake security warnings that are not in the visible email [33].
 3. **Misclassified important mail.** Fyxer users report important mail being hidden or moved [45]. Apple's Priority Messages promoted phishing [55]. Apple's early categories misfiled mail [54]. Copilot only scores mail received after it is turned on [35].
-4. **Sending or acting without consent.** Every mainstream product we checked keeps a human send step [6][40][45]. Superhuman has publicly planned auto-send follow-ups [1]. Claude's Gmail connector can now send, with approval on by default, and owners can waive it [61]. The top reader comment called this "a recipe for disaster" [61]. The sharpest incident involved an agent, not a mail client. In February 2026 an OpenClaw agent told to only _suggest_ deletions deleted hundreds of a Meta alignment director's emails. Her preliminary account blames a constraint lost when context was compacted, and remote stop commands did not work [60].
+4. **Sending or acting without consent.** Every mainstream product we checked keeps a human send step [6][40][45]. Superhuman has publicly planned auto-send follow-ups [1]. Claude's Gmail connector can now send, with approval on by default, and owners can waive it [61]. The top reader comment called this "a recipe for disaster" [61]. The sharpest incident involved an agent, not a mail client. In February 2026 an OpenClaw agent told to only *suggest* deletions deleted hundreds of a Meta alignment director's emails. Her preliminary account blames a constraint lost when context was compacted, and remote stop commands did not work [60].
 5. **Prompt injection through inbound mail.** Hidden-text instructions hijacked Gemini summaries [33]. EchoLeak exfiltrated Copilot context with zero clicks [43]. A mail agent's input is written by attackers by default.
 6. **Privacy of cloud processing.** Default-on access drew a lawsuit [34]. Vendors answer with "not used for training" while still logging and retaining data [42], or with a local index plus remote generation [20]. HN commenters asked whether granting full-mailbox OAuth to a startup was wise [51].
 
@@ -193,7 +193,7 @@ All accessed 2026-10-25.
 24. T. Mehta, "Gmail AI Inbox," Android Authority (2026-01-08). https://www.androidauthority.com/gmail-ai-inbox-to-dos-prioritize-emails-3630919/
 25. Google Workspace Updates, "Manage email subscriptions in Gmail" (2025-07-08). https://workspaceupdates.googleblog.com/2025/07/manage-email-subscriptions-in-gmail.html
 26. TechCrunch, "Gemini will now automatically summarize your long emails unless you opt out" (2025-05-30; search excerpt). https://techcrunch.com/2025/05/30/gemini-will-now-automatically-summarize-your-long-emails-unless-you-opt-out
-    26b. Android Authority, Gmail personalized smart replies (I/O 2025), and Gmail Help on sources and availability. https://www.androidauthority.com/gmail-personalized-smart-replies-fast-appointment-scheduling-3559295 ; https://support.google.com/mail/answer/15464729
+26b. Android Authority, Gmail personalized smart replies (I/O 2025), and Gmail Help on sources and availability. https://www.androidauthority.com/gmail-personalized-smart-replies-fast-appointment-scheduling-3559295 ; https://support.google.com/mail/answer/15464729
 27. Gmail Help, "Reply to messages in Gmail" (nudges). https://support.google.com/mail/answer/6585
 28. H. T. Casey, "The One Gmail Feature You Should Disable Now," Laptop Mag (2019-05-09). https://www.laptopmag.com/articles/how-to-turn-off-gmail-nudge
 29. Gmail Help, "Suggest times to meet with Gemini in Gmail." https://support.google.com/mail/answer/16865189
@@ -201,7 +201,7 @@ All accessed 2026-10-25.
 31. Information Age (ACS), "'Can't turn it off': Google faces backlash over Gmail AI" (2025-01-21). https://ia.acs.org.au/article/2025/-can-t-turn-it-off---google-faces-backlash-over-gmail-ai.html
 32. P. Koomen, "AI Horseless Carriages" (2025-04) and HN discussion. https://koomen.dev/essays/horseless-carriages/ ; https://news.ycombinator.com/item?id=43773813
 33. M. Figueroa, "Phishing for Gemini," 0DIN (2025-07-10). https://0din.ai/blog/phishing-for-gemini
-34. Quartz, coverage of _Thele v. Google_ (2025-11). https://qz.com/google-lawsuit-gemini-ai-read-private-emails
+34. Quartz, coverage of *Thele v. Google* (2025-11). https://qz.com/google-lawsuit-gemini-ai-read-private-emails
 35. Microsoft Support, "Prioritize my inbox." https://support.microsoft.com/en-US/Outlook/copilot-outlook/prioritize-my-inbox
 36. Practical365, "Prioritize My Inbox Advances the State of the Email Filtering Art" (search excerpt; fetch failed). https://practical365.com/prioritize-my-inbox
 37. Microsoft Support, "Get email coaching with Copilot in Outlook." https://support.microsoft.com/office/email-coaching-with-copilot-in-outlook-91a3cd56-1586-4a31-85c7-2eb8cdb02405

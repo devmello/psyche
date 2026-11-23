@@ -85,27 +85,27 @@ Goal: credentials, proactivity, computer use, server mode.
 
 ## Workstreams (can proceed in parallel after Milestone 0)
 
-| Workstream     | Owns                                                    | Depends on           |
-| -------------- | ------------------------------------------------------- | -------------------- |
-| Gateway core   | A2–A5, C, D, F, H, O                                    | protocol             |
-| Desktop and UI | A6–A8, E, I1/I5/I6/I11, P viewers/editor, R, S, U1      | protocol, design doc |
-| Mac helper     | A9, J, Q (engines), notifications, keychain, L          | protocol             |
-| Executors      | I2–I4/I7–I10, K, M (connectors), N (channels)           | Gateway core         |
-| Security       | G, F review, injection corpus, audit, release checklist | all                  |
+| Workstream | Owns | Depends on |
+| --- | --- | --- |
+| Gateway core | A2–A5, C, D, F, H, O | protocol |
+| Desktop and UI | A6–A8, E, I1/I5/I6/I11, P viewers/editor, R, S, U1 | protocol, design doc |
+| Mac helper | A9, J, Q (engines), notifications, keychain, L | protocol |
+| Executors | I2–I4/I7–I10, K, M (connectors), N (channels) | Gateway core |
+| Security | G, F review, injection corpus, audit, release checklist | all |
 
 ## Risks and mitigations
 
-| Risk                                                                                                      | Mitigation                                                                                                                                                                                 |
-| --------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
-| CDP fidelity in the embedded pane (Playwright warns `connectOverCDP` is lower fidelity)                   | Own CDP driver on `webContents.debugger`; Playwright only for the sidecar; regression suite over 20 sites                                                                                  |
-| Apple `container` immaturity / macOS 15 users without it                                                  | Colima/Docker fallback; sandbox backend abstraction from day one                                                                                                                           |
-| TCC grants resetting during development                                                                   | Signed dev builds with a stable helper bundle id; `tccutil reset` recipes in the contributor guide                                                                                         |
-| Local models too weak for agent work                                                                      | Capability probe; `chat-only` flag; recommended-model list refreshed per release                                                                                                           |
-| Prompt injection through email/web                                                                        | Taint + origin sets + confirmations + classifier; CI corpus with a target of zero unapproved egress                                                                                        |
-| Google OAuth friction (Testing-mode 7-day tokens, unverified-app screen)                                  | Onboarding explains "publish to production, personal-use exemption"; re-auth UX                                                                                                            |
-| iMessage breakage on new macOS releases (chat GUID change on 26)                                          | Isolate in the Mac node; integration tests per macOS beta                                                                                                                                  |
-| Unofficial WhatsApp bans                                                                                  | Label clearly; recommend a separate number; offer Cloud API                                                                                                                                |
-| Scope creep                                                                                               | P0/P1/P2 discipline; acceptance scenarios as the definition of done                                                                                                                        |
+| Risk | Mitigation |
+| --- | --- |
+| CDP fidelity in the embedded pane (Playwright warns `connectOverCDP` is lower fidelity) | Own CDP driver on `webContents.debugger`; Playwright only for the sidecar; regression suite over 20 sites |
+| Apple `container` immaturity / macOS 15 users without it | Colima/Docker fallback; sandbox backend abstraction from day one |
+| TCC grants resetting during development | Signed dev builds with a stable helper bundle id; `tccutil reset` recipes in the contributor guide |
+| Local models too weak for agent work | Capability probe; `chat-only` flag; recommended-model list refreshed per release |
+| Prompt injection through email/web | Taint + origin sets + confirmations + classifier; CI corpus with a target of zero unapproved egress |
+| Google OAuth friction (Testing-mode 7-day tokens, unverified-app screen) | Onboarding explains "publish to production, personal-use exemption"; re-auth UX |
+| iMessage breakage on new macOS releases (chat GUID change on 26) | Isolate in the Mac node; integration tests per macOS beta |
+| Unofficial WhatsApp bans | Label clearly; recommend a separate number; offer Cloud API |
+| Scope creep | P0/P1/P2 discipline; acceptance scenarios as the definition of done |
 | Same-user malware rewrites devices, presence keys or grants (self-signed build, no keychain access group) | Sealed security tables undo it and alert every device; `psyched` security commands wait 24 hours; residual: a program reading the seal key or controlling `psyched` (decisions D1, D3, D4) |
 
 ## Metrics to track from alpha

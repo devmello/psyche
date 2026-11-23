@@ -12,21 +12,20 @@ Principle: the model emits small, typed data; the client owns all rendering, ver
 
 External findings (web research was shallow; items marked kb come from background knowledge and need verification before we cite them):
 
-| Product                           | Trigger                                                    | Edit and version                                                                                                                   | Token technique                                                                      |
-| --------------------------------- | ---------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------ |
-| Claude Artifacts                  | model opens a side pane for substantial standalone content | every edit is a new version with a picker; `update` = exact-once `old_str`/`new_str` replace, or full rewrite (secondhand sources) | tiny replace instead of re-emitting the file; sandboxed iframe, separate origin (kb) |
-| ChatGPT Canvas                    | model or user                                              | highlight a selection to rewrite just that; suggested edits as comments; version history with change tracking                      | selection-scoped edits (inferred)                                                    |
-| Gemini Canvas                     | user toggle                                                | highlight a section plus an instruction                                                                                            | none found                                                                           |
-| v0, Cursor, Windsurf (kb)         | the agent                                                  | versioned generations; diff cards with a cheap "apply" model                                                                       | patch-then-apply                                                                     |
-| Perplexity Pages, Raycast AI (kb) | on request                                                 | publish step / copy-insert                                                                                                         | not an incremental pane                                                              |
-| Meta Muse                         | n/a                                                        | no reliable information                                                                                                            | n/a                                                                                  |
-| assistant-ui                      | n/a                                                        | register one renderer per tool name; it receives partial args, result and status, so streaming UI is free                          | structured result rendered client-side                                               |
-| LibreChat                         | model                                                      | artifacts in Sandpack (external bundler by default)                                                                                | none found                                                                           |
-| Open WebUI                        | model                                                      | sandboxed `srcdoc` iframe, suggested CSP `connect-src 'none'`                                                                      | none found                                                                           |
-| MCP Apps (SEP-1865)               | tool declares `_meta.ui.resourceUri`                       | host renders it in a sandboxed iframe and pushes the tool result over postMessage                                                  | UI is separate from model context; the app must opt in to update context             |
+| Product | Trigger | Edit and version | Token technique |
+|---|---|---|---|
+| Claude Artifacts | model opens a side pane for substantial standalone content | every edit is a new version with a picker; `update` = exact-once `old_str`/`new_str` replace, or full rewrite (secondhand sources) | tiny replace instead of re-emitting the file; sandboxed iframe, separate origin (kb) |
+| ChatGPT Canvas | model or user | highlight a selection to rewrite just that; suggested edits as comments; version history with change tracking | selection-scoped edits (inferred) |
+| Gemini Canvas | user toggle | highlight a section plus an instruction | none found |
+| v0, Cursor, Windsurf (kb) | the agent | versioned generations; diff cards with a cheap "apply" model | patch-then-apply |
+| Perplexity Pages, Raycast AI (kb) | on request | publish step / copy-insert | not an incremental pane |
+| Meta Muse | n/a | no reliable information | n/a |
+| assistant-ui | n/a | register one renderer per tool name; it receives partial args, result and status, so streaming UI is free | structured result rendered client-side |
+| LibreChat | model | artifacts in Sandpack (external bundler by default) | none found |
+| Open WebUI | model | sandboxed `srcdoc` iframe, suggested CSP `connect-src 'none'` | none found |
+| MCP Apps (SEP-1865) | tool declares `_meta.ui.resourceUri` | host renders it in a sandboxed iframe and pushes the tool result over postMessage | UI is separate from model context; the app must opt in to update context |
 
 Cross-cutting patterns we adopt:
-
 1. Typed tool output rendered by the client (no model-written presentation).
 2. Patch edits (exact-match replace, row/cell ops) with full rewrite as the fallback.
 3. Stream partial args into the renderer: better latency, no extra tokens.
@@ -36,7 +35,6 @@ Cross-cutting patterns we adopt:
 ## 3. Internal audit (packages/ui, packages/protocol, packages/viewers)
 
 ### What exists
-
 - Protocol `Block` union: text, tool_call, plan, checklist, approval, question, **artifact**, file, receipt, task, wrap_up, related_threads, compaction, learned, taught. Dispatch is a hard-coded `switch` in `blocks/MessageBlocks.tsx`.
 - Cards: ToolRun, DiffBlock, Checklist/PlanCard, ApprovalPointer + dock, QuestionCard, ArtifactCard/FileCard, ReceiptLine, TaskCard, WrapUpBox, RelatedThreads, CompactionMarker, Taught/Learned lines.
 - Run trace: RunStepLog, StepList, RunFailure, FollowUpQueue; Timeline (Waterfall, ListView, FrameViewer, StepInspector) in the agent sheet.
@@ -45,7 +43,6 @@ Cross-cutting patterns we adopt:
 - Viewers (`packages/viewers`, lazy): pdf, sheet (Univer editor), document, slides, image/media, code/markdown (CodeMirror), json, email, **artifact (ArtifactFrame, sandboxed; ReactArtifactFrame via Sandpack)**, `ViewerRegistry` by MIME.
 
 ### Inconsistencies
-
 1. **Two card generations.** Old: `rounded-lg border border-gray-6 bg-gray-2 p-3` (TaskCard, Checklist, ArtifactCard, FileCard). New: `bg-surface-raised shadow-elevation-1 p-4` (Approval, Question, WrapUp, RunFailure, framed ResultCard). Receipt and ToolRun are borderless chips.
 2. **Four "done" vocabularies**: `ToolCallStatus`, `StatusGlyph`, task status, approval text.
 3. **No shared card header or footer**: each card hand-rolls icon, title, meta, and actions.
@@ -54,7 +51,6 @@ Cross-cutting patterns we adopt:
 6. **Naming drift**: Card/Line/Box/Pointer/Block; duplicated icon maps and per-block hook plumbing.
 
 ### Gaps
-
 1. **No artifact pane in chat.** "Open" routes to the web shell's files pane; `openArtifact` has no web implementation. Inline preview is a thumbnail only.
 2. **No tool-result to component map.** `ToolCall` carries `resultRef`, but ToolRun renders a one-line summary plus diff. Sheets, docs, search results, browser frames and mail are never shown from a tool result.
 3. **Dispatch is a switch, not a registry**; adding a block touches protocol, MessageBlocks, i18n and stories.
@@ -76,13 +72,13 @@ Cross-cutting patterns we adopt:
 
 **Fixed block taxonomy** (everything fits one of these):
 
-| Class    | Blocks                                                           | Rule                                          |
-| -------- | ---------------------------------------------------------------- | --------------------------------------------- |
-| Prose    | text                                                             | markdown, untrusted gets the marker           |
-| Activity | tool run, run steps, receipt, task, compaction                   | borderless chips; fold consecutive items      |
-| Decision | approval (dock), question, wrap-up                               | never inline for approval; one primary button |
-| Output   | artifact, file, specialist result, mail and meeting cards, diffs | **summary card in chat; full view in canvas** |
-| Learning | learned, taught, suggestion                                      | one-line, undoable                            |
+| Class | Blocks | Rule |
+|---|---|---|
+| Prose | text | markdown, untrusted gets the marker |
+| Activity | tool run, run steps, receipt, task, compaction | borderless chips; fold consecutive items |
+| Decision | approval (dock), question, wrap-up | never inline for approval; one primary button |
+| Output | artifact, file, specialist result, mail and meeting cards, diffs | **summary card in chat; full view in canvas** |
+| Learning | learned, taught, suggestion | one-line, undoable |
 
 Rule: chat carries summaries, the canvas carries content. A card that would exceed about 12 lines becomes a summary card with "Open".
 
@@ -94,16 +90,16 @@ A right-hand pane (sheet on narrow widths) that hosts one **artifact** at a time
 
 Artifact types and renderers:
 
-| Type      | Content format (model emits)                                               | Renderer                                 |
-| --------- | -------------------------------------------------------------------------- | ---------------------------------------- |
-| `doc`     | markdown                                                                   | rich markdown viewer/editor (existing)   |
-| `code`    | text + language                                                            | CodeMirror viewer (existing)             |
-| `table`   | `{columns, rows}` JSON or CSV                                              | Univer sheet viewer (existing), editable |
-| `chart`   | declarative spec (Vega-Lite-like subset or our own `{kind, x, y, series}`) | client chart renderer, no model JS       |
-| `diagram` | Mermaid text                                                               | client Mermaid render, strict mode       |
-| `html`    | HTML string                                                                | sandboxed iframe (section 4.6)           |
-| `diff`    | unified diff or `{path, hunks}` for one or more files                      | new file-diff viewer                     |
-| `image`   | blob ref                                                                   | image viewer                             |
+| Type | Content format (model emits) | Renderer |
+|---|---|---|
+| `doc` | markdown | rich markdown viewer/editor (existing) |
+| `code` | text + language | CodeMirror viewer (existing) |
+| `table` | `{columns, rows}` JSON or CSV | Univer sheet viewer (existing), editable |
+| `chart` | declarative spec (Vega-Lite-like subset or our own `{kind, x, y, series}`) | client chart renderer, no model JS |
+| `diagram` | Mermaid text | client Mermaid render, strict mode |
+| `html` | HTML string | sandboxed iframe (section 4.6) |
+| `diff` | unified diff or `{path, hunks}` for one or more files | new file-diff viewer |
+| `image` | blob ref | image viewer |
 
 Canvas chrome: title, type icon, **version picker**, Copy, Download, Open full-screen, and Edit (where the type is editable). Streaming: the pane opens as soon as the `artifact.create` tool call begins, rendering partial args (skeleton, then progressive content), so latency is hidden without extra tokens.
 
@@ -119,14 +115,12 @@ artifact.update { id, base: version, ops: [...] }     -> { id, version: n+1 }
 ```
 
 Ops by type, smallest first:
-
 - `doc`/`code`/`html`/`diagram`: `{op:"replace", old, new}` (old must match exactly once, otherwise the call fails fast with a short error and the model retries or falls back), or `{op:"insert", after, text}`. `{op:"rewrite", content}` is the fallback and is logged so we can watch how often it happens.
 - `table`: `{op:"set", cell|range, value}`, `{op:"addRows"}`, `{op:"addColumn"}`, `{op:"sort"|"filter"}` as view metadata.
 - `chart`: JSON-merge-patch on the spec.
 - `diff`: generated by the client from two versions; the model never writes one for display.
 
 Context discipline, which is where the savings come from:
-
 1. **The transcript holds references, not bodies.** The model's tool results come back as `{id, version, bytes, hash, summary}`, not the content. The content lives in the artifact store.
 2. **The model reads on demand** via `artifact.read { id, range? }`, normally a window or a search hit, not the whole file.
 3. **Active artifact injection.** Only the artifact the user currently has open is injected, in a stable prompt-cache prefix block keyed by `id@version`. Older artifacts appear as one-line manifest entries (id, title, type, version).
@@ -153,7 +147,6 @@ Context discipline, which is where the savings come from:
 ### 4.6 Sandboxing and security (untrusted HTML)
 
 Model-written HTML and anything derived from web/mail content is untrusted.
-
 - Render only in an `<iframe sandbox="allow-scripts">` **without** `allow-same-origin`, served from an opaque origin (`srcdoc` or a dedicated `artifact://` / sandbox host). No cookies, storage, or app-origin access.
 - CSP on the frame: `default-src 'none'; script-src 'unsafe-inline' <pinned CDN allowlist or none>; style-src 'unsafe-inline'; img-src data: blob:; connect-src 'none'; form-action 'none'; frame-src 'none'`. No network by default, matching the Open WebUI hardening suggestion; a per-artifact opt-in prompt can enable specific origins, shown like an approval.
 - Communication only through a typed `postMessage` bridge from the host (resize, copy, "ask Psyche about this"); the host validates the origin and message shapes, and nothing in the frame can call tools. This deliberately differs from MCP Apps, where the frame may call tools; if we adopt MCP Apps later, tool calls go through the normal approval and taint path.
@@ -176,14 +169,14 @@ Each phase ships behind a flag, with stories and fixtures.
 
 ## 5. Decision points (recommended defaults first)
 
-1. **Canvas layout.** Right pane on wide windows, bottom sheet on narrow, one artifact at a time with recents tabs. _Default: yes._ (Alternative: inline expandable cards only.)
-2. **Edit protocol.** Exact-once `replace` ops with `rewrite` fallback, plus typed table/chart ops. _Default: yes._
-3. **Auto-open policy.** Open the canvas automatically only when an artifact is created in the foreground run; otherwise show a card and let the user open it. _Default: this._
-4. **Artifact types for v1.** doc, code, table, image first; chart, diagram, diff, html in phase 5. _Default: this order._ Charts use our own small spec, not model-written JS.
-5. **HTML artifacts.** Allow with the opaque-origin sandbox and `connect-src 'none'`, off by default for tainted sources. _Default: allow._ (Alternative: no HTML at all.)
-6. **Storage and versions.** Gateway-side store, ops with periodic snapshots, user edits as first-class versions, no history deletion. _Default: this._
-7. **Specialist results.** Promote to transcript blocks and also keep Feed/Inbox. _Default: both._
-8. **Rollout.** Do phase 1 (card shell and registry) before any new wave of cards lands, and freeze new hand-rolled card chrome until it ships. _Default: yes._
+1. **Canvas layout.** Right pane on wide windows, bottom sheet on narrow, one artifact at a time with recents tabs. *Default: yes.* (Alternative: inline expandable cards only.)
+2. **Edit protocol.** Exact-once `replace` ops with `rewrite` fallback, plus typed table/chart ops. *Default: yes.*
+3. **Auto-open policy.** Open the canvas automatically only when an artifact is created in the foreground run; otherwise show a card and let the user open it. *Default: this.*
+4. **Artifact types for v1.** doc, code, table, image first; chart, diagram, diff, html in phase 5. *Default: this order.* Charts use our own small spec, not model-written JS.
+5. **HTML artifacts.** Allow with the opaque-origin sandbox and `connect-src 'none'`, off by default for tainted sources. *Default: allow.* (Alternative: no HTML at all.)
+6. **Storage and versions.** Gateway-side store, ops with periodic snapshots, user edits as first-class versions, no history deletion. *Default: this.*
+7. **Specialist results.** Promote to transcript blocks and also keep Feed/Inbox. *Default: both.*
+8. **Rollout.** Do phase 1 (card shell and registry) before any new wave of cards lands, and freeze new hand-rolled card chrome until it ships. *Default: yes.*
 
 ## 6. Open questions for verification
 

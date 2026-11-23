@@ -3,22 +3,18 @@
 **Owner:** S02 (agent runtime). **Status:** spec, 2026-10-25. **Issues:** epic #688; R #683, P0 #682, K #684, U #685. **Asked by:** the owner ("Implement background specialists").
 
 **Related specs:**
-
 - [docs/design/run-trace-2026.md](../design/run-trace-2026.md) (mission control, being written in parallel by the design lead). Specialists appear there as branches of a run; §6.3 lists what this spec needs from it.
 - [docs/connectors/apple-apps-2026.md](../connectors/apple-apps-2026.md) §8, for how the briefs in §8 are written.
 
 **Research behind this plan, with sources:**
-
 - [research/frameworks.md](research/frameworks.md): Claude Code subagents and the Agent SDK, the OpenAI Agents SDK, Anthropic's multi-agent research system, CrewAI, AutoGen / AG2 and LangGraph. Covers how each scopes context, tools, models and budgets, hands results back and fails.
 - [research/products.md](research/products.md): Devin, Manus, Perplexity, Replit Agent and Zapier Agents, plus ChatGPT agent, Claude's background tasks and Jules. Covers how each starts, shows, interrupts, prices and finishes background work, and what users say about it.
 
 **The short version.** The owner asks for something that takes a while: "find me three apartments under $2,500 near the office", "clean up my Downloads", "draft the grant report". Today the agent has two answers, and both run inside the turn:
-
 - `subagent.spawn` blocks the turn and has no approval authority.
 - `task.start` runs another turn of the same generalist agent.
 
 A **specialist** is a third answer:
-
 - **What it is:** a named role (researcher, shopper, coder, organizer, writer, planner) with its own prompt, tools, model, budget and deadline.
 - **How it runs:** in the background as a durable Task, in its own thread.
 - **How it shows up:** it reports progress as steps in the run trace, and asks the owner only through the approval cards and question cards that already exist.
@@ -26,7 +22,6 @@ A **specialist** is a third answer:
 - **Owner control:** several can run at once, and the owner can watch, steer, pause or cancel each one.
 
 Most of the machinery exists: the task engine, the worker pool, approvals, the step log, the evaluator (C7) and the harness seam (C10). The work is:
-
 - a spawn primitive that binds a role to a Task;
 - role definitions as bundled skills;
 - the parent/child run link in the protocol;
@@ -34,51 +29,51 @@ Most of the machinery exists: the task engine, the worker pool, approvals, the s
 
 ## 1. Where we are (main, 2026-10-25)
 
-| Piece                                                                                                       | What it does today                                                                                                                                                                                                                                                                                                                          | Gap for specialists                                                                                                                                                                                             |
-| ----------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| **Subagents (C6)**, `packages/agent-core/src/loop.ts` `#spawn`                                              | `subagent.spawn {context: fork \| fresh, title, brief}` runs a child run _inside the parent's turn_. Limits: 20 steps, 4 at once, no nesting. The child has no `ask_user`, messaging or approval authority. Taint flows both ways; the child's tokens count toward the parent.                                                              | Blocks the parent turn. Dies with the parent turn. Same model and tools as the parent. Can't ask the owner anything, so a shopper that needs a login stops.                                                     |
-| **Tasks (D1–D3)**, `packages/tasks`                                                                         | Durable Tasks with leases. A worker pool runs 2 turns at once. A per-turn `TaskBudget {maxSteps, maxTokens, maxWallMs}`. Checkpoints, with `uncertain` reconciliation. Approvals park the task in `awaiting_approval`, input requests park it in `awaiting_input`. `task_done` / `task_failed` notifications. Pause, resume, cancel, retry. | No role, model, tool allowlist or deadline. The budget is per turn, not per job. Tasks run in the creating thread, and the Gateway passes no `permissionModeFor`, so every task runs `balanced`. No parent run. |
-| **`task.start`**, agent-core built-in                                                                       | Creates a Task in the current thread that inherits taint.                                                                                                                                                                                                                                                                                   | Starts a generalist. Nothing comes back to the parent run.                                                                                                                                                      |
-| **Evaluator (C7)**, `src/evaluator.ts`                                                                      | A task run with receipts is checked against the goal before it can end done.                                                                                                                                                                                                                                                                | Exactly what a specialist's result needs. Keep it.                                                                                                                                                              |
-| **Harness seam (C10)** + the Claude Code harness (commit `c3c487f9`); **coding helper (V10)** `src/coding/` | `harness.delegate` runs Claude Code with every action gated as `harness__<id>__<tool>`. The coding tools work in granted folders and the sandbox.                                                                                                                                                                                           | The coder specialist is these tools plus a role. No new runtime.                                                                                                                                                |
-| **Step log** (#630), `packages/ui/src/chat/RunStepLog.tsx`; **`chat.reasoning`** (#633)                     | Steps of the running message: tool, text, approval, question, thinking.                                                                                                                                                                                                                                                                     | No "specialist" step that links to a child run.                                                                                                                                                                 |
-| **Inbox**, `Notification` (`task_done`, `task_failed`, …)                                                   | Rows with a title, a body and a deep link (`route`).                                                                                                                                                                                                                                                                                        | No result card: no artifacts, receipts, cost or "what it did".                                                                                                                                                  |
-| **Run** schema                                                                                              | `{id, threadId, status, modelRef, attempt, usage, …}`                                                                                                                                                                                                                                                                                       | No `parentRunId`, role, budget or deadline.                                                                                                                                                                     |
-| **Skills**, `skills/*/SKILL.md`                                                                             | Frontmatter `requires.tools`, `metadata.psyche`. `research-brief` already suggests parallel `fresh` subagents.                                                                                                                                                                                                                              | No role definition: prompt, allowlist, model class, default budget.                                                                                                                                             |
+| Piece | What it does today | Gap for specialists |
+| --- | --- | --- |
+| **Subagents (C6)**, `packages/agent-core/src/loop.ts` `#spawn` | `subagent.spawn {context: fork \| fresh, title, brief}` runs a child run *inside the parent's turn*. Limits: 20 steps, 4 at once, no nesting. The child has no `ask_user`, messaging or approval authority. Taint flows both ways; the child's tokens count toward the parent. | Blocks the parent turn. Dies with the parent turn. Same model and tools as the parent. Can't ask the owner anything, so a shopper that needs a login stops. |
+| **Tasks (D1–D3)**, `packages/tasks` | Durable Tasks with leases. A worker pool runs 2 turns at once. A per-turn `TaskBudget {maxSteps, maxTokens, maxWallMs}`. Checkpoints, with `uncertain` reconciliation. Approvals park the task in `awaiting_approval`, input requests park it in `awaiting_input`. `task_done` / `task_failed` notifications. Pause, resume, cancel, retry. | No role, model, tool allowlist or deadline. The budget is per turn, not per job. Tasks run in the creating thread, and the Gateway passes no `permissionModeFor`, so every task runs `balanced`. No parent run. |
+| **`task.start`**, agent-core built-in | Creates a Task in the current thread that inherits taint. | Starts a generalist. Nothing comes back to the parent run. |
+| **Evaluator (C7)**, `src/evaluator.ts` | A task run with receipts is checked against the goal before it can end done. | Exactly what a specialist's result needs. Keep it. |
+| **Harness seam (C10)** + the Claude Code harness (commit `c3c487f9`); **coding helper (V10)** `src/coding/` | `harness.delegate` runs Claude Code with every action gated as `harness__<id>__<tool>`. The coding tools work in granted folders and the sandbox. | The coder specialist is these tools plus a role. No new runtime. |
+| **Step log** (#630), `packages/ui/src/chat/RunStepLog.tsx`; **`chat.reasoning`** (#633) | Steps of the running message: tool, text, approval, question, thinking. | No "specialist" step that links to a child run. |
+| **Inbox**, `Notification` (`task_done`, `task_failed`, …) | Rows with a title, a body and a deep link (`route`). | No result card: no artifacts, receipts, cost or "what it did". |
+| **Run** schema | `{id, threadId, status, modelRef, attempt, usage, …}` | No `parentRunId`, role, budget or deadline. |
+| **Skills**, `skills/*/SKILL.md` | Frontmatter `requires.tools`, `metadata.psyche`. `research-brief` already suggests parallel `fresh` subagents. | No role definition: prompt, allowlist, model class, default budget. |
 
 ## 2. What users want (evidence summary)
 
 ### 2.1 What the frameworks converge on ([research/frameworks.md](research/frameworks.md))
 
-| Finding                                                                                                                                                         | Evidence                                                                                                                                                                                                        | Where it lands here                                |
-| --------------------------------------------------------------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | -------------------------------------------------- |
-| **Start fresh from a structured brief.** Children see their prompt and the delegation message, not the parent conversation. Vague briefs cause duplicated work. | Claude Code sub-agents; `Agent.as_tool` keeps no parent history; Anthropic's research system (objective, output format, tools and sources, boundaries)                                                          | §3.5, §4.2; the brief fields in §4.8               |
-| **Hand back a short result plus references**, not the transcript                                                                                                | Claude Agent SDK returns only the final message; Anthropic subagents write to storage and pass references                                                                                                       | §4.2 `specialist.report`                           |
-| **Budgets live in the runtime.** Cap turns, tokens, dollars and wall time together.                                                                             | `maxBudgetUsd` refuses new spawns and stops running subagents; OpenAI only tracks usage; AutoGen composes limits                                                                                                | §3.3, §4.6                                         |
-| **"Partial" is a result state**                                                                                                                                 | Claude Code keeps output at `maxTurns` and on API errors; `/deep-research` marks claims "unverified"                                                                                                            | §3.9, §4.6                                         |
-| **Approvals survive long waits** (durable parking) and are labelled with the child's name. Agent text is never consent.                                         | OpenAI serializable `RunState`; LangGraph `interrupt()` checkpoints; SDK `defer`; AutoGen's blocking proxy can't be saved; Claude Code labels child prompts and marks inter-agent messages as not from the user | §3.4, §4.4 (the task engine already parks durably) |
-| **Specialist output is untrusted input**                                                                                                                        | Claude Code neutralizes instruction-shaped text in subagent reports (v2.1.210)                                                                                                                                  | §4.2 (report sanitizing), §9                       |
-| **One checkpoint mechanism** for pause, resume and crash                                                                                                        | LangGraph per-super-step checkpoints; Claude workflows replay finished agents                                                                                                                                   | §4.6 (D2 checkpoints)                              |
-| **Low caps on concurrency and depth**, with a queue                                                                                                             | Claude Code 20 concurrent / 3 levels; teams start at 3–5                                                                                                                                                        | §3.8, §4.5 (3 slots, no nesting)                   |
-| **Effort scaling in the lead prompt, backed by caps**                                                                                                           | Anthropic: early versions spawned 50 subagents for simple queries; 1 agent for a fact, 2–4 for a comparison, 10+ for complex research                                                                           | §4.8, §5.2                                         |
-| **Show cost before and during**                                                                                                                                 | Multi-agent runs used about 15× a chat's tokens; Claude Code warns above 25 agents or 1.5M projected tokens                                                                                                     | §4.6, §6.1, §6.2                                   |
-| **Graceful stop vs hard cancel**                                                                                                                                | AutoGen `ExternalTermination` vs cancellation token; OpenAI `cancel(mode="after_turn")`                                                                                                                         | §4.7 (pause vs cancel)                             |
+| Finding | Evidence | Where it lands here |
+| --- | --- | --- |
+| **Start fresh from a structured brief.** Children see their prompt and the delegation message, not the parent conversation. Vague briefs cause duplicated work. | Claude Code sub-agents; `Agent.as_tool` keeps no parent history; Anthropic's research system (objective, output format, tools and sources, boundaries) | §3.5, §4.2; the brief fields in §4.8 |
+| **Hand back a short result plus references**, not the transcript | Claude Agent SDK returns only the final message; Anthropic subagents write to storage and pass references | §4.2 `specialist.report` |
+| **Budgets live in the runtime.** Cap turns, tokens, dollars and wall time together. | `maxBudgetUsd` refuses new spawns and stops running subagents; OpenAI only tracks usage; AutoGen composes limits | §3.3, §4.6 |
+| **"Partial" is a result state** | Claude Code keeps output at `maxTurns` and on API errors; `/deep-research` marks claims "unverified" | §3.9, §4.6 |
+| **Approvals survive long waits** (durable parking) and are labelled with the child's name. Agent text is never consent. | OpenAI serializable `RunState`; LangGraph `interrupt()` checkpoints; SDK `defer`; AutoGen's blocking proxy can't be saved; Claude Code labels child prompts and marks inter-agent messages as not from the user | §3.4, §4.4 (the task engine already parks durably) |
+| **Specialist output is untrusted input** | Claude Code neutralizes instruction-shaped text in subagent reports (v2.1.210) | §4.2 (report sanitizing), §9 |
+| **One checkpoint mechanism** for pause, resume and crash | LangGraph per-super-step checkpoints; Claude workflows replay finished agents | §4.6 (D2 checkpoints) |
+| **Low caps on concurrency and depth**, with a queue | Claude Code 20 concurrent / 3 levels; teams start at 3–5 | §3.8, §4.5 (3 slots, no nesting) |
+| **Effort scaling in the lead prompt, backed by caps** | Anthropic: early versions spawned 50 subagents for simple queries; 1 agent for a fact, 2–4 for a comparison, 10+ for complex research | §4.8, §5.2 |
+| **Show cost before and during** | Multi-agent runs used about 15× a chat's tokens; Claude Code warns above 25 agents or 1.5M projected tokens | §4.6, §6.1, §6.2 |
+| **Graceful stop vs hard cancel** | AutoGen `ExternalTermination` vs cancellation token; OpenAI `cancel(mode="after_turn")` | §4.7 (pause vs cancel) |
 
 ### 2.2 What shipped products teach ([research/products.md](research/products.md))
 
-| Finding                                                                                                    | Evidence                                                                                                                                                                                                              | Where it lands here                                              |
-| ---------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------- |
+| Finding | Evidence | Where it lands here |
+| --- | --- | --- |
 | **A budget hit pauses and asks; it doesn't kill.** The budget clock stops while the job waits on the user. | Zapier caps each run at 10 or 40 activities, then "pauses and asks for your input"; Perplexity pauses tasks at the account cap and offers "raise limit"; Devin sessions sleep at no charge until a message wakes them | §4.6 (pause with "Give it more / Finish with what it has"), §4.4 |
-| **Show cost live, per job, and an end-of-run total**                                                       | Replit's "$1K in a week" complaints led to progressive spend updates and a charge summary; Perplexity shows a live credit counter                                                                                     | §6.1 budget ring, §6.2 usage line                                |
-| **One plan approval up front for long jobs**, not dozens mid-run                                           | Jules, Devin, Replit Plan mode and Perplexity Computer (with a credit estimate) all show a plan before costly work                                                                                                    | §4.1 `planFirst`                                                 |
-| **Remember approvals for the rest of the job**                                                             | Comet asks once per page and remembers for the task; users approve about 93% of prompts (secondary source)                                                                                                            | §3.7, §4.4 (`task` scope)                                        |
-| **Questions carry a default** and record when one was used                                                 | Devin's one-tap suggested answers and "skipped" markers                                                                                                                                                               | §4.4 questions                                                   |
-| **A small, fixed status vocabulary**                                                                       | Zapier: Needs action, In progress, Failed, Cancelled, Completed                                                                                                                                                       | §6.2 statuses                                                    |
-| **A child job inherits a summary, not the transcript**                                                     | Devin child sessions start from a summary; Manus sub-agents get fresh contexts (secondary source)                                                                                                                     | §3.5                                                             |
-| **Separate useful spend from spend lost to errors**                                                        | Manus and Perplexity refund credits on platform failures                                                                                                                                                              | §4.6, §6.2                                                       |
-| **Cap by owner attention, not compute**                                                                    | "Two parallel sessions already feel like my limit" (HN); Jules allows 3, 15 or 60 concurrent                                                                                                                          | §3.8 (3 slots)                                                   |
-| **Results are artifacts plus a short summary**, outcome-only notifications                                 | Jules ends with files changed, runtime and "Create branch"; Dispatch sends the outcome, not every step                                                                                                                | §4.2, §6.2                                                       |
-| **Overlong reports and silent failures are the top complaints**                                            | Deep Research reports called "quite verbose"; Devin "would spend days pursuing impossible solutions" (3 of 20 tasks done in Answer.AI's test)                                                                         | §4.2 caps; §4.6 two failures end the job; the stall rule (§9)    |
+| **Show cost live, per job, and an end-of-run total** | Replit's "$1K in a week" complaints led to progressive spend updates and a charge summary; Perplexity shows a live credit counter | §6.1 budget ring, §6.2 usage line |
+| **One plan approval up front for long jobs**, not dozens mid-run | Jules, Devin, Replit Plan mode and Perplexity Computer (with a credit estimate) all show a plan before costly work | §4.1 `planFirst` |
+| **Remember approvals for the rest of the job** | Comet asks once per page and remembers for the task; users approve about 93% of prompts (secondary source) | §3.7, §4.4 (`task` scope) |
+| **Questions carry a default** and record when one was used | Devin's one-tap suggested answers and "skipped" markers | §4.4 questions |
+| **A small, fixed status vocabulary** | Zapier: Needs action, In progress, Failed, Cancelled, Completed | §6.2 statuses |
+| **A child job inherits a summary, not the transcript** | Devin child sessions start from a summary; Manus sub-agents get fresh contexts (secondary source) | §3.5 |
+| **Separate useful spend from spend lost to errors** | Manus and Perplexity refund credits on platform failures | §4.6, §6.2 |
+| **Cap by owner attention, not compute** | "Two parallel sessions already feel like my limit" (HN); Jules allows 3, 15 or 60 concurrent | §3.8 (3 slots) |
+| **Results are artifacts plus a short summary**, outcome-only notifications | Jules ends with files changed, runtime and "Create branch"; Dispatch sends the outcome, not every step | §4.2, §6.2 |
+| **Overlong reports and silent failures are the top complaints** | Deep Research reports called "quite verbose"; Devin "would spend days pursuing impossible solutions" (3 of 20 tasks done in Answer.AI's test) | §4.2 caps; §4.6 two failures end the job; the stall rule (§9) |
 
 ## 3. Decisions
 
@@ -98,7 +93,7 @@ Most of the machinery exists: the task engine, the worker pool, approvals, the s
    The engine checks them between steps. On a budget breach the job pauses and asks the owner to give it more or finish with what it has; at the deadline, or in an unattended run, it finishes with a partial result (§4.6). Defaults come from the role; the owner caps them per role in Settings.
 4. **The owner is asked only through existing cards.** A specialist does have approval authority, unlike C6 subagents: it raises the same `ApprovalRequest`s, with the same tiers, `deviceOnly` rules and expiry. Each card adds "for {task}, started by {agent} from {thread}". Questions use the task path (`TaskEngine.requestInput`). Nothing new can ask the owner.
 5. **Isolation by default.**
-   - **Context:** the child starts _fresh_: the role prompt plus the brief the parent wrote plus the files the parent passed. It does not get the parent's transcript.
+   - **Context:** the child starts *fresh*: the role prompt plus the brief the parent wrote plus the files the parent passed. It does not get the parent's transcript.
    - **Results:** a structured result, a short report, artifacts and receipts come back. The transcript stays in the child thread, viewable.
    - **Fork:** stays a subagent-only option. A transcript copy leaks too much into a long job, and makes its context, cost and taint harder to reason about.
 6. **Taint and scope never widen.** The child starts with the parent run's taint and taint sources, as Tasks already do. Its permission mode is the parent thread's, capped by the role (a researcher never gets `auto` writes). A tainted child's result is `untrusted` and taints the parent run that reads it.
@@ -156,14 +151,12 @@ specialist.spawn {
 ### 4.2 Isolation: what goes in, what comes out
 
 **In** (the child's first turn), in this order:
-
 - the role prompt (the skill body), the role's persona overlay (none by default: specialists speak as the agent, see §6.5), and the base safety rules;
 - the parent's brief, verbatim;
 - **inputs** as references, not contents: Library items, granted folders and URLs. The child reads them with tools, so reads are gated and tainted like any other.
 - `USER.md` facts the role is allowed (§5: `memory: user | none`). `MEMORY.md` is never included, matching group threads (architecture §4.8).
 
 **Not in**:
-
 - the parent's transcript, other threads, the parent's checklist;
 - the parent's open approvals or grants. Grants are per Task, and `task` grants do not cross tasks.
 
@@ -239,21 +232,20 @@ specialist.report {
 
 ### 4.7 Steering, pausing, cancelling
 
-| Owner action  | Where                                                | Mechanism                                                                                                                                                              |
-| ------------- | ---------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Watch         | Mission control, the card, the parent step           | Open the child thread (view-only transcript plus its step log)                                                                                                         |
-| Steer         | A composer on the child's view ("Tell the shopper…") | `tasks.steer {taskId, text}`: `AgentLoop.steer` on the running run, or queued as the next turn's first message if parked. Text is owner provenance.                    |
-| Pause         | Row menu, card                                       | `tasks.pause`: stops after the in-flight call, frees the slot, keeps the budget clock stopped                                                                          |
-| Resume        | Row menu                                             | `tasks.resume`: re-queues at the front                                                                                                                                 |
-| Cancel        | Row menu, card, ⌘. on the child view                 | `tasks.cancel`: revokes run authority at once (architecture §4.5). In-flight provider requests are reconciled by receipt. The card says what was done before the stop. |
-| Change budget | Row menu → "Give it more time"                       | `tasks.update {budget}`, capped by Settings. Only the owner can raise it; the parent agent cannot.                                                                     |
+| Owner action | Where | Mechanism |
+| --- | --- | --- |
+| Watch | Mission control, the card, the parent step | Open the child thread (view-only transcript plus its step log) |
+| Steer | A composer on the child's view ("Tell the shopper…") | `tasks.steer {taskId, text}`: `AgentLoop.steer` on the running run, or queued as the next turn's first message if parked. Text is owner provenance. |
+| Pause | Row menu, card | `tasks.pause`: stops after the in-flight call, frees the slot, keeps the budget clock stopped |
+| Resume | Row menu | `tasks.resume`: re-queues at the front |
+| Cancel | Row menu, card, ⌘. on the child view | `tasks.cancel`: revokes run authority at once (architecture §4.5). In-flight provider requests are reconciled by receipt. The card says what was done before the stop. |
+| Change budget | Row menu → "Give it more time" | `tasks.update {budget}`, capped by Settings. Only the owner can raise it; the parent agent cannot. |
 
-Steering from the _parent agent_ is not offered in v1: the parent can spawn, read results and cancel only its own children. That keeps the owner in charge of a running job's direction.
+Steering from the *parent agent* is not offered in v1: the parent can spawn, read results and cancel only its own children. That keeps the owner in charge of a running job's direction.
 
 ### 4.8 When the main agent delegates (and when not)
 
 The decision is in the main prompt and the role skills' `description` lines, not in code. Rules for the base prompt section "Specialists":
-
 - **Delegate** when the job:
   - needs many tool calls or more than a few minutes;
   - can run without the owner after a clear brief;
@@ -297,7 +289,6 @@ The evaluation (§8, fixtures) checks delegation choices on a set of 30 scripted
 ### 5.1 The `specialist` section
 
 Each role is a skill folder `skills/specialist-<role>/` with:
-
 - `SKILL.md` (frontmatter plus the role prompt as the body);
 - `acceptance.md`;
 - `examples/` (two scripted fixtures).
@@ -308,34 +299,23 @@ New frontmatter, under `metadata.psyche.specialist`:
 metadata:
   psyche:
     specialist:
-      role: researcher # id; the tool's `role` value
-      label: Researcher # Settings and cards
-      model: primary # utility | primary | harness | vision
-      maxMode: balanced # plan | manual | balanced | auto (cap)
-      tools:
-        [
-          search,
-          fetch,
-          "browser.*",
-          memory_search,
-          "artifact.create",
-          "pdf.*",
-          subagent.spawn,
-          update_plan,
-        ]
-      deny: [browser.fill_credential, browser.upload] # exact tool names removed after expansion
-      memory: user # user | none (which persona facts it sees)
-      budget: { tokens: 400000, costUsd: 2.00, minutes: 30 } # defaults
-      caps: { tokens: 2000000, costUsd: 10.00, minutes: 240, maxHours: 24 }
-      result: findings # findings | draft | changes | plan | items (shapes the card)
-      planFirst: false # true for coder and shopper
-    approvals: [new_origin] # existing skill field; feeds the spawn pre-flight (§4.4)
+      role: researcher            # id; the tool's `role` value
+      label: Researcher           # Settings and cards
+      model: primary              # utility | primary | harness | vision
+      maxMode: balanced           # plan | manual | balanced | auto (cap)
+      tools: [search, fetch, "browser.*", memory_search, "artifact.create", "pdf.*", subagent.spawn, update_plan]
+      deny: [browser.fill_credential, browser.upload]   # exact tool names removed after expansion
+      memory: user                # user | none (which persona facts it sees)
+      budget: { tokens: 400000, costUsd: 2.00, minutes: 30 }   # defaults
+      caps:   { tokens: 2000000, costUsd: 10.00, minutes: 240, maxHours: 24 }
+      result: findings            # findings | draft | changes | plan | items (shapes the card)
+      planFirst: false            # true for coder and shopper
+    approvals: [new_origin]       # existing skill field; feeds the spawn pre-flight (§4.4)
 ```
 
 `tools` uses the capability vocabulary skills already use. Capability families in `TOOL_CAPABILITIES` (`packages/skills/src/gating.ts`: `search` → `web_search`, `fetch` → `web_fetch`, `artifact.create` → `write_file`, `email.*` → `gmail_*` / `mail_*`, …) expand to their tools. Everything else is an exact tool name or a `prefix.*` pattern. `deny` removes exact names after expansion, so "mail, but never send" is `email.*` plus `deny: [mail_send, gmail_send]`.
 
 The loader (S16, `packages/skills`) validates the section:
-
 - every tool pattern must name tools that exist;
 - `maxMode` is capped at `balanced` for any role whose tools include a `recipient` or `financial` tool.
 
@@ -343,14 +323,14 @@ An owner-installed skill can define a new role. It runs with the same caps, and 
 
 ### 5.2 The six bundled roles
 
-| Role           | Job                                                 | Tools (`tools` / `deny`)                                                                                                                                                               | Model                 | Max mode | Default budget         | Result                                                                                       |
-| -------------- | --------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | --------------------- | -------- | ---------------------- | -------------------------------------------------------------------------------------------- |
-| **Researcher** | Multi-source research → cited brief                 | `search`, `fetch`, `browser.*`, `memory_search`, `pdf.*`, `sheet.*`, `artifact.create`, `subagent.spawn` (≤ 4 fresh), `update_plan` / deny `browser.fill_credential`, `browser.upload` | primary               | balanced | 400k tok · $2 · 30 min | findings + a brief artifact                                                                  |
-| **Shopper**    | Find, compare and hold items; never buys            | `search`, `fetch`, `browser.*`, `shop_search`, `artifact.create`, `update_plan` / deny `browser.upload` (credential fills stay, card-gated)                                            | primary + vision      | balanced | 300k · $2 · 45 min     | items: a comparison table, links, holds; purchases left to the owner on the card             |
-| **Coder**      | A change in a granted repo, tested                  | `code.*`, `read_file`, `edit_file`, `write_file`, `list_dir`, `search_files`, `exec`, `browser.dev_preview`, `harness.delegate` (when installed)                                       | harness, else primary | balanced | 1M · $5 · 60 min       | changes: a diff, test output, a branch or patch file                                         |
-| **Organizer**  | Files, mail, reminders, calendar and notes tidy-ups | `files.*`, `list_dir`, `search_files`, `email.*`, `reminders.*`, `calendar.*`, `notes.*`, `update_plan` / deny `mail_send`, `gmail_send`                                               | utility               | balanced | 150k · $0.50 · 20 min  | changes: a list of moves with undo                                                           |
-| **Writer**     | A draft from sources and the owner's voice          | `memory_search`, `read_file`, `fetch`, `pdf.*`, `artifact.create`, `mail_draft`, `gmail_create_draft`                                                                                  | primary               | balanced | 200k · $1 · 20 min     | draft: an artifact, plus an optional mail draft                                              |
-| **Planner**    | A plan or schedule; nothing changes                 | `calendar_list_events`, `calendar_list_calendars`, `reminders_list`, `search`, `fetch`, `artifact.create` (read-only allowlist plus the plan artifact)                                 | primary               | balanced | 150k · $1 · 15 min     | plan: a Plan artifact the owner can start, which hands steps to other roles only on approval |
+| Role | Job | Tools (`tools` / `deny`) | Model | Max mode | Default budget | Result |
+| --- | --- | --- | --- | --- | --- | --- |
+| **Researcher** | Multi-source research → cited brief | `search`, `fetch`, `browser.*`, `memory_search`, `pdf.*`, `sheet.*`, `artifact.create`, `subagent.spawn` (≤ 4 fresh), `update_plan` / deny `browser.fill_credential`, `browser.upload` | primary | balanced | 400k tok · $2 · 30 min | findings + a brief artifact |
+| **Shopper** | Find, compare and hold items; never buys | `search`, `fetch`, `browser.*`, `shop_search`, `artifact.create`, `update_plan` / deny `browser.upload` (credential fills stay, card-gated) | primary + vision | balanced | 300k · $2 · 45 min | items: a comparison table, links, holds; purchases left to the owner on the card |
+| **Coder** | A change in a granted repo, tested | `code.*`, `read_file`, `edit_file`, `write_file`, `list_dir`, `search_files`, `exec`, `browser.dev_preview`, `harness.delegate` (when installed) | harness, else primary | balanced | 1M · $5 · 60 min | changes: a diff, test output, a branch or patch file |
+| **Organizer** | Files, mail, reminders, calendar and notes tidy-ups | `files.*`, `list_dir`, `search_files`, `email.*`, `reminders.*`, `calendar.*`, `notes.*`, `update_plan` / deny `mail_send`, `gmail_send` | utility | balanced | 150k · $0.50 · 20 min | changes: a list of moves with undo |
+| **Writer** | A draft from sources and the owner's voice | `memory_search`, `read_file`, `fetch`, `pdf.*`, `artifact.create`, `mail_draft`, `gmail_create_draft` | primary | balanced | 200k · $1 · 20 min | draft: an artifact, plus an optional mail draft |
+| **Planner** | A plan or schedule; nothing changes | `calendar_list_events`, `calendar_list_calendars`, `reminders_list`, `search`, `fetch`, `artifact.create` (read-only allowlist plus the plan artifact) | primary | balanced | 150k · $1 · 15 min | plan: a Plan artifact the owner can start, which hands steps to other roles only on approval |
 
 Tool names are as on main, 2026-10-25. Apple wave-1 tools (docs/connectors/apple-apps-2026.md §4: `calendar_find_free_time`, `files_*`, `mail_move`, …) join the families automatically when they land; the planner adds `calendar_find_free_time` by name then.
 
@@ -390,21 +370,20 @@ The trace spec's `RunStep` already has the kind for this: `kind: "subagent"` wit
 
 **Copy** (Psyche's voice, for `docs/copy/system-messages.md`):
 
-| Moment                                  | Text                                                                                                                       |
-| --------------------------------------- | -------------------------------------------------------------------------------------------------------------------------- |
-| Spawned (parent chat line, agent voice) | "I've asked the {role} to {title}. It'll take up to {minutes} min; I'll put the result in your Inbox."                     |
-| Queued                                  | "Queued · {n}th · starts when a slot frees"                                                                                |
-| Needs you                               | "{role} needs your approval for {task}" (the approval card is the existing one)                                            |
-| Budget pause (question card)            | "{role} used its {budget} budget on {task}." Options: "Give it more", "Finish with what it has", "Stop it"                 |
-| Partial                                 | "Stopped at its {budget} budget. It got {n} of {m} done; see what's missing."                                              |
-| Failed                                  | "{role} couldn't finish {task}: {reason}. Nothing was sent or bought." (the last clause only when true, from the receipts) |
-| Cancelled                               | "Stopped. It had {n} receipts before you stopped it."                                                                      |
-| Done                                    | "{role} finished {task}."                                                                                                  |
+| Moment | Text |
+| --- | --- |
+| Spawned (parent chat line, agent voice) | "I've asked the {role} to {title}. It'll take up to {minutes} min; I'll put the result in your Inbox." |
+| Queued | "Queued · {n}th · starts when a slot frees" |
+| Needs you | "{role} needs your approval for {task}" (the approval card is the existing one) |
+| Budget pause (question card) | "{role} used its {budget} budget on {task}." Options: "Give it more", "Finish with what it has", "Stop it" |
+| Partial | "Stopped at its {budget} budget. It got {n} of {m} done; see what's missing." |
+| Failed | "{role} couldn't finish {task}: {reason}. Nothing was sent or bought." (the last clause only when true, from the receipts) |
+| Cancelled | "Stopped. It had {n} receipts before you stopped it." |
+| Done | "{role} finished {task}." |
 
 ### 6.3 Mission control (owned by docs/design/run-trace-2026.md)
 
 What this spec needs from the trace spec:
-
 - **Branches:** a run's children shown as branches of the run, keyed by `childRunId`. Each branch carries the role, status, budget used / limit, the deadline and the last step.
 - **List view:** all running and queued specialists across threads. Columns: role · title · thread · status · used / budget · deadline. Row actions: open, steer, pause, resume, cancel, more time.
 - **Child view:** the child thread's transcript and step log, with the steer composer and the controls in §4.7.
@@ -418,7 +397,6 @@ What this spec needs from the trace spec:
 ### 6.4 Settings → Specialists
 
 One grouped list, one row per role:
-
 - an on/off switch;
 - the model (a picker over the router roles and allowlisted models);
 - default and maximum budget (tokens, $, minutes);
@@ -426,7 +404,6 @@ One grouped list, one row per role:
 - "Show results in Feed".
 
 Plus the global settings:
-
 - concurrent specialists (1–6, default 3);
 - monthly specialist spend cap (default: half of `usage.monthlyBudgetUsd` when set). When the cap is reached, spawns queue as "Waiting for budget".
 
@@ -472,24 +449,24 @@ Keys: `specialists.enabled.<role>`, `specialists.model.<role>`, `specialists.bud
 
 ### 7.2 Methods
 
-| Method                                      | Scope | What                                                                                   |
-| ------------------------------------------- | ----- | -------------------------------------------------------------------------------------- |
-| `specialists.list`                          | read  | Roles from skills plus Settings: label, on, model, budget defaults and caps            |
-| `runs.children {runId}`                     | read  | Child runs with status, role, used / budget, deadline, last step (for mission control) |
-| `specialists.jobs {status?, threadId?}`     | read  | Running, queued and parked specialist tasks, newest first, with queue position         |
-| `tasks.steer {taskId, text}`                | write | Steer a running specialist, or queue the text for its next turn                        |
-| `tasks.update {taskId, budget?, deadline?}` | write | Owner-only budget or deadline change, capped by Settings                               |
+| Method | Scope | What |
+| --- | --- | --- |
+| `specialists.list` | read | Roles from skills plus Settings: label, on, model, budget defaults and caps |
+| `runs.children {runId}` | read | Child runs with status, role, used / budget, deadline, last step (for mission control) |
+| `specialists.jobs {status?, threadId?}` | read | Running, queued and parked specialist tasks, newest first, with queue position |
+| `tasks.steer {taskId, text}` | write | Steer a running specialist, or queue the text for its next turn |
+| `tasks.update {taskId, budget?, deadline?}` | write | Owner-only budget or deadline change, capped by Settings |
 
 `tasks.pause / resume / cancel / retry` exist already.
 
 ### 7.3 Events
 
-| Event                 | Payload                                                                                                    |
-| --------------------- | ---------------------------------------------------------------------------------------------------------- |
-| `run.updated`         | gains `run.parentRunId` (existing event)                                                                   |
-| `specialist.spawned`  | `{taskId, runId, threadId, parentRunId, parentThreadId, role, title, status, position?}`                   |
+| Event | Payload |
+| --- | --- |
+| `run.updated` | gains `run.parentRunId` (existing event) |
+| `specialist.spawned` | `{taskId, runId, threadId, parentRunId, parentThreadId, role, title, status, position?}` |
 | `specialist.progress` | `{taskId, runId, step: {id, label, status}, used, budget}`, at most one per child step, coalesced to ≤ 1/s |
-| `specialist.result`   | `{taskId, runId, parentRunId, result: SpecialistResult, notificationId}`                                   |
+| `specialist.result` | `{taskId, runId, parentRunId, result: SpecialistResult, notificationId}` |
 
 `chat.reasoning` (#633) and `tool_call.updated` for the child thread flow as today; the trace subscribes to the child thread.
 
@@ -498,14 +475,12 @@ Keys: `specialists.enabled.<role>`, `specialists.model.<role>`, `specialists.bud
 **Order:** P0 (protocol) first. Then R (runtime) and K (role skills) in parallel. U (UI) follows once P0 and the trace spec's protocol PR are merged; it builds against MockGateway fixtures and needs neither R nor K to land first.
 
 Every PR:
-
 - **Tests:** fixtures only, with the fixture provider (`FakeModelProvider` scripts or recorded router fixtures). No live model or app calls. Vitest runs with `--maxWorkers=1`, and only the changed packages are typechecked.
 - **No dev runs** against the owner's `~/.psyche`.
 
 ### P0: protocol (one PR, first)
 
 Brief:
-
 > Add the background-specialist shapes from docs/agent/specialists-2026.md §7 to `packages/protocol`, additively.
 >
 > - **Schemas** (§7.1): `SpecialistSpec`, `SpecialistResult`, `ApprovalHint`, the optional `Run`, `Task`, `ApprovalRequest.requestedBy` and `Automation` fields, and the `specialist_result` notification kind (appended).
@@ -525,7 +500,6 @@ Brief:
 ### R: runtime (agent-core, tasks, Gateway composition; one session)
 
 Brief:
-
 > You own the specialist runtime for docs/agent/specialists-2026.md §4: `packages/agent-core/src/specialists.ts` (new), the specialist pool in `packages/tasks`, and its composition in `apps/gateway/src/compose/`. Start after P0 merges.
 >
 > 1. **`specialist.spawn`, `specialist.report` and `specialist.status`** as agent-core built-ins (§4.1, §4.2). Resolve the role from `SkillLoader` (the `metadata.psyche.specialist` section; until K lands, use a fixture role). Then:
@@ -583,7 +557,6 @@ Brief:
 ### K: role skills and prompts (content; one session, after P0)
 
 Brief:
-
 > You own `skills/specialist-*` and the specialist section of the base prompt for docs/agent/specialists-2026.md §4.8 and §5.
 >
 > - **Six role skills:** researcher, shopper, coder, organizer, writer, planner. Each has a `SKILL.md` with the `metadata.psyche.specialist` section from §5.1–5.2 and a role prompt that covers:
@@ -602,7 +575,6 @@ Brief:
 ### U: UI (packages/ui; one session, after P0)
 
 Brief:
-
 > You own the specialist surfaces in `packages/ui` for docs/agent/specialists-2026.md §6, against MockGateway fixtures (extend them with specialist jobs, results and events).
 >
 > 1. **Step log** (§6.1): the `subagent` RunStep kind (the trace spec's shape) in `RunStepLog.tsx`, with its label, last child step, budget ring past 50%, and open-child action.
@@ -615,12 +587,12 @@ Brief:
 
 ### What each workstream must prove before its last PR merges
 
-| Workstream | Proof                                                                                                                                                 |
-| ---------- | ----------------------------------------------------------------------------------------------------------------------------------------------------- |
-| P0         | `protocol:check` clean; Swift generated file matches; protocol tests; fakes updated                                                                   |
-| R          | fixture tests for every bullet of its brief; a Gateway compose test that a spawn → approval → partial → card round trip works on the fixture provider |
-| K          | loader validation tests; each role's two fixtures produce their expected report; the delegation eval scores ≥ 26 / 30                                 |
-| U          | MockGateway tests and stories for the step, card states (done, partial, failed, cancelled, needs you), controls and Settings; i18n clean; axe clean   |
+| Workstream | Proof |
+| --- | --- |
+| P0 | `protocol:check` clean; Swift generated file matches; protocol tests; fakes updated |
+| R | fixture tests for every bullet of its brief; a Gateway compose test that a spawn → approval → partial → card round trip works on the fixture provider |
+| K | loader validation tests; each role's two fixtures produce their expected report; the delegation eval scores ≥ 26 / 30 |
+| U | MockGateway tests and stories for the step, card states (done, partial, failed, cancelled, needs you), controls and Settings; i18n clean; axe clean |
 
 ## 9. Risks
 

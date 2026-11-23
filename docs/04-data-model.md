@@ -160,15 +160,12 @@ policy_rules (                                     -- user-authored allow/deny r
   "summary": "Send reply to alice@example.com — \"Re: Permission slip\"",
   "details": {
     "account": "gmail:pranav@example.com",
-    "to": ["alice@example.com"],
-    "cc": [],
-    "subject": "Re: Permission slip",
-    "bodyPreview": "Hi Alice, attached is the signed…",
-    "attachments": [{ "name": "slip-filled.pdf", "sha256": "…" }]
+    "to": ["alice@example.com"], "cc": [], "subject": "Re: Permission slip",
+    "bodyPreview": "Hi Alice, attached is the signed…", "attachments": [{"name": "slip-filled.pdf", "sha256": "…"}]
   },
   "bindingHash": "sha256:…",
   "grantKey": "email.send|gmail:pranav@example.com|example.com",
-  "requestedBy": { "runId": "01JAX4…", "taskId": "01JAX3…", "threadId": "01JAX2…", "agent": "Pip" },
+  "requestedBy": {"runId": "01JAX4…", "taskId": "01JAX3…", "threadId": "01JAX2…", "agent": "Pip"},
   "surfaces": ["desktop", "notification"],
   "scopesOffered": ["once", "task"],
   "deviceOnly": true,
@@ -184,25 +181,25 @@ policy_rules (                                     -- user-authored allow/deny r
 
 Security §3.5 is the normative table; this one lists the same kinds. The implemented field set (the union of both, plus the S23 additions: email `replyTo` / `from` / headers / MIME hash, form `action` / method / hidden fields, exec `stdinSha256` / `cwdConfigHashes`) is in `packages/permissions/README.md`. Grant keys for `send_email` are account + the exact recipient set, never the recipient domain (S23 design-11). The `approvals` table also stores `side_effect`, `target`, `scopes_offered`, `request_input` (the decided call and context, so `reissue()` keeps taint), `consumed_at`, `run_revoked` and `boot_id`; `grants` stores `side_effect`, `task_id`, `session_id` (boot id), `thread_id`, `origin`, `max_uses`, `last_used_binding_hash`, `created_by_device_id` and `revoked_reason` (migration `202610200900_permissions_init.sql`).
 
-| kind                        | hashed fields                                                                                                                                                                                                 |
-| --------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| exec / exec_host            | normalized argv, cwd, selected env keys, resolved executable path + hash, sandbox id                                                                                                                          |
-| send_email                  | account, sorted recipients, subject, body hash, attachment hashes                                                                                                                                             |
-| calendar_write              | account, calendar id, canonical event payload hash, operation                                                                                                                                                 |
-| message_send                | channel, account, recipient id, body hash, attachment hashes                                                                                                                                                  |
-| browser_submit              | origin, path, sorted field names, digest of field values (secrets replaced by their placeholder ids), submit element ref                                                                                      |
-| credential_fill             | item id, origin, field selector, tab id                                                                                                                                                                       |
-| purchase                    | merchant origin, amount, currency, line-item hash, payment method id                                                                                                                                          |
-| file_write                  | absolute path, content hash, mode                                                                                                                                                                             |
-| connector_action / mcp_tool | server id, tool name, `tools/list` hash, params hash                                                                                                                                                          |
-| computer_action             | app bundle id, tier required, action, element ref hash                                                                                                                                                        |
-| apple_script                | tool (`apps.applescript` / `apps.jxa`), params hash (exact source and target bundle id)                                                                                                                       |
-| shortcut_run                | tool, params hash (exact shortcut name and input)                                                                                                                                                             |
-| git_write                   | tool, params hash, repository real path, operation (`commit`: message and paths; `branch`: name, create)                                                                                                      |
-| git_push                    | tool, params hash, repository real path, remote name, remote URL, branch, commit SHA (never forced; `once` only)                                                                                              |
-| folder_access               | requested path hint, reason, access (`ro` / `rw`), thread id, tool call id (device-only; `once` or `always`, `once` only when tainted; the granted folder is the owner's pick, recorded in `details.granted`) |
-| new_origin                  | origin, task id                                                                                                                                                                                               |
-| skill_install               | skill name, scope, source (path / zip / git url + ref), commit, whole-tree hash, sorted declared tools, approval kinds and prompt files (grant key: name, scope; device-only, `once`)                         |
+| kind | hashed fields |
+| --- | --- |
+| exec / exec_host | normalized argv, cwd, selected env keys, resolved executable path + hash, sandbox id |
+| send_email | account, sorted recipients, subject, body hash, attachment hashes |
+| calendar_write | account, calendar id, canonical event payload hash, operation |
+| message_send | channel, account, recipient id, body hash, attachment hashes |
+| browser_submit | origin, path, sorted field names, digest of field values (secrets replaced by their placeholder ids), submit element ref |
+| credential_fill | item id, origin, field selector, tab id |
+| purchase | merchant origin, amount, currency, line-item hash, payment method id |
+| file_write | absolute path, content hash, mode |
+| connector_action / mcp_tool | server id, tool name, `tools/list` hash, params hash |
+| computer_action | app bundle id, tier required, action, element ref hash |
+| apple_script | tool (`apps.applescript` / `apps.jxa`), params hash (exact source and target bundle id) |
+| shortcut_run | tool, params hash (exact shortcut name and input) |
+| git_write | tool, params hash, repository real path, operation (`commit`: message and paths; `branch`: name, create) |
+| git_push | tool, params hash, repository real path, remote name, remote URL, branch, commit SHA (never forced; `once` only) |
+| folder_access | requested path hint, reason, access (`ro` / `rw`), thread id, tool call id (device-only; `once` or `always`, `once` only when tainted; the granted folder is the owner's pick, recorded in `details.granted`) |
+| new_origin | origin, task id |
+| skill_install | skill name, scope, source (path / zip / git url + ref), commit, whole-tree hash, sorted declared tools, approval kinds and prompt files (grant key: name, scope; device-only, `once`) |
 
 ## 5. Receipts and audit
 
@@ -219,15 +216,9 @@ receipts (
 Audit entries are appended to `audit/YYYY-MM.jsonl` (one JSON object per line) and hash-chained:
 
 ```json
-{
-  "seq": 184233,
-  "ts": "2026-10-18T20:11:09Z",
-  "actor": { "type": "agent", "runId": "01JAX4…" },
-  "event": "tool_call.decided",
-  "data": { "tool": "email.send", "decision": "ask", "rule": "mode:balanced/write" },
-  "prev": "sha256:…",
-  "hash": "sha256:…"
-}
+{"seq": 184233, "ts": "2026-10-18T20:11:09Z", "actor": {"type": "agent", "runId": "01JAX4…"},
+ "event": "tool_call.decided", "data": {"tool": "email.send", "decision": "ask", "rule": "mode:balanced/write"},
+ "prev": "sha256:…", "hash": "sha256:…"}
 ```
 
 Event names: `device.paired`, `device.revoked`, `thread.created`, `tool_call.decided`, `tool_call.finished`, `approval.created`, `approval.decided`, `approval.expired`, `grant.created`, `grant.used`, `grant.revoked`, `credential.filled`, `credential.created`, `credential.deleted`, `purchase.requested`, `purchase.completed`, `message.sent`, `email.sent`, `calendar.changed`, `file.written`, `exec.finished`, `memory.written`, `memory.forgotten`, `connector.connected`, `connector.disconnected`, `channel.sender.paired`, `skill.installed`, `config.changed`, `vault.unlocked`, `export.created`, `reset.performed`. The Permission Broker also writes `approval.invalidated`, `approval.answer_rejected`, `binding.verified`, `binding.mismatch`, `classifier.labeled`, `classifier.circuit_open`, `receipt.recorded` and `receipt.reconciled`.
@@ -294,27 +285,23 @@ Ranking: `score = bm25_norm * 0.4 + cosine * 0.5 + recency(0.5^(ageDays/30)) * 0
 
 ```markdown
 ---
-
 name: Pip
 creature: a small teal dragon with round glasses
 vibe: curious, dry, warm
 tagline: "Let's get it done."
 emoji: 🐉
-avatar: library:01JAX… # generated or bundled asset id
+avatar: library:01JAX…        # generated or bundled asset id
 voice: kokoro:af_heart
 ---
-
-Pip is … # free-form self-description the agent may refine with approval
+Pip is …                      # free-form self-description the agent may refine with approval
 ```
 
 `USER.md` (4,000-char budget)
 
 ```markdown
 # About the owner
-
 - Name: Pranav. Student at UCSC. Timezone: America/Los_Angeles.
 ## Directives (dated; latest wins)
-
 - 2026-10-18 active: Keep replies short unless asked for detail.
 - 2026-09-02 superseded by 2026-10-18: Always explain reasoning first.
 ```
@@ -331,10 +318,8 @@ Pip is … # free-form self-description the agent may refine with approval
 
 ```markdown
 ## People
-
 - Alice (kid's teacher): prefers email; replies within a day. [2026-10-18, 2026-10-02]
 ## Preferences
-
 - Window seats; morning flights; no basic economy. [2026-10-18]
 ```
 
@@ -429,34 +414,17 @@ artifacts (id TEXT PK, library_item_id FK, type TEXT,   -- markdown | html | rea
 
 ```json
 [
-  { "type": "text", "md": "Found three options…" },
-  {
-    "type": "tool_call",
-    "toolCallId": "…",
-    "tool": "browser.navigate",
-    "status": "ok",
-    "level1": "Opened united.com"
-  },
-  { "type": "plan", "planId": "…" },
-  {
-    "type": "checklist",
-    "items": [
-      { "text": "Search flights", "status": "completed" },
-      { "text": "Hold fare", "status": "in_progress" }
-    ]
-  },
-  { "type": "approval", "approvalId": "…" },
-  { "type": "question", "inputRequestId": "…" },
-  { "type": "artifact", "artifactId": "…", "preview": "itinerary" },
-  { "type": "file", "libraryItemId": "…" },
-  { "type": "receipt", "receiptId": "…" },
-  { "type": "task", "taskId": "…" },
-  {
-    "type": "wrap_up",
-    "recap": "…",
-    "ask": "Hold the 7:05 flight?",
-    "actions": [{ "label": "Hold it" }, { "label": "Keep looking" }]
-  }
+  {"type": "text", "md": "Found three options…"},
+  {"type": "tool_call", "toolCallId": "…", "tool": "browser.navigate", "status": "ok", "level1": "Opened united.com"},
+  {"type": "plan", "planId": "…"},
+  {"type": "checklist", "items": [{"text": "Search flights", "status": "completed"}, {"text": "Hold fare", "status": "in_progress"}]},
+  {"type": "approval", "approvalId": "…"},
+  {"type": "question", "inputRequestId": "…"},
+  {"type": "artifact", "artifactId": "…", "preview": "itinerary"},
+  {"type": "file", "libraryItemId": "…"},
+  {"type": "receipt", "receiptId": "…"},
+  {"type": "task", "taskId": "…"},
+  {"type": "wrap_up", "recap": "…", "ask": "Hold the 7:05 flight?", "actions": [{"label": "Hold it"}, {"label": "Keep looking"}]}
 ]
 ```
 
@@ -491,16 +459,16 @@ Results of side-effecting requests are stored in `gateway_idempotency (id, devic
 
 ## 12. Retention and cleanup
 
-| Data                                      | Default retention                            | Control                                                   |
-| ----------------------------------------- | -------------------------------------------- | --------------------------------------------------------- |
-| Threads and messages                      | indefinite; incognito 24 h                   | delete per thread; "also forget" stages memory retraction |
-| Tool I/O level-3 payloads and screenshots | 30 days                                      | `cleanupPeriodDays`                                       |
-| Browser recordings                        | off; 7 days when enabled                     | per task                                                  |
-| Receipts and audit                        | indefinite (append-only)                     | export; never auto-deleted                                |
-| Usage                                     | indefinite (aggregated monthly after 1 year) | —                                                         |
-| Feed posts                                | 90 days                                      | —                                                         |
-| Notifications                             | 90 days after resolution                     | —                                                         |
-| Sandbox workspaces                        | until thread/project deletion                | per sandbox                                               |
-| Credential use log                        | 1 year                                       | —                                                         |
+| Data | Default retention | Control |
+| --- | --- | --- |
+| Threads and messages | indefinite; incognito 24 h | delete per thread; "also forget" stages memory retraction |
+| Tool I/O level-3 payloads and screenshots | 30 days | `cleanupPeriodDays` |
+| Browser recordings | off; 7 days when enabled | per task |
+| Receipts and audit | indefinite (append-only) | export; never auto-deleted |
+| Usage | indefinite (aggregated monthly after 1 year) | — |
+| Feed posts | 90 days | — |
+| Notifications | 90 days after resolution | — |
+| Sandbox workspaces | until thread/project deletion | per sandbox |
+| Credential use log | 1 year | — |
 
 Backups include `state/`, `workspace/`, `vault/`, `library/`, `browser/profiles/` (optional) and channel session files; the vault remains encrypted inside the backup.

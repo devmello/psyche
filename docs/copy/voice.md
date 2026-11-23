@@ -4,10 +4,10 @@ Status: v0.1 (2026-10-19). Owner: S20. Applies to every string in the desktop ap
 
 ## Two voices
 
-| Who speaks                                                  | Where                                                                                                               | How                                                                                                                                 |
-| ----------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------- |
-| **The agent** (the persona: Wren, Pip, "Psyche" if unnamed) | Chat messages, Feed posts, Idea cards, reminders, status lines                                                      | First person, in the tone set by `SOUL.md`. It names itself only when needed.                                                       |
-| **Psyche** (the application)                                | Banners, settings, approval cards, question-card chrome, errors, empty states, OS notifications, toasts, onboarding | Neutral, second person, present tense. Refers to the agent by name as a subject ("Wren needs your approval"), never speaks _as_ it. |
+| Who speaks | Where | How |
+| --- | --- | --- |
+| **The agent** (the persona: Wren, Pip, "Psyche" if unnamed) | Chat messages, Feed posts, Idea cards, reminders, status lines | First person, in the tone set by `SOUL.md`. It names itself only when needed. |
+| **Psyche** (the application) | Banners, settings, approval cards, question-card chrome, errors, empty states, OS notifications, toasts, onboarding | Neutral, second person, present tense. Refers to the agent by name as a subject ("Wren needs your approval"), never speaks *as* it. |
 
 The approval card is always in Psyche's voice. It must read the same whatever persona or model is running, because it is the owner's trust boundary.
 
@@ -33,26 +33,26 @@ When the agent has no name yet, use "your agent" in Psyche copy until onboarding
 
 ## Glossary of user-facing terms
 
-| Use                                                                          | Not                                                         | Meaning                                                                                                                                  |
-| ---------------------------------------------------------------------------- | ----------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------- |
-| approval                                                                     | permission request, consent                                 | An ApprovalRequest card                                                                                                                  |
-| allow once / allow for this task / allow for this site / always allow / deny | approve, accept, reject                                     | Grant scopes on the card                                                                                                                 |
-| task                                                                         | job, run, workflow                                          | A Task in Activity                                                                                                                       |
-| step                                                                         | span, event, action (in the chat)                           | One thing the agent did inside a task: thought, used a tool, asked, waited (docs/design/run-trace-2026.md §3.1)                          |
-| Timeline                                                                     | trace, run view, log                                        | The full view of one task's steps over time, in the agent sheet                                                                          |
-| helper                                                                       | subagent, child agent                                       | Work the agent handed to a parallel copy of itself                                                                                       |
-| specialist                                                                   | sub-agent, worker, bot                                      | A background job with a named role (the researcher, the shopper…) that delivers one result to the Inbox (docs/agent/specialists-2026.md) |
-| automation                                                                   | cron, routine, schedule                                     | A scheduled job in Upcoming                                                                                                              |
-| receipt                                                                      | log, confirmation                                           | The record of an external write                                                                                                          |
-| Library                                                                      | files, drive                                                | `library/`                                                                                                                               |
-| Soul & Memory                                                                | settings, brain                                             | The agent sheet's memory screen                                                                                                          |
-| take control / hand back control                                             | pause, override                                             | Browser and VM takeover                                                                                                                  |
-| vault                                                                        | password store, keychain (unless it is the system keychain) | Psyche's credential store                                                                                                                |
-| connector                                                                    | integration, plugin                                         | Gmail, Calendar, Slack, MCP servers                                                                                                      |
-| channel                                                                      | integration, bot                                            | Telegram, iMessage, WhatsApp…                                                                                                            |
-| side chat                                                                    | thread, conversation                                        | Non-main threads                                                                                                                         |
-| sandbox                                                                      | container, VM                                               | Where commands run                                                                                                                       |
-| Mac inside Psyche / VM mode                                                  | virtual machine (in onboarding)                             | VM mode                                                                                                                                  |
+| Use | Not | Meaning |
+| --- | --- | --- |
+| approval | permission request, consent | An ApprovalRequest card |
+| allow once / allow for this task / allow for this site / always allow / deny | approve, accept, reject | Grant scopes on the card |
+| task | job, run, workflow | A Task in Activity |
+| step | span, event, action (in the chat) | One thing the agent did inside a task: thought, used a tool, asked, waited (docs/design/run-trace-2026.md §3.1) |
+| Timeline | trace, run view, log | The full view of one task's steps over time, in the agent sheet |
+| helper | subagent, child agent | Work the agent handed to a parallel copy of itself |
+| specialist | sub-agent, worker, bot | A background job with a named role (the researcher, the shopper…) that delivers one result to the Inbox (docs/agent/specialists-2026.md) |
+| automation | cron, routine, schedule | A scheduled job in Upcoming |
+| receipt | log, confirmation | The record of an external write |
+| Library | files, drive | `library/` |
+| Soul & Memory | settings, brain | The agent sheet's memory screen |
+| take control / hand back control | pause, override | Browser and VM takeover |
+| vault | password store, keychain (unless it is the system keychain) | Psyche's credential store |
+| connector | integration, plugin | Gmail, Calendar, Slack, MCP servers |
+| channel | integration, bot | Telegram, iMessage, WhatsApp… |
+| side chat | thread, conversation | Non-main threads |
+| sandbox | container, VM | Where commands run |
+| Mac inside Psyche / VM mode | virtual machine (in onboarding) | VM mode |
 
 ## Formatting conventions
 

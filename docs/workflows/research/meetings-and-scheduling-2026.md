@@ -18,7 +18,7 @@
 
 **Post-meeting.** Notes are private by default, and sharing with participants is opt-in [1]. Each bullet can be traced back to the transcript (third-party review, **unverified** in Granola docs).
 
-**Consent model.** Granola puts the duty on the user. Its consent page calls telling participants "best practice" and offers an in-chat message plus a camera watermark "when enabled" [3]. _Chamberlain v. Granola, Inc._, No. 3:26-cv-07926-EMC (N.D. Cal.), was filed 2026-07-30 [6]. It alleges participants are not notified by default, that both notices have to be enabled separately, and that transcripts were used for model training by default on Free and Business plans [6][7]. The allegations are unproven, and no ruling had been reported as of mid-October 2026 [8].
+**Consent model.** Granola puts the duty on the user. Its consent page calls telling participants "best practice" and offers an in-chat message plus a camera watermark "when enabled" [3]. *Chamberlain v. Granola, Inc.*, No. 3:26-cv-07926-EMC (N.D. Cal.), was filed 2026-07-30 [6]. It alleges participants are not notified by default, that both notices have to be enabled separately, and that transcripts were used for model training by default on Free and Business plans [6][7]. The allegations are unproven, and no ruling had been reported as of mid-October 2026 [8].
 
 **On-device vs cloud.** Capture is local. Transcription and enhancement are cloud services (the docs describe audio as temporarily cached and then deleted, per [6][8]).
 
@@ -30,7 +30,7 @@
 
 **The defining incident.** In September 2024, engineer Alex Bilzerian had a Zoom call with a VC firm. Otter kept recording after he left. It then emailed everyone on the invite a transcript that included the investors' later private discussion, and the deal did not go ahead [10]. Otter's response was that users control sharing permissions [10].
 
-**Consent and legal.** _In re Otter.AI Privacy Litigation_, No. 25-cv-06911-EKL (N.D. Cal.), consolidates four suits filed in August–September 2025 [10][11]. The plaintiffs allege auto-join is on by default, that it keeps joining after users turn it off, and that non-users are notified only on Enterprise plans [9][10]. On 2026-08-13 the court granted Otter's motion to dismiss in part and denied it in part. The ECPA, CIPA and BIPA claims survived, and the computer-intrusion claims were dismissed [14][8]. A secondary source reports the court found Otter plausibly a "third-party eavesdropper" because it uses meeting audio for its own purposes, such as training [8]. Check the wording against the order [14] before relying on it.
+**Consent and legal.** *In re Otter.AI Privacy Litigation*, No. 25-cv-06911-EKL (N.D. Cal.), consolidates four suits filed in August–September 2025 [10][11]. The plaintiffs allege auto-join is on by default, that it keeps joining after users turn it off, and that non-users are notified only on Enterprise plans [9][10]. On 2026-08-13 the court granted Otter's motion to dismiss in part and denied it in part. The ECPA, CIPA and BIPA claims survived, and the computer-intrusion claims were dismissed [14][8]. A secondary source reports the court found Otter plausibly a "third-party eavesdropper" because it uses meeting audio for its own purposes, such as training [8]. Check the wording against the order [14] before relying on it.
 
 **User reaction.** On Zoom Community, hosts describe guests' Otter bots joining meetings those guests never attended. They also report bots coming back after removal ("whack a mole") and non-users having to recover an account just to turn auto-join off [13].
 
@@ -49,11 +49,10 @@
 **Context.** Dropbox acquired Reclaim in August 2024, and the product is still available [23]. When Clockwise shut down, it pointed users to Reclaim [27].
 
 **Scheduling mechanics.**
-
-- _Habits_ (recurring routines) start out marked **free** and flip to **busy** as the day fills up or the start time gets close. A per-habit "time defense" setting runs from most flexible to most defensive [20]. Higher-priority items can overbook lower ones [20].
-- _Smart Meetings_ find a time for two or more people from mutual availability, including across time zones. They need at least free/busy access to attendees, and each attendee gets a one-time invitation to accept before auto-scheduling starts [19]. If something is booked over a Smart Meeting, Reclaim moves it. By default meetings **auto-lock at the start of each working day** so they stop moving, and RSVP "No" asks Reclaim to find another day [19]. Help docs describe a "View change log" explaining why an event moved (search snippet of Reclaim help, **unverified** in the 2.0 docs).
-- _Scheduling links_ let invitees choose the time zone shown. The page shows the actual zone for comparison when it differs, and offers round-robin and location choice [22].
-- _Buffers._ Travel time is added around events that have a physical address and moves with the event. Decompression time follows meetings. Breaks separate tasks and habits [21].
+- *Habits* (recurring routines) start out marked **free** and flip to **busy** as the day fills up or the start time gets close. A per-habit "time defense" setting runs from most flexible to most defensive [20]. Higher-priority items can overbook lower ones [20].
+- *Smart Meetings* find a time for two or more people from mutual availability, including across time zones. They need at least free/busy access to attendees, and each attendee gets a one-time invitation to accept before auto-scheduling starts [19]. If something is booked over a Smart Meeting, Reclaim moves it. By default meetings **auto-lock at the start of each working day** so they stop moving, and RSVP "No" asks Reclaim to find another day [19]. Help docs describe a "View change log" explaining why an event moved (search snippet of Reclaim help, **unverified** in the 2.0 docs).
+- *Scheduling links* let invitees choose the time zone shown. The page shows the actual zone for comparison when it differs, and offers round-robin and location choice [22].
+- *Buffers.* Travel time is added around events that have a physical address and moves with the event. Decompression time follows meetings. Breaks separate tasks and habits [21].
 
 **Prep / post-meeting.** None. Reclaim is a scheduling layer only.
 
@@ -69,7 +68,7 @@
 
 ## 6. Clockwise (shut down 2026-03-27)
 
-**Mechanics.** Clockwise defended "Focus Time" and let users mark internal meetings (1:1s, small syncs) as _flexible_. "Once a day," it moved flexible meetings to the least disruptive time for the team [29].
+**Mechanics.** Clockwise defended "Focus Time" and let users mark internal meetings (1:1s, small syncs) as *flexible*. "Once a day," it moved flexible meetings to the least disruptive time for the team [29].
 
 **Outcome.** Salesforce hired the team into Agentforce, and the service ended on 2026-03-27. Customer data was deleted, not transferred, and users had little notice [27][28].
 
@@ -89,7 +88,7 @@
 
 ## 8. Calendly
 
-**Mechanics.** Calendly detects time zones for host and invitee, and invitees see times in their local zone by default [34]. Buffer time can be set per event type or per booking [34]. _Routing_ qualifies invitees with form answers and sends each to the right person or event type [35]. _Meeting polls_ (all plans) take votes on up to 40 slots, and the host books the winner. The poll closes on booking or when every slot has passed [36].
+**Mechanics.** Calendly detects time zones for host and invitee, and invitees see times in their local zone by default [34]. Buffer time can be set per event type or per booking [34]. *Routing* qualifies invitees with form answers and sends each to the right person or event type [35]. *Meeting polls* (all plans) take votes on up to 40 slots, and the host books the winner. The poll closes on booking or when every slot has passed [36].
 
 **Etiquette debate.** In January 2022, Sam Lessin called sending a Calendly link a "naked display of social capital dynamics" and said he would "never click" one [38]. Defenders pointed to cost: one Doodle survey put scheduling at up to 4.8 hours a week [38]. Calendly's own write-up cites an April 2020 informal poll split about 50/50 on whether links are rude. Its own sentiment analysis found "85% neutral to positive" (self-reported) [37]. Calendly recommends **offering specific times first** and giving the link only as a fallback, and it criticises a bare "here's my Calendly" [37]. A productivity strategist quoted in [38] advises against sending links to very senior people.
 
@@ -139,12 +138,12 @@
 - **Kept: host-first review.** The platforms that set expectations (Zoom, Meet's "hosts only" option, Teams recap emails started by the organiser) all let a person see the summary before others do [49][53][57][58]. Institutions explicitly tell hosts to keep summaries private until reviewed [58].
 - **Turned off or blocked: auto-join bots.** Hosts use waiting rooms, watch for bot names, and remove bots repeatedly [13]. Lawyers advise removing bots from privileged calls [61]. A Bloomberg column describes the bots as a new meeting irritant [60].
 - **Turned off: unsolicited briefings.** One university turned off Microsoft's default-on daily briefing email after user feedback [65]. Vendors now ship digests and prep features **off by default** or limited to certain meetings: Copilot for Sales digest [64], Fireflies prep (not sent for one-off meetings) [66], Granola briefs (external only) [2], Copilot prep (3+ participants with related content) [50].
-- **Abandoned: autonomous calendar reshuffling.** Clockwise is gone [27]. Its reviews mention colleagues confused by moved meetings [30]. Motion's own docs tell users to review the plan daily [24]. Reclaim's default is to _lock_ meetings each morning, which in practice limits how much churn it allows [19].
+- **Abandoned: autonomous calendar reshuffling.** Clockwise is gone [27]. Its reviews mention colleagues confused by moved meetings [30]. Motion's own docs tell users to review the plan daily [24]. Reclaim's default is to *lock* meetings each morning, which in practice limits how much churn it allows [19].
 - **Kept: polls and offered times over bare links.** Calendly itself recommends offering times first [37]. Calendly [36] and Fantastical [32] both offer polls, and Gmail's new feature inserts proposed times into the reply rather than a link [55].
 
 ## Failure modes
 
-**1. Recording without consent (wiretap law).** Federal law requires one party's consent. California, Florida, Illinois, Massachusetts, Pennsylvania and Washington, among others, require **all parties** to consent. Lists vary between about 11 and 13 states, and calls that span states have no clear rule, so the safe default is to get everyone's consent [62][63]. The lawsuits against Otter [8][14] and Granola [6] centre on notice to non-users. The Otter ruling turned partly on the vendor using recordings for its own purposes [8]. Apple's answer is an audio notice that can't be skipped [39]. Teams and Zoom block mic and camera until a participant agrees [51][57]. Fathom asks external attendees 24 hours ahead [17]. A local agent that never trains on audio avoids the "third-party eavesdropper" theory, but the _user_ still needs all-party consent where the law requires it.
+**1. Recording without consent (wiretap law).** Federal law requires one party's consent. California, Florida, Illinois, Massachusetts, Pennsylvania and Washington, among others, require **all parties** to consent. Lists vary between about 11 and 13 states, and calls that span states have no clear rule, so the safe default is to get everyone's consent [62][63]. The lawsuits against Otter [8][14] and Granola [6] centre on notice to non-users. The Otter ruling turned partly on the vendor using recordings for its own purposes [8]. Apple's answer is an audio notice that can't be skipped [39]. Teams and Zoom block mic and camera until a participant agrees [51][57]. Fathom asks external attendees 24 hours ahead [17]. A local agent that never trains on audio avoids the "third-party eavesdropper" theory, but the *user* still needs all-party consent where the law requires it.
 
 **2. Auto-sharing notes with attendees.** The Bilzerian incident [10] combined two failures: recording continued after the meeting ended, and the transcript was sent automatically to everyone on the invite. Meet's "invited guests" option includes people who never attended [53]. Every safer design found here defaults to host-only [57][58].
 
@@ -195,7 +194,7 @@ All accessed 2026-10-25.
 11. NPR, "Class-action suit claims Otter AI secretly records private work conversations" (2025-08-15). https://www.npr.org/2025/08/15/g-s1-83087/otter-ai-transcription-class-action-lawsuit
 12. University of Tennessee OIT, Otter settings article. https://utk.teamdynamix.com/TDClient/2277/OIT-Portal/KB/ArticleDet?ID=148314
 13. Zoom Community, "Stopping users with Otter.ai from joining meeting." https://community.zoom.com/t5/Zoom-Meetings/Stopping-users-with-Otter-ai-from-joining-meeting/m-p/106298
-14. _In re Otter.AI Privacy Litigation_, order on motion to dismiss (2026-08-13), CourtListener. https://storage.courtlistener.com/recap/gov.uscourts.cand.454675/gov.uscourts.cand.454675.68.0.pdf, and MLex coverage https://www.mlex.com/mlex/data-privacy-security/articles/2513423
+14. *In re Otter.AI Privacy Litigation*, order on motion to dismiss (2026-08-13), CourtListener. https://storage.courtlistener.com/recap/gov.uscourts.cand.454675/gov.uscourts.cand.454675.68.0.pdf, and MLex coverage https://www.mlex.com/mlex/data-privacy-security/articles/2513423
 15. ZoomInfo Pipeline, "Otter.ai features" (third-party). https://pipeline.zoominfo.com/sales/otter-ai-features
 16. Fathom, homepage. https://www.fathom.ai/
 17. Fathom Help, "Automatically requesting recording consent." https://help.fathom.video/en/articles/294272

@@ -43,11 +43,11 @@ Research for the voice conversation mode spec (S17). Researched 2026-10-25 again
 
 ### Latency (Psyche measurements; Apple gives none)
 
-| Engine (spike 03, quiet read, warm)                            | First correct partial after speech onset | Partial cadence | Final after end of input (4 s / 88 s utterance) | WER                    |
-| -------------------------------------------------------------- | ---------------------------------------- | --------------- | ----------------------------------------------- | ---------------------- |
-| `SpeechTranscriber` `progressiveTranscription`                 | 0.61 s                                   | ~1.0 s          | 0.08 / 0.19 s                                   | 5.3%                   |
-| `DictationTranscriber` `progressiveLongDictation` + vocabulary | 0.82 s                                   | ~0.3 s          | 0.27 / 0.55 s                                   | 3.4% (3.0% with music) |
-| `DictationTranscriber`, no vocabulary                          | 0.83 s                                   | ~0.3 s          | 0.5–0.6 / 1.1–1.8 s                             | 6.5%                   |
+| Engine (spike 03, quiet read, warm) | First correct partial after speech onset | Partial cadence | Final after end of input (4 s / 88 s utterance) | WER |
+| --- | --- | --- | --- | --- |
+| `SpeechTranscriber` `progressiveTranscription` | 0.61 s | ~1.0 s | 0.08 / 0.19 s | 5.3% |
+| `DictationTranscriber` `progressiveLongDictation` + vocabulary | 0.82 s | ~0.3 s | 0.27 / 0.55 s | 3.4% (3.0% with music) |
+| `DictationTranscriber`, no vocabulary | 0.83 s | ~0.3 s | 0.5–0.6 / 1.1–1.8 s | 6.5% |
 
 - **Caveats from spike 03:**
   - Digital silence (exact zeros) delays `SpeechTranscriber` by about 0.9 s, so never zero-gate audio before it reaches the analyzer.
@@ -136,14 +136,14 @@ Research for the voice conversation mode spec (S17). Researched 2026-10-25 again
   - It sends every second of room audio through a classifier.
   - Battery cost on Apple silicon is likely small for a 50 KB–4 MB model, but it is **unverified**. Keeping the audio path awake costs extra, separate from the model.
 
-| Option                           | Licence and terms                                                                       | Model size                                                                                   | CPU                                                   | Custom keyword                                                             | Status                                                                                                                                                 |
-| -------------------------------- | --------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------- | ----------------------------------------------------- | -------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------ |
-| openWakeWord [23]                | Code Apache-2.0. Pre-trained models CC BY-NC-SA 4.0 (non-commercial, share-alike).      | Shared melspectrogram 1.09 MB + embedding 1.33 MB + head 0.2–1.7 MB per word (v0.5.1 assets) | 15–20 models on one Raspberry Pi 3 core; 80 ms frames | Train from synthetic TTS data (notebook/Colab)                             | Last release v0.6.0, 2024-02; repo active to 2025-12                                                                                                   |
-| microWakeWord [24]               | Apache-2.0 (code and the ESPHome model repo)                                            | 52–60 KB `.tflite` (v2 models)                                                               | Built for ESP32; inference every 30 ms                | Train with the Piper sample generator; "requires a lot of experimentation" | Active (2026-07)                                                                                                                                       |
-| Picovoice Porcupine [25][26][27] | SDK Apache-2.0, but every run needs a Console AccessKey, checked when the engine starts | not published (about 1 MB RAM, third-party figure)                                           | <4% of a Pi 3 core (third-party figure)               | Console training                                                           | Free tier ended 2026-06-30 (Picovoice replies quoted on a forum); "no dedicated free or paid plans for personal or non-commercial use" [26]. Excluded. |
-| Snowboy [28]                     | Apache-2.0                                                                              | small                                                                                        | low                                                   | Needed KITT.AI servers                                                     | Dead: KITT.AI shut down all products by 2020-12-31                                                                                                     |
-| Mycroft Precise [29]             | Apache-2.0                                                                              | small (TensorFlow)                                                                           | moderate                                              | Self-trained                                                               | Unmaintained: no push since 2023-11; Mycroft AI ceased development in early 2023                                                                       |
-| Apple Sound Analysis [30][31]    | System framework                                                                        | Create ML sound classifier, typically a few MB                                               | Low, ~1 s windows                                     | Train a custom classifier with `SNClassifySoundRequest(mlModel:)`          | Built for sound events. Window-based (~1 s windows), with no false-accept tuning; untested for speaker-independent keywords.                           |
+| Option | Licence and terms | Model size | CPU | Custom keyword | Status |
+| --- | --- | --- | --- | --- | --- |
+| openWakeWord [23] | Code Apache-2.0. Pre-trained models CC BY-NC-SA 4.0 (non-commercial, share-alike). | Shared melspectrogram 1.09 MB + embedding 1.33 MB + head 0.2–1.7 MB per word (v0.5.1 assets) | 15–20 models on one Raspberry Pi 3 core; 80 ms frames | Train from synthetic TTS data (notebook/Colab) | Last release v0.6.0, 2024-02; repo active to 2025-12 |
+| microWakeWord [24] | Apache-2.0 (code and the ESPHome model repo) | 52–60 KB `.tflite` (v2 models) | Built for ESP32; inference every 30 ms | Train with the Piper sample generator; "requires a lot of experimentation" | Active (2026-07) |
+| Picovoice Porcupine [25][26][27] | SDK Apache-2.0, but every run needs a Console AccessKey, checked when the engine starts | not published (about 1 MB RAM, third-party figure) | <4% of a Pi 3 core (third-party figure) | Console training | Free tier ended 2026-06-30 (Picovoice replies quoted on a forum); "no dedicated free or paid plans for personal or non-commercial use" [26]. Excluded. |
+| Snowboy [28] | Apache-2.0 | small | low | Needed KITT.AI servers | Dead: KITT.AI shut down all products by 2020-12-31 |
+| Mycroft Precise [29] | Apache-2.0 | small (TensorFlow) | moderate | Self-trained | Unmaintained: no push since 2023-11; Mycroft AI ceased development in early 2023 |
+| Apple Sound Analysis [30][31] | System framework | Create ML sound classifier, typically a few MB | Low, ~1 s windows | Train a custom classifier with `SNClassifySoundRequest(mlModel:)` | Built for sound events. Window-based (~1 s windows), with no false-accept tuning; untested for speaker-independent keywords. |
 
 - **Sound Analysis for a keyword:** technically possible. Train a Create ML sound classifier on the keyword against negatives, and run `SNAudioStreamAnalyzer` with tuned `windowDuration`/`overlapFactor` [30].
   - But Apple designed and documents it for sound events, not keyword spotting. Accuracy on a spoken phrase across speakers is **unverified**.
@@ -183,13 +183,13 @@ Research for the voice conversation mode spec (S17). Researched 2026-10-25 again
 
 ### VAD options
 
-| VAD                           | Licence               | Size                               | Cost                                     | Notes                                                                                                                                         |
-| ----------------------------- | --------------------- | ---------------------------------- | ---------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------- |
-| Psyche energy VAD (today)     | ours                  | none                               | negligible                               | 0.9 s end-of-turn, 600 ms pre-roll on barge-in (`apps/web/src/shell/vad.ts`)                                                                  |
-| WebRTC VAD (libfvad [39])     | BSD-3-Clause          | none (GMM, not a neural net)       | ~2 µs per frame [40]                     | 10/20/30 ms frames at 8–48 kHz. High recall (0.98) but lower precision (0.82); flags chatter as speech [40].                                  |
-| Silero VAD [38]               | MIT, v6.2.3 (2026-09) | 1.2–1.3 MB (16 kHz ONNX) to 2.3 MB | <1 ms per 30+ ms chunk on one CPU thread | F1 0.94 vs 0.90 for WebRTC on one 30-file benchmark [40]. Needs ONNX Runtime; it is a neural model, so the same owner sign-off as §3 applies. |
-| Apple `SpeechDetector` [2]    | system                | system                             | system                                   | No speech events exposed. Not usable for turns.                                                                                               |
-| VPIO muted-talker events [34] | system                | system                             | system                                   | Only while muted. Candidate barge-in trigger; untested.                                                                                       |
+| VAD | Licence | Size | Cost | Notes |
+| --- | --- | --- | --- | --- |
+| Psyche energy VAD (today) | ours | none | negligible | 0.9 s end-of-turn, 600 ms pre-roll on barge-in (`apps/web/src/shell/vad.ts`) |
+| WebRTC VAD (libfvad [39]) | BSD-3-Clause | none (GMM, not a neural net) | ~2 µs per frame [40] | 10/20/30 ms frames at 8–48 kHz. High recall (0.98) but lower precision (0.82); flags chatter as speech [40]. |
+| Silero VAD [38] | MIT, v6.2.3 (2026-09) | 1.2–1.3 MB (16 kHz ONNX) to 2.3 MB | <1 ms per 30+ ms chunk on one CPU thread | F1 0.94 vs 0.90 for WebRTC on one 30-file benchmark [40]. Needs ONNX Runtime; it is a neural model, so the same owner sign-off as §3 applies. |
+| Apple `SpeechDetector` [2] | system | system | system | No speech events exposed. Not usable for turns. |
+| VPIO muted-talker events [34] | system | system | system | Only while muted. Candidate barge-in trigger; untested. |
 
 ### Reliable barge-in on laptop speakers
 

@@ -112,18 +112,18 @@ The first-run checklist checks the install in the order you would fix it:
 psyche doctor --first-run
 ```
 
-| #   | Item                                               | When it is not ok                                                      |
-| --- | -------------------------------------------------- | ---------------------------------------------------------------------- |
-| 1   | Psyche.app is in /Applications (or ~/Applications) | Drag it there from the DMG                                             |
-| 2   | The LaunchAgent is installed and loaded            | Open Psyche.app (or `psyche start`)                                    |
-| 3   | The LaunchAgent runs a `psyched` that exists       | You moved or deleted the app: open it from its new place               |
-| 4   | The Gateway answers `/healthz`                     | See the LaunchAgent items, then `$PSYCHE_HOME/logs/`                   |
-| 5   | This CLI is paired                                 | `psyche onboard`, then approve the code (step 4)                       |
-| 6   | Psyche Helper is connected                         | Open Psyche.app, which starts it                                       |
-| 7   | Permissions: the next one to grant                 | Psyche › Settings › Permissions, or the System Settings link it prints |
-| 8   | Helper signing (unsigned builds only)              | A warning: permissions are lost on upgrade (see above)                 |
-| 9   | A model provider                                   | `psyche vault add …` (or `psyche onboard`)                             |
-| 10  | The vault is set up and the recovery key confirmed | `psyche onboard`                                                       |
+| # | Item | When it is not ok |
+| --- | --- | --- |
+| 1 | Psyche.app is in /Applications (or ~/Applications) | Drag it there from the DMG |
+| 2 | The LaunchAgent is installed and loaded | Open Psyche.app (or `psyche start`) |
+| 3 | The LaunchAgent runs a `psyched` that exists | You moved or deleted the app: open it from its new place |
+| 4 | The Gateway answers `/healthz` | See the LaunchAgent items, then `$PSYCHE_HOME/logs/` |
+| 5 | This CLI is paired | `psyche onboard`, then approve the code (step 4) |
+| 6 | Psyche Helper is connected | Open Psyche.app, which starts it |
+| 7 | Permissions: the next one to grant | Psyche › Settings › Permissions, or the System Settings link it prints |
+| 8 | Helper signing (unsigned builds only) | A warning: permissions are lost on upgrade (see above) |
+| 9 | A model provider | `psyche vault add …` (or `psyche onboard`) |
+| 10 | The vault is set up and the recovery key confirmed | `psyche onboard` |
 
 It exits 0 when nothing fails. Warnings, such as a permission you have not granted yet, do not fail it unless you add `--strict`. `--json` prints the same items for scripts. The full check, including the sandbox, bind address, disk and file modes:
 

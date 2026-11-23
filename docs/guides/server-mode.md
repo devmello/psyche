@@ -32,7 +32,6 @@ You need Ubuntu or Debian, a user on the server who can use `sudo`, and a Mac on
 5. Check it: send a message.
 
 If something goes wrong:
-
 - **"That code isn't right":** check it on the server. After a few wrong tries, the server makes you wait a minute.
 - **"That code has expired":** run `psyche setup code` on the server and type the new code.
 - **No server is listed:** type its address. Ubuntu Server doesn't answer `.local` names or show up on the network without an mDNS responder: `sudo apt install avahi-daemon`.
@@ -237,11 +236,11 @@ A Linux Host is headless when logind reports no graphical session for its user (
 
 These variables change that. Set them only in the service's environment (`systemctl --user edit psyche-gateway`, then `Environment=` under `[Service]`), never in a file the agent can write. The Gateway reads them once at start.
 
-| Variable                  | Values             | Effect                                                                                                                                                                                                              |
-| ------------------------- | ------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `PSYCHE_BROWSER_DRIVER`   | `bridge`, `server` | `bridge`: only a desktop app's browser, never headless Chromium. `server`: headless Chromium on Linux even with a graphical session. Unset: logind decides.                                                         |
-| `PSYCHE_PAYMENT_PRESENCE` | `passkey`          | Payments need a passkey on any Host, not only a headless one.                                                                                                                                                       |
-| `PSYCHE_CHROMIUM`         | a path             | The Chromium binary for the headless browser. Unset: the first of `/usr/bin/chromium`, `/usr/bin/chromium-browser`, `/snap/bin/chromium`, `/usr/bin/google-chrome-stable` and `/usr/bin/google-chrome` that exists. |
+| Variable | Values | Effect |
+| --- | --- | --- |
+| `PSYCHE_BROWSER_DRIVER` | `bridge`, `server` | `bridge`: only a desktop app's browser, never headless Chromium. `server`: headless Chromium on Linux even with a graphical session. Unset: logind decides. |
+| `PSYCHE_PAYMENT_PRESENCE` | `passkey` | Payments need a passkey on any Host, not only a headless one. |
+| `PSYCHE_CHROMIUM` | a path | The Chromium binary for the headless browser. Unset: the first of `/usr/bin/chromium`, `/usr/bin/chromium-browser`, `/snap/bin/chromium`, `/usr/bin/google-chrome-stable` and `/usr/bin/google-chrome` that exists. |
 
 ## The vault key
 
@@ -306,11 +305,7 @@ Use this when you need a hostname a browser can reach without joining a tailnet.
 The Gateway checks Access's assertion itself. Set `gateway.cloudflareAccess` in `config.json` to your team domain and the application's AUD tag:
 
 ```json
-{
-  "gateway": {
-    "cloudflareAccess": { "teamDomain": "myteam.cloudflareaccess.com", "audience": "<AUD tag>" }
-  }
-}
+{ "gateway": { "cloudflareAccess": { "teamDomain": "myteam.cloudflareaccess.com", "audience": "<AUD tag>" } } }
 ```
 
 Every forwarded or remote connection then needs a `Cf-Access-Jwt-Assertion` that verifies against the team's keys (signature, audience, issuer, expiry), or it gets 401. The verified email is shown on the pairing card.
@@ -325,10 +320,10 @@ Without host networking, the Gateway can listen on its container interface inste
 
 Who gets through:
 
-| Peer                               | Needs                                                                                                                                                                         |
-| ---------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Peer | Needs |
+| --- | --- |
 | A trusted proxy (`trustedProxies`) | A verified identity: a valid Cloudflare Access assertion, or the `Tailscale-User-Login` header from a peer in `tailscaleProxies`. A proxy connection with neither is refused. |
-| Anything else (the CLI, a script)  | `Authorization: Bearer <token>`                                                                                                                                               |
+| Anything else (the CLI, a script) | `Authorization: Bearer <token>` |
 
 To narrow who may try at all, set `gateway.trustedProxy.allowedLogins` to a list of logins (`you@example.com`, compared without regard to case). It is a Tailscale list: a forwarded connection passes when its `Tailscale-User-Login` is on it and the direct peer is in `tailscaleProxies` (on the loopback bind, with Tailscale Serve on the host, that defaults to loopback). A verified Cloudflare Access email is matched against the same list, so Access users are not locked out by it. Everything else, a missing login included, gets no WebSocket upgrade. It needs `trustedProxy.enabled`. A direct connection on this computer is not forwarded, so it is unaffected. A login on the list is not trusted for anything: the device still has to pair.
 
@@ -429,12 +424,12 @@ With Compose, the scripts in `deploy/backup/` work the same from a source checko
 
 The Gateway writes JSON lines with metadata only: never message bodies, tool arguments or secrets. `PSYCHE_LOG_LEVEL` sets the level (default `info`).
 
-| Where the Gateway runs | Where the logs go                                              | How to read them                                                  |
-| ---------------------- | -------------------------------------------------------------- | ----------------------------------------------------------------- |
-| A terminal             | Standard error                                                 | In that terminal                                                  |
-| LaunchAgent (macOS)    | `$PSYCHE_HOME/logs/gateway.log` (crashes in `gateway.err.log`) | `psyche logs -n 200`, or `psyche logs -f` to follow               |
-| systemd user unit      | The journal                                                    | `psyche logs -f` (it reads `journalctl --user -u psyche-gateway`) |
-| Docker Compose         | Container output                                               | `docker compose -f deploy/docker-compose.yml logs gateway`        |
+| Where the Gateway runs | Where the logs go | How to read them |
+| --- | --- | --- |
+| A terminal | Standard error | In that terminal |
+| LaunchAgent (macOS) | `$PSYCHE_HOME/logs/gateway.log` (crashes in `gateway.err.log`) | `psyche logs -n 200`, or `psyche logs -f` to follow |
+| systemd user unit | The journal | `psyche logs -f` (it reads `journalctl --user -u psyche-gateway`) |
+| Docker Compose | Container output | `docker compose -f deploy/docker-compose.yml logs gateway` |
 
 Settings → About has a log viewer with level, subsystem and search filters. It reads `$PSYCHE_HOME/logs/gateway*.log`, so it shows lines only when the Gateway runs as a LaunchAgent; under systemd, Docker or a terminal it is empty.
 

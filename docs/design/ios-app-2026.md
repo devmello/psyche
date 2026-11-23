@@ -13,18 +13,18 @@ Visual mockups: see §9.
 
 ## 1. Decisions in one table
 
-| #   | Decision                                                                                                        | Why                                                                                                                                                                                                                                                                                                                                                                                  |
-| --- | --------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
-| A1  | **Native SwiftUI**, not React Native / Expo / a WebView shell                                                   | Already the plan (companion §6 M1). Generated Swift types exist; the mac helper proves the Swift client path; extensions (notification service, share, widgets, Live Activities, App Intents) are native anyway; lowest RAM (owner preference: RAM over disk).                                                                                                                       |
-| A2  | **iOS 26 minimum** (answers companion §7 Q5)                                                                    | The owner builds the app for their own phone, so reach doesn't matter. iOS 26 gives `SpeechAnalyzer` (matches the mac helper), on-device Foundation Models (matches the Mac's Apple model option), the search tab role and Liquid Glass chrome for free.                                                                                                                             |
-| A3  | **No third-party Swift dependencies** in M1                                                                     | Foundation, `URLSessionWebSocketTask`, `Network` (Bonjour), CryptoKit, Security, SwiftUI, Observation, WidgetKit, ActivityKit. Same rule as the mac helper.                                                                                                                                                                                                                          |
-| A4  | **Swift 6 language mode**, strict concurrency, `@Observable` models, actors for I/O                             | Matches `apps/mac-helper`; the generated types are already `Sendable`.                                                                                                                                                                                                                                                                                                               |
-| A5  | **One shared Swift package for the wire**, `packages/protocol-swift`, used by both the mac helper and the phone | Today `gen.ts` copies the generated file into the mac helper. Two copies would drift.                                                                                                                                                                                                                                                                                                |
-| A6  | **The Gateway is the only source of truth.** The phone keeps a small cache and an outbox, nothing more          | Matches N14 (`stateVersion` refetch) and "push is a hint, not state" (companion §2.3). No sync engine, no conflict resolution.                                                                                                                                                                                                                                                       |
-| A7  | **Native rendering for every chat block, generative UI included** (revised 2026-11-04)                          | Genui widgets are data: a fixed catalogue of 21 node types (`WIDGET_NODE_SCHEMAS` in `packages/protocol/src/schemas/widgets.ts`), no script or markup. SwiftUI, Swift Charts and MapKit cover them, with less RAM than a WebView, no JS bundle and no web attack surface. An unknown future node type shows "Open on your Mac". (Owner, 2026-11-04; replaces the sandboxed WebView.) |
-| A8  | **Four tabs + the search tab**: Home, Chat, Library, Memory, and Search as iOS 26's separate search button      | Same five places as the desktop (consolidation-2026 §3). The compact web layout already defines these four tabs.                                                                                                                                                                                                                                                                     |
-| A9  | **Home is the landing tab on the phone** (desktop lands on Chat)                                                | A phone is opened to glance: what needs me, what's today. Chat is one tap away and "Ask Psyche" sits at the top of Home. (Owner call, §8 Q1.)                                                                                                                                                                                                                                        |
-| A10 | **XcodeGen `project.yml`**, no committed `.pbxproj`                                                             | Many parallel sessions edit this repo; `.pbxproj` merges are the worst conflicts in iOS repos. All logic lives in SwiftPM targets; the Xcode project is a thin generated shell for the app and its extensions.                                                                                                                                                                       |
+| # | Decision | Why |
+| --- | --- | --- |
+| A1 | **Native SwiftUI**, not React Native / Expo / a WebView shell | Already the plan (companion §6 M1). Generated Swift types exist; the mac helper proves the Swift client path; extensions (notification service, share, widgets, Live Activities, App Intents) are native anyway; lowest RAM (owner preference: RAM over disk). |
+| A2 | **iOS 26 minimum** (answers companion §7 Q5) | The owner builds the app for their own phone, so reach doesn't matter. iOS 26 gives `SpeechAnalyzer` (matches the mac helper), on-device Foundation Models (matches the Mac's Apple model option), the search tab role and Liquid Glass chrome for free. |
+| A3 | **No third-party Swift dependencies** in M1 | Foundation, `URLSessionWebSocketTask`, `Network` (Bonjour), CryptoKit, Security, SwiftUI, Observation, WidgetKit, ActivityKit. Same rule as the mac helper. |
+| A4 | **Swift 6 language mode**, strict concurrency, `@Observable` models, actors for I/O | Matches `apps/mac-helper`; the generated types are already `Sendable`. |
+| A5 | **One shared Swift package for the wire**, `packages/protocol-swift`, used by both the mac helper and the phone | Today `gen.ts` copies the generated file into the mac helper. Two copies would drift. |
+| A6 | **The Gateway is the only source of truth.** The phone keeps a small cache and an outbox, nothing more | Matches N14 (`stateVersion` refetch) and "push is a hint, not state" (companion §2.3). No sync engine, no conflict resolution. |
+| A7 | **Native rendering for every chat block, generative UI included** (revised 2026-11-04) | Genui widgets are data: a fixed catalogue of 21 node types (`WIDGET_NODE_SCHEMAS` in `packages/protocol/src/schemas/widgets.ts`), no script or markup. SwiftUI, Swift Charts and MapKit cover them, with less RAM than a WebView, no JS bundle and no web attack surface. An unknown future node type shows "Open on your Mac". (Owner, 2026-11-04; replaces the sandboxed WebView.) |
+| A8 | **Four tabs + the search tab**: Home, Chat, Library, Memory, and Search as iOS 26's separate search button | Same five places as the desktop (consolidation-2026 §3). The compact web layout already defines these four tabs. |
+| A9 | **Home is the landing tab on the phone** (desktop lands on Chat) | A phone is opened to glance: what needs me, what's today. Chat is one tap away and "Ask Psyche" sits at the top of Home. (Owner call, §8 Q1.) |
+| A10 | **XcodeGen `project.yml`**, no committed `.pbxproj` | Many parallel sessions edit this repo; `.pbxproj` merges are the worst conflicts in iOS repos. All logic lives in SwiftPM targets; the Xcode project is a thin generated shell for the app and its extensions. |
 
 ## 2. Where it lives
 
@@ -78,29 +78,29 @@ macOS CI runner against a real Gateway, with no simulator (§6).
 
 ### 3.1 Objects
 
-| Type                | Kind                     | Job                                                                                                                                                                                                                                                                                    |
-| ------------------- | ------------------------ | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `GatewayEndpoint`   | struct                   | `{url, identityKey, spkiPins[], transport: .lan / .tailscale}` from the QR payload (companion §2.2). Stored in `PsycheShared`.                                                                                                                                                         |
-| `DeviceIdentity`    | actor                    | Ed25519 device key in the Keychain (`AfterFirstUnlockThisDeviceOnly`, non-synchronizable); signs `connect` and the lock-screen `POST /v1/approvals/answer`.                                                                                                                            |
-| `GatewayConnection` | actor                    | One `URLSessionWebSocketTask`. `call<M: Method>(_:params) async throws -> M.Result` with id correlation and per-call timeout; `events: AsyncStream<EventFrame>`; tracks `seq` and `stateVersion`. Verifies the Gateway's identity-key signature in the challenge before anything else. |
-| `Session`           | `@MainActor @Observable` | What the UI reads: `state` (§3.2), `device` (scopes), `stateVersion`, `lastSyncedAt`. Owns the connection's lifetime: connects on `scenePhase == .active`, closes ~5 s after `.background`.                                                                                            |
-| `EventRouter`       | actor                    | Fans typed events to whoever registered (`chat.delta` for thread X, `approvals.*`, `notifications.*`, `tasks.*`). Feature models subscribe with `for await`.                                                                                                                           |
-| `Resync`            | struct                   | On reconnect: if `stateVersion` moved, tell every _visible_ model to refetch (N14 `onResync`). Off-screen models refetch on appear.                                                                                                                                                    |
-| `Outbox`            | actor                    | Durable FIFO in the app group (`PsycheStore`): `chat.send` (idempotency key), `library.upload` chunks, mark-read. Flushes in order on connect. Never approvals (companion §2.3).                                                                                                       |
+| Type | Kind | Job |
+| --- | --- | --- |
+| `GatewayEndpoint` | struct | `{url, identityKey, spkiPins[], transport: .lan / .tailscale}` from the QR payload (companion §2.2). Stored in `PsycheShared`. |
+| `DeviceIdentity` | actor | Ed25519 device key in the Keychain (`AfterFirstUnlockThisDeviceOnly`, non-synchronizable); signs `connect` and the lock-screen `POST /v1/approvals/answer`. |
+| `GatewayConnection` | actor | One `URLSessionWebSocketTask`. `call<M: Method>(_:params) async throws -> M.Result` with id correlation and per-call timeout; `events: AsyncStream<EventFrame>`; tracks `seq` and `stateVersion`. Verifies the Gateway's identity-key signature in the challenge before anything else. |
+| `Session` | `@MainActor @Observable` | What the UI reads: `state` (§3.2), `device` (scopes), `stateVersion`, `lastSyncedAt`. Owns the connection's lifetime: connects on `scenePhase == .active`, closes ~5 s after `.background`. |
+| `EventRouter` | actor | Fans typed events to whoever registered (`chat.delta` for thread X, `approvals.*`, `notifications.*`, `tasks.*`). Feature models subscribe with `for await`. |
+| `Resync` | struct | On reconnect: if `stateVersion` moved, tell every *visible* model to refetch (N14 `onResync`). Off-screen models refetch on appear. |
+| `Outbox` | actor | Durable FIFO in the app group (`PsycheStore`): `chat.send` (idempotency key), `library.upload` chunks, mark-read. Flushes in order on connect. Never approvals (companion §2.3). |
 
 ### 3.2 Connection states the UI must draw
 
-| State                        | When                                | What the user sees                                                                                                   |
-| ---------------------------- | ----------------------------------- | -------------------------------------------------------------------------------------------------------------------- |
-| `unpaired`                   | No endpoint stored                  | Pairing screen                                                                                                       |
-| `pending`                    | `connect` returned `pending`        | "Approve this phone on your Mac" with the 6-digit code                                                               |
-| `connecting`                 | First 1.5 s of a connect            | Nothing (no flash). After 1.5 s a quiet "Connecting…" in the nav bar                                                 |
-| `live`                       | Connected, verified                 | Nothing                                                                                                              |
+| State | When | What the user sees |
+| --- | --- | --- |
+| `unpaired` | No endpoint stored | Pairing screen |
+| `pending` | `connect` returned `pending` | "Approve this phone on your Mac" with the 6-digit code |
+| `connecting` | First 1.5 s of a connect | Nothing (no flash). After 1.5 s a quiet "Connecting…" in the nav bar |
+| `live` | Connected, verified | Nothing |
 | `unreachable(.awayFromHome)` | LAN endpoint, Bonjour finds nothing | Paper banner: "You're away from home. Answers wait until you're back or on Tailscale." Cached content stays readable |
-| `unreachable(.gatewayOff)`   | Tailscale up, Gateway not answering | "Your Mac isn't answering. It may be asleep."                                                                        |
-| `unreachable(.tailscaleOff)` | `*.ts.net` doesn't resolve          | "Turn on Tailscale to reach your Mac." + button that opens the Tailscale app                                         |
-| `refused(.identityMismatch)` | Wrong identity-key signature        | Full-screen stop, no retry button: "This isn't your Gateway." (companion M1 acceptance 2)                            |
-| `revoked`                    | `devices.revoke`                    | Wipes keys, cache and outbox; back to Pairing                                                                        |
+| `unreachable(.gatewayOff)` | Tailscale up, Gateway not answering | "Your Mac isn't answering. It may be asleep." |
+| `unreachable(.tailscaleOff)` | `*.ts.net` doesn't resolve | "Turn on Tailscale to reach your Mac." + button that opens the Tailscale app |
+| `refused(.identityMismatch)` | Wrong identity-key signature | Full-screen stop, no retry button: "This isn't your Gateway." (companion M1 acceptance 2) |
+| `revoked` | `devices.revoke` | Wipes keys, cache and outbox; back to Pairing |
 
 Reconnect uses jittered backoff 0.5 s → 30 s while foregrounded, and stops in the background.
 
@@ -219,17 +219,17 @@ Activity (Needs you / Now / Next up / Recent), Approvals, Upcoming, Soul (read-o
 
 ## 5. Chat blocks (`PsycheBlocks`)
 
-| Block `type`                                                                                                            | M1 rendering                                                                                                                                    |
-| ----------------------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------- |
-| `text`                                                                                                                  | Native. Markdown → `AttributedString` for inline; headings, lists, quotes, code fences (mono, horizontal scroll) parsed by a small block parser |
-| `approval`, `question`                                                                                                  | Native cards (§4.3)                                                                                                                             |
-| `task`, `plan`, `checklist`                                                                                             | Native progress rows                                                                                                                            |
-| `receipt`, `sources`, `context`                                                                                         | Native **evidence line** (the desktop signature: one muted line, mono ids and times, " · ")                                                     |
-| `file`, `artifact`                                                                                                      | Native file row → Quick Look; HTML artifacts in a sandboxed, offline web view                                                                   |
-| `tool_call`                                                                                                             | Native collapsed row ("Searched mail · 4 results"); expands to arguments                                                                        |
-| `app_link`, `related_threads`, `learned`, `taught`, `wrap_up`, `compaction`, `specialist_result`, `automation_workflow` | Native simple rows                                                                                                                              |
-| `ui` (generative UI)                                                                                                    | **Native renderer** over `widgets.get` (21 node types), actions through `widgets.act`                                                           |
-| Unknown future type                                                                                                     | Native "Open on your Mac" row, never a crash                                                                                                    |
+| Block `type` | M1 rendering |
+| --- | --- |
+| `text` | Native. Markdown → `AttributedString` for inline; headings, lists, quotes, code fences (mono, horizontal scroll) parsed by a small block parser |
+| `approval`, `question` | Native cards (§4.3) |
+| `task`, `plan`, `checklist` | Native progress rows |
+| `receipt`, `sources`, `context` | Native **evidence line** (the desktop signature: one muted line, mono ids and times, " · ") |
+| `file`, `artifact` | Native file row → Quick Look; HTML artifacts in a sandboxed, offline web view |
+| `tool_call` | Native collapsed row ("Searched mail · 4 results"); expands to arguments |
+| `app_link`, `related_threads`, `learned`, `taught`, `wrap_up`, `compaction`, `specialist_result`, `automation_workflow` | Native simple rows |
+| `ui` (generative UI) | **Native renderer** over `widgets.get` (21 node types), actions through `widgets.act` |
+| Unknown future type | Native "Open on your Mac" row, never a crash |
 
 **Generative UI (A7, revised 2026-11-04):** a `ui` block names a widget; the phone fetches its spec
 with `widgets.get` and renders the node tree natively: `stack`/`grid`/`tabs`/`card`/`list` as layout,
@@ -241,13 +241,13 @@ doesn't know shows "Open on your Mac". **HTML artifacts** (not widgets) still op
 
 ## 6. Testing and CI
 
-| Layer                                       | How                                                                                                                                                                                                                                                                |
-| ------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| Layer | How |
+| --- | --- |
 | `PsycheWire`, `PsycheClient`, `PsycheStore` | Swift Testing on a macOS runner. Fake-Gateway unit tests, plus an integration suite against the real Gateway with the scripted model (the walking skeleton already runs in CI): pair, identity mismatch refusal, resync after a missed event, outbox exactly-once. |
-| Schema drift                                | `protocol:check` also runs `swift build` for `packages/protocol-swift` (companion M1 acceptance 6).                                                                                                                                                                |
-| Views                                       | SwiftUI previews against fixture snapshots in `PsycheFeatures/Fixtures` (general mix, not school-first). Simulator screenshot tests come later; no third-party snapshot library in M1.                                                                             |
-| App                                         | `xcodegen && xcodebuild -scheme Psyche -destination 'platform=iOS Simulator'` build-only in CI (macOS runner, path-filtered to `apps/ios/**` and `packages/protocol-swift/**`).                                                                                    |
-| Real phone                                  | Manual checklist from companion §6 M1, plus the Tailscale on-demand spike.                                                                                                                                                                                         |
+| Schema drift | `protocol:check` also runs `swift build` for `packages/protocol-swift` (companion M1 acceptance 6). |
+| Views | SwiftUI previews against fixture snapshots in `PsycheFeatures/Fixtures` (general mix, not school-first). Simulator screenshot tests come later; no third-party snapshot library in M1. |
+| App | `xcodegen && xcodebuild -scheme Psyche -destination 'platform=iOS Simulator'` build-only in CI (macOS runner, path-filtered to `apps/ios/**` and `packages/protocol-swift/**`). |
+| Real phone | Manual checklist from companion §6 M1, plus the Tailscale on-demand spike. |
 
 ## 7. Owner setup (the one-time cost)
 
@@ -277,16 +277,16 @@ for "needs you", a moth for the persona.** iOS 26 supplies Liquid Glass for the 
 supplies the paper underneath. The glass is the system's, so it stays neutral and the ink stays
 on content.
 
-| Token       | Light                          | Dark                                         | Use                                                               |
-| ----------- | ------------------------------ | -------------------------------------------- | ----------------------------------------------------------------- |
-| Paper       | `#FAF9F8` (gray-2)             | `#111110` (gray-1)                           | Screen background                                                 |
-| Sheet       | `#FFFFFF`                      | `#191918` (gray-2)                           | Cards, grouped rows                                               |
-| Rule        | `#DAD8D6` (gray-6)             | `#3B3A38` (gray-6)                           | Hairlines between rows, ledger lines                              |
-| Text        | `#21201F` (gray-12)            | `#EFEEEC` (gray-12)                          | Body                                                              |
-| Muted       | `#6A6966` (gray-11)            | `#B6B4B1` (gray-11)                          | Evidence lines, timestamps                                        |
-| Ink         | `#2C5AA0` (accent-9)           | `#3766AD` fill, `#9AB9E9` text (accent-9/11) | **One** filled control per screen (Send, Allow), links, selection |
-| Amber       | `#FFC53D` dot / `#AB6400` text | `#FFC53D` / `#FFCA16`                        | Needs-you dots, the approval hairline                             |
-| Green / Red | grass-11 / tomato-11           | grass-11 / tomato-11                         | Done / failed status dots only                                    |
+| Token | Light | Dark | Use |
+| --- | --- | --- | --- |
+| Paper | `#FAF9F8` (gray-2) | `#111110` (gray-1) | Screen background |
+| Sheet | `#FFFFFF` | `#191918` (gray-2) | Cards, grouped rows |
+| Rule | `#DAD8D6` (gray-6) | `#3B3A38` (gray-6) | Hairlines between rows, ledger lines |
+| Text | `#21201F` (gray-12) | `#EFEEEC` (gray-12) | Body |
+| Muted | `#6A6966` (gray-11) | `#B6B4B1` (gray-11) | Evidence lines, timestamps |
+| Ink | `#2C5AA0` (accent-9) | `#3766AD` fill, `#9AB9E9` text (accent-9/11) | **One** filled control per screen (Send, Allow), links, selection |
+| Amber | `#FFC53D` dot / `#AB6400` text | `#FFC53D` / `#FFCA16` | Needs-you dots, the approval hairline |
+| Green / Red | grass-11 / tomato-11 | grass-11 / tomato-11 | Done / failed status dots only |
 
 - **Type:** page titles in **New York** (the system serif, `.fontDesign(.serif)`, weight ≤ 600),
   everything else SF Pro; ids, times and amounts in SF Mono. Dynamic Type everywhere.
@@ -309,17 +309,17 @@ https://claude.ai/artifact/VTyMAJ8bLhmk7W6DXnyp55 (private to the owner until sh
 Work packages sized for one session each, at most five running at once (ops rules). Arrows are
 hard dependencies; everything else can run in parallel.
 
-| #   | Package                                                                                                                                                                                                             | Depends on | Done when                                                                                                         |
-| --- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ---------- | ----------------------------------------------------------------------------------------------------------------- |
-| I0  | Extract `packages/protocol-swift` (PsycheProtocol + PsycheWire); `gen.ts` writes there; mac helper switches to the path dependency; `protocol:check` builds it                                                      | —          | Mac helper tests green on the new package                                                                         |
-| I1  | `psyche-pair:v1` link + single-use 10-minute setup token + QR in Settings → Devices → Add phone (the pairing-link slice of remote-gateway R2). The identity key and key-bound connect already shipped in R1 (#1188) | —          | Desktop shows the link and QR; a token older than 10 minutes or used twice is refused                             |
-| I2  | `PsycheClient` + `PsycheStore`: connection, pairing, identity pin, states (§3.2), resync, outbox                                                                                                                    | I0, I1     | Integration suite against the real Gateway green on macOS CI                                                      |
-| I3  | `apps/ios` skeleton: XcodeGen project, five targets, `PsycheDesign` tokens and components, tab shell, Pairing screens                                                                                               | I0         | App builds in CI; pairs with a dev Gateway on the LAN                                                             |
-| I4  | Chat (thread list, streaming, composer, dictation, native blocks)                                                                                                                                                   | I2, I3     | Companion M1 acceptance 3 and 4                                                                                   |
-| I5  | Home + approvals + questions + agent sheet                                                                                                                                                                          | I2, I3     | Approve on the phone, card disappears on the Mac                                                                  |
-| I6  | Library + share extension                                                                                                                                                                                           | I2, I3     | Companion M1 acceptance 5                                                                                         |
-| I7  | Memory + Search tab                                                                                                                                                                                                 | I2, I3     | To-do, Work, People, Ask your life                                                                                |
-| I8  | Native genui renderer for the 21 widget node types + `widgets.get/act/image`                                                                                                                                        | I4         | Every node type in the widget fixtures renders natively, actions round-trip, unknown types say "Open on your Mac" |
-| S1  | Spike: Tailscale on demand from a notification action (companion §7 Q6)                                                                                                                                             | —          | Result recorded in the companion doc                                                                              |
+| # | Package | Depends on | Done when |
+| --- | --- | --- | --- |
+| I0 | Extract `packages/protocol-swift` (PsycheProtocol + PsycheWire); `gen.ts` writes there; mac helper switches to the path dependency; `protocol:check` builds it | — | Mac helper tests green on the new package |
+| I1 | `psyche-pair:v1` link + single-use 10-minute setup token + QR in Settings → Devices → Add phone (the pairing-link slice of remote-gateway R2). The identity key and key-bound connect already shipped in R1 (#1188) | — | Desktop shows the link and QR; a token older than 10 minutes or used twice is refused |
+| I2 | `PsycheClient` + `PsycheStore`: connection, pairing, identity pin, states (§3.2), resync, outbox | I0, I1 | Integration suite against the real Gateway green on macOS CI |
+| I3 | `apps/ios` skeleton: XcodeGen project, five targets, `PsycheDesign` tokens and components, tab shell, Pairing screens | I0 | App builds in CI; pairs with a dev Gateway on the LAN |
+| I4 | Chat (thread list, streaming, composer, dictation, native blocks) | I2, I3 | Companion M1 acceptance 3 and 4 |
+| I5 | Home + approvals + questions + agent sheet | I2, I3 | Approve on the phone, card disappears on the Mac |
+| I6 | Library + share extension | I2, I3 | Companion M1 acceptance 5 |
+| I7 | Memory + Search tab | I2, I3 | To-do, Work, People, Ask your life |
+| I8 | Native genui renderer for the 21 widget node types + `widgets.get/act/image` | I4 | Every node type in the widget fixtures renders natively, actions round-trip, unknown types say "Open on your Mac" |
+| S1 | Spike: Tailscale on demand from a notification action (companion §7 Q6) | — | Result recorded in the companion doc |
 
 M0 (PWA + Web Push, companion §6) doesn't touch any of this and can run beside I0–I3.

@@ -11,7 +11,6 @@ When an app's connector is connected, the Gateway adds that app's section to the
 The same rules hold for every app and are not repeated in the sections: writes ask; sends and deletes always ask; app content is untrusted data.
 
 **Format, for G's parser:**
-
 - One `##` heading per connector id, written as code: `` ## `apple:mail` ``.
 - Then exactly three bullets, starting `- For:`, `- Prefer:`, `- Never:`, in that order.
 - Each line is at most about 200 characters.

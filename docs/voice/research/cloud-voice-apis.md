@@ -22,11 +22,11 @@ Research for the voice conversation mode spec. Researched 2026-10-25. Prices are
 - **Function calling.** Supported in-session. The Agents SDK `RealtimeAgent` adds tools, handoffs, guardrails and MCP servers [3]. OpenAI's prompting guide says to summarise a write action and "not call the tool until the user clearly confirms". It also says not to require confirmation for read-only lookups [10].
 - **Pricing (per 1M tokens) [1].**
 
-| Model                 | Audio in | Audio in (cached) | Audio out | Text in / out  |
-| --------------------- | -------- | ----------------- | --------- | -------------- |
-| gpt-realtime-2.1      | $32.00   | $0.40             | $64.00    | $4.00 / $24.00 |
-| gpt-realtime-2.1-mini | $10.00   | $0.30             | $20.00    | $0.60 / $2.40  |
-| gpt-realtime (legacy) | $32.00   | $0.40             | $64.00    | $4.00 / $16.00 |
+| Model | Audio in | Audio in (cached) | Audio out | Text in / out |
+|---|---|---|---|---|
+| gpt-realtime-2.1 | $32.00 | $0.40 | $64.00 | $4.00 / $24.00 |
+| gpt-realtime-2.1-mini | $10.00 | $0.30 | $20.00 | $0.60 / $2.40 |
+| gpt-realtime (legacy) | $32.00 | $0.40 | $64.00 | $4.00 / $16.00 |
 
 - **Token accounting.** User audio is 1 token per 100 ms (about 600 per minute). Assistant audio is 1 token per 50 ms (about 1,200 per minute). VAD-filtered silence is not billed. The whole conversation is resent on every response, so later turns cost more. Caching is automatic but best effort and breaks if instructions or tools change mid-session [4].
 - **Latency.** OpenAI publishes no millisecond figure for current models [3][4]. Artificial Analysis measures time to first audio at 1.21 s for `gpt-realtime-2.1` (High), 0.97 s (Minimal) and 0.85 s for the mini at Minimal [45]. For history: OpenAI's May 2024 GPT-4o launch claimed audio responses "in as little as 232 milliseconds, with an average of 320 milliseconds" [44].
@@ -63,16 +63,16 @@ There is no public speech-to-speech, realtime or audio API. The models overview 
 
 ## 2. Cloud TTS
 
-| Provider / model                                                            | Latency claim                                                                              | Streaming                                                       | Price                                                                                                                                   |
-| --------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------ | --------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------- |
-| ElevenLabs Flash v2.5                                                       | ~75 ms model time; 100–150 ms WebSocket TTFB in NA/EU/SEA, 150–200 ms S/NE Asia [30][32]   | HTTP streaming and input-streaming WebSocket (`auto_mode`) [32] | $0.04 / 1K chars on every tier; plans $6–$990/mo include characters [31]                                                                |
-| ElevenLabs Eleven v4 Turbo                                                  | ~100 ms median [30]                                                                        | Text-to-Dialogue WebSocket [30]                                 | v4/v3/Multilingual: $0.08 / 1K chars [31]                                                                                               |
-| ElevenLabs v3 Conversational                                                | ~280 ms [30]                                                                               | WebSocket [30]                                                  | $0.08 / 1K chars [31]                                                                                                                   |
-| Cartesia Sonic-3.6 (GA, snapshot `sonic-3.6-2026-08-27`, 44 languages) [34] | "under 90ms" vendor claim [35]; Sonic 3.5 measured at 128 ms median including network [36] | WebSocket (not re-verified on the 3.6 page)                     | 1 credit = 1 char; ~750–800 credits per audio minute. Pro $5/100K, Startup $49/1.25M, Scale $299/8M; overage $65–38 per 1M credits [33] |
-| OpenAI `gpt-4o-mini-tts`                                                    | no figure [11]                                                                             | chunked HTTP; `pcm`/`wav` fastest [11]                          | $0.60/1M text in, $12/1M audio out [1]. **Shuts down 2027-01-06** [5]                                                                   |
-| Google Gemini 3.8 Flash TTS                                                 | not checked                                                                                | not checked                                                     | $0.50/1M text in, $9/1M audio out through 2026-12-31, doubling on 2027-01-01 [15]                                                       |
-| Google Cloud TTS Chirp 3 HD                                                 | not checked                                                                                | not checked                                                     | $30 / 1M chars after 1M free (from cached copies of the pricing page) [37]                                                              |
-| Azure Neural TTS                                                            | not checked                                                                                | not checked                                                     | ~$15 / 1M chars (HD ~$22) from a third-party calculator; Microsoft's page rendered no prices (unverified) [38]                          |
+| Provider / model | Latency claim | Streaming | Price |
+|---|---|---|---|
+| ElevenLabs Flash v2.5 | ~75 ms model time; 100–150 ms WebSocket TTFB in NA/EU/SEA, 150–200 ms S/NE Asia [30][32] | HTTP streaming and input-streaming WebSocket (`auto_mode`) [32] | $0.04 / 1K chars on every tier; plans $6–$990/mo include characters [31] |
+| ElevenLabs Eleven v4 Turbo | ~100 ms median [30] | Text-to-Dialogue WebSocket [30] | v4/v3/Multilingual: $0.08 / 1K chars [31] |
+| ElevenLabs v3 Conversational | ~280 ms [30] | WebSocket [30] | $0.08 / 1K chars [31] |
+| Cartesia Sonic-3.6 (GA, snapshot `sonic-3.6-2026-08-27`, 44 languages) [34] | "under 90ms" vendor claim [35]; Sonic 3.5 measured at 128 ms median including network [36] | WebSocket (not re-verified on the 3.6 page) | 1 credit = 1 char; ~750–800 credits per audio minute. Pro $5/100K, Startup $49/1.25M, Scale $299/8M; overage $65–38 per 1M credits [33] |
+| OpenAI `gpt-4o-mini-tts` | no figure [11] | chunked HTTP; `pcm`/`wav` fastest [11] | $0.60/1M text in, $12/1M audio out [1]. **Shuts down 2027-01-06** [5] |
+| Google Gemini 3.8 Flash TTS | not checked | not checked | $0.50/1M text in, $9/1M audio out through 2026-12-31, doubling on 2027-01-01 [15] |
+| Google Cloud TTS Chirp 3 HD | not checked | not checked | $30 / 1M chars after 1M free (from cached copies of the pricing page) [37] |
+| Azure Neural TTS | not checked | not checked | ~$15 / 1M chars (HD ~$22) from a third-party calculator; Microsoft's page rendered no prices (unverified) [38] |
 
 The OpenAI TTS guide recommends `marin` or `cedar` for quality and lists 13 voices. It suggests migrating to `gpt-realtime-2.1-mini`, which "isn't a supported model for `/v1/audio/speech`" [11]. OpenAI is effectively folding TTS into the Realtime API, so an OpenAI TTS adapter would need a Realtime connection used in text-in, audio-out mode. That is a heavier integration, and I have not verified its per-minute cost.
 
@@ -87,16 +87,16 @@ On-device STT is covered in the sibling Apple on-device speech research. Cloud S
 
 ## 4. Cascaded vs speech-to-speech
 
-| Concern                     | Cascaded (STT, our LLM, TTS)                                                                                                 | Speech-to-speech (Realtime, Live, GPT-Live)                                                                                         |
-| --------------------------- | ---------------------------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------- |
-| Latency                     | Sum of stages; 0.8–1.0 s reachable with streaming (section 5). A commentary cites ~1.7 s for older unoptimised cascades [14] | 0.7–1.35 s measured time to first audio [45]; better at overlap and backchannels                                                    |
-| Model choice                | Any router model, including local and Claude                                                                                 | Vendor's model only (GPT-Live client delegation is the partial exception [6])                                                       |
-| Tool use and approvals      | Our existing tool runtime and approval UI apply unchanged                                                                    | Tools run in the vendor session; approval gating must be rebuilt on vendor events. Gemini can cancel pending calls on barge-in [17] |
-| Control over what is spoken | Exact: we speak the text our LLM produced and show the same text                                                             | Model-generated audio; transcripts are a separate ASR pass. GPT-Live paraphrases injected text [7]                                  |
-| Safety                      | Text can be checked before synthesis, for example to redact secrets or block reading out tokens                              | Harder to filter audio before it plays                                                                                              |
-| Privacy                     | With on-device STT the user's voice never leaves the Mac; only reply text goes to TTS                                        | Raw user audio streams to the vendor for the whole session                                                                          |
-| Cost                        | Mostly LLM tokens plus ~$0.04/1K chars TTS                                                                                   | Per-token audio pricing with context re-billing, or $0.05/min (GPT-Live)                                                            |
-| Prosody and emotion         | TTS cannot hear the user's tone                                                                                              | Native audio can react to tone and timing                                                                                           |
+| Concern | Cascaded (STT, our LLM, TTS) | Speech-to-speech (Realtime, Live, GPT-Live) |
+|---|---|---|
+| Latency | Sum of stages; 0.8–1.0 s reachable with streaming (section 5). A commentary cites ~1.7 s for older unoptimised cascades [14] | 0.7–1.35 s measured time to first audio [45]; better at overlap and backchannels |
+| Model choice | Any router model, including local and Claude | Vendor's model only (GPT-Live client delegation is the partial exception [6]) |
+| Tool use and approvals | Our existing tool runtime and approval UI apply unchanged | Tools run in the vendor session; approval gating must be rebuilt on vendor events. Gemini can cancel pending calls on barge-in [17] |
+| Control over what is spoken | Exact: we speak the text our LLM produced and show the same text | Model-generated audio; transcripts are a separate ASR pass. GPT-Live paraphrases injected text [7] |
+| Safety | Text can be checked before synthesis, for example to redact secrets or block reading out tokens | Harder to filter audio before it plays |
+| Privacy | With on-device STT the user's voice never leaves the Mac; only reply text goes to TTS | Raw user audio streams to the vendor for the whole session |
+| Cost | Mostly LLM tokens plus ~$0.04/1K chars TTS | Per-token audio pricing with context re-billing, or $0.05/min (GPT-Live) |
+| Prosody and emotion | TTS cannot hear the user's tone | Native audio can react to tone and timing |
 
 **How a cascade reaches conversational latency.** Do not wait for the full reply. Stream LLM tokens into a sentence (or clause) splitter and send each chunk to a TTS WebSocket as soon as it closes. Start playback on the first audio frame. ElevenLabs documents this pattern: its WebSocket "suits real-time text input such as LLM output", and with `auto_mode` disabled the model stalls until the chunk schedule fills [32]. Further techniques:
 
@@ -113,15 +113,15 @@ On-device STT is covered in the sibling Apple on-device speech research. Cloud S
 
 **Budget for a cascaded pipeline, end of user speech to first audible sample:**
 
-| Stage                                 | Target (p50)      | Evidence and notes                                                                                                                                                                               |
-| ------------------------------------- | ----------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
-| Endpointing (decide the user is done) | 250–350 ms        | Silence VAD samples use 500 ms [2]; Gemini default ~800 ms, recommended 500–800 [17]; semantic end-of-turn ~260 ms (Flux) [40]. Use a semantic or eager detector plus a ~500 ms silence fallback |
-| STT finalize                          | 50–100 ms         | Streaming partials are already available; only the tail needs to settle (on-device, see sibling doc)                                                                                             |
-| LLM time to first token               | 250–400 ms        | Assumption for a fast model with thinking off or `between_tools` [23] and a cached prompt; measure per router target. Reasoning modes add seconds                                                |
-| First speakable clause                | 50–150 ms         | ~10–20 tokens at ~100–230 tok/s; Haiku-class output speed measured at 234 tok/s [46]                                                                                                             |
-| TTS first byte                        | 75–150 ms         | Flash v2.5 WebSocket 100–150 ms TTFB [32]; Sonic "under 90 ms" vendor [35], 128 ms measured for 3.5 [36]                                                                                         |
-| Audio output buffer and device        | 20–50 ms          | Core Audio output buffer; keep the jitter buffer small for local playback                                                                                                                        |
-| **Total**                             | **~700–1,200 ms** | Aim for 800 ms p50 and 1.2 s p95; play a soft "thinking" cue if 1.5 s passes with no audio                                                                                                       |
+| Stage | Target (p50) | Evidence and notes |
+|---|---|---|
+| Endpointing (decide the user is done) | 250–350 ms | Silence VAD samples use 500 ms [2]; Gemini default ~800 ms, recommended 500–800 [17]; semantic end-of-turn ~260 ms (Flux) [40]. Use a semantic or eager detector plus a ~500 ms silence fallback |
+| STT finalize | 50–100 ms | Streaming partials are already available; only the tail needs to settle (on-device, see sibling doc) |
+| LLM time to first token | 250–400 ms | Assumption for a fast model with thinking off or `between_tools` [23] and a cached prompt; measure per router target. Reasoning modes add seconds |
+| First speakable clause | 50–150 ms | ~10–20 tokens at ~100–230 tok/s; Haiku-class output speed measured at 234 tok/s [46] |
+| TTS first byte | 75–150 ms | Flash v2.5 WebSocket 100–150 ms TTFB [32]; Sonic "under 90 ms" vendor [35], 128 ms measured for 3.5 [36] |
+| Audio output buffer and device | 20–50 ms | Core Audio output buffer; keep the jitter buffer small for local playback |
+| **Total** | **~700–1,200 ms** | Aim for 800 ms p50 and 1.2 s p95; play a soft "thinking" cue if 1.5 s passes with no audio |
 
 Barge-in has its own budget. Stop playback within 100–200 ms of detected user speech, which requires local VAD on the echo-cancelled mic signal, not a server round trip.
 
@@ -129,16 +129,16 @@ Barge-in has its own budget. Stop playback within 100–200 ms of detected user 
 
 Assumptions: 10 minutes wall clock, ~5 min of user speech, ~4 min of assistant speech (~3,200 characters, using Cartesia's 750–800 chars per minute [33]), 20 turns, and a 20K-token system prompt with tools. All figures are estimates.
 
-| Option                                                                | Calculation                                                                                                                              | Estimate (10 min)                          |
-| --------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------ |
-| Cascade: on-device STT + Claude Haiku 5.5 + ElevenLabs Flash v2.5     | TTS 3.2K chars × $0.04 = $0.13; LLM ~0.5M input tokens mostly cached at "from $0.10/MTok" [23] ≈ <$0.05                                  | **~$0.15–0.20**                            |
-| Cascade: on-device STT + Claude Sonnet 5.5 + Cartesia Sonic-3.6       | TTS $0.12–0.21 [33]; LLM $2/$10 per MTok with 5% cache reads [23] ≈ $0.10–0.25                                                           | **~$0.25–0.45**                            |
-| Cascade: same, plus cloud STT (Deepgram Nova-3, 10 min of connection) | +$0.05 [39] (AssemblyAI +$0.03 [41]; OpenAI realtime-whisper +$0.17 [1])                                                                 | +$0.03–0.17                                |
-| OpenAI `gpt-realtime-2.1`                                             | Output 4,800 tok × $64/M = $0.31; new input 3,000 tok × $32/M = $0.10; ~80K re-sent context tokens: $0.03 if cached, $2.56 if not [1][4] | **~$0.45–1.10 cached; up to ~$3 uncached** |
-| OpenAI `gpt-realtime-2.1-mini`                                        | $0.10 out + $0.03 in + $0.02–0.80 context [1]                                                                                            | **~$0.15–0.95**                            |
-| OpenAI GPT-Live (`gpt-live-1`)                                        | 10 min × $0.05 [1]; backend LLM extra (ours, if client delegation)                                                                       | **$0.50 + LLM**                            |
-| Gemini 3.8 Live                                                       | Per-turn re-billing of ~14–21K accumulated audio tokens over 20 turns ≈ 140–220K × $3/M, plus 6K out × $12/M [15][22]                    | **~$0.50–0.80**                            |
-| Vendor agent bundles, for reference                                   | ElevenLabs Agents $0.08/min [31]; Deepgram Voice Agent $0.075/min [39]; Cartesia agents $0.06/min [33]                                   | $0.60–0.80 + LLM                           |
+| Option | Calculation | Estimate (10 min) |
+|---|---|---|
+| Cascade: on-device STT + Claude Haiku 5.5 + ElevenLabs Flash v2.5 | TTS 3.2K chars × $0.04 = $0.13; LLM ~0.5M input tokens mostly cached at "from $0.10/MTok" [23] ≈ <$0.05 | **~$0.15–0.20** |
+| Cascade: on-device STT + Claude Sonnet 5.5 + Cartesia Sonic-3.6 | TTS $0.12–0.21 [33]; LLM $2/$10 per MTok with 5% cache reads [23] ≈ $0.10–0.25 | **~$0.25–0.45** |
+| Cascade: same, plus cloud STT (Deepgram Nova-3, 10 min of connection) | +$0.05 [39] (AssemblyAI +$0.03 [41]; OpenAI realtime-whisper +$0.17 [1]) | +$0.03–0.17 |
+| OpenAI `gpt-realtime-2.1` | Output 4,800 tok × $64/M = $0.31; new input 3,000 tok × $32/M = $0.10; ~80K re-sent context tokens: $0.03 if cached, $2.56 if not [1][4] | **~$0.45–1.10 cached; up to ~$3 uncached** |
+| OpenAI `gpt-realtime-2.1-mini` | $0.10 out + $0.03 in + $0.02–0.80 context [1] | **~$0.15–0.95** |
+| OpenAI GPT-Live (`gpt-live-1`) | 10 min × $0.05 [1]; backend LLM extra (ours, if client delegation) | **$0.50 + LLM** |
+| Gemini 3.8 Live | Per-turn re-billing of ~14–21K accumulated audio tokens over 20 turns ≈ 140–220K × $3/M, plus 6K out × $12/M [15][22] | **~$0.50–0.80** |
+| Vendor agent bundles, for reference | ElevenLabs Agents $0.08/min [31]; Deepgram Voice Agent $0.075/min [39]; Cartesia agents $0.06/min [33] | $0.60–0.80 + LLM |
 
 Takeaway: a cascade with on-device STT is 2–10× cheaper than speech-to-speech per conversation. Its cost is dominated by TTS characters, which scale with how much we speak. That gives a second reason, beside UX, to keep spoken replies short and put long content on screen.
 

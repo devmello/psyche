@@ -13,20 +13,20 @@ Read from the code, not from the docs. Paths are relative to the repository root
 
 ## 1. Inventory
 
-| Layer                     | What exists                                                                                                                                                                                                                                    | Where                                                                       |
-| ------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------- |
-| Helper STT                | `speech.transcribe_stream` (microphone or `source: push`, `vocabulary` → DictationTranscriber + `contextualStrings` on macOS 26+, SpeechTranscriber without, SFSpeechRecognizer fallback), `speech.audio_push`, `speech.stop`, `speech.status` | `apps/mac-helper/Sources/PsycheHelperSystem/Speech/`                        |
-| Helper TTS                | `speech.synthesize` (AVSpeechSynthesizer `write`, ≤ 5 000 chars, `rate`, Personal Voice only with `personalVoice: true`, result flags `nonCommercial`), `speech.voices` (`quality`, `personalVoice`)                                           | `SpeechSynthesis.swift`, `SpeechCapabilities.swift`                         |
-| Helper keys and insertion | `dictation.watch` (fn / Right Option / Right Command hold, one key), `dictation.target`, `dictation.insert`                                                                                                                                    | `Dictation/DictationCapabilities.swift`                                     |
-| Gateway speech            | engine selection (Mac node → whisper.cpp → Web Speech), `voice.start/push/stop/cancel`, `voice.memo.save`, `speech.readAloud` (`save`, cancel), `speech.voices`, custom vocabulary from IDENTITY.md / USER.md / contacts                       | `packages/speech`, mounted by `apps/gateway/src/compose/speech.ts`          |
-| Cloud TTS                 | OpenAI `gpt-4o-mini-tts` and ElevenLabs `eleven_flash_v2_5`, keys from the vault, used only when the owner names them                                                                                                                          | `packages/speech/src/engines/cloud.ts`                                      |
-| Desktop system dictation  | hold-to-talk or toggle hotkey, HUD window capturing the mic, text inserted into the focused app, never into a thread                                                                                                                           | `apps/desktop/src/main/dictation/` (J9, Q2)                                 |
-| Voice mode (Q5, #481)     | `VoiceMode`: listening → thinking → speaking with an energy VAD (0.9 s end-of-turn), barge-in with 600 ms pre-roll, Gateway or browser voice, a "Needs your approval on screen" wait. It never answers approvals.                              | `apps/web/src/shell/voice-mode.ts`, `vad.ts`, `components/VoiceModeBar.tsx` |
-| Settings                  | Voice & dictation: push-to-talk key, mode, system-wide, hotkey, engine; Voice mode group (`voice.conversation.enabled/start/reply/bargeIn`)                                                                                                    | `packages/ui/src/screens/settings/VoiceSection.tsx`                         |
-| Microphone release        | every exit path releases the capture (#611, closed by c84dd785)                                                                                                                                                                                | desktop dictation                                                           |
-| Avatar and lantern        | `AvatarState` idle / working / needs-you / error / paused / incognito / offline. The lantern glow exists only in the startup splash (`.startup-splash-lantern`, `psy-lantern` 2.8 s).                                                          | `packages/ui/src/avatar/Avatar.tsx`, `packages/ui/src/styles/design.css`    |
-| Languages                 | UI catalogues: en plus ar, de, es, fr, hi, it, ja, ko, pt, zh; `ui.language` picks the catalogue                                                                                                                                               | `packages/ui/src/i18n/`                                                     |
-| Proactive                 | Daily brief as a system `briefing` automation (07:00 default); heartbeat check-ins (O2); `morning-brief` skill planned in #641                                                                                                                 | `packages/proactive/src/feed/service.ts`                                    |
+| Layer | What exists | Where |
+| --- | --- | --- |
+| Helper STT | `speech.transcribe_stream` (microphone or `source: push`, `vocabulary` → DictationTranscriber + `contextualStrings` on macOS 26+, SpeechTranscriber without, SFSpeechRecognizer fallback), `speech.audio_push`, `speech.stop`, `speech.status` | `apps/mac-helper/Sources/PsycheHelperSystem/Speech/` |
+| Helper TTS | `speech.synthesize` (AVSpeechSynthesizer `write`, ≤ 5 000 chars, `rate`, Personal Voice only with `personalVoice: true`, result flags `nonCommercial`), `speech.voices` (`quality`, `personalVoice`) | `SpeechSynthesis.swift`, `SpeechCapabilities.swift` |
+| Helper keys and insertion | `dictation.watch` (fn / Right Option / Right Command hold, one key), `dictation.target`, `dictation.insert` | `Dictation/DictationCapabilities.swift` |
+| Gateway speech | engine selection (Mac node → whisper.cpp → Web Speech), `voice.start/push/stop/cancel`, `voice.memo.save`, `speech.readAloud` (`save`, cancel), `speech.voices`, custom vocabulary from IDENTITY.md / USER.md / contacts | `packages/speech`, mounted by `apps/gateway/src/compose/speech.ts` |
+| Cloud TTS | OpenAI `gpt-4o-mini-tts` and ElevenLabs `eleven_flash_v2_5`, keys from the vault, used only when the owner names them | `packages/speech/src/engines/cloud.ts` |
+| Desktop system dictation | hold-to-talk or toggle hotkey, HUD window capturing the mic, text inserted into the focused app, never into a thread | `apps/desktop/src/main/dictation/` (J9, Q2) |
+| Voice mode (Q5, #481) | `VoiceMode`: listening → thinking → speaking with an energy VAD (0.9 s end-of-turn), barge-in with 600 ms pre-roll, Gateway or browser voice, a "Needs your approval on screen" wait. It never answers approvals. | `apps/web/src/shell/voice-mode.ts`, `vad.ts`, `components/VoiceModeBar.tsx` |
+| Settings | Voice & dictation: push-to-talk key, mode, system-wide, hotkey, engine; Voice mode group (`voice.conversation.enabled/start/reply/bargeIn`) | `packages/ui/src/screens/settings/VoiceSection.tsx` |
+| Microphone release | every exit path releases the capture (#611, closed by c84dd785) | desktop dictation |
+| Avatar and lantern | `AvatarState` idle / working / needs-you / error / paused / incognito / offline. The lantern glow exists only in the startup splash (`.startup-splash-lantern`, `psy-lantern` 2.8 s). | `packages/ui/src/avatar/Avatar.tsx`, `packages/ui/src/styles/design.css` |
+| Languages | UI catalogues: en plus ar, de, es, fr, hi, it, ja, ko, pt, zh; `ui.language` picks the catalogue | `packages/ui/src/i18n/` |
+| Proactive | Daily brief as a system `briefing` automation (07:00 default); heartbeat check-ins (O2); `morning-brief` skill planned in #641 | `packages/proactive/src/feed/service.ts` |
 
 ## 2. The gap in the shipped app
 
@@ -51,12 +51,12 @@ reply: speech.readAloud {messageId, save: false} → helper speech.synthesize �
 
 Measured (spike 03, M5, macOS 27):
 
-| Measure                                         | Value                        |
-| ----------------------------------------------- | ---------------------------- |
-| First correct partial                           | 0.6–0.8 s after speech onset |
-| Final after key-up                              | 0.1–0.6 s                    |
-| DictationTranscriber with vocabulary, WER       | 3.0–3.4 %                    |
-| Helper synthesis, first audio (cold, S14 bench) | ≈ 0.8 s                      |
+| Measure | Value |
+| --- | --- |
+| First correct partial | 0.6–0.8 s after speech onset |
+| Final after key-up | 0.1–0.6 s |
+| DictationTranscriber with vocabulary, WER | 3.0–3.4 % |
+| Helper synthesis, first audio (cold, S14 bench) | ≈ 0.8 s |
 
 ## Sources
 

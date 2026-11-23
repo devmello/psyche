@@ -22,19 +22,19 @@ Psyche combines them: Muse's product, Claude desktop's workspace, OpenClaw's gat
 
 ## What "imitate Muse" means concretely
 
-| Muse                                                                                                                            | Psyche                                                                                                               |
-| ------------------------------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------- |
-| One persistent main chat plus side chats                                                                                        | Same; plus fork-from-message and a visible follow-up queue                                                           |
-| Bottom tabs on phone, left rail on Mac: Chat, Search, Feed, Ideas, Goals, Library                                               | Same left rail on desktop and web                                                                                    |
-| Animated creature avatar at the top that "types" while working; tap it for Activity, Approvals, Upcoming, Soul & Memory         | Same agent header and agent sheet                                                                                    |
-| Editable Memory, Soul ("core truths, boundaries, personality") and Identity ("name, creature, vibe or tagline") files           | `MEMORY.md`, `SOUL.md`, `IDENTITY.md` (+ `USER.md`, daily notes) in a workspace folder you can open in Finder or git |
-| Browser view with a status pill, "Take control", "Stop the task", closing keeps the task running                                | Embedded browser pane with the same controls                                                                         |
-| Approval cards outside the chat with Allow once / for this task / for this site / Always / Deny; "Ask for some actions" default | Permission Broker with the same scopes, plus expiry, binding to exact arguments and a grant ledger                   |
-| Per-connector read-vs-act scopes and per-action Allow / Ask / Deny; per-Mac-app Off / Read only / Read and interact             | Same matrices in Settings → Permissions and Computer use                                                             |
-| Credentials in a Secure store the agent cannot read; payments via single-use cards with approval each time                      | Credential Broker (own vault or system keychain, 1Password / Bitwarden bridges); Stripe Link Agent Wallet            |
-| Feed of agent-written posts on a schedule; Ideas from goals, patterns and conversations; Goals with plans and check-ins         | Same surfaces, local pipelines, every item cites its evidence and is confirmable                                     |
-| Cloud VM per user                                                                                                               | Your Mac, a local macOS VM, or your server                                                                           |
-| Muse Spark models                                                                                                               | Any model: Anthropic, OpenAI, Google, OpenRouter, Ollama / llama.cpp / LM Studio / MLX                               |
+| Muse | Psyche |
+| --- | --- |
+| One persistent main chat plus side chats | Same; plus fork-from-message and a visible follow-up queue |
+| Bottom tabs on phone, left rail on Mac: Chat, Search, Feed, Ideas, Goals, Library | Same left rail on desktop and web |
+| Animated creature avatar at the top that "types" while working; tap it for Activity, Approvals, Upcoming, Soul & Memory | Same agent header and agent sheet |
+| Editable Memory, Soul ("core truths, boundaries, personality") and Identity ("name, creature, vibe or tagline") files | `MEMORY.md`, `SOUL.md`, `IDENTITY.md` (+ `USER.md`, daily notes) in a workspace folder you can open in Finder or git |
+| Browser view with a status pill, "Take control", "Stop the task", closing keeps the task running | Embedded browser pane with the same controls |
+| Approval cards outside the chat with Allow once / for this task / for this site / Always / Deny; "Ask for some actions" default | Permission Broker with the same scopes, plus expiry, binding to exact arguments and a grant ledger |
+| Per-connector read-vs-act scopes and per-action Allow / Ask / Deny; per-Mac-app Off / Read only / Read and interact | Same matrices in Settings → Permissions and Computer use |
+| Credentials in a Secure store the agent cannot read; payments via single-use cards with approval each time | Credential Broker (own vault or system keychain, 1Password / Bitwarden bridges); Stripe Link Agent Wallet |
+| Feed of agent-written posts on a schedule; Ideas from goals, patterns and conversations; Goals with plans and check-ins | Same surfaces, local pipelines, every item cites its evidence and is confirmable |
+| Cloud VM per user | Your Mac, a local macOS VM, or your server |
+| Muse Spark models | Any model: Anthropic, OpenAI, Google, OpenRouter, Ollama / llama.cpp / LM Studio / MLX |
 
 ## Principles (short form)
 
