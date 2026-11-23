@@ -1,21 +1,39 @@
-import { mkdir, mkdtemp, realpath, rm, symlink, writeFile } from "node:fs/promises";
+import { existsSync } from "node:fs";
+import { link, mkdir, mkdtemp, realpath, rm, symlink, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { FILE_CHUNK_BYTES, PsycheError } from "@psyche/protocol";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
-import { filesHandlers } from "../src/compose/files.ts";
+import { filesHandlers, type LibraryGateRow } from "../src/compose/files.ts";
 
 let base: string;
 let granted: string;
 let outside: string;
 let home: string;
 let folders: { path: string; mode: "ro" | "rw" }[];
+/** The Library's quarantine rows, as the Gateway's DB gives them (`listLibraryGateRows`). */
+let gateRows: LibraryGateRow[];
 
-const run = (method: string, params: unknown) => {
-  const handlers = filesHandlers({ folders: () => folders, home });
+/** The owner's Psyche desktop app on this computer: the Host's viewers. */
+const desktopCall = {
+  identity: { desktopShell: true, deviceId: "dev_desk" },
+  conn: { peer: { remoteLoopback: true } },
+};
+/** A paired phone. */
+const phoneCall = {
+  identity: { desktopShell: false, deviceId: "dev_phone" },
+  conn: { peer: { remoteLoopback: false } },
+};
+
+const run = (method: string, params: unknown, call: unknown = phoneCall) => {
+  const handlers = filesHandlers({
+    folders: () => folders,
+    home,
+    library: { rows: () => gateRows },
+  });
   const h = handlers[method];
   if (h === undefined) throw new Error(`no handler ${method}`);
-  return Promise.resolve(h.run({} as never, params as never)) as Promise<Record<string, unknown>>;
+  return Promise.resolve(h.run(call as never, params as never)) as Promise<Record<string, unknown>>;
 };
 
 const codeOf = async (p: Promise<unknown>): Promise<string> => {
@@ -42,6 +60,14 @@ beforeEach(async () => {
   await writeFile(join(home, "library", "recordings", "shot.png"), Buffer.from([0x89, 0x50]));
   await writeFile(join(home, "secret.txt"), "home secret");
   folders = [{ path: granted, mode: "ro" }];
+  gateRows = [];
+  await mkdir(join(home, "library", "quarantine"), { recursive: true });
+  await writeFile(join(home, "library", "quarantine", "q1-held.bin"), "held bytes");
+  await writeFile(join(home, "library", "quarantine", "t2-trusted.txt"), "trusted text");
+  await symlink(
+    join(home, "library", "quarantine", "q1-held.bin"),
+    join(home, "library", "recordings", "qlink.bin"),
+  );
 });
 
 afterEach(async () => {
@@ -152,6 +178,120 @@ describe("files.read", () => {
       "forbidden",
     );
     expect(await codeOf(run("files.read", { libraryPath: "." }))).toBe("forbidden");
+  });
+
+  // A hard link under another name is the same inode. On a normalising disk (APFS) an NFD spelling already is
+  // the same name, so an existing name is the same file and nothing is linked.
+  const alias_ = async (from: string, to: string) => {
+    if (!existsSync(to)) await link(from, to);
+  };
+
+  it("refuses a quarantined Library item, whatever path the client sends", async () => {
+    gateRows = [{ name: "held.bin", path: "quarantine/q1-held.bin", quarantined: true }];
+    expect(await codeOf(run("files.read", { libraryPath: "quarantine/q1-held.bin" }))).toBe(
+      "forbidden",
+    );
+    // `..` and `./` spellings resolve to the same file, so they are refused too.
+    expect(
+      await codeOf(run("files.read", { libraryPath: "recordings/../quarantine/q1-held.bin" })),
+    ).toBe("forbidden");
+    expect(await codeOf(run("files.read", { libraryPath: "./quarantine/q1-held.bin" }))).toBe(
+      "forbidden",
+    );
+  });
+
+  it("refuses a quarantined file under any alias: hard links with case, Unicode and ſ variants", async () => {
+    await mkdir(join(home, "library", "audio"), { recursive: true });
+    const original = join(home, "library", "audio", "Ébauche.wav");
+    await writeFile(original, "held voice");
+    gateRows = [{ name: "Ébauche.wav", path: "audio/Ébauche.wav", quarantined: true }];
+    // The same inode under other spellings: NFD, uppercase, ſ for s, and a case-folded name.
+    const aliases = [
+      "audio/Ébauche.wav",
+      "audio/ÉBAUCHE.WAV",
+      "audio/Ébauchſ.wav",
+      "audio/ébauche.wav",
+    ];
+    for (const alias of aliases) {
+      await alias_(original, join(home, "library", alias));
+      expect(await codeOf(run("files.read", { libraryPath: alias }))).toBe("forbidden");
+    }
+    // A quarantined audio/01JS7Q.wav read as 01Jſ7Q is the same file.
+    await writeFile(join(home, "library", "audio", "01JS7Q.wav"), "held");
+    gateRows.push({ name: "01JS7Q.wav", path: "audio/01JS7Q.wav", quarantined: true });
+    await alias_(
+      join(home, "library", "audio", "01JS7Q.wav"),
+      join(home, "library", "audio", "01Jſ7Q.wav"),
+    );
+    expect(await codeOf(run("files.read", { libraryPath: "audio/01Jſ7Q.wav" }))).toBe("forbidden");
+  });
+
+  it("refuses a file in quarantine/ with no row, and a case variant of the folder where the disk folds case", async () => {
+    gateRows = [];
+    expect(await codeOf(run("files.read", { libraryPath: "quarantine/q1-held.bin" }))).toBe(
+      "forbidden",
+    );
+    if (existsSync(join(home, "library", "QUARANTINE"))) {
+      // A case-insensitive disk (APFS by default) reaches the same folder under another spelling.
+      expect(await codeOf(run("files.read", { libraryPath: "QUARANTINE/q1-held.bin" }))).toBe(
+        "forbidden",
+      );
+    }
+  });
+
+  it("reads a trusted download in quarantine/ with non-ASCII and NFD names once its row is released", async () => {
+    const nfd = "quarantine/01JABC-Café.txt";
+    const nfc = "quarantine/01JABC-Übersicht.txt";
+    await writeFile(join(home, "library", nfd), "trusted nfd");
+    await writeFile(join(home, "library", nfc), "trusted nfc");
+    gateRows = [
+      { name: "Café.txt", path: nfd, quarantined: false },
+      { name: "Übersicht.txt", path: nfc, quarantined: false },
+    ];
+    const out = await run("files.read", { libraryPath: nfd });
+    expect(Buffer.from(out.bytes as string, "base64").toString()).toBe("trusted nfd");
+    expect(await codeOf(run("files.read", { libraryPath: nfc }))).toBe("ok");
+    // A hard link under the NFC spelling is the same file (identity), so it reads too.
+    await alias_(
+      join(home, "library", nfd),
+      join(home, "library", "quarantine", "01JABC-Café.txt"),
+    );
+    expect(await codeOf(run("files.read", { libraryPath: "quarantine/01JABC-Café.txt" }))).toBe(
+      "ok",
+    );
+  });
+
+  it("reads a trusted download that stays in quarantine/ once its row is released", async () => {
+    gateRows = [{ name: "trusted.txt", path: "quarantine/t2-trusted.txt", quarantined: false }];
+    const out = await run("files.read", { libraryPath: "quarantine/t2-trusted.txt" });
+    expect(Buffer.from(out.bytes as string, "base64").toString()).toBe("trusted text");
+  });
+
+  it("lets the owner's desktop app read a quarantined download (the Host's Open click)", async () => {
+    gateRows = [{ name: "held.bin", path: "quarantine/q1-held.bin", quarantined: true }];
+    const out = await run("files.read", { libraryPath: "quarantine/q1-held.bin" }, desktopCall);
+    expect(Buffer.from(out.bytes as string, "base64").toString()).toBe("held bytes");
+    // A phone is still refused for the same file.
+    expect(
+      await codeOf(run("files.read", { libraryPath: "quarantine/q1-held.bin" }, phoneCall)),
+    ).toBe("forbidden");
+  });
+
+  it("refuses a symlink in the Library that points into quarantine/", async () => {
+    gateRows = [{ name: "held.bin", path: "quarantine/q1-held.bin", quarantined: true }];
+    expect(await codeOf(run("files.read", { libraryPath: "recordings/qlink.bin" }))).toBe(
+      "forbidden",
+    );
+  });
+
+  it("reads nothing from the Library when the Gateway has no Library rows to check", async () => {
+    const read = filesHandlers({ folders: () => folders, home })["files.read"];
+    if (read === undefined) throw new Error("no files.read handler");
+    expect(
+      await codeOf(
+        Promise.resolve(read.run({} as never, { libraryPath: "recordings/shot.png" } as never)),
+      ),
+    ).toBe("unavailable");
   });
 });
 

@@ -51,6 +51,10 @@ Restoring into a home with no ledger, such as a new machine where no Gateway has
 
 The audit log's anchor head is also reset to the restored log, and the reset is logged. Run `psyche audit verify` after a restore; see [Audit log and receipts](/security/audit-log).
 
+## Git backup of memory
+
+Settings → Data → "Back up to git" can also push the workspace (SOUL.md, memory and notes) to a private git repository you own. It only runs when you press "Sync now", and only an admin device can set it up. Before anything is committed, every file is scanned for credentials and card numbers. Pushing sends the memory off the device, and Psyche uses your own git credentials. The full steps are in the memory guide, under "Back up to git".
+
 ## Deleting backups
 
 Settings › Backups lists the archives in `$PSYCHE_HOME/backups/`. Delete needs an admin device, and once you have added a presence verifier (a passkey, or a Windows Hello key), a tap on the card. The Mac helper's own key does not count as one, so on a Mac with neither, an admin device alone is enough and no card appears.

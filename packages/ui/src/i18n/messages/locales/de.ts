@@ -2057,6 +2057,39 @@ export const de: Partial<Catalogue> = {
   "settings.data.export": "Exportieren",
   "settings.data.exportHint":
     "Ein ZIP-Archiv des Arbeitsbereichs (SOUL.md, Gedächtnis, Notizen) und jeder Aussage.",
+  "settings.data.git.title": "Sicherung in git",
+  "settings.data.git.description":
+    "Kopiert dein Gedächtnis in ein privates git-Repository, das dir gehört. Beim Hochladen verlässt es dieses Gerät, deshalb wird jede Datei vorher auf Zugangsdaten und Kartennummern geprüft. Psyche nutzt deine eigenen git-Zugangsdaten und speichert keine.",
+  "settings.data.git.remote": "Remote",
+  "settings.data.git.remoteHint":
+    "Ein privates Repository: https://, ssh://, user@host:pfad oder ein lokaler Pfad. Niemals ein Passwort in die URL schreiben.",
+  "settings.data.git.branch": "Branch",
+  "settings.data.git.enabled": "Git-Sicherung an",
+  "settings.data.git.enabledHint":
+    "Läuft nur, wenn du »Jetzt synchronisieren« drückst. Nichts synchronisiert im Hintergrund.",
+  "settings.data.git.save": "Speichern",
+  "settings.data.git.sync": "Jetzt synchronisieren",
+  "settings.data.git.lastSync": "Letzte Synchronisierung {when}",
+  "settings.data.git.backedUp":
+    "{files, plural, one {# Datei} other {# Dateien}} gesichert und hochgeladen.",
+  "settings.data.git.upToDate": "Nichts Neues zu sichern. Das Remote ist auf dem neuesten Stand.",
+  "settings.data.git.pulled": "Änderungen vom Remote übernommen. Nichts Neues zum Hochladen.",
+  "settings.data.git.noGit":
+    "git ist auf diesem Gerät nicht installiert. Installiere git und synchronisiere dann erneut.",
+  "settings.data.git.noRemote": "Lege zuerst ein Remote fest.",
+  "settings.data.git.notEnabled": "Aktiviere zuerst die Git-Sicherung.",
+  "settings.data.git.authFailed":
+    "Das Remote hat die Anmeldung abgelehnt. Prüfe deinen SSH-Schlüssel oder den git-Credential-Helper.",
+  "settings.data.git.remoteFailed":
+    "Das Remote ist nicht erreichbar. Prüfe die Adresse und deine Verbindung.",
+  "settings.data.git.conflict":
+    "Das Remote hat Änderungen, die mit dem Gedächtnis dieses Geräts kollidieren. Nichts wurde hochgeladen.",
+  "settings.data.git.blocked":
+    "Nicht synchronisiert: {files} sieht nach Zugangsdaten oder einer Kartennummer aus. Entferne sie und synchronisiere dann erneut.",
+  "settings.data.git.failed": "Die git-Sicherung ist fehlgeschlagen. Versuche es erneut.",
+  "settings.data.git.needsAdmin": "Für die Git-Sicherung braucht dieses Gerät Admin-Rechte.",
+  "settings.data.git.saveFailed":
+    "Die Git-Sicherungseinstellungen konnten nicht gespeichert werden.",
   "settings.data.exportEverything": "Alles exportieren",
   "settings.data.deleteThreads": "Threads löschen",
   "settings.data.deleteThreadsHint":
@@ -2067,7 +2100,9 @@ export const de: Partial<Catalogue> = {
     "{n, plural, =0 {Keine archivierten Threads} one {# archivierten Thread löschen} other {# archivierte Threads löschen}}",
   "settings.data.reset": "Zurücksetzen",
   "settings.data.resetHint":
-    "Löscht jede Gedächtnisdatei, jeden Index und jede Aussage und lässt {persona} neu beginnen. Chats bleiben.",
+    "Löscht jede Gedächtnisdatei, jeden Index und jede Aussage sowie den lokalen git-Verlauf des Arbeitsbereichs und lässt {persona} neu beginnen. Chats bleiben. Ein git-Remote behält seinen eigenen Verlauf: Ihn zu löschen liegt bei dir.",
+  "settings.data.git.historyNote":
+    "Ein git-Remote behält seinen eigenen Verlauf. Zurücksetzen und Vergessen löschen nur die Kopie auf diesem Gerät. Alte Notizen aus dem Remote zu entfernen, liegt bei dir.",
   "settings.data.typeToConfirm":
     "Gib „{word}“ ein, um zu bestätigen. Das lässt sich nicht widerrufen.",
   "settings.data.resetMemory": "Gedächtnis zurücksetzen",

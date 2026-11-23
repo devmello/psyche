@@ -7,6 +7,9 @@ public protocol LibraryBackend: Sendable {
     func library(section: LibrarySection) async throws -> [LibraryItem]
     /// A local file to show with Quick Look, or nil when the phone can't open it ("Open on your Mac").
     func libraryFile(id: String) async throws -> URL?
+    /// Downloads the file for Quick Look, reporting 0...1 as bytes arrive. Throws `LibraryFileRefusal` when the
+    /// phone may not open it, and honours cancellation of the calling task.
+    func downloadLibraryFile(id: String, progress: @escaping @Sendable (Double) -> Void) async throws -> URL
     func upload(_ file: UploadFile) async throws -> LibraryItem
     func deleteLibraryItem(id: String) async throws
 
@@ -34,6 +37,16 @@ extension LibraryBackend {
     }
 }
 
+/// Why the phone won't open a Library file. The Mac decides, the phone only shows why.
+public enum LibraryFileRefusal: Error, Equatable, Sendable {
+    /// Quarantined on the Mac (a download, channel or connector file nobody has trusted yet). Never opened here.
+    case quarantined
+    /// Bigger than the phone downloads (64 MB). It opens on the Mac.
+    case tooLarge
+    /// Not kept on the phone, and no download is possible.
+    case unavailable
+}
+
 public enum LibrarySection: String, Sendable, CaseIterable, Identifiable {
     case documents = "Documents"
     case images = "Images"
@@ -56,11 +69,15 @@ public struct LibraryItem: Sendable, Equatable, Identifiable {
     public var evidence: [String]
     /// The title of `threadID`'s thread, for "Used in <thread>".
     public var threadTitle: String?
+    /// Why the phone won't open this file, known from the item itself (quarantined, or too big). Nil when it can
+    /// be downloaded on demand.
+    public var refusal: LibraryFileRefusal?
 
     public init(
         id: String, title: String, section: LibrarySection, fileType: String, detail: String,
-        threadID: String? = nil, evidence: [String] = [], threadTitle: String? = nil
+        threadID: String? = nil, evidence: [String] = [], threadTitle: String? = nil, refusal: LibraryFileRefusal? = nil
     ) {
+        self.refusal = refusal
         self.evidence = evidence
         self.threadTitle = threadTitle
         self.id = id

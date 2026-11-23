@@ -2053,6 +2053,36 @@ export const ar: Partial<Catalogue> = {
     "{n, plural, zero {لا أيام} one {يوم واحد} two {يومان} few {# أيام} many {# يومًا} other {# يوم}}",
   "settings.data.export": "تصدير",
   "settings.data.exportHint": "ملف zip لمساحة العمل (SOUL.md والذاكرة والملاحظات) وكل الادعاءات.",
+  "settings.data.git.title": "النسخ الاحتياطي إلى git",
+  "settings.data.git.description":
+    "ينسخ ذاكرتك إلى مستودع git خاص تملكه. الدفع يرسلها خارج هذا الجهاز، لذلك يُفحص كل ملف بحثًا عن بيانات اعتماد وأرقام بطاقات أولًا. يستخدم Psyche بيانات اعتماد git الخاصة بك ولا يخزن أيًا منها.",
+  "settings.data.git.remote": "المستودع البعيد",
+  "settings.data.git.remoteHint":
+    "مستودع خاص: https://‏ أو ssh://‏ أو user@host:path أو مسار محلي. لا تضع كلمة مرور في الرابط أبدًا.",
+  "settings.data.git.branch": "الفرع",
+  "settings.data.git.enabled": "تفعيل النسخ الاحتياطي عبر git",
+  "settings.data.git.enabledHint":
+    "يعمل فقط عند الضغط على «مزامنة الآن». لا تتم أي مزامنة في الخلفية.",
+  "settings.data.git.save": "حفظ",
+  "settings.data.git.sync": "مزامنة الآن",
+  "settings.data.git.lastSync": "آخر مزامنة {when}",
+  "settings.data.git.backedUp":
+    "{files, plural, one {تم نسخ ملف واحد} other {تم نسخ # ملفًا}} ودفعها.",
+  "settings.data.git.upToDate": "لا شيء جديد للنسخ. المستودع البعيد محدَّث.",
+  "settings.data.git.pulled": "تم سحب تغييرات من المستودع البعيد. لا شيء جديد للدفع.",
+  "settings.data.git.noGit": "git غير مثبت على هذا الجهاز. ثبّته ثم زامن مرة أخرى.",
+  "settings.data.git.noRemote": "حدد المستودع البعيد أولًا.",
+  "settings.data.git.notEnabled": "فعّل النسخ الاحتياطي عبر git أولًا.",
+  "settings.data.git.authFailed":
+    "رفض المستودع البعيد تسجيل دخولك. تحقق من مفتاح SSH أو من مساعد بيانات اعتماد git.",
+  "settings.data.git.remoteFailed": "تعذر الوصول إلى المستودع البعيد. تحقق من العنوان والاتصال.",
+  "settings.data.git.conflict":
+    "في المستودع البعيد تغييرات تتعارض مع ذاكرة هذا الجهاز. لم يتم الدفع.",
+  "settings.data.git.blocked":
+    "لم تتم المزامنة: يبدو أن {files} يحتوي على بيانات اعتماد أو رقم بطاقة. أزِله ثم زامن مرة أخرى.",
+  "settings.data.git.failed": "فشل النسخ الاحتياطي عبر git. حاول مرة أخرى.",
+  "settings.data.git.needsAdmin": "يحتاج النسخ الاحتياطي عبر git إلى صلاحية المدير على هذا الجهاز.",
+  "settings.data.git.saveFailed": "تعذر حفظ إعدادات النسخ الاحتياطي عبر git.",
   "settings.data.exportEverything": "تصدير كل شيء",
   "settings.data.deleteThreads": "حذف المحادثات",
   "settings.data.deleteThreadsHint":
@@ -2063,7 +2093,9 @@ export const ar: Partial<Catalogue> = {
     "{n, plural, =0 {لا محادثات مؤرشفة} one {حذف محادثة مؤرشفة واحدة} two {حذف محادثتين مؤرشفتين} few {حذف # محادثات مؤرشفة} many {حذف # محادثة مؤرشفة} other {حذف # محادثة مؤرشفة} zero {لا محادثات مؤرشفة}}",
   "settings.data.reset": "إعادة تعيين",
   "settings.data.resetHint":
-    "يحذف كل ملفات الذاكرة والفهارس والادعاءات ويبدأ {persona} من جديد. تبقى الدردشات.",
+    "يحذف كل ملف ذاكرة وفهرس ومطالبة، وسجل git المحلي لمساحة العمل، ويبدأ {persona} من جديد. تبقى المحادثات. يحتفظ المستودع البعيد بسجله الخاص: حذفه متروك لك.",
+  "settings.data.git.historyNote":
+    "يحتفظ المستودع البعيد بسجله الخاص. تمسح إعادة الضبط والنسيان نسخة هذا الجهاز فقط، لذا حذف الملاحظات القديمة من المستودع متروك لك.",
   "settings.data.typeToConfirm": "اكتب «{word}» للتأكيد. لا يمكن التراجع عن هذا.",
   "settings.data.resetMemory": "إعادة تعيين الذاكرة",
   "settings.data.resetMemoryEllipsis": "إعادة تعيين الذاكرة…",

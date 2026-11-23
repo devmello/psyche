@@ -5,6 +5,7 @@ import {
   deleteLibraryItem,
   getLibraryItem,
   insertLibraryItem,
+  listLibraryGateRows,
   listLibraryItemsPage,
   type NewLibraryItem,
   upsertLibraryItemByPath,
@@ -64,5 +65,20 @@ describe("library_items", () => {
     expect(deleteLibraryItem(db, first.id)).toBe(true);
     expect(deleteLibraryItem(db, first.id)).toBe(false);
     expect(getLibraryItem(db, first.id)).toBeUndefined();
+  });
+
+  it("lists the rows the quarantine gate needs: quarantined, or under quarantine/", () => {
+    const db = memoryDb();
+    const held = insertLibraryItem(
+      db,
+      base({ name: "held.bin", path: "audio/held.wav", quarantined: true }),
+    );
+    const trusted = insertLibraryItem(db, base({ name: "t.pdf", path: "quarantine/01JABC-t.pdf" }));
+    insertLibraryItem(db, base({ name: "ok.txt", path: "recordings/ok.txt" }));
+    expect(
+      listLibraryGateRows(db)
+        .map((i) => i.id)
+        .sort(),
+    ).toEqual([held.id, trusted.id].sort());
   });
 });

@@ -1,5 +1,5 @@
 import { execFile } from "node:child_process";
-import { existsSync, readFileSync, writeFileSync } from "node:fs";
+import { existsSync, lstatSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { isAbsolute, join } from "node:path";
 import { promisify } from "node:util";
 import { PsycheError } from "@psyche/protocol";
@@ -34,7 +34,21 @@ Thumbs.db
 *~
 # Raw exports from other assistants stay on this machine.
 memory/imports/
+# The voice profile and its samples (mail and meetings) stay on this machine.
+mail/VOICE.md
+mail/voice-samples.jsonl
+# This machine's id for the provenance sidecar: local only.
+.psyche/machine.id
 `;
+
+/** Files that never leave this machine, even when an owner edit or an old commit tracks them. */
+export const EXCLUDED_FILES: readonly string[] = ["mail/VOICE.md", "mail/voice-samples.jsonl"];
+export const EXCLUDED_DIRS: readonly string[] = ["memory/imports"];
+
+/** True for a workspace path that must not be committed. */
+export function isExcludedPath(path: string): boolean {
+  return EXCLUDED_FILES.includes(path) || EXCLUDED_DIRS.some((d) => path.startsWith(`${d}/`));
+}
 
 const AUTHOR = ["-c", "user.name=Psyche", "-c", "user.email=psyche@localhost"];
 
@@ -59,6 +73,8 @@ export interface GitSyncOptions {
 export interface GitSyncResult {
   committed: boolean;
   commit?: string;
+  /** Files in the commit this sync made (0 when nothing changed). */
+  files: number;
   pulled: boolean;
   pushed: boolean;
   /** Files with rebase conflicts (the rebase was aborted; nothing was pushed). */
@@ -92,6 +108,14 @@ export function validateRemoteUrl(url: string): string {
     "invalid_params",
     "use an https://, ssh://, user@host:path or local path remote",
   );
+}
+
+function isSymlink(path: string): boolean {
+  try {
+    return lstatSync(path).isSymbolicLink();
+  } catch {
+    return false;
+  }
 }
 
 export class WorkspaceGit {
@@ -133,7 +157,15 @@ export class WorkspaceGit {
   async init(branch = "main"): Promise<void> {
     if (!this.isRepo) await this.#run(["init", "-q", "-b", branch]);
     const path = join(this.#store.root, ".gitignore");
-    const current = existsSync(path) ? readFileSync(path, "utf8") : "";
+    // Read and write the entry itself: a symlink here would be followed to a file outside.
+    let current = "";
+    if (existsSync(path) || isSymlink(path)) {
+      const st = lstatSync(path);
+      if (st.isSymbolicLink()) rmSync(path);
+      else if (!st.isFile()) {
+        throw new PsycheError("unavailable", ".gitignore in the workspace is not a regular file");
+      } else current = readFileSync(path, "utf8");
+    }
     const have = new Set(current.split("\n").map((l) => l.trim()));
     const missing = GITIGNORE.split("\n").filter((l) => l.trim().length > 0 && !have.has(l.trim()));
     if (current === "") writeFileSync(path, GITIGNORE, { mode: 0o600 });
@@ -154,14 +186,26 @@ export class WorkspaceGit {
     await this.#run(has ? ["remote", "set-url", remote, valid] : ["remote", "add", remote, valid]);
   }
 
-  /** Files git would commit, relative to the workspace. */
+  /** Files git would commit, relative to the workspace, without the excluded ones. */
   async #pending(): Promise<string[]> {
     const { stdout } = await this.#run(["status", "--porcelain", "-z", "--untracked-files=all"]);
     return stdout
       .split("\0")
       .filter((e) => e.length > 3)
       .map((e) => e.slice(3))
-      .filter((p) => existsSync(join(this.#store.root, p)));
+      .filter((p) => !isExcludedPath(p) && existsSync(join(this.#store.root, p)));
+  }
+
+  /** Excluded files that git already tracks (committed before the exclusion existed). */
+  async #trackedExcluded(): Promise<string[]> {
+    const { stdout } = await this.#run([
+      "ls-files",
+      "-z",
+      "--",
+      ...EXCLUDED_FILES,
+      ...EXCLUDED_DIRS,
+    ]);
+    return stdout.split("\0").filter(Boolean);
   }
 
   /** Refuses the sync if any file to be committed holds a credential or card number. */
@@ -190,20 +234,48 @@ export class WorkspaceGit {
     }
     await this.init(branch);
     await this.#store.idle();
+    // The provenance sidecar travels with the notes, so a pull elsewhere keeps untrusted content
+    // untrusted. It is written before the scan, which covers it like any other file. Its entries
+    // carry the sha256 of the indexed content, so the index first catches up with edits made
+    // outside Psyche: the hashes then match what is committed.
+    await this.#store.sync();
+    this.#store.writeProvenanceSidecar();
+    // Excluded files leave the index (a commit made before the exclusion tracked them).
+    const tracked = await this.#trackedExcluded();
+    if (tracked.length > 0) await this.#run(["rm", "-q", "--cached", "--", ...tracked]);
     const pending = await this.#pending();
     this.#scan(pending);
-    const result: GitSyncResult = { committed: false, pulled: false, pushed: false };
-    if (pending.length > 0) {
-      await this.#run(["add", "-A"]);
+    const result: GitSyncResult = { committed: false, files: 0, pulled: false, pushed: false };
+    if (pending.length > 0 || tracked.length > 0) {
+      await this.#run(["add", "-A", "--", "."]);
+      // Unstage the excluded paths whatever .gitignore says: an owner edit that drops the ignore
+      // lines must not re-include them. (A pathspec exclude fails on ignored paths, so this runs
+      // after the add.)
       await this.#run([
-        ...AUTHOR,
-        "commit",
+        "rm",
+        "-r",
         "-q",
-        "-m",
-        `Psyche memory sync ${this.#store.now().date}`,
+        "--cached",
+        "--ignore-unmatch",
+        "--",
+        ...EXCLUDED_FILES,
+        ...EXCLUDED_DIRS,
       ]);
-      result.committed = true;
-      result.commit = (await this.#run(["rev-parse", "HEAD"])).stdout.trim();
+      const staged = (await this.#run(["diff", "--cached", "--name-only", "-z"])).stdout
+        .split("\0")
+        .filter(Boolean);
+      if (staged.length > 0) {
+        await this.#run([
+          ...AUTHOR,
+          "commit",
+          "-q",
+          "-m",
+          `Psyche memory sync ${this.#store.now().date}`,
+        ]);
+        result.committed = true;
+        result.files = staged.length;
+        result.commit = (await this.#run(["rev-parse", "HEAD"])).stdout.trim();
+      }
     }
     if (options.localOnly === true) return result;
     const remotes = (await this.#run(["remote"], true)).stdout.split("\n");
@@ -219,11 +291,24 @@ export class WorkspaceGit {
         (await this.#run(["rev-list", "--count", `HEAD..${remote}/${branch}`])).stdout.trim(),
       );
       if (behind > 0) {
+        // A write that landed after the commit would make the rebase refuse, or be lost by
+        // its abort: stop and let the owner sync again instead.
+        const dirty = (
+          await this.#run(["status", "--porcelain", "--untracked-files=no"])
+        ).stdout.trim();
+        if (dirty !== "") {
+          throw new PsycheError("conflict", "memory changed during the sync; sync again");
+        }
         const rebased = await this.#run([...AUTHOR, "rebase", "-q", `${remote}/${branch}`], true);
         if (rebased.code !== 0) {
           const { stdout } = await this.#run(["diff", "--name-only", "--diff-filter=U"], true);
+          const conflicts = stdout.split("\n").filter(Boolean);
           await this.#run(["rebase", "--abort"], true);
-          result.conflicts = stdout.split("\n").filter(Boolean);
+          // No conflicted file: the rebase failed for another reason. Nothing was pushed.
+          if (conflicts.length === 0) {
+            throw new PsycheError("unavailable", "git rebase failed");
+          }
+          result.conflicts = conflicts;
           return result;
         }
         result.pulled = true;

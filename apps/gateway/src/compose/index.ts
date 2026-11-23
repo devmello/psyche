@@ -22,6 +22,7 @@ import {
   getSetting,
   getThread,
   listDevices,
+  listLibraryGateRows,
   type PsycheDb,
   setSetting,
 } from "@psyche/db";
@@ -1459,6 +1460,7 @@ export async function composeGateway(options: ComposeOptions): Promise<ComposedG
   const pageReads = new PageReadHub();
   const services: ComposeServices = {
     memoryStore: memoryDb,
+    memory,
     documents,
     pageReads,
     busy: busySources,
@@ -2447,7 +2449,22 @@ export async function composeGateway(options: ComposeOptions): Promise<ComposedG
     }),
   );
   // documents.convert: LibreOffice in its own sandbox on the full image (P4).
-  parts.push(composeConversion({ folders: () => rawBroker.grantedFolders(), home: config.home }));
+  // The Library's quarantine gate, shared by files.read and documents.convert (phone reads of Library files).
+  const libraryGate = {
+    rows: () =>
+      listLibraryGateRows(db).map((item) => ({
+        name: item.name,
+        path: item.path,
+        quarantined: item.quarantined === true,
+      })),
+  };
+  parts.push(
+    composeConversion({
+      folders: () => rawBroker.grantedFolders(),
+      home: config.home,
+      library: libraryGate,
+    }),
+  );
   // app.uninstall.authorize: the presence gate in front of the uninstall sheet's "Delete my data".
   parts.push({ handlers: uninstallHandlers(services) });
   const handlers: Record<string, HandlerDef> = {
@@ -2548,6 +2565,7 @@ export async function composeGateway(options: ComposeOptions): Promise<ComposedG
       folders: () => rawBroker.grantedFolders(),
       home: config.home,
       audit,
+      library: libraryGate,
       share: {
         broker: executorBroker,
         surfaces: ["desktop", "web"],

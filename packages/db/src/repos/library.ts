@@ -92,6 +92,20 @@ export function getLibraryItem(db: PsycheDb, id: string): LibraryItem | undefine
 }
 
 /**
+ * The rows the Gateway's quarantine gate must see: every quarantined item, and every row under the
+ * `quarantine/` folder (trusted downloads stay there). The gate matches them to a file by identity (dev and
+ * inode), never by name, so the match doesn't depend on how a path is spelled.
+ */
+export function listLibraryGateRows(db: PsycheDb): LibraryItem[] {
+  return db.drizzle
+    .select()
+    .from(libraryItems)
+    .where(sql`${libraryItems.quarantined} = 1 OR lower(${libraryItems.path}) LIKE 'quarantine/%'`)
+    .all()
+    .map(libraryItemFromRow);
+}
+
+/**
  * The writer's provenance detail (`source`), which `getLibraryItem` never returns: for trust
  * decisions inside the Gateway only (a screen capture is `provenance: "untrusted"`).
  */

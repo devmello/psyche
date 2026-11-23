@@ -1996,6 +1996,37 @@ export const ja: Partial<Catalogue> = {
   "settings.data.days": "{n, plural, other {#日}}",
   "settings.data.export": "書き出し",
   "settings.data.exportHint": "ワークスペース（SOUL.md、メモリ、メモ）とすべての事実のzip。",
+  "settings.data.git.title": "git にバックアップ",
+  "settings.data.git.description":
+    "メモリを、あなたが所有する非公開の git リポジトリにコピーします。送信するとメモリはこのデバイスの外に出るため、送信前にすべてのファイルで認証情報やカード番号を確認します。Psyche はあなた自身の git 認証情報を使い、何も保存しません。",
+  "settings.data.git.remote": "リモート",
+  "settings.data.git.remoteHint":
+    "非公開のリポジトリ：https://、ssh://、user@host:パス、またはローカルパス。URL にパスワードは含めないでください。",
+  "settings.data.git.branch": "ブランチ",
+  "settings.data.git.enabled": "git バックアップを有効にする",
+  "settings.data.git.enabledHint":
+    "「今すぐ同期」を押したときだけ実行されます。バックグラウンドでは同期されません。",
+  "settings.data.git.save": "保存",
+  "settings.data.git.sync": "今すぐ同期",
+  "settings.data.git.lastSync": "前回の同期 {when}",
+  "settings.data.git.backedUp":
+    "{files, plural, one {# 件のファイル} other {# 件のファイル}}をバックアップして送信しました。",
+  "settings.data.git.upToDate": "バックアップする新しいものはありません。リモートは最新です。",
+  "settings.data.git.pulled": "リモートの変更を取り込みました。送信する新しいものはありません。",
+  "settings.data.git.noGit":
+    "このデバイスに git がインストールされていません。git をインストールしてから再度同期してください。",
+  "settings.data.git.noRemote": "先にリモートを設定してください。",
+  "settings.data.git.notEnabled": "先に git バックアップを有効にしてください。",
+  "settings.data.git.authFailed":
+    "リモートがログインを拒否しました。SSH キーか git の認証ヘルパーを確認してください。",
+  "settings.data.git.remoteFailed": "リモートに接続できません。アドレスと接続を確認してください。",
+  "settings.data.git.conflict":
+    "リモートに、このデバイスのメモリと競合する変更があります。何も送信されていません。",
+  "settings.data.git.blocked":
+    "同期されませんでした：{files} に認証情報またはカード番号が含まれている可能性があります。削除してから再度同期してください。",
+  "settings.data.git.failed": "git バックアップに失敗しました。もう一度お試しください。",
+  "settings.data.git.needsAdmin": "git バックアップにはこのデバイスでの管理者権限が必要です。",
+  "settings.data.git.saveFailed": "git バックアップの設定を保存できませんでした。",
   "settings.data.exportEverything": "すべてを書き出す",
   "settings.data.deleteThreads": "スレッドを削除",
   "settings.data.deleteThreadsHint":
@@ -2006,7 +2037,9 @@ export const ja: Partial<Catalogue> = {
     "{n, plural, =0 {アーカイブ済みスレッドはありません} other {#件のアーカイブ済みスレッドを削除}}",
   "settings.data.reset": "リセット",
   "settings.data.resetHint":
-    "すべてのメモリファイル、インデックス、事実を削除し、{persona}を初期状態に戻します。チャットは残ります。",
+    "メモリのファイル、索引、主張をすべて、ワークスペースのローカル git 履歴も含めて削除し、{persona} を最初から始めます。チャットは残ります。git のリモートは独自の履歴を保持します。それを削除するかどうかはあなたが決めてください。",
+  "settings.data.git.historyNote":
+    "git のリモートは独自の履歴を保持します。リセットと忘却が消すのはこのデバイスのコピーだけなので、リモートから古いメモを削除するかどうかはあなたが決めてください。",
   "settings.data.typeToConfirm":
     "確認のため「{word}」と入力してください。この操作は取り消せません。",
   "settings.data.resetMemory": "メモリをリセット",
