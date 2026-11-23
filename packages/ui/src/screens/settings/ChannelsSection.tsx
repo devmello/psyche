@@ -1,8 +1,18 @@
 import type { Channel, ChannelIdentity, DmPolicy, PairingRequest } from "@psyche/protocol";
 import { TriangleAlert } from "lucide-react";
-import { type ReactElement, useCallback, useState } from "react";
+import { type ReactElement, useCallback, useContext, useId, useState } from "react";
 import { toast } from "sonner";
+import {
+  AlertDialog,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "../../components/ui/alert-dialog.tsx";
 import { Button } from "../../components/ui/button.tsx";
+import { Input } from "../../components/ui/input.tsx";
 import { useCall, useGatewayQuery } from "../../data/hooks.ts";
 import { t } from "../../i18n/core.ts";
 import { formatRelative } from "../../lib/format.ts";
@@ -10,6 +20,7 @@ import { useNow } from "../../lib/use-now.ts";
 import { usePersona } from "../../slots.tsx";
 import { AddChannelDialog } from "./AddChannelDialog.tsx";
 import {
+  approvalIdOf,
   EmptyNotice,
   ErrorNotice,
   Group,
@@ -19,6 +30,7 @@ import {
   messageOf,
   RadioField,
   SectionFrame,
+  SettingsApprovalContext,
   StatusChip,
   SwitchField,
 } from "./shared.tsx";
@@ -81,6 +93,19 @@ function displayMap(c: Channel, key: string): Record<string, string> {
   );
 }
 
+/** The two allowlists of a channel that a person can edit (`channels.allowlist.update`). */
+export type AllowlistList = "allowFrom" | "groupAllowFrom";
+
+export interface AllowlistChange {
+  add?: string[];
+  remove?: string[];
+}
+
+export interface IdentityDraft {
+  display: string;
+  links: string[];
+}
+
 export interface ChannelsPanelProps extends LoadProps {
   channels: readonly Channel[];
   pairing: readonly PairingRequest[];
@@ -91,6 +116,12 @@ export interface ChannelsPanelProps extends LoadProps {
   onRequireMention?: (channel: Channel, on: boolean) => void;
   onApprove?: (request: PairingRequest) => void;
   onIgnore?: (request: PairingRequest) => void;
+  /** Adds or removes a sender or group on one allowlist; the controls are absent without it. */
+  onAllowlistChange?: (channel: Channel, list: AllowlistList, change: AllowlistChange) => void;
+  /** Links a person's sender ids under one identity (`channels.identities.upsert`). */
+  onIdentityLink?: (draft: IdentityDraft) => void;
+  /** Removes an identity link; its senders fall back to per-sender sessions. */
+  onIdentityUnlink?: (identity: ChannelIdentity) => void;
   /** Opens the guided Add a channel flow; the button is absent without it. */
   onAddChannel?: () => void;
   pairingError?: string | null;
@@ -108,6 +139,9 @@ export function ChannelsPanel({
   onRequireMention,
   onApprove,
   onIgnore,
+  onAllowlistChange,
+  onIdentityLink,
+  onIdentityUnlink,
   onAddChannel,
   pairingError = null,
   identitiesError = null,
@@ -159,6 +193,7 @@ export function ChannelsPanel({
               {...(onRequireMention ? { onRequireMention } : {})}
               {...(onApprove ? { onApprove } : {})}
               {...(onIgnore ? { onIgnore } : {})}
+              {...(onAllowlistChange ? { onAllowlistChange } : {})}
             />
           ))
         )}
@@ -184,13 +219,30 @@ export function ChannelsPanel({
           ) : (
             <ul className="flex flex-col gap-1">
               {identities.map((i) => (
-                <li key={i.id}>
-                  <span className="font-medium">{i.display}</span>{" "}
-                  <span className="text-callout text-muted-foreground">{i.links.join(" = ")}</span>
+                <li key={i.id} className="flex flex-wrap items-center gap-2">
+                  <span>
+                    <span className="font-medium">{i.display}</span>{" "}
+                    <span className="text-callout text-muted-foreground">
+                      {i.links.join(" = ")}
+                    </span>
+                  </span>
+                  {onIdentityUnlink ? (
+                    <Button
+                      type="button"
+                      size="xs"
+                      variant="ghost"
+                      className="ms-auto"
+                      aria-label={t("settings.channels.identity.unlinkNamed", { name: i.display })}
+                      onClick={() => onIdentityUnlink(i)}
+                    >
+                      {t("settings.channels.identity.unlink")}
+                    </Button>
+                  ) : null}
                 </li>
               ))}
             </ul>
           )}
+          {onIdentityLink ? <IdentityLinkForm onLink={onIdentityLink} /> : null}
         </Group>
 
         <Group
@@ -222,6 +274,108 @@ export function ChannelsPanel({
   );
 }
 
+/** Adds one id to an allowlist; an id already listed is not sent again. */
+function AllowlistAdd({
+  label,
+  action,
+  existing,
+  onAdd,
+}: {
+  label: string;
+  action: string;
+  existing: readonly string[];
+  onAdd: (id: string) => void;
+}): ReactElement {
+  const fieldId = useId();
+  const [draft, setDraft] = useState("");
+  const value = draft.trim();
+  return (
+    <form
+      className="mt-2 flex flex-wrap items-center gap-2"
+      onSubmit={(e) => {
+        e.preventDefault();
+        if (value === "") return;
+        if (!existing.includes(value)) onAdd(value);
+        setDraft("");
+      }}
+    >
+      <label htmlFor={fieldId} className="text-callout text-muted-foreground">
+        {label}
+      </label>
+      <Input
+        id={fieldId}
+        value={draft}
+        maxLength={256}
+        autoComplete="off"
+        spellCheck={false}
+        onChange={(e) => setDraft(e.target.value)}
+        className="h-8 min-w-40 flex-1 text-sm"
+      />
+      <Button type="submit" size="xs" variant="outline" disabled={value === ""}>
+        {action}
+      </Button>
+    </form>
+  );
+}
+
+/** Links one person's sender ids under a new identity (comma separated). */
+function IdentityLinkForm({ onLink }: { onLink: (draft: IdentityDraft) => void }): ReactElement {
+  const nameId = useId();
+  const sendersId = useId();
+  const [display, setDisplay] = useState("");
+  const [senders, setSenders] = useState("");
+  const name = display.trim();
+  const links = senders
+    .split(",")
+    .map((s) => s.trim())
+    .filter((s) => s !== "");
+  const ready = name !== "" && links.length > 0;
+  return (
+    <form
+      className="mt-3 flex flex-col gap-2 border-t border-gray-6 pt-3"
+      onSubmit={(e) => {
+        e.preventDefault();
+        if (!ready) return;
+        onLink({ display: name, links });
+        setDisplay("");
+        setSenders("");
+      }}
+    >
+      <div className="flex flex-col gap-1">
+        <label htmlFor={nameId} className="font-medium">
+          {t("settings.channels.identity.name")}
+        </label>
+        <Input
+          id={nameId}
+          value={display}
+          maxLength={200}
+          autoComplete="off"
+          onChange={(e) => setDisplay(e.target.value)}
+          className="h-8 text-sm"
+        />
+      </div>
+      <div className="flex flex-col gap-1">
+        <label htmlFor={sendersId} className="font-medium">
+          {t("settings.channels.identity.senders")}
+        </label>
+        <Input
+          id={sendersId}
+          value={senders}
+          autoComplete="off"
+          spellCheck={false}
+          onChange={(e) => setSenders(e.target.value)}
+          className="h-8 text-sm"
+        />
+      </div>
+      <div>
+        <Button type="submit" size="sm" variant="outline" disabled={!ready}>
+          {t("settings.channels.identity.link")}
+        </Button>
+      </div>
+    </form>
+  );
+}
+
 function ChannelCard({
   channel: c,
   persona,
@@ -232,6 +386,7 @@ function ChannelCard({
   onRequireMention,
   onApprove,
   onIgnore,
+  onAllowlistChange,
 }: {
   channel: Channel;
   persona: string;
@@ -242,11 +397,17 @@ function ChannelCard({
   onRequireMention?: (channel: Channel, on: boolean) => void;
   onApprove?: (request: PairingRequest) => void;
   onIgnore?: (request: PairingRequest) => void;
+  onAllowlistChange?: (channel: Channel, list: AllowlistList, change: AllowlistChange) => void;
 }): ReactElement {
   const [confirmOpen, setConfirmOpen] = useState(false);
+  // The id of a group-list sender whose removal would leave nobody on it (see the confirm below).
+  const [emptying, setEmptying] = useState<string | null>(null);
   const allow = displayMap(c, "allowFromDisplay");
-  const groups = displayMap(c, "groupsDisplay");
   const name = channelName(c.type);
+  // An empty group list means "everyone allowed in direct messages", so removing the last sender
+  // widens who can trigger Psyche in groups: the Gateway asks for a card, and this says why first.
+  const removingLastGroupSender = (id: string): boolean =>
+    c.groupAllowFrom.length === 1 && c.groupAllowFrom[0] === id && c.allowFrom.length > 0;
   return (
     <Group
       title={t("settings.channels.cardTitle", { name, account: c.account })}
@@ -362,17 +523,41 @@ function ChannelCard({
           ) : (
             <ul className="mt-1 flex flex-col gap-0.5">
               {c.allowFrom.map((s) => (
-                <li key={s}>
-                  {allow[s] ?? s}
-                  {c.ownerIds.includes(s) ? (
-                    <span className="text-callout text-muted-foreground">
-                      {t("settings.channels.owner")}
-                    </span>
+                <li key={s} className="flex flex-wrap items-center gap-2">
+                  <span>
+                    {allow[s] ?? s}
+                    {c.ownerIds.includes(s) ? (
+                      <span className="text-callout text-muted-foreground">
+                        {t("settings.channels.owner")}
+                      </span>
+                    ) : null}
+                  </span>
+                  {onAllowlistChange ? (
+                    <Button
+                      type="button"
+                      size="xs"
+                      variant="ghost"
+                      className="ms-auto"
+                      aria-label={t("settings.channels.allow.removeNamed", {
+                        name: allow[s] ?? s,
+                      })}
+                      onClick={() => onAllowlistChange(c, "allowFrom", { remove: [s] })}
+                    >
+                      {t("settings.channels.allow.remove")}
+                    </Button>
                   ) : null}
                 </li>
               ))}
             </ul>
           )}
+          {onAllowlistChange ? (
+            <AllowlistAdd
+              label={t("settings.channels.allow.senderLabel")}
+              action={t("settings.channels.allow.addSender")}
+              existing={c.allowFrom}
+              onAdd={(id) => onAllowlistChange(c, "allowFrom", { add: [id] })}
+            />
+          ) : null}
         </div>
         <div>
           <h4 className="font-medium">{t("settings.channels.groups")}</h4>
@@ -381,10 +566,74 @@ function ChannelCard({
           ) : (
             <ul className="mt-1 flex flex-col gap-0.5">
               {c.groupAllowFrom.map((g) => (
-                <li key={g}>{groups[g] ?? g}</li>
+                <li key={g} className="flex flex-wrap items-center gap-2">
+                  <span>{allow[g] ?? g}</span>
+                  {onAllowlistChange ? (
+                    <Button
+                      type="button"
+                      size="xs"
+                      variant="ghost"
+                      className="ms-auto"
+                      aria-label={t("settings.channels.allow.removeNamed", {
+                        name: allow[g] ?? g,
+                      })}
+                      onClick={() => {
+                        if (removingLastGroupSender(g)) setEmptying(g);
+                        else onAllowlistChange(c, "groupAllowFrom", { remove: [g] });
+                      }}
+                    >
+                      {t("settings.channels.allow.remove")}
+                    </Button>
+                  ) : null}
+                </li>
               ))}
             </ul>
           )}
+          {onAllowlistChange ? (
+            <>
+              <AllowlistAdd
+                label={t("settings.channels.allow.groupLabel")}
+                action={t("settings.channels.allow.addGroup")}
+                existing={c.groupAllowFrom}
+                onAdd={(id) => onAllowlistChange(c, "groupAllowFrom", { add: [id] })}
+              />
+              <AlertDialog
+                open={emptying !== null}
+                onOpenChange={(open) => {
+                  if (!open) setEmptying(null);
+                }}
+              >
+                <AlertDialogContent>
+                  <AlertDialogHeader>
+                    <AlertDialogTitle>
+                      {t("settings.channels.allow.removeNamed", {
+                        name: allow[emptying ?? ""] ?? emptying ?? "",
+                      })}
+                    </AlertDialogTitle>
+                    <AlertDialogDescription>
+                      {t("settings.channels.allow.groupEmptied", {
+                        name: allow[emptying ?? ""] ?? emptying ?? "",
+                      })}
+                    </AlertDialogDescription>
+                  </AlertDialogHeader>
+                  <AlertDialogFooter>
+                    <AlertDialogCancel>{t("common.cancel")}</AlertDialogCancel>
+                    <Button
+                      type="button"
+                      variant="destructive"
+                      onClick={() => {
+                        const id = emptying;
+                        setEmptying(null);
+                        if (id !== null) onAllowlistChange(c, "groupAllowFrom", { remove: [id] });
+                      }}
+                    >
+                      {t("settings.channels.allow.remove")}
+                    </Button>
+                  </AlertDialogFooter>
+                </AlertDialogContent>
+              </AlertDialog>
+            </>
+          ) : null}
         </div>
       </div>
       <SwitchField
@@ -405,6 +654,16 @@ function channelError(action: ChannelAction, err: unknown): string {
     : t("settings.channels.err.failed", { action, reason: messageOf(err) });
 }
 
+const allowlistError = (err: unknown): string =>
+  hasCode(err, "forbidden")
+    ? t("settings.channels.allow.forbidden")
+    : t("settings.channels.allow.failed", { reason: messageOf(err) });
+
+const identityError = (err: unknown): string =>
+  hasCode(err, "forbidden")
+    ? t("settings.channels.identity.forbidden")
+    : t("settings.channels.identity.failed", { reason: messageOf(err) });
+
 export function ChannelsSection({ now }: { now?: number }): ReactElement {
   const persona = usePersona();
   const call = useCall();
@@ -413,6 +672,7 @@ export function ChannelsSection({ now }: { now?: number }): ReactElement {
   const identitiesQ = useGatewayQuery("channels.identities.list", {});
   const [actionError, setActionError] = useState<string | null>(null);
   const [adding, setAdding] = useState(false);
+  const requestApproval = useContext(SettingsApprovalContext);
   const reload = useCallback(() => {
     channelsQ.reload();
     pairingQ.reload();
@@ -421,6 +681,37 @@ export function ChannelsSection({ now }: { now?: number }): ReactElement {
   const run = (action: ChannelAction, p: Promise<unknown>) => {
     setActionError(null);
     p.then(reload, (err: unknown) => setActionError(channelError(action, err)));
+  };
+  // Adding a sender or linking an identity is presence-gated (an admin call that widens access):
+  // the Gateway answers `approval_required` with a card. The Settings banner shows it and sends
+  // the same params again with the `approvalId` once it is approved, as AddChannelDialog does.
+  // Removing entries needs no approval, so those calls never reach the banner.
+  const gated = <P extends object>(
+    params: P,
+    send: (p: P & { approvalId?: string }) => Promise<unknown>,
+    approval: { key: string; label: string },
+    failure: (err: unknown) => string,
+  ) => {
+    setActionError(null);
+    send(params).then(reload, (err: unknown) => {
+      const approvalId = approvalIdOf(err);
+      if (approvalId === null) {
+        setActionError(failure(err));
+        return;
+      }
+      if (requestApproval === null) {
+        setActionError(t("settings.shared.needsPresence", { label: approval.label }));
+        return;
+      }
+      requestApproval({
+        ...approval,
+        approvalId,
+        retry: async (aid) => {
+          await send({ ...params, approvalId: aid });
+          reload();
+        },
+      });
+    });
   };
   return (
     <>
@@ -444,6 +735,36 @@ export function ChannelsSection({ now }: { now?: number }): ReactElement {
         }
         onApprove={(r) => run("approve", call("channels.pairing.approve", { requestId: r.id }))}
         onIgnore={(r) => run("ignore", call("channels.pairing.deny", { requestId: r.id }))}
+        onAllowlistChange={(c, list, change) =>
+          gated(
+            { channelId: c.id, list, ...change },
+            (p) => call("channels.allowlist.update", p),
+            list === "allowFrom"
+              ? {
+                  key: "channels.allowlist.allowFrom",
+                  label: t("settings.channels.allow.senderApproval"),
+                }
+              : {
+                  key: "channels.allowlist.groupAllowFrom",
+                  label: t("settings.channels.allow.groupApproval"),
+                },
+            allowlistError,
+          )
+        }
+        onIdentityLink={(d) =>
+          gated(
+            { display: d.display, links: d.links },
+            (p) => call("channels.identities.upsert", p),
+            { key: "channels.identities.upsert", label: t("settings.channels.identity.approval") },
+            identityError,
+          )
+        }
+        onIdentityUnlink={(i) => {
+          setActionError(null);
+          call("channels.identities.delete", { identityId: i.id }).then(reload, (err: unknown) =>
+            setActionError(identityError(err)),
+          );
+        }}
         {...(now === undefined ? {} : { now })}
       />
       <AddChannelDialog

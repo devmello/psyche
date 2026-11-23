@@ -1,7 +1,7 @@
 import { hashCanonical } from "@psyche/audit";
 import { getSetting, type PsycheDb, setSetting } from "@psyche/db";
 import { bindingHash } from "@psyche/permissions";
-import { type JsonObject, MACHINE_TOKENS_ENABLED, PsycheError } from "@psyche/protocol";
+import { type JsonObject, PsycheError } from "@psyche/protocol";
 import { hostWords } from "@psyche/protocol/host-words";
 import type { Call } from "./context.ts";
 import { INTERNAL_SETTING_PREFIX } from "./state-version.ts";
@@ -185,14 +185,10 @@ export const PRESENCE_METHODS: Readonly<Record<string, (p: Params) => string | u
   "devices.approve": (p) =>
     `Approve a new device with ${Array.isArray(p.scopes) ? p.scopes.join(", ") : "scopes"}`,
   // A setup token pairs a computer without a second approval, so making one is approving ahead.
-  // `purpose: machine` has no gate until the machine registry lands: the handler refuses it
-  // (`unavailable`) first, so no card is shown for a request that will fail. H3 must give it its
-  // own purpose-aware summary ("Let a new Linux computer pair itself as a computer Psyche can use").
+  // A machine token gets a card worded for a machine (the machine registry, H3).
   "devices.setupToken.create": (p) =>
     p.purpose === "machine"
-      ? MACHINE_TOKENS_ENABLED
-        ? `Let a new Linux computer pair itself${p.via === "lan" ? " from this network" : ""} as a computer Psyche can use`
-        : undefined
+      ? `Let a new Linux computer pair itself${p.via === "lan" ? " from this network" : ""} as a computer Psyche can use`
       : `Let a new computer pair itself${p.via === "lan" ? " from this network" : ""} with ${Array.isArray(p.scopes) ? p.scopes.join(", ") : "scopes"}`,
   // Anything but "always" lowers protection: a server whose tools are not payments needs no
   // presence on its calls. Raising it to "always" only adds friction and stays admin-only.
@@ -233,5 +229,35 @@ export function methodPresence(
       details: { method, params: rest as JsonObject },
     },
     approvalId: typeof approvalId === "string" ? approvalId : undefined,
+  };
+}
+
+/**
+ * Removing the last entry of a channel's `groupAllowFrom` hands group triggering to everyone the
+ * channel allows in direct messages (`channels/src/policy.ts`: an empty group list falls back to
+ * `allowFrom`). That widens access, so it needs the owner's card although it is a removal. Pass
+ * the channel as stored: the caller reads the list server-side, never from the request.
+ */
+export function emptiesGroupSenders(
+  current: { allowFrom: readonly string[]; groupAllowFrom: readonly string[] },
+  p: { list?: unknown; add?: unknown; remove?: unknown },
+): boolean {
+  if (p.list !== "groupAllowFrom") return false;
+  if (Array.isArray(p.add) && p.add.length > 0) return false;
+  const remove = Array.isArray(p.remove) ? p.remove : [];
+  if (remove.length === 0) return false;
+  if (current.groupAllowFrom.length === 0 || current.allowFrom.length === 0) return false;
+  return current.groupAllowFrom.every((id) => remove.includes(id));
+}
+
+/** The card for a removal that empties `groupAllowFrom` (see `emptiesGroupSenders`). */
+export function groupSendersAction(p: Params): FreshPresenceAction {
+  const { approvalId, ...rest } = p;
+  void approvalId;
+  return {
+    name: "method:channels.allowlist.update",
+    summary: "Let everyone allowed in direct messages trigger Psyche in groups",
+    subject: rest,
+    details: { method: "channels.allowlist.update", params: rest as JsonObject },
   };
 }

@@ -54,6 +54,7 @@ import { settingsRest } from "./settings-rest/hi.ts";
 import { shellRest } from "./shell-rest/hi.ts";
 import { spaces } from "./spaces/hi.ts";
 import { specialistsRest } from "./specialists-rest/hi.ts";
+import { update } from "./update/hi.ts";
 import { webRest } from "./web-rest/hi.ts";
 import { widgetsRest } from "./widgets-rest/hi.ts";
 import { windowsPlatform202611 } from "./windows-platform-2026-11/hi.ts";
@@ -1715,10 +1716,33 @@ export const hi: Partial<Catalogue> = {
   "settings.channels.approve": "स्वीकृत करें",
   "settings.channels.ignoreSender": "{name} की अनदेखी करें",
   "settings.channels.ignore": "अनदेखी करें",
+  "settings.channels.allow.remove": "हटाएँ",
+  "settings.channels.allow.removeNamed": "{name} हटाएँ",
+  "settings.channels.allow.senderLabel": "अनुमति देने वाला प्रेषक",
+  "settings.channels.allow.groupLabel": "प्रेषक जोड़ें (समूह चैट)",
+  "settings.channels.allow.addSender": "प्रेषक जोड़ें",
+  "settings.channels.allow.addGroup": "प्रेषक जोड़ें",
+  "settings.channels.allow.senderApproval": "एक चैट प्रेषक को अनुमति देना",
+  "settings.channels.allow.groupApproval": "समूहों में कौन मुझे चला सकता है, यह बदलना",
+  "settings.channels.allow.groupEmptied":
+    "{name} को हटाने से इस सूची में कोई नहीं बचेगा। तब डायरेक्ट मैसेज में अनुमति प्राप्त सभी लोग समूहों में Psyche को चला सकेंगे।",
+  "settings.channels.allow.forbidden":
+    "कौन संदेश भेज सकता है, यह बदलने के लिए एडमिन डिवाइस चाहिए। एडमिन के रूप में जोड़ा गया डिवाइस उपयोग करें।",
+  "settings.channels.allow.failed":
+    "Psyche बदल नहीं सका कि कौन संदेश भेज सकता है ({reason})। कुछ नहीं बदला।",
+  "settings.channels.identity.name": "व्यक्ति का नाम",
+  "settings.channels.identity.senders": "प्रेषक आईडी, कॉमा से अलग करके",
+  "settings.channels.identity.link": "पहचान जोड़ें",
+  "settings.channels.identity.unlink": "लिंक हटाएँ",
+  "settings.channels.identity.unlinkNamed": "{name} का लिंक हटाएँ",
+  "settings.channels.identity.approval": "एक चैट पहचान जोड़ना",
+  "settings.channels.identity.forbidden":
+    "पहचान लिंक बदलने के लिए एडमिन डिवाइस चाहिए। एडमिन के रूप में जोड़ा गया डिवाइस उपयोग करें।",
+  "settings.channels.identity.failed": "Psyche पहचान लिंक नहीं बदल सका ({reason})। कुछ नहीं बदला।",
   "settings.channels.noOneYet": "अभी कोई नहीं।",
   "settings.channels.owner": " · मालिक",
-  "settings.channels.groups": "समूह",
-  "settings.channels.noGroups": "कोई समूह नहीं।",
+  "settings.channels.groups": "समूहों में कौन मुझे चला सकता है",
+  "settings.channels.noGroups": "डायरेक्ट मैसेज में अनुमति प्राप्त सभी लोग समूहों में मुझे चला सकते हैं।",
   "settings.channels.requireMention": "समूहों में केवल उल्लेख किए जाने पर जवाब दें",
   "settings.channels.err.forbidden":
     "{action, select, policy {कौन संदेश भेज सकता है, यह बदलने} mention {समूह उल्लेख बदलने} approve {प्रेषक को स्वीकृत करने} other {प्रेषक की अनदेखी करने}} के लिए इस डिवाइस पर स्वीकृति चाहिए। ऐडमिन के रूप में पेयर किए गए डिवाइस का उपयोग करें।",
@@ -1940,6 +1964,12 @@ export const hi: Partial<Catalogue> = {
   "settings.apiKeys.save": "सहेजें",
   "settings.apiKeys.saving": "सहेजा जा रहा है…",
   "settings.apiKeys.clear": "हटाएँ",
+  "settings.apiKeys.clearConfirm.title": "{name} की कुंजी हटाएँ?",
+  "settings.apiKeys.clearConfirm.body":
+    "Psyche वॉल्ट में सहेजी {name} की कुंजी मिटा देता है। {name} के अनुरोध तब तक विफल होंगे जब तक दोबारा कुंजी सहेजी न जाए या एनवायरनमेंट में सेट न हो।",
+  "settings.apiKeys.clearConfirm.bodyPrimary":
+    "Psyche वॉल्ट में सहेजी {name} की कुंजी मिटा देता है। आपका डिफ़ॉल्ट मॉडल {name} का उपयोग करता है, इसलिए जब तक आप दोबारा कुंजी सहेजते या कोई दूसरा मॉडल नहीं चुनते, चैट विफल रहेगी।",
+  "settings.apiKeys.clearConfirm.confirm": "कुंजी हटाएँ",
   "settings.apiKeys.none": "सेट नहीं है",
   "settings.apiKeys.vault": "वॉल्ट में सहेजी गई",
   "settings.apiKeys.env": "एनवायरनमेंट में सेट (प्राथमिकता)",
@@ -3810,6 +3840,7 @@ export const hi: Partial<Catalogue> = {
   ...windowsPlatform202611,
   ...mailFollowups,
   ...keepAwake,
+  ...update,
   ...spaces,
   ...machines,
 };

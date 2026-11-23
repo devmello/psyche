@@ -46,6 +46,7 @@ import { settingsRest } from "./settings-rest/de.ts";
 import { shellRest } from "./shell-rest/de.ts";
 import { spaces } from "./spaces/de.ts";
 import { specialistsRest } from "./specialists-rest/de.ts";
+import { update } from "./update/de.ts";
 import { webRest } from "./web-rest/de.ts";
 import { widgetsRest } from "./widgets-rest/de.ts";
 import { windowsPlatform202611 } from "./windows-platform-2026-11/de.ts";
@@ -1751,10 +1752,35 @@ export const de: Partial<Catalogue> = {
   "settings.channels.approve": "Bestätigen",
   "settings.channels.ignoreSender": "{name} ignorieren",
   "settings.channels.ignore": "Ignorieren",
+  "settings.channels.allow.remove": "Entfernen",
+  "settings.channels.allow.removeNamed": "{name} entfernen",
+  "settings.channels.allow.senderLabel": "Absender, der erlaubt werden soll",
+  "settings.channels.allow.groupLabel": "Absender hinzufügen (Gruppenchats)",
+  "settings.channels.allow.addSender": "Absender hinzufügen",
+  "settings.channels.allow.addGroup": "Absender hinzufügen",
+  "settings.channels.allow.senderApproval": "Einen Chat-Absender erlauben",
+  "settings.channels.allow.groupApproval": "Änderung, wer mich in Gruppen auslösen kann",
+  "settings.channels.allow.groupEmptied":
+    "Wenn du {name} entfernst, bleibt niemand auf dieser Liste. Dann können alle, die in Direktnachrichten erlaubt sind, Psyche in Gruppen auslösen.",
+  "settings.channels.allow.forbidden":
+    "Wer schreiben darf, lässt sich nur mit einem Admin-Gerät ändern. Nutze ein als Admin gekoppeltes Gerät.",
+  "settings.channels.allow.failed":
+    "Psyche konnte nicht ändern, wer schreiben darf ({reason}). Nichts wurde geändert.",
+  "settings.channels.identity.name": "Name der Person",
+  "settings.channels.identity.senders": "Absender-IDs, durch Kommas getrennt",
+  "settings.channels.identity.link": "Identität verknüpfen",
+  "settings.channels.identity.unlink": "Verknüpfung lösen",
+  "settings.channels.identity.unlinkNamed": "Verknüpfung von {name} lösen",
+  "settings.channels.identity.approval": "Eine Chat-Identität verknüpfen",
+  "settings.channels.identity.forbidden":
+    "Identitätsverknüpfungen lassen sich nur mit einem Admin-Gerät ändern. Nutze ein als Admin gekoppeltes Gerät.",
+  "settings.channels.identity.failed":
+    "Psyche konnte die Identitätsverknüpfung nicht ändern ({reason}). Nichts wurde geändert.",
   "settings.channels.noOneYet": "Noch niemand.",
   "settings.channels.owner": " · Besitzer",
-  "settings.channels.groups": "Gruppen",
-  "settings.channels.noGroups": "Keine Gruppen.",
+  "settings.channels.groups": "Wer mich in Gruppen auslösen kann",
+  "settings.channels.noGroups":
+    "Alle, die in Direktnachrichten erlaubt sind, können mich in Gruppen auslösen.",
   "settings.channels.requireMention": "In Gruppen nur bei Erwähnung antworten",
   "settings.channels.err.forbidden":
     "{action, select, policy {Das Ändern, wer schreiben darf,} mention {Das Ändern der Gruppenerwähnungen} approve {Das Bestätigen des Absenders} other {Das Ignorieren des Absenders}} braucht eine Genehmigung auf diesem Gerät. Verwende ein als Admin gekoppeltes Gerät.",
@@ -1986,6 +2012,12 @@ export const de: Partial<Catalogue> = {
   "settings.apiKeys.save": "Speichern",
   "settings.apiKeys.saving": "Speichern …",
   "settings.apiKeys.clear": "Entfernen",
+  "settings.apiKeys.clearConfirm.title": "Schlüssel {name} entfernen?",
+  "settings.apiKeys.clearConfirm.body":
+    "Psyche löscht den gespeicherten {name}-Schlüssel aus dem Tresor. Anfragen an {name} schlagen fehl, bis wieder ein Schlüssel gespeichert oder in der Umgebung gesetzt ist.",
+  "settings.apiKeys.clearConfirm.bodyPrimary":
+    "Psyche löscht den gespeicherten {name}-Schlüssel aus dem Tresor. Dein Standardmodell nutzt {name}, daher funktioniert der Chat nicht, bis du wieder einen Schlüssel speicherst oder ein anderes Modell wählst.",
+  "settings.apiKeys.clearConfirm.confirm": "Schlüssel entfernen",
   "settings.apiKeys.none": "Nicht gesetzt",
   "settings.apiKeys.vault": "Im Tresor gespeichert",
   "settings.apiKeys.env": "In der Umgebung gesetzt (hat Vorrang)",
@@ -3949,6 +3981,7 @@ export const de: Partial<Catalogue> = {
   ...windowsPlatform202611,
   ...mailFollowups,
   ...keepAwake,
+  ...update,
   ...spaces,
   ...machines,
 };

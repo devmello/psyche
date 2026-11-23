@@ -83,8 +83,41 @@ describe("API keys section", () => {
     expect(document.body.innerHTML).not.toContain(SECRET);
 
     await userEvent.click(within(row).getByRole("button", { name: "Clear" }));
+    await userEvent.click(await screen.findByRole("button", { name: "Remove key" }));
     await waitFor(() => expect(within(row).getByText("Not set")).toBeTruthy());
     expect(callsOf(gateway(), "keys.clear").map((c) => c.params)).toEqual([{ id: "anthropic" }]);
+  });
+
+  it("asks before removing a key, and keeps it when the owner cancels", async () => {
+    const gateway = setup();
+    await userEvent.type(await screen.findByLabelText("OpenAI API key"), SECRET);
+    await userEvent.click(
+      within(screen.getByTestId("api-key-openai")).getByRole("button", { name: "Save" }),
+    );
+    await waitFor(() =>
+      expect(
+        within(screen.getByTestId("api-key-openai")).getByText("Saved in the vault"),
+      ).toBeTruthy(),
+    );
+    await userEvent.click(
+      within(screen.getByTestId("api-key-openai")).getByRole("button", { name: "Clear" }),
+    );
+    expect(await screen.findByText("Remove the OpenAI key?")).toBeTruthy();
+    await userEvent.click(screen.getByRole("button", { name: "Cancel" }));
+    expect(callsOf(gateway(), "keys.clear")).toEqual([]);
+    expect(
+      within(screen.getByTestId("api-key-openai")).getByText("Saved in the vault"),
+    ).toBeTruthy();
+  });
+
+  it("says when the key belongs to the default model's provider", async () => {
+    setup();
+    const row = await screen.findByTestId("api-key-anthropic");
+    await userEvent.type(within(row).getByLabelText("Anthropic API key"), SECRET);
+    await userEvent.click(within(row).getByRole("button", { name: "Save" }));
+    await waitFor(() => expect(within(row).getByText("Saved in the vault")).toBeTruthy());
+    await userEvent.click(within(row).getByRole("button", { name: "Clear" }));
+    expect(await screen.findByText(/Your default model uses Anthropic/)).toBeTruthy();
   });
 
   it("refuses a key with spaces before anything is sent", async () => {

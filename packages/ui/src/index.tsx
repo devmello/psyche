@@ -431,6 +431,7 @@ export {
   threadTitle,
 } from "./shell/ThreadList.tsx";
 export { ThreadsDrawer } from "./shell/ThreadsDrawer.tsx";
+export { UpdateBanner } from "./shell/UpdateBanner.tsx";
 export {
   BudgetBar,
   budgetFraction,

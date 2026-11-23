@@ -44,6 +44,12 @@ import type { ProviderInfo, ProviderKind, ToolCheck } from "./types.ts";
 
 const kindLabel = (k: ProviderKind): string => t(`settings.model.kind.${k}`);
 
+/** The provider id of a `provider/model` ref, or undefined when it has none. */
+const providerOfRef = (ref: string): string | undefined => {
+  const slash = ref.indexOf("/");
+  return slash > 0 ? ref.slice(0, slash) : undefined;
+};
+
 const STATUS_TONE: Record<ProviderInfo["status"], "success" | "danger" | "neutral"> = {
   ok: "success",
   missing: "neutral",
@@ -836,6 +842,7 @@ export function ModelSection(props: ModelSectionProps): ReactElement {
             apiKeys.reload();
             reload();
           }}
+          primaryProvider={providerOfRef(str(values, "models.primary", ""))}
         />
       ) : null}
       {actionError ? <ErrorNotice what={actionError} /> : null}
