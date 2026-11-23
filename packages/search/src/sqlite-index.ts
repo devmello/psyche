@@ -564,6 +564,14 @@ export class SqliteSearchIndex implements SearchIndex {
       where.sql.push(`d.kind IN (${kinds.map(() => "?").join(", ") || "NULL"})`);
       where.params.push(...kinds);
     }
+    // A sender filter keeps only documents that have a sender (`instr` on NULL is not true), so
+    // documents without one (chat, tasks, memory) drop out. Memory has no sender, so it is
+    // skipped below. Bound parameter and `instr`: `%`, `_` and quotes in the name match literally.
+    const senderOnly = request.from !== undefined;
+    if (request.from !== undefined) {
+      where.sql.push("instr(d.sender_key, ?) > 0");
+      where.params.push(request.from.normalize("NFC").toLowerCase());
+    }
 
     const collapse = request.collapse ?? true;
     const warnings = [...parsed.warnings];
@@ -578,6 +586,7 @@ export class SqliteSearchIndex implements SearchIndex {
         groupLimit,
         warnings,
         started,
+        senderOnly,
       });
     }
     const ranked = this.#rank(parsed, where, { collapse, limit, groupLimit });
@@ -599,7 +608,7 @@ export class SqliteSearchIndex implements SearchIndex {
     let total = ranked.total;
     let flat = flatLocal;
     const memory =
-      agent && this.#agentHidden("memory")
+      senderOnly || (agent && this.#agentHidden("memory"))
         ? []
         : await this.#searchMemory(parsed, viewer, kinds, groupLimit, limit);
     if (memory.length > 0) {
@@ -656,6 +665,8 @@ export class SqliteSearchIndex implements SearchIndex {
       groupLimit: number;
       warnings: string[];
       started: number;
+      /** A sender filter is set: memory (no sender) is left out. */
+      senderOnly: boolean;
     },
   ): Promise<SearchResponse> {
     const depth = Math.max(o.limit, SEMANTIC_K);
@@ -769,7 +780,7 @@ export class SqliteSearchIndex implements SearchIndex {
     let total = ranked.total + chunkOf.size;
     let flat = flatLocal;
     const memory =
-      o.agent && this.#agentHidden("memory")
+      o.senderOnly || (o.agent && this.#agentHidden("memory"))
         ? []
         : await this.#searchMemory(parsed, o.viewer, o.kinds, o.groupLimit, o.limit);
     if (memory.length > 0) {

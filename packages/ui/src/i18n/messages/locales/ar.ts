@@ -2952,7 +2952,6 @@ export const ar: Partial<Catalogue> = {
   "screens.search.activeFilters": "عوامل التصفية النشطة",
   "screens.search.removeFilter": "إزالة عامل التصفية {filter}",
   "screens.search.unknownFilter": "{filter} (ليس عامل تصفية يعرفه Psyche؛ تم تجاهله)",
-  "screens.search.fromNote": "from: يطابق الاسم في النص؛ التصفية حسب المرسل غير متاحة بعد.",
   "screens.evidence.source.gmail": "Gmail",
   "screens.evidence.source.calendar": "التقويم",
   "screens.evidence.source.browser": "المتصفح",

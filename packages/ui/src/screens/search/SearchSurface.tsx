@@ -281,7 +281,8 @@ export function SearchSurface({
   const showSkeleton = useDelayedFlag(loading, loadingDelayMs);
   const blank = query.trim() === "";
   const palette = variant === "palette";
-  const searching = !blank && !(parsed.queryText === "" && parsed.types.length === 0);
+  const searching =
+    !blank && !(parsed.queryText === "" && parsed.types.length === 0 && parsed.from.length === 0);
   const groups = useMemo(
     () =>
       surfaceGroups(
@@ -680,11 +681,6 @@ export function SearchSurface({
           {/* i18n-ignore: query syntax */}
           from:
         </button>
-        {parsed.from.length > 0 ? (
-          <span className="ms-1 text-callout text-label-tertiary">
-            {t("screens.search.fromNote")}
-          </span>
-        ) : null}
       </div>
 
       <div className={cn("flex min-h-0 flex-1", palette && "overflow-hidden")}>
@@ -1039,11 +1035,12 @@ export function useSearchSurface(initialQuery = "", debounceMs = 200, enabled = 
   const search = useSearch(
     enabled
       ? settledParsed.queryText === ""
-        ? settledParsed.types.join(" ")
+        ? settledParsed.types.join(" ") || (settledParsed.from.length > 0 ? " " : "")
         : settledParsed.queryText
       : "",
     settledParsed.scopes,
     dropChips,
+    enabled ? settledParsed.from[0] : undefined,
   );
   const hits = useMemo(() => filterHits(search.hits, settledParsed), [search.hits, settledParsed]);
   // People and projects come first for plain queries; a typed filter (in:, type:, from:) narrows

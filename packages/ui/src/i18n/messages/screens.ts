@@ -69,8 +69,6 @@ export const screens = {
     "Nothing matched all of your filters, so these are matches for your words without them.",
   "screens.search.relaxed.or":
     "No result has all of your words, so these match some of them, best first.",
-  "screens.search.fromNote":
-    "from: matches the name in text; sender filtering isn't available yet.",
   "screens.evidence.source.gmail": "Gmail",
   "screens.evidence.source.calendar": "Calendar",
   "screens.evidence.source.browser": "Browser",

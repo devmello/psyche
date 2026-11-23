@@ -2997,8 +2997,6 @@ export const de: Partial<Catalogue> = {
   "screens.search.activeFilters": "Aktive Filter",
   "screens.search.removeFilter": "Filter {filter} entfernen",
   "screens.search.unknownFilter": "{filter} (kein Filter, den Psyche kennt; ignoriert)",
-  "screens.search.fromNote":
-    "from: findet den Namen im Text; das Filtern nach Absender ist noch nicht verfügbar.",
   "screens.evidence.source.gmail": "Gmail",
   "screens.evidence.source.calendar": "Kalender",
   "screens.evidence.source.browser": "Browser",

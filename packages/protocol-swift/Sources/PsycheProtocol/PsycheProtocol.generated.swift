@@ -31141,6 +31141,10 @@ public struct SearchOpenTarget: Codable, Sendable {
 public struct SearchQueryParams: Codable, Sendable {
     /// Ids of understood chips the user removed
     public let dropChips: [String]?
+    /// Only documents whose sender matches this name, handle or address (case-insensitive,
+    /// substring). Documents with no sender (chat messages, tasks, notes, memory, people) are
+    /// left out
+    public let from: String?
     public let limit: Int?
     public let query: String
     public let scopes: [SearchScope]?
@@ -31150,14 +31154,16 @@ public struct SearchQueryParams: Codable, Sendable {
 
     public enum CodingKeys: String, CodingKey {
         case dropChips = "dropChips"
+        case from = "from"
         case limit = "limit"
         case query = "query"
         case scopes = "scopes"
         case smart = "smart"
     }
 
-    public init(dropChips: [String]? = nil, limit: Int? = nil, query: String, scopes: [SearchScope]? = nil, smart: Bool? = nil) {
+    public init(dropChips: [String]? = nil, from: String? = nil, limit: Int? = nil, query: String, scopes: [SearchScope]? = nil, smart: Bool? = nil) {
         self.dropChips = dropChips
+        self.from = from
         self.limit = limit
         self.query = query
         self.scopes = scopes
