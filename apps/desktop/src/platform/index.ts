@@ -24,6 +24,10 @@ export function isLinux(platform: Platform = hostPlatform()): boolean {
   return platform === "linux";
 }
 
+export function isWindows(platform: Platform = hostPlatform()): boolean {
+  return platform === "win32";
+}
+
 /** What closing the last window does: `stay-with-tray` means "stay only while a tray can be shown". */
 export type LastWindowClosed = "stay" | "stay-with-tray" | "quit";
 

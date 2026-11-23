@@ -1,7 +1,7 @@
 import { hashCanonical } from "@psyche/audit";
 import { getSetting, type PsycheDb, setSetting } from "@psyche/db";
 import { bindingHash } from "@psyche/permissions";
-import { type JsonObject, MACHINE_TOKENS_ENABLED, PsycheError } from "@psyche/protocol";
+import { type JsonObject, PsycheError } from "@psyche/protocol";
 import { hostWords } from "@psyche/protocol/host-words";
 import type { Call } from "./context.ts";
 import { INTERNAL_SETTING_PREFIX } from "./state-version.ts";
@@ -185,14 +185,10 @@ export const PRESENCE_METHODS: Readonly<Record<string, (p: Params) => string | u
   "devices.approve": (p) =>
     `Approve a new device with ${Array.isArray(p.scopes) ? p.scopes.join(", ") : "scopes"}`,
   // A setup token pairs a computer without a second approval, so making one is approving ahead.
-  // `purpose: machine` has no gate until the machine registry lands: the handler refuses it
-  // (`unavailable`) first, so no card is shown for a request that will fail. H3 must give it its
-  // own purpose-aware summary ("Let a new Linux computer pair itself as a computer Psyche can use").
+  // A machine token gets a card worded for a machine (the machine registry, H3).
   "devices.setupToken.create": (p) =>
     p.purpose === "machine"
-      ? MACHINE_TOKENS_ENABLED
-        ? `Let a new Linux computer pair itself${p.via === "lan" ? " from this network" : ""} as a computer Psyche can use`
-        : undefined
+      ? `Let a new Linux computer pair itself${p.via === "lan" ? " from this network" : ""} as a computer Psyche can use`
       : `Let a new computer pair itself${p.via === "lan" ? " from this network" : ""} with ${Array.isArray(p.scopes) ? p.scopes.join(", ") : "scopes"}`,
   // Anything but "always" lowers protection: a server whose tools are not payments needs no
   // presence on its calls. Raising it to "always" only adds friction and stays admin-only.

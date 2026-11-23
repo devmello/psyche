@@ -15,7 +15,6 @@ import { describe, expect, it } from "vitest";
  */
 const BASELINE: Record<string, number> = {
   "gateway-client.ts": 1,
-  "main.ts": 14,
   "main/screen-ask/settings.ts": 2,
   "main/window-options.ts": 4,
   "main/dictation/controller.ts": 2,
@@ -26,7 +25,7 @@ const BASELINE: Record<string, number> = {
   "main/supervisor-base.ts": 3,
   "main/bridge/bridge-client.ts": 1,
   "main/supervisor.ts": 1,
-  "main/helper-launcher.ts": 2,
+  "main/helper-launcher.ts": 1,
   "main/updater.ts": 3,
   "main/shortcuts.ts": 2,
   "lib/app-info.ts": 1,

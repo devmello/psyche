@@ -1274,8 +1274,6 @@
 //   let sandboxInfo = try? JSONDecoder().decode(SandboxInfo.self, from: jsonData)
 //   let sandboxInstallSrtParams = try? JSONDecoder().decode(SandboxInstallSrtParams.self, from: jsonData)
 //   let sandboxInstallSrtResult = try? JSONDecoder().decode(SandboxInstallSrtResult.self, from: jsonData)
-//   let sandboxListParams = try? JSONDecoder().decode(SandboxListParams.self, from: jsonData)
-//   let sandboxListResult = try? JSONDecoder().decode(SandboxListResult.self, from: jsonData)
 //   let sandboxNetwork = try? JSONDecoder().decode(SandboxNetwork.self, from: jsonData)
 //   let sandboxPCStatus = try? JSONDecoder().decode(SandboxPCStatus.self, from: jsonData)
 //   let sandboxSetupBackend = try? JSONDecoder().decode(SandboxSetupBackend.self, from: jsonData)
@@ -29906,65 +29904,6 @@ public enum SandboxSrtSource: String, Codable, Sendable {
     case setting = "setting"
 }
 
-// MARK: - SandboxListResult
-public struct SandboxListResult: Codable, Sendable {
-    public let sandboxes: [SandboxInfo]
-
-    public enum CodingKeys: String, CodingKey {
-        case sandboxes = "sandboxes"
-    }
-
-    public init(sandboxes: [SandboxInfo]) {
-        self.sandboxes = sandboxes
-    }
-}
-
-// MARK: - SandboxInfo
-public struct SandboxInfo: Codable, Sendable {
-    public let createdAt: String
-    public let id: String
-    public let image: String
-    public let lastUsedAt: String?
-    public let network: SandboxNetwork
-    public let status: SandboxStatus
-    public let taskID: String?
-    public let threadID: String?
-
-    public enum CodingKeys: String, CodingKey {
-        case createdAt = "createdAt"
-        case id = "id"
-        case image = "image"
-        case lastUsedAt = "lastUsedAt"
-        case network = "network"
-        case status = "status"
-        case taskID = "taskId"
-        case threadID = "threadId"
-    }
-
-    public init(createdAt: String, id: String, image: String, lastUsedAt: String? = nil, network: SandboxNetwork, status: SandboxStatus, taskID: String? = nil, threadID: String? = nil) {
-        self.createdAt = createdAt
-        self.id = id
-        self.image = image
-        self.lastUsedAt = lastUsedAt
-        self.network = network
-        self.status = status
-        self.taskID = taskID
-        self.threadID = threadID
-    }
-}
-
-public enum SandboxNetwork: String, Codable, Sendable {
-    case none = "none"
-    case proxy = "proxy"
-}
-
-public enum SandboxStatus: String, Codable, Sendable {
-    case creating = "creating"
-    case error = "error"
-    case running = "running"
-    case stopped = "stopped"
-}
-
 // MARK: - SandboxSetupResult
 public struct SandboxSetupResult: Codable, Sendable {
     public let containers: SandboxContainerSetup
@@ -30118,6 +30057,52 @@ public struct SandboxStatusResult: Codable, Sendable {
         self.sandboxPC = sandboxPC
         self.srt = srt
     }
+}
+
+// MARK: - SandboxInfo
+public struct SandboxInfo: Codable, Sendable {
+    public let createdAt: String
+    public let id: String
+    public let image: String
+    public let lastUsedAt: String?
+    public let network: SandboxNetwork
+    public let status: SandboxStatus
+    public let taskID: String?
+    public let threadID: String?
+
+    public enum CodingKeys: String, CodingKey {
+        case createdAt = "createdAt"
+        case id = "id"
+        case image = "image"
+        case lastUsedAt = "lastUsedAt"
+        case network = "network"
+        case status = "status"
+        case taskID = "taskId"
+        case threadID = "threadId"
+    }
+
+    public init(createdAt: String, id: String, image: String, lastUsedAt: String? = nil, network: SandboxNetwork, status: SandboxStatus, taskID: String? = nil, threadID: String? = nil) {
+        self.createdAt = createdAt
+        self.id = id
+        self.image = image
+        self.lastUsedAt = lastUsedAt
+        self.network = network
+        self.status = status
+        self.taskID = taskID
+        self.threadID = threadID
+    }
+}
+
+public enum SandboxNetwork: String, Codable, Sendable {
+    case none = "none"
+    case proxy = "proxy"
+}
+
+public enum SandboxStatus: String, Codable, Sendable {
+    case creating = "creating"
+    case error = "error"
+    case running = "running"
+    case stopped = "stopped"
 }
 
 // MARK: - ScheduledListResult
@@ -41295,7 +41280,6 @@ public typealias PasskeysReauthBeginParams = [String: JSONAny]
 public typealias PasskeysRegisterBeginParams = [String: JSONAny]
 public typealias PaymentsLinkSignInParams = [String: JSONAny]
 public typealias PaymentsLinkStatusParams = [String: JSONAny]
-public typealias SandboxListParams = [String: JSONAny]
 public typealias SandboxSetupParams = [String: JSONAny]
 public typealias ScheduledListParams = [String: JSONAny]
 public typealias SearchReindexParams = [String: JSONAny]

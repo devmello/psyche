@@ -118,12 +118,6 @@ export const SandboxContainerSetup = Type.Object(
 export type SandboxContainerSetup = Static<typeof SandboxContainerSetup>;
 
 export const SandboxMethods = {
-  "sandbox.list": defineMethod({
-    params: Type.Object({}),
-    result: Type.Object({ sandboxes: Type.Array(SandboxInfo) }),
-    scope: "operator.read",
-    description: "Lists sandboxes.",
-  }),
   "sandbox.status": defineMethod({
     params: Type.Object({ sandboxId: Type.Optional(Id) }),
     result: Type.Object({

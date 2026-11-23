@@ -201,6 +201,8 @@ import { autostartPath } from "./platform/autostart.ts";
 import {
   hostPlatform,
   isLinux,
+  isMac,
+  isWindows,
   LINUX_DESKTOP_NAME,
   quitsOnLastWindowClosed,
 } from "./platform/index.ts";
@@ -235,7 +237,7 @@ import {
 // anything else starts (src/main/squirrel-events.ts).
 if (handleSquirrelEvent({ app, shell })) process.exit(0);
 
-const windows32 = process.platform === "win32";
+const windows32 = hostPlatform() === "win32";
 
 // Linux: the shell (GNOME's shortcut portal, the launcher) knows the app by its .desktop file; a
 // mismatch makes GNOME silently deny every global shortcut (design §10.4).
@@ -311,10 +313,10 @@ const supervisorMode = remoteGateway ? "remote" : chooseMode(process.env, app.is
  */
 const canUninstall =
   (app.isPackaged &&
-    ((supervisorMode === "launchd" && process.platform === "darwin") ||
+    ((supervisorMode === "launchd" && hostPlatform() === "darwin") ||
       (supervisorMode === "systemd" && isLinux()) ||
       (supervisorMode === "taskscheduler" &&
-        process.platform === "win32" &&
+        hostPlatform() === "win32" &&
         squirrelLayout(process.execPath) !== undefined))) ||
   // The e2e shows the Uninstall sheet from an unpackaged run (it stubs the plan and never
   // confirms); the real plan and uninstall still refuse a copy that is not a Squirrel install.
@@ -407,7 +409,7 @@ let integrityMessage =
   "Turned off: this copy of Psyche was modified. Reinstall it from the official download.";
 
 async function startupIntegrity(): Promise<void> {
-  if (!app.isPackaged || process.platform !== "darwin") return;
+  if (!app.isPackaged || hostPlatform() !== "darwin") return;
   const pinned = readBundledPinned(process.resourcesPath);
   const requirement = pinned === undefined ? undefined : parsePinnedRequirement(pinned);
   if (!requirement) return;
@@ -512,7 +514,7 @@ const windowTheme = new WindowTheme({
           ),
         materialBackground: () =>
           chromeViewBackground(
-            process.platform,
+            hostPlatform(),
             nativeTheme.shouldUseDarkColors,
             nativeTheme.shouldUseHighContrastColors,
           ),
@@ -705,7 +707,7 @@ async function invokeHelper(capability: string, params: unknown): Promise<unknow
 
 /** The sandbox PC's one-time setup on Windows (service install, guest image); idle elsewhere. */
 const sandboxPc = createSandboxPc({
-  platform: process.platform,
+  platform: hostPlatform(),
   packaged: app.isPackaged,
   resourcesPath: process.resourcesPath,
   appPath: app.getAppPath(),
@@ -721,7 +723,7 @@ const sandboxPc = createSandboxPc({
 
 /** macOS privacy permissions for onboarding and Settings (issue #384). */
 const permissions = createPermissions({
-  platform: process.platform,
+  platform: hostPlatform(),
   systemPreferences,
   desktopCapturer,
   openExternal: (url) => shell.openExternal(url),
@@ -770,7 +772,7 @@ function bundledHelperIdentity(): Promise<HelperIdentity | undefined> {
  */
 function bundledHelperPath(): string | undefined {
   return helperPathFor({
-    platform: process.platform,
+    platform: hostPlatform(),
     packaged: app.isPackaged,
     resourcesPath: process.resourcesPath,
     appPath: app.getAppPath(),
@@ -867,7 +869,7 @@ async function withoutOwnWindows<T>(run: () => Promise<T>): Promise<T> {
 
 /** `/Applications/Psyche.app` for a packaged macOS build (three levels above the executable), else null. */
 function installedBundlePath(): string | null {
-  if (!app.isPackaged || process.platform !== "darwin") return null;
+  if (!app.isPackaged || hostPlatform() !== "darwin") return null;
   return resolve(dirname(process.execPath), "..", "..");
 }
 
@@ -1270,7 +1272,7 @@ function registerIpc(): void {
     const cmd =
       isLinux() && linuxFound === undefined
         ? null
-        : realChromeOpenCommand(process.platform, dir, found?.path, linuxFound);
+        : realChromeOpenCommand(hostPlatform(), dir, found?.path, linuxFound);
     if (cmd === null) {
       throw new PsycheError(
         "unavailable",
@@ -1412,7 +1414,7 @@ function registerIpc(): void {
         "unavailable",
         id === undefined
           ? `This app has no bundled Psyche Helper to read the ${hostWords().presence} key from`
-          : id.error === undefined && process.platform === "darwin"
+          : id.error === undefined && hostPlatform() === "darwin"
             ? `${hostWords().presence} on this Mac needs no key to register`
             : `The bundled Psyche Helper has no ${hostWords().presence} key (${id.error ?? "unknown"})`,
       );
@@ -1493,7 +1495,7 @@ function registerIpc(): void {
   handle(IPC.appInfo, () =>
     appInfo({
       appVersion: app.getVersion(),
-      platform: process.platform,
+      platform: hostPlatform(),
       arch: process.arch,
       osVersion: process.getSystemVersion(),
       versions: process.versions,
@@ -1971,7 +1973,7 @@ void app.whenReady().then(async () => {
   if (!app.isPackaged) {
   }
   // Packaged builds get the icon from the bundle (forge.config.ts); dev runs set the Dock icon here.
-  if (!app.isPackaged && process.platform === "darwin") {
+  if (!app.isPackaged && hostPlatform() === "darwin") {
     app.dock?.setIcon(join(app.getAppPath(), "assets", "icon.png"));
   }
   if (!MAIN_WINDOW_VITE_DEV_SERVER_URL) await serveAppProtocol();
@@ -1994,7 +1996,7 @@ void app.whenReady().then(async () => {
   );
 
   // Liquid Glass spike: off unless PSYCHE_GLASS=native on an unpackaged macOS run.
-  const glass = app.isPackaged ? "off" : glassMode(process.env, process.platform);
+  const glass = app.isPackaged ? "off" : glassMode(process.env, hostPlatform());
   windows = createAppWindows({
     rendererUrl,
     preloadPath: preloadPath(),
@@ -2303,7 +2305,7 @@ void app.whenReady().then(async () => {
     warn: (m) => console.warn(`[dictation] ${m}`),
     onStatus: (s) => broadcast(IPC.dictationStatus, s),
     // Windows: Settings warns when Right Alt is AltGr on the layout in use.
-    ...(process.platform === "win32"
+    ...(hostPlatform() === "win32"
       ? { altGrLayout: () => readAltGrLayout(helperForThisGateway(), runHelperOnce) }
       : {}),
     // Double-tapping the voice or dictation key opens "Ask about my screen", like the shortcut.

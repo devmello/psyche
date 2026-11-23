@@ -39,6 +39,7 @@ import {
   THIS_MAC_ID,
   touchGateway,
 } from "../lib/gateways.ts";
+import { hostPlatform } from "../platform/index.ts";
 
 /**
  * Owns the saved Gateways for the main process (remote-gateway design §1.3): the list the avatar
@@ -326,7 +327,7 @@ export class GatewayManager {
           deviceId: key.deviceId,
           publicKey: key.publicKey,
           name: `Psyche Desktop (${hostname()})`.slice(0, 64),
-          platform: platformFromNode(process.platform),
+          platform: platformFromNode(hostPlatform()),
         },
       });
     } catch (err) {
