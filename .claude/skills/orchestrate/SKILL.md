@@ -87,3 +87,4 @@ Out of scope: <neighbouring areas other sessions own>
 ## Learnings
 
 - 2026-11-10: preset-only dispatches ran on Opus (§1). Merging a PR does not stop its builder: it pushed to #1309's branch after the merge (#1310). After merging, tell the builder it is done (`SendMessage`) or archive its session.
+- 2026-11-23: the merge gate is `verify.sh --related`, not a builder's plain pass (#1529 passed 6 tests, then 5 MCP tests failed). A builder's self-commissioned review doesn't count: commission your own. Tell iOS builders to merge `origin/main` and union `Localizable.xcstrings` right before reporting.
