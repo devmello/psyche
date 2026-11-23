@@ -10,7 +10,7 @@ import {
 } from "@psyche/hostfs";
 import { CliError } from "./errors.ts";
 import { type Exec, whereExe, which } from "./exec.ts";
-import { parseGatewayUnit, renderGatewayUnit } from "./systemd-unit.ts";
+import { APPRUN_PSYCHED_ARG, parseGatewayUnit, renderGatewayUnit } from "./systemd-unit.ts";
 
 /**
  * Gateway supervision (feature A7, architecture §3.2): a per-user LaunchAgent on macOS, a
@@ -133,7 +133,8 @@ export function renderSystemdUnit(input: ServiceInput, installed?: string): stri
     return renderGatewayUnit({
       ...base,
       profile: "desktop",
-      ...(parsed.appImage ? { appImage: true } : {}),
+      // From what is being written now, never from the old text: a plain psyched keeps all three.
+      appImage: base.args?.[0] === APPRUN_PSYCHED_ARG,
       ...(parsed.env.PSYCHE_BUILD === undefined ? {} : { build: parsed.env.PSYCHE_BUILD }),
       ...(parsed.env.PSYCHE_VAULT_KEY_FILE === undefined
         ? {}

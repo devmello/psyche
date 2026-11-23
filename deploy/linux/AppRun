@@ -17,6 +17,7 @@
 # that --setup-system installed under /usr/local/lib/psyche, byte-identical to the one in this
 # image; otherwise it says what to do and exits. Psyche never runs with --no-sandbox.
 #
+# PSYCHE_APPRUN_SETPRIV (tests only) names the setpriv binary --psyched uses, see there.
 # PSYCHE_APPRUN_PROC (tests only) is the folder read instead of /proc/sys/kernel. It can only make
 # this check pass or fail; a wrong answer ends in Chromium refusing to start, never in a weaker sandbox.
 set -eu
@@ -99,11 +100,23 @@ case ${1:-} in
     # it runs this AppImage, because the AppImage runtime mounts itself through the setuid
     # fusermount3 and that fails under no_new_privs; so it is applied here, after the mount, to
     # psyched itself. Fail closed: never start psyched without it.
-    command -v setpriv >/dev/null 2>&1 || {
+    # setpriv is looked up at its two fixed system paths, never through PATH: a setpriv earlier on
+    # PATH (a user's ~/bin) must not stand in for the real one. PSYCHE_APPRUN_SETPRIV (tests only)
+    # replaces the lookup with the one binary to use; it can only name that binary, and an empty
+    # or non-executable answer still ends in the refusal below, never in psyched without it.
+    setpriv_bin=
+    if [ -n "${PSYCHE_APPRUN_SETPRIV:-}" ]; then
+      [ -x "$PSYCHE_APPRUN_SETPRIV" ] && setpriv_bin=$PSYCHE_APPRUN_SETPRIV
+    else
+      for c in /usr/bin/setpriv /bin/setpriv; do
+        [ -x "$c" ] && { setpriv_bin=$c; break; }
+      done
+    fi
+    [ -n "$setpriv_bin" ] || {
       echo "psyche: psyched needs setpriv (util-linux) to run with no_new_privs; install util-linux" >&2
       exit 1
     }
-    exec setpriv --no-new-privs "$here/resources/psyched/psyched" "$@"
+    exec "$setpriv_bin" --no-new-privs "$here/resources/psyched/psyched" "$@"
     ;;
 esac
 

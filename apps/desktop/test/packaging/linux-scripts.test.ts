@@ -371,6 +371,8 @@ function appFolder(opts: { proc?: Record<string, string> } = {}) {
       env: {
         PATH: path,
         PSYCHE_APPRUN_PROC: proc,
+        // AppRun finds setpriv at /usr/bin or /bin only, never on PATH: tests name the fake.
+        PSYCHE_APPRUN_SETPRIV: join(bin, "setpriv"),
         PSYCHE_APPRUN_SANDBOX_DIR: join(root, "sys"),
         LANG: "en_US.UTF-8",
         ...env,
@@ -417,12 +419,27 @@ describe.skipIf(!posix)("AppRun", () => {
 
   it("--psyched refuses to start without setpriv, and never runs psyched", () => {
     const a = appFolder({ proc: BLOCKED });
-    const empty = join(a.root, "empty");
-    mkdirSync(empty);
-    const r = a.run(["--psyched", "--port", "0"], {}, empty);
+    const r = a.run(["--psyched", "--port", "0"], {
+      PSYCHE_APPRUN_SETPRIV: join(a.root, "no-such-setpriv"),
+    });
     expect(r.status).toBe(1);
     expect(r.stderr).toContain("setpriv");
     expect(r.stderr.trim().split("\n")).toHaveLength(1);
+    expect(a.read("psyched.args")).toBeUndefined();
+  });
+
+  it("--psyched does not take a setpriv from PATH, and an empty override refuses too", () => {
+    const a = appFolder({ proc: BLOCKED });
+    // A setpriv first on PATH is the fake from appFolder; with the override pointing nowhere it
+    // must not be used (on a real Linux box /usr/bin/setpriv is only reached with no override).
+    const r = a.run(["--psyched"], { PSYCHE_APPRUN_SETPRIV: join(a.root, "missing") });
+    expect(r.status).toBe(1);
+    expect(a.read("setpriv.args")).toBeUndefined();
+    expect(a.read("psyched.args")).toBeUndefined();
+    const dir = join(a.root, "notexec");
+    write(dir, "#!/bin/sh\nexit 0\n", 0o644);
+    const r2 = a.run(["--psyched"], { PSYCHE_APPRUN_SETPRIV: dir });
+    expect(r2.status).toBe(1);
     expect(a.read("psyched.args")).toBeUndefined();
   });
 

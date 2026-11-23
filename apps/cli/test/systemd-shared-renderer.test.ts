@@ -67,6 +67,7 @@ describe("the CLI's systemd unit", () => {
       args: ["--psyched"],
       psycheHome: "/home/me/.psyche",
       profile: "desktop",
+      appImage: true,
       build: "b9",
       vaultKeyFile: "/home/me/.psyche/secrets/vault.key",
       memoryHigh: "1G",
@@ -94,5 +95,52 @@ describe("the CLI's systemd unit", () => {
       installed,
     );
     expect(rewritten).toBe(installed);
+  });
+
+  const THREE = ["NoNewPrivileges=yes", "LockPersonality=yes", "RestrictSUIDSGID=yes"];
+  const appImageUnit = renderGatewayUnit({
+    program: "/a/Psyche.AppImage",
+    args: ["--psyched"],
+    psycheHome: "/home/me/.psyche",
+    profile: "desktop",
+    build: "b9",
+    appImage: true,
+  });
+
+  it("a plain psyched written over the AppImage's unit gets all three lines back", () => {
+    const rewritten = renderSystemdUnit(
+      { program: "/usr/local/bin/psyched", args: [], psycheHome: "/home/me/.psyche" },
+      appImageUnit,
+    );
+    expect(rewritten).toContain('ExecStart="/usr/local/bin/psyched"');
+    for (const k of THREE) expect(rewritten).toContain(k);
+    const noArgs = renderSystemdUnit(
+      { program: "/usr/local/bin/psyched", psycheHome: "/home/me/.psyche" },
+      appImageUnit,
+    );
+    for (const k of THREE) expect(noArgs).toContain(k);
+  });
+
+  it("a desktop unit with a respelled NoNewPrivileges=true and a plain program keeps all three", () => {
+    const respelled = renderGatewayUnit({
+      program: "/usr/local/bin/psyched",
+      psycheHome: "/home/me/.psyche",
+      profile: "desktop",
+    }).replace("NoNewPrivileges=yes", "NoNewPrivileges=true");
+    const rewritten = renderSystemdUnit(
+      { program: "/usr/local/bin/psyched", psycheHome: "/home/me/.psyche" },
+      respelled,
+    );
+    for (const k of THREE) expect(rewritten).toContain(k);
+  });
+
+  it("renderGatewayUnit with appImage but no --psyched keeps all three", () => {
+    const unit = renderGatewayUnit({
+      program: "/a/Psyche.AppImage",
+      args: [],
+      profile: "desktop",
+      appImage: true,
+    });
+    for (const k of THREE) expect(unit).toContain(k);
   });
 });

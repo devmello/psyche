@@ -27,6 +27,9 @@ export const DESKTOP_UNIT_MARKER = "# Managed by the Psyche desktop app";
  */
 export const DEFAULT_MEMORY_HIGH = "768M";
 
+/** The first argument that makes an AppImage start psyched through AppRun (and `setpriv --no-new-privs`). */
+export const APPRUN_PSYCHED_ARG = "--psyched";
+
 export type UnitProfile = "server" | "desktop";
 
 export interface GatewayUnitInput {
@@ -43,11 +46,14 @@ export interface GatewayUnitInput {
   /** desktop: `MemoryHigh=`, default {@link DEFAULT_MEMORY_HIGH}. */
   memoryHigh?: string;
   /**
-   * desktop: the program is an AppImage (`install: "user"`). The unit then leaves out
-   * `NoNewPrivileges`, `LockPersonality` and `RestrictSUIDSGID` (the AppImage runtime mounts
-   * itself through the setuid `fusermount3`, which fails under no_new_privs; systemd also implies
-   * NoNewPrivileges for any seccomp-based option in a user unit). `deploy/linux/AppRun --psyched`
-   * applies `setpriv --no-new-privs` to psyched instead, so psyched and everything it starts keep it.
+   * desktop: the program is an AppImage run with `--psyched` (`install: "user"`). The unit then
+   * leaves out `NoNewPrivileges`, `LockPersonality` and `RestrictSUIDSGID` (the AppImage runtime
+   * mounts itself through the setuid `fusermount3`, which fails under no_new_privs; systemd also
+   * implies NoNewPrivileges for any seccomp-based option in a user unit). `deploy/linux/AppRun
+   * --psyched` applies `setpriv --no-new-privs` to psyched instead, so psyched and everything it
+   * starts keep it. The renderer is the single gate: the lines go only when this is true AND
+   * `args[0]` is `--psyched` (the argument that routes through AppRun), so a plain psyched never
+   * loses them.
    */
   appImage?: boolean;
 }
@@ -117,7 +123,7 @@ WantedBy=default.target
     ["PSYCHE_VAULT_KEY_FILE", input.vaultKeyFile],
   ]);
   const hardening =
-    input.appImage === true
+    input.appImage === true && input.args?.[0] === APPRUN_PSYCHED_ARG
       ? `# No NoNewPrivileges, LockPersonality or RestrictSUIDSGID here: the AppImage runtime mounts itself
 # through the setuid fusermount3, which fails under no_new_privs. AppRun --psyched starts psyched
 # with \`setpriv --no-new-privs\`, so psyched and everything it starts still get it.
@@ -251,7 +257,10 @@ export interface ParsedGatewayUnit {
   args: string[];
   env: Record<string, string>;
   profile: UnitProfile;
-  /** A desktop unit written with `appImage: true`: no `NoNewPrivileges=` line (see {@link GatewayUnitInput}). */
+  /**
+   * The ExecStart is an AppImage-style launch: the first argument is `--psyched`. Says nothing
+   * about which hardening lines the text has; {@link renderGatewayUnit} decides those.
+   */
   appImage: boolean;
 }
 
@@ -273,6 +282,6 @@ export function parseGatewayUnit(text: string): ParsedGatewayUnit | undefined {
     args,
     env,
     profile,
-    appImage: profile === "desktop" && !/^NoNewPrivileges=yes$/m.test(text),
+    appImage: profile === "desktop" && args[0] === APPRUN_PSYCHED_ARG,
   };
 }

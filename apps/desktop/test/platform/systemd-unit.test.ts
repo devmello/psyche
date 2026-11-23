@@ -88,10 +88,32 @@ describe("gateway unit text", () => {
       }
     });
 
+    it("appImage without --psyched as the first argument keeps all three lines", () => {
+      for (const args of [[], undefined, ["--other", "--psyched"]]) {
+        const { args: _args, ...noArgs } = base;
+        const unit = renderGatewayUnit({
+          ...noArgs,
+          program: "/usr/local/bin/psyched",
+          ...(args === undefined ? {} : { args }),
+          appImage: true,
+        });
+        for (const k of THREE) expect(unit).toMatch(new RegExp(`^${k}=yes$`, "m"));
+      }
+    });
+
+    it("parse says appImage from the ExecStart args, not from the hardening lines", () => {
+      const plain = renderGatewayUnit({ program: "/x/psyched", profile: "desktop" });
+      const respelled = plain.replace("NoNewPrivileges=yes", "NoNewPrivileges=true");
+      expect(parseGatewayUnit(respelled)?.appImage).toBe(false);
+      expect(
+        parseGatewayUnit(image.replace("UMask=0077", "UMask=0077\nNoNewPrivileges=yes"))?.appImage,
+      ).toBe(true);
+    });
+
     it("round-trips: parse says appImage, a re-render of the parse is identical", () => {
       const parsed = parseGatewayUnit(image);
       expect(parsed).toMatchObject({ profile: "desktop", appImage: true, args: ["--psyched"] });
-      expect(parseGatewayUnit(desktop)?.appImage).toBe(false);
+      expect(parseGatewayUnit(renderGatewayUnit({ ...base, args: [] }))?.appImage).toBe(false);
       expect(parseGatewayUnit(renderGatewayUnit({ program: "/x/psyched" }))?.appImage).toBe(false);
       expect(
         renderGatewayUnit({
