@@ -170,6 +170,8 @@ export function stopUpdater(): void {
 export interface LinuxUpdateHost extends RollbackHooks {
   /** `updateGateway(supervisor, () => gateway.call("gateway.prepareUpdate", ...))`. */
   gateway: UpdateGateway;
+  /** A release "Go back" left (`run/skip-builds.json`): it is not offered again. */
+  isSkipped?(release: string): boolean;
 }
 
 let linuxHost: LinuxUpdateHost | undefined;
@@ -317,6 +319,12 @@ async function runLinuxUpdater(opts: UpdaterOptions, log: (m: string) => void): 
       return { state: "refused", code: result.code, reason: result.reason };
     case "ready":
       if (stopped || !result.artifact || !result.manifest) return { state: "disabled" };
+      if (linuxHost?.isSkipped?.(result.release)) {
+        // The owner went back from this release: wait for a newer one. (It was fetched before its
+        // number was known; the file stays in the updates folder until the next check replaces it.)
+        log(`Psyche ${result.release} is not offered: you went back from it`);
+        return { state: "none", reason: "skipped after going back" };
+      }
       linuxStaged = {
         release: result.release,
         file: result.file,

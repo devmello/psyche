@@ -11,6 +11,7 @@ import {
 import { DeviceScope, PsycheError, type DeviceScope as Scope } from "@psyche/protocol";
 import { serverBuild } from "./build-info.ts";
 import { resolveConfig } from "./config.ts";
+import { commitGoBack, restoreForGoBack, undoGoBack } from "./go-back.ts";
 import { loadOrCreateGatewayIdentity, rotateGatewayIdentity } from "./identity.ts";
 import {
   acquireGatewayLock,
@@ -65,6 +66,13 @@ const USAGE = `usage:
   psyched pre-update restore <version>      put back the data snapshot taken when updating from
                                             <version> (the desktop's "Go back"; the Gateway must
                                             be stopped; what it replaces is moved aside)
+  psyched pre-update go-back <version>      the same, as the first half of a go back that can be
+                                            undone: notes what it changes first, and undoes itself
+                                            if it stops halfway
+  psyched pre-update go-back-undo <version> put back exactly what go-back changed (the Gateway must
+                                            be stopped); safe to run twice
+  psyched pre-update go-back-commit         the go back happened: forget the note (the newer data
+                                            stays in backups/pre-update for 30 days)
   psyched identity show                     the Gateway's identity key fingerprint (what a new
                                             computer shows next to its pairing code)
   psyched identity rotate                   make a new identity key: every computer that pinned the
@@ -161,6 +169,59 @@ async function submit(
 }
 
 const RELEASE_VERSION = /^\d+\.\d+\.\d+(-[0-9A-Za-z.-]+)?$/;
+
+/**
+ * `psyched pre-update go-back <version>` and `go-back-undo <version>` (go-back.ts): the desktop's
+ * Linux "Go back". Like `restore` above, with the Gateway lock held; the restore is journalled so
+ * the desktop can undo it if the swap of the app does not happen. Exit 0 means the data is as the
+ * caller asked (restored, nothing to restore, or put back); anything else changed nothing that
+ * was not put back, or says so.
+ */
+function goBackCommand(
+  verb: "go-back" | "go-back-undo",
+  version: string,
+  out: (line: string) => void,
+): number {
+  if (!RELEASE_VERSION.test(version)) {
+    out(USAGE);
+    return CLI_EXIT.usage;
+  }
+  const { home, dbPath } = resolveConfig();
+  try {
+    acquireGatewayLock(home);
+  } catch (err) {
+    out(`error: ${err instanceof Error ? err.message : String(err)}`);
+    return CLI_EXIT.refused;
+  }
+  try {
+    if (verb === "go-back-undo") {
+      out(
+        undoGoBack(home, version, { dbPath })
+          ? `put back the newer data (the go back to ${version} did not happen)`
+          : "nothing to put back",
+      );
+      return 0;
+    }
+    const snapshot = listSnapshots(home).find((s) => s.manifest.from === version);
+    if (snapshot === undefined) {
+      out(`no data snapshot was taken when updating from ${version}: nothing to put back`);
+      return 0;
+    }
+    const running = serverBuild();
+    restoreForGoBack(snapshot.dir, home, version, {
+      dbPath,
+      build: running.build,
+      version: running.version,
+    });
+    out(`put back the data from before the update from ${version}`);
+    return 0;
+  } catch (err) {
+    out(`error: ${err instanceof Error ? err.message : String(err)}`);
+    return CLI_EXIT.refused;
+  } finally {
+    releaseGatewayLock(home);
+  }
+}
 
 /**
  * `psyched snapshot <to>`: the same pre-update snapshot the Gateway makes in front of pending
@@ -287,6 +348,18 @@ export async function runCli(
     } finally {
       releaseGatewayLock(home);
     }
+  }
+  if (
+    group === "pre-update" &&
+    (verb === "go-back" || verb === "go-back-undo") &&
+    a !== undefined
+  ) {
+    return goBackCommand(verb, a, out);
+  }
+  if (group === "pre-update" && verb === "go-back-commit") {
+    const { home } = resolveConfig();
+    out(commitGoBack(home) ? "go back recorded" : "no go back was waiting");
+    return 0;
   }
   if (group === "snapshot") return await snapshotCommand(verb, out);
   const known =

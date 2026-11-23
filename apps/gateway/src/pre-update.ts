@@ -28,6 +28,7 @@ import {
 } from "@psyche/db";
 import { PsycheError } from "@psyche/protocol";
 import { serverBuild } from "./build-info.ts";
+import { finishPendingGoBack } from "./go-back.ts";
 import type { Logger } from "./log.ts";
 
 /**
@@ -77,7 +78,7 @@ export const DISPLACED_KEEP_MS = 30 * 24 * 3_600_000;
 const SQLITE_MAGIC = Buffer.from("SQLite format 3\0", "latin1");
 /** `-shm` is a rebuildable index and is never copied. */
 const SIDECARS = ["-wal", "-journal"] as const;
-const ALL_SIDECARS = ["-wal", "-shm", "-journal"] as const;
+export const ALL_SIDECARS = ["-wal", "-shm", "-journal"] as const;
 const DB_NAME = /\.(sqlite3?|db)$/;
 /** Folders searched for databases; `state/teach` holds the owner's recordings and is skipped. */
 const DB_ROOTS = ["state", "vault"] as const;
@@ -197,7 +198,7 @@ function rememberFingerprint(dir: string, dbPath: string): void {
  * which Node does not expose); the order of operations (files, then folders, then the rename, the
  * marker before the restore) is what the guarantees rest on.
  */
-function fsyncPath(path: string): void {
+export function fsyncPath(path: string): void {
   let fd: number | undefined;
   try {
     fd = openSync(path, "r");
@@ -229,7 +230,7 @@ function placeFile(from: string, target: string): void {
   fsyncPath(dirname(target));
 }
 
-function writeJsonDurable(path: string, value: unknown): void {
+export function writeJsonDurable(path: string, value: unknown): void {
   mkdirSync(dirname(path), { recursive: true, mode: 0o700 });
   const temp = `${path}.tmp`;
   writeFileSync(temp, `${JSON.stringify(value, null, 2)}\n`, { mode: 0o600 });
@@ -505,7 +506,7 @@ export interface RestoreOptions {
   logger?: Logger;
 }
 
-interface RestorePlan {
+export interface RestorePlan {
   home: string;
   /** The snapshot folder's own (unique) name. */
   name: string;
@@ -517,7 +518,7 @@ interface RestorePlan {
 const SIDE_FILES: ReadonlySet<string> = new Set(["config.json", ...EXTRA_FILES]);
 
 /** Checks a snapshot and decides where each file goes; touches nothing. */
-function planRestore(dir: string, home: string, opts: RestoreOptions): RestorePlan {
+export function planRestore(dir: string, home: string, opts: RestoreOptions): RestorePlan {
   const manifest = readSnapshot(dir);
   if (manifest === undefined) throw new PsycheError("not_found", `${dir} is not a snapshot`);
   const allowed = (opts.allowAbsolute ?? []).map((p) => resolve(p));
@@ -548,8 +549,23 @@ function planRestore(dir: string, home: string, opts: RestoreOptions): RestorePl
  * not move a fresh half-migrated database aside on each lap. (Never the sequence number: two
  * snapshots can share one after a restore of `backups/`.)
  */
-function displacedDirFor(home: string, snapshotName: string): string {
+export function displacedDirFor(home: string, snapshotName: string): string {
   return join(preUpdateDir(home), `.displaced-${snapshotName}`);
+}
+
+/** Where {@link displace} puts `file` inside `dir`: its home-relative path, or `_external/...`. */
+export function displacedPath(home: string, file: string, dir: string): string {
+  const rel = relative(resolve(home), resolve(file));
+  const inside = !rel.startsWith("..") && !isAbsolute(rel);
+  return join(
+    dir,
+    inside
+      ? rel
+      : join(
+          "_external",
+          `${createHash("sha256").update(file).digest("hex").slice(0, 12)}-${file.split(sep).at(-1)}`,
+        ),
+  );
 }
 
 /**
@@ -560,17 +576,7 @@ function displacedDirFor(home: string, snapshotName: string): string {
  */
 function displace(home: string, file: string, dir: string): void {
   if (!existsSync(file)) return;
-  const rel = relative(resolve(home), resolve(file));
-  const inside = !rel.startsWith("..") && !isAbsolute(rel);
-  const dest = join(
-    dir,
-    inside
-      ? rel
-      : join(
-          "_external",
-          `${createHash("sha256").update(file).digest("hex").slice(0, 12)}-${file.split(sep).at(-1)}`,
-        ),
-  );
+  const dest = displacedPath(home, file, dir);
   mkdirSync(dirname(dest), { recursive: true, mode: 0o700 });
   let target = dest;
   if (existsSync(dest)) {
@@ -623,7 +629,17 @@ function applyRestore(plan: RestorePlan, displaceTo?: string, overwrite = false)
         ];
     if (!same && !overwrite) displace(plan.home, target, dir);
     for (const suffix of ALL_SIDECARS) {
-      if (same || overwrite) rmSync(target + suffix, { force: true });
+      // A stale log beside a file that already is the snapshot's copy is moved aside like any
+      // other, never deleted: it may hold newer writes (a go-back undoes a restore from this).
+      const own = entry.sidecars?.find((sc) => sc.suffix === suffix);
+      if (overwrite) rmSync(target + suffix, { force: true });
+      else if (
+        same &&
+        own !== undefined &&
+        existsSync(target + suffix) &&
+        sha256(target + suffix) === own.sha256
+      )
+        continue; // the snapshot's own copy, put there by the restore being finished
       else displace(plan.home, target + suffix, dir);
     }
     for (const { temp, target: to } of staged) commitStaged(temp, to);
@@ -672,7 +688,7 @@ export function restoreWithMarker(
 }
 
 /** Inside `parent`, after resolving: the only place a marker may send a restore from. */
-function isInside(parent: string, child: string): boolean {
+export function isInside(parent: string, child: string): boolean {
   const rel = relative(resolve(parent), resolve(child));
   return rel !== "" && !rel.startsWith("..") && !isAbsolute(rel);
 }
@@ -1075,6 +1091,14 @@ export async function openDbWithSnapshot(opts: OpenWithSnapshotOptions): Promise
   if (opts.dbPath === ":memory:") return open(opts.dbPath, opts.open);
 
   acquireGatewayLock(opts.home, { build: opts.build, version: opts.version, now });
+  // A go-back that was cut short is settled first: undoing it clears the restore note it left.
+  finishPendingGoBack(opts.home, {
+    dbPath: opts.dbPath,
+    build: opts.build,
+    version: opts.version,
+    now,
+    ...(opts.logger === undefined ? {} : { logger: opts.logger }),
+  });
   finishPendingRestore(opts.home, {
     allowAbsolute: [opts.dbPath],
     build: opts.build,
