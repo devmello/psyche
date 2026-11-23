@@ -18,6 +18,7 @@ public actor FixtureBackend {
     var memoryState = MemoryState()
     var agentState = AgentState()
     var settingsState = SettingsState()
+    var modelsState = ModelsState()
     var widgetState = WidgetState()
     var proactiveState = ProactiveState()
     var spacesState = SpacesState()

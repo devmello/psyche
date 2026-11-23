@@ -223,6 +223,17 @@ struct SettingsSheet: View {
             toggleRow(String(localized: "Face ID for approvals", bundle: .module), isOn: binding(\.faceIDForApprovals, settings), last: true)
         }
 
+        section(String(localized: "Model", bundle: .module)) {
+            NavigationLink { DefaultModelView(store: store) } label: {
+                linkRow(String(localized: "Default model", bundle: .module))
+            }
+            .buttonStyle(.plain)
+            NavigationLink { UsageView(store: store) } label: {
+                linkRow(String(localized: "Usage", bundle: .module), last: true)
+            }
+            .buttonStyle(.plain)
+        }
+
         computersSection(loaded.machines)
 
         section(String(localized: "Skills", bundle: .module)) {
@@ -363,6 +374,23 @@ struct SettingsSheet: View {
                 .tint(PsycheColor.muted)  // a quiet track: the ink fill is for the screen's one action
                 .disabled(disabled)
                 .padding(PsycheMetrics.rowPadding)
+            if !last { HairlineDivider() }
+        }
+    }
+
+    /// A row that opens a screen: its title, then a disclosure chevron.
+    private func linkRow(_ title: String, last: Bool = false) -> some View {
+        VStack(spacing: 0) {
+            HStack {
+                Text(title).font(.psycheRow.weight(.medium)).foregroundStyle(PsycheColor.text)
+                Spacer(minLength: 0)
+                Image(systemName: "chevron.right")
+                    .font(.footnote.weight(.semibold))
+                    .foregroundStyle(PsycheColor.muted)
+            }
+            .padding(PsycheMetrics.rowPadding)
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .contentShape(Rectangle())
             if !last { HairlineDivider() }
         }
     }
