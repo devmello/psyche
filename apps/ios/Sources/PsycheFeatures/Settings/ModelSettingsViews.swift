@@ -3,6 +3,13 @@ import PsycheDesign
 import PsycheStore
 import SwiftUI
 
+/// A chat-only model the owner picked as the default: the Gateway's message, and the choice to resend with
+/// "Use anyway".
+struct ChatOnlyPick: Equatable {
+    let ref: String
+    let message: String
+}
+
 /// The default chat model: the list the Gateway reports, and the change through `models.setRole`.
 @MainActor @Observable
 final class DefaultModelModel {
@@ -11,6 +18,10 @@ final class DefaultModelModel {
     private(set) var choosing: String?
     /// The Gateway's own words when it refuses a change (for example, no admin access on this phone).
     private(set) var refusal: String?
+    /// The Gateway refused a chat-only model; the owner can use it anyway or keep the current default.
+    private(set) var chatOnly: ChatOnlyPick?
+    /// A reload that failed after the list was already on screen. It is a load error, not a refusal.
+    private(set) var reloadError: String?
     private let store: any ModelsBackend
 
     init(store: any ModelsBackend) {
@@ -21,23 +32,40 @@ final class DefaultModelModel {
         if phase.value == nil { phase = .loading }
         do {
             phase = .loaded(try await store.modelChoices())
+            reloadError = nil
         } catch {
-            if phase.value == nil { phase = .failed(error.localizedDescription) } else { refusal = error.localizedDescription }
+            if phase.value == nil { phase = .failed(error.localizedDescription) } else { reloadError = error.localizedDescription }
         }
     }
 
     /// Sets the default model, then reads the list again so the screen shows what the Gateway kept.
-    func choose(_ ref: String) async {
+    func choose(_ ref: String, override: Bool = false) async {
         guard choosing == nil else { return }
         choosing = ref
         refusal = nil
+        chatOnly = nil
         defer { choosing = nil }
         do {
-            try await store.setDefaultModel(ref)
-            await load()
+            try await store.setDefaultModel(ref, override: override)
+        } catch BackendError.policyDenied(let message) where !override {
+            chatOnly = ChatOnlyPick(ref: ref, message: message)
+            return
         } catch {
             refusal = error.localizedDescription
+            return
         }
+        // The change is kept: a failed reload below is a load error with Retry, never a refusal.
+        await load()
+    }
+
+    /// "Use anyway" on a chat-only model: resends the same choice with `override`.
+    func useAnyway() async {
+        guard let pick = chatOnly else { return }
+        await choose(pick.ref, override: true)
+    }
+
+    func keepCurrent() {
+        chatOnly = nil
     }
 }
 
@@ -88,6 +116,16 @@ struct DefaultModelView: View {
         .navigationTitle(String(localized: "Default model", bundle: .module))
         .psycheInlineTitle()
         .task { await model.load() }
+        .alert(
+            String(localized: "Use this model anyway?", bundle: .module),
+            isPresented: Binding(get: { model.chatOnly != nil }, set: { if !$0 { model.keepCurrent() } }),
+            presenting: model.chatOnly
+        ) { _ in
+            Button(String(localized: "Use anyway", bundle: .module)) { Task { await model.useAnyway() } }
+            Button(String(localized: "Cancel", bundle: .module), role: .cancel) {}
+        } message: { pick in
+            Text(verbatim: pick.message)
+        }
     }
 
     @ViewBuilder
@@ -116,6 +154,16 @@ struct DefaultModelView: View {
                     .font(.subheadline).foregroundStyle(PsycheColor.red)
                     .padding(.horizontal, 2)
                     .accessibilityIdentifier("defaultModelRefusal")
+            }
+            if let reloadError = model.reloadError {
+                VStack(alignment: .leading, spacing: 8) {
+                    Text("Couldn't refresh the models.", bundle: .module).font(.subheadline.weight(.medium))
+                    Text(reloadError).font(.subheadline).foregroundStyle(PsycheColor.muted)
+                    Button(String(localized: "Try again", bundle: .module)) { Task { await model.load() } }
+                        .buttonStyle(.psycheOutline).frame(maxWidth: 220)
+                }
+                .padding(.horizontal, 2)
+                .accessibilityIdentifier("defaultModelReloadError")
             }
         }
     }

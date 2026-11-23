@@ -17,12 +17,15 @@ public enum BackendError: Error, Equatable, LocalizedError {
     case unreachable
     /// The Gateway refused (permission, expired approval, unknown id). The message is the Gateway's.
     case refused(String)
+    /// The Gateway's policy said no (`policy_denied`), such as a chat-only model picked for agent work. The
+    /// message is the Gateway's; the caller can offer the owner a way past it.
+    case policyDenied(String)
     case notFound
 
     public var errorDescription: String? {
         switch self {
         case .unreachable: "Your Mac isn't reachable right now."
-        case .refused(let message): message
+        case .refused(let message), .policyDenied(let message): message
         case .notFound: "That's no longer there."
         }
     }

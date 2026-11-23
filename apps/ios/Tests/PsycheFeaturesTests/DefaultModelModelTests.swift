@@ -10,15 +10,20 @@ private actor MockModels: ModelsBackend {
     var setError: BackendError?
     var loadError: BackendError?
     var usageReport: UsageReport
+    /// Models the Gateway refuses as a primary unless the owner overrides (`policy_denied`).
+    var chatOnlyRefs: Set<String>
     private(set) var setCalls: [String] = []
+    private(set) var overrideFlags: [Bool] = []
 
     init(choices: ModelChoices, setError: BackendError? = nil, loadError: BackendError? = nil,
+         chatOnlyRefs: Set<String> = [],
          usageReport: UsageReport = UsageReport(today: UsageTotals(tokens: 0, costUsd: 0, turns: 0),
                                                 month: UsageTotals(tokens: 0, costUsd: 0, turns: 0),
                                                 byModel: [], budgetUsd: nil)) {
         self.choices = choices
         self.setError = setError
         self.loadError = loadError
+        self.chatOnlyRefs = chatOnlyRefs
         self.usageReport = usageReport
     }
 
@@ -27,8 +32,12 @@ private actor MockModels: ModelsBackend {
         return choices
     }
 
-    func setDefaultModel(_ ref: String) async throws {
+    func setDefaultModel(_ ref: String, override: Bool) async throws {
         setCalls.append(ref)
+        overrideFlags.append(override)
+        if !override, chatOnlyRefs.contains(ref) {
+            throw BackendError.policyDenied("\(ref) is chat-only; pass override to use it for agent threads")
+        }
         if let setError { throw setError }
         choices.defaultRef = ref
     }
@@ -87,6 +96,63 @@ struct DefaultModelModelTests {
         #expect(model.refusal == "Needs admin access.")
         #expect(model.phase.value?.defaultRef == "anthropic/claude-sonnet")
         #expect(model.choosing == nil)
+    }
+
+    @Test func aChatOnlyRefusalOffersUseAnywayAndDoesNotMoveTheDefault() async {
+        let mock = MockModels(choices: Self.twoModels, chatOnlyRefs: ["lmstudio/qwen-coder"])
+        let model = DefaultModelModel(store: mock)
+        await model.load()
+        await model.choose("lmstudio/qwen-coder")
+        #expect(model.chatOnly == ChatOnlyPick(
+            ref: "lmstudio/qwen-coder",
+            message: "lmstudio/qwen-coder is chat-only; pass override to use it for agent threads"))
+        #expect(model.refusal == nil)
+        #expect(model.phase.value?.defaultRef == "anthropic/claude-sonnet")
+        #expect(model.choosing == nil)
+    }
+
+    @Test func useAnywayResendsTheChoiceWithOverrideTrue() async {
+        let mock = MockModels(choices: Self.twoModels, chatOnlyRefs: ["lmstudio/qwen-coder"])
+        let model = DefaultModelModel(store: mock)
+        await model.load()
+        await model.choose("lmstudio/qwen-coder")
+        await model.useAnyway()
+        #expect(await mock.setCalls == ["lmstudio/qwen-coder", "lmstudio/qwen-coder"])
+        #expect(await mock.overrideFlags == [false, true])
+        #expect(model.chatOnly == nil)
+        #expect(model.refusal == nil)
+        #expect(model.phase.value?.defaultRef == "lmstudio/qwen-coder")
+    }
+
+    @Test func keepingTheCurrentModelDismissesTheRefusalWithoutSendingOverride() async {
+        let mock = MockModels(choices: Self.twoModels, chatOnlyRefs: ["lmstudio/qwen-coder"])
+        let model = DefaultModelModel(store: mock)
+        await model.load()
+        await model.choose("lmstudio/qwen-coder")
+        model.keepCurrent()
+        #expect(model.chatOnly == nil)
+        #expect(await mock.overrideFlags == [false])
+        #expect(model.phase.value?.defaultRef == "anthropic/claude-sonnet")
+    }
+
+    @Test func aReloadFailureAfterASuccessfulSetIsALoadErrorWithRetry() async {
+        let mock = MockModels(choices: Self.twoModels)
+        let model = DefaultModelModel(store: mock)
+        await model.load()
+        await mock.setLoadErrorForTest(.unreachable)
+        await model.choose("lmstudio/qwen-coder")
+        // The Gateway kept the change, so it is not a refusal: the list shows a load error with Retry.
+        #expect(await mock.setCalls == ["lmstudio/qwen-coder"])
+        #expect(model.refusal == nil)
+        #expect(model.chatOnly == nil)
+        #expect(model.reloadError == BackendError.unreachable.errorDescription)
+        #expect(model.phase.value != nil)
+        #expect(model.choosing == nil)
+
+        await mock.setLoadErrorForTest(nil)
+        await model.load()
+        #expect(model.reloadError == nil)
+        #expect(model.phase.value?.defaultRef == "lmstudio/qwen-coder")
     }
 
     @Test func usageLoadsTheReportFromTheGateway() async {

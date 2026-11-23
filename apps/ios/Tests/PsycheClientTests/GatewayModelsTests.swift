@@ -76,9 +76,22 @@ struct GatewayModelsTests {
         let (backend, _) = try await live { g in
             g.on("models.setRole") { _ in .failure(WireError(code: "policy_denied", message: "Chat-only models can't run the agent.")) }
         }
-        await #expect(throws: BackendError.refused("Chat-only models can't run the agent.")) {
-            try await backend.setDefaultModel("lmstudio/qwen-coder")
+        await #expect(throws: BackendError.policyDenied("Chat-only models can't run the agent.")) {
+            try await backend.setDefaultModel("lmstudio/qwen-coder", override: false)
         }
+    }
+
+    @Test func useAnywaySendsOverrideTrueOnlyWhenTheOwnerAsks() async throws {
+        let (backend, gateway) = try await live { g in
+            g.on("models.setRole") { _ in .success(.object(["roles": .object(["primary": "lmstudio/qwen-coder"])])) }
+        }
+        try await backend.setDefaultModel("lmstudio/qwen-coder", override: true)
+        try await backend.setDefaultModel("lmstudio/qwen-coder", override: false)
+        let sent = gateway.received.filter { $0.method == "models.setRole" }.map(\.params)
+        #expect(sent == [
+            .object(["role": .string("primary"), "ref": .string("lmstudio/qwen-coder"), "override": .bool(true)]),
+            .object(["role": .string("primary"), "ref": .string("lmstudio/qwen-coder")]),
+        ])
     }
 
     @Test func usageReadsTodayMonthAndTheWindowByModelWithANullBudget() async throws {

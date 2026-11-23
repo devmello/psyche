@@ -72,7 +72,7 @@ extension GatewayBackend {
             result = try await call("search.document", .obj(["id": .string(id)]))
         } catch {
             switch error as? BackendError {
-            case .notFound, .refused: return nil
+            case .notFound, .refused, .policyDenied: return nil
             default: throw error
             }
         }

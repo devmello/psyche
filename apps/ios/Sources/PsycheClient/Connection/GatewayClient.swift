@@ -392,6 +392,7 @@ public actor GatewayClient {
         switch failure {
         case .remote(let wire):
             if wire.code == "not_found" { return .notFound }
+            if wire.code == "policy_denied" { return .policyDenied(wire.message) }
             return .refused(wire.message)
         case .timeout, .transport, .closed, .identityMismatch, .protocolError: return .unreachable
         }
