@@ -13,6 +13,9 @@ public protocol MemoryBackend: Sendable {
     func confirmFact(personID: String, factID: String) async throws
     /// "That's wrong" on a fact (memory.entities.facts.retract). The fact leaves the page.
     func retractFact(personID: String, factID: String) async throws
+    /// The owner's own value for a fact's attribute (memory.entities.facts.set). The Gateway supersedes
+    /// the current value and refuses sensitive traits; its message comes back as `BackendError.refused`.
+    func editFact(personID: String, attribute: String, value: String) async throws
 }
 
 extension MemoryBackend {
@@ -24,6 +27,10 @@ extension MemoryBackend {
     public func retractFact(personID: String, factID: String) async throws {
         throw BackendError.refused("Edit this on your Mac.")
     }
+
+    public func editFact(personID: String, attribute: String, value: String) async throws {
+        throw BackendError.refused("Edit this on your Mac.")
+    }
 }
 
 public struct MemoryFact: Sendable, Equatable, Identifiable {
@@ -32,11 +39,18 @@ public struct MemoryFact: Sendable, Equatable, Identifiable {
     public var evidence: [String]
     /// The owner said "that's right".
     public var confirmed: Bool
-    public init(id: String, text: String, evidence: [String], confirmed: Bool = false) {
+    /// The Gateway's attribute (`role`, `city`, ...) and its raw value, for "Edit". Nil when unknown.
+    public var attribute: String?
+    public var value: String?
+    public init(
+        id: String, text: String, evidence: [String], confirmed: Bool = false, attribute: String? = nil, value: String? = nil
+    ) {
         self.id = id
         self.text = text
         self.evidence = evidence
         self.confirmed = confirmed
+        self.attribute = attribute
+        self.value = value
     }
 }
 
