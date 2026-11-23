@@ -99,7 +99,7 @@ extension GatewayBackend {
         let actual = hasher.finalize().map { String(format: "%02x", $0) }.joined()
         let recorded = (item["sha256"]?.string ?? "").replacingOccurrences(of: "sha256:", with: "").lowercased()
         guard actual == recorded else {
-            try? FileManager.default.removeItem(at: destination.deletingLastPathComponent())
+            downloads.remove(id: id)
             throw BackendError.refused("This file doesn't match what your Mac has, so it wasn't opened. Try again.")
         }
         try downloads.finish(temporary, as: destination)

@@ -69,7 +69,10 @@ describe("library_items", () => {
 
   it("finds the rows at a path without case or Unicode form mattering", () => {
     const db = memoryDb();
-    const held = insertLibraryItem(db, base({ name: "held.bin", path: "quarantine/q1-held.bin", quarantined: true }));
+    const held = insertLibraryItem(
+      db,
+      base({ name: "held.bin", path: "quarantine/q1-held.bin", quarantined: true }),
+    );
     insertLibraryItem(db, base({ name: "ok.txt", path: "recordings/ok.txt" }));
     expect(getLibraryItemsAtPath(db, "quarantine/q1-held.bin").map((i) => i.id)).toEqual([held.id]);
     expect(getLibraryItemsAtPath(db, "Quarantine/Q1-HELD.bin").map((i) => i.id)).toEqual([held.id]);

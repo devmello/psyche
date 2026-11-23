@@ -213,9 +213,11 @@ describe("files.read", () => {
   it("reads nothing from the Library when the Gateway has no Library rows to check", async () => {
     const read = filesHandlers({ folders: () => folders, home })["files.read"];
     if (read === undefined) throw new Error("no files.read handler");
-    expect(await codeOf(Promise.resolve(read.run({} as never, { libraryPath: "recordings/shot.png" } as never)))).toBe(
-      "unavailable",
-    );
+    expect(
+      await codeOf(
+        Promise.resolve(read.run({} as never, { libraryPath: "recordings/shot.png" } as never)),
+      ),
+    ).toBe("unavailable");
   });
 });
 

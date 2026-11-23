@@ -80,12 +80,18 @@ function assertLibraryReadable(libraryPath: string, setup: FilesSetup): void {
   const rows = setup.library.itemsAtPath(libraryPath.split(sep).join("/"));
   const held = rows.find((row) => row.quarantined);
   if (held !== undefined) {
-    throw new PsycheError("forbidden", `${held.name} is quarantined on your Mac; trust it there first`);
+    throw new PsycheError(
+      "forbidden",
+      `${held.name} is quarantined on your Mac; trust it there first`,
+    );
   }
   const first = libraryPath.split(sep)[0] ?? "";
   const inQuarantine = first.toLowerCase() === QUARANTINE_FOLDER;
   if (inQuarantine && rows.length === 0) {
-    throw new PsycheError("forbidden", `${basename(libraryPath)} is quarantined on your Mac; trust it there first`);
+    throw new PsycheError(
+      "forbidden",
+      `${basename(libraryPath)} is quarantined on your Mac; trust it there first`,
+    );
   }
 }
 

@@ -2532,7 +2532,10 @@ export async function composeGateway(options: ComposeOptions): Promise<ComposedG
       audit,
       library: {
         itemsAtPath: (path) =>
-          getLibraryItemsAtPath(db, path).map((item) => ({ name: item.name, quarantined: item.quarantined === true })),
+          getLibraryItemsAtPath(db, path).map((item) => ({
+            name: item.name,
+            quarantined: item.quarantined === true,
+          })),
       },
       share: {
         broker: executorBroker,
