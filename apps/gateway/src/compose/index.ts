@@ -5,6 +5,7 @@ import {
   automationIntentProvider,
   type CompactionPolicy,
   createAgentLoop,
+  defangFence,
   type PsycheAgentLoop,
 } from "@psyche/agent-core";
 import {
@@ -63,6 +64,7 @@ import {
   DENY_ALL_LOOPBACK,
   type FolderGrantEntry,
   type LocalProjectVerifier,
+  ModelExecReviewer,
   type PolicyApprovalInput,
   type PolicyConfig,
   type PresenceVerifier,
@@ -855,6 +857,8 @@ export async function composeGateway(options: ComposeOptions): Promise<ComposedG
       by,
     );
   let deferredResumeRef: DeferredResume | undefined;
+  // The model router is composed after the broker; the exec reviewer reads it when it runs.
+  const execReviewRouter: { current?: ModelRouter } = {};
   const rawBroker = new PsychePermissionBroker({
     folderAccess: {
       env: () => folderAccessEnv(config.home),
@@ -946,6 +950,20 @@ export async function composeGateway(options: ComposeOptions): Promise<ComposedG
       ...config.allowedOrigins.filter((o) => /^https?:\/\//.test(o)),
     ],
     policy: hostPolicy((policy ?? storedPolicy) as PolicyConfig | undefined, db),
+    // Auto mode's exec reviewer (owner's decision 2026-11-23: Haiku on the owner's own key, via
+    // the `utility` role). Only the router's own cheap or picked utility model, and only one the
+    // Auto-mode allowlist accepts: never a paid fallback to the primary, never a local model.
+    // Without a router (tests, a fixed provider) there is no reviewer, so every command asks.
+    execReviewer: new ModelExecReviewer({
+      provider: () => execReviewRouter.current,
+      model: () => {
+        const r = execReviewRouter.current;
+        const ref = r?.utilityRef();
+        return ref !== undefined && r?.allowsAutoMode(ref) === true ? ref : undefined;
+      },
+      redact: (text) => redactor.redact(text),
+      neutralise: (text) => defangFence(text),
+    }),
   });
   // B3: on a headless Linux Host a payment needs a passkey; without one it fails before a card
   // nobody could answer is raised (compose/payment-presence.ts). Other approvals are untouched.
@@ -1056,6 +1074,7 @@ export async function composeGateway(options: ComposeOptions): Promise<ComposedG
   const appleHelper: { current: AppleHelper } = { current: () => undefined };
   const routed = providerFor(modelSetup, clock, db, config.home, () => appleHelper.current());
   const { model: modelRef, utility, router } = routed;
+  if (router !== undefined) execReviewRouter.current = router;
   const provider = vaultKeys && router !== undefined ? untilPrimaryPicked(router) : routed.provider;
   // Tells the owner's devices a key was swapped or removed. It names the provider and the device
   // (as quoted data, see describeKeyActor), never the key.

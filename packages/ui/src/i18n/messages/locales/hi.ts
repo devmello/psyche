@@ -2245,6 +2245,9 @@ export const hi: Partial<Catalogue> = {
   "settings.permissions.description": "क्या अपने आप चलता है, क्या पहले पूछता है और क्या कभी नहीं होता।",
   "settings.permissions.loadLabel": "अनुमतियाँ",
   "settings.permissions.defaultModeTitle": "नए थ्रेड के लिए डिफ़ॉल्ट मोड",
+  "settings.permissions.execReview": "ऑटो मोड में सुरक्षित टर्मिनल कमांड को समीक्षक से मंज़ूर होने दें",
+  "settings.permissions.execReviewHint":
+    "ऑटो मोड में, आपके अनुरोध से मेल खाने वाले बिल्ड, टेस्ट और लोकल git चरण बिना कार्ड के, सैंडबॉक्स में और बिना नेटवर्क के चल सकते हैं। हर समीक्षा आपकी कुंजी पर Haiku की एक छोटी कॉल है। जो भी अस्पष्ट हो, उसके लिए अब भी पूछा जाता है।",
   "settings.permissions.connectorActions": "कनेक्टर कार्रवाइयाँ",
   "settings.permissions.connectorActionsHint":
     "अनुमति दें बिना पूछे चलता है, पूछें स्वीकृति कार्ड दिखाता है, अस्वीकार करें कभी नहीं चलता।",

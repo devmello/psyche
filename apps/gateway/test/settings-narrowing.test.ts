@@ -28,6 +28,13 @@ const NARROWING: Row[] = [
     { exec: { readOnlyWithoutAsking: false } },
   ],
   ["fewer env names", P, { exec: { allowEnv: ["A", "B"] } }, { exec: { allowEnv: ["A"] } }],
+  ["exec reviewer off", P, { exec: {} }, { exec: { reviewInAuto: false } }],
+  [
+    "exec reviewer off from on",
+    P,
+    { exec: { reviewInAuto: true } },
+    { exec: { reviewInAuto: false } },
+  ],
   // Policy rules, tiers and sites
   ["remove an allow rule", P, { allow: ["a", "b"] }, { allow: ["a"] }],
   ["add a deny rule", P, { deny: ["a"] }, { deny: ["a", "b"] }],
@@ -116,6 +123,14 @@ const WIDENING: Row[] = [
     { exec: { readOnlyWithoutAsking: true } },
   ],
   ["more env names", P, { exec: { allowEnv: ["A"] } }, { exec: { allowEnv: ["A", "B"] } }],
+  ["exec reviewer on", P, { exec: { reviewInAuto: false } }, { exec: { reviewInAuto: true } }],
+  ["exec reviewer back to default on", P, { exec: { reviewInAuto: false } }, { exec: {} }],
+  [
+    "exec reviewer not a boolean",
+    P,
+    { exec: { reviewInAuto: false } },
+    { exec: { reviewInAuto: "no" } },
+  ],
   ["another exec key changes", P, { exec: { extra: 1 } }, { exec: { extra: 2 } }],
   ["exec binary path", "exec.srtPath", "/a", "/b"],
   // Policy rules

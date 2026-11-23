@@ -2296,6 +2296,10 @@ export const ar: Partial<Catalogue> = {
   "settings.permissions.description": "ما يعمل من تلقاء نفسه، وما يسأل أولًا، وما لا يحدث أبدًا.",
   "settings.permissions.loadLabel": "الأذونات",
   "settings.permissions.defaultModeTitle": "الوضع الافتراضي للمحادثات الجديدة",
+  "settings.permissions.execReview":
+    "السماح لمراجِع بالموافقة على أوامر الطرفية الآمنة في الوضع التلقائي",
+  "settings.permissions.execReviewHint":
+    "في الوضع التلقائي، يمكن تشغيل عمليات البناء والاختبارات وخطوات git المحلية التي تطابق طلبك دون بطاقة، داخل بيئة معزولة بلا شبكة. كل مراجعة استدعاء صغير لـ Haiku بمفتاحك. كل ما هو غير واضح يظل يطلب الإذن.",
   "settings.permissions.connectorActions": "إجراءات الموصّلات",
   "settings.permissions.connectorActionsHint":
     "«سماح» يعمل من دون سؤال، و«سؤال» يعرض بطاقة موافقة، و«رفض» لا يعمل أبدًا.",

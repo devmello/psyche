@@ -2264,6 +2264,10 @@ export const it: Partial<Catalogue> = {
     "Che cosa viene eseguito da solo, che cosa chiede prima e che cosa non accade mai.",
   "settings.permissions.loadLabel": "i permessi",
   "settings.permissions.defaultModeTitle": "Modalità di default per i nuovi thread",
+  "settings.permissions.execReview":
+    "Lascia che un revisore approvi i comandi da terminale sicuri in modalità Auto",
+  "settings.permissions.execReviewHint":
+    "In modalità Auto, build, test e passaggi git locali coerenti con la tua richiesta possono girare senza scheda, in sandbox e senza rete. Ogni revisione è una piccola chiamata a Haiku con la tua chiave. Tutto ciò che non è chiaro chiede comunque.",
   "settings.permissions.connectorActions": "Azioni dei connettori",
   "settings.permissions.connectorActionsHint":
     "Consenti esegue senza chiedere, Chiedi mostra una scheda di approvazione, Nega non esegue mai.",

@@ -2263,6 +2263,10 @@ export const fr: Partial<Catalogue> = {
     "Ce qui s’exécute tout seul, ce qui demande d’abord et ce qui n’arrive jamais.",
   "settings.permissions.loadLabel": "les autorisations",
   "settings.permissions.defaultModeTitle": "Mode par défaut des nouvelles discussions",
+  "settings.permissions.execReview":
+    "Laisser un relecteur approuver les commandes de terminal sûres en mode Auto",
+  "settings.permissions.execReviewHint":
+    "En mode Auto, les builds, les tests et les étapes git locales qui correspondent à votre demande peuvent s'exécuter sans carte, dans le bac à sable et sans réseau. Chaque relecture est un petit appel à Haiku avec votre clé. Tout ce qui n'est pas clair demande toujours.",
   "settings.permissions.connectorActions": "Actions des connecteurs",
   "settings.permissions.connectorActionsHint":
     "Autoriser s’exécute sans demander, Demander affiche une carte d’approbation, Refuser ne s’exécute jamais.",

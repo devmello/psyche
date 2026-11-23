@@ -13,6 +13,7 @@ import type {
   Surface,
   ToolCallIntent,
 } from "@psyche/protocol";
+import type { ExecReviewMeta } from "./exec-review.ts";
 
 /**
  * Extensions of the `PermissionBroker` contract types. Every field is optional, so a caller that
@@ -54,6 +55,11 @@ export interface PolicyContext extends DecisionContext {
   originSet?: { readOnly?: string[]; readWritable?: string[] };
   /** Owner-provenance request messages, newest last; the classifier sees the last 10. */
   ownerMessages?: string[];
+  /**
+   * The owner's own typed words in this turn (the agent loop's `ownerText`), newest last. Only
+   * the exec reviewer reads them; the rules classifier keeps `ownerMessages`.
+   */
+  ownerWords?: string[];
   task?: {
     title?: string;
     goal?: string;
@@ -105,6 +111,12 @@ export interface CallMeta {
    * standing program grant (`host-program.ts`). Set only where a sandbox is present.
    */
   hostProgram?: { executable: string; sha256: string; cwdReal?: string };
+  /**
+   * `exec_host`, `exec`, `code.run`: a reviewed run would be sandboxed (srt on macOS, or the
+   * container), and for `exec_host` the real cwd and the repository a reviewed run may write
+   * (`exec-review.ts`). Absent: the exec reviewer never sees the call.
+   */
+  execReview?: ExecReviewMeta;
   /** MCP server trust tier. */
   mcpTier?: "bundled" | "verified" | "unknown";
   /** MCP server and the `tools/list` hash the call was described with (grant subject, #279). */
@@ -136,6 +148,8 @@ export interface PolicyDecision extends DecisionResult {
   deviceOnly?: true;
   /** Classifier label when the classifier ran. */
   classifier?: { label: ClassifierLabel; reason: string };
+  /** The exec reviewer's answer when it ran (Auto mode): its reason is the card's hint on `ask`. */
+  execReview?: { decision: "allow" | "ask"; reason: string; model: string };
   /**
    * What let a send / destructive / financial call through without a card (§3.12): a standing
    * grant the owner made, or the owner's confirmed matrix override.

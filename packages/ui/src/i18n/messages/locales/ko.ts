@@ -2231,6 +2231,9 @@ export const ko: Partial<Catalogue> = {
   "settings.permissions.description": "자동으로 실행되는 것, 먼저 묻는 것, 절대 하지 않는 것.",
   "settings.permissions.loadLabel": "권한",
   "settings.permissions.defaultModeTitle": "새 스레드의 기본 모드",
+  "settings.permissions.execReview": "자동 모드에서 안전한 터미널 명령을 검토자가 승인하도록 허용",
+  "settings.permissions.execReviewHint":
+    "자동 모드에서는 요청과 맞는 빌드, 테스트, 로컬 git 단계가 카드 없이, 네트워크 없는 샌드박스에서 실행될 수 있습니다. 각 검토는 내 키로 하는 작은 Haiku 호출입니다. 불분명한 것은 여전히 묻습니다.",
   "settings.permissions.connectorActions": "커넥터 동작",
   "settings.permissions.connectorActionsHint":
     "허용은 묻지 않고 실행하고, 묻기는 승인 카드를 표시하며, 거부는 절대 실행하지 않습니다.",

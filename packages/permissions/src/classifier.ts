@@ -151,9 +151,14 @@ prohibited: moves money, evades security, or contradicts the owner's request.`;
 /**
  * Model-backed classifier on the `utility` role (enabled by `classifier.model`).
  *
- * Never wire this to the `utility` role without an explicit owner decision: an unset utility
- * role is the provider's cheap model (Haiku), and approval classification is a safety control.
- * Today the broker uses the rules classifier and nothing constructs this class.
+ * Never wire this generic classifier to the `utility` role without an explicit owner decision:
+ * an unset utility role is the provider's cheap model (Haiku), and approval classification is a
+ * safety control. Today the broker uses the rules classifier and nothing constructs this class.
+ *
+ * The one such decision so far covers terminal commands only (`exec-review.ts`). On 2026-11-23
+ * the owner asked: "Allow more terminal actions to be reviewed using a classifier", and chose
+ * Haiku on their own key through the `utility` role, in Auto mode only (Balanced keeps asking).
+ * That reviewer reuses `streamModelText` below with its own input; it does not loosen this class.
  */
 export class ModelClassifier implements ActionClassifier {
   readonly id: string;
@@ -167,29 +172,50 @@ export class ModelClassifier implements ActionClassifier {
   }
 
   async classify(input: ClassifierInput, signal: AbortSignal): Promise<ClassifierOutput> {
-    let text = "";
-    const stream = this.#provider.stream(
-      {
-        model: this.#model,
-        system: SYSTEM_PROMPT,
-        messages: [
-          { role: "user", parts: [{ type: "text", text: JSON.stringify(boundedInput(input)) }] },
-        ],
-        toolChoice: "none",
-        maxOutputTokens: 200,
-        temperature: 0,
-      },
-      { signal },
+    const out = await streamModelText(
+      this.#provider,
+      this.#model,
+      SYSTEM_PROMPT,
+      JSON.stringify(boundedInput(input)),
+      signal,
     );
-    for await (const ev of stream) {
-      if (ev.type === "text_delta") text += ev.text;
-      if (text.length > 4000) return { label: "sensitive", reason: "classifier output too long" };
-      if (ev.type === "finish" && ev.reason !== "stop") {
-        return { label: "sensitive", reason: `classifier finished with ${ev.reason}` };
-      }
-    }
-    return atLeastFloor(parseClassifierOutput(text), input);
+    if (!out.ok) return { label: "sensitive", reason: `classifier ${out.reason}` };
+    return atLeastFloor(parseClassifierOutput(out.text), input);
   }
+}
+
+/**
+ * One bounded, tool-less, temperature-0 model call (200 output tokens): the text it answered, or
+ * why it must not be used (output too long, a finish other than `stop`). Errors propagate, so the
+ * caller's fail-closed wrapper turns them into its own "unavailable" answer.
+ */
+export async function streamModelText(
+  provider: ModelProvider,
+  model: ModelRef,
+  system: string,
+  user: string,
+  signal: AbortSignal,
+): Promise<{ ok: true; text: string } | { ok: false; reason: string }> {
+  let text = "";
+  const stream = provider.stream(
+    {
+      model,
+      system,
+      messages: [{ role: "user", parts: [{ type: "text", text: user }] }],
+      toolChoice: "none",
+      maxOutputTokens: 200,
+      temperature: 0,
+    },
+    { signal },
+  );
+  for await (const ev of stream) {
+    if (ev.type === "text_delta") text += ev.text;
+    if (text.length > 4000) return { ok: false, reason: "output too long" };
+    if (ev.type === "finish" && ev.reason !== "stop") {
+      return { ok: false, reason: `finished with ${ev.reason}` };
+    }
+  }
+  return { ok: true, text };
 }
 
 /** Owner text capped (10 messages, 1,000 characters each) so one request cannot crowd the prompt. */

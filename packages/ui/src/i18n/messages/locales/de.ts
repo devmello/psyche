@@ -2313,6 +2313,10 @@ export const de: Partial<Catalogue> = {
     "Was von selbst läuft, was zuerst fragt und was nie passiert.",
   "settings.permissions.loadLabel": "Berechtigungen",
   "settings.permissions.defaultModeTitle": "Standardmodus für neue Threads",
+  "settings.permissions.execReview":
+    "Sichere Terminalbefehle im Auto-Modus von einem Prüfer freigeben lassen",
+  "settings.permissions.execReviewHint":
+    "Im Auto-Modus können Builds, Tests und lokale Git-Schritte, die zu deiner Anfrage passen, ohne Karte laufen, in der Sandbox und ohne Netzwerk. Jede Prüfung ist ein kleiner Haiku-Aufruf über deinen Schlüssel. Alles Unklare fragt weiterhin nach.",
   "settings.permissions.connectorActions": "Verbindungsaktionen",
   "settings.permissions.connectorActionsHint":
     "„Erlauben“ läuft ohne Nachfrage, „Fragen“ zeigt eine Genehmigungskarte, „Verweigern“ läuft nie.",

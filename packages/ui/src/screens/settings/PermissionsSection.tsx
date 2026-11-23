@@ -19,6 +19,7 @@ import { useSlots } from "../../slots.tsx";
 import { ActionMatrix, type ActionRule, withMatrixOverrides } from "./ActionMatrix.tsx";
 import { appleApp } from "./ConnectorCapabilities.tsx";
 import { SCOPE_MODE_LABEL } from "./ConnectorsSection.tsx";
+import { execReviewInAuto, policyWithExecReview } from "./FileAccessSection.tsx";
 import {
   Advanced,
   bool,
@@ -240,6 +241,13 @@ export function PermissionsPanel({
             settingKey="permissions.mode"
             onChange={(v) => onChange("permissions.mode", v)}
           ></RadioField>
+          {/* A sealed security setting: turning it on asks, turning it off applies at once. */}
+          <SwitchField
+            label={t("settings.permissions.execReview")}
+            description={t("settings.permissions.execReviewHint")}
+            checked={execReviewInAuto(values)}
+            onChange={(on) => onChange("permissions.policy", policyWithExecReview(values, on))}
+          />
         </Group>
 
         {/* One grouped list per connector, rows per action (redesign §5.8). */}

@@ -54,6 +54,7 @@ export const blocksRest: Partial<Catalogue> = {
   "blocks.details.executable": "प्रोग्राम",
   "blocks.details.network": "नेटवर्क",
   "blocks.details.networkNone": "कोई नहीं",
+  "blocks.details.reviewerNote": "समीक्षक की टिप्पणी",
   "blocks.details.runsSandboxed":
     "आपके Mac पर, सैंडबॉक्स में: यह Psyche के वॉल्ट, आपकी SSH कुंजियों, कीचेन या ब्राउज़र प्रोफ़ाइल को नहीं पढ़ सकता",
   "blocks.details.runsNoSandbox": "आपके Mac पर, और सैंडबॉक्स सेट अप नहीं है ({reason})",

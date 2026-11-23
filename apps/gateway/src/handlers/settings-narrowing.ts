@@ -131,7 +131,10 @@ function foldersNarrower(stored: Json, next: Json): boolean {
   return true;
 }
 
-/** `exec`: host exec off, read-only commands asking, fewer env names. Other keys stay equal. */
+/**
+ * `exec`: host exec off, read-only commands asking, the Auto-mode exec reviewer off, fewer env
+ * names. Other keys stay equal.
+ */
 function execNarrower(stored: Json, next: Json): boolean {
   const s = stored === undefined ? {} : stored;
   const n = next === undefined ? {} : next;
@@ -142,7 +145,7 @@ function execNarrower(stored: Json, next: Json): boolean {
       // On only for exactly `true`; anything else is off.
       if (n[k] !== undefined && typeof n[k] !== "boolean") return false;
       if (n[k] === true && s[k] !== true) return false;
-    } else if (k === "readOnlyWithoutAsking") {
+    } else if (k === "readOnlyWithoutAsking" || k === "reviewInAuto") {
       // On unless exactly `false`.
       if (n[k] !== undefined && typeof n[k] !== "boolean") return false;
       if (n[k] !== false && s[k] === false) return false;

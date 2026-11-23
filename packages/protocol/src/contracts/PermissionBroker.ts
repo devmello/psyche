@@ -100,6 +100,12 @@ export interface ToolCallMeta {
   /** With `hostCommand`: srt is not set up, so the command asks (the card offers UNSANDBOXED). */
   hostSandbox?: "missing";
   /**
+   * `exec_host`, `exec`: a run Auto mode's exec reviewer approved would be sandboxed (srt on
+   * macOS, or the container); for `exec_host` also the real cwd and the git repository such a run
+   * may write. Absent, the reviewer never sees the call.
+   */
+  execReview?: { sandbox: "srt" | "container"; cwdReal?: string; repoRoot?: string };
+  /**
    * What the executor saw of the control a browser or computer-use action lands on, so the broker
    * can apply the hard block on trading and moving money (`prohibition:financial_transfer`,
    * `@psyche/protocol/financial-block`) itself, from the call, without a model. Facts only; the
@@ -164,6 +170,11 @@ export interface DecisionContext {
   unattended?: boolean;
   /** Who asked (security §9); absent means the owner. */
   requester?: Requester;
+  /**
+   * The owner's own typed words in this turn, newest last (never the Gateway's context, a tool
+   * result or a non-owner's message). Only Auto mode's exec reviewer reads them.
+   */
+  ownerWords?: string[];
 }
 
 /**

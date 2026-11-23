@@ -116,6 +116,7 @@ export const blocks = {
   "blocks.details.executable": "Program",
   "blocks.details.network": "Network",
   "blocks.details.networkNone": "none",
+  "blocks.details.reviewerNote": "Reviewer's note",
   "blocks.details.runsSandboxed":
     "on your Mac, in the sandbox: it cannot read Psyche's vault, your SSH keys, Keychains or browser profiles",
   "blocks.details.runsNoSandbox": "on your Mac, and the sandbox is not set up ({reason})",

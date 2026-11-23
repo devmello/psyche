@@ -22,9 +22,13 @@ import {
   gitDriverOverrides,
   type ToolRunContext,
 } from "@psyche/agent-core";
+import { LAUNCH_CONFIG_DIRS, LAUNCH_CONFIG_FILES } from "@psyche/hostfs";
 import { createScratchDir, defaultDenyRead, scratchReadRules } from "@psyche/mcp-host";
 import {
   classifyHostCommand,
+  EXEC_REVIEW_RULE,
+  execReviewPathsInside,
+  execReviewRefusal,
   type FolderAccessEnv,
   type FolderGrantEntry,
   grantedRootRefused,
@@ -629,6 +633,28 @@ const CONFINED_DENY_READ = [
   "/Users/Shared",
 ];
 
+/**
+ * What a run the exec reviewer approved may never write inside its repository, although it may
+ * write the rest of it (owner's decision 2026-11-23, security §5.4): the git internals that run
+ * code later or redirect git (hooks, config, info, modules, worktrees), and every app's launch
+ * config at the repository root and the cwd (the file tools' `writesRunLater` list). srt rules are
+ * literal paths, so a nested repository or a launch-config folder deeper down is not covered:
+ * the residual is documented in security §5.4.
+ */
+export function reviewedRunDenyWrite(repoRoot: string, cwdReal: string): string[] {
+  const git = join(repoRoot, ".git");
+  const roots = [...new Set([repoRoot, cwdReal])];
+  return [
+    join(git, "hooks"),
+    join(git, "config"),
+    join(git, "config.worktree"),
+    join(git, "info"),
+    join(git, "modules"),
+    join(git, "worktrees"),
+    ...roots.flatMap((r) => [...LAUNCH_CONFIG_DIRS, ...LAUNCH_CONFIG_FILES].map((n) => join(r, n))),
+  ];
+}
+
 /** The dot entries directly in `home`, by name (none when it cannot be listed). */
 function homeDotEntries(home: string): string[] {
   try {
@@ -659,6 +685,8 @@ export function execHostSrtSettings(input: {
    * dot-home rule, #1434 review r1, finding 4).
    */
   homeDotEntries?: readonly string[];
+  /** More paths no write may reach (a reviewed run: its repository's hooks and launch config). */
+  denyWrite?: readonly string[];
   /** The Host's OS (default this process's): Linux adds its own credential and Psyche paths. */
   platform?: NodeJS.Platform;
   /** The Host's `XDG_RUNTIME_DIR` and `XDG_STATE_HOME` (Linux; default this process's). */
@@ -709,6 +737,7 @@ export function execHostSrtSettings(input: {
           ...(input.writable.some((w) => within(input.userHome, w))
             ? (input.homeDotEntries ?? []).map((name) => h(name))
             : []),
+          ...(input.denyWrite ?? []),
         ]),
       ],
     },
@@ -1108,6 +1137,17 @@ export function execHostTool(deps: ExecHostDeps): AgentToolRegistration {
               ...(cwdReal === undefined ? {} : { cwdReal }),
             }
           : undefined;
+      // Auto mode's exec reviewer (owner's decision 2026-11-23) may look at a command only where a
+      // reviewed run is sandboxed: srt on macOS, in a git repository (its root is what such a run
+      // may write). Everything else about it the broker checks itself.
+      const repoRoot =
+        platform === "darwin" && "path" in srt && cwdReal !== undefined
+          ? gitRepoRoot(cwdReal)
+          : undefined;
+      const execReview =
+        repoRoot === undefined || cwdReal === undefined
+          ? undefined
+          : { sandbox: "srt" as const, cwdReal, repoRoot };
       const meta = {
         ...(readOnly
           ? {
@@ -1116,6 +1156,7 @@ export function execHostTool(deps: ExecHostDeps): AgentToolRegistration {
             }
           : {}),
         ...(hostProgram === undefined ? {} : { hostProgram }),
+        ...(execReview === undefined ? {} : { execReview }),
       };
       return {
         kind: "exec_host",
@@ -1296,6 +1337,36 @@ export function execHostTool(deps: ExecHostDeps): AgentToolRegistration {
         { details: { missing: { need: "sandbox" } } },
       );
     }
+    // A run the exec reviewer approved (no card, no grant): everything the broker checked is
+    // checked again against what is on disk now, and it runs under srt writing only its
+    // repository, minus the hooks and launch config (`reviewedRunDenyWrite`).
+    let reviewed: { repoRoot: string } | undefined;
+    if (ctx.approvalId === undefined && ctx.authority?.rule === EXEC_REVIEW_RULE) {
+      let folderReal: string;
+      try {
+        folderReal = realpathSync.native(folder.path);
+      } catch {
+        folderReal = "";
+      }
+      const repoRoot = windows || "missing" in srt ? undefined : gitRepoRoot(real);
+      const domainsNone = (p.allowedDomains ?? []).length === 0;
+      if (
+        unsandboxed ||
+        repoRoot === undefined ||
+        folderReal === "" ||
+        !under(repoRoot, folderReal) ||
+        Object.keys(p.env ?? {}).length > 0 ||
+        !domainsNone ||
+        execReviewRefusal(p.argv) !== undefined ||
+        !execReviewPathsInside(p.argv, real, repoRoot)
+      ) {
+        throw new PsycheError(
+          "forbidden",
+          "This command no longer fits what the reviewer approved (the repository, a path or the sandbox changed); it was not run",
+        );
+      }
+      reviewed = { repoRoot };
+    }
     if (unsandboxed && folder.mode !== "rw") {
       throw new PsycheError(
         "forbidden",
@@ -1377,7 +1448,13 @@ export function execHostTool(deps: ExecHostDeps): AgentToolRegistration {
         userHome,
         scratch,
         // Read-only: nothing writable but the scratch directory, whatever the folder's grant.
-        writable: folder.mode === "rw" && !readOnly && program === undefined ? [folder.path] : [],
+        writable:
+          folder.mode === "rw" && !readOnly && program === undefined
+            ? [reviewed === undefined ? folder.path : reviewed.repoRoot]
+            : [],
+        ...(reviewed === undefined
+          ? {}
+          : { denyWrite: reviewedRunDenyWrite(reviewed.repoRoot, real) }),
         ...(confineRead === undefined ? {} : { confineRead }),
         allowedDomains: readOnly ? [] : domains,
         homeDotEntries: homeDotEntries(userHome),

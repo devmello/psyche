@@ -2217,6 +2217,9 @@ export const zh: Partial<Catalogue> = {
   "settings.permissions.description": "哪些操作自动运行，哪些先询问，哪些永远不会发生。",
   "settings.permissions.loadLabel": "权限",
   "settings.permissions.defaultModeTitle": "新会话的默认模式",
+  "settings.permissions.execReview": "在自动模式下让审核者批准安全的终端命令",
+  "settings.permissions.execReviewHint":
+    "在自动模式下，符合你请求的构建、测试和本地 git 步骤可以不弹卡片直接运行，在沙盒中且无网络。每次审核是用你的密钥进行的一次小型 Haiku 调用。任何不明确的操作仍会询问。",
   "settings.permissions.connectorActions": "连接器操作",
   "settings.permissions.connectorActionsHint":
     "“允许”直接运行，“询问”显示审批卡片，“拒绝”从不运行。",

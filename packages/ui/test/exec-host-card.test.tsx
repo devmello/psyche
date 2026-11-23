@@ -88,6 +88,21 @@ describe("exec_host card", () => {
     expect(screen.queryByRole("radio")).toBeNull();
   });
 
+  it("shows the exec reviewer's one line as a hint when it asked, and nothing without one", () => {
+    show(
+      execHost("srt", {
+        details: { ...execHost("srt").details, reviewerHint: "publishing was not asked for" },
+      }),
+    );
+    expect(screen.getByText("Reviewer's note")).toBeTruthy();
+    expect(screen.getByText("publishing was not asked for")).toBeTruthy();
+  });
+
+  it("has no reviewer row on an ordinary card", () => {
+    show(execHost("srt"));
+    expect(screen.queryByText("Reviewer's note")).toBeNull();
+  });
+
   it("typing UNSANDBOXED leaves Allow once only and sends the word with the answer", async () => {
     const onAnswer = show(execHost("srt"));
     await userEvent.type(
