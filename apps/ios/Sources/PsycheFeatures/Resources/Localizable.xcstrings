@@ -31658,6 +31658,12 @@
             "state": "translated",
             "value": "Esquecer"
           }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "忘记"
+          }
         }
       }
     },
@@ -31722,6 +31728,12 @@
           "stringUnit": {
             "state": "translated",
             "value": "Esquecer este fato?"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "要忘记这条信息吗？"
           }
         }
       }
@@ -31788,6 +31800,12 @@
             "state": "translated",
             "value": "Editar fato"
           }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "编辑信息"
+          }
         }
       }
     },
@@ -31852,6 +31870,12 @@
           "stringUnit": {
             "state": "translated",
             "value": "Valor"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "值"
           }
         }
       }
@@ -31918,6 +31942,12 @@
             "state": "translated",
             "value": "Habilidades"
           }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "技能"
+          }
         }
       }
     },
@@ -31982,6 +32012,12 @@
           "stringUnit": {
             "state": "translated",
             "value": "Ativada"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "开"
           }
         }
       }
@@ -32048,6 +32084,12 @@
             "state": "translated",
             "value": "Desativada"
           }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "关"
+          }
         }
       }
     },
@@ -32112,6 +32154,12 @@
           "stringUnit": {
             "state": "translated",
             "value": "Ainda não há habilidades."
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "还没有技能。"
           }
         }
       }
@@ -32178,6 +32226,12 @@
             "state": "translated",
             "value": "Ainda sem descrição."
           }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "还没有描述。"
+          }
         }
       }
     },
@@ -32242,6 +32296,12 @@
           "stringUnit": {
             "state": "translated",
             "value": "Ative ou desative habilidades e adicione novas no seu Mac."
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "请在 Mac 上开启或关闭技能，以及添加新技能。"
           }
         }
       }
