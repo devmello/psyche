@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Every key in an iOS string catalog that has any translation must have all 11 locales (en + the 10
+"""Every key in an iOS string catalog (unless shouldTranslate is false) must have all 11 locales (en + the 10
 languages). #1542 shipped 10 keys without zh-Hans and only the verifier noticed.
 Usage: xcstrings-coverage.py <catalog.xcstrings>...   Exit 1 and list the gaps if any."""
 import json
@@ -14,7 +14,7 @@ for path in sys.argv[1:]:
         if entry.get("shouldTranslate") is False:
             continue
         have = set(entry.get("localizations", {}))
-        if have and not LANGS <= have:
+        if not LANGS <= have:
             bad += 1
             print(f"{path}: {key!r} is missing {', '.join(sorted(LANGS - have))}")
 sys.exit(1 if bad else 0)
