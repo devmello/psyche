@@ -22,7 +22,7 @@ const MAX_SEGMENT = 128;
  * : \ /`. `Emoji_Component` contains `*` and the tag characters, so both are carved out.
  */
 const SEGMENT =
-  /^(?:[\p{L}\p{N}\p{M} ._\-()+,'&#!?@%;=~[\]{}^]|\p{Extended_Pictographic}|(?!\*)(?!\p{Cf})\p{Emoji_Component}|(?<=[\p{Extended_Pictographic}\p{Emoji_Modifier}\uFE0F])\u200D(?=\p{Extended_Pictographic})|\uFE0F)+$/u;
+  /^(?:[\p{L}\p{N}\p{M} ._\-()+,'&#!?@%;=~[\]{}^]|\p{Extended_Pictographic}|(?!\*)(?!\p{Cf})\p{Emoji_Component}|(?<=\p{Extended_Pictographic}|\p{Emoji_Modifier}|\uFE0F)\u200D(?=\p{Extended_Pictographic})|\uFE0F)+$/u;
 
 export function invalidPath(message: string): never {
   throw new PsycheError("invalid_params", message);
