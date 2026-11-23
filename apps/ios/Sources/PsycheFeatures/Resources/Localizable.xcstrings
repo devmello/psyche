@@ -3693,77 +3693,6 @@
         }
       }
     },
-    "Change goals on your Mac.": {
-      "extractionState": "manual",
-      "localizations": {
-        "ar": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "غيّر الأهداف من جهاز Mac."
-          }
-        },
-        "de": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Ändere Ziele auf deinem Mac."
-          }
-        },
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Change goals on your Mac."
-          }
-        },
-        "es": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Cambia las metas en tu Mac."
-          }
-        },
-        "fr": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Modifie les objectifs sur ton Mac."
-          }
-        },
-        "hi": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "लक्ष्य अपने Mac पर बदलें।"
-          }
-        },
-        "it": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Modifica gli obiettivi sul tuo Mac."
-          }
-        },
-        "ja": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "目標の変更は Mac で行ってください。"
-          }
-        },
-        "ko": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "목표는 Mac에서 변경하세요."
-          }
-        },
-        "pt": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Altere as metas no seu Mac."
-          }
-        },
-        "zh-Hans": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "请在 Mac 上更改目标。"
-          }
-        }
-      }
-    },
     "Next check-in %@": {
       "extractionState": "manual",
       "localizations": {
@@ -4119,77 +4048,6 @@
         }
       }
     },
-    "Up next": {
-      "extractionState": "manual",
-      "localizations": {
-        "ar": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "التالي"
-          }
-        },
-        "de": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Als Nächstes"
-          }
-        },
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Up next"
-          }
-        },
-        "es": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "A continuación"
-          }
-        },
-        "fr": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "À venir"
-          }
-        },
-        "hi": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "आगे"
-          }
-        },
-        "it": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "In arrivo"
-          }
-        },
-        "ja": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "次の予定"
-          }
-        },
-        "ko": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "다음 예정"
-          }
-        },
-        "pt": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "A seguir"
-          }
-        },
-        "zh-Hans": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "即将运行"
-          }
-        }
-      }
-    },
     "Recent runs": {
       "extractionState": "manual",
       "localizations": {
@@ -4257,77 +4115,6 @@
           "stringUnit": {
             "state": "translated",
             "value": "最近运行"
-          }
-        }
-      }
-    },
-    "Change schedules on your Mac.": {
-      "extractionState": "manual",
-      "localizations": {
-        "ar": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "غيّر الجداول من جهاز Mac."
-          }
-        },
-        "de": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Ändere Zeitpläne auf deinem Mac."
-          }
-        },
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Change schedules on your Mac."
-          }
-        },
-        "es": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Cambia las programaciones en tu Mac."
-          }
-        },
-        "fr": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Modifie les planifications sur ton Mac."
-          }
-        },
-        "hi": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "शेड्यूल अपने Mac पर बदलें।"
-          }
-        },
-        "it": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Modifica le pianificazioni sul tuo Mac."
-          }
-        },
-        "ja": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "スケジュールの変更は Mac で行ってください。"
-          }
-        },
-        "ko": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "일정은 Mac에서 변경하세요."
-          }
-        },
-        "pt": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Altere os agendamentos no seu Mac."
-          }
-        },
-        "zh-Hans": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "请在 Mac 上更改计划。"
           }
         }
       }
@@ -29324,6 +29111,1071 @@
         }
       }
     },
+    "Schedule": {
+      "extractionState": "manual",
+      "localizations": {
+        "ar": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "الجدول"
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Zeitplan"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Schedule"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Programación"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Planification"
+          }
+        },
+        "hi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "शेड्यूल"
+          }
+        },
+        "it": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Pianificazione"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "スケジュール"
+          }
+        },
+        "ko": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "일정"
+          }
+        },
+        "pt": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Agenda"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "计划"
+          }
+        }
+      }
+    },
+    "Pause": {
+      "extractionState": "manual",
+      "localizations": {
+        "ar": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "إيقاف مؤقت"
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Pausieren"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Pause"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Pausar"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Mettre en pause"
+          }
+        },
+        "hi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "रोकें"
+          }
+        },
+        "it": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Sospendi"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "一時停止"
+          }
+        },
+        "ko": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "일시 정지"
+          }
+        },
+        "pt": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Pausar"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "暂停"
+          }
+        }
+      }
+    },
+    "Resume": {
+      "extractionState": "manual",
+      "localizations": {
+        "ar": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "استئناف"
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Fortsetzen"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Resume"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Reanudar"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Reprendre"
+          }
+        },
+        "hi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "फिर शुरू करें"
+          }
+        },
+        "it": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Riprendi"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "再開"
+          }
+        },
+        "ko": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "재개"
+          }
+        },
+        "pt": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Retomar"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "恢复"
+          }
+        }
+      }
+    },
+    "Run now": {
+      "extractionState": "manual",
+      "localizations": {
+        "ar": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "تشغيل الآن"
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Jetzt ausführen"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Run now"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Ejecutar ahora"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Lancer maintenant"
+          }
+        },
+        "hi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "अभी चलाएँ"
+          }
+        },
+        "it": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Esegui ora"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "今すぐ実行"
+          }
+        },
+        "ko": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "지금 실행"
+          }
+        },
+        "pt": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Executar agora"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "立即运行"
+          }
+        }
+      }
+    },
+    "Start": {
+      "extractionState": "manual",
+      "localizations": {
+        "ar": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "ابدأ"
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Starten"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Start"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Empezar"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Commencer"
+          }
+        },
+        "hi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "शुरू करें"
+          }
+        },
+        "it": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Avvia"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "開始"
+          }
+        },
+        "ko": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "시작"
+          }
+        },
+        "pt": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Começar"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "开始"
+          }
+        }
+      }
+    },
+    "Mark done": {
+      "extractionState": "manual",
+      "localizations": {
+        "ar": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "تحديد كمنجَز"
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Als erledigt markieren"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Mark done"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Marcar como hecho"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Marquer comme terminé"
+          }
+        },
+        "hi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "पूरा हुआ चिह्नित करें"
+          }
+        },
+        "it": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Segna come fatto"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "完了にする"
+          }
+        },
+        "ko": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "완료로 표시"
+          }
+        },
+        "pt": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Marcar como concluído"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "标记为完成"
+          }
+        }
+      }
+    },
+    "Reopen": {
+      "extractionState": "manual",
+      "localizations": {
+        "ar": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "إعادة فتح"
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Wieder öffnen"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Reopen"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Reabrir"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Rouvrir"
+          }
+        },
+        "hi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "फिर से खोलें"
+          }
+        },
+        "it": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Riapri"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "再開する"
+          }
+        },
+        "ko": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "다시 열기"
+          }
+        },
+        "pt": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Reabrir"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "重新打开"
+          }
+        }
+      }
+    },
+    "Turned off": {
+      "extractionState": "manual",
+      "localizations": {
+        "ar": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "متوقف"
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Ausgeschaltet"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Turned off"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Desactivado"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Désactivé"
+          }
+        },
+        "hi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "बंद"
+          }
+        },
+        "it": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Disattivato"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "オフ"
+          }
+        },
+        "ko": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "꺼짐"
+          }
+        },
+        "pt": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Desativado"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "已关闭"
+          }
+        }
+      }
+    },
+    "This can take actions for you. Anything that needs your approval still waits for you.": {
+      "extractionState": "manual",
+      "localizations": {
+        "ar": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "قد تتخذ هذه الأداة إجراءات نيابةً عنك. أي شيء يحتاج إلى موافقتك ينتظر حتى توافق عليه."
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Das kann in deinem Namen Aktionen ausführen. Was deine Freigabe braucht, wartet weiter auf dich."
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "This can take actions for you. Anything that needs your approval still waits for you."
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Puede hacer acciones por ti. Lo que necesite tu aprobación seguirá esperando a que lo apruebes."
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Cela peut agir à ta place. Ce qui demande ton accord attend toujours ta validation."
+          }
+        },
+        "hi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "यह आपकी ओर से कार्रवाई कर सकता है। जिसे आपकी मंज़ूरी चाहिए, वह आपके जवाब का इंतज़ार करेगा।"
+          }
+        },
+        "it": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Può compiere azioni per te. Ciò che richiede la tua approvazione resta in attesa."
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "代わりに操作を行うことがあります。承認が必要なものは、承認されるまで待機します。"
+          }
+        },
+        "ko": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "대신 작업을 수행할 수 있습니다. 승인이 필요한 항목은 승인할 때까지 대기합니다."
+          }
+        },
+        "pt": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Pode agir por você. O que precisar da sua aprovação continua esperando por você."
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "它可能会替你执行操作。需要你批准的内容会继续等待你批准。"
+          }
+        }
+      }
+    },
+    "Edit schedules and prompts on your Mac.": {
+      "extractionState": "manual",
+      "localizations": {
+        "ar": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "عدّل الجداول والتعليمات من جهاز Mac."
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Zeitpläne und Anweisungen änderst du auf deinem Mac."
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Edit schedules and prompts on your Mac."
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Edita las programaciones y las instrucciones en tu Mac."
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Modifie les planifications et les instructions sur ton Mac."
+          }
+        },
+        "hi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "शेड्यूल और निर्देश अपने Mac पर बदलें।"
+          }
+        },
+        "it": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Modifica pianificazioni e istruzioni sul Mac."
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "スケジュールと指示は Mac で編集します。"
+          }
+        },
+        "ko": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "일정과 지시문은 Mac에서 편집하세요."
+          }
+        },
+        "pt": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Edite as programações e as instruções no seu Mac."
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "在 Mac 上编辑计划和指令。"
+          }
+        }
+      }
+    },
+    "Edit goal details and check-ins on your Mac.": {
+      "extractionState": "manual",
+      "localizations": {
+        "ar": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "عدّل تفاصيل الهدف ومواعيد المتابعة من جهاز Mac."
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Zieldetails und Check-ins bearbeitest du auf deinem Mac."
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Edit goal details and check-ins on your Mac."
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Edita los detalles de la meta y los seguimientos en tu Mac."
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Modifie les détails de l'objectif et les points de suivi sur ton Mac."
+          }
+        },
+        "hi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "लक्ष्य का विवरण और चेक-इन अपने Mac पर बदलें।"
+          }
+        },
+        "it": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Modifica dettagli e check-in dell'obiettivo sul Mac."
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "目標の詳細とチェックインは Mac で編集します。"
+          }
+        },
+        "ko": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "목표 세부 정보와 체크인은 Mac에서 편집하세요."
+          }
+        },
+        "pt": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Edite os detalhes da meta e os check-ins no seu Mac."
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "在 Mac 上编辑目标详情和签到。"
+          }
+        }
+      }
+    },
+    "Run this now?": {
+      "extractionState": "manual",
+      "localizations": {
+        "ar": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "هل تريد تشغيل هذا الآن؟"
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Diesen jetzt ausführen?"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Run this now?"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "¿Ejecutar esto ahora?"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Lancer ceci maintenant ?"
+          }
+        },
+        "hi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "इसे अभी चलाएँ?"
+          }
+        },
+        "it": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Eseguire questo ora?"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "これを今すぐ実行しますか?"
+          }
+        },
+        "ko": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "이것을 지금 실행할까요?"
+          }
+        },
+        "pt": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Executar isto agora?"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "立即运行这个?"
+          }
+        }
+      }
+    },
+    "Change goals on your Mac.": {
+      "extractionState": "manual",
+      "localizations": {
+        "ar": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "غيّر الأهداف من جهاز Mac."
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Ändere Ziele auf deinem Mac."
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Change goals on your Mac."
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Cambia las metas en tu Mac."
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Modifie les objectifs sur ton Mac."
+          }
+        },
+        "hi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "लक्ष्य अपने Mac पर बदलें।"
+          }
+        },
+        "it": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Modifica gli obiettivi sul tuo Mac."
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "目標の変更は Mac で行ってください。"
+          }
+        },
+        "ko": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "목표는 Mac에서 변경하세요."
+          }
+        },
+        "pt": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Altere as metas no seu Mac."
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "请在 Mac 上更改目标。"
+          }
+        }
+      }
+    },
+    "Up next": {
+      "extractionState": "manual",
+      "localizations": {
+        "ar": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "التالي"
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Als Nächstes"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Up next"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "A continuación"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "À venir"
+          }
+        },
+        "hi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "आगे"
+          }
+        },
+        "it": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "In arrivo"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "次の予定"
+          }
+        },
+        "ko": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "다음 예정"
+          }
+        },
+        "pt": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "A seguir"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "即将运行"
+          }
+        }
+      }
+    },
+    "Change schedules on your Mac.": {
+      "extractionState": "manual",
+      "localizations": {
+        "ar": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "غيّر الجداول من جهاز Mac."
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Ändere Zeitpläne auf deinem Mac."
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Change schedules on your Mac."
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Cambia las programaciones en tu Mac."
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Modifie les planifications sur ton Mac."
+          }
+        },
+        "hi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "शेड्यूल अपने Mac पर बदलें।"
+          }
+        },
+        "it": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Modifica le pianificazioni sul tuo Mac."
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "スケジュールの変更は Mac で行ってください。"
+          }
+        },
+        "ko": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "일정은 Mac에서 변경하세요."
+          }
+        },
+        "pt": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Altere os agendamentos no seu Mac."
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "请在 Mac 上更改计划。"
+          }
+        }
+      }
+    },
     "Needs your OK": {
       "extractionState": "manual",
       "localizations": {
@@ -29336,7 +30188,7 @@
         "ar": {
           "stringUnit": {
             "state": "translated",
-            "value": "\u0628\u0627\u0646\u062a\u0638\u0627\u0631 \u0645\u0648\u0627\u0641\u0642\u062a\u0643"
+            "value": "بانتظار موافقتك"
           }
         },
         "de": {
@@ -29348,7 +30200,7 @@
         "es": {
           "stringUnit": {
             "state": "translated",
-            "value": "Espera tu aprobaci\u00f3n"
+            "value": "Espera tu aprobación"
           }
         },
         "fr": {
@@ -29360,7 +30212,7 @@
         "hi": {
           "stringUnit": {
             "state": "translated",
-            "value": "\u0906\u092a\u0915\u0940 \u092e\u0902\u091c\u093c\u0942\u0930\u0940 \u091a\u093e\u0939\u093f\u090f"
+            "value": "आपकी मंज़ूरी चाहिए"
           }
         },
         "it": {
@@ -29372,25 +30224,25 @@
         "ja": {
           "stringUnit": {
             "state": "translated",
-            "value": "\u3042\u306a\u305f\u306e\u78ba\u8a8d\u5f85\u3061"
+            "value": "あなたの確認待ち"
           }
         },
         "ko": {
           "stringUnit": {
             "state": "translated",
-            "value": "\uc2b9\uc778 \ud544\uc694"
+            "value": "승인 필요"
           }
         },
         "pt": {
           "stringUnit": {
             "state": "translated",
-            "value": "Aguardando sua aprova\u00e7\u00e3o"
+            "value": "Aguardando sua aprovação"
           }
         },
         "zh-Hans": {
           "stringUnit": {
             "state": "translated",
-            "value": "\u9700\u8981\u4f60\u786e\u8ba4"
+            "value": "需要你确认"
           }
         }
       }
@@ -29407,7 +30259,7 @@
         "ar": {
           "stringUnit": {
             "state": "translated",
-            "value": "\u0628\u0627\u0646\u062a\u0638\u0627\u0631 \u0625\u062f\u062e\u0627\u0644\u0643"
+            "value": "بانتظار إدخالك"
           }
         },
         "de": {
@@ -29425,13 +30277,13 @@
         "fr": {
           "stringUnit": {
             "state": "translated",
-            "value": "En attente de votre r\u00e9ponse"
+            "value": "En attente de votre réponse"
           }
         },
         "hi": {
           "stringUnit": {
             "state": "translated",
-            "value": "\u0906\u092a\u0915\u0947 \u0907\u0928\u092a\u0941\u091f \u0915\u093e \u0907\u0902\u0924\u091c\u093c\u093e\u0930"
+            "value": "आपके इनपुट का इंतज़ार"
           }
         },
         "it": {
@@ -29443,13 +30295,13 @@
         "ja": {
           "stringUnit": {
             "state": "translated",
-            "value": "\u5165\u529b\u5f85\u3061"
+            "value": "入力待ち"
           }
         },
         "ko": {
           "stringUnit": {
             "state": "translated",
-            "value": "\uc785\ub825 \ub300\uae30 \uc911"
+            "value": "입력 대기 중"
           }
         },
         "pt": {
@@ -29461,7 +30313,7 @@
         "zh-Hans": {
           "stringUnit": {
             "state": "translated",
-            "value": "\u7b49\u5f85\u4f60\u7684\u8f93\u5165"
+            "value": "等待你的输入"
           }
         }
       }
@@ -29478,7 +30330,7 @@
         "ar": {
           "stringUnit": {
             "state": "translated",
-            "value": "\u0641\u064a \u0642\u0627\u0626\u0645\u0629 \u0627\u0644\u0627\u0646\u062a\u0638\u0627\u0631"
+            "value": "في قائمة الانتظار"
           }
         },
         "de": {
@@ -29502,7 +30354,7 @@
         "hi": {
           "stringUnit": {
             "state": "translated",
-            "value": "\u0915\u0924\u093e\u0930 \u092e\u0947\u0902"
+            "value": "कतार में"
           }
         },
         "it": {
@@ -29514,13 +30366,13 @@
         "ja": {
           "stringUnit": {
             "state": "translated",
-            "value": "\u5f85\u6a5f\u5217"
+            "value": "待機列"
           }
         },
         "ko": {
           "stringUnit": {
             "state": "translated",
-            "value": "\ub300\uae30\uc5f4"
+            "value": "대기열"
           }
         },
         "pt": {
@@ -29532,7 +30384,7 @@
         "zh-Hans": {
           "stringUnit": {
             "state": "translated",
-            "value": "\u6392\u961f\u4e2d"
+            "value": "排队中"
           }
         }
       }
@@ -29549,7 +30401,7 @@
         "ar": {
           "stringUnit": {
             "state": "translated",
-            "value": "\u0645\u0639\u0644\u0651\u0642"
+            "value": "معلّق"
           }
         },
         "de": {
@@ -29573,7 +30425,7 @@
         "hi": {
           "stringUnit": {
             "state": "translated",
-            "value": "\u0932\u0902\u092c\u093f\u0924"
+            "value": "लंबित"
           }
         },
         "it": {
@@ -29585,13 +30437,13 @@
         "ja": {
           "stringUnit": {
             "state": "translated",
-            "value": "\u4fdd\u7559\u4e2d"
+            "value": "保留中"
           }
         },
         "ko": {
           "stringUnit": {
             "state": "translated",
-            "value": "\ub300\uae30 \uc911"
+            "value": "대기 중"
           }
         },
         "pt": {
@@ -29603,7 +30455,7 @@
         "zh-Hans": {
           "stringUnit": {
             "state": "translated",
-            "value": "\u5f85\u5904\u7406"
+            "value": "待处理"
           }
         }
       }
@@ -29620,7 +30472,7 @@
         "ar": {
           "stringUnit": {
             "state": "translated",
-            "value": "\u0641\u064a \u0627\u0644\u0627\u0646\u062a\u0638\u0627\u0631"
+            "value": "في الانتظار"
           }
         },
         "de": {
@@ -29644,7 +30496,7 @@
         "hi": {
           "stringUnit": {
             "state": "translated",
-            "value": "\u092a\u094d\u0930\u0924\u0940\u0915\u094d\u0937\u093e \u092e\u0947\u0902"
+            "value": "प्रतीक्षा में"
           }
         },
         "it": {
@@ -29656,13 +30508,13 @@
         "ja": {
           "stringUnit": {
             "state": "translated",
-            "value": "\u5f85\u6a5f\u4e2d"
+            "value": "待機中"
           }
         },
         "ko": {
           "stringUnit": {
             "state": "translated",
-            "value": "\ub300\uae30"
+            "value": "대기"
           }
         },
         "pt": {
@@ -29674,7 +30526,7 @@
         "zh-Hans": {
           "stringUnit": {
             "state": "translated",
-            "value": "\u7b49\u5f85\u4e2d"
+            "value": "等待中"
           }
         }
       }
@@ -29691,7 +30543,7 @@
         "ar": {
           "stringUnit": {
             "state": "translated",
-            "value": "\u0645\u0631\u0641\u0648\u0636"
+            "value": "مرفوض"
           }
         },
         "de": {
@@ -29709,13 +30561,13 @@
         "fr": {
           "stringUnit": {
             "state": "translated",
-            "value": "Refus\u00e9"
+            "value": "Refusé"
           }
         },
         "hi": {
           "stringUnit": {
             "state": "translated",
-            "value": "\u0905\u0938\u094d\u0935\u0940\u0915\u0943\u0924"
+            "value": "अस्वीकृत"
           }
         },
         "it": {
@@ -29727,13 +30579,13 @@
         "ja": {
           "stringUnit": {
             "state": "translated",
-            "value": "\u62d2\u5426"
+            "value": "拒否"
           }
         },
         "ko": {
           "stringUnit": {
             "state": "translated",
-            "value": "\uac70\ubd80\ub428"
+            "value": "거부됨"
           }
         },
         "pt": {
@@ -29745,149 +30597,7 @@
         "zh-Hans": {
           "stringUnit": {
             "state": "translated",
-            "value": "\u5df2\u62d2\u7edd"
-          }
-        }
-      }
-    },
-    "Pause": {
-      "extractionState": "manual",
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Pause"
-          }
-        },
-        "ar": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "\u0625\u064a\u0642\u0627\u0641 \u0645\u0624\u0642\u062a"
-          }
-        },
-        "de": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Pausieren"
-          }
-        },
-        "es": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Pausar"
-          }
-        },
-        "fr": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Suspendre"
-          }
-        },
-        "hi": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "\u0930\u094b\u0915\u0947\u0902"
-          }
-        },
-        "it": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Pausa"
-          }
-        },
-        "ja": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "\u4e00\u6642\u505c\u6b62"
-          }
-        },
-        "ko": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "\uc77c\uc2dc\uc815\uc9c0"
-          }
-        },
-        "pt": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Pausar"
-          }
-        },
-        "zh-Hans": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "\u6682\u505c"
-          }
-        }
-      }
-    },
-    "Resume": {
-      "extractionState": "manual",
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Resume"
-          }
-        },
-        "ar": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "\u0645\u062a\u0627\u0628\u0639\u0629"
-          }
-        },
-        "de": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Fortsetzen"
-          }
-        },
-        "es": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Reanudar"
-          }
-        },
-        "fr": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Reprendre"
-          }
-        },
-        "hi": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "\u092b\u093f\u0930 \u0938\u0947 \u0936\u0941\u0930\u0942 \u0915\u0930\u0947\u0902"
-          }
-        },
-        "it": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Riprendi"
-          }
-        },
-        "ja": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "\u518d\u958b"
-          }
-        },
-        "ko": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "\uc7ac\uac1c"
-          }
-        },
-        "pt": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Retomar"
-          }
-        },
-        "zh-Hans": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "\u7ee7\u7eed"
+            "value": "已拒绝"
           }
         }
       }
@@ -29904,7 +30614,7 @@
         "ar": {
           "stringUnit": {
             "state": "translated",
-            "value": "\u0625\u0631\u0633\u0627\u0644 \u062a\u0648\u062c\u064a\u0647"
+            "value": "إرسال توجيه"
           }
         },
         "de": {
@@ -29916,7 +30626,7 @@
         "es": {
           "stringUnit": {
             "state": "translated",
-            "value": "Enviar indicaci\u00f3n"
+            "value": "Enviar indicación"
           }
         },
         "fr": {
@@ -29928,7 +30638,7 @@
         "hi": {
           "stringUnit": {
             "state": "translated",
-            "value": "\u0928\u093f\u0930\u094d\u0926\u0947\u0936 \u092d\u0947\u091c\u0947\u0902"
+            "value": "निर्देश भेजें"
           }
         },
         "it": {
@@ -29940,25 +30650,25 @@
         "ja": {
           "stringUnit": {
             "state": "translated",
-            "value": "\u6307\u793a\u3092\u9001\u308b"
+            "value": "指示を送る"
           }
         },
         "ko": {
           "stringUnit": {
             "state": "translated",
-            "value": "\uc9c0\uce68 \ubcf4\ub0b4\uae30"
+            "value": "지침 보내기"
           }
         },
         "pt": {
           "stringUnit": {
             "state": "translated",
-            "value": "Enviar orienta\u00e7\u00e3o"
+            "value": "Enviar orientação"
           }
         },
         "zh-Hans": {
           "stringUnit": {
             "state": "translated",
-            "value": "\u53d1\u9001\u6307\u5bfc"
+            "value": "发送指导"
           }
         }
       }
@@ -29975,31 +30685,31 @@
         "ar": {
           "stringUnit": {
             "state": "translated",
-            "value": "\u0627\u0643\u062a\u0628 \u0645\u0627 \u0627\u0644\u0630\u064a \u064a\u062c\u0628 \u062a\u063a\u064a\u064a\u0631\u0647"
+            "value": "اكتب ما الذي يجب تغييره"
           }
         },
         "de": {
           "stringUnit": {
             "state": "translated",
-            "value": "Sag Psyche, was sich \u00e4ndern soll"
+            "value": "Sag Psyche, was sich ändern soll"
           }
         },
         "es": {
           "stringUnit": {
             "state": "translated",
-            "value": "Dile a Psyche qu\u00e9 cambiar"
+            "value": "Dile a Psyche qué cambiar"
           }
         },
         "fr": {
           "stringUnit": {
             "state": "translated",
-            "value": "Dites \u00e0 Psyche ce qu'il faut changer"
+            "value": "Dites à Psyche ce qu'il faut changer"
           }
         },
         "hi": {
           "stringUnit": {
             "state": "translated",
-            "value": "\u092c\u0924\u093e\u090f\u0902 \u0915\u093f \u0915\u094d\u092f\u093e \u092c\u0926\u0932\u0928\u093e \u0939\u0948"
+            "value": "बताएं कि क्या बदलना है"
           }
         },
         "it": {
@@ -30011,13 +30721,13 @@
         "ja": {
           "stringUnit": {
             "state": "translated",
-            "value": "\u5909\u66f4\u3057\u3066\u307b\u3057\u3044\u5185\u5bb9\u3092\u4f1d\u3048\u308b"
+            "value": "変更してほしい内容を伝える"
           }
         },
         "ko": {
           "stringUnit": {
             "state": "translated",
-            "value": "Psyche\uc5d0\uac8c \ubc14\uafc0 \ub0b4\uc6a9\uc744 \uc54c\ub824 \uc8fc\uc138\uc694"
+            "value": "Psyche에게 바꿀 내용을 알려 주세요"
           }
         },
         "pt": {
@@ -30029,7 +30739,7 @@
         "zh-Hans": {
           "stringUnit": {
             "state": "translated",
-            "value": "\u544a\u8bc9 Psyche \u8981\u6539\u4ec0\u4e48"
+            "value": "告诉 Psyche 要改什么"
           }
         }
       }
@@ -30046,7 +30756,7 @@
         "ar": {
           "stringUnit": {
             "state": "translated",
-            "value": "\u0628\u062f\u0623"
+            "value": "بدأ"
           }
         },
         "de": {
@@ -30064,13 +30774,13 @@
         "fr": {
           "stringUnit": {
             "state": "translated",
-            "value": "D\u00e9but"
+            "value": "Début"
           }
         },
         "hi": {
           "stringUnit": {
             "state": "translated",
-            "value": "\u0936\u0941\u0930\u0942"
+            "value": "शुरू"
           }
         },
         "it": {
@@ -30082,25 +30792,25 @@
         "ja": {
           "stringUnit": {
             "state": "translated",
-            "value": "\u958b\u59cb"
+            "value": "開始"
           }
         },
         "ko": {
           "stringUnit": {
             "state": "translated",
-            "value": "\uc2dc\uc791"
+            "value": "시작"
           }
         },
         "pt": {
           "stringUnit": {
             "state": "translated",
-            "value": "In\u00edcio"
+            "value": "Início"
           }
         },
         "zh-Hans": {
           "stringUnit": {
             "state": "translated",
-            "value": "\u5f00\u59cb\u65f6\u95f4"
+            "value": "开始时间"
           }
         }
       }
@@ -30117,7 +30827,7 @@
         "ar": {
           "stringUnit": {
             "state": "translated",
-            "value": "\u0627\u0644\u0645\u062f\u0629"
+            "value": "المدة"
           }
         },
         "de": {
@@ -30135,13 +30845,13 @@
         "fr": {
           "stringUnit": {
             "state": "translated",
-            "value": "\u00c9coul\u00e9"
+            "value": "Écoulé"
           }
         },
         "hi": {
           "stringUnit": {
             "state": "translated",
-            "value": "\u092c\u0940\u0924\u093e \u0938\u092e\u092f"
+            "value": "बीता समय"
           }
         },
         "it": {
@@ -30153,13 +30863,13 @@
         "ja": {
           "stringUnit": {
             "state": "translated",
-            "value": "\u7d4c\u904e\u6642\u9593"
+            "value": "経過時間"
           }
         },
         "ko": {
           "stringUnit": {
             "state": "translated",
-            "value": "\uacbd\uacfc \uc2dc\uac04"
+            "value": "경과 시간"
           }
         },
         "pt": {
@@ -30171,7 +30881,7 @@
         "zh-Hans": {
           "stringUnit": {
             "state": "translated",
-            "value": "\u5df2\u7528\u65f6\u95f4"
+            "value": "已用时间"
           }
         }
       }
@@ -30188,7 +30898,7 @@
         "ar": {
           "stringUnit": {
             "state": "translated",
-            "value": "\u0627\u0644\u062e\u0637\u0648\u0627\u062a"
+            "value": "الخطوات"
           }
         },
         "de": {
@@ -30206,13 +30916,13 @@
         "fr": {
           "stringUnit": {
             "state": "translated",
-            "value": "\u00c9tapes"
+            "value": "Étapes"
           }
         },
         "hi": {
           "stringUnit": {
             "state": "translated",
-            "value": "\u091a\u0930\u0923"
+            "value": "चरण"
           }
         },
         "it": {
@@ -30224,13 +30934,13 @@
         "ja": {
           "stringUnit": {
             "state": "translated",
-            "value": "\u30b9\u30c6\u30c3\u30d7"
+            "value": "ステップ"
           }
         },
         "ko": {
           "stringUnit": {
             "state": "translated",
-            "value": "\ub2e8\uacc4"
+            "value": "단계"
           }
         },
         "pt": {
@@ -30242,7 +30952,7 @@
         "zh-Hans": {
           "stringUnit": {
             "state": "translated",
-            "value": "\u6b65\u9aa4"
+            "value": "步骤"
           }
         }
       }
@@ -30259,7 +30969,7 @@
         "ar": {
           "stringUnit": {
             "state": "translated",
-            "value": "\u0644\u0645 \u062a\u064f\u0633\u062c\u064e\u0651\u0644 \u0623\u064a \u062e\u0637\u0648\u0627\u062a \u0628\u0639\u062f."
+            "value": "لم تُسجَّل أي خطوات بعد."
           }
         },
         "de": {
@@ -30271,19 +30981,19 @@
         "es": {
           "stringUnit": {
             "state": "translated",
-            "value": "A\u00fan no hay pasos registrados."
+            "value": "Aún no hay pasos registrados."
           }
         },
         "fr": {
           "stringUnit": {
             "state": "translated",
-            "value": "Aucune \u00e9tape enregistr\u00e9e pour l'instant."
+            "value": "Aucune étape enregistrée pour l'instant."
           }
         },
         "hi": {
           "stringUnit": {
             "state": "translated",
-            "value": "\u0905\u092d\u0940 \u0924\u0915 \u0915\u094b\u0908 \u091a\u0930\u0923 \u0926\u0930\u094d\u091c \u0928\u0939\u0940\u0902 \u0939\u0941\u0906\u0964"
+            "value": "अभी तक कोई चरण दर्ज नहीं हुआ।"
           }
         },
         "it": {
@@ -30295,13 +31005,13 @@
         "ja": {
           "stringUnit": {
             "state": "translated",
-            "value": "\u307e\u3060\u30b9\u30c6\u30c3\u30d7\u304c\u8a18\u9332\u3055\u308c\u3066\u3044\u307e\u305b\u3093\u3002"
+            "value": "まだステップが記録されていません。"
           }
         },
         "ko": {
           "stringUnit": {
             "state": "translated",
-            "value": "\uc544\uc9c1 \uae30\ub85d\ub41c \ub2e8\uacc4\uac00 \uc5c6\uc2b5\ub2c8\ub2e4."
+            "value": "아직 기록된 단계가 없습니다."
           }
         },
         "pt": {
@@ -30313,7 +31023,7 @@
         "zh-Hans": {
           "stringUnit": {
             "state": "translated",
-            "value": "\u8fd8\u6ca1\u6709\u8bb0\u5f55\u6b65\u9aa4\u3002"
+            "value": "还没有记录步骤。"
           }
         }
       }
@@ -30330,7 +31040,7 @@
         "ar": {
           "stringUnit": {
             "state": "translated",
-            "value": "\u0627\u0644\u0645\u0644\u062e\u0635"
+            "value": "الملخص"
           }
         },
         "de": {
@@ -30348,13 +31058,13 @@
         "fr": {
           "stringUnit": {
             "state": "translated",
-            "value": "R\u00e9sum\u00e9"
+            "value": "Résumé"
           }
         },
         "hi": {
           "stringUnit": {
             "state": "translated",
-            "value": "\u0938\u093e\u0930\u093e\u0902\u0936"
+            "value": "सारांश"
           }
         },
         "it": {
@@ -30366,13 +31076,13 @@
         "ja": {
           "stringUnit": {
             "state": "translated",
-            "value": "\u6982\u8981"
+            "value": "概要"
           }
         },
         "ko": {
           "stringUnit": {
             "state": "translated",
-            "value": "\uc694\uc57d"
+            "value": "요약"
           }
         },
         "pt": {
@@ -30384,7 +31094,7 @@
         "zh-Hans": {
           "stringUnit": {
             "state": "translated",
-            "value": "\u6458\u8981"
+            "value": "摘要"
           }
         }
       }

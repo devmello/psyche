@@ -4,7 +4,15 @@ import type {
   SpaceTrackerTemplate,
   SpaceTrackerValue,
 } from "@psyche/protocol";
-import { ChevronLeft, Ellipsis, MessageSquarePlus, Plus, RefreshCw, X } from "lucide-react";
+import {
+  ChevronLeft,
+  Ellipsis,
+  FolderPlus,
+  MessageSquarePlus,
+  Plus,
+  RefreshCw,
+  X,
+} from "lucide-react";
 import { type ReactElement, type ReactNode, useEffect, useState } from "react";
 import { toast } from "sonner";
 import { Button } from "../components/ui/button.tsx";
@@ -15,6 +23,7 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "../components/ui/dropdown-menu.tsx";
+import { NativeSelect } from "../components/ui/native-select.tsx";
 import { Skeleton } from "../components/ui/skeleton.tsx";
 import { useAutomations, useCall, useGoals, useStoreState } from "../data/index.ts";
 import { t } from "../i18n/core.ts";
@@ -58,7 +67,7 @@ export interface SpacePageProps {
  * `spaces.open`, which recomputes stale query trackers without a model call.
  */
 export function SpacePage({ spaceId, onNavigate, now: fixedNow }: SpacePageProps): ReactElement {
-  const { navigate: slotNavigate } = useSlots();
+  const { navigate: slotNavigate, pickFolder } = useSlots();
   const navigate = onNavigate ?? slotNavigate ?? (() => {});
   const call = useCall();
   const actions = useSpaceActions();
@@ -86,6 +95,28 @@ export function SpacePage({ spaceId, onNavigate, now: fixedNow }: SpacePageProps
 
   const fail = (err: unknown) => toast.error(describeError(err));
   const write = (p: Promise<unknown>) => p.then(reload, fail);
+
+  // Folders: only where the host's native picker exists (the Mac's desktop shell). Elsewhere the
+  // section keeps its explanation, and the Gateway refuses folder writes from other devices too.
+  const [folderError, setFolderError] = useState<string | null>(null);
+  const folderWrite = (p: Promise<unknown>) =>
+    p.then(
+      () => {
+        setFolderError(null);
+        reload();
+      },
+      (err: unknown) => setFolderError(describeError(err)),
+    );
+  const addFolder = () => {
+    if (!pickFolder) return;
+    void pickFolder({ title: t("spaces.files.pickTitle") }).then(
+      (path) =>
+        path === null
+          ? undefined
+          : folderWrite(call("spaces.folders.add", { spaceId, path, mode: "ro" })),
+      (err: unknown) => setFolderError(describeError(err)),
+    );
+  };
 
   if (detail === null) {
     return (
@@ -259,12 +290,49 @@ export function SpacePage({ spaceId, onNavigate, now: fixedNow }: SpacePageProps
                     <span className="truncate font-mono text-callout text-label-primary">
                       {f.path}
                     </span>
-                    <span className="shrink-0 text-callout text-label-secondary">
-                      {f.mode === "rw" ? t("spaces.files.rw") : t("spaces.files.ro")}
-                      {f.mode === "rw" && !f.automationsWrite
-                        ? ` · ${t("spaces.files.automationsRo")}`
-                        : ""}
-                    </span>
+                    {pickFolder ? (
+                      <span className="flex shrink-0 items-center gap-1">
+                        <NativeSelect
+                          size="sm"
+                          aria-label={t("spaces.files.accessTo", { path: f.path })}
+                          value={f.mode}
+                          disabled={archived}
+                          onChange={(e) =>
+                            void folderWrite(
+                              call("spaces.folders.setMode", {
+                                spaceId,
+                                path: f.path,
+                                mode: e.target.value === "rw" ? "rw" : "ro",
+                              }),
+                            )
+                          }
+                        >
+                          <option value="ro">{t("spaces.files.ro")}</option>
+                          <option value="rw">{t("spaces.files.rw")}</option>
+                        </NativeSelect>
+                        <Button
+                          type="button"
+                          size="xs"
+                          variant="ghost"
+                          disabled={archived}
+                          aria-label={t("spaces.files.removeFolder", { path: f.path })}
+                          onClick={() =>
+                            void folderWrite(
+                              call("spaces.folders.remove", { spaceId, path: f.path }),
+                            )
+                          }
+                        >
+                          {t("spaces.files.remove")}
+                        </Button>
+                      </span>
+                    ) : (
+                      <span className="shrink-0 text-callout text-label-secondary">
+                        {f.mode === "rw" ? t("spaces.files.rw") : t("spaces.files.ro")}
+                        {f.mode === "rw" && !f.automationsWrite
+                          ? ` · ${t("spaces.files.automationsRo")}`
+                          : ""}
+                      </span>
+                    )}
                   </li>
                 ))}
                 {detail.links.map((l) => (
@@ -280,7 +348,27 @@ export function SpacePage({ spaceId, onNavigate, now: fixedNow }: SpacePageProps
                 ))}
               </ul>
             )}
-            <Quiet>{t("spaces.files.addOnMac")}</Quiet>
+            {pickFolder ? (
+              <div className="flex flex-col items-start gap-2 px-2.5">
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  disabled={archived}
+                  onClick={addFolder}
+                >
+                  <FolderPlus aria-hidden="true" />
+                  {t("spaces.files.add")}
+                </Button>
+                {folderError ? (
+                  <p role="alert" className="text-callout text-danger-text">
+                    {t("spaces.files.failed", { reason: folderError })}
+                  </p>
+                ) : null}
+              </div>
+            ) : (
+              <Quiet>{t("spaces.files.addOnMac")}</Quiet>
+            )}
           </ScreenSection>
           <GoalsSection ids={detail.goalIds} onNavigate={navigate} />
         </div>

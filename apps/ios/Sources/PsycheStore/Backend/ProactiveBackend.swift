@@ -2,8 +2,8 @@ import Foundation
 
 // Feed, Ideas, Goals and Scheduled work (the desktop Home's sections): what the Gateway's proactive side
 // proposes and what it runs on a schedule. Gateway methods: feed.list/feedback, ideas.list/accept/dismiss,
-// goals.list/get, scheduled.list/runs and automations.runs (for `retryAt`). Read-mostly on the phone:
-// editing goals and schedules is a Mac thing.
+// goals.list/get/update (status only), scheduled.list/runs/pause, automations.run and automations.runs (for
+// `retryAt`). Editing a goal's details or a schedule's time and prompt is a Mac thing.
 
 public protocol ProactiveBackend: Sendable {
     func feed() async throws -> FeedSnapshot
@@ -14,7 +14,13 @@ public protocol ProactiveBackend: Sendable {
     func dismissIdea(id: String, reason: IdeaDismissReason) async throws
     func goals() async throws -> [GoalItem]
     func goalDetail(id: String) async throws -> GoalDetail
+    /// Changes a goal's status and returns the goal as the Gateway now holds it.
+    func setGoalStatus(id: String, _ status: GoalStatusChange) async throws -> GoalDetail
     func scheduled() async throws -> ScheduledOverview
+    /// Pauses (`paused: true`) or resumes an automation or routine; returns its new state.
+    func setScheduledPaused(id: String, paused: Bool) async throws -> String
+    /// Runs an automation or routine now, outside its schedule.
+    func runScheduledNow(id: String) async throws
 }
 
 // MARK: Feed
@@ -84,6 +90,9 @@ public struct IdeaItem: Sendable, Equatable, Identifiable {
 
 // MARK: Goals
 
+/// The statuses a phone can set on a goal (`goals.update`). Archiving stays on the Mac.
+public enum GoalStatusChange: String, Sendable, Equatable { case active, paused, done }
+
 public struct GoalItem: Sendable, Equatable, Identifiable {
     public var id: String
     public var title: String
@@ -148,8 +157,13 @@ public struct ScheduledJob: Sendable, Equatable, Identifiable {
     public var isRoutine: Bool
     public var nextRunAt: Date?
     public var lastRunAt: Date?
+    /// Run now asks first. True unless the item is a routine with no approvals it may need.
+    public var confirmsRunNow: Bool
 
-    public init(id: String, title: String, summary: String = "", state: String, isRoutine: Bool = false, nextRunAt: Date? = nil, lastRunAt: Date? = nil) {
+    public init(
+        id: String, title: String, summary: String = "", state: String, isRoutine: Bool = false, nextRunAt: Date? = nil, lastRunAt: Date? = nil,
+        confirmsRunNow: Bool = true
+    ) {
         self.id = id
         self.title = title
         self.summary = summary
@@ -157,6 +171,7 @@ public struct ScheduledJob: Sendable, Equatable, Identifiable {
         self.isRoutine = isRoutine
         self.nextRunAt = nextRunAt
         self.lastRunAt = lastRunAt
+        self.confirmsRunNow = confirmsRunNow
     }
 }
 
@@ -188,12 +203,20 @@ public struct ScheduledRunItem: Sendable, Equatable, Identifiable {
 public struct ScheduledOverview: Sendable, Equatable {
     /// Active items with a next time, soonest first.
     public var upcoming: [ScheduledJob]
+    /// Every automation and routine, whatever its state: active first, then paused, then off.
+    public var items: [ScheduledJob]
     /// Newest first.
     public var runs: [ScheduledRunItem]
-    public init(upcoming: [ScheduledJob] = [], runs: [ScheduledRunItem] = []) {
+    public init(upcoming: [ScheduledJob] = [], items: [ScheduledJob] = [], runs: [ScheduledRunItem] = []) {
         self.upcoming = upcoming
+        self.items = items
         self.runs = runs
     }
+    /// The active items with a next time, soonest first.
+    public static func upcomingOf(_ items: [ScheduledJob]) -> [ScheduledJob] {
+        items.filter { $0.state == "active" && $0.nextRunAt != nil }
+            .sorted { ($0.nextRunAt ?? .distantFuture) < ($1.nextRunAt ?? .distantFuture) }
+    }
     public static let skeleton = ScheduledOverview(
-        upcoming: (0..<3).map { ScheduledJob(id: "sk\($0)", title: "Loading", state: "active") })
+        items: (0..<3).map { ScheduledJob(id: "sk\($0)", title: "Loading", state: "active") })
 }

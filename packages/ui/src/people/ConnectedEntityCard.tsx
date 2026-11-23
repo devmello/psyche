@@ -10,7 +10,7 @@ import { ConnectedWorkHistory } from "../memory-page/WorkHistory.tsx";
 import { PersonNudgeRow } from "../nudges/ConnectedNudges.tsx";
 import { usePersona, useSlots } from "../slots.tsx";
 import { EntityCard, type EntityCardActions } from "./EntityCard.tsx";
-import { ForgetEntityDialog, MergeEntityDialog } from "./EntityDialogs.tsx";
+import { ForgetEntityDialog, MergeEntityDialog, SplitEntityDialog } from "./EntityDialogs.tsx";
 import { useEntityCard } from "./hooks.ts";
 import { PersonDataDialog, type PersonDataMode } from "./PersonDataDialog.tsx";
 
@@ -49,7 +49,7 @@ export function ConnectedEntityCard({
   const persona = usePersona();
   const card = useEntityCard(id, now);
   const call = useCall();
-  const [dialog, setDialog] = useState<"merge" | "forget" | PersonDataMode | null>(null);
+  const [dialog, setDialog] = useState<"merge" | "split" | "forget" | PersonDataMode | null>(null);
   const isPerson = card.entity !== null && card.entity.kind === "person" && id !== "";
   const coming = useGatewayQuery(
     "memory.upcoming",
@@ -129,6 +129,7 @@ export function ConnectedEntityCard({
                     else downloadZip(file);
                   });
                 },
+                onSplit: () => setDialog("split"),
                 onForgetSaid: () => setDialog("said"),
                 onExclude: (_e: unknown, forget: boolean) =>
                   setDialog(forget ? "exclude_forget" : "exclude"),
@@ -150,6 +151,12 @@ export function ConnectedEntityCard({
         open={dialog === "merge"}
         onOpenChange={(o) => setDialog(o ? "merge" : null)}
         onMerged={() => card.reload()}
+      />
+      <SplitEntityDialog
+        entity={target}
+        open={dialog === "split"}
+        onOpenChange={(o) => setDialog(o ? "split" : null)}
+        onSplit={() => card.reload()}
       />
       <ForgetEntityDialog
         entity={target}
