@@ -102,6 +102,12 @@ export const spaces: Partial<Catalogue> = {
   "spaces.files.rw": "可读写",
   "spaces.files.automationsRo": "自动化只读",
   "spaces.files.addOnMac": "请在运行 Psyche 的电脑上添加文件夹",
+  "spaces.files.add": "添加文件夹",
+  "spaces.files.pickTitle": "为此空间选择一个文件夹",
+  "spaces.files.accessTo": "{path} 的访问权限",
+  "spaces.files.remove": "移除",
+  "spaces.files.removeFolder": "移除 {path}",
+  "spaces.files.failed": "无法更改文件夹：{reason}",
   "spaces.goals": "目标",
 
   "spaces.switcher.label": "空间：{name}",

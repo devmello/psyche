@@ -10,6 +10,7 @@ import type {
   ContextLimits,
   FeedPost,
   Goal,
+  GoalLink,
   GoalMilestone,
   GrantScope,
   Idea,
@@ -1525,21 +1526,31 @@ export function useGoals() {
   };
 }
 
-export function useGoal(
-  goalId: string | null,
-): LoadState & { goal: Goal | null; taskIds: string[]; milestones: GoalMilestone[] | null } {
+export function useGoal(goalId: string | null): LoadState & {
+  goal: Goal | null;
+  taskIds: string[];
+  milestones: GoalMilestone[] | null;
+  /** The goal's links (tasks, automations, watches), as `goals.get` returns them. */
+  links: GoalLink[];
+} {
   const goal = useStoreState((s) => (goalId === null ? undefined : s.goals[goalId]));
   // Keyed by goal id, so a slow response for the previous goal never shows under this one.
   const [detail, setDetail] = useState<{
     goalId: string;
     taskIds: string[];
     milestones: GoalMilestone[] | null;
+    links: GoalLink[];
   } | null>(null);
   const load = useLoader(goalId === null ? null : `goal:${goalId}`, async (st) => {
     if (goalId === null) return;
     const res = await st.call("goals.get", { goalId });
     st.update((s) => put(s, "goals", res.goal));
-    setDetail({ goalId, taskIds: res.taskIds, milestones: res.milestones ?? null });
+    setDetail({
+      goalId,
+      taskIds: res.taskIds,
+      milestones: res.milestones ?? null,
+      links: res.links ?? [],
+    });
   });
   const current = detail?.goalId === goalId ? detail : null;
   return {
@@ -1547,6 +1558,7 @@ export function useGoal(
     goal: goal ?? null,
     taskIds: current?.taskIds ?? [],
     milestones: current?.milestones ?? null,
+    links: current?.links ?? [],
   };
 }
 
