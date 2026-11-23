@@ -226,21 +226,27 @@ export const settingsRest: Partial<Catalogue> = {
   "settings.browser.signedIn.none": "サインイン済みのサイトはまだありません。",
   "settings.browser.agent.title": "エージェントのサインイン",
   "settings.browser.agent.description":
-    "エージェントのブラウザが使ってよいサインインを選びます。変更は次のブラウザセッションから反映されます。",
+    "エージェントのブラウザが使えるサインインを選びます。変更は新しいタブに適用され、実行中のタスクにも反映されます。",
   "settings.browser.agent.mode.label": "サインイン",
   "settings.browser.agent.mode.clean": "サインインしない",
-  "settings.browser.agent.mode.auto": "リストのサイトだけ",
+  "settings.browser.agent.mode.auto": "サインイン済みのサイトのみ",
   "settings.browser.agent.mode.profile": "すべてのサイト",
   "settings.browser.agent.mode.cleanHint":
     "すべてのサイトはサインインせずに開きます。エージェントがサインインを使うことはありません。",
   "settings.browser.agent.mode.autoHint":
-    "リストのサイトはサインインして開きます。それ以外はサインインせずに開きます。",
+    "下のリストのサイトは、ブラウザがすでにサインインしているサイトも含め、あなたのサインインで開きます。それ以外のサイトはサインインなしで開きます。",
   "settings.browser.agent.mode.profileHint":
     "すべてのサイトをサインインして開きます。エージェントはどのサイトでもあなたとして操作できます。",
   "settings.browser.agent.sites.title": "サインイン済みのサイト",
   "settings.browser.agent.sites.description":
-    "「リストのサイトだけ」モードでエージェントがサインインして開いてよいサイト。https のみ、localhost は http も可。",
+    "「サインイン済みのサイトのみ」モードで、エージェントがあなたのサインインで開くサイト。ここで追加するか、ブラウザのタブからサインインしてください。https のみ（localhost は http も可）。",
   "settings.browser.agent.sites.none": "リストのサイトはありません。",
+  "settings.browser.agent.sites.readOnly": "Psyche デスクトップアプリからサインアウトしてください",
+  "settings.browser.agent.sites.signOutSite": "{site} からサインアウト",
+  "settings.browser.agent.sites.source.stay": "サインインを維持",
+  "settings.browser.agent.sites.source.setting": "設定で追加",
+  "settings.browser.agent.mode.autoHintOff":
+    "下のリストのサイトだけがあなたのサインインで開きます。それ以外のサイトはサインインなしで開きます。",
   "settings.browser.agent.sites.remove": "{site} を削除",
   "settings.browser.agent.sites.removeShort": "削除",
   "settings.browser.agent.sites.label": "サイトのアドレス",

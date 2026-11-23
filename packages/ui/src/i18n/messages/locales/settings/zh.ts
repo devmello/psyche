@@ -178,21 +178,27 @@ export const settings: Partial<Catalogue> = {
   "settings.browser.signedIn.none": "还没有已登录的网站。",
   "settings.browser.agent.title": "智能体登录",
   "settings.browser.agent.description":
-    "智能体的浏览器可以使用你的哪些登录状态。更改将在下一个浏览器会话生效。",
+    "智能体的浏览器可以使用你的哪些登录状态。更改将应用于新标签页，包括正在运行的任务。",
   "settings.browser.agent.mode.label": "登录状态",
   "settings.browser.agent.mode.clean": "未登录",
-  "settings.browser.agent.mode.auto": "仅列表中的网站",
+  "settings.browser.agent.mode.auto": "仅已登录的网站",
   "settings.browser.agent.mode.profile": "所有网站",
   "settings.browser.agent.mode.cleanHint":
     "所有网站都以未登录状态打开。智能体从不使用你的登录状态。",
   "settings.browser.agent.mode.autoHint":
-    "列表中的网站以你的登录状态打开，其他网站以未登录状态打开。",
+    "下方列表中的网站以你的登录状态打开，包括浏览器已经登录的网站。其他网站以未登录状态打开。",
   "settings.browser.agent.mode.profileHint":
     "所有网站都以你的登录状态打开。智能体可以在任何网站上代表你操作。",
   "settings.browser.agent.sites.title": "已登录的网站",
   "settings.browser.agent.sites.description":
-    "在「仅列表中的网站」模式下，智能体可以用你的登录状态打开的网站。仅限 https，localhost 可以使用 http。",
+    "在「仅已登录的网站」模式下，智能体用你的登录状态打开的网站。可在此添加，或在浏览器标签页中登录。仅限 https，localhost 可以使用 http。",
   "settings.browser.agent.sites.none": "列表中还没有网站。",
+  "settings.browser.agent.sites.readOnly": "请在 Psyche 桌面应用中退出登录",
+  "settings.browser.agent.sites.signOutSite": "退出 {site} 的登录",
+  "settings.browser.agent.sites.source.stay": "保持登录",
+  "settings.browser.agent.sites.source.setting": "在设置中添加",
+  "settings.browser.agent.mode.autoHintOff":
+    "仅下方列表中的网站以你的登录状态打开。其他网站以未登录状态打开。",
   "settings.browser.agent.sites.remove": "移除 {site}",
   "settings.browser.agent.sites.removeShort": "移除",
   "settings.browser.agent.sites.label": "网站地址",

@@ -230,21 +230,27 @@ export const settingsRest: Partial<Catalogue> = {
   "settings.browser.signedIn.none": "Aucun site connecté pour l’instant.",
   "settings.browser.agent.title": "Connexions de l'agent",
   "settings.browser.agent.description":
-    "Les connexions de votre navigateur que l'agent peut utiliser. Les changements s'appliquent à la prochaine session.",
+    "Lesquelles de tes connexions le navigateur de l'agent peut utiliser. Les changements s'appliquent aux nouveaux onglets, y compris dans les tâches déjà en cours.",
   "settings.browser.agent.mode.label": "Connexions",
   "settings.browser.agent.mode.clean": "Déconnecté",
-  "settings.browser.agent.mode.auto": "Sites listés seulement",
+  "settings.browser.agent.mode.auto": "Sites connectés uniquement",
   "settings.browser.agent.mode.profile": "Tous les sites",
   "settings.browser.agent.mode.cleanHint":
     "Chaque site s'ouvre déconnecté. L'agent n'utilise jamais vos connexions.",
   "settings.browser.agent.mode.autoHint":
-    "Les sites listés s'ouvrent avec vos connexions. Les autres s'ouvrent déconnectés.",
+    "Les sites de la liste ci-dessous s'ouvrent avec tes connexions, y compris ceux où le navigateur est déjà connecté. Tous les autres s'ouvrent déconnectés.",
   "settings.browser.agent.mode.profileHint":
     "Chaque site s'ouvre avec vos connexions. L'agent peut agir en votre nom sur chacun.",
   "settings.browser.agent.sites.title": "Sites connectés",
   "settings.browser.agent.sites.description":
-    "Sites que l'agent peut ouvrir avec vos connexions, en mode « Sites listés seulement ». https uniquement, ou http pour localhost.",
+    "Sites que l'agent ouvre avec tes connexions en mode « Sites connectés uniquement ». Ajoutes-en un ici ou connecte-toi depuis un onglet du navigateur. https uniquement, ou http pour localhost.",
   "settings.browser.agent.sites.none": "Aucun site listé.",
+  "settings.browser.agent.sites.readOnly": "Déconnecte-toi depuis l'app de bureau Psyche",
+  "settings.browser.agent.sites.signOutSite": "Se déconnecter de {site}",
+  "settings.browser.agent.sites.source.stay": "Rester connecté",
+  "settings.browser.agent.sites.source.setting": "Ajouté dans Réglages",
+  "settings.browser.agent.mode.autoHintOff":
+    "Seuls les sites de la liste ci-dessous s'ouvrent avec tes connexions. Tous les autres s'ouvrent déconnectés.",
   "settings.browser.agent.sites.remove": "Retirer {site}",
   "settings.browser.agent.sites.removeShort": "Retirer",
   "settings.browser.agent.sites.label": "Adresse du site",

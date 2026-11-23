@@ -12733,12 +12733,50 @@
             "source"
           ],
           "type": "object"
+        },
+        "signedInSites": {
+          "items": {
+            "properties": {
+              "origin": {
+                "maxLength": 200,
+                "type": "string"
+              },
+              "source": {
+                "anyOf": [
+                  {
+                    "const": "setting",
+                    "type": "string"
+                  },
+                  {
+                    "const": "stay_signed_in",
+                    "type": "string"
+                  },
+                  {
+                    "const": "detected",
+                    "type": "string"
+                  }
+                ]
+              }
+            },
+            "required": [
+              "origin",
+              "source"
+            ],
+            "type": "object"
+          },
+          "maxItems": 1000,
+          "type": "array"
+        },
+        "useSignedInSessions": {
+          "type": "boolean"
         }
       },
       "required": [
         "partition",
         "signedInOrigins",
-        "devPreviewPorts"
+        "devPreviewPorts",
+        "signedInSites",
+        "useSignedInSessions"
       ],
       "type": "object"
     },

@@ -222,21 +222,27 @@ export const settingsRest: Partial<Catalogue> = {
   "settings.browser.signedIn.none": "로그인된 사이트가 아직 없습니다.",
   "settings.browser.agent.title": "에이전트 로그인",
   "settings.browser.agent.description":
-    "에이전트 브라우저가 사용할 수 있는 로그인입니다. 변경 사항은 다음 브라우저 세션부터 적용됩니다.",
+    "에이전트의 브라우저가 사용할 수 있는 로그인을 정합니다. 변경 사항은 새 탭에 적용되며, 이미 실행 중인 작업에도 적용됩니다.",
   "settings.browser.agent.mode.label": "로그인",
   "settings.browser.agent.mode.clean": "로그아웃 상태",
-  "settings.browser.agent.mode.auto": "목록의 사이트만",
+  "settings.browser.agent.mode.auto": "로그인한 사이트만",
   "settings.browser.agent.mode.profile": "모든 사이트",
   "settings.browser.agent.mode.cleanHint":
     "모든 사이트가 로그아웃 상태로 열립니다. 에이전트는 로그인 정보를 사용하지 않습니다.",
   "settings.browser.agent.mode.autoHint":
-    "목록의 사이트는 로그인한 상태로 열리고, 나머지는 로그아웃 상태로 열립니다.",
+    "아래 목록의 사이트는 브라우저가 이미 로그인한 사이트를 포함해 내 로그인으로 열립니다. 그 외의 사이트는 로그아웃 상태로 열립니다.",
   "settings.browser.agent.mode.profileHint":
     "모든 사이트가 로그인한 상태로 열립니다. 에이전트는 어느 사이트에서든 사용자로서 행동할 수 있습니다.",
   "settings.browser.agent.sites.title": "로그인된 사이트",
   "settings.browser.agent.sites.description":
-    "「목록의 사이트만」 모드에서 에이전트가 로그인 정보로 열 수 있는 사이트입니다. https만 가능하며, localhost는 http도 가능합니다.",
+    "'로그인한 사이트만' 모드에서 에이전트가 내 로그인으로 여는 사이트입니다. 여기에서 추가하거나 브라우저 탭에서 로그인하세요. https만, localhost는 http도 가능합니다.",
   "settings.browser.agent.sites.none": "목록에 사이트가 없습니다.",
+  "settings.browser.agent.sites.readOnly": "Psyche 데스크톱 앱에서 로그아웃하세요",
+  "settings.browser.agent.sites.signOutSite": "{site}에서 로그아웃",
+  "settings.browser.agent.sites.source.stay": "로그인 유지",
+  "settings.browser.agent.sites.source.setting": "설정에서 추가함",
+  "settings.browser.agent.mode.autoHintOff":
+    "아래 목록의 사이트만 내 로그인으로 열립니다. 그 외의 사이트는 로그아웃 상태로 열립니다.",
   "settings.browser.agent.sites.remove": "{site} 제거",
   "settings.browser.agent.sites.removeShort": "제거",
   "settings.browser.agent.sites.label": "사이트 주소",

@@ -177,21 +177,27 @@ export const settingsA: Partial<Catalogue> = {
   "settings.browser.signedIn.none": "Aún no hay sitios con sesión iniciada.",
   "settings.browser.agent.title": "Inicios de sesión del agente",
   "settings.browser.agent.description":
-    "Qué inicios de sesión tuyos puede usar el navegador del agente. Los cambios se aplican a la próxima sesión.",
+    "Qué inicios de sesión tuyos puede usar el navegador del agente. Los cambios se aplican a las pestañas nuevas, también en tareas ya en curso.",
   "settings.browser.agent.mode.label": "Inicios de sesión",
   "settings.browser.agent.mode.clean": "Sin sesión",
-  "settings.browser.agent.mode.auto": "Solo sitios de la lista",
+  "settings.browser.agent.mode.auto": "Solo sitios con sesión iniciada",
   "settings.browser.agent.mode.profile": "Todos los sitios",
   "settings.browser.agent.mode.cleanHint":
     "Cada sitio se abre sin sesión. El agente nunca usa tus inicios de sesión.",
   "settings.browser.agent.mode.autoHint":
-    "Los sitios de la lista se abren con tus inicios de sesión. Los demás, sin sesión.",
+    "Los sitios de la lista de abajo se abren con tus inicios de sesión, incluidos los sitios en los que el navegador ya tiene sesión. Los demás se abren sin sesión.",
   "settings.browser.agent.mode.profileHint":
     "Cada sitio se abre con tus inicios de sesión. El agente puede actuar como tú en cualquiera.",
   "settings.browser.agent.sites.title": "Sitios con sesión iniciada",
   "settings.browser.agent.sites.description":
-    "Sitios que el agente puede abrir con tus inicios de sesión en el modo «Solo sitios de la lista». Solo https, o http para localhost.",
+    "Sitios que el agente abre con tus inicios de sesión en el modo «Solo sitios con sesión iniciada». Añade uno aquí o inicia sesión desde una pestaña del navegador. Solo https, o http para localhost.",
   "settings.browser.agent.sites.none": "No hay sitios en la lista.",
+  "settings.browser.agent.sites.readOnly": "Cierra la sesión desde la app de escritorio de Psyche",
+  "settings.browser.agent.sites.signOutSite": "Cerrar sesión en {site}",
+  "settings.browser.agent.sites.source.stay": "Mantener sesión",
+  "settings.browser.agent.sites.source.setting": "Añadido en Ajustes",
+  "settings.browser.agent.mode.autoHintOff":
+    "Solo los sitios de la lista de abajo se abren con tus inicios de sesión. Los demás se abren sin sesión.",
   "settings.browser.agent.sites.remove": "Quitar {site}",
   "settings.browser.agent.sites.removeShort": "Quitar",
   "settings.browser.agent.sites.label": "Dirección del sitio",

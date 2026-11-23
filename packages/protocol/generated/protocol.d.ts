@@ -2327,9 +2327,11 @@ export interface BridgeTabsListResult {
 }
 
 export interface BrowserAgentSettings {
-    devPreviewPorts: DevPreviewPorts;
-    partition:       Partition;
-    signedInOrigins: SignedInOrigins;
+    devPreviewPorts:     DevPreviewPorts;
+    partition:           Partition;
+    signedInOrigins:     SignedInOrigins;
+    signedInSites:       SignedInSite[];
+    useSignedInSessions: boolean;
 }
 
 export interface DevPreviewPorts {
@@ -2350,6 +2352,13 @@ export interface SignedInOrigins {
     source: DevPreviewPortsSource;
     value:  string[];
 }
+
+export interface SignedInSite {
+    origin: string;
+    source: SignedInSiteSource;
+}
+
+export type SignedInSiteSource = "setting" | "stay_signed_in" | "detected";
 
 export interface BrowserBotAuthRotateResult {
     status: BotAuthStatus;

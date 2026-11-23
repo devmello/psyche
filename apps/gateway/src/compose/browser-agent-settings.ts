@@ -1,9 +1,13 @@
+import { readFileSync } from "node:fs";
+import { join } from "node:path";
 import { getSetting } from "@psyche/db";
 import {
   BROWSER_DEV_PREVIEW_PORTS_ENV,
   BROWSER_DEV_PREVIEW_PORTS_KEY,
+  BROWSER_ORIGIN_MAX_ENTRIES,
   BROWSER_PARTITION_ENV,
   BROWSER_PARTITION_KEY,
+  BROWSER_PORT_MAX_ENTRIES,
   BROWSER_SIGNED_IN_ORIGINS_ENV,
   BROWSER_SIGNED_IN_ORIGINS_KEY,
   type BrowserPartitionMode,
@@ -12,6 +16,7 @@ import {
   normalizeDevPreviewPort,
   PsycheError,
   parseBrowserPartition,
+  registrableDomain,
 } from "@psyche/protocol";
 
 /**
@@ -164,6 +169,13 @@ export function normalizeBrowserAgentSetting(
     if (!Array.isArray(value)) {
       throw new PsycheError("invalid_params", "The signed-in sites must be a list of origins.");
     }
+    if (value.length > BROWSER_ORIGIN_MAX_ENTRIES) {
+      throw new PsycheError(
+        "invalid_params",
+        `At most ${BROWSER_ORIGIN_MAX_ENTRIES} signed-in sites can be listed.`,
+        { details: { reason: "too_many" } },
+      );
+    }
     const out: string[] = [];
     for (const raw of value) {
       const r = normalizeBrowserOrigin(raw);
@@ -182,6 +194,13 @@ export function normalizeBrowserAgentSetting(
   if (!Array.isArray(value)) {
     throw new PsycheError("invalid_params", "The dev preview ports must be a list of ports.");
   }
+  if (value.length > BROWSER_PORT_MAX_ENTRIES) {
+    throw new PsycheError(
+      "invalid_params",
+      `At most ${BROWSER_PORT_MAX_ENTRIES} dev preview ports can be listed.`,
+      { details: { reason: "too_many" } },
+    );
+  }
   const ports: number[] = [];
   for (const raw of value) {
     const r = normalizeDevPreviewPort(raw);
@@ -194,4 +213,81 @@ export function normalizeBrowserAgentSetting(
     if (!ports.includes(r.port)) ports.push(r.port);
   }
   return ports.sort((a, b) => a - b);
+}
+
+/** Origins the owner chose to stay signed in to (`$PSYCHE_HOME/browser/signed-in.json`). */
+export function readSignedInOrigins(home: string): string[] {
+  try {
+    const doc = JSON.parse(readFileSync(join(home, "browser", "signed-in.json"), "utf8")) as {
+      sites?: { origin?: unknown }[];
+    };
+    return (doc.sites ?? []).flatMap((s) =>
+      typeof s.origin === "string" && /^https:\/\/[^/\s]+$/.test(s.origin) ? [s.origin] : [],
+    );
+  } catch {
+    return [];
+  }
+}
+
+/**
+ * Registrable domains the persistent profile holds a live session for
+ * (`$PSYCHE_HOME/browser/detected-sessions.json`, written by the desktop from the profile's
+ * cookies: domain names only, never a cookie or a value).
+ */
+export function readDetectedDomains(home: string): string[] {
+  try {
+    const doc = JSON.parse(
+      readFileSync(join(home, "browser", "detected-sessions.json"), "utf8"),
+    ) as { domains?: unknown };
+    return Array.isArray(doc.domains)
+      ? doc.domains.filter((d): d is string => typeof d === "string" && /^[a-z0-9.-]+$/.test(d))
+      : [];
+  } catch {
+    return [];
+  }
+}
+
+/** Where a signed-in site in the effective list comes from. */
+export type SignedInSiteSource = "setting" | "stay_signed_in" | "detected";
+
+export interface EffectiveSignedInSite {
+  origin: string;
+  source: SignedInSiteSource;
+}
+
+/**
+ * The one list of sites the agent browser uses the owner's sign-ins on: the stored setting,
+ * "Stay signed in" (`browser/signed-in.json`) and, while "Let Psyche use my signed-in sessions"
+ * is on, registrable domains the profile holds live cookies for. Each origin appears once; the
+ * source says how to remove it.
+ */
+export function effectiveSignedInSites(input: {
+  settingOrigins: readonly string[];
+  stayOrigins: readonly string[];
+  detectedDomains: readonly string[];
+  useDetected: boolean;
+}): EffectiveSignedInSite[] {
+  const out: EffectiveSignedInSite[] = [];
+  const seen = new Set<string>();
+  const add = (origin: string, source: SignedInSiteSource) => {
+    if (seen.has(origin)) return;
+    seen.add(origin);
+    out.push({ origin, source });
+  };
+  for (const o of input.settingOrigins) add(o, "setting");
+  const stayDomains = new Set<string>();
+  for (const o of input.stayOrigins) {
+    add(o, "stay_signed_in");
+    try {
+      stayDomains.add(registrableDomain(new URL(o).hostname));
+    } catch {
+      // not a URL: it still counts as an origin above
+    }
+  }
+  if (input.useDetected) {
+    for (const d of input.detectedDomains) {
+      if (!stayDomains.has(registrableDomain(d))) add(`https://${d}`, "detected");
+    }
+  }
+  return out;
 }

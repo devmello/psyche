@@ -229,21 +229,27 @@ export const settingsRest: Partial<Catalogue> = {
   "settings.browser.signedIn.none": "Ancora nessun sito con accesso effettuato.",
   "settings.browser.agent.title": "Accessi dell'agente",
   "settings.browser.agent.description":
-    "Quali dei tuoi accessi può usare il browser dell'agente. Le modifiche valgono dalla prossima sessione.",
+    "Quali dei tuoi accessi può usare il browser dell'agente. Le modifiche valgono per le nuove schede, anche nelle attività già in corso.",
   "settings.browser.agent.mode.label": "Accessi",
   "settings.browser.agent.mode.clean": "Disconnesso",
-  "settings.browser.agent.mode.auto": "Solo siti nell'elenco",
+  "settings.browser.agent.mode.auto": "Solo siti con accesso",
   "settings.browser.agent.mode.profile": "Tutti i siti",
   "settings.browser.agent.mode.cleanHint":
     "Ogni sito si apre disconnesso. L'agente non usa mai i tuoi accessi.",
   "settings.browser.agent.mode.autoHint":
-    "I siti nell'elenco si aprono con i tuoi accessi. Gli altri si aprono disconnessi.",
+    "I siti nell'elenco qui sotto si aprono con i tuoi accessi, compresi quelli in cui il browser ha già effettuato l'accesso. Tutti gli altri si aprono senza accesso.",
   "settings.browser.agent.mode.profileHint":
     "Ogni sito si apre con i tuoi accessi. L'agente può agire per tuo conto su tutti.",
   "settings.browser.agent.sites.title": "Siti con accesso",
   "settings.browser.agent.sites.description":
-    "Siti che l'agente può aprire con i tuoi accessi nella modalità «Solo siti nell'elenco». Solo https, o http per localhost.",
+    "Siti che l'agente apre con i tuoi accessi in modalità «Solo siti con accesso». Aggiungine uno qui o accedi da una scheda del browser. Solo https, oppure http per localhost.",
   "settings.browser.agent.sites.none": "Nessun sito nell'elenco.",
+  "settings.browser.agent.sites.readOnly": "Esci dall'app desktop di Psyche",
+  "settings.browser.agent.sites.signOutSite": "Esci da {site}",
+  "settings.browser.agent.sites.source.stay": "Resta connesso",
+  "settings.browser.agent.sites.source.setting": "Aggiunto in Impostazioni",
+  "settings.browser.agent.mode.autoHintOff":
+    "Solo i siti nell'elenco qui sotto si aprono con i tuoi accessi. Tutti gli altri si aprono senza accesso.",
   "settings.browser.agent.sites.remove": "Rimuovi {site}",
   "settings.browser.agent.sites.removeShort": "Rimuovi",
   "settings.browser.agent.sites.label": "Indirizzo del sito",

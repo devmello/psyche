@@ -8125,17 +8125,23 @@ public struct BrowserAgentSettings: Codable, Sendable {
     public let devPreviewPorts: DevPreviewPorts
     public let partition: Partition
     public let signedInOrigins: SignedInOrigins
+    public let signedInSites: [SignedInSite]
+    public let useSignedInSessions: Bool
 
     public enum CodingKeys: String, CodingKey {
         case devPreviewPorts = "devPreviewPorts"
         case partition = "partition"
         case signedInOrigins = "signedInOrigins"
+        case signedInSites = "signedInSites"
+        case useSignedInSessions = "useSignedInSessions"
     }
 
-    public init(devPreviewPorts: DevPreviewPorts, partition: Partition, signedInOrigins: SignedInOrigins) {
+    public init(devPreviewPorts: DevPreviewPorts, partition: Partition, signedInOrigins: SignedInOrigins, signedInSites: [SignedInSite], useSignedInSessions: Bool) {
         self.devPreviewPorts = devPreviewPorts
         self.partition = partition
         self.signedInOrigins = signedInOrigins
+        self.signedInSites = signedInSites
+        self.useSignedInSessions = useSignedInSessions
     }
 }
 
@@ -8197,6 +8203,28 @@ public struct SignedInOrigins: Codable, Sendable {
         self.source = source
         self.value = value
     }
+}
+
+// MARK: - SignedInSite
+public struct SignedInSite: Codable, Sendable {
+    public let origin: String
+    public let source: SignedInSiteSource
+
+    public enum CodingKeys: String, CodingKey {
+        case origin = "origin"
+        case source = "source"
+    }
+
+    public init(origin: String, source: SignedInSiteSource) {
+        self.origin = origin
+        self.source = source
+    }
+}
+
+public enum SignedInSiteSource: String, Codable, Sendable {
+    case detected = "detected"
+    case setting = "setting"
+    case staySignedIn = "stay_signed_in"
 }
 
 // MARK: - BrowserBotAuthRotateResult

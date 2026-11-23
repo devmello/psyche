@@ -186,9 +186,12 @@ export interface OpenSessionOptions {
    * `auto` (the default: the profile only for tabs whose origin is in `signedInOrigins`,
    * `clean` for everything else). See `src/origin/partition.ts`.
    */
-  partition?: PartitionMode;
-  /** Origins the owner has signed into in the agent profile; `auto` mode uses the profile there. */
-  signedInOrigins?: string[];
+  partition?: PartitionMode | (() => PartitionMode);
+  /**
+   * Origins the owner has signed into in the agent profile; `auto` mode uses the profile there.
+   * A function is read on every tab, so removing a site reaches tabs opened later.
+   */
+  signedInOrigins?: string[] | (() => readonly string[]);
   /** Registrable domains the profile holds a live session for (found from its cookies), read per tab. */
   detectedDomains?: () => readonly string[];
   /** "Let Psyche use my signed-in sessions"; read per tab, default on. Off ignores `detectedDomains`. */

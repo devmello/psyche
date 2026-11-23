@@ -30,7 +30,14 @@ export type OriginRefusal =
   | "credentials"
   | "path"
   | "scheme"
-  | "port";
+  | "port"
+  | "host"
+  | "too_long";
+
+/** The result schema's caps (`BrowserAgentSettings`): a write above them could not be read back. */
+export const BROWSER_ORIGIN_MAX_LENGTH = 200;
+export const BROWSER_ORIGIN_MAX_ENTRIES = 200;
+export const BROWSER_PORT_MAX_ENTRIES = 64;
 
 export type OriginResult = { ok: true; origin: string } | { ok: false; reason: OriginRefusal };
 
@@ -45,6 +52,7 @@ export function normalizeBrowserOrigin(raw: unknown): OriginResult {
   if (typeof raw !== "string") return { ok: false, reason: "not_text" };
   const text = raw.trim();
   if (text === "") return { ok: false, reason: "empty" };
+  if (text.length > BROWSER_ORIGIN_MAX_LENGTH) return { ok: false, reason: "too_long" };
   if (text.includes("*")) return { ok: false, reason: "wildcard" };
   const anyScheme = /^([a-z][a-z0-9+.-]*):\/\//i.exec(text);
   if (anyScheme !== null && !/^https?$/i.test(anyScheme[1] ?? "")) {
@@ -67,6 +75,13 @@ export function normalizeBrowserOrigin(raw: unknown): OriginResult {
     return { ok: false, reason: "not_url" };
   }
   if (url.hostname === "") return { ok: false, reason: "not_url" };
+  // No empty labels (`a..b`, `x.com..`, `.a.com`): the browser's origin parser refuses them.
+  if (!url.hostname.startsWith("[") && url.hostname.split(".").some((label) => label === "")) {
+    return { ok: false, reason: "host" };
+  }
+  if (`${url.protocol}//${url.host}`.length > BROWSER_ORIGIN_MAX_LENGTH) {
+    return { ok: false, reason: "too_long" };
+  }
   const protocol = url.protocol;
   if (protocol === "http:") {
     if (!LOOPBACK_HOSTS.has(url.hostname)) return { ok: false, reason: "scheme" };

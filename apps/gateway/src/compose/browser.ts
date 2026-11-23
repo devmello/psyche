@@ -56,7 +56,12 @@ import { isIncognito } from "@psyche/search";
 import type { Call, HandlerDef } from "../context.ts";
 import type { PublicRoute } from "../http.ts";
 import type { Gateway } from "../server.ts";
-import { resolveBrowserAgentSettings } from "./browser-agent-settings.ts";
+import {
+  effectiveSignedInSites,
+  readDetectedDomains,
+  readSignedInOrigins,
+  resolveBrowserAgentSettings,
+} from "./browser-agent-settings.ts";
 import {
   createPlaywrightServerDriver,
   NO_CHROMIUM_MESSAGE,
@@ -319,7 +324,7 @@ export function composeBrowser(
     ...services.ownPorts.list(),
     ...(await listeningPorts(process.pid)),
   ];
-  // The partition is read when a session opens (a getter: Settings → Browser applies to the next
+  // The partition is read on every tab choice (a getter: Settings → Browser applies to the next
   // session). Absent: the driver's own default.
   const sessionPartition = (): PartitionMode | undefined =>
     typeof setup.partition === "function" ? setup.partition() : setup.partition;
@@ -587,14 +592,16 @@ export function composeBrowser(
           ? { policy: { devPreview: true, loopbackPorts: [] }, partition: "clean" }
           : {
               policy: policyFor(key),
-              ...(sessionPartition() === undefined ? {} : { partition: sessionPartition() }),
+              // Getters, read on every tab choice: narrowing a setting reaches the tabs a thread
+              // opens later, not only new sessions.
+              partition: () => sessionPartition() ?? "auto",
               ...(setup.signedInOrigins === undefined
                 ? {}
                 : {
-                    signedInOrigins:
+                    signedInOrigins: () =>
                       typeof setup.signedInOrigins === "function"
                         ? setup.signedInOrigins()
-                        : setup.signedInOrigins,
+                        : (setup.signedInOrigins ?? []),
                   }),
               ...(setup.detectedDomains === undefined
                 ? {}
@@ -887,7 +894,22 @@ export function composeBrowser(
       },
       // Settings → Browser: the sign-in mode, signed-in sites and dev ports, and their sources.
       "browser.settings.get": {
-        run: () => resolveBrowserAgentSettings(services.db, process.env),
+        run: () => {
+          const values = resolveBrowserAgentSettings(services.db, process.env);
+          const useDetected = useSignedInFromSetting(
+            getSetting(services.db, USE_SIGNED_IN_SETTING)?.value,
+          );
+          return {
+            ...values,
+            signedInSites: effectiveSignedInSites({
+              settingOrigins: values.signedInOrigins.value,
+              stayOrigins: readSignedInOrigins(services.home),
+              detectedDomains: readDetectedDomains(services.home),
+              useDetected,
+            }),
+            useSignedInSessions: useDetected,
+          };
+        },
       },
     },
     attach,

@@ -4,7 +4,11 @@ import { type GoogleClientConfig, googleClientFrom, readConfigFile } from "../co
 import { openExternalUrl } from "../platform.ts";
 import { composeBackup } from "./backup.ts";
 import { type ComposedBrowser, composeBrowser } from "./browser.ts";
-import { resolveBrowserAgentSettings } from "./browser-agent-settings.ts";
+import {
+  readDetectedDomains,
+  readSignedInOrigins,
+  resolveBrowserAgentSettings,
+} from "./browser-agent-settings.ts";
 import { serverBrowserSetupFor } from "./browser-server.ts";
 import { channelsSetupFromEnv, composeChannels } from "./channels.ts";
 import { composeCoding } from "./coding.ts";
@@ -69,7 +73,6 @@ export function googleClientSetup(
   return { ...(file ?? {}), ...fromEnv };
 }
 
-/** Origins the owner chose to stay signed in to (`$PSYCHE_HOME/browser/signed-in.json`). */
 /**
  * Where the browser bridge listens: `PSYCHE_BROWSER_BRIDGE_SOCKET` when set, else the default
  * `$PSYCHE_HOME/run/browser-bridge.sock`. The desktop shell reads the same variable (its
@@ -80,36 +83,7 @@ export function bridgeSocketSetup(env: NodeJS.ProcessEnv): { socketPath?: string
   return path ? { socketPath: path } : {};
 }
 
-export function readSignedInOrigins(home: string): string[] {
-  try {
-    const doc = JSON.parse(readFileSync(join(home, "browser", "signed-in.json"), "utf8")) as {
-      sites?: { origin?: unknown }[];
-    };
-    return (doc.sites ?? []).flatMap((s) =>
-      typeof s.origin === "string" && /^https:\/\/[^/\s]+$/.test(s.origin) ? [s.origin] : [],
-    );
-  } catch {
-    return [];
-  }
-}
-
-/**
- * Registrable domains the persistent profile holds a live session for
- * (`$PSYCHE_HOME/browser/detected-sessions.json`, written by the desktop from the profile's
- * cookies: domain names only, never a cookie or a value).
- */
-export function readDetectedDomains(home: string): string[] {
-  try {
-    const doc = JSON.parse(
-      readFileSync(join(home, "browser", "detected-sessions.json"), "utf8"),
-    ) as { domains?: unknown };
-    return Array.isArray(doc.domains)
-      ? doc.domains.filter((d): d is string => typeof d === "string" && /^[a-z0-9.-]+$/.test(d))
-      : [];
-  } catch {
-    return [];
-  }
-}
+export { readDetectedDomains, readSignedInOrigins };
 
 export function partsFromEnv(
   env: NodeJS.ProcessEnv,

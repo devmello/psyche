@@ -228,21 +228,27 @@ export const settingsRest: Partial<Catalogue> = {
   "settings.browser.signedIn.none": "Noch keine angemeldeten Websites.",
   "settings.browser.agent.title": "Agent-Anmeldungen",
   "settings.browser.agent.description":
-    "Welche deiner Anmeldungen der Browser des Agenten nutzen darf. Änderungen gelten ab der nächsten Browsersitzung.",
+    "Welche deiner Anmeldungen der Browser des Agenten nutzen darf. Änderungen gelten für neue Tabs, auch in bereits laufenden Aufgaben.",
   "settings.browser.agent.mode.label": "Anmeldungen",
   "settings.browser.agent.mode.clean": "Abgemeldet",
-  "settings.browser.agent.mode.auto": "Nur gelistete Websites",
+  "settings.browser.agent.mode.auto": "Nur angemeldete Websites",
   "settings.browser.agent.mode.profile": "Alle Websites",
   "settings.browser.agent.mode.cleanHint":
     "Jede Website öffnet sich abgemeldet. Der Agent nutzt nie deine Anmeldungen.",
   "settings.browser.agent.mode.autoHint":
-    "Gelistete Websites öffnen sich mit deinen Anmeldungen. Alle anderen abgemeldet.",
+    "Websites in der Liste unten öffnen sich mit deinen Anmeldungen, auch solche, bei denen der Browser schon angemeldet ist. Alle anderen öffnen sich abgemeldet.",
   "settings.browser.agent.mode.profileHint":
     "Jede Website öffnet sich mit deinen Anmeldungen. Der Agent kann dort in deinem Namen handeln.",
   "settings.browser.agent.sites.title": "Angemeldete Websites",
   "settings.browser.agent.sites.description":
-    "Websites, die der Agent im Modus „Nur gelistete Websites“ mit deinen Anmeldungen öffnen darf. Nur https, für localhost auch http.",
+    "Websites, die der Agent im Modus „Nur angemeldete Websites“ mit deinen Anmeldungen öffnet. Füge hier eine hinzu oder melde dich in einem Browser-Tab an. Nur https, für localhost auch http.",
   "settings.browser.agent.sites.none": "Keine Websites gelistet.",
+  "settings.browser.agent.sites.readOnly": "Melde dich in der Psyche-Desktop-App ab",
+  "settings.browser.agent.sites.signOutSite": "Von {site} abmelden",
+  "settings.browser.agent.sites.source.stay": "Angemeldet bleiben",
+  "settings.browser.agent.sites.source.setting": "In den Einstellungen hinzugefügt",
+  "settings.browser.agent.mode.autoHintOff":
+    "Nur die Websites in der Liste unten öffnen sich mit deinen Anmeldungen. Alle anderen öffnen sich abgemeldet.",
   "settings.browser.agent.sites.remove": "{site} entfernen",
   "settings.browser.agent.sites.removeShort": "Entfernen",
   "settings.browser.agent.sites.label": "Website-Adresse",

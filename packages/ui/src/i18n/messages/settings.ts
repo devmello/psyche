@@ -831,21 +831,27 @@ export const settings = {
   "settings.browser.signedIn.none": "No signed-in sites yet.",
   "settings.browser.agent.title": "Agent sign-ins",
   "settings.browser.agent.description":
-    "Which of your sign-ins the agent's browser may use. Changes apply to the next browser session.",
+    "Which of your sign-ins the agent's browser may use. Changes apply to new tabs, including in tasks already running.",
   "settings.browser.agent.mode.label": "Sign-ins",
   "settings.browser.agent.mode.clean": "Logged out",
-  "settings.browser.agent.mode.auto": "Listed sites only",
+  "settings.browser.agent.mode.auto": "Signed-in sites only",
   "settings.browser.agent.mode.profile": "All sites",
   "settings.browser.agent.mode.cleanHint":
     "Every site opens logged out. The agent never uses your sign-ins.",
   "settings.browser.agent.mode.autoHint":
-    "Listed sites open with your sign-ins. Every other site opens logged out.",
+    "Sites in the list below open with your sign-ins, including sites the browser is already signed in to. Every other site opens logged out.",
   "settings.browser.agent.mode.profileHint":
     "Every site opens with your sign-ins. The agent can act as you on any of them.",
   "settings.browser.agent.sites.title": "Signed-in sites",
   "settings.browser.agent.sites.description":
-    "Sites the agent may open with your sign-ins in Listed sites only mode. https only, or http for localhost.",
+    "Sites the agent opens with your sign-ins in Signed-in sites only mode. Add one here, or sign in from a browser tab. https only, or http for localhost.",
   "settings.browser.agent.sites.none": "No sites listed.",
+  "settings.browser.agent.sites.readOnly": "Sign out from the Psyche desktop app",
+  "settings.browser.agent.sites.signOutSite": "Sign out of {site}",
+  "settings.browser.agent.sites.source.stay": "Stay signed in",
+  "settings.browser.agent.sites.source.setting": "Added in Settings",
+  "settings.browser.agent.mode.autoHintOff":
+    "Only the sites in the list below open with your sign-ins. Every other site opens logged out.",
   "settings.browser.agent.sites.remove": "Remove {site}",
   "settings.browser.agent.sites.removeShort": "Remove",
   "settings.browser.agent.sites.label": "Site address",

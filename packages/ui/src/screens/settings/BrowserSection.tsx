@@ -14,7 +14,7 @@ import {
   parseBrowserPartition,
 } from "@psyche/protocol/browser-agent";
 import { ExternalLink, KeyRound } from "lucide-react";
-import { type ReactElement, useCallback, useEffect, useState } from "react";
+import { type ReactElement, useEffect, useState } from "react";
 import { Button } from "../../components/ui/button.tsx";
 import { useCall, useGatewayQuery } from "../../data/hooks.ts";
 import { t } from "../../i18n/core.ts";
@@ -155,77 +155,6 @@ export function TeachStorageGroup({ status }: { status: TeachStorageStatus }): R
   );
 }
 
-/** Settings → Browser "Signed-in sites": what "Stay signed in" kept, each with Sign out. */
-export function SignedInSitesGroup({ api }: { api: SignedInSitesApi }): ReactElement {
-  const [sites, setSites] = useState<SignedInSite[] | null>(null);
-  const [error, setError] = useState<string | null>(null);
-  const reload = useCallback(
-    () =>
-      api.list().then(
-        (s) => setSites(s),
-        (err: unknown) =>
-          setError(t("settings.browser.signedIn.loadFailed", { reason: messageOf(err) })),
-      ),
-    [api],
-  );
-  useEffect(() => {
-    void reload();
-  }, [reload]);
-  return (
-    <Group
-      title={t("settings.browser.signedIn.title")}
-      description={t("settings.browser.signedIn.description")}
-    >
-      {error ? <ErrorNotice what={error} did={t("settings.shared.nothingChanged")} /> : null}
-      {sites !== null && sites.length === 0 ? (
-        <p className="text-muted-foreground" data-testid="signed-in-empty">
-          {t("settings.browser.signedIn.none")}
-        </p>
-      ) : null}
-      <ul className="flex flex-col gap-2" data-testid="signed-in-sites">
-        {(sites ?? []).map((s) => (
-          <li key={s.origin} className="flex items-center justify-between gap-3">
-            <span>
-              <span className="font-mono">{s.origin.replace(/^https:\/\//, "")}</span>
-              {s.detected ? (
-                <span
-                  className="ms-2 text-callout text-muted-foreground"
-                  data-testid="signed-in-auto"
-                >
-                  {t("settings.browser.signedIn.auto")}
-                </span>
-              ) : null}
-              {s.hosts.length > 1 ? (
-                <span className="block text-callout text-muted-foreground">
-                  {t("settings.browser.signedIn.viaHosts", { hosts: s.hosts.join(", ") })}
-                </span>
-              ) : null}
-            </span>
-            <Button
-              type="button"
-              variant="outline"
-              size="sm"
-              onClick={() => {
-                setError(null);
-                api.forget(s.origin).then(reload, (err: unknown) =>
-                  setError(
-                    t("settings.browser.signedIn.forgetFailed", {
-                      site: s.origin,
-                      reason: messageOf(err),
-                    }),
-                  ),
-                );
-              }}
-            >
-              {t("settings.browser.signedIn.forget")}
-            </Button>
-          </li>
-        ))}
-      </ul>
-    </Group>
-  );
-}
-
 /** Why an origin was refused, in the owner's words. */
 function refusalText(reason: OriginRefusal): string {
   switch (reason) {
@@ -260,10 +189,16 @@ export function AgentBrowserGroup({
   agent,
   values,
   onChange,
+  signedInSites,
+  onForgotten,
 }: {
   agent: BrowserAgentSettings | null | undefined;
   values: Readonly<Record<string, unknown>>;
   onChange: (key: string, value: unknown) => void;
+  /** Desktop only: a real sign-out (deletes the site's cookies). Without it those rows are read-only. */
+  signedInSites?: SignedInSitesApi;
+  /** Called after a sign-out so the list is read again. */
+  onForgotten?: () => void;
 }): ReactElement {
   const partition = agent?.partition;
   const origins = agent?.signedInOrigins;
@@ -284,6 +219,23 @@ export function AgentBrowserGroup({
     : Array.isArray(values[BROWSER_DEV_PREVIEW_PORTS_KEY])
       ? (values[BROWSER_DEV_PREVIEW_PORTS_KEY] as number[])
       : [];
+  const useSignedIn = useSignedInOf(values);
+  // The one list: sites chosen here (live from the form) plus the ones the browser is signed in to.
+  const otherSites = (agent?.signedInSites ?? []).filter(
+    (site) => site.source !== "setting" && !siteList.includes(site.origin),
+  );
+  const [signOutError, setSignOutError] = useState<string | null>(null);
+  const signOut = (site: string): void => {
+    if (signedInSites === undefined) return;
+    setSignOutError(null);
+    signedInSites.forget(site).then(
+      () => onForgotten?.(),
+      (err: unknown) =>
+        setSignOutError(
+          t("settings.browser.signedIn.forgetFailed", { site, reason: messageOf(err) }),
+        ),
+    );
+  };
   const [siteDraft, setSiteDraft] = useState("");
   const [siteError, setSiteError] = useState<string | null>(null);
   const [portDraft, setPortDraft] = useState("");
@@ -347,7 +299,9 @@ export function AgentBrowserGroup({
           />
         )}
         <p className="text-callout text-muted-foreground" data-testid="agent-browser-mode-hint">
-          {t(`settings.browser.agent.mode.${mode}Hint`)}
+          {mode === "auto" && !useSignedIn
+            ? t("settings.browser.agent.mode.autoHintOff")
+            : t(`settings.browser.agent.mode.${mode}Hint`)}
         </p>
       </div>
 
@@ -361,13 +315,21 @@ export function AgentBrowserGroup({
             {t("settings.browser.agent.fromEnv", { variable: ENV_NAME.signedInOrigins ?? "" })}
           </p>
         ) : null}
-        {siteList.length === 0 ? (
+        {siteList.length === 0 && otherSites.length === 0 ? (
           <p className="text-muted-foreground">{t("settings.browser.agent.sites.none")}</p>
         ) : null}
-        <ul className="flex flex-col gap-2">
+        <ul className="flex flex-col gap-2" data-testid="signed-in-sites">
           {siteList.map((site) => (
             <li key={site} className="flex items-center justify-between gap-3">
-              <span className="font-mono">{site}</span>
+              <span>
+                <span className="font-mono">{site}</span>
+                <span
+                  className="ms-2 text-callout text-muted-foreground"
+                  data-testid="signed-in-source"
+                >
+                  {t("settings.browser.agent.sites.source.setting")}
+                </span>
+              </span>
               {originsEnv ? null : (
                 <Button
                   type="button"
@@ -386,7 +348,43 @@ export function AgentBrowserGroup({
               )}
             </li>
           ))}
+          {otherSites.map((site) => (
+            <li key={site.origin} className="flex items-center justify-between gap-3">
+              <span>
+                <span className="font-mono">{site.origin}</span>
+                <span
+                  className="ms-2 text-callout text-muted-foreground"
+                  data-testid="signed-in-source"
+                >
+                  {site.source === "detected"
+                    ? t("settings.browser.signedIn.auto")
+                    : t("settings.browser.agent.sites.source.stay")}
+                </span>
+              </span>
+              {signedInSites ? (
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  aria-label={t("settings.browser.agent.sites.signOutSite", { site: site.origin })}
+                  onClick={() => signOut(site.origin)}
+                >
+                  {t("settings.browser.signedIn.forget")}
+                </Button>
+              ) : (
+                <span
+                  className="text-callout text-muted-foreground"
+                  data-testid="signed-in-readonly"
+                >
+                  {t("settings.browser.agent.sites.readOnly")}
+                </span>
+              )}
+            </li>
+          ))}
         </ul>
+        {signOutError ? (
+          <ErrorNotice what={signOutError} did={t("settings.shared.nothingChanged")} />
+        ) : null}
         {originsEnv ? null : (
           <form
             className="flex flex-wrap items-center gap-2"
@@ -496,6 +494,8 @@ export interface BrowserPanelProps extends SettingsFormProps, LoadProps {
   profileLabel?: string;
   /** Desktop only: opens the profile in Google Chrome; resolves to its directory. */
   onOpenProfile?: (profile: string) => Promise<{ path: string }>;
+  /** Called after a sign-out so the signed-in list is read again. */
+  onForgotten?: () => void;
   /** Desktop only: the sites "Stay signed in" kept, with Sign out / forget. */
   signedInSites?: SignedInSitesApi;
   /** Desktop only: import sign-ins from the owner's other browsers into the profile. */
@@ -506,6 +506,7 @@ export interface BrowserPanelProps extends SettingsFormProps, LoadProps {
 
 export function BrowserPanel({
   agentSettings,
+  onForgotten,
   values,
   onChange,
   needsApproval,
@@ -617,7 +618,13 @@ export function BrowserPanel({
             )
           ) : null}
         </Group>
-        <AgentBrowserGroup agent={agentSettings} values={values} onChange={onChange} />
+        <AgentBrowserGroup
+          agent={agentSettings}
+          values={values}
+          onChange={onChange}
+          {...(signedInSites ? { signedInSites } : {})}
+          {...(onForgotten ? { onForgotten } : {})}
+        />
         <Group
           title={t("settings.browser.useSignedIn.title")}
           description={t("settings.browser.useSignedIn.description", { persona })}
@@ -630,7 +637,6 @@ export function BrowserPanel({
             onChange={(on) => onChange(USE_SIGNED_IN_KEY, on)}
           />
         </Group>
-        {signedInSites ? <SignedInSitesGroup api={signedInSites} /> : null}
         {cookieImport ? <CookieImportGroup api={cookieImport} /> : null}
         {teachStorage ? <TeachStorageGroup status={teachStorage} /> : null}
         <Advanced description={t("settings.browser.advancedHint")}>
@@ -762,6 +768,7 @@ export function BrowserSection({
     <div className="flex flex-col gap-3">
       <BrowserPanel
         agentSettings={agentQ.data ?? null}
+        onForgotten={agentQ.reload}
         values={form.values}
         onChange={form.onChange}
         needsApproval={form.needsApproval}

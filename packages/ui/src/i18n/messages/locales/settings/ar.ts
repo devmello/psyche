@@ -189,21 +189,27 @@ export const settings: Partial<Catalogue> = {
   "settings.browser.signedIn.none": "لا مواقع مسجّل دخولها بعد.",
   "settings.browser.agent.title": "تسجيلات دخول الوكيل",
   "settings.browser.agent.description":
-    "أي تسجيلات دخولك يمكن لمتصفح الوكيل استخدامها. تسري التغييرات من الجلسة التالية للمتصفح.",
+    "أي عمليات تسجيل الدخول لديك يمكن لمتصفح الوكيل استخدامها. تُطبَّق التغييرات على علامات التبويب الجديدة، حتى في المهام الجارية.",
   "settings.browser.agent.mode.label": "تسجيلات الدخول",
   "settings.browser.agent.mode.clean": "غير مسجّل الدخول",
-  "settings.browser.agent.mode.auto": "المواقع المدرجة فقط",
+  "settings.browser.agent.mode.auto": "المواقع المسجَّل دخولها فقط",
   "settings.browser.agent.mode.profile": "كل المواقع",
   "settings.browser.agent.mode.cleanHint":
     "تُفتح كل المواقع دون تسجيل دخول. لا يستخدم الوكيل تسجيلات دخولك أبدًا.",
   "settings.browser.agent.mode.autoHint":
-    "تُفتح المواقع المدرجة بتسجيلات دخولك، وتُفتح بقية المواقع دون تسجيل دخول.",
+    "تُفتح المواقع في القائمة أدناه بتسجيلات دخولك، بما فيها المواقع التي سجّل المتصفح دخوله إليها بالفعل. تُفتح كل المواقع الأخرى بلا تسجيل دخول.",
   "settings.browser.agent.mode.profileHint":
     "تُفتح كل المواقع بتسجيلات دخولك. يمكن للوكيل التصرف باسمك في أيٍّ منها.",
   "settings.browser.agent.sites.title": "المواقع المسجّل الدخول إليها",
   "settings.browser.agent.sites.description":
-    "المواقع التي يمكن للوكيل فتحها بتسجيلات دخولك في وضع «المواقع المدرجة فقط». https فقط، ويُسمح بـ http لـ localhost.",
+    "المواقع التي يفتحها الوكيل بتسجيلات دخولك في وضع «المواقع المسجَّل دخولها فقط». أضف موقعًا هنا، أو سجّل الدخول من علامة تبويب في المتصفح. https فقط، أو http لـ localhost.",
   "settings.browser.agent.sites.none": "لا توجد مواقع مدرجة.",
+  "settings.browser.agent.sites.readOnly": "سجّل الخروج من تطبيق Psyche لسطح المكتب",
+  "settings.browser.agent.sites.signOutSite": "تسجيل الخروج من {site}",
+  "settings.browser.agent.sites.source.stay": "البقاء مسجَّلًا",
+  "settings.browser.agent.sites.source.setting": "أُضيف في الإعدادات",
+  "settings.browser.agent.mode.autoHintOff":
+    "تُفتح المواقع في القائمة أدناه فقط بتسجيلات دخولك. تُفتح كل المواقع الأخرى بلا تسجيل دخول.",
   "settings.browser.agent.sites.remove": "إزالة {site}",
   "settings.browser.agent.sites.removeShort": "إزالة",
   "settings.browser.agent.sites.label": "عنوان الموقع",

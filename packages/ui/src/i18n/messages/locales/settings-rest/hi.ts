@@ -219,21 +219,27 @@ export const settingsRest: Partial<Catalogue> = {
   "settings.browser.signedIn.none": "अभी कोई साइट साइन इन नहीं है।",
   "settings.browser.agent.title": "एजेंट साइन-इन",
   "settings.browser.agent.description":
-    "एजेंट का ब्राउज़र आपके कौन से साइन-इन इस्तेमाल कर सकता है। बदलाव अगले ब्राउज़र सेशन से लागू होंगे।",
+    "एजेंट का ब्राउज़र आपके कौन-से साइन-इन इस्तेमाल कर सकता है। बदलाव नए टैब पर लागू होते हैं, चल रहे कार्यों में भी।",
   "settings.browser.agent.mode.label": "साइन-इन",
   "settings.browser.agent.mode.clean": "साइन-आउट",
-  "settings.browser.agent.mode.auto": "केवल सूची वाली साइटें",
+  "settings.browser.agent.mode.auto": "केवल साइन-इन वाली साइटें",
   "settings.browser.agent.mode.profile": "सभी साइटें",
   "settings.browser.agent.mode.cleanHint":
     "हर साइट साइन-आउट अवस्था में खुलती है। एजेंट आपके साइन-इन कभी इस्तेमाल नहीं करता।",
   "settings.browser.agent.mode.autoHint":
-    "सूची वाली साइटें आपके साइन-इन के साथ खुलती हैं, बाकी साइन-आउट अवस्था में।",
+    "नीचे सूची की साइटें आपके साइन-इन के साथ खुलती हैं, उन साइटों समेत जिनमें ब्राउज़र पहले से साइन इन है। बाकी सभी साइटें साइन-आउट खुलती हैं।",
   "settings.browser.agent.mode.profileHint":
     "हर साइट आपके साइन-इन के साथ खुलती है। एजेंट किसी भी साइट पर आपकी ओर से काम कर सकता है।",
   "settings.browser.agent.sites.title": "साइन-इन की गई साइटें",
   "settings.browser.agent.sites.description":
-    "«केवल सूची वाली साइटें» मोड में एजेंट जिन साइटों को आपके साइन-इन के साथ खोल सकता है। केवल https, localhost के लिए http भी।",
+    "«केवल साइन-इन वाली साइटें» मोड में एजेंट जिन साइटों को आपके साइन-इन से खोलता है। यहाँ एक जोड़ें, या ब्राउज़र टैब से साइन इन करें। केवल https, या localhost के लिए http।",
   "settings.browser.agent.sites.none": "अभी कोई साइट सूची में नहीं है।",
+  "settings.browser.agent.sites.readOnly": "Psyche डेस्कटॉप ऐप से साइन आउट करें",
+  "settings.browser.agent.sites.signOutSite": "{site} से साइन आउट करें",
+  "settings.browser.agent.sites.source.stay": "साइन इन रहें",
+  "settings.browser.agent.sites.source.setting": "सेटिंग में जोड़ी गई",
+  "settings.browser.agent.mode.autoHintOff":
+    "केवल नीचे सूची की साइटें आपके साइन-इन के साथ खुलती हैं। बाकी सभी साइटें साइन-आउट खुलती हैं।",
   "settings.browser.agent.sites.remove": "{site} हटाएँ",
   "settings.browser.agent.sites.removeShort": "हटाएँ",
   "settings.browser.agent.sites.label": "साइट का पता",

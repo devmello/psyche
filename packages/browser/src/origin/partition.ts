@@ -27,9 +27,13 @@ export type TabPartition = "profile" | "clean";
 export type PartitionMode = TabPartition | "auto";
 
 export interface PartitionPolicy {
-  mode: PartitionMode;
-  /** Origin patterns (`https://github.com`, `https://*.google.com`) the owner signed into. */
-  signedInOrigins?: string[];
+  /** A function is read on every choice, so narrowing a setting reaches tabs opened later. */
+  mode: PartitionMode | (() => PartitionMode);
+  /**
+   * Origin patterns (`https://github.com`, `https://*.google.com`) the owner signed into. A
+   * function is read on every choice, like `detectedDomains`.
+   */
+  signedInOrigins?: string[] | (() => readonly string[]);
   /**
    * Registrable domains (eTLD+1) the persistent profile holds a live session for, found from its
    * cookies. Read on every choice, so a sign-in made while a task runs counts at once.
@@ -64,16 +68,35 @@ const LABELS: Record<PartitionReason, string> = {
 };
 
 export class PartitionChooser {
-  readonly mode: PartitionMode;
-  #signedIn: OriginPattern[];
+  #mode: PartitionMode | (() => PartitionMode);
+  #signedIn: string[] | (() => readonly string[]);
   #detected: () => readonly string[];
   #useDetected: () => boolean;
 
   constructor(policy: PartitionPolicy = { mode: "auto" }) {
-    this.mode = policy.mode;
+    this.#mode = policy.mode;
     this.#detected = policy.detectedDomains ?? (() => []);
     this.#useDetected = policy.useSignedInSessions ?? (() => true);
-    this.#signedIn = (policy.signedInOrigins ?? []).map(parseOriginPattern);
+    this.#signedIn = policy.signedInOrigins ?? [];
+  }
+
+  /** The current mode; read on every call when the policy gave a function. */
+  get mode(): PartitionMode {
+    return typeof this.#mode === "function" ? this.#mode() : this.#mode;
+  }
+
+  /** The signed-in patterns now. One entry that does not parse is skipped, never fatal. */
+  #patterns(): OriginPattern[] {
+    const raw = typeof this.#signedIn === "function" ? this.#signedIn() : this.#signedIn;
+    const out: OriginPattern[] = [];
+    for (const entry of raw) {
+      try {
+        out.push(parseOriginPattern(entry));
+      } catch {
+        // A bad stored entry must not break every new session.
+      }
+    }
+    return out;
   }
 
   /** The session's default, what a tab gets before any URL is known. */
@@ -89,7 +112,7 @@ export class PartitionChooser {
     } catch {
       return false;
     }
-    return this.#signedIn.some((p) => matchesPattern(u, p));
+    return this.#patterns().some((p) => matchesPattern(u, p));
   }
 
   /**
@@ -115,8 +138,9 @@ export class PartitionChooser {
   }
 
   choose(url: string | undefined): PartitionChoice {
-    if (this.mode === "profile") return pick("profile", "task_profile");
-    if (this.mode === "clean") return pick("clean", "task_clean");
+    const mode = this.mode;
+    if (mode === "profile") return pick("profile", "task_profile");
+    if (mode === "clean") return pick("clean", "task_clean");
     if (url === undefined) return pick("clean", "no_url");
     if (this.isSignedIn(url)) return pick("profile", "signed_in");
     if (this.hasDetectedSession(url)) return pick("profile", "detected_session");

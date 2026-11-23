@@ -213,6 +213,23 @@ export const BrowserAgentSettings = Type.Object(
       value: Type.Array(Type.Integer({ minimum: 1, maximum: 65535 }), { maxItems: 64 }),
       source: BrowserSettingSource,
     }),
+    /**
+     * The one list of sites the agent browser uses the owner's sign-ins on: the setting, "Stay
+     * signed in" and (while `useSignedInSessions`) sites the profile holds live cookies for.
+     */
+    signedInSites: Type.Array(
+      Type.Object({
+        origin: Type.String({ maxLength: 200 }),
+        source: Type.Union([
+          Type.Literal("setting"),
+          Type.Literal("stay_signed_in"),
+          Type.Literal("detected"),
+        ]),
+      }),
+      { maxItems: 1000 },
+    ),
+    /** "Let Psyche use my signed-in sessions" (default on): whether detected sites count. */
+    useSignedInSessions: Type.Boolean(),
   },
   { $id: "BrowserAgentSettings" },
 );
