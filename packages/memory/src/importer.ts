@@ -4,7 +4,7 @@ import { type MemoryClaim, PsycheError } from "@psyche/protocol";
 import { stripComments } from "./chunker.ts";
 import { applyDailyWrite, oneLine } from "./daily.ts";
 import { blockingKinds, looksLikeInstruction } from "./filters.ts";
-import { dailyNoteDate, TEMPLATE_FILES } from "./layout.ts";
+import { dailyNoteDate, isBootstrapFile, TEMPLATE_FILES } from "./layout.ts";
 import type { SqliteMemoryStore } from "./store.ts";
 
 /**
@@ -288,7 +288,7 @@ async function importOpenClawFiles(
     if (
       !path.endsWith(".md") ||
       f.content.length > IMPORT_LIMITS.fileChars ||
-      path === "BOOTSTRAP.md" ||
+      isBootstrapFile(path) ||
       blockingKinds(f.content, true).length > 0
     ) {
       skipped++;

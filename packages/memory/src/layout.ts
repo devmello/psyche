@@ -65,22 +65,42 @@ export function datedNoteDate(path: string): string | undefined {
   return DATED_NOTE.exec(canonicalCase(path))?.[1];
 }
 
-/** Canonical spellings of well-known names, keyed by lower case. */
+/**
+ * The key two workspace names share when the volume would open the same file. APFS folds more
+ * than `toLowerCase`: `ſ` (U+017F) is `s`, and `ﬆ` / `ﬅ` are `st`. NFKC first, then upper and
+ * lower case, so every spelling the disk accepts compares equal here. Use it for every name
+ * comparison in policy; `toLowerCase` alone lets `ſoul.md` past a `SOUL.md` check.
+ */
+export function foldName(name: string): string {
+  return name.normalize("NFKC").toUpperCase().toLowerCase();
+}
+
+/** Canonical spellings of well-known names, keyed by their fold. */
 const CANONICAL = new Map<string, string>(
-  [...PROTECTED_FILES, ...TEMPLATE_FILES].map((f) => [f.toLowerCase(), f]),
+  [...PROTECTED_FILES, ...TEMPLATE_FILES].map((f) => [foldName(f), f]),
 );
+
+/** Directories with a canonical lower-case spelling (policy is keyed on them). */
+const CANONICAL_DIRS: ReadonlySet<string> = new Set(["memory", "skills", "people", "projects"]);
 
 /**
  * Rewrites well-known names to their canonical case: root template files (`soul.md` →
- * `SOUL.md`) and the `memory/` and `skills/` directories. On a case-insensitive volume these
- * are the same files, so policy must treat them the same.
+ * `SOUL.md`, `ſoul.md` → `SOUL.md`) and the `memory/`, `skills/`, `people/` and `projects/`
+ * directories. On a case-insensitive volume these are the same files, so policy must treat them
+ * the same. Directories that do not exist yet are canonicalised too, so a create cannot slip past
+ * a card or skill check.
  */
 export function canonicalCase(path: string): string {
   const parts = path.split("/");
-  if (parts.length === 1) return CANONICAL.get(path.toLowerCase()) ?? path;
-  const head = (parts[0] ?? "").toLowerCase();
-  if (head === "memory" || head === "skills") parts[0] = head;
+  if (parts.length === 1) return CANONICAL.get(foldName(path)) ?? path;
+  const head = foldName(parts[0] ?? "");
+  if (CANONICAL_DIRS.has(head)) parts[0] = head;
   return parts.join("/");
+}
+
+/** Whether `path` is `BOOTSTRAP.md` under any case or fold spelling. */
+export function isBootstrapFile(path: string): boolean {
+  return canonicalCase(path) === BOOTSTRAP_FILE;
 }
 
 /** `BOOTSTRAP.md`: injected while it exists, so the agent may delete it but never write it. */
@@ -98,7 +118,8 @@ export function isGraphCard(path: string): boolean {
  * teaching card (actor `job`), skills from the skill installer.
  */
 export function isSkillFile(path: string): boolean {
-  return /^(?:\.\/)*skills\//i.test(path);
+  const parts = path.replace(/^(?:\.\/)+/, "").split("/");
+  return parts.length > 1 && foldName(parts[0] ?? "") === "skills";
 }
 
 export function isProtected(path: string): boolean {
@@ -107,7 +128,8 @@ export function isProtected(path: string): boolean {
 
 /** Curated files never decay in ranking (OpenClaw keeps them evergreen too). */
 export function isEvergreen(path: string): boolean {
-  return path === "MEMORY.md" || path === "USER.md" || PROTECTED_FILES.has(path);
+  const p = canonicalCase(path);
+  return p === "MEMORY.md" || p === "USER.md" || PROTECTED_FILES.has(p);
 }
 
 /**
