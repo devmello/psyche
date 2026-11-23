@@ -27,6 +27,9 @@ export const DESKTOP_UNIT_MARKER = "# Managed by the Psyche desktop app";
  */
 export const DEFAULT_MEMORY_HIGH = "768M";
 
+/** The first argument that makes an AppImage start psyched through AppRun (and `setpriv --no-new-privs`). */
+export const APPRUN_PSYCHED_ARG = "--psyched";
+
 export type UnitProfile = "server" | "desktop";
 
 export interface GatewayUnitInput {
@@ -42,6 +45,17 @@ export interface GatewayUnitInput {
   vaultKeyFile?: string;
   /** desktop: `MemoryHigh=`, default {@link DEFAULT_MEMORY_HIGH}. */
   memoryHigh?: string;
+  /**
+   * desktop: the program is an AppImage run with `--psyched` (`install: "user"`). The unit then
+   * leaves out `NoNewPrivileges`, `LockPersonality` and `RestrictSUIDSGID` (the AppImage runtime
+   * mounts itself through the setuid `fusermount3`, which fails under no_new_privs; systemd also
+   * implies NoNewPrivileges for any seccomp-based option in a user unit). `deploy/linux/AppRun
+   * --psyched` applies `setpriv --no-new-privs` to psyched instead, so psyched and everything it
+   * starts keep it. The renderer is the single gate: the lines go only when this is true AND
+   * `args[0]` is `--psyched` (the argument that routes through AppRun), so a plain psyched never
+   * loses them.
+   */
+  appImage?: boolean;
 }
 
 /**
@@ -108,6 +122,16 @@ WantedBy=default.target
     ["PSYCHE_BUILD", input.build],
     ["PSYCHE_VAULT_KEY_FILE", input.vaultKeyFile],
   ]);
+  const hardening =
+    input.appImage === true && input.args?.[0] === APPRUN_PSYCHED_ARG
+      ? `# No NoNewPrivileges, LockPersonality or RestrictSUIDSGID here: the AppImage runtime mounts itself
+# through the setuid fusermount3, which fails under no_new_privs. AppRun --psyched starts psyched
+# with \`setpriv --no-new-privs\`, so psyched and everything it starts still get it.
+`
+      : `NoNewPrivileges=yes
+LockPersonality=yes
+RestrictSUIDSGID=yes
+`;
   return `${DESKTOP_UNIT_MARKER}: it rewrites this file when its content changes.
 # Not part of graphical-session.target on purpose: the Gateway also runs headless.
 [Unit]
@@ -123,10 +147,7 @@ RestartSec=5
 TimeoutStopSec=20
 # Files 0600, directories 0700 (security §14).
 UMask=0077
-NoNewPrivileges=yes
-LockPersonality=yes
-RestrictSUIDSGID=yes
-# A throttle, never a kill: no MemoryMax (design §2.3).
+${hardening}# A throttle, never a kill: no MemoryMax (design §2.3).
 MemoryHigh=${input.memoryHigh ?? DEFAULT_MEMORY_HIGH}
 
 [Install]
@@ -236,6 +257,11 @@ export interface ParsedGatewayUnit {
   args: string[];
   env: Record<string, string>;
   profile: UnitProfile;
+  /**
+   * The ExecStart is an AppImage-style launch: the first argument is `--psyched`. Says nothing
+   * about which hardening lines the text has; {@link renderGatewayUnit} decides those.
+   */
+  appImage: boolean;
 }
 
 /** What a unit written by {@link renderGatewayUnit} says; undefined for text with no `ExecStart=`. */
@@ -250,10 +276,12 @@ export function parseGatewayUnit(text: string): ParsedGatewayUnit | undefined {
     if (eq > 0) env[pair.slice(0, eq)] = pair.slice(eq + 1);
   }
   const [program, ...args] = tokens;
+  const profile: UnitProfile = text.includes(DESKTOP_UNIT_MARKER) ? "desktop" : "server";
   return {
     ...(program === undefined ? {} : { program }),
     args,
     env,
-    profile: text.includes(DESKTOP_UNIT_MARKER) ? "desktop" : "server",
+    profile,
+    appImage: profile === "desktop" && args[0] === APPRUN_PSYCHED_ARG,
   };
 }

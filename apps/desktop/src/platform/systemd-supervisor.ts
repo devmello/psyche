@@ -155,6 +155,10 @@ export class SystemdUserSupervisor extends SupervisorBase {
           program,
           ...(this.sd.gatewayArgs === undefined ? {} : { args: this.sd.gatewayArgs }),
           profile: "desktop",
+          // The AppImage launch (`linuxGatewayLaunch`: `install: "user"`, `--psyched`) is the only
+          // one whose unit drops the no_new_privs lines (GatewayUnitInput.appImage); a user unit
+          // that runs a plain psyched keeps all three.
+          appImage: this.sd.gatewayArgs?.[0] === "--psyched",
           memoryHigh: this.sd.memoryHigh ?? DEFAULT_MEMORY_HIGH,
           ...common,
         })

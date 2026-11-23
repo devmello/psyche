@@ -57,6 +57,74 @@ describe("gateway unit text", () => {
     expect(desktop).toContain(DESKTOP_UNIT_MARKER);
   });
 
+  describe("AppImage unit", () => {
+    const base = {
+      program: "/home/u/Applications/Psyche.AppImage",
+      args: ["--psyched"],
+      psycheHome: "/home/me/.psyche",
+      profile: "desktop" as const,
+      build: "abc123",
+    };
+    const image = renderGatewayUnit({ ...base, appImage: true });
+    const THREE = ["NoNewPrivileges", "LockPersonality", "RestrictSUIDSGID"];
+
+    it("has none of the three no_new_privs-implying lines, and says why", () => {
+      for (const k of THREE) expect(image).not.toMatch(new RegExp(`^${k}=`, "m"));
+      expect(image).toContain("fusermount3");
+      expect(image).toContain("setpriv --no-new-privs");
+      // The rest of the hardening stays.
+      expect(image).toMatch(/^UMask=0077$/m);
+      expect(image).toMatch(/^MemoryHigh=768M$/m);
+    });
+
+    it("the packaged-style desktop unit, the default and the server unit keep all three", () => {
+      for (const unit of [
+        renderGatewayUnit({ ...base, appImage: false }),
+        renderGatewayUnit(base),
+        renderGatewayUnit({ program: "/x/psyched" }),
+        renderGatewayUnit({ program: "/x/psyched", appImage: true }),
+      ]) {
+        for (const k of THREE) expect(unit).toMatch(new RegExp(`^${k}=yes$`, "m"));
+      }
+    });
+
+    it("appImage without --psyched as the first argument keeps all three lines", () => {
+      for (const args of [[], undefined, ["--other", "--psyched"]]) {
+        const { args: _args, ...noArgs } = base;
+        const unit = renderGatewayUnit({
+          ...noArgs,
+          program: "/usr/local/bin/psyched",
+          ...(args === undefined ? {} : { args }),
+          appImage: true,
+        });
+        for (const k of THREE) expect(unit).toMatch(new RegExp(`^${k}=yes$`, "m"));
+      }
+    });
+
+    it("parse says appImage from the ExecStart args, not from the hardening lines", () => {
+      const plain = renderGatewayUnit({ program: "/x/psyched", profile: "desktop" });
+      const respelled = plain.replace("NoNewPrivileges=yes", "NoNewPrivileges=true");
+      expect(parseGatewayUnit(respelled)?.appImage).toBe(false);
+      expect(
+        parseGatewayUnit(image.replace("UMask=0077", "UMask=0077\nNoNewPrivileges=yes"))?.appImage,
+      ).toBe(true);
+    });
+
+    it("round-trips: parse says appImage, a re-render of the parse is identical", () => {
+      const parsed = parseGatewayUnit(image);
+      expect(parsed).toMatchObject({ profile: "desktop", appImage: true, args: ["--psyched"] });
+      expect(parseGatewayUnit(renderGatewayUnit({ ...base, args: [] }))?.appImage).toBe(false);
+      expect(parseGatewayUnit(renderGatewayUnit({ program: "/x/psyched" }))?.appImage).toBe(false);
+      expect(
+        renderGatewayUnit({
+          ...base,
+          appImage: parsed?.appImage,
+          ...(parsed?.env.PSYCHE_HOME === undefined ? {} : { psycheHome: parsed.env.PSYCHE_HOME }),
+        }),
+      ).toBe(image);
+    });
+  });
+
   it("quotes ExecStart and carries the environment", () => {
     expect(desktop).toContain('ExecStart="/opt/Psyche Dir/psyched" "--psyched"');
     expect(desktop).toContain('Environment="PSYCHE_BUILD=abc123"');

@@ -10,7 +10,7 @@ import {
 } from "@psyche/hostfs";
 import { CliError } from "./errors.ts";
 import { type Exec, whereExe, which } from "./exec.ts";
-import { parseGatewayUnit, renderGatewayUnit } from "./systemd-unit.ts";
+import { APPRUN_PSYCHED_ARG, parseGatewayUnit, renderGatewayUnit } from "./systemd-unit.ts";
 
 /**
  * Gateway supervision (feature A7, architecture §3.2): a per-user LaunchAgent on macOS, a
@@ -133,6 +133,8 @@ export function renderSystemdUnit(input: ServiceInput, installed?: string): stri
     return renderGatewayUnit({
       ...base,
       profile: "desktop",
+      // From what is being written now, never from the old text: a plain psyched keeps all three.
+      appImage: base.args?.[0] === APPRUN_PSYCHED_ARG,
       ...(parsed.env.PSYCHE_BUILD === undefined ? {} : { build: parsed.env.PSYCHE_BUILD }),
       ...(parsed.env.PSYCHE_VAULT_KEY_FILE === undefined
         ? {}
@@ -454,6 +456,16 @@ export function systemdUnitPath(env: NodeJS.ProcessEnv): string {
   return join(base, "systemd", "user", SYSTEMD_UNIT);
 }
 
+/**
+ * Where deb and rpm packages (psyche-server, the desktop) put the Gateway's unit. `psyche start`
+ * never writes here; it only counts as an installed service for `psyche status`.
+ * `PSYCHE_PACKAGED_UNIT_DIR` (tests only) names another folder; it can only change what status
+ * reports.
+ */
+export function packagedSystemdUnitPath(env: NodeJS.ProcessEnv): string {
+  return join(env.PSYCHE_PACKAGED_UNIT_DIR ?? "/usr/lib/systemd/user", SYSTEMD_UNIT);
+}
+
 export function parseLaunchctlPrint(out: string): { running: boolean; pid?: number } {
   const state = /^\s*state = (\S+)/m.exec(out)?.[1];
   const pid = /^\s*pid = (\d+)/m.exec(out)?.[1];
@@ -544,7 +556,10 @@ export async function serviceState(s: SupervisorEnv): Promise<ServiceState> {
     };
   }
   if (kind === "systemd") {
-    const file = systemdUnitPath(s.env);
+    const userFile = systemdUnitPath(s.env);
+    const packagedFile = packagedSystemdUnitPath(s.env);
+    const installed = existsSync(userFile) || existsSync(packagedFile);
+    const file = existsSync(userFile) || !installed ? userFile : packagedFile;
     const active = await s.exec("systemctl", ["--user", "is-active", SYSTEMD_UNIT]);
     const pidOut = await s.exec("systemctl", [
       "--user",
@@ -557,7 +572,7 @@ export async function serviceState(s: SupervisorEnv): Promise<ServiceState> {
     const pid = Number(pidOut.stdout.trim());
     return {
       kind,
-      installed: existsSync(file),
+      installed,
       file,
       running: active.stdout.trim() === "active",
       ...(pid > 0 ? { pid } : {}),
