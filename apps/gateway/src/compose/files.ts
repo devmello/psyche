@@ -2,7 +2,7 @@ import { randomBytes } from "node:crypto";
 import { type BigIntStats, constants } from "node:fs";
 import { type FileHandle, lstat, open, readdir, realpath, rename, unlink } from "node:fs/promises";
 import { homedir } from "node:os";
-import { basename, dirname, extname, join, relative as relativeTo, resolve, sep } from "node:path";
+import { basename, dirname, extname, join, resolve, sep } from "node:path";
 import type { HashChainAuditLog } from "@psyche/audit";
 import { getAgentThreadState, getThread, listRuns } from "@psyche/db";
 import {
