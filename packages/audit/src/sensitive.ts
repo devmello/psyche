@@ -392,7 +392,7 @@ const CARD_WORD =
  * numbers, a table or a grid is not a card. Order numbers like "112-4567890-1234567" start with a
  * short group and are never read as cards. Linear: each start looks at most 19 digits ahead.
  */
-function cardMatches(text: string): { start: number; length: number }[] {
+function cardMatches(text: string, skipIds: boolean): { start: number; length: number }[] {
   const found: { start: number; length: number }[] = [];
   const n = text.length;
   let i = 0;
@@ -476,7 +476,7 @@ function cardMatches(text: string): { start: number; length: number }[] {
       }
       const start = gs[2 * cur] as number;
       const end = gs[2 * e + 1] as number;
-      if (!isIdToken(text, start, end)) found.push({ start, length: end - start });
+      if (!(skipIds && isIdToken(text, start, end))) found.push({ start, length: end - start });
       cur = e + 1;
     }
   }
@@ -484,11 +484,11 @@ function cardMatches(text: string): { start: number; length: number }[] {
 }
 
 /** Card numbers in the strict reading (tool arguments, audit): single space, dot or dash, Luhn only. */
-function strictCardMatches(text: string): { start: number; length: number }[] {
+function strictCardMatches(text: string, skipIds: boolean): { start: number; length: number }[] {
   const found: { start: number; length: number }[] = [];
   for (const m of text.matchAll(CARD_CANDIDATE)) {
     const end = m.index + m[0].length;
-    if (cardDigits(m[0]) !== undefined && !isIdToken(text, m.index, end)) {
+    if (cardDigits(m[0]) !== undefined && !(skipIds && isIdToken(text, m.index, end))) {
       found.push({ start: m.index, length: m[0].length });
     }
   }
@@ -502,6 +502,13 @@ export interface FindOptions {
    * is what the hard prohibitions and audit redaction use: there a false match blocks a file write.
    */
   outbound?: boolean;
+  /**
+   * `"skip"`: a card-length run inside an identifier-shaped token (a hex digest of 32+ characters, a
+   * ULID, a canonical UUID) is not reported. Only the owner-facing redaction of logs and receipts
+   * passes it, so a hash is not masked there. Blocking paths never do: the default is `"strict"`, which
+   * reports every Luhn-valid card, so hex padding around a card cannot hide it.
+   */
+  idTokens?: "skip" | "strict";
 }
 
 export function findSensitive(text: string, options: FindOptions = {}): SensitiveMatch[] {
@@ -517,7 +524,9 @@ export function findSensitive(text: string, options: FindOptions = {}): Sensitiv
       out.push({ kind, index: m.index, length });
     }
   }
-  for (const span of options.outbound === true ? cardMatches(text) : strictCardMatches(text)) {
+  for (const span of options.outbound === true
+    ? cardMatches(text, options.idTokens === "skip")
+    : strictCardMatches(text, options.idTokens === "skip")) {
     out.push({ kind: "card_number", index: span.start, length: span.length });
   }
   for (const m of text.matchAll(IBAN_CANDIDATE)) {
@@ -755,12 +764,15 @@ export function containsSensitive(text: string): boolean {
 
 export const REDACTED = "[redacted]";
 
-/** Replace every sensitive match with `[redacted:<kind>]`. */
-export function redactSensitive(text: string): string {
-  const matches = findSensitive(text);
+/**
+ * Replace every sensitive match with `[redacted:<kind>]`. Owner-facing by default: identifier-shaped
+ * tokens are not masked (`idTokens: "skip"`). A caller whose output a model reads passes `{}`.
+ */
+export function redactSensitive(text: string, options: FindOptions = { idTokens: "skip" }): string {
+  const matches = findSensitive(text, options);
   if (matches.length === 0) {
     // Encoded forms (full-width or Arabic-Indic digits, zero-width separators) redact the whole string.
-    const hidden = findSensitiveNormalized(text)[0];
+    const hidden = findSensitiveNormalized(text, options)[0];
     return hidden === undefined ? text : `[redacted:${hidden.kind}]`;
   }
   let out = "";

@@ -177,6 +177,19 @@ describe("hard prohibitions", () => {
     }
   });
 
+  it("hex padding and an identifier shape never hide a card from the blocking path", async () => {
+    // Blocking has no identifier-shape exception: a padded card and a sha256 holding a card run are
+    // both denied. Assembled at runtime; the origin is not loopback, so no test-card exemption.
+    const pan = ["4111", "1111", "1111", "1111"].join("");
+    const sha256WithRun = ["ab", pan, "cd", "9f".repeat(22)].join("");
+    for (const text of [`${pan}abcdef0123456789`, sha256WithRun]) {
+      const d = await decide(["browser.type", "write", origin("https://shop.example.com")], {
+        params: { ref: "ref_1", text },
+      });
+      expect(d, text).toMatchObject({ decision: "deny", rule: "prohibition:card_entry" });
+    }
+  });
+
   it("number shapes in a file write are never a card (review round 2)", async () => {
     const sudoku = Array.from({ length: 9 }, (_, r) =>
       Array.from({ length: 9 }, (_, c) => ((r * 3 + Math.floor(r / 3) + c) % 9) + 1).join(" "),
