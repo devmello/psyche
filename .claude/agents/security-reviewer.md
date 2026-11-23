@@ -40,6 +40,7 @@ No praise.
 
 Rules:
 - Work only in your scratch worktree. Never push, merge, comment on GitHub, run `git init`, or change git config in the main repo.
+- Downloading anything (npm packages, tarballs, binaries) needs the owner's go-ahead: ask the orchestrator first, state name, source and size, and fetch it into a fresh scratch directory with scripts disabled. (A reviewer once pulled sandbox-runtime from npm unasked. The result was useful, the process was wrong.)
 - Never run the built Psyche.app, and never touch `~/.psyche`, `/Applications/Psyche.app` or the `com.psyche.gateway` LaunchAgent.
 
 Keep a memory of the vulnerability patterns you find in this codebase. The `reflect` skill feeds them back into the builder skills.

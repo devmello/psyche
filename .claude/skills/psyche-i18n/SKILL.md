@@ -24,6 +24,7 @@ An English string that names "Mac", "Touch ID" or "Finder" needs a Linux and a W
 
 - Strings live in `apps/ios/**/Localizable.xcstrings`, and `CFBundleLocalizations` lists the languages. Add every new key with all 10 translations.
 - Use `String(localized:)` and `Text("key")`, as the existing code does. In Swift package targets pass `bundle: .module` (`Text("key", bundle: .module)`, `String(localized: "key", bundle: .module)`), or the string shows English everywhere. `LocalizedLiteralsTests` enforces it. Each module (PsycheFeatures, PsycheBlocks, PsycheDesign, PsycheShared) has its own catalog: add the key to the module's own.
+- `verify.sh` runs `.claude/scripts/xcstrings-coverage.py` on each touched catalog: every key with any translation needs all 11 locales (en + 10, **including zh-Hans**). #1542 shipped 10 keys without zh-Hans; `i18n:check` never reads xcstrings. Run it yourself before the PR: `python3 -I .claude/scripts/xcstrings-coverage.py <catalog>`.
 - Parallel iOS PRs always conflict in `apps/ios/Sources/PsycheFeatures/Resources/Localizable.xcstrings`. Resolve with a JSON union of `strings`, keeping main's key order and format (`json.dumps(indent=2, ensure_ascii=False)`, no sorting), and merge `origin/main` right before you report.
 
 ## Notices the Gateway authors
