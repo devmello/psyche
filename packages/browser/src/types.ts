@@ -186,9 +186,12 @@ export interface OpenSessionOptions {
    * `auto` (the default: the profile only for tabs whose origin is in `signedInOrigins`,
    * `clean` for everything else). See `src/origin/partition.ts`.
    */
-  partition?: PartitionMode;
-  /** Origins the owner has signed into in the agent profile; `auto` mode uses the profile there. */
-  signedInOrigins?: string[];
+  partition?: PartitionMode | (() => PartitionMode);
+  /**
+   * Origins the owner has signed into in the agent profile; `auto` mode uses the profile there.
+   * A function is read on every tab, so removing a site reaches tabs opened later.
+   */
+  signedInOrigins?: string[] | (() => readonly string[]);
   /** Registrable domains the profile holds a live session for (found from its cookies), read per tab. */
   detectedDomains?: () => readonly string[];
   /** "Let Psyche use my signed-in sessions"; read per tab, default on. Off ignores `detectedDomains`. */
@@ -210,6 +213,16 @@ export interface BrowserDriverEx extends BrowserDriver {
    * approvals and taint as in any tab.
    */
   switchToProfile(tabId: string, url: string): Promise<DriverTabEx | undefined>;
+  /**
+   * The reverse: a `profile` tab about to open a URL the session's settings now put in `clean`
+   * moves to a clean tab at that URL, and the old tab closes. Undefined when nothing applies.
+   */
+  switchToClean(tabId: string, url: string): Promise<DriverTabEx | undefined>;
+  /**
+   * Closes every `profile` tab whose URL the session's settings now put in `clean` (the owner
+   * narrowed the mode or removed a signed-in site). Returns the closed tab ids.
+   */
+  closeTightenedTabs(): Promise<string[]>;
   /** The partition a tab runs in (feature I15). */
   tabPartition(tabId: string): TabPartition;
   snapshot(tabId: string, options?: SnapshotOptions): Promise<BrowserSnapshot>;

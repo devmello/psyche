@@ -3,6 +3,7 @@ import { normalize, sep } from "node:path";
 import { getSetting, getSettings, setSetting } from "@psyche/db";
 import { assertFolderGrantable } from "@psyche/permissions";
 import { isAdminSettingKey, PsycheError } from "@psyche/protocol";
+import { normalizeBrowserAgentSetting } from "../compose/browser-agent-settings.ts";
 import { normalizeMachineSetting } from "../compose/computer-settings.ts";
 import { folderAccessEnv } from "../compose/protected-paths.ts";
 import type { Call, HandlerDef } from "../context.ts";
@@ -35,6 +36,9 @@ const PRESENCE_ROOTS = [
 const PRESENCE_KEYS = [
   /^commands\.ownerAllowFrom$/,
   /^channels\.[^.]+\.(dmPolicy|allowFrom|groupAllowFrom)$/,
+  // The agent browser's sign-ins (Settings → Browser): a wider mode, a site or a dev port added
+  // widens what the agent can do with the owner's accounts. Narrowing is in settings-narrowing.ts.
+  /^browser\.(partition|signedInOrigins|devPreviewPorts)$/,
 ];
 
 /**
@@ -267,6 +271,9 @@ export const settingsHandlers: Record<string, HandlerDef> = {
       // Per-machine tiers and the default computer (wave H4): only paired machines, tiers at
       // most the fixed caps, refused before any card is made for them.
       value = normalizeMachineSetting(call.ctx.db, key, value);
+      // The agent browser's sign-in mode, sites and dev ports: validated, and refused while an
+      // environment variable sets the same value (process.env is the Gateway's own environment).
+      value = normalizeBrowserAgentSetting(key, value, process.env);
       if (key.startsWith(INTERNAL_SETTING_PREFIX)) {
         throw new PsycheError(
           "invalid_params",

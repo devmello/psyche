@@ -925,6 +925,14 @@
         "sideEffecting": false
       },
       {
+        "description": "The agent browser's sign-in mode, signed-in sites and dev-preview ports, and whether an environment variable sets each.",
+        "name": "browser.settings.get",
+        "params": "#/$defs/BrowserSettingsGetParams",
+        "result": "#/$defs/BrowserAgentSettings",
+        "scope": "operator.read",
+        "sideEffecting": false
+      },
+      {
         "description": "Returns the accessibility snapshot of a tab. The content is untrusted page data.",
         "name": "browser.snapshot",
         "params": "#/$defs/BrowserSnapshotParams",
@@ -12616,6 +12624,162 @@
       ],
       "type": "object"
     },
+    "BrowserAgentSettings": {
+      "properties": {
+        "partition": {
+          "properties": {
+            "value": {
+              "anyOf": [
+                {
+                  "const": "clean",
+                  "type": "string"
+                },
+                {
+                  "const": "auto",
+                  "type": "string"
+                },
+                {
+                  "const": "profile",
+                  "type": "string"
+                }
+              ]
+            },
+            "source": {
+              "anyOf": [
+                {
+                  "const": "env",
+                  "type": "string"
+                },
+                {
+                  "const": "setting",
+                  "type": "string"
+                },
+                {
+                  "const": "default",
+                  "type": "string"
+                }
+              ]
+            }
+          },
+          "required": [
+            "value",
+            "source"
+          ],
+          "type": "object"
+        },
+        "signedInOrigins": {
+          "properties": {
+            "value": {
+              "items": {
+                "maxLength": 200,
+                "type": "string"
+              },
+              "maxItems": 200,
+              "type": "array"
+            },
+            "source": {
+              "anyOf": [
+                {
+                  "const": "env",
+                  "type": "string"
+                },
+                {
+                  "const": "setting",
+                  "type": "string"
+                },
+                {
+                  "const": "default",
+                  "type": "string"
+                }
+              ]
+            }
+          },
+          "required": [
+            "value",
+            "source"
+          ],
+          "type": "object"
+        },
+        "devPreviewPorts": {
+          "properties": {
+            "value": {
+              "items": {
+                "maximum": 65535,
+                "minimum": 1,
+                "type": "integer"
+              },
+              "maxItems": 64,
+              "type": "array"
+            },
+            "source": {
+              "anyOf": [
+                {
+                  "const": "env",
+                  "type": "string"
+                },
+                {
+                  "const": "setting",
+                  "type": "string"
+                },
+                {
+                  "const": "default",
+                  "type": "string"
+                }
+              ]
+            }
+          },
+          "required": [
+            "value",
+            "source"
+          ],
+          "type": "object"
+        },
+        "signedInSites": {
+          "items": {
+            "properties": {
+              "origin": {
+                "maxLength": 200,
+                "type": "string"
+              },
+              "source": {
+                "anyOf": [
+                  {
+                    "const": "setting",
+                    "type": "string"
+                  },
+                  {
+                    "const": "stay_signed_in",
+                    "type": "string"
+                  },
+                  {
+                    "const": "detected",
+                    "type": "string"
+                  }
+                ]
+              }
+            },
+            "required": [
+              "origin",
+              "source"
+            ],
+            "type": "object"
+          },
+          "maxItems": 1000,
+          "type": "array"
+        },
+        "useSignedInSessions": {
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "partition",
+        "signedInOrigins",
+        "devPreviewPorts",
+        "signedInSites",
+        "useSignedInSessions"
+      ],
+      "type": "object"
+    },
     "BrowserBotAuthRotateParams": {
       "properties": {},
       "type": "object"
@@ -13148,6 +13312,10 @@
       "required": [
         "text"
       ],
+      "type": "object"
+    },
+    "BrowserSettingsGetParams": {
+      "properties": {},
       "type": "object"
     },
     "BrowserSnapshot": {

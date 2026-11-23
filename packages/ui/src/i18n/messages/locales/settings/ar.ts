@@ -187,6 +187,50 @@ export const settings: Partial<Catalogue> = {
   "settings.browser.useSignedIn.hint":
     "مفعّل افتراضيًا. عند الإيقاف يُفتح كل موقع دون تسجيل دخول، عدا ما اخترت إبقاء دخولك إليه.",
   "settings.browser.signedIn.none": "لا مواقع مسجّل دخولها بعد.",
+  "settings.browser.agent.title": "تسجيلات دخول الوكيل",
+  "settings.browser.agent.description":
+    "أي عمليات تسجيل الدخول لديك يمكن لمتصفح الوكيل استخدامها. تُطبَّق التغييرات على علامات التبويب الجديدة، حتى في المهام الجارية.",
+  "settings.browser.agent.mode.label": "تسجيلات الدخول",
+  "settings.browser.agent.mode.clean": "غير مسجّل الدخول",
+  "settings.browser.agent.mode.auto": "المواقع المسجَّل دخولها فقط",
+  "settings.browser.agent.mode.profile": "كل المواقع",
+  "settings.browser.agent.mode.cleanHint":
+    "تُفتح كل المواقع دون تسجيل دخول. لا يستخدم الوكيل تسجيلات دخولك أبدًا.",
+  "settings.browser.agent.mode.autoHint":
+    "تُفتح المواقع في القائمة أدناه بتسجيلات دخولك، بما فيها المواقع التي سجّل المتصفح دخوله إليها بالفعل. تُفتح كل المواقع الأخرى بلا تسجيل دخول.",
+  "settings.browser.agent.mode.profileHint":
+    "تُفتح كل المواقع بتسجيلات دخولك. يمكن للوكيل التصرف باسمك في أيٍّ منها.",
+  "settings.browser.agent.sites.title": "المواقع المسجّل الدخول إليها",
+  "settings.browser.agent.sites.description":
+    "المواقع التي يفتحها الوكيل بتسجيلات دخولك في وضع «المواقع المسجَّل دخولها فقط». أضف موقعًا هنا، أو سجّل الدخول من علامة تبويب في المتصفح. https فقط، أو http لـ localhost.",
+  "settings.browser.agent.sites.none": "لا توجد مواقع مدرجة.",
+  "settings.browser.agent.sites.readOnly": "سجّل الخروج من تطبيق Psyche لسطح المكتب",
+  "settings.browser.agent.sites.signOutSite": "تسجيل الخروج من {site}",
+  "settings.browser.agent.sites.source.stay": "البقاء مسجَّلًا",
+  "settings.browser.agent.sites.source.setting": "أُضيف في الإعدادات",
+  "settings.browser.agent.mode.autoHintOff":
+    "تُفتح المواقع في القائمة أدناه فقط بتسجيلات دخولك. تُفتح كل المواقع الأخرى بلا تسجيل دخول.",
+  "settings.browser.agent.sites.remove": "إزالة {site}",
+  "settings.browser.agent.sites.removeShort": "إزالة",
+  "settings.browser.agent.sites.label": "عنوان الموقع",
+  "settings.browser.agent.sites.add": "إضافة موقع",
+  "settings.browser.agent.ports.title": "منافذ المعاينة للتطوير",
+  "settings.browser.agent.ports.description":
+    "خوادم التطوير المحلية التي يمكن للوكيل فتحها، على localhost فقط.",
+  "settings.browser.agent.ports.none": "لا توجد منافذ مدرجة.",
+  "settings.browser.agent.ports.remove": "إزالة المنفذ {port}",
+  "settings.browser.agent.ports.label": "رقم المنفذ",
+  "settings.browser.agent.ports.add": "إضافة منفذ",
+  "settings.browser.agent.fromEnv":
+    "تم تعيينه بواسطة متغير البيئة {variable}. ألغِ تعيينه لتغييره من هنا.",
+  "settings.browser.agent.refuse.notUrl":
+    "هذا ليس عنوان موقع. استخدم صيغة مثل https://example.com.",
+  "settings.browser.agent.refuse.wildcard": "لا يُسمح بالأحرف البديلة. أدرج كل موقع بعنوانه الدقيق.",
+  "settings.browser.agent.refuse.credentials":
+    "لا يُسمح بالعناوين التي تتضمن اسم مستخدم أو كلمة مرور.",
+  "settings.browser.agent.refuse.path": "أدخل عنوان الموقع فقط دون مسار.",
+  "settings.browser.agent.refuse.scheme": "استخدم https. يُسمح بـ http العادي لـ localhost فقط.",
+  "settings.browser.agent.refuse.port": "يجب أن يكون المنفذ عددًا صحيحًا من 1 إلى 65535.",
   "settings.browser.signedIn.viaHosts": "مسجّل الدخول أيضًا عبر {hosts}",
   "settings.browser.signedIn.forget": "تسجيل الخروج / النسيان",
   "settings.browser.signedIn.loadFailed": "تعذّر على Psyche سرد المواقع المسجّل دخولها ({reason}).",

@@ -191,7 +191,58 @@ export const BotAuthStatus = Type.Object(
 );
 export type BotAuthStatus = Static<typeof BotAuthStatus>;
 
+/** Where a value comes from: the environment (it wins), a stored setting, or the built-in default. */
+const BrowserSettingSource = Type.Union([
+  Type.Literal("env"),
+  Type.Literal("setting"),
+  Type.Literal("default"),
+]);
+
+/** The agent browser's sign-in mode, signed-in sites and dev-preview ports, each with its source. */
+export const BrowserAgentSettings = Type.Object(
+  {
+    partition: Type.Object({
+      value: Type.Union([Type.Literal("clean"), Type.Literal("auto"), Type.Literal("profile")]),
+      source: BrowserSettingSource,
+    }),
+    signedInOrigins: Type.Object({
+      value: Type.Array(Type.String({ maxLength: 200 }), { maxItems: 200 }),
+      source: BrowserSettingSource,
+    }),
+    devPreviewPorts: Type.Object({
+      value: Type.Array(Type.Integer({ minimum: 1, maximum: 65535 }), { maxItems: 64 }),
+      source: BrowserSettingSource,
+    }),
+    /**
+     * The one list of sites the agent browser uses the owner's sign-ins on: the setting, "Stay
+     * signed in" and (while `useSignedInSessions`) sites the profile holds live cookies for.
+     */
+    signedInSites: Type.Array(
+      Type.Object({
+        origin: Type.String({ maxLength: 200 }),
+        source: Type.Union([
+          Type.Literal("setting"),
+          Type.Literal("stay_signed_in"),
+          Type.Literal("detected"),
+        ]),
+      }),
+      { maxItems: 1000 },
+    ),
+    /** "Let Psyche use my signed-in sessions" (default on): whether detected sites count. */
+    useSignedInSessions: Type.Boolean(),
+  },
+  { $id: "BrowserAgentSettings" },
+);
+export type BrowserAgentSettings = Static<typeof BrowserAgentSettings>;
+
 export const BrowserMethods = {
+  "browser.settings.get": defineMethod({
+    params: Type.Object({}),
+    result: BrowserAgentSettings,
+    scope: "operator.read",
+    description:
+      "The agent browser's sign-in mode, signed-in sites and dev-preview ports, and whether an environment variable sets each.",
+  }),
   "browser.tabs": defineMethod({
     params: Type.Object({ taskId: Type.Optional(Id) }),
     result: Type.Object({ tabs: Type.Array(BrowserTab) }),

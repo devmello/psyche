@@ -228,6 +228,52 @@ export const settingsRest: Partial<Catalogue> = {
   "settings.browser.useSignedIn.hint":
     "Activé par défaut. Désactivé, chaque site s’ouvre déconnecté, sauf ceux sur lesquels vous avez choisi de rester connecté.",
   "settings.browser.signedIn.none": "Aucun site connecté pour l’instant.",
+  "settings.browser.agent.title": "Connexions de l'agent",
+  "settings.browser.agent.description":
+    "Lesquelles de tes connexions le navigateur de l'agent peut utiliser. Les changements s'appliquent aux nouveaux onglets, y compris dans les tâches déjà en cours.",
+  "settings.browser.agent.mode.label": "Connexions",
+  "settings.browser.agent.mode.clean": "Déconnecté",
+  "settings.browser.agent.mode.auto": "Sites connectés uniquement",
+  "settings.browser.agent.mode.profile": "Tous les sites",
+  "settings.browser.agent.mode.cleanHint":
+    "Chaque site s'ouvre déconnecté. L'agent n'utilise jamais vos connexions.",
+  "settings.browser.agent.mode.autoHint":
+    "Les sites de la liste ci-dessous s'ouvrent avec tes connexions, y compris ceux où le navigateur est déjà connecté. Tous les autres s'ouvrent déconnectés.",
+  "settings.browser.agent.mode.profileHint":
+    "Chaque site s'ouvre avec vos connexions. L'agent peut agir en votre nom sur chacun.",
+  "settings.browser.agent.sites.title": "Sites connectés",
+  "settings.browser.agent.sites.description":
+    "Sites que l'agent ouvre avec tes connexions en mode « Sites connectés uniquement ». Ajoutes-en un ici ou connecte-toi depuis un onglet du navigateur. https uniquement, ou http pour localhost.",
+  "settings.browser.agent.sites.none": "Aucun site listé.",
+  "settings.browser.agent.sites.readOnly": "Déconnecte-toi depuis l'app de bureau Psyche",
+  "settings.browser.agent.sites.signOutSite": "Se déconnecter de {site}",
+  "settings.browser.agent.sites.source.stay": "Rester connecté",
+  "settings.browser.agent.sites.source.setting": "Ajouté dans Réglages",
+  "settings.browser.agent.mode.autoHintOff":
+    "Seuls les sites de la liste ci-dessous s'ouvrent avec tes connexions. Tous les autres s'ouvrent déconnectés.",
+  "settings.browser.agent.sites.remove": "Retirer {site}",
+  "settings.browser.agent.sites.removeShort": "Retirer",
+  "settings.browser.agent.sites.label": "Adresse du site",
+  "settings.browser.agent.sites.add": "Ajouter le site",
+  "settings.browser.agent.ports.title": "Ports de prévisualisation",
+  "settings.browser.agent.ports.description":
+    "Serveurs de développement locaux que l'agent peut ouvrir, sur localhost uniquement.",
+  "settings.browser.agent.ports.none": "Aucun port listé.",
+  "settings.browser.agent.ports.remove": "Retirer le port {port}",
+  "settings.browser.agent.ports.label": "Numéro de port",
+  "settings.browser.agent.ports.add": "Ajouter le port",
+  "settings.browser.agent.fromEnv":
+    "Défini par la variable d'environnement {variable}. Supprimez-la pour modifier ceci ici.",
+  "settings.browser.agent.refuse.notUrl":
+    "Ce n'est pas une adresse de site. Utilisez une forme comme https://exemple.fr.",
+  "settings.browser.agent.refuse.wildcard":
+    "Les caractères génériques ne sont pas autorisés. Listez chaque site par son adresse exacte.",
+  "settings.browser.agent.refuse.credentials":
+    "Les adresses avec un nom d'utilisateur ou un mot de passe ne sont pas autorisées.",
+  "settings.browser.agent.refuse.path": "Indiquez seulement l'adresse du site, sans chemin.",
+  "settings.browser.agent.refuse.scheme":
+    "Utilisez https. Le http simple n'est autorisé que pour localhost.",
+  "settings.browser.agent.refuse.port": "Un port doit être un nombre entier de 1 à 65535.",
   "settings.browser.signedIn.viaHosts": "Également connecté via {hosts}",
   "settings.browser.signedIn.forget": "Se déconnecter / oublier",
   "settings.browser.signedIn.loadFailed":

@@ -227,6 +227,52 @@ export const settingsRest: Partial<Catalogue> = {
   "settings.browser.useSignedIn.hint":
     "Attivo per impostazione predefinita. Se disattivato, ogni sito si apre senza accesso, tranne quelli per cui hai scelto di restare connesso.",
   "settings.browser.signedIn.none": "Ancora nessun sito con accesso effettuato.",
+  "settings.browser.agent.title": "Accessi dell'agente",
+  "settings.browser.agent.description":
+    "Quali dei tuoi accessi può usare il browser dell'agente. Le modifiche valgono per le nuove schede, anche nelle attività già in corso.",
+  "settings.browser.agent.mode.label": "Accessi",
+  "settings.browser.agent.mode.clean": "Disconnesso",
+  "settings.browser.agent.mode.auto": "Solo siti con accesso",
+  "settings.browser.agent.mode.profile": "Tutti i siti",
+  "settings.browser.agent.mode.cleanHint":
+    "Ogni sito si apre disconnesso. L'agente non usa mai i tuoi accessi.",
+  "settings.browser.agent.mode.autoHint":
+    "I siti nell'elenco qui sotto si aprono con i tuoi accessi, compresi quelli in cui il browser ha già effettuato l'accesso. Tutti gli altri si aprono senza accesso.",
+  "settings.browser.agent.mode.profileHint":
+    "Ogni sito si apre con i tuoi accessi. L'agente può agire per tuo conto su tutti.",
+  "settings.browser.agent.sites.title": "Siti con accesso",
+  "settings.browser.agent.sites.description":
+    "Siti che l'agente apre con i tuoi accessi in modalità «Solo siti con accesso». Aggiungine uno qui o accedi da una scheda del browser. Solo https, oppure http per localhost.",
+  "settings.browser.agent.sites.none": "Nessun sito nell'elenco.",
+  "settings.browser.agent.sites.readOnly": "Esci dall'app desktop di Psyche",
+  "settings.browser.agent.sites.signOutSite": "Esci da {site}",
+  "settings.browser.agent.sites.source.stay": "Resta connesso",
+  "settings.browser.agent.sites.source.setting": "Aggiunto in Impostazioni",
+  "settings.browser.agent.mode.autoHintOff":
+    "Solo i siti nell'elenco qui sotto si aprono con i tuoi accessi. Tutti gli altri si aprono senza accesso.",
+  "settings.browser.agent.sites.remove": "Rimuovi {site}",
+  "settings.browser.agent.sites.removeShort": "Rimuovi",
+  "settings.browser.agent.sites.label": "Indirizzo del sito",
+  "settings.browser.agent.sites.add": "Aggiungi sito",
+  "settings.browser.agent.ports.title": "Porte di anteprima",
+  "settings.browser.agent.ports.description":
+    "Server di sviluppo locali che l'agente può aprire, solo su localhost.",
+  "settings.browser.agent.ports.none": "Nessuna porta nell'elenco.",
+  "settings.browser.agent.ports.remove": "Rimuovi la porta {port}",
+  "settings.browser.agent.ports.label": "Numero di porta",
+  "settings.browser.agent.ports.add": "Aggiungi porta",
+  "settings.browser.agent.fromEnv":
+    "Impostato dalla variabile d'ambiente {variable}. Rimuovila per cambiarlo qui.",
+  "settings.browser.agent.refuse.notUrl":
+    "Non è un indirizzo di sito. Usa una forma come https://esempio.it.",
+  "settings.browser.agent.refuse.wildcard":
+    "I caratteri jolly non sono ammessi. Elenca ogni sito con il suo indirizzo esatto.",
+  "settings.browser.agent.refuse.credentials":
+    "Non sono ammessi indirizzi con nome utente o password.",
+  "settings.browser.agent.refuse.path": "Indica solo l'indirizzo del sito, senza percorso.",
+  "settings.browser.agent.refuse.scheme":
+    "Usa https. Il semplice http è ammesso solo per localhost.",
+  "settings.browser.agent.refuse.port": "Una porta deve essere un numero intero da 1 a 65535.",
   "settings.browser.signedIn.viaHosts": "Accesso effettuato anche tramite {hosts}",
   "settings.browser.signedIn.forget": "Disconnetti / dimentica",
   "settings.browser.signedIn.loadFailed":

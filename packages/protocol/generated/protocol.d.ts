@@ -2326,6 +2326,40 @@ export interface BridgeTabsListResult {
     tabs: BridgeTab[];
 }
 
+export interface BrowserAgentSettings {
+    devPreviewPorts:     DevPreviewPorts;
+    partition:           Partition;
+    signedInOrigins:     SignedInOrigins;
+    signedInSites:       SignedInSite[];
+    useSignedInSessions: boolean;
+}
+
+export interface DevPreviewPorts {
+    source: DevPreviewPortsSource;
+    value:  number[];
+}
+
+export type DevPreviewPortsSource = "env" | "setting" | "default";
+
+export interface Partition {
+    source: DevPreviewPortsSource;
+    value:  ValueEnum;
+}
+
+export type ValueEnum = "clean" | "auto" | "profile";
+
+export interface SignedInOrigins {
+    source: DevPreviewPortsSource;
+    value:  string[];
+}
+
+export interface SignedInSite {
+    origin: string;
+    source: SignedInSiteSource;
+}
+
+export type SignedInSiteSource = "setting" | "stay_signed_in" | "detected";
+
 export interface BrowserBotAuthRotateResult {
     status: BotAuthStatus;
 }
@@ -6160,7 +6194,7 @@ export interface InputRequestResult {
 }
 
 export interface InputRequest {
-    answer?:             { [key: string]: Value } | null;
+    answer?:             { [key: string]: ValueValue } | null;
     answeredAt?:         null | string;
     answeredByDeviceId?: null | string;
     createdAt:           string;
@@ -6171,7 +6205,7 @@ export interface InputRequest {
     threadId:            string;
 }
 
-export type Value = string[] | string;
+export type ValueValue = string[] | string;
 
 export interface Question {
     header:      string;
@@ -14362,7 +14396,7 @@ export interface WidgetAction {
     kind:            WidgetActionKind;
     text?:           string;
     inputRequestId?: string;
-    value?:          Value;
+    value?:          ValueValue;
     artifactId?:     string;
     fileId?:         string;
     route?:          string;

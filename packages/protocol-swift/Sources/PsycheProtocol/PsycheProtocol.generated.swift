@@ -234,6 +234,7 @@
 //   let bridgeTabStatusParams = try? JSONDecoder().decode(BridgeTabStatusParams.self, from: jsonData)
 //   let bridgeTabsListParams = try? JSONDecoder().decode(BridgeTabsListParams.self, from: jsonData)
 //   let bridgeTabsListResult = try? JSONDecoder().decode(BridgeTabsListResult.self, from: jsonData)
+//   let browserAgentSettings = try? JSONDecoder().decode(BrowserAgentSettings.self, from: jsonData)
 //   let browserBotAuthRotateParams = try? JSONDecoder().decode(BrowserBotAuthRotateParams.self, from: jsonData)
 //   let browserBotAuthRotateResult = try? JSONDecoder().decode(BrowserBotAuthRotateResult.self, from: jsonData)
 //   let browserBotAuthStatusParams = try? JSONDecoder().decode(BrowserBotAuthStatusParams.self, from: jsonData)
@@ -261,6 +262,7 @@
 //   let browserRecordingsListResult = try? JSONDecoder().decode(BrowserRecordingsListResult.self, from: jsonData)
 //   let browserRecordingsSnapshotParams = try? JSONDecoder().decode(BrowserRecordingsSnapshotParams.self, from: jsonData)
 //   let browserRecordingsSnapshotResult = try? JSONDecoder().decode(BrowserRecordingsSnapshotResult.self, from: jsonData)
+//   let browserSettingsGetParams = try? JSONDecoder().decode(BrowserSettingsGetParams.self, from: jsonData)
 //   let browserSnapshot = try? JSONDecoder().decode(BrowserSnapshot.self, from: jsonData)
 //   let browserSnapshotParams = try? JSONDecoder().decode(BrowserSnapshotParams.self, from: jsonData)
 //   let browserSnapshotResult = try? JSONDecoder().decode(BrowserSnapshotResult.self, from: jsonData)
@@ -8116,6 +8118,113 @@ public struct BridgeTabsListResult: Codable, Sendable {
     public init(tabs: [BridgeTab]) {
         self.tabs = tabs
     }
+}
+
+// MARK: - BrowserAgentSettings
+public struct BrowserAgentSettings: Codable, Sendable {
+    public let devPreviewPorts: DevPreviewPorts
+    public let partition: Partition
+    public let signedInOrigins: SignedInOrigins
+    public let signedInSites: [SignedInSite]
+    public let useSignedInSessions: Bool
+
+    public enum CodingKeys: String, CodingKey {
+        case devPreviewPorts = "devPreviewPorts"
+        case partition = "partition"
+        case signedInOrigins = "signedInOrigins"
+        case signedInSites = "signedInSites"
+        case useSignedInSessions = "useSignedInSessions"
+    }
+
+    public init(devPreviewPorts: DevPreviewPorts, partition: Partition, signedInOrigins: SignedInOrigins, signedInSites: [SignedInSite], useSignedInSessions: Bool) {
+        self.devPreviewPorts = devPreviewPorts
+        self.partition = partition
+        self.signedInOrigins = signedInOrigins
+        self.signedInSites = signedInSites
+        self.useSignedInSessions = useSignedInSessions
+    }
+}
+
+// MARK: - DevPreviewPorts
+public struct DevPreviewPorts: Codable, Sendable {
+    public let source: DevPreviewPortsSource
+    public let value: [Int]
+
+    public enum CodingKeys: String, CodingKey {
+        case source = "source"
+        case value = "value"
+    }
+
+    public init(source: DevPreviewPortsSource, value: [Int]) {
+        self.source = source
+        self.value = value
+    }
+}
+
+public enum DevPreviewPortsSource: String, Codable, Sendable {
+    case env = "env"
+    case setting = "setting"
+    case sourceDefault = "default"
+}
+
+// MARK: - Partition
+public struct Partition: Codable, Sendable {
+    public let source: DevPreviewPortsSource
+    public let value: ValueEnum
+
+    public enum CodingKeys: String, CodingKey {
+        case source = "source"
+        case value = "value"
+    }
+
+    public init(source: DevPreviewPortsSource, value: ValueEnum) {
+        self.source = source
+        self.value = value
+    }
+}
+
+public enum ValueEnum: String, Codable, Sendable {
+    case auto = "auto"
+    case clean = "clean"
+    case profile = "profile"
+}
+
+// MARK: - SignedInOrigins
+public struct SignedInOrigins: Codable, Sendable {
+    public let source: DevPreviewPortsSource
+    public let value: [String]
+
+    public enum CodingKeys: String, CodingKey {
+        case source = "source"
+        case value = "value"
+    }
+
+    public init(source: DevPreviewPortsSource, value: [String]) {
+        self.source = source
+        self.value = value
+    }
+}
+
+// MARK: - SignedInSite
+public struct SignedInSite: Codable, Sendable {
+    public let origin: String
+    public let source: SignedInSiteSource
+
+    public enum CodingKeys: String, CodingKey {
+        case origin = "origin"
+        case source = "source"
+    }
+
+    public init(origin: String, source: SignedInSiteSource) {
+        self.origin = origin
+        self.source = source
+    }
+}
+
+public enum SignedInSiteSource: String, Codable, Sendable {
+    case detected = "detected"
+    case setting = "setting"
+    case staySignedIn = "stay_signed_in"
 }
 
 // MARK: - BrowserBotAuthRotateResult
@@ -18557,7 +18666,7 @@ public struct InputRequestResult: Codable, Sendable {
 
 // MARK: - InputRequest
 public struct InputRequest: Codable, Sendable {
-    public let answer: [String: Value]?
+    public let answer: [String: ValueValue]?
     public let answeredAt: String?
     public let answeredByDeviceID: String?
     public let createdAt: String
@@ -18579,7 +18688,7 @@ public struct InputRequest: Codable, Sendable {
         case threadID = "threadId"
     }
 
-    public init(answer: [String: Value]? = nil, answeredAt: String? = nil, answeredByDeviceID: String? = nil, createdAt: String, id: String, questions: [Question], status: InputRequestStatus, taskID: String? = nil, threadID: String) {
+    public init(answer: [String: ValueValue]? = nil, answeredAt: String? = nil, answeredByDeviceID: String? = nil, createdAt: String, id: String, questions: [Question], status: InputRequestStatus, taskID: String? = nil, threadID: String) {
         self.answer = answer
         self.answeredAt = answeredAt
         self.answeredByDeviceID = answeredByDeviceID
@@ -18592,7 +18701,7 @@ public struct InputRequest: Codable, Sendable {
     }
 }
 
-public enum Value: Codable, Sendable {
+public enum ValueValue: Codable, Sendable {
     case string(String)
     case stringArray([String])
 
@@ -18606,7 +18715,7 @@ public enum Value: Codable, Sendable {
             self = .string(x)
             return
         }
-        throw DecodingError.typeMismatch(Value.self, DecodingError.Context(codingPath: decoder.codingPath, debugDescription: "Wrong type for Value"))
+        throw DecodingError.typeMismatch(ValueValue.self, DecodingError.Context(codingPath: decoder.codingPath, debugDescription: "Wrong type for ValueValue"))
     }
 
     public func encode(to encoder: Encoder) throws {
@@ -40717,7 +40826,7 @@ public struct WidgetAction: Codable, Sendable {
     public let kind: WidgetActionKind
     public let text: String?
     public let inputRequestID: String?
-    public let value: Value?
+    public let value: ValueValue?
     public let artifactID: String?
     public let fileID: String?
     public let route: String?
@@ -40738,7 +40847,7 @@ public struct WidgetAction: Codable, Sendable {
         case tool = "tool"
     }
 
-    public init(kind: WidgetActionKind, text: String? = nil, inputRequestID: String? = nil, value: Value? = nil, artifactID: String? = nil, fileID: String? = nil, route: String? = nil, url: String? = nil, args: [String: JSONAny]? = nil, tool: String? = nil) {
+    public init(kind: WidgetActionKind, text: String? = nil, inputRequestID: String? = nil, value: ValueValue? = nil, artifactID: String? = nil, fileID: String? = nil, route: String? = nil, url: String? = nil, args: [String: JSONAny]? = nil, tool: String? = nil) {
         self.kind = kind
         self.text = text
         self.inputRequestID = inputRequestID
@@ -41354,6 +41463,7 @@ public typealias BridgeTabsListParams = [String: JSONAny]
 public typealias BrowserBotAuthRotateParams = [String: JSONAny]
 public typealias BrowserBotAuthStatusParams = [String: JSONAny]
 public typealias BrowserRealChromeStatusParams = [String: JSONAny]
+public typealias BrowserSettingsGetParams = [String: JSONAny]
 public typealias ChannelsIdentitiesListParams = [String: JSONAny]
 public typealias ChannelsListParams = [String: JSONAny]
 public typealias ConnectorsCatalogueParams = [String: JSONAny]

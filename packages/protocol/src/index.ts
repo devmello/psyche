@@ -1,5 +1,6 @@
 export * from "./app-routes.ts";
 export * from "./bridge.ts";
+export * from "./browser-agent.ts";
 export * from "./browser-teach.ts";
 export * from "./claim.ts";
 export * from "./common.ts";
