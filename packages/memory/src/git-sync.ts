@@ -235,7 +235,10 @@ export class WorkspaceGit {
     await this.init(branch);
     await this.#store.idle();
     // The provenance sidecar travels with the notes, so a pull elsewhere keeps untrusted content
-    // untrusted. It is written before the scan, which covers it like any other file.
+    // untrusted. It is written before the scan, which covers it like any other file. Its entries
+    // carry the sha256 of the indexed content, so the index first catches up with edits made
+    // outside Psyche: the hashes then match what is committed.
+    await this.#store.sync();
     this.#store.writeProvenanceSidecar();
     // Excluded files leave the index (a commit made before the exclusion tracked them).
     const tracked = await this.#trackedExcluded();
