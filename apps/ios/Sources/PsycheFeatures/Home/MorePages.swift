@@ -16,14 +16,14 @@ struct OverviewView: View {
         MorePage(title: "Overview", model: model) { activity in
             if !activity.now.isEmpty {
                 VStack(alignment: .leading, spacing: 8) {
-                    SectionHeader("Running")
+                    SectionHeader(String(localized: "Running", bundle: .module))
                     PaperCard {
                         ForEach(Array(activity.now.enumerated()), id: \.element.id) { index, task in
                             if index > 0 { HairlineDivider() }
                             VStack(alignment: .leading, spacing: 10) {
                                 Text(task.title).font(.psycheRow).foregroundStyle(PsycheColor.text)
                                 ProgressBar(fraction: task.fraction)
-                                EvidenceLine(["Step \(task.step) of \(task.stepCount)", task.detail, task.elapsed])
+                                EvidenceLine([String(localized: "Step \(task.step) of \(task.stepCount)", bundle: .module), task.detail, task.elapsed])
                             }
                             .padding(PsycheMetrics.rowPadding)
                         }
@@ -31,9 +31,9 @@ struct OverviewView: View {
                 }
             }
             VStack(alignment: .leading, spacing: 8) {
-                SectionHeader("Recent runs")
+                SectionHeader(String(localized: "Recent runs", bundle: .module))
                 if activity.recent.isEmpty {
-                    Text("No runs yet.").font(.subheadline).foregroundStyle(PsycheColor.muted)
+                    Text("No runs yet.", bundle: .module).font(.subheadline).foregroundStyle(PsycheColor.muted)
                 } else {
                     PaperCard {
                         ForEach(Array(activity.recent.enumerated()), id: \.element.id) { index, run in

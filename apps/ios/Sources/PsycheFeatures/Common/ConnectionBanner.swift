@@ -34,7 +34,7 @@ private struct ConnectingLine: View {
         HStack(spacing: 8) {
             if visible {
                 ProgressView().controlSize(.small)
-                Text("Connecting…").font(.footnote).foregroundStyle(PsycheColor.muted)
+                Text("Connecting…", bundle: .module).font(.footnote).foregroundStyle(PsycheColor.muted)
             }
         }
         .frame(maxWidth: .infinity, alignment: .leading)

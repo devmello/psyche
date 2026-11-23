@@ -81,7 +81,7 @@ struct ThreadView: View {
                 }
                 .padding(.trailing, 16).padding(.bottom, 10)
                 .transition(motion.transition(.control))
-                .accessibilityLabel("Jump to latest")
+                .accessibilityLabel(String(localized: "Jump to latest", bundle: .module))
             }
         }
         .psycheAnimation(.snappy, value: pinned)

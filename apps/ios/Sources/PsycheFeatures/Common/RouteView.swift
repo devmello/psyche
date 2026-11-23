@@ -30,7 +30,7 @@ struct RouteView: View {
         VStack(alignment: .leading, spacing: 8) {
             Text(kind).psycheTitle()
             EvidenceLine([id])
-            Text("Read-mostly on the phone. Edit on your Mac.")
+            Text("Read-mostly on the phone. Edit on your Mac.", bundle: .module)
                 .font(.subheadline).foregroundStyle(PsycheColor.muted)
             Spacer()
         }

@@ -20,9 +20,9 @@ struct UploadMenuButton: View {
 
     var body: some View {
         Menu {
-            Button { showPhotos = true } label: { Label("Photos", systemImage: "photo.on.rectangle") }
-            Button { showFiles = true } label: { Label("Files", systemImage: "folder") }
-            Button { showScanner = true } label: { Label("Scan document", systemImage: "doc.viewfinder") }
+            Button { showPhotos = true } label: { Label(String(localized: "Photos", bundle: .module), systemImage: "photo.on.rectangle") }
+            Button { showFiles = true } label: { Label(String(localized: "Files", bundle: .module), systemImage: "folder") }
+            Button { showScanner = true } label: { Label(String(localized: "Scan document", bundle: .module), systemImage: "doc.viewfinder") }
                 .disabled(!VNDocumentCameraViewController.isSupported)
         } label: {
             Image(systemName: "plus")
@@ -31,7 +31,7 @@ struct UploadMenuButton: View {
                 .frame(width: 56, height: 56)
                 .glassEffect(.regular.tint(PsycheColor.ink).interactive(), in: .circle)
         }
-        .accessibilityLabel("Add to Library")
+        .accessibilityLabel(String(localized: "Add to Library", bundle: .module))
         .photosPicker(isPresented: $showPhotos, selection: $photos, maxSelectionCount: 10, matching: .images)
         .onChange(of: photos) { _, items in
             guard !items.isEmpty else { return }
@@ -51,8 +51,8 @@ struct UploadMenuButton: View {
             }
             .ignoresSafeArea()
         }
-        .alert("Couldn't add that", isPresented: Binding(get: { problem != nil }, set: { if !$0 { problem = nil } })) {
-            Button("OK", role: .cancel) {}
+        .alert(String(localized: "Couldn't add that", bundle: .module), isPresented: Binding(get: { problem != nil }, set: { if !$0 { problem = nil } })) {
+            Button(String(localized: "OK", bundle: .module), role: .cancel) {}
         } message: {
             Text(problem ?? "")
         }

@@ -36,7 +36,7 @@ struct QuestionSheet: View {
                     }
                 }
                 if detail.allowsFreeText {
-                    TextField("Or write an answer", text: $text, axis: .vertical)
+                    TextField(String(localized: "Or write an answer", bundle: .module), text: $text, axis: .vertical)
                         .font(.callout)
                         .lineLimit(1...4)
                         .focused($typing)
@@ -105,7 +105,7 @@ struct QuestionSheet: View {
                 AnswerError(message: message, retry: { Task { await flow.retry() } }, cancel: flow.dismissError)
             case .review, .checking, .sending:
                 if !session.state.canAnswer {
-                    Text("Reconnect to answer").font(.footnote).foregroundStyle(PsycheColor.muted)
+                    Text("Reconnect to answer", bundle: .module).font(.footnote).foregroundStyle(PsycheColor.muted)
                 }
                 ArmingInkButton(title: "Send answer", isBusy: flow.stage == .sending, action: send)
                     .disabled(!canSend || !session.state.canAnswer || flow.isBusy)

@@ -122,9 +122,9 @@ struct SettingsSheet: View {
                         content(loaded)
                     case .failed(let message):
                         VStack(spacing: 12) {
-                            Text("Couldn't load this").font(.headline)
+                            Text("Couldn't load this", bundle: .module).font(.headline)
                             Text(message).font(.subheadline).foregroundStyle(PsycheColor.muted)
-                            Button("Try again") { Task { await model.load() } }
+                            Button(String(localized: "Try again", bundle: .module)) { Task { await model.load() } }
                                 .buttonStyle(.psycheOutline).frame(maxWidth: 220)
                         }
                         .frame(maxWidth: .infinity).padding(.vertical, 40)
@@ -135,11 +135,11 @@ struct SettingsSheet: View {
                 .padding(.bottom, 32)
             }
             .psycheScreen()
-            .navigationTitle("Settings")
+            .navigationTitle(String(localized: "Settings", bundle: .module))
             .psycheInlineTitle()
             .toolbar {
                 ToolbarItem(placement: .confirmationAction) {
-                    Button("Done") { dismiss() }
+                    Button(String(localized: "Done", bundle: .module)) { dismiss() }
                 }
             }
         }
@@ -148,24 +148,24 @@ struct SettingsSheet: View {
             await model.load()
             await model.observe()
         }
-        .alert("Couldn't do that", isPresented: Binding(get: { model.notice != nil }, set: { if !$0 { model.notice = nil } })) {
-            Button("OK", role: .cancel) {}
+        .alert(String(localized: "Couldn't do that", bundle: .module), isPresented: Binding(get: { model.notice != nil }, set: { if !$0 { model.notice = nil } })) {
+            Button(String(localized: "OK", bundle: .module), role: .cancel) {}
         } message: {
             Text(model.notice ?? "")
         }
-        .confirmationDialog("Re-pair with your Mac?", isPresented: $confirmingRepair, titleVisibility: .visible) {
-            Button("Scan a new code") {
+        .confirmationDialog(String(localized: "Re-pair with your Mac?", bundle: .module), isPresented: $confirmingRepair, titleVisibility: .visible) {
+            Button(String(localized: "Scan a new code", bundle: .module)) {
                 dismiss()
                 session.cancelPairing()
             }
-            Button("Cancel", role: .cancel) {}
+            Button(String(localized: "Cancel", bundle: .module), role: .cancel) {}
         } message: {
-            Text("Open Settings \u{2192} Server & remote access \u{2192} Pair another computer on your Mac, then scan the code it shows.")
+            Text("Open Settings \u{2192} Server & remote access \u{2192} Pair another computer on your Mac, then scan the code it shows.", bundle: .module)
         }
         .confirmationDialog(
             "Your Mac isn't reachable right now.", isPresented: $model.offeringLocalRemoval, titleVisibility: .visible
         ) {
-            Button("Remove from this phone only", role: .destructive) {
+            Button(String(localized: "Remove from this phone only", bundle: .module), role: .destructive) {
                 Task {
                     if await model.removeThisPhoneLocally() {
                         dismiss()
@@ -173,12 +173,12 @@ struct SettingsSheet: View {
                     }
                 }
             }
-            Button("Cancel", role: .cancel) {}
+            Button(String(localized: "Cancel", bundle: .module), role: .cancel) {}
         } message: {
-            Text("This phone can clear its keys and saved data now, but your Mac will keep listing it until you remove it in Settings \u{2192} Devices there.")
+            Text("This phone can clear its keys and saved data now, but your Mac will keep listing it until you remove it in Settings \u{2192} Devices there.", bundle: .module)
         }
-        .confirmationDialog("Remove this phone?", isPresented: $confirmingRemove, titleVisibility: .visible) {
-            Button("Remove this phone", role: .destructive) {
+        .confirmationDialog(String(localized: "Remove this phone?", bundle: .module), isPresented: $confirmingRemove, titleVisibility: .visible) {
+            Button(String(localized: "Remove this phone", bundle: .module), role: .destructive) {
                 Task {
                     if await model.removeThisPhone() {
                         dismiss()
@@ -186,9 +186,9 @@ struct SettingsSheet: View {
                     }
                 }
             }
-            Button("Cancel", role: .cancel) {}
+            Button(String(localized: "Cancel", bundle: .module), role: .cancel) {}
         } message: {
-            Text("Your Mac forgets this phone and this phone clears everything it saved. You'll pair again to use Psyche here.")
+            Text("Your Mac forgets this phone and this phone clears everything it saved. You'll pair again to use Psyche here.", bundle: .module)
         }
     }
 

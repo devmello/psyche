@@ -72,11 +72,11 @@ struct Composer: View {
 
     private var plusMenu: some View {
         Menu {
-            Button { showPhotos = true } label: { Label("Photos", systemImage: "photo.on.rectangle") }
-            Button { showFiles = true } label: { Label("Files", systemImage: "folder") }
+            Button { showPhotos = true } label: { Label(String(localized: "Photos", bundle: .module), systemImage: "photo.on.rectangle") }
+            Button { showFiles = true } label: { Label(String(localized: "Files", bundle: .module), systemImage: "folder") }
             #if canImport(UIKit)
             if CameraPicker.isAvailable {
-                Button { showCamera = true } label: { Label("Camera", systemImage: "camera") }
+                Button { showCamera = true } label: { Label(String(localized: "Camera", bundle: .module), systemImage: "camera") }
             }
             #endif
         } label: {
@@ -88,12 +88,12 @@ struct Composer: View {
         }
         .glassEffect(.regular.interactive(), in: .circle)
         .glassEffectID("plus", in: glass)
-        .accessibilityLabel("Add photo or file")
+        .accessibilityLabel(String(localized: "Add photo or file", bundle: .module))
     }
 
     private var field: some View {
         HStack(alignment: .bottom, spacing: 4) {
-            TextField("Reply to Psyche", text: $composer.text, axis: .vertical)
+            TextField(String(localized: "Reply to Psyche", bundle: .module), text: $composer.text, axis: .vertical)
                 .font(.callout)
                 .lineLimit(1...5)
                 .focused(focused)
@@ -142,7 +142,7 @@ struct Composer: View {
         .padding(.bottom, 6)
         .disabled(!canSend)
         .opacity(canSend ? 1 : 0.4)
-        .accessibilityLabel("Send")
+        .accessibilityLabel(String(localized: "Send", bundle: .module))
     }
 
     /// Stop is not ink: the screen's one filled control is Send.
@@ -155,7 +155,7 @@ struct Composer: View {
                 .background(PsycheColor.fill, in: Circle())
         }
         .padding(.bottom, 6)
-        .accessibilityLabel("Stop")
+        .accessibilityLabel(String(localized: "Stop", bundle: .module))
     }
 }
 
@@ -188,7 +188,7 @@ private struct AttachmentChip: View {
                 Image(systemName: "xmark").font(.caption2.weight(.bold)).foregroundStyle(PsycheColor.muted)
                     .frame(width: 22, height: 22)
             }
-            .accessibilityLabel("Remove \(attachment.name)")
+            .accessibilityLabel(String(localized: "Remove \(attachment.name)", bundle: .module))
         }
         .padding(.leading, 10).padding(.trailing, 4).padding(.vertical, 4)
         .background(PsycheColor.sheet, in: Capsule())

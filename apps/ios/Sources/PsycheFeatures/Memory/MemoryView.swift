@@ -43,8 +43,8 @@ struct MemoryView: View {
             }
             .task(id: router.memoryFocusTodo) { await focusTodo(proxy) }
             .sensoryFeedback(.success, trigger: model.completions)
-            .alert("Couldn't update that", isPresented: noticeBinding) {
-                Button("OK", role: .cancel) {}
+            .alert(String(localized: "Couldn't update that", bundle: .module), isPresented: noticeBinding) {
+                Button(String(localized: "OK", bundle: .module), role: .cancel) {}
             } message: {
                 Text(model.notice ?? "")
             }
@@ -62,8 +62,8 @@ struct MemoryView: View {
         PageHeader("Memory").plainRow(top: 8, bottom: 14)
         ConnectionBanner(state: session.state, lastSyncedAt: session.lastSyncedAt)
             .plainRow(bottom: session.state.isUnreachable ? 14 : 0)
-        Picker("Memory", selection: $segment) {
-            ForEach(Segment.allCases) { Text($0.rawValue).tag($0) }
+        Picker(String(localized: "Memory", bundle: .module), selection: $segment) {
+            ForEach(Segment.allCases) { Text(LocalizedStringKey($0.rawValue), bundle: .module).tag($0) }
         }
         .pickerStyle(.segmented)
         .plainRow(bottom: 12)
@@ -98,9 +98,9 @@ struct MemoryView: View {
 
     private func failed(_ message: String) -> some View {
         VStack(spacing: 12) {
-            Text("Couldn't load this").font(.headline).foregroundStyle(PsycheColor.text)
+            Text("Couldn't load this", bundle: .module).font(.headline).foregroundStyle(PsycheColor.text)
             Text(message).font(.subheadline).foregroundStyle(PsycheColor.muted)
-            Button("Try again") { Task { await model.load() } }
+            Button(String(localized: "Try again", bundle: .module)) { Task { await model.load() } }
                 .buttonStyle(.psycheOutline)
                 .frame(maxWidth: 220)
         }
@@ -179,7 +179,7 @@ struct MemoryView: View {
         }
         .swipeActions(edge: .trailing) {
             if let thread = todo.threadID {
-                Button { router.openThread(thread) } label: { Label("Open thread", systemImage: "bubble.left") }
+                Button { router.openThread(thread) } label: { Label(String(localized: "Open thread", bundle: .module), systemImage: "bubble.left") }
                     .tint(PsycheColor.muted)
             }
         }
@@ -187,7 +187,7 @@ struct MemoryView: View {
 
     private func leftOffCard(_ leftOff: LeftOff) -> some View {
         VStack(alignment: .leading, spacing: 6) {
-            Text("\(Text(leftOff.title).fontWeight(.semibold)) \(leftOff.text)")
+            Text("\(Text(leftOff.title).fontWeight(.semibold)) \(leftOff.text)", bundle: .module)
                 .font(.psycheRow)
                 .foregroundStyle(PsycheColor.text)
             EvidenceLine("Because", leftOff.evidence)

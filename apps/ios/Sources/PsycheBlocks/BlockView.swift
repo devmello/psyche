@@ -74,12 +74,12 @@ struct UserBubble: View {
                 .frame(maxWidth: 290, alignment: .trailing)
             switch delivery {
             case .queued:
-                Text("Queued · sends when your Mac is back")
+                Text("Queued · sends when your Mac is back", bundle: .module)
                     .font(.footnote).foregroundStyle(PsycheColor.muted)
             case .failed(let reason):
                 HStack(spacing: 6) {
                     StatusDot(.failed, "Didn't send", textColor: PsycheColor.muted)
-                    Button("Retry", action: retry)
+                    Button(String(localized: "Retry", bundle: .module), action: retry)
                         .font(.footnote.weight(.semibold))
                         .foregroundStyle(PsycheColor.inkText)
                 }
@@ -115,7 +115,7 @@ struct QuestionCard: View {
                     .disabled(!canAnswer || chosen != nil)
                 }
                 if !canAnswer, chosen == nil {
-                    Text("Reconnect to answer").font(.footnote).foregroundStyle(PsycheColor.muted)
+                    Text("Reconnect to answer", bundle: .module).font(.footnote).foregroundStyle(PsycheColor.muted)
                 }
             }
         }
@@ -201,7 +201,7 @@ struct ToolCallRow: View {
                     }
                     if let result {
                         HStack(alignment: .firstTextBaseline, spacing: 10) {
-                            Text("result").foregroundStyle(PsycheColor.muted)
+                            Text("result", bundle: .module).foregroundStyle(PsycheColor.muted)
                             Text(result).foregroundStyle(PsycheColor.text).textSelection(.enabled)
                         }
                     }
@@ -240,7 +240,7 @@ struct ProgressBlock: View {
                 HStack(alignment: .firstTextBaseline) {
                     Text(title).font(.callout.weight(.semibold)).foregroundStyle(PsycheColor.text)
                     Spacer(minLength: 8)
-                    Text("\(doneCount) of \(steps.count)")
+                    Text("\(doneCount) of \(steps.count)", bundle: .module)
                         .font(.psycheMono(.caption)).foregroundStyle(PsycheColor.muted)
                 }
                 VStack(alignment: .leading, spacing: 8) {
@@ -253,7 +253,7 @@ struct ProgressBlock: View {
                                 .strikethrough(false)
                         }
                         .accessibilityElement(children: .combine)
-                        .accessibilityLabel("\(step.title), \(step.state.rawValue)")
+                        .accessibilityLabel(String(localized: "\(step.title), \(step.state.rawValue)", bundle: .module))
                     }
                 }
                 if steps.count > 5 {
@@ -369,7 +369,7 @@ struct RelatedThreadsBlock: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: 4) {
-            Text("Related chats").font(.psycheSection).foregroundStyle(PsycheColor.muted)
+            Text("Related chats", bundle: .module).font(.psycheSection).foregroundStyle(PsycheColor.muted)
             PaperCard {
                 VStack(spacing: 0) {
                     ForEach(Array(threads.enumerated()), id: \.element.id) { index, thread in
@@ -436,7 +436,7 @@ struct UnknownBlockRow: View {
         HStack(spacing: 10) {
             Image(systemName: "desktopcomputer").font(.caption).foregroundStyle(PsycheColor.muted).frame(width: 16)
             VStack(alignment: .leading, spacing: 2) {
-                Text("Open on your Mac").font(.psycheRow.weight(.medium)).foregroundStyle(PsycheColor.text)
+                Text("Open on your Mac", bundle: .module).font(.psycheRow.weight(.medium)).foregroundStyle(PsycheColor.text)
                 Text(type).font(.psycheMono(.caption)).foregroundStyle(PsycheColor.muted)
             }
             Spacer(minLength: 0)
@@ -445,7 +445,7 @@ struct UnknownBlockRow: View {
         .frame(maxWidth: .infinity, alignment: .leading)
         .background(PsycheColor.fill, in: RoundedRectangle(cornerRadius: 10, style: .continuous))
         .accessibilityElement(children: .combine)
-        .accessibilityHint("This block can't be shown on the phone yet")
+        .accessibilityHint(String(localized: "This block can't be shown on the phone yet", bundle: .module))
     }
 }
 
@@ -474,7 +474,7 @@ struct ApprovalBlock: View {
                     Text(summary).font(.subheadline).foregroundStyle(PsycheColor.muted)
                 }
                 if resolution == nil {
-                    Button("Review", action: open)
+                    Button(String(localized: "Review", bundle: .module), action: open)
                         .buttonStyle(.psycheOutline)
                         .padding(.top, 2)
                         .transition(motion.transition(.fade))

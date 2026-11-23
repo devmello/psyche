@@ -231,8 +231,8 @@ private struct UploadRow: View {
                 if let failure = job.failure {
                     Text(failure).font(.footnote).foregroundStyle(PsycheColor.muted)
                     HStack(spacing: 16) {
-                        Button("Try again", action: retry)
-                        Button("Dismiss", role: .cancel, action: dismiss)
+                        Button(String(localized: "Try again", bundle: .module), action: retry)
+                        Button(String(localized: "Dismiss", bundle: .module), role: .cancel, action: dismiss)
                     }
                     .font(.footnote.weight(.semibold)).foregroundStyle(PsycheColor.inkText)
                 } else {
