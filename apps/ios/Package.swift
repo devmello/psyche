@@ -58,7 +58,7 @@ let package = Package(
         .testTarget(
             name: "PsycheClientTests",
             dependencies: [
-                "PsycheClient", "PsycheStore", "PsycheShared",
+                "PsycheClient", "PsycheFeatures", "PsycheStore", "PsycheShared",
                 .product(name: "PsycheProtocol", package: "protocol-swift"),
                 .product(name: "PsycheWire", package: "protocol-swift"),
             ]

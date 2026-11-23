@@ -8,10 +8,17 @@ public protocol ModelsBackend: Sendable {
     /// The models the Gateway reports across its providers, and which one is the default (primary) role.
     func modelChoices() async throws -> ModelChoices
     /// Binds the primary role to `ref` (`models.setRole`). Throws `BackendError.refused` with the Gateway's
-    /// message when it refuses, for example without admin scope or for a chat-only model.
-    func setDefaultModel(_ ref: String) async throws
+    /// message when it refuses, for example without admin scope. A chat-only model throws
+    /// `BackendError.policyDenied` unless `override` is true ("Use anyway").
+    func setDefaultModel(_ ref: String, override: Bool) async throws
     /// Tokens, cost and turns from `usage.summary`: today, this month and the last 7 days by model.
     func usage() async throws -> UsageReport
+}
+
+extension ModelsBackend {
+    public func setDefaultModel(_ ref: String) async throws {
+        try await setDefaultModel(ref, override: false)
+    }
 }
 
 public struct ModelChoice: Sendable, Equatable, Identifiable {
