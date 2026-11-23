@@ -324,9 +324,9 @@ function fullDesktopPlatform(b: PsycheBridge): ShellPlatform {
       revealHome: async () => void (await b.app.revealHome()),
       revealLibraryItem: async (itemId) => void (await b.library.reveal(itemId)),
       update: {
-        status: () => b.app.update.status() as Promise<UpdateStatusView>,
-        subscribe: (cb) => b.app.update.on((s) => cb(s as UpdateStatusView)),
-        restart: async () => void (await b.app.update.restart()),
+        status: () => b.update.status() as Promise<UpdateStatusView>,
+        subscribe: (cb) => b.update.on((s) => cb(s as UpdateStatusView)),
+        restart: async () => void (await b.update.restart()),
       },
       ...(b.chrome.uninstall === true
         ? {
